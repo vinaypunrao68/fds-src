@@ -24,11 +24,6 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
     journal_tbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
     vol_catalog_cache = new VolumeCatalogCache(voldesc->volUUID, sh_ctrl, parent_log);
 
-    if (voldesc->volType == FDSP_VOL_BLKDEV_TYPE &&
-        parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) {
-        blkdev_minor = hvisor_create_blkdev(voldesc->volUUID, voldesc->capacity);
-    }
-
     volQueue = new FDS_VolumeQueue(4096, vdesc.iops_max, vdesc.iops_min, vdesc.relativePrio);
     volQueue->activate();
 
@@ -55,9 +50,6 @@ void StorHvVolume::destroy() {
         return;
     }
 
-    if ( voldesc->volType == FDSP_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) {
-        hvisor_delete_blkdev(blkdev_minor);
-    }
     /* destroy data */
     delete journal_tbl;
     journal_tbl = NULL;

@@ -18,6 +18,7 @@
 #include <orch-mgr/om-service.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
+#include <platform/node-inv-shmem.h>
 
 namespace fds {
 
@@ -280,10 +281,12 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
     }
 
     if (desc != NULL) {
+        Platform *plat = Platform::platf_singleton();
+        int ctrl_port = plat->plf_get_my_ctrl_port(node_base_port());
         LOGNORMAL << log << desc->volUUID << " " << desc->name
                   << " to node " << get_node_name() << std::hex
                   << ", uuid " << get_uuid().uuid_get_val() << std::dec
-                  << ", port " << get_ctrl_port();
+                  << ", port " << ctrl_port;
     } else {
         LOGNORMAL << log << ", no vol to node " << get_node_name();
     }
@@ -822,10 +825,11 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         // but for now assume always success and set active state here
         set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
         kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-        NodeInvData node_data;
-        if (!configDB->getNode(get_uuid(), node_data)) {
+        node_data_t node_data;
+        if (!configDB->getNode(get_uuid(), &node_data)) {
             // for now store only if the node was not known to DB
-            configDB->addNode(*node_inv);
+            node_info_frm_shm(&node_data);
+            configDB->addNode(&node_data);
             LOGNOTIFY << "Adding node info for " << get_node_name() << ":"
                       << std::hex << get_uuid().uuid_get_val() << std::dec
                       << " in configDB";
@@ -883,10 +887,12 @@ OM_AgentContainer::agent_register(const NodeUuid       &uuid,
     }
 
     try {
+        Platform *plat = Platform::platf_singleton();
+        int ctrl_port = plat->plf_get_my_ctrl_port(agent->node_base_port());
         NodeAgentCpSessionPtr session(
                 ac_cpSessTbl->startSession<netControlPathClientSession>(
                     agent->get_ip_str(),
-                    agent->get_ctrl_port(),
+                    ctrl_port,
                     ac_id,      // TODO(Andrew): should be just a node
                     1,                 // just 1 channel for now...
                     ctrlRspHndlr));
@@ -897,7 +903,7 @@ OM_AgentContainer::agent_register(const NodeUuid       &uuid,
 
         LOGNOTIFY << "Agent uuid " << std::hex << agent->get_uuid().uuid_get_val()
             << std::dec << " connects ip " << agent->get_ip_str()
-            << ", port " << agent->get_ctrl_port();
+            << ", port " << ctrl_port;
     } catch(const att::TTransportException& e) {
         rs_free_resource(agent);
         LOGERROR << "error during network call : " << e.what();
@@ -937,13 +943,13 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
 {
     // check if this is a known Node
     bool        known;
-    NodeInvData node;
+    node_data_t node;
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
 
-    if (configDB->getNode(uuid, node)) {
+    if (configDB->getNode(uuid, &node)) {
         // this is a known node
         known = true;
-        msg->node_name = node.nd_node_name;
+        msg->node_name = node.nd_assign_name;
     } else {
         // we are ignoring name that platform sends us
         known = false;

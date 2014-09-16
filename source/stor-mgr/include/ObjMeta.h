@@ -44,6 +44,7 @@ struct SyncMetaData : public serialize::Serializable {
     virtual uint32_t getEstimatedSize() const override;
 
     bool operator== (const SyncMetaData &rhs) const;
+    SyncMetaData& operator=(const SyncMetaData &rhs);
 
     /* Born timestamp */
     uint64_t born_ts;
@@ -59,109 +60,109 @@ struct SyncMetaData : public serialize::Serializable {
  * layer.
  */
 class ObjMetaData : public serialize::Serializable {
-    public:
-     ObjMetaData();
-     virtual ~ObjMetaData();
+  public:
+    typedef boost::shared_ptr<ObjMetaData> ptr;
+    typedef boost::shared_ptr<const ObjMetaData> const_ptr;
 
-     typedef boost::shared_ptr<ObjMetaData> ptr;
-     typedef boost::shared_ptr<const ObjMetaData> const_ptr;
+    ObjMetaData();
+    explicit ObjMetaData(const ObjectBuf& buf);
+    explicit ObjMetaData(const ObjMetaData::const_ptr &rhs);
+    virtual ~ObjMetaData();
 
-     void initialize(const ObjectID& objid, fds_uint32_t obj_size);
+    void initialize(const ObjectID& objid, fds_uint32_t obj_size);
 
-     bool isInitialized() const;
+    bool isInitialized() const;
 
-     explicit ObjMetaData(const ObjectBuf& buf);
+    void unmarshall(const ObjectBuf& buf);
 
-     void unmarshall(const ObjectBuf& buf);
+    virtual uint32_t write(serialize::Serializer* serializer) const override;
 
-     virtual uint32_t write(serialize::Serializer* serializer) const override;
+    virtual uint32_t read(serialize::Deserializer* deserializer) override;
 
-     virtual uint32_t read(serialize::Deserializer* deserializer) override;
+    virtual uint32_t getEstimatedSize() const override;
 
-     virtual uint32_t getEstimatedSize() const override;
+    uint32_t serializeTo(ObjectBuf& buf) const;
 
-     uint32_t serializeTo(ObjectBuf& buf) const;
+    bool deserializeFrom(const ObjectBuf& buf);
 
-     bool deserializeFrom(const ObjectBuf& buf);
+    bool deserializeFrom(const leveldb::Slice& s);
 
-     bool deserializeFrom(const leveldb::Slice& s);
+    uint64_t getModificationTs() const;
 
-     uint64_t getModificationTs() const;
+    void apply(const fpi::FDSP_MigrateObjectMetadata& data);
 
-     void apply(const fpi::FDSP_MigrateObjectMetadata& data);
+    void extractSyncData(fpi::FDSP_MigrateObjectMetadata& md) const;
 
-     void extractSyncData(fpi::FDSP_MigrateObjectMetadata& md) const;
+    void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
 
-     void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
+    void setSyncMask();
 
-     void setSyncMask();
+    bool syncDataExists() const;
 
-     bool syncDataExists() const;
+    void applySyncData(const fpi::FDSP_MigrateObjectMetadata& data);
 
-     void applySyncData(const fpi::FDSP_MigrateObjectMetadata& data);
+    void mergeNewAndUnsyncedData();
 
-     void mergeNewAndUnsyncedData();
+    bool dataPhysicallyExists() const;
 
-     bool dataPhysicallyExists();
+    fds_uint32_t   getObjSize() const;
+    const obj_phy_loc_t* getObjPhyLoc(diskio::DataTier tier) const;
+    meta_obj_map_t*   getObjMap();
 
-     fds_uint32_t   getObjSize() const;
-     obj_phy_loc_t*   getObjPhyLoc(diskio::DataTier tier);
-     meta_obj_map_t*   getObjMap();
+    void setRefCnt(fds_uint16_t refcnt);
 
-     void setRefCnt(fds_uint16_t refcnt);
+    void incRefCnt();
 
-     void incRefCnt();
+    void decRefCnt();
 
-     void decRefCnt();
+    fds_uint16_t getRefCnt() const;
 
-     fds_uint16_t getRefCnt() const;
+    void copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid_t destVolId);
 
-     void copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid_t destVolId);
+    void updateAssocEntry(ObjectID objId, fds_volid_t vol_id);
 
-     void updateAssocEntry(ObjectID objId, fds_volid_t vol_id);
+    void deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts);
 
-     void deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts);
+    fds_bool_t isVolumeAssociated(fds_volid_t vol_id);
 
-     fds_bool_t isVolumeAssociated(fds_volid_t vol_id);
+    void getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt) const;
 
-     void getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt);
+    // Tiering/Physical Location update routines
+    fds_bool_t onFlashTier() const;
+    fds_bool_t onTier(diskio::DataTier tier) const;
 
-     // Tiering/Physical Location update routines
-     fds_bool_t onFlashTier() const;
-     fds_bool_t onTier(diskio::DataTier tier) const;
+    void updatePhysLocation(obj_phy_loc_t *in_phy_loc);
+    void removePhyLocation(diskio::DataTier tier);
 
-     void updatePhysLocation(obj_phy_loc_t *in_phy_loc);
-     void removePhyLocation(diskio::DataTier tier);
+    bool operator==(const ObjMetaData &rhs) const;
 
-     bool operator==(const ObjMetaData &rhs) const;
+    std::string logString() const;
 
-     std::string logString() const;
+    // TODO(Anna) moved this up to be a public member so I can
+    // remove SmObjDb dependency; when we replace SmObjDB with
+    // ObjectMetaDb class, we will move it back to be private
+    /* current object meta data */
+    meta_obj_map_t obj_map;
 
-     // TODO(Anna) moved this up to be a public member so I can
-     // remove SmObjDb dependency; when we replace SmObjDB with
-     // ObjectMetaDb class, we will move it back to be private
-     /* current object meta data */
-     meta_obj_map_t obj_map;
+  private:
+    void mergeAssociationArrays_();
 
-    private:
-     void mergeAssociationArrays_();
+    friend std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMap);
 
-     friend std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMap);
+    /* Data mask to indicate which metadata members are valid.
+     * When sync is in progress mask will be set to indicate sync_data
+     * is valid.
+     */
+    uint8_t mask;
 
-     /* Data mask to indicate which metadata members are valid.
-      * When sync is in progress mask will be set to indicate sync_data
-      * is valid.
-      */
-     uint8_t mask;
+    /* Physical location entries.  Pointer to field inside obj_map */
+    obj_phy_loc_t *phy_loc;
 
-     /* Physical location entries.  Pointer to field inside obj_map */
-     obj_phy_loc_t *phy_loc;
+    /* Volume association entries */
+    std::vector<obj_assoc_entry_t> assoc_entry;
 
-     /* Volume association entries */
-     std::vector<obj_assoc_entry_t> assoc_entry;
-
-     /* Sync related metadata.  Valid only when mask is set appropriately */
-     SyncMetaData sync_data;
+    /* Sync related metadata.  Valid only when mask is set appropriately */
+    SyncMetaData sync_data;
 };
 
 inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {

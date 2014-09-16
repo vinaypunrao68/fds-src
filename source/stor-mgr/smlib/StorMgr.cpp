@@ -418,13 +418,6 @@ void ObjectStorMgr::mod_startup()
     fds_verify(dirtyFlashObjs->is_lock_free() == true);
     writeBackThreads = new fds_threadpool(numWBThreads);
 
-    // Init the object store
-    // TODO(Andrew): The object store should be executed as part
-    // of the module initialization since it needs to discover
-    // any prior data and possibly perform recovery before allowing
-    // another module layer to come up above it.
-    objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module"));
-
     /*
      * stats class init
      */
@@ -467,6 +460,15 @@ void ObjectStorMgr::mod_startup()
      * the OM vol event receivers depend on this table.
      */
     volTbl = new StorMgrVolumeTable(this, GetLog());
+
+    // Init the object store
+    // TODO(Andrew): The object store should be executed as part
+    // of the module initialization since it needs to discover
+    // any prior data and possibly perform recovery before allowing
+    // another module layer to come up above it.
+    objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
+                                                          volTbl));
+
 
     /* Create tier related classes -- has to be after volTbl is created */
     FdsRootDir::fds_mkdir(modProvider_->proc_fdsroot()->dir_fds_var_stats().c_str());
@@ -1213,7 +1215,7 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
     err = smObjDb->put(opCtx, objId, objMap);
     if (err == ERR_OK) {
         if (update_dup) {
-            volTbl->updateDupObj((fds_volid_t)vol->vol_uuid, obj_size,
+            volTbl->updateDupObj((fds_volid_t)vol->vol_uuid, objId, obj_size,
                                  true, vols_refcnt);
         }
         LOGDEBUG << "Updating object location for object "
@@ -1289,7 +1291,7 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
     objMap.deleteAssocEntry(objId, vol_id, fds::util::getTimeStampMillis());
     err = smObjDb->put(opCtx, objId, objMap);
     if (err == ERR_OK) {
-        volTbl->updateDupObj(vol_id, objMap.getObjSize(),
+        volTbl->updateDupObj(vol_id, objId, objMap.getObjSize(),
                              false, vols_refcnt);
         LOGDEBUG << "Setting the delete marker for object "
                 << objId << " to " << objMap;
@@ -1783,7 +1785,7 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
             err = smObjDb->put(opCtx, objId, objMap);
             if (err == ERR_OK) {
                 dedupeByteCnt += objId.GetLen();
-                volTbl->updateDupObj(volId, putReq->data_obj.size(),
+                volTbl->updateDupObj(volId, objId, putReq->data_obj.size(),
                                      true, vols_refcnt);
                 LOGDEBUG << "Dedupe object Assoc Entry for object "
                          << objId << " to " << objMap;
@@ -1870,7 +1872,7 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
           objMap.updateAssocEntry(objId, volId);
           err = smObjDb->put(opCtx, objId, objMap);
           if (err.ok()) {
-              volTbl->updateDupObj(volId, putReq->data_obj.size(),
+              volTbl->updateDupObj(volId, objId, putReq->data_obj.size(),
                                    true, vols_refcnt);
           }
           smObjDb->unlock(objId);
@@ -1992,7 +1994,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             objMap.updateAssocEntry(objId, volId);
             err = smObjDb->put(opCtx, objId, objMap);
             if (err == ERR_OK) {
-                volTbl->updateDupObj(volId, putObjReq->data_obj.size(),
+                volTbl->updateDupObj(volId, objId, putObjReq->data_obj.size(),
                                      true, vols_refcnt);
                 LOGDEBUG << "Dedupe object Assoc Entry for object "
                          << objId << " to " << objMap;
@@ -2076,7 +2078,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
           objMap.updateAssocEntry(objId, volId);
           err = smObjDb->put(opCtx, objId, objMap);
           if (err.ok()) {
-              volTbl->updateDupObj(volId, putObjReq->data_obj.size(),
+              volTbl->updateDupObj(volId, objId, putObjReq->data_obj.size(),
                                    true, vols_refcnt);
           }
           smObjDb->unlock(objId);

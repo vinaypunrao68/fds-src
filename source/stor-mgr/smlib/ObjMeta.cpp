@@ -81,6 +81,14 @@ bool SyncMetaData::operator==(const SyncMetaData &rhs) const
     return false;
 }
 
+SyncMetaData&
+SyncMetaData::operator=(const SyncMetaData &rhs) {
+    born_ts = rhs.born_ts;
+    mod_ts  = rhs.mod_ts;
+    assoc_entries = rhs.assoc_entries;
+    return *this;
+}
+
 ObjMetaData::ObjMetaData()
 {
     mask = 0;
@@ -93,8 +101,19 @@ ObjMetaData::ObjMetaData()
     phy_loc[3].obj_tier = -1;
 }
 
-ObjMetaData::ObjMetaData(const ObjectBuf& buf) {
-    deserializeFrom(buf);
+ObjMetaData::ObjMetaData(const ObjectBuf& buf)
+        : ObjMetaData() {
+    fds_verify(deserializeFrom(buf) == true);
+}
+
+ObjMetaData::ObjMetaData(const ObjMetaData::const_ptr &rhs)
+        : ObjMetaData() {
+    obj_map     = rhs->obj_map;
+    mask        = mask;
+    phy_loc     = new obj_phy_loc_t();
+    *phy_loc    = *(rhs->phy_loc);
+    assoc_entry = rhs->assoc_entry;
+    sync_data   = rhs->sync_data;
 }
 
 ObjMetaData::~ObjMetaData()
@@ -268,7 +287,8 @@ fds_uint32_t   ObjMetaData::getObjSize() const
  * @param tier
  * @return
  */
-obj_phy_loc_t*   ObjMetaData::getObjPhyLoc(diskio::DataTier tier) {
+const obj_phy_loc_t*
+ObjMetaData::getObjPhyLoc(diskio::DataTier tier) const {
     return &phy_loc[tier];
 }
 
@@ -389,7 +409,9 @@ void ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint6
     // If Volume did not put this objId then it delete is a noop
 }
 
-void ObjMetaData::getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt) {
+void
+ObjMetaData::getVolsRefcnt(std::map<fds_volid_t,
+                           fds_uint32_t>& vol_refcnt) const {
     vol_refcnt.clear();
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
@@ -713,7 +735,7 @@ void ObjMetaData::mergeAssociationArrays_()
     }
 }
 
-bool ObjMetaData::dataPhysicallyExists()
+bool ObjMetaData::dataPhysicallyExists() const
 {
     if (phy_loc[diskio::diskTier].obj_tier == diskio::diskTier ||
             phy_loc[diskio::flashTier].obj_tier == diskio::flashTier) {

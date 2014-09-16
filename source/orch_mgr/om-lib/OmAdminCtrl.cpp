@@ -1,9 +1,9 @@
-
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <string>
 #include <OmAdminCtrl.h>
+#include <platform/node-inv-shmem.h>
 
 #define REPLICATION_FACTOR     (4)
 #define LOAD_FACTOR            (0.9)
@@ -20,27 +20,27 @@ FdsAdminCtrl::FdsAdminCtrl(const std::string& om_prefix, fds_log* om_log)
 FdsAdminCtrl::~FdsAdminCtrl() {
 }
 
-void FdsAdminCtrl::addDiskCapacity(const node_capability_t &n_info)
+void FdsAdminCtrl::addDiskCapacity(const node_stor_cap_t *n_info)
 {
     ++num_nodes;
 
-    total_disk_iops_max += n_info.disk_iops_max;
-    total_disk_iops_min += n_info.disk_iops_min;
-    total_disk_capacity += n_info.disk_capacity;
-    disk_latency_max     = n_info.disk_latency_max;
-    disk_latency_min     = n_info.disk_latency_min;
-    total_ssd_iops_max  += n_info.ssd_iops_max;
-    total_ssd_iops_min  += n_info.ssd_iops_min;
-    total_ssd_capacity  += n_info.ssd_capacity;
-    ssd_latency_max      = n_info.ssd_latency_max;
-    ssd_latency_min      = n_info.ssd_latency_min;
+    total_disk_iops_max += n_info->disk_iops_max;
+    total_disk_iops_min += n_info->disk_iops_min;
+    total_disk_capacity += n_info->disk_capacity;
+    disk_latency_max     = n_info->disk_latency_max;
+    disk_latency_min     = n_info->disk_latency_min;
+    total_ssd_iops_max  += n_info->ssd_iops_max;
+    total_ssd_iops_min  += n_info->ssd_iops_min;
+    total_ssd_capacity  += n_info->ssd_capacity;
+    ssd_latency_max      = n_info->ssd_latency_max;
+    ssd_latency_min      = n_info->ssd_latency_min;
 
-    avail_disk_iops_max += n_info.disk_iops_max;
-    avail_disk_iops_min += n_info.disk_iops_min;
-    avail_disk_capacity += n_info.disk_capacity;
-    avail_ssd_iops_max  += n_info.ssd_iops_max;
-    avail_ssd_iops_min  += n_info.ssd_iops_min;
-    avail_ssd_capacity  += n_info.ssd_capacity;
+    avail_disk_iops_max += n_info->disk_iops_max;
+    avail_disk_iops_min += n_info->disk_iops_min;
+    avail_disk_capacity += n_info->disk_capacity;
+    avail_ssd_iops_max  += n_info->ssd_iops_max;
+    avail_ssd_iops_min  += n_info->ssd_iops_min;
+    avail_ssd_capacity  += n_info->ssd_capacity;
 
     LOGNOTIFY << "Total Disk Resources "
               << "\n  Total Disk iops Max : " << total_disk_iops_max
@@ -58,31 +58,31 @@ void FdsAdminCtrl::addDiskCapacity(const node_capability_t &n_info)
               << "\n  Avail Disk  iops min : " << avail_disk_iops_min;
 }
 
-void FdsAdminCtrl::removeDiskCapacity(const node_capability_t &n_info)
+void FdsAdminCtrl::removeDiskCapacity(const node_stor_cap_t *n_info)
 {
     fds_verify(num_nodes > 0);
     --num_nodes;
 
-    fds_verify(total_disk_iops_max >= n_info.disk_iops_max);
-    total_disk_iops_max -= n_info.disk_iops_max;
-    total_disk_iops_min -= n_info.disk_iops_min;
+    fds_verify(total_disk_iops_max >= n_info->disk_iops_max);
+    total_disk_iops_max -= n_info->disk_iops_max;
+    total_disk_iops_min -= n_info->disk_iops_min;
 
-    fds_verify(total_disk_capacity >= n_info.disk_capacity);
-    total_disk_capacity -= n_info.disk_capacity;
-    disk_latency_max     = n_info.disk_latency_max;
-    disk_latency_min     = n_info.disk_latency_min;
-    total_ssd_iops_max  -= n_info.ssd_iops_max;
-    total_ssd_iops_min  -= n_info.ssd_iops_min;
-    total_ssd_capacity  -= n_info.ssd_capacity;
-    ssd_latency_max      = n_info.ssd_latency_max;
-    ssd_latency_min      = n_info.ssd_latency_min;
+    fds_verify(total_disk_capacity >= n_info->disk_capacity);
+    total_disk_capacity -= n_info->disk_capacity;
+    disk_latency_max     = n_info->disk_latency_max;
+    disk_latency_min     = n_info->disk_latency_min;
+    total_ssd_iops_max  -= n_info->ssd_iops_max;
+    total_ssd_iops_min  -= n_info->ssd_iops_min;
+    total_ssd_capacity  -= n_info->ssd_capacity;
+    ssd_latency_max      = n_info->ssd_latency_max;
+    ssd_latency_min      = n_info->ssd_latency_min;
 
-    avail_disk_iops_max -= n_info.disk_iops_max;
-    avail_disk_iops_min -= n_info.disk_iops_min;
-    avail_disk_capacity -= n_info.disk_capacity;
-    avail_ssd_iops_max  -= n_info.ssd_iops_max;
-    avail_ssd_iops_min  -= n_info.ssd_iops_min;
-    avail_ssd_capacity  -= n_info.ssd_capacity;
+    avail_disk_iops_max -= n_info->disk_iops_max;
+    avail_disk_iops_min -= n_info->disk_iops_min;
+    avail_disk_capacity -= n_info->disk_capacity;
+    avail_ssd_iops_max  -= n_info->ssd_iops_max;
+    avail_ssd_iops_min  -= n_info->ssd_iops_min;
+    avail_ssd_capacity  -= n_info->ssd_capacity;
 
     LOGNOTIFY << "Total Disk Resources "
               << "\n  Total Disk iops Max : " << total_disk_iops_max

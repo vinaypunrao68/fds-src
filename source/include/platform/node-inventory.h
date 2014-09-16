@@ -6,14 +6,13 @@
 
 #include <vector>
 #include <string>
-#include <ostream>
-#include <boost/shared_ptr.hpp>
 #include <fds_ptr.h>
 #include <fds_error.h>
 #include <fds_resource.h>
 #include <fds_module.h>
-#include <serialize.h>
 #include <platform/platform-rpc.h>
+#include <fdsp/FDSP_types.h>
+#include <fdsp/fds_service_types.h>
 
 // Forward declarations
 namespace FDS_ProtocolInterface {
@@ -25,6 +24,7 @@ namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 struct node_data;
+struct node_stor_cap;
 class ShmObjRO;
 class SmSvcEp;
 class DmSvcEp;
@@ -34,6 +34,7 @@ class PmSvcEp;
 class EpSvc;
 class EpSvcImpl;
 class EpSvcHandle;
+class EPSvcRequest;
 class AgentContainer;
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
@@ -56,65 +57,7 @@ extern const NodeUuid        gl_OmPmUuid;
 const fds_uint32_t NODE_DO_PROXY_ALL_SVCS = (NODE_SVC_SM | NODE_SVC_DM | NODE_SVC_AM);
 
 /**
- * POD types for common node inventory.
- */
-typedef struct _node_capability_t
-{
-    fds_uint64_t   disk_capacity;
-    fds_uint32_t   disk_iops_max;
-    fds_uint32_t   disk_iops_min;
-    fds_uint32_t   disk_latency_max;
-    fds_uint32_t   disk_latency_min;
-    fds_uint32_t   ssd_iops_max;
-    fds_uint32_t   ssd_iops_min;
-    fds_uint64_t   ssd_capacity;
-    fds_uint32_t   ssd_latency_max;
-    fds_uint32_t   ssd_latency_min;
-} node_capability_t;
-
-class NodeInvData
-{
-  public:
-    // TODO(Andrew): Add back a better checksum library
-    // Sha1Digest               nd_checksum;
-    NodeUuid                 nd_uuid;
-    NodeUuid                 nd_service_uuid;
-    fds_uint64_t             nd_gbyte_cap;       /**< capacity in GB unit */
-
-    /* TODO: (vy) just porting from NodeInfo now. */
-    fds_uint32_t             nd_ip_addr;
-    std::string              nd_ip_str;
-    fds_uint32_t             nd_data_port;
-    fds_uint32_t             nd_ctrl_port;
-    fds_uint32_t             nd_migration_port;
-    fds_uint32_t             nd_metasync_port;
-    fds_uint32_t             nd_disk_type;
-    node_capability_t        nd_capability;
-
-    std::string              nd_node_name;
-    std::string              nd_node_root;
-    FdspNodeType             nd_node_type;
-    FdspNodeState            nd_node_state;
-    fds_uint64_t             nd_dlt_version;
-    friend std::ostream& operator<< (std::ostream &os, const NodeInvData& node);
-};
-
-struct NodeServices : serialize::Serializable {
-    NodeUuid sm,dm,am;
-
-    inline void reset() {
-        sm.uuid_set_val(0);
-        dm.uuid_set_val(0);
-        am.uuid_set_val(0);
-    }
-
-    uint32_t virtual write(serialize::Serializer*  s) const;
-    uint32_t virtual read(serialize::Deserializer* s);
-    friend std::ostream& operator<< (std::ostream &os, const NodeServices& node);
-};
-
-/**
- * Replacement for NodeInfo object.
+ * Basic info about a peer node.
  */
 class NodeInventory : public Resource
 {
@@ -122,36 +65,22 @@ class NodeInventory : public Resource
     typedef boost::intrusive_ptr<NodeInventory> pointer;
     typedef boost::intrusive_ptr<const NodeInventory> const_ptr;
 
-    inline NodeUuid get_uuid() const {
-        return rs_get_uuid();
-    }
-    inline std::string get_node_name() const {
-        return node_inv->nd_node_name;
-    }
+    std::string get_node_name() const { return nd_node_name; }
+    std::string get_ip_str() const;
+    std::string get_node_root() const;
+    const struct node_stor_cap *node_capability() const;
+    void node_get_shm_rec(struct node_data *ndata) const;
 
-    inline std::string get_ip_str() const {
-        return node_inv->nd_ip_str;
-    }
+    /* Temp. solution before we can replace netsession */
+    fds_uint32_t node_base_port() const;
 
-    inline std::string get_node_root() const {
-        return node_inv->nd_node_root;
-    }
-    inline fds_uint32_t get_ctrl_port() const {
-        return node_inv->nd_ctrl_port;
-    }
-    inline const NodeInvData *get_inventory_data() const {
-        return node_inv;
-    }
-    inline FdspNodeState node_state() const {
-        return node_inv->nd_node_state;
-    }
-    inline const node_capability_t &node_capability() const {
-        return node_inv->nd_capability;
-    }
-    inline const fds_uint64_t node_dlt_version() const {
-      return node_inv->nd_dlt_version;
-    }
-    inline FdspNodeType node_get_svc_type() { return node_svc_type; }
+    void set_node_state(FdspNodeState state);
+    void set_node_dlt_version(fds_uint64_t dlt_version);
+
+    inline NodeUuid get_uuid() const { return rs_get_uuid(); }
+    inline FdspNodeState node_state() const { return nd_my_node_state; }
+    inline fds_uint64_t node_dlt_version() const { return nd_my_dlt_version; }
+    inline FdspNodeType node_get_svc_type() const { return node_svc_type; }
 
     /**
      * Fill in the inventory for this agent based on data provided by the message.
@@ -161,8 +90,6 @@ class NodeInventory : public Resource
     void node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw, FdspNodeType id);
     void node_fill_inventory(const FdspNodeRegPtr msg);
     void node_update_inventory(const FdspNodeRegPtr msg);
-    void set_node_state(FdspNodeState state);
-    void set_node_dlt_version(fds_uint64_t dlt_version);
 
     /**
      * Format the node info pkt with data from this agent obj.
@@ -185,15 +112,22 @@ class NodeInventory : public Resource
     static void node_stor_cap_frm_shm(fpi::StorCapMsg *msg, const struct node_stor_cap *);
 
   protected:
-    NodeInvData             *node_inv;
     FdspNodeType             node_svc_type;
     int                      node_ro_idx;
     int                      node_rw_idx;
+    fds_uint64_t             nd_gbyte_cap;
+    fds_uint64_t             nd_my_dlt_version;
+    std::string              node_root;
+
+    /* Will be removed */
+    FdspNodeState            nd_my_node_state;
+    std::string              nd_node_name;
 
     virtual ~NodeInventory() {}
     explicit NodeInventory(const NodeUuid &uuid)
-        : Resource(uuid), node_inv(NULL),
-          node_svc_type(fpi::FDSP_PLATFORM), node_ro_idx(-1), node_rw_idx(-1) {}
+        : Resource(uuid), node_svc_type(fpi::FDSP_PLATFORM),
+          node_ro_idx(-1), node_rw_idx(-1), nd_gbyte_cap(0),
+          nd_my_dlt_version(0), nd_my_node_state(fpi::FDS_Node_Discovered) {}
 
     const ShmObjRO *node_shm_ctrl() const;
 };
@@ -234,6 +168,9 @@ class NodeAgent : public NodeInventory
 
     virtual boost::shared_ptr<fpi::PlatNetSvcClient>
     node_svc_rpc(boost::intrusive_ptr<EpSvcHandle> *eph);
+    bo::shared_ptr<EPSvcRequest> node_om_request();
+
+    friend std::ostream &operator << (std::ostream &os, const NodeAgent::pointer n);
 
   protected:
     friend class AgentContainer;

@@ -9,14 +9,17 @@
 #include <vector>
 
 #include <kvstore/kvstore.h>
-#include <platform/node-inventory.h>
+#include <platform/plat-serialize.h>
 #include <fds_volume.h>
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <fdsp/fds_stream_types.h>
 #include <apis/apis_types.h>
 #include <exception>
-namespace fds { namespace kvstore {
+namespace fds {
+struct node_data;
+
+namespace kvstore {
 using PolicyInfo = fpi::FDSP_PolicyInfoType;
 
 struct ConfigException : std::exception {
@@ -66,13 +69,13 @@ struct ConfigDB : KVStore {
     bool getDmt(DMT& dmt, fds_uint64_t version, int localDomain = 0);
 
     // nodes
-    bool addNode(const NodeInvData& node);
-    bool updateNode(const NodeInvData& node);
+    bool addNode(const struct node_data *node);
+    bool updateNode(const struct node_data *node);
     bool removeNode(const NodeUuid& uuid);
-    bool getNode(const NodeUuid& uuid, NodeInvData& node);
+    bool getNode(const NodeUuid& uuid, struct node_data *node);
     bool nodeExists(const NodeUuid& uuid);
     bool getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int localDomain = 0);
-    bool getAllNodes(std::vector<NodeInvData>& nodes, int localDomain = 0);
+    bool getAllNodes(std::vector<struct node_data>& nodes, int localDomain = 0);
     std::string getNodeName(const NodeUuid& uuid);
 
     bool getNodeServices(const NodeUuid& uuid, NodeServices& services);
