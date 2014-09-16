@@ -75,7 +75,7 @@ class MetaStoreUTProc : public FdsProcess {
     // wrappers for get/put/delete
     Error get(fds_volid_t volId,
               const ObjectID& objId,
-              ObjMetaData::const_ptr* objMeta);
+              ObjMetaData::const_ptr &objMeta);
     Error put(fds_volid_t volId,
               const ObjectID& objId,
               ObjMetaData::const_ptr objMeta);
@@ -198,15 +198,15 @@ MetaStoreUTProc::MetaStoreUTProc(int argc, char * argv[], const std::string & co
 
 Error MetaStoreUTProc::get(fds_volid_t volId,
                            const ObjectID& objId,
-                           ObjMetaData::const_ptr* objMeta) {
+                           ObjMetaData::const_ptr &objMeta) {
     Error err(ERR_OK);
     fds_uint64_t start_nano = util::getTimeStampNanos();
     if (db_) {
         fds_verify(!store_);
-        err = db_->get(objId, objMeta);
+        objMeta = db_->get(objId, err);
     } else if (store_) {
         fds_verify(!db_);
-        err = store_->getObjectMetadata(volId, objId, objMeta);
+        objMeta = store_->getObjectMetadata(volId, objId, err);
     } else {
         fds_verify(false);
     }
@@ -355,7 +355,7 @@ int MetaStoreUTProc::runSmokeTest() {
         if (!err.ok()) return -1;
 
         ObjMetaData::const_ptr get_meta;
-        err = get(1, oid, &get_meta);
+        err = get(1, oid, get_meta);
         if (!err.ok()) return -1;
 
         LOGDEBUG << "Retrieved meta " << *get_meta;
@@ -372,7 +372,7 @@ int MetaStoreUTProc::runSmokeTest() {
 
     // try to access removed object
     ObjMetaData::const_ptr del_meta;
-    err = get(1, del_oid, &del_meta);
+    err = get(1, del_oid, del_meta);
     LOGDEBUG << "Result getting removed object " << err;
     fds_verify(!err.ok());
 
@@ -453,13 +453,13 @@ void MetaStoreUTProc::task(int id) {
             case UT_OP_GET:
                 {
                     ObjMetaData::const_ptr get_meta;
-                    err = get(1, oid, &get_meta);
+                    err = get(1, oid, get_meta);
                     break;
                 }
             case UT_OP_RMW:
                 {
                     ObjMetaData::const_ptr get_meta;
-                    err = get(1, oid, &get_meta);
+                    err = get(1, oid, get_meta);
                     if (err.ok()) {
                         ++rnum;
                         dataset_map_[oid] = rnum;
