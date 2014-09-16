@@ -35,32 +35,32 @@ ObjectMetadataStore::setNumBitsPerToken(fds_uint32_t nbits) {
     metaDb_->setNumBitsPerToken(nbits);
 }
 
-Error
+ObjMetaData::const_ptr
 ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,
-                                       ObjMetaData::const_ptr* objMeta) {
+                                       Error &err) {
     // Check cache for metadata
-    Error err = metaCache->getObjectMetadata(volId, objId, *objMeta);
+    ObjMetaData::const_ptr objMeta
+            = metaCache->getObjectMetadata(volId, objId, err);
     if (err.ok()) {
         LOGDEBUG << "Got " << objId << " metadata from cache";
-        return err;
+        return objMeta;
     }
     // TODO(xxx) counters for obj meta DB accesses
 
     // Read from metadata db. If the metadata is found, the
     // pointer will be allocated and set.
-    err = metaDb_->get(objId, objMeta);
+    objMeta = metaDb_->get(objId, err);
     if (err.ok()) {
         LOGDEBUG << "Got " << objId << " metadata from db";
         LOGDEBUG << "Vol " << std::hex << volId<< std::dec
-                 << " "<< objId << " refcnt: "<< (*objMeta)->getRefCnt()
-                 << " dataexists: " << (*objMeta)->dataPhysicallyExists()
-                 << " " << err;
+                 << " "<< objId << " refcnt: "<< objMeta->getRefCnt()
+                 << " dataexists: " << objMeta->dataPhysicallyExists();
     } else {
         LOGERROR << "Failed to get " << objId << " from metadata db: " << err;
     }
 
-    return err;
+    return objMeta;
 }
 
 Error

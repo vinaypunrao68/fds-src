@@ -120,8 +120,8 @@ fds::Error ObjectDB::Delete(const ObjectID& object_id)
     leveldb::Status status = db->Delete(write_options, key);
     timer_stop();
     timer_update_get_histo();
-    if (!status.ok()) {
-        err = fds::Error(fds::ERR_DISK_READ_FAILED);
+    if (status.IsNotFound() == true) {
+        err = ERR_NOT_FOUND;
     }
 
     return err;
@@ -146,8 +146,8 @@ fds::Error ObjectDB::Put(const ObjectID& object_id,
     leveldb::Status status = db->Put(write_options, key, value);
     timer_stop();
     timer_update_put_histo();
-    if (!status.ok()) {
-        err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
+    if (status.IsNotFound() == true) {
+        err = ERR_NOT_FOUND;
     }
 
     return err;
@@ -171,9 +171,13 @@ fds::Error ObjectDB::Get(const DiskLoc& disk_location,
     leveldb::Status status = db->Get(read_options, key, &value);
     timer_stop();
     timer_update_get_histo();
-    if (!status.ok()) {
-        err = fds::Error(fds::ERR_DISK_READ_FAILED);
-        return err;
+    if (status.IsNotFound() == true) {
+        return ERR_NOT_FOUND;
+    } else if (!status.ok()) {
+        // TODO(Andrew): Get a better error code than this. We're
+        // not returning DISK_READ_FAILED because we don't want
+        // legacy code to silently keep using the err code.
+        return ERR_NO_BYTES_READ;
     }
 
     obj_buf.data = value;
@@ -200,8 +204,8 @@ fds::Error ObjectDB::Delete(const DiskLoc& disk_location) {
     leveldb::Status status = db->Delete(write_options, key);
     timer_stop();
     timer_update_get_histo();
-    if (!status.ok()) {
-        err = fds::Error(fds::ERR_DISK_READ_FAILED);
+    if (status.IsNotFound() == true) {
+        err = ERR_NOT_FOUND;
     }
 
     return err;
@@ -226,8 +230,13 @@ fds::Error ObjectDB::Get(const ObjectID& obj_id,
     leveldb::Status status = db->Get(read_options, key, &value);
     timer_stop();
     timer_update_get_histo();
-    if (!status.ok()) {
-        err = fds::Error(fds::ERR_DISK_READ_FAILED);
+    if (status.IsNotFound() == true) {
+        return ERR_NOT_FOUND;
+    } else if (!status.ok()) {
+        // TODO(Andrew): Get a better error code than this. We're
+        // not returning DISK_READ_FAILED because we don't want
+        // legacy code to silently keep using the err code.
+        return ERR_NO_BYTES_READ;
     }
 
     obj_buf.data = value;

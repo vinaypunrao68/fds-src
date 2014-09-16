@@ -57,7 +57,7 @@ Error
 ObjectDataStore::getObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                ObjMetaData::const_ptr objMetaData,
-                               boost::shared_ptr<std::string> objData) {
+                               boost::shared_ptr<const std::string> &objData) {
     // Check the cache for the object
     Error err = dataCache->getObjectData(volId, objId, objData);
     if (err.ok()) {
@@ -89,7 +89,8 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
         // TODO(Andrew): Remove the ObjectBuf concept and just pass the
         // data pointer directly to the persistent layer so that this
         // copy can be avoided.
-        *objData = objBuf.data;
+        objData.reset(new std::string(objBuf.data));
+        // *objData = objBuf.data;
     } else {
         LOGERROR << "Failed to get " << objId << " from persistent layer: " << err;
     }

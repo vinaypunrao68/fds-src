@@ -45,9 +45,9 @@ class ObjectMetaCache : public Module, public boost::noncopyable {
      * in the cache. The data being pointed to is still owned by the
      * cache not the caller.
      */
-    Error getObjectMetadata(fds_volid_t volId,
-                        const ObjectID &objId,
-                        ObjMetaData::const_ptr objMeta);
+    ObjMetaData::const_ptr getObjectMetadata(fds_volid_t volId,
+                                             const ObjectID &objId,
+                                             Error &err);
 
     /**
      * Removes object metadata from the cache.
