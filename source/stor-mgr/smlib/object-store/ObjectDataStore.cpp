@@ -10,6 +10,7 @@ namespace fds {
 ObjectDataStore::ObjectDataStore(const std::string &modName)
         : Module(modName.c_str()),
           diskMgr(&(diskio::DataIO::disk_singleton())) {
+    dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));
 }
 
 ObjectDataStore::~ObjectDataStore() {
@@ -102,7 +103,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
 int
 ObjectDataStore::mod_init(SysParams const *const p) {
     Module::mod_init(p);
-    dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));
+    dataCache->mod_init(p);
     return 0;
 }
 

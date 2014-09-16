@@ -38,9 +38,9 @@ ObjectMetadataStore::setNumBitsPerToken(fds_uint32_t nbits) {
 Error
 ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,
-                                       ObjMetaData::const_ptr objMeta) {
+                                       ObjMetaData::const_ptr* objMeta) {
     // Check cache for metadata
-    Error err = metaCache->getObjectMetadata(volId, objId, objMeta);
+    Error err = metaCache->getObjectMetadata(volId, objId, *objMeta);
     if (err.ok()) {
         LOGDEBUG << "Got " << objId << " metadata from cache";
         return err;
@@ -53,8 +53,8 @@ ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
     if (err.ok()) {
         LOGDEBUG << "Got " << objId << " metadata from db";
         LOGDEBUG << "Vol " << std::hex << volId<< std::dec
-                 << " "<< objId << " refcnt: "<< objMeta->getRefCnt()
-                 << " dataexists: " << objMeta->dataPhysicallyExists()
+                 << " "<< objId << " refcnt: "<< (*objMeta)->getRefCnt()
+                 << " dataexists: " << (*objMeta)->dataPhysicallyExists()
                  << " " << err;
     } else {
         LOGERROR << "Failed to get " << objId << " from metadata db: " << err;

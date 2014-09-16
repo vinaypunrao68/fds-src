@@ -53,7 +53,7 @@ ObjectStore::putObject(fds_volid_t volId,
 
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta;
-    if (metaStore->getObjectMetadata(volId, objId, objMeta) == ERR_OK) {
+    if (metaStore->getObjectMetadata(volId, objId, &objMeta) == ERR_OK) {
         // While sync is going on we can have metadata but object could be missing
         if (!objMeta->dataPhysicallyExists()) {
             // fds_verify(isTokenInSyncMode(getDLT()->getToken(objId)));
@@ -68,7 +68,7 @@ ObjectStore::putObject(fds_volid_t volId,
 
         if (conf_verify_data == true) {
             // verify data -- read object from object data store
-            boost::shared_ptr<std::string> existObjData;
+            boost::shared_ptr<std::string> existObjData(new std::string());
             // if we get an error, there are inconsistencies between
             // data and metadata; assert for now
             fds_verify(dataStore->getObjectData(volId, objId, objMeta, existObjData) == ERR_OK);
@@ -83,7 +83,7 @@ ObjectStore::putObject(fds_volid_t volId,
                 LOGNORMAL << " Network-RPC ObjectId: " << putBufObjId.ToHex().c_str()
                           << " err  " << err;
                 if (putBufObjId != objId) {
-                    err = ERR_NETWORK_CORRUPT;
+                    return ERR_NETWORK_CORRUPT;
                 } else {
                     fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
                               objId.ToHex().c_str());
@@ -178,6 +178,8 @@ ObjectStore::deleteObject(fds_volid_t volId,
 int
 ObjectStore::mod_init(SysParams const *const p) {
     Module::mod_init(p);
+
+    dataStore->mod_init(p);
 
     const FdsRootDir *fdsroot = g_fdsprocess->proc_fdsroot();
     conf_verify_data = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.data_verify");
