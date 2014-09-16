@@ -74,13 +74,14 @@ public class MultiPartListParts implements RequestHandler {
 
         for(PartInfo pi : filteredList) {
             // TODO: remove when volumeContents is fixed - right now it does not return metadata
-            BlobDescriptor bd = xdi.statBlob(token, S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, pi.descriptor.getName());
+            String systemVolume = xdi.getSystemVolumeName(token);
+            BlobDescriptor bd = xdi.statBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, pi.descriptor.getName());
             Map<String, String> md = bd.getMetadata();
             DateTime lastModifiedTemp;
             try {
                 long instant = DateTimeZone.getDefault().convertLocalToUTC(Long.parseLong(md.get(Xdi.LAST_MODIFIED)), false);
                 lastModifiedTemp = new DateTime(instant, DateTimeZone.UTC);
-            } catch(Exception ex) {
+            } catch (Exception ex) {
                 lastModifiedTemp = DateTime.now(DateTimeZone.UTC);
             }
             final DateTime lastModified = lastModifiedTemp;
