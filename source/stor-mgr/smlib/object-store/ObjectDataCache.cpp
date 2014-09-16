@@ -10,11 +10,6 @@ namespace fds {
 
 ObjectDataCache::ObjectDataCache(const std::string &modName)
         : Module(modName.c_str()) {
-    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.sm.");
-    maxEntries = conf.get<fds_uint32_t>("cache.default_data_entries");
-
-    dataCache = std::unique_ptr<ObjectCache>(new ObjectCache("SM Object Data Cache",
-                                                             maxEntries));
 }
 
 ObjectDataCache::~ObjectDataCache() {
@@ -26,6 +21,12 @@ ObjectDataCache::~ObjectDataCache() {
 int
 ObjectDataCache::mod_init(SysParams const *const p) {
     Module::mod_init(p);
+
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.sm.");
+    maxEntries = conf.get<fds_uint32_t>("cache.default_data_entries");
+
+    dataCache = std::unique_ptr<ObjectCache>(new ObjectCache("SM Object Data Cache",
+                                                             maxEntries));
     return 0;
 }
 

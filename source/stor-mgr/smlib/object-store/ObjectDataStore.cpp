@@ -19,15 +19,15 @@ ObjectDataStore::~ObjectDataStore() {
 Error
 ObjectDataStore::putObjectData(fds_volid_t volId,
                                const ObjectID &objId,
-                               boost::shared_ptr<const std::string> objData) {
+                               diskio::DataTier tier,
+                               boost::shared_ptr<const std::string> objData,
+                               obj_phy_loc_t& objPhyLoc) {
     Error err(ERR_OK);
 
     // Construct persistent layer request
     meta_vol_io_t    vio;
     meta_obj_id_t    oid;
     fds_bool_t       sync = true;
-    // TODO(Andrew): Actually select tier
-    diskio::DataTier tier = diskio::diskTier;
     // TODO(Andrew): Should take a shared_ptr not a raw object buf
     ObjectBuf objBuf(*objData);
     SmPlReq *plReq =
@@ -39,6 +39,11 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     // Place the data in the cache
     if (err.ok()) {
         LOGDEBUG << "Wrote " << objId << " to persistent layer";
+        // get location in persistent layer to return with this method
+        obj_phy_loc_t* loc = plReq->req_get_phy_loc();
+        // copy to objPhyLoc because plReq will be freed as soon as we return
+        memcpy(&objPhyLoc, loc, sizeof(obj_phy_loc_t));
+
         dataCache->putObjectData(volId, objId, objData);
         LOGDEBUG << "Wrote " << objId << " to cache";
     } else {
@@ -92,12 +97,37 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
     return err;
 }
 
+Error
+ObjectDataStore::removeObjectData(const ObjectID& objId,
+                                  const ObjMetaData::const_ptr& objMetaData) {
+    Error err(ERR_OK);
+    meta_obj_id_t   oid;
+
+    // TODO(xxx) remove from cache
+
+    // tell persistent layer we deleted the object so that garbage collection
+    // knows how much disk space we need to clean
+    memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+    // TODO(xxx) we should remove DELETE_DISK counter, because they are not
+    // real deletes
+    if (objMetaData->onTier(diskio::diskTier)) {
+        diskMgr->disk_delete_obj(&oid, objMetaData->getObjSize(),
+                                objMetaData->getObjPhyLoc(diskio::diskTier));
+    } else if (objMetaData->onTier(diskio::flashTier)) {
+        diskMgr->disk_delete_obj(&oid, objMetaData->getObjSize(),
+                                objMetaData->getObjPhyLoc(diskio::flashTier));
+    }
+
+    return err;
+}
+
 /**
  * Module initialization
  */
 int
 ObjectDataStore::mod_init(SysParams const *const p) {
     Module::mod_init(p);
+    dataCache->mod_init(p);
     return 0;
 }
 

@@ -5,9 +5,6 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_SMIO_H_
 #define SOURCE_STOR_MGR_INCLUDE_SMIO_H_
 
-/* TODO: move this to interface file in include dir */
-#include <lib/OMgrClient.h>
-
 #include <list>
 #include <string>
 #include <vector>
@@ -21,11 +18,7 @@
 #include <fds_volume.h>
 #include <TransJournal.h>
 #include <leveldb/db.h>
-// #include <util/Log.h>
-// #include <odb.h>
-// #include <qos_ctrl.h>
-// #include <util/counter.h>
-// #include <ObjStats.h>
+
 
 // TODO(Rao):
 // 1. Remove unnecessary headers
