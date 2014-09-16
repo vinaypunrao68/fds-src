@@ -509,16 +509,6 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
                                 fds_bool_t vol_will_sync) {
     Error err(ERR_OK);
 
-#if 0
-    /*
-     * Verify that we don't already know about this volume
-     */
-    if (desc->isSnapshot()) {
-        LOGCRITICAL << "request to create a volume for a snaphot - returning true";
-        return err;
-    }
-#endif
-
     vol_map_mtx->lock();
     if (volExistsLocked(vol_uuid) == true) {
         err = Error(ERR_DUPLICATE);
