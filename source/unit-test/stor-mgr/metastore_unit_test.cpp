@@ -203,7 +203,7 @@ Error MetaStoreUTProc::get(fds_volid_t volId,
     fds_uint64_t start_nano = util::getTimeStampNanos();
     if (db_) {
         fds_verify(!store_);
-        objMeta = db_->get(objId, err);
+        objMeta = db_->get(volId, objId, err);
     } else if (store_) {
         fds_verify(!db_);
         objMeta = store_->getObjectMetadata(volId, objId, err);
@@ -228,7 +228,7 @@ Error MetaStoreUTProc::put(fds_volid_t volId,
     fds_uint64_t start_nano = util::getTimeStampNanos();
     if (db_) {
         fds_verify(!store_);
-        err = db_->put(objId, objMeta);
+        err = db_->put(volId, objId, objMeta);
     } else if (store_) {
         fds_verify(!db_);
         err = store_->putObjectMetadata(volId, objId, objMeta);
@@ -251,7 +251,7 @@ Error MetaStoreUTProc::remove(fds_volid_t volId,
                               const ObjectID& objId) {
     if (db_) {
         fds_verify(!store_);
-        return db_->remove(objId);
+        return db_->remove(volId, objId);
     } else if (store_) {
         fds_verify(!db_);
         return store_->removeObjectMetadata(volId, objId);

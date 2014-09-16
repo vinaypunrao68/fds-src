@@ -28,9 +28,8 @@ typedef enum {
     PUT_IO,
     PUT_OBJ_REQ,
     PUT_OBJ_REQ_ERR,
-    PUT_TRANS_QUEUE_WAIT,
     PUT_QOS_QUEUE_WAIT,
-    PUT_CACHE_HIT,
+    PUT_OBJ_TASK_SYNC_WAIT,
     PUT_SSD_OBJ,
     PUT_HDD_OBJ,
 
@@ -40,18 +39,16 @@ typedef enum {
     GET_IO,
     GET_OBJ_REQ,
     GET_OBJ_REQ_ERR,
-    GET_TRANS_QUEUE_WAIT,
     GET_QOS_QUEUE_WAIT,
-    GET_CACHE_HIT,
+    GET_OBJ_TASK_SYNC_WAIT,
     GET_SSD_OBJ,
     GET_HDD_OBJ,
 
     DELETE_IO,
     DELETE_OBJ_REQ,
     DELETE_OBJ_REQ_ERR,
-    DELETE_TRANS_QUEUE_WAIT,
     DELETE_QOS_QUEUE_WAIT,
-    DELETE_CACHE_HIT,
+    DELETE_OBJ_TASK_SYNC_WAIT,
 
     ADD_OBJECT_REF_REQ,
     ADD_OBJECT_REF_REQ_ERR,
@@ -63,26 +60,21 @@ typedef enum {
     DLT_LKUP,
     DMT_LKUP,
 
-    PUT_OBJ_DEDUPE_CHK,
     PERSIST_DISK_WRITE,
     PUT_OBJ_LOC_INDX_UPDATE,
 
-    GET_OBJ_CACHE_LKUP,
     GET_OBJ_LKUP_LOC_INDX,
     GET_OBJ_PL_READ_DISK,
 
     COMMIT_LOG_WRITE,
-    GET_METADATA_READ,
-    GET_DISK_READ,
-    PUT_METADATA_WRITE,
-    PUT_DISK_WRITE,
-    DELETE_METADATA,
-    DELETE_DISK,
-
-    PUT_ODB,
-    GET_ODB,
-    DISK_WRITE,
-    DISK_READ,
+    SM_OBJ_METADATA_DB_READ,     /* put object metadata entry into DB */
+    SM_OBJ_METADATA_DB_WRITE,    /* get object metadata entry from DB */
+    SM_OBJ_METADATA_DB_REMOVE,   /* actual removal of metadata entry from DB */
+    SM_OBJ_METADATA_CACHE_HIT,   /* object metadata cache hits (get path) */
+    SM_OBJ_DATA_CACHE_HIT,       /* object data cache hits (get path) */
+    SM_OBJ_DATA_DISK_READ,       /* persistent layer read object data */
+    SM_OBJ_DATA_DISK_WRITE,      /* persistent layer write object data */
+    SM_OBJ_MARK_DELETED,         /* mark object deleted in obj metadata */
 
     // Access Manager
     AM_PUT_OBJ_REQ,

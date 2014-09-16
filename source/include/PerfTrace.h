@@ -117,6 +117,12 @@ public:
     // reload the configuration
     static void refresh();
 
+    // at the moment our perfName depend on volume id only, so just use this method
+    // unless we change that
+    static std::string perfNameStr(fds_volid_t volId) {
+        return "volume:" + std::to_string(volId);
+    }
+
 private:
 
     typedef std::unordered_map<std::string, PerfContext *> PerfContextMap;

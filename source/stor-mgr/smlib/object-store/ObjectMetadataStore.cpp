@@ -2,6 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc. 
  */
 #include <string>
+#include <PerfTrace.h>
 #include <object-store/ObjectMetadataStore.h>
 
 namespace fds {
@@ -43,14 +44,14 @@ ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
     ObjMetaData::const_ptr objMeta
             = metaCache->getObjectMetadata(volId, objId, err);
     if (err.ok()) {
+        PerfTracer::incr(SM_OBJ_METADATA_CACHE_HIT, volId, PerfTracer::perfNameStr(volId));
         LOGDEBUG << "Got " << objId << " metadata from cache";
         return objMeta;
     }
-    // TODO(xxx) counters for obj meta DB accesses
 
     // Read from metadata db. If the metadata is found, the
     // pointer will be allocated and set.
-    objMeta = metaDb_->get(objId, err);
+    objMeta = metaDb_->get(volId, objId, err);
     if (err.ok()) {
         LOGDEBUG << "Got " << objId << " metadata from db";
         LOGDEBUG << "Vol " << std::hex << volId<< std::dec
@@ -67,9 +68,7 @@ Error
 ObjectMetadataStore::putObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,
                                        ObjMetaData::const_ptr objMeta) {
-    // TODO(xxx) port counters
-
-    Error err = metaDb_->put(objId, objMeta);
+    Error err = metaDb_->put(volId, objId, objMeta);
     if (err.ok()) {
         LOGDEBUG << "Wrote " << objId << " metadata to db";
         metaCache->putObjectMetadata(volId, objId, objMeta);
@@ -89,9 +88,8 @@ ObjectMetadataStore::removeObjectMetadata(fds_volid_t volId,
 
     // Remove from metadata cache
     metaCache->removeObjectMetadata(volId, objId);
-    // TODO(xxx) port counters
 
-    err = metaDb_->remove(objId);
+    err = metaDb_->remove(volId, objId);
     if (err.ok()) {
         LOGDEBUG << "Removed " << objId << " from metadata db";
     } else {
