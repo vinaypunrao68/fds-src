@@ -128,6 +128,16 @@ class DmVolumeCatalog : public Module,
                         fds_uint64_t* object_count);
 
     /**
+     * Get all objects for the volume
+     *
+     * @param[in] volId volume identifier
+     * @param[in,out] objIds set of all object ids for this volume
+     *
+     * @return ERR_OK on success
+     */
+    Error getVolumeObjects(fds_volid_t volId, std::set<ObjectID> & objIds);
+
+    /**
      * Retrieves blob meta for the given blob_name and volume 'volume_id'
      * @param[in] volume_id volume uuid
      * @param[in] blob_name name of the blob

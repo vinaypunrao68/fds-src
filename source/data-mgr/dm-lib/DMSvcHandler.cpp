@@ -287,8 +287,9 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
 
     PerfTracer::tracePointBegin(dmQryReq->opReqLatencyCtx);
 
-    Error err = dataMgr->qosCtrl->enqueueIO(dmQryReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmQryReq));
+    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmQryReq->getVolId());
+    Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
+            voldesc->qosQueueId : dmQryReq->getVolId(), static_cast<FDS_IOType*>(dmQryReq));
 
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue Query Catalog request "
@@ -484,8 +485,9 @@ void DMSvcHandler::getBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
 
-    Error err = dataMgr->qosCtrl->enqueueIO(dmReq->getVolId(),
-                                      static_cast<FDS_IOType*>(dmReq));
+    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmReq->getVolId());
+    Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
+            voldesc->qosQueueId : dmReq->getVolId(), static_cast<FDS_IOType*>(dmReq));
 
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request "
