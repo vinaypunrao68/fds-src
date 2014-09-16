@@ -614,7 +614,7 @@ static void add_to_vector(std::vector<FDSP_Node_Info_Type> &vec,  // NOLINT
     FDSP_Node_Info_Type nodeInfo = FDSP_Node_Info_Type();
     nodeInfo.node_uuid = ndata.nd_node_uuid;
     nodeInfo.service_uuid = ndata.nd_service_uuid;
-    nodeInfo.node_name = std::string(ndata.nd_auto_name);
+    nodeInfo.node_name = ptr->get_node_name();
     nodeInfo.node_type = ndata.nd_svc_type;
     nodeInfo.node_state = ptr->node_state();
     nodeInfo.ip_lo_addr = netSession::ipString2Addr(ptr->get_ip_str());
