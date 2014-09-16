@@ -57,29 +57,36 @@ void ObjectMetadataDb::closeObjectDB(fds_token_id tokId) {
     delete objdb;
 }
 
-Error ObjectMetadataDb::get(const ObjectID& objId,
-                            ObjMetaData::ptr objMeta) {
-    Error err = ERR_OK;
+/**
+ * Gets metadata from the db. If the metadata is located in the db
+ * the shared ptr is allocated with the associated metadata being set.
+ */
+ObjMetaData::const_ptr
+ObjectMetadataDb::get(const ObjectID& objId,
+                      Error &err) {
+    err = ERR_OK;
     ObjectBuf buf;
 
     fds_token_id tokId = DLT::getToken(objId, bitsPerToken_);
     osm::ObjectDB *odb = getObjectDB(tokId);
     if (!odb) {
-        return ERR_OUT_OF_MEMORY;
+        err = ERR_OUT_OF_MEMORY;
+        return NULL;
     }
 
     // get meta from DB
     err = odb->Get(objId, buf);
     if (!err.ok()) {
-        /* Object not found. Return. */
-        return ERR_DISK_READ_FAILED;
+        // Object not found. Return.
+        return NULL;
     }
 
-    objMeta->deserializeFrom(buf);
+    ObjMetaData::const_ptr objMeta(new ObjMetaData(buf));
+    // objMeta->deserializeFrom(buf);
 
     // TODO(Anna) token sync code -- objMeta.checkAndDemoteUnsyncedData;
 
-    return err;
+    return objMeta;
 }
 
 Error ObjectMetadataDb::put(const ObjectID& objId,

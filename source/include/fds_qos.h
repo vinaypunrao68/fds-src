@@ -213,7 +213,7 @@ namespace fds {
     virtual FDS_VolumeQueue* getQueue(fds_qid_t queue_id) {
         SCOPEDREAD(qda_lock);
         queue_map_t::iterator iter = queue_map.find(queue_id);
-        return iter->second;
+        return queue_map.end() != iter ? iter->second : 0;
     }
 
     virtual Error enqueueIO(fds_qid_t queue_id, FDS_IOType *io) {

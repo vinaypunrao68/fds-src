@@ -9,6 +9,7 @@
 #include <fds_error.h>
 #include <fds_uuid.h>
 #include <TokenSyncBaseEvents.h>
+#include <platform/platform-lib.h>
 
 namespace fds {
 

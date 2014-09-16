@@ -755,6 +755,7 @@ VolumeInfo::vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const
     pkt->mediaPolicy   = pVol->mediaPolicy;
     pkt->fSnapshot   = pVol->fSnapshot;
     pkt->srcVolumeId   = pVol->srcVolumeId;
+    pkt->qosQueueId   = pVol->qosQueueId;
 }
 
 // vol_fmt_message

@@ -195,6 +195,6 @@ service ConfigurationService {
              throws (1: ApiException e),
 
     // Returns VolumeID of clone 
-    i64 cloneVolume(1:i64 volumeId, 2:i64 fdsp_PolicyInfoId, 3:string clonedVolumeName)
+    i64 cloneVolume(1:i64 volumeId, 2:i64 fdsp_PolicyInfoId, 3:string cloneVolumeName)
 
 }

@@ -65,7 +65,7 @@ class MetaStoreUTProc : public FdsProcess {
                     obj_phy_loc_t* loc);
     ObjMetaData::ptr allocRandomObjMeta(fds_uint32_t rnum,
                                         const ObjectID& objId);
-    fds_bool_t isValidObjMeta(ObjMetaData::ptr meta,
+    fds_bool_t isValidObjMeta(ObjMetaData::const_ptr meta,
                               fds_uint32_t rnum);
     Error populateStore();
 
@@ -75,7 +75,7 @@ class MetaStoreUTProc : public FdsProcess {
     // wrappers for get/put/delete
     Error get(fds_volid_t volId,
               const ObjectID& objId,
-              ObjMetaData::ptr objMeta);
+              ObjMetaData::const_ptr &objMeta);
     Error put(fds_volid_t volId,
               const ObjectID& objId,
               ObjMetaData::const_ptr objMeta);
@@ -198,15 +198,15 @@ MetaStoreUTProc::MetaStoreUTProc(int argc, char * argv[], const std::string & co
 
 Error MetaStoreUTProc::get(fds_volid_t volId,
                            const ObjectID& objId,
-                           ObjMetaData::ptr objMeta) {
+                           ObjMetaData::const_ptr &objMeta) {
     Error err(ERR_OK);
     fds_uint64_t start_nano = util::getTimeStampNanos();
     if (db_) {
         fds_verify(!store_);
-        err = db_->get(objId, objMeta);
+        objMeta = db_->get(objId, err);
     } else if (store_) {
         fds_verify(!db_);
-        err = store_->getObjectMetadata(volId, objId, objMeta);
+        objMeta = store_->getObjectMetadata(volId, objId, err);
     } else {
         fds_verify(false);
     }
@@ -316,12 +316,12 @@ MetaStoreUTProc::allocRandomObjMeta(fds_uint32_t rnum,
 }
 
 fds_bool_t
-MetaStoreUTProc::isValidObjMeta(ObjMetaData::ptr meta,
+MetaStoreUTProc::isValidObjMeta(ObjMetaData::const_ptr meta,
                                 fds_uint32_t rnum) {
     obj_phy_loc_t loc;
     setMetaLoc(rnum, &loc);
 
-    obj_phy_loc_t* meta_loc = meta->getObjPhyLoc((diskio::DataTier)loc.obj_tier);
+    const obj_phy_loc_t* meta_loc = meta->getObjPhyLoc((diskio::DataTier)loc.obj_tier);
     if (meta_loc->obj_stor_loc_id != loc.obj_stor_loc_id) return false;
     if (meta_loc->obj_file_id != loc.obj_file_id) return false;
     if (meta_loc->obj_stor_offset != loc.obj_stor_offset) return false;
@@ -354,7 +354,7 @@ int MetaStoreUTProc::runSmokeTest() {
         err = put(1, oid, meta);
         if (!err.ok()) return -1;
 
-        ObjMetaData::ptr get_meta(new ObjMetaData());
+        ObjMetaData::const_ptr get_meta;
         err = get(1, oid, get_meta);
         if (!err.ok()) return -1;
 
@@ -371,7 +371,7 @@ int MetaStoreUTProc::runSmokeTest() {
     if (!err.ok()) return -1;
 
     // try to access removed object
-    ObjMetaData::ptr del_meta(new ObjMetaData());
+    ObjMetaData::const_ptr del_meta;
     err = get(1, del_oid, del_meta);
     LOGDEBUG << "Result getting removed object " << err;
     fds_verify(!err.ok());
@@ -452,13 +452,13 @@ void MetaStoreUTProc::task(int id) {
                 }
             case UT_OP_GET:
                 {
-                    ObjMetaData::ptr get_meta(new ObjMetaData());
+                    ObjMetaData::const_ptr get_meta;
                     err = get(1, oid, get_meta);
                     break;
                 }
             case UT_OP_RMW:
                 {
-                    ObjMetaData::ptr get_meta(new ObjMetaData());
+                    ObjMetaData::const_ptr get_meta;
                     err = get(1, oid, get_meta);
                     if (err.ok()) {
                         ++rnum;

@@ -402,17 +402,6 @@ LevelDBChecker::get_metadatapath_session(const NodeUuid& node_id)
     return (mdp_sess);
 }
 
-
-PlatRpcReqt *LevelDBChecker::plat_creat_reqt_disp()
-{
-    return nullptr;
-}
-
-PlatRpcResp *LevelDBChecker::plat_creat_resp_disp()
-{
-    return nullptr;
-}
-
 void LevelDBChecker::list_bucket(const NodeUuid &dm_node_id,
                                   const fds_volid_t vol_id,
                                   const std::string vol_name)

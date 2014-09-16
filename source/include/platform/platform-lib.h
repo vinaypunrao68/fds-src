@@ -90,97 +90,10 @@ class DomainResources
 
     // Will use new DMT
     int                        drs_dmt_version;
-    Node_Table_Type            drs_dmt;
+    fpi::Node_Table_Type       drs_dmt;
 
   private:
     INTRUSIVE_PTR_DEFS(DomainResources, rs_refcnt);
-};
-
-// -------------------------------------------------------------------------------------
-// Generic Platform Event Handler
-// -------------------------------------------------------------------------------------
-class PlatEvent
-{
-  public:
-    typedef boost::intrusive_ptr<PlatEvent> pointer;
-    typedef boost::intrusive_ptr<const PlatEvent> const_ptr;
-
-    virtual ~PlatEvent();
-    PlatEvent(char const *const          name,
-              DomainResources::pointer   mgr,
-              DomainClusterMap::pointer  clus,
-              const Platform            *plat);
-
-    virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr) = 0;
-
-  protected:
-    char const *const          pe_name;
-    DomainResources::pointer   pe_resources;
-    DomainClusterMap::pointer  pe_clusmap;
-    const Platform            *pe_platform;
-
-  private:
-    INTRUSIVE_PTR_DEFS(PlatEvent, rs_refcnt);
-};
-
-class NodePlatEvent : public PlatEvent
-{
-  public:
-    typedef boost::intrusive_ptr<NodePlatEvent> pointer;
-    typedef boost::intrusive_ptr<const NodePlatEvent> const_ptr;
-
-    virtual ~NodePlatEvent() {}
-    NodePlatEvent(DomainResources::pointer   mgr,
-                  DomainClusterMap::pointer  clus,
-                  const Platform            *plat)
-        : PlatEvent("NodeEvent", mgr, clus, plat) {}
-
-    virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
-
-    virtual int
-    plat_recvNodeEvent(const FDSP_MsgHdrTypePtr &hdr, const FDSP_Node_Info_Type &evt);
-
-    virtual int
-    plat_recvMigrationEvent(const FDSP_MsgHdrTypePtr &hdr, const FDSP_DLT_Data_Type &dlt);
-
-    virtual int
-    plat_recvDLTStartMigration(const FDSP_MsgHdrTypePtr    &hdr,
-                               const FDSP_DLT_Data_TypePtr &dlt);
-
-    virtual int
-    plat_recvDLTUpdate(const FDSP_MsgHdrTypePtr &hdr, const FDSP_DLT_Data_Type &dlt);
-
-    virtual int
-    plat_recvDMTUpdate(const FDSP_MsgHdrTypePtr &hdr, const FDSP_DMT_Type &dmt);
-};
-
-class VolPlatEvent : public PlatEvent
-{
-  public:
-    typedef boost::intrusive_ptr<VolPlatEvent> pointer;
-    typedef boost::intrusive_ptr<const VolPlatEvent> const_ptr;
-
-    virtual ~VolPlatEvent() {}
-    VolPlatEvent(DomainResources::pointer   mgr,
-                 DomainClusterMap::pointer  clus,
-                 const Platform            *plat)
-        : PlatEvent("VolEvent", mgr, clus, plat) {}
-
-    virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
-
-    virtual int
-    plat_set_throttle(const FDSP_MsgHdrTypePtr      &hdr,
-                      const FDSP_ThrottleMsgTypePtr &msg);
-
-    virtual int
-    plat_bucket_stat(const FDSP_MsgHdrTypePtr          &hdr,
-                     const FDSP_BucketStatsRespTypePtr &msg);
-
-    virtual int
-    plat_add_vol(const FDSP_MsgHdrTypePtr &hdr, const FDSP_NotifyVolTypePtr &add);
-
-    virtual int
-    plat_rm_vol(const FDSP_MsgHdrTypePtr &hdr, const FDSP_NotifyVolTypePtr &rm);
 };
 
 // -------------------------------------------------------------------------------------
@@ -208,7 +121,7 @@ class Platform : public Module
 
     virtual ~Platform();
     Platform(char const *const         name,
-             FDSP_MgrIdType            node_type,
+             fpi::FDSP_MgrIdType       node_type,
              DomainNodeInv::pointer    node_inv,
              DomainClusterMap::pointer cluster,
              DomainResources::pointer  resources,
@@ -301,12 +214,6 @@ class Platform : public Module
     virtual void plf_update_cluster();
 
     /**
-     * Resource inventory methods.
-     */
-    virtual void plf_create_domain(const FdspCrtDomPtr &msg);
-    virtual void plf_delete_domain(const FdspCrtDomPtr &msg);
-
-    /**
      * Module methods.
      */
     virtual int  mod_init(SysParams const *const param) override;
@@ -317,7 +224,7 @@ class Platform : public Module
     /**
      * Pull out common platform data.
      */
-    inline FDSP_MgrIdType plf_get_node_type() const { return plf_node_type; }
+    inline fpi::FDSP_MgrIdType plf_get_node_type() const { return plf_node_type; }
     inline fds_uint32_t   plf_get_om_ctrl_port() const { return plf_om_ctrl_port; }
     inline fds_uint32_t   plf_get_om_svc_port()  const { return plf_om_svc_port; }
     inline fds_uint32_t   plf_get_my_base_port() const { return plf_my_base_port; }
@@ -349,13 +256,14 @@ class Platform : public Module
 
     inline FlagsMap& plf_get_flags_map() { return plf_flags_map; }
 
-    virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler() { return nullptr; }
+    virtual boost::shared_ptr<BaseAsyncSvcHandler>
+    getBaseAsyncSvcHandler() { return nullptr; }
 
   protected:
     friend class PlatRpcReqt;
     friend class PlatRpcResp;
 
-    FDSP_MgrIdType             plf_node_type;
+    fpi::FDSP_MgrIdType        plf_node_type;
     NodeUuid                   plf_my_uuid;           /**< this node HW uuid.         */
     NodeUuid                   plf_my_svc_uuid;       /**< SM/DM/AM... svc uuid.      */
     NodeUuid                   plf_my_plf_svc_uuid;   /**< platform service.          */
@@ -375,32 +283,11 @@ class Platform : public Module
     DomainClusterMap::pointer  plf_clus_map;
     DomainResources::pointer   plf_resources;
 
-    /**
-     * Specific platform event handlers.
-     */
-    NodePlatEvent::pointer     plf_node_evt;
-    VolPlatEvent::pointer      plf_vol_evt;
-    PlatEvent::pointer         plf_throttle_evt;
-    PlatEvent::pointer         plf_migrate_evt;
-    PlatEvent::pointer         plf_tier_evt;
-    PlatEvent::pointer         plf_bucket_stats_evt;
-
     /* Server attributes. */
     boost::shared_ptr<netSessionTbl>  plf_net_sess;
-    boost::shared_ptr<PlatRpcReqt>    plf_rpc_reqt;  /**< rpc handler for OM reqt.   */
-    OmRespDispatchPtr                 plf_om_resp;   /**< RPC client response disp.  */
-    NodeAgentDpRespPtr                plf_dpath_resp;
-    netControlPathServerSession      *plf_my_sess;
 
     /* Process wide flags */
     FlagsMap                          plf_flags_map;
-
-    /**
-     * Required Factory methods.
-     */
-    virtual PlatRpcReqt      *plat_creat_reqt_disp() = 0;
-    virtual PlatRpcResp      *plat_creat_resp_disp() = 0;
-    virtual PlatDataPathResp *plat_creat_dpath_resp() { return NULL; }
 };
 
 /**

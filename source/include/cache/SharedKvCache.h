@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_INCLUDE_CACHE_SMCACHE_H_
-#define SOURCE_INCLUDE_CACHE_SMCACHE_H_
+#ifndef SOURCE_INCLUDE_CACHE_SHAREDKVCACHE_H_
+#define SOURCE_INCLUDE_CACHE_SHAREDKVCACHE_H_
 
 #include <functional>
 #include <list>
@@ -25,9 +25,9 @@ namespace fds {
 //   not an inheritence like KvCache does it. So it should read
 //   something like:
 //
-//   SmCache<int, int, fds::eviction_policy::lru> cache;
+//   SharedKvCache<int, int, fds::eviction_policy::lru> cache;
 //
-//   Right now all SmCache's are LRU eviction
+//   Right now all SharedKvCache's are LRU eviction
 
 /**
  * An abstract interface for a generic key-value cache. The cache
@@ -37,7 +37,7 @@ namespace fds {
  * This class IS thread safe
  */
 template<class K, class V, class _Hash = std::hash<K>>
-class SmCache : public Module, boost::noncopyable {
+class SharedKvCache : public Module, boost::noncopyable {
     public:
      typedef K key_type;
      typedef V mapped_type;
@@ -64,14 +64,14 @@ class SmCache : public Module, boost::noncopyable {
       *
       * @return none
       */
-     SmCache(const std::string& module_name, size_type const _max_entries) :
+     SharedKvCache(const std::string& module_name, size_type const _max_entries) :
          Module(module_name.c_str()),
          cache_map(),
          eviction_list(),
          max_entries(_max_entries),
          cache_lock() { }
 
-     ~SmCache() {}
+     ~SharedKvCache() {}
 
      /**
       * Adds a key-value pair to the cache.
@@ -156,7 +156,7 @@ class SmCache : public Module, boost::noncopyable {
       *
       * @return ERR_OK if a value is returned, ERR_NOT_FOUND otherwise.
       */
-     Error get(const key_type &key,
+    Error get(const key_type &key,
                        value_type& value_out,
                        fds_bool_t const do_touch = true) {
          SCOPEDWRITE(cache_lock);
@@ -180,6 +180,25 @@ class SmCache : public Module, boost::noncopyable {
          // Set the return value
          value_out = elemIt->second;
          return ERR_OK;
+     }
+
+     /**
+      * Removes a key and value from the cache
+      *
+      * @param[in] key   Key to use for indexing
+      *
+      * @return none
+      */
+     void remove(const key_type &key) {
+         // Locate the key in the map
+         auto mapIt = cache_map.find(key);
+         if (mapIt != cache_map.end()) {
+             iterator cacheEntry = mapIt->second;
+             // Remove from the cache_map
+             cache_map.erase(mapIt);
+             // Remove from the eviction_list
+             eviction_list.erase(cacheEntry);
+         }
      }
 
      /**
@@ -228,25 +247,6 @@ class SmCache : public Module, boost::noncopyable {
      // Synchronization members
      fds_rwlock cache_lock;
 
-     /**
-      * Removes a key and value from the cache
-      *
-      * @param[in] key   Key to use for indexing
-      *
-      * @return none
-      */
-     void remove(const key_type &key) {
-         // Locate the key in the map
-         auto mapIt = cache_map.find(key);
-         if (mapIt != cache_map.end()) {
-             iterator cacheEntry = mapIt->second;
-             // Remove from the cache_map
-             cache_map.erase(mapIt);
-             // Remove from the eviction_list
-             eviction_list.erase(cacheEntry);
-         }
-     }
-
 
      /**
       * Touches a key for the purpose of representing an access.
@@ -278,4 +278,4 @@ class SmCache : public Module, boost::noncopyable {
 };
 }  // namespace fds
 
-#endif  // SOURCE_INCLUDE_CACHE_SMCACHE_H_
+#endif  // SOURCE_INCLUDE_CACHE_SHAREDKVCACHE_H_

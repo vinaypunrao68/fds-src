@@ -101,6 +101,14 @@ class DataMgr : public Module, public DmIoReqHandler {
         return vol_meta_map[volId]->vol_desc->name;
     }
 
+    inline const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
+        FDSGUARD(*vol_map_mtx);
+        std::unordered_map<fds_uint64_t, VolumeMeta*>::const_iterator iter =
+                vol_meta_map.find(volId);
+        return (vol_meta_map.end() != iter && iter->second ?
+                iter->second->vol_desc : 0);
+    }
+
     Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
 
  private:

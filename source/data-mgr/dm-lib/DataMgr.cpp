@@ -21,9 +21,10 @@ Error DataMgr::vol_handler(fds_volid_t vol_uuid,
                            fpi::FDSP_NotifyVolFlag vol_flag,
                            fpi::FDSP_ResultType result) {
     Error err(ERR_OK);
+
     GLOGNORMAL << "Received vol notif from OM for "
                << desc->getName() << ":"
-               << std::hex << vol_uuid << std::dec;
+               << std::hex << vol_uuid << std::hex;
 
     if (vol_action == fds_notify_vol_add) {
         /*
@@ -353,7 +354,10 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                                fds_bool_t vol_will_sync) {
     Error err(ERR_OK);
 
+    LOGDEBUG << "Creating a snapshot '" << vdesc->name << "' of a volume '"
+          << vdesc->volUUID << "'"  << " srcVolume: "<< vdesc->srcVolumeId;
     // create vol catalogs, etc first
+
     if (vdesc->isSnapshot() || vdesc->isClone()) {
         VolumeMeta * volmeta = 0;
         {
@@ -368,12 +372,10 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         }
 
         // create commit log entry and enbale buffering in case of snapshot
-        err = timeVolCat_->copyVolume(*volmeta->vol_desc);
-
+        err = timeVolCat_->copyVolume(*vdesc);
     } else {
         err = timeVolCat_->addVolume(*vdesc);
     }
-
     if (!err.ok()) {
         LOGERROR << "Failed to " << (vdesc->isSnapshot() ? "create snapshot"
                 : (vdesc->isClone() ? "create clone" : "add volume")) << " "
@@ -506,14 +508,6 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
                                 VolumeDesc *desc,
                                 fds_bool_t vol_will_sync) {
     Error err(ERR_OK);
-
-    /*
-     * Verify that we don't already know about this volume
-     */
-    if (desc->isSnapshot()) {
-        LOGCRITICAL << "request to create a volume for a snaphot - returning true";
-        return err;
-    }
 
     vol_map_mtx->lock();
     if (volExistsLocked(vol_uuid) == true) {

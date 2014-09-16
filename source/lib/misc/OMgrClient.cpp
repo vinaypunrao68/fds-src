@@ -10,11 +10,13 @@
 #include <dlt.h>
 
 #include <net/net_utils.h>
+#include <platform/platform-lib.h>
 #include <thread>
 
 using namespace std;
 using namespace fds;
 
+namespace fds {
 
 OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
     this->om_client = omc;
@@ -1169,3 +1171,5 @@ DmtColumnPtr OMgrClient::getDMTNodesForVolume(fds_volid_t vol_id,
 fds_uint64_t OMgrClient::getDMTVersion() const {
     return dmtMgr->getCommittedVersion();
 }
+
+}  //  namespace fds

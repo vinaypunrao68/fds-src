@@ -13,14 +13,6 @@ namespace fds {
 
 AmPlatform gl_AmPlatform;
 
-// -------------------------------------------------------------------------------------
-// DM Platform Event Handler
-// -------------------------------------------------------------------------------------
-void
-AmVolEvent::plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr)
-{
-}
-
 /*
  * -----------------------------------------------------------------------------------
  * Endpoint Plugin
@@ -65,21 +57,21 @@ AMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 // -------------------------------------------------------------------------------------
 AmPlatform::AmPlatform()
     : Platform("DM-Platform",
-               FDSP_DATA_MGR,
+               fpi::FDSP_STOR_HVISOR,
                new DomainNodeInv("AM-Platform-NodeInv",
                                  NULL,
-                                 new SmContainer(FDSP_STOR_HVISOR),
-                                 new DmContainer(FDSP_STOR_HVISOR),
-                                 new AmContainer(FDSP_STOR_HVISOR),
-                                 new PmContainer(FDSP_STOR_HVISOR),
-                                 new OmContainer(FDSP_STOR_HVISOR)),
+                                 new SmContainer(fpi::FDSP_STOR_MGR),
+                                 new DmContainer(fpi::FDSP_DATA_MGR),
+                                 new AmContainer(fpi::FDSP_STOR_HVISOR),
+                                 new PmContainer(fpi::FDSP_PLATFORM),
+                                 new OmContainer(fpi::FDSP_ORCH_MGR)),
                new DomainClusterMap("AM-Platform-ClusMap",
                                  NULL,
-                                 new SmContainer(FDSP_STOR_HVISOR),
-                                 new DmContainer(FDSP_STOR_HVISOR),
-                                 new AmContainer(FDSP_STOR_HVISOR),
-                                 new PmContainer(FDSP_STOR_HVISOR),
-                                 new OmContainer(FDSP_STOR_HVISOR)),
+                                 new SmContainer(fpi::FDSP_STOR_MGR),
+                                 new DmContainer(fpi::FDSP_DATA_MGR),
+                                 new AmContainer(fpi::FDSP_STOR_HVISOR),
+                                 new PmContainer(fpi::FDSP_PLATFORM),
+                                 new OmContainer(fpi::FDSP_ORCH_MGR)),
                new DomainResources("AM-Resources"),
                NULL) {}
 
@@ -95,16 +87,13 @@ AmPlatform::mod_init(SysParams const *const param)
     fds_uint32_t base;
 
     Platform::platf_assign_singleton(&gl_AmPlatform);
-    plf_node_type = FDSP_STOR_HVISOR;
+    plf_node_type = fpi::FDSP_STOR_HVISOR;
 
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
     Platform::mod_init(param);
 
     plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if"));
     plf_my_node_name = plf_my_ip;
-
-    plf_vol_evt  = new AmVolEvent(plf_resources, plf_clus_map, this);
-    plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map, this);
 
     return 0;
 }
@@ -149,18 +138,6 @@ AmPlatform::mod_shutdown()
 {
 }
 
-PlatRpcReqt *
-AmPlatform::plat_creat_reqt_disp()
-{
-    return new AmRpcReq(this);
-}
-
-PlatRpcResp *
-AmPlatform::plat_creat_resp_disp()
-{
-    return new PlatRpcResp(this);
-}
-
 boost::shared_ptr<BaseAsyncSvcHandler>
 AmPlatform::getBaseAsyncSvcHandler()
 {
@@ -172,68 +149,8 @@ AmPlatform::getBaseAsyncSvcHandler()
 */
 void AmPlatform::registerFlags()
 {
-    PlatformProcess::plf_manager()->\
-        plf_get_flags_map().registerCommonFlags();
+    PlatformProcess::plf_manager()->plf_get_flags_map().registerCommonFlags();
     /* AM specific flags */
-}
-// --------------------------------------------------------------------------------------
-// RPC handlers
-// --------------------------------------------------------------------------------------
-AmRpcReq::AmRpcReq(const Platform *plf) : PlatRpcReqt(plf) {}
-AmRpcReq::~AmRpcReq() {}
-
-void
-AmRpcReq::NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                       fpi::FDSP_NotifyVolTypePtr &msg)
-{
-}
-
-void
-AmRpcReq::NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                      fpi::FDSP_NotifyVolTypePtr &msg)
-{
-}
-
-void
-AmRpcReq::NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                       fpi::FDSP_NotifyVolTypePtr &msg)
-{
-}
-
-void
-AmRpcReq::AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                    fpi::FDSP_AttachVolTypePtr &vol_msg)
-{
-}
-
-void
-AmRpcReq::DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                    fpi::FDSP_AttachVolTypePtr &vol_msg)
-{
-}
-
-void
-AmRpcReq::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                        fpi::FDSP_Node_Info_TypePtr &node_info)
-{
-}
-
-void
-AmRpcReq::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                        fpi::FDSP_Node_Info_TypePtr &node_info)
-{
-}
-
-void
-AmRpcReq::NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                          fpi::FDSP_DLT_Data_TypePtr &dlt_info)
-{
-}
-
-void
-AmRpcReq::NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,  // NOLINT
-                          fpi::FDSP_DMT_TypePtr   &dmt)
-{
 }
 
 }  // namespace fds

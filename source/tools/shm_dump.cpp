@@ -12,6 +12,8 @@
 #include "boost/program_options.hpp"
 #include "./shm_dump.h"
 
+namespace fds {
+
 void
 ShmDump::read_inv_shm(const char *fname)
 {
@@ -176,6 +178,7 @@ ShmDump::read_queue_shm(const char *fname)
     }
 }
 
+}  // namespace fds
 
 int main(int argc, char *argv[]) {
     namespace po = boost::program_options;
@@ -209,9 +212,9 @@ int main(int argc, char *argv[]) {
     }
 
     if (filename.find("-rw-") == std::string::npos) {
-        ShmDump::read_inv_shm(filename.c_str());
+        fds::ShmDump::read_inv_shm(filename.c_str());
     } else {  // If we're printing a shared memory queue
-        ShmDump::read_queue_shm(filename.c_str());
+        fds::ShmDump::read_queue_shm(filename.c_str());
     }
 
     return 0;

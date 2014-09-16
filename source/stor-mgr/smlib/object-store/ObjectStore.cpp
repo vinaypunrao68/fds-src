@@ -22,6 +22,11 @@ ObjectStore::ObjectStore(const std::string &modName,
 ObjectStore::~ObjectStore() {
 }
 
+void
+ObjectStore::setNumBitsPerToken(fds_uint32_t nbits) {
+    metaStore->setNumBitsPerToken(nbits);
+}
+
 Error
 ObjectStore::addVolume(const VolumeDesc& volDesc) {
     Error err(ERR_OK);
@@ -40,13 +45,16 @@ ObjectStore::putObject(fds_volid_t volId,
                        const ObjectID &objId,
                        boost::shared_ptr<const std::string> objData) {
     Error err(ERR_OK);
+    diskio::DataTier useTier = diskio::maxTier;
     GLOGTRACE << "Putting object " << objId;
 
+    // New object metadata to update the refcnts
+    ObjMetaData::ptr updatedMeta;
+
     // Get metadata from metadata store
-    ObjMetaData::ptr objMeta(new ObjMetaData());
-    err = metaStore->getObjectMetadata(volId, objId, objMeta);
-    if (err.ok()) {
-        /* While sync is going on we can have metadata but object could be missing */
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
+    if (err == ERR_OK) {
+        // While sync is going on we can have metadata but object could be missing
         if (!objMeta->dataPhysicallyExists()) {
             // fds_verify(isTokenInSyncMode(getDLT()->getToken(objId)));
             LOGNORMAL << "Got metadata but not data " << objId
@@ -55,71 +63,72 @@ ObjectStore::putObject(fds_volid_t volId,
             // TODO(Anna) revisit this path when porting migration,
             // in the existing implementation, we would write new data to data store
             // and updating the existing metadata is this what we want?
-            fds_verify(err.ok());  // implement
+            fds_panic("Missing data in the persistent layer!");  // implement
         }
-    }
 
-    if (err.ok()) {
-        // object already exists, check if duplicate
-        // read object from object data store
-        boost::shared_ptr<std::string> existObjData;
-        err = dataStore->getObjectData(volId, objId, existObjData);
-        // if we get an error, there are inconsistencies between
-        // data and metadata; assert for now
-        fds_verify(err.ok());
+        if (conf_verify_data == true) {
+            // verify data -- read object from object data store
+            boost::shared_ptr<const std::string> existObjData;
+            // if we get an error, there are inconsistencies between
+            // data and metadata; assert for now
+            fds_verify(dataStore->getObjectData(volId, objId, objMeta, existObjData) == ERR_OK);
 
-        // check if data is the same
-        if (*existObjData == *objData) {
-            // data is duplicate, update assoc entry for de-duping
-            // TODO(Anna) update counter, should do in SM processing layer,
-            // when return err is ERR_DUPLICATE
-            std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
-            objMeta->getVolsRefcnt(vols_refcnt);
-            objMeta->updateAssocEntry(objId, volId);
-            volumeTbl->updateDupObj(volId, objId,
-                                    objData->size(), true, vols_refcnt);
-            err = ERR_DUPLICATE;
-        } else {
-            // handle hash-collision
-            if (conf_verify_data) {
-                ObjectID putBufObjId;
-                putBufObjId = ObjIdGen::genObjectId(objData->c_str(),
-                                                    objData->size());
-                LOGNORMAL << " Network-RPC ObjectId: " << putBufObjId.ToHex().c_str()
-                          << " err  " << err;
-                if (putBufObjId != objId) {
-                    err = ERR_NETWORK_CORRUPT;
-                }
-            } else {
-                err = ERR_HASH_COLLISION;
-                fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
-                          objId.ToHex().c_str());
+            // check if data is the same
+            if (*existObjData != *objData) {
+                    fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
+                              objId.ToHex().c_str());
             }
-        }
+        }  // if (conf_verify_data == true)
+
+        // TODO(Anna) update dup counter
+
+        // Create new object metadata to update the refcnts
+        updatedMeta.reset(new ObjMetaData(objMeta));
+
+        err = ERR_DUPLICATE;
+    } else {  // if (getMetadata != OK)
+        // We didn't find any metadata, make sure it was just not there and reset
+        fds_verify(err == ERR_NOT_FOUND);
+        err = ERR_OK;
+        updatedMeta.reset(new ObjMetaData());
+        updatedMeta->initialize(objId, objData->size());
     }
 
-    // Put data in store. We expect the data put to be atomic.
+    fds_verify(err.ok() || (err == ERR_DUPLICATE));
+
+    // either new data or dup, update assoc entry
+    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    updatedMeta->getVolsRefcnt(vols_refcnt);
+    updatedMeta->updateAssocEntry(objId, volId);
+    volumeTbl->updateDupObj(volId,
+                            objId,
+                            objData->size(),
+                            true,
+                            vols_refcnt);
+
+
+    // Put data in store if it's not a duplicate. We expect the data put to be atomic.
     // If we crash after the writing the data but before writing
     // the metadata, the orphaned object data will get cleaned up
     // on a subsequent scavenger pass.
     if (err.ok()) {
         // object not duplicate
-        // TODO(Anna) call tier = tierEngine->selectTier(objId, volId);
-        // and pass tier to dataStore
-        err = dataStore->putObjectData(volId, objId, objData);
+        // TODO(Anna) call tierEngine->selectTier(objId, volId);
+        useTier = diskio::diskTier;
+        obj_phy_loc_t objPhyLoc;  // will be set by data store
+        err = dataStore->putObjectData(volId, objId, useTier, objData, objPhyLoc);
         if (!err.ok()) {
             LOGERROR << "Failed to write " << objId << " to obj data store "
                      << err;
             return err;
         }
+
+        // update physical location that we got from data store
+        updatedMeta->updatePhysLocation(&objPhyLoc);
     }
 
-    // write metadata to metadata store
-    fds_verify(err.ok() || (err == ERR_DUPLICATE));
-    // update timestamps!
-    // NOTE this assumes that ObjectStore::putObject only used for
-    // data path (not backgroud process, etc)
-    // TODO(Anna) pass int64_t origin timestamp as param to this method
+    // TODO(Anna) When we review SM -> SM migration, review if we need origin timestamp
+    // Would need to pass int64_t origin timestamp as param to this method
     /*
     if (md.obj_map.obj_create_time == 0) {                                                                                                                                                    
         md.obj_map.obj_create_time = opCtx.ts;
@@ -127,11 +136,13 @@ ObjectStore::putObject(fds_volid_t volId,
     md.obj_map.assoc_mod_time = opCtx.ts;
     */
 
-    Error err_putmeta = metaStore->putObjectMetadata(volId, objId, objMeta);
-    if (err_putmeta.ok() && err.ok()) {
-        // data not dup and put data and metadata were successful
-        // TODO(Anna) if written to flash, notify tier engine to add this obj for
-        // write back thread
+    // write metadata to metadata store
+    err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
+    if (err.ok() && (useTier == diskio::flashTier)) {
+        // TODO(Anna) update PUT_SSD_OBJ counter
+        // TODO(Anna) if media policy not ssd, add to dirty flash list
+    } else if (err.ok() && (useTier == diskio::diskTier)) {
+        // TODO(Anna) update PUT_HDD_OBJ counter
     }
 
     return err;
@@ -151,6 +162,51 @@ ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId) {
     Error err(ERR_OK);
 
+    // New object metadata to update the refcnts
+    ObjMetaData::ptr updatedMeta;
+
+    // Get metadata from metadata store
+    ObjMetaData::const_ptr objMeta =
+            metaStore->getObjectMetadata(volId, objId, err);
+    if (err != ERR_OK) {
+        // TODO(xxx) getObjectMetadata returns same error for no key
+        // or other error; should differentiate errors
+        // for now assume this error means the key just did not exist
+        LOGDEBUG << "Not able to read existing object locations, "
+                 << "assuming no prior entry existed " << objId;
+        return ERR_OK;
+    }
+
+    // Create new object metadata to update the refcnts
+    updatedMeta.reset(new ObjMetaData(objMeta));
+    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    updatedMeta->getVolsRefcnt(vols_refcnt);
+    // remove volume assoc entry
+    updatedMeta->deleteAssocEntry(objId, volId, fds::util::getTimeStampMillis());
+
+    // first write metadata to metadata store, even if removing
+    // object from data store cache fails, it is ok
+    err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
+    if (err.ok()) {
+        volumeTbl->updateDupObj(volId,
+                                objId,
+                                updatedMeta->getObjSize(),
+                                false,
+                                vols_refcnt);
+        LOGDEBUG << "Decremented refcnt for object " << objId
+                 << " " << *updatedMeta << " refcnt: "
+                 << updatedMeta->getRefCnt();
+    } else {
+        LOGERROR << "Failed to update metadata for object " << objId
+                 << " " << err;
+        return err;
+    }
+
+    // if refcnt is 0, notify data store so it can remove cache entry, etc
+    if (updatedMeta->getRefCnt() < 1) {
+        err = dataStore->removeObjectData(objId, updatedMeta);
+    }
+
     return err;
 }
 
@@ -160,6 +216,8 @@ ObjectStore::deleteObject(fds_volid_t volId,
 int
 ObjectStore::mod_init(SysParams const *const p) {
     Module::mod_init(p);
+
+    dataStore->mod_init(p);
 
     const FdsRootDir *fdsroot = g_fdsprocess->proc_fdsroot();
     conf_verify_data = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.data_verify");

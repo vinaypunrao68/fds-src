@@ -605,7 +605,7 @@ DataIO::disk_loc_path_info(fds_uint16_t loc_id, std::string *path)
 void
 diskio::DataIO::disk_delete_obj(meta_obj_id_t const *const oid,
                                 fds_uint32_t obj_size,
-                                obj_phy_loc_t* loc)
+                                const obj_phy_loc_t* loc)
 {
     PersisDataIO   *iop;
     iop = gl_dataIOMod.disk_hdd_disk((DataTier)loc->obj_tier,

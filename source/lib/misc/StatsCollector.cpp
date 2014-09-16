@@ -4,8 +4,10 @@
 
 #include <string>
 #include <vector>
+#include <fds_process.h>
 #include <net/SvcRequestPool.h>
 #include <StatsCollector.h>
+#include <lib/OMgrClient.h>
 
 namespace fds {
 

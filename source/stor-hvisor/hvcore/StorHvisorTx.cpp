@@ -7,6 +7,7 @@
 #include <hash/MurmurHash3.h>
 #include <arpa/inet.h>
 #include <fds_timestamp.h>
+#include <platform/platform-lib.h>
 
 using namespace std;
 using namespace FDS_ProtocolInterface;

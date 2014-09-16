@@ -29,7 +29,6 @@ extern "C" {
 #include "fdsp/FDSP_DataPathResp.h"
 #include "fds_volume.h"
 #include "fds_types.h"
-#include "ObjLoc.h"
 #include "odb.h"
 #include "util/Log.h"
 #include "StorMgrVolumes.h"

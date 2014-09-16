@@ -38,8 +38,8 @@ class ObjectMetadataDb {
     /**
      * Get object metadata from the database
      */
-    Error get(const ObjectID& objId,
-              ObjMetaData::ptr objMeta);
+    ObjMetaData::const_ptr get(const ObjectID& objId,
+                               Error &err);
 
     /**
      * Put object metadata to the database

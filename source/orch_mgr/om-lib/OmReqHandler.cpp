@@ -6,6 +6,8 @@
 #include <string>
 #include <orchMgr.h>
 #include <OmResources.h>
+#include <platform/node-inv-shmem.h>
+
 #undef LOGGERPTR
 #define LOGGERPTR orchMgr->GetLog()
 namespace fds {
@@ -600,18 +602,25 @@ void FDSP_ConfigPathReqHandler::ListServices(
 
 static void add_to_vector(std::vector<FDSP_Node_Info_Type> &vec,  // NOLINT
                           NodeAgent::pointer ptr) {
-    const NodeInvData *nodeData = ptr->get_inventory_data();
-    NodeUuid uuid = nodeData->nd_uuid;
+    Platform     *plat;
+    node_data_t   ndata;
+    fds_uint32_t  base;
+
+    base = ptr->node_base_port();
+    plat = Platform::platf_singleton();
+
+    ptr->node_info_frm_shm(&ndata);
+    NodeUuid uuid = ndata.nd_node_uuid;
     FDSP_Node_Info_Type nodeInfo = FDSP_Node_Info_Type();
-    nodeInfo.node_uuid = nodeData->nd_uuid.uuid_get_val();
-    nodeInfo.service_uuid = nodeData->nd_service_uuid.uuid_get_val();
-    nodeInfo.node_name = nodeData->nd_node_name;
-    nodeInfo.node_type = nodeData->nd_node_type;
-    nodeInfo.node_state = nodeData->nd_node_state;
-    nodeInfo.ip_lo_addr = nodeData->nd_ip_addr;
-    nodeInfo.control_port = nodeData->nd_data_port;
-    nodeInfo.data_port = nodeData->nd_data_port;
-    nodeInfo.migration_port = nodeData->nd_migration_port;
+    nodeInfo.node_uuid = ndata.nd_node_uuid;
+    nodeInfo.service_uuid = ndata.nd_service_uuid;
+    nodeInfo.node_name = ptr->get_node_name();
+    nodeInfo.node_type = ndata.nd_svc_type;
+    nodeInfo.node_state = ptr->node_state();
+    nodeInfo.ip_lo_addr = netSession::ipString2Addr(ptr->get_ip_str());
+    nodeInfo.control_port = plat->plf_get_my_ctrl_port(base);
+    nodeInfo.data_port = plat->plf_get_my_data_port(base);
+    nodeInfo.migration_port = plat->plf_get_my_migration_port(base);
     vec.push_back(nodeInfo);
 }
 

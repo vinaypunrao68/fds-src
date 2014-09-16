@@ -3,16 +3,6 @@
 #include <fds_error.h>
 #include <fds_volume.h>
 
-#if 0
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <ifaddrs.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <thread>
-#endif
-
 #include "fdsp/FDSP_types.h"
 #include "fdsp/FDSP_ControlPathReq.h"
 #include "fdsp/FDSP_OMControlPathReq.h"
@@ -25,7 +15,7 @@
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <LocalClusterMap.h>
-#include <platform/platform-lib.h>
+// #include <platform/platform-lib.h>
 
 using namespace FDS_ProtocolInterface;
 
@@ -37,6 +27,8 @@ using namespace FDS_ProtocolInterface;
 #define FDS_VOL_ACTION_DETACH 5
 
 namespace fds {
+
+class Platform;
 
   typedef enum {
     fds_notify_vol_default = 0,
@@ -142,7 +134,7 @@ namespace fds {
 
   public:
 
-    OMgrClient(FDSP_MgrIdType node_type,
+    OMgrClient(fpi::FDSP_MgrIdType node_type,
                const std::string& _omIpStr,
                fds_uint32_t _omPort,
                const std::string& node_name,

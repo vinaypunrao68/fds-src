@@ -13,7 +13,7 @@
 
 namespace fds {
 
-class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
+class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
  public:
     DMSvcHandler();
 

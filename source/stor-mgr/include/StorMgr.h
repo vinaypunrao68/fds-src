@@ -72,6 +72,9 @@ extern "C" {
 #define FDS_MAX_WAITING_CONNS  10
 
 namespace fds {
+
+extern ObjectStorMgr *objStorMgr;
+
 using DPReqClientPtr = boost::shared_ptr<FDSP_DataPathReqClient>;
 using DPRespClientPtr = boost::shared_ptr<FDSP_DataPathRespClient>;
 void log_ocache_stats();

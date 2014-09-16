@@ -15,25 +15,12 @@ class PlatNetSvcClient;
 class PlatNetSvcProcessor;
 }
 
+
 namespace fds {
 
 /* Forward declarations */
 class AmPlatform;
 class PlatNetSvcHandler;
-
-class AmVolEvent : public VolPlatEvent
-{
-  public:
-    typedef boost::intrusive_ptr<AmVolEvent> pointer;
-    typedef boost::intrusive_ptr<const AmVolEvent> const_ptr;
-
-    virtual ~AmVolEvent() {}
-    AmVolEvent(DomainResources::pointer   mgr,
-               DomainClusterMap::pointer  clus,
-               const Platform            *plf) : VolPlatEvent(mgr, clus, plf) {}
-
-    virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
-};
 
 /**
  * This class provides plugin for the endpoint run by SmPlatform
@@ -71,12 +58,9 @@ class AmPlatform : public Platform
     virtual void mod_enable_service() override;
     virtual void mod_shutdown() override;
 
-    virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler();
+    virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler() override;
 
   protected:
-    virtual PlatRpcReqt *plat_creat_reqt_disp();
-    virtual PlatRpcResp *plat_creat_resp_disp();
-
     void registerFlags();
 
     AMEpPlugin::pointer           am_plugin;
@@ -121,6 +105,9 @@ class AmRpcReq : public PlatRpcReqt
 
   protected:
     virtual ~AmRpcReq();
+    AMEpPlugin::pointer                am_plugin;
+    bo::shared_ptr<AMSvcHandler>  am_recv;
+    EndPoint<fpi::AMSvcClient, fpi::PlatNetSvcProcessor>::pointer am_ep;
 };
 
 extern AmPlatform gl_AmPlatform;

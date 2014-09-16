@@ -13,10 +13,11 @@ TracebufferPool::TracebufferPool(int poolEntryCnt)
     pool_ = new TraceEntry[poolEntryCnt];
     freelistHead_ = pool_;
 
-    for (int i = 1; i < poolEntryCnt; i++) {
-        pool_[i-1].next = &(pool_[i]);
+    int i = 0;
+    for (i = 0; i < poolEntryCnt-1; i++) {
+        pool_[i].next = &(pool_[i+1]);
     }
-    pool_[poolEntryCnt].next = nullptr;
+    pool_[i].next = nullptr;
 }
 
 TracebufferPool::~TracebufferPool()

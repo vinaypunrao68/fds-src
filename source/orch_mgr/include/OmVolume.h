@@ -140,7 +140,7 @@ typedef struct om_vol_msg_s
     fpi::FDSP_MsgCodeType            vol_msg_code;
     fpi::FDSP_MsgHdrTypePtr         *vol_msg_hdr;
     union {
-        FDSP_BucketStatType         *vol_stats;
+        fpi::FDSP_BucketStatType    *vol_stats;
         FdspNotVolPtr               *vol_notif;
         FdspAttVolPtr               *vol_attach;
     } u;
@@ -162,7 +162,7 @@ class VolumeInfo : public Resource
     }
 
     void vol_mk_description(const fpi::FDSP_VolumeInfoType &info);
-    void vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const;
+    void vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const;
     void vol_fmt_message(om_vol_msg_t *out);
     void vol_send_message(om_vol_msg_t *out, NodeAgent::pointer dest);
 
@@ -360,19 +360,19 @@ class VolumeContainer : public RsContainer
      * Volume functions.
      */
     virtual VolumeInfo::pointer get_volume(const std::string& vol_name);
-    virtual Error om_create_vol(const FDSP_MsgHdrTypePtr  &hdr,
-                                const FdspCrtVolPtr       &creat_msg,
+    virtual Error om_create_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
+                                const FdspCrtVolPtr           &creat_msg,
                                 fds_bool_t from_omcontrol_path);
-    virtual Error om_snap_vol(const FDSP_MsgHdrTypePtr  &hdr,
-                                const FdspCrtVolPtr       &snap_msg);
-    virtual Error om_delete_vol(const FDSP_MsgHdrTypePtr  &hdr,
-                                const FdspDelVolPtr &del_msg);
+    virtual Error om_snap_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
+                              const FdspCrtVolPtr           &snap_msg);
+    virtual Error om_delete_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
+                                const FdspDelVolPtr           &del_msg);
     Error om_delete_vol(fds_volid_t volId);
     virtual Error om_modify_vol(const FdspModVolPtr &mod_msg);
-    virtual Error om_attach_vol(const FDSP_MsgHdrTypePtr  &hdr,
-                                const FdspAttVolCmdPtr    &attach);
-    virtual Error om_detach_vol(const FDSP_MsgHdrTypePtr  &hdr,
-                                const FdspAttVolCmdPtr    &detach);
+    virtual Error om_attach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
+                                const FdspAttVolCmdPtr        &attach);
+    virtual Error om_detach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
+                                const FdspAttVolCmdPtr        &detach);
     virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
                                 const FdspTestBucketPtr &req);
     void om_vol_cmd_resp(VolumeInfo::pointer vol,
@@ -395,7 +395,7 @@ class VolumeContainer : public RsContainer
      * Handling responses for volume events
      */
     virtual void om_notify_vol_resp(om_vol_notify_t type,
-                                    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+                                    fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                                     const std::string& vol_name,
                                     const ResourceUUID& vol_uuid);
 
