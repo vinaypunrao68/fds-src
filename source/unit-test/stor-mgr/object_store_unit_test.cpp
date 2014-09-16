@@ -16,7 +16,7 @@
 
 namespace fds {
 
-static const fds_uint32_t MAX_TEST_OBJ = 1000;
+static const fds_uint32_t MAX_TEST_OBJ = 255;
 static const fds_uint32_t MAX_VOLUMES = 50;
 
 static fds_uint32_t keyCounter = 0;

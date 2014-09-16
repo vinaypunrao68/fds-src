@@ -16,6 +16,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <set>
 #include <DmBlobTypes.h>
 
 namespace fds {
@@ -110,6 +111,13 @@ class BlobExtent: public serialize::Serializable {
      * the list gets updated, not cleared first
      */
     void deleteAllObjects(std::vector<ObjectID>* ret_rm_list);
+
+    /**
+     * Get all objects from this extent
+     *
+     * @param[in,out] ojIds set of objects
+     */
+    void getAllObjects(std::set<ObjectID> & objIds);
 
     /**
      * Appends offset to object mappings from this extent to blob_obj_list

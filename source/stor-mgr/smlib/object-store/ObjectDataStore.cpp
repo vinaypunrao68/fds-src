@@ -8,8 +8,7 @@
 namespace fds {
 
 ObjectDataStore::ObjectDataStore(const std::string &modName)
-        : Module(modName.c_str()),
-          diskMgr(&(diskio::DataIO::disk_singleton())) {
+        : Module(modName.c_str()) {
     dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));
 }
 
@@ -30,6 +29,7 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     fds_bool_t       sync = true;
     // TODO(Andrew): Should take a shared_ptr not a raw object buf
     ObjectBuf objBuf(*objData);
+    memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
     SmPlReq *plReq =
             new SmPlReq(vio, oid,
                         const_cast<ObjectBuf *>(&objBuf),
@@ -73,6 +73,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
     // fastest tier is...This should request a tier
     diskio::DataTier tier = diskio::diskTier;
     ObjectBuf       objBuf;
+    memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
     SmPlReq *plReq = new SmPlReq(vio,
                                  oid,
                                  static_cast<ObjectBuf *>(&objBuf),
@@ -128,6 +129,7 @@ ObjectDataStore::removeObjectData(const ObjectID& objId,
 int
 ObjectDataStore::mod_init(SysParams const *const p) {
     Module::mod_init(p);
+    diskMgr = &(diskio::DataIO::disk_singleton());
     dataCache->mod_init(p);
     return 0;
 }

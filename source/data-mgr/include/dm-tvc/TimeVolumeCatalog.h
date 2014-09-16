@@ -5,6 +5,7 @@
 #define SOURCE_DATA_MGR_INCLUDE_DM_TVC_TIMEVOLUMECATALOG_H_
 
 #include <string>
+#include <vector>
 #include <functional>
 #include <fds_error.h>
 #include <fds_module.h>
@@ -58,6 +59,12 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      */
     DmVolumeCatalog::ptr volcat;
 
+    // as the configuration will not be refreshed frequently, we can read it without lock
+    FdsConfigAccessor config_helper_;
+
+    // threadpool
+    fds_threadpool & tp_;
+
     /**
      * Notifies TVC of transactions that have been persisted
      * in the volume catalog. The notification allows the TVC
@@ -67,9 +74,6 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * @return none
      */
     void notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList);
-
-    // as the configuration will not be refreshed frequently, we can read it without lock
-    FdsConfigAccessor config_helper_;
 
   public:
     /**
@@ -105,6 +109,13 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * Create copy of the volmume  for snapshot/clone
      */
     Error copyVolume(VolumeDesc & voldesc);
+
+    /**
+     * Increment object reference counts for all objects refered by source
+     * volume. Sends message to SM with list of object IDs.
+     */
+    void incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId, fds_token_id token,
+            boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > objIds);
 
     /**
      * Prepare TVC and Volume Catalog to accept requests for
