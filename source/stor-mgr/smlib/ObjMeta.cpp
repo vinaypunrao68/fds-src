@@ -429,7 +429,7 @@ ObjMetaData::getVolsRefcnt(std::map<fds_volid_t,
  * @param vol_id
  * @return
  */
-fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id)
+fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id) const
 {
     for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
         if (vol_id == assoc_entry[i].vol_uuid) {

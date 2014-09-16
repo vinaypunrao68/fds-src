@@ -130,15 +130,17 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 
 Error
 DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc) {
-    Error rc;
+    Error rc(ERR_OK);
     DmCommitLog::ptr commitLog;
-    COMMITLOG_GET(voldesc.volUUID, commitLog);
+    COMMITLOG_GET(voldesc.srcVolumeId, commitLog);
     fds_assert(commitLog);
 
+    LOGDEBUG << "Creating a snapshot '" << voldesc.name << "' of a volume '"
+            << voldesc.volUUID << "'"  << "srcVolume: "<< voldesc.srcVolumeId;
     if (voldesc.isSnapshot()) {
         // Put snapshot entry into volume operation journal
         // Also start buffering
-        BlobTxId::const_ptr txId(new BlobTxId(voldesc.volUUID));
+        BlobTxId::const_ptr txId(new BlobTxId(voldesc.srcVolumeId));
         rc = commitLog->snapshot(txId, voldesc.name);
         if (!rc.ok()) {
             GLOGERROR << "Failed to write entry into commit log for snapshot '" << std::hex <<
