@@ -43,6 +43,7 @@ needed_packages=(
     flex
     ragel
     ccache
+    clang
 
     libboost-log1.54-dev
     libboost-program-options1.54-dev
