@@ -479,7 +479,7 @@ Error DmPersistVolCatalog::copyVolume(fds_volid_t srcVolId, fds_volid_t destVolI
     oss.str("");
     oss << root->dir_user_repo_dm();
     if (!snapshot) {
-        oss <<  srcVolId;
+        oss <<  destVolId;
     } else {
         oss << srcVolId << "/snapshot";
     }

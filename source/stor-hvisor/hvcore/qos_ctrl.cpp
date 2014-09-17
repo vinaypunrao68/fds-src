@@ -89,6 +89,10 @@ fds_uint32_t FDS_QoSControl::queueSize(fds_volid_t volId) {
     return dispatcher->count(volId);
 }
 
+FDS_VolumeQueue* FDS_QoSControl::getQueue(fds_volid_t queueId) {
+    return dispatcher->getQueue(queueId);
+}
+
 void FDS_QoSControl::quieseceIOs(fds_volid_t volUUID) {
   dispatcher->quiesceIOs(volUUID);
 }

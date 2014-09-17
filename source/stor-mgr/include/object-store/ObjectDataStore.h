@@ -45,10 +45,10 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     /**
      * Reads object data.
      */
-    Error getObjectData(fds_volid_t volId,
-                        const ObjectID &objId,
-                        ObjMetaData::const_ptr objMetaData,
-                        boost::shared_ptr<std::string> objData);
+    boost::shared_ptr<const std::string> getObjectData(fds_volid_t volId,
+                                                       const ObjectID &objId,
+                                                       ObjMetaData::const_ptr objMetaData,
+                                                       Error &err);
 
     /**
      * Removes object from cache and notifies persistent layer

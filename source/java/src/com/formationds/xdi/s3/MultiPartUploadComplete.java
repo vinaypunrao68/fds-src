@@ -86,8 +86,9 @@ public class MultiPartUploadComplete implements RequestHandler {
         List<PartInfo> partInfoList = mops.getParts();
 
         InputStream is = null;
+        String systemVolume = xdi.getSystemVolumeName(token);
         for(PartInfo bd : partInfoList) {
-            InputStream str = xdi.readStream(token, S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, bd.descriptor.getName());
+            InputStream str = xdi.readStream(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, bd.descriptor.getName());
             if(is == null)
                 is = str;
             else
@@ -98,8 +99,9 @@ public class MultiPartUploadComplete implements RequestHandler {
         // TODO: do this write asynchronously
         byte[] digest = xdi.writeStream(token, S3Endpoint.FDS_S3, bucket, objectName, is, metadata);
 
+
         for(PartInfo bd : partInfoList)
-            xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, bd.descriptor.getName());
+            xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, bd.descriptor.getName());
 
         XmlElement response = new XmlElement("CompleteMultipartUploadResult")
                 .withAttr("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/")

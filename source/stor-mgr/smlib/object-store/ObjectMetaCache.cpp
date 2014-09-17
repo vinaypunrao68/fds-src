@@ -52,12 +52,14 @@ ObjectMetaCache::putObjectMetadata(fds_volid_t volId,
             = metaCache->add(objId, objMeta);
 }
 
-Error
+ObjMetaData::const_ptr
 ObjectMetaCache::getObjectMetadata(fds_volid_t volId,
                                    const ObjectID &objId,
-                                   ObjMetaData::const_ptr objMeta) {
+                                   Error &err) {
     // Query the cache and touch the entry
-    return metaCache->get(objId, objMeta);
+    ObjMetaData::const_ptr objMeta;
+    err = metaCache->get(objId, objMeta);
+    return objMeta;
 }
 
 void

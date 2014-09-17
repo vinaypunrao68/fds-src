@@ -173,18 +173,12 @@ class StorHvVolumeTable : public HasLogger {
         moveWaitBlobsToQosQueue(invalid_vol_id, bucket_name, err);
     }
 
-  private:
-    /// handler for volume-related control message from OM
-    static Error volumeEventHandler(fds_volid_t vol_uuid,
-                                    VolumeDesc *vdb,
-                                    fds_vol_notify_t vol_action,
-                                    FDS_ProtocolInterface::FDSP_NotifyVolFlag,
-                                    FDS_ProtocolInterface::FDSP_ResultType);
     Error modifyVolumePolicy(fds_volid_t vol_uuid,
                              const VolumeDesc& vdesc);
     void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
                                  const std::string& vol_name,
                                  Error error);
+  private:
     /// print volume map, other detailed state to log
     void dump();
 

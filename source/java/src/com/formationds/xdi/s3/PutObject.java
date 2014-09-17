@@ -6,7 +6,10 @@ package com.formationds.xdi.s3;
 import com.formationds.apis.BlobDescriptor;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.XmlElement;
-import com.formationds.web.toolkit.*;
+import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
+import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
 import com.google.common.collect.Maps;
 import org.apache.commons.codec.binary.Hex;
@@ -56,7 +59,7 @@ public class PutObject implements RequestHandler {
                 throw new Exception("invalid part number");
 
             domain = S3Endpoint.FDS_S3_SYSTEM;
-            bucketName = S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME;
+            bucketName = xdi.getSystemVolumeName(token);
             objectName = mops.getPartName(partNumber);
         }
 

@@ -375,6 +375,8 @@ class VolumeContainer : public RsContainer
                                 const FdspAttVolCmdPtr        &detach);
     virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
                                 const FdspTestBucketPtr &req);
+    void om_vol_cmd_resp(VolumeInfo::pointer vol,
+        fpi::FDSPMsgTypeId cmd_type, const Error & error, NodeUuid from_svc);
 
     virtual Error getVolumeStatus(const std::string& volumeName);
 
@@ -397,6 +399,10 @@ class VolumeContainer : public RsContainer
                                     const std::string& vol_name,
                                     const ResourceUUID& vol_uuid);
 
+    virtual void om_notify_vol_resp(om_vol_notify_t type,
+                                    NodeUuid from_src, Error err,
+                                    const std::string& vol_name,
+                                    const ResourceUUID& vol_uuid);
     /**
      * Handle final deletion of the volume
      */

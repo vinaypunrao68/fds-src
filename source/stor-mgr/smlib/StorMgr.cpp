@@ -524,8 +524,6 @@ void ObjectStorMgr::mod_startup()
     omClient->initialize();
     omClient->registerEventHandlerForNodeEvents(
         (node_event_handler_t)nodeEventOmHandler);
-    omClient->registerEventHandlerForVolEvents(
-        (volume_event_handler_t)volEventOmHandler);
     omClient->registerEventHandlerForMigrateEvents(
         (migration_event_handler_t)migrationEventOmHandler);
     omClient->registerEventHandlerForDltCloseEvents(
@@ -541,6 +539,7 @@ void ObjectStorMgr::mod_startup()
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
     testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
 
+    omc_srv_pol = &sg_SMVolPolicyServ;
     setup_migration_svc(obj_dir);
 }
 
@@ -814,6 +813,13 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
         const std::string& session_uuid)
 {
+    // until we start getting dlt from platform, we need to path dlt
+    // width to object store, so that we can correctly map object ids
+    // to SM tokens
+    // TODO(anna): fix this
+    // const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
+    // objStorMgr->objectStore->setNumBitsPerToken(curDlt->getNumBitsForToken());
+
     fds_verify(objStorMgr->cached_dlt_close_.second == nullptr);
     objStorMgr->cached_dlt_close_.first = session_uuid;
     objStorMgr->cached_dlt_close_.second = dlt_close;
@@ -1172,12 +1178,12 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
      * Get existing object locations
      */
     err = readObjMetaData(objId, objMap);
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+    if (err != ERR_OK && err != ERR_NOT_FOUND) {
         LOGERROR << "Failed to read existing object locations"
                     << " during location write";
         smObjDb->unlock(objId);
         return err;
-     } else if (err == ERR_DISK_READ_FAILED) {
+     } else if (err == ERR_NOT_FOUND) {
             /*
              * Assume this error means the key just did not exist.
              * TODO: Add an err to differention "no key" from "failed read".
@@ -1244,7 +1250,7 @@ ObjectStorMgr::readObjMetaData(const ObjectID &objId,
         /* While sync is going on we can have metadata but object could be missing */
         if (!objMap.dataPhysicallyExists()) {
             fds_verify(isTokenInSyncMode(getDLT()->getToken(objId)));
-            err = ERR_DISK_READ_FAILED;
+            err = ERR_SM_OBJECT_DATA_MISSING;
         }
     } else {
         LOGNORMAL << "unable to read object meta: " << objId;
@@ -1263,12 +1269,12 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
      * Get existing object locations
      */
     err = readObjMetaData(objId, objMap);
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+    if (err != ERR_OK && err != ERR_NOT_FOUND) {
         LOGERROR << "Failed to read existing object locations"
                 << " during location write";
         smObjDb->unlock(objId);
         return err;
-    } else if (err == ERR_DISK_READ_FAILED) {
+    } else if (err == ERR_NOT_FOUND) {
         /*
          * Assume this error means the key just did not exist.
          * TODO: Add an err to differention "no key" from "failed read".
@@ -1355,7 +1361,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
      * Read all of the object's locations
      */
     {
-        PerfContext tmp_pctx(GET_METADATA_READ, volId, "volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(SM_OBJ_METADATA_DB_READ, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = readObjMetaData(objId, objMetadata);
     }
@@ -1383,7 +1389,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
         objData.data.resize(objData.size, 0);
         // Now Read the object buffer from the disk
         {
-            PerfContext tmp_pctx(GET_DISK_READ, volId, "volume:" + std::to_string(volId));
+            PerfContext tmp_pctx(SM_OBJ_DATA_DISK_READ, volId, "volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             err = dio_mgr.disk_read(disk_req);
         }
@@ -1469,7 +1475,7 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
                             objId.ToHex().c_str());
             }
         }
-    } else if (err == ERR_DISK_READ_FAILED) {
+    } else if (err == ERR_NOT_FOUND) {
         /*
          * This error indicates the DB entry was empty
          * so we can reset the error to OK.
@@ -1544,7 +1550,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
                            true, tier);  // blocking call
     {
         // TODO(matteo): move ctx in disk_req
-        PerfContext tmp_pctx(PUT_DISK_WRITE,
+        PerfContext tmp_pctx(SM_OBJ_DATA_DISK_WRITE,
                              volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         // TODO(Matteo) inside or around this function, it could be non blocking
@@ -1558,7 +1564,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     {
         // TODO(Matteo): look inside. This is for metadata.
         // Initially we probably want just leveldb get and put
-        PerfContext tmp_pctx(PUT_METADATA_WRITE, volId, "volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(SM_OBJ_METADATA_DB_WRITE, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = writeObjectMetaData(opCtx, objId, objData.data.length(),
                 disk_req->req_get_phy_loc(), false, diskio::diskTier, &vio);
@@ -1732,7 +1738,7 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
     if (objBufPtr != NULL) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
 
-        PerfTracer::incr(PUT_CACHE_HIT, volId, putReq->perfNameStr);
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, putReq->perfNameStr);
 
         // Now check for dedup here.
         if (objBufPtr->data == putReq->data_obj) {
@@ -1944,7 +1950,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     if (objBufPtr != NULL) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
 
-        PerfTracer::incr(PUT_CACHE_HIT, volId, putReq->perfNameStr);
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, putReq->perfNameStr);
 
         // Now check for dedup here.
         if (objBufPtr->data == putObjReq->data_obj) {
@@ -2277,7 +2283,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
-        PerfTracer::incr(DELETE_CACHE_HIT, volId, delReq->perfNameStr);
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, delReq->perfNameStr);
         objCache->object_release(volId, objId, objBufPtr);
         objCache->object_delete(volId, objId);
     }
@@ -2287,7 +2293,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
     {
-        PerfContext tmp_pctx(DELETE_METADATA, volId, "volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
     }
@@ -2299,7 +2305,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
             // tell persistent layer we deleted the object so that garbage collection
             // knows how much disk space we need to clean
             memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-            PerfContext tmp_pctx(DELETE_DISK, volId, "volume:" + std::to_string(volId));
+            PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
                 dio_mgr.disk_delete_obj(&oid,
@@ -2373,7 +2379,7 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
 
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
-        PerfTracer::incr(DELETE_CACHE_HIT, volId, delReq->perfNameStr);
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, delReq->perfNameStr);
         objCache->object_release(volId, objId, objBufPtr);
         objCache->object_delete(volId, objId);
     }
@@ -2383,7 +2389,7 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
     {
-        PerfContext tmp_pctx(DELETE_METADATA, volId, "volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
     }
@@ -2395,7 +2401,7 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
             // tell persistent layer we deleted the object so that garbage collection
             // knows how much disk space we need to clean
             memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-            PerfContext tmp_pctx(DELETE_DISK, volId, "volume:" + std::to_string(volId));
+            PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
                 dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
@@ -2590,7 +2596,7 @@ ObjectStorMgr::getObjectInternalSvc(SmIoReadObjectdata *getReq) {
             }
         }
     } else {
-        PerfTracer::incr(GET_CACHE_HIT, volId, getReq->perfNameStr);
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, getReq->perfNameStr);
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
     }
 
@@ -2682,7 +2688,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
             }
         }
     } else {
-        PerfTracer::incr(GET_CACHE_HIT, volId, getReq->perfNameStr);
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, getReq->perfNameStr);
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
     }
 
@@ -3043,7 +3049,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
 
         ObjMetaData objMetadata;
         err = smObjDb->get(objId, objMetadata);
-        if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+        if (err != ERR_OK && err != ERR_NOT_FOUND) {
             fds_assert(!"ObjMetadata read failed");
             LOGERROR << "Failed to write the object: " << objId;
             break;
@@ -3285,7 +3291,7 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
     ObjectID objId = applydata_entry->obj_id;
     ObjMetaData objMetadata;
     Error err = smObjDb->get(objId, objMetadata);
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+    if (err != ERR_OK && err != ERR_NOT_FOUND) {
         fds_assert(!"ObjMetadata read failed");
         LOGERROR << "Failed to write the object: " << objId;
         qosCtrl->markIODone(*applydata_entry,
