@@ -36,7 +36,7 @@ class DeleteScheduler : public HasLogger {
     PriorityQueue pq;
 
     // map of policyid to internal map handle
-    std::map<fds_volid_t, PriorityQueue::handle_type*> handleMap;
+    std::map<fds_volid_t, PriorityQueue::handle_type> handleMap;
 
     // monitor to sleep & notify
     apache::thrift::concurrency::Monitor monitor;

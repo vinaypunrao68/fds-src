@@ -33,22 +33,20 @@ bool DeleteScheduler::addSnapshot(const fpi::Snapshot& snapshot) {
     auto handleptr = handleMap.find(snapshot.volumeId);
     if (handleptr != handleMap.end()) {
         // volume already exists
-        LOGDEBUG << "volume already exists : " << snapshot.volumeId;
-        DeleteTask* task = handleptr->second->node_->value;
+        DeleteTask* task = *handleptr->second;
         if (task->runAtTime > deleteTime) {
             LOGDEBUG << "updating runAt for vol:" << snapshot.volumeId
-                     << " @ " << deleteTime;
+                     << " @ " << fds::util::getLocalTimeString(deleteTime);
             task->runAtTime = deleteTime;
-            pq.erase(*(handleptr->second));
-            auto handle = pq.push(task);
-            handleMap[snapshot.volumeId] = &handle;
+            pq.update(handleptr->second);
         }
     } else {
         DeleteTask* task = new DeleteTask();
         task->volumeId = snapshot.volumeId;
-        auto handle = pq.push(task);
-        handleMap[snapshot.volumeId] = &handle;
-        LOGDEBUG << "new volume:" << snapshot.volumeId << " @ " << deleteTime;
+        task->runAtTime = deleteTime;
+        handleMap[snapshot.volumeId] = pq.push(task);
+        LOGDEBUG << "new volumeinfo :" << snapshot.volumeId
+                 << " @ " << fds::util::getLocalTimeString(deleteTime);
         fModified = true;
     }
 
@@ -60,9 +58,10 @@ bool DeleteScheduler::addSnapshot(const fpi::Snapshot& snapshot) {
 
 bool DeleteScheduler::removeVolume(fds_volid_t volumeId) {
     atc::Synchronized s(monitor);
+    LOGDEBUG << "remove volume command rcvd..";
     auto handleptr = handleMap.find(volumeId);
     if (handleptr != handleMap.end()) {
-        pq.erase(*(handleptr->second));
+        pq.erase(handleptr->second);
         handleMap.erase(handleptr);
         ping();
         LOGDEBUG << "removed volume from scheduler, id:" << volumeId;
@@ -102,17 +101,20 @@ void DeleteScheduler::run() {
             DeleteTask* task;
             uint64_t currentTime = fds::util::getTimeStampSeconds();
             task = pq.top();
-            LOGDEBUG << "curTime:" << currentTime << " next:" << task->runAtTime;
+            LOGDEBUG << "curTime:" << fds::util::getLocalTimeString(currentTime)
+                     << " next:" << fds::util::getLocalTimeString(task->runAtTime);
             dump();
             if (task->runAtTime > currentTime) {
                 // there is no task to be executed at the time
                 LOGDEBUG << "going into wait ...";
                 monitor.waitForTimeRelative((task->runAtTime - currentTime)*1000);  // ms
             } else {
-                // to be executed now ..
-                LOGDEBUG << "processing volumeid:" << task->volumeId;
+                // to be executed now
                 uint64_t nextTime = taskProcessor->process(*task);
-
+                LOGDEBUG << "processed volumeid:"
+                         << task->volumeId
+                         << " next @ " << fds::util::getLocalTimeString(nextTime)
+                         << ":" << nextTime;
                 // now check the next time & reschedule the task
                 auto handleptr = handleMap.find(task->volumeId);
                 if (handleptr == handleMap.end()) {
@@ -123,13 +125,10 @@ void DeleteScheduler::run() {
                 if (nextTime > currentTime) {
                     task->runAtTime = nextTime;
                     LOGDEBUG << "rescheduling volume:" << task->volumeId
-                             << " @ " << task->runAtTime;
-                    pq.pop();
-                    auto handle = pq.push(task);
-                    handleMap[task->volumeId] = &handle;
-                    // pq.update(*(handleptr->second), task);
+                             << " @ " << fds::util::getLocalTimeString(task->runAtTime);
+                    pq.update(handleptr->second);
                 } else {
-                    LOGWARN << "no more recurrence of this volume: " << task->volumeId;
+                    LOGWARN << "no more snapshots to be monitored for volume: " << task->volumeId;
                     pq.pop();
                     handleMap.erase(handleptr);
                 }

@@ -18,6 +18,10 @@ struct DeleteTask {
 
     bool operator < (const DeleteTask& task) const;
     friend std::ostream& operator<<(std::ostream& os, const DeleteTask& task);
+    ~DeleteTask() {
+        int a = 0;
+        a = 3;
+    }
 };
 
 struct DeleteTaskProcessor {

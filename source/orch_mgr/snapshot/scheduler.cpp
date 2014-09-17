@@ -28,18 +28,17 @@ bool Scheduler::addPolicy(const fpi::SnapshotPolicy& policy) {
     if (handleptr != handleMap.end()) {
         // policy already exists
         LOGDEBUG << "policy already exists : " << policy.id;
-        Task* task = handleptr->second->node_->value;
+        Task* task = *handleptr->second;
         if (task->setRecurrence(policy.recurrenceRule)) {
             LOGDEBUG << "updating policy:" << policy.id << " : " <<policy.recurrenceRule;
-            pq.update(*(handleptr->second), task);
+            pq.update(handleptr->second);
             fModified = true;
         }
     } else {
         Task* task = new Task();
         task->policyId = policy.id;
         task->setRecurrence(policy.recurrenceRule);
-        auto handle = pq.push(task);
-        handleMap[policy.id] = &handle;
+        handleMap[policy.id] = pq.push(task);
         LOGDEBUG << "new policy:" << policy.id << " : " << policy.recurrenceRule;
         fModified = true;
     }
@@ -54,7 +53,7 @@ bool Scheduler::removePolicy(uint64_t policyId) {
     atc::Synchronized s(monitor);
     auto handleptr = handleMap.find(policyId);
     if (handleptr != handleMap.end()) {
-        pq.erase(*(handleptr->second));
+        pq.erase(handleptr->second);
         handleMap.erase(handleptr);
         ping();
         LOGDEBUG << "removed policy from scheduler, id:" <<policyId;
@@ -94,7 +93,8 @@ void Scheduler::run() {
             Task* task;
             uint64_t currTime = fds::util::getTimeStampSeconds();
             task = pq.top();
-            LOGDEBUG << "curTime:" << currTime << " next:" << task->runAtTime;
+            LOGDEBUG << "curTime:" << fds::util::getLocalTimeString(currTime)
+                     << " next:" << fds::util::getLocalTimeString(task->runAtTime);
             dump();
             if (task->runAtTime > currTime) {
                 // there is no task to be executed at the time
@@ -114,10 +114,8 @@ void Scheduler::run() {
 
                 if (task->setNextRecurrence()) {
                     LOGDEBUG << "rescheduling policy:" << task->policyId
-                             << " @ " << task->runAtTime;
-                    pq.pop();
-                    auto handle = pq.push(task);
-                    handleMap[task->policyId] = &handle;
+                             << " @ " << fds::util::getLocalTimeString(task->runAtTime);
+                    pq.update(handleptr->second);
                     // pq.update(*(handleptr->second), task);
                 } else {
                     LOGWARN << "no more recurrence of this policy: " << task->policyId;
