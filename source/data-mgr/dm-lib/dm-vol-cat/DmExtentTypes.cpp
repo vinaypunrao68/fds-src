@@ -3,6 +3,7 @@
  */
 #include <string>
 #include <map>
+#include <set>
 #include <vector>
 #include <dm-vol-cat/DmExtentTypes.h>
 
@@ -128,6 +129,14 @@ void BlobExtent::deleteAllObjects(std::vector<ObjectID>* ret_rm_list) {
         }
     }
     blob_obj_list.clear();
+}
+
+void BlobExtent::getAllObjects(std::set<ObjectID> & objIds) {
+    for (auto it : blob_obj_list) {
+        if (it.second != NullObjectID) {
+            objIds.insert(it.second);
+        }
+    }
 }
 
 void BlobExtent::addToFdspPayload(fpi::FDSP_BlobObjectList& olist,

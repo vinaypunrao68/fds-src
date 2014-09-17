@@ -6,6 +6,7 @@
 
 #include <platform/platform-lib.h>
 #include <net/net-service.h>
+#include <AMSvcHandler.h>
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
@@ -13,6 +14,7 @@ class BaseAsyncSvcHandler;
 class PlatNetSvcClient;
 class PlatNetSvcProcessor;
 }
+
 
 namespace fds {
 
@@ -58,12 +60,37 @@ class AmPlatform : public Platform
 
     virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler() override;
 
-  protected:
-    void registerFlags();
+    void NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                      fpi::FDSP_NotifyVolTypePtr &vol_msg);
 
+    void NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                     fpi::FDSP_NotifyVolTypePtr &vol_msg);
+
+    void NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                      fpi::FDSP_NotifyVolTypePtr &vol_msg);
+
+    void AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                   fpi::FDSP_AttachVolTypePtr &vol_msg);
+
+    void DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                   fpi::FDSP_AttachVolTypePtr &vol_msg);
+
+    void NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                       fpi::FDSP_Node_Info_TypePtr &node_info);
+
+    void NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
+                       fpi::FDSP_Node_Info_TypePtr &node_info);
+
+    void NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                         fpi::FDSP_DLT_Data_TypePtr &dlt_info);
+
+    void NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,   // NOLINT
+                         fpi::FDSP_DMT_TypePtr   &dmt_info);
+
+  protected:
     AMEpPlugin::pointer                am_plugin;
-    bo::shared_ptr<PlatNetSvcHandler>  am_recv;
-    EndPoint<fpi::PlatNetSvcClient, fpi::PlatNetSvcProcessor>::pointer am_ep;
+    bo::shared_ptr<AMSvcHandler>  am_recv;
+    EndPoint<fpi::AMSvcClient, fpi::AMSvcProcessor>::pointer am_ep;
 };
 
 extern AmPlatform gl_AmPlatform;

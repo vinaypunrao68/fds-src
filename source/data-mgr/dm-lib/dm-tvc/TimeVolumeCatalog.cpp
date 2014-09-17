@@ -3,7 +3,10 @@
  */
 #include <string>
 #include <vector>
+#include <set>
+#include <map>
 #include <limits>
+#include <DataMgr.h>
 
 #include <boost/make_shared.hpp>
 #include <dm-tvc/TimeVolumeCatalog.h>
@@ -43,7 +46,7 @@ DmTimeVolCatalog::notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList) {
 
 DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
         : Module(name.c_str()), opSynchronizer_(tp),
-        config_helper_(g_fdsprocess->get_conf_helper())
+        config_helper_(g_fdsprocess->get_conf_helper()), tp_(tp)
 {
     volcat = DmVolumeCatalog::ptr(new DmVolumeCatalog("DM Volume Catalog"));
     // TODO(Andrew): The module vector should be able to take smart pointers.
@@ -176,7 +179,48 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc) {
         GLOGCRITICAL << "Failed to process buffered transactions and stop buffering";
     }
 
+    if (dataMgr->amIPrimary(voldesc.srcVolumeId)) {
+        // Increment object references
+        std::set<ObjectID> objIds;
+        rc = volcat->getVolumeObjects(voldesc.srcVolumeId, objIds);
+        if (!rc.ok()) {
+            GLOGCRITICAL << "Failed to get object ids for volume '" << std::hex <<
+                    voldesc.srcVolumeId << std::dec << "'";
+            return rc;
+        }
+
+        OMgrClient * omClient = dataMgr->omClient;
+        fds_verify(omClient);
+
+        std::map<fds_token_id, boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > >
+                tokenOidMap;
+        for (auto oid : objIds) {
+            const DLT * dlt = omClient->getCurrentDLT();
+            fds_verify(dlt);
+
+            fds_token_id token = dlt->getToken(oid);
+            if (!tokenOidMap[token].get()) {
+                tokenOidMap[token].reset(new std::vector<fpi::FDS_ObjectIdType>());
+            }
+
+            fpi::FDS_ObjectIdType tmpId;
+            fds::assign(tmpId, oid);
+            tokenOidMap[dlt->getToken(oid)]->push_back(tmpId);
+        }
+
+        for (auto it : tokenOidMap) {
+            tp_.schedule(&DmTimeVolCatalog::incrObjRefCount, this, voldesc.srcVolumeId,
+                    voldesc.volUUID, it.first, it.second);
+        }
+    }
+
     return rc;
+}
+
+void
+DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
+        fds_token_id token, boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > objIds) {
+    // TODO(umesh): implement this
 }
 
 Error

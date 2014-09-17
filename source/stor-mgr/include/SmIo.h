@@ -75,7 +75,8 @@ class SmIoReq : public FDS_IOType {
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volUuid);
 
-        opTransactionWaitCtx.type = PUT_TRANS_QUEUE_WAIT;
+        // TODO(Anna) remove this once we remove trans table
+        opTransactionWaitCtx.type = PUT_OBJ_TASK_SYNC_WAIT;
         opTransactionWaitCtx.name = perfNameStr;
         opTransactionWaitCtx.reset_volid(_volUuid);
 
@@ -120,7 +121,8 @@ class SmIoReq : public FDS_IOType {
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volUuid);
 
-        opTransactionWaitCtx.type = GET_TRANS_QUEUE_WAIT;
+        // TODO(Anna) remove this once we remove trans table
+        opTransactionWaitCtx.type = GET_OBJ_TASK_SYNC_WAIT;
         opTransactionWaitCtx.name = perfNameStr;
         opTransactionWaitCtx.reset_volid(_volUuid);
 
@@ -170,7 +172,8 @@ class SmIoReq : public FDS_IOType {
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volUuid);
 
-        opTransactionWaitCtx.type = DELETE_TRANS_QUEUE_WAIT;
+        // TODO(Anna) remove this once we remove trans table
+        opTransactionWaitCtx.type = DELETE_OBJ_TASK_SYNC_WAIT;
         opTransactionWaitCtx.name = perfNameStr;
         opTransactionWaitCtx.reset_volid(_volUuid);
 
