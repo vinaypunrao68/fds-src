@@ -4,8 +4,8 @@
 Created on Sep 3, 2014
 
 @author: dave
- 
-fds-restart-tester.py              
+
+fds-restart-tester.py
 1. Simple I/O and restart
   Graceful shutdown/Bring up of Node
   ▪ Steps: start I/O. Stop all I/O [optional].
@@ -67,9 +67,9 @@ def log(text, output=sys.stdout):
     print >> output, text
 
 # separator chars used to delimit a directory path / char
-# in s3 keys.  The / char is interpreted as a bucket path 
+# in s3 keys.  The / char is interpreted as a bucket path
 KEY_DIR_SEP='_:_'
-        
+
 class RestartTest(object):
     '''
     Test restart functionality
@@ -89,7 +89,7 @@ class RestartTest(object):
         self.buckets_clogs = {}
 
     def __fileUploaded(self, bucket, srcpath, keyname, sha1):
-        ''' 
+        '''
         Writes a line to a bucket commit log containing the keyname, source path, and source sha1 hash
         '''
         clog = self.buckets_clogs.get(bucket)
@@ -98,7 +98,7 @@ class RestartTest(object):
             self.buckets_clogs[bucket] = clog
         clog.write('%s|%s|%s\n' % (keyname, srcpath, sha1))
         clog.flush()
-        
+
     ## TODO: this was pulled from fds-tool.py.  It should be a common lib function returning
     ## list of node objects containing status
     def nodeStatusAll(self):
@@ -113,7 +113,7 @@ class RestartTest(object):
         n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep plat', output = True)
         n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep Mgr', output = True)
         print '\n'
-        
+
     ## TODO: this was pulled from fds-tool.py.  It should be a common lib function
     def startNodes(self):
         om = self.cfg.rt_om_node
@@ -192,10 +192,10 @@ class RestartTest(object):
             is_secure=False,
             calling_format=boto.s3.connection.OrdinaryCallingFormat())
         return self.conn
-            
+
     def __close(self):
         if self.conn is None:
-            return 
+            return
         c = self.conn
         self.conn = None
         try:
@@ -226,7 +226,7 @@ class RestartTest(object):
             self.__upload_dir(b, '/projects/fds-src/source/test/fdslib')
         finally:
             self.__close()
-            
+
     def __upload_file(self, b, src):
         f = open(src, "r")
         # TODO: skipping zero-length files - causes AM crash (WIN-929)
@@ -238,10 +238,10 @@ class RestartTest(object):
             k = Key(b)
             k.key = str(os.path.relpath(src)).replace('/', KEY_DIR_SEP)
             k.set_contents_from_file(f)
-            
+
             hash = hashlib.sha1(open(src, 'rb').read()).hexdigest();
             ## TODO: on success append path to a temp file that
-            # we can use to validate.  This will be important for 
+            # we can use to validate.  This will be important for
             # the second test where we shutdown while IO is processing
             self.__fileUploaded(b.name, src, k.key, hash)
         # except Exception as inst:
@@ -249,7 +249,7 @@ class RestartTest(object):
         #     raise inst
         finally:
             f.close()
-             
+
     def __upload_dir(self, b, path):
         debug("- uploading dir %s" % path)
         exclude = []
@@ -279,7 +279,7 @@ class RestartTest(object):
             tkey = tokens[0]
             tsrc = tokens[1]
             tsha = tokens[2]
-                        
+
             outfile = os.path.join(outdir, tsrc.lstrip("/"))
             outfdir = os.path.dirname(outfile)
             if not os.path.exists(outfdir):
@@ -387,4 +387,4 @@ def main():
     unittest.TextTestRunner(verbosity=2).run(suite)
 
 if __name__ == '__main__':
-    main()        
+    main()
