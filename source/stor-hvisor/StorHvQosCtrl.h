@@ -17,6 +17,7 @@ class StorHvQosCtrl : public FDS_QoSControl {
 
   StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log);
   virtual ~StorHvQosCtrl();
+  virtual FDS_VolumeQueue* getQueue(fds_volid_t queueId);
   Error processIO(FDS_IOType *io) ;
   void runScheduler();
   Error markIODone(FDS_IOType *io);
