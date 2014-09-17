@@ -11,7 +11,7 @@ class SnapshotContext(Context):
     #--------------------------------------------------------------------------------------
     @clicmd    
     @arg('vol-name', help= "-list snapshot for Volume name")
-    def list(vol_name):
+    def list(self, vol_name):
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
             snapshot = ServiceMap.omConfig().listSnapshots(volume_id)
