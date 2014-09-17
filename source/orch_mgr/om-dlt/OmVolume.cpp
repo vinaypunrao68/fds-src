@@ -1465,7 +1465,7 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type, NodeUuid from_svc, Err
     switch (type) {
         case om_notify_vol_add:
             if (resp_err.ok()) {
-                vol->vol_event(VolCrtOkEvt(true));
+                vol->vol_event(VolCrtOkEvt(true, vol.get()));
                 dmtMod->dmt_deploy_event(DmtVolAckEvt(from_svc));
             } else {
                 // TODO(anna) send response to volume create here with error
@@ -1586,7 +1586,7 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
     switch (type) {
         case om_notify_vol_add:
             if (resp_err.ok()) {
-                vol->vol_event(VolCrtOkEvt(true));
+                vol->vol_event(VolCrtOkEvt(true, vol.get()));
                 dmtMod->dmt_deploy_event(DmtVolAckEvt(from_svc));
             } else {
                 // TODO(anna) send response to volume create here with error
