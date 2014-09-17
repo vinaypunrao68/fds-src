@@ -890,7 +890,7 @@ VolumeInfo::vol_attach_node(const NodeUuid &node_uuid)
         }
     }
     vol_am_nodes.push_back(node_uuid);
-    am_agent->om_send_vol_cmd(this, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
+    am_agent->om_send_vol_cmd(this, fpi::CtrlNotifyVolAddTypeId);
     return err;
 }
 
@@ -916,7 +916,7 @@ VolumeInfo::vol_detach_node(const NodeUuid &node_uuid)
     for (uint i = 0; i < vol_am_nodes.size(); i++) {
         if (vol_am_nodes[i] == node_uuid) {
             vol_am_nodes.erase(vol_am_nodes.begin() + i);
-            am_agent->om_send_vol_cmd(this, fpi::FDSP_MSG_DETACH_VOL_CTRL);
+            am_agent->om_send_vol_cmd(this, fpi::CtrlNotifyVolRemoveTypeId);
             return err;
         }
     }
@@ -1433,7 +1433,7 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
             LOGNOTIFY << "invalid bucket " << vname;
         }
         if (am != NULL) {
-            am->om_send_vol_cmd(NULL, &vname, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
+            am->om_send_vol_cmd(NULL, &vname, fpi::CtrlNotifyVolAddTypeId);
         }
     } else if (req->attach_vol_reqd == false) {
         // Didn't request OM to attach this volume.
@@ -1441,13 +1441,60 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
                   << hdr->src_node_name;
 
         if (am != NULL) {
-            am->om_send_vol_cmd(vol, fpi::FDSP_MSG_ATTACH_VOL_CTRL);
+            am->om_send_vol_cmd(vol, fpi::CtrlNotifyVolAddTypeId);
         }
     } else {
         vol->vol_event(VolOpEvt(vol.get(),
                                 FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD,
                                 n_uid));
     }
+}
+
+void
+VolumeContainer::om_notify_vol_resp(om_vol_notify_t type, NodeUuid from_svc, Error resp_err,
+                                    const std::string& vol_name,
+                                    const ResourceUUID& vol_uuid)
+{
+    VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_get_resource(vol_uuid));
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+    if (vol == NULL) {
+        // we probably deleted a volume, just print a warning
+        LOGWARN << "Received volume notify response for volume "
+                << vol_name << " but volume does not exist anymore; "
+                << "it was probably just deleted";
+        return;
+    }
+
+    switch (type) {
+        case om_notify_vol_add:
+            if (resp_err.ok()) {
+                vol->vol_event(VolCrtOkEvt(true));
+                dmtMod->dmt_deploy_event(DmtVolAckEvt(from_svc));
+            } else {
+                // TODO(anna) send response to volume create here with error
+                LOGERROR << "Received volume create response with error ("
+                         << resp_err.GetErrstr() << ")"
+                         << ", will revert volume create for " << vol_name;
+
+                // start remove volume process (here we don't need to check
+                // with DMs if there are any objects, since volume was never
+                // attached to any AMs at this point)
+                vol->vol_event(VolDelChkEvt(vol->rs_get_uuid(), vol.get()));
+            }
+            break;
+        case om_notify_vol_attach:
+        case om_notify_vol_mod:
+        case om_notify_vol_detach:
+        case om_notify_vol_rm:
+            vol->vol_event(VolOpRespEvt(vol_uuid, type, resp_err));
+            break;
+        case om_notify_vol_rm_chk:
+            vol->vol_event(DelChkAckEvt(vol.get(), resp_err));
+            break;
+        default:
+            fds_verify(false);  // if there is a new vol notify type, add handling
+    };
 }
 
 void
@@ -1499,6 +1546,78 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
             fds_verify(false);  // if there is a new vol notify type, add handling
     };
 }
+
+
+void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
+        fpi::FDSPMsgTypeId cmd_type, const Error & resp_err, NodeUuid from_svc)
+{
+    fds_volid_t vol_uuid = volinfo->vol_get_properties()->volUUID;
+    VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_get_resource(vol_uuid));
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+    if (vol == NULL) {
+        // we probably deleted a volume, just print a warning
+        LOGWARN << "Received volume notify response for volume "
+                << volinfo->vol_get_properties()->name << " but volume does not exist anymore; "
+                << "it was probably just deleted";
+        return;
+    }
+
+    //  The following is ugly
+    om_vol_notify_t type;
+    if (from_svc.uuid_get_type() == FDSP_STOR_HVISOR)
+    switch (cmd_type) {
+        case fpi::CtrlNotifyVolAddTypeId:
+             type = om_notify_vol_attach; break;
+        case fpi::CtrlNotifyVolModTypeId:
+             type = om_notify_vol_mod; break;
+        case fpi::CtrlNotifyVolRemoveTypeId:
+             type = om_notify_vol_detach; break;
+        default: break;
+    }
+    if (from_svc.uuid_get_type() != FDSP_STOR_HVISOR)
+    switch (cmd_type) {
+        case fpi::CtrlNotifyVolAddTypeId:
+             type = om_notify_vol_add; break;
+        case fpi::CtrlNotifyVolModTypeId:
+             type = om_notify_vol_mod; break;
+        case fpi::CtrlNotifyVolRemoveTypeId:
+             type = om_notify_vol_rm; break;
+        default: break;
+    }
+
+
+    switch (type) {
+        case om_notify_vol_add:
+            if (resp_err.ok()) {
+                vol->vol_event(VolCrtOkEvt(true));
+                dmtMod->dmt_deploy_event(DmtVolAckEvt(from_svc));
+            } else {
+                // TODO(anna) send response to volume create here with error
+                LOGERROR << "Received volume create response with error ("
+                         << resp_err.GetErrstr() << ")"
+                     << ", will revert volume create for " << volinfo->vol_get_properties()->name;
+
+                // start remove volume process (here we don't need to check
+                // with DMs if there are any objects, since volume was never
+                // attached to any AMs at this point)
+                vol->vol_event(VolDelChkEvt(vol_uuid, vol.get()));
+            }
+            break;
+        case om_notify_vol_attach:
+        case om_notify_vol_mod:
+        case om_notify_vol_detach:
+        case om_notify_vol_rm:
+            vol->vol_event(VolOpRespEvt(vol_uuid, type, resp_err));
+            break;
+        case om_notify_vol_rm_chk:
+            vol->vol_event(DelChkAckEvt(vol.get(), resp_err));
+            break;
+        default:
+            break;
+      }
+}
+
 
 bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
     VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();

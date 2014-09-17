@@ -1,6 +1,7 @@
 #include "OMgrClient.h"
 #include <fds_assert.h>
 #include <boost/thread.hpp>
+#include <NetSession.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TSimpleServer.h>
 #include <thrift/transport/TServerSocket.h>
@@ -221,7 +222,6 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
   omConfigPort = _omPort;
   my_node_name = node_name;
   node_evt_hdlr = NULL;
-  vol_evt_hdlr = NULL;
   throttle_cmd_hdlr = NULL;
   bucket_stats_cmd_hdlr = NULL;
   dltclose_evt_hdlr = NULL;
@@ -265,11 +265,6 @@ int OMgrClient::registerEventHandlerForNodeEvents(node_event_handler_t node_even
   return 0;
 }
  
-
-int OMgrClient::registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr) {
-  this->vol_evt_hdlr = vol_event_hdlr;
-  return 0;
-}
 
 int OMgrClient::registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr) {
   this->throttle_cmd_hdlr = throttle_cmd_hdlr;
@@ -725,115 +720,6 @@ int OMgrClient::recvNodeEvent(int node_id,
   }
   return (0);
   
-}
-
-int OMgrClient::recvNotifyVol(VolumeDesc *vdb,
-                              fds_vol_notify_t vol_action,
-                              FDSP_NotifyVolFlag vol_flag,
-			      FDSP_ResultType result,
-                              const std::string& session_uuid) {
-    Error err(ERR_OK);
-    fds_volid_t vol_id = vdb->volUUID;
-    LOGNOTIFY << "OMClient received volume event for volume 0x"
-            << std::hex << vol_id <<std::dec << " action - " << vol_action;
-    
-    if (this->vol_evt_hdlr) {
-        err = this->vol_evt_hdlr(vol_id, vdb, vol_action, vol_flag, result);
-    }
-
-    // send response back to OM
-    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
-            omrpc_handler_session_->getRespClient(session_uuid);
-
-    try {
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-        FDSP_NotifyVolTypePtr vol_resp(new FDSP_NotifyVolType());
-        msg_hdr->err_code = err.GetErrno();
-        if (!err.ok()) {
-            msg_hdr->result = FDSP_ERR_FAILED;
-        }
-        vol_resp->vol_name = vdb->getName();
-        vol_resp->flag = vol_flag;
-        vol_resp->vol_desc.vol_name = vdb->getName();
-        vol_resp->vol_desc.volUUID = vol_id;
-        switch (vol_action) {
-            case fds_notify_vol_add:
-                vol_resp->type = FDSP_NOTIFY_ADD_VOL;
-                resp_client_prx->NotifyAddVolResp(msg_hdr, vol_resp);
-                break;
-            case fds_notify_vol_rm:
-                vol_resp->type = FDSP_NOTIFY_RM_VOL;
-                resp_client_prx->NotifyRmVolResp(msg_hdr, vol_resp);
-                break;
-            case fds_notify_vol_mod:
-                vol_resp->type = FDSP_NOTIFY_MOD_VOL;
-                resp_client_prx->NotifyModVolResp(msg_hdr, vol_resp);
-                break;
-            case fds_notify_vol_snap:
-                vol_resp->type = FDSP_NOTIFY_SNAP_VOL;
-                //  SAN
-                // resp_client_prx->NotifyModVolResp(msg_hdr, vol_resp);
-                break;
-            default:
-                fds_panic("Unknown (corrupt?) volume event");
-        }
-        LOGNOTIFY << "OMClient sent response to OM for Volume Notify of type "
-                << vol_action << "; volume " << vdb->getName();
-    } catch (...) {
-        LOGERROR << "OMClient failed to send response to OM";
-        return -1;
-    }
-    return 0;
-}
-
-int OMgrClient::recvVolAttachState(VolumeDesc *vdb,
-                                   fds_vol_notify_t vol_action,
-				   FDSP_ResultType result,
-                                   const std::string& session_uuid) {
-    assert((vol_action == fds_notify_vol_attatch) || (vol_action == fds_notify_vol_detach));
-    Error err(ERR_OK);
-    fds_volid_t vol_id = vdb->volUUID;
-
-    LOGNOTIFY << "OMClient received volume attach/detach request for volume 0x"
-            << std::hex << vol_id << std::dec << " action - " << vol_action;
-    
-    if (this->vol_evt_hdlr) {
-        err = this->vol_evt_hdlr(vol_id, vdb, vol_action, FDSP_NOTIFY_VOL_NO_FLAG, result);
-    }
-    // send response back to OM
-    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
-            omrpc_handler_session_->getRespClient(session_uuid);
-
-    try {
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-        FDSP_AttachVolTypePtr vol_resp(new FDSP_AttachVolType());
-        msg_hdr->err_code = err.GetErrno();
-        if (!err.ok()) {
-            msg_hdr->result = FDSP_ERR_FAILED;
-        }
-        vol_resp->vol_name = vdb->getName();
-        vol_resp->vol_desc.vol_name = vdb->getName();
-        vol_resp->vol_desc.volUUID = vol_id;
-        switch (vol_action) {
-            case fds_notify_vol_attatch:
-                resp_client_prx->AttachVolResp(msg_hdr, vol_resp);
-                break;
-            case fds_notify_vol_detach:
-                resp_client_prx->DetachVolResp(msg_hdr, vol_resp);
-                break;
-            default:
-                fds_panic("Unknown (corrupt?) volume event");
-        }
-        LOGNOTIFY << "OMClient sent response to OM for Volume Attach/detach (type "
-                << vol_action << "); volume " << vdb->getName();
-    } catch (...) {
-        LOGERROR << "OMClient failed to send response to OM";
-        return -1;
-    }
-
-    return 0;
 }
 
 Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {

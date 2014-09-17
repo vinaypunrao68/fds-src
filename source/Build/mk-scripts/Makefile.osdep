@@ -8,7 +8,12 @@ osdep_os         := $(shell uname -s | /usr/bin/tr "[:upper:]" "[:lower:]")
 osdep_arch       := $(shell uname -m)
 
 osdep_arch       := $(shell uname -m)
+ifdef CLANG
+osdep_target     := $(osdep_os)-clang
+else
 osdep_target     := $(osdep_os)-$(osdep_arch)
+endif
+
 osdep_user_build := build.$(osdep_target)
 osdep_kern_build := $(osdep_user_build).kern
 

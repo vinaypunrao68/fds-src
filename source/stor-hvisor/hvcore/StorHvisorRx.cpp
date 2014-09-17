@@ -3,6 +3,8 @@
 #include "./StorHvisorCPP.h"
 #include <arpa/inet.h>
 #include <string>
+#include <NetSession.h>
+
 using namespace std;
 using namespace FDS_ProtocolInterface;
 #define SRC_IP  0x0a010a65

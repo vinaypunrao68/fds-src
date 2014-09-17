@@ -8,6 +8,7 @@
 #include <fds_module.h>
 #include <fds_volume.h>
 #include <StorMgrVolumes.h>
+#include <concurrency/HashedLocks.hpp>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
 
@@ -29,13 +30,20 @@ class ObjectStore : public Module, public boost::noncopyable {
     /// Object metadata storage
     ObjectMetadataStore::unique_ptr metaStore;
 
-    // Volume table for accessing vol descriptors
+    /// Volume table for accessing vol descriptors
     // Does not own, passed from SM processing layer
     // TODO(xxx) we should be able to get this from platform
     StorMgrVolumeTable *volumeTbl;
 
-    // config params
+    /// config params
     fds_bool_t conf_verify_data;
+
+    /// Task synchronizer
+    std::unique_ptr<HashedLocks<ObjectID, ObjectHash>> taskSynchronizer;
+    /// Size of the synchronizer (controls false positives)
+    fds_uint32_t taskSyncSize;
+    typedef ScopedHashedLock<ObjectID,
+                             HashedLocks<ObjectID, ObjectHash>> ScopedSynchronizer;
 
   public:
     ObjectStore(const std::string &modName,
@@ -73,16 +81,23 @@ class ObjectStore : public Module, public boost::noncopyable {
      * Gets an specific object for a volume. The object's data
      * is filled into the objData shared pointer parameter.
      */
-    Error getObject(fds_volid_t volId,
-                    const ObjectID &objId,
-                    boost::shared_ptr<std::string> objData);
+    boost::shared_ptr<const std::string> getObject(fds_volid_t volId,
+                                                   const ObjectID &objId,
+                                                   Error& err);
 
     /**
-     * Deletes a specific object. The object's data is filled into
-     * the objData shared pointer parameter.
+     * Deletes a specific object. The object is marked as deleted,
+     * but the actual data is deleted later by the garbage collector.
      */
     Error deleteObject(fds_volid_t volId,
                        const ObjectID &objId);
+
+    /**
+     * Copies associated volumes from source to destination volume
+     */
+    Error copyAssociation(fds_volid_t srcVolId,
+                          fds_volid_t destVolId,
+                          const ObjectID& objId);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

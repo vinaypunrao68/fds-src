@@ -20,6 +20,10 @@ namespace fds {
 /**
  * Stores storage manages object metadata
  * Present implementation is based on level db
+ * There are 256 level db files, one per SM token.
+ * SM token is a bucket that holds several DLT tokens --
+ * DLT token is basically first X bits of object id, and SM
+ * token is first Y (usually Y < X) bits of object id.
  */
 class ObjectMetadataDb {
   public:
@@ -37,20 +41,38 @@ class ObjectMetadataDb {
 
     /**
      * Get object metadata from the database
+     * @param volId volume id for which we are performing this
+     * operation, or invalid_volume_id  if this operation is performed
+     * on behalf of background job that does not know which volume
+     * this operation belongs to. Volume id is used for perf counting,
+     * not any actual db access operation
      */
-    Error get(const ObjectID& objId,
-              ObjMetaData::const_ptr* objMeta);
+    ObjMetaData::const_ptr get(fds_volid_t volId,
+                               const ObjectID& objId,
+                               Error &err);
 
     /**
      * Put object metadata to the database
+     * @param volId volume id for which we are performing this
+     * operation, or invalid_volume_id  if this operation is performed
+     * on behalf of background job that does not know which volume
+     * this operation belongs to. Volume id is used for perf counting,
+     * not any actual db access operation
      */
-    Error put(const ObjectID& objId,
+    Error put(fds_volid_t volId,
+              const ObjectID& objId,
               ObjMetaData::const_ptr objMeta);
 
     /**
      * Removes object metadata from the database
+     * @param volId volume id for which we are performing this
+     * operation, or invalid_volume_id  if this operation is performed
+     * on behalf of background job that does not know which volume
+     * this operation belongs to. Volume id is used for perf counting,
+     * not any actual db access operation
      */
-    Error remove(const ObjectID& objId);
+    Error remove(fds_volid_t volId,
+                 const ObjectID& objId);
 
   private:  // methods
      inline fds_token_id getDbId(const fds_token_id &tokId) const {

@@ -126,10 +126,17 @@ endif
 # Tool chain variables
 #
 main_tool_dir   := /usr/bin
+ifdef CLANG
+cc              := $(main_tool_dir)/clang
+cc_dep          := $(cc)
+cpp             := $(cc)
+cpp_dep         := $(cc)
+else
 cc              := $(ccache) $(main_tool_dir)/gcc
 cc_dep          := $(main_tool_dir)/gcc
 cpp             := $(ccache) $(main_tool_dir)/g++
 cpp_dep         := $(main_tool_dir)/g++
+endif
 ld              := $(main_tool_dir)/ld
 ar              := $(main_tool_dir)/ar
 yacc            := $(main_tool_dir)/bison
