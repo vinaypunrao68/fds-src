@@ -168,7 +168,7 @@ class RestartTest(object):
             n.nd_cleanup_node()
             n.nd_rmt_agent.ssh_exec('(cd /fds/sbin && ./redis.sh clean)', output=True)
             n.nd_rmt_agent.ssh_exec('rm /fds/uuid_port')
-        
+
         # todo(Rao): Unregister the services here.  Once we implement name based
         # services this should be easy
         #print("NOTE: Run fdscli --remove-services to remove services")
