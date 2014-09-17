@@ -15,6 +15,10 @@ class VolumeContext(Context):
     def list(self):
         try:
             volumes = ServiceMap.omConfig().listVolumes("")
+            return tabulate([(item.name, item.tenantId, item.dateCreated,
+                              'OBJECT' if item.policy.volumeType == 0 else 'BLOCK',
+                              item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in sorted(volumes, key=attrgetter('name'))  ],
+                            headers=['Name', 'TenantId', 'Create Date','Type', 'Max-Obj-Size', 'Blk-Size'])
             return volumes
         except Exception, e:
             log.exception(e)
