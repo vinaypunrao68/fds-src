@@ -30,6 +30,9 @@ StorHvQosCtrl::~StorHvQosCtrl() {
   delete htb_dispatcher;
 }
 
+FDS_VolumeQueue* StorHvQosCtrl::getQueue(fds_volid_t queueId) {
+    return htb_dispatcher->getQueue(queueId);
+}
 
 Error StorHvQosCtrl::processIO(FDS_IOType *io) {
   fds_verify(io->io_module == FDS_IOType::STOR_HV_IO);
