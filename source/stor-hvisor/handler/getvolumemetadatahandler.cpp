@@ -3,6 +3,7 @@
  */
 #include <string>
 #include "./handler.h"
+#include <NetSession.h>
 #include "../StorHvisorNet.h"
 
 namespace fds {
