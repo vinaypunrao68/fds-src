@@ -30,7 +30,7 @@ class HashedLocks : boost::noncopyable
     *
     * @param objToLock
     */
-    void lock(T *objToLock) {
+    void lock(const T *objToLock) {
         size_t lockIdx = (hashFunctor_(*objToLock) % locks_.size());
         locks_[lockIdx].lock.lock();
         locks_[lockIdx].lockHolderObj = objToLock;
@@ -41,7 +41,7 @@ class HashedLocks : boost::noncopyable
     *
     * @param objToUnlock
     */
-    void unlock(T *objToUnlock) {
+    void unlock(const T *objToUnlock) {
         size_t lockIdx = (hashFunctor_(*objToUnlock) % locks_.size());
         fds_verify(locks_[lockIdx].lockHolderObj == objToUnlock);
         locks_[lockIdx].lockHolderObj = nullptr;
@@ -53,7 +53,7 @@ class HashedLocks : boost::noncopyable
         /* lock */
         fds_mutex lock;
         /* Reference to locked object */
-        T *lockHolderObj;
+        const T *lockHolderObj;
     };
  
     HashFunctorT hashFunctor_;
@@ -65,7 +65,7 @@ template <class T, class HashedLocksT>
 class ScopedHashedLock : boost::noncopyable
 {
  public:
-    ScopedHashedLock(HashedLocksT &hl, T &obj)
+    ScopedHashedLock(HashedLocksT &hl, const T &obj)
         : hashedLocks_(hl),
         obj_(obj)
     {
@@ -77,7 +77,7 @@ class ScopedHashedLock : boost::noncopyable
 
  protected:
     HashedLocksT &hashedLocks_;
-    T &obj_;
+    const T &obj_;
 };
 }  // namespace fds
 #endif   // INCLUDE_CONCURRENCY_SPINLOCK_H_

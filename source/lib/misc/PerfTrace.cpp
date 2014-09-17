@@ -228,7 +228,6 @@ PerfTracer::PerfTracer() : aggregateCounters_(fds::MAX_EVENT_TYPE),
 }
 
 PerfTracer::~PerfTracer() {
-    GLOGDEBUG << "Destroying PerfTracer";
     for (auto& kv : latencyMap_) {
         delete kv.second;
     }
