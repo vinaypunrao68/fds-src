@@ -258,6 +258,7 @@ if __name__ == "__main__":
         fds.ignoreStepDependency = True
 
     if options.menu_option:
+        fds.ignoreStepDependency = True
         num = int(options.menu_option)
         fds.menu[num][3](fds.menu[num])
     else:
