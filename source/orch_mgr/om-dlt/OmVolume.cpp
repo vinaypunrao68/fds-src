@@ -1668,6 +1668,11 @@ Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
     }
 
     parentVol = VolumeInfo::vol_cast_ptr(rs_get_resource(snapshot.volumeId));
+    if (parentVol == NULL) {
+        LOGWARN << "Trying to create a snapshot for non existent volume:" << snapshot.volumeId
+                << " name:" << snapshot.snapshotName;
+        return Error(ERR_NOT_FOUND);
+    }
     vol = VolumeInfo::vol_cast_ptr(rs_alloc_new(snapshot.snapshotId));
 
     parentVol->initSnapshotVolInfo(vol, snapshot);
