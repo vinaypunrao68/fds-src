@@ -246,7 +246,7 @@ class Installer:
 if __name__ == "__main__":
     parser = optparse.OptionParser("usage: %prog [options]")
     parser.add_option('-o', '--option', dest = 'menu_option',
-                      help = 'Unatended mode with menu option (0-5)', metavar = 'MENU_OPTION(0-5)')
+                      help = 'Unattended mode with menu option (0-5)', metavar = 'MENU_OPTION(0-5)')
     parser.add_option('-i', '--ignore', action="store_true", dest = 'ignore_step_deps', default=False,
                       help = 'Sets ignoreStepDependency to true')
 
