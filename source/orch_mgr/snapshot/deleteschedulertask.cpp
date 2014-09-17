@@ -4,7 +4,7 @@
 #include <snapshot/deleteschedulertask.h>
 #include <functional>
 #include <string>
-
+#include <util/timeutils.h>
 namespace fds { namespace snapshot {
 
 bool DeleteTask::operator < (const DeleteTask& task) const {
@@ -17,7 +17,7 @@ std::ostream& operator<<(std::ostream& os, const DeleteTask& task) {
     time_t tt = (time_t)task.runAtTime;
     os << "[volume:" << task.volumeId
        << " at:" << task.runAtTime
-       << " : " << asctime(gmtime(&tt)) //NOLINT
+       << " : " << fds::util::getLocalTimeString(task.runAtTime)
        << "]";
     return os;
 }
