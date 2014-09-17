@@ -154,6 +154,8 @@ boost::shared_ptr<const std::string>
 ObjectStore::getObject(fds_volid_t volId,
                        const ObjectID &objId,
                        Error& err) {
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
     if (!err.ok()) {
@@ -184,6 +186,8 @@ ObjectStore::getObject(fds_volid_t volId,
 Error
 ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId) {
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+
     Error err(ERR_OK);
 
     // New object metadata to update the refcnts
