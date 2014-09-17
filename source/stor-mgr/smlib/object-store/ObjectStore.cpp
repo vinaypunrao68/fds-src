@@ -178,6 +178,18 @@ ObjectStore::getObject(fds_volid_t volId,
     if (!err.ok()) {
         LOGERROR << "Failed to get object data " << objId << " volume "
                  << std::hex << volId << std::dec << " " << err;
+        return objData;
+    }
+
+    // verify data
+    if (conf_verify_data) {
+        ObjectID onDiskObjId;
+        onDiskObjId = ObjIdGen::genObjectId(objData->c_str(),
+                                            objData->size());
+        if (onDiskObjId != objId) {
+            fds_panic("Encountered a on-disk data corruption object %s \n != %s",
+                      objId.ToHex().c_str(), onDiskObjId.ToHex().c_str());
+        }
     }
 
     return objData;
@@ -208,7 +220,16 @@ ObjectStore::deleteObject(fds_volid_t volId,
     std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
     updatedMeta->getVolsRefcnt(vols_refcnt);
     // remove volume assoc entry
-    updatedMeta->deleteAssocEntry(objId, volId, fds::util::getTimeStampMillis());
+    fds_bool_t change = updatedMeta->deleteAssocEntry(objId,
+                                                      volId,
+                                                      fds::util::getTimeStampMillis());
+    if (!change) {
+        // the volume was not associated, ok
+        LOGNORMAL << "Volume " << std::hex << volId << std::dec
+                  << " is not associated with this obj " << objId
+                  << ", nothing to delete, returning OK";
+        return ERR_OK;
+    }
 
     // first write metadata to metadata store, even if removing
     // object from data store cache fails, it is ok
@@ -231,7 +252,42 @@ ObjectStore::deleteObject(fds_volid_t volId,
 
     // if refcnt is 0, notify data store so it can remove cache entry, etc
     if (updatedMeta->getRefCnt() < 1) {
-        err = dataStore->removeObjectData(objId, updatedMeta);
+        err = dataStore->removeObjectData(volId, objId, updatedMeta);
+    }
+
+    return err;
+}
+
+Error
+ObjectStore::copyAssociation(fds_volid_t srcVolId,
+                             fds_volid_t destVolId,
+                             const ObjectID& objId) {
+    Error err(ERR_OK);
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+
+    // New object metadata to update association
+    ObjMetaData::ptr updatedMeta;
+
+    // Get metadata from metadata store
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(srcVolId, objId, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get metadata for object " << objId << " " << err;
+        return err;
+    }
+
+    // copy association entry
+    updatedMeta.reset(new ObjMetaData(objMeta));
+    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    updatedMeta->getVolsRefcnt(vols_refcnt);
+    updatedMeta->copyAssocEntry(objId, srcVolId, destVolId);
+
+    // write updated metadata to meta store
+    err = metaStore->putObjectMetadata(destVolId, objId, updatedMeta);
+    if (err.ok()) {
+        // TODO(xxx) we should call updateDupObj()
+    } else {
+        LOGERROR << "Failed to add association entry for object " << objId
+                 << " to object metadata store " << err;
     }
 
     return err;

@@ -129,12 +129,15 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
 }
 
 Error
-ObjectDataStore::removeObjectData(const ObjectID& objId,
+ObjectDataStore::removeObjectData(fds_volid_t volId,
+                                  const ObjectID& objId,
                                   const ObjMetaData::const_ptr& objMetaData) {
     Error err(ERR_OK);
     meta_obj_id_t   oid;
+    LOGDEBUG << "Refcnt=0 for object id " << objId;
 
-    // TODO(xxx) remove from cache
+    // remove from data cache
+    dataCache->removeObjectData(volId, objId);
 
     // tell persistent layer we deleted the object so that garbage collection
     // knows how much disk space we need to clean

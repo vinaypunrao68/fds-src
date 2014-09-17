@@ -5,6 +5,7 @@
 #include <sstream>
 #include <map>
 #include <string>
+#include <vector>
 
 #include <fdsp_utils.h>
 #include <ObjMeta.h>
@@ -393,20 +394,29 @@ void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
  * Delete volumes association
  * @param objId
  * @param vol_id
+ * @return true if meta entry was changed
  */
-void ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts) {
+fds_bool_t ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts) {
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-    for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
-        if (vol_id == assoc_entry[i].vol_uuid) {
-            assoc_entry[i].ref_cnt--;
-            obj_map.obj_refcnt--;
-            if (obj_map.obj_refcnt == 0) {
-                obj_map.obj_del_time = ts;
-            }
-            return;
-        }
+    std::vector<obj_assoc_entry_t>::iterator it;
+    for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
+        if (vol_id == (*it).vol_uuid) break;
     }
     // If Volume did not put this objId then it delete is a noop
+    if (it == assoc_entry.end()) return false;
+
+    // found association, decrement ref counts
+    fds_verify((*it).ref_cnt > 0);
+    (*it).ref_cnt--;
+    if ((*it).ref_cnt == 0) {
+        assoc_entry.erase(it);
+    }
+    obj_map.obj_num_assoc_entry = assoc_entry.size();
+    obj_map.obj_refcnt--;
+    if (obj_map.obj_refcnt == 0) {
+        obj_map.obj_del_time = ts;
+    }
+    return true;
 }
 
 void
