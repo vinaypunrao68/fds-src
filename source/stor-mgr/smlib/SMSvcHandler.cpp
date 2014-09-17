@@ -38,57 +38,57 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_gets > 0));
 
     Error err(ERR_OK);
-    auto read_req = new SmIoReadObjectdata();
-    read_req->io_type = FDS_SM_GET_OBJECT;
-    read_req->setVolId(getObjMsg->volume_id);
-    read_req->setObjId(ObjectID(getObjMsg->data_obj_id.digest));
-    read_req->obj_data.obj_id = getObjMsg->data_obj_id;
+    auto getReq = new SmIoGetObjectReq();
+    getReq->io_type = FDS_SM_GET_OBJECT;
+    getReq->setVolId(getObjMsg->volume_id);
+    getReq->setObjId(ObjectID(getObjMsg->data_obj_id.digest));
+    getReq->obj_data.obj_id = getObjMsg->data_obj_id;
     // perf-trace related data
-    read_req->perfNameStr = "volume:" + std::to_string(getObjMsg->volume_id);
-    read_req->opReqFailedPerfEventType = GET_OBJ_REQ_ERR;
-    read_req->opReqLatencyCtx.type = GET_OBJ_REQ;
-    read_req->opReqLatencyCtx.name = read_req->perfNameStr;
-    read_req->opReqLatencyCtx.reset_volid(getObjMsg->volume_id);
-    read_req->opLatencyCtx.type = GET_IO;
-    read_req->opLatencyCtx.name = read_req->perfNameStr;
-    read_req->opLatencyCtx.reset_volid(getObjMsg->volume_id);
+    getReq->perfNameStr = "volume:" + std::to_string(getObjMsg->volume_id);
+    getReq->opReqFailedPerfEventType = GET_OBJ_REQ_ERR;
+    getReq->opReqLatencyCtx.type = GET_OBJ_REQ;
+    getReq->opReqLatencyCtx.name = getReq->perfNameStr;
+    getReq->opReqLatencyCtx.reset_volid(getObjMsg->volume_id);
+    getReq->opLatencyCtx.type = GET_IO;
+    getReq->opLatencyCtx.name = getReq->perfNameStr;
+    getReq->opLatencyCtx.reset_volid(getObjMsg->volume_id);
     // moving to task synchronizer, so using new type here, will remove
     // this counter once we delete trans table
-    read_req->opTransactionWaitCtx.type = GET_OBJ_TASK_SYNC_WAIT;
-    read_req->opTransactionWaitCtx.name = read_req->perfNameStr;
-    read_req->opTransactionWaitCtx.reset_volid(getObjMsg->volume_id);
-    read_req->opQoSWaitCtx.type = GET_QOS_QUEUE_WAIT;
-    read_req->opQoSWaitCtx.name = read_req->perfNameStr;
-    read_req->opQoSWaitCtx.reset_volid(getObjMsg->volume_id);
+    getReq->opTransactionWaitCtx.type = GET_OBJ_TASK_SYNC_WAIT;
+    getReq->opTransactionWaitCtx.name = getReq->perfNameStr;
+    getReq->opTransactionWaitCtx.reset_volid(getObjMsg->volume_id);
+    getReq->opQoSWaitCtx.type = GET_QOS_QUEUE_WAIT;
+    getReq->opQoSWaitCtx.name = getReq->perfNameStr;
+    getReq->opQoSWaitCtx.reset_volid(getObjMsg->volume_id);
 
 
-    read_req->smio_readdata_resp_cb = std::bind(
+    getReq->response_cb = std::bind(
             &SMSvcHandler::getObjectCb, this,
             asyncHdr,
             std::placeholders::_1, std::placeholders::_2);
 
-    err = objStorMgr->enqueueMsg(read_req->getVolId(), read_req);
+    err = objStorMgr->enqueueMsg(getReq->getVolId(), getReq);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
                 << err;
-        getObjectCb(asyncHdr, err, read_req);
+        getObjectCb(asyncHdr, err, getReq);
     }
 }
 
 void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                const Error &err,
-                               SmIoReadObjectdata *read_req)
+                               SmIoGetObjectReq *getReq)
 {
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
 
     auto resp = boost::make_shared<GetObjectResp>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    resp->data_obj_len = read_req->obj_data.data.size();
-    resp->data_obj = read_req->obj_data.data;
+    resp->data_obj_len = getReq->obj_data.data.size();
+    resp->data_obj = getReq->obj_data.data;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetObjectResp), *resp);
 
-    delete read_req;
+    delete getReq;
 }
 
 void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -108,48 +108,48 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
 
     Error err(ERR_OK);
-    auto put_req = new SmIoPutObjectReq();
-    put_req->io_type = FDS_SM_PUT_OBJECT;
-    put_req->setVolId(putObjMsg->volume_id);
-    put_req->origin_timestamp = putObjMsg->origin_timestamp;
-    put_req->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
-    put_req->data_obj = std::move(putObjMsg->data_obj);
+    auto putReq = new SmIoPutObjectReq();
+    putReq->io_type = FDS_SM_PUT_OBJECT;
+    putReq->setVolId(putObjMsg->volume_id);
+    putReq->origin_timestamp = putObjMsg->origin_timestamp;
+    putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
+    putReq->data_obj = std::move(putObjMsg->data_obj);
     // perf-trace related data
-    put_req->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
-    put_req->opReqFailedPerfEventType = PUT_OBJ_REQ_ERR;
-    put_req->opReqLatencyCtx.type = PUT_OBJ_REQ;
-    put_req->opReqLatencyCtx.name = put_req->perfNameStr;
-    put_req->opReqLatencyCtx.reset_volid(putObjMsg->volume_id);
-    put_req->opLatencyCtx.type = PUT_IO;
-    put_req->opLatencyCtx.name = put_req->perfNameStr;
-    put_req->opLatencyCtx.reset_volid(putObjMsg->volume_id);
+    putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
+    putReq->opReqFailedPerfEventType = PUT_OBJ_REQ_ERR;
+    putReq->opReqLatencyCtx.type = PUT_OBJ_REQ;
+    putReq->opReqLatencyCtx.name = putReq->perfNameStr;
+    putReq->opReqLatencyCtx.reset_volid(putObjMsg->volume_id);
+    putReq->opLatencyCtx.type = PUT_IO;
+    putReq->opLatencyCtx.name = putReq->perfNameStr;
+    putReq->opLatencyCtx.reset_volid(putObjMsg->volume_id);
     // moving to task synchronizer, so using new type here, will remove
     // this counter once we delete trans table
-    put_req->opTransactionWaitCtx.type = PUT_OBJ_TASK_SYNC_WAIT;
-    put_req->opTransactionWaitCtx.name = put_req->perfNameStr;
-    put_req->opTransactionWaitCtx.reset_volid(putObjMsg->volume_id);
-    put_req->opQoSWaitCtx.type = PUT_QOS_QUEUE_WAIT;
-    put_req->opQoSWaitCtx.name = put_req->perfNameStr;
-    put_req->opQoSWaitCtx.reset_volid(putObjMsg->volume_id);
+    putReq->opTransactionWaitCtx.type = PUT_OBJ_TASK_SYNC_WAIT;
+    putReq->opTransactionWaitCtx.name = putReq->perfNameStr;
+    putReq->opTransactionWaitCtx.reset_volid(putObjMsg->volume_id);
+    putReq->opQoSWaitCtx.type = PUT_QOS_QUEUE_WAIT;
+    putReq->opQoSWaitCtx.name = putReq->perfNameStr;
+    putReq->opQoSWaitCtx.reset_volid(putObjMsg->volume_id);
 
     putObjMsg->data_obj.clear();
-    put_req->response_cb= std::bind(
+    putReq->response_cb= std::bind(
             &SMSvcHandler::putObjectCb, this,
             asyncHdr,
             std::placeholders::_1, std::placeholders::_2);
 
-    err = objStorMgr->enqueueMsg(put_req->getVolId(), put_req);
+    err = objStorMgr->enqueueMsg(putReq->getVolId(), putReq);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoPutObjectReq to StorMgr.  Error: "
                 << err;
-        putObjectCb(asyncHdr, err, put_req);
+        putObjectCb(asyncHdr, err, putReq);
     }
 }
 
 void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                const Error &err,
-                               SmIoPutObjectReq* put_req)
+                               SmIoPutObjectReq* putReq)
 {
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
 
@@ -159,11 +159,11 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     if ((objStorMgr->testUturnAll == true) ||
         (objStorMgr->testUturnPutObj == true)) {
-        fds_verify(put_req == NULL);
+        fds_verify(putReq == NULL);
         return;
     }
 
-    delete put_req;
+    delete putReq;
 }
 
 void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
