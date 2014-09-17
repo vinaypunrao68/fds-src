@@ -64,17 +64,18 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     return err;
 }
 
-Error
+boost::shared_ptr<const std::string>
 ObjectDataStore::getObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                ObjMetaData::const_ptr objMetaData,
-                               boost::shared_ptr<const std::string> &objData) {
+                               Error &err) {
     // Check the cache for the object
-    Error err = dataCache->getObjectData(volId, objId, objData);
+    boost::shared_ptr<const std::string> objCachedData
+            = dataCache->getObjectData(volId, objId, err);
     if (err.ok()) {
         LOGDEBUG << "Got " << objId << " from cache";
         PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, PerfTracer::perfNameStr(volId));
-        return err;
+        return objCachedData;
     }
 
     // Construct persistent layer request
@@ -107,7 +108,9 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
         err = diskMgr->disk_read(plReq);
     }
     if (err.ok()) {
-        LOGDEBUG << "Got " << objId << " from persistent layer";
+        LOGDEBUG << "Got " << objId << " from persistent layer "
+                 << " tier " << tier << " volume " << std::hex
+                 << volId << std::dec;
         if (tier == diskio::flashTier) {
             PerfTracer::incr(GET_SSD_OBJ, volId, PerfTracer::perfNameStr(volId));
         }
@@ -116,13 +119,13 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
         // TODO(Andrew): Remove the ObjectBuf concept and just pass the
         // data pointer directly to the persistent layer so that this
         // copy can be avoided.
-        objData.reset(new std::string(objBuf.data));
-        // *objData = objBuf.data;
+        boost::shared_ptr<const std::string> objData(new std::string(objBuf.data));
+        return objData;
     } else {
         LOGERROR << "Failed to get " << objId << " from persistent layer: " << err;
     }
 
-    return err;
+    return NULL;
 }
 
 Error

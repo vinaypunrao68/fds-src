@@ -52,12 +52,14 @@ ObjectDataCache::putObjectData(fds_volid_t volId,
             = dataCache->add(objId, objData);
 }
 
-Error
+boost::shared_ptr<const std::string>
 ObjectDataCache::getObjectData(fds_volid_t volId,
                                const ObjectID &objId,
-                               boost::shared_ptr<const std::string> objData) {
+                               Error& err) {
     // Query the cache and touch the entry
-    return dataCache->get(objId, objData);
+    boost::shared_ptr<const std::string> objData;
+    err = dataCache->get(objId, objData);
+    return objData;
 }
 
 void

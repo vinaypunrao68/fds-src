@@ -53,12 +53,15 @@ ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
     // pointer will be allocated and set.
     objMeta = metaDb_->get(volId, objId, err);
     if (err.ok()) {
-        LOGDEBUG << "Got " << objId << " metadata from db";
-        LOGDEBUG << "Vol " << std::hex << volId<< std::dec
-                 << " "<< objId << " refcnt: "<< objMeta->getRefCnt()
+        LOGDEBUG << "Got metadata from db: Vol " << std::hex << volId << std::dec
+                 << " " << objId << " refcnt: "<< objMeta->getRefCnt()
                  << " dataexists: " << objMeta->dataPhysicallyExists();
     } else {
-        LOGERROR << "Failed to get " << objId << " from metadata db: " << err;
+        if (err == ERR_NOT_FOUND) {
+            LOGDEBUG << "Metadata not found in db for obj " << objId;
+        } else {
+            LOGERROR << "Failed to get " << objId << " from metadata db: " << err;
+        }
     }
 
     return objMeta;

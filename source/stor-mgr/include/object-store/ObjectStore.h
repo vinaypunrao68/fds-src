@@ -73,9 +73,9 @@ class ObjectStore : public Module, public boost::noncopyable {
      * Gets an specific object for a volume. The object's data
      * is filled into the objData shared pointer parameter.
      */
-    Error getObject(fds_volid_t volId,
-                    const ObjectID &objId,
-                    boost::shared_ptr<std::string> objData);
+    boost::shared_ptr<const std::string> getObject(fds_volid_t volId,
+                                                   const ObjectID &objId,
+                                                   Error& err);
 
     /**
      * Deletes a specific object. The object's data is filled into

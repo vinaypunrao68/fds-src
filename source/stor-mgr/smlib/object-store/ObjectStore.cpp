@@ -69,10 +69,11 @@ ObjectStore::putObject(fds_volid_t volId,
 
         if (conf_verify_data == true) {
             // verify data -- read object from object data store
-            boost::shared_ptr<const std::string> existObjData;
+            boost::shared_ptr<const std::string> existObjData
+                    = dataStore->getObjectData(volId, objId, objMeta, err);
             // if we get an error, there are inconsistencies between
             // data and metadata; assert for now
-            fds_verify(dataStore->getObjectData(volId, objId, objMeta, existObjData) == ERR_OK);
+            fds_verify(err.ok());
 
             // check if data is the same
             if (*existObjData != *objData) {
@@ -145,13 +146,35 @@ ObjectStore::putObject(fds_volid_t volId,
     return err;
 }
 
-Error
+boost::shared_ptr<const std::string>
 ObjectStore::getObject(fds_volid_t volId,
                        const ObjectID &objId,
-                       boost::shared_ptr<std::string> objData) {
-    Error err(ERR_OK);
+                       Error& err) {
+    // Get metadata from metadata store
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get object metadata" << objId << " volume "
+                 << std::hex << volId << std::dec << " " << err;
+        return NULL;
+    }
 
-    return err;
+    // If this Volume never put this object, then it should not access the object
+    if (!objMeta->isVolumeAssociated(volId)) {
+        err = ERR_NOT_FOUND;
+        LOGWARN << "Volume " << std::hex << volId << std::dec << " aunauth access "
+                << " to object " << objId << " returning " << err;
+        return NULL;
+    }
+
+    // get object data
+    boost::shared_ptr<const std::string> objData
+            = dataStore->getObjectData(volId, objId, objMeta, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get object data " << objId << " volume "
+                 << std::hex << volId << std::dec << " " << err;
+    }
+
+    return objData;
 }
 
 Error

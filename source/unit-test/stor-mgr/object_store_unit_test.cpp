@@ -43,10 +43,11 @@ static StorMgrVolumeTable* volTbl;
 static ObjectStore::unique_ptr objectStore;
 
 static void getObj(TestObject & obj) {
-    // boost::shared_ptr<std::string> ptr;
-    // objectStore->getObject(obj.volId, obj.objId, ptr);
-    // GLOGTRACE << "compare " << *obj.value << " = " << *ptr;
-    // fds_assert(*ptr == *obj.value);
+    Error err(ERR_OK);
+    boost::shared_ptr<const std::string> ptr
+            = objectStore->getObject(obj.volId, obj.objId, err);
+    GLOGTRACE << "compare " << *obj.value << " = " << *ptr;
+    fds_assert(*ptr == *obj.value);
 }
 
 static void addObj(TestObject & obj) {
@@ -81,9 +82,18 @@ class ObjectStoreTest : public FdsProcess {
         for (std::vector<TestObject>::iterator i = testObjs.begin();
              testObjs.end() != i;
              ++i) {
-            LOGTRACE << "Details volume=" << (*i).volId << " key="
+            LOGTRACE << "Writing: Details volume=" << (*i).volId << " key="
                      << (*i).objId << " value=" << *(*i).value;
             addObj(*i);
+        }
+
+        // read objects we just wrote
+        for (std::vector<TestObject>::iterator i = testObjs.begin();
+             testObjs.end() != i;
+             ++i) {
+            LOGTRACE << "Reading: Details volume=" << (*i).volId << " key="
+                     << (*i).objId << " value=" << *(*i).value;
+            getObj(*i);
         }
 
         LOGTRACE << "Ending...";
