@@ -31,7 +31,8 @@ public class MultiPartUploadAbort implements RequestHandler {
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
 
         for(PartInfo pi : mops.getParts()) {
-            xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, pi.descriptor.getName());
+            String systemVolume = xdi.getSystemVolumeName(token);
+            xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, pi.descriptor.getName());
         }
 
         return new TextResource(HttpServletResponse.SC_NO_CONTENT, "");

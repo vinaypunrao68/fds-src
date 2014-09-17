@@ -6,6 +6,7 @@
 #include <map>
 #include <ObjectId.h>
 #include <fds_process.h>
+#include <PerfTrace.h>
 #include <object-store/ObjectStore.h>
 
 namespace fds {
@@ -24,7 +25,9 @@ ObjectStore::~ObjectStore() {
 
 void
 ObjectStore::setNumBitsPerToken(fds_uint32_t nbits) {
-    metaStore->setNumBitsPerToken(nbits);
+    if (metaStore) {
+        metaStore->setNumBitsPerToken(nbits);
+    }
 }
 
 Error
@@ -44,6 +47,8 @@ Error
 ObjectStore::putObject(fds_volid_t volId,
                        const ObjectID &objId,
                        boost::shared_ptr<const std::string> objData) {
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+
     Error err(ERR_OK);
     diskio::DataTier useTier = diskio::maxTier;
     GLOGTRACE << "Putting object " << objId;
@@ -68,23 +73,23 @@ ObjectStore::putObject(fds_volid_t volId,
 
         if (conf_verify_data == true) {
             // verify data -- read object from object data store
-            boost::shared_ptr<const std::string> existObjData;
+            boost::shared_ptr<const std::string> existObjData
+                    = dataStore->getObjectData(volId, objId, objMeta, err);
             // if we get an error, there are inconsistencies between
             // data and metadata; assert for now
-            fds_verify(dataStore->getObjectData(volId, objId, objMeta, existObjData) == ERR_OK);
+            fds_verify(err.ok());
 
             // check if data is the same
             if (*existObjData != *objData) {
-                    fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
-                              objId.ToHex().c_str());
+                fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
+                          objId.ToHex().c_str());
             }
         }  // if (conf_verify_data == true)
-
-        // TODO(Anna) update dup counter
 
         // Create new object metadata to update the refcnts
         updatedMeta.reset(new ObjMetaData(objMeta));
 
+        PerfTracer::incr(DUPLICATE_OBJ, volId, PerfTracer::perfNameStr(volId));
         err = ERR_DUPLICATE;
     } else {  // if (getMetadata != OK)
         // We didn't find any metadata, make sure it was just not there and reset
@@ -139,27 +144,50 @@ ObjectStore::putObject(fds_volid_t volId,
     // write metadata to metadata store
     err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
     if (err.ok() && (useTier == diskio::flashTier)) {
-        // TODO(Anna) update PUT_SSD_OBJ counter
         // TODO(Anna) if media policy not ssd, add to dirty flash list
-    } else if (err.ok() && (useTier == diskio::diskTier)) {
-        // TODO(Anna) update PUT_HDD_OBJ counter
     }
 
     return err;
 }
 
-Error
+boost::shared_ptr<const std::string>
 ObjectStore::getObject(fds_volid_t volId,
                        const ObjectID &objId,
-                       boost::shared_ptr<std::string> objData) {
-    Error err(ERR_OK);
+                       Error& err) {
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
 
-    return err;
+    // Get metadata from metadata store
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get object metadata" << objId << " volume "
+                 << std::hex << volId << std::dec << " " << err;
+        return NULL;
+    }
+
+    // If this Volume never put this object, then it should not access the object
+    if (!objMeta->isVolumeAssociated(volId)) {
+        err = ERR_NOT_FOUND;
+        LOGWARN << "Volume " << std::hex << volId << std::dec << " aunauth access "
+                << " to object " << objId << " returning " << err;
+        return NULL;
+    }
+
+    // get object data
+    boost::shared_ptr<const std::string> objData
+            = dataStore->getObjectData(volId, objId, objMeta, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get object data " << objId << " volume "
+                 << std::hex << volId << std::dec << " " << err;
+    }
+
+    return objData;
 }
 
 Error
 ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId) {
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+
     Error err(ERR_OK);
 
     // New object metadata to update the refcnts
@@ -168,10 +196,8 @@ ObjectStore::deleteObject(fds_volid_t volId,
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta =
             metaStore->getObjectMetadata(volId, objId, err);
-    if (err != ERR_OK) {
-        // TODO(xxx) getObjectMetadata returns same error for no key
-        // or other error; should differentiate errors
-        // for now assume this error means the key just did not exist
+    if (!err.ok()) {
+        fds_verify(err == ERR_NOT_FOUND);
         LOGDEBUG << "Not able to read existing object locations, "
                  << "assuming no prior entry existed " << objId;
         return ERR_OK;
@@ -188,6 +214,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
     // object from data store cache fails, it is ok
     err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
     if (err.ok()) {
+        PerfTracer::incr(SM_OBJ_MARK_DELETED, volId, PerfTracer::perfNameStr(volId));
         volumeTbl->updateDupObj(volId,
                                 objId,
                                 updatedMeta->getObjSize(),
@@ -221,11 +248,15 @@ ObjectStore::mod_init(SysParams const *const p) {
 
     const FdsRootDir *fdsroot = g_fdsprocess->proc_fdsroot();
     conf_verify_data = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.data_verify");
+    taskSyncSize =
+            g_fdsprocess->get_fds_config()->get<fds_uint32_t>(
+                "fds.sm.objectstore.synchronizer_size");
+    taskSynchronizer = std::unique_ptr<HashedLocks<ObjectID, ObjectHash>>(
+        new HashedLocks<ObjectID, ObjectHash>(taskSyncSize));
 
     metaStore = ObjectMetadataStore::unique_ptr(
         new ObjectMetadataStore("SM Object Metadata Storage Module",
                             fdsroot->dir_user_repo_objs()));
-
     return 0;
 }
 

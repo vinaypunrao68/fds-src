@@ -10,6 +10,7 @@
 #include <fdsp_utils.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
+#include <platform/node-inventory.h>
 
 /**
  * Use this macro for registering FDSP message handlers
@@ -103,6 +104,7 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
                               const PayloadT& payload)
     {
         GLOGDEBUG;
+        int minor;
         auto resp_hdr = NetMgr::ep_swap_header(req_hdr);
         resp_hdr.msg_type_id = msgTypeId;
 
@@ -112,8 +114,14 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
         auto written = payload.write(binary_buf.get());
         fds_verify(written > 0);
 
+        extern const NodeUuid gl_OmUuid;
+        if (resp_hdr.msg_dst_uuid.svc_uuid == gl_OmUuid.uuid_get_val()) {
+            minor = 1;  // NET_SVC_CTRL;
+        } else {
+            minor = 0;
+        }
         auto ep = NetMgr::ep_mgr_singleton()->\
-                  svc_get_handle<fpi::BaseAsyncSvcClient>(resp_hdr.msg_dst_uuid, 0 , 0);
+                  svc_get_handle<fpi::BaseAsyncSvcClient>(resp_hdr.msg_dst_uuid, 0 , minor);
         if (ep == nullptr) {
             GLOGERROR << "Null destination client: " << resp_hdr.msg_dst_uuid.svc_uuid;
             return;

@@ -7,6 +7,7 @@
 #include <net/PlatNetSvcHandler.h>
 #include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
+#include <AMSvcHandler.h>
 
 namespace fds {
 
@@ -103,16 +104,15 @@ AmPlatform::mod_startup()
     NetPlatform *net;
 
     Platform::mod_startup();
-    registerFlags();
     gSvcRequestPool = new SvcRequestPool();
 
-    am_recv   = bo::shared_ptr<PlatNetSvcHandler>(new PlatNetSvcHandler());
+    am_recv   = bo::shared_ptr<AMSvcHandler>(new AMSvcHandler());
     am_plugin = new AMEpPlugin(this);
-    am_ep     = new EndPoint<fpi::PlatNetSvcClient, fpi::PlatNetSvcProcessor>(
+    am_ep     = new EndPoint<fpi::AMSvcClient, fpi::AMSvcProcessor>(
         Platform::platf_singleton()->plf_get_my_base_port(),
         *Platform::platf_singleton()->plf_get_my_svc_uuid(),
         NodeUuid(0ULL),
-        bo::shared_ptr<fpi::PlatNetSvcProcessor>(new fpi::PlatNetSvcProcessor(am_recv)),
+        bo::shared_ptr<fpi::AMSvcProcessor>(new fpi::AMSvcProcessor(am_recv)),
         am_plugin);
 
     net = NetPlatform::nplat_singleton();
@@ -141,15 +141,6 @@ boost::shared_ptr<BaseAsyncSvcHandler>
 AmPlatform::getBaseAsyncSvcHandler()
 {
     return am_recv;
-}
-
-/**
-* @brief Register am flags
-*/
-void AmPlatform::registerFlags()
-{
-    PlatformProcess::plf_manager()->plf_get_flags_map().registerCommonFlags();
-    /* AM specific flags */
 }
 
 }  // namespace fds

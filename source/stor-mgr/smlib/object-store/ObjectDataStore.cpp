@@ -3,6 +3,7 @@
  */
 
 #include <string>
+#include <PerfTrace.h>
 #include <object-store/ObjectDataStore.h>
 
 namespace fds {
@@ -34,11 +35,21 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
             new SmPlReq(vio, oid,
                         const_cast<ObjectBuf *>(&objBuf),
                         sync, tier);
-    err = diskMgr->disk_write(plReq);
+
+    { // scope for perf counter
+        PerfContext tmp_pctx(SM_OBJ_DATA_DISK_WRITE,
+                             volId, PerfTracer::perfNameStr(volId));
+        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+        err = diskMgr->disk_write(plReq);
+    }
 
     // Place the data in the cache
     if (err.ok()) {
         LOGDEBUG << "Wrote " << objId << " to persistent layer";
+        if (tier == diskio::flashTier) {
+            PerfTracer::incr(PUT_SSD_OBJ, volId, PerfTracer::perfNameStr(volId));
+        }
+
         // get location in persistent layer to return with this method
         obj_phy_loc_t* loc = plReq->req_get_phy_loc();
         // copy to objPhyLoc because plReq will be freed as soon as we return
@@ -53,50 +64,68 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     return err;
 }
 
-Error
+boost::shared_ptr<const std::string>
 ObjectDataStore::getObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                ObjMetaData::const_ptr objMetaData,
-                               boost::shared_ptr<const std::string> &objData) {
+                               Error &err) {
     // Check the cache for the object
-    Error err = dataCache->getObjectData(volId, objId, objData);
+    boost::shared_ptr<const std::string> objCachedData
+            = dataCache->getObjectData(volId, objId, err);
     if (err.ok()) {
         LOGDEBUG << "Got " << objId << " from cache";
-        return err;
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, PerfTracer::perfNameStr(volId));
+        return objCachedData;
     }
 
     // Construct persistent layer request
     meta_vol_io_t   vio;
     meta_obj_id_t   oid;
     fds_bool_t      sync = true;
-    // TODO(Andrew): The persistent layer should read from whatever the
-    // fastest tier is...This should request a tier
-    diskio::DataTier tier = diskio::diskTier;
+    diskio::DataTier tier;
     ObjectBuf       objBuf;
     memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
     SmPlReq *plReq = new SmPlReq(vio,
                                  oid,
                                  static_cast<ObjectBuf *>(&objBuf),
                                  sync);
+
+    // read object from flash if we can
+    if (objMetaData->onFlashTier()) {
+        tier = diskio::flashTier;
+    } else {
+        tier = diskio::diskTier;
+    }
     plReq->setTier(tier);
     plReq->set_phy_loc(objMetaData->getObjPhyLoc(tier));
     objBuf.size = objMetaData->getObjSize();
     objBuf.data.resize(objBuf.size, 0);
 
-    err = diskMgr->disk_read(plReq);
+    {  // scope for perf counter
+        PerfContext tmp_pctx(SM_OBJ_DATA_DISK_READ,
+                             volId, PerfTracer::perfNameStr(volId));
+        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+        err = diskMgr->disk_read(plReq);
+    }
     if (err.ok()) {
-        LOGDEBUG << "Got " << objId << " from persistent layer";
+        LOGDEBUG << "Got " << objId << " from persistent layer "
+                 << " tier " << tier << " volume " << std::hex
+                 << volId << std::dec;
+        if (tier == diskio::flashTier) {
+            PerfTracer::incr(GET_SSD_OBJ, volId, PerfTracer::perfNameStr(volId));
+        }
+
         // Copy the data to the give buffer
         // TODO(Andrew): Remove the ObjectBuf concept and just pass the
         // data pointer directly to the persistent layer so that this
         // copy can be avoided.
-        objData.reset(new std::string(objBuf.data));
-        // *objData = objBuf.data;
+        boost::shared_ptr<const std::string> objData(new std::string(objBuf.data));
+        return objData;
     } else {
         LOGERROR << "Failed to get " << objId << " from persistent layer: " << err;
     }
 
-    return err;
+    return NULL;
 }
 
 Error
@@ -110,8 +139,6 @@ ObjectDataStore::removeObjectData(const ObjectID& objId,
     // tell persistent layer we deleted the object so that garbage collection
     // knows how much disk space we need to clean
     memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-    // TODO(xxx) we should remove DELETE_DISK counter, because they are not
-    // real deletes
     if (objMetaData->onTier(diskio::diskTier)) {
         diskMgr->disk_delete_obj(&oid, objMetaData->getObjSize(),
                                 objMetaData->getObjPhyLoc(diskio::diskTier));

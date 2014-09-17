@@ -317,6 +317,7 @@ PlatAgent::agent_publish_ep()
         agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_MGR);
         agent_bind_svc(ep_map, &ninfo, fpi::FDSP_DATA_MGR);
         agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_HVISOR);
+        agent_bind_svc(ep_map, &ninfo, fpi::FDSP_ORCH_MGR);
     }
 }
 

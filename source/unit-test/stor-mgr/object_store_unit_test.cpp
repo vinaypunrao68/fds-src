@@ -16,7 +16,7 @@
 
 namespace fds {
 
-static const fds_uint32_t MAX_TEST_OBJ = 255;
+static const fds_uint32_t MAX_TEST_OBJ = 1000;
 static const fds_uint32_t MAX_VOLUMES = 50;
 
 static fds_uint32_t keyCounter = 0;
@@ -34,7 +34,7 @@ struct TestObject {
             // volId(keyCounter % MAX_VOLUMES),
             volId(singleVolId),
             objId(keyCounter++),
-            value(new std::string(tmpnam(NULL))) {}
+            value(new std::string(objId.ToString())) {}
     ~TestObject() {
     }
 };
@@ -43,10 +43,11 @@ static StorMgrVolumeTable* volTbl;
 static ObjectStore::unique_ptr objectStore;
 
 static void getObj(TestObject & obj) {
-    // boost::shared_ptr<std::string> ptr;
-    // objectStore->getObject(obj.volId, obj.objId, ptr);
-    // GLOGTRACE << "compare " << *obj.value << " = " << *ptr;
-    // fds_assert(*ptr == *obj.value);
+    Error err(ERR_OK);
+    boost::shared_ptr<const std::string> ptr
+            = objectStore->getObject(obj.volId, obj.objId, err);
+    GLOGTRACE << "compare " << *obj.value << " = " << *ptr;
+    fds_assert(*ptr == *obj.value);
 }
 
 static void addObj(TestObject & obj) {
@@ -81,9 +82,18 @@ class ObjectStoreTest : public FdsProcess {
         for (std::vector<TestObject>::iterator i = testObjs.begin();
              testObjs.end() != i;
              ++i) {
-            LOGTRACE << "Details volume=" << (*i).volId << " key="
+            LOGTRACE << "Writing: Details volume=" << (*i).volId << " key="
                      << (*i).objId << " value=" << *(*i).value;
             addObj(*i);
+        }
+
+        // read objects we just wrote
+        for (std::vector<TestObject>::iterator i = testObjs.begin();
+             testObjs.end() != i;
+             ++i) {
+            LOGTRACE << "Reading: Details volume=" << (*i).volId << " key="
+                     << (*i).objId << " value=" << *(*i).value;
+            getObj(*i);
         }
 
         LOGTRACE << "Ending...";
