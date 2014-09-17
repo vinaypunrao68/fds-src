@@ -11,6 +11,7 @@
 #include <thrift/transport/TServerSocket.h>
 #include <thrift/transport/TBufferTransports.h>
 
+#include <NetSession.h>
 #include <fds_typedefs.h>
 #include <string>
 #include <vector>
@@ -18,6 +19,7 @@
 #include <OmResources.h>
 #include <convert.h>
 #include <orchMgr.h>
+
 using namespace ::apache::thrift;  //NOLINT
 using namespace ::apache::thrift::protocol;  //NOLINT
 using namespace ::apache::thrift::transport;  //NOLINT

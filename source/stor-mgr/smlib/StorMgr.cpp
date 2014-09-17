@@ -15,6 +15,7 @@
 #include <policy_rpc.h>
 #include <policy_tier.h>
 #include <StorMgr.h>
+#include <NetSession.h>
 #include <fds_obj_cache.h>
 #include <fds_timestamp.h>
 #include <TokenCompactor.h>
@@ -707,6 +708,11 @@ ObjectStorMgr::getSvcSess(const NodeUuid &svcUuid) {
     svcSessLock.read_unlock();
 
     return sessId;
+}
+
+DPRespClientPtr
+ObjectStorMgr::fdspDataPathClient(const std::string& session_uuid) {
+    return datapath_session_->getRespClient(session_uuid);
 }
 
 const TokenList&

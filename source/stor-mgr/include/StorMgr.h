@@ -58,7 +58,7 @@ extern "C" {
 #include "fds_module.h"
 #include "platform/platform-lib.h"
 
-#include "NetSession.h"
+// #include "NetSession.h"
 #include "kvstore/tokenstatedb.h"
 #include "fdsp/SMSvc.h"
 
@@ -70,6 +70,16 @@ extern "C" {
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
 #define FDS_MAX_WAITING_CONNS  10
+
+using namespace FDS_ProtocolInterface;  // NOLINT
+namespace FDS_ProtocolInterface {
+    class FDSP_DataPathReqProcessor;
+    class FDSP_DataPathReqIf;
+    class FDSP_DataPathRespClient;
+}
+typedef netServerSessionEx<FDSP_DataPathReqProcessor,
+                FDSP_DataPathReqIf,
+                FDSP_DataPathRespClient> netDataPathServerSession;
 
 namespace fds {
 
@@ -187,9 +197,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      bool tok_migrated_for_dlt_;
 
      /** Helper for accessing datapth response client */
-     inline DPRespClientPtr fdspDataPathClient(const std::string& session_uuid) {
-         return datapath_session_->getRespClient(session_uuid);
-     }
+     DPRespClientPtr fdspDataPathClient(const std::string& session_uuid);
 
      /*
       * Service UUID to Session UUID mapping stuff. Used to support

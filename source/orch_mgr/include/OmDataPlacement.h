@@ -14,6 +14,7 @@
 #include <set>
 #include <utility>
 
+#include <fds_globals.h>
 #include <fds_types.h>
 #include <fds_typedefs.h>
 #include <fds_error.h>

@@ -5,6 +5,7 @@
 #include <vector>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
+#include <NetSession.h>
 #include <OmVolume.h>
 #include <OmResources.h>
 #include <OmVolumePlacement.h>
@@ -12,7 +13,6 @@
 #include <om-discovery.h>
 #include <OmDmtDeploy.h>
 #include <orch-mgr/om-service.h>
-
 
 namespace fds {
 
@@ -728,7 +728,7 @@ void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapsho
 // ----------------
 //
 void
-VolumeInfo::vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const
+VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
 {
     VolumeDesc *pVol;
 
@@ -766,8 +766,8 @@ VolumeInfo::vol_fmt_message(om_vol_msg_t *out)
 {
     switch (out->vol_msg_code) {
         case fpi::FDSP_MSG_GET_BUCKET_STATS_RSP: {
-            VolumeDesc          *desc = vol_properties;
-            FDSP_BucketStatType *stat = out->u.vol_stats;
+            VolumeDesc               *desc = vol_properties;
+            fpi::FDSP_BucketStatType *stat = out->u.vol_stats;
 
             fds_verify(stat != NULL);
             stat->vol_name = vol_name;
@@ -1318,8 +1318,8 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
 // -------------
 //
 Error
-VolumeContainer::om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
-                               const FdspAttVolCmdPtr   &attach)
+VolumeContainer::om_attach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
+                               const FdspAttVolCmdPtr        &attach)
 {
     Error err(ERR_OK);
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
@@ -1360,8 +1360,8 @@ VolumeContainer::om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
 // -------------
 //
 Error
-VolumeContainer::om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
-                               const FdspAttVolCmdPtr   &detach)
+VolumeContainer::om_detach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
+                               const FdspAttVolCmdPtr        &detach)
 {
     Error err(ERR_OK);
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
@@ -1565,7 +1565,7 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
 
     //  The following is ugly
     om_vol_notify_t type;
-    if (from_svc.uuid_get_type() == FDSP_STOR_HVISOR)
+    if (from_svc.uuid_get_type() == fpi::FDSP_STOR_HVISOR)
     switch (cmd_type) {
         case fpi::CtrlNotifyVolAddTypeId:
              type = om_notify_vol_attach; break;
@@ -1575,7 +1575,7 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
              type = om_notify_vol_detach; break;
         default: break;
     }
-    if (from_svc.uuid_get_type() != FDSP_STOR_HVISOR)
+    if (from_svc.uuid_get_type() != fpi::FDSP_STOR_HVISOR)
     switch (cmd_type) {
         case fpi::CtrlNotifyVolAddTypeId:
              type = om_notify_vol_add; break;
