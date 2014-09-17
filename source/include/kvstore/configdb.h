@@ -116,7 +116,9 @@ struct ConfigDB : KVStore {
     bool listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & _return, const int64_t volumeId); //NOLINT
     bool detachSnapshotPolicy(const int64_t volumeId, const int64_t policyId); //NOLINT
     bool listVolumesForSnapshotPolicy(std::vector<int64_t> & _return, const int64_t policyId); //NOLINT
+
     bool createSnapshot(fpi::Snapshot& snapshot);
+    bool updateSnapshot(const fpi::Snapshot& snapshot);
     bool listSnapshots(std::vector<fpi::Snapshot> & _return, const int64_t volumeId); //NOLINT
 
   protected:

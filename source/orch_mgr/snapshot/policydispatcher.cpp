@@ -68,7 +68,9 @@ void PolicyDispatcher::run() {
             snapshot.snapshotId = getUuidFromVolumeName(snapshot.snapshotName);
             snapshot.snapshotPolicyId = policyId;
             snapshot.creationTimestamp = util::getTimeStampMillis();
-
+            snapshot.retentionTimeSeconds = policy.retentionTimeSeconds;
+            // activate snap right away.
+            snapshot.state = fpi::ResourceState::Active;
             LOGDEBUG << "snapshot request for volumeid:" << volId
                      << " name:" << snapshot.snapshotName;
 
@@ -81,7 +83,11 @@ void PolicyDispatcher::run() {
             VolumeContainer::pointer volContainer = local->om_vol_mgr();
 
             volContainer->addSnapshot(snapshot);
-            // store in the DB..
+
+            // add this snapshot to the retention manager ...
+
+            om->snapshotMgr.deleteScheduler->addSnapshot(snapshot);
+            // store in the DB ..
             om->getConfigDB()->createSnapshot(snapshot);
         }
     }

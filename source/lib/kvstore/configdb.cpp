@@ -1306,6 +1306,30 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
     return true;
 }
 
+bool ConfigDB::updateSnapshot(const fpi::Snapshot& snapshot) {
+    TRACKMOD();
+    try {
+        // check if the snapshot exists
+        if (!r.hexists(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId)) {
+            LOGWARN << "snapshot does not exist : " << snapshot.snapshotId
+                    << " vol:" << snapshot.volumeId;
+            NOMOD();
+            return false;
+        }
+
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(snapshot, serialized);
+
+        r.hset(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId, *serialized); //NOLINT
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
+
 bool ConfigDB::listSnapshots(std::vector<fpi::Snapshot> & vecSnapshots, const int64_t volumeId) {
     try {
         Reply reply = r.sendCommand("hvals volume:%ld:snapshots", volumeId);
