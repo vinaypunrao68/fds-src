@@ -8,6 +8,7 @@
 #include <fds_module.h>
 #include <fds_volume.h>
 #include <StorMgrVolumes.h>
+#include <concurrency/HashedLocks.hpp>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
 
@@ -29,13 +30,20 @@ class ObjectStore : public Module, public boost::noncopyable {
     /// Object metadata storage
     ObjectMetadataStore::unique_ptr metaStore;
 
-    // Volume table for accessing vol descriptors
+    /// Volume table for accessing vol descriptors
     // Does not own, passed from SM processing layer
     // TODO(xxx) we should be able to get this from platform
     StorMgrVolumeTable *volumeTbl;
 
-    // config params
+    /// config params
     fds_bool_t conf_verify_data;
+
+    /// Task synchronizer
+    std::unique_ptr<HashedLocks<ObjectID, ObjectHash>> taskSynchronizer;
+    /// Size of the synchronizer (controls false positives)
+    fds_uint32_t taskSyncSize;
+    typedef ScopedHashedLock<ObjectID,
+                             HashedLocks<ObjectID, ObjectHash>> ScopedSynchronizer;
 
   public:
     ObjectStore(const std::string &modName,

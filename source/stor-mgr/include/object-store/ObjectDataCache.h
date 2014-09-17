@@ -35,7 +35,7 @@ class ObjectDataCache : public Module, public boost::noncopyable {
      */
     void putObjectData(fds_volid_t volId,
                        const ObjectID &objId,
-                       boost::shared_ptr<const std::string> objData);
+                       boost::shared_ptr<const std::string> &objData);
 
     /**
      * Reads object data from the cache. The object data is returned

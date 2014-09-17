@@ -47,6 +47,8 @@ Error
 ObjectStore::putObject(fds_volid_t volId,
                        const ObjectID &objId,
                        boost::shared_ptr<const std::string> objData) {
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+
     Error err(ERR_OK);
     diskio::DataTier useTier = diskio::maxTier;
     GLOGTRACE << "Putting object " << objId;
@@ -242,11 +244,15 @@ ObjectStore::mod_init(SysParams const *const p) {
 
     const FdsRootDir *fdsroot = g_fdsprocess->proc_fdsroot();
     conf_verify_data = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.data_verify");
+    taskSyncSize =
+            g_fdsprocess->get_fds_config()->get<fds_uint32_t>(
+                "fds.sm.objectstore.synchronizer_size");
+    taskSynchronizer = std::unique_ptr<HashedLocks<ObjectID, ObjectHash>>(
+        new HashedLocks<ObjectID, ObjectHash>(taskSyncSize));
 
     metaStore = ObjectMetadataStore::unique_ptr(
         new ObjectMetadataStore("SM Object Metadata Storage Module",
                             fdsroot->dir_user_repo_objs()));
-
     return 0;
 }
 

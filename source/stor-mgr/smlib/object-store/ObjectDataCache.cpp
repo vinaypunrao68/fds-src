@@ -47,7 +47,7 @@ ObjectDataCache::mod_shutdown() {
 void
 ObjectDataCache::putObjectData(fds_volid_t volId,
                                const ObjectID &objId,
-                               boost::shared_ptr<const std::string> objData) {
+                               boost::shared_ptr<const std::string> &objData) {
     boost::shared_ptr<const std::string> evictedData
             = dataCache->add(objId, objData);
 }
