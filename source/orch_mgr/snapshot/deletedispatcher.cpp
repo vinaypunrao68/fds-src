@@ -20,7 +20,7 @@ DeleteDispatcher::DeleteDispatcher(OrchMgr* om) : om(om),
 }
 
 uint64_t DeleteDispatcher::process(const DeleteTask& task) {
-    LOGDEBUG << "received message to process volume : " << task.volumeId;
+    LOGDEBUG << "received message to process snaps for volume : " << task.volumeId;
     std::vector<fpi::Snapshot> vecSnapshots;
     uint64_t nextTime = 0, deleteTime, currentTime = fds::util::getTimeStampSeconds();
     bool fAdded = false;
@@ -35,17 +35,34 @@ uint64_t DeleteDispatcher::process(const DeleteTask& task) {
             continue;
         }
 
-        if (nextTime == 0 || deleteTime < nextTime) {
+        bool fNeedsTimeCheck = false;
+        bool fNeedsDeleteCheck = false;
+        switch (snapshot.state) {
+            case fpi::ResourceState::Unknown:
+            case fpi::ResourceState::Loading:
+                LOGDEBUG << "snapshot not in a state for delete : " << snapshot.snapshotName;
+                fNeedsTimeCheck = true;
+                break;
+
+            case fpi::ResourceState::MarkedForDeletion:
+            case fpi::ResourceState::Deleted:
+                LOGDEBUG << "snapshot already marked for delete : " << snapshot.snapshotName;
+                break;
+            case fpi::ResourceState::Offline:
+            case fpi::ResourceState::Created:
+            case fpi::ResourceState::Active:
+                fNeedsTimeCheck = true;
+                fNeedsDeleteCheck= true;
+                break;
+        }
+
+        if (fNeedsTimeCheck && (nextTime == 0 || deleteTime < nextTime)) {
             nextTime = deleteTime;
         }
 
-        if (snapshot.state != fpi::ResourceState::Active) {
-            LOGDEBUG << "snapshot not active yet : " << snapshot.snapshotName;
-            continue;
-        }
-
-        if (deleteTime <= currentTime) {
-            LOGDEBUG << "snapshot needs to be deleted : " << snapshot.snapshotId;
+        if (fNeedsDeleteCheck && (deleteTime <= currentTime)) {
+            LOGDEBUG << "snapshot will be deleted : "
+                     << snapshot.snapshotId << ":" << snapshot.snapshotName;
             atc::Synchronized s(monitor);
             snapshotQ.push(snapshot);
             fAdded = true;
