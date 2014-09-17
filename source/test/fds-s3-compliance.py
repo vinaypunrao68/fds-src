@@ -186,7 +186,7 @@ class TestMultiUpload(unittest.TestCase):
         log('Copying keys into MP file')
 
         for i in range(4):
-            mp.copy_part_from_key(self.b, 'test_key' + str(i), i+1)
+            mp.copy_part_from_key(self.b.name, 'test_key' + str(i), i+1)
 
         # Finish the upload
         log('Completing MP upload...')
@@ -234,10 +234,10 @@ class TestMultiUpload(unittest.TestCase):
         log('MPU initiated!')
 
         log('Copying keys into multipart file...')
-        mp.copy_part_from_key(self.b, 'test_key', 1)
-        mp.copy_part_from_key(self.b, 'test_key', 2)
-        mp.copy_part_from_key(self.b, 'test_key', 3)
-        mp.copy_part_from_key(self.b, 'test_key', 4)
+        mp.copy_part_from_key(self.b.name, 'test_key', 1)
+        mp.copy_part_from_key(self.b.name, 'test_key', 2)
+        mp.copy_part_from_key(self.b.name, 'test_key', 3)
+        mp.copy_part_from_key(self.b.name, 'test_key', 4)
 
         # Finish the upload
         log('Completing MP upload...')
