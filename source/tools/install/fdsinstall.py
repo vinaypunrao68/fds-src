@@ -104,7 +104,7 @@ class Installer:
         return False
 
     def stepRunAll(self,menuitem):
-        for item in self.menu[1:]:
+        for item in self.menu[1:5]:
             if self.confirm(' %d - %s' % ( item[0], item[1])):
                 item[3](item)
             else:
