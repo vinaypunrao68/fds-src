@@ -258,6 +258,41 @@ ObjectStore::deleteObject(fds_volid_t volId,
     return err;
 }
 
+Error
+ObjectStore::copyAssociation(fds_volid_t srcVolId,
+                             fds_volid_t destVolId,
+                             const ObjectID& objId) {
+    Error err(ERR_OK);
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+
+    // New object metadata to update association
+    ObjMetaData::ptr updatedMeta;
+
+    // Get metadata from metadata store
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(srcVolId, objId, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get metadata for object " << objId << " " << err;
+        return err;
+    }
+
+    // copy association entry
+    updatedMeta.reset(new ObjMetaData(objMeta));
+    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    updatedMeta->getVolsRefcnt(vols_refcnt);
+    updatedMeta->copyAssocEntry(objId, srcVolId, destVolId);
+
+    // write updated metadata to meta store
+    err = metaStore->putObjectMetadata(destVolId, objId, updatedMeta);
+    if (err.ok()) {
+        // TODO(xxx) we should call updateDupObj()
+    } else {
+        LOGERROR << "Failed to add association entry for object " << objId
+                 << " to object metadata store " << err;
+    }
+
+    return err;
+}
+
 /**
  * Module initialization
  */
