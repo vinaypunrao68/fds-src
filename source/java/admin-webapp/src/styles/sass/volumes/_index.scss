@@ -1,0 +1,191 @@
+.header.volumes {
+  padding-left: 15px;
+  padding-right: 15px;
+  color: $text_very_light_color;
+}
+
+.volumeparent {
+    position: relative;
+    @include transition( left, 600ms );
+}
+
+.volumecontainer {
+    width: 100%;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+}
+
+.create-panel.volumes {
+    display: inline-block;
+    width: 100%;
+    @include transition(linear, 200ms);
+    padding: 2px;
+    padding-left: 20px;
+    margin-bottom: 12px;
+    position: absolute;
+    left: 100%;
+    top: 0px;
+
+    &.shown {
+        opacity: 1.0;
+        display: inline-block
+    }
+
+    &.hideit {
+        opacity: 0.0;
+        display: none;
+    }
+
+    .content {
+        display: inline-block;
+        border-bottom: 1px solid $gray_border;
+    }
+
+    .settings-panel {
+        width: 100%;
+    }
+}
+
+.volume-edit-container {
+    height: 0px;
+    overflow: auto;
+    @include transition( linear, 200ms );
+    padding: 10px;
+
+    &.open {
+        height: 250px;
+        overflow: hidden;
+    }
+
+    span {
+//        color: $default_text_color;
+    }
+}
+
+.volume-data-type-panel {
+    height: 0px;
+    overflow: auto;
+    @include transition( linear, 200ms );
+//    padding: 10px;
+
+    &.open {
+        height: 210px;
+        overflow: visible;
+    }
+}
+
+.volume-data-type-summary {
+//     margin-left: 10px;
+
+    div {
+        padding-right: 8px;
+
+        &.icon-container {
+            color: $text_light_color;
+        }
+
+        span {
+
+            &.value {
+                font-size: 1.2em;
+                font-weight: bold;
+            }
+        }
+    }
+}
+
+.volume-edit-row {
+
+    section {
+        padding-bottom: 26px;
+
+        div {
+            margin-bottom: 8px;
+        }
+    }
+
+    .volume-edit-label {
+        font-weight: bold;
+        font-size: 1.2em;
+        color: black;
+    }
+}
+
+table.volumes {
+  thead th {
+    padding: 10px 5px;
+    color: $text_very_light_color;
+  }
+
+  .priority {
+    text-align: center;
+  }
+
+  td.volume_time {
+      width: 88px;
+
+      div {
+          width: 88px;
+          height: 36px;
+          background-size: 88px 36px;
+          background-image: url(../images/sample_capacity_time.png);
+      }
+  }
+
+  td.name {
+    font-weight: bold;
+    padding-left: 5px;
+  }
+  td.consume {
+    span {
+      color: $text_light_color;
+      margin: 0 15px;
+    }
+  }
+
+  td.usage {
+    width: 8em;
+    svg {
+      vertical-align: middle;
+      display: inline;
+      width: 50px;
+      height: 30px;
+    }
+    span {
+      vertical-align: middle;
+      display: inline;
+      margin-left: .5em;
+    }
+  }
+  td.priority {
+    em {
+      display: inline-block;
+      border: 1px solid $fds_dark_green;
+      background-color: $fds_dark_green;
+      border-radius: 20px;
+      width: 30px; height: 30px;
+      padding-top: 6px;
+      color: #ffffff;
+      font-style: normal;
+      font-weight: bold;
+    }
+  }
+  td.action i {
+    margin-top: 2px;
+  }
+
+  td.checkmark {
+    padding-right: 5px;
+    text-align: right;
+  }
+
+  td.button-group {
+
+      span {
+          cursor: pointer;
+          color: $text_light_color;
+          padding-right: 4px;
+      }
+  }
+}

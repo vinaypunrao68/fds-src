@@ -1,0 +1,57 @@
+<div ng-controller="userController">
+
+    <div class="coming-soon-parent" ng-show="!isAllowed( 'System Management' )">
+        <div class="coming-soon-child">
+            <div style="">
+                <span style="color: white;">Coming soon...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="header top-label">
+
+        <div>
+            <span>Users</span>
+        </div>
+
+        <div style="position: relative;width: 100%;padding-top: 12px;" class="clearfix">
+            <div class="pull-left" style="width: 300px;">
+                <input type="text" class="form-control skinny" placeholder="Search Users" ng-model="userQuery"/>
+            </div>
+            <div class="pull-right">
+                <a>Add User(s)</a>
+            </div>
+        </div>
+
+        <div style="display: flex;padding-top: 12px;">
+            <div style="padding-right: 8px;">
+                <fui-dropdown skinny="true" type="action" items="actionItems" default-label="actionLabel" callback="actionSelected" background="none" color="black" border="gray"></fui-dropdown>
+            </div>
+            <div style="font-size: 0.6em;">
+                <div>for 0</div>
+                <div>selected users</div>
+            </div>
+        </div>
+
+        <table class="default">
+            <thead>
+                <th><input type="checkbox" /></th>
+                <th>Name</th>
+                <th>Tenant</th>
+                <th>Role</th>
+                <th>Access</th>
+                <th>Last Activity</th>
+            </thead>
+            <tboday>
+                <tr ng-repeat="user in users | filter:userQuery">
+                    <td><input type="checkbox" /></td>
+                    <td>{{user.firstname}} {{user.lastname}}</td>
+                    <td>{{user.tenant}}</td>
+                    <td>{{user.role}}</td>
+                    <td>{{user.access}}</td>
+                    <td>{{user.last_activity}}</td>
+                </tr>
+            </tboday>
+        </table>
+    </div>
+</div>

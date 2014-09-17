@@ -26,5 +26,6 @@ compile:
 	@mkdir -p $(comm_dir_lib)/java/
 	@mvn install -f thrift-pom.xml
 	@mvn -DskipTests assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
-	@cp -r admin-webapp $(comm_dir_lib)
+	@mkdir $(comm_dir_lib)/admin-webapp;cd admin-webapp;sudo npm install;bower install;grunt release;
+	@cp -r admin-webapp/app/* $(comm_dir_lib)/admin-webapp
 	@cp -r demo $(comm_dir_lib)

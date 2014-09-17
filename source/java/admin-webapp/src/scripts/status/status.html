@@ -1,0 +1,49 @@
+<div ng-controller="statusController" style="position: relative;">
+
+    <div class="coming-soon-parent" ng-show="!isAllowed( 'System Management' )">
+        <div class="coming-soon-child">
+            <div style="">
+                <span style="color: white;">Coming soon...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="tile-container">
+        <div class="tile-pair">
+            <div class="tile-parent">
+                <status-tile title="Firebreak">
+                    <treemap data="firebreakStats" max="firebreakMax"></treemap>
+                </status-tile>
+            </div>
+            <div class="tile-parent">
+                <div class="capacity-tile tile"></div>
+            </div>
+        </div>
+        <div class="tile-pair">
+            <div class="tile-parent">
+                <div class="performance-tile tile"></div>
+            </div>
+            <div class="tile-parent">
+                <div class="firebreak-tile tile"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-vertical-spacer"></div>
+    <div class="page-vertical-spacer"></div>
+
+    <div class="header top-label">
+        <span class="header" style="margin-bottom: 12px;">Activity</span>
+
+        <table class="default">
+            <tbody>
+                <tr ng-repeat="activity in activities">
+                    <td style="text-align: left;">{{activity.type}}</td>
+                    <td>{{activity.message}}</td>
+                    <td style="text-align: right;">{{activity.time}}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>

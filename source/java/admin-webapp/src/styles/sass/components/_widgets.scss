@@ -1,0 +1,77 @@
+.widget {
+  background: #fff;
+  padding: 1em;
+  &.clickable {
+    background: #fff image-url('chevron.png') right 5px center no-repeat; /* CSS 3 positioning */
+//    @include retina-background(chevron, #fff right 5px center no-repeat);
+  }
+  &.tapper {
+    padding: 0.5em 1em;
+  }
+}
+
+.mini_widget {
+  background: #fff;
+  position: relative;
+  height: 80px;
+  font-size: 1.5em;
+
+  .value-container {
+    position: absolute;
+    display: table;
+    width: 100%;
+    height: 80%;
+  }
+
+  .value {
+    display: table-cell;
+    vertical-align: middle;
+    text-align: center;
+    color: $widget_color;
+    line-height: 1.2em;
+    font-weight: bold;
+  }
+
+  &.type_numeric, &.type_percentage  {
+    font-size: 2.4em;
+  }
+
+  .bar {
+    height: 10px;
+    width: auto;
+    position: absolute;
+    left: $half_margin; right: $half_margin;
+    bottom: 7px;
+    &.green { background-color: $green; }
+    &.yellow { background-color: $yellow; }
+  }
+}
+
+
+.widget.consumption {
+  overflow: auto;
+}
+/* Mock widgets
+================ */
+
+.volumes_widget {
+  height: 136px + $main_margin;
+  cursor: pointer;
+}
+
+.capacity_widget {
+  background: #fff image-url('capacity_widget.png') $half_margin $half_margin no-repeat;
+//  @include image-2x('capacity_widget@2x.png', 539px, 137px);
+  height: 137px + $main_margin;
+}
+
+.storage_widget {
+  background: #fff image-url('storage_widget.png') $half_margin $half_margin no-repeat;
+//  @include image-2x('storage_widget@2x.png', 545px, 128px);
+  height: 128px + $main_margin;
+}
+.storage_usage_widget {
+  background: #fff image-url('storage_usage_widget.png') $half_margin $half_margin no-repeat;
+//  @include image-2x('storage_usage_widget@2x.png', 221px, 181px);
+  height: 199px;
+}

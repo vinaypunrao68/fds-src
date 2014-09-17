@@ -1,0 +1,84 @@
+<div ng-controller="accountController" class="account-page">
+
+    <div class="header top-label">
+        <span>Account Details</span>
+    </div>
+
+    <div class="page-vertical-spacer"></div>
+
+    <section class="block-section">
+
+        <div class="section-header ">
+            <span class="header">Name</span>
+        </div>
+        <div>
+            <span class="main-value">Goldman</span>
+            <a>Edit</a>
+        </div>
+    </section>
+
+    <div class="page-vertical-spacer"></div>
+
+    <section class="block-section">
+
+        <div class="section-header">
+            <span class="header">Role</span>
+        </div>
+
+        <div>
+            <span class="main-value">Tenant Admin</span>
+            <a>Change Role</a>
+        </div>
+
+        <div class="detail-value">
+            Tenant Admins can create modify and delete Tenant and App Developer users.  Additionally you can modify most system settings,create storage volumes and do everything else lower-level users can do.
+        </div>
+    </section>
+
+    <div class="page-vertical-spacer"></div>
+
+    <section class="block-section">
+
+        <div class="section-header">
+            <span class="header">Email</span>
+        </div>
+
+        <div>
+            <input type="text" ng-model="tempEmailAddress" ng-show="email_changing" class="form-control std-transition skinny" placeholder="Email Address" size="32" style="width: 300px;"/>
+            <div style="display: flex;padding-top: 12px;" ng-show="email_changing" class="std-transition">
+                <button class="btn btn-primary" style="margin-right: 4px;" ng-click="emailAddress = tempEmailAddress;email_changing = false;">Save</button>
+                <button class="btn btn-secondary" ng-click="tempEmailAddress = emailAddress;email_changing = false;">Cancel</button>
+            </div>
+            <span class="detail-value" style="font-size: 1.4em;" ng-show="!email_changing">{{emailAddress}}</span>
+            <a ng-show="!email_changing" ng-click="email_changing = true;">Change Email</a>
+        </div>
+    </section>
+
+    <div class="page-vertical-spacer"></div>
+
+    <section class="block-section">
+
+        <div class="section-header">
+            <span class="header">Password</span>
+        </div>
+
+        <div ng-show="!password_changing">
+            <span class="detail-value">********************</span>
+            <a ng-click="password_changing=true;" class="change-password">Change Password</a>
+        </div>
+
+        <div ng-show="password_changing">
+<!--            <input type="password" class="form-control skinny" ng-model="password" size="32" placeholder="Old Password" style="margin-bottom: 8px;width: 300px;"/>-->
+            <input type="password" class="form-control skinny" ng-model="newPassword" size="32" placeholder="New Password" style="margin-bottom: 8px;width: 300px;"/>
+            <input type="password" class="form-control skinny" ng-model="confirmPassword" size="32" placeholder="Confirm Password" style="margin-bottom: 8px;width: 300px;"/>
+            <div class="error" ng-show="changePasswordError !== false">
+                {{ changePasswordError }}
+            </div>
+            <div style="display: flex;padding-top: 12px;" ng-show="password_changing" class="std-transition">
+                <button class="btn btn-primary" style="margin-right: 4px;" ng-click="changePassword()">Save</button>
+                <button class="btn btn-secondary" ng-click="password_changing = false;">Cancel</button>
+            </div>
+        </div>
+
+    </section>
+</div>

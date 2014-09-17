@@ -1,0 +1,29 @@
+.fui-input{
+
+    position: relative;
+    border-radius: 5px;
+    background-color: white;
+    padding: 7px;
+    padding-right: 8px;
+    padding-left: 8px;
+    color: black;
+    font-family: "Lato";
+
+    input {
+        width: 100%;
+        border: 0px;
+        padding-right: 28px;
+        font-size: 16px;
+    }
+
+    input:focus {
+        outline: 0;
+    }
+
+    .input-icon {
+        position: absolute;
+        top:4px;
+        right: 15px;
+        color: #A9A9A9;
+    }
+}

@@ -1,0 +1,38 @@
+.btn-group.select {
+    ul.dropdown-menu {
+        width: 100%;
+    }
+}
+
+.open .dropdown-toggle.btn-primary {
+    background-color: $button_primary;
+}
+
+.dropdown-no-background {
+    background-color: transparent !important;
+}
+
+.dropdown-gray-border {
+    border: 1px solid $text_very_light_color !important;
+
+    .btn:hover, .btn:focus {
+        border-color: $fds_dark_green;
+    }
+}
+
+.dropdown {
+    display: inline-block;
+
+    .skinny {
+        .caret {
+            margin-top: 6px;
+        }
+    }
+
+    .divider {
+        width: 100%;
+        height: 1px;
+        border: 1px solid inherit;
+        margin-left: 0px !important;
+    }
+}

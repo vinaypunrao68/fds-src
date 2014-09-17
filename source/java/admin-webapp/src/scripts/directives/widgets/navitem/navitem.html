@@ -1,0 +1,8 @@
+<div class="navitem-parent" ng-class="{'navitem-selected': selected }">
+    <div class="nav-icon" ng-style="{'background-image': 'url(' + icon + ')'}"></div>
+    <div class="nav-text">{{label}}</div>
+    <div class="navitem-badge-parent">
+        <div class="navitem-badge" ng-show="notifications && notifications > 0">{{notifications}}
+        </div>
+    </div>
+</div>
