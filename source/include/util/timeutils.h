@@ -20,6 +20,9 @@ TimeStamp getTimeStampMicros();
 TimeStamp getTimeStampMillis();
 TimeStamp getTimeStampSeconds();
 
+std::string getLocalTimeString(TimeStamp t = 0); // NOLINT
+std::string getGMTimeString(TimeStamp t = 0); // NOLINT
+
 extern fds_uint64_t CYCLES_PER_SECOND;
 
 // use with care .. will be called on load and will
