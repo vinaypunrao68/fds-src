@@ -25,11 +25,14 @@ class Manager : public HasLogger {
     bool addPolicy(fpi::SnapshotPolicy& policy);
     bool removePolicy(int64_t id);
     OmSnapshotSvcHandler svcHandler;
+
+    Scheduler* snapScheduler;
+    DeleteScheduler* deleteScheduler;
+
   protected:
     OrchMgr* om;
-    Scheduler* snapScheduler;
+
     PolicyDispatcher* snapPolicyDispatcher;
-    DeleteScheduler* deleteScheduler;
     DeleteDispatcher* deleteDispatcher;
 };
 
