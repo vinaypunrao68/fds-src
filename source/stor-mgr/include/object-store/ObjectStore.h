@@ -86,11 +86,18 @@ class ObjectStore : public Module, public boost::noncopyable {
                                                    Error& err);
 
     /**
-     * Deletes a specific object. The object's data is filled into
-     * the objData shared pointer parameter.
+     * Deletes a specific object. The object is marked as deleted,
+     * but the actual data is deleted later by the garbage collector.
      */
     Error deleteObject(fds_volid_t volId,
                        const ObjectID &objId);
+
+    /**
+     * Copies associated volumes from source to destination volume
+     */
+    Error copyAssociation(fds_volid_t srcVolId,
+                          fds_volid_t destVolId,
+                          const ObjectID& objId);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

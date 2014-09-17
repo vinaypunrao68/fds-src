@@ -57,7 +57,7 @@ enum TxnState {
     FDS_TRANS_MULTIDM,
     FDS_TRANS_PENDING_WAIT  // Waiting for existing journal
 };
-std::ostream& operator<<(ostream& os, const TxnState& state);
+std::ostream& operator<<(std::ostream& os, const TxnState& state);
 
 // Forward declares
 class StorHvJournal;

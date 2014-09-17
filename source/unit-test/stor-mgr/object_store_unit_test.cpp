@@ -9,6 +9,7 @@
 
 #include <util/Log.h>
 #include <fds_types.h>
+#include <ObjectId.h>
 #include <fds_module.h>
 #include <fds_process.h>
 #include <object-store/ObjectStore.h>
@@ -33,8 +34,10 @@ struct TestObject {
     TestObject() :
             // volId(keyCounter % MAX_VOLUMES),
             volId(singleVolId),
-            objId(keyCounter++),
-            value(new std::string(objId.ToString())) {}
+            value(new std::string(std::to_string(keyCounter++))) {
+                objId = ObjIdGen::genObjectId(value->c_str(),
+                                              value->size());
+            }
     ~TestObject() {
     }
 };
@@ -55,6 +58,13 @@ static void addObj(TestObject & obj) {
               << obj.objId;
     objectStore->putObject(obj.volId, obj.objId, obj.value);
     pool.schedule(getObj, obj, 0);
+}
+
+static void delObj(TestObject & obj) {
+    Error err(ERR_OK);
+    GLOGTRACE << "Deleting object with id " << obj.objId;
+    err = objectStore->deleteObject(obj.volId, obj.objId);
+    fds_assert(err.ok());
 }
 
 static std::vector<TestObject> testObjs(MAX_TEST_OBJ);
@@ -95,6 +105,18 @@ class ObjectStoreTest : public FdsProcess {
                      << (*i).objId << " value=" << *(*i).value;
             getObj(*i);
         }
+
+        // delete all objects
+        for (std::vector<TestObject>::iterator i = testObjs.begin();
+             testObjs.end() != i;
+             ++i) {
+            LOGTRACE << "Deleting: Details volume=" << (*i).volId << " key="
+                     << (*i).objId;
+            delObj(*i);
+        }
+
+        // delete object that is already deleted
+        delObj(testObjs[0]);
 
         LOGTRACE << "Ending...";
         return 0;

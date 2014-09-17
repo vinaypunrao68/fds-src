@@ -6,6 +6,7 @@ import logging
 import re
 import readline
 import types
+import optparse
 
 class Color:
     END = '\033[0m'
@@ -243,8 +244,25 @@ class Installer:
         print;
 
 if __name__ == "__main__":
+    parser = optparse.OptionParser("usage: %prog [options]")
+    parser.add_option('-o', '--option', dest = 'menu_option',
+                      help = 'Unattended mode with menu option (0-5)', metavar = 'MENU_OPTION(0-5)')
+    parser.add_option('-i', '--ignore', action="store_true", dest = 'ignore_step_deps', default=False,
+                      help = 'Sets ignoreStepDependency to true')
+
+    (options, args) = parser.parse_args()
+     
     fds = Installer()
-    fds.run()
+
+    if options.ignore_step_deps == True:
+        fds.ignoreStepDependency = True
+
+    if options.menu_option:
+        fds.ignoreStepDependency = True
+        num = int(options.menu_option)
+        fds.menu[num][3](fds.menu[num])
+    else:
+        fds.run()
             
         
 

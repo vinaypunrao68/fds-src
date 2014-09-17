@@ -11,11 +11,9 @@
 #include <unordered_map>
 #include <concurrency/RwLock.h>
 #include <net-proxies/vol_policy.h>
-#include <NetSession.h>
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <LocalClusterMap.h>
-// #include <platform/platform-lib.h>
 
 using namespace FDS_ProtocolInterface;
 
@@ -25,6 +23,22 @@ using namespace FDS_ProtocolInterface;
 #define FDS_VOL_ACTION_MODIFY 3
 #define FDS_VOL_ACTION_ATTACH 4
 #define FDS_VOL_ACTION_DETACH 5
+
+namespace FDS_ProtocolInterface {
+    class FDSP_OMControlPathReqClient;
+    class FDSP_OMControlPathRespProcessor;
+    class FDSP_OMControlPathRespIf;
+    class FDSP_ControlPathRespClient;
+}  // namespace FDS_ProtocolInterface
+
+template <class A, class B, class C> class netClientSessionEx;
+template <class A, class B, class C> class netServerSessionEx;
+typedef netClientSessionEx<FDSP_OMControlPathReqClient,
+                FDSP_OMControlPathRespProcessor,
+                FDSP_OMControlPathRespIf> netOMControlPathClientSession;
+typedef netServerSessionEx<FDSP_ControlPathReqProcessor,
+                FDSP_ControlPathReqIf,
+                FDSP_ControlPathRespClient> netControlPathServerSession;
 
 namespace fds {
 

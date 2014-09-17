@@ -1,12 +1,12 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_ORCH_MGR_INCLUDE_SNAPSHOT_SCHEDULER_H_
-#define SOURCE_ORCH_MGR_INCLUDE_SNAPSHOT_SCHEDULER_H_
+#ifndef SOURCE_ORCH_MGR_INCLUDE_SNAPSHOT_DELETESCHEDULER_H_
+#define SOURCE_ORCH_MGR_INCLUDE_SNAPSHOT_DELETESCHEDULER_H_
 #include <boost/heap/fibonacci_heap.hpp>
 #include <thrift/concurrency/Monitor.h>
-#include <snapshot/schedulertask.h>
-#include <apis/apis_types.h>
+#include <snapshot/deleteschedulertask.h>
+#include <fdsp/snapshot_types.h>
 #include <fds_types.h>
 #include <util/Log.h>
 #include <map>
@@ -16,27 +16,27 @@ namespace fds {
 class OrchMgr;
 namespace snapshot {
 
-class Scheduler : public HasLogger {
+class DeleteScheduler : public HasLogger {
   public:
-    explicit Scheduler(OrchMgr* om, TaskProcessor* processor);
-    ~Scheduler();
+    explicit DeleteScheduler(OrchMgr* om, DeleteTaskProcessor* processor);
+    ~DeleteScheduler();
     // will also update / modify
-    bool addPolicy(const fpi::SnapshotPolicy& policy);
-    bool removePolicy(uint64_t policyId);
+    bool addSnapshot(const fpi::Snapshot& snapshot);
+    bool removeVolume(fds_volid_t volumeId);
     void dump();
     void shutdown();
 
   protected:
-    typedef boost::heap::fibonacci_heap<Task*> PriorityQueue;
+    typedef boost::heap::fibonacci_heap<DeleteTask*> PriorityQueue;
 
     // to process the actual tasks
-    TaskProcessor* taskProcessor;
+    DeleteTaskProcessor* taskProcessor;
 
     // list of tasks
     PriorityQueue pq;
 
     // map of policyid to internal map handle
-    std::map<uint64_t, PriorityQueue::handle_type> handleMap;
+    std::map<fds_volid_t, PriorityQueue::handle_type> handleMap;
 
     // monitor to sleep & notify
     apache::thrift::concurrency::Monitor monitor;
@@ -55,4 +55,4 @@ class Scheduler : public HasLogger {
 };
 }  // namespace snapshot
 }  // namespace fds
-#endif  // SOURCE_ORCH_MGR_INCLUDE_SNAPSHOT_SCHEDULER_H_
+#endif  // SOURCE_ORCH_MGR_INCLUDE_SNAPSHOT_DELETESCHEDULER_H_

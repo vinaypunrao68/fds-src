@@ -56,7 +56,8 @@ class ObjectDataStore : public Module, public boost::noncopyable {
      * we need to clean for garbage collection)
      * Called when ref count goes to zero
      */
-    Error removeObjectData(const ObjectID& objId,
+    Error removeObjectData(fds_volid_t volId,
+                           const ObjectID& objId,
                            const ObjMetaData::const_ptr& objMetaData);
 
     // FDS module control functions

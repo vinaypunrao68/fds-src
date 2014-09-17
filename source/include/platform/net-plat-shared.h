@@ -45,27 +45,6 @@ class PlatNetPlugin : public EpEvtPlugin
 };
 
 /**
- * Plugin for domain agent to deal with network error.
- */
-class DomainAgentPlugin : public EpEvtPlugin
-{
-  public:
-    typedef boost::intrusive_ptr<DomainAgentPlugin> pointer;
-    typedef boost::intrusive_ptr<const DomainAgentPlugin> const_ptr;
-
-    virtual ~DomainAgentPlugin() {}
-    explicit DomainAgentPlugin(boost::intrusive_ptr<DomainAgent> agt) : pda_agent(agt) {}
-
-    virtual void ep_connected();
-    virtual void ep_down();
-    virtual void svc_up(EpSvcHandle::pointer handle);
-    virtual void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle);
-
-  protected:
-    boost::intrusive_ptr<DomainAgent>  pda_agent;
-};
-
-/**
  * Node domain master agent.  This is the main interface to the master domain
  * service.
  */
@@ -75,7 +54,7 @@ class DomainAgent : public PmAgent
     typedef boost::intrusive_ptr<DomainAgent> pointer;
     typedef boost::intrusive_ptr<const DomainAgent> const_ptr;
 
-    virtual ~DomainAgent() {}
+    virtual ~DomainAgent();
     explicit DomainAgent(const NodeUuid &uuid, bool alloc_plugin = true);
 
     inline EpSvcHandle::pointer pda_rpc_handle() {
@@ -90,11 +69,16 @@ class DomainAgent : public PmAgent
     friend class NetPlatSvc;
     friend class PlatformdNetSvc;
 
-    DomainAgentPlugin::pointer            agt_domain_evt;
     EpSvcHandle::pointer                  agt_domain_ep;
 
     virtual void pda_register();
 };
+
+template <class T>
+static inline T *agt_cast_ptr(DomainAgent::pointer agt)
+{
+    return static_cast<T *>(get_pointer(agt));
+}
 
 /**
  * Iterate through node info records in shared memory.

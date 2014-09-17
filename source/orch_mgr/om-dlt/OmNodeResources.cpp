@@ -14,6 +14,7 @@
 #include <net/RpcFunc.h>
 #include <lib/PerfStats.h>
 #include <orchMgr.h>
+#include <NetSession.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
 #include <fdsp/PlatNetSvc.h>

@@ -15,6 +15,7 @@
 #include <policy_rpc.h>
 #include <policy_tier.h>
 #include <StorMgr.h>
+#include <NetSession.h>
 #include <fds_obj_cache.h>
 #include <fds_timestamp.h>
 #include <TokenCompactor.h>
@@ -709,6 +710,11 @@ ObjectStorMgr::getSvcSess(const NodeUuid &svcUuid) {
     return sessId;
 }
 
+DPRespClientPtr
+ObjectStorMgr::fdspDataPathClient(const std::string& session_uuid) {
+    return datapath_session_->getRespClient(session_uuid);
+}
+
 const TokenList&
 ObjectStorMgr::getTokensForNode(const NodeUuid &uuid) const {
     return omClient->getTokensForNode(uuid);
@@ -941,9 +947,9 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
             if (err.ok()) {
                 vol = objStorMgr->volTbl->getVolume(volumeId);
                 fds_assert(vol != NULL);
-                err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
-                                                          static_cast<FDS_VolumeQueue*>(
-                                                              vol->getQueue()));
+                err = objStorMgr->qosCtrl->registerVolume(vdb->isSnapshot() ?
+                        vdb->qosQueueId : vol->getVolId(),
+                        static_cast<FDS_VolumeQueue*>(vol->getQueue()));
                 if (err.ok()) {
                     objStorMgr->objCache->
                             vol_cache_create(volumeId,
@@ -2198,7 +2204,10 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
         return ERR_OK;
     }
 
-    err = qosCtrl->enqueueIO(ioReq->getVolId(), ioReq);
+    StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+    fds_assert(smVol);
+
+    err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(), ioReq);
     if (err != ERR_OK) {
         PerfTracer::tracePointEnd(ioReq->opReqLatencyCtx);
         PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->getVolId(), ioReq->perfNameStr);
@@ -2953,18 +2962,28 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     switch (ioReq->io_type) {
         case FDS_SM_WRITE_TOKEN_OBJECTS:
         case FDS_SM_READ_TOKEN_OBJECTS:
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+        {
+            StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+            fds_assert(smVol);
+            err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
+                    static_cast<FDS_IOType*>(ioReq));
             if (err != fds::ERR_OK) {
                 LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
             }
             break;
+        }
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_SNAPSHOT_TOKEN:
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+        {
+            StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+            fds_assert(smVol);
+            err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
+                    static_cast<FDS_IOType*>(ioReq));
             if (err != fds::ERR_OK) {
                 LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
             }
             break;
+        }
         /* Following are messages that require io synchronization at object
          * id level via transaction table
          */

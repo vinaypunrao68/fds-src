@@ -73,7 +73,7 @@ ObjectMetadataStore::putObjectMetadata(fds_volid_t volId,
                                        ObjMetaData::const_ptr objMeta) {
     Error err = metaDb_->put(volId, objId, objMeta);
     if (err.ok()) {
-        LOGDEBUG << "Wrote " << objId << " metadata to db";
+        LOGDEBUG << "Wrote " << objId << " metadata to db " << *objMeta;
         metaCache->putObjectMetadata(volId, objId, objMeta);
         LOGDEBUG << "Wrote " << objId << " metadata to cache";
     } else {

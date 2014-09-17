@@ -6,6 +6,7 @@
 #include <functional>
 #include <string>
 #include <libical/ical.h>
+#include <util/timeutils.h>
 namespace fds { namespace snapshot {
 
 bool Task::setRecurrence(std::string recurStr) {
@@ -74,10 +75,9 @@ bool Task::operator < (const Task& task) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Task& task) {
-    time_t tt = (time_t)task.runAtTime;
     os << "[policy:" << task.policyId
        << " at:" << task.runAtTime
-       << " : " << asctime(gmtime(&tt)) //NOLINT
+       << " : " << fds::util::getLocalTimeString(task.runAtTime) //NOLINT
        << "]";
     return os;
 }
