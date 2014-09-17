@@ -53,11 +53,11 @@ class VolumeContext(Context):
     @arg('vol-name', help='-volume name')
     @arg('--domain', help='-domain to add volume to')
     @arg('--max-obj-size', help='-maxiumum size (in bytes) of volume objects', type=int)
-    @arg('--vol-type', help='-type of volume to create [object|block]', type=int)
+    @arg('--vol-type', help='-type of volume to create', choices=['block','object'])
     @arg('--blk-dev-size', help='-maximum size (in bytes) of block device', type=int)
     @arg('--tenant-id', help='-id of tenant to create volume under', type=int)
     def create(self, vol_name, domain='abc', max_obj_size=4096,
-               vol_type=ttypes.VolumeType.OBJECT, blk_dev_size=21474836480, tenant_id=1):
+               vol_type='object', blk_dev_size=21474836480, tenant_id=1):
         
         if vol_type == 'object':
             vol_type = ttypes.VolumeType.OBJECT
