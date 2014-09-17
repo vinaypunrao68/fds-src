@@ -112,11 +112,13 @@ OmPlatform::mod_startup()
 
     om_ctrl_rcv = bo::shared_ptr<OmSvcHandler>(new OmSvcHandler());
     base_port   = plf_get_om_svc_port();
-    om_ctrl_ep  = new OmControlEp(plf_get_my_ctrl_port(base_port),
+    om_ctrl_ep  = new OmControlEp(2 + plf_get_my_ctrl_port(base_port),
                                   gl_OmUuid, NodeUuid(0ULL),
                                   bo::shared_ptr<fpi::BaseAsyncSvcProcessor>(
                                       new fpi::BaseAsyncSvcProcessor(om_ctrl_rcv)),
-                                  om_plugin, plf_get_my_ctrl_port(base_port));
+                                  om_plugin, 2 + plf_get_my_ctrl_port(base_port));
+    LOGNORMAL << "om ctrl using port " << base_port << " ctrl port "
+        << plf_get_my_ctrl_port(base_port);
 }
 
 // mod_enable_service
@@ -139,7 +141,7 @@ boost::shared_ptr<BaseAsyncSvcHandler>
 OmPlatform::getBaseAsyncSvcHandler()
 {
     // TODO(Rao):  Uncomments once om_plat_rcv object is concrete
-    return nullptr;
+    return om_ctrl_rcv;
 }
 
 }  // namespace fds

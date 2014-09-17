@@ -610,18 +610,6 @@ AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
     ac_cpSessTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(id));
 }
 
-// node_om_request
-// ---------------
-//
-boost::shared_ptr<EPSvcRequest>
-NodeAgent::node_om_request()
-{
-    fpi::SvcUuid om_uuid;
-
-    gl_OmUuid.uuid_assign(&om_uuid);
-    return gSvcRequestPool->newEPSvcRequest(om_uuid);
-}
-
 // agent_handshake
 // ---------------
 //
@@ -714,6 +702,31 @@ NodeAgent::node_svc_rpc(EpSvcHandle::pointer *handle)
     }
     *handle = NULL;
     return NULL;
+}
+
+
+// node_om_request
+// ---------------
+//
+boost::shared_ptr<EPSvcRequest>
+NodeAgent::node_om_request()
+{
+    fpi::SvcUuid om_uuid;
+
+    gl_OmUuid.uuid_assign(&om_uuid);
+    return gSvcRequestPool->newEPSvcRequest(om_uuid);
+}
+
+// node_msg_request
+// ----------------
+//
+boost::shared_ptr<EPSvcRequest>
+NodeAgent::node_msg_request()
+{
+    fpi::SvcUuid om_uuid;
+
+    gl_OmUuid.uuid_assign(&om_uuid);
+    return gSvcRequestPool->newEPSvcRequest(om_uuid);
 }
 
 // Debug operator
