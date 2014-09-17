@@ -305,18 +305,6 @@ class DataMgr : public Module, public DmIoReqHandler {
     Error notifyDMTClose();
     void finishForwarding(fds_volid_t volid);
 
-    static Error vol_handler(fds_volid_t vol_uuid,
-                             VolumeDesc* desc,
-                             fds_vol_notify_t vol_action,
-                             fpi::FDSP_NotifyVolFlag vol_flag,
-                             fpi::FDSP_ResultType result);
-
-    static void node_handler(fds_int32_t  node_id,
-                             fds_uint32_t node_ip,
-                             fds_int32_t  node_st,
-                             fds_uint32_t node_port,
-                             FDS_ProtocolInterface::FDSP_MgrIdType node_type);
-
     static Error volcat_evt_handler(fds_catalog_action_t,
                                     const fpi::FDSP_PushMetaPtr& push_meta,
                                     const std::string& session_uuid);

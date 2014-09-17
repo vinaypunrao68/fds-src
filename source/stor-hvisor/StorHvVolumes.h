@@ -179,12 +179,6 @@ class StorHvVolumeTable : public HasLogger {
                                  const std::string& vol_name,
                                  Error error);
   private:
-    /// handler for volume-related control message from OM
-    static Error volumeEventHandler(fds_volid_t vol_uuid,
-                                    VolumeDesc *vdb,
-                                    fds_vol_notify_t vol_action,
-                                    FDS_ProtocolInterface::FDSP_NotifyVolFlag,
-                                    FDS_ProtocolInterface::FDSP_ResultType);
     /// print volume map, other detailed state to log
     void dump();
 

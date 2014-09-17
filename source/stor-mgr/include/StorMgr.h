@@ -453,13 +453,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      }
      Error writeBackObj(const ObjectID &objId);
 
-     /*
-      * Public volume reg handlers
-      */
-     void regVolHandler(volume_event_handler_t volHndlr) {
-         omClient->registerEventHandlerForVolEvents(volHndlr);
-     }
-
      Error regVol(const VolumeDesc& vdb) {
          return volTbl->registerVolume(vdb);
      }

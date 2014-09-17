@@ -524,8 +524,6 @@ void ObjectStorMgr::mod_startup()
     omClient->initialize();
     omClient->registerEventHandlerForNodeEvents(
         (node_event_handler_t)nodeEventOmHandler);
-    omClient->registerEventHandlerForVolEvents(
-        (volume_event_handler_t)volEventOmHandler);
     omClient->registerEventHandlerForMigrateEvents(
         (migration_event_handler_t)migrationEventOmHandler);
     omClient->registerEventHandlerForDltCloseEvents(

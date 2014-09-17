@@ -95,7 +95,6 @@ class Platform;
     fds_rwlock omc_lock; // to protect node_map
 
     node_event_handler_t node_evt_hdlr;
-    volume_event_handler_t vol_evt_hdlr;
     migration_event_handler_t migrate_evt_hdlr;
     dltclose_event_handler_t dltclose_evt_hdlr;
     throttle_cmd_handler_t throttle_cmd_hdlr;
@@ -149,7 +148,6 @@ class Platform;
     FDSP_MgrIdType getNodeType() const;
 
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
-    int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
     int registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr);
     int registerEventHandlerForDltCloseEvents(dltclose_event_handler_t dltclose_event_hdlr);
     int registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr);
@@ -235,12 +233,19 @@ class Platform;
             const std::string& session_uuid);
 
     int recvNotifyVol(VolumeDesc *vdb,
-                      fds_vol_notify_t vol_action,
-                      FDSP_NotifyVolFlag vol_flag,
-		      FDSP_ResultType,
-                      const std::string& session_uuid);
+                              fds_vol_notify_t vol_action,
+                              FDSP_NotifyVolFlag vol_flag,
+                              FDSP_ResultType result,
+                              const std::string& session_uuid) {
+	fds_panic("should not come from new service layer");
+        return (0);
+    }
     int recvVolAttachState(VolumeDesc *vdb, fds_vol_notify_t vol_action,
-                           FDSP_ResultType result, const std::string& session_uuid);
+                           FDSP_ResultType result, const std::string& session_uuid)
+    {
+	fds_panic("should not come from new service layer");
+        return (0);
+    }
     int recvSetThrottleLevel(const float throttle_level);
     int recvSetQoSControl(fds_uint64_t total_rate);
     int recvTierPolicy(const FDSP_TierPolicyPtr &tier);
