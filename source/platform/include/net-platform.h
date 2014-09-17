@@ -7,8 +7,9 @@
 #include <string>
 #include <vector>
 #include <ep-map.h>
-#include <platform/net-plat-shared.h>
 #include <net/PlatNetSvcHandler.h>
+#include <platform/net-plat-shared.h>
+#include <platform/service-ep-lib.h>
 
 namespace fds {
 
@@ -93,14 +94,14 @@ class PlatAgent : public DomainAgent
     virtual void agent_bind_svc(EpPlatformdMod *, node_data_t *, fpi::FDSP_MgrIdType);
 };
 
-class PlatAgentPlugin : public DomainAgentPlugin
+class PlatAgentPlugin : public NodeAgentEvt
 {
   public:
     typedef boost::intrusive_ptr<PlatAgentPlugin> pointer;
     typedef boost::intrusive_ptr<const PlatAgentPlugin> const_ptr;
 
     virtual ~PlatAgentPlugin() {}
-    explicit PlatAgentPlugin(PlatAgent::pointer agt) : DomainAgentPlugin(agt) {}
+    explicit PlatAgentPlugin(PlatAgent::pointer agt) : NodeAgentEvt(agt) {}
 
     void ep_connected() override;
     void ep_down() override;

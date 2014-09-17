@@ -221,9 +221,6 @@ PlatformdPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
  */
 PlatAgent::PlatAgent(const NodeUuid &uuid) : DomainAgent(uuid, false)
 {
-    fds_verify(agt_domain_evt == NULL);
-    node_svc_type  = fpi::FDSP_PLATFORM;
-    agt_domain_evt = new PlatAgentPlugin(this);
 }
 
 // init_stor_cap_msg
@@ -381,9 +378,9 @@ PlatAgentPlugin::ep_connected()
 
     plat = Platform::platf_singleton();
     msg  = new fpi::NodeInfoMsg();
-    pda_agent->init_plat_info_msg(msg);
+    na_owner->init_plat_info_msg(msg);
 
-    rpc = pda_agent->pda_rpc();
+    rpc = na_owner->node_svc_rpc(&eph);
     rpc->notifyNodeInfo(ret, *msg, true);
 
     std::cout << "Got " << ret.size() << " elements back" << std::endl;
