@@ -88,29 +88,24 @@ class RestartTest(object):
         self.commitlog_base = '/tmp/restart-test-commit'
         self.buckets_clogs = {}
 
-    def isNodeRunning(self):
-        '''
-        Determine if a given node is running        
-        '''
-                
     def __fileUploaded(self, bucket, srcpath, keyname, sha1):
         ''' 
-        Writes a line to a commit log containing the bucket name, keyname, source path, and source sha1 hash
+        Writes a line to a bucket commit log containing the keyname, source path, and source sha1 hash
         '''
-        ## TODO maybe file name should contain bucket name and we should have a set of
-        ## output files one per bucket?
-        clog = self.buckets_clogs.get(bucket) 
+        clog = self.buckets_clogs.get(bucket)
         if clog is None:
             clog = open(self.commitlog_base + '_' + bucket + ".log", "a")
             self.buckets_clogs[bucket] = clog
         clog.write('%s|%s|%s\n' % (keyname, srcpath, sha1))
         clog.flush()
         
-    ## TODO: this was pulled from fds-tool.py.  It should be a common lib function
+    ## TODO: this was pulled from fds-tool.py.  It should be a common lib function returning
+    ## list of node objects containing status
     def nodeStatusAll(self):
         for n in self.nodes:
             self.nodeStatus(n)
 
+    ## TODO: from fds-tool.py.  Should be a common lib function returning a NodeStatus object
     def nodeStatus(self, n):
         n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.om.Main', output = True)
         n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.am.Main', output = True)
@@ -212,6 +207,7 @@ class RestartTest(object):
         om = self.cfg.rt_om_node
         om_ip = om.nd_conf_dict['ip']
 
+        # TODO: need to get the admin_webapp_port from the platform.conf.
         portnum = 7777 #om.nd_conf_dict['admin_webapp_port']
         #http://10.1.33.101:7777/api/auth/token?login=admin&password=admin'
         url = 'http://%s:%d/api/auth/token?login=%s&password=%s' % (om_ip, portnum, user, pwd)
