@@ -576,6 +576,15 @@ NodeAgent::node_set_weight(fds_uint64_t weight)
     nd_gbyte_cap = weight;
 }
 
+// agent_ep_plugin
+// ---------------
+//
+EpEvtPlugin::pointer
+NodeAgent::agent_ep_plugin()
+{
+    return NULL;
+}
+
 // agent_bind_ep
 // -------------
 //
@@ -739,15 +748,31 @@ operator << (std::ostream &os, const NodeAgent::pointer node)
     return os;
 }
 
+// agent_svc_fillin
+// ----------------
+//
+void
+NodeAgent::agent_svc_fillin(fpi::NodeSvcInfo    *out,
+                            const node_data_t   *ninfo,
+                            fpi::FDSP_MgrIdType  type) const
+{
+}
+
 // --------------------------------------------------------------------------------------
 // PM Agent
 // --------------------------------------------------------------------------------------
+PmAgent::~PmAgent() {}
 PmAgent::PmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
 {
-    pm_ep_svc = new PmSvcEp(uuid, 0, 0);
+    pm_ep_svc = Platform::platf_singleton()->plat_new_pm_svc(this, 0, 0);
+    NetMgr::ep_mgr_singleton()->ep_register(pm_ep_svc, false);
 }
 
-PmAgent::~PmAgent() {}
+EpEvtPlugin::pointer
+PmAgent::agent_ep_plugin()
+{
+    return pm_ep_svc->ep_evt_plugin();
+}
 
 // agent_svc_info
 // --------------
@@ -825,13 +850,23 @@ PmAgent::agent_bind_ep()
 // --------------------------------------------------------------------------------------
 SmAgent::SmAgent(const NodeUuid &uuid) : NodeAgent(uuid), sm_sess(NULL), sm_reqt(NULL)
 {
-    sm_ep_svc     = new SmSvcEp(uuid, 0, 0);
     node_svc_type = fpi::FDSP_STOR_MGR;
+    sm_ep_svc     = Platform::platf_singleton()->plat_new_sm_svc(this, 0, 0);
+    NetMgr::ep_mgr_singleton()->ep_register(sm_ep_svc, false);
 }
 
 SmAgent::~SmAgent()
 {
     /* TODO(Vy): shutdown netsession and cleanup stuffs here */
+}
+
+// agent_ep_plugin
+// ---------------
+//
+EpEvtPlugin::pointer
+SmAgent::agent_ep_plugin()
+{
+    return sm_ep_svc->ep_evt_plugin();
 }
 
 // agent_ep_svc
@@ -902,13 +937,22 @@ SmContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
 // --------------------------------------------------------------------------------------
 // DmAgent
 // --------------------------------------------------------------------------------------
+DmAgent::~DmAgent() {}
 DmAgent::DmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
 {
-    dm_ep_svc     = new DmSvcEp(uuid, 0, 0);
     node_svc_type = fpi::FDSP_DATA_MGR;
+    dm_ep_svc     = Platform::platf_singleton()->plat_new_dm_svc(this, 0, 0);
+    NetMgr::ep_mgr_singleton()->ep_register(dm_ep_svc, false);
 }
 
-DmAgent::~DmAgent() {}
+// agent_ep_plugin
+// ---------------
+//
+EpEvtPlugin::pointer
+DmAgent::agent_ep_plugin()
+{
+    return dm_ep_svc->ep_evt_plugin();
+}
 
 // agent_ep_svc
 // ------------
@@ -932,13 +976,22 @@ DmAgent::agent_bind_ep()
 // --------------------------------------------------------------------------------------
 // AmAgent
 // --------------------------------------------------------------------------------------
+AmAgent::~AmAgent() {}
 AmAgent::AmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
 {
-    am_ep_svc     = new AmSvcEp(uuid, 0, 0);
     node_svc_type = fpi::FDSP_STOR_HVISOR;
+    am_ep_svc     = Platform::platf_singleton()->plat_new_am_svc(this, 0, 0);
+    NetMgr::ep_mgr_singleton()->ep_register(am_ep_svc, false);
 }
 
-AmAgent::~AmAgent() {}
+// agent_ep_plugin
+// ---------------
+//
+EpEvtPlugin::pointer
+AmAgent::agent_ep_plugin()
+{
+    return am_ep_svc->ep_evt_plugin();
+}
 
 // agent_ep_svc
 // ------------
@@ -962,15 +1015,21 @@ AmAgent::agent_bind_ep()
 // --------------------------------------------------------------------------------------
 // OM Agent
 // --------------------------------------------------------------------------------------
+OmAgent::~OmAgent() {}
 OmAgent::OmAgent(const NodeUuid &uuid) : NodeAgent(uuid), om_sess(NULL), om_reqt(NULL)
 {
-    om_ep_svc     = new OmSvcEp(uuid, 0, 0);
     node_svc_type = fpi::FDSP_ORCH_MGR;
+    om_ep_svc     = Platform::platf_singleton()->plat_new_om_svc(this, 0, 0);
+    NetMgr::ep_mgr_singleton()->ep_register(om_ep_svc, false);
 }
 
-OmAgent::~OmAgent()
+// agent_ep_plugin
+// ---------------
+//
+EpEvtPlugin::pointer
+OmAgent::agent_ep_plugin()
 {
-    /* TODO(Vy): shutdown netsession and cleanup stuffs here */
+    return om_ep_svc->ep_evt_plugin();
 }
 
 // agent_ep_svc

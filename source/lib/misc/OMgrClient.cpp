@@ -1,6 +1,7 @@
 #include "OMgrClient.h"
 #include <fds_assert.h>
 #include <boost/thread.hpp>
+#include <NetSession.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TSimpleServer.h>
 #include <thrift/transport/TServerSocket.h>

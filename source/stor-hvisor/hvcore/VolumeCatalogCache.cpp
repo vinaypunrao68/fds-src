@@ -6,6 +6,7 @@
 
 #include <VolumeCatalogCache.h>
 #include <StorHvisorNet.h>
+#include <NetSession.h>
 
 extern StorHvCtrl *storHvisor;
 

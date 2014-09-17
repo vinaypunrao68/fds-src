@@ -256,6 +256,24 @@ class Platform : public Module
 
     inline FlagsMap& plf_get_flags_map() { return plf_flags_map; }
 
+    /**
+     * Common public factory methods.
+     */
+    virtual boost::intrusive_ptr<PmSvcEp>
+    plat_new_pm_svc(NodeAgent::pointer, fds_uint32_t maj, fds_uint32_t min);
+
+    virtual boost::intrusive_ptr<OmSvcEp>
+    plat_new_om_svc(NodeAgent::pointer, fds_uint32_t maj, fds_uint32_t min);
+
+    virtual boost::intrusive_ptr<SmSvcEp>
+    plat_new_sm_svc(NodeAgent::pointer, fds_uint32_t maj, fds_uint32_t min);
+
+    virtual boost::intrusive_ptr<DmSvcEp>
+    plat_new_dm_svc(NodeAgent::pointer, fds_uint32_t maj, fds_uint32_t min);
+
+    virtual boost::intrusive_ptr<AmSvcEp>
+    plat_new_am_svc(NodeAgent::pointer, fds_uint32_t maj, fds_uint32_t min);
+
     virtual boost::shared_ptr<BaseAsyncSvcHandler>
     getBaseAsyncSvcHandler() { return nullptr; }
 
@@ -331,6 +349,16 @@ class PlatformProcess : public FdsProcess
 
     virtual void plf_load_node_data();
     virtual void plf_apply_node_data();
+};
+
+/**
+ * FDS Service Process, used for testing and stand-alone app.
+ */
+class FdsService : public PlatformProcess
+{
+  public:
+    virtual ~FdsService();
+    FdsService(int argc, char *argv[], const std::string &log_file, Module **vec);
 };
 
 /*

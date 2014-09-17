@@ -28,6 +28,15 @@
 
 namespace fpi = FDS_ProtocolInterface;
 
+namespace FDS_ProtocolInterface {
+    class FDSP_MetaSyncReqClient;
+    class FDSP_MetaSyncRespProcessor;
+    class FDSP_MetaSyncRespIf;
+}
+typedef netClientSessionEx<fpi::FDSP_MetaSyncReqClient,
+                fpi::FDSP_MetaSyncRespProcessor,
+                fpi::FDSP_MetaSyncRespIf> netMetaSyncClientSession;
+
 namespace fds {
 
      class OMgrClient;
