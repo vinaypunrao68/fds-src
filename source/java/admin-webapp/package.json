@@ -8,7 +8,9 @@
     "mongodb": "*"
   },
   "devDependencies": {
+    "bower": "",
     "grunt": "^0.4.5",
+    "grunt-cli": "",
     "grunt-contrib-clean": "",
     "grunt-contrib-concat": "",
     "grunt-contrib-copy": "",
@@ -28,7 +30,8 @@
     "karma-firefox-launcher": "",
     "grunt-karma": "",
     "grunt-protractor-runner": "",
-    "protractor": ""
+    "protractor": "",
+    "grunt-contrib-sass": ""
   },
   "scripts": {
     "postinstall": "./node_modules/protractor/bin/webdriver-manager update"
