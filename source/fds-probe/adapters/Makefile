@@ -7,7 +7,7 @@ user_cpp         := \
     pm-probe.cpp \
     sm-probe.cpp
 
-user_ar_libs       := fds-probe-adapters
-fds-probe-adapters := $(user_cpp)
+user_ar_libs     := fds-probe
+fds-probe        := $(user_cpp)
 
 include $(topdir)/Makefile.incl

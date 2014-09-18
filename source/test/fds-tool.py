@@ -5,6 +5,7 @@
 import fdslib.FdsSetup as inst
 import fdslib.BringUpCfg as fdscfg
 import optparse, sys, time
+import os
 import pdb
 
 if __name__ == '__main__':
@@ -91,8 +92,10 @@ if __name__ == '__main__':
     if options.clus_clean:
         for n in nodes:
             n.nd_cleanup_node()
-            n.nd_rmt_agent.ssh_exec('(cd /fds/sbin && ./redis.sh clean)', output=True)
-            n.nd_rmt_agent.ssh_exec('rm /fds/uuid_port')
+            n.nd_rmt_agent.ssh_exec('(cd {} && ./redis.sh clean)'.format(
+                os.path.join(options.fds_root, 'sbin')), output=True)
+            n.nd_rmt_agent.ssh_exec('rm {}'.format(
+                os.path.join(options.fds_root, 'uuid_port')))
 
     # Status
     if options.clus_status:
@@ -123,7 +126,8 @@ if __name__ == '__main__':
 
     for n in nodes:
         n.nd_rmt_agent.ssh_exec('python -m disk_type -m', wait_compl=True)
-        n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh start', wait_compl=True, output=True)
+        n.nd_rmt_agent.ssh_exec('{} start'.format(
+            os.path.join(options.fds_root, 'sbin/redis.sh')), wait_compl=True, output=True)
 
     om = cfg.rt_om_node
     om_ip = om.nd_conf_dict['ip']

@@ -19,11 +19,11 @@ run_probe_server(NodePlatformProc *proc)
     gl_probeS3Eng.run_server(api);
 }
 
-class ProbeProcess : public NodePlatformProc
+class PlatProbeProcess : public NodePlatformProc
 {
   public:
-    virtual ~ProbeProcess() {}
-    ProbeProcess(int argc, char **argv, Module **vec)
+    virtual ~PlatProbeProcess() {}
+    PlatProbeProcess(int argc, char **argv, Module **vec)
         : NodePlatformProc(argc, argv, vec) {}
 
     void proc_pre_startup() override
@@ -56,6 +56,6 @@ int main(int argc, char **argv)
         &fds::gl_PlatProbeMod,
         NULL
     };
-    fds::ProbeProcess probe(argc, argv, probe_vec);
+    fds::PlatProbeProcess probe(argc, argv, probe_vec);
     return probe.main();
 }

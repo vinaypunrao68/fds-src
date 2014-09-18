@@ -1,6 +1,10 @@
 topdir            := ../..
-speedup           := -j 5 
-user_build_dir    := s3 thrift pm sm \
+speedup           := -j 3
+user_build_dir    := \
+    shared       \
+    s3           \
+    thrift       \
+    pm sm        \
     s3-template  \
     blk-template \
     threadpool   \

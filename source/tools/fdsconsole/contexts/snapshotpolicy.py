@@ -4,9 +4,6 @@ class SnapshotPolicyContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
         ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
-
-    def get_context_name(self):
-        return "policy"
     
     #--------------------------------------------------------------------------------------
     @cliadmincmd
@@ -42,7 +39,7 @@ class SnapshotPolicyContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('vol-name', help= "volume name", default=None)
+    @arg('vol-name', help= "volume name", nargs="?")
     def list(self, vol_name):
         try:
             if vol_name == None:

@@ -21,6 +21,45 @@ const char* Module::getName() {
     return mod_name;
 }
 
+// mod_cat
+// -------
+//
+/* static */ Module **
+Module::mod_cat(Module **v1, Module **v2)
+{
+    int      i, j, cnt;
+    Module **ret;
+
+    cnt = 0;
+    if (v1 != NULL) {
+        for (; v1[cnt] != NULL; cnt++) {}
+        cnt++;
+    }
+    if (v2 != NULL) {
+        for (; v2[cnt] != NULL; cnt++) {}
+        cnt++;
+    }
+    if (cnt == 0) {
+        return NULL;
+    }
+    i   = 0;
+    ret = new Module * [cnt];
+    if (v1 != NULL) {
+        for (i = 0; v1[i] != NULL; i++) {
+            ret[i] = v1[i];
+        }
+    }
+    if (v2 != NULL) {
+        for (j = 0; v2[j] != NULL; j++, i++) {
+            ret[i] = v2[j];
+        }
+    }
+    ret[i] = NULL;
+    fds_verify(i <= cnt);
+
+    return ret;
+}
+
 // \Module::mod_init
 // -----------------
 //
