@@ -243,7 +243,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         fds_verify(src_dm != 0);
 
         if (push_meta_msgs.count(src_dm) == 0) {
-            fpi::FDSP_PushMetaPtr meta_msg(new FDSP_PushMeta());
+            fpi::FDSP_PushMetaPtr meta_msg(new fpi::FDSP_PushMeta());
             push_meta_msgs[src_dm] = meta_msg;
         }
         for (NodeUuidSet::const_iterator cit = new_dms.cbegin();
@@ -264,7 +264,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                 }
             }
             if (!found) {
-                FDSP_metaData meta;
+                fpi::FDSP_metaData meta;
                 meta.node_uuid.uuid = (*cit).uuid_get_val();
                 meta.volList.push_back(volid);
                 ((push_meta_msgs[src_dm])->metaVol).push_back(meta);

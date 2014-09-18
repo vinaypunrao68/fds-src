@@ -18,7 +18,6 @@ import java.util.function.Function;
 public class S3Endpoint {
     public static final String FDS_S3 = "FDS_S3";
     public static final String FDS_S3_SYSTEM = "FDS_S3_SYSTEM";
-    public static final String FDS_S3_SYSTEM_BUCKET_NAME = FDS_S3_SYSTEM;
     public static final String X_AMZ_COPY_SOURCE = "x-amz-copy-source";
     public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
 

@@ -36,9 +36,9 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      * Retrieves metadata for given object with ID 'objId'
      * @return ERR_OK on success
      */
-    Error getObjectMetadata(fds_volid_t volId,
-                            const ObjectID& objId,
-                            ObjMetaData::const_ptr* objMeta);
+    ObjMetaData::const_ptr getObjectMetadata(fds_volid_t volId,
+                                             const ObjectID& objId,
+                                             Error &err);
 
     /**
      * Persistently stores metadata of object with id 'objId'

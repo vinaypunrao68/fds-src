@@ -75,7 +75,8 @@ class SmIoReq : public FDS_IOType {
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volUuid);
 
-        opTransactionWaitCtx.type = PUT_TRANS_QUEUE_WAIT;
+        // TODO(Anna) remove this once we remove trans table
+        opTransactionWaitCtx.type = PUT_OBJ_TASK_SYNC_WAIT;
         opTransactionWaitCtx.name = perfNameStr;
         opTransactionWaitCtx.reset_volid(_volUuid);
 
@@ -120,7 +121,8 @@ class SmIoReq : public FDS_IOType {
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volUuid);
 
-        opTransactionWaitCtx.type = GET_TRANS_QUEUE_WAIT;
+        // TODO(Anna) remove this once we remove trans table
+        opTransactionWaitCtx.type = GET_OBJ_TASK_SYNC_WAIT;
         opTransactionWaitCtx.name = perfNameStr;
         opTransactionWaitCtx.reset_volid(_volUuid);
 
@@ -170,7 +172,8 @@ class SmIoReq : public FDS_IOType {
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volUuid);
 
-        opTransactionWaitCtx.type = DELETE_TRANS_QUEUE_WAIT;
+        // TODO(Anna) remove this once we remove trans table
+        opTransactionWaitCtx.type = DELETE_OBJ_TASK_SYNC_WAIT;
         opTransactionWaitCtx.name = perfNameStr;
         opTransactionWaitCtx.reset_volid(_volUuid);
 
@@ -263,6 +266,9 @@ class SmIoAddObjRefReq : public SmIoReq {
     CbType response_cb;
 };
 
+/**
+ * @brief For DEL object data
+ */
 class SmIoDeleteObjectReq : public SmIoReq {
   public:
     typedef std::function<void (const Error&, SmIoDeleteObjectReq *resp)> CbType;
@@ -273,6 +279,9 @@ class SmIoDeleteObjectReq : public SmIoReq {
     CbType response_cb;
 };
 
+/**
+ * @brief For PUT object data
+ */
 class SmIoPutObjectReq : public SmIoReq {
  public:
     typedef std::function<void (const Error&, SmIoPutObjectReq *resp)> CbType;
@@ -295,7 +304,6 @@ typedef boost::shared_ptr<FDSP_MigrateObjectList> FDSP_MigrateObjectListPtr;
 class SmIoPutTokObjectsReq : public SmIoReq {
  public:
     typedef std::function<void (const Error&, SmIoPutTokObjectsReq *resp)> CbType;
- public:
     virtual std::string log_string() override
     {
         std::stringstream ret;
@@ -307,6 +315,24 @@ class SmIoPutTokObjectsReq : public SmIoReq {
     fds_token_id token_id;
     /* List objects and their metadata */
     FDSP_MigrateObjectList obj_list;
+    /* Response callback */
+    CbType response_cb;
+};
+
+/**
+ * @brief For GET object data
+ */
+class SmIoGetObjectReq : public SmIoReq {
+ public:
+    typedef std::function<void (const Error&, SmIoGetObjectReq *resp)> CbType;
+    virtual std::string log_string() override;
+
+    SmIoGetObjectReq() {
+    }
+
+    /* In/out: In is object id, out is object data */
+    FDSP_ObjectIdDataPair obj_data;
+
     /* Response callback */
     CbType response_cb;
 };

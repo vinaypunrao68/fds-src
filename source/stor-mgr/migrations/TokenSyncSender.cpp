@@ -16,6 +16,7 @@
 #include <leveldb/comparator.h>
 #include <leveldb/env.h>
 
+#include <NetSession.h>
 #include <fdsp_utils.h>
 #include <SmObjDb.h>
 #include <fds_timestamp.h>

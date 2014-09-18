@@ -19,7 +19,6 @@
 #include <fds_typedefs.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
-#include <NetSession.h>
 #include <omutils.h>
 #include <OmTier.h>
 #include <OmVolPolicy.hpp>
@@ -32,6 +31,28 @@
 #define DEFAULT_LOC_DOMAIN_ID   (1)
 #define DEFAULT_GLB_DOMAIN_ID   (1)
 
+namespace fpi = FDS_ProtocolInterface;
+
+namespace FDS_ProtocolInterface {
+    class FDSP_OMControlPathReqProcessor;
+    class FDSP_OMControlPathReqIf;
+    class FDSP_OMControlPathRespClient;
+    class FDSP_OMControlPathReqIf;
+    class FDSP_ControlPathRespIf;
+    class FDSP_ConfigPathReqProcessor;
+    class FDSP_ConfigPathReqIf;
+    class FDSP_ConfigPathRespClient;
+}
+
+class netSessionTbl;
+template <class A, class B, class C> class netServerSessionEx;
+typedef netServerSessionEx<fpi::FDSP_OMControlPathReqProcessor,
+                fpi::FDSP_OMControlPathReqIf,
+                fpi::FDSP_OMControlPathRespClient> netOMControlPathServerSession;
+typedef netServerSessionEx<fpi::FDSP_ConfigPathReqProcessor,
+                fpi::FDSP_ConfigPathReqIf,
+                fpi::FDSP_ConfigPathRespClient> netConfigPathServerSession;
+
 namespace fds {
 
 class OrchMgr: public PlatformProcess {
@@ -41,14 +62,14 @@ class OrchMgr: public PlatformProcess {
     /* net session tbl for OM control path*/
     boost::shared_ptr<netSessionTbl> omcp_session_tbl;
     netOMControlPathServerSession *omc_server_session;
-    boost::shared_ptr<FDSP_OMControlPathReqIf> omcp_req_handler;
-    boost::shared_ptr<FDSP_ControlPathRespIf> cp_resp_handler;
+    boost::shared_ptr<fpi::FDSP_OMControlPathReqIf> omcp_req_handler;
+    boost::shared_ptr<fpi::FDSP_ControlPathRespIf> cp_resp_handler;
     std::string my_node_name;
 
     /* net session tbl for OM config path server */
     boost::shared_ptr<netSessionTbl> cfg_session_tbl;
     netConfigPathServerSession *cfg_server_session;
-    boost::shared_ptr<FDSP_ConfigPathReqIf> cfg_req_handler;
+    boost::shared_ptr<fpi::FDSP_ConfigPathReqIf> cfg_req_handler;
     /* config path server is run on this thread */
     boost::shared_ptr<std::thread> cfgserver_thread;
 
@@ -103,10 +124,10 @@ class OrchMgr: public PlatformProcess {
                      const FdspDelPolPtr& del_pol_req);
     int ModifyPolicy(const FdspMsgHdrPtr& fdsp_msg,
                      const FdspModPolPtr& mod_pol_req);
-    void NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                        const FDSP_NotifyQueueStateTypePtr& queue_state_req);
-    void NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                        const FDSP_PerfstatsTypePtr& perf_stats_msg);
+    void NotifyQueueFull(const fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
+                        const fpi::FDSP_NotifyQueueStateTypePtr& queue_state_req);
+    void NotifyPerfstats(const fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
+                        const fpi::FDSP_PerfstatsTypePtr& perf_stats_msg);
     int ApplyTierPolicy(::fpi::tier_pol_time_unitPtr& policy);  // NOLINT
     int AuditTierPolicy(::fpi::tier_pol_auditPtr& audit);  // NOLINT
 
@@ -114,7 +135,7 @@ class OrchMgr: public PlatformProcess {
 };
 
 /* config path: cli -> OM  */
-class FDSP_ConfigPathReqHandler : virtual public FDSP_ConfigPathReqIf {
+class FDSP_ConfigPathReqHandler : virtual public fpi::FDSP_ConfigPathReqIf {
   public:
         explicit FDSP_ConfigPathReqHandler(OrchMgr *oMgr);
 
@@ -259,10 +280,10 @@ class FDSP_ConfigPathReqHandler : virtual public FDSP_ConfigPathReqIf {
         int32_t auditTierPolicy(
             ::FDS_ProtocolInterface::tier_pol_auditPtr& audit);
 
-        void ListServices(std::vector<FDSP_Node_Info_Type> & ret,
-                          const FDSP_MsgHdrType& fdsp_msg);
-        void ListServices(std::vector<FDSP_Node_Info_Type> & ret,
-                          boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg);
+        void ListServices(std::vector<fpi::FDSP_Node_Info_Type> & ret,
+                          const fpi::FDSP_MsgHdrType& fdsp_msg);
+        void ListServices(std::vector<fpi::FDSP_Node_Info_Type> & ret,
+                          boost::shared_ptr<fpi::FDSP_MsgHdrType>& fdsp_msg);
 
         void ListVolumes(
             std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> & _return,
@@ -276,7 +297,7 @@ class FDSP_ConfigPathReqHandler : virtual public FDSP_ConfigPathReqIf {
 };
 
 /* OM control path: SH/SM/DM to OM */
-class FDSP_OMControlPathReqHandler : virtual public FDSP_OMControlPathReqIf {
+class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf {
   public:
         explicit FDSP_OMControlPathReqHandler(OrchMgr *oMgr);
 
@@ -355,7 +376,7 @@ class FDSP_OMControlPathReqHandler : virtual public FDSP_OMControlPathReqIf {
 };
 
 /* control response handler*/
-class FDSP_ControlPathRespHandler : virtual public FDSP_ControlPathRespIf {
+class FDSP_ControlPathRespHandler : virtual public fpi::FDSP_ControlPathRespIf {
   public:
         explicit FDSP_ControlPathRespHandler(OrchMgr *oMgr);
 

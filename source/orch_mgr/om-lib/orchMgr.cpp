@@ -12,6 +12,7 @@
 #include <lib/PerfStats.h>
 #include <map>
 #include <util/Log.h>
+#include <NetSession.h>
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>

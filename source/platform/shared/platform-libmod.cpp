@@ -9,6 +9,7 @@
 #include <string>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
+#include <platform/service-ep-lib.h>
 #include <NetSession.h>
 
 bool gdb_plat = false;
@@ -17,7 +18,7 @@ namespace fds {
 Platform *gl_PlatformSvc;
 
 const int Platform::plat_svc_types[] = {
-        NET_SVC_CTRL, NET_SVC_CONFIG, NET_SVC_DATA, NET_SVC_MIGRATION, NET_SVC_META_SYNC
+    NET_SVC_CTRL, NET_SVC_CONFIG, NET_SVC_DATA, NET_SVC_MIGRATION, NET_SVC_META_SYNC
 };
 
 // plf_get_my_max_svc_ports
@@ -257,6 +258,98 @@ void
 Platform::mod_shutdown()
 {
     Module::mod_shutdown();
+}
+
+/**
+ * ---------------------------------------------------------------------------------
+ * OM Agent Event Handlers
+ * ---------------------------------------------------------------------------------
+ */
+OmNodeAgentEvt::~OmNodeAgentEvt() {}
+OmNodeAgentEvt::OmNodeAgentEvt(NodeAgent::pointer agent) : NodeAgentEvt(agent) {}
+
+// ep_connected
+// ------------
+//
+void
+OmNodeAgentEvt::ep_connected()
+{
+    LOGDEBUG << "[Plat] OM agent is connected";
+}
+
+// ep_down
+// -------
+//
+void
+OmNodeAgentEvt::ep_down()
+{
+}
+
+// svc_up
+// ------
+//
+void
+OmNodeAgentEvt::svc_up(EpSvcHandle::pointer eph)
+{
+}
+
+// svc_down
+// --------
+//
+void
+OmNodeAgentEvt::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer eph)
+{
+}
+
+/* *
+ * ---------------------------------------------------------------------------------
+ * Common factory methods.
+ * ---------------------------------------------------------------------------------
+ */
+
+// plat_new_pm_svc
+// ---------------
+//
+PmSvcEp::pointer
+Platform::plat_new_pm_svc(NodeAgent::pointer agt, fds_uint32_t maj, fds_uint32_t min)
+{
+    return new PmSvcEp(agt, maj, min, new NodeAgentEvt(agt));
+}
+
+// plat_new_om_svc
+// ---------------
+//
+OmSvcEp::pointer
+Platform::plat_new_om_svc(NodeAgent::pointer agt, fds_uint32_t maj, fds_uint32_t min)
+{
+    return new OmSvcEp(agt, maj, min, new OmNodeAgentEvt(agt));
+}
+
+// plat_new_sm_svc
+// ---------------
+//
+SmSvcEp::pointer
+Platform::plat_new_sm_svc(NodeAgent::pointer agt, fds_uint32_t maj, fds_uint32_t min)
+{
+    return new SmSvcEp(agt, maj, min, new NodeAgentEvt(agt));
+}
+
+// plat_new_dm_svc
+// ---------------
+//
+DmSvcEp::pointer
+Platform::plat_new_dm_svc(NodeAgent::pointer agt, fds_uint32_t maj, fds_uint32_t min)
+{
+    return new DmSvcEp(agt, maj, min, new NodeAgentEvt(agt));
+}
+
+// plat_new_am_svc
+// ---------------
+//
+AmSvcEp::pointer
+Platform::plat_new_am_svc(NodeAgent::pointer agt, fds_uint32_t maj, fds_uint32_t min)
+{
+    return new AmSvcEp(agt, maj, min, new NodeAgentEvt(agt));
 }
 
 }  // namespace fds

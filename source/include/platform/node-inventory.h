@@ -10,6 +10,9 @@
 #include <fds_error.h>
 #include <fds_resource.h>
 #include <fds_module.h>
+#include <serialize.h>
+#include <platform/platform-rpc.h>
+#include <net/SvcRequest.h>
 #include <fdsp/FDSP_types.h>
 #include <fdsp/fds_service_types.h>
 
@@ -50,8 +53,12 @@ class PmSvcEp;
 class EpSvc;
 class EpSvcImpl;
 class EpSvcHandle;
+class EpEvtPlugin;
+class DomainContainer;
 class EPSvcRequest;
 class AgentContainer;
+class DomainContainer;
+class EPSvcRequest;
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
 typedef fpi::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
@@ -181,9 +188,11 @@ class NodeAgent : public NodeInventory
     virtual boost::shared_ptr<fpi::FDSP_ControlPathReqClient>
     node_ctrl_rpc(boost::intrusive_ptr<EpSvcHandle> *eph);
 
+    virtual boost::shared_ptr<EPSvcRequest> node_om_request();
+    virtual boost::shared_ptr<EPSvcRequest> node_msg_request();
+
     virtual boost::shared_ptr<fpi::PlatNetSvcClient>
     node_svc_rpc(boost::intrusive_ptr<EpSvcHandle> *eph);
-    bo::shared_ptr<EPSvcRequest> node_om_request();
 
     friend std::ostream &operator << (std::ostream &os, const NodeAgent::pointer n);
 
@@ -199,6 +208,11 @@ class NodeAgent : public NodeInventory
 
     virtual void agent_publish_ep();
     void agent_bind_ep(boost::intrusive_ptr<EpSvcImpl>, boost::intrusive_ptr<EpSvc>);
+
+    virtual boost::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
+    virtual void
+    agent_svc_fillin(fpi::NodeSvcInfo *,
+                     const struct node_data *, fpi::FDSP_MgrIdType) const;
 };
 
 /**
@@ -235,8 +249,10 @@ class PmAgent : public NodeAgent
   protected:
     boost::intrusive_ptr<PmSvcEp>      pm_ep_svc;
 
-    void agent_svc_fillin(fpi::NodeSvcInfo *,
-                          const struct node_data *, fpi::FDSP_MgrIdType) const;
+    virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
+    virtual void
+    agent_svc_fillin(fpi::NodeSvcInfo *,
+                     const struct node_data *, fpi::FDSP_MgrIdType) const;
 };
 
 class SmAgent : public NodeAgent
@@ -260,6 +276,8 @@ class SmAgent : public NodeAgent
     NodeAgentDpClientPtr           sm_reqt;
     std::string                    sm_sess_id;
     boost::intrusive_ptr<SmSvcEp>  sm_ep_svc;
+
+    virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
 };
 
 class DmAgent : public NodeAgent
@@ -276,6 +294,8 @@ class DmAgent : public NodeAgent
 
   protected:
     boost::intrusive_ptr<DmSvcEp>  dm_ep_svc;
+
+    virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
 };
 
 class AmAgent : public NodeAgent
@@ -292,6 +312,8 @@ class AmAgent : public NodeAgent
 
   protected:
     boost::intrusive_ptr<AmSvcEp>  am_ep_svc;
+
+    virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
 };
 
 class OmAgent : public NodeAgent
@@ -326,6 +348,8 @@ class OmAgent : public NodeAgent
     NodeAgentCpOmClientPtr         om_reqt;        /**< handle to send reqt to OM.  */
     std::string                    om_sess_id;
     boost::intrusive_ptr<OmSvcEp>  om_ep_svc;
+
+    virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
 };
 
 // -------------------------------------------------------------------------------------

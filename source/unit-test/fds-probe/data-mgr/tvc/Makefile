@@ -15,7 +15,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-dm-lib       \
     fds-am-engine    \
-    fds-am-plat      \
+    fds-dm-plat      \
     fds-dm-lib       \
     fds-plat-lib     \
     fds-lib          \

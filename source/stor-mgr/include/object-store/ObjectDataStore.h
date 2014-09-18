@@ -45,10 +45,10 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     /**
      * Reads object data.
      */
-    Error getObjectData(fds_volid_t volId,
-                        const ObjectID &objId,
-                        ObjMetaData::const_ptr objMetaData,
-                        boost::shared_ptr<std::string> objData);
+    boost::shared_ptr<const std::string> getObjectData(fds_volid_t volId,
+                                                       const ObjectID &objId,
+                                                       ObjMetaData::const_ptr objMetaData,
+                                                       Error &err);
 
     /**
      * Removes object from cache and notifies persistent layer
@@ -56,7 +56,8 @@ class ObjectDataStore : public Module, public boost::noncopyable {
      * we need to clean for garbage collection)
      * Called when ref count goes to zero
      */
-    Error removeObjectData(const ObjectID& objId,
+    Error removeObjectData(fds_volid_t volId,
+                           const ObjectID& objId,
                            const ObjMetaData::const_ptr& objMetaData);
 
     // FDS module control functions

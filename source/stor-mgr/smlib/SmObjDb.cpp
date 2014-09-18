@@ -129,7 +129,7 @@ fds::Error SmObjDb::get(const ObjectID& objId, ObjMetaData& md) {
     err = odb->Get(objId, buf);
     if (err != ERR_OK) {
         /* Object not found. Return. */
-        return ERR_DISK_READ_FAILED;
+        return err;
     }
 
     md.deserializeFrom(buf);
@@ -225,11 +225,11 @@ fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
     ObjMetaData md;
     Error err = get(objId, md);
 
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+    if (err != ERR_OK && err != ERR_NOT_FOUND) {
         LOGERROR << "Error while applying sync entry.  objId: " << objId;
         return err;
     }
-    if (err == ERR_DISK_READ_FAILED) {
+    if (err == ERR_NOT_FOUND) {
         /* Entry doesn't exist.  Set sync mask on empty metada */
         md.setSyncMask();
         err = ERR_OK;
@@ -260,7 +260,7 @@ Error SmObjDb::resolveEntry(const ObjectID& objId)
     ObjMetaData md;
     err = get(objId, md);
 
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+    if (err != ERR_OK && err != ERR_NOT_FOUND) {
         LOGERROR << "Error: " << err << " objId: " << objId;
         return err;
     }

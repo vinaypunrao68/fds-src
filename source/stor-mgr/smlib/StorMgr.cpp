@@ -15,6 +15,7 @@
 #include <policy_rpc.h>
 #include <policy_tier.h>
 #include <StorMgr.h>
+#include <NetSession.h>
 #include <fds_obj_cache.h>
 #include <fds_timestamp.h>
 #include <TokenCompactor.h>
@@ -518,14 +519,19 @@ void ObjectStorMgr::mod_startup()
     qosOutNum = modProvider_->get_fds_config()->get<int>(
         "fds.sm.qos.default_outstanding_io");
 
+    // Temporary boolean to determine which stubs to execute
+    // Mainly to toggle between two execution paths: old and new.
+    // This is to mitigate risk with new code paths.
+    execNewStubs = modProvider_->get_fds_config()->get<bool>(
+        "fds.sm.testing.exec_new_stubs");
+    LOGDEBUG << "execNewStubs flag=" << execNewStubs;
+
     /*
      * Register/boostrap from OM
      */
     omClient->initialize();
     omClient->registerEventHandlerForNodeEvents(
         (node_event_handler_t)nodeEventOmHandler);
-    omClient->registerEventHandlerForVolEvents(
-        (volume_event_handler_t)volEventOmHandler);
     omClient->registerEventHandlerForMigrateEvents(
         (migration_event_handler_t)migrationEventOmHandler);
     omClient->registerEventHandlerForDltCloseEvents(
@@ -541,6 +547,7 @@ void ObjectStorMgr::mod_startup()
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
     testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
 
+    omc_srv_pol = &sg_SMVolPolicyServ;
     setup_migration_svc(obj_dir);
 }
 
@@ -710,6 +717,11 @@ ObjectStorMgr::getSvcSess(const NodeUuid &svcUuid) {
     return sessId;
 }
 
+DPRespClientPtr
+ObjectStorMgr::fdspDataPathClient(const std::string& session_uuid) {
+    return datapath_session_->getRespClient(session_uuid);
+}
+
 const TokenList&
 ObjectStorMgr::getTokensForNode(const NodeUuid &uuid) const {
     return omClient->getTokensForNode(uuid);
@@ -814,6 +826,13 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
         const std::string& session_uuid)
 {
+    // until we start getting dlt from platform, we need to path dlt
+    // width to object store, so that we can correctly map object ids
+    // to SM tokens
+    // TODO(anna): fix this
+    // const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
+    // objStorMgr->objectStore->setNumBitsPerToken(curDlt->getNumBitsForToken());
+
     fds_verify(objStorMgr->cached_dlt_close_.second == nullptr);
     objStorMgr->cached_dlt_close_.first = session_uuid;
     objStorMgr->cached_dlt_close_.second = dlt_close;
@@ -935,9 +954,9 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
             if (err.ok()) {
                 vol = objStorMgr->volTbl->getVolume(volumeId);
                 fds_assert(vol != NULL);
-                err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
-                                                          static_cast<FDS_VolumeQueue*>(
-                                                              vol->getQueue()));
+                err = objStorMgr->qosCtrl->registerVolume(vdb->isSnapshot() ?
+                        vdb->qosQueueId : vol->getVolId(),
+                        static_cast<FDS_VolumeQueue*>(vol->getQueue()));
                 if (err.ok()) {
                     objStorMgr->objCache->
                             vol_cache_create(volumeId,
@@ -1172,12 +1191,12 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
      * Get existing object locations
      */
     err = readObjMetaData(objId, objMap);
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+    if (err != ERR_OK && err != ERR_NOT_FOUND) {
         LOGERROR << "Failed to read existing object locations"
                     << " during location write";
         smObjDb->unlock(objId);
         return err;
-     } else if (err == ERR_DISK_READ_FAILED) {
+     } else if (err == ERR_NOT_FOUND) {
             /*
              * Assume this error means the key just did not exist.
              * TODO: Add an err to differention "no key" from "failed read".
@@ -1244,7 +1263,7 @@ ObjectStorMgr::readObjMetaData(const ObjectID &objId,
         /* While sync is going on we can have metadata but object could be missing */
         if (!objMap.dataPhysicallyExists()) {
             fds_verify(isTokenInSyncMode(getDLT()->getToken(objId)));
-            err = ERR_DISK_READ_FAILED;
+            err = ERR_SM_OBJECT_DATA_MISSING;
         }
     } else {
         LOGNORMAL << "unable to read object meta: " << objId;
@@ -1263,12 +1282,12 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
      * Get existing object locations
      */
     err = readObjMetaData(objId, objMap);
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+    if (err != ERR_OK && err != ERR_NOT_FOUND) {
         LOGERROR << "Failed to read existing object locations"
                 << " during location write";
         smObjDb->unlock(objId);
         return err;
-    } else if (err == ERR_DISK_READ_FAILED) {
+    } else if (err == ERR_NOT_FOUND) {
         /*
          * Assume this error means the key just did not exist.
          * TODO: Add an err to differention "no key" from "failed read".
@@ -1355,7 +1374,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
      * Read all of the object's locations
      */
     {
-        PerfContext tmp_pctx(GET_METADATA_READ, volId, "volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(SM_OBJ_METADATA_DB_READ, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = readObjMetaData(objId, objMetadata);
     }
@@ -1383,7 +1402,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
         objData.data.resize(objData.size, 0);
         // Now Read the object buffer from the disk
         {
-            PerfContext tmp_pctx(GET_DISK_READ, volId, "volume:" + std::to_string(volId));
+            PerfContext tmp_pctx(SM_OBJ_DATA_DISK_READ, volId, "volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             err = dio_mgr.disk_read(disk_req);
         }
@@ -1469,7 +1488,7 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
                             objId.ToHex().c_str());
             }
         }
-    } else if (err == ERR_DISK_READ_FAILED) {
+    } else if (err == ERR_NOT_FOUND) {
         /*
          * This error indicates the DB entry was empty
          * so we can reset the error to OK.
@@ -1544,7 +1563,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
                            true, tier);  // blocking call
     {
         // TODO(matteo): move ctx in disk_req
-        PerfContext tmp_pctx(PUT_DISK_WRITE,
+        PerfContext tmp_pctx(SM_OBJ_DATA_DISK_WRITE,
                              volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         // TODO(Matteo) inside or around this function, it could be non blocking
@@ -1558,7 +1577,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     {
         // TODO(Matteo): look inside. This is for metadata.
         // Initially we probably want just leveldb get and put
-        PerfContext tmp_pctx(PUT_METADATA_WRITE, volId, "volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(SM_OBJ_METADATA_DB_WRITE, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = writeObjectMetaData(opCtx, objId, objData.data.length(),
                 disk_req->req_get_phy_loc(), false, diskio::diskTier, &vio);
@@ -1732,7 +1751,7 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
     if (objBufPtr != NULL) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
 
-        PerfTracer::incr(PUT_CACHE_HIT, volId, putReq->perfNameStr);
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, putReq->perfNameStr);
 
         // Now check for dedup here.
         if (objBufPtr->data == putReq->data_obj) {
@@ -1918,6 +1937,38 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
 
     return err;
 }
+
+//
+// This is an empty interface stub for getObjectInternalSvc.
+// It's intent is to plug in a new implementation of future
+// architecture into this interface for testing and evaluation.
+Error
+ObjectStorMgr::putObjectInternalSvcV2(SmIoPutObjectReq *putReq)
+{
+    Error err(ERR_OK);
+    const ObjectID&  objId    = putReq->getObjId();
+    fds_volid_t volId         = putReq->getVolId();
+    diskio::DataTier tierUsed = diskio::maxTier;
+
+    fds_assert(volId != 0);
+    fds_assert(objId != NullObjectID);
+
+    LOGDEBUG << "Executing putObjectInternalSvcV2";
+
+    PerfTracer::tracePointBegin(putReq->opReqLatencyCtx);
+    PerfTracer::tracePointBegin(putReq->opLatencyCtx);
+
+    qosCtrl->markIODone(*putReq,
+                        tierUsed,
+                        amIPrimary(objId));
+
+    PerfTracer::tracePointEnd(putReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
+
+    return err;
+}
+
+
 /**
  * Process a single object put.
  * @param the request structure ptr
@@ -1944,7 +1995,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     if (objBufPtr != NULL) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
 
-        PerfTracer::incr(PUT_CACHE_HIT, volId, putReq->perfNameStr);
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, putReq->perfNameStr);
 
         // Now check for dedup here.
         if (objBufPtr->data == putObjReq->data_obj) {
@@ -2192,7 +2243,10 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
         return ERR_OK;
     }
 
-    err = qosCtrl->enqueueIO(ioReq->getVolId(), ioReq);
+    StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+    fds_assert(smVol);
+
+    err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(), ioReq);
     if (err != ERR_OK) {
         PerfTracer::tracePointEnd(ioReq->opReqLatencyCtx);
         PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->getVolId(), ioReq->perfNameStr);
@@ -2277,7 +2331,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
-        PerfTracer::incr(DELETE_CACHE_HIT, volId, delReq->perfNameStr);
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, delReq->perfNameStr);
         objCache->object_release(volId, objId, objBufPtr);
         objCache->object_delete(volId, objId);
     }
@@ -2287,7 +2341,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
     {
-        PerfContext tmp_pctx(DELETE_METADATA, volId, "volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
     }
@@ -2299,7 +2353,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
             // tell persistent layer we deleted the object so that garbage collection
             // knows how much disk space we need to clean
             memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-            PerfContext tmp_pctx(DELETE_DISK, volId, "volume:" + std::to_string(volId));
+            PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
                 dio_mgr.disk_delete_obj(&oid,
@@ -2373,7 +2427,7 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
 
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
-        PerfTracer::incr(DELETE_CACHE_HIT, volId, delReq->perfNameStr);
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, delReq->perfNameStr);
         objCache->object_release(volId, objId, objBufPtr);
         objCache->object_delete(volId, objId);
     }
@@ -2383,7 +2437,7 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
     {
-        PerfContext tmp_pctx(DELETE_METADATA, volId, "volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
     }
@@ -2395,7 +2449,7 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
             // tell persistent layer we deleted the object so that garbage collection
             // knows how much disk space we need to clean
             memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-            PerfContext tmp_pctx(DELETE_DISK, volId, "volume:" + std::to_string(volId));
+            PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
                 dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
@@ -2415,6 +2469,34 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
 
     omJrnl->release_transaction(delReq->getTransId());
     delReq->response_cb(err, delReq);
+
+    return err;
+}
+
+//
+// This is an empty interface stub for getObjectInternalSvc.
+// It's intent is to plug in a new implementation of future
+// architecture into this interface for testing and evaluation.
+Error
+ObjectStorMgr::deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq)
+{
+    Error err(ERR_OK);
+    const ObjectID&  objId    = delReq->getObjId();
+    fds_volid_t volId         = delReq->getVolId();
+
+    fds_assert(volId != 0);
+    fds_assert(objId != NullObjectID);
+
+    LOGDEBUG << "Executing deleteObjectInternalSvcV2";
+
+    PerfTracer::tracePointBegin(delReq->opReqLatencyCtx);
+    PerfTracer::tracePointBegin(delReq->opLatencyCtx);
+
+    qosCtrl->markIODone(*delReq, diskio::diskTier);
+
+    PerfTracer::tracePointEnd(delReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(delReq->opReqLatencyCtx);
+
 
     return err;
 }
@@ -2538,7 +2620,7 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
 }
 
 Error
-ObjectStorMgr::getObjectInternalSvc(SmIoReadObjectdata *getReq) {
+ObjectStorMgr::getObjectInternalSvc(SmIoGetObjectReq *getReq) {
     Error            err(ERR_OK);
     const ObjectID  &objId = getReq->getObjId();
     fds_volid_t volId      = getReq->getVolId();
@@ -2590,7 +2672,7 @@ ObjectStorMgr::getObjectInternalSvc(SmIoReadObjectdata *getReq) {
             }
         }
     } else {
-        PerfTracer::incr(GET_CACHE_HIT, volId, getReq->perfNameStr);
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, getReq->perfNameStr);
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
     }
 
@@ -2624,12 +2706,38 @@ ObjectStorMgr::getObjectInternalSvc(SmIoReadObjectdata *getReq) {
     objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());
     volTbl->updateVolStats(getReq->getVolId());
 
-    objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());
-    volTbl->updateVolStats(getReq->getVolId());
-
     objCache->object_release(volId, objId, objBufPtr);
 
-    getReq->smio_readdata_resp_cb(err, getReq);
+    getReq->response_cb(err, getReq);
+
+    return err;
+}
+
+//
+// This is an empty interface stub for getObjectInternalSvc.
+// It's intent is to plug in a new implementation of future
+// architecture into this interface for testing and evaluation.
+Error
+ObjectStorMgr::getObjectInternalSvcV2(SmIoGetObjectReq *getReq)
+{
+    Error err(ERR_OK);
+    const ObjectID&  objId    = getReq->getObjId();
+    fds_volid_t volId         = getReq->getVolId();
+    diskio::DataTier tierUsed = diskio::maxTier;
+
+    fds_assert(volId != 0);
+    fds_assert(objId != NullObjectID);
+
+    LOGDEBUG << "Executing getObjectInternalSvcV2";
+
+    PerfTracer::tracePointBegin(getReq->opReqLatencyCtx);
+    PerfTracer::tracePointBegin(getReq->opLatencyCtx);
+
+    qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
+
+    PerfTracer::tracePointEnd(getReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
+
 
     return err;
 }
@@ -2682,7 +2790,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
             }
         }
     } else {
-        PerfTracer::incr(GET_CACHE_HIT, volId, getReq->perfNameStr);
+        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, getReq->perfNameStr);
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
     }
 
@@ -2947,81 +3055,84 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     switch (ioReq->io_type) {
         case FDS_SM_WRITE_TOKEN_OBJECTS:
         case FDS_SM_READ_TOKEN_OBJECTS:
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
+        {
+            StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+            fds_assert(smVol);
+            err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
+                    static_cast<FDS_IOType*>(ioReq));
             break;
+        }
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_SNAPSHOT_TOKEN:
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
+        {
+            StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+            fds_assert(smVol);
+            err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
+                    static_cast<FDS_IOType*>(ioReq));
             break;
+        }
         /* Following are messages that require io synchronization at object
          * id level via transaction table
          */
         case FDS_SM_GET_OBJECT:
-            objectId = static_cast<SmIoReadObjectdata*>(ioReq)->getObjId();
-            err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            // This is a toggle to execute either a legacy code path or a new
+            // code path
+            if (execNewStubs == true) {
+                err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+            } else {
+                objectId = static_cast<SmIoGetObjectReq *>(ioReq)->getObjId();
+                err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
             }
             break;
         case FDS_SM_PUT_OBJECT:
-            objectId = static_cast<SmIoPutObjectReq*>(ioReq)->getObjId();
-            err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            // This is a toggle to execute either a legacy code path or a new
+            // code path
+            if (execNewStubs == true) {
+                err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+            } else {
+                objectId = static_cast<SmIoPutObjectReq *>(ioReq)->getObjId();
+                err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
             }
             break;
         case FDS_SM_DELETE_OBJECT:
-            objectId = static_cast<SmIoDeleteObjectReq*>(ioReq)->getObjId();
-            err = enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            // This is a toggle to execute either a legacy code path or a new
+            // code path
+            if (execNewStubs == true) {
+                err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+            } else {
+                objectId = static_cast<SmIoDeleteObjectReq *>(ioReq)->getObjId();
+                err = enqTransactionIo(nullptr, objectId, ioReq, trans_id);
             }
             break;
         case FDS_SM_SYNC_APPLY_METADATA:
             objectId.SetId(static_cast<SmIoApplySyncMetadata*>(ioReq)->md.object_id.digest);
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
             break;
         case FDS_SM_SYNC_RESOLVE_SYNC_ENTRY:
             objectId = static_cast<SmIoResolveSyncEntry*>(ioReq)->object_id;
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
             break;
         case FDS_SM_APPLY_OBJECTDATA:
             objectId = static_cast<SmIoApplyObjectdata*>(ioReq)->obj_id;
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
             break;
         case FDS_SM_READ_OBJECTDATA:
             objectId = static_cast<SmIoReadObjectdata*>(ioReq)->getObjId();
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
             break;
         case FDS_SM_READ_OBJECTMETADATA:
             objectId = static_cast<SmIoReadObjectMetadata*>(ioReq)->getObjId();
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
             break;
         default:
-            fds_assert(!"Unknown message");
             LOGERROR << "Unknown message: " << ioReq->io_type;
+            fds_panic("Unknown message");
     }
+
+    if (err != fds::ERR_OK) {
+        LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+    }
+
     return err;
 }
 
@@ -3043,7 +3154,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
 
         ObjMetaData objMetadata;
         err = smObjDb->get(objId, objMetadata);
-        if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+        if (err != ERR_OK && err != ERR_NOT_FOUND) {
             fds_assert(!"ObjMetadata read failed");
             LOGERROR << "Failed to write the object: " << objId;
             break;
@@ -3285,7 +3396,7 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
     ObjectID objId = applydata_entry->obj_id;
     ObjMetaData objMetadata;
     Error err = smObjDb->get(objId, objMetadata);
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+    if (err != ERR_OK && err != ERR_NOT_FOUND) {
         fds_assert(!"ObjMetadata read failed");
         LOGERROR << "Failed to write the object: " << objId;
         qosCtrl->markIODone(*applydata_entry,
@@ -3420,6 +3531,9 @@ inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
                           plf_get_my_svc_uuid())->uuid_get_val();
 }
 
+// TODO(Sean)
+// These three ifaces --  {get,put,del}ObjectExt() may be deprecated.
+// Should consider removing them.
 void getObjectExt(SmIoReq* getReq) {
     objStorMgr->getObjectInternal(getReq);
 }
@@ -3436,6 +3550,9 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
     SmIoReq *io = static_cast<SmIoReq*>(_io);
 
+    // Boolean to determine which code paths (new vs. legacy) to execute
+    bool exec_new_stubs = parentSm->execNewStubs;
+
     PerfTracer::tracePointEnd(io->opQoSWaitCtx);
 
     switch (io->io_type) {
@@ -3449,24 +3566,55 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             break;
         case FDS_SM_DELETE_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
-            threadPool->schedule(&ObjectStorMgr::deleteObjectInternalSvc,
-                                 objStorMgr, static_cast<SmIoDeleteObjectReq*>(io));
+
+            // This is a temporary toggle to execute either a legacy code path
+            // or a new code path.
+            if (exec_new_stubs == true) {
+                threadPool->schedule(&ObjectStorMgr::deleteObjectInternalSvcV2,
+                                     objStorMgr,
+                                     static_cast<SmIoDeleteObjectReq *>(io));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::deleteObjectInternalSvc,
+                                     objStorMgr,
+                                     static_cast<SmIoDeleteObjectReq *>(io));
+            }
             break;
         case FDS_SM_GET_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
-            threadPool->schedule(&ObjectStorMgr::getObjectInternalSvc,
-                                 objStorMgr, static_cast<SmIoReadObjectdata*>(io));
+
+            // This is a temporary toggle to execute either a legacy code path
+            // or a new code path.
+            if (exec_new_stubs == true) {
+                threadPool->schedule(&ObjectStorMgr::getObjectInternalSvcV2,
+                                     objStorMgr,
+                                     static_cast<SmIoGetObjectReq *>(io));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::getObjectInternalSvc,
+                                     objStorMgr,
+                                     static_cast<SmIoGetObjectReq *>(io));
+            }
             break;
         case FDS_SM_PUT_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
-            threadPool->schedule(&ObjectStorMgr::putObjectInternalSvc,
-                                 objStorMgr, static_cast<SmIoPutObjectReq*>(io));
+
+            // This is a temporary toggle to execute either a legacy code path
+            // or a new code path.
+            if (exec_new_stubs == true) {
+                threadPool->schedule(&ObjectStorMgr::putObjectInternalSvcV2,
+                                     objStorMgr,
+                                     static_cast<SmIoPutObjectReq *>(io));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::putObjectInternalSvc,
+                                     objStorMgr,
+                                     static_cast<SmIoPutObjectReq *>(io));
+            }
             break;
         case FDS_SM_ADD_OBJECT_REF:
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing and add object reference request";
-            threadPool->schedule(&ObjectStorMgr::addObjectRefInternalSvc, objStorMgr,
-                                 static_cast<SmIoAddObjRefReq*>(io));
+            threadPool->schedule(&ObjectStorMgr::addObjectRefInternalSvc,
+                                 objStorMgr,
+                                 static_cast<SmIoAddObjRefReq *>(io));
             break;
         }
         case FDS_SM_WRITE_TOKEN_OBJECTS:

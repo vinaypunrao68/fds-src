@@ -44,15 +44,14 @@ class VolCreateEvt
 class VolCrtOkEvt
 {
  public:
-    explicit VolCrtOkEvt(fds_bool_t b_ack)
-            : got_ack(b_ack) {}
+    explicit VolCrtOkEvt(fds_bool_t b_ack, VolumeInfo* vol)
+            : got_ack(b_ack), vol_ptr(vol) {}
 
     // if true, actual ack, false is used when want to check if no need
     // to wait for acks and can get out of the current state
     fds_bool_t got_ack;
+    VolumeInfo* vol_ptr;
 };
-
-struct SnapCrtEvt {};
 
 class VolOpEvt
 {
@@ -203,7 +202,6 @@ class VolumeInfo : public Resource
     void vol_event(DelChkAckEvt const &evt);
     void vol_event(DetachAllEvt const &evt);
     void vol_event(DelNotifEvt const &evt);
-    void vol_event(SnapCrtEvt const &evt);
     fds_bool_t isVolumeInactive();
     fds_bool_t isDeletePending();
     fds_bool_t isCheckDelete();
@@ -375,6 +373,8 @@ class VolumeContainer : public RsContainer
                                 const FdspAttVolCmdPtr        &detach);
     virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
                                 const FdspTestBucketPtr &req);
+    void om_vol_cmd_resp(VolumeInfo::pointer vol,
+        fpi::FDSPMsgTypeId cmd_type, const Error & error, NodeUuid from_svc);
 
     virtual Error getVolumeStatus(const std::string& volumeName);
 
@@ -397,6 +397,10 @@ class VolumeContainer : public RsContainer
                                     const std::string& vol_name,
                                     const ResourceUUID& vol_uuid);
 
+    virtual void om_notify_vol_resp(om_vol_notify_t type,
+                                    NodeUuid from_src, Error err,
+                                    const std::string& vol_name,
+                                    const ResourceUUID& vol_uuid);
     /**
      * Handle final deletion of the volume
      */

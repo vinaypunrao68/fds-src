@@ -149,10 +149,17 @@ NetMgr::ep_register_thr(EpSvc::pointer ep, bool update_domain)
 void
 NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
 {
-    // TODO(Andrew): We're not joining on this thread right now...
-    ep_register_thread = boost::shared_ptr<boost::thread>(
-        new boost::thread(boost::bind(
-            &NetMgr::ep_register_thr, this, ep, update_domain)));
+    if (ep->ep_is_connection() == true) {
+        // TODO(Andrew): We're not joining on this thread right now...
+        ep_register_thread = boost::shared_ptr<boost::thread>(
+            new boost::thread(boost::bind(
+                &NetMgr::ep_register_thr, this, ep, update_domain)));
+    } else {
+        /* This is the logical service, record it in svc map. */
+        ep_mtx.lock();
+        ep_svc_map[ep->ep_my_uuid()] = ep;
+        ep_mtx.unlock();
+    }
 }
 
 // ep_unregister

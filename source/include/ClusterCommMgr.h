@@ -9,6 +9,9 @@
 
 #include <OMgrClient.h>
 
+class netSessionTbl;
+typedef boost::shared_ptr<netSessionTbl> netSessionTblPtr;
+
 namespace fds {
 
 typedef std::unordered_map<NodeUuid, std::set<fds_token_id>, UuidHash> NodeTokenTbl;
