@@ -11,6 +11,8 @@ from fdsconsole.decorators import *
 from FDS_ProtocolInterface.ttypes import *
 from pyfdsp.snapshot.ttypes import *
 
+from operator import attrgetter
+
 log = process.setup_logger()
 
 class ServiceMap:

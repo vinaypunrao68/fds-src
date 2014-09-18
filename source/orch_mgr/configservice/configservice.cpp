@@ -11,6 +11,7 @@
 #include <thrift/transport/TServerSocket.h>
 #include <thrift/transport/TBufferTransports.h>
 
+#include <NetSession.h>
 #include <fds_typedefs.h>
 #include <string>
 #include <vector>
@@ -18,6 +19,7 @@
 #include <OmResources.h>
 #include <convert.h>
 #include <orchMgr.h>
+
 using namespace ::apache::thrift;  //NOLINT
 using namespace ::apache::thrift::protocol;  //NOLINT
 using namespace ::apache::thrift::transport;  //NOLINT
@@ -221,6 +223,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         volContainer->vol_up_foreach<std::vector<VolumeDescriptor> &>(_return, [] (std::vector<VolumeDescriptor> &vec, VolumeInfo::pointer vol) { //NOLINT
                 LOGDEBUG << " - " << vol->vol_get_name();
                 VolumeDescriptor volDescriptor;
+                if (vol->vol_get_properties()->isSnapshot()) {
+                    LOGDEBUG << "snapshot: " << vol->vol_get_name();
+                }
                 convert::getVolumeDescriptor(volDescriptor, vol);
                 vec.push_back(volDescriptor);
             });

@@ -19,17 +19,18 @@ extern StorHvCtrl *storHvisor;
 namespace fds {
 
 StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log *parent_log)
-        : FDS_Volume(vdesc), parent_sh(sh_ctrl)
+        : FDS_Volume(vdesc), parent_sh(sh_ctrl), volQueue(0)
 {
     journal_tbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
     vol_catalog_cache = new VolumeCatalogCache(voldesc->volUUID, sh_ctrl, parent_log);
 
-    if (voldesc->volType == FDSP_VOL_BLKDEV_TYPE &&
-        parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) {
-        blkdev_minor = hvisor_create_blkdev(voldesc->volUUID, voldesc->capacity);
+    if (vdesc.isSnapshot()) {
+        volQueue = parent_sh->qos_ctrl->getQueue(vdesc.qosQueueId);
     }
 
-    volQueue = new FDS_VolumeQueue(4096, vdesc.iops_max, vdesc.iops_min, vdesc.relativePrio);
+    if (!volQueue) {
+        volQueue = new FDS_VolumeQueue(4096, vdesc.iops_max, vdesc.iops_min, vdesc.relativePrio);
+    }
     volQueue->activate();
 
     is_valid = true;
@@ -55,9 +56,6 @@ void StorHvVolume::destroy() {
         return;
     }
 
-    if ( voldesc->volType == FDSP_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) {
-        hvisor_delete_blkdev(blkdev_minor);
-    }
     /* destroy data */
     delete journal_tbl;
     journal_tbl = NULL;
@@ -108,11 +106,6 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
 {
     if (parent_log) {
         SetLog(parent_log);
-    }
-
-    /* register for volume-related control events from OM*/
-    if (parent_sh->om_client) {
-        parent_sh->om_client->registerEventHandlerForVolEvents(volumeEventHandler);
     }
 
     next_io_req_id = ATOMIC_VAR_INIT(0);
@@ -530,66 +523,6 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
     }
 }
 
-/*
- * Handler for volume-related control message from OM
- */
-Error StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
-                                            VolumeDesc *vdb,
-                                            fds_vol_notify_t vol_action,
-                                            FDS_ProtocolInterface::FDSP_NotifyVolFlag vol_flag,
-                                            FDS_ProtocolInterface::FDSP_ResultType result)
-{
-    Error err(ERR_OK);
-    switch (vol_action) {
-        case fds_notify_vol_attatch:
-            GLOGNOTIFY << "StorHvVolumeTable - Received volume attach event from OM"
-                       << " for volume " << std::hex << vol_uuid << std::dec;
-
-            if (result == FDS_ProtocolInterface::FDSP_ERR_OK) {
-                err = storHvisor->vol_table->registerVolume(vdb ? *vdb : VolumeDesc("", vol_uuid));
-                // TODO(Anna) remove this assert when we implement response handling in AM
-                // for crete bucket, if err not ok, it is most likely QOS admission control issue
-                fds_verify(err.ok());
-
-                // Create cache structures for volume
-                err = storHvisor->amCache->createCache(*vdb);
-                fds_verify(err == ERR_OK);
-            } else if (result == FDS_ProtocolInterface::FDSP_ERR_VOLUME_DOES_NOT_EXIST) {
-                /* complete all requests that are waiting on bucket to attach with error */
-                if (vdb) {
-                    GLOGNOTIFY << "Requested volume "
-                               << vdb->name << " does not exist";
-                    storHvisor->vol_table->
-                            moveWaitBlobsToQosQueue(vol_uuid,
-                                                    vdb->name,
-                                                    ERR_NOT_FOUND);
-                }
-            }
-            break;
-        case fds_notify_vol_detach:
-            GLOGNOTIFY << "StorHvVolumeTable - Received volume detach event from OM"
-                       << " for volume " << std::hex << vol_uuid << std::dec;
-            err = storHvisor->vol_table->removeVolume(vol_uuid);
-            fds_verify(err == ERR_OK);
-
-            // Remove cache structure for volume
-            // TODO(Andrew): If the cache has dirty contents, they need to be flushed
-            err = storHvisor->amCache->removeCache(vol_uuid);
-            break;
-        case fds_notify_vol_mod:
-            fds_verify(vdb != NULL);
-            GLOGNOTIFY << "StorHvVolumeTable - Received volume modify  event from OM"
-                       << " for volume " << vdb->name << ":" << std::hex
-                       << vol_uuid << std::dec;
-            err = storHvisor->vol_table->modifyVolumePolicy(vol_uuid, *vdb);
-            break;
-        default:
-            GLOGWARN << "StorHvVolumeTable - Received unexpected volume event from OM"
-                     << " for volume " << std::hex << vol_uuid
-                     << ", action " << vol_action << std::dec;
-    }
-    return err;
-}
 
 /* print detailed info into log */
 void StorHvVolumeTable::dump()

@@ -62,6 +62,7 @@ test/bower_components/
 /source/fdsp/gmon.out
 gmock-1.7.0/gmock_test
 nginx/src/main/ngx_modules.c
+/source/am-engine/misc/am-urls.cpp
 /source/am-engine/am-urls.cpp
 *.deb
 tmppkg*/

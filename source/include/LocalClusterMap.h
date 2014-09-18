@@ -12,8 +12,24 @@
 #include <fds_typedefs.h>
 #include <fds_error.h>
 #include <fds_module.h>
-#include <NetSession.h>
 #include <concurrency/RwLock.h>
+
+/*  Need to remove netsession stuffs! */
+// Forward declarations
+namespace FDS_ProtocolInterface {
+    class FDSP_MigrationPathReqClient;
+    class FDSP_MigrationPathRespProcessor;
+    class FDSP_MigrationPathRespIf;
+}  // namespace FDS_ProtocolInterface
+
+namespace bo  = boost;
+namespace fpi = FDS_ProtocolInterface;
+
+class netSessionTbl;
+template <class A, class B, class C> class netClientSessionEx;
+typedef netClientSessionEx<fpi::FDSP_MigrationPathReqClient,
+                fpi::FDSP_MigrationPathRespProcessor,
+                fpi::FDSP_MigrationPathRespIf> netMigrationPathClientSession;
 
 namespace fds {
 
@@ -74,8 +90,8 @@ namespace fds {
          * the node.
          */
         Error addNode(node_info_t *node,
-                      FDSP_MgrIdType myRole,
-                      FDSP_MgrIdType nodeRole);
+                      fpi::FDSP_MgrIdType myRole,
+                      fpi::FDSP_MgrIdType nodeRole);
 
         fds_uint32_t getNodeMigPort(NodeUuid uuid);
         fds_uint32_t getNodeMetaSyncPort(NodeUuid uuid);

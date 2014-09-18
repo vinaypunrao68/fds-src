@@ -41,9 +41,6 @@ class NodePlatform : public Platform
     DiskPlatModule      *disk_ctrl;
 
     virtual void plf_bind_om_node();
-
-    virtual PlatRpcReqt *plat_creat_reqt_disp();
-    virtual PlatRpcResp *plat_creat_resp_disp();
 };
 
 /**
@@ -90,38 +87,6 @@ class NodeShmRWCtrl : public NodeShmCtrl
     void shm_init_header(node_shm_inventory_t *hdr);
 
     virtual void shm_setup_queue() override;
-};
-
-/**
- * Platform daemon RPC handlers.  Only overwrite what's specific to Platform.
- */
-class PlatformRpcReqt : public PlatRpcReqt
-{
-  public:
-    explicit PlatformRpcReqt(const Platform *plf);
-    virtual ~PlatformRpcReqt();
-
-    void NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                       fpi::FDSP_Node_Info_TypePtr &node_info);
-
-    void NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                       fpi::FDSP_Node_Info_TypePtr &node_info);
-
-    void NotifyNodeActive(fpi::FDSP_MsgHdrTypePtr       &hdr,
-                          fpi::FDSP_ActivateNodeTypePtr &info);
-};
-
-/**
- * Platform daemon RPC response handlers.
- */
-class PlatformRpcResp : public PlatRpcResp
-{
-  public:
-    explicit PlatformRpcResp(const Platform *plf);
-    virtual ~PlatformRpcResp();
-
-    void RegisterNodeResp(fpi::FDSP_MsgHdrTypePtr       &hdr,
-                          fpi::FDSP_RegisterNodeTypePtr &resp);
 };
 
 extern NodePlatform gl_NodePlatform;

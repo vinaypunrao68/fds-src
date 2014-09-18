@@ -1,6 +1,7 @@
 #ifndef __FDSP_H__
 
 #define __FDSP_H__
+include "common.thrift"
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
 namespace * FDS_ProtocolInterface
@@ -421,7 +422,7 @@ struct FDSP_VolumeInfoType {
   18: i32         		 backupVolume,  // UUID of backup volume
   19: bool                       fSnapshot,
   20: i64                        srcVolumeId,
-
+  21: i64                        qosQueueId
 }
 
 struct FDSP_VolumeDescType {
@@ -462,6 +463,8 @@ struct FDSP_VolumeDescType {
   22: FDSP_MediaPolicy       mediaPolicy   /* media policy */
   23: bool                       fSnapshot,
   24: i64                        srcVolumeId,
+  25: i64                        qosQueueId
+  26: common.ResourceState              state,
 }
 
 struct FDSP_CreateDomainType {

@@ -4,12 +4,13 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_PLATFORM_RPC_H_
 #define SOURCE_INCLUDE_PLATFORM_PLATFORM_RPC_H_
 
-#include <string>
-#include <fds_typedefs.h>
-#include <NetSession.h>
+// #include <string>
+// #include <fds_typedefs.h>
+// #include <NetSession.h>
 
 namespace fds {
 
+#if 0
 class Platform;
 
 class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
@@ -202,6 +203,7 @@ class PlatDataPathResp : public FDSP_DataPathRespIf
   protected:
     Platform     *plf_mgr;
 };
+#endif
 
 }  // namespace fds
 

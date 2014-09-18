@@ -13,6 +13,7 @@
 #include <fdsp/FDSP_types.h>
 #include <fds_migration.h>
 #include <fds_timestamp.h>
+#include <NetSession.h>
 #include <TokenReceiver.h>
 #include <TokenSyncReceiver.h>
 #include <TokenPullReceiver.h>

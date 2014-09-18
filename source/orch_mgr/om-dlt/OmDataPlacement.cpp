@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 
+#include <NetSession.h>
 #include <orch-mgr/om-service.h>
 #include <fds_process.h>
 #include <OmDataPlacement.h>

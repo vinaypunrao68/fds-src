@@ -176,10 +176,11 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc& voldesc)
 //
 Error DmVolumeCatalog::copyVolume(VolumeDesc & voldesc) {
     LOGDEBUG << "Creating a snapshot '" << voldesc.name << "' of a volume '"
-            << voldesc.volUUID << "'";
+            << voldesc.volUUID << "'"  << "srcVolume: "<< voldesc.srcVolumeId;
 
     // create a snapshot catalog
-    Error rc = persistCat->copyVolume(voldesc.volUUID, voldesc.srcVolumeId, voldesc.isSnapshot());
+    Error rc = persistCat->copyVolume(voldesc.srcVolumeId, voldesc.volUUID, voldesc.isSnapshot(),
+                       voldesc.isSnapshot());
     if (rc.ok()) {
         // Create cache for a snapshot
         rc = cacheCat->createCache(voldesc);
@@ -329,6 +330,43 @@ Error DmVolumeCatalog::getVolumeMetaInternal(fds_volid_t volume_id,
 
     LOGDEBUG << "Volume " << std::hex << volume_id << std::dec
              << " size " << volume_size << " blobs " << *blob_count;
+
+    return err;
+}
+
+Error
+DmVolumeCatalog::getVolumeObjects(fds_volid_t volId, std::set<ObjectID> & objIds) {
+    std::vector<BlobExtent0Desc> desc_list;
+    Error err = persistCat->getMetaDescList(volId, desc_list);
+    if (!err.ok()) {
+        LOGERROR << "Failed to retrieve volume meta for volume " << std::hex << volId
+                << std::dec << ", error: " << err;
+        return err;
+    }
+
+    for (auto it : desc_list) {
+        BlobExtent0::ptr extent0 = getMetaExtent(volId, it.blob_name, err);
+        if (!err.ok()) {
+            LOGERROR << "Failed to retrieve extent0 for blob '" << it.blob_name << "'";
+            return err;
+        }
+        fds_verify(extent0->blobVersion() != blob_version_invalid);
+
+        // get all objects for extent0
+        extent0->getAllObjects(objIds);
+
+        if (extent0->blobSize() > 0) {
+            fds_extent_id last_extent = persistCat->getExtentId(volId,
+                    extent0->lastBlobOffset());
+            for (fds_extent_id extId = 1; extId <= last_extent; ++extId) {
+                // get next extent
+                BlobExtent::ptr extent = getExtent(volId, it.blob_name, extId, err);
+                if (err.ok()) {
+                    extent->getAllObjects(objIds);
+                }
+            }
+        }
+    }
 
     return err;
 }

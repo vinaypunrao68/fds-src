@@ -39,6 +39,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeInfoType& volinfo,
     assert(volUUID != invalid_vol_id);
     fSnapshot = volinfo.fSnapshot;
     srcVolumeId = volinfo.srcVolumeId;
+    qosQueueId = volinfo.qosQueueId;
 }
 
 VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
@@ -66,6 +67,7 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     relativePrio = vdesc.relativePrio;
     fSnapshot = vdesc.fSnapshot;
     srcVolumeId = vdesc.srcVolumeId;
+    qosQueueId = vdesc.qosQueueId;
     assert(volUUID != invalid_vol_id);
 }
 
@@ -94,6 +96,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     relativePrio = voldesc.rel_prio;
     fSnapshot = voldesc.fSnapshot;
     srcVolumeId = voldesc.srcVolumeId;
+    qosQueueId = voldesc.qosQueueId;
     assert(volUUID != invalid_vol_id);
 }
 
@@ -124,6 +127,9 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     backupVolume = 0;
     iops_min = 0;
     iops_max = 0;
+    fSnapshot = false;
+    srcVolumeId = invalid_vol_id;
+    qosQueueId = invalid_vol_id;
     relativePrio = 0;
     assert(volUUID != invalid_vol_id);
 }
@@ -154,6 +160,9 @@ VolumeDesc::VolumeDesc(const std::string& _name,
     volPolicyId = 0;
     archivePolicyId = 0;
     placementPolicy = 0;
+    fSnapshot = false;
+    srcVolumeId = invalid_vol_id;
+    qosQueueId = invalid_vol_id;
     appWorkload = fpi::FDSP_APP_WKLD_TRANSACTION;
     mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
     backupVolume = 0;
@@ -225,6 +234,9 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
     this->appWorkload = volinfo.appWorkload;
     this->mediaPolicy = volinfo.mediaPolicy;
     this->backupVolume = volinfo.backupVolume;
+    this->fSnapshot = volinfo.fSnapshot;
+    this->srcVolumeId = volinfo.srcVolumeId;
+    this->qosQueueId = volinfo.qosQueueId;
     return *this;
 }
 
@@ -267,6 +279,8 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " iops.max:" << vol.iops_max
               << " rel.prio:" << vol.relativePrio
               << " isSnapshot:" << vol.fSnapshot
+              << " srcVolumeId:" << vol.srcVolumeId
+              << " qosQueueId:" << vol.qosQueueId
               << " ]";
 }
 

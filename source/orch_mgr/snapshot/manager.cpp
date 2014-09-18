@@ -11,8 +11,10 @@ Manager::Manager(OrchMgr* om) : om(om), svcHandler(om) {
 }
 
 void Manager::init() {
-    snapPolicyDispatcher = new fds::snapshot::PolicyDispatcher(om);
-    snapScheduler = new fds::snapshot::Scheduler(om, snapPolicyDispatcher);
+    snapPolicyDispatcher = new PolicyDispatcher(om);
+    snapScheduler = new Scheduler(om, snapPolicyDispatcher);
+    deleteDispatcher = new DeleteDispatcher(om);
+    deleteScheduler = new DeleteScheduler(om, deleteDispatcher);
 }
 
 bool Manager::loadFromConfigDB() {
@@ -21,6 +23,23 @@ bool Manager::loadFromConfigDB() {
     LOGNORMAL << "loaded [" << vecSnapshotPolicies.size() << "] policies";
     for (auto policy : vecSnapshotPolicies) {
         snapScheduler->addPolicy(policy);
+    }
+    std::vector<fds_volid_t> vecVolumeIds;
+    om->getConfigDB()->getVolumeIds(vecVolumeIds);
+    std::vector<fpi::Snapshot> vecSnapshots;
+
+    LOGNORMAL << "processing snapshots for delete q from ["
+              << vecVolumeIds.size()
+              << "] volumes";
+
+    for (const auto& volumeId : vecVolumeIds) {
+        vecSnapshots.clear();
+        om->getConfigDB()->listSnapshots(vecSnapshots, volumeId);
+        LOGDEBUG << "processing [" << vecSnapshots.size()
+                 << "] snapshots for vol:" << volumeId;
+        for (const auto& snapshot : vecSnapshots) {
+            deleteScheduler->addSnapshot(snapshot);
+        }
     }
 
     return true;

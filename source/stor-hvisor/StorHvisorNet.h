@@ -39,8 +39,6 @@
 #include <am-tx-mgr.h>
 #include <AmCache.h>
 
-#include "NetSession.h"
-
 #include <map>
 // #include "util/concurrency/Thread.h"
 #include <concurrency/Synchronization.h>

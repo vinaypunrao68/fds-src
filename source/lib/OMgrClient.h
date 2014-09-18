@@ -3,16 +3,6 @@
 #include <fds_error.h>
 #include <fds_volume.h>
 
-#if 0
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <ifaddrs.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <thread>
-#endif
-
 #include "fdsp/FDSP_types.h"
 #include "fdsp/FDSP_ControlPathReq.h"
 #include "fdsp/FDSP_OMControlPathReq.h"
@@ -21,11 +11,9 @@
 #include <unordered_map>
 #include <concurrency/RwLock.h>
 #include <net-proxies/vol_policy.h>
-#include <NetSession.h>
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <LocalClusterMap.h>
-#include <platform/platform-lib.h>
 
 using namespace FDS_ProtocolInterface;
 
@@ -36,7 +24,25 @@ using namespace FDS_ProtocolInterface;
 #define FDS_VOL_ACTION_ATTACH 4
 #define FDS_VOL_ACTION_DETACH 5
 
+namespace FDS_ProtocolInterface {
+    class FDSP_OMControlPathReqClient;
+    class FDSP_OMControlPathRespProcessor;
+    class FDSP_OMControlPathRespIf;
+    class FDSP_ControlPathRespClient;
+}  // namespace FDS_ProtocolInterface
+
+template <class A, class B, class C> class netClientSessionEx;
+template <class A, class B, class C> class netServerSessionEx;
+typedef netClientSessionEx<FDSP_OMControlPathReqClient,
+                FDSP_OMControlPathRespProcessor,
+                FDSP_OMControlPathRespIf> netOMControlPathClientSession;
+typedef netServerSessionEx<FDSP_ControlPathReqProcessor,
+                FDSP_ControlPathReqIf,
+                FDSP_ControlPathRespClient> netControlPathServerSession;
+
 namespace fds {
+
+class Platform;
 
   typedef enum {
     fds_notify_vol_default = 0,
@@ -103,7 +109,6 @@ namespace fds {
     fds_rwlock omc_lock; // to protect node_map
 
     node_event_handler_t node_evt_hdlr;
-    volume_event_handler_t vol_evt_hdlr;
     migration_event_handler_t migrate_evt_hdlr;
     dltclose_event_handler_t dltclose_evt_hdlr;
     throttle_cmd_handler_t throttle_cmd_hdlr;
@@ -142,7 +147,7 @@ namespace fds {
 
   public:
 
-    OMgrClient(FDSP_MgrIdType node_type,
+    OMgrClient(fpi::FDSP_MgrIdType node_type,
                const std::string& _omIpStr,
                fds_uint32_t _omPort,
                const std::string& node_name,
@@ -157,7 +162,6 @@ namespace fds {
     FDSP_MgrIdType getNodeType() const;
 
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
-    int registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr);
     int registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr);
     int registerEventHandlerForDltCloseEvents(dltclose_event_handler_t dltclose_event_hdlr);
     int registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr);
@@ -243,12 +247,19 @@ namespace fds {
             const std::string& session_uuid);
 
     int recvNotifyVol(VolumeDesc *vdb,
-                      fds_vol_notify_t vol_action,
-                      FDSP_NotifyVolFlag vol_flag,
-		      FDSP_ResultType,
-                      const std::string& session_uuid);
+                              fds_vol_notify_t vol_action,
+                              FDSP_NotifyVolFlag vol_flag,
+                              FDSP_ResultType result,
+                              const std::string& session_uuid) {
+	fds_panic("should not come from new service layer");
+        return (0);
+    }
     int recvVolAttachState(VolumeDesc *vdb, fds_vol_notify_t vol_action,
-                           FDSP_ResultType result, const std::string& session_uuid);
+                           FDSP_ResultType result, const std::string& session_uuid)
+    {
+	fds_panic("should not come from new service layer");
+        return (0);
+    }
     int recvSetThrottleLevel(const float throttle_level);
     int recvSetQoSControl(fds_uint64_t total_rate);
     int recvTierPolicy(const FDSP_TierPolicyPtr &tier);

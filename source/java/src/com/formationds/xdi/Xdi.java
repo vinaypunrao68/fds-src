@@ -134,4 +134,9 @@ public class Xdi {
     public Authorizer getAuthorizer() {
         return authorizer;
     }
+
+    public String getSystemVolumeName(AuthenticationToken token) throws SecurityException {
+        long tenantId = authorizer.tenantId(token);
+        return "SYSTEM_VOLUME_" + tenantId;
+    }
 }

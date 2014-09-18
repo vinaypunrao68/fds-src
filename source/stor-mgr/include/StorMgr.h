@@ -58,7 +58,7 @@ extern "C" {
 #include "fds_module.h"
 #include "platform/platform-lib.h"
 
-#include "NetSession.h"
+// #include "NetSession.h"
 #include "kvstore/tokenstatedb.h"
 #include "fdsp/SMSvc.h"
 
@@ -71,7 +71,20 @@ extern "C" {
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
 #define FDS_MAX_WAITING_CONNS  10
 
+using namespace FDS_ProtocolInterface;  // NOLINT
+namespace FDS_ProtocolInterface {
+    class FDSP_DataPathReqProcessor;
+    class FDSP_DataPathReqIf;
+    class FDSP_DataPathRespClient;
+}
+typedef netServerSessionEx<FDSP_DataPathReqProcessor,
+                FDSP_DataPathReqIf,
+                FDSP_DataPathRespClient> netDataPathServerSession;
+
 namespace fds {
+
+extern ObjectStorMgr *objStorMgr;
+
 using DPReqClientPtr = boost::shared_ptr<FDSP_DataPathReqClient>;
 using DPRespClientPtr = boost::shared_ptr<FDSP_DataPathRespClient>;
 void log_ocache_stats();
@@ -184,9 +197,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      bool tok_migrated_for_dlt_;
 
      /** Helper for accessing datapth response client */
-     inline DPRespClientPtr fdspDataPathClient(const std::string& session_uuid) {
-         return datapath_session_->getRespClient(session_uuid);
-     }
+     DPRespClientPtr fdspDataPathClient(const std::string& session_uuid);
 
      /*
       * Service UUID to Session UUID mapping stuff. Used to support
@@ -219,6 +230,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      fds_uint32_t totalRate;
      fds_uint32_t qosThrds;
      fds_uint32_t qosOutNum;
+
+     // Temporary to execute different stubs in processIO
+     fds_bool_t execNewStubs;
 
      class SmQosCtrl : public FDS_QoSControl {
         private:
@@ -434,6 +448,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      ScavControl     *scavenger;
      SmObjDb        *smObjDb;  // Object Index DB <ObjId, Meta-data + data_loc>
      checksum_calc   *chksumPtr;
+    // Extneral plugin object to handle policy requests.
+    VolPolicyServ  *omc_srv_pol;
 
      // stats class
      ObjStatsTracker   *objStats;
@@ -448,12 +464,42 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      }
      Error writeBackObj(const ObjectID &objId);
 
-     /*
-      * Public volume reg handlers
-      */
-     void regVolHandler(volume_event_handler_t volHndlr) {
-         omClient->registerEventHandlerForVolEvents(volHndlr);
+     Error regVol(const VolumeDesc& vdb) {
+         return volTbl->registerVolume(vdb);
      }
+
+    int createCache(fds_volid_t volId, fds_uint64_t m, fds_uint64_t M) {
+        return objCache->vol_cache_create(volId, m, M);
+    }
+
+    Error deregVol(fds_volid_t volId) {
+        return volTbl->deregisterVolume(volId);
+    }
+
+    void quieseceIOsQos(fds_volid_t volId) {
+        qosCtrl->quieseceIOs(volId);
+    }
+
+    Error modVolQos(fds_volid_t vol_uuid,
+                    fds_uint64_t iops_min,
+                    fds_uint64_t iops_max,
+                    fds_uint32_t prio) {
+        return qosCtrl->modifyVolumeQosParams(vol_uuid,
+                    iops_min, iops_max, prio);
+    }
+
+    StorMgrVolume * getVol(fds_volid_t volId)
+    {
+        return volTbl->getVolume(volId);
+    }
+
+
+    Error regVolQos(fds_volid_t volId, fds::FDS_VolumeQueue * q) {
+        return qosCtrl->registerVolume(volId, q);
+    }
+    Error deregVolQos(fds_volid_t volId) {
+        return qosCtrl->deregisterVolume(volId);
+    }
 
      // We need to get this info out of this big class to avoid making this
      // class even bigger than it should.  Not much point for making it
@@ -470,19 +516,29 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      void sampleSMStats(fds_uint64_t timestamp);
 
+     // TODO(Sean)
+     // Do we need these 3 ifaces?  These are deprecated and should be removed.
      void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                     const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
      void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                     const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
      void DeleteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                        const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& del_obj);
+
      Error getObjectInternal(SmIoReq* getReq);
-     Error getObjectInternalSvc(SmIoReadObjectdata *getReq);
+     Error getObjectInternalSvc(SmIoGetObjectReq *getReq);
+     Error getObjectInternalSvcV2(SmIoGetObjectReq *getReq);
+
      Error putObjectInternal(SmIoReq* putReq);
      Error putObjectInternalSvc(SmIoPutObjectReq* putReq);
+     Error putObjectInternalSvcV2(SmIoPutObjectReq* putReq);
+
      Error deleteObjectInternal(SmIoReq* delReq);
      Error deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq);
+     Error deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq);
+
      Error addObjectRefInternalSvc(SmIoAddObjRefReq* addRefReq);
+
      void putTokenObjectsInternal(SmIoReq* ioReq);
      void getTokenObjectsInternal(SmIoReq* ioReq);
      void snapshotTokenInternal(SmIoReq* ioReq);

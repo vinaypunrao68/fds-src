@@ -2,10 +2,10 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <platform/platform-lib.h>
-#include <NetSession.h>
 
 namespace fds {
 
+#if 0
 // --------------------------------------------------------------------------------------
 // RPC request handlers
 // --------------------------------------------------------------------------------------
@@ -430,4 +430,5 @@ PlatDataPathResp::GetObjectMetadataResp(
 {
 }
 
+#endif
 }  // namespace fds

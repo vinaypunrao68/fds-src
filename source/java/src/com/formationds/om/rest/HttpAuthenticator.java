@@ -13,6 +13,7 @@ import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
+import javax.security.auth.login.LoginException;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Arrays;
@@ -56,7 +57,7 @@ public class HttpAuthenticator implements RequestHandler {
         try {
             AuthenticationToken token = authenticator.resolveToken(result.get().getValue());
             return f.apply(token).handle(request, routeParameters);
-        } catch (Exception e) {
+        } catch (LoginException e) {
             LOG.error("Authentication error", e);
             return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
         }

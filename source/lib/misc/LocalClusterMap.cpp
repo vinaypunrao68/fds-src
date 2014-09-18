@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <fds_process.h>
 #include <fds_resource.h>
 #include <LocalClusterMap.h>
 
@@ -86,8 +87,8 @@ LocalClusterMap::getNodeMetaSyncPort(NodeUuid uuid) {
 
 Error
 LocalClusterMap::addNode(node_info_t *node,
-                         FDSP_MgrIdType myRole,
-                         FDSP_MgrIdType nodeRole) {
+                         fpi::FDSP_MgrIdType myRole,
+                         fpi::FDSP_MgrIdType nodeRole) {
     Error err(ERR_OK);
 
     FDS_PLOG_SEV(g_fdslog, fds_log::debug)
