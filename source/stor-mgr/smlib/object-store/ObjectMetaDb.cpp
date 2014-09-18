@@ -32,15 +32,20 @@ osm::ObjectDB *ObjectMetadataDb::getObjectDB(fds_token_id tokId) {
         if (iter != tokenTbl.end()) return iter->second;
     }
 
-    // Create leveldb
+    // leveldb file not opened
+    SCOPEDWRITE(dbmapLock_);
+    // in case more than one thread found there is no leveldb file
+    // check again if another thread already created it!
+    TokenTblIter iter = tokenTbl.find(dbId);
+    if (iter != tokenTbl.end()) return iter->second;
+
+    // create leveldb
     std::string filename = dir_ + "SNodeObjIndex_" + std::to_string(dbId);
     objdb = new(std::nothrow) osm::ObjectDB(filename);
     if (!objdb) {
         LOGERROR << "Failed to create ObjectDB " << filename;
         return NULL;
     }
-
-    SCOPEDWRITE(dbmapLock_);
     tokenTbl[dbId] = objdb;
     return objdb;
 }
