@@ -18,6 +18,7 @@ AMSvcHandler::AMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, notifySvcChange);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyBucketStat, NotifyBucketStats);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyThrottle, SetThrottleLevel);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyQoSControl, QoSControl);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolMod, NotifyModVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolAdd, AttachVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, DetachVol);
@@ -47,6 +48,16 @@ AMSvcHandler::notifySvcChange(boost::shared_ptr<fpi::AsyncHdr>    &hdr,
         }
     }
 #endif
+}
+
+void
+AMSvcHandler::QoSControl(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
+                     boost::shared_ptr<fpi::CtrlNotifyQoSControl> &msg)
+{
+    LOGNORMAL << "qos ctrl set total rate " << msg->qosctrl.total_rate;
+    Error err = storHvQosCtrl->htb_dispatcher->modifyTotalRate(msg->qosctrl.total_rate);
+    hdr->msg_code = err.GetErrno();  // no error but want to ack remote side
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyQoSControl), *msg);
 }
 
 // NotifyBucketStats

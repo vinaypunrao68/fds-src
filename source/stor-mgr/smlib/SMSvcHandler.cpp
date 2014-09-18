@@ -25,6 +25,7 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolAdd, NotifyAddVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, NotifyRmVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolMod, NotifyModVol);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyScavenger, NotifyScavenger);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicy, TierPolicy);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicyAudit, TierPolicyAudit);
 }
@@ -394,6 +395,30 @@ void SMSvcHandler::addObjectRefCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::AddObjectRefRspMsg), *resp);
 
     delete addObjRefReq;
+}
+
+void
+SMSvcHandler::NotifyScavenger(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlNotifyScavenger> &msg)
+{
+    switch (msg->scavenger.cmd) {
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE:
+            objStorMgr->scavenger->enableScavenger();
+            break;
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE:
+            objStorMgr->scavenger->disableScavenger();
+            break;
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_START:
+            objStorMgr->scavenger->startScavengeProcess();
+            break;
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_STOP:
+            objStorMgr->scavenger->stopScavengeProcess();
+            break;
+        default:
+            fds_verify(false);  // unknown scavenger command
+    };
+    hdr->msg_code = 0;
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyScavenger), *msg);
 }
 
 }  // namespace fds

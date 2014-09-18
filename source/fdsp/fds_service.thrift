@@ -79,6 +79,7 @@ enum  FDSPMsgTypeId {
     /* AM messages. */
     CtrlNotifyBucketStatTypeId         = 2100,
     CtrlNotifyThrottleTypeId           = 2101,
+    CtrlNotifyQoSControlTypeId         = 2102,
 
     /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
@@ -507,6 +508,10 @@ struct CtrlNotifyScavenger {
      1: FDSP.FDSP_ScavengerType   scavenger;
 }
 
+struct CtrlNotifyQosControl {
+     1: FDSP.FDSP_QoSControlMsgType qosctrl;
+} 
+
 /* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
 struct CtrlNotifyDLTUpdate {
      1: FDSP.FDSP_DLT_Data_Type   dlt_data;
@@ -540,6 +545,9 @@ struct CtrlNotifyBucketStat {
 /* ---------------------  CtrlNotifyThrottleTypeId  ---------------------------- */
 struct CtrlNotifyThrottle {
      1: FDSP.FDSP_ThrottleMsgType      throttle;
+}
+struct CtrlNotifyQoSControl {
+     1: FDSP.FDSP_QoSControlMsgType    qosctrl;
 }
 
 /* Registration for streaming stats */

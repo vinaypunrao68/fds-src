@@ -536,8 +536,6 @@ void ObjectStorMgr::mod_startup()
         (migration_event_handler_t)migrationEventOmHandler);
     omClient->registerEventHandlerForDltCloseEvents(
         (dltclose_event_handler_t) dltcloseEventHandler);
-    omClient->registerScavengerEventHandler(
-        (scavenger_event_handler_t) scavengerEventHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
     omClient->startAcceptingControlMessages();
     omClient->registerNodeWithOM(modProvider_->get_plf_manager());
@@ -877,29 +875,6 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
         }
         objStorMgr->tok_migrated_for_dlt_ = false;
     }
-}
-
-//
-// TODO(xxx) currently assumes scavenger start command, extend to other cmds
-//
-void ObjectStorMgr::scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd)
-{
-    switch (cmd) {
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE:
-            objStorMgr->scavenger->enableScavenger();
-            break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE:
-            objStorMgr->scavenger->disableScavenger();
-            break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_START:
-            objStorMgr->scavenger->startScavengeProcess();
-            break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_STOP:
-            objStorMgr->scavenger->stopScavengeProcess();
-            break;
-        default:
-            fds_verify(false);  // unknown scavenger command
-    };
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
