@@ -5,12 +5,20 @@
 #include <SmIo.h>
 
 namespace fds {
+std::string SmIoGetObjectReq::log_string()
+{
+    std::stringstream ret;
+    ret << " SmIoGetObjectReq";
+    return ret.str();
+}
+
 std::string SmIoPutObjectReq::log_string()
 {
     std::stringstream ret;
     ret << " SmIoPutObjectReq";
     return ret.str();
 }
+
 std::string SmIoDeleteObjectReq::log_string()
 {
     std::stringstream ret;

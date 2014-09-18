@@ -231,6 +231,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      fds_uint32_t qosThrds;
      fds_uint32_t qosOutNum;
 
+     // Temporary to execute different stubs in processIO
+     fds_bool_t execNewStubs;
+
      class SmQosCtrl : public FDS_QoSControl {
         private:
          ObjectStorMgr *parentSm;
@@ -513,19 +516,29 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      void sampleSMStats(fds_uint64_t timestamp);
 
+     // TODO(Sean)
+     // Do we need these 3 ifaces?  These are deprecated and should be removed.
      void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                     const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
      void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                     const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
      void DeleteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                        const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& del_obj);
+
      Error getObjectInternal(SmIoReq* getReq);
-     Error getObjectInternalSvc(SmIoReadObjectdata *getReq);
+     Error getObjectInternalSvc(SmIoGetObjectReq *getReq);
+     Error getObjectInternalSvcV2(SmIoGetObjectReq *getReq);
+
      Error putObjectInternal(SmIoReq* putReq);
      Error putObjectInternalSvc(SmIoPutObjectReq* putReq);
+     Error putObjectInternalSvcV2(SmIoPutObjectReq* putReq);
+
      Error deleteObjectInternal(SmIoReq* delReq);
      Error deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq);
+     Error deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq);
+
      Error addObjectRefInternalSvc(SmIoAddObjRefReq* addRefReq);
+
      void putTokenObjectsInternal(SmIoReq* ioReq);
      void getTokenObjectsInternal(SmIoReq* ioReq);
      void snapshotTokenInternal(SmIoReq* ioReq);

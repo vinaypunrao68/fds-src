@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /home/jenkins/build/fds-dev-daily-build-test/
+source/tools/fds stop
 source/tools/fds cleanstart
 cd s3-tests
 
