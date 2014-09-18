@@ -105,7 +105,7 @@ class Installer:
         return False
 
     def stepRunAll(self,menuitem):
-        for item in self.menu[1:]:
+        for item in self.menu[1:5]:
             if self.confirm(' %d - %s' % ( item[0], item[1])):
                 item[3](item)
             else:
@@ -129,8 +129,6 @@ class Installer:
         if not self.ignoreStepDependency:
             if not self.confirm("are you sure you want to ignore step dependencies"):
                 return
-        else:
-            log.info("now .. thats a good decision!!!")
 
         self.ignoreStepDependency = not self.ignoreStepDependency
         log.warn('ignore step dependency is now [%s]' ,self.ignoreStepDependency)
@@ -179,7 +177,7 @@ class Installer:
                 if 0 != ret :
                     success=False
                     log.error("install [%s] did not complete successfully", option)
-                    if not self.confirm("do you want to continue further"):
+                    if not self.confirm("do you want to continue further?"):
                         break;
             self.markStepSuccess(menuitem,success)
         except:
@@ -198,7 +196,7 @@ class Installer:
                 if 0 != ret :
                     success=False
                     log.error("install [%s] did not complete successfully", option)
-                    if not self.confirm("do you want to continue further"):
+                    if not self.confirm("do you want to continue further?"):
                         break;
             self.markStepSuccess(menuitem,success)
         except:
@@ -220,7 +218,7 @@ class Installer:
                     
                 print ''
                 while True:
-                    step = self.getUserInput("which install step do you want to run?")
+                    step = self.getUserInput("which install step do you want to run (Ctrl-D to exit)?")
                     num = -1
                     try:
                         num = int(step)
@@ -228,7 +226,7 @@ class Installer:
                             raise Exception()
                         break
                     except:
-                        log.error('invalid intall step')
+                        log.error('invalid install step')
                 
                 # call the method
                 self.menu[num][3](self.menu[num])

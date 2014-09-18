@@ -41,18 +41,6 @@ typedef netControlPathClientSession *                     NodeAgentCpSessionPtr;
 typedef boost::msm::back::state_machine<NodeDomainFSM> FSM_NodeDomain;
 
 /**
- * TODO(Vy): temp. interface for now to define generic node message.
- */
-typedef struct om_node_msg_s
-{
-    fpi::FDSP_MsgCodeType             nd_msg_code;
-    union {
-        fpi::FDSP_ThrottleMsgTypePtr *nd_throttle;
-        fpi::FDSP_DMT_TypePtr        *nd_dmt_tab;
-    } u;
-} om_node_msg_t;
-
-/**
  * Agent interface to communicate with the remote node.  This is the communication
  * end-point to the node.
  *
@@ -99,10 +87,10 @@ class OM_NodeAgent : public NodeAgent
      * - API to send a message.
      */
     virtual void om_send_myinfo(NodeAgent::pointer peer);
-    virtual void om_send_node_cmd(const om_node_msg_t &msg);
 
     virtual void om_send_reg_resp(const Error &err);
     // this is the new function we shall try on using service layer
+    virtual void om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr);
     virtual Error om_send_vol_cmd(VolumeInfo::pointer vol,
                                   fpi::FDSPMsgTypeId      cmd_type,
                                   fpi::FDSP_NotifyVolFlag = fpi::FDSP_NOTIFY_VOL_NO_FLAG);

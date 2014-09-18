@@ -137,48 +137,52 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
 
     @Override
     public long createSnapshotPolicy(com.formationds.apis.SnapshotPolicy policy) throws ApiException, org.apache.thrift.TException {
-        return 0;
+      return config.createSnapshotPolicy( policy );
     }
 
     @Override
         public List<com.formationds.apis.SnapshotPolicy> listSnapshotPolicies(long unused) throws ApiException, org.apache.thrift.TException {
-        return null;
+        return config.listSnapshotPolicies( unused );
     }
 
     @Override
         public void deleteSnapshotPolicy(long id) throws ApiException, org.apache.thrift.TException {
+      config.deleteSnapshotPolicy( id );
     }
 
     @Override
         public void attachSnapshotPolicy(long volumeId, long policyId) throws ApiException, org.apache.thrift.TException {
+        config.attachSnapshotPolicy( volumeId, policyId );
     }
 
     @Override
         public List<com.formationds.apis.SnapshotPolicy> listSnapshotPoliciesForVolume(long volumeId) throws ApiException, org.apache.thrift.TException {
-        return null;
+        return config.listSnapshotPoliciesForVolume( volumeId );
     }
 
     @Override
         public void detachSnapshotPolicy(long volumeId, long policyId) throws ApiException, org.apache.thrift.TException {
-    }
+        config.detachSnapshotPolicy( volumeId, policyId );
+     }
 
     @Override
         public List<Long> listVolumesForSnapshotPolicy(long policyId) throws ApiException, org.apache.thrift.TException {
-        return null;
+        return config.listVolumesForSnapshotPolicy( policyId );
     }
     
     @Override
         public List<com.formationds.apis.Snapshot> listSnapshots(long volumeId) throws ApiException, org.apache.thrift.TException {
-        return null;
+        return config.listSnapshots( volumeId );
     }
 
     @Override
         public void restoreClone(long volumeId, long snapshotId) throws ApiException, org.apache.thrift.TException {
+        config.restoreClone( volumeId, snapshotId );
     }
 
     @Override
         public long cloneVolume(long volumeId, long fdsp_PolicyInfoId, String clonedVolumeName) throws org.apache.thrift.TException {
-        return 0;
+        return config.cloneVolume( volumeId, fdsp_PolicyInfoId, clonedVolumeName );
     }
 
     @Override

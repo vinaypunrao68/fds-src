@@ -2,12 +2,52 @@ package com.formationds.om;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.plotter.DisplayVolumeStats;
 import com.formationds.om.plotter.ListActiveVolumes;
 import com.formationds.om.plotter.RegisterVolumeStats;
 import com.formationds.om.plotter.VolumeStatistics;
-import com.formationds.om.rest.*;
-import com.formationds.security.*;
+import com.formationds.om.rest.ActivatePlatform;
+import com.formationds.om.rest.AssignUserToTenant;
+import com.formationds.om.rest.CreateUser;
+import com.formationds.om.rest.CreateVolume;
+import com.formationds.om.rest.CurrentUser;
+import com.formationds.om.rest.DeleteVolume;
+import com.formationds.om.rest.GrantToken;
+import com.formationds.om.rest.HttpAuthenticator;
+import com.formationds.om.rest.HttpErrorHandler;
+import com.formationds.om.rest.LandingPage;
+import com.formationds.om.rest.ListDomains;
+import com.formationds.om.rest.ListServices;
+import com.formationds.om.rest.ListStreams;
+import com.formationds.om.rest.ListTenants;
+import com.formationds.om.rest.ListUsers;
+import com.formationds.om.rest.ListVolumes;
+import com.formationds.om.rest.RegisterStream;
+import com.formationds.om.rest.ReissueToken;
+import com.formationds.om.rest.SetVolumeQosParams;
+import com.formationds.om.rest.ShowGlobalDomain;
+import com.formationds.om.rest.ShowToken;
+import com.formationds.om.rest.UpdatePassword;
+import com.formationds.om.rest.snapshot.AttachSnapshotPolicyIdToVolumeId;
+import com.formationds.om.rest.snapshot.CloneSnapshot;
+import com.formationds.om.rest.snapshot.CreateCloneSnapshot;
+import com.formationds.om.rest.snapshot.CreateSnapshot;
+import com.formationds.om.rest.snapshot.CreateSnapshotPolicy;
+import com.formationds.om.rest.snapshot.DeleteSnapshotPolicy;
+import com.formationds.om.rest.snapshot.DetachSnapshotPolicyIdToVolumeId;
+import com.formationds.om.rest.snapshot.ListSnapshotPolicies;
+import com.formationds.om.rest.snapshot.ListSnapshotPoliciesForAVolume;
+import com.formationds.om.rest.snapshot.ListSnapshotsByVolumeId;
+import com.formationds.om.rest.snapshot.ListVolumeIdsForSnapshotId;
+import com.formationds.om.rest.snapshot.RestoreSnapshot;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authenticator;
+import com.formationds.security.Authorizer;
+import com.formationds.security.DumbAuthorizer;
+import com.formationds.security.FdsAuthenticator;
+import com.formationds.security.FdsAuthorizer;
+import com.formationds.security.NullAuthenticator;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.HttpMethod;
@@ -91,11 +131,15 @@ public class Main {
         authenticate(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configCache));
         authenticate(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configCache));
 
+        /*
+         * provides feature -- snapshot RESTful API
+         */
+        snapshot( legacyConfigClient, configCache );
+
         // Demo volume stats
         webApp.route(HttpMethod.GET, "/api/stats/volumes", () -> new ListActiveVolumes(volumeStatistics));
         webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
         webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
-
 
         fdsAdminOnly(HttpMethod.GET, "/api/system/token/:userid", (t) -> new ShowToken(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.POST, "/api/system/token/:userid", (t) -> new ReissueToken(configCache, secretKey), authorizer);
@@ -105,7 +149,6 @@ public class Main {
         authenticate(HttpMethod.PUT, "/api/system/users/:userid/:password", (t) -> new UpdatePassword(t, configCache, secretKey, authorizer));
         fdsAdminOnly(HttpMethod.GET, "/api/system/users", (t) -> new ListUsers(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid", (t) -> new AssignUserToTenant(configCache, secretKey), authorizer);
-
 
         new Thread(() -> {
             try {
@@ -138,5 +181,86 @@ public class Main {
         HttpErrorHandler eh = new HttpErrorHandler(new HttpAuthenticator(f, xdi.getAuthenticator()));
         webApp.route(method, route, () -> eh);
     }
+
+  /**
+   * @param legacyConfigClient the legacy client configuration
+   */
+  private void snapshot( final FDSP_ConfigPathReq.Iface legacyConfigClient,
+                         final ConfigurationServiceCache config )
+  {
+    if( !FdsFeatureToggles.SNAPSHOT_ENDPOINT.isActive() )
+    {
+      return;
+    }
+
+    LOG.trace( "registering snapshot restful api" );
+    // POST methods
+    snapshotPost( legacyConfigClient, config );
+    // GET methods
+    snapshotGet( config );
+    //PUT methods
+    snapshotPut( config );
+    // DELETE methods
+    snapshotDelete( config );
+    LOG.trace( "registered snapshot restful api" );
+  }
+
+  /**
+   * delete method
+   */
+  private void snapshotDelete( final ConfigurationServiceCache config )
+  {
+    authenticate( HttpMethod.DELETE,
+                  "/api/config/snapshot/policies/:policyId",
+                  ( t ) -> new DeleteSnapshotPolicy( config ) );
+    authenticate( HttpMethod.DELETE,
+                  "/api/config/snapshot/:snapshotId",
+                  ( t ) -> new DeleteSnapshotPolicy( config ) );
+  }
+
+  /**
+   * @param legacyConfigClient the legacy client configuration
+   */
+  private void snapshotPost( final FDSP_ConfigPathReq.Iface legacyConfigClient,
+                             final ConfigurationServiceCache config )
+  {
+    authenticate( HttpMethod.POST, "/api/config/snapshot/policies",
+                  ( t ) -> new CreateSnapshotPolicy( xdi,
+                                                     legacyConfigClient,
+                                                     t ) );
+    authenticate( HttpMethod.POST, "/api/config/volumes/:volumeId/snapshot",
+                  ( t ) -> new CreateSnapshot( config ) );
+    authenticate( HttpMethod.POST, "/api/snapshot/restore/:snapshotId/:volumeId",
+                  ( t ) -> new RestoreSnapshot( config ) );
+    authenticate( HttpMethod.POST, "/api/snapshot/clone/:snapshotId/:newVolumeName",
+                  ( t ) -> new CloneSnapshot( config ) );
+    authenticate( HttpMethod.POST, "/api/volume/snapshot",
+                  ( t ) -> new CreateSnapshot( config ) );
+    authenticate( HttpMethod.POST, "/api/snapshot/clone/:snapshotId/:newVolumeName",
+                  ( t ) -> new CreateCloneSnapshot( config ) );
+  }
+
+  private void snapshotGet( final ConfigurationServiceCache config )
+  {
+    authenticate( HttpMethod.GET, "/api/config/snapshot/policies",
+                  ( t ) -> new ListSnapshotPolicies( config ) );
+
+    authenticate( HttpMethod.GET, "/api/config/volumes/:volumeId/snapshot/policies",
+                  ( t ) -> new ListSnapshotPoliciesForAVolume( config ) );
+    authenticate( HttpMethod.GET, "/api/config/snapshots/policies/:policyId/volumes",
+                  ( t ) -> new ListVolumeIdsForSnapshotId( config ) );
+    authenticate( HttpMethod.GET, "/api/config/volumes/:volumeId/snapshots",
+                  ( t ) -> new ListSnapshotsByVolumeId( config ) );
+  }
+
+  private void snapshotPut( final ConfigurationServiceCache config )
+  {
+    authenticate( HttpMethod.PUT,
+                  "/api/config/snapshot/policies/:policyId/attach",
+                  ( t ) -> new AttachSnapshotPolicyIdToVolumeId( config ) );
+    authenticate( HttpMethod.PUT,
+                  "/api/config/snapshot/policies/:policyId/detach",
+                  ( t ) -> new DetachSnapshotPolicyIdToVolumeId( config ) );
+  }
 }
 

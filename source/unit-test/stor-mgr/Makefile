@@ -33,14 +33,17 @@ user_non_fds_libs :=  \
 
 user_cpp          := \
 	object_store_unit_test.cpp \
+	object_store_load_test.cpp \
         metastore_unit_test.cpp   
 
 user_no_style     := sm_unit_test.cpp
 user_bin_exe      := \
     ObjectStoreUnitTest \
+    ObjectStoreLoadTest \
     metastore_unit_test
 
 ObjectStoreUnitTest := object_store_unit_test.cpp
+ObjectStoreLoadTest := object_store_load_test.cpp
 metastore_unit_test := metastore_unit_test.cpp
 
 include $(topdir)/Makefile.incl

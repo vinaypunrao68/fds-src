@@ -71,13 +71,12 @@ void
 AMSvcHandler::SetThrottleLevel(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
                                boost::shared_ptr<fpi::CtrlNotifyThrottle> &msg)
 {
-#if 0
     // XXX ignore domain_id right now?
+    LOGNORMAL << " set throttle as " << msg->throttle.throttle_level;
     float  throttle_level = msg->throttle.throttle_level;
     storHvQosCtrl->htb_dispatcher->setThrottleLevel(throttle_level);
     hdr->msg_code = 0;  // no error but want to ack remote side
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyThrottle), *msg);
-#endif
 }
 
 // NotifyModVol
