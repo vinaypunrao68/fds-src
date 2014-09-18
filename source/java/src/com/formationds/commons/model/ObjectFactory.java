@@ -116,4 +116,9 @@ public class ObjectFactory
   {
     return new Status();
   }
+
+  /**
+   * @return Returns {@link Metadata}
+   */
+  public static Metadata createMetadata() { return new Metadata(); }
 }
