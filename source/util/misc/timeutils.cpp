@@ -5,6 +5,8 @@
 #include <util/timeutils.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
+#include <cstring>
 namespace fds {
 namespace util {
 fds_uint64_t CYCLES_PER_SECOND = CLOCKS_PER_SEC;
@@ -25,6 +27,29 @@ TimeStamp getTimeStampMillis() {
     clock_gettime(CLOCK_REALTIME, &t);
     return (TimeStamp)t.tv_sec * 1000ull + (TimeStamp)t.tv_nsec/1000000;
 }
+
+TimeStamp getTimeStampSeconds() {
+    time_t  tt;
+    time(&tt);
+    return tt;
+}
+
+std::string getLocalTimeString(TimeStamp t) {
+    time_t tt = (time_t)t;
+    char value[26];
+    asctime_r(localtime(&tt),value); // NOLINT
+    std::strchr(value,'\n')[0] = 0;
+    return value;
+}
+
+std::string getGMTimeString(TimeStamp t) {
+    time_t tt = (time_t)t;
+    char value[26];
+    asctime_r(gmtime(&tt), value); // NOLINT
+    std::strchr(value,'\n')[0] = 0;
+    return value;
+}
+
 
 fds_uint64_t rdtsc() {
     unsigned int hi, lo;

@@ -24,6 +24,7 @@
 #include <unistd.h>     /* for close() */
 #include "list.h"
 #include <linux/errno.h>
+#include <NetSession.h>
 
 extern StorHvCtrl *storHvisor;
 

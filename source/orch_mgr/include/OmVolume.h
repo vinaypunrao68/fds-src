@@ -44,15 +44,14 @@ class VolCreateEvt
 class VolCrtOkEvt
 {
  public:
-    explicit VolCrtOkEvt(fds_bool_t b_ack)
-            : got_ack(b_ack) {}
+    explicit VolCrtOkEvt(fds_bool_t b_ack, VolumeInfo* vol)
+            : got_ack(b_ack), vol_ptr(vol) {}
 
     // if true, actual ack, false is used when want to check if no need
     // to wait for acks and can get out of the current state
     fds_bool_t got_ack;
+    VolumeInfo* vol_ptr;
 };
-
-struct SnapCrtEvt {};
 
 class VolOpEvt
 {
@@ -203,7 +202,6 @@ class VolumeInfo : public Resource
     void vol_event(DelChkAckEvt const &evt);
     void vol_event(DetachAllEvt const &evt);
     void vol_event(DelNotifEvt const &evt);
-    void vol_event(SnapCrtEvt const &evt);
     fds_bool_t isVolumeInactive();
     fds_bool_t isDeletePending();
     fds_bool_t isCheckDelete();

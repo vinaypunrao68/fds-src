@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <orchMgr.h>
+#include <NetSession.h>
 #include <OmResources.h>
 #include <platform/node-inv-shmem.h>
 
@@ -600,7 +601,7 @@ void FDSP_ConfigPathReqHandler::ListServices(
     // Do nothing
 }
 
-static void add_to_vector(std::vector<FDSP_Node_Info_Type> &vec,  // NOLINT
+static void add_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec,  // NOLINT
                           NodeAgent::pointer ptr) {
     Platform     *plat;
     node_data_t   ndata;
@@ -611,7 +612,7 @@ static void add_to_vector(std::vector<FDSP_Node_Info_Type> &vec,  // NOLINT
 
     ptr->node_info_frm_shm(&ndata);
     NodeUuid uuid = ndata.nd_node_uuid;
-    FDSP_Node_Info_Type nodeInfo = FDSP_Node_Info_Type();
+    fpi::FDSP_Node_Info_Type nodeInfo = fpi::FDSP_Node_Info_Type();
     nodeInfo.node_uuid = ndata.nd_node_uuid;
     nodeInfo.service_uuid = ndata.nd_service_uuid;
     nodeInfo.node_name = ptr->get_node_name();

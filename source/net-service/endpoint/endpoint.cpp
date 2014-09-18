@@ -48,6 +48,13 @@ EpSvc::ep_apply_attr()
 {
 }
 
+void
+EpSvc::ep_set_plugin(EpEvtPlugin::pointer evt)
+{
+    ep_evt = evt;
+    ep_evt->assign_ep_owner(this);
+}
+
 // ep_fmt_uuid_binding
 // -------------------
 //

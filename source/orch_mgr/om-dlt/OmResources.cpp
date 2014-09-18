@@ -9,6 +9,7 @@
 #include <boost/msm/front/functor_row.hpp>
 #include <fds_timer.h>
 #include <orch-mgr/om-service.h>
+#include <NetSession.h>
 #include <OmDeploy.h>
 #include <OmDmtDeploy.h>
 #include <OmResources.h>
@@ -1003,7 +1004,8 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
     // and unregister service resources
     NodeUuid uuid;
     if (remove_sm) {
-        uuid = pmNodes->handle_unregister_service(node_uuid, node_name, FDSP_STOR_MGR);
+        uuid = pmNodes->
+            handle_unregister_service(node_uuid, node_name, fpi::FDSP_STOR_MGR);
         if (uuid.uuid_get_val() != 0) {
             // dc_unregister_service requires node name and checks if uuid matches service
             // name, however handle_unregister_service returns svc uuid only if there is
@@ -1031,7 +1033,8 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
         }
     }
     if (err.ok() && remove_dm) {
-        uuid = pmNodes->handle_unregister_service(node_uuid, node_name, FDSP_DATA_MGR);
+        uuid = pmNodes->
+            handle_unregister_service(node_uuid, node_name, fpi::FDSP_DATA_MGR);
         if (uuid.uuid_get_val() != 0) {
             OM_DmAgent::pointer dmAgent = om_dm_agent(uuid);
             err = om_locDomain->dc_unregister_node(uuid, dmAgent->get_node_name());
@@ -1042,7 +1045,8 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
         om_dmt_update_cluster();
     }
     if (err.ok() && remove_am) {
-        uuid = pmNodes->handle_unregister_service(node_uuid, node_name, FDSP_STOR_HVISOR);
+        uuid = pmNodes->
+            handle_unregister_service(node_uuid, node_name, fpi::FDSP_STOR_HVISOR);
         if (uuid.uuid_get_val() != 0) {
             OM_AmAgent::pointer amAgent = om_am_agent(uuid);
             err = om_locDomain->dc_unregister_node(uuid, amAgent->get_node_name());
