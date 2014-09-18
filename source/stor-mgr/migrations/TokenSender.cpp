@@ -11,6 +11,7 @@
 #include <boost/msm/front/euml/common.hpp>
 #include <boost/msm/front/euml/operator.hpp>
 
+#include <NetSession.h>
 #include <fds_migration.h>
 #include <TokenSender.h>
 #include <TokenSyncSender.h>

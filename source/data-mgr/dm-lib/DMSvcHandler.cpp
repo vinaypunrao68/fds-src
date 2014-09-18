@@ -738,8 +738,9 @@ DMSvcHandler::getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
 
-    Error err = dataMgr->qosCtrl->enqueueIO(dmReq->getVolId(),
-                                      static_cast<FDS_IOType*>(dmReq));
+    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmReq->getVolId());
+    Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
+            voldesc->qosQueueId : dmReq->getVolId(), static_cast<FDS_IOType*>(dmReq));
 
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request "
