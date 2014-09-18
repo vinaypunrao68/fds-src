@@ -4,7 +4,14 @@ package com.formationds.xdi;
  */
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import com.formationds.apis.*;
+import com.formationds.apis.AmService;
+import com.formationds.apis.ApiException;
+import com.formationds.apis.BlobDescriptor;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.SnapshotPolicy;
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeStatus;
 import com.formationds.om.rest.SetVolumeQosParams;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
@@ -43,6 +50,24 @@ public class Xdi {
     public void createVolume(AuthenticationToken token, String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
         config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
         SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0);
+    }
+
+  /**
+   * @param token the {@link com.formationds.security.AuthenticationToken}
+   * @param name the {@link String} representing the snapshot policy name
+   * @param recurrence the {@link String} representing the snapshot recurrence rule
+   * @param retention the {@code long} representing the snapshot retention
+   *
+   * @throws TException
+   */
+    public void createSnapshotPolicy( final AuthenticationToken token, final String name, final String recurrence, final long retention ) throws TException {
+      final SnapshotPolicy apisPolicy = new SnapshotPolicy( );
+
+      apisPolicy.setPolicyName( name );
+      apisPolicy.setRecurrenceRule( recurrence );
+      apisPolicy.setRetentionTimeSeconds( retention );
+
+      config.createSnapshotPolicy( apisPolicy );
     }
 
     public void deleteVolume(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {

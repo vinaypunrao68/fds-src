@@ -16,44 +16,105 @@
 
 package com.formationds.om.rest.snapshot;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.web.toolkit.RequestHandler;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.formationds.commons.model.ObjectFactory;
+import com.formationds.commons.model.Snapshot;
+import com.formationds.commons.model.Status;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.rest.OMRestBase;
+import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.ConfigurationServiceCache;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 /**
  * @author ptinius
  */
 public class ListSnapshotsByVolumeId
-  implements RequestHandler
+  extends OMRestBase
 {
-  private static final Logger LOG = Logger.getLogger(ListSnapshotsByVolumeId.class);
+  private static final Logger LOG =
+    Logger.getLogger( ListSnapshotsByVolumeId.class );
 
-  private final Xdi xdi;
-  private final FDSP_ConfigPathReq.Iface legacyConfigPath;
-  private final AuthenticationToken token;
+  private static final String REQ_PARAM_VOLUME_ID = "volumeId";
 
-  public ListSnapshotsByVolumeId( final Xdi xdi,
-                                  final FDSP_ConfigPathReq.Iface legacyConfigPath,
-                                  final AuthenticationToken token )
+  /**
+   * @param config the {@link com.formationds.xdi.ConfigurationServiceCache}
+   */
+  public ListSnapshotsByVolumeId( final ConfigurationServiceCache config )
   {
-    super();
-    this.xdi = xdi;
-    this.legacyConfigPath = legacyConfigPath;
-    this.token = token;
+    super( config );
   }
 
+  /**
+   * @param request the {@link Request}
+   * @param routeParameters the {@link Map} of route parameters
+   *
+   * @return Returns the {@link Resource}
+   *
+   * @throws Exception any unhandled error
+   */
   @Override
   public Resource handle( final Request request,
                           final Map<String, String> routeParameters )
     throws Exception
   {
-    // TODO finish implementation
-    return null;
+    final ObjectMapper mapper = new ObjectMapper();
+    final List<Snapshot> snapshots = new ArrayList<>( );
+
+    final long volumeId = requiredLong( routeParameters,
+                                        REQ_PARAM_VOLUME_ID );
+    if( FdsFeatureToggles.USE_CANNED.isActive() )
+    {
+      for( int i = 1; i <= 10 ; i++ )
+      {
+        final Snapshot mSnapshot = ObjectFactory.createSnapshot();
+
+        mSnapshot.setId( i );
+        mSnapshot.setName( String.format( "by volume policy name %d",
+                                          volumeId ) );
+        mSnapshot.setVolumeId( volumeId );
+        mSnapshot.setCreation( new Date() );
+
+        snapshots.add( mSnapshot );
+      }
+    }
+    else
+    {
+      final List<com.formationds.apis.Snapshot> _snapshots =
+        getConfigurationServiceCache().listSnapshots(
+          requiredLong( routeParameters, REQ_PARAM_VOLUME_ID ) );
+      if( _snapshots == null || _snapshots.isEmpty() )
+      {
+        final Status status = ObjectFactory.createStatus();
+        status.setStatus( HttpResponseStatus.NO_CONTENT.reasonPhrase() );
+        status.setCode( HttpResponseStatus.NO_CONTENT.code() );
+
+        return new JsonResource( new JSONObject( mapper.writeValueAsString( status ) ) );
+      }
+
+      for( final com.formationds.apis.Snapshot snapshot : _snapshots )
+      {
+        final Snapshot mSnapshot = ObjectFactory.createSnapshot();
+
+        mSnapshot.setId( snapshot.getSnapshotId() );
+        mSnapshot.setName( snapshot.getSnapshotName() );
+        mSnapshot.setVolumeId( snapshot.getVolumeId() );
+        mSnapshot.setCreation( new Date( snapshot.getCreationTimestamp() ) );
+
+        snapshots.add( mSnapshot );
+      }
+    }
+
+    return new JsonResource( new JSONArray( mapper.writeValueAsString( snapshots ) ) );
   }
 }

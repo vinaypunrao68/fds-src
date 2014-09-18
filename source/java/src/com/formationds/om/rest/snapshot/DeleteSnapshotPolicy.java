@@ -16,34 +16,60 @@
 
 package com.formationds.om.rest.snapshot;
 
-import com.formationds.security.AuthenticationToken;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.formationds.commons.model.ObjectFactory;
+import com.formationds.commons.model.Status;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.rest.OMRestBase;
 import com.formationds.web.toolkit.JsonResource;
-import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.ConfigurationServiceCache;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
 import java.util.Map;
 
 public class DeleteSnapshotPolicy
-  implements RequestHandler
+  extends OMRestBase
 {
-  private Xdi xdi;
-  private AuthenticationToken token;
+  private static final Logger LOG =
+    Logger.getLogger( DeleteSnapshotPolicy.class );
 
-  public DeleteSnapshotPolicy( Xdi xdi, AuthenticationToken token )
+  private static final String REQ_PARAM_POLICY_ID = "id";
+
+  /**
+   * @param config the {@link com.formationds.xdi.ConfigurationServiceCache}
+   */
+  public DeleteSnapshotPolicy( final ConfigurationServiceCache config )
   {
-    this.xdi = xdi;
-    this.token = token;
+    super( config );
   }
 
+  /**
+   * @param request the {@link Request}
+   * @param routeParameters the {@link Map} of route parameters
+   *
+   * @return Returns the {@link Resource}
+   *
+   * @throws Exception any unhandled error
+   */
   @Override
   public Resource handle( Request request, Map<String, String> routeParameters )
     throws Exception
   {
-    String policyId = requiredString( routeParameters, "id" );
-//    xdi.deleteSnapshot( AuthenticationToken.ANONYMOUS, "", policyId );
-    return new JsonResource( new JSONObject().put( "status", "OK" ) );
+    if( !FdsFeatureToggles.USE_CANNED.isActive() )
+    {
+      getConfigurationServiceCache().deleteSnapshotPolicy(
+        requiredLong( routeParameters, REQ_PARAM_POLICY_ID ) );
+    }
+
+    final Status status = ObjectFactory.createStatus();
+    status.setStatus( HttpResponseStatus.NO_CONTENT.reasonPhrase()  );
+    status.setCode( HttpResponseStatus.NO_CONTENT.code() );
+
+    final ObjectMapper mapper = new ObjectMapper();
+    return new JsonResource( new JSONObject( mapper.writeValueAsString( status ) ) );
   }
 }

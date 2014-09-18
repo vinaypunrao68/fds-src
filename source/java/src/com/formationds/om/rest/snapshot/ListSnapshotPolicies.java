@@ -16,44 +16,101 @@
 
 package com.formationds.om.rest.snapshot;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.web.toolkit.RequestHandler;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.formationds.commons.model.ObjectFactory;
+import com.formationds.commons.model.SnapshotPolicy;
+import com.formationds.commons.model.Status;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.rest.OMRestBase;
+import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.ConfigurationServiceCache;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import net.fortuna.ical4j.model.Recur;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
  * @author ptinius
  */
 public class ListSnapshotPolicies
-  implements RequestHandler
+  extends OMRestBase
 {
-  private static final Logger LOG = Logger.getLogger(ListSnapshotPolicies.class);
+  private static final Logger LOG =
+    Logger.getLogger( ListSnapshotPolicies.class );
 
-  private final Xdi xdi;
-  private final FDSP_ConfigPathReq.Iface legacyConfigPath;
-  private final AuthenticationToken token;
+  private final long unused = 0L;
 
-  public ListSnapshotPolicies( final Xdi xdi,
-                               final FDSP_ConfigPathReq.Iface legacyConfigPath,
-                               final AuthenticationToken token )
+  /**
+   * @param config the {@link com.formationds.xdi.ConfigurationServiceCache}
+   */
+  public ListSnapshotPolicies( final ConfigurationServiceCache config )
   {
-    super();
-    this.xdi = xdi;
-    this.legacyConfigPath = legacyConfigPath;
-    this.token = token;
+    super( config );
   }
 
+  /**
+   * @param request the {@link Request}
+   * @param routeParameters the {@link Map} of route parameters
+   *
+   * @return Returns the {@link Resource}
+   *
+   * @throws Exception any unhandled error
+   */
   @Override
   public Resource handle( final Request request,
                           final Map<String, String> routeParameters )
     throws Exception
   {
-    // TODO finish implementation
-    return null;
+    final ObjectMapper mapper = new ObjectMapper();
+    final List<SnapshotPolicy> policies = new ArrayList<>( );
+
+    if( FdsFeatureToggles.USE_CANNED.isActive() )
+    {
+      for( int i = 1; i <= 10 ; i++ )
+      {
+        final SnapshotPolicy policy = ObjectFactory.createSnapshotPolicy();
+
+        policy.setId( i );
+        policy.setName( String.format( "snapshot policy name %s", i) );
+        policy.setRecurrenceRule( new Recur( "FREQ=DAILY;UNTIL=19971224T000000Z" ) );
+        policy.setRetention( System.currentTimeMillis() / 1000 );
+
+        policies.add( policy );
+      }
+    }
+    else
+    {
+      final List<com.formationds.apis.SnapshotPolicy> _policies =
+        getConfigurationServiceCache().listSnapshotPolicies( unused );
+      if( _policies == null || _policies.isEmpty() )
+      {
+        final Status status = ObjectFactory.createStatus();
+        status.setStatus( HttpResponseStatus.NO_CONTENT.reasonPhrase()  );
+        status.setCode( HttpResponseStatus.NO_CONTENT .code() );
+
+        return new JsonResource( new JSONObject( mapper.writeValueAsString( status ) ) );
+      }
+
+      for( final com.formationds.apis.SnapshotPolicy policy : _policies )
+      {
+        final SnapshotPolicy modelPolicy = ObjectFactory.createSnapshotPolicy();
+
+        modelPolicy.setId( policy.getId() );
+        modelPolicy.setName( policy.getPolicyName() );
+        modelPolicy.setRecurrenceRule( new Recur( policy.getRecurrenceRule() ) );
+        modelPolicy.setRetention( policy.getRetentionTimeSeconds() );
+
+        policies.add( modelPolicy );
+      }
+    }
+
+    return new JsonResource( new JSONArray( mapper.writeValueAsString( policies ) ) );
   }
 }

@@ -16,13 +16,17 @@
 
 package com.formationds.om.rest.snapshot;
 
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.web.toolkit.RequestHandler;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.formationds.commons.model.ObjectFactory;
+import com.formationds.commons.model.Status;
+import com.formationds.om.rest.OMRestBase;
+import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.ConfigurationServiceCache;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
 
 import java.util.Map;
 
@@ -30,30 +34,36 @@ import java.util.Map;
  * @author ptinius
  */
 public class CreateSnapshot
-  implements RequestHandler
+  extends OMRestBase
 {
-  private static final Logger LOG = Logger.getLogger(CreateSnapshot.class);
+  private static final Logger LOG = Logger.getLogger( CreateSnapshot.class );
 
-  private final Xdi xdi;
-  private final FDSP_ConfigPathReq.Iface legacyConfigPath;
-  private final AuthenticationToken token;
-
-  public CreateSnapshot( final Xdi xdi,
-                         final FDSP_ConfigPathReq.Iface legacyConfigPath,
-                         final AuthenticationToken token )
+  /**
+   * @param config the {@link com.formationds.xdi.ConfigurationServiceCache}
+   */
+  public CreateSnapshot( final ConfigurationServiceCache config )
   {
-    super();
-    this.xdi = xdi;
-    this.legacyConfigPath = legacyConfigPath;
-    this.token = token;
+    super( config );
   }
 
+  /**
+   * @param request the {@link Request}
+   * @param routeParameters the {@link Map} of route parameters
+   *
+   * @return Returns the {@link Resource}
+   *
+   * @throws Exception any unhandled error
+   */
   @Override
   public Resource handle( final Request request,
                           final Map<String, String> routeParameters )
     throws Exception
   {
-    // TODO finish implementation
-    return null;
+    final ObjectMapper mapper = new ObjectMapper();
+    final Status status = ObjectFactory.createStatus();
+    status.setStatus( HttpResponseStatus.NOT_IMPLEMENTED.reasonPhrase() );
+    status.setCode( HttpResponseStatus.NOT_IMPLEMENTED .code() );
+
+    return new JsonResource( new JSONObject( mapper.writeValueAsString( status ) ) );
   }
 }
