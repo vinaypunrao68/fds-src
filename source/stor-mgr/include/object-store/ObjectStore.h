@@ -37,6 +37,7 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// config params
     fds_bool_t conf_verify_data;
+    fds_uint32_t numBitsPerToken;
 
     /// Task synchronizer
     std::unique_ptr<HashedLocks<ObjectID, ObjectHash>> taskSynchronizer;

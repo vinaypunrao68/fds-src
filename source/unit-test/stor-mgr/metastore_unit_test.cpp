@@ -20,7 +20,7 @@
 #include <ObjMeta.h>
 #include <object-store/ObjectMetaDb.h>
 #include <object-store/ObjectMetadataStore.h>
-
+#include <object-store/ObjectMetaCache.h>
 
 namespace fds {
 
@@ -107,10 +107,11 @@ class MetaStoreUTProc : public FdsProcess {
     * can check correctness*/
     std::unordered_map<ObjectID, fds_uint32_t, ObjectHash> dataset_map_;
 
-    // one of the two will be created
+    // one of these will be created
     // based on what we are testing
     ObjectMetadataDb* db_;
     ObjectMetadataStore* store_;
+    ObjectMetaCache* cache_;
 };
 
 MetaStoreUTProc::TestType
@@ -133,7 +134,7 @@ MetaStoreUTProc::getOpTypeFromName(std::string& name) {
 MetaStoreUTProc::MetaStoreUTProc(int argc, char * argv[], const std::string & config,
                                  const std::string & basePath, Module * vec[])
         : FdsProcess(argc, argv, config, basePath, vec),
-          db_(NULL), store_(NULL) {
+          db_(NULL), store_(NULL), cache_(NULL) {
     FdsConfigAccessor conf(get_conf_helper());
     std::string teststr = conf.get<std::string>("test_type");
     std::string whatstr = conf.get<std::string>("test_what");
@@ -157,33 +158,44 @@ MetaStoreUTProc::MetaStoreUTProc(int argc, char * argv[], const std::string & co
                   << ", dataset size " << dataset_size_ << " objects";
     }
 
-    if (0 == whatstr.compare(0, 2, "db")) {
+    if (0 == whatstr.compare(0, 7, "meta_db")) {
         db_ = new ObjectMetadataDb(proc_fdsroot()->dir_user_repo_objs());
         db_->setNumBitsPerToken(16);
         std::cout << "Will test ObjectMetadataDb" << std::endl;
         LOGNOTIFY << "Will test ObjectMetadataDb";
-    } else {
+    } else if (0 == whatstr.compare(0, 10, "meta_store")) {
         store_ = new ObjectMetadataStore("Object Metadata Store UT",
                                          proc_fdsroot()->dir_user_repo_objs());
         store_->mod_startup();
         store_->setNumBitsPerToken(16);
         std::cout << "Will test ObjectMetadataStore" << std::endl;
         LOGNOTIFY << "Will test ObjectMetadataStore";
+    } else if (0 == whatstr.compare(0, 10, "meta_cache")) {
+        cache_ = new ObjectMetaCache("Object Metadata Cache UT");
+        cache_->mod_startup();
+        std::cout << "Will test ObjectMetaCache" << std::endl;
+        LOGNOTIFY << "Will test ObjectMetaCache";
+    } else {
+        fds_panic("unknown module to test!");
     }
 
-    // generate dataset
+    // generate dataset of unique objIds
     fds_uint64_t seed = RandNumGenerator::getRandSeed();
     RandNumGenerator rgen(seed);
     fds_uint32_t rnum = (fds_uint32_t)rgen.genNum();
-    fds_uint32_t oid_val = 1;
     for (fds_uint32_t i = 0; i < dataset_size_; ++i) {
-        std::string obj_data = std::to_string(oid_val);
+        std::string obj_data = std::to_string(rnum);
         ObjectID oid = ObjIdGen::genObjectId(obj_data.c_str(), obj_data.size());
+        // we want every object ID in the dataset to be unique
+        while (dataset_map_.count(oid) > 0) {
+            rnum = (fds_uint32_t)rgen.genNum();
+            obj_data = std::to_string(rnum);
+            oid = ObjIdGen::genObjectId(obj_data.c_str(), obj_data.size());
+        }
         dataset_.push_back(oid);
         dataset_map_[oid] = rnum;
-        std::cout << "Dataset: " << oid << " rnum " << rnum << std::endl;
+        LOGDEBUG << "Dataset: " << oid << " rnum " << rnum << std::endl;
         rnum = (fds_uint32_t)rgen.genNum();
-        ++oid_val;
     }
 
     // initialize dynamicc counters
@@ -202,13 +214,16 @@ Error MetaStoreUTProc::get(fds_volid_t volId,
     Error err(ERR_OK);
     fds_uint64_t start_nano = util::getTimeStampNanos();
     if (db_) {
-        fds_verify(!store_);
+        fds_verify(!store_ && !cache_);
         objMeta = db_->get(volId, objId, err);
     } else if (store_) {
-        fds_verify(!db_);
+        fds_verify(!db_ && !cache_);
         objMeta = store_->getObjectMetadata(volId, objId, err);
+    } else if (cache_) {
+        fds_verify(!db_ && !store_);
+        objMeta = cache_->getObjectMetadata(volId, objId, err);
     } else {
-        fds_verify(false);
+        fds_panic("no known modules are initialized for get operation!");
     }
     if (!err.ok()) return err;
 
@@ -227,13 +242,16 @@ Error MetaStoreUTProc::put(fds_volid_t volId,
     Error err(ERR_OK);
     fds_uint64_t start_nano = util::getTimeStampNanos();
     if (db_) {
-        fds_verify(!store_);
+        fds_verify(!store_ && !cache_);
         err = db_->put(volId, objId, objMeta);
     } else if (store_) {
-        fds_verify(!db_);
+        fds_verify(!db_ && !cache_);
         err = store_->putObjectMetadata(volId, objId, objMeta);
+    } else if (cache_) {
+        fds_verify(!db_ && !store_);
+        cache_->putObjectMetadata(volId, objId, objMeta);
     } else {
-        fds_verify(false);
+        fds_panic("no known modules are initialized for put operation!");
     }
     if (!err.ok()) return err;
 
@@ -250,13 +268,17 @@ Error MetaStoreUTProc::put(fds_volid_t volId,
 Error MetaStoreUTProc::remove(fds_volid_t volId,
                               const ObjectID& objId) {
     if (db_) {
-        fds_verify(!store_);
+        fds_verify(!store_ && !cache_);
         return db_->remove(volId, objId);
     } else if (store_) {
-        fds_verify(!db_);
+        fds_verify(!db_ && !cache_);
         return store_->removeObjectMetadata(volId, objId);
+    } else if (cache_) {
+        fds_verify(!db_ && !store_);
+        cache_->removeObjectMetadata(volId, objId);
+        return ERR_OK;
     } else {
-        fds_verify(false);
+        fds_panic("no known modules are initialized for put operation!");
     }
     return ERR_OK;
 }

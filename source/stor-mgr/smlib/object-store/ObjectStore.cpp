@@ -15,7 +15,8 @@ ObjectStore::ObjectStore(const std::string &modName,
                          StorMgrVolumeTable* volTbl)
         : Module(modName.c_str()),
           volumeTbl(volTbl),
-          conf_verify_data(true) {
+          conf_verify_data(true),
+          numBitsPerToken(0) {
     dataStore = ObjectDataStore::unique_ptr(
         new ObjectDataStore("SM Object Data Storage Module"));
 }
@@ -27,6 +28,8 @@ void
 ObjectStore::setNumBitsPerToken(fds_uint32_t nbits) {
     if (metaStore) {
         metaStore->setNumBitsPerToken(nbits);
+    } else {
+        numBitsPerToken = nbits;
     }
 }
 
@@ -313,6 +316,9 @@ ObjectStore::mod_init(SysParams const *const p) {
     metaStore = ObjectMetadataStore::unique_ptr(
         new ObjectMetadataStore("SM Object Metadata Storage Module",
                             fdsroot->dir_user_repo_objs()));
+    if (numBitsPerToken > 0) {
+        metaStore->setNumBitsPerToken(numBitsPerToken);
+    }
     return 0;
 }
 
