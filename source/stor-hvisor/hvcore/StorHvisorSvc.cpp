@@ -779,17 +779,17 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
         // Since 4K is our min, it's OK to get more
         // when less than 4K is requested
         // TODO(Andrew): Revisit for unaligned IO
-        fds_verify((uint)(getObjRsp->data_obj_len) <= (blobReq->getDataLen()));
+        fds_verify((uint)(getObjRsp->data_obj.size()) <= (blobReq->getDataLen()));
     }
     GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback,
                                                 blobReq->cb);
     // Set the return size based on what was requested
-    if (blobReq->getDataLen() < static_cast<fds_uint64_t>(getObjRsp->data_obj_len)) {
+    if (blobReq->getDataLen() < static_cast<fds_uint64_t>(getObjRsp->data_obj.size())) {
         LOGDEBUG  << "Returning " << blobReq->getDataLen() << " byte subset of "
                   << getObjRsp->data_obj_len << " bytes of data";
         cb->returnSize = blobReq->getDataLen();
     } else {
-        cb->returnSize = getObjRsp->data_obj_len;
+        cb->returnSize = getObjRsp->data_obj.size();
     }
     memcpy(cb->returnBuffer,
            getObjRsp->data_obj.c_str(),

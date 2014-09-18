@@ -39,7 +39,7 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_gets > 0));
 
     Error err(ERR_OK);
-    auto getReq = new SmIoGetObjectReq();
+    auto getReq = new SmIoGetObjectReq(getObjMsg);
     getReq->io_type = FDS_SM_GET_OBJECT;
     getReq->setVolId(getObjMsg->volume_id);
     getReq->setObjId(ObjectID(getObjMsg->data_obj_id.digest));
@@ -83,12 +83,21 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
 
-    auto resp = boost::make_shared<GetObjectResp>();
+    boost::shared_ptr<GetObjectResp> resp;
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    resp->data_obj_len = getReq->obj_data.data.size();
-    resp->data_obj = getReq->obj_data.data;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetObjectResp), *resp);
+    // TODO(Andrew): This is temp code. For now we want to preseve the
+    // legacy IO path. This checks if the legacy IO path filled data or
+    // if the new one did. If the new one dide, the network msg already
+    // has the data. No need to copy.
+    if (getReq->obj_data.data.size() != 0) {
+        resp = boost::make_shared<GetObjectResp>();
+        resp->data_obj_len = getReq->obj_data.data.size();
+        resp->data_obj = getReq->obj_data.data;
+    } else {
+        resp = getReq->getObjectNetResp;
+    }
 
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetObjectResp), *resp);
     delete getReq;
 }
 
@@ -109,12 +118,14 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
 
     Error err(ERR_OK);
-    auto putReq = new SmIoPutObjectReq();
+    auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(putObjMsg->volume_id);
     putReq->origin_timestamp = putObjMsg->origin_timestamp;
     putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
-    putReq->data_obj = std::move(putObjMsg->data_obj);
+    // putReq->data_obj = std::move(putObjMsg->data_obj);
+    // putObjMsg->data_obj.clear();
+    putReq->data_obj = putObjMsg->data_obj;
     // perf-trace related data
     putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
     putReq->opReqFailedPerfEventType = PUT_OBJ_REQ_ERR;
@@ -133,7 +144,6 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     putReq->opQoSWaitCtx.name = putReq->perfNameStr;
     putReq->opQoSWaitCtx.reset_volid(putObjMsg->volume_id);
 
-    putObjMsg->data_obj.clear();
     putReq->response_cb= std::bind(
             &SMSvcHandler::putObjectCb, this,
             asyncHdr,

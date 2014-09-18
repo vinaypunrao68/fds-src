@@ -1938,7 +1938,8 @@ ObjectStorMgr::putObjectInternalSvcV2(SmIoPutObjectReq *putReq)
     // after the network message is freed.
     err = objectStore->putObject(volId,
                                  objId,
-                                 boost::make_shared<const std::string>(putReq->data_obj));
+                                 boost::make_shared<const std::string>(
+                                     putReq->putObjectNetReq->data_obj));
     qosCtrl->markIODone(*putReq,
                         tierUsed,
                         amIPrimary(objId));
@@ -2725,7 +2726,7 @@ ObjectStorMgr::getObjectInternalSvcV2(SmIoGetObjectReq *getReq)
         // TODO(Andrew): Remove this copy. The network should allocated
         // a shared ptr structure so that we can directly store that, even
         // after the network message is freed.
-        getReq->obj_data.data = *objData;
+        getReq->getObjectNetResp->data_obj = *objData;
     }
 
     qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
