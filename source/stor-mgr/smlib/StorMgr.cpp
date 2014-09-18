@@ -3060,9 +3060,6 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
             fds_assert(smVol);
             err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
                     static_cast<FDS_IOType*>(ioReq));
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
             break;
         }
         case FDS_SM_COMPACT_OBJECTS:
@@ -3072,9 +3069,6 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
             fds_assert(smVol);
             err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
                     static_cast<FDS_IOType*>(ioReq));
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
             break;
         }
         /* Following are messages that require io synchronization at object
