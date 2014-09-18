@@ -265,8 +265,8 @@ Error
 ObjectStore::copyAssociation(fds_volid_t srcVolId,
                              fds_volid_t destVolId,
                              const ObjectID& objId) {
-    Error err(ERR_OK);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    Error err(ERR_OK);
 
     // New object metadata to update association
     ObjMetaData::ptr updatedMeta;
