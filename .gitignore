@@ -78,3 +78,6 @@ source/.idea
 source/java/${build.dir}/
 ycm.flags
 source/java/null
+.DS_Store
+source/am-engine/misc/am-urls.cpp
+source/tools/pharos/.DS_Store
