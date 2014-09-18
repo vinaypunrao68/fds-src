@@ -88,6 +88,25 @@ DataIOModule::disk_mount_hdd_path(const char *path, fds_uint16_t disk_id)
     fds_verify(io_hdd_curr <= io_hdd_total);
 }
 
+//
+// Return the root path to access the disk for a given SM token
+//
+const char *
+DataIOModule::disk_path(fds_token_id tok_id,
+                        DataTier tier) {
+    fds_uint16_t disk_id;
+    if (tier == diskTier) {
+        disk_id = io_hdd_diskid[tok_id % io_hdd_curr];
+        return dataDiscoveryMod.disk_hdd_path(disk_id);
+    } else if (tier == flashTier) {
+        disk_id = io_ssd_diskid[tok_id % io_ssd_curr];
+        return dataDiscoveryMod.disk_ssd_path(disk_id);
+    }
+    fds_verify(false);  // did we add another tier type?
+    return NULL;
+}
+
+
 // disk_hdd_io
 // -----------
 //
@@ -102,6 +121,7 @@ DataIOModule::disk_hdd_io(DataTier            tier,
     // io_token_db depends on DataDiscoveryModule::disk_hdd_path(disk_id) for the
     // path to the underlaying device.
     //
+    // TODO(Anna) if we change this algorithm, make sure to change disk_hdd_path()
     if (tier == diskTier) {
       disk_id = io_hdd_diskid[oid->metaDigest[0] % io_hdd_curr];
     } else if (tier == flashTier) {

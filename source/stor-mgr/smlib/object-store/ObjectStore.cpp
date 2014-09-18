@@ -314,8 +314,7 @@ ObjectStore::mod_init(SysParams const *const p) {
         new HashedLocks<ObjectID, ObjectHash>(taskSyncSize));
 
     metaStore = ObjectMetadataStore::unique_ptr(
-        new ObjectMetadataStore("SM Object Metadata Storage Module",
-                            fdsroot->dir_user_repo_objs()));
+        new ObjectMetadataStore("SM Object Metadata Storage Module"));
     if (numBitsPerToken > 0) {
         metaStore->setNumBitsPerToken(numBitsPerToken);
     }
