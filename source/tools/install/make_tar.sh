@@ -11,6 +11,6 @@ make
 
 echo "Packaging install files into fdsinstall.tar.gz"
 cd /tmp
-tar czvf fdsinstall.tar.gz fdsinstall
+tar czvf fdsinstall-`date +%Y%m%d-%H%M`.tar.gz fdsinstall
 
 echo "Complete!"
