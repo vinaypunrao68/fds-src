@@ -3,10 +3,6 @@ from svchelper import *
 class SnapshotContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
-
-    def get_context_name(self):
-        return "snapshot"
 
     #--------------------------------------------------------------------------------------
     @clicmd    
