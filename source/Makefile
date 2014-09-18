@@ -1,5 +1,8 @@
-a:=$(shell [ ! -f /swapfile ] && sudo dd if=/dev/zero of=/swapfile bs=1024000 count=6k)
-bbb := $(shell sudo mkswap /swapfile && sudo swapon /swapfile)
+ifeq ($(wildcard ~/.ihaveaswapfile),)
+	a:=$(shell [ ! -f /swapfile ] && sudo dd if=/dev/zero of=/swapfile bs=1024000 count=6k)
+	bbb := $(shell sudo mkswap /swapfile && sudo swapon /swapfile)
+endif
+
 topdir         := .
 
 # List all directories that builds library first before making exe and unit

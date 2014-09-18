@@ -106,7 +106,7 @@ function getInstallSources() {
     ( 
         cd ${SOURCEDIR}
         for file in *.py *.sh ../../platform/python/disk_type.py; do
-            if [[ ${file} != ${THISFILE} ]]; then
+            if [[ ${file} != ${THISFILE} ]] && [[ ${file} != "make_tar.sh" ]]; then
                 loginfo "copying [$file] to ${INSTALLDIR}"
                 cp $file ${INSTALLDIR}
             fi

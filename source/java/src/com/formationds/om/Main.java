@@ -15,6 +15,7 @@ import com.formationds.om.rest.CurrentUser;
 import com.formationds.om.rest.DeleteVolume;
 import com.formationds.om.rest.GrantToken;
 import com.formationds.om.rest.HttpAuthenticator;
+import com.formationds.om.rest.HttpErrorHandler;
 import com.formationds.om.rest.LandingPage;
 import com.formationds.om.rest.ListDomains;
 import com.formationds.om.rest.ListServices;
