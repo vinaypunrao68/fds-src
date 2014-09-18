@@ -285,15 +285,21 @@ class SmIoDeleteObjectReq : public SmIoReq {
 class SmIoPutObjectReq : public SmIoReq {
  public:
     typedef std::function<void (const Error&, SmIoPutObjectReq *resp)> CbType;
- public:
     virtual std::string log_string() override;
 
-    /* Client assigned timestamp */
+    explicit SmIoPutObjectReq(boost::shared_ptr<fpi::PutObjectMsg>& msg)
+            : putObjectNetReq(msg) {
+    }
+
+    /// TODO(Andrew): Client assigned timestamp. Can this be removed?
     int64_t origin_timestamp;
-    /* Data */
+    /// TODO(Andrew): Data. Can be removed.
     std::string data_obj;
 
-    /* Response callback */
+    /// Service layer put request
+    boost::shared_ptr<fpi::PutObjectMsg> putObjectNetReq;
+
+    /// Response callback
     CbType response_cb;
 };
 
@@ -327,13 +333,20 @@ class SmIoGetObjectReq : public SmIoReq {
     typedef std::function<void (const Error&, SmIoGetObjectReq *resp)> CbType;
     virtual std::string log_string() override;
 
-    SmIoGetObjectReq() {
+    explicit SmIoGetObjectReq(boost::shared_ptr<fpi::GetObjectMsg> &msg)
+            : getObjectNetReq(msg) {
+        getObjectNetResp = boost::make_shared<fpi::GetObjectResp>();
     }
 
     /* In/out: In is object id, out is object data */
     FDSP_ObjectIdDataPair obj_data;
 
-    /* Response callback */
+    /// Service layer get request
+    boost::shared_ptr<fpi::GetObjectMsg> getObjectNetReq;
+    /// Service layer get response
+    boost::shared_ptr<fpi::GetObjectResp> getObjectNetResp;
+
+    /// Response callback
     CbType response_cb;
 };
 
