@@ -81,3 +81,5 @@ source/java/null
 .DS_Store
 source/am-engine/misc/am-urls.cpp
 source/tools/pharos/.DS_Store
+source/java/out/.DS_Store
+*.class
