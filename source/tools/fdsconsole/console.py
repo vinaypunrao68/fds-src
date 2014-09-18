@@ -8,13 +8,17 @@ import atexit
 import os
 import traceback
 import context
-import helpers
-from helpers import *
 import inspect
+import helpers
+
+from helpers import *
+
+from contexts.svchelper import ServiceMap
 # import needed contexts
 from contexts import volume
 from contexts import snapshot
 from contexts import snapshotpolicy
+from contexts import service
 
 """
 Console exit exception. This is needed to exit cleanly as 
@@ -42,6 +46,8 @@ class FDSConsole(cmd.Cmd):
         self.context = None
         self.previouscontext = None
         self.setupDefaultConfig()
+        self.set_root_context(context.RootContext(self.config))
+        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
 
     def setupDefaultConfig(self):
         defaults = {
@@ -121,6 +127,17 @@ class FDSConsole(cmd.Cmd):
             return ' '.join(argv)
 
         return line
+
+    def do_refresh(self, line):
+        print 'reconnecting to {}:{}'.format(self.config.getSystem('host'), self.config.getSystem('port'))
+        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
+        ServiceMap.refresh()
+
+    def help_refresh(self, *args):
+        print 'refresh : reconnect to the servers and get node data'
+
+    def complete_refresh(self, *args):
+        return []
 
     def do_accesslevel(self, line):
         argv = shlex.split(line)
@@ -347,10 +364,11 @@ class FDSConsole(cmd.Cmd):
         return ''
 
     def init(self):
-        root = self.set_root_context(context.RootContext(self.config))
-        vol = root.add_sub_context(volume.VolumeContext(self.config))
-        snap = vol.add_sub_context(snapshot.SnapshotContext(self.config))
-        snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config))
+        vol = self.root.add_sub_context(volume.VolumeContext(self.config,'volume'))
+        snap = vol.add_sub_context(snapshot.SnapshotContext(self.config,'snapshot'))
+        snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config,'policy'))
+
+        self.root.add_sub_context(service.ServiceContext(self.config,'service'))
 
     def run(self, argv = None):
         l =  []
