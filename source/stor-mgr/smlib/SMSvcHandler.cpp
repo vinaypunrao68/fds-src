@@ -401,6 +401,7 @@ void
 SMSvcHandler::NotifyScavenger(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlNotifyScavenger> &msg)
 {
+    LOGNORMAL << " receive scavenger cmd " << msg->scavenger.cmd;
     switch (msg->scavenger.cmd) {
         case FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE:
             objStorMgr->scavenger->enableScavenger();

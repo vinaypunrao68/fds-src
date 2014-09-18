@@ -69,11 +69,6 @@ class Platform;
                                        int node_state,
                                        fds_uint32_t node_port,
                                        FDSP_MgrIdType node_type);
-  typedef Error (*volume_event_handler_t)(fds::fds_volid_t volume_id, 
-                                          fds::VolumeDesc *vdb, 
-                                          fds_vol_notify_t vol_action,
-                                          FDSP_NotifyVolFlag vol_flag,
-                                          const FDSP_ResultType result);
   typedef void (*tier_cmd_handler_t)(const FDSP_TierPolicyPtr &tier);
   typedef void (*tier_audit_cmd_handler_t)(const FDSP_TierPolicyAuditPtr &tier);
   typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
