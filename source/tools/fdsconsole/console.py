@@ -51,7 +51,8 @@ class FDSConsole(cmd.Cmd):
     def setupDefaultConfig(self):
         defaults = {
             KEY_ACCESSLEVEL: AccessLevel.USER,
-            'host' : '127.0.0.1:7020',
+            'host' : '127.0.0.1',
+            'port' : 7020
         }
         for key in defaults.keys():
             if None == self.config.getSystem(key):
