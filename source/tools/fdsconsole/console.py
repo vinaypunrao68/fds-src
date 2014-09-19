@@ -19,7 +19,7 @@ from contexts import volume
 from contexts import snapshot
 from contexts import snapshotpolicy
 from contexts import service
-
+from tabulate import tabulate
 """
 Console exit exception. This is needed to exit cleanly as 
 external libraries (argh) are throwing SystemExit Exception on errors.
@@ -42,7 +42,6 @@ class FDSConsole(cmd.Cmd):
         self.config = ConfigData(self.data)
             
         self.prompt = 'fds:> '
-        self.rootctx = None
         self.context = None
         self.previouscontext = None
         self.setupDefaultConfig()
@@ -52,8 +51,7 @@ class FDSConsole(cmd.Cmd):
     def setupDefaultConfig(self):
         defaults = {
             KEY_ACCESSLEVEL: AccessLevel.USER,
-            'host' : '127.0.0.1',
-            'port' : 7020
+            'host' : '127.0.0.1:7020',
         }
         for key in defaults.keys():
             if None == self.config.getSystem(key):
@@ -130,7 +128,7 @@ class FDSConsole(cmd.Cmd):
 
     def do_refresh(self, line):
         print 'reconnecting to {}:{}'.format(self.config.getSystem('host'), self.config.getSystem('port'))
-        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
+        ServiceMap.init(self.config.getHost(), self.config.getPort())
         ServiceMap.refresh()
 
     def help_refresh(self, *args):
@@ -234,10 +232,14 @@ class FDSConsole(cmd.Cmd):
     def do_set(self, line):
         argv = shlex.split(line)
         if len(argv) == 0:
+            data = []
             # print the current values
             for key,value in self.data[helpers.KEY_SYSTEM].items():
                 if key not in helpers.PROTECTED_KEYS:
-                    print '%10s   =  %5s' % (key, value)
+                    data.append([key, str(value)])
+            #print data
+            print tabulate(data, headers=['name', 'value'])
+
             return
         
         argv[0] = argv[0].lower()
@@ -375,15 +377,15 @@ class FDSConsole(cmd.Cmd):
         l += ['============================================']
         l += ['Formation Data Systems Console ...']
         l += ['Copyright 2014 Formation Data Systems, Inc.']
+        l += ['>>> NOTE: the current access level : %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)))]
         l += ['============================================']
-        l += ['NOTE: the current access level : %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)))]
         l += ['']
         try:
             if argv == None or len(argv) == 0 : 
                 l += ['---- interactive mode ----\n']
                 self.cmdloop('\n'.join(l))
             else:
-                l += ['---- Single command mode ----\n']
+                #l += ['---- Single command mode ----\n']
                 print '\n'.join(l)
                 self.onecmd(self.precmd(' '.join(argv)))
         except (KeyboardInterrupt, ConsoleExit):
