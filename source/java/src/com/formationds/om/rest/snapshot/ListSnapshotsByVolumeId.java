@@ -40,81 +40,70 @@ import java.util.Map;
  * @author ptinius
  */
 public class ListSnapshotsByVolumeId
-  extends OMRestBase
-{
+        extends OMRestBase {
   private static final Logger LOG =
-    Logger.getLogger( ListSnapshotsByVolumeId.class );
+          Logger.getLogger(ListSnapshotsByVolumeId.class);
 
   private static final String REQ_PARAM_VOLUME_ID = "volumeId";
 
   /**
    * @param config the {@link com.formationds.xdi.ConfigurationServiceCache}
    */
-  public ListSnapshotsByVolumeId( final ConfigurationServiceCache config )
-  {
-    super( config );
+  public ListSnapshotsByVolumeId(final ConfigurationServiceCache config) {
+    super(config);
   }
 
   /**
-   * @param request the {@link Request}
+   * @param request         the {@link Request}
    * @param routeParameters the {@link Map} of route parameters
-   *
    * @return Returns the {@link Resource}
-   *
    * @throws Exception any unhandled error
    */
   @Override
-  public Resource handle( final Request request,
-                          final Map<String, String> routeParameters )
-    throws Exception
-  {
+  public Resource handle(final Request request,
+                         final Map<String, String> routeParameters)
+          throws Exception {
     final ObjectMapper mapper = new ObjectMapper();
-    final List<Snapshot> snapshots = new ArrayList<>( );
+    final List<Snapshot> snapshots = new ArrayList<>();
 
-    final long volumeId = requiredLong( routeParameters,
-                                        REQ_PARAM_VOLUME_ID );
-    if( FdsFeatureToggles.USE_CANNED.isActive() )
-    {
-      for( int i = 1; i <= 10 ; i++ )
-      {
+    final long volumeId = requiredLong(routeParameters,
+            REQ_PARAM_VOLUME_ID);
+    if (FdsFeatureToggles.USE_CANNED.isActive()) {
+      for (int i = 1; i <= 10; i++) {
         final Snapshot mSnapshot = ObjectFactory.createSnapshot();
 
-        mSnapshot.setId( i );
-        mSnapshot.setName( String.format( "by volume policy name %d",
-                                          volumeId ) );
-        mSnapshot.setVolumeId( volumeId );
-        mSnapshot.setCreation( new Date() );
+        mSnapshot.setId(i);
+        mSnapshot.setName(String.format("by volume policy name %d",
+                volumeId));
+        mSnapshot.setVolumeId(volumeId);
+        mSnapshot.setCreation(new Date());
 
-        snapshots.add( mSnapshot );
+        snapshots.add(mSnapshot);
       }
-    }
-    else
-    {
+    } else {
       final List<com.formationds.apis.Snapshot> _snapshots =
-        getConfigurationServiceCache().listSnapshots(
-          requiredLong( routeParameters, REQ_PARAM_VOLUME_ID ) );
-      if( _snapshots == null || _snapshots.isEmpty() )
-      {
+              getConfigurationServiceCache().listSnapshots(
+                      requiredLong(routeParameters, REQ_PARAM_VOLUME_ID));
+      if (_snapshots == null || _snapshots.isEmpty()) {
         final Status status = ObjectFactory.createStatus();
-        status.setStatus( HttpResponseStatus.NO_CONTENT.reasonPhrase() );
-        status.setCode( HttpResponseStatus.NO_CONTENT.code() );
+        status.setStatus(HttpResponseStatus.NO_CONTENT.reasonPhrase());
+        status.setCode(HttpResponseStatus.NO_CONTENT.code());
 
-        return new JsonResource( new JSONObject( mapper.writeValueAsString( status ) ) );
+        return new JsonResource(new JSONObject(mapper.writeValueAsString(status)));
       }
 
-      for( final com.formationds.apis.Snapshot snapshot : _snapshots )
-      {
+      for (final com.formationds.apis.Snapshot snapshot : _snapshots) {
         final Snapshot mSnapshot = ObjectFactory.createSnapshot();
 
-        mSnapshot.setId( snapshot.getSnapshotId() );
-        mSnapshot.setName( snapshot.getSnapshotName() );
-        mSnapshot.setVolumeId( snapshot.getVolumeId() );
-        mSnapshot.setCreation( new Date( snapshot.getCreationTimestamp() ) );
+        mSnapshot.setId(snapshot.getSnapshotId());
+        mSnapshot.setName(snapshot.getSnapshotName());
+        mSnapshot.setVolumeId(snapshot.getVolumeId());
+        mSnapshot.setCreation(new Date(snapshot.getCreationTimestamp()));
 
-        snapshots.add( mSnapshot );
+        snapshots.add(mSnapshot);
       }
     }
 
-    return new JsonResource( new JSONArray( mapper.writeValueAsString( snapshots ) ) );
+    return new JsonResource(new JSONArray(mapper.writeValueAsString(snapshots)));
   }
 }

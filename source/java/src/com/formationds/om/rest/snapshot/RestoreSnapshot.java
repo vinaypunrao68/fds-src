@@ -34,9 +34,8 @@ import java.util.Map;
  * @author ptinius
  */
 public class RestoreSnapshot
-  extends OMRestBase
-{
-  private static final Logger LOG = Logger.getLogger( RestoreSnapshot.class );
+        extends OMRestBase {
+  private static final Logger LOG = Logger.getLogger(RestoreSnapshot.class);
 
   private static final String REQ_PARAM_VOLUME_ID = "volumeId";
   private static final String REQ_PARAM_POLICY_ID = "policyId";
@@ -44,33 +43,29 @@ public class RestoreSnapshot
   /**
    * @param config the {@link com.formationds.xdi.ConfigurationServiceCache}
    */
-  public RestoreSnapshot( final ConfigurationServiceCache config )
-  {
-    super( config );
+  public RestoreSnapshot(final ConfigurationServiceCache config) {
+    super(config);
   }
 
   /**
-   * @param request the {@link Request}
+   * @param request         the {@link Request}
    * @param routeParameters the {@link Map} of route parameters
-   *
    * @return Returns the {@link Resource}
-   *
    * @throws Exception any unhandled error
    */
   @Override
-  public Resource handle( final Request request,
-                          final Map<String, String> routeParameters )
-    throws Exception
-  {
+  public Resource handle(final Request request,
+                         final Map<String, String> routeParameters)
+          throws Exception {
     getConfigurationServiceCache().restoreClone(
-      requiredLong( routeParameters, REQ_PARAM_VOLUME_ID ),
-      requiredLong( routeParameters, REQ_PARAM_POLICY_ID ) );
+            requiredLong(routeParameters, REQ_PARAM_VOLUME_ID),
+            requiredLong(routeParameters, REQ_PARAM_POLICY_ID));
 
     final ObjectMapper mapper = new ObjectMapper();
     final Status status = ObjectFactory.createStatus();
-    status.setStatus( HttpResponseStatus.OK.reasonPhrase() );
-    status.setCode( HttpResponseStatus.OK .code() );
+    status.setStatus(HttpResponseStatus.OK.reasonPhrase());
+    status.setCode(HttpResponseStatus.OK.code());
 
-    return new JsonResource( new JSONObject( mapper.writeValueAsString( status ) ) );
+    return new JsonResource(new JSONObject(mapper.writeValueAsString(status)));
   }
 }

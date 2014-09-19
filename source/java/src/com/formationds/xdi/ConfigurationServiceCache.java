@@ -145,6 +145,8 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
         return config.listSnapshotPolicies( unused );
     }
 
+  // TODO need deleteSnapshotForVolume Iface call.
+
     @Override
         public void deleteSnapshotPolicy(long id) throws ApiException, org.apache.thrift.TException {
       config.deleteSnapshotPolicy( id );

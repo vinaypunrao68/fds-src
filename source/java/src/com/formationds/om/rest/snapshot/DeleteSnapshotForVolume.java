@@ -17,14 +17,10 @@
 package com.formationds.om.rest.snapshot;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.formationds.commons.model.ObjectFactory;
-import com.formationds.commons.model.Status;
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.rest.OMRestBase;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.ConfigurationServiceCache;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -33,10 +29,9 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 
 public class DeleteSnapshotForVolume
-  extends OMRestBase
-{
+        extends OMRestBase {
   private static final Logger LOG =
-    LoggerFactory.getLogger( DeleteSnapshotForVolume.class );
+          LoggerFactory.getLogger(DeleteSnapshotForVolume.class);
 
   private static final String REQ_PARAM_VOLUME_ID = "volumeId";
   private static final String REQ_PARAM_POLICY_ID = "policyId";
@@ -44,35 +39,26 @@ public class DeleteSnapshotForVolume
   /**
    * @param config the {@link com.formationds.xdi.ConfigurationServiceCache}
    */
-  public DeleteSnapshotForVolume( final ConfigurationServiceCache config )
-  {
-    super( config );
+  public DeleteSnapshotForVolume(final ConfigurationServiceCache config) {
+    super(config);
   }
 
   /**
-   * @param request the {@link Request}
+   * @param request         the {@link Request}
    * @param routeParameters the {@link Map} of route parameters
-   *
    * @return Returns the {@link Resource}
-   *
    * @throws Exception any unhandled error
    */
   @Override
-  public Resource handle( Request request, Map<String, String> routeParameters )
-    throws Exception
-  {
-    if( !FdsFeatureToggles.USE_CANNED.isActive() )
-    {
-      getConfigurationServiceCache().detachSnapshotPolicy(
-        requiredLong( routeParameters, REQ_PARAM_VOLUME_ID ),
-        requiredLong( routeParameters, REQ_PARAM_POLICY_ID ) );
-    }
-
-    final Status status = ObjectFactory.createStatus();
-    status.setStatus( HttpResponseStatus.NO_CONTENT.reasonPhrase()  );
-    status.setCode( HttpResponseStatus.NO_CONTENT.code() );
-
+  public Resource handle(Request request, Map<String, String> routeParameters)
+          throws Exception {
     final ObjectMapper mapper = new ObjectMapper();
-    return new JsonResource( new JSONObject( mapper.writeValueAsString( status ) ) );
+
+    // TODO need iface definition for deleteSnapshotForVolume
+//      getConfigurationServiceCache().deleteSnapshotForVolume(
+//        requiredLong( routeParameters, REQ_PARAM_VOLUME_ID ),
+//        requiredLong( routeParameters, REQ_PARAM_POLICY_ID ) );
+
+    return new JsonResource(new JSONObject(mapper.writeValueAsString(ok())));
   }
 }
