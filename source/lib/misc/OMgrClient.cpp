@@ -422,10 +422,7 @@ int OMgrClient::testBucket(const std::string& bucket_name,
 
     extern const NodeUuid gl_OmUuid;
     extern SvcRequestPool *gSvcRequestPool;
-    //  XXX todo(liwu) we use minor 1 version of new service layer pipe
-    //  when all old msg gone, we go back to minor 0
-    //  <0xcac4, minor 1> currently maps to 7003.
-    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid(), 1);
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
     fpi::CtrlTestBucketPtr pkt(new fpi::CtrlTestBucket());
     fpi::FDSP_TestBucket * test_buck_msg = & pkt->tbmsg;
     test_buck_msg->bucket_name = bucket_name;

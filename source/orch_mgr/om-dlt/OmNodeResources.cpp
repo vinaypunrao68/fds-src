@@ -146,8 +146,6 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     desc = NULL;
     if (vol != NULL) {
         desc = vol->vol_get_properties();
-    } else {
-        vol = VolumeInfo::pointer(new VolumeInfo(0x9876));  // create dummy to avoid issues
     }
     auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     switch (cmd_type) {
@@ -202,6 +200,9 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     }
     default:
         fds_panic("Unknown vol cmd type");
+    }
+    if (!vol) {
+        vol = VolumeInfo::pointer(new VolumeInfo(0x9876));  // create dummy to avoid issues
     }
     EPSvcRequestRespCb cb = std::bind(&OM_NodeAgent::om_send_vol_cmd_resp, this, vol, cmd_type,
                                    std::placeholders::_1, std::placeholders::_2,
