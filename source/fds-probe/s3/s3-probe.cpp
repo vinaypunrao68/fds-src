@@ -310,6 +310,7 @@ Probe_PutBucket::ame_request_handler()
         ame_signal_resume(NGX_HTTP_OK);
         return;
     }
+    buf[len] = '\0';
     s3p  = static_cast<ProbeS3Eng *>(ame);
     clnt = static_cast<ProbeS3 *>(s3p->probe_get_adapter());
     s3p->probe_get_thrpool()->schedule(ctrl_obj_write, s3p, clnt, this, buf);

@@ -171,7 +171,7 @@ JsFileName::em_emit_header(std::ostream &os)
       "#include <shared/fds_types.h>\n"
       "#include <fds_assert.h>\n"
       "#include <jansson.h>\n"
-      "#include <fds-probe/fds-probe.h>\n"
+      "#include <fds-probe/fds_probe.h>\n"
       "\n"
       "#ifndef _ABC_\n"
       "#define _ABC_\n\n"
@@ -461,6 +461,7 @@ JsEmitter::em_emit_nested_obj(json_t *in, const char *parent, std::ostream &os)
     em_emit_decoder_cmnt(os);
     os <<
       "class " << em_var.em_obj_tmpl << " : public JsObjTemplate\n"
+      "{\n"
       "  public:\n"
       "    explicit " << em_var.em_obj_tmpl << "(JsObjManager *mgr)\n"
       "        : JsObjTemplate(\"" << parent << "\", mgr)\n"
