@@ -114,9 +114,9 @@ class SvcMap(object):
         Returns thrift client for the service
         """
         svc_uuid = self.svcUuid(nodeid, svc)
-        return self.client(svc_uuid)
+        return self.clientBySvcId(svc_uuid)
 
-    def client(self, svc_uuid):
+    def clientBySvcId(self, svc_uuid):
         """
         Returns thrift client for the service
         """
@@ -128,14 +128,15 @@ class SvcMap(object):
         based on the ip,port from domain nodes map
         """
         # TODO(Rao): Fix it
-        return self.svcHandle(None, 'om').client
+        return SvcHandle('127.0.0.1', 9090, ConfigurationService).client
+        #return self.svcHandle(None, 'om').client
 
     def omPlat(self):
         """
         Returns OM platform service handle
         """
         # TODO(Rao): Impl
-        return SvcHandle('127.0.0.1', 7000, PlatNetSvc)
+        return SvcHandle('127.0.0.1', 7000, PlatNetSvc).client
 
     def refresh(self):
         """
@@ -145,7 +146,7 @@ class SvcMap(object):
         """
         self.svc_cache.clear()
         self.svc_tbl.clear()
-        self.domain_nodes = self.omPlat().client.getDomainNodes(None)
+        self.domain_nodes = self.omPlat().getDomainNodes(None)
         for n in self.domain_nodes.dom_nodes:
             nodeid = n.node_base_uuid.svc_uuid
             for s in n.node_svc_list:

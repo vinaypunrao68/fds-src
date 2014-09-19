@@ -55,7 +55,7 @@ class PlatSvc(object):
                                      port=basePort,
                                      svcType=FDSP_MgrIdType.FDSP_TEST_APP) 
         nodeInfoMsg.validate()
-        self.svcMap.omPlat().client.notifyNodeInfo(nodeInfoMsg, False)
+        self.svcMap.omPlat().notifyNodeInfo(nodeInfoMsg, False)
         # Broadcast my information to all platforms
         pmHandleList = self.svcMap.svcHandles('pm')
         for pmHandle in pmHandleList:
@@ -102,7 +102,7 @@ class PlatSvc(object):
                                               reqId=reqId,
                                               msg=msg)
             payload = FdspUtils.serializeSvcMsg(msg)
-            self.svcMap.client(targetUuid).asyncReqt(header, payload)
+            self.svcMap.clientBySvcId(targetUuid).asyncReqt(header, payload)
         except Exception, e:
             # Invocation itself failed.  No need to invoke callback.
             # remove the callback and rethrow the exception
