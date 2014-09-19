@@ -1,102 +1,13 @@
 #!/usr/bin/python
 import os, sys, re
 from exp_framework import *
-
+import json
+from tests import TestList
+from optparse import OptionParser
 # FIXME: import only what you use
 # TODO: better configuration
-# FdsCluster, get_results_dir (maybe move this), CuonterServer, Monitor, nodes (configuration!)
-
-def create_tests():
-    # test template
-    template = {
-        "test_type" : "tgen",
-        "nvols" : 4,
-        "threads" : 1,
-        "nreqs" : 10000,
-        "type" : "PUT",
-        "fsize" : 4096,
-        "nfiles" : 1000
-        }
-
-    ############### Test definition ############
-
-    # tests = []
-    # #for size in [x*256*1024 for x in range(1:9)]:
-    # for size in [4*1024]:
-    #     test = dict(template)
-    #     test["test_type"] = "amprobe"
-    #     # test["type"] = "GET"
-    #     test["nreqs"] = 1000000
-    #     test["nfiles"] = 1000
-    #     test["fsize"] = size
-    #
-    #     test["nvols"] = 4
-    #     test["threads"] = 1
-    #     tests.append(test)
-
-    
-    tests = []
-    size = 4096   # 4096
-    test = dict(template)
-    test["type"] = "PUT"
-    test["nreqs"] = 10000  # 100000
-    test["nfiles"] = 1000 # 10000
-    test["nvols"] = 4
-    test["threads"] = 5
-    test["fsize"] = size
-    test["injector"] = None
-    tests.append(test)
-    # for nvols in [1, 2, 3, 4]:
-    #     for th in [1, 2, 5, 10, 15]:
-    #         test = dict(template)
-    #         test["type"] = "PUT"
-    #         test["nreqs"] = 10000
-    #         test["nfiles"] = 10000
-    #         test["nvols"] = nvols
-    #         test["threads"] = th
-    #         tests.append(test)
-    for nvols in [4]:#[1, 2]: # [1, 2, 3, 4]:
-        for th in [10]:
-            test = dict(template)
-            test["type"] = "GET"
-            test["nreqs"] = 100000
-            test["nfiles"] = 1000
-            test["nvols"] = nvols
-            test["threads"] = th
-            test["fsize"] = size
-            test["injector"] = [
-                #options.local_fds_root + "/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume1 -s 1000000  -g 3200 -m 5000 -r 10",
-                "sleep = 20",
-                "/home/monchier/FDS/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume1 -s 1000000  -g 3000 -m 5000 -r 10",
-                "sleep = 10",
-                "/home/monchier/FDS/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume1 -s 1000000  -g 200 -m 1000 -r 10",
-                "sleep = 5"
-                "/home/monchier/FDS/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume0 -s 1000000  -g 2800 -m 5000 -r 10",
-
-            ]
-            tests.append(test)
-    size = 4096 * 1024
-    test = dict(template)
-    test["type"] = "PUT"
-    test["nreqs"] = 10000
-    test["nfiles"] = 100
-    test["nvols"] = 2
-    test["threads"] = 1
-    test["fsize"] = size
-    #tests.append(test)
-    for nvols in [1, 2]:
-       for th in [1, 2, 5, 10, 15, 20, 25, 30]:
-           test = dict(template)
-           test["type"] = "GET"
-           test["nreqs"] = 10000
-           test["nfiles"] = 100
-           test["nvols"] = nvols
-           test["threads"] = th
-           test["fsize"] = size
-           #tests.append(test)
-    return tests
-
 # TODO: need to streamline the options
+
 def main():
     parser = OptionParser()
 
@@ -118,6 +29,10 @@ def main():
     #FIXME: rename: test_node is an IP
     parser.add_option("-t", "--test-node", dest = "test_node", default = None,
                       help = "IP of the node the test node will run from. Default will run from local")
+
+    parser.add_option("-J", "--json-file", dest = "json_file",
+                      default = None,
+                      help = "Read from json")
 
     # Global experiment-level
     parser.add_option("-d", "--experiment-directory", dest = "experiment_directory", default = "experiment",
@@ -165,23 +80,29 @@ def main():
         options.local = False
     print "Options:", options
 
-    if not os.path.exists(options.experiment_directory):
-        os.makedirs(options.experiment_directory)
-    os.chdir(options.experiment_directory)
-
-    # start FDS
-
-    tests = create_tests()
-    fds = FdsCluster(options)
-    fds.restart()
-
-    # Execute tests
+    tl = TestList()
+    if options.json_file == None:
+        tl.create_tests()
+        tests = tl.get_tests()
+    else:
+        with open(options.json_file, "r") as _f:
+            tests = json.load(_f)
+    assert tests != None, "Tests not loaded"
 
     print "--- Number of tests to run", len(tests), "---"
     for t in tests:
         print "test -->", t
     print "--- . ---"
 
+    if not os.path.exists(options.experiment_directory):
+        os.makedirs(options.experiment_directory)
+    os.chdir(options.experiment_directory)
+
+    # start FDS
+    fds = FdsCluster(options)
+    fds.restart()
+
+    # Execute tests
     for t in tests:
         print t
         results_dir = get_results_dir("results", t)

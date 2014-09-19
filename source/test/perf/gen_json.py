@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import os, sys, re, json, random, pickle
 from optparse import OptionParser
@@ -6,7 +6,7 @@ from optparse import OptionParser
 
 def uploaded(options):
     if os.path.exists(".uploaded.pickle"):
-        prev_uploaded_file = open(".uploaded.pickle", "r")
+        prev_uploaded_file = open(".uploaded.pickle", "rb")
         upk = pickle.Unpickler(prev_uploaded_file)
         return upk.load()
 
@@ -55,9 +55,9 @@ class FdsJson:
         upk = pickle.Unpickler(fin)
         uploaded = upk.load()
         fin.close()
-        print "Number of volumes:", len(uploaded)
+        print ("Number of volumes:", len(uploaded))
         for i, e in enumerate(uploaded):
-            print "files per volume", i, len(e)
+            print ("files per volume", i, len(e))
 
 def main():
     parser = OptionParser()
@@ -90,7 +90,7 @@ def main():
 
     json = FdsJson(options)
     json.gen_am()
-    print json.dump()
+    print (json.dump())
 
 
 if __name__ == "__main__":
