@@ -244,7 +244,7 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
         if (buffering_) {
             buffer_->log(ptx.get());
         }
-        journal_.log(ptx);
+        // journal_.log(ptx);
     }
 
     {
