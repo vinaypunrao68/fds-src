@@ -3,7 +3,7 @@
  *
  * Template to write probe adapter.  Replace XX with your namespace.
  */
-#include <template_probe.h>
+#include <adapter.h>
 #include <string>
 
 namespace fds {
@@ -100,12 +100,9 @@ XX_ProbeMod::mod_startup()
     JsObjTemplate *svc;
 
     if (pr_parent != NULL) {
+        /* Hookup the class matching "Run-Setup" in your .h file here. */
         mgr = pr_parent->pr_get_obj_mgr();
-        svc = mgr->js_get_template("Run-Setup");
-        svc->js_register_template(new UT_ServSetupTempl(mgr));
-
-        svc = mgr->js_get_template("Run-Input");
-        svc->js_register_template(new UT_RunServTempl(mgr));
+        mgr->js_register_template(new RunSetupTmpl(mgr));
     }
 }
 
@@ -118,20 +115,26 @@ XX_ProbeMod::mod_shutdown()
 }
 
 // -----------------------------------------------------------------------------------
-// Mock Server Setup
+// Replace it with your handlers
 // -----------------------------------------------------------------------------------
 JsObject *
-UT_ServSM::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
+SanjayObj::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
+    std::cout << "Sanjay obj is called" << std::endl;
     return this;
 }
 
-// -----------------------------------------------------------------------------------
-// Mock Server Runtime
-// -----------------------------------------------------------------------------------
 JsObject *
-UT_RunSM::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
+BaoObj::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
+    std::cout << "Bao obj is called" << std::endl;
+    return this;
+}
+
+JsObject *
+VyObj::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
+{
+    std::cout << "Vy obj is called" << std::endl;
     return this;
 }
 
