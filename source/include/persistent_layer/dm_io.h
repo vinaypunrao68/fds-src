@@ -459,6 +459,11 @@ class DataIOModule : public fds::Module
     disk_hdd_io(DataTier tier, fds_uint32_t file_id, meta_obj_id_t const *const token);
 
     /**
+     * Returns the root path to access the disk for a given SM token
+     */
+    virtual const char *disk_path(fds::fds_token_id tok_id, DataTier tier);
+
+    /**
      * @return 'ret_stat' aggregated statistics for a given disk 'disk_id' on 'tier'
      */
     virtual fds::Error

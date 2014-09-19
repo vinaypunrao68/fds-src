@@ -15,7 +15,8 @@ ObjectStore::ObjectStore(const std::string &modName,
                          StorMgrVolumeTable* volTbl)
         : Module(modName.c_str()),
           volumeTbl(volTbl),
-          conf_verify_data(true) {
+          conf_verify_data(true),
+          numBitsPerToken(0) {
     dataStore = ObjectDataStore::unique_ptr(
         new ObjectDataStore("SM Object Data Storage Module"));
 }
@@ -27,6 +28,8 @@ void
 ObjectStore::setNumBitsPerToken(fds_uint32_t nbits) {
     if (metaStore) {
         metaStore->setNumBitsPerToken(nbits);
+    } else {
+        numBitsPerToken = nbits;
     }
 }
 
@@ -164,6 +167,9 @@ ObjectStore::getObject(fds_volid_t volId,
         return NULL;
     }
 
+    /*
+     * TODO(umesh): uncomment this when reference counting is used.
+     *
     // If this Volume never put this object, then it should not access the object
     if (!objMeta->isVolumeAssociated(volId)) {
         err = ERR_NOT_FOUND;
@@ -171,6 +177,7 @@ ObjectStore::getObject(fds_volid_t volId,
                 << " to object " << objId << " returning " << err;
         return NULL;
     }
+    */
 
     // get object data
     boost::shared_ptr<const std::string> objData
@@ -262,8 +269,8 @@ Error
 ObjectStore::copyAssociation(fds_volid_t srcVolId,
                              fds_volid_t destVolId,
                              const ObjectID& objId) {
-    Error err(ERR_OK);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    Error err(ERR_OK);
 
     // New object metadata to update association
     ObjMetaData::ptr updatedMeta;
@@ -311,8 +318,10 @@ ObjectStore::mod_init(SysParams const *const p) {
         new HashedLocks<ObjectID, ObjectHash>(taskSyncSize));
 
     metaStore = ObjectMetadataStore::unique_ptr(
-        new ObjectMetadataStore("SM Object Metadata Storage Module",
-                            fdsroot->dir_user_repo_objs()));
+        new ObjectMetadataStore("SM Object Metadata Storage Module"));
+    if (numBitsPerToken > 0) {
+        metaStore->setNumBitsPerToken(numBitsPerToken);
+    }
     return 0;
 }
 

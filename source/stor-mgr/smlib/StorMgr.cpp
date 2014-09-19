@@ -15,6 +15,7 @@
 #include <policy_rpc.h>
 #include <policy_tier.h>
 #include <StorMgr.h>
+#include <NetSession.h>
 #include <fds_obj_cache.h>
 #include <fds_timestamp.h>
 #include <TokenCompactor.h>
@@ -379,8 +380,8 @@ ObjectStorMgr::~ObjectStorMgr() {
     delete omJrnl;
 }
 
-int  ObjectStorMgr::mod_init(SysParams const *const param)
-{
+int
+ObjectStorMgr::mod_init(SysParams const *const param) {
     shuttingDown = false;
     numWBThreads = 1;
     maxDirtyObjs = 10000;
@@ -468,7 +469,7 @@ void ObjectStorMgr::mod_startup()
     // another module layer to come up above it.
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
                                                           volTbl));
-
+    objectStore->mod_init(mod_params);
 
     /* Create tier related classes -- has to be after volTbl is created */
     FdsRootDir::fds_mkdir(modProvider_->proc_fdsroot()->dir_fds_var_stats().c_str());
@@ -518,6 +519,13 @@ void ObjectStorMgr::mod_startup()
     qosOutNum = modProvider_->get_fds_config()->get<int>(
         "fds.sm.qos.default_outstanding_io");
 
+    // Temporary boolean to determine which stubs to execute
+    // Mainly to toggle between two execution paths: old and new.
+    // This is to mitigate risk with new code paths.
+    execNewStubs = modProvider_->get_fds_config()->get<bool>(
+        "fds.sm.testing.exec_new_stubs");
+    LOGDEBUG << "execNewStubs flag=" << execNewStubs;
+
     /*
      * Register/boostrap from OM
      */
@@ -528,8 +536,6 @@ void ObjectStorMgr::mod_startup()
         (migration_event_handler_t)migrationEventOmHandler);
     omClient->registerEventHandlerForDltCloseEvents(
         (dltclose_event_handler_t) dltcloseEventHandler);
-    omClient->registerScavengerEventHandler(
-        (scavenger_event_handler_t) scavengerEventHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
     omClient->startAcceptingControlMessages();
     omClient->registerNodeWithOM(modProvider_->get_plf_manager());
@@ -709,6 +715,11 @@ ObjectStorMgr::getSvcSess(const NodeUuid &svcUuid) {
     return sessId;
 }
 
+DPRespClientPtr
+ObjectStorMgr::fdspDataPathClient(const std::string& session_uuid) {
+    return datapath_session_->getRespClient(session_uuid);
+}
+
 const TokenList&
 ObjectStorMgr::getTokensForNode(const NodeUuid &uuid) const {
     return omClient->getTokensForNode(uuid);
@@ -817,8 +828,8 @@ void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
     // width to object store, so that we can correctly map object ids
     // to SM tokens
     // TODO(anna): fix this
-    // const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
-    // objStorMgr->objectStore->setNumBitsPerToken(curDlt->getNumBitsForToken());
+    const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
+    objStorMgr->objectStore->setNumBitsPerToken(curDlt->getNumBitsForToken());
 
     fds_verify(objStorMgr->cached_dlt_close_.second == nullptr);
     objStorMgr->cached_dlt_close_.first = session_uuid;
@@ -864,29 +875,6 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
         }
         objStorMgr->tok_migrated_for_dlt_ = false;
     }
-}
-
-//
-// TODO(xxx) currently assumes scavenger start command, extend to other cmds
-//
-void ObjectStorMgr::scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd)
-{
-    switch (cmd) {
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE:
-            objStorMgr->scavenger->enableScavenger();
-            break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE:
-            objStorMgr->scavenger->disableScavenger();
-            break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_START:
-            objStorMgr->scavenger->startScavengeProcess();
-            break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_STOP:
-            objStorMgr->scavenger->stopScavengeProcess();
-            break;
-        default:
-            fds_verify(false);  // unknown scavenger command
-    };
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -941,9 +929,9 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
             if (err.ok()) {
                 vol = objStorMgr->volTbl->getVolume(volumeId);
                 fds_assert(vol != NULL);
-                err = objStorMgr->qosCtrl->registerVolume(vol->getVolId(),
-                                                          static_cast<FDS_VolumeQueue*>(
-                                                              vol->getQueue()));
+                err = objStorMgr->qosCtrl->registerVolume(vdb->isSnapshot() ?
+                        vdb->qosQueueId : vol->getVolId(),
+                        static_cast<FDS_VolumeQueue*>(vol->getQueue()));
                 if (err.ok()) {
                     objStorMgr->objCache->
                             vol_cache_create(volumeId,
@@ -1924,6 +1912,46 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
 
     return err;
 }
+
+//
+// This is an empty interface stub for getObjectInternalSvc.
+// It's intent is to plug in a new implementation of future
+// architecture into this interface for testing and evaluation.
+Error
+ObjectStorMgr::putObjectInternalSvcV2(SmIoPutObjectReq *putReq)
+{
+    Error err(ERR_OK);
+    const ObjectID&  objId    = putReq->getObjId();
+    fds_volid_t volId         = putReq->getVolId();
+    diskio::DataTier tierUsed = diskio::maxTier;
+
+    fds_assert(volId != 0);
+    fds_assert(objId != NullObjectID);
+
+    LOGDEBUG << "Executing putObjectInternalSvcV2";
+
+    PerfTracer::tracePointBegin(putReq->opReqLatencyCtx);
+    PerfTracer::tracePointBegin(putReq->opLatencyCtx);
+
+    // TODO(Andrew): Remove this copy. The network should allocated
+    // a shared ptr structure so that we can directly store that, even
+    // after the network message is freed.
+    err = objectStore->putObject(volId,
+                                 objId,
+                                 boost::make_shared<const std::string>(
+                                     putReq->putObjectNetReq->data_obj));
+    qosCtrl->markIODone(*putReq,
+                        tierUsed,
+                        amIPrimary(objId));
+
+    PerfTracer::tracePointEnd(putReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
+
+    putReq->response_cb(err, putReq);
+    return err;
+}
+
+
 /**
  * Process a single object put.
  * @param the request structure ptr
@@ -2198,7 +2226,10 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
         return ERR_OK;
     }
 
-    err = qosCtrl->enqueueIO(ioReq->getVolId(), ioReq);
+    StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+    fds_assert(smVol);
+
+    err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(), ioReq);
     if (err != ERR_OK) {
         PerfTracer::tracePointEnd(ioReq->opReqLatencyCtx);
         PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->getVolId(), ioReq->perfNameStr);
@@ -2425,6 +2456,36 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
     return err;
 }
 
+//
+// This is an empty interface stub for getObjectInternalSvc.
+// It's intent is to plug in a new implementation of future
+// architecture into this interface for testing and evaluation.
+Error
+ObjectStorMgr::deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq)
+{
+    Error err(ERR_OK);
+    const ObjectID&  objId    = delReq->getObjId();
+    fds_volid_t volId         = delReq->getVolId();
+
+    fds_assert(volId != 0);
+    fds_assert(objId != NullObjectID);
+
+    LOGDEBUG << "Executing deleteObjectInternalSvcV2";
+
+    PerfTracer::tracePointBegin(delReq->opReqLatencyCtx);
+    PerfTracer::tracePointBegin(delReq->opLatencyCtx);
+
+    err = objectStore->deleteObject(volId, objId);
+
+    qosCtrl->markIODone(*delReq, diskio::diskTier);
+
+    PerfTracer::tracePointEnd(delReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(delReq->opReqLatencyCtx);
+
+    delReq->response_cb(err, delReq);
+    return err;
+}
+
 Error
 ObjectStorMgr::addObjectRefInternalSvc(SmIoAddObjRefReq* addObjRefReq) {
     fds_assert(0 != addObjRefReq);
@@ -2544,7 +2605,7 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
 }
 
 Error
-ObjectStorMgr::getObjectInternalSvc(SmIoReadObjectdata *getReq) {
+ObjectStorMgr::getObjectInternalSvc(SmIoGetObjectReq *getReq) {
     Error            err(ERR_OK);
     const ObjectID  &objId = getReq->getObjId();
     fds_volid_t volId      = getReq->getVolId();
@@ -2630,13 +2691,50 @@ ObjectStorMgr::getObjectInternalSvc(SmIoReadObjectdata *getReq) {
     objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());
     volTbl->updateVolStats(getReq->getVolId());
 
-    objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());
-    volTbl->updateVolStats(getReq->getVolId());
-
     objCache->object_release(volId, objId, objBufPtr);
 
-    getReq->smio_readdata_resp_cb(err, getReq);
+    getReq->response_cb(err, getReq);
 
+    return err;
+}
+
+//
+// This is an empty interface stub for getObjectInternalSvc.
+// It's intent is to plug in a new implementation of future
+// architecture into this interface for testing and evaluation.
+Error
+ObjectStorMgr::getObjectInternalSvcV2(SmIoGetObjectReq *getReq)
+{
+    Error err(ERR_OK);
+    const ObjectID&  objId    = getReq->getObjId();
+    fds_volid_t volId         = getReq->getVolId();
+    diskio::DataTier tierUsed = diskio::maxTier;
+
+    fds_assert(volId != 0);
+    fds_assert(objId != NullObjectID);
+
+    LOGDEBUG << "Executing getObjectInternalSvcV2";
+
+    PerfTracer::tracePointBegin(getReq->opReqLatencyCtx);
+    PerfTracer::tracePointBegin(getReq->opLatencyCtx);
+
+    boost::shared_ptr<const std::string> objData =
+            objectStore->getObject(volId,
+                                   objId,
+                                   err);
+    if (err.ok()) {
+        // TODO(Andrew): Remove this copy. The network should allocated
+        // a shared ptr structure so that we can directly store that, even
+        // after the network message is freed.
+        getReq->getObjectNetResp->data_obj = *objData;
+    }
+
+    qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
+
+    PerfTracer::tracePointEnd(getReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
+
+    getReq->response_cb(err, getReq);
     return err;
 }
 
@@ -2953,81 +3051,87 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     switch (ioReq->io_type) {
         case FDS_SM_WRITE_TOKEN_OBJECTS:
         case FDS_SM_READ_TOKEN_OBJECTS:
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
+        {
+            StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+            fds_assert(smVol);
+            err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
+                    static_cast<FDS_IOType*>(ioReq));
             break;
+        }
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_SNAPSHOT_TOKEN:
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
+        {
+            StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+            fds_assert(smVol);
+            err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
+                    static_cast<FDS_IOType*>(ioReq));
             break;
+        }
         /* Following are messages that require io synchronization at object
          * id level via transaction table
          */
         case FDS_SM_GET_OBJECT:
-            objectId = static_cast<SmIoReadObjectdata*>(ioReq)->getObjId();
-            err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            // This is a toggle to execute either a legacy code path or a new
+            // code path
+            if (execNewStubs == true) {
+                StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+                fds_assert(smVol);
+                err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
+                        static_cast<FDS_IOType*>(ioReq));
+            } else {
+                objectId = static_cast<SmIoGetObjectReq *>(ioReq)->getObjId();
+                err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
             }
             break;
         case FDS_SM_PUT_OBJECT:
-            objectId = static_cast<SmIoPutObjectReq*>(ioReq)->getObjId();
-            err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            // This is a toggle to execute either a legacy code path or a new
+            // code path
+            if (execNewStubs == true) {
+                err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+            } else {
+                objectId = static_cast<SmIoPutObjectReq *>(ioReq)->getObjId();
+                err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
             }
             break;
         case FDS_SM_DELETE_OBJECT:
-            objectId = static_cast<SmIoDeleteObjectReq*>(ioReq)->getObjId();
-            err = enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            // This is a toggle to execute either a legacy code path or a new
+            // code path
+            if (execNewStubs == true) {
+                err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+            } else {
+                objectId = static_cast<SmIoDeleteObjectReq *>(ioReq)->getObjId();
+                err = enqTransactionIo(nullptr, objectId, ioReq, trans_id);
             }
             break;
         case FDS_SM_SYNC_APPLY_METADATA:
             objectId.SetId(static_cast<SmIoApplySyncMetadata*>(ioReq)->md.object_id.digest);
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
             break;
         case FDS_SM_SYNC_RESOLVE_SYNC_ENTRY:
             objectId = static_cast<SmIoResolveSyncEntry*>(ioReq)->object_id;
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
             break;
         case FDS_SM_APPLY_OBJECTDATA:
             objectId = static_cast<SmIoApplyObjectdata*>(ioReq)->obj_id;
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
             break;
         case FDS_SM_READ_OBJECTDATA:
             objectId = static_cast<SmIoReadObjectdata*>(ioReq)->getObjId();
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
             break;
         case FDS_SM_READ_OBJECTMETADATA:
             objectId = static_cast<SmIoReadObjectMetadata*>(ioReq)->getObjId();
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            if (err != fds::ERR_OK) {
-                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
-            }
             break;
         default:
-            fds_assert(!"Unknown message");
             LOGERROR << "Unknown message: " << ioReq->io_type;
+            fds_panic("Unknown message");
     }
+
+    if (err != fds::ERR_OK) {
+        LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+    }
+
     return err;
 }
 
@@ -3426,6 +3530,9 @@ inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
                           plf_get_my_svc_uuid())->uuid_get_val();
 }
 
+// TODO(Sean)
+// These three ifaces --  {get,put,del}ObjectExt() may be deprecated.
+// Should consider removing them.
 void getObjectExt(SmIoReq* getReq) {
     objStorMgr->getObjectInternal(getReq);
 }
@@ -3442,6 +3549,9 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
     SmIoReq *io = static_cast<SmIoReq*>(_io);
 
+    // Boolean to determine which code paths (new vs. legacy) to execute
+    bool exec_new_stubs = parentSm->execNewStubs;
+
     PerfTracer::tracePointEnd(io->opQoSWaitCtx);
 
     switch (io->io_type) {
@@ -3455,24 +3565,55 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             break;
         case FDS_SM_DELETE_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
-            threadPool->schedule(&ObjectStorMgr::deleteObjectInternalSvc,
-                                 objStorMgr, static_cast<SmIoDeleteObjectReq*>(io));
+
+            // This is a temporary toggle to execute either a legacy code path
+            // or a new code path.
+            if (exec_new_stubs == true) {
+                threadPool->schedule(&ObjectStorMgr::deleteObjectInternalSvcV2,
+                                     objStorMgr,
+                                     static_cast<SmIoDeleteObjectReq *>(io));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::deleteObjectInternalSvc,
+                                     objStorMgr,
+                                     static_cast<SmIoDeleteObjectReq *>(io));
+            }
             break;
         case FDS_SM_GET_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
-            threadPool->schedule(&ObjectStorMgr::getObjectInternalSvc,
-                                 objStorMgr, static_cast<SmIoReadObjectdata*>(io));
+
+            // This is a temporary toggle to execute either a legacy code path
+            // or a new code path.
+            if (exec_new_stubs == true) {
+                threadPool->schedule(&ObjectStorMgr::getObjectInternalSvcV2,
+                                     objStorMgr,
+                                     static_cast<SmIoGetObjectReq *>(io));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::getObjectInternalSvc,
+                                     objStorMgr,
+                                     static_cast<SmIoGetObjectReq *>(io));
+            }
             break;
         case FDS_SM_PUT_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
-            threadPool->schedule(&ObjectStorMgr::putObjectInternalSvc,
-                                 objStorMgr, static_cast<SmIoPutObjectReq*>(io));
+
+            // This is a temporary toggle to execute either a legacy code path
+            // or a new code path.
+            if (exec_new_stubs == true) {
+                threadPool->schedule(&ObjectStorMgr::putObjectInternalSvcV2,
+                                     objStorMgr,
+                                     static_cast<SmIoPutObjectReq *>(io));
+            } else {
+                threadPool->schedule(&ObjectStorMgr::putObjectInternalSvc,
+                                     objStorMgr,
+                                     static_cast<SmIoPutObjectReq *>(io));
+            }
             break;
         case FDS_SM_ADD_OBJECT_REF:
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing and add object reference request";
-            threadPool->schedule(&ObjectStorMgr::addObjectRefInternalSvc, objStorMgr,
-                                 static_cast<SmIoAddObjRefReq*>(io));
+            threadPool->schedule(&ObjectStorMgr::addObjectRefInternalSvc,
+                                 objStorMgr,
+                                 static_cast<SmIoAddObjRefReq *>(io));
             break;
         }
         case FDS_SM_WRITE_TOKEN_OBJECTS:

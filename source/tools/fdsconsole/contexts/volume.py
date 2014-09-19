@@ -5,16 +5,16 @@ import pdb
 class VolumeContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
-
-    def get_context_name(self):
-        return "volume"
 
     #--------------------------------------------------------------------------------------
     @clicmd
     def list(self):
         try:
             volumes = ServiceMap.omConfig().listVolumes("")
+            return tabulate([(item.name, item.tenantId, item.dateCreated,
+                              'OBJECT' if item.policy.volumeType == 0 else 'BLOCK',
+                              item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in sorted(volumes, key=attrgetter('name'))  ],
+                            headers=['Name', 'TenantId', 'Create Date','Type', 'Max-Obj-Size', 'Blk-Size'])
             return volumes
         except Exception, e:
             log.exception(e)
@@ -24,11 +24,11 @@ class VolumeContext(Context):
     @cliadmincmd
     @arg('vol-name', help= "-Volume name  of the clone")
     @arg('clone-name', help= "-name of  the  volume clone")
-    @arg('policy-id', help= "-volume policy id" , default=0, type=int)
+    @arg('policy-id', help= "-volume policy id" , default=0, type=int, nargs='?')
     def clone(self, vol_name, clone_name, policy_id):
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name)
-            ServiceMap.omConfig().cloneVolume(volume_id, policy_name, clone_name )
+            ServiceMap.omConfig().cloneVolume(volume_id, policy_id, clone_name )
             return 'Success'
         except Exception, e:
             log.exception(e)
@@ -53,11 +53,11 @@ class VolumeContext(Context):
     @arg('vol-name', help='-volume name')
     @arg('--domain', help='-domain to add volume to')
     @arg('--max-obj-size', help='-maxiumum size (in bytes) of volume objects', type=int)
-    @arg('--vol-type', help='-type of volume to create [object|block]', type=int)
+    @arg('--vol-type', help='-type of volume to create', choices=['block','object'])
     @arg('--blk-dev-size', help='-maximum size (in bytes) of block device', type=int)
     @arg('--tenant-id', help='-id of tenant to create volume under', type=int)
     def create(self, vol_name, domain='abc', max_obj_size=4096,
-               vol_type=ttypes.VolumeType.OBJECT, blk_dev_size=21474836480, tenant_id=1):
+               vol_type='object', blk_dev_size=21474836480, tenant_id=1):
         
         if vol_type == 'object':
             vol_type = ttypes.VolumeType.OBJECT

@@ -36,7 +36,6 @@
 #include <NetSession.h>
 #include "fds_process.h"
 
-//#include "../../unit-test/lib/test_stat.h"
 
 #define DEF_NUM_CONC_REQS 3
 int num_conc_reqs = DEF_NUM_CONC_REQS;

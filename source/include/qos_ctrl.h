@@ -53,7 +53,7 @@ class FDS_QoSControl {
 
    FDS_QoSControl(fds_uint32_t _max_thrds, dispatchAlgoType algo, fds_log *log, const std::string& prefix);
    
-   FDS_VolumeQueue* getQueue(fds_volid_t queueId);
+   virtual FDS_VolumeQueue* getQueue(fds_volid_t queueId);
    Error   registerVolume(fds_volid_t voluuid, FDS_VolumeQueue *q);
    Error   deregisterVolume(fds_volid_t voluuid);
    Error modifyVolumeQosParams(fds_volid_t vol_uuid, 

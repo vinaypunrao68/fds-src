@@ -16,13 +16,21 @@
 #include <fds_process.h>
 #include <concurrency/fds_actor.h>
 #include <concurrency/fds_actor_request.h>
-#include <NetSession.h>
 #include <ClusterCommMgr.h>
 #include <TokenSender.h>
 #include <TokenReceiver.h>
 #include <kvstore/tokenstatedb.h>
 
 using namespace  ::FDS_ProtocolInterface;
+
+namespace FDS_ProtocolInterface {
+    class FDSP_MigrationPathReqProcessor;
+    class FDSP_MigrationPathReqIf;
+    class FDSP_MigrationPathRespClient;
+}
+typedef netServerSessionEx<FDSP_MigrationPathReqProcessor,
+                FDSP_MigrationPathReqIf,
+                FDSP_MigrationPathRespClient> netMigrationPathServerSession;
 
 namespace fds
 {
@@ -211,10 +219,8 @@ protected:
     Error ack_copy_token_req(FdsActorRequestPtr req);
     void handle_migsvc_sync_close(FdsActorRequestPtr req);
 
-    inline boost::shared_ptr<FDSP_MigrationPathRespClient>
-    migpath_resp_client(const std::string session_uuid) {
-        return migpath_session_->getRespClient(session_uuid);
-    }
+    boost::shared_ptr<FDSP_MigrationPathRespClient>
+    migpath_resp_client(const std::string session_uuid);
 
     /* Token data store */
     SmIoReqHandler *data_store_;

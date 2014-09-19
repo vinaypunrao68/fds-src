@@ -57,6 +57,15 @@ class PersistVolumeMeta {
     inline fds_uint32_t extentObjEntries() const {
         return extent_obj_entries;
     }
+    inline fds_bool_t isSnapshot() const {
+        return snapshot_;
+    }
+    inline fds_bool_t isReadOnly() const {
+        return readOnly_;
+    }
+    inline Error copyDB(const std::string& fileName) {
+        return catalog_->DbSnap(fileName);
+    }
 
     /**
      * Currently expects offset_bytes to be aligned to max object size
@@ -465,13 +474,10 @@ Error DmPersistVolCatalog::copyVolume(fds_volid_t srcVolId, fds_volid_t destVolI
         maxEntries = iter->second->maxObjSizeBytes();
         extent0Entries = iter->second->extent0ObjEntries();
         extentEntries = iter->second->extentObjEntries();
-
-        // close original leveldb
-        vol_map.erase(iter);
     }
 
-    std::ostringstream oss;
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    std::ostringstream oss;
     oss << root->dir_user_repo_dm() << srcVolId << "/" << srcVolId << "_vcat.ldb";
     std::string dbDir = oss.str();
 
@@ -489,36 +495,7 @@ Error DmPersistVolCatalog::copyVolume(fds_volid_t srcVolId, fds_volid_t destVolI
     oss << "/" << destVolId << "_vcat.ldb";
     std::string copyDir =  oss.str();
 
-    oss.clear();
-    oss.str("");
-    oss << "cp -r " << dbDir << " " << copyDir;
-
-    LOGNOTIFY << "Running command '" << oss.str() << "'";
-
-    int rc = std::system(oss.str().c_str());
-
-    // after copy, reopen original leveldb
-    PersistVolumeMetaPtr origmeta(new PersistVolumeMeta(srcVolId, maxEntries, extent0Entries,
-            extentEntries));
-    write_synchronized(vol_map_lock) {
-        vol_map[srcVolId] = origmeta;
-    }
-    Error err = openCatalog(srcVolId);
-    if (!err.ok()) {
-        GLOGCRITICAL << "Failed to open original volume : " << err;
-        return err;
-    }
-
-    if (rc) {
-        LOGERROR << "Copy command failed: " << oss.str() << "; code " << rc;
-        return ERR_DM_SNAPSHOT_FAILED;
-    }
-
-    oss.clear();
-    oss.str("");
-    oss << "rm -f " <<  copyDir << "/LOCK";
-    LOGNOTIFY << oss.str();
-    std::system(oss.str().c_str());
+    Error err = vol_map[srcVolId]->copyDB(copyDir);
 
     PersistVolumeMetaPtr volmeta(new PersistVolumeMeta(destVolId, maxEntries, extent0Entries,
             extentEntries, srcVolId, snapshot, readOnly));
@@ -623,6 +600,13 @@ DmPersistVolCatalog::putMetaExtent(fds_volid_t volume_id,
     std::string serialized_data;
     std::string serialized_key;
 
+    PersistVolumeMetaPtr volmeta = getVolumeMeta(volume_id);
+    fds_assert(volmeta);
+    if (volmeta->isSnapshot() || volmeta->isReadOnly()) {
+        LOGWARN << "Volume is either snapshot or read only. Updates not allowed";
+        return ERR_DM_OP_NOT_ALLOWED;
+    }
+
     LOGTRACE << "Will update extent 0 for " << std::hex << volume_id << std::dec
              << "," << blob_name << " extent " << *meta_extent;
 
@@ -631,7 +615,7 @@ DmPersistVolCatalog::putMetaExtent(fds_volid_t volume_id,
 
     err = meta_extent->getSerialized(serialized_data);
     if (err.ok()) {
-        err = getVolumeMeta(volume_id)->updateEntry(serialized_key, serialized_data);
+        err = volmeta->updateEntry(serialized_key, serialized_data);
         if (!err.ok()) {
             LOGERROR << "Failed to update extent 0 for volume " << std::hex
                      << volume_id << std::dec << " blob " << blob_name << " " << err;
@@ -652,6 +636,13 @@ Error DmPersistVolCatalog::putExtents(fds_volid_t volume_id,
     std::string serialized_key;
     CatWriteBatch batch;
     ExtentKey extent_key(blob_name, 0);
+
+    PersistVolumeMetaPtr volmeta = getVolumeMeta(volume_id);
+    fds_assert(volmeta);
+    if (volmeta->isSnapshot() || volmeta->isReadOnly()) {
+        LOGWARN << "Volume is either snapshot or or read only. Updates not allowed";
+        return ERR_DM_OP_NOT_ALLOWED;
+    }
 
     LOGTRACE << "Will update extents for " << std::hex << volume_id
              << std::dec << "," << blob_name << " meta extent " << *meta_extent;
@@ -827,6 +818,11 @@ Error DmPersistVolCatalog::deleteExtent(fds_volid_t volume_id,
     Error err(ERR_OK);
     std::string key;
     PersistVolumeMetaPtr volmeta = getVolumeMeta(volume_id);
+
+    if (volmeta->isSnapshot() || volmeta->isReadOnly()) {
+        LOGWARN << "Volume is either snapshot or readonly, operation not allowed";
+        return ERR_DM_OP_NOT_ALLOWED;
+    }
 
     LOGTRACE << "Will delete extent " << extent_id << " for " << std::hex
              << volume_id << std::dec << "," << blob_name;

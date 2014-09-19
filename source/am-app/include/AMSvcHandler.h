@@ -40,6 +40,10 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
                      boost::shared_ptr<fpi::CtrlNotifyThrottle> &msg);
 
     virtual void
+    QoSControl(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
+                     boost::shared_ptr<fpi::CtrlNotifyQoSControl> &msg);
+
+    virtual void
     NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlNotifyVolMod> &vol_msg);
 

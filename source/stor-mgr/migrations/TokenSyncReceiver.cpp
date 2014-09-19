@@ -12,6 +12,7 @@
 #include <boost/msm/front/euml/common.hpp>
 #include <boost/msm/front/euml/operator.hpp>
 
+#include <NetSession.h>
 #include <fdsp_utils.h>
 #include <SmObjDb.h>
 #include <fds_migration.h>

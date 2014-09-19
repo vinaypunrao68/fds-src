@@ -165,4 +165,9 @@ TEST_CASE("snapshot") {
 
     REQUIRE(vecSnapshots.size() == 1);
     REQUIRE(vecSnapshots[0].snapshotName == "testss");
+
+    cfg.attachSnapshotPolicy(1, 1);
+    std::vector<fpi::SnapshotPolicy> vecPolicies;
+    cfg.listSnapshotPoliciesForVolume(vecPolicies, 1);
+    REQUIRE(vecPolicies.size() == 1);
 }

@@ -385,7 +385,8 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
               << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
 
     vol_map_mtx->lock();
-    err = dataMgr->qosCtrl->registerVolume(vol_uuid,
+    err = dataMgr->qosCtrl->registerVolume(vdesc->isSnapshot() ?
+                                           vdesc->qosQueueId : vol_uuid,
                                            static_cast<FDS_VolumeQueue*>(
                                                volmeta->dmVolQueue));
     if (!err.ok()) {
@@ -438,7 +439,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // cleanup volmeta and deregister queue
         LOGERROR << "Cleaning up volume queue and vol meta because of error "
                  << " volid 0x" << std::hex << vol_uuid << std::dec;
-        dataMgr->qosCtrl->deregisterVolume(vol_uuid);
+        dataMgr->qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         delete volmeta->dmVolQueue;
         delete volmeta;
     }

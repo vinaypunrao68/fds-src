@@ -73,7 +73,7 @@ class SvcMap(object):
         self.svc_cache = {}
         self.domain_nodes = None
         self.ip = ip
-        self.port = port
+        self.port = int(port)
         self.refresh()
 
     def svcHandle(self, nodeid, svc):
@@ -126,8 +126,7 @@ class SvcMap(object):
             nodeid = n.node_base_uuid.svc_uuid
             for s in n.node_svc_list:
                 svc = self.to_svc_type_str(s.svc_type)
-                node_svc = '{}:{}'.format(n.node_base_uuid.svc_uuid, svc)
-                l.append([node_svc, n.node_addr, s.svc_port])
+                l.append([n.node_base_uuid.svc_uuid, svc, n.node_addr, s.svc_port])
         return l
 
     def get_ip_port(self, nodeid, svc):

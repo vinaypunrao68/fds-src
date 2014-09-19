@@ -27,8 +27,6 @@ class Scheduler : public HasLogger {
     void shutdown();
 
   protected:
-    uint64_t getCurrentTime();
-
     typedef boost::heap::fibonacci_heap<Task*> PriorityQueue;
 
     // to process the actual tasks
@@ -38,7 +36,7 @@ class Scheduler : public HasLogger {
     PriorityQueue pq;
 
     // map of policyid to internal map handle
-    std::map<uint64_t, PriorityQueue::handle_type*> handleMap;
+    std::map<uint64_t, PriorityQueue::handle_type> handleMap;
 
     // monitor to sleep & notify
     apache::thrift::concurrency::Monitor monitor;

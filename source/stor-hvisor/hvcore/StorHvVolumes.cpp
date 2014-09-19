@@ -19,7 +19,7 @@ extern StorHvCtrl *storHvisor;
 namespace fds {
 
 StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log *parent_log)
-        : FDS_Volume(vdesc), parent_sh(sh_ctrl)
+        : FDS_Volume(vdesc), parent_sh(sh_ctrl), volQueue(0)
 {
     journal_tbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
     vol_catalog_cache = new VolumeCatalogCache(voldesc->volUUID, sh_ctrl, parent_log);
@@ -28,7 +28,7 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
         volQueue = parent_sh->qos_ctrl->getQueue(vdesc.qosQueueId);
     }
 
-    if (!vdesc.isSnapshot()) {
+    if (!volQueue) {
         volQueue = new FDS_VolumeQueue(4096, vdesc.iops_max, vdesc.iops_min, vdesc.relativePrio);
     }
     volQueue->activate();

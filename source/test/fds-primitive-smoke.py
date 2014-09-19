@@ -177,6 +177,7 @@ class CopyS3Dir:
             cnt += burst_cnt
 
     def create_bucket(self):
+        time.sleep(10)
         print 'Creating bucket: %s' % self.bucket
         try:
             self.b = c.create_bucket(self.bucket)

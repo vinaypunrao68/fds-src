@@ -4,9 +4,6 @@ class SnapshotPolicyContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
         ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
-
-    def get_context_name(self):
-        return "policy"
     
     #--------------------------------------------------------------------------------------
     @cliadmincmd
@@ -42,19 +39,20 @@ class SnapshotPolicyContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    def list(self, volumeName=None):
+    @arg('vol-name', help= "volume name", nargs="?")
+    def list(self, vol_name):
         try:
-            if volumeName == None:
+            if vol_name == None:
                 policy_list = ServiceMap.omConfig().listSnapshotPolicies(0)
             else:
-                volume_id  = ServiceMap.omConfig().getVolumeId(volumeName);
+                volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
                 policy_list = ServiceMap.omConfig().listSnapshotPoliciesForVolume(volume_id)
             return tabulate([(item.policyName, item.recurrenceRule, item.id,  item.retentionTimeSeconds) for item in policy_list],
                             headers=['Policy-Name', 'Policy-Rule', 'Policy-Id', 'Retension-Time'])
         except Exception, e:
             print e
             log.exception(e)
-            return ' list  snapshot policy failed: {}'.format(volumeName)
+            return ' list  snapshot policy failed: {}'.format(vol_name)
 
     #--------------------------------------------------------------------------------------
     @clicmd
@@ -85,12 +83,9 @@ class SnapshotPolicyContext(Context):
     #--------------------------------------------------------------------------------------
     @clicmd
     @arg('policy-id', type=long, help= "-snap shot policy id")
-    def volumes(policy_id):
+    def volumes(self, policy_id):
         try:
-            # get the  OM client  handler
-            client = svc_map.omConfig()
-            # invoke the thrift  interface call
-            volume_list =  client.listVolumesForSnapshotPolicy(policy_id)
+            volume_list =  ServiceMap.omConfig().listVolumesForSnapshotPolicy(policy_id)
             return tabulate([(item) for item in volume_list],
                             headers=['Volume-Id'])
         except Exception, e:

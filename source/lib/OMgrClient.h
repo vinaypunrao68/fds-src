@@ -69,18 +69,10 @@ class Platform;
                                        int node_state,
                                        fds_uint32_t node_port,
                                        FDSP_MgrIdType node_type);
-  typedef Error (*volume_event_handler_t)(fds::fds_volid_t volume_id, 
-                                          fds::VolumeDesc *vdb, 
-                                          fds_vol_notify_t vol_action,
-                                          FDSP_NotifyVolFlag vol_flag,
-                                          const FDSP_ResultType result);
-  typedef void (*throttle_cmd_handler_t)(const float throttle_level);
-  typedef Error (*qoscontrol_cmd_handler_t)(fds_uint64_t tot_rate);
   typedef void (*tier_cmd_handler_t)(const FDSP_TierPolicyPtr &tier);
   typedef void (*tier_audit_cmd_handler_t)(const FDSP_TierPolicyAuditPtr &tier);
   typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
 					     const FDSP_BucketStatsRespTypePtr& buck_stats);
-  typedef void (*scavenger_event_handler_t)(FDSP_ScavengerCmd cmd);
   typedef Error (*catalog_event_handler_t)(fds_catalog_action_t cat_action,
                                            const FDSP_PushMetaPtr& push_meta,
 					   const std::string& session_uuid);
@@ -111,12 +103,9 @@ class Platform;
     node_event_handler_t node_evt_hdlr;
     migration_event_handler_t migrate_evt_hdlr;
     dltclose_event_handler_t dltclose_evt_hdlr;
-    throttle_cmd_handler_t throttle_cmd_hdlr;
-    qoscontrol_cmd_handler_t qosctrl_cmd_hdlr;
     tier_cmd_handler_t       tier_cmd_hdlr;
     tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
-    scavenger_event_handler_t scavenger_evt_hdlr;
     catalog_event_handler_t catalog_evt_hdlr;
 
     /**
@@ -164,10 +153,7 @@ class Platform;
     int registerEventHandlerForNodeEvents(node_event_handler_t node_event_hdlr);
     int registerEventHandlerForMigrateEvents(migration_event_handler_t migrate_event_hdlr);
     int registerEventHandlerForDltCloseEvents(dltclose_event_handler_t dltclose_event_hdlr);
-    int registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr);
-    void registerQoSCtrlCmdHandler(qoscontrol_cmd_handler_t qosctrl_cmd_handler);
     int registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr);
-    void registerScavengerEventHandler(scavenger_event_handler_t scav_event_hdlr);
     void registerCatalogEventHandler(catalog_event_handler_t evt_hdlr);
 
     // This logging is public for external plugins.  Avoid making this object
@@ -246,27 +232,10 @@ class Platform;
     int sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
             const std::string& session_uuid);
 
-    int recvNotifyVol(VolumeDesc *vdb,
-                              fds_vol_notify_t vol_action,
-                              FDSP_NotifyVolFlag vol_flag,
-                              FDSP_ResultType result,
-                              const std::string& session_uuid) {
-	fds_panic("should not come from new service layer");
-        return (0);
-    }
-    int recvVolAttachState(VolumeDesc *vdb, fds_vol_notify_t vol_action,
-                           FDSP_ResultType result, const std::string& session_uuid)
-    {
-	fds_panic("should not come from new service layer");
-        return (0);
-    }
-    int recvSetThrottleLevel(const float throttle_level);
-    int recvSetQoSControl(fds_uint64_t total_rate);
     int recvTierPolicy(const FDSP_TierPolicyPtr &tier);
     int recvTierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit);
     int recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr, 
 			const FDSP_BucketStatsRespTypePtr& buck_stats_msg);
-    int recvScavengerEvt(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd);
   };
 
   class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
@@ -390,21 +359,6 @@ class Platform;
 
     void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DMT_TypePtr& dmt_info);
-
-    void SetThrottleLevel(const FDSP_MsgHdrType& msg_hdr,
-                          const FDSP_ThrottleMsgType& throttle_msg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void SetThrottleLevel(FDSP_MsgHdrTypePtr& msg_hdr,
-                          FDSP_ThrottleMsgTypePtr& throttle_msg);
-
-    void SetQoSControl(const FDSP_MsgHdrType& fdsp_msg,
-                       const FDSP_QoSControlMsgType& qos_msg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-    void SetQoSControl(FDSP_MsgHdrTypePtr& fdsp_msg, FDSP_QoSControlMsgTypePtr& qos_msg);
 
     void TierPolicy(const FDSP_TierPolicy &tier) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
