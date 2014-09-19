@@ -39,7 +39,7 @@ class SvcRequestPool {
     SvcRequestPool();
     ~SvcRequestPool();
 
-    EPSvcRequestPtr newEPSvcRequest(const fpi::SvcUuid &peerEpId);
+    EPSvcRequestPtr newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version =0);
     FailoverSvcRequestPtr newFailoverSvcRequest(const EpIdProviderPtr epProvider);
     QuorumSvcRequestPtr newQuorumSvcRequest(const EpIdProviderPtr epProvider);
 

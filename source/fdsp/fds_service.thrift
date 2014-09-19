@@ -80,6 +80,7 @@ enum  FDSPMsgTypeId {
     CtrlNotifyBucketStatTypeId         = 2100,
     CtrlNotifyThrottleTypeId           = 2101,
     CtrlNotifyQoSControlTypeId         = 2102,
+    CtrlTestBucketTypeId	       = 2103,
 
     /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
@@ -548,6 +549,9 @@ struct CtrlNotifyThrottle {
 }
 struct CtrlNotifyQoSControl {
      1: FDSP.FDSP_QoSControlMsgType    qosctrl;
+}
+struct CtrlTestBucket {
+     1: FDSP.FDSP_TestBucket           tbmsg;
 }
 
 /* Registration for streaming stats */

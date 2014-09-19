@@ -11,6 +11,7 @@
 #include <dlt.h>
 
 #include <net/net_utils.h>
+#include <net/SvcRequestPool.h>
 #include <platform/platform-lib.h>
 #include <thread>
 
@@ -418,28 +419,24 @@ int OMgrClient::testBucket(const std::string& bucket_name,
 			   const std::string& accessKeyId,
 			   const std::string& secretAccessKey)
 {
-  try {
 
-    FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-    initOMMsgHdr(msg_hdr);
-    FDSP_TestBucketPtr test_buck_msg(new FDSP_TestBucket);
+    extern const NodeUuid gl_OmUuid;
+    extern SvcRequestPool *gSvcRequestPool;
+    //  XXX todo(liwu) we use minor 1 version of new service layer pipe
+    //  when all old msg gone, we go back to minor 0
+    //  <0xcac4, minor 1> currently maps to 7003.
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid(), 1);
+    fpi::CtrlTestBucketPtr pkt(new fpi::CtrlTestBucket());
+    fpi::FDSP_TestBucket * test_buck_msg = & pkt->tbmsg;
     test_buck_msg->bucket_name = bucket_name;
     test_buck_msg->vol_info = *vol_info;
     test_buck_msg->attach_vol_reqd = attach_vol_reqd;
     test_buck_msg->accessKeyId = accessKeyId;
     test_buck_msg->secretAccessKey;
-
-    LOGNOTIFY << "OMClient sending test bucket request to OM at "
-            << omIpStr << ":" << omConfigPort;
-
-    om_client_prx->TestBucket(msg_hdr, test_buck_msg);
-  }
-  catch (...) {
-    LOGERROR << "OMClient unable to send testBucket request to OM. Check if OM is up and restart.";
-    return -1;
-  }
-
-  return 0;
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlTestBucket), pkt);
+    req->invoke();
+    LOGNOTIFY << " sending test bucket request to OM " << bucket_name;
+    return 0;
 }
 
 int OMgrClient::pushGetBucketStatsToOM(fds_uint32_t req_cookie)

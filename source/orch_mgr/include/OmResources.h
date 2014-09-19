@@ -408,8 +408,8 @@ class OM_NodeContainer : public DomainContainer
                                const FdspAttVolCmdPtr   &detach) {
         return om_volumes->om_detach_vol(hdr, detach);
     }
-    inline void om_test_bucket(const FdspMsgHdrPtr     &hdr,
-                               const FdspTestBucketPtr &req) {
+    inline void om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+                               const fpi::FDSP_TestBucket *req) {
         return om_volumes->om_test_bucket(hdr, req);
     }
 

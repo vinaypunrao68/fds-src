@@ -109,7 +109,7 @@ void SvcRequestPool::asyncSvcRequestInitCommon_(SvcRequestIfPtr req)
 }
 
 EPSvcRequestPtr
-SvcRequestPool::newEPSvcRequest(const fpi::SvcUuid &peerEpId)
+SvcRequestPool::newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version)
 {
     auto reqId = nextAsyncReqId_++;
     Platform *plat = Platform::platf_singleton();
@@ -121,6 +121,7 @@ SvcRequestPool::newEPSvcRequest(const fpi::SvcUuid &peerEpId)
         fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
     }
     EPSvcRequestPtr req(new EPSvcRequest(reqId, myEpId, peerEpId));
+    req->set_minor(minor_version);
     asyncSvcRequestInitCommon_(req);
 
     return req;

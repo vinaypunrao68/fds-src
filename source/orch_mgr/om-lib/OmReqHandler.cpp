@@ -861,8 +861,10 @@ void FDSP_OMControlPathReqHandler::TestBucket(
 void FDSP_OMControlPathReqHandler::TestBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_TestBucketPtr& test_buck_msg) {
+#if 0
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_test_bucket(fdsp_msg, test_buck_msg);
+#endif
 }
 
 void FDSP_OMControlPathReqHandler::NotifyMigrationDone(

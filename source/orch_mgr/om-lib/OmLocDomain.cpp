@@ -18,6 +18,7 @@ OM_NodeContainer::om_handle_perfstats_from_am(const FDSP_VolPerfHistListType &hi
      * Here is an assumption that a volume can only be attached to one AM,
      * need to revisit if this is not the case anymore
      */
+    LOGNORMAL << " see perf stats from am ";
     for (uint i = 0; i < hist_list.size(); ++i) {
         fds_volid_t vol_uuid = hist_list[i].vol_uuid;
         for (uint j = 0; j < (hist_list[i].stat_list).size(); ++j) {
