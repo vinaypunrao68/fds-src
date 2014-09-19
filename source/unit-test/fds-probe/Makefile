@@ -5,6 +5,7 @@ user_build_dir    := \
     s3           \
     thrift       \
     pm sm        \
+    sm-embed     \
     s3-template  \
     blk-template \
     threadpool   \
