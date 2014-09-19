@@ -566,7 +566,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                                     int vol_action,
                                     FDSP_NotifyVolFlag vol_flag,
                                     FDSP_ResultType resut);
-     static void scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd);
      static void migrationEventOmHandler(bool dlt_type);
      static void dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
                                       const std::string& session_uuid);

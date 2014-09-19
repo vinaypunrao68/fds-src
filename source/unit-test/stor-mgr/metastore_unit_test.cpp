@@ -159,13 +159,12 @@ MetaStoreUTProc::MetaStoreUTProc(int argc, char * argv[], const std::string & co
     }
 
     if (0 == whatstr.compare(0, 7, "meta_db")) {
-        db_ = new ObjectMetadataDb(proc_fdsroot()->dir_user_repo_objs());
+        db_ = new ObjectMetadataDb();
         db_->setNumBitsPerToken(16);
         std::cout << "Will test ObjectMetadataDb" << std::endl;
         LOGNOTIFY << "Will test ObjectMetadataDb";
     } else if (0 == whatstr.compare(0, 10, "meta_store")) {
-        store_ = new ObjectMetadataStore("Object Metadata Store UT",
-                                         proc_fdsroot()->dir_user_repo_objs());
+        store_ = new ObjectMetadataStore("Object Metadata Store UT");
         store_->mod_startup();
         store_->setNumBitsPerToken(16);
         std::cout << "Will test ObjectMetadataStore" << std::endl;
@@ -202,9 +201,6 @@ MetaStoreUTProc::MetaStoreUTProc(int argc, char * argv[], const std::string & co
     op_count = ATOMIC_VAR_INIT(0);
     test_pass_ = ATOMIC_VAR_INIT(true);
     StatsCollector::singleton()->enableQosStats("ObjMetaStoreUt");
-
-    // create dir where leveldb files will go
-    proc_fdsroot()->fds_mkdir(proc_fdsroot()->dir_user_repo_objs().c_str());
 }
 
 
@@ -514,7 +510,12 @@ void MetaStoreUTProc::task(int id) {
 }  // namespace fds
 
 int main(int argc, char * argv[]) {
-    fds::MetaStoreUTProc p(argc, argv, "sm_ut.conf", "fds.meta_ut.", NULL);
+    fds::Module *smVec[] = {
+        &diskio::gl_dataIOMod,
+        nullptr
+    };
+
+    fds::MetaStoreUTProc p(argc, argv, "sm_ut.conf", "fds.meta_ut.", smVec);
     std::cout << "unit test " << __FILE__ << " started." << std::endl;
     p.main();
     std::cout << "unit test " << __FILE__ << " finished." << std::endl;

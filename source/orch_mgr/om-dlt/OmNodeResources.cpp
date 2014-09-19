@@ -329,57 +329,26 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
 //
 Error
 OM_NodeAgent::om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd) {
-    Error err(ERR_OK);
-    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_ScavengerTypePtr gc_msg(new fpi::FDSP_ScavengerType());
-    this->init_msg_hdr(m_hdr);
-
-    m_hdr->msg_code = fpi::FDSP_MSG_SCAVENGER_START;
-    m_hdr->msg_id = 0;
-    m_hdr->tennant_id = 1;
-    m_hdr->local_domain_id = 1;
-
+    fpi::CtrlNotifyScavengerPtr msg(new fpi::CtrlNotifyScavenger());
+    fpi::FDSP_ScavengerType *gc_msg = &msg->scavenger;
     gc_msg->cmd = cmd;
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyScavengerCmd, m_hdr, gc_msg);
-    } else {
-        try {
-            ndCpClient->NotifyScavengerCmd(m_hdr, gc_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return ERR_NETWORK_TRANSPORT;
-        }
-    }
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyScavenger), msg);
+    req->invoke();
     LOGNORMAL << "OM: send scavenger command: " << cmd;
-    return err;
+    return Error(ERR_OK);
 }
 
 Error
 OM_NodeAgent::om_send_qosinfo(fds_uint64_t total_rate) {
-    Error err(ERR_OK);
-
-    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_QoSControlMsgTypePtr qos_msg(new fpi::FDSP_QoSControlMsgType());
-    this->init_msg_hdr(m_hdr);
-
-    m_hdr->msg_code = fpi::FDSP_MSG_SET_QOS_CONTROL;
-    m_hdr->msg_id = 0;
-    m_hdr->tennant_id = 1;
-    m_hdr->local_domain_id = 1;
-
-    qos_msg->total_rate = total_rate;
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, SetQoSControl, m_hdr, qos_msg);
-    } else {
-        try {
-            ndCpClient->SetQoSControl(m_hdr, qos_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return ERR_NETWORK_TRANSPORT;
-        }
-    }
+    fpi::CtrlNotifyQoSControlPtr qos_msg(new fpi::CtrlNotifyQoSControl());
+    fpi::FDSP_QoSControlMsgType *qosctrl = &qos_msg->qosctrl;
+    qosctrl->total_rate = total_rate;
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyQoSControl), qos_msg);
+    req->invoke();
     LOGNORMAL << "OM: send total rate to AM: " << total_rate;
-    return err;
+    return Error(ERR_OK);
 }
 
 Error
