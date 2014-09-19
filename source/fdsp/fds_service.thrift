@@ -174,21 +174,12 @@ struct AsyncHdr {
  * Uuid to physical location binding registration.
  */
 struct UuidBindMsg {
-    1: required AsyncHdr                 header,
-    2: required SvcID                    svc_id,
-    3: required string                   svc_addr,
-    4: required i32                      svc_port,
-    5: required SvcID                    svc_node,
-    6: required string                   svc_auto_name,
-    7: required FDSP.FDSP_MgrIdType      svc_type,
-/*
     1: required SvcID                    svc_id,
     2: required string                   svc_addr,
     3: required i32                      svc_port,
     4: required SvcID                    svc_node,
     5: required string                   svc_auto_name,
     6: required FDSP.FDSP_MgrIdType      svc_type,
-*/
 }
 
 /*
@@ -224,7 +215,7 @@ enum NodeSvcMask {
 struct NodeInfoMsg {
     1: required UuidBindMsg   node_loc,
     2: required DomainID      node_domain,
-    3: required StorCapMsg    node_stor,
+    3: StorCapMsg    	      node_stor,
     4: required i32           nd_base_port,
     5: required i32           nd_svc_mask,
     6: required bool          nd_bcast,

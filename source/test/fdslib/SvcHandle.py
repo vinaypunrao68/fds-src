@@ -25,15 +25,14 @@ from FdsException import *
 log = logging.getLogger(__name__)
 
 class SvcHandle(object):
-    def __init__(self, ip_str, port, svc_type):
+    def __init__(self, ip, port, svc_type):
         """
         Helper function for getting an async header
-        @param ip_str: ip of the service
+        @param ip: ip(string) of the service
         @param port: port where the service is running
         @param svc_type: Thrift service type.  One of [SMSvc, DMSvc, etc.]
         """
-        sock = TSocket.TSocket(ip_str, port)
-        #transport = TTransport.TBufferedTransport(sock)
+        sock = TSocket.TSocket(ip, port)
         transport = TTransport.TFramedTransport(sock)
         protocol = TBinaryProtocol.TBinaryProtocol(transport)
         transport.open()
@@ -56,13 +55,23 @@ class SvcHandle(object):
             )
         return header
 
+class SvcInfo(object):
+    def __init__(self, node_id, svc_name, svc_enum, svc_type, ip, port):
+        self.node_id = node_id
+        self.svc_name = svc_name
+        self.svc_enum = svc_enum
+        self.svc_type = svc_type
+        self.ip = ip
+        self.port = port
+
 class SvcMap(object):
     # Mapping of service types (as strings) to thrift communication clients
     svc_type_map = {
         'sm' : [FDSP_MgrIdType.FDSP_STOR_MGR,       SMSvc],
         'dm' : [FDSP_MgrIdType.FDSP_DATA_MGR,       DMSvc],
         'am' : [FDSP_MgrIdType.FDSP_STOR_HVISOR,    PlatNetSvc],
-        'om' : [FDSP_MgrIdType.FDSP_ORCH_MGR,       ConfigurationService]
+        'om' : [FDSP_MgrIdType.FDSP_ORCH_MGR,       ConfigurationService],
+        'pm' : [FDSP_MgrIdType.FDSP_PLATFORM,       PlatNetSvc]
     }
 
     def __init__(self, ip, port):
@@ -71,51 +80,88 @@ class SvcMap(object):
         @param port: port
         """
         self.svc_cache = {}
+        self.svc_tbl = {}
         self.domain_nodes = None
         self.ip = ip
         self.port = int(port)
         self.refresh()
 
-    def svcHandle(self, nodeid, svc):
-        """
-        @param nodeid: Node id.  For om, nodeid is 'om'
-        Returns svc handle from cache.  If not found, creates a new service
-        based on the ip,port from domain nodes map
-        """
-        k = self.svc_key(nodeid, svc)
+    def svcHandle(self, svc_uuid):
         try:
-            return self.svc_cache[k]
+            return self.svc_cache[svc_uuid]
         except KeyError:
-            # Client isn't in cache.  Lookup ip port
-            (ip, port) = self.get_ip_port(nodeid, svc)
             # Create client connection and update cache
-            self.svc_cache[k] = SvcHandle(ip, port, self.svc_type_map[svc][1])
-            return self.svc_cache[k]
+            self.svc_cache[svc_uuid] = SvcHandle(ip = self.svc_tbl[svc_uuid].ip,
+                                                 port = self.svc_tbl[svc_uuid].port,
+                                                 svc_type = self.svc_tbl[svc_uuid].svc_type)
+            return self.svc_cache[svc_uuid]
+
+
+    def svcHandles(self, svc):
+        """
+        @param svc: service type
+        Iteraates all nodes return a list of matching svc type handles
+        """
+        l = []
+        for k,v in self.svc_tbl.items():
+            if v.svc_name == svc:
+                handle = self.svcHandle(k)
+                l.append(handle)
+        return l
 
     def client(self, nodeid, svc):
         """
         Returns thrift client for the service
         """
-        return self.svcHandle(nodeid, svc).client
+        svc_uuid = self.svcUuid(nodeid, svc)
+        return self.client(svc_uuid)
+
+    def client(self, svc_uuid):
+        """
+        Returns thrift client for the service
+        """
+        return self.svcHandle(svc_uuid).client
 
     def omConfig(self):
         """
         Returns OM config handle from cache.  If not found, creates a new OM config
         based on the ip,port from domain nodes map
         """
+        # TODO(Rao): Fix it
         return self.svcHandle(None, 'om').client
+
+    def omPlat(self):
+        """
+        Returns OM platform service handle
+        """
+        # TODO(Rao): Impl
+        return SvcHandle('127.0.0.1', 7000, PlatNetSvc)
 
     def refresh(self):
         """
         Clears svc cache
         Refetches domain map
+        Throws an exception if refresh fails.
         """
-        try:
-            self.svc_cache.clear()
-            # TODO(Rao): Get this info from OM
-            self.domain_nodes = SvcHandle(self.ip, self.port, SMSvc).client.getDomainNodes(None)
-        except:
-            pass
+        self.svc_cache.clear()
+        self.svc_tbl.clear()
+        self.domain_nodes = self.omPlat().client.getDomainNodes(None)
+        for n in self.domain_nodes.dom_nodes:
+            nodeid = n.node_base_uuid.svc_uuid
+            for s in n.node_svc_list:
+                svc_uuid = s.svc_id.svc_uuid.svc_uuid
+                svc_name = self.toSvcTypeStr(s.svc_type)
+                svc_enum = None
+                svc_type = None
+                if svc_name:
+                    svc_enum = self.svc_type_map[svc_name][0]
+                    svc_type = self.svc_type_map[svc_name][1]
+                self.svc_tbl[svc_uuid] = SvcInfo(node_id = n.node_base_uuid.svc_uuid,
+                                                 svc_name = svc_name,
+                                                 svc_enum = svc_enum,
+                                                 svc_type = svc_type,
+                                                 ip = n.node_addr,
+                                                 port = s.svc_port)
 
     def list(self):
         """
@@ -125,41 +171,33 @@ class SvcMap(object):
         for n in self.domain_nodes.dom_nodes:
             nodeid = n.node_base_uuid.svc_uuid
             for s in n.node_svc_list:
-                svc = self.to_svc_type_str(s.svc_type)
+                svc = self.toSvcTypeStr(s.svc_type)
                 l.append([n.node_base_uuid.svc_uuid, svc, n.node_addr, s.svc_port])
         return l
 
-    def get_ip_port(self, nodeid, svc):
-        """
-        @nodeid: Node uuid.  If svc type is om*, then nodeid is irrelevant
-        @svc: svc type string.  One of ['sm', 'dm', etc.]
-        @return (ip, port) tuple for service running on nodeid
-        """
-        svc_type_enum = self.svc_type_map[svc][0]
-        # We treat OM service specially as there is only one OM in the domain
-        # We don't nodeid in this case
-        if svc.startswith('om'):
-            for node_elm in self.domain_nodes.dom_nodes:
-                for svc_elm in node_elm.node_svc_list:
-                    if svc_elm.svc_type == svc_type_enum:
-                        # TODO(Rao): In the domain map exposed, there is no entry
-                        # for om config.  For now hard code to om config port which
-                        # is typically 8903
-                        return (node_elm.node_addr, 9090)
-        else:
-            node_elm = next(x for x in self.domain_nodes.dom_nodes if x.node_base_uuid.svc_uuid == nodeid) 
-            svc_elm = next(x for x in node_elm.node_svc_list if x.svc_type == svc_type_enum) 
-            return (node_elm.node_addr, svc_elm.svc_port)
-
-    def svc_key(self, nodeid, svc):
+    def svcUuid(self, nodeid, svc):
         """
         @nodeid: Node uuid
         @svc: svc type string.  One of ['sm', 'dm', etc.]
-        @return key to store service handle in service map
+        @return svc uuid of svc residing on nodeid or None if not found
         """
-        return '{}{}'.format(nodeid, svc)
+        for k,v in self.svc_tbl.items():
+            if v.node_id == nodeid and v.svc_name == svc:
+                return k
+        return None
 
-    def to_svc_type_str(self, svc_type_enum):
+    def svcUuids(self, svc):
+        """
+        @svc: svc type string.  One of ['sm', 'dm', etc.]
+        @return list of svc uuids that match svc type in the domain
+        """
+        l = []
+        for k,v in self.svc_tbl.items():
+            if v.svc_name == svc:
+                l.append(k)
+        return l
+
+    def toSvcTypeStr(self, svc_type_enum):
         """
         Converts service enum to type string.  One of [sm, dm, am, om, etc]
         """
