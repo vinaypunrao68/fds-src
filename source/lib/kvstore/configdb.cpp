@@ -1306,6 +1306,30 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
     return true;
 }
 
+bool ConfigDB::deleteSnapshot(const int64_t volumeId, const int64_t snapshotId) {
+    TRACKMOD();
+    try {
+        fpi::Snapshot snapshot;
+        snapshot.volumeId = volumeId;
+        snapshot.snapshotId = snapshotId;
+
+        if (!getSnapshot(snapshot)) {
+            LOGWARN << "unable to fetch snapshot [vol:" << volumeId <<",snap:" << snapshotId <<"]";
+            NOMOD();
+            return false;
+        }
+
+        std::string nameLower = lower(snapshot.snapshotName);
+        r.srem("snapshot:names", nameLower);
+        r.hdel(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId); //NOLINT
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
 bool ConfigDB::updateSnapshot(const fpi::Snapshot& snapshot) {
     TRACKMOD();
     try {
@@ -1346,6 +1370,34 @@ bool ConfigDB::listSnapshots(std::vector<fpi::Snapshot> & vecSnapshots, const in
         return false;
     }
     return true;
+}
+
+bool ConfigDB::getSnapshot(fpi::Snapshot& snapshot) {
+    try {
+        Reply reply = r.hget(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId); //NOLINT
+        std::string value = reply.getString();
+        fds::deserializeFdspMsg(value, snapshot);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+
+bool ConfigDB::setSnapshotState(fpi::Snapshot& snapshot , fpi::ResourceState state) {
+    if (!getSnapshot(snapshot)) return false;
+
+    snapshot.state = state;
+    return updateSnapshot(snapshot);
+}
+
+bool ConfigDB::setSnapshotState(const int64_t volumeId, const int64_t snapshotId,
+                                fpi::ResourceState state) {
+    fpi::Snapshot snapshot;
+    snapshot.volumeId = volumeId;
+    snapshot.snapshotId = snapshotId;
+    return setSnapshotState(snapshot, state);
 }
 
 }  // namespace kvstore
