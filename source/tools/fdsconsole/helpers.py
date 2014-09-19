@@ -2,6 +2,8 @@
 ATTR_CLICMD='clicmd'
 KEY_SYSTEM = '__system__'
 KEY_ACCESSLEVEL = '__accesslevel__'
+KEY_HOST = 'host'
+KEY_PORT = 'port'
 PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 
 class AccessLevel:
@@ -64,6 +66,18 @@ class ConfigData:
 
     def setSystem(self, key, value):
         return self.set(key, value, KEY_SYSTEM)
+
+    def getHost(self):
+        return self.get(KEY_HOST, KEY_SYSTEM)
+
+    def setHost(self, host):
+        self.setSystem(KEY_HOST, host)
+
+    def getPort(self):
+        return int(self.get(KEY_PORT, KEY_SYSTEM))
+
+    def setPort(self, port):
+        self.setSystem(KEY_PORT, port)
 
 def setupHistoryFile():
     '''
