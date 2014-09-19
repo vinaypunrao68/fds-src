@@ -369,18 +369,32 @@ class FdsService : public PlatformProcess
 };
 
 class ProbeMod;
-class ProbeProcess : public FdsService
+/*
+ * Put the probe module embeded inside a FDS process (e.g. SM/DM/AM/OM).
+ */
+class FdsProbeProcess : public FdsService
 {
   public:
-    virtual ~ProbeProcess();
-    ProbeProcess(int argc, char *argv[],
-                 const std::string &log, ProbeMod *probe, Module **vec);
+    virtual ~FdsProbeProcess();
+    FdsProbeProcess() : FdsService(), svc_probe(NULL) {}
+    FdsProbeProcess(int argc, char *argv[],
+                    const std::string &cfg,
+                    const std::string &log,
+                    ProbeMod *probe, Platform *plat, Module **mod);
 
     virtual void proc_pre_startup() override;
     virtual void proc_pre_service() override;
 
   protected:
     ProbeMod         *svc_probe;
+};
+
+class ProbeProcess : public FdsProbeProcess
+{
+  public:
+    virtual ~ProbeProcess();
+    ProbeProcess(int argc, char *argv[],
+                 const std::string &log, ProbeMod *probe, Module **vec);
 };
 
 /*

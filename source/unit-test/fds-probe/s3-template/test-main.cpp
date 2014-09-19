@@ -9,10 +9,9 @@
 #include <unistd.h>
 #include <string>
 #include <iostream>
-#include <template_probe.h>
+#include <adapter.h>
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
-#include <fds_process.h>
 #include <platform/platform-lib.h>
 
 namespace fds {
@@ -27,7 +26,6 @@ class TestProcess : public ProbeProcess
     int run() override
     {
         while (1) {
-            std::cout << "Your code here" << std::endl;
             sleep(2);
         }
         return 0;
@@ -39,8 +37,7 @@ class TestProcess : public ProbeProcess
 int main(int argc, char **argv)
 {
     fds::Module *probe_vec[] = {
-        /* Add your vector and its dependencies here. */
-        &fds::gl_XX_ProbeMod,
+        /* Add your module vectors here. */
         NULL
     };
     fds::TestProcess probe(argc, argv, "my.log", &fds::gl_XX_ProbeMod, probe_vec);
