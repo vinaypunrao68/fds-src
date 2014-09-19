@@ -7,10 +7,9 @@
 
 namespace fds {
 
-ObjectMetadataStore::ObjectMetadataStore(const std::string& modName,
-                                         const std::string& obj_dir)
+ObjectMetadataStore::ObjectMetadataStore(const std::string& modName)
         : Module(modName.c_str()),
-          metaDb_(new ObjectMetadataDb(obj_dir)),
+          metaDb_(new ObjectMetadataDb()),
           metaCache(new ObjectMetaCache("SM Object Metadata Cache")) {
 }
 

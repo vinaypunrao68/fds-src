@@ -64,6 +64,10 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
                  boost::shared_ptr<fpi::CtrlNotifyVolMod> &vol_msg);
 
     virtual void
+    NotifyScavenger(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlNotifyScavenger> &vol_msg);
+
+    virtual void
     TierPolicy(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
                boost::shared_ptr<fpi::CtrlTierPolicy> &msg);
 

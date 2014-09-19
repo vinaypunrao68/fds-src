@@ -3,7 +3,11 @@ package com.formationds.util.libconfig;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import org.antlr.runtime.*;
+import org.antlr.runtime.ANTLRInputStream;
+import org.antlr.runtime.ANTLRStringStream;
+import org.antlr.runtime.CharStream;
+import org.antlr.runtime.CommonTokenStream;
+import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.tree.CommonTree;
 
 import java.io.IOException;

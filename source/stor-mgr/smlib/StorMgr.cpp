@@ -380,8 +380,8 @@ ObjectStorMgr::~ObjectStorMgr() {
     delete omJrnl;
 }
 
-int  ObjectStorMgr::mod_init(SysParams const *const param)
-{
+int
+ObjectStorMgr::mod_init(SysParams const *const param) {
     shuttingDown = false;
     numWBThreads = 1;
     maxDirtyObjs = 10000;
@@ -469,7 +469,7 @@ void ObjectStorMgr::mod_startup()
     // another module layer to come up above it.
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
                                                           volTbl));
-
+    objectStore->mod_init(mod_params);
 
     /* Create tier related classes -- has to be after volTbl is created */
     FdsRootDir::fds_mkdir(modProvider_->proc_fdsroot()->dir_fds_var_stats().c_str());
@@ -536,8 +536,6 @@ void ObjectStorMgr::mod_startup()
         (migration_event_handler_t)migrationEventOmHandler);
     omClient->registerEventHandlerForDltCloseEvents(
         (dltclose_event_handler_t) dltcloseEventHandler);
-    omClient->registerScavengerEventHandler(
-        (scavenger_event_handler_t) scavengerEventHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
     omClient->startAcceptingControlMessages();
     omClient->registerNodeWithOM(modProvider_->get_plf_manager());
@@ -830,8 +828,8 @@ void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
     // width to object store, so that we can correctly map object ids
     // to SM tokens
     // TODO(anna): fix this
-    // const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
-    // objStorMgr->objectStore->setNumBitsPerToken(curDlt->getNumBitsForToken());
+    const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
+    objStorMgr->objectStore->setNumBitsPerToken(curDlt->getNumBitsForToken());
 
     fds_verify(objStorMgr->cached_dlt_close_.second == nullptr);
     objStorMgr->cached_dlt_close_.first = session_uuid;
@@ -877,29 +875,6 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
         }
         objStorMgr->tok_migrated_for_dlt_ = false;
     }
-}
-
-//
-// TODO(xxx) currently assumes scavenger start command, extend to other cmds
-//
-void ObjectStorMgr::scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd)
-{
-    switch (cmd) {
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE:
-            objStorMgr->scavenger->enableScavenger();
-            break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE:
-            objStorMgr->scavenger->disableScavenger();
-            break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_START:
-            objStorMgr->scavenger->startScavengeProcess();
-            break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_STOP:
-            objStorMgr->scavenger->stopScavengeProcess();
-            break;
-        default:
-            fds_verify(false);  // unknown scavenger command
-    };
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -1958,6 +1933,13 @@ ObjectStorMgr::putObjectInternalSvcV2(SmIoPutObjectReq *putReq)
     PerfTracer::tracePointBegin(putReq->opReqLatencyCtx);
     PerfTracer::tracePointBegin(putReq->opLatencyCtx);
 
+    // TODO(Andrew): Remove this copy. The network should allocated
+    // a shared ptr structure so that we can directly store that, even
+    // after the network message is freed.
+    err = objectStore->putObject(volId,
+                                 objId,
+                                 boost::make_shared<const std::string>(
+                                     putReq->putObjectNetReq->data_obj));
     qosCtrl->markIODone(*putReq,
                         tierUsed,
                         amIPrimary(objId));
@@ -1965,6 +1947,7 @@ ObjectStorMgr::putObjectInternalSvcV2(SmIoPutObjectReq *putReq)
     PerfTracer::tracePointEnd(putReq->opLatencyCtx);
     PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
 
+    putReq->response_cb(err, putReq);
     return err;
 }
 
@@ -2492,12 +2475,14 @@ ObjectStorMgr::deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq)
     PerfTracer::tracePointBegin(delReq->opReqLatencyCtx);
     PerfTracer::tracePointBegin(delReq->opLatencyCtx);
 
+    err = objectStore->deleteObject(volId, objId);
+
     qosCtrl->markIODone(*delReq, diskio::diskTier);
 
     PerfTracer::tracePointEnd(delReq->opLatencyCtx);
     PerfTracer::tracePointEnd(delReq->opReqLatencyCtx);
 
-
+    delReq->response_cb(err, delReq);
     return err;
 }
 
@@ -2733,12 +2718,23 @@ ObjectStorMgr::getObjectInternalSvcV2(SmIoGetObjectReq *getReq)
     PerfTracer::tracePointBegin(getReq->opReqLatencyCtx);
     PerfTracer::tracePointBegin(getReq->opLatencyCtx);
 
+    boost::shared_ptr<const std::string> objData =
+            objectStore->getObject(volId,
+                                   objId,
+                                   err);
+    if (err.ok()) {
+        // TODO(Andrew): Remove this copy. The network should allocated
+        // a shared ptr structure so that we can directly store that, even
+        // after the network message is freed.
+        getReq->getObjectNetResp->data_obj = *objData;
+    }
+
     qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
 
     PerfTracer::tracePointEnd(getReq->opLatencyCtx);
     PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
 
-
+    getReq->response_cb(err, getReq);
     return err;
 }
 

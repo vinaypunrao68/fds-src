@@ -7,10 +7,8 @@ user_incl_dir     := $(topdir)/fds_client/include include
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
-    fds-am-engine \
-    fds-probe-adapters \
-    fds-s3-probe \
     fds-probe \
+    fds-am-engine \
     fds-am-engine \
     fds-am-plat \
     fds-plat-lib \

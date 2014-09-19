@@ -5,10 +5,6 @@ import pdb
 class VolumeContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
-
-    def get_context_name(self):
-        return "volume"
 
     #--------------------------------------------------------------------------------------
     @clicmd
@@ -28,11 +24,11 @@ class VolumeContext(Context):
     @cliadmincmd
     @arg('vol-name', help= "-Volume name  of the clone")
     @arg('clone-name', help= "-name of  the  volume clone")
-    @arg('policy-id', help= "-volume policy id" , default=0, type=int)
+    @arg('policy-id', help= "-volume policy id" , default=0, type=int, nargs='?')
     def clone(self, vol_name, clone_name, policy_id):
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name)
-            ServiceMap.omConfig().cloneVolume(volume_id, policy_name, clone_name )
+            ServiceMap.omConfig().cloneVolume(volume_id, policy_id, clone_name )
             return 'Success'
         except Exception, e:
             log.exception(e)

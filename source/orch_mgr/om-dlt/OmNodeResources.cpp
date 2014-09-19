@@ -99,52 +99,17 @@ OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
               << " to " << peer->get_node_name() << std::endl;
 }
 
-// om_send_node_cmd
 // ----------------
 // TODO(Vy): define messages in inheritance tree.
 //
 void
-OM_NodeAgent::om_send_node_cmd(const om_node_msg_t &msg)
+OM_NodeAgent::om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr throttle)
 {
-    const char              *log;
-    fpi::FDSP_MsgHdrTypePtr  m_hdr(new fpi::FDSP_MsgHdrType);
-
-    this->init_msg_hdr(m_hdr);
-    m_hdr->msg_code = msg.nd_msg_code;
-
-    try {
-        log = NULL;
-        switch (msg.nd_msg_code) {
-            case fpi::FDSP_MSG_SET_THROTTLE: {
-                log = "Send throttle command to node ";
-                if (nd_ctrl_eph != NULL) {
-                    NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                     SetThrottleLevel, m_hdr, *msg.u.nd_throttle);
-                    break;
-                }
-                ndCpClient->SetThrottleLevel(m_hdr, *msg.u.nd_throttle);
-                break;
-            }
-            case fpi::FDSP_MSG_DMT_UPDATE: {
-                log = "Send DMT update command to node ";
-                if (nd_ctrl_eph != NULL) {
-                    NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                     NotifyDMTUpdate, m_hdr, *msg.u.nd_dmt_tab);
-                    break;
-                }
-                ndCpClient->NotifyDMTUpdate(m_hdr, *msg.u.nd_dmt_tab);
-                break;
-            }
-            default:
-                fds_panic("Unsupported command code");
-        }
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return;
-    }
-
-    fds_assert(log != NULL);
-    LOGDEBUG << log << get_node_name() << std::endl;
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyThrottle), throttle);
+    req->invoke();
+    LOGNORMAL << " send throttle level " << throttle->throttle_level
+        << " to am node " << rs_get_uuid();
 }
 
 // om_send_vol_cmd
@@ -364,57 +329,26 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
 //
 Error
 OM_NodeAgent::om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd) {
-    Error err(ERR_OK);
-    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_ScavengerTypePtr gc_msg(new fpi::FDSP_ScavengerType());
-    this->init_msg_hdr(m_hdr);
-
-    m_hdr->msg_code = fpi::FDSP_MSG_SCAVENGER_START;
-    m_hdr->msg_id = 0;
-    m_hdr->tennant_id = 1;
-    m_hdr->local_domain_id = 1;
-
+    fpi::CtrlNotifyScavengerPtr msg(new fpi::CtrlNotifyScavenger());
+    fpi::FDSP_ScavengerType *gc_msg = &msg->scavenger;
     gc_msg->cmd = cmd;
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyScavengerCmd, m_hdr, gc_msg);
-    } else {
-        try {
-            ndCpClient->NotifyScavengerCmd(m_hdr, gc_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return ERR_NETWORK_TRANSPORT;
-        }
-    }
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyScavenger), msg);
+    req->invoke();
     LOGNORMAL << "OM: send scavenger command: " << cmd;
-    return err;
+    return Error(ERR_OK);
 }
 
 Error
 OM_NodeAgent::om_send_qosinfo(fds_uint64_t total_rate) {
-    Error err(ERR_OK);
-
-    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_QoSControlMsgTypePtr qos_msg(new fpi::FDSP_QoSControlMsgType());
-    this->init_msg_hdr(m_hdr);
-
-    m_hdr->msg_code = fpi::FDSP_MSG_SET_QOS_CONTROL;
-    m_hdr->msg_id = 0;
-    m_hdr->tennant_id = 1;
-    m_hdr->local_domain_id = 1;
-
-    qos_msg->total_rate = total_rate;
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, SetQoSControl, m_hdr, qos_msg);
-    } else {
-        try {
-            ndCpClient->SetQoSControl(m_hdr, qos_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return ERR_NETWORK_TRANSPORT;
-        }
-    }
+    fpi::CtrlNotifyQoSControlPtr qos_msg(new fpi::CtrlNotifyQoSControl());
+    fpi::FDSP_QoSControlMsgType *qosctrl = &qos_msg->qosctrl;
+    qosctrl->total_rate = total_rate;
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyQoSControl), qos_msg);
+    req->invoke();
     LOGNORMAL << "OM: send total rate to AM: " << total_rate;
-    return err;
+    return Error(ERR_OK);
 }
 
 Error
@@ -1498,22 +1432,11 @@ OM_NodeContainer::om_bcast_vol_delete(VolumeInfo::pointer vol, fds_bool_t check_
 // Plugin to send a generic node command to all nodes.  Plugin to node iterator.
 //
 static void
-om_send_node_command(const om_node_msg_t &msg, fds_uint32_t *cnt, NodeAgent::pointer node)
+om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr msg,
+                        fds_uint32_t *cnt, NodeAgent::pointer node)
 {
     (*cnt)++;
-    OM_SmAgent::agt_cast_ptr(node)->om_send_node_cmd(msg);
-}
-
-// om_send_am_node_command
-// -----------------------
-// Plugin to send a generic node command to all am nodes.  Plugin to volume iterator.
-//
-void
-om_send_am_node_command(const om_node_msg_t &msg,
-                        VolumeInfo::pointer  vol,
-                        NodeAgent::pointer   am_node)
-{
-    OM_SmAgent::agt_cast_ptr(am_node)->om_send_node_cmd(msg);
+    OM_SmAgent::agt_cast_ptr(node)->om_send_node_throttle_lvl(msg);
 }
 
 // om_bcast_vol_tier_policy
@@ -1538,18 +1461,14 @@ OM_NodeContainer::om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier)
 void
 OM_NodeContainer::om_bcast_throttle_lvl(float throttle_level)
 {
-    om_node_msg_t msg;
     fds_uint32_t count = 0;
     fpi::FDSP_ThrottleMsgTypePtr throttle(new fpi::FDSP_ThrottleMsgType);
 
     throttle->domain_id      = DEFAULT_LOC_DOMAIN_ID;
     throttle->throttle_level = throttle_level;
 
-    msg.nd_msg_code   = fpi::FDSP_MSG_SET_THROTTLE;
-    msg.u.nd_throttle = &throttle;
-
-    dc_am_nodes->agent_foreach<const om_node_msg_t &, \
-            fds_uint32_t *>(msg, &count, om_send_node_command);
+    dc_am_nodes->agent_foreach<fpi::FDSP_ThrottleMsgTypePtr, \
+            fds_uint32_t *>(throttle, &count, om_send_node_throttle_lvl);
 }
 
 // om_set_throttle_lvl

@@ -358,7 +358,29 @@ class FdsService : public PlatformProcess
 {
   public:
     virtual ~FdsService();
-    FdsService(int argc, char *argv[], const std::string &log_file, Module **vec);
+    FdsService() : PlatformProcess(), svc_modules(NULL) {}
+    FdsService(int argc, char *argv[], const std::string &log, Module **vec);
+
+    virtual void proc_pre_startup() override;
+
+  protected:
+    Module          **svc_modules;
+    virtual void plf_load_node_data();
+};
+
+class ProbeMod;
+class ProbeProcess : public FdsService
+{
+  public:
+    virtual ~ProbeProcess();
+    ProbeProcess(int argc, char *argv[],
+                 const std::string &log, ProbeMod *probe, Module **vec);
+
+    virtual void proc_pre_startup() override;
+    virtual void proc_pre_service() override;
+
+  protected:
+    ProbeMod         *svc_probe;
 };
 
 /*

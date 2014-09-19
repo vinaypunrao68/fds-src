@@ -65,8 +65,6 @@ int main(int argc, char **argv)
         &fds::gl_AmPlatform,
         &fds::gl_NetService,
         &fds::gl_FdsnServer,
-        &fds::gl_probeS3Eng,
-        &fds::gl_AmProbe,
         nullptr
     };
     while (am_gdb == 0) { sleep(1); }

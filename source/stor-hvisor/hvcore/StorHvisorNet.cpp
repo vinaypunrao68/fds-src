@@ -188,8 +188,6 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     /*  Create the QOS Controller object */
     qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, GetLog());
-    om_client->registerThrottleCmdHandler(StorHvQosCtrl::throttleCmdHandler);
-    om_client->registerQoSCtrlCmdHandler(StorHvQosCtrl::qosCtrlCmdHandler);
     qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
     om_client->startAcceptingControlMessages();
 

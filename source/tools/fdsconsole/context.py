@@ -4,14 +4,17 @@ import helpers
 
 class Context:
     
-    def __init__(self, config):
+    def __init__(self, config=None, name=None):
         self.config = config
+        self.name   = name
     '''
     Base class for all contexts
     NOTE:: All contexts SHOULD override get_context_name
     '''
     def get_context_name(self):
-        raise Exception("context name not configured")
+        if self.name == None:
+            raise Exception("context name not configured")
+        return self.name
 
     def before_entry(self):
         '''

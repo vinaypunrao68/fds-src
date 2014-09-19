@@ -25,6 +25,7 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolAdd, NotifyAddVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, NotifyRmVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolMod, NotifyModVol);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyScavenger, NotifyScavenger);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicy, TierPolicy);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicyAudit, TierPolicyAudit);
 }
@@ -38,7 +39,7 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_gets > 0));
 
     Error err(ERR_OK);
-    auto getReq = new SmIoGetObjectReq();
+    auto getReq = new SmIoGetObjectReq(getObjMsg);
     getReq->io_type = FDS_SM_GET_OBJECT;
     getReq->setVolId(getObjMsg->volume_id);
     getReq->setObjId(ObjectID(getObjMsg->data_obj_id.digest));
@@ -82,12 +83,21 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
 
-    auto resp = boost::make_shared<GetObjectResp>();
+    boost::shared_ptr<GetObjectResp> resp;
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    resp->data_obj_len = getReq->obj_data.data.size();
-    resp->data_obj = getReq->obj_data.data;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetObjectResp), *resp);
+    // TODO(Andrew): This is temp code. For now we want to preseve the
+    // legacy IO path. This checks if the legacy IO path filled data or
+    // if the new one did. If the new one dide, the network msg already
+    // has the data. No need to copy.
+    if (getReq->obj_data.data.size() != 0) {
+        resp = boost::make_shared<GetObjectResp>();
+        resp->data_obj_len = getReq->obj_data.data.size();
+        resp->data_obj = getReq->obj_data.data;
+    } else {
+        resp = getReq->getObjectNetResp;
+    }
 
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetObjectResp), *resp);
     delete getReq;
 }
 
@@ -108,12 +118,14 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
 
     Error err(ERR_OK);
-    auto putReq = new SmIoPutObjectReq();
+    auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(putObjMsg->volume_id);
     putReq->origin_timestamp = putObjMsg->origin_timestamp;
     putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
-    putReq->data_obj = std::move(putObjMsg->data_obj);
+    // putReq->data_obj = std::move(putObjMsg->data_obj);
+    // putObjMsg->data_obj.clear();
+    putReq->data_obj = putObjMsg->data_obj;
     // perf-trace related data
     putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
     putReq->opReqFailedPerfEventType = PUT_OBJ_REQ_ERR;
@@ -132,7 +144,6 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     putReq->opQoSWaitCtx.name = putReq->perfNameStr;
     putReq->opQoSWaitCtx.reset_volid(putObjMsg->volume_id);
 
-    putObjMsg->data_obj.clear();
     putReq->response_cb= std::bind(
             &SMSvcHandler::putObjectCb, this,
             asyncHdr,
@@ -394,6 +405,31 @@ void SMSvcHandler::addObjectRefCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::AddObjectRefRspMsg), *resp);
 
     delete addObjRefReq;
+}
+
+void
+SMSvcHandler::NotifyScavenger(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlNotifyScavenger> &msg)
+{
+    LOGNORMAL << " receive scavenger cmd " << msg->scavenger.cmd;
+    switch (msg->scavenger.cmd) {
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE:
+            objStorMgr->scavenger->enableScavenger();
+            break;
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE:
+            objStorMgr->scavenger->disableScavenger();
+            break;
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_START:
+            objStorMgr->scavenger->startScavengeProcess();
+            break;
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_STOP:
+            objStorMgr->scavenger->stopScavengeProcess();
+            break;
+        default:
+            fds_verify(false);  // unknown scavenger command
+    };
+    hdr->msg_code = 0;
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyScavenger), *msg);
 }
 
 }  // namespace fds

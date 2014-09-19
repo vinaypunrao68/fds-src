@@ -28,7 +28,7 @@ void OMgrClientRPCI::NotifyAddVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg
     assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL);
     fds_vol_notify_t type = fds_notify_vol_add;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
+    // om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyModVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -36,7 +36,7 @@ void OMgrClientRPCI::NotifyModVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg
     assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_MOD_VOL);
     fds_vol_notify_t type = fds_notify_vol_mod;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
+    // om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyRmVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -44,7 +44,7 @@ void OMgrClientRPCI::NotifyRmVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_
     assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL);
     fds_vol_notify_t type = fds_notify_vol_rm;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
+    // om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifySnapVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -52,19 +52,19 @@ void OMgrClientRPCI::NotifySnapVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& ms
     assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_SNAP_VOL);
     fds_vol_notify_t type = fds_notify_vol_snap;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
+    // om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::AttachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 			       FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg) {
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvVolAttachState(vdb, fds_notify_vol_attatch, msg_hdr->result, msg_hdr->session_uuid);
+    // om_client->recvVolAttachState(vdb, fds_notify_vol_attatch, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::DetachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 			       FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg) {
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvVolAttachState(vdb, fds_notify_vol_detach, msg_hdr->result, msg_hdr->session_uuid);
+    // om_client->recvVolAttachState(vdb, fds_notify_vol_detach, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr,
@@ -123,7 +123,7 @@ void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
 
 void OMgrClientRPCI::NotifyScavengerCmd(FDSP_MsgHdrTypePtr& msg_hdr,
                                         FDSP_ScavengerTypePtr& gc_info) {
-    om_client->recvScavengerEvt(gc_info->cmd);
+    // om_client->recvScavengerEvt(gc_info->cmd);
 }
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
@@ -169,16 +169,6 @@ void OMgrClientRPCI::PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
     }
 }
 
-void OMgrClientRPCI::SetThrottleLevel(FDSP_MsgHdrTypePtr& msg_hdr, 
-                                      FDSP_ThrottleMsgTypePtr& throttle_msg) {
-    om_client->recvSetThrottleLevel((const float) throttle_msg->throttle_level);
-}
-
-void OMgrClientRPCI::SetQoSControl(FDSP_MsgHdrTypePtr& fdsp_msg,
-                                   FDSP_QoSControlMsgTypePtr& qos_msg) {
-    om_client->recvSetQoSControl(qos_msg->total_rate);
-}
-
 void
 OMgrClientRPCI::TierPolicy(FDSP_TierPolicyPtr &tier)
 {
@@ -222,11 +212,9 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
   omConfigPort = _omPort;
   my_node_name = node_name;
   node_evt_hdlr = NULL;
-  throttle_cmd_hdlr = NULL;
   bucket_stats_cmd_hdlr = NULL;
   dltclose_evt_hdlr = NULL;
   catalog_evt_hdlr = NULL;
-  scavenger_evt_hdlr = NULL;
   if (parent_log) {
     omc_log = parent_log;
   } else {
@@ -265,24 +253,11 @@ int OMgrClient::registerEventHandlerForNodeEvents(node_event_handler_t node_even
   return 0;
 }
  
-
-int OMgrClient::registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr) {
-  this->throttle_cmd_hdlr = throttle_cmd_hdlr;
-  return 0;
-}
-
-void OMgrClient::registerQoSCtrlCmdHandler(qoscontrol_cmd_handler_t qosctrl_cmd_handler) {
-    this->qosctrl_cmd_hdlr = qosctrl_cmd_handler;
-}
-
 int OMgrClient::registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr) {
   bucket_stats_cmd_hdlr = cmd_hdlr;
   return 0;
 }
 
-void OMgrClient::registerScavengerEventHandler(scavenger_event_handler_t scav_evt_hdlr) {
-    scavenger_evt_hdlr = scav_evt_hdlr;
-}
 
 void OMgrClient::registerCatalogEventHandler(catalog_event_handler_t evt_hdlr) {
     catalog_evt_hdlr = evt_hdlr;
@@ -583,15 +558,6 @@ int OMgrClient::recvMigrationEvent(bool dlt_type)
   }
   return (0);
 
-}
-
-// TODO(xxx) currently does scavenger start event, extend to other scavenger events
-int OMgrClient::recvScavengerEvt(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd) 
-{
-  if (this->scavenger_evt_hdlr) {
-    this->scavenger_evt_hdlr(cmd);
-  }
-  return (0);
 }
 
 int OMgrClient::sendMigrationStatusToOM(const Error& err) {
@@ -921,28 +887,6 @@ Error OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
     }
 
     return err;
-}
-
-int OMgrClient::recvSetThrottleLevel(const float throttle_level) {
-
-  LOGNOTIFY << "OMClient received new throttle level  " << throttle_level;
-
-  this->current_throttle_level = throttle_level;
-
-  if (this->throttle_cmd_hdlr) {
-    this->throttle_cmd_hdlr(throttle_level);
-  }
-  return (0);
-
-}
-
-int OMgrClient::recvSetQoSControl(fds_uint64_t total_rate) {
-    LOGNOTIFY << "OMClient received QoS control settings: total rate "
-              << total_rate << " IOPS";
-    if (this->qosctrl_cmd_hdlr) {
-        this->qosctrl_cmd_hdlr(total_rate);
-    }
-    return 0;
 }
 
 int OMgrClient::recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr, 

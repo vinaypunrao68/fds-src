@@ -508,6 +508,7 @@ VolumeFSM::VACT_DelChk::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 
     dst.del_chk_ack_wait = local->om_bcast_vol_delete(vol, true);
     if (dst.del_chk_ack_wait == 0) {
+        LOGWARN << " no acks to wait ... triggerring delete";
         fsm.process_event(DelChkAckEvt(vol, Error(ERR_OK)));
     }
 }
@@ -1510,7 +1511,7 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
         return;
     }
     Error resp_err(fdsp_msg->err_code);
-
+    LOGDEBUG << "received notification : " << type;
     switch (type) {
         case om_notify_vol_add:
             if (resp_err.ok()) {
@@ -1559,28 +1560,41 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
         return;
     }
 
+
     //  The following is ugly
     om_vol_notify_t type;
-    if (from_svc.uuid_get_type() == fpi::FDSP_STOR_HVISOR)
-    switch (cmd_type) {
-        case fpi::CtrlNotifyVolAddTypeId:
-             type = om_notify_vol_attach; break;
-        case fpi::CtrlNotifyVolModTypeId:
-             type = om_notify_vol_mod; break;
-        case fpi::CtrlNotifyVolRemoveTypeId:
-             type = om_notify_vol_detach; break;
-        default: break;
+
+    if (from_svc.uuid_get_type() == FDSP_STOR_HVISOR) {
+        switch (cmd_type) {
+            case fpi::CtrlNotifyVolAddTypeId:
+                type = om_notify_vol_attach; break;
+            case fpi::CtrlNotifyVolModTypeId:
+                type = om_notify_vol_mod; break;
+            case fpi::CtrlNotifyVolRemoveTypeId:
+                type = om_notify_vol_detach; break;
+            default: break;
+        }
     }
-    if (from_svc.uuid_get_type() != fpi::FDSP_STOR_HVISOR)
-    switch (cmd_type) {
-        case fpi::CtrlNotifyVolAddTypeId:
-             type = om_notify_vol_add; break;
-        case fpi::CtrlNotifyVolModTypeId:
-             type = om_notify_vol_mod; break;
-        case fpi::CtrlNotifyVolRemoveTypeId:
-             type = om_notify_vol_rm; break;
-        default: break;
+
+    if (from_svc.uuid_get_type() != FDSP_STOR_HVISOR) {
+        switch (cmd_type) {
+            case fpi::CtrlNotifyVolAddTypeId:
+                type = om_notify_vol_add; break;
+            case fpi::CtrlNotifyVolModTypeId:
+                type = om_notify_vol_mod; break;
+            case fpi::CtrlNotifyVolRemoveTypeId:
+                if (vol->isCheckDelete()) {
+                    type = om_notify_vol_rm_chk;
+                } else {
+                    type = om_notify_vol_rm;
+                }
+                break;
+            default: break;
+        }
     }
+
+    LOGDEBUG << "rcvd cmd resp [cmd:" << cmd_type <<"]"
+             <<"  [type:" << type << "]";
 
 
     switch (type) {

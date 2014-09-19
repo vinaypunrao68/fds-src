@@ -9,7 +9,7 @@ user_incl_dir    := \
 user_cpp         := \
     s3-probe.cpp
 
-user_ar_libs     := fds-s3-probe
-fds-s3-probe     := $(user_cpp)
+user_ar_libs     := fds-probe
+fds-probe        := $(user_cpp)
 
 include $(topdir)/Makefile.incl
