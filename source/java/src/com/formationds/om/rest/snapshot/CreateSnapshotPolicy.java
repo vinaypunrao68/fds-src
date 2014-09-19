@@ -38,52 +38,47 @@ import java.util.Map;
  * @author ptinius
  */
 public class CreateSnapshotPolicy
-  extends OMRestBase
-{
+        extends OMRestBase {
   private static final Logger LOG =
-    Logger.getLogger( CreateSnapshotPolicy.class );
+          Logger.getLogger(CreateSnapshotPolicy.class);
 
   /**
-   * @param xdi the {@link com.formationds.xdi.Xdi}
+   * @param xdi              the {@link com.formationds.xdi.Xdi}
    * @param legacyConfigPath the {@link FDS_ProtocolInterface.FDSP_ConfigPathReq.Iface}
-   * @param token the {@link com.formationds.security.AuthenticationToken}
+   * @param token            the {@link com.formationds.security.AuthenticationToken}
    */
-  public CreateSnapshotPolicy( final Xdi xdi,
-                               final FDSP_ConfigPathReq.Iface legacyConfigPath,
-                               final AuthenticationToken token )
-  {
-    super( xdi, legacyConfigPath, token, null );
+  public CreateSnapshotPolicy(final Xdi xdi,
+                              final FDSP_ConfigPathReq.Iface legacyConfigPath,
+                              final AuthenticationToken token) {
+    super(xdi, legacyConfigPath, token, null);
   }
 
   /**
-   * @param request the {@link Request}
+   * @param request         the {@link Request}
    * @param routeParameters the {@link Map} of route parameters
-   *
    * @return Returns the {@link Resource}
-   *
    * @throws Exception any unhandled error
    */
   @Override
-  public Resource handle( final Request request,
-                          final Map<String, String> routeParameters )
-    throws Exception
-  {
+  public Resource handle(final Request request,
+                         final Map<String, String> routeParameters)
+          throws Exception {
     final ObjectMapper mapper = new ObjectMapper();
 
-    if( !FdsFeatureToggles.USE_CANNED.isActive() )
-    {
-      final SnapshotPolicy policy = mapper.readValue( request.getInputStream(),
-                                                      SnapshotPolicy.class );
-      getXdi().createSnapshotPolicy( getToken(),
-                                     policy.getName(),
-                                     policy.getRecurrenceRule().toString(),
-                                     policy.getRetention() );
+    if (!FdsFeatureToggles.USE_CANNED.isActive()) {
+      final SnapshotPolicy policy = mapper.readValue(request.getInputStream(),
+              SnapshotPolicy.class);
+      LOG.trace("calling XDI create snapshot policy with " + policy);
+      getXdi().createSnapshotPolicy(getToken(),
+              policy.getName(),
+              policy.getRecurrenceRule().toString(),
+              policy.getRetention());
     }
 
     final Status status = ObjectFactory.createStatus();
-    status.setStatus( HttpResponseStatus.OK.reasonPhrase()  );
-    status.setCode( HttpResponseStatus.OK.code() );
+    status.setStatus(HttpResponseStatus.OK.reasonPhrase());
+    status.setCode(HttpResponseStatus.OK.code());
 
-    return new JsonResource( new JSONObject( mapper.writeValueAsString( status ) ) );
+    return new JsonResource(new JSONObject(mapper.writeValueAsString(status)));
   }
 }

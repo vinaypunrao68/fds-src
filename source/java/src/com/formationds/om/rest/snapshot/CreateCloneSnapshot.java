@@ -34,37 +34,32 @@ import java.util.Map;
  * @author ptinius
  */
 public class CreateCloneSnapshot
-  extends OMRestBase
-{
+        extends OMRestBase {
   private static final Logger LOG =
-    Logger.getLogger( CreateCloneSnapshot.class );
+          Logger.getLogger(CreateCloneSnapshot.class);
 
   /**
    * @param config the {@link com.formationds.xdi.ConfigurationServiceCache}
    */
-  public CreateCloneSnapshot( final ConfigurationServiceCache config )
-  {
-    super( config );
+  public CreateCloneSnapshot(final ConfigurationServiceCache config) {
+    super(config);
   }
 
   /**
-   * @param request the {@link Request}
+   * @param request         the {@link Request}
    * @param routeParameters the {@link Map} of route parameters
-   *
    * @return Returns the {@link Resource}
-   *
    * @throws Exception any unhandled error
    */
   @Override
-  public Resource handle( final Request request,
-                          final Map<String, String> routeParameters )
-    throws Exception
-  {
+  public Resource handle(final Request request,
+                         final Map<String, String> routeParameters)
+          throws Exception {
     final ObjectMapper mapper = new ObjectMapper();
     final Status status = ObjectFactory.createStatus();
-    status.setStatus( HttpResponseStatus.NOT_IMPLEMENTED.reasonPhrase() );
-    status.setCode( HttpResponseStatus.NOT_IMPLEMENTED .code() );
+    status.setStatus(HttpResponseStatus.NOT_IMPLEMENTED.reasonPhrase());
+    status.setCode(HttpResponseStatus.NOT_IMPLEMENTED.code());
 
-    return new JsonResource( new JSONObject( mapper.writeValueAsString( status ) ) );
+    return new JsonResource(new JSONObject(mapper.writeValueAsString(status)));
   }
 }

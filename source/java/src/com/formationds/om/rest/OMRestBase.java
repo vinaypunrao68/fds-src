@@ -17,51 +17,50 @@
 package com.formationds.om.rest;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
+import com.formationds.commons.model.ObjectFactory;
+import com.formationds.commons.model.Status;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.xdi.ConfigurationServiceCache;
 import com.formationds.xdi.Xdi;
+import io.netty.handler.codec.http.HttpResponseStatus;
 
 /**
  * @author ptinius
  */
 public abstract class OMRestBase
-  implements RequestHandler
-{
+        implements RequestHandler {
   private final Xdi xdi;
   private final FDSP_ConfigPathReq.Iface legacyConfigPath;
   private final AuthenticationToken token;
   private final ConfigurationServiceCache cachedConfig;
 
   /**
-   * @param xdi the {@link com.formationds.xdi.Xdi}
+   * @param xdi   the {@link com.formationds.xdi.Xdi}
    * @param token the {@link com.formationds.security.AuthenticationToken}
    */
-  protected OMRestBase( final Xdi xdi,
-                        final AuthenticationToken token )
-  {
-    this( xdi, null, token, null );
+  protected OMRestBase(final Xdi xdi,
+                       final AuthenticationToken token) {
+    this(xdi, null, token, null);
   }
 
   /**
    * @param cachedConfig the {@link ConfigurationServiceCache}
    */
-  protected OMRestBase( final ConfigurationServiceCache cachedConfig )
-  {
-    this(  null, null, null, cachedConfig );
+  protected OMRestBase(final ConfigurationServiceCache cachedConfig) {
+    this(null, null, null, cachedConfig);
   }
 
   /**
-   * @param xdi the {@link com.formationds.xdi.Xdi}
+   * @param xdi              the {@link com.formationds.xdi.Xdi}
    * @param legacyConfigPath the {@link FDS_ProtocolInterface.FDSP_ConfigPathReq.Iface}
-   * @param token the {@link com.formationds.security.AuthenticationToken}
-   * @param cachedConfig the {@link ConfigurationServiceCache}
+   * @param token            the {@link com.formationds.security.AuthenticationToken}
+   * @param cachedConfig     the {@link ConfigurationServiceCache}
    */
-  protected OMRestBase( final Xdi xdi,
-                        final FDSP_ConfigPathReq.Iface legacyConfigPath,
-                        final AuthenticationToken token,
-                        final ConfigurationServiceCache cachedConfig )
-  {
+  protected OMRestBase(final Xdi xdi,
+                       final FDSP_ConfigPathReq.Iface legacyConfigPath,
+                       final AuthenticationToken token,
+                       final ConfigurationServiceCache cachedConfig) {
     super();
 
     this.xdi = xdi;
@@ -70,20 +69,43 @@ public abstract class OMRestBase
     this.cachedConfig = cachedConfig;
   }
 
-  protected Xdi getXdi()
-  {
+  protected Xdi getXdi() {
     return xdi;
   }
 
-  protected FDSP_ConfigPathReq.Iface getLegacyConfigPath()
-  {
+  protected FDSP_ConfigPathReq.Iface getLegacyConfigPath() {
     return legacyConfigPath;
   }
 
-  protected AuthenticationToken getToken()
-  {
+  protected AuthenticationToken getToken() {
     return token;
   }
 
-  protected ConfigurationServiceCache getConfigurationServiceCache() { return cachedConfig; }
+  protected ConfigurationServiceCache getConfigurationServiceCache() {
+    return cachedConfig;
+  }
+
+  protected Status ok() {
+    final Status status = ObjectFactory.createStatus();
+    status.setStatus(HttpResponseStatus.OK.reasonPhrase());
+    status.setCode(HttpResponseStatus.OK.code());
+
+    return status;
+  }
+
+  protected Status noContent() {
+    final Status status = ObjectFactory.createStatus();
+    status.setStatus(HttpResponseStatus.NO_CONTENT.reasonPhrase());
+    status.setCode(HttpResponseStatus.NO_CONTENT.code());
+
+    return status;
+  }
+
+  protected Status notImplemented() {
+    final Status status = ObjectFactory.createStatus();
+    status.setStatus(HttpResponseStatus.NOT_IMPLEMENTED.reasonPhrase());
+    status.setCode(HttpResponseStatus.NOT_IMPLEMENTED.code());
+
+    return status;
+  }
 }
