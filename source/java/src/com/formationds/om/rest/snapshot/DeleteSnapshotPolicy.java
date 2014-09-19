@@ -32,44 +32,38 @@ import org.json.JSONObject;
 import java.util.Map;
 
 public class DeleteSnapshotPolicy
-  extends OMRestBase
-{
+        extends OMRestBase {
   private static final Logger LOG =
-    Logger.getLogger( DeleteSnapshotPolicy.class );
+          Logger.getLogger(DeleteSnapshotPolicy.class);
 
   private static final String REQ_PARAM_POLICY_ID = "id";
 
   /**
    * @param config the {@link com.formationds.xdi.ConfigurationServiceCache}
    */
-  public DeleteSnapshotPolicy( final ConfigurationServiceCache config )
-  {
-    super( config );
+  public DeleteSnapshotPolicy(final ConfigurationServiceCache config) {
+    super(config);
   }
 
   /**
-   * @param request the {@link Request}
+   * @param request         the {@link Request}
    * @param routeParameters the {@link Map} of route parameters
-   *
    * @return Returns the {@link Resource}
-   *
    * @throws Exception any unhandled error
    */
   @Override
-  public Resource handle( Request request, Map<String, String> routeParameters )
-    throws Exception
-  {
-    if( !FdsFeatureToggles.USE_CANNED.isActive() )
-    {
+  public Resource handle(Request request, Map<String, String> routeParameters)
+          throws Exception {
+    if (!FdsFeatureToggles.USE_CANNED.isActive()) {
       getConfigurationServiceCache().deleteSnapshotPolicy(
-        requiredLong( routeParameters, REQ_PARAM_POLICY_ID ) );
+              requiredLong(routeParameters, REQ_PARAM_POLICY_ID));
     }
 
     final Status status = ObjectFactory.createStatus();
-    status.setStatus( HttpResponseStatus.NO_CONTENT.reasonPhrase()  );
-    status.setCode( HttpResponseStatus.NO_CONTENT.code() );
+    status.setStatus(HttpResponseStatus.NO_CONTENT.reasonPhrase());
+    status.setCode(HttpResponseStatus.NO_CONTENT.code());
 
     final ObjectMapper mapper = new ObjectMapper();
-    return new JsonResource( new JSONObject( mapper.writeValueAsString( status ) ) );
+    return new JsonResource(new JSONObject(mapper.writeValueAsString(status)));
   }
 }

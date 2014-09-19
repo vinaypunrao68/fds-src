@@ -3074,7 +3074,10 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
             // This is a toggle to execute either a legacy code path or a new
             // code path
             if (execNewStubs == true) {
-                err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+                StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+                fds_assert(smVol);
+                err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
+                        static_cast<FDS_IOType*>(ioReq));
             } else {
                 objectId = static_cast<SmIoGetObjectReq *>(ioReq)->getObjId();
                 err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);

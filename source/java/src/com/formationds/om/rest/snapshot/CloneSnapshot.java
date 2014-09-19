@@ -31,9 +31,8 @@ import java.util.Map;
  * @author ptinius
  */
 public class CloneSnapshot
-  extends OMRestBase
-{
-  private static final Logger LOG = Logger.getLogger( CloneSnapshot.class );
+        extends OMRestBase {
+  private static final Logger LOG = Logger.getLogger(CloneSnapshot.class);
 
   private static final String REQ_PARAM_VOLUME_ID = "volumeId";
   private static final String REQ_PARAM_POLICY_ID = "policyId";
@@ -42,39 +41,32 @@ public class CloneSnapshot
   /**
    * @param config the {@link com.formationds.xdi.ConfigurationServiceCache}
    */
-  public CloneSnapshot( final ConfigurationServiceCache config )
-  {
-    super( config );
+  public CloneSnapshot(final ConfigurationServiceCache config) {
+    super(config);
   }
 
   /**
-   * @param request the {@link Request}
+   * @param request         the {@link Request}
    * @param routeParameters the {@link Map} of route parameters
-   *
    * @return Returns the {@link Resource}
-   *
    * @throws Exception any unhandled error
    */
   @Override
-  public Resource handle( final Request request,
-                          final Map<String, String> routeParameters )
-    throws Exception
-  {
+  public Resource handle(final Request request,
+                         final Map<String, String> routeParameters)
+          throws Exception {
     long clonedVolumeId;
 
-    if( FdsFeatureToggles.USE_CANNED.isActive() )
-    {
+    if (FdsFeatureToggles.USE_CANNED.isActive()) {
       clonedVolumeId = 1234L;
-    }
-    else
-    {
+    } else {
       clonedVolumeId =
-        getConfigurationServiceCache().cloneVolume(
-          requiredLong( routeParameters, REQ_PARAM_VOLUME_ID ),
-          requiredLong( routeParameters, REQ_PARAM_POLICY_ID ),
-          requiredString( routeParameters, REQ_PARAM_CLONED_VOLUME_NAME ) );
+              getConfigurationServiceCache().cloneVolume(
+                      requiredLong(routeParameters, REQ_PARAM_VOLUME_ID),
+                      requiredLong(routeParameters, REQ_PARAM_POLICY_ID),
+                      requiredString(routeParameters, REQ_PARAM_CLONED_VOLUME_NAME));
     }
 
-    return new JsonResource( new JSONObject( clonedVolumeId ) );
+    return new JsonResource(new JSONObject(clonedVolumeId));
   }
 }

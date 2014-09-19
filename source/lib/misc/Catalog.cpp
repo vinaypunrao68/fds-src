@@ -3,9 +3,41 @@
  */
 
 #include <string>
+#include <fstream>
 
 #include <lib/Catalog.h>
 #include <leveldb/filter_policy.h>
+#include <leveldb/copy_env.h>
+
+namespace {
+
+int doCopyFile(void * arg, const char* fname, fds_uint64_t length) {
+    fds_assert(fname && *fname != 0);
+
+    fds::CopyDetails * details = reinterpret_cast<fds::CopyDetails *>(arg);
+    GLOGNORMAL << "Copying file '" << fname << "' from directory '" << details->destPath
+            << "' to '" << details->srcPath;
+
+    std::string srcFile = details->srcPath + "/" + fname;
+    std::string destFile = details->destPath + "/" + fname;
+
+    std::ifstream infile(srcFile.c_str(), std::fstream::binary);
+    std::ofstream outfile(destFile.c_str(), std::fstream::binary);
+    if (static_cast<fds_uint64_t>(-1) == length) {
+        outfile << infile.rdbuf();
+    } else if (length) {
+        char * buffer = new char[length];
+        infile.read(buffer, length);
+        outfile.write(buffer, length);
+        delete[] buffer;
+    }
+    outfile.close();
+    infile.close();
+
+    return 0;
+}
+
+}  // namespace
 
 namespace fds {
 
@@ -24,6 +56,7 @@ Catalog::Catalog(const std::string& _file, fds_bool_t cat_flag)
     options.filter_policy     =
             leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
     options.write_buffer_size = WRITE_BUFFER_SIZE;
+    options.env = new leveldb::CopyEnv(leveldb::Env::Default());
 
       write_options.sync = true;
 
@@ -130,16 +163,25 @@ Catalog::DbDelete() {
 }
 
 Error
-Catalog::DbSnap(const std::string& _file) {
+Catalog::DbSnap(const std::string& fileName) {
+    fds_assert(!fileName.empty());
     Error err(ERR_OK);
-    leveldb::Status status = env->CreateDir(_file);
+    leveldb::CopyEnv * env = static_cast<leveldb::CopyEnv*>(options.env);
+    fds_assert(env);
+
+    leveldb::Status status = env->CreateDir(fileName);
     if (!status.ok()) {
         err = Error(ERR_DISK_WRITE_FAILED);
     }
 
+    CopyDetails * details = new CopyDetails(backing_file, fileName);
+    status = env->Copy(backing_file, &doCopyFile, reinterpret_cast<void *>(details));
+    if (!status.ok()) {
+        err = ERR_DISK_WRITE_FAILED;
+    }
+
     return err;
 }
-
 
 Error
 Catalog::QueryNew(const std::string& _file, const Record& key, std::string* value) {
@@ -167,7 +209,6 @@ Catalog::QueryNew(const std::string& _file, const Record& key, std::string* valu
 
     return err;
 }
-
 
 Error
 Catalog::QuerySnap(const std::string& _file, const Record& key, std::string* value) {
@@ -204,5 +245,4 @@ std::string
 Catalog::GetFile() const {
     return backing_file;
 }
-
 }  // namespace fds

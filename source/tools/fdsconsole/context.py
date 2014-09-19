@@ -1,6 +1,7 @@
 import argh
 import inspect
 import helpers
+import argparse
 
 class Context:
     
@@ -42,6 +43,7 @@ class ContextInfo:
         self.methods = {}
         self.parser = argh.ArghParser(prog='',add_help=False)
         funclist=[]
+        #suppress
         for funcinfo in inspect.getmembers(ctx, predicate=inspect.ismethod):
             func = getattr(ctx, funcinfo[0])
             try:
@@ -54,6 +56,14 @@ class ContextInfo:
                 pass
         if len(funclist) > 0:
             self.parser.add_commands(funclist)
+            # clean up the display of help
+            suppressHelp = True
+            if suppressHelp:
+                for subaction in self.parser._subparsers._actions:
+                    for funcparser in subaction.choices.values():
+                        for action in funcparser._get_optional_actions():
+                            if action.dest == 'help':
+                                action.help = argparse.SUPPRESS
         else:
             #print "no functions found in this context : %s" % (self.context.get_context_name()) 
             pass

@@ -167,6 +167,9 @@ ObjectStore::getObject(fds_volid_t volId,
         return NULL;
     }
 
+    /*
+     * TODO(umesh): uncomment this when reference counting is used.
+     *
     // If this Volume never put this object, then it should not access the object
     if (!objMeta->isVolumeAssociated(volId)) {
         err = ERR_NOT_FOUND;
@@ -174,6 +177,7 @@ ObjectStore::getObject(fds_volid_t volId,
                 << " to object " << objId << " returning " << err;
         return NULL;
     }
+    */
 
     // get object data
     boost::shared_ptr<const std::string> objData
@@ -314,8 +318,7 @@ ObjectStore::mod_init(SysParams const *const p) {
         new HashedLocks<ObjectID, ObjectHash>(taskSyncSize));
 
     metaStore = ObjectMetadataStore::unique_ptr(
-        new ObjectMetadataStore("SM Object Metadata Storage Module",
-                            fdsroot->dir_user_repo_objs()));
+        new ObjectMetadataStore("SM Object Metadata Storage Module"));
     if (numBitsPerToken > 0) {
         metaStore->setNumBitsPerToken(numBitsPerToken);
     }

@@ -16,6 +16,13 @@
 
 namespace fds {
 
+struct CopyDetails {
+    CopyDetails(const std::string & src, const std::string & dest)
+            : srcPath(src), destPath(dest) {}
+    const std::string srcPath;
+    const std::string destPath;
+};
+
 /**
  * Just use leveldb's slice. We should consider our
  * own class in the future.
@@ -93,7 +100,7 @@ class Catalog {
 
     bool DbEmpty();
     bool DbDelete();
-    fds::Error DbSnap(const std::string& _file);
+    fds::Error DbSnap(const std::string& fileName);
     fds::Error QuerySnap(const std::string& _file, const Record& key, std::string* value);
     fds::Error QueryNew(const std::string& _file, const Record& key, std::string* value);
 

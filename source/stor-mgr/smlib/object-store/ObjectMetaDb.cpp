@@ -9,8 +9,8 @@
 
 namespace fds {
 
-ObjectMetadataDb::ObjectMetadataDb(const std::string& dir)
-        : dir_(dir), bitsPerToken_(0) {
+ObjectMetadataDb::ObjectMetadataDb()
+        : bitsPerToken_(0) {
 }
 
 ObjectMetadataDb::~ObjectMetadataDb() {
@@ -40,7 +40,9 @@ osm::ObjectDB *ObjectMetadataDb::getObjectDB(fds_token_id tokId) {
     if (iter != tokenTbl.end()) return iter->second;
 
     // create leveldb
-    std::string filename = dir_ + "SNodeObjIndex_" + std::to_string(dbId);
+    std::string filename = std::string(diskio::gl_dataIOMod.disk_path(tokId, diskio::diskTier)) +
+            "//SNodeObjIndex_" + std::to_string(dbId);
+    //    std::string filename = dir_ + "SNodeObjIndex_" + std::to_string(dbId);
     objdb = new(std::nothrow) osm::ObjectDB(filename);
     if (!objdb) {
         LOGERROR << "Failed to create ObjectDB " << filename;
