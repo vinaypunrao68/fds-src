@@ -1375,6 +1375,7 @@ bool ConfigDB::listSnapshots(std::vector<fpi::Snapshot> & vecSnapshots, const in
 bool ConfigDB::getSnapshot(fpi::Snapshot& snapshot) {
     try {
         Reply reply = r.hget(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId); //NOLINT
+        if (reply.isNil()) return false;
         std::string value = reply.getString();
         fds::deserializeFdspMsg(value, snapshot);
     } catch(const RedisException& e) {
