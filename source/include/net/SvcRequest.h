@@ -203,6 +203,7 @@ struct SvcRequestIf {
     boost::shared_ptr<std::string> payloadBuf_;
     /* Completion cb */
     SvcRequestCompletionCb completionCb_;
+    int minor_version;
 };
 typedef boost::shared_ptr<SvcRequestIf> SvcRequestIfPtr;
 
@@ -243,6 +244,7 @@ struct EPSvcRequest : SvcRequestIf {
     fpi::SvcUuid getPeerEpId() const;
 
     void onResponseCb(EPSvcRequestRespCb cb);
+    inline void set_minor(int minor) { minor_version = minor; }
 
  protected:
     virtual void invokeWork_() override;

@@ -810,50 +810,6 @@ VolumeInfo::vol_fmt_message(om_vol_msg_t *out)
     }
 }
 
-// vol_send_message
-// ----------------
-//
-void
-VolumeInfo::vol_send_message(om_vol_msg_t *out, NodeAgent::pointer dest)
-{
-    fpi::FDSP_MsgHdrTypePtr  m_hdr;
-    NodeAgentCpReqClientPtr  clnt;
-
-    if (out->vol_msg_hdr == NULL) {
-        m_hdr = fpi::FDSP_MsgHdrTypePtr(new fpi::FDSP_MsgHdrType);
-        dest->init_msg_hdr(m_hdr);
-        m_hdr->msg_code       = out->vol_msg_code;
-        m_hdr->glob_volume_id = vol_properties->volUUID;
-    } else {
-        m_hdr = *(out->vol_msg_hdr);
-    }
-    clnt = OM_SmAgent::agt_cast_ptr(dest)->getCpClient(&m_hdr->session_uuid);
-    switch (out->vol_msg_code) {
-        case fpi::FDSP_MSG_DELETE_VOL:
-            clnt->NotifyRmVol(m_hdr, *out->u.vol_notif);
-            break;
-
-        case fpi::FDSP_MSG_MODIFY_VOL:
-            clnt->NotifyModVol(m_hdr, *out->u.vol_notif);
-            break;
-
-        case fpi::FDSP_MSG_CREATE_VOL:
-            clnt->NotifyAddVol(m_hdr, *out->u.vol_notif);
-            break;
-
-        case fpi::FDSP_MSG_ATTACH_VOL_CTRL:
-            clnt->AttachVol(m_hdr, *out->u.vol_attach);
-            break;
-
-        case fpi::FDSP_MSG_DETACH_VOL_CTRL:
-            clnt->DetachVol(m_hdr, *out->u.vol_attach);
-            break;
-
-        default:
-            fds_panic("Unknown volume request code");
-            break;
-    }
-}
 
 // vol_am_agent
 // ------------
@@ -1406,21 +1362,22 @@ VolumeContainer::om_detach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
 // --------------
 //
 void
-VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
-                                const FdspTestBucketPtr &req)
+VolumeContainer::om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
+                                const  fpi::FDSP_TestBucket *req)
 {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    std::string         &vname = req->bucket_name;
-    NodeUuid             n_uid(hdr->src_service_uuid.uuid);
+    std::string         vname = req->bucket_name;
+    NodeUuid             n_uid(hdr->msg_src_uuid.svc_uuid);
     VolumeInfo::pointer  vol;
     OM_AmAgent::pointer  am;
 
     LOGNOTIFY << "Received test bucket request " << vname
-              << "attach_vol_reqd " << req->attach_vol_reqd;
+              << "attach_vol_reqd " << req->attach_vol_reqd
+              << " from " << n_uid;
 
     am = local->om_am_agent(n_uid);
     if (am == NULL) {
-        LOGNOTIFY << "OM does not know about node " << hdr->src_node_name;
+        LOGNOTIFY << "OM does not know about node " << hdr->msg_src_uuid.svc_uuid;
     }
     vol = get_volume(req->bucket_name);
     if (vol == NULL || vol->isDeletePending()) {
@@ -1435,7 +1392,7 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
     } else if (req->attach_vol_reqd == false) {
         // Didn't request OM to attach this volume.
         LOGNOTIFY << "Bucket " << vname << " exists, notify node "
-                  << hdr->src_node_name;
+                  << hdr->msg_src_uuid.svc_uuid;
 
         if (am != NULL) {
             am->om_send_vol_cmd(vol, fpi::CtrlNotifyVolAddTypeId);
