@@ -83,3 +83,4 @@ source/am-engine/misc/am-urls.cpp
 source/tools/pharos/.DS_Store
 source/java/out/.DS_Store
 *.class
+source/unit-test/fds-probe/sm-embed/in.h
