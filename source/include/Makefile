@@ -16,6 +16,7 @@ user_build_dir := \
     shared \
     orch-mgr \
     util \
+    leveldb \
     cache
 
 user_hh        := $(wildcard *.h)
