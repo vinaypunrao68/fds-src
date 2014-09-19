@@ -171,6 +171,10 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
         public List<Long> listVolumesForSnapshotPolicy(long policyId) throws ApiException, org.apache.thrift.TException {
         return config.listVolumesForSnapshotPolicy( policyId );
     }
+
+    @Override
+        public void createSnapshot(long volumeId, String snapshotName, long retentionTime) throws ApiException, org.apache.thrift.TException {
+    }
     
     @Override
         public List<com.formationds.apis.Snapshot> listSnapshots(long volumeId) throws ApiException, org.apache.thrift.TException {
