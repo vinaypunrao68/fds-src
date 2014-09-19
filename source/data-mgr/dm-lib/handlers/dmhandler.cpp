@@ -30,7 +30,9 @@ void Handler::handleQueueItem(dmCatReq *dmRequest) {
 }
 
 void Handler::addToQueue(dmCatReq *dmRequest) {
-    Error err = dataMgr->qosCtrl->enqueueIO(dmRequest->getVolId(), dmRequest);
+    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmRequest->getVolId());
+    Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
+            voldesc->qosQueueId : dmRequest->getVolId(), dmRequest);
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request for volid:" << dmRequest->getVolId();
         dmRequest->cb(err, dmRequest);
