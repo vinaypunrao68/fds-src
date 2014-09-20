@@ -187,7 +187,14 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
-   
+
+    // check if this is a snapshot
+    if (shVol->voldesc->isSnapshot()) {
+        LOGWARN << "put on a snapshot is not allowed.";
+        shVol->readUnlock();
+        return FDSN_StatusErrorAccessDenied;
+    }
+
     // Generate a random transaction ID to use
     // Note: construction, generates a random ID
     BlobTxId txId(storHvisor->randNumGen->genNumSafe());
@@ -262,8 +269,8 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
     counters_.put_reqs.incr();
 
     fds::Error err(ERR_OK);
-    
-    // Pull out the blob request     
+
+    // Pull out the blob request
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
     ObjectID objId;
     bool fZeroSize = (blobReq->getDataLen() == 0);
@@ -274,6 +281,14 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
+
+    // check if this is a snapshot
+    if (shVol->voldesc->isSnapshot()) {
+        LOGWARN << "put on a snapshot is not allowed.";
+        shVol->readUnlock();
+        return FDSN_StatusErrorAccessDenied;
+    }
+
 
     // TODO(Andrew): Here we're turning the offset aligned
     // blobOffset back into an absolute blob offset (i.e.,
@@ -818,6 +833,13 @@ StorHvCtrl::deleteBlobSvc(fds::AmQosReq *qosReq)
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(vol_id);
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
+
+    // check if this is a snapshot
+    if (shVol->voldesc->isSnapshot()) {
+        LOGWARN << "delete blob on a snapshot is not allowed.";
+        shVol->readUnlock();
+        return FDSN_StatusErrorAccessDenied;
+    }
 
     // Send to the DM
     fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx); 
