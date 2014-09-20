@@ -10,7 +10,8 @@ import com.formationds.om.rest.*;
 import com.formationds.security.*;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
-import com.formationds.xdi.ConfigurationApi;
+import com.formationds.web.toolkit.*;
+import com.formationds.xdi.ConfigurationServiceCache;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.codec.binary.Hex;
@@ -21,7 +22,6 @@ import org.json.JSONObject;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.HttpServletResponse;
-import java.io.File;
 import java.util.function.Function;
 
 /*
