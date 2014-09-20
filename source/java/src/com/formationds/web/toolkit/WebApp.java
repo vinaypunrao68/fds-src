@@ -1,5 +1,6 @@
 package com.formationds.web.toolkit;
 
+import com.google.common.collect.Lists;
 import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -51,33 +52,6 @@ public class WebApp {
         start(httpConfiguration, null);
     }
 
-    public void _start(HttpConfiguration httpConfiguration, HttpsConfiguration httpsConfiguration) {
-        Server server = new Server();
-
-        ServerConnector connector = new ServerConnector(server);
-        connector.setPort(7779);
-
-        org.eclipse.jetty.server.HttpConfiguration https = new org.eclipse.jetty.server.HttpConfiguration();
-        https.addCustomizer(new SecureRequestCustomizer());
-
-        SslContextFactory sslContextFactory = new SslContextFactory();
-        sslContextFactory.setKeyStorePath("/home/fab/FDS/dev/source/config/etc/ssl/dev/keystore");
-        sslContextFactory.setKeyStorePassword("exotic sparrow");
-        sslContextFactory.setKeyManagerPassword("exotic sparrow");
-
-        ServerConnector sslConnector = new ServerConnector(server,
-                new SslConnectionFactory(sslContextFactory, "http/1.1"),
-                new HttpConnectionFactory(https));
-        sslConnector.setPort(7443);
-
-        server.setConnectors(new Connector[] { connector, sslConnector });
-        try {
-            server.start();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     public void start(HttpConfiguration httpConfiguration, HttpsConfiguration httpsConfiguration) {
         ThreadPool tp = new ExecutorThreadPool(new ForkJoinPool(250));
         Server server = new Server(tp);
@@ -85,22 +59,24 @@ public class WebApp {
         ServerConnector connector = new ServerConnector(server);
         connector.setPort(httpConfiguration.getPort());
         connector.setHost(httpConfiguration.getHost());
+        server.addConnector(connector);
 
-        org.eclipse.jetty.server.HttpConfiguration https = new org.eclipse.jetty.server.HttpConfiguration();
-        https.addCustomizer(new SecureRequestCustomizer());
+        if (httpsConfiguration != null) {
+            org.eclipse.jetty.server.HttpConfiguration https = new org.eclipse.jetty.server.HttpConfiguration();
+            https.addCustomizer(new SecureRequestCustomizer());
 
-        SslContextFactory sslContextFactory = new SslContextFactory();
-        sslContextFactory.setKeyStorePath(httpsConfiguration.getKeyStore().getAbsolutePath());
-        sslContextFactory.setKeyStorePassword(httpsConfiguration.getKeystorePassword());
-        sslContextFactory.setKeyManagerPassword(httpsConfiguration.getKeystorePassword());
+            SslContextFactory sslContextFactory = new SslContextFactory();
+            sslContextFactory.setKeyStorePath(httpsConfiguration.getKeyStore().getAbsolutePath());
+            sslContextFactory.setKeyStorePassword(httpsConfiguration.getKeystorePassword());
+            sslContextFactory.setKeyManagerPassword(httpsConfiguration.getKeystorePassword());
 
-        ServerConnector sslConnector = new ServerConnector(server,
-                new SslConnectionFactory(sslContextFactory, "http/1.1"),
-                new HttpConnectionFactory(https));
-        sslConnector.setPort(httpsConfiguration.getPort());
-        sslConnector.setHost(httpsConfiguration.getHost());
-
-        server.setConnectors(new Connector[] { connector, sslConnector });
+            ServerConnector sslConnector = new ServerConnector(server,
+                    new SslConnectionFactory(sslContextFactory, "http/1.1"),
+                    new HttpConnectionFactory(https));
+            sslConnector.setPort(httpsConfiguration.getPort());
+            sslConnector.setHost(httpsConfiguration.getHost());
+            server.addConnector(sslConnector);
+        }
 
         ServletContextHandler contextHandler = new ServletContextHandler();
         contextHandler.setContextPath("/");
