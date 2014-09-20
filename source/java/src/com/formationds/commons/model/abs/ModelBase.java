@@ -16,9 +16,9 @@
 
 package com.formationds.commons.model.abs;
 
+import com.formationds.commons.model.intr.Tagable;
 import com.formationds.commons.model.type.ManagerType;
 import com.formationds.commons.model.type.NodeState;
-import com.formationds.commons.model.intr.Tagable;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import javax.xml.bind.annotation.XmlRootElement;
@@ -27,67 +27,54 @@ import javax.xml.bind.annotation.XmlRootElement;
  * @author ptinius
  */
 @XmlRootElement
-public abstract class ModelBase
-  implements Tagable
-{
-  private static final long serialVersionUID = -1;
+public abstract class ModelBase implements Tagable {
+    private static final long serialVersionUID = -1;
 
-  /**
-   * @param field the {@link String} representing the field checking
-   *
-   * @return Returns {@code true} if {@code field} is set
-   */
-  protected boolean isSet( final String field )
-  {
-    return ( field != null );
-  }
+    /**
+     * @param field the {@link String} representing the field checking
+     * @return Returns {@code true} if {@code field} is set
+     */
+    protected boolean isSet(final String field) {
+        return (field != null);
+    }
 
-  /**
-   * @param field the {@code int} representing the field checking
-   *
-   * @return Returns {@code true} if {@code field} is set
-   */
-  protected boolean isSet( final int field )
-  {
-    return field != -1;
-  }
+    /**
+     * @param field the {@code int} representing the field checking
+     * @return Returns {@code true} if {@code field} is set
+     */
+    protected boolean isSet(final int field) {
+        return field != -1;
+    }
 
-  /**
-   * @param field the {@code long} representing the field checking
-   *
-   * @return Returns {@code true} if {@code field} is set
-   */
-  protected boolean isSet( final long field )
-  {
-    return field != -1L;
-  }
+    /**
+     * @param field the {@code long} representing the field checking
+     * @return Returns {@code true} if {@code field} is set
+     */
+    protected boolean isSet(final long field) {
+        return field != -1L;
+    }
 
-  /**
-   * @param field the {@link ManagerType} representing the field checking
-   *
-   * @return Returns {@code true} if {@code field} is set
-   */
-  protected boolean isSet( final ManagerType field )
-  {
-    return field != null;
-  }
+    /**
+     * @param field the {@link ManagerType} representing the field checking
+     * @return Returns {@code true} if {@code field} is set
+     */
+    protected boolean isSet(final ManagerType field) {
+        return field != null;
+    }
 
-  /**
-   * @param field the {@link NodeState} representing the field checking
-   *
-   * @return Returns {@code true} if {@code field} is set
-   */
-  protected boolean isSet( final NodeState field )
-  {
-    return field != null;
-  }
+    /**
+     * @param field the {@link NodeState} representing the field checking
+     * @return Returns {@code true} if {@code field} is set
+     */
+    protected boolean isSet(final NodeState field) {
+        return field != null;
+    }
 
-  /**
-   * @return Returns a {@link String} representing this object
-   */
-  @Override
-  public String toString()
-  {
-    return ToStringBuilder.reflectionToString( this );
-  }
+    /**
+     * @return Returns a {@link String} representing this object
+     */
+    @Override
+    public String toString() {
+        return ToStringBuilder.reflectionToString(this);
+    }
 }

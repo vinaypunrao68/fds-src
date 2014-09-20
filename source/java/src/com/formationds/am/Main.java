@@ -47,24 +47,24 @@ public class Main {
 
             AmService.Iface am = useFakeAm ? new FakeAmService() :
                     clientFactory.remoteAmService("localhost", 9988);
-                    //clientFactory.remoteAmService("localhost", 4242);
+            //clientFactory.remoteAmService("localhost", 4242);
 
-            ConfigurationServiceCache configCache = new ConfigurationServiceCache(clientFactory.remoteOmService(omHost, omConfigPort));
+            ConfigurationApi configCache = new ConfigurationApi(clientFactory.remoteOmService(omHost, omConfigPort));
             boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
-            Authenticator authenticator = enforceAuth? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
-            Authorizer authorizer = enforceAuth? new FdsAuthorizer(configCache) : new DumbAuthorizer();
+            Authenticator authenticator = enforceAuth ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
+            Authorizer authorizer = enforceAuth ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 
             int nbdPort = platformConfig.lookup("fds.am.nbd_server_port").intValue();
-            boolean nbdLoggingEnabled =  platformConfig.defaultBoolean("fds.am.enable_nbd_log", false);
+            boolean nbdLoggingEnabled = platformConfig.defaultBoolean("fds.am.enable_nbd_log", false);
             boolean nbdBlockExclusionEnabled = platformConfig.defaultBoolean("fds.am.enable_nbd_block_exclusion", true);
             ForkJoinPool fjp = new ForkJoinPool(50);
             NbdServerOperations ops = new FdsServerOperations(am, configCache, fjp);
-            if(nbdLoggingEnabled)
+            if (nbdLoggingEnabled)
                 ops = new LoggingOperationsWrapper(ops, "/fds/var/logs/nbd");
-            if(nbdBlockExclusionEnabled)
+            if (nbdBlockExclusionEnabled)
                 ops = new BlockExclusionWrapper(ops, 4096);
             NbdHost nbdHost = new NbdHost(nbdPort, ops);
-            
+
             new Thread(() -> nbdHost.run()).start();
 
             Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));

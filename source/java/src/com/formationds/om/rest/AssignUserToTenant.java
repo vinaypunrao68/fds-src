@@ -6,7 +6,7 @@ package com.formationds.om.rest;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.ConfigurationServiceCache;
+import com.formationds.xdi.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -14,10 +14,10 @@ import javax.crypto.SecretKey;
 import java.util.Map;
 
 public class AssignUserToTenant implements RequestHandler {
-    private ConfigurationServiceCache configCache;
+    private ConfigurationApi configCache;
     private SecretKey secretKey;
 
-    public AssignUserToTenant(ConfigurationServiceCache configCache, SecretKey secretKey) {
+    public AssignUserToTenant(ConfigurationApi configCache, SecretKey secretKey) {
         this.configCache = configCache;
         this.secretKey = secretKey;
     }

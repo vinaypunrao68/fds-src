@@ -9,7 +9,7 @@ import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.CachedConfiguration;
-import com.formationds.xdi.ConfigurationServiceCache;
+import com.formationds.xdi.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -17,10 +17,10 @@ import javax.crypto.SecretKey;
 import java.util.Map;
 
 public class ShowToken implements RequestHandler {
-    private ConfigurationServiceCache config;
+    private ConfigurationApi config;
     private SecretKey secretKey;
 
-    public ShowToken(ConfigurationServiceCache config, SecretKey secretKey) {
+    public ShowToken(ConfigurationApi config, SecretKey secretKey) {
         this.config = config;
         this.secretKey = secretKey;
     }

@@ -36,7 +36,7 @@ public class Snapshot
   /**
    * default constructor
    */
-  Snapshot()
+  public Snapshot()
   {
     super();
   }
