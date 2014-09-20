@@ -359,7 +359,7 @@ class VolumeContainer : public RsContainer
     virtual VolumeInfo::pointer get_volume(const std::string& vol_name);
     virtual Error om_create_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                                 const FdspCrtVolPtr           &creat_msg,
-                                fds_bool_t from_omcontrol_path);
+                                const boost::shared_ptr<fpi::AsyncHdr> &hdrz);
     virtual Error om_snap_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                               const FdspCrtVolPtr           &snap_msg);
     virtual Error om_delete_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,

@@ -19,6 +19,8 @@ using namespace std;
 using namespace fds;
 
 namespace fds {
+    extern const NodeUuid gl_OmUuid;
+    extern SvcRequestPool *gSvcRequestPool;
 
 OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
     this->om_client = omc;
@@ -391,21 +393,17 @@ int OMgrClient::pushPerfstatsToOM(const std::string& start_ts,
 				  const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list)
 {
   try {
-
-    FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-    initOMMsgHdr(msg_hdr);
-    FDSP_PerfstatsTypePtr perf_stats_msg(new FDSP_PerfstatsType);
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+    fpi::CtrlPerfStatsPtr pkt(new fpi::CtrlPerfStats());
+    FDSP_PerfstatsType * perf_stats_msg = & pkt->perfstats;
     perf_stats_msg->node_type = my_node_type;
     perf_stats_msg->start_timestamp = start_ts;
     perf_stats_msg->slot_len_sec = stat_slot_len;
     perf_stats_msg->vol_hist_list = hist_list;  
 
-    LOGDEBUG << "OMClient pushing perfstats to OM at "
-             << omIpStr << ":" << omConfigPort
-             << " start ts " << start_ts;
-
-    om_client_prx->NotifyPerfstats(msg_hdr, perf_stats_msg);
-
+    LOGDEBUG << "OMClient pushing perfstats to OM ";
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlPerfStats), pkt);
+    req->invoke();
   } catch (...) {
     LOGERROR << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
   }
@@ -420,8 +418,7 @@ int OMgrClient::testBucket(const std::string& bucket_name,
 			   const std::string& secretAccessKey)
 {
 
-    extern const NodeUuid gl_OmUuid;
-    extern SvcRequestPool *gSvcRequestPool;
+  try {
     auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
     fpi::CtrlTestBucketPtr pkt(new fpi::CtrlTestBucket());
     fpi::FDSP_TestBucket * test_buck_msg = & pkt->tbmsg;
@@ -433,24 +430,23 @@ int OMgrClient::testBucket(const std::string& bucket_name,
     req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlTestBucket), pkt);
     req->invoke();
     LOGNOTIFY << " sending test bucket request to OM " << bucket_name;
+  } catch (...) {
+    LOGERROR << "OMClient unable to push test bucket to OM. Check if OM is up and restart.";
+  }
     return 0;
 }
 
 int OMgrClient::pushGetBucketStatsToOM(fds_uint32_t req_cookie)
 {
   try {
-    FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-    initOMMsgHdr(msg_hdr);
-    msg_hdr->req_cookie = req_cookie;
-
-    FDSP_GetDomainStatsTypePtr get_stats_msg(new FDSP_GetDomainStatsType());
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+    fpi::CtrlGetBucketStatsPtr pkt(new fpi::CtrlGetBucketStats());
+    pkt->req_cookie = req_cookie;
+    FDSP_GetDomainStatsType * get_stats_msg = &pkt->gds;
     get_stats_msg->domain_id = 1; /* this is ignored in OM */
-
-    LOGNOTIFY << "OMClient sending get bucket stats request to OM at "
-                                                      << omIpStr << ":" << omConfigPort;
-
-
-    om_client_prx->GetDomainStats(msg_hdr, get_stats_msg);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetBucketStats), pkt);
+    req->invoke();
+    LOGNOTIFY << "OMClient sending get bucket stats request to OM ";
   }
   catch (...) {
     LOGERROR << "OMClient unable to send GetBucketStats request to OM. Check if OM is up and restart.";
@@ -463,10 +459,9 @@ int OMgrClient::pushGetBucketStatsToOM(fds_uint32_t req_cookie)
 int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& volInfo)
 {
   try {
-         FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-         initOMMsgHdr(msg_hdr);
-  
-         FDSP_CreateVolTypePtr volData(new FDSP_CreateVolType());
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+    fpi::CtrlCreateBucketPtr pkt(new fpi::CtrlCreateBucket());
+    FDSP_CreateVolType * volData = & pkt->cv;
 
          volData->vol_name = volInfo->vol_name;
          volData->vol_info.vol_name = volInfo->vol_name;
@@ -489,7 +484,9 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
          volData->vol_info.appWorkload = volInfo->appWorkload;
          volData->vol_info.mediaPolicy = volInfo->mediaPolicy;
 
-    	 om_client_prx->CreateBucket(msg_hdr, volData);
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlCreateBucket), pkt);
+        req->invoke();
+        LOGNOTIFY << "OMClient sending create bucket request to OM ";
   } catch (...) {
     LOGERROR << "OMClient unable to push  the create bucket request to OM. Check if OM is up and restart.";
     return -1;
@@ -503,17 +500,15 @@ int OMgrClient::pushModifyBucketToOM(const std::string& bucket_name,
 {
   try {
 
-    FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-    initOMMsgHdr(msg_hdr);
-    FDSP_ModifyVolTypePtr mod_vol_msg(new FDSP_ModifyVolType());
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+    fpi::CtrlModifyBucketPtr pkt(new fpi::CtrlModifyBucket());
+    FDSP_ModifyVolType * mod_vol_msg= &pkt->mv;
     mod_vol_msg->vol_name = bucket_name;
     mod_vol_msg->vol_uuid = 0; /* make sure that uuid is not checked, because we don't know it here */
     mod_vol_msg->vol_desc = *vol_desc;
-
-    LOGNOTIFY << "OMClient sending modify bucket request to OM at "
-                                                      << omIpStr << ":" << omConfigPort;
-
-    om_client_prx->ModifyBucket(msg_hdr, mod_vol_msg);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlModifyBucket), pkt);
+    req->invoke();
+    LOGNOTIFY << "OMClient sending modify bucket request to OM";
   }
   catch (...) {
     LOGERROR << "OMClient unable to send ModifyBucket request to OM. Check if OM is up and restart.";
@@ -526,14 +521,14 @@ int OMgrClient::pushModifyBucketToOM(const std::string& bucket_name,
 int OMgrClient::pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& volInfo)
 {
   try {
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-
- 	FDSP_DeleteVolTypePtr volData(new FDSP_DeleteVolType());
-   	volData->vol_name  = volInfo->vol_name;
-  	volData->domain_id = volInfo->domain_id;
-    	om_client_prx->DeleteBucket(msg_hdr, volData);
-
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+    fpi::CtrlDeleteBucketPtr pkt(new fpi::CtrlDeleteBucket());
+    FDSP_DeleteVolType* volData = & pkt->dv;
+    volData->vol_name  = volInfo->vol_name;
+    volData->domain_id = volInfo->domain_id;
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlDeleteBucket), pkt);
+    req->invoke();
+    LOGNOTIFY << "OMClient sending modify bucket request to OM";
   } catch (...) {
     LOGERROR << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
   }

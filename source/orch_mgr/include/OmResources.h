@@ -386,9 +386,10 @@ class OM_NodeContainer : public DomainContainer
     }
     inline Error om_create_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                                const FdspCrtVolPtr           &creat_msg,
-                               fds_bool_t from_omcontrol_path) {
-        return om_volumes->om_create_vol(hdr, creat_msg, from_omcontrol_path);
+                               const boost::shared_ptr<fpi::AsyncHdr> &hdrz) {
+        return om_volumes->om_create_vol(hdr, creat_msg, hdrz);
     }
+
     inline Error om_snap_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                              const FdspCrtVolPtr      &snap_msg) {
         return om_volumes->om_snap_vol(hdr, snap_msg);

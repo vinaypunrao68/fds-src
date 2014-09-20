@@ -126,8 +126,8 @@ class OrchMgr: public PlatformProcess {
                      const FdspModPolPtr& mod_pol_req);
     void NotifyQueueFull(const fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                         const fpi::FDSP_NotifyQueueStateTypePtr& queue_state_req);
-    void NotifyPerfstats(const fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
-                        const fpi::FDSP_PerfstatsTypePtr& perf_stats_msg);
+    void NotifyPerfstats(const boost::shared_ptr<fpi::AsyncHdr>& fdsp_msg,
+                        const fpi::FDSP_PerfstatsType  * perf_stats_msg);
     int ApplyTierPolicy(::fpi::tier_pol_time_unitPtr& policy);  // NOLINT
     int AuditTierPolicy(::fpi::tier_pol_auditPtr& audit);  // NOLINT
 

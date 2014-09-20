@@ -992,7 +992,7 @@ VolumeContainer::VolumeContainer() : RsContainer() {}
 Error
 VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
                                const FdspCrtVolPtr &creat_msg,
-                               fds_bool_t from_omcontrol_path)
+                               const boost::shared_ptr<fpi::AsyncHdr> &hdrc)
 {
     Error err(ERR_OK);
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
@@ -1059,10 +1059,10 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
     // If we are still waiting for vol create acks or waiting for rebalance to finish,
     // this event will be deferred until we received quorum of acks once notify vol
     // create is broadcasted
-    if (from_omcontrol_path) {
+    if (hdrc) {
         vol->vol_event(VolOpEvt(vol.get(),
                                 FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD,
-                                NodeUuid(hdr->src_service_uuid.uuid)));
+                                NodeUuid(hdrc->msg_src_uuid.svc_uuid)));
     }
 
     return err;

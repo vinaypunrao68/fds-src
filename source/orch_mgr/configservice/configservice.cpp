@@ -151,7 +151,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         convert::getFDSPCreateVolRequest(header, request,
                                          *domainName, *volumeName, *volumeSettings);
         request->vol_info.tennantId = *tenantId;
-        err = volContainer->om_create_vol(header, request, false);
+        err = volContainer->om_create_vol(header, request, nullptr);
         if (err != ERR_OK) apiException("error creating volume");
     }
 
