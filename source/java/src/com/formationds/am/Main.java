@@ -10,6 +10,8 @@ import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
+import com.formationds.web.toolkit.HttpConfiguration;
+import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.xdi.*;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
@@ -23,6 +25,7 @@ import org.eclipse.jetty.io.ByteBufferPool;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.File;
 import java.util.concurrent.ForkJoinPool;
 
 public class Main {
@@ -71,8 +74,13 @@ public class Main {
             ByteBufferPool bbp = new ArrayByteBufferPool();
             XdiAsync.Factory xdiAsync = new XdiAsync.Factory(authorizer, clientFactory.makeCsAsyncPool(omHost, omConfigPort), clientFactory.makeAmAsyncPool("localhost", 9988), bbp);
 
-            int s3Port = platformConfig.lookup("fds.am.s3_port").intValue();
-            new Thread(() -> new S3Endpoint(xdi, xdiAsync, secretKey).start(s3Port)).start();
+            int s3HttpPort = platformConfig.lookup("fds.am.s3_http_port").intValue();
+            int s3SslPort = platformConfig.lookup("fds.am.s3_https_port").intValue();
+
+            HttpConfiguration httpConfiguration = new HttpConfiguration(s3HttpPort, "0.0.0.0");
+            HttpsConfiguration httpsConfiguration = new HttpsConfiguration(s3SslPort, configuration);
+
+            new Thread(() -> new S3Endpoint(xdi, xdiAsync, secretKey, httpsConfiguration, httpConfiguration).start()).start();
 
             startStreamingServer(8999, configCache);
 
