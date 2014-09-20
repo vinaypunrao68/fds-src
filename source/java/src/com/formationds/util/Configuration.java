@@ -19,6 +19,10 @@ import java.util.Map;
 import java.util.Properties;
 
 public class Configuration {
+    public static final String KEYSTORE_PATH = "fds.ssl.keystore_path";
+    public static final String KEYSTORE_PASSWORD = "fds.ssl.keystore_password";
+    public static final String KEYMANAGER_PASSWORD = "fds.ssl.keymanager_password";
+
     Properties properties = new Properties();
     private File fdsRoot;
     private static final Map<String, String> LOGLEVELS = new HashMap<>();

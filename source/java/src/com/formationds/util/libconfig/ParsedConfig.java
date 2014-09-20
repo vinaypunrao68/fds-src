@@ -10,8 +10,10 @@ import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.tree.CommonTree;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -131,5 +133,10 @@ public class ParsedConfig {
         } catch (Exception e) {
             return defaultValue;
         }
+    }
+
+    public File getPath(String s, String relativeTo) {
+        String value = lookup(s).stringValue();
+        return Paths.get(relativeTo, value).toFile();
     }
 }

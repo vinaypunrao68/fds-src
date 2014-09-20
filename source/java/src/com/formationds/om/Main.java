@@ -12,10 +12,7 @@ import com.formationds.om.rest.snapshot.*;
 import com.formationds.security.*;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
-import com.formationds.web.toolkit.HttpMethod;
-import com.formationds.web.toolkit.JsonResource;
-import com.formationds.web.toolkit.RequestHandler;
-import com.formationds.web.toolkit.WebApp;
+import com.formationds.web.toolkit.*;
 import com.formationds.xdi.ConfigurationApi;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
@@ -27,6 +24,7 @@ import org.json.JSONObject;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.util.function.Function;
 
 /*
@@ -114,14 +112,16 @@ public class Main {
 
         new Thread(() -> {
             try {
-                new com.formationds.demo.Main().start(configuration.getDemoConfig());
+                //new com.formationds.demo.Main().start(configuration.getDemoConfig());
             } catch (Exception e) {
                 LOG.error("Couldn't start demo app", e);
             }
         }).start();
 
-        int adminWebappPort = platformConfig.lookup("fds.om.admin_webapp_port").intValue();
-        webApp.start(adminWebappPort);
+        int httpPort = platformConfig.lookup("fds.om.http_port").intValue();
+        int httpsPort = platformConfig.lookup("fds.om.https_port").intValue();
+
+        webApp.start(new HttpConfiguration(httpPort), new HttpsConfiguration(httpsPort, configuration));
     }
 
     private void fdsAdminOnly(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f, Authorizer authorizer) {
