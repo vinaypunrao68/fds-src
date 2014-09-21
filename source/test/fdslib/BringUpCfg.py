@@ -48,7 +48,7 @@ class FdsNodeConfig(FdsConfig):
     def nd_connect_rmt_agent(self, env):
         if 'fds_root' in self.nd_conf_dict:
             root = self.nd_conf_dict['fds_root']
-            self.nd_rmt_agent = inst.FdsRmtEnv(root, self.nd_verbose)
+            self.nd_rmt_agent = inst.FdsRmtEnv(root, self.nd_verbose, env.env_install)
 
             self.nd_rmt_agent.env_user     = env.env_user
             self.nd_rmt_agent.env_password = env.env_password
@@ -76,7 +76,9 @@ class FdsNodeConfig(FdsConfig):
 
         print "Installing FDS package to:", self.nd_host_name()
         pkg = inst.FdsPackage(self.nd_rmt_agent)
-        pkg.package_install(self.nd_rmt_agent, self.nd_local_env.get_pkg_tar())
+        status = pkg.package_install(self.nd_rmt_agent, self.nd_local_env.get_pkg_tar())
+
+        return status
 
     def nd_host_name(self):
         return '[' + self.nd_rmt_host + '] ' + self.nd_conf_dict['node-name']
@@ -533,7 +535,7 @@ class FdsConfigRun(object):
 
         self.rt_env = env
         if self.rt_env is None:
-            self.rt_env = inst.FdsEnv(opt.fds_root)
+            self.rt_env = inst.FdsEnv(opt.fds_root, opt.install)
 
         self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
         self.rt_obj.config_parse()

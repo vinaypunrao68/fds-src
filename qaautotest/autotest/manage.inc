@@ -875,7 +875,12 @@ function mgnt_right_suite_page() {
             // First update all the suites base on SuiteMod
             // First generate a list for each suite and push it into old list
             $oldSuiteItemList = array();
+<<<<<<< Updated upstream
             $dbResult = mysql_query("select * from auto_test_suites where auto_suite_name in $suiteNameString order by test_file, test_class, auto_suite_name");
+=======
+            # FDS: $dbResult = mysql_query("select * from auto_test_suites where auto_suite_name in $suiteNameString order by test_file, test_class, auto_suite_name");
+            $dbResult = mysql_query("select * from auto_test_suites where auto_suite_name in $suiteNameString order by seq");
+>>>>>>> Stashed changes
             if (!$dbResult) {
                 echo "Auto encounter database error<br>";
                 die('Invalid query: '.mysql_error());
@@ -909,9 +914,20 @@ function mgnt_right_suite_page() {
                     list ($workSuiteName, $workFileName, $workClassName) = split (",", $workItem);
                     $idQuery = mysql_query("select id from auto_test_case where File=\"{$workFileName}\" and Class=\"{$workClassName}\"");
                     $testID = mysql_fetch_assoc($idQuery);
+<<<<<<< Updated upstream
                     $addQuery = "insert into auto_test_suites ".
                         "(auto_suite_name, test_file, test_class, id) values ".
                         "(\"{$workSuiteName}\", \"{$workFileName}\", \"{$workClassName}\", {$testID['id']})";
+=======
+                    mysql_free_result($idQuery);
+                    $maxSeqQuery = mysql_query("select auto_suite_name, max(seq) as maxSeq from auto_test_suites group by auto_suite_name having auto_suite_name=\"{$workSuiteName}\"");
+                    $maxSeq = mysql_fetch_assoc($maxSeqQuery);
+                    mysql_free_result($maxSeqQuery);
+                    // FDS: Add column seq.
+                    $addQuery = "insert into auto_test_suites ".
+                        "(auto_suite_name, test_file, test_class, id, seq) values ".
+                        "(\"{$workSuiteName}\", \"{$workFileName}\", \"{$workClassName}\", {$testID['id']}, {$maxSeq['maxSeq']} + 1)";
+>>>>>>> Stashed changes
                     $dbResult = mysql_query($addQuery);
                     if (!$dbResult) {
                         die('Invalid query: '.mysql_error());
@@ -942,9 +958,22 @@ function mgnt_right_suite_page() {
                     $tQueryValue = mysql_fetch_assoc($idQuery);
                     if (empty ($tQueryValue)) {
                         // Suite don't have this test, lets add it
+<<<<<<< Updated upstream
                         $addQuery = "insert into auto_test_suites ".
                             "(auto_suite_name, test_file, test_class, id) values ".
                             "(\"{$adToSuite}\", \"{$adFile}\", \"{$adClass}\", {$testID['id']})";
+=======
+                        // FDS: Add column seq.
+                        $maxSeqQuery = mysql_query("select auto_suite_name, max(seq) as maxSeq from auto_test_suites group by auto_suite_name having auto_suite_name=\"{$adToSuite}\"");
+                        if (!$maxSeqQuery) {
+                            die('Invalid query: '.mysql_error());
+                        }
+                        $maxSeq = mysql_fetch_assoc($maxSeqQuery);
+                        mysql_free_result($maxSeqQuery);
+                        $addQuery = "insert into auto_test_suites ".
+                            "(auto_suite_name, test_file, test_class, id, seq) values ".
+                            "(\"{$adToSuite}\", \"{$adFile}\", \"{$adClass}\", {$testID['id']}, {$maxSeq['maxSeq']} + 1)";
+>>>>>>> Stashed changes
                         $dbResult = mysql_query($addQuery);
                         if (!$dbResult) {
                             die('Invalid query: '.mysql_error());
@@ -956,7 +985,11 @@ function mgnt_right_suite_page() {
             }
         }
         // Now print the suite(s)
+<<<<<<< Updated upstream
         $dbResult = mysql_query("select * from auto_test_suites where auto_suite_name in $suiteNameString order by test_file, test_class, auto_suite_name");
+=======
+        $dbResult = mysql_query("select * from auto_test_suites where auto_suite_name in $suiteNameString order by auto_suite_name, seq");
+>>>>>>> Stashed changes
         if (!$dbResult) {
             echo "Auto encounter database error<br>";
             die('Invalid query: '.mysql_error());

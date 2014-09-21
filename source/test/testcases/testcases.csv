@@ -1,0 +1,4 @@
+File Name,Test Class,Run Flag,Run as root,XFAIL Defect ID
+TestFDSModBringUp.py,TestDMBringUp,,0,
+TestFDSModBringUp.py,TestSMBringUp,,0,
+TestFDSPkgInst.py,TestFDSPkgInst,,0,

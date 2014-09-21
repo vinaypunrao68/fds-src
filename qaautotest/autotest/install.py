@@ -59,7 +59,12 @@ tables_list = {
 "  auto_suite_name varchar(100) NOT NULL default '',"
 "  test_file varchar(80) NOT NULL default '',"
 "  test_class varchar(80) NOT NULL default '',"
+<<<<<<< Updated upstream
 "  id int(11) NOT NULL default '0'"
+=======
+"  id int(11) NOT NULL default '0',"
+"  seq int(11) NOT NULL default '0'"
+>>>>>>> Stashed changes
 ") ENGINE=MyISAM DEFAULT CHARSET=latin1",
 
 "harness_list":"CREATE TABLE harness_list ("
