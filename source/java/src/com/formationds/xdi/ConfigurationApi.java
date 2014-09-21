@@ -183,13 +183,13 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
         return config.listVolumesForSnapshotPolicy(policyId);
     }
 
-  @Override
-  public void createSnapshot( long l, String s, long l2 )
-    throws ApiException, TException {
-      config.createSnapshot( l, s, l2 );
-  }
+    @Override
+    public void createSnapshot(long volumeId, String snapshotName, long retentionTime)
+            throws ApiException, TException {
+        config.createSnapshot(volumeId, snapshotName, retentionTime);
+    }
 
-  @Override
+    @Override
     public List<com.formationds.apis.Snapshot> listSnapshots(long volumeId) throws ApiException, org.apache.thrift.TException {
         return config.listSnapshots(volumeId);
     }
