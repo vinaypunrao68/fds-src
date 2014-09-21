@@ -22,17 +22,12 @@ FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads,
    dispatchAlgo = algo;
    qos_log = log;
    total_rate = 20000; //IOPS
-
-   stats = new PerfStats(prefix);
-   /* by default stats are disabled, each derived class can call
-   *  stats->enable() to enable the stats */
 }
 
 
 FDS_QoSControl::~FDS_QoSControl()  {
   //delete dispatcher;
   delete threadPool;
-  delete stats;
 }
 
 fds_uint32_t FDS_QoSControl::waitForWorkers() {
@@ -105,9 +100,6 @@ Error FDS_QoSControl::processIO(FDS_IOType *) {
 
 void FDS_QoSControl::registerOmClient(OMgrClient* om_client)
 {
-  if (stats) {
-    stats->registerOmClient(om_client);
-  }
 }
 
 }  // namespace fds

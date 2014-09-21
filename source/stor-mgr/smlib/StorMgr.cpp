@@ -1676,16 +1676,6 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
     err = writeObjectMetaData(opCtx, objId, objGetData.data.length(),
             disk_req->req_get_phy_loc(), true, from_tier, &vio);
 
-    // TODO(Anna) use our new perf counters for this
-    /*
-    if (to_tier == diskio::diskTier) {
-        perfStats->recordIO(flashToDisk, 0, diskio::diskTier, FDS_IO_WRITE);
-    } else {
-        fds_verify(to_tier == diskio::flashTier);
-        perfStats->recordIO(diskToFlash, 0, diskio::flashTier, FDS_IO_WRITE);
-    }
-    */
-
     LOGDEBUG << "relocateObject " << objId << " into the "
              << ((to_tier == diskio::diskTier) ? "disk" : "flash")
              << " tier";
