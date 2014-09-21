@@ -3,6 +3,9 @@ package com.formationds.web.toolkit;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.formationds.commons.model.Status;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -25,6 +28,15 @@ public class JsonResource implements Resource {
 
     public JsonResource(JSONObject o, int httpResponseCode) {
         init(o.toString(4), httpResponseCode);
+    }
+
+    public JsonResource(Status status) {
+        final ObjectMapper mapper = new ObjectMapper();
+        try {
+            this.s = mapper.writeValueAsString(status);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void init(String s, int httpResponseCode) {

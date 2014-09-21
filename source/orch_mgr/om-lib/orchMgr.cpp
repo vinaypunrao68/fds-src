@@ -320,8 +320,8 @@ void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
     }
 }
 
-void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                              const FDSP_PerfstatsTypePtr& perf_stats_msg)
+void OrchMgr::NotifyPerfstats(const boost::shared_ptr<fpi::AsyncHdr>& fdsp_msg,
+                              const FDSP_PerfstatsType *perf_stats_msg)
 {
     LOGNORMAL << "OM received perfstats from node of type: "
               << perf_stats_msg->node_type
@@ -340,8 +340,7 @@ void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
                                            perf_stats_msg->start_timestamp);
 
         for (uint i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
-            FDS_ProtocolInterface::FDSP_VolPerfHistType& vol_hist
-                    = (perf_stats_msg->vol_hist_list)[i];
+            auto vol_hist = (perf_stats_msg->vol_hist_list)[i];
             LOGNORMAL << "OM: received perfstat for vol " << vol_hist.vol_uuid;
             for (uint j = 0; j < (vol_hist.stat_list).size(); ++j) {
                 FDS_ProtocolInterface::FDSP_PerfStatType stat = (vol_hist.stat_list)[j];
@@ -359,8 +358,7 @@ void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
          * stats from AM but for now output debug msg to the log
          */
         for (uint i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
-            FDS_ProtocolInterface::FDSP_VolPerfHistType& vol_hist
-                    = (perf_stats_msg->vol_hist_list)[i];
+            auto vol_hist = (perf_stats_msg->vol_hist_list)[i];
             LOGNORMAL << "OM: received perfstat for vol " << vol_hist.vol_uuid;
             for (uint j = 0; j < (vol_hist.stat_list).size(); ++j) {
                 FDS_ProtocolInterface::FDSP_PerfStatType& stat = (vol_hist.stat_list)[j];

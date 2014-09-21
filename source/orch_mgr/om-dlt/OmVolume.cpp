@@ -343,7 +343,15 @@ VolumeFSM::VACT_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     VolumeInfo *vol = evt.vol_ptr;
     fds_verify(vol != NULL);
     LOGDEBUG << "VolumeFSM VACT_NotifCrt for volume " << vol->vol_get_name();
-    vol->vol_get_properties()->state = fpi::ResourceState::Loading;
+    VolumeDesc* volDesc= vol->vol_get_properties();
+    volDesc->state = fpi::ResourceState::Loading;
+
+    // TODO(prem): store state even for volume.
+    if (volDesc->isSnapshot()) {
+        gl_orch_mgr->getConfigDB()->setSnapshotState(volDesc->getSrcVolumeId(),
+                                                 volDesc->volUUID,
+                                                 volDesc->state);
+    }
     // we will wait for *all* SMs and DMs to return volume create ack
     // because otherwise we may allow volume and start IO before an SM or DM
     // sets up QoS queue/etc to handle IO from that volume.
@@ -387,7 +395,16 @@ void VolumeFSM::VACT_CrtDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 {
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM VACT_CrtDone";
     VolumeInfo* vol = evt.vol_ptr;
-    vol->vol_get_properties()->state = fpi::ResourceState::Active;
+    VolumeDesc* volDesc = vol->vol_get_properties();
+    volDesc->state = fpi::ResourceState::Active;
+
+    // TODO(prem): store state even for volume.
+    if (volDesc->isSnapshot()) {
+        gl_orch_mgr->getConfigDB()->setSnapshotState(volDesc->getSrcVolumeId(),
+                                                 volDesc->volUUID,
+                                                 volDesc->state);
+    }
+
     // nothing to do here -- unless we make cli async and we need to reply
     // TODO(anna) should we respond to create bucket from AM, or we still
     // going to attach the volume, so notify volume attach will be a response?
@@ -571,7 +588,16 @@ VolumeFSM::VACT_DelStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 {
     VolumeInfo* vol = evt.vol_ptr;
     LOGDEBUG << "VolumeFSM VACT_DelStart";
-    vol->vol_get_properties()->state = fpi::ResourceState::MarkedForDeletion;
+    VolumeDesc* volDesc = vol->vol_get_properties();
+    volDesc->state = fpi::ResourceState::MarkedForDeletion;
+
+    // TODO(prem): store state even for volume.
+    if (volDesc->isSnapshot()) {
+        gl_orch_mgr->getConfigDB()->setSnapshotState(volDesc->getSrcVolumeId(),
+                                                 volDesc->volUUID,
+                                                 volDesc->state);
+    }
+
     // start delete volume process
     fds_uint32_t detach_count = vol->vol_start_delete();
     if (detach_count > 0) {
@@ -652,7 +678,16 @@ void VolumeFSM::VACT_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeContainer::pointer volumes = local->om_vol_mgr();
     VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(volumes->rs_get_resource(evt.vol_uuid));
-    vol->vol_get_properties()->state = fpi::ResourceState::Deleted;
+    VolumeDesc* volDesc = vol->vol_get_properties();
+    volDesc->state = fpi::ResourceState::Deleted;
+
+    // TODO(prem): store state even for volume.
+    if (volDesc->isSnapshot()) {
+        gl_orch_mgr->getConfigDB()->setSnapshotState(volDesc->getSrcVolumeId(),
+                                                 volDesc->volUUID,
+                                                 volDesc->state);
+    }
+
     LOGDEBUG << "VolumeFSM VACT_DelDone";
     // TODO(anna) Send response to delete volume msg
 
@@ -810,50 +845,6 @@ VolumeInfo::vol_fmt_message(om_vol_msg_t *out)
     }
 }
 
-// vol_send_message
-// ----------------
-//
-void
-VolumeInfo::vol_send_message(om_vol_msg_t *out, NodeAgent::pointer dest)
-{
-    fpi::FDSP_MsgHdrTypePtr  m_hdr;
-    NodeAgentCpReqClientPtr  clnt;
-
-    if (out->vol_msg_hdr == NULL) {
-        m_hdr = fpi::FDSP_MsgHdrTypePtr(new fpi::FDSP_MsgHdrType);
-        dest->init_msg_hdr(m_hdr);
-        m_hdr->msg_code       = out->vol_msg_code;
-        m_hdr->glob_volume_id = vol_properties->volUUID;
-    } else {
-        m_hdr = *(out->vol_msg_hdr);
-    }
-    clnt = OM_SmAgent::agt_cast_ptr(dest)->getCpClient(&m_hdr->session_uuid);
-    switch (out->vol_msg_code) {
-        case fpi::FDSP_MSG_DELETE_VOL:
-            clnt->NotifyRmVol(m_hdr, *out->u.vol_notif);
-            break;
-
-        case fpi::FDSP_MSG_MODIFY_VOL:
-            clnt->NotifyModVol(m_hdr, *out->u.vol_notif);
-            break;
-
-        case fpi::FDSP_MSG_CREATE_VOL:
-            clnt->NotifyAddVol(m_hdr, *out->u.vol_notif);
-            break;
-
-        case fpi::FDSP_MSG_ATTACH_VOL_CTRL:
-            clnt->AttachVol(m_hdr, *out->u.vol_attach);
-            break;
-
-        case fpi::FDSP_MSG_DETACH_VOL_CTRL:
-            clnt->DetachVol(m_hdr, *out->u.vol_attach);
-            break;
-
-        default:
-            fds_panic("Unknown volume request code");
-            break;
-    }
-}
 
 // vol_am_agent
 // ------------
@@ -1036,7 +1027,7 @@ VolumeContainer::VolumeContainer() : RsContainer() {}
 Error
 VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
                                const FdspCrtVolPtr &creat_msg,
-                               fds_bool_t from_omcontrol_path)
+                               const boost::shared_ptr<fpi::AsyncHdr> &hdrc)
 {
     Error err(ERR_OK);
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
@@ -1103,10 +1094,10 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
     // If we are still waiting for vol create acks or waiting for rebalance to finish,
     // this event will be deferred until we received quorum of acks once notify vol
     // create is broadcasted
-    if (from_omcontrol_path) {
+    if (hdrc) {
         vol->vol_event(VolOpEvt(vol.get(),
                                 FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD,
-                                NodeUuid(hdr->src_service_uuid.uuid)));
+                                NodeUuid(hdrc->msg_src_uuid.svc_uuid)));
     }
 
     return err;
@@ -1186,13 +1177,17 @@ VolumeContainer::om_cleanup_vol(const ResourceUUID& vol_uuid)
 {
     VolumeInfo::pointer  vol = VolumeInfo::vol_cast_ptr(rs_get_resource(vol_uuid));
     fds_verify(vol != NULL);
-    rs_unregister(vol);
-    rs_free_resource(vol);
-
+    VolumeDesc* volDesc = vol->vol_get_properties();
     // remove the volume from configDB
-    if (!gl_orch_mgr->getConfigDB()->deleteVolume(vol_uuid.uuid_get_val())) {
+    if (volDesc->isSnapshot()) {
+        gl_orch_mgr->getConfigDB()->deleteSnapshot(volDesc->getSrcVolumeId(),
+                                                 volDesc->volUUID);
+    } else if (!gl_orch_mgr->getConfigDB()->deleteVolume(vol_uuid.uuid_get_val())) {
         LOGWARN << "unable to delete volume from config db " << vol_uuid;
     }
+
+    rs_unregister(vol);
+    rs_free_resource(vol);
 }
 
 
@@ -1406,21 +1401,22 @@ VolumeContainer::om_detach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
 // --------------
 //
 void
-VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
-                                const FdspTestBucketPtr &req)
+VolumeContainer::om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
+                                const  fpi::FDSP_TestBucket *req)
 {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    std::string         &vname = req->bucket_name;
-    NodeUuid             n_uid(hdr->src_service_uuid.uuid);
+    std::string         vname = req->bucket_name;
+    NodeUuid             n_uid(hdr->msg_src_uuid.svc_uuid);
     VolumeInfo::pointer  vol;
     OM_AmAgent::pointer  am;
 
     LOGNOTIFY << "Received test bucket request " << vname
-              << "attach_vol_reqd " << req->attach_vol_reqd;
+              << "attach_vol_reqd " << req->attach_vol_reqd
+              << " from " << n_uid;
 
     am = local->om_am_agent(n_uid);
     if (am == NULL) {
-        LOGNOTIFY << "OM does not know about node " << hdr->src_node_name;
+        LOGNOTIFY << "OM does not know about node " << hdr->msg_src_uuid.svc_uuid;
     }
     vol = get_volume(req->bucket_name);
     if (vol == NULL || vol->isDeletePending()) {
@@ -1435,7 +1431,7 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
     } else if (req->attach_vol_reqd == false) {
         // Didn't request OM to attach this volume.
         LOGNOTIFY << "Bucket " << vname << " exists, notify node "
-                  << hdr->src_node_name;
+                  << hdr->msg_src_uuid.svc_uuid;
 
         if (am != NULL) {
             am->om_send_vol_cmd(vol, fpi::CtrlNotifyVolAddTypeId);
@@ -1699,6 +1695,9 @@ Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
         rs_free_resource(vol);
         return err;
     }
+
+    // store it in the configDB
+    gl_orch_mgr->getConfigDB()->createSnapshot(const_cast<fpi::Snapshot&>(snapshot));
 
     rs_register(vol);
 

@@ -163,7 +163,6 @@ class VolumeInfo : public Resource
     void vol_mk_description(const fpi::FDSP_VolumeInfoType &info);
     void vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const;
     void vol_fmt_message(om_vol_msg_t *out);
-    void vol_send_message(om_vol_msg_t *out, NodeAgent::pointer dest);
 
     void setDescription(const VolumeDesc &desc);
     Error vol_attach_node(const NodeUuid &node_uuid);
@@ -360,7 +359,7 @@ class VolumeContainer : public RsContainer
     virtual VolumeInfo::pointer get_volume(const std::string& vol_name);
     virtual Error om_create_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                                 const FdspCrtVolPtr           &creat_msg,
-                                fds_bool_t from_omcontrol_path);
+                                const boost::shared_ptr<fpi::AsyncHdr> &hdrz);
     virtual Error om_snap_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                               const FdspCrtVolPtr           &snap_msg);
     virtual Error om_delete_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
@@ -371,8 +370,8 @@ class VolumeContainer : public RsContainer
                                 const FdspAttVolCmdPtr        &attach);
     virtual Error om_detach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                                 const FdspAttVolCmdPtr        &detach);
-    virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
-                                const FdspTestBucketPtr &req);
+    virtual void om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
+                                const fpi::FDSP_TestBucket * req);
     void om_vol_cmd_resp(VolumeInfo::pointer vol,
         fpi::FDSPMsgTypeId cmd_type, const Error & error, NodeUuid from_svc);
 

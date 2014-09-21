@@ -39,7 +39,18 @@ class SvcRequestPool {
     SvcRequestPool();
     ~SvcRequestPool();
 
-    EPSvcRequestPtr newEPSvcRequest(const fpi::SvcUuid &peerEpId);
+    EPSvcRequestPtr newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version);
+    inline EPSvcRequestPtr newEPSvcRequest(const fpi::SvcUuid &peerEpId) {
+        extern const NodeUuid gl_OmUuid;
+        if (peerEpId.svc_uuid == (int64_t)gl_OmUuid.uuid_get_val()) {
+            //  this is hack as doing incremental work with both old and new channels
+            //  retrace back when finish the work
+            //  XXX todo(liwu)
+            return newEPSvcRequest(peerEpId, 1);
+        } else {
+            return newEPSvcRequest(peerEpId, 0);
+        }
+    }
     FailoverSvcRequestPtr newFailoverSvcRequest(const EpIdProviderPtr epProvider);
     QuorumSvcRequestPtr newQuorumSvcRequest(const EpIdProviderPtr epProvider);
 

@@ -1,8 +1,8 @@
-angular.module('templates-main', ['scripts/account/account.html', 'scripts/activity/activity.html', 'scripts/admin/admin.html', 'scripts/admin/firebreak/firebreak.html', 'scripts/admin/profile/profile.html', 'scripts/directives/angular-fui/fui-checkbox/fui-checkbox.html', 'scripts/directives/angular-fui/fui-dropdown/fui-dropdown.html', 'scripts/directives/angular-fui/fui-slider/fui-slider.html', 'scripts/directives/widgets/linkbuttons/linkbuttons.html', 'scripts/directives/widgets/navitem/navitem.html', 'scripts/directives/widgets/priorityslider/priorityslider.html', 'scripts/directives/widgets/spinner/spinner.html', 'scripts/directives/widgets/variableslider/variableslider.html', 'scripts/inbox/inbox.html', 'scripts/main/main.html', 'scripts/status/status.html', 'scripts/system/addnode/addnode.html', 'scripts/system/system.html', 'scripts/users/users.html', 'scripts/users/users.tpl.html', 'scripts/volumes/create/nameType.html', 'scripts/volumes/create/qualityOfService.html', 'scripts/volumes/create/volumeCreate.html', 'scripts/volumes/volumes.html']);
+angular.module('templates-main', ['scripts/account/account.html', 'scripts/activity/activity.html', 'scripts/admin/admin.html', 'scripts/admin/firebreak/firebreak.html', 'scripts/admin/profile/profile.html', 'scripts/directives/angular-fui/fui-checkbox/fui-checkbox.html', 'scripts/directives/angular-fui/fui-dropdown/fui-dropdown.html', 'scripts/directives/angular-fui/fui-input/fui-input.html', 'scripts/directives/angular-fui/fui-slider/fui-slider.html', 'scripts/directives/charts/treemap/treemap.html', 'scripts/directives/widgets/linkbuttons/linkbuttons.html', 'scripts/directives/widgets/navitem/navitem.html', 'scripts/directives/widgets/priorityslider/priorityslider.html', 'scripts/directives/widgets/spinner/spinner.html', 'scripts/directives/widgets/statustile/statusTile.html', 'scripts/directives/widgets/tristatecheck/tristatecheck.html', 'scripts/directives/widgets/variableslider/variableslider.html', 'scripts/inbox/inbox.html', 'scripts/main/main.html', 'scripts/status/status.html', 'scripts/system/addnode/addnode.html', 'scripts/system/system.html', 'scripts/tenants/create/createTenant.html', 'scripts/tenants/tenants.html', 'scripts/users/users.html', 'scripts/users/users.tpl.html', 'scripts/volumes/create/nameType.html', 'scripts/volumes/create/qualityOfService.html', 'scripts/volumes/create/snapshotPolicy.html', 'scripts/volumes/create/volumeCreate.html', 'scripts/volumes/view/viewVolume.html', 'scripts/volumes/volumes.html']);
 
 angular.module("scripts/account/account.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/account/account.html",
-    "<div ng-controller=\"accountController\">\n" +
+    "<div ng-controller=\"accountController\" class=\"account-page\">\n" +
     "\n" +
     "    <div class=\"header top-label\">\n" +
     "        <span>Account Details</span>\n" +
@@ -66,18 +66,21 @@ angular.module("scripts/account/account.html", []).run(["$templateCache", functi
     "            <span class=\"header\">Password</span>\n" +
     "        </div>\n" +
     "\n" +
-    "        <div ng-show=\"!password_changing\">\n" +
+    "        <div class=\"change-password-summary\" ng-show=\"!password_changing\">\n" +
     "            <span class=\"detail-value\">********************</span>\n" +
-    "            <a ng-click=\"password_changing=true;\">Change Password</a>\n" +
+    "            <a ng-click=\"password_changing=true;\" class=\"change-password\">Change Password</a>\n" +
     "        </div>\n" +
     "\n" +
     "        <div ng-show=\"password_changing\">\n" +
-    "            <input type=\"password\" class=\"form-control skinny\" ng-model=\"password\" size=\"32\" placeholder=\"Old Password\" style=\"margin-bottom: 8px;width: 300px;\"/>\n" +
-    "            <input type=\"password\" class=\"form-control skinny\" ng-model=\"confirmPassword\" size=\"32\" placeholder=\"Confirm Password\" style=\"margin-bottom: 8px;width: 300px;\"/>\n" +
+    "<!--            <input type=\"password\" class=\"form-control skinny\" ng-model=\"password\" size=\"32\" placeholder=\"Old Password\" style=\"margin-bottom: 8px;width: 300px;\"/>-->\n" +
     "            <input type=\"password\" class=\"form-control skinny\" ng-model=\"newPassword\" size=\"32\" placeholder=\"New Password\" style=\"margin-bottom: 8px;width: 300px;\"/>\n" +
+    "            <input type=\"password\" class=\"form-control skinny\" ng-model=\"confirmPassword\" size=\"32\" placeholder=\"Confirm Password\" style=\"margin-bottom: 8px;width: 300px;\"/>\n" +
+    "            <div class=\"error\" ng-show=\"changePasswordError !== false\">\n" +
+    "                {{ changePasswordError }}\n" +
+    "            </div>\n" +
     "            <div style=\"display: flex;padding-top: 12px;\" ng-show=\"password_changing\" class=\"std-transition\">\n" +
-    "                <button class=\"btn btn-primary\" style=\"margin-right: 4px;\" ng-click=\"password_changing = false;\">Save</button>\n" +
-    "                <button class=\"btn btn-secondary\" ng-click=\"password_changing = false;\">Cancel</button>\n" +
+    "                <button class=\"btn btn-primary save-password\" style=\"margin-right: 4px;\" ng-click=\"changePassword()\">Save</button>\n" +
+    "                <button class=\"btn btn-secondary cancel-password-change\" ng-click=\"password_changing = false;\">Cancel</button>\n" +
     "            </div>\n" +
     "        </div>\n" +
     "\n" +
@@ -90,6 +93,13 @@ angular.module("scripts/activity/activity.html", []).run(["$templateCache", func
   $templateCache.put("scripts/activity/activity.html",
     "<div ng-controller=\"activityController\">\n" +
     "\n" +
+    "    <div class=\"coming-soon-parent\" ng-show=\"!isAllowed( 'System Management' )\">\n" +
+    "        <div class=\"coming-soon-child\">\n" +
+    "            <div style=\"\">\n" +
+    "                <span style=\"color: white;\">Coming soon...</span>\n" +
+    "            </div>\n" +
+    "        </div>\n" +
+    "    </div>\n" +
     "\n" +
     "    <div class=\"header top-label\">\n" +
     "        <span>System Activity</span>\n" +
@@ -338,11 +348,11 @@ angular.module("scripts/admin/profile/profile.html", []).run(["$templateCache", 
 angular.module("scripts/directives/angular-fui/fui-checkbox/fui-checkbox.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/directives/angular-fui/fui-checkbox/fui-checkbox.html",
     "<label class=\"checkbox\" ng-class=\"{checked: checked,unchecked: !checked}\" for=\"fuiCheck\">\n" +
+    "    <input type=\"checkbox\" value=\"\" id=\"fuiCheck\" class=\"custom-checkbox\" />\n" +
     "    <span class=\"icons\">\n" +
-    "        <span class=\"first-icon fui-checkbox-unchecked\"></span>\n" +
-    "        <span class=\"second-icon fui-checkbox-checked\" ng-click=\"checked = !checked;\"></span>\n" +
+    "        <span class=\"fui-checkbox-unchecked icon-unchecked\"></span>\n" +
+    "        <span class=\"fui-checkbox-checked icon-checked\" ng-click=\"checked = !checked;\"></span>\n" +
     "    </span>\n" +
-    "    <input type=\"checkbox\" value=\"\" id=\"fuiCheck\" />\n" +
     "    {{label}}\n" +
     "</label>\n" +
     "");
@@ -368,6 +378,15 @@ angular.module("scripts/directives/angular-fui/fui-dropdown/fui-dropdown.html", 
     "");
 }]);
 
+angular.module("scripts/directives/angular-fui/fui-input/fui-input.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("scripts/directives/angular-fui/fui-input/fui-input.html",
+    "<div class=\"fui-input form-group\">\n" +
+    "    <input ng-model=\"aliasedModel\" type=\"{{type}}\" placeholder=\"{{placeholder}}\" autofocus autocomplete=\"off\" autocapitalize=\"off\">\n" +
+    "    <label class=\"{{iconClass}} input-icon\"></label>\n" +
+    "</div>\n" +
+    "");
+}]);
+
 angular.module("scripts/directives/angular-fui/fui-slider/fui-slider.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/directives/angular-fui/fui-slider/fui-slider.html",
     "<div class=\"ui-slider ui-slider-horizontal ui-widget ui-widget-content ui-corner-all\" ng-click=\"adjustSlider( getClickX( $event ) )\">\n" +
@@ -379,6 +398,14 @@ angular.module("scripts/directives/angular-fui/fui-slider/fui-slider.html", []).
     "        <span class=\"pull-left light-print\">{{minLabel}}</span>\n" +
     "        <span class=\"pull-right light-print\">{{maxLabel}}</span>\n" +
     "    </div>\n" +
+    "</div>\n" +
+    "");
+}]);
+
+angular.module("scripts/directives/charts/treemap/treemap.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("scripts/directives/charts/treemap/treemap.html",
+    "<div style=\"width: 100%;height: 100%;position: relative;\" class=\"chart\">\n" +
+    "    CHART!\n" +
     "</div>\n" +
     "");
 }]);
@@ -451,6 +478,34 @@ angular.module("scripts/directives/widgets/spinner/spinner.html", []).run(["$tem
     "");
 }]);
 
+angular.module("scripts/directives/widgets/statustile/statusTile.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("scripts/directives/widgets/statustile/statusTile.html",
+    "<div class=\"tile\">\n" +
+    "    <div class=\"tile-title\">{{title}}</div>\n" +
+    "    <div class=\"tile-content\" ng-transclude></div>\n" +
+    "    <div class=\"tile-status-bar\">\n" +
+    "        <div class=\"pull-left main-number\">20</div>\n" +
+    "        <div class=\"pull-left decimals\">.33%</div>\n" +
+    "        <div class=\"pull-left tile-description\">Description</div>\n" +
+    "\n" +
+    "        <div class=\"notification-parent\">\n" +
+    "            <div class=\"pull-right notifications\">5</div>\n" +
+    "        </div>\n" +
+    "    </div>\n" +
+    "</div>\n" +
+    "");
+}]);
+
+angular.module("scripts/directives/widgets/tristatecheck/tristatecheck.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("scripts/directives/widgets/tristatecheck/tristatecheck.html",
+    "<div class=\"tristatecheck\" style=\"position: relative;border: solid 1px gray;width: 12px;height: 12px;cursor: pointer;font-size: 1em;line-height: 9px;\">\n" +
+    "    <div class=\"fui-check checked\" ng-show=\"checkState === true\" ng-click=\"uncheck()\"></div>\n" +
+    "    <div class=\"partial\" ng-show=\"checkState === 'partial'\" ng-click=\"uncheck()\"></div>\n" +
+    "    <div class=\"unchecked\" ng-click=\"check()\" ng-show=\"checkState === false || !checkState\"></div>\n" +
+    "</div>\n" +
+    "");
+}]);
+
 angular.module("scripts/directives/widgets/variableslider/variableslider.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/directives/widgets/variableslider/variableslider.html",
     "<div class=\"slider base\">\n" +
@@ -473,6 +528,14 @@ angular.module("scripts/directives/widgets/variableslider/variableslider.html", 
 angular.module("scripts/inbox/inbox.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/inbox/inbox.html",
     "<div ng-controller=\"inboxController\">\n" +
+    "\n" +
+    "    <div class=\"coming-soon-parent\" ng-show=\"!isAllowed( 'System Management' )\">\n" +
+    "        <div class=\"coming-soon-child\">\n" +
+    "            <div style=\"\">\n" +
+    "                <span style=\"color: white;\">Coming soon...</span>\n" +
+    "            </div>\n" +
+    "        </div>\n" +
+    "    </div>\n" +
     "\n" +
     "    <div class=\"header top-label\">\n" +
     "        <div style=\"position:relative;\">\n" +
@@ -506,6 +569,7 @@ angular.module("scripts/inbox/inbox.html", []).run(["$templateCache", function($
 angular.module("scripts/main/main.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/main/main.html",
     "<div ng-controller=\"mainController\" class=\"main\">\n" +
+    "\n" +
     "    <div class=\"login\" ng-show=\"!validAuth\">\n" +
     "\n" +
     "        <div class=\"login-container\">\n" +
@@ -517,15 +581,20 @@ angular.module("scripts/main/main.html", []).run(["$templateCache", function($te
     "                </div>\n" +
     "-->\n" +
     "\n" +
+    "<!--\n" +
     "                <div class=\"form-group\">\n" +
     "                    <input type=\"text\" class=\"form-control\" name=\"username\" autofocus autocomplete=\"off\" autocapitalize=\"off\" ng-model=\"username\" placeholder=\"Email\"/>\n" +
-    "                    <span class=\"input-icon fui-mail\"></span>\n" +
+    "                    <label class=\"login-field-icon fui-mail\"></span>\n" +
     "                </div>\n" +
+    "-->\n" +
+    "                <fui-input name=\"username\" placeholder=\"Email\" ng-model=\"username\" icon-class=\"fui-mail\"></fui-input>\n" +
+    "<!--\n" +
     "                <div class=\"form-group\">\n" +
     "                    <input type=\"password\" class=\"form-control\" name=\"password\" autocomplete=\"off\" ng-model=\"password\" placeholder=\"Password\" ng-keyup=\"keyEntered( $event );\">\n" +
     "                    <span class=\"input-icon fui-lock\"></span>\n" +
     "                </div>\n" +
-    "\n" +
+    "-->\n" +
+    "                <fui-input name=\"password\" placeholder=\"Password\" type=\"password\" ng-model=\"password\" icon-class=\"fui-lock\"></fui-input>\n" +
     "                <div class=\"checkbox-parent\">\n" +
     "                    <fui-checkbox label=\"Remember me\" checked=\"rememberChecked\"></fui-checkbox>\n" +
     "                </div>\n" +
@@ -543,6 +612,7 @@ angular.module("scripts/main/main.html", []).run(["$templateCache", function($te
     "                <div class=\"lost-password\">\n" +
     "                    Lost your password?\n" +
     "                </div>\n" +
+    "\n" +
     "            </form>\n" +
     "        </div>\n" +
     "    </div>\n" +
@@ -580,12 +650,21 @@ angular.module("scripts/main/main.html", []).run(["$templateCache", function($te
 
 angular.module("scripts/status/status.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/status/status.html",
-    "<div ng-controller=\"statusController\">\n" +
+    "<div ng-controller=\"statusController\" style=\"position: relative;\">\n" +
+    "\n" +
+    "    <div class=\"coming-soon-parent\" ng-show=\"!isAllowed( 'System Management' )\">\n" +
+    "        <div class=\"coming-soon-child\">\n" +
+    "            <div style=\"\">\n" +
+    "                <span style=\"color: white;\">Coming soon...</span>\n" +
+    "            </div>\n" +
+    "        </div>\n" +
+    "    </div>\n" +
     "\n" +
     "    <div class=\"tile-container\">\n" +
     "        <div class=\"tile-pair\">\n" +
     "            <div class=\"tile-parent\">\n" +
     "                <div class=\"system-tile tile\"></div>\n" +
+    "\n" +
     "            </div>\n" +
     "            <div class=\"tile-parent\">\n" +
     "                <div class=\"capacity-tile tile\"></div>\n" +
@@ -597,6 +676,11 @@ angular.module("scripts/status/status.html", []).run(["$templateCache", function
     "            </div>\n" +
     "            <div class=\"tile-parent\">\n" +
     "                <div class=\"firebreak-tile tile\"></div>\n" +
+    "<!--\n" +
+    "                <status-tile title=\"Firebreak\">\n" +
+    "                    <treemap data=\"firebreakStats\" max=\"firebreakMax\"></treemap>\n" +
+    "                </status-tile>\n" +
+    "-->\n" +
     "            </div>\n" +
     "        </div>\n" +
     "    </div>\n" +
@@ -624,7 +708,7 @@ angular.module("scripts/status/status.html", []).run(["$templateCache", function
 
 angular.module("scripts/system/addnode/addnode.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/system/addnode/addnode.html",
-    "<div class=\"dialog-page\" ng-class=\"{shown: creating, hideit: !creating}\" ng-controller=\"addNodeController\">\n" +
+    "<div class=\"dialog-page\" ng-class=\"{shown: addingnode, hideit: !addingnode}\" ng-controller=\"addNodeController\">\n" +
     "\n" +
     "    <div class=\"modal-header\">\n" +
     "        <span>Add Node</span>\n" +
@@ -638,9 +722,10 @@ angular.module("scripts/system/addnode/addnode.html", []).run(["$templateCache",
     "            <th>Local Domain</th>\n" +
     "        </thead>\n" +
     "        <tbody>\n" +
-    "            <tr ng-repeat=\"detachedNode in detachedNodes\">\n" +
+    "            <tr class=\"no-border\" ng-repeat-start=\"detachedNode in detachedNodes\">\n" +
     "                <td width=\"32\">\n" +
-    "                    <fui-checkbox checked=\"detachedNode.addall\"></fui-checkbox>\n" +
+    "<!--                    <fui-checkbox checked=\"detachedNode.addall\"></fui-checkbox>-->\n" +
+    "                    <tri-state-check check-state=\"detachedNode.addAll\" ng-click=\"parentStateChanged( detachedNode )\"></tri-state-checkbox>\n" +
     "                </td>\n" +
     "                <td>\n" +
     "                    {{detachedNode.node_name}}\n" +
@@ -650,6 +735,22 @@ angular.module("scripts/system/addnode/addnode.html", []).run(["$templateCache",
     "                </td>\n" +
     "                <td>\n" +
     "                    {{detachedNode.local_domain}}\n" +
+    "                </td>\n" +
+    "            </tr>\n" +
+    "            <tr ng-repeat-end class=\"node-sub-services\">\n" +
+    "                <td colspan=\"4\">\n" +
+    "                    <div class=\"clear-fix\">\n" +
+    "                        <tri-state-check class=\"pull-left\" check-state=\"detachedNode.am\" ng-click=\"serviceStateChanged( detachedNode )\"></tri-state-check>\n" +
+    "                        <span>Access Manager</span>\n" +
+    "                    </div>\n" +
+    "                    <div class=\"clear-fix\">\n" +
+    "                        <tri-state-check class=\"pull-left\" check-state=\"detachedNode.dm\" ng-click=\"serviceStateChanged( detachedNode )\"></tri-state-check>\n" +
+    "                        <span>Data Manager</span>\n" +
+    "                    </div>\n" +
+    "                    <div class=\"clear-fix\">\n" +
+    "                        <tri-state-check class=\"pull-left\" check-state=\"detachedNode.sm\" ng-click=\"serviceStateChanged( detachedNode )\"></tri-state-check>\n" +
+    "                        <span>Storage Manager</span>\n" +
+    "                    </div>\n" +
     "                </td>\n" +
     "            </tr>\n" +
     "            <tr class=\"disabled\" ng-show=\"!detachedNodes.length || detachedNodes.length === 0\">\n" +
@@ -669,21 +770,12 @@ angular.module("scripts/system/addnode/addnode.html", []).run(["$templateCache",
 
 angular.module("scripts/system/system.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/system/system.html",
-    "<div ng-controller=\"systemController\" class=\"page-slider-parent\" ng-style=\"{left: creating ? '-100%' : '0px'}\">\n" +
-    "<!--\n" +
-    "    <div class=\"col-xs-12\">\n" +
-    "        <div class=\"header\">\n" +
-    "            <span>Global Domain</span>\n" +
-    "        </div>\n" +
-    "        <div class=\"panel header\">\n" +
-    "            <span>{{ domain }}</span>\n" +
-    "        </div>\n" +
-    "    </div>\n" +
-    "-->\n" +
+    "<div ng-controller=\"systemController\" class=\"page-slider-parent\" ng-style=\"{left: addingnode ? '-100%' : '0px'}\">\n" +
+    "\n" +
     "    <div class=\"col-xs-12 node-list front-page\">\n" +
     "        <div class=\"header\">\n" +
     "            <span class=\"light-print\">Nodes</span>\n" +
-    "            <a data-href=\"/nodes/new\" class=\"pull-right\" ng-click=\"creating = true;\">Add a Node</a>\n" +
+    "            <a data-href=\"/nodes/new\" class=\"pull-right\" ng-click=\"addingnode = true;\">Add a Node</a>\n" +
     "        </div>\n" +
     "        <div class=\"nodes-container table-container\">\n" +
     "            <table class=\"default\">\n" +
@@ -692,74 +784,27 @@ angular.module("scripts/system/system.html", []).run(["$templateCache", function
     "                    <th>Node Name</th>\n" +
     "                    <th>Site</th>\n" +
     "                    <th>Local Domain</th>\n" +
-    "<!--\n" +
     "                    <th>HW</th>\n" +
     "                    <th>OM</th>\n" +
     "                    <th>SM</th>\n" +
     "                    <th>DM</th>\n" +
     "                    <th>AM</th>\n" +
     "                    <th></th>\n" +
-    "-->\n" +
     "                </thead>\n" +
     "                <tbody>\n" +
-    "                    <tr ng-repeat-start=\"node in nodes\" class=\"node-item\" ng-click=\"showStatusDetails( node )\">\n" +
-    "                        <td><span class=\"fui-arrow-right\" ng-class=\"{ open: node.showDetails }\"></span><span class=\"{{getStatus( node )}}\"></span></td>\n" +
+    "                    <tr ng-repeat=\"node in nodes\" class=\"node-item\" >\n" +
+    "                        <td>\n" +
+    "                            <span class=\"{{getOverallStatus( node )}}\"></span>\n" +
+    "                        </td>\n" +
     "                        <td>{{node.node_name}}</td>\n" +
     "                        <td>{{node.site}}</td>\n" +
     "                        <td>{{node.domain}}</td>\n" +
-    "<!--\n" +
-    "                        <td><span class=\"{{getIcon( node.hw )}}\"></span></td>\n" +
-    "                        <td><span class=\"{{getIcon( node.om )}}\"></span></td>\n" +
-    "                        <td><span class=\"{{getIcon( node.sm )}}\"></span></td>\n" +
-    "                        <td><span class=\"{{getIcon( node.dm )}}\"></span></td>\n" +
-    "                        <td><span class=\"{{getIcon( node.am )}}\"></span></td>\n" +
-    "-->\n" +
-    "<!--                        <td><span class=\"icon-right small muted pull-right\"></i></td>-->\n" +
-    "                    </tr>\n" +
-    "                    <tr ng-repeat-end class=\"node-status-row\" ng-class=\"{closed: !node.showDetails }\">\n" +
-    "                        <td colspan=\"100%\">\n" +
-    "                            <div class=\"node-status-details\" ng-class=\"{ open: node.showDetails }\">\n" +
-    "                                <div class=\"node-columns\">\n" +
-    "                                    <div>\n" +
-    "                                        <span class=\"{{getIcon( node.hw )}}\"></span>\n" +
-    "                                        <span>Hardware</span>\n" +
-    "                                    </div>\n" +
-    "                                    <div>\n" +
-    "                                        <span class=\"{{getIcon( node.om )}}\"></span>\n" +
-    "                                        <span>Orchestration Manager</span>\n" +
-    "                                    </div>\n" +
-    "                                    <div>\n" +
-    "                                        <span class=\"{{getIcon( node.sm )}}\"></span>\n" +
-    "                                        <span>Storage Manager</span>\n" +
-    "                                    </div>\n" +
-    "                                    <div>\n" +
-    "                                        <span class=\"{{ getIcon( node.dm )}}\"></span>\n" +
-    "                                        <span>Data Manager</span>\n" +
-    "                                    </div>\n" +
-    "                                    <div>\n" +
-    "                                        <span class=\"{{ getIcon( node.am ) }}\"></span>\n" +
-    "                                        <span>Application Manager</span>\n" +
-    "                                    </div>\n" +
-    "                                </div>\n" +
-    "                                <div class=\"node-columns active-status\">\n" +
-    "                                    <div>\n" +
-    "                                        {{ activeText( node.hw ) }}\n" +
-    "                                    </div>\n" +
-    "                                    <div>\n" +
-    "                                        {{ activeText( node.om ) }}\n" +
-    "                                    </div>\n" +
-    "                                    <div>\n" +
-    "                                        {{ activeText( node.sm ) }}\n" +
-    "                                    </div>\n" +
-    "                                    <div>\n" +
-    "                                        {{ activeText( node.dm ) }}\n" +
-    "                                    </div>\n" +
-    "                                    <div>\n" +
-    "                                        {{ activeText( node.am ) }}\n" +
-    "                                    </div>\n" +
-    "                                </div>\n" +
-    "                            </div>\n" +
-    "                        </td>\n" +
+    "\n" +
+    "                        <td><span class=\"{{getStatus( node.hw )}}\"></span></td>\n" +
+    "                        <td><span class=\"{{getStatus( node.om )}}\"></span></td>\n" +
+    "                        <td><span class=\"{{getStatus( node.sm )}}\"></span></td>\n" +
+    "                        <td><span class=\"{{getStatus( node.dm )}}\"></span></td>\n" +
+    "                        <td><span class=\"{{getStatus( node.am )}}\"></span></td>\n" +
     "                    </tr>\n" +
     "                </tbody>\n" +
     "            </table>\n" +
@@ -767,26 +812,78 @@ angular.module("scripts/system/system.html", []).run(["$templateCache", function
     "    </div>\n" +
     "\n" +
     "    <div ng-include=\"'scripts/system/addnode/addnode.html'\"></div>\n" +
-    "<!--\n" +
-    "    <div class=\"row\">\n" +
-    "        <div class=\"col-xs-12 legend\">\n" +
-    "            <div class=\"header\">\n" +
-    "                <span>Legend</span>\n" +
-    "            </div>\n" +
-    "            <div class=\"col-xs-5 content\">\n" +
-    "                <span class=\"list\">HW = Hardware</span>\n" +
-    "                <span class=\"list\">OM = Orchestration Manager</span>\n" +
-    "                <span class=\"list\">SM = Storage Manager</span>\n" +
-    "                <span class=\"list\">DM = Data Manager</span>\n" +
-    "                <span class=\"list\">AM = Application Manager</span>\n" +
-    "            </div>\n" +
-    "            <div class=\"col-xs-5 content\">\n" +
-    "                <span class=\"list\"><span class=\"fui-check-inverted-2\"></span>Active</span>\n" +
-    "                <span class=\"list\"><span class=\"fui-radio-unchecked\"></span>Inactive</span>\n" +
-    "            </div>\n" +
+    "\n" +
+    "</div>\n" +
+    "");
+}]);
+
+angular.module("scripts/tenants/create/createTenant.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("scripts/tenants/create/createTenant.html",
+    "<div ng-controller=\"createTenantController\" class=\"dialog-page create-tenant\" ng-class=\"{shown: creating,hideit: !creating}\" show-notify ng-show=\"creating\">\n" +
+    "\n" +
+    "    <div class=\"modal-header\">\n" +
+    "        <span>Create Tenant</span>\n" +
+    "    </div>\n" +
+    "\n" +
+    "    <div class=\"settings-body\">\n" +
+    "        <div class=\"form-group\" style=\"width: 260px;\">\n" +
+    "            <fui-input type=\"text\" class=\"form-control\" size=\"32\" placeholder=\"Tenant Name\" ng-model=\"name\">\n" +
     "        </div>\n" +
     "    </div>\n" +
-    "-->\n" +
+    "\n" +
+    "    <div class=\"pull-left\"style=\"padding-top: 12px;margin-bottom: 42px;\">\n" +
+    "        <button class=\"btn btn-primary\" style=\"display: inline-block;\" ng-click=\"save()\">Create Tenant</button>\n" +
+    "        <button class=\"btn btn-secondary cancel-creation\" style=\"display: inline-block;\" ng-click=\"cancel()\">Cancel</button>\n" +
+    "    </div>\n" +
+    "\n" +
+    "</div>\n" +
+    "");
+}]);
+
+angular.module("scripts/tenants/tenants.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("scripts/tenants/tenants.html",
+    "<div ng-controller=\"tenantController\" class=\"page-slider-parent\" ng-style=\"{left: creating || viewing ? '-100%' : '0%'}\">\n" +
+    "\n" +
+    "    <div class=\"front-page\">\n" +
+    "        <div>\n" +
+    "            <div>\n" +
+    "                <div class=\"header\">\n" +
+    "                    <span>Tenants</span>\n" +
+    "                    <a ng-click=\"createNewTenant()\" class=\"pull-right\">Create a Tenant</a>\n" +
+    "                </div>\n" +
+    "            </div>\n" +
+    "        </div>\n" +
+    "\n" +
+    "\n" +
+    "         <div style=\"display: flex;padding-top: 12px;\">\n" +
+    "            <div style=\"padding-right: 8px;\">\n" +
+    "                <fui-dropdown skinny=\"true\" type=\"action\" items=\"actions\" default-label=\"actionLabel\" callback=\"actionSelected\" background=\"none\" color=\"black\" border=\"gray\"></fui-dropdown>\n" +
+    "            </div>\n" +
+    "            <div style=\"font-size: 0.6em;\">\n" +
+    "                <div>for 0</div>\n" +
+    "                <div>selected users</div>\n" +
+    "            </div>\n" +
+    "        </div>\n" +
+    "\n" +
+    "        <table class=\"default tenant-table\">\n" +
+    "            <thead>\n" +
+    "                <th><tri-state-check check-state=\"checkall\"/></th>\n" +
+    "                <th>Tenant Name</th>\n" +
+    "                <th></th>\n" +
+    "            </thead>\n" +
+    "            <tboday>\n" +
+    "                <tr ng-repeat=\"tenant in tenants | filter:tenantQuery\">\n" +
+    "                    <td><tri-state-check check-state=\"tenant.checked\" ng-click=\"tenantCheckChanged()\"/></td>\n" +
+    "                    <td class=\"tenant-name\">{{tenant.name}}</td>\n" +
+    "                    <td></td>\n" +
+    "                </tr>\n" +
+    "            </tboday>\n" +
+    "        </table>\n" +
+    "    </div>\n" +
+    "\n" +
+    "    <!-- tenant creation slide out -->\n" +
+    "    <div ng-include=\"'scripts/tenants/create/createTenant.html'\"></div>\n" +
+    "\n" +
     "</div>\n" +
     "");
 }]);
@@ -794,6 +891,14 @@ angular.module("scripts/system/system.html", []).run(["$templateCache", function
 angular.module("scripts/users/users.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/users/users.html",
     "<div ng-controller=\"userController\">\n" +
+    "\n" +
+    "    <div class=\"coming-soon-parent\" ng-show=\"!isAllowed( 'System Management' )\">\n" +
+    "        <div class=\"coming-soon-child\">\n" +
+    "            <div style=\"\">\n" +
+    "                <span style=\"color: white;\">Coming soon...</span>\n" +
+    "            </div>\n" +
+    "        </div>\n" +
+    "    </div>\n" +
     "\n" +
     "    <div class=\"header top-label\">\n" +
     "\n" +
@@ -1043,6 +1148,43 @@ angular.module("scripts/volumes/create/qualityOfService.html", []).run(["$templa
     "");
 }]);
 
+angular.module("scripts/volumes/create/snapshotPolicy.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("scripts/volumes/create/snapshotPolicy.html",
+    "<div ng-controller=\"snapshotPolicyController\">\n" +
+    "\n" +
+    "    <section class=\"summary-form-section\">\n" +
+    "        <div class=\"header\">\n" +
+    "            <span>Snapshot Policy</span>\n" +
+    "        </div>\n" +
+    "\n" +
+    "        <div class=\"summary-row\" ng-show=\"!editing\">\n" +
+    "            <div>\n" +
+    "                <span>Policy:</span>\n" +
+    "                <span class=\"value\">{{summaryText}}</span>\n" +
+    "            </div>\n" +
+    "\n" +
+    "            <span class=\"icon fui-new\" ng-click=\"editing = true\"></span>\n" +
+    "        </div>\n" +
+    "\n" +
+    "        <div ng-show=\"editing\">\n" +
+    "            <div style=\"display: flex;color: black;margin-bottom: 4px;\" ng-repeat=\"policy in policies\">\n" +
+    "                <tri-state-check check-state=\"policy.use\" style=\"margin-top: 6px;margin-right: 4px;\"></tri-state-check>\n" +
+    "                <span style=\"width: 100px;\">{{policy.name}}</span>\n" +
+    "                <span style=\"padding-right: 4px;\">Keep for:</span>\n" +
+    "                <spinner class=\"skinny\" style=\"margin-right: 4px;\" min=\"1\" max=\"9999\" value=\"policy.value\"></spinner>\n" +
+    "                <fui-dropdown skinny=\"true\" items=\"timeChoices\" selected=\"policy.units\"></fui-dropdown>\n" +
+    "            </div>\n" +
+    "\n" +
+    "            <div>\n" +
+    "                <button class=\"btn btn-primary\" ng-click=\"doneEditing()\">Done</button>\n" +
+    "            </div>\n" +
+    "        </div>\n" +
+    "\n" +
+    "    </section>\n" +
+    "</div>\n" +
+    "");
+}]);
+
 angular.module("scripts/volumes/create/volumeCreate.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/volumes/create/volumeCreate.html",
     "<div class=\"create-panel volumes\" ng-controller=\"volumeCreateController\" ng-class=\"{shown: $parent.creating,hideit: !$parent.creating}\">\n" +
@@ -1053,6 +1195,7 @@ angular.module("scripts/volumes/create/volumeCreate.html", []).run(["$templateCa
     "    <div class=\"settings-body\">\n" +
     "        <div ng-include=\"'scripts/volumes/create/nameType.html'\"></div>\n" +
     "        <div ng-include=\"'scripts/volumes/create/qualityOfService.html'\"></div>\n" +
+    "        <div ng-include=\"'scripts/volumes/create/snapshotPolicy.html'\"></div>\n" +
     "    </div>\n" +
     "\n" +
     "    <div class=\"pull-left\"style=\"padding-top: 12px;margin-bottom: 42px;\">\n" +
@@ -1063,11 +1206,89 @@ angular.module("scripts/volumes/create/volumeCreate.html", []).run(["$templateCa
     "");
 }]);
 
+angular.module("scripts/volumes/view/viewVolume.html", []).run(["$templateCache", function($templateCache) {
+  $templateCache.put("scripts/volumes/view/viewVolume.html",
+    "<div class=\"dialog-page\" ng-controller=\"viewVolumeController\" ng-class=\"{shown: $parent.viewing,hideit: !$parent.viewing}\" show-notify ng-show=\"$parent.viewing\">\n" +
+    "\n" +
+    "    <div class=\"header clearfix\">\n" +
+    "        <a ng-click=\"back()\" class=\"pull-left\">&lt; Back to Volume list</a>\n" +
+    "    </div>\n" +
+    "\n" +
+    "    <div class=\"page-vertical-spacer\"></div>\n" +
+    "\n" +
+    "    <div class=\"modal-header\">\n" +
+    "        <span>{{$parent.selectedVolume.name}}</span>\n" +
+    "    </div>\n" +
+    "\n" +
+    "    <section class=\"form-section\">\n" +
+    "        <div>\n" +
+    "            <span class=\"light-print\">Snapshot policies</span>\n" +
+    "        </div>\n" +
+    "\n" +
+    "        <section class=\"summary-form-section\">\n" +
+    "            <div class=\"summary-row\" style=\"color: black\" ng-show=\"!editing\">\n" +
+    "                <div>\n" +
+    "                    <span>Policy:</span>\n" +
+    "                    <span class=\"value\">{{summaryText}}</span>\n" +
+    "                </div>\n" +
+    "\n" +
+    "                <span class=\"icon fui-new\" ng-click=\"editing = true\"></span>\n" +
+    "            </div>\n" +
+    "\n" +
+    "            <div ng-show=\"editing\">\n" +
+    "                <div style=\"display: flex;color: black;margin-bottom: 4px;\" ng-repeat=\"policy in policies\">\n" +
+    "                    <tri-state-check check-state=\"policy.use\" style=\"margin-top: 6px;margin-right: 4px;\"></tri-state-check>\n" +
+    "                    <span style=\"width: 100px;\">{{policy.name}}</span>\n" +
+    "                    <span style=\"padding-right: 4px;\">Keep for:</span>\n" +
+    "                    <spinner class=\"skinny\" style=\"margin-right: 4px;\" min=\"1\" max=\"9999\" value=\"policy.value\"></spinner>\n" +
+    "                    <fui-dropdown skinny=\"true\" items=\"timeChoices\" selected=\"policy.units\"></fui-dropdown>\n" +
+    "                </div>\n" +
+    "\n" +
+    "                <div>\n" +
+    "                    <button class=\"btn btn-primary\" ng-click=\"doneEditing()\">Done</button>\n" +
+    "                </div>\n" +
+    "            </div>\n" +
+    "        </section>\n" +
+    "    </section>\n" +
+    "\n" +
+    "    <div class=\"page-vertical-spacer\"></div>\n" +
+    "\n" +
+    "    <section class=\"form-section\">\n" +
+    "        <div>\n" +
+    "            <span class=\"light-print\">Snapshots</span>\n" +
+    "        </div>\n" +
+    "\n" +
+    "        <table class=\"default\">\n" +
+    "            <thead>\n" +
+    "                <tr>\n" +
+    "                    <th>Date</th>\n" +
+    "                    <th>Expiration</th>\n" +
+    "                    <th></th>\n" +
+    "                </tr>\n" +
+    "            </thead>\n" +
+    "            <tbody>\n" +
+    "                <tr ng-repeat=\"snapshot in snapshots\">\n" +
+    "                    <td>{{formatDate( snapshot.creation );}}</td>\n" +
+    "                    <td>{{snapshot.expiration}}</td>\n" +
+    "                    <td>\n" +
+    "                        <span class=\"fui-exit icon\" title=\"Clone to new volume\" ng-click=\"clone( snapshot )\"></span>\n" +
+    "                        <span class=\"fui-cross icon\" title=\"Delete\"></span>\n" +
+    "                    </td>\n" +
+    "                </tr>\n" +
+    "            </tbody>\n" +
+    "        </table>\n" +
+    "\n" +
+    "    </section>\n" +
+    "\n" +
+    "</div>\n" +
+    "");
+}]);
+
 angular.module("scripts/volumes/volumes.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/volumes/volumes.html",
-    "<div ng-controller=\"volumeController\">\n" +
+    "<div ng-controller=\"volumeController\" class=\"volume-page\">\n" +
     "\n" +
-    "    <div  class=\"volumeparent\" ng-style=\"{left: creating ? '-100%' : '0%'}\">\n" +
+    "    <div  class=\"page-slider-parent\" ng-style=\"{left: creating || viewing ? '-100%' : '0%'}\">\n" +
     "\n" +
     "        <!-- if it's not in a table the TR elements are deleted.  If it's not outside of\n" +
     "            the real table it sometimes gets removed from the DOM by angular -->\n" +
@@ -1135,7 +1356,7 @@ angular.module("scripts/volumes/volumes.html", []).run(["$templateCache", functi
     "                        </thead>\n" +
     "                        <tbody>\n" +
     "                            <!-- row per volume -->\n" +
-    "                            <tr class=\"volume-row\" ng-repeat=\"volume in volumes\">\n" +
+    "                            <tr class=\"volume-row\" ng-repeat=\"volume in volumes\" ng-click=\"clicked( volume )\">\n" +
     "                                <td class=\"volume_time\">\n" +
     "                                    <div></div>\n" +
     "                                </td>\n" +
@@ -1188,7 +1409,7 @@ angular.module("scripts/volumes/volumes.html", []).run(["$templateCache", functi
     "        <div ng-include=\"'scripts/volumes/create/volumeCreate.html'\"></div>\n" +
     "\n" +
     "        <!-- volume drill in -->\n" +
-    "\n" +
+    "        <div ng-include=\"'scripts/volumes/view/viewVolume.html'\"></div>\n" +
     "\n" +
     "    </div>\n" +
     "</div>\n" +

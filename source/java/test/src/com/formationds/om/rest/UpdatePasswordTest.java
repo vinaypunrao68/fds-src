@@ -5,7 +5,7 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.security.AuthenticationTokenTest;
 import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.ConfigurationServiceCache;
+import com.formationds.xdi.ConfigurationApi;
 import com.google.common.collect.Lists;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,7 +22,7 @@ public class UpdatePasswordTest {
     private static final User FAB = new User(1, "fab", "poop", "secret", false);
     private static final User PANDA = new User(2, "panda", "poop", "secret", false);
 
-    private ConfigurationServiceCache cache;
+    private ConfigurationApi cache;
 
     @Test
     public void adminCanChangeAnyPassword() throws Exception {
@@ -62,7 +62,7 @@ public class UpdatePasswordTest {
 
     @Before
     public void setUp() throws Exception {
-        cache = mock(ConfigurationServiceCache.class);
+        cache = mock(ConfigurationApi.class);
         when(cache.allUsers(0)).thenReturn(Lists.newArrayList(
                 ADMIN,
                 FAB,

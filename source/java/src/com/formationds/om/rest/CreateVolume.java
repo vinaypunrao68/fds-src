@@ -4,10 +4,8 @@ package com.formationds.om.rest;
  */
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
-import com.formationds.commons.model.ObjectFactory;
 import com.formationds.commons.model.Status;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.SizeUnit;
@@ -56,12 +54,7 @@ public class CreateVolume implements RequestHandler {
         Thread.sleep(200);
         SetVolumeQosParams.setVolumeQos(legacyConfigPath, name, sla, priority, limit);
 
-      final Status status = ObjectFactory.createStatus();
-      status.setStatus( HttpResponseStatus.OK.reasonPhrase()  );
-      status.setCode( HttpResponseStatus.OK.code() );
-
-      final ObjectMapper mapper = new ObjectMapper();
-      return new JsonResource( new JSONObject( mapper.writeValueAsString( status ) ) );
+        return new JsonResource(new Status(HttpResponseStatus.OK));
     }
 }
 
