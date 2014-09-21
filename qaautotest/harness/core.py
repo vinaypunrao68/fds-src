@@ -10,10 +10,7 @@ if sys.version_info[0] < 3:
 else:
     import configparser
 
-<<<<<<< Updated upstream
-=======
 import fdslib.BringUpCfg as fdscfg
->>>>>>> Stashed changes
 
 class SuiteDirectives(object):
     def __init__(self, config):
@@ -55,20 +52,6 @@ class TestCaseDirectives(object):
                 return False
         return True
     
-<<<<<<< Updated upstream
-def get_options():
-    parser = OptionParser()
-    parser.prog = sys.argv[0].split("/")[-1]
-    parser.usage = "%prog -h | <Suite|.csv|File:Class> \n" + \
-                   "<-c <config.ini> | -s <test_source_dir>> " + \
-                   "[-b <build_num>] \n[-l <log_dir>] [--level <log_level>]" + \
-                   "[--stop-on-fail] [--run-as-root] \n" + \
-                   "[--iterations <num_iterations>] [--store]>"
-    
-    parser.add_option("-c", "--config", action="store", type="string",
-                      dest="config", help="The file containing the "
-                      "configuration information needed to run the tests.")
-=======
 def get_options(pyUnit):
     parser = OptionParser()
     parser.prog = sys.argv[0].split("/")[-1]
@@ -83,21 +66,15 @@ def get_options(pyUnit):
     parser.add_option("-q", "--qat_file", action="store", type="string",
                       dest="config", help="The file containing the test harness "
                       "configuration information. (qaautotest's .ini file.)")
->>>>>>> Stashed changes
     parser.add_option("-s", "--src-dir", action="store", type="string",
                       dest="test_source_dir", help="The path to the directory "
                       "in which the tests may be found.")
     parser.add_option("-b", "--build", action="store", type="string",
                       dest="build", default="Unspecified", help="The build "
                       "number of the code under test.")
-<<<<<<< Updated upstream
-    parser.add_option("-l", "--log-dir", action="store", type="string",
-                      dest="log_dir", default=".", help="The directory in "
-=======
     #FDS: Option -l used to have default='.' but this overrode configuration .ini settings.
     parser.add_option("-l", "--log-dir", action="store", type="string",
                       dest="log_dir", help="The directory in "
->>>>>>> Stashed changes
                       "which the log file should be located.  If unspecified, "
                       "the current directory will be used.")
     parser.add_option("--level", action="store", type="string",
@@ -119,18 +96,6 @@ def get_options(pyUnit):
     parser.add_option("--run-as-root", action="store_true", 
                       dest="run_as_root", help="If set, the test cases will "
                       "all be run as the root user.")
-<<<<<<< Updated upstream
-    parser.add_option("--store", action="store_true", 
-                      dest="store_to_database", help="If set, the results of "
-                      "the test run will be archived in the test database.")
-    
-    validate_cli_options(parser)
-    return parser
-    
-def validate_cli_options(parser):
-    (options, args) = parser.parse_args()
-    if len(args) == 0:
-=======
     parser.add_option("--store", action="store_true",
                       dest="store_to_database", help="If set, the results of "
                       "the test run will be archived in the test database.")
@@ -149,16 +114,11 @@ def validate_cli_options(parser):
 def validate_cli_options(parser, pyUnit):
     (options, args) = parser.parse_args()
     if (len(args) == 0) and (pyUnit == False):
->>>>>>> Stashed changes
         parser.error("The first argument must be the test name, the suite "
                      "name, or .csv file in which a list of tests can be found.")
     if len(args) > 1:
         parser.error("Multiple positional arguments have been specified.")
-<<<<<<< Updated upstream
-    if options.store_to_database == True and options.build == "Unspecified":
-=======
     if (options.store_to_database == True and options.build == "Unspecified") and (pyUnit == False):
->>>>>>> Stashed changes
         parser.error("To store test results to the database, the build number "
                      "must be specified.  If you do not have a build number, "
                      "enter the date, e.g. 2010-09-17.")
@@ -168,24 +128,16 @@ def validate_cli_options(parser, pyUnit):
     except (ValueError, TypeError):
         pass
     
-<<<<<<< Updated upstream
-def get_config():
-=======
 def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = None, pyUnitDryrun = None, pyUnitInstall = False):
->>>>>>> Stashed changes
     """ Configuration can be gathered from one of two sources: 1) a
     configuration .ini file and/or 2) the command line.  Configuration settings
     will first be imported from the file, if the option has been specified.
     Then, command line options will be applied.  When specified in both places,
     command line arguments will override those defined in the configuration
-<<<<<<< Updated upstream
-    file.
-=======
     file. FDS: So be careful about what options have defaults. In those cases, the
     value in the configuration.ini will be ignored even if *not* specified
     on the command line.
->>>>>>> Stashed changes
-    
+
     Following the import of the configuration, the settngs will be scrubbed.
     Strings will be converted to int or bool where appropriate.  Paths on
     the file system will be resolved to their absolute paths.
@@ -194,27 +146,13 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = None, pyUnit
     and mount point will be taken from the already mounted file system,
     irrespective of what has been specified in the configuration .ini file or
     the command line.
-<<<<<<< Updated upstream
-=======
 
     FDS: With pyUnit = True, we understand that we are being called in support
     of a test being run with Python's unittest module infrastructure.
->>>>>>> Stashed changes
     """
     # Initialize variables.
     # Import all options passed in at the command line.
     params = {}
-<<<<<<< Updated upstream
-    parser = get_options()
-    (options, args) = parser.parse_args()
-    try:
-        params["tests"] = args[0]
-    except IndexError:
-        print("The first argument must be the test name, the suite name, "
-              "or .csv file in which a list of tests can be found.")
-        sys.exit(1)
-    
-=======
 
     # FDS: We must have this config file specified.
     params["fds_config_file"] = None
@@ -234,16 +172,11 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = None, pyUnit
         # file used by a qaautotest run.
         options.config = pyUnitConfig
 
->>>>>>> Stashed changes
     # Process configuration parameters specified in the configuration .ini
     # file.
     if options.config != None:
         if not os.path.exists(options.config):
-<<<<<<< Updated upstream
-            print("The configuration .ini file specified doesn't exist: %s"
-=======
             print("The qaautotest configuration .ini file specified doesn't exist: %s"
->>>>>>> Stashed changes
                   %options.config)
             sys.exit(1)
         config = configparser.SafeConfigParser()
@@ -291,11 +224,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = None, pyUnit
         if isinstance(params[key], str):
             if (key == "test_source_dir") or (key == "log_dir") or (key == "config"):
                 params[key] = os.path.abspath(value)
-<<<<<<< Updated upstream
-                
-=======
 
->>>>>>> Stashed changes
     # Ensure the number of iterations is valid
     try:
         if not isinstance(params["iterations"], int):
@@ -322,18 +251,11 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = None, pyUnit
     
     # The test directory, i.e. the place where the test
     # code may be found, must be specified.
-<<<<<<< Updated upstream
-    if (params["test_source_dir"] == None):
-=======
     if ((params["test_source_dir"] == None) and (pyUnit == False)):
->>>>>>> Stashed changes
         print("The test directory is not specified.  Add the -s option to "
               "your command line or add the mount item to the configuration "
               ".ini file.")
         sys.exit(1)
-<<<<<<< Updated upstream
-    
-=======
 
     # FDS: The log directory, i.e. the place where the test
     # logs may be written, must be specified.
@@ -358,14 +280,11 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = None, pyUnit
         params["install"] = pyUnitInstall
         setattr(options, "install", params["install"])
 
->>>>>>> Stashed changes
     global run_as_root
     if params["run_as_root"] == True:
         run_as_root = True
     else:
         run_as_root = False
-<<<<<<< Updated upstream
-=======
 
     # FDS: We must have an FDS config file specified in the qaautotest .ini file for the suite.
     if params["fds_config_file"] is None:
@@ -386,7 +305,6 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = None, pyUnit
     # FDS: Now record whether we are being run by PyUnit.
     params["pyUnit"] = pyUnit
 
->>>>>>> Stashed changes
-    
+
     return params
     
