@@ -20,10 +20,7 @@ try:
 except ImportError:
     pass
 
-<<<<<<< Updated upstream
 
-=======
->>>>>>> Stashed changes
 def main():
     config = profile.get_config()
     harness = Harness(config["build"], config["log_dir"], config["log_level"], config["threads"])
@@ -63,11 +60,6 @@ class Harness(object):
         # Set up the log file and log file rotation
         dir = os.path.abspath(dir)
         self.log_file = os.path.join(dir, "harness.log")
-<<<<<<< Updated upstream
-=======
-        print("Logfile: %s"
-                  %self.log_file)
->>>>>>> Stashed changes
         rollover_count = 5
         if num_threads > 1:
             log_fmt = logging.Formatter("%(asctime)s (%(thread)d) %(name)-24s %(levelname)-8s %(message)s",
@@ -290,12 +282,6 @@ class Harness(object):
             atc_list.append("%s:%s"%(file_name, class_name))
         atc_file = "\"%s\""%"\",\"".join(atc_file)
         atc_class = "\"%s\""%"\",\"".join(atc_class)
-<<<<<<< Updated upstream
-        db_test_data = self.dba.query("select File, Class, "
-                                      "run_flag, run_as_root from "
-                                      "auto_test_case where File in (%s) "
-                                      "and Class in (%s) order by File, Class"
-=======
 
         # FDS: Order by seq, which requires auto_test_suites.
         db_test_data = self.dba.query("select File, Class, "
@@ -306,7 +292,6 @@ class Harness(object):
                                       "and auto_test_case.File in (%s) "
                                       "and auto_test_case.Class in (%s) "
                                       "order by seq"
->>>>>>> Stashed changes
                                       %(atc_file, atc_class))
         if db_test_data == ():
             self.log.error("Failed to create test case list from the database.")
@@ -514,12 +499,6 @@ class Harness(object):
         try:
             os.chdir(self.file_to_dir[test_status["test_file"]])
             if sys.version_info[0] < 3:
-<<<<<<< Updated upstream
-                exec("test_status[\"status\"] = test_object.run()")
-            else:
-                ldict = locals().copy()
-                exec("test_status[\"status\"] = test_object.run()",
-=======
                 # FDS: Modified from "exec("test_status[\"status\"] = test_object.run()")"
                 # to avoid clashing with untitest.TestCase.run().
                 exec("test_status[\"status\"] = test_object.runTest()")
@@ -528,7 +507,6 @@ class Harness(object):
                 # FDS: Modified from "exec("test_status[\"status\"] = test_object.run()","
                 # to avoid clashing with untitest.TestCase.run().
                 exec("test_status[\"status\"] = test_object.runTest()",
->>>>>>> Stashed changes
                      globals(), ldict)
                 test_status["status"] = ldict["test_status"]["status"]
             del test_object

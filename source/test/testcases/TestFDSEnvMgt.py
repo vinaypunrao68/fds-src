@@ -81,7 +81,7 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
                     return False
             else:
                 self.log.warn("FDS installation directory, %s, exists on node %s." %
-                              (n.nd_conf_dict['node-name', fds_dir]))
+                              (fds_dir, n.nd_conf_dict['node-name']))
 
             # Populate application configuration directory if necessary.
             # It should be necessary since we did not do a package install.
@@ -92,7 +92,7 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
                 if status != 0:
                     # Not there, try to create it.
                     self.log.info("FDS configuration directory, %s, nonexistent on node %s. Attempting to create." %
-                                  (n.nd_conf_dict['node-name', dest_config_dir]))
+                                  (n.nd_conf_dict['node-name'], dest_config_dir))
                     status = n.nd_rmt_agent.ssh_exec_wait('mkdir -p ' + dest_config_dir)
                     if status != 0:
                         self.log.error("FDS configuration directory creation on node %s returned status %d." %
@@ -100,7 +100,7 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
                         return False
                 else:
                     self.log.warn("FDS configuration directory, %s, exists on node %s." %
-                                  (n.nd_conf_dict['node-name', dest_config_dir]))
+                                  (n.nd_conf_dict['node-name'], dest_config_dir))
 
                 # Load the product configuration directory from the development environment.
                 src_config_dir = fdscfg.rt_env.get_config_dir()
@@ -241,7 +241,7 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
             if status == 0:
                 # Try to delete it.
                 self.log.info("FDS installation directory, %s, exists on node %s. Attempting to delete." %
-                              (n.nd_conf_dict['node-name', fds_dir]))
+                              (fds_dir, n.nd_conf_dict['node-name']))
                 print fds_dir
                 status = n.nd_rmt_agent.ssh_exec_wait('rm -rf ' + fds_dir)
                 if status != 0:
@@ -250,7 +250,7 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
                     return False
             else:
                 self.log.warn("FDS installation directory, %s, nonexistent on node %s." %
-                              (n.nd_conf_dict['node-name', fds_dir]))
+                              (fds_dir, n.nd_conf_dict['node-name']))
 
         return True
 
