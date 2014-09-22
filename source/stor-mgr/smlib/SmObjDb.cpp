@@ -52,7 +52,9 @@ ObjectDB *SmObjDb::openObjectDB(fds_token_id tokId) {
     if (iter != tokenTbl.end()) return iter->second;
 
     // Create leveldb
-    std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
+    std::string filename = std::string(diskio::gl_dataIOMod.disk_path(tokId, diskio::diskTier)) +
+             "//SNodeObjIndex_" + std::to_string(dbId);
+    // std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
     objdb  = new ObjectDB(filename);
     tokenTbl[dbId] = objdb;
 
@@ -80,7 +82,9 @@ ObjectDB *SmObjDb::getObjectDB(fds_token_id tokId) {
     if (iter != tokenTbl.end()) return iter->second;
 
     // Create leveldb
-    std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
+    std::string filename = std::string(diskio::gl_dataIOMod.disk_path(tokId, diskio::diskTier)) +
+             "//SNodeObjIndex_" + std::to_string(dbId);
+    // std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
     objdb  = new ObjectDB(filename);
     tokenTbl[dbId] = objdb;
     return objdb;
