@@ -9,7 +9,6 @@
 #include <vector>
 #include <OmResources.h>
 #include <lib/Catalog.h>
-#include <lib/PerfStats.h>
 #include <map>
 #include <util/Log.h>
 #include <NetSession.h>
@@ -331,7 +330,7 @@ void OrchMgr::NotifyPerfstats(const boost::shared_ptr<fpi::AsyncHdr>& fdsp_msg,
 
     /* Since we do not negotiate yet (should we?) the slot length of stats with AM and SM
      * the stat slot length in AM and SM should be FDS_STAT_DEFAULT_SLOT_LENGTH */
-    fds_verify(perf_stats_msg->slot_len_sec == FDS_STAT_DEFAULT_SLOT_LENGTH);
+    // fds_verify(perf_stats_msg->slot_len_sec == FDS_STAT_DEFAULT_SLOT_LENGTH);
 
     if (perf_stats_msg->node_type == FDS_ProtocolInterface::FDSP_STOR_HVISOR) {
         LOGNORMAL << "OM received perfstats from AM, start ts "

@@ -322,7 +322,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          diskToFlash,
          invalidMig
      };
-     PerfStats *perfStats;
 
      SysParams *sysParams;
 
@@ -417,7 +416,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      ObjectStorMgr()
          : Module("sm") {
          smObjDb = nullptr;
-         perfStats = nullptr;
          qosCtrl = nullptr;
          writeBackThreads = nullptr;
          dirtyFlashObjs = nullptr;

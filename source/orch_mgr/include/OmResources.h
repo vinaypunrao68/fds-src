@@ -484,14 +484,9 @@ class OM_NodeContainer : public DomainContainer
 
     /**
      * Recent history of perf stats OM receives from AM nodes.
+     * TODO(Anna) need to use new stats class
      */
-    PerfStats                *am_stats;
-    /**
-     * TODO(Anna): this is temp JSON file, will remove as soon as we implement
-     * real stats polling from CLI.
-     */
-    std::ofstream             json_file;
-    void om_printStatsToJsonFile();
+    // PerfStats                *am_stats;
 };
 
 /**
