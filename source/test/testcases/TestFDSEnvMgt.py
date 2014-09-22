@@ -66,33 +66,33 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
-            fds_dir = n.nd_conf_dict['fds_root']
-
-            # Check to see if the FDS root directory is already there.
-            status = n.nd_rmt_agent.ssh_exec_wait('ls ' + fds_dir)
-            if status != 0:
-                # Not there, try to create it.
-                self.log.info("FDS installation directory, %s, nonexistent on node %s. Attempting to create." %
-                              (fds_dir, n.nd_conf_dict['node-name']))
-                status = n.nd_rmt_agent.ssh_exec_wait('mkdir -p ' + fds_dir)
-                if status != 0:
-                    self.log.error("FDS installation directory creation on node %s returned status %d." %
-                                   (n.nd_conf_dict['node-name'], status))
-                    return False
-            else:
-                self.log.warn("FDS installation directory, %s, exists on node %s." %
-                              (fds_dir, n.nd_conf_dict['node-name']))
-
-            # Populate application configuration directory if necessary.
-            # It should be necessary since we did not do a package install.
-            dest_config_dir = fds_dir + "/etc"
             if not n.nd_rmt_agent.env_install:
+                fds_dir = n.nd_conf_dict['fds_root']
+
+                # Check to see if the FDS root directory is already there.
+                status = n.nd_rmt_agent.ssh_exec_wait('ls ' + fds_dir)
+                if status != 0:
+                    # Not there, try to create it.
+                    self.log.info("FDS installation directory, %s, nonexistent on node %s. Attempting to create." %
+                                  (fds_dir, n.nd_conf_dict['node-name']))
+                    status = n.nd_rmt_agent.ssh_exec_wait('mkdir -p ' + fds_dir)
+                    if status != 0:
+                        self.log.error("FDS installation directory creation on node %s returned status %d." %
+                                       (n.nd_conf_dict['node-name'], status))
+                        return False
+                else:
+                    self.log.warn("FDS installation directory, %s, exists on node %s." %
+                                  (fds_dir, n.nd_conf_dict['node-name']))
+
+                # Populate application configuration directory if necessary.
+                # It should be necessary since we did not do a package install.
+                dest_config_dir = fds_dir + "/etc"
                 # Check to see if the etc directory is already there.
                 status = n.nd_rmt_agent.ssh_exec_wait('ls ' + dest_config_dir)
                 if status != 0:
                     # Not there, try to create it.
                     self.log.info("FDS configuration directory, %s, nonexistent on node %s. Attempting to create." %
-                                  (n.nd_conf_dict['node-name'], dest_config_dir))
+                                  (dest_config_dir, n.nd_conf_dict['node-name']))
                     status = n.nd_rmt_agent.ssh_exec_wait('mkdir -p ' + dest_config_dir)
                     if status != 0:
                         self.log.error("FDS configuration directory creation on node %s returned status %d." %
@@ -100,7 +100,7 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
                         return False
                 else:
                     self.log.warn("FDS configuration directory, %s, exists on node %s." %
-                                  (n.nd_conf_dict['node-name'], dest_config_dir))
+                                  (dest_config_dir, n.nd_conf_dict['node-name']))
 
                 # Load the product configuration directory from the development environment.
                 src_config_dir = fdscfg.rt_env.get_config_dir()

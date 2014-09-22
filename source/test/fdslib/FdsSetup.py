@@ -35,9 +35,9 @@ def mkdir_p(path):
 # FDS environment data derived from the closet FDS source tree or FDS Root run time.
 #
 class FdsEnv(object):
-    def __init__(self, _root, _install=False):
+    def __init__(self, _root, _install=False, _fds_source_dir=''):
         self.env_cdir      = os.getcwd()
-        self.env_fdsSrc    = ''
+        self.env_fdsSrc    = _fds_source_dir
         self.env_install   = _install
         self.env_fdsRoot   = _root + '/'
         self.env_user      = 'root'
@@ -50,17 +50,19 @@ class FdsEnv(object):
             'root-sbin' : 'sbin'
         }
 
-        tmp_dir = self.env_cdir
-        while tmp_dir != "/":
-            if os.path.exists(tmp_dir + '/Build/mk-scripts'):
-                self.env_fdsSrc = tmp_dir
-                break
-            tmp_dir = os.path.dirname(tmp_dir)
-
+        # Try to determine an FDS source directory if specified as empty.
         if self.env_fdsSrc == "":
-            # Assume node installation, assign the same as fds-root
-            self.env_install = True
-            self.env_fdsSrc  = self.env_fdsRoot
+            tmp_dir = self.env_cdir
+            while tmp_dir != "/":
+                if os.path.exists(tmp_dir + '/Build/mk-scripts'):
+                    self.env_fdsSrc = tmp_dir
+                    break
+                tmp_dir = os.path.dirname(tmp_dir)
+
+            if self.env_fdsSrc == "":
+                # Assume node installation, assign the same as fds-root
+                self.env_install = True
+                self.env_fdsSrc  = self.env_fdsRoot
 
         self.env_fdsSrc = self.env_fdsSrc + '/'
 
@@ -82,7 +84,8 @@ class FdsEnv(object):
             except: pass
 
     ###
-    # Return $fds_src/Build/<build_target> if fds_bin is True
+    # Return $fds-root if we installed from an FDS package, otherwise
+    #        $fds_src/Build/<build_target> if fds_bin is True
     #        $fds_src/../Build/<build_target> to get 3nd party codes.
     #
     def get_build_dir(self, debug, fds_bin = True):
@@ -91,6 +94,16 @@ class FdsEnv(object):
         if fds_bin:
             return self.env_fdsSrc + self.env_fdsDict['debug-base'];
         return self.env_fdsSrc + '../' + self.env_fdsDict['debug-base'];
+
+    ###
+    # Return $fds-root/var/logs if we installed from an FDS package, otherwise
+    #        $fds_src/Build/<build_target>/bin.
+    #
+    def get_log_dir(self):
+        if self.env_install:
+            return self.env_fdsRoot + '/var/logs'
+        else:
+            return self.get_bin_dir(debug=False)
 
     ###
     # Return the absolute path of the tar ball.
@@ -206,7 +219,7 @@ class FdsRmtEnv(FdsEnv):
 
         if self.env_verbose:
             if self.env_verbose['verbose']:
-                log.info("Running remote command on %s:" % self.env_rmt_host, cmd_exec)
+                log.info("Running remote command on %s: %s" % (self.env_rmt_host, cmd_exec))
 
             if self.env_verbose['dryrun'] == True:
                 log.info("...not executed in dryrun mode")

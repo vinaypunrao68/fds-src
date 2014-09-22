@@ -60,10 +60,10 @@ def get_options(pyUnit):
                    "[-b <build_num>] \n[-l <log_dir>] [--level <log_level>]" + \
                    "[--stop-on-fail] [--run-as-root] \n" + \
                    "[--iterations <num_iterations>] [--store] \n" + \
-                   "[--verbose] [--dryrun]>"
+                   "[-v|--verbose] [-r|--dryrun]> [-i|--install]>"
 
     # FDS: Changed to option i/ini_file from c/config to prevent clashing with PyUnit's c/catch option.
-    parser.add_option("-q", "--qat_file", action="store", type="string",
+    parser.add_option("-q", "--qat-file", action="store", type="string",
                       dest="config", help="The file containing the test harness "
                       "configuration information. (qaautotest's .ini file.)")
     parser.add_option("-s", "--src-dir", action="store", type="string",
@@ -128,7 +128,7 @@ def validate_cli_options(parser, pyUnit):
     except (ValueError, TypeError):
         pass
     
-def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = None, pyUnitDryrun = None, pyUnitInstall = False):
+def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUnitDryrun = False, pyUnitInstall = False):
     """ Configuration can be gathered from one of two sources: 1) a
     configuration .ini file and/or 2) the command line.  Configuration settings
     will first be imported from the file, if the option has been specified.
@@ -291,8 +291,13 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = None, pyUnit
         print("You need to pass item fds_config_file in your qaautotest test suite .ini file: %s"
                   %options.config)
         sys.exit(1)
-
     setattr(options, "config_file", params["fds_config_file"])
+
+    # FDS: This one is not required, particularly if we want to run from
+    # an installation package.
+    if params["fds_source_dir"] is None:
+        params["fds_source_dir"] = ''
+    setattr(options, "fds_source_dir", params["fds_source_dir"])
 
     # FDS: Some FDS root directory must be specified to satisfy dependencies in FdsConfigRun.
     # But it will be correctly set when the FDS config file is parsed for each identified node.

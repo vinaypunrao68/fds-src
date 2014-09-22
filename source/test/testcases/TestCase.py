@@ -40,6 +40,10 @@ class FDSTestCase(unittest.TestCase):
         """
         super(FDSTestCase, self).__init__()
 
+        # TODO(Greg): PyUnit seems to call this method at unexpected times.
+        #if not isinstance(parameters, dict):
+        #    parameters = None
+
         self.setUp(parameters)
 
 
@@ -83,6 +87,23 @@ class FDSTestCase(unittest.TestCase):
             self.parameters = parameters  # Passed in from the harness
 
         self.log = logging.getLogger(self.__class__.__name__)
+
+        # TODO(Greg): PyUnit seems to call this method at unexpected times.
+        ## Log a few useful things to know about this run.
+        #self.log.info("QAAutoTest harness .ini (-q|--qat-file): %s." % parameters["config"])
+        #self.log.info("Source of QAAutoTest harness test cases (-s|--src_dir or .ini config 'test_source_dir'): %s." %
+        #              parameters["test_source_dir"])
+        #self.log.info("Build under test (-b|--build or .ini config 'build'): %s." % parameters["build"])
+        #self.log.info("Test log directory (-l|--log-dir or .ini config 'log_dir'): %s." % parameters["log_dir"])
+        #self.log.info("Test log level (--level or .ini config 'log_level'): %d." % parameters["log_level"])
+        #self.log.info("Test threads (--threads or .ini config 'threads'): %d." % parameters["threads"])
+        #self.log.info("Test iterations (---iterations or .ini config 'iterations'): %d." % parameters["iterations"])
+        #self.log.info("Stop on fail (--stop-on-fail or .ini config 'stop_on_fail'): %s." % parameters["stop_on_fail"])
+        #self.log.info("Run as root (--run-as-root or .ini config 'run_as_root'): %s." % parameters["run_as_root"])
+        #self.log.info("Verbose logging (-v|--verbose or .ini config 'verbose'): %s." % parameters["verbose"])
+        #self.log.info("'Dry run' test (-r|--dryrun or .ini config 'dryrun'): %s." % parameters["dryrun"])
+        #self.log.info("Install from release package (-i|--install or .ini config 'install'): %s." % parameters["install"])
+        #self.log.info("FDS config file (.ini config 'fds_config_file'): %s." % parameters["fds_config_file"])
 
 
     def tearDown(self):
@@ -152,7 +173,7 @@ class FDSTestCase(unittest.TestCase):
             elif opt in ('-v','--verbose'):
                 pyUnitVerbose = True
                 # Remove this option from argv so as not to confuse PyUnit.
-                _argv.pop(idx)
+                #_argv.pop(idx)  Actually, PyUnit has a --verbose option, so maybe we don't want to remove it.
             elif opt in ('-r','--dryrun'):
                 pyUnitDryrun = True
                 # Remove this option from argv so as not to confuse PyUnit.
