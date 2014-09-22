@@ -78,6 +78,7 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
       * QoS manager.
       */
      SmVolQueue *volQueue;
+     bool volQueueOwner_;
 
     public:
      /*
@@ -109,6 +110,10 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
 
      SmVolQueue* getQueue() const {
          return volQueue;
+     }
+
+     bool isQosQueueOwner() const {
+         return volQueueOwner_;
      }
 
      StorMgrVolume(const VolumeDesc& vdb,
