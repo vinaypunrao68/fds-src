@@ -12,6 +12,7 @@ user_install_loc  := exe
 user_clean        := \
 	target \
 	gen-java \
+	null \
 	$(comm_dir_lib)/java \
 	$(comm_dir_lib)/admin-webapp \
 	$(comm_dir_lib)/demo
@@ -25,6 +26,6 @@ compile:
 	@rm -rf $(comm_dir_lib)/java
 	@mkdir -p $(comm_dir_lib)/java/
 	@mvn install -f thrift-pom.xml
-	@mvn -DskipTests assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
+	@mvn assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
 	@cp -r admin-webapp $(comm_dir_lib)
 	@cp -r demo $(comm_dir_lib)
