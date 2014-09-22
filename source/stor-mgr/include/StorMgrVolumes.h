@@ -38,6 +38,8 @@ class SmVolQueue : public FDS_VolumeQueue {
      fds_volid_t  volUuid;
      fds_uint32_t qDepth;
 
+     INTRUSIVE_PTR_DEFS(SmVolQueue, refcnt_);
+
     public:
      SmVolQueue(fds_volid_t  _volUuid,
                 fds_uint32_t _q_cap,
@@ -77,8 +79,7 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
       * volume. This queue is used by SM's
       * QoS manager.
       */
-     SmVolQueue *volQueue;
-     bool volQueueOwner_;
+    boost::intrusive_ptr<SmVolQueue> volQueue;
 
     public:
      /*
@@ -108,12 +109,8 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
          return voldesc->volUUID;
      }
 
-     SmVolQueue* getQueue() const {
+     boost::intrusive_ptr<SmVolQueue> getQueue() const {
          return volQueue;
-     }
-
-     bool isQosQueueOwner() const {
-         return volQueueOwner_;
      }
 
      StorMgrVolume(const VolumeDesc& vdb,

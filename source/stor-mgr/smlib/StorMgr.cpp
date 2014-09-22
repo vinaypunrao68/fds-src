@@ -931,7 +931,7 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                 fds_assert(vol != NULL);
                 err = objStorMgr->qosCtrl->registerVolume(vdb->isSnapshot() ?
                         vdb->qosQueueId : vol->getVolId(),
-                        static_cast<FDS_VolumeQueue*>(vol->getQueue()));
+                        static_cast<FDS_VolumeQueue*>(vol->getQueue().get()));
                 if (err.ok()) {
                     objStorMgr->objCache->
                             vol_cache_create(volumeId,

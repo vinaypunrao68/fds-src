@@ -258,9 +258,11 @@ SMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     if (err.ok()) {
         StorMgrVolume * vol = objStorMgr->getVol(volumeId);
         fds_assert(vol != NULL);
-        if (vol->isQosQueueOwner()) {
-            err = objStorMgr->regVolQos(vdb.isSnapshot() ? vdb.qosQueueId : vol->getVolId(),
-                    static_cast<FDS_VolumeQueue*>(vol->getQueue()));
+
+        fds_volid_t queueId = vol->getQueue()->getVolUuid();
+        if (!objStorMgr->getQueue(queueId)) {
+            err = objStorMgr->regVolQos(queueId, static_cast<FDS_VolumeQueue*>(
+                    vol->getQueue().get()));
         }
 
         if (err.ok()) {
