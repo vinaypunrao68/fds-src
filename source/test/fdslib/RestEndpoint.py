@@ -33,23 +33,30 @@ class RestEndpoint(object):
         self.host = host
         self.port = port
         self.rest_path = host + ':' + str(port)
-
+        self.user = 'admin'
+        self.password = 'admin'
+        self._token = None
+        self.headers = []
         if auth:
-            self._token = self.__get_auth_token()
-            self.headers = {'FDS-Auth' : self._token}
+            if not self.login(self.user, self.password):
+                print '[WARN] : unable to login as {}'.format(self.user)
 
-    def __get_auth_token(self):
+    def login(self, user, password):
         '''
         Get the auth token from the auth REST endpoint.
         '''
         # TODO(brian): This will have to change when the token acquisition changes
-        path = '{}/{}'.format(self.rest_path, 'api/auth/token?login=admin&password=admin')
-
-        res = requests.get(path)
-        res = self.parse_result(res)
-        return res['token']
-
-    
+        path = '{}/{}'.format(self.rest_path, 'api/auth/token?login={}&password={}'.format(user, password))
+        try :
+            res = requests.get(path)
+            res = self.parse_result(res)
+            self.user = user
+            self.password = password
+            self._token = res['token']
+            self.headers = {'FDS-Auth' : self._token}
+            return self._token
+        except:
+            return None
 
     def parse_result(self, result):
         '''
