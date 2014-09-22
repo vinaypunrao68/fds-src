@@ -7,14 +7,11 @@ package com.formationds.om.rest.snapshot;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formationds.commons.model.SnapshotPolicy;
-import com.formationds.commons.model.Status;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.ConfigurationApi;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import net.fortuna.ical4j.model.Recur;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
 
@@ -22,12 +19,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class ListSnapshotPoliciesForAVolume implements RequestHandler {
+public class ListSnapshotPoliciesForVolume
+  implements RequestHandler {
 
     private static final String REQ_PARAM_VOLUME_ID = "volumeId";
     private ConfigurationApi config;
 
-    public ListSnapshotPoliciesForAVolume(final ConfigurationApi config) {
+    public ListSnapshotPoliciesForVolume( final ConfigurationApi config ) {
         this.config = config;
     }
 
@@ -46,7 +44,7 @@ public class ListSnapshotPoliciesForAVolume implements RequestHandler {
                 policy.setId(i);
                 policy.setName(String.format("snapshot policy for volume %d",
                         volumeId));
-                policy.setRecurrenceRule(new Recur("FREQ=DAILY;UNTIL=19971224T000000Z"));
+                policy.setRecurrenceRule( "FREQ=DAILY;UNTIL=19971224T000000Z");
                 policy.setRetention(System.currentTimeMillis() / 1000);
 
                 policies.add(policy);
@@ -55,7 +53,7 @@ public class ListSnapshotPoliciesForAVolume implements RequestHandler {
             final List<com.formationds.apis.SnapshotPolicy> internalPolicyDefs =
                     config.listSnapshotPoliciesForVolume(volumeId);
             if (internalPolicyDefs == null || internalPolicyDefs.isEmpty()) {
-                return new JsonResource(new Status(HttpResponseStatus.NO_CONTENT));
+                return new JsonResource( new JSONArray( policies ) );
             }
 
             for (final com.formationds.apis.SnapshotPolicy policy : internalPolicyDefs) {
@@ -63,7 +61,7 @@ public class ListSnapshotPoliciesForAVolume implements RequestHandler {
 
                 modelPolicy.setId(policy.getId());
                 modelPolicy.setName(policy.getPolicyName());
-                modelPolicy.setRecurrenceRule(new Recur(policy.getRecurrenceRule()));
+                modelPolicy.setRecurrenceRule( policy.getRecurrenceRule());
                 modelPolicy.setRetention(policy.getRetentionTimeSeconds());
 
                 policies.add(modelPolicy);

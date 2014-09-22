@@ -157,7 +157,7 @@ public class Main {
         fdsAdminOnly(HttpMethod.POST, "/api/volume/snapshot", (t) -> new CreateSnapshot(), authorizer);
         // GET methods
         fdsAdminOnly(HttpMethod.GET, "/api/config/snapshot/policies", (t) -> new ListSnapshotPolicies(config), authorizer);
-        fdsAdminOnly(HttpMethod.GET, "/api/config/volumes/:volumeId/snapshot/policies", (t) -> new ListSnapshotPoliciesForAVolume(config), authorizer);
+        fdsAdminOnly(HttpMethod.GET, "/api/config/volumes/:volumeId/snapshot/policies", (t) -> new ListSnapshotPoliciesForVolume(config), authorizer);
         fdsAdminOnly(HttpMethod.GET, "/api/config/snapshots/policies/:policyId/volumes", (t) -> new ListVolumeIdsForSnapshotId(config), authorizer);
         fdsAdminOnly(HttpMethod.GET, "/api/config/volumes/:volumeId/snapshots", (t) -> new ListSnapshotsByVolumeId(config), authorizer);
         //PUT methods

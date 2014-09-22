@@ -154,13 +154,6 @@
             <version>1.51</version>
         </dependency>
 
-      <!-- SNAPSHOT Dependency -->
-      <dependency>
-        <groupId>org.mnode.ical4j</groupId>
-        <artifactId>ical4j</artifactId>
-        <version>1.0.2</version>
-      </dependency>
-
       <!-- Togglz Dependencies -->
       <dependency>
         <groupId>org.togglz</groupId>

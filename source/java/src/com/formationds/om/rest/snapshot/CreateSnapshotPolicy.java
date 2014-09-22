@@ -7,15 +7,14 @@ package com.formationds.om.rest.snapshot;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formationds.commons.model.SnapshotPolicy;
-import com.formationds.commons.model.Status;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.ConfigurationApi;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
 
 import java.util.Map;
 
@@ -40,10 +39,10 @@ public class CreateSnapshotPolicy implements RequestHandler {
             LOG.trace("calling XDI create snapshot policy with " + policy);
             config.createSnapshotPolicy(
                     policy.getName(),
-                    policy.getRecurrenceRule().toString(),
+                    policy.getRecurrenceRule(),
                     policy.getRetention());
         }
 
-        return new JsonResource(new Status(HttpResponseStatus.OK));
+        return new JsonResource(new JSONObject().put("status", "OK"));
     }
 }

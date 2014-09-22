@@ -5,13 +5,12 @@
 
 package com.formationds.om.rest.snapshot;
 
-import com.formationds.commons.model.Status;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.ConfigurationApi;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
 
 import java.util.Map;
 
@@ -33,6 +32,6 @@ public class RestoreSnapshot implements RequestHandler {
                 requiredLong(routeParameters, REQ_PARAM_VOLUME_ID),
                 requiredLong(routeParameters, REQ_PARAM_POLICY_ID));
 
-        return new JsonResource(new Status(HttpResponseStatus.OK));
+        return new JsonResource(new JSONObject().put("status", "OK"));
     }
 }
