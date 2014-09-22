@@ -286,19 +286,23 @@ template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
 template <class Event, class Fsm>
 void VolumeFSM::on_entry(Event const &evt, Fsm &fsm)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM on entry";
+    GLOGDEBUG << "VolumeFSM on entry";
 }
 
 template <class Event, class Fsm>
 void VolumeFSM::on_exit(Event const &evt, Fsm &fsm)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM on entry";
+    GLOGDEBUG << "VolumeFSM on exit";
 }
 
 template <class Event, class Fsm>
 void VolumeFSM::no_transition(Event const &evt, Fsm &fsm, int state)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM no transition";
+    static char const *const state_names[] = {
+        "Inactive", "CrtPend", "Active", "Waiting" , "DelChk", "DelPend", "DelNotPend"
+    };
+    GLOGDEBUG << "no transition from state : " << state_names[state]
+              << " on evt:" << typeid(evt).name();
 }
 
 /**
