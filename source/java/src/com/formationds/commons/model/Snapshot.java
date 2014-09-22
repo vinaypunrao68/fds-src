@@ -28,6 +28,8 @@ import java.util.Date;
 public class Snapshot
   extends ModelBase
 {
+  private static final long serialVersionUID = 7430533053472660819L;
+
   private long id;
   private String name;
   private long volumeId;
@@ -36,7 +38,7 @@ public class Snapshot
   /**
    * default constructor
    */
-  Snapshot()
+  public Snapshot()
   {
     super();
   }

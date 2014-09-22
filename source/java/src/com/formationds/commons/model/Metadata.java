@@ -24,7 +24,7 @@ import com.formationds.commons.model.abs.ModelBase;
 public class Metadata
   extends ModelBase
 {
-  private static final long serialVersionUID = -1;
+  private static final long serialVersionUID = -7637239107402084473L;
 
   private long timestamp;
   private String volume;

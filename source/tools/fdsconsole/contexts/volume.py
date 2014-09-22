@@ -9,6 +9,7 @@ class VolumeContext(Context):
     #--------------------------------------------------------------------------------------
     @clicmd
     def list(self):
+        'show the list of volumes in the system'
         try:
             volumes = ServiceMap.omConfig().listVolumes("")
             return tabulate([(item.name, item.tenantId, item.dateCreated,
@@ -26,6 +27,7 @@ class VolumeContext(Context):
     @arg('clone-name', help= "-name of  the  volume clone")
     @arg('policy-id', help= "-volume policy id" , default=0, type=int, nargs='?')
     def clone(self, vol_name, clone_name, policy_id):
+        'clone a given volume'
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name)
             ServiceMap.omConfig().cloneVolume(volume_id, policy_id, clone_name )
@@ -78,6 +80,7 @@ class VolumeContext(Context):
     @arg('--domain', help='-name of domain that volume resides in')
     @arg('vol-name', help='-volume name')
     def delete(self, vol_name, domain='abc'):
+        'delete a volume'
         try:
             ServiceMap.omConfig().deleteVolume(domain, vol_name)
         except Exception, e:

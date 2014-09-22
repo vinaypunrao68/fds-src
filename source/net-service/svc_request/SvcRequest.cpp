@@ -44,7 +44,8 @@ SvcRequestIf::SvcRequestIf(const SvcRequestId &id,
     : id_(id),
       myEpId_(myEpId),
       state_(PRIOR_INVOCATION),
-      timeoutMs_(0)
+      timeoutMs_(0),
+      minor_version(0)
 {
 }
 
@@ -146,7 +147,7 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
     try {
         /* send the payload */
         auto ep = NetMgr::ep_mgr_singleton()->\
-                  svc_get_handle<fpi::BaseAsyncSvcClient>(header.msg_dst_uuid, 0 , 0);
+                  svc_get_handle<fpi::BaseAsyncSvcClient>(header.msg_dst_uuid, 0 , minor_version);
         if (!ep) {
             throw std::runtime_error("Null client");
         }

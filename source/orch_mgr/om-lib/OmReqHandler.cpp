@@ -36,7 +36,7 @@ int32_t FDSP_ConfigPathReqHandler::CreateVol(
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         if (domain->om_local_domain_up()) {
-            err = local->om_create_vol(fdsp_msg, crt_vol_req, false);
+            err = local->om_create_vol(fdsp_msg, crt_vol_req, nullptr);
         } else {
             LOGWARN << "OM Local Domain is not up yet, rejecting volume "
                     << " create; try later";
@@ -727,6 +727,7 @@ void FDSP_OMControlPathReqHandler::CreateBucket(
 void FDSP_OMControlPathReqHandler::CreateBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_buck_req) {
+#if 0
     LOGNOTIFY << "Received create bucket " << crt_buck_req->vol_name
               << " from " << fdsp_msg->src_node_name  << " node uuid: "
               << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
@@ -745,6 +746,7 @@ void FDSP_OMControlPathReqHandler::CreateBucket(
         LOGERROR << "Orch Mgr encountered exception while "
                  << "processing create bucket";
     }
+#endif
 }
 
 void FDSP_OMControlPathReqHandler::DeleteBucket(
@@ -756,8 +758,10 @@ void FDSP_OMControlPathReqHandler::DeleteBucket(
 void FDSP_OMControlPathReqHandler::DeleteBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& del_buck_req) {
+#if 0
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_delete_vol(fdsp_msg, del_buck_req);
+#endif
 }
 
 void FDSP_OMControlPathReqHandler::ModifyBucket(
@@ -769,12 +773,14 @@ void FDSP_OMControlPathReqHandler::ModifyBucket(
 void FDSP_OMControlPathReqHandler::ModifyBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_buck_req) {
+#if 0
     LOGNOTIFY << "Received modify bucket " << (mod_buck_req->vol_desc).vol_name
               << " from " << fdsp_msg->src_node_name  << " node uuid: "
               << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
 
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_modify_vol(mod_buck_req);
+#endif
 }
 
 void FDSP_OMControlPathReqHandler::AttachBucket(
@@ -849,7 +855,9 @@ void FDSP_OMControlPathReqHandler::NotifyPerfstats(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_PerfstatsTypePtr& perf_stats_msg) {
 
+#if 0
     orchMgr->NotifyPerfstats(fdsp_msg, perf_stats_msg);
+#endif
 }
 
 void FDSP_OMControlPathReqHandler::TestBucket(
@@ -861,8 +869,10 @@ void FDSP_OMControlPathReqHandler::TestBucket(
 void FDSP_OMControlPathReqHandler::TestBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_TestBucketPtr& test_buck_msg) {
+#if 0
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_test_bucket(fdsp_msg, test_buck_msg);
+#endif
 }
 
 void FDSP_OMControlPathReqHandler::NotifyMigrationDone(

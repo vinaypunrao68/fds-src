@@ -28,7 +28,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 public class Connector
   extends ModelBase
 {
-  private static final long serialVersionUID = -1;
+  private static final long serialVersionUID = -6902011114156588870L;
 
   private DataConnectorType type = DataConnectorType.UNKNOWN;
   private ConnectorAttributes attributes;
@@ -36,7 +36,7 @@ public class Connector
   /**
    * default package level constructor
    */
-  Connector()
+  public Connector()
   {
     super();
   }
@@ -57,11 +57,17 @@ public class Connector
     this.type = DataConnectorType.lookup( type );
   }
 
+  /**
+   * @return Returns {@link ConnectorAttributes}
+   */
   public ConnectorAttributes getAttributes()
   {
     return attributes;
   }
 
+  /**
+   * @param attributes the {@link ConnectorAttributes}
+   */
   public void setAttributes( final ConnectorAttributes attributes )
   {
     this.attributes = attributes;

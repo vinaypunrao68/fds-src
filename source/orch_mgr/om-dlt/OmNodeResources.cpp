@@ -12,7 +12,6 @@
 #include <OmConstants.h>
 #include <OmAdminCtrl.h>
 #include <net/RpcFunc.h>
-#include <lib/PerfStats.h>
 #include <orchMgr.h>
 #include <NetSession.h>
 #include <OmVolumePlacement.h>
@@ -146,8 +145,6 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     desc = NULL;
     if (vol != NULL) {
         desc = vol->vol_get_properties();
-    } else {
-        vol = VolumeInfo::pointer(new VolumeInfo(0x9876));  // create dummy to avoid issues
     }
     auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     switch (cmd_type) {
@@ -202,6 +199,9 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     }
     default:
         fds_panic("Unknown vol cmd type");
+    }
+    if (!vol) {
+        vol = VolumeInfo::pointer(new VolumeInfo(0x9876));  // create dummy to avoid issues
     }
     EPSvcRequestRespCb cb = std::bind(&OM_NodeAgent::om_send_vol_cmd_resp, this, vol, cmd_type,
                                    std::placeholders::_1, std::placeholders::_2,
@@ -1097,16 +1097,16 @@ OM_NodeContainer::om_init_domain()
 {
     om_admin_ctrl = new FdsAdminCtrl(OrchMgr::om_stor_prefix(), g_fdslog);
 
+    // TODO(Anna) PerfStats class is replaced, not sure yet if we
+    // are also pushing stats to OM, so commenting this out for now
+    // to remember to port to new stats class yet
+    /*
     am_stats = new PerfStats(OrchMgr::om_stor_prefix() + "OM_from_AM",
                              5 * FDS_STAT_DEFAULT_HIST_SLOTS);
     if (am_stats != NULL) {
         am_stats->enable();
     }
-    /* TEMP file */
-    std::string fname = std::string("stats//" +
-                                    OrchMgr::om_stor_prefix() +
-                                    "-example.json");
-    json_file.open(fname.c_str(), std::ios::out | std::ios::app);
+    */
 }
 
 // om_send_qos_info

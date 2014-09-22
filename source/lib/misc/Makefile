@@ -15,7 +15,6 @@ user_cpp         :=      \
     qos_htb.cpp          \
     fds_obj_cache.cpp	 \
     qos_min_prio.cpp     \
-    PerfStats.cpp        \
     jsoncpp.cpp          \
     fds_process.cpp      \
     serialize.cpp        \
@@ -40,7 +39,6 @@ user_no_style    := \
     fds_obj_cache.cpp	 \
     qos_min_prio.cpp     \
     TransJournal.cpp     \
-    PerfStats.cpp        \
     jsoncpp.cpp          \
     serialize.cpp        \
     fds_counters.cpp     \

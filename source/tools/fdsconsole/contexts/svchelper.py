@@ -20,7 +20,7 @@ class ServiceMap:
     serviceMap = None
     @staticmethod
     def init(ip, port):
-        print 'ip: %s  - port: %s' % (ip,port)
+        #print 'ip: %s  - port: %s' % (ip,port)
         ServiceMap.serviceMap = SvcMap(ip, int(port))
 
     @staticmethod

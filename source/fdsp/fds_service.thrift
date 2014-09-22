@@ -76,10 +76,18 @@ enum  FDSPMsgTypeId {
     CtrlNotifyDMTCloseTypeId           = 2081,
     CtrlNotifyDMTUpdateTypeId          = 2082,
 
-    /* AM messages. */
+    /* OM-> AM messages. */
     CtrlNotifyBucketStatTypeId         = 2100,
     CtrlNotifyThrottleTypeId           = 2101,
     CtrlNotifyQoSControlTypeId         = 2102,
+
+    /* AM-> OM */
+    CtrlTestBucketTypeId	       = 3000,
+    CtrlGetBucketStatsTypeId	       = 3001,
+    CtrlCreateBucketTypeId         = 3002,
+    CtrlDeleteBucketTypeId         = 3003,
+    CtrlModifyBucketTypeId         = 3004,
+    CtrlPerfStatsTypeId            = 3005,
 
     /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
@@ -549,6 +557,26 @@ struct CtrlNotifyThrottle {
 struct CtrlNotifyQoSControl {
      1: FDSP.FDSP_QoSControlMsgType    qosctrl;
 }
+struct CtrlTestBucket {
+     1: FDSP.FDSP_TestBucket           tbmsg;
+}
+struct CtrlGetBucketStats {
+     1: FDSP.FDSP_GetDomainStatsType   gds;
+     2: i32 req_cookie;
+}
+struct CtrlCreateBucket {
+     1: FDSP.FDSP_CreateVolType       cv;
+}
+struct CtrlDeleteBucket {
+    1:  FDSP.FDSP_DeleteVolType       dv;
+}
+struct CtrlModifyBucket {
+    1:  FDSP.FDSP_ModifyVolType      mv;
+}
+struct CtrlPerfStats {
+    1:  FDSP.FDSP_PerfstatsType     perfstats;
+}
+
 
 /* Registration for streaming stats */
 struct StatStreamRegistrationMsg {

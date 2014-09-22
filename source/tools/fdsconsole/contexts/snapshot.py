@@ -18,3 +18,19 @@ class SnapshotContext(Context):
             return ' list snapshot polcies  snapshot polices for volume failed: {}'.format(vol_name)
 
 
+    #--------------------------------------------------------------------------------------
+    @clicmd
+    @arg('vol-name', help= "volume name")
+    @arg('snap-name', help= "name of the snapshot")
+    @arg('retention', help= "retention time in seconds", nargs='?' , type=long, default=0)
+    def create(self, vol_name, snap_name, retention):
+        'create a snaphot of the given volume'
+        try:
+            volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
+            snapshot = ServiceMap.omConfig().createSnapshot(volume_id, snap_name, retention)
+            return 'ok'
+        except Exception, e:
+            log.exception(e)
+            return ' create snapshot for volume failed: {}'.format(vol_name)
+
+

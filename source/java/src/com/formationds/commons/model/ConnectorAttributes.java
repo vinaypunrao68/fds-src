@@ -28,6 +28,8 @@ import javax.xml.bind.annotation.XmlRootElement;
 public class ConnectorAttributes
   extends ModelBase
 {
+  private static final long serialVersionUID = 4629648232746455453L;
+
   private SizeUnit unit;
   private long size;
 

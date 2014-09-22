@@ -5,7 +5,6 @@
 #include <iostream>
 #include <boost/atomic.hpp>
 #include <util/Log.h>
-#include <lib/PerfStats.h>
 #include <concurrency/ThreadPool.h>
 #include "fds_error.h"
 #include <fdsp/FDSP_types.h>
@@ -73,9 +72,6 @@ class FDS_QoSControl {
    /* will register OM client with perfstats that will enable pushing
     * perfstats to OM periodically, note that perfstats have to be enabled for that  */
    void registerOmClient(OMgrClient* om_client);
-
- protected:
-   PerfStats *stats;
 };
 
 }

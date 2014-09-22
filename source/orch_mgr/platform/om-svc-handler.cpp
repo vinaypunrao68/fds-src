@@ -15,6 +15,7 @@
 #include <orch-mgr/om-service.h>
 #include <platform/net-plat-shared.h>
 #include <util/Log.h>
+#include <orchMgr.h>
 
 namespace fds {
 
@@ -28,9 +29,12 @@ OmSvcHandler::OmSvcHandler()
 
 
     /* svc->om response message */
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolAdd, NotifyAddVol);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, NotifyRmVol);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolMod, NotifyModVol);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTestBucket, TestBucket);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetBucketStats, GetBucketStats);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlCreateBucket, CreateBucket);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlDeleteBucket, DeleteBucket);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlModifyBucket, ModifyBucket);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlPerfStats, PerfStats);
 }
 
 // om_svc_state_chg
@@ -54,59 +58,91 @@ OmSvcHandler::om_node_info(boost::shared_ptr<fpi::AsyncHdr>    &hdr,
 }
 
 void
-OmSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                           boost::shared_ptr<fpi::CtrlNotifyVolAdd> &vol_msg)
+OmSvcHandler::TestBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlTestBucket> &msg)
 {
-    LOGNOTIFY << "OM received response for NotifyAddVol from node " << std::hex
-              << hdr->msg_src_uuid.svc_uuid << " for volume "
-              << "[" << vol_msg->vol_desc.vol_name << ":"
-              << std::hex << vol_msg->vol_desc.volUUID << std::dec
-              << "] Result: " << hdr->msg_code;
-
+    LOGNORMAL << " receive test bucket msg";
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    VolumeContainer::pointer volumes = local->om_vol_mgr();
-    volumes->om_notify_vol_resp(om_notify_vol_add,
-                                hdr->msg_src_uuid.svc_uuid, hdr->msg_code,
-                                vol_msg->vol_info.vol_name,
-                                vol_msg->vol_desc.volUUID);
+    local->om_test_bucket(hdr, &msg->tbmsg);
 }
 
 void
-OmSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                           boost::shared_ptr<fpi::CtrlNotifyVolRemove> &vol_msg)
+OmSvcHandler::    GetBucketStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlGetBucketStats> &msg)
 {
-    fds_bool_t check_only = (vol_msg->vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
-    LOGNOTIFY << "OM received response for NotifyRmVol (check only "
-              << check_only << ") from node " << std::hex
-              << hdr->msg_src_uuid.svc_uuid << " for volume "
-              << "[" << vol_msg->vol_desc.vol_name << ":"
-              << std::hex << vol_msg->vol_desc.volUUID << std::dec
-              << "] Result: " << hdr->msg_code;
+    fpi::FDSP_GetDomainStatsType * get_stats_msg = &msg->gds;
 
-    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    VolumeContainer::pointer volumes = local->om_vol_mgr();
-    om_vol_notify_t type = check_only ? om_notify_vol_rm_chk : om_notify_vol_rm;
-    volumes->om_notify_vol_resp(type,
-                                hdr->msg_src_uuid.svc_uuid, hdr->msg_code,
-                                vol_msg->vol_desc.vol_name,
-                                vol_msg->vol_desc.volUUID);
+    try {
+        int domain_id = get_stats_msg->domain_id;
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        NodeUuid svc_uuid(hdr->msg_src_uuid.svc_uuid);
+
+        LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id
+                  << " from node " << hdr->msg_src_uuid.svc_uuid << ":"
+                  << std::hex << svc_uuid.uuid_get_val() << std::dec;
+
+        /* Use default domain for now... */
+        local->om_send_bucket_stats(5, svc_uuid, msg->req_cookie);
+    }
+    catch(...) {
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing get domain stats";
+    }
 }
-void
-OmSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlNotifyVolMod> &vol_msg)
-{
-    LOGNOTIFY << "OM received response for NotifyModVol from node "
-              << hdr->msg_src_uuid.svc_uuid << " for volume "
-              << "[" << vol_msg->vol_desc.vol_name << ":"
-              << std::hex << vol_msg->vol_desc.volUUID << std::dec
-              << "] Result: " << hdr->msg_code;
 
+void
+OmSvcHandler::    CreateBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlCreateBucket> &msg)
+{
+    const FdspCrtVolPtr crt_buck_req(new fpi::FDSP_CreateVolType());
+    * crt_buck_req = msg->cv;
+    LOGNOTIFY << "Received create bucket " << crt_buck_req->vol_name
+              << " from  node uuid: "
+              << std::hex << hdr->msg_src_uuid.svc_uuid << std::dec;
+
+    try {
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        if (domain->om_local_domain_up()) {
+            local->om_create_vol(nullptr, crt_buck_req, hdr);
+        } else {
+            LOGWARN << "OM Local Domain is not up yet, rejecting bucket "
+                    << " create; try later";
+        }
+    }
+    catch(...) {
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing create bucket";
+    }
+}
+
+void
+OmSvcHandler::    DeleteBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlDeleteBucket> &msg)
+{
+    LOGNORMAL << " receive delete bucket from " << hdr->msg_src_uuid.svc_uuid;
+    const FdspDelVolPtr del_buck_req(new fpi::FDSP_DeleteVolType());
+    *del_buck_req = msg->dv;
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    VolumeContainer::pointer volumes = local->om_vol_mgr();
-    volumes->om_notify_vol_resp(om_notify_vol_mod,
-                                hdr->msg_src_uuid.svc_uuid, hdr->msg_code,
-                                vol_msg->vol_desc.vol_name,
-                                vol_msg->vol_desc.volUUID);
+    local->om_delete_vol(nullptr, del_buck_req);
+}
+
+void
+OmSvcHandler::    ModifyBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlModifyBucket> &msg)
+{
+    LOGNORMAL << " receive delete bucket from " << hdr->msg_src_uuid.svc_uuid;
+    const FdspModVolPtr mod_buck_req(new fpi::FDSP_ModifyVolType());
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    local->om_modify_vol(mod_buck_req);
+}
+
+void
+OmSvcHandler::    PerfStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlPerfStats> &msg)
+{
+    extern OrchMgr *gl_orch_mgr;
+    gl_orch_mgr->NotifyPerfstats(hdr, &msg->perfstats);
 }
 
 }  //  namespace fds
