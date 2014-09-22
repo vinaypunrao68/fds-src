@@ -29,7 +29,7 @@ import java.beans.Transient;
 public class Service
   extends ModelBase
 {
-  private static final long serialVersionUID = -1;
+  private static final long serialVersionUID = -1577170593630479004L;
 
   private long uuid = -1L;
   private int controlPort = -1;
@@ -41,7 +41,7 @@ public class Service
   /**
    * default package level constructor
    */
-  Service()
+  public Service()
   {
     super();
   }
@@ -91,7 +91,7 @@ public class Service
    */
   public void setDataPort( final int port )
   {
-    this.dataPort = dataPort;
+    this.dataPort = port;
   }
 
   /**
