@@ -13,7 +13,7 @@
 #include <om-discovery.h>
 #include <OmDmtDeploy.h>
 #include <orch-mgr/om-service.h>
-
+#include <typeinfo>
 namespace fds {
 
 // --------------------------------------------------------------------------------------
