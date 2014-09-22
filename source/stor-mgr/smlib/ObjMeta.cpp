@@ -107,12 +107,10 @@ ObjMetaData::ObjMetaData(const ObjectBuf& buf)
     fds_verify(deserializeFrom(buf) == true);
 }
 
-ObjMetaData::ObjMetaData(const ObjMetaData::const_ptr &rhs)
-        : ObjMetaData() {
-    obj_map     = rhs->obj_map;
-    mask        = mask;
-    phy_loc     = new obj_phy_loc_t();
-    *phy_loc    = *(rhs->phy_loc);
+ObjMetaData::ObjMetaData(const ObjMetaData::const_ptr &rhs) {
+    mask = rhs->mask;
+    memcpy(&obj_map, &(rhs->obj_map), sizeof(obj_map));
+    phy_loc = &obj_map.loc_map[0];
     assoc_entry = rhs->assoc_entry;
     sync_data   = rhs->sync_data;
 }
