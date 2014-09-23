@@ -3,8 +3,8 @@ speedup        := -j 5
 user_build_dir :=      \
     lib                \
     fds-probe          \
-    orch_mgr           \
-    persistent_layer   \
+    orch-mgr           \
+    persistent-layer   \
     umod-lib           \
     util               \
     data-mgr           \
