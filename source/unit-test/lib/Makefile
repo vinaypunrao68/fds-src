@@ -17,6 +17,9 @@ user_incl_dir     := \
     $(topdir)/lib    \
     $(topdir)/util
 
+user_build_dir    := \
+    dlt
+
 user_cpp_flags    := 
 user_cpp          :=  \
     fds_timer_test.cpp \

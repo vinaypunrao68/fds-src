@@ -3,7 +3,7 @@
  */
 
 #define CATCH_CONFIG_MAIN
-#include "../catch/catch.hpp"
+#include "../../include/catch.hpp"
 #include "dlt_helper_funcs.h"
 #include <serialize.h>
 #include <unistd.h>
