@@ -257,6 +257,11 @@ class FDSConsole(cmd.Cmd):
         print line
         argv = shlex.split(line)
         
+    def do_exit(self, *args):
+        return True
+
+    def help_exit(self, *args):
+        print 'exit the fds console'
 
     def get_names(self):
         names = [key for key,value in self.context.methods.items() if value <= self.config.getSystem(KEY_ACCESSLEVEL)]
