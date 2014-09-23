@@ -32,6 +32,7 @@ user_cpp          :=  \
     kvcache_unit_test.cpp \
     Tracebuffer_ut.cpp \
     sharedcache_unit_test.cpp \
+    sharedcache_gtest.cpp \
     object_logger_test.cpp \
     HashedLocks_ut.cpp
 
@@ -60,6 +61,7 @@ user_bin_exe      := \
     SynchronizedTaskExecutor_ut \
     perf_trace_unit_test \
     sharedcache_unit_test \
+    sharedcache_gtest \
     kvcache_unit_test \
     object_logger_test \
     Tracebuffer_ut \
@@ -76,6 +78,7 @@ trans_journal_ut               := trans_journal_ut.cpp
 SynchronizedTaskExecutor_ut    := SynchronizedTaskExecutor_ut.cpp
 perf_trace_unit_test           := perf_trace_unit_test.cpp
 sharedcache_unit_test          := sharedcache_unit_test.cpp
+sharedcache_gtest	       := sharedcache_gtest.cpp 
 kvcache_unit_test              := kvcache_unit_test.cpp
 object_logger_test             := object_logger_test.cpp
 Tracebuffer_ut		       := Tracebuffer_ut.cpp
