@@ -31,7 +31,7 @@ import java.util.List;
 public class Node
   extends ModelBase
 {
-  private static final long serialVersionUID = -1;
+  private static final long serialVersionUID = -6684434195412037211L;
 
   private int id = -1;
   private String name = null;
@@ -51,7 +51,7 @@ public class Node
   /**
    * default package level constructor
    */
-  Node()
+  public Node()
   {
     super();
   }

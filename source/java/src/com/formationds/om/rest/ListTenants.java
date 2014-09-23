@@ -8,7 +8,7 @@ import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.CachedConfiguration;
-import com.formationds.xdi.ConfigurationServiceCache;
+import com.formationds.xdi.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -17,11 +17,11 @@ import javax.crypto.SecretKey;
 import java.util.Map;
 
 public class ListTenants implements RequestHandler {
-    private ConfigurationServiceCache configCache;
+    private ConfigurationApi configCache;
     private CachedConfiguration config;
     private SecretKey secretKey;
 
-    public ListTenants(ConfigurationServiceCache configCache, SecretKey secretKey) {
+    public ListTenants(ConfigurationApi configCache, SecretKey secretKey) {
         this.configCache = configCache;
         this.secretKey = secretKey;
         this.config = configCache.get();

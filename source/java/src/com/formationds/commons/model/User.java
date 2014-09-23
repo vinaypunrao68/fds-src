@@ -29,7 +29,7 @@ import javax.xml.bind.annotation.XmlTransient;
 public class User
   extends ModelBase
 {
-  private static final long serialVersionUID = -1;
+  private static final long serialVersionUID = -2139739643610025641L;
 
   private long id;
   private IdentityType identifier;
@@ -42,7 +42,7 @@ public class User
   /**
    * default constructor
    */
-  User()
+  public User()
   {
     super();
   }
@@ -69,6 +69,14 @@ public class User
   public IdentityType getIdentifier()
   {
     return identifier;
+  }
+
+  /**
+   * @param identifier the user's {@link com.formationds.commons.model.type.IdentityType}
+   */
+  public void setIdentifier( final IdentityType identifier )
+  {
+    this.identifier = identifier;
   }
 
   /**

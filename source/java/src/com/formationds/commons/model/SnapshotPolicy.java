@@ -17,7 +17,6 @@
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
-import net.fortuna.ical4j.model.Recur;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
@@ -30,7 +29,7 @@ public class SnapshotPolicy
 {
   private long id;
   private String name;
-  private Recur recurrenceRule;
+  private String recurrenceRule;
   private long retention;         // time in seconds
 
   /**
@@ -74,17 +73,17 @@ public class SnapshotPolicy
   }
 
   /**
-   * @return Returns the {@link net.fortuna.ical4j.model.Recur}
+   * @return Returns the {@link String}
    */
-  public Recur getRecurrenceRule()
+  public String getRecurrenceRule()
   {
     return recurrenceRule;
   }
 
   /**
-   * @param recurrenceRule the {@link net.fortuna.ical4j.model.Recur}
+   * @param recurrenceRule the {@link String}
    */
-  public void setRecurrenceRule( final Recur recurrenceRule )
+  public void setRecurrenceRule( final String recurrenceRule )
   {
     this.recurrenceRule = recurrenceRule;
   }

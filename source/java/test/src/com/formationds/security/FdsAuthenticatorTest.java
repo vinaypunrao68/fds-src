@@ -2,7 +2,7 @@ package com.formationds.security;
 
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.User;
-import com.formationds.xdi.ConfigurationServiceCache;
+import com.formationds.xdi.ConfigurationApi;
 import com.google.common.collect.Lists;
 import org.junit.Test;
 
@@ -22,7 +22,7 @@ public class FdsAuthenticatorTest {
     public void testAuthenticateFailure() throws Exception {
         ConfigurationService.Iface config = mock(ConfigurationService.Iface.class);
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList());
-        ConfigurationServiceCache cache = new ConfigurationServiceCache(config);
+        ConfigurationApi cache = new ConfigurationApi(config);
         FdsAuthenticator authenticator = new FdsAuthenticator(cache, AuthenticationTokenTest.SECRET_KEY);
         authenticator.authenticate("foo", "bar");
     }
@@ -35,7 +35,7 @@ public class FdsAuthenticatorTest {
                 new User(USER_ID, "james", hasher.hash("james"), "foo", false),
                 new User(43, "fab", hasher.hash("fab"), "bar", false)));
 
-        ConfigurationServiceCache cache = new ConfigurationServiceCache(config);
+        ConfigurationApi cache = new ConfigurationApi(config);
         FdsAuthenticator authenticator = new FdsAuthenticator(cache, AuthenticationTokenTest.SECRET_KEY);
         AuthenticationToken token = authenticator.authenticate("james", "james");
         assertEquals(42, token.getUserId());
@@ -43,7 +43,7 @@ public class FdsAuthenticatorTest {
 
     @Test(expected = LoginException.class)
     public void testSignatureIntegrity() throws Exception {
-        ConfigurationServiceCache config = mock(ConfigurationServiceCache.class);
+        ConfigurationApi config = mock(ConfigurationApi.class);
         FdsAuthenticator authenticator = new FdsAuthenticator(config, AuthenticationTokenTest.SECRET_KEY);
         authenticator.resolveToken("hello");
     }
@@ -51,7 +51,7 @@ public class FdsAuthenticatorTest {
     @Test(expected = LoginException.class)
     public void testOutDatedToken() throws Exception {
         String signature = new AuthenticationToken(USER_ID, "oldSecret").signature(AuthenticationTokenTest.SECRET_KEY);
-        ConfigurationServiceCache config = mock(ConfigurationServiceCache.class);
+        ConfigurationApi config = mock(ConfigurationApi.class);
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList(new User(USER_ID, "james", "doesntMatter", "newSecret", false)));
         FdsAuthenticator authenticator = new FdsAuthenticator(config, AuthenticationTokenTest.SECRET_KEY);
         authenticator.resolveToken(signature);
@@ -60,7 +60,7 @@ public class FdsAuthenticatorTest {
     @Test(expected = LoginException.class)
     public void testUserNoLongerExists() throws Exception {
         String signature = new AuthenticationToken(USER_ID, "secret").signature(AuthenticationTokenTest.SECRET_KEY);
-        ConfigurationServiceCache config = mock(ConfigurationServiceCache.class);
+        ConfigurationApi config = mock(ConfigurationApi.class);
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList());
         FdsAuthenticator authenticator = new FdsAuthenticator(config, AuthenticationTokenTest.SECRET_KEY);
         authenticator.resolveToken(signature);
@@ -70,7 +70,7 @@ public class FdsAuthenticatorTest {
     public void testResolveToken() throws Exception {
         String secret = "secret";
         AuthenticationToken token = new AuthenticationToken(USER_ID, secret);
-        ConfigurationServiceCache config = mock(ConfigurationServiceCache.class);
+        ConfigurationApi config = mock(ConfigurationApi.class);
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList(new User(USER_ID, "james", "doesntMatter", secret, false)));
         FdsAuthenticator authenticator = new FdsAuthenticator(config, AuthenticationTokenTest.SECRET_KEY);
         AuthenticationToken result = authenticator.resolveToken(token.signature(AuthenticationTokenTest.SECRET_KEY));
@@ -82,7 +82,7 @@ public class FdsAuthenticatorTest {
         ConfigurationService.Iface config = mock(ConfigurationService.Iface.class);
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList(
                 new User(USER_ID, "james", "whatever", "oldSecret", false)));
-        ConfigurationServiceCache poop = new ConfigurationServiceCache(config);
+        ConfigurationApi poop = new ConfigurationApi(config);
         FdsAuthenticator authenticator = new FdsAuthenticator(poop, AuthenticationTokenTest.SECRET_KEY);
         AuthenticationToken token = authenticator.reissueToken(USER_ID);
         verify(config, times(1)).updateUser(eq(USER_ID), eq("james"), eq("whatever"), not(eq("oldSecret")), eq(false));

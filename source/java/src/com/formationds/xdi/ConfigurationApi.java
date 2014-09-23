@@ -13,13 +13,14 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
-public class ConfigurationServiceCache implements ConfigurationService.Iface, Supplier<CachedConfiguration> {
-    private static final Logger LOG = Logger.getLogger(ConfigurationServiceCache.class);
+// TODO: authorize here
+public class ConfigurationApi implements ConfigurationService.Iface, Supplier<CachedConfiguration> {
+    private static final Logger LOG = Logger.getLogger(ConfigurationApi.class);
     private static final long KEY = 0;
     private final ConfigurationService.Iface config;
     private final ConcurrentHashMap<Long, CachedConfiguration> map;
 
-    public ConfigurationServiceCache(ConfigurationService.Iface config) throws Exception {
+    public ConfigurationApi(ConfigurationService.Iface config) throws Exception {
         this.config = config;
         map = new ConcurrentHashMap<>();
         map.compute(KEY, (k, v) -> {
@@ -31,6 +32,16 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
             }
         });
         new Thread(new Updater()).start();
+    }
+
+    public void createSnapshotPolicy(final String name, final String recurrence, final long retention) throws TException {
+        final SnapshotPolicy apisPolicy = new SnapshotPolicy();
+
+        apisPolicy.setPolicyName(name);
+        apisPolicy.setRecurrenceRule(recurrence);
+        apisPolicy.setRetentionTimeSeconds(retention);
+
+        config.createSnapshotPolicy(apisPolicy);
     }
 
     @Override
@@ -93,7 +104,7 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
         config.createVolume(domainName, volumeName, volumeSettings, tenantId);
         dropCache();
     }
-    
+
     @Override
     public long getVolumeId(String volumeName) throws ApiException, org.apache.thrift.TException {
         return 0;
@@ -137,54 +148,62 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
 
     @Override
     public long createSnapshotPolicy(com.formationds.apis.SnapshotPolicy policy) throws ApiException, org.apache.thrift.TException {
-      return config.createSnapshotPolicy( policy );
+        return config.createSnapshotPolicy(policy);
     }
 
     @Override
-        public List<com.formationds.apis.SnapshotPolicy> listSnapshotPolicies(long unused) throws ApiException, org.apache.thrift.TException {
-        return config.listSnapshotPolicies( unused );
+    public List<com.formationds.apis.SnapshotPolicy> listSnapshotPolicies(long unused) throws ApiException, org.apache.thrift.TException {
+        return config.listSnapshotPolicies(unused);
+    }
+
+    // TODO need deleteSnapshotForVolume Iface call.
+
+    @Override
+    public void deleteSnapshotPolicy(long id) throws ApiException, org.apache.thrift.TException {
+        config.deleteSnapshotPolicy(id);
     }
 
   // TODO need deleteSnapshotForVolume Iface call.
 
     @Override
-        public void deleteSnapshotPolicy(long id) throws ApiException, org.apache.thrift.TException {
-      config.deleteSnapshotPolicy( id );
+    public void attachSnapshotPolicy(long volumeId, long policyId) throws ApiException, org.apache.thrift.TException {
+        config.attachSnapshotPolicy(volumeId, policyId);
     }
 
     @Override
-        public void attachSnapshotPolicy(long volumeId, long policyId) throws ApiException, org.apache.thrift.TException {
-        config.attachSnapshotPolicy( volumeId, policyId );
+    public List<com.formationds.apis.SnapshotPolicy> listSnapshotPoliciesForVolume(long volumeId) throws ApiException, org.apache.thrift.TException {
+        return config.listSnapshotPoliciesForVolume(volumeId);
     }
 
     @Override
-        public List<com.formationds.apis.SnapshotPolicy> listSnapshotPoliciesForVolume(long volumeId) throws ApiException, org.apache.thrift.TException {
-        return config.listSnapshotPoliciesForVolume( volumeId );
+    public void detachSnapshotPolicy(long volumeId, long policyId) throws ApiException, org.apache.thrift.TException {
+        config.detachSnapshotPolicy(volumeId, policyId);
     }
 
     @Override
-        public void detachSnapshotPolicy(long volumeId, long policyId) throws ApiException, org.apache.thrift.TException {
-        config.detachSnapshotPolicy( volumeId, policyId );
-     }
-
-    @Override
-        public List<Long> listVolumesForSnapshotPolicy(long policyId) throws ApiException, org.apache.thrift.TException {
-        return config.listVolumesForSnapshotPolicy( policyId );
-    }
-    
-    @Override
-        public List<com.formationds.apis.Snapshot> listSnapshots(long volumeId) throws ApiException, org.apache.thrift.TException {
-        return config.listSnapshots( volumeId );
+    public List<Long> listVolumesForSnapshotPolicy(long policyId) throws ApiException, org.apache.thrift.TException {
+        return config.listVolumesForSnapshotPolicy(policyId);
     }
 
     @Override
-        public void restoreClone(long volumeId, long snapshotId) throws ApiException, org.apache.thrift.TException {
-        config.restoreClone( volumeId, snapshotId );
+    public void createSnapshot(long volumeId, String snapshotName, long retentionTime)
+            throws ApiException, TException {
+        config.createSnapshot(volumeId, snapshotName, retentionTime);
     }
 
     @Override
-        public long cloneVolume(long volumeId, long fdsp_PolicyInfoId, String clonedVolumeName) throws org.apache.thrift.TException {
-        return config.cloneVolume( volumeId, fdsp_PolicyInfoId, clonedVolumeName );
+    public List<com.formationds.apis.Snapshot> listSnapshots(long volumeId) throws ApiException, org.apache.thrift.TException {
+        return config.listSnapshots(volumeId);
+    }
+
+    @Override
+    public void restoreClone(long volumeId, long snapshotId) throws ApiException, org.apache.thrift.TException {
+        config.restoreClone(volumeId, snapshotId);
+    }
+
+    @Override
+    public long cloneVolume(long volumeId, long fdsp_PolicyInfoId, String clonedVolumeName) throws org.apache.thrift.TException {
+        return config.cloneVolume(volumeId, fdsp_PolicyInfoId, clonedVolumeName);
     }
 
     @Override
@@ -215,7 +234,8 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
             while (true) {
                 try {
                     Thread.sleep(1000);
-                } catch (InterruptedException e) {}
+                } catch (InterruptedException e) {
+                }
                 map.compute(KEY, (k, v) -> {
                     try {
                         return obtainConfig(v);

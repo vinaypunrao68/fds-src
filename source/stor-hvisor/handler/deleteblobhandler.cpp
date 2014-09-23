@@ -55,6 +55,12 @@ Error DeleteBlobHandler::handleQueueItem(AmQosReq *qosReq) {
         helper.setStatus(FDSN_StatusErrorUnknown);
         return ERR_DISK_READ_FAILED;
     }
+    // check if this is a snapshot
+    if (helper.shVol->voldesc->isSnapshot()) {
+        LOGWARN << "delete blob on a snapshot is not allowed.";
+        helper.setStatus(FDSN_StatusErrorAccessDenied);
+        return FDSN_StatusErrorAccessDenied;
+    }
 
     // Update the tx manager with the delete op
     storHvisor->amTxMgr->updateTxOpType(*(blobReq->txDesc), blobReq->getIoType());

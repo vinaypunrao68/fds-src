@@ -25,6 +25,8 @@ public class DeleteVolume implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String volumeName = requiredString(routeParameters, "name");
+
+        // TODO shouldn't we change to the "real" user token, instead of anonymous
         xdi.deleteVolume(AuthenticationToken.ANONYMOUS, "", volumeName);
         return new JsonResource(new JSONObject().put("status", "OK"));
     }

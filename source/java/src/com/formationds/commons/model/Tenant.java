@@ -37,7 +37,7 @@ public class Tenant
   /**
    * default constructor
    */
-  Tenant()
+  public Tenant()
   {
     super();
   }

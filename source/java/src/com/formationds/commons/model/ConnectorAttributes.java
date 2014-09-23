@@ -17,7 +17,7 @@
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
-import com.formationds.commons.model.type.SizeUnit;
+import com.formationds.util.SizeUnit;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
@@ -28,6 +28,8 @@ import javax.xml.bind.annotation.XmlRootElement;
 public class ConnectorAttributes
   extends ModelBase
 {
+  private static final long serialVersionUID = 4629648232746455453L;
+
   private SizeUnit unit;
   private long size;
 

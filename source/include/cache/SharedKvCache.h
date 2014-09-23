@@ -92,7 +92,7 @@ class SharedKvCache : public Module, boost::noncopyable {
          SCOPEDWRITE(cache_lock);
          GLOGTRACE << "Adding key " << key;
          // Remove any exiting entry from cache
-         remove(key);
+         remove_(key);
 
          // Add the entry to the front of the eviction list and into the map.
          eviction_list.emplace_front(key, value);
@@ -183,22 +183,15 @@ class SharedKvCache : public Module, boost::noncopyable {
      }
 
      /**
-      * Removes a key and value from the cache
+      * Removes a key and value from the cache. Thread safe.
       *
       * @param[in] key   Key to use for indexing
       *
       * @return none
       */
      void remove(const key_type &key) {
-         // Locate the key in the map
-         auto mapIt = cache_map.find(key);
-         if (mapIt != cache_map.end()) {
-             iterator cacheEntry = mapIt->second;
-             // Remove from the cache_map
-             cache_map.erase(mapIt);
-             // Remove from the eviction_list
-             eviction_list.erase(cacheEntry);
-         }
+         SCOPEDWRITE(cache_lock);
+         remove_(key);
      }
 
      /**
@@ -247,6 +240,25 @@ class SharedKvCache : public Module, boost::noncopyable {
      // Synchronization members
      fds_rwlock cache_lock;
 
+    /**
+      * Internal function to remove a key and value
+      * from the cache.
+      *
+      * @param[in] key   Key to use for indexing
+      *
+      * @return none
+      */
+     void remove_(const key_type &key) {
+         // Locate the key in the map
+         auto mapIt = cache_map.find(key);
+         if (mapIt != cache_map.end()) {
+             iterator cacheEntry = mapIt->second;
+             // Remove from the cache_map
+             cache_map.erase(mapIt);
+             // Remove from the eviction_list
+             eviction_list.erase(cacheEntry);
+         }
+     }
 
      /**
       * Touches a key for the purpose of representing an access.

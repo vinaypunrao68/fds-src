@@ -18,6 +18,7 @@
 #include <fds_volume.h>
 #include <TransJournal.h>
 #include <leveldb/db.h>
+#include <persistent_layer/dm_io.h>
 
 
 // TODO(Rao):

@@ -11,11 +11,10 @@ import java.util.List;
  * @author ptinius
  */
 @XmlRootElement
-//@JsonIgnoreProperties(ignoreUnknown = true)
 public class AuthenticatedUser
   extends ModelBase
 {
-  private static final long serialVersionUID = -1;
+  private static final long serialVersionUID = -6030735171650443376L;
 
   private String username;
   private long userId;
@@ -79,7 +78,7 @@ public class AuthenticatedUser
   }
 
   /**
-   * @return Returns {@link List} of available {@link com.formationds.commons.model.type.Feature} to this user
+   * @return Returns {@link List} a {@link Feature} representation of the UI visible feature.
    */
   public List<Feature> getFeatures()
   {
@@ -91,13 +90,16 @@ public class AuthenticatedUser
     return features;
   }
 
-  public void setFeatures( final String feature )
+  /**
+   * @param features the {@link List} of {@link String} representation of the UI visible feature.
+   */
+  public void setFeatures( final List<Feature> features )
   {
-    if( features == null )
+    if( this.features == null )
     {
-      features = new ArrayList<>( );
+      this.features = new ArrayList<>( );
     }
 
-    features.add( Feature.lookup( feature ) );
+    this.features.addAll( features );
   }
 }

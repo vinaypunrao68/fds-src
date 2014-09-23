@@ -4,6 +4,7 @@ package com.formationds.xdi.swift;
  */
 
 import com.formationds.security.AuthenticationToken;
+import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
@@ -34,7 +35,7 @@ public class SwiftEndpoint {
         authenticate(HttpMethod.GET, "/v1/:account/:container/:object", (t) -> new GetObject(xdi, t));
         authenticate(HttpMethod.DELETE, "/v1/:account/:container/:object", (t) -> new DeleteObject(xdi, t));
 
-        webApp.start(httpPort);
+        webApp.start(new HttpConfiguration(httpPort, "0.0.0.0"));
     }
 
     private void authenticate(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {

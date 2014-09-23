@@ -16,9 +16,10 @@
 
 package com.formationds.commons.model.abs;
 
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.commons.model.intr.Tagable;
 import com.formationds.commons.model.type.ManagerType;
 import com.formationds.commons.model.type.NodeState;
-import com.formationds.commons.model.intr.Tagable;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import javax.xml.bind.annotation.XmlRootElement;
@@ -28,17 +29,15 @@ import javax.xml.bind.annotation.XmlRootElement;
  */
 @XmlRootElement
 public abstract class ModelBase
-  implements Tagable
-{
-  private static final long serialVersionUID = -1;
+  implements Tagable {
+  private static final long serialVersionUID = -7645839798777744738L;
 
   /**
    * @param field the {@link String} representing the field checking
    *
    * @return Returns {@code true} if {@code field} is set
    */
-  protected boolean isSet( final String field )
-  {
+  protected boolean isSet( final String field ) {
     return ( field != null );
   }
 
@@ -47,8 +46,7 @@ public abstract class ModelBase
    *
    * @return Returns {@code true} if {@code field} is set
    */
-  protected boolean isSet( final int field )
-  {
+  protected boolean isSet( final int field ) {
     return field != -1;
   }
 
@@ -57,8 +55,7 @@ public abstract class ModelBase
    *
    * @return Returns {@code true} if {@code field} is set
    */
-  protected boolean isSet( final long field )
-  {
+  protected boolean isSet( final long field ) {
     return field != -1L;
   }
 
@@ -67,8 +64,7 @@ public abstract class ModelBase
    *
    * @return Returns {@code true} if {@code field} is set
    */
-  protected boolean isSet( final ManagerType field )
-  {
+  protected boolean isSet( final ManagerType field ) {
     return field != null;
   }
 
@@ -77,17 +73,22 @@ public abstract class ModelBase
    *
    * @return Returns {@code true} if {@code field} is set
    */
-  protected boolean isSet( final NodeState field )
-  {
+  protected boolean isSet( final NodeState field ) {
     return field != null;
+  }
+
+  /**
+   * @return Returns {@link String} representing this object as JSON
+   */
+  public String toJSON() {
+    return ObjectModelHelper.toJSON( this );
   }
 
   /**
    * @return Returns a {@link String} representing this object
    */
   @Override
-  public String toString()
-  {
+  public String toString() {
     return ToStringBuilder.reflectionToString( this );
   }
 }

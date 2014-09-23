@@ -322,7 +322,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          diskToFlash,
          invalidMig
      };
-     PerfStats *perfStats;
 
      SysParams *sysParams;
 
@@ -417,7 +416,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      ObjectStorMgr()
          : Module("sm") {
          smObjDb = nullptr;
-         perfStats = nullptr;
          qosCtrl = nullptr;
          writeBackThreads = nullptr;
          dirtyFlashObjs = nullptr;
@@ -499,6 +497,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
     }
     Error deregVolQos(fds_volid_t volId) {
         return qosCtrl->deregisterVolume(volId);
+    }
+    SmVolQueue * getQueue(fds_volid_t volId) const {
+        return static_cast<SmVolQueue*>(qosCtrl->getQueue(volId));
     }
 
      // We need to get this info out of this big class to avoid making this

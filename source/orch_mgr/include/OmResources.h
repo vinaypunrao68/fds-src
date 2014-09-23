@@ -386,9 +386,10 @@ class OM_NodeContainer : public DomainContainer
     }
     inline Error om_create_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                                const FdspCrtVolPtr           &creat_msg,
-                               fds_bool_t from_omcontrol_path) {
-        return om_volumes->om_create_vol(hdr, creat_msg, from_omcontrol_path);
+                               const boost::shared_ptr<fpi::AsyncHdr> &hdrz) {
+        return om_volumes->om_create_vol(hdr, creat_msg, hdrz);
     }
+
     inline Error om_snap_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                              const FdspCrtVolPtr      &snap_msg) {
         return om_volumes->om_snap_vol(hdr, snap_msg);
@@ -483,14 +484,9 @@ class OM_NodeContainer : public DomainContainer
 
     /**
      * Recent history of perf stats OM receives from AM nodes.
+     * TODO(Anna) need to use new stats class
      */
-    PerfStats                *am_stats;
-    /**
-     * TODO(Anna): this is temp JSON file, will remove as soon as we implement
-     * real stats polling from CLI.
-     */
-    std::ofstream             json_file;
-    void om_printStatsToJsonFile();
+    // PerfStats                *am_stats;
 };
 
 /**

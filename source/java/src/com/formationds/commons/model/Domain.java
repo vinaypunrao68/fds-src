@@ -27,7 +27,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 public class Domain
   extends ModelBase
 {
-  private static final long serialVersionUID = -1;
+  private static final long serialVersionUID = 2054093416617447166L;
 
   private int id;
   private String site;
@@ -36,7 +36,7 @@ public class Domain
   /**
    * default package level constructor
    */
-  Domain()
+  public Domain()
   {
     super();
   }

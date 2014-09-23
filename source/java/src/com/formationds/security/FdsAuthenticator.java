@@ -5,7 +5,7 @@ package com.formationds.security;
 
 import com.formationds.apis.User;
 import com.formationds.xdi.CachedConfiguration;
-import com.formationds.xdi.ConfigurationServiceCache;
+import com.formationds.xdi.ConfigurationApi;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
@@ -17,10 +17,10 @@ import java.util.UUID;
 
 public class FdsAuthenticator implements Authenticator {
     private final static Logger LOG = Logger.getLogger(FdsAuthenticator.class);
-    private ConfigurationServiceCache cache;
+    private ConfigurationApi cache;
     private SecretKey secretKey;
 
-    public FdsAuthenticator(ConfigurationServiceCache cache, SecretKey secretKey) {
+    public FdsAuthenticator(ConfigurationApi cache, SecretKey secretKey) {
         this.cache = cache;
         this.secretKey = secretKey;
     }
