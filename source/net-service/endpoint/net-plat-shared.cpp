@@ -69,7 +69,7 @@ NetPlatSvc::mod_enable_service()
     nplat_refresh_shm();
 
     if (!plat_lib->plf_is_om_node()) {
-        plat_self->pda_connect_domain(fpi::DomainID());
+        plat_master->pda_connect_domain(fpi::DomainID());
     }
 }
 

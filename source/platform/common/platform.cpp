@@ -118,5 +118,24 @@ NodePlatform::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg)
 /**
  * Required factory methods.
  */
+#if 0
+// plat_new_om_svc
+// ---------------
+//
+OmSvcEp::pointer
+NodePlatform::plat_new_om_svc(NodeAgent::pointer agt, fds_uint32_t maj, fds_uint32_t min)
+{
+    return new PM_OmSvcEp(agt, maj, min, new Plat_OmNodeAgentEvt(agt));
+}
+#endif
+
+// plat_new_om_svc
+// ---------------
+//
+PmSvcEp::pointer
+NodePlatform::plat_new_pm_svc(NodeAgent::pointer agt, fds_uint32_t maj, fds_uint32_t min)
+{
+    return new PmSvcEp(agt, maj, min, new PlatAgentPlugin(agt));
+}
 
 }  // namespace fds
