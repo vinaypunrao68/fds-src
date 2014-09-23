@@ -4,8 +4,11 @@ KEY_SYSTEM = '__system__'
 KEY_ACCESSLEVEL = '__accesslevel__'
 KEY_HOST = 'host'
 KEY_PORT = 'port'
+KEY_GRIDOUTPUT = 'gridoutput'
 PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 
+from fdslib import RestEndpoint
+import types
 class AccessLevel:
     '''
     Defines different access levels for users
@@ -41,6 +44,20 @@ class ConfigData:
     '''
     def __init__(self,data):
         self.__data = data
+
+    def init(self):
+        defaults = {
+            KEY_ACCESSLEVEL: AccessLevel.USER,
+            KEY_HOST : '127.0.0.1',
+            KEY_PORT : 7020,
+            KEY_GRIDOUTPUT : False
+        }
+        
+        for key in defaults.keys():
+            if None == self.getSystem(key):
+                self.setSystem(key, defaults[key])
+
+        self.rest = RestEndpoint.RestEndpoint(self.getHost(), 7777)
 
     def set(self, key, value, namespace):
         if namespace not in self.__data:
@@ -78,6 +95,15 @@ class ConfigData:
 
     def setPort(self, port):
         self.setSystem(KEY_PORT, port)
+
+    def getTableFormat(self):
+        val = self.get(KEY_GRIDOUTPUT, KEY_SYSTEM)
+        if type(val) == types.StringType:
+            val = val.lower().strip();
+        if val in ['1','yes',True,'true']:
+            return 'grid'
+        else:
+            return 'simple'
 
 def setupHistoryFile():
     '''
