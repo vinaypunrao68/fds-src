@@ -5,6 +5,7 @@ Rest endpoints for use in python scripts
 import sys
 import json
 import unittest
+import random
 
 try:
     import requests
@@ -94,7 +95,7 @@ class RestEndpoint(object):
                 print "JSON not valid!"
                 return None
         else:
-            print result.text
+            print 'Non 200 response hit! ' + result.text
             return None
 
 
@@ -169,7 +170,159 @@ class TenantEndpoint():
                 return False
         else:
             return False
-    
+
+
+class VolumeEndpoint(RestEndpoint):
+
+    def __init__(self, **kwargs):
+        RestEndpoint.__init__(self, **kwargs)
+        self.rest_path += '/api/config/volumes'
+
+
+    def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit):
+
+        volume_info = {
+            'name' : volume_name,
+            'priority' : int(priority),
+            'sla': int(sla),
+            'limit': int(limit),
+            'data_connector': {
+                'type': vol_type,
+                'attributes': {
+                    'size': size,
+                    'unit': unit
+                }
+            }
+        }
+        res = requests.post(self.rest_path, headers=self.headers, data=json.dumps(volume_info))
+        res = self.parse_result(res)
+
+        if type(res) != dict or 'status' not in res:
+            return None
+        else:
+            if res['status'].lower() != 'ok':
+                return None
+            else:
+                return res['status']
+        
+    def deleteVolume(self, volume_name):
+        path = '{}/{}'.format(self.rest_path, volume_name)
+
+        res = requests.delete(path, headers=self.headers)
+        res = self.parse_result(res)
+        
+        
+    def listVolumes(self):
+        '''
+        Get a list of volumes in the system.
+        Params:
+           None
+        Returns:
+           List of dictionaries describing volumes. Dictionaries in the form:
+           {
+              'name': <name>,
+              'apis': <api>,
+              'data_connector': { 'type': <type> },
+              'id': <vol_id>,
+              'priority': <priority>,
+              'limit': <limit>,
+              'sla': <sla>,
+              'current_usage': {'unit': <unit>, 'size': <size> }
+           }
+        '''
+        
+        res = requests.get(self.rest_path, headers=self.headers)
+        res = self.parse_result(res)
+        if res is not None:
+            return res
+        else:
+            return None        
+        
+    def setVolumeQosParams(self, vol_id, min_iops, priority, max_iops):
+        '''
+        Set the QOS parameters for a volume.
+        Params:
+           vold_id - int: uuid of the volume to modify
+           min_iops - int: minimum number of iops that must be sustained
+           priority - int: priority of the volume
+           max_iops - int: maximum number of iops that a volume may achieve
+        Returns:
+           Dictionary of volume information including updated QOS params
+           in the form:
+           {
+              'name': <name>,
+              'apis': <apis>,
+              'data_connector': {'type': <type>},
+              'id': <vol_id>,
+              'priority': <priority>,
+              'limit': <limit>,
+              'sla': <sla>,
+              'current_usage': {'unit': <unit>, 'size': <size>}
+           }
+           or None on failure
+        '''
+
+        params = {
+            'sla' : min_iops,
+            'priority': priority,
+            'limit': max_iops
+        }
+        path = '{}/{}'.format(self.rest_path, str(vol_id))
+        res = requests.put(path, headers=self.headers, data=json.dumps(params))
+        res = self.parse_result(res)
+
+        if res is not None:
+            return res
+        else:
+            return None
+
+
+class AuthEndpoint(RestEndpoint):
+    '''
+    Authentication endpoints.
+    '''
+    def __init__(self, **kwargs):
+        RestEndpoint.__init__(self, **kwargs)
+        self.rest_path += '/api/auth'
+
+    def grantToken(self):
+        '''
+        Get a token from the system. This token is the token used in the FDS-Auth header.
+        Params:
+           None
+        Returns:
+           Auth token as a string, None on failure
+        '''
+        res = requests.get('{}/{}'.format(self.rest_path, 'token?login=admin&password=admin'))
+        res = self.parse_result(res)
+        if 'token' in res.keys():
+            return res['token']
+        else:
+            return None
+
+    def getCurrentUser(self):
+        '''
+        Get the current user's name/id.
+        Params:
+           None
+        Returns:
+           Dictionary of the form:
+           {
+              'identifier' : <username>,
+              'id' : <user id>
+              'isFdsAdmin' : <bool>
+           }
+           OR None on failure
+        '''
+
+        path = '{}/{}'.format(self.rest_path, 'currentUser')
+        res = requests.get(path)
+        res = self.parse_result(res)
+        if res != {}:
+            return res
+        else:
+            return None
+        
 
 class UserEndpoint():
     
@@ -178,6 +331,7 @@ class UserEndpoint():
         self.rest_path = self.rest.base_path + '/api/system/users'
 
     def createUser(self, username, password):
+
         '''
         Create a new user in the system.
         Params:
@@ -230,6 +384,36 @@ class UserEndpoint():
         else:
             return False
 
+
+
+
+class TestVolumeEndpoints(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.volEp = VolumeEndpoint()
+
+    def test_listVolume(self):
+        vols = self.volEp.listVolumes()
+        self.assertIsNotNone(vols)
+        
+    def test_createVolume(self):
+        vol_name = 'unit_test' + str(random.randint(0, 10000))
+        status = self.volEp.createVolume(vol_name, 1, 1, 5000, 'object', 5000, 'mb')
+        self.assertEquals(status.lower(), 'ok')
+
+    def test_setQosParameters(self):
+        vol_name = 'unit_test' + str(random.randint(0, 10000))
+        status = self.volEp.createVolume(vol_name, 1, 1, 5000, 'object', 5000, 'mb')
+        self.assertEquals(status.lower(), 'ok')
+
+        vols = self.volEp.listVolumes()
+        vol_id = None
+        for vol in vols:
+            if vol['name'] == vol_name:
+                vol_id = vol['id']
+
+        res = self.volEp.setVolumeQosParams(vol_id, 50, 1, 100)
+        self.assertDictContainsSubset({'name': vol_name, 'id':vol_id}, res)
 
 class TestTenantEndpoints(unittest.TestCase):
     @classmethod
