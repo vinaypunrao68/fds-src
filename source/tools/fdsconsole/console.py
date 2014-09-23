@@ -19,6 +19,7 @@ from contexts import snapshot
 from contexts import snapshotpolicy
 from contexts import service
 from contexts import user
+from contexts import tenant
 
 """
 Console exit exception. This is needed to exit cleanly as 
@@ -40,23 +41,14 @@ class FDSConsole(cmd.Cmd):
             pass
 
         self.config = ConfigData(self.data)
-            
+
         self.prompt = 'fds:> '
         self.context = None
         self.previouscontext = None
-        self.setupDefaultConfig()
-        self.set_root_context(context.RootContext(self.config))
-        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
+        self.config.init()
 
-    def setupDefaultConfig(self):
-        defaults = {
-            KEY_ACCESSLEVEL: AccessLevel.USER,
-            'host' : '127.0.0.1:7020',
-        }
-        for key in defaults.keys():
-            if None == self.config.getSystem(key):
-                #print 'setting default %s' % (key)
-                self.config.setSystem(key, defaults[key])
+        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
+        self.set_root_context(context.RootContext(self.config))
 
     def get_access_level(self):
         return self.config.getSystem(KEY_ACCESSLEVEL)
@@ -239,7 +231,7 @@ class FDSConsole(cmd.Cmd):
                 if key not in helpers.PROTECTED_KEYS:
                     data.append([key, str(value)])
             #print data
-            print tabulate(data, headers=['name', 'value'])
+            print tabulate(data, headers=['name', 'value'], tablefmt=self.config.getTableFormat())
 
             return
         
@@ -265,6 +257,11 @@ class FDSConsole(cmd.Cmd):
         print line
         argv = shlex.split(line)
         
+    def do_exit(self, *args):
+        return True
+
+    def help_exit(self, *args):
+        print 'exit the fds console'
 
     def get_names(self):
         names = [key for key,value in self.context.methods.items() if value <= self.config.getSystem(KEY_ACCESSLEVEL)]
@@ -372,6 +369,7 @@ class FDSConsole(cmd.Cmd):
         snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config,'policy'))
 
         self.root.add_sub_context(service.ServiceContext(self.config,'service'))
+        self.root.add_sub_context(tenant.TenantContext(self.config,'tenant'))
         self.root.add_sub_context(user.UserContext(self.config,'user'))
 
     def run(self, argv = None):

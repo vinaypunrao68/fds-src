@@ -1,47 +1,44 @@
 from  svchelper import *
 from fdslib.pyfdsp.apis import ttypes
 import RestEndpoint
-import pdb
 
 class TenantContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-        self.restApi = RestEndpoint.TenantEndpoint() 
+        self.restApi = RestEndpoint.TenantEndpoint(self.config.rest) 
 
     #--------------------------------------------------------------------------------------
     @clicmd
     def list(self):
         'show the list of users in the system'
         try:
-            users = self.restApi.listUsers()
-            return users
-            return tabulate([(item.name, item.tenantId, item.dateCreated,
-                              'OBJECT' if item.policy.volumeType == 0 else 'BLOCK',
-                              item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in sorted(volumes, key=attrgetter('name'))  ],
-                            headers=['Name', 'TenantId', 'Create Date','Type', 'Max-Obj-Size', 'Blk-Size'])            
+            tenants = self.restApi.listTenants()
+            return tabulate([(item['id'], item['name'])
+                             for item in sorted(tenants, key=itemgetter('name'))  ],
+                            headers=['id', 'name'], tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
-            return 'unable to get user list'
+            return '[ERROR] : unable to get tenant list'
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('name', help= "user name")
-    @arg('password', help= "password for this user")
+    @arg('name', help= "tenant name")
     def create(self, name, password):
-        'create a new user'
+        'create a new tenant'
         try:
-            return self.restApi.createUser(name, password)
+            return self.restApi.createTenant(name)
         except Exception, e:
             log.exception(e)
-            return 'unable to create user: {}'.format(name)
+            return '[ERROR] : unable to create tenant: {}'.format(name)
     
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('name', help= "name of the user")
-    @arg('password', help= "password")
-    def update_password(self, name, password):
+    @arg('user', help= "name of the user")
+    @arg('tenant', help= "password")
+    def assign_user(self, user, tenant):
+        'assign the user to a tenant'
         try:
-            return self.restApi.updatePassword(name, password)
+            return self.restApi.assignUserToTenant(user, tenant)
         except Exception, e:
             log.exception(e)
-            return 'unbale to update password for : {}'.format(name)
+            return 'unbale to assign user : {} to tenant : {}'.format(user, tenant)
