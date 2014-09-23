@@ -16,6 +16,7 @@
 
 package com.formationds.commons.model.abs;
 
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.intr.Tagable;
 import com.formationds.commons.model.type.ManagerType;
 import com.formationds.commons.model.type.NodeState;
@@ -29,7 +30,6 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement
 public abstract class ModelBase
   implements Tagable {
-
   private static final long serialVersionUID = -7645839798777744738L;
 
   /**
@@ -75,6 +75,13 @@ public abstract class ModelBase
    */
   protected boolean isSet( final NodeState field ) {
     return field != null;
+  }
+
+  /**
+   * @return Returns {@link String} representing this object as JSON
+   */
+  public String toJSON() {
+    return ObjectModelHelper.toJSON( this );
   }
 
   /**

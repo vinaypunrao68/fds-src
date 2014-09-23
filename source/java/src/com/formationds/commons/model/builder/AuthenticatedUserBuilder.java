@@ -28,7 +28,7 @@ public class AuthenticatedUserBuilder {
   private String username;
   private long userId;
   private String token;
-  private List<Feature> UserVisibleFeatures;
+  private List<Feature> features;
 
   /**
    * default constructor
@@ -72,7 +72,7 @@ public class AuthenticatedUserBuilder {
    * @return Returns {@link AuthenticatedUserBuilder}
    */
   public AuthenticatedUserBuilder withFeatures( List<Feature> features ) {
-    this.UserVisibleFeatures = features;
+    this.features = features;
     return this;
   }
 
@@ -84,9 +84,7 @@ public class AuthenticatedUserBuilder {
     authenticatedUser.setUsername( username );
     authenticatedUser.setUserId( userId );
     authenticatedUser.setToken( token );
-    for( final Feature feature : UserVisibleFeatures ) {
-      authenticatedUser.setFeatures( feature.getLocalized() );
-    }
+    authenticatedUser.setFeatures( features );
 
     return authenticatedUser;
   }

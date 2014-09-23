@@ -25,10 +25,13 @@ import java.util.Date;
  */
 public class RecurrenceRuleBuilder {
   private String frequency;
-  private Date until;
+  private Date until = null;
   private int count = -1;
   private int interval = 0;
 
+  /**
+   * defULT CONSRTUCTOR
+   */
   public RecurrenceRuleBuilder() {
   }
 
@@ -78,9 +81,19 @@ public class RecurrenceRuleBuilder {
   public RecurrenceRule build() {
     RecurrenceRule recurrenceRule = new RecurrenceRule();
     recurrenceRule.setFrequency( frequency );
-    recurrenceRule.setUntil( until );
-    recurrenceRule.setCount( count );
-    recurrenceRule.setInterval( interval );
+    if( until != null )
+    {
+      recurrenceRule.setUntil( until );
+    }
+
+    if( count > 0 ) {
+      recurrenceRule.setCount( count );
+    }
+
+    if( interval > 0 ) {
+      recurrenceRule.setInterval( interval );
+    }
+
     return recurrenceRule;
   }
 }
