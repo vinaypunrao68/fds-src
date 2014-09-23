@@ -172,12 +172,11 @@ class TenantEndpoint():
             return False
 
 
-class VolumeEndpoint(RestEndpoint):
+class VolumeEndpoint:
 
-    def __init__(self, **kwargs):
-        RestEndpoint.__init__(self, **kwargs)
-        self.rest_path += '/api/config/volumes'
-
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + '/api/config/volumes'
 
     def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit):
 
@@ -194,8 +193,8 @@ class VolumeEndpoint(RestEndpoint):
                 }
             }
         }
-        res = requests.post(self.rest_path, headers=self.headers, data=json.dumps(volume_info))
-        res = self.parse_result(res)
+        res = self.rest.post(self.rest_path, data=json.dumps(volume_info))
+        res = self.rest.parse_result(res)
 
         if type(res) != dict or 'status' not in res:
             return None
@@ -208,8 +207,8 @@ class VolumeEndpoint(RestEndpoint):
     def deleteVolume(self, volume_name):
         path = '{}/{}'.format(self.rest_path, volume_name)
 
-        res = requests.delete(path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.delete(path, headers=self.headers)
+        res = self.rest.parse_result(res)
         
         
     def listVolumes(self):
@@ -231,8 +230,8 @@ class VolumeEndpoint(RestEndpoint):
            }
         '''
         
-        res = requests.get(self.rest_path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.get(self.rest_path)
+        res = self.rest.parse_result(res)
         if res is not None:
             return res
         else:
@@ -268,8 +267,8 @@ class VolumeEndpoint(RestEndpoint):
             'limit': max_iops
         }
         path = '{}/{}'.format(self.rest_path, str(vol_id))
-        res = requests.put(path, headers=self.headers, data=json.dumps(params))
-        res = self.parse_result(res)
+        res = self.rest.put(path, data=json.dumps(params))
+        res = self.rest.parse_result(res)
 
         if res is not None:
             return res
@@ -277,13 +276,13 @@ class VolumeEndpoint(RestEndpoint):
             return None
 
 
-class AuthEndpoint(RestEndpoint):
+class AuthEndpoint:
     '''
     Authentication endpoints.
     '''
-    def __init__(self, **kwargs):
-        RestEndpoint.__init__(self, **kwargs)
-        self.rest_path += '/api/auth'
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + '/api/auth'
 
     def grantToken(self):
         '''
@@ -293,8 +292,8 @@ class AuthEndpoint(RestEndpoint):
         Returns:
            Auth token as a string, None on failure
         '''
-        res = requests.get('{}/{}'.format(self.rest_path, 'token?login=admin&password=admin'))
-        res = self.parse_result(res)
+        res = self.rest.get('{}/{}'.format(self.rest_path, 'token?login=admin&password=admin'))
+        res = self.rest.parse_result(res)
         if 'token' in res.keys():
             return res['token']
         else:
@@ -316,8 +315,8 @@ class AuthEndpoint(RestEndpoint):
         '''
 
         path = '{}/{}'.format(self.rest_path, 'currentUser')
-        res = requests.get(path)
-        res = self.parse_result(res)
+        res = self.rest.get(path)
+        res = self.rest.parse_result(res)
         if res != {}:
             return res
         else:
@@ -385,12 +384,11 @@ class UserEndpoint():
             return False
 
 
-
-
 class TestVolumeEndpoints(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.volEp = VolumeEndpoint()
+        rest = RestEndpoint()
+        self.volEp = VolumeEndpoint(rest)
 
     def test_listVolume(self):
         vols = self.volEp.listVolumes()
