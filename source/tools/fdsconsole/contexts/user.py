@@ -1,12 +1,11 @@
 from  svchelper import *
 from fdslib.pyfdsp.apis import ttypes
 import RestEndpoint
-import pdb
 
 class UserContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-        self.restApi = RestEndpoint.UserEndpoint() 
+        self.restApi = RestEndpoint.UserEndpoint(self.config.rest)
 
     #--------------------------------------------------------------------------------------
     @clicmd
@@ -14,11 +13,9 @@ class UserContext(Context):
         'show the list of users in the system'
         try:
             users = self.restApi.listUsers()
-            return users
-            return tabulate([(item.name, item.tenantId, item.dateCreated,
-                              'OBJECT' if item.policy.volumeType == 0 else 'BLOCK',
-                              item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in sorted(volumes, key=attrgetter('name'))  ],
-                            headers=['Name', 'TenantId', 'Create Date','Type', 'Max-Obj-Size', 'Blk-Size'])            
+            return tabulate([(item['id'], item['identifier'], 'YES' if item['isFdsAdmin'] else 'NO')
+                              for item in sorted(users, key=itemgetter('identifier'))  ],
+                            headers=['id', 'identifier', 'admin'], tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
             return 'unable to get user list'
