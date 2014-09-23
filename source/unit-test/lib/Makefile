@@ -25,7 +25,6 @@ user_cpp          :=  \
     fds_timer_test.cpp \
     fds_config_test.cpp \
     catalog_unit_test.cpp \
-    ocache_unit_test.cpp         \
     perfstat_unit_test.cpp \
     fds_process_interrupt_test.cpp \
     counters_test.cpp \
@@ -44,7 +43,6 @@ user_no_style     :=                \
     fds_timer_test.cpp              \
     fds_config_test.cpp             \
     catalog_unit_test.cpp           \
-    ocache_unit_test.cpp            \
     perfstat_unit_test.cpp          \
     fds_process_interrupt_test.cpp  \
     counters_test.cpp               \
@@ -56,7 +54,6 @@ user_bin_exe      := \
     fds_timer_test \
     fds_config_test \
     catalog_test \
-    ocache_unit_test \
     perfstat_unit_test \
     fds_process_interrupt_test \
     counters_test \
@@ -71,7 +68,6 @@ user_bin_exe      := \
     HashedLocks_ut
 
 catalog_test                   := catalog_unit_test.cpp
-ocache_unit_test	       := ocache_unit_test.cpp
 perfstat_unit_test             := perfstat_unit_test.cpp
 fds_process_interrupt_test     := fds_process_interrupt_test.cpp
 fds_timer_test                 := fds_timer_test.cpp

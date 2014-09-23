@@ -7,7 +7,6 @@ user_build_dir :=      \
     persistent-layer   \
     umod-lib           \
     util               \
-    data-mgr           \
     migrations         \
     stor-mgr
 
