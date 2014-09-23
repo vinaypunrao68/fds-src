@@ -143,7 +143,6 @@ OmSvcHandler::    PerfStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 {
     extern OrchMgr *gl_orch_mgr;
     gl_orch_mgr->NotifyPerfstats(hdr, &msg->perfstats);
->>>>>>> dev
 }
 
 }  //  namespace fds

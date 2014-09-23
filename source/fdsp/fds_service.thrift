@@ -80,7 +80,6 @@ enum  FDSPMsgTypeId {
     CtrlNotifyBucketStatTypeId         = 2100,
     CtrlNotifyThrottleTypeId           = 2101,
     CtrlNotifyQoSControlTypeId         = 2102,
-    CtrlTestBucketTypeId	       = 2103,
 
     /* AM-> OM */
     CtrlTestBucketTypeId	       = 3000,
