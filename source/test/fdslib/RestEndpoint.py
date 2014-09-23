@@ -3,8 +3,6 @@ Rest endpoints for use in python scripts
 '''
 
 import sys
-import re
-import os
 import json
 import unittest
 
@@ -13,6 +11,9 @@ try:
 except ImportError:
     print 'oops! I need the [requests] pkg. do: "sudo easy_install requests" OR "pip install requests"'
     sys.exit(0)
+
+import logging
+logging.getLogger("requests").setLevel(logging.WARNING)
 
 #----------------------------------------------------------------------------------------#
 class RestException(Exception):
@@ -26,13 +27,12 @@ class UserException(RestException):
 class RestEndpoint(object):
     
     def __init__(self, host='localhost', port=7777, auth=True):
-
-        if 'http://' not in host:
-            host = 'http://' + host
-            
         self.host = host
         self.port = port
-        self.rest_path = host + ':' + str(port)
+
+        self.setHost(host)
+        self.setPort(port)
+        
         self.user = 'admin'
         self.password = 'admin'
         self._token = None
@@ -41,12 +41,20 @@ class RestEndpoint(object):
             if not self.login(self.user, self.password):
                 print '[WARN] : unable to login as {}'.format(self.user)
 
+    def setHost(self, host):
+        self.host = host
+        self.base_path = 'http://{}:{}'.format(self.host,self.port)
+
+    def setPort(self, port):
+        self.port = port
+        self.base_path = 'http://{}:{}'.format(self.host,self.port)
+
     def login(self, user, password):
         '''
         Get the auth token from the auth REST endpoint.
         '''
         # TODO(brian): This will have to change when the token acquisition changes
-        path = '{}/{}'.format(self.rest_path, 'api/auth/token?login={}&password={}'.format(user, password))
+        path = '{}/{}'.format(self.base_path, 'api/auth/token?login={}&password={}'.format(user, password))
         try :
             res = requests.get(path)
             res = self.parse_result(res)
@@ -57,6 +65,18 @@ class RestEndpoint(object):
             return self._token
         except:
             return None
+
+    def get(self, path):
+        return requests.get(path, headers=self.headers)
+
+    def post(self, path, data=None):
+        return requests.post(path, headers=self.headers, data=data)
+
+    def put(self, path, data=None):
+        return requests.put(path, headers=self.headers, data=data)
+
+    def delete(self, path):
+        return requests.delete(path, headers=self.headers)
 
     def parse_result(self, result):
         '''
@@ -83,11 +103,10 @@ class RestEndpoint(object):
         pass
 
 
-class TenantEndpoint(RestEndpoint):
-    def __init__(self, **kwargs):
-        RestEndpoint.__init__(self, **kwargs)
-
-        self.rest_path += '/api/system/tenants'
+class TenantEndpoint():
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + '/api/system/tenants'
 
     def listTenants(self):
         '''
@@ -107,7 +126,8 @@ class TenantEndpoint(RestEndpoint):
            or None on failure. Note: an empty dict {} means
            the call was successful, but no tenants were found.
         '''
-        res = requests.get(self.rest_path)
+        res = self.rest.get(self.rest_path)
+        res = self.rest.parse_result(res)
         if res is not None:
             return res
         else:
@@ -123,8 +143,8 @@ class TenantEndpoint(RestEndpoint):
         '''
 
         path = '{}/{}'.format(self.rest_path, tenant_name)
-        res = requests.post(path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.post(path)
+        res = self.rest.parse_result(res)
         if res is not None:
             return int(res['id'])
         else:
@@ -140,8 +160,8 @@ class TenantEndpoint(RestEndpoint):
            True on success, False otherwise
         '''
         path = '{}/{}/{}'.format(self.rest_path, tenant_id, user_id)
-        res = requests.put(path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.put(path)
+        res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
                 return True
@@ -151,11 +171,11 @@ class TenantEndpoint(RestEndpoint):
             return False
     
 
-class UserEndpoint(RestEndpoint):
+class UserEndpoint():
     
-    def __init__(self, **kwargs):
-        RestEndpoint.__init__(self, **kwargs)
-        self.rest_path += '/api/system/users'
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + '/api/system/users'
 
     def createUser(self, username, password):
         '''
@@ -168,8 +188,8 @@ class UserEndpoint(RestEndpoint):
         '''
         path = '{}/{}/{}'.format(self.rest_path, username, password)
 
-        res = requests.post(path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.post(path)
+        res = self.rest.parse_result(res)
         if res is not None:
             return int(res['id'])
         else:
@@ -183,8 +203,8 @@ class UserEndpoint(RestEndpoint):
         Returns:
            List of users and their capabilities, None on failure
         '''
-        res = requests.get(self.rest_path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.get(self.rest_path)
+        res = self.rest.parse_result(res)
         if res is not None:
             return res
         else:
@@ -200,8 +220,8 @@ class UserEndpoint(RestEndpoint):
            True success, False otherwise
         '''
         path = '{}/{}/{}'.format(self.rest_path, user_id, password) 
-        res = requests.put(path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.put(path)
+        res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
                 return True
@@ -214,8 +234,9 @@ class UserEndpoint(RestEndpoint):
 class TestTenantEndpoints(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.tenantEp = TenantEndpoint()
-        self.userEp = UserEndpoint()
+        rest = RestEndpoint()
+        self.tenantEp = TenantEndpoint(rest)
+        self.userEp = UserEndpoint(rest)
         
     def test_assignUserToTenant(self):
 
@@ -238,7 +259,8 @@ class TestUserEndpoints(unittest.TestCase):
 
     @classmethod
     def setUpClass(self):
-        self.userEp = UserEndpoint()
+        rest = RestEndpoint()
+        self.userEp = UserEndpoint(rest)
 
     def test_createUser(self):
         self.id1 = self.userEp.createUser('ut_user1', 'abc')
