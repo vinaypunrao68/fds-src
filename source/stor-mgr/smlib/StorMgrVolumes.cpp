@@ -31,11 +31,15 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
      * TODO: The queue capacity is still hard coded. We
      * should calculate this somehow.
      */
-    volQueue = new SmVolQueue(voldesc->isSnapshot() ? voldesc->qosQueueId : voldesc->GetID(),
-                              100,
-                              voldesc->getIopsMax(),
-                              voldesc->getIopsMin(),
-                              voldesc->getPriority());
+    if (voldesc->isSnapshot()) {
+        volQueue.reset(objStorMgr->getQueue(voldesc->qosQueueId));
+    }
+
+    if (!volQueue) {
+        volQueue.reset(new SmVolQueue(voldesc->isSnapshot() ? voldesc->qosQueueId
+                : voldesc->GetID(), 100, voldesc->getIopsMax(), voldesc->getIopsMin(),
+                voldesc->getPriority()));
+    }
 
     volumeIndexDB  = new osm::ObjectDB(filename);
     averageObjectsRead = 0;
@@ -47,7 +51,6 @@ StorMgrVolume::~StorMgrVolume() {
      * TODO: Should do some sort of checking/cleanup
      * if the volume queue isn't empty.
      */
-    delete volQueue;
     delete volumeIndexDB;
 }
 

@@ -13,7 +13,7 @@
 #include <om-discovery.h>
 #include <OmDmtDeploy.h>
 #include <orch-mgr/om-service.h>
-
+#include <typeinfo>
 namespace fds {
 
 // --------------------------------------------------------------------------------------
@@ -286,19 +286,23 @@ template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
 template <class Event, class Fsm>
 void VolumeFSM::on_entry(Event const &evt, Fsm &fsm)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM on entry";
+    GLOGDEBUG << "VolumeFSM on entry";
 }
 
 template <class Event, class Fsm>
 void VolumeFSM::on_exit(Event const &evt, Fsm &fsm)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM on entry";
+    GLOGDEBUG << "VolumeFSM on exit";
 }
 
 template <class Event, class Fsm>
 void VolumeFSM::no_transition(Event const &evt, Fsm &fsm, int state)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM no transition";
+    static char const *const state_names[] = {
+        "Inactive", "CrtPend", "Active", "Waiting" , "DelChk", "DelPend", "DelNotPend"
+    };
+    GLOGDEBUG << "no transition from state : " << state_names[state]
+              << " on evt:" << typeid(evt).name();
 }
 
 /**
@@ -752,9 +756,9 @@ void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapsho
     vol->volUUID =  snapshot.snapshotId;
     // vol->vol_am_nodes = vol_am_nodes;
     vol->vol_properties->name = snapshot.snapshotName;
-    vol->vol_properties->srcVolumeId = volUUID;
-    vol->vol_properties->lookupVolumeId = volUUID;
-    vol->vol_properties->qosQueueId = getUuidFromVolumeName(std::to_string(volUUID));
+    vol->vol_properties->srcVolumeId = snapshot.volumeId;
+    vol->vol_properties->lookupVolumeId = snapshot.volumeId;
+    vol->vol_properties->qosQueueId = getUuidFromVolumeName(std::to_string(snapshot.volumeId));
 
     vol->vol_properties->volUUID = snapshot.snapshotId;
     vol->vol_properties->fSnapshot = true;
@@ -965,7 +969,7 @@ char const *const
 VolumeInfo::vol_current_state()
 {
     static char const *const state_names[] = {
-        "Inactive", "Active"
+        "Inactive", "CrtPend", "Active", "Waiting" , "DelChk", "DelPend", "DelNotPend"
     };
     return state_names[volume_fsm->current_state()[0]];
 }
@@ -1437,6 +1441,9 @@ VolumeContainer::om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
             am->om_send_vol_cmd(vol, fpi::CtrlNotifyVolAddTypeId);
         }
     } else {
+        LOGDEBUG << " vol:" << vol->vol_get_name()
+                 << " uuid:" << vol->rs_get_uuid()
+                 << " state:" << vol->vol_current_state();
         vol->vol_event(VolOpEvt(vol.get(),
                                 FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD,
                                 n_uid));
@@ -1646,6 +1653,12 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
         LOGERROR << "Unable to create volume " << " error: " << err.GetErrstr();
         rs_free_resource(vol);
         return false;
+    }
+
+    // store it in config db..
+    if (!gl_orch_mgr->getConfigDB()->addVolume(volumeDesc)) {
+        LOGWARN << "unable to store volume info in to config db "
+                << "[" << volumeDesc.name << ":" <<volumeDesc.volUUID << "]";
     }
 
     // register before b-casting vol crt, in case we start recevings acks

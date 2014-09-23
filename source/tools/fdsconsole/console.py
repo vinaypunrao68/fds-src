@@ -4,14 +4,13 @@ import cmd
 import types
 import shlex
 import shelve
-import atexit
 import os
 import traceback
 import context
-import inspect
 import helpers
 
 from helpers import *
+from tabulate import tabulate
 
 from contexts.svchelper import ServiceMap
 # import needed contexts
@@ -19,7 +18,8 @@ from contexts import volume
 from contexts import snapshot
 from contexts import snapshotpolicy
 from contexts import service
-from tabulate import tabulate
+from contexts import user
+
 """
 Console exit exception. This is needed to exit cleanly as 
 external libraries (argh) are throwing SystemExit Exception on errors.
@@ -177,8 +177,9 @@ class FDSConsole(cmd.Cmd):
             ctx = self.context
             
         if len(argv) == 0 or argv[0] in ['help']:
-            self.print_topics("commands", sorted(ctx.get_method_names(self.config.getSystem(KEY_ACCESSLEVEL)) + self.get_global_commands()),   15,80)
+            self.print_topics("commands in context" , sorted(ctx.get_method_names(self.config.getSystem(KEY_ACCESSLEVEL))),   15,80)
             self.print_topics("subcontexts : [use cc <context> to switch]",ctx.get_subcontext_names(), 15, 80)
+            self.print_topics("globals",self.get_global_commands(), 15, 80)
         else:
             if line in self.get_global_commands():
                 if hasattr(self,'help_' + line):
@@ -372,6 +373,7 @@ class FDSConsole(cmd.Cmd):
         snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config,'policy'))
 
         self.root.add_sub_context(service.ServiceContext(self.config,'service'))
+        self.root.add_sub_context(user.UserContext(self.config,'user'))
 
     def run(self, argv = None):
         l =  []
