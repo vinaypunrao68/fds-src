@@ -2,14 +2,12 @@ topdir         := ..
 speedup        := -j 5
 user_build_dir :=      \
     lib                \
-    odb                \
     fds-probe          \
-    orch_mgr           \
-    persistent_layer   \
+    orch-mgr           \
+    persistent-layer   \
     umod-lib           \
     util               \
     data-mgr           \
-    dlt                \
     migrations         \
     stor-mgr
 
