@@ -173,18 +173,12 @@ class StorHvVolumeTable : public HasLogger {
         moveWaitBlobsToQosQueue(invalid_vol_id, bucket_name, err);
     }
 
-  private:
-    /// handler for volume-related control message from OM
-    static Error volumeEventHandler(fds_volid_t vol_uuid,
-                                    VolumeDesc *vdb,
-                                    fds_vol_notify_t vol_action,
-                                    FDS_ProtocolInterface::FDSP_NotifyVolFlag,
-                                    FDS_ProtocolInterface::FDSP_ResultType);
     Error modifyVolumePolicy(fds_volid_t vol_uuid,
                              const VolumeDesc& vdesc);
     void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
                                  const std::string& vol_name,
                                  Error error);
+  private:
     /// print volume map, other detailed state to log
     void dump();
 
@@ -581,10 +575,10 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
         hashPerfCtx.type = AM_DELETE_HASH;
         hashPerfCtx.name = "volume:" + std::to_string(volId);
         hashPerfCtx.reset_volid(volId);
-        dmPerfCtx.type = AM_DELETE_SM;
+        dmPerfCtx.type = AM_DELETE_DM;
         dmPerfCtx.name = "volume:" + std::to_string(volId);
         dmPerfCtx.reset_volid(volId);
-        smPerfCtx.type = AM_DELETE_DM;
+        smPerfCtx.type = AM_DELETE_SM;
         smPerfCtx.name = "volume:" + std::to_string(volId);
         smPerfCtx.reset_volid(volId);
 
@@ -608,10 +602,10 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
         hashPerfCtx.type = AM_DELETE_HASH;
         hashPerfCtx.name = "volume:" + std::to_string(volId);
         hashPerfCtx.reset_volid(volId);
-        dmPerfCtx.type = AM_DELETE_SM;
+        dmPerfCtx.type = AM_DELETE_DM;
         dmPerfCtx.name = "volume:" + std::to_string(volId);
         dmPerfCtx.reset_volid(volId);
-        smPerfCtx.type = AM_DELETE_DM;
+        smPerfCtx.type = AM_DELETE_SM;
         smPerfCtx.name = "volume:" + std::to_string(volId);
         smPerfCtx.reset_volid(volId);
 

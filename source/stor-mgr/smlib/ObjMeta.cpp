@@ -5,6 +5,7 @@
 #include <sstream>
 #include <map>
 #include <string>
+#include <vector>
 
 #include <fdsp_utils.h>
 #include <ObjMeta.h>
@@ -81,6 +82,14 @@ bool SyncMetaData::operator==(const SyncMetaData &rhs) const
     return false;
 }
 
+SyncMetaData&
+SyncMetaData::operator=(const SyncMetaData &rhs) {
+    born_ts = rhs.born_ts;
+    mod_ts  = rhs.mod_ts;
+    assoc_entries = rhs.assoc_entries;
+    return *this;
+}
+
 ObjMetaData::ObjMetaData()
 {
     mask = 0;
@@ -93,8 +102,17 @@ ObjMetaData::ObjMetaData()
     phy_loc[3].obj_tier = -1;
 }
 
-ObjMetaData::ObjMetaData(const ObjectBuf& buf) {
-    deserializeFrom(buf);
+ObjMetaData::ObjMetaData(const ObjectBuf& buf)
+        : ObjMetaData() {
+    fds_verify(deserializeFrom(buf) == true);
+}
+
+ObjMetaData::ObjMetaData(const ObjMetaData::const_ptr &rhs) {
+    mask = rhs->mask;
+    memcpy(&obj_map, &(rhs->obj_map), sizeof(obj_map));
+    phy_loc = &obj_map.loc_map[0];
+    assoc_entry = rhs->assoc_entry;
+    sync_data   = rhs->sync_data;
 }
 
 ObjMetaData::~ObjMetaData()
@@ -268,7 +286,8 @@ fds_uint32_t   ObjMetaData::getObjSize() const
  * @param tier
  * @return
  */
-obj_phy_loc_t*   ObjMetaData::getObjPhyLoc(diskio::DataTier tier) {
+const obj_phy_loc_t*
+ObjMetaData::getObjPhyLoc(diskio::DataTier tier) const {
     return &phy_loc[tier];
 }
 
@@ -310,6 +329,43 @@ void ObjMetaData::incRefCnt() {
 void ObjMetaData::decRefCnt() {
     obj_map.obj_refcnt--;
 }
+
+/**
+ * Copy association from source volume to destination volume.
+ * This is mostly used by snapshots/ clones.
+ * @param objId
+ * @param srcVolId
+ * @param destVolId
+ */
+void ObjMetaData::copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid_t destVolId) {
+    fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
+
+    for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+        if (destVolId == assoc_entry[i].vol_uuid) {
+            GLOGWARN << "Entry already exists!";
+            return;
+        }
+    }
+
+    int pos = 0;
+    for (; pos < obj_map.obj_num_assoc_entry; ++pos) {
+        if (srcVolId == assoc_entry[pos].vol_uuid) {
+            break;
+        }
+    }
+    if (obj_map.obj_num_assoc_entry >= pos) {
+        GLOGWARN << "Source volume not found!";
+        return;
+    }
+
+    obj_assoc_entry_t new_association;
+    new_association.vol_uuid = destVolId;
+    new_association.ref_cnt = assoc_entry[pos].ref_cnt;
+    obj_map.obj_refcnt += assoc_entry[pos].ref_cnt;
+    assoc_entry.push_back(new_association);
+    obj_map.obj_num_assoc_entry = assoc_entry.size();
+}
+
 /**
  * Updates volume association entry
  * @param objId
@@ -336,23 +392,34 @@ void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
  * Delete volumes association
  * @param objId
  * @param vol_id
+ * @return true if meta entry was changed
  */
-void ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts) {
+fds_bool_t ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts) {
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-    for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
-        if (vol_id == assoc_entry[i].vol_uuid) {
-            assoc_entry[i].ref_cnt--;
-            obj_map.obj_refcnt--;
-            if (obj_map.obj_refcnt == 0) {
-                obj_map.obj_del_time = ts;
-            }
-            return;
-        }
+    std::vector<obj_assoc_entry_t>::iterator it;
+    for (it = assoc_entry.begin(); it != assoc_entry.end(); ++it) {
+        if (vol_id == (*it).vol_uuid) break;
     }
     // If Volume did not put this objId then it delete is a noop
+    if (it == assoc_entry.end()) return false;
+
+    // found association, decrement ref counts
+    fds_verify((*it).ref_cnt > 0);
+    (*it).ref_cnt--;
+    if ((*it).ref_cnt == 0) {
+        assoc_entry.erase(it);
+    }
+    obj_map.obj_num_assoc_entry = assoc_entry.size();
+    obj_map.obj_refcnt--;
+    if (obj_map.obj_refcnt == 0) {
+        obj_map.obj_del_time = ts;
+    }
+    return true;
 }
 
-void ObjMetaData::getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt) {
+void
+ObjMetaData::getVolsRefcnt(std::map<fds_volid_t,
+                           fds_uint32_t>& vol_refcnt) const {
     vol_refcnt.clear();
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
@@ -370,7 +437,7 @@ void ObjMetaData::getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt)
  * @param vol_id
  * @return
  */
-fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id)
+fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id) const
 {
     for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
         if (vol_id == assoc_entry[i].vol_uuid) {
@@ -676,7 +743,7 @@ void ObjMetaData::mergeAssociationArrays_()
     }
 }
 
-bool ObjMetaData::dataPhysicallyExists()
+bool ObjMetaData::dataPhysicallyExists() const
 {
     if (phy_loc[diskio::diskTier].obj_tier == diskio::diskTier ||
             phy_loc[diskio::flashTier].obj_tier == diskio::flashTier) {

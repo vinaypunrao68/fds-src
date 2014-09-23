@@ -7,7 +7,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <ProbeServiceSM.h>
 #include <ProbeServiceAM.h>
-#include <net-plat-shared.h>
+#include <platform/net-plat-shared.h>
 #include <net/BaseAsyncSvcHandler.h>
 
 namespace fds {

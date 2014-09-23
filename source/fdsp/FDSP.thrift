@@ -1,6 +1,7 @@
 #ifndef __FDSP_H__
 
 #define __FDSP_H__
+include "common.thrift"
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
 namespace * FDS_ProtocolInterface
@@ -421,7 +422,7 @@ struct FDSP_VolumeInfoType {
   18: i32         		 backupVolume,  // UUID of backup volume
   19: bool                       fSnapshot,
   20: i64                        srcVolumeId,
-
+  21: i64                        qosQueueId
 }
 
 struct FDSP_VolumeDescType {
@@ -462,6 +463,8 @@ struct FDSP_VolumeDescType {
   22: FDSP_MediaPolicy       mediaPolicy   /* media policy */
   23: bool                       fSnapshot,
   24: i64                        srcVolumeId,
+  25: i64                        qosQueueId
+  26: common.ResourceState              state,
 }
 
 struct FDSP_CreateDomainType {
@@ -1222,8 +1225,6 @@ service FDSP_ControlPathReq {
   oneway void NotifyDMTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info),
   oneway void NotifyDMTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DmtCloseType dmt_close),
   oneway void PushMetaDMTReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_req),
-  oneway void SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
-  oneway void SetQoSControl(1:FDSP_MsgHdrType fdsp_msg, 2: FDSP_QoSControlMsgType qos_msg),
   oneway void TierPolicy(1:FDSP_TierPolicy tier),
   oneway void TierPolicyAudit(1:FDSP_TierPolicyAudit audit),
   oneway void NotifyBucketStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_BucketStatsRespType buck_stats_msg),

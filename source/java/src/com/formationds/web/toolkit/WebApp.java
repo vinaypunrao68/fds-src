@@ -1,18 +1,21 @@
 package com.formationds.web.toolkit;
 
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.ServerConnector;
+import com.google.common.collect.Lists;
+import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.util.thread.ThreadPool;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 
 import java.util.concurrent.ForkJoinPool;
+
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.eclipse.jetty.util.thread.ThreadPool;
 
@@ -45,14 +48,35 @@ public class WebApp {
         executors.add(executor);
     }
 
-    public void start(int httpPort) {
+    public void start(HttpConfiguration httpConfiguration) {
+        start(httpConfiguration, null);
+    }
+
+    public void start(HttpConfiguration httpConfiguration, HttpsConfiguration httpsConfiguration) {
         ThreadPool tp = new ExecutorThreadPool(new ForkJoinPool(250));
         Server server = new Server(tp);
-        ServerConnector connector = new ServerConnector(server);
-        connector.setHost("0.0.0.0");
-        connector.setPort(httpPort);
 
+        ServerConnector connector = new ServerConnector(server);
+        connector.setPort(httpConfiguration.getPort());
+        connector.setHost(httpConfiguration.getHost());
         server.addConnector(connector);
+
+        if (httpsConfiguration != null) {
+            org.eclipse.jetty.server.HttpConfiguration https = new org.eclipse.jetty.server.HttpConfiguration();
+            https.addCustomizer(new SecureRequestCustomizer());
+
+            SslContextFactory sslContextFactory = new SslContextFactory();
+            sslContextFactory.setKeyStorePath(httpsConfiguration.getKeyStore().getAbsolutePath());
+            sslContextFactory.setKeyStorePassword(httpsConfiguration.getKeystorePassword());
+            sslContextFactory.setKeyManagerPassword(httpsConfiguration.getKeystorePassword());
+
+            ServerConnector sslConnector = new ServerConnector(server,
+                    new SslConnectionFactory(sslContextFactory, "http/1.1"),
+                    new HttpConnectionFactory(https));
+            sslConnector.setPort(httpsConfiguration.getPort());
+            sslConnector.setHost(httpsConfiguration.getHost());
+            server.addConnector(sslConnector);
+        }
 
         ServletContextHandler contextHandler = new ServletContextHandler();
         contextHandler.setContextPath("/");

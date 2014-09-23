@@ -63,6 +63,10 @@ class Module
 
     virtual const char* getName();
 
+    // Utility to cat two module vectors.  The caller must free the result.
+    //
+    static Module **mod_cat(Module **v1, Module **v2);
+
   protected:
     friend class ModuleVector;
 

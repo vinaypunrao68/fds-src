@@ -7,6 +7,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.formationds.om.rest.LandingPage;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
+import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 import org.joda.time.Duration;
@@ -76,6 +77,6 @@ public class Main {
         // return 200 OK, {"type": "amazonS3"}
         webApp.route(HttpMethod.GET, "/demo/adapter", () -> new GetObjectStore(state));
 
-        webApp.start(webappPort);
+        webApp.start(new HttpConfiguration(webappPort, "0.0.0.0"));
     }
 }

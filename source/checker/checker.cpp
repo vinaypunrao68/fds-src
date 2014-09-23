@@ -506,16 +506,6 @@ bool DirBasedChecker::get_object_metadata(const NodeUuid& node_id,
     return true;
 }
 
-PlatRpcReqt *DirBasedChecker::plat_creat_reqt_disp()
-{
-    return nullptr;
-}
-
-PlatRpcResp *DirBasedChecker::plat_creat_resp_disp()
-{
-    return nullptr;
-}
-
 void DirBasedChecker::run_checker()
 {
     fs::path full_path = fs::system_complete(conf_helper_.get<std::string>("path"));

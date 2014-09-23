@@ -3,11 +3,17 @@ package com.formationds.util.libconfig;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import org.antlr.runtime.*;
+import org.antlr.runtime.ANTLRInputStream;
+import org.antlr.runtime.ANTLRStringStream;
+import org.antlr.runtime.CharStream;
+import org.antlr.runtime.CommonTokenStream;
+import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.tree.CommonTree;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -127,5 +133,10 @@ public class ParsedConfig {
         } catch (Exception e) {
             return defaultValue;
         }
+    }
+
+    public File getPath(String s, String relativeTo) {
+        String value = lookup(s).stringValue();
+        return Paths.get(relativeTo, value).toFile();
     }
 }

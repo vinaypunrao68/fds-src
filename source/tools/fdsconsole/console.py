@@ -4,17 +4,21 @@ import cmd
 import types
 import shlex
 import shelve
-import atexit
 import os
 import traceback
 import context
 import helpers
+
 from helpers import *
-import inspect
+from tabulate import tabulate
+
+from contexts.svchelper import ServiceMap
 # import needed contexts
 from contexts import volume
 from contexts import snapshot
 from contexts import snapshotpolicy
+from contexts import service
+from contexts import user
 
 """
 Console exit exception. This is needed to exit cleanly as 
@@ -38,10 +42,11 @@ class FDSConsole(cmd.Cmd):
         self.config = ConfigData(self.data)
             
         self.prompt = 'fds:> '
-        self.rootctx = None
         self.context = None
         self.previouscontext = None
         self.setupDefaultConfig()
+        self.set_root_context(context.RootContext(self.config))
+        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
 
     def setupDefaultConfig(self):
         defaults = {
@@ -122,6 +127,17 @@ class FDSConsole(cmd.Cmd):
 
         return line
 
+    def do_refresh(self, line):
+        print 'reconnecting to {}:{}'.format(self.config.getSystem('host'), self.config.getSystem('port'))
+        ServiceMap.init(self.config.getHost(), self.config.getPort())
+        ServiceMap.refresh()
+
+    def help_refresh(self, *args):
+        print 'refresh : reconnect to the servers and get node data'
+
+    def complete_refresh(self, *args):
+        return []
+
     def do_accesslevel(self, line):
         argv = shlex.split(line)
 
@@ -161,8 +177,9 @@ class FDSConsole(cmd.Cmd):
             ctx = self.context
             
         if len(argv) == 0 or argv[0] in ['help']:
-            self.print_topics("commands", sorted(ctx.get_method_names(self.config.getSystem(KEY_ACCESSLEVEL)) + self.get_global_commands()),   15,80)
+            self.print_topics("commands in context" , sorted(ctx.get_method_names(self.config.getSystem(KEY_ACCESSLEVEL))),   15,80)
             self.print_topics("subcontexts : [use cc <context> to switch]",ctx.get_subcontext_names(), 15, 80)
+            self.print_topics("globals",self.get_global_commands(), 15, 80)
         else:
             if line in self.get_global_commands():
                 if hasattr(self,'help_' + line):
@@ -217,10 +234,14 @@ class FDSConsole(cmd.Cmd):
     def do_set(self, line):
         argv = shlex.split(line)
         if len(argv) == 0:
+            data = []
             # print the current values
             for key,value in self.data[helpers.KEY_SYSTEM].items():
                 if key not in helpers.PROTECTED_KEYS:
-                    print '%10s   =  %5s' % (key, value)
+                    data.append([key, str(value)])
+            #print data
+            print tabulate(data, headers=['name', 'value'])
+
             return
         
         argv[0] = argv[0].lower()
@@ -347,25 +368,27 @@ class FDSConsole(cmd.Cmd):
         return ''
 
     def init(self):
-        root = self.set_root_context(context.RootContext(self.config))
-        vol = root.add_sub_context(volume.VolumeContext(self.config))
-        snap = vol.add_sub_context(snapshot.SnapshotContext(self.config))
-        snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config))
+        vol = self.root.add_sub_context(volume.VolumeContext(self.config,'volume'))
+        snap = vol.add_sub_context(snapshot.SnapshotContext(self.config,'snapshot'))
+        snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config,'policy'))
+
+        self.root.add_sub_context(service.ServiceContext(self.config,'service'))
+        self.root.add_sub_context(user.UserContext(self.config,'user'))
 
     def run(self, argv = None):
         l =  []
         l += ['============================================']
         l += ['Formation Data Systems Console ...']
         l += ['Copyright 2014 Formation Data Systems, Inc.']
+        l += ['>>> NOTE: the current access level : %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)))]
         l += ['============================================']
-        l += ['NOTE: the current access level : %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)))]
         l += ['']
         try:
             if argv == None or len(argv) == 0 : 
                 l += ['---- interactive mode ----\n']
                 self.cmdloop('\n'.join(l))
             else:
-                l += ['---- Single command mode ----\n']
+                #l += ['---- Single command mode ----\n']
                 print '\n'.join(l)
                 self.onecmd(self.precmd(' '.join(argv)))
         except (KeyboardInterrupt, ConsoleExit):

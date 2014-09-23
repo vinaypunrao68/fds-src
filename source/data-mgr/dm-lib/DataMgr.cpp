@@ -15,42 +15,6 @@
 
 namespace fds {
 
-Error DataMgr::vol_handler(fds_volid_t vol_uuid,
-                           VolumeDesc *desc,
-                           fds_vol_notify_t vol_action,
-                           fpi::FDSP_NotifyVolFlag vol_flag,
-                           fpi::FDSP_ResultType result) {
-    Error err(ERR_OK);
-    GLOGNORMAL << "Received vol notif from OM for "
-               << desc->getName() << ":"
-               << std::hex << vol_uuid << std::dec;
-
-    if (vol_action == fds_notify_vol_add) {
-        /*
-         * TODO: Actually take a volume string name, not
-         * just the volume number.
-         */
-        err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
-                                        std::to_string(vol_uuid),
-                                        vol_uuid, desc,
-                                        (vol_flag == fpi::FDSP_NOTIFY_VOL_WILL_SYNC));
-    } else if (vol_action == fds_notify_vol_rm) {
-        err = dataMgr->process_rm_vol(vol_uuid, vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
-    } else if (vol_action == fds_notify_vol_mod) {
-        err = dataMgr->_process_mod_vol(vol_uuid, *desc);
-    } else {
-        assert(0);
-    }
-    return err;
-}
-
-void DataMgr::node_handler(fds_int32_t  node_id,
-                           fds_uint32_t node_ip,
-                           fds_int32_t  node_st,
-                           fds_uint32_t node_port,
-                           FDS_ProtocolInterface::FDSP_MgrIdType node_type) {
-}
-
 Error
 DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
                             const FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta,
@@ -260,64 +224,6 @@ DataMgr::finishCloseDMT() {
 }
 
 Error
-DataMgr::createSnapshot(const fpi::Snapshot & snapDetails) {
-    VolumeMeta * volmeta = 0;
-    VolumeMeta * snapmeta = 0;
-    {
-        FDSGUARD(*vol_map_mtx);
-        volmeta = vol_meta_map[snapDetails.volumeId];
-        snapmeta = vol_meta_map[snapDetails.snapshotId];
-
-        if (!volmeta) {
-            GLOGWARN << "Volume '" << std::hex << snapDetails.volumeId << std::dec <<
-                    "' not found!";
-            return ERR_NOT_FOUND;
-        }
-
-        if (snapmeta) {
-            GLOGWARN << "Snapshot '" << std::hex << snapDetails.snapshotId << std::dec <<
-                    "' already exists!";
-            return FDSN_StatusErrorBucketAlreadyExists;
-        }
-    }
-
-    VolumeDesc snapdesc(*volmeta->vol_desc);
-    snapdesc.volUUID = snapDetails.snapshotId;
-    snapdesc.name = snapDetails.snapshotName;
-    snapdesc.srcVolumeId = snapDetails.volumeId;
-    snapdesc.ctime = boost::posix_time::from_time_t(snapDetails.creationTimestamp);
-    snapdesc.fSnapshot = true;
-
-    Error rc = timeVolCat_->createSnapshot(*volmeta->vol_desc, snapdesc);
-    if (!rc.ok()) {
-        GLOGERROR << "Failed to create a snapshot '" << snapDetails.snapshotName << "'";
-        return rc;
-    }
-    rc = timeVolCat_->activateVolume(snapdesc.volUUID);
-
-    snapmeta = new VolumeMeta(snapdesc.name, snapdesc.volUUID, GetLog(), &snapdesc);
-
-    snapmeta->dmVolQueue = new FDS_VolumeQueue(4096, snapdesc.iops_max, 2 * snapdesc.iops_min,
-            snapdesc.relativePrio);
-    snapmeta->dmVolQueue->activate();
-
-    GLOGDEBUG << "Added vol meta for vol uuid and per Volume queue '" << std::hex <<
-            snapdesc.volUUID << std::dec << "'";
-
-    FDSGUARD(*vol_map_mtx);
-
-    rc = dataMgr->qosCtrl->registerVolume(snapdesc.volUUID, static_cast<FDS_VolumeQueue*>(
-            snapmeta->dmVolQueue));
-    if (!rc.ok()) {
-        delete snapmeta;
-        return rc;
-    }
-    vol_meta_map[snapdesc.volUUID] = snapmeta;
-
-    return rc;
-}
-
-Error
 DataMgr::deleteSnapshot(const fds_uint64_t snapshotId) {
     // TODO(umesh): implement this
     return ERR_OK;
@@ -411,16 +317,39 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                                fds_bool_t vol_will_sync) {
     Error err(ERR_OK);
 
+    LOGDEBUG << "Creating a snapshot '" << vdesc->name << "' of a volume '"
+          << vdesc->volUUID << "'"  << " srcVolume: "<< vdesc->srcVolumeId;
     // create vol catalogs, etc first
-    err = timeVolCat_->addVolume(*vdesc);
+
+    if (vdesc->isSnapshot() || vdesc->isClone()) {
+        VolumeMeta * volmeta = 0;
+        {
+            FDSGUARD(*vol_map_mtx);
+            volmeta = vol_meta_map[vdesc->srcVolumeId];
+
+            if (!volmeta) {
+                GLOGWARN << "Volume '" << std::hex << vdesc->srcVolumeId << std::dec <<
+                        "' not found!";
+                return ERR_NOT_FOUND;
+            }
+        }
+
+        // create commit log entry and enbale buffering in case of snapshot
+        err = timeVolCat_->copyVolume(*vdesc);
+    } else {
+        err = timeVolCat_->addVolume(*vdesc);
+    }
+    if (!err.ok()) {
+        LOGERROR << "Failed to " << (vdesc->isSnapshot() ? "create snapshot"
+                : (vdesc->isClone() ? "create clone" : "add volume")) << " "
+                << std::hex << vol_uuid << std::dec;
+        return err;
+    }
+
     if (err.ok() && !vol_will_sync) {
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
         err = timeVolCat_->activateVolume(vol_uuid);
-    }
-    if (!err.ok()) {
-        LOGERROR << "Failed to add volume " << std::hex << vol_uuid << std::dec;
-        return err;
     }
 
     VolumeMeta *volmeta = new(std::nothrow) VolumeMeta(vol_name,
@@ -432,10 +361,20 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                  << std::hex << vol_uuid << std::dec;
         return ERR_OUT_OF_MEMORY;
     }
-    volmeta->dmVolQueue = new(std::nothrow) FDS_VolumeQueue(4096,
-                                                            vdesc->iops_max,
-                                                            2*vdesc->iops_min,
-                                                            vdesc->relativePrio);
+
+    bool regQ = false;
+    if (vdesc->isSnapshot()) {
+        volmeta->dmVolQueue = dataMgr->qosCtrl->getQueue(vdesc->qosQueueId);
+    }
+
+    if (!volmeta->dmVolQueue) {
+        volmeta->dmVolQueue = new(std::nothrow) FDS_VolumeQueue(4096,
+                                                        vdesc->iops_max,
+                                                        2*vdesc->iops_min,
+                                                        vdesc->relativePrio);
+        regQ = true;
+    }
+
     if (!volmeta->dmVolQueue) {
         LOGERROR << "Failed to allocate Qos queue for volume "
                  << std::hex << vol_uuid << std::dec;
@@ -448,9 +387,12 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
               << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
 
     vol_map_mtx->lock();
-    err = dataMgr->qosCtrl->registerVolume(vol_uuid,
-                                           static_cast<FDS_VolumeQueue*>(
-                                               volmeta->dmVolQueue));
+    if (regQ) {
+        err = dataMgr->qosCtrl->registerVolume(vdesc->isSnapshot() ?
+                                               vdesc->qosQueueId : vol_uuid,
+                                               static_cast<FDS_VolumeQueue*>(
+                                                   volmeta->dmVolQueue));
+    }
     if (!err.ok()) {
         delete volmeta;
         vol_map_mtx->unlock();
@@ -501,12 +443,23 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // cleanup volmeta and deregister queue
         LOGERROR << "Cleaning up volume queue and vol meta because of error "
                  << " volid 0x" << std::hex << vol_uuid << std::dec;
-        dataMgr->qosCtrl->deregisterVolume(vol_uuid);
+        dataMgr->qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         delete volmeta->dmVolQueue;
         delete volmeta;
     }
 
-    if (err.ok() && amIPrimary(vol_uuid)) {
+    if (vdesc->isSnapshot()) {
+        return err;
+    }
+
+    /*
+     * XXX: The logic below will use source volume id to collect stats for clone,
+     *      but it will now stream the stats to AM because amIPrimary() check is
+     *      done there. Effective we are going to collect stats for clone but not
+     *      stream it.
+     * TODO(xxx): Migrate clone and then stream stats
+     */
+    if (err.ok() && amIPrimary(vdesc->isClone() ? vdesc->srcVolumeId : vol_uuid)) {
         // will aggregate stats for this volume and log them
         statStreamAggr_->attachVolume(vol_uuid);
         // create volume stat  directory.
@@ -523,14 +476,6 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
                                 VolumeDesc *desc,
                                 fds_bool_t vol_will_sync) {
     Error err(ERR_OK);
-
-    /*
-     * Verify that we don't already know about this volume
-     */
-    if (desc->isSnapshot()) {
-        LOGCRITICAL << "request to create a volume for a snaphot - returning true";
-        return err;
-    }
 
     vol_map_mtx->lock();
     if (volExistsLocked(vol_uuid) == true) {
@@ -850,8 +795,6 @@ void DataMgr::mod_startup()
                                   nstable,
                                   modProvider_->get_plf_manager());
         omClient->initialize();
-        omClient->registerEventHandlerForNodeEvents(node_handler);
-        omClient->registerEventHandlerForVolEvents(vol_handler);
         omClient->registerCatalogEventHandler(volcat_evt_handler);
         /*
          * Brings up the control path interface.
@@ -922,6 +865,7 @@ void DataMgr::mod_enable_service() {
         std::bind(&DataMgr::handleLocalStatStream, this,
                   std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
+#if 0
     if (runMode == TEST_MODE) {
         // Create test volumes.
         std::string testVolName;
@@ -944,6 +888,7 @@ void DataMgr::mod_enable_service() {
             delete testVdb;
         }
     }
+#endif
 
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();

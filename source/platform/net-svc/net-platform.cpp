@@ -58,9 +58,9 @@ PlatformdNetSvc::mod_init(SysParams const *const p)
 void
 PlatformdNetSvc::mod_startup()
 {
-    Module::mod_startup();
+    fpi::NodeInfoMsg   msg;
 
-    plat_agent  = new PlatAgent(*plat_lib->plf_get_my_node_uuid());
+    Module::mod_startup();
     plat_recv   = bo::shared_ptr<PlatformEpHandler>(new PlatformEpHandler(this));
     plat_plugin = new PlatformdPlugin(this);
     plat_ep     = new PlatNetEp(
@@ -70,14 +70,14 @@ PlatformdNetSvc::mod_startup()
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_recv)), plat_plugin);
 
-    plat_ctrl_recv.reset(new PlatformRpcReqt(plat_lib));
-    plat_ctrl_ep = new PlatNetCtrlEp(
-            plat_lib->plf_get_my_ctrl_port(),
-            *plat_lib->plf_get_my_node_uuid(),
-            NodeUuid(0ULL),
-            bo::shared_ptr<fpi::FDSP_ControlPathReqProcessor>(
-                new fpi::FDSP_ControlPathReqProcessor(plat_ctrl_recv)),
-            plat_plugin, 0, NET_SVC_CTRL);
+    plat_self   = new PlatAgent(*plat_lib->plf_get_my_node_uuid());
+    plat_master = new PlatAgent(gl_OmPmUuid);
+
+    plat_self->init_plat_info_msg(&msg);
+    nplat_register_node(&msg, plat_self);
+
+    plat_master->init_om_pm_info_msg(&msg);
+    nplat_register_node(&msg, plat_master);
 
     netmgr->ep_register(plat_ep, false);
     LOGNORMAL << "Startup platform specific net svc, port "
@@ -90,7 +90,7 @@ PlatformdNetSvc::mod_startup()
 void
 PlatformdNetSvc::mod_enable_service()
 {
-    netmgr->ep_register(plat_ctrl_ep, false);
+    // netmgr->ep_register(plat_ctrl_ep, false);
     NetPlatSvc::mod_enable_service();
 }
 
@@ -101,6 +101,28 @@ void
 PlatformdNetSvc::mod_shutdown()
 {
     Module::mod_shutdown();
+}
+
+// nplat_register_node
+// -------------------
+//
+void
+PlatformdNetSvc::nplat_register_node(fpi::NodeInfoMsg *msg, NodeAgent::pointer node)
+{
+    int                 idx;
+    node_data_t         rec;
+    ShmObjRWKeyUint64  *shm;
+    NodeAgent::pointer  agent;
+
+    node->node_info_msg_to_shm(msg, &rec);
+    shm = NodeShmRWCtrl::shm_node_rw_inv();
+    idx = shm->shm_insert_rec(static_cast<void *>(&rec.nd_node_uuid),
+                              static_cast<void *>(&rec), sizeof(rec));
+    fds_verify(idx != -1);
+
+    agent = node;
+    Platform::platf_singleton()->
+        plf_node_inventory()->dc_register_node(shm, &agent, idx, idx, 0);
 }
 
 // plat_update_local_binding
@@ -199,9 +221,6 @@ PlatformdPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
  */
 PlatAgent::PlatAgent(const NodeUuid &uuid) : DomainAgent(uuid, false)
 {
-    fds_verify(agt_domain_evt == NULL);
-    node_svc_type  = fpi::FDSP_PLATFORM;
-    agt_domain_evt = new PlatAgentPlugin(this);
 }
 
 // init_stor_cap_msg
@@ -219,11 +238,9 @@ PlatAgent::init_stor_cap_msg(fpi::StorCapMsg *msg) const
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.plat.testing.");
     NodeAgent::init_stor_cap_msg(msg);
     if (conf.get<bool>("manual_nodecap")) {
-        if (!node_inv) {
-            msg->disk_iops_min = conf.get<int>("disk_iops_min");
-            msg->disk_iops_max = conf.get<int>("disk_iops_max");
-            LOGNORMAL << "Over-writing node perf capability from config ";
-        }
+        msg->disk_iops_min = conf.get<int>("disk_iops_min");
+        msg->disk_iops_max = conf.get<int>("disk_iops_max");
+        LOGNORMAL << "Over-writing node perf capability from config ";
     }
 }
 
@@ -260,17 +277,45 @@ PlatAgent::pda_register()
 void
 PlatAgent::agent_publish_ep()
 {
+    int                idx, base_port;
     node_data_t        ninfo;
+    ep_map_rec_t       rec;
+    Platform          *plat;
     EpPlatformdMod    *ep_map;
 
+    plat   = Platform::platf_singleton();
     ep_map = EpPlatformdMod::ep_shm_singleton();
     node_info_frm_shm(&ninfo);
     LOGDEBUG << "Platform agent uuid " << std::hex << ninfo.nd_node_uuid;
 
-    agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_MGR);
-    agent_bind_svc(ep_map, &ninfo, fpi::FDSP_DATA_MGR);
-    agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_HVISOR);
-    agent_bind_svc(ep_map, &ninfo, fpi::FDSP_ORCH_MGR);
+    if (rs_uuid == gl_OmPmUuid) {
+        /* Record both OM binding and local binding. */
+        base_port          = ninfo.nd_base_port;
+        ninfo.nd_node_uuid = gl_OmPmUuid.uuid_get_val();
+        EpPlatLibMod::ep_node_info_to_mapping(&ninfo, &rec);
+        idx = ep_map->ep_map_record(&rec);
+
+        ninfo.nd_node_uuid = gl_OmUuid.uuid_get_val();
+        ninfo.nd_base_port = plat->plf_get_om_ctrl_port();
+        EpPlatLibMod::ep_node_info_to_mapping(&ninfo, &rec);
+        idx = ep_map->ep_map_record(&rec);
+
+        /* TODO(Vy): hack, record OM binding for the control path. */
+        ninfo.nd_base_port = plat->plf_get_my_data_port(base_port);
+        EpPlatLibMod::ep_node_info_to_mapping(&ninfo, &rec);
+        rec.rmp_major = 0;
+        rec.rmp_minor = NET_SVC_CTRL;
+        idx = ep_map->ep_map_record(&rec);
+
+        LOGDEBUG << "Platform daemon binds OM " << std::hex
+            << ninfo.nd_node_uuid << "@" << ninfo.nd_ip_addr << ":" << std::dec
+            << ninfo.nd_base_port << ", idx " << idx;
+    } else {
+        agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_MGR);
+        agent_bind_svc(ep_map, &ninfo, fpi::FDSP_DATA_MGR);
+        agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_HVISOR);
+        agent_bind_svc(ep_map, &ninfo, fpi::FDSP_ORCH_MGR);
+    }
 }
 
 // agent_bind_svc
@@ -323,16 +368,20 @@ PlatAgent::agent_bind_svc(EpPlatformdMod *map, node_data_t *ninfo, fpi::FDSP_Mgr
 void
 PlatAgentPlugin::ep_connected()
 {
+    NodeUuid                       uuid;
+    Platform                      *plat;
     NetPlatform                   *net_plat;
     fpi::NodeInfoMsg              *msg;
-    std::vector<fpi::NodeInfoMsg>  ret;
+    NodeAgent::pointer             pm;
+    EpSvcHandle::pointer           eph;
+    std::vector<fpi::NodeInfoMsg>  ret, ignore;
+    bo::shared_ptr<fpi::PlatNetSvcClient> rpc;
 
-    std::cout << "Platform agent connected to domain controller" << std::endl;
+    plat = Platform::platf_singleton();
+    msg  = new fpi::NodeInfoMsg();
+    na_owner->init_plat_info_msg(msg);
 
-    msg = new fpi::NodeInfoMsg();
-    pda_agent->init_plat_info_msg(msg);
-
-    auto rpc = pda_agent->pda_rpc();
+    rpc = na_owner->node_svc_rpc(&eph);
     rpc->notifyNodeInfo(ret, *msg, true);
 
     std::cout << "Got " << ret.size() << " elements back" << std::endl;
@@ -340,6 +389,15 @@ PlatAgentPlugin::ep_connected()
     net_plat = NetPlatform::nplat_singleton();
     for (auto it = ret.cbegin(); it != ret.cend(); it++) {
         net_plat->nplat_register_node(&*it);
+
+        /* Send to the peer node info about myself. */
+        uuid.uuid_set_val((*it).node_loc.svc_node.svc_uuid.svc_uuid);
+        pm = plat->plf_find_node_agent(uuid);
+        fds_assert(pm != NULL);
+
+        rpc = pm->node_svc_rpc(&eph);
+        ignore.clear();
+        rpc->notifyNodeInfo(ignore, *msg, false);
     }
 }
 

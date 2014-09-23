@@ -12,20 +12,15 @@
 #include <functional>
 #include <unordered_map>
 
-/* TODO: move this to interface file in include dir */
-#include "lib/OMgrClient.h"
-
 #include "fdsp/FDSP_types.h"
 #include "fds_error.h"
 #include "fds_types.h"
 #include "fds_volume.h"
+#include "qos_ctrl.h"
 #include "util/Log.h"
 #include "concurrency/RwLock.h"
 #include "odb.h"
-#include "qos_ctrl.h"
 #include "util/counter.h"
-#include "ObjStats.h"
-#include "TransJournal.h"
 #include "SmIo.h"
 
 /* defaults */
@@ -42,6 +37,8 @@ class SmVolQueue : public FDS_VolumeQueue {
     private:
      fds_volid_t  volUuid;
      fds_uint32_t qDepth;
+
+     INTRUSIVE_PTR_DEFS(SmVolQueue, refcnt_);
 
     public:
      SmVolQueue(fds_volid_t  _volUuid,
@@ -82,12 +79,7 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
       * volume. This queue is used by SM's
       * QoS manager.
       */
-     SmVolQueue *volQueue;
-
-     /*
-      * Reference to parent SM instance
-      */
-     ObjectStorMgr *parent_sm;
+    boost::intrusive_ptr<SmVolQueue> volQueue;
 
     public:
      /*
@@ -109,17 +101,19 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
      fds_uint64_t   averageObjectsRead;
      boost::posix_time::ptime lastAccessTimeR;
 
+     inline fds_bool_t isSnapshot() const {
+         return voldesc->isSnapshot();
+     }
 
      fds_volid_t getVolId() const {
          return voldesc->volUUID;
      }
 
-     SmVolQueue* getQueue() const {
+     boost::intrusive_ptr<SmVolQueue> getQueue() const {
          return volQueue;
      }
 
      StorMgrVolume(const VolumeDesc& vdb,
-                   ObjectStorMgr *sm,
                    fds_log *parent_log);
      ~StorMgrVolume();
      Error createVolIndexEntry(fds_volid_t vol_uuid,
@@ -159,10 +153,17 @@ class StorMgrVolumeTable : public HasLogger {
      Error updateVolStats(fds_volid_t vol_uuid);
      fds_uint32_t getVolAccessStats(fds_volid_t vol_uuid);
      void updateDupObj(fds_volid_t volid,
+                       const ObjectID &objId,
                        fds_uint32_t obj_size,
                        fds_bool_t incr,
                        std::map<fds_volid_t, fds_uint32_t>& vol_refcnt);
      double getDedupBytes(fds_volid_t volid);
+
+     inline fds_bool_t isSnapshot(fds_volid_t volid) {
+         SCOPEDREAD(map_rwlock);
+         volume_map_t::const_iterator iter = volume_map.find(volid);
+         return volume_map.end() != iter && iter->second->isSnapshot();
+     }
 
      Error registerVolume(const VolumeDesc& vdb);
      Error deregisterVolume(fds_volid_t vol_uuid);
@@ -192,11 +193,6 @@ class StorMgrVolumeTable : public HasLogger {
     private:
      /* Reference to parent SM instance */
      ObjectStorMgr *parent_sm;
-
-     /* handler for volume-related control message from OM */
-     static void volumeEventHandler(fds_volid_t vol_uuid,
-                                    VolumeDesc *vdb,
-                                    fds_vol_notify_t vol_action);
 
      /* volume uuid -> StorMgrVolume map */
      volume_map_t volume_map;

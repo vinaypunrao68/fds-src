@@ -6,7 +6,11 @@
 
 #include <string>
 #include <fds_module.h>
+#include <fds_types.h>
+#include <ObjMeta.h>
+#include <object-store/ObjectDataCache.h>
 #include <persistent_layer/dm_io.h>
+#include <SmDiskTypes.h>
 
 namespace fds {
 
@@ -20,6 +24,7 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     diskio::DataIO *diskMgr;
 
     /// Object data cache manager
+    ObjectDataCache::unique_ptr dataCache;
 
     // TODO(Andrew): Add some private GC interfaces here?
 
@@ -33,14 +38,27 @@ class ObjectDataStore : public Module, public boost::noncopyable {
      */
     Error putObjectData(fds_volid_t volId,
                         const ObjectID &objId,
-                        boost::shared_ptr<const std::string> objData);
+                        diskio::DataTier tier,
+                        boost::shared_ptr<const std::string> objData,
+                        obj_phy_loc_t& objPhyLoc);
 
     /**
      * Reads object data.
      */
-    Error getObjectData(fds_volid_t volId,
-                        const ObjectID &objId,
-                        boost::shared_ptr<std::string> objData);
+    boost::shared_ptr<const std::string> getObjectData(fds_volid_t volId,
+                                                       const ObjectID &objId,
+                                                       ObjMetaData::const_ptr objMetaData,
+                                                       Error &err);
+
+    /**
+     * Removes object from cache and notifies persistent layer
+     * about that we deleted the object (to keep track of disk space
+     * we need to clean for garbage collection)
+     * Called when ref count goes to zero
+     */
+    Error removeObjectData(fds_volid_t volId,
+                           const ObjectID& objId,
+                           const ObjMetaData::const_ptr& objMetaData);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

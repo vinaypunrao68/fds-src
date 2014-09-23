@@ -8,7 +8,6 @@ user_hpp       := $(wildcard *.hpp)
 user_no_style  := \
     Log.h \
     timeutils.h \
-    PerfStatHist.h \
     counter.h
 
 include $(topdir)/Makefile.incl

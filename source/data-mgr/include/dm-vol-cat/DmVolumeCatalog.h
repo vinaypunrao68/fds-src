@@ -79,9 +79,9 @@ class DmVolumeCatalog : public Module,
     Error addCatalog(const VolumeDesc& voldesc);
 
     /**
-     * Create snapshot of a volume
+     * Create copy of a volume
      */
-    Error createSnapshot(const VolumeDesc & voldesc, const VolumeDesc & snapshotVoldesc);
+    Error copyVolume(VolumeDesc & voldesc);
 
     /**
      * Activate catalog for the given volume 'volume_id'. After this call
@@ -126,6 +126,16 @@ class DmVolumeCatalog : public Module,
                         fds_uint64_t* size,
                         fds_uint64_t* blob_count,
                         fds_uint64_t* object_count);
+
+    /**
+     * Get all objects for the volume
+     *
+     * @param[in] volId volume identifier
+     * @param[in,out] objIds set of all object ids for this volume
+     *
+     * @return ERR_OK on success
+     */
+    Error getVolumeObjects(fds_volid_t volId, std::set<ObjectID> & objIds);
 
     /**
      * Retrieves blob meta for the given blob_name and volume 'volume_id'

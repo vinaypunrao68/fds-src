@@ -6,24 +6,44 @@
 
 #include <vector>
 #include <string>
-#include <ostream>
-#include <boost/shared_ptr.hpp>
 #include <fds_ptr.h>
 #include <fds_error.h>
 #include <fds_resource.h>
 #include <fds_module.h>
 #include <serialize.h>
 #include <platform/platform-rpc.h>
+#include <net/SvcRequest.h>
+#include <fdsp/FDSP_types.h>
+#include <fdsp/fds_service_types.h>
 
 // Forward declarations
 namespace FDS_ProtocolInterface {
     class PlatNetSvcClient;
+    class FDSP_ControlPathReqClient;
+    class FDSP_OMControlPathReqClient;
+    class FDSP_DataPathReqClient;
+    class FDSP_DataPathRespProcessor;
+    class FDSP_DataPathRespIf;
+    class FDSP_OMControlPathRespProcessor;
+    class FDSP_OMControlPathRespIf;
 }  // namespace FDS_ProtocolInterface
 
+namespace bo  = boost;
 namespace fpi = FDS_ProtocolInterface;
+
+/* Need to remove netsession stuffs! */
+class netSessionTbl;
+template <class A, class B, class C> class netClientSessionEx;
+typedef netClientSessionEx<fpi::FDSP_DataPathReqClient,
+        fpi::FDSP_DataPathRespProcessor,
+        fpi::FDSP_DataPathRespIf>      netDataPathClientSession;
+typedef netClientSessionEx<fpi::FDSP_OMControlPathReqClient,
+        fpi::FDSP_OMControlPathRespProcessor,
+        fpi::FDSP_OMControlPathRespIf> netOMControlPathClientSession;
 
 namespace fds {
 struct node_data;
+struct node_stor_cap;
 class ShmObjRO;
 class SmSvcEp;
 class DmSvcEp;
@@ -33,7 +53,12 @@ class PmSvcEp;
 class EpSvc;
 class EpSvcImpl;
 class EpSvcHandle;
+class EpEvtPlugin;
+class DomainContainer;
+class EPSvcRequest;
 class AgentContainer;
+class DomainContainer;
+class EPSvcRequest;
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
 typedef fpi::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
@@ -43,73 +68,18 @@ typedef fpi::FDSP_ActivateNodeTypePtr  FdspNodeActivatePtr;
 
 typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient>     NodeAgentCpReqtSessPtr;
 typedef boost::shared_ptr<fpi::FDSP_OMControlPathReqClient>   NodeAgentCpOmClientPtr;
-typedef boost::shared_ptr<PlatRpcResp>                        OmRespDispatchPtr;
 
 typedef boost::shared_ptr<fpi::FDSP_DataPathReqClient>        NodeAgentDpClientPtr;
-typedef boost::shared_ptr<PlatDataPathResp>                   NodeAgentDpRespPtr;
 
-const fds_uint32_t NODE_DO_PROXY_ALL_SVCS = (NODE_SVC_SM | NODE_SVC_DM | NODE_SVC_AM);
+/* OM has a known UUID. */
+extern const NodeUuid        gl_OmUuid;
+extern const NodeUuid        gl_OmPmUuid;
 
-/**
- * POD types for common node inventory.
- */
-typedef struct _node_capability_t
-{
-    fds_uint64_t   disk_capacity;
-    fds_uint32_t   disk_iops_max;
-    fds_uint32_t   disk_iops_min;
-    fds_uint32_t   disk_latency_max;
-    fds_uint32_t   disk_latency_min;
-    fds_uint32_t   ssd_iops_max;
-    fds_uint32_t   ssd_iops_min;
-    fds_uint64_t   ssd_capacity;
-    fds_uint32_t   ssd_latency_max;
-    fds_uint32_t   ssd_latency_min;
-} node_capability_t;
-
-class NodeInvData
-{
-  public:
-    // TODO(Andrew): Add back a better checksum library
-    // Sha1Digest               nd_checksum;
-    NodeUuid                 nd_uuid;
-    NodeUuid                 nd_service_uuid;
-    fds_uint64_t             nd_gbyte_cap;       /**< capacity in GB unit */
-
-    /* TODO: (vy) just porting from NodeInfo now. */
-    fds_uint32_t             nd_ip_addr;
-    std::string              nd_ip_str;
-    fds_uint32_t             nd_data_port;
-    fds_uint32_t             nd_ctrl_port;
-    fds_uint32_t             nd_migration_port;
-    fds_uint32_t             nd_metasync_port;
-    fds_uint32_t             nd_disk_type;
-    node_capability_t        nd_capability;
-
-    std::string              nd_node_name;
-    std::string              nd_node_root;
-    FdspNodeType             nd_node_type;
-    FdspNodeState            nd_node_state;
-    fds_uint64_t             nd_dlt_version;
-    friend std::ostream& operator<< (std::ostream &os, const NodeInvData& node);
-};
-
-struct NodeServices : serialize::Serializable {
-    NodeUuid sm,dm,am;
-
-    inline void reset() {
-        sm.uuid_set_val(0);
-        dm.uuid_set_val(0);
-        am.uuid_set_val(0);
-    }
-
-    uint32_t virtual write(serialize::Serializer*  s) const;
-    uint32_t virtual read(serialize::Deserializer* s);
-    friend std::ostream& operator<< (std::ostream &os, const NodeServices& node);
-};
+const fds_uint32_t NODE_DO_PROXY_ALL_SVCS =
+    (fpi::NODE_SVC_SM | fpi::NODE_SVC_DM | fpi::NODE_SVC_AM);
 
 /**
- * Replacement for NodeInfo object.
+ * Basic info about a peer node.
  */
 class NodeInventory : public Resource
 {
@@ -117,36 +87,22 @@ class NodeInventory : public Resource
     typedef boost::intrusive_ptr<NodeInventory> pointer;
     typedef boost::intrusive_ptr<const NodeInventory> const_ptr;
 
-    inline NodeUuid get_uuid() const {
-        return rs_get_uuid();
-    }
-    inline std::string get_node_name() const {
-        return node_inv->nd_node_name;
-    }
+    std::string get_node_name() const { return nd_node_name; }
+    std::string get_ip_str() const;
+    std::string get_node_root() const;
+    const struct node_stor_cap *node_capability() const;
+    void node_get_shm_rec(struct node_data *ndata) const;
 
-    inline std::string get_ip_str() const {
-        return node_inv->nd_ip_str;
-    }
+    /* Temp. solution before we can replace netsession */
+    fds_uint32_t node_base_port() const;
 
-    inline std::string get_node_root() const {
-        return node_inv->nd_node_root;
-    }
-    inline fds_uint32_t get_ctrl_port() const {
-        return node_inv->nd_ctrl_port;
-    }
-    inline const NodeInvData *get_inventory_data() const {
-        return node_inv;
-    }
-    inline FdspNodeState node_state() const {
-        return node_inv->nd_node_state;
-    }
-    inline const node_capability_t &node_capability() const {
-        return node_inv->nd_capability;
-    }
-    inline const fds_uint64_t node_dlt_version() const {
-      return node_inv->nd_dlt_version;
-    }
-    inline FdspNodeType node_get_svc_type() { return node_svc_type; }
+    void set_node_state(FdspNodeState state);
+    void set_node_dlt_version(fds_uint64_t dlt_version);
+
+    inline NodeUuid get_uuid() const { return rs_get_uuid(); }
+    inline FdspNodeState node_state() const { return nd_my_node_state; }
+    inline fds_uint64_t node_dlt_version() const { return nd_my_dlt_version; }
+    inline FdspNodeType node_get_svc_type() const { return node_svc_type; }
 
     /**
      * Fill in the inventory for this agent based on data provided by the message.
@@ -156,8 +112,6 @@ class NodeInventory : public Resource
     void node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw, FdspNodeType id);
     void node_fill_inventory(const FdspNodeRegPtr msg);
     void node_update_inventory(const FdspNodeRegPtr msg);
-    void set_node_state(FdspNodeState state);
-    void set_node_dlt_version(fds_uint64_t dlt_version);
 
     /**
      * Format the node info pkt with data from this agent obj.
@@ -168,25 +122,34 @@ class NodeInventory : public Resource
     virtual void init_stor_cap_msg(fpi::StorCapMsg *msg) const;
     virtual void init_plat_info_msg(fpi::NodeInfoMsg *msg) const;
     virtual void init_node_info_msg(fpi::NodeInfoMsg *msg) const;
+    virtual void init_om_info_msg(fpi::NodeInfoMsg *msg);
+    virtual void init_om_pm_info_msg(fpi::NodeInfoMsg *msg);
 
     /**
      * Convert from message format to POD type used in shared memory.
      */
-    static void node_info_msg_to_shm(const NodeInfoMsg *msg, struct node_data *rec);
-    static void node_info_msg_frm_shm(bool am, int ro_idx, NodeInfoMsg *msg);
+    static void node_info_msg_to_shm(const fpi::NodeInfoMsg *msg, struct node_data *rec);
+    static void node_info_msg_frm_shm(bool am, int ro_idx, fpi::NodeInfoMsg *msg);
     static void node_stor_cap_to_shm(const fpi::StorCapMsg *msg, struct node_stor_cap *);
     static void node_stor_cap_frm_shm(fpi::StorCapMsg *msg, const struct node_stor_cap *);
 
   protected:
-    NodeInvData             *node_inv;
     FdspNodeType             node_svc_type;
     int                      node_ro_idx;
     int                      node_rw_idx;
+    fds_uint64_t             nd_gbyte_cap;
+    fds_uint64_t             nd_my_dlt_version;
+    std::string              node_root;
+
+    /* Will be removed */
+    FdspNodeState            nd_my_node_state;
+    std::string              nd_node_name;
 
     virtual ~NodeInventory() {}
     explicit NodeInventory(const NodeUuid &uuid)
-        : Resource(uuid), node_inv(NULL),
-          node_svc_type(fpi::FDSP_PLATFORM), node_ro_idx(-1), node_rw_idx(-1) {}
+        : Resource(uuid), node_svc_type(fpi::FDSP_PLATFORM),
+          node_ro_idx(-1), node_rw_idx(-1), nd_gbyte_cap(0),
+          nd_my_dlt_version(0), nd_my_node_state(fpi::FDS_Node_Discovered) {}
 
     const ShmObjRO *node_shm_ctrl() const;
 };
@@ -225,8 +188,13 @@ class NodeAgent : public NodeInventory
     virtual boost::shared_ptr<fpi::FDSP_ControlPathReqClient>
     node_ctrl_rpc(boost::intrusive_ptr<EpSvcHandle> *eph);
 
+    virtual boost::shared_ptr<EPSvcRequest> node_om_request();
+    virtual boost::shared_ptr<EPSvcRequest> node_msg_request();
+
     virtual boost::shared_ptr<fpi::PlatNetSvcClient>
     node_svc_rpc(boost::intrusive_ptr<EpSvcHandle> *eph);
+
+    friend std::ostream &operator << (std::ostream &os, const NodeAgent::pointer n);
 
   protected:
     friend class AgentContainer;
@@ -240,6 +208,11 @@ class NodeAgent : public NodeInventory
 
     virtual void agent_publish_ep();
     void agent_bind_ep(boost::intrusive_ptr<EpSvcImpl>, boost::intrusive_ptr<EpSvc>);
+
+    virtual boost::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
+    virtual void
+    agent_svc_fillin(fpi::NodeSvcInfo *,
+                     const struct node_data *, fpi::FDSP_MgrIdType) const;
 };
 
 /**
@@ -276,8 +249,10 @@ class PmAgent : public NodeAgent
   protected:
     boost::intrusive_ptr<PmSvcEp>      pm_ep_svc;
 
-    void agent_svc_fillin(fpi::NodeSvcInfo *,
-                          const struct node_data *, fpi::FDSP_MgrIdType) const;
+    virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
+    virtual void
+    agent_svc_fillin(fpi::NodeSvcInfo *,
+                     const struct node_data *, fpi::FDSP_MgrIdType) const;
 };
 
 class SmAgent : public NodeAgent
@@ -288,8 +263,7 @@ class SmAgent : public NodeAgent
 
     virtual ~SmAgent();
     virtual void agent_bind_ep();
-    virtual void
-    sm_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgentDpRespPtr sm_resp);
+    virtual void sm_handshake(boost::shared_ptr<netSessionTbl> net);
 
     SmAgent(const NodeUuid &uuid);
     boost::intrusive_ptr<SmSvcEp> agent_ep_svc();
@@ -302,6 +276,8 @@ class SmAgent : public NodeAgent
     NodeAgentDpClientPtr           sm_reqt;
     std::string                    sm_sess_id;
     boost::intrusive_ptr<SmSvcEp>  sm_ep_svc;
+
+    virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
 };
 
 class DmAgent : public NodeAgent
@@ -318,6 +294,8 @@ class DmAgent : public NodeAgent
 
   protected:
     boost::intrusive_ptr<DmSvcEp>  dm_ep_svc;
+
+    virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
 };
 
 class AmAgent : public NodeAgent
@@ -334,6 +312,8 @@ class AmAgent : public NodeAgent
 
   protected:
     boost::intrusive_ptr<AmSvcEp>  am_ep_svc;
+
+    virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
 };
 
 class OmAgent : public NodeAgent
@@ -360,7 +340,6 @@ class OmAgent : public NodeAgent
      */
     virtual void
     om_handshake(boost::shared_ptr<netSessionTbl> net,
-                 OmRespDispatchPtr                om_disp,
                  std::string                      om_ip,
                  fds_uint32_t                     om_port);
 
@@ -369,6 +348,8 @@ class OmAgent : public NodeAgent
     NodeAgentCpOmClientPtr         om_reqt;        /**< handle to send reqt to OM.  */
     std::string                    om_sess_id;
     boost::intrusive_ptr<OmSvcEp>  om_ep_svc;
+
+    virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
 };
 
 // -------------------------------------------------------------------------------------
@@ -504,9 +485,7 @@ class AgentContainer : public RsContainer
      * Establish RPC connection with the remte agent.
      */
     virtual void
-    agent_handshake(boost::shared_ptr<netSessionTbl> net,
-                    NodeAgentDpRespPtr               resp,
-                    NodeAgent::pointer               agent);
+    agent_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgent::pointer agent);
 
   protected:
     FdspNodeType                       ac_id;
@@ -550,9 +529,7 @@ class SmContainer : public AgentContainer
     SmContainer(FdspNodeType id);
 
     virtual void
-    agent_handshake(boost::shared_ptr<netSessionTbl> net,
-                    NodeAgentDpRespPtr               resp,
-                    NodeAgent::pointer               agent);
+    agent_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgent::pointer agent);
 
   protected:
     virtual ~SmContainer() {}
@@ -643,6 +620,11 @@ class DomainContainer
      * Get service info in all nodes connecting to this domain.
      */
     void dc_node_svc_info(fpi::DomainNodes &ret);
+
+    /**
+     * Find the node agent matching with the given uuid.
+     */
+    NodeAgent::pointer dc_find_node_agent(const NodeUuid &uuid);
 
     /**
      * Domain iteration plugin

@@ -444,6 +444,18 @@ bool Redis::hset(const std::string& key, int64_t field, const std::string& value
     return reply.getLong() == 1;
 }
 
+bool Redis::hexists(const std::string& key, int64_t field) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "hexists %s %ld", key.c_str(), field);
+    return reply.getLong() == 1;
+}
+
+bool Redis::hexists(const std::string& key, const std::string field) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "hexists %s %ld", key.c_str(), field.c_str());
+    return reply.getLong() == 1;
+}
+
 Reply Redis::hget(const std::string& key, const std::string& field) {
     SCOPEDCXN();
     return Reply(redisCommand(cxn->ctx, "hget %s %s", key.c_str(), field.c_str()));

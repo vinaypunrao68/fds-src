@@ -6,9 +6,12 @@
 #define SOURCE_INCLUDE_STATSCOLLECTOR_H_
 
 #include <PerfHistory.h>
-#include <lib/OMgrClient.h>
+// #include <lib/OMgrClient.h>
+#include <fds_timer.h>
 
 namespace fds {
+
+class OMgrClient;
 
 /**
  * A callback to a service (DM/SM/AM) that will be called periodically

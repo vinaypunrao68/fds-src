@@ -176,6 +176,7 @@ class EpEvtPlugin
     bo::intrusive_ptr<EpSvcHandle> ep_handle;
 
   private:
+    friend class EpSvc;
     friend class EpSvcImpl;
     friend class EpSvcHandle;
     INTRUSIVE_PTR_DEFS(EpEvtPlugin, ep_refcnt);
@@ -274,6 +275,7 @@ class EpSvc
 
     virtual ~EpSvc() {}
     virtual bool ep_is_connection() { return false; }
+    virtual void ep_set_plugin(EpEvtPlugin::pointer evt);
     virtual void ep_handle_error(const Error &err);
 
   private:
@@ -396,7 +398,8 @@ typedef std::unordered_map<fds_uint64_t, EpSvcList>            UuidEpMap;
 typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>       UuidSvcMap;
 typedef std::unordered_map<UuidIntKey, int, UuidIntKeyHash>    UuidShmMap;
 typedef std::unordered_map<UuidIntKey, EpSvcHandle::pointer, UuidIntKeyHash> EpHandleMap;
-typedef std::unordered_map<UuidIntKey, fpi::BaseAsyncSvcClientPtr, UuidIntKeyHash> EpClientMap;
+typedef std::unordered_map<UuidIntKey,
+                           fpi::BaseAsyncSvcClientPtr, UuidIntKeyHash> EpClientMap;
 
 /**
  * Singleton module manages all endpoints.
@@ -558,6 +561,9 @@ class NetPlatform : public Module
     inline static NetPlatform   *nplat_singleton() { return gl_NetPlatSvc; }
     virtual void                 nplat_register_node(const fpi::NodeInfoMsg *msg) = 0;
     virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) = 0;
+
+    virtual bo::intrusive_ptr<DomainAgent> nplat_self() = 0;
+    virtual bo::intrusive_ptr<DomainAgent> nplat_master() = 0;
 
     virtual void nplat_set_my_ep(bo::intrusive_ptr<EpSvcImpl> ep) = 0;
     virtual bo::intrusive_ptr<EpSvcImpl> nplat_my_ep() = 0;

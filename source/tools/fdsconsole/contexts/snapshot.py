@@ -3,15 +3,11 @@ from svchelper import *
 class SnapshotContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
-
-    def get_context_name(self):
-        return "snapshot"
 
     #--------------------------------------------------------------------------------------
     @clicmd    
     @arg('vol-name', help= "-list snapshot for Volume name")
-    def list(vol_name):
+    def list(self, vol_name):
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
             snapshot = ServiceMap.omConfig().listSnapshots(volume_id)
@@ -20,5 +16,21 @@ class SnapshotContext(Context):
         except Exception, e:
             log.exception(e)
             return ' list snapshot polcies  snapshot polices for volume failed: {}'.format(vol_name)
+
+
+    #--------------------------------------------------------------------------------------
+    @clicmd
+    @arg('vol-name', help= "volume name")
+    @arg('snap-name', help= "name of the snapshot")
+    @arg('retention', help= "retention time in seconds", nargs='?' , type=long, default=0)
+    def create(self, vol_name, snap_name, retention):
+        'create a snaphot of the given volume'
+        try:
+            volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
+            snapshot = ServiceMap.omConfig().createSnapshot(volume_id, snap_name, retention)
+            return 'ok'
+        except Exception, e:
+            log.exception(e)
+            return ' create snapshot for volume failed: {}'.format(vol_name)
 
 

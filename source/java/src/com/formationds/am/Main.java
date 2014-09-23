@@ -10,6 +10,8 @@ import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
+import com.formationds.web.toolkit.HttpConfiguration;
+import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.xdi.*;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
@@ -23,6 +25,7 @@ import org.eclipse.jetty.io.ByteBufferPool;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.File;
 import java.util.concurrent.ForkJoinPool;
 
 public class Main {
@@ -47,32 +50,37 @@ public class Main {
 
             AmService.Iface am = useFakeAm ? new FakeAmService() :
                     clientFactory.remoteAmService("localhost", 9988);
-                    //clientFactory.remoteAmService("localhost", 4242);
+            //clientFactory.remoteAmService("localhost", 4242);
 
-            ConfigurationServiceCache configCache = new ConfigurationServiceCache(clientFactory.remoteOmService(omHost, omConfigPort));
+            ConfigurationApi configCache = new ConfigurationApi(clientFactory.remoteOmService(omHost, omConfigPort));
             boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
-            Authenticator authenticator = enforceAuth? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
-            Authorizer authorizer = enforceAuth? new FdsAuthorizer(configCache) : new DumbAuthorizer();
+            Authenticator authenticator = enforceAuth ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
+            Authorizer authorizer = enforceAuth ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 
             int nbdPort = platformConfig.lookup("fds.am.nbd_server_port").intValue();
-            boolean nbdLoggingEnabled =  platformConfig.defaultBoolean("fds.am.enable_nbd_log", false);
+            boolean nbdLoggingEnabled = platformConfig.defaultBoolean("fds.am.enable_nbd_log", false);
             boolean nbdBlockExclusionEnabled = platformConfig.defaultBoolean("fds.am.enable_nbd_block_exclusion", true);
             ForkJoinPool fjp = new ForkJoinPool(50);
             NbdServerOperations ops = new FdsServerOperations(am, configCache, fjp);
-            if(nbdLoggingEnabled)
+            if (nbdLoggingEnabled)
                 ops = new LoggingOperationsWrapper(ops, "/fds/var/logs/nbd");
-            if(nbdBlockExclusionEnabled)
+            if (nbdBlockExclusionEnabled)
                 ops = new BlockExclusionWrapper(ops, 4096);
             NbdHost nbdHost = new NbdHost(nbdPort, ops);
-            
+
             new Thread(() -> nbdHost.run()).start();
 
             Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
             ByteBufferPool bbp = new ArrayByteBufferPool();
             XdiAsync.Factory xdiAsync = new XdiAsync.Factory(authorizer, clientFactory.makeCsAsyncPool(omHost, omConfigPort), clientFactory.makeAmAsyncPool("localhost", 9988), bbp);
 
-            int s3Port = platformConfig.lookup("fds.am.s3_port").intValue();
-            new Thread(() -> new S3Endpoint(xdi, xdiAsync, secretKey).start(s3Port)).start();
+            int s3HttpPort = platformConfig.lookup("fds.am.s3_http_port").intValue();
+            int s3SslPort = platformConfig.lookup("fds.am.s3_https_port").intValue();
+
+            HttpConfiguration httpConfiguration = new HttpConfiguration(s3HttpPort, "0.0.0.0");
+            HttpsConfiguration httpsConfiguration = new HttpsConfiguration(s3SslPort, configuration);
+
+            new Thread(() -> new S3Endpoint(xdi, xdiAsync, secretKey, httpsConfiguration, httpConfiguration).start()).start();
 
             startStreamingServer(8999, configCache);
 

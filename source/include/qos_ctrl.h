@@ -5,7 +5,6 @@
 #include <iostream>
 #include <boost/atomic.hpp>
 #include <util/Log.h>
-#include <lib/PerfStats.h>
 #include <concurrency/ThreadPool.h>
 #include "fds_error.h"
 #include <fdsp/FDSP_types.h>
@@ -53,6 +52,7 @@ class FDS_QoSControl {
 
    FDS_QoSControl(fds_uint32_t _max_thrds, dispatchAlgoType algo, fds_log *log, const std::string& prefix);
    
+   virtual FDS_VolumeQueue* getQueue(fds_volid_t queueId);
    Error   registerVolume(fds_volid_t voluuid, FDS_VolumeQueue *q);
    Error   deregisterVolume(fds_volid_t voluuid);
    Error modifyVolumeQosParams(fds_volid_t vol_uuid, 
@@ -72,9 +72,6 @@ class FDS_QoSControl {
    /* will register OM client with perfstats that will enable pushing
     * perfstats to OM periodically, note that perfstats have to be enabled for that  */
    void registerOmClient(OMgrClient* om_client);
-
- protected:
-   PerfStats *stats;
 };
 
 }

@@ -9,9 +9,9 @@
 #include <vector>
 #include <OmResources.h>
 #include <lib/Catalog.h>
-#include <lib/PerfStats.h>
 #include <map>
 #include <util/Log.h>
+#include <NetSession.h>
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
@@ -320,8 +320,8 @@ void OrchMgr::NotifyQueueFull(const FDSP_MsgHdrTypePtr& fdsp_msg,
     }
 }
 
-void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                              const FDSP_PerfstatsTypePtr& perf_stats_msg)
+void OrchMgr::NotifyPerfstats(const boost::shared_ptr<fpi::AsyncHdr>& fdsp_msg,
+                              const FDSP_PerfstatsType *perf_stats_msg)
 {
     LOGNORMAL << "OM received perfstats from node of type: "
               << perf_stats_msg->node_type
@@ -330,7 +330,7 @@ void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
 
     /* Since we do not negotiate yet (should we?) the slot length of stats with AM and SM
      * the stat slot length in AM and SM should be FDS_STAT_DEFAULT_SLOT_LENGTH */
-    fds_verify(perf_stats_msg->slot_len_sec == FDS_STAT_DEFAULT_SLOT_LENGTH);
+    // fds_verify(perf_stats_msg->slot_len_sec == FDS_STAT_DEFAULT_SLOT_LENGTH);
 
     if (perf_stats_msg->node_type == FDS_ProtocolInterface::FDSP_STOR_HVISOR) {
         LOGNORMAL << "OM received perfstats from AM, start ts "
@@ -340,8 +340,7 @@ void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
                                            perf_stats_msg->start_timestamp);
 
         for (uint i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
-            FDS_ProtocolInterface::FDSP_VolPerfHistType& vol_hist
-                    = (perf_stats_msg->vol_hist_list)[i];
+            auto vol_hist = (perf_stats_msg->vol_hist_list)[i];
             LOGNORMAL << "OM: received perfstat for vol " << vol_hist.vol_uuid;
             for (uint j = 0; j < (vol_hist.stat_list).size(); ++j) {
                 FDS_ProtocolInterface::FDSP_PerfStatType stat = (vol_hist.stat_list)[j];
@@ -359,8 +358,7 @@ void OrchMgr::NotifyPerfstats(const FDSP_MsgHdrTypePtr& fdsp_msg,
          * stats from AM but for now output debug msg to the log
          */
         for (uint i = 0; i < (perf_stats_msg->vol_hist_list).size(); ++i) {
-            FDS_ProtocolInterface::FDSP_VolPerfHistType& vol_hist
-                    = (perf_stats_msg->vol_hist_list)[i];
+            auto vol_hist = (perf_stats_msg->vol_hist_list)[i];
             LOGNORMAL << "OM: received perfstat for vol " << vol_hist.vol_uuid;
             for (uint j = 0; j < (vol_hist.stat_list).size(); ++j) {
                 FDS_ProtocolInterface::FDSP_PerfStatType& stat = (vol_hist.stat_list)[j];

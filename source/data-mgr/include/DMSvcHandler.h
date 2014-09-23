@@ -13,7 +13,7 @@
 
 namespace fds {
 
-class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
+class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
  public:
     DMSvcHandler();
 
@@ -170,6 +170,21 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
 
     void createVolumeClone(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                          boost::shared_ptr<fpi::CreateVolumeCloneMsg>& createClone);
+    virtual void
+    notifySvcChange(boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+                    boost::shared_ptr<fpi::NodeSvcInfo> &msg);
+
+    virtual void
+    NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlNotifyVolAdd> &vol_msg);
+
+    virtual void
+    NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                boost::shared_ptr<fpi::CtrlNotifyVolRemove> &vol_msg);
+
+    virtual void
+    NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlNotifyVolMod> &vol_msg);
 };
 
 }  // namespace fds

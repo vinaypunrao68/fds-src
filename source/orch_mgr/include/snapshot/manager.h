@@ -8,6 +8,9 @@
 #include <util/Log.h>
 #include <snapshot/scheduler.h>
 #include <snapshot/policydispatcher.h>
+#include <snapshot/deletescheduler.h>
+#include <snapshot/deletedispatcher.h>
+
 #include <snapshot/svchandler.h>
 
 namespace fds {
@@ -22,10 +25,15 @@ class Manager : public HasLogger {
     bool addPolicy(fpi::SnapshotPolicy& policy);
     bool removePolicy(int64_t id);
     OmSnapshotSvcHandler svcHandler;
+
+    Scheduler* snapScheduler;
+    DeleteScheduler* deleteScheduler;
+
   protected:
     OrchMgr* om;
-    Scheduler* snapScheduler;
+
     PolicyDispatcher* snapPolicyDispatcher;
+    DeleteDispatcher* deleteDispatcher;
 };
 
 }  // namespace snapshot

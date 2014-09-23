@@ -108,9 +108,8 @@ const char * eventTypeToStr[] = {
         "put_io",
         "put_obj_req",
         "put_obj_req_err",
-        "put_trans_queue_wait",
         "put_qos_queue_wait",
-        "put_cache_hit",
+        "put_obj_task_sync_wait",
         "put_ssd_obj",
         "put_hdd_obj",
 
@@ -120,43 +119,42 @@ const char * eventTypeToStr[] = {
         "get_io",
         "get_obj_req",
         "get_obj_req_err",
-        "get_trans_queue_wait",
         "get_qos_queue_wait",
-        "get_cache_hit",
+        "get_obj_task_sync_wait",
         "get_ssd_obj",
         "get_hdd_obj",
 
         "delete_io",
         "delete_obj_req",
         "delete_obj_req_err",
-        "delete_trans_queue_wait",
         "delete_qos_queue_wait",
-        "delete_cache_hit",
+        "delete_obj_task_sync_wait",
+
+        "add_object_ref_req",
+        "add_object_ref_req_err",
+        "add_object_ref_io",
+        "add_object_ref_trans_queue_wait",
+        "add_object_ref_qos_queue_wait",
 
         "murmur3_hash",
         "dlt_lkup",
         "dmt_lkup",
 
-        "put_obj_dedupe_chk",
         "persist_disk_write",
         "put_obj_loc_indx_update",
 
-        "get_obj_cache_lkup",
         "get_obj_lkup_loc_indx",
         "get_obj_pl_read_disk",
 
         "commit_log_write",
-        "get_metadata_read",
-        "get_disk_read",
-        "put_metadata_write",
-        "put_disk_write",
-        "delete_metadata",
-        "delete_disk",
-
-        "put_odb",
-        "get_odb",
-        "disk_write",
-        "disk_read",
+        "sm_obj_metadata_db_read",
+        "sm_obj_metadata_db_write",
+        "sm_obj_metadata_db_remove",
+        "sm_obj_metadata_cache_hit",
+        "sm_obj_data_cache_hit",
+        "sm_obj_data_disk_read",
+        "sm_obj_data_disk_write",
+        "sm_obj_mark_deleted",
 
         // Access Manager
         "am_put_obj_req",
@@ -230,7 +228,6 @@ PerfTracer::PerfTracer() : aggregateCounters_(fds::MAX_EVENT_TYPE),
 }
 
 PerfTracer::~PerfTracer() {
-    GLOGDEBUG << "Destroying PerfTracer";
     for (auto& kv : latencyMap_) {
         delete kv.second;
     }

@@ -45,7 +45,8 @@ class DmPersistVolCatalog: public Module, public HasLogger {
     /**
      * Create snapshot for volume specified by id
      */
-    Error createSnapshot(fds_volid_t volId, fds_volid_t snapshotId);
+    Error copyVolume(fds_volid_t volId, fds_volid_t snapshotId,
+           fds_bool_t snapshot,  fds_bool_t readOnly);
 
     /**
      * Opens catalog for volume 'volume_id'. When this method

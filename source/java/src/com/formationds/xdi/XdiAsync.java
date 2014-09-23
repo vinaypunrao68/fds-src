@@ -6,12 +6,13 @@ package com.formationds.xdi;
 import com.formationds.apis.*;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
+import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.async.AsyncMessageDigest;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.AsyncResourcePool;
-import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.blob.Mode;
+import io.netty.buffer.ByteBuf;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.thrift.async.AsyncMethodCallback;
 import org.eclipse.jetty.io.ByteBufferPool;
@@ -127,18 +128,32 @@ public class XdiAsync {
         }
     }
 
+    private ByteBuffer condenseBuffer(ByteBuffer buffer) {
+        if(buffer.remaining() < buffer.capacity() / 2) {
+            ByteBuffer targetBuffer = ByteBuffer.allocate(buffer.remaining()); //bufferPool.acquire(buffer.remaining(), false);
+            targetBuffer.limit(targetBuffer.capacity());
+            targetBuffer.put(buffer);
+            targetBuffer.flip();
+            bufferPool.release(buffer);
+            return targetBuffer;
+        }
+        return buffer;
+    }
+
     private CompletableFuture<Void> firstPut(PutParameters putParameters, long objectOffset) {
         ByteBuffer readBuf = bufferPool.acquire(putParameters.objectSize, false);
         readBuf.limit(putParameters.objectSize);
         CompletableFuture<Void> readCompleteFuture = putParameters.reader.apply(readBuf);
 
         return readCompleteFuture.thenCompose(_null -> {
-            putParameters.digest.update(readBuf);
-            if(readBuf.remaining() < putParameters.objectSize) {
+            final ByteBuffer condensedBuffer = condenseBuffer(readBuf);
+            putParameters.digest.update(condensedBuffer);
+            if (condensedBuffer.remaining() < putParameters.objectSize) {
                 return putParameters.getFinalizedMetadata().thenCompose(md ->
-                    updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), readBuf, readBuf.remaining(), objectOffset, md).whenComplete((_null2, ex) -> bufferPool.release(readBuf)));
+                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), condensedBuffer, condensedBuffer.remaining(), objectOffset, md)
+                                .whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
             } else {
-                return secondPut(putParameters, objectOffset + 1, readBuf);
+                return secondPut(putParameters, objectOffset + 1, condensedBuffer);
             }
         });
     }
@@ -149,18 +164,19 @@ public class XdiAsync {
 
         CompletableFuture<Void> readCompleteFuture = putParameters.reader.apply(readBuf);
         return readCompleteFuture.thenCompose(_null -> {
-            if (readBuf.remaining() == 0) {
+            final ByteBuffer condensedBuffer = condenseBuffer(readBuf);
+            if (condensedBuffer.remaining() == 0) {
                 return putParameters.getFinalizedMetadata().thenCompose(md ->
-                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), first, putParameters.objectSize, objectOffset, md).whenComplete((_null2, ex) -> bufferPool.release(readBuf)));
+                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), first, putParameters.objectSize, objectOffset, md).whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
             } else {
-                CompletableFuture<Void> digestFuture = putParameters.digest.update(readBuf);
+                CompletableFuture<Void> digestFuture = putParameters.digest.update(condensedBuffer);
                 return createTx(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue()).thenComposeAsync(tx -> {
                     CompletableFuture<Void> firstResult = tx.update(first, objectOffset - 1, putParameters.objectSize)
                             .thenCompose(_null1 -> digestFuture)
                             .whenComplete((_r1, _ex1) -> bufferPool.release(first));
-                    CompletableFuture<Void> secondResult = tx.update(readBuf, objectOffset, readBuf.remaining())
+                    CompletableFuture<Void> secondResult = tx.update(condensedBuffer, objectOffset, condensedBuffer.remaining())
                             .thenCompose(_null1 -> digestFuture)
-                            .whenComplete((_r1, _ex1) -> bufferPool.release(readBuf));
+                            .whenComplete((_r1, _ex1) -> bufferPool.release(condensedBuffer));
 
                     CompletableFuture<Void> rest = putSequence(putParameters, tx, objectOffset + 1)
                             .thenCompose(_sequenceCompletion -> putParameters.getFinalizedMetadata())
@@ -178,27 +194,28 @@ public class XdiAsync {
     private CompletableFuture<Void> putSequence(PutParameters putParameters, TransactionHandle tx, long objectOffset) {
         ByteBuffer readBuf = bufferPool.acquire(putParameters.objectSize, false);
         readBuf.limit(putParameters.objectSize);
-        CompletableFuture<Void> readCompleteFuture = putParameters.reader.apply(readBuf);
+        CompletableFuture<ByteBuffer> readCompleteFuture = putParameters.reader.apply(readBuf).thenApply(_null -> condenseBuffer(readBuf));
 
-        CompletableFuture<Void> digestFuture = statistics.time("etagDigestUpdate", readCompleteFuture.thenCompose(_null -> putParameters.digest.update(readBuf)));
-
-        CompletableFuture<Void> writeFuture = readCompleteFuture.thenCompose(_null -> {
-            if(readBuf.remaining() == 0) {
-                bufferPool.release(readBuf);
-                return CompletableFuture.<Void>completedFuture(null);
+        return readCompleteFuture.thenCompose(condensedBuffer -> {
+            CompletableFuture<Void> digestFuture = putParameters.digest.update(condensedBuffer);
+            CompletableFuture<Void> writeFuture = null;
+            CompletableFuture<Void> readNextFuture = null;
+            if(condensedBuffer.remaining() == 0) {
+                bufferPool.release(condensedBuffer);
+                writeFuture = CompletableFuture.<Void>completedFuture(null);
+            } else {
+                writeFuture = tx.update(condensedBuffer, objectOffset, condensedBuffer.remaining())
+                        .thenCompose(_null1 -> digestFuture)
+                        .whenComplete((r, ex) -> bufferPool.release(condensedBuffer));
             }
-            return tx.update(readBuf, objectOffset, readBuf.remaining())
-                    .thenCompose(_null1 -> digestFuture)
-                    .whenComplete((r, ex) -> bufferPool.release(readBuf));
-        });
 
-        CompletableFuture<Void> readNextFuture = readCompleteFuture.thenCompose(readLength -> {
-            if(readBuf.remaining() < putParameters.objectSize)
-                return CompletableFuture.<Void>completedFuture(null);
-            return digestFuture.thenCompose(_digestCompletion -> putSequence(putParameters, tx, objectOffset + 1));
-        });
+            if(condensedBuffer.remaining() < putParameters.objectSize)
+                readNextFuture = CompletableFuture.<Void>completedFuture(null);
+            else
+                readNextFuture = digestFuture.thenCompose(_digestCompletion -> putSequence(putParameters, tx, objectOffset + 1));
 
-        return CompletableFuture.allOf(writeFuture, readNextFuture);
+            return CompletableFuture.allOf(readNextFuture, writeFuture);
+        });
     }
 
     public <T> CompletableFuture<T> amUseVolume(String volume, AsyncResourcePool.BindWithException<XdiClientConnection<AmService.AsyncIface>, CompletableFuture<T>> operation) {
@@ -418,5 +435,3 @@ public class XdiAsync {
         }
     }
 }
-
-

@@ -5,7 +5,10 @@
 #include <vector>
 #include <string>
 #include <orchMgr.h>
+#include <NetSession.h>
 #include <OmResources.h>
+#include <platform/node-inv-shmem.h>
+
 #undef LOGGERPTR
 #define LOGGERPTR orchMgr->GetLog()
 namespace fds {
@@ -33,7 +36,7 @@ int32_t FDSP_ConfigPathReqHandler::CreateVol(
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         if (domain->om_local_domain_up()) {
-            err = local->om_create_vol(fdsp_msg, crt_vol_req, false);
+            err = local->om_create_vol(fdsp_msg, crt_vol_req, nullptr);
         } else {
             LOGWARN << "OM Local Domain is not up yet, rejecting volume "
                     << " create; try later";
@@ -598,20 +601,27 @@ void FDSP_ConfigPathReqHandler::ListServices(
     // Do nothing
 }
 
-static void add_to_vector(std::vector<FDSP_Node_Info_Type> &vec,  // NOLINT
+static void add_to_vector(std::vector<fpi::FDSP_Node_Info_Type> &vec,  // NOLINT
                           NodeAgent::pointer ptr) {
-    const NodeInvData *nodeData = ptr->get_inventory_data();
-    NodeUuid uuid = nodeData->nd_uuid;
-    FDSP_Node_Info_Type nodeInfo = FDSP_Node_Info_Type();
-    nodeInfo.node_uuid = nodeData->nd_uuid.uuid_get_val();
-    nodeInfo.service_uuid = nodeData->nd_service_uuid.uuid_get_val();
-    nodeInfo.node_name = nodeData->nd_node_name;
-    nodeInfo.node_type = nodeData->nd_node_type;
-    nodeInfo.node_state = nodeData->nd_node_state;
-    nodeInfo.ip_lo_addr = nodeData->nd_ip_addr;
-    nodeInfo.control_port = nodeData->nd_data_port;
-    nodeInfo.data_port = nodeData->nd_data_port;
-    nodeInfo.migration_port = nodeData->nd_migration_port;
+    Platform     *plat;
+    node_data_t   ndata;
+    fds_uint32_t  base;
+
+    base = ptr->node_base_port();
+    plat = Platform::platf_singleton();
+
+    ptr->node_info_frm_shm(&ndata);
+    NodeUuid uuid = ndata.nd_node_uuid;
+    fpi::FDSP_Node_Info_Type nodeInfo = fpi::FDSP_Node_Info_Type();
+    nodeInfo.node_uuid = ndata.nd_node_uuid;
+    nodeInfo.service_uuid = ndata.nd_service_uuid;
+    nodeInfo.node_name = ptr->get_node_name();
+    nodeInfo.node_type = ndata.nd_svc_type;
+    nodeInfo.node_state = ptr->node_state();
+    nodeInfo.ip_lo_addr = netSession::ipString2Addr(ptr->get_ip_str());
+    nodeInfo.control_port = plat->plf_get_my_ctrl_port(base);
+    nodeInfo.data_port = plat->plf_get_my_data_port(base);
+    nodeInfo.migration_port = plat->plf_get_my_migration_port(base);
     vec.push_back(nodeInfo);
 }
 
@@ -717,6 +727,7 @@ void FDSP_OMControlPathReqHandler::CreateBucket(
 void FDSP_OMControlPathReqHandler::CreateBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_buck_req) {
+#if 0
     LOGNOTIFY << "Received create bucket " << crt_buck_req->vol_name
               << " from " << fdsp_msg->src_node_name  << " node uuid: "
               << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
@@ -735,6 +746,7 @@ void FDSP_OMControlPathReqHandler::CreateBucket(
         LOGERROR << "Orch Mgr encountered exception while "
                  << "processing create bucket";
     }
+#endif
 }
 
 void FDSP_OMControlPathReqHandler::DeleteBucket(
@@ -746,8 +758,10 @@ void FDSP_OMControlPathReqHandler::DeleteBucket(
 void FDSP_OMControlPathReqHandler::DeleteBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& del_buck_req) {
+#if 0
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_delete_vol(fdsp_msg, del_buck_req);
+#endif
 }
 
 void FDSP_OMControlPathReqHandler::ModifyBucket(
@@ -759,12 +773,14 @@ void FDSP_OMControlPathReqHandler::ModifyBucket(
 void FDSP_OMControlPathReqHandler::ModifyBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_buck_req) {
+#if 0
     LOGNOTIFY << "Received modify bucket " << (mod_buck_req->vol_desc).vol_name
               << " from " << fdsp_msg->src_node_name  << " node uuid: "
               << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
 
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_modify_vol(mod_buck_req);
+#endif
 }
 
 void FDSP_OMControlPathReqHandler::AttachBucket(
@@ -839,7 +855,9 @@ void FDSP_OMControlPathReqHandler::NotifyPerfstats(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_PerfstatsTypePtr& perf_stats_msg) {
 
+#if 0
     orchMgr->NotifyPerfstats(fdsp_msg, perf_stats_msg);
+#endif
 }
 
 void FDSP_OMControlPathReqHandler::TestBucket(
@@ -851,8 +869,10 @@ void FDSP_OMControlPathReqHandler::TestBucket(
 void FDSP_OMControlPathReqHandler::TestBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_TestBucketPtr& test_buck_msg) {
+#if 0
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_test_bucket(fdsp_msg, test_buck_msg);
+#endif
 }
 
 void FDSP_OMControlPathReqHandler::NotifyMigrationDone(

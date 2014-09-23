@@ -18,7 +18,7 @@ class OMSvcProcessor;
 namespace fds {
 
 /* Forward declarations */
-class OMSvcHandler;
+class OmSvcHandler;
 class OmPlatform;
 template <class SendIf, class RecvIf>class EndPoint;
 
@@ -44,15 +44,9 @@ class OMEpPlugin: public EpEvtPlugin
     OmPlatform *om_plat_;
 };
 
-typedef EndPoint<fpi::FDSP_ConfigPathReqIf,
-                 fpi::FDSP_ConfigPathReqProcessor>      OmConfigEp;
-typedef EndPoint<fpi::FDSP_OMControlPathReqIf,
-                 fpi::FDSP_OMControlPathReqProcessor>   OmControlEp;
-typedef EndPoint<fpi::OMSvcClient, fpi::OMSvcProcessor> OmPlatSvcEp;
-
-typedef bo::intrusive_ptr<OmConfigEp>                   OmConfigEpPtr;
+typedef EndPoint<fpi::BaseAsyncSvcIf,
+                 fpi::BaseAsyncSvcProcessor>            OmControlEp;
 typedef bo::intrusive_ptr<OmControlEp>                  OmControlEpPtr;
-typedef bo::intrusive_ptr<OmPlatSvcEp>                  OmPlatSvcEpPtr;
 
 class OmPlatform : public Platform
 {
@@ -68,21 +62,12 @@ class OmPlatform : public Platform
     virtual void mod_enable_service() override;
     virtual void mod_shutdown() override;
 
-    virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler();
+    virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler() override;
 
   protected:
-    virtual PlatRpcReqt *plat_creat_reqt_disp();
-    virtual PlatRpcResp *plat_creat_resp_disp();
-    virtual PlatDataPathResp *plat_creat_dpath_resp();
-
-    OMEpPlugin::pointer  om_plugin;
-    OmConfigEpPtr        om_cfg_ep;
-    OmControlEpPtr       om_ctrl_ep;
-    OmPlatSvcEpPtr       om_plat_ep;
-
-    bo::shared_ptr<FDSP_ConfigPathReqHandler>     om_cfg_rcv;
-    bo::shared_ptr<FDSP_OMControlPathReqHandler>  om_ctrl_rcv;
-    bo::shared_ptr<OMSvcHandler>                  om_plat_rcv;
+    OMEpPlugin::pointer              om_plugin;
+    OmControlEpPtr                   om_ctrl_ep;
+    bo::shared_ptr<OmSvcHandler>     om_ctrl_rcv;
 };
 
 extern OmPlatform gl_OmPlatform;

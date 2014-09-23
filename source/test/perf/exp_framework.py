@@ -3,7 +3,6 @@ import os, sys, re
 import time
 import Pyro4
 import paramiko
-from optparse import OptionParser
 import SocketServer
 import multiprocessing
 import threading
@@ -16,7 +15,8 @@ import subprocess
 import shlex
 sys.path.append('../fdslib')
 sys.path.append('../fdslib/pyfdsp')
-from SvcHandle import *
+sys.path.append('../fdslib/pyfdsp/fds_service')
+from PlatNetSvc import SvcMap
 
 def get_myip():
     cmd = "ifconfig| grep '10\.1' | awk -F '[: ]+' '{print $4}'"
@@ -174,7 +174,7 @@ class Monitors():
         print agent_pid_map
         for n, m in agent_pid_map.iteritems():
             monitors = ["collectl -P --all",
-                        "iostat -p -d 1 -k"]
+                        "iostat -kxdp -d 1 -k"]
             top_cmd = "top -b "
             for a, p in agent_pid_map[n].iteritems():
                 top_cmd += "-p" + str(p) + " "

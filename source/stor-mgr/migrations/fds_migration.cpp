@@ -8,7 +8,9 @@
 #include <fds_migration.h>
 #include <fds_error.h>
 #include <fds_uuid.h>
+#include <NetSession.h>
 #include <TokenSyncBaseEvents.h>
+#include <platform/platform-lib.h>
 
 namespace fds {
 
@@ -308,6 +310,11 @@ void FdsMigrationSvc::mod_startup()
 void FdsMigrationSvc::mod_shutdown()
 {
     nst_->endSession(migpath_session_->getSessionTblKey());
+}
+
+boost::shared_ptr<FDSP_MigrationPathRespClient>
+FdsMigrationSvc::migpath_resp_client(const std::string session_uuid) {
+    return migpath_session_->getRespClient(session_uuid);
 }
 
 /**

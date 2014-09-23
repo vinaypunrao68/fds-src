@@ -2,19 +2,18 @@ package com.formationds.om;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.plotter.DisplayVolumeStats;
 import com.formationds.om.plotter.ListActiveVolumes;
 import com.formationds.om.plotter.RegisterVolumeStats;
 import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.rest.*;
+import com.formationds.om.rest.snapshot.*;
 import com.formationds.security.*;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
-import com.formationds.web.toolkit.HttpMethod;
-import com.formationds.web.toolkit.JsonResource;
-import com.formationds.web.toolkit.RequestHandler;
-import com.formationds.web.toolkit.WebApp;
-import com.formationds.xdi.ConfigurationServiceCache;
+import com.formationds.web.toolkit.*;
+import com.formationds.xdi.ConfigurationApi;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.codec.binary.Hex;
@@ -51,7 +50,7 @@ public class Main {
         SecretKey secretKey = new SecretKeySpec(keyBytes, "AES");
 
         XdiClientFactory clientFactory = new XdiClientFactory();
-        ConfigurationServiceCache configCache = new ConfigurationServiceCache(clientFactory.remoteOmService("localhost", 9090));
+        ConfigurationApi configCache = new ConfigurationApi(clientFactory.remoteOmService("localhost", 9090));
         new EnsureAdminUser(configCache).execute();
         AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
 
@@ -91,32 +90,37 @@ public class Main {
         authenticate(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configCache));
         authenticate(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configCache));
 
+        /*
+         * provides feature -- snapshot RESTful API
+         */
+        snapshot(configCache, authorizer);
+
         // Demo volume stats
         webApp.route(HttpMethod.GET, "/api/stats/volumes", () -> new ListActiveVolumes(volumeStatistics));
         webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
         webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
-
 
         fdsAdminOnly(HttpMethod.GET, "/api/system/token/:userid", (t) -> new ShowToken(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.POST, "/api/system/token/:userid", (t) -> new ReissueToken(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.POST, "/api/system/tenants/:tenant", (t) -> new CreateTenant(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.GET, "/api/system/tenants", (t) -> new ListTenants(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.POST, "/api/system/users/:login/:password", (t) -> new CreateUser(configCache, secretKey), authorizer);
-        fdsAdminOnly(HttpMethod.PUT, "/api/system/users/:userid/:password", (t) -> new UpdatePassword(configCache, secretKey), authorizer);
+        authenticate(HttpMethod.PUT, "/api/system/users/:userid/:password", (t) -> new UpdatePassword(t, configCache, secretKey, authorizer));
         fdsAdminOnly(HttpMethod.GET, "/api/system/users", (t) -> new ListUsers(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid", (t) -> new AssignUserToTenant(configCache, secretKey), authorizer);
 
-
         new Thread(() -> {
             try {
-                new com.formationds.demo.Main().start(configuration.getDemoConfig());
+                //new com.formationds.demo.Main().start(configuration.getDemoConfig());
             } catch (Exception e) {
                 LOG.error("Couldn't start demo app", e);
             }
         }).start();
 
-        int adminWebappPort = platformConfig.lookup("fds.om.admin_webapp_port").intValue();
-        webApp.start(adminWebappPort);
+        int httpPort = platformConfig.lookup("fds.om.http_port").intValue();
+        int httpsPort = platformConfig.lookup("fds.om.https_port").intValue();
+
+        webApp.start(new HttpConfiguration(httpPort), new HttpsConfiguration(httpsPort, configuration));
     }
 
     private void fdsAdminOnly(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f, Authorizer authorizer) {
@@ -127,14 +131,48 @@ public class Main {
                 } else {
                     return (r, p) -> new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
                 }
-            } catch (Exception e) {
+            } catch (SecurityException e) {
+                LOG.error("Error authorizing request, userId = " + t.getUserId(), e);
                 return (r, p) -> new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
             }
         });
     }
 
     private void authenticate(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
-        webApp.route(method, route, () -> new HttpAuthenticator(f, xdi.getAuthenticator()));
+        HttpErrorHandler eh = new HttpErrorHandler(new HttpAuthenticator(f, xdi.getAuthenticator()));
+        webApp.route(method, route, () -> eh);
     }
+
+    private void snapshot(final ConfigurationApi config, Authorizer authorizer) {
+        if (!FdsFeatureToggles.SNAPSHOT_ENDPOINT.isActive()) {
+            return;
+        }
+
+        LOG.trace("registering snapshot restful api");
+        // POST methods
+        fdsAdminOnly(HttpMethod.POST, "/api/config/snapshot/policies", (t) -> new CreateSnapshotPolicy(config), authorizer);
+        fdsAdminOnly(HttpMethod.POST, "/api/config/volumes/:volumeId/snapshot", (t) -> new CreateSnapshot(), authorizer);
+        fdsAdminOnly(HttpMethod.POST, "/api/snapshot/restore/:snapshotId/:volumeId", (t) -> new RestoreSnapshot(config), authorizer);
+        fdsAdminOnly(HttpMethod.POST, "/api/snapshot/clone/:snapshotId/:cloneVolumeName", (t) -> new CloneSnapshot(config), authorizer);
+        fdsAdminOnly(HttpMethod.POST, "/api/volume/snapshot", (t) -> new CreateSnapshot(), authorizer);
+        // GET methods
+        fdsAdminOnly(HttpMethod.GET, "/api/config/snapshot/policies", (t) -> new ListSnapshotPolicies(config), authorizer);
+        fdsAdminOnly(HttpMethod.GET, "/api/config/volumes/:volumeId/snapshot/policies", (t) -> new ListSnapshotPoliciesForVolume(config), authorizer);
+        fdsAdminOnly(HttpMethod.GET, "/api/config/snapshots/policies/:policyId/volumes", (t) -> new ListVolumeIdsForSnapshotId(config), authorizer);
+        fdsAdminOnly(HttpMethod.GET, "/api/config/volumes/:volumeId/snapshots", (t) -> new ListSnapshotsByVolumeId(config), authorizer);
+        //PUT methods
+        fdsAdminOnly(HttpMethod.PUT, "/api/config/snapshot/policies/:policyId/attach", (t) -> new AttachSnapshotPolicyIdToVolumeId(config), authorizer);
+        fdsAdminOnly(HttpMethod.PUT, "/api/config/snapshot/policies/:policyId/detach", (t) -> new DetachSnapshotPolicyIdToVolumeId(config), authorizer);
+        // DELETE methods
+        fdsAdminOnly(HttpMethod.DELETE, "/api/config/snapshot/policies/:policyId", (t) -> new DeleteSnapshotPolicy(config), authorizer);
+
+    /*
+     * TODO this call does not currently exists
+     */
+        fdsAdminOnly(HttpMethod.DELETE, "/api/config/snapshot/:volumeId/:snapshotId", (t) -> new DeleteSnapshotForVolume(), authorizer);
+        LOG.trace("registered snapshot restful api");
+    }
+
+
 }
 

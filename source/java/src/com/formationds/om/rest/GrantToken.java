@@ -3,6 +3,7 @@ package com.formationds.om.rest;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.apis.User;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
@@ -37,7 +38,8 @@ public class GrantToken implements RequestHandler {
         final JSONObject jsonObject = new JSONObject();
 
         try {
-            AuthenticationToken token = xdi.getAuthenticator().authenticate(login, password);
+            AuthenticationToken token = xdi.getAuthenticator()
+                                           .authenticate(login, password);
 
             if (login.equalsIgnoreCase("admin")) {
                 features.add("System Management");
@@ -49,8 +51,10 @@ public class GrantToken implements RequestHandler {
                 features.add("User Management");
             }
 
+            final User user = xdi.getAuthorizer().userFor( token );
             // temporary work-a-round for goldman
             jsonObject.put("username", login);
+            jsonObject.put("userId", user.getId() );
             jsonObject.put("token", token.signature(key));
             jsonObject.put("features", features);
             // end of work-a-round

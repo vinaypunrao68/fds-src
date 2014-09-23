@@ -9,6 +9,7 @@
     <url>http://www.formationds.com</url>
     <properties>
         <encoding>UTF-8</encoding>
+      <togglz.version>2.0.1.Final</togglz.version>
     </properties>
 
     <dependencies>
@@ -152,6 +153,18 @@
             <artifactId>bcprov-ext-jdk15on</artifactId>
             <version>1.51</version>
         </dependency>
+
+      <!-- Togglz Dependencies -->
+      <dependency>
+        <groupId>org.togglz</groupId>
+        <artifactId>togglz-core</artifactId>
+        <version>${togglz.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.togglz</groupId>
+        <artifactId>togglz-console</artifactId>
+        <version>${togglz.version}</version>
+      </dependency>
     </dependencies>
 
     <!--mvn -f distrib.xml -DskipTests clean assembly:directory-->
@@ -182,7 +195,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.12</version>
                 <configuration>
-                    <skipTests>true</skipTests>
+                    <skipTests>false</skipTests>
                 </configuration>
             </plugin>
 

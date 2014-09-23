@@ -244,7 +244,7 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
         if (buffering_) {
             buffer_->log(ptx.get());
         }
-        journal_.log(ptx);
+        // journal_.log(ptx);
     }
 
     {
@@ -361,7 +361,9 @@ Error DmCommitLog::flushBuffer(std::function<Error (CommitLogTx::const_ptr)> han
     if (iter->valid()) {
         do {
             CommitLogTx::const_ptr val = iter->value();
-            rc = handler(val);
+            if (!val->snapshot) {
+                rc = handler(val);
+            }
             if (rc.ok()) {
                 if (safe) {
                     bufferLock_.write_lock();

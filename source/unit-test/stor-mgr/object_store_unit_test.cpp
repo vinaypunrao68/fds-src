@@ -7,11 +7,15 @@
 #include <vector>
 #include <bitset>
 
+#include <util/Log.h>
 #include <fds_types.h>
+#include <ObjectId.h>
+#include <fds_module.h>
+#include <fds_process.h>
 #include <object-store/ObjectStore.h>
 #include <concurrency/ThreadPool.h>
 
-using namespace fds;    // NOLINT
+namespace fds {
 
 static const fds_uint32_t MAX_TEST_OBJ = 1000;
 static const fds_uint32_t MAX_VOLUMES = 50;
@@ -20,99 +24,123 @@ static fds_uint32_t keyCounter = 0;
 
 static fds_threadpool pool;
 
-struct TestObject {
-    fds_volid_t volId;
-    fds_uint32_t key;
-    std::string * value;
+static fds_volid_t singleVolId = 555;
 
-    TestObject() : volId(keyCounter % MAX_VOLUMES), key(keyCounter++),
-            value(new std::string(tmpnam(NULL))) {}
+struct TestObject {
+    fds_volid_t  volId;
+    ObjectID     objId;
+    boost::shared_ptr<std::string> value;
+
+    TestObject() :
+            // volId(keyCounter % MAX_VOLUMES),
+            volId(singleVolId),
+            value(new std::string(std::to_string(keyCounter++))) {
+                objId = ObjIdGen::genObjectId(value->c_str(),
+                                              value->size());
+            }
     ~TestObject() {
-        delete value;
     }
 };
 
-static std::vector<TestObject> testObjs(MAX_TEST_OBJ);
-
+static StorMgrVolumeTable* volTbl;
 static ObjectStore::unique_ptr objectStore;
 
-static std::bitset<MAX_VOLUMES> volSet;
-
-void getObj(TestObject & obj) {
-    std::string *ptr = 0;
-    // strCacheManager.get(obj.volId, obj.key, &ptr);
-    std::cout << "compare " << *obj.value << " = " << *ptr << std::endl;
+static void getObj(TestObject & obj) {
+    Error err(ERR_OK);
+    boost::shared_ptr<const std::string> ptr
+            = objectStore->getObject(obj.volId, obj.objId, err);
+    GLOGTRACE << "compare " << *obj.value << " = " << *ptr;
     fds_assert(*ptr == *obj.value);
 }
 
-void addObj(TestObject & obj) {
-    std::cout << "Adding value " << *obj.value << " with key " << obj.key << " and address " <<
-        std::hex << obj.value << std::dec << std::endl;
-    // strCacheManager.add(obj.volId, obj.key, obj.value);
-    pool.schedule(getObj, obj);
+static void addObj(TestObject & obj) {
+    GLOGTRACE << "Adding value " << *obj.value << " with id "
+              << obj.objId;
+    objectStore->putObject(obj.volId, obj.objId, obj.value);
+    pool.schedule(getObj, obj, 0);
 }
 
-void create(TestObject & obj) {
-    if (!volSet[obj.volId]) {
-        std::cout << "Creating cache for vol " << obj.volId << std::endl;
-        // strCacheManager.createCache(obj.volId, 50, fds::LRU);
-        volSet[obj.volId] = 1;
-    }
-    pool.schedule(addObj, obj);
+static void delObj(TestObject & obj) {
+    Error err(ERR_OK);
+    GLOGTRACE << "Deleting object with id " << obj.objId;
+    err = objectStore->deleteObject(obj.volId, obj.objId);
+    fds_assert(err.ok());
 }
+
+static std::vector<TestObject> testObjs(MAX_TEST_OBJ);
+
+class ObjectStoreTest : public FdsProcess {
+  public:
+    ObjectStoreTest(int argc, char *argv[],
+                    Module **mod_vec) :
+            FdsProcess(argc,
+                       argv,
+                       "platform.conf",
+                       "fds.sm.",
+                       "objstore-test.log",
+                       mod_vec) {
+    }
+    ~ObjectStoreTest() {
+    }
+    int run() override {
+        objectStore->setNumBitsPerToken(16);
+        LOGTRACE << "Starting...";
+
+        VolumeDesc vdesc("objectstore_ut_volume", singleVolId);
+        volTbl->registerVolume(vdesc);
+
+        for (std::vector<TestObject>::iterator i = testObjs.begin();
+             testObjs.end() != i;
+             ++i) {
+            LOGTRACE << "Writing: Details volume=" << (*i).volId << " key="
+                     << (*i).objId << " value=" << *(*i).value;
+            addObj(*i);
+        }
+
+        // read objects we just wrote
+        for (std::vector<TestObject>::iterator i = testObjs.begin();
+             testObjs.end() != i;
+             ++i) {
+            LOGTRACE << "Reading: Details volume=" << (*i).volId << " key="
+                     << (*i).objId << " value=" << *(*i).value;
+            getObj(*i);
+        }
+
+        // delete all objects
+        for (std::vector<TestObject>::iterator i = testObjs.begin();
+             testObjs.end() != i;
+             ++i) {
+            LOGTRACE << "Deleting: Details volume=" << (*i).volId << " key="
+                     << (*i).objId;
+            delObj(*i);
+        }
+
+        // delete object that is already deleted
+        delObj(testObjs[0]);
+
+        LOGTRACE << "Ending...";
+        return 0;
+    }
+};
+
+static void getObject() {
+}
+
+}  // namespace fds
 
 int
 main(int argc, char** argv) {
-    objectStore = ObjectStore::unique_ptr(new ObjectStore("Unit Test Object Store"));
-    VolumeDesc volDesc("Some vol", 123456);
-    objectStore->addVolume(volDesc);
-    /*
-    VolumeCacheManager<fds_uint32_t, fds_uint32_t> cacheManager("Integer cache manager");
-    fds::fds_volid_t volId = 321;
-    cacheManager.createCache(volId, 3, fds::LRU);
+    volTbl = new StorMgrVolumeTable();
+    objectStore = ObjectStore::unique_ptr(
+        new ObjectStore("Unit Test Object Store", volTbl));
 
-    fds_uint32_t k1 = 1;
-    fds_uint32_t *v1 = new fds_uint32_t(1);
-    fds_uint32_t k2 = 2;
-    fds_uint32_t *v2 = new fds_uint32_t(2);
-    fds_uint32_t k3 = 3;
-    fds_uint32_t *v3 = new fds_uint32_t(3);
-    fds_uint32_t k4 = 4;
-    fds_uint32_t *v4 = new fds_uint32_t(4);
-    std::unique_ptr<fds_uint32_t> evictEntry1 = cacheManager.add(volId, k1, v1);
-    if (evictEntry1 == NULL) {
-        GLOGNORMAL << "Didn't evict anything";
-    }
-
-    cacheManager.add(volId, k2, v2);
-    cacheManager.add(volId, k3, v3);
-    std::unique_ptr<fds_uint32_t> evictEntry4 = cacheManager.add(volId, k4, v4);
-    if (evictEntry4 != NULL) {
-        GLOGNORMAL << "Evicted " << *evictEntry4;
-    }
-
-    fds_uint32_t *getV2 = NULL;
-    fds::Error err = cacheManager.get(volId, k2, &getV2);
-    fds_verify(err == fds::ERR_OK);
-    GLOGNORMAL << "Read out value " << *getV2;
-
-    fds_uint32_t k5 = 5;
-    fds_uint32_t *v5 = new fds_uint32_t(5);
-    std::unique_ptr<fds_uint32_t> evictEntry5 = cacheManager.add(volId, k5, v5);
-    if (evictEntry5 != NULL) {
-        GLOGNORMAL << "Evicted " << *evictEntry5;
-    }
-
-    cacheManager.deleteCache(volId);
-
-    for (std::vector<TestObject>::iterator i = testObjs.begin(); testObjs.end() != i; ++i) {
-        std::cout << "Details volume=" << (*i).volId << " key=" << (*i).key << " value="
-                << *(*i).value << std::endl;
-        create(*i);
-    }
-
-    sleep(-1);
-    */
+    fds::Module *smVec[] = {
+        &diskio::gl_dataIOMod,
+        objectStore.get(),
+        nullptr
+    };
+    fds::ObjectStoreTest objectStoreTest(argc, argv, smVec);
+    return objectStoreTest.main();
 
     return 0;
 }

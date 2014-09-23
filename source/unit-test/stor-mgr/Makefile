@@ -14,16 +14,36 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-smlib     \
+    fds-vpolicy   \
+    fds-hash      \
+    fds-migrations \
     fds-am-engine \
-    fds-dsk-io
+    fds-dsk-io    \
+    fds-odb
+
+user_non_fds_libs :=  \
+    config++    \
+    boost_timer \
+    leveldb \
+    ssl \
+    cryptopp \
+    crypto \
+    leveldb
+
 
 user_cpp          := \
-	object_store_unit_test.cpp
+	object_store_unit_test.cpp \
+	object_store_load_test.cpp \
+        metastore_unit_test.cpp   
 
 user_no_style     := sm_unit_test.cpp
 user_bin_exe      := \
-    ObjectStoreUnitTest
+    ObjectStoreUnitTest \
+    ObjectStoreLoadTest \
+    metastore_unit_test
 
 ObjectStoreUnitTest := object_store_unit_test.cpp
+ObjectStoreLoadTest := object_store_load_test.cpp
+metastore_unit_test := metastore_unit_test.cpp
 
 include $(topdir)/Makefile.incl

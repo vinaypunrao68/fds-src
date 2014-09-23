@@ -13,7 +13,7 @@ namespace fds {
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_int64_t _uuid,
                        VolumeDesc* desc)
-              : fwd_state(VFORWARD_STATE_NONE)
+              : fwd_state(VFORWARD_STATE_NONE), dmVolQueue(0)
 {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 
@@ -80,6 +80,7 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->relativePrio = pVol->relativePrio;
     v_desc->fSnapshot = pVol->fSnapshot;
     v_desc->srcVolumeId = pVol->srcVolumeId;
+    v_desc->qosQueueId = pVol->qosQueueId;
 }
 
 }  // namespace fds

@@ -11,6 +11,7 @@
 #include <thrift/transport/TServerSocket.h>
 #include <thrift/transport/TBufferTransports.h>
 
+#include <NetSession.h>
 #include <fds_typedefs.h>
 #include <string>
 #include <vector>
@@ -18,6 +19,9 @@
 #include <OmResources.h>
 #include <convert.h>
 #include <orchMgr.h>
+#include <util/stringutils.h>
+#include <util/timeutils.h>
+
 using namespace ::apache::thrift;  //NOLINT
 using namespace ::apache::thrift::protocol;  //NOLINT
 using namespace ::apache::thrift::transport;  //NOLINT
@@ -82,6 +86,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void listSnapshots(std::vector< ::FDS_ProtocolInterface::Snapshot> & _return, const int64_t volumeId) {} //NOLINT
     void restoreClone(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
     int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName) { return 0;} //NOLINT
+    void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime) {} //NOLINT
+
     // stubs to keep cpp compiler happy - END
 
     int64_t createTenant(boost::shared_ptr<std::string>& identifier) {
@@ -149,7 +155,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         convert::getFDSPCreateVolRequest(header, request,
                                          *domainName, *volumeName, *volumeSettings);
         request->vol_info.tennantId = *tenantId;
-        err = volContainer->om_create_vol(header, request, false);
+        err = volContainer->om_create_vol(header, request, nullptr);
         if (err != ERR_OK) apiException("error creating volume");
     }
 
@@ -221,6 +227,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         volContainer->vol_up_foreach<std::vector<VolumeDescriptor> &>(_return, [] (std::vector<VolumeDescriptor> &vec, VolumeInfo::pointer vol) { //NOLINT
                 LOGDEBUG << " - " << vol->vol_get_name();
                 VolumeDescriptor volDescriptor;
+                if (vol->vol_get_properties()->isSnapshot()) {
+                    LOGDEBUG << "snapshot: " << vol->vol_get_name();
+                }
                 convert::getVolumeDescriptor(volDescriptor, vol);
                 vec.push_back(volDescriptor);
             });
@@ -313,9 +322,78 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int64_t cloneVolume(boost::shared_ptr<int64_t>& volumeId,
-                        boost::shared_ptr<int64_t>& fdsp_PolicyInfoId,
+                        boost::shared_ptr<int64_t>& volPolicyId,
                         boost::shared_ptr<std::string>& clonedVolumeName) {
+        checkDomainStatus();
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volContainer = local->om_vol_mgr();
+        VolPolicyMgr      *volPolicyMgr = om->om_policy_mgr();
+        VolumeInfo::pointer  parentVol, cloneVol;
+        fds_volid_t cloneVolId = fds::getUuidFromVolumeName(*clonedVolumeName);
+
+        cloneVol = VolumeInfo::vol_cast_ptr(
+            volContainer->rs_get_resource(clonedVolumeName->c_str()));
+        if (cloneVol != NULL) {
+            LOGWARN << "volume with same name already exists : " << *clonedVolumeName;
+            apiException("volume with same name already exists");
+        }
+
+        parentVol = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(*volumeId));
+        if (parentVol == NULL) {
+            LOGWARN << "unable to locate source volume info : " << *volumeId;
+            apiException("unable to locate source volume info");
+        }
+
+        VolumeDesc desc(*(parentVol->vol_get_properties()));
+
+        desc.volUUID = cloneVolId;
+        desc.name = *clonedVolumeName;
+        if (*volPolicyId > 0) {
+            desc.volPolicyId = *volPolicyId;
+        }
+        desc.backupVolume = invalid_vol_id;
+        desc.fSnapshot = false;
+        desc.srcVolumeId = *volumeId;
+
+        if (parentVol->vol_get_properties()->lookupVolumeId == invalid_vol_id) {
+            desc.lookupVolumeId = *volumeId;
+        } else {
+            desc.lookupVolumeId = parentVol->vol_get_properties()->lookupVolumeId;
+        }
+
+        desc.qosQueueId = invalid_vol_id;
+        volPolicyMgr->fillVolumeDescPolicy(&desc);
+        LOGDEBUG << "adding a clone request..";
+        volContainer->addVolume(desc);
         return 0;
+    }
+
+    void createSnapshot(boost::shared_ptr<int64_t>& volumeId,
+                        boost::shared_ptr<std::string>& snapshotName,
+                        boost::shared_ptr<int64_t>& retentionTime) {
+                    // create the structure
+        fpi::Snapshot snapshot;
+        snapshot.snapshotName = util::strlower(*snapshotName);
+        snapshot.volumeId = *volumeId;
+        snapshot.snapshotId = getUuidFromVolumeName(snapshot.snapshotName);
+        snapshot.snapshotPolicyId = 0;
+        snapshot.creationTimestamp = util::getTimeStampMillis();
+        snapshot.retentionTimeSeconds = *retentionTime;
+
+        snapshot.state = fpi::ResourceState::Loading;
+        LOGDEBUG << "snapshot request for volumeid:" << snapshot.volumeId
+                 << " name:" << snapshot.snapshotName;
+
+
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volContainer = local->om_vol_mgr();
+        fds::Error err = volContainer->addSnapshot(snapshot);
+        if ( !err.ok() ) {
+            LOGWARN << "snapshot add failed : " << err;
+            apiException(err.GetErrstr());
+        }
+        // add this snapshot to the retention manager ...
+        om->snapshotMgr.deleteScheduler->addSnapshot(snapshot);
     }
 };
 
