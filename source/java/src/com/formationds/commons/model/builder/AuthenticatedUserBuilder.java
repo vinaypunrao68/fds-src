@@ -31,16 +31,9 @@ public class AuthenticatedUserBuilder {
   private List<Feature> UserVisibleFeatures;
 
   /**
-   * static utility method constructor
+   * default constructor
    */
-  private AuthenticatedUserBuilder() {
-  }
-
-  /**
-   * @return Returns a {@link AuthenticatedUserBuilder}
-   */
-  public static AuthenticatedUserBuilder anAuthenticatedUser() {
-    return new AuthenticatedUserBuilder();
+  public AuthenticatedUserBuilder() {
   }
 
   /**
@@ -81,13 +74,6 @@ public class AuthenticatedUserBuilder {
   public AuthenticatedUserBuilder withFeatures( List<Feature> features ) {
     this.UserVisibleFeatures = features;
     return this;
-  }
-
-  public AuthenticatedUserBuilder but() {
-    return anAuthenticatedUser().withUsername( username )
-                                .withUserId( userId )
-                                .withToken( token )
-                                .withFeatures( UserVisibleFeatures );
   }
 
   /**

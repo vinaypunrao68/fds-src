@@ -35,16 +35,9 @@ public class NodeBuilder {
   private long hiAddr = -1L;
 
   /**
-   * static utility method constructor
+   * default constructor
    */
-  private NodeBuilder() {
-  }
-
-  /**
-   * @return Returns the {@link NodeBuilder}
-   */
-  public static NodeBuilder aNode() {
-    return new NodeBuilder();
+  public NodeBuilder() {
   }
 
   /**
@@ -143,22 +136,6 @@ public class NodeBuilder {
   public NodeBuilder withHiAddr( long hiAddr ) {
     this.hiAddr = hiAddr;
     return this;
-  }
-
-  /**
-   * @return Returns the {@link NodeBuilder}
-   */
-  public NodeBuilder but() {
-    return aNode().withId( id )
-                  .withName( name )
-                  .withUuid( uuid )
-                  .withSite( site )
-                  .withDomain( domain )
-                  .withLocalDomain( localDomain )
-                  .withState( state )
-                  .withRoot( root )
-                  .withLoAddr( loAddr )
-                  .withHiAddr( hiAddr );
   }
 
   /**

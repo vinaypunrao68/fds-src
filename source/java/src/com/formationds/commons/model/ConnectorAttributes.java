@@ -17,7 +17,7 @@
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
-import com.formationds.commons.model.type.SizeUnit;
+import com.formationds.util.SizeUnit;
 
 import javax.xml.bind.annotation.XmlRootElement;
 

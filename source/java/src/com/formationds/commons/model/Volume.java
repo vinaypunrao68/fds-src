@@ -17,8 +17,10 @@
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
+import com.formationds.commons.model.type.Protocol;
 
 import javax.xml.bind.annotation.XmlRootElement;
+import java.util.List;
 
 /**
  * @author ptinius
@@ -27,20 +29,21 @@ import javax.xml.bind.annotation.XmlRootElement;
 public class Volume
   extends ModelBase
 {
-  private static final long serialVersionUID = -1;
+  private static final long serialVersionUID = 7961922641732546048L;
 
   private String name;
   private int limit;                    // maximum IOPS
-  private int sla;                      // minimum IOPS
+  private int sla;                      // minimum IOPS -- service level agreement
   private String id;
   private int priority;
   private Connector data_connector;
   private Usage current_usage;
+  private List<Protocol> apis;
 
   /**
    * default constructor
    */
-  Volume()
+  public Volume()
   {
     super();
   }
@@ -155,5 +158,19 @@ public class Volume
   public void setCurrent_usage( final Usage current_usage )
   {
     this.current_usage = current_usage;
+  }
+
+  /**
+   * @return Returns {@link String} representing the data connector protocol
+   */
+  public List<Protocol> getApis() {
+    return apis;
+  }
+
+  /**
+   * @param apis the {@link String} representing the data connector protocol
+   */
+  public void setApis( final String apis ) {
+    this.apis = Protocol.lookup( apis );
   }
 }

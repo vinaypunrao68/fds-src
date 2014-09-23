@@ -158,7 +158,7 @@ public class RecurrenceRule
     throws ParseException {
     StringTokenizer t = new StringTokenizer( recurrence, ";=" );
 
-    RecurrenceRuleBuilder builder = RecurrenceRuleBuilder.aRecurrenceRule();
+    RecurrenceRuleBuilder builder = new RecurrenceRuleBuilder();
     while( t.hasMoreTokens() ) {
       String token = t.nextToken();
 

@@ -41,7 +41,7 @@ public class Stream
   /**
    * default constructor
    */
-  Stream()
+  public Stream()
   {
     super();
   }
