@@ -9,8 +9,10 @@ make
 cd ..
 make
 
+dest_name=fdsinstall-`date +%Y%m%d-%H%M`.tar.gz
+
 echo "Packaging install files into fdsinstall.tar.gz"
 cd /tmp
-tar czvf fdsinstall-`date +%Y%m%d-%H%M`.tar.gz fdsinstall
+tar czvf ${dest_name} fdsinstall
 
-echo "Complete!"
+echo "Complete, filename:  ${dest_name}"

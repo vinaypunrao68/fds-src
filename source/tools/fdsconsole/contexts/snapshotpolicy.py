@@ -48,7 +48,7 @@ class SnapshotPolicyContext(Context):
                 volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
                 policy_list = ServiceMap.omConfig().listSnapshotPoliciesForVolume(volume_id)
             return tabulate([(item.policyName, item.recurrenceRule, item.id,  item.retentionTimeSeconds) for item in policy_list],
-                            headers=['Policy-Name', 'Policy-Rule', 'Policy-Id', 'Retension-Time'])
+                            headers=['Policy-Name', 'Policy-Rule', 'Policy-Id', 'Retension-Time'], tablefmt=self.config.getTableFormat())
         except Exception, e:
             print e
             log.exception(e)
@@ -87,7 +87,7 @@ class SnapshotPolicyContext(Context):
         try:
             volume_list =  ServiceMap.omConfig().listVolumesForSnapshotPolicy(policy_id)
             return tabulate([(item) for item in volume_list],
-                            headers=['Volume-Id'])
+                            headers=['Volume-Id'], tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
             return ' list Volumes for snapshot policy failed: {}'.format(policy_id)

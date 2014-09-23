@@ -14,7 +14,7 @@ extern ObjectStorMgr *objStorMgr;
 
 StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
                              fds_log           *parent_log)
-        : FDS_Volume(vdb), volQueue(0) {
+        : FDS_Volume(vdb) {
     /*
      * Setup storage prefix.
      * All other values are default for now
@@ -32,17 +32,13 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
      * should calculate this somehow.
      */
     if (voldesc->isSnapshot()) {
-        volQueue = static_cast<SmVolQueue*>(objStorMgr->getQueue(voldesc->qosQueueId));
-        volQueueOwner_ = false;
+        volQueue.reset(objStorMgr->getQueue(voldesc->qosQueueId));
     }
 
     if (!volQueue) {
-        volQueueOwner_ = true;
-        volQueue = new SmVolQueue(voldesc->isSnapshot() ? voldesc->qosQueueId : voldesc->GetID(),
-                                  100,
-                                  voldesc->getIopsMax(),
-                                  voldesc->getIopsMin(),
-                                  voldesc->getPriority());
+        volQueue.reset(new SmVolQueue(voldesc->isSnapshot() ? voldesc->qosQueueId
+                : voldesc->GetID(), 100, voldesc->getIopsMax(), voldesc->getIopsMin(),
+                voldesc->getPriority()));
     }
 
     volumeIndexDB  = new osm::ObjectDB(filename);
@@ -55,9 +51,6 @@ StorMgrVolume::~StorMgrVolume() {
      * TODO: Should do some sort of checking/cleanup
      * if the volume queue isn't empty.
      */
-    if (volQueueOwner_) {
-        delete volQueue;
-    }
     delete volumeIndexDB;
 }
 

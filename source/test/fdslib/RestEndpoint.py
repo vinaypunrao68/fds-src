@@ -3,16 +3,18 @@ Rest endpoints for use in python scripts
 '''
 
 import sys
-import re
-import os
 import json
 import unittest
+import random
 
 try:
     import requests
 except ImportError:
     print 'oops! I need the [requests] pkg. do: "sudo easy_install requests" OR "pip install requests"'
     sys.exit(0)
+
+import logging
+logging.getLogger("requests").setLevel(logging.WARNING)
 
 #----------------------------------------------------------------------------------------#
 class RestException(Exception):
@@ -26,30 +28,56 @@ class UserException(RestException):
 class RestEndpoint(object):
     
     def __init__(self, host='localhost', port=7777, auth=True):
-
-        if 'http://' not in host:
-            host = 'http://' + host
-            
         self.host = host
         self.port = port
-        self.rest_path = host + ':' + str(port)
 
+        self.setHost(host)
+        self.setPort(port)
+        
+        self.user = 'admin'
+        self.password = 'admin'
+        self._token = None
+        self.headers = []
         if auth:
-            self._token = self.__get_auth_token()
-            self.headers = {'FDS-Auth' : self._token}
+            if not self.login(self.user, self.password):
+                print '[WARN] : unable to login as {}'.format(self.user)
 
-    def __get_auth_token(self):
+    def setHost(self, host):
+        self.host = host
+        self.base_path = 'http://{}:{}'.format(self.host,self.port)
+
+    def setPort(self, port):
+        self.port = port
+        self.base_path = 'http://{}:{}'.format(self.host,self.port)
+
+    def login(self, user, password):
         '''
         Get the auth token from the auth REST endpoint.
         '''
         # TODO(brian): This will have to change when the token acquisition changes
-        path = '{}/{}'.format(self.rest_path, 'api/auth/token?login=admin&password=admin')
+        path = '{}/{}'.format(self.base_path, 'api/auth/token?login={}&password={}'.format(user, password))
+        try :
+            res = requests.get(path)
+            res = self.parse_result(res)
+            self.user = user
+            self.password = password
+            self._token = res['token']
+            self.headers = {'FDS-Auth' : self._token}
+            return self._token
+        except:
+            return None
 
-        res = requests.get(path)
-        res = self.parse_result(res)
-        return res['token']
+    def get(self, path):
+        return requests.get(path, headers=self.headers)
 
-    
+    def post(self, path, data=None):
+        return requests.post(path, headers=self.headers, data=data)
+
+    def put(self, path, data=None):
+        return requests.put(path, headers=self.headers, data=data)
+
+    def delete(self, path):
+        return requests.delete(path, headers=self.headers)
 
     def parse_result(self, result):
         '''
@@ -67,7 +95,7 @@ class RestEndpoint(object):
                 print "JSON not valid!"
                 return None
         else:
-            print result.text
+            print 'Non 200 response hit! ' + result.text
             return None
 
 
@@ -76,11 +104,10 @@ class RestEndpoint(object):
         pass
 
 
-class TenantEndpoint(RestEndpoint):
-    def __init__(self, **kwargs):
-        RestEndpoint.__init__(self, **kwargs)
-
-        self.rest_path += '/api/system/tenants'
+class TenantEndpoint():
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + '/api/system/tenants'
 
     def listTenants(self):
         '''
@@ -100,7 +127,8 @@ class TenantEndpoint(RestEndpoint):
            or None on failure. Note: an empty dict {} means
            the call was successful, but no tenants were found.
         '''
-        res = requests.get(self.rest_path)
+        res = self.rest.get(self.rest_path)
+        res = self.rest.parse_result(res)
         if res is not None:
             return res
         else:
@@ -116,8 +144,8 @@ class TenantEndpoint(RestEndpoint):
         '''
 
         path = '{}/{}'.format(self.rest_path, tenant_name)
-        res = requests.post(path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.post(path)
+        res = self.rest.parse_result(res)
         if res is not None:
             return int(res['id'])
         else:
@@ -133,8 +161,8 @@ class TenantEndpoint(RestEndpoint):
            True on success, False otherwise
         '''
         path = '{}/{}/{}'.format(self.rest_path, tenant_id, user_id)
-        res = requests.put(path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.put(path)
+        res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
                 return True
@@ -142,15 +170,168 @@ class TenantEndpoint(RestEndpoint):
                 return False
         else:
             return False
-    
 
-class UserEndpoint(RestEndpoint):
-    
+
+class VolumeEndpoint(RestEndpoint):
+
     def __init__(self, **kwargs):
         RestEndpoint.__init__(self, **kwargs)
-        self.rest_path += '/api/system/users'
+        self.rest_path += '/api/config/volumes'
+
+
+    def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit):
+
+        volume_info = {
+            'name' : volume_name,
+            'priority' : int(priority),
+            'sla': int(sla),
+            'limit': int(limit),
+            'data_connector': {
+                'type': vol_type,
+                'attributes': {
+                    'size': size,
+                    'unit': unit
+                }
+            }
+        }
+        res = requests.post(self.rest_path, headers=self.headers, data=json.dumps(volume_info))
+        res = self.parse_result(res)
+
+        if type(res) != dict or 'status' not in res:
+            return None
+        else:
+            if res['status'].lower() != 'ok':
+                return None
+            else:
+                return res['status']
+        
+    def deleteVolume(self, volume_name):
+        path = '{}/{}'.format(self.rest_path, volume_name)
+
+        res = requests.delete(path, headers=self.headers)
+        res = self.parse_result(res)
+        
+        
+    def listVolumes(self):
+        '''
+        Get a list of volumes in the system.
+        Params:
+           None
+        Returns:
+           List of dictionaries describing volumes. Dictionaries in the form:
+           {
+              'name': <name>,
+              'apis': <api>,
+              'data_connector': { 'type': <type> },
+              'id': <vol_id>,
+              'priority': <priority>,
+              'limit': <limit>,
+              'sla': <sla>,
+              'current_usage': {'unit': <unit>, 'size': <size> }
+           }
+        '''
+        
+        res = requests.get(self.rest_path, headers=self.headers)
+        res = self.parse_result(res)
+        if res is not None:
+            return res
+        else:
+            return None        
+        
+    def setVolumeQosParams(self, vol_id, min_iops, priority, max_iops):
+        '''
+        Set the QOS parameters for a volume.
+        Params:
+           vold_id - int: uuid of the volume to modify
+           min_iops - int: minimum number of iops that must be sustained
+           priority - int: priority of the volume
+           max_iops - int: maximum number of iops that a volume may achieve
+        Returns:
+           Dictionary of volume information including updated QOS params
+           in the form:
+           {
+              'name': <name>,
+              'apis': <apis>,
+              'data_connector': {'type': <type>},
+              'id': <vol_id>,
+              'priority': <priority>,
+              'limit': <limit>,
+              'sla': <sla>,
+              'current_usage': {'unit': <unit>, 'size': <size>}
+           }
+           or None on failure
+        '''
+
+        params = {
+            'sla' : min_iops,
+            'priority': priority,
+            'limit': max_iops
+        }
+        path = '{}/{}'.format(self.rest_path, str(vol_id))
+        res = requests.put(path, headers=self.headers, data=json.dumps(params))
+        res = self.parse_result(res)
+
+        if res is not None:
+            return res
+        else:
+            return None
+
+
+class AuthEndpoint(RestEndpoint):
+    '''
+    Authentication endpoints.
+    '''
+    def __init__(self, **kwargs):
+        RestEndpoint.__init__(self, **kwargs)
+        self.rest_path += '/api/auth'
+
+    def grantToken(self):
+        '''
+        Get a token from the system. This token is the token used in the FDS-Auth header.
+        Params:
+           None
+        Returns:
+           Auth token as a string, None on failure
+        '''
+        res = requests.get('{}/{}'.format(self.rest_path, 'token?login=admin&password=admin'))
+        res = self.parse_result(res)
+        if 'token' in res.keys():
+            return res['token']
+        else:
+            return None
+
+    def getCurrentUser(self):
+        '''
+        Get the current user's name/id.
+        Params:
+           None
+        Returns:
+           Dictionary of the form:
+           {
+              'identifier' : <username>,
+              'id' : <user id>
+              'isFdsAdmin' : <bool>
+           }
+           OR None on failure
+        '''
+
+        path = '{}/{}'.format(self.rest_path, 'currentUser')
+        res = requests.get(path)
+        res = self.parse_result(res)
+        if res != {}:
+            return res
+        else:
+            return None
+        
+
+class UserEndpoint():
+    
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + '/api/system/users'
 
     def createUser(self, username, password):
+
         '''
         Create a new user in the system.
         Params:
@@ -161,8 +342,8 @@ class UserEndpoint(RestEndpoint):
         '''
         path = '{}/{}/{}'.format(self.rest_path, username, password)
 
-        res = requests.post(path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.post(path)
+        res = self.rest.parse_result(res)
         if res is not None:
             return int(res['id'])
         else:
@@ -176,8 +357,8 @@ class UserEndpoint(RestEndpoint):
         Returns:
            List of users and their capabilities, None on failure
         '''
-        res = requests.get(self.rest_path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.get(self.rest_path)
+        res = self.rest.parse_result(res)
         if res is not None:
             return res
         else:
@@ -193,8 +374,8 @@ class UserEndpoint(RestEndpoint):
            True success, False otherwise
         '''
         path = '{}/{}/{}'.format(self.rest_path, user_id, password) 
-        res = requests.put(path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.put(path)
+        res = self.rest.parse_result(res)
         if res is not None:
             if 'status' in res and res['status'].lower() == 'ok':
                 return True
@@ -204,11 +385,42 @@ class UserEndpoint(RestEndpoint):
             return False
 
 
+
+
+class TestVolumeEndpoints(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.volEp = VolumeEndpoint()
+
+    def test_listVolume(self):
+        vols = self.volEp.listVolumes()
+        self.assertIsNotNone(vols)
+        
+    def test_createVolume(self):
+        vol_name = 'unit_test' + str(random.randint(0, 10000))
+        status = self.volEp.createVolume(vol_name, 1, 1, 5000, 'object', 5000, 'mb')
+        self.assertEquals(status.lower(), 'ok')
+
+    def test_setQosParameters(self):
+        vol_name = 'unit_test' + str(random.randint(0, 10000))
+        status = self.volEp.createVolume(vol_name, 1, 1, 5000, 'object', 5000, 'mb')
+        self.assertEquals(status.lower(), 'ok')
+
+        vols = self.volEp.listVolumes()
+        vol_id = None
+        for vol in vols:
+            if vol['name'] == vol_name:
+                vol_id = vol['id']
+
+        res = self.volEp.setVolumeQosParams(vol_id, 50, 1, 100)
+        self.assertDictContainsSubset({'name': vol_name, 'id':vol_id}, res)
+
 class TestTenantEndpoints(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.tenantEp = TenantEndpoint()
-        self.userEp = UserEndpoint()
+        rest = RestEndpoint()
+        self.tenantEp = TenantEndpoint(rest)
+        self.userEp = UserEndpoint(rest)
         
     def test_assignUserToTenant(self):
 
@@ -231,7 +443,8 @@ class TestUserEndpoints(unittest.TestCase):
 
     @classmethod
     def setUpClass(self):
-        self.userEp = UserEndpoint()
+        rest = RestEndpoint()
+        self.userEp = UserEndpoint(rest)
 
     def test_createUser(self):
         self.id1 = self.userEp.createUser('ut_user1', 'abc')

@@ -16,60 +16,63 @@
 
 package com.formationds.commons.model.builder;
 
-import com.formationds.commons.model.Domain;
+import com.formationds.commons.model.Tenant;
+import com.formationds.commons.model.User;
+
+import java.util.List;
 
 /**
  * @author ptinius
  */
-public class DomainBuilder {
-  private int id;
-  private String site;
-  private String domainName;
+public class TenantBuilder {
+  private long id;
+  private String name;
+  private List<User> users;
 
   /**
    * default constructor
    */
-  public DomainBuilder() {
+  public TenantBuilder() {
   }
 
   /**
-   * @param id the {@link int} representing the domain's id
+   * @param id the {@code int} representing the tenant id
    *
-   * @return Returns the {@link DomainBuilder}
+   * @return Returns {@link com.formationds.commons.model.builder.TenantBuilder}
    */
-  public DomainBuilder withId( int id ) {
+  public TenantBuilder withId(long id) {
     this.id = id;
     return this;
   }
 
   /**
-   * @param site the {@link String} representing the site
+   * @param name the {@link String} representing the tenant name
    *
-   * @return Returns the {@link DomainBuilder}
+   * @return Returns {@link com.formationds.commons.model.builder.TenantBuilder}
    */
-  public DomainBuilder withSite( String site ) {
-    this.site = site;
+  public TenantBuilder withName(String name) {
+    this.name = name;
     return this;
   }
 
   /**
-   * @param domain the {@link String} representing the domain name
+   * @param users the {@link List} of {@link User}
    *
-   * @return Returns the {@link DomainBuilder}
+   * @return Returns {@link com.formationds.commons.model.builder.TenantBuilder}
    */
-  public DomainBuilder withDomain( String domain ) {
-    this.domainName = domain;
+  public TenantBuilder withUsers(List<User> users) {
+    this.users = users;
     return this;
   }
 
   /**
-   * @return Returns {@link Domain}
+   * @return
    */
-  public Domain build() {
-    Domain domain = new Domain();
-    domain.setId( id );
-    domain.setSite( site );
-    domain.setDomain( domainName );
-    return domain;
+  public Tenant build() {
+    Tenant tenant = new Tenant();
+    tenant.setId(id);
+    tenant.setName(name);
+    tenant.setUsers(users);
+    return tenant;
   }
 }

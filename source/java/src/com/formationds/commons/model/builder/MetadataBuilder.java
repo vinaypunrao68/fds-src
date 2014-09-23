@@ -28,16 +28,9 @@ public class MetadataBuilder {
   private String value;
 
   /**
-   * static utility method constructor
+   * default constructor
    */
-  private MetadataBuilder() {
-  }
-
-  /**
-   * @return Returns the {@link MetadataBuilder}
-   */
-  public static MetadataBuilder aMetadata() {
-    return new MetadataBuilder();
+  public MetadataBuilder() {
   }
 
   /**
@@ -77,16 +70,6 @@ public class MetadataBuilder {
   public MetadataBuilder withValue( String value ) {
     this.value = value;
     return this;
-  }
-
-  /**
-   * @return Returns the {@link MetadataBuilder}
-   */
-  public MetadataBuilder but() {
-    return aMetadata().withTimestamp( timestamp )
-                      .withVolume( volume )
-                      .withKey( key )
-                      .withValue( value );
   }
 
   /**

@@ -158,7 +158,7 @@ public class RecurrenceRule
     throws ParseException {
     StringTokenizer t = new StringTokenizer( recurrence, ";=" );
 
-    RecurrenceRuleBuilder builder = RecurrenceRuleBuilder.aRecurrenceRule();
+    RecurrenceRuleBuilder builder = new RecurrenceRuleBuilder();
     while( t.hasMoreTokens() ) {
       String token = t.nextToken();
 
@@ -193,7 +193,9 @@ public class RecurrenceRule
   private static String next( final StringTokenizer t,
                               final String lastToken ) {
     try {
-      return t.nextToken();
+      final String nToken = t.nextToken();
+      System.out.println( "TOKEN: " + lastToken + " NEXT:" + nToken );
+      return nToken;
     } catch (NoSuchElementException ignored ) {
     }
     throw new IllegalArgumentException(

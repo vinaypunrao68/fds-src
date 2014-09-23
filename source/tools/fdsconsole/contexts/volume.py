@@ -1,6 +1,5 @@
 from  svchelper import *
 from fdslib.pyfdsp.apis import ttypes
-import pdb
 
 class VolumeContext(Context):
     def __init__(self, *args):
@@ -15,7 +14,7 @@ class VolumeContext(Context):
             return tabulate([(item.name, item.tenantId, item.dateCreated,
                               'OBJECT' if item.policy.volumeType == 0 else 'BLOCK',
                               item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in sorted(volumes, key=attrgetter('name'))  ],
-                            headers=['Name', 'TenantId', 'Create Date','Type', 'Max-Obj-Size', 'Blk-Size'])
+                            headers=['Name', 'TenantId', 'Create Date','Type', 'Max-Obj-Size', 'Blk-Size'], tablefmt=self.config.getTableFormat())
             return volumes
         except Exception, e:
             log.exception(e)

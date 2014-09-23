@@ -25,19 +25,18 @@ import java.util.Date;
  */
 public class RecurrenceRuleBuilder {
   private String frequency;
-  private Date until;
+  private Date until = null;
   private int count = -1;
   private int interval = 0;
 
-  private RecurrenceRuleBuilder() {
-  }
-
-  public static RecurrenceRuleBuilder aRecurrenceRule() {
-    return new RecurrenceRuleBuilder();
+  /**
+   * defULT CONSRTUCTOR
+   */
+  public RecurrenceRuleBuilder() {
   }
 
   /**
-   * @param frequency
+   * @param frequency the {@link String} representing the frequency
    *
    * @return Returns {link RecurrenceRuleBuilder}
    */
@@ -47,7 +46,7 @@ public class RecurrenceRuleBuilder {
   }
 
   /**
-   * @param until
+   * @param until the {@link String} representing the until
    *
    * @return Returns {link RecurrenceRuleBuilder}
    */
@@ -57,7 +56,7 @@ public class RecurrenceRuleBuilder {
   }
 
   /**
-   * @param count
+   * @param count the {@code int} representing the occurrence count
    *
    * @return Returns {link RecurrenceRuleBuilder}
    */
@@ -67,7 +66,7 @@ public class RecurrenceRuleBuilder {
   }
 
   /**
-   * @param interval
+   * @param interval the {@code interval} representing the interval
    *
    * @return Returns {link RecurrenceRuleBuilder}
    */
@@ -77,24 +76,24 @@ public class RecurrenceRuleBuilder {
   }
 
   /**
-   * @return Returns {link RecurrenceRuleBuilder}
-   */
-  public RecurrenceRuleBuilder but() {
-    return aRecurrenceRule().withFrequency( frequency )
-                            .withUntil( until )
-                            .withCount( count )
-                            .withInterval( interval );
-  }
-
-  /**
    * @return Returns {link RecurrenceRule}
    */
   public RecurrenceRule build() {
     RecurrenceRule recurrenceRule = new RecurrenceRule();
     recurrenceRule.setFrequency( frequency );
-    recurrenceRule.setUntil( until );
-    recurrenceRule.setCount( count );
-    recurrenceRule.setInterval( interval );
+    if( until != null )
+    {
+      recurrenceRule.setUntil( until );
+    }
+
+    if( count > 0 ) {
+      recurrenceRule.setCount( count );
+    }
+
+    if( interval > 0 ) {
+      recurrenceRule.setInterval( interval );
+    }
+
     return recurrenceRule;
   }
 }

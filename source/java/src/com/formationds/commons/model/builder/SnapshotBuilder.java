@@ -30,16 +30,9 @@ public class SnapshotBuilder {
   private Date creation;
 
   /**
-   * static utility method constructor
+   * default constructor
    */
-  private SnapshotBuilder() {
-  }
-
-  /**
-   * @return Returns the {@link SnapshotBuilder}
-   */
-  public static SnapshotBuilder aSnapshot() {
-    return new SnapshotBuilder();
+  public SnapshotBuilder() {
   }
 
   /**
@@ -80,16 +73,6 @@ public class SnapshotBuilder {
   public SnapshotBuilder withCreation( Date creation ) {
     this.creation = creation;
     return this;
-  }
-
-  /**
-   * @return Returns the {@link SnapshotBuilder}
-   */
-  public SnapshotBuilder but() {
-    return aSnapshot().withId( id )
-                      .withName( name )
-                      .withVolumeId( volumeId )
-                      .withCreation( creation );
   }
 
   /**

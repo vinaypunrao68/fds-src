@@ -28,16 +28,9 @@ public class ConnectorBuilder {
   private ConnectorAttributes attributes;
 
   /**
-   * static utility method constructor
+   * default constructor
    */
-  private ConnectorBuilder() {
-  }
-
-  /**
-   * @return Returns {@link ConnectorBuilder}
-   */
-  public static ConnectorBuilder aConnector() {
-    return new ConnectorBuilder();
+  public ConnectorBuilder() {
   }
 
   /**
@@ -58,14 +51,6 @@ public class ConnectorBuilder {
   public ConnectorBuilder withAttributes( ConnectorAttributes attributes ) {
     this.attributes = attributes;
     return this;
-  }
-
-  /**
-   * @return Returns {@link ConnectorBuilder}
-   */
-  public ConnectorBuilder but() {
-    return aConnector().withType( type )
-                       .withAttributes( attributes );
   }
 
   /**

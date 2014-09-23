@@ -16,49 +16,49 @@
 
 package com.formationds.commons.model.builder;
 
-import com.formationds.commons.model.ConnectorAttributes;
+import com.formationds.commons.model.Usage;
 import com.formationds.util.SizeUnit;
 
 /**
  * @author ptinius
  */
-public class ConnectorAttributesBuilder {
+public class UsageBuilder {
   private SizeUnit unit;
-  private long size;
+  private String size;
 
   /**
    * default constructor
    */
-  public ConnectorAttributesBuilder() {
+  public UsageBuilder() {
   }
 
   /**
-   * @param unit the {@link com.formationds.util.Size}
+   * @param unit the {@link SizeUnit} representing the unit of the {@code size}
    *
-   * @return Returns the {@link ConnectorAttributesBuilder}
+   * @return Returns the {@link UsageBuilder}
    */
-  public ConnectorAttributesBuilder withUnit( SizeUnit unit ) {
+  public UsageBuilder withUnit( SizeUnit unit ) {
     this.unit = unit;
     return this;
   }
 
   /**
-   * @param size the {@code long} representing the size
+   * @param size the {@link String} representing the size
    *
-   * @return Returns the {@link ConnectorAttributesBuilder}
+   * @return Returns the {@link UsageBuilder}
    */
-  public ConnectorAttributesBuilder withSize( long size ) {
+  public UsageBuilder withSize( String size ) {
     this.size = size;
     return this;
   }
 
   /**
-   * @return Returns the {@link ConnectorAttributes}
+   * @return Returns {@link com.formationds.commons.model.Usage}
    */
-  public ConnectorAttributes build() {
-    ConnectorAttributes connectorAttributes = new ConnectorAttributes();
-    connectorAttributes.setUnit( unit );
-    connectorAttributes.setSize( size );
-    return connectorAttributes;
+  public Usage build() {
+    Usage usage = new Usage();
+    usage.setUnit( unit );
+    usage.setSize( size );
+    return usage;
   }
 }

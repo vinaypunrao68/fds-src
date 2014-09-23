@@ -8,8 +8,7 @@ from argh import *
 
 from fdsconsole.context import Context
 from fdsconsole.decorators import *
-from FDS_ProtocolInterface.ttypes import *
-from pyfdsp.snapshot.ttypes import *
+import pyfdsp
 
 from operator import attrgetter
 from operator import itemgetter

@@ -28,19 +28,12 @@ public class AuthenticatedUserBuilder {
   private String username;
   private long userId;
   private String token;
-  private List<Feature> UserVisibleFeatures;
+  private List<Feature> features;
 
   /**
-   * static utility method constructor
+   * default constructor
    */
-  private AuthenticatedUserBuilder() {
-  }
-
-  /**
-   * @return Returns a {@link AuthenticatedUserBuilder}
-   */
-  public static AuthenticatedUserBuilder anAuthenticatedUser() {
-    return new AuthenticatedUserBuilder();
+  public AuthenticatedUserBuilder() {
   }
 
   /**
@@ -79,15 +72,8 @@ public class AuthenticatedUserBuilder {
    * @return Returns {@link AuthenticatedUserBuilder}
    */
   public AuthenticatedUserBuilder withFeatures( List<Feature> features ) {
-    this.UserVisibleFeatures = features;
+    this.features = features;
     return this;
-  }
-
-  public AuthenticatedUserBuilder but() {
-    return anAuthenticatedUser().withUsername( username )
-                                .withUserId( userId )
-                                .withToken( token )
-                                .withFeatures( UserVisibleFeatures );
   }
 
   /**
@@ -98,9 +84,7 @@ public class AuthenticatedUserBuilder {
     authenticatedUser.setUsername( username );
     authenticatedUser.setUserId( userId );
     authenticatedUser.setToken( token );
-    for( final Feature feature : UserVisibleFeatures ) {
-      authenticatedUser.setFeatures( feature.getLocalized() );
-    }
+    authenticatedUser.setFeatures( features );
 
     return authenticatedUser;
   }

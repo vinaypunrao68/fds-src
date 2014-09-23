@@ -17,12 +17,14 @@ user_incl_dir     := \
     $(topdir)/lib    \
     $(topdir)/util
 
+user_build_dir    := \
+    dlt
+
 user_cpp_flags    := 
 user_cpp          :=  \
     fds_timer_test.cpp \
     fds_config_test.cpp \
     catalog_unit_test.cpp \
-    ocache_unit_test.cpp         \
     perfstat_unit_test.cpp \
     fds_process_interrupt_test.cpp \
     counters_test.cpp \
@@ -32,6 +34,7 @@ user_cpp          :=  \
     kvcache_unit_test.cpp \
     Tracebuffer_ut.cpp \
     sharedcache_unit_test.cpp \
+    sharedcache_gtest.cpp \
     object_logger_test.cpp \
     HashedLocks_ut.cpp
 
@@ -40,7 +43,6 @@ user_no_style     :=                \
     fds_timer_test.cpp              \
     fds_config_test.cpp             \
     catalog_unit_test.cpp           \
-    ocache_unit_test.cpp            \
     perfstat_unit_test.cpp          \
     fds_process_interrupt_test.cpp  \
     counters_test.cpp               \
@@ -52,7 +54,6 @@ user_bin_exe      := \
     fds_timer_test \
     fds_config_test \
     catalog_test \
-    ocache_unit_test \
     perfstat_unit_test \
     fds_process_interrupt_test \
     counters_test \
@@ -60,13 +61,13 @@ user_bin_exe      := \
     SynchronizedTaskExecutor_ut \
     perf_trace_unit_test \
     sharedcache_unit_test \
+    sharedcache_gtest \
     kvcache_unit_test \
     object_logger_test \
     Tracebuffer_ut \
     HashedLocks_ut
 
 catalog_test                   := catalog_unit_test.cpp
-ocache_unit_test	       := ocache_unit_test.cpp
 perfstat_unit_test             := perfstat_unit_test.cpp
 fds_process_interrupt_test     := fds_process_interrupt_test.cpp
 fds_timer_test                 := fds_timer_test.cpp
@@ -76,6 +77,7 @@ trans_journal_ut               := trans_journal_ut.cpp
 SynchronizedTaskExecutor_ut    := SynchronizedTaskExecutor_ut.cpp
 perf_trace_unit_test           := perf_trace_unit_test.cpp
 sharedcache_unit_test          := sharedcache_unit_test.cpp
+sharedcache_gtest	       := sharedcache_gtest.cpp 
 kvcache_unit_test              := kvcache_unit_test.cpp
 object_logger_test             := object_logger_test.cpp
 Tracebuffer_ut		       := Tracebuffer_ut.cpp

@@ -165,6 +165,11 @@
         <artifactId>togglz-console</artifactId>
         <version>${togglz.version}</version>
       </dependency>
+      <dependency>
+        <groupId>com.google.code.gson</groupId>
+        <artifactId>gson</artifactId>
+        <version>2.3</version>
+      </dependency>
     </dependencies>
 
     <!--mvn -f distrib.xml -DskipTests clean assembly:directory-->
@@ -172,6 +177,11 @@
         <directory>${build.dir}</directory>
         <sourceDirectory>./src/</sourceDirectory>
         <testSourceDirectory>./test/src/</testSourceDirectory>
+        <resources>
+          <resource>
+            <directory>./src/resources</directory>
+          </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

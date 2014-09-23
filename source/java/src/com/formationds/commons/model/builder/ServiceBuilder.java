@@ -31,9 +31,9 @@ public class ServiceBuilder {
   private ManagerType type = ManagerType.UNKNOWN;
 
   /**
-   * static utility method constructor
+   * default constructor
    */
-  private ServiceBuilder() {
+  public ServiceBuilder() {
   }
 
   /**

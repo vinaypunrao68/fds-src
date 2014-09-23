@@ -25,13 +25,10 @@ user_incl_dir     := \
 	$(topdir)/include/hash
 
 user_cpp          :=  \
-    hash_test.cpp     \
     log_unit_test.cpp
 
 user_no_style     := $(user_cpp) $(user_cc)
-user_bin_exe      := hashtest log_unit_test
-hashtest          := hash_test.cpp
+user_bin_exe      := log_unit_test
 log_unit_test     := log_unit_test.cpp
-crypto_test       := crypto_test.cpp
 
 include $(topdir)/Makefile.incl

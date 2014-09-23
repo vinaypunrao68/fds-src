@@ -24,10 +24,9 @@ import java.util.List;
 /**
  * @author ptinius
  */
-public enum Feature
-{
+public enum Feature {
   SYS_MGMT( ModelResource.getString( "fds.feature.system.management" ),
-           IdentityType.ADMIN ),
+            IdentityType.ADMIN ),
   VOL_MGMT( ModelResource.getString( "fds.feature.volume.management" ),
             IdentityType.USER ),
   TENANT_MGMT( ModelResource.getString( "fds.feature.tenant.management" ),
@@ -41,11 +40,12 @@ public enum Feature
   private final IdentityType type;
 
   /**
-   * @param localized the {@link String} representing the localized feature name
-   * @param type the {@link IdentityType} representing the access to the feature
+   * @param localized the {@link String} representing the localized feature
+   *                  name
+   * @param type      the {@link IdentityType} representing the access to the
+   *                  feature
    */
-  Feature( final String localized, final IdentityType type )
-  {
+  Feature( final String localized, final IdentityType type ) {
     this.localized = localized;
     this.type = type;
   }
@@ -53,16 +53,15 @@ public enum Feature
   /**
    * @return Return {@link String} representing the localized feature name
    */
-  public String getLocalized()
-  {
+  public String getLocalized() {
     return localized;
   }
 
   /**
-   * @return Returns {@link IdentityType} representing the access to the feature
+   * @return Returns {@link IdentityType} representing the access to the
+   * feature
    */
-  public IdentityType getType()
-  {
+  public IdentityType getType() {
     return type;
   }
 
@@ -71,13 +70,10 @@ public enum Feature
    *
    * @return Returns {@link Feature}
    */
-  public static Feature lookup( final String name )
-  {
-    for( final Feature feature : values() )
-    {
+  public static Feature lookup( final String name ) {
+    for( final Feature feature : values() ) {
       if( feature.name().equalsIgnoreCase( name ) ||
-          feature.getLocalized().equalsIgnoreCase( name ) )
-      {
+         feature.getLocalized().equalsIgnoreCase( name ) ) {
         return feature;
       }
     }
@@ -88,16 +84,20 @@ public enum Feature
   /**
    * @param type the {@link IdentityType}
    *
-   * @return Returns {@link List} of {@link Feature} available to the IdentityType
+   * @return Returns {@link List} of {@link Feature} available to the
+   * IdentityType
    */
-  public static List<Feature> byRole( final IdentityType type )
-  {
-    final List<Feature> features = new ArrayList<>( );
+  public static List<Feature> byRole( final IdentityType type ) {
+    final List<Feature> features = new ArrayList<>();
 
-    for( final Feature feature : values() )
-    {
-      if( feature.getType().equals( type ) )
-      {
+    for( final Feature feature : values() ) {
+      if( type.equals( IdentityType.ADMIN ) &&
+          feature.getType().equals( IdentityType.ADMIN ) ) {        // user with ADMIN role
+        if( !Feature.UNKNOWN.equals( feature ) ) {
+          features.add( feature );
+        }
+      } else if( type.equals( IdentityType.USER ) &&
+                 feature.getType().equals( IdentityType.USER ) ) { // user with USER role
         features.add( feature );
       }
     }
