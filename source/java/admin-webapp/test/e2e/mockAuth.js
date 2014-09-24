@@ -3,6 +3,7 @@ mockAuth = function() {
     var adminPassword = 'admin';
 
     var admin = {
+        userId: 1,
         username: 'admin',
         features: ['System Management','Volume Management','Tenant Management','User Management']
     };
@@ -70,6 +71,7 @@ mockAuth = function() {
     angular.module( 'user-management' ).factory( '$authorization', function(){
 
         var service = {};
+        service.user = user;
 
         service.setUser = function( user ){
             service.user = user;
@@ -86,7 +88,7 @@ mockAuth = function() {
         // if the current user should have access to something
         service.isAllowed = function( feature ){
 
-            for ( var i = 0; i < user.features.length; i++ ){
+            for ( var i = 0; angular.isDefined( user.features ) && i < user.features.length; i++ ){
                 if ( user.features[i] === feature ){
                     return true;
                 }

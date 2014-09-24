@@ -6,7 +6,9 @@ login = function(){
     browser.get( '#/' );
 
     var uEl = element( by.model( 'username' ) );
+    uEl = uEl.element( by.tagName( 'input' ) );
     var pEl = element( by.model( 'password' ) );
+    pEl = pEl.element( by.tagName( 'input' ) );
     var button = element( by.id( 'login.submit' ) );
 
     uEl.clear();

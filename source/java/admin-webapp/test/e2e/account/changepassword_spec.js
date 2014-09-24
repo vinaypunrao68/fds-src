@@ -4,9 +4,8 @@ describe( 'Test change password scenarios', function(){
 
     browser.get( '#/' );
 
-
     // helper to send stuff into the password fields
-    var changepassword = function( newpass, confirm ){
+    var changepassword = function( newpass, confirmpass ){
 
         var logoutMenu = element( by.id( 'main.usermenu' ) );
         var changeEl = element( by.id( 'main.usermenu' ) ).all( by.tagName( 'li' ) );
@@ -23,14 +22,15 @@ describe( 'Test change password scenarios', function(){
         changeLink.click();
 
         var pass = element( by.model( 'newPassword' ) );
-        var confirm = element( by.model( 'confrimPassword' ) );
+        var confirm = element( by.model( 'confirmPassword' ) );
 
         pass.sendKeys( newpass );
-        confirm.sendKeys( confirm );
+        confirm.sendKeys( confirmpass );
 
-        var saveButton = element( by.buttonText( 'Save' ) );
+        var saveButton = element( by.cssContainingText( '.save-password', 'Save' ) );
 
         saveButton.click();
+
     };
 
     it( 'Should be able to change the password', function(){
@@ -45,7 +45,9 @@ describe( 'Test change password scenarios', function(){
         logout();
 
         var uEl = element( by.model( 'username' ) );
+        uEl = uEl.element( by.tagName( 'input' ) );
         var pEl = element( by.model( 'password' ) );
+        pEl = pEl.element( by.tagName( 'input' ) );
         var button = element( by.id( 'login.submit' ) );
 
         uEl.clear();
@@ -56,6 +58,7 @@ describe( 'Test change password scenarios', function(){
         button.click();
         browser.sleep( 200 );
 
+        var mainEl = element( by.id( 'main.content' ) );
         expect( mainEl.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
 
         // change it back
@@ -66,8 +69,19 @@ describe( 'Test change password scenarios', function(){
 
         changepassword( 'onepass', 'twopass' );
 
-        var alertBox = element( by.css( 'error' ) );
-        expect( alertBox.getAttribute( 'class' ) ).toContain( 'ng-show' );
+        var alertBox = element( by.css( '.error' ) );
+        expect( alertBox.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+    });
+
+    it ( 'should cancel and logout', function(){
+
+        var cancel = element( by.cssContainingText( '.cancel-password-change', 'Cancel' ) );
+        cancel.click();
+
+        var changeSummary = element( by.css( '.change-password-summary' ) );
+
+        expect( changeSummary.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+        logout();
 
     });
 

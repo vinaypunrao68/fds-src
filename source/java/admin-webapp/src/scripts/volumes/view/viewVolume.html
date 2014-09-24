@@ -1,4 +1,4 @@
-<div class="dialog-page" ng-controller="viewVolumeController" ng-class="{shown: $parent.viewing,hideit: !$parent.viewing}" >
+<div class="dialog-page" ng-controller="viewVolumeController" ng-class="{shown: $parent.viewing,hideit: !$parent.viewing}" show-notify ng-show="$parent.viewing">
 
     <div class="header clearfix">
         <a ng-click="back()" class="pull-left">&lt; Back to Volume list</a>
@@ -58,7 +58,7 @@
             </thead>
             <tbody>
                 <tr ng-repeat="snapshot in snapshots">
-                    <td>{{snapshot.date}}</td>
+                    <td>{{formatDate( snapshot.creation );}}</td>
                     <td>{{snapshot.expiration}}</td>
                     <td>
                         <span class="fui-exit icon" title="Clone to new volume" ng-click="clone( snapshot )"></span>

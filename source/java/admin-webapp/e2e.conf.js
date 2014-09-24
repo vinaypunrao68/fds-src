@@ -64,7 +64,10 @@ exports.config = {
   // by that suite will run.
   suites: {
     roles: ['test/e2e/main/roletest_spec.js'],
-    account: ['test/e2e/account/changepassword_spec.js']
+    account: ['test/e2e/account/changepassword_spec.js'],
+    login: ['test/e2e/main/logintest_spec.js'],
+    volumes: ['test/e2e/volumes/volume_create_spec.js'],
+    tenants: ['test/e2e/tenants/tenant_mgmt_spec.js']
   },
 
   // Maximum number of total browser sessions to run. Tests are queued in

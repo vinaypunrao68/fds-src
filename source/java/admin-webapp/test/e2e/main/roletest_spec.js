@@ -6,14 +6,14 @@ describe( 'Test role effects on visual elements', function(){
     browser.get( '#/' );
 
     var uEl = element( by.model( 'username' ) );
+    uEl = uEl.element( by.tagName( 'input' ) );
     var pEl = element( by.model( 'password' ) );
+    pEl = pEl.element( by.tagName( 'input' ) );
     var button = element( by.id( 'login.submit' ) );
 
     it ( 'should show the system management page for an admin', function(){
 
-        uEl.sendKeys( 'admin' );
-        pEl.sendKeys( 'admin' );
-        button.click();
+        login();
 
         browser.sleep( 200 );
 

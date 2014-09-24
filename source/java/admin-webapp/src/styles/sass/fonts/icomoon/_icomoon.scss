@@ -23,6 +23,9 @@
 	-moz-osx-font-smoothing: grayscale;
 }
 
+.icon-nodes:before {
+	content: "\e606";
+}
 .icon-system:before {
 	content: "\e600";
 }
@@ -38,6 +41,6 @@
 .icon-activity_pulse:before {
 	content: "\e604";
 }
-.icon-icon_8948:before {
+.icon-admin:before {
 	content: "\e605";
 }

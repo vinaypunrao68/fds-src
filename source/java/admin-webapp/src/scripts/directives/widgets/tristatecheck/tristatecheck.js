@@ -12,12 +12,18 @@ angular.module( 'form-directives' ).directive( 'triStateCheck', function(){
             var CHECKED = true;
             var PARTIAL = 'partial';
 
+            var notify = function(){
+                $scope.$emit( 'change' );
+            };
+
             $scope.uncheck = function(){
                 $scope.checkState = UNCHECKED;
+                notify();
             };
 
             $scope.check = function(){
                 $scope.checkState = CHECKED;
+                notify();
             };
 
             $scope.partial = function(){

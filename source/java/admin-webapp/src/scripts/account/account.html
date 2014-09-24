@@ -12,7 +12,7 @@
             <span class="header">Name</span>
         </div>
         <div>
-            <span class="main-value">Goldman</span>
+            <span class="main-value">{{ username }}</span>
             <a>Edit</a>
         </div>
     </section>
@@ -62,7 +62,7 @@
             <span class="header">Password</span>
         </div>
 
-        <div ng-show="!password_changing">
+        <div class="change-password-summary" ng-show="!password_changing">
             <span class="detail-value">********************</span>
             <a ng-click="password_changing=true;" class="change-password">Change Password</a>
         </div>
@@ -75,8 +75,8 @@
                 {{ changePasswordError }}
             </div>
             <div style="display: flex;padding-top: 12px;" ng-show="password_changing" class="std-transition">
-                <button class="btn btn-primary" style="margin-right: 4px;" ng-click="changePassword()">Save</button>
-                <button class="btn btn-secondary" ng-click="password_changing = false;">Cancel</button>
+                <button class="btn btn-primary save-password" style="margin-right: 4px;" ng-click="changePassword()">Save</button>
+                <button class="btn btn-secondary cancel-password-change" ng-click="password_changing = false;">Cancel</button>
             </div>
         </div>
 

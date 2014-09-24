@@ -4,34 +4,46 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http', '$rootS
 
     var pollerId;
 
-    var getVolumes = function(){
+    var getVolumes = function( callback ){
+
         return $http.get( '/api/config/volumes' )
             .success( function( data ){
                 api.volumes = data;
+
+                if ( angular.isDefined( callback ) && angular.isFunction( callback ) ){
+                    callback( api.volumes );
+                }
             })
             .error( function(){
             });
     };
 
-    var poll = function(){
+    $rootScope.$on( 'fds::authentication_logout', function(){
+        $interval.cancel( pollerId );
+        api.volume = [];
+    });
+
+    $rootScope.$on( 'fds::authentication_success', function(){
 
         getVolumes().then( function(){
             pollerId = $interval( getVolumes, 10000 );
         });
-    }();
-
-    $rootScope.$on( 'fds::authentication_logout', function(){
-        $interval.cancel( pollerId );
     });
 
-    $rootScope.$on( 'fds::authentication_success', poll );
-
-    api.save = function( volume ){
+    api.save = function( volume, callback ){
 
         // save a new one
         if ( !angular.isDefined( volume.id ) ){
             return $http.post( '/api/config/volumes', volume )
-                .success( getVolumes )
+                .success(
+                    function( response ){
+
+                        getVolumes();
+
+                        if ( angular.isDefined( callback ) ){
+                            callback( response );
+                        }
+                    })
                 .error( function(){
                     alert( 'Volume creation failed.' );
                 });
@@ -59,9 +71,22 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http', '$rootS
 
     api.getSnapshotPoliciesForVolume = function( volumeId, callback, failure ){
 
-        return $http.get( '/api/config/volumes/' + volumeId + '/snapshots/policies' )
+//        return [{
+//            policyName: 'Fake_name',
+//            recurrenceRule: {
+//                freq: 'YEARLY',
+//                count: 5
+//            },
+//            retentionTime: 3885906383
+//        }];
+
+        return $http.get( '/api/config/volumes/' + volumeId + '/snapshot/policies' )
             .success( callback )
             .error( failure );
+    };
+
+    api.refresh = function( callback ){
+        getVolumes( callback );
     };
 
     api.volumes = [];

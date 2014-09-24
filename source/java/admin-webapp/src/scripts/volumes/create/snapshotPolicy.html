@@ -17,14 +17,14 @@
         <div ng-show="editing">
             <div style="display: flex;color: black;margin-bottom: 4px;" ng-repeat="policy in policies">
                 <tri-state-check check-state="policy.use" style="margin-top: 6px;margin-right: 4px;"></tri-state-check>
-                <span style="width: 100px;">{{policy.name}}</span>
+                <span style="width: 100px;">{{policy.displayName}}</span>
                 <span style="padding-right: 4px;">Keep for:</span>
                 <spinner class="skinny" style="margin-right: 4px;" min="1" max="9999" value="policy.value"></spinner>
                 <fui-dropdown skinny="true" items="timeChoices" selected="policy.units"></fui-dropdown>
             </div>
 
             <div>
-                <button class="btn btn-primary" ng-click="doneEditing()">Done</button>
+                <button class="btn btn-primary" ng-click="done()">Done</button>
             </div>
         </div>
 

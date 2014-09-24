@@ -85,4 +85,11 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume
             $scope.volumes = $volume_api.volumes;
         }
     });
+
+    $scope.$on( 'fds::authentication_logout', function(){
+        $scope.volumes = [];
+    });
+
+    $volume_api.refresh();
+
 }]);

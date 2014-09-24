@@ -12,10 +12,11 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
         { id: 'status', link: 'homepage.status', text: 'Status', iconClass: 'icon-system', selected: false },
         { id: 'inbox', link: 'homepage.inbox', text: 'Inbox', iconClass: 'icon-inbox', selected: false },
         { id: 'activity', link: 'homepage.activity', text: 'Activity', iconClass: 'icon-activity_pulse', selected: false },
-        { id: 'system', link: 'homepage.system', text: 'System', iconClass: 'icon-icon_8948', selected: false, permission: 'System Management' },
+        { id: 'system', link: 'homepage.system', text: 'System', iconClass: 'icon-nodes', selected: false, permission: SYS_MGMT },
         { id: 'volumes', link: 'homepage.volumes', text: 'Volumes', iconClass: 'icon-volumes', selected: false },
         { id: 'users', link: 'homepage.users', text: 'Users', iconClass: 'icon-users', selected: false },
-        { id: 'admin', link: 'homepage.admin', text: 'Admin', iconClass: 'icon-icon_8948', selected: false }
+         { id: 'tenants', link: 'homepage.tenants', text: 'Tenants', iconClass: 'icon-tenants', selected: false, permission: SYS_MGMT },
+        { id: 'admin', link: 'homepage.admin', text: 'Admin', iconClass: 'icon-admin', selected: false }
     ];
 
     $scope.navigate = function( item ) {
@@ -67,6 +68,14 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
     $scope.$watch( 'loggedInUser', function( newValue ){
 
         $scope.itemSelected( newValue );
+    });
+
+    $scope.$on( 'fds::authentication_logout', function(){
+        $state.transitionTo( 'homepage' );
+    });
+
+    $scope.$on( 'fds::authentication_success', function(){
+        $scope.navigate( $scope.views[0] );
     });
 
     $scope.$watch( function(){ return $authentication.isAuthenticated; }, function( val ) {

@@ -1,10 +1,10 @@
-angular.module( 'qos' ).factory( '$snapshot_service', ['$http', function( $http ){
+angular.module( 'qos' ).factory( '$snapshot_api', ['$http', function( $http ){
 
     var service = {};
 
     service.createSnapshotPolicy = function( policy, callback, failure ){
 
-        return $http.post( '/api/config/snapshots/policies', policy )
+        return $http.post( '/api/config/snapshot/policies', policy )
             .success( callback )
             .error( failure );
     };
@@ -15,16 +15,16 @@ angular.module( 'qos' ).factory( '$snapshot_service', ['$http', function( $http 
             .success( callback ).error( failure );
     };
 
-    service.attachPolicyToVolue = function( policy, volumeId, callback, failure ){
+    service.attachPolicyToVolume = function( policy, volumeId, callback, failure ){
 
-        return $http.post( '/api/config/snapshots/policies/' + policy.id + '/attach', volumeId )
+        return $http.post( '/api/config/snapshot/policies/' + policy.id + '/attach', volumeId )
             .success( callback )
             .error( failure );
     };
 
     service.detachPolicy = function( policy, volumeId, callback, failure ){
 
-        return $http.put( '/api/config/snapshots/policies/' + policy.id + '/detach', {volumeId: volumeId} )
+        return $http.put( '/api/config/snapshot/policies/' + policy.id + '/detach', {volumeId: volumeId} )
             .success( callback ).error( failure );
     };
 

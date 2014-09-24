@@ -1,6 +1,7 @@
 angular.module( 'user-management' ).factory( '$authorization', [ '$rootScope', '$document', function( $rootScope, $document ){
 
     var service = {};
+    service.user = {};
 
     var resetUserFromCookie = function(){
         var cookies = $document[0].cookie.split( ';' );
@@ -25,7 +26,7 @@ angular.module( 'user-management' ).factory( '$authorization', [ '$rootScope', '
     // for specific information
     service.getUsername = function(){
 
-        if ( !angular.isDefined( service.user ) ){
+        if ( !angular.isDefined( service.user ) || !angular.isDefined( service.user.username ) ){
             resetUserFromCookie();
         }
 

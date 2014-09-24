@@ -52,6 +52,8 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
                 if ( !angular.isDefined( $scope.currentLabel ) || (angular.isDefined( newValue ) && newValue !== oldValue) ){
                     $scope.selectItem( newValue );
                 }
+
+                $scope.$emit( 'change' );
             });
         },
         link: function( $scope, $element, $attrs ){

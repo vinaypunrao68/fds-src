@@ -12,6 +12,14 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
             $scope.downPressed = false;
             $scope.autoPress = {};
 
+            if ( !angular.isDefined( $scope.value ) || $scope.value < $scope.min ){
+                $scope.value = $scope.min;
+            }
+
+            if ( $scope.value > $scope.max ){
+                $scope.value = $scope.max;
+            }
+
             //determine maxlength
             $scope.maxlength = 1;
 
@@ -68,21 +76,33 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
             };
 
             $scope.increment = function(){
+
+                var val = parseInt( $scope.value );
+                var step = parseInt( $scope.step );
+
                 if ( $scope.value + $scope.step > $scope.max ){
                     $scope.value = $scope.max;
                 }
                 else {
-                    $scope.value = $scope.value + $scope.step;
+                    $scope.value = val + step;
                 }
+
+                $scope.$emit( 'change' );
             };
 
             $scope.decrement = function(){
+
+                var val = parseInt( $scope.value );
+                var step = parseInt( $scope.step );
+
                 if ( $scope.value - $scope.step < $scope.min ){
                     $scope.value = $scope.min;
                 }
                 else {
-                    $scope.value = $scope.value - $scope.step;
+                    $scope.value = val - step;
                 }
+
+                $scope.$emit( 'change' );
             };
 
         },
@@ -102,6 +122,10 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
 
             if ( angular.isDefined( $attrs.min ) && typeof $attrs.min !== 'number' ){
                 $attrs.min = parseInt( $attrs.min );
+            }
+
+            if ( angular.isDefined( $attrs.value ) && typeof $attrs.value !== 'number' ){
+                $attrs.value = parseInt( $attrs.min );
             }
         }
     };

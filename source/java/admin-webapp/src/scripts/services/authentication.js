@@ -43,4 +43,23 @@ angular.module( 'user-management' ).factory( '$authentication', ['$http', '$docu
     };
 
     return service;
+}]).config( ['$httpProvider', function( $httpProvider ){
+
+    $httpProvider.interceptors.push( function( $q ){
+
+        return {
+            responseError: function( config ){
+                console.log( 'Error: ' + config.status );
+                if ( config.status === 401 && this.document.cookie !== '' ){
+                    this.document.cookie = 'token=; expires=Thu, 01-Jan-70 00:00:01 GMT;';
+                    this.document.cookie = 'user=; expires=Thu, 01-Jan-70 00:00:01 GMT;';
+                    location.reload();
+                    return $q.reject( config );
+                }
+
+                return config;
+            }
+        };
+    });
+
 }]);

@@ -1,8 +1,9 @@
 angular.module( 'main' ).controller( 'accountController', ['$scope', '$authentication', '$authorization', '$user_service', function( $scope, $authentication, $authorization, $user_service ){
 
-    $scope.emailAddress = 'bpham@example.com';
+    $scope.emailAddress = 'admin@example.com';
     $scope.tempEmailAddress = $scope.emailAddress;
     $scope.changePasswordError = false;
+    $scope.username = $authorization.getUsername();
 
     $scope.changePassword = function(){
 

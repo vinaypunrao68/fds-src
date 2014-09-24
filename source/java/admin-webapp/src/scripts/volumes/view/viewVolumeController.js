@@ -1,9 +1,6 @@
 angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$modal_data_service', function( $scope, $volume_api, $modal_data_service ){
 
-    $scope.snapshots = [{
-        date: new Date(),
-        expiration: new Date()
-    }];
+    $scope.snapshots = [];
 
     $scope.timeChoices = [{name: 'Hours'},{name: 'Days'},{name: 'Weeks'},{name: 'Months'},{name: 'Years'}];
 
@@ -61,11 +58,27 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $scope.editing = false;
     };
 
+    $scope.formatDate = function( ms ){
+        var d = new Date( parseInt( ms ) );
+        return d.toString();
+    };
 
     $scope.back = function(){
         $scope.$emit( 'fds::volume_done_editing' );
         $scope.$broadcast( 'fds::volume_done_editing' );
     };
+
+    $scope.$on( 'fds::page_shown', function(){
+
+        $volume_api.getSnapshots( $scope.$parent.selectedVolume.id, function( data ){ $scope.snapshots = data; } );
+        $volume_api.getSnapshotPoliciesForVolume( $scope.$parent.selectedVolume.id,
+            function( policies ){
+//                $scope.policies = policies;
+            });
+    });
+
+    $scope.$on( 'fds::page_hidden', function(){
+    });
 
     $scope.generateSummaryText();
 

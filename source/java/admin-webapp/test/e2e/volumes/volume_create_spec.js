@@ -9,45 +9,126 @@ describe( 'Testing volume creation permutations', function(){
     var newText;
 
     var mockVol = function(){
-        angular.module( 'volume-management' ).factory( '$volume_api', [function(){
+        angular.module( 'volume-management', [] ).factory( '$volume_api', function(){
 
-            var api = {};
-            api.volumes = [];
+            var volService = {};
+            volService.volumes = [];
 
-            api.delete = function( volume ){
+            volService.delete = function( volume ){
 
                 var temp = [];
 
-                api.volumes.forEach( function( v ){
+                volService.volumes.forEach( function( v ){
                     if ( v.name != volume.name ){
                         temp.push( v );
                     }
                 });
 
-                api.volumes = temp;
+                volService.volumes = temp;
             };
 
-            api.save = function( volume ){
+            volService.save = function( volume, callback ){
 
-                api.volumes.push( volume );
+                volService.volumes.push( volume );
+
+                if ( angular.isDefined( callback ) ){
+                    callback( volume );
+                }
             };
 
+            volService.getSnapshots = function( volumeId, callback, failure ){
+                //callback( [] );
+            };
+
+            volService.getSnapshotPoliciesForVolume = function( volumeId, callback, failure ){
+//                callback( [] );
+            };
+
+            volService.refresh = function(){};
+
+            return volService;
+        });
+
+        angular.module( 'volume-management' ).factory( '$data_connector_api', function(){
+
+            var api = {};
+            api.connectors = [];
+
+            var getConnectorTypes = function(){
+        //        return $http.get( '/api/config/data_connectors' )
+        //            .success( function( data ){
+        //                api.connectors = data;
+        //            });
+
+                api.connectors = [{
+                    type: 'Block',
+                    api: 'Basic, Cinder',
+                    options: {
+                        max_size: '100',
+                        unit: ['GB', 'TB', 'PB']
+                    },
+                    attributes: {
+                        size: '10',
+                        unit: 'GB'
+                    }
+                },
+                {
+                    type: 'Object',
+                    api: 'S3, Swift'
+                }];
+            }();
+
+            api.editConnector = function( connector ){
+
+                api.connectors.forEach( function( realConnector ){
+                    if ( connector.type === realConnector.type ){
+                        realConnector = connector;
+                    }
+                });
+            };
 
             return api;
+        });
+    };
+
+    var mockSnap = function(){
+        angular.module( 'qos' ).factory( '$snapshot_api', ['$http', function( $http ){
+
+            var service = {};
+
+            service.createSnapshotPolicy = function( policy, callback, failure ){
+            };
+
+            service.deleteSnapshotPolicy = function( policy, callback, failure ){
+            };
+
+            service.attachPolicyToVolue = function( policy, volumeId, callback, failure ){
+            };
+
+            service.detachPolicy = function( policy, volumeId, callback, failure ){
+            };
+
+            service.cloneSnapshotToNewVolume = function( snapshot, volumeName, callback, failure ){
+            };
+
+            return service;
         }]);
     };
 
     browser.addMockModule( 'volume-management', mockVol );
+    browser.addMockModule( 'qos', mockSnap );
 
     it( 'should not find any volumes in the table', function(){
 
         login();
         goto( 'volumes' );
 
+        browser.sleep( 200 );
+
         createLink = element( by.css( 'a.new_volume') );
         createEl = $('.create-panel.volumes');
         createButton = element( by.buttonText( 'Create Volume' ) );
-        mainEl = $('.volumeparent');
+        mainEl = $('.volume-page > .page-slider-parent');
         newText = element( by.model( 'name') );
 
         var volumeTable = $('tr');
@@ -92,7 +173,6 @@ describe( 'Testing volume creation permutations', function(){
                 });
             });
         });
-
     });
 
     it ( 'should be able to edit the priority of a volume', function(){

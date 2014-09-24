@@ -8,7 +8,7 @@ angular.module( 'volumes' ).controller( 'nameTypeController', ['$scope', '$data_
         $scope.name = '';
         $scope.editing = false;
         $scope.connectors = $data_connector_api.connectors;
-        $scope.data_connector = $scope.connectors[0];
+        $scope.data_connector = $scope.connectors[1];
     };
 
     var findUnit = function( str ){

@@ -24,7 +24,7 @@ module.exports = function( grunt ){
                 dest: 'dist/libs/dependencies.js'
             },
             release: {
-                src: ['src/scripts/main.js','src/scripts/module-manifest.js','src/scripts/**/*.js','!src/scripts/directives/**'],
+                src: ['src/scripts/main.js','src/scripts/utils.js','src/scripts/enums.js','src/scripts/module-manifest.js','src/scripts/**/*.js','!src/scripts/directives/**'],
                 dest: 'temp/main.concat.js'
             }
         },
@@ -159,7 +159,8 @@ module.exports = function( grunt ){
                 configFile: 'e2e.conf.js',
                 keepAlive: true,
                 noColor: false,
-                args: { seleniumPort: 4444 }
+                args: { seleniumPort: 4444 },
+                debug: false
             },
             singlerun: {}
         },
