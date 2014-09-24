@@ -3,10 +3,7 @@ package com.formationds.smoketest;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectResult;
-import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -76,6 +73,35 @@ public class SmokeTest {
         userClient.createBucket(userBucket);
         randomBytes = new byte[4096];
         new SecureRandom().nextBytes(randomBytes);
+    }
+
+    //@Test
+    public void testMultipartUpload() {
+        String key = UUID.randomUUID().toString();
+        InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
+        int partCount = 5;
+
+        List<PartETag> etags = IntStream.range(0, partCount)
+                .map(new ConsoleProgress("Uploading parts", partCount))
+                .mapToObj(i -> {
+                    UploadPartRequest request = new UploadPartRequest()
+                            .withBucketName(userBucket)
+                            .withKey(key)
+                            .withInputStream(new ByteArrayInputStream(randomBytes))
+                            .withPartNumber(i)
+                            .withUploadId(initiateResult.getUploadId())
+                            .withPartSize(randomBytes.length);
+
+                    UploadPartResult uploadPartResult = userClient.uploadPart(request);
+                    return uploadPartResult.getPartETag();
+                })
+                .collect(Collectors.toList());
+
+        CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(userBucket, key, initiateResult.getUploadId(), etags);
+        userClient.completeMultipartUpload(completeRequest);
+
+        ObjectMetadata objectMetadata = userClient.getObjectMetadata(userBucket, key);
+        assertEquals(4096 * partCount, objectMetadata.getContentLength());
     }
 
     @Test
@@ -163,7 +189,7 @@ public class SmokeTest {
                 .stream()
                 .map(b -> b.getName())
                 .collect(Collectors.toSet());
-        assertFalse(bucketNames.contains(adminBucket));
+        assertFalse("Users should not see admin volumes!", bucketNames.contains(adminBucket));
     }
 
     private AmazonS3Client s3Client(String userName, String token) {
