@@ -115,8 +115,8 @@ class VolumeContext(Context):
                 data += [('key' , key)]
                 data += [('md5sum' , md5.md5(value).hexdigest())]
                 data += [('length' , str(len(value)))]
-                data += [('first-10b' , str(value[:10]))]
-                data += [('last-10b' , str(value[-10:]))]
+                data += [('begin' , str(value[:30]))]
+                data += [('end' , str(value[-30:]))]
                 return tabulate(data, tablefmt=self.config.getTableFormat())
             else:
                 print r.reason
@@ -137,8 +137,8 @@ class VolumeContext(Context):
                 data += [('key' , key)]
                 data += [('md5sum' , md5.md5(value).hexdigest())]
                 data += [('length' , str(len(value)))]
-                data += [('first-10b' , str(value[:10]))]
-                data += [('last-10b' , str(value[-10:]))]
+                data += [('begin' , str(value[:30]))]
+                data += [('end' , str(value[-30:]))]
                 return tabulate(data, tablefmt=self.config.getTableFormat())
             else:
                 print r.reason
