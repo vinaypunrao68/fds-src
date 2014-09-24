@@ -1,11 +1,11 @@
 from  svchelper import *
 from fdslib.pyfdsp.apis import ttypes
-import RestEndpoint
+import restendpoint
 
 class TenantContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-        self.restApi = RestEndpoint.TenantEndpoint(self.config.rest) 
+        self.restApi = restendpoint.TenantEndpoint(self.config.rest) 
 
     #--------------------------------------------------------------------------------------
     @clicmd

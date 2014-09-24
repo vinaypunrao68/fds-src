@@ -7,7 +7,7 @@ KEY_PORT = 'port'
 KEY_GRIDOUTPUT = 'gridoutput'
 PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 
-from fdslib import RestEndpoint
+from fdslib import restendpoint
 import types
 class AccessLevel:
     '''
@@ -57,7 +57,7 @@ class ConfigData:
             if None == self.getSystem(key):
                 self.setSystem(key, defaults[key])
 
-        self.rest = RestEndpoint.RestEndpoint(self.getHost(), 7777)
+        self.rest = restendpoint.restendpoint(self.getHost(), 7777)
 
     def set(self, key, value, namespace):
         if namespace not in self.__data:
