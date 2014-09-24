@@ -675,8 +675,6 @@ int DataMgr::mod_init(SysParams const *const param)
     numTestVols = 10;
     scheduleRate = 10000;
 
-    counters_.reset(new FdsCounters("DM", modProvider_->get_cntrs_mgr().get()));
-
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
     closedmt_timer = boost::make_shared<FdsTimer>();
     closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,
