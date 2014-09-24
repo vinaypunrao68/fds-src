@@ -57,7 +57,8 @@ class ConfigData:
             if None == self.getSystem(key):
                 self.setSystem(key, defaults[key])
 
-        self.rest = restendpoint.restendpoint(self.getHost(), 7777)
+        self.rest = restendpoint.RestEndpoint(self.getHost(), 7777)
+        self.s3rest   = restendpoint.RestEndpoint(self.getHost(), port=8000, auth=False)
 
     def set(self, key, value, namespace):
         if namespace not in self.__data:
