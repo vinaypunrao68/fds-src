@@ -38,8 +38,6 @@ class SmVolQueue : public FDS_VolumeQueue {
      fds_volid_t  volUuid;
      fds_uint32_t qDepth;
 
-     INTRUSIVE_PTR_DEFS(SmVolQueue, refcnt_);
-
     public:
      SmVolQueue(fds_volid_t  _volUuid,
                 fds_uint32_t _q_cap,

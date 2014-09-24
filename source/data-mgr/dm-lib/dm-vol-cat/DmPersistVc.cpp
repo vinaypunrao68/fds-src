@@ -22,6 +22,10 @@ namespace fds {
  */
 class PersistVolumeMeta {
   public:
+    static const std::string CATALOG_WRITE_BUFFER_SIZE_STR;
+    static const std::string CATALOG_CACHE_SIZE_STR;
+    static const std::string CATALOG_MAX_LOG_FILES_STR;
+
     /**
      * Does not initialize catalog yet
      */
@@ -180,6 +184,9 @@ class PersistVolumeMeta {
      */
     Catalog *catalog_;
 
+    // as the configuration will not be refreshed frequently, we can read it without lock
+    FdsConfigAccessor config_helper_;
+
     /**
      * Protects from writing to the catalog while taking
      * a snapshot for rsync (cp -r kind of snapshot)
@@ -199,6 +206,10 @@ class PersistVolumeMeta {
     fds_volid_t srcVolId_;
 };
 
+const std::string PersistVolumeMeta::CATALOG_WRITE_BUFFER_SIZE_STR("catalog_write_buffer_size");
+const std::string PersistVolumeMeta::CATALOG_CACHE_SIZE_STR("catalog_cache_size");
+const std::string PersistVolumeMeta::CATALOG_MAX_LOG_FILES_STR("catalog_max_log_files");
+
 //
 // does not initialize catalog yet
 //
@@ -215,6 +226,7 @@ PersistVolumeMeta::PersistVolumeMeta(fds_volid_t volId,
           extent_obj_entries(extent_objs),
           catalog_(NULL),
           marked_deleted(false),
+          config_helper_(g_fdsprocess->get_conf_helper()),
           snapshot_(snapshot),
           readOnly_(readOnly),
           srcVolId_(srcVolId) {
@@ -246,31 +258,35 @@ PersistVolumeMeta::~PersistVolumeMeta() {
 Error PersistVolumeMeta::init() {
     Error err(ERR_OK);
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    std::string copyName(root->dir_user_repo_dm());
+    std::string catName(root->dir_user_repo_dm());
     if (!snapshot_ && srcVolId_ == invalid_vol_id) {
-        copyName += volumeIdStr();
-        copyName += "/" + volumeIdStr() + "_vcat.ldb";
+        // volume
+        catName += volumeIdStr();
+        catName += "/" + volumeIdStr() + "_vcat.ldb";
     } else if (srcVolId_ > invalid_vol_id && !snapshot_) {
-        copyName += volumeIdStr();
-        copyName += "/" + volumeIdStr() + "_vcat.ldb";
+        // clone
+        catName += volumeIdStr();
+        catName += "/" + volumeIdStr() + "_vcat.ldb";
     } else {
-        copyName += std::to_string(srcVolId_) + "/snapshot";
-        copyName += "/" + volumeIdStr() + "_vcat.ldb";
+        // snapshot
+        catName += std::to_string(srcVolId_) + "/snapshot";
+        catName += "/" + volumeIdStr() + "_vcat.ldb";
     }
 
-#if 0
-    if (!snapshot_) {
-       fds_verify(catalog_ == NULL);
-    }
-#endif
+    LOGNOTIFY << " Meta Init  '" << catName << "'";
+    FdsRootDir::fds_mkdir(catName.c_str());
 
-    char catPath[PATH_MAX] = {0};
-    strncpy(catPath, copyName.c_str(), copyName.length());
-    // FdsRootDir::fds_mkdir(copyName.c_str());
-    LOGNOTIFY << " Meta Init  '" << catPath << "'";
-    FdsRootDir::fds_mkdir(catPath);
-    // catalog_ = new(std::nothrow) Catalog(copyName);
-    catalog_ = new(std::nothrow) Catalog(catPath);
+    fds_uint32_t writeBufferSize = config_helper_.get<fds_uint32_t>(CATALOG_WRITE_BUFFER_SIZE_STR,
+            Catalog::WRITE_BUFFER_SIZE);
+    fds_uint32_t cacheSize = config_helper_.get<fds_uint32_t>(CATALOG_CACHE_SIZE_STR,
+            Catalog::CACHE_SIZE);
+    fds_uint32_t maxLogFiles = config_helper_.get<fds_uint32_t>(CATALOG_MAX_LOG_FILES_STR, 5);
+
+    std::string logDirName = root->dir_user_repo_dm() + volumeIdStr() + "/";
+    std::string logFilePrefix("catalog.journal");
+
+    catalog_ = new(std::nothrow) Catalog(catName, writeBufferSize, cacheSize, logDirName,
+            logFilePrefix, maxLogFiles);
     if (!catalog_) {
         LOGERROR << "Failed to create catalog for volume "
                  << std::hex << volume_id << std::dec;

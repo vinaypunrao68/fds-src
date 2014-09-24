@@ -362,36 +362,30 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         return ERR_OUT_OF_MEMORY;
     }
 
-    bool regQ = false;
     if (vdesc->isSnapshot()) {
-        volmeta->dmVolQueue = dataMgr->qosCtrl->getQueue(vdesc->qosQueueId);
+        volmeta->dmVolQueue.reset(qosCtrl->getQueue(vdesc->qosQueueId));
     }
 
-    if (!volmeta->dmVolQueue) {
-        volmeta->dmVolQueue = new(std::nothrow) FDS_VolumeQueue(4096,
-                                                        vdesc->iops_max,
-                                                        2*vdesc->iops_min,
-                                                        vdesc->relativePrio);
-        regQ = true;
+    bool needReg = false;
+    if (!volmeta->dmVolQueue.get()) {
+        volmeta->dmVolQueue.reset(new FDS_VolumeQueue(4096,
+                                                      vdesc->iops_max,
+                                                      2*vdesc->iops_min,
+                                                      vdesc->relativePrio));
+        volmeta->dmVolQueue->activate();
+        needReg = true;
     }
 
-    if (!volmeta->dmVolQueue) {
-        LOGERROR << "Failed to allocate Qos queue for volume "
-                 << std::hex << vol_uuid << std::dec;
-        delete volmeta;
-        return ERR_OUT_OF_MEMORY;
-    }
-    volmeta->dmVolQueue->activate();
 
     LOGDEBUG << "Added vol meta for vol uuid and per Volume queue" << std::hex
               << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
 
     vol_map_mtx->lock();
-    if (regQ) {
+    if (needReg) {
         err = dataMgr->qosCtrl->registerVolume(vdesc->isSnapshot() ?
                                                vdesc->qosQueueId : vol_uuid,
                                                static_cast<FDS_VolumeQueue*>(
-                                                   volmeta->dmVolQueue));
+                                               volmeta->dmVolQueue.get()));
     }
     if (!err.ok()) {
         delete volmeta;
@@ -412,7 +406,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
             // block volume's qos queue
             volmeta->dmVolQueue->stopDequeue();
             // register shadow queue
-            err = dataMgr->qosCtrl->registerVolume(shadow_volid, shadowVolQueue);
+            err = qosCtrl->registerVolume(shadow_volid, shadowVolQueue);
             if (err.ok()) {
                 LOGERROR << "Registered shadow volume queue for volume 0x"
                          << std::hex << vol_uuid << " shadow id " << shadow_volid << std::dec;
@@ -444,7 +438,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         LOGERROR << "Cleaning up volume queue and vol meta because of error "
                  << " volid 0x" << std::hex << vol_uuid << std::dec;
         dataMgr->qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
-        delete volmeta->dmVolQueue;
+        volmeta->dmVolQueue.reset();
         delete volmeta;
     }
 
@@ -546,7 +540,7 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     err = timeVolCat_->deleteEmptyVolume(vol_uuid);
     if (err.ok()) {
         VolumeMeta* vol_meta = NULL;
-        dataMgr->qosCtrl->deregisterVolume(vol_uuid);
+        qosCtrl->deregisterVolume(vol_uuid);
         vol_map_mtx->lock();
         if (vol_meta_map.count(vol_uuid) > 0) {
             vol_meta = vol_meta_map[vol_uuid];
@@ -554,7 +548,7 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
         }
         vol_map_mtx->unlock();
         if (vol_meta) {
-            delete vol_meta->dmVolQueue;
+            vol_meta->dmVolQueue.reset();
             delete vol_meta;
         }
         statStreamAggr_->detachVolume(vol_uuid);
@@ -1192,7 +1186,7 @@ void DataMgr::commitBlobTxCb(const Error &err,
 
     // do forwarding if needed and commit was successfull
     if (error.ok() &&
-        (commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion())) {
+        (commitBlobReq->dmt_version != omClient->getDMTVersion())) {
         VolumeMeta* vol_meta = NULL;
         fds_bool_t is_forwarding = false;
 
@@ -1633,5 +1627,4 @@ void DataMgr::setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& er
         msg_hdr->err_code = err.GetErrno();
     }
 }
-
 }  // namespace fds
