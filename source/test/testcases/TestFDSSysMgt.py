@@ -61,9 +61,8 @@ class TestNodeActivate(TestCase.FDSTestCase):
 
             self.log.info("Activate node %s." % n.nd_conf_dict['node-name'])
 
-            #status = n.nd_rmt_agent.ssh_exec_wait("cd %s; ./fdscli --fds-root %s --activate-nodes abc -k 1 -e am,dm,sm > %s/cli.out 2>&1" %
-            status = n.nd_rmt_agent.ssh_exec_wait("cd %s; ./fdscli --fds-root %s --activate-nodes %s -k 1 -e am,dm,sm > %s/cli.out 2>&1" %
-                                                  (bin_dir, fds_dir, n.nd_conf_dict['node-name'], log_dir))
+            status = n.nd_rmt_agent.ssh_exec_wait("cd %s; ./fdscli --fds-root %s --activate-nodes abc -k 1 -e am,dm,sm > %s/cli.out 2>&1" %
+                                                  (bin_dir, fds_dir, log_dir))
 
             if status != 0:
                 self.log.error("Node activation on %s returned status %d." %(n.nd_conf_dict['node-name'], status))

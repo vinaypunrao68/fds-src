@@ -5,8 +5,8 @@
 
 # FDS test-case pattern requirements.
 import unittest
+import xmlrunner
 import traceback
-from subprocess import check_call
 import TestCase
 
 # Module-specific requirements
@@ -513,4 +513,4 @@ class TestOMShutDown(TestCase.FDSTestCase):
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='test-reports'))
