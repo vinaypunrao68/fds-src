@@ -250,41 +250,47 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
         return Error(ERR_NOT_FOUND);
     }
 
-    fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_DLT_Data_TypePtr d_msg(new fpi::FDSP_DLT_Data_Type());
-
-    this->init_msg_hdr(m_hdr);
-
-    m_hdr->msg_code        = fpi::FDSP_MSG_DLT_UPDATE;
-    m_hdr->msg_id          = 0;
-    m_hdr->tennant_id      = 1;
-    m_hdr->local_domain_id = 1;
+    auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    fpi::CtrlNotifyDLTUpdatePtr msg(new fpi::CtrlNotifyDLTUpdate());
+    auto d_msg = &msg->dlt_data;
 
     d_msg->dlt_type        = true;
-    // TODO(Andrew): It's not safe to unconst this object.
-    // The serialization functions should all be const
-    // since they do not modify the object
     err = const_cast<DLT*>(curDlt)->getSerialized(d_msg->dlt_data);
+    msg->dlt_version = curDlt->getVersion();
     if (!err.ok()) {
         LOGERROR << "Failed to fill in dlt_data, not sending DLT";
         return err;
     }
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyDLTUpdate, m_hdr, d_msg);
-    } else {
-        try {
-            ndCpClient->NotifyDLTUpdate(m_hdr, d_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return Error(ERR_NETWORK_TRANSPORT);
-        }
-    }
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), msg);
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dlt_resp, this, msg,
+                                   std::placeholders::_1, std::placeholders::_2,
+                                   std::placeholders::_3));
+    om_req->invoke();
+
     curDlt->dump();
     LOGNORMAL << "OM: Send dlt info (version " << curDlt->getVersion()
               << ") to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
 
     return err;
+}
+
+
+void
+OM_NodeAgent::om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* req,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "OM received response for NotifyDltUpdate from node "
+            << std::hex << req->getPeerEpId().svc_uuid << std::dec <<
+            " with version " << msg->dlt_version;
+
+    // notify DLT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid(rs_get_uuid());
+    FdspNodeType node_type = rs_get_uuid().uuid_get_type();
+    domain->om_recv_dlt_commit_resp(node_type, node_uuid, msg->dlt_version);
 }
 
 Error

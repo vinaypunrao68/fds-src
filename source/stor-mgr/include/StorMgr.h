@@ -131,6 +131,12 @@ class SMCounters : public FdsCounters {
 
 
 class ObjectStorMgr : public Module, public SmIoReqHandler {
+    public:
+     /*
+      * OM/boostrap related members
+      */
+     OMgrClient         *omClient;
+
     protected:
      typedef enum {
          NORMAL_MODE = 0,
@@ -139,11 +145,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      } SmRunModes;
 
      CommonModuleProviderIf *modProvider_;
-     /*
-      * OM/boostrap related members
-      */
-     OMgrClient         *omClient;
-
      /*
       * glocal dedupe  stats  counter 
       */ 
