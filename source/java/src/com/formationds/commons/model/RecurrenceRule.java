@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014, All Rights Reserved, by Formation Data Systems, Inc.
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.commons.model;
