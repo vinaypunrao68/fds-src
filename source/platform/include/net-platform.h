@@ -101,7 +101,7 @@ class PlatAgentPlugin : public NodeAgentEvt
     typedef boost::intrusive_ptr<const PlatAgentPlugin> const_ptr;
 
     virtual ~PlatAgentPlugin() {}
-    explicit PlatAgentPlugin(PlatAgent::pointer agt) : NodeAgentEvt(agt) {}
+    explicit PlatAgentPlugin(NodeAgent::pointer agt) : NodeAgentEvt(agt) {}
 
     void ep_connected() override;
     void ep_down() override;

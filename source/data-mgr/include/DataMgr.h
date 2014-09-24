@@ -88,10 +88,6 @@ class DataMgr : public Module, public DmIoReqHandler {
     virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) override;
     fds_bool_t amIPrimary(fds_volid_t volUuid);
 
-    FdsCounters * getCounters() {
-        return counters_.get();
-    }
-
     inline StatStreamAggregator::ptr statStreamAggregator() {
         return statStreamAggr_;
     }
@@ -268,9 +264,6 @@ class DataMgr : public Module, public DmIoReqHandler {
      * Used to protect access to vol_meta_map.
      */
     fds_mutex *vol_map_mtx;
-
-    /* Counters */
-    std::unique_ptr<FdsCounters> counters_;
 
     Error getVolObjSize(fds_volid_t volId,
                         fds_uint32_t *maxObjSize);

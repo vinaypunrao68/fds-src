@@ -6,9 +6,11 @@ import sys
 import json
 import unittest
 import random
-
+import xml.etree.ElementTree as ET
+import time
 try:
     import requests
+    from requests import ConnectionError
 except ImportError:
     print 'oops! I need the [requests] pkg. do: "sudo easy_install requests" OR "pip install requests"'
     sys.exit(0)
@@ -172,12 +174,11 @@ class TenantEndpoint():
             return False
 
 
-class VolumeEndpoint(RestEndpoint):
+class VolumeEndpoint:
 
-    def __init__(self, **kwargs):
-        RestEndpoint.__init__(self, **kwargs)
-        self.rest_path += '/api/config/volumes'
-
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + '/api/config/volumes'
 
     def createVolume(self, volume_name, priority, sla, limit, vol_type, size, unit):
 
@@ -194,8 +195,8 @@ class VolumeEndpoint(RestEndpoint):
                 }
             }
         }
-        res = requests.post(self.rest_path, headers=self.headers, data=json.dumps(volume_info))
-        res = self.parse_result(res)
+        res = self.rest.post(self.rest_path, data=json.dumps(volume_info))
+        res = self.rest.parse_result(res)
 
         if type(res) != dict or 'status' not in res:
             return None
@@ -208,8 +209,8 @@ class VolumeEndpoint(RestEndpoint):
     def deleteVolume(self, volume_name):
         path = '{}/{}'.format(self.rest_path, volume_name)
 
-        res = requests.delete(path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.delete(path, headers=self.headers)
+        res = self.rest.parse_result(res)
         
         
     def listVolumes(self):
@@ -231,8 +232,8 @@ class VolumeEndpoint(RestEndpoint):
            }
         '''
         
-        res = requests.get(self.rest_path, headers=self.headers)
-        res = self.parse_result(res)
+        res = self.rest.get(self.rest_path)
+        res = self.rest.parse_result(res)
         if res is not None:
             return res
         else:
@@ -268,8 +269,8 @@ class VolumeEndpoint(RestEndpoint):
             'limit': max_iops
         }
         path = '{}/{}'.format(self.rest_path, str(vol_id))
-        res = requests.put(path, headers=self.headers, data=json.dumps(params))
-        res = self.parse_result(res)
+        res = self.rest.put(path, data=json.dumps(params))
+        res = self.rest.parse_result(res)
 
         if res is not None:
             return res
@@ -277,13 +278,13 @@ class VolumeEndpoint(RestEndpoint):
             return None
 
 
-class AuthEndpoint(RestEndpoint):
+class AuthEndpoint:
     '''
     Authentication endpoints.
     '''
-    def __init__(self, **kwargs):
-        RestEndpoint.__init__(self, **kwargs)
-        self.rest_path += '/api/auth'
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + '/api/auth'
 
     def grantToken(self):
         '''
@@ -293,8 +294,8 @@ class AuthEndpoint(RestEndpoint):
         Returns:
            Auth token as a string, None on failure
         '''
-        res = requests.get('{}/{}'.format(self.rest_path, 'token?login=admin&password=admin'))
-        res = self.parse_result(res)
+        res = self.rest.get('{}/{}'.format(self.rest_path, 'token?login=admin&password=admin'))
+        res = self.rest.parse_result(res)
         if 'token' in res.keys():
             return res['token']
         else:
@@ -316,8 +317,8 @@ class AuthEndpoint(RestEndpoint):
         '''
 
         path = '{}/{}'.format(self.rest_path, 'currentUser')
-        res = requests.get(path)
-        res = self.parse_result(res)
+        res = self.rest.get(path)
+        res = self.rest.parse_result(res)
         if res != {}:
             return res
         else:
@@ -384,13 +385,117 @@ class UserEndpoint():
         else:
             return False
 
+class S3Endpoint():
+    
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path
 
+    def listBuckets(self, parse=True):
+        try:
+            r = self.rest.get(self.rest_path)
+            #return r.text
+            if parse:
+                ns='{http://s3.amazonaws.com/doc/2006-03-01/}'
+                root = ET.fromstring(r.text)
+                return [item.text for item in root.findall('{}Bucket/{}Name'.format(ns,ns))]
+            else:
+                return r
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+        except KeyboardInterrupt:
+            print "request cancelled on interrupt"
+        return None
 
+    def bucketItems(self,bucket,parse=True):
+        try:
+            r = self.rest.get('{}/{}'.format(self.rest_path,bucket))
+            if parse:
+                ns='{http://s3.amazonaws.com/doc/2006-03-01/}'
+                root = ET.fromstring(r.text)
+                return [item.text for item in root.findall('%sContents/%sKey' % (ns,ns))]
+            else:
+                return r
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+        except KeyboardInterrupt:
+            print "request cancelled on interrupt"
+
+    def createBucket(self,bucket):
+        try:
+            return self.rest.put('{}/{}'.format(self.rest_path,bucket))
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+        except KeyboardInterrupt:
+            print "request cancelled on interrupt"
+
+    def deleteBucket(self,bucket):
+        try:
+            return self.rest.delete('{}/{}'.format(self.rest_path,bucket))
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+        except KeyboardInterrupt:
+            print "request cancelled on interrupt"
+
+    def put(self,bucket,objname,data=None):
+        try:
+            r = self.rest.put('{}/{}/{}'.format(self.rest_path,bucket,objname),data=data)
+            return r
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+
+    def get(self,bucket,objname):
+        try:
+            r = self.rest.get('{}/{}/{}'.format(self.rest_path,bucket,objname))
+            return r
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+        except KeyboardInterrupt:
+            print "request cancelled on interrupt"
+
+    def delete(self,bucket,objname):
+        try:
+            return self.rest.delete('{}/{}/{}'.format(self.rest_path,bucket,objname))
+        except ConnectionError:
+                print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+        except KeyboardInterrupt:
+            print "request cancelled on interrupt"
+
+class TestS3Endpoint(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        rest = RestEndpoint(port=8000, auth=False)
+        self.bucket='testbbb'
+        self.api = S3Endpoint(rest)
+        self.api.createBucket(self.bucket)
+        time.sleep(1)
+
+    def test_listBuckets(self):
+        r = self.api.createBucket(self.bucket)
+        self.assertIn(r.status_code,[200,409])
+        buckets = self.api.listBuckets()
+        self.assertIn(self.bucket,buckets)
+
+    def test_items(self):
+        r = self.api.createBucket(self.bucket)
+        self.assertIn(r.status_code,[200,409])
+        r = self.api.put(self.bucket, 'a', 'b')
+        self.assertEquals(r.status_code,200)
+        
+        items = self.api.bucketItems(self.bucket)
+        self.assertIn('a', items)
+
+        r = self.api.delete(self.bucket,'a')
+        self.assertEquals(r.status_code,204)
+
+        items = self.api.bucketItems(self.bucket)
+        self.assertNotIn('a', items)
 
 class TestVolumeEndpoints(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.volEp = VolumeEndpoint()
+        rest = RestEndpoint()
+        self.volEp = VolumeEndpoint(rest)
 
     def test_listVolume(self):
         vols = self.volEp.listVolumes()

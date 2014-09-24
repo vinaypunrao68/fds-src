@@ -254,8 +254,16 @@ class FDSConsole(cmd.Cmd):
         print '-- to see current value of key, type set <key>'
         
     def complete_set(self, text, line, *args):
-        print line
         argv = shlex.split(line)
+        cmd = ''
+        if len(argv) == 2:
+            cmd = argv[1]
+        returnList = []
+        for key in self.data[helpers.KEY_SYSTEM].keys():
+            if key not in helpers.PROTECTED_KEYS and key.startswith(cmd) and key != cmd:
+                returnList.append(key)
+
+        return returnList
         
     def do_exit(self, *args):
         return True

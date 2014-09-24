@@ -1,6 +1,5 @@
 from  svchelper import *
 from fdslib.pyfdsp.apis import ttypes
-import pdb
 
 class ServiceContext(Context):
     def __init__(self, *args):
@@ -11,7 +10,7 @@ class ServiceContext(Context):
     def list(self):
         try:
             services = ServiceMap.list()
-            return tabulate(services, headers=['nodeid','service','ip','port'])
+            return tabulate(services, headers=['nodeid','service','ip','port'], tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
             return 'unable to get volume list'
@@ -25,7 +24,7 @@ class ServiceContext(Context):
             cntrs = ServiceMap.client(nodeid, svcname).getCounters('*')
             data = [(v,k) for k,v in cntrs.iteritems()]
             data.sort(key=itemgetter(1))
-            return tabulate(data,headers=['value', 'counter'])
+            return tabulate(data,headers=['value', 'counter'], tablefmt=self.config.getTableFormat())
             
         except Exception, e:
             log.exception(e)
@@ -41,7 +40,7 @@ class ServiceContext(Context):
                 flags = ServiceMap.client(nodeid, svcname).getFlags(None)
                 data = [(v,k) for k,v in flags.iteritems()]
                 data.sort(key=itemgetter(1))
-                return tabulate(data, headers=['value', 'flag'])
+                return tabulate(data, headers=['value', 'flag'], tablefmt=self.config.getTableFormat())
             else:
                 return ServiceMap.client(nodeid, svcname).getFlag(name)
         except Exception, e:
@@ -57,7 +56,7 @@ class ServiceContext(Context):
     def setflag(self, nodeid, svcname, flag, value):
         try:
             ServiceMap.client(nodeid, svcname).setFlag(flag, value)
-            return 'Success'
+            return 'Ok'
         except Exception, e:
             log.exception(e)
             return 'Unable to set flag: {}'.format(flag)
