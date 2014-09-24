@@ -6,7 +6,6 @@
 package com.formationds.om.rest.snapshot;
 
 import com.formationds.commons.model.SnapshotPolicy;
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -34,20 +33,18 @@ public class CreateSnapshotPolicy implements RequestHandler {
     public Resource handle(final Request request,
                            final Map<String, String> routeParameters)
             throws Exception {
+      try(final Reader reader =
+            new InputStreamReader( request.getInputStream(), "UTF-8")) {
+        Gson gson = new GsonBuilder().create();
+        final SnapshotPolicy policy = gson.fromJson( reader,
+                                                     SnapshotPolicy.class );
 
-        if (!FdsFeatureToggles.USE_CANNED.isActive()) {
-          try(final Reader reader =
-                new InputStreamReader( request.getInputStream(), "UTF-8")) {
-            Gson gson = new GsonBuilder().create();
-            final SnapshotPolicy policy = gson.fromJson( reader, SnapshotPolicy.class);
-
-            LOG.trace("calling XDI create snapshot policy with " + policy);
-            config.createSnapshotPolicy(
-              policy.getName(),
-              policy.getRecurrenceRule().toString(),
-              policy.getRetention());
-          }
-        }
+        LOG.trace("calling XDI create snapshot policy with " + policy);
+        config.createSnapshotPolicy(
+          policy.getName(),
+          policy.getRecurrenceRule().toString(),
+          policy.getRetention());
+      }
 
         return new JsonResource(new JSONObject().put("status", "OK"));
     }

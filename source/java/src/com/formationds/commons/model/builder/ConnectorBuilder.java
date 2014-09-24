@@ -46,7 +46,7 @@ public class ConnectorBuilder {
    */
   public Connector build() {
     Connector connector = new Connector();
-    connector.setType( type.getLocalizedName() );
+    connector.setType( type.name() );
     connector.setAttributes( attributes );
     return connector;
   }
