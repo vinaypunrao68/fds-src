@@ -523,6 +523,7 @@ struct CtrlNotifyQosControl {
 /* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
 struct CtrlNotifyDLTUpdate {
      1: FDSP.FDSP_DLT_Data_Type   dlt_data;
+     2: i32                       dlt_version;
 }
 
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */

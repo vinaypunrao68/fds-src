@@ -15,7 +15,6 @@
 #include <fds_module.h>
 #include <util/Log.h>
 #include <fds_config.hpp>
-#include <fds_counters.h>
 #include <fds_process.h>
 #include <concurrency/Mutex.h>
 #include <fdsp/FDSP_types.h>

@@ -171,7 +171,7 @@ AMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg)
 {
 #if 0
-    Error err = gl_omClient.dmtMgr->addSerialized(msg->dmt_data.dmt_data, DMT_COMMITTED);
+    Error err = storHvisor->om_client->addSerialized(msg->dmt_data.dmt_data, DMT_COMMITTED);
     hdr->msg_code = err.GetErrno();
     LOGDEBUG << "Notify DMT update " << hdr->msg_code;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *msg);
@@ -185,14 +185,12 @@ void
 AMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt)
 {
-#if 0
     Error err(ERR_OK);
     LOGNOTIFY << "OMClient received new DLT commit version  "
             << dlt->dlt_data.dlt_type;
-    err = gl_omClient.updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
+    err = storHvisor->om_client->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), *dlt);
-#endif
 }
 
 }  // namespace fds
