@@ -4,14 +4,13 @@ import cmd
 import types
 import shlex
 import shelve
-import atexit
 import os
 import traceback
 import context
-import inspect
 import helpers
 
 from helpers import *
+from tabulate import tabulate
 
 from contexts.svchelper import ServiceMap
 # import needed contexts
@@ -19,7 +18,9 @@ from contexts import volume
 from contexts import snapshot
 from contexts import snapshotpolicy
 from contexts import service
-from tabulate import tabulate
+from contexts import user
+from contexts import tenant
+
 """
 Console exit exception. This is needed to exit cleanly as 
 external libraries (argh) are throwing SystemExit Exception on errors.
@@ -40,24 +41,14 @@ class FDSConsole(cmd.Cmd):
             pass
 
         self.config = ConfigData(self.data)
-            
+
         self.prompt = 'fds:> '
         self.context = None
         self.previouscontext = None
-        self.setupDefaultConfig()
-        self.set_root_context(context.RootContext(self.config))
-        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
+        self.config.init()
 
-    def setupDefaultConfig(self):
-        defaults = {
-            KEY_ACCESSLEVEL: AccessLevel.USER,
-            'host' : '127.0.0.1',
-            'port' : 7020
-        }
-        for key in defaults.keys():
-            if None == self.config.getSystem(key):
-                #print 'setting default %s' % (key)
-                self.config.setSystem(key, defaults[key])
+        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
+        self.set_root_context(context.RootContext(self.config))
 
     def get_access_level(self):
         return self.config.getSystem(KEY_ACCESSLEVEL)
@@ -177,8 +168,9 @@ class FDSConsole(cmd.Cmd):
             ctx = self.context
             
         if len(argv) == 0 or argv[0] in ['help']:
-            self.print_topics("commands", sorted(ctx.get_method_names(self.config.getSystem(KEY_ACCESSLEVEL)) + self.get_global_commands()),   15,80)
+            self.print_topics("commands in context" , sorted(ctx.get_method_names(self.config.getSystem(KEY_ACCESSLEVEL))),   15,80)
             self.print_topics("subcontexts : [use cc <context> to switch]",ctx.get_subcontext_names(), 15, 80)
+            self.print_topics("globals",self.get_global_commands(), 15, 80)
         else:
             if line in self.get_global_commands():
                 if hasattr(self,'help_' + line):
@@ -239,7 +231,7 @@ class FDSConsole(cmd.Cmd):
                 if key not in helpers.PROTECTED_KEYS:
                     data.append([key, str(value)])
             #print data
-            print tabulate(data, headers=['name', 'value'])
+            print tabulate(data, headers=['name', 'value'], tablefmt=self.config.getTableFormat())
 
             return
         
@@ -262,9 +254,22 @@ class FDSConsole(cmd.Cmd):
         print '-- to see current value of key, type set <key>'
         
     def complete_set(self, text, line, *args):
-        print line
         argv = shlex.split(line)
+        cmd = ''
+        if len(argv) == 2:
+            cmd = argv[1]
+        returnList = []
+        for key in self.data[helpers.KEY_SYSTEM].keys():
+            if key not in helpers.PROTECTED_KEYS and key.startswith(cmd) and key != cmd:
+                returnList.append(key)
+
+        return returnList
         
+    def do_exit(self, *args):
+        return True
+
+    def help_exit(self, *args):
+        print 'exit the fds console'
 
     def get_names(self):
         names = [key for key,value in self.context.methods.items() if value <= self.config.getSystem(KEY_ACCESSLEVEL)]
@@ -372,6 +377,8 @@ class FDSConsole(cmd.Cmd):
         snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config,'policy'))
 
         self.root.add_sub_context(service.ServiceContext(self.config,'service'))
+        self.root.add_sub_context(tenant.TenantContext(self.config,'tenant'))
+        self.root.add_sub_context(user.UserContext(self.config,'user'))
 
     def run(self, argv = None):
         l =  []

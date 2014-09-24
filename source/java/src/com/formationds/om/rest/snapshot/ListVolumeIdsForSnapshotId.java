@@ -6,13 +6,11 @@
 package com.formationds.om.rest.snapshot;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.formationds.commons.model.Status;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.ConfigurationApi;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
 
@@ -44,7 +42,7 @@ public class ListVolumeIdsForSnapshotId implements RequestHandler {
         } else {
             volumeIds.addAll(config.listVolumesForSnapshotPolicy(policyId));
             if (volumeIds.isEmpty()) {
-                return new JsonResource(new Status(HttpResponseStatus.NO_CONTENT));
+                return new JsonResource(new  JSONArray( volumeIds ) );
             }
         }
 

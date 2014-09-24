@@ -5,12 +5,11 @@
 
 package com.formationds.om.rest.snapshot;
 
-import com.formationds.commons.model.Status;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
 
 import java.util.Map;
 
@@ -18,6 +17,6 @@ public class CreateSnapshot implements RequestHandler {
     @Override
     public Resource handle(final Request request,
                            final Map<String, String> routeParameters) throws Exception {
-        return new JsonResource(new Status(HttpResponseStatus.NOT_IMPLEMENTED));
+        return new JsonResource(new JSONObject().put("status", "NOT_IMPLEMENTED"));
     }
 }

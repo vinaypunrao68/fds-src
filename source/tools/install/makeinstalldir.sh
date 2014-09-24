@@ -16,6 +16,8 @@ externalpkgs=(
     java-common_0.51_all.deb
     oracle-java8-jdk_8u5_amd64.deb
 
+    libical1_1.0-0ubuntu1_amd64.deb
+
     libjemalloc1_3.6.0.deb
     redis-server_2.8.8.deb
     redis-tools_2.8.8.deb

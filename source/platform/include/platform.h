@@ -36,6 +36,9 @@ class NodePlatform : public Platform
     void        plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg);
     inline void plf_bind_process(NodePlatformProc *ptr) { plf_process = ptr; }
 
+    virtual boost::intrusive_ptr<PmSvcEp>
+    plat_new_pm_svc(NodeAgent::pointer, fds_uint32_t maj, fds_uint32_t min) override;
+
   protected:
     NodePlatformProc    *plf_process;
     DiskPlatModule      *disk_ctrl;

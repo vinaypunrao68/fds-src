@@ -1,11 +1,12 @@
 from  svchelper import *
 from fdslib.pyfdsp.apis import ttypes
-import pdb
-
+import fdslib.restendpoint
+import md5
+import os
 class VolumeContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-
+        self.s3api = fdslib.restendpoint.S3Endpoint(self.config.s3rest)
     #--------------------------------------------------------------------------------------
     @clicmd
     def list(self):
@@ -15,7 +16,7 @@ class VolumeContext(Context):
             return tabulate([(item.name, item.tenantId, item.dateCreated,
                               'OBJECT' if item.policy.volumeType == 0 else 'BLOCK',
                               item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in sorted(volumes, key=attrgetter('name'))  ],
-                            headers=['Name', 'TenantId', 'Create Date','Type', 'Max-Obj-Size', 'Blk-Size'])
+                            headers=['Name', 'TenantId', 'Create Date','Type', 'Max-Obj-Size', 'Blk-Size'], tablefmt=self.config.getTableFormat())
             return volumes
         except Exception, e:
             log.exception(e)
@@ -76,6 +77,7 @@ class VolumeContext(Context):
             log.exception(e)
             return 'create volume failed: {}'.format(vol_name)
 
+    #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('--domain', help='-name of domain that volume resides in')
     @arg('vol-name', help='-volume name')
@@ -86,3 +88,65 @@ class VolumeContext(Context):
         except Exception, e:
             log.exception(e)
             return 'delete volume failed: {}'.format(vol_name)
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    def put(self, vol_name, key, value=None):
+        'put an object into the volume'
+        try:
+
+            if key.startswith('@'):
+                value = open(key[1:],'rb').read()
+                key = os.path.basename(key[1:])
+
+            r = self.s3api.put(vol_name, key, value);
+            
+            if r.status_code == 200:
+                data = []
+                data += [('key' , key)]
+                data += [('md5sum' , md5.md5(value).hexdigest())]
+                data += [('length' , str(len(value)))]
+                data += [('first-10b' , str(value[:10]))]
+                data += [('last-10b' , str(value[-10:]))]
+                return tabulate(data, tablefmt=self.config.getTableFormat())
+            else:
+                print r.reason
+        except Exception, e:
+            log.exception(e)
+            return 'put {} failed on volume: {}'.format(key, vol_name)
+
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    def get(self, vol_name, key):
+        'get an object from the volume'
+        try:
+            r = self.s3api.get(vol_name, key);
+            if r.status_code == 200:
+                value = r.text
+                data = []
+                data += [('key' , key)]
+                data += [('md5sum' , md5.md5(value).hexdigest())]
+                data += [('length' , str(len(value)))]
+                data += [('first-10b' , str(value[:10]))]
+                data += [('last-10b' , str(value[-10:]))]
+                return tabulate(data, tablefmt=self.config.getTableFormat())
+            else:
+                print r.reason
+        except Exception, e:
+            log.exception(e)
+            return 'get {} failed on volume: {}'.format(key, vol_name)
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    def deleteobject(self, vol_name, key):
+        'delete an object from the volume'
+        try:
+            r = self.s3api.delete(vol_name, key);
+            if r.status_code == 204:
+                return 'Ok'
+            else:
+                print r.reason
+        except Exception, e:
+            log.exception(e)
+            return 'get {} failed on volume: {}'.format(key, vol_name)

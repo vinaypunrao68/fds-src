@@ -1,24 +1,14 @@
 /*
- * Copyright (C) 2014, All Rights Reserved, by Formation Data Systems, Inc.
- *
- *  This software is furnished under a license and may be used and copied only
- *  in  accordance  with  the  terms  of such  license and with the inclusion
- *  of the above copyright notice. This software or  any  other copies thereof
- *  may not be provided or otherwise made available to any other person.
- *  No title to and ownership of  the  software  is  hereby transferred.
- *
- *  The information in this software is subject to change without  notice
- *  and  should  not be  construed  as  a commitment by Formation Data Systems.
- *
- *  Formation Data Systems assumes no responsibility for the use or  reliability
- *  of its software on equipment which is not supplied by Formation Date Systems.
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
+import com.formationds.commons.model.type.Protocol;
 
 import javax.xml.bind.annotation.XmlRootElement;
+import java.util.List;
 
 /**
  * @author ptinius
@@ -27,20 +17,21 @@ import javax.xml.bind.annotation.XmlRootElement;
 public class Volume
   extends ModelBase
 {
-  private static final long serialVersionUID = -1;
+  private static final long serialVersionUID = 7961922641732546048L;
 
   private String name;
   private int limit;                    // maximum IOPS
-  private int sla;                      // minimum IOPS
+  private int sla;                      // minimum IOPS -- service level agreement
   private String id;
   private int priority;
   private Connector data_connector;
   private Usage current_usage;
+  private List<Protocol> apis;
 
   /**
    * default constructor
    */
-  Volume()
+  public Volume()
   {
     super();
   }
@@ -155,5 +146,19 @@ public class Volume
   public void setCurrent_usage( final Usage current_usage )
   {
     this.current_usage = current_usage;
+  }
+
+  /**
+   * @return Returns {@link String} representing the data connector protocol
+   */
+  public List<Protocol> getApis() {
+    return apis;
+  }
+
+  /**
+   * @param apis the {@link String} representing the data connector protocol
+   */
+  public void setApis( final String apis ) {
+    this.apis = Protocol.lookup( apis );
   }
 }

@@ -1,23 +1,11 @@
 /*
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
- *
- * This software is furnished under a license and may be used and copied only
- * in  accordance  with  the  terms  of such  license and with the inclusion
- * of the above copyright notice. This software or  any  other copies thereof
- * may not be provided or otherwise made available to any other person.
- * No title to and ownership of  the  software  is  hereby transferred.
- *
- * The information in this software is subject to change without  notice
- * and  should  not be  construed  as  a commitment by Formation Data Systems.
- *
- * Formation Data Systems assumes no responsibility for the use or  reliability
- * of its software on equipment which is not supplied by Formation Date Systems.
  */
 
 package com.formationds.commons.model.builder;
 
 import com.formationds.commons.model.ConnectorAttributes;
-import com.formationds.commons.model.type.SizeUnit;
+import com.formationds.util.SizeUnit;
 
 /**
  * @author ptinius
@@ -27,16 +15,9 @@ public class ConnectorAttributesBuilder {
   private long size;
 
   /**
-   * static utility method constructor
+   * default constructor
    */
-  private ConnectorAttributesBuilder() {
-  }
-
-  /**
-   * static utility method for creating a {@link ConnectorAttributesBuilder}
-   */
-  public static ConnectorAttributesBuilder aConnectorAttributes() {
-    return new ConnectorAttributesBuilder();
+  public ConnectorAttributesBuilder() {
   }
 
   /**
@@ -57,14 +38,6 @@ public class ConnectorAttributesBuilder {
   public ConnectorAttributesBuilder withSize( long size ) {
     this.size = size;
     return this;
-  }
-
-  /**
-   * @return Returns the {@link ConnectorAttributesBuilder}
-   */
-  public ConnectorAttributesBuilder but() {
-    return aConnectorAttributes().withUnit( unit )
-                                 .withSize( size );
   }
 
   /**

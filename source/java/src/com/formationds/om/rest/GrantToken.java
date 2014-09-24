@@ -4,6 +4,8 @@ package com.formationds.om.rest;
  */
 
 import com.formationds.apis.User;
+import com.formationds.commons.model.type.Feature;
+import com.formationds.commons.model.type.IdentityType;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
@@ -35,23 +37,22 @@ public class GrantToken implements RequestHandler {
         String password = requiredString(request, "password");
 
         final List<String> features = new ArrayList<>();
-        final JSONObject jsonObject = new JSONObject();
+        for( final Feature feature : Feature.byRole( IdentityType.USER ) ) {
+          features.add( feature.name() );
+        }
 
         try {
             AuthenticationToken token = xdi.getAuthenticator()
                                            .authenticate(login, password);
-
-            if (login.equalsIgnoreCase("admin")) {
-                features.add("System Management");
-                features.add("Volume Management");
-                features.add("Tenant Management");
-                features.add("User Management");
-            } else {
-                features.add("Volume Management");
-                features.add("User Management");
+            final User user = xdi.getAuthorizer().userFor( token );
+            if (user.isIsFdsAdmin()) {
+              features.clear();
+              for( final Feature feature : Feature.byRole( IdentityType.ADMIN ) ) {
+                features.add( feature.name() );
+              }
             }
 
-            final User user = xdi.getAuthorizer().userFor( token );
+            final JSONObject jsonObject = new JSONObject( );
             // temporary work-a-round for goldman
             jsonObject.put("username", login);
             jsonObject.put("userId", user.getId() );

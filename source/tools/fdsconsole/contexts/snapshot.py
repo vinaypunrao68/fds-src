@@ -12,7 +12,7 @@ class SnapshotContext(Context):
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
             snapshot = ServiceMap.omConfig().listSnapshots(volume_id)
             return tabulate([(item.snapshotName, item.volumeId, item.snapshotId, item.snapshotPolicyId, time.ctime((item.creationTimestamp)/1000)) for item in snapshot],
-                            headers=['Snapshot-name', 'volume-Id', 'Snapshot-Id', 'policy-Id', 'Creation-Time'])
+                            headers=['Snapshot-name', 'volume-Id', 'Snapshot-Id', 'policy-Id', 'Creation-Time'], tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
             return ' list snapshot polcies  snapshot polices for volume failed: {}'.format(vol_name)
@@ -27,7 +27,7 @@ class SnapshotContext(Context):
         'create a snaphot of the given volume'
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
-            snapshot = ServiceMap.omConfig().createSnapshot(volume_id, snap_name, retention)
+            ServiceMap.omConfig().createSnapshot(volume_id, snap_name, retention)
             return 'ok'
         except Exception, e:
             log.exception(e)

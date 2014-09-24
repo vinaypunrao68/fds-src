@@ -43,6 +43,8 @@ typedef struct plat_node_data
 class DomainNodeInv : public DomainContainer
 {
   public:
+    typedef boost::intrusive_ptr<DomainNodeInv> ptr;
+
     virtual ~DomainNodeInv();
     DomainNodeInv(char const *const       name);
     DomainNodeInv(char const *const       name,
@@ -57,6 +59,8 @@ class DomainNodeInv : public DomainContainer
 class DomainClusterMap : public DomainNodeInv
 {
   public:
+    typedef boost::intrusive_ptr<DomainClusterMap> ptr;
+
     virtual ~DomainClusterMap();
     DomainClusterMap(char const *const       name);
     DomainClusterMap(char const *const       name,

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ */
+
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
@@ -91,15 +95,15 @@ public class AuthenticatedUser
   }
 
   /**
-   * @param feature the {@link String} representation of the UI visible feature.
+   * @param features the {@link List} of {@link String} representation of the UI visible feature.
    */
-  public void setFeatures( final String feature )
+  public void setFeatures( final List<Feature> features )
   {
-    if( features == null )
+    if( this.features == null )
     {
-      features = new ArrayList<>( );
+      this.features = new ArrayList<>( );
     }
 
-    features.add( Feature.lookup( feature ) );
+    this.features.addAll( features );
   }
 }

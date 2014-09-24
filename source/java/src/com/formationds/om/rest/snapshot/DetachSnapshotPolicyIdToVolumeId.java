@@ -5,20 +5,25 @@
 
 package com.formationds.om.rest.snapshot;
 
-import com.formationds.commons.model.Status;
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.commons.model.helper.VolumeId;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.ConfigurationApi;
-import io.netty.handler.codec.http.HttpResponseStatus;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
 
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.Map;
 
 public class DetachSnapshotPolicyIdToVolumeId implements RequestHandler {
+  private static final Logger LOG =
+    Logger.getLogger(DetachSnapshotPolicyIdToVolumeId.class);
 
-    private static final String REQ_PARAM_VOLUME_ID = "volumeId";
     private static final String REQ_PARAM_POLICY_ID = "policyId";
     private ConfigurationApi config;
 
@@ -29,12 +34,17 @@ public class DetachSnapshotPolicyIdToVolumeId implements RequestHandler {
     @Override
     public Resource handle(final Request request,
                            final Map<String, String> routeParameters) throws Exception {
-        if (!FdsFeatureToggles.USE_CANNED.isActive()) {
-            config.detachSnapshotPolicy(
-                    requiredLong(routeParameters, REQ_PARAM_VOLUME_ID),
-                    requiredLong(routeParameters, REQ_PARAM_POLICY_ID));
-        }
+      final long policyId = requiredLong( routeParameters, REQ_PARAM_POLICY_ID );
+      try(final Reader reader =
+            new InputStreamReader( request.getInputStream(), "UTF-8")) {
+        Gson gson = new GsonBuilder().create();
+        final VolumeId volumeId = gson.fromJson( reader, VolumeId.class);
 
-        return new JsonResource(new Status(HttpResponseStatus.OK));
+        LOG.trace( "DETACH:: VOLUME ID: " + volumeId.getVolumeId() +
+                     " POLICY ID: " + policyId );
+        config.detachSnapshotPolicy( volumeId.getVolumeId(), policyId );
+      }
+
+      return new JsonResource(new JSONObject().put("status", "OK"));
     }
 }

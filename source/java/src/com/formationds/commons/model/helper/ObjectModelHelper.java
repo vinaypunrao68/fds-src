@@ -1,100 +1,61 @@
 /*
- * Copyright (C) 2014, All Rights Reserved, by Formation Data Systems, Inc.
- *
- *  This software is furnished under a license and may be used and copied only
- *  in  accordance  with  the  terms  of such  license and with the inclusion
- *  of the above copyright notice. This software or  any  other copies thereof
- *  may not be provided or otherwise made available to any other person.
- *  No title to and ownership of  the  software  is  hereby transferred.
- *
- *  The information in this software is subject to change without  notice
- *  and  should  not be  construed  as  a commitment by Formation Data Systems.
- *
- *  Formation Data Systems assumes no responsibility for the use or  reliability
- *  of its software on equipment which is not supplied by Formation Date Systems.
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.commons.model.helper;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import org.joda.time.format.ISODateTimeFormat;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.lang.reflect.Type;
+import java.text.ParseException;
+import java.util.Date;
 
 /**
  * @author ptinius
  */
 public class ObjectModelHelper
 {
-  private static final ObjectMapper mapper = new ObjectMapper();
-
-  private static ObjectMapper getMapper()
-  {
-    return mapper;
-  }
-
   /**
-   * @param json the {@code json} {@link String}
-   * @param type the a native {@code type} representation.
+   * @param date the {@link String} representing the RDATE spec format
    *
-   * @return Returns De-serialized native instance
+   * @return Returns {@link Date}
    *
-   * @throws IOException
-   * @throws JsonMappingException
-   * @throws JsonParseException
+   * @throws ParseException if there is a parse error
    */
-  public static <T> T toObject( final String json,
-                                final TypeReference<T> type )
-    throws IOException
-  {
-    try
-    {
-      return getMapper().readValue( json, type );
-    }
-    catch( Exception e )
-    {
-      throw new RuntimeException( e );
-    }
+  public static Date toiCalFormat( final String date )
+    throws ParseException {
+    return ISODateTimeFormat.dateOptionalTimeParser()
+                            .parseDateTime( date )
+                            .toDate();
   }
 
   /**
-   * @param inputStream the {@link java.io.InputStream} representing the json
-   * @param type the a native {@code type} representation
+   * @param json the {@link String} representing the JSON object
+   * @param type the {@link Type} to parse the JSON into
    *
-   * @return Returns De-serialized native instance
+   * @return Returns the
    */
-  public static <T> T toObject( final InputStream inputStream,
-                                final TypeReference<T> type )
-    throws IOException
+  public static <T> T toObject( final String json, final Type type )
   {
-    try
-    {
-      return getMapper().readValue( inputStream, type );
-    }
-    catch( Exception e )
-    {
-      throw new RuntimeException( e );
-    }
+    return new GsonBuilder().create().fromJson( json, type );
   }
 
   /**
-   * @param object the {@link Object} to represent as JSON
+   * @param object the {@link Object} representing the JSON
    *
    * @return Returns the {@link String} representing the JSON
    */
   public static String toJSON( final Object object )
   {
-    try
-    {
-      return getMapper().writeValueAsString( object );
-    }
-    catch( Exception e )
-    {
-      throw new RuntimeException( e );
-    }
+    Gson gson =
+      new GsonBuilder().setFieldNamingPolicy(
+        FieldNamingPolicy.IDENTITY)
+                       .setPrettyPrinting()
+                       .create();
+    return gson.toJson( object );
   }
 
   /**
