@@ -5,7 +5,6 @@
 package com.formationds.commons.model.builder;
 
 import com.formationds.commons.model.Stream;
-import com.formationds.commons.model.Volume;
 
 import java.net.URL;
 import java.util.List;
@@ -17,7 +16,7 @@ public class StreamBuilder {
   private int id;
   private URL url;
   private String method;
-  private List<Volume> volumes;
+  private List<String> volumes;
   private int frequency;
   private int duration;
 
@@ -39,7 +38,7 @@ public class StreamBuilder {
     return this;
   }
 
-  public StreamBuilder withVolumes(List<Volume> volumes) {
+  public StreamBuilder withVolumes(List<String> volumes) {
     this.volumes = volumes;
     return this;
   }
