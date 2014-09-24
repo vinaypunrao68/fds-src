@@ -38,13 +38,6 @@ public class SmokeTest {
     private final static String ADMIN_USERNAME = "admin";
     private static final String CUSTOM_METADATA_HEADER = "custom-metadata";
 
-    private final String adminToken;
-    private final String tenantName;
-    private final long tenantId;
-    private final String userName;
-    private final String password;
-    private final long userId;
-    private final String userToken;
     private final String adminBucket;
     private final String userBucket;
     private final AmazonS3Client adminClient;
@@ -55,15 +48,15 @@ public class SmokeTest {
         System.setProperty(AMAZON_DISABLE_SSL, "true");
         turnLog4jOff();
         JSONObject adminUserObject = getObject(OM_URL_PREFIX + "/api/auth/token?login=admin&password=admin", "");
-        adminToken = adminUserObject.getString("token");
+        String adminToken = adminUserObject.getString("token");
 
-        tenantName = UUID.randomUUID().toString();
-        tenantId = doPost(OM_URL_PREFIX + "/api/system/tenants/" + tenantName, adminToken).getLong("id");
+        String tenantName = UUID.randomUUID().toString();
+        long tenantId = doPost(OM_URL_PREFIX + "/api/system/tenants/" + tenantName, adminToken).getLong("id");
 
-        userName = UUID.randomUUID().toString();
-        password = UUID.randomUUID().toString();
-        userId = doPost(OM_URL_PREFIX + "/api/system/users/" + userName + "/" + password, adminToken).getLong("id");
-        userToken = getObject(OM_URL_PREFIX + "/api/system/token/" + userId, adminToken).getString("token");
+        String userName = UUID.randomUUID().toString();
+        String password = UUID.randomUUID().toString();
+        long userId = doPost(OM_URL_PREFIX + "/api/system/users/" + userName + "/" + password, adminToken).getLong("id");
+        String userToken = getObject(OM_URL_PREFIX + "/api/system/token/" + userId, adminToken).getString("token");
         doPut(OM_URL_PREFIX + "/api/system/tenants/" + tenantId + "/" + userId, adminToken);
         adminBucket = UUID.randomUUID().toString();
         userBucket = UUID.randomUUID().toString();
@@ -230,6 +223,15 @@ public class SmokeTest {
     private void turnLog4jOff() {
         Properties properties = new Properties();
         properties.put("log4j.rootCategory", "OFF, console");
+        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
+        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
+        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
+        PropertyConfigurator.configure(properties);
+    }
+
+    private void turnLog4jOn() {
+        Properties properties = new Properties();
+        properties.put("log4j.rootCategory", "DEBUG, console");
         properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
         properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
