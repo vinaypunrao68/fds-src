@@ -54,6 +54,9 @@ needed_packages=(
     libical-dev
     libical1
 
+    libfiu-dev
+    fiu-utils
+
     fds-pkghelper
     fds-pkg
     fds-pkgtools

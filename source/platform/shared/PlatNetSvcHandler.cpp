@@ -3,7 +3,12 @@
  */
 #include <string>
 #include <map>
+#include <vector>
 #include <csignal>
+#include<unordered_map>
+#include <fiu-control.h>
+#include <boost/tokenizer.hpp>
+#include <boost/algorithm/string.hpp>
 #include <fds_process.h>
 #include <net/PlatNetSvcHandler.h>
 #include <platform/platform-lib.h>
@@ -213,6 +218,46 @@ void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,  // N
                                  boost::shared_ptr<int32_t>& nullarg)
 {
     _return = PlatformProcess::plf_manager()->plf_get_flags_map().toMap();
+}
+
+/**
+* @brief 
+*
+* @param command
+*/
+bool PlatNetSvcHandler::setFault(boost::shared_ptr<std::string>& cmdline)
+{
+    boost::char_separator<char> sep(", ");
+    /* Parse the cmd line */
+    boost::tokenizer<boost::char_separator<char>> toknzr(*cmdline, sep);
+    std::unordered_map<std::string, std::string> args;
+    for (auto t : toknzr) {
+        if (args.size() == 0) {
+            args["cmd"] = t;
+            continue;
+        }
+        std::vector<std::string> parts;
+        boost::split(parts, t, boost::is_any_of("= "));
+        if (parts.size() != 2) {
+            return false;
+        }
+        args[parts[0]] = parts[1];
+    }
+    if (args.count("cmd") == 0 || args.count("name") == 0) {
+        return false;
+    }
+    /* Execute based on the cmd */
+    auto cmd = args["cmd"];
+    auto name = args["name"];
+    std::cout << "cmd: " << cmd << " name: " << name << std::endl;
+    if (cmd == "enable") {
+        fiu_enable(name.c_str(), 1, NULL, 0);
+    } else if (cmd == "enable_random") {
+        // TODO(Rao): add support for this
+    } else if (cmd == "disable") {
+        fiu_disable(name.c_str());
+    }
+    return true;
 }
 
 }  // namespace fds

@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <string>
 #include <iostream>
+#include <fiu-local.h>
 #include <fds_assert.h>
 #include <fds_process.h>
 #include <net/net_utils.h>
@@ -122,6 +123,9 @@ void FdsProcess::init(int argc, char *argv[],
             proc_id = conf_helper_.get<std::string>("id");
         }
         setup_cntrs_mgr(net::get_my_hostname() + "."  + proc_id);
+
+        /* Process wide fault injection */
+        fiu_init(0);
 
         /* Process wide timer service */
         setup_timer_service();

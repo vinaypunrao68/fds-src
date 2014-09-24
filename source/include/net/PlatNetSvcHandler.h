@@ -41,6 +41,10 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     void setFlag(const std::string& id, const int64_t value);
     int64_t getFlag(const std::string& id);
     void getFlags(std::map<std::string, int64_t> & _return, const int32_t nullarg);  // NOLINT
+    bool setFault(const std::string& command) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+        return false;
+    }
 
     virtual fpi::ServiceStatus getStatus(boost::shared_ptr<int32_t>& nullarg);  // NOLINT
     virtual void getCounters(std::map<std::string, int64_t> & _return,
@@ -51,6 +55,7 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     void setFlag(boost::shared_ptr<std::string>& id, boost::shared_ptr<int64_t>& value);  // NOLINT
     int64_t getFlag(boost::shared_ptr<std::string>& id);  // NOLINT
     void getFlags(std::map<std::string, int64_t> & _return, boost::shared_ptr<int32_t>& nullarg);  // NOLINT
+    bool setFault(boost::shared_ptr<std::string>& command);
 };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_PLATNETSVCHANDLER_H_
