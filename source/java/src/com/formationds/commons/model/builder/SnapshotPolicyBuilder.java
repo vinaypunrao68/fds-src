@@ -25,7 +25,7 @@ import com.formationds.commons.model.SnapshotPolicy;
 public class SnapshotPolicyBuilder {
   private long id;
   private String name;
-  private String recurrenceRule;
+  private RecurrenceRule recurrenceRule;
   private long retention;                     // time in seconds
 
   /**
@@ -60,7 +60,7 @@ public class SnapshotPolicyBuilder {
    * @return Returns {@link com.formationds.commons.model.builder.SnapshotBuilder}
    */
   public SnapshotPolicyBuilder withRecurrenceRule(final RecurrenceRule recurrenceRule) {
-    this.recurrenceRule = recurrenceRule.toString();
+    this.recurrenceRule = recurrenceRule;
     return this;
   }
 

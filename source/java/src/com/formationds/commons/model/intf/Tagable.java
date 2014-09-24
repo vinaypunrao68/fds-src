@@ -14,7 +14,7 @@
  *  of its software on equipment which is not supplied by Formation Date Systems.
  */
 
-package com.formationds.commons.model.intr;
+package com.formationds.commons.model.intf;
 
 import java.io.Serializable;
 
