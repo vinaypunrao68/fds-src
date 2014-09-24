@@ -16,7 +16,7 @@ angular.module("scripts/account/account.html", []).run(["$templateCache", functi
     "            <span class=\"header\">Name</span>\n" +
     "        </div>\n" +
     "        <div>\n" +
-    "            <span class=\"main-value\">Goldman</span>\n" +
+    "            <span class=\"main-value username\">{{username}}</span>\n" +
     "            <a>Edit</a>\n" +
     "        </div>\n" +
     "    </section>\n" +
@@ -66,9 +66,9 @@ angular.module("scripts/account/account.html", []).run(["$templateCache", functi
     "            <span class=\"header\">Password</span>\n" +
     "        </div>\n" +
     "\n" +
-    "        <div ng-show=\"!password_changing\">\n" +
+    "        <div ng-show=\"!password_changing\" class=\"change-password-summary\">\n" +
     "            <span class=\"detail-value\">********************</span>\n" +
-    "            <a ng-click=\"password_changing=true;\">Change Password</a>\n" +
+    "            <a class=\"change-password\" ng-click=\"password_changing=true;\">Change Password</a>\n" +
     "        </div>\n" +
     "\n" +
     "        <div ng-show=\"password_changing\">\n" +
@@ -79,8 +79,8 @@ angular.module("scripts/account/account.html", []).run(["$templateCache", functi
     "                {{ changePasswordError }}\n" +
     "            </div>\n" +
     "            <div style=\"display: flex;padding-top: 12px;\" ng-show=\"password_changing\" class=\"std-transition\">\n" +
-    "                <button class=\"btn btn-primary\" style=\"margin-right: 4px;\" ng-click=\"changePassword()\">Save</button>\n" +
-    "                <button class=\"btn btn-secondary\" ng-click=\"password_changing = false;\">Cancel</button>\n" +
+    "                <button class=\"btn btn-primary save-password\" style=\"margin-right: 4px;\" ng-click=\"changePassword()\">Save</button>\n" +
+    "                <button class=\"btn btn-secondary cancel-password-change\" ng-click=\"password_changing = false;\">Cancel</button>\n" +
     "            </div>\n" +
     "        </div>\n" +
     "\n" +
