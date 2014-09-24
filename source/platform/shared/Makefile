@@ -13,6 +13,7 @@ user_cpp         := \
     service-ep-lib.cpp \
     BaseAsyncSvcHandler.cpp \
     PlatNetSvcHandler.cpp \
+    node-workflow.cpp \
     fds_flags.cpp
 
 user_ar_libs     := fds-plat-lib

@@ -55,22 +55,68 @@ public class RecurrenceRuleTest {
 //      assertTrue( true );
 //    }
 //  }
-  /*
-Every other day - forever:
-  RRULE:FREQ=DAILY;INTERVAL=2
 
-Every 10 days, 5 occurrences:
-  RRULE:FREQ=DAILY;INTERVAL=10;COUNT=5
+  /**
+   * Every other day - forever:
+   *   RRULE:FREQ=DAILY;INTERVAL=2
+   */
+  @Test
+  public void testEveryOtherDayForever()
+  {
+    try {
+      final RecurrenceRule rule =
+        RecurrenceRule.parser( "FREQ=DAILY;INTERVAL=2" );
+      assertEquals( rule.toString(), "FREQ=DAILY;INTERVAL=2" );
+    } catch( ParseException e ) {
+      e.printStackTrace();
+      assertTrue( true );
+    }
+  }
 
+  /**
+   * Every 10 days, 5 occurrences:
+   *  RRULE:FREQ=DAILY;INTERVAL=10;COUNT=5
+  */
+  @Test
+  public void testEvery10Days5Occurrences()
+  {
+    try {
+      final RecurrenceRule rule =
+        RecurrenceRule.parser( "FREQ=DAILY;INTERVAL=10;COUNT=5" );
+      assertEquals( rule.toString(), "FREQ=DAILY;INTERVAL=10;COUNT=5" );
+    } catch( ParseException e ) {
+      e.printStackTrace();
+      assertTrue( true );
+    }
+  }
+  // TODO finish implement the following test
+ /*
 Everyday in January, for 3 years:
   RRULE:FREQ=YEARLY;UNTIL=20000131T090000Z;
    BYMONTH=1;BYDAY=SU,MO,TU,WE,TH,FR,SA
   or
   RRULE:FREQ=DAILY;UNTIL=20000131T090000Z;BYMONTH=1
+*/
 
-Weekly for 10 occurrences
-  RRULE:FREQ=WEEKLY;COUNT=10
+  /**
+   * Weekly for 10 occurrences
+   *  RRULE:FREQ=WEEKLY;COUNT=10
+   */
+  @Test
+  public void testWeekly10Occurrences()
+  {
+    try {
+      final RecurrenceRule rule =
+        RecurrenceRule.parser( "FREQ=WEEKLY;COUNT=10" );
+      assertEquals( rule.toString(), "FREQ=WEEKLY;COUNT=10" );
+    } catch( ParseException e ) {
+      e.printStackTrace();
+      assertTrue( true );
+    }
+  }
 
+  // TODO finish implementing these test
+/*
 Weekly until December 24, 1997
   RRULE:FREQ=WEEKLY;UNTIL=19971224T000000Z
 

@@ -1,12 +1,14 @@
 /*
- * Copyright (C) 2014, All Rights Reserved, by Formation Data Systems, Inc.
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.commons.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.builder.RecurrenceRuleBuilder;
 import com.formationds.commons.model.exception.ParseException;
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.i18n.ModelResource;
 import com.formationds.commons.model.type.iCalFields;
 import com.formationds.commons.model.util.iCalValidator;
@@ -27,7 +29,8 @@ public class RecurrenceRule
   private static final SimpleDateFormat UNTIL_DATE =
     new SimpleDateFormat( "yyyyMMdd'T'HHmmssZ" );
 
-  private String frequency;
+  @JsonProperty( "frequency" )
+  private iCalFields iCalField;
   private Date until;
   private int count = -1;
   private int interval = 0;
@@ -73,16 +76,16 @@ public class RecurrenceRule
    * @return Returns {@link String} representing the recurrence frequency (i.e.
    * how often an event recurs)
    */
-  public String getFrequency() {
-    return frequency;
+  public iCalFields getFrequency() {
+    return iCalField;
   }
 
   /**
-   * @param frequency the {@link String} representing the recurrence frequency
+   * @param iCalField the {@link iCalFields} representing the recurrence field
    *                  (i.e. how often an event recurs)
    */
-  public void setFrequency( String frequency ) {
-    this.frequency = frequency;
+  public void setFrequency( final iCalFields iCalField ) {
+    this.iCalField = iCalField;
     isFrequencyValid();
   }
 
@@ -127,14 +130,12 @@ public class RecurrenceRule
         ModelResource.getString( "ical.missing.freq" ) );
     }
 
-    final iCalFields field = iCalFields.valueOf( getFrequency() );
-    if( field == null ) {
+    if( iCalFields.valueOf( getFrequency().name() ) == null ) {
       throw new IllegalArgumentException(
         MessageFormat.format( ModelResource.getString( "ical.invalid.freq" ),
                               getFrequency() ) );
     }
   }
-
 
   /**
    * @param field the {@link iCalFields}
@@ -179,7 +180,7 @@ public class RecurrenceRule
         }
       } else if( iCalFields.UNTIL.name().equals( token ) ) {
         try {
-          builder = builder.withUntil( UNTIL_DATE.parse( next( t, token ) ) );
+          builder = builder.withUntil( ObjectModelHelper.toiCalFormat( next( t, token ) ) );
         } catch( java.text.ParseException e ) {
           throw new ParseException( token );
         }
@@ -193,11 +194,10 @@ public class RecurrenceRule
   private static String next( final StringTokenizer t,
                               final String lastToken ) {
     try {
-      final String nToken = t.nextToken();
-      System.out.println( "TOKEN: " + lastToken + " NEXT:" + nToken );
-      return nToken;
+      return t.nextToken();
     } catch (NoSuchElementException ignored ) {
     }
+
     throw new IllegalArgumentException(
       String.format( ModelResource.getString( "ical.missing.token" ),
                      lastToken ));

@@ -25,12 +25,10 @@ user_non_fds_libs :=                                                          \
 	rt config++
 
 user_cpp          :=                   \
-    om_unit_test.cpp                   \
     place_tbl_unit_test.cpp
 
 user_no_style     := $(user_cpp) $(user_cc)
-user_bin_exe      := om_unit_test place_tbl_test
-om_unit_test      := om_unit_test.cpp
+user_bin_exe      := place_tbl_test
 place_tbl_test    := place_tbl_unit_test.cpp
 
 include $(topdir)/Makefile.incl

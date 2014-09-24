@@ -17,7 +17,7 @@ import java.util.Map;
 
 public class DeleteSnapshotPolicy implements RequestHandler {
 
-    private static final String REQ_PARAM_POLICY_ID = "id";
+    private static final String REQ_PARAM_POLICY_ID = "policyId";
     private ConfigurationApi config;
 
     public DeleteSnapshotPolicy(final ConfigurationApi config) {

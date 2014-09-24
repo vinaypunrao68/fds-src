@@ -105,7 +105,12 @@ class OM_NodeAgent : public NodeAgent
                       boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dlt(const DLT *curDlt);
+
     virtual Error om_send_dlt_close(fds_uint64_t cur_dlt_version);
+    void    om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* rpcReq,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload);
+
     virtual Error om_send_dmt(const DMTPtr& curDmt);
     virtual Error om_send_dmt_close(fds_uint64_t dmt_version);
     virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
