@@ -17,7 +17,7 @@
 package com.formationds.commons.model.abs;
 
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.commons.model.intr.Tagable;
+import com.formationds.commons.model.intf.Tagable;
 import com.formationds.commons.model.type.ManagerType;
 import com.formationds.commons.model.type.NodeState;
 import org.apache.commons.lang3.builder.ToStringBuilder;

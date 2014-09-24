@@ -17,6 +17,7 @@
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
+import com.formationds.commons.model.exception.ParseException;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
@@ -29,7 +30,7 @@ public class SnapshotPolicy
 {
   private long id;
   private String name;
-  private String recurrenceRule;
+  private RecurrenceRule recurrenceRule;
   private long retention;         // time in seconds
 
   /**
@@ -75,7 +76,7 @@ public class SnapshotPolicy
   /**
    * @return Returns the {@link String}
    */
-  public String getRecurrenceRule()
+  public RecurrenceRule getRecurrenceRule()
   {
     return recurrenceRule;
   }
@@ -84,7 +85,14 @@ public class SnapshotPolicy
    * @param recurrenceRule the {@link String}
    */
   public void setRecurrenceRule( final String recurrenceRule )
-  {
+    throws ParseException {
+    this.recurrenceRule = RecurrenceRule.parser( recurrenceRule );
+  }
+
+  /**
+   * @param recurrenceRule the {@link RecurrenceRule}
+   */
+  public void setRecurrenceRule( final RecurrenceRule recurrenceRule ) {
     this.recurrenceRule = recurrenceRule;
   }
 

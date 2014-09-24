@@ -19,6 +19,11 @@ package com.formationds.commons.model.helper;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import org.joda.time.format.ISODateTimeFormat;
+
+import java.lang.reflect.Type;
+import java.text.ParseException;
+import java.util.Date;
 
 /**
  * @author ptinius
@@ -26,14 +31,28 @@ import com.google.gson.GsonBuilder;
 public class ObjectModelHelper
 {
   /**
+   * @param date the {@link String} representing the RDATE spec format
+   *
+   * @return Returns {@link Date}
+   *
+   * @throws ParseException if there is a parse error
+   */
+  public static Date toiCalFormat( final String date )
+    throws ParseException {
+    return ISODateTimeFormat.dateOptionalTimeParser()
+                            .parseDateTime( date )
+                            .toDate();
+  }
+
+  /**
    * @param json the {@link String} representing the JSON object
-   * @param clazz the {@link Class} to parse the JSON into
+   * @param type the {@link Type} to parse the JSON into
    *
    * @return Returns the
    */
-  public static <T> T toObject( final String json, final Class<T> clazz )
+  public static <T> T toObject( final String json, final Type type )
   {
-    return new GsonBuilder().create().fromJson( json, clazz );
+    return new GsonBuilder().create().fromJson( json, type );
   }
 
   /**

@@ -5,17 +5,20 @@
 
 package com.formationds.om.rest.snapshot;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formationds.commons.model.SnapshotPolicy;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.ConfigurationApi;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.Map;
 
 public class CreateSnapshotPolicy implements RequestHandler {
@@ -31,16 +34,19 @@ public class CreateSnapshotPolicy implements RequestHandler {
     public Resource handle(final Request request,
                            final Map<String, String> routeParameters)
             throws Exception {
-        final ObjectMapper mapper = new ObjectMapper();
 
         if (!FdsFeatureToggles.USE_CANNED.isActive()) {
-            final SnapshotPolicy policy = mapper.readValue(request.getInputStream(), SnapshotPolicy.class);
+          try(final Reader reader =
+                new InputStreamReader( request.getInputStream(), "UTF-8")) {
+            Gson gson = new GsonBuilder().create();
+            final SnapshotPolicy policy = gson.fromJson( reader, SnapshotPolicy.class);
 
             LOG.trace("calling XDI create snapshot policy with " + policy);
             config.createSnapshotPolicy(
-                    policy.getName(),
-                    policy.getRecurrenceRule(),
-                    policy.getRetention());
+              policy.getName(),
+              policy.getRecurrenceRule().toString(),
+              policy.getRetention());
+          }
         }
 
         return new JsonResource(new JSONObject().put("status", "OK"));
