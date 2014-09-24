@@ -6,9 +6,11 @@ import sys
 import json
 import unittest
 import random
-
+import xml.etree.ElementTree as ET
+import time
 try:
     import requests
+    from requests import ConnectionError
 except ImportError:
     print 'oops! I need the [requests] pkg. do: "sudo easy_install requests" OR "pip install requests"'
     sys.exit(0)
@@ -383,6 +385,111 @@ class UserEndpoint():
         else:
             return False
 
+class S3Endpoint():
+    
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path
+
+    def listBuckets(self, parse=True):
+        try:
+            r = self.rest.get(self.rest_path)
+            #return r.text
+            if parse:
+                ns='{http://s3.amazonaws.com/doc/2006-03-01/}'
+                root = ET.fromstring(r.text)
+                return [item.text for item in root.findall('{}Bucket/{}Name'.format(ns,ns))]
+            else:
+                return r
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+        except KeyboardInterrupt:
+            print "request cancelled on interrupt"
+        return None
+
+    def bucketItems(self,bucket,parse=True):
+        try:
+            r = self.rest.get('{}/{}'.format(self.rest_path,bucket))
+            if parse:
+                ns='{http://s3.amazonaws.com/doc/2006-03-01/}'
+                root = ET.fromstring(r.text)
+                return [item.text for item in root.findall('%sContents/%sKey' % (ns,ns))]
+            else:
+                return r
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+        except KeyboardInterrupt:
+            print "request cancelled on interrupt"
+
+    def createBucket(self,bucket):
+        try:
+            return self.rest.put('{}/{}'.format(self.rest_path,bucket))
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+        except KeyboardInterrupt:
+            print "request cancelled on interrupt"
+
+    def deleteBucket(self,bucket):
+        try:
+            return self.rest.delete('{}/{}'.format(self.rest_path,bucket))
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+        except KeyboardInterrupt:
+            print "request cancelled on interrupt"
+
+    def put(self,bucket,objname,data=None):
+        try:
+            r = self.rest.put('{}/{}/{}'.format(self.rest_path,bucket,objname),data=data)
+            return r
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+
+    def get(self,bucket,objname):
+        try:
+            r = self.rest.get('{}/{}/{}'.format(self.rest_path,bucket,objname))
+            return r
+        except ConnectionError:
+            print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+        except KeyboardInterrupt:
+            print "request cancelled on interrupt"
+
+    def delete(self,bucket,objname):
+        try:
+            return self.rest.delete('{}/{}/{}'.format(self.rest_path,bucket,objname))
+        except ConnectionError:
+                print "unable to connect to [%s:%s]"  % (self.rest.host,self.rest.port)
+        except KeyboardInterrupt:
+            print "request cancelled on interrupt"
+
+class TestS3Endpoint(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        rest = RestEndpoint(port=8000, auth=False)
+        self.bucket='testbbb'
+        self.api = S3Endpoint(rest)
+        self.api.createBucket(self.bucket)
+        time.sleep(1)
+
+    def test_listBuckets(self):
+        r = self.api.createBucket(self.bucket)
+        self.assertIn(r.status_code,[200,409])
+        buckets = self.api.listBuckets()
+        self.assertIn(self.bucket,buckets)
+
+    def test_items(self):
+        r = self.api.createBucket(self.bucket)
+        self.assertIn(r.status_code,[200,409])
+        r = self.api.put(self.bucket, 'a', 'b')
+        self.assertEquals(r.status_code,200)
+        
+        items = self.api.bucketItems(self.bucket)
+        self.assertIn('a', items)
+
+        r = self.api.delete(self.bucket,'a')
+        self.assertEquals(r.status_code,204)
+
+        items = self.api.bucketItems(self.bucket)
+        self.assertNotIn('a', items)
 
 class TestVolumeEndpoints(unittest.TestCase):
     @classmethod
