@@ -11,12 +11,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
-#include <util/Log.h>
-#include <fds_assert.h>
 #include <fds_process.h>
-#include <ObjectId.h>
-#include <FdsRandom.h>
 #include <object-store/SmTokenPlacement.h>
 
 using ::testing::AtLeast;

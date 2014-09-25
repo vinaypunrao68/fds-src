@@ -14,6 +14,9 @@
 
 namespace fds {
 
+typedef std::set<fds_uint16_t> DiskIdSet;
+typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
+
 /*
  * SmDiskMap keeps track of data and metadata SM token layout
  * on disks, and manages SM tokens persistent state.
@@ -68,10 +71,23 @@ class SmDiskMap : public Module, public boost::noncopyable {
     virtual void mod_startup();
     virtual void mod_shutdown();
 
+  private:  // methods
+    /**
+     * Reads existing HDDs and SSDs from /disk-map file
+     * created by platform. Later we may do that through
+     * shared memory
+     */
+    void getDiskMap();
+
   private:
     fds_uint32_t bitsPerToken_;
 
-    //
+    /// disk ID to path map
+    DiskLocMap disk_map;
+    /// set of disk IDs of existing SDD devices
+    DiskIdSet  ssd_ids;
+    /// set of disk IDs of existing HDD devices
+    DiskIdSet hdd_ids;
 };
 
 }  // namespace fds
