@@ -9,8 +9,6 @@
 #include <utest-types.h>
 #include <fds_types.h>
 
-#include <dm-tvc/OperationJournal.h>
-
 namespace fds {
 
 probe_mod_param_t commit_log_probe_param =
@@ -21,13 +19,10 @@ probe_mod_param_t commit_log_probe_param =
     .pr_max_sec_tout = 0
 };
 
-// Operation log
-DmTvcOperationJournal journal(0);
-
 /// Global singleton probe module
 CommitLogProbe gl_CommitLogProbe("CommitLog Probe Adapter", &commit_log_probe_param, nullptr);
 
-DmCommitLog gl_DmCommitLogMod("Probe CommitLog", 1, journal);
+DmCommitLog gl_DmCommitLogMod("Probe CommitLog", 1);
 
 CommitLogProbe::CommitLogProbe(const std::string &name, probe_mod_param_t *param, Module *owner)
         : ProbeMod(name.c_str(), param, owner) {}

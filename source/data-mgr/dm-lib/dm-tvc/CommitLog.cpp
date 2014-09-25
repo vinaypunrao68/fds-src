@@ -9,7 +9,6 @@
 
 #include <fds_process.h>
 #include <dm-tvc/CommitLog.h>
-#include <dm-tvc/OperationJournal.h>
 
 /*
 #include <libgen.h>
@@ -92,25 +91,12 @@ uint32_t CommitLogTx::read(serialize::Deserializer * d) {
     return bytes;
 }
 
-DmCommitLog::DmCommitLog(const std::string &modName, const fds_volid_t volId,
-        fds::DmTvcOperationJournal & journal,
-        fds_uint32_t buffersize /* = DEFAULT_COMMIT_LOG_FILE_SIZE */)
-        : Module(modName.c_str()), volId_(volId), journal_(journal), buffersize_(buffersize),
-        started_(false), buffering_(false) {
-    if (buffersize_ < MIN_COMMIT_LOG_BUFFER_SIZE) {
-        GLOGWARN << "Commit log buffer size can't be less than 1MB, setting it to 1MB";
-        buffersize_ = MIN_COMMIT_LOG_BUFFER_SIZE;
-    }
-
+DmCommitLog::DmCommitLog(const std::string &modName, const fds_volid_t volId)
+        : Module(modName.c_str()), volId_(volId), started_(false) {
     std::ostringstream oss;
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     oss << root->dir_user_repo_dm() << volId_;
     FdsRootDir::fds_mkdir(oss.str().c_str());
-
-    oss << "/" << COMMIT_BUFFER_FILENAME;
-    buffername_ = oss.str();
-
-    buffer_.reset(new ObjectLogger(buffername_, buffersize_, 0));
 }
 
 DmCommitLog::~DmCommitLog() {}
@@ -232,25 +218,10 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
         return 0;
     }
 
-    CommitLogTx::ptr ptx;
-    {
-        SCOPEDREAD(lockTxMap_);
-        ptx = txMap_[txId];
-    }
+    SCOPEDWRITE(lockTxMap_);
+    CommitLogTx::ptr ptx = txMap_[txId];
     ptx->committed = util::getTimeStampNanos();
-
-    {
-        SCOPEDWRITE(bufferLock_);
-        if (buffering_) {
-            buffer_->log(ptx.get());
-        }
-        // journal_.log(ptx);
-    }
-
-    {
-        SCOPEDWRITE(lockTxMap_);
-        txMap_.erase(txId);
-    }
+    txMap_.erase(txId);
 
     return ptx;
 }
@@ -296,8 +267,6 @@ Error DmCommitLog::snapshot(BlobTxId::const_ptr & txDesc, const std::string & na
         GLOGWARN << "Failed to commit snapshot transaction '" << txId << "'";
         return rc;
     }
-
-    startBuffering();
 
     return rc;
 }
@@ -351,41 +320,6 @@ fds_bool_t DmCommitLog::isPendingTx(const fds_uint64_t tsNano /* = util::getTime
     }
 
     return ret;
-}
-
-Error DmCommitLog::flushBuffer(std::function<Error (CommitLogTx::const_ptr)> handler,   // NOLINT
-        bool safe /* = true */) {
-    Error rc = ERR_OK;
-    boost::shared_ptr<ObjectLogger::Iterator<CommitLogTx> > iter =
-            buffer_->newIterator<CommitLogTx>(-1);
-    if (iter->valid()) {
-        do {
-            CommitLogTx::const_ptr val = iter->value();
-            if (!val->snapshot) {
-                rc = handler(val);
-            }
-            if (rc.ok()) {
-                if (safe) {
-                    bufferLock_.write_lock();
-                }
-
-                iter->next();
-                if (!iter->valid()) {   // eof, all entries are processed
-                    buffer_->reset();
-                    if (safe) {
-                        bufferLock_.write_unlock();
-                    }
-                    break;
-                }
-
-                if (safe) {
-                    bufferLock_.write_unlock();
-                }
-            }
-        } while (rc.ok());
-    }
-
-    return rc;
 }
 
 Error DmCommitLog::snapshotInsert(BlobTxId::const_ptr & txDesc) {

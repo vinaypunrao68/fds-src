@@ -90,15 +90,24 @@ class VolumeContext(Context):
             return 'delete volume failed: {}'.format(vol_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
-    def put(self, vol_name, key, value=None):
-        'put an object into the volume'
+    @clidebugcmd
+    @arg('value', help='value' , nargs='?')
+    def put(self, vol_name, key, value):
+        ''' 
+        put an object into the volume
+        to put a file : start key/value with @
+        put <volname> @filename  --> key will be name of the file
+        put <volname> <key> @filename
+        '''
+
         try:
 
             if key.startswith('@'):
                 value = open(key[1:],'rb').read()
                 key = os.path.basename(key[1:])
-
+            elif value != None and value.startswith('@'):
+                value = open(value[1:],'rb').read()
+            
             r = self.s3api.put(vol_name, key, value);
             
             if r.status_code == 200:
@@ -106,8 +115,8 @@ class VolumeContext(Context):
                 data += [('key' , key)]
                 data += [('md5sum' , md5.md5(value).hexdigest())]
                 data += [('length' , str(len(value)))]
-                data += [('first-10b' , str(value[:10]))]
-                data += [('last-10b' , str(value[-10:]))]
+                data += [('begin' , str(value[:30]))]
+                data += [('end' , str(value[-30:]))]
                 return tabulate(data, tablefmt=self.config.getTableFormat())
             else:
                 print r.reason
@@ -117,7 +126,7 @@ class VolumeContext(Context):
 
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clidebugcmd
     def get(self, vol_name, key):
         'get an object from the volume'
         try:
@@ -128,8 +137,8 @@ class VolumeContext(Context):
                 data += [('key' , key)]
                 data += [('md5sum' , md5.md5(value).hexdigest())]
                 data += [('length' , str(len(value)))]
-                data += [('first-10b' , str(value[:10]))]
-                data += [('last-10b' , str(value[-10:]))]
+                data += [('begin' , str(value[:30]))]
+                data += [('end' , str(value[-30:]))]
                 return tabulate(data, tablefmt=self.config.getTableFormat())
             else:
                 print r.reason
@@ -138,7 +147,7 @@ class VolumeContext(Context):
             return 'get {} failed on volume: {}'.format(key, vol_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clidebugcmd
     def deleteobject(self, vol_name, key):
         'delete an object from the volume'
         try:

@@ -96,7 +96,7 @@ class VolumeMeta : public HasLogger {
     /*
      * per volume queue
      */
-    FDS_VolumeQueue*  dmVolQueue;
+    boost::intrusive_ptr<FDS_VolumeQueue>  dmVolQueue;
 };
 
 }  // namespace fds
