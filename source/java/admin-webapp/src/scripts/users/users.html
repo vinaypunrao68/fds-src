@@ -37,19 +37,23 @@
             <thead>
                 <th><input type="checkbox" /></th>
                 <th>Name</th>
+<!--
                 <th>Tenant</th>
                 <th>Role</th>
                 <th>Access</th>
                 <th>Last Activity</th>
+-->
             </thead>
             <tboday>
-                <tr ng-repeat="user in users | filter:userQuery">
+                <tr class="user-row" ng-repeat="user in users | filter:userQuery">
                     <td><input type="checkbox" /></td>
-                    <td>{{user.firstname}} {{user.lastname}}</td>
+                    <td class="user-identifier">{{user.identifier}}</td>
+<!--
                     <td>{{user.tenant}}</td>
                     <td>{{user.role}}</td>
                     <td>{{user.access}}</td>
                     <td>{{user.last_activity}}</td>
+-->
                 </tr>
             </tboday>
         </table>

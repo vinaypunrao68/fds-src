@@ -1,4 +1,4 @@
-angular.module( 'qos' ).factory( '$snapshot_api', ['$http', function( $http ){
+angular.module( 'qos' ).factory( '$snapshot_service', ['$http', function( $http ){
 
     var service = {};
 

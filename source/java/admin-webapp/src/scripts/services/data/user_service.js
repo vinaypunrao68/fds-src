@@ -4,10 +4,15 @@ angular.module( 'user-management' ).factory( '$user_service', [ '$http', functio
 
     service.getUsers = function( callback ){
 
-        return $http.get( '/scripts/services/data/fakeusers.js' )
+        return $http.get( '/api/system/users' )
             .success( function( response ){
                 callback( response );
             });
+    };
+
+    service.createUser = function( username, password, success, failure ){
+        return $http.post( '/api/system/users/' + username + '/' + password )
+            .success( success ).error( failure );
     };
 
     service.changePassword = function( userId, newPassword, success, failure ){

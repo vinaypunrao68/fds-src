@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$volume_api', '$snapshot_api', '$modal_data_service', function( $scope, $volume_api, $snapshot_api, $modal_data_service ){
+angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$volume_api', '$snapshot_service', '$modal_data_service', function( $scope, $volume_api, $snapshot_api, $modal_data_service ){
 
     $scope.save = function(){
 
@@ -43,7 +43,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$v
 
                             $snapshot_api.createSnapshotPolicy( volume.snapshotPolicies[i], function( code, resp ){
                                 // attach the policy to the volume
-                                $snapshot_api.attachPolicyToVolume( resp, volId );
+//                                $snapshot_api.attachPolicyToVolume( resp, volId );
                             });
                 }
             });

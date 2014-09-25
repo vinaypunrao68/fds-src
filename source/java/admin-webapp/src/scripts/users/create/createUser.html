@@ -4,21 +4,38 @@
         <span>Create User</span>
     </div>
 
-    <div class="settings-body">
-        <div class="form-group" style="width: 260px;">
-            <fui-input type="text" class="form-control" size="32" placeholder="Username" ng-model="name">
+    <form name="createUserForm">
+        <div class="settings-body">
+            <div class="side-by-side" >
+                <fui-input type="text" style="width: 260px;" class="form-control create-user-name" size="32" placeholder="Username" ng-model="name" name="username" required ng-class="{required: createUserForm.username.$error.required && nameInit !== true}" ng-keyup="usernameTyped()">
+                </fui-input>
+                <div>
+                    <span class="required" ng-show="createUserForm.username.$error.required && nameInit !== true" class="required">Required</span>
+                </div>
+            </div>
+            <div class="page-vertical-spacer"></div>
+            <div class="side-by-side">
+                <fui-input style="width: 260px;" type="password" class="form-control create-user-password" size="32" placeholder="Password" ng-model="password" ng-keyup="passwordTyped()" name="password" required ng-class="{required: createUserForm.password.$error.required && passInit !== true}">
+                </fui-input>
+                <div>
+                    <span class="required" ng-show="createUserForm.password.$error.required && passInit !== true" class="required">Required</span>
+                </div>
+            </div>
+            <div class="side-by-side">
+                <fui-input style="width: 260px;" type="password" class="form-control create-user-confirm" size="32" placeholder="Confrim Password" ng-model="confirm" ng-keyup="confirmTyped()" name="confirm" required ng-class="{required: createUserForm.confirm.$error.required && confirmInit !== true}">
+                </fui-input>
+                <div>
+                    <span class="required" ng-show="createUserForm.confirm.$error.required && confirmInit !== true" class="required">Required</span>
+                </div>
+            </div>
+            <div class="error" ng-show="passwordError !== false">
+                {{ passwordError }}
+            </div>
         </div>
-        <div class="page-vertical-spacer"></div>
-        <div class="form-group" style="width: 260px;">
-            <fui-input type="password" class="form-control" size="32" placeholder="Password" ng-model="password">
-        </div>
-        <div class="form-group" style="width: 260px;">
-            <fui-input type="password" class="form-control" size="32" placeholder="Confrim Password" ng-model="confirm">
-        </div>            
-    </div>
+    </form>
 
     <div class="pull-left"style="padding-top: 12px;margin-bottom: 42px;">
-        <button class="btn btn-primary" style="display: inline-block;" ng-click="save()">Create User</button>
+        <button class="btn btn-primary create-user-button" style="display: inline-block;" ng-click="save()">Create User</button>
         <button class="btn btn-secondary cancel-creation" style="display: inline-block;" ng-click="cancel()">Cancel</button>
     </div>
 </div>
