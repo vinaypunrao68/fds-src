@@ -196,7 +196,13 @@ class FdsRmtEnv(FdsEnv):
     ###
     # Execute command to a remote node through ssh client.
     #
-    def ssh_exec(self, cmd, wait_compl = False, fds_bin = False, output = False):
+    def ssh_exec(self, 
+                 cmd, 
+                 wait_compl = False, 
+                 fds_bin = False, 
+                 output = False, 
+                 return_stdin = False):
+
         if fds_bin:
             cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_fds_root() +
                         'bin; ulimit -c unlimited; ulimit -n 12800; ./' + cmd)
@@ -220,9 +226,16 @@ class FdsRmtEnv(FdsEnv):
             for line in stderr.read().splitlines():
                 print("[%s Error] %s" % (self.env_rmt_host, line))
 
+        return_line = None
+        if return_stdin and wait_compl:
+            return_line = stdout.read()
+
         stdin.close()
         stdout.close()
         stderr.close()
+
+        if return_stdin and wait_compl:
+            return status, return_line.rstrip()
         return status
 
     ###
