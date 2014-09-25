@@ -36,13 +36,6 @@
 
 namespace fds {
 
-class DmTvcOperationJournal;
-
-const unsigned DEFAULT_COMMIT_LOG_BUFFER_SIZE = 20 * 1024 * 1024;
-const unsigned MIN_COMMIT_LOG_BUFFER_SIZE = 1 * 1024 * 1024;
-
-const std::string COMMIT_BUFFER_FILENAME("commit.buffer");
-
 // commit log transaction details
 struct CommitLogTx : serialize::Serializable {
     typedef boost::shared_ptr<CommitLogTx> ptr;
@@ -83,9 +76,7 @@ class DmCommitLog : public Module {
     typedef boost::shared_ptr<const DmCommitLog> const_ptr;
 
     // ctor & dtor
-    DmCommitLog(const std::string &modName, const fds_volid_t volId,
-            fds::DmTvcOperationJournal & journal,
-            fds_uint32_t buffersize = DEFAULT_COMMIT_LOG_BUFFER_SIZE);
+    DmCommitLog(const std::string &modName, const fds_volid_t volId);
     ~DmCommitLog();
 
     // module overrides
@@ -122,51 +113,13 @@ class DmCommitLog : public Module {
     // check if any transaction is pending from before the given time
     fds_bool_t isPendingTx(const fds_uint64_t tsNano = util::getTimeStampNanos());
 
-    // process all committed entries which are not in operation journal, and clear buffer
-    Error flushBuffer(std::function<Error (CommitLogTx::const_ptr)> handler,    // NOLINT
-            bool safe = true);
-
-    // reset buffer
-    inline void resetBuffer() {
-        SCOPEDWRITE(bufferLock_);
-        buffer_->reset();
-    }
-
-    // start/ stop buffering
-    inline void startBuffering() {
-        buffering_ = true;
-    }
-
-    inline void stopBuffering() {
-        buffering_ = false;
-    }
-
-    inline Error stopBuffering(std::function<Error (CommitLogTx::const_ptr)> handler) {  // NOLINT
-        SCOPEDWRITE(bufferLock_);
-        Error rc = flushBuffer(handler, false);
-        buffering_ = false;
-        return rc;
-    }
-
-    inline bool isBuffering() {
-        return buffering_;
-    }
-
   private:
     TxMap txMap_;    // in-memory state
     fds_rwlock lockTxMap_;
 
     fds_uint64_t volId_;
-    fds::DmTvcOperationJournal & journal_;
-    fds_uint32_t buffersize_;
     bool started_;
-    // not thread-safe, two different threads can't start buffering simultaneously
-    bool buffering_;
 
-    std::string buffername_;
-
-    boost::shared_ptr<fds::ObjectLogger> buffer_;
-    fds_rwlock bufferLock_;
 
     // Methods
     Error validateSubsequentTx(const BlobTxId & txId);

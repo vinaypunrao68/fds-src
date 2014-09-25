@@ -26,6 +26,7 @@
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
+#include <boost/lockfree/detail/branch_hints.hpp>
 
 #define FDS_LOG(lg) BOOST_LOG_SEV(lg.get_slog(), fds::fds_log::debug)
 #define FDS_LOG_SEV(lg, sev) BOOST_LOG_SEV(lg.get_slog(), sev)
@@ -159,5 +160,4 @@ fds_log* GetLog();
 typedef boost::shared_ptr<fds_log> fds_logPtr;
 
 }  // namespace fds
-
 #endif  // SOURCE_UTIL_LOG_H_
