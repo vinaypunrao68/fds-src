@@ -20,3 +20,9 @@ files:
     src: "`find ../../../Build/linux-x86_64.debug/lib/admin-webapp`"
     tree-base: ../../../Build/linux-x86_64.debug/lib/admin-webapp
    
+  - dest: /fds/etc/ssl/dev
+    src:
+      - ../../../config/etc/ssl/dev/jetty.pkcs12
+      - ../../../config/etc/ssl/dev/jetty.crt
+      - ../../../config/etc/ssl/dev/keystore
+      - ../../../config/etc/ssl/dev/jetty.key

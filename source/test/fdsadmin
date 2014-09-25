@@ -1,0 +1,207 @@
+#!/usr/bin/env python
+
+# Copyright 2014 by Formation Data Systems, Inc.
+#
+import fdslib.FdsSetup as inst
+import fdslib.BringUpCfg as fdscfg
+import fdslib.BasicCluster as BasicCluster
+
+import optparse as OptParse
+import sys
+import time
+
+#
+#    parser.add_option('-p', '--package', action = 'store_true', dest = 'make_pkg',
+#                      help = 'package fds tar ball')
+#
+#    parser.add_option('-i', '--install', action = 'store_true', dest = 'clus_inst',
+#                      help = 'install fds package to remote machines')
+#
+#    parser.add_option('-u', '--up', action = 'store_true', dest = 'clus_up',
+#                      help = 'bring up cluster')
+#
+#    parser.add_option('--reboot', action = 'store_true', dest = 'reboot',
+#                      help = 'reboot cluster')
+#
+#    parser.add_option('-d', '--down', action = 'store_true', dest = 'clus_down',
+#                      help = 'bring down cluster')
+#
+#    parser.add_option('-c', '--clean', action = 'store_true', dest = 'clus_clean',
+#                      help = 'cleanup cluster')
+#
+#
+#    if options.config_file is None:
+#        print "Unless you're just packaging, you need to pass a config file!"
+#        #sys.exit(1)
+#
+#    # Packaging
+#    env = inst.FdsEnv('.')
+#    pkg = inst.FdsPackage(env)
+#    if options.make_pkg:
+#        print "Make fds package from ", env.get_fds_source()
+#        pkg.package_tar()
+#        if options.config_file is None:
+#            sys.exit(0)
+#
+#    cfg = fdscfg.FdsConfigRun(None, options)
+#
+#    # Get all the configuration
+#    nodes = cfg.rt_get_obj('cfg_nodes')
+#    ams   = cfg.rt_get_obj('cfg_am')
+#    cli   = cfg.rt_get_obj('cfg_cli')
+#    steps = cfg.rt_get_obj('cfg_scenarios')
+#    start_om = True
+#
+#    # Install package
+#    if options.clus_inst:
+#        for n in nodes:
+#            n.nd_install_rmt_pkg()
+#        exit(0)
+#
+#    # filter nodes and ams based on the target
+#    if options.target:
+#
+#    # Shutdown
+#    if options.clus_down:
+#        for n in nodes:
+#            n.nd_cleanup_daemons()
+#            # todo(Rao): Unregister the services here.  Once we implement name based
+#            # services this should be easy
+#            print("NOTE: Run fdscli --remove-services to remove services")
+#
+#    # Cleanup
+#    if options.clus_clean:
+#        for n in nodes:
+#            n.nd_cleanup_node()
+#            n.nd_rmt_agent.ssh_exec('(cd /fds/sbin && ./redis.sh clean)', output=True)
+#            n.nd_rmt_agent.ssh_exec('rm /fds/uuid_port')
+#
+#
+#        sys.exit(0)
+#
+#    if options.reboot:
+#        om = cfg.rt_om_node
+#        om_ip = om.nd_conf_dict['ip']
+#
+#        for n in nodes:
+#            n.nd_start_platform(om_ip)
+#
+#        if start_om:
+#            print "Start OM on IP", om_ip
+#            om.nd_start_om()
+#        time.sleep(30) # Do not remove this sleep
+#        sys.exit(0)
+#
+#    if options.clus_up is None:
+#        sys.exit(0)
+#
+#    for n in nodes:
+#        n.nd_rmt_agent.ssh_exec('python -m disk_type -m', wait_compl=True)
+#        n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh start', wait_compl=True, output=True)
+#
+#    om = cfg.rt_om_node
+#    om_ip = om.nd_conf_dict['ip']
+#
+#    for n in nodes:
+#        n.nd_start_platform(om_ip)
+#
+#    if start_om:
+#        print "Start OM on IP", om_ip
+#        om.nd_start_om()
+#        time.sleep(8)
+#
+#    # activa nodes activates all services in the domain. Only
+#    # need to call it once
+#    """
+#    for n in nodes:
+#        if n.nd_conf_dict['node-name'] == 'node1':
+#            cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+#        else:
+#            cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+#        print "Waiting for node %s to come up" % n.nd_rmt_host
+#            time.sleep(3)
+#    """
+#
+#    cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+#    print "Waiting for services to come up"
+#    time.sleep(8)
+#
+#    for am in ams:
+#        am.am_start_service()
+#    print "Waiting for all commands to complete before existing"
+#    time.sleep(30) # Do not remove this sleep
+#
+#    #TODO: Add support for scenarios
+#    #for p in pols:
+#    #    p.policy_apply_cfg(cli)
+#
+#    # If we have scenarios to run steps, run them
+#    #if len(steps):
+#    #    for sce in steps:
+#    #        sce.start_scenario()
+#    #    sys.exit(0)
+
+
+
+
+
+def process_command_line_arguments ():
+    parser = OptParse.OptionParser(description = "Formation command line admin tool")
+
+    # Task specific options
+    parser.add_option('-m', '--monitor', action = 'store_true', dest = 'cluster_monitor',
+                      help = 'Monitor cluster status, like status, but with a terse output')
+
+    parser.add_option('-s', '--status', action = 'store_true', dest = 'cluster_status',
+                      help = 'Display cluster status')
+
+    parser.add_option('-p', '--process-status', action = 'store_true', dest = 'process_status',
+                      help = 'Display individual cluster processes status and statistics')
+
+    # Shared options
+    parser.add_option ('-f', '--file', dest = 'config_file', default = 'formation.conf',
+                       help = 'configuration file (default:  formation.conf)', metavar = 'FILE')
+
+    parser.add_option ('-n', '--dryrun', action = 'store_true', dest = 'dryrun',
+                      help = 'dry run, print commands only')
+
+    parser.add_option ('-R', '--fds-root', dest = 'fds_root', default = '/fds',
+                       help = 'specify fds-root directory')
+
+    parser.add_option('-q', '--quiet', action = 'store_true', dest = 'ssh_quiet',
+                      help = 'Don\'t show ssh connections')
+
+    parser.add_option ('-v', '--verbose', action = 'store_true', dest = 'verbose',
+                       help = 'enable verbosity')
+
+    parser.add_option('-t', '--target', dest = 'target', default = None,
+                      help = 'target node to apply -u, -d, -c, and -s against')
+
+    (options, args) = parser.parse_args()
+
+    return options, args
+
+def main():
+    (options, args) = process_command_line_arguments()
+
+    config = fdscfg.FdsConfigRun (None, options)
+
+    cluster = BasicCluster.basic_cluster (config.rt_get_obj('cfg_nodes'), config.rt_get_obj('cfg_am'), config.rt_get_obj('cfg_cli'))
+
+#    start_om = True
+
+    if options.cluster_status:     # Status
+        cluster.status (False)
+ 
+    if options.cluster_monitor:     # Status
+        (code, message) = cluster.status (False, True)
+        if code != 0:
+            print message;
+        sys.exit (code)
+ 
+    if options.process_status:     # Status
+        cluster.status (True)
+               
+
+if __name__ == '__main__':
+    main()

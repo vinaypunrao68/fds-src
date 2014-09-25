@@ -24,14 +24,14 @@ ObjectLocationTable::~ObjectLocationTable() {
 void
 ObjectLocationTable::setDiskId(fds_token_id smToken,
                                diskio::DataTier tier,
-                               fds_uint16_t disk_id) {
+                               fds_uint16_t diskId) {
     fds_verify(smToken < SM_TOKEN_COUNT);
     // here we are explicit with translation of tier to row number
     // if tier enum changes ....
     if (tier == diskio::diskTier) {
-        table[0][smToken] = disk_id;
+        table[0][smToken] = diskId;
     } else if (tier == diskio::flashTier) {
-        table[1][smToken] = disk_id;
+        table[1][smToken] = diskId;
     } else {
         fds_panic("Unknown tier set to object location table\n");
     }
@@ -50,6 +50,11 @@ ObjectLocationTable::getDiskId(fds_token_id smToken,
     }
     fds_panic("Unknown tier request from object location table\n");
     return 0;
+}
+
+fds_bool_t
+ObjectLocationTable::isDiskIdValid(fds_uint16_t diskId) const {
+    return (diskId != fds_diskid_invalid);
 }
 
 void
@@ -71,10 +76,10 @@ ObjectLocationTable::generateDiskToSmTokenMap() {
 }
 
 SmTokenSet
-ObjectLocationTable::getSmTokens(fds_uint16_t disk_id) const {
+ObjectLocationTable::getSmTokens(fds_uint16_t diskId) const {
     SmTokenSet tokens;
-    if (diskSmTokenMap.count(disk_id) == 0) return tokens;
-    const SmTokenSet& tok_set = diskSmTokenMap.at(disk_id);
+    if (diskSmTokenMap.count(diskId) == 0) return tokens;
+    const SmTokenSet& tok_set = diskSmTokenMap.at(diskId);
     for (SmTokenSet::const_iterator cit = tok_set.cbegin();
          cit != tok_set.cend();
          ++cit) {

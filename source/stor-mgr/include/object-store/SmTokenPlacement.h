@@ -39,9 +39,10 @@ class ObjectLocationTable: public serialize::Serializable {
      */
     void setDiskId(fds_token_id smToken,
                    diskio::DataTier tier,
-                   fds_uint16_t disk_id);
+                   fds_uint16_t diskId);
     fds_uint16_t getDiskId(fds_token_id smToken,
                            diskio::DataTier tier) const;
+    fds_bool_t isDiskIdValid(fds_uint16_t diskId) const;
 
     /**
      * Generates reverse map of disk id to token id
@@ -52,7 +53,7 @@ class ObjectLocationTable: public serialize::Serializable {
      * Get a set of SM tokens that reside on a given disk
      * @param[out] tokenSet is populated with SM tokens
      */
-    SmTokenSet getSmTokens(fds_uint16_t disk_id) const;
+    SmTokenSet getSmTokens(fds_uint16_t diskId) const;
 
     // compares to another object location table
     fds_bool_t operator ==(const ObjectLocationTable& rhs) const;

@@ -43,6 +43,7 @@ import shutil
 import hashlib
 import fdslib.FdsSetup as inst
 import fdslib.BringUpCfg as fdscfg
+import fdslib.BasicCluster as BasicCluster
 import threading
 import requests
 
@@ -87,6 +88,7 @@ class RestartTest(object):
         self.conn = None
         self.commitlog_base = '/tmp/restart-test-commit'
         self.buckets_clogs = {}
+        self.cluster = BasicCluster.basic_cluster (nodes, ams, cli)
 
     def __fileUploaded(self, bucket, srcpath, keyname, sha1):
         '''
@@ -99,20 +101,8 @@ class RestartTest(object):
         clog.write('%s|%s|%s\n' % (keyname, srcpath, sha1))
         clog.flush()
 
-    ## TODO: this was pulled from fds-tool.py.  It should be a common lib function returning
-    ## list of node objects containing status
     def nodeStatusAll(self):
-        for n in self.nodes:
-            self.nodeStatus(n)
-
-    ## TODO: from fds-tool.py.  Should be a common lib function returning a NodeStatus object
-    def nodeStatus(self, n):
-        n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.om.Main', output = True)
-        n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.am.Main', output = True)
-        n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep bare_am', output = True)
-        n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep plat', output = True)
-        n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep Mgr', output = True)
-        print '\n'
+        self.cluster.status()
 
     ## TODO: this was pulled from fds-tool.py.  It should be a common lib function
     def startNodes(self):
