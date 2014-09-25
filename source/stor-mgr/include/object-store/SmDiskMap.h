@@ -10,6 +10,7 @@
 #include <fds_module.h>
 #include <dlt.h>
 #include <persistent_layer/dm_io.h>
+#include <object-store/SmTokenPlacement.h>
 
 namespace fds {
 
@@ -23,7 +24,6 @@ class SmDiskMap : public Module, public boost::noncopyable {
     ~SmDiskMap();
 
     typedef std::unique_ptr<SmDiskMap> unique_ptr;
-    typedef std::set<fds_token_id> SmTokenSet;
 
     /**
      * Updates SM token on-disk location table.
@@ -37,12 +37,14 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * Translation from token or object ID to SM token ID
      */
     static fds_token_id smTokenId(fds_token_id tokId);
+    static fds_token_id smTokenId(const ObjectID& objId,
+                                  fds_uint32_t bitsPerToken);
     fds_token_id smTokenId(const ObjectID& objId);
 
     /**
      * Return a set of SM tokens that this SM currently owns
      */
-    void getSmTokens(SmTokenSet* smTokens);
+    SmTokenSet getSmTokens() const;
 
     /**
      * Get disk ID where ObjectID (or SM token) data and metadata
@@ -50,13 +52,13 @@ class SmDiskMap : public Module, public boost::noncopyable {
      */
     fds_uint16_t getDiskId(const ObjectID& objId,
                            diskio::DataTier tier);
-    fds_uint16_t getDiskId(fds_token_id tokId,
+    fds_uint16_t getDiskId(fds_token_id smTokId,
                            diskio::DataTier tier);
 
     /**
      * Get the root path to disk for a given SM token and tier
      */
-    const char* getDiskPath(fds_token_id tokId,
+    const char* getDiskPath(fds_token_id smTokId,
                             diskio::DataTier tier);
 
     /**
@@ -68,6 +70,8 @@ class SmDiskMap : public Module, public boost::noncopyable {
 
   private:
     fds_uint32_t bitsPerToken_;
+
+    //
 };
 
 }  // namespace fds

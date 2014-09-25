@@ -6,8 +6,6 @@
 
 namespace fds {
 
-#define SM_TOKEN_MASK 0x000000ff
-
 SmDiskMap::SmDiskMap(const std::string& modName)
         : Module(modName.c_str()),
           bitsPerToken_(0) {

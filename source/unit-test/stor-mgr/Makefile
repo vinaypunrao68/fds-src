@@ -36,18 +36,21 @@ user_cpp          := \
 	object_store_unit_test.cpp \
 	object_store_load_test.cpp \
         metastore_unit_test.cpp   \
-        sm_disk_map_test.cpp
+        sm_disk_map_test.cpp      \
+        sm_token_place_test.cpp
 
 user_no_style     := sm_unit_test.cpp
 user_bin_exe      := \
     ObjectStoreUnitTest \
     ObjectStoreLoadTest \
     metastore_unit_test \
-    smdiskmap_unit_test
+    smdiskmap_unit_test \
+    smtokenplace_ut
 
 ObjectStoreUnitTest := object_store_unit_test.cpp
 ObjectStoreLoadTest := object_store_load_test.cpp
 metastore_unit_test := metastore_unit_test.cpp
 smdiskmap_unit_test := sm_disk_map_test.cpp
+smtokenplace_ut     := sm_token_place_test.cpp
 
 include $(topdir)/Makefile.incl
