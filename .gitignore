@@ -84,3 +84,6 @@ source/tools/pharos/.DS_Store
 source/java/out/.DS_Store
 *.class
 source/unit-test/fds-probe/sm-embed/in.h
+source/java/admin-webapp/app
+source/java/admin-webapp/bower_components
+source/java/admin-webapp/node_modules
