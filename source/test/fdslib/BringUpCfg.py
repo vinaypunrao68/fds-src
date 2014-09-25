@@ -45,7 +45,7 @@ class FdsNodeConfig(FdsConfig):
     # Establish ssh connection with the remote node.  After this call, the obj
     # can use nd_rmt_host to send ssh commands to the remote node.
     #
-    def nd_connect_rmt_agent(self, env):
+    def nd_connect_rmt_agent(self, env, quiet=False):
         if 'fds_root' in self.nd_conf_dict:
             root = self.nd_conf_dict['fds_root']
             self.nd_rmt_agent = inst.FdsRmtEnv(root, self.nd_verbose)
@@ -63,7 +63,8 @@ class FdsNodeConfig(FdsConfig):
         self.nd_local_env = env
         self.nd_rmt_host  = self.nd_conf_dict['ip']
 
-        print "Making ssh connection to", self.nd_host_name()
+        if not quiet:
+            print "Establishing ssh connection to", self.nd_host_name()
         self.nd_rmt_agent.ssh_connect(self.nd_rmt_host)
 
     ###
@@ -137,7 +138,7 @@ class FdsNodeConfig(FdsConfig):
         sbin_dir = fds_dir + '/sbin'
         tools_dir = sbin_dir + '/tools'
         var_dir = fds_dir + '/var'
-        print("\nCleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
+        print("\nCleanup running processes on: %s, %s" % (self.nd_host_name(), bin_dir))
         # TODO (Bao): order to kill: AM, SM/DM, OM
         # TODO WIN-936 signal handler improvements - should use a different signal
         # and give the processes a chance to shutdown cleanly
@@ -156,7 +157,7 @@ class FdsNodeConfig(FdsConfig):
         sbin_dir = fds_root + '/sbin'
         tools_dir = sbin_dir + '/tools'
         var_dir = fds_root + '/var'
-        print("\nCleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
+        print("\nCleanup running processes on: %s, %s" % (self.nd_host_name(), bin_dir))
         # TODO (Bao): order to kill: AM, SM/DM, OM
         self.nd_rmt_agent.ssh_exec('pkill -9 -f \'\-\-fds\-root={}\''.format(fds_root), wait_compl=True)
 
@@ -170,7 +171,7 @@ class FdsNodeConfig(FdsConfig):
         tools_dir = sbin_dir + '/tools'
         dev_dir = fds_dir + '/dev'
         var_dir = fds_dir + '/var'
-        print("\nCleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
+        print("\nCleanup cores/logs/redis on: %s, %s" % (self.nd_host_name(), bin_dir))
         self.nd_rmt_agent.ssh_exec('(cd %s && rm core *.core); ' % bin_dir +
             '(cd %s && rm -r logs stats); ' % var_dir +
             '(cd /corefiles && rm *.core); '  +
@@ -466,6 +467,9 @@ class FdsConfigFile(object):
             'dryrun' : self.cfg_dryrun
         }
         self.cfg_parser.read(self.cfg_file)
+        if len (self.cfg_parser.sections()) < 1:
+            print 'ERROR:  Unable to open or parse the config file "%s".' % (self.cfg_file)
+            sys.exit (1)
         for section in self.cfg_parser.sections():
             items = self.cfg_parser.items(section)
             if re.match('user', section) != None:
@@ -550,9 +554,24 @@ class FdsConfigRun(object):
             self.rt_env.env_password = usr.get_config_val('password')
 
         # Setup ssh agent to connect all nodes and find the OM node.
+        
+        if hasattr (opt, 'target') and opt.target:
+            print "Target specified.  Applying commands against target: {}".format (opt.target)
+            self.rt_obj.cfg_nodes  = [node for node in self.rt_obj.cfg_nodes 
+                if node.nd_conf_dict['node-name'] == opt.target]
+            if len (self.rt_obj.cfg_nodes) is 0:
+                print "No matching nodes for the target '%s'" %(opt.target)
+                sys.exit(1)
+
+        quiet_ssh = False
+
+        if hasattr (opt, 'ssh_quiet') and opt.ssh_quiet:
+            quiet_ssh = True
+
         nodes = self.rt_obj.cfg_nodes
+
         for n in nodes:
-            n.nd_connect_rmt_agent(self.rt_env)
+            n.nd_connect_rmt_agent(self.rt_env, quiet_ssh)
             n.nd_rmt_agent.ssh_setup_env('')
 
             if n.nd_run_om() == True:
