@@ -71,7 +71,27 @@ class NodeUpdateIter : public NodeAgentIter
  */
 PlatformEpHandler::~PlatformEpHandler() {}
 PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc)
-    : fpi::PlatNetSvcIf(), net_plat(svc) {}
+    : fpi::PlatNetSvcIf(), net_plat(svc) {
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
+}
+
+// NotifyDLTUpdate
+// ---------------
+//
+void
+PlatformEpHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
+                              boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt)
+{
+    LOGNORMAL << " we receive dlt updating msg ";
+#if 0
+    Error err(ERR_OK);
+    LOGNOTIFY << "OMClient received new DLT commit version  "
+            << dlt->dlt_data.dlt_type;
+    err = gl_omClient.updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
+    hdr->msg_code = err.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), *dlt);
+#endif
+}
 
 // allUuidBinding
 // --------------

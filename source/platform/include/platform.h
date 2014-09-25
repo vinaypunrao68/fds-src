@@ -73,6 +73,7 @@ class NodeShmRWCtrl : public NodeShmCtrl
         }
         return gl_NodeShmRWCtrl.shm_node_rw;
     }
+    static ShmObjRW * shm_dlt_rw_inv() { return gl_NodeShmRWCtrl.shm_dlt_rw; }
 
     /**
      * Module methods
@@ -85,6 +86,7 @@ class NodeShmRWCtrl : public NodeShmCtrl
     ShmObjRWKeyUint64       *shm_am_rw;
     ShmObjRWKeyUint64       *shm_node_rw;
     ShmObjRW                *shm_uuid_rw;
+    ShmObjRW                *shm_dlt_rw;
 
     void shm_init_queue(node_shm_queue_t *queue);
     void shm_init_header(node_shm_inventory_t *hdr);

@@ -86,6 +86,11 @@ typedef struct node_shm_inventory
     fds_uint32_t             shm_am_inv_key_off;
     fds_uint32_t             shm_am_inv_key_siz;
     fds_uint32_t             shm_am_inv_obj_siz;
+
+    fds_uint32_t             shm_dlt_off;
+    fds_uint32_t             shm_dlt_key_off;
+    fds_uint32_t             shm_dlt_key_size;
+    fds_uint32_t             shm_dlt_size;
 } node_shm_inventory_t;
 
 #if 0
@@ -202,6 +207,7 @@ class NodeShmCtrl : public Module
     ShmObjROKeyUint64         *shm_am_inv;
     ShmObjROKeyUint64         *shm_node_inv;
     ShmObjRO                  *shm_uuid_bind;
+    ShmObjRO                  *shm_dlt;
     struct node_shm_inventory *shm_node_hdr;
 
     size_t                     shm_node_off;
@@ -210,6 +216,8 @@ class NodeShmCtrl : public Module
     size_t                     shm_uuid_siz;
     size_t                     shm_am_off;
     size_t                     shm_am_siz;
+    size_t                     shm_dlt_off;
+    size_t                     shm_dlt_size;
     size_t                     shm_total_siz;
 
     FdsShmem *shm_create_mgr(const char *fmt, char *name, int size);

@@ -1595,6 +1595,13 @@ OM_NodeContainer::om_bcast_dlt(const DLT* curDlt, fds_bool_t sm_only)
 {
     fds_uint32_t count = 0;
     count = dc_sm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+
+#ifdef LLIU_WORK_IN_PROGRESS
+    //   the following is to test for PM to receive dlt
+    LOGNORMAL << " try to send out dlt to pm to shared memory see see ";
+    dc_pm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+#endif
+
     if (sm_only) {
         return count;
     }
