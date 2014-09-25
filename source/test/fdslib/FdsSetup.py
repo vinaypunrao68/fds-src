@@ -3,6 +3,7 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 #
 import os, errno, sys
+import logging
 import subprocess, pdb
 import paramiko, time
 from scp import SCPClient
@@ -34,10 +35,10 @@ def mkdir_p(path):
 # FDS environment data derived from the closet FDS source tree or FDS Root run time.
 #
 class FdsEnv(object):
-    def __init__(self, _root):
+    def __init__(self, _root, _install=False, _fds_source_dir=''):
         self.env_cdir      = os.getcwd()
-        self.env_fdsSrc    = ''
-        self.env_install   = False
+        self.env_fdsSrc    = _fds_source_dir
+        self.env_install   = _install
         self.env_fdsRoot   = _root + '/'
         self.env_user      = 'root'
         self.env_password  = 'passwd'
@@ -49,17 +50,19 @@ class FdsEnv(object):
             'root-sbin' : 'sbin'
         }
 
-        tmp_dir = self.env_cdir
-        while tmp_dir != "/":
-            if os.path.exists(tmp_dir + '/Build/mk-scripts'):
-                self.env_fdsSrc = tmp_dir
-                break
-            tmp_dir = os.path.dirname(tmp_dir)
-
+        # Try to determine an FDS source directory if specified as empty.
         if self.env_fdsSrc == "":
-            # Assume node installation, assign the same as fds-root
-            self.env_install = True
-            self.env_fdsSrc  = self.env_fdsRoot
+            tmp_dir = self.env_cdir
+            while tmp_dir != "/":
+                if os.path.exists(tmp_dir + '/Build/mk-scripts'):
+                    self.env_fdsSrc = tmp_dir
+                    break
+                tmp_dir = os.path.dirname(tmp_dir)
+
+            if self.env_fdsSrc == "":
+                # Assume node installation, assign the same as fds-root
+                self.env_install = True
+                self.env_fdsSrc  = self.env_fdsRoot
 
         self.env_fdsSrc = self.env_fdsSrc + '/'
 
@@ -81,7 +84,8 @@ class FdsEnv(object):
             except: pass
 
     ###
-    # Return $fds_src/Build/<build_target> if fds_bin is True
+    # Return $fds-root if we installed from an FDS package, otherwise
+    #        $fds_src/Build/<build_target> if fds_bin is True
     #        $fds_src/../Build/<build_target> to get 3nd party codes.
     #
     def get_build_dir(self, debug, fds_bin = True):
@@ -90,6 +94,16 @@ class FdsEnv(object):
         if fds_bin:
             return self.env_fdsSrc + self.env_fdsDict['debug-base'];
         return self.env_fdsSrc + '../' + self.env_fdsDict['debug-base'];
+
+    ###
+    # Return $fds-root/var/logs if we installed from an FDS package, otherwise
+    #        $fds_src/Build/<build_target>/bin.
+    #
+    def get_log_dir(self):
+        if self.env_install:
+            return self.env_fdsRoot + '/var/logs'
+        else:
+            return self.get_bin_dir(debug=False)
 
     ###
     # Return the absolute path of the tar ball.
@@ -123,7 +137,7 @@ class FdsEnv(object):
     def get_config_dir(self):
         if self.env_install:
             return self.env_fdsRoot + 'etc'
-        return self.env_fdsSrc + 'config'
+        return self.env_fdsSrc + 'config/etc'
 
     def get_fds_root(self):
         return self.env_fdsRoot
@@ -136,17 +150,15 @@ class FdsEnv(object):
 # Execute command on a remote node.
 #
 class FdsRmtEnv(FdsEnv):
-    def __init__(self, root, verbose = None):
+    def __init__(self, root, verbose=None, install=True):
         super(FdsRmtEnv, self).__init__(root)
         self.env_ssh_clnt  = None
         self.env_scp_clnt  = None
         self.env_verbose   = verbose
         self.env_rmt_host  = None
 
-        # Overwrite the parent class to make it behaves like fds-root installation.
-        #
         self.env_fdsSrc    = root
-        self.env_install   = True
+        self.env_install   = install
 
         self.env_ldLibPath = ("export LD_LIBRARY_PATH=" +
                 self.get_fds_root() + 'lib:'
@@ -202,6 +214,7 @@ class FdsRmtEnv(FdsEnv):
                  fds_bin = False, 
                  output = False, 
                  return_stdin = False):
+        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
 
         if fds_bin:
             cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_fds_root() +
@@ -211,10 +224,10 @@ class FdsRmtEnv(FdsEnv):
 
         if self.env_verbose:
             if self.env_verbose['verbose']:
-                print "Running remote command on %s:" % self.env_rmt_host, cmd_exec
+                log.info("Running remote command on %s: %s" % (self.env_rmt_host, cmd_exec))
 
             if self.env_verbose['dryrun'] == True:
-                print "...not execute in dryrun mode"
+                log.info("...not executed in dryrun mode")
                 return 0
 
         stdin, stdout, stderr = self.env_ssh_clnt.exec_command(cmd_exec)
@@ -222,9 +235,9 @@ class FdsRmtEnv(FdsEnv):
         status  = 0 if wait_compl == False else channel.recv_exit_status()
         if output == True:
             for line in stdout.read().splitlines():
-                print("[%s] %s" % (self.env_rmt_host, line))
+                log.info("[%s] %s" % (self.env_rmt_host, line))
             for line in stderr.read().splitlines():
-                print("[%s Error] %s" % (self.env_rmt_host, line))
+                log.info("[%s Error] %s" % (self.env_rmt_host, line))
 
         return_line = None
         if return_stdin and wait_compl:
@@ -244,8 +257,15 @@ class FdsRmtEnv(FdsEnv):
     def ssh_exec_fds(self, cmd, wait_compl = False):
         return self.ssh_exec(cmd, wait_compl, True)
 
+    ###
+    # Execute command and wait for result. We'll also log
+    # output in this case.
+    #
+    def ssh_exec_wait(self, cmd):
+        return self.ssh_exec(cmd, True, False, True)
+
     def ssh_close(self):
-        env_ssh_clnt.close()
+        self.env_ssh_clnt.close()
 
     def get_host_name(self):
         return "" if self.env_rmt_host is None else self.env_rmt_host
@@ -326,7 +346,7 @@ class FdsPackage:
         rmt_ssh.scp_copy(local_path, self.p_env.get_fds_root())
 
         print "Unpacking the tar ball package to ", rmt_ssh.get_host_name()
-        rmt_ssh.ssh_exec('cd ' + self.p_env.get_fds_root() +
+        status = rmt_ssh.ssh_exec('cd ' + self.p_env.get_fds_root() +
                          '; tar xf ' + self.p_env.env_fdsDict['package'] +
                          '; cd ' + self.p_env.get_fds_root() +
                          '; rm ' + self.p_env.env_fdsDict['package'] +
@@ -337,3 +357,5 @@ class FdsPackage:
                                    self.p_env.env_fdsDict['root-sbin'] +
                          '; rm -rf ' + self.p_env.env_fdsDict['pkg-tools']  +
                          '; mkdir -p var/logs')
+
+        return status
