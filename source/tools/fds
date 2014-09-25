@@ -31,11 +31,16 @@ init_loghelper /tmp/fds_tool.log
 REDIS_ARG=
 
 # Variables
-applist="pm om dm sm am"
-declare -A apps
+applist="pm om dm sm am xdi"
+declare -A proc
+proc["am"]="bare_am"
+proc["xdi"]="java"
+proc["om"]="java"
 
+declare -A apps
 apps["om"]="orchMgr"
 apps["am"]="AMAgent"
+apps["xdi"]="AMAgent"
 apps["sm"]="StorMgr"
 apps["dm"]="DataMgr"
 apps["pm"]="platformd"
@@ -134,11 +139,6 @@ function stopApp() {
             else
                 logwarn "$(yellow stopping ${name}..)"
                 kill -9 ${pid}
-                
-                if [[ ${name} == "am" ]]; then
-                    pkill -9 -f com.formationds.am.Main
-                    pkill -9 bare_am
-                fi
             fi
         fi
     done
@@ -178,10 +178,10 @@ function getAppPid() {
         if [[ -n $pid ]] ; then
             pid=$(pgrep -P $pid 2>/dev/null)
         fi
-    elif [[ $name == "am" ]]; then
+    elif [[ $name == "am" ]] || [[  $name == "xdi"  ]]; then
         pid=$(pgrep AMAgent)
         if [[ -n $pid ]] ; then
-            pid=$(pgrep -P $pid 2>/dev/null)
+            pid=$(pgrep -P $pid ${proc[${name}]} 2>/dev/null)
         fi
     else
         pid=$(pgrep ${apps[$name]})

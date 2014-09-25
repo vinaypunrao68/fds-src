@@ -24,6 +24,6 @@ if __name__ == "__main__":
     for rec in files:
         rec = rec.rstrip('\n')
         bin_name = re.split("/", rec)
-        xml_path='--gtest_output="xml:' + bin_name[-1] + '.xml"'
+        xml_path='--gtest_output=xml:' + files_path + '/' + bin_name[-1] + '.xml'
         print "Running:", rec, xml_path
         subprocess.call([rec, xml_path])

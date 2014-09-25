@@ -190,8 +190,12 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
 
     // check if this is a snapshot
     if (shVol->voldesc->isSnapshot()) {
-        LOGWARN << "put on a snapshot is not allowed.";
+        LOGWARN << "txn on a snapshot is not allowed.";
         shVol->readUnlock();
+        StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback, blobReq->cb);
+        qos_ctrl->markIODone(qosReq);
+        cb->call(FDSN_StatusErrorAccessDenied);
+        delete blobReq;
         return FDSN_StatusErrorAccessDenied;
     }
 
@@ -284,11 +288,13 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
 
     // check if this is a snapshot
     if (shVol->voldesc->isSnapshot()) {
-        LOGWARN << "put on a snapshot is not allowed.";
+        LOGWARN << "txn on a snapshot is not allowed.";
         shVol->readUnlock();
+        qos_ctrl->markIODone(qosReq);
+        blobReq->cbWithResult(FDSN_StatusErrorAccessDenied);
+        delete blobReq;
         return FDSN_StatusErrorAccessDenied;
     }
-
 
     // TODO(Andrew): Here we're turning the offset aligned
     // blobOffset back into an absolute blob offset (i.e.,

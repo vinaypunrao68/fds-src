@@ -439,7 +439,8 @@ class FdsnIf : public apis::AmServiceIf {
                       << ", log_counter = " << io_log_counter;
         }
         LOGDEBUG << "Finishing updateBlobOnce for blob " << *blobName
-                 << " at object offset " << objectOffset->value;
+                 << " at object offset " << objectOffset->value
+                 << " status:" << putHandler.status;
 
         // Throw an exception if we didn't get an OK response
         if (putHandler.status != ERR_OK) {
