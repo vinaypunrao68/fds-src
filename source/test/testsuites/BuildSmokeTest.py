@@ -18,10 +18,25 @@ def suiteConstruction():
     """
     suite = unittest.TestSuite()
 
+    # Build the necessary FDS installation directory structure.
     suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
+
+    # Start the node(s) according to configuration supplied with the -q cli option.
     suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
     suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
     suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate())
+
+    # TODO(GREG): Put a simple load test here.
+
+    # Shut the daemons down individually? Or all at once?
+    #suite.addTest(testcases.TestFDSModMgt.TestSMShutDown())
+    #suite.addTest(testcases.TestFDSModMgt.TestDMShutDown())
+    #suite.addTest(testcases.TestFDSModMgt.TestOMShutDown())
+    #suite.addTest(testcases.TestFDSModMgt.TestPMShutDown())
+    suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
+
+    # Cleanup FDS installation directory.
+    suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
 
     return suite
 

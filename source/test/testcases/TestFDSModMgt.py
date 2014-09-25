@@ -503,13 +503,89 @@ class TestOMShutDown(TestCase.FDSTestCase):
         status = om_node.nd_rmt_agent.ssh_exec_wait("pkill -9 orchMgr")
 
         if status != 0:
-            self.log.error("OM shutdown on %s returned status %d." %(om_node.nd_conf_dict['node-name'], status))
+            self.log.error("OM (orchMgr) shutdown on %s returned status %d." %(om_node.nd_conf_dict['node-name'], status))
+            return False
+
+        status = om_node.nd_rmt_agent.ssh_exec_wait('pkill -9 -f com.formationds.om.Main')
+
+        if status != 0:
+            self.log.error("OM (com.formationds.om.Main) shutdown on %s returned status %d." %(om_node.nd_conf_dict['node-name'], status))
             return False
 
         time.sleep(2)
 
         return True
 
+
+# This class contains the attributes and methods to test
+# shutting down an Access Manager (AM) module.
+class TestAMShutDown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestAMShutDown, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_AMShutDown():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("AM module shutdown caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_AMShutDown(self):
+        """
+        Test Case:
+        Attempt to shutdown the AM module(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            self.log.info("Shutdown AM on %s." % n.nd_conf_dict['node-name'])
+
+            status = n.nd_rmt_agent.ssh_exec_wait("pkill -9 -f com.formationds.am.Main;")
+
+            if status != 0:
+                self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+                return False
+
+            status = n.nd_rmt_agent.ssh_exec_wait('pkill -9 bare_am')
+
+            if status != 0:
+                self.log.error("AM (bare_am) shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+                return False
+
+            status = n.nd_rmt_agent.ssh_exec_wait('pkill -9 AMAgent')
+
+            if status != 0:
+                self.log.error("AM (AMAgent) shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+                return False
+
+            time.sleep(2)
+
+        return True
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

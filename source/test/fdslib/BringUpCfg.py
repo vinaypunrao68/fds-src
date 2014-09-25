@@ -217,7 +217,7 @@ class FdsNodeConfig(FdsConfig):
         dev_dir = fds_dir + '/dev'
         var_dir = fds_dir + '/var'
         print("\nCleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
-        self.nd_rmt_agent.ssh_exec('(cd %s && rm core *.core); ' % bin_dir +
+        status = self.nd_rmt_agent.ssh_exec('(cd %s && rm core *.core); ' % bin_dir +
             '(cd %s && rm -r logs stats); ' % var_dir +
             '(cd /corefiles && rm *.core); '  +
             '(cd %s/core && rm *.core); ' % var_dir +
@@ -225,6 +225,7 @@ class FdsNodeConfig(FdsConfig):
             '(cd %s && rm -f hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
             '(cd %s && rm -r sys-repo/ && rm -r user-repo/); ' % fds_dir +
             '(cd /dev/shm && rm -f 0x*)', wait_compl=True, output=True)
+        return status
 
 ###
 # Handle AM config section
