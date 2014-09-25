@@ -3,12 +3,14 @@ mockAuth = function() {
     var adminPassword = 'admin';
 
     var admin = {
+        identifier: 'admin',
         userId: 0,
         username: 'admin',
         features: ['SYS_MGMT','Volume Management','TENANT_MGMT','User Management']
     };
 
     var goldman = {
+        identifier: 'goldman',
         userId: '1',
         username: 'goldman',
         features: ['Volume Management','User Management']
@@ -108,6 +110,8 @@ mockAuth = function() {
 
         var service = {};
 
+        service.users = [ admin ];
+
         service.changePassword = function( userId, newPassword, success, failure ){
 
             if ( userId === 'FAIL_PLEASE' ){
@@ -120,8 +124,16 @@ mockAuth = function() {
             success();
         };
 
-        service.getUsers = function( callback ){
+        service.createUser = function( username, password, success, failure ){
 
+            var user = { identifier: username, password: password, userId: (new Date()).getTime() };
+            service.users.push( user );
+
+            success( user );
+        };
+
+        service.getUsers = function( callback ){
+            callback( service.users );
         };
 
         return service;
