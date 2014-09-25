@@ -88,10 +88,6 @@ class DataMgr : public Module, public DmIoReqHandler {
     virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) override;
     fds_bool_t amIPrimary(fds_volid_t volUuid);
 
-    FdsCounters * getCounters() {
-        return counters_.get();
-    }
-
     inline StatStreamAggregator::ptr statStreamAggregator() {
         return statStreamAggr_;
     }
@@ -99,6 +95,14 @@ class DataMgr : public Module, public DmIoReqHandler {
     inline const std::string & volumeName(fds_volid_t volId) {
         FDSGUARD(*vol_map_mtx);
         return vol_meta_map[volId]->vol_desc->name;
+    }
+
+    inline const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
+        FDSGUARD(*vol_map_mtx);
+        std::unordered_map<fds_uint64_t, VolumeMeta*>::const_iterator iter =
+                vol_meta_map.find(volId);
+        return (vol_meta_map.end() != iter && iter->second ?
+                iter->second->vol_desc : 0);
     }
 
     Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
@@ -261,9 +265,6 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     fds_mutex *vol_map_mtx;
 
-    /* Counters */
-    std::unique_ptr<FdsCounters> counters_;
-
     Error getVolObjSize(fds_volid_t volId,
                         fds_uint32_t *maxObjSize);
 
@@ -296,18 +297,6 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     Error notifyDMTClose();
     void finishForwarding(fds_volid_t volid);
-
-    static Error vol_handler(fds_volid_t vol_uuid,
-                             VolumeDesc* desc,
-                             fds_vol_notify_t vol_action,
-                             fpi::FDSP_NotifyVolFlag vol_flag,
-                             fpi::FDSP_ResultType result);
-
-    static void node_handler(fds_int32_t  node_id,
-                             fds_uint32_t node_ip,
-                             fds_int32_t  node_st,
-                             fds_uint32_t node_port,
-                             FDS_ProtocolInterface::FDSP_MgrIdType node_type);
 
     static Error volcat_evt_handler(fds_catalog_action_t,
                                     const fpi::FDSP_PushMetaPtr& push_meta,

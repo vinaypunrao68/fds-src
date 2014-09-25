@@ -184,7 +184,9 @@ void TokenCompactor::snapDoneCb(const Error& error,
         ObjectID id(it->key().ToString());
 
         omd.deserializeFrom(it->value());
-        obj_phy_loc_t* loc = omd.getObjPhyLoc(cur_tier);
+        // TOOD(Andrew): Remove this const cast when all of the loc
+        // functions (e.g., is_shadow) handle a const variable
+        obj_phy_loc_t* loc = const_cast<obj_phy_loc_t *>(omd.getObjPhyLoc(cur_tier));
         // we only care about the tier this compactor is working on
         fds_verify(loc != NULL);
         if (loc->obj_tier != cur_tier) {

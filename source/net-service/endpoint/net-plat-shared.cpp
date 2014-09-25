@@ -6,10 +6,11 @@
 #include <map>
 #include <ep-map.h>
 #include <fds_process.h>
-#include <net/net-service-tmpl.hpp>
+#include <net/net-service.h>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
 #include <platform/net-plat-shared.h>
+#include <platform/service-ep-lib.h>
 
 namespace fds {
 
@@ -67,8 +68,8 @@ NetPlatSvc::mod_enable_service()
     plat_self->pda_register();
     nplat_refresh_shm();
 
-    if (!plat_lib->plf_is_om_node()) {
-        plat_self->pda_connect_domain(fpi::DomainID());
+    if (!plat_lib->plf_is_om_node() && (plat_master != NULL)) {
+        plat_master->pda_connect_domain(fpi::DomainID());
     }
 }
 
@@ -206,13 +207,9 @@ NetPlatSvc::nplat_set_my_ep(EpSvcImpl::pointer ep)
  * domain master.
  * -----------------------------------------------------------------------------------
  */
+DomainAgent::~DomainAgent() {}
 DomainAgent::DomainAgent(const NodeUuid &uuid, bool alloc_plugin)
-    : PmAgent(uuid), agt_domain_evt(NULL), agt_domain_ep(NULL)
-{
-    if (alloc_plugin == true) {
-        agt_domain_evt = new DomainAgentPlugin(this);
-    }
-}
+    : PmAgent(uuid), agt_domain_ep(NULL) {}
 
 /**
  * pda_connect_domain
@@ -226,16 +223,12 @@ DomainAgent::pda_connect_domain(const fpi::DomainID &id)
     NetPlatform       *net;
     PlatNetEpPtr       eptr;
 
-    fds_verify(agt_domain_evt != NULL);
-    if (agt_domain_ep != NULL) {
-        return;
-    }
     net  = NetPlatform::nplat_singleton();
     eptr = ep_cast_ptr<PlatNetEp>(net->nplat_my_ep());
     fds_verify(eptr != NULL);
 
     std::string const *const om_ip = net->nplat_domain_master(&port);
-    eptr->ep_new_handle(eptr, port, *om_ip, &agt_domain_ep, agt_domain_evt);
+    eptr->ep_new_handle(eptr, port, *om_ip, &agt_domain_ep, pm_ep_svc->ep_evt_plugin());
     LOGNORMAL << "Domain master ip " << *om_ip << ", port " << port;
 }
 
@@ -262,43 +255,6 @@ DomainAgent::pda_register()
     agent = this;
     local = Platform::platf_singleton()->plf_node_inventory();
     local->dc_register_node(shm, &agent, idx, -1, NODE_DO_PROXY_ALL_SVCS);
-}
-
-/**
- * ep_connected
- * ------------
- * This is called when the domain agent establihed connection to the domain master.
- */
-void
-DomainAgentPlugin::ep_connected()
-{
-}
-
-/**
- * ep_down
- * -------
- */
-void
-DomainAgentPlugin::ep_down()
-{
-}
-
-/**
- * svc_up
- * ------
- */
-void
-DomainAgentPlugin::svc_up(EpSvcHandle::pointer handle)
-{
-}
-
-/**
- * svc_down
- * --------
- */
-void
-DomainAgentPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
-{
 }
 
 /*

@@ -16,9 +16,9 @@
     static_cast<CLASS*>(dataMgr->handlers.at(IOTYPE))
 
 #define REGISTER_DM_MSG_HANDLER(FDSPMsgT, func) \
-    REGISTER_FDSP_MSG_HANDLER_GENERIC(gl_DmPlatform.dm_recv, FDSPMsgT, func)
+    REGISTER_FDSP_MSG_HANDLER_GENERIC(gl_DmPlatform.getDmRecv(), FDSPMsgT, func)
 
-#define DM_SEND_ASYNC_RESP(...) gl_DmPlatform.dm_recv->sendAsyncResp(__VA_ARGS__)
+#define DM_SEND_ASYNC_RESP(...) gl_DmPlatform.getDmRecv()->sendAsyncResp(__VA_ARGS__)
 
 namespace fds { namespace dm {
 /**

@@ -14,11 +14,13 @@
 
 #include <fds_assert.h>
 #include <fds_process.h>
+#include <ObjectId.h>
 #include <FdsRandom.h>
+#include <StatsCollector.h>
 #include <ObjMeta.h>
 #include <object-store/ObjectMetaDb.h>
 #include <object-store/ObjectMetadataStore.h>
-
+#include <object-store/ObjectMetaCache.h>
 
 namespace fds {
 
@@ -46,6 +48,7 @@ class MetaStoreUTProc : public FdsProcess {
     typedef enum {
         UT_OP_GET,
         UT_OP_PUT,
+        UT_OP_RMW,
         UT_OP_DELETE
     } MetaOpType;
 
@@ -55,14 +58,16 @@ class MetaStoreUTProc : public FdsProcess {
     } TestType;
 
     /* helper methods */
+    MetaOpType getOpTypeFromName(std::string& name);
     TestType getTestTypeFromName(std::string& name);
     fds_uint32_t getObjSize(fds_uint32_t rnum);
     void setMetaLoc(fds_uint32_t rnum,
                     obj_phy_loc_t* loc);
     ObjMetaData::ptr allocRandomObjMeta(fds_uint32_t rnum,
                                         const ObjectID& objId);
-    fds_bool_t isValidObjMeta(ObjMetaData::ptr meta,
+    fds_bool_t isValidObjMeta(ObjMetaData::const_ptr meta,
                               fds_uint32_t rnum);
+    Error populateStore();
 
     /* tests */
     int runSmokeTest();
@@ -70,7 +75,7 @@ class MetaStoreUTProc : public FdsProcess {
     // wrappers for get/put/delete
     Error get(fds_volid_t volId,
               const ObjectID& objId,
-              ObjMetaData::ptr objMeta);
+              ObjMetaData::const_ptr &objMeta);
     Error put(fds_volid_t volId,
               const ObjectID& objId,
               ObjMetaData::const_ptr objMeta);
@@ -87,7 +92,9 @@ class MetaStoreUTProc : public FdsProcess {
     fds_uint32_t num_ops_;
     MetaOpType op_type_;
 
-    std::vector<std::thread> threads_;
+    std::vector<std::thread*> threads_;
+    std::atomic<fds_uint32_t> op_count;
+    std::atomic<fds_bool_t> test_pass_;
 
     /* dataset we will use for testing
      * If operations are gets, we will first
@@ -100,10 +107,11 @@ class MetaStoreUTProc : public FdsProcess {
     * can check correctness*/
     std::unordered_map<ObjectID, fds_uint32_t, ObjectHash> dataset_map_;
 
-    // one of the two will be created
+    // one of these will be created
     // based on what we are testing
     ObjectMetadataDb* db_;
     ObjectMetadataStore* store_;
+    ObjectMetaCache* cache_;
 };
 
 MetaStoreUTProc::TestType
@@ -113,18 +121,29 @@ MetaStoreUTProc::getTestTypeFromName(std::string& name) {
     return UT_SMOKE;
 }
 
+MetaStoreUTProc::MetaOpType
+MetaStoreUTProc::getOpTypeFromName(std::string& name) {
+    if (0 == name.compare(0, 3, "get")) return UT_OP_GET;
+    if (0 == name.compare(0, 3, "put")) return UT_OP_PUT;
+    if (0 == name.compare(0, 3, "rmw")) return UT_OP_RMW;
+    if (0 == name.compare(0, 6, "delete")) return UT_OP_DELETE;
+    fds_verify(false);
+    return UT_OP_GET;
+}
+
 MetaStoreUTProc::MetaStoreUTProc(int argc, char * argv[], const std::string & config,
                                  const std::string & basePath, Module * vec[])
         : FdsProcess(argc, argv, config, basePath, vec),
-          db_(NULL), store_(NULL) {
+          db_(NULL), store_(NULL), cache_(NULL) {
     FdsConfigAccessor conf(get_conf_helper());
     std::string teststr = conf.get<std::string>("test_type");
     std::string whatstr = conf.get<std::string>("test_what");
+    std::string opstr = conf.get<std::string>("op_type");
 
     test_type_ = getTestTypeFromName(teststr);
+    op_type_ = getOpTypeFromName(opstr);
     num_threads_ = conf.get<fds_uint32_t>("num_threads");
     num_ops_ = conf.get<fds_uint32_t>("num_ops");
-    op_type_ = (MetaOpType)conf.get<fds_uint32_t>("op_type");
     dataset_size_ = conf.get<fds_uint32_t>("dataset_size");
 
     if (test_type_ == UT_SMOKE) {
@@ -139,81 +158,139 @@ MetaStoreUTProc::MetaStoreUTProc(int argc, char * argv[], const std::string & co
                   << ", dataset size " << dataset_size_ << " objects";
     }
 
-    if (0 == whatstr.compare(0, 2, "db")) {
-        db_ = new ObjectMetadataDb(proc_fdsroot()->dir_user_repo_objs());
+    if (0 == whatstr.compare(0, 7, "meta_db")) {
+        db_ = new ObjectMetadataDb();
         db_->setNumBitsPerToken(16);
         std::cout << "Will test ObjectMetadataDb" << std::endl;
         LOGNOTIFY << "Will test ObjectMetadataDb";
-    } else {
-        store_ = new ObjectMetadataStore("Object Metadata Store UT",
-                                         proc_fdsroot()->dir_user_repo_objs());
+    } else if (0 == whatstr.compare(0, 10, "meta_store")) {
+        store_ = new ObjectMetadataStore("Object Metadata Store UT");
         store_->mod_startup();
         store_->setNumBitsPerToken(16);
         std::cout << "Will test ObjectMetadataStore" << std::endl;
         LOGNOTIFY << "Will test ObjectMetadataStore";
+    } else if (0 == whatstr.compare(0, 10, "meta_cache")) {
+        cache_ = new ObjectMetaCache("Object Metadata Cache UT");
+        cache_->mod_startup();
+        std::cout << "Will test ObjectMetaCache" << std::endl;
+        LOGNOTIFY << "Will test ObjectMetaCache";
+    } else {
+        fds_panic("unknown module to test!");
     }
 
-    // generate dataset
+    // generate dataset of unique objIds
     fds_uint64_t seed = RandNumGenerator::getRandSeed();
     RandNumGenerator rgen(seed);
     fds_uint32_t rnum = (fds_uint32_t)rgen.genNum();
-    fds_uint32_t oid_val = 1;
-    uint8_t data[20];
     for (fds_uint32_t i = 0; i < dataset_size_; ++i) {
-        memset(data, 0, 20);
-        memcpy(data, &oid_val, sizeof(oid_val));
-        ObjectID oid(data);
+        std::string obj_data = std::to_string(rnum);
+        ObjectID oid = ObjIdGen::genObjectId(obj_data.c_str(), obj_data.size());
+        // we want every object ID in the dataset to be unique
+        while (dataset_map_.count(oid) > 0) {
+            rnum = (fds_uint32_t)rgen.genNum();
+            obj_data = std::to_string(rnum);
+            oid = ObjIdGen::genObjectId(obj_data.c_str(), obj_data.size());
+        }
         dataset_.push_back(oid);
         dataset_map_[oid] = rnum;
-        std::cout << "Dataset: " << oid << " rnum " << rnum << std::endl;
+        LOGDEBUG << "Dataset: " << oid << " rnum " << rnum << std::endl;
         rnum = (fds_uint32_t)rgen.genNum();
-        ++oid_val;
     }
+
+    // initialize dynamicc counters
+    op_count = ATOMIC_VAR_INIT(0);
+    test_pass_ = ATOMIC_VAR_INIT(true);
+    StatsCollector::singleton()->enableQosStats("ObjMetaStoreUt");
 }
 
 
 Error MetaStoreUTProc::get(fds_volid_t volId,
                            const ObjectID& objId,
-                           ObjMetaData::ptr objMeta) {
+                           ObjMetaData::const_ptr &objMeta) {
+    Error err(ERR_OK);
+    fds_uint64_t start_nano = util::getTimeStampNanos();
     if (db_) {
-        fds_verify(!store_);
-        return db_->get(objId, objMeta);
+        fds_verify(!store_ && !cache_);
+        objMeta = db_->get(volId, objId, err);
     } else if (store_) {
-        fds_verify(!db_);
-        return store_->getObjectMetadata(volId, objId, objMeta);
+        fds_verify(!db_ && !cache_);
+        objMeta = store_->getObjectMetadata(volId, objId, err);
+    } else if (cache_) {
+        fds_verify(!db_ && !store_);
+        objMeta = cache_->getObjectMetadata(volId, objId, err);
     } else {
-        fds_verify(false);
+        fds_panic("no known modules are initialized for get operation!");
     }
+    if (!err.ok()) return err;
+
+    // record stat
+    fds_uint64_t lat_nano = util::getTimeStampNanos() - start_nano;
+    StatsCollector::singleton()->recordEvent(volId,
+                                             util::getTimeStampNanos(),
+                                             STAT_AM_GET_OBJ,
+                                             static_cast<double>(lat_nano) / 1000.0);
     return ERR_OK;
 }
 
 Error MetaStoreUTProc::put(fds_volid_t volId,
                            const ObjectID& objId,
                            ObjMetaData::const_ptr objMeta) {
+    Error err(ERR_OK);
+    fds_uint64_t start_nano = util::getTimeStampNanos();
     if (db_) {
-        fds_verify(!store_);
-        return db_->put(objId, objMeta);
+        fds_verify(!store_ && !cache_);
+        err = db_->put(volId, objId, objMeta);
     } else if (store_) {
-        fds_verify(!db_);
-        return store_->putObjectMetadata(volId, objId, objMeta);
+        fds_verify(!db_ && !cache_);
+        err = store_->putObjectMetadata(volId, objId, objMeta);
+    } else if (cache_) {
+        fds_verify(!db_ && !store_);
+        cache_->putObjectMetadata(volId, objId, objMeta);
     } else {
-        fds_verify(false);
+        fds_panic("no known modules are initialized for put operation!");
     }
+    if (!err.ok()) return err;
+
+    // record stat
+    fds_uint64_t lat_nano = util::getTimeStampNanos() - start_nano;
+    StatsCollector::singleton()->recordEvent(volId,
+                                             util::getTimeStampNanos(),
+                                             STAT_AM_PUT_OBJ,
+                                             static_cast<double>(lat_nano) / 1000.0);
+
     return ERR_OK;
 }
 
 Error MetaStoreUTProc::remove(fds_volid_t volId,
                               const ObjectID& objId) {
     if (db_) {
-        fds_verify(!store_);
-        return db_->remove(objId);
+        fds_verify(!store_ && !cache_);
+        return db_->remove(volId, objId);
     } else if (store_) {
-        fds_verify(!db_);
+        fds_verify(!db_ && !cache_);
         return store_->removeObjectMetadata(volId, objId);
+    } else if (cache_) {
+        fds_verify(!db_ && !store_);
+        cache_->removeObjectMetadata(volId, objId);
+        return ERR_OK;
     } else {
-        fds_verify(false);
+        fds_panic("no known modules are initialized for put operation!");
     }
     return ERR_OK;
+}
+
+Error MetaStoreUTProc::populateStore() {
+    Error err(ERR_OK);
+    // put all metadata of all objects in dataset to the
+    // metadata store
+    for (fds_uint32_t i = 0; i < dataset_.size(); ++i) {
+        ObjectID oid = dataset_[i];
+        fds_uint32_t rnum = dataset_map_[oid];
+        ObjMetaData::ptr meta = allocRandomObjMeta(rnum, oid);
+        err = put(1, oid, meta);
+        if (!err.ok()) return err;
+    }
+    return err;
 }
 
 void MetaStoreUTProc::setMetaLoc(fds_uint32_t rnum,
@@ -257,12 +334,12 @@ MetaStoreUTProc::allocRandomObjMeta(fds_uint32_t rnum,
 }
 
 fds_bool_t
-MetaStoreUTProc::isValidObjMeta(ObjMetaData::ptr meta,
+MetaStoreUTProc::isValidObjMeta(ObjMetaData::const_ptr meta,
                                 fds_uint32_t rnum) {
     obj_phy_loc_t loc;
     setMetaLoc(rnum, &loc);
 
-    obj_phy_loc_t* meta_loc = meta->getObjPhyLoc((diskio::DataTier)loc.obj_tier);
+    const obj_phy_loc_t* meta_loc = meta->getObjPhyLoc((diskio::DataTier)loc.obj_tier);
     if (meta_loc->obj_stor_loc_id != loc.obj_stor_loc_id) return false;
     if (meta_loc->obj_file_id != loc.obj_file_id) return false;
     if (meta_loc->obj_stor_offset != loc.obj_stor_offset) return false;
@@ -295,7 +372,7 @@ int MetaStoreUTProc::runSmokeTest() {
         err = put(1, oid, meta);
         if (!err.ok()) return -1;
 
-        ObjMetaData::ptr get_meta(new ObjMetaData());
+        ObjMetaData::const_ptr get_meta;
         err = get(1, oid, get_meta);
         if (!err.ok()) return -1;
 
@@ -312,7 +389,7 @@ int MetaStoreUTProc::runSmokeTest() {
     if (!err.ok()) return -1;
 
     // try to access removed object
-    ObjMetaData::ptr del_meta(new ObjMetaData());
+    ObjMetaData::const_ptr del_meta;
     err = get(1, del_oid, del_meta);
     LOGDEBUG << "Result getting removed object " << err;
     fds_verify(!err.ok());
@@ -321,40 +398,124 @@ int MetaStoreUTProc::runSmokeTest() {
 }
 
 int MetaStoreUTProc::run() {
+    Error err(ERR_OK);
     int ret = 0;
     std::cout << "Starting test...";
     if (test_type_ == UT_SMOKE) {
         ret = runSmokeTest();
+        return ret;
     }
-    /*
+
+    // otherwise load test (for now...)
+    fds_verify(test_type_== UT_LOAD);
+
+    // if this is get or delete test, populate metastore
+    // first with obj meta
+    err = populateStore();
+    if (!err.ok()) {
+        std::cout << "Failed to populate meta store " << err << std::endl;
+        LOGERROR << "Failed to populate meta store " << err;
+        return -1;
+    }
+
     for (unsigned i = 0; i < num_threads_; ++i) {
-        threads_[i] = std::thread(&MetaStoreUTProc::task, this, i);
+        std::thread* new_thread = new std::thread(&MetaStoreUTProc::task, this, i);
+        threads_.push_back(new_thread);
     }
 
     // Wait for all threads
-    for (unsigned x = 0; x < num_threads; ++x) {
-        threads_[x].join();
+    for (unsigned x = 0; x < num_threads_; ++x) {
+        threads_[x]->join();
     }
-    */
 
-    if (ret == 0) {
+    for (unsigned x = 0; x < num_threads_; ++x) {
+        std::thread* th = threads_[x];
+        delete th;
+        threads_[x] = NULL;
+    }
+
+    fds_bool_t test_passed = test_pass_.load();
+    if (test_passed) {
         std::cout << "Test PASSED" << std::endl;
     } else {
         std::cout << "Test FAILED" << std::endl;
+        ret = -1;
     }
 
-    return 0;
+    return -1;
 }
 
 void MetaStoreUTProc::task(int id) {
     // task is executed here
-    // std::this_thread::sleep_for(std::chrono::milliseconds(jobs_[id].delay));
+    Error err(ERR_OK);
+    fds_uint64_t seed = RandNumGenerator::getRandSeed();
+    RandNumGenerator rgen(seed);
+    fds_uint32_t ops = atomic_fetch_add(&op_count, (fds_uint32_t)1);
+
+    std::cout << "Starting thread " << id
+              << " current number of ops finished " << ops << std::endl;
+
+    while ((ops + 1) <= num_ops_)
+    {
+        // do op
+        fds_uint32_t index = ops % dataset_.size();
+        ObjectID oid = dataset_[index];
+        fds_uint32_t rnum = dataset_map_[oid];
+        switch (op_type_) {
+            case UT_OP_PUT:
+                {
+                    ObjMetaData::ptr meta = allocRandomObjMeta(rnum, oid);
+                    err = put(1, oid, meta);
+                    break;
+                }
+            case UT_OP_GET:
+                {
+                    ObjMetaData::const_ptr get_meta;
+                    err = get(1, oid, get_meta);
+                    break;
+                }
+            case UT_OP_RMW:
+                {
+                    ObjMetaData::const_ptr get_meta;
+                    err = get(1, oid, get_meta);
+                    if (err.ok()) {
+                        ++rnum;
+                        dataset_map_[oid] = rnum;
+                        ObjMetaData::ptr meta = allocRandomObjMeta(rnum, oid);
+                        err = put(1, oid, meta);
+                    }
+                    break;
+                }
+            case UT_OP_DELETE:
+                {
+                    err = remove(1, oid);
+                    break;
+                }
+            default:
+                fds_verify(false);   // new type added?
+        }
+        if (!err.ok()) {
+            LOGERROR << "Failed operation " << err;
+            break;
+        }
+
+        ops = atomic_fetch_add(&op_count, (fds_uint32_t)1);
+    }
+
+    if (!err.ok()) {
+        test_pass_.store(false);
+    }
 }
 
 }  // namespace fds
 
 int main(int argc, char * argv[]) {
-    fds::MetaStoreUTProc p(argc, argv, "sm_ut.conf", "fds.meta_ut.", NULL);
+    fds::Module *smVec[] = {
+        &diskio::gl_dataIOMod,
+        nullptr
+    };
+
+    fds::MetaStoreUTProc p(argc, argv, "sm_ut.conf", "fds.meta_ut.", smVec);
     std::cout << "unit test " << __FILE__ << " started." << std::endl;
     p.main();
     std::cout << "unit test " << __FILE__ << " finished." << std::endl;

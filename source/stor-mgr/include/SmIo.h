@@ -5,9 +5,6 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_SMIO_H_
 #define SOURCE_STOR_MGR_INCLUDE_SMIO_H_
 
-/* TODO: move this to interface file in include dir */
-#include <lib/OMgrClient.h>
-
 #include <list>
 #include <string>
 #include <vector>
@@ -21,11 +18,8 @@
 #include <fds_volume.h>
 #include <TransJournal.h>
 #include <leveldb/db.h>
-// #include <util/Log.h>
-// #include <odb.h>
-// #include <qos_ctrl.h>
-// #include <util/counter.h>
-// #include <ObjStats.h>
+#include <persistent_layer/dm_io.h>
+
 
 // TODO(Rao):
 // 1. Remove unnecessary headers
@@ -82,7 +76,8 @@ class SmIoReq : public FDS_IOType {
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volUuid);
 
-        opTransactionWaitCtx.type = PUT_TRANS_QUEUE_WAIT;
+        // TODO(Anna) remove this once we remove trans table
+        opTransactionWaitCtx.type = PUT_OBJ_TASK_SYNC_WAIT;
         opTransactionWaitCtx.name = perfNameStr;
         opTransactionWaitCtx.reset_volid(_volUuid);
 
@@ -127,7 +122,8 @@ class SmIoReq : public FDS_IOType {
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volUuid);
 
-        opTransactionWaitCtx.type = GET_TRANS_QUEUE_WAIT;
+        // TODO(Anna) remove this once we remove trans table
+        opTransactionWaitCtx.type = GET_OBJ_TASK_SYNC_WAIT;
         opTransactionWaitCtx.name = perfNameStr;
         opTransactionWaitCtx.reset_volid(_volUuid);
 
@@ -177,7 +173,8 @@ class SmIoReq : public FDS_IOType {
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volUuid);
 
-        opTransactionWaitCtx.type = DELETE_TRANS_QUEUE_WAIT;
+        // TODO(Anna) remove this once we remove trans table
+        opTransactionWaitCtx.type = DELETE_OBJ_TASK_SYNC_WAIT;
         opTransactionWaitCtx.name = perfNameStr;
         opTransactionWaitCtx.reset_volid(_volUuid);
 
@@ -270,6 +267,9 @@ class SmIoAddObjRefReq : public SmIoReq {
     CbType response_cb;
 };
 
+/**
+ * @brief For DEL object data
+ */
 class SmIoDeleteObjectReq : public SmIoReq {
   public:
     typedef std::function<void (const Error&, SmIoDeleteObjectReq *resp)> CbType;
@@ -280,18 +280,27 @@ class SmIoDeleteObjectReq : public SmIoReq {
     CbType response_cb;
 };
 
+/**
+ * @brief For PUT object data
+ */
 class SmIoPutObjectReq : public SmIoReq {
  public:
     typedef std::function<void (const Error&, SmIoPutObjectReq *resp)> CbType;
- public:
     virtual std::string log_string() override;
 
-    /* Client assigned timestamp */
+    explicit SmIoPutObjectReq(boost::shared_ptr<fpi::PutObjectMsg>& msg)
+            : putObjectNetReq(msg) {
+    }
+
+    /// TODO(Andrew): Client assigned timestamp. Can this be removed?
     int64_t origin_timestamp;
-    /* Data */
+    /// TODO(Andrew): Data. Can be removed.
     std::string data_obj;
 
-    /* Response callback */
+    /// Service layer put request
+    boost::shared_ptr<fpi::PutObjectMsg> putObjectNetReq;
+
+    /// Response callback
     CbType response_cb;
 };
 
@@ -302,7 +311,6 @@ typedef boost::shared_ptr<FDSP_MigrateObjectList> FDSP_MigrateObjectListPtr;
 class SmIoPutTokObjectsReq : public SmIoReq {
  public:
     typedef std::function<void (const Error&, SmIoPutTokObjectsReq *resp)> CbType;
- public:
     virtual std::string log_string() override
     {
         std::stringstream ret;
@@ -315,6 +323,31 @@ class SmIoPutTokObjectsReq : public SmIoReq {
     /* List objects and their metadata */
     FDSP_MigrateObjectList obj_list;
     /* Response callback */
+    CbType response_cb;
+};
+
+/**
+ * @brief For GET object data
+ */
+class SmIoGetObjectReq : public SmIoReq {
+ public:
+    typedef std::function<void (const Error&, SmIoGetObjectReq *resp)> CbType;
+    virtual std::string log_string() override;
+
+    explicit SmIoGetObjectReq(boost::shared_ptr<fpi::GetObjectMsg> &msg)
+            : getObjectNetReq(msg) {
+        getObjectNetResp = boost::make_shared<fpi::GetObjectResp>();
+    }
+
+    /* In/out: In is object id, out is object data */
+    FDSP_ObjectIdDataPair obj_data;
+
+    /// Service layer get request
+    boost::shared_ptr<fpi::GetObjectMsg> getObjectNetReq;
+    /// Service layer get response
+    boost::shared_ptr<fpi::GetObjectResp> getObjectNetResp;
+
+    /// Response callback
     CbType response_cb;
 };
 

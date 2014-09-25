@@ -25,6 +25,7 @@ basedebs=(
     redis-server
     java-common
     oracle-java8-jdk
+    libical
 )
 
 fdsbasedebs=(

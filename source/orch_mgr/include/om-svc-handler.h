@@ -22,6 +22,30 @@ class OmSvcHandler : virtual public PlatNetSvcHandler
     void om_node_info(boost::shared_ptr<fpi::AsyncHdr>    &hdr,
                       boost::shared_ptr<fpi::NodeInfoMsg> &node);
 
+    virtual void
+    TestBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlTestBucket> &msg);
+
+    virtual void
+    GetBucketStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlGetBucketStats> &msg);
+
+    virtual void
+    CreateBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlCreateBucket> &msg);
+
+    virtual void
+    DeleteBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlDeleteBucket> &msg);
+
+    virtual void
+    ModifyBucket(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlModifyBucket> &msg);
+
+    virtual void
+    PerfStats(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlPerfStats> &msg);
+
   protected:
     OM_NodeDomainMod         *om_mod;
 };

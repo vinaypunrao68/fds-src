@@ -13,8 +13,16 @@
 #include <leveldb/db.h>
 #include <leveldb/env.h>
 #include "leveldb/write_batch.h"
+#include <leveldb/copy_env.h>
 
 namespace fds {
+
+struct CopyDetails {
+    CopyDetails(const std::string & src, const std::string & dest)
+            : srcPath(src), destPath(dest) {}
+    const std::string srcPath;
+    const std::string destPath;
+};
 
 /**
  * Just use leveldb's slice. We should consider our
@@ -55,9 +63,16 @@ class Catalog {
     leveldb::WriteOptions write_options; /**< LevelDB write options */
     leveldb::ReadOptions  read_options;  /**< LevelDB read options */
 
+    static const std::string empty;
+
   public:
+    static const fds_uint32_t WRITE_BUFFER_SIZE;
+    static const fds_uint32_t CACHE_SIZE;
+
     /** Constructor */
-    Catalog(const std::string& _file, fds_bool_t cat_flag = true);
+    Catalog(const std::string& _file, fds_uint32_t writeBufferSize = WRITE_BUFFER_SIZE,
+            fds_uint32_t cacheSize = CACHE_SIZE, const std::string& logDirName = empty,
+            const std::string& logFilePrefix = empty, fds_uint32_t maxLogFiles = 0);
     /** Default destructor */
     ~Catalog();
 
@@ -93,9 +108,14 @@ class Catalog {
 
     bool DbEmpty();
     bool DbDelete();
-    fds::Error DbSnap(const std::string& _file);
+    fds::Error DbSnap(const std::string& fileName);
     fds::Error QuerySnap(const std::string& _file, const Record& key, std::string* value);
     fds::Error QueryNew(const std::string& _file, const Record& key, std::string* value);
+
+    inline void clearLogRotate() {
+        fds_assert(env);
+        static_cast<leveldb::CopyEnv*>(env)->logRotate() = false;
+    }
 
     std::string GetFile() const;
   };

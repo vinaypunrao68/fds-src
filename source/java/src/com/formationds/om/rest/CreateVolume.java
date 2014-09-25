@@ -51,7 +51,8 @@ public class CreateVolume implements RequestHandler {
 
         Thread.sleep(200);
         SetVolumeQosParams.setVolumeQos(legacyConfigPath, name, sla, priority, limit);
-        return new JsonResource(new JSONObject().put("status", "ok"));
+
+        return new JsonResource(new JSONObject().put("status", "OK"));
     }
 }
 

@@ -44,7 +44,8 @@ SvcRequestIf::SvcRequestIf(const SvcRequestId &id,
     : id_(id),
       myEpId_(myEpId),
       state_(PRIOR_INVOCATION),
-      timeoutMs_(0)
+      timeoutMs_(0),
+      minor_version(0)
 {
 }
 
@@ -136,6 +137,8 @@ void SvcRequestIf::invoke()
  * using NetMgr::ep_task_executor 
  * @param epId
  */
+int injerr_socket_close = 0;  // gdb set this value to trigger remote connection down error
+using boost::lockfree::detail::unlikely;
 void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
 {
     auto header = SvcRequestPool::newSvcRequestHeader(id_, myEpId_, peerEpId);
@@ -145,10 +148,18 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
 
     try {
         /* send the payload */
+ do_again:
         auto ep = NetMgr::ep_mgr_singleton()->\
-                  svc_get_handle<fpi::BaseAsyncSvcClient>(header.msg_dst_uuid, 0 , 0);
+                  svc_get_handle<fpi::BaseAsyncSvcClient>(header.msg_dst_uuid, 0 , minor_version);
         if (!ep) {
             throw std::runtime_error("Null client");
+        }
+        if (unlikely(injerr_socket_close)) {
+            int fd = ep->ep_sock->getSocketFD();
+            close(fd);  // mimick remote gone TCP channe tear-down
+            injerr_socket_close = 0;
+            LOGNORMAL << " injected one socket connection losing error ";
+            goto do_again;
         }
         ep->svc_rpc<fpi::BaseAsyncSvcClient>()->asyncReqt(header, *payloadBuf_);
         GLOGDEBUG << fds::logString(header) << " sent payload size: " << payloadBuf_->size();

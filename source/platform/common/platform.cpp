@@ -20,32 +20,28 @@ NodePlatform    gl_NodePlatform;
 // -------------------------------------------------------------------------------------
 NodePlatform::NodePlatform()
     : Platform("Node-Platform",
-               FDSP_PLATFORM,
+               fpi::FDSP_PLATFORM,
                new DomainNodeInv("Node-Platform-NodeInv",
                                  NULL,
-                                 new SmContainer(FDSP_PLATFORM),
-                                 new DmContainer(FDSP_PLATFORM),
-                                 new AmContainer(FDSP_PLATFORM),
+                                 new SmContainer(fpi::FDSP_STOR_MGR),
+                                 new DmContainer(fpi::FDSP_DATA_MGR),
+                                 new AmContainer(fpi::FDSP_STOR_HVISOR),
                                  new PlatAgentContainer(),
-                                 new OmContainer(FDSP_PLATFORM)),
+                                 new OmContainer(fpi::FDSP_ORCH_MGR)),
                new DomainClusterMap("Node-Platform-ClusMap",
                                  NULL,
-                                 new SmContainer(FDSP_PLATFORM),
-                                 new DmContainer(FDSP_PLATFORM),
-                                 new AmContainer(FDSP_PLATFORM),
+                                 new SmContainer(fpi::FDSP_STOR_MGR),
+                                 new DmContainer(fpi::FDSP_DATA_MGR),
+                                 new AmContainer(fpi::FDSP_STOR_HVISOR),
                                  new PlatAgentContainer(),
-                                 new OmContainer(FDSP_PLATFORM)),
+                                 new OmContainer(fpi::FDSP_ORCH_MGR)),
                new DomainResources("Node-Resources"),
-               NULL)
-{
-    plf_node_evt  = new NodePlatEvent(plf_resources, plf_clus_map, this);
-    plf_vol_evt   = new VolPlatEvent(plf_resources, plf_clus_map, this);
-}
+               NULL) {}
 
 int
 NodePlatform::mod_init(SysParams const *const param)
 {
-    plf_node_type = FDSP_PLATFORM;
+    plf_node_type = fpi::FDSP_PLATFORM;
     Platform::platf_assign_singleton(&gl_NodePlatform);
 
     Platform::mod_init(param);
@@ -122,55 +118,24 @@ NodePlatform::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg)
 /**
  * Required factory methods.
  */
-PlatRpcReqt *
-NodePlatform::plat_creat_reqt_disp()
+#if 0
+// plat_new_om_svc
+// ---------------
+//
+OmSvcEp::pointer
+NodePlatform::plat_new_om_svc(NodeAgent::pointer agt, fds_uint32_t maj, fds_uint32_t min)
 {
-    return new PlatformRpcReqt(this);
+    return new PM_OmSvcEp(agt, maj, min, new Plat_OmNodeAgentEvt(agt));
 }
+#endif
 
-PlatRpcResp *
-NodePlatform::plat_creat_resp_disp()
+// plat_new_om_svc
+// ---------------
+//
+PmSvcEp::pointer
+NodePlatform::plat_new_pm_svc(NodeAgent::pointer agt, fds_uint32_t maj, fds_uint32_t min)
 {
-    return new PlatformRpcResp(this);
-}
-
-// --------------------------------------------------------------------------------------
-// RPC handlers
-// --------------------------------------------------------------------------------------
-PlatformRpcReqt::PlatformRpcReqt(const Platform *plf) : PlatRpcReqt(plf) {}
-PlatformRpcReqt::~PlatformRpcReqt() {}
-
-void
-PlatformRpcReqt::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                               fpi::FDSP_Node_Info_TypePtr &node_info)
-{
-    std::cout << "Got it!" << std::endl;
-}
-
-void
-PlatformRpcReqt::NotifyNodeActive(fpi::FDSP_MsgHdrTypePtr       &hdr,
-                                  fpi::FDSP_ActivateNodeTypePtr &info)
-{
-    std::cout << "Received message to activate node" << std::endl;
-    Platform     *plat = const_cast<Platform *>(plf_mgr);
-    NodePlatform *node = static_cast<NodePlatform *>(plat);
-    node->plf_start_node_services(info);
-}
-
-void
-PlatformRpcReqt::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                               fpi::FDSP_Node_Info_TypePtr &node_info)
-{
-}
-
-PlatformRpcResp::PlatformRpcResp(const Platform *plf) : PlatRpcResp(plf) {}
-PlatformRpcResp::~PlatformRpcResp() {}
-
-void
-PlatformRpcResp::RegisterNodeResp(fpi::FDSP_MsgHdrTypePtr       &hdr,
-                                  fpi::FDSP_RegisterNodeTypePtr &node)
-{
-    std::cout << "Got it resp!" << std::endl;
+    return new PmSvcEp(agt, maj, min, new PlatAgentPlugin(agt));
 }
 
 }  // namespace fds

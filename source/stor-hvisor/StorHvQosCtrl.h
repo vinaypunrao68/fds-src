@@ -17,6 +17,7 @@ class StorHvQosCtrl : public FDS_QoSControl {
 
   StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log);
   virtual ~StorHvQosCtrl();
+  virtual FDS_VolumeQueue* getQueue(fds_volid_t queueId);
   Error processIO(FDS_IOType *io) ;
   void runScheduler();
   Error markIODone(FDS_IOType *io);
@@ -26,10 +27,6 @@ class StorHvQosCtrl : public FDS_QoSControl {
   Error modifyVolumeQosParams(fds_volid_t vol_uuid, fds_uint64_t iops_min, fds_uint64_t iops_max, fds_uint32_t prio);
   Error   deregisterVolume(fds_volid_t vol_uuid);
   Error enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
-
-  static void throttleCmdHandler(const float throttle_level);
-  static Error qosCtrlCmdHandler(fds_uint64_t tot_rate);
-
 };
 }
 

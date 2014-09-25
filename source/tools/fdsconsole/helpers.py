@@ -2,8 +2,13 @@
 ATTR_CLICMD='clicmd'
 KEY_SYSTEM = '__system__'
 KEY_ACCESSLEVEL = '__accesslevel__'
+KEY_HOST = 'host'
+KEY_PORT = 'port'
+KEY_GRIDOUTPUT = 'gridoutput'
 PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 
+from fdslib import restendpoint
+import types
 class AccessLevel:
     '''
     Defines different access levels for users
@@ -40,6 +45,21 @@ class ConfigData:
     def __init__(self,data):
         self.__data = data
 
+    def init(self):
+        defaults = {
+            KEY_ACCESSLEVEL: AccessLevel.USER,
+            KEY_HOST : '127.0.0.1',
+            KEY_PORT : 7020,
+            KEY_GRIDOUTPUT : False
+        }
+        
+        for key in defaults.keys():
+            if None == self.getSystem(key):
+                self.setSystem(key, defaults[key])
+
+        self.rest = restendpoint.RestEndpoint(self.getHost(), 7777)
+        self.s3rest   = restendpoint.RestEndpoint(self.getHost(), port=8000, auth=False)
+
     def set(self, key, value, namespace):
         if namespace not in self.__data:
             self.__data[namespace] = {}
@@ -64,6 +84,27 @@ class ConfigData:
 
     def setSystem(self, key, value):
         return self.set(key, value, KEY_SYSTEM)
+
+    def getHost(self):
+        return self.get(KEY_HOST, KEY_SYSTEM)
+
+    def setHost(self, host):
+        self.setSystem(KEY_HOST, host)
+
+    def getPort(self):
+        return int(self.get(KEY_PORT, KEY_SYSTEM))
+
+    def setPort(self, port):
+        self.setSystem(KEY_PORT, port)
+
+    def getTableFormat(self):
+        val = self.get(KEY_GRIDOUTPUT, KEY_SYSTEM)
+        if type(val) == types.StringType:
+            val = val.lower().strip();
+        if val in ['1','yes',True,'true']:
+            return 'grid'
+        else:
+            return 'simple'
 
 def setupHistoryFile():
     '''

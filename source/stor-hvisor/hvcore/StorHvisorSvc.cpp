@@ -187,7 +187,18 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
-   
+
+    // check if this is a snapshot
+    if (shVol->voldesc->isSnapshot()) {
+        LOGWARN << "txn on a snapshot is not allowed.";
+        shVol->readUnlock();
+        StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback, blobReq->cb);
+        qos_ctrl->markIODone(qosReq);
+        cb->call(FDSN_StatusErrorAccessDenied);
+        delete blobReq;
+        return FDSN_StatusErrorAccessDenied;
+    }
+
     // Generate a random transaction ID to use
     // Note: construction, generates a random ID
     BlobTxId txId(storHvisor->randNumGen->genNumSafe());
@@ -262,8 +273,8 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
     counters_.put_reqs.incr();
 
     fds::Error err(ERR_OK);
-    
-    // Pull out the blob request     
+
+    // Pull out the blob request
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
     ObjectID objId;
     bool fZeroSize = (blobReq->getDataLen() == 0);
@@ -274,6 +285,16 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
+
+    // check if this is a snapshot
+    if (shVol->voldesc->isSnapshot()) {
+        LOGWARN << "txn on a snapshot is not allowed.";
+        shVol->readUnlock();
+        qos_ctrl->markIODone(qosReq);
+        blobReq->cbWithResult(FDSN_StatusErrorAccessDenied);
+        delete blobReq;
+        return FDSN_StatusErrorAccessDenied;
+    }
 
     // TODO(Andrew): Here we're turning the offset aligned
     // blobOffset back into an absolute blob offset (i.e.,
@@ -779,17 +800,17 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
         // Since 4K is our min, it's OK to get more
         // when less than 4K is requested
         // TODO(Andrew): Revisit for unaligned IO
-        fds_verify((uint)(getObjRsp->data_obj_len) <= (blobReq->getDataLen()));
+        fds_verify((uint)(getObjRsp->data_obj.size()) <= (blobReq->getDataLen()));
     }
     GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback,
                                                 blobReq->cb);
     // Set the return size based on what was requested
-    if (blobReq->getDataLen() < static_cast<fds_uint64_t>(getObjRsp->data_obj_len)) {
+    if (blobReq->getDataLen() < static_cast<fds_uint64_t>(getObjRsp->data_obj.size())) {
         LOGDEBUG  << "Returning " << blobReq->getDataLen() << " byte subset of "
                   << getObjRsp->data_obj_len << " bytes of data";
         cb->returnSize = blobReq->getDataLen();
     } else {
-        cb->returnSize = getObjRsp->data_obj_len;
+        cb->returnSize = getObjRsp->data_obj.size();
     }
     memcpy(cb->returnBuffer,
            getObjRsp->data_obj.c_str(),
@@ -818,6 +839,13 @@ StorHvCtrl::deleteBlobSvc(fds::AmQosReq *qosReq)
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(vol_id);
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
+
+    // check if this is a snapshot
+    if (shVol->voldesc->isSnapshot()) {
+        LOGWARN << "delete blob on a snapshot is not allowed.";
+        shVol->readUnlock();
+        return FDSN_StatusErrorAccessDenied;
+    }
 
     // Send to the DM
     fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx); 

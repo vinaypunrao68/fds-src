@@ -188,6 +188,9 @@ service ConfigurationService {
     list<i64> listVolumesForSnapshotPolicy(1:i64 policyId)
              throws (1: ApiException e),
 
+    void createSnapshot(1:i64 volumeId, 2:string snapshotName, 3:i64 retentionTime)
+             throws (1: ApiException e),
+
     list<snapshot.Snapshot> listSnapshots(1:i64 volumeId)
              throws (1: ApiException e),
 
@@ -195,6 +198,6 @@ service ConfigurationService {
              throws (1: ApiException e),
 
     // Returns VolumeID of clone 
-    i64 cloneVolume(1:i64 volumeId, 2:i64 fdsp_PolicyInfoId, 3:string clonedVolumeName)
+    i64 cloneVolume(1:i64 volumeId, 2:i64 fdsp_PolicyInfoId, 3:string cloneVolumeName)
 
 }

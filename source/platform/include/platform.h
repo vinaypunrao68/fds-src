@@ -36,14 +36,14 @@ class NodePlatform : public Platform
     void        plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg);
     inline void plf_bind_process(NodePlatformProc *ptr) { plf_process = ptr; }
 
+    virtual boost::intrusive_ptr<PmSvcEp>
+    plat_new_pm_svc(NodeAgent::pointer, fds_uint32_t maj, fds_uint32_t min) override;
+
   protected:
     NodePlatformProc    *plf_process;
     DiskPlatModule      *disk_ctrl;
 
     virtual void plf_bind_om_node();
-
-    virtual PlatRpcReqt *plat_creat_reqt_disp();
-    virtual PlatRpcResp *plat_creat_resp_disp();
 };
 
 /**
@@ -90,38 +90,6 @@ class NodeShmRWCtrl : public NodeShmCtrl
     void shm_init_header(node_shm_inventory_t *hdr);
 
     virtual void shm_setup_queue() override;
-};
-
-/**
- * Platform daemon RPC handlers.  Only overwrite what's specific to Platform.
- */
-class PlatformRpcReqt : public PlatRpcReqt
-{
-  public:
-    explicit PlatformRpcReqt(const Platform *plf);
-    virtual ~PlatformRpcReqt();
-
-    void NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                       fpi::FDSP_Node_Info_TypePtr &node_info);
-
-    void NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                       fpi::FDSP_Node_Info_TypePtr &node_info);
-
-    void NotifyNodeActive(fpi::FDSP_MsgHdrTypePtr       &hdr,
-                          fpi::FDSP_ActivateNodeTypePtr &info);
-};
-
-/**
- * Platform daemon RPC response handlers.
- */
-class PlatformRpcResp : public PlatRpcResp
-{
-  public:
-    explicit PlatformRpcResp(const Platform *plf);
-    virtual ~PlatformRpcResp();
-
-    void RegisterNodeResp(fpi::FDSP_MsgHdrTypePtr       &hdr,
-                          fpi::FDSP_RegisterNodeTypePtr &resp);
 };
 
 extern NodePlatform gl_NodePlatform;

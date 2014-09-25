@@ -10,6 +10,7 @@
 #include <net/BaseAsyncSvcHandler.h>
 #include <net/SvcRequestTracker.h>
 #include <net/SvcRequestPool.h>
+#include <platform/node-inventory.h>
 
 namespace fds {
 
@@ -108,14 +109,19 @@ void SvcRequestPool::asyncSvcRequestInitCommon_(SvcRequestIfPtr req)
 }
 
 EPSvcRequestPtr
-SvcRequestPool::newEPSvcRequest(const fpi::SvcUuid &peerEpId)
+SvcRequestPool::newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version)
 {
     auto reqId = nextAsyncReqId_++;
+    Platform *plat = Platform::platf_singleton();
 
     fpi::SvcUuid myEpId;
-    fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
-
+    if (plat->plf_get_node_type() == fpi::FDSP_ORCH_MGR) {
+        fds::assign(myEpId, gl_OmUuid);
+    } else {
+        fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
+    }
     EPSvcRequestPtr req(new EPSvcRequest(reqId, myEpId, peerEpId));
+    req->set_minor(minor_version);
     asyncSvcRequestInitCommon_(req);
 
     return req;
@@ -173,6 +179,7 @@ void SvcRequestPool::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
     /* Simulate an error for remote endpoint */
     boost::shared_ptr<std::string> payload;
     header->msg_type_id = fpi::NullMsgTypeId;
+    if (Platform::platf_singleton()->getBaseAsyncSvcHandler())
     Platform::platf_singleton()->getBaseAsyncSvcHandler()->asyncResp(header, payload);
 }
 

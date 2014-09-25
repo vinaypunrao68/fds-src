@@ -176,6 +176,7 @@ class EpEvtPlugin
     bo::intrusive_ptr<EpSvcHandle> ep_handle;
 
   private:
+    friend class EpSvc;
     friend class EpSvcImpl;
     friend class EpSvcHandle;
     INTRUSIVE_PTR_DEFS(EpEvtPlugin, ep_refcnt);
@@ -274,6 +275,7 @@ class EpSvc
 
     virtual ~EpSvc() {}
     virtual bool ep_is_connection() { return false; }
+    virtual void ep_set_plugin(EpEvtPlugin::pointer evt);
     virtual void ep_handle_error(const Error &err);
 
   private:
@@ -355,7 +357,7 @@ class EpSvcHandle : public net::SocketEventHandler
     void ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id; }
 
     bo::shared_ptr<tt::TSocket> ep_get_socket() { return ep_sock; }
-
+    friend class SvcRequestIf;
   protected:
     friend class NetMgr;
     template <class SendIf> friend void
@@ -396,7 +398,8 @@ typedef std::unordered_map<fds_uint64_t, EpSvcList>            UuidEpMap;
 typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>       UuidSvcMap;
 typedef std::unordered_map<UuidIntKey, int, UuidIntKeyHash>    UuidShmMap;
 typedef std::unordered_map<UuidIntKey, EpSvcHandle::pointer, UuidIntKeyHash> EpHandleMap;
-typedef std::unordered_map<UuidIntKey, fpi::BaseAsyncSvcClientPtr, UuidIntKeyHash> EpClientMap;
+typedef std::unordered_map<UuidIntKey,
+                           fpi::BaseAsyncSvcClientPtr, UuidIntKeyHash> EpClientMap;
 
 /**
  * Singleton module manages all endpoints.

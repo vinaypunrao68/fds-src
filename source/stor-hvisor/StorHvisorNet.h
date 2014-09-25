@@ -39,8 +39,6 @@
 #include <am-tx-mgr.h>
 #include <AmCache.h>
 
-#include "NetSession.h"
-
 #include <map>
 // #include "util/concurrency/Thread.h"
 #include <concurrency/Synchronization.h>
@@ -518,7 +516,7 @@ extern StorHvCtrl *storHvisor;
  */
 static void processBlobReq(AmQosReq *qosReq) {
     FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
-    fds::PerfTracer::tracePointEnd(blobReq->qosPerfCtx); 
+    fds::PerfTracer::tracePointEnd(blobReq->qosPerfCtx);
 
     fds_verify(qosReq->io_module == FDS_IOType::STOR_HV_IO);
     fds_verify(qosReq->magicInUse() == true);
@@ -547,7 +545,7 @@ static void processBlobReq(AmQosReq *qosReq) {
             break;
 
         case fds::FDS_IO_WRITE:
-        case fds::FDS_PUT_BLOB_ONCE:  
+        case fds::FDS_PUT_BLOB_ONCE:
         case fds::FDS_PUT_BLOB:
             err = storHvisor->putBlobSvc(qosReq);
             break;
@@ -574,7 +572,23 @@ static void processBlobReq(AmQosReq *qosReq) {
             break;
     }
 
-    fds_verify((err == ERR_OK) || (err == ERR_NOT_IMPLEMENTED));
+    bool fKnownError = false;
+
+    switch (err.GetErrno()) {
+        case ERR_OK:
+        case ERR_NOT_IMPLEMENTED:
+        case FDSN_StatusErrorAccessDenied:
+            fKnownError = true;
+            break;
+        default:
+            break;
+    }
+
+    if (!fKnownError) {
+        LOGCRITICAL << "un handled error : " << err;
+    }
+
+    fds_verify(fKnownError);
 }
 
 #endif  // SOURCE_STOR_HVISOR_STORHVISORNET_H_

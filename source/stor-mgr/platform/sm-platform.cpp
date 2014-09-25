@@ -24,15 +24,6 @@ SmPlatform gl_SmPlatform;
 DBG(DEFINE_FLAG(sm_drop_gets));
 DBG(DEFINE_FLAG(sm_drop_puts));
 
-
-// -------------------------------------------------------------------------------------
-// SM Platform Event Handler
-// -------------------------------------------------------------------------------------
-void
-SmVolEvent::plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr)
-{
-}
-
 /*
  * -----------------------------------------------------------------------------------
  * Endpoint Plugin
@@ -77,21 +68,21 @@ SMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 // -------------------------------------------------------------------------------------
 SmPlatform::SmPlatform()
     : Platform("SM-Platform",
-               FDSP_STOR_MGR,
+               fpi::FDSP_STOR_MGR,
                new DomainNodeInv("SM-Platform-NodeInv",
                                  NULL,
-                                 new SmContainer(FDSP_STOR_MGR),
-                                 new DmContainer(FDSP_STOR_MGR),
-                                 new AmContainer(FDSP_STOR_MGR),
-                                 new PmContainer(FDSP_STOR_MGR),
-                                 new OmContainer(FDSP_STOR_MGR)),
+                                 new SmContainer(fpi::FDSP_STOR_MGR),
+                                 new DmContainer(fpi::FDSP_STOR_MGR),
+                                 new AmContainer(fpi::FDSP_STOR_MGR),
+                                 new PmContainer(fpi::FDSP_STOR_MGR),
+                                 new OmContainer(fpi::FDSP_STOR_MGR)),
                new DomainClusterMap("SM-Platform-ClusMap",
                                  NULL,
-                                 new SmContainer(FDSP_STOR_MGR),
-                                 new DmContainer(FDSP_STOR_MGR),
-                                 new AmContainer(FDSP_STOR_MGR),
-                                 new PmContainer(FDSP_STOR_MGR),
-                                 new OmContainer(FDSP_STOR_MGR)),
+                                 new SmContainer(fpi::FDSP_STOR_MGR),
+                                 new DmContainer(fpi::FDSP_STOR_MGR),
+                                 new AmContainer(fpi::FDSP_STOR_MGR),
+                                 new PmContainer(fpi::FDSP_STOR_MGR),
+                                 new OmContainer(fpi::FDSP_STOR_MGR)),
                new DomainResources("DM-Resources"),
                NULL) {}
 
@@ -100,15 +91,12 @@ SmPlatform::mod_init(SysParams const *const param)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 
-    plf_node_type  = FDSP_STOR_MGR;
+    plf_node_type  = fpi::FDSP_STOR_MGR;
     Platform::platf_assign_singleton(&gl_SmPlatform);
     Platform::mod_init(param);
 
     plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if"));
     plf_my_node_name = "my-sm-node";  // plf_my_ip;
-
-    plf_vol_evt  = new SmVolEvent(plf_resources, plf_clus_map, this);
-    plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map, this);
 
     return 0;
 }
@@ -167,25 +155,7 @@ SmPlatform::plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg)
     fds_verify(err == ERR_OK);
 
     AgentContainer::pointer svc = local->dc_container_frm_msg(msg->node_type);
-    svc->agent_handshake(plf_net_sess, plf_dpath_resp, new_node);
-}
-
-PlatRpcReqt *
-SmPlatform::plat_creat_reqt_disp()
-{
-    return NULL;
-}
-
-PlatRpcResp *
-SmPlatform::plat_creat_resp_disp()
-{
-    return NULL;
-}
-
-PlatDataPathResp *
-SmPlatform::plat_creat_dpath_resp()
-{
-    return NULL;
+    svc->agent_handshake(plf_net_sess, new_node);
 }
 
 boost::shared_ptr<BaseAsyncSvcHandler>
@@ -199,8 +169,8 @@ SmPlatform::getBaseAsyncSvcHandler()
 */
 void SmPlatform::registerFlags()
 {
-    PlatformProcess::plf_manager()->\
-        plf_get_flags_map().registerCommonFlags();
+    PlatformProcess::plf_manager()->plf_get_flags_map().registerCommonFlags();
+
     /* SM specific flags */
     DBG(REGISTER_FLAG(PlatformProcess::plf_manager()->\
                   plf_get_flags_map(), sm_drop_gets));

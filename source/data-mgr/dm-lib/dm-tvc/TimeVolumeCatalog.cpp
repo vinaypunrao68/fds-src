@@ -3,7 +3,10 @@
  */
 #include <string>
 #include <vector>
+#include <set>
+#include <map>
 #include <limits>
+#include <DataMgr.h>
 
 #include <boost/make_shared.hpp>
 #include <dm-tvc/TimeVolumeCatalog.h>
@@ -20,21 +23,6 @@
         } \
     } while (false)
 
-#define OP_JOURNAL_GET(_volId_, _opJournal_) \
-    do { \
-        fds_scoped_spinlock jl(opJournalLock_); \
-        try { \
-            _opJournal_ = opJournals_.at(_volId_); \
-        } catch(const std::out_of_range &oor) { \
-            return ERR_VOL_NOT_FOUND; \
-        } \
-    } while (false)
-
-static const std::string TVC_LOG_SZ_STR("tvc_log_file_size");
-static const std::string TVC_LOG_MAX_FILES_STR("tvc_log_max_files");
-
-static const fds_uint64_t TVC_BUFFER_SIZE = std::numeric_limits<fds_uint64_t>::max();
-
 namespace fds {
 
 void
@@ -43,7 +31,7 @@ DmTimeVolCatalog::notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList) {
 
 DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
         : Module(name.c_str()), opSynchronizer_(tp),
-        config_helper_(g_fdsprocess->get_conf_helper())
+        config_helper_(g_fdsprocess->get_conf_helper()), tp_(tp)
 {
     volcat = DmVolumeCatalog::ptr(new DmVolumeCatalog("DM Volume Catalog"));
     // TODO(Andrew): The module vector should be able to take smart pointers.
@@ -85,44 +73,17 @@ Error
 DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
     LOGDEBUG << "Will prepare commit log for new volume "
              << std::hex << voldesc.volUUID << std::dec;
-    DmTvcOperationJournal::ptr opJournal;
-
-    fds_uint32_t logSize =  config_helper_.get<fds_uint32_t>(TVC_LOG_SZ_STR,
-            ObjectLogger::FILE_SIZE);
-    fds_uint32_t maxFiles = config_helper_.get<fds_uint32_t>(TVC_LOG_MAX_FILES_STR,
-            ObjectLogger::MAX_FILES);
-    {
-        fds_scoped_spinlock lj(opJournalLock_);
-        if (opJournals_.find(voldesc.volUUID) != opJournals_.end()) {
-            return ERR_VOL_DUPLICATE;
-        }
-
-        opJournal.reset(new DmTvcOperationJournal(voldesc.volUUID, logSize, maxFiles));
-        opJournals_[voldesc.volUUID] = opJournal;
-    }
-
     Error rc = ERR_OK;
     {
         fds_scoped_spinlock l(commitLogLock_);
         /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
          * on DmCommitLog so that initialization can happen outside the lock
          */
-        commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID,
-                *opJournal, TVC_BUFFER_SIZE);
+        commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID);
         commitLogs_[voldesc.volUUID]->mod_init(mod_params);
         commitLogs_[voldesc.volUUID]->mod_startup();
 
         rc = volcat->addCatalog(voldesc);
-    }
-
-    if (rc.ok()) {
-        DmCommitLog::ptr commitLog;
-        COMMITLOG_GET(voldesc.volUUID, commitLog);
-
-        blob_version_t blob_version = blob_version_invalid;
-        auto handler = std::bind(&DmTimeVolCatalog::doCommitBlob, this, voldesc.volUUID,
-                blob_version, std::placeholders::_1);
-        rc = commitLog->flushBuffer(handler);
     }
 
     return rc;
@@ -130,24 +91,22 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 
 Error
 DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc) {
-    Error rc;
+    Error rc(ERR_OK);
     DmCommitLog::ptr commitLog;
-    COMMITLOG_GET(voldesc.volUUID, commitLog);
+    COMMITLOG_GET(voldesc.srcVolumeId, commitLog);
     fds_assert(commitLog);
 
+    LOGDEBUG << "Creating a snapshot '" << voldesc.name << "' of a volume '"
+            << voldesc.volUUID << "'"  << "srcVolume: "<< voldesc.srcVolumeId;
     if (voldesc.isSnapshot()) {
-        // Put snapshot entry into volume operation journal
-        // Also start buffering
-        BlobTxId::const_ptr txId(new BlobTxId(voldesc.volUUID));
+        // TODO(umesh): remove this, underlying logic is changed.
+        BlobTxId::const_ptr txId(new BlobTxId(voldesc.srcVolumeId));
         rc = commitLog->snapshot(txId, voldesc.name);
         if (!rc.ok()) {
             GLOGERROR << "Failed to write entry into commit log for snapshot '" << std::hex <<
                    voldesc.volUUID << std::dec << "', volume '" << std::hex << voldesc.srcVolumeId;
             return rc;
         }
-    } else {
-        // start buffering
-         commitLog->startBuffering();
     }
 
     // Create snapshot of volume catalog
@@ -159,22 +118,48 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc) {
         return rc;
     }
 
-    // catalog copy is created, flush buffer
-    blob_version_t blob_version = blob_version_invalid;
-    auto handler = std::bind(&DmTimeVolCatalog::doCommitBlob, this, voldesc.volUUID,
-            blob_version, std::placeholders::_1);
-    rc = commitLog->flushBuffer(handler);
-    if (!rc.ok()) {
-        GLOGCRITICAL << "Failed to process bufferend transactions to volume catalog";
-        return rc;
-    }
+    if (dataMgr->amIPrimary(voldesc.srcVolumeId)) {
+        // Increment object references
+        std::set<ObjectID> objIds;
+        rc = volcat->getVolumeObjects(voldesc.srcVolumeId, objIds);
+        if (!rc.ok()) {
+            GLOGCRITICAL << "Failed to get object ids for volume '" << std::hex <<
+                    voldesc.srcVolumeId << std::dec << "'";
+            return rc;
+        }
 
-    rc = commitLog->stopBuffering(handler);
-    if (!rc.ok()) {
-        GLOGCRITICAL << "Failed to process buffered transactions and stop buffering";
+        OMgrClient * omClient = dataMgr->omClient;
+        fds_verify(omClient);
+
+        std::map<fds_token_id, boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > >
+                tokenOidMap;
+        for (auto oid : objIds) {
+            const DLT * dlt = omClient->getCurrentDLT();
+            fds_verify(dlt);
+
+            fds_token_id token = dlt->getToken(oid);
+            if (!tokenOidMap[token].get()) {
+                tokenOidMap[token].reset(new std::vector<fpi::FDS_ObjectIdType>());
+            }
+
+            fpi::FDS_ObjectIdType tmpId;
+            fds::assign(tmpId, oid);
+            tokenOidMap[dlt->getToken(oid)]->push_back(tmpId);
+        }
+
+        for (auto it : tokenOidMap) {
+            tp_.schedule(&DmTimeVolCatalog::incrObjRefCount, this, voldesc.srcVolumeId,
+                    voldesc.volUUID, it.first, it.second);
+        }
     }
 
     return rc;
+}
+
+void
+DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
+        fds_token_id token, boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > objIds) {
+    // TODO(umesh): implement this
 }
 
 Error
@@ -306,10 +291,8 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     LOGDEBUG << "Committing transaction " << *txDesc << " for volume "
              << std::hex << volid << std::dec;
     CommitLogTx::const_ptr commit_data = commitLog->commitTx(txDesc, e);
-    if (!commitLog->isBuffering()) {
-        if (e.ok()) {
-            e = doCommitBlob(volid, blob_version, commit_data);
-        }
+    if (e.ok()) {
+        e = doCommitBlob(volid, blob_version, commit_data);
     }
     cb(e, blob_version, commit_data->blobObjList, commit_data->metaDataList);
 }

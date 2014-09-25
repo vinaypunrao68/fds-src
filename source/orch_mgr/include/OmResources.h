@@ -13,11 +13,20 @@
 #include <fds_typedefs.h>
 #include <fds_error.h>
 #include <OmVolume.h>
-#include <NetSession.h>
 #include <platform/node-inventory.h>
+#include <fdsp/FDSP_ControlPathResp.h>
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
+
+namespace FDS_ProtocolInterface {
+    class FDSP_ControlPathReqClient;
+    class FDSP_ControlPathRespProcessor;
+    class FDSP_ControlPathRespIf;
+}
+typedef netClientSessionEx<fpi::FDSP_ControlPathReqClient,
+                fpi::FDSP_ControlPathRespProcessor,
+                fpi::FDSP_ControlPathRespIf> netControlPathClientSession;
 
 namespace fds {
 
@@ -30,18 +39,6 @@ struct NodeDomainFSM;
 typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient> NodeAgentCpReqClientPtr;
 typedef netControlPathClientSession *                     NodeAgentCpSessionPtr;
 typedef boost::msm::back::state_machine<NodeDomainFSM> FSM_NodeDomain;
-
-/**
- * TODO(Vy): temp. interface for now to define generic node message.
- */
-typedef struct om_node_msg_s
-{
-    fpi::FDSP_MsgCodeType             nd_msg_code;
-    union {
-        fpi::FDSP_ThrottleMsgTypePtr *nd_throttle;
-        fpi::FDSP_DMT_TypePtr        *nd_dmt_tab;
-    } u;
-} om_node_msg_t;
 
 /**
  * Agent interface to communicate with the remote node.  This is the communication
@@ -90,19 +87,30 @@ class OM_NodeAgent : public NodeAgent
      * - API to send a message.
      */
     virtual void om_send_myinfo(NodeAgent::pointer peer);
-    virtual void om_send_node_cmd(const om_node_msg_t &msg);
 
     virtual void om_send_reg_resp(const Error &err);
+    // this is the new function we shall try on using service layer
+    virtual void om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr);
     virtual Error om_send_vol_cmd(VolumeInfo::pointer vol,
-                                  fpi::FDSP_MsgCodeType cmd,
+                                  fpi::FDSPMsgTypeId      cmd_type,
                                   fpi::FDSP_NotifyVolFlag = fpi::FDSP_NOTIFY_VOL_NO_FLAG);
     virtual Error om_send_vol_cmd(VolumeInfo::pointer    vol,
                                   std::string           *vname,
-                                  fpi::FDSP_MsgCodeType  cmd,
+                                  fpi::FDSPMsgTypeId      cmd_type,
                                   fpi::FDSP_NotifyVolFlag = fpi::FDSP_NOTIFY_VOL_NO_FLAG);
+    void om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
+                      fpi::FDSPMsgTypeId      cmd_type,
+                      EPSvcRequest* rpcReq,
+                      const Error& error,
+                      boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dlt(const DLT *curDlt);
+
     virtual Error om_send_dlt_close(fds_uint64_t cur_dlt_version);
+    void    om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* rpcReq,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload);
+
     virtual Error om_send_dmt(const DMTPtr& curDmt);
     virtual Error om_send_dmt_close(fds_uint64_t dmt_version);
     virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
@@ -110,7 +118,7 @@ class OM_NodeAgent : public NodeAgent
     virtual Error om_send_stream_reg_cmd(fds_int32_t regId,
                                          fds_bool_t bAll);
     virtual Error om_send_qosinfo(fds_uint64_t total_rate);
-    virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
+    virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
   private:
     void om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& reg,
@@ -188,7 +196,7 @@ class OM_PmAgent : public OM_NodeAgent
         return activeAmAgent;
     }
 
-    virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
+    virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
     OM_SmAgent::pointer     activeSmAgent;  // pointer to active SM service or NULL
@@ -327,7 +335,7 @@ class OM_AmContainer : public OM_AgentContainer
     }
   protected:
     virtual Resource *rs_new(const ResourceUUID &uuid) {
-        return new OM_AmAgent(uuid, FDSP_STOR_HVISOR);
+        return new OM_AmAgent(uuid, fpi::FDSP_STOR_HVISOR);
     }
 };
 
@@ -340,6 +348,8 @@ class OM_NodeContainer : public DomainContainer
     OM_NodeContainer();
     virtual ~OM_NodeContainer();
 
+    typedef boost::intrusive_ptr<OM_NodeContainer> pointer;
+    typedef boost::intrusive_ptr<const OM_NodeContainer> const_ptr;
     /**
      * Return SM/DM/AM container or SM/DM/AM agent for the local domain.
      */
@@ -379,32 +389,33 @@ class OM_NodeContainer : public DomainContainer
     inline VolumeContainer::pointer om_vol_mgr() {
         return om_volumes;
     }
-    inline Error om_create_vol(const FDSP_MsgHdrTypePtr &hdr,
-                               const FdspCrtVolPtr      &creat_msg,
-                               fds_bool_t from_omcontrol_path) {
-        return om_volumes->om_create_vol(hdr, creat_msg, from_omcontrol_path);
+    inline Error om_create_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
+                               const FdspCrtVolPtr           &creat_msg,
+                               const boost::shared_ptr<fpi::AsyncHdr> &hdrz) {
+        return om_volumes->om_create_vol(hdr, creat_msg, hdrz);
     }
-    inline Error om_snap_vol(const FDSP_MsgHdrTypePtr &hdr,
-                               const FdspCrtVolPtr      &snap_msg) {
+
+    inline Error om_snap_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
+                             const FdspCrtVolPtr      &snap_msg) {
         return om_volumes->om_snap_vol(hdr, snap_msg);
     }
-    inline Error om_delete_vol(const FDSP_MsgHdrTypePtr &hdr,
+    inline Error om_delete_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                                const FdspDelVolPtr &del_msg) {
         return om_volumes->om_delete_vol(hdr, del_msg);
     }
     inline Error om_modify_vol(const FdspModVolPtr &mod_msg) {
         return om_volumes->om_modify_vol(mod_msg);
     }
-    inline Error om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
+    inline Error om_attach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                                const FdspAttVolCmdPtr   &attach) {
         return om_volumes->om_attach_vol(hdr, attach);
     }
-    inline Error om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
-                             const FdspAttVolCmdPtr   &detach) {
+    inline Error om_detach_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
+                               const FdspAttVolCmdPtr   &detach) {
         return om_volumes->om_detach_vol(hdr, detach);
     }
-    inline void om_test_bucket(const FdspMsgHdrPtr     &hdr,
-                               const FdspTestBucketPtr &req) {
+    inline void om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+                               const fpi::FDSP_TestBucket *req) {
         return om_volumes->om_test_bucket(hdr, req);
     }
 
@@ -414,7 +425,7 @@ class OM_NodeContainer : public DomainContainer
 
     virtual void om_set_throttle_lvl(float level);
     virtual void om_send_bucket_stats(fds_uint32_t, const NodeUuid&, fds_uint32_t);
-    virtual void om_handle_perfstats_from_am(const FDSP_VolPerfHistListType &list,
+    virtual void om_handle_perfstats_from_am(const fpi::FDSP_VolPerfHistListType &list,
                                              const std::string start_timestamp);
 
     virtual void om_bcast_tier_policy(fpi::FDSP_TierPolicyPtr policy);
@@ -426,8 +437,8 @@ class OM_NodeContainer : public DomainContainer
     virtual fds_uint32_t om_bcast_vol_delete(VolumeInfo::pointer vol,
                                              fds_bool_t check_only);
     virtual fds_uint32_t om_bcast_vol_detach(VolumeInfo::pointer vol);
-    virtual void om_bcast_vol_tier_policy(const FDSP_TierPolicyPtr &tier);
-    virtual void om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier);
+    virtual void om_bcast_vol_tier_policy(const fpi::FDSP_TierPolicyPtr &tier);
+    virtual void om_bcast_vol_tier_audit(const fpi::FDSP_TierPolicyAuditPtr &tier);
     virtual void om_bcast_throttle_lvl(float throttle_level);
     virtual fds_uint32_t om_bcast_dlt(const DLT* curDlt,
                                       fds_bool_t sm_only = false);
@@ -435,7 +446,7 @@ class OM_NodeContainer : public DomainContainer
     /**
      * Sends scavenger command (e.g. enable, disable, start, stop) to SMs
      */
-    virtual void om_bcast_scavenger_cmd(FDSP_ScavengerCmd cmd);
+    virtual void om_bcast_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
     /**
      * Sends stream registration to all DMs. If bAll is true, regId is
      * ignored and all known registrations are broadcasted to DMs. Otherwise
@@ -478,14 +489,9 @@ class OM_NodeContainer : public DomainContainer
 
     /**
      * Recent history of perf stats OM receives from AM nodes.
+     * TODO(Anna) need to use new stats class
      */
-    PerfStats                *am_stats;
-    /**
-     * TODO(Anna): this is temp JSON file, will remove as soon as we implement
-     * real stats polling from CLI.
-     */
-    std::ofstream             json_file;
-    void om_printStatsToJsonFile();
+    // PerfStats                *am_stats;
 };
 
 /**
@@ -723,7 +729,7 @@ class OM_NodeDomainMod : public Module
 /**
  * control response handler
  */
-class OM_ControlRespHandler : public fpi:: FDSP_ControlPathRespIf {
+class OM_ControlRespHandler : public fpi::FDSP_ControlPathRespIf {
   public:
     explicit OM_ControlRespHandler();
 

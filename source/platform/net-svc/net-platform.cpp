@@ -221,9 +221,6 @@ PlatformdPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
  */
 PlatAgent::PlatAgent(const NodeUuid &uuid) : DomainAgent(uuid, false)
 {
-    fds_verify(agt_domain_evt == NULL);
-    node_svc_type  = fpi::FDSP_PLATFORM;
-    agt_domain_evt = new PlatAgentPlugin(this);
 }
 
 // init_stor_cap_msg
@@ -241,11 +238,9 @@ PlatAgent::init_stor_cap_msg(fpi::StorCapMsg *msg) const
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.plat.testing.");
     NodeAgent::init_stor_cap_msg(msg);
     if (conf.get<bool>("manual_nodecap")) {
-        if (!node_inv) {
-            msg->disk_iops_min = conf.get<int>("disk_iops_min");
-            msg->disk_iops_max = conf.get<int>("disk_iops_max");
-            LOGNORMAL << "Over-writing node perf capability from config ";
-        }
+        msg->disk_iops_min = conf.get<int>("disk_iops_min");
+        msg->disk_iops_max = conf.get<int>("disk_iops_max");
+        LOGNORMAL << "Over-writing node perf capability from config ";
     }
 }
 
@@ -319,6 +314,7 @@ PlatAgent::agent_publish_ep()
         agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_MGR);
         agent_bind_svc(ep_map, &ninfo, fpi::FDSP_DATA_MGR);
         agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_HVISOR);
+        agent_bind_svc(ep_map, &ninfo, fpi::FDSP_ORCH_MGR);
     }
 }
 
@@ -383,9 +379,9 @@ PlatAgentPlugin::ep_connected()
 
     plat = Platform::platf_singleton();
     msg  = new fpi::NodeInfoMsg();
-    pda_agent->init_plat_info_msg(msg);
+    na_owner->init_plat_info_msg(msg);
 
-    rpc = pda_agent->pda_rpc();
+    rpc = na_owner->node_svc_rpc(&eph);
     rpc->notifyNodeInfo(ret, *msg, true);
 
     std::cout << "Got " << ret.size() << " elements back" << std::endl;

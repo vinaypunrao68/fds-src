@@ -33,7 +33,100 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CreateSnapshotMsg, createSnapshot);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteSnapshotMsg, deleteSnapshot);
     REGISTER_FDSP_MSG_HANDLER(fpi::CreateVolumeCloneMsg, createVolumeClone);
+    REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, notifySvcChange);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolAdd, NotifyAddVol);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, NotifyRmVol);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolMod, NotifyModVol);
+#if 0
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTClose, NotifyDMTClose);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
+#endif
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
 }
+
+// notifySvcChange
+// ---------------
+//
+void
+DMSvcHandler::notifySvcChange(boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+                              boost::shared_ptr<fpi::NodeSvcInfo> &msg)
+{
+#if 0
+    DomainAgent::pointer self;
+
+    self = NetPlatform::nplat_singleton()->nplat_self();
+    fds_verify(self != NULL);
+
+    auto list = msg->node_svc_list;
+    for (auto it = list.cbegin(); it != list.cend(); it++) {
+        auto rec = *it;
+        if (rec.svc_type == fpi::FDSP_DATA_MGR) {
+            self->agent_fsm_input(msg, rec.svc_type,
+                                  rec.svc_runtime_state, rec.svc_deployment_state);
+        }
+    }
+#endif
+}
+
+// NotifyAddVol
+// ------------
+//
+void
+DMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                           boost::shared_ptr<fpi::CtrlNotifyVolAdd> &vol_msg)
+{
+    DBG(GLOGDEBUG << logString(*hdr) << "Vol Add");  // logString(*vol_msg));
+    fds_verify(vol_msg->__isset.vol_desc);
+    uint64_t vol_uuid = vol_msg->vol_desc.volUUID;
+
+    fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
+    VolumeDesc vdb(vol_msg->vol_desc);
+    GLOGNOTIFY << "Received create for vol "
+                       << "[" << std::hex << volumeId << std::dec << ", "
+                       << vdb.getName() << "]";
+
+    Error err(ERR_OK);
+    VolumeDesc desc(vol_msg->vol_desc);
+    err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
+                                        std::to_string(vol_uuid),
+                                        vol_uuid, &desc,
+                                        vol_msg->vol_flag == fpi::FDSP_NOTIFY_VOL_WILL_SYNC);
+    hdr->msg_code = err.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), *vol_msg);
+}
+
+// NotifyRmVol
+// -----------
+//
+void
+DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                          boost::shared_ptr<fpi::CtrlNotifyVolRemove> &vol_msg)
+{
+    DBG(GLOGDEBUG << logString(*hdr) << "Vol Remove");  // logString(*vol_msg));
+    fds_verify(vol_msg->__isset.vol_desc);
+    uint64_t vol_uuid = vol_msg->vol_desc.volUUID;
+    Error err(ERR_OK);
+    err = dataMgr->process_rm_vol(vol_uuid, vol_msg->vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
+    hdr->msg_code = err.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), *vol_msg);
+}
+
+// ------------
+//
+void
+DMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                           boost::shared_ptr<fpi::CtrlNotifyVolMod> &vol_msg)
+{
+    DBG(GLOGDEBUG << logString(*hdr) << "vol modify");  //  logString(*vol_msg));
+    fds_verify(vol_msg->__isset.vol_desc);
+    uint64_t vol_uuid = vol_msg->vol_desc.volUUID;
+    Error err(ERR_OK);
+    VolumeDesc desc(vol_msg->vol_desc);
+    err = dataMgr->_process_mod_vol(vol_uuid, desc);
+    hdr->msg_code = err.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolMod), *vol_msg);
+}
+
 
 
 void DMSvcHandler::createSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -287,8 +380,9 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
 
     PerfTracer::tracePointBegin(dmQryReq->opReqLatencyCtx);
 
-    Error err = dataMgr->qosCtrl->enqueueIO(dmQryReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmQryReq));
+    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmQryReq->getVolId());
+    Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
+            voldesc->qosQueueId : dmQryReq->getVolId(), static_cast<FDS_IOType*>(dmQryReq));
 
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue Query Catalog request "
@@ -484,8 +578,9 @@ void DMSvcHandler::getBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
 
-    Error err = dataMgr->qosCtrl->enqueueIO(dmReq->getVolId(),
-                                      static_cast<FDS_IOType*>(dmReq));
+    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmReq->getVolId());
+    Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
+            voldesc->qosQueueId : dmReq->getVolId(), static_cast<FDS_IOType*>(dmReq));
 
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request "
@@ -640,14 +735,17 @@ DMSvcHandler::getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message) {
     // DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
+    LOGNORMAL << "get vol meta data msg ";
+    // return getVolumeMetaDataCb(asyncHdr, message, Error(ERR_OK), nullptr);
     auto dmReq = new DmIoGetVolumeMetaData(message);
     dmReq->dmio_get_volmd_resp_cb =
                     BIND_MSG_CALLBACK2(DMSvcHandler::getVolumeMetaDataCb, asyncHdr, message);
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
 
-    Error err = dataMgr->qosCtrl->enqueueIO(dmReq->getVolId(),
-                                      static_cast<FDS_IOType*>(dmReq));
+    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmReq->getVolId());
+    Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
+            voldesc->qosQueueId : dmReq->getVolId(), static_cast<FDS_IOType*>(dmReq));
 
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request "
@@ -663,6 +761,7 @@ void
 DMSvcHandler::getVolumeMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                     boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
                     const Error &e, DmIoGetVolumeMetaData *req) {
+    LOGNORMAL << "finished get volume meta";
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
@@ -729,5 +828,18 @@ DMSvcHandler::deregisterStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     fpi::StatStreamDeregistrationRspMsg resp;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StatStreamDeregistrationRspMsg), resp);
 }
+
+void
+DMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                              boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt)
+{
+    Error err(ERR_OK);
+    LOGNOTIFY << "OMClient received new DLT commit version  "
+            << dlt->dlt_data.dlt_type;
+    err = dataMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
+    hdr->msg_code = err.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), *dlt);
+}
+
 
 }  // namespace fds

@@ -8,8 +8,10 @@ from argh import *
 
 from fdsconsole.context import Context
 from fdsconsole.decorators import *
-from FDS_ProtocolInterface.ttypes import *
-from pyfdsp.snapshot.ttypes import *
+import pyfdsp
+
+from operator import attrgetter
+from operator import itemgetter
 
 log = process.setup_logger()
 
@@ -23,14 +25,24 @@ class ServiceMap:
     @staticmethod
     def omConfig():
         try :
+            ServiceMap.check()
             client =  ServiceMap.serviceMap.omConfig()
         except:
             raise Exception("unable to get a client connection")
         return client
+    
+    @staticmethod
+    def check():
+        try :
+            om =  ServiceMap.serviceMap.omConfig()
+            om.configurationVersion(1)            
+        except:
+            ServiceMap.refresh()
 
     @staticmethod
     def client(*args):
         try:
+            ServiceMap.check()
             client = ServiceMap.serviceMap.client(*args)
         except:
             raise Exception("unable to get a client connection")
@@ -38,8 +50,15 @@ class ServiceMap:
 
     @staticmethod
     def list(*args):
-        return ServiceMap.serviceMap.list(*args)
+        try:
+            ServiceMap.check()
+            return ServiceMap.serviceMap.list(*args)
+        except:
+            raise Exception("unable to get a client connection")
 
     @staticmethod
     def refresh(*args):
-        return ServiceMap.serviceMap.refresh(*args)
+        try :
+            return ServiceMap.serviceMap.refresh(*args)
+        except:
+            raise Exception("unable to get a client connection")

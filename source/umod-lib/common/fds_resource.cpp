@@ -139,13 +139,21 @@ RsContainer::rs_unregister_mtx(Resource::pointer rs)
 Resource::pointer
 RsContainer::rs_get_resource(const ResourceUUID &uuid)
 {
-    return rs_uuid_map[uuid];
+    auto iter = rs_uuid_map.find(uuid);
+    if (iter != rs_uuid_map.end()) {
+        return iter->second;
+    }
+    return NULL;
 }
 
 Resource::pointer
 RsContainer::rs_get_resource(const char *name)
 {
-    return rs_name_map[name];
+    auto iter = rs_name_map.find(name);
+    if (iter != rs_name_map.end()) {
+        return iter->second;
+    }
+    return NULL;
 }
 
 // rs_container_snapshot

@@ -12,12 +12,13 @@
 #include <OmConstants.h>
 #include <OmAdminCtrl.h>
 #include <net/RpcFunc.h>
-#include <lib/PerfStats.h>
 #include <orchMgr.h>
+#include <NetSession.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
+#include <platform/node-inv-shmem.h>
 
 namespace fds {
 
@@ -97,199 +98,129 @@ OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
               << " to " << peer->get_node_name() << std::endl;
 }
 
-// om_send_node_cmd
 // ----------------
 // TODO(Vy): define messages in inheritance tree.
 //
 void
-OM_NodeAgent::om_send_node_cmd(const om_node_msg_t &msg)
+OM_NodeAgent::om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr throttle)
 {
-    const char              *log;
-    fpi::FDSP_MsgHdrTypePtr  m_hdr(new fpi::FDSP_MsgHdrType);
-
-    this->init_msg_hdr(m_hdr);
-    m_hdr->msg_code = msg.nd_msg_code;
-
-    try {
-        log = NULL;
-        switch (msg.nd_msg_code) {
-            case fpi::FDSP_MSG_SET_THROTTLE: {
-                log = "Send throttle command to node ";
-                if (nd_ctrl_eph != NULL) {
-                    NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                     SetThrottleLevel, m_hdr, *msg.u.nd_throttle);
-                    break;
-                }
-                ndCpClient->SetThrottleLevel(m_hdr, *msg.u.nd_throttle);
-                break;
-            }
-            case fpi::FDSP_MSG_DMT_UPDATE: {
-                log = "Send DMT update command to node ";
-                if (nd_ctrl_eph != NULL) {
-                    NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                     NotifyDMTUpdate, m_hdr, *msg.u.nd_dmt_tab);
-                    break;
-                }
-                ndCpClient->NotifyDMTUpdate(m_hdr, *msg.u.nd_dmt_tab);
-                break;
-            }
-            default:
-                fds_panic("Unsupported command code");
-        }
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return;
-    }
-
-    fds_assert(log != NULL);
-    LOGDEBUG << log << get_node_name() << std::endl;
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyThrottle), throttle);
+    req->invoke();
+    LOGNORMAL << " send throttle level " << throttle->throttle_level
+        << " to am node " << rs_get_uuid();
 }
 
 // om_send_vol_cmd
 // ---------------
 // TODO(Vy): have 2 separate APIs, 1 to format the packet and 1 to send it.
-//
 Error
 OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
-                              fpi::FDSP_MsgCodeType cmd_type,
+                              fpi::FDSPMsgTypeId      cmd_type,
                               fpi::FDSP_NotifyVolFlag vol_flag)
 {
     return om_send_vol_cmd(vol, NULL, cmd_type, vol_flag);
 }
 
+void OM_NodeAgent::om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
+                      fpi::FDSPMsgTypeId      cmd_type,
+                      EPSvcRequest* req,
+                      const Error& error,
+                      boost::shared_ptr<std::string> payload) {
+    LOGNORMAL << "received vol cmd response " << vol->vol_get_name();
+    OM_NodeContainer * local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = local->om_vol_mgr();
+    volumes->om_vol_cmd_resp(vol, cmd_type, error, rs_get_uuid());
+}
+
 Error
-OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
-                              std::string           *vname,
-                              fpi::FDSP_MsgCodeType  cmd_type,
+OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
+                              std::string            *vname,
+                              fpi::FDSPMsgTypeId      cmd_type,
                               fpi::FDSP_NotifyVolFlag vol_flag)
 {
-    Error err(ERR_OK);
-    const char                *log;
-    const VolumeDesc          *desc;
-    fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
+    const char       *log;
+    const VolumeDesc *desc;
 
     desc = NULL;
-    this->init_msg_hdr(m_hdr);
     if (vol != NULL) {
-        desc                  = vol->vol_get_properties();
-        m_hdr->glob_volume_id = desc->volUUID;
+        desc = vol->vol_get_properties();
     }
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    switch (cmd_type) {
+    case fpi::CtrlNotifyVolAddTypeId: {
+        fpi::CtrlNotifyVolAddPtr pkt(new fpi::CtrlNotifyVolAdd());
 
-    try {
-        switch (cmd_type) {
-            case fpi::FDSP_MSG_DELETE_VOL:
-            case fpi::FDSP_MSG_MODIFY_VOL:
-            case fpi::FDSP_MSG_SNAP_VOL:
-            case fpi::FDSP_MSG_CREATE_VOL: {
-                FdspNotVolPtr notif(new fpi::FDSP_NotifyVolType);
-                OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
-                FdsAdminCtrl *admin_ctrl = local->om_get_admin_ctrl();
-
-                fds_verify(vol != NULL);
-                vol->vol_fmt_desc_pkt(&notif->vol_desc);
-                admin_ctrl->userQosToServiceQos(&notif->vol_desc, node_get_svc_type());
-                notif->vol_name = vol->vol_get_name();
-                notif->flag = vol_flag;
-                m_hdr->msg_code = cmd_type;
-
-                if (cmd_type == fpi::FDSP_MSG_CREATE_VOL) {
-                    log = "Send notify add volume ";
-                    notif->type = fpi::FDSP_NOTIFY_ADD_VOL;
-                    if (nd_ctrl_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                         NotifyAddVol, m_hdr, notif);
-                    } else {
-                        ndCpClient->NotifyAddVol(m_hdr, notif);
-                    }
-                } else if (cmd_type == fpi::FDSP_MSG_MODIFY_VOL) {
-                    log = "Send modify volume ";
-                    notif->type = fpi::FDSP_NOTIFY_MOD_VOL;
-                    if (nd_ctrl_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                         NotifyModVol, m_hdr, notif);
-                    } else {
-                        ndCpClient->NotifyModVol(m_hdr, notif);
-                    }
-                } else if (cmd_type == fpi::FDSP_MSG_SNAP_VOL) {
-                    log = "Send snap volume ";
-                    notif->type = fpi::FDSP_NOTIFY_SNAP_VOL;
-                    if (nd_ctrl_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                         NotifySnapVol, m_hdr, notif);
-                    } else {
-                        ndCpClient->NotifySnapVol(m_hdr, notif);
-                    }
-                } else {
-                    log = "Send remove volume ";
-                    notif->type = fpi::FDSP_NOTIFY_RM_VOL;
-                    if (nd_ctrl_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                         NotifyRmVol, m_hdr, notif);
-                    } else {
-                        ndCpClient->NotifyRmVol(m_hdr, notif);
-                    }
-                }
-                break;
-            }
-            case fpi::FDSP_MSG_ATTACH_VOL_CTRL:
-            case fpi::FDSP_MSG_DETACH_VOL_CTRL: {
-                FdspAttVolPtr attach(new fpi::FDSP_AttachVolType);
-
-                if (vol != NULL) {
-                    vol->vol_fmt_desc_pkt(&attach->vol_desc);
-                    attach->vol_name = vol->vol_get_name();
-                } else {
-                    m_hdr->result    = FDSP_ERR_VOLUME_DOES_NOT_EXIST;
-                    m_hdr->err_msg   = "Bucket does not exist";
-                    attach->vol_name = *vname;
-                    attach->vol_desc.vol_name  = *vname;
-                    attach->vol_desc.volUUID   = 9876;
-                    attach->vol_desc.tennantId = 0;
-                    attach->vol_desc.localDomainId = 0;
-                    attach->vol_desc.capacity = 1000;
-                    attach->vol_desc.volType  = FDS_ProtocolInterface::FDSP_VOL_S3_TYPE;
-                }
-                m_hdr->msg_code = cmd_type;
-
-                if (cmd_type == fpi::FDSP_MSG_ATTACH_VOL_CTRL) {
-                    log = "Send attach volume ";
-                    if (nd_ctrl_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                         AttachVol, m_hdr, attach);
-                    } else {
-                        ndCpClient->AttachVol(m_hdr, attach);
-                    }
-                } else {
-                    log = "Send detach volume ";
-                    if (nd_ctrl_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                         DetachVol, m_hdr, attach);
-                    } else {
-                        ndCpClient->DetachVol(m_hdr, attach);
-                    }
-                }
-                break;
-            }
-            default: {
-                fds_panic("Unknown vol cmd type");
-            }
+        log = "Send notify add volume ";
+        if (vol != NULL) {
+            vol->vol_fmt_desc_pkt(&pkt->vol_desc);
+        } else {
+            /* TODO(Vy): why we need to send dummy data? */
+            pkt->vol_desc.vol_name  = *vname;
+            pkt->vol_desc.volUUID   = 9876;
+            pkt->vol_desc.tennantId = 0;
+            pkt->vol_desc.localDomainId = 0;
+            pkt->vol_desc.capacity = 1000;
+            pkt->vol_desc.volType  = fpi::FDSP_VOL_S3_TYPE;
         }
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return ERR_NETWORK_TRANSPORT;
+        pkt->vol_flag = vol_flag;
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), pkt);
+        break;
     }
+    case fpi::CtrlNotifySnapVolTypeId: {
+        fpi::CtrlNotifySnapVolPtr pkt(new fpi::CtrlNotifySnapVol());
 
+        fds_assert(vol != NULL);
+        log = "Send snap volume ";
+        vol->vol_fmt_desc_pkt(&pkt->vol_desc);
+        pkt->vol_flag = vol_flag;
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifySnapVol), pkt);
+        break;
+    }
+    case fpi::CtrlNotifyVolRemoveTypeId: {
+        fpi::CtrlNotifyVolRemovePtr pkt(new fpi::CtrlNotifyVolRemove());
+
+        fds_assert(vol != NULL);
+        log = "Send remove volume ";
+        vol->vol_fmt_desc_pkt(&pkt->vol_desc);
+        pkt->vol_flag = vol_flag;
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), pkt);
+        break;
+    }
+    case fpi::CtrlNotifyVolModTypeId: {
+        fpi::CtrlNotifyVolModPtr pkt(new fpi::CtrlNotifyVolMod());
+
+        fds_assert(vol != NULL);
+        log = "Send modify volume ";
+        vol->vol_fmt_desc_pkt(&pkt->vol_desc);
+        pkt->vol_flag = vol_flag;
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyVolMod), pkt);
+        break;
+    }
+    default:
+        fds_panic("Unknown vol cmd type");
+    }
+    if (!vol) {
+        vol = VolumeInfo::pointer(new VolumeInfo(0x9876));  // create dummy to avoid issues
+    }
+    EPSvcRequestRespCb cb = std::bind(&OM_NodeAgent::om_send_vol_cmd_resp, this, vol, cmd_type,
+                                   std::placeholders::_1, std::placeholders::_2,
+                                   std::placeholders::_3);
+    req->onResponseCb(cb);
+    req->invoke();
     if (desc != NULL) {
+        Platform *plat = Platform::platf_singleton();
+        int ctrl_port = plat->plf_get_my_ctrl_port(node_base_port());
         LOGNORMAL << log << desc->volUUID << " " << desc->name
                   << " to node " << get_node_name() << std::hex
                   << ", uuid " << get_uuid().uuid_get_val() << std::dec
-                  << ", port " << get_ctrl_port();
+                  << ", port " << ctrl_port;
     } else {
         LOGNORMAL << log << ", no vol to node " << get_node_name();
     }
-
-    return err;
+    return Error(ERR_OK);
 }
+
 
 // om_send_reg_resp
 // ----------------
@@ -319,41 +250,47 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
         return Error(ERR_NOT_FOUND);
     }
 
-    fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_DLT_Data_TypePtr d_msg(new fpi::FDSP_DLT_Data_Type());
-
-    this->init_msg_hdr(m_hdr);
-
-    m_hdr->msg_code        = fpi::FDSP_MSG_DLT_UPDATE;
-    m_hdr->msg_id          = 0;
-    m_hdr->tennant_id      = 1;
-    m_hdr->local_domain_id = 1;
+    auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    fpi::CtrlNotifyDLTUpdatePtr msg(new fpi::CtrlNotifyDLTUpdate());
+    auto d_msg = &msg->dlt_data;
 
     d_msg->dlt_type        = true;
-    // TODO(Andrew): It's not safe to unconst this object.
-    // The serialization functions should all be const
-    // since they do not modify the object
     err = const_cast<DLT*>(curDlt)->getSerialized(d_msg->dlt_data);
+    msg->dlt_version = curDlt->getVersion();
     if (!err.ok()) {
         LOGERROR << "Failed to fill in dlt_data, not sending DLT";
         return err;
     }
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyDLTUpdate, m_hdr, d_msg);
-    } else {
-        try {
-            ndCpClient->NotifyDLTUpdate(m_hdr, d_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return Error(ERR_NETWORK_TRANSPORT);
-        }
-    }
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), msg);
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dlt_resp, this, msg,
+                                   std::placeholders::_1, std::placeholders::_2,
+                                   std::placeholders::_3));
+    om_req->invoke();
+
     curDlt->dump();
     LOGNORMAL << "OM: Send dlt info (version " << curDlt->getVersion()
               << ") to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
 
     return err;
+}
+
+
+void
+OM_NodeAgent::om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* req,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "OM received response for NotifyDltUpdate from node "
+            << std::hex << req->getPeerEpId().svc_uuid << std::dec <<
+            " with version " << msg->dlt_version;
+
+    // notify DLT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid(rs_get_uuid());
+    FdspNodeType node_type = rs_get_uuid().uuid_get_type();
+    domain->om_recv_dlt_commit_resp(node_type, node_uuid, msg->dlt_version);
 }
 
 Error
@@ -398,57 +335,26 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
 //
 Error
 OM_NodeAgent::om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd) {
-    Error err(ERR_OK);
-    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_ScavengerTypePtr gc_msg(new fpi::FDSP_ScavengerType());
-    this->init_msg_hdr(m_hdr);
-
-    m_hdr->msg_code = fpi::FDSP_MSG_SCAVENGER_START;
-    m_hdr->msg_id = 0;
-    m_hdr->tennant_id = 1;
-    m_hdr->local_domain_id = 1;
-
+    fpi::CtrlNotifyScavengerPtr msg(new fpi::CtrlNotifyScavenger());
+    fpi::FDSP_ScavengerType *gc_msg = &msg->scavenger;
     gc_msg->cmd = cmd;
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyScavengerCmd, m_hdr, gc_msg);
-    } else {
-        try {
-            ndCpClient->NotifyScavengerCmd(m_hdr, gc_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return ERR_NETWORK_TRANSPORT;
-        }
-    }
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyScavenger), msg);
+    req->invoke();
     LOGNORMAL << "OM: send scavenger command: " << cmd;
-    return err;
+    return Error(ERR_OK);
 }
 
 Error
 OM_NodeAgent::om_send_qosinfo(fds_uint64_t total_rate) {
-    Error err(ERR_OK);
-
-    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_QoSControlMsgTypePtr qos_msg(new fpi::FDSP_QoSControlMsgType());
-    this->init_msg_hdr(m_hdr);
-
-    m_hdr->msg_code = fpi::FDSP_MSG_SET_QOS_CONTROL;
-    m_hdr->msg_id = 0;
-    m_hdr->tennant_id = 1;
-    m_hdr->local_domain_id = 1;
-
-    qos_msg->total_rate = total_rate;
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, SetQoSControl, m_hdr, qos_msg);
-    } else {
-        try {
-            ndCpClient->SetQoSControl(m_hdr, qos_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return ERR_NETWORK_TRANSPORT;
-        }
-    }
+    fpi::CtrlNotifyQoSControlPtr qos_msg(new fpi::CtrlNotifyQoSControl());
+    fpi::FDSP_QoSControlMsgType *qosctrl = &qos_msg->qosctrl;
+    qosctrl->total_rate = total_rate;
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyQoSControl), qos_msg);
+    req->invoke();
     LOGNORMAL << "OM: send total rate to AM: " << total_rate;
-    return err;
+    return Error(ERR_OK);
 }
 
 Error
@@ -822,10 +728,11 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         // but for now assume always success and set active state here
         set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
         kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-        NodeInvData node_data;
-        if (!configDB->getNode(get_uuid(), node_data)) {
+        node_data_t node_data;
+        if (!configDB->getNode(get_uuid(), &node_data)) {
             // for now store only if the node was not known to DB
-            configDB->addNode(*node_inv);
+            node_info_frm_shm(&node_data);
+            configDB->addNode(&node_data);
             LOGNOTIFY << "Adding node info for " << get_node_name() << ":"
                       << std::hex << get_uuid().uuid_get_val() << std::dec
                       << " in configDB";
@@ -883,10 +790,12 @@ OM_AgentContainer::agent_register(const NodeUuid       &uuid,
     }
 
     try {
+        Platform *plat = Platform::platf_singleton();
+        int ctrl_port = plat->plf_get_my_ctrl_port(agent->node_base_port());
         NodeAgentCpSessionPtr session(
                 ac_cpSessTbl->startSession<netControlPathClientSession>(
                     agent->get_ip_str(),
-                    agent->get_ctrl_port(),
+                    ctrl_port,
                     ac_id,      // TODO(Andrew): should be just a node
                     1,                 // just 1 channel for now...
                     ctrlRspHndlr));
@@ -897,7 +806,7 @@ OM_AgentContainer::agent_register(const NodeUuid       &uuid,
 
         LOGNOTIFY << "Agent uuid " << std::hex << agent->get_uuid().uuid_get_val()
             << std::dec << " connects ip " << agent->get_ip_str()
-            << ", port " << agent->get_ctrl_port();
+            << ", port " << ctrl_port;
     } catch(const att::TTransportException& e) {
         rs_free_resource(agent);
         LOGERROR << "error during network call : " << e.what();
@@ -937,13 +846,13 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
 {
     // check if this is a known Node
     bool        known;
-    NodeInvData node;
+    node_data_t node;
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
 
-    if (configDB->getNode(uuid, node)) {
+    if (configDB->getNode(uuid, &node)) {
         // this is a known node
         known = true;
-        msg->node_name = node.nd_node_name;
+        msg->node_name = node.nd_assign_name;
     } else {
         // we are ignoring name that platform sends us
         known = false;
@@ -1194,16 +1103,16 @@ OM_NodeContainer::om_init_domain()
 {
     om_admin_ctrl = new FdsAdminCtrl(OrchMgr::om_stor_prefix(), g_fdslog);
 
+    // TODO(Anna) PerfStats class is replaced, not sure yet if we
+    // are also pushing stats to OM, so commenting this out for now
+    // to remember to port to new stats class yet
+    /*
     am_stats = new PerfStats(OrchMgr::om_stor_prefix() + "OM_from_AM",
                              5 * FDS_STAT_DEFAULT_HIST_SLOTS);
     if (am_stats != NULL) {
         am_stats->enable();
     }
-    /* TEMP file */
-    std::string fname = std::string("stats//" +
-                                    OrchMgr::om_stor_prefix() +
-                                    "-example.json");
-    json_file.open(fname.c_str(), std::ios::out | std::ios::app);
+    */
 }
 
 // om_send_qos_info
@@ -1361,7 +1270,7 @@ om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer v
     LOGDEBUG << "Dmt Send Volume to Node :" << vol->vol_get_name()
              << "; will sync flag " << vp->hasCommittedDMT();
     OM_NodeAgent::agt_cast_ptr(me)->om_send_vol_cmd(vol,
-                                                    fpi::FDSP_MSG_CREATE_VOL,
+                                                    fpi::CtrlNotifyVolAddTypeId,
                                                     vol_flag);
 }
 
@@ -1388,7 +1297,7 @@ OM_NodeContainer::om_bcast_stream_reg_list(NodeAgent::pointer node) {
 // Send the volume command to the node represented by the agent.
 //
 static Error
-om_send_vol_command(fpi::FDSP_MsgCodeType cmd_type,
+om_send_vol_command(fpi::FDSPMsgTypeId cmd_type,
                     fpi::FDSP_NotifyVolFlag vol_flag,
                     VolumeInfo::pointer   vol,
                     NodeAgent::pointer    agent)
@@ -1404,9 +1313,9 @@ OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
 {
     fds_uint32_t errok_sm_count = 0;
     errok_sm_count = dc_sm_nodes->agent_ret_foreach<
-        fpi::FDSP_MsgCodeType,
+        fpi::FDSPMsgTypeId,
         fpi::FDSP_NotifyVolFlag,
-        VolumeInfo::pointer>(fpi::FDSP_MSG_CREATE_VOL,
+        VolumeInfo::pointer>(fpi::CtrlNotifyVolAddTypeId,
                              fpi::FDSP_NOTIFY_VOL_NO_FLAG,
                              vol,
                              om_send_vol_command);
@@ -1431,7 +1340,7 @@ OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
             if (addedDms.count(cur->get_uuid()) > 0) {
                 flag = fpi::FDSP_NOTIFY_VOL_WILL_SYNC;
             }
-            err = om_send_vol_command(fpi::FDSP_MSG_CREATE_VOL,
+            err = om_send_vol_command(fpi::CtrlNotifyVolAddTypeId,
                                       flag, vol, cur);
             if (err.ok()) {
                 ++errok_dm_count;
@@ -1448,20 +1357,20 @@ OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
 void
 OM_NodeContainer::om_bcast_vol_modify(VolumeInfo::pointer vol)
 {
-    dc_sm_nodes->agent_ret_foreach<fpi::FDSP_MsgCodeType,
+    dc_sm_nodes->agent_ret_foreach<fpi::FDSPMsgTypeId,
                                    fpi::FDSP_NotifyVolFlag,
-                                   VolumeInfo::pointer>(fpi::FDSP_MSG_MODIFY_VOL,
+                                   VolumeInfo::pointer>(fpi::CtrlNotifyVolModTypeId,
                                                     fpi::FDSP_NOTIFY_VOL_NO_FLAG,
                                                     vol, om_send_vol_command);
 
-    dc_dm_nodes->agent_ret_foreach<fpi::FDSP_MsgCodeType,
+    dc_dm_nodes->agent_ret_foreach<fpi::FDSPMsgTypeId,
                                    fpi::FDSP_NotifyVolFlag,
-                                   VolumeInfo::pointer>(fpi::FDSP_MSG_MODIFY_VOL,
+                                   VolumeInfo::pointer>(fpi::CtrlNotifyVolModTypeId,
                                                     fpi::FDSP_NOTIFY_VOL_NO_FLAG,
                                                     vol, om_send_vol_command);
 
-    vol->vol_foreach_am<fpi::FDSP_MsgCodeType, fpi::FDSP_NotifyVolFlag>
-            (fpi::FDSP_MSG_MODIFY_VOL, fpi::FDSP_NOTIFY_VOL_NO_FLAG, om_send_vol_command);
+    vol->vol_foreach_am<fpi::FDSPMsgTypeId, fpi::FDSP_NotifyVolFlag>
+            (fpi::CtrlNotifyVolModTypeId, fpi::FDSP_NOTIFY_VOL_NO_FLAG, om_send_vol_command);
 }
 
 // om_bcast_vol_snap
@@ -1472,9 +1381,9 @@ OM_NodeContainer::om_bcast_vol_snap(VolumeInfo::pointer vol)
 {
     fds_uint32_t errok_dm_nodes = 0;
     errok_dm_nodes = dc_dm_nodes->agent_ret_foreach<
-        fpi::FDSP_MsgCodeType,
+        fpi::FDSPMsgTypeId,
         fpi::FDSP_NotifyVolFlag,
-        VolumeInfo::pointer>(fpi::FDSP_MSG_SNAP_VOL,
+        VolumeInfo::pointer>(fpi::CtrlNotifySnapVolTypeId,
                              fpi::FDSP_NOTIFY_VOL_NO_FLAG,
                              vol, om_send_vol_command);
     return errok_dm_nodes;
@@ -1486,8 +1395,8 @@ OM_NodeContainer::om_bcast_vol_snap(VolumeInfo::pointer vol)
 fds_uint32_t
 OM_NodeContainer::om_bcast_vol_detach(VolumeInfo::pointer vol)
 {
-    return vol->vol_foreach_am<fpi::FDSP_MsgCodeType,
-                               fpi::FDSP_NotifyVolFlag>(fpi::FDSP_MSG_DETACH_VOL_CTRL,
+    return vol->vol_foreach_am<fpi::FDSPMsgTypeId,
+                               fpi::FDSP_NotifyVolFlag>(fpi::CtrlNotifyVolRemoveTypeId,
                                                         fpi::FDSP_NOTIFY_VOL_NO_FLAG,
                                                         om_send_vol_command);
 }
@@ -1506,17 +1415,17 @@ OM_NodeContainer::om_bcast_vol_delete(VolumeInfo::pointer vol, fds_bool_t check_
     }
 
     if (!check_only) {
-        dc_sm_nodes->agent_ret_foreach<fpi::FDSP_MsgCodeType,
+        dc_sm_nodes->agent_ret_foreach<fpi::FDSPMsgTypeId,
                                        fpi::FDSP_NotifyVolFlag,
-                                       VolumeInfo::pointer>(fpi::FDSP_MSG_DELETE_VOL,
+                                       VolumeInfo::pointer>(fpi::CtrlNotifyVolRemoveTypeId,
                                                             vol_flag, vol,
                                                             om_send_vol_command);
         count += dc_sm_nodes->rs_available_elm();
     }
 
-    dc_dm_nodes->agent_ret_foreach<fpi::FDSP_MsgCodeType,
+    dc_dm_nodes->agent_ret_foreach<fpi::FDSPMsgTypeId,
                                    fpi::FDSP_NotifyVolFlag,
-                                   VolumeInfo::pointer>(fpi::FDSP_MSG_DELETE_VOL,
+                                   VolumeInfo::pointer>(fpi::CtrlNotifyVolRemoveTypeId,
                                                         vol_flag, vol,
                                                         om_send_vol_command);
     count += dc_dm_nodes->rs_available_elm();
@@ -1529,22 +1438,11 @@ OM_NodeContainer::om_bcast_vol_delete(VolumeInfo::pointer vol, fds_bool_t check_
 // Plugin to send a generic node command to all nodes.  Plugin to node iterator.
 //
 static void
-om_send_node_command(const om_node_msg_t &msg, fds_uint32_t *cnt, NodeAgent::pointer node)
+om_send_node_throttle_lvl(fpi::FDSP_ThrottleMsgTypePtr msg,
+                        fds_uint32_t *cnt, NodeAgent::pointer node)
 {
     (*cnt)++;
-    OM_SmAgent::agt_cast_ptr(node)->om_send_node_cmd(msg);
-}
-
-// om_send_am_node_command
-// -----------------------
-// Plugin to send a generic node command to all am nodes.  Plugin to volume iterator.
-//
-void
-om_send_am_node_command(const om_node_msg_t &msg,
-                        VolumeInfo::pointer  vol,
-                        NodeAgent::pointer   am_node)
-{
-    OM_SmAgent::agt_cast_ptr(am_node)->om_send_node_cmd(msg);
+    OM_SmAgent::agt_cast_ptr(node)->om_send_node_throttle_lvl(msg);
 }
 
 // om_bcast_vol_tier_policy
@@ -1569,18 +1467,14 @@ OM_NodeContainer::om_bcast_vol_tier_audit(const FDSP_TierPolicyAuditPtr &tier)
 void
 OM_NodeContainer::om_bcast_throttle_lvl(float throttle_level)
 {
-    om_node_msg_t msg;
     fds_uint32_t count = 0;
     fpi::FDSP_ThrottleMsgTypePtr throttle(new fpi::FDSP_ThrottleMsgType);
 
     throttle->domain_id      = DEFAULT_LOC_DOMAIN_ID;
     throttle->throttle_level = throttle_level;
 
-    msg.nd_msg_code   = fpi::FDSP_MSG_SET_THROTTLE;
-    msg.u.nd_throttle = &throttle;
-
-    dc_am_nodes->agent_foreach<const om_node_msg_t &, \
-            fds_uint32_t *>(msg, &count, om_send_node_command);
+    dc_am_nodes->agent_foreach<fpi::FDSP_ThrottleMsgTypePtr, \
+            fds_uint32_t *>(throttle, &count, om_send_node_throttle_lvl);
 }
 
 // om_set_throttle_lvl

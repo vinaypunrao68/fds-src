@@ -148,6 +148,8 @@ namespace redis {
         // hashes
         bool hset(const std::string& key, const std::string& field, const std::string& value); //NOLINT
         bool hset(const std::string& key, int64_t field, const std::string& value); //NOLINT
+        bool hexists(const std::string& key, int64_t field);
+        bool hexists(const std::string& key, const std::string field);
         Reply hget(const std::string& key, const std::string& field);
         Reply hget(const std::string& key, int64_t field);
         Reply hgetall(const std::string& key);

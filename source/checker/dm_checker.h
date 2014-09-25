@@ -115,9 +115,6 @@ class LevelDBChecker : public BaseChecker {
     
     netMetaDataPathClientSession *get_metadatapath_session(const NodeUuid& node_id);
 
-    virtual PlatRpcReqt *plat_creat_reqt_disp();
-    virtual PlatRpcResp *plat_creat_resp_disp();
-
     FdsConfigAccessor conf_helper_;
     ClusterCommMgrPtr clust_comm_mgr_;
 

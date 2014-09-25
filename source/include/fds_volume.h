@@ -18,6 +18,7 @@
 #include <fds_error.h>
 #include <fds_assert.h>
 #include <fds_typedefs.h>
+#include <fds_ptr.h>
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/atomic.hpp>
@@ -83,6 +84,8 @@ class VolumeDesc {
     fds_volid_t            srcVolumeId = invalid_vol_id;
     fds_volid_t            lookupVolumeId = invalid_vol_id;
     fds_volid_t            qosQueueId = invalid_vol_id;
+
+    fpi::ResourceState     state;
 
     VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeInfoType& volinfo,
                fds_volid_t vol_uuid);
@@ -259,6 +262,8 @@ class FDS_VolumeQueue {
 
   private:
         std::atomic<fds_uint32_t> count_;
+
+        INTRUSIVE_PTR_DEFS(FDS_VolumeQueue, refcnt_);
     };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDS_VOLUME_H_

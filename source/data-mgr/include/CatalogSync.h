@@ -15,7 +15,6 @@
 #include <fds_module.h>
 #include <util/Log.h>
 #include <fds_config.hpp>
-#include <fds_counters.h>
 #include <fds_process.h>
 #include <concurrency/Mutex.h>
 #include <fdsp/FDSP_types.h>
@@ -27,6 +26,15 @@
 #include <fdsp/DMSvc.h>
 
 namespace fpi = FDS_ProtocolInterface;
+
+namespace FDS_ProtocolInterface {
+    class FDSP_MetaSyncReqClient;
+    class FDSP_MetaSyncRespProcessor;
+    class FDSP_MetaSyncRespIf;
+}
+typedef netClientSessionEx<fpi::FDSP_MetaSyncReqClient,
+                fpi::FDSP_MetaSyncRespProcessor,
+                fpi::FDSP_MetaSyncRespIf> netMetaSyncClientSession;
 
 namespace fds {
 

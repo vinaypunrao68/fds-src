@@ -1,0 +1,13 @@
+{
+    "Run-Input": {
+        "sm-workload": {
+            "sm-ops": {
+                "op": "get", 
+                "object-id": "0x123abc", 
+                "volume-id": "0x321cba", 
+                "object-len": 4096,
+                "offset" : 33
+            }
+        }
+    }
+}

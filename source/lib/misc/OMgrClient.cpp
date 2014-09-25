@@ -1,6 +1,7 @@
 #include "OMgrClient.h"
 #include <fds_assert.h>
 #include <boost/thread.hpp>
+#include <NetSession.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TSimpleServer.h>
 #include <thrift/transport/TServerSocket.h>
@@ -10,11 +11,16 @@
 #include <dlt.h>
 
 #include <net/net_utils.h>
+#include <net/SvcRequestPool.h>
+#include <platform/platform-lib.h>
 #include <thread>
 
 using namespace std;
 using namespace fds;
 
+namespace fds {
+    extern const NodeUuid gl_OmUuid;
+    extern SvcRequestPool *gSvcRequestPool;
 
 OMgrClientRPCI::OMgrClientRPCI(OMgrClient *omc) {
     this->om_client = omc;
@@ -25,7 +31,7 @@ void OMgrClientRPCI::NotifyAddVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg
     assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_ADD_VOL);
     fds_vol_notify_t type = fds_notify_vol_add;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
+    // om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyModVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -33,7 +39,7 @@ void OMgrClientRPCI::NotifyModVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg
     assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_MOD_VOL);
     fds_vol_notify_t type = fds_notify_vol_mod;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
+    // om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyRmVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -41,7 +47,7 @@ void OMgrClientRPCI::NotifyRmVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_
     assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_RM_VOL);
     fds_vol_notify_t type = fds_notify_vol_rm;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
+    // om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifySnapVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -49,19 +55,19 @@ void OMgrClientRPCI::NotifySnapVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& ms
     assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_SNAP_VOL);
     fds_vol_notify_t type = fds_notify_vol_snap;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
+    // om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::AttachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 			       FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg) {
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvVolAttachState(vdb, fds_notify_vol_attatch, msg_hdr->result, msg_hdr->session_uuid);
+    // om_client->recvVolAttachState(vdb, fds_notify_vol_attatch, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::DetachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 			       FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg) {
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    om_client->recvVolAttachState(vdb, fds_notify_vol_detach, msg_hdr->result, msg_hdr->session_uuid);
+    // om_client->recvVolAttachState(vdb, fds_notify_vol_detach, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr,
@@ -120,7 +126,7 @@ void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
 
 void OMgrClientRPCI::NotifyScavengerCmd(FDSP_MsgHdrTypePtr& msg_hdr,
                                         FDSP_ScavengerTypePtr& gc_info) {
-    om_client->recvScavengerEvt(gc_info->cmd);
+    // om_client->recvScavengerEvt(gc_info->cmd);
 }
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
@@ -166,16 +172,6 @@ void OMgrClientRPCI::PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
     }
 }
 
-void OMgrClientRPCI::SetThrottleLevel(FDSP_MsgHdrTypePtr& msg_hdr, 
-                                      FDSP_ThrottleMsgTypePtr& throttle_msg) {
-    om_client->recvSetThrottleLevel((const float) throttle_msg->throttle_level);
-}
-
-void OMgrClientRPCI::SetQoSControl(FDSP_MsgHdrTypePtr& fdsp_msg,
-                                   FDSP_QoSControlMsgTypePtr& qos_msg) {
-    om_client->recvSetQoSControl(qos_msg->total_rate);
-}
-
 void
 OMgrClientRPCI::TierPolicy(FDSP_TierPolicyPtr &tier)
 {
@@ -219,12 +215,9 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
   omConfigPort = _omPort;
   my_node_name = node_name;
   node_evt_hdlr = NULL;
-  vol_evt_hdlr = NULL;
-  throttle_cmd_hdlr = NULL;
   bucket_stats_cmd_hdlr = NULL;
   dltclose_evt_hdlr = NULL;
   catalog_evt_hdlr = NULL;
-  scavenger_evt_hdlr = NULL;
   if (parent_log) {
     omc_log = parent_log;
   } else {
@@ -263,29 +256,11 @@ int OMgrClient::registerEventHandlerForNodeEvents(node_event_handler_t node_even
   return 0;
 }
  
-
-int OMgrClient::registerEventHandlerForVolEvents(volume_event_handler_t vol_event_hdlr) {
-  this->vol_evt_hdlr = vol_event_hdlr;
-  return 0;
-}
-
-int OMgrClient::registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr) {
-  this->throttle_cmd_hdlr = throttle_cmd_hdlr;
-  return 0;
-}
-
-void OMgrClient::registerQoSCtrlCmdHandler(qoscontrol_cmd_handler_t qosctrl_cmd_handler) {
-    this->qosctrl_cmd_hdlr = qosctrl_cmd_handler;
-}
-
 int OMgrClient::registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr) {
   bucket_stats_cmd_hdlr = cmd_hdlr;
   return 0;
 }
 
-void OMgrClient::registerScavengerEventHandler(scavenger_event_handler_t scav_evt_hdlr) {
-    scavenger_evt_hdlr = scav_evt_hdlr;
-}
 
 void OMgrClient::registerCatalogEventHandler(catalog_event_handler_t evt_hdlr) {
     catalog_evt_hdlr = evt_hdlr;
@@ -418,21 +393,17 @@ int OMgrClient::pushPerfstatsToOM(const std::string& start_ts,
 				  const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list)
 {
   try {
-
-    FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-    initOMMsgHdr(msg_hdr);
-    FDSP_PerfstatsTypePtr perf_stats_msg(new FDSP_PerfstatsType);
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+    fpi::CtrlPerfStatsPtr pkt(new fpi::CtrlPerfStats());
+    FDSP_PerfstatsType * perf_stats_msg = & pkt->perfstats;
     perf_stats_msg->node_type = my_node_type;
     perf_stats_msg->start_timestamp = start_ts;
     perf_stats_msg->slot_len_sec = stat_slot_len;
     perf_stats_msg->vol_hist_list = hist_list;  
 
-    LOGDEBUG << "OMClient pushing perfstats to OM at "
-             << omIpStr << ":" << omConfigPort
-             << " start ts " << start_ts;
-
-    om_client_prx->NotifyPerfstats(msg_hdr, perf_stats_msg);
-
+    LOGDEBUG << "OMClient pushing perfstats to OM ";
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlPerfStats), pkt);
+    req->invoke();
   } catch (...) {
     LOGERROR << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
   }
@@ -446,45 +417,36 @@ int OMgrClient::testBucket(const std::string& bucket_name,
 			   const std::string& accessKeyId,
 			   const std::string& secretAccessKey)
 {
-  try {
 
-    FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-    initOMMsgHdr(msg_hdr);
-    FDSP_TestBucketPtr test_buck_msg(new FDSP_TestBucket);
+  try {
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+    fpi::CtrlTestBucketPtr pkt(new fpi::CtrlTestBucket());
+    fpi::FDSP_TestBucket * test_buck_msg = & pkt->tbmsg;
     test_buck_msg->bucket_name = bucket_name;
     test_buck_msg->vol_info = *vol_info;
     test_buck_msg->attach_vol_reqd = attach_vol_reqd;
     test_buck_msg->accessKeyId = accessKeyId;
     test_buck_msg->secretAccessKey;
-
-    LOGNOTIFY << "OMClient sending test bucket request to OM at "
-            << omIpStr << ":" << omConfigPort;
-
-    om_client_prx->TestBucket(msg_hdr, test_buck_msg);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlTestBucket), pkt);
+    req->invoke();
+    LOGNOTIFY << " sending test bucket request to OM " << bucket_name;
+  } catch (...) {
+    LOGERROR << "OMClient unable to push test bucket to OM. Check if OM is up and restart.";
   }
-  catch (...) {
-    LOGERROR << "OMClient unable to send testBucket request to OM. Check if OM is up and restart.";
-    return -1;
-  }
-
-  return 0;
+    return 0;
 }
 
 int OMgrClient::pushGetBucketStatsToOM(fds_uint32_t req_cookie)
 {
   try {
-    FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-    initOMMsgHdr(msg_hdr);
-    msg_hdr->req_cookie = req_cookie;
-
-    FDSP_GetDomainStatsTypePtr get_stats_msg(new FDSP_GetDomainStatsType());
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+    fpi::CtrlGetBucketStatsPtr pkt(new fpi::CtrlGetBucketStats());
+    pkt->req_cookie = req_cookie;
+    FDSP_GetDomainStatsType * get_stats_msg = &pkt->gds;
     get_stats_msg->domain_id = 1; /* this is ignored in OM */
-
-    LOGNOTIFY << "OMClient sending get bucket stats request to OM at "
-                                                      << omIpStr << ":" << omConfigPort;
-
-
-    om_client_prx->GetDomainStats(msg_hdr, get_stats_msg);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetBucketStats), pkt);
+    req->invoke();
+    LOGNOTIFY << "OMClient sending get bucket stats request to OM ";
   }
   catch (...) {
     LOGERROR << "OMClient unable to send GetBucketStats request to OM. Check if OM is up and restart.";
@@ -497,10 +459,9 @@ int OMgrClient::pushGetBucketStatsToOM(fds_uint32_t req_cookie)
 int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr& volInfo)
 {
   try {
-         FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-         initOMMsgHdr(msg_hdr);
-  
-         FDSP_CreateVolTypePtr volData(new FDSP_CreateVolType());
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+    fpi::CtrlCreateBucketPtr pkt(new fpi::CtrlCreateBucket());
+    FDSP_CreateVolType * volData = & pkt->cv;
 
          volData->vol_name = volInfo->vol_name;
          volData->vol_info.vol_name = volInfo->vol_name;
@@ -523,7 +484,9 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
          volData->vol_info.appWorkload = volInfo->appWorkload;
          volData->vol_info.mediaPolicy = volInfo->mediaPolicy;
 
-    	 om_client_prx->CreateBucket(msg_hdr, volData);
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlCreateBucket), pkt);
+        req->invoke();
+        LOGNOTIFY << "OMClient sending create bucket request to OM ";
   } catch (...) {
     LOGERROR << "OMClient unable to push  the create bucket request to OM. Check if OM is up and restart.";
     return -1;
@@ -537,17 +500,15 @@ int OMgrClient::pushModifyBucketToOM(const std::string& bucket_name,
 {
   try {
 
-    FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-    initOMMsgHdr(msg_hdr);
-    FDSP_ModifyVolTypePtr mod_vol_msg(new FDSP_ModifyVolType());
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+    fpi::CtrlModifyBucketPtr pkt(new fpi::CtrlModifyBucket());
+    FDSP_ModifyVolType * mod_vol_msg= &pkt->mv;
     mod_vol_msg->vol_name = bucket_name;
     mod_vol_msg->vol_uuid = 0; /* make sure that uuid is not checked, because we don't know it here */
     mod_vol_msg->vol_desc = *vol_desc;
-
-    LOGNOTIFY << "OMClient sending modify bucket request to OM at "
-                                                      << omIpStr << ":" << omConfigPort;
-
-    om_client_prx->ModifyBucket(msg_hdr, mod_vol_msg);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlModifyBucket), pkt);
+    req->invoke();
+    LOGNOTIFY << "OMClient sending modify bucket request to OM";
   }
   catch (...) {
     LOGERROR << "OMClient unable to send ModifyBucket request to OM. Check if OM is up and restart.";
@@ -560,14 +521,14 @@ int OMgrClient::pushModifyBucketToOM(const std::string& bucket_name,
 int OMgrClient::pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& volInfo)
 {
   try {
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-
- 	FDSP_DeleteVolTypePtr volData(new FDSP_DeleteVolType());
-   	volData->vol_name  = volInfo->vol_name;
-  	volData->domain_id = volInfo->domain_id;
-    	om_client_prx->DeleteBucket(msg_hdr, volData);
-
+    auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
+    fpi::CtrlDeleteBucketPtr pkt(new fpi::CtrlDeleteBucket());
+    FDSP_DeleteVolType* volData = & pkt->dv;
+    volData->vol_name  = volInfo->vol_name;
+    volData->domain_id = volInfo->domain_id;
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlDeleteBucket), pkt);
+    req->invoke();
+    LOGNOTIFY << "OMClient sending modify bucket request to OM";
   } catch (...) {
     LOGERROR << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
   }
@@ -586,15 +547,6 @@ int OMgrClient::recvMigrationEvent(bool dlt_type)
   }
   return (0);
 
-}
-
-// TODO(xxx) currently does scavenger start event, extend to other scavenger events
-int OMgrClient::recvScavengerEvt(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd) 
-{
-  if (this->scavenger_evt_hdlr) {
-    this->scavenger_evt_hdlr(cmd);
-  }
-  return (0);
 }
 
 int OMgrClient::sendMigrationStatusToOM(const Error& err) {
@@ -723,115 +675,6 @@ int OMgrClient::recvNodeEvent(int node_id,
   }
   return (0);
   
-}
-
-int OMgrClient::recvNotifyVol(VolumeDesc *vdb,
-                              fds_vol_notify_t vol_action,
-                              FDSP_NotifyVolFlag vol_flag,
-			      FDSP_ResultType result,
-                              const std::string& session_uuid) {
-    Error err(ERR_OK);
-    fds_volid_t vol_id = vdb->volUUID;
-    LOGNOTIFY << "OMClient received volume event for volume 0x"
-            << std::hex << vol_id <<std::dec << " action - " << vol_action;
-    
-    if (this->vol_evt_hdlr) {
-        err = this->vol_evt_hdlr(vol_id, vdb, vol_action, vol_flag, result);
-    }
-
-    // send response back to OM
-    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
-            omrpc_handler_session_->getRespClient(session_uuid);
-
-    try {
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-        FDSP_NotifyVolTypePtr vol_resp(new FDSP_NotifyVolType());
-        msg_hdr->err_code = err.GetErrno();
-        if (!err.ok()) {
-            msg_hdr->result = FDSP_ERR_FAILED;
-        }
-        vol_resp->vol_name = vdb->getName();
-        vol_resp->flag = vol_flag;
-        vol_resp->vol_desc.vol_name = vdb->getName();
-        vol_resp->vol_desc.volUUID = vol_id;
-        switch (vol_action) {
-            case fds_notify_vol_add:
-                vol_resp->type = FDSP_NOTIFY_ADD_VOL;
-                resp_client_prx->NotifyAddVolResp(msg_hdr, vol_resp);
-                break;
-            case fds_notify_vol_rm:
-                vol_resp->type = FDSP_NOTIFY_RM_VOL;
-                resp_client_prx->NotifyRmVolResp(msg_hdr, vol_resp);
-                break;
-            case fds_notify_vol_mod:
-                vol_resp->type = FDSP_NOTIFY_MOD_VOL;
-                resp_client_prx->NotifyModVolResp(msg_hdr, vol_resp);
-                break;
-            case fds_notify_vol_snap:
-                vol_resp->type = FDSP_NOTIFY_SNAP_VOL;
-                //  SAN
-                // resp_client_prx->NotifyModVolResp(msg_hdr, vol_resp);
-                break;
-            default:
-                fds_panic("Unknown (corrupt?) volume event");
-        }
-        LOGNOTIFY << "OMClient sent response to OM for Volume Notify of type "
-                << vol_action << "; volume " << vdb->getName();
-    } catch (...) {
-        LOGERROR << "OMClient failed to send response to OM";
-        return -1;
-    }
-    return 0;
-}
-
-int OMgrClient::recvVolAttachState(VolumeDesc *vdb,
-                                   fds_vol_notify_t vol_action,
-				   FDSP_ResultType result,
-                                   const std::string& session_uuid) {
-    assert((vol_action == fds_notify_vol_attatch) || (vol_action == fds_notify_vol_detach));
-    Error err(ERR_OK);
-    fds_volid_t vol_id = vdb->volUUID;
-
-    LOGNOTIFY << "OMClient received volume attach/detach request for volume 0x"
-            << std::hex << vol_id << std::dec << " action - " << vol_action;
-    
-    if (this->vol_evt_hdlr) {
-        err = this->vol_evt_hdlr(vol_id, vdb, vol_action, FDSP_NOTIFY_VOL_NO_FLAG, result);
-    }
-    // send response back to OM
-    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
-            omrpc_handler_session_->getRespClient(session_uuid);
-
-    try {
-        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-        initOMMsgHdr(msg_hdr);
-        FDSP_AttachVolTypePtr vol_resp(new FDSP_AttachVolType());
-        msg_hdr->err_code = err.GetErrno();
-        if (!err.ok()) {
-            msg_hdr->result = FDSP_ERR_FAILED;
-        }
-        vol_resp->vol_name = vdb->getName();
-        vol_resp->vol_desc.vol_name = vdb->getName();
-        vol_resp->vol_desc.volUUID = vol_id;
-        switch (vol_action) {
-            case fds_notify_vol_attatch:
-                resp_client_prx->AttachVolResp(msg_hdr, vol_resp);
-                break;
-            case fds_notify_vol_detach:
-                resp_client_prx->DetachVolResp(msg_hdr, vol_resp);
-                break;
-            default:
-                fds_panic("Unknown (corrupt?) volume event");
-        }
-        LOGNOTIFY << "OMClient sent response to OM for Volume Attach/detach (type "
-                << vol_action << "); volume " << vdb->getName();
-    } catch (...) {
-        LOGERROR << "OMClient failed to send response to OM";
-        return -1;
-    }
-
-    return 0;
 }
 
 Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
@@ -1035,28 +878,6 @@ Error OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
     return err;
 }
 
-int OMgrClient::recvSetThrottleLevel(const float throttle_level) {
-
-  LOGNOTIFY << "OMClient received new throttle level  " << throttle_level;
-
-  this->current_throttle_level = throttle_level;
-
-  if (this->throttle_cmd_hdlr) {
-    this->throttle_cmd_hdlr(throttle_level);
-  }
-  return (0);
-
-}
-
-int OMgrClient::recvSetQoSControl(fds_uint64_t total_rate) {
-    LOGNOTIFY << "OMClient received QoS control settings: total rate "
-              << total_rate << " IOPS";
-    if (this->qosctrl_cmd_hdlr) {
-        this->qosctrl_cmd_hdlr(total_rate);
-    }
-    return 0;
-}
-
 int OMgrClient::recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr, 
 				const FDSP_BucketStatsRespTypePtr& stats_msg)
 {
@@ -1169,3 +990,5 @@ DmtColumnPtr OMgrClient::getDMTNodesForVolume(fds_volid_t vol_id,
 fds_uint64_t OMgrClient::getDMTVersion() const {
     return dmtMgr->getCommittedVersion();
 }
+
+}  //  namespace fds

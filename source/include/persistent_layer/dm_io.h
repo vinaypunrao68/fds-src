@@ -74,7 +74,7 @@ class IndexRequest : public fdsio::Request
     inline meta_vol_io_t const *const req_get_vio() const { return &idx_vio; }
     inline meta_obj_map_t *req_get_vmap() { return &idx_vmap; }
     inline obj_phy_loc_t *req_get_phy_loc() { return &idx_phy_loc; }
-    inline void set_phy_loc(obj_phy_loc_t *pl) {
+    inline void set_phy_loc(const obj_phy_loc_t *pl) {
         memcpy(&idx_phy_loc, pl, sizeof(obj_phy_loc_t));
     }
     inline void req_set_peer(IndexRequest *peer) { idx_peer = peer; }
@@ -376,7 +376,7 @@ class DataIO
      * Notify that object was deleted to update stats for garbage collection
      */
     void disk_delete_obj(meta_obj_id_t const *const oid, fds_uint32_t obj_size,
-                         obj_phy_loc_t* loc);
+                         const obj_phy_loc_t* loc);
 
     /**
      * Notify about start garbage collection for given token id 'tok_id'
@@ -457,6 +457,11 @@ class DataIOModule : public fds::Module
      */
     virtual PersisDataIO *
     disk_hdd_io(DataTier tier, fds_uint32_t file_id, meta_obj_id_t const *const token);
+
+    /**
+     * Returns the root path to access the disk for a given SM token
+     */
+    virtual const char *disk_path(fds::fds_token_id tok_id, DataTier tier);
 
     /**
      * @return 'ret_stat' aggregated statistics for a given disk 'disk_id' on 'tier'

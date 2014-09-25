@@ -6,6 +6,9 @@
     <meta name="description" content="Formation Data Systems is building a revolutionary converged data platform for web-scale computing.">
 
     <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta http-equiv='Cache-control' content='no-cache'>
+    <meta http-equiv='Expires' content='0'>
+    <meta http-equiv='Pragma' content='no-cache'>
 
     <!--iOS Meta and Logo -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -22,6 +25,7 @@
     <script type="text/javascript" src="libs/angular/angular.js"></script>
     <script type="text/javascript" src="libs/angular-ui-router/release/angular-ui-router.js"></script>
     <script type="text/javascript" src="libs/angular-translate/angular-translate.js"></script>
+    <script type="text/javascript" src="libs/d3/d3.min.js"></script>
 
     <script type="text/javascript" src="scripts/main.min.js"></script>
 <!--@@DEV@@ <script type="text/javascript" src="scripts/main.js"></script>
@@ -37,6 +41,10 @@
     <script type="text/javascript" src="scripts/services/data/activity_service.js"></script>
     <script type="text/javascript" src="scripts/services/data/inbox_service.js"></script>
     <script type="text/javascript" src="scripts/services/data/user_service.js"></script>
+    <script type="text/javascript" src="scripts/services/stats_service.js"></script>
+    <script type="text/javascript" src="scripts/services/resize_service.js"></script>
+    <script type="text/javascript" src="scripts/services/snapshot_api.js"></script>
+    <script type="text/javascript" src="scripts/services/data/tenant_service.js"></script>
 
     <script type="text/javascript" src="scripts/main/mainController.js"></script>
     <script type="text/javascript" src="scripts/volumes/volumeController.js"></script>
@@ -47,11 +55,15 @@
     <script type="text/javascript" src="scripts/inbox/inboxController.js"></script>
     <script type="text/javascript" src="scripts/activity/activityController.js"></script>
     <script type="text/javascript" src="scripts/status/statusController.js"></script>
+    <script type="text/javascript" src="scripts/tenants/tenantController.js"></script>
+    <script type="text/javascript" src="scripts/tenants/create/createTenantController.js"></script>
     <script type="text/javascript" src="scripts/users/userController.js"></script>
     <script type="text/javascript" src="scripts/account/accountController.js"></script>
+    <script type="text/javascript" src="scripts/volumes/create/snapshotPolicyController.js"></script>
     <script type="text/javascript" src="scripts/admin/admin.js"></script>
     <script type="text/javascript" src="scripts/admin/profile/profile.js"></script>
     <script type="text/javascript" src="scripts/admin/firebreak/firebreak.js"></script>
+    <script type="text/javascript" src="scripts/volumes/view/viewVolumeController.js"></script>
     <script type="text/javascript" src="scripts/system/addnode/addnode.js"></script>@@DEV@@-->
 
     <script type="text/javascript" src="templates.js"></script>
@@ -59,11 +71,18 @@
     <script type="text/javascript" src="scripts/directives/widgets/priorityslider/priorityslider.js"></script>
     <script type="text/javascript" src="scripts/directives/widgets/variableslider/variableslider.js"></script>
     <script type="text/javascript" src="scripts/directives/widgets/navitem/navitem.js"></script>
+    <script type="text/javascript" src="scripts/directives/widgets/tristatecheck/tristatecheck.js"></script>
     <script type="text/javascript" src="scripts/directives/angular-fui/fui-checkbox/fui-checkbox.js"></script>
     <script type="text/javascript" src="scripts/directives/angular-fui/fui-dropdown/fui-dropdown.js"></script>
+    <script type="text/javascript" src="scripts/directives/angular-fui/fui-input/fui-input.js"></script>
     <script type="text/javascript" src="scripts/directives/angular-fui/fui-slider/fui-slider.js"></script>
     <script type="text/javascript" src="scripts/directives/widgets/spinner/spinner.js"></script>
     <script type="text/javascript" src="scripts/directives/widgets/linkbuttons/linkbuttons.js"></script>
+    <script type="text/javascript" src="scripts/directives/widgets/statustile/statusTile.js"></script>
+
+    <script type="text/javascript" src="scripts/directives/utils/shownotify/shownotify.js"></script>
+
+    <script type="text/javascript" src="scripts/directives/charts/treemap/treemap.js"></script>
 </head>
 
 <body class="menu-active">
