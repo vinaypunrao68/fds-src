@@ -1,5 +1,12 @@
 require( './mockAuth' );
 
+addModule = function( moduleName, module ){
+
+    if ( browser.params.mockServer === true ){
+        browser.addMockModule( moduleName, module );
+    }
+};
+
 browser.addMockModule( 'user-management', mockAuth );
 
 login = function(){

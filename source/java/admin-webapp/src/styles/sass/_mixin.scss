@@ -35,3 +35,18 @@
     -o-user-select: none;
     user-select: none;
 }
+
+@mixin display-flex(){
+    display: -webkit-flex;
+    display: flex;
+}
+
+@mixin flex-wrap( $value ){
+    -webkit-flex-wrap: $value;
+    flex-wrap: $value;
+}
+
+@mixin justify-content( $value ){
+    -webkit-justify-content: $value;
+    justify-content: $value;
+}

@@ -12,7 +12,7 @@
             <span class="header">Name</span>
         </div>
         <div>
-            <span class="main-value">{{ username }}</span>
+            <span class="main-value username">{{username}}</span>
             <a>Edit</a>
         </div>
     </section>
@@ -62,9 +62,9 @@
             <span class="header">Password</span>
         </div>
 
-        <div class="change-password-summary" ng-show="!password_changing">
+        <div ng-show="!password_changing" class="change-password-summary">
             <span class="detail-value">********************</span>
-            <a ng-click="password_changing=true;" class="change-password">Change Password</a>
+            <a class="change-password" ng-click="password_changing=true;">Change Password</a>
         </div>
 
         <div ng-show="password_changing">

@@ -30,7 +30,6 @@ describe( 'Test change password scenarios', function(){
         var saveButton = element( by.cssContainingText( '.save-password', 'Save' ) );
 
         saveButton.click();
-
     };
 
     it( 'Should be able to change the password', function(){
@@ -48,6 +47,7 @@ describe( 'Test change password scenarios', function(){
         uEl = uEl.element( by.tagName( 'input' ) );
         var pEl = element( by.model( 'password' ) );
         pEl = pEl.element( by.tagName( 'input' ) );
+
         var button = element( by.id( 'login.submit' ) );
 
         uEl.clear();

@@ -8,7 +8,7 @@ section.summary-form-section {
     }
 
     .summary-row {
-        display: flex;
+        @include display-flex();
         color: black;
 
         span.value {

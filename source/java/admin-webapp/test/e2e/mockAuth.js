@@ -3,12 +3,13 @@ mockAuth = function() {
     var adminPassword = 'admin';
 
     var admin = {
-        userId: 1,
+        userId: 0,
         username: 'admin',
-        features: ['System Management','Volume Management','Tenant Management','User Management']
+        features: ['SYS_MGMT','Volume Management','TENANT_MGMT','User Management']
     };
 
     var goldman = {
+        userId: '1',
         username: 'goldman',
         features: ['Volume Management','User Management']
     };
@@ -73,6 +74,8 @@ mockAuth = function() {
         var service = {};
         service.user = user;
 
+        service.user = user;
+
         service.setUser = function( user ){
             service.user = user;
         };
@@ -115,6 +118,10 @@ mockAuth = function() {
             adminPassword = newPassword;
 
             success();
+        };
+
+        service.getUsers = function( callback ){
+
         };
 
         return service;

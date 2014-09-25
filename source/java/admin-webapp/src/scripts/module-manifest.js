@@ -22,4 +22,4 @@ angular.module( 'tenant', ['tenant-management', 'user-management', 'utility-dire
 angular.module( 'admin-settings', ['user-management'] );
 angular.module( 'status', ['activity-management', 'statistics', 'display-widgets', 'charts'] );
 angular.module( 'inbox', [] );
-angular.module( 'user-page', [] );
+angular.module( 'user-page', ['user-management','tenant-management'] );

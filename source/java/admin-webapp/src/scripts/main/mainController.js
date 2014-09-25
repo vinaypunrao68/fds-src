@@ -100,7 +100,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
         }
     });
 
-    if ( noState ){
+    if ( noState && $state.current.name !== 'homepage.account' ){
         // if we get here, nothing was selected
         $scope.navigate( $scope.views[0] );
     }
