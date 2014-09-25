@@ -13,12 +13,15 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.Xdi;
 import org.apache.commons.io.IOUtils;
+import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
 import java.util.Map;
 
 public class CreateVolume implements RequestHandler {
+  private static final Logger LOG = Logger.getLogger(CreateVolume.class);
+
     private Xdi xdi;
     private FDSP_ConfigPathReq.Iface legacyConfigPath;
     private AuthenticationToken token;
@@ -32,6 +35,9 @@ public class CreateVolume implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String source = IOUtils.toString(request.getInputStream());
+
+        LOG.trace( "JSON: Create Volume :: " + source );
+
         JSONObject o = new JSONObject(source);
         String name = o.getString("name");
         int priority = o.getInt("priority");
