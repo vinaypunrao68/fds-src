@@ -1,0 +1,26 @@
+.modal-header {
+  border-bottom: 1px solid $text_very_light_color;
+  padding: 0px;
+  margin-bottom: 36px;
+  color: $text_very_light_color;
+
+  a {
+    padding-top: 0.3em;
+  }
+
+//  span {
+//    font-size: 1.2em;
+//    font-weight: 500;
+//    color: #000000;
+//  }
+}
+
+.mfp-content {
+  background: #eff0f2;
+  position: relative;
+  max-width: $stage_width;
+  margin: 20px auto;
+  overflow: auto;
+  vertical-align: top;
+  width: auto;
+}

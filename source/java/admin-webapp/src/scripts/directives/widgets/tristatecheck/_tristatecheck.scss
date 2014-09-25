@@ -1,0 +1,26 @@
+.tristatecheck {
+
+    @include no-select();
+    color: $text_very_light_color;
+
+    .checked {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+    }
+
+    .unchecked {
+        position: absolute;
+        height: 12px;
+        width: 12px;
+    }
+
+    .partial {
+        position: absolute;
+        left: 1px;
+        top: 1px;
+        height: 8px;
+        width: 8px;
+        background-color: gray;
+    }
+}

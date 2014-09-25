@@ -1,0 +1,57 @@
+<div class="dialog-page" ng-class="{shown: addingnode, hideit: !addingnode}" ng-controller="addNodeController">
+
+    <div class="modal-header">
+        <span>Add Node</span>
+    </div>
+
+    <table class="default clickable">
+        <thead>
+            <th></th>
+            <th>Node Name</th>
+            <th>Site</th>
+            <th>Local Domain</th>
+        </thead>
+        <tbody>
+            <tr class="no-border" ng-repeat-start="detachedNode in detachedNodes">
+                <td width="32">
+<!--                    <fui-checkbox checked="detachedNode.addall"></fui-checkbox>-->
+                    <tri-state-check check-state="detachedNode.addAll" ng-click="parentStateChanged( detachedNode )"></tri-state-checkbox>
+                </td>
+                <td>
+                    {{detachedNode.node_name}}
+                </td>
+                <td>
+                    {{detachedNode.site}}
+                </td>
+                <td>
+                    {{detachedNode.local_domain}}
+                </td>
+            </tr>
+            <tr ng-repeat-end class="node-sub-services">
+                <td colspan="4">
+                    <div class="clear-fix">
+                        <tri-state-check class="pull-left" check-state="detachedNode.am" ng-click="serviceStateChanged( detachedNode )"></tri-state-check>
+                        <span>Access Manager</span>
+                    </div>
+                    <div class="clear-fix">
+                        <tri-state-check class="pull-left" check-state="detachedNode.dm" ng-click="serviceStateChanged( detachedNode )"></tri-state-check>
+                        <span>Data Manager</span>
+                    </div>
+                    <div class="clear-fix">
+                        <tri-state-check class="pull-left" check-state="detachedNode.sm" ng-click="serviceStateChanged( detachedNode )"></tri-state-check>
+                        <span>Storage Manager</span>
+                    </div>
+                </td>
+            </tr>
+            <tr class="disabled" ng-show="!detachedNodes.length || detachedNodes.length === 0">
+                <td colspan="100%">
+                    No detached nodes were discovered.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="pull-left">
+        <button class="btn btn-primary" ng-click="addNodes()">Add Nodes</button>
+        <button class="btn btn-secondary" ng-click="cancel()">Cancel</button>
+    </div>
+</div>

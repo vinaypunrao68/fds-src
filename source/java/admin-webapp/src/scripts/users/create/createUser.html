@@ -1,0 +1,24 @@
+<div ng-controller="createUserController" class="dialog-page create-user" ng-class="{shown: creating,hideit: !creating}" show-notify ng-show="creating">
+    
+    <div class="modal-header">
+        <span>Create User</span>
+    </div>
+
+    <div class="settings-body">
+        <div class="form-group" style="width: 260px;">
+            <fui-input type="text" class="form-control" size="32" placeholder="Username" ng-model="name">
+        </div>
+        <div class="page-vertical-spacer"></div>
+        <div class="form-group" style="width: 260px;">
+            <fui-input type="password" class="form-control" size="32" placeholder="Password" ng-model="password">
+        </div>
+        <div class="form-group" style="width: 260px;">
+            <fui-input type="password" class="form-control" size="32" placeholder="Confrim Password" ng-model="confirm">
+        </div>            
+    </div>
+
+    <div class="pull-left"style="padding-top: 12px;margin-bottom: 42px;">
+        <button class="btn btn-primary" style="display: inline-block;" ng-click="save()">Create User</button>
+        <button class="btn btn-secondary cancel-creation" style="display: inline-block;" ng-click="cancel()">Cancel</button>
+    </div>
+</div>

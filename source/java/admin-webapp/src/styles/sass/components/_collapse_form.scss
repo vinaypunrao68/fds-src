@@ -1,0 +1,48 @@
+.collapse-form-edit {
+
+    margin-left: 10px;
+    height: 0px;
+    @include transition( linear, 200ms );
+    overflow: auto;
+    padding-left: 24px;
+    color: $default_text_color;
+
+    input {
+        display: inline-block;
+        width: auto;
+        border: 1px solid $gray_border;
+
+        &:active, &:focus{
+            border-color: $fds_dark_green;
+        }
+    }
+
+    div {
+        padding-right: 8px;
+
+        &.icon-container {
+            color: $text_light_color;
+        }
+
+        span {
+
+            &.value {
+                font-size: 1.2em;
+                font-weight: bold;
+            }
+        }
+    }
+
+    &.open {
+        height: auto;
+    }
+}
+
+section.form-section {
+
+//    margin: 0px 0px 7px 10px;
+
+    .header {
+        color: $text_very_light_color;
+    }
+}

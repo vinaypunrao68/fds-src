@@ -1,0 +1,22 @@
+.ui-slider {
+    .ui-slider-labels {
+        padding-top: 20px;
+        padding-right: 2px;
+        padding-bottom: 8px;
+        color: $text_light_color;
+    }
+}
+
+.ui-slider-range {
+    background-color: $fds_light_green;
+    @include transition( linear, 200ms );
+}
+
+.ui-slider-handle {
+    background-color: $fds_dark_green;
+    @include transition( linear, 200ms );
+
+    &:hover, &:focus, &:active {
+        background-color: $fds_extra_light_green;
+    }
+}

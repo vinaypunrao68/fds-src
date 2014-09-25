@@ -1,0 +1,191 @@
+body {
+  //font: 13px/1.5 "Helvetica Neue", Arial, Helvetica, Sans-Serif;
+  background-color: #444;
+  color: $default_text_color;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  margin: 0px;
+  font-size: 1.4em;
+}
+
+/* Thanks, Paul. */
+* { -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box; }
+
+.active-text {
+    color: $text_link_color !important;
+}
+
+a {
+  text-decoration: none;
+  cursor: pointer;
+  color: $button_primary;
+
+  &:hover, &.current {
+    text-decoration: none;
+    color: $button_primary_hover;
+  }
+}
+
+h1, h2 {
+  font-weight: normal;
+  color: $header_color;
+  margin: 0;
+}
+
+h3 {
+  display: inline-block;
+  color: $default_text_color;
+  font-weight: normal;
+  margin: 0;
+}
+
+li:active, li:focus, a:active, a:focus {
+  outline: none !important;
+}
+
+.muted {
+  color: grey;
+  font-weight: lighter;
+}
+
+.alert {
+  text-align: center;
+  border-radius: 0px;
+}
+
+.error-color {
+    color: red;
+}
+
+.primary-color {
+    color: $fds_dark_green;
+}
+
+.light-print {
+    color: $text_very_light_color;
+}
+
+.fine-print {
+  font-size: 0.7em;
+  color: $text_very_light_color;
+}
+
+.form-group {
+
+    color: $default_text_color;
+
+    input {
+        border: 0px;
+        color: black;
+    }
+}
+
+.form-control {
+    border: 1px solid $text_very_light_color;
+
+    &:focus {
+        border-color: $fds_extra_light_green
+    }
+}
+
+input.form-control {
+    &.skinny {
+        height: 32px;
+    }
+}
+
+.inline {
+    display: inline-block;
+}
+
+.text-centered {
+  text-align: center;
+}
+
+.vertical-middle {
+    vertical-align: middle;
+}
+
+.underline {
+    text-decoration: underline;
+}
+
+.std-transition {
+    @include transition( linear, 200ms );
+}
+
+.clearfix:after {
+   content: " ";
+   display: block;
+   height: 0;
+   clear: both;
+}
+
+.btn {
+
+    color: white;
+
+    &.btn-primary {
+        background-color: $button_primary;
+    }
+
+    &.btn-primary:hover {
+        background-color: $button_primary_hover;
+    }
+
+    &.btn-secondary {
+        background-color: $button_secondary;
+    }
+
+    &.btn-secondary:hover {
+        background-color: $button_secondary_hover;
+    }
+
+    &.btn-secondary:active {
+        background-color: $button_secondary_active;
+    }
+
+    &.skinny {
+        padding-top: 4px;
+        padding-bottom: 4px;
+    }
+}
+
+.clear-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    background: transparent url('../images/clear-icon.png') no-repeat center center;
+    opacity: 0.7;
+    cursor: pointer;
+
+    &:hover {
+        opacity: 1.0;
+    }
+}
+
+.icon {
+    opacity: 0.7;
+    cursor: pointer;
+
+    &:hover {
+        opacity: 1.0;
+    }
+}
+
+.disabled {
+  pointer-events: none !important;
+  cursor: default !important;
+
+  * {
+    pointer-events: none !important;
+    cursor: default;
+    color: $text_light_color;
+  }
+
+  &.button {
+    background-color: #999999;
+    cursor: disabled;
+  }
+
+}

@@ -1,0 +1,50 @@
+<section class="form-section" ng-controller="firebreakController">
+    <div class="header">
+        <span>Firebreak Settings</span>
+    </div>
+    <div class="collapse-form-edit" ng-class="{open: !editing}">
+        <div class="form-group inline">
+            <span class="value">{{policies.length}}</span>
+            <span>policies configured</span>
+        </div>
+        <div class="inline icon-container">
+            <span class="icon fui-new" ng-click="editing = true;" title="Edit settings"></span>
+        </div>
+    </div>
+
+    <div class="collapse-form-edit" ng-class="{open: editing}">
+
+        <div style="position: relative;height: 190px;transition: linear 200ms" ng-style="{left: creating ? '-100%' : '0px'}">
+            <!-- actual table -->
+            <div class="table-container" style="position: absolute;left: 0px;top: 0px;width: 100%;">
+                <div class="header">
+                    <a class="pull-right" ng-click="creating = true;">Add Policy</a>
+                </div>
+                <table class="default volumes clickable" style="margin-bottom: 48px;margin-left: 0px;">
+                    <thead>
+                        <th>Volume Priority</th>
+                        <th>Violations</th>
+                        <th>Time Period</th>
+                        <th>Action</th>
+                        <th></th>
+                    </thead>
+                    <tbody>
+                        <tr class="disabled" ng-show="!pokicies.length || policies.length === 0">
+                            <td colspan="100%">
+                                There are no policies configured.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="button-group">
+                    <button class="btn btn-secondary" ng-click="editing = false;">Cancel</button>
+                    <button class="btn btn-primary">Save</button>
+                </div>
+            </div>
+            <div style="position: absolute;width: 100%;left: 100%;">
+                <button class="btn btn-primary" ng-click="creating = false;">Done</button>
+            </div>
+        </div>
+    </div>
+
+</section>

@@ -1,0 +1,36 @@
+<div ng-controller="inboxController">
+
+    <div class="coming-soon-parent" ng-show="!isAllowed( 'SYS_MGMT' )">
+        <div class="coming-soon-child">
+            <div style="">
+                <span style="color: white;">Coming soon...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="header top-label">
+        <div style="position:relative;">
+            <div class="pull-left">Messages</div>
+            <div class="pull-right">
+                <linkbuttons items="items"></linkbuttons>
+            </div>
+        </div>
+
+        <table class="default">
+            <thead>
+                <th style="width: 24px;vertical-align: middle;"><input type="checkbox"/></th>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Received</th>
+            </thead>
+            <tbody>
+                <tr ng-repeat="message in messages">
+                    <td style="width: 24px;vertical-align: middle;"><input type="checkbox"/></td>
+                    <td>{{message.type}}</td>
+                    <td>{{message.message}}</td>
+                    <td>{{message.time}}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

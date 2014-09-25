@@ -1,0 +1,23 @@
+.coming-soon-parent {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background-color: rgba( 255, 255, 255, 0.7 );
+    z-index: 10;
+}
+
+.coming-soon-child {
+    width: 100%;
+    text-align: center;
+    font-weight: bold;
+    font-size: 1.2em;
+    margin-top: 100px;
+
+    div {
+        background-color: rgba(58,66,79,.7);
+        width: 200px;
+        height: 30px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}

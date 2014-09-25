@@ -22,7 +22,6 @@ public class ListSnapshotPolicies implements RequestHandler {
 
     private final long unused = 0L;
     private ConfigurationApi config;
-
     public ListSnapshotPolicies(final ConfigurationApi config) {
         this.config = config;
     }
