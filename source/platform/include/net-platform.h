@@ -147,6 +147,9 @@ class PlatformEpHandler : public PlatNetSvcHandler
                         bo::shared_ptr<bool>             &bcast);
     void getDomainNodes(fpi::DomainNodes                 &ret,
                         bo::shared_ptr<fpi::DomainNodes> &req);
+    virtual void
+    NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                              boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &msg);
 
   protected:
     PlatformdNetSvc         *net_plat;
