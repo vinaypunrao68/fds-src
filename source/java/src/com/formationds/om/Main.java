@@ -190,6 +190,8 @@ public class Main {
                   "/api/config/snapshot/policies/:policyId/detach/:volumeId",
                   ( t ) -> new DetachSnapshotPolicyIdToVolumeId( config ),
                   authorizer );
+    fdsAdminOnly( HttpMethod.PUT, "/api/config/snapshot/policies",
+                  ( t ) -> new EditSnapshotPolicy( config ), authorizer );
   }
 
   private void snapshotGets( final ConfigurationApi config, Authorizer authorizer ) {
