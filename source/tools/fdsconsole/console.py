@@ -8,7 +8,7 @@ import os
 import traceback
 import context
 import helpers
-
+import pipes
 from helpers import *
 from tabulate import tabulate
 
@@ -98,8 +98,9 @@ class FDSConsole(cmd.Cmd):
         if self.recordFile:
             argv = shlex.split(line)
             if not (len(argv) > 0 and argv[0].lower() == 'record'):
-                self.recordFile.write(line)
-                self.recordFile.write('\n')
+                if len(line.strip()) > 0 :
+                    self.recordFile.write(line)
+                    self.recordFile.write('\n')
 
         if line.startswith('?'):
             line = '? ' + line[1:]
@@ -108,6 +109,12 @@ class FDSConsole(cmd.Cmd):
             line = line[:-1] + ' ?'
 
         argv = shlex.split(line)
+
+        # remove comments
+        for n in xrange(0,len(argv)):
+            if argv[n].startswith('#'):
+                del argv[n:]
+                break
 
         if len(argv) == 1:
             if argv[0] == '..':
@@ -122,9 +129,8 @@ class FDSConsole(cmd.Cmd):
             if argv[-1] in ['?','-h','--help']:
                 del argv[-1]
                 argv.insert(0,'help')
-            return ' '.join(argv)
 
-        return line
+        return ' '.join (map(pipes.quote, argv))
 
     def do_refresh(self, line):
         print 'reconnecting to {}:{}'.format(self.config.getSystem('host'), self.config.getSystem('port'))
@@ -459,7 +465,8 @@ class FDSConsole(cmd.Cmd):
         l += ['============================================']
         l += ['Formation Data Systems Console ...']
         l += ['Copyright 2014 Formation Data Systems, Inc.']
-        l += ['>>> NOTE: the current access level : %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)))]
+        l += ['NOTE: Access level : %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)))]
+        l += ['NOTE: Ctrl-D , Ctrl-C to exit']
         l += ['============================================']
         l += ['']
         try:
