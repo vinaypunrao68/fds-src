@@ -15,6 +15,51 @@
 
 namespace leveldb {
 
+Status CopyEnv::NewWritableFile(const std::string& fname, WritableFile** result) {
+    Status s = target()->NewWritableFile(fname, result);
+    if (!s.ok()) {
+        return s;
+    }
+
+    std::string baseName = fname.substr(fname.rfind('/') + 1);
+    uint64_t number;
+    FileType type;
+    ParseFileName(baseName, &number, &type);
+    if (type != kLogFile || !logRotate() || 0 == maxLogFiles_) {
+        return s;
+    }
+
+    FDSGUARD(rotateMtx_);
+
+    std::string prefix = logDirName() + logFilePrefix();
+    for (fds_int32_t i = maxLogFiles() - 1; i >= 0; --i) {
+        std::string name = prefix + "." + std::to_string(i);
+        if (!target()->FileExists(name)) {
+            continue;
+        }
+
+        if (static_cast<fds_int32_t>(maxLogFiles_ - 1) == i) {
+            s = target()->DeleteFile(name);
+            fds_verify(s.ok());
+            continue;
+        }
+
+        std::string newName = prefix + "." + std::to_string(i + 1);
+        s = target()->RenameFile(name, newName);
+        fds_verify(s.ok());
+    }
+
+    if (target()->FileExists(prefix)) {
+        std::string newName = prefix + "." + std::to_string(0);
+        s = target()->RenameFile(prefix, newName);
+        fds_verify(s.ok());
+    }
+
+    fds_verify(0 == link(fname.c_str(), prefix.c_str()));
+
+    return s;
+}
+
 Status CopyEnv::DeleteFile(const std::string & f) {
     FDSGUARD(mtx_);
     Status s;

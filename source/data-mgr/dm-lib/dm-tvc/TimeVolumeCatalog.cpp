@@ -23,21 +23,6 @@
         } \
     } while (false)
 
-#define OP_JOURNAL_GET(_volId_, _opJournal_) \
-    do { \
-        fds_scoped_spinlock jl(opJournalLock_); \
-        try { \
-            _opJournal_ = opJournals_.at(_volId_); \
-        } catch(const std::out_of_range &oor) { \
-            return ERR_VOL_NOT_FOUND; \
-        } \
-    } while (false)
-
-static const std::string TVC_LOG_SZ_STR("tvc_log_file_size");
-static const std::string TVC_LOG_MAX_FILES_STR("tvc_log_max_files");
-
-static const fds_uint64_t TVC_BUFFER_SIZE = std::numeric_limits<fds_uint64_t>::max();
-
 namespace fds {
 
 void
@@ -88,44 +73,17 @@ Error
 DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
     LOGDEBUG << "Will prepare commit log for new volume "
              << std::hex << voldesc.volUUID << std::dec;
-    DmTvcOperationJournal::ptr opJournal;
-
-    fds_uint32_t logSize =  config_helper_.get<fds_uint32_t>(TVC_LOG_SZ_STR,
-            ObjectLogger::FILE_SIZE);
-    fds_uint32_t maxFiles = config_helper_.get<fds_uint32_t>(TVC_LOG_MAX_FILES_STR,
-            ObjectLogger::MAX_FILES);
-    {
-        fds_scoped_spinlock lj(opJournalLock_);
-        if (opJournals_.find(voldesc.volUUID) != opJournals_.end()) {
-            return ERR_VOL_DUPLICATE;
-        }
-
-        opJournal.reset(new DmTvcOperationJournal(voldesc.volUUID, logSize, maxFiles));
-        opJournals_[voldesc.volUUID] = opJournal;
-    }
-
     Error rc = ERR_OK;
     {
         fds_scoped_spinlock l(commitLogLock_);
         /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
          * on DmCommitLog so that initialization can happen outside the lock
          */
-        commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID,
-                *opJournal, TVC_BUFFER_SIZE);
+        commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID);
         commitLogs_[voldesc.volUUID]->mod_init(mod_params);
         commitLogs_[voldesc.volUUID]->mod_startup();
 
         rc = volcat->addCatalog(voldesc);
-    }
-
-    if (rc.ok()) {
-        DmCommitLog::ptr commitLog;
-        COMMITLOG_GET(voldesc.volUUID, commitLog);
-
-        blob_version_t blob_version = blob_version_invalid;
-        auto handler = std::bind(&DmTimeVolCatalog::doCommitBlob, this, voldesc.volUUID,
-                blob_version, std::placeholders::_1);
-        rc = commitLog->flushBuffer(handler);
     }
 
     return rc;
@@ -141,8 +99,7 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc) {
     LOGDEBUG << "Creating a snapshot '" << voldesc.name << "' of a volume '"
             << voldesc.volUUID << "'"  << "srcVolume: "<< voldesc.srcVolumeId;
     if (voldesc.isSnapshot()) {
-        // Put snapshot entry into volume operation journal
-        // Also start buffering
+        // TODO(umesh): remove this, underlying logic is changed.
         BlobTxId::const_ptr txId(new BlobTxId(voldesc.srcVolumeId));
         rc = commitLog->snapshot(txId, voldesc.name);
         if (!rc.ok()) {
@@ -150,9 +107,6 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc) {
                    voldesc.volUUID << std::dec << "', volume '" << std::hex << voldesc.srcVolumeId;
             return rc;
         }
-    } else {
-        // start buffering
-         commitLog->startBuffering();
     }
 
     // Create snapshot of volume catalog
@@ -162,21 +116,6 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc) {
                 voldesc.volUUID << std::dec << "', volume '" << std::hex <<
                 voldesc.srcVolumeId;
         return rc;
-    }
-
-    // catalog copy is created, flush buffer
-    blob_version_t blob_version = blob_version_invalid;
-    auto handler = std::bind(&DmTimeVolCatalog::doCommitBlob, this, voldesc.volUUID,
-            blob_version, std::placeholders::_1);
-    rc = commitLog->flushBuffer(handler);
-    if (!rc.ok()) {
-        GLOGCRITICAL << "Failed to process bufferend transactions to volume catalog";
-        return rc;
-    }
-
-    rc = commitLog->stopBuffering(handler);
-    if (!rc.ok()) {
-        GLOGCRITICAL << "Failed to process buffered transactions and stop buffering";
     }
 
     if (dataMgr->amIPrimary(voldesc.srcVolumeId)) {
@@ -352,10 +291,8 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     LOGDEBUG << "Committing transaction " << *txDesc << " for volume "
              << std::hex << volid << std::dec;
     CommitLogTx::const_ptr commit_data = commitLog->commitTx(txDesc, e);
-    if (!commitLog->isBuffering()) {
-        if (e.ok()) {
-            e = doCommitBlob(volid, blob_version, commit_data);
-        }
+    if (e.ok()) {
+        e = doCommitBlob(volid, blob_version, commit_data);
     }
     cb(e, blob_version, commit_data->blobObjList, commit_data->metaDataList);
 }
