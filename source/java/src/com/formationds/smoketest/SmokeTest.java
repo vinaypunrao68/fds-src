@@ -98,6 +98,17 @@ public class SmokeTest {
         assertEquals(4096 * partCount, objectMetadata.getContentLength());
     }
 
+    // @Test
+    public void testCopyObject() {
+        String source = UUID.randomUUID().toString();
+        String destination = UUID.randomUUID().toString();
+        userClient.putObject(userBucket, source, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        userClient.copyObject(userBucket, source, userBucket, destination);
+        String sourceEtag = userClient.getObjectMetadata(userBucket, destination).getETag();
+        String destinationEtag = userClient.getObjectMetadata(userBucket, destination).getETag();
+        assertEquals(sourceEtag, destinationEtag);
+    }
+
     @Test
     public void testPutGetDelete() {
         int count = 10;

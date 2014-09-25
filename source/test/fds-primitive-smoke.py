@@ -107,7 +107,7 @@ def exit_test(env, shutdown):
 #
 def testsuite_pre_commit(am_ip):
     os.chdir(env.srcdir + '/Build/linux-x86_64.debug/tools')
-    subprocess.call("./smokeTest localhost", shell=True)
+    subprocess.call("./smokeTest " + am_ip, shell=True)
 
 #########################################################################################
 if __name__ == "__main__":
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     parser.add_argument('--fds_root', default='/fds',
                         help='fds-root path [/fds')
     parser.add_argument('--am_ip', default='localhost',
-                        help='AM IP address [localhost')
+                        help='AM IP address [localhost]')
     parser.add_argument('--verbose', default='false',
                         help='Print verbose [false]')
     parser.add_argument('--debug', default='false',
