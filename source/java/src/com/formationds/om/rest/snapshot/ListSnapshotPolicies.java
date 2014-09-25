@@ -7,7 +7,6 @@ package com.formationds.om.rest.snapshot;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formationds.commons.model.SnapshotPolicy;
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -35,35 +34,21 @@ public class ListSnapshotPolicies implements RequestHandler {
 
         final ObjectMapper mapper = new ObjectMapper();
         final List<SnapshotPolicy> policies = new ArrayList<>();
+        final List<com.formationds.apis.SnapshotPolicy> _policies =
+          config.listSnapshotPolicies(unused);
+        if (_policies == null || _policies.isEmpty()) {
+          return new JsonResource(new JSONArray(policies));
+        }
 
-        if (FdsFeatureToggles.USE_CANNED.isActive()) {
-            for (int i = 1; i <= 10; i++) {
-                final SnapshotPolicy policy = new SnapshotPolicy();
+        for (final com.formationds.apis.SnapshotPolicy policy : _policies) {
+          final SnapshotPolicy modelPolicy = new SnapshotPolicy();
 
-                policy.setId(i);
-                policy.setName(String.format("snapshot policy name %s", i));
-                policy.setRecurrenceRule( "FREQ=DAILY;UNTIL=19971224T000000Z");
-                policy.setRetention(System.currentTimeMillis() / 1000);
+          modelPolicy.setId(policy.getId());
+          modelPolicy.setName(policy.getPolicyName());
+          modelPolicy.setRecurrenceRule( policy.getRecurrenceRule() );
+          modelPolicy.setRetention(policy.getRetentionTimeSeconds());
 
-                policies.add(policy);
-            }
-        } else {
-            final List<com.formationds.apis.SnapshotPolicy> _policies =
-                    config.listSnapshotPolicies(unused);
-            if (_policies == null || _policies.isEmpty()) {
-                return new JsonResource(new JSONArray(policies));
-            }
-
-            for (final com.formationds.apis.SnapshotPolicy policy : _policies) {
-                final SnapshotPolicy modelPolicy = new SnapshotPolicy();
-
-                modelPolicy.setId(policy.getId());
-                modelPolicy.setName(policy.getPolicyName());
-                modelPolicy.setRecurrenceRule( policy.getRecurrenceRule() );
-                modelPolicy.setRetention(policy.getRetentionTimeSeconds());
-
-                policies.add(modelPolicy);
-            }
+          policies.add(modelPolicy);
         }
 
         return new JsonResource(new JSONArray(mapper.writeValueAsString(policies)));

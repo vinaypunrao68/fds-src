@@ -16,6 +16,30 @@
 
 package com.formationds.commons.model.builder;
 
+import org.junit.Test;
+
 public class NodeBuilderTest {
+  private static final String EXPECTED_DOMAIN = "";
+  private static final long EXPECTED_LO_ADDR = 0L;
+  private static final long EXPECTED_HI = 0L;
+
+  @Test
+  public void test()
+  {
+//    final Node node =
+//      new NodeBuilder()
+//        .withDomain(  )
+//        .withLoAddr(  )
+//        .withHiAddr(  )
+//        .withId(  )
+//        .withLocalDomain(  )
+//        .withName(  )
+//        .withName(  )
+//        .withRoot(  )
+//        .withSite(  )
+//        .withState(  )
+//        .withUuid(  )
+//        .build();
+  }
 
 }

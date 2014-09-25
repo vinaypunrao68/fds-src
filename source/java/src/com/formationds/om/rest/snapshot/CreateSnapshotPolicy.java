@@ -39,7 +39,6 @@ public class CreateSnapshotPolicy implements RequestHandler {
         final SnapshotPolicy policy = gson.fromJson( reader,
                                                      SnapshotPolicy.class );
 
-        LOG.trace("calling XDI create snapshot policy with " + policy);
         config.createSnapshotPolicy(
           policy.getName(),
           policy.getRecurrenceRule().toString(),

@@ -13,13 +13,12 @@ import com.formationds.commons.model.Volume;
  */
 public class VolumeBuilder {
   private String name;
-  private int limit;                    // maximum IOPS
-  private int sla;                      // minimum IOPS
+  private long limit;                    // maximum IOPS
+  private long sla;                      // minimum IOPS
   private String id;
   private int priority;
   private Connector data_connector;
   private Usage current_usage;
-  private String apis;
 
   /**
    * default constructor
@@ -38,11 +37,11 @@ public class VolumeBuilder {
   }
 
   /**
-   * @param limit the {@code int} representing the iops limit
+   * @param limit the {@code long} representing the iops limit
    *
    * @return Returns {@link com.formationds.commons.model.builder.VolumeBuilder}
    */
-  public VolumeBuilder withLimit( int limit ) {
+  public VolumeBuilder withLimit( long limit ) {
     this.limit = limit;
     return this;
   }
@@ -52,7 +51,7 @@ public class VolumeBuilder {
    *
    * @return Returns {@link com.formationds.commons.model.builder.VolumeBuilder}
    */
-  public VolumeBuilder withSla( int sla ) {
+  public VolumeBuilder withSla( long sla ) {
     this.sla = sla;
     return this;
   }
@@ -94,16 +93,6 @@ public class VolumeBuilder {
    */
   public VolumeBuilder withCurrent_usage( Usage current_usage ) {
     this.current_usage = current_usage;
-    return this;
-  }
-
-  /**
-   * @param apis the {@link String} representing the data connector protocol
-   *
-   * @return Returns {@link com.formationds.commons.model.builder.VolumeBuilder}
-   */
-  public VolumeBuilder withApis( String apis ) {
-    this.apis = apis;
     return this;
   }
 

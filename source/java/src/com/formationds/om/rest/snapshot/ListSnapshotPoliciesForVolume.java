@@ -7,7 +7,6 @@ package com.formationds.om.rest.snapshot;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formationds.commons.model.SnapshotPolicy;
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -21,7 +20,6 @@ import java.util.Map;
 
 public class ListSnapshotPoliciesForVolume
   implements RequestHandler {
-
     private static final String REQ_PARAM_VOLUME_ID = "volumeId";
     private ConfigurationApi config;
 
@@ -35,37 +33,23 @@ public class ListSnapshotPoliciesForVolume
         final ObjectMapper mapper = new ObjectMapper();
         final List<SnapshotPolicy> policies = new ArrayList<>();
 
-        final long volumeId = requiredLong(routeParameters,
-                REQ_PARAM_VOLUME_ID);
-        if (FdsFeatureToggles.USE_CANNED.isActive()) {
-            for (int i = 1; i <= 10; i++) {
-                final SnapshotPolicy policy = new SnapshotPolicy();
+        final long volumeId = requiredLong( routeParameters,
+                                            REQ_PARAM_VOLUME_ID );
+        final List<com.formationds.apis.SnapshotPolicy> internalPolicyDefs =
+          config.listSnapshotPoliciesForVolume(volumeId);
+        if (internalPolicyDefs == null || internalPolicyDefs.isEmpty()) {
+          return new JsonResource( new JSONArray( policies ) );
+        }
 
-                policy.setId(i);
-                policy.setName(String.format("snapshot policy for volume %d",
-                        volumeId));
-                policy.setRecurrenceRule( "FREQ=DAILY;UNTIL=19971224T000000Z");
-                policy.setRetention(System.currentTimeMillis() / 1000);
+        for (final com.formationds.apis.SnapshotPolicy policy : internalPolicyDefs) {
+          final SnapshotPolicy modelPolicy = new SnapshotPolicy();
 
-                policies.add(policy);
-            }
-        } else {
-            final List<com.formationds.apis.SnapshotPolicy> internalPolicyDefs =
-                    config.listSnapshotPoliciesForVolume(volumeId);
-            if (internalPolicyDefs == null || internalPolicyDefs.isEmpty()) {
-                return new JsonResource( new JSONArray( policies ) );
-            }
+          modelPolicy.setId(policy.getId());
+          modelPolicy.setName(policy.getPolicyName());
+          modelPolicy.setRecurrenceRule( policy.getRecurrenceRule());
+          modelPolicy.setRetention(policy.getRetentionTimeSeconds());
 
-            for (final com.formationds.apis.SnapshotPolicy policy : internalPolicyDefs) {
-                final SnapshotPolicy modelPolicy = new SnapshotPolicy();
-
-                modelPolicy.setId(policy.getId());
-                modelPolicy.setName(policy.getPolicyName());
-                modelPolicy.setRecurrenceRule( policy.getRecurrenceRule());
-                modelPolicy.setRetention(policy.getRetentionTimeSeconds());
-
-                policies.add(modelPolicy);
-            }
+          policies.add(modelPolicy);
         }
 
         return new JsonResource(new JSONArray(mapper.writeValueAsString(policies)));
