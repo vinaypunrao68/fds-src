@@ -1,0 +1,40 @@
+a {
+  color: $text_link_color;
+}
+// Using class name to duplicate headers in popup
+.content header {
+  font-size: 1.2em;
+  position: relative;
+  margin-bottom: 1em;
+  @include transition(linear, 100ms);
+  &.clicked {
+    opacity: .2;
+  }
+  a.back {
+    position: absolute;
+    padding-left: 1.5em;
+    color: $text_link_color;
+    i {
+      margin-top: 2px;
+      margin-right: .5em;
+    }
+  }
+  h1 {
+    font-size: 1em;
+    text-align: center;
+  }
+  a.action {
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+}
+
+.content span {
+  margin-bottom: 3px;
+}
+
+span.list {
+  margin-bottom: 3px;
+  display: block;
+}

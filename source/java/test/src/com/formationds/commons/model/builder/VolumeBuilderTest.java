@@ -16,6 +16,67 @@
 
 package com.formationds.commons.model.builder;
 
+import com.formationds.commons.model.Connector;
+import com.formationds.commons.model.Volume;
+import com.formationds.commons.model.type.ConnectorType;
+import com.formationds.util.SizeUnit;
+import org.junit.Assert;
+import org.junit.Test;
+
 public class VolumeBuilderTest {
+  private static final String EXPECTED_APIS = "S3, Swift";
+  private static final String EXPECTED_NAME =
+    "Volume Name -- " + ( System.currentTimeMillis() / 20000 );
+  private static final long EXPECTED_LIMIT = 1024L;
+  private static final long EXPECTED_SLA = 256L;
+  private static final int EXPECTED_PRIORITY = 30;
+
+  private static final SizeUnit EXPECTED_UNITS = SizeUnit.GB;
+  private static final long EXPECTED_SIZE = 100;
+
+  private static final ConnectorType EXPECTED_TYPE = ConnectorType.OBJECT;
+
+  @Test
+  public void test() {
+
+//      final ConnectorAttributes attrs =
+//        new ConnectorAttributesBuilder().withSize( EXPECTED_SIZE )
+//                                        .withUnit( EXPECTED_UNITS )
+//                                        .build();
+      final Connector connector =
+        new ConnectorBuilder()// .withAttributes( attrs )
+                              .withType( EXPECTED_TYPE )
+                              .withApi( "S3, Swift" )
+                              .build();
+
+//    final Usage usage = new UsageBuilder().withSize( String.valueOf( EXPECTED_SIZE ) )
+//                                          .withUnit( EXPECTED_UNITS )
+//                                          .build();
+
+    final Volume volume =
+      new VolumeBuilder()
+//                         .withCurrent_usage( usage )
+                         .withData_connector( connector )
+                         .withLimit( EXPECTED_LIMIT )
+                         .withName( EXPECTED_NAME )
+                         .withPriority( EXPECTED_PRIORITY )
+                         .withSla( EXPECTED_SLA ).build();
+
+//      System.out.println( ObjectModelHelper.toJSON( volume ) );
+
+//      Assert.assertNotNull( volume.getCurrent_usage() );
+
+      Assert.assertNotNull( volume.getData_connector() );
+//      Assert.assertNotNull( connector.getAttributes() );
+//      Assert.assertEquals( connector.getAttributes().getSize(), EXPECTED_SIZE );
+//      Assert.assertEquals( connector.getAttributes().getUnit(), EXPECTED_UNITS );
+      Assert.assertEquals( connector.getType(), EXPECTED_TYPE );
+    Assert.assertEquals( connector.getApi(), EXPECTED_APIS );
+
+      Assert.assertEquals( volume.getLimit(), EXPECTED_LIMIT );
+      Assert.assertEquals( volume.getName(), EXPECTED_NAME );
+      Assert.assertEquals( volume.getPriority(), EXPECTED_PRIORITY );
+      Assert.assertEquals( volume.getSla(), EXPECTED_SLA );
+  }
 
 }

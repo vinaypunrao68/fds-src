@@ -4,6 +4,7 @@
 
 package com.formationds.commons.model.abs;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.intf.Tagable;
 import com.formationds.commons.model.type.ManagerType;
@@ -16,6 +17,7 @@ import javax.xml.bind.annotation.XmlRootElement;
  * @author ptinius
  */
 @XmlRootElement
+@JsonInclude( JsonInclude.Include.NON_NULL )
 public abstract class ModelBase
   implements Tagable {
   private static final long serialVersionUID = -7645839798777744738L;
@@ -70,6 +72,15 @@ public abstract class ModelBase
    */
   public String toJSON() {
     return ObjectModelHelper.toJSON( this );
+  }
+
+  /**
+   * @param json the {@link String} representing the JSON
+   * @return Returns {@link T} representing the {@code json} as a Java {@link Object}
+   */
+  public <T> T toObject( final String json )
+  {
+    return ObjectModelHelper.toObject( json, this.getClass() );
   }
 
   /**

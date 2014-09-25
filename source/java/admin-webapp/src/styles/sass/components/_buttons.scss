@@ -1,0 +1,10 @@
+a.button {
+  background: $text_link_color;
+  color: #fff!important;
+  padding: .3em 1em;
+  font-weight: 500;
+
+  &.secondary {
+    background-color: #999999;
+  }
+}

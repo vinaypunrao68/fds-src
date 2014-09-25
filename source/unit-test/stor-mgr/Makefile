@@ -13,13 +13,14 @@ user_incl_dir     := \
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
-    fds-smlib     \
     fds-vpolicy   \
     fds-hash      \
     fds-migrations \
     fds-am-engine \
     fds-dsk-io    \
-    fds-odb
+    fds-odb       \
+    fds-sm-plat   \
+    fds-smlib     
 
 user_non_fds_libs :=  \
     config++    \
@@ -28,22 +29,29 @@ user_non_fds_libs :=  \
     ssl \
     cryptopp \
     crypto \
-    leveldb
+    leveldb \
+    gmock
 
 
 user_cpp          := \
 	object_store_unit_test.cpp \
 	object_store_load_test.cpp \
-        metastore_unit_test.cpp   
+        metastore_unit_test.cpp   \
+        sm_disk_map_test.cpp      \
+        sm_token_place_gtest.cpp
 
 user_no_style     := sm_unit_test.cpp
 user_bin_exe      := \
     ObjectStoreUnitTest \
     ObjectStoreLoadTest \
-    metastore_unit_test
+    metastore_unit_test \
+    smdiskmap_unit_test \
+    smtokenplace_gtest
 
 ObjectStoreUnitTest := object_store_unit_test.cpp
 ObjectStoreLoadTest := object_store_load_test.cpp
 metastore_unit_test := metastore_unit_test.cpp
+smdiskmap_unit_test := sm_disk_map_test.cpp
+smtokenplace_gtest  := sm_token_place_gtest.cpp
 
 include $(topdir)/Makefile.incl

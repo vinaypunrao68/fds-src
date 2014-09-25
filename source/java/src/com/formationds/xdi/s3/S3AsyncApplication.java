@@ -95,6 +95,7 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
             final Supplier<CompletableFuture<Void>> closureResultValue = result;
             requestStatistics.enable();
             AsyncContext ctx = request.startAsync();
+            ctx.setTimeout(Long.MAX_VALUE);
             CompletableFuture<Void> actionChain =
                     requestLimiter.use(_null ->
                         closureResultValue.get()
