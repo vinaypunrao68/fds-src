@@ -35,6 +35,7 @@ public class ListSnapshotPoliciesForVolume
 
         final long volumeId = requiredLong( routeParameters,
                                             REQ_PARAM_VOLUME_ID );
+
         final List<com.formationds.apis.SnapshotPolicy> internalPolicyDefs =
           config.listSnapshotPoliciesForVolume(volumeId);
         if (internalPolicyDefs == null || internalPolicyDefs.isEmpty()) {
