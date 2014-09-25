@@ -7,6 +7,7 @@
 
 #include <lib/Catalog.h>
 #include <leveldb/filter_policy.h>
+#include <leveldb/cache.h>
 #include <leveldb/copy_env.h>
 
 namespace {
@@ -41,29 +42,46 @@ int doCopyFile(void * arg, const char* fname, fds_uint64_t length) {
 
 namespace fds {
 
-#define WRITE_BUFFER_SIZE   50 * 1024 * 1024;
+const fds_uint32_t Catalog::WRITE_BUFFER_SIZE = 4 * 1024 * 1024;
+const fds_uint32_t Catalog::CACHE_SIZE = 8 * 1024 * 1024;
+
 #define FILTER_BITS_PER_KEY 128  // Todo: Change this something not arbitrary
 
+const std::string Catalog::empty;
+
 /** Catalog constructor
- * @param[in] _file The catalog's on disk backing file
  */
-Catalog::Catalog(const std::string& _file, fds_bool_t cat_flag)
-    : backing_file(_file) {
+Catalog::Catalog(const std::string& _file,
+                 fds_uint32_t writeBufferSize /* = WRITE_BUFFER_SIZE */,
+                 fds_uint32_t cacheSize /* = CACHE_SIZE */,
+                 const std::string& logDirName /* = empty */,
+                 const std::string& logFilePrefix /* = empty */,
+                 fds_uint32_t maxLogFiles /* = 0 */) : backing_file(_file) {
     /*
      * Setup DB options
      */
     options.create_if_missing = 1;
     options.filter_policy     =
             leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
-    options.write_buffer_size = WRITE_BUFFER_SIZE;
-    options.env = new leveldb::CopyEnv(leveldb::Env::Default());
+    options.write_buffer_size = writeBufferSize;
+    options.block_cache = leveldb::NewLRUCache(cacheSize);
+    env = new leveldb::CopyEnv(leveldb::Env::Default());
+    if (!logDirName.empty() && !logFilePrefix.empty()) {
+        leveldb::CopyEnv * cenv = static_cast<leveldb::CopyEnv*>(env);
+        cenv->logDirName() = logDirName;
+        cenv->logFilePrefix() = logFilePrefix;
+        cenv->maxLogFiles() = maxLogFiles;
 
-      write_options.sync = true;
+        cenv->logRotate() = true;
+    }
 
-      leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
-      /* Open has to succeed */
-      env = leveldb::Env::Default();
-      assert(status.ok());
+    options.env = env;
+
+    write_options.sync = true;
+
+    leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
+    /* Open has to succeed */
+    assert(status.ok());
 }
 
 /** The default destructor

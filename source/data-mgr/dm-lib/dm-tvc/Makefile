@@ -9,7 +9,6 @@ user_incl_dir     := $(topdir) ../../include
 user_cpp_flags    :=
 user_cpp          := \
 	CommitLog.cpp \
-	OperationJournal.cpp \
 	TimeVolumeCatalog.cpp
 
 user_ar_libs      := fds-dm-lib
