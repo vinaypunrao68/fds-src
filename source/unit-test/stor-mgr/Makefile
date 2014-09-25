@@ -46,12 +46,12 @@ user_bin_exe      := \
     ObjectStoreLoadTest \
     metastore_unit_test \
     smdiskmap_unit_test \
-    smtokenplace_ut
+    smtokenplace_gtest
 
 ObjectStoreUnitTest := object_store_unit_test.cpp
 ObjectStoreLoadTest := object_store_load_test.cpp
 metastore_unit_test := metastore_unit_test.cpp
 smdiskmap_unit_test := sm_disk_map_test.cpp
-smtokenplace_ut     := sm_token_place_gtest.cpp
+smtokenplace_gtest  := sm_token_place_gtest.cpp
 
 include $(topdir)/Makefile.incl
