@@ -1,1 +1,2 @@
 Build/linux-x86_64.debug/tests/sharedcache_gtest
+Build/linux-x86_64.debug/tests/smtokenplace_gtest
