@@ -30,8 +30,17 @@ class PlatLibNodeReg : public ShmqReqIn
     void shmq_handler(const shmq_req_t *in, size_t size) override;
 };
 
+class PlatLibDltUpdate : public ShmqReqIn
+{
+  public:
+    void shmq_handler(const shmq_req_t *in, size_t size) override {
+       LOGNORMAL << " get a dlt update msg from shmq ";
+    }
+};
+
 static PlatLibNodeReg        platlib_node_reg;
 static PlatLibUuidBind       platlib_uuid_bind;
+static PlatLibDltUpdate      platlib_dlt_update;
 
 /*
  * -------------------------------------------------------------------------------------
@@ -83,6 +92,7 @@ EpPlatLibMod::mod_enable_service()
     consumer->shm_register_handler(SHMQ_REQ_UUID_BIND, &platlib_uuid_bind);
     consumer->shm_register_handler(SHMQ_REQ_UUID_UNBIND, &platlib_uuid_bind);
     consumer->shm_register_handler(SHMQ_NODE_REGISTRATION, &platlib_node_reg);
+    consumer->shm_register_handler(SHMQ_DLT_UPDATE, &platlib_dlt_update);
 }
 
 // mod_shutdown

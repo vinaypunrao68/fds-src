@@ -10,12 +10,9 @@
 #include <fds_module.h>
 #include <dlt.h>
 #include <persistent_layer/dm_io.h>
-#include <object-store/SmTokenPlacement.h>
+#include <object-store/SmSuperblock.h>
 
 namespace fds {
-
-typedef std::set<fds_uint16_t> DiskIdSet;
-typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
 
 /*
  * SmDiskMap keeps track of data and metadata SM token layout
@@ -34,7 +31,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * of SM tokens by this SM, will assert otherwise. This will
      * change when we port back SM token migration
      */
-    void handleNewDlt(const DLT* dlt);
+    Error handleNewDlt(const DLT* dlt);
 
     /**
      * Translation from token or object ID to SM token ID
@@ -88,6 +85,13 @@ class SmDiskMap : public Module, public boost::noncopyable {
     DiskIdSet  ssd_ids;
     /// set of disk IDs of existing HDD devices
     DiskIdSet hdd_ids;
+
+    /// Superblock caches and persists SM token info
+    SmSuperblock::unique_ptr superblock;
+
+    /// if true, test mode where we assume no contact with
+    /// platform, and use SM service uuid = 1
+    fds_bool_t test_mode;
 };
 
 }  // namespace fds

@@ -1,13 +1,22 @@
-#!/bin/bash
+#!/bin/bash -le
 
 source ./loghelper.sh
 
-INSTALLDIR=/tmp/fdsinstall
+if [[ ${#1} -gt 0 ]]
+then
+   INSTALLDIR=${1}
+else
+   INSTALLDIR=/tmp/fdsinstall
+fi
+
+
 SOURCEDIR=$(pwd)
 PKGDIR=$(cd pkg; pwd)
 PKGSERVER=http://coke.formationds.com:8000/external/
 THISFILE=$(basename $0)
 PKGCACHEDIR="${SOURCEDIR}/.pkg.cache"
+
+[[ "${INSTALLDIR:0:1}" == "." ]] && INSTALLDIR=${SOURCEDIR}/${INSTALLDIR}
 
 externalpkgs=(
     libpcre3_8.31-2ubuntu2_amd64.deb
@@ -54,7 +63,7 @@ fdsrepopkgs=(
 function getExternalPkgs() {
     if [[ ! -e ${PKGCACHEDIR} ]] ; then
         loginfo "Creating package cache directory [${PKGCACHEDIR}]"
-        mkdir ${PKGCACHEDIR}
+        mkdir -p ${PKGCACHEDIR}
     fi
 
     loginfo "Checking external pkgs"
@@ -64,7 +73,7 @@ function getExternalPkgs() {
             loginfo "Checking pkg [$pkg]"
             if [[ ! -f ${PKGCACHEDIR}/${pkg} ]] ; then
                 loginfo "fetching pkg [$pkg]"
-                if ! (wget ${PKGSERVER}/$pkg -O ${PKGCACHEDIR}/${pkg}) ; then
+                if ! (wget --no-verbose ${PKGSERVER}/$pkg -O ${PKGCACHEDIR}/${pkg}) ; then
                     logerror "unable to fetch [$pkg] from ${PKGSERVER}"
                 fi
             fi
@@ -127,7 +136,7 @@ function saveGitCommitNumber() {
 function setupInstallDir() {
     loginfo "creating install dir @ ${INSTALLDIR}"
     if [[ ! -e ${INSTALLDIR} ]]; then
-        mkdir ${INSTALLDIR}
+        mkdir -p ${INSTALLDIR}
     fi
 
     getExternalPkgs

@@ -151,6 +151,10 @@ class PlatformEpHandler : public PlatNetSvcHandler
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &msg);
 
+    virtual void
+    NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                              boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg);
+
   protected:
     PlatformdNetSvc         *net_plat;
 };

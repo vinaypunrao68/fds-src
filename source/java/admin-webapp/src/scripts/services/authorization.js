@@ -1,4 +1,4 @@
-angular.module( 'user-management' ).factory( '$authorization', [ '$rootScope', '$document', function( $rootScope, $document ){
+angular.module( 'user-management' ).factory( '$authorization', [ '$rootScope', '$document', '$http', function( $rootScope, $document, $http ){
 
     var service = {};
     service.user = {};
@@ -58,6 +58,16 @@ angular.module( 'user-management' ).factory( '$authorization', [ '$rootScope', '
         }
 
         return false;
+    };
+
+    service.validateUserToken = function( success, failure ){
+        resetUserFromCookie();
+
+        if ( angular.isDefined( service.user ) && angular.isDefined( service.user.userId ) ){
+            return $http.get( '/api/system/token/' + service.user.userId );
+        }
+
+        return;
     };
 
     $rootScope.$on( 'fds::authentication_logout', function(){

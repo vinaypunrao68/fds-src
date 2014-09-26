@@ -19,6 +19,8 @@
 #include <StatsCollector.h>
 #include <object-store/ObjectStore.h>
 
+#include <sm_ut_utils.h>
+
 namespace fds {
 
 static StorMgrVolumeTable* volTbl;
@@ -56,14 +58,16 @@ class ObjectStoreLoadProc : public FdsProcess {
      */
     struct TestObject {
         fds_uint32_t size_;
-        // random number we will use to re-create object data
+        // random numbers we will use to re-create object data
         // this is for allowing us not to store the whole object
         // data in the dataset, which we may want to make large
         fds_uint32_t rnum_;
+        fds_uint32_t rnum2_;
 
         boost::shared_ptr<std::string> getObjectData() {
             boost::shared_ptr<std::string> objData(
-                new std::string(std::to_string(rnum_)));
+                new std::string(std::to_string(rnum_) +
+                                std::to_string(rnum2_)));
             objData->resize(size_, static_cast<char>(rnum_));
             return objData;
         }
@@ -71,6 +75,7 @@ class ObjectStoreLoadProc : public FdsProcess {
             if (&rhs != this) {
                 size_ = rhs.size_;
                 rnum_ = rhs.rnum_;
+                rnum2_ = rhs.rnum2_;
             }
             return *this;
         }
@@ -79,9 +84,11 @@ class ObjectStoreLoadProc : public FdsProcess {
             return (*data == *objData);
         }
 
-        TestObject() : size_(4096), rnum_(6732) {}
-        TestObject(fds_uint32_t sz, fds_uint32_t rnum) :
-                size_(sz), rnum_(rnum) {
+        TestObject() : size_(4096), rnum_(6732), rnum2_(84734) {}
+        TestObject(fds_uint32_t sz,
+                   fds_uint32_t rnum,
+                   fds_uint32_t rnum2) :
+                size_(sz), rnum_(rnum), rnum2_(rnum2) {
         }
         ~TestObject() {}
     };
@@ -157,7 +164,11 @@ ObjectStoreLoadProc::ObjectStoreLoadProc(int argc, char * argv[], const std::str
               << op_type_ << " while running " << num_threads_ << " threads"
               << ", dataset size " << dataset_size_ << " objects";
 
-    objectStore->setNumBitsPerToken(16);
+    fds_uint32_t sm_count = 1;
+    fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
+    DLT* dlt = new DLT(16, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    objectStore->handleNewDlt(dlt);
     VolumeDesc vdesc("objectstore_ut_volume", singleVolId);
     volTbl->registerVolume(vdesc);
     // TODO(anna) may want to set tier policy...
@@ -166,8 +177,9 @@ ObjectStoreLoadProc::ObjectStoreLoadProc(int argc, char * argv[], const std::str
     fds_uint64_t seed = RandNumGenerator::getRandSeed();
     RandNumGenerator rgen(seed);
     fds_uint32_t rnum = (fds_uint32_t)rgen.genNum();
+    fds_uint32_t rnum2 = (fds_uint32_t)rgen.genNum();
     for (fds_uint32_t i = 0; i < dataset_size_; ++i) {
-        TestObject obj(obj_size_, rnum);
+        TestObject obj(obj_size_, rnum, rnum2);
         boost::shared_ptr<std::string> objData =
                 obj.getObjectData();
         ObjectID oid = ObjIdGen::genObjectId(objData->c_str(), objData->size());
@@ -175,14 +187,17 @@ ObjectStoreLoadProc::ObjectStoreLoadProc(int argc, char * argv[], const std::str
         while (dataset_map_.count(oid) > 0) {
             rnum = (fds_uint32_t)rgen.genNum();
             obj.rnum_ = rnum;
+            obj.rnum2_ = rnum2;
             objData = obj.getObjectData();
             oid = ObjIdGen::genObjectId(objData->c_str(), objData->size());
         }
         dataset_.push_back(oid);
         dataset_map_[oid] = obj;
         LOGDEBUG << "Dataset: " << oid << " size " << dataset_map_[oid].size_
-                 << " rnum " << dataset_map_[oid].rnum_ << " (" << rnum << ")";
+                 << " rnum " << dataset_map_[oid].rnum_ << " (" << rnum
+                 << "," << rnum2 << ")";
         rnum = (fds_uint32_t)rgen.genNum();
+        rnum2 = (fds_uint32_t)rgen.genNum();
     }
 
     // initialize dynamicc counters

@@ -74,6 +74,41 @@ PlatformEpHandler::~PlatformEpHandler() {}
 PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc)
     : fpi::PlatNetSvcIf(), net_plat(svc) {
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
+}
+
+// NotifyDMTUpdate
+// ---------------
+//
+void
+PlatformEpHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
+                              boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &dmt)
+{
+    LOGNORMAL << " we receive dmt updating msg ";
+    auto shm = NodeShmRWCtrl::shm_dmt_rw_inv();
+    char * dmt_shm = reinterpret_cast<char * >(shm->shm_rw_base());
+    *reinterpret_cast<uint64_t*>(dmt_shm) = dmt->dmt_data.dmt_version;
+    *reinterpret_cast<int*>(dmt_shm + 8) = dmt->dmt_data.dmt_data.size();
+    memcpy(dmt_shm + 12, dmt->dmt_data.dmt_data.data(), dmt->dmt_data.dmt_data.size());
+
+    //  the following double check we can read back a meaningful DLT.
+    uint64_t version =  *reinterpret_cast<uint64_t*>(dmt_shm);
+    int len = *reinterpret_cast<int*>(dmt_shm + 8);
+    std::string dmt_data((const char *)(dmt_shm  + 12), len);
+    Error err(ERR_OK);
+    DMT dmtx(0, 0, 0, false);
+    err = dmtx.loadSerialized(dmt_data);
+    if (!err.ok()) {
+        LOGNORMAL << "get a DMT into shm, cannot read back. ";
+    } else {
+        LOGNORMAL << " pm get a valid dmt and save into shm and readback succeeded as: ";
+        dmtx.dump();
+    }
+    //  after that we shall tell service to update a new dlt
+    ep_shmq_node_req_t      out;
+    out.smq_hdr.smq_code = SHMQ_DMT_UPDATE;
+    auto plat = NodeShmCtrl::shm_producer();
+    plat->shm_producer(static_cast<void *>(&out), sizeof(out), 0);
 }
 
 // NotifyDLTUpdate
@@ -102,6 +137,10 @@ PlatformEpHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
         dltx.dump();
     }
     //  after that we shall tell service to update a new dlt
+    ep_shmq_node_req_t      out;
+    out.smq_hdr.smq_code = SHMQ_DLT_UPDATE;
+    auto plat = NodeShmCtrl::shm_producer();
+    plat->shm_producer(static_cast<void *>(&out), sizeof(out), 0);
 }
 
 // allUuidBinding
