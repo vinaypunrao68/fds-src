@@ -144,6 +144,7 @@ class DmVolumeCatalog : public Module,
      * Retrieves all info about the blob with given blob_name and volume 'volume_id'
      * @param[in] volume_id volume uuid
      * @param[in] blob_name name of the blob
+     * @param[in] blob_offset blob offset being queried
      * @param[in,out] blob_version version of the blob to retrieve, if not
      * set, the most recent version is retrieved. When the method returns,
      * blob_version is set to actual version that is retrieved
@@ -154,6 +155,7 @@ class DmVolumeCatalog : public Module,
      */
     Error getBlob(fds_volid_t volume_id,
                   const std::string& blob_name,
+                  fds_uint64_t blob_offset,
                   blob_version_t* blob_version,
                   fpi::FDSP_MetaDataList* meta_list,
                   fpi::FDSP_BlobObjectList* obj_list);

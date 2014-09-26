@@ -613,10 +613,11 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
      * we want...all objects won't work well for large blobs.
      */
     fpi::QueryCatalogMsgPtr queryMsg(new fpi::QueryCatalogMsg());
-    queryMsg->volume_id = volId;
-    queryMsg->blob_name             = blobName;
+    queryMsg->volume_id    = volId;
+    queryMsg->blob_name    = blobName;
+    queryMsg->blob_offset  = blobOffset;
     // We don't currently specify a version
-    queryMsg->blob_version          = blob_version_invalid;
+    queryMsg->blob_version = blob_version_invalid;
     queryMsg->obj_list.clear();
     queryMsg->meta_list.clear();
 
@@ -710,7 +711,12 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
         qos_ctrl->markIODone(qosReq);
-        blobReq->cb->call(error);
+        // TODO(Andrew): We should change XDI to not expect OFFSET_INVALID, rather NOT_FOUND
+        if (error == ERR_CAT_ENTRY_NOT_FOUND) {
+            blobReq->cb->call(ERR_BLOB_OFFSET_INVALID);
+        } else {
+            blobReq->cb->call(error);
+        }
         delete blobReq;
         return;
     }

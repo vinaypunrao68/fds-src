@@ -319,9 +319,10 @@ service SMSvc extends PlatNetSvc {
 struct QueryCatalogMsg {
    1: i64    			volume_id;
    2: string   			blob_name;		/* User visible name of the blob*/
-   3: i64 			blob_version;        	/* Version of the blob to query */
-   7: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
-   8: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
+   3: i64                       blob_offset;            /* Offset into the blob */
+   4: i64 			blob_version;        	/* Version of the blob to query */
+   5: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
+   6: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
 }
 
 // TODO(Rao): Use QueryCatalogRspMsg.  In current implementation we are using QueryCatalogMsg

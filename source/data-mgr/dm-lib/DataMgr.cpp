@@ -1343,6 +1343,7 @@ DataMgr::queryCatalogBackendSvc(void * _io)
 
     err = timeVolCat_->queryIface()->getBlob(qryCatReq->volId,
                                              qryCatReq->blob_name,
+                                             qryCatReq->queryMsg->blob_offset,
                                              &(qryCatReq->blob_version),
                                              &(qryCatReq->queryMsg->meta_list),
                                              &(qryCatReq->queryMsg->obj_list));
