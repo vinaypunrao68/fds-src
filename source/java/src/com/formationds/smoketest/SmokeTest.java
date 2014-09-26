@@ -75,7 +75,7 @@ public class SmokeTest {
         new SecureRandom().nextBytes(randomBytes);
     }
 
-    //@Test
+    @Test
     public void testMultipartUpload() {
         String key = UUID.randomUUID().toString();
         InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));

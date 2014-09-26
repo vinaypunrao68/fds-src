@@ -44,7 +44,8 @@ class ServiceMap:
         try:
             ServiceMap.check()
             client = ServiceMap.serviceMap.client(*args)
-        except:
+        except Exception as e:
+            log.exception(e)
             raise Exception("unable to get a client connection")
         return client
 
@@ -53,7 +54,8 @@ class ServiceMap:
         try:
             ServiceMap.check()
             return ServiceMap.serviceMap.list(*args)
-        except:
+        except Exception as e:
+            log.exception(e)
             raise Exception("unable to get a client connection")
 
     @staticmethod

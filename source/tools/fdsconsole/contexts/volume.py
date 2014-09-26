@@ -1,5 +1,7 @@
 from  svchelper import *
-from fdslib.pyfdsp.apis import ttypes
+import  fdslib.pyfdsp.apis as apis
+from apis import ttypes
+from apis.ttypes import ApiException
 import fdslib.restendpoint
 import md5
 import os
@@ -18,9 +20,11 @@ class VolumeContext(Context):
                               item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in sorted(volumes, key=attrgetter('name'))  ],
                             headers=['Name', 'TenantId', 'Create Date','Type', 'Max-Obj-Size', 'Blk-Size'], tablefmt=self.config.getTableFormat())
             return volumes
+        except ApiException, e:
+            print e
         except Exception, e:
             log.exception(e)
-            return 'unable to get volume list'
+        return 'unable to get volume list'
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
@@ -32,10 +36,12 @@ class VolumeContext(Context):
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name)
             ServiceMap.omConfig().cloneVolume(volume_id, policy_id, clone_name )
-            return 'Success'
+            return
+        except ApiException, e:
+            print e
         except Exception, e:
             log.exception(e)
-            return 'create clone failed: {}'.format(vol_name)
+        return 'create clone failed: {}'.format(vol_name)
     
     #--------------------------------------------------------------------------------------
     @cliadmincmd
@@ -45,10 +51,12 @@ class VolumeContext(Context):
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name)
             ServiceMap.omConfig().restoreClone(volume_id, snapshotName)
-            return 'Success'
+            return
+        except ApiException, e:
+            print e
         except Exception, e:
             log.exception(e)
-            return 'restore clone failed: {}'.format(vol_name)
+        return 'restore clone failed: {}'.format(vol_name)
 
 
     #--------------------------------------------------------------------------------------
@@ -73,9 +81,13 @@ class VolumeContext(Context):
             
         try:
             ServiceMap.omConfig().createVolume(domain, vol_name, vol_set, tenant_id)
+            return
+        except ApiException, e:
+            print e
         except Exception, e:
             log.exception(e)
-            return 'create volume failed: {}'.format(vol_name)
+
+        return 'create volume failed: {}'.format(vol_name)
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
@@ -85,9 +97,12 @@ class VolumeContext(Context):
         'delete a volume'
         try:
             ServiceMap.omConfig().deleteVolume(domain, vol_name)
+            return
+        except ApiException, e:
+            print e
         except Exception, e:
             log.exception(e)
-            return 'delete volume failed: {}'.format(vol_name)
+        return 'delete volume failed: {}'.format(vol_name)
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd

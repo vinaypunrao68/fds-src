@@ -10,10 +10,10 @@ import com.amazonaws.services.s3.internal.S3Signer;
 import com.amazonaws.services.s3.internal.ServiceUtils;
 import com.amazonaws.util.AWSRequestMetrics;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.xdi.Xdi;
 import com.google.common.collect.Maps;
 import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.util.MultiMap;
 
 import javax.crypto.SecretKey;
 import java.io.InputStream;
@@ -21,9 +21,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.MessageFormat;
 import java.text.ParseException;
-import java.util.*;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
 
 public class S3Authenticator {
     private Xdi xdi;
@@ -119,11 +120,18 @@ public class S3Authenticator {
             @Override
             public Map<String, String> getParameters() {
                 HashMap<String, String> result = new HashMap<>();
-                Enumeration en = request.getParameterNames();
+                if(request.getQueryParameters() == null)
+                    return result;
 
-                while (en.hasMoreElements()) {
-                    String key = (String) en.nextElement();
-                    String value = request.getParameter(key);
+                MultiMap<String> qp = request.getQueryParameters();
+                // NB: the S3 signer wants fields without parameters (e.g. ?uploads) to return null instead
+                // of the empty string.
+                // assuming the empty string is null is a good heuristic, but it could fail if somehow
+                // someone encodes the empty string in another way besides a field-without-a-parameter
+                for(String key : qp.keySet()) {
+                    String value = qp.getString(key);
+                    if(value.equals(""))
+                        value = null;
                     result.put(key, value);
                 }
                 return result;

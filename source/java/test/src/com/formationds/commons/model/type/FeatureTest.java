@@ -36,6 +36,13 @@ public class FeatureTest {
     ADMIN_EXPECTED.add( Feature.VOL_MGMT );
   }
 
+  private static final List<Feature> TENANT_EXPECTED = new ArrayList<>( );
+  static {
+    TENANT_EXPECTED.add( Feature.TENANT_MGMT );
+    TENANT_EXPECTED.add( Feature.USER_MGMT );
+    TENANT_EXPECTED.add( Feature.VOL_MGMT );
+  }
+
   private static final List<Feature> USER_EXPECTED = new ArrayList<>( );
   static {
     USER_EXPECTED.add( Feature.USER_MGMT );
@@ -57,25 +64,28 @@ public class FeatureTest {
   public void byRoleAdminTest()
   {
     final List<Feature> features = Feature.byRole( IdentityType.ADMIN );
-    for( final Feature feature : features )
-    {
-      if( !ADMIN_EXPECTED.contains( feature ) )
-      {
-        Assert.fail( "Missing " + feature + " from expected admin feature list " + ADMIN_EXPECTED );
-      }
-    }
+    System.out.println( features );
+    features.stream()
+            .filter( feature -> !ADMIN_EXPECTED.contains( feature ) )
+            .forEach( feature -> Assert.fail( "Missing " + feature + " from expected admin feature list " + ADMIN_EXPECTED ) );
+  }
+  @Test
+  public void byRoleTenantTest()
+  {
+    final List<Feature> features = Feature.byRole( IdentityType.TENANT );
+    System.out.println( features );
+    features.stream()
+            .filter( feature -> !TENANT_EXPECTED.contains( feature ) )
+            .forEach( feature -> Assert.fail( "Missing " + feature + " from expected admin feature list " + TENANT_EXPECTED ) );
   }
 
   @Test
   public void byRoleUserTest()
   {
     final List<Feature> features = Feature.byRole( IdentityType.USER );
-    for( final Feature feature : features )
-    {
-      if( !USER_EXPECTED.contains( feature ) )
-      {
-        Assert.fail( "Missing " + feature + " from expected user feature list " + USER_EXPECTED );
-      }
-    }
+    System.out.println( features );
+    features.stream()
+            .filter( feature -> !USER_EXPECTED.contains( feature ) )
+            .forEach( feature -> Assert.fail( "Missing " + feature + " from expected user feature list " + USER_EXPECTED ) );
   }
 }
