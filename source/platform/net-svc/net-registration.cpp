@@ -8,6 +8,7 @@
 #include <net-platform.h>
 #include <platform/node-inv-shmem.h>
 #include <net/RpcFunc.h>
+#include <string>
 
 namespace fds {
 
@@ -83,14 +84,24 @@ PlatformEpHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt)
 {
     LOGNORMAL << " we receive dlt updating msg ";
-#if 0
+    auto shm = NodeShmRWCtrl::shm_dlt_rw_inv();
+    char * dlt_shm = reinterpret_cast<char * >(shm->shm_rw_base());
+    *reinterpret_cast<int*>(dlt_shm) = dlt->dlt_data.dlt_data.size();
+    memcpy(dlt_shm + 4, dlt->dlt_data.dlt_data.data(), dlt->dlt_data.dlt_data.size());
+
+    //  the following double check we can read back a meaningful DLT.
+    int len = *reinterpret_cast<int*>(dlt_shm);
+    std::string dlt_data((const char *)(dlt_shm  + 4), len);
     Error err(ERR_OK);
-    LOGNOTIFY << "OMClient received new DLT commit version  "
-            << dlt->dlt_data.dlt_type;
-    err = gl_omClient.updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
-    hdr->msg_code = err.GetErrno();
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), *dlt);
-#endif
+    DLT dltx(0, 0, 0, false);
+    err = dltx.loadSerialized(dlt_data);
+    if (!err.ok()) {
+        LOGNORMAL << "get a DLT into shm, cannot read back. ";
+    } else {
+        LOGNORMAL << " pm get a valid dlt and save into shm and readback succeeded as: ";
+        dltx.dump();
+    }
+    //  after that we shall tell service to update a new dlt
 }
 
 // allUuidBinding
