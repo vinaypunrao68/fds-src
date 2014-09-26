@@ -60,7 +60,7 @@ class basic_cluster:
                             else:
                                 print "       %-10s  %s" % (proc + ':', 'Up')
                     else:                       # something failed, figure out what to do with it.
-                        return_val = 1;
+                        return_val = 2;         # Use 2 to indicate critical in Nagios
                         if monitor:
                             if not node_name_displayed:
                                 node_name_displayed = True
