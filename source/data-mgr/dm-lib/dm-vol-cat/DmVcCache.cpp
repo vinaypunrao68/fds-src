@@ -48,6 +48,8 @@ DmCacheVolCatalog::getExtent(fds_volid_t volume_id,
     LOGTRACE << "Cache lookup extent " << extent_id << " for "
              << std::hex << volume_id << std::dec << "," << blob_name;
 
+    SCOPEDREAD(dmCacheRwLock);
+
     // Lookup extent key 0
     ExtentKey eKey(blob_name, extent_id);
     BlobExtent *extentPtr = NULL;
@@ -122,6 +124,7 @@ DmCacheVolCatalog::putExtents(fds_volid_t volume_id,
                            new BlobExtent(
                                *((*cit).get()))));
     }
+    SCOPEDWRITE(dmCacheRwLock);
     volCacheMgr->addBatch(volume_id, extentPairPtrs);
 
     return ERR_OK;
@@ -132,6 +135,7 @@ DmCacheVolCatalog::removeExtent(fds_volid_t volume_id,
                                 const std::string& blob_name,
                                 fds_extent_id extent_id) {
     ExtentKey key(blob_name, extent_id);
+    SCOPEDWRITE(dmCacheRwLock);
     return volCacheMgr->remove(volume_id, key);
 }
 
