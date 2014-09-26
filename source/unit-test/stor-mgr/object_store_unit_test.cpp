@@ -14,6 +14,7 @@
 #include <fds_process.h>
 #include <object-store/ObjectStore.h>
 #include <concurrency/ThreadPool.h>
+#include <sm_ut_utils.h>
 
 namespace fds {
 
@@ -66,7 +67,6 @@ static void delObj(TestObject & obj) {
     err = objectStore->deleteObject(obj.volId, obj.objId);
     fds_assert(err.ok());
 }
-
 static std::vector<TestObject> testObjs(MAX_TEST_OBJ);
 
 class ObjectStoreTest : public FdsProcess {
@@ -83,7 +83,11 @@ class ObjectStoreTest : public FdsProcess {
     ~ObjectStoreTest() {
     }
     int run() override {
-        objectStore->setNumBitsPerToken(16);
+        fds_uint32_t sm_count =1;
+        fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
+        DLT* dlt = new DLT(16, cols, 1, true);
+        SmUtUtils::populateDlt(dlt, sm_count);
+        objectStore->handleNewDlt(dlt);
         LOGTRACE << "Starting...";
 
         VolumeDesc vdesc("objectstore_ut_volume", singleVolId);

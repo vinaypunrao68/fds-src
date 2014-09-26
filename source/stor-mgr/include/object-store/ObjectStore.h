@@ -53,10 +53,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     typedef std::unique_ptr<ObjectStore> unique_ptr;
 
     /**
-     * Set number of bits per (global) token
-     * This is used for retrieving SM token from object ID
+     * Notification about DLT change
      */
-    void setNumBitsPerToken(fds_uint32_t nbits);
+    void handleNewDlt(const DLT* dlt);
 
     /**
      * Adds a new volume to the object store. Some physical
