@@ -1,0 +1,240 @@
+nav.volume-nav {
+  .menu-item {
+    color: black;
+    font-weight: bold;
+
+    &.disabled {
+      color: $text_light_color;
+      font-weight: normal;
+    }
+  }
+}
+
+.qos-panel {
+
+    .volume-edit-container {
+        padding: 0px;
+
+        &.open {
+            height: 312px;
+            padding: 12px;
+        }
+    }
+}
+
+.volume-qos-summary-container {
+//    margin-left: 10px;
+
+    div {
+        padding-right: 8px;
+
+        &.icon-container {
+            color: $text_light_color;
+        }
+
+        span {
+
+            &.value {
+                font-size: 1.2em;
+                font-weight: bold;
+            }
+        }
+    }
+}
+
+#data-connectors {
+
+    tr {
+        cursor: pointer;
+    }
+}
+
+#settings-body {
+  width: 67%;
+  float: left;
+  min-height: $volume_create_min_height;
+
+  .fine-print {
+    padding: 0px 30px;
+    color: $text_light_color;
+  }
+
+  section {
+    padding: 10px 10px 5px 20px;
+
+    .nav-pills {
+      li {
+        a {
+          height: 25px;
+          padding-top: 2px;
+          background-color: #fff;
+          border: #0079ff 1px solid;
+          border-radius: 0px;
+
+          &.left-option {
+            border-right: none;
+            border-top-left-radius: 4px;
+            border-bottom-left-radius: 4px;
+          }
+
+          &.right-option {
+            border-left: none;
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+          }
+        }
+      }
+
+      li.active {
+        a {
+          background-color: #0079ff;
+        }
+      }
+    }
+  }
+
+  input[type="number"] {
+    width: 50px;
+  }
+
+  .widget {
+    ol {
+      li {
+        width: 31px;
+        height: 31px;
+        font-size: .9em;
+        padding-top: 6px;
+
+        &.none {
+          font-size: .7em;
+          padding-top: 8px;
+          padding-left: 4px;
+        }
+
+        &.wide {
+          width: 64px;
+        }
+
+        &.limit-text {
+          font-size: .8em;
+          padding-top: 8px;
+          padding-left: 4px;
+        }
+
+        &.long-limit-text {
+          font-size: .8em;
+          padding-top: 8px;
+          padding-left: 2px;
+        }
+      }
+    }
+  }
+}
+
+.volume-settings-panel {
+  background: #fff;
+//  padding-left: 10px;
+  padding-right: 10px;
+
+  .panel-header {
+    color: $header_color;
+    border-bottom: $header_color;
+  }
+
+  .volume-option {
+    padding: 10px 0;
+    font-size: 1.1em;
+
+    .backup-plan {
+      background: #fff image-url('backup_plan.png') no-repeat;
+      height: 140px;
+    }
+
+    .volume-name {
+      display: inline-block;
+      border: none;
+      width: auto;
+      outline: none;
+      color: black;
+      border: 1px solid $gray_border;
+    }
+
+    .pad-right {
+      padding-right: 7px;
+    }
+
+    .icon-clear {
+      padding-right: 26px;
+      margin-top: 8px;
+      cursor: pointer;
+    }
+
+    .icon-checked {
+      font-size: 1.0em;
+      vertical-align: 0px;
+    }
+  }
+
+  .volume-option + .volume-option {
+    border-top: 1px solid $gray_border;
+  }
+
+  .volume-option-edit {
+    background: #444;
+    text-align: center;
+  }
+}
+
+.confirm-volume {
+  height: 60em;
+  width: 60%;
+  margin-left: auto;
+  margin-right: auto;
+
+  .section-header {
+    padding: 1.75em 1.75em 1em;
+    font-size: 1.1em;
+  }
+
+  .volume-settings-panel {
+    padding: 2em;
+
+    section + section {
+      margin-top: 1.15em;
+    }
+
+    section {
+      .confirm-header {
+        font-weight: bold;
+      }
+
+      .confirm-details {
+        span, a {
+          display: inline-block;
+          width: 49%;
+          margin: 0;
+          position: relative;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        span.key:after {
+          content: '.............................................';
+          color: rgba(153, 153, 153, 0.29);
+          position: absolute;
+        }
+      }
+    }
+  }
+  .fine-print {
+    font-size: 1em;
+    color: $text_light_color;
+  }
+}
+
+.name-type {
+  .header {
+    color: $default_text_color;
+    font-size: 1em;
+  }
+}

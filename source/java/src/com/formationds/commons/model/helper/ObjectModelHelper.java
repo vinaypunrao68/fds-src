@@ -4,6 +4,7 @@
 
 package com.formationds.commons.model.helper;
 
+import com.formationds.commons.model.type.Protocol;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -12,12 +13,34 @@ import org.joda.time.format.ISODateTimeFormat;
 import java.lang.reflect.Type;
 import java.text.ParseException;
 import java.util.Date;
+import java.util.List;
 
 /**
  * @author ptinius
  */
 public class ObjectModelHelper
 {
+  /**
+   * @param protocols the {@link List} of {@link com.formationds.commons.model.type.Protocol}
+   *
+   * @return Returns {@link String} representing a comma separated list of
+   *         {@link com.formationds.commons.model.type.Protocol}
+   */
+  public static String toProtocalString( final List<Protocol> protocols ) {
+    final StringBuilder sb = new StringBuilder( );
+    for( final Protocol protocol : protocols )
+    {
+      if( sb.length() != 0 )
+      {
+        sb.append( "," );
+      }
+
+      sb.append( protocol.name() );
+    }
+
+    return sb.toString();
+  }
+
   /**
    * @param date the {@link String} representing the RDATE spec format
    *
@@ -51,8 +74,7 @@ public class ObjectModelHelper
   public static String toJSON( final Object object )
   {
     Gson gson =
-      new GsonBuilder().setFieldNamingPolicy(
-        FieldNamingPolicy.IDENTITY)
+      new GsonBuilder().setFieldNamingPolicy( FieldNamingPolicy.IDENTITY )
                        .setPrettyPrinting()
                        .create();
     return gson.toJson( object );

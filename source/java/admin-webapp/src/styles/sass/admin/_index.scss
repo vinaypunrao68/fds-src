@@ -1,0 +1,41 @@
+.admin {
+    color: black;
+
+    .button-panel {
+        padding-top: 15px;
+    }
+
+    .volume-data-type-panel {
+
+        padding: 0px;
+        padding-top: 2px;
+
+        &.open {
+            height: 160px;
+        }
+
+        thead {
+
+            padding-top: 0px;
+
+            th {
+                padding: 0px;
+                padding-top: 10px;
+                padding-bottom: 5px;
+            }
+        }
+    }
+
+    .spacer {
+        padding-bottom: 10px;
+    }
+}
+
+.admin-header {
+    padding-bottom: 30px;
+}
+
+.version-text {
+    font-size: 1.8em;
+    color: black;
+}

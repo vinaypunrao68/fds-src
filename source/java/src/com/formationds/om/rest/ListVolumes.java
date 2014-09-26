@@ -60,44 +60,90 @@ public class ListVolumes implements RequestHandler {
 
         return new JsonResource(jsonArray);
     }
+/*
+struct VolumeSettings {
+       1: required i32 maxObjectSizeInBytes,
+       2: required VolumeType volumeType,
+       3: required i64 blockDeviceSizeInBytes
+}
+
+struct VolumeDescriptor {
+       1: required string name,
+       2: required i64 dateCreated,
+       3: required VolumeSettings policy,
+       4: required i64 tenantId    // Added for multi-tenancy
+}
+*/
 
     private JSONObject toJsonObject(VolumeDescriptor v) throws TException {
-        FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
-        FDSP_VolumeDescType volInfo = null;
-        VolumeStatus status = null;
-        volInfo = legacyConfig.GetVolInfo(msg, new FDSP_GetVolInfoReqType(v.getName(), 0));
-        status = amApi.volumeStatus("", v.getName());
+      VolumeStatus status = null;
+      FDSP_VolumeDescType volInfo = null;
+      if( v != null && v.getName() != null ) {
+        try {
+          volInfo = legacyConfig.GetVolInfo( new FDSP_MsgHdrType(),
+                                             new FDSP_GetVolInfoReqType( v.getName(), 0 ) );
+        } catch( TException e ) {
+          LOG.warn( "Getting Volume Info Failed", e );
+        }
+/*
+struct VolumeStatus {
+       1: required i64 blobCount
+       2: required i64 currentUsageInBytes;
+}
+ */
+        try {
+          status = amApi.volumeStatus("", v.getName());
+        } catch( TException e ) {
+          LOG.warn( "Getting Volume Status Failed", e );
+        }
+      }
 
-        return toJsonObject(v, volInfo, status);
+      return toJsonObject(v, volInfo, status);
     }
 
     public static JSONObject toJsonObject(VolumeDescriptor v, FDSP_VolumeDescType volInfo, VolumeStatus status) {
-        JSONObject o = new JSONObject();
-        o.put("name", v.getName());
-        o.put("id", Long.toString(volInfo.getVolUUID()));
-        o.put("priority", volInfo.getRel_prio());
-        o.put("sla", volInfo.getIops_min());
-        o.put("limit", volInfo.getIops_max());
+      JSONObject o = new JSONObject();
 
-        if (v.getPolicy().getVolumeType().equals(VolumeType.OBJECT)) {
-            o.put("data_connector", new JSONObject().put("type", "object"));
-            o.put("apis", "S3, Swift");
-        } else {
-            JSONObject connector = new JSONObject().put("type", "block");
-            Size size = Size.size(v.getPolicy().getBlockDeviceSizeInBytes());
-            JSONObject attributes = new JSONObject()
-                    .put("size", size.getCount())
-                    .put("unit", size.getSizeUnit().toString());
-            connector.put("attributes", attributes);
-            o.put("data_connector", connector);
+      if( v != null ) {
+        o.put( "name", v.getName() );
+
+        if( volInfo != null ) {
+          o.put( "id", Long.toString( volInfo.getVolUUID() ) );
+          o.put( "priority", volInfo.getRel_prio() );
+          o.put( "sla", volInfo.getIops_min() );
+          o.put( "limit", volInfo.getIops_max() );
         }
 
-        Size usage = Size.size(status.getCurrentUsageInBytes());
+        if( v.getPolicy() != null && v.getPolicy().getVolumeType() != null ) {
+          if( v.getPolicy()
+               .getVolumeType()
+               .equals( VolumeType.OBJECT ) ) {
+            o.put( "data_connector", new JSONObject().put( "type", "object" )
+                                                     .put( "api", "S3, Swift" ) );
+          } else {
+            JSONObject connector = new JSONObject().put( "type", "block" );
+            Size size = Size.size( v.getPolicy()
+                                    .getBlockDeviceSizeInBytes() );
+            JSONObject attributes = new JSONObject()
+              .put( "size", size.getCount() )
+              .put( "unit", size.getSizeUnit()
+                                .toString() );
+            connector.put( "attributes", attributes );
+            o.put( "data_connector", connector );
+          }
+        }
+      }
+
+      if( status != null ) {
+        Size usage = Size.size( status.getCurrentUsageInBytes() );
         JSONObject dataUsage = new JSONObject()
-                .put("size", formatSize(usage))
-                .put("unit", usage.getSizeUnit().toString());
-        o.put("current_usage", dataUsage);
-        return o;
+          .put( "size", formatSize( usage ) )
+          .put( "unit", usage.getSizeUnit()
+                             .toString() );
+        o.put( "current_usage", dataUsage );
+      }
+
+      return o;
     }
 
     private static String formatSize(Size usage) {

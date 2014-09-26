@@ -12,7 +12,6 @@
 #include <fds_config.hpp>
 #include <DmBlobTypes.h>
 #include <dm-tvc/CommitLog.h>
-#include <dm-tvc/OperationJournal.h>
 #include <dm-vol-cat/DmVolumeCatalog.h>
 #include <util/Log.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
@@ -35,15 +34,6 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * blob transactions
      */
     std::unordered_map<fds_volid_t, DmCommitLog::ptr> commitLogs_;
-
-    /* Lock around op journal */
-    fds_spinlock opJournalLock_;
-
-    /**
-     * Per volume operation journal, keeps long term log of
-     * blob write operations
-     */
-    std::unordered_map<fds_volid_t, DmTvcOperationJournal::ptr> opJournals_;
 
     /**
      * For executing certain blob operatins (commit, delete) in a

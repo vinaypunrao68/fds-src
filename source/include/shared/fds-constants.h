@@ -70,6 +70,10 @@ fds_disk_block_to_byte(fds_blk_t blk)
 #define FDS_MAX_AM_NODES               (10000)
 #define MAX_DOMAIN_NODES               (1024)
 
+#define FDS_MAX_DLT_ENTRIES            (65536)
+#define FDS_MAX_DLT_DEPTH              (4)
+#define FDS_MAX_DLT_BYTES              (522 * 1024)
+
 c_decls_end
 
 #endif  /* SOURCE_INCLUDE_SHARED_FDS_CONSTANTS_H_  // NOLINT */

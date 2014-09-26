@@ -16,6 +16,30 @@
 
 package com.formationds.commons.model.builder;
 
+import com.formationds.commons.model.Metadata;
+import org.junit.Assert;
+import org.junit.Test;
+
 public class MetadataBuilderTest {
+  private static final String EXPECTED_KEY = "METADATA_KEY";
+  private static final String EXPECTED_VALUE = "METADATA_VALUE";
+  private static final long EXPECTED_TIMESTAMP =
+    System.currentTimeMillis() / 1000;
+  private static final String EXPECTED_VOLUME_NAME = "VOLUME_NAME";
+
+  @Test
+  public void test() {
+    final Metadata metadata =
+      new MetadataBuilder().withKey( EXPECTED_KEY )
+                           .withTimestamp( EXPECTED_TIMESTAMP )
+                           .withValue( EXPECTED_VALUE )
+                           .withVolume( EXPECTED_VOLUME_NAME )
+                           .build();
+
+    Assert.assertEquals( metadata.getKey(), EXPECTED_KEY );
+    Assert.assertEquals( metadata.getValue(), EXPECTED_VALUE );
+    Assert.assertEquals( metadata.getVolume(), EXPECTED_VOLUME_NAME );
+    Assert.assertEquals( metadata.getTimestamp(), EXPECTED_TIMESTAMP );
+  }
 
 }

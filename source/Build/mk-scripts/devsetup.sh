@@ -54,6 +54,10 @@ needed_packages=(
     libical-dev
     libical1
 
+    npm
+    ruby
+    ruby-sass
+
     fds-pkghelper
     fds-pkg
     fds-pkgtools
@@ -252,6 +256,12 @@ function installPythonPkgs() {
     done
 }
 
+function postInstallSetup() {
+    if [[ ! -e /usr/bin/node ]]
+    then
+        sudo ln -s /usr/bin/nodejs /usr/bin/node
+    fi
+}
 
 ###########################################################################
 # ------- MAIN PROGRAM --------
@@ -264,3 +274,4 @@ esac
 checkSWPropsCommon
 installBasePkgs
 installPythonPkgs
+postInstallSetup

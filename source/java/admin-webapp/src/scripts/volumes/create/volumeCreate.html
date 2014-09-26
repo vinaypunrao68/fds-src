@@ -1,0 +1,16 @@
+<div class="create-panel volumes" ng-controller="volumeCreateController" ng-class="{shown: $parent.creating,hideit: !$parent.creating}">
+    <div class="modal-header">
+        <span>Create Volume</span>
+    </div>
+
+    <div class="settings-body">
+        <div ng-include="'scripts/volumes/create/nameType.html'"></div>
+        <div ng-include="'scripts/volumes/create/qualityOfService.html'"></div>
+        <div ng-include="'scripts/volumes/create/snapshotPolicy.html'"></div>
+    </div>
+
+    <div class="pull-left"style="padding-top: 12px;margin-bottom: 42px;">
+        <button class="btn btn-primary" style="display: inline-block;" ng-click="save()">Create Volume</button>
+        <button class="btn btn-secondary cancel-creation" style="display: inline-block;" ng-click="cancel()">Cancel</button>
+    </div>
+</div>

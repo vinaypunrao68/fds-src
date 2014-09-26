@@ -217,7 +217,7 @@ enum NodeSvcMask {
 struct NodeInfoMsg {
     1: required UuidBindMsg   node_loc,
     2: required DomainID      node_domain,
-    3: required StorCapMsg    node_stor,
+    3: StorCapMsg    	      node_stor,
     4: required i32           nd_base_port,
     5: required i32           nd_svc_mask,
     6: required bool          nd_bcast,
@@ -416,6 +416,7 @@ struct CtrlNotifyQosControl {
 /* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
 struct CtrlNotifyDLTUpdate {
      1: FDSP.FDSP_DLT_Data_Type   dlt_data;
+     2: i32                       dlt_version;
 }
 
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */

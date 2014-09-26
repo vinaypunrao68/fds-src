@@ -1,0 +1,43 @@
+<div ng-controller="tenantController" class="page-slider-parent" ng-style="{left: creating || viewing ? '-100%' : '0%'}">
+
+    <div class="front-page">
+        <div>
+            <div>
+                <div class="header">
+                    <span>Tenants</span>
+                    <a ng-click="createNewTenant()" class="pull-right">Create a Tenant</a>
+                </div>
+            </div>
+        </div>
+
+
+         <div style="display: flex;padding-top: 12px;">
+            <div style="padding-right: 8px;">
+                <fui-dropdown skinny="true" type="action" items="actions" default-label="actionLabel" callback="actionSelected" background="none" color="black" border="gray"></fui-dropdown>
+            </div>
+            <div style="font-size: 0.6em;">
+                <div>for 0</div>
+                <div>selected users</div>
+            </div>
+        </div>
+
+        <table class="default tenant-table">
+            <thead>
+                <th><tri-state-check check-state="checkall"/></th>
+                <th>Tenant Name</th>
+                <th></th>
+            </thead>
+            <tboday>
+                <tr ng-repeat="tenant in tenants | filter:tenantQuery">
+                    <td><tri-state-check check-state="tenant.checked" ng-click="tenantCheckChanged()"/></td>
+                    <td class="tenant-name">{{tenant.name}}</td>
+                    <td></td>
+                </tr>
+            </tboday>
+        </table>
+    </div>
+
+    <!-- tenant creation slide out -->
+    <div ng-include="'scripts/tenants/create/createTenant.html'"></div>
+
+</div>

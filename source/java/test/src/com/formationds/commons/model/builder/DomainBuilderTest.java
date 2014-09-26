@@ -16,6 +16,25 @@
 
 package com.formationds.commons.model.builder;
 
+import com.formationds.commons.model.Domain;
+import org.junit.Assert;
+import org.junit.Test;
+
 public class DomainBuilderTest {
+  private static final String EXPECTED_DOMAIN = "Joe's Domain";
+  private static final int EXPECTED_ID = 678;
+  private static final String EXPECTED_SITE = "Joe's Site";
+
+  @Test
+  public void test() {
+    final Domain domain = new DomainBuilder().withDomain( EXPECTED_DOMAIN )
+                                             .withId( EXPECTED_ID )
+                                             .withSite( EXPECTED_SITE )
+                                             .build();
+
+    Assert.assertEquals( domain.getId(), EXPECTED_ID );
+    Assert.assertEquals( domain.getSite(), EXPECTED_SITE );
+    Assert.assertEquals( domain.getDomain(), EXPECTED_DOMAIN );
+  }
 
 }

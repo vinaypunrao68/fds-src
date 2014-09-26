@@ -1,0 +1,61 @@
+.tile {
+    width: 100%;
+    height: 100%;
+    background-repeat: no-repeat;
+    background-color: transparent;
+    border-radius: 0px;
+    text-align: left;
+    padding: 0px;
+
+    .tile-title {
+
+        color: $text_very_light_color;
+        font-size: 1em;
+    }
+
+    .tile-content {
+        width: 100%;
+        height: calc( 100% - 1em - 44px );
+    }
+
+    .tile-status-bar {
+        position: absolute;
+        bottom: 0px;
+        left: 0px;
+        width: 100%;
+    }
+
+    .main-number {
+        font-size: 34px;
+        color: black;
+        height: 44px;
+    }
+
+    .decimals {
+        color: black;
+        font-size: 18px;
+        height: 25px;
+        margin-top: 19px;
+    }
+
+    .tile-description {
+        color: $text_very_light_color;
+        margin-top: 11px;
+        overflow: hidden;
+        padding-left: 4px;
+    }
+
+    .notification-parent {
+        position: absolute;
+        bottom: 0px;
+        right: 0px;
+    }
+
+    .notifications {
+        border-radius: 12px;
+        width: 24px;
+        background-color: $fds_dark_green;
+        color: white;
+        text-align: center;
+    }
+}

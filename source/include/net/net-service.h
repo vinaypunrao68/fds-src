@@ -357,7 +357,7 @@ class EpSvcHandle : public net::SocketEventHandler
     void ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id; }
 
     bo::shared_ptr<tt::TSocket> ep_get_socket() { return ep_sock; }
-
+    friend class SvcRequestIf;
   protected:
     friend class NetMgr;
     template <class SendIf> friend void

@@ -39,7 +39,7 @@ public class RecurrenceRuleBuilderTest {
                                  .withRecurrenceRule( rrule )
                                  .withRetention( 34567789 )
                                  .build();
-    System.out.println( policy );
+//    System.out.println( policy );
 
     final RecurrenceRule rrule1 =
       new RecurrenceRuleBuilder().withFrequency( iCalFields.DAILY )
