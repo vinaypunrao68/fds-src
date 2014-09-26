@@ -5,7 +5,7 @@
             <div>
                 <div class="header">
                     <span>Tenants</span>
-                    <a ng-click="createNewTenant()" class="pull-right">Create a Tenant</a>
+                    <a ng-click="createNewTenant()" class="pull-right create-tenant-link">Create a Tenant</a>
                 </div>
             </div>
         </div>
@@ -28,7 +28,7 @@
                 <th></th>
             </thead>
             <tboday>
-                <tr ng-repeat="tenant in tenants | filter:tenantQuery">
+                <tr class="tenant-row" ng-repeat="tenant in tenants | filter:tenantQuery">
                     <td><tri-state-check check-state="tenant.checked" ng-click="tenantCheckChanged()"/></td>
                     <td class="tenant-name">{{tenant.name}}</td>
                     <td></td>
