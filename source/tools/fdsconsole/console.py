@@ -47,8 +47,7 @@ class FDSConsole(cmd.Cmd):
         self.context = None
         self.previouscontext = None
         self.config.init()
-
-        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
+        ServiceMap.serviceMap = self.config.platform.svcMap
         self.set_root_context(context.RootContext(self.config))
 
     def get_access_level(self):

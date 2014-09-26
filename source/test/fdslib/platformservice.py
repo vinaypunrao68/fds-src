@@ -20,8 +20,28 @@ import FdspUtils
 
 log = logging.getLogger(__name__)
 
+class WaitedCallback:
+    def __init__(self):
+        self.header = None
+        self.payload = None
+        self.cv = threading.Condition()
+
+    def wait(self, timeout=None):
+        self.cv.acquire()
+        if self.payload == None:
+            self.cv.wait(timeout)
+        self.cv.release()
+        return self.payload != None
+
+    def __call__(self, header, payload):
+        self.cv.acquire()
+        self.header = header
+        self.payload = payload
+        self.cv.notifyAll()
+        self.cv.release()
+
 class PlatSvc(object):
-    def __init__(self, basePort, omPlatIp='127.0.0.1', omPlatPort=7000):
+    def __init__(self, basePort, omPlatIp='127.0.0.1', omPlatPort=7000, svcMap=None):
         self.reqLock = threading.Lock()
         self.nextReqId = 0
         self.reqCbs = {}
@@ -29,15 +49,24 @@ class PlatSvc(object):
         self.mySvcUuid = 64
         self.basePort = basePort
         # get the service map
-        self.svcMap = SvcMap(omPlatIp, omPlatPort)
+        if not svcMap:
+            self.svcMap = SvcMap(omPlatIp, omPlatPort)
+        else:
+            self.svcMap = svcMap
         # start the server
         self.serverSock = None
         self.server = None
         self.serverThread = None
         self.startServer()
         time.sleep(1)
+        
         # register with  domain
-        self.registerWithDomain(basePort, omPlatIp, omPlatPort)
+        try :
+            self.registerWithDomain(basePort, omPlatIp, omPlatPort)
+        except Exception, e:
+            print e
+            print 'failed to register with om'
+            self.stop()
     
     def stop(self):
         if self.serverSock:
@@ -68,7 +97,8 @@ class PlatSvc(object):
         self.serverSock = TSocket.TServerSocket(port=self.basePort)
         tfactory = TTransport.TFramedTransportFactory()
         pfactory = TBinaryProtocol.TBinaryProtocolFactory()
-        self.server = TServer.TThreadedServer(processor, self.serverSock, tfactory, pfactory)
+        self.server = TServer.TThreadedServer(processor, self.serverSock, tfactory, pfactory, daemon=True)
+        self.server.daemon = True
         self.serverThread = threading.Thread(target=self.serve)
         # TODO(Rao): This shouldn't be deamonized.  Without daemonizing running into
         # issues exiting
@@ -80,9 +110,9 @@ class PlatSvc(object):
         self.server.serve()
         log.info("Exiting server")
 
-    def sendAsyncSvcReq(self, nodeId, svc, msg, cb=None, timeout=None):
-        targetUuid = self.svcMap.svc_uuid(nodeId, svc)
-        self.sendAsyncSvcReq(targetUuid=targetUuid, msg=msg, cb=cb, timeout=timeout)
+    def sendAsyncReqToSvc(self, node, svc, msg, cb=None, timeout=None):
+        targetUuid = self.svcMap.svc_uuid(node, svc)
+        return self.sendAsyncSvcReq(targetUuid, msg, cb, timeout)
 
     def sendAsyncSvcReq(self, targetUuid, msg, cb=None, timeout=None):
         reqId = None

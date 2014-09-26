@@ -3,7 +3,7 @@ import sys
 sys.path.append('../fdslib/')
 sys.path.append('../fdslib/pyfdsp/')
 from fds_service.ttypes import *
-import PlatSvc
+import platformservice
 import FdspUtils
 import process
 
@@ -23,7 +23,7 @@ def genPutMsgs(volId, cnt):
 
 # This script generates bunch of puts and gets against SM
 process.setup_logger()
-p = PlatSvc.PlatSvc(basePort=5678)
+p = platformservice.PlatSvc(basePort=5678)
 
 cnt = 10
 # Get uuids of all sms
