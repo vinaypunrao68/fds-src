@@ -18,7 +18,7 @@ public enum Feature {
   VOL_MGMT( ModelResource.getString( "fds.feature.volume.management" ),
             IdentityType.USER ),
   TENANT_MGMT( ModelResource.getString( "fds.feature.tenant.management" ),
-               IdentityType.ADMIN ),
+               IdentityType.TENANT ),
   USER_MGMT( ModelResource.getString( "fds.feature.user.management" ),
              IdentityType.USER ),
   UNKNOWN( "Unknown", IdentityType.UNKNOWN );
@@ -73,21 +73,20 @@ public enum Feature {
    * @param type the {@link IdentityType}
    *
    * @return Returns {@link List} of {@link Feature} available to the
-   * IdentityType
+   *         IdentityType
    */
   public static List<Feature> byRole( final IdentityType type ) {
     final List<Feature> features = new ArrayList<>();
 
-    for( final Feature feature : values() ) {
-      if( type.equals( IdentityType.ADMIN ) &&
-          feature.getType().equals( IdentityType.ADMIN ) ) {        // user with ADMIN role
-        if( !Feature.UNKNOWN.equals( feature ) ) {
-          features.add( feature );
-        }
-      } else if( type.equals( IdentityType.USER ) &&
-                 feature.getType().equals( IdentityType.USER ) ) { // user with USER role
-        features.add( feature );
-      }
+    switch( type.name() )
+    {
+      case "ADMIN":
+        features.add( SYS_MGMT );
+      case "TENANT":
+        features.add( TENANT_MGMT );
+      case "USER":
+        features.add( VOL_MGMT );
+        features.add( USER_MGMT );
     }
 
     return features;
