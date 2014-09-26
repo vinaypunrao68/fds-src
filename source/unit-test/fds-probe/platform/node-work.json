@@ -1,0 +1,50 @@
+{
+    "Run-Input": {
+        "node_info_msg": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "node_name": "test"
+        },
+        "node_qualify": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "acc_token": "abcdef"
+        },
+        "node_upgrade": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "op_code": "upgrade",
+            "md5_sum": "xxxyyyzzz",
+            "path": "/foo/bar"
+        },
+        "node_integrate": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "start_Am": true,
+            "start_Dm": true,
+            "start_SM": true,
+            "start_OM": true
+        },
+        "node_work_item": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "from_uuid": "0xabcdef",
+            "to_uuid": "0xdeeef"
+        },
+        "node_deploy": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "work_item": "abc"
+        },
+        "node_functional": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "op_code": "foo",
+            "work_item": "abc"
+        },
+        "node_down": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef"
+        }
+    }
+}
