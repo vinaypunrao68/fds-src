@@ -94,7 +94,7 @@ class DmCacheVolCatalog : public Module, boost::noncopyable {
 
     // TODO(Andrew): Have some per-volume configurable number of entries. Since
     // we don't change this yet, everyone gets the same.
-    static const fds_uint32_t maxEntries = 200;
+    fds_uint32_t maxEntries;
     // TODO(Andrew): Have some per-volume eviction policy based on the volume
     // policy.
     static const EvictionType evictionType = LRU;

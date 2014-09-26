@@ -6,6 +6,7 @@
 #include <vector>
 #include <list>
 #include <utility>
+#include <fds_process.h>
 #include <dm-vol-cat/DmVcCache.h>
 
 namespace fds {
@@ -14,6 +15,9 @@ DmCacheVolCatalog::DmCacheVolCatalog(const std::string &modName)
         : Module(modName.c_str()) {
     volCacheMgr = std::unique_ptr<VolumeBlobCacheManager>(
         new VolumeBlobCacheManager("DM Volume cache manager"));
+
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.dm.");
+    maxEntries = conf.get<fds_uint32_t>("cache.default_max_entries");
 }
 
 DmCacheVolCatalog::~DmCacheVolCatalog() {
