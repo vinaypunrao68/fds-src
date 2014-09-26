@@ -1,26 +1,35 @@
-#!/bin/bash
+#!/bin/bash -le
 
+package_basename="fdsinstall-"
+build_stamp="`date +%Y%m%d-%H%M`"
+package_tailname=".tar.gz"
 
-env
+dest_tarfile="${package_basename}${build_stamp}${package_tailname}"
 
-set
+if [[ ${#BUILD_NUMBER} -gt 0 ]]
+then
+   package_path="./jenkins"
+else
+   package_path="/tmp"
+fi
 
+install_path="${package_path}/fdsinstall"
 
-
-echo "Cleaning up previous packaging tree"
-rm -rf /tmp/fdsinstall  /tmp/fdsinstall-*.tar.gz
+if [[ ${#JENKINS_BUILD} -eq 0 ]]
+then
+   echo "Cleaning up previous packaging tree"
+   rm -rf ${install_path} ${package_path}/${package_basename}*${package_tailname}
+fi
 
 echo "Making packages"
 cd pkg
 make
 
 cd ..
-make
+make DEST_PATH="${install_path}"
 
-dest_name=fdsinstall-`date +%Y%m%d-%H%M`.tar.gz
+echo "Packaging install files into ${dest_tarfile}"
+cd ${package_path}
+tar czvf ${dest_tarfile} fdsinstall
 
-echo "Packaging install files into ${fdsinstall}"
-cd /tmp
-tar czvf ${dest_name} fdsinstall
-
-echo "Complete, filename:  ${dest_name}"
+echo "Complete, filename:  ${dest_tarfile}"
