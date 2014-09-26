@@ -323,9 +323,9 @@ EpPlatLibMod::ep_uuid_bind_frm_msg(ep_map_rec_t *rec, const fpi::UuidBindMsg *ms
 void
 PlatLibUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
 {
-    const ep_shmq_req_t    *map = reinterpret_cast<const ep_shmq_req_t *>(in);
-    NodeAgent::pointer      agent;
-    DomainNodeInv::pointer  local;
+    const ep_shmq_req_t      *map = reinterpret_cast<const ep_shmq_req_t *>(in);
+    NodeAgent::pointer        agent;
+    DomainContainer::pointer  local;
 
     std::cout << "Plat lib uuid binding is called " << std::endl;
     return;
@@ -339,7 +339,7 @@ void
 PlatLibNodeReg::shmq_handler(const shmq_req_t *in, size_t size)
 {
     NodeAgent::pointer        agent;
-    DomainNodeInv::pointer    local;
+    DomainContainer::pointer  local;
     ShmObjROKeyUint64        *shm;
     const ep_shmq_node_req_t *req = reinterpret_cast<const ep_shmq_node_req_t *>(in);
 

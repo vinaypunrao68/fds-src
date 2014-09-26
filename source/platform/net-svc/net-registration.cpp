@@ -166,7 +166,7 @@ PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
                                   bo::shared_ptr<fpi::NodeInfoMsg> &msg,
                                   bo::shared_ptr<bool>             &bcast)
 {
-    DomainNodeInv::pointer local;
+    DomainContainer::pointer local;
 
     LOGDEBUG << "recv notifyNodeInfo " << msg->node_loc.svc_id.svc_uuid.svc_uuid
         << ", bcast " << *bcast;
@@ -195,7 +195,7 @@ void
 PlatformEpHandler::getDomainNodes(fpi::DomainNodes                 &ret,
                                   bo::shared_ptr<fpi::DomainNodes> &dom)
 {
-    DomainNodeInv::pointer local;
+    DomainContainer::pointer local;
 
     local = Platform::platf_singleton()->plf_node_inventory();
     local->dc_node_svc_info(ret);

@@ -13,7 +13,7 @@ namespace fds {
 class PmAgent;
 class NodeAgent;
 class NodeWorkFlow;
-class DomainNodeInv;
+class DomainContainer;
 class DomainClusterMap;
 
 class NodeDown : public StateEntry
@@ -129,9 +129,6 @@ class NodeWorkItem : public StateObj
     virtual void wrk_send_node_functional(bo::shared_ptr<fpi::NodeFunctional> msg);
     virtual void wrk_send_node_down(bo::shared_ptr<fpi::NodeDown> msg);
 
-    /* Common function to return the next step based on cur_st and input. */
-    int wrk_next_step(EventObj::pointer evt);
-
   protected:
     fpi::SvcUuid                   wrk_peer_uuid;
     fpi::DomainID                  wrk_peer_did;
@@ -158,7 +155,7 @@ class NodeWorkFlow : public Module
     virtual ~NodeWorkFlow();
 
     /* Singleton access. */
-    NodeWorkFlow *nd_workflow_sgt() { return &gl_NodeWorkFlow; }
+    static NodeWorkFlow *nd_workflow_sgt() { return &gl_NodeWorkFlow; }
 
     /* Module methods. */
     int  mod_init(SysParams const *const param) override;
@@ -167,10 +164,10 @@ class NodeWorkFlow : public Module
     void mod_shutdown() override;
 
     /* Factory method. */
-    virtual NodeWorkItem::ptr
+    virtual void
     wrk_item_create(fpi::SvcUuid                    &peer,
                     bo::intrusive_ptr<PmAgent>       owner,
-                    bo::intrusive_ptr<DomainNodeInv> domain);
+                    bo::intrusive_ptr<DomainContainer> domain);
 
     /* Entry to process network messages. */
     void wrk_recv_node_info(bo::shared_ptr<fpi::NodeInfoMsg> msg);
@@ -184,7 +181,7 @@ class NodeWorkFlow : public Module
   protected:
     FsmTable                               *wrk_fsm;
     bo::intrusive_ptr<DomainClusterMap>     wrk_clus;
-    bo::intrusive_ptr<DomainNodeInv>        wrk_inv;
+    bo::intrusive_ptr<DomainContainer>      wrk_inv;
 
     NodeWorkItem::ptr wrk_item_frm_uuid(fpi::DomainID &did, fpi::SvcUuid &svc, bool inv);
     void wrk_item_submit(fpi::DomainID &, fpi::SvcUuid &, EventObj::pointer);
