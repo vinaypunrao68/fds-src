@@ -377,14 +377,61 @@ NodeWorkFlow::NodeWorkFlow() : Module("Node Work Flow")
  * ---------------
  * Default factory method.
  */
-NodeWorkItem::ptr
-NodeWorkFlow::wrk_item_create(fpi::SvcUuid      &peer,
-                              PmAgent::pointer   pm,
-                              DomainNodeInv::ptr domain)
+void
+NodeWorkFlow::wrk_item_create(fpi::SvcUuid           &peer,
+                              PmAgent::pointer        pm,
+                              DomainContainer::pointer  domain)
 {
-    fpi::DomainID did;
+    fpi::DomainID  did;
 
-    return new NodeWorkItem(peer, did, pm, wrk_fsm, this);
+    fds_verify(pm->pm_wrk_item == NULL);
+    pm->pm_wrk_item = new NodeWorkItem(peer, did, pm, wrk_fsm, this);
+}
+
+/**
+ * mod_init
+ * --------
+ */
+int
+NodeWorkFlow::mod_init(const SysParams *arg)
+{
+    Platform *plat = Platform::platf_singleton();
+
+    wrk_clus = plat->plf_cluster_map();
+    wrk_inv  = plat->plf_node_inventory();
+
+    Module::mod_init(arg);
+    return 0;
+}
+
+/**
+ * mod_startup
+ * -----------
+ */
+void
+NodeWorkFlow::mod_startup()
+{
+    Module::mod_startup();
+}
+
+/**
+ * mod_enable_service
+ * ------------------
+ */
+void
+NodeWorkFlow::mod_enable_service()
+{
+    Module::mod_enable_service();
+}
+
+/**
+ * mod_shutdown
+ * ------------
+ */
+void
+NodeWorkFlow::mod_shutdown()
+{
+    Module::mod_shutdown();
 }
 
 /**

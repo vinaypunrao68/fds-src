@@ -105,4 +105,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
         $scope.navigate( $scope.views[0] );
     }
 
+    //trigger to kick us out if we are not authorized anymore
+    $authorization.validateUserToken();
+
 }]);

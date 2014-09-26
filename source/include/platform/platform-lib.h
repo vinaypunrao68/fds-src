@@ -40,26 +40,10 @@ typedef struct plat_node_data
 // -------------------------------------------------------------------------------------
 // Node Inventory and Cluster Map
 // -------------------------------------------------------------------------------------
-class DomainNodeInv : public DomainContainer
+class DomainClusterMap : public DomainContainer
 {
   public:
-    typedef boost::intrusive_ptr<DomainNodeInv> ptr;
-
-    virtual ~DomainNodeInv();
-    DomainNodeInv(char const *const       name);
-    DomainNodeInv(char const *const       name,
-                  OmAgent::pointer        master,
-                  SmContainer::pointer    sm,
-                  DmContainer::pointer    dm,
-                  AmContainer::pointer    am,
-                  PmContainer::pointer    pm,
-                  OmContainer::pointer    om);
-};
-
-class DomainClusterMap : public DomainNodeInv
-{
-  public:
-    typedef boost::intrusive_ptr<DomainClusterMap> ptr;
+    typedef boost::intrusive_ptr<DomainClusterMap> pointer;
 
     virtual ~DomainClusterMap();
     DomainClusterMap(char const *const       name);
@@ -126,7 +110,7 @@ class Platform : public Module
     virtual ~Platform();
     Platform(char const *const         name,
              fpi::FDSP_MgrIdType       node_type,
-             DomainNodeInv::pointer    node_inv,
+             DomainContainer::pointer  node_inv,
              DomainClusterMap::pointer cluster,
              DomainResources::pointer  resources,
              OmAgent::pointer          master);
@@ -138,7 +122,7 @@ class Platform : public Module
     static inline Platform     *platf_singleton() { return gl_PlatformSvc; }
     static inline Platform::ptr platf_const_singleton() { return gl_PlatformSvc; }
 
-    inline DomainNodeInv::pointer    plf_node_inventory() { return plf_node_inv; }
+    inline DomainContainer::pointer  plf_node_inventory() { return plf_node_inv; }
     inline DomainClusterMap::pointer plf_cluster_map() { return plf_clus_map; }
     inline DomainResources::pointer  plf_node_resoures() { return plf_resources; }
 
@@ -301,7 +285,7 @@ class Platform : public Module
 
     PmAgent::pointer           plf_domain;
     OmAgent::pointer           plf_master;
-    DomainNodeInv::pointer     plf_node_inv;
+    DomainContainer::pointer     plf_node_inv;
     DomainClusterMap::pointer  plf_clus_map;
     DomainResources::pointer   plf_resources;
 
@@ -427,7 +411,7 @@ class NodeAgentIter : public ResourceIter
     }
 
   protected:
-    DomainNodeInv::pointer   itr_domain;
+    DomainContainer::pointer   itr_domain;
 
   private:
     INTRUSIVE_PTR_DEFS(NodeAgentIter, itr_refcnt);

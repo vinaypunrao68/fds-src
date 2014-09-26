@@ -91,6 +91,11 @@ typedef struct node_shm_inventory
     fds_uint32_t             shm_dlt_key_off;
     fds_uint32_t             shm_dlt_key_size;
     fds_uint32_t             shm_dlt_size;
+
+    fds_uint32_t             shm_dmt_off;
+    fds_uint32_t             shm_dmt_key_off;
+    fds_uint32_t             shm_dmt_key_size;
+    fds_uint32_t             shm_dmt_size;
 } node_shm_inventory_t;
 
 #if 0
@@ -160,6 +165,8 @@ class NodeShmCtrl : public Module
     static NodeShmCtrl       *shm_ctrl_singleton() { return gl_NodeShmCtrl; }
     static ShmObjRO          *shm_uuid_binding() { return gl_NodeShmCtrl->shm_uuid_bind; }
     static ShmObjROKeyUint64 *shm_am_inventory() { return gl_NodeShmCtrl->shm_am_inv; }
+    static ShmObjRO          *shm_dlt_inv() { return gl_NodeShmCtrl->shm_dlt; }
+    static ShmObjRO          *shm_dmt_inv() { return gl_NodeShmCtrl->shm_dmt; }
     static ShmObjROKeyUint64 *shm_node_inventory() {
         return gl_NodeShmCtrl->shm_node_inv;
     }
@@ -208,6 +215,7 @@ class NodeShmCtrl : public Module
     ShmObjROKeyUint64         *shm_node_inv;
     ShmObjRO                  *shm_uuid_bind;
     ShmObjRO                  *shm_dlt;
+    ShmObjRO                  *shm_dmt;
     struct node_shm_inventory *shm_node_hdr;
 
     size_t                     shm_node_off;
@@ -218,6 +226,8 @@ class NodeShmCtrl : public Module
     size_t                     shm_am_siz;
     size_t                     shm_dlt_off;
     size_t                     shm_dlt_size;
+    size_t                     shm_dmt_off;
+    size_t                     shm_dmt_size;
     size_t                     shm_total_siz;
 
     FdsShmem *shm_create_mgr(const char *fmt, char *name, int size);

@@ -35,7 +35,7 @@ Platform::plf_get_my_max_svc_ports()
 // -------------------------------------------------------------------------------------
 Platform::Platform(char const *const         name,
                    FDSP_MgrIdType            node_type,
-                   DomainNodeInv::pointer    node_inv,
+                   DomainContainer::pointer  node_inv,
                    DomainClusterMap::pointer cluster,
                    DomainResources::pointer  resources,
                    OmAgent::pointer          master)
@@ -61,7 +61,7 @@ void
 Platform::plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg)
 {
     NodeAgent::pointer     new_node;
-    DomainNodeInv::pointer local;
+    DomainContainer::pointer local;
 
     local = plf_node_inventory();
     Error err = local->dc_register_node(uuid, msg, &new_node);
@@ -77,7 +77,7 @@ Platform::plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg)
 void
 Platform::plf_del_node_info(const NodeUuid &uuid, const std::string &name)
 {
-    DomainNodeInv::pointer local;
+    DomainContainer::pointer local;
 
     local = plf_node_inventory();
     Error err = local->dc_unregister_node(uuid, name);

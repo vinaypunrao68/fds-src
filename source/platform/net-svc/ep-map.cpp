@@ -180,7 +180,7 @@ EpPlatformdMod::node_reg_notify(const node_data_t *info)
     ShmConPrdQueue         *plat;
     ShmObjRWKeyUint64      *shm;
     NodeAgent::pointer      agent;
-    DomainNodeInv::pointer  local;
+    DomainContainer::pointer  local;
 
     if (info->nd_node_uuid == Platform::plf_get_my_node_uuid()->uuid_get_val()) {
         LOGDEBUG << "Skip registration notify for my node uuid";

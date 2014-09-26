@@ -57,6 +57,10 @@ NodeShmCtrl::NodeShmCtrl(const char *name) : Module(name)
     shm_dlt_size  = FDS_MAX_DLT_BYTES;
     shm_total_siz += shm_dlt_size;
 
+    shm_dmt_off   = shm_dlt_off + shm_dlt_size;
+    shm_dmt_size  = FDS_MAX_DMT_BYTES;
+    shm_total_siz += shm_dmt_size;
+
     shm_rw_name[0] = '\0';
     shm_rw        = NULL;
     shm_rw_data   = NULL;
@@ -119,6 +123,10 @@ NodeShmCtrl::mod_startup()
                             shm_node_hdr->shm_dlt_key_off,
                             shm_node_hdr->shm_dlt_size, 1);
 
+    shm_dmt      = new ShmObjRO(shm_ctrl, shm_dmt_off,
+                            shm_node_hdr->shm_dmt_key_size,
+                            shm_node_hdr->shm_dmt_key_off,
+                            shm_node_hdr->shm_dmt_size, 1);
 
     shm_am_inv    = new ShmObjROKeyUint64(shm_ctrl, shm_am_off,
                             shm_node_hdr->shm_am_inv_key_off,

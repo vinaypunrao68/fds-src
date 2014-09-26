@@ -9,6 +9,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
+#include <platform/node-workflow.h>
 #include <net-platform.h>
 #include <net/PlatNetSvcHandler.h>
 
@@ -58,6 +59,9 @@ PlatformdNetSvc::mod_init(SysParams const *const p)
 void
 PlatformdNetSvc::mod_startup()
 {
+    Platform          *plat;
+    NodeWorkFlow      *work;
+    fpi::SvcUuid       om;
     fpi::NodeInfoMsg   msg;
 
     Module::mod_startup();
@@ -75,6 +79,11 @@ PlatformdNetSvc::mod_startup()
 
     plat_self->init_plat_info_msg(&msg);
     nplat_register_node(&msg, plat_self);
+
+    gl_OmUuid.uuid_assign(&om);
+    plat = Platform::platf_singleton();
+    work = NodeWorkFlow::nd_workflow_sgt();
+    work->wrk_item_create(om, plat_self, plat->plf_node_inventory());
 
     plat_master->init_om_pm_info_msg(&msg);
     nplat_register_node(&msg, plat_master);
@@ -254,8 +263,8 @@ PlatAgent::pda_register()
     node_data_t             rec;
     fpi::NodeInfoMsg        msg;
     ShmObjRWKeyUint64      *shm;
-    NodeAgent::pointer      agent;
-    DomainNodeInv::pointer  local;
+    NodeAgent::pointer        agent;
+    DomainContainer::pointer  local;
 
     this->init_plat_info_msg(&msg);
     this->node_info_msg_to_shm(&msg, &rec);
