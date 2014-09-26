@@ -102,6 +102,10 @@ PlatformEpHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
         dltx.dump();
     }
     //  after that we shall tell service to update a new dlt
+    ep_shmq_node_req_t      out;
+    out.smq_hdr.smq_code = SHMQ_DLT_UPDATE;
+    auto plat = NodeShmCtrl::shm_producer();
+    plat->shm_producer(static_cast<void *>(&out), sizeof(out), 0);
 }
 
 // allUuidBinding

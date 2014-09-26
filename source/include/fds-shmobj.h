@@ -193,6 +193,7 @@ const int SHMQ_REQ_NULL          = 0x000000;
 const int SHMQ_REQ_UUID_BIND     = 0x000001;
 const int SHMQ_REQ_UUID_UNBIND   = 0x000002;
 const int SHMQ_NODE_REGISTRATION = 0x000003;
+const int SHMQ_DLT_UPDATE        = 0x000004;
 
 /**
  * Common header for items in producer/consumer queue.
