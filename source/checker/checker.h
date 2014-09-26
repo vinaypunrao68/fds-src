@@ -43,7 +43,7 @@ class BaseChecker : public Platform {
  public:
     BaseChecker(char const *const name)
      : Platform("Checker-Platform", FDSP_STOR_HVISOR,
-                new DomainNodeInv("AM-Platform-NodeInv",
+                new DomainContainer("AM-Platform-NodeInv",
                                  NULL,
                                  new SmContainer(FDSP_STOR_HVISOR),
                                  new DmContainer(FDSP_STOR_HVISOR),

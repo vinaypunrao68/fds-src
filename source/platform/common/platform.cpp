@@ -21,7 +21,7 @@ NodePlatform    gl_NodePlatform;
 NodePlatform::NodePlatform()
     : Platform("Node-Platform",
                fpi::FDSP_PLATFORM,
-               new DomainNodeInv("Node-Platform-NodeInv",
+               new DomainContainer("Node-Platform-NodeInv",
                                  NULL,
                                  new SmContainer(fpi::FDSP_STOR_MGR),
                                  new DmContainer(fpi::FDSP_DATA_MGR),
