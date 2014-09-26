@@ -29,6 +29,10 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
 
             $scope.selectItem = function( item ){
 
+                if ( !angular.isDefined( item ) ){
+                    return;
+                }
+
                 if ( $scope.type !== 'action' ){
 
                     if ( !angular.isDefined( item ) ){

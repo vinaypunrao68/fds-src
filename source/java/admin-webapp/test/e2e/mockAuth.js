@@ -18,6 +18,8 @@ mockAuth = function() {
 
     var user = {};
 
+    var users = [admin];
+
     angular.module( 'user-management', [] ).factory( '$authentication', function(){
 
         var service = {};
@@ -102,6 +104,13 @@ mockAuth = function() {
             return false;
         };
 
+        service.validateUserToken = function( success, failure ){
+
+            if ( angular.isFunction( success ) ){
+                success( user.userId );
+            }
+        };
+
         return service;
 
     });
@@ -109,8 +118,6 @@ mockAuth = function() {
     angular.module( 'user-management' ).factory( '$user_service', function(){
 
         var service = {};
-
-        service.users = [ admin ];
 
         service.changePassword = function( userId, newPassword, success, failure ){
 
@@ -127,17 +134,16 @@ mockAuth = function() {
         service.createUser = function( username, password, success, failure ){
 
             var user = { identifier: username, password: password, userId: (new Date()).getTime() };
-            service.users.push( user );
+            users.push( user );
 
             success( user );
         };
 
         service.getUsers = function( callback ){
-            callback( service.users );
+            callback( users );
         };
 
         return service;
 
     });
-
 };

@@ -14,6 +14,12 @@ angular.module( 'tenant-management' ).factory( '$tenant_service', ['$http', func
             .success( callback ).error( failure );
     };
 
+    service.attachUser = function( tenant, userId, callback, failure ){
+
+        return $http.put( '/api/system/tenants/' + tenant.id + '/' + userId )
+            .success( callback ).error( failure );
+    };
+
     return service;
 
 }]);
