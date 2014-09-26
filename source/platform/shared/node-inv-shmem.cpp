@@ -47,11 +47,15 @@ NodeShmCtrl::NodeShmCtrl(const char *name) : Module(name)
 
     shm_uuid_off  = shm_node_off + shm_node_siz;
     shm_uuid_siz  = sizeof(ep_map_rec_t) * shm_max_svc;
-    shm_total_siz = shm_total_siz + shm_uuid_siz;
+    shm_total_siz += shm_uuid_siz;
 
     shm_am_off    = shm_uuid_off + shm_uuid_siz;
     shm_am_siz    = sizeof(node_data_t) * shm_max_ams;
-    shm_total_siz = shm_total_siz + shm_am_siz;
+    shm_total_siz +=  shm_am_siz;
+
+    shm_dlt_off   = shm_am_off + shm_am_siz;
+    shm_dlt_size  = FDS_MAX_DLT_BYTES;
+    shm_total_siz += shm_dlt_size;
 
     shm_rw_name[0] = '\0';
     shm_rw        = NULL;
@@ -109,6 +113,12 @@ NodeShmCtrl::mod_startup()
                             shm_node_hdr->shm_uuid_bind_key_siz,
                             shm_node_hdr->shm_uuid_bind_key_off,
                             shm_node_hdr->shm_uuid_bind_obj_siz, shm_max_svc);
+
+    shm_dlt      = new ShmObjRO(shm_ctrl, shm_dlt_off,
+                            shm_node_hdr->shm_dlt_key_size,
+                            shm_node_hdr->shm_dlt_key_off,
+                            shm_node_hdr->shm_dlt_size, 1);
+
 
     shm_am_inv    = new ShmObjROKeyUint64(shm_ctrl, shm_am_off,
                             shm_node_hdr->shm_am_inv_key_off,

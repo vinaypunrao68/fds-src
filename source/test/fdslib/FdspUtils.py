@@ -1,0 +1,168 @@
+#!/usr/bin/env python
+
+# Copyright 2014 by Formation Data Systems, Inc.
+#
+import logging
+import sys
+import time
+import hashlib
+
+from thrift import Thrift
+from thrift.transport import TSocket
+from thrift.transport import TTransport
+from thrift.protocol import TBinaryProtocol
+
+from FDS_ProtocolInterface.ttypes import *
+from fds_service.ttypes import *
+from fds_service.constants import *
+
+from FdsException import *
+
+log = logging.getLogger(__name__)
+
+##
+# @brief Returns message object in fds_service object based on the typeId
+#
+# @param typeId is an interger (see FDSPMsgTypeId)
+#
+# @return Service message object 
+def newSvcMsgByTypeId(typeId):
+    typeStr = FDSPMsgTypeId._VALUES_TO_NAMES[typeId]
+    thType = typeStr.replace('TypeId','')
+    log.info('th typestr: {}, typeid: {}'.format(typeStr, thType))
+    thismodule = sys.modules[__name__]
+    thObj = getattr(thismodule, thType)()
+    return thObj
+
+def getMsgTypeId(msg):
+    thTypeName = '{}TypeId'.format(msg.__class__.__name__)
+    return FDSPMsgTypeId._NAMES_TO_VALUES[thTypeName]
+
+##
+# @brief Deserialize payload to service message from fds_service module
+#
+# @param asyncHdr
+# @param payload
+#
+# @return 
+def deserializeSvcMsg(asyncHdr, payload):
+    svcMsg = newSvcMsgByTypeId(asyncHdr.msg_type_id)
+    transportIn = TTransport.TMemoryBuffer(payload)
+    protocolIn = TBinaryProtocol.TBinaryProtocol(transportIn)
+    svcMsg.read(protocolIn)
+    return svcMsg
+
+##
+# @brief Serializes service message object into a string
+#
+# @param msg thrift service message object
+#
+# @return serialized string
+def serializeSvcMsg(msg):
+    transportOut = TTransport.TMemoryBuffer()
+    protocolOut = TBinaryProtocol.TBinaryProtocol(transportOut)
+    msg.write(protocolOut)
+    return transportOut.getvalue()
+
+##
+# @brief computes sha1 of data and returns digest embedded in FDS_ObjectIdType
+#
+# @param data as string
+#
+# @return 
+def genFdspObjectId(data):
+    m = hashlib.sha1()
+    m.update(data)
+    return FDS_ObjectIdType(digest=m.digest())
+
+#--------------------------------------------------------------------------
+# Message generation routines
+#--------------------------------------------------------------------------
+
+##
+# @brief Returns async header object
+#
+# @param mySvcUuid int service uuid
+# @param targetSvcUuid int service uuid
+# @param reqId
+# @param msg thrift service message object
+#
+# @return 
+def newAsyncHeader(mySvcUuid, targetSvcUuid, reqId, msg):
+    header = AsyncHdr(
+        msg_chksum      =   123456,  # dummy file
+        msg_code        =   0, # more dummy
+        msg_type_id     =   getMsgTypeId(msg),
+        msg_src_id      =   reqId,
+        msg_src_uuid    =   SvcUuid(mySvcUuid),
+        msg_dst_uuid    =   SvcUuid(targetSvcUuid)  # later implement actual serviceid
+    )
+    return header
+
+##
+# @brief 
+#
+# @param svcUuid - integral svc uuid
+# @param ip - string ip
+# @param port - port
+# @param svcType - FDSP.FDSP_MgrIdType type
+# @return 
+def newUuidBindMsg(svcUuid, ip, port, svcType):
+    svcId = SvcID(svc_uuid=SvcUuid(svcUuid), svc_name='client')
+    msg = UuidBindMsg(svc_id=svcId, 
+                      svc_addr=ip,
+                      svc_port=port,
+                      svc_node=svcId,
+                      svc_auto_name='default',
+                      svc_type=svcType) 
+    return msg
+
+##
+# @brief 
+#
+# @param svcUuid - integral svc uuid
+# @param ip - string ip
+# @param port - port
+# @param svcType - FDSP.FDSP_MgrIdType type
+# @return 
+def newNodeInfoMsg(svcUuid, ip, port, svcType):
+    msg = NodeInfoMsg()
+    msg.node_loc = newUuidBindMsg(svcUuid=svcUuid,
+                                  ip=ip,
+                                  port=port,
+                                  svcType=svcType)
+    msg.node_domain = DomainID(domain_id=SvcUuid(0), domain_name="default")
+    msg.node_stor = None
+    msg.nd_base_port = port
+    msg.nd_svc_mask = 1 # (TODO: Rao) ask vy
+    msg.nd_bcast = False
+    return msg
+
+##
+# @brief 
+#
+# @param volId volume id as long
+# @param data data as string(binary should work)
+#
+# @return 
+def newPutObjectMsg(volId, data):
+    msg = PutObjectMsg()
+    msg.volume_id = volId
+    msg.origin_timestamp = int(time.time())
+    msg.data_obj_id = genFdspObjectId(data)
+    msg.data_obj_len = len(data)
+    msg.data_obj = data
+    return msg
+
+##
+# @brief 
+#
+# @param volId as long
+# @param objectId as string
+#
+# @return 
+def newGetObjectMsg(volId, objectId):
+    msg = GetObjectMsg()
+    msg.volume_id = volId
+    msg.data_obj_id = FDS_ObjectIdType(digest=objectId)
+    return msg

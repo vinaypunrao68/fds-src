@@ -4,6 +4,7 @@ user_incl_dir     := \
     $(source_dir)/platform/include \
     $(source_dir)/net-service/include
 
+user_json         := node-work.json
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
@@ -17,10 +18,12 @@ user_non_fds_libs := \
     parted
 
 user_hh           := $(wildcard *.h)
+user_no_style     := $(patsubst %.json,%.h,$(user_json))
 user_cc           := ngx_modules.c
 user_cpp          := \
     plat-probe-main.cpp \
-    plat-probe.cpp
+    plat-probe.cpp \
+    adapter.cpp
 
 user_bin_exe      := plat-probe
 plat-probe        := $(user_cpp) $(user_cc)
