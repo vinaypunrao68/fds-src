@@ -34,14 +34,14 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
         new Thread(new Updater()).start();
     }
 
-    public void createSnapshotPolicy(final String name, final String recurrence, final long retention) throws TException {
+    public long createSnapshotPolicy(final String name, final String recurrence, final long retention) throws TException {
         final SnapshotPolicy apisPolicy = new SnapshotPolicy();
 
         apisPolicy.setPolicyName(name);
         apisPolicy.setRecurrenceRule(recurrence);
         apisPolicy.setRetentionTimeSeconds(retention);
 
-        config.createSnapshotPolicy(apisPolicy);
+        return config.createSnapshotPolicy(apisPolicy);
     }
 
     @Override
