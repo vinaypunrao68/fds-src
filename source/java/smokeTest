@@ -7,5 +7,12 @@ for i in ../lib/java/fds-1.0-bin/fds-1.0/* ; do {
 
 CLASSPATH=$CLASSPATH:../lib/java/classes
 
+if [ $# -eq 0 ]; then
+    echo "Usage: ./smokeTest targetHost"
+    exit 1
+fi
+
 java -classpath $CLASSPATH \
-     com.formationds.xdi.SmokeTest $*
+     -Dfds.host=$1 \
+     com.formationds.smoketest.SmokeTestRunner
+
