@@ -1,4 +1,5 @@
 topdir            := ../..
+speeddup          := -j 3
 user_target       := lib
 user_rtime_env    := user
 user_build_dir    :=
