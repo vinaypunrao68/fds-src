@@ -68,6 +68,9 @@ NodeShmRWCtrl::mod_startup()
     shm_dlt_rw      = new ShmObjRW(shm_ctrl, shm_dlt_off, shm_node_hdr->shm_dlt_key_size,
                             shm_node_hdr->shm_dlt_key_off, shm_node_hdr->shm_dlt_size, 1);
 
+    shm_dmt_rw      = new ShmObjRW(shm_ctrl, shm_dmt_off, shm_node_hdr->shm_dmt_key_size,
+                            shm_node_hdr->shm_dmt_key_off, shm_node_hdr->shm_dmt_size, 1);
+
     shm_am_rw   = new ShmObjRWKeyUint64(shm_ctrl, shm_am_off,
                             shm_node_hdr->shm_am_inv_key_off,
                             shm_node_hdr->shm_am_inv_obj_siz, shm_max_ams);
@@ -111,6 +114,11 @@ NodeShmRWCtrl::shm_init_header(node_shm_inventory_t *hdr)
     hdr->shm_dlt_key_off    = 10;  // not used
     hdr->shm_dlt_key_size   = 10;  // not used
     hdr->shm_dlt_size       = FDS_MAX_DLT_BYTES;
+
+    hdr->shm_dmt_off        = shm_dmt_off;
+    hdr->shm_dmt_key_off    = 10;  // not used
+    hdr->shm_dmt_key_size   = 10;  // not used
+    hdr->shm_dmt_size       = FDS_MAX_DMT_BYTES;
 }
 
 void

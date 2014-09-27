@@ -38,13 +38,13 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$v
                 // for each time deliniation used we need to create a policy and attach
                 // it using the volume id in the name so we can identify it easily
                 for ( var i = 0; angular.isDefined( volume.snapshotPolicies ) && i < volume.snapshotPolicies.length; i++ ){
-                            volume.snapshotPolicies[i].name =
-                                volId + '_' + volume.snapshotPolicies[i].name;
+                    volume.snapshotPolicies[i].name =
+                        volId + '_' + volume.snapshotPolicies[i].name;
 
-                            $snapshot_api.createSnapshotPolicy( volume.snapshotPolicies[i], function( code, resp ){
-                                // attach the policy to the volume
+                    $snapshot_api.createSnapshotPolicy( volume.snapshotPolicies[i], function( code, resp ){
+                        // attach the policy to the volume
 //                                $snapshot_api.attachPolicyToVolume( resp, volId );
-                            });
+                    });
                 }
             });
         });

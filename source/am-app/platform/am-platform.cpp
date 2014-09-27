@@ -58,7 +58,7 @@ AMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 AmPlatform::AmPlatform()
     : Platform("DM-Platform",
                fpi::FDSP_STOR_HVISOR,
-               new DomainNodeInv("AM-Platform-NodeInv",
+               new DomainContainer("AM-Platform-NodeInv",
                                  NULL,
                                  new SmContainer(fpi::FDSP_STOR_MGR),
                                  new DmContainer(fpi::FDSP_DATA_MGR),
