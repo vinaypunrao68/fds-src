@@ -24,7 +24,7 @@ int SmDiskMap::mod_init(SysParams const *const param) {
 }
 
 void SmDiskMap::mod_startup() {
-    test_mode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.standalone");
+    test_mode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
 
     // get list of HDD and SSD devices
     getDiskMap();
