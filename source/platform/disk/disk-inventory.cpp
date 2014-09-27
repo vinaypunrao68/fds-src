@@ -616,27 +616,8 @@ PmDiskInventory::dsk_read_label(DiskLabelMgr *mgr, bool creat)
 // -----------------------------------------------------------------------------------
 DiskPlatModule gl_DiskPlatMod("Disk Module");
 
-DiskPlatModule::DiskPlatModule(char const *const name) : Module(name)
-{
-    dsk_devices = new PmDiskInventory();
-    dsk_sim     = NULL;
-    dsk_inuse   = NULL;
-    dsk_ctrl    = udev_new();
-    dsk_label   = new DiskLabelMgr();
-    dsk_enum    = udev_enumerate_new(dsk_ctrl);
-    fds_assert((dsk_ctrl != NULL) && (dsk_enum != NULL));
-}
-
-DiskPlatModule::~DiskPlatModule()
-{
-    mod_shutdown();
-
-    delete dsk_label;
-    // dsk_devices = NULL;
-    // dsk_inuse   = NULL;
-    udev_enumerate_unref(dsk_enum);
-    udev_unref(dsk_ctrl);
-}
+DiskPlatModule::DiskPlatModule(char const *const name) : Module(name) {}
+DiskPlatModule::~DiskPlatModule() {}
 
 // dsk_plat_singleton
 // ------------------
@@ -653,6 +634,14 @@ DiskPlatModule::dsk_plat_singleton()
 int
 DiskPlatModule::mod_init(SysParams const *const param)
 {
+    dsk_devices = new PmDiskInventory();
+    dsk_sim     = NULL;
+    dsk_inuse   = NULL;
+    dsk_ctrl    = udev_new();
+    dsk_label   = new DiskLabelMgr();
+    dsk_enum    = udev_enumerate_new(dsk_ctrl);
+    fds_assert((dsk_ctrl != NULL) && (dsk_enum != NULL));
+
     Module::mod_init(param);
     return 0;
 }
@@ -739,6 +728,11 @@ DiskPlatModule::mod_shutdown()
     if (dsk_sim != NULL) {
         delete dsk_sim;
     }
+    delete dsk_label;
+    dsk_devices = NULL;
+    dsk_inuse   = NULL;
+    udev_enumerate_unref(dsk_enum);
+    udev_unref(dsk_ctrl);
 }
 
 // dsk_rescan
