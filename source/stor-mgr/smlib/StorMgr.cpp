@@ -385,11 +385,11 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     shuttingDown = false;
     numWBThreads = 1;
     maxDirtyObjs = 10000;
-    counters_.reset(new SMCounters("SM", modProvider_->get_cntrs_mgr().get()));
 
     // Init  the log infra
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
+
     LOGDEBUG << "Constructing the Object Storage Manager";
     objStorMutex = new fds_mutex("Object Store Mutex");
 
@@ -437,22 +437,26 @@ void ObjectStorMgr::mod_startup()
         tokenStateDb_->addToken(tok);
     }
 
-    /* Set up FDSP RPC endpoints */
-    nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-    myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
-    setup_datapath_server(myIp);
+    counters_.reset(new SMCounters("SM", modProvider_->get_cntrs_mgr().get()));
 
-    /*
-     * Register this node with OM.
-     */
-    LOGNOTIFY << "om ip: " << *modProvider_->get_plf_manager()->plf_get_om_ip()
-        << " port: " << modProvider_->get_plf_manager()->plf_get_om_ctrl_port();
-    omClient = new OMgrClient(FDSP_STOR_MGR,
-                              *modProvider_->get_plf_manager()->plf_get_om_ip(),
-                              modProvider_->get_plf_manager()->plf_get_om_ctrl_port(),
-                              "localhost-sm",
-                              GetLog(),
-                              nst_, modProvider_->get_plf_manager());
+    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
+        /* Set up FDSP RPC endpoints */
+        nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
+        myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
+        setup_datapath_server(myIp);
+
+        /*
+         * Register this node with OM.
+         */
+        LOGNOTIFY << "om ip: " << *modProvider_->get_plf_manager()->plf_get_om_ip()
+                  << " port: " << modProvider_->get_plf_manager()->plf_get_om_ctrl_port();
+        omClient = new OMgrClient(FDSP_STOR_MGR,
+                                  *modProvider_->get_plf_manager()->plf_get_om_ip(),
+                                  modProvider_->get_plf_manager()->plf_get_om_ctrl_port(),
+                                  "localhost-sm",
+                                  GetLog(),
+                                  nst_, modProvider_->get_plf_manager());
+    }
 
     /*
      * Create local volume table. Create after omClient
@@ -526,27 +530,29 @@ void ObjectStorMgr::mod_startup()
         "fds.sm.testing.exec_new_stubs");
     LOGDEBUG << "execNewStubs flag=" << execNewStubs;
 
-    /*
-     * Register/boostrap from OM
-     */
-    omClient->initialize();
-    omClient->registerEventHandlerForNodeEvents(
-        (node_event_handler_t)nodeEventOmHandler);
-    omClient->registerEventHandlerForMigrateEvents(
-        (migration_event_handler_t)migrationEventOmHandler);
-    omClient->registerEventHandlerForDltCloseEvents(
-        (dltclose_event_handler_t) dltcloseEventHandler);
-    omClient->omc_srv_pol = &sg_SMVolPolicyServ;
-    omClient->startAcceptingControlMessages();
-    omClient->registerNodeWithOM(modProvider_->get_plf_manager());
+    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
+        /*
+         * Register/boostrap from OM
+         */
+        omClient->initialize();
+        omClient->registerEventHandlerForNodeEvents(
+            (node_event_handler_t)nodeEventOmHandler);
+        omClient->registerEventHandlerForMigrateEvents(
+            (migration_event_handler_t)migrationEventOmHandler);
+        omClient->registerEventHandlerForDltCloseEvents(
+            (dltclose_event_handler_t) dltcloseEventHandler);
+        omClient->omc_srv_pol = &sg_SMVolPolicyServ;
+        omClient->startAcceptingControlMessages();
+        omClient->registerNodeWithOM(modProvider_->get_plf_manager());
 
-    clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
+        clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
+
+        omc_srv_pol = &sg_SMVolPolicyServ;
+        setup_migration_svc(obj_dir);
+    }
 
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
     testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
-
-    omc_srv_pol = &sg_SMVolPolicyServ;
-    setup_migration_svc(obj_dir);
 }
 
 //
@@ -556,18 +562,20 @@ void ObjectStorMgr::mod_startup()
 //
 void ObjectStorMgr::mod_enable_service()
 {
-    const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
-    NodeAgent::pointer sm_node = Platform::plf_sm_nodes()->agent_info(*mySvcUuid);
-    fpi::StorCapMsg stor_cap;
-    sm_node->init_stor_cap_msg(&stor_cap);
+    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
+        const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
+        NodeAgent::pointer sm_node = Platform::plf_sm_nodes()->agent_info(*mySvcUuid);
+        fpi::StorCapMsg stor_cap;
+        sm_node->init_stor_cap_msg(&stor_cap);
 
-    // note that qos dispatcher in SM/DM uses total rate just to assign
-    // guaranteed slots, it still will dispatch more IOs if there is more
-    // perf capacity available (based on how fast IOs return). So setting
-    // totalRate to disk_iops_min does not actually restrict the SM from
-    // servicing more IO if there is more capacity (eg.. because we have
-    // cache and SSDs)
-    totalRate = stor_cap.disk_iops_min;
+        // note that qos dispatcher in SM/DM uses total rate just to assign
+        // guaranteed slots, it still will dispatch more IOs if there is more
+        // perf capacity available (based on how fast IOs return). So setting
+        // totalRate to disk_iops_min does not actually restrict the SM from
+        // servicing more IO if there is more capacity (eg.. because we have
+        // cache and SSDs)
+        totalRate = stor_cap.disk_iops_min;
+    }
 
     /*
      * Setup QoS related members.
@@ -594,11 +602,12 @@ void ObjectStorMgr::mod_enable_service()
     objCache->vol_cache_create(FdsSysTaskQueueId, 1024 * 1024 * vol_min_cache_sz_mb_,
                                1024 * 1024 * vol_max_cache_sz_mb_);
 
-
-    // Enable stats collection in SM for stats streaming
-    StatsCollector::singleton()->registerOmClient(omClient);
-    StatsCollector::singleton()->startStreaming(
-        std::bind(&ObjectStorMgr::sampleSMStats, this, std::placeholders::_1), NULL);
+    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
+        // Enable stats collection in SM for stats streaming
+        StatsCollector::singleton()->registerOmClient(omClient);
+        StatsCollector::singleton()->startStreaming(
+            std::bind(&ObjectStorMgr::sampleSMStats, this, std::placeholders::_1), NULL);
+    }
 
     /*
      * Create local variables for test mode
@@ -749,6 +758,9 @@ const DLT* ObjectStorMgr::getDLT() {
 }
 
 fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
+    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == true) {
+        return true;  // TODO(Anna) add test DLT and use my svc uuid = 1
+    }
     DltTokenGroupPtr nodes = omClient->getDLTNodesForDoidKey(objId);
     fds_verify(nodes->getLength() > 0);
     const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();

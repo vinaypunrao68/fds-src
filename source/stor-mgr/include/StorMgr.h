@@ -415,7 +415,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      explicit ObjectStorMgr(CommonModuleProviderIf *modProvider);
      /* This constructor is exposed for mock testing */
      ObjectStorMgr()
-         : Module("sm") {
+             : Module("sm"), totalRate(20000) {
          smObjDb = nullptr;
          qosCtrl = nullptr;
          writeBackThreads = nullptr;
@@ -619,6 +619,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      friend ObjectStorMgrI;
      friend class SmObjDb;
+     friend class SmLoadProc;
 };
 
 class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
