@@ -6,8 +6,7 @@
 # FDS test-case pattern requirements.
 import unittest
 import traceback
-from subprocess import check_call
-import TestCase
+from testcases import TestCase
 
 # Module-specific requirements
 import sys
