@@ -9,7 +9,8 @@ user_incl_dir    := include ../net-service/include
 user_fds_ar_libs := \
     fds-plat-daemon \
     fds-plat-disk \
-    fds-net-svc
+    fds-net-svc \
+    fds-xdi
 
 user_non_fds_libs := \
 	udev \

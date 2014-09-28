@@ -13,6 +13,8 @@ user_incl_dir     := \
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
+    fds-probe-ut \
+    fds-plat-daemon \
     fds-smlib     \
     fds-vpolicy   \
     fds-hash      \
@@ -28,22 +30,27 @@ user_non_fds_libs :=  \
     ssl \
     cryptopp \
     crypto \
-    leveldb
+    leveldb \
+    gmock \
+    pthread
 
 
 user_cpp          := \
 	object_store_unit_test.cpp \
 	object_store_load_test.cpp \
-        metastore_unit_test.cpp   
+        metastore_unit_test.cpp  \
+	smapi_gtest.cpp
 
 user_no_style     := sm_unit_test.cpp
 user_bin_exe      := \
     ObjectStoreUnitTest \
     ObjectStoreLoadTest \
-    metastore_unit_test
+    metastore_unit_test \
+    smapi_gtest
 
 ObjectStoreUnitTest := object_store_unit_test.cpp
 ObjectStoreLoadTest := object_store_load_test.cpp
 metastore_unit_test := metastore_unit_test.cpp
+smapi_gtest	    := smapi_gtest.cpp
 
 include $(topdir)/Makefile.incl
