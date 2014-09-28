@@ -47,15 +47,8 @@ static PlatLibDltUpdate      platlib_dlt_update;
  * Platform Library NetEndPoint services
  * -------------------------------------------------------------------------------------
  */
-EpPlatLibMod::EpPlatLibMod(const char *name) : Module(name), ep_uuid_bind(NULL)
-{
-    static Module *ep_plat_dep_mods[] = {
-        &gl_NodeShmROCtrl,
-        NULL
-    };
-    ep_my_type = 0;
-    mod_intern = ep_plat_dep_mods;
-}
+EpPlatLibMod::EpPlatLibMod(const char *name)
+    : Module(name), ep_uuid_bind(NULL), ep_my_type(0) {}
 
 // mod_init
 // --------
@@ -63,6 +56,11 @@ EpPlatLibMod::EpPlatLibMod(const char *name) : Module(name), ep_uuid_bind(NULL)
 int
 EpPlatLibMod::mod_init(SysParams const *const p)
 {
+    static Module *ep_plat_dep_mods[] = {
+        &gl_NodeShmROCtrl,
+        NULL
+    };
+    mod_intern = ep_plat_dep_mods;
     return Module::mod_init(p);
 }
 

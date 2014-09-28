@@ -166,3 +166,15 @@ def newGetObjectMsg(volId, objectId):
     msg.volume_id = volId
     msg.data_obj_id = FDS_ObjectIdType(digest=objectId)
     return msg
+
+##
+# @brief 
+#
+# @param volId as long
+# @param objectId as string
+#
+# @return 
+def newGetVolumeMetaDataMsg(volId):
+    msg = GetVolumeMetaDataMsg()
+    msg.volume_id = volId;
+    return msg
