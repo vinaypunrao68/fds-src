@@ -1,0 +1,19 @@
+.linkbutton-parent {
+
+    position: relative;
+    color: $text_very_light_color;
+
+    .linkbutton-item {
+        padding-left: 2px;
+        padding-right: 2px;
+        cursor: pointer;
+    }
+
+    .linkbutton-bar {
+        padding-left: 2px;
+    }
+
+    .selected {
+        font-weight: bold;
+    }
+}

@@ -1,0 +1,99 @@
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_SMDISKMAP_H_
+#define SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_SMDISKMAP_H_
+
+#include <string>
+#include <set>
+
+#include <fds_module.h>
+#include <dlt.h>
+#include <persistent_layer/dm_io.h>
+#include <object-store/SmSuperblock.h>
+
+namespace fds {
+
+/*
+ * SmDiskMap keeps track of data and metadata SM token layout
+ * on disks, and manages SM tokens persistent state.
+ */
+class SmDiskMap : public Module, public boost::noncopyable {
+  public:
+    explicit SmDiskMap(const std::string& modName);
+    ~SmDiskMap();
+
+    typedef std::unique_ptr<SmDiskMap> unique_ptr;
+
+    /**
+     * Updates SM token on-disk location table.
+     * Currently assumes that new DLT does not change ownership
+     * of SM tokens by this SM, will assert otherwise. This will
+     * change when we port back SM token migration
+     */
+    Error handleNewDlt(const DLT* dlt);
+
+    /**
+     * Translation from token or object ID to SM token ID
+     */
+    static fds_token_id smTokenId(fds_token_id tokId);
+    static fds_token_id smTokenId(const ObjectID& objId,
+                                  fds_uint32_t bitsPerToken);
+    fds_token_id smTokenId(const ObjectID& objId);
+
+    /**
+     * Return a set of SM tokens that this SM currently owns
+     */
+    SmTokenSet getSmTokens() const;
+
+    /**
+     * Get disk ID where ObjectID (or SM token) data and metadata
+     * resides on a given tier.
+     */
+    fds_uint16_t getDiskId(const ObjectID& objId,
+                           diskio::DataTier tier);
+    fds_uint16_t getDiskId(fds_token_id smTokId,
+                           diskio::DataTier tier);
+
+    /**
+     * Get the root path to disk for a given SM token and tier
+     */
+    const char* getDiskPath(fds_token_id smTokId,
+                            diskio::DataTier tier);
+
+    /**
+     * Module methods
+     */
+    virtual int mod_init(SysParams const *const param);
+    virtual void mod_startup();
+    virtual void mod_shutdown();
+
+  private:  // methods
+    /**
+     * Reads existing HDDs and SSDs from /disk-map file
+     * created by platform. Later we may do that through
+     * shared memory
+     */
+    void getDiskMap();
+
+  private:
+    fds_uint32_t bitsPerToken_;
+
+    /// disk ID to path map
+    DiskLocMap disk_map;
+    /// set of disk IDs of existing SDD devices
+    DiskIdSet  ssd_ids;
+    /// set of disk IDs of existing HDD devices
+    DiskIdSet hdd_ids;
+
+    /// Superblock caches and persists SM token info
+    SmSuperblock::unique_ptr superblock;
+
+    /// if true, test mode where we assume no contact with
+    /// platform, and use SM service uuid = 1
+    fds_bool_t test_mode;
+};
+
+}  // namespace fds
+
+#endif  // SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_SMDISKMAP_H_

@@ -1,0 +1,44 @@
+<div ng-controller="systemController" class="page-slider-parent" ng-style="{left: addingnode ? '-100%' : '0px'}">
+
+    <div class="col-xs-12 node-list front-page">
+        <div class="header">
+            <span class="light-print">Nodes</span>
+            <a data-href="/nodes/new" class="pull-right" ng-click="addingnode = true;">Add a Node</a>
+        </div>
+        <div class="nodes-container table-container">
+            <table class="default">
+                <thead>
+                    <th></th>
+                    <th>Node Name</th>
+                    <th>Site</th>
+                    <th>Local Domain</th>
+                    <th>HW</th>
+                    <th>OM</th>
+                    <th>SM</th>
+                    <th>DM</th>
+                    <th>AM</th>
+                    <th></th>
+                </thead>
+                <tbody>
+                    <tr ng-repeat="node in nodes" class="node-item" >
+                        <td>
+                            <span class="{{getOverallStatus( node )}}"></span>
+                        </td>
+                        <td>{{node.node_name}}</td>
+                        <td>{{node.site}}</td>
+                        <td>{{node.domain}}</td>
+
+                        <td><span class="{{getStatus( node.hw )}}"></span></td>
+                        <td><span class="{{getStatus( node.om )}}"></span></td>
+                        <td><span class="{{getStatus( node.sm )}}"></span></td>
+                        <td><span class="{{getStatus( node.dm )}}"></span></td>
+                        <td><span class="{{getStatus( node.am )}}"></span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div ng-include="'scripts/system/addnode/addnode.html'"></div>
+
+</div>

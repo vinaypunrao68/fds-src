@@ -5,6 +5,7 @@
 #define SOURCE_INCLUDE_NET_NET_SERVICE_TMPL_H_
 
 #include <unistd.h>
+#include <fcntl.h>
 #include <arpa/inet.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TBufferTransports.h>
@@ -369,7 +370,23 @@ EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
     try {
         fds_scoped_lock l(ep_handle_map_mtx);
         auto ep = ep_handle_map.at(key);
-        return ep;
+        int fd = ep->ep_sock->getSocketFD();
+        do {
+            if (fcntl(fd, F_GETFL) != -1) {
+                return (ep); 
+            }
+        } while (errno == EINTR);
+        if (errno != EBADF) {
+            return (ep);
+        }
+        try {
+            ep->ep_sock->close();
+            ep->ep_sock->open();
+            LOGNORMAL << " connection failed and redone successfully. ";
+            return (ep);
+        } catch (...) {
+            return (nullptr);
+        }
     } catch(const std::out_of_range &e) {
         /* Create the endpoint client
          * NOTE: We let go off lock here because socket connection

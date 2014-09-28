@@ -29,8 +29,7 @@ BaseAsyncSvcHandler::~BaseAsyncSvcHandler() {
 * @param _return
 * @param msg
 */
-void BaseAsyncSvcHandler::uuidBind(FDS_ProtocolInterface::RespHdr& _return,
-                    const FDS_ProtocolInterface::UuidBindMsg& msg)
+void BaseAsyncSvcHandler::uuidBind(fpi::AsyncHdr &_return, const fpi::UuidBindMsg& msg)
 {
 }
 
@@ -40,8 +39,8 @@ void BaseAsyncSvcHandler::uuidBind(FDS_ProtocolInterface::RespHdr& _return,
 * @param _return
 * @param msg
 */
-void BaseAsyncSvcHandler::uuidBind(FDS_ProtocolInterface::RespHdr& _return,
-                        boost::shared_ptr<FDS_ProtocolInterface::UuidBindMsg>& msg)
+void BaseAsyncSvcHandler::uuidBind(fpi::AsyncHdr &_return,
+                        boost::shared_ptr<fpi::UuidBindMsg>& msg)
 {
 }
 

@@ -166,7 +166,7 @@ Module::mod_disable_service()
         return;
     }
     mod_exec_state |= MOD_ST_SHUTDOWN;
-    if (mod_intern != NULL) {
+    if ((mod_intern != NULL) && (mod_intern[0] != NULL)) {
         fds_verify(mod_intern_cnt != 0);
         for (i = mod_intern_cnt - 1; i >= 0; i--) {
             fds_verify(mod_intern[i] != NULL);
@@ -183,7 +183,7 @@ Module::mod_lockstep_shutdown()
 {
     int    i;
 
-    if (mod_intern != NULL) {
+    if ((mod_intern != NULL) && (mod_intern[0] != NULL)) {
         fds_verify(mod_intern_cnt != 0);
         for (i = mod_intern_cnt - 1; i >= 0; i--) {
             fds_verify(mod_intern[i] != NULL);
@@ -202,7 +202,7 @@ Module::mod_shutdown()
 {
     int    i;
 
-    if (mod_intern != NULL) {
+    if ((mod_intern != NULL) && (mod_intern[0] != NULL)) {
         fds_verify(mod_intern_cnt != 0);
         for (i = mod_intern_cnt - 1; i >= 0; i--) {
             fds_verify(mod_intern[i] != NULL);

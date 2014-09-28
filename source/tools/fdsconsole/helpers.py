@@ -9,6 +9,9 @@ PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 
 from fdslib import restendpoint
 import types
+import random
+from fdslib import platformservice
+
 class AccessLevel:
     '''
     Defines different access levels for users
@@ -59,6 +62,7 @@ class ConfigData:
 
         self.rest = restendpoint.RestEndpoint(self.getHost(), 7777)
         self.s3rest   = restendpoint.RestEndpoint(self.getHost(), port=8000, auth=False)
+        self.platform = platformservice.PlatSvc(1690, self.getHost(), self.getPort())
 
     def set(self, key, value, namespace):
         if namespace not in self.__data:

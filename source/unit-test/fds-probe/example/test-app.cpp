@@ -15,6 +15,7 @@ class TestProg : public FdsService
         : FdsService(argc, argv, log, vec) {}
 
     int run() override {
+        return 0;
         while (1) {
             std::cout << "your code here" << std::endl;
             sleep(2);

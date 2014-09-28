@@ -7,7 +7,6 @@ package com.formationds.om.rest.snapshot;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formationds.commons.model.Snapshot;
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -38,36 +37,21 @@ public class ListSnapshotsByVolumeId implements RequestHandler {
 
         final long volumeId = requiredLong(routeParameters,
                 REQ_PARAM_VOLUME_ID);
-        if (FdsFeatureToggles.USE_CANNED.isActive()) {
-            for (int i = 1; i <= 10; i++) {
-                final Snapshot snapshot = new Snapshot();
+        final List<com.formationds.apis.Snapshot> _snapshots =
+          config.listSnapshots( volumeId );
+        if (_snapshots == null || _snapshots.isEmpty()) {
+          return new JsonResource( new JSONArray( snapshots ) );
+        }
 
-                snapshot.setId(i);
-                snapshot.setName(String.format("by volume policy name %d",
-                        volumeId));
-                snapshot.setVolumeId(volumeId);
-                snapshot.setCreation(new Date());
+        for (final com.formationds.apis.Snapshot snapshot : _snapshots) {
+          final Snapshot mSnapshot = new Snapshot();
 
-                snapshots.add(snapshot);
-            }
-        } else {
-            final List<com.formationds.apis.Snapshot> _snapshots =
-                    config.listSnapshots(
-                            requiredLong(routeParameters, REQ_PARAM_VOLUME_ID));
-            if (_snapshots == null || _snapshots.isEmpty()) {
-                return new JsonResource( new JSONArray( snapshots ) );
-            }
+          mSnapshot.setId(snapshot.getSnapshotId());
+          mSnapshot.setName(snapshot.getSnapshotName());
+          mSnapshot.setVolumeId(snapshot.getVolumeId());
+          mSnapshot.setCreation(new Date(snapshot.getCreationTimestamp()));
 
-            for (final com.formationds.apis.Snapshot snapshot : _snapshots) {
-                final Snapshot mSnapshot = new Snapshot();
-
-                mSnapshot.setId(snapshot.getSnapshotId());
-                mSnapshot.setName(snapshot.getSnapshotName());
-                mSnapshot.setVolumeId(snapshot.getVolumeId());
-                mSnapshot.setCreation(new Date(snapshot.getCreationTimestamp()));
-
-                snapshots.add(mSnapshot);
-            }
+          snapshots.add(mSnapshot);
         }
 
         return new JsonResource(new JSONArray(mapper.writeValueAsString(snapshots)));

@@ -4,6 +4,7 @@
 
 package com.formationds.commons.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.builder.RecurrenceRuleBuilder;
 import com.formationds.commons.model.exception.ParseException;
@@ -28,6 +29,7 @@ public class RecurrenceRule
   private static final SimpleDateFormat UNTIL_DATE =
     new SimpleDateFormat( "yyyyMMdd'T'HHmmssZ" );
 
+  @JsonProperty( "frequency" )
   private iCalFields iCalField;
   private Date until;
   private int count = -1;

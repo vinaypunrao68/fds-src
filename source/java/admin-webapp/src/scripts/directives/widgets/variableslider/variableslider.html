@@ -1,0 +1,14 @@
+<div class="slider base">
+    <div class="slider strikethrough"></div>
+
+    <div class="slider items variable">
+        <div class="slider variable bubble" ng-repeat="s in selections" ng-click="setSelection( s )" ng-class="{current: s == selection}">
+            <span>{{s}}</span>
+        </div>
+    </div>
+    <div class="pull-left clearfix" style="width: 100%;">
+        <label class="slider pull-left low">
+            {{ description }}
+        </label>
+    </div>
+</div>

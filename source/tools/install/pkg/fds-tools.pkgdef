@@ -11,5 +11,12 @@ files:
     src:
       - ../../../Build/linux-x86_64.debug/bin/configdbtool
       - ../../redis.sh
-      - formation.conf
+      - ../../../test/fds-tool.py
+      - ../../../test/fdsadmin
     dest-is-dir: True
+
+  - dest: /fds/sbin
+    dest-is-dir: True
+    src:
+      - ../../../test/formation.conf
+    conf: True

@@ -250,35 +250,23 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
         return Error(ERR_NOT_FOUND);
     }
 
-    fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_DLT_Data_TypePtr d_msg(new fpi::FDSP_DLT_Data_Type());
-
-    this->init_msg_hdr(m_hdr);
-
-    m_hdr->msg_code        = fpi::FDSP_MSG_DLT_UPDATE;
-    m_hdr->msg_id          = 0;
-    m_hdr->tennant_id      = 1;
-    m_hdr->local_domain_id = 1;
+    auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    fpi::CtrlNotifyDLTUpdatePtr msg(new fpi::CtrlNotifyDLTUpdate());
+    auto d_msg = &msg->dlt_data;
 
     d_msg->dlt_type        = true;
-    // TODO(Andrew): It's not safe to unconst this object.
-    // The serialization functions should all be const
-    // since they do not modify the object
     err = const_cast<DLT*>(curDlt)->getSerialized(d_msg->dlt_data);
+    msg->dlt_version = curDlt->getVersion();
     if (!err.ok()) {
         LOGERROR << "Failed to fill in dlt_data, not sending DLT";
         return err;
     }
-    if (nd_ctrl_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyDLTUpdate, m_hdr, d_msg);
-    } else {
-        try {
-            ndCpClient->NotifyDLTUpdate(m_hdr, d_msg);
-        } catch(const att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-            return Error(ERR_NETWORK_TRANSPORT);
-        }
-    }
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), msg);
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dlt_resp, this, msg,
+                                   std::placeholders::_1, std::placeholders::_2,
+                                   std::placeholders::_3));
+    om_req->invoke();
+
     curDlt->dump();
     LOGNORMAL << "OM: Send dlt info (version " << curDlt->getVersion()
               << ") to " << get_node_name() << " uuid 0x"
@@ -286,6 +274,55 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
 
     return err;
 }
+
+void
+OM_NodeAgent::om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* req,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "OM received response for NotifyDltUpdate from node "
+            << std::hex << req->getPeerEpId().svc_uuid << std::dec <<
+            " with version " << msg->dlt_version;
+
+    // notify DLT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid(rs_get_uuid());
+    FdspNodeType node_type = rs_get_uuid().uuid_get_type();
+    domain->om_recv_dlt_commit_resp(node_type, node_uuid, msg->dlt_version);
+}
+
+Error
+OM_NodeAgent::om_send_dmt_x(const DMTPtr& curDmt) {
+    Error err(ERR_OK);
+    fds_verify(curDmt->getVersion() != DMT_VER_INVALID);
+    auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    fpi::CtrlNotifyDMTUpdatePtr msg(new fpi::CtrlNotifyDMTUpdate());
+    auto dmt_msg = &msg->dmt_data;
+    dmt_msg->dmt_version = curDmt->getVersion();
+    err = curDmt->getSerialized(dmt_msg->dmt_data);
+    if (!err.ok()) {
+        LOGERROR << "Failed to fill in dmt_data, not sending DMT";
+        return err;
+    }
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), msg);
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dmt_x_resp, this, msg,
+                                   std::placeholders::_1, std::placeholders::_2,
+                                   std::placeholders::_3));
+    om_req->invoke();
+    LOGNORMAL << "OM: Send dmt info (version " << curDmt->getVersion()
+              << ") to " << get_node_name() << " uuid 0x"
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+    return err;
+}
+
+void
+OM_NodeAgent::om_send_dmt_x_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* req,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload)
+{
+}
+
 
 Error
 OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
@@ -1509,6 +1546,12 @@ om_send_dmt(const DMTPtr& curDmt, NodeAgent::pointer agent)
     return OM_NodeAgent::agt_cast_ptr(agent)->om_send_dmt(curDmt);
 }
 
+static Error
+om_send_dmt_x(const DMTPtr& curDmt, NodeAgent::pointer agent)
+{
+    return OM_NodeAgent::agt_cast_ptr(agent)->om_send_dmt_x(curDmt);
+}
+
 // om_bcast_dmt
 // -------------
 //
@@ -1529,6 +1572,11 @@ OM_NodeContainer::om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
         count += dc_am_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
         LOGDEBUG << "Sent DMT to " << count << " AM services successfully";
     }
+#ifdef LLIU_WORK_IN_PROGRESS
+    //   the following is to test for PM to receive dmt
+    LOGNORMAL << " try to send out dmt to pm to shared memory see see ";
+    dc_pm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt_x);
+#endif
     return count;
 }
 
@@ -1589,6 +1637,13 @@ OM_NodeContainer::om_bcast_dlt(const DLT* curDlt, fds_bool_t sm_only)
 {
     fds_uint32_t count = 0;
     count = dc_sm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+
+#ifdef LLIU_WORK_IN_PROGRESS
+    //   the following is to test for PM to receive dlt
+    LOGNORMAL << " try to send out dlt to pm to shared memory see see ";
+    dc_pm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+#endif
+
     if (sm_only) {
         return count;
     }

@@ -93,11 +93,11 @@ class NodeInfoShmIter : public ShmObjIter
     shm_obj_iter_fn(int idx, const void *k, const void *r, size_t ksz, size_t rsz);
 
   protected:
-    int                     it_no_rec;
-    int                     it_no_rec_quit;
-    bool                    it_shm_rw;
-    const ShmObjRO         *it_shm;
-    DomainNodeInv::pointer  it_local;
+    int                       it_no_rec;
+    int                       it_no_rec_quit;
+    bool                      it_shm_rw;
+    const ShmObjRO           *it_shm;
+    DomainContainer::pointer  it_local;
 };
 
 class NetPlatSvc : public NetPlatform

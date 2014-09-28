@@ -240,7 +240,7 @@ JsObject::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
             it->second->js_exec_obj(this, templ, out);
         }
     }
-    js_output(out);
+    // js_output(out);
     return this;
 }
 

@@ -1,0 +1,51 @@
+.navitem-parent {
+    color: #3A424F;
+    position: relative;
+    background-color: #EBEBEB;
+    padding: 8px;
+    display: flex;
+    cursor: pointer;
+    @include transition( linear, 100ms );
+
+    &:hover {
+        background-color: #8ea0b2;
+        color: white;
+    }
+
+    &.navitem-selected {
+        background-color: #657D95;
+        color: white;
+    }
+
+    .nav-icon {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        background-position: center;
+        background: no-repeat;
+        font-size: 24px;
+    }
+
+    .nav-text {
+        display: inline-block;
+        padding-left: 6px;
+    }
+
+    .navitem-badge-parent {
+        position: relative;
+        left: -4px;top: -4px;
+
+        .navitem-badge {
+            position: absolute;
+            display: inline-block;
+            border-radius: 12px;
+            border: 1px solid white;
+            padding-left: 6px;
+            padding-right: 6px;
+            background-color: $fds_light_green;
+            font-size: 0.7em;
+            color: white;
+            font-weight: bold;
+        }
+    }
+}

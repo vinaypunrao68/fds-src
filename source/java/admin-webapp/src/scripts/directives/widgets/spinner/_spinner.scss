@@ -1,0 +1,88 @@
+.spinner-parent {
+    display: inline-block;
+
+    input {
+        border-top-left-radius: 6px;
+        border-bottom-left-radius: 6px;
+        text-align: right;
+
+        border-top: 1px solid $gray_border;
+        border-left: 1px solid $gray_border;
+        border-bottom: 1px solid $gray_border;
+
+        outline: none;
+        padding: 7px 12px;
+        font-size: 15px;
+        float: left;
+
+        color: black;
+
+        &:active &:focus {
+            outline: none;
+        }
+    }
+
+    .button-parent {
+        display: inline-block;
+        vertical-align: middle;
+        position: relative;
+
+        .caret {
+            border-top-color: white;
+            border-bottom-color: white;
+            margin-left: 6px;
+            margin-top: 6px;
+        }
+    }
+
+    .button-base {
+        width: 24px;
+        background-color: $fds_dark_green;
+        cursor: pointer;
+
+        &.increment {
+            border-bottom: 1px solid white;
+            border-top-right-radius: 6px;
+            height: 21px;
+
+            .caret {
+                transform: rotate(180deg);
+            }
+        }
+
+        &.decrement {
+            border-bottom-right-radius: 6px;
+            height: 20px;
+        }
+
+        &.pressed, &:focus {
+            background-color: $fds_extra_light_green !important;
+        }
+
+        &:hover {
+            background-color: $fds_light_green;
+        }
+    }
+
+    &.skinny {
+        input {
+            padding-top: 5px;
+            padding-bottom: 5px;
+            line-height: 1px;
+        }
+
+        .button-base {
+            &.increment {
+                height: 15px;
+            }
+
+            &.decrement {
+                height: 14px;
+            }
+        }
+
+        .caret {
+            margin-top: 3px;
+        }
+    }
+}

@@ -1501,6 +1501,7 @@ void
 OM_ControlRespHandler::NotifyDLTUpdateResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_resp) {
+#if 0
     FDS_PLOG_SEV(g_fdslog, fds_log::notification)
             << "OM received response for NotifyDltUpdate from node "
             << fdsp_msg->src_node_name << ":"
@@ -1511,6 +1512,7 @@ OM_ControlRespHandler::NotifyDLTUpdateResp(
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
     domain->om_recv_dlt_commit_resp(fdsp_msg->src_id, node_uuid, dlt_resp->DLT_version);
+#endif
 }
 
 void

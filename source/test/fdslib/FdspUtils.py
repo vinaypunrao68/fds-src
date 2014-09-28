@@ -4,6 +4,8 @@
 #
 import logging
 import sys
+import time
+import hashlib
 
 from thrift import Thrift
 from thrift.transport import TSocket
@@ -26,7 +28,8 @@ log = logging.getLogger(__name__)
 # @return Service message object 
 def newSvcMsgByTypeId(typeId):
     typeStr = FDSPMsgTypeId._VALUES_TO_NAMES[typeId]
-    thType = typeStr.strip('TypeId')
+    thType = typeStr.replace('TypeId','')
+    log.info('th typestr: {}, typeid: {}'.format(typeStr, thType))
     thismodule = sys.modules[__name__]
     thObj = getattr(thismodule, thType)()
     return thObj
@@ -34,6 +37,47 @@ def newSvcMsgByTypeId(typeId):
 def getMsgTypeId(msg):
     thTypeName = '{}TypeId'.format(msg.__class__.__name__)
     return FDSPMsgTypeId._NAMES_TO_VALUES[thTypeName]
+
+##
+# @brief Deserialize payload to service message from fds_service module
+#
+# @param asyncHdr
+# @param payload
+#
+# @return 
+def deserializeSvcMsg(asyncHdr, payload):
+    svcMsg = newSvcMsgByTypeId(asyncHdr.msg_type_id)
+    transportIn = TTransport.TMemoryBuffer(payload)
+    protocolIn = TBinaryProtocol.TBinaryProtocol(transportIn)
+    svcMsg.read(protocolIn)
+    return svcMsg
+
+##
+# @brief Serializes service message object into a string
+#
+# @param msg thrift service message object
+#
+# @return serialized string
+def serializeSvcMsg(msg):
+    transportOut = TTransport.TMemoryBuffer()
+    protocolOut = TBinaryProtocol.TBinaryProtocol(transportOut)
+    msg.write(protocolOut)
+    return transportOut.getvalue()
+
+##
+# @brief computes sha1 of data and returns digest embedded in FDS_ObjectIdType
+#
+# @param data as string
+#
+# @return 
+def genFdspObjectId(data):
+    m = hashlib.sha1()
+    m.update(data)
+    return FDS_ObjectIdType(digest=m.digest())
+
+#--------------------------------------------------------------------------
+# Message generation routines
+#--------------------------------------------------------------------------
 
 ##
 # @brief Returns async header object
@@ -95,27 +139,42 @@ def newNodeInfoMsg(svcUuid, ip, port, svcType):
     return msg
 
 ##
-# @brief Deserialize payload to service message from fds_service module
+# @brief 
 #
-# @param asyncHdr
-# @param payload
+# @param volId volume id as long
+# @param data data as string(binary should work)
 #
 # @return 
-def deserializeSvcMsg(asyncHdr, payload):
-    svcMsg = newSvcMsgByTypeId(asyncHdr.msg_type_id)
-    transportIn = TTransport.TMemoryBuffer(payload)
-    protocolIn = TBinaryProtocol.TBinaryProtocol(transportIn)
-    svcMsg.read(protocolIn)
-    return svcMsg
+def newPutObjectMsg(volId, data):
+    msg = PutObjectMsg()
+    msg.volume_id = volId
+    msg.origin_timestamp = int(time.time())
+    msg.data_obj_id = genFdspObjectId(data)
+    msg.data_obj_len = len(data)
+    msg.data_obj = data
+    return msg
 
 ##
-# @brief Serializes service message object into a string
+# @brief 
 #
-# @param msg thrift service message object
+# @param volId as long
+# @param objectId as string
 #
-# @return serialized string
-def serializeSvcMsg(msg):
-    transportOut = TTransport.TMemoryBuffer()
-    protocolOut = TBinaryProtocol.TBinaryProtocol(transportOut)
-    msg.write(protocolOut)
-    return transportOut.getvalue()
+# @return 
+def newGetObjectMsg(volId, objectId):
+    msg = GetObjectMsg()
+    msg.volume_id = volId
+    msg.data_obj_id = FDS_ObjectIdType(digest=objectId)
+    return msg
+
+##
+# @brief 
+#
+# @param volId as long
+# @param objectId as string
+#
+# @return 
+def newGetVolumeMetaDataMsg(volId):
+    msg = GetVolumeMetaDataMsg()
+    msg.volume_id = volId;
+    return msg

@@ -16,6 +16,37 @@
 
 package com.formationds.commons.model.builder;
 
+import com.formationds.commons.model.AuthenticatedUser;
+import com.formationds.commons.model.type.Feature;
+import org.junit.Assert;
+import org.junit.Test;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+
 public class AuthenticatedUserBuilderTest {
+  private static final String EXPECTED_USERNAME = "joe-user";
+  private static final long EXPECTED_USERID = 0;
+  private static final String EXPECTED_TOKEN = UUID.randomUUID().toString();
+  private static final List<Feature> EXPECTED_FEATURES =
+    Arrays.asList( Feature.SYS_MGMT, Feature.TENANT_MGMT );
+
+  @Test
+  public void test()
+  {
+    final AuthenticatedUser authUser =
+      new AuthenticatedUserBuilder().withUsername( EXPECTED_USERNAME )
+                                    .withUserId( EXPECTED_USERID )
+                                    .withToken( EXPECTED_TOKEN )
+                                    .withFeatures( EXPECTED_FEATURES )
+                                    .build();
+    Assert.assertEquals( authUser.getUsername(), EXPECTED_USERNAME );
+    Assert.assertEquals( authUser.getUserId(), EXPECTED_USERID );
+    Assert.assertEquals( authUser.getToken(), EXPECTED_TOKEN );
+    final int size = EXPECTED_FEATURES.size();
+    Assert.assertArrayEquals( authUser.getFeatures().toArray( new Feature[ size ] ),
+                              EXPECTED_FEATURES.toArray( new Feature[ size ] ) );
+  }
 
 }

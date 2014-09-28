@@ -8,6 +8,7 @@
 #include <net-platform.h>
 #include <platform/node-inv-shmem.h>
 #include <net/RpcFunc.h>
+#include <string>
 
 namespace fds {
 
@@ -71,7 +72,76 @@ class NodeUpdateIter : public NodeAgentIter
  */
 PlatformEpHandler::~PlatformEpHandler() {}
 PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc)
-    : fpi::PlatNetSvcIf(), net_plat(svc) {}
+    : fpi::PlatNetSvcIf(), net_plat(svc) {
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
+}
+
+// NotifyDMTUpdate
+// ---------------
+//
+void
+PlatformEpHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
+                              boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &dmt)
+{
+    LOGNORMAL << " we receive dmt updating msg ";
+    auto shm = NodeShmRWCtrl::shm_dmt_rw_inv();
+    char * dmt_shm = reinterpret_cast<char * >(shm->shm_rw_base());
+    *reinterpret_cast<uint64_t*>(dmt_shm) = dmt->dmt_data.dmt_version;
+    *reinterpret_cast<int*>(dmt_shm + 8) = dmt->dmt_data.dmt_data.size();
+    memcpy(dmt_shm + 12, dmt->dmt_data.dmt_data.data(), dmt->dmt_data.dmt_data.size());
+
+    //  the following double check we can read back a meaningful DLT.
+    uint64_t version =  *reinterpret_cast<uint64_t*>(dmt_shm);
+    int len = *reinterpret_cast<int*>(dmt_shm + 8);
+    std::string dmt_data((const char *)(dmt_shm  + 12), len);
+    Error err(ERR_OK);
+    DMT dmtx(0, 0, 0, false);
+    err = dmtx.loadSerialized(dmt_data);
+    if (!err.ok()) {
+        LOGNORMAL << "get a DMT into shm, cannot read back. ";
+    } else {
+        LOGNORMAL << " pm get a valid dmt and save into shm and readback succeeded as: ";
+        dmtx.dump();
+    }
+    //  after that we shall tell service to update a new dlt
+    ep_shmq_node_req_t      out;
+    out.smq_hdr.smq_code = SHMQ_DMT_UPDATE;
+    auto plat = NodeShmCtrl::shm_producer();
+    plat->shm_producer(static_cast<void *>(&out), sizeof(out), 0);
+}
+
+// NotifyDLTUpdate
+// ---------------
+//
+void
+PlatformEpHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
+                              boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt)
+{
+    LOGNORMAL << " we receive dlt updating msg ";
+    auto shm = NodeShmRWCtrl::shm_dlt_rw_inv();
+    char * dlt_shm = reinterpret_cast<char * >(shm->shm_rw_base());
+    *reinterpret_cast<int*>(dlt_shm) = dlt->dlt_data.dlt_data.size();
+    memcpy(dlt_shm + 4, dlt->dlt_data.dlt_data.data(), dlt->dlt_data.dlt_data.size());
+
+    //  the following double check we can read back a meaningful DLT.
+    int len = *reinterpret_cast<int*>(dlt_shm);
+    std::string dlt_data((const char *)(dlt_shm  + 4), len);
+    Error err(ERR_OK);
+    DLT dltx(0, 0, 0, false);
+    err = dltx.loadSerialized(dlt_data);
+    if (!err.ok()) {
+        LOGNORMAL << "get a DLT into shm, cannot read back. ";
+    } else {
+        LOGNORMAL << " pm get a valid dlt and save into shm and readback succeeded as: ";
+        dltx.dump();
+    }
+    //  after that we shall tell service to update a new dlt
+    ep_shmq_node_req_t      out;
+    out.smq_hdr.smq_code = SHMQ_DLT_UPDATE;
+    auto plat = NodeShmCtrl::shm_producer();
+    plat->shm_producer(static_cast<void *>(&out), sizeof(out), 0);
+}
 
 // allUuidBinding
 // --------------
@@ -135,7 +205,7 @@ PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
                                   bo::shared_ptr<fpi::NodeInfoMsg> &msg,
                                   bo::shared_ptr<bool>             &bcast)
 {
-    DomainNodeInv::pointer local;
+    DomainContainer::pointer local;
 
     LOGDEBUG << "recv notifyNodeInfo " << msg->node_loc.svc_id.svc_uuid.svc_uuid
         << ", bcast " << *bcast;
@@ -164,7 +234,7 @@ void
 PlatformEpHandler::getDomainNodes(fpi::DomainNodes                 &ret,
                                   bo::shared_ptr<fpi::DomainNodes> &dom)
 {
-    DomainNodeInv::pointer local;
+    DomainContainer::pointer local;
 
     local = Platform::platf_singleton()->plf_node_inventory();
     local->dc_node_svc_info(ret);

@@ -6,14 +6,15 @@ package com.formationds.commons.model.builder;
 
 import com.formationds.commons.model.Connector;
 import com.formationds.commons.model.ConnectorAttributes;
-import com.formationds.commons.model.type.DataConnectorType;
+import com.formationds.commons.model.type.ConnectorType;
 
 /**
  * @author ptinius
  */
 public class ConnectorBuilder {
-  private DataConnectorType type = DataConnectorType.UNKNOWN;
+  private ConnectorType type;
   private ConnectorAttributes attributes;
+  private String api;
 
   /**
    * default constructor
@@ -22,11 +23,11 @@ public class ConnectorBuilder {
   }
 
   /**
-   * @param type the {@link DataConnectorType}
+   * @param type the {@link com.formationds.commons.model.type.ConnectorType}
    *
    * @return Returns {@link ConnectorBuilder}
    */
-  public ConnectorBuilder withType( DataConnectorType type ) {
+  public ConnectorBuilder withType( ConnectorType type ) {
     this.type = type;
     return this;
   }
@@ -42,12 +43,23 @@ public class ConnectorBuilder {
   }
 
   /**
+   * @param api the {@link String} representing the supported protocols
+   *
+   * @return Returns {@link ConnectorBuilder}
+   */
+  public ConnectorBuilder withApi( String api ) {
+    this.api = api;
+    return this;
+  }
+
+  /**
    * @return Returns {@link ConnectorBuilder}
    */
   public Connector build() {
     Connector connector = new Connector();
-    connector.setType( type.getLocalizedName() );
+    connector.setType( type );
     connector.setAttributes( attributes );
+    connector.setApi( api );
     return connector;
   }
 }

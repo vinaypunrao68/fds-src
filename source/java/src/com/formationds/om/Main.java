@@ -164,11 +164,20 @@ public class Main {
 
   private void snapshotPosts( final ConfigurationApi config, Authorizer authorizer ) {
     // POST methods
-    fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/policies", ( t ) -> new CreateSnapshotPolicy( config ), authorizer );
-    fdsAdminOnly( HttpMethod.POST, "/api/config/volumes/:volumeId/snapshot", ( t ) -> new CreateSnapshot(), authorizer );
-    fdsAdminOnly( HttpMethod.POST, "/api/snapshot/restore/:snapshotId/:volumeId", ( t ) -> new RestoreSnapshot( config ), authorizer );
-    fdsAdminOnly( HttpMethod.POST, "/api/snapshot/clone/:snapshotId/:cloneVolumeName", ( t ) -> new CloneSnapshot( config ), authorizer );
-    fdsAdminOnly( HttpMethod.POST, "/api/volume/snapshot", ( t ) -> new CreateSnapshot(), authorizer );
+    fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/policies",
+                  ( t ) -> new CreateSnapshotPolicy( config ), authorizer );
+    /*
+     * TODO this call does not currently exists
+     */
+//    fdsAdminOnly( HttpMethod.POST, "/api/config/volumes/:volumeId/snapshot",
+//                  ( t ) -> new CreateSnapshot(), authorizer );
+
+    fdsAdminOnly( HttpMethod.POST, "/api/snapshot/restore/:snapshotId/:volumeId",
+                  ( t ) -> new RestoreSnapshot( config ), authorizer );
+    fdsAdminOnly( HttpMethod.POST, "/api/snapshot/clone/:snapshotId/:cloneVolumeName",
+                  ( t ) -> new CloneSnapshot( config ), authorizer );
+    fdsAdminOnly( HttpMethod.POST, "/api/volume/snapshot",
+                  ( t ) -> new CreateSnapshot(), authorizer );
   }
 
   private void snapshotPuts( final ConfigurationApi config, Authorizer authorizer ) {
@@ -181,24 +190,32 @@ public class Main {
                   "/api/config/snapshot/policies/:policyId/detach/:volumeId",
                   ( t ) -> new DetachSnapshotPolicyIdToVolumeId( config ),
                   authorizer );
+    fdsAdminOnly( HttpMethod.PUT, "/api/config/snapshot/policies",
+                  ( t ) -> new EditSnapshotPolicy( config ), authorizer );
   }
 
   private void snapshotGets( final ConfigurationApi config, Authorizer authorizer ) {
     // GET methods
-    fdsAdminOnly( HttpMethod.GET, "/api/config/snapshot/policies", ( t ) -> new ListSnapshotPolicies( config ), authorizer );
-    fdsAdminOnly( HttpMethod.GET, "/api/config/volumes/:volumeId/snapshot/policies", ( t ) -> new ListSnapshotPoliciesForVolume( config ), authorizer );
-    fdsAdminOnly( HttpMethod.GET, "/api/config/snapshots/policies/:policyId/volumes", ( t ) -> new ListVolumeIdsForSnapshotId( config ), authorizer );
-    fdsAdminOnly( HttpMethod.GET, "/api/config/volumes/:volumeId/snapshots", ( t ) -> new ListSnapshotsByVolumeId( config ), authorizer );
+    fdsAdminOnly( HttpMethod.GET, "/api/config/snapshot/policies",
+                  ( t ) -> new ListSnapshotPolicies( config ), authorizer );
+    fdsAdminOnly( HttpMethod.GET, "/api/config/volumes/:volumeId/snapshot/policies",
+                  ( t ) -> new ListSnapshotPoliciesForVolume( config ), authorizer );
+    fdsAdminOnly( HttpMethod.GET, "/api/config/snapshots/policies/:policyId/volumes",
+                  ( t ) -> new ListVolumeIdsForSnapshotId( config ), authorizer );
+    fdsAdminOnly( HttpMethod.GET, "/api/config/volumes/:volumeId/snapshots",
+                  ( t ) -> new ListSnapshotsByVolumeId( config ), authorizer );
   }
 
   private void snapshotDeletes( final ConfigurationApi config, Authorizer authorizer ) {
     // DELETE methods
-    fdsAdminOnly( HttpMethod.DELETE, "/api/config/snapshot/policies/:policyId", ( t ) -> new DeleteSnapshotPolicy( config ), authorizer );
+    fdsAdminOnly( HttpMethod.DELETE, "/api/config/snapshot/policies/:policyId",
+                  ( t ) -> new DeleteSnapshotPolicy( config ), authorizer );
 
       /*
        * TODO this call does not currently exists
        */
-    fdsAdminOnly( HttpMethod.DELETE, "/api/config/snapshot/:volumeId/:snapshotId", ( t ) -> new DeleteSnapshotForVolume(), authorizer );
+//    fdsAdminOnly( HttpMethod.DELETE, "/api/config/snapshot/:volumeId/:snapshotId",
+//                  ( t ) -> new DeleteSnapshotForVolume(), authorizer );
   }
 }
 

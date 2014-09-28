@@ -33,18 +33,10 @@ import static org.junit.Assert.*;
 @Ignore
 public class SmokeTest {
     private static final String AMAZON_DISABLE_SSL = "com.amazonaws.sdk.disableCertChecking";
-    private static final String OM_URL_PREFIX = "https://localhost:7443";
     private static final String FDS_AUTH_HEADER = "FDS-Auth";
     private final static String ADMIN_USERNAME = "admin";
     private static final String CUSTOM_METADATA_HEADER = "custom-metadata";
 
-    private final String adminToken;
-    private final String tenantName;
-    private final long tenantId;
-    private final String userName;
-    private final String password;
-    private final long userId;
-    private final String userToken;
     private final String adminBucket;
     private final String userBucket;
     private final AmazonS3Client adminClient;
@@ -53,29 +45,31 @@ public class SmokeTest {
 
     public SmokeTest() throws Exception {
         System.setProperty(AMAZON_DISABLE_SSL, "true");
+        String host = (String) System.getProperties().getOrDefault("fds.host", "localhost");
+        String omUrl = "https://" + host + ":7443";
         turnLog4jOff();
-        JSONObject adminUserObject = getObject(OM_URL_PREFIX + "/api/auth/token?login=admin&password=admin", "");
-        adminToken = adminUserObject.getString("token");
+        JSONObject adminUserObject = getObject(omUrl + "/api/auth/token?login=admin&password=admin", "");
+        String adminToken = adminUserObject.getString("token");
 
-        tenantName = UUID.randomUUID().toString();
-        tenantId = doPost(OM_URL_PREFIX + "/api/system/tenants/" + tenantName, adminToken).getLong("id");
+        String tenantName = UUID.randomUUID().toString();
+        long tenantId = doPost(omUrl + "/api/system/tenants/" + tenantName, adminToken).getLong("id");
 
-        userName = UUID.randomUUID().toString();
-        password = UUID.randomUUID().toString();
-        userId = doPost(OM_URL_PREFIX + "/api/system/users/" + userName + "/" + password, adminToken).getLong("id");
-        userToken = getObject(OM_URL_PREFIX + "/api/system/token/" + userId, adminToken).getString("token");
-        doPut(OM_URL_PREFIX + "/api/system/tenants/" + tenantId + "/" + userId, adminToken);
+        String userName = UUID.randomUUID().toString();
+        String password = UUID.randomUUID().toString();
+        long userId = doPost(omUrl + "/api/system/users/" + userName + "/" + password, adminToken).getLong("id");
+        String userToken = getObject(omUrl + "/api/system/token/" + userId, adminToken).getString("token");
+        doPut(omUrl + "/api/system/tenants/" + tenantId + "/" + userId, adminToken);
         adminBucket = UUID.randomUUID().toString();
         userBucket = UUID.randomUUID().toString();
-        adminClient = s3Client(ADMIN_USERNAME, adminToken);
-        userClient = s3Client(userName, userToken);
+        adminClient = s3Client(host, ADMIN_USERNAME, adminToken);
+        userClient = s3Client(host, userName, userToken);
         adminClient.createBucket(adminBucket);
         userClient.createBucket(userBucket);
         randomBytes = new byte[4096];
         new SecureRandom().nextBytes(randomBytes);
     }
 
-    //@Test
+    @Test
     public void testMultipartUpload() {
         String key = UUID.randomUUID().toString();
         InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
@@ -102,6 +96,17 @@ public class SmokeTest {
 
         ObjectMetadata objectMetadata = userClient.getObjectMetadata(userBucket, key);
         assertEquals(4096 * partCount, objectMetadata.getContentLength());
+    }
+
+    // @Test
+    public void testCopyObject() {
+        String source = UUID.randomUUID().toString();
+        String destination = UUID.randomUUID().toString();
+        userClient.putObject(userBucket, source, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        userClient.copyObject(userBucket, source, userBucket, destination);
+        String sourceEtag = userClient.getObjectMetadata(userBucket, destination).getETag();
+        String destinationEtag = userClient.getObjectMetadata(userBucket, destination).getETag();
+        assertEquals(sourceEtag, destinationEtag);
     }
 
     @Test
@@ -192,10 +197,10 @@ public class SmokeTest {
         assertFalse("Users should not see admin volumes!", bucketNames.contains(adminBucket));
     }
 
-    private AmazonS3Client s3Client(String userName, String token) {
+    private AmazonS3Client s3Client(String hostName, String userName, String token) {
         AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials(userName, token));
         client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
-        client.setEndpoint("https://localhost:8443");
+        client.setEndpoint("https://" + hostName + ":8443");
         return client;
     }
 
@@ -230,6 +235,15 @@ public class SmokeTest {
     private void turnLog4jOff() {
         Properties properties = new Properties();
         properties.put("log4j.rootCategory", "OFF, console");
+        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
+        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
+        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
+        PropertyConfigurator.configure(properties);
+    }
+
+    private void turnLog4jOn() {
+        Properties properties = new Properties();
+        properties.put("log4j.rootCategory", "DEBUG, console");
         properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
         properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");

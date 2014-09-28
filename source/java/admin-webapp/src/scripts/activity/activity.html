@@ -1,0 +1,31 @@
+<div ng-controller="activityController">
+
+    <div class="coming-soon-parent" ng-show="!isAllowed( 'SYS_MGMT' )">
+        <div class="coming-soon-child">
+            <div style="">
+                <span style="color: white;">Coming soon...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="header top-label">
+        <span>System Activity</span>
+    </div>
+
+    <div class="page-vertical-spacer"></div>
+
+    <div class="header top-label">
+            <input type="text" class="form-control skinny" placeholder="Search..." ng-model="searchQuery" style="width: 300px;">
+        <div>
+            <table class="default" style="margin-top: 8px;">
+                <tbody>
+                    <tr ng-repeat="activity in activities | filter:searchQuery">
+                        <td style="text-align: left;">{{activity.type}}</td>
+                        <td>{{activity.message}}</td>
+                        <td style="text-align: right;">{{activity.time}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

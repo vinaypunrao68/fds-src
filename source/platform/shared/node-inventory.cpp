@@ -14,6 +14,7 @@
 #include <platform/node-inv-shmem.h>
 #include <platform/service-ep-lib.h>
 #include <platform/plat-serialize.h>
+#include <platform/node-workflow.h>
 #include <NetSession.h>
 
 namespace fds {
@@ -763,7 +764,7 @@ NodeAgent::agent_svc_fillin(fpi::NodeSvcInfo    *out,
 // PM Agent
 // --------------------------------------------------------------------------------------
 PmAgent::~PmAgent() {}
-PmAgent::PmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
+PmAgent::PmAgent(const NodeUuid &uuid) : NodeAgent(uuid), pm_wrk_item(NULL)
 {
     pm_ep_svc = Platform::platf_singleton()->plat_new_pm_svc(this, 0, 0);
     NetMgr::ep_mgr_singleton()->ep_register(pm_ep_svc, false);

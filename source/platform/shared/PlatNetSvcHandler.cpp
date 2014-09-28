@@ -63,7 +63,7 @@ PlatNetSvcHandler::getDomainNodes(fpi::DomainNodes                    &ret,
                                   boost::shared_ptr<fpi::DomainNodes> &domain)
 {
     /*  Only do the local domain for now */
-    DomainNodeInv::pointer local;
+    DomainContainer::pointer local;
 
     local = Platform::platf_singleton()->plf_node_inventory();
     local->dc_node_svc_info(ret);

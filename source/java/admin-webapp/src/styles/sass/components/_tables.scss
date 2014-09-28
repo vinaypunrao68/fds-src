@@ -1,0 +1,59 @@
+.table-container {
+  padding: 0 10px;
+  background: white;
+}
+
+$side_padding: .0em;
+
+table.default {
+    width: 100%;
+    border-style: hidden;
+    border-collapse: collapse;
+    background: #fff;
+    font-size: 0.9em;
+
+    thead {
+        th {
+            vertical-align: bottom;
+            padding: 2em $side_padding 0.3em;
+            border-bottom: 1px solid $text_very_light_color;
+            text-align: left;
+            font-size: .9em;
+            font-weight: normal;
+            color: $text_very_light_color;
+            line-height: 1.2em;
+
+            input[type="checkbox"] {
+                vertical-align: middle;
+            }
+
+            &.center {
+                text-align: center;
+            }
+        }
+    }
+
+    td {
+        padding: .7em $side_padding;
+        vertical-align: middle;
+    }
+
+    tr {
+        border-bottom: 1px solid black;
+
+        &.no-border {
+            border-bottom: 0px;
+        }
+    }
+}
+
+table.clickable {
+    tbody {
+        tr:hover {
+            cursor: pointer;
+            td {
+                background-color: #f6f6f6;
+            }
+        }
+    }
+}

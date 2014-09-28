@@ -1,0 +1,44 @@
+$page-padding: 15px;
+
+.header {
+    color: $text_very_light_color;
+    font-weight: normal;
+    font-size: 1.1em;
+    //  margin: 0 0 7px 10px;
+}
+
+.header.top-label {
+    padding-left: $page-padding;
+    padding-right: $page-padding;
+    color: $text_very_light_color;
+}
+
+.page-vertical-spacer {
+    height: 20px;
+}
+
+section.block-section {
+
+    padding-left: $page-padding;
+    padding-right: $page-padding;
+
+    .section-header {
+
+    }
+
+    .main-value {
+        color: $default_text_color;
+        font-size: 1.8em;
+        padding-right: 4px;
+    }
+
+    .detail-value {
+        color: $text_very_light_color;
+        max-width: 500px;
+    }
+
+    a {
+        color: $fds_extra_light_green;
+        cursor: pointer;
+    }
+}

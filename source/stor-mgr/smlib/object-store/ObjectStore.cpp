@@ -25,7 +25,8 @@ ObjectStore::~ObjectStore() {
 }
 
 void
-ObjectStore::setNumBitsPerToken(fds_uint32_t nbits) {
+ObjectStore::handleNewDlt(const DLT* dlt) {
+    fds_uint32_t nbits = dlt->getNumBitsForToken();
     if (metaStore) {
         metaStore->setNumBitsPerToken(nbits);
     } else {

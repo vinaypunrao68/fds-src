@@ -7,6 +7,7 @@ import re
 import sys
 import subprocess
 import time
+import logging
 import pdb
 import FdsSetup as inst
 
@@ -45,25 +46,27 @@ class FdsNodeConfig(FdsConfig):
     # Establish ssh connection with the remote node.  After this call, the obj
     # can use nd_rmt_host to send ssh commands to the remote node.
     #
-    def nd_connect_rmt_agent(self, env):
+    def nd_connect_rmt_agent(self, env, quiet=False):
+        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_connect_rmt_agent')
         if 'fds_root' in self.nd_conf_dict:
             root = self.nd_conf_dict['fds_root']
-            self.nd_rmt_agent = inst.FdsRmtEnv(root, self.nd_verbose)
+            self.nd_rmt_agent = inst.FdsRmtEnv(root, self.nd_verbose, env.env_install)
 
             self.nd_rmt_agent.env_user     = env.env_user
             self.nd_rmt_agent.env_password = env.env_password
         else:
-            print "Missing fds-root keyword in the node section"
+            log.error("Missing fds-root keyword in the node section %s." % self.nd_conf_dict['node-name'])
             sys.exit(1)
         
         if 'ip' not in self.nd_conf_dict:
-            print "Missing ip keyword in the node section"
+            log.error("Missing ip keyword in the node section %s." % self.nd_conf_dict['node-name'])
             sys.exit(1)
 
         self.nd_local_env = env
         self.nd_rmt_host  = self.nd_conf_dict['ip']
 
-        print "Making ssh connection to", self.nd_host_name()
+	if not quiet:
+            log.info("Making ssh connection to %s as node %s." % (self.nd_rmt_host, self.nd_conf_dict['node-name']))
         self.nd_rmt_agent.ssh_connect(self.nd_rmt_host)
 
     ###
@@ -76,7 +79,9 @@ class FdsNodeConfig(FdsConfig):
 
         print "Installing FDS package to:", self.nd_host_name()
         pkg = inst.FdsPackage(self.nd_rmt_agent)
-        pkg.package_install(self.nd_rmt_agent, self.nd_local_env.get_pkg_tar())
+        status = pkg.package_install(self.nd_rmt_agent, self.nd_local_env.get_pkg_tar())
+
+        return status
 
     def nd_host_name(self):
         return '[' + self.nd_rmt_host + '] ' + self.nd_conf_dict['node-name']
@@ -92,26 +97,49 @@ class FdsNodeConfig(FdsConfig):
     ###
     # We only start OM if the node is configured to run OM.
     #
-    def nd_start_om(self):
+    def nd_start_om(self, test_harness=False, _bin_dir=None, _log_dir=None):
+        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+
         if self.nd_run_om():
             if self.nd_rmt_agent is None:
                 print "You need to call nd_connect_rmt_agent() first"
                 sys.exit(0)
 
             fds_dir = self.nd_conf_dict['fds_root']
-            bin_dir = fds_dir + '/bin'
+
+            if _bin_dir is None:
+                bin_dir = fds_dir + '/bin'
+            else:
+                bin_dir = _bin_dir
+
+            if _log_dir is None:
+                log_dir = bin_dir
+            else:
+                log_dir = _log_dir
+
             print "\nStart OM in", self.nd_host_name()
-            self.nd_rmt_agent.ssh_exec_fds(
-                "orchMgr --fds-root=%s > %s/om.out" %
-                    (self.nd_conf_dict['fds_root'], bin_dir))
+
+            # When running from the test harness, we want to wait for results
+            # but not assume we are running from an FDS package install.
+            if test_harness:
+                status = self.nd_rmt_agent.ssh_exec_wait('sh -c \"(cd %s; '
+                                                         'nohup %s/orchMgr --fds-root=%s > %s/om.out 2>&1 &) \"' %
+                                                         (bin_dir, bin_dir, fds_dir, log_dir))
+            else:
+                status = self.nd_rmt_agent.ssh_exec_fds(
+                    "orchMgr --fds-root=%s > %s/om.out" % (fds_dir, log_dir))
+
             time.sleep(2)
-            return 1
-        return 0
+        else:
+            log.warn("Attempting to start OM on node %s which is not configured to host OM." % self.nd_host_name())
+            status = -1
+
+        return status
 
     ###
     # Start platform services in all nodes.
     #
-    def nd_start_platform(self, om_ip = None):
+    def nd_start_platform(self, om_ip = None, test_harness=False, _bin_dir=None, _log_dir=None):
         port_arg = '--fds-root=%s --fds.plat.id=%s' % \
                    (self.nd_conf_dict['fds_root'], self.nd_conf_dict['node-name'])
         if 'fds_port' in self.nd_conf_dict:
@@ -122,11 +150,30 @@ class FdsNodeConfig(FdsConfig):
             port_arg = port_arg + (' --fds.plat.om_ip=%s' % om_ip)
 
         fds_dir = self.nd_conf_dict['fds_root']
-        bin_dir = fds_dir + '/bin'
+
+        if _bin_dir is None:
+            bin_dir = fds_dir + '/bin'
+        else:
+            bin_dir = _bin_dir
+
+        if _log_dir is None:
+            log_dir = bin_dir
+        else:
+            log_dir = _log_dir
+
         print "\nStart platform daemon in", self.nd_host_name()
-        self.nd_rmt_agent.ssh_exec_fds('platformd ' + port_arg +
-            ' > %s/pm.out' % bin_dir)
+
+        # When running from the test harness, we want to wait for results
+        # but not assume we are running from an FDS package install.
+        if test_harness:
+            status = self.nd_rmt_agent.ssh_exec_wait('sh -c \"(nohup %s/platformd ' % bin_dir + port_arg +
+                                           ' > %s/pm.out 2>&1 &) \"' % log_dir)
+        else:
+            status = self.nd_rmt_agent.ssh_exec_fds('platformd ' + port_arg +
+                                           ' > %s/pm.out' % log_dir)
         time.sleep(4)
+
+        return status
 
     ###
     # Kill all fds daemons
@@ -137,7 +184,7 @@ class FdsNodeConfig(FdsConfig):
         sbin_dir = fds_dir + '/sbin'
         tools_dir = sbin_dir + '/tools'
         var_dir = fds_dir + '/var'
-        print("\nCleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
+        print("\nCleanup running processes on: %s, %s" % (self.nd_host_name(), bin_dir))
         # TODO (Bao): order to kill: AM, SM/DM, OM
         # TODO WIN-936 signal handler improvements - should use a different signal
         # and give the processes a chance to shutdown cleanly
@@ -156,7 +203,7 @@ class FdsNodeConfig(FdsConfig):
         sbin_dir = fds_root + '/sbin'
         tools_dir = sbin_dir + '/tools'
         var_dir = fds_root + '/var'
-        print("\nCleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
+        print("\nCleanup running processes on: %s, %s" % (self.nd_host_name(), bin_dir))
         # TODO (Bao): order to kill: AM, SM/DM, OM
         self.nd_rmt_agent.ssh_exec('pkill -9 -f \'\-\-fds\-root={}\''.format(fds_root), wait_compl=True)
 
@@ -164,14 +211,16 @@ class FdsNodeConfig(FdsConfig):
     # cleanup any cores, redis, and logs.
     #
     def nd_cleanup_node(self):
+        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_cleanup_node')
+
         fds_dir = self.nd_conf_dict['fds_root']
         bin_dir = fds_dir + '/bin'
         sbin_dir = fds_dir + '/sbin'
         tools_dir = sbin_dir + '/tools'
         dev_dir = fds_dir + '/dev'
         var_dir = fds_dir + '/var'
-        print("\nCleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
-        self.nd_rmt_agent.ssh_exec('(cd %s && rm core *.core); ' % bin_dir +
+        log.info("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
+        status = self.nd_rmt_agent.ssh_exec('(cd %s && rm core *.core); ' % bin_dir +
             '(cd %s && rm -r logs stats); ' % var_dir +
             '(cd /corefiles && rm *.core); '  +
             '(cd %s/core && rm *.core); ' % var_dir +
@@ -179,6 +228,16 @@ class FdsNodeConfig(FdsConfig):
             '(cd %s && rm -f hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
             '(cd %s && rm -r sys-repo/ && rm -r user-repo/); ' % fds_dir +
             '(cd /dev/shm && rm -f 0x*)', wait_compl=True, output=True)
+
+        if status == -1:
+            # ssh_exec() returns -1 when there is output to syserr and
+            # status from the command execution was 0. In this case, we'll
+            # assume that the failure was due to some of these componets
+            # missing. But since we wanted to delete them anyway, we'll
+            # call it good.
+            status = 0
+
+        return status
 
 ###
 # Handle AM config section
@@ -466,6 +525,9 @@ class FdsConfigFile(object):
             'dryrun' : self.cfg_dryrun
         }
         self.cfg_parser.read(self.cfg_file)
+        if len (self.cfg_parser.sections()) < 1:
+            print 'ERROR:  Unable to open or parse the config file "%s".' % (self.cfg_file)
+            sys.exit (1)
         for section in self.cfg_parser.sections():
             items = self.cfg_parser.items(section)
             if re.match('user', section) != None:
@@ -537,7 +599,7 @@ class FdsConfigRun(object):
 
         self.rt_env = env
         if self.rt_env is None:
-            self.rt_env = inst.FdsEnv(opt.fds_root)
+            self.rt_env = inst.FdsEnv(opt.fds_root, opt.install, opt.fds_source_dir)
 
         self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
         self.rt_obj.config_parse()
@@ -550,9 +612,24 @@ class FdsConfigRun(object):
             self.rt_env.env_password = usr.get_config_val('password')
 
         # Setup ssh agent to connect all nodes and find the OM node.
+        
+        if hasattr (opt, 'target') and opt.target:
+            print "Target specified.  Applying commands against target: {}".format (opt.target)
+            self.rt_obj.cfg_nodes  = [node for node in self.rt_obj.cfg_nodes 
+                if node.nd_conf_dict['node-name'] == opt.target]
+            if len (self.rt_obj.cfg_nodes) is 0:
+                print "No matching nodes for the target '%s'" %(opt.target)
+                sys.exit(1)
+
+        quiet_ssh = False
+
+        if hasattr (opt, 'ssh_quiet') and opt.ssh_quiet:
+            quiet_ssh = True
+
         nodes = self.rt_obj.cfg_nodes
+
         for n in nodes:
-            n.nd_connect_rmt_agent(self.rt_env)
+            n.nd_connect_rmt_agent(self.rt_env, quiet_ssh)
             n.nd_rmt_agent.ssh_setup_env('')
 
             if n.nd_run_om() == True:

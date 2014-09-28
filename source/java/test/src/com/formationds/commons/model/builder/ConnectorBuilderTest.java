@@ -16,6 +16,36 @@
 
 package com.formationds.commons.model.builder;
 
-public class ConnectorBuilderTest {
+import com.formationds.commons.model.Connector;
+import com.formationds.commons.model.ConnectorAttributes;
+import com.formationds.commons.model.type.ConnectorType;
+import com.formationds.util.SizeUnit;
+import org.junit.Assert;
+import org.junit.Test;
 
+public class ConnectorBuilderTest {
+  private static final SizeUnit EXPECTED_UNITS = SizeUnit.GB;
+  private static final long EXPECTED_SIZE = 100;
+
+  private static final ConnectorType EXPECTED_TYPE = ConnectorType.OBJECT;
+
+  @Test
+  public void test()
+  {
+    final ConnectorAttributes attrs =
+      new ConnectorAttributesBuilder().withSize( EXPECTED_SIZE )
+                                      .withUnit( EXPECTED_UNITS )
+                                      .build();
+    final Connector connector =
+      new ConnectorBuilder().withAttributes( attrs )
+                            .withType( EXPECTED_TYPE )
+                            .build();
+
+//    System.out.println( ObjectModelHelper.toJSON( connector ) );
+
+    Assert.assertNotNull( connector.getAttributes() );
+    Assert.assertEquals( connector.getAttributes().getSize(), EXPECTED_SIZE );
+    Assert.assertEquals( connector.getAttributes().getUnit(), EXPECTED_UNITS );
+    Assert.assertEquals( connector.getType(), EXPECTED_TYPE );
+  }
 }

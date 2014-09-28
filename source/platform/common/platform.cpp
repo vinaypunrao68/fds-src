@@ -22,7 +22,7 @@ NodePlatform    gl_NodePlatform;
 NodePlatform::NodePlatform()
     : Platform("Node-Platform",
                fpi::FDSP_PLATFORM,
-               new DomainNodeInv("Node-Platform-NodeInv",
+               new DomainContainer("Node-Platform-NodeInv",
                                  NULL,
                                  new SmContainer(fpi::FDSP_STOR_MGR),
                                  new DmContainer(fpi::FDSP_DATA_MGR),
@@ -42,9 +42,14 @@ NodePlatform::NodePlatform()
 int
 NodePlatform::mod_init(SysParams const *const param)
 {
+    static Module *dep_mods[] = {
+        &gl_NodeShmRWCtrl,
+        NULL
+    };
     plf_node_type = fpi::FDSP_PLATFORM;
     Platform::platf_assign_singleton(&gl_NodePlatform);
 
+    mod_intern = dep_mods;
     Platform::mod_init(param);
     gSvcRequestPool = new SvcRequestPool();
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
