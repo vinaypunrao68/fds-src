@@ -160,10 +160,9 @@ public class RecurrenceRule
     StringTokenizer t = new StringTokenizer( recurrence, ";=:" );
 
     RecurrenceRuleBuilder builder = new RecurrenceRuleBuilder();
-    System.out.println( t.hasMoreTokens()  );
     while( t.hasMoreTokens() ) {
       String token = t.nextToken();
-System.out.println( token );
+
       if( iCalFields.FREQ.name()
                          .equals( token ) ) {
         builder = builder.withFrequency( next( t, token ) );
