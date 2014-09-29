@@ -180,7 +180,7 @@ public class Main {
     fdsAdminOnly( HttpMethod.POST, "/api/snapshot/clone/:snapshotId/:cloneVolumeName",
                   ( t ) -> new CloneSnapshot( config ), authorizer );
     fdsAdminOnly( HttpMethod.POST, "/api/volume/snapshot",
-                  ( t ) -> new CreateSnapshot(), authorizer );
+                  ( t ) -> new CreateSnapshot( config ), authorizer );
   }
 
   private void snapshotPuts( final ConfigurationApi config,
