@@ -69,9 +69,10 @@ def do_check(top_level):
             # Ask if user would like to continue
             print "WARNING: There are {} new untracked changes!".format(len(diff))
             result = ''
-            result = raw_input('Do you wish to proceed? [Y/n]')
-            if result.lower() == 'n':
-                return -1
+            while result.lower() != 'y' or result.lower() != 'n':
+                result = raw_input('Do you wish to proceed? [Y/n]')
+                if result.lower() == 'n':
+                    return -1
 
         fh.close()
 
@@ -79,7 +80,6 @@ def do_check(top_level):
     fh = open(outfile, 'w+')
     fh.writelines(map(lambda x: x + '\n', list(output)))
     fh.close()
-
     
     return 0
 
@@ -108,5 +108,6 @@ if __name__ == "__main__":
     if args.setup is not None and args.setup == True:
         do_setup(top_level)
     else:
+        print "FIRED!"
         do_check(top_level)
 
