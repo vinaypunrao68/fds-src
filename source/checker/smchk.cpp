@@ -28,7 +28,7 @@ namespace fds {
 
         int run() override {
             objectStore->setNumBitsPerToken(16);
-            LOGTRACE << "Starting...";
+            LOGTRACE << "Starting smchk...";
 
             VolumeDesc vdesc("objectstore_ut_volume", singleVolId);
             volTbl->registerVolume(vdesc);
