@@ -17,7 +17,7 @@ public class Tenant
   extends ModelBase {
   private static final long serialVersionUID = -1159983056189923654L;
 
-  private long id;
+  private Long id;
   private String name;
   private List<User> users;
 
@@ -31,14 +31,14 @@ public class Tenant
   /**
    * @return Returns {@code long} representing the tenant id
    */
-  public long getId() {
+  public Long getId() {
     return id;
   }
 
   /**
    * @param id the {@code long} representing the tenant id
    */
-  public void setId( final long id ) {
+  public void setId( final Long id ) {
     this.id = id;
   }
 

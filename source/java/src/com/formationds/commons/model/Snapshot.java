@@ -18,9 +18,9 @@ public class Snapshot
 {
   private static final long serialVersionUID = 7430533053472660819L;
 
-  private long id;
+  private Long id;
   private String name;
-  private long volumeId;
+  private Long volumeId;
   private Date creation;
 
   /**

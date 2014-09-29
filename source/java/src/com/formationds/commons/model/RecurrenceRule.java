@@ -4,7 +4,6 @@
 
 package com.formationds.commons.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.builder.RecurrenceRuleBuilder;
 import com.formationds.commons.model.exception.ParseException;
@@ -29,11 +28,10 @@ public class RecurrenceRule
   private static final SimpleDateFormat UNTIL_DATE =
     new SimpleDateFormat( "yyyyMMdd'T'HHmmssZ" );
 
-  @JsonProperty( "frequency" )
-  private iCalFields iCalField;
-  private Date until;
-  private int count;
-  private int interval;
+  private String FREQ;
+  private Date UNTIL;
+  private Integer COUNT;
+  private Integer INTERVAL;
 
   private static final Map<iCalFields, iCalValidator> VALIDATORS =
     new HashMap<>();
@@ -57,11 +55,11 @@ public class RecurrenceRule
   }
 
   /**
-   * @return Returns {@code int} representing the number of times the event
+   * @return Returns {@link Integer} representing the number of times the event
    * recurs
    */
-  public int getCount() {
-    return count;
+  public Integer getCount() {
+    return COUNT;
   }
 
   /**
@@ -69,23 +67,23 @@ public class RecurrenceRule
    *              recurs
    */
   public void setCount( int count ) {
-    this.count = count;
+    this.COUNT = count;
   }
 
   /**
    * @return Returns {@link String} representing the recurrence frequency (i.e.
    * how often an event recurs)
    */
-  public iCalFields getFrequency() {
-    return iCalField;
+  public String getFrequency() {
+    return FREQ;
   }
 
   /**
-   * @param iCalField the {@link iCalFields} representing the recurrence field
+   * @param FREQ the {@link String} representing the recurrence field
    *                  (i.e. how often an event recurs)
    */
-  public void setFrequency( final iCalFields iCalField ) {
-    this.iCalField = iCalField;
+  public void setFrequency( final String FREQ ) {
+    this.FREQ = FREQ;
     isFrequencyValid();
   }
 
@@ -93,30 +91,30 @@ public class RecurrenceRule
    * @return Returns {@link Date} representing the ending date
    */
   public Date getUntil() {
-    return until;
+    return UNTIL;
   }
 
   /**
    * @param until the {@link Date} representing the ending date
    */
   public void setUntil( Date until ) {
-    this.until = until;
+    this.UNTIL = until;
   }
 
   /**
-   * @return Returns {@code int} representing interval between 2 occurrences of
+   * @return Returns {@link Integer} representing interval between 2 occurrences of
    * the event
    */
-  public int getInterval() {
-    return interval;
+  public Integer getInterval() {
+    return INTERVAL;
   }
 
   /**
-   * @param interval the {@code int} representing interval between 2
+   * @param interval the {@link Integer} representing interval between 2
    *                 occurrences of the event
    */
-  public void setInterval( int interval ) {
-    this.interval = interval;
+  public void setInterval( Integer interval ) {
+    this.INTERVAL = interval;
   }
 
   /**
@@ -124,13 +122,12 @@ public class RecurrenceRule
    */
   public void isFrequencyValid()
     throws IllegalArgumentException {
-
     if( getFrequency() == null ) {
       throw new IllegalArgumentException(
         ModelResource.getString( "ical.missing.freq" ) );
     }
 
-    if( iCalFields.valueOf( getFrequency().name() ) == null ) {
+    if( iCalFields.valueOf( getFrequency() ) == null ) {
       throw new IllegalArgumentException(
         MessageFormat.format( ModelResource.getString( "ical.invalid.freq" ),
                               getFrequency() ) );
@@ -309,7 +306,7 @@ public class RecurrenceRule
         .append( ";" );
     }
 
-    if( getInterval() > 0 )
+    if( getInterval() != null )
     {
       sb.append( iCalFields.INTERVAL.name() )
         .append( "=" )
@@ -317,7 +314,7 @@ public class RecurrenceRule
         .append( ";" );
     }
 
-    if( getCount() > 0 )
+    if( getCount() != null )
     {
       sb.append( iCalFields.COUNT.name() )
         .append( "=" )

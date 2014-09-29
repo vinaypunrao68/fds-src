@@ -21,9 +21,9 @@ public class Node
 {
   private static final long serialVersionUID = -6684434195412037211L;
 
-  private int id = -1;
+  private Integer id = -1;
   private String name = null;
-  private long uuid = -1L;
+  private Long uuid = -1L;
 
   private String site = null;
   private String domain = null;
@@ -31,8 +31,8 @@ public class Node
   private NodeState state = null;
   private String root = null;
 
-  private long loAddr = -1L;
-  private long hiAddr = -1L;
+  private Long loAddr = -1L;
+  private Long hiAddr = -1L;
 
   private List<Service> services = null;
 

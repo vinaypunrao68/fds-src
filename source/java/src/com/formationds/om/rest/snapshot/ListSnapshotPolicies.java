@@ -20,8 +20,8 @@ import java.util.Map;
 
 public class ListSnapshotPolicies implements RequestHandler {
 
-    private final long unused = 0L;
-    private ConfigurationApi config;
+  private ConfigurationApi config;
+
     public ListSnapshotPolicies(final ConfigurationApi config) {
         this.config = config;
     }
@@ -30,11 +30,13 @@ public class ListSnapshotPolicies implements RequestHandler {
     public Resource handle(final Request request,
                            final Map<String, String> routeParameters)
             throws Exception {
+        final long unused = 0L;
 
         final ObjectMapper mapper = new ObjectMapper();
         final List<SnapshotPolicy> policies = new ArrayList<>();
-        final List<com.formationds.apis.SnapshotPolicy> _policies =
-          config.listSnapshotPolicies(unused);
+
+      final List<com.formationds.apis.SnapshotPolicy> _policies =
+          config.listSnapshotPolicies( unused );
         if (_policies == null || _policies.isEmpty()) {
           return new JsonResource(new JSONArray(policies));
         }
@@ -44,6 +46,7 @@ public class ListSnapshotPolicies implements RequestHandler {
 
           modelPolicy.setId(policy.getId());
           modelPolicy.setName(policy.getPolicyName());
+System.out.println( "::RRULE::" +  policy.getRecurrenceRule() );
           modelPolicy.setRecurrenceRule( policy.getRecurrenceRule() );
           modelPolicy.setRetention(policy.getRetentionTimeSeconds());
 

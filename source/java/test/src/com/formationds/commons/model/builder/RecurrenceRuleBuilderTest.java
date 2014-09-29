@@ -30,7 +30,7 @@ public class RecurrenceRuleBuilderTest {
   public void test()
   {
     final RecurrenceRule rrule =
-      new RecurrenceRuleBuilder().withFrequency( iCalFields.DAILY )
+      new RecurrenceRuleBuilder().withFrequency( iCalFields.DAILY.name() )
                                  .withCount( 10 )
                                  .build();
     final SnapshotPolicy policy =
@@ -43,7 +43,7 @@ public class RecurrenceRuleBuilderTest {
 //    System.out.println( policy );
 
     final RecurrenceRule rrule1 =
-      new RecurrenceRuleBuilder().withFrequency( iCalFields.DAILY )
+      new RecurrenceRuleBuilder().withFrequency( iCalFields.DAILY.name() )
                                  .withUntil( new Date() )
                                  .build();
 

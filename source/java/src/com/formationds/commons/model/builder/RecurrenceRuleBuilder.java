@@ -5,7 +5,6 @@
 package com.formationds.commons.model.builder;
 
 import com.formationds.commons.model.RecurrenceRule;
-import com.formationds.commons.model.type.iCalFields;
 
 import java.util.Date;
 
@@ -13,10 +12,10 @@ import java.util.Date;
  * @author ptinius
  */
 public class RecurrenceRuleBuilder {
-  private iCalFields frequency;
+  private String frequency;
   private Date until = null;
-  private int count = -1;
-  private int interval = 0;
+  private Integer count;
+  private Integer interval;
 
   /**
    * default constructor
@@ -30,15 +29,6 @@ public class RecurrenceRuleBuilder {
    * @return Returns {link RecurrenceRuleBuilder}
    */
   public RecurrenceRuleBuilder withFrequency( final String frequency ) {
-    return withFrequency( iCalFields.valueOf( frequency ) );
-  }
-
-  /**
-   * @param frequency the {@link iCalFields} representing the frequency
-   *
-   * @return Returns {link RecurrenceRuleBuilder}
-   */
-  public RecurrenceRuleBuilder withFrequency( final iCalFields frequency ) {
     this.frequency = frequency;
     return this;
   }
@@ -84,11 +74,11 @@ public class RecurrenceRuleBuilder {
       recurrenceRule.setUntil( until );
     }
 
-    if( count > 0 ) {
+    if( count != null ) {
       recurrenceRule.setCount( count );
     }
 
-    if( interval > 0 ) {
+    if( interval != null ) {
       recurrenceRule.setInterval( interval );
     }
 
