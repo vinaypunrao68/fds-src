@@ -152,22 +152,24 @@ public class Main {
      * logical grouping for each HTTP method.
      *
      * This will allow future additions to the snapshot API to be extended
-     * and quickly view to ensure that all API are added. If very light weigh
+     * and quickly view to ensure that all API are added. Its very lightweight,
+     * but make it easy to follow and maintain.
      */
-    LOG.trace( "registering snapshot restful api" );
+    LOG.trace( "registering snapshot endpoints" );
     snapshotGets( config, authorizer );
     snapshotDeletes( config, authorizer );
     snapshotPosts( config, authorizer );
     snapshotPuts( config, authorizer );
-    LOG.trace( "registered snapshot restful api" );
+    LOG.trace( "registered snapshot endpoints" );
   }
 
-  private void snapshotPosts( final ConfigurationApi config, Authorizer authorizer ) {
+  private void snapshotPosts( final ConfigurationApi config,
+                              final Authorizer authorizer ) {
     // POST methods
     fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/policies",
                   ( t ) -> new CreateSnapshotPolicy( config ), authorizer );
     /*
-     * TODO this call does not currently exists
+     * TODO this call does not currently exists, maybe it should for API completeness
      */
 //    fdsAdminOnly( HttpMethod.POST, "/api/config/volumes/:volumeId/snapshot",
 //                  ( t ) -> new CreateSnapshot(), authorizer );
@@ -180,7 +182,8 @@ public class Main {
                   ( t ) -> new CreateSnapshot(), authorizer );
   }
 
-  private void snapshotPuts( final ConfigurationApi config, Authorizer authorizer ) {
+  private void snapshotPuts( final ConfigurationApi config,
+                             final Authorizer authorizer ) {
     //PUT methods
     fdsAdminOnly( HttpMethod.PUT,
                   "/api/config/snapshot/policies/:policyId/attach/:volumeId",
@@ -194,7 +197,8 @@ public class Main {
                   ( t ) -> new EditSnapshotPolicy( config ), authorizer );
   }
 
-  private void snapshotGets( final ConfigurationApi config, Authorizer authorizer ) {
+  private void snapshotGets( final ConfigurationApi config,
+                             final Authorizer authorizer ) {
     // GET methods
     fdsAdminOnly( HttpMethod.GET, "/api/config/snapshot/policies",
                   ( t ) -> new ListSnapshotPolicies( config ), authorizer );
@@ -206,13 +210,14 @@ public class Main {
                   ( t ) -> new ListSnapshotsByVolumeId( config ), authorizer );
   }
 
-  private void snapshotDeletes( final ConfigurationApi config, Authorizer authorizer ) {
+  private void snapshotDeletes( final ConfigurationApi config,
+                                final Authorizer authorizer ) {
     // DELETE methods
     fdsAdminOnly( HttpMethod.DELETE, "/api/config/snapshot/policies/:policyId",
                   ( t ) -> new DeleteSnapshotPolicy( config ), authorizer );
 
       /*
-       * TODO this call does not currently exists
+       * TODO this call does not currently exists, maybe it should for API completeness
        */
 //    fdsAdminOnly( HttpMethod.DELETE, "/api/config/snapshot/:volumeId/:snapshotId",
 //                  ( t ) -> new DeleteSnapshotForVolume(), authorizer );
