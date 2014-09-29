@@ -2,20 +2,23 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #define DONTLOGLINE 1
+#include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <fds-fsm.h>
 #include <fds_assert.h>
 #include <concurrency/Mutex.h>
 #include <util/Log.h>
 #include <util/TraceBuffer.h>
+#include <fds_timestamp.h>
 
 namespace fds {
 
 #if 0
 #define DEBUG_FSM_ST(str, obj)    DBG(obj->st_trace(NULL) << ":" << str << '\n')
 #define DEBUG_FSM(str, evt, obj)  DBG(obj->st_trace(evt) << ":" << str << '\n')
-#endif
+#else
 #define DEBUG_FSM_ST(str, obj)
 #define DEBUG_FSM(str, evt, obj)
+#endif
 
 std::ostream &
 operator << (std::ostream &os, const EventObj::pointer evt)
@@ -169,7 +172,7 @@ FsmTable::~FsmTable()
 }
 
 FsmTable::FsmTable(int cnt, StateEntry const *const *const e)
-    : st_refcnt(0), st_cnt(cnt), st_entries(e)
+    : st_refcnt(0), st_cnt(cnt), st_entries(e), st_switch_cnt(0), st_switch(NULL)
 {
     st_queues = new fdsio::RequestQueue(cnt + 1, -1);
 }
@@ -265,7 +268,7 @@ FsmTable::st_in_async_mtx(EventObj::pointer evt, StateObj::pointer obj)
     int        nxt_st, cur_st;
     fds_mutex *mtx;
 
-    // fds_assert((evt->st_owner == obj) || (evt->st_owner == NULL));
+    fds_assert((evt->st_owner == obj) || (evt->st_owner == NULL));
     ret = true;
     mtx = obj->st_mtx();
 
@@ -280,9 +283,12 @@ FsmTable::st_in_async_mtx(EventObj::pointer evt, StateObj::pointer obj)
         }
         /* Do state transition and carry out actions. */
         for (auto loop = 0; evt != NULL; loop++) {
-            fds_verify((loop < 1000) &&
-                       ((obj->st_status & StateObj::st_busy) != 0));
+            fds_verify(loop < 1000);
+            fds_assert((obj->st_status & StateObj::st_busy) != 0);
 
+            if (st_switch != NULL) {
+                st_switch_state(evt, obj);
+            }
             cur_st = obj->st_idx;
             nxt_st = st_entries[cur_st]->st_handle(evt, obj);
             if (nxt_st == StateEntry::st_busy_no_trans) {
@@ -377,6 +383,36 @@ FsmTable::st_do_resume(StateObj::pointer obj, EventObj::pointer evt, int nxt_st)
         fds_assert(evt == NULL);
     }
     return evt;
+}
+
+// st_switch_state
+// ---------------
+//
+void
+FsmTable::st_switch_state(EventObj::pointer evt, StateObj::pointer obj)
+{
+    const state_switch_t *cur;
+    int i, code, cur_st, nxt_st;
+
+    code   = evt->evt_current();
+    cur_st = obj->st_idx;
+    nxt_st = -1;
+
+    for (i = 0; i < st_switch_cnt; i++) {
+        cur = &st_switch[i];
+        fds_assert((cur->st_cur_state < st_cnt) && (cur->st_nxt_state < st_cnt));
+
+        if ((cur->st_cur_state == cur_st) && (cur->st_evt_code == code)) {
+            nxt_st = cur->st_nxt_state;
+            break;
+        }
+    }
+    if (nxt_st >= 0) {
+        /* We have a valid state transition. */
+        obj->st_mtx()->lock();
+        obj->st_change_mtx(nxt_st);
+        obj->st_mtx()->unlock();
+    }
 }
 
 // st_resume
@@ -512,6 +548,8 @@ FsmTable::st_get_defer_event_mtx(StateObj::pointer obj)
 std::stringstream &
 FsmTable::st_trace(StateObj::pointer sobj, EventObj::pointer evt)
 {
+    using boost::posix_time::second_clock;
+    using boost::posix_time::ptime;
     TraceBuffer *trace;
 
     st_tab_mtx.lock();
@@ -522,9 +560,9 @@ FsmTable::st_trace(StateObj::pointer sobj, EventObj::pointer evt)
         st_traces[sobj.get()] = trace;
     }
     st_tab_mtx.unlock();
-    trace->tr_buffer() << sobj;
+    trace->tr_buffer() << to_simple_string(second_clock::local_time()) << sobj;
     if (evt != NULL) {
-        trace->tr_buffer() << '[' << evt << "] ";
+        trace->tr_buffer() << '[' << evt << " ] ";
     }
     return trace->tr_buffer();
 }
@@ -533,14 +571,18 @@ FsmTable::st_trace(StateObj::pointer sobj, EventObj::pointer evt)
 // -------------------
 //
 void
-FsmTable::st_dump_state_trans()
+FsmTable::st_dump_state_trans(std::stringstream *stt)
 {
     TraceBuffer *trace;
 
     st_tab_mtx.lock();
     for (auto it = st_traces.begin(); it != st_traces.end(); it++) {
         trace = it->second;
-        LOGDEBUG << '\n' << trace->str();
+        if (stt == NULL) {
+            LOGDEBUG << '\n' << trace->str();
+        } else {
+            (*stt) << '\n' << trace->str();
+        }
         trace->tr_buffer().clear();
     }
     st_tab_mtx.unlock();
