@@ -22,6 +22,7 @@ public class Snapshot
   private String name;
   private Long volumeId;
   private Date creation;
+  private Long retention;
 
   /**
    * default constructor
@@ -94,5 +95,19 @@ public class Snapshot
   public void setCreation( final Date creation )
   {
     this.creation = creation;
+  }
+
+  /**
+   * @return Returns {@link Long} representing the retention time
+   */
+  public Long getRetention() {
+    return retention;
+  }
+
+  /**
+   * @param retention the {@link Long} representing the retention time
+   */
+  public void setRetention( Long retention ) {
+    this.retention = retention;
   }
 }

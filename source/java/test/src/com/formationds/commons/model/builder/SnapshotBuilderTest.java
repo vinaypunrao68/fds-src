@@ -16,6 +16,19 @@
 
 package com.formationds.commons.model.builder;
 
-public class SnapshotBuilderTest {
+import com.formationds.commons.model.Snapshot;
+import org.junit.Assert;
+import org.junit.Test;
 
+public class SnapshotBuilderTest {
+  @Test
+  public void test() {
+    final Snapshot snapshot =
+      new SnapshotBuilder().withName( "Snapshot Name Goes Here" )
+                           .withVolumeId( 82272982L )
+                           .withRetention( 239843278947L )
+                           .build();
+
+    Assert.assertEquals( snapshot.getName(), "Snapshot Name Goes Here" );
+  }
 }

@@ -16,6 +16,7 @@ public class SnapshotBuilder {
   private String name;
   private long volumeId;
   private Date creation;
+  private long retention;
 
   /**
    * default constructor
@@ -64,6 +65,16 @@ public class SnapshotBuilder {
   }
 
   /**
+   * @param creation {@link Date}
+   *
+   * @return Returns the {@link SnapshotBuilder}
+   */
+  public SnapshotBuilder withRetention( long creation ) {
+    this.retention = retention;
+    return this;
+  }
+
+  /**
    * @return Returns the {@link SnapshotBuilder}
    */
   public Snapshot build() {
@@ -72,6 +83,7 @@ public class SnapshotBuilder {
     snapshot.setName( name );
     snapshot.setVolumeId( volumeId );
     snapshot.setCreation( creation );
+    snapshot.setRetention( retention );
 
     return snapshot;
   }
