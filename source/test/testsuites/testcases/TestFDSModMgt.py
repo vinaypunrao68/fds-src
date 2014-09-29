@@ -5,9 +5,11 @@
 
 # FDS test-case pattern requirements.
 import unittest
-import xmlrunner
 import traceback
-import TestCase
+
+import xmlrunner
+from testcases import TestCase
+
 
 # Module-specific requirements
 import sys

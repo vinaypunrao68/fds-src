@@ -107,12 +107,12 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
 
     @Override
     public long getVolumeId(String volumeName) throws ApiException, org.apache.thrift.TException {
-        return 0;
+        return config.getVolumeId( volumeName );
     }
 
     @Override
     public String getVolumeName(long volumeId) throws ApiException, org.apache.thrift.TException {
-        return null;
+        return config.getVolumeName( volumeId );
     }
 
     @Override
