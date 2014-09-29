@@ -76,7 +76,7 @@ SmDiskMapUtProc::startCleanDiskMap(fds_uint32_t sm_count) {
     fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
     DLT* dlt = new DLT(10, cols, 1, true);
     SmUtUtils::populateDlt(dlt, sm_count);
-    LOGDEBUG << "Using DLT: " << *dlt;
+    GLOGDEBUG << "Using DLT: " << *dlt;
     smDiskMap->handleNewDlt(dlt);
 
     // we don't need dlt anymore
@@ -90,8 +90,8 @@ Error SmDiskMapUtProc::printSmTokens() {
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
          ++cit) {
-        LOGDEBUG << "Token " << *cit << " disk path: "
-                 << smDiskMap->getDiskPath(*cit, diskio::diskTier);
+        GLOGDEBUG << "Token " << *cit << " disk path: "
+                  << smDiskMap->getDiskPath(*cit, diskio::diskTier);
     }
     return ERR_OK;
 }
