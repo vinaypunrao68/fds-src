@@ -921,6 +921,7 @@ void StorHvCtrl::getVolumeMetaDataMsgResp(fds::AmQosReq* qosReq,
         qos_ctrl->markIODone(qosReq);
         volMDReq->cb->call(error);
         delete volMDReq;
+        return;
     }
 
     GetVolumeMetaDataCallback::ptr cb =
