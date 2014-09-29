@@ -33,7 +33,6 @@ public class FdsFeatureManagerProvider
   private static final String BASENAME_PRODUCTION = "fds-features.conf";
 
   private static boolean LOG_ONCE = false;
-  private static String MATCHED_PATH = null;
 
   private static FileBasedStateRepository stateRepository = null;
   private static NoOpUserProvider userProvider = null;
