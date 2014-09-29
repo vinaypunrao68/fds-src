@@ -125,22 +125,30 @@ SmDiskMap::smTokenId(const ObjectID& objId) {
     return tokId & SM_TOKEN_MASK;
 }
 
+SmTokenSet
+SmDiskMap::getSmTokens() const {
+    return superblock->getSmOwnedTokens();
+}
+
 fds_uint16_t
 SmDiskMap::getDiskId(const ObjectID& objId,
                      diskio::DataTier tier) {
-    return 0;
+    fds_token_id smTokId = smTokenId(objId);
+    return superblock->getDiskId(smTokId, tier);
 }
 
 fds_uint16_t
-SmDiskMap::getDiskId(fds_token_id tokId,
+SmDiskMap::getDiskId(fds_token_id smTokId,
                      diskio::DataTier tier) {
-    return 0;
+    return superblock->getDiskId(smTokId, tier);
 }
 
 const char*
-SmDiskMap::getDiskPath(fds_token_id tokId,
+SmDiskMap::getDiskPath(fds_token_id smTokId,
                        diskio::DataTier tier) {
-    return NULL;
+    fds_uint16_t diskId = superblock->getDiskId(smTokId, tier);
+    fds_verify(disk_map.count(diskId) > 0);
+    return (disk_map[diskId]).c_str();
 }
 
 }  // namespace fds
