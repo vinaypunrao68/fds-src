@@ -17,9 +17,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     testdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-    files_path = os.path.abspath(testdir + "/" + "../cit")
+    files_path = os.path.abspath(testdir + "/../source/cit")
 
-    os.chdir(testdir + "/../")
+    os.chdir(testdir + "/../source/")
     files = open(files_path + "/gtest_ut")
     for rec in files:
         rec = rec.rstrip('\n')

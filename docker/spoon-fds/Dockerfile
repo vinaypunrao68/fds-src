@@ -37,6 +37,7 @@ ENV JAVA_HOME /usr/lib/jvm/java-8-oracle/
 
 # Test deps
 RUN pip install unittest-xml-reporting
+RUN pip install paramiko
 
 # FDS Console deps
 RUN pip install thrift

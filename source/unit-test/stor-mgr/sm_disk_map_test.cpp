@@ -37,6 +37,7 @@ class SmDiskMapUtProc : public FdsProcess {
 
     Error startCleanDiskMap(fds_uint32_t sm_count);
     Error shutdownDiskMap();
+    Error printSmTokens();
 
   private:
      /* helper methods */
@@ -75,7 +76,7 @@ SmDiskMapUtProc::startCleanDiskMap(fds_uint32_t sm_count) {
     fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
     DLT* dlt = new DLT(10, cols, 1, true);
     SmUtUtils::populateDlt(dlt, sm_count);
-    LOGDEBUG << "Using DLT: " << *dlt;
+    GLOGDEBUG << "Using DLT: " << *dlt;
     smDiskMap->handleNewDlt(dlt);
 
     // we don't need dlt anymore
@@ -84,11 +85,36 @@ SmDiskMapUtProc::startCleanDiskMap(fds_uint32_t sm_count) {
     return err;
 }
 
+Error SmDiskMapUtProc::printSmTokens() {
+    SmTokenSet smToks = smDiskMap->getSmTokens();
+    for (SmTokenSet::const_iterator cit = smToks.cbegin();
+         cit != smToks.cend();
+         ++cit) {
+        GLOGDEBUG << "Token " << *cit << " disk path: "
+                  << smDiskMap->getDiskPath(*cit, diskio::diskTier);
+    }
+    return ERR_OK;
+}
+
 Error
 SmDiskMapUtProc::shutdownDiskMap() {
     Error err(ERR_OK);
     smDiskMap->mod_shutdown();
     return err;
+}
+
+TEST(SmDiskMap, basic) {
+    Error err(ERR_OK);
+    fds_uint32_t sm_count = 1;
+
+    err = diskMapProc->startCleanDiskMap(sm_count);
+    EXPECT_TRUE(err.ok());
+
+    err = diskMapProc->printSmTokens();
+    EXPECT_TRUE(err.ok());
+
+    err = diskMapProc->shutdownDiskMap();
+    EXPECT_TRUE(err.ok());
 }
 
 TEST(SmDiskMap, up_down) {
