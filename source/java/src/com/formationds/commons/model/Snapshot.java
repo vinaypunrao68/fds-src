@@ -35,7 +35,7 @@ public class Snapshot
   /**
    * @return Returns the {@link long} representing the snapshot id
    */
-  public long getId()
+  public Long getId()
   {
     return id;
   }
@@ -43,7 +43,7 @@ public class Snapshot
   /**
    * @param id the {@link long} representing the snapshot id
    */
-  public void setId( final long id )
+  public void setId( final Long id )
   {
     this.id = id;
   }
@@ -67,7 +67,7 @@ public class Snapshot
   /**
    * @return Returns {@code long} representing the volume id
    */
-  public long getVolumeId()
+  public Long getVolumeId()
   {
     return volumeId;
   }
@@ -76,7 +76,7 @@ public class Snapshot
    * @param volumeId the {@code long} representing the volume id:w
    *
    */
-  public void setVolumeId( final long volumeId )
+  public void setVolumeId( final Long volumeId )
   {
     this.volumeId = volumeId;
   }
