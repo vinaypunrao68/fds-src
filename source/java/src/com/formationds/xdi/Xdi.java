@@ -44,7 +44,7 @@ public class Xdi {
         config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
         SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0);
       /**
-       * allows the UI to assign a snapshot policy with out having to make an
+       * allows the UI to assign a snapshot policy to a volume without having to make an
        * extra call.
        */
       return config.getVolumeId( volumeName );

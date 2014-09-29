@@ -55,6 +55,22 @@ class SmUtUtils {
             (*diskMap)[idx] = path;
         }
     }
+    static void cleanFdsDev(const FdsRootDir* dir) {
+        std::unordered_map<fds_uint16_t, std::string> diskMap;
+        std::unordered_map<fds_uint16_t, std::string>::const_iterator cit;
+        SmUtUtils::getDiskMap(dir, &diskMap);
+        // remove token data and meta, and superblock
+        for (cit = diskMap.cbegin(); cit != diskMap.cend(); ++cit) {
+            const std::string rm_base = "rm -rf  " + cit->second;
+            // remove token files
+            const std::string rm_data = rm_base + "//tokenFile*";;
+            int ret = std::system((const char *)rm_data.c_str());
+            // remove levelDB files
+            const std::string rm_meta = rm_base + "//SNodeObjIndex_*";;
+            ret = std::system((const char *)rm_meta.c_str());
+            // TODO(Anna) remove superblock
+        }
+    }
 };
 
 }  // namespace fds

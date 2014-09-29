@@ -92,8 +92,8 @@ class FdsEnv(object):
         if self.env_install:
             return self.env_fdsRoot
         if fds_bin:
-            return self.env_fdsSrc + self.env_fdsDict['debug-base'];
-        return self.env_fdsSrc + '../' + self.env_fdsDict['debug-base'];
+            return self.env_fdsSrc + self.env_fdsDict['debug-base']
+        return self.env_fdsSrc + '../' + self.env_fdsDict['debug-base']
 
     ###
     # Return $fds-root/var/logs if we installed from an FDS package, otherwise
@@ -214,7 +214,7 @@ class FdsRmtEnv(FdsEnv):
                  fds_bin = False, 
                  output = False, 
                  return_stdin = False):
-        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+        log = logging.getLogger(self.__class__.__name__ + '.' + "ssh_exec")
 
         if fds_bin:
             cmd_exec = (self.env_ldLibPath + 'cd ' + self.get_fds_root() +
@@ -233,11 +233,16 @@ class FdsRmtEnv(FdsEnv):
         stdin, stdout, stderr = self.env_ssh_clnt.exec_command(cmd_exec)
         channel = stdout.channel
         status  = 0 if wait_compl == False else channel.recv_exit_status()
+
+        for line in stderr.read().splitlines():
+            log.warn("[%s Error] %s" % (self.env_rmt_host, line))
+            if status == 0:
+                status = -1
+
         if output == True:
-            for line in stdout.read().splitlines():
-                log.info("[%s] %s" % (self.env_rmt_host, line))
-            for line in stderr.read().splitlines():
-                log.info("[%s Error] %s" % (self.env_rmt_host, line))
+            if status != 0:
+                for line in stdout.read().splitlines():
+                    log.info("[%s] %s" % (self.env_rmt_host, line))
 
         return_line = None
         if return_stdin and wait_compl:
@@ -274,8 +279,11 @@ class FdsRmtEnv(FdsEnv):
     # Setup core files and other stuffs.
     #
     def ssh_setup_env(self, cmd):
+        if (cmd is not None) and (cmd != ''):
+            cmd = cmd + ';'
+
         self.ssh_exec(cmd +
-            '; echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern ' +
+            ' echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern ' +
             '; sudo sysctl -w "kernel.core_pattern=%e-%p.core"' +
             '; sysctl -p' +
             '; echo "1" >/proc/sys/net/ipv4/tcp_tw_reuse' +
