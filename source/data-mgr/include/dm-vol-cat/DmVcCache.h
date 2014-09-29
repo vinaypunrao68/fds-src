@@ -94,13 +94,18 @@ class DmCacheVolCatalog : public Module, boost::noncopyable {
 
     // TODO(Andrew): Have some per-volume configurable number of entries. Since
     // we don't change this yet, everyone gets the same.
-    static const fds_uint32_t maxEntries = 200;
+    fds_uint32_t maxEntries;
     // TODO(Andrew): Have some per-volume eviction policy based on the volume
     // policy.
     static const EvictionType evictionType = LRU;
 
     typedef VolumeCacheManager<ExtentKey, BlobExtent, ExtentKeyHash> VolumeBlobCacheManager;
     std::unique_ptr<VolumeBlobCacheManager> volCacheMgr;
+
+    /// Temp rwlock until we move to a shared cache
+    /// Protects the cache read and copy so that the ptr
+    /// we get from the cache doesn't get freed in the meantime.
+    fds_rwlock dmCacheRwLock;
 };
 
 }  // namespace fds

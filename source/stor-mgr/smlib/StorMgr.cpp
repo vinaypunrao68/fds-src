@@ -1264,7 +1264,7 @@ ObjectStorMgr::readObjMetaData(const ObjectID &objId,
             err = ERR_SM_OBJECT_DATA_MISSING;
         }
     } else {
-        LOGNORMAL << "unable to read object meta: " << objId;
+        LOGDEBUG << "unable to read object meta: " << objId;
     }
     return err;
 }
