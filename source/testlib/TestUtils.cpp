@@ -22,6 +22,12 @@ fpi::SvcUuid TestUtils::getAnyNonResidentSmSvcuuid(Platform* platform)
     RsArray smNodes;
     platform->plf_sm_nodes()->rs_container_snapshot(&smNodes);
     for (auto n : smNodes) {
+        auto uuid = (int64_t)(n->rs_get_uuid().uuid_get_val());
+        // Hack to ignore OM SM svc uuid
+        /* TODO(Rao/Vy): Fix this */
+        if (uuid == 0xcac1) {
+            continue;
+        }
         if (mySmUuid.svc_uuid != (int64_t)(n->rs_get_uuid().uuid_get_val())) {
             svcUuid.svc_uuid = n->rs_get_uuid().uuid_get_val();
             break;
