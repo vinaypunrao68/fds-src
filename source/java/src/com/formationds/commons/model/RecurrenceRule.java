@@ -32,8 +32,8 @@ public class RecurrenceRule
   @JsonProperty( "frequency" )
   private iCalFields iCalField;
   private Date until;
-  private int count = -1;
-  private int interval = 0;
+  private int count;
+  private int interval;
 
   private static final Map<iCalFields, iCalValidator> VALIDATORS =
     new HashMap<>();
@@ -157,12 +157,13 @@ public class RecurrenceRule
    */
   public static RecurrenceRule parser( final String recurrence )
     throws ParseException {
-    StringTokenizer t = new StringTokenizer( recurrence, ";=" );
+    StringTokenizer t = new StringTokenizer( recurrence, ";=:" );
 
     RecurrenceRuleBuilder builder = new RecurrenceRuleBuilder();
+    System.out.println( t.hasMoreTokens()  );
     while( t.hasMoreTokens() ) {
       String token = t.nextToken();
-
+System.out.println( token );
       if( iCalFields.FREQ.name()
                          .equals( token ) ) {
         builder = builder.withFrequency( next( t, token ) );

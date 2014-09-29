@@ -19,7 +19,7 @@ public class RecurrenceRuleBuilder {
   private int interval = 0;
 
   /**
-   * defULT CONSRTUCTOR
+   * default constructor
    */
   public RecurrenceRuleBuilder() {
   }
