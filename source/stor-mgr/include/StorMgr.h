@@ -427,6 +427,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          omJrnl = nullptr;
          scavenger = nullptr;
      }
+     /* this is for standalone testing */
+     void setModProvider(CommonModuleProviderIf *modProvider);
 
      ~ObjectStorMgr();
 

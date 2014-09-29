@@ -341,6 +341,10 @@ ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
     // into mod_init()
 }
 
+void ObjectStorMgr::setModProvider(CommonModuleProviderIf *modProvider) {
+    modProvider_ = modProvider;
+}
+
 ObjectStorMgr::~ObjectStorMgr() {
     LOGDEBUG << " Destructing  the Storage  manager";
     shuttingDown = true;
@@ -661,6 +665,9 @@ void ObjectStorMgr::mod_enable_service()
 
 void ObjectStorMgr::mod_shutdown()
 {
+    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone")) {
+        return;  // no migration or netsession
+    }
     migrationSvc_->mod_shutdown();
     nst_->endAllSessions();
     nst_.reset();
