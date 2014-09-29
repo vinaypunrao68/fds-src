@@ -24,12 +24,8 @@ NetPlatform                 *gl_NetPlatSvc = &gl_NetPlatform;
  */
 NetPlatform::NetPlatform(const char *name) : Module(name)
 {
-    static Module *net_plat_deps[] = {
-        NULL
-    };
     netmgr     = NULL;
     plat_lib   = NULL;
-    mod_intern = net_plat_deps;
 }
 
 NetPlatSvc::~NetPlatSvc() {}
@@ -45,8 +41,12 @@ NetPlatSvc::NetPlatSvc(const char *name) : NetPlatform(name)
 int
 NetPlatSvc::mod_init(SysParams const *const p)
 {
-    netmgr   = NetMgr::ep_mgr_singleton();
-    plat_lib = Platform::platf_singleton();
+    static Module *net_plat_deps[] = {
+        NULL
+    };
+    mod_intern = net_plat_deps;
+    netmgr     = NetMgr::ep_mgr_singleton();
+    plat_lib   = Platform::platf_singleton();
     return Module::mod_init(p);
 }
 
