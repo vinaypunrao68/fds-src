@@ -171,15 +171,35 @@ Error SmLoadProc::remove(fds_volid_t volId,
 Error SmLoadProc::populateStore(TestVolume::ptr& volume) {
     Error err(ERR_OK);
     // put all  objects in dataset to the object store
+    fds_uint32_t dispatched = 0;
     for (fds_uint32_t i = 0;
          i < (volume->testdata_).dataset_.size();
          ++i) {
+        while (1) {
+            dispatched = atomic_load(&(volume->dispatched_count));
+            if (dispatched < volume->concurrency_) {
+                break;
+            }
+            boost::this_thread::sleep(boost::posix_time::microseconds(100));
+        }
+
         ObjectID oid = (volume->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
                 (volume->testdata_).dataset_map_[oid].getObjectData();
         err = put((volume->voldesc_).volUUID, oid, data);
         if (!err.ok()) return err;
+        dispatched = atomic_fetch_add(&(volume->dispatched_count), (fds_uint32_t)1);
     }
+
+    // wait till all writes complete
+    while (1) {
+        dispatched = atomic_load(&(volume->dispatched_count));
+        if (dispatched < 1) {
+            break;
+        }
+        boost::this_thread::sleep(boost::posix_time::microseconds(100));
+    }
+
     return err;
 }
 

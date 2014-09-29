@@ -21,7 +21,7 @@ public class AuthenticatedUser
   private static final long serialVersionUID = -6030735171650443376L;
 
   private String username;
-  private long userId;
+  private Long userId;
   private String token;
   private List<Feature> features;
 
@@ -50,9 +50,9 @@ public class AuthenticatedUser
   }
 
   /**
-   * @return Returns {@code long} representing the user's is
+   * @return Returns {@link Long} representing the user's is
    */
-  public long getUserId()
+  public Long getUserId()
   {
     return userId;
   }
@@ -60,7 +60,7 @@ public class AuthenticatedUser
   /**
    * @param userId the {@code long} representing the user's id
    */
-  public void setUserId( final long userId )
+  public void setUserId( final Long userId )
   {
     this.userId = userId;
   }

@@ -89,6 +89,7 @@ public class Main {
         // TODO: security model for statistics streams
         authenticate(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configCache));
         authenticate(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configCache));
+        authenticate(HttpMethod.PUT, "/api/config/streams", (t) -> new DeregisterStream(configCache));
 
         /*
          * provides snapshot RESTful API
