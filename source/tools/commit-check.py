@@ -80,6 +80,7 @@ def do_check(top_level):
     fh = open(outfile, 'w+')
     fh.writelines(map(lambda x: x + '\n', list(output)))
     fh.close()
+
     
     return 0
 
