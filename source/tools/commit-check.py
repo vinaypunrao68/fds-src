@@ -67,6 +67,7 @@ def do_check(top_level):
         if len(diff) > 0:
             # If diff is > 0 then there are new untracked changes
             # Ask if user would like to continue
+            sys.stdin = open('/dev/tty')
             print "WARNING: There are {} new untracked changes!".format(len(diff))
             result = ''
             while result.lower() != 'y' or result.lower() != 'n':
@@ -80,6 +81,7 @@ def do_check(top_level):
     fh = open(outfile, 'w+')
     fh.writelines(map(lambda x: x + '\n', list(output)))
     fh.close()
+
     
     return 0
 
