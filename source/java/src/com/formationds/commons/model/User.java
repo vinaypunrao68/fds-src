@@ -19,7 +19,7 @@ public class User
 {
   private static final long serialVersionUID = -2139739643610025641L;
 
-  private long id;
+  private Long id;
   private IdentityType identifier;
 
   @XmlTransient

@@ -140,6 +140,7 @@ class EpPlatformdMod : public EpPlatLibMod
 
     static EpPlatformdMod *ep_shm_singleton();
 
+    virtual int  mod_init(SysParams const *const arg) override;
     virtual void mod_startup() override;
     virtual void mod_enable_service() override;
 

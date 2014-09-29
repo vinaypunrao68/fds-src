@@ -17,71 +17,11 @@ public class Volume
 {
   private static final long serialVersionUID = 7961922641732546048L;
 
-/* JSON sent by the UI (CREATE)
-{
-  "name":"TestVolume",
-  "data_connector":{
-    "type":"Object",
-    "api":"S3, Swift"
-  },
-  "priority":10,
-  "sla":0,
-  "limit":300,
-  "snapshotPolicies":[
-    {
-      "name":"HOURLY",
-      "recurrenceRule":{
-        "frequency":"HOURLY"
-      },
-      "retention":14400
-    }
-  ]
-}
-
-JSON sent by Platform when listing volumes
-[{
-    "data_connector": {"type": "object"},
-    "apis": "S3, Swift",
-    "current_usage": {
-        "unit": "B",
-        "size": "0"
-    },
-    "name": "TestVolume",
-    "limit": 300,
-    "sla": 0,
-    "id": "4565300393392428557",
-    "priority": 10
-}]
-
-What I'm currently sending, this json (below) seems to cause the OM/DM to crash
-{
-  "name": "Volume Name -- 70579689",
-  "limit": 1024,
-  "sla": 256,
-  "priority": 30,
-  "data_connector": {
-    "type": "OBJECT",
-    "attributes": {
-      "unit": "GB",
-      "size": 100
-    }
-  },
-  "current_usage": {
-    "unit": "GB",
-    "size": "100"
-  },
-  "apis": [
-    "S3",
-    "SWIFT"
-  ]
-}
-*/
-
   private String name;
-  private long limit;                    // maximum IOPS
-  private long sla;                      // minimum IOPS -- service level agreement
+  private Long limit;                    // maximum IOPS
+  private Long sla;                      // minimum IOPS -- service level agreement
   private String id;
-  private int priority;
+  private Integer priority;
   private Connector data_connector;
   private Usage current_usage;
 

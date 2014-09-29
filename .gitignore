@@ -88,3 +88,4 @@ source/java/admin-webapp/bower_components
 source/java/admin-webapp/node_modules
 source/java/admin-webapp/npm-debug.log
 source/npm-debug.log
+source/unit-test/fds-probe/platform/node-work.h

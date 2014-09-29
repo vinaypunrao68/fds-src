@@ -282,8 +282,8 @@ Error PersistVolumeMeta::init() {
             Catalog::CACHE_SIZE);
     fds_uint32_t maxLogFiles = config_helper_.get<fds_uint32_t>(CATALOG_MAX_LOG_FILES_STR, 5);
 
-    std::string logDirName = root->dir_user_repo_dm() + volumeIdStr() + "/";
-    std::string logFilePrefix("catalog.journal");
+    std::string logDirName = snapshot_ ? "" : root->dir_user_repo_dm() + volumeIdStr() + "/";
+    std::string logFilePrefix(snapshot_ ? "" : "catalog.journal");
 
     catalog_ = new(std::nothrow) Catalog(catName, writeBufferSize, cacheSize, logDirName,
             logFilePrefix, maxLogFiles);

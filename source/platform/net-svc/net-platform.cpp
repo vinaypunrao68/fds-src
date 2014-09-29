@@ -24,21 +24,12 @@ PlatformdNetSvc              gl_PlatformdNetSvc("platformd net");
 static EpPlatformdMod        gl_PlatformdShmLib("Platformd Shm Lib");
 
 PlatformdNetSvc::~PlatformdNetSvc() {}
-PlatformdNetSvc::PlatformdNetSvc(const char *name) : NetPlatSvc(name)
-{
-    static Module *platd_net_deps[] = {
-        &gl_PlatformdShmLib,
-        NULL
-    };
-    gl_NetPlatSvc   = this;
-    gl_EpShmPlatLib = &gl_PlatformdShmLib;
-    mod_intern = platd_net_deps;
-}
+PlatformdNetSvc::PlatformdNetSvc(const char *name) : NetPlatSvc(name) {}
 
 // ep_shm_singleton
 // ----------------
 //
-/*  static */ EpPlatformdMod *
+/* static */ EpPlatformdMod *
 EpPlatformdMod::ep_shm_singleton()
 {
     return &gl_PlatformdShmLib;
@@ -50,7 +41,19 @@ EpPlatformdMod::ep_shm_singleton()
 int
 PlatformdNetSvc::mod_init(SysParams const *const p)
 {
-    return NetPlatSvc::mod_init(p);
+    static Module *platd_net_deps[] = {
+        &gl_PlatformdShmLib,
+        &gl_NodeWorkFlow,
+        NULL
+    };
+    gl_NetPlatSvc   = this;
+    gl_EpShmPlatLib = &gl_PlatformdShmLib;
+
+    /* Init the same code as NetPlatSvc::mod_init()  */
+    netmgr          = NetMgr::ep_mgr_singleton();
+    plat_lib        = Platform::platf_singleton();
+    mod_intern      = platd_net_deps;
+    return Module::mod_init(p);
 }
 
 // mod_startup
@@ -99,7 +102,6 @@ PlatformdNetSvc::mod_startup()
 void
 PlatformdNetSvc::mod_enable_service()
 {
-    // netmgr->ep_register(plat_ctrl_ep, false);
     NetPlatSvc::mod_enable_service();
 }
 

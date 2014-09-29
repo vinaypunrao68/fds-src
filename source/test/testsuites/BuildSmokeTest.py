@@ -46,7 +46,8 @@ if __name__ == '__main__':
     testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
 
     # Get a test runner that will output an xUnit XML report for Jenkins
-    runner = xmlrunner.XMLTestRunner(output='test-reports')
+    # TODO(Andrew): Get this report path from testcases module?
+    runner = xmlrunner.XMLTestRunner(output='../../cit/')
 
     test_suite = suiteConstruction()
 

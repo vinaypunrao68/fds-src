@@ -11,7 +11,7 @@ import org.junit.Test;
 
 public class ConnectorAttributesBuilderTest {
   private static final SizeUnit EXPECTED_UNITS = SizeUnit.GB;
-  private static final long EXPECTED_SIZE = 100;
+  private static final Long EXPECTED_SIZE = 100L;
 
   @Test
   public void test()
