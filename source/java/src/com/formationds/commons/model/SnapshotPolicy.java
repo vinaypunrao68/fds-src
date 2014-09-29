@@ -76,7 +76,6 @@ public class SnapshotPolicy
    */
   public void setRecurrenceRule( final String recurrenceRule )
     throws ParseException {
-System.out.println( "::SET::RRULE::" + recurrenceRule );
     this.recurrenceRule = RecurrenceRule.parser( recurrenceRule );
   }
 
