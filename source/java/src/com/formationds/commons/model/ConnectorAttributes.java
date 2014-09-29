@@ -19,7 +19,7 @@ public class ConnectorAttributes
   private static final long serialVersionUID = 4629648232746455453L;
 
   private SizeUnit unit;
-  private long size;
+  private Long size;
 
   /**
    * default constructor
@@ -46,17 +46,17 @@ public class ConnectorAttributes
   }
 
   /**
-   * @return Returns {@code long} representing the size
+   * @return Returns {@link Long} representing the size
    */
-  public long getSize()
+  public Long getSize()
   {
     return size;
   }
 
   /**
-   * @param size the {@code long} representing the size
+   * @param size the {@link Long} representing the size
    */
-  public void setSize( final long size )
+  public void setSize( final Long size )
   {
     this.size = size;
   }

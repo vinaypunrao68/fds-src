@@ -132,6 +132,17 @@ class StateEntry
 typedef std::unordered_map<StateObj *, TraceBuffer *> StateDebugMap;
 
 /**
+ * Static switch board.
+ */
+typedef struct state_switch state_switch_t;
+struct state_switch
+{
+    int                      st_cur_state;
+    int                      st_evt_code;
+    int                      st_nxt_state;
+};
+
+/**
  * The state machine table.
  */
 class FsmTable
@@ -142,6 +153,9 @@ class FsmTable
     virtual ~FsmTable();
     FsmTable(int cnt, StateEntry const *const *const e);
 
+    /**
+     * Process events, sync and async inputs.
+     */
     void st_input(EventObj::pointer evt, boost::intrusive_ptr<StateObj> obj);
     void st_in_async(EventObj::pointer evt, boost::intrusive_ptr<StateObj> obj);
     void st_push_defer_evt(EventObj::pointer evt,
@@ -154,6 +168,19 @@ class FsmTable
     st_unbind_event(boost::intrusive_ptr<StateObj> obj, EventObj::pointer evt);
 
     /**
+     * There are two ways to process input:
+     * 1) Apply the input to the current state, invoke the st_handler function, switch
+     *    to the next state.
+     * 2) Determine the next state based on current state & input, switch to the next
+     *    state and invoke the st_handler function.  Give the state machine this
+     *    table to follow option (2).
+     */
+    inline void st_set_switch_board(const state_switch_t *disp, int cnt) {
+        st_switch     = disp;
+        st_switch_cnt = cnt;
+    }
+
+    /**
      * Return mutex hashed by a pointer object.
      * Lock order: this lock -> st_queues's lock.
      */
@@ -164,7 +191,7 @@ class FsmTable
     /**
      * Dump the history of state transitions of all states using the table.
      */
-    void st_dump_state_trans();
+    void st_dump_state_trans(std::stringstream *st);
     std::stringstream &st_trace(boost::intrusive_ptr<StateObj>, EventObj::pointer);
 
   protected:
@@ -180,11 +207,15 @@ class FsmTable
     fdsio::RequestQueue            *st_queues;
     StateEntry const *const *const  st_entries;
 
+    int                             st_switch_cnt;
+    const state_switch_t           *st_switch;
+
     void st_verify_wiring();
     void st_resume(boost::intrusive_ptr<StateObj> obj, int nxt_st);
     void st_defer_event_mtx(EventObj::pointer evt, boost::intrusive_ptr<StateObj> obj);
     void st_in_async_priv(EventObj::pointer evt, boost::intrusive_ptr<StateObj> obj);
     bool st_in_async_mtx(EventObj::pointer evt, boost::intrusive_ptr<StateObj> obj);
+    void st_switch_state(EventObj::pointer evt, boost::intrusive_ptr<StateObj> obj);
 
     EventObj::pointer st_get_defer_event_mtx(boost::intrusive_ptr<StateObj> obj);
 

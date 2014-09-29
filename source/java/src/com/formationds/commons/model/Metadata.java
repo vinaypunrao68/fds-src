@@ -14,7 +14,7 @@ public class Metadata
 {
   private static final long serialVersionUID = -7637239107402084473L;
 
-  private long timestamp;
+  private Long timestamp;
   private String volume;
   private String key;
   private String value;
@@ -28,7 +28,7 @@ public class Metadata
   }
 
   /**
-   * @return Returns {@code long} representing the timestamp, in milliseconds
+   * @return Returns {@link Long} representing the timestamp, in milliseconds
    */
   public long getTimestamp()
   {
@@ -36,9 +36,9 @@ public class Metadata
   }
 
   /**
-   * @param timestamp the {@code long} representing the timestamp, in milliseconds
+   * @param timestamp the {@link Long} representing the timestamp, in milliseconds
    */
-  public void setTimestamp( final long timestamp )
+  public void setTimestamp( final Long timestamp )
   {
     this.timestamp = timestamp;
   }

@@ -22,8 +22,8 @@
             "svc_uuid": "0xabcdef",
             "start_Am": true,
             "start_Dm": true,
-            "start_SM": true,
-            "start_OM": true
+            "start_Sm": true,
+            "start_Om": true
         },
         "node_work_item": {
             "domain_id": 0,
@@ -43,6 +43,10 @@
             "work_item": "abc"
         },
         "node_down": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef"
+        },
+        "node_list_step": {
             "domain_id": 0,
             "svc_uuid": "0xabcdef"
         }

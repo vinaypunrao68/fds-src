@@ -18,6 +18,7 @@ package com.formationds.commons.model.builder;
 
 import com.formationds.commons.model.RecurrenceRule;
 import com.formationds.commons.model.SnapshotPolicy;
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.iCalFields;
 import org.junit.Test;
 
@@ -29,7 +30,7 @@ public class RecurrenceRuleBuilderTest {
   public void test()
   {
     final RecurrenceRule rrule =
-      new RecurrenceRuleBuilder().withFrequency( iCalFields.DAILY )
+      new RecurrenceRuleBuilder().withFrequency( iCalFields.DAILY.name() )
                                  .withCount( 10 )
                                  .build();
     final SnapshotPolicy policy =
@@ -42,7 +43,7 @@ public class RecurrenceRuleBuilderTest {
 //    System.out.println( policy );
 
     final RecurrenceRule rrule1 =
-      new RecurrenceRuleBuilder().withFrequency( iCalFields.DAILY )
+      new RecurrenceRuleBuilder().withFrequency( iCalFields.DAILY.name() )
                                  .withUntil( new Date() )
                                  .build();
 
@@ -54,5 +55,16 @@ public class RecurrenceRuleBuilderTest {
                                  .withRetention( 34567789 )
                                  .build();
     System.out.println( policy1 );
+  }
+
+  @Test
+  public void jsonTest()
+  {
+    final String json = "{\"name\":\"7807073888858593216_WEEKLY\",\"recurrenceRule\":{\"FREQ\":\"WEEKLY\"},\"retention\":3600}";
+    final SnapshotPolicy policy =
+      ObjectModelHelper.toObject( json, SnapshotPolicy.class );
+
+    System.out.println( policy );
+
   }
 }

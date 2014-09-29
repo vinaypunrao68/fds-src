@@ -25,11 +25,11 @@ import org.junit.Test;
 public class SnapshotPolicyBuilderTest {
   private static final String EXPECTED_FREQ_NAME = iCalFields.DAILY.name();
   private static final iCalFields EXPECTED_FREQ_ENUM = iCalFields.DAILY;
-  private static final long EXCEPTED_ID = 1234;
+  private static final Long EXCEPTED_ID = 1234L;
   private static final String EXPECTED_NAME =
     SnapshotPolicyBuilderTest.class.getSimpleName();
-  private static final int EXPECTED_COUNT = 10;
-  private static final long EXPECTED_RETENTION = 9863784;
+  private static final Integer EXPECTED_COUNT = 10;
+  private static final Long EXPECTED_RETENTION = 9863784L;
 
   @Test
   public void test()
@@ -39,7 +39,7 @@ public class SnapshotPolicyBuilderTest {
                                  .withCount( EXPECTED_COUNT )
                                  .build();
 
-    Assert.assertEquals( rrule.getFrequency(), EXPECTED_FREQ_ENUM );
+    Assert.assertEquals( rrule.getFrequency(), EXPECTED_FREQ_NAME );
     Assert.assertEquals( rrule.getCount(), EXPECTED_COUNT );
 
     final SnapshotPolicy policy =
