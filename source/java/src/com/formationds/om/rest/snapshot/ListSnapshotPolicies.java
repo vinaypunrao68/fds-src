@@ -46,7 +46,6 @@ public class ListSnapshotPolicies implements RequestHandler {
 
           modelPolicy.setId(policy.getId());
           modelPolicy.setName(policy.getPolicyName());
-System.out.println( "::RRULE::" +  policy.getRecurrenceRule() );
           modelPolicy.setRecurrenceRule( policy.getRecurrenceRule() );
           modelPolicy.setRetention(policy.getRetentionTimeSeconds());
 

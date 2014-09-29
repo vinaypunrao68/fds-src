@@ -4,6 +4,7 @@
 
 package com.formationds.commons.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.builder.RecurrenceRuleBuilder;
 import com.formationds.commons.model.exception.ParseException;
@@ -28,10 +29,14 @@ public class RecurrenceRule
   private static final SimpleDateFormat UNTIL_DATE =
     new SimpleDateFormat( "yyyyMMdd'T'HHmmssZ" );
 
-  private String FREQ;
-  private Date UNTIL;
-  private Integer COUNT;
-  private Integer INTERVAL;
+  @JsonProperty("FREQ")
+  private String frequency;
+  @JsonProperty("UNTIL")
+  private Date until;
+  @JsonProperty("COUNT")
+  private Integer count;
+  @JsonProperty("INTERVAL")
+  private Integer interval;
 
   private static final Map<iCalFields, iCalValidator> VALIDATORS =
     new HashMap<>();
@@ -59,15 +64,15 @@ public class RecurrenceRule
    * recurs
    */
   public Integer getCount() {
-    return COUNT;
+    return count;
   }
 
   /**
-   * @param count the {@code int} representing the number of times the event
+   * @param count the {@link Integer} representing the number of times the event
    *              recurs
    */
-  public void setCount( int count ) {
-    this.COUNT = count;
+  public void setCount( Integer count ) {
+    this.count = count;
   }
 
   /**
@@ -75,15 +80,15 @@ public class RecurrenceRule
    * how often an event recurs)
    */
   public String getFrequency() {
-    return FREQ;
+    return frequency;
   }
 
   /**
-   * @param FREQ the {@link String} representing the recurrence field
+   * @param frequency the {@link String} representing the recurrence field
    *                  (i.e. how often an event recurs)
    */
-  public void setFrequency( final String FREQ ) {
-    this.FREQ = FREQ;
+  public void setFrequency( final String frequency ) {
+    this.frequency = frequency;
     isFrequencyValid();
   }
 
@@ -91,14 +96,14 @@ public class RecurrenceRule
    * @return Returns {@link Date} representing the ending date
    */
   public Date getUntil() {
-    return UNTIL;
+    return until;
   }
 
   /**
    * @param until the {@link Date} representing the ending date
    */
   public void setUntil( Date until ) {
-    this.UNTIL = until;
+    this.until = until;
   }
 
   /**
@@ -106,7 +111,7 @@ public class RecurrenceRule
    * the event
    */
   public Integer getInterval() {
-    return INTERVAL;
+    return interval;
   }
 
   /**
@@ -114,7 +119,7 @@ public class RecurrenceRule
    *                 occurrences of the event
    */
   public void setInterval( Integer interval ) {
-    this.INTERVAL = interval;
+    this.interval = interval;
   }
 
   /**
@@ -207,8 +212,8 @@ public class RecurrenceRule
 
      recur      = "FREQ"=freq *(
 
-     ; either UNTIL or COUNT may appear in a 'recur',
-     ; but UNTIL and COUNT MUST NOT occur in the same 'recur'
+     ; either until or count may appear in a 'recur',
+     ; but until and count MUST NOT occur in the same 'recur'
 
      ( ";" "UNTIL" "=" enddate ) /
      ( ";" "COUNT" "=" 1*DIGIT ) /

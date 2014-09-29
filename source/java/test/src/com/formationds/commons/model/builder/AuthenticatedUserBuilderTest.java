@@ -27,7 +27,7 @@ import java.util.UUID;
 
 public class AuthenticatedUserBuilderTest {
   private static final String EXPECTED_USERNAME = "joe-user";
-  private static final long EXPECTED_USERID = 0;
+  private static final Long EXPECTED_USERID = 0L;
   private static final String EXPECTED_TOKEN = UUID.randomUUID().toString();
   private static final List<Feature> EXPECTED_FEATURES =
     Arrays.asList( Feature.SYS_MGMT, Feature.TENANT_MGMT );

@@ -24,7 +24,6 @@ import org.junit.Test;
 
 public class SnapshotPolicyBuilderTest {
   private static final String EXPECTED_FREQ_NAME = iCalFields.DAILY.name();
-  private static final iCalFields EXPECTED_FREQ_ENUM = iCalFields.DAILY;
   private static final Long EXCEPTED_ID = 1234L;
   private static final String EXPECTED_NAME =
     SnapshotPolicyBuilderTest.class.getSimpleName();
