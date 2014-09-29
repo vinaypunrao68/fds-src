@@ -86,9 +86,9 @@ class ServiceContext(Context):
     def listblobstat(self, volname):
         try:
             
-            process.setup_logger()
-	    import pdb; pdb.set_trace()
-            dmClient = platformservice.PlatSvc(basePort=5679)
+            #process.setup_logger()
+	    # import pdb; pdb.set_trace()
+            dmClient = self.config.platform;
 
             dmUuids = dmClient.svcMap.svcUuids('dm')
             volId = dmClient.svcMap.omConfig().getVolumeId(volname)
@@ -100,11 +100,15 @@ class ServiceContext(Context):
             if not cb.wait():
 		print 'async request failed'
 
-	    print '{}'.cb.payload.volume_meta_data.blobCount;
-	    print '{}'.cb.payload.volume_meta_data.size;
-	    print '{}'.cb.payload.volume_meta_data.objectCount;
-            return 'Success' 
+    	    data = []
+	    data += [("numblobs",cb.payload.volume_meta_data.blobCount)]
+	    data += [("size",cb.payload.volume_meta_data.size)]
+	    data += [("numobjects",cb.payload.volume_meta_data.objectCount)]
+
+	    return tabulate(data, tablefmt=self.config.getTableFormat())
+
         except Exception, e:
+ 	    print e
             log.exception(e)
             return 'unable to get volume meta list'
 
