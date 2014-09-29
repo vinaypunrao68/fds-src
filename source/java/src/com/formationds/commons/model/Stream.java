@@ -18,12 +18,12 @@ public class Stream
   extends ModelBase {
   private static final long serialVersionUID = 7993943089545141923L;
 
-  private int id;
+  private Integer id;
   private URL url;
   private String method;
   private List<String> volumes;
-  private int frequency = -1;
-  private int duration = -1;
+  private Integer frequency = -1;
+  private Integer duration = -1;
 
   /**
    * default constructor
@@ -34,15 +34,15 @@ public class Stream
   }
 
   /**
-   * @return Returns {@code int} representing the stream id
+   * @return Returns {@link Integer} representing the stream id
    */
-  public int getId()
+  public Integer getId()
   {
     return id;
   }
 
   /**
-   * @param id the {@code int} representing the stream id
+   * @param id the {@link Integer} representing the stream id
    */
   public void setId( final int id )
   {
@@ -98,33 +98,33 @@ public class Stream
   }
 
   /**
-   * @return Returns {@code int} representing the frequency at which the data was collected
+   * @return Returns {@link Integer} representing the frequency at which the data was collected
    */
-  public int getFrequency()
+  public Integer getFrequency()
   {
     return frequency;
   }
 
   /**
-   * @param frequency the {@code int} representing the frequency at which the data was collected
+   * @param frequency the {@link Integer} representing the frequency at which the data was collected
    */
-  public void setFrequency( final int frequency )
+  public void setFrequency( final Integer frequency )
   {
     this.frequency = frequency;
   }
 
   /**
-   * @return Returns the {@code int} representing the duration
+   * @return Returns the {@link Integer} representing the duration
    */
-  public int getDuration()
+  public Integer getDuration()
   {
     return duration;
   }
 
   /**
-   * @param duration the {@code int} representing the duration
+   * @param duration the {@link Integer} representing the duration
    */
-  public void setDuration( final int duration )
+  public void setDuration( final Integer duration )
   {
     this.duration = duration;
   }
