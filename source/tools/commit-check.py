@@ -69,12 +69,14 @@ def do_check(top_level):
             # Ask if user would like to continue
             sys.stdin = open('/dev/tty')
             print "WARNING: There are {} new untracked changes!".format(len(diff))
+            for line in diff:
+                print line
             result = ''
             while result.lower() != 'y' or result.lower() != 'n':
-                result = raw_input('Do you wish to proceed? [Y/n]')
-                if result.lower() == 'n\n':
+                result = raw_input('Do you wish to proceed? [Y/n]: ')
+                if result.lower() == 'n':
                     print "STOPPING git commit!"
-                    return -1
+                    sys.exit(1)
 
         fh.close()
 
@@ -84,13 +86,15 @@ def do_check(top_level):
     fh.close()
 
     
-    return 0
+    sys.exit(0)
 
 def do_setup(top_level):
-    fh = open(os.path.join(top_level, '.git/hooks/pre-commit'), 'w+')
+    fname = os.path.join(top_level, '.git/hooks/pre-commit')
+    fh = open(fname, 'w+')
     fh.write('python {}'.format(
         os.path.join(top_level, 'source/tools/commit-check.py')))
     fh.close()
+    os.chmod(fname, (os.stat.IREAD | os.stat.IWRITE | os.stat.IEXEC))
 
 if __name__ == "__main__":
 
