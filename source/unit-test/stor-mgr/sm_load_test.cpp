@@ -224,6 +224,11 @@ int SmLoadProc::run() {
     int ret = 0;
     std::cout << "Starting test..." << std::endl;
 
+    // clean data/metadata from /fds/dev/hdd*/
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    SmUtUtils::cleanFdsDev(dir);
+
+    // pass fake DLT to SM
     fds_uint32_t sm_count = 1;
     fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
     DLT* dlt = new DLT(16, cols, 1, true);
@@ -318,6 +323,7 @@ void SmLoadProc::task(fds_volid_t volId) {
         ObjectID oid = (volume->testdata_).dataset_[index];
         switch (volume->op_type_) {
             case TestVolume::STORE_OP_PUT:
+            case TestVolume::STORE_OP_DUPLICATE:
                 {
                     boost::shared_ptr<std::string> data =
                             (volume->testdata_).dataset_map_[oid].getObjectData();

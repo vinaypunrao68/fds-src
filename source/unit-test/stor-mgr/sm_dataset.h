@@ -83,6 +83,7 @@ class TestDataset {
 /* Volume descriptor and behavior used for testing */
 class TestVolume {
   public:
+    TestVolume() : voldesc_("invalid", 0) {}
     TestVolume(fds_volid_t volume_id,
                std::string volname,
                FdsConfigAccessor &conf);
@@ -93,7 +94,8 @@ class TestVolume {
     typedef enum {
         STORE_OP_GET,
         STORE_OP_PUT,
-        STORE_OP_DELETE
+        STORE_OP_DELETE,
+        STORE_OP_DUPLICATE
     } StoreOpType;
     StoreOpType getOpTypeFromName(std::string& name);
 
@@ -127,6 +129,7 @@ TestVolume::StoreOpType
 TestVolume::getOpTypeFromName(std::string& name) {
     if (0 == name.compare(0, 3, "get")) return STORE_OP_GET;
     if (0 == name.compare(0, 3, "put")) return STORE_OP_PUT;
+    if (0 == name.compare(0, 3, "dup")) return STORE_OP_DUPLICATE;
     if (0 == name.compare(0, 6, "delete")) return STORE_OP_DELETE;
     fds_verify(false);
     return STORE_OP_GET;
