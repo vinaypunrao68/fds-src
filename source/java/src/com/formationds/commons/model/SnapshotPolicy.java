@@ -16,6 +16,8 @@ import javax.xml.bind.annotation.XmlRootElement;
 public class SnapshotPolicy
   extends ModelBase
 {
+  private static final long serialVersionUID = -1485532787782450871L;
+
   private long id;
   private String name;
   private RecurrenceRule recurrenceRule;

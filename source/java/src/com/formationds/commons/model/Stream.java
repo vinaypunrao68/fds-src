@@ -15,9 +15,8 @@ import java.util.List;
  */
 @XmlRootElement
 public class Stream
-  extends ModelBase
-{
-  private static final long serialVersionUID = -1;
+  extends ModelBase {
+  private static final long serialVersionUID = 7993943089545141923L;
 
   private int id;
   private URL url;
