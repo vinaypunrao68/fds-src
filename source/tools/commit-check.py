@@ -69,10 +69,9 @@ def do_check(top_level):
             # Ask if user would like to continue
             print "WARNING: There are {} new untracked changes!".format(len(diff))
             result = ''
-            while result.lower() != 'y' or result.lower() != 'n':
-                result = raw_input('Do you wish to proceed? [Y/n]')
-                if result.lower() == 'n':
-                    return -1
+            result = raw_input('Do you wish to proceed? [Y/n]')
+            if result.lower() == 'n':
+                return -1
 
         fh.close()
 
@@ -109,6 +108,5 @@ if __name__ == "__main__":
     if args.setup is not None and args.setup == True:
         do_setup(top_level)
     else:
-        print "FIRED!"
         do_check(top_level)
 
