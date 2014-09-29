@@ -18,10 +18,10 @@ public class Volume
   private static final long serialVersionUID = 7961922641732546048L;
 
   private String name;
-  private long limit;                    // maximum IOPS
-  private long sla;                      // minimum IOPS -- service level agreement
+  private Long limit;                    // maximum IOPS
+  private Long sla;                      // minimum IOPS -- service level agreement
   private String id;
-  private int priority;
+  private Integer priority;
   private Connector data_connector;
   private Usage current_usage;
 

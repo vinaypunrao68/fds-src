@@ -43,6 +43,7 @@ PlatformdNetSvc::mod_init(SysParams const *const p)
 {
     static Module *platd_net_deps[] = {
         &gl_PlatformdShmLib,
+        &gl_NodeWorkFlow,
         NULL
     };
     gl_NetPlatSvc   = this;

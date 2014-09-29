@@ -99,6 +99,23 @@ class NodeFunctional : public StateEntry
     virtual int st_handle(EventObj::pointer evt, StateObj::pointer cur) const override;
 };
 
+/**
+ * Common events to work item.
+ */
+struct NodeWrkEvent : public EventObj
+{
+    typedef bo::intrusive_ptr<NodeWrkEvent> ptr;
+
+    bool                     evt_run_act;
+    fpi::AsyncHdrPtr         evt_hdr;
+
+    NodeWrkEvent(int evt_id, fpi::AsyncHdrPtr hdr, bool act)
+        : EventObj(evt_id), evt_run_act(act), evt_hdr(hdr) {}
+};
+
+/**
+ * Base work item.
+ */
 class NodeWorkItem : public StateObj
 {
   public:
@@ -110,24 +127,47 @@ class NodeWorkItem : public StateObj
                  bo::intrusive_ptr<PmAgent> owner,
                  FsmTable::pointer tab, NodeWorkFlow *mod);
 
-    /* Generic action functions; provided by derrived class. */
-    virtual void act_node_down(bo::shared_ptr<fpi::NodeDown> msg);
-    virtual void act_node_started(bo::shared_ptr<fpi::NodeInfoMsg> msg);
-    virtual void act_node_qualify(bo::shared_ptr<fpi::NodeQualify> msg);
-    virtual void act_node_upgrade(bo::shared_ptr<fpi::NodeUpgrade> msg);
-    virtual void act_node_rollback(bo::shared_ptr<fpi::NodeUpgrade> msg);
-    virtual void act_node_integrate(bo::shared_ptr<fpi::NodeIntegrate> msg);
-    virtual void act_node_deploy(bo::shared_ptr<fpi::NodeDeploy> msg);
-    virtual void act_node_functional(bo::shared_ptr<fpi::NodeFunctional> msg);
+    /*
+     * Generic action functions; provided by derrived class.
+     */
+    virtual void act_node_down(NodeWrkEvent::ptr, bo::shared_ptr<fpi::NodeDown>);
+    virtual void act_node_started(NodeWrkEvent::ptr, bo::shared_ptr<fpi::NodeInfoMsg>);
+    virtual void act_node_qualify(NodeWrkEvent::ptr, bo::shared_ptr<fpi::NodeQualify>);
+    virtual void act_node_upgrade(NodeWrkEvent::ptr, bo::shared_ptr<fpi::NodeUpgrade>);
+    virtual void act_node_rollback(NodeWrkEvent::ptr, bo::shared_ptr<fpi::NodeUpgrade>);
 
-    /* Send data to the peer to notify the peer, provided by the framework. */
-    virtual void wrk_send_node_info(bo::shared_ptr<fpi::NodeInfoMsg> msg);
-    virtual void wrk_send_node_qualify(bo::shared_ptr<fpi::NodeQualify> msg);
-    virtual void wrk_send_node_upgrade(bo::shared_ptr<fpi::NodeUpgrade> msg);
-    virtual void wrk_send_node_integrate(bo::shared_ptr<fpi::NodeIntegrate> msg);
-    virtual void wrk_send_node_deploy(bo::shared_ptr<fpi::NodeDeploy> msg);
-    virtual void wrk_send_node_functional(bo::shared_ptr<fpi::NodeFunctional> msg);
-    virtual void wrk_send_node_down(bo::shared_ptr<fpi::NodeDown> msg);
+    virtual void
+    act_node_integrate(NodeWrkEvent::ptr, bo::shared_ptr<fpi::NodeIntegrate>);
+
+    virtual void
+    act_node_deploy(NodeWrkEvent::ptr, bo::shared_ptr<fpi::NodeDeploy>);
+
+    virtual void
+    act_node_functional(NodeWrkEvent::ptr, bo::shared_ptr<fpi::NodeFunctional>);
+
+    /*
+     * Send data to the peer to notify the peer, provided by the framework.
+     */
+    virtual void
+    wrk_send_node_info(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeInfoMsg>);
+
+    virtual void
+    wrk_send_node_qualify(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeQualify>);
+
+    virtual void
+    wrk_send_node_upgrade(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeUpgrade>);
+
+    virtual void
+    wrk_send_node_integrate(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeIntegrate>);
+
+    virtual void
+    wrk_send_node_deploy(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeDeploy>);
+
+    virtual void
+    wrk_send_node_functional(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeFunctional>);
+
+    virtual void
+    wrk_send_node_down(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeDown>);
 
   protected:
     fpi::SvcUuid                   wrk_peer_uuid;
@@ -136,14 +176,6 @@ class NodeWorkItem : public StateObj
     NodeWorkFlow                  *wrk_module;
 
     friend std::ostream &operator << (std::ostream &os, const NodeWorkItem::ptr);
-};
-
-typedef struct node_wrk_flow node_wrk_flow_t;
-struct node_wrk_flow
-{
-    int                            wrk_cur_item;
-    fpi::FDSPMsgTypeId             wrk_msg_in;
-    int                            wrk_nxt_item;
 };
 
 extern NodeWorkFlow          gl_NodeWorkFlow;
@@ -156,6 +188,7 @@ class NodeWorkFlow : public Module
 
     /* Singleton access. */
     static NodeWorkFlow *nd_workflow_sgt() { return &gl_NodeWorkFlow; }
+    static void wrk_item_assign(bo::intrusive_ptr<PmAgent> owner, NodeWorkItem::ptr wrk);
 
     /* Module methods. */
     int  mod_init(SysParams const *const param) override;
@@ -165,18 +198,23 @@ class NodeWorkFlow : public Module
 
     /* Factory method. */
     virtual void
-    wrk_item_create(fpi::SvcUuid                    &peer,
-                    bo::intrusive_ptr<PmAgent>       owner,
+    wrk_item_create(fpi::SvcUuid               &peer,
+                    bo::intrusive_ptr<PmAgent>  owner,
                     bo::intrusive_ptr<DomainContainer> domain);
 
     /* Entry to process network messages. */
-    void wrk_recv_node_info(bo::shared_ptr<fpi::NodeInfoMsg> msg);
-    void wrk_recv_node_qualify(bo::shared_ptr<fpi::NodeQualify> msg);
-    void wrk_recv_node_upgrade(bo::shared_ptr<fpi::NodeUpgrade> msg);
-    void wrk_recv_node_integrate(bo::shared_ptr<fpi::NodeIntegrate> msg);
-    void wrk_recv_node_deploy(bo::shared_ptr<fpi::NodeDeploy> msg);
-    void wrk_recv_node_functional(bo::shared_ptr<fpi::NodeFunctional> msg);
-    void wrk_recv_node_down(bo::shared_ptr<fpi::NodeDown> msg);
+    void wrk_recv_node_info(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeInfoMsg>);
+    void wrk_recv_node_qualify(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeQualify>);
+    void wrk_recv_node_upgrade(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeUpgrade>);
+    void wrk_recv_node_integrate(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeIntegrate>);
+    void wrk_recv_node_deploy(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeDeploy>);
+    void wrk_recv_node_functional(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeFunctional>);
+    void wrk_recv_node_down(fpi::AsyncHdrPtr, bo::shared_ptr<fpi::NodeDown>);
+
+    /* Dump state transitions. */
+    inline void wrk_dump_steps(std::stringstream *stt) {
+        wrk_fsm->st_dump_state_trans(stt);
+    }
 
   protected:
     FsmTable                               *wrk_fsm;
@@ -185,86 +223,91 @@ class NodeWorkFlow : public Module
 
     NodeWorkItem::ptr wrk_item_frm_uuid(fpi::DomainID &did, fpi::SvcUuid &svc, bool inv);
     void wrk_item_submit(fpi::DomainID &, fpi::SvcUuid &, EventObj::pointer);
+
+    virtual NodeWorkItem::ptr
+    wrk_item_alloc(fpi::SvcUuid                &peer,
+                   bo::intrusive_ptr<PmAgent>  owner,
+                   bo::intrusive_ptr<DomainContainer> domain);
 };
 
 /**
  * Events to change workflow items.
  */
-struct NodeWrkEvent : public EventObj
-{
-    bool                     evt_run_act;
-
-    NodeWrkEvent(int evt_id, bool act) : EventObj(evt_id), evt_run_act(act) {}
-};
-
 struct NodeInfoEvt : public NodeWrkEvent
 {
     bo::shared_ptr<fpi::NodeInfoMsg>    evt_msg;
 
-    NodeInfoEvt(bo::shared_ptr<fpi::NodeInfoMsg> msg, bool act = true)
-        : NodeWrkEvent(fpi::NodeInfoMsgTypeId, act), evt_msg(msg) {}
+    NodeInfoEvt(fpi::AsyncHdrPtr hdr,
+                bo::shared_ptr<fpi::NodeInfoMsg> msg, bool act = true)
+        : NodeWrkEvent(fpi::NodeInfoMsgTypeId, hdr, act), evt_msg(msg) {}
 
-    virtual void evt_name(std::ostream &os) const { os << "NodeInfo " << evt_msg; }
+    virtual void evt_name(std::ostream &os) const { os << " NodeInfo " << evt_msg; }
 };
 
 struct NodeQualifyEvt : public NodeWrkEvent
 {
     bo::shared_ptr<fpi::NodeQualify>    evt_msg;
 
-    NodeQualifyEvt(bo::shared_ptr<fpi::NodeQualify> msg, bool act = true)
-        : NodeWrkEvent(fpi::NodeQualifyTypeId, act), evt_msg(msg) {}
+    NodeQualifyEvt(fpi::AsyncHdrPtr hdr,
+                   bo::shared_ptr<fpi::NodeQualify> msg, bool act = true)
+        : NodeWrkEvent(fpi::NodeQualifyTypeId, hdr, act), evt_msg(msg) {}
 
-    virtual void evt_name(std::ostream &os) const { os << "NodeQualify " << evt_msg; }
+    virtual void evt_name(std::ostream &os) const { os << " NodeQualify " << evt_msg; }
 };
 
 struct NodeUpgradeEvt : public NodeWrkEvent
 {
     bo::shared_ptr<fpi::NodeUpgrade>    evt_msg;
 
-    NodeUpgradeEvt(bo::shared_ptr<fpi::NodeUpgrade> msg, bool act = true)
-        : NodeWrkEvent(fpi::NodeUpgradeTypeId, act), evt_msg(msg) {}
+    NodeUpgradeEvt(fpi::AsyncHdrPtr hdr,
+                   bo::shared_ptr<fpi::NodeUpgrade> msg, bool act = true)
+        : NodeWrkEvent(fpi::NodeUpgradeTypeId, hdr, act), evt_msg(msg) {}
 
-    virtual void evt_name(std::ostream &os) const { os << "NodeUpgrade " << evt_msg; }
+    virtual void evt_name(std::ostream &os) const { os << " NodeUpgrade " << evt_msg; }
 };
 
 struct NodeIntegrateEvt : public NodeWrkEvent
 {
     bo::shared_ptr<fpi::NodeIntegrate>  evt_msg;
 
-    NodeIntegrateEvt(bo::shared_ptr<fpi::NodeIntegrate> msg, bool act = true)
-        : NodeWrkEvent(fpi::NodeIntegrateTypeId, act), evt_msg(msg) {}
+    NodeIntegrateEvt(fpi::AsyncHdrPtr hdr,
+                     bo::shared_ptr<fpi::NodeIntegrate> msg, bool act = true)
+        : NodeWrkEvent(fpi::NodeIntegrateTypeId, hdr, act), evt_msg(msg) {}
 
-    virtual void evt_name(std::ostream &os) const { os << "NodeIntegrate " << evt_msg; }
+    virtual void evt_name(std::ostream &os) const { os << " NodeIntegrate " << evt_msg; }
 };
 
 struct NodeDeployEvt : public NodeWrkEvent
 {
     bo::shared_ptr<fpi::NodeDeploy>     evt_msg;
 
-    NodeDeployEvt(bo::shared_ptr<fpi::NodeDeploy> msg, bool act = true)
-        : NodeWrkEvent(fpi::NodeDeployTypeId, act), evt_msg(msg) {}
+    NodeDeployEvt(fpi::AsyncHdrPtr hdr,
+                  bo::shared_ptr<fpi::NodeDeploy> msg, bool act = true)
+        : NodeWrkEvent(fpi::NodeDeployTypeId, hdr, act), evt_msg(msg) {}
 
-    virtual void evt_name(std::ostream &os) const { os << "NodeDeploy " << evt_msg; }
+    virtual void evt_name(std::ostream &os) const { os << " NodeDeploy " << evt_msg; }
 };
 
 struct NodeFunctionalEvt : public NodeWrkEvent
 {
     bo::shared_ptr<fpi::NodeFunctional> evt_msg;
 
-    NodeFunctionalEvt(bo::shared_ptr<fpi::NodeFunctional> msg, bool act = true)
-        : NodeWrkEvent(fpi::NodeFuncTypeId, act), evt_msg(msg) {}
+    NodeFunctionalEvt(fpi::AsyncHdrPtr hdr,
+                      bo::shared_ptr<fpi::NodeFunctional> msg, bool act = true)
+        : NodeWrkEvent(fpi::NodeFuncTypeId, hdr, act), evt_msg(msg) {}
 
-    virtual void evt_name(std::ostream &os) const { os << "NodeFunct " << evt_msg; }
+    virtual void evt_name(std::ostream &os) const { os << " NodeFunct " << evt_msg; }
 };
 
 struct NodeDownEvt : public NodeWrkEvent
 {
     bo::shared_ptr<fpi::NodeDown>    evt_msg;
 
-    NodeDownEvt(bo::shared_ptr<fpi::NodeDown> msg, bool act = true)
-        : NodeWrkEvent(fpi::NodeDownTypeId, act), evt_msg(msg) {}
+    NodeDownEvt(fpi::AsyncHdrPtr hdr,
+                bo::shared_ptr<fpi::NodeDown> msg, bool act = true)
+        : NodeWrkEvent(fpi::NodeDownTypeId, hdr, act), evt_msg(msg) {}
 
-    virtual void evt_name(std::ostream &os) const { os << "NodeDown " << evt_msg; }
+    virtual void evt_name(std::ostream &os) const { os << " NodeDown " << evt_msg; }
 };
 
 }  // namespace fds
