@@ -7,11 +7,13 @@ user_incl_dir     += \
     $(topdir)/fds-probe/include \
 	$(topdir)/platform/include \
 	$(topdir)/am-app/include \
-    $(topdir)/am-engine
+    $(topdir)/am-engine \
+    $(topdir)
 
 user_cpp_flags    +=
 user_fds_so_libs  +=
 user_fds_ar_libs  +=  \
+    fds-test \
     fds-probe-ut \
     fds-plat-daemon \
     fds-probe \
@@ -20,7 +22,8 @@ user_fds_ar_libs  +=  \
     fds-dsk-io \
     fds-dsk-mgnt \
     fds-plat-disk \
-    fds-hash
+    fds-hash \
+    fds-xdi
 
 local_nginx_libs   :=  \
     ngx-http-module \

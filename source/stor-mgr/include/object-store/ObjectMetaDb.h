@@ -12,8 +12,7 @@
 #include <concurrency/RwLock.h>
 #include <ObjMeta.h>
 #include <odb.h>
-
-#define SM_TOKEN_MASK 0x000000ff
+#include <object-store/SmDiskMap.h>
 
 namespace fds {
 
@@ -31,6 +30,12 @@ class ObjectMetadataDb {
     ~ObjectMetadataDb();
 
     typedef std::unique_ptr<ObjectMetadataDb> unique_ptr;
+
+    /**
+     * Opens object metadata DB
+     * @param[in] diskMap map of SM tokens to disks
+     */
+    Error openMetadataDb(const SmDiskMap::const_ptr& diskMap);
 
     /**
      * Set number of bits per (global) token
@@ -74,15 +79,24 @@ class ObjectMetadataDb {
     Error remove(fds_volid_t volId,
                  const ObjectID& objId);
 
+    /**
+     * Returns snapshot of metadata DB for a given SM token
+     */
+    void snapshot(fds_token_id smTokId,
+                  leveldb::DB*& db,
+                  leveldb::ReadOptions& opts);
+
   private:  // methods
-     inline fds_token_id getDbId(const fds_token_id &tokId) const {
-         return tokId & SM_TOKEN_MASK;
-     }
-     void closeObjectDB(fds_token_id tokId);
-     /**
-      *  Returns object metadata DB, if it does not exist, creates it
-      */
-     osm::ObjectDB *getObjectDB(fds_token_id tokId);
+    /**
+     * Open object metadata DB for a given SM token
+     */
+    Error openObjectDb(fds_token_id smTokId,
+                       const std::string& diskPath);
+    osm::ObjectDB *getObjectDB(const ObjectID& objId);
+    /**
+     * Closes object metadata DB for a given SM token
+     */
+    void closeObjectDB(fds_token_id smTokId);
 
   private:  // data
      std::unordered_map<fds_token_id, osm::ObjectDB *> tokenTbl;

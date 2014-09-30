@@ -79,7 +79,8 @@ class FdsNodeConfig(FdsConfig):
 
         print "Installing FDS package to:", self.nd_host_name()
         pkg = inst.FdsPackage(self.nd_rmt_agent)
-        status = pkg.package_install(self.nd_rmt_agent, self.nd_local_env.get_pkg_tar())
+        tar = self.nd_local_env.get_pkg_tar()
+        status = pkg.package_install(self.nd_rmt_agent, tar)
 
         return status
 
@@ -599,7 +600,7 @@ class FdsConfigRun(object):
 
         self.rt_env = env
         if self.rt_env is None:
-            self.rt_env = inst.FdsEnv(opt.fds_root, opt.install, opt.fds_source_dir)
+            self.rt_env = inst.FdsEnv(opt.fds_root, opt.clus_inst, opt.fds_source_dir)
 
         self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
         self.rt_obj.config_parse()

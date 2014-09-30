@@ -32,6 +32,12 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
     void setNumBitsPerToken(fds_uint32_t nbits);
 
     /**
+     * Opens object metadata store
+     * @param[in] map of SM tokens to disks
+     */
+    Error openMetadataStore(const SmDiskMap::const_ptr& diskMap);
+
+    /**
      * Retrieves metadata for given object with ID 'objId'
      * @return ERR_OK on success
      */

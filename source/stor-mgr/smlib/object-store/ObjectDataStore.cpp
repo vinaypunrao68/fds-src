@@ -161,6 +161,7 @@ ObjectDataStore::mod_init(SysParams const *const p) {
     Module::mod_init(p);
     diskMgr = &(diskio::DataIO::disk_singleton());
     dataCache->mod_init(p);
+    LOGDEBUG << "Done.";
     return 0;
 }
 

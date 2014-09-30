@@ -41,6 +41,9 @@ typedef netClientSessionEx<fpi::FDSP_OMControlPathReqClient,
         fpi::FDSP_OMControlPathRespIf> netOMControlPathClientSession;
 
 namespace fds {
+namespace apis {
+    class ConfigurationServiceClient;
+}
 struct node_data;
 struct node_stor_cap;
 class ShmObjRO;
@@ -346,11 +349,14 @@ class OmAgent : public NodeAgent
                  std::string                      om_ip,
                  fds_uint32_t                     om_port);
 
+    boost::shared_ptr<apis::ConfigurationServiceClient> get_om_config_svc();
+
   protected:
     netOMControlPathClientSession *om_sess;        /** the rpc session to OM.  */
     NodeAgentCpOmClientPtr         om_reqt;        /**< handle to send reqt to OM.  */
     std::string                    om_sess_id;
     boost::intrusive_ptr<OmSvcEp>  om_ep_svc;
+    boost::shared_ptr<apis::ConfigurationServiceClient> om_cfg_svc;
 
     virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
 };
