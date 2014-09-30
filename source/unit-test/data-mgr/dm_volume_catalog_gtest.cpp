@@ -2,28 +2,6 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-/*
-#include <unistd.h>
-#include <stdlib.h>
-
-
-#include <boost/shared_ptr.hpp>
-
-#include <leveldb/write_batch.h>
-
-#include <fds_types.h>
-#include <Catalog.h>
-#include <ObjectId.h>
-#include <fds_process.h>
-#include <util/timeutils.h>
-#include <dm-platform.h>
-#include <DataMgr.h>
-#include <dm-vol-cat/DmVolumeCatalog.h>
-
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-*/
-
 #include <dm_gtest.h>
 
 #include <vector>
@@ -55,6 +33,11 @@ void DmVolumeCatalogTest::SetUp() {
     volcat->registerExpungeObjectsCb(&expungeObjects);
 
     generateVolumes(volumes);
+
+    for (auto it : volumes) {
+        volcat->addCatalog(*it);
+        volcat->activateCatalog(it->volUUID);
+    }
 }
 
 void DmVolumeCatalogTest::testPutBlob(fds_volid_t volId,
