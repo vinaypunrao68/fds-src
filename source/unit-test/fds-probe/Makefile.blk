@@ -30,6 +30,8 @@ user_non_fds_libs +=  \
     jansson \
     fuse \
     thrift \
-    config++
+    config++ \
+    fiu \
+    dl
 
 include $(topdir)/Makefile.incl

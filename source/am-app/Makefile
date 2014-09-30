@@ -48,7 +48,9 @@ user_non_fds_libs :=  \
     hiredis \
     event \
 	rt \
-    $(user_nginx_libs)
+    $(user_nginx_libs) \
+    fiu \
+    dl
 
 user_cc           :=  \
     ngx_modules.c

@@ -252,10 +252,12 @@ bool PlatNetSvcHandler::setFault(boost::shared_ptr<std::string>& cmdline)
     std::cout << "cmd: " << cmd << " name: " << name << std::endl;
     if (cmd == "enable") {
         fiu_enable(name.c_str(), 1, NULL, 0);
+        LOGDEBUG << "Enable fault: " << name;
     } else if (cmd == "enable_random") {
         // TODO(Rao): add support for this
     } else if (cmd == "disable") {
         fiu_disable(name.c_str());
+        LOGDEBUG << "Disable fault: " << name;
     }
     return true;
 }
