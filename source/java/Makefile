@@ -37,4 +37,4 @@ compile:
 .PHONY: test
 
 test:
-	@mvn -Dproject.build.dir=$(comm_dir_lib)/java test
+	@mvn -Dproject.build.dir=$(topdir)/cit test
