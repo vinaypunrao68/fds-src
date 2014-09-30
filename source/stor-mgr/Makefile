@@ -33,6 +33,7 @@ user_fds_ar_libs  :=                   \
     fds-hash \
     fds-migrations \
     fds-net-svc \
+    fds-xdi
 
 user_non_fds_libs := \
     boost_timer \

@@ -14,6 +14,7 @@ user_fds_ar_libs  := \
     fds-dm-lib \
     fds-dsk-mgnt \
     fds-net-svc \
+    fds-xdi
 
 user_non_fds_libs := \
     leveldb \
