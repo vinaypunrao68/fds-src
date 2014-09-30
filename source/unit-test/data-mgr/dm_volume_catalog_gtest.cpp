@@ -48,7 +48,7 @@ void DmVolumeCatalogTest::testPutBlob(fds_volid_t volId,
     Error rc = volcat->putBlob(volId, blob->name, blob->metaList, blob->objList, txId);
     fds_uint64_t endTs = util::getTimeStampNanos();
     putCounter->update(endTs - startTs);
-    taskCount--;
+    if (taskCount) taskCount--;
     EXPECT_TRUE(rc.ok());
 }
 
@@ -62,7 +62,7 @@ void DmVolumeCatalogTest::testGetBlob(fds_volid_t volId, const std::string blobN
     Error rc = volcat->getBlob(volId, blobName, 0, &version, &metaList, &objList);
     fds_uint64_t endTs = util::getTimeStampNanos();
     getCounter->update(endTs - startTs);
-    taskCount--;
+    if (taskCount) taskCount--;
     EXPECT_TRUE(rc.ok());
 }
 
@@ -73,12 +73,16 @@ void DmVolumeCatalogTest::testDeleteBlob(fds_volid_t volId, const std::string bl
     Error rc = volcat->deleteBlob(volId, blobName, version);
     fds_uint64_t endTs = util::getTimeStampNanos();
     deleteCounter->update(endTs - startTs);
-    taskCount--;
+    if (taskCount) taskCount--;
     EXPECT_TRUE(rc.ok());
 }
 
 void DmVolumeCatalogTest::TearDown() {
     volcat.reset();
+
+    putCounter->reset();
+    getCounter->reset();
+    deleteCounter->reset();
 
     if (!NO_DELETE) {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
@@ -88,6 +92,33 @@ void DmVolumeCatalogTest::TearDown() {
         oss << "rm -rf " << root->dir_user_repo_dm() << "*";
         int rc = system(oss.str().c_str());
         ASSERT_EQ(0, rc);
+    }
+}
+
+TEST_F(DmVolumeCatalogTest, copy_volume) {
+    std::vector<boost::shared_ptr<VolumeDesc> > snapshots;
+    generateVolumes(snapshots);
+
+    for (fds_uint32_t i = 0; i < NUM_VOLUMES; ++i) {
+        boost::shared_ptr<const BlobDetails> blob(new BlobDetails());
+        testPutBlob(volumes[i]->volUUID, blob);
+
+        snapshots[i]->fSnapshot = true;
+        snapshots[i]->srcVolumeId = volumes[i]->volUUID;
+
+        Error rc = volcat->copyVolume(*snapshots[i]);
+        EXPECT_TRUE(rc.ok());
+
+        rc = volcat->activateCatalog(snapshots[i]->volUUID);
+        EXPECT_TRUE(rc.ok());
+
+        fds_uint64_t size = 0;
+        fds_uint64_t blobCount = 0;
+        fds_uint64_t objCount = 0;
+        rc = volcat->getVolumeMeta(snapshots[i]->volUUID, &size, &blobCount, &objCount);
+        EXPECT_TRUE(rc.ok());
+        EXPECT_EQ(blobCount, 1);
+        EXPECT_EQ(size, blobCount * BLOB_SIZE);
     }
 }
 

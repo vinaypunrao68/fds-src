@@ -42,6 +42,7 @@ static const fds_uint32_t NUM_TAGS = 10;
 static fds_bool_t PUTS_ONLY = false;
 static fds_bool_t NO_DELETE = false;
 
+static std::atomic<fds_uint32_t> volCount;
 static std::atomic<fds_uint32_t> blobCount;
 static std::atomic<fds_uint64_t> txCount;
 
@@ -117,7 +118,7 @@ void generateVolumes(std::vector<boost::shared_ptr<VolumeDesc> > & volumes) {
     for (fds_uint32_t i = 1; i <= NUM_VOLUMES; ++i) {
         std::string name = "test" + std::to_string(i);
 
-        boost::shared_ptr<VolumeDesc> vdesc(new VolumeDesc(name, i));
+        boost::shared_ptr<VolumeDesc> vdesc(new VolumeDesc(name, ++volCount));
 
         vdesc->tennantId = i;
         vdesc->localDomainId = i;
