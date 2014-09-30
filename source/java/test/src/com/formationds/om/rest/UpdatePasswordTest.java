@@ -1,3 +1,10 @@
+package com.formationds.om.rest;
+
+import com.formationds.apis.User;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.AuthenticationTokenTest;
+import com.formationds.security.Authorizer;
+import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.ConfigurationApi;
 import com.google.common.collect.Lists;
 import org.junit.Before;
