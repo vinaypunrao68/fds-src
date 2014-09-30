@@ -9,6 +9,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
+#include <platform/node-workflow.h>
 #include <net-platform.h>
 #include <net/PlatNetSvcHandler.h>
 
@@ -23,21 +24,12 @@ PlatformdNetSvc              gl_PlatformdNetSvc("platformd net");
 static EpPlatformdMod        gl_PlatformdShmLib("Platformd Shm Lib");
 
 PlatformdNetSvc::~PlatformdNetSvc() {}
-PlatformdNetSvc::PlatformdNetSvc(const char *name) : NetPlatSvc(name)
-{
-    static Module *platd_net_deps[] = {
-        &gl_PlatformdShmLib,
-        NULL
-    };
-    gl_NetPlatSvc   = this;
-    gl_EpShmPlatLib = &gl_PlatformdShmLib;
-    mod_intern = platd_net_deps;
-}
+PlatformdNetSvc::PlatformdNetSvc(const char *name) : NetPlatSvc(name) {}
 
 // ep_shm_singleton
 // ----------------
 //
-/*  static */ EpPlatformdMod *
+/* static */ EpPlatformdMod *
 EpPlatformdMod::ep_shm_singleton()
 {
     return &gl_PlatformdShmLib;
@@ -49,7 +41,19 @@ EpPlatformdMod::ep_shm_singleton()
 int
 PlatformdNetSvc::mod_init(SysParams const *const p)
 {
-    return NetPlatSvc::mod_init(p);
+    static Module *platd_net_deps[] = {
+        &gl_PlatformdShmLib,
+        &gl_NodeWorkFlow,
+        NULL
+    };
+    gl_NetPlatSvc   = this;
+    gl_EpShmPlatLib = &gl_PlatformdShmLib;
+
+    /* Init the same code as NetPlatSvc::mod_init()  */
+    netmgr          = NetMgr::ep_mgr_singleton();
+    plat_lib        = Platform::platf_singleton();
+    mod_intern      = platd_net_deps;
+    return Module::mod_init(p);
 }
 
 // mod_startup
@@ -58,6 +62,9 @@ PlatformdNetSvc::mod_init(SysParams const *const p)
 void
 PlatformdNetSvc::mod_startup()
 {
+    Platform          *plat;
+    NodeWorkFlow      *work;
+    fpi::SvcUuid       om;
     fpi::NodeInfoMsg   msg;
 
     Module::mod_startup();
@@ -76,6 +83,11 @@ PlatformdNetSvc::mod_startup()
     plat_self->init_plat_info_msg(&msg);
     nplat_register_node(&msg, plat_self);
 
+    gl_OmUuid.uuid_assign(&om);
+    plat = Platform::platf_singleton();
+    work = NodeWorkFlow::nd_workflow_sgt();
+    work->wrk_item_create(om, plat_self, plat->plf_node_inventory());
+
     plat_master->init_om_pm_info_msg(&msg);
     nplat_register_node(&msg, plat_master);
 
@@ -90,7 +102,6 @@ PlatformdNetSvc::mod_startup()
 void
 PlatformdNetSvc::mod_enable_service()
 {
-    // netmgr->ep_register(plat_ctrl_ep, false);
     NetPlatSvc::mod_enable_service();
 }
 
@@ -254,8 +265,8 @@ PlatAgent::pda_register()
     node_data_t             rec;
     fpi::NodeInfoMsg        msg;
     ShmObjRWKeyUint64      *shm;
-    NodeAgent::pointer      agent;
-    DomainNodeInv::pointer  local;
+    NodeAgent::pointer        agent;
+    DomainContainer::pointer  local;
 
     this->init_plat_info_msg(&msg);
     this->node_info_msg_to_shm(&msg, &rec);

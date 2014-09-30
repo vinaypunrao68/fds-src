@@ -10,12 +10,9 @@
 #include <fds_module.h>
 #include <dlt.h>
 #include <persistent_layer/dm_io.h>
-#include <object-store/SmTokenPlacement.h>
+#include <object-store/SmSuperblock.h>
 
 namespace fds {
-
-typedef std::set<fds_uint16_t> DiskIdSet;
-typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
 
 /*
  * SmDiskMap keeps track of data and metadata SM token layout
@@ -27,6 +24,8 @@ class SmDiskMap : public Module, public boost::noncopyable {
     ~SmDiskMap();
 
     typedef std::unique_ptr<SmDiskMap> unique_ptr;
+    typedef std::shared_ptr<SmDiskMap> ptr;
+    typedef std::shared_ptr<const SmDiskMap> const_ptr;
 
     /**
      * Updates SM token on-disk location table.
@@ -34,7 +33,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * of SM tokens by this SM, will assert otherwise. This will
      * change when we port back SM token migration
      */
-    void handleNewDlt(const DLT* dlt);
+    Error handleNewDlt(const DLT* dlt);
 
     /**
      * Translation from token or object ID to SM token ID
@@ -42,7 +41,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
     static fds_token_id smTokenId(fds_token_id tokId);
     static fds_token_id smTokenId(const ObjectID& objId,
                                   fds_uint32_t bitsPerToken);
-    fds_token_id smTokenId(const ObjectID& objId);
+    fds_token_id smTokenId(const ObjectID& objId) const;
 
     /**
      * Return a set of SM tokens that this SM currently owns
@@ -54,15 +53,15 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * resides on a given tier.
      */
     fds_uint16_t getDiskId(const ObjectID& objId,
-                           diskio::DataTier tier);
+                           diskio::DataTier tier) const;
     fds_uint16_t getDiskId(fds_token_id smTokId,
-                           diskio::DataTier tier);
+                           diskio::DataTier tier) const;
 
     /**
      * Get the root path to disk for a given SM token and tier
      */
-    const char* getDiskPath(fds_token_id smTokId,
-                            diskio::DataTier tier);
+    std::string getDiskPath(fds_token_id smTokId,
+                            diskio::DataTier tier) const;
 
     /**
      * Module methods
@@ -88,6 +87,13 @@ class SmDiskMap : public Module, public boost::noncopyable {
     DiskIdSet  ssd_ids;
     /// set of disk IDs of existing HDD devices
     DiskIdSet hdd_ids;
+
+    /// Superblock caches and persists SM token info
+    SmSuperblock::unique_ptr superblock;
+
+    /// if true, test mode where we assume no contact with
+    /// platform, and use SM service uuid = 1
+    fds_bool_t test_mode;
 };
 
 }  // namespace fds

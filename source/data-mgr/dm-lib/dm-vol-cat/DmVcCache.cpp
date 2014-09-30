@@ -6,6 +6,7 @@
 #include <vector>
 #include <list>
 #include <utility>
+#include <fds_process.h>
 #include <dm-vol-cat/DmVcCache.h>
 
 namespace fds {
@@ -14,6 +15,9 @@ DmCacheVolCatalog::DmCacheVolCatalog(const std::string &modName)
         : Module(modName.c_str()) {
     volCacheMgr = std::unique_ptr<VolumeBlobCacheManager>(
         new VolumeBlobCacheManager("DM Volume cache manager"));
+
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.dm.");
+    maxEntries = conf.get<fds_uint32_t>("cache.default_max_entries");
 }
 
 DmCacheVolCatalog::~DmCacheVolCatalog() {
@@ -47,6 +51,8 @@ DmCacheVolCatalog::getExtent(fds_volid_t volume_id,
                              Error& error) {
     LOGTRACE << "Cache lookup extent " << extent_id << " for "
              << std::hex << volume_id << std::dec << "," << blob_name;
+
+    SCOPEDREAD(dmCacheRwLock);
 
     // Lookup extent key 0
     ExtentKey eKey(blob_name, extent_id);
@@ -122,6 +128,7 @@ DmCacheVolCatalog::putExtents(fds_volid_t volume_id,
                            new BlobExtent(
                                *((*cit).get()))));
     }
+    SCOPEDWRITE(dmCacheRwLock);
     volCacheMgr->addBatch(volume_id, extentPairPtrs);
 
     return ERR_OK;
@@ -132,6 +139,7 @@ DmCacheVolCatalog::removeExtent(fds_volid_t volume_id,
                                 const std::string& blob_name,
                                 fds_extent_id extent_id) {
     ExtentKey key(blob_name, extent_id);
+    SCOPEDWRITE(dmCacheRwLock);
     return volCacheMgr->remove(volume_id, key);
 }
 

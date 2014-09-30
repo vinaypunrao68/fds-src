@@ -7,7 +7,7 @@ user_thrift       := $(topdir)/fdsp/FDSP.thrift $(topdir)/apis/apis.thrift $(top
 user_thrift_flag  := -r --gen java
 
 user_postdep      := compile
-user_install      := orchMgr xdiSmokeTest AMAgent genkey
+user_install      := orchMgr AMAgent genkey
 user_install_loc  := exe
 user_clean        := \
 	target \
@@ -26,9 +26,15 @@ compile:
 	@rm -rf $(comm_dir_lib)/admin-webapp
 	@mkdir -p $(comm_dir_lib)/java/
 	@mvn install -f thrift-pom.xml
-	@mvn -DskipTests assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
+	@mvn -Dmaven.test.skip=true assembly:directory -Dproject.build.dir=$(comm_dir_lib)/java
 	@mkdir $(comm_dir_lib)/admin-webapp
 	#@cd admin-webapp; npm install; npm install bower; CI=true node_modules/bower/bin/bower install; node_modules/grunt-cli/bin/grunt release
 	@cd admin-webapp; npm install; CI=true node_modules/bower/bin/bower install; node_modules/grunt-cli/bin/grunt release
 	@cp -r admin-webapp/app/* $(comm_dir_lib)/admin-webapp
 	@cp -r demo $(comm_dir_lib)
+	@cp smokeTest $(main_dir_tools)
+
+.PHONY: test
+
+test:
+	@mvn -Dproject.build.dir=$(topdir)/cit test

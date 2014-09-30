@@ -186,6 +186,7 @@ VolCatProbe::getBlob(const OpParams& getParams) {
     std::cout << "Will call getBlob for " << getParams.blob_name << std::endl;
     err = gl_DmVolCatMod.getBlob(getParams.vol_id,
                                  getParams.blob_name,
+                                 *offsets.begin(),
                                  &blob_version,
                                  &meta_list, &obj_list);
 

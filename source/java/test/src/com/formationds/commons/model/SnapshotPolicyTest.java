@@ -7,27 +7,27 @@ package com.formationds.commons.model;
 
 import com.formationds.commons.model.builder.RecurrenceRuleBuilder;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.commons.model.type.iCalFields;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class SnapshotPolicyTest {
     @Test
     public void createTest() {
+      final Long id = 1L;
         final SnapshotPolicy policy = new SnapshotPolicy();
-      final long retention = System.currentTimeMillis() / 1000;
+      final Long retention = System.currentTimeMillis() / 1000;
 
-      policy.setId(1);
+      policy.setId( id );
       policy.setName(String.format("snapshot policy name %d", 1));
       policy.setRecurrenceRule(
-        new RecurrenceRuleBuilder().withFrequency( iCalFields.DAILY )
+        new RecurrenceRuleBuilder().withFrequency( "DAILY" )
                                    .withCount( 10 )
                                    .build() );
       policy.setRetention( retention );
 
       System.out.println(policy.toString());
 
-      Assert.assertEquals("Id don't match", policy.getId(), 1);
+      Assert.assertEquals("Id don't match", policy.getId(), id );
       Assert.assertEquals("Name don't match", policy.getName(),
                           "" + "snapshot policy name 1");
       Assert.assertEquals( policy.getRecurrenceRule().toString(),

@@ -16,21 +16,27 @@ ObjectStore::ObjectStore(const std::string &modName,
         : Module(modName.c_str()),
           volumeTbl(volTbl),
           conf_verify_data(true),
-          numBitsPerToken(0) {
-    dataStore = ObjectDataStore::unique_ptr(
-        new ObjectDataStore("SM Object Data Storage Module"));
+          numBitsPerToken(0),
+          diskMap(new SmDiskMap("SM Disk Map Module")),
+          dataStore(new ObjectDataStore("SM Object Data Storage Module")),
+          metaStore(new ObjectMetadataStore(
+              "SM Object Metadata Storage Module")) {
 }
 
 ObjectStore::~ObjectStore() {
 }
 
 void
-ObjectStore::setNumBitsPerToken(fds_uint32_t nbits) {
-    if (metaStore) {
-        metaStore->setNumBitsPerToken(nbits);
-    } else {
-        numBitsPerToken = nbits;
-    }
+ObjectStore::handleNewDlt(const DLT* dlt) {
+    fds_uint32_t nbits = dlt->getNumBitsForToken();
+    metaStore->setNumBitsPerToken(nbits);
+
+    Error err = diskMap->handleNewDlt(dlt);
+    fds_verify(err.ok());
+
+    // open metadata store for tokens owned by this SM
+    err = metaStore->openMetadataStore(diskMap);
+    fds_verify(err.ok());
 }
 
 Error
@@ -305,11 +311,15 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
  */
 int
 ObjectStore::mod_init(SysParams const *const p) {
+    static Module *objStoreDepMods[] = {
+        diskMap.get(),
+        dataStore.get(),
+        metaStore.get(),
+        NULL
+    };
+    mod_intern = objStoreDepMods;
     Module::mod_init(p);
 
-    dataStore->mod_init(p);
-
-    const FdsRootDir *fdsroot = g_fdsprocess->proc_fdsroot();
     conf_verify_data = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.data_verify");
     taskSyncSize =
             g_fdsprocess->get_fds_config()->get<fds_uint32_t>(
@@ -317,11 +327,7 @@ ObjectStore::mod_init(SysParams const *const p) {
     taskSynchronizer = std::unique_ptr<HashedLocks<ObjectID, ObjectHash>>(
         new HashedLocks<ObjectID, ObjectHash>(taskSyncSize));
 
-    metaStore = ObjectMetadataStore::unique_ptr(
-        new ObjectMetadataStore("SM Object Metadata Storage Module"));
-    if (numBitsPerToken > 0) {
-        metaStore->setNumBitsPerToken(numBitsPerToken);
-    }
+    LOGDEBUG << "Done";
     return 0;
 }
 

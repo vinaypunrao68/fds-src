@@ -12,8 +12,8 @@ public enum IdentityType
   // Global Solution Administrator
   ADMIN,
   // TODO allows for each tenant to administer their users
-//  TENANT,
-  // Tenant User
+  // Tenant Administrator
+  TENANT,
   USER,
   UNKNOWN;
 

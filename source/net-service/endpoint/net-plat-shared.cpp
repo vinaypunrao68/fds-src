@@ -24,12 +24,8 @@ NetPlatform                 *gl_NetPlatSvc = &gl_NetPlatform;
  */
 NetPlatform::NetPlatform(const char *name) : Module(name)
 {
-    static Module *net_plat_deps[] = {
-        NULL
-    };
     netmgr     = NULL;
     plat_lib   = NULL;
-    mod_intern = net_plat_deps;
 }
 
 NetPlatSvc::~NetPlatSvc() {}
@@ -45,8 +41,12 @@ NetPlatSvc::NetPlatSvc(const char *name) : NetPlatform(name)
 int
 NetPlatSvc::mod_init(SysParams const *const p)
 {
-    netmgr   = NetMgr::ep_mgr_singleton();
-    plat_lib = Platform::platf_singleton();
+    static Module *net_plat_deps[] = {
+        NULL
+    };
+    mod_intern = net_plat_deps;
+    netmgr     = NetMgr::ep_mgr_singleton();
+    plat_lib   = Platform::platf_singleton();
     return Module::mod_init(p);
 }
 
@@ -155,7 +155,7 @@ NetPlatSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
     node_data_t             rec;
     ep_map_rec_t            map;
     NodeAgent::pointer      agent;
-    DomainNodeInv::pointer  local;
+    DomainContainer::pointer  local;
 
     NodeInventory::node_info_msg_to_shm(msg, &rec);
     EpPlatLibMod::ep_node_info_to_mapping(&rec, &map);
@@ -243,8 +243,8 @@ DomainAgent::pda_register()
     node_data_t             rec;
     fds_uint64_t            uid;
     ShmObjROKeyUint64      *shm;
-    NodeAgent::pointer      agent;
-    DomainNodeInv::pointer  local;
+    NodeAgent::pointer        agent;
+    DomainContainer::pointer  local;
 
     uid = rs_uuid.uuid_get_val();
     shm = NodeShmCtrl::shm_node_inventory();

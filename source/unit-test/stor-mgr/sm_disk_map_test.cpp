@@ -20,6 +20,8 @@
 #include <FdsRandom.h>
 #include <object-store/SmDiskMap.h>
 
+#include <sm_ut_utils.h>
+
 /**
  * Unit test for SmDiskMap class
  */
@@ -29,77 +31,74 @@ namespace fds {
 class SmDiskMapUtProc : public FdsProcess {
   public:
     SmDiskMapUtProc(int argc, char * argv[], const std::string & config,
-                    const std::string & basePath, Module * vec[]);
-    virtual ~SmDiskMapUtProc() {}
-    virtual int run() override;
+                    const std::string & basePath, Module * vec[]) {
+        init(argc, argv, config, basePath, "smdiskmap_ut.log", vec);
+    }
 
-    Error startDiskMap();
-    Error shutdownDiskMap();
-
-  private:
-     /* helper methods */
-    void populateDlt(DLT* dlt);
-
-    SmDiskMap::unique_ptr smDiskMap;
+    virtual int run() override {
+        return 0;
+    }
 };
-SmDiskMapUtProc* diskMapProc = NULL;
 
-SmDiskMapUtProc::SmDiskMapUtProc(int argc, char * argv[], const std::string & config,
-                                 const std::string & basePath, Module * vec[]) {
-    smDiskMap = fds::SmDiskMap::unique_ptr(
-        new fds::SmDiskMap("Test SM Disk Map"));
-    LOGNORMAL << "Will test Sm Disk Map";
-
-    fds::Module *smVec[] = {
-        smDiskMap.get(),
-        nullptr
-    };
-    init(argc, argv, config, basePath, "smdiskmap_ut.log", vec);
-}
-
-void
-SmDiskMapUtProc::populateDlt(DLT* dlt) {
-}
-
-int
-SmDiskMapUtProc::run() {
-    return 0;
-}
-
-Error
-SmDiskMapUtProc::startDiskMap() {
+SmDiskMap::ptr
+loadDiskMap(fds_uint32_t sm_count) {
     Error err(ERR_OK);
-    smDiskMap->mod_startup();
+    SmDiskMap::ptr smDiskMap(new SmDiskMap("Test SM Disk Map"));
+    smDiskMap->mod_init(NULL);
 
-    DLT* dlt = new DLT(16, 4, 1, true);
+    fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
+    DLT* dlt = new DLT(10, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    GLOGDEBUG << "Using DLT: " << *dlt;
     smDiskMap->handleNewDlt(dlt);
 
     // we don't need dlt anymore
     delete dlt;
 
-    return err;
+    return smDiskMap;
 }
 
-Error
-SmDiskMapUtProc::shutdownDiskMap() {
+void
+printSmTokens(const SmDiskMap::const_ptr& smDiskMap) {
+    SmTokenSet smToks = smDiskMap->getSmTokens();
+    for (SmTokenSet::const_iterator cit = smToks.cbegin();
+         cit != smToks.cend();
+         ++cit) {
+        GLOGDEBUG << "Token " << *cit << " disk path: "
+                  << smDiskMap->getDiskPath(*cit, diskio::diskTier);
+    }
+}
+
+TEST(SmDiskMap, basic) {
     Error err(ERR_OK);
-    smDiskMap->mod_shutdown();
-    return err;
+    fds_uint32_t sm_count = 1;
+
+    // start clean
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    SmUtUtils::cleanFdsDev(dir);
+
+    SmDiskMap::ptr smDiskMap = loadDiskMap(sm_count);
+    printSmTokens(smDiskMap);
 }
 
 TEST(SmDiskMap, up_down) {
     Error err(ERR_OK);
-    //    diskMapProc.main();
-    err = diskMapProc->startDiskMap();
-    err = diskMapProc->shutdownDiskMap();
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+
+    // bring up with different number of SMs
+    // each time from clean state
+    for (fds_uint32_t i = 1; i < 300; i+=24) {
+        // start clean
+        SmUtUtils::cleanFdsDev(dir);
+        SmDiskMap::ptr smDiskMap = loadDiskMap(i);
+    }
 }
 
 }  // namespace fds
 
 int main(int argc, char * argv[]) {
-    fds::diskMapProc = new fds::SmDiskMapUtProc(argc, argv,
-                                                "sm_ut.conf", "fds.diskmap_ut.", NULL);
-
+    fds::SmDiskMapUtProc diskMapProc(argc, argv, "sm_ut.conf",
+                                     "fds.diskmap_ut.", NULL);
     ::testing::InitGoogleMock(&argc, argv);
     return RUN_ALL_TESTS();
 }

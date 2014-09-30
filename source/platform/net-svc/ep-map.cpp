@@ -110,7 +110,13 @@ static PlatUuidBind         *platform_uuid_bind;
  * Platform NetEndPoint services
  * -------------------------------------------------------------------------------------
  */
-EpPlatformdMod::EpPlatformdMod(const char *name) : EpPlatLibMod(name)
+EpPlatformdMod::EpPlatformdMod(const char *name) : EpPlatLibMod(name) {}
+
+// mod_init
+// --------
+//
+int
+EpPlatformdMod::mod_init(SysParams const *const arg)
 {
     static Module *ep_plat_dep_mods[] = {
         &gl_NodeShmRWCtrl,
@@ -118,6 +124,7 @@ EpPlatformdMod::EpPlatformdMod(const char *name) : EpPlatLibMod(name)
     };
     mod_intern = ep_plat_dep_mods;
     platform_uuid_bind = new PlatUuidBind(this);
+    return EpPlatLibMod::mod_init(arg);
 }
 
 // mod_startup
@@ -180,7 +187,7 @@ EpPlatformdMod::node_reg_notify(const node_data_t *info)
     ShmConPrdQueue         *plat;
     ShmObjRWKeyUint64      *shm;
     NodeAgent::pointer      agent;
-    DomainNodeInv::pointer  local;
+    DomainContainer::pointer  local;
 
     if (info->nd_node_uuid == Platform::plf_get_my_node_uuid()->uuid_get_val()) {
         LOGDEBUG << "Skip registration notify for my node uuid";

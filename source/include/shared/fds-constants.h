@@ -73,6 +73,8 @@ fds_disk_block_to_byte(fds_blk_t blk)
 #define FDS_MAX_DLT_ENTRIES            (65536)
 #define FDS_MAX_DLT_DEPTH              (4)
 #define FDS_MAX_DLT_BYTES              (522 * 1024)
+// current default DMT size
+#define FDS_MAX_DMT_BYTES              (16 * 4 * 8 + 20)
 
 c_decls_end
 

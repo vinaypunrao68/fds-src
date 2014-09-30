@@ -1,4 +1,4 @@
-app = angular.module( 'formation', ['ui.router', 'main', 'volumes', 'system', 'inbox', 'status', 'activity-management', 'user-page', 'admin-settings', 'tenant'] );
+app = angular.module( 'formation', ['ui.router', 'main', 'volumes', 'system', 'inbox', 'status', 'activity-management', 'user-page', 'admin-settings', 'tenant', 'pascalprecht.translate'] );
 
 app.config( function( $stateProvider, $urlRouterProvider ){
 
@@ -46,6 +46,13 @@ app.config( function( $stateProvider, $urlRouterProvider ){
             templateUrl: 'scripts/account/account.html'
         });
 });
+
+app.config(['$translateProvider', function( $translateProvider ) {
+    
+    $translateProvider
+        .translations( 'en', en_US )
+        .preferredLanguage( 'en' );
+}]);
 
 //app.config( ['$httpProvider', '$authentication', function( $httpProvider, $authentication ){
 //

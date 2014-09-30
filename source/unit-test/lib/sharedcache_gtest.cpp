@@ -2,10 +2,6 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-/*
- * Copyright 2014 Formation Data Systems, Inc.
- */
-
 #define GTEST_USE_OWN_TR1_TUPLE 0
 
 #include <cstdio>

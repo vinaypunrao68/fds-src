@@ -19,6 +19,9 @@
 #include <StatsCollector.h>
 #include <object-store/ObjectStore.h>
 
+#include <sm_ut_utils.h>
+#include <sm_dataset.h>
+
 namespace fds {
 
 static StorMgrVolumeTable* volTbl;
@@ -43,51 +46,7 @@ class ObjectStoreLoadProc : public FdsProcess {
     virtual void task(int id);
 
   private:
-    typedef enum {
-        STORE_OP_GET,
-        STORE_OP_PUT,
-        STORE_OP_DELETE
-    } StoreOpType;
-
-    /**
-     * Data struct used to describe an object
-     * Does not contain objectID, because we will use it
-     * in ObjectID to TestObject map, so we will know ObjectID
-     */
-    struct TestObject {
-        fds_uint32_t size_;
-        // random number we will use to re-create object data
-        // this is for allowing us not to store the whole object
-        // data in the dataset, which we may want to make large
-        fds_uint32_t rnum_;
-
-        boost::shared_ptr<std::string> getObjectData() {
-            boost::shared_ptr<std::string> objData(
-                new std::string(std::to_string(rnum_)));
-            objData->resize(size_, static_cast<char>(rnum_));
-            return objData;
-        }
-        TestObject & operator =(const TestObject & rhs) {
-            if (&rhs != this) {
-                size_ = rhs.size_;
-                rnum_ = rhs.rnum_;
-            }
-            return *this;
-        }
-        fds_bool_t isValid(boost::shared_ptr<const std::string> data) {
-            boost::shared_ptr<std::string> objData = getObjectData();
-            return (*data == *objData);
-        }
-
-        TestObject() : size_(4096), rnum_(6732) {}
-        TestObject(fds_uint32_t sz, fds_uint32_t rnum) :
-                size_(sz), rnum_(rnum) {
-        }
-        ~TestObject() {}
-    };
-
     /* helper methods */
-    StoreOpType getOpTypeFromName(std::string& name);
     Error populateStore();
     Error validateStore();
 
@@ -102,96 +61,20 @@ class ObjectStoreLoadProc : public FdsProcess {
                  const ObjectID& objId);
 
   private:
-    /**
-     * Params from from config file
-     */
-    fds_uint32_t num_threads_;
-    fds_uint32_t dataset_size_;
-    fds_uint32_t num_ops_;
-    StoreOpType op_type_;
-    fds_uint32_t obj_size_;
-
     std::vector<std::thread*> threads_;
     std::atomic<fds_uint32_t> op_count;
     std::atomic<fds_bool_t> test_pass_;
 
-    /* dataset we will use for testing
-     * If operations are gets, we will first
-     * populate DB with generated dataset, and then
-     * do gets on DB; same for deletes
-     */
-    std::vector<ObjectID> dataset_;
-    /* dataset object id -> TestObject
-     * TestObject has enough info to test for correctness
-     */
-    std::unordered_map<ObjectID, TestObject, ObjectHash> dataset_map_;
+    TestVolume::ptr volume_;
 };
-
-
-ObjectStoreLoadProc::StoreOpType
-ObjectStoreLoadProc::getOpTypeFromName(std::string& name) {
-    if (0 == name.compare(0, 3, "get")) return STORE_OP_GET;
-    if (0 == name.compare(0, 3, "put")) return STORE_OP_PUT;
-    if (0 == name.compare(0, 6, "delete")) return STORE_OP_DELETE;
-    fds_verify(false);
-    return STORE_OP_GET;
-}
 
 ObjectStoreLoadProc::ObjectStoreLoadProc(int argc, char * argv[], const std::string & config,
                                          const std::string & basePath, Module * vec[])
         : FdsProcess(argc, argv, config, basePath, vec) {
-    FdsConfigAccessor conf(get_conf_helper());
-    std::string whatstr = conf.get<std::string>("test_what");
-    std::string opstr = conf.get<std::string>("op_type");
-
-    op_type_ = getOpTypeFromName(opstr);
-    num_threads_ = conf.get<fds_uint32_t>("num_threads");
-    num_ops_ = conf.get<fds_uint32_t>("num_ops");
-    dataset_size_ = conf.get<fds_uint32_t>("dataset_size");
-    obj_size_ = conf.get<fds_uint32_t>("object_size");
-
-    std::cout << "Will execute " << num_ops_ << " operations of type "
-              << op_type_ << " while running " << num_threads_ << " threads"
-              << ", dataset size " << dataset_size_ << " objects" << std::endl;
-    LOGNOTIFY << "Will execute " << num_ops_ << " operations of type "
-              << op_type_ << " while running " << num_threads_ << " threads"
-              << ", dataset size " << dataset_size_ << " objects";
-
-    objectStore->setNumBitsPerToken(16);
-    VolumeDesc vdesc("objectstore_ut_volume", singleVolId);
-    volTbl->registerVolume(vdesc);
-    // TODO(anna) may want to set tier policy...
-
-    // generate dataset of unique objIds
-    fds_uint64_t seed = RandNumGenerator::getRandSeed();
-    RandNumGenerator rgen(seed);
-    fds_uint32_t rnum = (fds_uint32_t)rgen.genNum();
-    for (fds_uint32_t i = 0; i < dataset_size_; ++i) {
-        TestObject obj(obj_size_, rnum);
-        boost::shared_ptr<std::string> objData =
-                obj.getObjectData();
-        ObjectID oid = ObjIdGen::genObjectId(objData->c_str(), objData->size());
-        // we want every object ID in the dataset to be unique
-        while (dataset_map_.count(oid) > 0) {
-            rnum = (fds_uint32_t)rgen.genNum();
-            obj.rnum_ = rnum;
-            objData = obj.getObjectData();
-            oid = ObjIdGen::genObjectId(objData->c_str(), objData->size());
-        }
-        dataset_.push_back(oid);
-        dataset_map_[oid] = obj;
-        LOGDEBUG << "Dataset: " << oid << " size " << dataset_map_[oid].size_
-                 << " rnum " << dataset_map_[oid].rnum_ << " (" << rnum << ")";
-        rnum = (fds_uint32_t)rgen.genNum();
-    }
-
     // initialize dynamicc counters
     op_count = ATOMIC_VAR_INIT(0);
     test_pass_ = ATOMIC_VAR_INIT(true);
     StatsCollector::singleton()->enableQosStats("ObjStoreLoadTest");
-
-    // create dir where leveldb files will go
-    proc_fdsroot()->fds_mkdir(proc_fdsroot()->dir_user_repo_objs().c_str());
 }
 
 
@@ -253,11 +136,11 @@ Error ObjectStoreLoadProc::remove(fds_volid_t volId,
 Error ObjectStoreLoadProc::populateStore() {
     Error err(ERR_OK);
     // put all  objects in dataset to the object store
-    for (fds_uint32_t i = 0; i < dataset_.size(); ++i) {
-        ObjectID oid = dataset_[i];
+    for (fds_uint32_t i = 0; i < (volume_->testdata_).dataset_.size(); ++i) {
+        ObjectID oid = (volume_->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
-                dataset_map_[oid].getObjectData();
-        err = put(singleVolId, oid, data);
+                (volume_->testdata_).dataset_map_[oid].getObjectData();
+        err = put((volume_->voldesc_).volUUID, oid, data);
         if (!err.ok()) return err;
     }
     return err;
@@ -266,13 +149,13 @@ Error ObjectStoreLoadProc::populateStore() {
 Error ObjectStoreLoadProc::validateStore() {
     Error err(ERR_OK);
     // validate all objects in the object store
-    for (fds_uint32_t i = 0; i < dataset_.size(); ++i) {
-        ObjectID oid = dataset_[i];
+    for (fds_uint32_t i = 0; i < (volume_->testdata_).dataset_.size(); ++i) {
+        ObjectID oid = (volume_->testdata_).dataset_[i];
         boost::shared_ptr<const std::string> objData;
-        err = get(singleVolId, oid, objData);
+        err = get((volume_->voldesc_).volUUID, oid, objData);
         if (!err.ok()) return err;
 
-        if (!dataset_map_[oid].isValid(objData)) {
+        if (!(volume_->testdata_).dataset_map_[oid].isValid(objData)) {
             LOGERROR << "DATA VERIFY FAILED for obj " << oid;
             return ERR_ONDISK_DATA_CORRUPT;
         } else {
@@ -288,9 +171,24 @@ int ObjectStoreLoadProc::run() {
     int ret = 0;
     std::cout << "Starting test...";
 
+    // clean data/metadata from /fds/dev/hdd*/
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    SmUtUtils::cleanFdsDev(dir);
+
+    // add fake DLT
+    fds_uint32_t sm_count = 1;
+    fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
+    DLT* dlt = new DLT(16, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    objectStore->handleNewDlt(dlt);
+    // register volume
+    FdsConfigAccessor conf(get_conf_helper());
+    volume_.reset(new TestVolume(singleVolId, "objectstore_ut_volume", conf));
+    volTbl->registerVolume(volume_->voldesc_);
+
     // if this is get or delete test, populate metastore
     // first with obj meta
-    if (op_type_ != STORE_OP_PUT) {
+    if (volume_->op_type_ != TestVolume::STORE_OP_PUT) {
         err = populateStore();
         if (!err.ok()) {
           std::cout << "Failed to populate meta store " << err << std::endl;
@@ -301,17 +199,17 @@ int ObjectStoreLoadProc::run() {
     }
 
     fds_uint64_t start_nano = util::getTimeStampNanos();
-    for (unsigned i = 0; i < num_threads_; ++i) {
+    for (unsigned i = 0; i < volume_->concurrency_; ++i) {
         std::thread* new_thread = new std::thread(&ObjectStoreLoadProc::task, this, i);
         threads_.push_back(new_thread);
     }
 
     // Wait for all threads
-    for (unsigned x = 0; x < num_threads_; ++x) {
+    for (unsigned x = 0; x < volume_->concurrency_; ++x) {
         threads_[x]->join();
     }
 
-    for (unsigned x = 0; x < num_threads_; ++x) {
+    for (unsigned x = 0; x < volume_->concurrency_; ++x) {
         std::thread* th = threads_[x];
         delete th;
         threads_[x] = NULL;
@@ -322,8 +220,8 @@ int ObjectStoreLoadProc::run() {
         std::cout << "Experiment ran for too short time to calc IOPS" << std::endl;
         LOGNOTIFY << "Experiment ran for too short time to calc IOPS";
     } else {
-        std::cout << "Average IOPS = " << num_ops_ / time_sec << std::endl;
-        LOGNOTIFY << "Average IOPS = " << num_ops_ / time_sec;
+        std::cout << "Average IOPS = " << volume_->num_ops_ / time_sec << std::endl;
+        LOGNOTIFY << "Average IOPS = " << volume_->num_ops_ / time_sec;
     }
 
     // read back and validate
@@ -348,35 +246,34 @@ int ObjectStoreLoadProc::run() {
 void ObjectStoreLoadProc::task(int id) {
     // task is executed here
     Error err(ERR_OK);
-    fds_uint64_t seed = RandNumGenerator::getRandSeed();
-    RandNumGenerator rgen(seed);
     fds_uint32_t ops = atomic_fetch_add(&op_count, (fds_uint32_t)1);
 
     std::cout << "Starting thread " << id
               << " current number of ops finished " << ops << std::endl;
 
-    while ((ops + 1) <= num_ops_)
+    while ((ops + 1) <= volume_->num_ops_)
     {
         // do op
-        fds_uint32_t index = ops % dataset_.size();
-        ObjectID oid = dataset_[index];
-        switch (op_type_) {
-            case STORE_OP_PUT:
+        fds_uint32_t index = ops % (volume_->testdata_).dataset_.size();
+        ObjectID oid = (volume_->testdata_).dataset_[index];
+        switch (volume_->op_type_) {
+            case TestVolume::STORE_OP_PUT:
+            case TestVolume::STORE_OP_DUPLICATE:
                 {
                     boost::shared_ptr<std::string> data =
-                            dataset_map_[oid].getObjectData();
-                    err = put(singleVolId, oid, data);
+                            (volume_->testdata_).dataset_map_[oid].getObjectData();
+                    err = put((volume_->voldesc_).volUUID, oid, data);
                     break;
                 }
-            case STORE_OP_GET:
+            case TestVolume::STORE_OP_GET:
                 {
                     boost::shared_ptr<const std::string> data;
-                    err = get(singleVolId, oid, data);
+                    err = get((volume_->voldesc_).volUUID, oid, data);
                     break;
                 }
-            case STORE_OP_DELETE:
+            case TestVolume::STORE_OP_DELETE:
                 {
-                    err = remove(singleVolId, oid);
+                    err = remove((volume_->voldesc_).volUUID, oid);
                     break;
                 }
             default:

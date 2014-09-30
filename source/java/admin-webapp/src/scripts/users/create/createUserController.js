@@ -1,15 +1,26 @@
 angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$tenant_service', '$user_service', function( $scope, $tenant_api, $user_api ){
     
+    $scope.tenants = [];
+
+    $scope.tenantsReturned = function( tenants ){
+        $scope.tenants = tenants;
+    };
 
     $scope.init = function(){
         $scope.name = '';
         $scope.password = '';
         $scope.confirm = '';
         $scope.passwordError = false;
+        $scope.tenant = undefined;
+        $scope.tenantLabel = 'Choose Tenant';
 
         $scope.nameInit = true;
         $scope.passInit = true;
         $scope.confirmInit = true;
+
+        $scope.tenants = [];
+
+        $tenant_api.getTenants( $scope.tenantsReturned );
     };
 
     $scope.cancel = function(){
@@ -24,16 +35,30 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
         $scope.passwordError = false;
     };
 
-    $scope.usernameTyped = function(){
+    $scope.usernameTyped = function( event ){
+
+        if ( event.keyCode === 9 ){
+            return;
+        }
         $scope.nameInit = false;
     };
 
-    $scope.passwordTyped = function(){
+    $scope.passwordTyped = function( event ){
+
+        if ( event.keyCode === 9 ){
+            return;
+        }
+
         $scope.passInit = false;
         $scope.clearPasswordError();
     };
 
-    $scope.confirmTyped = function(){
+    $scope.confirmTyped = function( event ){
+
+        if ( event.keyCode === 9 ){
+            return;
+        }
+
         $scope.confirmInit = false;
         $scope.clearPasswordError();
     };
@@ -46,7 +71,13 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
         }
 
         $user_api.createUser( $scope.name, $scope.password,
-            function(){
+            function( item ){
+
+                if ( angular.isDefined( $scope.tenant ) ){
+
+                    $tenant_api.attachUser( $scope.tenant, item.id, function(){}, function(){} );
+                }
+
                 $scope.cancel();
             },
             function( response ){

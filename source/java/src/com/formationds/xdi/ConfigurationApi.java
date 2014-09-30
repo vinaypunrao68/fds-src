@@ -34,14 +34,14 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
         new Thread(new Updater()).start();
     }
 
-    public void createSnapshotPolicy(final String name, final String recurrence, final long retention) throws TException {
+    public long createSnapshotPolicy(final String name, final String recurrence, final long retention) throws TException {
         final SnapshotPolicy apisPolicy = new SnapshotPolicy();
 
         apisPolicy.setPolicyName(name);
         apisPolicy.setRecurrenceRule(recurrence);
         apisPolicy.setRetentionTimeSeconds(retention);
 
-        config.createSnapshotPolicy(apisPolicy);
+        return config.createSnapshotPolicy(apisPolicy);
     }
 
     @Override
@@ -107,12 +107,12 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
 
     @Override
     public long getVolumeId(String volumeName) throws ApiException, org.apache.thrift.TException {
-        return 0;
+        return config.getVolumeId( volumeName );
     }
 
     @Override
     public String getVolumeName(long volumeId) throws ApiException, org.apache.thrift.TException {
-        return null;
+        return config.getVolumeName( volumeId );
     }
 
     @Override

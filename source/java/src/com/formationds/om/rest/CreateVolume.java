@@ -6,6 +6,8 @@ package com.formationds.om.rest;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
+import com.formationds.commons.model.Volume;
+import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.SizeUnit;
 import com.formationds.web.toolkit.JsonResource;
@@ -34,10 +36,10 @@ public class CreateVolume implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
+        long volumeId;
+      final String domainName = "";
+
         String source = IOUtils.toString(request.getInputStream());
-
-        LOG.trace( "JSON: Create Volume :: " + source );
-
         JSONObject o = new JSONObject(source);
         String name = o.getString("name");
         int priority = o.getInt("priority");
@@ -50,15 +52,26 @@ public class CreateVolume implements RequestHandler {
             int sizeUnits = attributes.getInt("size");
             long sizeInBytes = SizeUnit.valueOf(attributes.getString("unit")).totalBytes(sizeUnits);
             VolumeSettings volumeSettings = new VolumeSettings(1024 * 4, VolumeType.BLOCK, sizeInBytes);
-            xdi.createVolume(token, "", name, volumeSettings);
+            volumeId = xdi.createVolume(token, domainName, name, volumeSettings);
         } else {
-            xdi.createVolume(token, "", name, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0));
+            volumeId = xdi.createVolume(token,
+                                        domainName,
+                                        name,
+                                        new VolumeSettings( 1024 * 1024 * 2,
+                                                            VolumeType.OBJECT,
+                                                            0 ) );
         }
 
         Thread.sleep(200);
         SetVolumeQosParams.setVolumeQos(legacyConfigPath, name, sla, priority, limit);
 
-        return new JsonResource(new JSONObject().put("status", "OK"));
+        final Volume volume =
+          new VolumeBuilder().withId( String.valueOf( volumeId ) )
+                             .withLimit( limit )
+                             .withSla( sla ).withPriority( priority )
+                             .build();
+
+        return new JsonResource( new JSONObject( volume ) );
     }
 }
 

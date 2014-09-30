@@ -1066,6 +1066,8 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
                                          updCatReq->updcatMsg->blob_mode,
                                          updCatReq->ioBlobTxDesc);
     if (err != ERR_OK) {
+        LOGERROR << "Failed to start transaction "
+                 << *updCatReq->ioBlobTxDesc << ": " << err;
         qosCtrl->markIODone(*updCatReq);
         PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
                          updCatReq->perfNameStr);
@@ -1080,6 +1082,14 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
                                     updCatReq->ioBlobTxDesc,
                                     updCatReq->updcatMsg->obj_list);
     if (err != ERR_OK) {
+        LOGERROR << "Failed to update object offsets for transaction "
+                 << *updCatReq->ioBlobTxDesc << ": " << err;
+        err = timeVolCat_->abortBlobTx(updCatReq->volId,
+                                       updCatReq->ioBlobTxDesc);
+        if (!err.ok()) {
+            LOGERROR << "Failed to abort transaction "
+                     << *updCatReq->ioBlobTxDesc;
+        }
         qosCtrl->markIODone(*updCatReq);
         PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
                          updCatReq->perfNameStr);
@@ -1094,6 +1104,14 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
                                     updCatReq->ioBlobTxDesc,
                                     updCatReq->updcatMsg->meta_list);
     if (err != ERR_OK) {
+        LOGERROR << "Failed to update metadata for transaction "
+                 << *updCatReq->ioBlobTxDesc << ": " << err;
+        err = timeVolCat_->abortBlobTx(updCatReq->volId,
+                                       updCatReq->ioBlobTxDesc);
+        if (!err.ok()) {
+            LOGERROR << "Failed to abort transaction "
+                     << *updCatReq->ioBlobTxDesc;
+        }
         qosCtrl->markIODone(*updCatReq);
         PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
                          updCatReq->perfNameStr);
@@ -1115,6 +1133,14 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
                                               std::placeholders::_3, std::placeholders::_4,
                                               updCatReq->commitBlobReq));
     if (err != ERR_OK) {
+        LOGERROR << "Failed to commit transaction "
+                 << *updCatReq->ioBlobTxDesc << ": " << err;
+        err = timeVolCat_->abortBlobTx(updCatReq->volId,
+                                       updCatReq->ioBlobTxDesc);
+        if (!err.ok()) {
+            LOGERROR << "Failed to abort transaction "
+                     << *updCatReq->ioBlobTxDesc;
+        }
         qosCtrl->markIODone(*updCatReq);
         PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
                          updCatReq->perfNameStr);
@@ -1328,6 +1354,7 @@ DataMgr::queryCatalogBackendSvc(void * _io)
 
     err = timeVolCat_->queryIface()->getBlob(qryCatReq->volId,
                                              qryCatReq->blob_name,
+                                             qryCatReq->queryMsg->blob_offset,
                                              &(qryCatReq->blob_version),
                                              &(qryCatReq->queryMsg->meta_list),
                                              &(qryCatReq->queryMsg->obj_list));

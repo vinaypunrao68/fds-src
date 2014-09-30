@@ -47,7 +47,7 @@ class FdsNodeConfig(FdsConfig):
     # can use nd_rmt_host to send ssh commands to the remote node.
     #
     def nd_connect_rmt_agent(self, env, quiet=False):
-        log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
+        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_connect_rmt_agent')
         if 'fds_root' in self.nd_conf_dict:
             root = self.nd_conf_dict['fds_root']
             self.nd_rmt_agent = inst.FdsRmtEnv(root, self.nd_verbose, env.env_install)
@@ -66,7 +66,7 @@ class FdsNodeConfig(FdsConfig):
         self.nd_rmt_host  = self.nd_conf_dict['ip']
 
 	if not quiet:
-            log.info("Making ssh connection to %s as node %s." % (self.nd_host_name(), self.nd_conf_dict['node-name']))
+            log.info("Making ssh connection to %s as node %s." % (self.nd_rmt_host, self.nd_conf_dict['node-name']))
         self.nd_rmt_agent.ssh_connect(self.nd_rmt_host)
 
     ###
@@ -79,7 +79,8 @@ class FdsNodeConfig(FdsConfig):
 
         print "Installing FDS package to:", self.nd_host_name()
         pkg = inst.FdsPackage(self.nd_rmt_agent)
-        status = pkg.package_install(self.nd_rmt_agent, self.nd_local_env.get_pkg_tar())
+        tar = self.nd_local_env.get_pkg_tar()
+        status = pkg.package_install(self.nd_rmt_agent, tar)
 
         return status
 
@@ -211,21 +212,32 @@ class FdsNodeConfig(FdsConfig):
     # cleanup any cores, redis, and logs.
     #
     def nd_cleanup_node(self):
+        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_cleanup_node')
+
         fds_dir = self.nd_conf_dict['fds_root']
         bin_dir = fds_dir + '/bin'
         sbin_dir = fds_dir + '/sbin'
         tools_dir = sbin_dir + '/tools'
         dev_dir = fds_dir + '/dev'
         var_dir = fds_dir + '/var'
-        print("\nCleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
+        log.info("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
         status = self.nd_rmt_agent.ssh_exec('(cd %s && rm core *.core); ' % bin_dir +
             '(cd %s && rm -r logs stats); ' % var_dir +
             '(cd /corefiles && rm *.core); '  +
             '(cd %s/core && rm *.core); ' % var_dir +
             '(cd %s && ./fds clean -i); ' % tools_dir +
-            '(cd %s && rm -f hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
+            '(cd %s && rm -rf hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
             '(cd %s && rm -r sys-repo/ && rm -r user-repo/); ' % fds_dir +
             '(cd /dev/shm && rm -f 0x*)', wait_compl=True, output=True)
+
+        if status == -1:
+            # ssh_exec() returns -1 when there is output to syserr and
+            # status from the command execution was 0. In this case, we'll
+            # assume that the failure was due to some of these componets
+            # missing. But since we wanted to delete them anyway, we'll
+            # call it good.
+            status = 0
+
         return status
 
 ###
@@ -588,7 +600,7 @@ class FdsConfigRun(object):
 
         self.rt_env = env
         if self.rt_env is None:
-            self.rt_env = inst.FdsEnv(opt.fds_root, opt.install, opt.fds_source_dir)
+            self.rt_env = inst.FdsEnv(opt.fds_root, opt.clus_inst, opt.fds_source_dir)
 
         self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
         self.rt_obj.config_parse()

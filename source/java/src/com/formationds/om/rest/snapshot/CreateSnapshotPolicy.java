@@ -6,13 +6,13 @@
 package com.formationds.om.rest.snapshot;
 
 import com.formationds.commons.model.SnapshotPolicy;
+import com.formationds.commons.model.builder.SnapshotPolicyBuilder;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.ConfigurationApi;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -20,9 +20,8 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.Map;
 
-public class CreateSnapshotPolicy implements RequestHandler {
-    private static final Logger LOG = Logger.getLogger(CreateSnapshotPolicy.class);
-
+public class CreateSnapshotPolicy
+  implements RequestHandler {
     private ConfigurationApi config;
 
     public CreateSnapshotPolicy(ConfigurationApi config) {
@@ -33,18 +32,20 @@ public class CreateSnapshotPolicy implements RequestHandler {
     public Resource handle(final Request request,
                            final Map<String, String> routeParameters)
             throws Exception {
+      long policyId;
       try(final Reader reader =
-            new InputStreamReader( request.getInputStream(), "UTF-8")) {
+            new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
         Gson gson = new GsonBuilder().create();
         final SnapshotPolicy policy = gson.fromJson( reader,
                                                      SnapshotPolicy.class );
 
-        config.createSnapshotPolicy(
-          policy.getName(),
-          policy.getRecurrenceRule().toString(),
-          policy.getRetention());
+        policyId = config.createSnapshotPolicy( policy.getName(),
+                                                policy.getRecurrenceRule().toString(),
+                                                policy.getRetention());
       }
 
-        return new JsonResource(new JSONObject().put("status", "OK"));
+      final SnapshotPolicy snapshotPolicy =
+        new SnapshotPolicyBuilder().withId( policyId ).build();
+      return new JsonResource( new JSONObject( snapshotPolicy ) );
     }
 }

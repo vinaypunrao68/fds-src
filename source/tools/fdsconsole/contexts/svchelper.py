@@ -13,7 +13,7 @@ import pyfdsp
 from operator import attrgetter
 from operator import itemgetter
 
-log = process.setup_logger()
+log = process.setup_logger('cli.log')
 
 class ServiceMap:
     serviceMap = None

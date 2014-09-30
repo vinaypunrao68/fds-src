@@ -6,19 +6,8 @@
 
 namespace fds {
 
-DomainNodeInv::~DomainNodeInv() {}
-DomainNodeInv::DomainNodeInv(char const *const name) : DomainContainer(name) {}
-DomainNodeInv::DomainNodeInv(char const *const    name,
-                             OmAgent::pointer     master,
-                             SmContainer::pointer sm,
-                             DmContainer::pointer dm,
-                             AmContainer::pointer am,
-                             PmContainer::pointer pm,
-                             OmContainer::pointer om)
-        : DomainContainer(name, master, sm, dm, am, pm, om) {}
-
 DomainClusterMap::~DomainClusterMap() {}
-DomainClusterMap::DomainClusterMap(char const *const name) : DomainNodeInv(name) {}
+DomainClusterMap::DomainClusterMap(char const *const name) : DomainContainer(name) {}
 DomainClusterMap::DomainClusterMap(char const *const    name,
                                    OmAgent::pointer     master,
                                    SmContainer::pointer sm,
@@ -26,7 +15,7 @@ DomainClusterMap::DomainClusterMap(char const *const    name,
                                    AmContainer::pointer am,
                                    PmContainer::pointer pm,
                                    OmContainer::pointer om)
-        : DomainNodeInv(name, master, sm, dm, am, pm, om) {}
+        : DomainContainer(name, master, sm, dm, am, pm, om) {}
 
 DomainResources::~DomainResources() {}
 DomainResources::DomainResources(char const *const name)
