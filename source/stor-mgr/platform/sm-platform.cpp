@@ -108,7 +108,6 @@ SmPlatform::mod_startup()
 
     Platform::mod_startup();
     registerFlags();
-    gSvcRequestPool = new SvcRequestPool();
 
     sm_recv   = bo::shared_ptr<SMSvcHandler>(new SMSvcHandler());
     sm_plugin = new SMEpPlugin(this);

@@ -1,0 +1,9 @@
+{
+    "Run-Input": {
+        "node_info_msg": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "node_name": "test"
+        }
+    }
+}

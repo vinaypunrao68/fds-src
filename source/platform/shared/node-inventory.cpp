@@ -733,10 +733,10 @@ NodeAgent::node_om_request()
 boost::shared_ptr<EPSvcRequest>
 NodeAgent::node_msg_request()
 {
-    fpi::SvcUuid om_uuid;
+    fpi::SvcUuid uuid;
 
-    gl_OmUuid.uuid_assign(&om_uuid);
-    return gSvcRequestPool->newEPSvcRequest(om_uuid);
+    rs_uuid.uuid_assign(&uuid);
+    return gSvcRequestPool->newEPSvcRequest(uuid);
 }
 
 // Debug operator
