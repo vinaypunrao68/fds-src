@@ -3,8 +3,8 @@
 results=$1
 
 #disks=`ls /dev/sd?` 
-disks="/dev/nbd15"
-bsizes="4k"
+disks="/dev/sdg"
+bsizes="4k 32k"
 echo $disks
 options="--runtime=30 --ioengine=libaio --iodepth=16 --direct=1 --size=10g --numjobs=1 "
 writes="--name=writes $options --rw=randwrite"

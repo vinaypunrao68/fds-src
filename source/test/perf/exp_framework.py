@@ -16,7 +16,11 @@ import shlex
 sys.path.append('../fdslib')
 sys.path.append('../fdslib/pyfdsp')
 sys.path.append('../fdslib/pyfdsp/fds_service')
-from PlatNetSvc import SvcMap
+sys.path.append('../../tools/fdsconsole/contexts')
+sys.path.append('../../tools/fdsconsole')
+sys.path.append('../../tools')
+from SvcHandle import SvcMap
+from svchelper import *
 
 def get_myip():
     cmd = "ifconfig| grep '10\.1' | awk -F '[: ]+' '{print $4}'"
@@ -249,13 +253,18 @@ class CounterServerPull:
         for node in self.options.nodes:
             ip = self.options.nodes[node]
             port=7020
-            svc_map = SvcMap(ip, port)
+            svc_map = ServiceMap()
+            svc_map.init(ip, port)
             svclist = svc_map.list()
             for e in svclist:
-                nodeid, svc = e[0].split(":")
+                nodeid, svc, ip = e[0], e[1], e[2]
                 nodeid = long(nodeid)
-                if svc != "om" and svc != "None":
-                    cntrs = svc_map.client(nodeid, svc).getCounters('*')
+                if svc != "om" and svc != "None" and re.match("10\.1\.10\.\d+", ip):
+                    try:
+                        cntrs = svc_map.client(nodeid, svc).getCounters('*')
+                    except TApplicationException:
+                        print "Counters failed for", svc
+                        cntr = {}
                     for c, v in cntrs.iteritems():
                         line = node + " " + svc + " " + c + " " + str(v) + " " + str(tstamp)
                         counters.append(line)
@@ -316,11 +325,11 @@ class AgentsPidMap:
 
     def compute_pid_map(self):
         if self.options.local == True:
-            output = subprocess.check_output(self.options.remote_fds_root + "/source/tools/fds status  | egrep '(pm|om|dm|sm|am)'| awk '{print $1, $4}'", shell = True)  # FIXME: path
+            output = subprocess.check_output(self.options.remote_fds_root + "/source/tools/fds status  | egrep '(pm|om|dm|sm|am|xdi)'| awk '{print $1, $4}'", shell = True)  # FIXME: path
             for l in output.split('\n'):
                 if len(l.split()) > 0:
                     t1, t2 = l.split()
-                    m = re.match(".*(pm|om|dm|sm|am).*", t1)
+                    m = re.match(".*(pm|om|dm|sm|am|xdi).*", t1)
                     if m is not None:
                         agent = m.group(1)
                         pid = int(t2)
