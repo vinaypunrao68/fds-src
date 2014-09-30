@@ -16,10 +16,10 @@ import java.lang.annotation.Target;
  * @author ptinius
  */
 @FeatureGroup
-@Label( "Canned Data Results Feature Group" )
+@Label( "Statistics Feature Group" )
 @Target( ElementType.FIELD )
 @Retention( RetentionPolicy.RUNTIME )
-public @interface Canned
+public @interface Statistics
 {
-  // no content, this is the canned data results feature annotation
+  // no content, this is the snapshot feature annotation
 }

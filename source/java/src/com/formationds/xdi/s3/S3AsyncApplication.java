@@ -151,7 +151,6 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
     }
 
     public CompletableFuture<Void> getObject(XdiAsync xdiAsync, String bucket, String object, Request request, Response response) {
-        // TODO: add etags
         try {
             ServletOutputStream outputStream = response.getOutputStream();
             return xdiAsync.getBlobInfo(S3Endpoint.FDS_S3, bucket, object).thenCompose(blobInfo -> {
@@ -160,6 +159,7 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
                 appendStandardHeaders(response, contentType, HttpStatus.OK_200);
                 if(md.containsKey("etag"))
                     response.addHeader("etag", formatEtag(md.get("etag")));
+                S3UserMetadataUtility.extractUserMetadata(md).forEach((key, value) -> response.addHeader(key, value));
 
                 return xdiAsync.getBlobToStream(blobInfo, outputStream);
             });
@@ -173,6 +173,7 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
             HashMap<String, String> metadata = new HashMap<>();
             if(request.getContentType() != null)
                 metadata.put("Content-type", request.getContentType());
+            metadata.putAll(S3UserMetadataUtility.requestUserMetadata(request));
 
             appendStandardHeaders(response, "text/html", HttpStatus.OK_200);
             CompletableFuture<XdiAsync.PutResult> putResult = xdiAsync.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, metadata, request.getInputStream());

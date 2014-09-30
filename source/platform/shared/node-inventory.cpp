@@ -7,6 +7,7 @@
 #include <dlt.h>
 #include <fds-shmobj.h>
 #include <fdsp/PlatNetSvc.h>
+#include <apis/ConfigurationService.h>
 #include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
 #include <platform/platform-lib.h>
@@ -1114,6 +1115,27 @@ OmAgent::om_handshake(boost::shared_ptr<netSessionTbl> net,
     om_reqt    = om_sess->getClient();
     om_sess_id = om_sess->getSessionId();
 }
+
+// get_om_config_svc
+// ------------
+//
+// TODO(Vy): Make the necessary changes fit it to the svc endpoint model.
+// Now it returns thrift client directly
+boost::shared_ptr<apis::ConfigurationServiceClient> OmAgent::get_om_config_svc()
+{
+    using namespace apache::thrift;  // NOLINT
+    using namespace apache::thrift::protocol; // NOLINT
+    using namespace apache::thrift::transport; // NOLINT
+    if (!om_cfg_svc) {
+        boost::shared_ptr<TTransport> socket(new TSocket("localhost", 9090));
+        boost::shared_ptr<TTransport> transport(new TFramedTransport(socket));
+        boost::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
+        om_cfg_svc = boost::make_shared<apis::ConfigurationServiceClient>(protocol);
+        transport->open();
+    }
+    return om_cfg_svc;
+}
+
 
 // --------------------------------------------------------------------------------------
 // AgentContainer

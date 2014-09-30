@@ -23,6 +23,7 @@ from cinder.volume import driver
 from cinder.volume import utils as volutils
 
 from apis.ttypes import *
+from thrift.transport.TSocket import TFramedTransport
 from thrift.transport import TSocket
 from thrift.protocol import TBinaryProtocol
 from apis.AmService import Client as AmClient
@@ -47,7 +48,7 @@ class FDSServices(object):
 
     @staticmethod
     def _make_connection(host, port):
-        sock = TSocket.TSocket(host, port)
+        sock = TFramedTransport(TSocket.TSocket(host, port))
         sock.open()
         protocol = TBinaryProtocol.TBinaryProtocol(sock)
         return sock, protocol

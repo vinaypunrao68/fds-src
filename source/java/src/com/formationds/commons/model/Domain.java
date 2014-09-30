@@ -17,7 +17,7 @@ public class Domain
 {
   private static final long serialVersionUID = 2054093416617447166L;
 
-  private int id;
+  private Integer id;
   private String site;
   private String domain;
 
@@ -30,17 +30,17 @@ public class Domain
   }
 
   /**
-   * @return Returns {@code int} representing the domain id
+   * @return Returns {@link Integer} representing the domain id
    */
-  public int getId()
+  public Integer getId()
   {
     return id;
   }
 
   /**
-   * @param id the {@code int} representing the domain id
+   * @param id the {@link Integer} representing the domain id
    */
-  public void setId( final int id )
+  public void setId( final Integer id )
   {
     this.id = id;
   }

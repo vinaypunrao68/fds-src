@@ -79,7 +79,7 @@ TEST(SmTokenPlacement, compute) {
         // if ssd count == 0, both olts must have invalid disk
         // ids on ssd row
         if (ssd_count == 0) {
-            for (fds_token_id tok = 0; tok < SM_TOKEN_COUNT; ++tok) {
+            for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
                 fds_uint16_t diskId = olt->getDiskId(tok, diskio::flashTier);
                 EXPECT_FALSE(olt->isDiskIdValid(diskId));
                 diskId = olt2->getDiskId(tok, diskio::flashTier);

@@ -174,7 +174,7 @@ if __name__ == "__main__":
 
     if start_sys == 'true':
         bringup_cluster(env, verbose, debug)
-        time.sleep(5)
+        time.sleep(10)
 
     ###
     # run make precheckin and exit

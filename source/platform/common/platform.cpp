@@ -10,6 +10,7 @@
 #include <platform/node-inv-shmem.h>
 #include <ep-map.h>
 #include <util/timeutils.h>
+#include <net/SvcRequestPool.h>
 
 namespace fds {
 
@@ -50,6 +51,7 @@ NodePlatform::mod_init(SysParams const *const param)
 
     mod_intern = dep_mods;
     Platform::mod_init(param);
+    gSvcRequestPool = new SvcRequestPool();
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 
     disk_ctrl        = DiskPlatModule::dsk_plat_singleton();

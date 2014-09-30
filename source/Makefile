@@ -29,6 +29,7 @@ user_build_dir :=                       \
     fds_client                          \
     am-app                              \
     tools                               \
+    testlib                             \
     java                                \
     unit-test                           \
     checker                             

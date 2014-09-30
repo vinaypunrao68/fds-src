@@ -18,10 +18,10 @@ public class SnapshotPolicy
 {
   private static final long serialVersionUID = -1485532787782450871L;
 
-  private long id;
+  private Long id;
   private String name;
   private RecurrenceRule recurrenceRule;
-  private long retention;         // time in seconds
+  private Long retention;         // time in seconds
 
   /**
    * default constructor
@@ -34,7 +34,7 @@ public class SnapshotPolicy
   /**
    * @return Returns the {@code long} representing the snapshot policy id
    */
-  public long getId()
+  public Long getId()
   {
     return id;
   }
@@ -42,7 +42,7 @@ public class SnapshotPolicy
   /**
    * @param id the {@code long} representing the snapshot policy id
    */
-  public void setId( final long id )
+  public void setId( final Long id )
   {
     this.id = id;
   }
@@ -89,7 +89,7 @@ public class SnapshotPolicy
   /**
    * @return Returns {@code long} representing the retention period in seconds
    */
-  public long getRetention()
+  public Long getRetention()
   {
     return retention;
   }
@@ -97,7 +97,7 @@ public class SnapshotPolicy
   /**
    * @param retention the {@code long} representing the retention period in seconds
    */
-  public void setRetention( final long retention )
+  public void setRetention( final Long retention )
   {
     this.retention = retention;
   }

@@ -1,4 +1,4 @@
-angular.module( 'main' ).controller( 'mainController', ['$scope', '$authentication', '$authorization', '$state', '$domain_service', function( $scope, $authentication, $authorization, $state, $domain_service ){
+angular.module( 'main' ).controller( 'mainController', ['$scope', '$authentication', '$authorization', '$state', '$domain_service', '$filter', function( $scope, $authentication, $authorization, $state, $domain_service, $filter ){
 
     $scope.priority = 10;
     $scope.rememberChecked = false;
@@ -9,14 +9,55 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
     $scope.menuItems = [{name: 'Account Details'},{name: 'Change Password'},{name: '-'},{ name: 'Logout'}];
 
     $scope.views = [
-        { id: 'status', link: 'homepage.status', text: 'Status', iconClass: 'icon-system', selected: false },
-        { id: 'inbox', link: 'homepage.inbox', text: 'Inbox', iconClass: 'icon-inbox', selected: false },
-        { id: 'activity', link: 'homepage.activity', text: 'Activity', iconClass: 'icon-activity_pulse', selected: false },
-        { id: 'system', link: 'homepage.system', text: 'System', iconClass: 'icon-nodes', selected: false, permission: SYS_MGMT },
-        { id: 'volumes', link: 'homepage.volumes', text: 'Volumes', iconClass: 'icon-volumes', selected: false },
-        { id: 'users', link: 'homepage.users', text: 'Users', iconClass: 'icon-users', selected: false },
-         { id: 'tenants', link: 'homepage.tenants', text: 'Tenants', iconClass: 'icon-tenants', selected: false, permission: SYS_MGMT },
-        { id: 'admin', link: 'homepage.admin', text: 'Admin', iconClass: 'icon-admin', selected: false }
+        { 
+            id: 'status', link: 'homepage.status', 
+            text: $filter( 'translate' )('status.title' ), 
+            iconClass: 'icon-system', 
+            selected: false },
+        { 
+            id: 'inbox', 
+            link: 'homepage.inbox', 
+            text: $filter( 'translate' )('inbox.title' ), 
+            iconClass: 'icon-inbox', 
+            selected: false },
+        { 
+            id: 'activity', 
+            link: 'homepage.activity', 
+            text: $filter( 'translate' )('activities.title' ), 
+            iconClass: 'icon-activity_pulse', 
+            selected: false },
+        { 
+            id: 'system', 
+            link: 'homepage.system', 
+            text: $filter( 'translate' )('system.title' ), 
+            iconClass: 'icon-nodes', 
+            selected: false, 
+            permission: SYS_MGMT },
+        { 
+            id: 'volumes', 
+            link: 'homepage.volumes', 
+            text: $filter( 'translate' )('volumes.title' ), 
+            iconClass: 'icon-volumes', 
+            selected: false },
+        { 
+            id: 'users', 
+            link: 'homepage.users', 
+            text: $filter( 'translate' )('users.title' ), 
+            iconClass: 'icon-users', 
+            selected: false },
+         { 
+             id: 'tenants', 
+             link: 'homepage.tenants', 
+             text: $filter( 'translate' )('tenants.title' ), 
+             iconClass: 'icon-tenants', 
+             selected: false, 
+             permission: SYS_MGMT },
+        { 
+            id: 'admin', 
+            link: 'homepage.admin', 
+            text: $filter( 'translate' )('admin.title' ), 
+            iconClass: 'icon-admin', 
+            selected: false }
     ];
 
     $scope.navigate = function( item ) {

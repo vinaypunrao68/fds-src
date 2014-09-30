@@ -19,11 +19,11 @@ public class Service
 {
   private static final long serialVersionUID = -1577170593630479004L;
 
-  private long uuid = -1L;
-  private int controlPort = -1;
-  private int migrationPort = -1;
-  private int dataPort = -1;
-  private int metasyncPort = -1;
+  private Long uuid = -1L;
+  private Integer controlPort = -1;
+  private Integer migrationPort = -1;
+  private Integer dataPort = -1;
+  private Integer metasyncPort = -1;
   private ManagerType type = ManagerType.UNKNOWN;
 
   /**

@@ -4,8 +4,8 @@
 
 package com.formationds.commons.model.builder;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.formationds.commons.model.RecurrenceRule;
-import com.formationds.commons.model.type.iCalFields;
 
 import java.util.Date;
 
@@ -13,13 +13,17 @@ import java.util.Date;
  * @author ptinius
  */
 public class RecurrenceRuleBuilder {
-  private iCalFields frequency;
-  private Date until = null;
-  private int count = -1;
-  private int interval = 0;
+  @JsonProperty( "FREQ" )
+  private String frequency;
+  @JsonProperty( "UNTIL" )
+  private Date UNTIL;
+  @JsonProperty( "COUNT" )
+  private Integer COUNT;
+  @JsonProperty( "INTERVAL" )
+  private Integer INTERVAL;
 
   /**
-   * defULT CONSRTUCTOR
+   * default constructor
    */
   public RecurrenceRuleBuilder() {
   }
@@ -30,46 +34,37 @@ public class RecurrenceRuleBuilder {
    * @return Returns {link RecurrenceRuleBuilder}
    */
   public RecurrenceRuleBuilder withFrequency( final String frequency ) {
-    return withFrequency( iCalFields.valueOf( frequency ) );
-  }
-
-  /**
-   * @param frequency the {@link iCalFields} representing the frequency
-   *
-   * @return Returns {link RecurrenceRuleBuilder}
-   */
-  public RecurrenceRuleBuilder withFrequency( final iCalFields frequency ) {
     this.frequency = frequency;
     return this;
   }
 
   /**
-   * @param until the {@link String} representing the until
+   * @param UNTIL the {@link String} representing the until
    *
    * @return Returns {link RecurrenceRuleBuilder}
    */
-  public RecurrenceRuleBuilder withUntil( final Date until ) {
-    this.until = until;
+  public RecurrenceRuleBuilder withUntil( final Date UNTIL ) {
+    this.UNTIL = UNTIL;
     return this;
   }
 
   /**
-   * @param count the {@code int} representing the occurrence count
+   * @param COUNT the {@code int} representing the occurrence count
    *
    * @return Returns {link RecurrenceRuleBuilder}
    */
-  public RecurrenceRuleBuilder withCount( final int count ) {
-    this.count = count;
+  public RecurrenceRuleBuilder withCount( final int COUNT ) {
+    this.COUNT = COUNT;
     return this;
   }
 
   /**
-   * @param interval the {@code interval} representing the interval
+   * @param INTERVAL the {@code interval} representing the interval
    *
    * @return Returns {link RecurrenceRuleBuilder}
    */
-  public RecurrenceRuleBuilder withInterval( final int interval ) {
-    this.interval = interval;
+  public RecurrenceRuleBuilder withInterval( final int INTERVAL ) {
+    this.INTERVAL = INTERVAL;
     return this;
   }
 
@@ -79,17 +74,17 @@ public class RecurrenceRuleBuilder {
   public RecurrenceRule build() {
     RecurrenceRule recurrenceRule = new RecurrenceRule();
     recurrenceRule.setFrequency( frequency );
-    if( until != null )
+    if( UNTIL != null )
     {
-      recurrenceRule.setUntil( until );
+      recurrenceRule.setUntil( UNTIL );
     }
 
-    if( count > 0 ) {
-      recurrenceRule.setCount( count );
+    if( COUNT != null ) {
+      recurrenceRule.setCount( COUNT );
     }
 
-    if( interval > 0 ) {
-      recurrenceRule.setInterval( interval );
+    if( INTERVAL != null ) {
+      recurrenceRule.setInterval( INTERVAL );
     }
 
     return recurrenceRule;

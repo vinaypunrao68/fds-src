@@ -17,7 +17,7 @@ import javax.xml.bind.annotation.XmlRootElement;
  * @author ptinius
  */
 @XmlRootElement
-@JsonInclude( JsonInclude.Include.NON_NULL )
+@JsonInclude( JsonInclude.Include.NON_EMPTY )
 public abstract class ModelBase
   implements Tagable {
   private static final long serialVersionUID = -7645839798777744738L;
