@@ -73,7 +73,11 @@ void SingleNodeTest::SetUpTestCase()
     platform_->start_modules();
 
     /* Induce sleep before creating volume */
-    sleep(5);
+    /* TODO(Rao): We are inducing sleep to wait for volume and dlt propagation
+     * to happen.  This is a total hack.  Our domain should handle these cases
+     * gracefully
+     */
+    sleep(12);
 
     /* Create a volume */
     auto omCfg = gModuleProvider->get_plf_manager()->plf_om_master()->get_om_config_svc();
