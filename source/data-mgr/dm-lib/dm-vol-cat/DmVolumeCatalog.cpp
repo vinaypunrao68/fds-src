@@ -710,13 +710,14 @@ Error DmVolumeCatalog::getBlobMeta(fds_volid_t volume_id,
 //
 Error DmVolumeCatalog::getBlob(fds_volid_t volume_id,
                                const std::string& blob_name,
+                               fds_uint64_t blob_offset,
                                blob_version_t* blob_version,
                                fpi::FDSP_MetaDataList* meta_list,
                                fpi::FDSP_BlobObjectList* obj_list)
 {
     Error err(ERR_OK);
-    LOGDEBUG << "Will retrieve blob " << blob_name << " volid "
-             << std::hex << volume_id << std::dec;
+    LOGDEBUG << "Will retrieve blob " << blob_name << " offset " << blob_offset
+             << " volid " << std::hex << volume_id << std::dec;
 
     // get extent 0
     BlobExtent0::ptr extent0 = getMetaExtent(volume_id,
@@ -733,32 +734,24 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volume_id,
     *blob_version = extent0->blobVersion();
     extent0->toMetaFdspPayload(*meta_list);
 
-    // find out number of extents we need to read to get the whole
-    // blob, and read all the extents to get all objects
+    // find out which extend id to read
     BlobExtent::ptr extent = extent0;
-    fds_extent_id last_extent = 0;
-    if (extent0->blobSize() > 0) {
-        last_extent = persistCat->getExtentId(volume_id,
-                                              extent0->lastBlobOffset());
-    }
-    fds_uint64_t last_obj_sz = extent0->lastObjSize();
-    extent->addToFdspPayload(*obj_list,
-                             extent0->lastBlobOffset(), last_obj_sz);
-    for (fds_extent_id ext_id = 1; ext_id <= last_extent; ++ext_id) {
-        // get next extent
-        extent = getExtent(volume_id, blob_name, ext_id, err);
-        // note that even if extent not in db, we get empty extent and
-        // addToFdspPayload method will not add any objs to the list
+    fds_extent_id extentId = persistCat->getExtentId(volume_id,
+                                                     blob_offset);
+    // Get extent if it's not the metadata extent0
+    if (extentId != 0) {
+        extent = getExtent(volume_id, blob_name, extentId, err);
         if (!err.ok() && (err != ERR_CAT_ENTRY_NOT_FOUND)) {
-            LOGERROR << "Failed to retrieve all extents to retrieve blob "
+            LOGERROR << "Failed to retrieve extent " << extentId << " for blob "
                      << blob_name << " volid " << std::hex << volume_id
                      << std::dec << " err " << err;
             return err;
         }
-        // note that even if extent not in db, we get empty extent and
-        // addToFdspPayload method will not add any objs to the list
-        extent->addToFdspPayload(*obj_list, extent0->lastBlobOffset(), last_obj_sz);
     }
+    fds_uint64_t last_obj_sz = extent0->lastObjSize();
+    // note that even if extent not in db, we get empty extent and
+    // addToFdspPayload method will not add any objs to the list
+    extent->addToFdspPayload(*obj_list, extent0->lastBlobOffset(), last_obj_sz);
 
     return err;
 }

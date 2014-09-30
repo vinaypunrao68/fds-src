@@ -29,7 +29,7 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume
         
         $event.stopPropagation();
         
-        $snapshot_service.createSnapshot( volume.id, volume.name + '.' + (new Date()).getTime(), function(){ alert( 'Snapshot created.' );} );
+        $volume_api.createSnapshot( volume.id, volume.name + '.' + (new Date()).getTime(), function(){ alert( 'Snapshot created.' );} );
     };
 
     $scope.edit = function( $event, volume ) {

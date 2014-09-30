@@ -141,11 +141,11 @@ Error ObjStatsTracker::updateIOpathStats(fds_volid_t vol_uuid, const ObjectID& o
     }
     objStatsMapLock->unlock();
 
-    if (slotChange == true) {
-        /* update the stats to level DB */
-        FDS_PLOG(stats_log) << "STATS-DB: Invoking the level DB  update function:"  << objId;
-        err = updateDbStats(objId, oStats);
-    }
+    // if (slotChange == true) {
+    //     /* update the stats to level DB */
+    //     FDS_PLOG(stats_log) << "STATS-DB: Invoking the level DB  update function:"  << objId;
+    //     err = updateDbStats(objId, oStats);
+    // }
 
     return err;
 }

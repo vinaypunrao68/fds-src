@@ -41,17 +41,18 @@ public class PostObjectUpload implements RequestHandler {
         Map<String, String> metadata = Maps.newHashMap();
 
         Part filePart = request.getPart("file");
-        String fileName = getFileName(filePart);
+        // String fileName = getFileName(filePart);
+        String key = IOUtils.toString(request.getPart("key").getInputStream());
 
         Part contentTypePart = request.getPart("Content-Type");
 
         if (contentTypePart != null) {
             metadata.put("Content-Type", IOUtils.toString(contentTypePart.getInputStream()));
         } else {
-            metadata.put("Content-Type", StaticFileHandler.getMimeType(fileName));
+            metadata.put("Content-Type", S3Endpoint.S3_DEFAULT_CONTENT_TYPE);
         }
 
-        byte[] digest = xdi.writeStream(token, S3Endpoint.FDS_S3, bucketName, fileName, filePart.getInputStream(), metadata);
+        byte[] digest = xdi.writeStream(token, S3Endpoint.FDS_S3, bucketName, key, filePart.getInputStream(), metadata);
 
         return new TextResource("") {
             @Override

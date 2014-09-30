@@ -6,7 +6,6 @@
 package com.formationds.om.rest.snapshot;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -18,34 +17,30 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class ListVolumeIdsForSnapshotId implements RequestHandler {
+public class ListVolumeIdsForSnapshotId
+  implements RequestHandler {
 
-    private static final String REQ_PARAM_POLICY_ID = "policyId";
-    private ConfigurationApi config;
+  private static final String REQ_PARAM_POLICY_ID = "policyId";
+  private ConfigurationApi config;
 
-    public ListVolumeIdsForSnapshotId(final ConfigurationApi config) {
-        this.config = config;
+  public ListVolumeIdsForSnapshotId( final ConfigurationApi config ) {
+    this.config = config;
+  }
+
+  @Override
+  public Resource handle( final Request request,
+                          final Map<String, String> routeParameters )
+    throws Exception {
+    final ObjectMapper mapper = new ObjectMapper();
+    final List<Long> volumeIds = new ArrayList<>();
+    final long policyId = requiredLong( routeParameters,
+                                        REQ_PARAM_POLICY_ID );
+
+    volumeIds.addAll( config.listVolumesForSnapshotPolicy( policyId ) );
+    if( volumeIds.isEmpty() ) {
+      return new JsonResource( new JSONArray( volumeIds ) );
     }
 
-    @Override
-    public Resource handle(final Request request,
-                           final Map<String, String> routeParameters) throws Exception {
-        final ObjectMapper mapper = new ObjectMapper();
-        final List<Long> volumeIds = new ArrayList<>();
-        final long policyId = requiredLong(routeParameters,
-                REQ_PARAM_POLICY_ID);
-
-        if (FdsFeatureToggles.USE_CANNED.isActive()) {
-            for (int i = 1; i <= 10; i++) {
-                volumeIds.add((long) i);
-            }
-        } else {
-            volumeIds.addAll(config.listVolumesForSnapshotPolicy(policyId));
-            if (volumeIds.isEmpty()) {
-                return new JsonResource(new  JSONArray( volumeIds ) );
-            }
-        }
-
-        return new JsonResource(new JSONArray(mapper.writeValueAsString(volumeIds)));
-    }
+    return new JsonResource( new JSONArray( mapper.writeValueAsString( volumeIds ) ) );
+  }
 }
