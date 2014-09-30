@@ -130,7 +130,7 @@ class RestartTest(object):
                 self.cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
             else:
                 self.cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
-            print "Waiting for node %s to come up" % n.nd_rmt_host
+            print "Waiting for node %s to come up" % n.nd_host
             time.sleep(3)
         """
 

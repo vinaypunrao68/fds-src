@@ -6,11 +6,12 @@
 # FDS test-case pattern requirements.
 import unittest
 import traceback
-from testcases import TestCase
+import TestCase
 
 # Module-specific requirements
 import sys
 import time
+import os
 
 
 # This class contains the attributes and methods to test
@@ -60,8 +61,11 @@ class TestNodeActivate(TestCase.FDSTestCase):
 
             self.log.info("Activate node %s." % n.nd_conf_dict['node-name'])
 
-            status = n.nd_rmt_agent.ssh_exec_wait("cd %s; ./fdscli --fds-root %s --activate-nodes abc -k 1 -e am,dm,sm > %s/cli.out 2>&1" %
-                                                  (bin_dir, fds_dir, log_dir))
+            cur_dir = os.getcwd()
+            os.chdir(bin_dir)
+            status = n.nd_agent.exec_wait("./fdscli --fds-root %s --activate-nodes abc -k 1 -e am,dm,sm > %s/cli.out 2>&1" %
+                                                  (fds_dir, log_dir))
+            os.chdir(cur_dir)
 
             if status != 0:
                 self.log.error("Node activation on %s returned status %d." %(n.nd_conf_dict['node-name'], status))

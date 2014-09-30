@@ -152,7 +152,7 @@ if __name__ == '__main__':
             cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
         else:
             cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
-        print "Waiting for node %s to come up" % n.nd_rmt_host
+        print "Waiting for node %s to come up" % n.nd_host
     	time.sleep(3)
     """
 

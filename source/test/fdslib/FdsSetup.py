@@ -2,12 +2,12 @@
 
 # Copyright 2014 by Formation Data Systems, Inc.
 #
-import os, errno, sys
+import os, errno, sys, pwd
 import logging
-import subprocess, pdb
-import paramiko, time
+import subprocess
+import shlex
+import paramiko
 from scp import SCPClient
-from multiprocessing import Process
 from contextlib import contextmanager
 
 @contextmanager
@@ -35,13 +35,18 @@ def mkdir_p(path):
 # FDS environment data derived from the closet FDS source tree or FDS Root run time.
 #
 class FdsEnv(object):
-    def __init__(self, _root, _install=False, _fds_source_dir=''):
+    def __init__(self, _root, _verbose=None, _install=False, _fds_source_dir=''):
+        log = logging.getLogger(self.__class__.__name__ + '.' + "__init__")
+
         self.env_cdir      = os.getcwd()
         self.env_fdsSrc    = _fds_source_dir
         self.env_install   = _install
         self.env_fdsRoot   = _root + '/'
+        self.env_verbose   = _verbose
+        self.env_host      = None
         self.env_user      = 'root'
         self.env_password  = 'passwd'
+        self.env_sudo_password = None
         self.env_fdsDict   = {
             'debug-base': 'Build/linux-x86_64.debug/',
             'package'   : 'fds.tar',
@@ -49,6 +54,11 @@ class FdsEnv(object):
             'pkg-tools' : 'tools',
             'root-sbin' : 'sbin'
         }
+
+        self.env_ldLibPath = ("export LD_LIBRARY_PATH=" +
+                              self.get_fds_root() + 'lib:'
+                              '/usr/local/lib:/usr/lib/jvm/java-8-oracle/jre/lib/amd64; '
+                              'export PATH=$PATH:' + self.get_fds_root() + 'bin; ')
 
         # Try to determine an FDS source directory if specified as empty.
         if self.env_fdsSrc == "":
@@ -66,22 +76,8 @@ class FdsEnv(object):
 
         self.env_fdsSrc = self.env_fdsSrc + '/'
 
-    def shut_down(self):
-        subprocess.call(['pkill', '-9', 'AMAgent'])
-        subprocess.call(['pkill', '-9', 'Mgr'])
-        subprocess.call(['pkill', '-9', 'platformd'])
-        subprocess.call(['pkill', '-9', '-f', 'com.formationds.web.om.Main'])
-
-    def cleanup(self):
-        self.shut_down()
-        os.chdir(self.env_fdsSrc)
-        subprocess.call([self.env_fdsSrc + 'tools/fds', 'clean'])
-
-    def cleanup_install(self, debug = True, fds_bin = True):
-        with pushd(self.get_build_dir(debug, fds_bin)):
-            try:
-                subprocess.call(['rm', self.get_pkg_tar(debug)])
-            except: pass
+        log.debug("fds_root: %s" % (self.env_fdsRoot))
+        log.debug("fds_src_dir: %s" % (self.env_fdsSrc))
 
     ###
     # Return $fds-root if we installed from an FDS package, otherwise
@@ -145,25 +141,169 @@ class FdsEnv(object):
     def get_fds_source(self):
         return self.env_fdsSrc
 
+    def get_host_name(self):
+        return "" if self.env_host is None else self.env_host
+
 ####
-# Bring the same enviornment as FdsEnv but operate on a remote node.
+# Bring the same environment as FdsEnv but
+# execute commands on the local node.
+#
+class FdsLocalEnv(FdsEnv):
+    def __init__(self, root, verbose=None, install=True):
+        super(FdsLocalEnv, self).__init__(root, verbose, install)
+
+    ###
+    # Open connection to the local node.
+    #
+    def local_connect(self, user = None, passwd = None, sudo_passwd = None):
+        log = logging.getLogger(self.__class__.__name__ + '.' + "local_connect")
+
+        if user is not None:
+            self.env_user = user
+        if passwd is not None:
+            self.env_password = passwd
+        if sudo_passwd is not None:
+            self.env_sudo_password = sudo_passwd
+        if self.env_sudo_password is None:
+            # No sudo password supplied. In this case we require that
+            # the login name of the process's real user ID match
+            # the configured user.
+            if pwd.getpwuid(os.getuid())[0] != self.env_user:
+                log.error("No sudo password given for process owner %s to use configured user %s. "
+                          "Please restart with -d <sudo_password> or specify 'sudo_password' in the config file" %
+                          (pwd.getpwuid(os.getuid())[0], self.env_user))
+                sys.exit(1)
+            else:
+                self.env_sudo_password = sudo_passwd
+
+        self.env_host = 'localhost'
+
+        return self
+
+    def shut_down(self):
+        subprocess.call(['pkill', '-9', 'AMAgent'])
+        subprocess.call(['pkill', '-9', 'Mgr'])
+        subprocess.call(['pkill', '-9', 'platformd'])
+        subprocess.call(['pkill', '-9', '-f', 'com.formationds.web.om.Main'])
+
+    def cleanup(self):
+        self.shut_down()
+        os.chdir(self.env_fdsSrc)
+        subprocess.call([self.env_fdsSrc + 'tools/fds', 'clean'])
+
+    def cleanup_install(self, debug = True, fds_bin = True):
+        with pushd(self.get_build_dir(debug, fds_bin)):
+            try:
+                subprocess.call(['rm', self.get_pkg_tar(debug)])
+            except: pass
+
+    ###
+    # Execute command on local node.
+    #
+    def local_exec(self,
+                 cmd,
+                 wait_compl = False,
+                 fds_bin = False,
+                 output = False,
+                 return_stdin = False):
+        log = logging.getLogger(self.__class__.__name__ + '.' + "local_exec")
+
+        # We need to modify the command to use the credentials that have been configured.
+        # This usage of 'sudo' will get the password from stdin (rather than the terminal device)
+        # and ignore any cached credentials.
+        if fds_bin:
+            cmd_exec = ("sudo -S -k -u %s " % self.env_user +
+                        self.env_ldLibPath + 'cd ' + self.get_fds_root() +
+                        'bin; ulimit -c unlimited; ulimit -n 12800; ./' + cmd)
+        else:
+            cmd_exec = "sudo -S -k -u %s " % self.env_user + cmd
+
+        if self.env_verbose:
+            if self.env_verbose['verbose']:
+                log.info("Running local command: %s" % (cmd_exec))
+
+            if self.env_verbose['dryrun']:
+                log.info("...not executed in dryrun mode")
+                return 0
+
+        # Split the command into a list of strings as prefered by subprocess.Popen()
+        call_args = shlex.split(cmd_exec)
+
+        p = subprocess.Popen(call_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate(self.env_sudo_password + "\n")
+
+        if wait_compl:
+            p.wait()
+
+        status = p.returncode
+
+        if stderr is not None:
+            for line in stderr.splitlines():
+                # sudo prompts show up in stderr.
+                if line.startswith("[sudo] password for "):
+                    # If the line does not extend past ':', ignore it.
+                    # Otherwise, there's more information there than just the prompt.
+                    if line.__len__() <= line.find(":")+2:
+                        continue
+                    else:
+                        prompt, colon, line = line.partition(":")
+                log.warn("[%s Error] %s" % (self.env_host, line))
+                if status == 0:
+                    status = -1
+
+        if output and (stdout is not None):
+            if status != 0:
+                for line in stdout.splitlines():
+                    log.info("[%s] %s" % (self.env_host, line))
+
+        return_line = None
+        if return_stdin and wait_compl and (stdout is not None):
+            return_line = stdout
+
+        if return_stdin and wait_compl:
+            return status, return_line.rstrip()
+
+        return status
+
+    ###
+    # Execute command from $fds_root/bin directory.  Prefix with needed stuffs.
+    #
+    def local_exec_fds(self, cmd, wait_compl = False):
+        return self.local_exec(cmd, wait_compl, True)
+
+    ###
+    # Execute command and wait for result. We'll also log
+    # output in this case.
+    #
+    def exec_wait(self, cmd):
+        return self.local_exec(cmd, True, False, True)
+
+    def local_close(self):
+        pass
+
+    ###
+    # Setup core files and other stuffs.
+    #
+    def setup_env(self, cmd):
+        if (cmd is not None) and (cmd != ''):
+            cmd = cmd + ';'
+
+        self.local_exec(cmd +
+            ' echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern ' +
+            '; sudo sysctl -w "kernel.core_pattern=%e-%p.core"' +
+            '; sysctl -p' +
+            '; echo "1" >/proc/sys/net/ipv4/tcp_tw_reuse' +
+            '; echo "1" >/proc/sys/net/ipv4/tcp_tw_recycle')
+
+####
+# Bring the same environment as FdsEnv but operate on a remote node.
 # Execute command on a remote node.
 #
 class FdsRmtEnv(FdsEnv):
     def __init__(self, root, verbose=None, install=True):
-        super(FdsRmtEnv, self).__init__(root)
+        super(FdsRmtEnv, self).__init__(root, verbose, install)
         self.env_ssh_clnt  = None
         self.env_scp_clnt  = None
-        self.env_verbose   = verbose
-        self.env_rmt_host  = None
-
-        self.env_fdsSrc    = root
-        self.env_install   = install
-
-        self.env_ldLibPath = ("export LD_LIBRARY_PATH=" +
-                self.get_fds_root() + 'lib:'
-                '/usr/local/lib:/usr/lib/jvm/java-8-oracle/jre/lib/amd64; '
-                'export PATH=$PATH:' + self.get_fds_root() + 'bin; ')
 
     ###
     # Open ssh connection to the remote node.
@@ -178,7 +318,7 @@ class FdsRmtEnv(FdsEnv):
             user   = self.env_user if user == None else user
             passwd = self.env_password if passwd == None else passwd
 
-            self.env_rmt_host = host
+            self.env_host = host
             client.connect(host, port, user, passwd)
         except Exception, e:
             print "*** Caught execption %s: %s" % (e.__class__, e)
@@ -224,7 +364,7 @@ class FdsRmtEnv(FdsEnv):
 
         if self.env_verbose:
             if self.env_verbose['verbose']:
-                log.info("Running remote command on %s: %s" % (self.env_rmt_host, cmd_exec))
+                log.info("Running remote command on %s: %s" % (self.env_host, cmd_exec))
 
             if self.env_verbose['dryrun'] == True:
                 log.info("...not executed in dryrun mode")
@@ -235,14 +375,14 @@ class FdsRmtEnv(FdsEnv):
         status  = 0 if wait_compl == False else channel.recv_exit_status()
 
         for line in stderr.read().splitlines():
-            log.warn("[%s Error] %s" % (self.env_rmt_host, line))
+            log.warn("[%s Error] %s" % (self.env_host, line))
             if status == 0:
                 status = -1
 
         if output == True:
             if status != 0:
                 for line in stdout.read().splitlines():
-                    log.info("[%s] %s" % (self.env_rmt_host, line))
+                    log.info("[%s] %s" % (self.env_host, line))
 
         return_line = None
         if return_stdin and wait_compl:
@@ -262,23 +402,16 @@ class FdsRmtEnv(FdsEnv):
     def ssh_exec_fds(self, cmd, wait_compl = False):
         return self.ssh_exec(cmd, wait_compl, True)
 
-    ###
-    # Execute command and wait for result. We'll also log
-    # output in this case.
-    #
-    def ssh_exec_wait(self, cmd):
+    def exec_wait(self, cmd):
         return self.ssh_exec(cmd, True, False, True)
 
     def ssh_close(self):
         self.env_ssh_clnt.close()
 
-    def get_host_name(self):
-        return "" if self.env_rmt_host is None else self.env_rmt_host
-
     ###
     # Setup core files and other stuffs.
     #
-    def ssh_setup_env(self, cmd):
+    def setup_env(self, cmd):
         if (cmd is not None) and (cmd != ''):
             cmd = cmd + ';'
 

@@ -8,7 +8,7 @@ import sys
 import subprocess
 import time
 import logging
-import pdb
+import os
 import FdsSetup as inst
 
 ###
@@ -35,56 +35,77 @@ class FdsConfig(object):
 #
 class FdsNodeConfig(FdsConfig):
     def __init__(self, name, items, verbose):
+        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_connect_agent')
+
         super(FdsNodeConfig, self).__init__(items, verbose)
         self.nd_conf_dict['node-name'] = name
-        self.nd_rmt_host  = None
-        self.nd_rmt_agent = None
+        self.nd_host  = None
+        self.nd_agent = None
         self.nd_package   = None
         self.nd_local_env = None
 
+        # Is the node local or remote?
+        if 'ip' not in self.nd_conf_dict:
+            log.error("Missing ip keyword in the node section %s." % self.nd_conf_dict['node-name'])
+            sys.exit(1)
+        else:
+            if (self.nd_conf_dict['ip'] == 'localhost') or (self.nd_conf_dict['ip'] == '127.0.0.1'):
+                self.nd_local = True
+            else:
+                self.nd_local = False
+
     ###
     # Establish ssh connection with the remote node.  After this call, the obj
-    # can use nd_rmt_host to send ssh commands to the remote node.
+    # can use nd_agent to send ssh commands to the remote node.
     #
-    def nd_connect_rmt_agent(self, env, quiet=False):
-        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_connect_rmt_agent')
-        if 'fds_root' in self.nd_conf_dict:
-            root = self.nd_conf_dict['fds_root']
-            self.nd_rmt_agent = inst.FdsRmtEnv(root, self.nd_verbose, env.env_install)
+    # If the IP indicates the node is localhost, no SSH connection is made.
+    #
+    def nd_connect_agent(self, env, quiet=False):
+        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_connect_agent')
 
-            self.nd_rmt_agent.env_user     = env.env_user
-            self.nd_rmt_agent.env_password = env.env_password
-        else:
+        if 'fds_root' not in self.nd_conf_dict:
             log.error("Missing fds-root keyword in the node section %s." % self.nd_conf_dict['node-name'])
             sys.exit(1)
-        
+
         if 'ip' not in self.nd_conf_dict:
             log.error("Missing ip keyword in the node section %s." % self.nd_conf_dict['node-name'])
             sys.exit(1)
 
         self.nd_local_env = env
-        self.nd_rmt_host  = self.nd_conf_dict['ip']
+        self.nd_host  = self.nd_conf_dict['ip']
 
-	if not quiet:
-            log.info("Making ssh connection to %s as node %s." % (self.nd_rmt_host, self.nd_conf_dict['node-name']))
-        self.nd_rmt_agent.ssh_connect(self.nd_rmt_host)
+        root = self.nd_conf_dict['fds_root']
+
+        if self.nd_local:
+            self.nd_agent = inst.FdsLocalEnv(root, self.nd_verbose, env.env_install)
+            self.nd_agent.env_user     = env.env_user
+            self.nd_agent.env_password = env.env_password
+            self.nd_agent.env_sudo_password = env.env_sudo_password
+            self.nd_agent.local_connect()
+        else:
+            self.nd_agent = inst.FdsRmtEnv(root, self.nd_verbose, env.env_install)
+            self.nd_agent.env_user     = env.env_user
+            self.nd_agent.env_password = env.env_password
+            if not quiet:
+                log.info("Making ssh connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
+            self.nd_agent.ssh_connect(self.nd_host)
 
     ###
     # Install the tar ball package at local location to the remote node.
     #
     def nd_install_rmt_pkg(self):
-        if self.nd_rmt_agent is None:
-            print "You need to call nd_connect_rmt_agent() first"
+        if self.nd_agent is None:
+            print "You need to call nd_connect_agent() first"
             sys.exit(0)
 
         print "Installing FDS package to:", self.nd_host_name()
-        pkg = inst.FdsPackage(self.nd_rmt_agent)
-        status = pkg.package_install(self.nd_rmt_agent, self.nd_local_env.get_pkg_tar())
+        pkg = inst.FdsPackage(self.nd_agent)
+        status = pkg.package_install(self.nd_agent, self.nd_local_env.get_pkg_tar())
 
         return status
 
     def nd_host_name(self):
-        return '[' + self.nd_rmt_host + '] ' + self.nd_conf_dict['node-name']
+        return '[' + self.nd_host + '] ' + self.nd_conf_dict['node-name']
 
     ###
     # Return True if this node is configured to run OM.
@@ -101,8 +122,8 @@ class FdsNodeConfig(FdsConfig):
         log = logging.getLogger(self.__class__.__name__ + '.' + __name__)
 
         if self.nd_run_om():
-            if self.nd_rmt_agent is None:
-                print "You need to call nd_connect_rmt_agent() first"
+            if self.nd_agent is None:
+                print "You need to call nd_connect_agent() first"
                 sys.exit(0)
 
             fds_dir = self.nd_conf_dict['fds_root']
@@ -122,11 +143,14 @@ class FdsNodeConfig(FdsConfig):
             # When running from the test harness, we want to wait for results
             # but not assume we are running from an FDS package install.
             if test_harness:
-                status = self.nd_rmt_agent.ssh_exec_wait('sh -c \"(cd %s; '
-                                                         'nohup %s/orchMgr --fds-root=%s > %s/om.out 2>&1 &) \"' %
-                                                         (bin_dir, bin_dir, fds_dir, log_dir))
+                cur_dir = os.getcwd()
+                os.chdir(bin_dir)
+                # TODO(GREG) Make the OM's log directory flexable.
+                status = self.nd_agent.exec_wait('sh -c \"(nohup ./orchMgr --fds-root=%s > ./om.out 2>&1 &) \"' %
+                                                         (fds_dir))
+                os.chdir(cur_dir)
             else:
-                status = self.nd_rmt_agent.ssh_exec_fds(
+                status = self.nd_agent.exec_fds(
                     "orchMgr --fds-root=%s > %s/om.out" % (fds_dir, log_dir))
 
             time.sleep(2)
@@ -166,11 +190,11 @@ class FdsNodeConfig(FdsConfig):
         # When running from the test harness, we want to wait for results
         # but not assume we are running from an FDS package install.
         if test_harness:
-            status = self.nd_rmt_agent.ssh_exec_wait('sh -c \"(nohup %s/platformd ' % bin_dir + port_arg +
-                                           ' > %s/pm.out 2>&1 &) \"' % log_dir)
+            status = self.nd_agent.exec_wait('sh -c \"(nohup %s/platformd ' % bin_dir + port_arg +
+                                             ' > %s/pm.out 2>&1 &) \"' % log_dir)
         else:
-            status = self.nd_rmt_agent.ssh_exec_fds('platformd ' + port_arg +
-                                           ' > %s/pm.out' % log_dir)
+            status = self.nd_agent.exec_fds('platformd ' + port_arg +
+                                            ' > %s/pm.out' % log_dir)
         time.sleep(4)
 
         return status
@@ -188,14 +212,14 @@ class FdsNodeConfig(FdsConfig):
         # TODO (Bao): order to kill: AM, SM/DM, OM
         # TODO WIN-936 signal handler improvements - should use a different signal
         # and give the processes a chance to shutdown cleanly
-        self.nd_rmt_agent.ssh_exec('pkill -9 -f com.formationds.am.Main;', wait_compl=True)
-        self.nd_rmt_agent.ssh_exec('pkill -9 bare_am', wait_compl=True)
-        self.nd_rmt_agent.ssh_exec('pkill -9 AMAgent', wait_compl=True)
-        self.nd_rmt_agent.ssh_exec('pkill -9 StorMgr', wait_compl=True)
-        self.nd_rmt_agent.ssh_exec('pkill -9 DataMgr', wait_compl=True)
-        self.nd_rmt_agent.ssh_exec('pkill -9 orchMgr', wait_compl=True)
-        self.nd_rmt_agent.ssh_exec('pkill -9 platformd', wait_compl=True)
-        self.nd_rmt_agent.ssh_exec('pkill -9 -f com.formationds.om.Main', wait_compl=True)
+        self.nd_agent.exec_wait('pkill -9 -f com.formationds.am.Main')
+        self.nd_agent.exec_wait('pkill -9 bare_am')
+        self.nd_agent.exec_wait('pkill -9 AMAgent')
+        self.nd_agent.exec_wait('pkill -9 StorMgr')
+        self.nd_agent.exec_wait('pkill -9 DataMgr')
+        self.nd_agent.exec_wait('pkill -9 orchMgr')
+        self.nd_agent.exec_wait('pkill -9 platformd')
+        self.nd_agent.exec_wait('pkill -9 -f com.formationds.om.Main')
         time.sleep(2)
 
     def nd_cleanup_daemons_with_fdsroot(self, fds_root):
@@ -205,12 +229,12 @@ class FdsNodeConfig(FdsConfig):
         var_dir = fds_root + '/var'
         print("\nCleanup running processes on: %s, %s" % (self.nd_host_name(), bin_dir))
         # TODO (Bao): order to kill: AM, SM/DM, OM
-        self.nd_rmt_agent.ssh_exec('pkill -9 -f \'\-\-fds\-root={}\''.format(fds_root), wait_compl=True)
+        self.nd_agent.ssh_exec('pkill -9 -f \'\-\-fds\-root={}\''.format(fds_root), wait_compl=True)
 
     ###
     # cleanup any cores, redis, and logs.
     #
-    def nd_cleanup_node(self):
+    def nd_cleanup_node(self, test_harness=False, _bin_dir=None):
         log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_cleanup_node')
 
         fds_dir = self.nd_conf_dict['fds_root']
@@ -220,14 +244,67 @@ class FdsNodeConfig(FdsConfig):
         dev_dir = fds_dir + '/dev'
         var_dir = fds_dir + '/var'
         log.info("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
-        status = self.nd_rmt_agent.ssh_exec('(cd %s && rm core *.core); ' % bin_dir +
-            '(cd %s && rm -r logs stats); ' % var_dir +
-            '(cd /corefiles && rm *.core); '  +
-            '(cd %s/core && rm *.core); ' % var_dir +
-            '(cd %s && ./fds clean -i); ' % tools_dir +
-            '(cd %s && rm -f hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
-            '(cd %s && rm -r sys-repo/ && rm -r user-repo/); ' % fds_dir +
-            '(cd /dev/shm && rm -f 0x*)', wait_compl=True, output=True)
+
+        if test_harness:
+            fds_dir = self.nd_conf_dict['fds_root']
+            bin_dir = _bin_dir
+            sbin_dir = _bin_dir + '../sbin'
+            tools_dir = sbin_dir + '/tools'
+            dev_dir = fds_dir + '/dev'
+            var_dir = fds_dir + '/var'
+
+            cur_dir = os.getcwd()
+
+            status = self.nd_agent.exec_wait('ls ' + bin_dir)
+            if status == 0:
+                os.chdir(bin_dir)
+                status = self.nd_agent.exec_wait('rm core *.core')
+
+            status = self.nd_agent.exec_wait('ls ' + var_dir)
+            if status == 0:
+                os.chdir(var_dir)
+                status = self.nd_agent.exec_wait('rm -r logs stats')
+
+            status = self.nd_agent.exec_wait('ls ' + '/corefiles')
+            if status == 0:
+                os.chdir('/corefiles')
+                status = self.nd_agent.exec_wait('rm *.core')
+
+            status = self.nd_agent.exec_wait('ls ' + var_dir + '/core')
+            if status == 0:
+                os.chdir(var_dir + '/core')
+                status = self.nd_agent.exec_wait('rm *.core')
+
+            #status = self.nd_agent.exec_wait('ls ' + tools_dir)
+            #if status != 0:
+            #    os.chdir(tools_dir)
+            #    status = self.nd_agent.exec_wait('./fds clean -i')
+
+            status = self.nd_agent.exec_wait('ls ' + dev_dir)
+            if status == 0:
+                os.chdir(dev_dir)
+                status = self.nd_agent.exec_wait('rm -f hdd-*/* && rm -f ssd-*/*')
+
+            status = self.nd_agent.exec_wait('ls ' + fds_dir)
+            if status == 0:
+                os.chdir(fds_dir)
+                status = self.nd_agent.exec_wait('rm -r sys-repo/ && rm -r user-repo/')
+
+            status = self.nd_agent.exec_wait('ls ' + '/dev/shm')
+            if status == 0:
+                os.chdir('/dev/shm')
+                status = self.nd_agent.exec_wait('rm -f 0x*')
+
+            os.chdir(cur_dir)
+        else:
+            status = self.nd_agent.exec_wait('(cd %s && rm core *.core); ' % bin_dir +
+                '(cd %s && rm -r logs stats); ' % var_dir +
+                '(cd /corefiles && rm *.core); '  +
+                '(cd %s/core && rm *.core); ' % var_dir +
+                '(cd %s && ./fds clean -i); ' % tools_dir +
+                '(cd %s && rm -f hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
+                '(cd %s && rm -r sys-repo/ && rm -r user-repo/); ' % fds_dir +
+                '(cd /dev/shm && rm -f 0x*)')
 
         if status == -1:
             # ssh_exec() returns -1 when there is output to syserr and
@@ -599,7 +676,7 @@ class FdsConfigRun(object):
 
         self.rt_env = env
         if self.rt_env is None:
-            self.rt_env = inst.FdsEnv(opt.fds_root, opt.install, opt.fds_source_dir)
+            self.rt_env = inst.FdsEnv(opt.fds_root, opt.verbose, opt.install, opt.fds_source_dir)
 
         self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
         self.rt_obj.config_parse()
@@ -610,6 +687,13 @@ class FdsConfigRun(object):
             usr = users[0]
             self.rt_env.env_user     = usr.get_config_val('user_name')
             self.rt_env.env_password = usr.get_config_val('password')
+
+            # Get sudo password from the commandline if there. If not,
+            # check the config file.
+            if opt.sudo_password is not None:
+                self.rt_env.env_sudo_password = opt.sudo_password
+            elif 'sudo_password' in usr.nd_conf_dict:
+                self.rt_env.env_sudo_password = usr.get_config_val('sudo_password')
 
         # Setup ssh agent to connect all nodes and find the OM node.
         
@@ -629,8 +713,8 @@ class FdsConfigRun(object):
         nodes = self.rt_obj.cfg_nodes
 
         for n in nodes:
-            n.nd_connect_rmt_agent(self.rt_env, quiet_ssh)
-            n.nd_rmt_agent.ssh_setup_env('')
+            n.nd_connect_agent(self.rt_env, quiet_ssh)
+            n.nd_agent.setup_env('')
 
             if n.nd_run_om() == True:
                 self.rt_om_node = n

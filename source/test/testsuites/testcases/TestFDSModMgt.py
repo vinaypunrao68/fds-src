@@ -8,7 +8,7 @@ import unittest
 import traceback
 
 import xmlrunner
-from testcases import TestCase
+import TestCase
 
 
 # Module-specific requirements

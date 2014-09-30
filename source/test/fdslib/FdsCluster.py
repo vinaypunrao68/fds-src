@@ -70,8 +70,8 @@ class FdsCluster:
         # On OM node we don't need initiate ssh connection.
         # It's already done in the constructor
         if node_cfg.nd_conf_dict['node-name'] != self.__om_node_id:
-            node_cfg.nd_connect_rmt_agent(self.env)
-            node_cfg.nd_rmt_agent.ssh_setup_env('')
+            node_cfg.nd_connect_agent(self.env)
+            node_cfg.nd_rmt_agent.setup_env('')
             # TODO(Rao): check with Vy if this needs to change later after shared memory
             # changes
             node_cfg.nd_start_platform(om_ip=self.get_node(self.__om_node_id).get_ip())
@@ -219,8 +219,8 @@ class FdsCluster:
         """
         for n in self.config.cfg_nodes:
             if n.nd_run_om():
-                n.nd_connect_rmt_agent(self.env)
-                n.nd_rmt_agent.ssh_setup_env('')
+                n.nd_connect_agent(self.env)
+                n.nd_rmt_agent.setup_env('')
                 # TODO(Rao): Starting platform before OM.  Check with Vy is this is ok
                 n.nd_start_platform(om_ip=n.nd_conf_dict['ip'])
                 n.nd_start_om()
