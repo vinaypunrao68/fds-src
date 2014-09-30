@@ -57,12 +57,6 @@ angular.module( 'qos' ).factory( '$snapshot_service', ['$http', function( $http 
         return rtn;
     };
 
-    service.createSnapshot = function( volumeId, newName, callback, failure ){
-        
-        return $http.post( '/api/volume/snapshot', {volumeId: volumeId, name: newName, retention: 0} )
-            .success( callback ).error( failure );
-    };
-
     service.createSnapshotPolicy = function( policy, callback, failure ){
 
         return $http.post( '/api/config/snapshot/policies', policy )
