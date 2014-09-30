@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'snapshotPolicyController', ['$scope', '$modal_data_service', function( $scope, $modal_data_service ){
+angular.module( 'volumes' ).controller( 'snapshotPolicyController', ['$scope', '$modal_data_service', '$snapshot_service', function( $scope, $modal_data_service, $snapshot_service ){
 
     $scope.policies = [];
 
@@ -8,8 +8,8 @@ angular.module( 'volumes' ).controller( 'snapshotPolicyController', ['$scope', '
         $scope.timeChoices = [{name: 'Hours'},{name: 'Days'},{name: 'Weeks'},{name: 'Months'},{name: 'Years'}];
 
         $scope.policies = [
-            {name: 'Hourly', displayName: 'Hourly', units: $scope.timeChoices[1], value: 0, use: false},
-            {name: 'Daily', displayName: 'Hourly', units: $scope.timeChoices[2], value: 0, use: false},
+//            {name: 'Hourly', displayName: 'Hourly', units: $scope.timeChoices[1], value: 0, use: false},
+            {name: 'Daily', displayName: 'Daily', units: $scope.timeChoices[2], value: 0, use: false},
             {name: 'Weekly', displayName: 'Weekly', units: $scope.timeChoices[3], value: 0, use: false},
             {name: 'Monthly', displayName: 'Monthly', units: $scope.timeChoices[4], value: 0, use: false},
             {name: 'Yearly', displayName: 'Yearly', units: $scope.timeChoices[4], value: 0, use: false}];
@@ -71,7 +71,7 @@ angular.module( 'volumes' ).controller( 'snapshotPolicyController', ['$scope', '
                     recurrenceRule: {
                         FREQ: tempPolicy.name.toUpperCase()
                     },
-                    retention: convertTimePeriodToSeconds( tempPolicy.value, tempPolicy.units.name.toUpperCase() )
+                    retention: $snapshot_service.convertTimePeriodToSeconds( tempPolicy.value, tempPolicy.units.name.toUpperCase() )
                 };
 
                 policyList.push( policy );

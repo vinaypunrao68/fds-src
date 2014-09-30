@@ -73,7 +73,7 @@ module.exports = function( grunt ){
                 files: [{
                     expand: true,
                     cwd: 'bower_components',
-                    src: ['angular/angular.js', 'angular-ui-router/release/angular-ui-router.js', 'angular-translate/angular-translate.js', 'bootstrap/dist/css/bootstrap.min.css', 'jquery/dist/jquery.min.js','d3/d3.min.js'],
+                    src: ['angular/angular.js', 'angular-ui-router/release/angular-ui-router.js', 'angular-translate/angular-translate.js', 'bootstrap/dist/css/bootstrap.min.css', 'jquery/dist/jquery.min.js','d3/d3.min.js', 'jquery/dist/jquery.min.map'],
                     dest: distDir + '/libs/'
                 },
                 {
