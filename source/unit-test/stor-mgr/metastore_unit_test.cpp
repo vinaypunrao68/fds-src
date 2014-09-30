@@ -18,12 +18,16 @@
 #include <FdsRandom.h>
 #include <StatsCollector.h>
 #include <ObjMeta.h>
+#include <object-store/SmDiskMap.h>
 #include <object-store/ObjectMetaDb.h>
 #include <object-store/ObjectMetadataStore.h>
 #include <object-store/ObjectMetaCache.h>
 
-namespace fds {
+#include <sm_ut_utils.h>
 
+static fds::SmDiskMap::ptr smDiskMap;
+
+namespace fds {
 
 /**
  * Unit test for both ObjectMetaDb and ObjectMetadataStore (the type of
@@ -38,7 +42,7 @@ class MetaStoreUTProc : public FdsProcess {
   public:
     MetaStoreUTProc(int argc, char * argv[], const std::string & config,
                     const std::string & basePath, Module * vec[]);
-    virtual ~MetaStoreUTProc() {}
+    virtual ~MetaStoreUTProc();
 
     virtual int run() override;
 
@@ -67,6 +71,7 @@ class MetaStoreUTProc : public FdsProcess {
                                         const ObjectID& objId);
     fds_bool_t isValidObjMeta(ObjMetaData::const_ptr meta,
                               fds_uint32_t rnum);
+    Error openMetadataDB();
     Error populateStore();
 
     /* tests */
@@ -165,12 +170,14 @@ MetaStoreUTProc::MetaStoreUTProc(int argc, char * argv[], const std::string & co
         LOGNOTIFY << "Will test ObjectMetadataDb";
     } else if (0 == whatstr.compare(0, 10, "meta_store")) {
         store_ = new ObjectMetadataStore("Object Metadata Store UT");
+        store_->mod_init(NULL);
         store_->mod_startup();
         store_->setNumBitsPerToken(16);
         std::cout << "Will test ObjectMetadataStore" << std::endl;
         LOGNOTIFY << "Will test ObjectMetadataStore";
     } else if (0 == whatstr.compare(0, 10, "meta_cache")) {
         cache_ = new ObjectMetaCache("Object Metadata Cache UT");
+        cache_->mod_init(NULL);
         cache_->mod_startup();
         std::cout << "Will test ObjectMetaCache" << std::endl;
         LOGNOTIFY << "Will test ObjectMetaCache";
@@ -201,6 +208,21 @@ MetaStoreUTProc::MetaStoreUTProc(int argc, char * argv[], const std::string & co
     op_count = ATOMIC_VAR_INIT(0);
     test_pass_ = ATOMIC_VAR_INIT(true);
     StatsCollector::singleton()->enableQosStats("ObjMetaStoreUt");
+}
+
+MetaStoreUTProc::~MetaStoreUTProc() {
+    if (db_) {
+        delete db_;
+        db_ = NULL;
+    }
+    if (store_) {
+        delete store_;
+        store_ = NULL;
+    }
+    if (cache_) {
+        delete cache_;
+        cache_ = NULL;
+    }
 }
 
 
@@ -272,6 +294,22 @@ Error MetaStoreUTProc::remove(fds_volid_t volId,
     } else if (cache_) {
         fds_verify(!db_ && !store_);
         cache_->removeObjectMetadata(volId, objId);
+        return ERR_OK;
+    } else {
+        fds_panic("no known modules are initialized for put operation!");
+    }
+    return ERR_OK;
+}
+
+Error MetaStoreUTProc::openMetadataDB() {
+    if (db_) {
+        fds_verify(!store_ && !cache_);
+        return db_->openMetadataDb(smDiskMap);
+    } else if (store_) {
+        fds_verify(!db_ && !cache_);
+        return store_->openMetadataStore(smDiskMap);
+    } else if (cache_) {
+        fds_verify(!db_ && !store_);
         return ERR_OK;
     } else {
         fds_panic("no known modules are initialized for put operation!");
@@ -401,6 +439,20 @@ int MetaStoreUTProc::run() {
     Error err(ERR_OK);
     int ret = 0;
     std::cout << "Starting test...";
+
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    SmUtUtils::cleanFdsDev(dir);
+    fds_uint32_t sm_count = 1;
+    fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
+    DLT* dlt = new DLT(10, cols, 1, true);
+    SmUtUtils::populateDlt(dlt, sm_count);
+    GLOGDEBUG << "Using DLT: " << *dlt;
+    smDiskMap->handleNewDlt(dlt);
+
+    // open metadata DBs for SM tokens
+    err = openMetadataDB();
+    fds_verify(err.ok());
+
     if (test_type_ == UT_SMOKE) {
         ret = runSmokeTest();
         return ret;
@@ -510,8 +562,9 @@ void MetaStoreUTProc::task(int id) {
 }  // namespace fds
 
 int main(int argc, char * argv[]) {
+    smDiskMap = fds::SmDiskMap::ptr(new fds::SmDiskMap("Test SM Disk Map"));
     fds::Module *smVec[] = {
-        &diskio::gl_dataIOMod,
+        smDiskMap.get(),
         nullptr
     };
 

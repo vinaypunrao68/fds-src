@@ -5,6 +5,7 @@
 #include <dlt.h>
 #include <odb.h>
 #include <PerfTrace.h>
+#include <object-store/SmDiskMap.h>
 #include <object-store/ObjectMetaDb.h>
 
 namespace fds {
@@ -14,50 +15,79 @@ ObjectMetadataDb::ObjectMetadataDb()
 }
 
 ObjectMetadataDb::~ObjectMetadataDb() {
+    std::unordered_map<fds_token_id, osm::ObjectDB *>::iterator it;
+    for (it = tokenTbl.begin();
+         it != tokenTbl.end();
+         ++it) {
+        osm::ObjectDB * objDb = it->second;
+        delete objDb;
+        it->second = NULL;
+    }
 }
 
 void ObjectMetadataDb::setNumBitsPerToken(fds_uint32_t nbits) {
     bitsPerToken_ = nbits;
 }
 
-//
-// returns object metadata DB, if it does not exist, creates it
-//
-osm::ObjectDB *ObjectMetadataDb::getObjectDB(fds_token_id tokId) {
-    osm::ObjectDB *objdb = NULL;
-    fds_token_id dbId = getDbId(tokId);
-
-    read_synchronized(dbmapLock_) {
-        TokenTblIter iter = tokenTbl.find(dbId);
-        if (iter != tokenTbl.end()) return iter->second;
+Error
+ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
+    Error err(ERR_OK);
+    // open object metadata DB for each token that this SM owns
+    // if metadata DB already open, no error
+    SmTokenSet smToks = diskMap->getSmTokens();
+    for (SmTokenSet::const_iterator cit = smToks.cbegin();
+         cit != smToks.cend();
+         ++cit) {
+        std::string diskPath = diskMap->getDiskPath(*cit, diskio::diskTier);
+        err = openObjectDb(*cit, diskPath);
+        if (!err.ok()) {
+            LOGERROR << "Failed to open Object Meta DB for SM token " << *cit
+                     << ", disk path " << diskPath << " " << err;
+            break;
+        }
     }
+    return err;
+}
 
-    // leveldb file not opened
+Error
+ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
+                               const std::string& diskPath) {
+    osm::ObjectDB *objdb = NULL;
+    std::string filename = diskPath + "//SNodeObjIndex_" + std::to_string(smTokId);
+    LOGDEBUG << "SM Token " << smTokId << " MetaDB: " << filename;
+
     SCOPEDWRITE(dbmapLock_);
-    // in case more than one thread found there is no leveldb file
-    // check again if another thread already created it!
-    TokenTblIter iter = tokenTbl.find(dbId);
-    if (iter != tokenTbl.end()) return iter->second;
+    // check whether this DB is already open
+    TokenTblIter iter = tokenTbl.find(smTokId);
+    if (iter != tokenTbl.end()) return ERR_OK;
 
     // create leveldb
-    std::string filename = std::string(diskio::gl_dataIOMod.disk_path(tokId, diskio::diskTier)) +
-            "//SNodeObjIndex_" + std::to_string(dbId);
-    //    std::string filename = dir_ + "SNodeObjIndex_" + std::to_string(dbId);
     objdb = new(std::nothrow) osm::ObjectDB(filename);
     if (!objdb) {
         LOGERROR << "Failed to create ObjectDB " << filename;
-        return NULL;
+        return ERR_OUT_OF_MEMORY;
     }
-    tokenTbl[dbId] = objdb;
-    return objdb;
+    tokenTbl[smTokId] = objdb;
+    return ERR_OK;
 }
 
-void ObjectMetadataDb::closeObjectDB(fds_token_id tokId) {
-    fds_token_id dbId = getDbId(tokId);
+//
+// returns object metadata DB, if it does not exist, creates it
+//
+osm::ObjectDB *ObjectMetadataDb::getObjectDB(const ObjectID& objId) {
+    fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
+
+    SCOPEDREAD(dbmapLock_);
+    TokenTblIter iter = tokenTbl.find(smTokId);
+    fds_verify(iter != tokenTbl.end());
+    return iter->second;
+}
+
+void ObjectMetadataDb::closeObjectDB(fds_token_id smTokId) {
     osm::ObjectDB *objdb = NULL;
 
     SCOPEDWRITE(dbmapLock_);
-    TokenTblIter iter = tokenTbl.find(dbId);
+    TokenTblIter iter = tokenTbl.find(smTokId);
     if (iter == tokenTbl.end()) return;
     objdb = iter->second;
     tokenTbl.erase(iter);
@@ -75,8 +105,7 @@ ObjectMetadataDb::get(fds_volid_t volId,
     err = ERR_OK;
     ObjectBuf buf;
 
-    fds_token_id tokId = DLT::getToken(objId, bitsPerToken_);
-    osm::ObjectDB *odb = getObjectDB(tokId);
+    osm::ObjectDB *odb = getObjectDB(objId);
     if (!odb) {
         err = ERR_OUT_OF_MEMORY;
         return NULL;
@@ -102,8 +131,7 @@ ObjectMetadataDb::get(fds_volid_t volId,
 Error ObjectMetadataDb::put(fds_volid_t volId,
                             const ObjectID& objId,
                             ObjMetaData::const_ptr objMeta) {
-    fds_token_id tokId = DLT::getToken(objId, bitsPerToken_);
-    osm::ObjectDB *odb = getObjectDB(tokId);
+    osm::ObjectDB *odb = getObjectDB(objId);
     if (!odb) {
         return ERR_OUT_OF_MEMORY;
     }
@@ -121,8 +149,7 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
 //
 Error ObjectMetadataDb::remove(fds_volid_t volId,
                                const ObjectID& objId) {
-    fds_token_id tokId = DLT::getToken(objId, bitsPerToken_);
-    osm::ObjectDB *odb = getObjectDB(tokId);
+    osm::ObjectDB *odb = getObjectDB(objId);
     if (!odb) {
         return ERR_OUT_OF_MEMORY;
     }
