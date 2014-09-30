@@ -10,7 +10,6 @@
 #include <fds_error.h>
 #include <fds_resource.h>
 #include <fds_module.h>
-#include <serialize.h>
 #include <platform/platform-rpc.h>
 #include <net/SvcRequest.h>
 #include <fdsp/FDSP_types.h>
@@ -59,6 +58,8 @@ class EPSvcRequest;
 class AgentContainer;
 class DomainContainer;
 class EPSvcRequest;
+class NodeWorkItem;
+class NodeWorkFlow;
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
 typedef fpi::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
@@ -247,7 +248,9 @@ class PmAgent : public NodeAgent
     boost::intrusive_ptr<PmSvcEp> agent_ep_svc();
 
   protected:
+    friend class NodeWorkFlow;
     boost::intrusive_ptr<PmSvcEp>      pm_ep_svc;
+    boost::intrusive_ptr<NodeWorkItem> pm_wrk_item;
 
     virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
     virtual void

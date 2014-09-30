@@ -22,6 +22,8 @@ externalpkgs=(
     redis-server_2.8.8.deb
     redis-tools_2.8.8.deb
 
+    libical1_1.0-0ubuntu1_amd64.deb
+
     paramiko-1.10.1.tar.gz
     scp-0.7.1.tar.gz
 )

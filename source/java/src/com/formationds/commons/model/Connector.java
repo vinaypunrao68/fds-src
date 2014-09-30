@@ -1,23 +1,11 @@
 /*
- * Copyright (C) 2014, All Rights Reserved, by Formation Data Systems, Inc.
- *
- *  This software is furnished under a license and may be used and copied only
- *  in  accordance  with  the  terms  of such  license and with the inclusion
- *  of the above copyright notice. This software or  any  other copies thereof
- *  may not be provided or otherwise made available to any other person.
- *  No title to and ownership of  the  software  is  hereby transferred.
- *
- *  The information in this software is subject to change without  notice
- *  and  should  not be  construed  as  a commitment by Formation Data Systems.
- *
- *  Formation Data Systems assumes no responsibility for the use or  reliability
- *  of its software on equipment which is not supplied by Formation Date Systems.
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
-import com.formationds.commons.model.type.DataConnectorType;
+import com.formationds.commons.model.type.ConnectorType;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
@@ -30,8 +18,9 @@ public class Connector
 {
   private static final long serialVersionUID = -6902011114156588870L;
 
-  private DataConnectorType type = DataConnectorType.UNKNOWN;
+  private ConnectorType type;
   private ConnectorAttributes attributes;
+  private String api;
 
   /**
    * default package level constructor
@@ -42,19 +31,19 @@ public class Connector
   }
 
   /**
-   * @return Returns the {@link com.formationds.commons.model.type.DataConnectorType}
+   * @return Returns the {@link ConnectorType}
    */
-  public DataConnectorType getType()
+  public ConnectorType getType()
   {
     return type;
   }
 
   /**
-   * @param type the {@link com.formationds.commons.model.type.DataConnectorType}
+   * @param type the {@link ConnectorType}
    */
-  public void setType( final String type )
+  public void setType( final ConnectorType type )
   {
-    this.type = DataConnectorType.lookup( type );
+    this.type = type;
   }
 
   /**
@@ -71,5 +60,19 @@ public class Connector
   public void setAttributes( final ConnectorAttributes attributes )
   {
     this.attributes = attributes;
+  }
+
+  /**
+   * @return Returns {@link String} representing the supported protocols
+   */
+  public String getApi() {
+    return api;
+  }
+
+  /**
+   * @param api the {@link String} representing the supported protocols
+   */
+  public void setApi( String api ) {
+    this.api = api;
   }
 }

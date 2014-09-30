@@ -8,7 +8,7 @@ import os
 import traceback
 import context
 import helpers
-
+import pipes
 from helpers import *
 from tabulate import tabulate
 
@@ -35,6 +35,7 @@ class FDSConsole(cmd.Cmd):
         setupHistoryFile()
         datafile = os.path.join(os.path.expanduser("~"), ".fdsconsole_data")
         self.data = {}
+        self.recordFile = None
         try :
             self.data = shelve.open(datafile,writeback=True)
         except:
@@ -46,8 +47,7 @@ class FDSConsole(cmd.Cmd):
         self.context = None
         self.previouscontext = None
         self.config.init()
-
-        ServiceMap.init(self.config.getSystem('host'), self.config.getSystem('port'))
+        ServiceMap.serviceMap = self.config.platform.svcMap
         self.set_root_context(context.RootContext(self.config))
 
     def get_access_level(self):
@@ -93,6 +93,14 @@ class FDSConsole(cmd.Cmd):
           ..  -> cc ..
           -   -> cc -        
         '''
+
+        if self.recordFile:
+            argv = shlex.split(line)
+            if not (len(argv) > 0 and argv[0].lower() == 'record'):
+                if len(line.strip()) > 0 :
+                    self.recordFile.write(line)
+                    self.recordFile.write('\n')
+
         if line.startswith('?'):
             line = '? ' + line[1:]
 
@@ -100,6 +108,12 @@ class FDSConsole(cmd.Cmd):
             line = line[:-1] + ' ?'
 
         argv = shlex.split(line)
+
+        # remove comments
+        for n in xrange(0,len(argv)):
+            if argv[n].startswith('#'):
+                del argv[n:]
+                break
 
         if len(argv) == 1:
             if argv[0] == '..':
@@ -114,9 +128,8 @@ class FDSConsole(cmd.Cmd):
             if argv[-1] in ['?','-h','--help']:
                 del argv[-1]
                 argv.insert(0,'help')
-            return ' '.join(argv)
 
-        return line
+        return ' '.join (map(pipes.quote, argv))
 
     def do_refresh(self, line):
         print 'reconnecting to {}:{}'.format(self.config.getSystem('host'), self.config.getSystem('port'))
@@ -192,6 +205,72 @@ class FDSConsole(cmd.Cmd):
         else:
             return self.completedefault(text, argv, *args)
 
+    def do_run(self, line):
+        argv = shlex.split(line)
+
+        if len(argv) != 1:
+            print 'filename needed..'
+            return
+          
+        filename = os.path.expandvars(os.path.expanduser(argv[0]))
+        if not os.path.isfile(filename):
+            print 'unable to locate file :', filename
+            return
+
+        lines = [l.strip() for l in open(filename)]
+
+        print '{} commands will be executed'.format(len(lines))
+
+        for line in lines:
+            print 'cmd : {}'.format(line)
+            self.onecmd(line)
+
+    def help_run(self):
+        print 'run <filename> : run the commands from a file'
+
+    def complete_run(self, line):
+        return []
+
+    def do_record(self, line):
+        argv = shlex.split(line)
+
+        if self.recordFile != None:
+            if len(argv) != 1:
+                print 'recording in progress .. [type record stop] to stop the recording.'
+            elif argv[0].lower() == 'stop':
+                self.recordFile.close()
+                self.recordFile = None
+                print 'recording stopped .'
+            else:
+                print 'unknown command'
+            return
+
+        if len(argv) != 1:
+            print 'filename needed..'
+            return
+
+        if argv[0].lower() == 'stop':
+            print 'recording has not yet started .'
+            return
+
+        filename = os.path.expandvars(os.path.expanduser(argv[0]))
+        try :
+            self.recordFile = open(filename,'a')
+            print 'recording started'
+        except Exception as e:
+            print e
+
+    def help_record(self):
+        print 'usage: record [stop|filename]'
+        print '  -- record filename : will start recording the commands into the file'
+        print '  -- record stop : will stop the current recording'
+
+    def complete_record(self, text, line, *args):
+        argv = shlex.split(line)
+        if len(argv) > 1:
+            return [item for item in ['stop'] if item.startswith(argv[1])]
+        return [item for item in ['stop'] if item.startswith(text)]
+
     def do_cc(self, line):
         ctxName = line
         if len(ctxName) == 0:
@@ -254,8 +333,16 @@ class FDSConsole(cmd.Cmd):
         print '-- to see current value of key, type set <key>'
         
     def complete_set(self, text, line, *args):
-        print line
         argv = shlex.split(line)
+        cmd = ''
+        if len(argv) == 2:
+            cmd = argv[1]
+        returnList = []
+        for key in self.data[helpers.KEY_SYSTEM].keys():
+            if key not in helpers.PROTECTED_KEYS and key.startswith(cmd) and key != cmd:
+                returnList.append(key)
+
+        return returnList
         
     def do_exit(self, *args):
         return True
@@ -377,7 +464,8 @@ class FDSConsole(cmd.Cmd):
         l += ['============================================']
         l += ['Formation Data Systems Console ...']
         l += ['Copyright 2014 Formation Data Systems, Inc.']
-        l += ['>>> NOTE: the current access level : %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)))]
+        l += ['NOTE: Access level : %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)))]
+        l += ['NOTE: Ctrl-D , Ctrl-C to exit']
         l += ['============================================']
         l += ['']
         try:
@@ -390,6 +478,10 @@ class FDSConsole(cmd.Cmd):
                 self.onecmd(self.precmd(' '.join(argv)))
         except (KeyboardInterrupt, ConsoleExit):
             print ''
+
+        if self.recordFile:
+            self.recordFile.close()
+
         self.data.close()
 
 if __name__ == '__main__':

@@ -170,7 +170,10 @@ Platform::plf_change_info(const plat_node_data_t *ndata)
         << "\nMy node uuid " << std::hex << plf_my_uuid.uuid_get_val()
         << "\nMy OM port   " << std::dec << plf_get_om_ctrl_port()
         << "\nMy OM platform port " << plf_get_om_svc_port()
-        << "\nMy OM IP     " << plf_om_ip_str << std::endl;
+        << "\nMy OM IP     " << plf_om_ip_str
+        << "\nMy IP        " << *plf_get_my_ip()
+        << "\nMy node port " << plf_get_my_node_port()
+        << std::endl;
 }
 
 // plf_svc_uuid_from_node

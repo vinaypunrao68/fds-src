@@ -1,8 +1,9 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#include <plat-probe.h>
 #include <string>
+#include <plat-probe.h>
+#include <node-work.h>
 
 namespace fds {
 
@@ -100,6 +101,7 @@ Plat_ProbeMod::mod_startup()
         mgr = pr_parent->pr_get_obj_mgr();
         mgr->js_register_template(new UT_ServSetupTempl(mgr));
         mgr->js_register_template(new UT_RunServTempl(mgr));
+        mgr->js_register_template(new RunInputTmpl(mgr));
     }
 }
 

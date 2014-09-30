@@ -7,8 +7,11 @@ KEY_PORT = 'port'
 KEY_GRIDOUTPUT = 'gridoutput'
 PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 
-from fdslib import RestEndpoint
+from fdslib import restendpoint
 import types
+import random
+from fdslib import platformservice
+
 class AccessLevel:
     '''
     Defines different access levels for users
@@ -57,7 +60,9 @@ class ConfigData:
             if None == self.getSystem(key):
                 self.setSystem(key, defaults[key])
 
-        self.rest = RestEndpoint.RestEndpoint(self.getHost(), 7777)
+        self.rest = restendpoint.RestEndpoint(self.getHost(), 7777)
+        self.s3rest   = restendpoint.RestEndpoint(self.getHost(), port=8000, auth=False)
+        self.platform = platformservice.PlatSvc(1690, self.getHost(), self.getPort())
 
     def set(self, key, value, namespace):
         if namespace not in self.__data:

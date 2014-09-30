@@ -101,7 +101,7 @@ class PlatAgentPlugin : public NodeAgentEvt
     typedef boost::intrusive_ptr<const PlatAgentPlugin> const_ptr;
 
     virtual ~PlatAgentPlugin() {}
-    explicit PlatAgentPlugin(PlatAgent::pointer agt) : NodeAgentEvt(agt) {}
+    explicit PlatAgentPlugin(NodeAgent::pointer agt) : NodeAgentEvt(agt) {}
 
     void ep_connected() override;
     void ep_down() override;
@@ -147,6 +147,9 @@ class PlatformEpHandler : public PlatNetSvcHandler
                         bo::shared_ptr<bool>             &bcast);
     void getDomainNodes(fpi::DomainNodes                 &ret,
                         bo::shared_ptr<fpi::DomainNodes> &req);
+    virtual void
+    NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                              boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &msg);
 
   protected:
     PlatformdNetSvc         *net_plat;

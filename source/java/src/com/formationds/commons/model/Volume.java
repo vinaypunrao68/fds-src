@@ -1,26 +1,12 @@
 /*
- * Copyright (C) 2014, All Rights Reserved, by Formation Data Systems, Inc.
- *
- *  This software is furnished under a license and may be used and copied only
- *  in  accordance  with  the  terms  of such  license and with the inclusion
- *  of the above copyright notice. This software or  any  other copies thereof
- *  may not be provided or otherwise made available to any other person.
- *  No title to and ownership of  the  software  is  hereby transferred.
- *
- *  The information in this software is subject to change without  notice
- *  and  should  not be  construed  as  a commitment by Formation Data Systems.
- *
- *  Formation Data Systems assumes no responsibility for the use or  reliability
- *  of its software on equipment which is not supplied by Formation Date Systems.
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
-import com.formationds.commons.model.type.Protocol;
 
 import javax.xml.bind.annotation.XmlRootElement;
-import java.util.List;
 
 /**
  * @author ptinius
@@ -31,14 +17,73 @@ public class Volume
 {
   private static final long serialVersionUID = 7961922641732546048L;
 
+/* JSON sent by the UI (CREATE)
+{
+  "name":"TestVolume",
+  "data_connector":{
+    "type":"Object",
+    "api":"S3, Swift"
+  },
+  "priority":10,
+  "sla":0,
+  "limit":300,
+  "snapshotPolicies":[
+    {
+      "name":"HOURLY",
+      "recurrenceRule":{
+        "frequency":"HOURLY"
+      },
+      "retention":14400
+    }
+  ]
+}
+
+JSON sent by Platform when listing volumes
+[{
+    "data_connector": {"type": "object"},
+    "apis": "S3, Swift",
+    "current_usage": {
+        "unit": "B",
+        "size": "0"
+    },
+    "name": "TestVolume",
+    "limit": 300,
+    "sla": 0,
+    "id": "4565300393392428557",
+    "priority": 10
+}]
+
+What I'm currently sending, this json (below) seems to cause the OM/DM to crash
+{
+  "name": "Volume Name -- 70579689",
+  "limit": 1024,
+  "sla": 256,
+  "priority": 30,
+  "data_connector": {
+    "type": "OBJECT",
+    "attributes": {
+      "unit": "GB",
+      "size": 100
+    }
+  },
+  "current_usage": {
+    "unit": "GB",
+    "size": "100"
+  },
+  "apis": [
+    "S3",
+    "SWIFT"
+  ]
+}
+*/
+
   private String name;
-  private int limit;                    // maximum IOPS
-  private int sla;                      // minimum IOPS -- service level agreement
+  private long limit;                    // maximum IOPS
+  private long sla;                      // minimum IOPS -- service level agreement
   private String id;
   private int priority;
   private Connector data_connector;
   private Usage current_usage;
-  private List<Protocol> apis;
 
   /**
    * default constructor
@@ -97,33 +142,33 @@ public class Volume
   }
 
   /**
-   * @return Returns a {@code int} representing the minimum service level agreement for IOPS
+   * @return Returns a {@code long} representing the minimum service level agreement for IOPS
    */
-  public int getSla()
+  public long getSla()
   {
     return sla;
   }
 
   /**
-   * @param sla a {@code int} representing the minimum service level agreement for IOPS
+   * @param sla a {@code long} representing the minimum service level agreement for IOPS
    */
-  public void setSla( final int sla )
+  public void setSla( final long sla )
   {
     this.sla = sla;
   }
 
   /**
-   * @return Returns a {@code int} representing the maximum service level agreement for IOPS
+   * @return Returns a {@code long} representing the maximum service level agreement for IOPS
    */
-  public int getLimit()
+  public long getLimit()
   {
     return limit;
   }
 
   /**
-   * @param limit a {@code int} representing the maximum service level agreement for IOPS
+   * @param limit a {@code long} representing the maximum service level agreement for IOPS
    */
-  public void setLimit( final int limit )
+  public void setLimit( final long limit )
   {
     this.limit = limit;
   }
@@ -158,19 +203,5 @@ public class Volume
   public void setCurrent_usage( final Usage current_usage )
   {
     this.current_usage = current_usage;
-  }
-
-  /**
-   * @return Returns {@link String} representing the data connector protocol
-   */
-  public List<Protocol> getApis() {
-    return apis;
-  }
-
-  /**
-   * @param apis the {@link String} representing the data connector protocol
-   */
-  public void setApis( final String apis ) {
-    this.apis = Protocol.lookup( apis );
   }
 }

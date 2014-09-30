@@ -36,6 +36,9 @@ class NodePlatform : public Platform
     void        plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg);
     inline void plf_bind_process(NodePlatformProc *ptr) { plf_process = ptr; }
 
+    virtual boost::intrusive_ptr<PmSvcEp>
+    plat_new_pm_svc(NodeAgent::pointer, fds_uint32_t maj, fds_uint32_t min) override;
+
   protected:
     NodePlatformProc    *plf_process;
     DiskPlatModule      *disk_ctrl;
@@ -70,6 +73,7 @@ class NodeShmRWCtrl : public NodeShmCtrl
         }
         return gl_NodeShmRWCtrl.shm_node_rw;
     }
+    static ShmObjRW * shm_dlt_rw_inv() { return gl_NodeShmRWCtrl.shm_dlt_rw; }
 
     /**
      * Module methods
@@ -82,6 +86,7 @@ class NodeShmRWCtrl : public NodeShmCtrl
     ShmObjRWKeyUint64       *shm_am_rw;
     ShmObjRWKeyUint64       *shm_node_rw;
     ShmObjRW                *shm_uuid_rw;
+    ShmObjRW                *shm_dlt_rw;
 
     void shm_init_queue(node_shm_queue_t *queue);
     void shm_init_header(node_shm_inventory_t *hdr);

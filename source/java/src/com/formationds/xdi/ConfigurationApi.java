@@ -163,6 +163,8 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
         config.deleteSnapshotPolicy(id);
     }
 
+  // TODO need deleteSnapshotForVolume Iface call.
+
     @Override
     public void attachSnapshotPolicy(long volumeId, long policyId) throws ApiException, org.apache.thrift.TException {
         config.attachSnapshotPolicy(volumeId, policyId);

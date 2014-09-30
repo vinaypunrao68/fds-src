@@ -17,18 +17,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     testdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-    build_test_bin = os.path.abspath(testdir + "/" + "../Build/linux-x86_64.debug/tests")
+    files_path = os.path.abspath(testdir + "/" + "../cit")
 
-    os.chdir(build_test_bin)
-    files = subprocess.Popen(
-        ['find', '.', '-type', 'f', '-print'],
-        stdout=subprocess.PIPE
-    ).stdout
-
+    os.chdir(testdir + "/../")
+    files = open(files_path + "/gtest_ut")
     for rec in files:
         rec = rec.rstrip('\n')
-        if re.match("./utest_", rec):
-            print "FOUND: ", rec
-            xml_path='--gtest_output="xml:' + rec.lstrip('./') + '.xml"'
-            print xml_path
-            subprocess.call([rec.lstrip('./'), xml_path])
+        bin_name = re.split("/", rec)
+        xml_path='--gtest_output=xml:' + files_path + '/' + bin_name[-1] + '.xml'
+        print "Running:", rec, xml_path
+        subprocess.call([rec, xml_path])

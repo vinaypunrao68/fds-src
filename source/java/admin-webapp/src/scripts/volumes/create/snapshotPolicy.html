@@ -1,0 +1,32 @@
+<div ng-controller="snapshotPolicyController">
+
+    <section class="summary-form-section">
+        <div class="header">
+            <span>Snapshot Policy</span>
+        </div>
+
+        <div class="summary-row" ng-show="!editing">
+            <div>
+                <span>Policy:</span>
+                <span class="value">{{summaryText}}</span>
+            </div>
+
+            <span class="icon fui-new" ng-click="editing = true"></span>
+        </div>
+
+        <div ng-show="editing">
+            <div class="snapshot-policy-row" ng-repeat="policy in policies">
+                <tri-state-check check-state="policy.use" class="use-box"></tri-state-check>
+                <span style="width: 100px;">{{policy.displayName}}</span>
+                <span style="padding-right: 4px;">Keep for:</span>
+                <spinner class="skinny" style="margin-right: 4px;" min="1" max="9999" value="policy.value"></spinner>
+                <fui-dropdown skinny="true" items="timeChoices" selected="policy.units"></fui-dropdown>
+            </div>
+
+            <div>
+                <button class="btn btn-primary" ng-click="done()">Done</button>
+            </div>
+        </div>
+
+    </section>
+</div>

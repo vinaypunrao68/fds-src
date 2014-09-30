@@ -1,0 +1,71 @@
+/*!
+ *  Font Awesome 4.0.3 by @davegandy - http://fontawesome.io - @fontawesome
+ *  License - http://fontawesome.io/license (Font: SIL OFL 1.1, CSS: MIT License)
+ */
+
+
+@import "variables";
+@import "path";
+@import "core";
+@import "icons";
+@import "fixed-width";
+@import "larger";
+@import "spinning";
+// @import "mixins";
+// @import "rotated-flipped";
+// @import "list";
+// @import "bordered-pulled";
+// @import "stacked";
+
+[class^="icon-"] {
+  @extend .fa;
+  @extend .fa-fw;
+  @extend .fa-lg;
+}
+
+// TO ADD AN ICON...
+    // uncomment it in /icons.scss
+    // add a line to the list below
+
+// name               fa-name                  color
+$icons:
+  down                fa-exclamation           #f39c12,
+  active              fa-check-circle          #27ae60,
+  selectable          fa-circle                #eff0f2,
+  selected            fa-check-circle          #007ffc,
+  inactive            fa-circle-o              #95a5a6,
+  attention-required  fa-exclamation-triangle  #f1c40f,
+  refresh             fa-repeat                #007ffc,
+  checked             fa-check                 #007ffc,
+  lock                fa-lock                  #007ffc,
+  left                fa-chevron-left          #007ffc,
+  right               fa-chevron-right         #007ffc,
+  clear               fa-times-circle          #9B9B9B;
+
+@each $icon in $icons {
+  $name:     nth($icon, 1);
+  $fa-icon:  nth($icon, 2);
+  $color:    nth($icon, 3);
+
+  .icon-#{$name} {
+    @extend .#{$fa-icon};
+    color: $color;
+  }
+}
+
+.icon-refresh {
+  margin-right: 15px;
+}
+
+.icon-spacer::before {
+  width: 1em;
+  content: ' ';
+}
+
+.icon-selectable {
+  text-shadow: 0px 0px 1px #000;
+}
+
+.icon-clear {
+  font-size: 0.9em;
+}
