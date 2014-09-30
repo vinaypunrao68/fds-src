@@ -98,6 +98,7 @@ def do_setup(top_level):
         os.path.join(top_level, 'source/tools/commit-check.py')))
     fh.close()
     os.chmod(fname, (stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC))
+    print "Install complete!"
 
 if __name__ == "__main__":
 
@@ -118,6 +119,5 @@ if __name__ == "__main__":
     if args.setup is not None and args.setup == True:
         do_setup(top_level)
     else:
-        print "FIRED!"
         do_check(top_level)
 
