@@ -1,5 +1,5 @@
 #!/bin/sh
-if [! -x `which docker` ] ; then
+if [ ! -x `which docker` ] ; then
 	echo "Cannot find the docker executable - please install following the docs here:"
 	echo "http://docs.docker.com/installation/"
 fi

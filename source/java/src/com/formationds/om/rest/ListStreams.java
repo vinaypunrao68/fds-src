@@ -36,14 +36,16 @@ public class ListStreams implements RequestHandler {
         JSONObject o = new JSONObject();
         o.put("id", msg.getId());
         o.put("url", msg.getUrl());
-        o.put("http_method", msg.getHttp_method());
+        o.put("method", msg.getHttp_method());
+
         JSONArray volumeNames = new JSONArray();
+
         for (String volumeName : msg.getVolume_names()) {
             volumeNames.put(volumeName);
         }
-        o.put("volume_names", volumeNames);
-        o.put("sample_freq_seconds", msg.getSample_freq_seconds());
-        o.put("duration_seconds", msg.getDuration_seconds());
+        o.put("volumes", volumeNames);
+        o.put("frequency", msg.getSample_freq_seconds());
+        o.put("duration", msg.getDuration_seconds());
 
         return o;
     }

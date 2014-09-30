@@ -54,7 +54,7 @@ class FdsnIf : public apis::AmServiceIf {
     explicit FdsnIf(FDS_NativeAPI::ptr api)
             : am_api(api),
               io_log_counter(0),
-              io_log_interval(10) {
+              io_log_interval(100) {
         FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
         testUturnAll = conf.get_abs<bool>("fds.am.testing.uturn_amserv_all");
         if (testUturnAll == true) {

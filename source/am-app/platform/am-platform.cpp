@@ -104,7 +104,6 @@ AmPlatform::mod_startup()
     NetPlatform *net;
 
     Platform::mod_startup();
-    gSvcRequestPool = new SvcRequestPool();
 
     am_recv   = bo::shared_ptr<AMSvcHandler>(new AMSvcHandler());
     am_plugin = new AMEpPlugin(this);

@@ -60,8 +60,9 @@ enum  FDSPMsgTypeId {
     NodeRollbackTypeId                 = 1007,
     NodeIntegrateTypeId                = 1008,
     NodeDeployTypeId                   = 1009,
-    NodeFuncTypeId                     = 1010,
+    NodeFunctionalTypeId               = 1010,
     NodeDownTypeId                     = 1011,
+    NodeEventTypeId                    = 1012,
 
     /* Volume messages; common for AM, DM, SM. */
     CtrlNotifyVolAddTypeId             = 2020,
@@ -321,6 +322,16 @@ struct NodeDown {
     2: required SvcUuid                  nd_uuid,
 }
 
+/**
+ * Events emit from a node.
+ */
+struct NodeEvent {
+    1: required DomainID                 nd_dom_id,
+    2: required SvcUuid                  nd_uuid,
+    3: required string                   nd_evt,
+    4: string                            nd_evt_text,
+}
+
 /*
  * --------------------------------------------------------------------------------
  * Common services
@@ -339,6 +350,7 @@ service PlatNetSvc extends BaseAsyncSvc {
 
     list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info, 2: bool bcast);
     DomainNodes getDomainNodes(1: DomainNodes dom);
+    NodeEvent   getSvcEvent(1: NodeEvent input);
 
     ServiceStatus getStatus(1: i32 nullarg);
     map<string, i64> getCounters(1: string id);
@@ -588,9 +600,10 @@ service SMSvc extends PlatNetSvc {
 struct QueryCatalogMsg {
    1: i64    			volume_id;
    2: string   			blob_name;		/* User visible name of the blob*/
-   3: i64 			blob_version;        	/* Version of the blob to query */
-   7: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
-   8: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
+   3: i64                       blob_offset;            /* Offset into the blob */
+   4: i64 			blob_version;        	/* Version of the blob to query */
+   5: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
+   6: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
 }
 
 // TODO(Rao): Use QueryCatalogRspMsg.  In current implementation we are using QueryCatalogMsg

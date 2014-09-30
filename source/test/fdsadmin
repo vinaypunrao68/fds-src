@@ -7,6 +7,7 @@ import fdslib.BringUpCfg as fdscfg
 import fdslib.BasicCluster as BasicCluster
 
 import optparse as OptParse
+from optparse import SUPPRESS_HELP
 import sys
 import time
 
@@ -168,14 +169,17 @@ def process_command_line_arguments ():
     parser.add_option ('-R', '--fds-root', dest = 'fds_root', default = '/fds',
                        help = 'specify fds-root directory')
 
-    parser.add_option('-q', '--quiet', action = 'store_true', dest = 'ssh_quiet',
-                      help = 'Don\'t show ssh connections')
+    parser.add_option ('-q', '--quiet', action = 'store_true', dest = 'ssh_quiet',
+                       help = 'Don\'t show ssh connections')
 
     parser.add_option ('-v', '--verbose', action = 'store_true', dest = 'verbose',
                        help = 'enable verbosity')
 
-    parser.add_option('-t', '--target', dest = 'target', default = None,
-                      help = 'target node to apply -u, -d, -c, and -s against')
+    parser.add_option ('-t', '--target', dest = 'target', default = None,
+                       help = 'target node to apply -u, -d, -c, and -s against')
+
+    parser.add_option ('-i', dest = 'clus_inst', default = False, help = SUPPRESS_HELP)
+    parser.add_option ('-S', dest = 'fds_source_dir', default = '', help = SUPPRESS_HELP)
 
     (options, args) = parser.parse_args()
 

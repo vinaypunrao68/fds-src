@@ -1,7 +1,7 @@
-angular.module( 'inbox' ).controller( 'inboxController', ['$scope', '$inbox_service', '$authorization', function( $scope, $inbox_service, $authorization ){
+angular.module( 'inbox' ).controller( 'inboxController', ['$scope', '$inbox_service', '$authorization', '$filter', function( $scope, $inbox_service, $authorization, $filter ){
 
     $scope.items = [{
-            label: 'All',
+            label: $filter( 'translate' )('common.all'),
             notifications: 0,
             selected: true
         },

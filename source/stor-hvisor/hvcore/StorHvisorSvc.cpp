@@ -37,9 +37,6 @@ StorHvCtrl::abortBlobTxSvc(AmQosReq *qosReq) {
     fds_verify(blobReq->getIoType() == FDS_ABORT_BLOB_TX);
 
     fds_volid_t   volId = blobReq->getVolId();
-    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
-    fds_verify(shVol != NULL);
-    fds_verify(shVol->isValidLocked() == true);
    
     issueAbortBlobTxMsg(blobReq->getBlobName(),
                         volId,
@@ -103,11 +100,6 @@ StorHvCtrl::commitBlobTxSvc(AmQosReq *qosReq) {
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
-
-    fds_volid_t   volId = blobReq->getVolId();
-    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
-    fds_verify(shVol != NULL);
-    fds_verify(shVol->isValidLocked() == true);
 
     fds_uint64_t dmt_version;
     err = amTxMgr->getTxDmtVersion(*(blobReq->getTxId()), &dmt_version);
@@ -622,7 +614,9 @@ Error StorHvCtrl::getBlobSvc(fds::AmQosReq *qosReq)
                           volId,
                           RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobQueryCatalogResp, qosReq));
     } else {
-        fds_verify(*objectId != NullObjectID);
+        // TODO(Andrew): Consider adding this back when we revisit
+        // zero length objects
+        // fds_verify(*objectId != NullObjectID);
         blobReq->setObjId(*objectId);
         fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
         issueGetObject(qosReq,
@@ -643,10 +637,11 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
      * we want...all objects won't work well for large blobs.
      */
     fpi::QueryCatalogMsgPtr queryMsg(new fpi::QueryCatalogMsg());
-    queryMsg->volume_id = volId;
-    queryMsg->blob_name             = blobName;
+    queryMsg->volume_id    = volId;
+    queryMsg->blob_name    = blobName;
+    queryMsg->blob_offset  = blobOffset;
     // We don't currently specify a version
-    queryMsg->blob_version          = blob_version_invalid;
+    queryMsg->blob_version = blob_version_invalid;
     queryMsg->obj_list.clear();
     queryMsg->meta_list.clear();
 
@@ -668,6 +663,21 @@ void StorHvCtrl::issueGetObject(AmQosReq *qosReq,
     fds_verify(blobReq->magicInUse() == true);
     fds_volid_t volId = blobReq->getVolId();
     ObjectID objId    = blobReq->getObjId();
+
+    // TODO(Andrew): This is a hack to handle reading zero length blobs.
+    // The DM or AM cache is going to return a invalid object Id (i.e., 0)
+    // the represents an empty blob. Here's we're just going to set the data
+    // length to 0 and return. We should figure out how we want this flow to
+    // actually go (the entire read API and path should be improved).
+    if (objId == NullObjectID) {
+        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback,
+                                                    blobReq->cb);
+        cb->returnSize = 0;
+        cb->call(error);
+        qos_ctrl->markIODone(qosReq);
+        delete blobReq;
+        return;
+    }
 
     // Check cache for object data
     boost::shared_ptr<std::string> objectData =
@@ -725,7 +735,12 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
         qos_ctrl->markIODone(qosReq);
-        blobReq->cb->call(error);
+        // TODO(Andrew): We should change XDI to not expect OFFSET_INVALID, rather NOT_FOUND
+        if (error == ERR_CAT_ENTRY_NOT_FOUND) {
+            blobReq->cb->call(ERR_BLOB_OFFSET_INVALID);
+        } else {
+            blobReq->cb->call(error);
+        }
         delete blobReq;
         return;
     }
@@ -742,7 +757,9 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
         if ((fds_uint64_t)(*it).offset == blobReq->getBlobOffset()) {
             // found offset!!!
             ObjectID objId((*it).data_obj_id.digest);
-            fds_verify(objId != NullObjectID);
+            // TODO(Andrew): Consider adding this back when we revisit
+            // zero length objects
+            // fds_verify(objId != NullObjectID);
             
             blobReq->setObjId(objId);
             fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
@@ -939,6 +956,7 @@ void StorHvCtrl::getVolumeMetaDataMsgResp(fds::AmQosReq* qosReq,
         qos_ctrl->markIODone(qosReq);
         volMDReq->cb->call(error);
         delete volMDReq;
+        return;
     }
 
     GetVolumeMetaDataCallback::ptr cb =
@@ -965,9 +983,6 @@ StorHvCtrl::setBlobMetaDataSvc(fds::AmQosReq* qosReq)
                                              blobReq->getMetaDataListPtr()) == ERR_OK);
 
     fds_volid_t   vol_id = blobReq->getVolId();
-    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(vol_id);
-    fds_verify(shVol != NULL);
-    fds_verify(shVol->isValidLocked() == true);
 
     std::string blob_name = blobReq->getBlobName();
     fds_uint64_t dmt_version;

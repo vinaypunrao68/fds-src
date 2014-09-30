@@ -29,11 +29,14 @@ public class RecurrenceRule
   private static final SimpleDateFormat UNTIL_DATE =
     new SimpleDateFormat( "yyyyMMdd'T'HHmmssZ" );
 
-  @JsonProperty( "frequency" )
-  private iCalFields iCalField;
+  @JsonProperty("FREQ")
+  private String frequency;
+  @JsonProperty("UNTIL")
   private Date until;
-  private int count = -1;
-  private int interval = 0;
+  @JsonProperty("COUNT")
+  private Integer count;
+  @JsonProperty("INTERVAL")
+  private Integer interval;
 
   private static final Map<iCalFields, iCalValidator> VALIDATORS =
     new HashMap<>();
@@ -57,18 +60,18 @@ public class RecurrenceRule
   }
 
   /**
-   * @return Returns {@code int} representing the number of times the event
+   * @return Returns {@link Integer} representing the number of times the event
    * recurs
    */
-  public int getCount() {
+  public Integer getCount() {
     return count;
   }
 
   /**
-   * @param count the {@code int} representing the number of times the event
+   * @param count the {@link Integer} representing the number of times the event
    *              recurs
    */
-  public void setCount( int count ) {
+  public void setCount( Integer count ) {
     this.count = count;
   }
 
@@ -76,16 +79,16 @@ public class RecurrenceRule
    * @return Returns {@link String} representing the recurrence frequency (i.e.
    * how often an event recurs)
    */
-  public iCalFields getFrequency() {
-    return iCalField;
+  public String getFrequency() {
+    return frequency;
   }
 
   /**
-   * @param iCalField the {@link iCalFields} representing the recurrence field
+   * @param frequency the {@link String} representing the recurrence field
    *                  (i.e. how often an event recurs)
    */
-  public void setFrequency( final iCalFields iCalField ) {
-    this.iCalField = iCalField;
+  public void setFrequency( final String frequency ) {
+    this.frequency = frequency;
     isFrequencyValid();
   }
 
@@ -104,18 +107,18 @@ public class RecurrenceRule
   }
 
   /**
-   * @return Returns {@code int} representing interval between 2 occurrences of
+   * @return Returns {@link Integer} representing interval between 2 occurrences of
    * the event
    */
-  public int getInterval() {
+  public Integer getInterval() {
     return interval;
   }
 
   /**
-   * @param interval the {@code int} representing interval between 2
+   * @param interval the {@link Integer} representing interval between 2
    *                 occurrences of the event
    */
-  public void setInterval( int interval ) {
+  public void setInterval( Integer interval ) {
     this.interval = interval;
   }
 
@@ -124,13 +127,12 @@ public class RecurrenceRule
    */
   public void isFrequencyValid()
     throws IllegalArgumentException {
-
     if( getFrequency() == null ) {
       throw new IllegalArgumentException(
         ModelResource.getString( "ical.missing.freq" ) );
     }
 
-    if( iCalFields.valueOf( getFrequency().name() ) == null ) {
+    if( iCalFields.valueOf( getFrequency() ) == null ) {
       throw new IllegalArgumentException(
         MessageFormat.format( ModelResource.getString( "ical.invalid.freq" ),
                               getFrequency() ) );
@@ -157,7 +159,7 @@ public class RecurrenceRule
    */
   public static RecurrenceRule parser( final String recurrence )
     throws ParseException {
-    StringTokenizer t = new StringTokenizer( recurrence, ";=" );
+    StringTokenizer t = new StringTokenizer( recurrence, ";=:" );
 
     RecurrenceRuleBuilder builder = new RecurrenceRuleBuilder();
     while( t.hasMoreTokens() ) {
@@ -210,8 +212,8 @@ public class RecurrenceRule
 
      recur      = "FREQ"=freq *(
 
-     ; either UNTIL or COUNT may appear in a 'recur',
-     ; but UNTIL and COUNT MUST NOT occur in the same 'recur'
+     ; either until or count may appear in a 'recur',
+     ; but until and count MUST NOT occur in the same 'recur'
 
      ( ";" "UNTIL" "=" enddate ) /
      ( ";" "COUNT" "=" 1*DIGIT ) /
@@ -309,7 +311,7 @@ public class RecurrenceRule
         .append( ";" );
     }
 
-    if( getInterval() > 0 )
+    if( getInterval() != null )
     {
       sb.append( iCalFields.INTERVAL.name() )
         .append( "=" )
@@ -317,7 +319,7 @@ public class RecurrenceRule
         .append( ";" );
     }
 
-    if( getCount() > 0 )
+    if( getCount() != null )
     {
       sb.append( iCalFields.COUNT.name() )
         .append( "=" )

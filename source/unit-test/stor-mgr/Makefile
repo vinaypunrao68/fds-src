@@ -13,45 +13,78 @@ user_incl_dir     := \
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
+    fds-test \
+    fds-probe-ut \
+    fds-plat-daemon \
+    fds-probe \
+    fds-am-engine \
+    fds-am-plat \
+    fds-dsk-io \
+    fds-dsk-mgnt \
+    fds-plat-disk \
+    fds-hash \
+    fds-xdi \
+    fds-smlib     \
     fds-vpolicy   \
     fds-hash      \
     fds-migrations \
-    fds-am-engine \
-    fds-dsk-io    \
     fds-odb       \
     fds-sm-plat   \
-    fds-smlib     
+    fds-smlib
+
+local_nginx_libs   :=  \
+    ngx-http-module \
+    ngx-http \
+    ngx-event-module \
+    ngx-event \
+    ngx-core \
+    ngx-os \
+    ngx-core
 
 user_non_fds_libs :=  \
+    jansson \
+	udev \
+	parted \
+    $(local_nginx_libs) \
     config++    \
     boost_timer \
     leveldb \
     ssl \
-    cryptopp \
+    crypt \
+    pcre \
     crypto \
+    z \
+    cryptopp \
     leveldb \
-    gmock
+    gmock \
+    pthread
 
 
 user_cpp          := \
 	object_store_unit_test.cpp \
 	object_store_load_test.cpp \
+        sm_load_test.cpp \
         metastore_unit_test.cpp   \
         sm_disk_map_test.cpp      \
-        sm_token_place_gtest.cpp
+        sm_token_place_gtest.cpp \
+	smapi_gtest.cpp
 
 user_no_style     := sm_unit_test.cpp
 user_bin_exe      := \
     ObjectStoreUnitTest \
     ObjectStoreLoadTest \
+    sm_load_test        \
     metastore_unit_test \
     smdiskmap_unit_test \
-    smtokenplace_gtest
+    smtokenplace_gtest \
+    smapi_gtest
 
 ObjectStoreUnitTest := object_store_unit_test.cpp
 ObjectStoreLoadTest := object_store_load_test.cpp
 metastore_unit_test := metastore_unit_test.cpp
 smdiskmap_unit_test := sm_disk_map_test.cpp
 smtokenplace_gtest  := sm_token_place_gtest.cpp
+smapi_gtest	    := smapi_gtest.cpp ngx_modules.c
+sm_load_test        := sm_load_test.cpp
 
 include $(topdir)/Makefile.incl

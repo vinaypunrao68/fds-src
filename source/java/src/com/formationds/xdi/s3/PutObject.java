@@ -49,6 +49,7 @@ public class PutObject implements RequestHandler {
 
         HashMap<String, String> map = Maps.newHashMap();
         map.put("Content-Type", contentType);
+        map.putAll(S3UserMetadataUtility.requestUserMetadata(request));
 
         // handle multi part upload
         if(uploadId != null) {

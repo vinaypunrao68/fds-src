@@ -100,7 +100,8 @@ class FdsNodeConfig(FdsConfig):
 
         print "Installing FDS package to:", self.nd_host_name()
         pkg = inst.FdsPackage(self.nd_agent)
-        status = pkg.package_install(self.nd_agent, self.nd_local_env.get_pkg_tar())
+        tar = self.nd_local_env.get_pkg_tar()
+        status = pkg.package_install(self.nd_agent, tar)
 
         return status
 
@@ -283,7 +284,7 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_agent.exec_wait('ls ' + dev_dir)
             if status == 0:
                 os.chdir(dev_dir)
-                status = self.nd_agent.exec_wait('rm -f hdd-*/* && rm -f ssd-*/*')
+                status = self.nd_agent.exec_wait('rm -rf hdd-*/* && rm -f ssd-*/*')
 
             status = self.nd_agent.exec_wait('ls ' + fds_dir)
             if status == 0:
@@ -302,7 +303,7 @@ class FdsNodeConfig(FdsConfig):
                 '(cd /corefiles && rm *.core); '  +
                 '(cd %s/core && rm *.core); ' % var_dir +
                 '(cd %s && ./fds clean -i); ' % tools_dir +
-                '(cd %s && rm -f hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
+                '(cd %s && rm -rf hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
                 '(cd %s && rm -r sys-repo/ && rm -r user-repo/); ' % fds_dir +
                 '(cd /dev/shm && rm -f 0x*)')
 
@@ -676,7 +677,7 @@ class FdsConfigRun(object):
 
         self.rt_env = env
         if self.rt_env is None:
-            self.rt_env = inst.FdsEnv(opt.fds_root, opt.verbose, opt.install, opt.fds_source_dir)
+            self.rt_env = inst.FdsEnv(opt.fds_root, opt.clus_inst, opt.fds_source_dir, opt.verbose)
 
         self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
         self.rt_obj.config_parse()

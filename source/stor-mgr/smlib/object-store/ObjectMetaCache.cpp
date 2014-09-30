@@ -10,12 +10,6 @@ namespace fds {
 
 ObjectMetaCache::ObjectMetaCache(const std::string &modName)
         : Module(modName.c_str()) {
-    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.sm.");
-    maxEntries = conf.get<fds_uint32_t>("cache.default_meta_entries");
-
-    metaCache =
-            std::unique_ptr<MetadataCache>(new MetadataCache("SM Object Metadata Cache",
-                                                             maxEntries));
 }
 
 ObjectMetaCache::~ObjectMetaCache() {
@@ -27,6 +21,13 @@ ObjectMetaCache::~ObjectMetaCache() {
 int
 ObjectMetaCache::mod_init(SysParams const *const p) {
     Module::mod_init(p);
+
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.sm.");
+    maxEntries = conf.get<fds_uint32_t>("cache.default_meta_entries");
+
+    metaCache =
+            std::unique_ptr<MetadataCache>(new MetadataCache("SM Object Metadata Cache",
+                                                             maxEntries));
     return 0;
 }
 

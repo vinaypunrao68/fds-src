@@ -10,6 +10,7 @@ import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 
+import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 
 public class DeleteBucket implements RequestHandler {
@@ -25,6 +26,6 @@ public class DeleteBucket implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
         xdi.deleteVolume(token, S3Endpoint.FDS_S3, bucketName);
-        return new TextResource("");
+        return new TextResource(HttpServletResponse.SC_NO_CONTENT, "");
     }
 }

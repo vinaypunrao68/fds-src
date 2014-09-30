@@ -38,7 +38,8 @@ public class GetObject implements RequestHandler {
 
     public Resource handle(Request request, String bucketName, String objectName) throws Exception {
         BlobDescriptor blobDescriptor = xdi.statBlob(token, S3Endpoint.FDS_S3, bucketName, objectName);
-        String digest = blobDescriptor.getMetadata().getOrDefault("etag", "");
+        Map<String, String> blobMetadata = blobDescriptor.getMetadata();
+        String digest = blobMetadata.getOrDefault("etag", "");
 
         String etag = "\"" + digest + "\"";
 
@@ -51,9 +52,16 @@ public class GetObject implements RequestHandler {
             }
         }
 
+        Map<String, String> userMetadata = S3UserMetadataUtility.extractUserMetadata(blobMetadata);
+
         String contentType = blobDescriptor.getMetadata().getOrDefault("Content-Type", "application/octet-stream");
         InputStream stream = xdi.readStream(token, S3Endpoint.FDS_S3, bucketName, objectName,
                 0, blobDescriptor.getByteCount());
-        return new StreamResource(stream, contentType).withHeader("ETag", etag);
+
+        Resource result = new StreamResource(stream, contentType);
+        for(Map.Entry<String, String> entry : userMetadata.entrySet()) {
+            result = result.withHeader(entry.getKey(), entry.getValue());
+        }
+        return result.withHeader("ETag", etag);
     }
 }

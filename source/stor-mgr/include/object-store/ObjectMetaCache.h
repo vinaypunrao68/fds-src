@@ -8,7 +8,7 @@
 #include <fds_module.h>
 #include <fds_types.h>
 #include <cache/SharedKvCache.h>
-#include <object-store/ObjectMetaDb.h>
+#include <ObjMeta.h>
 #include <SmDiskTypes.h>
 
 namespace fds {

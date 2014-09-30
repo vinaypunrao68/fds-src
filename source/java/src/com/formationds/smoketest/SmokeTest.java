@@ -15,6 +15,11 @@ import org.json.JSONObject;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import com.formationds.apis.*;
+import com.formationds.xdi.*;
+import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.transport.TSocket;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.SecureRandom;
@@ -39,9 +44,13 @@ public class SmokeTest {
 
     private final String adminBucket;
     private final String userBucket;
+    private final String snapBucket;
     private final AmazonS3Client adminClient;
     private final AmazonS3Client userClient;
     private final byte[] randomBytes;
+    private final String prefix;
+    private final int count;
+    ConfigurationService.Iface config;
 
     public SmokeTest() throws Exception {
         System.setProperty(AMAZON_DISABLE_SSL, "true");
@@ -61,12 +70,23 @@ public class SmokeTest {
         doPut(omUrl + "/api/system/tenants/" + tenantId + "/" + userId, adminToken);
         adminBucket = UUID.randomUUID().toString();
         userBucket = UUID.randomUUID().toString();
+        snapBucket = "snap_" + userBucket;
         adminClient = s3Client(host, ADMIN_USERNAME, adminToken);
         userClient = s3Client(host, userName, userToken);
         adminClient.createBucket(adminBucket);
         userClient.createBucket(userBucket);
         randomBytes = new byte[4096];
         new SecureRandom().nextBytes(randomBytes);
+        prefix = UUID.randomUUID().toString();
+        count = 10;
+        config = new XdiClientFactory().remoteOmService("localhost", 9090);
+    }
+
+    void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (java.lang.InterruptedException e) {
+        }
     }
 
     @Test
@@ -110,11 +130,50 @@ public class SmokeTest {
     }
 
     @Test
+    public void Snapshot() {
+        final PutObjectResult[] last = {null};
+        IntStream.range(0, count)
+                .map(new ConsoleProgress("Putting objects into volume", count))
+                .forEach(i -> {
+                    ObjectMetadata objectMetadata = new ObjectMetadata();
+                    Map<String, String> customMetadata = new HashMap<String, String>();
+                    String key = prefix + "-" + i;
+                    customMetadata.put(CUSTOM_METADATA_HEADER, key);
+                    objectMetadata.setUserMetadata(customMetadata);
+                    last[0] = userClient.putObject(userBucket, key, new ByteArrayInputStream(randomBytes), objectMetadata);
+                });
+
+        long volumeId = 0;
+        try {
+            volumeId = config.getVolumeId(userBucket);
+            config.createSnapshot(volumeId,snapBucket, 0);
+            sleep(3000);
+            List<Snapshot> snaps = config.listSnapshots(volumeId);
+            assertEquals(1, snaps.size());
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("ERR: unable to create Snapshot.");
+        }
+
+        IntStream.range(0, count)
+                .map(new ConsoleProgress("Getting objects from snapshot", count))
+                .forEach(i -> {
+                    String key = prefix + "-" + i;
+                    S3Object object = userClient.getObject(snapBucket, key);
+                    //assertEquals(key, object.getObjectMetadata().getUserMetaDataOf(CUSTOM_METADATA_HEADER));
+                    //assertEquals(last[0].getContentMd5(), object.getObjectMetadata().getContentMD5());
+                    assertEquals(last[0].getETag(), object.getObjectMetadata().getETag());
+                    try {
+                        assertArrayEquals(randomBytes, IOUtils.toByteArray(object.getObjectContent()));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        fail("Error reading object");
+                    }
+                });
+    }
+
+    @Test
     public void testPutGetDelete() {
-        int count = 10;
-        String prefix = UUID.randomUUID().toString();
-
-
         final PutObjectResult[] last = {null};
         IntStream.range(0, count)
                 .map(new ConsoleProgress("Putting objects", count))
@@ -132,7 +191,7 @@ public class SmokeTest {
                 .forEach(i -> {
                     String key = prefix + "-" + i;
                     S3Object object = userClient.getObject(userBucket, key);
-                    //assertEquals(key, object.getObjectMetadata().getUserMetaDataOf(CUSTOM_METADATA_HEADER));
+                    assertEquals(key, object.getObjectMetadata().getUserMetaDataOf(CUSTOM_METADATA_HEADER));
                     //assertEquals(last[0].getContentMd5(), object.getObjectMetadata().getContentMD5());
                     assertEquals(last[0].getETag(), object.getObjectMetadata().getETag());
                     try {

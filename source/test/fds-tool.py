@@ -18,6 +18,8 @@ if __name__ == '__main__':
                       help = 'package fds tar ball')
     parser.add_option('-i', '--install', action = 'store_true', dest = 'clus_inst',
                       help = 'install fds package to remote machines')
+    parser.add_option('-S', '--source', dest = 'fds_source_dir', default = '',
+                      help = 'fds source dir')
     parser.add_option('-u', '--up', action = 'store_true', dest = 'clus_up',
                       help = 'bring up cluster')
     parser.add_option('--reboot', action = 'store_true', dest = 'reboot',
@@ -50,7 +52,7 @@ if __name__ == '__main__':
         if options.config_file is None:
             sys.exit(0)
 
-    cfg = fdscfg.FdsConfigRun(None, options)
+    cfg = fdscfg.FdsConfigRun(env, options)
 
     # Get all the configuration
     nodes = cfg.rt_get_obj('cfg_nodes')
@@ -99,9 +101,9 @@ if __name__ == '__main__':
 
     # Status
     if options.clus_status:
-        print "===================================================================================="
-        print "=    This feature is deprecated, please use fdsadmin --status (or --process-status ="
-        print "===================================================================================="
+        print "====================================================================================="
+        print "=    This feature is deprecated, please use fdsadmin --status (or --process-status) ="
+        print "====================================================================================="
      
         for n in nodes:
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.om.Main', output = True)
