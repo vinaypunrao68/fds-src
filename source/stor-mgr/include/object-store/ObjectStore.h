@@ -9,6 +9,7 @@
 #include <fds_volume.h>
 #include <StorMgrVolumes.h>
 #include <concurrency/HashedLocks.hpp>
+#include <object-store/SmDiskMap.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
 
@@ -29,6 +30,9 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// Object metadata storage
     ObjectMetadataStore::unique_ptr metaStore;
+
+    /// SM disk map keeps track of SM tokens and their locations
+    SmDiskMap::ptr diskMap;
 
     /// Volume table for accessing vol descriptors
     // Does not own, passed from SM processing layer

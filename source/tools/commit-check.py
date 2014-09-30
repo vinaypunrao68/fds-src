@@ -15,6 +15,7 @@ import subprocess
 import argparse
 import sys
 import os 
+import stat
 
 def do_check(top_level):
     
@@ -74,6 +75,8 @@ def do_check(top_level):
             result = ''
             while result.lower() != 'y' or result.lower() != 'n':
                 result = raw_input('Do you wish to proceed? [Y/n]: ')
+                if result.lower() == '':
+                    break
                 if result.lower() == 'n':
                     print "STOPPING git commit!"
                     sys.exit(1)
@@ -94,7 +97,7 @@ def do_setup(top_level):
     fh.write('python {}'.format(
         os.path.join(top_level, 'source/tools/commit-check.py')))
     fh.close()
-    os.chmod(fname, (os.stat.IREAD | os.stat.IWRITE | os.stat.IEXEC))
+    os.chmod(fname, (stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC))
 
 if __name__ == "__main__":
 

@@ -17,21 +17,21 @@
                     <label class="login-field-icon fui-mail"></span>
                 </div>
 -->
-                <fui-input name="username" placeholder="Email" ng-model="username" icon-class="fui-mail"></fui-input>
+                <fui-input name="username" placeholder="{{ 'common.username' | translate }}" ng-model="username" icon-class="fui-mail"></fui-input>
 <!--
                 <div class="form-group">
                     <input type="password" class="form-control" name="password" autocomplete="off" ng-model="password" placeholder="Password" ng-keyup="keyEntered( $event );">
                     <span class="input-icon fui-lock"></span>
                 </div>
 -->
-                <fui-input name="password" placeholder="Password" type="password" ng-model="password" icon-class="fui-lock"></fui-input>
+                <fui-input name="password" placeholder="{{ 'common.password' | translate }}" type="password" ng-model="password" icon-class="fui-lock"></fui-input>
                 <div class="checkbox-parent">
-                    <fui-checkbox label="Remember me" checked="rememberChecked"></fui-checkbox>
+                    <fui-checkbox label="{{ 'login.remember_me' | translate }}" checked="rememberChecked"></fui-checkbox>
                 </div>
 
                 <div class="form-actions">
-                    <button id="login.submit" class="btn btn-primary" ng-click="login()">
-                        Login
+                    <button id="login.submit" class="btn btn-primary" ng-click="login()" translate>
+                        login.submit
                     </button>
                 </div>
 
@@ -39,8 +39,8 @@
                     {{ error }}
                 </div>
 
-                <div class="lost-password">
-                    Lost your password?
+                <div class="lost-password" translate>
+                    login.lost_your_password
                 </div>
 
             </form>

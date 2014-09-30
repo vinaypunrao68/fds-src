@@ -191,7 +191,7 @@ public class SmokeTest {
                 .forEach(i -> {
                     String key = prefix + "-" + i;
                     S3Object object = userClient.getObject(userBucket, key);
-                    //assertEquals(key, object.getObjectMetadata().getUserMetaDataOf(CUSTOM_METADATA_HEADER));
+                    assertEquals(key, object.getObjectMetadata().getUserMetaDataOf(CUSTOM_METADATA_HEADER));
                     //assertEquals(last[0].getContentMd5(), object.getObjectMetadata().getContentMD5());
                     assertEquals(last[0].getETag(), object.getObjectMetadata().getETag());
                     try {
