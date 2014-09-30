@@ -5,36 +5,67 @@ angular.module( 'charts' ).directive( 'treemap', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/charts/treemap/treemap.html',
-        scope: { data: '=', max: '=' },
+        scope: { data: '=' },
         controller: function( $scope, $element, $resize_service ){
 
             var root = {};
-
-            var create = function(){
-
+            
+            var $colorScale;
+            
+            var buildColorScale = function(){
+                
+                var max = d3.max( $scope.data, function( d ){
+                    
+                    if ( angular.isDefined( d.secondsSinceLastFirebreak ) ){
+                        return d.secondsSinceLastFirebreak;
+                    }
+                    return d.y;
+                });
+                
+                $colorScale = d3.scale.linear()
+                    .domain( [max, max - (max/4 ), max/2, 0] )
+                    .range( ['#339933', '#ffff00', '#ff9900', '#ff0000'] )
+                    .clamp( true );
+            };
+            
+            var computeMap = function( c ){
+                
+                // preserve the y value
+                for ( var i = 0; i < $scope.data.length; i++ ){
+                    
+                    if ( !angular.isDefined( $scope.data[i].secondsSinceLastFirebreak ) ){
+                        $scope.data[i].secondsSinceLastFirebreak = $scope.data[i].y;
+                    }
+                }
+                
                 var map = d3.layout.treemap();
                 var nodes = map
                     .size( [$element.width(),$element.height()] )
                     .sticky( true )
                     .children( function( d ){
-                        return d.vals;
+                        return d;
                     })
                     .value( function( d,i,j ){
-                        return d.size;
+                        
+                        if ( angular.isDefined( d.value ) ){
+                            return d.value;
+                        }
+                        
+                        return d.x;
                     })
                     .nodes( $scope.data );
+            };
 
+            var create = function(){
+                
+                buildColorScale();
+                computeMap();
+                
                 root = d3.select( '.chart' );
-                var max = $scope.max;
-
-                var colorScale = d3.scale.linear()
-                    .domain( [max, max - (max/4 ), max/2, 0] )
-                    .range( ['#339933', '#ffff00', '#ff9900', '#ff0000'] )
-                    .clamp( true );
 
                 root.selectAll( '.node' ).remove();
 
-                root.selectAll( '.node' ).data( $scope.data.vals ).enter()
+                root.selectAll( '.node' ).data( $scope.data ).enter()
                     .append( 'div' )
                     .classed( {'node': true } )
                     .style( {'position': 'absolute'} )
@@ -44,22 +75,19 @@ angular.module( 'charts' ).directive( 'treemap', function(){
                     .style( {'top': function( d ){ return d.y; }} )
                     .style( {'border': '1px solid white'} )
                     .style( {'background-color': function( d ){
-                        return colorScale( d.minSinceLastFirebreak );
+                        return $colorScale( d.secondsSinceLastFirebreak );
                     }});
-
-                var refresh = function(){
-                    root.selectAll( '.node' ).remove();
-                    create();
-                };
-
-                $resize_service.register( $scope.id, refresh );
-
-                $scope.$on( '$destory', function(){
-                    $resize_service.unregister( $scope.id );
-                });
             };
-
+            
+            $scope.$on( '$destory', function(){
+                $resize_service.unregister( $scope.id );
+            });
+            
+            $scope.$watch( 'data', create );
+                
             create();
+        
+            $resize_service.register( $scope.id, create );
         }
     };
 

@@ -17,7 +17,9 @@ var en_US = {
         
         th_type: 'Type',
         th_message: 'Message',
-        th_received: 'Received'
+        th_received: 'Received',
+        
+        desc_firebreak: 'Events in the past 24 hours'
     },
     inbox: {
         messages: 'Messages',
