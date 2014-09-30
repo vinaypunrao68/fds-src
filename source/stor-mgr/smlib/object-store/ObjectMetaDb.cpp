@@ -83,6 +83,22 @@ osm::ObjectDB *ObjectMetadataDb::getObjectDB(const ObjectID& objId) {
     return iter->second;
 }
 
+void
+ObjectMetadataDb::snapshot(fds_token_id smTokId,
+                           leveldb::DB*& db,
+                           leveldb::ReadOptions& opts) {
+    osm::ObjectDB *odb = NULL;
+    read_synchronized(dbmapLock_) {
+        TokenTblIter iter = tokenTbl.find(smTokId);
+        fds_verify(iter != tokenTbl.end());
+        odb = iter->second;
+    }
+    fds_verify(odb != NULL);
+
+    db = odb->GetDB();
+    opts.snapshot = db->GetSnapshot();
+}
+
 void ObjectMetadataDb::closeObjectDB(fds_token_id smTokId) {
     osm::ObjectDB *objdb = NULL;
 
@@ -106,10 +122,7 @@ ObjectMetadataDb::get(fds_volid_t volId,
     ObjectBuf buf;
 
     osm::ObjectDB *odb = getObjectDB(objId);
-    if (!odb) {
-        err = ERR_OUT_OF_MEMORY;
-        return NULL;
-    }
+    fds_verify(odb != NULL);
 
     // get meta from DB
     PerfContext tmp_pctx(SM_OBJ_METADATA_DB_READ, volId, PerfTracer::perfNameStr(volId));
@@ -132,9 +145,7 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
                             const ObjectID& objId,
                             ObjMetaData::const_ptr objMeta) {
     osm::ObjectDB *odb = getObjectDB(objId);
-    if (!odb) {
-        return ERR_OUT_OF_MEMORY;
-    }
+    fds_verify(odb != NULL);
 
     // store gata
     PerfContext tmp_pctx(SM_OBJ_METADATA_DB_WRITE, volId, PerfTracer::perfNameStr(volId));
@@ -150,9 +161,7 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
 Error ObjectMetadataDb::remove(fds_volid_t volId,
                                const ObjectID& objId) {
     osm::ObjectDB *odb = getObjectDB(objId);
-    if (!odb) {
-        return ERR_OUT_OF_MEMORY;
-    }
+    fds_verify(odb != NULL);
 
     PerfContext tmp_pctx(SM_OBJ_METADATA_DB_REMOVE, volId, PerfTracer::perfNameStr(volId));
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);

@@ -79,6 +79,13 @@ class ObjectMetadataDb {
     Error remove(fds_volid_t volId,
                  const ObjectID& objId);
 
+    /**
+     * Returns snapshot of metadata DB for a given SM token
+     */
+    void snapshot(fds_token_id smTokId,
+                  leveldb::DB*& db,
+                  leveldb::ReadOptions& opts);
+
   private:  // methods
     /**
      * Open object metadata DB for a given SM token

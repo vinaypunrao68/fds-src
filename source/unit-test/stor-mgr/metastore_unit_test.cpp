@@ -421,6 +421,26 @@ int MetaStoreUTProc::runSmokeTest() {
         }
     }
 
+    // if we are testing metadata db, get snapshot and read objects
+    if (db_) {
+        fds_token_id smTokId = 1;
+        ObjMetaData omd;
+        leveldb::DB* ldb;
+        leveldb::ReadOptions options;
+        db_->snapshot(smTokId, ldb, options);
+        leveldb::Iterator* it = ldb->NewIterator(options);
+
+        GLOGDEBUG << "Reading metadata db for SM token " << smTokId;
+        for (it->SeekToFirst(); it->Valid(); it->Next()) {
+            ObjectID id(it->key().ToString());
+            omd.deserializeFrom(it->value());
+            GLOGDEBUG << "Snap: " << id << " " << omd;
+        }
+
+        delete it;
+        ldb->ReleaseSnapshot(options.snapshot);
+    }
+
     // delete first object
     ObjectID del_oid = dataset_[0];
     err = remove(1, del_oid);
