@@ -9,7 +9,8 @@ user_fds_ar_libs  := \
     fds-lib \
     fds-dm-plat \
     fds-dm-lib \
-    fds-dsk-mgnt
+    fds-dsk-mgnt \
+    fds-xdi
 
 user_non_fds_libs := \
     gmock \

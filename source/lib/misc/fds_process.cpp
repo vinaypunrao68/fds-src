@@ -185,6 +185,21 @@ int FdsProcess::main()
 {
     int ret;
 
+    start_modules();
+    /* Run the main loop. */
+    ret = run();
+
+    /* Only do module shutdown once.  Module shutdown can happen in interrupt_cb() */
+    if (!mod_shutdown_invoked_) {
+        shutdown_modules();
+    }
+    return ret;
+}
+
+/**
+* @brief Runs mod_init() and mod_startup() on all the modules.
+*/
+void FdsProcess::start_modules() {
     mod_vectors_->mod_init_modules();
 
     /* The process should have all objects allocated in proper place. */
@@ -197,18 +212,16 @@ int FdsProcess::main()
     /*  Star to run the main process. */
     proc_pre_service();
     mod_vectors_->mod_start_services();
+}
 
-    /* Run the main loop. */
-    ret = run();
-
-    /* Only do module shutdown once.  Module shutdown can happen in interrupt_cb() */
-    if (!mod_shutdown_invoked_) {
-        /* Do FDS shutdown sequence. */
-        mod_vectors_->mod_stop_services();
-        mod_vectors_->mod_shutdown_locksteps();
-        mod_vectors_->mod_shutdown();
-    }
-    return ret;
+/**
+* @brief Runs shutdown() on all the modules
+*/
+void FdsProcess::shutdown_modules() {
+    /* Do FDS shutdown sequence. */
+    mod_vectors_->mod_stop_services();
+    mod_vectors_->mod_shutdown_locksteps();
+    mod_vectors_->mod_shutdown();
 }
 
 void FdsProcess::setup_config(int argc, char *argv[],
