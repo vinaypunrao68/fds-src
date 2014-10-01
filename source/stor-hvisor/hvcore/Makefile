@@ -8,7 +8,7 @@ user_incl_dir     := .. \
     $(topdir) \
     $(topdir)/fds_client/include \
     $(topdir)/lib \
-    $(topdir)/am-app/include \
+    $(topdir)/access-mgr/include \
     $(topdir)/am-engine/include
 
 # user_cpp_flags    := -DVVC_CACHE_DISABLE

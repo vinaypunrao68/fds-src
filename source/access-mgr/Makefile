@@ -47,11 +47,9 @@ user_non_fds_libs :=  \
     cryptopp \
     hiredis \
     event \
-	rt \
-    $(user_nginx_libs)
+    rt
 
-user_cc           :=  \
-    ngx_modules.c
+user_cc           :=
 
 user_incl_dir     += $(topdir) \
 	$(JAVA_HOME)/include \

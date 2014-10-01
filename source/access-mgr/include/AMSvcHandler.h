@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 By Formation Data Systems, Inc.
  */
-#ifndef SOURCE_AM_APP_INCLUDE_AMSVCHANDLER_H_
-#define SOURCE_AM_APP_INCLUDE_AMSVCHANDLER_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_AMSVCHANDLER_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_AMSVCHANDLER_H_
 
 #include <net/net-service.h>
 #include <net/PlatNetSvcHandler.h>
@@ -66,4 +66,4 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
 
 }  // namespace fds
 
-#endif  // SOURCE_AM_APP_INCLUDE_AMSVCHANDLER_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_AMSVCHANDLER_H_

@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 By Formation Data Systems, Inc.
  */
-#ifndef SOURCE_AM_APP_INCLUDE_AM_PLATFORM_H_
-#define SOURCE_AM_APP_INCLUDE_AM_PLATFORM_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_AM_PLATFORM_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_AM_PLATFORM_H_
 
 #include <platform/platform-lib.h>
 #include <net/net-service.h>
@@ -97,4 +97,4 @@ extern AmPlatform gl_AmPlatform;
 
 }  // namespace fds
 
-#endif  // SOURCE_AM_APP_INCLUDE_AM_PLATFORM_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_AM_PLATFORM_H_

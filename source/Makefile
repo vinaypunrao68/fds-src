@@ -27,7 +27,7 @@ user_build_dir :=                       \
     data-mgr                            \
     stor-mgr                            \
     fds_client                          \
-    am-app                              \
+    access-mgr                          \
     tools                               \
     testlib                             \
     java                                \

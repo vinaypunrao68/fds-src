@@ -2,11 +2,11 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <string>
-#include <am-engine/s3connector.h>
-#include <am-engine/atmos-connector.h>
+// #include <am-engine/s3connector.h>
+// #include <am-engine/atmos-connector.h>
 #include <am-engine/fdsn-server.h>
-#include <am-engine/am-probe.h>
-#include <fds-probe/s3-probe.h>
+// #include <am-engine/am-probe.h>
+// #include <fds-probe/s3-probe.h>
 #include <util/fds_stat.h>
 #include <native_api.h>
 #include <am-platform.h>
@@ -18,11 +18,11 @@ extern void CreateStorHvisorS3(int argc, char **argv);
 
 namespace fds {
 
-class AM_Process : public PlatformProcess
+class AMMain : public PlatformProcess
 {
   public:
-    virtual ~AM_Process() {}
-    AM_Process(int argc, char **argv,
+    virtual ~AMMain() {}
+    AMMain(int argc, char **argv,
                Platform *platform, Module **mod_vec)
         : PlatformProcess(argc, argv, "fds.am.", "am.log", platform, mod_vec) {}
 
@@ -37,8 +37,8 @@ class AM_Process : public PlatformProcess
         gl_FdsnServer.init_server(api);
         if (conf_helper_.get<bool>("testing.enable_probe") == true) {
             // Add the AM probe to the S3 connector probe
-            gl_probeS3Eng.probe_add_adapter(&gl_AmProbe);
-            gl_AmProbe.init_server(api);
+            // gl_probeS3Eng.probe_add_adapter(&gl_AmProbe);
+            // gl_AmProbe.init_server(api);
         }
 
         argv = mod_vectors_->mod_argv(&argc);
@@ -69,6 +69,6 @@ int main(int argc, char **argv)
     };
     while (am_gdb == 0) { sleep(1); }
 
-    fds::AM_Process am_process(argc, argv, &fds::gl_AmPlatform, am_mod_vec);
-    return am_process.main();
+    fds::AMMain amMain(argc, argv, &fds::gl_AmPlatform, am_mod_vec);
+    return amMain.main();
 }
