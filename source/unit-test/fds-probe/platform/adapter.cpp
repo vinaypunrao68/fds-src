@@ -18,8 +18,8 @@ init_async_hdr(fpi::AsyncHdrPtr hdr, fpi::FDSPMsgTypeId id)
     hdr->msg_src_id = 0;
     hdr->msg_code   = 0;
 
-    gl_OmPmUuid.uuid_assign(&hdr->msg_src_uuid);
-    Platform::platf_singleton()->plf_get_my_node_uuid()->uuid_assign(&hdr->msg_dst_uuid);
+    Platform::platf_singleton()->plf_get_my_node_uuid()->uuid_assign(&hdr->msg_src_uuid);
+    hdr->msg_dst_uuid = hdr->msg_src_uuid;
 }
 
 static void

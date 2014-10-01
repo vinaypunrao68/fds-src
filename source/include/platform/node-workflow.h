@@ -128,9 +128,11 @@ class NodeWorkItem : public StateObj
                  bo::intrusive_ptr<PmAgent> owner,
                  FsmTable::pointer tab, NodeWorkFlow *mod);
 
-    inline bool wrk_is_in_om() {
-        return gl_OmUuid != wrk_peer_uuid;
+    bool wrk_is_in_om();
+    inline static bool wrk_is_om_uuid(fpi::SvcUuid &svc) {
+        return gl_OmPmUuid == svc;
     }
+
     /*
      * Generic action functions; provided by derrived class.
      */
@@ -146,7 +148,7 @@ class NodeWorkItem : public StateObj
     /*
      * Send data to the peer to notify the peer, provided by the framework.
      */
-    virtual bo::shared_ptr<EPSvcRequest> wrk_alloc_req_msg(fpi::AsyncHdrPtr &);
+    // virtual bo::shared_ptr<EPSvcRequest> wrk_alloc_req_msg(fpi::AsyncHdrPtr &);
     virtual void wrk_fmt_node_info(fpi::NodeInfoMsgPtr &pkt) {
         wrk_owner->init_plat_info_msg(pkt.get());
     }
@@ -157,13 +159,13 @@ class NodeWorkItem : public StateObj
     virtual void wrk_fmt_node_functional(fpi::NodeFunctionalPtr &);
     virtual void wrk_fmt_node_down(fpi::NodeDownPtr &);
 
-    virtual void wrk_send_node_info(fpi::AsyncHdrPtr, fpi::NodeInfoMsgPtr &);
-    virtual void wrk_send_node_qualify(fpi::AsyncHdrPtr, fpi::NodeQualifyPtr &);
-    virtual void wrk_send_node_upgrade(fpi::AsyncHdrPtr, fpi::NodeUpgradePtr &);
-    virtual void wrk_send_node_integrate(fpi::AsyncHdrPtr, fpi::NodeIntegratePtr &);
-    virtual void wrk_send_node_deploy(fpi::AsyncHdrPtr, fpi::NodeDeployPtr &);
-    virtual void wrk_send_node_functional(fpi::AsyncHdrPtr, fpi::NodeFunctionalPtr &);
-    virtual void wrk_send_node_down(fpi::AsyncHdrPtr, fpi::NodeDownPtr &);
+    virtual void wrk_send_node_info(fpi::SvcUuid *, fpi::NodeInfoMsgPtr &, bool);
+    virtual void wrk_send_node_qualify(fpi::SvcUuid *, fpi::NodeQualifyPtr &, bool);
+    virtual void wrk_send_node_upgrade(fpi::SvcUuid *, fpi::NodeUpgradePtr &, bool);
+    virtual void wrk_send_node_integrate(fpi::SvcUuid *, fpi::NodeIntegratePtr &, bool);
+    virtual void wrk_send_node_deploy(fpi::SvcUuid *, fpi::NodeDeployPtr &, bool);
+    virtual void wrk_send_node_functional(fpi::SvcUuid *, fpi::NodeFunctionalPtr &, bool);
+    virtual void wrk_send_node_down(fpi::SvcUuid *, fpi::NodeDownPtr &, bool);
 
   protected:
     bool                           wrk_sent_ndown;
@@ -213,12 +215,16 @@ class NodeWorkFlow : public Module
     void wrk_node_down(fpi::DomainID &dom, fpi::SvcUuid &svc);
 
     /* Dump state transitions. */
-    inline void wrk_dump_steps(std::stringstream *stt) {
+    inline void wrk_dump_steps(std::stringstream *stt) const {
         wrk_fsm->st_dump_state_trans(stt);
+    }
+    inline static fpi::SvcUuid *wrk_om_uuid() {
+        return &NodeWorkFlow::nd_workflow_sgt()->wrk_om_dest;
     }
 
   protected:
     FsmTable                               *wrk_fsm;
+    fpi::SvcUuid                            wrk_om_dest;
     bo::intrusive_ptr<DomainClusterMap>     wrk_clus;
     bo::intrusive_ptr<DomainContainer>      wrk_inv;
 

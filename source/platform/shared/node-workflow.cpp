@@ -187,6 +187,22 @@ NodeWorkItem::NodeWorkItem(fpi::SvcUuid      &peer,
       wrk_peer_did(did), wrk_owner(owner), wrk_module(mod) {}
 
 /**
+ * wrk_is_in_om
+ * ------------
+ */
+bool
+NodeWorkItem::wrk_is_in_om()
+{
+    /* Do testing with PM for now... */
+    if (Platform::platf_singleton()->plf_get_my_node_port() == 7000) {
+        return true;
+    }
+    return false;
+
+    return Platform::platf_singleton()->plf_is_om_node();
+}
+
+/**
  * wrk_assign_pkt_uuid
  * -------------------
  */
@@ -293,35 +309,29 @@ NodeWorkItem::act_node_down(NodeWrkEvent::ptr e, fpi::NodeDownPtr &m)
 void
 NodeWorkItem::act_node_started(NodeWrkEvent::ptr e, fpi::NodeInfoMsgPtr &m)
 {
-    fpi::AsyncHdrPtr hdr;
-
     this->st_trace(NULL) << " in " << __FUNCTION__ << "\n";
 
-    hdr = e->evt_pkt_hdr;
-    if (hdr != NULL) {
-        if (wrk_is_in_om() == false) {
-            fpi::NodeDownPtr    rst;
-            fpi::NodeInfoMsgPtr pkt;
+    if (wrk_is_in_om() == false) {
+        fpi::NodeDownPtr    rst;
+        fpi::NodeInfoMsgPtr pkt;
 
-            if (wrk_sent_ndown == false) {
-                wrk_sent_ndown = true;
-                rst = bo::make_shared<fpi::NodeDown>();
-                wrk_fmt_node_down(rst);
-                wrk_send_node_down(NULL, rst);
-            }
-            pkt = bo::make_shared<fpi::NodeInfoMsg>();
-            wrk_owner->init_plat_info_msg(pkt.get());
-            wrk_send_node_info(NULL, pkt);
-            std::cout << "Send to OM node " << std::endl;
-        } else {
-            fpi::NodeQualifyPtr pkt;
-
-            pkt = bo::make_shared<fpi::NodeQualify>();
-            wrk_fmt_node_qualify(pkt);
-            wrk_send_node_qualify(hdr, pkt);
-            std::cout << "Send to node "
-                      << wrk_owner->get_uuid().uuid_get_val() << std::endl;
+        if (wrk_sent_ndown == false) {
+            wrk_sent_ndown = true;
+            rst = bo::make_shared<fpi::NodeDown>();
+            wrk_fmt_node_down(rst);
+            wrk_send_node_down(NodeWorkFlow::wrk_om_uuid(), rst, false);
         }
+        pkt = bo::make_shared<fpi::NodeInfoMsg>();
+        wrk_owner->init_plat_info_msg(pkt.get());
+        wrk_send_node_info(NodeWorkFlow::wrk_om_uuid(), pkt, false);
+        std::cout << "Send to OM node " << std::endl;
+    } else {
+        fpi::NodeQualifyPtr pkt;
+
+        pkt = bo::make_shared<fpi::NodeQualify>();
+        wrk_fmt_node_qualify(pkt);
+        wrk_send_node_qualify(&wrk_peer_uuid, pkt, true);
+        std::cout << "Send to node " << wrk_owner->get_uuid().uuid_get_val() << std::endl;
     }
 }
 
@@ -332,20 +342,15 @@ NodeWorkItem::act_node_started(NodeWrkEvent::ptr e, fpi::NodeInfoMsgPtr &m)
 void
 NodeWorkItem::act_node_qualify(NodeWrkEvent::ptr e, fpi::NodeQualifyPtr &m)
 {
-    fpi::AsyncHdrPtr hdr;
-
     this->st_trace(NULL) << " in " << __FUNCTION__ << "\n";
 
-    hdr = e->evt_pkt_hdr;
-    if (hdr != NULL) {
-        if (wrk_is_in_om() == true) {
-            fpi::NodeIntegratePtr pkt;
+    if (wrk_is_in_om() == true) {
+        fpi::NodeIntegratePtr pkt;
 
-            pkt = bo::make_shared<fpi::NodeIntegrate>();
-            wrk_fmt_node_integrate(pkt);
-            wrk_send_node_integrate(hdr, pkt);
-            std::cout << "Send to node " << __FUNCTION__ << std::endl;
-        }
+        pkt = bo::make_shared<fpi::NodeIntegrate>();
+        wrk_fmt_node_integrate(pkt);
+        wrk_send_node_integrate(&wrk_peer_uuid, pkt, true);
+        std::cout << "Send to node " << __FUNCTION__ << std::endl;
     }
 }
 
@@ -376,20 +381,15 @@ NodeWorkItem::act_node_rollback(NodeWrkEvent::ptr e, fpi::NodeUpgradePtr &m)
 void
 NodeWorkItem::act_node_integrate(NodeWrkEvent::ptr e, fpi::NodeIntegratePtr &m)
 {
-    fpi::AsyncHdrPtr hdr;
-
     this->st_trace(NULL) << " in " << __FUNCTION__ << "\n";
 
-    hdr = e->evt_pkt_hdr;
-    if (hdr != NULL) {
-        if (wrk_is_in_om() == true) {
-            fpi::NodeDeployPtr pkt;
+    if (wrk_is_in_om() == true) {
+        fpi::NodeDeployPtr pkt;
 
-            pkt = bo::make_shared<fpi::NodeDeploy>();
-            wrk_fmt_node_deploy(pkt);
-            wrk_send_node_deploy(hdr, pkt);
-            std::cout << "Send to node " << __FUNCTION__ << std::endl;
-        }
+        pkt = bo::make_shared<fpi::NodeDeploy>();
+        wrk_fmt_node_deploy(pkt);
+        wrk_send_node_deploy(&wrk_peer_uuid, pkt, true);
+        std::cout << "Send to node " << __FUNCTION__ << std::endl;
     }
 }
 
@@ -400,20 +400,15 @@ NodeWorkItem::act_node_integrate(NodeWrkEvent::ptr e, fpi::NodeIntegratePtr &m)
 void
 NodeWorkItem::act_node_deploy(NodeWrkEvent::ptr e, fpi::NodeDeployPtr &m)
 {
-    fpi::AsyncHdrPtr hdr;
-
     this->st_trace(NULL) << " in " << __FUNCTION__ << "\n";
 
-    hdr = e->evt_pkt_hdr;
-    if (hdr != NULL) {
-        if (wrk_is_in_om() == true) {
-            fpi::NodeFunctionalPtr pkt;
+    if (wrk_is_in_om() == true) {
+        fpi::NodeFunctionalPtr pkt;
 
-            pkt = bo::make_shared<fpi::NodeFunctional>();
-            wrk_fmt_node_functional(pkt);
-            wrk_send_node_functional(hdr, pkt);
-            std::cout << "Send to node " << __FUNCTION__ << std::endl;
-        }
+        pkt = bo::make_shared<fpi::NodeFunctional>();
+        wrk_fmt_node_functional(pkt);
+        wrk_send_node_functional(&wrk_peer_uuid, pkt, true);
+        std::cout << "Send to node " << __FUNCTION__ << std::endl;
     }
 }
 
@@ -428,48 +423,18 @@ NodeWorkItem::act_node_functional(NodeWrkEvent::ptr e, fpi::NodeFunctionalPtr &m
 }
 
 /**
- * wrk_alloc_req_msg
- * -----------------
- */
-bo::shared_ptr<EPSvcRequest>
-NodeWorkItem::wrk_alloc_req_msg(fpi::AsyncHdrPtr &hdr)
-{
-    bo::shared_ptr<EPSvcRequest> req;
-
-    if (hdr != NULL) {
-        NodeUuid uuid(hdr->msg_src_uuid);
-
-        if (uuid == wrk_owner->get_uuid()) {
-            req = gSvcRequestPool->newEPSvcRequest(hdr->msg_src_uuid);
-        } else {
-            req = gSvcRequestPool->newEPSvcRequest(hdr->msg_dst_uuid);
-        }
-    } else {
-        /* Send to the peer endpoint. */
-        if (wrk_is_in_om() == false) {
-            fpi::SvcUuid svc;
-            gl_OmPmUuid.uuid_assign(&svc);
-            req = gSvcRequestPool->newEPSvcRequest(svc);
-        } else {
-            req = gSvcRequestPool->newEPSvcRequest(this->wrk_peer_uuid);
-        }
-    }
-    return req;
-}
-
-/**
  * wrk_send_node_info
  * ------------------
  */
 void
-NodeWorkItem::wrk_send_node_info(fpi::AsyncHdrPtr hdr, fpi::NodeInfoMsgPtr &msg)
+NodeWorkItem::wrk_send_node_info(fpi::SvcUuid *svc, fpi::NodeInfoMsgPtr &msg, bool run)
 {
     bo::shared_ptr<EPSvcRequest> req;
 
-    if (hdr != NULL) {
-        this->st_in_async(new NodeInfoEvt(hdr, msg, false));
+    if (run == true) {
+        this->st_in_async(new NodeInfoEvt(NULL, msg, false));
     }
-    req = wrk_alloc_req_msg(hdr);
+    req = gSvcRequestPool->newEPSvcRequest(*svc);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NodeInfoMsg), msg);
     req->invoke();
 }
@@ -479,14 +444,14 @@ NodeWorkItem::wrk_send_node_info(fpi::AsyncHdrPtr hdr, fpi::NodeInfoMsgPtr &msg)
  * ---------------------
  */
 void
-NodeWorkItem::wrk_send_node_qualify(fpi::AsyncHdrPtr hdr, fpi::NodeQualifyPtr &msg)
+NodeWorkItem::wrk_send_node_qualify(fpi::SvcUuid *svc, fpi::NodeQualifyPtr &msg, bool run)
 {
     bo::shared_ptr<EPSvcRequest> req;
 
-    if (hdr != NULL) {
-        this->st_in_async(new NodeQualifyEvt(hdr, msg, false));
+    if (run == true) {
+        this->st_in_async(new NodeQualifyEvt(NULL, msg, false));
     }
-    req = wrk_alloc_req_msg(hdr);
+    req = gSvcRequestPool->newEPSvcRequest(*svc);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NodeQualify), msg);
     req->invoke();
 }
@@ -496,14 +461,14 @@ NodeWorkItem::wrk_send_node_qualify(fpi::AsyncHdrPtr hdr, fpi::NodeQualifyPtr &m
  * ---------------------
  */
 void
-NodeWorkItem::wrk_send_node_upgrade(fpi::AsyncHdrPtr hdr, fpi::NodeUpgradePtr &msg)
+NodeWorkItem::wrk_send_node_upgrade(fpi::SvcUuid *svc, fpi::NodeUpgradePtr &msg, bool run)
 {
     bo::shared_ptr<EPSvcRequest> req;
 
-    if (hdr != NULL) {
-        this->st_in_async(new NodeUpgradeEvt(hdr, msg, false));
+    if (run == true) {
+        this->st_in_async(new NodeUpgradeEvt(NULL, msg, false));
     }
-    req = wrk_alloc_req_msg(hdr);
+    req = gSvcRequestPool->newEPSvcRequest(*svc);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NodeUpgrade), msg);
     req->invoke();
 }
@@ -513,14 +478,15 @@ NodeWorkItem::wrk_send_node_upgrade(fpi::AsyncHdrPtr hdr, fpi::NodeUpgradePtr &m
  * -----------------------
  */
 void
-NodeWorkItem::wrk_send_node_integrate(fpi::AsyncHdrPtr hdr, fpi::NodeIntegratePtr &msg)
+NodeWorkItem::wrk_send_node_integrate(fpi::SvcUuid *svc,
+                                      fpi::NodeIntegratePtr &msg, bool run)
 {
     bo::shared_ptr<EPSvcRequest> req;
 
-    if (hdr != NULL) {
-        this->st_in_async(new NodeIntegrateEvt(hdr, msg, false));
+    if (run == true) {
+        this->st_in_async(new NodeIntegrateEvt(NULL, msg, false));
     }
-    req = wrk_alloc_req_msg(hdr);
+    req = gSvcRequestPool->newEPSvcRequest(*svc);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NodeIntegrate), msg);
     req->invoke();
 }
@@ -530,14 +496,14 @@ NodeWorkItem::wrk_send_node_integrate(fpi::AsyncHdrPtr hdr, fpi::NodeIntegratePt
  * --------------------
  */
 void
-NodeWorkItem::wrk_send_node_deploy(fpi::AsyncHdrPtr hdr, fpi::NodeDeployPtr &msg)
+NodeWorkItem::wrk_send_node_deploy(fpi::SvcUuid *svc, fpi::NodeDeployPtr &msg, bool run)
 {
     bo::shared_ptr<EPSvcRequest> req;
 
-    if (hdr != NULL) {
-        this->st_in_async(new NodeDeployEvt(hdr, msg, false));
+    if (run == true) {
+        this->st_in_async(new NodeDeployEvt(NULL, msg, false));
     }
-    req = wrk_alloc_req_msg(hdr);
+    req = gSvcRequestPool->newEPSvcRequest(*svc);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NodeDeploy), msg);
     req->invoke();
 }
@@ -547,14 +513,15 @@ NodeWorkItem::wrk_send_node_deploy(fpi::AsyncHdrPtr hdr, fpi::NodeDeployPtr &msg
  * ------------------------
  */
 void
-NodeWorkItem::wrk_send_node_functional(fpi::AsyncHdrPtr hdr, fpi::NodeFunctionalPtr &msg)
+NodeWorkItem::wrk_send_node_functional(fpi::SvcUuid *svc,
+                                       fpi::NodeFunctionalPtr &msg, bool run)
 {
     bo::shared_ptr<EPSvcRequest> req;
 
-    if (hdr != NULL) {
-        this->st_in_async(new NodeFunctionalEvt(hdr, msg, false));
+    if (run == true) {
+        this->st_in_async(new NodeFunctionalEvt(NULL, msg, false));
     }
-    req = wrk_alloc_req_msg(hdr);
+    req = gSvcRequestPool->newEPSvcRequest(*svc);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NodeFunctional), msg);
     req->invoke();
 }
@@ -564,11 +531,11 @@ NodeWorkItem::wrk_send_node_functional(fpi::AsyncHdrPtr hdr, fpi::NodeFunctional
  * ------------------
  */
 void
-NodeWorkItem::wrk_send_node_down(fpi::AsyncHdrPtr hdr, fpi::NodeDownPtr &msg)
+NodeWorkItem::wrk_send_node_down(fpi::SvcUuid *svc, fpi::NodeDownPtr &msg, bool run)
 {
     bo::shared_ptr<EPSvcRequest> req;
 
-    req = wrk_alloc_req_msg(hdr);
+    req = gSvcRequestPool->newEPSvcRequest(*svc);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NodeDown), msg);
     req->invoke();
 }
@@ -613,6 +580,7 @@ NodeWorkFlow::NodeWorkFlow() : Module("Node Work Flow")
 {
     wrk_fsm = new FsmTable(FDS_ARRAY_ELEM(sgt_node_wrk_flow), sgt_node_wrk_flow);
     wrk_fsm->st_set_switch_board(sgl_node_wrk_flow, FDS_ARRAY_ELEM(sgl_node_wrk_flow));
+    gl_OmPmUuid.uuid_assign(&wrk_om_dest);
 }
 
 /**
@@ -755,8 +723,14 @@ NodeWorkFlow::wrk_item_submit(fpi::DomainID &did,
 void
 NodeWorkFlow::wrk_recv_node_info(fpi::AsyncHdrPtr &hdr, fpi::NodeInfoMsgPtr &msg)
 {
-    wrk_item_submit(msg->node_domain,
-                    msg->node_loc.svc_id.svc_uuid, new NodeInfoEvt(hdr, msg));
+    NodeWrkEvent::ptr evt;
+
+    evt  = new NodeInfoEvt(hdr, msg);
+    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
+        wrk_item_submit(msg->node_domain, hdr->msg_src_uuid, evt);
+    } else {
+        wrk_item_submit(msg->node_domain, hdr->msg_dst_uuid, evt);
+    }
 }
 
 /**
@@ -766,11 +740,16 @@ NodeWorkFlow::wrk_recv_node_info(fpi::AsyncHdrPtr &hdr, fpi::NodeInfoMsgPtr &msg
 void
 NodeWorkFlow::wrk_recv_node_qualify(fpi::AsyncHdrPtr &hdr, fpi::NodeQualifyPtr &msg)
 {
-    fpi::NodeInfoMsg *ptr;
+    NodeWrkEvent::ptr  evt;
+    fpi::NodeInfoMsg  *ptr;
 
+    evt = new NodeQualifyEvt(hdr, msg);
     ptr = &(msg.get())->nd_info;
-    wrk_item_submit(ptr->node_domain,
-                    ptr->node_loc.svc_id.svc_uuid, new NodeQualifyEvt(hdr, msg));
+    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
+        wrk_item_submit(ptr->node_domain, hdr->msg_src_uuid, evt);
+    } else {
+        wrk_item_submit(ptr->node_domain, hdr->msg_dst_uuid, evt);
+    }
 }
 
 /**
@@ -780,7 +759,14 @@ NodeWorkFlow::wrk_recv_node_qualify(fpi::AsyncHdrPtr &hdr, fpi::NodeQualifyPtr &
 void
 NodeWorkFlow::wrk_recv_node_upgrade(fpi::AsyncHdrPtr &hdr, fpi::NodeUpgradePtr &msg)
 {
-    wrk_item_submit(msg->nd_dom_id, msg->nd_uuid, new NodeUpgradeEvt(hdr, msg));
+    NodeWrkEvent::ptr  evt;
+
+    evt = new NodeUpgradeEvt(hdr, msg);
+    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
+        wrk_item_submit(msg->nd_dom_id, hdr->msg_src_uuid, evt);
+    } else {
+        wrk_item_submit(msg->nd_dom_id, hdr->msg_dst_uuid, evt);
+    }
 }
 
 /**
@@ -790,7 +776,14 @@ NodeWorkFlow::wrk_recv_node_upgrade(fpi::AsyncHdrPtr &hdr, fpi::NodeUpgradePtr &
 void
 NodeWorkFlow::wrk_recv_node_integrate(fpi::AsyncHdrPtr &hdr, fpi::NodeIntegratePtr &msg)
 {
-    wrk_item_submit(msg->nd_dom_id, msg->nd_uuid, new NodeIntegrateEvt(hdr, msg));
+    NodeWrkEvent::ptr  evt;
+
+    evt = new NodeIntegrateEvt(hdr, msg);
+    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
+        wrk_item_submit(msg->nd_dom_id, hdr->msg_src_uuid, evt);
+    } else {
+        wrk_item_submit(msg->nd_dom_id, hdr->msg_dst_uuid, evt);
+    }
 }
 
 /**
@@ -800,7 +793,14 @@ NodeWorkFlow::wrk_recv_node_integrate(fpi::AsyncHdrPtr &hdr, fpi::NodeIntegrateP
 void
 NodeWorkFlow::wrk_recv_node_deploy(fpi::AsyncHdrPtr &hdr, fpi::NodeDeployPtr &msg)
 {
-    wrk_item_submit(msg->nd_dom_id, msg->nd_uuid, new NodeDeployEvt(hdr, msg));
+    NodeWrkEvent::ptr  evt;
+
+    evt = new NodeDeployEvt(hdr, msg);
+    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
+        wrk_item_submit(msg->nd_dom_id, hdr->msg_src_uuid, evt);
+    } else {
+        wrk_item_submit(msg->nd_dom_id, hdr->msg_dst_uuid, evt);
+    }
 }
 
 /**
@@ -810,7 +810,14 @@ NodeWorkFlow::wrk_recv_node_deploy(fpi::AsyncHdrPtr &hdr, fpi::NodeDeployPtr &ms
 void
 NodeWorkFlow::wrk_recv_node_functional(fpi::AsyncHdrPtr &hdr, fpi::NodeFunctionalPtr &msg)
 {
-    wrk_item_submit(msg->nd_dom_id, msg->nd_uuid, new NodeFunctionalEvt(hdr, msg));
+    NodeWrkEvent::ptr  evt;
+
+    evt = new NodeFunctionalEvt(hdr, msg);
+    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
+        wrk_item_submit(msg->nd_dom_id, hdr->msg_src_uuid, evt);
+    } else {
+        wrk_item_submit(msg->nd_dom_id, hdr->msg_dst_uuid, evt);
+    }
 }
 
 /**
@@ -820,7 +827,14 @@ NodeWorkFlow::wrk_recv_node_functional(fpi::AsyncHdrPtr &hdr, fpi::NodeFunctiona
 void
 NodeWorkFlow::wrk_recv_node_down(fpi::AsyncHdrPtr &hdr, fpi::NodeDownPtr &msg)
 {
-    wrk_item_submit(msg->nd_dom_id, msg->nd_uuid, new NodeDownEvt(hdr, msg));
+    NodeWrkEvent::ptr  evt;
+
+    evt = new NodeDownEvt(hdr, msg);
+    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
+        wrk_item_submit(msg->nd_dom_id, hdr->msg_src_uuid, evt);
+    } else {
+        wrk_item_submit(msg->nd_dom_id, hdr->msg_dst_uuid, evt);
+    }
 }
 
 /**
