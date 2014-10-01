@@ -21,12 +21,12 @@ import FdspUtils
 log = logging.getLogger(__name__)
 
 class PlatSvc(object):
-    def __init__(self, basePort, omPlatIp='127.0.0.1', omPlatPort=7000):
+    def __init__(self, basePort, mySvcUuid=64, omPlatIp='127.0.0.1', omPlatPort=7000):
         self.reqLock = threading.Lock()
         self.nextReqId = 0
         self.reqCbs = {}
         # TODO(Rao): Get my svc uuid
-        self.mySvcUuid = 64
+        self.mySvcUuid = mySvcUuid
         self.basePort = basePort
         # get the service map
         self.svcMap = SvcMap(omPlatIp, omPlatPort)
