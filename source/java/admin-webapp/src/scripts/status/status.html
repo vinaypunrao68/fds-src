@@ -3,7 +3,7 @@
     <div class="coming-soon-parent" ng-show="!isAllowed( 'SYS_MGMT' )">
         <div class="coming-soon-child">
             <div style="">
-                <span style="color: white;">Coming soon...</span>
+                <span style="color: white;" translate>common.coming_soon</span>
             </div>
         </div>
     </div>
@@ -21,6 +21,11 @@
         <div class="tile-pair">
             <div class="tile-parent">
                 <div class="performance-tile tile"></div>
+<!--
+                <div class="tile">
+                    <line-chart data="fakeData" colors="fakeColors" opacities="fakeOpacities"></line-chart>
+                </div>
+-->
             </div>
             <div class="tile-parent">
                 <div class="firebreak-tile tile"></div>
@@ -37,7 +42,7 @@
     <div class="page-vertical-spacer"></div>
 
     <div class="header top-label">
-        <span class="header" style="margin-bottom: 12px;">Activity</span>
+        <span class="header" style="margin-bottom: 12px;" translate>status.activity</span>
 
         <table class="default">
             <tbody>

@@ -47,15 +47,8 @@ static PlatLibDltUpdate      platlib_dlt_update;
  * Platform Library NetEndPoint services
  * -------------------------------------------------------------------------------------
  */
-EpPlatLibMod::EpPlatLibMod(const char *name) : Module(name), ep_uuid_bind(NULL)
-{
-    static Module *ep_plat_dep_mods[] = {
-        &gl_NodeShmROCtrl,
-        NULL
-    };
-    ep_my_type = 0;
-    mod_intern = ep_plat_dep_mods;
-}
+EpPlatLibMod::EpPlatLibMod(const char *name)
+    : Module(name), ep_uuid_bind(NULL), ep_my_type(0) {}
 
 // mod_init
 // --------
@@ -63,6 +56,11 @@ EpPlatLibMod::EpPlatLibMod(const char *name) : Module(name), ep_uuid_bind(NULL)
 int
 EpPlatLibMod::mod_init(SysParams const *const p)
 {
+    static Module *ep_plat_dep_mods[] = {
+        &gl_NodeShmROCtrl,
+        NULL
+    };
+    mod_intern = ep_plat_dep_mods;
     return Module::mod_init(p);
 }
 
@@ -333,9 +331,9 @@ EpPlatLibMod::ep_uuid_bind_frm_msg(ep_map_rec_t *rec, const fpi::UuidBindMsg *ms
 void
 PlatLibUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
 {
-    const ep_shmq_req_t    *map = reinterpret_cast<const ep_shmq_req_t *>(in);
-    NodeAgent::pointer      agent;
-    DomainNodeInv::pointer  local;
+    const ep_shmq_req_t      *map = reinterpret_cast<const ep_shmq_req_t *>(in);
+    NodeAgent::pointer        agent;
+    DomainContainer::pointer  local;
 
     std::cout << "Plat lib uuid binding is called " << std::endl;
     return;
@@ -349,7 +347,7 @@ void
 PlatLibNodeReg::shmq_handler(const shmq_req_t *in, size_t size)
 {
     NodeAgent::pointer        agent;
-    DomainNodeInv::pointer    local;
+    DomainContainer::pointer  local;
     ShmObjROKeyUint64        *shm;
     const ep_shmq_node_req_t *req = reinterpret_cast<const ep_shmq_node_req_t *>(in);
 

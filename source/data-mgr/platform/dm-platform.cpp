@@ -70,7 +70,7 @@ DMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 DmPlatform::DmPlatform()
     : Platform("DM-Platform",
                fpi::FDSP_DATA_MGR,
-               new DomainNodeInv("DM-Platform-NodeInv",
+               new DomainContainer("DM-Platform-NodeInv",
                                  NULL,
                                  new SmContainer(fpi::FDSP_STOR_MGR),
                                  new DmContainer(fpi::FDSP_DATA_MGR),
@@ -113,7 +113,6 @@ DmPlatform::mod_startup()
 
     Platform::mod_startup();
     registerFlags();
-    gSvcRequestPool = new SvcRequestPool();
 
     dm_recv   = bo::shared_ptr<DMSvcHandler>(new DMSvcHandler());
     dm_plugin = new DMEpPlugin(this);
@@ -153,8 +152,8 @@ DmPlatform::mod_shutdown()
 void
 DmPlatform::plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg)
 {
-    NodeAgent::pointer     new_node;
-    DomainNodeInv::pointer local;
+    NodeAgent::pointer       new_node;
+    DomainContainer::pointer local;
 
     local = plf_node_inventory();
     Error err = local->dc_register_node(uuid, msg, &new_node);

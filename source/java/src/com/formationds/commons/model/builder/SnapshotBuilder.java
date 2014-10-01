@@ -12,10 +12,11 @@ import java.util.Date;
  * @author ptinius
  */
 public class SnapshotBuilder {
-  private long id;
+  private Long id;
   private String name;
-  private long volumeId;
+  private Long volumeId;
   private Date creation;
+  private Long retention;
 
   /**
    * default constructor
@@ -28,7 +29,7 @@ public class SnapshotBuilder {
    *
    * @return Returns the {@link SnapshotBuilder}
    */
-  public SnapshotBuilder withId( long id ) {
+  public SnapshotBuilder withId( Long id ) {
     this.id = id;
     return this;
   }
@@ -48,7 +49,7 @@ public class SnapshotBuilder {
    *
    * @return Returns the {@link SnapshotBuilder}
    */
-  public SnapshotBuilder withVolumeId( long volumeId ) {
+  public SnapshotBuilder withVolumeId( Long volumeId ) {
     this.volumeId = volumeId;
     return this;
   }
@@ -64,6 +65,16 @@ public class SnapshotBuilder {
   }
 
   /**
+   * @param retention the {@code long} representing the retention
+   *
+   * @return Returns the {@link SnapshotBuilder}
+   */
+  public SnapshotBuilder withRetention( Long retention ) {
+    this.retention = retention;
+    return this;
+  }
+
+  /**
    * @return Returns the {@link SnapshotBuilder}
    */
   public Snapshot build() {
@@ -72,6 +83,7 @@ public class SnapshotBuilder {
     snapshot.setName( name );
     snapshot.setVolumeId( volumeId );
     snapshot.setCreation( creation );
+    snapshot.setRetention( retention );
 
     return snapshot;
   }

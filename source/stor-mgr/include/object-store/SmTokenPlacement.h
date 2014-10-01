@@ -12,8 +12,8 @@
 
 namespace fds {
 
-#define SM_TOKEN_MASK  0xff
-#define SM_TOKEN_COUNT 256
+#define SMTOKEN_MASK  0xff
+#define SMTOKEN_COUNT 256
 #define SM_TIER_COUNT  2
 
 typedef std::set<fds_token_id> SmTokenSet;
@@ -69,7 +69,7 @@ class ObjectLocationTable: public serialize::Serializable {
     // SM token to disk ID table
     // row 0 : disk ID of HDDs
     // row 1 : disk ID of SSD
-    fds_uint16_t table[SM_TIER_COUNT][SM_TOKEN_COUNT];
+    fds_uint16_t table[SM_TIER_COUNT][SMTOKEN_COUNT];
 
     /// cached reverse map from disk id to tokens
     DiskSmTokenMap diskSmTokenMap;

@@ -88,16 +88,22 @@ class ResourceUUID
         rs_uuid = svc.svc_uuid;
     }
 
-    bool operator==(const ResourceUUID& rhs) const {
+    bool operator == (const ResourceUUID& rhs) const {
         return (this->rs_uuid == rhs.rs_uuid);
     }
-    bool operator!=(const ResourceUUID& rhs) const {
+    bool operator == (const fpi::SvcUuid &rhs) const {
+        return (this->rs_uuid == static_cast<fds_uint64_t>(rhs.svc_uuid));
+    }
+    bool operator != (const ResourceUUID& rhs) const {
         return !(*this == rhs);
     }
-    bool operator<(const ResourceUUID& rhs) const {
+    bool operator != (const fpi::SvcUuid &rhs) const {
+        return !(*this == rhs);
+    }
+    bool operator < (const ResourceUUID& rhs) const {
         return rs_uuid < rhs.rs_uuid;
     }
-    ResourceUUID& operator=(const ResourceUUID& rhs) {
+    ResourceUUID& operator = (const ResourceUUID& rhs) {
         rs_uuid = rhs.rs_uuid;
         return *this;
     }

@@ -22,15 +22,18 @@ user_build_dir :=                       \
     am-engine                           \
     persistent_layer                    \
     platform                            \
-    stor-hvisor                         \
     orch_mgr                            \
     data-mgr                            \
+    access-mgr                          \
     stor-mgr                            \
-    fds_client                          \
-    am-app                              \
     tools                               \
+    testlib                             \
     java                                \
     unit-test                           \
     checker                             
+
+ifdef SKIP_JAVA_BUILD
+	user_build_dir := $(filter-out java, $(user_build_dir))
+endif
 
 include $(topdir)/Makefile.incl

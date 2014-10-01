@@ -8,7 +8,7 @@ user_incl_dir     := \
 	$(topdir) \
 	$(topdir)/stor-mgr/include \
 	$(topdir)/stor-mgr/migrations \
-    $(topdir)/am-app/include \
+    $(topdir)/access-mgr/include \
 	$(topdir)/lib
 
 user_cpp_flags    :=
@@ -21,7 +21,8 @@ user_fds_ar_libs  := \
     fds-dsk-mgnt \
     fds-dsk-io \
     fds-odb \
-    fds-vpolicy
+    fds-vpolicy \
+    fds-xdi
 
 user_non_fds_libs := \
     boost_timer \

@@ -69,7 +69,7 @@ SMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 SmPlatform::SmPlatform()
     : Platform("SM-Platform",
                fpi::FDSP_STOR_MGR,
-               new DomainNodeInv("SM-Platform-NodeInv",
+               new DomainContainer("SM-Platform-NodeInv",
                                  NULL,
                                  new SmContainer(fpi::FDSP_STOR_MGR),
                                  new DmContainer(fpi::FDSP_STOR_MGR),
@@ -108,7 +108,6 @@ SmPlatform::mod_startup()
 
     Platform::mod_startup();
     registerFlags();
-    gSvcRequestPool = new SvcRequestPool();
 
     sm_recv   = bo::shared_ptr<SMSvcHandler>(new SMSvcHandler());
     sm_plugin = new SMEpPlugin(this);
@@ -148,7 +147,7 @@ void
 SmPlatform::plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg)
 {
     NodeAgent::pointer     new_node;
-    DomainNodeInv::pointer local;
+    DomainContainer::pointer local;
 
     local = plf_node_inventory();
     Error err = local->dc_register_node(uuid, msg, &new_node);

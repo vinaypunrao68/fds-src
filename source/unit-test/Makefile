@@ -8,6 +8,7 @@ user_build_dir :=      \
     umod-lib           \
     util               \
     migrations         \
-    stor-mgr
+    stor-mgr           \
+    data-mgr
 
 include $(topdir)/Makefile.incl

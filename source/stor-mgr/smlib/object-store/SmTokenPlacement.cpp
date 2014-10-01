@@ -12,7 +12,7 @@ namespace fds {
 ObjectLocationTable::ObjectLocationTable() {
     // initialize table with invalid disk ids
     for (fds_uint32_t i = 0; i < SM_TIER_COUNT; i++) {
-        for (fds_token_id tokId = 0; tokId < SM_TOKEN_COUNT; tokId++) {
+        for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; tokId++) {
             table[i][tokId] = fds_diskid_invalid;
         }
     }
@@ -25,7 +25,7 @@ void
 ObjectLocationTable::setDiskId(fds_token_id smToken,
                                diskio::DataTier tier,
                                fds_uint16_t diskId) {
-    fds_verify(smToken < SM_TOKEN_COUNT);
+    fds_verify(smToken < SMTOKEN_COUNT);
     // here we are explicit with translation of tier to row number
     // if tier enum changes ....
     if (tier == diskio::diskTier) {
@@ -40,7 +40,7 @@ ObjectLocationTable::setDiskId(fds_token_id smToken,
 fds_uint16_t
 ObjectLocationTable::getDiskId(fds_token_id smToken,
                                diskio::DataTier tier) const {
-    fds_verify(smToken < SM_TOKEN_COUNT);
+    fds_verify(smToken < SMTOKEN_COUNT);
     // here we are explicit with translation of tier to row number
     // if tier enum changes ....
     if (tier == diskio::diskTier) {
@@ -64,7 +64,7 @@ ObjectLocationTable::generateDiskToSmTokenMap() {
 
     // generate from sm token to disk id table
     for (fds_uint32_t i = 0; i < SM_TIER_COUNT; i++) {
-        for (fds_token_id tokId = 0; tokId < SM_TOKEN_COUNT; tokId++) {
+        for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; tokId++) {
             fds_uint32_t disk_id = table[i][tokId];
             if (disk_id == fds_diskid_invalid) continue;
             // we should not have a case when we find more than one
@@ -92,7 +92,7 @@ uint32_t
 ObjectLocationTable::write(serialize::Serializer*  s) const {
     fds_uint32_t bytes = 0;
     for (fds_uint32_t i = 0; i < SM_TIER_COUNT; i++) {
-        for (fds_uint32_t j = 0; j < SM_TOKEN_COUNT; j++) {
+        for (fds_uint32_t j = 0; j < SMTOKEN_COUNT; j++) {
             bytes += s->writeI32(table[i][j]);
         }
     }
@@ -103,7 +103,7 @@ uint32_t
 ObjectLocationTable::read(serialize::Deserializer* d) {
     fds_uint32_t bytes = 0;
     for (fds_uint32_t i = 0; i < SM_TIER_COUNT; i++) {
-        for (fds_uint32_t j = 0; j < SM_TOKEN_COUNT; j++) {
+        for (fds_uint32_t j = 0; j < SMTOKEN_COUNT; j++) {
             fds_int32_t disk_id = 0;
             bytes += d->readI32(disk_id);
             table[i][j] = disk_id;
@@ -121,7 +121,7 @@ fds_bool_t
 ObjectLocationTable::operator ==(const ObjectLocationTable& rhs) const {
     if (this == &rhs) return true;
     return (0 == memcmp(
-        table, rhs.table, SM_TIER_COUNT * SM_TOKEN_COUNT * sizeof(fds_uint16_t)));
+        table, rhs.table, SM_TIER_COUNT * SMTOKEN_COUNT * sizeof(fds_uint16_t)));
 }
 
 std::ostream& operator<< (std::ostream &out,
@@ -133,7 +133,7 @@ std::ostream& operator<< (std::ostream &out,
         } else {
             out << "SSD: ";
         }
-        for (fds_uint32_t j = 0; j < SM_TOKEN_COUNT; j++) {
+        for (fds_uint32_t j = 0; j < SMTOKEN_COUNT; j++) {
             out << "[" << tbl.table[i][j] << "] ";
         }
         out << "\n";
@@ -165,7 +165,7 @@ SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
     // first assign placement on HDDs
     std::set<fds_uint16_t>::const_iterator cit = hdds.cbegin();
     if (cit !=hdds.cend()) {
-        for (fds_token_id tok = 0; tok < SM_TOKEN_COUNT; tok++) {
+        for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; tok++) {
             olt->setDiskId(tok, diskio::diskTier, *cit);
             ++cit;
             if (cit == hdds.cend()) cit = hdds.cbegin();
@@ -175,7 +175,7 @@ SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
     // assign placement on SSDs
     cit = ssds.cbegin();
     if (cit != ssds.cend()) {
-        for (fds_token_id tok = 0; tok < SM_TOKEN_COUNT; tok++) {
+        for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; tok++) {
             olt->setDiskId(tok, diskio::flashTier, *cit);
             ++cit;
             if (cit == ssds.cend()) cit = ssds.cbegin();

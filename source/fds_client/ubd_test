@@ -1,1 +1,0 @@
-dd if=/tmp/aw_test.mp4 of=/dev/fbd0 bs=4k

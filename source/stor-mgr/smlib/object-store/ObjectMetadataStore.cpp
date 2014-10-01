@@ -18,7 +18,14 @@ ObjectMetadataStore::~ObjectMetadataStore() {
 
 int
 ObjectMetadataStore::mod_init(SysParams const *const param) {
+    static Module *metaStoreDepMods[] = {
+        metaCache.get(),
+        NULL
+    };
+    mod_intern = metaStoreDepMods;
+
     Module::mod_init(param);
+    LOGDEBUG << "Done";
     return 0;
 }
 
@@ -33,6 +40,11 @@ ObjectMetadataStore::mod_shutdown() {
 void
 ObjectMetadataStore::setNumBitsPerToken(fds_uint32_t nbits) {
     metaDb_->setNumBitsPerToken(nbits);
+}
+
+Error
+ObjectMetadataStore::openMetadataStore(const SmDiskMap::const_ptr& diskMap) {
+    return metaDb_->openMetadataDb(diskMap);
 }
 
 ObjMetaData::const_ptr

@@ -79,6 +79,9 @@ python_packages=(
     scp
     PyYAML
     boto
+    argh
+    tabulate
+    thrift
 )
 
 function isDeployMode() {

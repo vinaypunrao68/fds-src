@@ -8,7 +8,7 @@
         "node_qualify": {
             "domain_id": 0,
             "svc_uuid": "0xabcdef",
-            "acc_token": "abcdef"
+            "acc_token": "abdef"
         },
         "node_upgrade": {
             "domain_id": 0,
@@ -22,8 +22,8 @@
             "svc_uuid": "0xabcdef",
             "start_Am": true,
             "start_Dm": true,
-            "start_SM": true,
-            "start_OM": true
+            "start_Sm": true,
+            "start_Om": true
         },
         "node_work_item": {
             "domain_id": 0,
@@ -39,12 +39,17 @@
         "node_functional": {
             "domain_id": 0,
             "svc_uuid": "0xabcdef",
-            "op_code": "foo",
+            "op_code": "foo bar",
             "work_item": "abc"
         },
         "node_down": {
             "domain_id": 0,
             "svc_uuid": "0xabcdef"
+        },
+        "node_list_step": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "op_code": "local"
         }
     }
 }

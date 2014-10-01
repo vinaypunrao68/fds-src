@@ -3,7 +3,7 @@
 all: install
 
 install:
-	@./makeinstalldir.sh
+	@./makeinstalldir.sh $(DEST_PATH)
 
 clean:
 	@sudo rm -rf .pkg.cache

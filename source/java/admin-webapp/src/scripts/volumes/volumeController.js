@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume_api', '$element', '$timeout', '$compile', function( $scope, $volume_api, $element, $timeout, $compile ){
+angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume_api', '$element', '$timeout', '$compile', '$snapshot_service', function( $scope, $volume_api, $element, $timeout, $compile, $snapshot_service ){
 
     $scope.volumes = [];
     $scope.capacity = 10;
@@ -23,6 +23,13 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume
     $scope.clicked = function( volume){
         $scope.selectedVolume = volume;
         $scope.viewing = true;
+    };
+    
+    $scope.takeSnapshot = function( $event, volume ){
+        
+        $event.stopPropagation();
+        
+        $volume_api.createSnapshot( volume.id, volume.name + '.' + (new Date()).getTime(), function(){ alert( 'Snapshot created.' );} );
     };
 
     $scope.edit = function( $event, volume ) {

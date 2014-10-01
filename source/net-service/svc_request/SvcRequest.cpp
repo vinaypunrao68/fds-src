@@ -121,12 +121,15 @@ void SvcRequestIf::setCompletionCb(SvcRequestCompletionCb &completionCb)
  */
 void SvcRequestIf::invoke()
 {
+#if 0
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
         NetMgr::ep_mgr_singleton()->ep_get_task_executor();
     /* Execute on synchronized task exector so that invocation and response
      * handling is synchronized.
      */
     taskExecutor->schedule(id_, std::bind(&SvcRequestIf::invokeWork_, this));
+#endif
+    invokeWork_();
 }
 
 

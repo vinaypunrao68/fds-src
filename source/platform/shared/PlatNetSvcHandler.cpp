@@ -68,10 +68,20 @@ PlatNetSvcHandler::getDomainNodes(fpi::DomainNodes                    &ret,
                                   boost::shared_ptr<fpi::DomainNodes> &domain)
 {
     /*  Only do the local domain for now */
-    DomainNodeInv::pointer local;
+    DomainContainer::pointer local;
 
     local = Platform::platf_singleton()->plf_node_inventory();
     local->dc_node_svc_info(ret);
+}
+
+void
+PlatNetSvcHandler::getSvcEvent(fpi::NodeEvent &ret, const fpi::NodeEvent &in)
+{
+}
+
+void
+PlatNetSvcHandler::getSvcEvent(fpi::NodeEvent &ret, fpi::NodeEventPtr &in)
+{
 }
 
 fpi::ServiceStatus PlatNetSvcHandler::getStatus(const int32_t nullarg)
@@ -102,6 +112,10 @@ void PlatNetSvcHandler::setFlag(const std::string& id, const int64_t value)
 int64_t PlatNetSvcHandler::getFlag(const std::string& id)
 {
     return 0;
+}
+bool PlatNetSvcHandler::setFault(const std::string& command) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+    return false;
 }
 
 /**
@@ -225,7 +239,7 @@ void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,  // N
 *
 * @param command
 */
-bool PlatNetSvcHandler::setFault(boost::shared_ptr<std::string>& cmdline)
+bool PlatNetSvcHandler::setFault(boost::shared_ptr<std::string>& cmdline)  // NOLINT
 {
     boost::char_separator<char> sep(", ");
     /* Parse the cmd line */

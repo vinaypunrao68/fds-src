@@ -23,6 +23,19 @@ import static org.junit.Assert.*;
 
 public class RecurrenceRuleTest {
 
+  @Test
+  public void nates_test()
+  {
+    try {
+      final RecurrenceRule rule =
+        RecurrenceRule.parser( "FREQ:WEEKLY" );
+      assertEquals( rule.toString(), "FREQ=WEEKLY" );
+    } catch( ParseException e ) {
+      e.printStackTrace();
+      assertTrue( true );
+    }
+  }
+
   /**
    *  Daily for 10 occurrences: RRULE:FREQ=DAILY;COUNT=10
    */

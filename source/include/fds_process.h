@@ -95,16 +95,24 @@ class FdsProcess : public boost::noncopyable,
      * Sequence in main:
      *    For each module, call mod_init().
      *    Call proc_pre_startup()
+     *    Call start_modules()
+     *    Call run()
+     *    Call shutdown_modules()
+     */
+    virtual int main();
+    /**
      *    For each module, call mod_startup().
      *    For each module, call mod_lockstep()
      *    Call proc_pre_service()
      *    For each module, call mod_enable_service()
-     *    Call run()
+     */
+    virtual void start_modules();
+    /**
      *    For each module, call mod_stop_services()
      *    For each module, call mod_shutdown_locksteps()
      *    For each module, call shutdown().
      */
-    virtual int main();
+    virtual void shutdown_modules();
 
     void daemonize();
 
