@@ -4,6 +4,8 @@ user_std_libs     := true
 user_rtime_env    := user
 user_install_loc  := test
 
+user_hh        := $(wildcard *.h)
+
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-lib \

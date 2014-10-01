@@ -113,7 +113,6 @@ DmPlatform::mod_startup()
 
     Platform::mod_startup();
     registerFlags();
-    gSvcRequestPool = new SvcRequestPool();
 
     dm_recv   = bo::shared_ptr<DMSvcHandler>(new DMSvcHandler());
     dm_plugin = new DMEpPlugin(this);

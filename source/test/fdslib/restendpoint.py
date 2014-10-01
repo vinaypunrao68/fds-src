@@ -28,16 +28,17 @@ class UserException(RestException):
 #----------------------------------------------------------------------------------------#
 
 class RestEndpoint(object):
-    
-    def __init__(self, host='localhost', port=7777, auth=True):
+
+    def __init__(self, host='localhost', port=7777, auth=True, user='admin', password='admin'):
         self.host = host
         self.port = port
 
         self.setHost(host)
         self.setPort(port)
-        
-        self.user = 'admin'
-        self.password = 'admin'
+
+        self.user = user
+        self.password = password
+
         self._token = None
         self.headers = []
         if auth:
@@ -89,7 +90,7 @@ class RestEndpoint(object):
         Returns:
            dictionary of key : value pairs parsed from JSON, None on failure
         '''
-        
+
         if result.status_code == 200:
             try:
                 return json.loads(result.text)
@@ -205,14 +206,14 @@ class VolumeEndpoint:
                 return None
             else:
                 return res['status']
-        
+
     def deleteVolume(self, volume_name):
         path = '{}/{}'.format(self.rest_path, volume_name)
 
         res = self.rest.delete(path, headers=self.headers)
         res = self.rest.parse_result(res)
-        
-        
+
+
     def listVolumes(self):
         '''
         Get a list of volumes in the system.
@@ -231,14 +232,14 @@ class VolumeEndpoint:
               'current_usage': {'unit': <unit>, 'size': <size> }
            }
         '''
-        
+
         res = self.rest.get(self.rest_path)
         res = self.rest.parse_result(res)
         if res is not None:
             return res
         else:
-            return None        
-        
+            return None
+
     def setVolumeQosParams(self, vol_id, min_iops, priority, max_iops):
         '''
         Set the QOS parameters for a volume.
@@ -323,10 +324,10 @@ class AuthEndpoint:
             return res
         else:
             return None
-        
+
 
 class UserEndpoint():
-    
+
     def __init__(self, rest):
         self.rest = rest
         self.rest_path = self.rest.base_path + '/api/system/users'
@@ -374,7 +375,7 @@ class UserEndpoint():
         Returns:
            True success, False otherwise
         '''
-        path = '{}/{}/{}'.format(self.rest_path, user_id, password) 
+        path = '{}/{}/{}'.format(self.rest_path, user_id, password)
         res = self.rest.put(path)
         res = self.rest.parse_result(res)
         if res is not None:
@@ -386,7 +387,7 @@ class UserEndpoint():
             return False
 
 class S3Endpoint():
-    
+
     def __init__(self, rest):
         self.rest = rest
         self.rest_path = self.rest.base_path
@@ -481,7 +482,7 @@ class TestS3Endpoint(unittest.TestCase):
         self.assertIn(r.status_code,[200,409])
         r = self.api.put(self.bucket, 'a', 'b')
         self.assertEquals(r.status_code,200)
-        
+
         items = self.api.bucketItems(self.bucket)
         self.assertIn('a', items)
 
@@ -500,7 +501,7 @@ class TestVolumeEndpoints(unittest.TestCase):
     def test_listVolume(self):
         vols = self.volEp.listVolumes()
         self.assertIsNotNone(vols)
-        
+
     def test_createVolume(self):
         vol_name = 'unit_test' + str(random.randint(0, 10000))
         status = self.volEp.createVolume(vol_name, 1, 1, 5000, 'object', 5000, 'mb')
@@ -526,7 +527,7 @@ class TestTenantEndpoints(unittest.TestCase):
         rest = RestEndpoint()
         self.tenantEp = TenantEndpoint(rest)
         self.userEp = UserEndpoint(rest)
-        
+
     def test_assignUserToTenant(self):
 
         id1 = self.userEp.createUser('ten_user1', 'abc')
@@ -534,14 +535,14 @@ class TestTenantEndpoints(unittest.TestCase):
 
         tn1 = self.tenantEp.createTenant('foo')
         self.assertGreater(tn1, 0)
-        
+
         res = self.tenantEp.assignUserToTenant(id1, tn1)
         self.assertTrue(res)
 
     def test_createTenant(self):
         id1 = self.tenantEp.createTenant('abc')
         self.assertGreater(id1, 0)
-        
+
 
 
 class TestUserEndpoints(unittest.TestCase):
@@ -575,6 +576,6 @@ class TestUserEndpoints(unittest.TestCase):
 
         cp = self.userEp.updatePassword(id1, 'def')
         self.assertTrue(cp)
-        
+
 if __name__ == "__main__":
     unittest.main()

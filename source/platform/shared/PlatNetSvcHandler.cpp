@@ -69,6 +69,16 @@ PlatNetSvcHandler::getDomainNodes(fpi::DomainNodes                    &ret,
     local->dc_node_svc_info(ret);
 }
 
+void
+PlatNetSvcHandler::getSvcEvent(fpi::NodeEvent &ret, const fpi::NodeEvent &in)
+{
+}
+
+void
+PlatNetSvcHandler::getSvcEvent(fpi::NodeEvent &ret, fpi::NodeEventPtr &in)
+{
+}
+
 fpi::ServiceStatus PlatNetSvcHandler::getStatus(const int32_t nullarg)
 {
     return fpi::SVC_STATUS_INVALID;
