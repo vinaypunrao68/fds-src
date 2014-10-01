@@ -338,7 +338,8 @@ class AgentsPidMap:
             cmd = self.options.local_fds_root + "/source/test/fds-tool.py -f " + self.options.local_fds_root + "/source/fdstool.cfg -s"
             output = subprocess.check_output(shlex.split(cmd))
             agents_strings ={ "om" : "com\.formationds\.om\.Main",
-                "am" : "com\.formationds\.am\.Main",
+                "xdi" : "com\.formationds\.am\.Main",
+                "am" : "bare_am",
                 "pm" : "plat",
                 "sm" : "StorMgr",
                 "dm" : "DataMgr"}
