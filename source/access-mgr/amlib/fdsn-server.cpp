@@ -11,9 +11,9 @@
 #include <fds_uuid.h>
 #include <concurrency/Mutex.h>
 #include <fds_process.h>
-#include <am-engine/fdsn-server.h>
-#include <am-engine/handlers/handlermappings.h>
-#include <am-engine/handlers/responsehandler.h>
+#include <fdsn-server.h>
+#include <handlermappings.h>
+#include <responsehandler.h>
 #include <StorHvisorNet.h>
 
 namespace fds {

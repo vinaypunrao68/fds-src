@@ -4,10 +4,10 @@
 #include <string>
 #include <set>
 #include <fds_process.h>
-#include <am-engine/am-probe.h>
+#include <am-probe.h>
 #include <fds-probe/s3-probe.h>
-#include <am-engine/handlers/handlermappings.h>
-#include <am-engine/handlers/responsehandler.h>
+#include <handlermappings.h>
+#include <responsehandler.h>
 
 namespace fds {
 

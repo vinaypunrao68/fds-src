@@ -3,8 +3,8 @@
 results=$1
 
 #disks=`ls /dev/sd?` 
-disks="/dev/sde /dev/sdl"
-bsizes="4k 256k 1024k 2048k"
+disks="/dev/sdg"
+bsizes="4k 32k"
 echo $disks
 options="--runtime=30 --ioengine=libaio --iodepth=16 --direct=1 --size=10g --numjobs=1 "
 writes="--name=writes $options --rw=randwrite"
@@ -20,9 +20,9 @@ do
     for d in $disks
     do
       target=`echo $d | awk -F "/" '{print $3}'`
-      echo fio $reads --filename=$d --bs=$bs --output $results/reads.$target.$bs.fio
-      fio $reads --filename=$d --bs=$bs --output $results/reads.$target.fio
       echo fio $writes --filename=$d --bs=$bs --output $results/writes.$target.fio
       fio $writes --filename=$d --bs=$bs --output $results/writes.$target.$bs.fio
+      echo fio $reads --filename=$d --bs=$bs --output $results/reads.$target.$bs.fio
+      fio $reads --filename=$d --bs=$bs --output $results/reads.$target.fio
     done
 done

@@ -2,11 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <string>
-// #include <am-engine/s3connector.h>
-// #include <am-engine/atmos-connector.h>
-#include <am-engine/fdsn-server.h>
-// #include <am-engine/am-probe.h>
-// #include <fds-probe/s3-probe.h>
+#include <fdsn-server.h>
 #include <util/fds_stat.h>
 #include <native_api.h>
 #include <am-platform.h>

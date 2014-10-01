@@ -1,11 +1,11 @@
 topdir            := ../..
 user_target       := lib
 user_rtime_env    := user
-user_build_dir    :=
+user_build_dir    := handlers
 
 # TODO: remove this once we have correct placement of header API.
 #
-user_incl_dir     := $(topdir) ../include
+user_incl_dir     := $(topdir) ../include ../stor-hvisor
 user_cpp_flags    :=
 user_cpp          := $(wildcard *.cpp)
 

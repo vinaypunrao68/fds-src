@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#include <am-engine/handlers/handlermappings.h>
-#include <am-engine/handlers/responsehandler.h>
+#include <handlermappings.h>
+#include <responsehandler.h>
 #include <string>
 #include <util/Log.h>
 

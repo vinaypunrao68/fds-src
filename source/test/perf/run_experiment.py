@@ -54,8 +54,8 @@ def main():
     # Hardcoded options
 
     # FDS paths
-    options.remote_fds_root = "/home/monchier/FDS"
-    options.local_fds_root = "/home/monchier/FDS"
+    options.remote_fds_root = "/home/monchier/regress/fds-src"
+    options.local_fds_root = "/home/monchier/regress/fds-src"
     # FDS nodes
     options.nodes = {
         # "node1" : "10.1.10.16",

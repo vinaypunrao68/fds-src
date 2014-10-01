@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_INCLUDE_AM_ENGINE_HANDLERS_RESPONSEHANDLER_H_
-#define SOURCE_INCLUDE_AM_ENGINE_HANDLERS_RESPONSEHANDLER_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_RESPONSEHANDLER_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_RESPONSEHANDLER_H_
 
 #include <concurrency/taskstatus.h>
 #include <native/types.h>
@@ -26,7 +26,7 @@ struct ResponseHandler : virtual Callback {
     void wait();
     bool waitFor(ulong timeout);
 
-    virtual void process() {};
+    virtual void process() {}
 
     virtual ~ResponseHandler();
   protected:
@@ -37,14 +37,14 @@ struct SimpleResponseHandler : ResponseHandler {
     typedef boost::shared_ptr<SimpleResponseHandler> ptr;
     std::string name;
     SimpleResponseHandler();
-    SimpleResponseHandler(const std::string& name);
+    explicit SimpleResponseHandler(const std::string& name);
 
     virtual void process();
     virtual ~SimpleResponseHandler();
 };
 
 struct StatBlobResponseHandler : ResponseHandler , StatBlobCallback {
-    StatBlobResponseHandler(apis::BlobDescriptor &retVal);
+    explicit StatBlobResponseHandler(apis::BlobDescriptor &retVal);
     typedef boost::shared_ptr<StatBlobResponseHandler> ptr;
 
     apis::BlobDescriptor &retBlobDesc;
@@ -62,7 +62,7 @@ struct AttachVolumeResponseHandler : ResponseHandler {
 };
 
 struct StartBlobTxResponseHandler : ResponseHandler, StartBlobTxCallback {
-    StartBlobTxResponseHandler(apis::TxDescriptor &retVal);
+    explicit StartBlobTxResponseHandler(apis::TxDescriptor &retVal);
     typedef boost::shared_ptr<StartBlobTxResponseHandler> ptr;
 
     apis::TxDescriptor &retTxDesc;
@@ -72,7 +72,7 @@ struct StartBlobTxResponseHandler : ResponseHandler, StartBlobTxCallback {
 };
 
 struct CommitBlobTxResponseHandler : ResponseHandler, CommitBlobTxCallback {
-    CommitBlobTxResponseHandler(apis::TxDescriptor &retVal);
+    explicit CommitBlobTxResponseHandler(apis::TxDescriptor &retVal);
     typedef boost::shared_ptr<CommitBlobTxResponseHandler> ptr;
 
     apis::TxDescriptor &retTxDesc;
@@ -82,7 +82,7 @@ struct CommitBlobTxResponseHandler : ResponseHandler, CommitBlobTxCallback {
 };
 
 struct AbortBlobTxResponseHandler : ResponseHandler, AbortBlobTxCallback {
-    AbortBlobTxResponseHandler(apis::TxDescriptor &retVal);
+    explicit AbortBlobTxResponseHandler(apis::TxDescriptor &retVal);
     typedef boost::shared_ptr<AbortBlobTxResponseHandler> ptr;
 
     apis::TxDescriptor &retTxDesc;
@@ -102,7 +102,7 @@ struct PutObjectResponseHandler : ResponseHandler {
 };
 
 struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
-    GetObjectResponseHandler(char *buf);
+    explicit GetObjectResponseHandler(char *buf);
 
     typedef boost::shared_ptr<GetObjectResponseHandler> ptr;
 
@@ -111,7 +111,7 @@ struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
 };
 
 struct ListBucketResponseHandler : ResponseHandler, GetBucketCallback {
-    ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs);
+    explicit ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs);
     TYPE_SHAREDPTR(ListBucketResponseHandler);
     std::vector<apis::BlobDescriptor> & vecBlobs;
     virtual void process();
@@ -119,7 +119,7 @@ struct ListBucketResponseHandler : ResponseHandler, GetBucketCallback {
 };
 
 struct BucketStatsResponseHandler : ResponseHandler {
-    BucketStatsResponseHandler(apis::VolumeDescriptor& volumeDescriptor);
+    explicit BucketStatsResponseHandler(apis::VolumeDescriptor& volumeDescriptor);
 
     apis::VolumeDescriptor& volumeDescriptor;
     const std::string* timestamp = NULL;
@@ -139,4 +139,4 @@ struct StatVolumeResponseHandler : ResponseHandler, GetVolumeMetaDataCallback {
 };
 
 }  // namespace fds
-#endif  // SOURCE_INCLUDE_AM_ENGINE_HANDLERS_RESPONSEHANDLER_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_RESPONSEHANDLER_H_
