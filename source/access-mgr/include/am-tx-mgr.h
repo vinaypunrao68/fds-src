@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_AM_ENGINE_INCLUDE_AM_TX_MGR_H_
-#define SOURCE_AM_ENGINE_INCLUDE_AM_TX_MGR_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_AM_TX_MGR_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_AM_TX_MGR_H_
 
 #include <map>
 #include <string>
@@ -154,4 +154,4 @@ class AmTxManager : public Module, public boost::noncopyable {
 
 }  // namespace fds
 
-#endif  // SOURCE_AM_ENGINE_INCLUDE_AM_TX_MGR_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_AM_TX_MGR_H_
