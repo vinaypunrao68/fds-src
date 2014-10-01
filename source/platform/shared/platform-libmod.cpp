@@ -7,6 +7,7 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <string>
+#include <net/SvcRequestPool.h>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
 #include <platform/service-ep-lib.h>
@@ -247,6 +248,7 @@ Platform::mod_init(SysParams const *const param)
 void
 Platform::mod_startup()
 {
+    gSvcRequestPool = new SvcRequestPool();
     Module::mod_startup();
 }
 

@@ -60,8 +60,10 @@ enum  FDSPMsgTypeId {
     NodeRollbackTypeId                 = 1007,
     NodeIntegrateTypeId                = 1008,
     NodeDeployTypeId                   = 1009,
-    NodeFuncTypeId                     = 1010,
+    NodeFunctionalTypeId               = 1010,
     NodeDownTypeId                     = 1011,
+    NodeEventTypeId                    = 1012,
+    NodeWorkItemTypeId                 = 1013,
 
     /* Volume messages; common for AM, DM, SM. */
     CtrlNotifyVolAddTypeId             = 2020,
@@ -321,6 +323,16 @@ struct NodeDown {
     2: required SvcUuid                  nd_uuid,
 }
 
+/**
+ * Events emit from a node.
+ */
+struct NodeEvent {
+    1: required DomainID                 nd_dom_id,
+    2: required SvcUuid                  nd_uuid,
+    3: required string                   nd_evt,
+    4: string                            nd_evt_text,
+}
+
 /*
  * --------------------------------------------------------------------------------
  * Common services
@@ -339,6 +351,7 @@ service PlatNetSvc extends BaseAsyncSvc {
 
     list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info, 2: bool bcast);
     DomainNodes getDomainNodes(1: DomainNodes dom);
+    NodeEvent   getSvcEvent(1: NodeEvent input);
 
     ServiceStatus getStatus(1: i32 nullarg);
     map<string, i64> getCounters(1: string id);

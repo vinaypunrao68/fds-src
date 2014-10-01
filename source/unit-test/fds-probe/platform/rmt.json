@@ -1,0 +1,9 @@
+{
+    "Run-Input": {
+        "node_list_step": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "op_code": "lcal"
+        }
+    }
+}

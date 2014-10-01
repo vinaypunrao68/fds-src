@@ -6,7 +6,7 @@ user_rtime_env    := user
 user_incl_dir     += \
     $(topdir)/fds-probe/include \
 	$(topdir)/platform/include \
-	$(topdir)/am-app/include \
+	$(topdir)/access-mgr/include \
     $(topdir)/am-engine \
     $(topdir)
 

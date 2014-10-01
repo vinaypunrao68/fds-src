@@ -108,7 +108,6 @@ OmPlatform::mod_startup()
 
     Platform::mod_startup();
     om_plugin = new OMEpPlugin(this);
-    gSvcRequestPool = new SvcRequestPool();
 
     om_ctrl_rcv = bo::shared_ptr<OmSvcHandler>(new OmSvcHandler());
     base_port   = plf_get_om_svc_port();
