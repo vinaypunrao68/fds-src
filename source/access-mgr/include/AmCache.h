@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_AM_ENGINE_INCLUDE_AMCACHE_H_
-#define SOURCE_AM_ENGINE_INCLUDE_AMCACHE_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_AMCACHE_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_AMCACHE_H_
 
 #include <string>
 #include <fds_module.h>
@@ -119,4 +119,4 @@ class AmCache : public Module, public boost::noncopyable {
 
 }  // namespace fds
 
-#endif  // SOURCE_AM_ENGINE_INCLUDE_AMCACHE_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_AMCACHE_H_

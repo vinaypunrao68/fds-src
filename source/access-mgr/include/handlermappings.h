@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_INCLUDE_AM_ENGINE_HANDLERS_HANDLERMAPPINGS_H_
-#define SOURCE_INCLUDE_AM_ENGINE_HANDLERS_HANDLERMAPPINGS_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_HANDLERMAPPINGS_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_HANDLERMAPPINGS_H_
 
 #include <native_api.h>
 #include <string>
@@ -48,4 +48,4 @@ int fn_PutObjectHandler(void *reqContext,
                         FDSN_Status status,
                         ErrorDetails* errDetails);
 }  // namespace fds
-#endif  // SOURCE_INCLUDE_AM_ENGINE_HANDLERS_HANDLERMAPPINGS_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_HANDLERMAPPINGS_H_

@@ -10,9 +10,7 @@ user_cpp         :=               \
     s3connector.cpp \
     atmos-connector.cpp \
     http_utils.cpp \
-    am-urls.cpp \
-    fdsn-server.cpp \
-    am-probe.cpp
+    am-urls.cpp
 
 user_no_style    := am-urls.cpp
 user_ar_libs     := fds-am-engine
