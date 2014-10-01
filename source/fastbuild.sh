@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dir_list="fdsp apis include osdep net-service umod-lib util lib fds-probe am-engine persistent_layer platform stor-hvisor orch_mgr data-mgr stor-mgr fds_client access-mgr tools java"
+dir_list="fdsp apis include osdep net-service umod-lib util lib fds-probe am-engine persistent_layer platform orch_mgr data-mgr stor-mgr access-mgr tools java"
 
 not_built="unit-test checker"
 
