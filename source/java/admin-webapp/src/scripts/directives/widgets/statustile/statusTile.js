@@ -4,7 +4,7 @@ angular.module( 'display-widgets' ).directive( 'statusTile', function(){
         restrict: 'E',
         transclude: true,
         templateUrl: 'scripts/directives/widgets/statustile/statusTile.html',
-        scope: { boldNumber: '=', description: '@', notifications: '=', title: '@', suffix: '@' },
+        scope: { boldNumber: '=', description: '@', notifications: '=', tileTitle: '@', suffix: '@' },
         controller: function( $scope ){
             
             $scope.wholeNumber = 0;
