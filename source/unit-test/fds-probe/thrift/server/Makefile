@@ -6,7 +6,7 @@ user_incl_dir     := \
     $(probe_topdir)/../../include/fdsp \
     $(probe_topdir)/../../platform/include \
     $(probe_topdir)/../../net-service/include \
-    $(probe_topdir)/../../am-app/include
+    $(probe_topdir)/../../access-mgr/include
 
 user_cpp_flags    :=
 user_fds_so_libs  :=

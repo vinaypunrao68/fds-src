@@ -1,5 +1,5 @@
 topdir           := ..
 speedup          := -j 5
-user_build_dir   := include handlers amlib misc
+user_build_dir   := include misc
 
 include $(topdir)/Makefile.incl

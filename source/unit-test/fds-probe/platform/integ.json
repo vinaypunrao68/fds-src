@@ -1,0 +1,12 @@
+{
+    "Run-Input": {
+        "node_integrate": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "start_Am": true,
+            "start_Dm": true,
+            "start_Sm": true,
+            "start_Om": false
+        }
+    }
+}

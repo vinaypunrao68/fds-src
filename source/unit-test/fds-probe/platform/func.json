@@ -1,0 +1,10 @@
+{
+    "Run-Input": {
+        "node_functional": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "op_code": "foo",
+            "work_item": "foo"
+        }
+    }
+}

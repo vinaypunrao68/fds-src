@@ -17,6 +17,7 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
  public:
     PlatNetSvcHandler();
     virtual ~PlatNetSvcHandler();
+
     virtual void allUuidBinding(const fpi::UuidBindMsg& mine);
     virtual void allUuidBinding(boost::shared_ptr<fpi::UuidBindMsg>& mine);  // NOLINT
 
@@ -30,27 +31,36 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
                         boost::shared_ptr<bool>& bcast);
 
     virtual void getDomainNodes(fpi::DomainNodes &ret, const fpi::DomainNodes &d);
-    virtual void getDomainNodes(fpi::DomainNodes &ret,
-                        boost::shared_ptr<fpi::DomainNodes> &d);
+    virtual void getDomainNodes(fpi::DomainNodes &ret, fpi::DomainNodesPtr &d);
+
+    virtual void getSvcEvent(fpi::NodeEvent &ret, const fpi::NodeEvent &in);
+    virtual void getSvcEvent(fpi::NodeEvent &ret, fpi::NodeEventPtr &in);
 
     virtual fpi::ServiceStatus getStatus(const int32_t nullarg);
-    virtual void getCounters(std::map<std::string, int64_t> & _return,
-                             const std::string& id);
-    virtual void resetCounters(const std::string& id);
-    virtual void setConfigVal(const std::string& id, const int64_t val);
-    void setFlag(const std::string& id, const int64_t value);
-    int64_t getFlag(const std::string& id);
-    void getFlags(std::map<std::string, int64_t> & _return, const int32_t nullarg);  // NOLINT
-
     virtual fpi::ServiceStatus getStatus(boost::shared_ptr<int32_t>& nullarg);  // NOLINT
+
+    virtual void getCounters(std::map<std::string, int64_t> &, const std::string &);
     virtual void getCounters(std::map<std::string, int64_t> & _return,
                              boost::shared_ptr<std::string>& id);
+
+    virtual void resetCounters(const std::string& id);
     virtual void resetCounters(boost::shared_ptr<std::string>& id);
+
+    virtual void setConfigVal(const std::string& id, const int64_t val);
     virtual void setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
                               boost::shared_ptr<int64_t>& val);
-    void setFlag(boost::shared_ptr<std::string>& id, boost::shared_ptr<int64_t>& value);  // NOLINT
+
+    void setFlag(const std::string& id, const int64_t value);
+    void setFlag(boost::shared_ptr<std::string>& id,
+                 boost::shared_ptr<int64_t>& value);  // NOLINT
+
+    int64_t getFlag(const std::string& id);
+    void getFlags(std::map<std::string, int64_t> &, const int32_t nullarg);  // NOLINT
+
     int64_t getFlag(boost::shared_ptr<std::string>& id);  // NOLINT
-    void getFlags(std::map<std::string, int64_t> & _return, boost::shared_ptr<int32_t>& nullarg);  // NOLINT
+    void getFlags(std::map<std::string, int64_t> &,
+                  boost::shared_ptr<int32_t>&);  // NOLINT
 };
+
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_PLATNETSVCHANDLER_H_

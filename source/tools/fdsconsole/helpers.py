@@ -4,6 +4,8 @@ KEY_SYSTEM = '__system__'
 KEY_ACCESSLEVEL = '__accesslevel__'
 KEY_HOST = 'host'
 KEY_PORT = 'port'
+KEY_USER = 'username'
+KEY_PASS = 'password'
 KEY_GRIDOUTPUT = 'gridoutput'
 PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 
@@ -53,14 +55,16 @@ class ConfigData:
             KEY_ACCESSLEVEL: AccessLevel.USER,
             KEY_HOST : '127.0.0.1',
             KEY_PORT : 7020,
+            KEY_USER : 'admin',
+            KEY_PASS : 'admin',
             KEY_GRIDOUTPUT : False
         }
-        
+
         for key in defaults.keys():
             if None == self.getSystem(key):
                 self.setSystem(key, defaults[key])
 
-        self.rest = restendpoint.RestEndpoint(self.getHost(), 7777)
+        self.rest = restendpoint.RestEndpoint(self.getHost(), 7777, user=self.getUser(), password=self.getPass())
         self.s3rest   = restendpoint.RestEndpoint(self.getHost(), port=8000, auth=False)
         self.platform = platformservice.PlatSvc(1690, self.getHost(), self.getPort())
 
@@ -82,7 +86,13 @@ class ConfigData:
             return None
 
         return self.__data[namespace][key]
-    
+
+    def getUser(self):
+        return str(self.get(KEY_USER, KEY_SYSTEM))
+
+    def getPass(self):
+        return str(self.get(KEY_PASS, KEY_SYSTEM))
+
     def getSystem(self, key):
         return self.get(key, KEY_SYSTEM)
 

@@ -177,6 +177,7 @@ thpool_worker::wk_loop(void)
     wk_owner->thp_mutex.lock();
     if (wk_owner->thp_spawning > 0) {
         wk_owner->thp_spawning--;
+        wk_owner->thp_act_threads++;
         std::cout << "Spawning thr " << wk_pool_idx << "\n";
     }
     wk_owner->thp_mutex.unlock();
