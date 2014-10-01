@@ -63,6 +63,7 @@ enum  FDSPMsgTypeId {
     NodeFunctionalTypeId               = 1010,
     NodeDownTypeId                     = 1011,
     NodeEventTypeId                    = 1012,
+    NodeWorkItemTypeId                 = 1013,
 
     /* Volume messages; common for AM, DM, SM. */
     CtrlNotifyVolAddTypeId             = 2020,
