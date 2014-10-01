@@ -19,7 +19,7 @@ user_build_dir :=                       \
     util                                \
     lib                                 \
     fds-probe                           \
-    am-engine                           \
+    nginx-driver                        \
     persistent_layer                    \
     platform                            \
     orch_mgr                            \
