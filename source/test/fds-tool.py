@@ -94,9 +94,9 @@ if __name__ == '__main__':
     if options.clus_clean:
         for n in nodes:
             n.nd_cleanup_node()
-            n.nd_rmt_agent.ssh_exec('(cd {} && ./redis.sh clean)'.format(
+            n.nd_agent.ssh_exec('(cd {} && ./redis.sh clean)'.format(
                 os.path.join(options.fds_root, 'sbin')), output=True)
-            n.nd_rmt_agent.ssh_exec('rm {}'.format(
+            n.nd_agent.ssh_exec('rm {}'.format(
                 os.path.join(options.fds_root, 'uuid_port')))
 
     # Status
@@ -106,11 +106,11 @@ if __name__ == '__main__':
         print "====================================================================================="
      
         for n in nodes:
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.om.Main', output = True)
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.am.Main', output = True)
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep bare_am', output = True)
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep platformd', output = True)
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep Mgr', output = True)
+            n.nd_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.om.Main', output = True)
+            n.nd_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.am.Main', output = True)
+            n.nd_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep bare_am', output = True)
+            n.nd_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep platformd', output = True)
+            n.nd_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep Mgr', output = True)
             print '\n'
         sys.exit(0)
 
@@ -131,8 +131,8 @@ if __name__ == '__main__':
         sys.exit(0)
 
     for n in nodes:
-        n.nd_rmt_agent.ssh_exec('python -m disk_type -m', wait_compl=True)
-        n.nd_rmt_agent.ssh_exec('{} start'.format(
+        n.nd_agent.ssh_exec('python -m disk_type -m', wait_compl=True)
+        n.nd_agent.ssh_exec('{} start'.format(
             os.path.join(options.fds_root, 'sbin/redis.sh')), wait_compl=True, output=True)
 
     om = cfg.rt_om_node

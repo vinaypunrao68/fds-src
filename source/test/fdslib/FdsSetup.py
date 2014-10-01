@@ -35,7 +35,7 @@ def mkdir_p(path):
 # FDS environment data derived from the closet FDS source tree or FDS Root run time.
 #
 class FdsEnv(object):
-    def __init__(self, _root, _verbose=None, _install=False, _fds_source_dir=''):
+    def __init__(self, _root, _verbose=None, _install=False, _fds_source_dir='', _test_harness=False):
         log = logging.getLogger(self.__class__.__name__ + '.' + "__init__")
 
         self.env_cdir      = os.getcwd()
@@ -47,6 +47,7 @@ class FdsEnv(object):
         self.env_user      = 'root'
         self.env_password  = 'passwd'
         self.env_sudo_password = None
+        self.env_test_harness = _test_harness
         self.env_fdsDict   = {
             'debug-base': 'Build/linux-x86_64.debug/',
             'package'   : 'fds.tar',
@@ -149,8 +150,8 @@ class FdsEnv(object):
 # execute commands on the local node.
 #
 class FdsLocalEnv(FdsEnv):
-    def __init__(self, root, verbose=None, install=True):
-        super(FdsLocalEnv, self).__init__(root, verbose, install)
+    def __init__(self, root, verbose=None, install=True, test_harness=False):
+        super(FdsLocalEnv, self).__init__(root, _verbose=verbose, _install=install, _test_harness=test_harness)
 
     ###
     # Open connection to the local node.
@@ -298,10 +299,12 @@ class FdsLocalEnv(FdsEnv):
 ####
 # Bring the same environment as FdsEnv but operate on a remote node.
 # Execute command on a remote node.
+# Always treat a remote as a root installation, i.e. outside of a
+# development environment (hence, _install=True).
 #
 class FdsRmtEnv(FdsEnv):
-    def __init__(self, root, verbose=None, install=True):
-        super(FdsRmtEnv, self).__init__(root, verbose, install)
+    def __init__(self, root, verbose=None, test_harness=False):
+        super(FdsRmtEnv, self).__init__(root, _verbose=verbose, _install=True, _test_harness=test_harness)
         self.env_ssh_clnt  = None
         self.env_scp_clnt  = None
 
@@ -364,25 +367,38 @@ class FdsRmtEnv(FdsEnv):
 
         if self.env_verbose:
             if self.env_verbose['verbose']:
-                log.info("Running remote command on %s: %s" % (self.env_host, cmd_exec))
+                if self.env_test_harness:
+                    log.info("Running remote command on %s: %s" % (self.env_host, cmd_exec))
+                else:
+                    print("Running remote command on %s: %s" % (self.env_host, cmd_exec))
 
             if self.env_verbose['dryrun'] == True:
-                log.info("...not executed in dryrun mode")
+                if self.env_test_harness:
+                    log.info("...not executed in dryrun mode")
+                else:
+                    print("...not executed in dryrun mode")
                 return 0
 
         stdin, stdout, stderr = self.env_ssh_clnt.exec_command(cmd_exec)
         channel = stdout.channel
         status  = 0 if wait_compl == False else channel.recv_exit_status()
 
-        for line in stderr.read().splitlines():
-            log.warn("[%s Error] %s" % (self.env_host, line))
-            if status == 0:
-                status = -1
+        if self.env_test_harness:
+            for line in stderr.read().splitlines():
+                log.warn("[%s Error] %s" % (self.env_host, line))
+                if status == 0:
+                    status = -1
 
-        if output == True:
-            if status != 0:
+            if output == True:
+                if status != 0:
+                    for line in stdout.read().splitlines():
+                        log.info("[%s] %s" % (self.env_host, line))
+        else:
+            if output == True:
                 for line in stdout.read().splitlines():
-                    log.info("[%s] %s" % (self.env_host, line))
+                    print("[%s] %s" % (self.env_host, line))
+                for line in stderr.read().splitlines():
+                    print("[%s Error] %s" % (self.env_host, line))
 
         return_line = None
         if return_stdin and wait_compl:

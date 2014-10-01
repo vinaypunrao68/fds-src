@@ -71,7 +71,7 @@ class FdsCluster:
         # It's already done in the constructor
         if node_cfg.nd_conf_dict['node-name'] != self.__om_node_id:
             node_cfg.nd_connect_agent(self.env)
-            node_cfg.nd_rmt_agent.setup_env('')
+            node_cfg.nd_agent.setup_env('')
             # TODO(Rao): check with Vy if this needs to change later after shared memory
             # changes
             node_cfg.nd_start_platform(om_ip=self.get_node(self.__om_node_id).get_ip())
@@ -174,7 +174,7 @@ class FdsCluster:
         cmd = 'checker --fds-root={}'.format(fds_root)
         if dir:
             cmd = 'checker --fds-root={} --fds.checker.path={}'.format(fds_root, dir)
-        status = self.__get_node_config(self.__om_node_id).nd_rmt_agent.ssh_exec_fds(
+        status = self.__get_node_config(self.__om_node_id).nd_agent.ssh_exec_fds(
             cmd, wait_compl=True)
         if status is not 0:
             raise CheckerFailedException()
@@ -220,7 +220,7 @@ class FdsCluster:
         for n in self.config.cfg_nodes:
             if n.nd_run_om():
                 n.nd_connect_agent(self.env)
-                n.nd_rmt_agent.setup_env('')
+                n.nd_agent.setup_env('')
                 # TODO(Rao): Starting platform before OM.  Check with Vy is this is ok
                 n.nd_start_platform(om_ip=n.nd_conf_dict['ip'])
                 n.nd_start_om()

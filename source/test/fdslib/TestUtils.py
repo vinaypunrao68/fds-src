@@ -109,7 +109,7 @@ def get_options(pyUnit):
                       default = False, help = 'enable verbosity')
     parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
                       default = False, help = 'dry run, print commands only')
-    parser.add_option('-i', '--install', action = 'store_true', dest = 'install',
+    parser.add_option('-i', '--install', action = 'store_true', dest = 'clus_inst',
                       default = False, help = 'perform an install from an FDS package as opposed '
                                               'to a development environment')
     parser.add_option('-d', '--sudo-password', action = 'store', dest = 'sudo_password',
@@ -301,9 +301,9 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     if params["dryrun"] == False:
         params["dryrun"] = pyUnitDryrun
         setattr(options, "dryrun", params["dryrun"])
-    if params["install"] == False:
-        params["install"] = pyUnitInstall
-        setattr(options, "install", params["install"])
+    if params["clus_inst"] == False:
+        params["clus_inst"] = pyUnitInstall
+        setattr(options, "clus_inst", params["clus_inst"])
     if params["sudo_password"] is None:
         params["sudo_password"] = pyUnitSudoPw
         setattr(options, "sudo_password", params["sudo_password"])
@@ -337,7 +337,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     # The first parameter to FdsConfigRun is an FdsEnv which will be determined
     # once we have the FDS root directory right.
     setattr(options, "fds_root", '.')
-    params["fdscfg"] = fdscfg.FdsConfigRun(None, options)
+    params["fdscfg"] = fdscfg.FdsConfigRun(None, options, test_harness=True)
 
     # FDS: Now record whether we are being run by PyUnit.
     params["pyUnit"] = pyUnit

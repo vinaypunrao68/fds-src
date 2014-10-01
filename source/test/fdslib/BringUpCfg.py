@@ -58,17 +58,24 @@ class FdsNodeConfig(FdsConfig):
     # Establish ssh connection with the remote node.  After this call, the obj
     # can use nd_agent to send ssh commands to the remote node.
     #
-    # If the IP indicates the node is localhost, no SSH connection is made.
+    # If the IP indicates the node is localhost and we're running from the
+    # Test Harness, no SSH connection is made.
     #
     def nd_connect_agent(self, env, quiet=False):
         log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_connect_agent')
 
         if 'fds_root' not in self.nd_conf_dict:
-            log.error("Missing fds-root keyword in the node section %s." % self.nd_conf_dict['node-name'])
+            if env.env_test_harness:
+                log.error("Missing fds-root keyword in the node section %s." % self.nd_conf_dict['node-name'])
+            else:
+                print("Missing fds-root keyword in the node section %s." % self.nd_conf_dict['node-name'])
             sys.exit(1)
 
         if 'ip' not in self.nd_conf_dict:
-            log.error("Missing ip keyword in the node section %s." % self.nd_conf_dict['node-name'])
+            if env.env_test_harness:
+                log.error("Missing ip keyword in the node section %s." % self.nd_conf_dict['node-name'])
+            else:
+                print("Missing ip keyword in the node section %s." % self.nd_conf_dict['node-name'])
             sys.exit(1)
 
         self.nd_local_env = env
@@ -76,18 +83,32 @@ class FdsNodeConfig(FdsConfig):
 
         root = self.nd_conf_dict['fds_root']
 
-        if self.nd_local:
-            self.nd_agent = inst.FdsLocalEnv(root, self.nd_verbose, env.env_install)
+        # At this time, only Test Harness usage will treat localhost
+        # connectivity locally. This is to satisfy Jenkins/Docker
+        # usages. Otherwise, all hosts, localhost or otherwise, are
+        # treated remotely with SSH connectivity.
+        if self.nd_local and env.env_test_harness:
+            self.nd_agent = inst.FdsLocalEnv(root, verbose=self.nd_verbose, install=env.env_install,
+                                             test_harness=env.env_test_harness)
             self.nd_agent.env_user     = env.env_user
             self.nd_agent.env_password = env.env_password
             self.nd_agent.env_sudo_password = env.env_sudo_password
+            if not quiet:
+                if env.env_test_harness:
+                    log.info("Making local connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
+                else:
+                    print("Making local connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
             self.nd_agent.local_connect()
         else:
-            self.nd_agent = inst.FdsRmtEnv(root, self.nd_verbose, env.env_install)
+            self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_verbose, test_harness=env.env_test_harness)
             self.nd_agent.env_user     = env.env_user
             self.nd_agent.env_password = env.env_password
             if not quiet:
-                log.info("Making ssh connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
+                if env.env_test_harness:
+                    log.info("Making ssh connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
+                else:
+                    print("Making ssh connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
+
             self.nd_agent.ssh_connect(self.nd_host)
 
     ###
@@ -141,14 +162,11 @@ class FdsNodeConfig(FdsConfig):
 
             print "\nStart OM in", self.nd_host_name()
 
-            # When running from the test harness, we want to wait for results
-            # but not assume we are running from an FDS package install.
             if test_harness:
                 cur_dir = os.getcwd()
                 os.chdir(bin_dir)
-                # TODO(GREG) Make the OM's log directory flexable.
-                status = self.nd_agent.exec_wait('sh -c \"(nohup ./orchMgr --fds-root=%s > ./om.out 2>&1 &) \"' %
-                                                         (fds_dir))
+                status = self.nd_agent.exec_wait('sh -c \"(nohup ./orchMgr --fds-root=%s > %s/om.out 2>&1 &) \"' %
+                                                 (fds_dir, log_dir if self.nd_agent.env_install else "."))
                 os.chdir(cur_dir)
             else:
                 status = self.nd_agent.exec_fds(
@@ -244,9 +262,10 @@ class FdsNodeConfig(FdsConfig):
         tools_dir = sbin_dir + '/tools'
         dev_dir = fds_dir + '/dev'
         var_dir = fds_dir + '/var'
-        log.info("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
 
         if test_harness:
+            log.info("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
+
             fds_dir = self.nd_conf_dict['fds_root']
             bin_dir = _bin_dir
             sbin_dir = _bin_dir + '../sbin'
@@ -298,6 +317,7 @@ class FdsNodeConfig(FdsConfig):
 
             os.chdir(cur_dir)
         else:
+            print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
             status = self.nd_agent.exec_wait('(cd %s && rm core *.core); ' % bin_dir +
                 '(cd %s && rm -r logs stats); ' % var_dir +
                 '(cd /corefiles && rm *.core); '  +
@@ -350,7 +370,7 @@ class FdsAMConfig(FdsConfig):
     def am_start_service(self):
         cmd = ' --fds-root=%s' % self.nd_am_node.nd_conf_dict['fds_root']
 
-        self.nd_am_node.nd_rmt_agent.ssh_exec_fds('AMAgent' + cmd)
+        self.nd_am_node.nd_agent.ssh_exec_fds('AMAgent' + cmd)
 
 ###
 # Handle Volume config section
@@ -479,8 +499,8 @@ class FdsCliConfig(FdsConfig):
         om = self.nd_om_node
         self.debug_print("Run %s on OM %s" % (command, om.nd_host_name()))
 
-        om.nd_rmt_agent.ssh_exec_fds(
-            ('fdscli --fds-root %s ') % om.nd_rmt_agent.get_fds_root() + command,
+        om.nd_agent.ssh_exec_fds(
+            ('fdscli --fds-root %s ') % om.nd_agent.get_fds_root() + command,
             wait_compl=True)
 
 ###
@@ -668,7 +688,7 @@ class FdsConfigFile(object):
 # Parse the config file and setup runtime env for it.
 #
 class FdsConfigRun(object):
-    def __init__(self, env, opt):
+    def __init__(self, env, opt, test_harness=False):
         self.rt_om_node = None
         self.rt_my_node = None
         if opt.config_file is None:
@@ -677,7 +697,8 @@ class FdsConfigRun(object):
 
         self.rt_env = env
         if self.rt_env is None:
-            self.rt_env = inst.FdsEnv(opt.fds_root, opt.clus_inst, opt.fds_source_dir, opt.verbose)
+            self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.clus_inst, _fds_source_dir=opt.fds_source_dir,
+                                      _verbose=opt.verbose, _test_harness=test_harness)
 
         self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
         self.rt_obj.config_parse()
