@@ -16,7 +16,6 @@ user_cpp_flags    :=
 
 StorHvisor_cpp    :=                   \
     StorHvisorNet.cpp                  \
-    StorHvisorTest.cpp                  \
     StorHvisorS3.cpp                  \
     StorHvisorSvc.cpp                  \
     StorHvisorTx.cpp                   \

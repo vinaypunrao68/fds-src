@@ -13,7 +13,6 @@
 #include <unordered_map>
 #include <concurrency/Mutex.h>
 #include <fds_types.h>
-#include "./StorHvisorCPP.h"
 #include <fds_timer.h>
 
 #define  FDS_MIN_ACK                    1
@@ -112,7 +111,6 @@ class  StorHvJournalEntry {
                                  fds_uint32_t port);
     int fds_set_smack_status(int ipAddr,
                              fds_uint32_t port);
-    void fbd_complete_req(fbd_request_t *req, int status);
     void fbd_process_req_timeout();
 
     FdsTimerTaskPtr ioTimerTask;

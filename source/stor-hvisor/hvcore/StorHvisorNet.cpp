@@ -7,8 +7,6 @@
 #include <fds_module.h>
 #include <fds_timer.h>
 #include "StorHvisorNet.h"
-#include "StorHvisorCPP.h"
-#include "hvisor_lib.h"
 #include <hash/MurmurHash3.h>
 #include <fds_config.hpp>
 #include <fds_process.h>
@@ -23,29 +21,8 @@ StorHvCtrl *storHvisor;
 using namespace std;
 using namespace FDS_ProtocolInterface;
 
-
-void CreateStorHvisorS3(int argc, char *argv[])
-{
-    CreateSHMode(argc, argv, NULL, NULL, false, 0, 0);
-}
-
-void CreateStorHvisorBlk(int argc,
-                         char *argv[],
-                         hv_create_blkdev cr_blkdev,
-                         hv_delete_blkdev del_blkdev,
-                         fds_bool_t test_mode,
-                         fds_uint32_t sm_port,
-                         fds_uint32_t dm_port)
-{
-    fds::init_process_globals("am.log");
-    CreateSHMode(argc, argv, cr_blkdev, del_blkdev, false, sm_port, dm_port);
-}
-
-
 void CreateSHMode(int argc,
                   char *argv[],
-                  hv_create_blkdev cr_blkdev,
-                  hv_delete_blkdev del_blkdev,
                   fds_bool_t test_mode,
                   fds_uint32_t sm_port,
                   fds_uint32_t dm_port)
@@ -64,9 +41,6 @@ void CreateSHMode(int argc,
         storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
                                     StorHvCtrl::NORMAL);
     }
-
-    storHvisor->cr_blkdev = cr_blkdev;
-    storHvisor->del_blkdev = del_blkdev;
 
     /*
      * Start listening for OM control messages
@@ -378,18 +352,3 @@ void StorHvCtrl::initVolInfo(FDSP_VolumeInfoTypePtr vol_info,
     vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
     vol_info->mediaPolicy = FDSP_MEDIA_POLICY_HDD;
 }
-
-BEGIN_C_DECLS
-void cppOut( char *format, ... ) {
-    va_list argptr;
-
-    va_start( argptr, format );
-    if( *format != '\0' ) {
-   	if( *format == 's' ) {
-            char* s = va_arg( argptr, char * );
-            FDS_PLOG(storHvisor->GetLog()) << s;
-    	}
-    }
-    va_end( argptr);
-}
-END_C_DECLS

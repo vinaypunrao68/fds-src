@@ -12,9 +12,11 @@
 #include <am-platform.h>
 #include <net/net-service.h>
 
-extern "C" {
-extern void CreateStorHvisorS3(int argc, char **argv);
-}
+extern void CreateSHMode(int argc,
+                         char *argv[],
+                         fds_bool_t test_mode,
+                         fds_uint32_t sm_port,
+                         fds_uint32_t dm_port);
 
 namespace fds {
 
@@ -42,7 +44,7 @@ class AMMain : public PlatformProcess
         }
 
         argv = mod_vectors_->mod_argv(&argc);
-        CreateStorHvisorS3(argc, argv);
+        CreateSHMode(argc, argv, false, 0 , 0);
     }
     int run() override {
         gl_FdsnServer.deinit_server();

@@ -26,7 +26,6 @@ user_build_dir :=                       \
     orch_mgr                            \
     data-mgr                            \
     stor-mgr                            \
-    fds_client                          \
     access-mgr                          \
     tools                               \
     testlib                             \

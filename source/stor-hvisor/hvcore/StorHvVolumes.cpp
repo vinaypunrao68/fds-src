@@ -7,7 +7,6 @@
 #include "StorHvisorNet.h"
 #include "StorHvJournal.h"
 #include "StorHvVolumes.h"
-#include "StorHvisorCPP.h"
 #include "StorHvQosCtrl.h"
 
 #include "PerfTrace.h"
@@ -539,87 +538,6 @@ void StorHvVolumeTable::dump()
     }
     map_rwlock.read_unlock();
 }
-
-BEGIN_C_DECLS
-/**
- * This function is the "glue" between UBD and AM.
- * FBD block requests are passed in and then translated
- * into internal AM requests.
- */
-int pushFbdReq(fbd_request_t *blkReq) {
-    // Pass to AM
-    // storHvisor->processFbdReq(blkReq);
-    if (blkReq->io_type == FDS_IO_READ)
-        blkReq->io_type = FDS_GET_BLOB;
-    else if ( blkReq->io_type == FDS_IO_WRITE)
-        blkReq->io_type = FDS_PUT_BLOB;
-    /*
-     * Map this blk request into a blob request
-     */
-    FdsBlobReq *blobReq = new FdsBlobReq((fds::fds_io_op_t)blkReq->io_type,  // IO type
-                                         blkReq->volUUID,  // Vol ID
-                                         std::to_string((fds_uint64_t)blkReq->sec *
-                                                        HVISOR_SECTOR_SIZE),  // Temp blob name is offset
-                                         // "blkDev:vol" + std::to_string(blkReq->volUUID),  // Temp blob name is volId
-                                         blkReq->sec * HVISOR_SECTOR_SIZE,  // Blob offset
-                                         blkReq->len,  // Request buffer length
-                                         blkReq->buf,  // Data buffer
-                                         blkReq->cb_request, // Callback function
-                                         blkReq->vbd,  // Callback arg1
-                                         blkReq->vReq, // Callback arg2
-                                         blkReq);  // Callback arg 3 (request struct itself)
-    Error err = storHvisor->pushBlobReq(blobReq);
-    fds_verify(err == ERR_OK);
-    return (0);
-}
-END_C_DECLS
-
-BEGIN_C_DECLS
-int  pushVolQueue(void *req1)
-{
-    fds_volid_t vol_id;
-    StorHvVolume *shvol;
-    fbd_request_t *req = (fbd_request_t *)req1;
-
-#ifdef FDS_TEST_SH_NOOP
-    LOGNORMAL << "pushVolQueue: FDS_TEST_SH_NOOP defined, returning before pushing IO to SH queue";
-    if ((fds::fds_io_op_t)req->io_type == FDS_IO_READ) {
-        memset(req->buf, 0, req->len);
-    }
-    return 8;
-#endif
-
-    FDS_IOType *io = new FDS_IOType();
-
-    vol_id = req->volUUID;
-    shvol = storHvisor->vol_table->getLockedVolume(vol_id);
-    if (( shvol == NULL) || (shvol->volQueue == NULL)) {
-        LOGNORMAL <<  " Volume and  Queueus are NOT setup :" << vol_id;
-        return -1;
-    }
-
-    // push request to the  per volume queue
-
-    io->fbd_req = req;
-    io->io_type = (fds::fds_io_op_t)req->io_type;
-    io->io_vol_id = req->volUUID;
-    io->io_module = FDS_IOType::STOR_HV_IO;
-    io->io_req_id = atomic_fetch_add(&next_io_req_id, (unsigned int)1);
-    io->io_magic = FDS_SH_IO_MAGIC_IN_USE;
-
-    LOGDEBUG << " Queueing IO " << io->io_req_id << " for  vol_id:  " << vol_id;
-
-    storHvisor->qos_ctrl->enqueueIO(vol_id, io);
-    shvol->readUnlock();
-
-    LOGDEBUG << " Queueing the  IO done.  vol_id:  " << vol_id;
-
-    return 0;
-}
-
-
-END_C_DECLS
-
 
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        const std::string& _blob_name, //same as objKey

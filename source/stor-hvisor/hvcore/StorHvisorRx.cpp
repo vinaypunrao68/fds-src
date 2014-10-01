@@ -1,6 +1,5 @@
 #include "./StorHvisorNet.h"
 #include "./list.h"
-#include "./StorHvisorCPP.h"
 #include <arpa/inet.h>
 #include <string>
 #include <NetSession.h>

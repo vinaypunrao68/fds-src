@@ -7,8 +7,6 @@
 #include <fds_module.h>
 #include <fds_timer.h>
 #include "StorHvisorNet.h"
-#include "StorHvisorCPP.h"
-#include "hvisor_lib.h"
 #include <fds_config.hpp>
 #include <fds_process.h>
 #include <boost/date_time/posix_time/posix_time.hpp>

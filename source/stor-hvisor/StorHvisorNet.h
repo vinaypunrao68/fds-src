@@ -17,10 +17,8 @@
 #include <fds_types.h>
 
 /* TODO: Use API header in include directory. */
-#include "ubd.h"
 #include <lib/OMgrClient.h>
 #include "StorHvVolumes.h"
-#include "StorHvisorCPP.h" 
 #include "qos_ctrl.h" 
 #include "fds_qos.h" 
 #include "StorHvQosCtrl.h" 
@@ -221,8 +219,6 @@ public:
                fds_uint32_t sm_port_num,
                fds_uint32_t dm_port_num);
     ~StorHvCtrl();
-    hv_create_blkdev cr_blkdev;
-    hv_delete_blkdev del_blkdev;
     void initHandlers();
     std::map<fds_io_op_t, fds::Handler*> handlers;
     //imcremental checksum  for header and payload 

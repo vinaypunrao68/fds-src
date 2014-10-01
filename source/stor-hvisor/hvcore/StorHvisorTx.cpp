@@ -1,7 +1,5 @@
 #include "list.h"
 #include "StorHvisorNet.h"
-#include "StorHvisorCPP.h"
-#include "hvisor_lib.h"
 #include "fds_qos.h"
 #include "qos_ctrl.h"
 #include <hash/MurmurHash3.h>
