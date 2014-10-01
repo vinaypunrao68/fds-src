@@ -19,7 +19,6 @@
 namespace diskio {
 
 class DataIO;
-class DataIOFunc;
 class PersisDataIO;
 class FilePersisDataIO;
 class DataIOModule;
@@ -107,136 +106,23 @@ class DiskRequest : public IndexRequest
                 bool                block,
                 DataTier            tier);
 
-    // \DiskRequest
-    // ------------
-    // Use this constructor when overwriting an old content and want to save
-    // it in a snapshot volume or mark it for garbage collector to delete.
-    //
-    // @param old_oid (i) : nullptr if don't have the old obj id;
-    //    otherwise, must have valid obj id values in the index.
-    // @param new_vol (i) : nullptr if don't have any snapshot to host
-    //    the old data, old data will be marked for deletion.  Otherwise, must
-    //    have valid { vol_uuid, vol_offset } values.
-    //
-    DiskRequest(meta_vol_io_t       &vio,
-                meta_obj_id_t       &oid,
-                meta_obj_id_t       *old_oid,
-                meta_vol_io_t       *new_vol,
-                fds::ObjectBuf      *buf,
-                bool                block);
-    // Same as above constructor w/ tier
-    DiskRequest(meta_vol_io_t       &vio,
-                meta_obj_id_t       &oid,
-                meta_obj_id_t       *old_oid,
-                meta_vol_io_t       *new_vol,
-                fds::ObjectBuf      *buf,
-                bool                block,
-                DataTier            tier);
-
     ~DiskRequest();
 
-    // \req_has_remap_oid
-    // ------------------
-    // Check if the requester has old object ID to remap to new volume or
-    // delete out of the index.  Used when we receive new data that overwrites
-    // an old oid and we want to remap the old oid to a new snapshot volume.
-    //
-    // @param old_oid (o) : the old object ID to remap to new vol.
-    // @param new_vol (o) : nullptr if want to delete the old_oid.
-    // @return true if the request has old_oid to remap or delete.
-    //
-    bool req_has_remap_oid(meta_obj_id_t *old_oid, meta_vol_io_t *new_vol);
+    virtual void req_submit() {
+      fdsio::Request::req_submit();
+    }
+    virtual void req_complete() {
+      fdsio::Request::req_complete();
+    }
 
-    virtual void req_submit() = 0;
-    virtual void req_complete() = 0;
-
+    inline void setTier(DataTier tier) { datTier = tier; }
     inline DataTier getTier() const { return datTier; }
     inline fds::ObjectBuf const *const req_obj_buf() { return dat_buf; }
     inline fds::ObjectBuf *req_obj_rd_buf() { return dat_buf; }
 
   protected:
     fds::ObjectBuf           *dat_buf;
-    meta_vol_io_t            dat_new_vol;
-    meta_obj_id_t            dat_old_oid;
     DataTier                 datTier;
-};
-
-// ---------------------------------------------------------------------------
-// Generic plug-in IO function.
-//
-// The IO function attemps to classify data as a function of time during its
-// life cycle.
-//    F(data, t) = [0...100]
-// Where F(data, t0) = 0       -> 100% write, 0% read.
-//       F(data, ti) = [0-100] -> attemp to characterize IO demand schedule.
-//       F(data, tn) = 100     -> 0% write, 100% read, archiving data.
-//
-// The output helps DataIO object to put data to the correct bucket that's
-// optimized for the current age during its life cycle.
-//
-// The long term vision for this function is to incorporate the knowledge of
-// application working set, content characteristics, and offset properties to
-// derrive IO workload for a given time of data's lifecycle.
-// ---------------------------------------------------------------------------
-
-enum { io_all_write = 0, io_all_read = 100 };
-enum { io_tier_fast = 0, io_tier_slow = 10 };
-
-class DataIOFuncParams
-{
-  public:
-    // \data_io_func
-    // -------------
-    // Return the IO function for short term next time_delta from now
-    // (e.g. 1 day).  TODO(Vy): change time_delta to the right type.
-    //
-    virtual int
-    data_io_func(fds_uint32_t time_delta, int *tier);
-
-  private:
-    DataIOFuncParams();
-    ~DataIOFuncParams();
-    friend class DataIOFunc;
-
-    int          io_func;
-    int          io_tier;
-};
-
-class DataIOFunc
-{
-  public:
-    // \data_iofn_singleton
-    // --------------------
-    // Return the singleton obj to use with DataIO.
-    //
-    static DataIOFunc &data_iofn_singleton();
-
-    // \disk_io_func
-    // -------------
-    // Given volume offset, object id, or location map, return a number
-    // between 0 to 100 to characterize IO workload at the current time
-    // where:
-    //    0 is 100% write, 0% read.
-    //  100 is 0% write, 100% read.
-    //
-    // @param vio (i) : data location in volume.
-    // @param oid (i) : content based data routing.
-    // @param map (i) : physical location for data.
-    // @param time_delta (i): short term function based on the time.
-    // TODO(Vy): change to the right type, unit.
-    // @param iofn (o) : short term function (< 1 day) to give rough estimate
-    //    about IO characteristic.
-    //
-    void data_io_func(meta_vol_adr_t   &vio,
-                      meta_obj_id_t    &oid,
-                      meta_obj_map_t   &map,
-                      fds_uint64_t     time_delta,
-                      DataIOFuncParams *iofn);
-
-  private:
-    friend class DataIO;
-    DataIOFunc();
-    ~DataIOFunc();
 };
 
 // ---------------------------------------------------------------------------
@@ -349,28 +235,6 @@ class DataIO
     // Similar to the read method, the call can be blocking or non-blocking.
     //
     fds::Error disk_write(DiskRequest *req);
-
-    // \disk_remap_obj
-    // ---------------
-    // Remap the object ID with current vio address to the new vio address.
-    // Used to snapshot data about to be overwritten to a snapshot volume.
-    //
-    void disk_remap_obj(meta_obj_id_t const *const obj_id,
-                        meta_vol_io_t const *const cur_vio,
-                        meta_vol_io_t const *const new_vio);
-
-    // \disk_destroy_vol
-    // -----------------
-    // Notify disk mgr to destroy the volume and reclaim spaces that it
-    // consumed.
-    //
-    void disk_destroy_vol(meta_vol_adr_t *vol);
-
-    // \disk_loc_path_info
-    // -------------------
-    // Return the real physical path matching the location id.
-    //
-    void disk_loc_path_info(fds_uint16_t loc_id, std::string *path);
 
     /**
      * Notify that object was deleted to update stats for garbage collection

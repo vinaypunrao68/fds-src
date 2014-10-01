@@ -5,7 +5,7 @@
 #include <fds_assert.h>
 #include <fds_module.h>
 #include <persistent_layer/dm_io.h>
-#include <persistentdata.h>
+#include <persistent_layer/persistentdata.h>
 
 namespace diskio {
 

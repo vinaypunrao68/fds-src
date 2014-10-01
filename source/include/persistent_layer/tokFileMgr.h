@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include <fds_types.h>
-#include <persistentdata.h>
+#include <persistent_layer/persistentdata.h>
 #include <persistent_layer/dm_io.h>
 
 /**
@@ -53,6 +53,8 @@ class tokenFileDb {
  public:
     tokenFileDb();
     ~tokenFileDb();
+
+    typedef std::unique_ptr<tokenFileDb> unique_ptr;
 
     static fds_token_id getTokenId(meta_obj_id_t const *const oid);
     static void getTokenRange(fds_token_id* start_tok, fds_token_id* end_tok);

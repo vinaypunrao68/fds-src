@@ -8,7 +8,7 @@
 #include <fds_assert.h>
 #include <StorMgr.h>
 #include <TokenCompactor.h>
-#include <persistentdata.h>
+#include <persistent_layer/persistentdata.h>
 #include <persistent_layer/dm_service.h>
 #include <persistent_layer/dm_io.h>
 #include <Scavenger.h>

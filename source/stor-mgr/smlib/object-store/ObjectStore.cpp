@@ -37,6 +37,9 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
     // open metadata store for tokens owned by this SM
     err = metaStore->openMetadataStore(diskMap);
     fds_verify(err.ok());
+
+    err = dataStore->openDataStore(diskMap);
+    fds_verify(err.ok());
 }
 
 Error

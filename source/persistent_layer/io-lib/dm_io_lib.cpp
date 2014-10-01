@@ -1,7 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-#include <persistentdata.h>
+#include <persistent_layer/persistentdata.h>
 #include <string>
 #include <stdio.h>
 #include <dirent.h>
@@ -17,7 +17,7 @@
 #include <iostream>
 #include <persistent_layer/dm_io.h>
 #include <fds_process.h>
-#include <tokFileMgr.h>
+#include <persistent_layer/tokFileMgr.h>
 
 using namespace fds;  // NOLINT
 namespace diskio {
@@ -594,32 +594,6 @@ diskio::DataIO::disk_write(DiskRequest *req)
 
     iop = gl_dataIOMod.disk_hdd_io(req->getTier(), WRITE_FILE_ID, req->req_get_oid());
     return iop->disk_write(req);
-}
-
-// \DataIO::disk_remap_obj
-// -----------------------
-//
-void
-DataIO::disk_remap_obj(meta_obj_id_t const *const obj_id,
-                       meta_vol_io_t const *const cur_vio,
-                       meta_vol_io_t const *const new_vio)
-{
-}
-
-// \DataIO::disk_destroy_vol
-// -------------------------
-//
-void
-DataIO::disk_destroy_vol(meta_vol_adr_t *vol)
-{
-}
-
-// \DataIO::disk_loc_path_info
-// ---------------------------
-//
-void
-DataIO::disk_loc_path_info(fds_uint16_t loc_id, std::string *path)
-{
 }
 
 void
