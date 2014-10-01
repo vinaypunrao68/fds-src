@@ -22,11 +22,10 @@ user_build_dir :=                       \
     am-engine                           \
     persistent_layer                    \
     platform                            \
-    stor-hvisor                         \
     orch_mgr                            \
     data-mgr                            \
-    stor-mgr                            \
     access-mgr                          \
+    stor-mgr                            \
     tools                               \
     testlib                             \
     java                                \

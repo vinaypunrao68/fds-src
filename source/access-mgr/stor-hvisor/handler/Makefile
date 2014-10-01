@@ -1,4 +1,4 @@
-topdir            := ../..
+topdir            := ../../..
 user_target       := lib
 user_rtime_env    := user
 

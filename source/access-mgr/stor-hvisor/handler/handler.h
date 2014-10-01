@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_STOR_HVISOR_HANDLER_HANDLER_H_
-#define SOURCE_STOR_HVISOR_HANDLER_HANDLER_H_
+#ifndef SOURCE_ACCESS_MGR_STOR_HVISOR_HANDLER_HANDLER_H_
+#define SOURCE_ACCESS_MGR_STOR_HVISOR_HANDLER_HANDLER_H_
 
 #include <string>
 
@@ -83,4 +83,4 @@ struct DeleteBlobHandler : Handler {
 
 
 }  // namespace fds
-#endif  // SOURCE_STOR_HVISOR_HANDLER_HANDLER_H_
+#endif  // SOURCE_ACCESS_MGR_STOR_HVISOR_HANDLER_HANDLER_H_

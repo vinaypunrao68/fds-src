@@ -1,4 +1,4 @@
-topdir            := ../..
+topdir            := ../../..
 user_target       := lib
 user_rtime_env    := user
 
@@ -6,9 +6,9 @@ user_rtime_env    := user
 #
 user_incl_dir     := .. \
     $(topdir) \
-    $(topdir)/fds_client/include \
     $(topdir)/lib \
     $(topdir)/access-mgr/include \
+    $(topdir)/access-mgr/stor-hvisor \
     $(topdir)/am-engine/include
 
 # user_cpp_flags    := -DVVC_CACHE_DISABLE

@@ -1,7 +1,7 @@
 topdir           := ../..
 user_target      := lib
 user_rtime_env   := user
-user_incl_dir    := .. ../include  $(topdir)/stor-hvisor $(topdir)/fds_client $(topdir)/fds_client/include $(topdir)
+user_incl_dir    := .. ../include  $(topdir)/access-mgr/stor-hvisor $(topdir)
 user_ragel       := am-urls.rl
 user_clean       := am-urls.cpp
 user_cpp         :=               \
