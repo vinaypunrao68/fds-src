@@ -426,6 +426,29 @@ EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
     }
 }
 
+/**
+* @brief Retuns the thrift client rpc
+*
+* @tparam ClientIf one of PlatNetSvc, SMSvc, etc.
+* @param peer
+* @param maj
+* @param min
+*
+* @return 
+*/
+template <class ClientIf>
+bo::shared_ptr<ClientIf> NetMgr::client_rpc(const fpi::SvcUuid   &peer,
+                                    fds_uint32_t          maj,
+                                    fds_uint32_t          min)
+{
+    EpSvcHandle::pointer ep = NetMgr::ep_mgr_singleton()->svc_get_handle<ClientIf>(peer, 0 , min);
+    if (!ep) {
+        return nullptr;
+    }
+    return ep->svc_rpc<ClientIf>();
+    // return bo::shared_ptr<ClientIf>();
+}
+
 namespace net {
 
 /**

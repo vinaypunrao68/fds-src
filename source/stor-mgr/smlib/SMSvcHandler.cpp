@@ -10,6 +10,7 @@
 #include <sm-platform.h>
 #include <string>
 #include <net/SvcRequest.h>
+#include <fiu-local.h>
 
 namespace fds {
 
@@ -39,6 +40,7 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_gets > 0));
+    fiu_do_on("svc.drop.getobject", return);
 
     Error err(ERR_OK);
     auto getReq = new SmIoGetObjectReq(getObjMsg);
@@ -118,6 +120,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
+    fiu_do_on("svc.drop.putobject", return);
 
     Error err(ERR_OK);
     auto putReq = new SmIoPutObjectReq(putObjMsg);

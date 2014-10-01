@@ -60,5 +60,20 @@ class ServiceContext(Context):
         except Exception, e:
             log.exception(e)
             return 'Unable to set flag: {}'.format(flag)
+    #--------------------------------------------------------------------------------------
+    @clicmd
+    @arg('nodeid', type=long)
+    @arg('svcname', help= "service name",  choices=['sm','dm','am','om'])
+    @arg('cmd', type=str)
+    def setfault(self, nodeid, svcname, cmd):
+        try:
+            success = ServiceMap.client(nodeid, svcname).setFault(cmd)
+            if success:
+                return 'Ok'
+            else:
+                return "Failed to inject fault.  Check the command"
+        except Exception, e:
+            log.exception(e)
+            return 'Unable to set fault'
 
 

@@ -249,7 +249,6 @@ bool PlatNetSvcHandler::setFault(boost::shared_ptr<std::string>& cmdline)
     /* Execute based on the cmd */
     auto cmd = args["cmd"];
     auto name = args["name"];
-    std::cout << "cmd: " << cmd << " name: " << name << std::endl;
     if (cmd == "enable") {
         fiu_enable(name.c_str(), 1, NULL, 0);
         LOGDEBUG << "Enable fault: " << name;

@@ -465,6 +465,10 @@ class NetMgr : public Module
     EpSvcHandle::pointer svc_get_handle(const fpi::SvcUuid   &peer,
                                         fds_uint32_t          maj,
                                         fds_uint32_t          min);
+    template <class ClientIf>
+    bo::shared_ptr<ClientIf> client_rpc(const fpi::SvcUuid   &peer,
+                                        fds_uint32_t          maj,
+                                        fds_uint32_t          min);
 
     /**
      * Returns true if error e is actionable on the endpoint
