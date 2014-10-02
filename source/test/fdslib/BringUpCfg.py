@@ -105,9 +105,9 @@ class FdsNodeConfig(FdsConfig):
             self.nd_agent.env_password = env.env_password
             if not quiet:
                 if env.env_test_harness:
-                    log.info("Making ssh connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
+                    log.info("Making ssh connection to %s as %s." % (self.nd_host, self.nd_conf_dict['node-name']))
                 else:
-                    print("Making ssh connection to %s as node %s." % (self.nd_host, self.nd_conf_dict['node-name']))
+                    print("Making ssh connection to %s as %s." % (self.nd_host, self.nd_conf_dict['node-name']))
 
             self.nd_agent.ssh_connect(self.nd_host)
 

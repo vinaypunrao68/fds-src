@@ -431,12 +431,13 @@ class FdsRmtEnv(FdsEnv):
         if (cmd is not None) and (cmd != ''):
             cmd = cmd + ';'
 
-        self.ssh_exec(cmd +
-            ' echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern ' +
-            '; sudo sysctl -w "kernel.core_pattern=%e-%p.core"' +
-            '; sysctl -p' +
-            '; echo "1" >/proc/sys/net/ipv4/tcp_tw_reuse' +
-            '; echo "1" >/proc/sys/net/ipv4/tcp_tw_recycle')
+        # Removed this for [WIN-1081], this doesn't work anyway.
+        # self.ssh_exec(cmd +
+            # ' echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern ' +
+            # '; sudo sysctl -w "kernel.core_pattern=%e-%p.core"' +
+            # '; sysctl -p' +
+            # '; echo "1" >/proc/sys/net/ipv4/tcp_tw_reuse' +
+            # '; echo "1" >/proc/sys/net/ipv4/tcp_tw_recycle')
 
 ###
 # Package FDS tar ball and unpackage it to a remote host
