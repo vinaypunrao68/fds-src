@@ -24,12 +24,25 @@ import static org.junit.Assert.*;
 public class RecurrenceRuleTest {
 
   @Test
-  public void nates_test()
+     public void useCaseTest1()
   {
     try {
       final RecurrenceRule rule =
         RecurrenceRule.parser( "FREQ:WEEKLY" );
       assertEquals( rule.toString(), "FREQ=WEEKLY" );
+    } catch( ParseException e ) {
+      e.printStackTrace();
+      assertTrue( true );
+    }
+  }
+
+  @Test
+  public void useCaseTest2()
+  {
+    try {
+      final RecurrenceRule rule =
+        RecurrenceRule.parser( "FREQ:DAILY" );
+      assertEquals( rule.toString(), "FREQ=DAILY" );
     } catch( ParseException e ) {
       e.printStackTrace();
       assertTrue( true );
