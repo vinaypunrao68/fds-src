@@ -374,4 +374,12 @@ DmTimeVolCatalog::isPendingTx(fds_volid_t volId, fds_uint64_t timeNano) {
     COMMITLOG_GET(volId, commitLog);
     return commitLog->isPendingTx(timeNano);
 }
+
+Error
+DmTimeVolCatalog::getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog) {
+    Error rc(ERR_OK);
+    COMMITLOG_GET(volId, commitLog);
+    return rc;
+}
+
 }  // namespace fds

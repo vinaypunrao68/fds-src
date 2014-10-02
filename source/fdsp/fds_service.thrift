@@ -146,7 +146,9 @@ enum  FDSPMsgTypeId {
     DeleteSnapshotMsgTypeId,
     DeleteSnapshotRespMsgTypeId,
     CreateVolumeCloneMsgTypeId,
-    CreateVolumeCloneRespMsgTypeId
+    CreateVolumeCloneRespMsgTypeId,
+    GetDmStatsMsgTypeId,
+    GetDmStatsMsgRespTypeId
 }
 
 /*
@@ -723,6 +725,15 @@ struct GetBucketMsg {
   3: i64                       maxKeys;
   //response
   4: FDSP.BlobInfoListType     blob_info_list;
+}
+
+struct GetDmStatsMsg {
+  1: i64                       volume_id;
+  // response
+  2: i64                       commitlog_size;
+  3: i64                       extent0_size;
+  4: i64                       extent_size;
+  5: i64                       vvc_size;
 }
 
 struct GetVolumeMetaDataMsg {
