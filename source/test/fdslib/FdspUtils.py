@@ -171,10 +171,35 @@ def newGetObjectMsg(volId, objectId):
 # @brief 
 #
 # @param volId as long
-# @param objectId as string
 #
 # @return 
 def newGetVolumeMetaDataMsg(volId):
     msg = GetVolumeMetaDataMsg()
+    msg.volume_id = volId
+    return msg
+
+##
+# @brief 
+#
+# @param volId as long
+#
+# @return 
+
+def newGetBucketMsg(volId, startOff, maxKey):
+    msg = GetBucketMsg()
+    msg.volume_id = volId
+    msg.startPos = startOff
+    msg.maxKeys = maxKey
+    return msg
+
+##
+# @brief 
+#
+# @param none
+#
+# @return 
+
+def newGetDmStatsMsg(volId):
+    msg = GetDmStatsMsg()
     msg.volume_id = volId
     return msg

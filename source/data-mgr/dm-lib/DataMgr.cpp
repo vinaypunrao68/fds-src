@@ -702,6 +702,7 @@ int DataMgr::mod_init(SysParams const *const param)
 void DataMgr::initHandlers() {
     handlers[FDS_LIST_BLOB]   = new dm::GetBucketHandler();
     handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler();
+    handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler();
 }
 
 DataMgr::~DataMgr()

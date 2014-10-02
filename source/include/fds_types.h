@@ -245,6 +245,7 @@ typedef enum {
     FDS_DM_META_RECVD,
     FDS_DM_PURGE_COMMIT_LOG,
     FDS_DM_STAT_STREAM,
+    FDS_DM_SYS_STATS,
     FDS_OP_INVALID
 } fds_io_op_t;
 

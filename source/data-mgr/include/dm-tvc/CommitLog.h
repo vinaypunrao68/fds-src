@@ -95,6 +95,13 @@ class DmCommitLog : public Module {
     // check if any transaction is pending from before the given time
     fds_bool_t isPendingTx(const fds_uint64_t tsNano = util::getTimeStampNanos());
 
+    // get active transactions
+    // fds_uint32_t getActiveTx() const {
+    fds_uint32_t getActiveTx() {
+        SCOPEDREAD(lockTxMap_);
+        return txMap_.size();
+    }
+
   private:
     TxMap txMap_;    // in-memory state
     fds_rwlock lockTxMap_;

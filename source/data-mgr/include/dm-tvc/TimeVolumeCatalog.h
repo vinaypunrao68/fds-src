@@ -251,6 +251,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                            const fpi::FDSP_BlobObjectList &objList,
                            const fpi::FDSP_MetaDataList &metaList,
                            const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
+    Error getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog);
 
     /**
      * Returns query interface to volume catalog. Provides
