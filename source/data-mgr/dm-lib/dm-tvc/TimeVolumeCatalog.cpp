@@ -338,8 +338,7 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
             }
             e = volcat->putBlob(volid, commit_data->name, commit_data->metaDataList,
                     commit_data->blobObjList, commit_data->txDesc);
-        }
-        if (commit_data->metaDataList && !commit_data->metaDataList->empty()) {
+        } else if (commit_data->metaDataList && !commit_data->metaDataList->empty()) {
             e = volcat->putBlobMeta(volid, commit_data->name,
                     commit_data->metaDataList, commit_data->txDesc);
         }

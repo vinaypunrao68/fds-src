@@ -845,15 +845,17 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
     }
 }
 
-void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
-        const std::string& session_uuid)
-{
+void ObjectStorMgr::handleDltUpdate() {
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
     // to SM tokens
     const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
     objStorMgr->objectStore->handleNewDlt(curDlt);
+}
 
+void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
+        const std::string& session_uuid)
+{
     fds_verify(objStorMgr->cached_dlt_close_.second == nullptr);
     objStorMgr->cached_dlt_close_.first = session_uuid;
     objStorMgr->cached_dlt_close_.second = dlt_close;
@@ -3231,7 +3233,6 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
 
-
     leveldb::DB *db;
     leveldb::ReadOptions options;
 
@@ -3349,7 +3350,11 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
                  << " on tier " << cobjs_req->tier;
 
         // copy this object if not garbage, otherwise rm object db entry
-        err = condCopyObjectInternal(obj_id, cobjs_req->tier);
+        if (execNewStubs) {
+            err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier);
+        } else {
+            err = condCopyObjectInternal(obj_id, cobjs_req->tier);
+        }
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;

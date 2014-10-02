@@ -103,6 +103,13 @@ class ObjectStore : public Module, public boost::noncopyable {
                           fds_volid_t destVolId,
                           const ObjectID& objId);
 
+    /**
+     * If given object still valid (refcount > 0), copies the object
+     * to new file from the file that is being garbage collected
+     */
+    Error copyObjectToNewLocation(const ObjectID& objId,
+                                  diskio::DataTier tier);
+
     // FDS module control functions
     int  mod_init(SysParams const *const param);
     void mod_startup();

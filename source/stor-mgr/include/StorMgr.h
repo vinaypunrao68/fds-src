@@ -558,6 +558,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      Error relocateObject(const ObjectID &objId,
                           diskio::DataTier from_tier,
                           diskio::DataTier to_tier);
+     void handleDltUpdate();
 
      inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
      static void nodeEventOmHandler(int node_id,

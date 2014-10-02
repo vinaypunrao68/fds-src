@@ -36,6 +36,7 @@
 #include <net/SvcRequest.h>
 #include <am-tx-mgr.h>
 #include <AmCache.h>
+#include <AmDispatcher.h>
 
 #include <map>
 // #include "util/concurrency/Thread.h"
@@ -234,6 +235,9 @@ public:
 
     std::string                 myIp;
     std::string                 my_node_name;
+
+    /// Dispatcher layer module
+    AmDispatcher::unique_ptr amDispatcher;
 
     RandNumGenerator::ptr randNumGen;
     AmTxManager::unique_ptr amTxMgr;
