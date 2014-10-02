@@ -4,7 +4,7 @@ user_rtime_env   := user
 user_build_dir   :=
 user_incl_dir    := \
     ../include \
-    $(topdir)/am-engine
+    $(topdir)/nginx-driver
 
 user_cpp         := \
     s3-probe.cpp

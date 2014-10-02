@@ -1,13 +1,13 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef INCLUDE_AM_ENGINE_AM_PLUGIN_H_
-#define INCLUDE_AM_ENGINE_AM_PLUGIN_H_
+#ifndef INCLUDE_NGINX_DRIVER_AM_PLUGIN_H_
+#define INCLUDE_NGINX_DRIVER_AM_PLUGIN_H_
 
 #include <unordered_map>
 
 #include <fds_assert.h>
-#include <am-engine/am-engine.h>
+#include <nginx-driver/am-engine.h>
 #include <concurrency/Mutex.h>
 
 extern "C" {
@@ -316,4 +316,4 @@ ame_http_parse_url(AMEngine *eng, AME_HttpReq *req);
 
 } // namespace fds
 
-#endif /* INCLUDE_AM_ENGINE_AM_PLUGIN_H_ */
+#endif /* INCLUDE_NGINX_DRIVER_AM_PLUGIN_H_ */

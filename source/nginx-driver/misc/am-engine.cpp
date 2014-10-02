@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#include <am-engine/am-engine.h>
-#include <am-engine/http_utils.h>
+#include <nginx-driver/am-engine.h>
+#include <nginx-driver/http_utils.h>
 
 extern "C" {
 #include <ngx_config.h>

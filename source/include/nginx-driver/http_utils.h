@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_INCLUDE_AM_ENGINE_HTTP_UTILS_H_
-#define SOURCE_INCLUDE_AM_ENGINE_HTTP_UTILS_H_
+#ifndef SOURCE_INCLUDE_NGINX_DRIVER_HTTP_UTILS_H_
+#define SOURCE_INCLUDE_NGINX_DRIVER_HTTP_UTILS_H_
 #include <vector>
 #include <string>
 #include <fds_types.h>
@@ -45,4 +45,4 @@ class HttpRequest {
 
 }  // namespace fds
 
-#endif  // SOURCE_INCLUDE_AM_ENGINE_HTTP_UTILS_H_
+#endif  // SOURCE_INCLUDE_NGINX_DRIVER_HTTP_UTILS_H_
