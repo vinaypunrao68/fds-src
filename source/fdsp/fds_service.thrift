@@ -733,7 +733,7 @@ struct GetDmStatsMsg {
   2: i64                       commitlog_size;
   3: i64                       extent0_size;
   4: i64                       extent_size;
-  5: i64                       vvc_size;
+  5: i64                       metadata_size;
 }
 
 struct GetVolumeMetaDataMsg {
