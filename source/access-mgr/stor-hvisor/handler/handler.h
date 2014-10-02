@@ -11,7 +11,7 @@
 #include <util/Log.h>
 #include <fdsp/FDSP_MetaDataPathReq.h>
 #include <fdsp/FDSP_MetaDataPathResp.h>
-#include "../StorHvVolumes.h"
+#include <StorHvVolumes.h>
 #include <net/SvcRequestPool.h>
 class StorHvCtrl;
 #define STORHANDLER(CLASS, IOTYPE) \

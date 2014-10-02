@@ -36,6 +36,12 @@ describe( 'Test login permutations', function(){
         expect( mainEl.getAttribute( 'class' ) ).toContain( 'ng-hide' );
         expect( errorEl.getAttribute( 'class' ) ).toBe( 'alert alert-info ng-binding' );
     });
+    
+    it( 'should clear the error once I start typing', function(){
+        
+        uEl.sendKeys( 'test' );
+        expect( errorEl.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+    });
 
     it( 'should log in and get to the main screen', function(){
 

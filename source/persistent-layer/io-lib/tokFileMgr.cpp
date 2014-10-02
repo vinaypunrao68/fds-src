@@ -9,7 +9,7 @@
 #include <assert.h>
 #include <util/Log.h>
 #include <fds_assert.h>
-#include <tokFileMgr.h>
+#include <persistent-layer/tokFileMgr.h>
 
 #define PL_TOKEN_MASK 0x000000ff
 
