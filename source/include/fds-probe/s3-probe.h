@@ -7,7 +7,7 @@
 #include <string>
 #include <fds-probe/fds_probe.h>
 #include <fds-probe/js-object.h>
-#include <am-engine/s3connector.h>
+#include <nginx-driver/s3connector.h>
 #include <concurrency/ThreadPool.h>
 
 namespace fds {

@@ -1,7 +1,7 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#include <am-engine/s3connector.h>
+#include <nginx-driver/s3connector.h>
 #include <am-plugin.h>
 
 #include <string>

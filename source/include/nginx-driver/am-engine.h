@@ -1,15 +1,15 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_INCLUDE_AM_ENGINE_AM_ENGINE_H_
-#define SOURCE_INCLUDE_AM_ENGINE_AM_ENGINE_H_
+#ifndef SOURCE_INCLUDE_NGINX_DRIVER_AM_ENGINE_H_
+#define SOURCE_INCLUDE_NGINX_DRIVER_AM_ENGINE_H_
 
 #include <fds_module.h>
 #include <fds_request.h>
 #include <string>
 #include <native_api.h>
 #include <util/Log.h>
-#include <am-engine/http_utils.h>
+#include <nginx-driver/http_utils.h>
 #include <json/json.h>
 
 extern "C" {
@@ -531,4 +531,4 @@ class Conn_GetBucketStats : public AME_Request
 
 }  // namespace fds
 
-#endif  // SOURCE_INCLUDE_AM_ENGINE_AM_ENGINE_H_
+#endif  // SOURCE_INCLUDE_NGINX_DRIVER_AM_ENGINE_H_

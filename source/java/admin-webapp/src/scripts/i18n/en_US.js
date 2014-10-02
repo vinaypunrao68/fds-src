@@ -4,7 +4,10 @@ var en_US = {
         all: 'All',
         coming_soon: 'Coming soon...',
         password: 'Password',
-        username: 'Username'
+        username: 'Username',
+        days: 'days',
+        hours: 'hours',
+        minutes: 'minutes'
     },
     login: {
         lost_your_password: 'Lost your password?',
@@ -17,7 +20,11 @@ var en_US = {
         
         th_type: 'Type',
         th_message: 'Message',
-        th_received: 'Received'
+        th_received: 'Received',
+        
+        tt_firebreak: 'Firebreak {{value}} {{units}} ago.',
+        
+        desc_firebreak: 'Events in the past 24 hours'
     },
     inbox: {
         messages: 'Messages',

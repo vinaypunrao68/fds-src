@@ -10,8 +10,8 @@
 
 #include <fds_assert.h>
 #include <util/fds_stat.h>
-#include <am-engine/s3connector.h>
-#include <am-engine/http_utils.h>
+#include <nginx-driver/s3connector.h>
+#include <nginx-driver/http_utils.h>
 
 /* The factory creating objects to handle supported commands. */
 static fds::AMEngine  *sgt_ame_plugin[fds::FDS_NativeAPI::FDSN_CLIENT_TYPE_MAX];

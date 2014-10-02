@@ -7,7 +7,7 @@ user_build_dir := \
     apis \
     net \
     blob \
-    am-engine \
+    nginx-driver \
     concurrency \
     kvstore \
     fds-probe \
