@@ -32,8 +32,8 @@ extern "C" {
 #include "odb.h"
 #include "util/Log.h"
 #include "StorMgrVolumes.h"
-#include "persistent_layer/dm_service.h"
-#include "persistent_layer/dm_io.h"
+#include "persistent-layer/dm_service.h"
+#include "persistent-layer/dm_io.h"
 
 #include "fds_qos.h"
 #include "qos_ctrl.h"

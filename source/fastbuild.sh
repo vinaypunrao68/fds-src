@@ -1,6 +1,30 @@
 #!/bin/bash
 
-dir_list="fdsp apis include osdep net-service umod-lib util lib fds-probe am-engine persistent_layer platform orch_mgr data-mgr access-mgr stor-mgr tools java"
+#
+# Keep this list sychronized with Makefile
+#
+dir_list="
+    fdsp                                \
+    apis                                \
+    include                             \
+    osdep                               \
+    net-service                         \
+    umod-lib                            \
+    util                                \
+    lib                                 \
+    nginx-driver                        \
+    fds-probe                           \
+    persistent-layer                    \
+    platform                            \
+    orch-mgr                            \
+    data-mgr                            \
+    access-mgr                          \
+    stor-mgr                            \
+    tools                               \
+    testlib                             \
+    java                                
+    "
+# fdsp apis include osdep net-service umod-lib util lib fds-probe nginx-driver persistent_layer platform orch_mgr data-mgr access-mgr stor-mgr tools java"
 
 not_built="unit-test checker"
 

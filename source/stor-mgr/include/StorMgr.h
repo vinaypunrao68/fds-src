@@ -22,8 +22,8 @@ extern "C" {
 #include "util/Log.h"
 #include "StorMgrVolumes.h"
 #include "SmObjDb.h"
-#include "persistent_layer/dm_service.h"
-#include "persistent_layer/dm_io.h"
+#include "persistent-layer/dm_service.h"
+#include "persistent-layer/dm_io.h"
 #include "fds_migration.h"
 #include "TransJournal.h"
 #include "Scavenger.h"
@@ -558,6 +558,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      Error relocateObject(const ObjectID &objId,
                           diskio::DataTier from_tier,
                           diskio::DataTier to_tier);
+     void handleDltUpdate();
 
      inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
      static void nodeEventOmHandler(int node_id,

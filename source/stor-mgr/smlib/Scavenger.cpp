@@ -1,5 +1,5 @@
-/*                                                                                                                                          
- * Copyright 2014 Formation Data Systems, Inc.                                                                                              
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
  */
 
 #include <set>
@@ -8,9 +8,9 @@
 #include <fds_assert.h>
 #include <StorMgr.h>
 #include <TokenCompactor.h>
-#include <persistentdata.h>
-#include <persistent_layer/dm_service.h>
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/persistentdata.h>
+#include <persistent-layer/dm_service.h>
+#include <persistent-layer/dm_io.h>
 #include <Scavenger.h>
 
 using diskio::DiskStat;

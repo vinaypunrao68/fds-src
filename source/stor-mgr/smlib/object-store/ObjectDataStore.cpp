@@ -9,11 +9,17 @@
 namespace fds {
 
 ObjectDataStore::ObjectDataStore(const std::string &modName)
-        : Module(modName.c_str()) {
+        : Module(modName.c_str()),
+          persistData(new ObjectPersistData("SM Object Persistent Data Store")) {
     dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));
 }
 
 ObjectDataStore::~ObjectDataStore() {
+}
+
+Error
+ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap) {
+    return persistData->openPersistDataStore(diskMap);
 }
 
 Error
@@ -29,18 +35,21 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     meta_obj_id_t    oid;
     fds_bool_t       sync = true;
     // TODO(Andrew): Should take a shared_ptr not a raw object buf
+    // TODO(Anna): we also dob't need meta_obj_id_t structure in disk
+    // request, should be able to use ObjectID type
     ObjectBuf objBuf(*objData);
     memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-    SmPlReq *plReq =
-            new SmPlReq(vio, oid,
-                        const_cast<ObjectBuf *>(&objBuf),
-                        sync, tier);
+    diskio::DiskRequest *plReq =
+            new diskio::DiskRequest(vio, oid,
+                            const_cast<ObjectBuf *>(&objBuf),
+                            sync, tier);
 
     { // scope for perf counter
         PerfContext tmp_pctx(SM_OBJ_DATA_DISK_WRITE,
                              volId, PerfTracer::perfNameStr(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-        err = diskMgr->disk_write(plReq);
+        // err = diskMgr->disk_write(plReq);
+        err = persistData->writeObjectData(objId, plReq);
     }
 
     // Place the data in the cache
@@ -61,6 +70,7 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
         LOGERROR << "Failed to write " << objId << " to persistent layer: " << err;
     }
 
+    delete plReq;
     return err;
 }
 
@@ -85,10 +95,10 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
     diskio::DataTier tier;
     ObjectBuf       objBuf;
     memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-    SmPlReq *plReq = new SmPlReq(vio,
-                                 oid,
-                                 static_cast<ObjectBuf *>(&objBuf),
-                                 sync);
+    diskio::DiskRequest *plReq = new diskio::DiskRequest(vio,
+                                         oid,
+                                         static_cast<ObjectBuf *>(&objBuf),
+                                         sync);
 
     // read object from flash if we can
     if (objMetaData->onFlashTier()) {
@@ -105,7 +115,8 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
         PerfContext tmp_pctx(SM_OBJ_DATA_DISK_READ,
                              volId, PerfTracer::perfNameStr(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-        err = diskMgr->disk_read(plReq);
+        // err = diskMgr->disk_read(plReq);
+        err = persistData->readObjectData(objId, plReq);
     }
     if (err.ok()) {
         LOGDEBUG << "Got " << objId << " from persistent layer "
@@ -120,9 +131,11 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
         // data pointer directly to the persistent layer so that this
         // copy can be avoided.
         boost::shared_ptr<const std::string> objData(new std::string(objBuf.data));
+        delete plReq;
         return objData;
     } else {
         LOGERROR << "Failed to get " << objId << " from persistent layer: " << err;
+        delete plReq;
     }
 
     return NULL;
@@ -133,7 +146,6 @@ ObjectDataStore::removeObjectData(fds_volid_t volId,
                                   const ObjectID& objId,
                                   const ObjMetaData::const_ptr& objMetaData) {
     Error err(ERR_OK);
-    meta_obj_id_t   oid;
     LOGDEBUG << "Refcnt=0 for object id " << objId;
 
     // remove from data cache
@@ -141,13 +153,12 @@ ObjectDataStore::removeObjectData(fds_volid_t volId,
 
     // tell persistent layer we deleted the object so that garbage collection
     // knows how much disk space we need to clean
-    memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
     if (objMetaData->onTier(diskio::diskTier)) {
-        diskMgr->disk_delete_obj(&oid, objMetaData->getObjSize(),
-                                objMetaData->getObjPhyLoc(diskio::diskTier));
+        persistData->notifyDataDeleted(objId, objMetaData->getObjSize(),
+                                       objMetaData->getObjPhyLoc(diskio::diskTier));
     } else if (objMetaData->onTier(diskio::flashTier)) {
-        diskMgr->disk_delete_obj(&oid, objMetaData->getObjSize(),
-                                objMetaData->getObjPhyLoc(diskio::flashTier));
+        persistData->notifyDataDeleted(objId, objMetaData->getObjSize(),
+                                       objMetaData->getObjPhyLoc(diskio::flashTier));
     }
 
     return err;
@@ -158,9 +169,13 @@ ObjectDataStore::removeObjectData(fds_volid_t volId,
  */
 int
 ObjectDataStore::mod_init(SysParams const *const p) {
+    static Module *dataStoreDepMods[] = {
+        dataCache.get(),
+        persistData.get(),
+        NULL
+    };
+    mod_intern = dataStoreDepMods;
     Module::mod_init(p);
-    diskMgr = &(diskio::DataIO::disk_singleton());
-    dataCache->mod_init(p);
     LOGDEBUG << "Done.";
     return 0;
 }

@@ -5,7 +5,7 @@ user_rtime_env    := user
 
 user_incl_dir     += \
     $(topdir)/fds-probe/include \
-    $(topdir)/am-engine
+    $(topdir)/nginx-driver
 
 user_cpp_flags    +=
 user_fds_so_libs  +=

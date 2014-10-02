@@ -7,6 +7,7 @@
 #include <ostream>
 #include <fds-fsm.h>
 #include <fdsp/fds_service_types.h>
+#include <platform/node-inventory.h>
 
 namespace fds {
 
@@ -148,7 +149,6 @@ class NodeWorkItem : public StateObj
     /*
      * Send data to the peer to notify the peer, provided by the framework.
      */
-    // virtual bo::shared_ptr<EPSvcRequest> wrk_alloc_req_msg(fpi::AsyncHdrPtr &);
     virtual void wrk_fmt_node_info(fpi::NodeInfoMsgPtr &pkt) {
         wrk_owner->init_plat_info_msg(pkt.get());
     }
@@ -178,7 +178,7 @@ class NodeWorkItem : public StateObj
     friend std::ostream &operator << (std::ostream &os, const NodeWorkItem::ptr);
 };
 
-extern NodeWorkFlow          gl_NodeWorkFlow;
+extern NodeWorkFlow         *gl_NodeWorkFlow;
 
 class NodeWorkFlow : public Module
 {
@@ -187,7 +187,7 @@ class NodeWorkFlow : public Module
     virtual ~NodeWorkFlow();
 
     /* Singleton access. */
-    static NodeWorkFlow *nd_workflow_sgt() { return &gl_NodeWorkFlow; }
+    static NodeWorkFlow *nd_workflow_sgt() { return gl_NodeWorkFlow; }
     static void wrk_item_assign(bo::intrusive_ptr<PmAgent> owner, NodeWorkItem::ptr wrk);
 
     /* Module methods. */

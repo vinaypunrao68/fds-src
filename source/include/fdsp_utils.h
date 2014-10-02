@@ -15,7 +15,7 @@
 #include <fds_types.h>
 #include <fdsp/FDSP_types.h>
 #include <fdsp/fds_service_types.h>
-#include <persistent_layer/dm_metadata.h>
+#include <persistent-layer/dm_metadata.h>
 #include <boost/make_shared.hpp>
 
 /**

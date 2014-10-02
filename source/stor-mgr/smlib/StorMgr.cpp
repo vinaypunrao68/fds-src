@@ -845,15 +845,17 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
     }
 }
 
-void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
-        const std::string& session_uuid)
-{
+void ObjectStorMgr::handleDltUpdate() {
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
     // to SM tokens
     const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
     objStorMgr->objectStore->handleNewDlt(curDlt);
+}
 
+void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
+        const std::string& session_uuid)
+{
     fds_verify(objStorMgr->cached_dlt_close_.second == nullptr);
     objStorMgr->cached_dlt_close_.first = session_uuid;
     objStorMgr->cached_dlt_close_.second = dlt_close;
@@ -2511,37 +2513,16 @@ ObjectStorMgr::addObjectRefInternalSvc(SmIoAddObjRefReq* addObjRefReq) {
         return rc;
     }
 
-    OpCtx opCtx(OpCtx::PUT, fds::get_fds_timestamp_ms());
+    PerfTracer::tracePointBegin(addObjRefReq->opReqLatencyCtx);
     PerfTracer::tracePointBegin(addObjRefReq->opLatencyCtx);
 
     for (auto objId : addObjRefReq->objIds()) {
         ObjectID oid = ObjectID(objId.digest);
-        ObjMetaData objMap;
-
-        smObjDb->lock(oid);
-
-        // copy assoc entry from source to dest volume
-        rc = readObjMetaData(oid, objMap);
+        rc = objectStore->copyAssociation(addObjRefReq->getSrcVolId(),
+                addObjRefReq->getDestVolId(), oid);
         if (!rc.ok()) {
-            GLOGERROR << "Failed to get ObjMetaData from db " << rc;
-        } else {
-            objMap.copyAssocEntry(oid, addObjRefReq->getSrcVolId(), addObjRefReq->getDestVolId());
-
-            rc = smObjDb->put(opCtx, oid, objMap);
-            if (!rc.ok()) {
-                LOGERROR << "Failed to add association entry for object " << oid <<
-                        "in to odb with err " << rc;
-            } else {
-                // XXX: for snapshot we should not call volTbl->updateDupObj but for clones
-                //      we should call this function. We can get if destVolumeId is clone or
-                //      snapshot from VolumeDesc in volTble
-                // TODO(xxx): call updateDupObj() for clones
-            }
-        }
-
-        smObjDb->unlock(oid);
-
-        if (!rc.ok()) {
+            LOGERROR << "Failed to add association entry for object " << oid <<
+                    "in to odb with err " << rc;
             PerfTracer::incr(addObjRefReq->opReqFailedPerfEventType,
                     addObjRefReq->getSrcVolId(), addObjRefReq->perfNameStr);
             break;
@@ -3106,6 +3087,9 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
                 err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
             }
             break;
+        case FDS_SM_ADD_OBJECT_REF:
+            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+            break;
         case FDS_SM_DELETE_OBJECT:
             // This is a toggle to execute either a legacy code path or a new
             // code path
@@ -3249,7 +3233,6 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
 
-
     leveldb::DB *db;
     leveldb::ReadOptions options;
 
@@ -3367,7 +3350,11 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
                  << " on tier " << cobjs_req->tier;
 
         // copy this object if not garbage, otherwise rm object db entry
-        err = condCopyObjectInternal(obj_id, cobjs_req->tier);
+        if (execNewStubs) {
+            err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier);
+        } else {
+            err = condCopyObjectInternal(obj_id, cobjs_req->tier);
+        }
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;
