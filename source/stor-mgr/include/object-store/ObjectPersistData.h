@@ -7,8 +7,8 @@
 #include <string>
 #include <fds_module.h>
 #include <fds_types.h>
-#include <persistent_layer/dm_io.h>
-#include <persistent_layer/tokFileMgr.h>
+#include <persistent-layer/dm_io.h>
+#include <persistent-layer/tokFileMgr.h>
 #include <object-store/SmDiskMap.h>
 
 namespace fds {

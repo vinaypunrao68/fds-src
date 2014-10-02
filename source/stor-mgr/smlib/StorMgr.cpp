@@ -3233,7 +3233,6 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
 
-
     leveldb::DB *db;
     leveldb::ReadOptions options;
 
@@ -3351,7 +3350,11 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
                  << " on tier " << cobjs_req->tier;
 
         // copy this object if not garbage, otherwise rm object db entry
-        err = condCopyObjectInternal(obj_id, cobjs_req->tier);
+        if (execNewStubs) {
+            err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier);
+        } else {
+            err = condCopyObjectInternal(obj_id, cobjs_req->tier);
+        }
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;
