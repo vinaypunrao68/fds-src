@@ -12,7 +12,7 @@ user_build_dir := \
     kvstore \
     fds-probe \
     hash \
-    persistent_layer \
+    persistent-layer \
     shared \
     orch-mgr \
     util \
@@ -37,7 +37,7 @@ user_no_style  := \
 	NetSessRespSvr.h      \
 	NetSessRespClient.h  \
 	NetSession.h        \
-        fds_counters.h	    \
+    fds_counters.h	    \
 	fds_stopwatch.h     \
 	graphite_client.h   \
 	debughelpers.h      \

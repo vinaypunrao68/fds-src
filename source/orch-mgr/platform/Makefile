@@ -8,8 +8,9 @@ user_incl_dir     := \
 
 user_cpp_flags    :=
 user_cpp          := \
-	om-platform.cpp \
-    om-svc-handler.cpp
+    om-platform.cpp \
+    om-svc-handler.cpp \
+    om-node-workflow.cpp
 
 user_ar_libs      := fds-om-plat
 fds-om-plat       := $(user_cpp)

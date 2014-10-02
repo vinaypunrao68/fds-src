@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fds_assert.h>
-#include <persistent_layer/dm_service.h>
+#include <persistent-layer/dm_service.h>
 
 using namespace std;
 

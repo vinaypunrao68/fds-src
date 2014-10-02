@@ -5,7 +5,7 @@
 #define SOURCE_STOR_MGR_INCLUDE_SMDISKTYPES_H_
 
 #include <fds_types.h>
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 
 namespace fds {
 
