@@ -2,8 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_STOR_HVISOR_STORHVVOLUMES_H_
-#define SOURCE_STOR_HVISOR_STORHVVOLUMES_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_STORHVVOLUMES_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_STORHVVOLUMES_H_
 
 #include <string>
 #include <vector>
@@ -178,6 +178,7 @@ class StorHvVolumeTable : public HasLogger {
     void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
                                  const std::string& vol_name,
                                  Error error);
+
   private:
     /// print volume map, other detailed state to log
     void dump();
@@ -449,7 +450,7 @@ class AttachVolBlobReq : public FdsBlobReq {
 class GetBlobReq: public FdsBlobReq {
   public:
     GetBlobReq(fds_volid_t _volid,
-               const std::string& _blob_name, //same as objKey
+               const std::string& _blob_name,
                fds_uint64_t _blob_offset,
                fds_uint64_t _data_len,
                char* _data_buf,
@@ -490,7 +491,7 @@ class PutBlobReq: public FdsBlobReq {
 
     /// Constructor used on regular putBlob requests.
     PutBlobReq(fds_volid_t _volid,
-               const std::string& _blob_name, //same as objKey
+               const std::string& _blob_name,
                fds_uint64_t _blob_offset,
                fds_uint64_t _data_len,
                char* _data_buf,
@@ -504,7 +505,7 @@ class PutBlobReq: public FdsBlobReq {
 
     /// Constructor used on putBlobOnce requests.
     PutBlobReq(fds_volid_t          _volid,
-               const std::string&   _blob_name, //same as objKey
+               const std::string&   _blob_name,
                fds_uint64_t         _blob_offset,
                fds_uint64_t         _data_len,
                char*                _data_buf,
@@ -762,4 +763,4 @@ class AmQosReq : public FDS_IOType {
 
 }  // namespace fds
 
-#endif  // SOURCE_STOR_HVISOR_STORHVVOLUMES_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_STORHVVOLUMES_H_
