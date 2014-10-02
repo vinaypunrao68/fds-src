@@ -1,7 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-#include <persistent_layer/persistentdata.h>
+#include <persistent-layer/persistentdata.h>
 #include <string>
 #include <stdio.h>
 #include <dirent.h>
@@ -17,7 +17,7 @@
 #include <iostream>
 #include <persistent-layer/dm_io.h>
 #include <fds_process.h>
-#include <persistent_layer/tokFileMgr.h>
+#include <persistent-layer/tokFileMgr.h>
 
 using namespace fds;  // NOLINT
 namespace diskio {

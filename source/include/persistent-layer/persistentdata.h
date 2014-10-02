@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include <set>
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 #include <concurrency/Mutex.h>
 #include <fds_error.h>
 #include <fds_counters.h>

@@ -7,8 +7,8 @@
 #include <string>
 #include <unordered_map>
 #include <fds_types.h>
-#include <persistent_layer/persistentdata.h>
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/persistentdata.h>
+#include <persistent-layer/dm_io.h>
 
 /**
  * Definitions:
