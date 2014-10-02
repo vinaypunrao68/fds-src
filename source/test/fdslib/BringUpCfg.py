@@ -711,12 +711,13 @@ class FdsConfigRun(object):
             self.rt_env.env_user     = usr.get_config_val('user_name')
             self.rt_env.env_password = usr.get_config_val('password')
 
-            # Get sudo password from the commandline if there. If not,
-            # check the config file.
-            if opt.sudo_password is not None:
-                self.rt_env.env_sudo_password = opt.sudo_password
-            elif 'sudo_password' in usr.nd_conf_dict:
-                self.rt_env.env_sudo_password = usr.get_config_val('sudo_password')
+            if self.rt_env.env_test_harness:
+                # Get sudo password from the commandline if there. If not,
+                # check the config file.
+                if opt.sudo_password is not None:
+                    self.rt_env.env_sudo_password = opt.sudo_password
+                elif 'sudo_password' in usr.nd_conf_dict:
+                    self.rt_env.env_sudo_password = usr.get_config_val('sudo_password')
 
         # Setup ssh agent to connect all nodes and find the OM node.
         
