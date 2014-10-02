@@ -7,7 +7,7 @@
 #include <string>
 #include <set>
 
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 #include <object-store/SmTokenPlacement.h>
 
 namespace fds {

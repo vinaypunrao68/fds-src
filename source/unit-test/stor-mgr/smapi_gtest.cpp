@@ -59,6 +59,7 @@ TEST_F(SMApi, put_get)
 
     fpi::SvcUuid svcUuid;
     svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+    ASSERT_NE(svcUuid.svc_uuid, 0);
 
     /* To generate random data between 10 to 100 bytes */
     auto g = boost::make_shared<RandDataGenerator<>>(10, 100);

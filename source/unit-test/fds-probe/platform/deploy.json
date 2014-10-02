@@ -1,0 +1,9 @@
+{
+    "Run-Input": {
+        "node_deploy": {
+            "domain_id": 0,
+            "svc_uuid": "0xabcdef",
+            "work_item": "test"
+        }
+    }
+}

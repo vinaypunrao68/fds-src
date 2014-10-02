@@ -5,9 +5,10 @@ endif
 
 topdir         := .
 
-# List all directories that builds library first before making exe and unit
-# test.
+# List all directories that builds library first before making exe and unit test
 # List one module/line to minimize conflict during merge.
+#
+# Keep this list sychronized with fastbuild.sh
 #
 user_build_dir :=                       \
     fdsp                                \
@@ -18,16 +19,14 @@ user_build_dir :=                       \
     umod-lib                            \
     util                                \
     lib                                 \
+    nginx-driver                        \
     fds-probe                           \
-    am-engine                           \
-    persistent_layer                    \
+    persistent-layer                    \
     platform                            \
-    stor-hvisor                         \
-    orch_mgr                            \
+    orch-mgr                            \
     data-mgr                            \
+    access-mgr                          \
     stor-mgr                            \
-    fds_client                          \
-    am-app                              \
     tools                               \
     testlib                             \
     java                                \

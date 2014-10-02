@@ -19,6 +19,7 @@ if __name__ == "__main__":
     testdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     files_path = os.path.abspath(testdir + "/../source/cit")
 
+    # Run C++ unit tests
     os.chdir(testdir + "/../source/")
     files = open(files_path + "/gtest_ut")
     for rec in files:
@@ -27,3 +28,8 @@ if __name__ == "__main__":
         xml_path='--gtest_output=xml:' + files_path + '/' + bin_name[-1] + '.xml'
         print "Running:", rec, xml_path
         subprocess.call([rec, xml_path])
+
+    # Run Java unit tests
+    os.chdir(testdir + "/../source/java")
+    cmd = ["make", "test"]
+    subprocess.call(cmd)

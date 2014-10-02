@@ -8,7 +8,7 @@ user_build_dir    := tvc tvc-commit-log vol-cat vol-cat-pl
 
 user_incl_dir     := \
     $(local_topdir)/data-mgr/include \
-	$(local_topdir)/am-app/include \
+	$(local_topdir)/access-mgr/include \
     $(local_topdir) \
     $(local_topdir)/lib
 

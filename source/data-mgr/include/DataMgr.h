@@ -29,7 +29,7 @@
 #include <include/qos_ctrl.h>
 #include <unordered_map>
 #include <string>
-#include <persistent_layer/dm_service.h>
+#include <persistent-layer/dm_service.h>
 
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>

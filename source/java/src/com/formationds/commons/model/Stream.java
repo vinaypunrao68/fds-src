@@ -22,8 +22,8 @@ public class Stream
   private URL url;
   private String method;
   private List<String> volumes;
-  private Integer frequency = -1;
-  private Integer duration = -1;
+  private Integer frequency;
+  private Integer duration;
 
   /**
    * default constructor

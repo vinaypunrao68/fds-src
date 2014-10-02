@@ -8,7 +8,7 @@
 #include <set>
 #include <map>
 
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 
 namespace fds {
 

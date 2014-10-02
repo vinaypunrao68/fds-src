@@ -44,7 +44,8 @@ def do_check(top_level):
         # Remove any empty lines
         output = filter(lambda x: len(x) > 0, output)
         # Remove any tracked files
-        output = filter(lambda x: len(x) > 0 and x[:2] != ' M', output)
+        # Following filter may not be sufficient?
+        output = filter(lambda x: len(x) > 0 and '??' in x[:2], output)
         output = set(output)
     else:
         print "No output found from git status!"
@@ -75,7 +76,7 @@ def do_check(top_level):
             result = ''
             while result.lower() != 'y' or result.lower() != 'n':
                 result = raw_input('Do you wish to proceed? [Y/n]: ')
-                if result.lower() == '':
+                if result.lower() == '' or result.lower() == 'y':
                     break
                 if result.lower() == 'n':
                     print "STOPPING git commit!"
@@ -98,6 +99,7 @@ def do_setup(top_level):
         os.path.join(top_level, 'source/tools/commit-check.py')))
     fh.close()
     os.chmod(fname, (stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC))
+    print "Install complete!"
 
 if __name__ == "__main__":
 
@@ -118,6 +120,5 @@ if __name__ == "__main__":
     if args.setup is not None and args.setup == True:
         do_setup(top_level)
     else:
-        print "FIRED!"
         do_check(top_level)
 

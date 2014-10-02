@@ -7,7 +7,7 @@ user_incl_dir     := \
 	$(user_thrift_loc) \
 	$(loc_thrift_gen) \
     $(probe_topdir)/../../net-service/include \
-	$(probe_topdir)/../../am-app/include
+	$(probe_topdir)/../../access-mgr/include
 
 user_cpp_flags    :=
 user_fds_so_libs  :=

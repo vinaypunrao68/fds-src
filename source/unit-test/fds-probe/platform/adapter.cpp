@@ -6,6 +6,8 @@
 #include <fdsp/fds_service_types.h>
 #include <platform/platform-lib.h>
 #include <platform/node-workflow.h>
+#include <platform/net-plat-shared.h>
+#include <net/net-service.h>
 
 namespace fds {
 
@@ -16,8 +18,8 @@ init_async_hdr(fpi::AsyncHdrPtr hdr, fpi::FDSPMsgTypeId id)
     hdr->msg_src_id = 0;
     hdr->msg_code   = 0;
 
-    gl_OmPmUuid.uuid_assign(&hdr->msg_src_uuid);
-    Platform::platf_singleton()->plf_get_my_node_uuid()->uuid_assign(&hdr->msg_dst_uuid);
+    Platform::platf_singleton()->plf_get_my_node_uuid()->uuid_assign(&hdr->msg_src_uuid);
+    hdr->msg_dst_uuid = hdr->msg_src_uuid;
 }
 
 static void
@@ -175,7 +177,7 @@ NodeFunctionalObj::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutpu
     pkt = bo::make_shared<fpi::NodeFunctional>();
     pkt->nd_op_code = fpi::NodeUpgradeTypeId;
 
-    init_async_hdr(hdr, fpi::NodeFuncTypeId);
+    init_async_hdr(hdr, fpi::NodeFunctionalTypeId);
     init_domain_info(in->svc_uuid, in->domain_id, &pkt->nd_uuid, &pkt->nd_dom_id);
 
     NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_functional(hdr, pkt);
@@ -188,8 +190,32 @@ NodeListStepObj::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput 
     std::stringstream    stt;
     node_list_step_in_t *in = node_list_step_in();
 
-    NodeWorkFlow::nd_workflow_sgt()->wrk_dump_steps(&stt);
-    out->js_push_str(stt.str().c_str());
+    if (strcmp(in->op_code, "local") == 0) {
+        NodeWorkFlow::nd_workflow_sgt()->wrk_dump_steps(&stt);
+        out->js_push_str(stt.str().c_str());
+    } else {
+        fpi::DomainID            domain;
+        fpi::SvcUuid             svc;
+        fpi::NodeEvent           ret;
+        fpi::NodeEventPtr        req;
+        DomainAgent::pointer     opm;
+        EpSvcHandle::pointer     eph;
+        bo::shared_ptr<fpi::PlatNetSvcClient> rpc;
+
+        opm = NetPlatform::nplat_singleton()->nplat_master();
+        rpc = opm->node_svc_rpc(&eph);
+        if (rpc != NULL) {
+            req = bo::make_shared<fpi::NodeEvent>();
+            req->nd_dom_id   = domain;
+            req->nd_uuid     = svc;
+            req->nd_evt      = "";
+            req->nd_evt_text = "";
+            rpc->getSvcEvent(ret, req);
+            out->js_push_str(ret.nd_evt_text.c_str());
+        } else {
+            out->js_push_str("Can't establish connection to PM master\n");
+        }
+    }
     return this;
 }
 

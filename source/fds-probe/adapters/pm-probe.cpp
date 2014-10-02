@@ -4,8 +4,8 @@
 #include <iostream>
 #include <string>
 #include <pm_probe.h>
-#include <persistent_layer/dm_io.h>
-#include <persistent_layer/pm_unit_test.h>
+#include <persistent-layer/dm_io.h>
+#include <persistent-layer/pm_unit_test.h>
 
 namespace fds {
 

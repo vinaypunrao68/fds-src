@@ -3,8 +3,8 @@
  */
 #include <unistd.h>
 #include <fds_module.h>
-#include <persistent_layer/dm_io.h>
-#include <persistent_layer/pm_unit_test.h>
+#include <persistent-layer/dm_io.h>
+#include <persistent-layer/pm_unit_test.h>
 #include <concurrency/ThreadPool.h>
 #include <iostream>
 
