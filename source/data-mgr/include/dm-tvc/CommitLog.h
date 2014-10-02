@@ -16,24 +16,6 @@
 #include <blob/BlobTypes.h>
 #include <DmBlobTypes.h>
 
-/*
-#include <unistd.h>
-#include <string.h>
-#include <set>
-
-#include <deque>
-#include <unordered_map>
-#include <atomic>
-#include <list>
-
-#include <serialize.h>
-#include <FdsCrypto.h>
-#include <PerfTypes.h>
-#include <boost/scoped_ptr.hpp>
-#include <DmIoReq.h>
-#include <lib/Catalog.h>
-*/
-
 namespace fds {
 
 // commit log transaction details
