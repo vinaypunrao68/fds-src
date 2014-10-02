@@ -7,6 +7,7 @@
 #include <ObjectId.h>
 #include <fds_process.h>
 #include <PerfTrace.h>
+#include <TokenCompactor.h>
 #include <object-store/ObjectStore.h>
 
 namespace fds {
@@ -304,6 +305,70 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
     } else {
         LOGERROR << "Failed to add association entry for object " << objId
                  << " to object metadata store " << err;
+    }
+
+    return err;
+}
+
+Error
+ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
+                                     diskio::DataTier tier) {
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    Error err(ERR_OK);
+
+    // since object can be associated with multiple volumes, we just
+    // set volume id to invalid. Here is it used only to collect perf
+    // stats and associate them with a volume; in case of GC, all metadata
+    // and disk accesses will be counted against volume 0
+    fds_volid_t unknownVolId = invalid_vol_id;
+
+    // Get metadata from metadata store
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(unknownVolId, objId, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get metadata for object " << objId << " " << err;
+        return err;
+    }
+
+    if (!TokenCompactor::isDataGarbage(*objMeta, tier)) {
+        // this object is valid, copy it to a current token file
+        ObjMetaData::ptr updatedMeta;
+        LOGDEBUG << "Will copy " << objId << " to new file on tier " << tier;
+
+        // first read the object
+        boost::shared_ptr<const std::string> objData
+                = dataStore->getObjectData(unknownVolId, objId, objMeta, err);
+        if (!err.ok()) {
+            LOGERROR << "Failed to get object data " << objId << " for copying "
+                     << "to new file (not garbage collect) " << err;
+            return err;
+        }
+
+        // write to object data store (will automatically write to new file)
+        obj_phy_loc_t objPhyLoc;  // will be set by data store with new location
+        err = dataStore->putObjectData(unknownVolId, objId, tier, objData, objPhyLoc);
+        if (!err.ok()) {
+            LOGERROR << "Failed to write " << objId << " to obj data store "
+                     << ", tier " << tier << " " << err;
+            return err;
+        }
+
+        // Create new object metadata to update physical location
+        updatedMeta.reset(new ObjMetaData(objMeta));
+        // update physical location that we got from data store
+        updatedMeta->updatePhysLocation(&objPhyLoc);
+        // write metadata to metadata store
+        err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
+        if (!err.ok()) {
+            LOGERROR << "Failed to update metadata for obj " << objId;
+        }
+    } else {
+        // not going to copy object to new location
+        LOGNORMAL << "Will garbage-collect " << objId << " on tier " << tier;
+        // remove entry from index db if data + meta is garbage
+        if (TokenCompactor::isGarbage(*objMeta)) {
+            LOGNORMAL << "Removing metadata for " << objId;
+            err = metaStore->removeObjectMetadata(unknownVolId, objId);
+        }
     }
 
     return err;
