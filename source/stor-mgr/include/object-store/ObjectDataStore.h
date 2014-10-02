@@ -9,7 +9,7 @@
 #include <fds_types.h>
 #include <ObjMeta.h>
 #include <object-store/ObjectDataCache.h>
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 #include <SmDiskTypes.h>
 
 namespace fds {

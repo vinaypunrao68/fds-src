@@ -9,7 +9,7 @@
 
 #include <fds_module.h>
 #include <dlt.h>
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 #include <object-store/SmSuperblock.h>
 
 namespace fds {

@@ -4,7 +4,7 @@
 #include <pm_probe.h>
 #include <fds_module.h>
 #include <fds_process.h>
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 #include <iostream>
 
 namespace fds {

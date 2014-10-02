@@ -2,7 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <fds_assert.h>
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 
 namespace diskio {
 

@@ -1,7 +1,7 @@
 probe_topdir      := ..
 local_topdir      := $(probe_topdir)/../..
 user_incl_dir     := \
-    $(local_topdir)/orch_mgr/include \
+    $(local_topdir)/orch-mgr/include \
     $(local_topdir)
 
 user_cpp_flags    :=
