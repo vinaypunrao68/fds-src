@@ -24,7 +24,7 @@ Vagrant.configure("2") do |config|
     config.vm.network :private_network, ip: "172.16.8.10"
 
     config.vm.provision "shell",
-      inline: "if [ ! -e /usr/bin/chef-client ]; then $(curl -L https://www.getchef.com/chef/install.sh | sudo bash); fi"
+      inline: "curl -L https://www.getchef.com/chef/install.sh | sudo bash"
 
 
     config.vm.provision "chef_solo" do |chef|
@@ -34,7 +34,7 @@ Vagrant.configure("2") do |config|
       chef.add_recipe "fds_setup::dev_setup"
     
       # You may also specify custom JSON attributes:
-      chef.json = { mysql_password: "foo" }
+      #chef.json = { mysql_password: "foo" }
     end
 
 
