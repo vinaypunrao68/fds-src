@@ -13,14 +13,15 @@ if sys.version_info[0] < 3:
 else:
     import configparser
 
-import fdslib.BringUpCfg as fdscfg
+import BringUpCfg as fdscfg
 
 def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes=100*1024*1024, rollover_count=5):
     # Set up the core logging engine
-    logging.basicConfig(level=log_level,
-                format='%(asctime)s (%(thread)d) %(name)-24s %(levelname)-8s %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S')
+    #logging.basicConfig(level=log_level,
+    #            format='%(asctime)s (%(thread)d) %(name)-24s %(levelname)-8s %(message)s',
+    #            datefmt='%Y-%m-%d %H:%M:%S')
     log = logging.getLogger(logger_name)
+    log.setLevel(log_level)
     logging.addLevelName(100, "REPORT")
 
     # Set up the log file and log file rotation
@@ -52,7 +53,7 @@ def _setup_logging(logger_name, log_name, dir, log_level, num_threads, max_bytes
             log.warning("Failed to rollover the log file.  The "
                              "results will not be recorded.")
             logging.getLogger("").removeHandler(log_handle)
-    log.log(100, " ".join(sys.argv))
+    #log.log(100, " ".join(sys.argv))
 
     return log
 
@@ -108,9 +109,11 @@ def get_options(pyUnit):
                       default = False, help = 'enable verbosity')
     parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
                       default = False, help = 'dry run, print commands only')
-    parser.add_option('-i', '--install', action = 'store_true', dest = 'install',
+    parser.add_option('-i', '--install', action = 'store_true', dest = 'clus_inst',
                       default = False, help = 'perform an install from an FDS package as opposed '
                                               'to a development environment')
+    parser.add_option('-d', '--sudo-password', action = 'store', dest = 'sudo_password',
+                      help = 'When the node is localhost, use this password for sudo access to the configured user. ')
 
     validate_cli_options(parser, pyUnit)
     return parser
@@ -132,7 +135,7 @@ def validate_cli_options(parser, pyUnit):
     except (ValueError, TypeError):
         pass
 
-def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUnitDryrun = False, pyUnitInstall = False):
+def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUnitDryrun = False, pyUnitInstall = False, pyUnitSudoPw = None):
     """ Configuration can be gathered from one of two sources: 1) a
     configuration .ini file and/or 2) the command line.  Configuration settings
     will first be imported from the file, if the option has been specified.
@@ -154,6 +157,12 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     FDS: With pyUnit = True, we understand that we are being called in support
     of a test being run with Python's unittest module infrastructure.
     """
+
+    # In the event we try to log messages before we've set up logging...
+    logging.basicConfig(level=logging.ERROR,
+                format='%(asctime)s (%(thread)d) %(name)-24s %(levelname)-8s %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S')
+
     # Initialize variables.
     # Import all options passed in at the command line.
     params = {}
@@ -258,6 +267,8 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
         except (TypeError, KeyError):
             params["log_level"] = logging.DEBUG
 
+    logging.getLogger().setLevel(params["log_level"])
+
     # The test directory, i.e. the place where the test
     # code may be found, must be specified.
     if not pyUnit:
@@ -283,16 +294,19 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
                   ".ini file.")
         sys.exit(1)
 
-    # FDS: Check the verbose and dryrun flags in case we are running from PyUnit
+    # FDS: Check the passed options in case we are running from PyUnit
     if params["verbose"] == False:
         params["verbose"] = pyUnitVerbose
         setattr(options, "verbose", params["verbose"])
     if params["dryrun"] == False:
         params["dryrun"] = pyUnitDryrun
         setattr(options, "dryrun", params["dryrun"])
-    if params["install"] == False:
-        params["install"] = pyUnitInstall
-        setattr(options, "install", params["install"])
+    if params["clus_inst"] == False:
+        params["clus_inst"] = pyUnitInstall
+        setattr(options, "clus_inst", params["clus_inst"])
+    if params["sudo_password"] is None:
+        params["sudo_password"] = pyUnitSudoPw
+        setattr(options, "sudo_password", params["sudo_password"])
 
     global run_as_root
     if params["run_as_root"] == True:
@@ -323,7 +337,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     # The first parameter to FdsConfigRun is an FdsEnv which will be determined
     # once we have the FDS root directory right.
     setattr(options, "fds_root", '.')
-    params["fdscfg"] = fdscfg.FdsConfigRun(None, options)
+    params["fdscfg"] = fdscfg.FdsConfigRun(None, options, test_harness=True)
 
     # FDS: Now record whether we are being run by PyUnit.
     params["pyUnit"] = pyUnit
