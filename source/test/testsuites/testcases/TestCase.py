@@ -20,6 +20,7 @@ pyUnitConfig = None
 pyUnitVerbose = False
 pyUnitDryrun = False
 pyUnitInstall = False
+pyUnitSudoPw = None
 
 # This global is ued to indicate whether we've already
 # set up the logging facilities during a PyUnit run.
@@ -57,7 +58,7 @@ def setUpModule():
                 pyUnitConfig = sys.argv[qaautotestini+1]
                 print("Teased out qaautotest.ini as %s." % pyUnitConfig)
 
-        _parameters = TestUtils.get_config(True, pyUnitConfig, pyUnitVerbose, pyUnitDryrun, pyUnitInstall)
+        _parameters = TestUtils.get_config(True, pyUnitConfig, pyUnitVerbose, pyUnitDryrun, pyUnitInstall, pyUnitSudoPw)
 
         # Set up logging. We wait to do it here after we've parsed
         # the qaautotest.ini file (also used for PyUnit runs)
@@ -67,6 +68,22 @@ def setUpModule():
             log = TestUtils._setup_logging(__name__, "PyUnit.log",
                                            _parameters["log_dir"], _parameters["log_level"],
                                            _parameters["threads"])
+
+            # Log a few useful things to know about this run.
+            log.info("QAAutoTest harness .ini (-q|--qat-file): %s." % _parameters["config"])
+            log.info("Source of QAAutoTest harness test cases (-s|--src_dir or .ini config 'test_source_dir'): %s." %
+                    _parameters["test_source_dir"])
+            log.info("Build under test (-b|--build or .ini config 'build'): %s." % _parameters["build"])
+            log.info("Test log directory (-l|--log-dir or .ini config 'log_dir'): %s." % _parameters["log_dir"])
+            log.info("Test log level (--level or .ini config 'log_level'): %d." % _parameters["log_level"])
+            log.info("Test threads (--threads or .ini config 'threads'): %d." % _parameters["threads"])
+            log.info("Test iterations (---iterations or .ini config 'iterations'): %d." % _parameters["iterations"])
+            log.info("Stop on fail (--stop-on-fail or .ini config 'stop_on_fail'): %s." % _parameters["stop_on_fail"])
+            log.info("Run as root (--run-as-root or .ini config 'run_as_root'): %s." % _parameters["run_as_root"])
+            log.info("Verbose logging (-v|--verbose or .ini config 'verbose'): %s." % _parameters["verbose"])
+            log.info("'Dry run' test (-r|--dryrun or .ini config 'dryrun'): %s." % _parameters["dryrun"])
+            log.info("Install from release package (-i|--install or .ini config 'install'): %s." % _parameters["clus_inst"])
+            log.info("FDS config file (.ini config 'fds_config_file'): %s." % _parameters["fds_config_file"])
 
 
 class FDSTestCase(unittest.TestCase):
@@ -82,10 +99,6 @@ class FDSTestCase(unittest.TestCase):
         To consolidate logic, we'll let method setUp() handle it.
         """
         super(FDSTestCase, self).__init__()
-
-        # TODO(Greg): PyUnit seems to call this method at unexpected times.
-        #if not isinstance(parameters, dict):
-        #    parameters = None
 
         self.setUp(parameters)
 
@@ -106,23 +119,6 @@ class FDSTestCase(unittest.TestCase):
             self.parameters = parameters  # Passed in from the harness
 
         self.log = logging.getLogger(self.__class__.__name__)
-
-        # TODO(Greg): PyUnit seems to call this method at unexpected times.
-        ## Log a few useful things to know about this run.
-        #self.log.info("QAAutoTest harness .ini (-q|--qat-file): %s." % parameters["config"])
-        #self.log.info("Source of QAAutoTest harness test cases (-s|--src_dir or .ini config 'test_source_dir'): %s." %
-        #              parameters["test_source_dir"])
-        #self.log.info("Build under test (-b|--build or .ini config 'build'): %s." % parameters["build"])
-        #self.log.info("Test log directory (-l|--log-dir or .ini config 'log_dir'): %s." % parameters["log_dir"])
-        #self.log.info("Test log level (--level or .ini config 'log_level'): %d." % parameters["log_level"])
-        #self.log.info("Test threads (--threads or .ini config 'threads'): %d." % parameters["threads"])
-        #self.log.info("Test iterations (---iterations or .ini config 'iterations'): %d." % parameters["iterations"])
-        #self.log.info("Stop on fail (--stop-on-fail or .ini config 'stop_on_fail'): %s." % parameters["stop_on_fail"])
-        #self.log.info("Run as root (--run-as-root or .ini config 'run_as_root'): %s." % parameters["run_as_root"])
-        #self.log.info("Verbose logging (-v|--verbose or .ini config 'verbose'): %s." % parameters["verbose"])
-        #self.log.info("'Dry run' test (-r|--dryrun or .ini config 'dryrun'): %s." % parameters["dryrun"])
-        #self.log.info("Install from release package (-i|--install or .ini config 'install'): %s." % parameters["install"])
-        #self.log.info("FDS config file (.ini config 'fds_config_file'): %s." % parameters["fds_config_file"])
 
 
     def tearDown(self):
@@ -178,21 +174,23 @@ class FDSTestCase(unittest.TestCase):
         global pyUnitVerbose
         global pyUnitDryrun
         global pyUnitInstall
+        global pyUnitSudoPw
+
+        log_dir = None
 
         # We must have the -i option but that will be checked later.
-        options, args = getopt.getopt(_argv[1:], 'q:vri', ['qat_file', 'verbose', 'dryrun' 'install'])
+        options, args = getopt.getopt(_argv[1:], 'q:l:d:vri', ['qat-file', 'log-dir', 'sudo-password', 'verbose', 'dryrun' 'install'])
 
         idx = 1
         for opt, value in options:
-            if opt in ('-q','--qat_file'):
+            if opt in ('-q','--qat-file'):
                 pyUnitConfig = value
                 # Remove this option and its argument from argv so as not to confuse PyUnit.
                 _argv.pop(idx)
                 _argv.pop(idx)
             elif opt in ('-v','--verbose'):
                 pyUnitVerbose = True
-                # Remove this option from argv so as not to confuse PyUnit.
-                #_argv.pop(idx)  Actually, PyUnit has a --verbose option, so maybe we don't want to remove it.
+                # PyUnit has a --verbose option, so we don't want to remove it.
             elif opt in ('-r','--dryrun'):
                 pyUnitDryrun = True
                 # Remove this option from argv so as not to confuse PyUnit.
@@ -201,6 +199,15 @@ class FDSTestCase(unittest.TestCase):
                 pyUnitInstall = True
                 # Remove this option from argv so as not to confuse PyUnit.
                 _argv.pop(idx)
+            elif opt in ('-l','--log-dir'):
+                log_dir = value
+                # Leave this argument to be used by subsequent config setup.
+            elif opt in ('-d','--sudo-password'):
+                pyUnitSudoPw = value
+                # Remove this option and its argument from argv so as not to confuse PyUnit.
+                _argv.pop(idx)
+                _argv.pop(idx)
             else:
                 idx += 1
 
+        return log_dir

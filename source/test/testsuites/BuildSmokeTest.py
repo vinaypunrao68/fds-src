@@ -33,6 +33,7 @@ def suiteConstruction():
     #suite.addTest(testcases.TestFDSModMgt.TestDMShutDown())
     #suite.addTest(testcases.TestFDSModMgt.TestOMShutDown())
     #suite.addTest(testcases.TestFDSModMgt.TestPMShutDown())
+    
     suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
 
     # Cleanup FDS installation directory.
@@ -43,11 +44,15 @@ def suiteConstruction():
 if __name__ == '__main__':
 
     # Handle FDS specific commandline arguments.
-    testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
+    log_dir = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
+
+    # If a test log directory was not supplied on the command line (with option "-l"),
+    # then default it.
+    if log_dir is None:
+        log_dir = 'test-reports'
 
     # Get a test runner that will output an xUnit XML report for Jenkins
-    # TODO(Andrew): Get this report path from testcases module?
-    runner = xmlrunner.XMLTestRunner(output='../../cit/')
+    runner = xmlrunner.XMLTestRunner(output=log_dir)
 
     test_suite = suiteConstruction()
 

@@ -50,11 +50,11 @@ class basic_cluster:
 
             for proc in process_list:
                 if proc in all_nodes_process_list or is_am_node:
-                    (status, pid) = node.nd_rmt_agent.ssh_exec ('pgrep -o -f %s' % (proc), wait_compl = True, return_stdin = True)
+                    (status, pid) = node.nd_agent.ssh_exec ('pgrep -o -f %s' % (proc), wait_compl = True, return_stdin = True)
                     if 0 == status:             # Successful ssh and pgrep
                         if not monitor:
                             if verbose:
-                                (status, vals) = node.nd_rmt_agent.ssh_exec ('ps --pid %s -o %s | tail -1' % (pid, process_status_field_list), wait_compl = True, return_stdin = True)
+                                (status, vals) = node.nd_agent.ssh_exec ('ps --pid %s -o %s | tail -1' % (pid, process_status_field_list), wait_compl = True, return_stdin = True)
                                 arr = vals.split()
                                 print process_status_output_format % (proc, arr[0], arr[1], float (arr[2]), float (arr[3]), int (arr[4]), arr[5], arr[6], arr[7])
                             else:
