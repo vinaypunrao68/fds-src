@@ -1,0 +1,43 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+
+  config.vm.define :fds_dev do |config|
+
+    # Every Vagrant virtual environment requires a box to build off of.
+    config.vm.box = "ubuntu/trusty64"
+
+    # Configure some virutalbox specific settings
+    config.vm.provider "virtualbox" do |v|
+      v.gui = false
+      v.customize ["modifyvm", :id, "--memory", 8192]
+      v.customize ["modifyvm", :id, "--cpus", 4]
+      v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+    end
+
+    # Set the hostname
+    config.vm.hostname = "fds-dev"
+
+    # Use bridged mode networking
+    config.vm.network :private_network, ip: "172.16.8.10"
+
+    config.vm.provision "shell",
+      inline: "if [ ! -e /usr/bin/chef-client ]; then $(curl -L https://www.getchef.com/chef/install.sh | sudo bash); fi"
+
+
+    config.vm.provision "chef_solo" do |chef|
+      chef.cookbooks_path = [ "../../cookbooks", "../../site-cookbooks" ]
+      chef.roles_path = "../../roles"
+      chef.data_bags_path = "../../data_bags"
+      chef.add_recipe "fds_setup::dev_setup"
+    
+      # You may also specify custom JSON attributes:
+      chef.json = { mysql_password: "foo" }
+    end
+
+
+  end
+
+end
