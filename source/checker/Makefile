@@ -9,12 +9,14 @@ user_incl_dir     := \
 	$(topdir)/stor-mgr/include \
 	$(topdir)/stor-mgr/migrations \
     $(topdir)/access-mgr/include \
-	$(topdir)/lib
+	$(topdir)/lib \
+    $(topdir)/am-app/include \
+	$(topdir)/lib \
+	$(topdir)/unit-test/stor-mgr
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
-    fds-smlib\
     fds-migrations\
     fds-am-engine \
     fds-am-plat \
@@ -22,7 +24,8 @@ user_fds_ar_libs  := \
     fds-dsk-io \
     fds-odb \
     fds-vpolicy \
-    fds-xdi
+    fds-smlib\
+    fds-xdi 
 
 user_non_fds_libs := \
     boost_timer \
@@ -31,10 +34,10 @@ user_non_fds_libs := \
     cryptopp \
     leveldb
 
-user_cpp          := checker.cpp dm_checker.cpp
-
-user_bin_exe      := checker dm_checker
+user_cpp          := checker.cpp dm_checker.cpp smchk.cpp
+user_bin_exe      := checker dm_checker smchk
 checker		  := checker.cpp
 dm_checker    := dm_checker.cpp
+smchk         := smchk.cpp
 
 include $(topdir)/Makefile.incl
