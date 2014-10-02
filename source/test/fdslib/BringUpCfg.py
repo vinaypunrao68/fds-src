@@ -165,7 +165,7 @@ class FdsNodeConfig(FdsConfig):
             if test_harness:
                 cur_dir = os.getcwd()
                 os.chdir(bin_dir)
-                status = self.nd_agent.exec_wait('sh -c \"(nohup ./orchMgr --fds-root=%s > %s/om.out 2>&1 &) \"' %
+                status = self.nd_agent.exec_wait('bash -c \"(nohup ./orchMgr --fds-root=%s > %s/om.out 2>&1 &) \"' %
                                                  (fds_dir, log_dir if self.nd_agent.env_install else "."))
                 os.chdir(cur_dir)
             else:
@@ -209,7 +209,8 @@ class FdsNodeConfig(FdsConfig):
         # When running from the test harness, we want to wait for results
         # but not assume we are running from an FDS package install.
         if test_harness:
-            status = self.nd_agent.exec_wait('sh -c \"(nohup %s/platformd ' % bin_dir + port_arg +
+#            status = self.nd_agent.exec_wait('bash -c \"(nohup %s/platformd ' % bin_dir + port_arg +
+            status = self.nd_agent.exec_wait('bash -c \"(nohup %s/platformd ' % bin_dir +
                                              ' > %s/pm.out 2>&1 &) \"' % log_dir)
         else:
             status = self.nd_agent.exec_fds('platformd ' + port_arg +

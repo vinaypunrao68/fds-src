@@ -63,7 +63,7 @@ class TestNodeActivate(TestCase.FDSTestCase):
 
             cur_dir = os.getcwd()
             os.chdir(bin_dir)
-            status = n.nd_agent.exec_wait('sh -c \"(nohup ./fdscli --fds-root %s --activate-nodes abc -k 1 -e am,dm,sm > '
+            status = n.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s --activate-nodes abc -k 1 -e am,dm,sm > '
                                           '%s/cli.out 2>&1 &) \"' %
                                           (fds_dir, log_dir if n.nd_agent.env_install else "."))
             os.chdir(cur_dir)

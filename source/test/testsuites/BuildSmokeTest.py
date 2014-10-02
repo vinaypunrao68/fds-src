@@ -34,10 +34,10 @@ def suiteConstruction():
     #suite.addTest(testcases.TestFDSModMgt.TestOMShutDown())
     #suite.addTest(testcases.TestFDSModMgt.TestPMShutDown())
     
-    #suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
+    suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
 
     # Cleanup FDS installation directory.
-    #suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
+    suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
 
     return suite
 
