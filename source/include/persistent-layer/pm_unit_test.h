@@ -5,7 +5,7 @@
 #define SOURCE_INCLUDE_PERSISTENT_LAYER_PM_UNIT_TEST_H_
 
 #include <concurrency/ThreadPool.h>
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 
 namespace fds {
 

@@ -5,13 +5,18 @@ user_build_dir    := object-store
 
 # TODO: avoid include across components, put in include dir instead.
 #
-user_incl_dir     := $(topdir) ../include $(topdir)/stor-mgr/migrations $(topdir)/lib $(topdir)/persistent_layer/include
+user_incl_dir     := \
+    $(topdir) \
+	../include \
+	$(topdir)/stor-mgr/migrations \
+	$(topdir)/lib \
+	$(topdir)/persistent-layer/include
 
 user_cpp_flags    := -DOBJCACHE_ENABLE
 user_cpp          :=                   \
     StorMgr.cpp                        \
     StorMgrVolumes.cpp                 \
-    SmIo.cpp			       \
+    SmIo.cpp			               \
     ObjRank.cpp                        \
     ObjStats.cpp                       \
     TierEngine.cpp                     \

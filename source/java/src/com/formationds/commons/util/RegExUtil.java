@@ -12,8 +12,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * @author $Author: ptinius $
- * @version $Revision: #3 $ $DateTime: 2014/01/03 12:24:01 $
+ * @author ptinius
  */
 public class RegExUtil
 {

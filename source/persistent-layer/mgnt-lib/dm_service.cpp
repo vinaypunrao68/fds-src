@@ -1,7 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-#include <persistent_layer/dm_service.h>
+#include <persistent-layer/dm_service.h>
 
 namespace fds {
 

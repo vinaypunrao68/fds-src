@@ -3,7 +3,7 @@
  */
 #include <sm_probe.h>
 #include <fds_module.h>
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 #include <iostream>
 
 // This is the example of stand-alone SM unit test if SM code were structured
