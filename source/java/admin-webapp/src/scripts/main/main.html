@@ -17,14 +17,14 @@
                     <label class="login-field-icon fui-mail"></span>
                 </div>
 -->
-                <fui-input name="username" placeholder="{{ 'common.username' | translate }}" ng-model="username" icon-class="fui-mail"></fui-input>
+                <fui-input name="username" placeholder="{{ 'common.username' | translate }}" ng-model="username" icon-class="fui-mail" ng-keyup="keyEntered( $event )"></fui-input>
 <!--
                 <div class="form-group">
                     <input type="password" class="form-control" name="password" autocomplete="off" ng-model="password" placeholder="Password" ng-keyup="keyEntered( $event );">
                     <span class="input-icon fui-lock"></span>
                 </div>
 -->
-                <fui-input name="password" placeholder="{{ 'common.password' | translate }}" type="password" ng-model="password" icon-class="fui-lock"></fui-input>
+                <fui-input name="password" placeholder="{{ 'common.password' | translate }}" type="password" ng-model="password" icon-class="fui-lock" ng-keyup="keyEntered( $event )"></fui-input>
                 <div class="checkbox-parent">
                     <fui-checkbox label="{{ 'login.remember_me' | translate }}" checked="rememberChecked"></fui-checkbox>
                 </div>
