@@ -8,7 +8,9 @@
 
 namespace fds {
 
-NodeWorkFlow                gl_NodeWorkFlow;
+static NodeWorkFlow         sgt_GenNodeWorkFlow;
+NodeWorkFlow               *gl_NodeWorkFlow = &sgt_GenNodeWorkFlow;
+
 static const state_switch_t sgl_node_wrk_flow[] =
 {
     /* Current State            | Message Input           | Next State              */
@@ -576,12 +578,7 @@ static StateEntry const *const  sgt_node_wrk_flow[] =
 };
 
 NodeWorkFlow::~NodeWorkFlow() {}
-NodeWorkFlow::NodeWorkFlow() : Module("Node Work Flow")
-{
-    wrk_fsm = new FsmTable(FDS_ARRAY_ELEM(sgt_node_wrk_flow), sgt_node_wrk_flow);
-    wrk_fsm->st_set_switch_board(sgl_node_wrk_flow, FDS_ARRAY_ELEM(sgl_node_wrk_flow));
-    gl_OmPmUuid.uuid_assign(&wrk_om_dest);
-}
+NodeWorkFlow::NodeWorkFlow() : Module("Node Work Flow") {}
 
 /**
  * wrk_item_create
@@ -632,6 +629,10 @@ int
 NodeWorkFlow::mod_init(const SysParams *arg)
 {
     Platform *plat = Platform::platf_singleton();
+
+    wrk_fsm = new FsmTable(FDS_ARRAY_ELEM(sgt_node_wrk_flow), sgt_node_wrk_flow);
+    wrk_fsm->st_set_switch_board(sgl_node_wrk_flow, FDS_ARRAY_ELEM(sgl_node_wrk_flow));
+    gl_OmPmUuid.uuid_assign(&wrk_om_dest);
 
     wrk_clus = plat->plf_cluster_map();
     wrk_inv  = plat->plf_node_inventory();

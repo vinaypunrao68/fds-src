@@ -10,30 +10,6 @@
 #include <fds_process.h>
 #include <dm-tvc/CommitLog.h>
 
-/*
-#include <libgen.h>
-
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <errno.h>
-#include <stdint.h>
-
-#include <system_error>
-#include <limits>
-#include <deque>
-#include <set>
-#include <list>
-
-#include <fds_module.h>
-#include <serialize.h>
-#include <DataMgr.h>
-
-#include <PerfTrace.h>
-*/
-
 namespace fds {
 
 template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,

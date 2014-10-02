@@ -18,11 +18,11 @@ user_build_dir :=                       \
     umod-lib                            \
     util                                \
     lib                                 \
+    nginx-driver                        \
     fds-probe                           \
-    am-engine                           \
-    persistent_layer                    \
+    persistent-layer                    \
     platform                            \
-    orch_mgr                            \
+    orch-mgr                            \
     data-mgr                            \
     access-mgr                          \
     stor-mgr                            \

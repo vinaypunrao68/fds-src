@@ -7,6 +7,7 @@
 #include <string>
 #include <algorithm>
 #include <boost/shared_ptr.hpp>
+#include <boost/make_shared.hpp>
 
 namespace fds {
 
@@ -63,7 +64,7 @@ struct RandDataGenerator : DataGenIf
     }
     virtual StringPtr nextItem() override
     {
-        size_t sz = (rand() % (max_ - min_)) + min_;  // NOLINT
+        size_t sz = (rand() % ((max_ - min_)+1)) + min_;  // NOLINT
         return randDataF_(sz);
     }
  protected:
