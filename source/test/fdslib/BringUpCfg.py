@@ -169,7 +169,7 @@ class FdsNodeConfig(FdsConfig):
                                                  (fds_dir, log_dir if self.nd_agent.env_install else "."))
                 os.chdir(cur_dir)
             else:
-                status = self.nd_agent.exec_fds(
+                status = self.nd_agent.ssh_exec_fds(
                     "orchMgr --fds-root=%s > %s/om.out" % (fds_dir, log_dir))
 
             time.sleep(2)
@@ -213,7 +213,7 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_agent.exec_wait('bash -c \"(nohup %s/platformd ' % bin_dir +
                                              ' > %s/pm.out 2>&1 &) \"' % log_dir)
         else:
-            status = self.nd_agent.exec_fds('platformd ' + port_arg +
+            status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
                                             ' > %s/pm.out' % log_dir)
         time.sleep(4)
 
