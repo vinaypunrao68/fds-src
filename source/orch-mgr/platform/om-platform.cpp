@@ -105,19 +105,24 @@ void
 OmPlatform::mod_startup()
 {
     int base_port;
+    NetPlatform *net;
 
     Platform::mod_startup();
     om_plugin = new OMEpPlugin(this);
 
     om_ctrl_rcv = bo::shared_ptr<OmSvcHandler>(new OmSvcHandler());
     base_port   = plf_get_om_svc_port();
-    om_ctrl_ep  = new OmControlEp(2 + plf_get_my_ctrl_port(base_port),
+    om_ctrl_ep  = new OmControlEp(plf_get_my_data_port(base_port),
                                   gl_OmUuid, NodeUuid(0ULL),
                                   bo::shared_ptr<fpi::BaseAsyncSvcProcessor>(
                                       new fpi::BaseAsyncSvcProcessor(om_ctrl_rcv)),
-                                  om_plugin, 2 + plf_get_my_ctrl_port(base_port));
+                                  om_plugin, 0, NET_SVC_DATA);
+
+    net = NetPlatform::nplat_singleton();
+    net->nplat_set_my_ep(om_ctrl_ep);
+
     LOGNORMAL << "om ctrl using port " << base_port << " ctrl port "
-        << plf_get_my_ctrl_port(base_port);
+        << plf_get_my_data_port(base_port);
 }
 
 // mod_enable_service

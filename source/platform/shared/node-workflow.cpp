@@ -632,7 +632,7 @@ NodeWorkFlow::mod_init(const SysParams *arg)
 
     wrk_fsm = new FsmTable(FDS_ARRAY_ELEM(sgt_node_wrk_flow), sgt_node_wrk_flow);
     wrk_fsm->st_set_switch_board(sgl_node_wrk_flow, FDS_ARRAY_ELEM(sgl_node_wrk_flow));
-    gl_OmPmUuid.uuid_assign(&wrk_om_dest);
+    gl_OmUuid.uuid_assign(&wrk_om_dest);
 
     wrk_clus = plat->plf_cluster_map();
     wrk_inv  = plat->plf_node_inventory();
@@ -690,12 +690,13 @@ NodeWorkFlow::wrk_item_frm_uuid(fpi::DomainID &did, fpi::SvcUuid &svc, bool inv)
     if (na == NULL) {
         return NULL;
     }
+    /* Fixme(Vy): cleanup OM class hierachy to use PmAgent. */
     pm = agt_cast_ptr<PmAgent>(na);
-    if (pm->pm_wrk_item == NULL) {
+    if (na->pm_wrk_item == NULL) {
         wrk_item_create(svc, pm, wrk_inv);
     }
-    fds_assert(pm->pm_wrk_item != NULL);
-    return pm->pm_wrk_item;
+    fds_assert(na->pm_wrk_item != NULL);
+    return na->pm_wrk_item;
 }
 
 /**

@@ -19,6 +19,29 @@ namespace fds {
 typedef std::set<fds_token_id> SmTokenSet;
 typedef std::map<fds_uint16_t, SmTokenSet> DiskSmTokenMap;
 
+/* Plain Old Data definition of the SmTokenPlacementMap.
+ * When persisting data on stable storage, we want to keep the data in a
+ * raw format.
+ *
+ */
+#define DISK_MAP_TABLE_SECTOR_SIZE    (512)
+
+const uint8_t DiskMapTablePoison = 0xff;
+
+struct DiskMapTable {
+    DiskMapTable() {
+        memset(this, DiskMapTablePoison, sizeof(*this));
+    };
+
+    ~DiskMapTable() {
+    };
+
+    fds_uint16_t table[SM_TIER_COUNT][SMTOKEN_COUNT];
+} __attribute__((aligned(DISK_MAP_TABLE_SECTOR_SIZE)));
+
+static_assert((sizeof(struct DiskMapTable) % DISK_MAP_TABLE_SECTOR_SIZE) == 0,
+              "size of the struct OLTTable should be multiple of 512 bytes");
+
 /**
  * Object location table that maps SM token id to disk id on
  * HDD and SSD tier. SM token can reside on HDD, SSD or both
@@ -69,6 +92,7 @@ class ObjectLocationTable: public serialize::Serializable {
     // SM token to disk ID table
     // row 0 : disk ID of HDDs
     // row 1 : disk ID of SSD
+    // TODO(Sean): Should replace this with struct DiskMapTable
     fds_uint16_t table[SM_TIER_COUNT][SMTOKEN_COUNT];
 
     /// cached reverse map from disk id to tokens
