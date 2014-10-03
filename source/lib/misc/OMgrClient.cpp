@@ -973,6 +973,11 @@ OMgrClient::getMigClient(fds_uint64_t node_id) {
     return clustMap->getMigClient(node_id);
 }
 
+DMTManagerPtr
+OMgrClient::getDmtManager() {
+    return dmtMgr;
+}
+
 DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(const ObjectID &objId) {
  return dltMgr.getDLT()->getNodes(objId);
 

@@ -277,8 +277,10 @@ class CommitBlobTxReq : public FdsBlobReq {
 
 class StartBlobTxReq : public FdsBlobReq {
   public:
-    std::string volumeName;
-    fds_int32_t blobMode;
+    std::string  volumeName;
+    fds_int32_t  blobMode;
+    BlobTxId     txId;
+    fds_uint64_t dmtVersion;
 
     /**
      * Request constructor. Some of the fields

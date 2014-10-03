@@ -170,12 +170,17 @@ StorHvCtrl::StorHvCtrl(int argc,
     // and make AM extend from platform process
     randNumGen = RandNumGenerator::ptr(new RandNumGenerator(RandNumGenerator::getRandSeed()));
 
-    // Init the dispatcher layer
-    amDispatcher = AmDispatcher::unique_ptr(new AmDispatcher("AM Dispatcher Module"));
     // Init the AM transaction manager
-    amTxMgr = AmTxManager::unique_ptr(new AmTxManager("AM Transaction Manager Module"));
+    amTxMgr = AmTxManager::shared_ptr(new AmTxManager("AM Transaction Manager Module"));
     // Init the AM cache manager
     amCache = AmCache::unique_ptr(new AmCache("AM Cache Manager Module"));
+
+    // Init the dispatcher layer
+    amDispatcher = AmDispatcher::unique_ptr(
+        new AmDispatcher("AM Dispatcher Module", om_client->getDmtManager()));
+    // Init the processor layer
+    amProcessor = AmProcessor::unique_ptr(
+        new AmProcessor("AM Processor Module", amTxMgr));
 
     /* TODO: for now StorHvVolumeTable constructor will create
      * volume 1, revisit this soon when we add multi-volume support

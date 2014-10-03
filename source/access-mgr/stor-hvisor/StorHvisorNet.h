@@ -37,6 +37,7 @@
 #include <am-tx-mgr.h>
 #include <AmCache.h>
 #include <AmDispatcher.h>
+#include <AmProcessor.h>
 
 #include <map>
 // #include "util/concurrency/Thread.h"
@@ -239,8 +240,13 @@ public:
     /// Dispatcher layer module
     AmDispatcher::unique_ptr amDispatcher;
 
+    /// Processor layer module
+    AmProcessor::unique_ptr amProcessor;
+
     RandNumGenerator::ptr randNumGen;
-    AmTxManager::unique_ptr amTxMgr;
+    // TODO(Andrew): Move this to a unique_ptr and only into
+    // AmProcessor once that's ready
+    AmTxManager::shared_ptr amTxMgr;
     AmCache::unique_ptr amCache;
 
     Error sendTestBucketToOM(const std::string& bucket_name,
