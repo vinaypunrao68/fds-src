@@ -552,7 +552,7 @@ std::ostream& operator<< (std::ostream &os, const NodeServices& node) {
 NodeAgent::~NodeAgent() {}
 NodeAgent::NodeAgent(const NodeUuid &uuid)
     : NodeInventory(uuid), nd_eph(NULL),
-      nd_ctrl_eph(NULL), nd_svc_rpc(NULL), nd_ctrl_rpc(NULL) {}
+      nd_ctrl_eph(NULL), nd_svc_rpc(NULL), nd_ctrl_rpc(NULL), pm_wrk_item(NULL) {}
 
 // node_stor_weight
 // ----------------
@@ -689,7 +689,7 @@ NodeAgent::node_ctrl_rpc(EpSvcHandle::pointer *handle)
 // ---------
 //
 boost::shared_ptr<fpi::PlatNetSvcClient>
-NodeAgent::node_svc_rpc(EpSvcHandle::pointer *handle)
+NodeAgent::node_svc_rpc(EpSvcHandle::pointer *handle, int maj, int min)
 {
     NetMgr              *net;
     fpi::SvcUuid         peer;
@@ -700,7 +700,7 @@ NodeAgent::node_svc_rpc(EpSvcHandle::pointer *handle)
     }
     peer.svc_uuid = rs_uuid.uuid_get_val();
     net = NetMgr::ep_mgr_singleton();
-    eph = net->svc_get_handle<fpi::PlatNetSvcClient>(peer, 0, 0);
+    eph = net->svc_get_handle<fpi::PlatNetSvcClient>(peer, maj, min);
 
     /* TODO(Vy): wire up the common event plugin to handle error. */
     if (eph != NULL) {
@@ -764,7 +764,7 @@ NodeAgent::agent_svc_fillin(fpi::NodeSvcInfo    *out,
 // PM Agent
 // --------------------------------------------------------------------------------------
 PmAgent::~PmAgent() {}
-PmAgent::PmAgent(const NodeUuid &uuid) : NodeAgent(uuid), pm_wrk_item(NULL)
+PmAgent::PmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
 {
     pm_ep_svc = Platform::platf_singleton()->plat_new_pm_svc(this, 0, 0);
     NetMgr::ep_mgr_singleton()->ep_register(pm_ep_svc, false);

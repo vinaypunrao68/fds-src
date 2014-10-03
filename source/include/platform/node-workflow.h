@@ -131,7 +131,7 @@ class NodeWorkItem : public StateObj
 
     bool wrk_is_in_om();
     inline static bool wrk_is_om_uuid(fpi::SvcUuid &svc) {
-        return gl_OmPmUuid == svc;
+        return gl_OmUuid == svc;
     }
 
     /*
