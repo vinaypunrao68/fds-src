@@ -24,6 +24,7 @@ angular.module( 'user-page' ).controller( 'userController', ['$scope', '$user_se
     
     $scope.$on( 'fds::user_done_editing', function(){
         $scope.creating = false;
+        $user_service.getUsers( $scope.usersReturned );
     });
 
 }]);
