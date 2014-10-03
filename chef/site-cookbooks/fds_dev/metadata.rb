@@ -1,0 +1,10 @@
+name             'fds_dev'
+maintainer       'The Authors'
+maintainer_email 'you@example.com'
+license          'all_rights'
+description      'Installs/Configures fds_dev'
+long_description 'Installs/Configures fds_dev'
+version          '0.1.0'
+
+depends 'apt'
+depends 'java'
