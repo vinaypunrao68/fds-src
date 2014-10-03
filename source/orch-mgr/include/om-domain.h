@@ -8,6 +8,9 @@
 
 namespace fds {
 
+class OM_NodeWrkFlow;
+extern OM_NodeWrkFlow        gl_OmNodeWorkMod;
+
 class OM_NodeWrkFlow : public Module
 {
   public:

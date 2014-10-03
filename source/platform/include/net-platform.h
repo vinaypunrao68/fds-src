@@ -147,7 +147,6 @@ class PlatformEpHandler : public PlatNetSvcHandler
                         bo::shared_ptr<fpi::NodeInfoMsg> &info,
                         bo::shared_ptr<bool>             &bcast);
     void getDomainNodes(fpi::DomainNodes &ret, fpi::DomainNodesPtr &req);
-    void getSvcEvent(fpi::NodeEvent &ret, fpi::NodeEventPtr &in);
 
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
@@ -156,15 +155,6 @@ class PlatformEpHandler : public PlatNetSvcHandler
     virtual void
     NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                     boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg);
-
-    virtual void notify_node_info(fpi::AsyncHdrPtr &hdr, fpi::NodeInfoMsgPtr &m);
-    virtual void notify_node_qualify(fpi::AsyncHdrPtr &hdr, fpi::NodeQualifyPtr &m);
-    virtual void notify_node_upgrade(fpi::AsyncHdrPtr &hdr, fpi::NodeUpgradePtr &m);
-    virtual void notify_node_integrate(fpi::AsyncHdrPtr &hdr, fpi::NodeIntegratePtr &m);
-    virtual void notify_node_deploy(fpi::AsyncHdrPtr &hdr, fpi::NodeDeployPtr &m);
-    virtual void notify_node_functional(fpi::AsyncHdrPtr &hdr, fpi::NodeFunctionalPtr &m);
-    virtual void notify_node_down(fpi::AsyncHdrPtr &hdr, fpi::NodeDownPtr &m);
-    virtual void notify_node_event(fpi::AsyncHdrPtr &hdr, fpi::NodeEventPtr &m);
 
   protected:
     PlatformdNetSvc         *net_plat;
