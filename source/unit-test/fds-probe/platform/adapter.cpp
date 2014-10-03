@@ -8,6 +8,7 @@
 #include <platform/node-workflow.h>
 #include <platform/net-plat-shared.h>
 #include <net/net-service.h>
+#include <net/SvcRequestPool.h>
 
 namespace fds {
 
@@ -196,25 +197,19 @@ NodeListStepObj::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput 
     } else {
         fpi::DomainID            domain;
         fpi::SvcUuid             svc;
-        fpi::NodeEvent           ret;
-        fpi::NodeEventPtr        req;
-        DomainAgent::pointer     opm;
-        EpSvcHandle::pointer     eph;
-        bo::shared_ptr<fpi::PlatNetSvcClient> rpc;
+        fpi::NodeEventPtr        pkt;
+        bo::shared_ptr<EPSvcRequest> req;
 
-        opm = NetPlatform::nplat_singleton()->nplat_master();
-        rpc = opm->node_svc_rpc(&eph);
-        if (rpc != NULL) {
-            req = bo::make_shared<fpi::NodeEvent>();
-            req->nd_dom_id   = domain;
-            req->nd_uuid     = svc;
-            req->nd_evt      = "";
-            req->nd_evt_text = "";
-            rpc->getSvcEvent(ret, req);
-            out->js_push_str(ret.nd_evt_text.c_str());
-        } else {
-            out->js_push_str("Can't establish connection to PM master\n");
-        }
+        gl_OmUuid.uuid_assign(&svc);
+        pkt = bo::make_shared<fpi::NodeEvent>();
+        pkt->nd_dom_id   = domain;
+        pkt->nd_uuid     = svc;
+        pkt->nd_evt      = "";
+        pkt->nd_evt_text = "";
+
+        req = gSvcRequestPool->newEPSvcRequest(svc);
+        req->setPayload(FDSP_MSG_TYPEID(fpi::NodeEvent), pkt);
+        req->invoke();
     }
     return this;
 }
