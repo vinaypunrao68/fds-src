@@ -95,3 +95,4 @@ source/am-engine/misc/build.linux-x86_64
 source/unit-test
 source/am-engine
 chef/vagrant/*/.vagrant/*
+source/java/${project.build.dir}

@@ -11,7 +11,8 @@ module.exports = function( grunt ){
 
     var proxySetting = {
         port: 7777,
-        host: '10.2.10.204'
+//        host: '10.2.10.204'
+        host: '192.168.1.10'
     };
 
     var distDir = 'app';

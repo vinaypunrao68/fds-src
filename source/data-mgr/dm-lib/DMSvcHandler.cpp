@@ -82,15 +82,15 @@ DMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
     VolumeDesc vdb(vol_msg->vol_desc);
     GLOGNOTIFY << "Received create for vol "
-                       << "[" << std::hex << volumeId << std::dec << ", "
-                       << vdb.getName() << "]";
+               << "[" << std::hex << volumeId << std::dec << ", "
+               << vdb.getName() << "]";
 
     Error err(ERR_OK);
     VolumeDesc desc(vol_msg->vol_desc);
     err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
-                                        std::to_string(vol_uuid),
-                                        vol_uuid, &desc,
-                                        vol_msg->vol_flag == fpi::FDSP_NOTIFY_VOL_WILL_SYNC);
+                                    std::to_string(vol_uuid),
+                                    vol_uuid, &desc,
+                                    vol_msg->vol_flag == fpi::FDSP_NOTIFY_VOL_WILL_SYNC);
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), *vol_msg);
 }
@@ -106,7 +106,20 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     fds_verify(vol_msg->__isset.vol_desc);
     uint64_t vol_uuid = vol_msg->vol_desc.volUUID;
     Error err(ERR_OK);
-    err = dataMgr->process_rm_vol(vol_uuid, vol_msg->vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
+    bool fCheck = (vol_msg->vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
+
+    if (vol_msg->vol_desc.fSnapshot) {
+        err =  ERR_NOT_IMPLEMENTED;
+    } else {
+        if (fCheck) {
+            err = dataMgr->process_rm_vol(vol_uuid, fCheck);
+            // delete the volume blobs first
+            err = dataMgr->deleteVolumeContents(vol_uuid);
+        } else {
+            err = dataMgr->process_rm_vol(vol_uuid, fCheck);
+        }
+    }
+
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), *vol_msg);
 }
@@ -130,14 +143,14 @@ DMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 
 
 void DMSvcHandler::createSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         boost::shared_ptr<fpi::CreateSnapshotMsg>& createSnapshot)
+                                  boost::shared_ptr<fpi::CreateSnapshotMsg>& createSnapshot)
 {
     Error err(ERR_OK);
     fds_assert(createSnapshot);
 
-    /* 
-     * get the snapshot manager instanace 
-     * invoke the createSnapshot DM function 
+    /*
+     * get the snapshot manager instanace
+     * invoke the createSnapshot DM function
      */
     // TODO(Sanjay) revisit  this when we enable the server layer interface
     // err = dataMgr->createSnapshot(createSnapshot->snapshot);
@@ -145,20 +158,20 @@ void DMSvcHandler::createSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     fpi::CreateSnapshotRespMsg createSnapshotResp;
     /*
-     * init the response message with  snapshot id 
+     * init the response message with  snapshot id
      */
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CreateSnapshotRespMsg), createSnapshotResp);
 }
 
 void DMSvcHandler::deleteSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         boost::shared_ptr<fpi::DeleteSnapshotMsg>& deleteSnapshot)
+                                  boost::shared_ptr<fpi::DeleteSnapshotMsg>& deleteSnapshot)
 {
     Error err(ERR_OK);
     fds_assert(deleteSnapshot);
 
-    /* 
-     * get the snapshot manager instanace 
-     * invoke the deleteSnapshot DM function 
+    /*
+     * get the snapshot manager instanace
+     * invoke the deleteSnapshot DM function
      */
     err = dataMgr->process_rm_vol(deleteSnapshot->snapshotId, true);
     if (err.ok()) {
@@ -168,32 +181,32 @@ void DMSvcHandler::deleteSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     fpi::DeleteSnapshotRespMsg deleteSnapshotResp;
     /*
-     * init the response message with  snapshot id 
+     * init the response message with  snapshot id
      */
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::DeleteSnapshotMsg), deleteSnapshotResp);
 }
 
 void DMSvcHandler::createVolumeClone(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         boost::shared_ptr<fpi::CreateVolumeCloneMsg>& createClone)
+                                     boost::shared_ptr<fpi::CreateVolumeCloneMsg>& createClone)
 {
     Error err(ERR_OK);
     fds_assert(createClone);
 
-    /* 
-     * get the snapshot manager instanace 
-     * invoke the createClone DM function 
+    /*
+     * get the snapshot manager instanace
+     * invoke the createClone DM function
      */
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     fpi::CreateVolumeCloneRespMsg createVolumeCloneResp;
     /*
-     * init the response message with  Clone id 
+     * init the response message with  Clone id
      */
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CreateVolumeCloneRespMsg),
-                                  createVolumeCloneResp);
+                  createVolumeCloneResp);
 }
 
 void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                               boost::shared_ptr<fpi::CommitBlobTxMsg>& commitBlbTx)
+                                boost::shared_ptr<fpi::CommitBlobTxMsg>& commitBlbTx)
 {
     if (dataMgr->testUturnAll == true) {
         LOGNOTIFY << "Uturn testing commit blob tx "
@@ -221,21 +234,21 @@ void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                             static_cast<FDS_IOType*>(dmBlobTxReq));
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue  commit blob tx  request "
-            << logString(*asyncHdr) << logString(*commitBlbTx);
+                << logString(*asyncHdr) << logString(*commitBlbTx);
         PerfTracer::tracePointEnd(dmBlobTxReq->opReqLatencyCtx);
         PerfTracer::incr(dmBlobTxReq->opReqFailedPerfEventType, dmBlobTxReq->getVolId(),
-                dmBlobTxReq->perfNameStr);
+                         dmBlobTxReq->perfNameStr);
         dmBlobTxReq->dmio_commit_blob_tx_resp_cb(err, dmBlobTxReq);
     }
 }
 
 void DMSvcHandler::commitBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                   const Error &e, DmIoCommitBlobTx *req)
+                                  const Error &e, DmIoCommitBlobTx *req)
 {
     /*
-     * we are not sending any response  message  in this call, instead we 
+     * we are not sending any response  message  in this call, instead we
      * will send the status  on async header
-     * TODO(sanjay)- we will have to add  call to  send the response without payload 
+     * TODO(sanjay)- we will have to add  call to  send the response without payload
      * static response
      */
     LOGDEBUG << logString(*asyncHdr);
@@ -275,21 +288,21 @@ void DMSvcHandler::abortBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                             static_cast<FDS_IOType*>(dmBlobTxReq));
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue  abort blob tx  request "
-            << logString(*asyncHdr) << logString(*abortBlbTx);
+                << logString(*asyncHdr) << logString(*abortBlbTx);
         PerfTracer::tracePointEnd(dmBlobTxReq->opReqLatencyCtx);
         PerfTracer::incr(dmBlobTxReq->opReqFailedPerfEventType, dmBlobTxReq->getVolId(),
-                dmBlobTxReq->perfNameStr);
+                         dmBlobTxReq->perfNameStr);
         dmBlobTxReq->dmio_abort_blob_tx_resp_cb(err, dmBlobTxReq);
     }
 }
 
 void DMSvcHandler::abortBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                   const Error &e, DmIoAbortBlobTx *req)
+                                 const Error &e, DmIoAbortBlobTx *req)
 {
     /*
-     * we are not sending any response  message  in this call, instead we 
+     * we are not sending any response  message  in this call, instead we
      * will send the status  on async header
-     * TODO(sanjay)- we will have to add  call to  send the response without payload 
+     * TODO(sanjay)- we will have to add  call to  send the response without payload
      * static response
      */
     LOGDEBUG << logString(*asyncHdr);
@@ -332,21 +345,21 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                             static_cast<FDS_IOType*>(dmBlobTxReq));
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue start blob tx  request "
-            << logString(*asyncHdr) << logString(*startBlbTx);
+                << logString(*asyncHdr) << logString(*startBlbTx);
         PerfTracer::incr(dmBlobTxReq->opReqFailedPerfEventType, dmBlobTxReq->getVolId(),
-                dmBlobTxReq->perfNameStr);
+                         dmBlobTxReq->perfNameStr);
         PerfTracer::tracePointEnd(dmBlobTxReq->opReqLatencyCtx);
         dmBlobTxReq->dmio_start_blob_tx_resp_cb(err, dmBlobTxReq);
     }
 }
 
 void DMSvcHandler::startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                   const Error &e, DmIoStartBlobTx *req)
+                                 const Error &e, DmIoStartBlobTx *req)
 {
     /*
-     * we are not sending any response  message  in this call, instead we 
+     * we are not sending any response  message  in this call, instead we
      * will send the status  on async header
-     * TODO(sanjay)- we will have to add  call to  send the response without payload 
+     * TODO(sanjay)- we will have to add  call to  send the response without payload
      * static response
      */
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
@@ -382,14 +395,15 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
 
     const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmQryReq->getVolId());
     Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
-            voldesc->qosQueueId : dmQryReq->getVolId(), static_cast<FDS_IOType*>(dmQryReq));
+                                            voldesc->qosQueueId : dmQryReq->getVolId(),
+                                            static_cast<FDS_IOType*>(dmQryReq));
 
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue Query Catalog request "
-                  << logString(*asyncHdr) << logString(*queryMsg);
+                << logString(*asyncHdr) << logString(*queryMsg);
         PerfTracer::tracePointEnd(dmQryReq->opReqLatencyCtx);
         PerfTracer::incr(dmQryReq->opReqFailedPerfEventType, dmQryReq->getVolId(),
-                dmQryReq->perfNameStr);
+                         dmQryReq->perfNameStr);
         dmQryReq->dmio_querycat_resp_cb(err, dmQryReq);
     }
 }
@@ -477,10 +491,10 @@ void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue Update Catalog request "
-            << logString(*asyncHdr) << logString(*updcatMsg);
+                << logString(*asyncHdr) << logString(*updcatMsg);
         PerfTracer::tracePointEnd(dmUpdCatReq->opReqLatencyCtx);
         PerfTracer::incr(dmUpdCatReq->opReqFailedPerfEventType, dmUpdCatReq->getVolId(),
-                dmUpdCatReq->perfNameStr);
+                         dmUpdCatReq->perfNameStr);
         dmUpdCatReq->dmio_updatecat_resp_cb(err, dmUpdCatReq);
     }
 }
@@ -548,13 +562,13 @@ void DMSvcHandler::deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
                                             static_cast<FDS_IOType*>(dmDelCatReq));
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue Delete Catalog request "
-            << logString(*asyncHdr) << logString(*delcatMsg);
+                << logString(*asyncHdr) << logString(*delcatMsg);
         dmDelCatReq->dmio_deletecat_resp_cb(err, dmDelCatReq);
     }
 }
 
 void DMSvcHandler::deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                   const Error &e, DmIoDeleteCat *req)
+                                         const Error &e, DmIoDeleteCat *req)
 {
     LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
@@ -574,20 +588,21 @@ void DMSvcHandler::getBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          getBlbMeta->blob_version,
                                          getBlbMeta);
     dmReq->dmio_getmd_resp_cb =
-                    BIND_MSG_CALLBACK2(DMSvcHandler::getBlobMetaDataCb, asyncHdr, getBlbMeta);
+            BIND_MSG_CALLBACK2(DMSvcHandler::getBlobMetaDataCb, asyncHdr, getBlbMeta);
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
 
     const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmReq->getVolId());
     Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
-            voldesc->qosQueueId : dmReq->getVolId(), static_cast<FDS_IOType*>(dmReq));
+                                            voldesc->qosQueueId : dmReq->getVolId(),
+                                            static_cast<FDS_IOType*>(dmReq));
 
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request "
                 << logString(*asyncHdr) << ":" << logString(*getBlbMeta);
         PerfTracer::tracePointEnd(dmReq->opReqLatencyCtx);
         PerfTracer::incr(dmReq->opReqFailedPerfEventType, dmReq->getVolId(),
-                dmReq->perfNameStr);
+                         dmReq->perfNameStr);
         dmReq->dmio_getmd_resp_cb(err, dmReq);
     }
 }
@@ -633,7 +648,7 @@ DMSvcHandler::setBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                 << logString(*asyncHdr);  // << logString(*setMDMsg);
         PerfTracer::tracePointEnd(dmSetMDReq->opReqLatencyCtx);
         PerfTracer::incr(dmSetMDReq->opReqFailedPerfEventType, dmSetMDReq->getVolId(),
-                dmSetMDReq->perfNameStr);
+                         dmSetMDReq->perfNameStr);
         dmSetMDReq->dmio_setmd_resp_cb(err, dmSetMDReq);
     }
 }
@@ -657,7 +672,7 @@ DMSvcHandler::setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
  *
  * @param[in] asyncHdr the async header sent with svc layer request
  * @param[in] fwdMsg the VolSyncState message
- * 
+ *
  */
 void DMSvcHandler::volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::VolSyncStateMsg>& syncStateMsg)
@@ -678,7 +693,7 @@ void DMSvcHandler::volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
  * Destination handler for receiving a ForwardCatalogMsg.
  *
  * @param[in] asyncHdr shared pointer reference to the async header
- * sent with svc layer requests 
+ * sent with svc layer requests
  * @param[in] syncStateMsg shared pointer reference to the
  * ForwardCatalogMsg
  *
@@ -706,7 +721,7 @@ void DMSvcHandler::fwdCatalogUpdateMsg(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
  * Callback for DmIoFwdCat request in fwdCatalogUpdate.
  *
  * @param[in] asyncHdr shared pointer reference to the async header
- * sent with svc layer requests 
+ * sent with svc layer requests
  * @param[in] syncStateMsg shared pointer reference to the
  * ForwardCatalogMsg
  * @param[in] err Error code
@@ -739,28 +754,29 @@ DMSvcHandler::getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // return getVolumeMetaDataCb(asyncHdr, message, Error(ERR_OK), nullptr);
     auto dmReq = new DmIoGetVolumeMetaData(message);
     dmReq->dmio_get_volmd_resp_cb =
-                    BIND_MSG_CALLBACK2(DMSvcHandler::getVolumeMetaDataCb, asyncHdr, message);
+            BIND_MSG_CALLBACK2(DMSvcHandler::getVolumeMetaDataCb, asyncHdr, message);
 
     PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
 
     const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmReq->getVolId());
     Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
-            voldesc->qosQueueId : dmReq->getVolId(), static_cast<FDS_IOType*>(dmReq));
+                                            voldesc->qosQueueId : dmReq->getVolId(),
+                                            static_cast<FDS_IOType*>(dmReq));
 
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request "
                 << logString(*asyncHdr) << ":" << logString(*message);
         PerfTracer::tracePointEnd(dmReq->opReqLatencyCtx);
         PerfTracer::incr(dmReq->opReqFailedPerfEventType, dmReq->getVolId(),
-                dmReq->perfNameStr);
+                         dmReq->perfNameStr);
         dmReq->dmio_get_volmd_resp_cb(err, dmReq);
     }
 }
 
 void
 DMSvcHandler::getVolumeMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                    boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
-                    const Error &e, DmIoGetVolumeMetaData *req) {
+                                  boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
+                                  const Error &e, DmIoGetVolumeMetaData *req) {
     LOGNORMAL << "finished get volume meta";
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
@@ -771,7 +787,7 @@ DMSvcHandler::getVolumeMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
 void
 DMSvcHandler::handleStatStream(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                      boost::shared_ptr<fpi::StatStreamMsg>& message) {
+                               boost::shared_ptr<fpi::StatStreamMsg>& message) {
     GLOGDEBUG << "received stat stream " << logString(*asyncHdr);
 
     auto dmReq = new DmIoStatStream(FdsDmSysTaskId, message);
@@ -802,7 +818,7 @@ DMSvcHandler::handleStatStreamCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
 void
 DMSvcHandler::registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::StatStreamRegistrationMsg>& streamRegstrMsg) {
+                                boost::shared_ptr<fpi::StatStreamRegistrationMsg>& streamRegstrMsg) { //NOLINT
     StatStreamAggregator::ptr statAggr = dataMgr->statStreamAggregator();
     fds_assert(statAggr);
     fds_assert(streamRegstrMsg);
@@ -817,7 +833,7 @@ DMSvcHandler::registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
 void
 DMSvcHandler::deregisterStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::StatStreamDeregistrationMsg>& streamDeregstrMsg) {
+                                  boost::shared_ptr<fpi::StatStreamDeregistrationMsg>& streamDeregstrMsg) { //NOLINT
     StatStreamAggregator::ptr statAggr = dataMgr->statStreamAggregator();
     fds_assert(statAggr);
     fds_assert(streamDeregstrMsg);
@@ -835,7 +851,7 @@ DMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 {
     Error err(ERR_OK);
     LOGNOTIFY << "OMClient received new DLT commit version  "
-            << dlt->dlt_data.dlt_type;
+              << dlt->dlt_data.dlt_type;
     err = dataMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), *dlt);

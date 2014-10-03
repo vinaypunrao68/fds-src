@@ -338,8 +338,7 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
             }
             e = volcat->putBlob(volid, commit_data->name, commit_data->metaDataList,
                     commit_data->blobObjList, commit_data->txDesc);
-        }
-        if (commit_data->metaDataList && !commit_data->metaDataList->empty()) {
+        } else if (commit_data->metaDataList && !commit_data->metaDataList->empty()) {
             e = volcat->putBlobMeta(volid, commit_data->name,
                     commit_data->metaDataList, commit_data->txDesc);
         }
@@ -401,4 +400,12 @@ DmTimeVolCatalog::isPendingTx(fds_volid_t volId, fds_uint64_t timeNano) {
     COMMITLOG_GET(volId, commitLog);
     return commitLog->isPendingTx(timeNano);
 }
+
+Error
+DmTimeVolCatalog::getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog) {
+    Error rc(ERR_OK);
+    COMMITLOG_GET(volId, commitLog);
+    return rc;
+}
+
 }  // namespace fds

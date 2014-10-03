@@ -202,7 +202,7 @@ class SharedKvCache : public Module, boost::noncopyable {
       * @return true if key exists, false otherwise
       */
      fds_bool_t exists(const K &key) const {
-         SCOPEDREAD(const_cast<fds_rwlock&>(cache_lock));
+         SCOPEDREAD(cache_lock);
          return (cache_map.find(key) != cache_map.end());
      }
 
@@ -212,7 +212,7 @@ class SharedKvCache : public Module, boost::noncopyable {
       * @return number of entries
       */
      size_type getNumEntries() const {
-         SCOPEDREAD(const_cast<fds_rwlock&>(cache_lock));
+         SCOPEDREAD(cache_lock);
          return eviction_list.size();
      }
 
@@ -238,7 +238,7 @@ class SharedKvCache : public Module, boost::noncopyable {
      index_type cache_map;
 
      // Synchronization members
-     fds_rwlock cache_lock;
+     mutable fds_rwlock cache_lock;
 
     /**
       * Internal function to remove a key and value

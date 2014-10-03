@@ -4,8 +4,8 @@
 
 package com.formationds.commons.model.builder;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.formationds.commons.model.RecurrenceRule;
+import com.google.gson.annotations.SerializedName;
 
 import java.util.Date;
 
@@ -13,13 +13,13 @@ import java.util.Date;
  * @author ptinius
  */
 public class RecurrenceRuleBuilder {
-  @JsonProperty( "FREQ" )
+  @SerializedName( "FREQ" )
   private String frequency;
-  @JsonProperty( "UNTIL" )
+  @SerializedName( "UNTIL" )
   private Date UNTIL;
-  @JsonProperty( "COUNT" )
+  @SerializedName( "COUNT" )
   private Integer COUNT;
-  @JsonProperty( "INTERVAL" )
+  @SerializedName( "INTERVAL" )
   private Integer INTERVAL;
 
   /**
