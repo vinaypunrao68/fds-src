@@ -54,6 +54,9 @@ needed_packages=(
     libical-dev
     libical1
 
+    libfiu-dev
+    fiu-utils
+
     npm
     ruby
     ruby-sass

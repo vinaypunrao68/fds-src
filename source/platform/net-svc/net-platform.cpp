@@ -185,6 +185,10 @@ PlatformdNetSvc::nplat_refresh_shm()
     std::cout << "Platform daemon refresh shm" << std::endl;
 }
 
+bo::shared_ptr<PlatNetSvcHandler> PlatformdNetSvc::getPlatNetSvcHandler()
+{
+    return plat_recv;
+}
 /*
  * -----------------------------------------------------------------------------------
  * Endpoint Plugin

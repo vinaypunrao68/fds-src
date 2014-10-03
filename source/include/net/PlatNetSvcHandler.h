@@ -50,16 +50,18 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     virtual void setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
                               boost::shared_ptr<int64_t>& val);
 
-    void setFlag(const std::string& id, const int64_t value);
-    void setFlag(boost::shared_ptr<std::string>& id,
+    virtual void setFlag(const std::string& id, const int64_t value);
+    virtual void setFlag(boost::shared_ptr<std::string>& id,
                  boost::shared_ptr<int64_t>& value);  // NOLINT
 
-    int64_t getFlag(const std::string& id);
-    void getFlags(std::map<std::string, int64_t> &, const int32_t nullarg);  // NOLINT
+    virtual int64_t getFlag(const std::string& id);
+    virtual int64_t getFlag(boost::shared_ptr<std::string>& id);  // NOLINT
 
-    int64_t getFlag(boost::shared_ptr<std::string>& id);  // NOLINT
-    void getFlags(std::map<std::string, int64_t> &,
-                  boost::shared_ptr<int32_t>&);  // NOLINT
+    virtual void getFlags(std::map<std::string, int64_t> &, const int32_t nullarg);  // NOLINT
+    virtual void getFlags(std::map<std::string, int64_t> & _return, boost::shared_ptr<int32_t>& nullarg);  // NOLINT
+
+    virtual bool setFault(const std::string& command);
+    virtual bool setFault(boost::shared_ptr<std::string>& command);  // NOLINT
 
     /**
      * Common messages.
