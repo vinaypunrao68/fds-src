@@ -800,6 +800,6 @@ service DMSvc extends PlatNetSvc {
  * AM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
-service AMSvc extends BaseAsyncSvc {
+service AMSvc extends PlatNetSvc {
 }
 

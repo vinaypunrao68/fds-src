@@ -56,7 +56,7 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
 
     virtual int64_t getFlag(const std::string& id);
     virtual int64_t getFlag(boost::shared_ptr<std::string>& id);  // NOLINT
-    
+
     virtual void getFlags(std::map<std::string, int64_t> &, const int32_t nullarg);  // NOLINT
     virtual void getFlags(std::map<std::string, int64_t> & _return, boost::shared_ptr<int32_t>& nullarg);  // NOLINT
 

@@ -23,6 +23,7 @@
 #include <fds_typedefs.h>
 #include <net/RpcFunc.h>
 
+
 namespace fds {
 
 namespace at = apache::thrift;
@@ -198,6 +199,7 @@ endpoint_connect_server(int                   port,
     bo::shared_ptr<tt::TTransport> sock(new tt::TSocket(ip, port));
     bo::shared_ptr<tt::TTransport> trans(new tt::TFramedTransport(sock));
     bo::shared_ptr<tp::TProtocol>  proto(new tp::TBinaryProtocol(trans));
+    // TODO(Rao): Change this to use alloc_rpc_client()
     bo::shared_ptr<SendIf>         rpc(new SendIf(proto));
 
     if (owner == NULL) {
@@ -401,7 +403,7 @@ EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
         ep->ep_sock = bo::make_shared<net::Socket>(ip, port);
         ep->ep_trans = bo::make_shared<tt::TFramedTransport>(ep->ep_sock);
         auto proto = bo::make_shared<tp::TBinaryProtocol>(ep->ep_trans);
-        ep->ep_rpc = bo::make_shared<SendIf>(proto);
+        ep->ep_rpc = alloc_rpc_client(peer, maj, min, proto);
         try {
             ep->ep_sock->open();
             {
