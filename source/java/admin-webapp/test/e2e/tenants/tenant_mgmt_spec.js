@@ -42,13 +42,23 @@ describe( 'Tenant management', function(){
     login();
     goto( 'tenants' );
 
-    var createPage = element( by.css( '.create-tenant' ) );
-    var createButton = createPage.element( by.css( '.create-tenant-button' ) );
+    var createPage = {};
+    var createButton = {};
 
-    var nameEl = createPage.element( by.css( '.fui-input' ) ).element( by.tagName( 'input' ) );
+    var nameEl = {};
 
     it ( 'should start with no tenants', function(){
 
+        // initializing stuff
+        login();
+        goto( 'tenants' );
+
+        createPage = element( by.css( '.create-tenant' ) );
+        createButton = createPage.element( by.css( '.create-tenant-button' ) );
+
+        nameEl = createPage.element( by.css( '.fui-input' ) ).element( by.tagName( 'input' ) );
+        
+        // test
         var tenants = element.all( by.css( '.tenant-row' ) ).then( function( elems ){
             expect( elems.length ).toBe( 0 );
         });
