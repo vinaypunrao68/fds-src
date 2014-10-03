@@ -126,7 +126,6 @@ public class S3SignatureGeneratorTest {
 class AuthorizerReferenceServer implements HttpHandler, AutoCloseable {
     private final HttpServer server;
     private String lastAuthToken;
-    private SimpleS3Request awsRequest;
 
     private String lastMethod;
     private String lastPath;
@@ -153,7 +152,6 @@ class AuthorizerReferenceServer implements HttpHandler, AutoCloseable {
             if(e.getValue().isEmpty())
                 e.setValue(null);
         }
-        awsRequest = new SimpleS3Request(HttpMethodName.valueOf(httpExchange.getRequestMethod()), httpExchange.getRequestURI().toString(), headerMap);
 
         lastMethod = httpExchange.getRequestMethod();
         lastPath = httpExchange.getRequestURI().getPath();
@@ -166,10 +164,6 @@ class AuthorizerReferenceServer implements HttpHandler, AutoCloseable {
 
     public String getLastAuthToken() {
         return lastAuthToken;
-    }
-
-    public SimpleS3Request getLastAwsRequest() {
-        return awsRequest;
     }
 
     @Override
