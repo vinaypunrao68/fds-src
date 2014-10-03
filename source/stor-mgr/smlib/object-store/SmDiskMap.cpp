@@ -11,7 +11,7 @@ namespace fds {
 SmDiskMap::SmDiskMap(const std::string& modName)
         : Module(modName.c_str()),
           bitsPerToken_(0),
-          superblock(new SmSuperblock()),
+          superblock(new SmSuperblockDeprecated()),
           test_mode(false) {
 }
 
@@ -40,7 +40,7 @@ void SmDiskMap::mod_shutdown() {
     ssd_ids.clear();
     disk_map.clear();
     if (test_mode) {
-        superblock.reset(new SmSuperblock());
+        superblock.reset(new SmSuperblockDeprecated());
     }
 }
 
