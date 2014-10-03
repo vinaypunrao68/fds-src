@@ -562,6 +562,29 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     return err;
 }
 
+Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
+    Error err(ERR_OK);
+    // get list of blobs for volume
+    fpi::BlobInfoListType blobList;
+    VolumeCatalogQueryIface::ptr volCatIf = timeVolCat_->queryIface();
+    blob_version_t version = 0;
+    err = volCatIf->listBlobs(volId, &blobList);
+    LOGWARN << "deleting all [" << blobList.size() << "]"
+            << " blobs from vol:" << volId;
+    fpi::FDSP_MetaDataList metaList;
+    fds_uint64_t blobSize;
+    for (const auto& blob : blobList) {
+        metaList.clear();
+        version = 0;
+        err = volCatIf->getBlobMeta(volId,
+                                    blob.blob_name,
+                                    &version, &blobSize, &metaList);
+        err = volCatIf->deleteBlob(volId, blob.blob_name, version);
+    }
+
+    return err;
+}
+
 /**
  * For all volumes that are in forwarding state, move them to
  * finish forwarding state.
@@ -702,6 +725,7 @@ int DataMgr::mod_init(SysParams const *const param)
 void DataMgr::initHandlers() {
     handlers[FDS_LIST_BLOB]   = new dm::GetBucketHandler();
     handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler();
+    handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler();
 }
 
 DataMgr::~DataMgr()

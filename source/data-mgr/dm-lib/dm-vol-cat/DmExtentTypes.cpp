@@ -139,6 +139,14 @@ void BlobExtent::getAllObjects(std::set<ObjectID> & objIds) {
     }
 }
 
+void BlobExtent::getAllObjects(std::vector<ObjectID> & objIds) {
+    for (auto it : blob_obj_list) {
+        if (it.second != NullObjectID) {
+            objIds.push_back(it.second);
+        }
+    }
+}
+
 void BlobExtent::addToFdspPayload(fpi::FDSP_BlobObjectList& olist,
                                   fds_uint64_t last_blob_off,
                                   fds_uint64_t last_obj_size) const {

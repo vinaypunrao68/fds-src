@@ -83,7 +83,6 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
     : IndexRequest(oid, vio, block), dat_buf(buf),
       datTier(diskTier)
 {
-    obj_id_set_inval(&dat_old_oid);
 }
 
 DiskRequest::DiskRequest(meta_vol_io_t       &vio,
@@ -96,78 +95,8 @@ DiskRequest::DiskRequest(meta_vol_io_t       &vio,
     datTier = tier;
 }
 
-DiskRequest::DiskRequest(meta_vol_io_t       &vio,
-                         meta_obj_id_t       &oid,
-                         meta_obj_id_t       *old_oid,
-                         meta_vol_io_t       *new_vol,
-                         fds::ObjectBuf      *buf,
-                         bool                block)
-    : IndexRequest(oid, block), dat_buf(buf),
-      datTier(diskTier)
-{
-    if (old_oid != nullptr) {
-        dat_old_oid = *old_oid;
-    } else {
-        obj_id_set_inval(&dat_old_oid);
-    }
-    if (new_vol != nullptr) {
-        dat_new_vol = *new_vol;
-    }
-}
-
-DiskRequest::DiskRequest(meta_vol_io_t       &vio,
-                         meta_obj_id_t       &oid,
-                         meta_obj_id_t       *old_oid,
-                         meta_vol_io_t       *new_vol,
-                         fds::ObjectBuf      *buf,
-                         bool                block,
-                         DataTier            tier)
-    : DiskRequest(vio, oid, old_oid, new_vol, buf, block)
-{
-    datTier = tier;
-}
-
 DiskRequest::~DiskRequest()
 {
-}
-
-// \DiskRequest::req_has_remap_oid
-// -------------------------------
-//
-bool
-DiskRequest::req_has_remap_oid(meta_obj_id_t *old_oid, meta_vol_io_t *new_vol)
-{
-    fds_assert(old_oid != nullptr);
-    if (new_vol != nullptr) {
-        *new_vol = dat_new_vol;
-    }
-    if (obj_id_is_valid(&dat_old_oid)) {
-        *old_oid = dat_old_oid;
-        return true;
-    }
-    return false;
-}
-
-// \DataIOFuncParams
-// -----------------
-//
-DataIOFuncParams::DataIOFuncParams()
-    : io_func(0), io_tier(io_tier_slow)
-{
-}
-
-DataIOFuncParams::~DataIOFuncParams()
-{
-}
-
-// \DataIOFuncParams::data_io_func
-// -------------------------------
-//
-int
-DataIOFuncParams::data_io_func(fds_uint32_t time_delta, int *tier)
-{
-    *tier = io_tier;
-    return io_func;
 }
 
 }  // namespace diskio

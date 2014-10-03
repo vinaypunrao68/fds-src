@@ -12,6 +12,8 @@
 #include <concurrency/RwLock.h>
 #include <dm-vol-cat/DmExtentTypes.h>
 
+#define  MAX_EXTENT0_OBJS 1024
+#define  MAX_EXTENT_OBJS  2048
 namespace fds {
 
 class PersistVolumeMeta;

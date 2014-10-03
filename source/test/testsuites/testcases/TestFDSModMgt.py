@@ -8,7 +8,7 @@ import unittest
 import traceback
 
 import xmlrunner
-from testcases import TestCase
+import TestCase
 
 
 # Module-specific requirements
@@ -75,7 +75,7 @@ class TestDMBringUp(TestCase.FDSTestCase):
 
             self.log.info("Start DM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_rmt_agent.ssh_exec_wait("%s/DataMgr --fds-root=%s > %s/dm.out" % (bin_dir, fds_dir, log_dir))
+            status = n.nd_agent.exec_wait("%s/DataMgr --fds-root=%s > %s/dm.out" % (bin_dir, fds_dir, log_dir))
 
             if status != 0:
                 self.log.error("DM bringup on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -134,7 +134,7 @@ class TestDMShutDown(TestCase.FDSTestCase):
         for n in nodes:
             self.log.info("Shutdown DM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_rmt_agent.ssh_exec_wait("pkill -9 DataMgr")
+            status = n.nd_agent.exec_wait("pkill -9 DataMgr")
 
             if status != 0:
                 self.log.error("DM shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -204,7 +204,7 @@ class TestSMBringUp(TestCase.FDSTestCase):
 
             self.log.info("Start SM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_rmt_agent.ssh_exec_wait("%s/StorMgr --fds-root=%s > %s/sm.out" % (bin_dir, fds_dir, log_dir))
+            status = n.nd_agent.exec_wait("%s/StorMgr --fds-root=%s > %s/sm.out" % (bin_dir, fds_dir, log_dir))
 
             if status != 0:
                 self.log.error("SM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -263,7 +263,7 @@ class TestSMShutDown(TestCase.FDSTestCase):
         for n in nodes:
             self.log.info("Shutdown SM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_rmt_agent.ssh_exec_wait("pkill -9 StorMgr")
+            status = n.nd_agent.exec_wait("pkill -9 StorMgr")
 
             if status != 0:
                 self.log.error("SM shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -384,7 +384,7 @@ class TestPMShutDown(TestCase.FDSTestCase):
         for n in nodes:
             self.log.info("Shutdown PM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_rmt_agent.ssh_exec_wait("pkill -9 platformd")
+            status = n.nd_agent.exec_wait("pkill -9 platformd")
 
             if status != 0:
                 self.log.error("PM shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -502,13 +502,13 @@ class TestOMShutDown(TestCase.FDSTestCase):
 
         self.log.info("Shutdown OM on %s." % om_node.nd_conf_dict['node-name'])
 
-        status = om_node.nd_rmt_agent.ssh_exec_wait("pkill -9 orchMgr")
+        status = om_node.nd_agent.exec_wait("pkill -9 orchMgr")
 
         if status != 0:
             self.log.error("OM (orchMgr) shutdown on %s returned status %d." %(om_node.nd_conf_dict['node-name'], status))
             return False
 
-        status = om_node.nd_rmt_agent.ssh_exec_wait('pkill -9 -f com.formationds.om.Main')
+        status = om_node.nd_agent.exec_wait('pkill -9 -f com.formationds.om.Main')
 
         if status != 0:
             self.log.error("OM (com.formationds.om.Main) shutdown on %s returned status %d." %(om_node.nd_conf_dict['node-name'], status))
@@ -567,19 +567,19 @@ class TestAMShutDown(TestCase.FDSTestCase):
         for n in nodes:
             self.log.info("Shutdown AM on %s." % n.nd_conf_dict['node-name'])
 
-            status = n.nd_rmt_agent.ssh_exec_wait("pkill -9 -f com.formationds.am.Main;")
+            status = n.nd_agent.exec_wait("pkill -9 -f com.formationds.am.Main;")
 
             if status != 0:
                 self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
                 return False
 
-            status = n.nd_rmt_agent.ssh_exec_wait('pkill -9 bare_am')
+            status = n.nd_agent.exec_wait('pkill -9 bare_am')
 
             if status != 0:
                 self.log.error("AM (bare_am) shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
                 return False
 
-            status = n.nd_rmt_agent.ssh_exec_wait('pkill -9 AMAgent')
+            status = n.nd_agent.exec_wait('pkill -9 AMAgent')
 
             if status != 0:
                 self.log.error("AM (AMAgent) shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))

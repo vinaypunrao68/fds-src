@@ -24,12 +24,25 @@ import static org.junit.Assert.*;
 public class RecurrenceRuleTest {
 
   @Test
-  public void nates_test()
+     public void useCaseTest1()
   {
     try {
       final RecurrenceRule rule =
         RecurrenceRule.parser( "FREQ:WEEKLY" );
-      assertEquals( rule.toString(), "FREQ=WEEKLY" );
+      assertEquals( rule.toString(), "[ FREQ=WEEKLY; ]" );
+    } catch( ParseException e ) {
+      e.printStackTrace();
+      assertTrue( true );
+    }
+  }
+
+  @Test
+  public void useCaseTest2()
+  {
+    try {
+      final RecurrenceRule rule =
+        RecurrenceRule.parser( "FREQ:DAILY" );
+      assertEquals( rule.toString(), "[ FREQ=DAILY; ]" );
     } catch( ParseException e ) {
       e.printStackTrace();
       assertTrue( true );
@@ -45,7 +58,7 @@ public class RecurrenceRuleTest {
     try {
       final RecurrenceRule rule =
         RecurrenceRule.parser( "FREQ=DAILY;COUNT=10" );
-      assertEquals( rule.toString(), "FREQ=DAILY;COUNT=10" );
+      assertEquals( rule.toString(), "[ FREQ=DAILY;COUNT=10; ]" );
     } catch( ParseException e ) {
       e.printStackTrace();
       assertTrue( true );
@@ -79,7 +92,7 @@ public class RecurrenceRuleTest {
     try {
       final RecurrenceRule rule =
         RecurrenceRule.parser( "FREQ=DAILY;INTERVAL=2" );
-      assertEquals( rule.toString(), "FREQ=DAILY;INTERVAL=2" );
+      assertEquals( rule.toString(), "[ FREQ=DAILY;INTERVAL=2; ]" );
     } catch( ParseException e ) {
       e.printStackTrace();
       assertTrue( true );
@@ -96,7 +109,7 @@ public class RecurrenceRuleTest {
     try {
       final RecurrenceRule rule =
         RecurrenceRule.parser( "FREQ=DAILY;INTERVAL=10;COUNT=5" );
-      assertEquals( rule.toString(), "FREQ=DAILY;INTERVAL=10;COUNT=5" );
+      assertEquals( rule.toString(), "[ FREQ=DAILY;INTERVAL=10;COUNT=5; ]" );
     } catch( ParseException e ) {
       e.printStackTrace();
       assertTrue( true );
@@ -121,7 +134,7 @@ Everyday in January, for 3 years:
     try {
       final RecurrenceRule rule =
         RecurrenceRule.parser( "FREQ=WEEKLY;COUNT=10" );
-      assertEquals( rule.toString(), "FREQ=WEEKLY;COUNT=10" );
+      assertEquals( rule.toString(), "[ FREQ=WEEKLY;COUNT=10; ]" );
     } catch( ParseException e ) {
       e.printStackTrace();
       assertTrue( true );

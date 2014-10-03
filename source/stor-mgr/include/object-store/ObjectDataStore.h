@@ -10,7 +10,7 @@
 #include <ObjMeta.h>
 #include <object-store/ObjectDataCache.h>
 #include <persistent-layer/dm_io.h>
-#include <SmDiskTypes.h>
+#include <object-store/ObjectPersistData.h>
 
 namespace fds {
 
@@ -21,7 +21,8 @@ namespace fds {
 class ObjectDataStore : public Module, public boost::noncopyable {
   private:
     /// Disk storage manager
-    diskio::DataIO *diskMgr;
+    // diskio::DataIO *diskMgr;
+    ObjectPersistData::unique_ptr persistData;
 
     /// Object data cache manager
     ObjectDataCache::unique_ptr dataCache;
@@ -32,6 +33,12 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     explicit ObjectDataStore(const std::string &modName);
     ~ObjectDataStore();
     typedef std::unique_ptr<ObjectDataStore> unique_ptr;
+
+    /**
+     * Opens object data store
+     * @param[in] map of SM tokens to disks
+     */
+    Error openDataStore(const SmDiskMap::const_ptr& diskMap);
 
     /**
      * Peristently stores object data.

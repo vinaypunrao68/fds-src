@@ -322,6 +322,9 @@ Error PersistVolumeMeta::markDeleted() {
         return err;
     }
 
+    /**
+     * We will now delete volumes even if they are not empty
+     *     
     dbIt = getSnapshotIter(options);
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
         Record db_key = dbIt->key();
@@ -344,6 +347,7 @@ Error PersistVolumeMeta::markDeleted() {
         }
     }
     releaseSnapshotIter(options, dbIt);
+    */
 
     // if volume is empty, mark as deleted
     if (err.ok()) {
@@ -456,8 +460,8 @@ Error DmPersistVolCatalog::createCatalog(const VolumeDesc& vol_desc){
     PersistVolumeMetaPtr volmeta(
         new(std::nothrow) PersistVolumeMeta(vol_desc.volUUID,
                                             vol_desc.maxObjSizeInBytes,
-                                            1024,
-                                            2048, vol_desc.volUUID));
+                                            MAX_EXTENT0_OBJS,
+                                            MAX_EXTENT_OBJS, vol_desc.volUUID));
     if (!volmeta) {
         LOGERROR << "Failed to allocate persistent layer vol meta for vol"
                  << std::hex << vol_desc.volUUID << std::dec;

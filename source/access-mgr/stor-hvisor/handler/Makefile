@@ -8,7 +8,8 @@ user_incl_dir     := \
     $(topdir) \
     $(topdir)/fds_client/include \
     $(topdir)/lib \
-    $(topdir)/access-mgr/include
+    $(topdir)/access-mgr/include \
+    $(topdir)/access-mgr/stor-hvisor
 
 user_cpp          := $(wildcard *.cpp)
 user_hh           := $(wildcard *.h)

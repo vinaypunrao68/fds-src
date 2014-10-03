@@ -13,7 +13,22 @@
 #include <om-discovery.h>
 #include <OmDmtDeploy.h>
 #include <orch-mgr/om-service.h>
-#include <typeinfo>
+#include <util/type.h>
+
+#define STATELOG(...) GLOGDEBUG << "[evt:" << fds::util::type(evt)      \
+    << " src:" << fds::util::type(src)                  \
+    << " dst:" << fds::util::type(dst)                  \
+    << " @:" << fds::util::type(*this)                  \
+    << "]";
+//    << " cur:" << current_state_name(fsm)
+
+#define STATE_ENTER_EXIT(...)                                                                 \
+template <class Event, class FSM> void on_entry(Event const & evt, FSM & fsm) {               \
+    GLOGDEBUG << "[enter : " << fds::util::type(*this) << " evt:" << fds::util::type(evt) << "]"; \
+}                                                                                             \
+template <class Event, class FSM> void on_exit(Event const &evt, FSM &fsm) {                  \
+    GLOGDEBUG << "[exit  : " << fds::util::type(*this) << " evt:" << fds::util::type(evt) << "]"; \
+}
 namespace fds {
 
 // --------------------------------------------------------------------------------------
@@ -22,6 +37,25 @@ namespace fds {
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
 namespace msf = msm::front;
+
+    // Refer: http://www.boost.org/doc/libs/1_46_0/libs/msm/doc/HTML/ch06s03.html#internals-state-id
+    // NOTE: the order MUST be :
+    //   'Start' column top -> bottom followed by
+    //   'Next'  column top -> bottom
+static char const * state_names[] = {
+    "Inactive", "CrtPend", "Active", "Waiting" , "DelChk", "DelPend", "DetachPend", "DelVolSent" , "DelNotPend", //NOLINT
+};
+
+/*
+const char* current_state_name(FSM_Volume& fsm) {
+    const int* states = fsm.current_state();
+    int numStates = sizeof(states) / sizeof(int); //NOLINT
+    if ( 0 == numStates ) {
+        return "unknown";
+    }
+    return state_names[states[0]];
+}
+*/
 
 /**
 * Flags -- allow info about a property of the current state
@@ -33,7 +67,7 @@ struct VolumeDelCheck {};
 /**
  * OM Volume State Machine structure
  */
-struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
+struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>, public HasLogger
 {
     template <class Event, class FSM> void on_entry(Event const &, FSM &);
     template <class Event, class FSM> void on_exit(Event const &, FSM &);
@@ -62,8 +96,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        STATE_ENTER_EXIT();
     };
     struct VST_CrtPend: public msm::front::state<>
     {
@@ -74,9 +107,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
-
+        STATE_ENTER_EXIT();
         int acks_to_wait;
     };
     struct VST_Active: public msm::front::state<>
@@ -84,8 +115,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        STATE_ENTER_EXIT();
     };
     struct VST_Waiting: public msm::front::state<>
     {
@@ -94,8 +124,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        STATE_ENTER_EXIT();
 
         om_vol_notify_t wait_for_type;
     };
@@ -108,11 +137,21 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
-
+        STATE_ENTER_EXIT();
         fds_uint32_t del_chk_ack_wait;
     };
+
+    struct VST_DelVolSent: public msm::front::state<>
+    {
+        typedef mpl::vector1<VolumeDelCheck> flag_list;
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        STATE_ENTER_EXIT();
+        fds_uint32_t del_vol_ack_wait;
+    };
+
     struct VST_DelPend: public msm::front::state<>
     {
         typedef mpl::vector1<VolumeDelPending> flag_list;
@@ -122,13 +161,11 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
-
+        STATE_ENTER_EXIT();
         int detach_ack_wait;
     };
 
-    struct VST_DetAllPend: public msm::front::state<>
+    struct VST_DetachPend: public msm::front::state<>
     {
         typedef mpl::vector1<VolumeDelPending> flag_list;
         typedef mpl::vector<DelNotifEvt> deferred_events;
@@ -136,8 +173,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        STATE_ENTER_EXIT();
     };
 
     struct VST_DelNotPend: public msm::front::state<>
@@ -148,9 +184,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
-
+        STATE_ENTER_EXIT();
         int del_notify_ack_wait;
     };
 
@@ -161,8 +195,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        STATE_ENTER_EXIT();
     };
 
     /**
@@ -203,6 +236,12 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct VACT_SendDelVol
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+
     struct VACT_DelNotify
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -237,12 +276,18 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
-    struct GRD_VolDel
+    struct GRD_DelChk
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
-    struct GRD_DetResp
+    struct GRD_DelVol
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+
+    struct GRD_Detach
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
@@ -257,28 +302,32 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
      * Transition table for OM Volume life cycle
      */
     struct transition_table : mpl::vector<
-        // +-------------------+--------------+------------+---------------+------------+
-        // | Start             | Event        | Next       | Action        | Guard      |
-        // +-------------------+--------------+------------+---------------+------------+
-        msf::Row< VST_Inactive , VolCreateEvt , VST_CrtPend, VACT_NotifCrt, GRD_NotifCrt>,
-        msf::Row< VST_Inactive , VolDelChkEvt , VST_DelDone, VACT_DelDone  , msf::none  >,
-        // +-------------------+--------------+------------+---------------+------------+
-        msf::Row< VST_CrtPend  , VolCrtOkEvt  , VST_Active , VACT_CrtDone  , GRD_VolCrt >,
-        // +-------------------+--------------+------------+---------------+------------+
-        msf::Row< VST_Active   , VolOpEvt     , VST_Waiting, VACT_VolOp    , GRD_VolOp  >,
-        msf::Row< VST_Active   , VolDelChkEvt , VST_DelChk , VACT_DelChk   , msf::none  >,
-        // +-------------------+--------------+------------+---------------+------------+
-        msf::Row< VST_Waiting  , VolOpRespEvt , VST_Active , VACT_OpResp   , GRD_OpResp >,
-        // +-------------------+--------------+------------+---------------+------------+
-        msf::Row< VST_DelChk   , DelChkAckEvt , VST_DelPend, VACT_DelStart , GRD_VolDel >,
-        // +-------------------+--------------+------------+---------------+------------+
-        msf::Row< VST_DelPend  , DetachAllEvt , VST_DetAllPend, msf::none  , msf::none  >,
-        msf::Row< VST_DelPend  , DelNotifEvt , VST_DelNotPend, VACT_DelNotify, msf::none>,
-        // +-------------------+--------------+------------+---------------+------------+
-        msf::Row< VST_DetAllPend, VolOpRespEvt, VST_DelPend, msf::none    , GRD_DetResp >,
-        msf::Row< VST_DelNotPend, VolOpRespEvt, VST_DelDone, VACT_DelDone , GRD_DelDone >
-        // +------------------+--------------+------------+---------------+-------------+
-        >{};  // NOLINT                                                                                                                                   
+        // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
+        // | Start               | Event         | Next           | Action         | Guard           , //NOLINT
+        // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
+        msf::Row< VST_Inactive   , VolCreateEvt  , VST_CrtPend    , VACT_NotifCrt  , GRD_NotifCrt>   , //NOLINT
+        msf::Row< VST_Inactive   , VolDelChkEvt  , VST_DelDone    , VACT_DelDone   , msf::none   >   , //NOLINT
+        // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
+        msf::Row< VST_CrtPend    , VolCrtOkEvt   , VST_Active     , VACT_CrtDone   , GRD_VolCrt  >   , //NOLINT
+        // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
+        msf::Row< VST_Active     , VolOpEvt      , VST_Waiting    , VACT_VolOp     , GRD_VolOp   >   , //NOLINT
+        msf::Row< VST_Active     , VolDelChkEvt  , VST_DelChk     , VACT_DelChk    , msf::none   >   , //NOLINT
+        // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
+        msf::Row< VST_Waiting    , VolOpRespEvt  , VST_Active     , VACT_OpResp    , GRD_OpResp  >   , //NOLINT
+        // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
+        msf::Row< VST_DelChk     , DelChkAckEvt  , VST_DelPend    , VACT_DelStart  , GRD_DelChk  >   , //NOLINT
+        // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
+        msf::Row< VST_DelPend    , DetachAllEvt  , VST_DetachPend , msf::none      , msf::none   >   , //NOLINT
+        msf::Row< VST_DetachPend , VolOpRespEvt  , VST_DelPend    , msf::none      , GRD_Detach  >   , //NOLINT
+        // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
+        msf::Row< VST_DelPend    , SendDelVolEvt , VST_DelVolSent , VACT_SendDelVol, msf::none   >   , //NOLINT
+        msf::Row< VST_DelVolSent , VolOpRespEvt  , VST_DelPend    , msf::none      , GRD_DelVol  >   , //NOLINT
+        // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
+        msf::Row< VST_DelPend    , DelNotifEvt   , VST_DelNotPend , VACT_DelNotify , msf::none   >   , //NOLINT
+        msf::Row< VST_DelNotPend , VolOpRespEvt  , VST_DelDone    , VACT_DelDone   , GRD_DelDone >     //NOLINT
+        // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
+        >{};  // NOLINT 
+
 
 template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
 };
@@ -298,11 +347,9 @@ void VolumeFSM::on_exit(Event const &evt, Fsm &fsm)
 template <class Event, class Fsm>
 void VolumeFSM::no_transition(Event const &evt, Fsm &fsm, int state)
 {
-    static char const *const state_names[] = {
-        "Inactive", "CrtPend", "Active", "Waiting" , "DelChk", "DelPend", "DelNotPend"
-    };
-    GLOGDEBUG << "no transition from state : " << state_names[state]
-              << " on evt:" << typeid(evt).name();
+    GLOGDEBUG << " no transition from state : " << state_names[state]
+              << " on evt:" << fds::util::type(evt);
+            // << " cur:" << current_state_name(fsm);
 }
 
 /**
@@ -314,6 +361,7 @@ void VolumeFSM::no_transition(Event const &evt, Fsm &fsm, int state)
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool VolumeFSM::GRD_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    STATELOG();
     fds_bool_t is_rebal;
     OM_Module *om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
@@ -322,7 +370,7 @@ bool VolumeFSM::GRD_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 
     is_rebal = vp->isRebalancing((vol->vol_get_properties())->volUUID);
     if (is_rebal) {
-        LOGNOTIFY << "Volume " << vol->vol_get_name() << ":" << std::hex
+        GLOGNOTIFY << "Volume " << vol->vol_get_name() << ":" << std::hex
                   << (vol->vol_get_properties())->volUUID << std::dec
                   << " is in a DMT column that is rebalancing now! "
                   << "Will delay volume creation until rebalancing is finished";
@@ -343,10 +391,11 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 VolumeFSM::VACT_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    STATELOG();
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeInfo *vol = evt.vol_ptr;
     fds_verify(vol != NULL);
-    LOGDEBUG << "VolumeFSM VACT_NotifCrt for volume " << vol->vol_get_name();
+    GLOGDEBUG << "VolumeFSM VACT_NotifCrt for volume " << vol->vol_get_name();
     VolumeDesc* volDesc= vol->vol_get_properties();
     volDesc->state = fpi::ResourceState::Loading;
 
@@ -373,8 +422,9 @@ VolumeFSM::VACT_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool VolumeFSM::GRD_VolCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    STATELOG();
     fds_bool_t ret = false;
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM GRD_VolCrt";
+    GLOGDEBUG << "VolumeFSM GRD_VolCrt";
     if (evt.got_ack) {
         // if we are waiting for acks and got actual ack, acks_to_wait
         // should be positive, otherwise we would have got out of this
@@ -385,7 +435,7 @@ bool VolumeFSM::GRD_VolCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
     ret = (src.acks_to_wait == 0);
 
-    LOGDEBUG << "GRD_VolCrt: acks to wait " << src.acks_to_wait << " return " << ret;
+    GLOGDEBUG << "GRD_VolCrt: acks to wait " << src.acks_to_wait << " return " << ret;
     return ret;
 }
 
@@ -397,7 +447,8 @@ bool VolumeFSM::GRD_VolCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void VolumeFSM::VACT_CrtDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM VACT_CrtDone";
+    STATELOG();
+    GLOGDEBUG << "VolumeFSM VACT_CrtDone";
     VolumeInfo* vol = evt.vol_ptr;
     VolumeDesc* volDesc = vol->vol_get_properties();
     volDesc->state = fpi::ResourceState::Active;
@@ -422,13 +473,14 @@ void VolumeFSM::VACT_CrtDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool VolumeFSM::GRD_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    STATELOG();
     bool ret = false;
     if ((evt.op_type == FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD) ||
         (evt.op_type == FDS_ProtocolInterface::FDSP_MSG_DETACH_VOL_CMD) ||
         (evt.op_type == FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL)) {
         ret = true;
     }
-    LOGDEBUG << "VolumeFSM GRD_VolOp operation type " << evt.op_type
+    GLOGDEBUG << "VolumeFSM GRD_VolOp operation type " << evt.op_type
              << " guard result: " << ret;
     return ret;
 }
@@ -444,27 +496,28 @@ bool VolumeFSM::GRD_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    STATELOG();
     Error err(ERR_OK);
     VolumeInfo* vol = evt.vol_ptr;
     switch (evt.op_type) {
         case FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD:
-            FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VACT_VolOp: attach volume";
+            GLOGDEBUG << "VACT_VolOp: attach volume";
             dst.wait_for_type = om_notify_vol_attach;
             err = vol->vol_attach_node(evt.tgt_uuid);
             if (err.GetErrno() == ERR_DUPLICATE) {
                 // that's ok, nothing else to do
-                fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(),
+                fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(), vol,
                                                om_notify_vol_attach,
                                                Error(ERR_OK)));
             }
             break;
         case FDS_ProtocolInterface::FDSP_MSG_DETACH_VOL_CMD:
-            LOGDEBUG << "VACT_VolOp:: detach volume";
+            GLOGDEBUG << "VACT_VolOp:: detach volume";
             dst.wait_for_type = om_notify_vol_detach;
             err = vol->vol_detach_node(evt.tgt_uuid);
             break;
         case FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL:
-            LOGDEBUG << "VACT_VolOp:: modify volume";
+            GLOGDEBUG << "VACT_VolOp:: modify volume";
             dst.wait_for_type = om_notify_vol_mod;
             err = vol->vol_modify(evt.vdesc_ptr);
             break;
@@ -475,7 +528,7 @@ void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     /* if error happened before we sent msg to remote node, finish op now*/
     if (!err.ok()) {
         // err happened before we sent msg to remote node, so finish op now
-        fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(), dst.wait_for_type, err));
+        fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(), vol, dst.wait_for_type, err));
     }
 }
 
@@ -489,7 +542,8 @@ void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool VolumeFSM::GRD_OpResp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "VolumeFSM GRD_OpResp wait_for_type " << src.wait_for_type
+    STATELOG();
+    GLOGDEBUG << "VolumeFSM GRD_OpResp wait_for_type " << src.wait_for_type
              << " result: " << evt.op_err.GetErrstr();
     // check if we received the number of responses we need
     if (src.wait_for_type != evt.resp_type)
@@ -508,7 +562,8 @@ bool VolumeFSM::GRD_OpResp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void VolumeFSM::VACT_OpResp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM VACT_OpResp";
+    STATELOG();
+    GLOGDEBUG << "VolumeFSM VACT_OpResp";
     // send reponse back to node that initiated the operation
 }
 
@@ -523,30 +578,32 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 VolumeFSM::VACT_DelChk::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    STATELOG();
     OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeInfo* vol = evt.vol_ptr;
-    LOGDEBUG << "VACT_DelChk for volume " << vol->vol_get_name();
+    GLOGDEBUG << "VACT_DelChk for volume " << vol->vol_get_name();
 
     dst.del_chk_ack_wait = local->om_bcast_vol_delete(vol, true);
     if (dst.del_chk_ack_wait == 0) {
-        LOGWARN << " no acks to wait ... triggerring delete";
+        GLOGWARN << " no acks to wait ... triggerring delete";
         fsm.process_event(DelChkAckEvt(vol, Error(ERR_OK)));
     }
 }
 
 /**
- * GRD_VolDel
+ * GRD_DelChk
  * ------------
  * Guard to start deleting the volume. Returns true if all DMs said there are
  * no objects in this volume (reponses to delete vol notifications). Otherwise,
  * returns false and we stay in the current state.
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
-bool VolumeFSM::GRD_VolDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+bool VolumeFSM::GRD_DelChk::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    STATELOG();
     bool ret = false;
     VolumeInfo* vol = evt.vol_ptr;
-    LOGDEBUG << "GRD_VolDel volume " << vol->vol_get_name()
+    GLOGDEBUG << "GRD_DelChk volume " << vol->vol_get_name()
              << "result : " << evt.chk_err.GetErrstr();
 
     if (evt.recvd_ack && (src.del_chk_ack_wait > 0)) {
@@ -568,7 +625,7 @@ bool VolumeFSM::GRD_VolDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         VolumePlacement* vp = om->om_volplace_mod();
         fds_verify(vol);
         if (vp->isRebalancing((vol->vol_get_properties())->volUUID)) {
-            LOGNOTIFY << "Volume " << vol->vol_get_name() << ":" << std::hex
+            GLOGNOTIFY << "Volume " << vol->vol_get_name() << ":" << std::hex
                       << (vol->vol_get_properties())->volUUID << std::dec
                       << " is in a DMT column that is rebalancing now! "
                       << "Will delay volume deletion until rebalancing is finished";
@@ -576,9 +633,23 @@ bool VolumeFSM::GRD_VolDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         }
     }
 
-    LOGDEBUG << "GRD_VolDel: acks to wait " << src.del_chk_ack_wait << " return " << ret;
+    GLOGDEBUG << "GRD_DelChk: acks to wait " << src.del_chk_ack_wait << " return " << ret;
     return ret;
 }
+
+/**
+ * Guard to start deleting the volume. Returns true if all DMs said there are
+ * no objects in this volume (reponses to delete vol notifications). Otherwise,
+ * returns false and we stay in the current state.
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool VolumeFSM::GRD_DelVol::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    STATELOG();
+    bool ret = false;
+    return ret;
+}
+
 
 /**
  * VACT_DelStart
@@ -590,8 +661,9 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 VolumeFSM::VACT_DelStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    STATELOG();
     VolumeInfo* vol = evt.vol_ptr;
-    LOGDEBUG << "VolumeFSM VACT_DelStart";
+    GLOGDEBUG << "VolumeFSM VACT_DelStart";
     VolumeDesc* volDesc = vol->vol_get_properties();
     volDesc->state = fpi::ResourceState::MarkedForDeletion;
 
@@ -616,20 +688,45 @@ VolumeFSM::VACT_DelStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 }
 
 /**
- * GRD_DetResp
+ * We are here because there are no objects in this volume/bucket, so ok to delete.
+ * If this is not a block volume, send detach to all AMs that have this bucket attached.
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+VolumeFSM::VACT_SendDelVol::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    STATELOG();
+    VolumeInfo* vol = evt.vol_ptr;
+    VolumeDesc* volDesc = vol->vol_get_properties();
+    volDesc->state = fpi::ResourceState::MarkedForDeletion;
+
+    // TODO(prem): store state even for volume.
+    if (volDesc->isSnapshot()) {
+        gl_orch_mgr->getConfigDB()->setSnapshotState(volDesc->getSrcVolumeId(),
+                                                 volDesc->volUUID,
+                                                 volDesc->state);
+    }
+
+    // send the final vol delete command
+}
+
+
+/**
+ * GRD_Detach
  * ------------
  * Guards so that we receive detach responses from all AMs to whom we sent detach
  * message -- in that case returns true.
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
-VolumeFSM::GRD_DetResp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+VolumeFSM::GRD_Detach::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    STATELOG();
     fds_verify(dst.detach_ack_wait > 0);
     dst.detach_ack_wait--;
     bool ret = (dst.detach_ack_wait == 0);
 
-    LOGDEBUG << "VolumeFSM GRD_DetResp: acks to wait " << dst.detach_ack_wait
+    GLOGDEBUG << "VolumeFSM GRD_Detach: acks to wait " << dst.detach_ack_wait
              << " return " << ret;
 
     return ret;
@@ -644,13 +741,12 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 VolumeFSM::VACT_DelNotify::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    STATELOG();
     VolumeInfo *vol = evt.vol_ptr;
-    LOGDEBUG << "VolumeFSM VACT_DelNotify";
-
     // broadcast delete volume notification to all DMs/SMs
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     dst.del_notify_ack_wait = local->om_bcast_vol_delete(vol, false) + 1;
-    fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(), om_notify_vol_rm, Error(ERR_OK)));
+    fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(), vol, om_notify_vol_rm, Error(ERR_OK)));
 }
 
 /**
@@ -662,11 +758,12 @@ VolumeFSM::VACT_DelNotify::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool VolumeFSM::GRD_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    STATELOG();
     fds_verify(src.del_notify_ack_wait > 0);
     src.del_notify_ack_wait--;
     bool ret = (src.del_notify_ack_wait == 0);
 
-    LOGDEBUG << "VolumeFSM GRD_DelDone: acks to wait " << src.del_notify_ack_wait
+    GLOGDEBUG << "VolumeFSM GRD_DelDone: acks to wait " << src.del_notify_ack_wait
              << " return " << ret;
     return ret;
 }
@@ -679,6 +776,7 @@ bool VolumeFSM::GRD_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void VolumeFSM::VACT_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    STATELOG();
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeContainer::pointer volumes = local->om_vol_mgr();
     VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(volumes->rs_get_resource(evt.vol_uuid));
@@ -692,7 +790,7 @@ void VolumeFSM::VACT_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
                                                  volDesc->state);
     }
 
-    LOGDEBUG << "VolumeFSM VACT_DelDone";
+    GLOGDEBUG << "VolumeFSM VACT_DelDone";
     // TODO(anna) Send response to delete volume msg
 
     // do final cleanup
@@ -999,6 +1097,10 @@ void VolumeInfo::vol_event(DelChkAckEvt const &evt) {
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(DetachAllEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
+    volume_fsm->process_event(evt);
+}
+void VolumeInfo::vol_event(SendDelVolEvt const &evt) {
     fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
@@ -1487,7 +1589,7 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type, NodeUuid from_svc, Err
         case om_notify_vol_mod:
         case om_notify_vol_detach:
         case om_notify_vol_rm:
-            vol->vol_event(VolOpRespEvt(vol_uuid, type, resp_err));
+            vol->vol_event(VolOpRespEvt(vol_uuid, vol.get(), type, resp_err));
             break;
         case om_notify_vol_rm_chk:
             vol->vol_event(DelChkAckEvt(vol.get(), resp_err));
@@ -1537,7 +1639,7 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
         case om_notify_vol_mod:
         case om_notify_vol_detach:
         case om_notify_vol_rm:
-            vol->vol_event(VolOpRespEvt(vol_uuid, type, resp_err));
+            vol->vol_event(VolOpRespEvt(vol_uuid, vol.get(), type, resp_err));
             break;
         case om_notify_vol_rm_chk:
             vol->vol_event(DelChkAckEvt(vol.get(), resp_err));
@@ -1621,7 +1723,7 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
         case om_notify_vol_mod:
         case om_notify_vol_detach:
         case om_notify_vol_rm:
-            vol->vol_event(VolOpRespEvt(vol_uuid, type, resp_err));
+            vol->vol_event(VolOpRespEvt(vol_uuid, vol.get(), type, resp_err));
             break;
         case om_notify_vol_rm_chk:
             vol->vol_event(DelChkAckEvt(vol.get(), resp_err));

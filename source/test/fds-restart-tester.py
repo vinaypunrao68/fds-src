@@ -110,8 +110,8 @@ class RestartTest(object):
         om_ip = om.nd_conf_dict['ip']
 
         for n in self.nodes:
-            n.nd_rmt_agent.ssh_exec('python -m disk_type -m', wait_compl=True)
-            n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh start', wait_compl=True, output=True)
+            n.nd_agent.ssh_exec('python -m disk_type -m', wait_compl=True)
+            n.nd_agent.ssh_exec('/fds/sbin/redis.sh start', wait_compl=True, output=True)
 
         # TODO: not sure if it is necessary that redis is started
         # on all nodes before platform is started on any of them
@@ -130,7 +130,7 @@ class RestartTest(object):
                 self.cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
             else:
                 self.cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
-            print "Waiting for node %s to come up" % n.nd_rmt_host
+            print "Waiting for node %s to come up" % n.nd_host
             time.sleep(3)
         """
 
@@ -156,8 +156,8 @@ class RestartTest(object):
         # cleanup nodes
         if clean != 0:
             n.nd_cleanup_node()
-            n.nd_rmt_agent.ssh_exec('(cd /fds/sbin && ./redis.sh clean)', output=True)
-            n.nd_rmt_agent.ssh_exec('rm /fds/uuid_port')
+            n.nd_agent.ssh_exec('(cd /fds/sbin && ./redis.sh clean)', output=True)
+            n.nd_agent.ssh_exec('rm /fds/uuid_port')
 
         # todo(Rao): Unregister the services here.  Once we implement name based
         # services this should be easy

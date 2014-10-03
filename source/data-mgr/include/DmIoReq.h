@@ -755,6 +755,12 @@ class DmIoStatStream : public dmCatReq {
 };
 
 
+struct DmIoGetSysStats : dmCatReq {
+    boost::shared_ptr<fpi::GetDmStatsMsg> message;
+    explicit DmIoGetSysStats(boost::shared_ptr<fpi::GetDmStatsMsg> message)
+            : message(message) , dmCatReq(message->volume_id, "", 0, FDS_DM_SYS_STATS) {}
+};
+
 struct DmIoGetBucket : dmCatReq {
     boost::shared_ptr<fpi::GetBucketMsg> message;
     explicit DmIoGetBucket(boost::shared_ptr<fpi::GetBucketMsg> message)

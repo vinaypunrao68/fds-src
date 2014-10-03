@@ -212,6 +212,7 @@ class DataMgr : public Module, public DmIoReqHandler {
                     break;
 
                     // new handlers
+                case FDS_DM_SYS_STATS:
                 case FDS_DELETE_BLOB:
                 case FDS_LIST_BLOB:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
@@ -406,6 +407,8 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     Error deleteSnapshot(const fds_uint64_t snapshotId);
 
+    Error deleteVolumeContents(fds_volid_t volId);
+
     /*
      * Nested class that manages the server interface.
      */
@@ -499,6 +502,7 @@ class DataMgr : public Module, public DmIoReqHandler {
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
+    friend class dm::DmSysStatsHandler;
     friend class dm::DeleteBlobHandler;
 };
 

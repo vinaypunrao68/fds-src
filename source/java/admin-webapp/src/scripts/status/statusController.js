@@ -1,36 +1,4 @@
 angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval ){
-
-//    $scope.fakeData = {
-//        series: [
-//          [
-//              {x:0, y: 10},
-//              {x:1, y: 40},
-//              {x:2, y: 31},
-//              {x:3, y: 16},
-//              {x:4, y: 19},
-//              {x:5, y: 2},
-//              {x:6, y: 8},
-//              {x:7, y: 52},
-//              {x:8, y: 12},
-//              {x:9, y: 34}
-//          ],
-//          [
-//              {x:0, y: 15},
-//              {x:1, y: 46},
-//              {x:2, y: 36},
-//              {x:3, y: 21},
-//              {x:4, y: 30},
-//              {x:5, y: 12},
-//              {x:6, y: 10},
-//              {x:7, y: 53},
-//              {x:8, y: 17},
-//              {x:9, y: 39}
-//          ]
-//        ]
-//    };
-//    
-//    $scope.fakeColors = [ 'red', 'red' ];
-//    $scope.fakeOpacities = [0.5, 0.5];
     
     $scope.activities = [];
     $scope.firebreakMax = 1440;
@@ -44,6 +12,8 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $scope.firebreakStats = data;
     };
     
+    // this callback creates the tooltip element
+    // which will get constructed ultimately by treemap
     $scope.setFirebreakToolipText = function( data ){
         
         var units = '';
@@ -65,8 +35,6 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         }
         
         var str = '<div><div style="font-weight: bold;font-size: 11px;">' + data.name + '</div><div style="font-size: 10px;">' + $filter( 'translate' )( 'status.tt_firebreak', { value: value,units: units} ) + '</div></div>';
-        
-        console.log(  );
         
         return str;
     };
