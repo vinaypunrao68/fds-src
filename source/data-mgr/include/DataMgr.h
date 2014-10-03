@@ -407,6 +407,8 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     Error deleteSnapshot(const fds_uint64_t snapshotId);
 
+    Error deleteVolumeContents(fds_volid_t volId);
+
     /*
      * Nested class that manages the server interface.
      */

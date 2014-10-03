@@ -322,6 +322,9 @@ Error PersistVolumeMeta::markDeleted() {
         return err;
     }
 
+    /**
+     * We will now delete volumes even if they are not empty
+     *     
     dbIt = getSnapshotIter(options);
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
         Record db_key = dbIt->key();
@@ -344,6 +347,7 @@ Error PersistVolumeMeta::markDeleted() {
         }
     }
     releaseSnapshotIter(options, dbIt);
+    */
 
     // if volume is empty, mark as deleted
     if (err.ok()) {

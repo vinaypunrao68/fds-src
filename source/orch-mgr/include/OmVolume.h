@@ -76,10 +76,11 @@ class VolOpRespEvt
 {
  public:
     VolOpRespEvt(const ResourceUUID& uuid,
+                 VolumeInfo* vol_ptr,
                  om_vol_notify_t type,
                  Error err)
-            : vol_uuid(uuid), resp_type(type), op_err(err) {}
-
+            : vol_uuid(uuid), vol_ptr(vol_ptr), resp_type(type), op_err(err) {}
+    VolumeInfo* vol_ptr;
     ResourceUUID vol_uuid;
     om_vol_notify_t resp_type;
     Error op_err;
@@ -120,6 +121,12 @@ class DetachAllEvt
  public:
     DetachAllEvt() {}
 };
+
+struct SendDelVolEvt {
+    explicit SendDelVolEvt(VolumeInfo* vol) : vol_ptr(vol) {}
+    VolumeInfo* vol_ptr;
+};
+
 
 class DelNotifEvt
 {
@@ -201,6 +208,7 @@ class VolumeInfo : public Resource
     void vol_event(DelChkAckEvt const &evt);
     void vol_event(DetachAllEvt const &evt);
     void vol_event(DelNotifEvt const &evt);
+    void vol_event(SendDelVolEvt const &evt);
     fds_bool_t isVolumeInactive();
     fds_bool_t isDeletePending();
     fds_bool_t isCheckDelete();
