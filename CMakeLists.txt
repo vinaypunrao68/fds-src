@@ -31,8 +31,10 @@ include_directories(source/include
                     source/data-mgr/include/dm-vol-cat/
                     source/platform/include/
                     source/persistent_layer/include/
-                    source/orch_mgr/include/
-                    source/orch_mgr/include/snapshot/
+                    source/lib/
+                    source/orch-mgr/
+                    source/orch-mgr/include/
+                    source/orch-mgr/include/snapshot/
                     leveldb-1.12.0/include/leveldb
                     /usr/local/include/boost/
                     )
@@ -943,7 +945,6 @@ set(SOURCE_FILES
     nginx/src/os/unix/ngx_user.c
     nginx/src/os/unix/ngx_user.h
     nginx/src/os/unix/ngx_writev_chain.c
-    source/am-app/include/am-platform.h
     source/am-app/include/AMSvcHandler.h
     source/am-app/platform/am-platform.cpp
     source/am-app/platform/AMSvcHandler.cpp
