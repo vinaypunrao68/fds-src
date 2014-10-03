@@ -3,30 +3,15 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.SigningAlgorithm;
-import com.amazonaws.http.HttpMethodName;
-import com.amazonaws.services.s3.internal.S3Signer;
-import com.amazonaws.services.s3.internal.ServiceUtils;
-import com.amazonaws.util.AWSRequestMetrics;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.s3.S3SignatureGenerator;
-import com.formationds.util.s3.SimpleS3Request;
 import com.formationds.xdi.Xdi;
-import com.google.common.collect.Maps;
 import org.eclipse.jetty.server.Request;
-import org.eclipse.jetty.util.MultiMap;
 
 import javax.crypto.SecretKey;
-import java.io.InputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.text.MessageFormat;
-import java.text.ParseException;
-import java.util.*;
 
 public class S3Authenticator {
     private Xdi xdi;
