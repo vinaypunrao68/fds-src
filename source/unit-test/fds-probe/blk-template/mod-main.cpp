@@ -9,7 +9,7 @@
 #include <template_probe.h>
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 
 int main(int argc, char **argv)
 {

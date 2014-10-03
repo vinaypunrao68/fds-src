@@ -13,8 +13,7 @@ import java.lang.management.ThreadMXBean;
 import java.text.MessageFormat;
 
 /**
- * @author $Author: ptinius $
- * @version $Revision: #1 $ $DateTime: 2013/10/24 16:16:16 $
+ * @author ptinius
  */
 @SuppressWarnings( { "unused" } )
 public class ThreadUtil

@@ -12,8 +12,7 @@ import org.slf4j.LoggerFactory;
 import java.text.MessageFormat;
 
 /**
- * @author $Author: ptinius $
- * @version $Revision: #1 $ $DateTime: 2013/10/24 16:16:16 $
+ * @author ptinius
  */
 public abstract class ThreadBase
   implements Runnable
@@ -73,7 +72,7 @@ public abstract class ThreadBase
   public abstract String threadName();
 
   /**
-   * @return Returns <code>true</code> is execution timer should be shown.
+   * @return Returns <code>true</code> if the execution timer should be shown.
    *         Otherwise <code>false</code> is returned.
    */
   public abstract boolean showTimer();

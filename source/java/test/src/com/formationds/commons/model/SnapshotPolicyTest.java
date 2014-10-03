@@ -37,4 +37,25 @@ public class SnapshotPolicyTest {
 
       System.out.println(ObjectModelHelper.toJSON(policy));
     }
+
+  private static final String JSON_1 =
+    "{\n" +
+      "  \"id\": 1,\n" +
+      "  \"name\": \"snapshot policy name 1\",\n" +
+      "  \"recurrenceRule\": {\n" +
+      "    \"frequency\": \"DAILY\",\n" +
+      "    \"count\": 10\n" +
+      "  },\n" +
+      "  \"retention\": 1412281425\n" +
+      "}";
+  private static final String JSON_2 =
+    "{\"name\":\"1898484965023354702_DAILY\",\"recurrenceRule\":{\"FREQ\":\"DAILY\"},\"retention\":604800}";
+
+  @Test
+  public void jsonTest()
+  {
+    final SnapshotPolicy policy = ObjectModelHelper.toObject( JSON_2, SnapshotPolicy.class );
+
+    System.out.println( "POLICY::" + policy );
+  }
 }

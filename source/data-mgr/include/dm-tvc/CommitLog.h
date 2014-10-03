@@ -16,24 +16,6 @@
 #include <blob/BlobTypes.h>
 #include <DmBlobTypes.h>
 
-/*
-#include <unistd.h>
-#include <string.h>
-#include <set>
-
-#include <deque>
-#include <unordered_map>
-#include <atomic>
-#include <list>
-
-#include <serialize.h>
-#include <FdsCrypto.h>
-#include <PerfTypes.h>
-#include <boost/scoped_ptr.hpp>
-#include <DmIoReq.h>
-#include <lib/Catalog.h>
-*/
-
 namespace fds {
 
 // commit log transaction details
@@ -112,6 +94,13 @@ class DmCommitLog : public Module {
 
     // check if any transaction is pending from before the given time
     fds_bool_t isPendingTx(const fds_uint64_t tsNano = util::getTimeStampNanos());
+
+    // get active transactions
+    // fds_uint32_t getActiveTx() const {
+    fds_uint32_t getActiveTx() {
+        SCOPEDREAD(lockTxMap_);
+        return txMap_.size();
+    }
 
   private:
     TxMap txMap_;    // in-memory state

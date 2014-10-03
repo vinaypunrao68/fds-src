@@ -119,6 +119,8 @@ class BlobExtent: public serialize::Serializable {
      */
     void getAllObjects(std::set<ObjectID> & objIds);
 
+    void getAllObjects(std::vector<ObjectID> & onjIds);
+
     /**
      * Appends offset to object mappings from this extent to blob_obj_list
      */

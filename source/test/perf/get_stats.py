@@ -98,7 +98,7 @@ def exist_exp():
 def compute_pidmap():
     file = open("%s/pidmap" % (options.directory),"r")
     for l in file:
-        m = re.search("([\w-]+):(am|om|dm|sm)\s*:\s*(\d+)",l)
+        m = re.search("([\w-]+):(am|om|dm|sm|xdi)\s*:\s*(\d+)",l)
         if m is not None:
             node = m.group(1)
             agent = m.group(2)
@@ -178,6 +178,30 @@ def get_iops(node):
     iops_series = [sum(e) for e in zip(*all_values)]
     return iops_series
 
+def get_await(node):
+    await_map = {}
+    await_series = []
+    _file = open("%s/%s/ios/stdout" % (options.directory, node),"r")
+    for l in _file:
+        tokens = l.split()
+        if len(tokens) >= 9:
+            name = tokens[0]
+            value = tokens[9]
+            if name in g_drives:
+                if name in await_map:
+                    await_map[name].append(float(value))
+                else:
+                    await_map[name] = [float(value)]
+    _file.close()
+    all_values = []
+    for n,values in await_map.items():
+        all_values.append(values)
+    #for e in zip(*all_values):
+    #    await_series.append(sum(e)/len(e))
+    await_series = [sum(e) for e in zip(*all_values)]
+    return await_series
+
+
 def get_test_parms():
     #results_2014-08-05_nvols\:1.threads\:1.type\:GET.nfiles\:10000.test_type\:tgen.fsize\:4096.nreqs\:100000.test
     m = re.match("(\w+)_(\d+-)_nvols:(\d+).threads:(\d+).type:(\w+).nfiles:(\d+).test_type:(\w+).fsize:(\d+).nreqs:(\d+).test", options.directory)
@@ -225,9 +249,11 @@ def main():
                 print "maxcpu,",getmax(get_cpu(node, agent, pid)),", ",
         if options.plot_enable:
             plot_series(get_iops(node), "IOPS - " + options.name, "IOPS (disk)")
+            plot_series(get_await(node), "AWAIT - " + options.name, "AWAIT (disk)")
             plot_series(get_idle(node), "Avg Idle - " + options.name, "Idle CPU Time [%]")
         else:
             print "maxiops,",getmax(get_iops(node)),", ",
+            print "maxawait,",getmax(get_await(node)),", ",
             print "avgidle,",getavg(get_idle(node)),", ",
     print_counter(counters, "am","am_get_obj_req", "latency")
     print "avgjavalat,", getavg(get_java_cntr()), ", ",
