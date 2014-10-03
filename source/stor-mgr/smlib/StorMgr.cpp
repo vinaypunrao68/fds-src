@@ -3233,16 +3233,18 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
 
-    leveldb::DB *db;
-    leveldb::ReadOptions options;
-
-    smObjDb->snapshot(snapReq->token_id, db, options);
-
+    if (execNewStubs) {
+        objectStore->snapshotMetadata(snapReq->token_id,
+                                      snapReq->smio_snap_resp_cb);
+    } else {
+        leveldb::DB *db;
+        leveldb::ReadOptions options;
+        smObjDb->snapshot(snapReq->token_id, db, options);
+        snapReq->smio_snap_resp_cb(err, snapReq, options, db);
+    }
     /* Mark the request as complete */
     qosCtrl->markIODone(*snapReq,
                         diskio::diskTier);
-
-    snapReq->smio_snap_resp_cb(err, snapReq, options, db);
 }
 
 void

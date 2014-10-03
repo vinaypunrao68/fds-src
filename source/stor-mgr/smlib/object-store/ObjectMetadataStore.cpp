@@ -113,4 +113,14 @@ ObjectMetadataStore::removeObjectMetadata(fds_volid_t volId,
     return err;
 }
 
+void
+ObjectMetadataStore::snapshot(fds_token_id smTokId,
+                              SmIoSnapshotObjectDB::CbType notifFn) {
+    Error err(ERR_OK);
+    leveldb::DB *db;
+    leveldb::ReadOptions options;
+    metaDb_->snapshot(smTokId, db, options);
+    notifFn(err, NULL, options, db);
+}
+
 }  // namespace fds
