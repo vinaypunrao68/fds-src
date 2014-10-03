@@ -55,6 +55,11 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         $snapshot_service.cloneSnapshotToNewVolume( snapshot, newName.trim(), function(){ alert( 'Clone successfully created.');} );
     };
+    
+    $scope.deleteSnapshot = function( snapshot ){
+        
+        $volume_api.deleteSnapshot( $scope.$parent.selectedVolume.id, snapshot.id, function(){ alert( 'Snapshot deleted successfully.' );} );
+    };
 
     // basically this is "save my policy changes.
     //
