@@ -5,8 +5,6 @@ dirname = os.path.dirname(os.path.abspath(os.curdir))
 sys.path.insert(0,'{}/test/fdslib/pyfdsp/'.format(dirname))
 sys.path.insert(0,'{}/test/fdslib/'.format(dirname))
 sys.path.insert(0,'{}/test/'.format(dirname))
-import fdslib
-import fdslib.pyfdsp.apis as apis
 
 import fdsconsole.console
 
