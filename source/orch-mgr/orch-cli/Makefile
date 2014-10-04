@@ -15,7 +15,7 @@ user_fds_ar_libs  :=  \
 
 user_non_fds_libs :=                                                          \
     boost_log boost_system boost_thread boost_date_time boost_program_options \
-    leveldb config++ thrift
+    leveldb config++ thrift fiu dl
 
 user_incl_dir     :=
 

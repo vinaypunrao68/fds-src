@@ -33,7 +33,7 @@ RUN apt-get -y install bison flex ragel ccache
 RUN apt-get -y install libboost-log1.54-dev libboost-program-options1.54-dev
 RUN apt-get -y install libboost-timer1.54-dev libboost-thread1.54-dev libboost-regex1.54-dev
 RUN apt-get -y install libical-dev libical1 libleveldb-dev libncurses-dev
-RUN apt-get -y install python-yaml libyaml-dev libconfig-dev libconfig++-dev
+RUN apt-get -y install python-yaml libyaml-dev libconfig-dev libconfig++-dev libfiu-dev fiu-utils
 RUN apt-get -y install host npm nodejs ruby ruby-sass rake
 
 # Install the Docker client

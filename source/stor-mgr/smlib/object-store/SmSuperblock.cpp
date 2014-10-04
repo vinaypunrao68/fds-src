@@ -111,6 +111,10 @@ SmSuperblockHeader::initSuperblockHeader()
     this->SmSbHdrMinorVer = SmSuperblockMinorVer;
     this->SmSbHdrDataOffset = sizeof(*this);
     this->SmSbHdrSuperblockSize = sizeof(struct SmSuperblock);
+    this->SmSbHdrOffsetBeginning = offsetof(struct SmSuperblockHeader,
+                                            SmSbHdrMagic);
+    this->SmSbHdrOffsetEnd = offsetof(struct SmSuperblockHeader,
+                                      SmSbHdrLastFieldDummy);
 }
 
 
@@ -126,8 +130,12 @@ SmSuperblockHeader::validateSuperblockHeader()
         (SmSbHdrMajorVer != SmSuperblockMajorVer) ||
         (SmSbHdrMinorVer != SmSuperblockMinorVer) ||
         (SmSbHdrDataOffset != sizeof(*this)) ||
-        (SmSbHdrSuperblockSize != sizeof(struct SmSuperblock))) {
-        err = ERR_ONDISK_DATA_CORRUPT;
+        (SmSbHdrSuperblockSize != sizeof(struct SmSuperblock)) ||
+        (SmSbHdrOffsetBeginning != offsetof(struct SmSuperblockHeader,
+                                            SmSbHdrMagic)) ||
+        (SmSbHdrOffsetEnd != offsetof(struct SmSuperblockHeader,
+                                      SmSbHdrLastFieldDummy))) {
+        err = ERR_SM_SUPERBLOCK_DATA_CORRUPT;
     }
 
     return err;
@@ -184,7 +192,7 @@ SmSuperblock::readSuperblock(const std::string& path)
         /* TODO(Sean):
          * Need to update the error.  Need SM superblock error value.
          */
-        err = ERR_NOT_FOUND;
+        err = ERR_SM_SUPERBLOCK_MISSING_FILE;
     }
 
     return err;
@@ -212,7 +220,7 @@ SmSuperblock::writeSuperblock(const std::string& path)
         /* TODO(Sean):
          * Need to update the error.  Need SM superblock error value.
          */
-        err = ERR_DISK_READ_FAILED;
+        err = ERR_SM_SUPERBLOCK_WRITE_FAIL;
     }
 
     return err;
@@ -271,7 +279,7 @@ SmSuperblock::validateSuperblock()
         /* TODO(Sean):
          * Need to update the error.  Need SM superblock error value.
          */
-        return ERR_ONDISK_DATA_CORRUPT;
+        return ERR_SM_SUPERBLOCK_CHECKSUM_FAIL;
     }
 
     err = Header.validateSuperblockHeader();
@@ -280,7 +288,7 @@ SmSuperblock::validateSuperblock()
          * Need to update the error.  Need SM superblock error value.
          * This should really be like: ERR_SM_SUPERBLOCK_HEADER_CHECK
          */
-        return ERR_ONDISK_DATA_CORRUPT;
+        return ERR_SM_SUPERBLOCK_DATA_CORRUPT;
     }
 
     return err;
@@ -364,30 +372,28 @@ SmSuperblockMgr::loadSuperblock(const DiskLocMap& latestDiskMap)
              * one?
              */
             if (diskMap.size() > 1) {
-                for (unsigned i = 0; i <diskMap.size(); ++i) {
-                    for (auto cit = diskMap.begin(i); cit != diskMap.end(i); ++cit) {
-                        /* Skip the master superblock.
+                for (auto cit = diskMap.begin(); cit != diskMap.end(); ++cit) {
+                    /* Skip the master superblock.
+                     */
+                    if (cit->first == masterSuperblockDisk) {
+                        continue;
+                    }
+                    superblockPath = cit->second.c_str();
+                    superblockPath.append(superblockName);
+
+                    SmSuperblock tmpSuperblock;
+
+                    err = tmpSuperblock.readSuperblock(superblockPath);
+                    if (err != ERR_OK) {
+                        genNewSuperblock = true;
+                    } else {
+                        /* TODO(Sean):
+                         * Should overload "==" operator for this.
                          */
-                        if (cit->first == masterSuperblockDisk) {
-                            continue;
-                        }
-                        superblockPath = cit->second.c_str();
-                        superblockPath.append(superblockName);
-
-                        SmSuperblock tmpSuperblock;
-
-                        err = tmpSuperblock.readSuperblock(superblockPath);
-                        if (err != ERR_OK) {
+                        if (memcmp(&superblockMaster,
+                                   &tmpSuperblock,
+                                   sizeof(struct SmSuperblock)) != 0) {
                             genNewSuperblock = true;
-                        } else {
-                            /* TODO(Sean):
-                             * Should overload "==" operator for this.
-                             */
-                            if (memcmp(&superblockMaster,
-                                       &tmpSuperblock,
-                                       sizeof(struct SmSuperblock)) != 0) {
-                                genNewSuperblock = true;
-                            }
                         }
                     }
                 }
@@ -429,14 +435,12 @@ SmSuperblockMgr::syncSuperblock()
     superblockMaster.setSuperblockChecksum();
 
     /* Sync superblock to all devices in the disk map */
-    for (unsigned i = 0; i <diskMap.size(); ++i) {
-        for (auto cit = diskMap.begin(i); cit != diskMap.end(i); ++cit) {
-            superblockPath = cit->second.c_str();
-            superblockPath.append(superblockName);
-            err = superblockMaster.writeSuperblock(superblockPath);
-            if (err != ERR_OK) {
-                return err;
-            }
+    for (auto cit = diskMap.begin(); cit != diskMap.end(); ++cit) {
+        superblockPath = cit->second.c_str();
+        superblockPath.append(superblockName);
+        err = superblockMaster.writeSuperblock(superblockPath);
+        if (err != ERR_OK) {
+            return err;
         }
     }
 
@@ -452,10 +456,8 @@ SmSuperblockMgr::SmSuperblockMgrTestGetFileName()
 void
 SmSuperblockMgr::SmSuperblockMgrTestSetDumpDiskMap()
 {
-    for (unsigned i = 0; i <diskMap.size(); ++i) {
-        for (auto cit = diskMap.begin(i); cit != diskMap.end(i); ++cit) {
-            std::cout << cit->first << ":" << cit->second << std::endl;
-        }
+    for (auto cit = diskMap.begin(); cit != diskMap.end(); ++cit) {
+        std::cout << cit->first << ":" << cit->second << std::endl;
     }
 }
 

@@ -30,7 +30,9 @@ user_non_fds_libs := boost_log \
     dl \
     util \
     m \
-    python2.7
+    python2.7 \
+    fiu \
+    dl
 
 user_cpp          := \
     ThreadPoolTest.cpp \

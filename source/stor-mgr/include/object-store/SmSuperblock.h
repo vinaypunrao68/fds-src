@@ -121,6 +121,12 @@ struct SmSuperblockHeader {
      */
     uint32_t SmSbHdrHeaderSize;
 
+    /* offset where the header really starts..  Right after the
+     * SmSbHdrChecksum field.
+     */
+    uint32_t SmSbHdrOffsetBeginning;
+    uint32_t SmSbHdrOffsetEnd;
+
     /* size of the superblock.  If the superblock size changes during the
      * development time, we can discard the current SM superblock and regen
      * a new one.
@@ -137,6 +143,11 @@ struct SmSuperblockHeader {
     /* Offset (in bytes) of data section of the superblock data.
      */
     uint32_t SmSbHdrDataOffset;
+
+    /* This is a dummy declaration to indicate that it's the last
+     * field in the superblock header file.
+     */
+    uint32_t SmSbHdrLastFieldDummy;
 
     /* Structure is padded at this point.  The size of the data structure
      * should be modulo 512.

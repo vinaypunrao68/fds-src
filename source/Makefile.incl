@@ -23,7 +23,9 @@ ifdef user_std_libs
         event \
         config++ \
         rt \
-        hiredis
+        hiredis \
+	fiu \
+	dl
 endif
 
 incl_scripts := $(M)$(topdir)/Build/mk-scripts

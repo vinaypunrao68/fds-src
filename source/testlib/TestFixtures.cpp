@@ -53,8 +53,18 @@ void SingleNodeTest::init(int argc, char *argv[], const std::string volName)
     argc_ = argc;
     argv_ = argv;
     volName_ = volName;
-    /* TODO(Rao): Parse out fds tool dir from argv */
-    deployer_.reset(new Deployer("/home/nbayyana/temp/fds-src/source/tools"));
+    /* Parse out fds tool dir from argv */
+    namespace po = boost::program_options;
+    po::options_description desc("Allowed options");
+    po::parsed_options parsed =
+        po::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
+    for (auto o : parsed.options) {
+        if (o.string_key.find("fds-tools") == 0) {
+            deployer_.reset(new Deployer(o.value[0]));
+            break;
+        }
+    }
+    ASSERT_TRUE(deployer_.get() != nullptr) << "fds-tool directory not set";
 }
 
 /**

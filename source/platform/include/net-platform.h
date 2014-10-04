@@ -67,6 +67,7 @@ class PlatformdNetSvc : public NetPlatSvc
     EpSvcHandle::pointer nplat_peer(const fpi::DomainID &id, const fpi::SvcUuid &uuid);
 
     inline EpPlatformdMod *plat_rw_shm() { return plat_shm; }
+    bo::shared_ptr<PlatNetSvcHandler> getPlatNetSvcHandler();
 
   protected:
     EpPlatformdMod                    *plat_shm;

@@ -375,6 +375,10 @@ service PlatNetSvc extends BaseAsyncSvc {
     void setFlag(1:string id, 2:i64 value);
     i64 getFlag(1:string id);
     map<string, i64> getFlags(1: i32 nullarg);
+    /* For setting fault injection.
+     * @param cmdline format based on libfiu
+     */
+    bool setFault(1: string cmdline);
 }
 
 /*
@@ -820,6 +824,6 @@ service DMSvc extends PlatNetSvc {
  * AM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
-service AMSvc extends BaseAsyncSvc {
+service AMSvc extends PlatNetSvc {
 }
 
