@@ -314,7 +314,7 @@ public class RecurrenceRule
    */
   @Override
   public String toString() {
-    final StringBuilder sb = new StringBuilder( /* "[ " */ );
+    final StringBuilder sb = new StringBuilder( );
 
     sb.append( iCalFields.FREQ.name() )
       .append( "=" )
@@ -345,7 +345,6 @@ public class RecurrenceRule
         .append( ";" );
     }
 
-//    sb.append( " ]" );
     return sb.substring( 0, sb.length() ).trim();
   }
 }
