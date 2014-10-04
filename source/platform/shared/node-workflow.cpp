@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <vector>
 #include <platform/platform-lib.h>
 #include <platform/node-inventory.h>
 #include <platform/node-workflow.h>
@@ -241,7 +242,6 @@ NodeWorkItem::wrk_fmt_node_upgrade(fpi::NodeUpgradePtr &m)
     m->nd_dom_id        = wrk_peer_did;
     m->nd_op_code       = fpi::NodeUpgradeTypeId;
     m->nd_md5_chksum    = "";
-    m->nd_assigned_name = "";
     m->nd_pkg_path      = "";
 }
 
@@ -258,6 +258,15 @@ NodeWorkItem::wrk_fmt_node_integrate(fpi::NodeIntegratePtr &m)
     m->nd_start_dm  = true;
     m->nd_start_sm  = true;
     m->nd_start_om  = false;
+}
+
+/**
+ * wrk_fmt_node_wrkitem
+ * --------------------
+ */
+void
+NodeWorkItem::wrk_fmt_node_wrkitem(fpi::NodeWorkItemPtr &m)
+{
 }
 
 /**
@@ -422,6 +431,24 @@ void
 NodeWorkItem::act_node_functional(NodeWrkEvent::ptr e, fpi::NodeFunctionalPtr &m)
 {
     this->st_trace(NULL) << " in " << __FUNCTION__ << "\n";
+}
+
+/**
+ * wrk_recv_node_wrkitem
+ * ---------------------
+ */
+void
+NodeWorkItem::wrk_recv_node_wrkitem(fpi::AsyncHdrPtr &h, fpi::NodeWorkItemPtr &m)
+{
+}
+
+/**
+ * wrk_send_node_wrkitem
+ * ---------------------
+ */
+void
+NodeWorkItem::wrk_send_node_wrkitem(fpi::SvcUuid *svc, fpi::NodeWorkItemPtr &m, bool run)
+{
 }
 
 /**
@@ -705,10 +732,16 @@ NodeWorkFlow::wrk_item_frm_uuid(fpi::DomainID &did, fpi::SvcUuid &svc, bool inv)
  */
 void
 NodeWorkFlow::wrk_item_submit(fpi::DomainID &did,
-                              fpi::SvcUuid  &svc, EventObj::pointer evt)
+                              fpi::AsyncHdrPtr &hdr, EventObj::pointer evt)
 {
+    fpi::SvcUuid      svc;
     NodeWorkItem::ptr wrk;
 
+    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
+        svc = hdr->msg_src_uuid;
+    } else {
+        svc = hdr->msg_dst_uuid;
+    }
     wrk = wrk_item_frm_uuid(did, svc, true);
     if (wrk == NULL) {
         /* TODO(Vy): Log event here. */
@@ -725,14 +758,7 @@ NodeWorkFlow::wrk_item_submit(fpi::DomainID &did,
 void
 NodeWorkFlow::wrk_recv_node_info(fpi::AsyncHdrPtr &hdr, fpi::NodeInfoMsgPtr &msg)
 {
-    NodeWrkEvent::ptr evt;
-
-    evt  = new NodeInfoEvt(hdr, msg);
-    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
-        wrk_item_submit(msg->node_domain, hdr->msg_src_uuid, evt);
-    } else {
-        wrk_item_submit(msg->node_domain, hdr->msg_dst_uuid, evt);
-    }
+    wrk_item_submit(msg->node_domain, hdr, new NodeInfoEvt(hdr, msg));
 }
 
 /**
@@ -742,16 +768,10 @@ NodeWorkFlow::wrk_recv_node_info(fpi::AsyncHdrPtr &hdr, fpi::NodeInfoMsgPtr &msg
 void
 NodeWorkFlow::wrk_recv_node_qualify(fpi::AsyncHdrPtr &hdr, fpi::NodeQualifyPtr &msg)
 {
-    NodeWrkEvent::ptr  evt;
     fpi::NodeInfoMsg  *ptr;
 
-    evt = new NodeQualifyEvt(hdr, msg);
     ptr = &(msg.get())->nd_info;
-    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
-        wrk_item_submit(ptr->node_domain, hdr->msg_src_uuid, evt);
-    } else {
-        wrk_item_submit(ptr->node_domain, hdr->msg_dst_uuid, evt);
-    }
+    wrk_item_submit(ptr->node_domain, hdr, new NodeQualifyEvt(hdr, msg));
 }
 
 /**
@@ -761,14 +781,7 @@ NodeWorkFlow::wrk_recv_node_qualify(fpi::AsyncHdrPtr &hdr, fpi::NodeQualifyPtr &
 void
 NodeWorkFlow::wrk_recv_node_upgrade(fpi::AsyncHdrPtr &hdr, fpi::NodeUpgradePtr &msg)
 {
-    NodeWrkEvent::ptr  evt;
-
-    evt = new NodeUpgradeEvt(hdr, msg);
-    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
-        wrk_item_submit(msg->nd_dom_id, hdr->msg_src_uuid, evt);
-    } else {
-        wrk_item_submit(msg->nd_dom_id, hdr->msg_dst_uuid, evt);
-    }
+    wrk_item_submit(msg->nd_dom_id, hdr, new NodeUpgradeEvt(hdr, msg));
 }
 
 /**
@@ -778,14 +791,7 @@ NodeWorkFlow::wrk_recv_node_upgrade(fpi::AsyncHdrPtr &hdr, fpi::NodeUpgradePtr &
 void
 NodeWorkFlow::wrk_recv_node_integrate(fpi::AsyncHdrPtr &hdr, fpi::NodeIntegratePtr &msg)
 {
-    NodeWrkEvent::ptr  evt;
-
-    evt = new NodeIntegrateEvt(hdr, msg);
-    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
-        wrk_item_submit(msg->nd_dom_id, hdr->msg_src_uuid, evt);
-    } else {
-        wrk_item_submit(msg->nd_dom_id, hdr->msg_dst_uuid, evt);
-    }
+    wrk_item_submit(msg->nd_dom_id, hdr, new NodeIntegrateEvt(hdr, msg));
 }
 
 /**
@@ -795,14 +801,7 @@ NodeWorkFlow::wrk_recv_node_integrate(fpi::AsyncHdrPtr &hdr, fpi::NodeIntegrateP
 void
 NodeWorkFlow::wrk_recv_node_deploy(fpi::AsyncHdrPtr &hdr, fpi::NodeDeployPtr &msg)
 {
-    NodeWrkEvent::ptr  evt;
-
-    evt = new NodeDeployEvt(hdr, msg);
-    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
-        wrk_item_submit(msg->nd_dom_id, hdr->msg_src_uuid, evt);
-    } else {
-        wrk_item_submit(msg->nd_dom_id, hdr->msg_dst_uuid, evt);
-    }
+    wrk_item_submit(msg->nd_dom_id, hdr, new NodeDeployEvt(hdr, msg));
 }
 
 /**
@@ -812,14 +811,7 @@ NodeWorkFlow::wrk_recv_node_deploy(fpi::AsyncHdrPtr &hdr, fpi::NodeDeployPtr &ms
 void
 NodeWorkFlow::wrk_recv_node_functional(fpi::AsyncHdrPtr &hdr, fpi::NodeFunctionalPtr &msg)
 {
-    NodeWrkEvent::ptr  evt;
-
-    evt = new NodeFunctionalEvt(hdr, msg);
-    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
-        wrk_item_submit(msg->nd_dom_id, hdr->msg_src_uuid, evt);
-    } else {
-        wrk_item_submit(msg->nd_dom_id, hdr->msg_dst_uuid, evt);
-    }
+    wrk_item_submit(msg->nd_dom_id, hdr, new NodeFunctionalEvt(hdr, msg));
 }
 
 /**
@@ -829,14 +821,7 @@ NodeWorkFlow::wrk_recv_node_functional(fpi::AsyncHdrPtr &hdr, fpi::NodeFunctiona
 void
 NodeWorkFlow::wrk_recv_node_down(fpi::AsyncHdrPtr &hdr, fpi::NodeDownPtr &msg)
 {
-    NodeWrkEvent::ptr  evt;
-
-    evt = new NodeDownEvt(hdr, msg);
-    if (NodeWorkItem::wrk_is_om_uuid(hdr->msg_dst_uuid)) {
-        wrk_item_submit(msg->nd_dom_id, hdr->msg_src_uuid, evt);
-    } else {
-        wrk_item_submit(msg->nd_dom_id, hdr->msg_dst_uuid, evt);
-    }
+    wrk_item_submit(msg->nd_dom_id, hdr, new NodeDownEvt(hdr, msg));
 }
 
 /**
@@ -846,7 +831,28 @@ NodeWorkFlow::wrk_recv_node_down(fpi::AsyncHdrPtr &hdr, fpi::NodeDownPtr &msg)
 void
 NodeWorkFlow::wrk_node_down(fpi::DomainID &dom, fpi::SvcUuid &svc)
 {
-    wrk_item_submit(dom, svc, new NodeDownEvt(NULL, NULL));
+    fpi::AsyncHdrPtr hdr;
+
+    hdr = bo::make_shared<fpi::AsyncHdr>();
+    hdr->msg_chksum   = 0;
+    hdr->msg_src_id   = 0;
+    hdr->msg_code     = 0;
+    hdr->msg_dst_uuid = svc;
+    Platform::platf_singleton()->plf_get_my_node_uuid()->uuid_assign(&hdr->msg_src_uuid);
+    wrk_item_submit(dom, hdr, new NodeDownEvt(hdr, NULL));
+}
+
+/**
+ * wrk_recv_node_wrkitem
+ * ---------------------
+ */
+void
+NodeWorkFlow::wrk_recv_node_wrkitem(fpi::AsyncHdrPtr &hdr, fpi::NodeWorkItemPtr &msg)
+{
+    NodeWrkEvent::ptr  evt;
+
+    evt = new NodeWorkItemEvt(hdr, msg);
+    wrk_item_submit(msg->nd_dom_id, hdr, evt);
 }
 
 }  // namespace fds

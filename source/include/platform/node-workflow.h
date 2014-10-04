@@ -5,6 +5,7 @@
 #define SOURCE_INCLUDE_ORCH_MGR_NODE_WORKFLOW_H_
 
 #include <ostream>
+#include <vector>
 #include <fds-fsm.h>
 #include <fdsp/fds_service_types.h>
 #include <platform/node-inventory.h>
@@ -101,6 +102,16 @@ class NodeFunctional : public StateEntry
     virtual int st_handle(EventObj::pointer evt, StateObj::pointer cur) const override;
 };
 
+typedef enum
+{
+    NWL_NO_OP                = 0,
+    NWL_ADMIT_NODE           = 1,
+    NWL_SYNC_START           = 2,
+    NWL_SYNC_DONE            = 3,
+    NWL_SYNC_CLOSE           = 4,
+    NWL_MAX_OPS
+} node_work_type_e;
+
 /**
  * Common events to work item.
  */
@@ -109,10 +120,11 @@ struct NodeWrkEvent : public EventObj
     typedef bo::intrusive_ptr<NodeWrkEvent> ptr;
 
     bool                     evt_run_act;
+    node_work_type_e         evt_op;
     fpi::AsyncHdrPtr         evt_pkt_hdr;
 
     NodeWrkEvent(int evt_id, fpi::AsyncHdrPtr hdr, bool act)
-        : EventObj(evt_id), evt_run_act(act), evt_pkt_hdr(hdr) {}
+        : EventObj(evt_id), evt_run_act(act), evt_op(NWL_NO_OP), evt_pkt_hdr(hdr) {}
 };
 
 /**
@@ -147,7 +159,7 @@ class NodeWorkItem : public StateObj
     virtual void act_node_functional(NodeWrkEvent::ptr, fpi::NodeFunctionalPtr &);
 
     /*
-     * Send data to the peer to notify the peer, provided by the framework.
+     * Send data to the peer to notify it, provided by the framework.
      */
     virtual void wrk_fmt_node_info(fpi::NodeInfoMsgPtr &pkt) {
         wrk_owner->init_plat_info_msg(pkt.get());
@@ -158,6 +170,7 @@ class NodeWorkItem : public StateObj
     virtual void wrk_fmt_node_deploy(fpi::NodeDeployPtr &);
     virtual void wrk_fmt_node_functional(fpi::NodeFunctionalPtr &);
     virtual void wrk_fmt_node_down(fpi::NodeDownPtr &);
+    virtual void wrk_fmt_node_wrkitem(fpi::NodeWorkItemPtr &);
 
     virtual void wrk_send_node_info(fpi::SvcUuid *, fpi::NodeInfoMsgPtr &, bool);
     virtual void wrk_send_node_qualify(fpi::SvcUuid *, fpi::NodeQualifyPtr &, bool);
@@ -166,6 +179,12 @@ class NodeWorkItem : public StateObj
     virtual void wrk_send_node_deploy(fpi::SvcUuid *, fpi::NodeDeployPtr &, bool);
     virtual void wrk_send_node_functional(fpi::SvcUuid *, fpi::NodeFunctionalPtr &, bool);
     virtual void wrk_send_node_down(fpi::SvcUuid *, fpi::NodeDownPtr &, bool);
+
+    /*
+     * Receive handler to process work item status.
+     */
+    virtual void wrk_send_node_wrkitem(fpi::SvcUuid *, fpi::NodeWorkItemPtr &, bool);
+    virtual void wrk_recv_node_wrkitem(fpi::AsyncHdrPtr &, fpi::NodeWorkItemPtr &);
 
   protected:
     bool                           wrk_sent_ndown;
@@ -203,13 +222,14 @@ class NodeWorkFlow : public Module
                     bo::intrusive_ptr<DomainContainer> domain);
 
     /* Entry to process network messages. */
-    void wrk_recv_node_info(fpi::AsyncHdrPtr &, fpi::NodeInfoMsgPtr &);
-    void wrk_recv_node_qualify(fpi::AsyncHdrPtr &, fpi::NodeQualifyPtr &);
-    void wrk_recv_node_upgrade(fpi::AsyncHdrPtr &, fpi::NodeUpgradePtr &);
-    void wrk_recv_node_deploy(fpi::AsyncHdrPtr &, fpi::NodeDeployPtr &);
-    void wrk_recv_node_integrate(fpi::AsyncHdrPtr &, fpi::NodeIntegratePtr &);
-    void wrk_recv_node_functional(fpi::AsyncHdrPtr &, fpi::NodeFunctionalPtr &);
-    void wrk_recv_node_down(fpi::AsyncHdrPtr &, fpi::NodeDownPtr &);
+    virtual void wrk_recv_node_info(fpi::AsyncHdrPtr &, fpi::NodeInfoMsgPtr &);
+    virtual void wrk_recv_node_qualify(fpi::AsyncHdrPtr &, fpi::NodeQualifyPtr &);
+    virtual void wrk_recv_node_upgrade(fpi::AsyncHdrPtr &, fpi::NodeUpgradePtr &);
+    virtual void wrk_recv_node_deploy(fpi::AsyncHdrPtr &, fpi::NodeDeployPtr &);
+    virtual void wrk_recv_node_integrate(fpi::AsyncHdrPtr &, fpi::NodeIntegratePtr &);
+    virtual void wrk_recv_node_functional(fpi::AsyncHdrPtr &, fpi::NodeFunctionalPtr &);
+    virtual void wrk_recv_node_down(fpi::AsyncHdrPtr &, fpi::NodeDownPtr &);
+    virtual void wrk_recv_node_wrkitem(fpi::AsyncHdrPtr &, fpi::NodeWorkItemPtr &);
 
     /* Notify a node is down. */
     void wrk_node_down(fpi::DomainID &dom, fpi::SvcUuid &svc);
@@ -229,7 +249,7 @@ class NodeWorkFlow : public Module
     bo::intrusive_ptr<DomainContainer>      wrk_inv;
 
     NodeWorkItem::ptr wrk_item_frm_uuid(fpi::DomainID &did, fpi::SvcUuid &svc, bool inv);
-    void wrk_item_submit(fpi::DomainID &, fpi::SvcUuid &, EventObj::pointer);
+    void wrk_item_submit(fpi::DomainID &, fpi::AsyncHdrPtr &, EventObj::pointer);
 
     virtual NodeWorkItem::ptr
     wrk_item_alloc(fpi::SvcUuid                &peer,
@@ -293,6 +313,17 @@ struct NodeDeployEvt : public NodeWrkEvent
         : NodeWrkEvent(fpi::NodeDeployTypeId, hdr, act), evt_msg(msg) {}
 
     virtual void evt_name(std::ostream &os) const { os << " NodeDeploy " << evt_msg; }
+};
+
+struct NodeWorkItemEvt : public NodeWrkEvent
+{
+    bo::shared_ptr<fpi::NodeWorkItem>   evt_msg;
+
+    NodeWorkItemEvt(fpi::AsyncHdrPtr hdr,
+                    fpi::NodeWorkItemPtr msg, bool act = true)
+        : NodeWrkEvent(fpi::NodeWorkItemTypeId, hdr, act), evt_msg(msg) {}
+
+    virtual void evt_name(std::ostream &os) const { os << " NodeWrkItem " << evt_msg; }
 };
 
 struct NodeFunctionalEvt : public NodeWrkEvent
