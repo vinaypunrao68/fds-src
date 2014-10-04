@@ -112,7 +112,6 @@ NodeInfoShmIter::shm_obj_iter_fn(int         idx,
     }
     // My node is taken care by the domain master.
     if (*uuid == Platform::plf_get_my_node_uuid()->uuid_get_val()) {
-        std::cout << "shm_obj_iter: skip my uuid..." << std::endl;
         return true;
     }
     agent  = NULL;

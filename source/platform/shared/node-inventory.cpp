@@ -200,7 +200,7 @@ NodeInventory::node_info_msg_to_shm(const fpi::NodeInfoMsg *msg, node_data_t *re
     rec->nd_service_uuid = msg_bind->svc_id.svc_uuid.svc_uuid;
     rec->nd_base_port    = msg->nd_base_port;
     rec->nd_svc_type     = fpi::FDSP_PLATFORM;
-    rec->nd_node_state   = fpi::FDS_Node_Discovered;
+    rec->nd_svc_mask     = static_cast<fds_uint32_t>(msg->nd_svc_mask);
     rec->nd_dlt_version  = DLT_VER_INVALID;
     rec->nd_disk_type    = msg->node_stor.disk_type;
 
@@ -1177,18 +1177,19 @@ AgentContainer::agent_register(const NodeUuid       &uuid,
 // agent_register
 // --------------
 //
-void
+bool
 AgentContainer::agent_register(const ShmObjRO     *shm,
                                NodeAgent::pointer *out,
                                int                 ro,
                                int                 rw)
 {
-    bool                add;
+    bool                add, known;
     NodeUuid            svc, node;
     const node_data_t  *info;
     NodeAgent::pointer  agent;
 
     add = true;
+    known = false;
     if (*out == NULL) {
         info = shm->shm_get_rec<node_data_t>(ro);
         node.uuid_set_val(info->nd_service_uuid);
@@ -1199,18 +1200,24 @@ AgentContainer::agent_register(const ShmObjRO     *shm,
             agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(svc));
         } else {
             add = false;
+            known = true;
         }
         *out = agent;
     } else {
         agent = *out;
-        fds_verify(agent->node_svc_type == ac_id);
+        if (agent_info(agent->get_uuid()) != NULL) {
+            known = true;
+        }
     }
     agent->node_fill_shm_inv(shm, ro, rw, ac_id);
 
     if (add == true) {
         agent_activate(agent);
     }
-    agent->agent_publish_ep();
+    if (known == false) {
+        agent->agent_publish_ep();
+    }
+    return known;
 }
 
 // agent_unregister
@@ -1313,6 +1320,7 @@ DomainContainer::dc_register_node(const ShmObjRO     *shm,
                                   NodeAgent::pointer *agent,
                                   int ro, int rw, fds_uint32_t mask)
 {
+    bool                     known_node;
     const node_data_t       *node;
     NodeAgent::pointer       tmp;
     AgentContainer::pointer  container;
@@ -1320,16 +1328,14 @@ DomainContainer::dc_register_node(const ShmObjRO     *shm,
     fds_verify(ro != -1);
     node = shm->shm_get_rec<node_data_t>(ro);
 
-    LOGDEBUG << "Platform domain register node uuid " << std::hex
-        << node->nd_node_uuid << ", svc uuid " << node->nd_service_uuid
-        << ", svc mask " << mask;
-
-    container = dc_container_frm_msg(node->nd_svc_type);
-    container->agent_register(shm, agent, ro, rw);
-    if (node->nd_svc_type == fpi::FDSP_ORCH_MGR) {
+    container  = dc_container_frm_msg(node->nd_svc_type);
+    known_node = container->agent_register(shm, agent, ro, rw);
+    if ((known_node == true) || (node->nd_svc_type == fpi::FDSP_ORCH_MGR)) {
         return;
     }
     fds_verify(node->nd_svc_type == fpi::FDSP_PLATFORM);
+    LOGDEBUG << "Platform domain register " << *agent << ", svc uuid "
+        << std::hex << node->nd_service_uuid << ", svc mask " << mask << std::dec;
 
     if ((mask & fpi::NODE_SVC_SM) != 0) {
         tmp = NULL;

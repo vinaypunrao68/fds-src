@@ -80,7 +80,7 @@ ShmDump::read_inv_shm(const char *fname)
                   << "Auto Name: " << np->nd_auto_name << std::endl
                   << "Assign Name: " << np->nd_assign_name << std::endl
                   << "SVC Type: " << np->nd_svc_type << std::endl
-                  << "Node State: " << np->nd_node_state << std::endl
+                  << "SVC Mask: " << np->nd_svc_mask << std::endl
                   << "DLT Version: " << np->nd_dlt_version << std::endl
                   << "Disk Type: " << np->nd_disk_type << std::endl
                   << "Capability: " << std::endl

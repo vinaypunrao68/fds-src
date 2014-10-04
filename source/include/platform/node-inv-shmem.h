@@ -51,7 +51,7 @@ typedef struct node_data
     char                     nd_assign_name[FDS_MAX_NODE_NAME];
 
     FdspNodeType             nd_svc_type;
-    FdspNodeState            nd_node_state;
+    fds_uint32_t             nd_svc_mask;
     fds_uint64_t             nd_dlt_version;
     fds_uint32_t             nd_disk_type;
     node_stor_cap_t          nd_capability;
@@ -97,49 +97,6 @@ typedef struct node_shm_inventory
     fds_uint32_t             shm_dmt_key_size;
     fds_uint32_t             shm_dmt_size;
 } node_shm_inventory_t;
-
-#if 0
-/**
- * Obj represents a node from RO inventory data.
- */
-class NodeInvData
-{
-  public:
-    explicit NodeInvData(const node_data_t *shm);
-    virtual ~NodeInvData();
-
-    NodeUuid     nd_uuid() const { return NodeUuid(nd_shm->nd_uuid); }
-    NodeUuid     nd_service_uuid() const { return NodeUuid(nd_shm->nd_service_uuid); }
-    const char  *nd_node_name() const { return nd_shm->nd_node_name; }
-    std::string  nd_ip_str() const { return net::ipaddr2string(nd_shm->nd_ip_addr); }
-
-    fds_uint64_t nd_dlt_version() const;
-    fds_uint32_t nd_ip_addr() const { return nd_shm->nd_ip_addr; }
-    fds_uint32_t nd_data_port() const { return nd_shm->nd_data_port; }
-    fds_uint32_t nd_ctrl_port() const { return nd_shm->nd_ctrl_port; }
-    fds_uint32_t nd_migration_port() const { return nd_shm->nd_migration_port; }
-    fds_uint32_t nd_disk_type() const { return nd_shm->nd_disk_type; }
-
-    FdspNodeState nd_node_state() const;
-    FdspNodeType  nd_node_type() const { return nd_shm->nd_node_type; }
-    const node_capability_t &nd_capability() const { return nd_shm->nd_capability; }
-
-    virtual fds_uint64_t nd_gbyte_cap() const;
-    virtual void node_set_gbyte_cap(fds_uint64_t cap);
-    virtual void node_update_inventory(const FdspNodeRegPtr msg);
-    virtual void node_set_state(FdspNodeState state) { nd_my_node_state = state; }
-    virtual void node_set_dlt_version(fds_uint64_t ver) { nd_my_dlt_version = ver; }
-
-    friend std::ostream& operator << (std::ostream &os, const NodeInvData& node);
-
-  private:
-    const node_data_t       *nd_shm;
-    fds_uint64_t             nd_my_gb_cap;
-    fds_uint64_t             nd_my_dlt_version;
-    FdspNodeState            nd_my_node_state;
-};
-
-#endif
 
 #define SHM_INV_FMT         "/0x%llx-%d"
 #define SHM_QUEUE_FMT       "/0x%llx-rw-%d"
