@@ -30,6 +30,7 @@ class AmDispatcher : public Module, public boost::noncopyable {
                  DMTManagerPtr _dmtMgr);
     ~AmDispatcher();
     typedef std::unique_ptr<AmDispatcher> unique_ptr;
+    typedef boost::shared_ptr<AmDispatcher> shared_ptr;
 
     /**
      * Module methods
