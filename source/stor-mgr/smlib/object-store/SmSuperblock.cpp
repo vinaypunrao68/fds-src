@@ -3,80 +3,11 @@
  */
 #include <string>
 #include <boost/crc.hpp>
+#include <util/Log.h>
 #include <fds_process.h>
 #include <object-store/SmSuperblock.h>
 
 namespace fds {
-
-/************************************
- * BEGIN Deprecated
- */
-SmSuperblockDeprecated::SmSuperblockDeprecated()
-        : olt(new ObjectLocationTable()) {
-}
-
-SmSuperblockDeprecated::~SmSuperblockDeprecated() {
-}
-
-Error
-SmSuperblockDeprecated::loadSuperblock(const DiskIdSet& hddIds,
-                             const DiskIdSet& ssdIds,
-                             const DiskLocMap& diskMap,
-                             SmTokenSet& smTokensOwned) {
-    Error err(ERR_OK);
-
-    // before we implement reading superblock from disk, validating, etc
-    // we are just assuming we always come from clean state, so fill
-    // in the datastructs and return
-    ownedTokens.swap(smTokensOwned);
-    SmTokenPlacement::compute(hddIds, ssdIds, olt);
-
-    return err;
-}
-
-fds_uint16_t
-SmSuperblockDeprecated::getDiskId(fds_token_id smTokId,
-                        diskio::DataTier tier) const {
-    return olt->getDiskId(smTokId, tier);
-}
-
-SmTokenSet
-SmSuperblockDeprecated::getSmOwnedTokens() const {
-    // we will return a copy
-    SmTokenSet tokens;
-    tokens.insert(ownedTokens.begin(), ownedTokens.end());
-    return tokens;
-}
-uint32_t SmSuperblockDeprecated::write(serialize::Serializer*  s) const {
-    fds_uint32_t bytes = 0;
-    bytes += olt->write(s);
-    return bytes;
-}
-
-uint32_t SmSuperblockDeprecated::read(serialize::Deserializer* d) {
-    fds_uint32_t bytes = 0;
-    bytes += olt->read(d);
-    return bytes;
-}
-
-// So we can print class members for logging
-std::ostream& operator<< (std::ostream &out,
-                          const SmSuperblockDeprecated& sb) {
-    out << "SM Superblock:\n" << *(sb.olt);
-    out << "SM tokens owned by this SM: {";
-    if (sb.ownedTokens.size() == 0) out << "none";
-    for (SmTokenSet::const_iterator cit = sb.ownedTokens.cbegin();
-         cit != sb.ownedTokens.cend();
-         ++cit) {
-        if (cit != sb.ownedTokens.cbegin()) out << ", ";
-        out << *cit;
-    }
-    out << "}\n";
-    return out;
-}
-/************************************
- * END Deprecated
- */
 
 /************************************
  * SuperblockHeader Ifaces
@@ -306,8 +237,16 @@ SmSuperblockMgr::~SmSuperblockMgr()
 {
 }
 
+std::string
+SmSuperblockMgr::getSuperblockPath(const std::string& dir_path) {
+    return (dir_path + "/" + superblockName);
+}
+
 Error
-SmSuperblockMgr::loadSuperblock(const DiskLocMap& latestDiskMap)
+SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
+                                const DiskIdSet& ssdIds,
+                                const DiskLocMap& latestDiskMap,
+                                SmTokenSet& smTokensOwned)
 {
     Error err(ERR_OK);
     std::string superblockPath;
@@ -321,14 +260,12 @@ SmSuperblockMgr::loadSuperblock(const DiskLocMap& latestDiskMap)
     /* Cache the diskMap to a local storage.
      */
     diskMap = latestDiskMap;
-
-    SmSuperblockMgrTestSetDumpDiskMap();
+    LOGDEBUG << "Got disk map";
 
     /* Get the first disk from the map.
      */
     auto firstDisk = diskMap.begin();
-    superblockPath = firstDisk->second.c_str();
-    superblockPath.append(superblockName);
+    superblockPath = getSuperblockPath(firstDisk->second);
 
     /* Save off the first disk id, so when we compare with other superblock,
      * we don't need to check against itself.
@@ -345,6 +282,7 @@ SmSuperblockMgr::loadSuperblock(const DiskLocMap& latestDiskMap)
         /* If there is an error, then we can safely assume that superblocks
          * are bad.  Need to create one.
          */
+        LOGWARN << "Failed to read superblock, path " << superblockPath << " " << err;
         /* TODO(Sean):
          * How do I populate the OLT at this point?
          */
@@ -378,13 +316,13 @@ SmSuperblockMgr::loadSuperblock(const DiskLocMap& latestDiskMap)
                     if (cit->first == masterSuperblockDisk) {
                         continue;
                     }
-                    superblockPath = cit->second.c_str();
-                    superblockPath.append(superblockName);
+                    superblockPath = getSuperblockPath(cit->second);
 
                     SmSuperblock tmpSuperblock;
 
                     err = tmpSuperblock.readSuperblock(superblockPath);
                     if (err != ERR_OK) {
+                        LOGWARN << "Superblock " << superblockPath << " missing";
                         genNewSuperblock = true;
                     } else {
                         /* TODO(Sean):
@@ -393,6 +331,8 @@ SmSuperblockMgr::loadSuperblock(const DiskLocMap& latestDiskMap)
                         if (memcmp(&superblockMaster,
                                    &tmpSuperblock,
                                    sizeof(struct SmSuperblock)) != 0) {
+                            LOGWARN << "Superblock " << superblockPath << " is inconsistent"
+                                    << ", will need to reconcile";
                             genNewSuperblock = true;
                         }
                     }
@@ -407,18 +347,51 @@ SmSuperblockMgr::loadSuperblock(const DiskLocMap& latestDiskMap)
      * it as is.  Will clean up later.
      */
 
+    // TODO(Anna) will need to refactor error handling, but for now
+    // if we are not generating new superblock and we successfully got
+    // it from persistent superblock, check if all disks in OLT match
+    // disks SM discovered; if not, we will panic for now
+    if ((genNewSuperblock == false) && err.ok()) {
+        // validate HDDs
+        err = superblockMaster.olt.validate(hddIds, diskio::diskTier);
+        if (!err.ok()) {
+            fds_panic("Persisted Obj Location Table is inconsistent with current HDD devices");
+        }
+        err = superblockMaster.olt.validate(ssdIds, diskio::flashTier);
+        if (!err.ok()) {
+            fds_panic("Persisted Obj Location Table is inconsistent with current SSD devices");
+        }
+    }
+
     if (genNewSuperblock == true) {
+        // TODO(Anna) since we are currently not supporting disk missing/disk
+        // add, and not storing any SM token state (like GC state) --
+        // if we do not find a superblock, ok to just rebuild...
+        // we need to implement proper error handling and decide which errors
+        // we want to support for beta and what assumptions we can make
+        fds_verify((err == ERR_SM_SUPERBLOCK_MISSING_FILE) || err.ok());
         /*
          * TODO(Sean):
          * How do we update the smtoken map or other persisten data here?
          */
         superblockMaster.initSuperblock();
+        SmTokenPlacement::compute(hddIds, ssdIds, &(superblockMaster.olt));
 
         /* After creating a new superblock, sync to disks.
          */
         err = syncSuperblock();
         fds_assert(err == ERR_OK);
     }
+
+    // for now we are not keeping any persistent state about SM tokens
+    // that SM owns. Since our current setup we support is 4-node domain
+    // with 4-way replication, SM always owns all tokens, so here we just
+    // save them and not do anything else (other modules use it for now
+    // to only open token files, so not breaking anything if SM thinks it
+    // owns more tokens than it does, in case of > 4 node domain); will
+    // have to revisit very soon when we implement adding new nodes for
+    // > 4 node domains, doing token migration and so on.
+    ownedTokens.swap(smTokensOwned);
 
     return err;
 }
@@ -436,8 +409,7 @@ SmSuperblockMgr::syncSuperblock()
 
     /* Sync superblock to all devices in the disk map */
     for (auto cit = diskMap.begin(); cit != diskMap.end(); ++cit) {
-        superblockPath = cit->second.c_str();
-        superblockPath.append(superblockName);
+        superblockPath = getSuperblockPath(cit->second.c_str());
         err = superblockMaster.writeSuperblock(superblockPath);
         if (err != ERR_OK) {
             return err;
@@ -453,12 +425,35 @@ SmSuperblockMgr::SmSuperblockMgrTestGetFileName()
     return superblockName;
 }
 
-void
-SmSuperblockMgr::SmSuperblockMgrTestSetDumpDiskMap()
-{
+fds_uint16_t
+SmSuperblockMgr::getDiskId(fds_token_id smTokId,
+                        diskio::DataTier tier) const {
+    return superblockMaster.olt.getDiskId(smTokId, tier);
+}
+
+SmTokenSet
+SmSuperblockMgr::getSmOwnedTokens() const {
+    // we will return a copy
+    SmTokenSet tokens;
+    tokens.insert(ownedTokens.begin(), ownedTokens.end());
+    return tokens;
+}
+
+// So we can print class members for logging
+std::ostream& operator<< (std::ostream &out,
+                          const SmSuperblockMgr& sbMgr) {
+    out << "Current disk map:\n" << sbMgr.diskMap;
+    out << sbMgr.superblockMaster.olt;
+    out << "SM tokens owned by this SM: " << sbMgr.ownedTokens;
+    return out;
+}
+
+std::ostream& operator<< (std::ostream &out,
+                          const DiskLocMap& diskMap) {
     for (auto cit = diskMap.begin(); cit != diskMap.end(); ++cit) {
-        std::cout << cit->first << ":" << cit->second << std::endl;
+        out << cit->first << " : " << cit->second << "\n";
     }
+    return out;
 }
 
 }  // namespace fds

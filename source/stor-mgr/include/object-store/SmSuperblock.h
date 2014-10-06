@@ -12,7 +12,6 @@
 
 namespace fds {
 
-
 typedef std::set<fds_uint16_t> DiskIdSet;
 typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
 
@@ -204,7 +203,7 @@ struct SmSuperblock {
     /* POD data definitions.  Collection of superblock header and data.
      */
     SmSuperblockHeader Header;
-    DiskMapTable DiskMap;
+    ObjectLocationTable olt;
 };
 
 /* compile time assert to check that the superblock header is
@@ -212,7 +211,7 @@ struct SmSuperblock {
 static_assert((sizeof(struct SmSuperblock) % SM_SUPERBLOCK_SECTOR_SIZE) == 0,
               "size of the  struct SmSuperblock should be multiple of 512");
 
-/*
+/**
  * SM Superblock Manager
  *
  * This class maintains the superblock.  It is responsible for
@@ -221,45 +220,12 @@ static_assert((sizeof(struct SmSuperblock) % SM_SUPERBLOCK_SECTOR_SIZE) == 0,
  * - Reading "master" and "buddy" superblock for content verification.
  * - Removal of superblock on disks in a SM instance.
  */
-
 class SmSuperblockMgr {
   public:
     SmSuperblockMgr();
     ~SmSuperblockMgr();
 
     typedef std::unique_ptr<SmSuperblockMgr> unique_ptr;
-
-    Error loadSuperblock(const DiskLocMap & diskMap);
-    Error syncSuperblock();
-
-    /* Set of interfaces for unit testing */
-    void SmSuperblockMgrTestSetDumpDiskMap();
-    std::string SmSuperblockMgrTestGetFileName();
-
-  private:
-    /* Master superblock.  The master copy will persist
-     */
-    SmSuperblock superblockMaster;
-
-    /* set of disks.
-     */
-    DiskLocMap diskMap;
-
-    /* Name of the superblock file.
-     */
-    const std::string superblockName = "SmSuperblock";
-};
-
-/*
- * Keeps track and persists info about SM token to disk mappings
- * and SM token state (whether SM owns it, GC state, Migration state)
- */
-class SmSuperblockDeprecated : public serialize::Serializable {
-  public:
-    SmSuperblockDeprecated();
-    ~SmSuperblockDeprecated();
-
-    typedef std::unique_ptr<SmSuperblockDeprecated> unique_ptr;
 
     /**
      * This is called when SM comes up and receives its first
@@ -281,13 +247,13 @@ class SmSuperblockDeprecated : public serialize::Serializable {
      */
     Error loadSuperblock(const DiskIdSet& hddIds,
                          const DiskIdSet& ssdIds,
-                         const DiskLocMap& diskMap,
+                         const DiskLocMap & latestDiskMap,
                          SmTokenSet& smTokensOwned);
-
+    Error syncSuperblock();
 
     /**
      * Get disk ID where given SM token resides on a given tier
-     * @return disk id or fds_diskid_invalid if tier does not exists
+     * @return disk id or invalid disk ID if tier does not exist
      * or superblock was not loaded / initialized properly
      */
     fds_uint16_t getDiskId(fds_token_id smTokId,
@@ -299,28 +265,40 @@ class SmSuperblockDeprecated : public serialize::Serializable {
      */
     SmTokenSet getSmOwnedTokens() const;
 
-    // Serializable
-    uint32_t virtual write(serialize::Serializer*  s) const;
-    uint32_t virtual read(serialize::Deserializer* d);
+    /* Set of interfaces for unit testing */
+    std::string SmSuperblockMgrTestGetFileName();
 
     // So we can print class members for logging
     friend std::ostream& operator<< (std::ostream &out,
-                                     const SmSuperblockDeprecated& sb);
+                                     const SmSuperblockMgr& sbMgr);
+
+  private:  // methods
+    std::string getSuperblockPath(const std::string& dir_path);
 
   private:
-    /**
-     * Object Location Table that maps SM tokens to disk ids
-     * The mapping is there regardless whether SM owns the token
-     * or not
-     */
-    ObjectLocationTable::ptr olt;
+    /// Master superblock. The master copy will persist
+    SmSuperblock superblockMaster;
+
+    /// set of disks.
+    DiskLocMap diskMap;
+
+    /// Name of the superblock file.
+    const std::string superblockName = "SmSuperblock";
 
     /**
-     * We should revisit this when we add GC and migration state
+     * TODO(Anna) We should revisit this when we add GC and migration state
      * but for now keeping a list of SM tokens that this SM owns
+     * In our current case of 4-node cluster and 4-way replication, every SM
+     * owns all tokens. For future and a more general case, we should keep
+     * persistent state of which SM tokens this SM currently owns. I think
+     * it will be a map of SM token id to SM token state (which will also
+     * include GC state, possibly migration state, etc)
      */
     SmTokenSet ownedTokens;
 };
+
+std::ostream& operator<< (std::ostream &out,
+                          const DiskLocMap& diskMap);
 
 }  // namespace fds
 
