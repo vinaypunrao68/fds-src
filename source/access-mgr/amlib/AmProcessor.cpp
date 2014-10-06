@@ -8,6 +8,9 @@
 
 namespace fds {
 
+#define AMPROCESSOR_CB_HANDLER(func, ...) \
+    std::bind(&func, this, ##__VA_ARGS__ , std::placeholders::_1)
+
 AmProcessor::AmProcessor(const std::string &modName,
                          AmDispatcher::shared_ptr _amDispatcher,
                          StorHvQosCtrl     *_qosCtrl,
@@ -62,6 +65,7 @@ AmProcessor::startBlobTx(AmQosReq *qosReq) {
 
     // Generate a random transaction ID to use
     blobReq->txId = BlobTxId(randNumGen->genNumSafe());
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::startBlobTxCb, qosReq);
 
     amDispatcher->dispatchStartBlobTx(qosReq);
 }
@@ -73,10 +77,21 @@ AmProcessor::startBlobTxCb(AmQosReq *qosReq,
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
 
-    // Stash the newly created ID in the callback for later
     StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                   blobReq->cb);
-    cb->blobTxId  = blobReq->txId;
+
+    if (error.ok()) {
+        // Update callback and record new open transaction
+        cb->blobTxId  = blobReq->txId;
+        fds_verify(txMgr->addTx(blobReq->getVolId(),
+                                blobReq->txId,
+                                blobReq->dmtVersion,
+                                blobReq->getBlobName()) == ERR_OK);
+    }
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    cb->call(error.GetErrno());
 }
 
 }  // namespace fds
