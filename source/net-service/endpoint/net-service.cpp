@@ -8,6 +8,10 @@
 #include <fdsp/PlatNetSvc.h>
 #include <ep-map.h>
 #include <platform/net-plat-shared.h>
+#include <fdsp/SMSvc.h>
+#include <fdsp/DMSvc.h>
+#include <fdsp/AMSvc.h>
+#include <fdsp/FDSP_ControlPathReq.h>
 
 namespace fds {
 
@@ -563,4 +567,35 @@ NetMgr::ep_swap_header(const fpi::AsyncHdr &req_hdr)
     resp_hdr.msg_dst_uuid = req_hdr.msg_src_uuid;
     return resp_hdr;
 }
+
+boost::shared_ptr<void>
+NetMgr::alloc_rpc_client(const fpi::SvcUuid   &peer,
+                         fds_uint32_t          maj,
+                         fds_uint32_t          min,
+                         bo::shared_ptr<tp::TBinaryProtocol>& protocol)
+{
+    ResourceUUID resId(peer.svc_uuid);
+    switch (resId.uuid_get_type()) {
+        case fpi::FDSP_STOR_MGR:
+            fds_verify(maj == 0 && min == 0);
+            return bo::make_shared<fpi::SMSvcClient>(protocol);
+        case fpi::FDSP_DATA_MGR:
+            fds_verify(maj == 0 && min == 0);
+            return bo::make_shared<fpi::DMSvcClient>(protocol);
+        case fpi::FDSP_STOR_HVISOR:
+            fds_verify(maj == 0 && min == 0);
+            return bo::make_shared<fpi::AMSvcClient>(protocol);
+        case fpi::FDSP_ORCH_MGR:
+            return bo::make_shared<fpi::PlatNetSvcClient>(protocol);
+        case fpi::FDSP_PLATFORM:
+            if (min == 1) {
+                return bo::make_shared<fpi::FDSP_ControlPathReqClient>(protocol);
+            }
+            return bo::make_shared<fpi::PlatNetSvcClient>(protocol);
+        default:
+            fds_verify(!"Invalid type");
+    }
+    return nullptr;
+}
+
 }  // namespace fds

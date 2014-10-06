@@ -19,13 +19,15 @@ user_non_fds_libs := \
 user_hh           := $(wildcard *.h)
 user_cpp          := \
     shm_dump.cpp \
-    journal_dump.cpp
+    journal_dump.cpp \
+    ldb-tool.cpp
 
 user_no_style     := \
     journal_dump.cpp
 
-user_bin_exe      := shm_dump journal-dump
+user_bin_exe      := shm_dump journal-dump ldb-tool
 shm_dump          := shm_dump.cpp
 journal-dump      := journal_dump.cpp
+ldb-tool          := ldb-tool.cpp
 
 include $(topdir)/Makefile.incl

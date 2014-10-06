@@ -34,7 +34,7 @@ RUN apt-get -y install libboost-log1.54-dev libboost-program-options1.54-dev
 RUN apt-get -y install libboost-timer1.54-dev libboost-thread1.54-dev libboost-regex1.54-dev
 RUN apt-get -y install libical-dev libical1 libleveldb-dev libncurses-dev
 RUN apt-get -y install python-yaml libyaml-dev libconfig-dev libconfig++-dev libfiu-dev fiu-utils
-RUN apt-get -y install host npm nodejs ruby ruby-sass rake
+RUN apt-get -y install host npm nodejs ruby ruby-sass rake python-argh
 
 # Install the Docker client
 RUN curl -sSL https://get.docker.io/ubuntu/ | sudo sh
@@ -59,10 +59,10 @@ ENV JAVA_HOME /usr/lib/jvm/java-8-oracle/
 
 # Test deps
 RUN pip install unittest-xml-reporting
-RUN pip install paramiko
+RUN pip install paramiko scp redis
 
 # FDS Console deps
-RUN pip install thrift
+RUN pip install thrift tabulate
 
 # Tmux
 RUN wget http://downloads.sourceforge.net/tmux/tmux-1.9a.tar.gz

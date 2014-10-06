@@ -145,4 +145,16 @@ NodePlatform::plat_new_pm_svc(NodeAgent::pointer agt, fds_uint32_t maj, fds_uint
     return new PmSvcEp(agt, maj, min, new PlatAgentPlugin(agt));
 }
 
+void NodePlatform::
+setBaseAsyncSvcHandler(boost::shared_ptr<BaseAsyncSvcHandler> handler)
+{
+    async_svc_handler = handler;
+}
+
+boost::shared_ptr<BaseAsyncSvcHandler> NodePlatform::
+getBaseAsyncSvcHandler()
+{
+    return async_svc_handler;
+}
+
 }  // namespace fds
