@@ -22,7 +22,7 @@ user_non_fds_libs :=                                                          \
     leveldb \
 	hiredis \
 	thrift \
-	rt config++
+	rt config++ fiu dl
 
 user_cpp          :=                   \
     place_tbl_unit_test.cpp

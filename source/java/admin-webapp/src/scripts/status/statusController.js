@@ -3,6 +3,10 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.activities = [];
     $scope.firebreakMax = 1440;
     $scope.firebreakStats = { series: [[]], summaryData: { hoursSinceLastEvent: 0 }};
+    $scope.performanceStats = { series: [[]] };
+    
+    $scope.fakeColors = [ 'green', 'green' ];
+    $scope.fakeOpacities = [0.7,0.7];
     
     $scope.activitiesReturned = function( list ){
         $scope.activities = eval(list);
@@ -10,6 +14,10 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $scope.firebreakReturned = function( data ){
         $scope.firebreakStats = data;
+    };
+    
+    $scope.performanceReturned = function( data ){
+        $scope.performanceStats = data;
     };
     
     // this callback creates the tooltip element
@@ -55,5 +63,6 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     });
     
     $stats_service.getFirebreakSummary( $scope.firebreakReturned );
+    $stats_service.getPerformanceSummary( $scope.performanceReturned );
 
 }]);

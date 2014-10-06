@@ -73,6 +73,7 @@ class AmTxManager : public Module, public boost::noncopyable {
     explicit AmTxManager(const std::string &modName);
     ~AmTxManager();
     typedef std::unique_ptr<AmTxManager> unique_ptr;
+    typedef std::shared_ptr<AmTxManager> shared_ptr;
 
     int  mod_init(SysParams const *const param);
     void mod_startup();

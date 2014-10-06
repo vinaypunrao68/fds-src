@@ -14,7 +14,7 @@ namespace fpi = FDS_ProtocolInterface;
 namespace fds {
 class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcHandler
 {
- public:
+  public:
     PlatNetSvcHandler();
     virtual ~PlatNetSvcHandler();
 
@@ -50,16 +50,30 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     virtual void setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
                               boost::shared_ptr<int64_t>& val);
 
-    void setFlag(const std::string& id, const int64_t value);
-    void setFlag(boost::shared_ptr<std::string>& id,
+    virtual void setFlag(const std::string& id, const int64_t value);
+    virtual void setFlag(boost::shared_ptr<std::string>& id,
                  boost::shared_ptr<int64_t>& value);  // NOLINT
 
-    int64_t getFlag(const std::string& id);
-    void getFlags(std::map<std::string, int64_t> &, const int32_t nullarg);  // NOLINT
+    virtual int64_t getFlag(const std::string& id);
+    virtual int64_t getFlag(boost::shared_ptr<std::string>& id);  // NOLINT
 
-    int64_t getFlag(boost::shared_ptr<std::string>& id);  // NOLINT
-    void getFlags(std::map<std::string, int64_t> &,
-                  boost::shared_ptr<int32_t>&);  // NOLINT
+    virtual void getFlags(std::map<std::string, int64_t> &, const int32_t nullarg);  // NOLINT
+    virtual void getFlags(std::map<std::string, int64_t> & _return, boost::shared_ptr<int32_t>& nullarg);  // NOLINT
+
+    virtual bool setFault(const std::string& command);
+    virtual bool setFault(boost::shared_ptr<std::string>& command);  // NOLINT
+
+    /**
+     * Common messages.
+     */
+    virtual void notify_node_info(fpi::AsyncHdrPtr &hdr, fpi::NodeInfoMsgPtr &m);
+    virtual void notify_node_qualify(fpi::AsyncHdrPtr &hdr, fpi::NodeQualifyPtr &m);
+    virtual void notify_node_upgrade(fpi::AsyncHdrPtr &hdr, fpi::NodeUpgradePtr &m);
+    virtual void notify_node_integrate(fpi::AsyncHdrPtr &hdr, fpi::NodeIntegratePtr &m);
+    virtual void notify_node_deploy(fpi::AsyncHdrPtr &hdr, fpi::NodeDeployPtr &m);
+    virtual void notify_node_functional(fpi::AsyncHdrPtr &hdr, fpi::NodeFunctionalPtr &m);
+    virtual void notify_node_down(fpi::AsyncHdrPtr &hdr, fpi::NodeDownPtr &m);
+    virtual void notify_node_event(fpi::AsyncHdrPtr &hdr, fpi::NodeEventPtr &m);
 };
 
 }  // namespace fds

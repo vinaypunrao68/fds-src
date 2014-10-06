@@ -68,6 +68,11 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http', '$rootS
         return $http.post( '/api/volume/snapshot', {volumeId: volumeId, name: newName, retention: 0} )
             .success( callback ).error( failure );
     };
+    
+    api.deleteSnapshot = function( volumeId, snapshotId, callback, failure ){
+        $http.delete( '/api/config/snapshot/' + volumeId + '/' + snapshotId )
+            .success( callback ).error( failure );
+    };
 
     api.getSnapshots = function( volumeId, callback, failure ){
 

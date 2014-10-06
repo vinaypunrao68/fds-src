@@ -37,6 +37,7 @@
 #include <am-tx-mgr.h>
 #include <AmCache.h>
 #include <AmDispatcher.h>
+#include <AmProcessor.h>
 
 #include <map>
 // #include "util/concurrency/Thread.h"
@@ -236,11 +237,19 @@ public:
     std::string                 myIp;
     std::string                 my_node_name;
 
+    /// Toggle to use new AM processing path
+    fds_bool_t toggleNewPath;
+
     /// Dispatcher layer module
-    AmDispatcher::unique_ptr amDispatcher;
+    AmDispatcher::shared_ptr amDispatcher;
+
+    /// Processor layer module
+    AmProcessor::unique_ptr amProcessor;
 
     RandNumGenerator::ptr randNumGen;
-    AmTxManager::unique_ptr amTxMgr;
+    // TODO(Andrew): Move this to a unique_ptr and only into
+    // AmProcessor once that's ready
+    AmTxManager::shared_ptr amTxMgr;
     AmCache::unique_ptr amCache;
 
     Error sendTestBucketToOM(const std::string& bucket_name,
@@ -524,7 +533,11 @@ static void processBlobReq(AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
     switch (qosReq->io_type) {
         case fds::FDS_START_BLOB_TX:
-            err = storHvisor->startBlobTxSvc(qosReq);
+            if (storHvisor->toggleNewPath == true) {
+                storHvisor->amProcessor->startBlobTx(qosReq);
+            } else {
+                err = storHvisor->startBlobTxSvc(qosReq);
+            }
             break;
 
         case fds::FDS_COMMIT_BLOB_TX:

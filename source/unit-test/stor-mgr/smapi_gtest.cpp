@@ -42,7 +42,7 @@ struct SMApi : SingleNodeTest
         } else {
             putsSuccessCnt_++;
         }
-        std::cout << "pubcb: " << error << std::endl;
+        // std::cout << "pubcb: " << error << std::endl;
     }
  protected:
     std::atomic<uint32_t> putsIssued_;
@@ -51,9 +51,12 @@ struct SMApi : SingleNodeTest
 };
 
 
+/**
+* @brief Tests basic puts and gets
+*
+*/
 TEST_F(SMApi, put_get)
 {
-    std::cout << "testing put_get\n";
     int nPuts = 10;
     int nGets = 10;
 
@@ -76,12 +79,53 @@ TEST_F(SMApi, put_get)
         asyncPutReq->invoke();
     }
 
-    /* Poll for completion */
-    // POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 500, 8000/*nPuts * 100*/);
-    sleep(8);
+    /* Poll for completion.  For now giving 1000ms/per put.  We should tighten that */
+    POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 500, nPuts * 1000);
 
     ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
         << " putsSuccessCnt: " << putsSuccessCnt_;
+}
+
+/**
+* @brief Tests dropping puts fault injection
+*
+*/
+TEST_F(SMApi, drop_puts)
+{
+    int nPuts = 10;
+
+    fpi::SvcUuid svcUuid;
+    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+    ASSERT_NE(svcUuid.svc_uuid, 0);
+
+    /* Set fault to drop all puts */
+    ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.drop.putobject"));
+
+    /* To generate random data between 10 to 100 bytes */
+    auto g = boost::make_shared<RandDataGenerator<>>(10, 100);
+
+    /* Issue puts */
+    for (int i = 0; i < nPuts; i++) {
+        auto putObjMsg = SvcMsgFactory::newPutObjectMsg(volId_, g);
+        auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+        asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
+        asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this,
+                                            std::placeholders::_1,
+                                            std::placeholders::_2, std::placeholders::_3));
+        asyncPutReq->setTimeoutMs(1000);
+        putsIssued_++;
+        asyncPutReq->invoke();
+    }
+
+    /* Poll for completion */
+    POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 500, nPuts * 100000);
+    // sleep(5);
+
+    ASSERT_TRUE(putsIssued_ == putsFailedCnt_) << "putsIssued: " << putsIssued_
+        << " putsFailedCnt: " << putsFailedCnt_;
+
+    /* Disable fault injection */
+    ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.drop.putobject"));
 }
 
 int main(int argc, char** argv) {

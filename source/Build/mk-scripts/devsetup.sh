@@ -32,6 +32,7 @@ needed_packages=(
     python-pip
     python-boto
 
+    "libconfig++-dev"
     libpcre3-dev
     libpcre3
     libssl-dev
@@ -53,6 +54,9 @@ needed_packages=(
 
     libical-dev
     libical1
+
+    libfiu-dev
+    fiu-utils
 
     npm
     ruby
@@ -220,11 +224,11 @@ function installBasePkgs() {
             else
                 progress "$pkg is not installed, but needed .. installing."
             fi
-            preinstall $pkgname
+            preinstall "${pkgname}"
             if [[ -z $pkgversion ]] || [[ $pkgversion == "latest" ]] ; then
-                sudo apt-get install ${pkgname} --assume-yes
+                sudo apt-get install "${pkgname}" --assume-yes
             else
-                sudo apt-get install ${pkgname}=${pkgversion} --assume-yes
+                sudo apt-get install "${pkgname}=${pkgversion}" --assume-yes
             fi
             postinstall $pkgname
         fi

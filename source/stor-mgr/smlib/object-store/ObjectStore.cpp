@@ -374,6 +374,12 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
     return err;
 }
 
+void
+ObjectStore::snapshotMetadata(fds_token_id smTokId,
+                              SmIoSnapshotObjectDB::CbType notifFn) {
+    metaStore->snapshot(smTokId, notifFn);
+}
+
 /**
  * Module initialization
  */

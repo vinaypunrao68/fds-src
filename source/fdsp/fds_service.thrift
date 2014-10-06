@@ -148,7 +148,9 @@ enum  FDSPMsgTypeId {
     DeleteSnapshotMsgTypeId,
     DeleteSnapshotRespMsgTypeId,
     CreateVolumeCloneMsgTypeId,
-    CreateVolumeCloneRespMsgTypeId
+    CreateVolumeCloneRespMsgTypeId,
+    GetDmStatsMsgTypeId,
+    GetDmStatsMsgRespTypeId
 }
 
 /*
@@ -265,12 +267,26 @@ struct DomainNodes {
     2: list<NodeSvcInfo>                 dom_nodes,
 }
 
+struct NodeVersion {
+    1: required i32                      nd_fds_maj,
+    2: required i32                      nd_fds_min,
+    3: i32                               nd_fds_release,
+    4: i32                               nd_fds_patch,
+    5: string                            nd_java_ver,
+}
+
 /**
  * Qualify a node before admitting it to the domain.
  */
 struct NodeQualify {
     1: required NodeInfoMsg              nd_info,
     2: required string                   nd_acces_token,
+    3: NodeVersion                       nd_sw_ver,
+    4: string                            nd_md5sum_pm,
+    5: string                            nd_md5sum_sm,
+    6: string                            nd_md5sum_dm,
+    7: string                            nd_md5sum_am,
+    8: string                            nd_md5sum_om,
 }
 
 /**
@@ -279,11 +295,10 @@ struct NodeQualify {
 struct NodeUpgrade {
     1: required DomainID                 nd_dom_id,
     2: required SvcUuid                  nd_uuid,
-    3: required FDSPMsgTypeId            nd_op_code,
-    4: required string                   nd_md5_chksum,
-    5: string                            nd_auto_name,
-    6: string                            nd_assigned_name,
-    7: string                            nd_pkg_path,
+    3: NodeVersion                       nd_sw_ver,
+    4: required FDSPMsgTypeId            nd_op_code,
+    5: required string                   nd_md5_chksum,
+    6: string                            nd_pkg_path,
 }
 
 struct NodeIntegrate {
@@ -360,6 +375,10 @@ service PlatNetSvc extends BaseAsyncSvc {
     void setFlag(1:string id, 2:i64 value);
     i64 getFlag(1:string id);
     map<string, i64> getFlags(1: i32 nullarg);
+    /* For setting fault injection.
+     * @param cmdline format based on libfiu
+     */
+    bool setFault(1: string cmdline);
 }
 
 /*
@@ -738,6 +757,15 @@ struct GetBucketMsg {
   4: FDSP.BlobInfoListType     blob_info_list;
 }
 
+struct GetDmStatsMsg {
+  1: i64                       volume_id;
+  // response
+  2: i64                       commitlog_size;
+  3: i64                       extent0_size;
+  4: i64                       extent_size;
+  5: i64                       metadata_size;
+}
+
 struct GetVolumeMetaDataMsg {
   1: i64                        volume_id;
   //response
@@ -796,6 +824,6 @@ service DMSvc extends PlatNetSvc {
  * AM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
-service AMSvc extends BaseAsyncSvc {
+service AMSvc extends PlatNetSvc {
 }
 

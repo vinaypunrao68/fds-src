@@ -110,6 +110,14 @@ class ObjectStore : public Module, public boost::noncopyable {
     Error copyObjectToNewLocation(const ObjectID& objId,
                                   diskio::DataTier tier);
 
+
+    /**
+     * Make a snapshot of metadata of given SM token and
+     * calls notifFn method
+     */
+    void snapshotMetadata(fds_token_id smTokId,
+                          SmIoSnapshotObjectDB::CbType notifFn);
+
     // FDS module control functions
     int  mod_init(SysParams const *const param);
     void mod_startup();
