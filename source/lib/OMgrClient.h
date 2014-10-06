@@ -193,6 +193,7 @@ class Platform;
                               fds_int32_t *node_ids,
                               fds_int32_t *n_nodes);
 #endif
+    DMTManagerPtr getDmtManager();
     /**
      * Returns nodes from currently committed DMT
      */

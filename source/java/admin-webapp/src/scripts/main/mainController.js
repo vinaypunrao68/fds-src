@@ -90,6 +90,9 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
         if ( $event.keyCode == 13 ){
             $scope.login();
         }
+        else {
+            $scope.error = '';
+        }
     };
 
     $scope.itemSelected = function( item ){
@@ -115,9 +118,28 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
         $state.transitionTo( 'homepage' );
     });
 
-    $scope.$on( 'fds::authentication_success', function(){
-        $scope.navigate( $scope.views[0] );
-    });
+    var determineWhereToGo = function(){
+        
+        var noState = true;
+        
+        for ( var i = 0; i < $scope.views.length; i++ ){
+
+            var view = $scope.views[i];
+            view.selected = false;
+
+            if ( $state.current.name === view.link ){
+                view.selected = true;
+                noState = false;
+            }
+        }
+
+        if ( noState && $state.current.name !== 'homepage.account' ){
+            // if we get here, nothing was selected
+            $scope.navigate( $scope.views[0] );
+        }
+    };
+    
+    $scope.$on( 'fds::authentication_success', determineWhereToGo );
 
     $scope.$watch( function(){ return $authentication.isAuthenticated; }, function( val ) {
         $scope.loggedInUser = $authorization.getUsername();
@@ -133,18 +155,23 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
     // one-time init stuff
 
     // determine which view is selected
-    var noState = true;
-    $scope.views.forEach( function( view ){
-        if ( $state.current.name === view.link ){
-            view.selected = true;
-            noState = false;
-        }
-    });
-
-    if ( noState && $state.current.name !== 'homepage.account' ){
-        // if we get here, nothing was selected
-        $scope.navigate( $scope.views[0] );
-    }
+//    var noState = true;
+//    for ( var i = 0; i < $scope.views.length; i++ ){
+//        
+//        var view = $scope.views[i];
+//        
+//        if ( $state.current.name === view.link ){
+//            view.selected = true;
+//            noState = false;
+//        }
+//    }
+//
+//    if ( noState && $state.current.name !== 'homepage.account' ){
+//        // if we get here, nothing was selected
+//        $scope.navigate( $scope.views[0] );
+//    }
+    
+    determineWhereToGo();
 
     //trigger to kick us out if we are not authorized anymore
     $authorization.validateUserToken();

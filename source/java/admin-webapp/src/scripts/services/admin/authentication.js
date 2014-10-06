@@ -11,8 +11,20 @@ angular.module( 'user-management' ).factory( '$authentication', ['$http', '$docu
 
     service.login = function( username, password ){
 
+        var errorFunction = function( response, code ){
+            service.error = code + ':' + response.message + ' - Please try again';
+            clearCookie();
+            $rootScope.$broadcast( 'fds::authentication_failure' );
+        };
+        
         $http.post( '/api/auth/token?login=' + username + '&' + 'password=' + password, {} )
-            .success( function( response ){
+            .success( function( response, code ){
+                
+                if ( code === 401 ){
+                    errorFunction( response, code );
+                    return;
+                }
+                
                 service.error = '';
                 $document[0].cookie = 'token=' + response.token;
                 $document[0].cookie = 'user=' + JSON.stringify( response );
@@ -20,11 +32,7 @@ angular.module( 'user-management' ).factory( '$authentication', ['$http', '$docu
                 $rootScope.$broadcast( 'fds::authentication_success' );
                 $authorization.setUser( response );
             })
-            .error( function( response, code ){
-                service.error = code + ':' + response.message + ' - Please try again';
-                clearCookie();
-                $rootScope.$broadcast( 'fds::authentication_failure' );
-            });
+            .error( errorFunction );
     };
 
     service.logout = function() {
@@ -48,16 +56,18 @@ angular.module( 'user-management' ).factory( '$authentication', ['$http', '$docu
     $httpProvider.interceptors.push( function( $q ){
 
         return {
-            responseError: function( config ){
-                console.log( 'Error: ' + config.status );
-                if ( config.status === 401 && this.document.cookie !== '' ){
+            responseError: function( response, error, code ){
+                
+                if ( response.status === 401 && this.document.cookie !== '' ){
                     this.document.cookie = 'token=; expires=Thu, 01-Jan-70 00:00:01 GMT;';
                     this.document.cookie = 'user=; expires=Thu, 01-Jan-70 00:00:01 GMT;';
                     location.reload();
-                    return $q.reject( config );
                 }
-
-                return config;
+                else {
+//                    alert( 'Error ' + response.status + ': ' + response.statusText );
+                }
+                
+                return response;
             }
         };
     });

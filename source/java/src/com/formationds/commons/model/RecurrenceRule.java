@@ -1,10 +1,21 @@
 /*
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ *
+ * This software is furnished under a license and may be used and copied only
+ * in  accordance  with  the  terms  of such  license and with the inclusion
+ * of the above copyright notice. This software or  any  other copies thereof
+ * may not be provided or otherwise made available to any other person.
+ * No title to and ownership of  the  software  is  hereby transferred.
+ *
+ * The information in this software is subject to change without  notice
+ * and  should  not be  construed  as  a commitment by Formation Data Systems.
+ *
+ * Formation Data Systems assumes no responsibility for the use or  reliability
+ * of its software on equipment which is not supplied by Formation Date Systems.
  */
 
 package com.formationds.commons.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.builder.RecurrenceRuleBuilder;
 import com.formationds.commons.model.exception.ParseException;
@@ -12,6 +23,7 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.i18n.ModelResource;
 import com.formationds.commons.model.type.iCalFields;
 import com.formationds.commons.model.util.iCalValidator;
+import com.google.gson.annotations.SerializedName;
 
 import javax.xml.bind.annotation.XmlRootElement;
 import java.text.MessageFormat;
@@ -29,13 +41,13 @@ public class RecurrenceRule
   private static final SimpleDateFormat UNTIL_DATE =
     new SimpleDateFormat( "yyyyMMdd'T'HHmmssZ" );
 
-  @JsonProperty("FREQ")
+  @SerializedName("FREQ")
   private String frequency;
-  @JsonProperty("UNTIL")
+  @SerializedName("UNTIL")
   private Date until;
-  @JsonProperty("COUNT")
+  @SerializedName("COUNT")
   private Integer count;
-  @JsonProperty("INTERVAL")
+  @SerializedName("INTERVAL")
   private Integer interval;
 
   private static final Map<iCalFields, iCalValidator> VALIDATORS =
@@ -49,7 +61,6 @@ public class RecurrenceRule
     VALIDATORS.put( iCalFields.BYSECOND, new iCalValidator( 0, 59, false ) );
     VALIDATORS.put( iCalFields.BYYEARDAY, new iCalValidator( 1, 366, true ) );
     VALIDATORS.put( iCalFields.BYWEEKNO, new iCalValidator( 1, 53, true ) );
-    VALIDATORS.put( iCalFields.BYSECOND, new iCalValidator( 1, 366, true ) );
   }
 
   /**
@@ -132,7 +143,13 @@ public class RecurrenceRule
         ModelResource.getString( "ical.missing.freq" ) );
     }
 
-    if( iCalFields.valueOf( getFrequency() ) == null ) {
+    try {
+      if( iCalFields.valueOf( getFrequency() ) == null ) {
+        throw new IllegalArgumentException(
+          MessageFormat.format( ModelResource.getString( "ical.invalid.freq" ),
+                                getFrequency() ) );
+      }
+    } catch( IllegalArgumentException e ) {
       throw new IllegalArgumentException(
         MessageFormat.format( ModelResource.getString( "ical.invalid.freq" ),
                               getFrequency() ) );
@@ -145,6 +162,7 @@ public class RecurrenceRule
    *
    * @return Returns {@code true} if {@code value} is c=valid. Otherwise {@code false}
    */
+  @SuppressWarnings( "UnusedDeclaration" )
   protected boolean isValid( final iCalFields field, final int value )
   {
     return VALIDATORS.get( field ).isValid( value );
@@ -165,8 +183,8 @@ public class RecurrenceRule
     while( t.hasMoreTokens() ) {
       String token = t.nextToken();
 
-      if( iCalFields.FREQ.name()
-                         .equals( token ) ) {
+      if( iCalFields.FREQ.name().equals( token ) ||
+          "frequency".equals( token ) ) {
         builder = builder.withFrequency( next( t, token ) );
       } else if( iCalFields.COUNT.name().equals( token ) ) {
         try {
@@ -327,6 +345,6 @@ public class RecurrenceRule
         .append( ";" );
     }
 
-    return sb.substring( 0, sb.length() - 1 ).trim();
+    return sb.substring( 0, sb.length() ).trim();
   }
 }

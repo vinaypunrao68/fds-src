@@ -6,7 +6,6 @@
 #include <fds-shmobj.h>
 #include <net/net-service-tmpl.hpp>
 #include <net-platform.h>
-#include <platform/node-workflow.h>
 #include <platform/node-inv-shmem.h>
 #include <net/RpcFunc.h>
 #include <string>
@@ -77,15 +76,6 @@ PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc)
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
-
-    REGISTER_FDSP_MSG_HANDLER(fpi::NodeInfoMsg, notify_node_info);
-    REGISTER_FDSP_MSG_HANDLER(fpi::NodeQualify, notify_node_qualify);
-    REGISTER_FDSP_MSG_HANDLER(fpi::NodeUpgrade, notify_node_upgrade);
-    REGISTER_FDSP_MSG_HANDLER(fpi::NodeIntegrate, notify_node_integrate);
-    REGISTER_FDSP_MSG_HANDLER(fpi::NodeDeploy, notify_node_deploy);
-    REGISTER_FDSP_MSG_HANDLER(fpi::NodeFunctional, notify_node_functional);
-    REGISTER_FDSP_MSG_HANDLER(fpi::NodeDown, notify_node_down);
-    REGISTER_FDSP_MSG_HANDLER(fpi::NodeEvent, notify_node_event);
 }
 
 // NotifyDMTUpdate
@@ -249,94 +239,6 @@ PlatformEpHandler::getDomainNodes(fpi::DomainNodes                 &ret,
 
     local = Platform::platf_singleton()->plf_node_inventory();
     local->dc_node_svc_info(ret);
-}
-
-// notify_node_info
-// ----------------
-//
-void
-PlatformEpHandler::notify_node_info(fpi::AsyncHdrPtr &h, fpi::NodeInfoMsgPtr &m)
-{
-    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_info(h, m);
-}
-
-// notify_node_qualify
-// -------------------
-//
-void
-PlatformEpHandler::notify_node_qualify(fpi::AsyncHdrPtr &h, fpi::NodeQualifyPtr &m)
-{
-    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_qualify(h, m);
-}
-
-// notify_node_upgrade
-// -------------------
-//
-void
-PlatformEpHandler::notify_node_upgrade(fpi::AsyncHdrPtr &h, fpi::NodeUpgradePtr &m)
-{
-    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_upgrade(h, m);
-}
-
-void
-PlatformEpHandler::notify_node_integrate(fpi::AsyncHdrPtr &h, fpi::NodeIntegratePtr &m)
-{
-    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_integrate(h, m);
-}
-
-void
-PlatformEpHandler::notify_node_deploy(fpi::AsyncHdrPtr &h, fpi::NodeDeployPtr &m)
-{
-    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_deploy(h, m);
-}
-
-void
-PlatformEpHandler::notify_node_functional(fpi::AsyncHdrPtr &h, fpi::NodeFunctionalPtr &m)
-{
-    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_functional(h, m);
-}
-
-void
-PlatformEpHandler::notify_node_down(fpi::AsyncHdrPtr &h, fpi::NodeDownPtr &m)
-{
-    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_down(h, m);
-}
-
-// notify_node_event
-// -----------------
-//
-void
-PlatformEpHandler::notify_node_event(fpi::AsyncHdrPtr &h, fpi::NodeEventPtr &m)
-{
-    fpi::SvcUuid       svc;
-    fpi::DomainID      domain;
-    std::stringstream  stt;
-    fpi::NodeEventPtr  res;
-
-    NodeWorkFlow::nd_workflow_sgt()->wrk_dump_steps(&stt);
-    res = bo::make_shared<fpi::NodeEvent>();
-    res->nd_dom_id   = domain;
-    res->nd_uuid     = svc;
-    res->nd_evt      = "";
-    res->nd_evt_text = stt.str();
-    sendAsyncResp(*h, FDSP_MSG_TYPEID(fpi::NodeEvent), *res);
-}
-
-// getSvcEvent
-// -----------
-//
-void
-PlatformEpHandler::getSvcEvent(fpi::NodeEvent &ret, fpi::NodeEventPtr &in)
-{
-    fpi::SvcUuid       svc;
-    fpi::DomainID      domain;
-    std::stringstream  stt;
-
-    NodeWorkFlow::nd_workflow_sgt()->wrk_dump_steps(&stt);
-    ret.nd_dom_id   = domain;
-    ret.nd_uuid     = svc;
-    ret.nd_evt      = "";
-    ret.nd_evt_text = stt.str();
 }
 
 }  // namespace fds

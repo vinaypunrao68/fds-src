@@ -10,6 +10,7 @@
 #include <sm-platform.h>
 #include <string>
 #include <net/SvcRequest.h>
+#include <fiu-local.h>
 
 namespace fds {
 
@@ -30,6 +31,8 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicyAudit, TierPolicyAudit);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
+
+    REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
 }
 
 void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -39,6 +42,7 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_gets > 0));
+    fiu_do_on("svc.drop.getobject", return);
 
     Error err(ERR_OK);
     auto getReq = new SmIoGetObjectReq(getObjMsg);
@@ -118,6 +122,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
+    fiu_do_on("svc.drop.putobject", return);
 
     Error err(ERR_OK);
     auto putReq = new SmIoPutObjectReq(putObjMsg);
@@ -450,6 +455,7 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
             << dlt->dlt_data.dlt_type;
     err = objStorMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
     fds_assert(err.ok());
+    objStorMgr->handleDltUpdate();
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }

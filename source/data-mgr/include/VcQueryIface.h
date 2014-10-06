@@ -96,6 +96,10 @@ class VolumeCatalogQueryIface {
      */
     virtual Error syncCatalog(fds_volid_t volume_id,
                               const NodeUuid& dm_uuid) = 0;
+
+    virtual Error deleteBlob(fds_volid_t volume_id,
+                     const std::string& blob_name,
+                     blob_version_t blob_version) = 0;
 };
 
 }  // namespace fds

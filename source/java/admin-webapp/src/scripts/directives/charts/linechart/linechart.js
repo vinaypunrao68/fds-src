@@ -5,7 +5,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/charts/linechart/linechart.html',
-        scope: { data: '=', colors: '=?', opacities: '=?' },
+        scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@' },
         controller: function( $scope, $element, $resize_service ){
             
             var root = {};
@@ -21,6 +21,10 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             var $yScale;
             var $max;
             var $svg;
+            
+            if ( $scope.drawPoints !== true && $scope.drawPoints !== false ){
+                $scope.drawPoints = false;
+            }
             
             $svg = d3.select( '.line-chart' )
                 .append( 'svg' )
@@ -57,6 +61,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             
             var update = function(){
                 
+                buildScales();
+                
                 var area = d3.svg.area()
                     .x( function( d ){
                         return $xScale( d.x );
@@ -67,12 +73,19 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .y1( function( d ){
                         return $yScale( d.y );
                     })
-                    .interpolate( 'basis' );
+                    .interpolate( 'monotone' );
                 
                 $svg.selectAll( '.line' )
                     .transition()
                     .duration( 500 )
                     .attr( 'd', area );
+                
+                $svg.selectAll( '.point' )
+                    .transition()
+                    .duration( 500 )
+                    .attr( 'cy', function( d ){
+                        return $yScale( d.y );
+                    });
             };
             
             var create = function(){
@@ -89,10 +102,13 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .y1( function( d ){
                         return $yScale( 0 );
                     })
-                    .interpolate( 'basis' );
+                    .interpolate( 'monotone' );
                 
-                $svg.selectAll( '.line' ).data( $scope.data.series ).enter()
-                    .append( 'path' )
+                var groups = $svg.selectAll( '.series-group' ).data( $scope.data.series ).enter()
+                    .append( 'g' )
+                    .attr( 'class', 'series-group' );
+                
+                                groups.append( 'path' )
                     .attr( 'stroke', '#ACACAC' )
                     .attr( 'fill', function( d, i ){
                         if ( $scope.colors && $scope.colors.length > i ){
@@ -110,6 +126,30 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     })
                     .attr( 'class', 'line' )
                     .attr( 'd', area );
+                
+                
+                groups.selectAll( 'series-group' )
+                    .data( function( d, i ){
+                        return d;
+                    }).enter()
+                    .append( 'circle' )
+                    .attr( 'class', 'point' )
+                    .attr( 'cx', function( d ){
+                      return $xScale( d.x );  
+                    })
+                    .attr( 'cy', function( d ){
+                        return 0;
+                    })
+                    .attr( 'r', 3 )
+                    .attr( 'fill', 'white' )
+                    .attr( 'stroke', 'black' )
+                    .attr( 'style', function( d ){
+                        if ( $scope.drawPoints === true ){
+                            return 'visiblity: visible';
+                        }
+                        
+                        return 'visibility: hidden';
+                    });
                 
                 update();
             };

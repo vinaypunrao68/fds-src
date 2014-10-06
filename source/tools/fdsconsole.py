@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 import sys
-
-sys.path.append('../test/fdslib/pyfdsp')
-sys.path.append('../test/fdslib')
-sys.path.append('../test/')
+import os
+dirname = os.path.dirname(os.path.abspath(os.curdir))
+sys.path.insert(0,'{}/test/fdslib/pyfdsp/'.format(dirname))
+sys.path.insert(0,'{}/test/fdslib/'.format(dirname))
+sys.path.insert(0,'{}/test/'.format(dirname))
 
 import fdsconsole.console
 

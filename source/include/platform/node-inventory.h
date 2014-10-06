@@ -196,16 +196,20 @@ class NodeAgent : public NodeInventory
     virtual boost::shared_ptr<EPSvcRequest> node_msg_request();
 
     virtual boost::shared_ptr<fpi::PlatNetSvcClient>
-    node_svc_rpc(boost::intrusive_ptr<EpSvcHandle> *eph);
+    node_svc_rpc(boost::intrusive_ptr<EpSvcHandle> *eph, int maj = 0, int min = 0);
 
     friend std::ostream &operator << (std::ostream &os, const NodeAgent::pointer n);
 
   protected:
+    friend class NodeWorkFlow;
     friend class AgentContainer;
     boost::intrusive_ptr<EpSvcHandle>                 nd_eph;
     boost::intrusive_ptr<EpSvcHandle>                 nd_ctrl_eph;
     boost::shared_ptr<fpi::PlatNetSvcClient>          nd_svc_rpc;
     boost::shared_ptr<fpi::FDSP_ControlPathReqClient> nd_ctrl_rpc;
+
+    /* Fixme(Vy): put here until we clean up OM class hierachy. */
+    boost::intrusive_ptr<NodeWorkItem>                pm_wrk_item;
 
     virtual ~NodeAgent();
     explicit NodeAgent(const NodeUuid &uuid);
@@ -251,9 +255,7 @@ class PmAgent : public NodeAgent
     boost::intrusive_ptr<PmSvcEp> agent_ep_svc();
 
   protected:
-    friend class NodeWorkFlow;
     boost::intrusive_ptr<PmSvcEp>      pm_ep_svc;
-    boost::intrusive_ptr<NodeWorkItem> pm_wrk_item;
 
     virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
     virtual void
@@ -487,7 +489,7 @@ class AgentContainer : public RsContainer
      * @param ro, rw (i) - indices to get the node inventory data RO or RW (-1 invalid).
      * @param bool (i) - true if want to register, publish the node/service endpoint.
      */
-    virtual void
+    virtual bool
     agent_register(const ShmObjRO *shm, NodeAgent::pointer *out, int ro, int rw);
 
     /**

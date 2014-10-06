@@ -13,8 +13,7 @@ import java.net.URL;
 import java.util.Properties;
 
 /**
- * @author $Author: ptinius $
- * @version $Revision: #1 $ $DateTime: 2013/12/02 14:59:10 $
+ * @author ptinius
  */
 @SuppressWarnings( "UnusedDeclaration" )
 public class ResourceUtils

@@ -9,7 +9,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
-#include <platform/node-workflow.h>
+#include <plat-node-workflow.h>
 #include <net-platform.h>
 #include <net/PlatNetSvcHandler.h>
 
@@ -43,7 +43,7 @@ PlatformdNetSvc::mod_init(SysParams const *const p)
 {
     static Module *platd_net_deps[] = {
         &gl_PlatformdShmLib,
-        &gl_NodeWorkFlow,
+        &gl_PlatWorkFlow,
         NULL
     };
     gl_NetPlatSvc   = this;
@@ -185,6 +185,10 @@ PlatformdNetSvc::nplat_refresh_shm()
     std::cout << "Platform daemon refresh shm" << std::endl;
 }
 
+bo::shared_ptr<PlatNetSvcHandler> PlatformdNetSvc::getPlatNetSvcHandler()
+{
+    return plat_recv;
+}
 /*
  * -----------------------------------------------------------------------------------
  * Endpoint Plugin

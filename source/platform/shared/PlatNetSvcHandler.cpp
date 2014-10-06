@@ -3,14 +3,28 @@
  */
 #include <string>
 #include <map>
+#include <vector>
 #include <csignal>
+#include<unordered_map>
+#include <fiu-control.h>
+#include <boost/tokenizer.hpp>
+#include <boost/algorithm/string.hpp>
 #include <fds_process.h>
 #include <net/PlatNetSvcHandler.h>
 #include <platform/platform-lib.h>
+#include <platform/node-workflow.h>
 
 namespace fds {
 PlatNetSvcHandler::PlatNetSvcHandler()
 {
+    REGISTER_FDSP_MSG_HANDLER(fpi::NodeInfoMsg, notify_node_info);
+    REGISTER_FDSP_MSG_HANDLER(fpi::NodeQualify, notify_node_qualify);
+    REGISTER_FDSP_MSG_HANDLER(fpi::NodeUpgrade, notify_node_upgrade);
+    REGISTER_FDSP_MSG_HANDLER(fpi::NodeIntegrate, notify_node_integrate);
+    REGISTER_FDSP_MSG_HANDLER(fpi::NodeDeploy, notify_node_deploy);
+    REGISTER_FDSP_MSG_HANDLER(fpi::NodeFunctional, notify_node_functional);
+    REGISTER_FDSP_MSG_HANDLER(fpi::NodeDown, notify_node_down);
+    REGISTER_FDSP_MSG_HANDLER(fpi::NodeEvent, notify_node_event);
 }
 
 PlatNetSvcHandler::~PlatNetSvcHandler()
@@ -74,11 +88,6 @@ PlatNetSvcHandler::getSvcEvent(fpi::NodeEvent &ret, const fpi::NodeEvent &in)
 {
 }
 
-void
-PlatNetSvcHandler::getSvcEvent(fpi::NodeEvent &ret, fpi::NodeEventPtr &in)
-{
-}
-
 fpi::ServiceStatus PlatNetSvcHandler::getStatus(const int32_t nullarg)
 {
     return fpi::SVC_STATUS_INVALID;
@@ -101,12 +110,18 @@ void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,
 void PlatNetSvcHandler::setConfigVal(const std::string& id, const int64_t val)
 {
 }
+
 void PlatNetSvcHandler::setFlag(const std::string& id, const int64_t value)
 {
 }
+
 int64_t PlatNetSvcHandler::getFlag(const std::string& id)
 {
     return 0;
+}
+bool PlatNetSvcHandler::setFault(const std::string& command) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+    return false;
 }
 
 /**
@@ -223,6 +238,159 @@ void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,  // N
                                  boost::shared_ptr<int32_t>& nullarg)
 {
     _return = PlatformProcess::plf_manager()->plf_get_flags_map().toMap();
+}
+
+/**
+* @brief 
+*
+* @param command
+*/
+bool PlatNetSvcHandler::setFault(boost::shared_ptr<std::string>& cmdline)  // NOLINT
+{
+    boost::char_separator<char> sep(", ");
+    /* Parse the cmd line */
+    boost::tokenizer<boost::char_separator<char>> toknzr(*cmdline, sep);
+    std::unordered_map<std::string, std::string> args;
+    for (auto t : toknzr) {
+        if (args.size() == 0) {
+            args["cmd"] = t;
+            continue;
+        }
+        std::vector<std::string> parts;
+        boost::split(parts, t, boost::is_any_of("= "));
+        if (parts.size() != 2) {
+            return false;
+        }
+        args[parts[0]] = parts[1];
+    }
+    if (args.count("cmd") == 0 || args.count("name") == 0) {
+        return false;
+    }
+    /* Execute based on the cmd */
+    auto cmd = args["cmd"];
+    auto name = args["name"];
+    if (cmd == "enable") {
+        fiu_enable(name.c_str(), 1, NULL, 0);
+        LOGDEBUG << "Enable fault: " << name;
+    } else if (cmd == "enable_random") {
+        // TODO(Rao): add support for this
+    } else if (cmd == "disable") {
+        fiu_disable(name.c_str());
+        LOGDEBUG << "Disable fault: " << name;
+    }
+    return true;
+}
+
+/*
+ * notify_node_info
+ * ----------------
+ */
+void
+PlatNetSvcHandler::notify_node_info(fpi::AsyncHdrPtr &h, fpi::NodeInfoMsgPtr &m)
+{
+    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_info(h, m);
+}
+
+/**
+ * notify_node_qualify
+ * -------------------
+ */
+void
+PlatNetSvcHandler::notify_node_qualify(fpi::AsyncHdrPtr &h, fpi::NodeQualifyPtr &m)
+{
+    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_qualify(h, m);
+}
+
+/**
+ * notify_node_upgrade
+ * -------------------
+ */
+void
+PlatNetSvcHandler::notify_node_upgrade(fpi::AsyncHdrPtr &h, fpi::NodeUpgradePtr &m)
+{
+    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_upgrade(h, m);
+}
+
+/**
+ * notify_node_integrate
+ * ---------------------
+ */
+void
+PlatNetSvcHandler::notify_node_integrate(fpi::AsyncHdrPtr &h, fpi::NodeIntegratePtr &m)
+{
+    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_integrate(h, m);
+}
+
+/**
+ * notify_node_deploy
+ * ------------------
+ */
+void
+PlatNetSvcHandler::notify_node_deploy(fpi::AsyncHdrPtr &h, fpi::NodeDeployPtr &m)
+{
+    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_deploy(h, m);
+}
+
+/**
+ * notify_node_functional
+ * ----------------------
+ */
+void
+PlatNetSvcHandler::notify_node_functional(fpi::AsyncHdrPtr &h, fpi::NodeFunctionalPtr &m)
+{
+    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_functional(h, m);
+}
+
+/**
+ * notify_node_down
+ * ----------------
+ */
+void
+PlatNetSvcHandler::notify_node_down(fpi::AsyncHdrPtr &h, fpi::NodeDownPtr &m)
+{
+    NodeWorkFlow::nd_workflow_sgt()->wrk_recv_node_down(h, m);
+}
+
+/**
+ * notify_node_event
+ * -----------------
+ */
+void
+PlatNetSvcHandler::notify_node_event(fpi::AsyncHdrPtr &h, fpi::NodeEventPtr &m)
+{
+    fpi::SvcUuid       svc;
+    fpi::DomainID      domain;
+    std::stringstream  stt;
+    fpi::NodeEventPtr  res;
+
+    NodeWorkFlow::nd_workflow_sgt()->wrk_dump_steps(NULL);
+    return;
+
+    NodeWorkFlow::nd_workflow_sgt()->wrk_dump_steps(&stt);
+    res = bo::make_shared<fpi::NodeEvent>();
+    res->nd_dom_id   = domain;
+    res->nd_uuid     = svc;
+    res->nd_evt      = "";
+    res->nd_evt_text = stt.str();
+    sendAsyncResp(*h, FDSP_MSG_TYPEID(fpi::NodeEvent), *res);
+}
+
+/**
+ * getSvcEvent
+ * -----------
+ */
+void
+PlatNetSvcHandler::getSvcEvent(fpi::NodeEvent &ret, fpi::NodeEventPtr &in)
+{
+    fpi::SvcUuid       svc;
+    fpi::DomainID      domain;
+    std::stringstream  stt;
+
+    NodeWorkFlow::nd_workflow_sgt()->wrk_dump_steps(&stt);
+    ret.nd_dom_id   = domain;
+    ret.nd_uuid     = svc;
+    ret.nd_evt      = "";
+    ret.nd_evt_text = stt.str();
 }
 
 }  // namespace fds

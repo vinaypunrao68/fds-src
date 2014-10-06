@@ -8,7 +8,7 @@
 #include <set>
 #include <map>
 
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 
 namespace fds {
 
@@ -17,22 +17,25 @@ namespace fds {
 #define SM_TIER_COUNT  2
 
 typedef std::set<fds_token_id> SmTokenSet;
-typedef std::map<fds_uint16_t, SmTokenSet> DiskSmTokenMap;
 
 /**
- * Object location table that maps SM token id to disk id on
- * HDD and SSD tier. SM token can reside on HDD, SSD or both
- * tiers.
- * We currently support constant number of SM tokens = 256
- * The class is not thread-safe, the caller must ensure thread-safety
+ * Plain Old Data definition of the object location table that maps
+ * SM token id to disk id ot HDD and SSD tier. SM token can reside on
+ * HDD, SSD or both tiers
+ *
+ * When persisting data on stable storage, we want to keep the data in a
+ * raw format.
+ *
+ * Object Location Table layout: each column is SM token ID
+ * row 0 : HDD disk ID
+ * row 1 : SSD disk ID
+ *
  */
-class ObjectLocationTable: public serialize::Serializable {
-  public:
+#define OBJ_LOCATION_TABLE_SECTOR_SIZE    (512)
+
+struct ObjectLocationTable {
     ObjectLocationTable();
     ~ObjectLocationTable();
-
-    typedef std::shared_ptr<ObjectLocationTable> ptr;
-    typedef std::shared_ptr<const ObjectLocationTable> const_ptr;
 
     /**
      * Sets disk id for a given sm token id and tier
@@ -45,47 +48,50 @@ class ObjectLocationTable: public serialize::Serializable {
     fds_bool_t isDiskIdValid(fds_uint16_t diskId) const;
 
     /**
-     * Generates reverse map of disk id to token id
-     */
-    void generateDiskToSmTokenMap();
-
-    /**
      * Get a set of SM tokens that reside on a given disk
      * @param[out] tokenSet is populated with SM tokens
      */
     SmTokenSet getSmTokens(fds_uint16_t diskId) const;
 
-    // compares to another object location table
+    /**
+     * Validates Object Location Table for a given set of
+     * disk IDs that belong to a given tier
+     * @return ERR_OK if OLT contains all disks in diskIdSet
+     * and not other disks; ERR_SM_OLT_DISKS_INCONSISTENT if OLT
+     * contains at least one disk that is not in diskIdSet
+     * AND/OR if OLT does not contain at least one of the disks
+     * in diskIdSet
+     */
+    Error validate(const std::set<fds_uint16_t>& diskIdSet,
+                   diskio::DataTier tier) const;
+
+    /// compares to another object location table
     fds_bool_t operator ==(const ObjectLocationTable& rhs) const;
 
-    // Serializable
-    uint32_t virtual write(serialize::Serializer*  s) const;
-    uint32_t virtual read(serialize::Deserializer* d);
-
-    friend std::ostream& operator<< (std::ostream &out,
-                                     const ObjectLocationTable& tbl);
-
-  private:
-    // SM token to disk ID table
-    // row 0 : disk ID of HDDs
-    // row 1 : disk ID of SSD
+    /// POD data
     fds_uint16_t table[SM_TIER_COUNT][SMTOKEN_COUNT];
+} __attribute__((aligned(OBJ_LOCATION_TABLE_SECTOR_SIZE)));
 
-    /// cached reverse map from disk id to tokens
-    DiskSmTokenMap diskSmTokenMap;
-};
+static_assert((sizeof(struct ObjectLocationTable) %  OBJ_LOCATION_TABLE_SECTOR_SIZE) == 0,
+              "size of the struct Object Location Table should be multiple of 512 bytes");
+
+std::ostream& operator<< (std::ostream &out,
+                          const ObjectLocationTable& tbl);
+
+std::ostream& operator<< (std::ostream &out,
+                          const SmTokenSet& toks);
 
 /**
  * Algorithm for distributing SM tokens over disks
  * The class is intended to be stateless. It takes all
- * required input via parameters and returns Object Location
- * Table
+ * required input via parameters and returns filled in
+ * Object Location Table
  */
 class SmTokenPlacement {
   public:
     static void compute(const std::set<fds_uint16_t>& hdds,
                         const std::set<fds_uint16_t>& ssds,
-                        ObjectLocationTable::ptr olt);
+                        ObjectLocationTable* olt);
 };
 
 }  // namespace fds

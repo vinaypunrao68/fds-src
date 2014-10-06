@@ -37,6 +37,16 @@ FdsService::proc_pre_startup()
 }
 
 void
+FdsService::proc_pre_service()
+{
+    /* TODO(Vy/Rao): Total hack.  Most of the code platform implementers owned base async receiver
+     * in the NodePlatform case that's not the case.  It's owned by PlatformdNetSvc.  We need to
+     * fix this make sure all platform implementers are consistent in the paradigms they follow
+     */
+    gl_NodePlatform.setBaseAsyncSvcHandler(gl_PlatformdNetSvc.getPlatNetSvcHandler());
+}
+
+void
 FdsService::plf_load_node_data()
 {
     PlatformProcess::plf_load_node_data();

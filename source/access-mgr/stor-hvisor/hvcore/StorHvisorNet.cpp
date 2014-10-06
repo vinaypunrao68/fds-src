@@ -165,20 +165,33 @@ StorHvCtrl::StorHvCtrl(int argc,
     qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
     om_client->startAcceptingControlMessages();
 
+    /* TODO: for now StorHvVolumeTable constructor will create
+     * volume 1, revisit this soon when we add multi-volume support
+     * in other parts of the system */
+    vol_table = new StorHvVolumeTable(this, GetLog());
+
     // Init rand num generator
     // TODO(Andrew): Move this to platform process so everyone gets it
     // and make AM extend from platform process
     randNumGen = RandNumGenerator::ptr(new RandNumGenerator(RandNumGenerator::getRandSeed()));
 
+    // Check the AM processing path toggle
+    toggleNewPath = config.get_abs<bool>("fds.am.testing.toggleNewPath");
     // Init the AM transaction manager
-    amTxMgr = AmTxManager::unique_ptr(new AmTxManager("AM Transaction Manager Module"));
+    amTxMgr = AmTxManager::shared_ptr(new AmTxManager("AM Transaction Manager Module"));
     // Init the AM cache manager
     amCache = AmCache::unique_ptr(new AmCache("AM Cache Manager Module"));
 
-    /* TODO: for now StorHvVolumeTable constructor will create
-     * volume 1, revisit this soon when we add multi-volume support
-     * in other parts of the system */
-    vol_table = new StorHvVolumeTable(this, GetLog());
+    // Init the dispatcher layer
+    amDispatcher = AmDispatcher::unique_ptr(
+        new AmDispatcher("AM Dispatcher Module",
+                         om_client->getDmtManager()));
+    // Init the processor layer
+    amProcessor = AmProcessor::unique_ptr(
+        new AmProcessor("AM Processor Module",
+                        qos_ctrl,
+                        vol_table,
+                        amTxMgr));
 
     chksumPtr =  new checksum_calc();
 

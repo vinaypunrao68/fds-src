@@ -48,11 +48,6 @@ toolchain_ldb        := $(topdir)/../leveldb-1.12.0
 toolchain_ldb_incl   := $(toolchain_ldb)/include
 toolchain_ldb_lib    := $(toolchain_ldb)
 
-# Libconfig settings.
-#
-toolchain_libconfig       := $(topdir)/../libconfig-1.4.9
-toolchain_libconfig_incl  := $(toolchain_libconfig)/lib
-
 # Jansson settings.
 #
 toolchain_jansson         := $(topdir)/../jansson-2.5
@@ -94,7 +89,6 @@ endif
 #
 toolchain_incl_flags := -I$(toolchain_boost_incl)
 toolchain_incl_flags += -I$(toolchain_ldb_incl) -I$(toolchain_ldb)
-toolchain_incl_flags += -I$(toolchain_libconfig_incl)
 toolchain_incl_flags += $(toolchain_nginx_incl)
 toolchain_incl_flags += $(toolchain_thrf_incl)
 toolchain_incl_flags += $(toolchain_jansson_incl)

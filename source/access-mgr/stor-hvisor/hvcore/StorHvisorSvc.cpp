@@ -195,21 +195,25 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
     // Stash the newly created ID in the callback for later
     StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                   blobReq->cb);
-    cb->blobTxId = txId;
-    fds_uint64_t dmt_version = om_client->getDMTVersion();
+    cb->blobTxId  = txId;
+    // Update blob request with new fields
+    blobReq->txId       = txId;
+    blobReq->dmtVersion = om_client->getDMTVersion();    
 
     // Track the transaction we're starting. If the DM
     // request fails, we'll drop this entry from the mgr.
-    err = amTxMgr->addTx(volId, txId, dmt_version, blobReq->getBlobName());
+    err = amTxMgr->addTx(volId, txId, blobReq->dmtVersion, blobReq->getBlobName());
     fds_verify(err == ERR_OK);
+
+    // amDispatcher->dispatchStartBlobTx(qosReq);
 
     issueStartBlobTxMsg(blobReq->getBlobName(),
                         volId,
                         blobReq->getBlobMode(),
                         txId.getValue(),
-                        dmt_version,
+                        blobReq->dmtVersion,
                         RESPONSE_MSG_HANDLER(StorHvCtrl::startBlobTxMsgResp, qosReq));
-     return err;
+    return err;
 }
 
 

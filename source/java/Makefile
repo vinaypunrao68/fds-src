@@ -25,8 +25,8 @@ compile:
 	@rm -rf $(comm_dir_lib)/java
 	@rm -rf $(comm_dir_lib)/admin-webapp
 	@mkdir -p $(comm_dir_lib)/java/
-	@mvn install -f thrift-pom.xml
-	@mvn -Dmaven.test.skip=true assembly:directory -Dproject.build.dir=$(comm_dir_lib)/java
+	@mvn install -f thrift-pom.xml --batch-mode
+	@mvn -Dmaven.test.skip=true assembly:directory -Dproject.build.dir=$(comm_dir_lib)/java --batch-mode
 	@mkdir $(comm_dir_lib)/admin-webapp
 	#@cd admin-webapp; npm install; npm install bower; CI=true node_modules/bower/bin/bower install; node_modules/grunt-cli/bin/grunt release
 	@cd admin-webapp; npm install; CI=true node_modules/bower/bin/bower install; node_modules/grunt-cli/bin/grunt release
@@ -37,4 +37,4 @@ compile:
 .PHONY: test
 
 test:
-	@mvn -Dproject.build.dir=$(topdir)/cit test
+	@mvn -Dproject.build.dir=$(topdir)/cit test --batch-mode

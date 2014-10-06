@@ -8,8 +8,8 @@
 #include "StorMgr.h"
 #include "StorMgrVolumes.h"
 #include "ObjRank.h"
-#include "persistent_layer/dm_io.h"
-#include "persistent_layer/dm_service.h"
+#include "persistent-layer/dm_io.h"
+#include "persistent-layer/dm_service.h"
 #include "util/Log.h"
 
 namespace fds {

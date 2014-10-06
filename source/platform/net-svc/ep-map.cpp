@@ -76,8 +76,6 @@ PlatUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
     ShmConPrdQueue      *plat;
     const ep_shmq_req_t *ep_map = reinterpret_cast<const ep_shmq_req_t *>(in);
 
-    std::cout << "UUID binding request is called" << std::endl;
-
     /* Save the uuid to physical binding info to the node shared memory. */
     idx = ep_shm_rw->ep_map_record(&ep_map->smq_rec);
     fds_verify(idx != -1);
@@ -159,9 +157,6 @@ EpPlatformdMod::mod_enable_service()
 int
 EpPlatformdMod::ep_map_record(const ep_map_rec_t *rec)
 {
-    LOGDEBUG << "Platform ep map record " << std::hex << rec->rmp_uuid
-       << std::dec << ", maj " << rec->rmp_major << ", minor " << rec->rmp_minor;
-
     return ep_uuid_rw->shm_insert_rec(static_cast<const void *>(&rec->rmp_uuid),
                                       static_cast<const void *>(rec), sizeof(*rec));
 }

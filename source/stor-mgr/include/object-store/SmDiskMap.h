@@ -9,7 +9,7 @@
 
 #include <fds_module.h>
 #include <dlt.h>
-#include <persistent_layer/dm_io.h>
+#include <persistent-layer/dm_io.h>
 #include <object-store/SmSuperblock.h>
 
 namespace fds {
@@ -89,7 +89,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
     DiskIdSet hdd_ids;
 
     /// Superblock caches and persists SM token info
-    SmSuperblock::unique_ptr superblock;
+    SmSuperblockMgr::unique_ptr superblock;
 
     /// if true, test mode where we assume no contact with
     /// platform, and use SM service uuid = 1

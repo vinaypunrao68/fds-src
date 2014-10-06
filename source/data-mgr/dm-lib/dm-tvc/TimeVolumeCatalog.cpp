@@ -148,8 +148,9 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc) {
         }
 
         for (auto it : tokenOidMap) {
-            tp_.schedule(&DmTimeVolCatalog::incrObjRefCount, this, voldesc.srcVolumeId,
-                    voldesc.volUUID, it.first, it.second);
+            incrObjRefCount(voldesc.srcVolumeId, voldesc.volUUID, it.first, it.second);
+            // tp_.schedule(&DmTimeVolCatalog::incrObjRefCount, this, voldesc.srcVolumeId,
+            //         voldesc.volUUID, it.first, it.second);
         }
     }
 
@@ -159,7 +160,33 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc) {
 void
 DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
         fds_token_id token, boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > objIds) {
-    // TODO(umesh): implement this
+    // TODO(umesh): this code is similar to DataMgr::expungeObject() code.
+    // So it inherits all its limitations. Following things need to be considered in future:
+    // 1. what if volume association is removed for OID while snapshot is being taken
+    // 2. what if call to increment ref count fails
+    // 3. whether to do it in background/ foreground thread
+
+    OMgrClient * omClient = dataMgr->omClient;
+    fds_verify(omClient);
+
+    // Create message
+    fpi::AddObjectRefMsgPtr addObjReq(new AddObjectRefMsg());
+    addObjReq->srcVolId = srcVolId;
+    addObjReq->destVolId = destVolId;
+    addObjReq->objIds = *objIds;
+
+    // for (auto it : *objIds) {
+    //     addObjReq->objIds.push_back(it);
+    // }
+
+    const DLT * dlt = omClient->getCurrentDLT();
+    fds_verify(dlt);
+
+    auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
+            boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(token)));
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::AddObjectRefMsg), addObjReq);
+    asyncReq->setTimeoutMs(10000);
+    asyncReq->invoke();
 }
 
 Error
@@ -311,8 +338,7 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
             }
             e = volcat->putBlob(volid, commit_data->name, commit_data->metaDataList,
                     commit_data->blobObjList, commit_data->txDesc);
-        }
-        if (commit_data->metaDataList && !commit_data->metaDataList->empty()) {
+        } else if (commit_data->metaDataList && !commit_data->metaDataList->empty()) {
             e = volcat->putBlobMeta(volid, commit_data->name,
                     commit_data->metaDataList, commit_data->txDesc);
         }
@@ -374,4 +400,12 @@ DmTimeVolCatalog::isPendingTx(fds_volid_t volId, fds_uint64_t timeNano) {
     COMMITLOG_GET(volId, commitLog);
     return commitLog->isPendingTx(timeNano);
 }
+
+Error
+DmTimeVolCatalog::getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog) {
+    Error rc(ERR_OK);
+    COMMITLOG_GET(volId, commitLog);
+    return rc;
+}
+
 }  // namespace fds
