@@ -7,6 +7,7 @@
 #include <string>
 #include <fds_module.h>
 #include <StorHvVolumes.h>
+#include <net/SvcRequest.h>
 
 namespace fds {
 
@@ -18,7 +19,15 @@ namespace fds {
  */
 class AmDispatcher : public Module, public boost::noncopyable {
   public:
-    explicit AmDispatcher(const std::string &modName);
+    /**
+     * The dispatcher takes a shared ptr to the DMT manager
+     * which it uses when deciding who to dispatch to. The
+     * DMT manager is still owned and updated to omClient.
+     * TODO(Andrew): Make the dispatcher own this piece or
+     * iterface with platform lib.
+     */
+    AmDispatcher(const std::string &modName,
+                 DMTManagerPtr _dmtMgr);
     ~AmDispatcher();
     typedef std::unique_ptr<AmDispatcher> unique_ptr;
 
@@ -30,11 +39,23 @@ class AmDispatcher : public Module, public boost::noncopyable {
     void mod_shutdown();
 
     /**
-     * Issues a start blob transaction request.
+     * Dipatches a start blob transaction request.
      */
-    void startBlobTx(AmQosReq *qosReq);
+    void dispatchStartBlobTx(AmQosReq *qosReq);
+
+    /**
+     * Callback for start blob transaction responses.
+     */
+    void startBlobTxCb(AmQosReq* qosReq,
+                       QuorumSvcRequest* svcReq,
+                       const Error& error,
+                       boost::shared_ptr<std::string> payload);
 
   private:
+    /// Shared ptr to the DMT manager used for deciding who
+    /// to dispatch to
+    DMTManagerPtr dmtMgr;
+
     /// Uturn test all network requests
     fds_bool_t uturnAll;
 };
