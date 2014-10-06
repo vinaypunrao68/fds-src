@@ -286,7 +286,7 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_agent.exec_wait('ls ' + var_dir)
             if status == 0:
                 os.chdir(var_dir)
-                status = self.nd_agent.exec_wait('rm -r logs stats')
+                #status = self.nd_agent.exec_wait('rm -r logs stats')
 
             status = self.nd_agent.exec_wait('ls ' + '/corefiles')
             if status == 0:
