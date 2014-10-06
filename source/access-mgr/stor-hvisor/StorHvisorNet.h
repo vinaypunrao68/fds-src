@@ -237,6 +237,9 @@ public:
     std::string                 myIp;
     std::string                 my_node_name;
 
+    /// Toggle to use new AM processing path
+    fds_bool_t toggleNewPath;
+
     /// Dispatcher layer module
     AmDispatcher::unique_ptr amDispatcher;
 
@@ -530,7 +533,11 @@ static void processBlobReq(AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
     switch (qosReq->io_type) {
         case fds::FDS_START_BLOB_TX:
-            err = storHvisor->startBlobTxSvc(qosReq);
+            if (storHvisor->toggleNewPath == true) {
+                storHvisor->amProcessor->startBlobTx(qosReq);
+            } else {
+                err = storHvisor->startBlobTxSvc(qosReq);
+            }
             break;
 
         case fds::FDS_COMMIT_BLOB_TX:

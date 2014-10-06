@@ -9,8 +9,12 @@
 namespace fds {
 
 AmProcessor::AmProcessor(const std::string &modName,
+                         StorHvQosCtrl     *_qosCtrl,
+                         StorHvVolumeTable *_volTable,
                          AmTxManager::shared_ptr _amTxMgr)
         : Module(modName.c_str()),
+          qosCtrl(_qosCtrl),
+          volTable(_volTable),
           txMgr(_amTxMgr) {
 }
 
@@ -33,10 +37,24 @@ AmProcessor::mod_shutdown() {
 
 void
 AmProcessor::startBlobTx(AmQosReq *qosReq) {
-    Error err(ERR_OK);
+    // Get the blob request
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
+
+    // check if this is a snapshot
+    // TODO(Andrew): Why not just let DM reject the IO?
+    StorHvVolume *shVol = volTable->getLockedVolume(blobReq->getVolId());
+    if (shVol->voldesc->isSnapshot()) {
+        LOGWARN << "txn on a snapshot is not allowed.";
+        shVol->readUnlock();
+        StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
+                                                      blobReq->cb);
+        qosCtrl->markIODone(qosReq);
+        cb->call(FDSN_StatusErrorAccessDenied);
+        delete blobReq;
+    }
+    shVol->readUnlock();
 }
 
 void

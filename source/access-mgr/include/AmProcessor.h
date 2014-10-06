@@ -7,6 +7,7 @@
 #include <string>
 #include <fds_module.h>
 #include <StorHvVolumes.h>
+#include <StorHvQosCtrl.h>
 #include <am-tx-mgr.h>
 
 namespace fds {
@@ -25,7 +26,8 @@ class AmProcessor : public Module, public boost::noncopyable {
      * TODO(Andrew): Use a different structure than SHVolTable.
      */
     AmProcessor(const std::string &modName,
-                // StorHvVolumeTable *volTable,
+                StorHvQosCtrl     *_qosCtrl,
+                StorHvVolumeTable *_volTable,
                 AmTxManager::shared_ptr _amTxMgr);
     ~AmProcessor();
     typedef std::unique_ptr<AmProcessor> unique_ptr;
@@ -49,6 +51,15 @@ class AmProcessor : public Module, public boost::noncopyable {
                        const Error& error);
 
   private:
+    /// Raw pointer to QoS controller
+    // TODO(Andrew): Move this to unique once it's owned here.
+    StorHvQosCtrl *qosCtrl;
+
+    /// Raw pointer to table of attached volumes
+    // TODO(Andrew): Move this unique once it's owned here.
+    // Also, probably want a simpler class structure
+    StorHvVolumeTable *volTable;
+
     /// Shared ptr to the transaction manager
     // TODO(Andrew): Move to unique once owned here.
     AmTxManager::shared_ptr txMgr;
