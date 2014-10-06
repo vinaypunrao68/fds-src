@@ -39,6 +39,12 @@ AmDispatcher::dispatchStartBlobTx(AmQosReq *qosReq) {
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(
         qosReq->getBlobReqPtr());
 
+    // Update DMT version in request
+    // TODO(Andrew): There's a potential race here between the
+    // version we cache in the blobReq now and the version we
+    // actually dispatch on below. Make the update/dispatch consistent.
+    blobReq->dmtVersion = dmtMgr->getCommittedVersion();
+
     // Create callback
     QuorumSvcRequestRespCb respCb(
         RESPONSE_MSG_HANDLER(AmDispatcher::startBlobTxCb,

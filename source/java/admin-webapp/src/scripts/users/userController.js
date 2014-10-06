@@ -6,7 +6,7 @@ angular.module( 'user-page' ).controller( 'userController', ['$scope', '$user_se
     $scope.creating = false;
 
     $scope.createNewUser = function(){
-        $scope.creating = true;
+        $scope.userVars.next( 'createuser' );
     };
     
     $scope.actionSelected = function( action ){
@@ -23,7 +23,6 @@ angular.module( 'user-page' ).controller( 'userController', ['$scope', '$user_se
     $user_service.getUsers( $scope.usersReturned );
     
     $scope.$on( 'fds::user_done_editing', function(){
-        $scope.creating = false;
         $user_service.getUsers( $scope.usersReturned );
     });
 

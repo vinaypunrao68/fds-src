@@ -6,9 +6,11 @@
 
 #include <string>
 #include <fds_module.h>
+#include <FdsRandom.h>
 #include <StorHvVolumes.h>
 #include <StorHvQosCtrl.h>
 #include <am-tx-mgr.h>
+#include <AmDispatcher.h>
 
 namespace fds {
 
@@ -26,6 +28,7 @@ class AmProcessor : public Module, public boost::noncopyable {
      * TODO(Andrew): Use a different structure than SHVolTable.
      */
     AmProcessor(const std::string &modName,
+                AmDispatcher::shared_ptr _amDispatcher,
                 StorHvQosCtrl     *_qosCtrl,
                 StorHvVolumeTable *_volTable,
                 AmTxManager::shared_ptr _amTxMgr);
@@ -60,9 +63,17 @@ class AmProcessor : public Module, public boost::noncopyable {
     // Also, probably want a simpler class structure
     StorHvVolumeTable *volTable;
 
+    /// Shared ptr to the dispatcher layer
+    // TODO(Andrew): Decide if AM or Process owns this and make unique.
+    // I'm leaning towards this layer owning it.
+    AmDispatcher::shared_ptr amDispatcher;
+
     /// Shared ptr to the transaction manager
     // TODO(Andrew): Move to unique once owned here.
     AmTxManager::shared_ptr txMgr;
+
+    /// Unique ptr to a random num generator for tx IDs
+    RandNumGenerator::unique_ptr randNumGen;
 };
 
 }  // namespace fds

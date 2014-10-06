@@ -24,11 +24,10 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
     };
 
     $scope.cancel = function(){
-        $scope.name = '';
-        $scope.password = '';
-        $scope.confirm = '';
+        $scope.init();
         
         $scope.$emit( 'fds::user_done_editing' );
+        $scope.userVars.back();
     };
 
     $scope.clearPasswordError = function(){

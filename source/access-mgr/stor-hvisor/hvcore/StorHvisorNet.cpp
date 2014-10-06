@@ -183,12 +183,15 @@ StorHvCtrl::StorHvCtrl(int argc,
     amCache = AmCache::unique_ptr(new AmCache("AM Cache Manager Module"));
 
     // Init the dispatcher layer
-    amDispatcher = AmDispatcher::unique_ptr(
+    // TODO(Andrew): Decide if AM or AmProcessor should own
+    // this layer.
+    amDispatcher = AmDispatcher::shared_ptr(
         new AmDispatcher("AM Dispatcher Module",
                          om_client->getDmtManager()));
     // Init the processor layer
     amProcessor = AmProcessor::unique_ptr(
         new AmProcessor("AM Processor Module",
+                        amDispatcher,
                         qos_ctrl,
                         vol_table,
                         amTxMgr));

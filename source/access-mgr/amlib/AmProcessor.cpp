@@ -9,13 +9,17 @@
 namespace fds {
 
 AmProcessor::AmProcessor(const std::string &modName,
+                         AmDispatcher::shared_ptr _amDispatcher,
                          StorHvQosCtrl     *_qosCtrl,
                          StorHvVolumeTable *_volTable,
                          AmTxManager::shared_ptr _amTxMgr)
         : Module(modName.c_str()),
+          amDispatcher(_amDispatcher),
           qosCtrl(_qosCtrl),
           volTable(_volTable),
           txMgr(_amTxMgr) {
+    randNumGen = RandNumGenerator::unique_ptr(
+        new RandNumGenerator(RandNumGenerator::getRandSeed()));
 }
 
 AmProcessor::~AmProcessor() {
@@ -55,11 +59,24 @@ AmProcessor::startBlobTx(AmQosReq *qosReq) {
         delete blobReq;
     }
     shVol->readUnlock();
+
+    // Generate a random transaction ID to use
+    blobReq->txId = BlobTxId(randNumGen->genNumSafe());
+
+    amDispatcher->dispatchStartBlobTx(qosReq);
 }
 
 void
 AmProcessor::startBlobTxCb(AmQosReq *qosReq,
                            const Error &error) {
+    StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
+
+    // Stash the newly created ID in the callback for later
+    StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
+                                                  blobReq->cb);
+    cb->blobTxId  = blobReq->txId;
 }
 
 }  // namespace fds
