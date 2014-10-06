@@ -1,0 +1,10 @@
+<div ng-controller="userContainerController">
+    <slide-window-stack global-vars="userVars">
+        <slide-window-slide name="viewusers" breadcrumb-name="View Users">
+            <div ng-include="'scripts/users/users.html'"></div>
+        </slide-window-slide>
+        <slide-window-slide name="createuser" breadcrumb-name="Create User">
+            <div ng-include="'scripts/users/create/createUser.html'"></div>
+        </slide-window-slide>
+    </slide-window-stack>
+</div>

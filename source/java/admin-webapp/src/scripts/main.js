@@ -23,7 +23,7 @@ app.config( function( $stateProvider, $urlRouterProvider ){
         })
         .state( 'homepage.users', {
             url: '/users',
-            templateUrl: 'scripts/users/users.html'
+            templateUrl: 'scripts/users/userContainer.html'
         })
         .state( 'homepage.tenants', {
             url: '/tenants',
