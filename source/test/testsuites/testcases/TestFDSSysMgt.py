@@ -61,6 +61,10 @@ class TestNodeActivate(TestCase.FDSTestCase):
 
             self.log.info("Activate node %s." % n.nd_conf_dict['node-name'])
 
+            # We need a better way to ensure that the PM has registered with OM before doing this ...
+            # a new test case that talks to OM or PM perhaps.
+            time.sleep(5)
+
             cur_dir = os.getcwd()
             os.chdir(bin_dir)
             status = n.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s --activate-nodes abc -k 1 -e am,dm,sm > '

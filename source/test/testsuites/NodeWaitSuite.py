@@ -10,38 +10,20 @@ import testcases.TestCase
 import testcases.TestFDSEnvMgt
 import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
-import testcases.TestFDSSysLoad
-import NodeWaitSuite
-
 
 def suiteConstruction():
     """
     Construct the ordered set of test cases that comprise the
-    Build Smoke Test suite.
+    test cases necessary to check whether a node is started.
     """
     suite = unittest.TestSuite()
 
-    # Build the necessary FDS installation directory structure.
-    suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
-
-    # Start the node(s) according to configuration supplied with the -q cli option.
-    suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
+    # Check the node(s) according to configuration supplied with the -q cli option.
     suite.addTest(testcases.TestFDSModMgt.TestPMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
     suite.addTest(testcases.TestFDSModMgt.TestOMWait())
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate())
-
-    # Check that all nodes are up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction()
-    suite.addTest(nodeUpSuite)
-
-    # Load test.
-    suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
-
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
-
-    # Cleanup FDS installation directory.
-    suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
+    suite.addTest(testcases.TestFDSModMgt.TestDMWait())
+    suite.addTest(testcases.TestFDSModMgt.TestSMWait())
+    suite.addTest(testcases.TestFDSModMgt.TestAMWait())
 
     return suite
 

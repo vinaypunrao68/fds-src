@@ -193,6 +193,7 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
         super(self.__class__, self).__init__(parameters)
 
 
+    @unittest.expectedFailure
     def runTest(self):
         """
         Used by qaautotest module's test runner to run the test case

@@ -209,9 +209,11 @@ class FdsNodeConfig(FdsConfig):
         # When running from the test harness, we want to wait for results
         # but not assume we are running from an FDS package install.
         if test_harness:
-#            status = self.nd_agent.exec_wait('bash -c \"(nohup %s/platformd ' % bin_dir + port_arg +
-            status = self.nd_agent.exec_wait('bash -c \"(nohup %s/platformd ' % bin_dir +
-                                             ' > %s/pm.out 2>&1 &) \"' % log_dir)
+            cur_dir = os.getcwd()
+            os.chdir(bin_dir)
+            status = self.nd_agent.exec_wait('bash -c \"(nohup ./platformd --fds-root=%s > %s/pm.out 2>&1 &) \"' %
+                                                 (fds_dir, log_dir if self.nd_agent.env_install else "."))
+            os.chdir(cur_dir)
         else:
             status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
                                             ' > %s/pm.out' % log_dir)

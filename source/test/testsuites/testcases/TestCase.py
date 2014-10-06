@@ -177,9 +177,11 @@ class FDSTestCase(unittest.TestCase):
         global pyUnitSudoPw
 
         log_dir = None
+        failfast = False
 
         # We must have the -i option but that will be checked later.
-        options, args = getopt.getopt(_argv[1:], 'q:l:d:vri', ['qat-file', 'log-dir', 'sudo-password', 'verbose', 'dryrun' 'install'])
+        options, args = getopt.getopt(_argv[1:], 'q:l:d:vrif', ['qat-file', 'log-dir', 'sudo-password', 'verbose',
+                                                                'dryrun', 'install', 'failfast'])
 
         idx = 1
         for opt, value in options:
@@ -210,4 +212,18 @@ class FDSTestCase(unittest.TestCase):
             else:
                 idx += 1
 
-        return log_dir
+        # Instantiate an FDSTestCase so we can initialize our fixture from the configuration file.
+        initialCase = FDSTestCase(parameters=None)
+
+        # From either the command line or from the config file, one must
+        # have given us a log_dir.
+        if log_dir is None:
+            log_dir = _parameters["log_dir"]
+
+        # Since in this case we are running from PyUnit, we'll need to add to
+        # sysargs if the config file had "stop_on_fail" set True.
+        if _parameters["stop_on_fail"]:
+            _argv.append("--failfast")
+            failfast = True
+
+        return log_dir, failfast
