@@ -14,6 +14,7 @@ user_cpp         := \
     BaseAsyncSvcHandler.cpp \
     PlatNetSvcHandler.cpp \
     node-workflow.cpp \
+    fds-2phase.cpp \
     fds_flags.cpp
 
 user_ar_libs     := fds-plat-lib

@@ -64,6 +64,7 @@ enum  FDSPMsgTypeId {
     NodeDownTypeId                     = 1011,
     NodeEventTypeId                    = 1012,
     NodeWorkItemTypeId                 = 1013,
+    PhaseSyncTypeId                    = 1014,
 
     /* Volume messages; common for AM, DM, SM. */
     CtrlNotifyVolAddTypeId             = 2020,
@@ -346,6 +347,15 @@ struct NodeEvent {
     2: required SvcUuid                  nd_uuid,
     3: required string                   nd_evt,
     4: string                            nd_evt_text,
+}
+
+/**
+ * 2-Phase Commit message.
+ */
+struct PhaseSync {
+    1: required SvcUuid                  ph_rcv_uuid,
+    2: required i32                      ph_sync_evt,
+    3: binary                            ph_data,
 }
 
 /*
