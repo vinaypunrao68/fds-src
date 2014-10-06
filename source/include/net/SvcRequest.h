@@ -55,7 +55,8 @@ enum SvcRequestState {
 */
 struct SvcRequestTimer : FdsTimerTask {
     SvcRequestTimer(const SvcRequestId &id,
-                  const fpi::SvcUuid &myEpId, const fpi::SvcUuid &peerEpId);
+                    const fpi::FDSPMsgTypeId &msgTypeId,
+                    const fpi::SvcUuid &myEpId, const fpi::SvcUuid &peerEpId);
 
     virtual void runTimerTask() override;
 

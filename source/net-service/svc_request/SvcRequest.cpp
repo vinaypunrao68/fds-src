@@ -20,7 +20,7 @@ SvcRequestTimer::SvcRequestTimer(const SvcRequestId &id,
     : FdsTimerTask(*NetMgr::ep_mgr_singleton()->ep_mgr_singleton()->ep_get_timer())
 {
     header_.reset(new fpi::AsyncHdr());
-    *header_ = gSvcRequestPool->newSvcRequestHeader(id, peerEpId, myEpId);
+    *header_ = gSvcRequestPool->newSvcRequestHeader(id, msgTypeId_, peerEpId, myEpId);
     header_->msg_code = ERR_SVC_REQUEST_TIMEOUT;
 }
 
@@ -145,7 +145,7 @@ int injerr_socket_close = 0;  // gdb set this value to trigger remote connection
 using boost::lockfree::detail::unlikely;
 void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
 {
-    auto header = SvcRequestPool::newSvcRequestHeader(id_, myEpId_, peerEpId);
+    auto header = SvcRequestPool::newSvcRequestHeader(id_, msgTypeId_, myEpId_, peerEpId);
     header.msg_type_id = msgTypeId_;
 
     DBG(GLOGDEBUG << fds::logString(header));
