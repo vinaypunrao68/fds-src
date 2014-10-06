@@ -61,7 +61,7 @@ include $(incl_scripts)/Makefile.scpt
 # Main make rule.
 #
 .PHONY: all
-all: devsetup $(user_predep) devenv base_predepend $(user_postdep) \
+all: $(user_predep) devenv base_predepend $(user_postdep) \
      $(user_predepend) $(user_postdepend)                           \
 	 $(user_preall) base_dirs base_style base_objs base_all $(user_postall)     \
 	 $(user_tool) $(user_scripts) base_postmake                                 \
@@ -378,30 +378,28 @@ $(fdsrepofile) : $(reposetupscript)
 fdsrepo :  $(fdsrepofile)
 
 # -----------------------------------------------------------------------------
-# Check for installed packages
+# Setup Chef client for chef-zero convergence
 # -----------------------------------------------------------------------------
-devsetup_chkfile:=/tmp/.devsetup.chk
-devsetup_script:=$(incl_scripts)/devsetup.sh
-
-chef_client_binary:=/usr/bin/chef-client
+chef_client_binary:=/opt/chef/bin/chef-client
 chef_client_config:=/tmp/chef-client-config.rb
 
-#generate-chef-client-config:
 $(chef_client_config):
-	@echo "chef_repo_path \"`pwd`/../chef\"" > ${chef_client_config}
-	@echo "cookbook_path [ \"`pwd`/../chef/cookbooks\", \"`pwd`/../chef/site-cookbooks\" ]" >> ${chef_client_config}
+	@echo "chef_repo_path \"`pwd`/../chef\"\ncookbook_path [ \"`pwd`/../chef/cookbooks\", \"`pwd`/../chef/site-cookbooks\" ]" > ${chef_client_config}
 	@echo "chef-client config generated at ${chef_client_config}"
 
 $(chef_client_binary): $(chef_client_config)
-#	@[ -e ${chef_client_binary} ] && echo "chef-client already installed, skipping" || curl -L https://www.getchef.com/chef/install.sh | sudo bash
+	@#@[ -e ${chef_client_binary} ] && echo "chef-client already installed, skipping" || curl -L https://www.getchef.com/chef/install.sh | sudo bash
 	@curl -L https://www.getchef.com/chef/install.sh | sudo bash
+	@sudo touch ${chef_client_binary}
 
-run_dev_setup: $(chef_client_binary)
-	@chef-client --config ${chef_client_config} -z -o fds_setup::default
-
-$(devsetup_chkfile): $(devsetup_script)
-	@$(devsetup_script)
-	@touch $(devsetup_chkfile)
+# -----------------------------------------------------------------------------
+# Check for installed packages
+# -----------------------------------------------------------------------------
+#devsetup_chkfile:=/tmp/.devsetup.chk
+#devsetup_script:=$(incl_scripts)/devsetup.sh
+#$(devsetup_chkfile): $(devsetup_script)
+#	@$(devsetup_script)
+#	@touch $(devsetup_chkfile)
 
 devsetup-force: $(devsetup_script)
 	@$(devsetup_script)
@@ -411,8 +409,13 @@ fdspkgs: fdsrepo $(devsetup_script)
 	@$(devsetup_script) --fdspkgs
 	@touch $(devsetup_chkfile)
 
+
 .PHONY : devsetup 
-devsetup: $(devsetup_chkfile)
+devsetup: $(chef_client_binary)
+	@sudo chef-client --config ${chef_client_config} -z -o fds_setup::dev_setup
+
+#devsetup: $(devsetup_chkfile)
+#devsetup: $(chef_dev_setup_chkfile)
 
 # -----------------------------------------------------------------------------
 # List Targets

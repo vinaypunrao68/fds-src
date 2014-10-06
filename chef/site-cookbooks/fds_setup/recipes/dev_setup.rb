@@ -43,6 +43,7 @@ fds_dev_packages = %w[
   libical-dev
   libical1
   libleveldb-dev
+  libconfig++-dev
   fds-pkghelper
   fds-pkg
   fds-pkgtools
