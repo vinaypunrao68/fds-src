@@ -128,7 +128,7 @@ describe( 'Testing volume creation permutations', function(){
         createLink = element( by.css( 'a.new_volume') );
         createEl = $('.create-panel.volumes');
         createButton = element( by.buttonText( 'Create Volume' ) );
-        mainEl = $('.volume-page > .page-slider-parent');
+        mainEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(0);
         newText = element( by.model( 'name') );
 
         var volumeTable = $('tr');
@@ -140,7 +140,7 @@ describe( 'Testing volume creation permutations', function(){
 
         createLink.click();
         browser.sleep( 200 );
-        expect( createEl.getAttribute( 'class' ) ).toContain( 'shown' );
+        expect( createEl.getAttribute( 'style' ) ).not.toContain( 'hidden' );
         expect( mainEl.getAttribute( 'style' ) ).toContain( '-100%' );
     });
 
@@ -182,7 +182,7 @@ describe( 'Testing volume creation permutations', function(){
 
         browser.sleep( 210 );
 
-        var editRow = element( by.css( '#volume-edit-row' ) );
+        var editRow = element.all( by.css( '#volume-edit-row' ) ).get( 0 );
         expect( editRow.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
 
         var priority8 = element( by.css( '#volume-edit-row section:first-child .ui-slider-segment:nth-child(6)' ));
@@ -190,7 +190,7 @@ describe( 'Testing volume creation permutations', function(){
         priority8.click();
         browser.sleep( 200 );
 
-        var saveButton = element( by.css( '.volume-edit-row' )).element( by.buttonText( 'Save' ) );
+        var saveButton = element.all( by.css( '.volume-edit-row' )).get( 0 ).element( by.buttonText( 'Save' ) );
         saveButton.click();
         browser.sleep( 210 );
 
@@ -270,7 +270,7 @@ describe( 'Testing volume creation permutations', function(){
 
         expect( dcEditPanel.getAttribute( 'class' ) ).not.toContain( 'open' );
 
-        var dataTypeEl = element( by.css( '.volume-data-type-summary span.value' ));
+        var dataTypeEl = element.all( by.css( '.volume-data-type-summary span.value' )).get( 0 );
         dataTypeEl.getText().then( function( txt ){
             expect( txt ).toBe( 'Object' );
         });
