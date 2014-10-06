@@ -7,15 +7,11 @@
 
 namespace fds {
 
-#define fds_diskid_invalid 0xffff
+const fds_uint8_t ObjLocationTablePoison = 0xff;
+const fds_uint16_t fds_diskid_invalid = 0xffff;
 
 ObjectLocationTable::ObjectLocationTable() {
-    // initialize table with invalid disk ids
-    for (fds_uint32_t i = 0; i < SM_TIER_COUNT; i++) {
-        for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; tokId++) {
-            table[i][tokId] = fds_diskid_invalid;
-        }
-    }
+    memset(this, ObjLocationTablePoison, sizeof(*this));
 }
 
 ObjectLocationTable::~ObjectLocationTable() {
@@ -57,64 +53,43 @@ ObjectLocationTable::isDiskIdValid(fds_uint16_t diskId) const {
     return (diskId != fds_diskid_invalid);
 }
 
-void
-ObjectLocationTable::generateDiskToSmTokenMap() {
-    // clear the current map
-    diskSmTokenMap.clear();
-
-    // generate from sm token to disk id table
-    for (fds_uint32_t i = 0; i < SM_TIER_COUNT; i++) {
-        for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; tokId++) {
-            fds_uint32_t disk_id = table[i][tokId];
-            if (disk_id == fds_diskid_invalid) continue;
-            // we should not have a case when we find more than one
-            // token for same disk id
-            fds_verify(diskSmTokenMap[disk_id].count(tokId) == 0);
-            diskSmTokenMap[disk_id].insert(tokId);
-        }
-    }
-}
-
 SmTokenSet
 ObjectLocationTable::getSmTokens(fds_uint16_t diskId) const {
     SmTokenSet tokens;
-    if (diskSmTokenMap.count(diskId) == 0) return tokens;
-    const SmTokenSet& tok_set = diskSmTokenMap.at(diskId);
-    for (SmTokenSet::const_iterator cit = tok_set.cbegin();
-         cit != tok_set.cend();
-         ++cit) {
-        tokens.insert(*cit);
+    fds_verify(diskId != fds_diskid_invalid);
+    for (fds_uint32_t i = 0; i < SM_TIER_COUNT; i++) {
+        for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; tokId++) {
+            if (table[i][tokId] == diskId) {
+                tokens.insert(tokId);
+            }
+        }
     }
     return tokens;
 }
 
-uint32_t
-ObjectLocationTable::write(serialize::Serializer*  s) const {
-    fds_uint32_t bytes = 0;
-    for (fds_uint32_t i = 0; i < SM_TIER_COUNT; i++) {
-        for (fds_uint32_t j = 0; j < SMTOKEN_COUNT; j++) {
-            bytes += s->writeI32(table[i][j]);
-        }
+Error
+ObjectLocationTable::validate(const std::set<fds_uint16_t>& diskIdSet,
+                              diskio::DataTier tier) const {
+    Error err(ERR_OK);
+    // build set of disks IDs that are currently in OLT for a given tier
+    // and check if OLT contains disks that are not in diskIdSet
+    std::set<fds_uint16_t> oltDisks;
+    for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; tokId++) {
+        fds_uint16_t diskId = getDiskId(tokId, tier);
+        if (!isDiskIdValid(diskId)) continue;  // empty cell
+        // TODO(Anna) we should also verify that once we have one 'empty'
+        // cell, all cells in that row must be empty!
+        // check if this disks are in diskIdSet
+        if (diskIdSet.count(diskId) == 0) return ERR_SM_OLT_DISKS_INCONSISTENT;
+        oltDisks.insert(diskId);
     }
-    return bytes;
-}
-
-uint32_t
-ObjectLocationTable::read(serialize::Deserializer* d) {
-    fds_uint32_t bytes = 0;
-    for (fds_uint32_t i = 0; i < SM_TIER_COUNT; i++) {
-        for (fds_uint32_t j = 0; j < SMTOKEN_COUNT; j++) {
-            fds_int32_t disk_id = 0;
-            bytes += d->readI32(disk_id);
-            table[i][j] = disk_id;
-        }
+    // check if disks found in OLT for a given tier are also in diskIdSet
+    for (std::set<fds_uint16_t>::const_iterator cit = diskIdSet.cbegin();
+         cit != diskIdSet.cend();
+         ++cit) {
+        if (oltDisks.count(*cit) == 0) return ERR_SM_OLT_DISKS_INCONSISTENT;
     }
-
-    // since we just changed the whole table, re-generate
-    // reverse disk to sm tokens map
-    generateDiskToSmTokenMap();
-
-    return bytes;
+    return err;
 }
 
 fds_bool_t
@@ -138,20 +113,20 @@ std::ostream& operator<< (std::ostream &out,
         }
         out << "\n";
     }
-    out << "Disk to token ids map:\n";
-    if (tbl.diskSmTokenMap.size() == 0) out << "[EMPTY]";
-    for (DiskSmTokenMap::const_iterator map_it = tbl.diskSmTokenMap.cbegin();
-         map_it != tbl.diskSmTokenMap.cend();
-         ++map_it) {
-        out << " disk_id " << map_it->first << " tokens {";
-        for (SmTokenSet::const_iterator cit = (map_it->second).cbegin();
-             cit != (map_it->second).cend();
-             ++cit) {
-            if (cit != (map_it->second).cbegin()) out << ", ";
-            out << *cit;
-        }
-        out << "}\n";
+    return out;
+}
+
+std::ostream& operator<< (std::ostream &out,
+                          const SmTokenSet& toks) {
+    out << "tokens {";
+    if (toks.size() == 0) out << "none";
+    for (SmTokenSet::const_iterator cit = toks.cbegin();
+         cit != toks.cend();
+         ++cit) {
+        if (cit != toks.cbegin()) out << ", ";
+        out << *cit;
     }
+    out << "}\n";
     return out;
 }
 
@@ -160,7 +135,9 @@ std::ostream& operator<< (std::ostream &out,
 void
 SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
                           const std::set<fds_uint16_t>& ssds,
-                          ObjectLocationTable::ptr olt) {
+                          ObjectLocationTable* olt) {
+    fds_verify(olt);
+
     // use round-robin placement of tokens over disks
     // first assign placement on HDDs
     std::set<fds_uint16_t>::const_iterator cit = hdds.cbegin();
@@ -181,9 +158,6 @@ SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
             if (cit == ssds.cend()) cit = ssds.cbegin();
         }
     }
-
-    // generate reverse map of disk to tokens
-    olt->generateDiskToSmTokenMap();
 }
 
 }  // namespace fds

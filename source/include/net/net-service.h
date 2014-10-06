@@ -19,6 +19,7 @@
 #include <fds_typedefs.h>
 #include <util/hash-util.h>
 #include <net/fdssocket.h>
+#include <thrift/protocol/TBinaryProtocol.h>
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
@@ -465,6 +466,10 @@ class NetMgr : public Module
     EpSvcHandle::pointer svc_get_handle(const fpi::SvcUuid   &peer,
                                         fds_uint32_t          maj,
                                         fds_uint32_t          min);
+    template <class ClientIf>
+    bo::shared_ptr<ClientIf> client_rpc(const fpi::SvcUuid   &peer,
+                                        fds_uint32_t          maj,
+                                        fds_uint32_t          min);
 
     /**
      * Returns true if error e is actionable on the endpoint
@@ -490,6 +495,15 @@ class NetMgr : public Module
     virtual EpSvc::pointer endpoint_lookup(const char *name);
     virtual EpSvc::pointer endpoint_lookup(const fpi::SvcUuid &d);
     virtual EpSvc::pointer endpoint_lookup(const fpi::SvcUuid &s, const fpi::SvcUuid &d);
+
+    /**
+     * Allocates rpc (thrift) client based on tuple of <svcuuid, maj, min>
+     */
+    boost::shared_ptr<void> alloc_rpc_client(
+        const fpi::SvcUuid   &peer,
+        fds_uint32_t          maj,
+        fds_uint32_t          min,
+        bo::shared_ptr<tp::TBinaryProtocol>& protocol);
 
     /**
      * Return the handle to the domain master.  From the handle, the caller can make

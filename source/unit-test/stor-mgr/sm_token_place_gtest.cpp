@@ -41,7 +41,6 @@ void discoverDisks(fds_uint32_t hdd_count,
     ret_ssds->swap(ssds);
 }
 
-
 TEST(SmTokenPlacement, compute) {
     fds_uint32_t ssd_count = 2;
     fds_uint32_t hdd_count = 12;
@@ -64,34 +63,118 @@ TEST(SmTokenPlacement, compute) {
         discoverDisks(hdd_count, ssd_count, &hdds, &ssds);
 
         // compute sm token placement
-        ObjectLocationTable::ptr olt(new ObjectLocationTable());
-        SmTokenPlacement::compute(hdds, ssds, olt);
-        GLOGNORMAL << "Initial computation - " << *olt << std::endl;
+        ObjectLocationTable olt;
+        SmTokenPlacement::compute(hdds, ssds, &olt);
+        GLOGNORMAL << "Initial computation - " << olt << std::endl;
 
-        // test serialize
-        std::string buffer;
-        olt->getSerialized(buffer);
-
-        ObjectLocationTable::ptr olt2(new ObjectLocationTable());
-        olt2->loadSerialized(buffer);
-        EXPECT_TRUE(*olt == *olt2);
-
-        // if ssd count == 0, both olts must have invalid disk
-        // ids on ssd row
-        if (ssd_count == 0) {
-            for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
-                fds_uint16_t diskId = olt->getDiskId(tok, diskio::flashTier);
-                EXPECT_FALSE(olt->isDiskIdValid(diskId));
-                diskId = olt2->getDiskId(tok, diskio::flashTier);
-                EXPECT_FALSE(olt->isDiskIdValid(diskId));
+        // if ssd count == 0, olt must have invalid disk id on ssd row
+        // otherwise disk id must be valid for each SM token
+        for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
+            fds_uint16_t diskId = olt.getDiskId(tok, diskio::flashTier);
+            if (ssd_count == 0) {
+                EXPECT_FALSE(olt.isDiskIdValid(diskId));
+            } else {
+                EXPECT_TRUE(olt.isDiskIdValid(diskId));
             }
         }
 
-        // test comparison :)
-        olt2->setDiskId(0, diskio::diskTier, 65000);
-        EXPECT_FALSE(*olt == *olt2);
+        // if we have hdds, every cell in hdd tier must be valid for every token
+        if (hdd_count > 0) {
+            for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
+                fds_uint16_t diskId = olt.getDiskId(tok, diskio::diskTier);
+                EXPECT_TRUE(olt.isDiskIdValid(diskId));
+            }
+        }
     }
 }
+
+TEST(SmTokenPlacement, empty) {
+    GLOGNORMAL << "Testing SmTokenPlacement with no HDD and SSD";
+
+    std::set<fds_uint16_t> hdds;
+    std::set<fds_uint16_t> ssds;
+
+    // newly created OLT contains invalid disk id in every cell
+    ObjectLocationTable olt;
+    for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
+        fds_uint16_t diskId = olt.getDiskId(tok, diskio::diskTier);
+        EXPECT_FALSE(olt.isDiskIdValid(diskId));
+        diskId = olt.getDiskId(tok, diskio::flashTier);
+        EXPECT_FALSE(olt.isDiskIdValid(diskId));
+    }
+
+    // compute when no disks
+    SmTokenPlacement::compute(hdds, ssds, &olt);
+    GLOGNORMAL << "Initial computation - " << olt << std::endl;
+
+    // every cell should still contain invalid disk id
+    for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
+        fds_uint16_t diskId = olt.getDiskId(tok, diskio::diskTier);
+        EXPECT_FALSE(olt.isDiskIdValid(diskId));
+        diskId = olt.getDiskId(tok, diskio::flashTier);
+        EXPECT_FALSE(olt.isDiskIdValid(diskId));
+    }
+}
+
+TEST(SmTokenPlacement, comparison) {
+    GLOGDEBUG << "Testing SmTokenPlacement comparison";
+
+    std::set<fds_uint16_t> hdds;
+    std::set<fds_uint16_t> ssds;
+    discoverDisks(5, 2, &hdds, &ssds);
+
+    // compute sm token placement
+    ObjectLocationTable olt;
+    SmTokenPlacement::compute(hdds, ssds, &olt);
+    GLOGNORMAL << "Initial computation - " << olt << std::endl;
+
+    // create token places for same set of disks
+    ObjectLocationTable olt2;
+    SmTokenPlacement::compute(hdds, ssds, &olt2);
+    GLOGNORMAL << "Another OLT for same set of disks - " << olt2 << std::endl;
+
+    // test comparison of same obj loc tables
+    EXPECT_TRUE(olt == olt2);
+
+    // change second OLT
+    olt2.setDiskId(0, diskio::diskTier, 65000);
+    EXPECT_FALSE(olt == olt2);
+}
+
+TEST(SmTokenPlacement, validation) {
+    GLOGDEBUG << "Testing SmTokenPlacement validation";
+
+    std::set<fds_uint16_t> hdds;
+    std::set<fds_uint16_t> ssds;
+    discoverDisks(6, 0, &hdds, &ssds);
+
+    // compute sm token placement
+    ObjectLocationTable olt;
+    SmTokenPlacement::compute(hdds, ssds, &olt);
+    GLOGNORMAL << "Initial computation - " << olt << std::endl;
+
+    // validate for the same set of HDD and SSD devices
+    Error err = olt.validate(hdds, diskio::diskTier);
+    EXPECT_TRUE(err.ok());
+
+    err = olt.validate(ssds, diskio::flashTier);
+    EXPECT_TRUE(err.ok());
+
+    // now discover new set of disks with one HDD gone
+    // and one new SSD
+    std::set<fds_uint16_t> hdds_new;
+    std::set<fds_uint16_t> ssds_new;
+    discoverDisks(5, 1, &hdds_new, &ssds_new);
+
+    // we removed one disks -- expect error
+    err = olt.validate(hdds_new, diskio::diskTier);
+    EXPECT_TRUE(err == ERR_SM_OLT_DISKS_INCONSISTENT);
+
+    // we added one ssd -- expect error
+    err = olt.validate(ssds_new, diskio::flashTier);
+    EXPECT_TRUE(err == ERR_SM_OLT_DISKS_INCONSISTENT);
+}
+
 
 }  // namespace fds
 

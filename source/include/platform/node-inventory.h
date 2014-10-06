@@ -489,7 +489,7 @@ class AgentContainer : public RsContainer
      * @param ro, rw (i) - indices to get the node inventory data RO or RW (-1 invalid).
      * @param bool (i) - true if want to register, publish the node/service endpoint.
      */
-    virtual void
+    virtual bool
     agent_register(const ShmObjRO *shm, NodeAgent::pointer *out, int ro, int rw);
 
     /**

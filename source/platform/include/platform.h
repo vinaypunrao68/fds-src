@@ -39,9 +39,13 @@ class NodePlatform : public Platform
     virtual boost::intrusive_ptr<PmSvcEp>
     plat_new_pm_svc(NodeAgent::pointer, fds_uint32_t maj, fds_uint32_t min) override;
 
+    void setBaseAsyncSvcHandler(boost::shared_ptr<BaseAsyncSvcHandler> handler);
+    virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler() override;
+
   protected:
     NodePlatformProc    *plf_process;
     DiskPlatModule      *disk_ctrl;
+    boost::shared_ptr<BaseAsyncSvcHandler> async_svc_handler;
 
     virtual void plf_bind_om_node();
 };

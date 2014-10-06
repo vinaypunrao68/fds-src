@@ -350,6 +350,7 @@ class FdsService : public PlatformProcess
     FdsService(int argc, char *argv[], const std::string &log, Module **vec);
 
     virtual void proc_pre_startup() override;
+    virtual void proc_pre_service() override;
 
   protected:
     Module          **svc_modules;

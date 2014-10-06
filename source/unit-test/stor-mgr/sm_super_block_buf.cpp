@@ -10,6 +10,8 @@
 
 namespace fds {
 
+static const fds_uint32_t sbDefaultHddCount = 3;
+static const fds_uint32_t sbDefaultSsdCount = 0;
 
 /* TODO(Sean)
  *      Need to convert the test to gtest format, but for now I am hacking
@@ -17,7 +19,10 @@ namespace fds {
  */
 class SmSuperblockTestDriver {
   public:
-    SmSuperblockTestDriver();
+    SmSuperblockTestDriver(fds_uint32_t hddCount,
+                           fds_uint32_t ssdCount);
+    SmSuperblockTestDriver()
+            : SmSuperblockTestDriver(sbDefaultHddCount, sbDefaultSsdCount) {}
     ~SmSuperblockTestDriver();
 
     void createDirs();
@@ -26,14 +31,28 @@ class SmSuperblockTestDriver {
     void syncSuperblock();
 
   private:
-    DiskLocMap diskMap = {{0,"/tmp/hddA/"}, {1,"/tmp/hddB/"}, {2,"/tmp/hddC/"}};
+    DiskLocMap diskMap;
+    std::set<fds_uint16_t> hdds;
+    std::set<fds_uint16_t> ssds;
     SmSuperblockMgr *sblock;
 };
 
-SmSuperblockTestDriver::SmSuperblockTestDriver()
+SmSuperblockTestDriver::SmSuperblockTestDriver(fds_uint32_t hddCount,
+                                               fds_uint32_t ssdCount)
 {
     sblock = new SmSuperblockMgr();
     // setDiskMap();
+    fds_uint16_t diskId = 1;
+    for (fds_uint32_t i = 0; i < hddCount; ++i) {
+        diskMap[diskId] = "/tmp/hdd-" + std::to_string(i) + "/";
+        hdds.insert(diskId);
+        ++diskId;
+    }
+    for (fds_uint32_t i = 0; i < ssdCount; ++i) {
+        diskMap[diskId] = "/tmp/ssd-" + std::to_string(i) + "/";
+        ssds.insert(diskId);
+        ++diskId;
+    }
 }
 
 SmSuperblockTestDriver::~SmSuperblockTestDriver()
@@ -119,9 +138,15 @@ SmSuperblockTestDriver::deleteDirs()
 void
 SmSuperblockTestDriver::loadSuperblock()
 {
+    SmTokenSet sm_toks;
+    for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
+        sm_toks.insert(tok);
+    }
+
     std::cout << "Loading Superblock" << std::endl;
 
-    sblock->loadSuperblock(diskMap);
+    sblock->loadSuperblock(hdds, ssds, diskMap, sm_toks);
+    std::cout << *sblock << std::endl;
 }
 
 void
@@ -166,7 +191,6 @@ test3()
 
     std::cout << "completing " << __func__ << std::endl;
 }
-
 
 
 }  // fds

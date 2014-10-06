@@ -10,8 +10,8 @@ osdep_kern_cc_flags  +=
 osdep_kern_ld_flags  +=
 osdep_kern_ar_flags  +=
 
-osdep_user_cc_flags  += -DDEBUG -g
-osdep_user_cpp_flags += -DDEBUG -g
+osdep_user_cc_flags  += -DDEBUG -g -DFIU_ENABLE=1
+osdep_user_cpp_flags += -DDEBUG -g -DFIU_ENABLE=1
 osdep_user_ld_flags  +=
 osdep_user_so_flags  +=
 osdep_user_ar_flags  +=

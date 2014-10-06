@@ -89,7 +89,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
     DiskIdSet hdd_ids;
 
     /// Superblock caches and persists SM token info
-    SmSuperblockDeprecated::unique_ptr superblock;
+    SmSuperblockMgr::unique_ptr superblock;
 
     /// if true, test mode where we assume no contact with
     /// platform, and use SM service uuid = 1

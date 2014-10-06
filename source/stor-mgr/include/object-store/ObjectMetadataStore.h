@@ -6,6 +6,7 @@
 
 #include <string>
 #include <fds_module.h>
+#include <SmIo.h>
 #include <object-store/ObjectMetaCache.h>
 #include <object-store/ObjectMetaDb.h>
 
@@ -65,6 +66,13 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      */
     Error removeObjectMetadata(fds_volid_t volId,
                                const ObjectID& objId);
+
+    /**
+     * Make a snapshot of metadata of given SM token and
+     * calls notifFn method
+     */
+    void snapshot(fds_token_id smTokId,
+                  SmIoSnapshotObjectDB::CbType notifFn);
 
     /**
      * Module methods

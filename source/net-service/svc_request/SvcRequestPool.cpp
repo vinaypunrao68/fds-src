@@ -179,7 +179,6 @@ void SvcRequestPool::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
     /* Simulate an error for remote endpoint */
     boost::shared_ptr<std::string> payload;
     header->msg_type_id = fpi::NullMsgTypeId;
-    if (Platform::platf_singleton()->getBaseAsyncSvcHandler())
     Platform::platf_singleton()->getBaseAsyncSvcHandler()->asyncResp(header, payload);
 }
 

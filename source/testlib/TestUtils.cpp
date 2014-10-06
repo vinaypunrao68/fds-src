@@ -1,7 +1,10 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <string>
 #include <platform/platform-lib.h>
+#include <fdsp/fds_service_types.h>
+#include <fdsp/PlatNetSvc.h>
 #include <TestUtils.h>
 
 namespace fds {
@@ -34,5 +37,25 @@ fpi::SvcUuid TestUtils::getAnyNonResidentSmSvcuuid(Platform* platform)
         }
     }
     return svcUuid;
+}
+
+bool TestUtils::enableFault(const fpi::SvcUuid &svcUuid, const std::string &faultId)
+{
+    auto client = NetMgr::ep_mgr_singleton()->client_rpc<fpi::PlatNetSvcClient>(svcUuid, 0, 0);
+    if (!client) {
+        return false;
+    }
+    bool ret = client->setFault("enable name=" + faultId);
+    return ret;
+}
+
+bool TestUtils::disableFault(const fpi::SvcUuid &svcUuid, const std::string &faultId)
+{
+    auto client = NetMgr::ep_mgr_singleton()->client_rpc<fpi::PlatNetSvcClient>(svcUuid, 0, 0);
+    if (!client) {
+        return false;
+    }
+    bool ret = client->setFault("disable name=" + faultId);
+    return ret;
 }
 }  // namespace fds
