@@ -20,6 +20,12 @@ package "logstash" do
     version "#{node['logstash']['major_minor']}.#{node['logstash']['patch']}"
 end
 
+cookbook_file "/opt/logstash/patterns/redis-updated" do
+    action :create
+    mode '0644'
+    source "redis-server-log.pattern"
+end
+
 node['logstash']['services_to_monitor'].each do |service|
     cookbook_file "/etc/logstash/conf.d/#{service}.conf" do
         action :create
