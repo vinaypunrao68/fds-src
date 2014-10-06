@@ -383,6 +383,22 @@ fdsrepo :  $(fdsrepofile)
 devsetup_chkfile:=/tmp/.devsetup.chk
 devsetup_script:=$(incl_scripts)/devsetup.sh
 
+chef_client_binary:=/usr/bin/chef-client
+chef_client_config:=/tmp/chef-client-config.rb
+
+#generate-chef-client-config:
+$(chef_client_config):
+	@echo "chef_repo_path \"`pwd`/../chef\"" > ${chef_client_config}
+	@echo "cookbook_path [ \"`pwd`/../chef/cookbooks\", \"`pwd`/../chef/site-cookbooks\" ]" >> ${chef_client_config}
+	@echo "chef-client config generated at ${chef_client_config}"
+
+$(chef_client_binary): $(chef_client_config)
+#	@[ -e ${chef_client_binary} ] && echo "chef-client already installed, skipping" || curl -L https://www.getchef.com/chef/install.sh | sudo bash
+	@curl -L https://www.getchef.com/chef/install.sh | sudo bash
+
+run_dev_setup: $(chef_client_binary)
+	@chef-client --config ${chef_client_config} -z -o fds_setup::default
+
 $(devsetup_chkfile): $(devsetup_script)
 	@$(devsetup_script)
 	@touch $(devsetup_chkfile)
