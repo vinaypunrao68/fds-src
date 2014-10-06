@@ -20,10 +20,16 @@ angular.module( 'user-page' ).controller( 'userController', ['$scope', '$user_se
         return $authorization.isAllowed( permission );
     };
 
-    $user_service.getUsers( $scope.usersReturned );
-    
-    $scope.$on( 'fds::user_done_editing', function(){
+    $scope.refresh = function(){
         $user_service.getUsers( $scope.usersReturned );
+    };
+    
+    $scope.$watch( 'userVars.index', function( newVal ){
+        if ( newVal === 0 ){
+            $scope.refresh();
+        }
     });
+    
+    $scope.refresh();
 
 }]);

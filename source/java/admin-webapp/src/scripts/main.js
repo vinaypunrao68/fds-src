@@ -27,7 +27,7 @@ app.config( function( $stateProvider, $urlRouterProvider ){
         })
         .state( 'homepage.tenants', {
             url: '/tenants',
-            templateUrl: 'scripts/tenants/tenants.html'
+            templateUrl: 'scripts/tenants/tenantContainer.html'
         })
         .state( 'homepage.inbox', {
             url: '/inbox',

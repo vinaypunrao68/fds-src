@@ -11,6 +11,12 @@ angular.module( 'display-widgets' ).directive( 'slideWindowStack', function(){
             $scope.slides = [];
             $scope.currentStack = [];
             
+            var setIndex = function(){
+                if ( angular.isDefined( $scope.globalVars ) ){
+                    $scope.globalVars.index = $scope.currentStack.length - 1;
+                }
+            };
+            
             this.registerSlide = function( slide ){
                 
                 if ( $scope.currentStack.length === 0 ){
@@ -36,6 +42,7 @@ angular.module( 'display-widgets' ).directive( 'slideWindowStack', function(){
                     $scope.back( $index );
                 }
                 
+                setIndex();
             };
             
             $scope.globalVars.next = function( slidename ){
@@ -55,6 +62,8 @@ angular.module( 'display-widgets' ).directive( 'slideWindowStack', function(){
                 for ( var i = 0; i < $scope.currentStack.length; i++ ){
                     $scope.currentStack[i].left = $scope.currentStack[i].left - 100;
                 }
+                
+                setIndex();
             };
         }
     };
@@ -68,10 +77,17 @@ angular.module( 'display-widgets' ).directive( 'slideWindowSlide', function(){
         transclude: true,
         replace: true,
         templateUrl: 'scripts/directives/widgets/slidewindowstack/slidewindowslide.html',
-        scope: { name: '@', breadcrumbName: '@' },
+        scope: { name: '@', breadcrumbName: '@', shownFunction: '=?' },
         controller: function( $scope ){
             $scope.left = 100;
             $scope.visible = true;
+            
+            $scope.$watch( 'left', function( newVal ){
+                
+                if ( newVal === 0 && angular.isFunction( $scope.shownFunction ) ){
+                    $scope.shownFunction();
+                }
+            });
         },
         link: function( $scope, $element, $attr, $container ){
             

@@ -26,7 +26,6 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
     $scope.cancel = function(){
         $scope.init();
         
-        $scope.$emit( 'fds::user_done_editing' );
         $scope.userVars.back();
     };
 
