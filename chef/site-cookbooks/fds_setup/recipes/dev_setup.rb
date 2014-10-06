@@ -31,6 +31,8 @@ fds_dev_packages = %w[
   libssl-dev
   libfuse-dev
   libevent-dev
+  libfiu-dev
+  fiu-utils
   bison
   flex
   ragel
