@@ -35,7 +35,7 @@ class FdsConfig(object):
 #
 class FdsNodeConfig(FdsConfig):
     def __init__(self, name, items, verbose):
-        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_connect_agent')
+        log = logging.getLogger(self.__class__.__name__ + '.' + '__init__')
 
         super(FdsNodeConfig, self).__init__(items, verbose)
         self.nd_conf_dict['node-name'] = name

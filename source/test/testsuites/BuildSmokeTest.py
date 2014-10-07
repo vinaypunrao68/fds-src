@@ -21,8 +21,9 @@ def suiteConstruction():
     """
     suite = unittest.TestSuite()
 
-    # Build the necessary FDS installation directory structure.
+    # Build the necessary FDS infrastructure.
     suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
+    suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
 
     # Start the node(s) according to configuration supplied with the -q cli option.
     suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
