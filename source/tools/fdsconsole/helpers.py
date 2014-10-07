@@ -72,7 +72,7 @@ class ConfigData:
             print '[WARN] : unable to login as {}'.format(self.getUser())
             self.s3rest = None
         else:
-            print token
+            #print token
             self.s3rest   = boto.connect_s3(aws_access_key_id='admin',
                                             aws_secret_access_key=token,
                                             host=self.getHost(),

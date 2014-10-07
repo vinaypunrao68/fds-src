@@ -16,7 +16,8 @@ except ImportError:
     sys.exit(0)
 
 import logging
-logging.getLogger("requests").setLevel(logging.DEBUG)
+logging.getLogger("requests").setLevel(logging.WARNING)
+'''
 try:
     import http.client as http_client
 except ImportError:
@@ -26,7 +27,7 @@ http_client.HTTPConnection.debuglevel = 1
 requests_log = logging.getLogger("requests.packages.urllib3")
 requests_log.setLevel(logging.DEBUG)
 requests_log.propagate = True
-
+'''
 #----------------------------------------------------------------------------------------#
 class RestException(Exception):
     pass
@@ -72,10 +73,7 @@ class RestEndpoint(object):
         # TODO(brian): This will have to change when the token acquisition changes
         path = '{}/{}'.format(self.base_path, 'api/auth/token?login={}&password={}'.format(user, password))
         try :
-            print path
             res = requests.get(path, verify=False)
-
-            print res.text
             res = self.parse_result(res)
             self.user = user
             self.password = password
