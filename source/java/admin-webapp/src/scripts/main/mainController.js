@@ -1,6 +1,7 @@
 angular.module( 'main' ).controller( 'mainController', ['$scope', '$authentication', '$authorization', '$state', '$domain_service', '$filter', function( $scope, $authentication, $authorization, $state, $domain_service, $filter ){
 
     $scope.priority = 10;
+    $scope.menuWidth = 38;
     $scope.rememberChecked = false;
     $scope.selected = {};
     $scope.domains = $domain_service.getDomains();
@@ -59,6 +60,14 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
             iconClass: 'icon-admin', 
             selected: false }
     ];
+
+    $scope.showMenu = function(){
+        $scope.menuWidth = 115;
+    };
+
+    $scope.hideMenu = function(){
+        $scope.menuWidth = 38;
+    };
 
     $scope.navigate = function( item ) {
 
@@ -151,25 +160,6 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
     $scope.$watch( function(){ return $authentication.error; }, function( val ) {
         $scope.error = val;
     });
-
-    // one-time init stuff
-
-    // determine which view is selected
-//    var noState = true;
-//    for ( var i = 0; i < $scope.views.length; i++ ){
-//        
-//        var view = $scope.views[i];
-//        
-//        if ( $state.current.name === view.link ){
-//            view.selected = true;
-//            noState = false;
-//        }
-//    }
-//
-//    if ( noState && $state.current.name !== 'homepage.account' ){
-//        // if we get here, nothing was selected
-//        $scope.navigate( $scope.views[0] );
-//    }
     
     determineWhereToGo();
 

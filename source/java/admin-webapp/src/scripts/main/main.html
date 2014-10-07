@@ -43,7 +43,7 @@
         </div>
         
         <div class="nav-container" style="position: relative;">
-            <div class="nav-parent">
+            <div class="nav-parent" ng-style="{width: menuWidth + 'px'}" ng-mouseover="showMenu()" ng-mouseleave="hideMenu()">
                 <div>
                     <nav id="nav">
                         <ul>
@@ -54,7 +54,7 @@
                     </nav>
                 </div>
             </div>
-            <div id="wrap" class="main-container" ui-view>
+            <div id="wrap" class="main-container" ui-view ng-style="{left: menuWidth + 'px'}">
 
             </div>
         </div>
