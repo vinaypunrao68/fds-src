@@ -8,23 +8,34 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
         // type is 'action' of 'select'
         scope: {selected: '=', defaultLabel: '=', items: '=', background: '@', type: '@', callback: '=', backgroundColor: '@', skinny: '@', color: '@', border: '@'},
         templateUrl: 'scripts/directives/angular-fui/fui-dropdown/fui-dropdown.html',
-        controller: function( $scope, $element ){
+        controller: function( $scope, $element, $timeout ){
 
             $scope.leftShift = '0px';
             $scope.open = false;
             $scope.currentLabel = $scope.defaultLabel;
 
-            $scope.openList = function(){
-                $scope.open = !$scope.open;
+            var positionList = function(){
 
                 // test whether the drop down will be on the screen.
                 var ulElem = $element.find( 'ul.dropdown-menu' );
                 var offset = ulElem.offset();
                 var c = offset.left + ulElem[0].offsetWidth;
 
-                if ( c > (innerWidth-8) ){
-                    $scope.leftShift = ((innerWidth-8) - c) + 'px';
+                if ( c > (innerWidth-2) ){
+                    $scope.leftShift = ((innerWidth-2) - c) + 'px';
                 }
+            };
+
+            $scope.openList = function(){
+                $scope.open = !$scope.open;
+
+                positionList();
+
+                $timeout( positionList, 50 );
+            };
+
+            $scope.close = function(){
+                $scope.open = false;
             };
 
             $scope.selectItem = function( item ){
