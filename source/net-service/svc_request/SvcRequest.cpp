@@ -15,12 +15,13 @@
 namespace fds {
 
 SvcRequestTimer::SvcRequestTimer(const SvcRequestId &id,
-                             const fpi::SvcUuid &myEpId,
-                             const fpi::SvcUuid &peerEpId)
+                                 const fpi::FDSPMsgTypeId &msgTypeId,
+                                 const fpi::SvcUuid &myEpId,
+                                 const fpi::SvcUuid &peerEpId)
     : FdsTimerTask(*NetMgr::ep_mgr_singleton()->ep_mgr_singleton()->ep_get_timer())
 {
     header_.reset(new fpi::AsyncHdr());
-    *header_ = gSvcRequestPool->newSvcRequestHeader(id, peerEpId, myEpId);
+    *header_ = gSvcRequestPool->newSvcRequestHeader(id, msgTypeId, peerEpId, myEpId);
     header_->msg_code = ERR_SVC_REQUEST_TIMEOUT;
 }
 
@@ -145,7 +146,7 @@ int injerr_socket_close = 0;  // gdb set this value to trigger remote connection
 using boost::lockfree::detail::unlikely;
 void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
 {
-    auto header = SvcRequestPool::newSvcRequestHeader(id_, myEpId_, peerEpId);
+    auto header = SvcRequestPool::newSvcRequestHeader(id_, msgTypeId_, myEpId_, peerEpId);
     header.msg_type_id = msgTypeId_;
 
     DBG(GLOGDEBUG << fds::logString(header));
@@ -170,20 +171,20 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
 
        /* start the timer */
        if (timeoutMs_) {
-           timer_.reset(new SvcRequestTimer(id_, myEpId_, peerEpId));
+           timer_.reset(new SvcRequestTimer(id_, msgTypeId_, myEpId_, peerEpId));
            bool ret = NetMgr::ep_mgr_singleton()->ep_get_timer()->\
                       schedule(timer_, std::chrono::milliseconds(timeoutMs_));
            fds_assert(ret == true);
        }
     } catch(std::exception &e) {
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, peerEpId, myEpId_);
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code
             << " exception: " << e.what();
         gSvcRequestPool->postError(respHdr);
         fds_assert(!"Unknown exception");
     } catch(...) {
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, peerEpId, myEpId_);
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code;
         gSvcRequestPool->postError(respHdr);
@@ -234,7 +235,7 @@ void EPSvcRequest::invokeWork_()
        sendPayload_(peerEpId_);
     } else {
         GLOGERROR << logString() << " No healthy endpoints left";
-        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, peerEpId_, myEpId_);
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId_, myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         gSvcRequestPool->postError(respHdr);
     }
@@ -446,8 +447,9 @@ void FailoverSvcRequest::invokeWork_()
          * We will simulate as if the error is from last endpoint
          */
         auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_,
-                                                     epReqs_[curEpIdx_]->peerEpId_,
-                                                     myEpId_);
+                                                              msgTypeId_,
+                                                              epReqs_[curEpIdx_]->peerEpId_,
+                                                              myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         gSvcRequestPool->postError(respHdr);
     }

@@ -67,13 +67,14 @@ class VolumeContext(Context):
     @arg('--vol-type', help='-type of volume to create', choices=['block','object'])
     @arg('--blk-dev-size', help='-maximum size (in bytes) of block device', type=int)
     @arg('--tenant-id', help='-id of tenant to create volume under', type=int)
-    def create(self, vol_name, domain='abc', max_obj_size=4096,
+    def create(self, vol_name, domain='abc', max_obj_size=2097152,
                vol_type='object', blk_dev_size=21474836480, tenant_id=1):
         
         if vol_type == 'object':
             vol_type = ttypes.VolumeType.OBJECT
         elif vol_type == 'block':
             vol_type = ttypes.VolumeType.BLOCK
+            max_obj_size = 4096
         elif vol_type not in (ttypes.VolumeType.OBJECT, ttypes.VolumeType.BLOCK):
             vol_type = ttypes.VolumeType.OBJECT
 

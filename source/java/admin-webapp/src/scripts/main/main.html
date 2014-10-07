@@ -5,25 +5,9 @@
         <div class="login-container">
             <div class="logo"></div>
             <form>
-<!--
-                <div class="btn-group select">
-                    <fui-dropdown selected="domain" default-label="Domain" items="domains"></fui-dropdown>
-                </div>
--->
 
-<!--
-                <div class="form-group">
-                    <input type="text" class="form-control" name="username" autofocus autocomplete="off" autocapitalize="off" ng-model="username" placeholder="Email"/>
-                    <label class="login-field-icon fui-mail"></span>
-                </div>
--->
                 <fui-input name="username" placeholder="{{ 'common.username' | translate }}" ng-model="username" icon-class="fui-mail" ng-keyup="keyEntered( $event )"></fui-input>
-<!--
-                <div class="form-group">
-                    <input type="password" class="form-control" name="password" autocomplete="off" ng-model="password" placeholder="Password" ng-keyup="keyEntered( $event );">
-                    <span class="input-icon fui-lock"></span>
-                </div>
--->
+
                 <fui-input name="password" placeholder="{{ 'common.password' | translate }}" type="password" ng-model="password" icon-class="fui-lock" ng-keyup="keyEntered( $event )"></fui-input>
                 <div class="checkbox-parent">
                     <fui-checkbox label="{{ 'login.remember_me' | translate }}" checked="rememberChecked"></fui-checkbox>
@@ -48,7 +32,7 @@
     </div>
 
     <div id="main.content" ng-show="validAuth" style="color: white;height: 100%;overflow: hidden;">
-
+        
         <div class="header-parent">
             <div class="header-image">
             </div>
@@ -57,11 +41,9 @@
 
             </div>
         </div>
+        
         <div class="nav-container" style="position: relative;">
-            <div id="wrap" class="main-container" ui-view>
-
-            </div>
-            <div class="nav-parent">
+            <div class="nav-parent" ng-style="{width: menuWidth + 'px'}" ng-mouseover="showMenu()" ng-mouseleave="hideMenu()">
                 <div>
                     <nav id="nav">
                         <ul>
@@ -71,6 +53,9 @@
                         </ul>
                     </nav>
                 </div>
+            </div>
+            <div id="wrap" class="main-container" ui-view ng-style="{left: menuWidth + 'px'}">
+
             </div>
         </div>
     </div>

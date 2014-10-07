@@ -1,13 +1,9 @@
-<div class="dialog-page" ng-controller="viewVolumeController" ng-class="{shown: $parent.viewing,hideit: !$parent.viewing}" show-notify ng-show="$parent.viewing">
-
-    <div class="header clearfix">
-        <a ng-click="back()" class="pull-left">&lt; Back to Volume list</a>
-    </div>
+<div ng-controller="viewVolumeController" show-notify>
 
     <div class="page-vertical-spacer"></div>
 
     <div class="modal-header">
-        <span>{{$parent.selectedVolume.name}}</span>
+        <span>{{volumeVars.selectedVolume.name}}</span>
     </div>
 
     <section class="form-section">

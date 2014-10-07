@@ -3,20 +3,25 @@
  */
 
 #include <ostream>
+#include <set>
 #include <string>
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include <fds_process.h>
 #include <object-store/SmSuperblock.h>
 
+using ::testing::AtLeast;
+using ::testing::Return;
+
 namespace fds {
+
 
 static const fds_uint32_t sbDefaultHddCount = 3;
 static const fds_uint32_t sbDefaultSsdCount = 0;
 
-/* TODO(Sean)
- *      Need to convert the test to gtest format, but for now I am hacking
- *      it like a traditional unit test.
- */
+static const std::string logname = "sm_superblock";
+
 class SmSuperblockTestDriver {
   public:
     SmSuperblockTestDriver(fds_uint32_t hddCount,
@@ -35,14 +40,15 @@ class SmSuperblockTestDriver {
     std::set<fds_uint16_t> hdds;
     std::set<fds_uint16_t> ssds;
     SmSuperblockMgr *sblock;
-};
+};  // class SmSuperblockTestDriver
 
 SmSuperblockTestDriver::SmSuperblockTestDriver(fds_uint32_t hddCount,
                                                fds_uint32_t ssdCount)
 {
     sblock = new SmSuperblockMgr();
-    // setDiskMap();
     fds_uint16_t diskId = 1;
+
+    /* Add disks from different tiers (ssd and hdd). */
     for (fds_uint32_t i = 0; i < hddCount; ++i) {
         diskMap[diskId] = "/tmp/hdd-" + std::to_string(i) + "/";
         hdds.insert(diskId);
@@ -66,7 +72,7 @@ SmSuperblockTestDriver::createDirs()
     std::string dirPath;
     std::string filePath;
 
-    std::cout << "executing " << __func__ << std::endl;
+    GLOGNORMAL << "executing " << __func__ << std::endl;
 
     for (DiskLocMap::const_iterator cit = diskMap.cbegin();
          cit != diskMap.cend();
@@ -79,27 +85,27 @@ SmSuperblockTestDriver::createDirs()
 
         /* create directories.
          */
-        std::cout << "Creating disk(" << cit->first << ") => " << dirPath << std::endl;
+        GLOGNORMAL << "Creating disk(" << cit->first << ") => " << dirPath << std::endl;
         if (mkdir(dirPath.c_str(), 0777) != 0) {
             /* If directory exists, then likely the superblock file exists.
              * Delete them to make it a pristine state.
              */
             if (errno == EEXIST) {
-                std::cout << "Directory "<< dirPath << "already exists" << std::endl;
-                std::cout << "Trying to removing file: " << filePath << std::endl;
+                GLOGNORMAL << "Directory "<< dirPath << "already exists" << std::endl;
+                GLOGNORMAL << "Trying to removing file: " << filePath << std::endl;
                 if (remove(filePath.c_str()) == 0) {
-                    std::cout << "Successfully removed file: " << filePath << std::endl;
+                    GLOGNORMAL << "Successfully removed file: " << filePath << std::endl;
                 } else {
-                    std::cout << "Couldn't locate file: " << filePath << std::endl;
+                    GLOGNORMAL << "Couldn't locate file: " << filePath << std::endl;
                 }
 
             } else if (errno == EACCES) {
-                std::cout << "Access denied (" << dirPath << std::endl;
+                GLOGNORMAL << "Access denied (" << dirPath << std::endl;
             }
         }
     }
 
-    std::cout << "completing " << __func__ << std::endl;
+    GLOGNORMAL << "completing " << __func__ << std::endl;
 }
 
 void
@@ -108,7 +114,7 @@ SmSuperblockTestDriver::deleteDirs()
     std::string dirPath;
     std::string filePath;
 
-    std::cout << "executing " << __func__ << std::endl;
+    GLOGNORMAL << "executing " << __func__ << std::endl;
 
     for (DiskLocMap::const_iterator cit = diskMap.cbegin();
          cit != diskMap.cend();
@@ -120,18 +126,18 @@ SmSuperblockTestDriver::deleteDirs()
         /* remove file and directory.  ignore return values.
          */
         if (remove(filePath.c_str()) == 0) {
-            std::cout << "Successfully removed file: " << filePath << std::endl;
+            GLOGNORMAL << "Successfully removed file: " << filePath << std::endl;
         } else {
-            std::cout << "Couldn't remove file: " << filePath << std::endl;
+            GLOGNORMAL << "Couldn't remove file: " << filePath << std::endl;
         }
         if (remove(dirPath.c_str()) == 0) {
-            std::cout << "Successfully removed dir: " << dirPath << std::endl;
+            GLOGNORMAL << "Successfully removed dir: " << dirPath << std::endl;
         } else {
-            std::cout << "Couldn't remove file: " << dirPath << std::endl;
+            GLOGNORMAL << "Couldn't remove file: " << dirPath << std::endl;
         }
     }
 
-    std::cout << "completing " << __func__ << std::endl;
+    GLOGNORMAL << "completing " << __func__ << std::endl;
 
 }
 
@@ -143,10 +149,10 @@ SmSuperblockTestDriver::loadSuperblock()
         sm_toks.insert(tok);
     }
 
-    std::cout << "Loading Superblock" << std::endl;
+    GLOGNORMAL << "Loading Superblock" << std::endl;
 
     sblock->loadSuperblock(hdds, ssds, diskMap, sm_toks);
-    std::cout << *sblock << std::endl;
+    GLOGNORMAL << *sblock << std::endl;
 }
 
 void
@@ -158,39 +164,41 @@ SmSuperblockTestDriver::syncSuperblock()
 }
 
 
-void
-test1()
+
+TEST(SmSuperblockTestDriver, test1)
 {
-    std::cout << "executing " << __func__ << std::endl;
+    GLOGNORMAL << "executing " << __func__ << std::endl;
     SmSuperblockTestDriver *test1 = new SmSuperblockTestDriver();
 
     test1->createDirs();
     test1->loadSuperblock();
 
-    std::cout << "completing " << __func__ << std::endl;
+    GLOGNORMAL << "completing " << __func__ << std::endl;
 }
 
-void
-test2()
+TEST(SmSuperblockTestDriver, test2)
 {
-    std::cout << "executing " << __func__ << std::endl;
+    GLOGNORMAL << "executing " << __func__ << std::endl;
     SmSuperblockTestDriver *test1 = new SmSuperblockTestDriver();
 
     test1->loadSuperblock();
 
-    std::cout << "completing " << __func__ << std::endl;
+    GLOGNORMAL << "completing " << __func__ << std::endl;
 }
 
-void
-test3()
+TEST(SmSuperblockTestDriver, test3)
 {
-    std::cout << "executing " << __func__ << std::endl;
+    GLOGNORMAL << "executing " << __func__ << std::endl;
     SmSuperblockTestDriver *test1 = new SmSuperblockTestDriver();
 
     test1->syncSuperblock();
 
-    std::cout << "completing " << __func__ << std::endl;
+    GLOGNORMAL << "completing " << __func__ << std::endl;
 }
+
+
+
+
 
 
 }  // fds
@@ -198,16 +206,11 @@ test3()
 int
 main(int argc, char *argv[])
 {
-    fds::test1();
+    fds::init_process_globals(fds::logname);
 
-    fds::test2();
+    ::testing::InitGoogleMock(&argc, argv);
 
-    fds::test3();
-
-    std::cout << "completion" << std::endl;
-
-    return 0;
+    return RUN_ALL_TESTS();
 }
-
 
 
