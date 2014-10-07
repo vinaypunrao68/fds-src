@@ -241,7 +241,7 @@ public:
     fds_bool_t toggleNewPath;
 
     /// Dispatcher layer module
-    AmDispatcher::unique_ptr amDispatcher;
+    AmDispatcher::shared_ptr amDispatcher;
 
     /// Processor layer module
     AmProcessor::unique_ptr amProcessor;

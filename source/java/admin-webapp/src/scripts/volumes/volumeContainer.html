@@ -1,0 +1,13 @@
+<div ng-controller="volumeContainerController">
+    <slide-window-stack global-vars="volumeVars">
+        <slide-window-slide name="listvolumes" breadcrumb-name="View Volumes">
+            <div ng-include="'scripts/volumes/volumes.html'"></div>
+        </slide-window-slide>
+        <slide-window-slide name="createvolume" breadcrumb-name="Create Volume">
+            <div ng-include="'scripts/volumes/create/volumeCreate.html'"></div>
+        </slide-window-slide>
+        <slide-window-slide name="viewvolume" breadcrumb-name="View Volume">
+            <div ng-include="'scripts/volumes/view/viewVolume.html'"></div>
+        </slide-window-slide>
+    </slide-window-stack>
+</div>

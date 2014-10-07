@@ -25,6 +25,7 @@ class RandNumGenerator {
     ~RandNumGenerator();
     typedef boost::shared_ptr<RandNumGenerator> ptr;
     typedef boost::shared_ptr<const RandNumGenerator> const_ptr;
+    typedef std::unique_ptr<RandNumGenerator> unique_ptr;
 
     /// Returns a random number to use for a seed
     /// Since this is slow, it should NOT be used to get

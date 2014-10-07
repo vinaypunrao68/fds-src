@@ -1,7 +1,8 @@
 angular.module( 'tenant' ).controller( 'createTenantController', ['$scope', '$tenant_service', function( $scope, $tenant_api ){
 
     var done = function(){
-        $scope.$emit( 'fds::tenant_done_editing' );
+        $scope.name = '';
+        $scope.tenantVars.back();
     };
 
     $scope.cancel = function(){

@@ -39,6 +39,12 @@ AmDispatcher::dispatchStartBlobTx(AmQosReq *qosReq) {
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(
         qosReq->getBlobReqPtr());
 
+    // Update DMT version in request
+    // TODO(Andrew): There's a potential race here between the
+    // version we cache in the blobReq now and the version we
+    // actually dispatch on below. Make the update/dispatch consistent.
+    blobReq->dmtVersion = dmtMgr->getCommittedVersion();
+
     // Create callback
     QuorumSvcRequestRespCb respCb(
         RESPONSE_MSG_HANDLER(AmDispatcher::startBlobTxCb,
@@ -72,13 +78,13 @@ AmDispatcher::startBlobTxCb(AmQosReq *qosReq,
                             boost::shared_ptr<std::string> payload) {
     fds_verify(qosReq != NULL);
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
-    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
 
-    StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
-                                                      blobReq->cb);
-    // qos_ctrl->markIODone(qosReq);
-    cb->call(error.GetErrno());
+    // Notify upper layers that the request is done. When this
+    // completes, all upper layers should be notified and we
+    // can safely delete the request
+    blobReq->processorCb(error);
     delete blobReq;
 }
 

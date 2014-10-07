@@ -6,7 +6,7 @@ angular.module( 'user-page' ).controller( 'userController', ['$scope', '$user_se
     $scope.creating = false;
 
     $scope.createNewUser = function(){
-        $scope.creating = true;
+        $scope.userVars.next( 'createuser' );
     };
     
     $scope.actionSelected = function( action ){
@@ -20,11 +20,16 @@ angular.module( 'user-page' ).controller( 'userController', ['$scope', '$user_se
         return $authorization.isAllowed( permission );
     };
 
-    $user_service.getUsers( $scope.usersReturned );
-    
-    $scope.$on( 'fds::user_done_editing', function(){
-        $scope.creating = false;
+    $scope.refresh = function(){
         $user_service.getUsers( $scope.usersReturned );
+    };
+    
+    $scope.$watch( 'userVars.index', function( newVal ){
+        if ( newVal === 0 ){
+            $scope.refresh();
+        }
     });
+    
+    $scope.refresh();
 
 }]);
