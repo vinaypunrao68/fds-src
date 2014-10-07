@@ -1,7 +1,8 @@
-package com.formationds.om.rest;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
+
+package com.formationds.om.rest;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.VolumeSettings;
@@ -67,9 +68,11 @@ public class CreateVolume implements RequestHandler {
 
         final Volume volume =
           new VolumeBuilder().withId( String.valueOf( volumeId ) )
-                             .withLimit( limit )
-                             .withSla( sla ).withPriority( priority )
+//                             .withLimit( limit )
+//                             .withSla( sla ).withPriority( priority )
                              .build();
+
+      // TODO register to receive metadata, i.e. statistics
 
         return new JsonResource( new JSONObject( volume ) );
     }
