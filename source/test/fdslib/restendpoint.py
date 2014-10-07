@@ -16,7 +16,16 @@ except ImportError:
     sys.exit(0)
 
 import logging
-logging.getLogger("requests").setLevel(logging.WARNING)
+logging.getLogger("requests").setLevel(logging.DEBUG)
+try:
+    import http.client as http_client
+except ImportError:
+    # Python 2
+    import httplib as http_client
+http_client.HTTPConnection.debuglevel = 1
+requests_log = logging.getLogger("requests.packages.urllib3")
+requests_log.setLevel(logging.DEBUG)
+requests_log.propagate = True
 
 #----------------------------------------------------------------------------------------#
 class RestException(Exception):
@@ -29,10 +38,11 @@ class UserException(RestException):
 
 class RestEndpoint(object):
 
-    def __init__(self, host='localhost', port=7777, auth=True, user='admin', password='admin'):
+    def __init__(self, host='localhost', port=7443, auth=True, user='admin', password='admin', ssl=True):
         self.host = host
         self.port = port
 
+        self.ssl = ssl
         self.setHost(host)
         self.setPort(port)
 
@@ -40,18 +50,20 @@ class RestEndpoint(object):
         self.password = password
 
         self._token = None
-        self.headers = []
+        self.headers = {}
+        self.headers['prem'] = 'name'
+        
         if auth:
             if not self.login(self.user, self.password):
                 print '[WARN] : unable to login as {}'.format(self.user)
 
     def setHost(self, host):
         self.host = host
-        self.base_path = 'http://{}:{}'.format(self.host,self.port)
+        self.base_path = 'http{}://{}:{}'.format('s' if self.ssl else '' , self.host,self.port)
 
     def setPort(self, port):
         self.port = port
-        self.base_path = 'http://{}:{}'.format(self.host,self.port)
+        self.base_path = 'http{}://{}:{}'.format('s' if self.ssl else '',self.host,self.port)
 
     def login(self, user, password):
         '''
@@ -60,27 +72,31 @@ class RestEndpoint(object):
         # TODO(brian): This will have to change when the token acquisition changes
         path = '{}/{}'.format(self.base_path, 'api/auth/token?login={}&password={}'.format(user, password))
         try :
-            res = requests.get(path)
+            print path
+            res = requests.get(path, verify=False)
+
+            print res.text
             res = self.parse_result(res)
             self.user = user
             self.password = password
             self._token = res['token']
             self.headers = {'FDS-Auth' : self._token}
             return self._token
-        except:
+        except Exception as e:
+            print e
             return None
 
     def get(self, path):
-        return requests.get(path, headers=self.headers)
+        return requests.get(path, headers=self.headers, verify=False)
 
     def post(self, path, data=None):
-        return requests.post(path, headers=self.headers, data=data)
+        return requests.post(path, headers=self.headers, data=data,  verify=False)
 
     def put(self, path, data=None):
-        return requests.put(path, headers=self.headers, data=data)
+        return requests.put(path, headers=self.headers, data=data,  verify=False)
 
     def delete(self, path):
-        return requests.delete(path, headers=self.headers)
+        return requests.delete(path, headers=self.headers,  verify=False)
 
     def parse_result(self, result):
         '''

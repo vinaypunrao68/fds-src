@@ -12,6 +12,8 @@ PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 from fdslib import restendpoint
 import types
 import random
+import boto
+from boto.s3 import connection
 from fdslib import platformservice
 
 class AccessLevel:
@@ -64,8 +66,19 @@ class ConfigData:
             if None == self.getSystem(key):
                 self.setSystem(key, defaults[key])
 
-        self.rest = restendpoint.RestEndpoint(self.getHost(), 7777, user=self.getUser(), password=self.getPass())
-        self.s3rest   = restendpoint.RestEndpoint(self.getHost(), port=8000, auth=False)
+        self.rest = restendpoint.RestEndpoint(self.getHost(), 7443, user=self.getUser(), password=self.getPass(), auth=False)
+        token = self.rest.login(self.getUser(), self.getPass())
+        if not token:
+            print '[WARN] : unable to login as {}'.format(self.getUser())
+            self.s3rest = None
+        else:
+            print token
+            self.s3rest   = boto.connect_s3(aws_access_key_id='admin',
+                                            aws_secret_access_key=token,
+                                            host=self.getHost(),
+                                            port=8443,
+                                            calling_format=boto.s3.connection.OrdinaryCallingFormat())
+
         self.platform = platformservice.PlatSvc(1690, self.getHost(), self.getPort())
 
     def set(self, key, value, namespace):
