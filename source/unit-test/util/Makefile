@@ -9,6 +9,7 @@ user_fds_ar_libs  := \
 	fds-lib \
 	fds-fdsp \
 	fds-hash \
+	fds-osdep \
 	fds-util
 
 user_non_fds_libs := \
@@ -25,10 +26,14 @@ user_incl_dir     := \
 	$(topdir)/include/hash
 
 user_cpp          :=  \
-    log_unit_test.cpp
+    log_unit_test.cpp \
+	fds_panic_test.cpp
 
 user_no_style     := $(user_cpp) $(user_cc)
-user_bin_exe      := log_unit_test
+user_bin_exe      := log_unit_test \
+	                 fds_panic_test
+
 log_unit_test     := log_unit_test.cpp
+fds_panic_test    := fds_panic_test.cpp
 
 include $(topdir)/Makefile.incl
