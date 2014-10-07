@@ -23,6 +23,9 @@ class NodeInfoIter : public ResourceIter
         fpi::NodeInfoMsg    msg;
         NodeAgent::pointer  node;
 
+        if (curr->rs_get_uuid() == gl_OmPmUuid) {
+            return true;
+        }
         node = agt_cast_ptr<NodeAgent>(curr);
         node->init_node_info_msg(&msg);
         nd_iter_ret.push_back(msg);
@@ -223,7 +226,7 @@ PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
         // Go through the entire domain to send back inventory info to the new node.
 
         local = Platform::platf_singleton()->plf_node_inventory();
-        local->dc_foreach_dm(&info);
+        local->dc_foreach_pm(&info);
         std::cout << "Sent back " << info.rs_iter_count() << std::endl;
     }
 }
