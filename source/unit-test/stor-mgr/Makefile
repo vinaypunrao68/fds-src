@@ -69,7 +69,7 @@ user_cpp          := \
         sm_token_place_gtest.cpp \
 	smapi_gtest.cpp
 
-user_no_style     := sm_unit_test.cpp
+user_no_style     :=
 
 user_bin_exe      := \
     ObjectStoreUnitTest \
@@ -86,7 +86,7 @@ ObjectStoreLoadTest := object_store_load_test.cpp
 metastore_unit_test := metastore_unit_test.cpp
 smdiskmap_unit_test := sm_disk_map_test.cpp
 smtokenplace_gtest  := sm_token_place_gtest.cpp
-smapi_gtest	    := smapi_gtest.cpp ngx_modules.c
+smapi_gtest	        := smapi_gtest.cpp ngx_modules.c
 sm_load_test        := sm_load_test.cpp
 sm_superblock_gtest := sm_superblock_gtest.cpp
 
