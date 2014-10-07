@@ -22,8 +22,8 @@ public class Stream
   private URL url;
   private String method;
   private List<String> volumes;
-  private Integer frequency;    // metrics are for every minute
-  private Integer duration;     // how often metric will be received from the backend.
+  private Integer frequency;    // metrics are for every {@code frequency} in seconds
+  private Integer duration;     // how often metric will be received from the platform.
 
   /**
    * default constructor

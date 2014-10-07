@@ -10,7 +10,6 @@
 #include <fds_error.h>
 #include <fds_resource.h>
 #include <fds_module.h>
-#include <platform/platform-rpc.h>
 #include <net/SvcRequest.h>
 #include <fdsp/FDSP_types.h>
 #include <fdsp/fds_service_types.h>

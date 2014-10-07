@@ -1,5 +1,5 @@
 angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$modal_data_service', '$snapshot_service', function( $scope, $volume_api, $modal_data_service, $snapshot_service ){
-
+    
     $scope.snapshots = [];
 
         $scope.timeChoices = [{name: 'Hours'},{name: 'Days'},{name: 'Weeks'},{name: 'Months'},{name: 'Years'}];
@@ -58,7 +58,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.deleteSnapshot = function( snapshot ){
         
-        $volume_api.deleteSnapshot( $scope.$parent.selectedVolume.id, snapshot.id, function(){ alert( 'Snapshot deleted successfully.' );} );
+        $volume_api.deleteSnapshot( $scope.volumeVars.selectedVolume.id, snapshot.id, function(){ alert( 'Snapshot deleted successfully.' );} );
     };
 
     // basically this is "save my policy changes.
@@ -97,7 +97,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
                     
                     var id = sPolicy.id;
                     
-                    $snapshot_service.detachPolicy( sPolicy, $scope.$parent.selectedVolume.id, function( result ){
+                    $snapshot_service.detachPolicy( sPolicy, $scope.volumeVars.selectedVolume.id, function( result ){
                         $snapshot_service.deleteSnapshotPolicy( id, function(){} );
                     });
                 }
@@ -111,7 +111,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
                 // if it's in use, create it.
                 if ( $scope.policies[i].use === true ){
                     $snapshot_service.createSnapshotPolicy( createPolicy( sPolicy ), function( policy ){
-                        $snapshot_service.attachPolicyToVolume( policy, $scope.$parent.selectedVolume.id, function(){} );
+                        $snapshot_service.attachPolicyToVolume( policy, $scope.volumeVars.selectedVolume.id, function(){} );
                     } );
                 }
             }
@@ -125,17 +125,12 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         return d.toString();
     };
 
-    $scope.back = function(){
-        $scope.$emit( 'fds::volume_done_editing' );
-        $scope.$broadcast( 'fds::volume_done_editing' );
-    };
-
     // when we get shown, get all the snapshots and policies.  THen do the chugging
     // to display the summary and set the hidden forms.
     $scope.$on( 'fds::page_shown', function(){
 
-        $volume_api.getSnapshots( $scope.$parent.selectedVolume.id, function( data ){ $scope.snapshots = data; } );
-        $volume_api.getSnapshotPoliciesForVolume( $scope.$parent.selectedVolume.id,
+        $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.id, function( data ){ $scope.snapshots = data; } );
+        $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id,
             function( realPolicies ){
                 
                 $scope.savedPolicies = realPolicies;

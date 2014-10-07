@@ -1,0 +1,9 @@
+<div >
+    <div style="height: 30px;">
+        <div class="inline">
+            <a ng-repeat="slide in currentStack" ng-if="!$last" ng-click="back( $index )">&lt;&nbsp;{{slide.breadcrumbName}}</a>
+        </div>
+    </div>
+    
+    <div ng-transclude class="slide-window-stack-parent"></div>
+</div>

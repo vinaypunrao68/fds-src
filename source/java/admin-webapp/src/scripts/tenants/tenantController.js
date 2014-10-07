@@ -8,7 +8,7 @@ angular.module( 'tenant' ).controller( 'tenantController', ['$scope', '$tenant_s
     $scope.actionLabel = 'Actions';
 
     $scope.createNewTenant = function(){
-        $scope.creating = true;
+        $scope.tenantVars.next( 'createtenant' );
     };
 
     $scope.actionSelected = function( action ){
@@ -37,11 +37,6 @@ angular.module( 'tenant' ).controller( 'tenantController', ['$scope', '$tenant_s
         }
     };
 
-    $scope.$on( 'fds::tenant_done_editing', function(){
-        $scope.creating = false;
-        $scope.refresh();
-    });
-
     $scope.$watch( 'checkall', function( newVal ){
 
         if ( newVal === 'partial' ){
@@ -50,6 +45,13 @@ angular.module( 'tenant' ).controller( 'tenantController', ['$scope', '$tenant_s
 
         for ( var i = 0; i < $scope.tenants.length; i++ ){
             $scope.tenants[i].checked = newVal;
+        }
+    });
+    
+    $scope.$watch( 'tenantVars.index', function( newVal ){
+        
+        if ( newVal === 0 ){
+            $scope.refresh();
         }
     });
 

@@ -13,10 +13,10 @@ import com.formationds.commons.model.Volume;
  */
 public class VolumeBuilder {
   private String name;
-  private long limit;                    // maximum IOPS
-  private long sla;                      // minimum IOPS
+  private Long limit;                    // maximum IOPS
+  private Long sla;                      // minimum IOPS
   private String id;
-  private int priority;
+  private Integer priority;
   private Connector data_connector;
   private Usage current_usage;
 
