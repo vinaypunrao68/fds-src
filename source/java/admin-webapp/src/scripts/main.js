@@ -53,28 +53,3 @@ app.config(['$translateProvider', function( $translateProvider ) {
         .translations( 'en', en_US )
         .preferredLanguage( 'en' );
 }]);
-
-//app.config( ['$httpProvider', '$authentication', function( $httpProvider, $authentication ){
-//
-//    $httpProvider.interceptors.push( function( $q ){
-//
-//        return {
-//
-//            'request': function( config ){
-//                    return config;
-//                },
-//            'response': function( config ){
-//                    return config;
-//                },
-//            'responseError': function( config ){
-//                    console.log( 'response error happened: ' + config );
-//
-//                    if ( config.status === 401 ){
-//                        $authentication.logout();
-//                    }
-//
-//                    return config;
-//                }
-//        };
-//    });
-//}]);

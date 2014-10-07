@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <unistd.h>
-
+#include <sys/poll.h>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -203,8 +203,10 @@ class DiskPlatModule : public Module
     PmDiskInventory::pointer  dsk_inuse;
     struct udev              *dsk_ctrl;
     struct udev_enumerate    *dsk_enum;
+    struct udev_monitor      *dsk_mon;
     FileDiskInventory        *dsk_sim;
     DiskLabelMgr             *dsk_label;
+    struct pollfd            pollfds[1];
 
     void dsk_discover_mount_pts();
 
@@ -221,6 +223,7 @@ class DiskPlatModule : public Module
     }
 
     void dsk_rescan();
+    void dsk_monitor_hotplug();
     void dsk_commit_label();
 
     // Module methods.

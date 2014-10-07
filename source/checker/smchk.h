@@ -10,6 +10,13 @@ class ObjectMetadataDb;
 
 namespace fds {
 
+    enum RunFunc {
+        FULL_CHECK = 0,
+        PRINT_MD,
+        PRINT_TOK_BY_PATH,
+        PRINT_PATH_BY_TOK
+    };
+
     class SMChk : public FdsProcess {
     friend class ObjMeta;
     public:
@@ -21,6 +28,7 @@ namespace fds {
         int run() override;
         void list_path_by_token();
         void list_token_by_path();
+        void list_metadata();
         bool full_consistency_check();
         // bool consistency_check(ObjectId obj_id);  // test a single object
 
@@ -28,6 +36,8 @@ namespace fds {
         // Data
         int sm_count;
         int error_count;
+        int objs_count;
+        RunFunc cmd;
         // fds::SmDiskMap::ptr smDiskMap;
         // fds::ObjectDataStore::unique_ptr smObjStore;
         fds::ObjectMetadataDb::unique_ptr smMdDb;
