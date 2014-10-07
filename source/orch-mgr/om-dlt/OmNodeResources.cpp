@@ -127,6 +127,10 @@ void OM_NodeAgent::om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
                       EPSvcRequest* req,
                       const Error& error,
                       boost::shared_ptr<std::string> payload) {
+    if (vol == NULL || vol->rs_get_uuid() == 0) {
+        LOGWARN << "response received for invalid volume . ignored.";
+        return;
+    }
     LOGNORMAL << "received vol cmd response " << vol->vol_get_name();
     OM_NodeContainer * local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeContainer::pointer volumes = local->om_vol_mgr();
@@ -157,7 +161,7 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
         } else {
             /* TODO(Vy): why we need to send dummy data? */
             pkt->vol_desc.vol_name  = *vname;
-            pkt->vol_desc.volUUID   = 9876;
+            pkt->vol_desc.volUUID   = 0;
             pkt->vol_desc.tennantId = 0;
             pkt->vol_desc.localDomainId = 0;
             pkt->vol_desc.capacity = 1000;
@@ -201,7 +205,7 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
         fds_panic("Unknown vol cmd type");
     }
     if (!vol) {
-        vol = VolumeInfo::pointer(new VolumeInfo(0x9876));  // create dummy to avoid issues
+        vol = VolumeInfo::pointer(new VolumeInfo(0));  // create dummy to avoid issues
     }
     EPSvcRequestRespCb cb = std::bind(&OM_NodeAgent::om_send_vol_cmd_resp, this, vol, cmd_type,
                                    std::placeholders::_1, std::placeholders::_2,
