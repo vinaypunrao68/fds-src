@@ -1,6 +1,7 @@
-<div class="create-panel volumes" ng-controller="volumeCreateController" ng-class="{shown: $parent.creating,hideit: !$parent.creating}">
+<!--<div class="create-panel volumes" ng-controller="volumeCreateController" ng-class="{shown: $parent.creating,hideit: !$parent.creating}">-->
+<div class="create-panel volumes" ng-controller="volumeCreateController">
     <div class="modal-header">
-        <span>Create Volume</span>
+        <span translate>volumes.l_create_volume</span>
     </div>
 
     <div class="settings-body">
@@ -10,7 +11,7 @@
     </div>
 
     <div class="pull-left"style="padding-top: 12px;margin-bottom: 42px;">
-        <button class="btn btn-primary" style="display: inline-block;" ng-click="save()">Create Volume</button>
-        <button class="btn btn-secondary cancel-creation" style="display: inline-block;" ng-click="cancel()">Cancel</button>
+        <button class="btn btn-primary" style="display: inline-block;" ng-click="save()" translate>volumes.l_create_volume</button>
+        <button class="btn btn-secondary cancel-creation" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
     </div>
 </div>

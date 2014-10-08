@@ -179,12 +179,14 @@ NodePlatformProc::proc_pre_startup()
 int
 NodePlatformProc::run()
 {
+    auto disk_ctrl = DiskPlatModule::dsk_plat_singleton();
     fpi::FDSP_RegisterNodeTypePtr pkt(new fpi::FDSP_RegisterNodeType);
 
     plf_fill_disk_capacity_pkt(pkt);
     plf_mgr->plf_rpc_om_handshake(pkt);
 
     while (1) {
+        disk_ctrl->dsk_monitor_hotplug();
         sleep(1000);   /* we'll do hotplug uevent thread in here */
     }
     return 0;

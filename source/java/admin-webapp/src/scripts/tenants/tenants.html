@@ -1,11 +1,11 @@
-<div ng-controller="tenantController" class="page-slider-parent" ng-style="{left: creating || viewing ? '-100%' : '0%'}">
+<div ng-controller="tenantController">
 
     <div class="front-page">
         <div>
             <div>
                 <div class="header">
-                    <span>Tenants</span>
-                    <a ng-click="createNewTenant()" class="pull-right create-tenant-link">Create a Tenant</a>
+                    <span translate>tenants.title</span>
+                    <a ng-click="createNewTenant()" class="pull-right create-tenant-link" translate>tenants.l_create_tenant</a>
                 </div>
             </div>
         </div>
@@ -24,7 +24,7 @@
         <table class="default tenant-table">
             <thead>
                 <th><tri-state-check check-state="checkall"/></th>
-                <th>Tenant Name</th>
+                <th translate>tenants.l_tenant_name</th>
                 <th></th>
             </thead>
             <tboday>
@@ -36,8 +36,5 @@
             </tboday>
         </table>
     </div>
-
-    <!-- tenant creation slide out -->
-    <div ng-include="'scripts/tenants/create/createTenant.html'"></div>
 
 </div>

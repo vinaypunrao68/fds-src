@@ -74,6 +74,60 @@ struct RandDataGenerator : DataGenIf
 };
 
 /**
+* @brief Generates random data and caches it.  Use it if you don't want to incur generation
+* cost
+*
+* @tparam RandDataFuncT Function that generates random data.  This
+* functor must take size as argument
+*/
+template <class RandDataFuncT = RandAlphaNumStringF>
+struct CachedRandDataGenerator : DataGenIf
+{
+    /**
+    * @brief Constructor
+    *
+    * @param count Number of items in the cache
+    * @param wrapAround To wrap around once the last element is reached when nextItem()
+    * is called
+    * @param min minumum size of data to generate
+    * @param max maximum size of data to generate
+    */
+    CachedRandDataGenerator(int count, bool wrapAround, size_t min, size_t max)
+    {
+        wrapAround_ = wrapAround;
+        items_.resize(count);
+        for (int i = 0; i < count; i++) {
+            size_t sz = (rand() % ((max - min)+1)) + min;  // NOLINT
+            items_[i] = randDataF_(sz);
+        }
+    }
+    virtual StringPtr nextItem() override
+    {
+        auto idx = idx_++;
+        if (wrapAround_) {
+            idx = idx % items_.size();
+        }
+        return items_[idx];
+    }
+    virtual bool hasNext()
+    {
+        if (wrapAround_) {
+            return true;
+        }
+        return idx_ < items_.size();
+    }
+ protected:
+    /* Cached items */
+    std::vector<StringPtr> items_;
+    /* Current index. nextItem() will return item from this index */
+    uint32_t idx_;
+    /* To wrap around the items_ array or not */
+    bool wrapAround_;
+    /* Functor to generate data */
+    RandDataFuncT randDataF_;
+};
+
+/**
 * @brief For generating svc messages
 *
 * @tparam SvcMsgGenFuncT Functor for generating service message

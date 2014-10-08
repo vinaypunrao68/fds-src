@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <mntent.h>
 #include <string>
+#include <libudev.h>
 #include <fds_uuid.h>
 #include <fds_process.h>
 #include <disk-label.h>
@@ -564,7 +565,8 @@ PmDiskInventory::dsk_need_simulation()
 
     /* Remove ssd disks */
     hdd_count = dsk_count - DISK_ALPHA_COUNT_SSD;
-    if (dsk_qualify_cnt >= DISK_ALPHA_COUNT_HDD_MIN) {
+    if ((hdd_count <= dsk_qualify_cnt) && (hdd_count >= DISK_ALPHA_COUNT_HDD_MIN)) {
+        // if (dsk_qualify_cnt >= DISK_ALPHA_COUNT_HDD_MIN) {
         return false;
     }
     LOGNORMAL << "Need to run in simulation";
@@ -640,6 +642,7 @@ DiskPlatModule::mod_init(SysParams const *const param)
     dsk_ctrl    = udev_new();
     dsk_label   = new DiskLabelMgr();
     dsk_enum    = udev_enumerate_new(dsk_ctrl);
+    dsk_mon     = udev_monitor_new_from_netlink(dsk_ctrl, "udev");
     fds_assert((dsk_ctrl != NULL) && (dsk_enum != NULL));
 
     Module::mod_init(param);
@@ -654,6 +657,16 @@ DiskPlatModule::mod_startup()
 {
     Module::mod_startup();
     udev_enumerate_add_match_subsystem(dsk_enum, "block");
+    // Add monitor filter for block devices
+    udev_monitor_filter_add_match_subsystem_devtype(dsk_mon, "block", NULL);
+    // Start the monitoring service. This must happen before the
+    // enumeration or there is a chance of lost events.
+    udev_monitor_enable_receiving(dsk_mon);
+    // Setup the struct that poll will monitor
+    pollfds[0].fd = udev_monitor_get_fd(dsk_mon);
+    pollfds[0].events = POLLIN;
+    pollfds[0].revents = 0;
+
     dsk_rescan();
     dsk_discover_mount_pts();
 
@@ -732,6 +745,7 @@ DiskPlatModule::mod_shutdown()
     dsk_devices = NULL;
     dsk_inuse   = NULL;
     udev_enumerate_unref(dsk_enum);
+    udev_monitor_unref(dsk_mon);
     udev_unref(dsk_ctrl);
 }
 
@@ -781,7 +795,28 @@ DiskPlatModule::dsk_rescan()
     dsk_devices->dsk_discovery_done();
 }
 
-// dsk_commit_label
+// dsk_monitor
+// ---------------
+void
+DiskPlatModule::dsk_monitor_hotplug()
+{
+    // Make the call to poll to determine if there is something to read or not
+    while (poll(pollfds, 1, 0) > 0) {
+        struct udev_device *dev = udev_monitor_receive_device(dsk_mon);
+        if (dev) {
+            LOGDEBUG << "Received hotplug event: " << udev_device_get_action(dev)
+                        << " from device @" << udev_device_get_devnode(dev)
+                        << ", " << udev_device_get_subsystem(dev) << ", "
+                        << udev_device_get_devtype(dev) << "\n";
+            // TODO(brian): determine how we should handle the events (log them for now??)
+        } else {
+            LOGWARN << "No device from umod_monitor_receive_device. An error occurred.\n";
+        }
+    }
+}
+
+
+    // dsk_commit_label
 // ----------------
 //
 void

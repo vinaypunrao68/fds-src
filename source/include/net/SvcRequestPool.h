@@ -59,9 +59,12 @@ class SvcRequestPool {
     void postError(boost::shared_ptr<fpi::AsyncHdr> &header);
 
     static fpi::AsyncHdr newSvcRequestHeader(const SvcRequestId& reqId,
-            const fpi::SvcUuid &srcUuid, const fpi::SvcUuid &dstUuid);
+                                             const fpi::FDSPMsgTypeId &msgTypeId,
+                                             const fpi::SvcUuid &srcUuid,
+                                             const fpi::SvcUuid &dstUuid);
     static boost::shared_ptr<fpi::AsyncHdr> newSvcRequestHeaderPtr(
             const SvcRequestId& reqId,
+            const fpi::FDSPMsgTypeId &msgTypeId,
             const fpi::SvcUuid &srcUuid,
             const fpi::SvcUuid &dstUuid);
 

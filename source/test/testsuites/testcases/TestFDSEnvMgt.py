@@ -10,6 +10,7 @@ import TestCase
 
 # Module-specific requirements
 import sys
+import os
 
 
 # This class contains attributes and methods to test
@@ -193,6 +194,7 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
         super(self.__class__, self).__init__(parameters)
 
 
+    @unittest.expectedFailure
     def runTest(self):
         """
         Used by qaautotest module's test runner to run the test case
@@ -252,6 +254,77 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
             else:
                 self.log.warn("FDS installation directory, %s, nonexistent on node %s." %
                               (fds_dir, n.nd_conf_dict['node-name']))
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# restarting Redis to a "clean" state.
+class TestRestartRedisClean(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestRestartRedisClean, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_RestartRedisClean():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Restart Redis clean caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_RestartRedisClean(self):
+        """
+        Test Case:
+        Attempt to restart Redis to a "clean" state.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        # TODO(Greg): Probably in the config file we need to indicate by node whether it is
+        # based on an install or a development environment. For now, we check for an install
+        # directory structure for Redis support. If not there, we assume a development environment.
+        if fdscfg.rt_env.env_install:
+            sbin_dir = fdscfg.rt_env.get_sbin_dir()
+        else:
+            sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            self.log.info("Restart Redis clean on %s." %n.nd_conf_dict['node-name'])
+
+            status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
+
+            if status != 0:
+                self.log.error("Restart Redis on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+                return False
+
+            status = n.nd_agent.exec_wait("%s/redis.sh clean" % sbin_dir)
+
+            if status != 0:
+                self.log.error("Clean Redis on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+                return False
 
         return True
 

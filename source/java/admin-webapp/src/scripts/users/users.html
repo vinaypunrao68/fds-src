@@ -1,9 +1,9 @@
-<div ng-controller="userController" class="page-slider-parent" ng-style="{left: creating || viewing ? '-100%' : '0%'}">
+<div ng-controller="userController">
 
     <div class="coming-soon-parent" ng-show="!isAllowed( 'SYS_MGMT' )">
         <div class="coming-soon-child">
             <div style="">
-                <span style="color: white;">Coming soon...</span>
+                <span style="color: white;" translate>common.coming_soon</span>
             </div>
         </div>
     </div>
@@ -11,15 +11,13 @@
     <div class="header top-label">
 
         <div>
-            <span>Users</span>
+            <span translate>users.title</span>
+            <a ng-click="createNewUser()" class=" add-user-link pull-right" translate>users.l_create_user</a>
         </div>
 
         <div style="position: relative;width: 100%;padding-top: 12px;" class="clearfix">
             <div class="pull-left" style="width: 300px;">
                 <input type="text" class="form-control skinny" placeholder="Search Users" ng-model="userQuery"/>
-            </div>
-            <div class="pull-right">
-                <a class="add-user-link" ng-click="createNewUser()">Add User(s)</a>
             </div>
         </div>
 
@@ -36,7 +34,7 @@
         <table class="default">
             <thead>
                 <th><input type="checkbox" /></th>
-                <th>Name</th>
+                <th translate>common.th_name</th>
 <!--
                 <th>Tenant</th>
                 <th>Role</th>
@@ -58,7 +56,4 @@
             </tboday>
         </table>
     </div>
-    
-    <!-- user creation slide out -->
-    <div ng-include="'scripts/users/create/createUser.html'"></div>
 </div>

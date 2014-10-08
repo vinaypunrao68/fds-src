@@ -19,22 +19,6 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$v
         **/
         $volume_api.save( volume, function( newVolume ){
 
-//            $volume_api.refresh( function( newList ){
-//
-//                var volId = -1;
-//
-//                // because the API does not return a volume once its actually
-//                // created we need to find the id from a list and match by name.
-//                //
-//                // TODO: Replace the server code to return a full populated volume
-//                // when finished
-//                for ( var j = 0; j < newList.length; j++ ){
-//                    if ( newList[j].name === volume.name ){
-//                        volId = newList[j].id;
-//                        break;
-//                    }
-//                }
-
                 // for each time deliniation used we need to create a policy and attach
                 // it using the volume id in the name so we can identify it easily
                 for ( var i = 0; angular.isDefined( volume.snapshotPolicies ) && i < volume.snapshotPolicies.length; i++ ){
@@ -52,8 +36,8 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$v
     };
 
     $scope.cancel = function(){
-        $scope.$emit( 'fds::volume_done_editing' );
         $scope.$broadcast( 'fds::volume_done_editing' );
+        $scope.volumeVars.back();
     };
 
     $scope.$watch( '$parent.creating', function(){

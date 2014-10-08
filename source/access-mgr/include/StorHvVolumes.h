@@ -282,6 +282,9 @@ class StartBlobTxReq : public FdsBlobReq {
     BlobTxId     txId;
     fds_uint64_t dmtVersion;
 
+    typedef std::function<void (const Error&)> StartBlobTxProcCb;
+    StartBlobTxProcCb processorCb;
+
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob

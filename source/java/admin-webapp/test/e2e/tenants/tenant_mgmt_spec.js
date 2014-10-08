@@ -76,8 +76,6 @@ describe( 'Tenant management', function(){
         createButton.click();
         browser.sleep( 200 );
 
-        expect( createPage.getAttribute( 'class' ) ).toContain( 'ng-hide' );
-
         element.all( by.css( '.tenant-row' ) ).then( function( elems ){
 
             expect( elems.length ).toBe( 1 );

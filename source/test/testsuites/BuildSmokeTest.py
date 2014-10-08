@@ -10,6 +10,9 @@ import testcases.TestCase
 import testcases.TestFDSEnvMgt
 import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
+import testcases.TestFDSSysLoad
+import NodeWaitSuite
+
 
 def suiteConstruction():
     """
@@ -18,22 +21,24 @@ def suiteConstruction():
     """
     suite = unittest.TestSuite()
 
-    # Build the necessary FDS installation directory structure.
+    # Build the necessary FDS infrastructure.
     suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
+    suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
 
     # Start the node(s) according to configuration supplied with the -q cli option.
     suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
+    suite.addTest(testcases.TestFDSModMgt.TestPMWait())
     suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
+    suite.addTest(testcases.TestFDSModMgt.TestOMWait())
     suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate())
 
-    # TODO(GREG): Put a simple load test here.
+    # Check that all nodes are up.
+    nodeUpSuite = NodeWaitSuite.suiteConstruction()
+    suite.addTest(nodeUpSuite)
 
-    # Shut the daemons down individually? Or all at once?
-    #suite.addTest(testcases.TestFDSModMgt.TestSMShutDown())
-    #suite.addTest(testcases.TestFDSModMgt.TestDMShutDown())
-    #suite.addTest(testcases.TestFDSModMgt.TestOMShutDown())
-    #suite.addTest(testcases.TestFDSModMgt.TestPMShutDown())
-    
+    # Load test.
+    suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
+
     suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
 
     # Cleanup FDS installation directory.
@@ -44,7 +49,7 @@ def suiteConstruction():
 if __name__ == '__main__':
 
     # Handle FDS specific commandline arguments.
-    log_dir = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
+    log_dir, failfast = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
 
     # If a test log directory was not supplied on the command line (with option "-l"),
     # then default it.
@@ -52,7 +57,9 @@ if __name__ == '__main__':
         log_dir = 'test-reports'
 
     # Get a test runner that will output an xUnit XML report for Jenkins
-    runner = xmlrunner.XMLTestRunner(output=log_dir)
+    # TODO(Greg) I've tried everything I can think of, but failfast does not
+    # stop the suite upon first failure.
+    runner = xmlrunner.XMLTestRunner(output=log_dir, failfast=failfast)
 
     test_suite = suiteConstruction()
 

@@ -11,7 +11,7 @@ app.config( function( $stateProvider, $urlRouterProvider ){
         })
         .state( 'homepage.volumes', {
             url: '/volumes',
-            templateUrl: 'scripts/volumes/volumes.html'
+            templateUrl: 'scripts/volumes/volumeContainer.html'
         })
         .state( 'homepage.system', {
             url: '/system',
@@ -23,11 +23,11 @@ app.config( function( $stateProvider, $urlRouterProvider ){
         })
         .state( 'homepage.users', {
             url: '/users',
-            templateUrl: 'scripts/users/users.html'
+            templateUrl: 'scripts/users/userContainer.html'
         })
         .state( 'homepage.tenants', {
             url: '/tenants',
-            templateUrl: 'scripts/tenants/tenants.html'
+            templateUrl: 'scripts/tenants/tenantContainer.html'
         })
         .state( 'homepage.inbox', {
             url: '/inbox',
@@ -53,28 +53,3 @@ app.config(['$translateProvider', function( $translateProvider ) {
         .translations( 'en', en_US )
         .preferredLanguage( 'en' );
 }]);
-
-//app.config( ['$httpProvider', '$authentication', function( $httpProvider, $authentication ){
-//
-//    $httpProvider.interceptors.push( function( $q ){
-//
-//        return {
-//
-//            'request': function( config ){
-//                    return config;
-//                },
-//            'response': function( config ){
-//                    return config;
-//                },
-//            'responseError': function( config ){
-//                    console.log( 'response error happened: ' + config );
-//
-//                    if ( config.status === 401 ){
-//                        $authentication.logout();
-//                    }
-//
-//                    return config;
-//                }
-//        };
-//    });
-//}]);

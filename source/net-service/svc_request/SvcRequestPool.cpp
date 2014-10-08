@@ -65,12 +65,14 @@ SvcRequestPool::~SvcRequestPool()
  */
 fpi::AsyncHdr
 SvcRequestPool::newSvcRequestHeader(const SvcRequestId& reqId,
-                               const fpi::SvcUuid &srcUuid,
-                               const fpi::SvcUuid &dstUuid)
+                                    const fpi::FDSPMsgTypeId &msgTypeId,
+                                    const fpi::SvcUuid &srcUuid,
+                                    const fpi::SvcUuid &dstUuid)
 {
     fpi::AsyncHdr header;
 
     header.msg_src_id = reqId;
+    header.msg_type_id = msgTypeId;
     header.msg_src_uuid = srcUuid;
     header.msg_dst_uuid = dstUuid;
     header.msg_code = 0;
@@ -88,11 +90,12 @@ SvcRequestPool::newSvcRequestHeader(const SvcRequestId& reqId,
 */
 boost::shared_ptr<fpi::AsyncHdr> SvcRequestPool::newSvcRequestHeaderPtr(
                                     const SvcRequestId& reqId,
+                                    const fpi::FDSPMsgTypeId &msgTypeId,
                                     const fpi::SvcUuid &srcUuid,
                                     const fpi::SvcUuid &dstUuid)
 {
     boost::shared_ptr<fpi::AsyncHdr> hdr(new fpi::AsyncHdr());
-    *hdr = newSvcRequestHeader(reqId, srcUuid, dstUuid);
+    *hdr = newSvcRequestHeader(reqId, msgTypeId, srcUuid, dstUuid);
     return hdr;
 }
 
@@ -178,7 +181,6 @@ void SvcRequestPool::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
 
     /* Simulate an error for remote endpoint */
     boost::shared_ptr<std::string> payload;
-    header->msg_type_id = fpi::NullMsgTypeId;
     Platform::platf_singleton()->getBaseAsyncSvcHandler()->asyncResp(header, payload);
 }
 

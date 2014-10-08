@@ -1,12 +1,10 @@
 angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume_api', '$element', '$timeout', '$compile', '$snapshot_service', function( $scope, $volume_api, $element, $timeout, $compile, $snapshot_service ){
-
+    
     $scope.volumes = [];
     $scope.capacity = 10;
     $scope.iopLimit = 300;
     $scope.priority = 10;
     $scope.editing = false;
-    $scope.creating = false;
-    $scope.viewing = false;
     $scope.editingVolume = {};
 
     $scope.priorityOptions = [10,9,8,7,6,5,4,3,2,1];
@@ -21,8 +19,8 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume
     };
 
     $scope.clicked = function( volume){
-        $scope.selectedVolume = volume;
-        $scope.viewing = true;
+        $scope.volumeVars.selectedVolume = volume;
+        $scope.volumeVars.next( 'viewvolume' );
     };
     
     $scope.takeSnapshot = function( $event, volume ){
@@ -64,7 +62,7 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume
 
     $scope.createNewVolume = function(){
         putEditRowAway();
-        $scope.creating = true;
+        $scope.volumeVars.next( 'createvolume' );
     };
 
     $scope.save = function(){
@@ -82,8 +80,6 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume
 
     $scope.$on( 'fds::volume_done_editing', function(){
         $scope.editing = false;
-        $scope.creating = false;
-        $scope.viewing = false;
     });
 
     $scope.$watch( function(){ return $volume_api.volumes; }, function(){

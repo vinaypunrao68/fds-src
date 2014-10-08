@@ -27,10 +27,14 @@
     background-color: $sub_header_color;
     clear: both;
     position: relative;
+    @include display-flex();
 }
 
 .main-container {
     padding: 24px;
+    padding-top: 8px;
+    position: absolute;
+    top: 0px;
 }
 
 nav#nav {
@@ -94,7 +98,7 @@ nav#nav {
 }
 
 .nav-parent {
-    position: absolute;
+//    position: absolute;
     top: 0px;
     height: 100%;
     width: 38px;
@@ -103,7 +107,7 @@ nav#nav {
     overflow: hidden;
 
     &:hover {
-        width: 115px;
+//        width: 115px;
     }
 
 }

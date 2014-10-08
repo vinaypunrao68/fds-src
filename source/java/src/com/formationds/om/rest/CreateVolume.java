@@ -1,7 +1,8 @@
-package com.formationds.om.rest;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
+
+package com.formationds.om.rest;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.VolumeSettings;
@@ -15,15 +16,12 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.Xdi;
 import org.apache.commons.io.IOUtils;
-import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
 import java.util.Map;
 
 public class CreateVolume implements RequestHandler {
-  private static final Logger LOG = Logger.getLogger(CreateVolume.class);
-
     private Xdi xdi;
     private FDSP_ConfigPathReq.Iface legacyConfigPath;
     private AuthenticationToken token;
@@ -67,9 +65,9 @@ public class CreateVolume implements RequestHandler {
 
         final Volume volume =
           new VolumeBuilder().withId( String.valueOf( volumeId ) )
-                             .withLimit( limit )
-                             .withSla( sla ).withPriority( priority )
                              .build();
+
+      // TODO register to receive metadata, i.e. statistics
 
         return new JsonResource( new JSONObject( volume ) );
     }

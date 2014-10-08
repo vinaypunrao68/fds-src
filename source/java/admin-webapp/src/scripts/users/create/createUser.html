@@ -1,7 +1,7 @@
-<div ng-controller="createUserController" class="dialog-page create-user" ng-class="{shown: creating,hideit: !creating}" show-notify ng-show="creating">
+<div ng-controller="createUserController" class="create-user" show-notify>
     
     <div class="modal-header">
-        <span>Create User</span>
+        <span translate>users.l_create_user</span>
     </div>
 
     <form name="createUserForm">
@@ -15,17 +15,17 @@
             </div>
             <div class="page-vertical-spacer"></div>
             <div class="side-by-side">
-                <fui-input style="width: 260px;" type="password" class="form-control create-user-password" size="32" placeholder="Password" ng-model="password" ng-keyup="passwordTyped( $event )" name="password" required ng-class="{required: createUserForm.password.$error.required && passInit !== true}">
+                <fui-input style="width: 260px;" type="password" class="form-control create-user-password" size="32" placeholder="{{ 'common.password' | translate}}" ng-model="password" ng-keyup="passwordTyped( $event )" name="password" required ng-class="{required: createUserForm.password.$error.required && passInit !== true}">
                 </fui-input>
                 <div>
-                    <span class="required" ng-show="createUserForm.password.$error.required && passInit !== true" class="required">Required</span>
+                    <span class="required" ng-show="createUserForm.password.$error.required && passInit !== true" class="required" translate>common.l_required</span>
                 </div>
             </div>
             <div class="side-by-side">
-                <fui-input style="width: 260px;" type="password" class="form-control create-user-confirm" size="32" placeholder="Confrim Password" ng-model="confirm" ng-keyup="confirmTyped( $event )" name="confirm" required ng-class="{required: createUserForm.confirm.$error.required && confirmInit !== true}">
+                <fui-input style="width: 260px;" type="password" class="form-control create-user-confirm" size="32" placeholder="{{ 'common.confirm_password' | translate }}" ng-model="confirm" ng-keyup="confirmTyped( $event )" name="confirm" required ng-class="{required: createUserForm.confirm.$error.required && confirmInit !== true}">
                 </fui-input>
                 <div>
-                    <span class="required" ng-show="createUserForm.confirm.$error.required && confirmInit !== true" class="required">Required</span>
+                    <span class="required" ng-show="createUserForm.confirm.$error.required && confirmInit !== true" class="required" translate>common.l_required</span>
                 </div>
             </div>
 
@@ -45,7 +45,7 @@
     </form>
 
     <div class="pull-left"style="padding-top: 12px;margin-bottom: 42px;">
-        <button class="btn btn-primary create-user-button" style="display: inline-block;" ng-click="save()">Create User</button>
-        <button class="btn btn-secondary create-user-cancel-button" style="display: inline-block;" ng-click="cancel()">Cancel</button>
+        <button class="btn btn-primary create-user-button" style="display: inline-block;" ng-click="save()" translate>users.l_create_user</button>
+        <button class="btn btn-secondary create-user-cancel-button" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
     </div>
 </div>

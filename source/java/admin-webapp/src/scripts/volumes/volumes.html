@@ -1,128 +1,114 @@
-<div ng-controller="volumeController" class="volume-page">
+<div class="volume-page" ng-controller="volumeController">
+    <!-- if it's not in a table the TR elements are deleted.  If it's not outside of
+        the real table it sometimes gets removed from the DOM by angular -->
+    <table>
+        <tbody id="volume-temp-table">
+            <tr id="volume-edit-row" class="volume-edit-row" ng-show="editing">
+                <td colspan="100%">
+                    <div class="volume-edit-container" ng-class="{open: editing}">
+                        <section>
+                            <div>
+                                <span class="light-print" translate>volumes.f_priority</span>
+                                <span class="volume-edit-label">{{priority}}</span>
+                            </div>
+                            <fui-slider values="priorityOptions" value="priority" min-label="Low" max-label="High"></fui-slider>
+                        </section>
+                        <section>
+                            <div style="margin-bottom: 8px;">
+                                <span class="light-print" translate>volumes.f_iops_guarantee</span>
+                                <span class="volume-edit-label" ng-show="capacity != 0">{{capacity}}%</span>
+                                <span class="volume-edit-label" ng-show="capacity == 0">None</span>
+                            </div>
+                            <fui-slider min="0" max="100" step="10" value="capacity" min-label="None" max-label="100%"></fui-slider>
+                        </section>
+                        <section>
+                            <div style="margin-bottom: 8px;">
+                                <span class="light-print" translate>volumes.f_iops_limit</span>
+                                <span class="volume-edit-label">{{iopLimit}}</span>
+                            </div>
+                            <fui-slider min="0" max="3000" step="100" value="iopLimit" min-label="None" max-label="3000"></fui-slider>
+                        </section>
+                    </div>
+                    <div class="pull-right">
+                        <button class="btn btn-primary" ng-click="save()" translate>common.l_save</button>
+                        <button class="btn btn-secondary" ng-click="cancel()" translate>common.l_cancel</button>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 
-    <div  class="page-slider-parent" ng-style="{left: creating || viewing ? '-100%' : '0%'}">
+    <!-- Real stuff -->
+    <div class="volumecontainer">
 
-        <!-- if it's not in a table the TR elements are deleted.  If it's not outside of
-            the real table it sometimes gets removed from the DOM by angular -->
-        <table>
-            <tbody id="volume-temp-table">
-                <tr id="volume-edit-row" class="volume-edit-row" ng-show="editing">
-                    <td colspan="100%">
-                        <div class="volume-edit-container" ng-class="{open: editing}">
-                            <section>
-                                <div>
-                                    <span class="light-print">Priority:</span>
-                                    <span class="volume-edit-label">{{priority}}</span>
-                                </div>
-                                <fui-slider values="priorityOptions" value="priority" min-label="Low" max-label="High"></fui-slider>
-                            </section>
-                            <section>
-                                <div style="margin-bottom: 8px;">
-                                    <span class="light-print">IOPs Capacity Guarantee:</span>
-                                    <span class="volume-edit-label" ng-show="capacity != 0">{{capacity}}%</span>
-                                    <span class="volume-edit-label" ng-show="capacity == 0">None</span>
-                                </div>
-                                <fui-slider min="0" max="100" step="10" value="capacity" min-label="None" max-label="100%"></fui-slider>
-                            </section>
-                            <section>
-                                <div style="margin-bottom: 8px;">
-                                    <span class="light-print">IOPs Limit:</span>
-                                    <span class="volume-edit-label">{{iopLimit}}</span>
-                                </div>
-                                <fui-slider min="0" max="3000" step="100" value="iopLimit" min-label="None" max-label="3000"></fui-slider>
-                            </section>
-                        </div>
-                        <div class="pull-right">
-                            <button class="btn btn-primary" ng-click="save()">Save</button>
-                            <button class="btn btn-secondary" ng-click="cancel()">Cancel</button>
-                        </div>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-
-        <!-- Real stuff -->
-        <div class="volumecontainer">
-
-            <div class="header volumes">
-                <span>{{name}}</span>
-                <span>Volumes</span>
-                <a ng-click="createNewVolume()" class="pull-right new_volume">Create a Volume</a>
-            </div>
-
-            <div class="col-xs-12">
-                <!-- actual table -->
-                <div class="table-container">
-                    <table class="default volumes clickable" style="margin-bottom: 48px;">
-                        <thead>
-                            <th>Performance</th>
-                            <th>Name</th>
-                            <th>Data Type</th>
-                            <th>
-                                <div>Capacity</div>
-                                <div>Used/Limit</div>
-                            </th>
-                            <th>IOPs Capacity Garauntee</th>
-                            <th class="priority">Priority</th>
-                            <th></th>
-                        </thead>
-                        <tbody>
-                            <!-- row per volume -->
-                            <tr class="volume-row" ng-repeat="volume in volumes" ng-click="clicked( volume )">
-                                <td class="volume_time">
-                                    <div></div>
-                                </td>
-
-                                <td class="name primary-color">
-                                    {{volume.name}}
-                                </td>
-                                <td>
-                                    {{volume.data_connector.type}}
-                                </td>
-
-                                <td class="consume">
-                                    {{volume.current_usage.size}}{{volume.current_usage.unit}}
-                                    <span>/</span>
-                                    {{volume.data_connector.attributes.size}}{{volume.data_connector.attributes.unit}}
-                                </td>
-
-                                <td class="iopLimit">
-                                    <span ng-show="volume.sla != 0">{{ volume.sla }}%</span>
-                                    <span ng-show="volume.sla == 0">None</span>
-                                </td>
-
-                                <td class="priority">
-                                    <em>
-                                        {{volume.priority}}
-                                    </em>
-                                </td>
-                                <td class="button-group">
-                                    <div class="inline">
-                                        <span class="fui-windows" ng-click="takeSnapshot( $event, volume )" title="Take snapshot"></span>
-                                        <span class="fui-new" ng-click="edit( $event, volume )" title="Edit settings"></span>
-                                        <!--<span class="fui-cross" ng-click="delete( volume )" title="Delete volume"></span>-->
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr class="disabled" ng-show="!volumes.length || volumes.length === 0">
-                                <td colspan="100%">
-                                    There are no registered volumes.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <div class="header volumes">
+            <span>{{name}}</span>
+            <span translate>volumes.title</span>
+            <a ng-click="createNewVolume()" class="pull-right new_volume" translate>volumes.l_create_volume</a>
         </div>
 
-        <!-- policy editing slide out... for now... -->
-<!--        <div ng-include="'scripts/volumes/volumeEdit.html'"></div>   -->
+        <div class="">
+            <!-- actual table -->
+            <div class="table-container">
+                <table class="default volumes clickable" style="margin-bottom: 48px;">
+                    <thead>
+                        <th translate>volumes.th_performance</th>
+                        <th translate>common.th_name</th>
+                        <th translate>volumes.th_data_type</th>
+                        <th>
+                            <div translate>volumes.th_capacity</div>
+                            <div translate>volumes.th_used_limit</div>
+                        </th>
+                        <th translate>volumes.th_iops_guarantee</th>
+                        <th class="priority" translate>volumes.th_priority</th>
+                        <th></th>
+                    </thead>
+                    <tbody>
+                        <!-- row per volume -->
+                        <tr class="volume-row" ng-repeat="volume in volumes" ng-click="clicked( volume )">
+                            <td class="volume_time">
+                                <div></div>
+                            </td>
 
-        <!-- volume creation slide out -->
-        <div ng-include="'scripts/volumes/create/volumeCreate.html'"></div>
+                            <td class="name primary-color">
+                                {{volume.name}}
+                            </td>
+                            <td>
+                                {{volume.data_connector.type}}
+                            </td>
 
-        <!-- volume drill in -->
-        <div ng-include="'scripts/volumes/view/viewVolume.html'"></div>
+                            <td class="consume">
+                                {{volume.current_usage.size}}{{volume.current_usage.unit}}
+                                <span>/</span>
+                                {{volume.data_connector.attributes.size}}{{volume.data_connector.attributes.unit}}
+                            </td>
 
+                            <td class="iopLimit">
+                                <span ng-show="volume.sla != 0">{{ volume.sla }}%</span>
+                                <span ng-show="volume.sla == 0" translate>common.l_none</span>
+                            </td>
+
+                            <td class="priority">
+                                <em>
+                                    {{volume.priority}}
+                                </em>
+                            </td>
+                            <td class="button-group">
+                                <div class="inline">
+                                    <span class="fui-windows" ng-click="takeSnapshot( $event, volume )" title="Take snapshot"></span>
+                                    <span class="fui-new" ng-click="edit( $event, volume )" title="Edit settings"></span>
+                                    <!--<span class="fui-cross" ng-click="delete( volume )" title="Delete volume"></span>-->
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="disabled" ng-show="!volumes.length || volumes.length === 0">
+                            <td colspan="100%" translate>
+                                volumes.desc_no_volumes
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>

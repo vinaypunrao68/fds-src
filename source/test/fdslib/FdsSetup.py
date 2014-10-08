@@ -276,8 +276,8 @@ class FdsLocalEnv(FdsEnv):
     # Execute command and wait for result. We'll also log
     # output in this case.
     #
-    def exec_wait(self, cmd):
-        return self.local_exec(cmd, True, False, True)
+    def exec_wait(self, cmd, return_stdin=False):
+        return self.local_exec(cmd, wait_compl=True, fds_bin=False, output=True, return_stdin=return_stdin)
 
     def local_close(self):
         pass
@@ -289,12 +289,13 @@ class FdsLocalEnv(FdsEnv):
         if (cmd is not None) and (cmd != ''):
             cmd = cmd + ';'
 
-        self.local_exec(cmd +
-            ' echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern ' +
-            '; sudo sysctl -w "kernel.core_pattern=%e-%p.core"' +
-            '; sysctl -p' +
-            '; echo "1" >/proc/sys/net/ipv4/tcp_tw_reuse' +
-            '; echo "1" >/proc/sys/net/ipv4/tcp_tw_recycle')
+        # Removed this for [WIN-1081], this doesn't work anyway.
+        #self.local_exec(cmd +
+            #' echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern ' +
+            #'; sudo sysctl -w "kernel.core_pattern=%e-%p.core"' +
+            #'; sysctl -p' +
+            #'; echo "1" >/proc/sys/net/ipv4/tcp_tw_reuse' +
+            #'; echo "1" >/proc/sys/net/ipv4/tcp_tw_recycle')
 
 ####
 # Bring the same environment as FdsEnv but operate on a remote node.
@@ -401,6 +402,10 @@ class FdsRmtEnv(FdsEnv):
                     print("[%s Error] %s" % (self.env_host, line))
 
         return_line = None
+        # It appears to me, GCarter, that return_stdin is being used
+        # here where output is intended. At any rate, I made local_exec()
+        # conform to this usage. If corrected here, then please correct
+        # there as well.
         if return_stdin and wait_compl:
             return_line = stdout.read()
 
@@ -418,8 +423,8 @@ class FdsRmtEnv(FdsEnv):
     def ssh_exec_fds(self, cmd, wait_compl = False):
         return self.ssh_exec(cmd, wait_compl, True)
 
-    def exec_wait(self, cmd):
-        return self.ssh_exec(cmd, True, False, True)
+    def exec_wait(self, cmd, return_stdin):
+        return self.ssh_exec(cmd, wait_compl=True, fds_bin=False, output=True, return_stdin=return_stdin)
 
     def ssh_close(self):
         self.env_ssh_clnt.close()

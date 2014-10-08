@@ -1,7 +1,7 @@
 <div class="name-type" ng-controller="nameTypeController">
     <section>
         <div class="header">
-            <span class="light-print">Volume Name</span>
+            <span class="light-print" translate>volumes.l_volume_name</span>
         </div>
         <div class="volume-settings-panel">
             <div class="volume-option form-group">
@@ -14,7 +14,7 @@
 
     <section>
         <div class="header">
-            <span class="light-print">Data Connector</span>
+            <span class="light-print" translate>volumes.l_data_connector</span>
         </div>
 
         <div class="volume-data-type-summary" ng-show="!editing">
@@ -34,9 +34,9 @@
         <div class="volume-data-type-panel" ng-class="{open: editing}">
             <table class="default volumes">
                 <thead>
-                    <th>Data Type</th>
-                    <th>API</th>
-                    <th>Capacity<br />(if Applicable)</th>
+                    <th translate>admin.th_data_type</th>
+                    <th translate>admin.th_api</th>
+                    <th translate>{{ 'volumes.th_capacity' | translate }}<br />{{ 'volumes.desc_if_applicable' | translate }}</th>
                     <th></th>
                 </thead>
                 <tbody id="data-connectors">
@@ -68,7 +68,7 @@
                 </tbody>
             </table>
             <div class="pull-right">
-                <button class="btn btn-primary" ng-click="editing = false">Done</button>
+                <button class="btn btn-primary" ng-click="editing = false" translate>common.l_done</button>
             </div>
         </div>
     </section>
