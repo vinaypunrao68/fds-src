@@ -102,7 +102,7 @@ fds_dev_python_packages.each do |pkg|
   end
 end
 
-link "/usr/lib/jvm/java-8-oracle"
+link "/usr/lib/jvm/java-8-oracle" do
   to "/usr/lib/jvm/java-8-oracle-amd64"
 end
 
