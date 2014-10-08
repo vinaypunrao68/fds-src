@@ -7,14 +7,31 @@
 #include <string>
 #include <sstream>
 #include <vector>
-#define XCHECKSTATUS(status)             \
-    if (status != ERR_OK) {       \
-        LOGWARN << " status:" << status; \
-        apis::ApiException e;            \
-        e.errorCode = apis::ErrorCode::INTERNAL_SERVER_ERROR;   \
-        e.message = toString(status);   \
-        throw e;                        \
-    }
+#define XCHECKSTATUS(status)                                        \
+if (status != ERR_OK) {                                             \
+    LOGWARN << " status:" << status;                                \
+    apis::ApiException e;                                           \
+    switch (status) {                                               \
+        case FDSN_StatusEntityDoesNotExist:                         \
+        case ERR_NOT_FOUND:                                         \
+        case ERR_VOL_NOT_FOUND:                                     \
+            e.errorCode = apis::ErrorCode::MISSING_RESOURCE;        \
+            break;                                                  \
+        case ERR_NOT_READY:                                         \
+            e.errorCode = apis::ErrorCode::SERVICE_NOT_READY;       \
+            break;                                                  \
+        case ERR_VOL_NOT_EMPTY:                                     \
+            e.errorCode = apis::ErrorCode::RESOURCE_NOT_EMPTY;      \
+            break;                                                  \
+        case ERR_DUPLICATE:                                         \
+            e.errorCode = apis::ErrorCode::RESOURCE_ALREADY_EXISTS; \
+            break;                                                  \
+        default:                                                    \
+            e.errorCode = apis::ErrorCode::INTERNAL_SERVER_ERROR;   \
+    }                                                               \
+    e.message = toString(status);                                   \
+    throw e;                                                        \
+}
 
 namespace fds {
 
