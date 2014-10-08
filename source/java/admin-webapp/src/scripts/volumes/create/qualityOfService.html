@@ -1,7 +1,7 @@
 <div ng-controller="qualityOfServiceController" class="volume-edit-row qos-panel">
 
         <div class="header">
-            <span class="light-print">Quality of Service</span>
+            <span class="light-print" translate>volumes.l_qos</span>
         </div>
 
     <div class="volume-qos-summary-container" ng-show="!editing">
@@ -12,13 +12,13 @@
         <div class="form-group inline">
             <span>IOPs Capacity Gaurantee: </span>
             <span class="value" ng-show="capacity != 0">{{capacity}}%</span>
-            <span class="value" ng-show="capacity == 0">None</span>
+            <span class="value" ng-show="capacity == 0" translate>common.l_none</span>
         </div>
         <div class="form-group inline">
-            <span>IOPs Limit: </span>
+            <span translate>volumes.f_iops_limit</span>
             <span class="value">{{iopLimit}} IOPs</span>
         </div>
-        <div class="inline icon-container" ng-click="editing = true" title="Edit Settings">
+        <div class="inline icon-container" ng-click="editing = true" title="{{ 'volumes.l_edit_settings' | translate }}">
             <span class="icon fui-new"></span>
         </div>
     </div>
@@ -26,28 +26,28 @@
     <div class="volume-edit-container" ng-class="{open: editing}">
         <section>
             <div>
-                <span class="light-print">Priority:</span>
+                <span class="light-print" translate>volumes.f_priority</span>
                 <span class="volume-edit-label">{{priority}}</span>
             </div>
-            <fui-slider values="priorityOptions" value="priority" min-label="Low" max-label="High"></fui-slider>
+            <fui-slider values="priorityOptions" value="priority" min-label="{{ 'common.l_low' | translate }}" max-label="{{ 'common.l_high' | translate }}"></fui-slider>
         </section>
         <section>
             <div style="margin-bottom: 8px;">
-                <span class="light-print">IOPs Capacity Guarantee:</span>
+                <span class="light-print" translate>volumes.f_iops_guarantee</span>
                 <span class="volume-edit-label" ng-show="capacity != 0">{{capacity}}%</span>
-                <span class="volume-edit-label" ng-show="capacity == 0">None</span>
+                <span class="volume-edit-label" ng-show="capacity == 0" translate>common.l_none</span>
             </div>
             <fui-slider min="0" max="100" step="10" value="capacity" min-label="0%" max-label="100%"></fui-slider>
         </section>
         <section>
             <div style="margin-bottom: 8px;">
-                <span class="light-print">IOPs Limit:</span>
+                <span class="light-print" translate>volumes.f_iops_limit</span>
                 <span class="volume-edit-label">{{iopLimit}}</span>
             </div>
-            <fui-slider min="0" max="3000" step="100" value="iopLimit" min-label="None" max-label="3000"></fui-slider>
+            <fui-slider min="0" max="3000" step="100" value="iopLimit" min-label="{{ 'common.l_none' | translate }}" max-label="3000"></fui-slider>
         </section>
         <div class="pull-right">
-            <button class="btn btn-primary" ng-click="editing = false">Done</button>
+            <button class="btn btn-primary" ng-click="editing = false" translate>common.l_done</button>
         </div>
     </div>
 </div>
