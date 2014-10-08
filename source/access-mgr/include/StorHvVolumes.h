@@ -454,6 +454,11 @@ class AttachVolBlobReq : public FdsBlobReq {
 
 class GetBlobReq: public FdsBlobReq {
   public:
+    typedef std::function<void (const Error&)> GetBlobProcCb;
+    GetBlobProcCb processorCb;
+
+    fds_volid_t base_vol_id;
+
     GetBlobReq(fds_volid_t _volid,
                const std::string& _blob_name,
                fds_uint64_t _blob_offset,

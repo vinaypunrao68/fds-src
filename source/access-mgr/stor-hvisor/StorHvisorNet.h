@@ -250,7 +250,7 @@ public:
     // TODO(Andrew): Move this to a unique_ptr and only into
     // AmProcessor once that's ready
     AmTxManager::shared_ptr amTxMgr;
-    AmCache::unique_ptr amCache;
+    AmCache::shared_ptr amCache;
 
     Error sendTestBucketToOM(const std::string& bucket_name,
                              const std::string& access_key_id = "",
@@ -554,7 +554,11 @@ static void processBlobReq(AmQosReq *qosReq) {
 
         case fds::FDS_IO_READ:
         case fds::FDS_GET_BLOB:
-            err = storHvisor->getBlobSvc(qosReq);
+            if (storHvisor->toggleNewPath) {
+                storHvisor->amProcessor->getBlob(qosReq);
+            } else {
+                err = storHvisor->getBlobSvc(qosReq);
+            }
             break;
 
         case fds::FDS_IO_WRITE:

@@ -31,7 +31,8 @@ class AmProcessor : public Module, public boost::noncopyable {
                 AmDispatcher::shared_ptr _amDispatcher,
                 StorHvQosCtrl     *_qosCtrl,
                 StorHvVolumeTable *_volTable,
-                AmTxManager::shared_ptr _amTxMgr);
+                AmTxManager::shared_ptr _amTxMgr,
+                AmCache::shared_ptr _amCache);
     ~AmProcessor();
     typedef std::unique_ptr<AmProcessor> unique_ptr;
 
@@ -53,6 +54,21 @@ class AmProcessor : public Module, public boost::noncopyable {
     void startBlobTxCb(AmQosReq* qosReq,
                        const Error& error);
 
+    /**
+     * Processes a get blob request
+     */
+    void getBlob(AmQosReq *qosReq);
+
+    /**
+     * Callback for get blob request
+     */
+    void getBlobCb(AmQosReq *qosReq, const Error& error);
+
+    /**
+     * Callback for catalog query request
+     */
+    void queryCatalogCb(AmQosReq *qosReq, const Error& error);
+
   private:
     /// Raw pointer to QoS controller
     // TODO(Andrew): Move this to unique once it's owned here.
@@ -71,6 +87,11 @@ class AmProcessor : public Module, public boost::noncopyable {
     /// Shared ptr to the transaction manager
     // TODO(Andrew): Move to unique once owned here.
     AmTxManager::shared_ptr txMgr;
+
+    // Shared ptr to the data object cache
+    // TODO(bszmyd): Tue 07 Oct 2014 08:43:26 PM MDT
+    // Make this a unique pointer once owned here.
+    AmCache::shared_ptr amCache;
 
     /// Unique ptr to a random num generator for tx IDs
     RandNumGenerator::unique_ptr randNumGen;

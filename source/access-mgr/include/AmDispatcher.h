@@ -6,6 +6,7 @@
 
 #include <string>
 #include <fds_module.h>
+#include <AmCache.h>
 #include <StorHvVolumes.h>
 #include <net/SvcRequest.h>
 
@@ -27,7 +28,7 @@ class AmDispatcher : public Module, public boost::noncopyable {
      * iterface with platform lib.
      */
     AmDispatcher(const std::string &modName,
-                 DMTManagerPtr _dmtMgr);
+                 OMgrClient *_om_client);
     ~AmDispatcher();
     typedef std::unique_ptr<AmDispatcher> unique_ptr;
     typedef boost::shared_ptr<AmDispatcher> shared_ptr;
@@ -52,13 +53,43 @@ class AmDispatcher : public Module, public boost::noncopyable {
                        const Error& error,
                        boost::shared_ptr<std::string> payload);
 
+    /**
+     * Dipatches a start blob transaction request.
+     */
+    void dispatchGetBlob(AmQosReq *qosReq);
+
+    void dispatchQueryCatalog(AmQosReq *qosReq);
+
+    /**
+     * Callback for start blob transaction responses.
+     */
+//    void getBlobCb(AmQosReq* qosReq,
+//                   QuorumSvcRequest* svcReq,
+//                   const Error& error,
+//                   boost::shared_ptr<std::string> payload);
+
   private:
     /// Shared ptr to the DMT manager used for deciding who
     /// to dispatch to
     DMTManagerPtr dmtMgr;
 
+    /// Raw pointer to orchestration manager
+    // TODO(bszmyd): Tue 07 Oct 2014 07:22:55 PM MDT
+    // Make this unique once complete
+    OMgrClient  *om_client;
+
     /// Uturn test all network requests
     fds_bool_t uturnAll;
+
+    void getBlobCb(fds::AmQosReq* qosReq,
+                   FailoverSvcRequest* svcReq,
+                   const Error& error,
+                   boost::shared_ptr<std::string> payload);
+
+    void getBlobQueryCatalogCb(fds::AmQosReq* qosReq,
+                               FailoverSvcRequest* svcReq,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload);
 };
 
 }  // namespace fds
