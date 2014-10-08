@@ -1633,8 +1633,11 @@ void DataMgr::ReqHandler::GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& 
     Error err(ERR_OK);
     GLOGDEBUG << " volume:" << *volumeName << " txnid:" << header->req_cookie;
 
-    RequestHeader reqHeader(header);
-    dmCatReq* request = new dmCatReq(reqHeader, FDS_GET_VOLUME_METADATA);
+    dmCatReq* request = new dmCatReq(header->glob_volume_id,
+                                     "",
+                                     header->session_uuid,
+                                     blob_version_invalid,
+                                     FDS_GET_VOLUME_METADATA);
     err = dataMgr->qosCtrl->enqueueIO(request->volId, request);
     fds_verify(err == ERR_OK);
 }

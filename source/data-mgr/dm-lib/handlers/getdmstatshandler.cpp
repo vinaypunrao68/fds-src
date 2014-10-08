@@ -34,12 +34,13 @@ void DmSysStatsHandler::handleQueueItem(dmCatReq *dmRequest) {
     LOGDEBUG << "volume: " << dmRequest->volId;
     // do processing and set the error
      DmCommitLog::ptr commitLog;
+     VolumeCatalogQueryIface::ptr volCatIf = dataMgr->timeVolCat_->queryIface();
      dataMgr->timeVolCat_->getCommitlog(dmRequest->volId, commitLog);
 
      request->message->commitlog_size = commitLog->getActiveTx();
      request->message->extent0_size = MAX_EXTENT0_OBJS;
      request->message->extent_size = MAX_EXTENT_OBJS;
-     request->message->metadata_size = 1024;
+     request->message->metadata_size = volCatIf->getVvcMetaSize(dmRequest->volId);
 }
 
 void DmSysStatsHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
