@@ -540,6 +540,7 @@ void StorHvVolumeTable::dump()
 }
 
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
+                       const std::string& _volumeName,
                        const std::string& _blob_name, //same as objKey
                        fds_uint64_t _blob_offset,
                        fds_uint64_t _data_len,
@@ -548,6 +549,7 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        CallbackPtr cb)
     : FdsBlobReq(FDS_GET_BLOB, _volid, _blob_name, _blob_offset,
                  _data_len, _data_buf, cb) {
+    volumeName = _volumeName;
     stopWatch.start();
     
     e2eReqPerfCtx.type = AM_GET_OBJ_REQ;
@@ -576,6 +578,7 @@ GetBlobReq::~GetBlobReq()
 }
 
 PutBlobReq::PutBlobReq(fds_volid_t _volid,
+                       const std::string& _volumeName,
                        const std::string& _blob_name, //same as objKey
                        fds_uint64_t _blob_offset,
                        fds_uint64_t _data_len,
@@ -601,6 +604,7 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
     respAcks(2),
     retStatus(ERR_OK)
 {
+    volumeName = _volumeName;
     stopWatch.start();
     e2eReqPerfCtx.type = AM_PUT_OBJ_REQ;
     e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
@@ -622,6 +626,7 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
 }
 
 PutBlobReq::PutBlobReq(fds_volid_t          _volid,
+                       const std::string&   _volumeName,
                        const std::string&   _blob_name, //same as objKey
                        fds_uint64_t         _blob_offset,
                        fds_uint64_t         _data_len,
@@ -641,6 +646,7 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                 callback_data(_callback_data),
                 respAcks(2),
                 retStatus(ERR_OK) {
+    volumeName = _volumeName;
     stopWatch.start();
     e2eReqPerfCtx.type = AM_PUT_OBJ_REQ;
     e2eReqPerfCtx.name = "volume:" + std::to_string(volId);

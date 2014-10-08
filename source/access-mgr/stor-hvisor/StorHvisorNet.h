@@ -38,6 +38,7 @@
 #include <AmCache.h>
 #include <AmDispatcher.h>
 #include <AmProcessor.h>
+#include <AmReqHandlers.h>
 
 #include <map>
 // #include "util/concurrency/Thread.h"
@@ -260,7 +261,10 @@ public:
                      const std::string& bucket_name);
 
     void attachVolume(AmQosReq *qosReq);
+    void enqueueAttachReq(const std::string& volumeName,
+                         CallbackPtr cb);
     fds::Error pushBlobReq(FdsBlobReq *blobReq);
+    void enqueueBlobReq(FdsBlobReq *blobReq);
     fds::Error putBlob(AmQosReq *qosReq);
     fds::Error deleteBlob(AmQosReq *qosReq);
 
