@@ -60,8 +60,9 @@ struct SMApi : SingleNodeTest
 */
 TEST_F(SMApi, putsPerf)
 {
-    int nPuts = 10;
-    bool uturnPuts = false;
+    int dataCacheSz = 100;
+    int nPuts =  this->getArg<int>("puts-cnt");
+    bool uturnPuts = this->getArg<bool>("uturn");
 
     fpi::SvcUuid svcUuid;
     svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
@@ -73,7 +74,7 @@ TEST_F(SMApi, putsPerf)
     }
 
     /* To generate random data between 10 to 100 bytes */
-    auto g = boost::make_shared<CachedRandDataGenerator<>>(nPuts, true, 4096, 4096);
+    auto g = boost::make_shared<CachedRandDataGenerator<>>(dataCacheSz, true, 4096, 4096);
 
     /* Start timer */
     startTs_ = util::getTimeStampNanos();
@@ -105,6 +106,11 @@ TEST_F(SMApi, putsPerf)
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    SMApi::init(argc, argv, "vol1");
+    po::options_description opts("Allowed options");
+    opts.add_options()
+        ("help", "produce help message")
+        ("puts-cnt", po::value<int>(), "puts count")
+        ("uturn", po::value<bool>()->default_value(false), "uturn");
+    SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();
 }

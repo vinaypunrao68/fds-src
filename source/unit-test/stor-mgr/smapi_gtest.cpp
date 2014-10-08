@@ -57,7 +57,7 @@ struct SMApi : SingleNodeTest
 */
 TEST_F(SMApi, put_get)
 {
-    int nPuts = 10;
+    int nPuts =  this->getArg<int>("puts-cnt");
     int nGets = 10;
 
     fpi::SvcUuid svcUuid;
@@ -92,7 +92,7 @@ TEST_F(SMApi, put_get)
 */
 TEST_F(SMApi, drop_puts)
 {
-    int nPuts = 10;
+    int nPuts =  this->getArg<int>("puts-cnt");
 
     fpi::SvcUuid svcUuid;
     svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
@@ -119,7 +119,6 @@ TEST_F(SMApi, drop_puts)
 
     /* Poll for completion */
     POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 500, nPuts * 100000);
-    // sleep(5);
 
     ASSERT_TRUE(putsIssued_ == putsFailedCnt_) << "putsIssued: " << putsIssued_
         << " putsFailedCnt: " << putsFailedCnt_;
@@ -130,6 +129,10 @@ TEST_F(SMApi, drop_puts)
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    SMApi::init(argc, argv, "vol1");
+    po::options_description opts("Allowed options");
+    opts.add_options()
+        ("help", "produce help message")
+        ("puts-cnt", po::value<int>(), "puts count");
+    SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();
 }

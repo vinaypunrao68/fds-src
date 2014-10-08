@@ -94,6 +94,7 @@ struct CachedRandDataGenerator : DataGenIf
     */
     CachedRandDataGenerator(int count, bool wrapAround, size_t min, size_t max)
     {
+        wrapAround_ = wrapAround;
         items_.resize(count);
         for (int i = 0; i < count; i++) {
             size_t sz = (rand() % ((max - min)+1)) + min;  // NOLINT
@@ -104,7 +105,7 @@ struct CachedRandDataGenerator : DataGenIf
     {
         auto idx = idx_++;
         if (wrapAround_) {
-            idx %= items_.size();
+            idx = idx % items_.size();
         }
         return items_[idx];
     }
