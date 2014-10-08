@@ -405,7 +405,6 @@ $(chef_client_binary): $(chef_client_config)
 #	@$(devsetup_script)
 #	@touch $(devsetup_chkfile)
 
-fdspkgs: fdsrepo $(devsetup_script) 
 #fdspkgs: fdsrepo $(devsetup_script) 
 #	@$(devsetup_script) --fdspkgs
 #	@touch $(devsetup_chkfile)
