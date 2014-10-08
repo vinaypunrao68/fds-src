@@ -12,13 +12,57 @@
 
 namespace fds {
 
+/* Forward declarations */
+namespace po = boost::program_options;
+
+/**
+* @brief Base class for gTest based test fixutures.  Can be used for non-gtest based as well
+*/
+struct BaseTestFixture : ::testing::Test
+{
+    BaseTestFixture();
+
+    static void init(int argc, char *argv[], po::options_description optDesc);
+
+    static void SetUpTestCase();
+
+    static void TearDownTestCase();
+
+    template <class T>
+    static T getArg(const std::string& k, T defaultVal)
+    {
+        if (vm_.count(k)) {
+            return vm_[k].as<T>();
+        } else {
+            return defaultVal;
+        }
+    }
+
+    template <class T>
+    static T getArg(const std::string& k)
+    {
+        if (!vm_.count(k)) {
+            throw std::runtime_error(k + " doesn't exist");
+        } else {
+            return vm_[k].as<T>();
+        }
+    }
+
+ protected:
+    static int argc_;
+    static char **argv_;
+    /* Stores command line arguments */
+    static po::variables_map vm_;
+};
+
 /**
 * @brief Test platform.  It bundles platform deamon and disables the run() method.
 * Using this class provides a platform deamon that can be used for testing.
 */
-struct TestPlatform : FdsService 
+struct TestPlatform : FdsService
 {
-    TestPlatform(int argc, char *argv[], const std::string &log, Module **vec);
+    TestPlatform(int argc, char *argv[],
+                 const std::string &log, Module **vec);
     virtual int run() override;
 };
 
@@ -35,18 +79,18 @@ struct TestPlatform : FdsService
 * fds environemnt will be setup for you.
 * 2. In your TEST_F() tests, you can use static members such as platform, volume id, etc.
 */
-struct SingleNodeTest : ::testing::Test
+struct SingleNodeTest : BaseTestFixture
 {
     SingleNodeTest();
-    static void init(int argc, char *argv[], const std::string volName);
+    static void init(int argc, char *argv[],
+                     po::options_description optDesc,
+                     const std::string &volName);
 
     static void SetUpTestCase();
 
     static void TearDownTestCase();
 
   protected:
-    static int argc_;
-    static char **argv_;
     static std::unique_ptr<TestPlatform> platform_;
     static std::string volName_;
     static uint64_t volId_;

@@ -67,9 +67,10 @@ user_cpp          := \
         metastore_unit_test.cpp   \
         sm_disk_map_test.cpp      \
         sm_token_place_gtest.cpp \
-	smapi_gtest.cpp
+	smapi_gtest.cpp \
+	smperf_gtest.cpp
 
-user_no_style     := sm_unit_test.cpp
+user_no_style     :=
 
 user_bin_exe      := \
     ObjectStoreUnitTest \
@@ -79,15 +80,17 @@ user_bin_exe      := \
     smdiskmap_unit_test \
     smtokenplace_gtest \
     smapi_gtest \
-	sm_superblock_gtest 
+    smperf_gtest \
+    sm_superblock_gtest 
 
 ObjectStoreUnitTest := object_store_unit_test.cpp
 ObjectStoreLoadTest := object_store_load_test.cpp
 metastore_unit_test := metastore_unit_test.cpp
 smdiskmap_unit_test := sm_disk_map_test.cpp
 smtokenplace_gtest  := sm_token_place_gtest.cpp
-smapi_gtest	    := smapi_gtest.cpp ngx_modules.c
+smapi_gtest	        := smapi_gtest.cpp ngx_modules.c
 sm_load_test        := sm_load_test.cpp
+smperf_gtest         := smperf_gtest.cpp ngx_modules.c
 sm_superblock_gtest := sm_superblock_gtest.cpp
 
 include $(topdir)/Makefile.incl

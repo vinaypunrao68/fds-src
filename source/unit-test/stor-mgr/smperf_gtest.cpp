@@ -42,68 +42,42 @@ struct SMApi : SingleNodeTest
         } else {
             putsSuccessCnt_++;
         }
-        // std::cout << "pubcb: " << error << std::endl;
+        if (putsIssued_ == (putsSuccessCnt_ + putsFailedCnt_)) {
+           endTs_ = util::getTimeStampNanos();
+        }
     }
  protected:
     std::atomic<uint32_t> putsIssued_;
     std::atomic<uint32_t> putsSuccessCnt_;
     std::atomic<uint32_t> putsFailedCnt_;
+    util::TimeStamp startTs_;
+    util::TimeStamp endTs_;
 };
-
-
-/**
-* @brief Tests basic puts and gets
-*
-*/
-TEST_F(SMApi, put_get)
-{
-    int nPuts =  this->getArg<int>("puts-cnt");
-    int nGets = 10;
-
-    fpi::SvcUuid svcUuid;
-    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
-    ASSERT_NE(svcUuid.svc_uuid, 0);
-
-    /* To generate random data between 10 to 100 bytes */
-    auto g = boost::make_shared<RandDataGenerator<>>(10, 100);
-
-    /* Issue puts */
-    for (int i = 0; i < nPuts; i++) {
-        auto putObjMsg = SvcMsgFactory::newPutObjectMsg(volId_, g);
-        auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
-        asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
-        asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this,
-                                            std::placeholders::_1,
-                                            std::placeholders::_2, std::placeholders::_3));
-        putsIssued_++;
-        asyncPutReq->invoke();
-    }
-
-    /* Poll for completion.  For now giving 1000ms/per put.  We should tighten that */
-    POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 500, nPuts * 1000);
-
-    ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
-        << " putsSuccessCnt: " << putsSuccessCnt_;
-}
 
 /**
 * @brief Tests dropping puts fault injection
 *
 */
-TEST_F(SMApi, drop_puts)
+TEST_F(SMApi, putsPerf)
 {
+    int dataCacheSz = 100;
     int nPuts =  this->getArg<int>("puts-cnt");
+    bool uturnPuts = this->getArg<bool>("uturn");
 
     fpi::SvcUuid svcUuid;
     svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
-    /* Set fault to drop all puts */
-    ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.drop.putobject"));
+    /* Set fault to uturn all puts */
+    if (uturnPuts) {
+        ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
+    }
 
     /* To generate random data between 10 to 100 bytes */
-    auto g = boost::make_shared<RandDataGenerator<>>(10, 100);
+    auto g = boost::make_shared<CachedRandDataGenerator<>>(dataCacheSz, true, 4096, 4096);
 
+    /* Start timer */
+    startTs_ = util::getTimeStampNanos();
     /* Issue puts */
     for (int i = 0; i < nPuts; i++) {
         auto putObjMsg = SvcMsgFactory::newPutObjectMsg(volId_, g);
@@ -118,13 +92,16 @@ TEST_F(SMApi, drop_puts)
     }
 
     /* Poll for completion */
-    POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 500, nPuts * 100000);
-
-    ASSERT_TRUE(putsIssued_ == putsFailedCnt_) << "putsIssued: " << putsIssued_
-        << " putsFailedCnt: " << putsFailedCnt_;
+    POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 500, (nPuts+2) * 1000);
 
     /* Disable fault injection */
-    ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.drop.putobject"));
+    if (uturnPuts) {
+        ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
+    }
+
+    ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
+        << " putsSuccessCnt_: " << putsFailedCnt_;
+    std::cout << "Time taken: " << endTs_ - startTs_ << "(ns)\n";
 }
 
 int main(int argc, char** argv) {
@@ -132,7 +109,8 @@ int main(int argc, char** argv) {
     po::options_description opts("Allowed options");
     opts.add_options()
         ("help", "produce help message")
-        ("puts-cnt", po::value<int>(), "puts count");
+        ("puts-cnt", po::value<int>(), "puts count")
+        ("uturn", po::value<bool>()->default_value(false), "uturn");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();
 }

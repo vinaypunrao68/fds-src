@@ -13,6 +13,36 @@
 
 namespace fds {
 
+/* Static members */
+int BaseTestFixture::argc_;
+char** BaseTestFixture::argv_ = nullptr;
+po::variables_map BaseTestFixture::vm_;
+
+BaseTestFixture::BaseTestFixture()
+{
+}
+
+void BaseTestFixture::init(int argc, char *argv[],
+                           po::options_description optDesc)
+{
+    argc_ = argc;
+    argv_ = argv;
+    po::store(po::command_line_parser(argc, argv).options(optDesc).allow_unregistered().run(), vm_);
+    po::notify(vm_);
+
+    if (vm_.count("help")) {
+        std::cout << optDesc << std::endl;
+    }
+}
+
+void BaseTestFixture::SetUpTestCase()
+{
+}
+
+void BaseTestFixture::TearDownTestCase()
+{
+}
+
 TestPlatform::TestPlatform(int argc, char *argv[], const std::string &log, Module **vec)
     : FdsService(argc, argv, log, vec)
 {
@@ -27,8 +57,6 @@ int TestPlatform::run()
 }
 
 /* Static member init */
-int SingleNodeTest::argc_;
-char** SingleNodeTest::argv_ = nullptr;
 std::unique_ptr<TestPlatform> SingleNodeTest::platform_;
 std::string SingleNodeTest::volName_;
 uint64_t SingleNodeTest::volId_;
@@ -48,23 +76,26 @@ SingleNodeTest::SingleNodeTest()
 * @param argv[]
 * @param volName
 */
-void SingleNodeTest::init(int argc, char *argv[], const std::string volName)
+void SingleNodeTest::init(int argc, char *argv[],
+                          po::options_description optDesc,
+                          const std::string &volName)
 {
-    argc_ = argc;
-    argv_ = argv;
-    volName_ = volName;
-    /* Parse out fds tool dir from argv */
-    namespace po = boost::program_options;
-    po::options_description desc("Allowed options");
-    po::parsed_options parsed =
-        po::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
-    for (auto o : parsed.options) {
-        if (o.string_key.find("fds-tools") == 0) {
-            deployer_.reset(new Deployer(o.value[0]));
-            break;
-        }
+    /* Add fds-tools as an option that must be set */
+    optDesc.add_options()
+        ("fds-tools", po::value<std::string>(), "tools dir");
+
+    /* Init base test fixture class */
+    BaseTestFixture::init(argc, argv, optDesc);
+    /* If help is set in cmd args return immmediately */
+    if (vm_.count("help")) {
+        return;
     }
-    ASSERT_TRUE(deployer_.get() != nullptr) << "fds-tool directory not set";
+    ASSERT_NO_THROW(BaseTestFixture::getArg<std::string>("fds-tools"))
+        << "fds-tool directory not set";
+
+    /* Create deployer object */
+    volName_ = volName;
+    deployer_.reset(new Deployer(BaseTestFixture::getArg<std::string>("fds-tools")));
 }
 
 /**
@@ -74,6 +105,8 @@ void SingleNodeTest::init(int argc, char *argv[], const std::string volName)
 */
 void SingleNodeTest::SetUpTestCase()
 {
+    BaseTestFixture::SetUpTestCase();
+
     /* TODO(Rao): Run fds start */
     bool ret = deployer_->setupOneNodeDomain();
     ASSERT_TRUE(ret == true);
@@ -118,5 +151,7 @@ void SingleNodeTest::TearDownTestCase()
     // TODO(Rao): Enable below when fds stop starts returning 0 as exit status
     // EXPECT_TRUE(ret == true) << "fds stop is returning status code 1 for some reason";
     deployer_.reset();
+
+    BaseTestFixture::TearDownTestCase();
 }
 }  // namespace fds
