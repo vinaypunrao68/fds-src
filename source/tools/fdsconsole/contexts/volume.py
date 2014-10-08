@@ -2,13 +2,13 @@ from  svchelper import *
 import  fdslib.pyfdsp.apis as apis
 from apis import ttypes
 from apis.ttypes import ApiException
-import fdslib.restendpoint
+
 import md5
 import os
 class VolumeContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
-        self.s3api = fdslib.restendpoint.S3Endpoint(self.config.s3rest)
+        self.s3api = self.config.s3rest
     #--------------------------------------------------------------------------------------
     @clicmd
     def list(self):
@@ -123,10 +123,11 @@ class VolumeContext(Context):
                 key = os.path.basename(key[1:])
             elif value != None and value.startswith('@'):
                 value = open(value[1:],'rb').read()
+            b = self.s3api.get_bucket(vol_name)
+            k = b.new_key(key)
+            num = k.set_contents_from_string(value)
             
-            r = self.s3api.put(vol_name, key, value);
-            
-            if r.status_code == 200:
+            if num >= 0:
                 data = []
                 data += [('key' , key)]
                 data += [('md5sum' , md5.md5(value).hexdigest())]
@@ -146,9 +147,11 @@ class VolumeContext(Context):
     def get(self, vol_name, key):
         'get an object from the volume'
         try:
-            r = self.s3api.get(vol_name, key);
-            if r.status_code == 200:
-                value = r.text
+            b = self.s3api.get_bucket(vol_name)
+            k = b.new_key(key)
+            value = k.get_contents_as_string()
+
+            if value:
                 data = []
                 data += [('key' , key)]
                 data += [('md5sum' , md5.md5(value).hexdigest())]
@@ -167,11 +170,9 @@ class VolumeContext(Context):
     def deleteobject(self, vol_name, key):
         'delete an object from the volume'
         try:
-            r = self.s3api.delete(vol_name, key);
-            if r.status_code == 204:
-                return 'Ok'
-            else:
-                print r.reason
+            b = self.s3api.get_bucket(vol_name)
+            k = b.new_key(key)
+            k.delete()            
         except Exception, e:
             log.exception(e)
             return 'get {} failed on volume: {}'.format(key, vol_name)

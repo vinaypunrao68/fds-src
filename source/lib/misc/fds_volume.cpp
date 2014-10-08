@@ -36,7 +36,9 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeInfoType& volinfo,
     iops_min = 0;
     iops_max = 0;
     relativePrio = 0;
-    assert(volUUID != invalid_vol_id);
+    if (volUUID == invalid_vol_id) {
+        GLOGWARN << "volume id is invalid";
+    }
     fSnapshot = volinfo.fSnapshot;
     srcVolumeId = volinfo.srcVolumeId;
     qosQueueId = volinfo.qosQueueId;
@@ -68,7 +70,9 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     fSnapshot = vdesc.fSnapshot;
     srcVolumeId = vdesc.srcVolumeId;
     qosQueueId = vdesc.qosQueueId;
-    assert(volUUID != invalid_vol_id);
+    if (volUUID == invalid_vol_id) {
+        GLOGWARN << "volume id is invalid";
+    }
 }
 
 VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
@@ -97,7 +101,9 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     fSnapshot = voldesc.fSnapshot;
     srcVolumeId = voldesc.srcVolumeId;
     qosQueueId = voldesc.qosQueueId;
-    assert(volUUID != invalid_vol_id);
+    if (volUUID == invalid_vol_id) {
+        GLOGWARN << "volume id is invalid";
+    }
 }
 
 /*
@@ -106,7 +112,9 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
 VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
         : name(_name),
           volUUID(_uuid) {
-    assert(_uuid != invalid_vol_id);
+    if (_uuid == invalid_vol_id) {
+        GLOGWARN << "volume id is invalid";
+    }
 
     tennantId = 0;
     localDomainId = 0;
@@ -131,7 +139,9 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     srcVolumeId = invalid_vol_id;
     qosQueueId = invalid_vol_id;
     relativePrio = 0;
-    assert(volUUID != invalid_vol_id);
+    if (volUUID == invalid_vol_id) {
+        GLOGWARN << "volume id is invalid";
+    }
 }
 
 VolumeDesc::VolumeDesc(const std::string& _name,
@@ -144,7 +154,9 @@ VolumeDesc::VolumeDesc(const std::string& _name,
           iops_min(_iops_min),
           iops_max(_iops_max),
           relativePrio(_priority) {
-    fds_assert(volUUID != invalid_vol_id);
+    if (volUUID == invalid_vol_id) {
+        GLOGWARN << "volume id is invalid";
+    }
 
     tennantId = 0;
     localDomainId = 0;
