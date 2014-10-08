@@ -23,7 +23,7 @@ public class MetricsRepository
   private static final Logger logger =
     LoggerFactory.getLogger( MetricsRepository.class );
 
-  private static final String DBNAME = "/fds/var/db/metrics.db";
+  private static final String DBNAME = "/fds/user-repo/db/metrics.db";
 
   /**
    * default constructor

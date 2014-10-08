@@ -7,7 +7,6 @@ package com.formationds.commons.model.type;
 import com.formationds.commons.model.VolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.commons.model.type.Metrics;
 import org.json.JSONArray;
 import org.junit.Assert;
 import org.junit.Before;

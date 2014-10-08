@@ -79,4 +79,10 @@ public class VolumeBuilderTest {
       Assert.assertEquals( volume.getSla(), EXPECTED_SLA );
   }
 
+  // NullPointer when priority is not supplied
+  @Test
+  public void volumeId() {
+    final Volume volume = new VolumeBuilder().withId( "ID Only" ).build();
+    Assert.assertSame( volume.getId(), "ID Only" );
+  }
 }

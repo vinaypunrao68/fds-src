@@ -17,6 +17,7 @@
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
+import com.google.gson.annotations.SerializedName;
 
 import javax.persistence.Entity;
 import javax.xml.bind.annotation.XmlRootElement;
@@ -30,7 +31,9 @@ public class VolumeDatapoint
   extends ModelBase {
   private static final long serialVersionUID = -528746171551767393L;
 
+  @SerializedName("timestamp")
   private long dateTime;
+  @SerializedName("volume")
   private String volumeName;
   private String key;
   private double value;
