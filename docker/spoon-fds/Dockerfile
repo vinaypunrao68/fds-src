@@ -57,7 +57,6 @@ RUN git clone https://0e02efff0ef46f7a2002decdca4912db60153ba6@github.com/fds-de
 
 WORKDIR /home/pairing/projects/fds-src/source
 RUN touch ~/.ihaveaswapfile
-RUN git checkout move-devsetup-to-chef
 RUN make devsetup
 RUN git remote set-url origin https://github.com/fds-dev/fds-src
 
