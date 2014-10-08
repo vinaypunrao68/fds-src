@@ -19,12 +19,11 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
+// #include <google/profiler.h>
 
 using ::testing::AtLeast;
 using ::testing::Return;
 using namespace fds;  // NOLINT
-
 
 struct SMApi : SingleNodeTest
 {
@@ -68,19 +67,28 @@ TEST_F(SMApi, putsPerf)
     svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
+    /* To generate random data between 10 to 100 bytes */
+    auto datagen = boost::make_shared<RandDataGenerator<>>(4096, 4096);
+    auto putMsgGenF = std::bind(&SvcMsgFactory::newPutObjectMsg, volId_, datagen);
+    /* To geenrate put messages and cache them.  Wraps datagen from above */
+    auto putMsgGen = boost::make_shared<
+                    CachedMsgGenerator<fpi::PutObjectMsg>>(dataCacheSz,
+                                                           true,
+                                                           putMsgGenF);
     /* Set fault to uturn all puts */
     if (uturnPuts) {
         ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
     }
 
-    /* To generate random data between 10 to 100 bytes */
-    auto g = boost::make_shared<CachedRandDataGenerator<>>(dataCacheSz, true, 4096, 4096);
+    /* Start google profiler */
+    // ProfilerStart("/tmp/output.prof");
 
     /* Start timer */
     startTs_ = util::getTimeStampNanos();
+
     /* Issue puts */
     for (int i = 0; i < nPuts; i++) {
-        auto putObjMsg = SvcMsgFactory::newPutObjectMsg(volId_, g);
+        auto putObjMsg = putMsgGen->nextItem();
         auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
         asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
         asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this,
@@ -96,12 +104,16 @@ TEST_F(SMApi, putsPerf)
 
     /* Disable fault injection */
     if (uturnPuts) {
-        ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.putobject"));
     }
 
-    ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
-        << " putsSuccessCnt_: " << putsFailedCnt_;
+    /* End profiler */
+    // ProfilerStop();
+
     std::cout << "Time taken: " << endTs_ - startTs_ << "(ns)\n";
+    ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
+        << " putsSuccessCnt_: " << putsSuccessCnt_
+        << " putsFailedCnt_: " << putsFailedCnt_;
 }
 
 int main(int argc, char** argv) {
