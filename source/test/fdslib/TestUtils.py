@@ -114,6 +114,8 @@ def get_options(pyUnit):
                                               'to a development environment')
     parser.add_option('-d', '--sudo-password', action = 'store', dest = 'sudo_password',
                       help = 'When the node is localhost, use this password for sudo access to the configured user. ')
+    parser.add_option('-f', '--failfast', action = 'store_true', dest = 'failfast',
+                      default = False, help = 'Stop upon failure. ')
 
     validate_cli_options(parser, pyUnit)
     return parser

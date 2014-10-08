@@ -14,6 +14,87 @@ import TestCase
 # Module-specific requirements
 import sys
 import time
+import logging
+
+
+def pidWaitParent(pid, child_count, node):
+    """
+    Wait for indicated process to present a specified number of children.
+    """
+    log = logging.getLogger('TestFDSModMgt' + '.' + 'pidWaitParent')
+
+    maxcount = 20
+
+    count = 0
+    found = False
+    status = 0
+    cmd = "pgrep -c -P %s" % pid
+    while (count < maxcount) and not found:
+        time.sleep(1)
+
+        status, stdout = node.nd_agent.exec_wait(cmd, return_stdin=True)
+
+        if int(stdout) == child_count:
+            found = True
+
+        count += 1
+
+    if status != 0:
+        log.error("Wait for %d children of %s on %s returned status %d." %
+                  (child_count, pid, node.nd_conf_dict['node-name'], status))
+        return False
+
+    if not found:
+        return False
+
+    return True
+
+def modWait(mod, node):
+    """
+    Wait for the named module to become active.
+    """
+    log = logging.getLogger('TestFDSModMgt' + '.' + 'modWait')
+
+    maxcount = 20
+
+    orchMgrPID = ''
+    AMAgentPID = ''
+    count = 0
+    found = False
+    status = 0
+    cmd = "pgrep %s" % mod
+    while (count < maxcount) and not found:
+        time.sleep(1)
+
+        status, stdout = node.nd_agent.exec_wait(cmd, return_stdin=True)
+
+        if len(stdout) > 0:
+            # For module orchMgr, there should be one child process.
+            if mod == "orchMgr":
+                orchMgrPID = stdout
+
+            # For module AMAgent, there shoudl be two child processes.
+            if mod == "AMAgent":
+                AMAgentPID = stdout
+
+            found = True
+
+        count += 1
+
+    if status != 0:
+        log.error("Wait for %s on %s returned status %d." % (mod, node.nd_conf_dict['node-name'], status))
+        return False
+
+    if not found:
+        return False
+
+    if orchMgrPID != '':
+        return pidWaitParent(int(orchMgrPID), 1, node)
+
+    if AMAgentPID != '':
+        return pidWaitParent(int(AMAgentPID), 2, node)
+
+    return True
 
 
 # This class contains the attributes and methods to test
@@ -82,6 +163,67 @@ class TestDMBringUp(TestCase.FDSTestCase):
                 return False
 
             time.sleep(2)
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# waiting for a Data Manager (DM) module to start.
+class TestDMWait(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestDMWait, self).__init__(parameters)
+
+
+    def runTest(self):
+        """
+        Used by qaautotest module's test runner to run the test case
+        and clean up the fixture as necessary.
+
+        With PyUnit, the same method is run although PyUnit will also
+        call any defined tearDown method to do test fixture cleanup as well.
+        """
+        test_passed = True
+
+        self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_DMWait():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Wait for DM module to start caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_DMWait(self):
+        """
+        Test Case:
+        Wait for the DM module(s) to start
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            self.log.info("Wait for DM on %s." %n.nd_conf_dict['node-name'])
+
+            if not modWait("DataMgr", n):
+                return False
 
         return True
 
@@ -216,6 +358,67 @@ class TestSMBringUp(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
+# waiting for a Storage Manager (SM) module to start.
+class TestSMWait(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestSMWait, self).__init__(parameters)
+
+
+    def runTest(self):
+        """
+        Used by qaautotest module's test runner to run the test case
+        and clean up the fixture as necessary.
+
+        With PyUnit, the same method is run although PyUnit will also
+        call any defined tearDown method to do test fixture cleanup as well.
+        """
+        test_passed = True
+
+        self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_SMWait():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Wait for SM module to start caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_SMWait(self):
+        """
+        Test Case:
+        Wait for the SM module(s) to start
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            self.log.info("Wait for SM on %s." %n.nd_conf_dict['node-name'])
+
+            if not modWait("StorMgr", n):
+                return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
 # shutting down a Storage Manager (SM) module.
 class TestSMShutDown(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
@@ -331,6 +534,67 @@ class TestPMBringUp(TestCase.FDSTestCase):
 
             if status != 0:
                 self.log.error("PM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+                return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# waiting for a Platform Manager (PM) module to start.
+class TestPMWait(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestPMWait, self).__init__(parameters)
+
+
+    def runTest(self):
+        """
+        Used by qaautotest module's test runner to run the test case
+        and clean up the fixture as necessary.
+
+        With PyUnit, the same method is run although PyUnit will also
+        call any defined tearDown method to do test fixture cleanup as well.
+        """
+        test_passed = True
+
+        self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_PMWait():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Wait for PM module to start caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_PMWait(self):
+        """
+        Test Case:
+        Wait for the PM module(s) to start
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            self.log.info("Wait for PM on %s." %n.nd_conf_dict['node-name'])
+
+            if not modWait("platformd", n):
                 return False
 
         return True
@@ -454,6 +718,55 @@ class TestOMBringUp(TestCase.FDSTestCase):
         return True
 
 
+# This class contains the attributes and methods to wait
+# for the Orchestration Manager (OM) module to become active.
+class TestOMWait(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestOMWait, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_OMWait():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("OM module wait caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_OMWait(self):
+        """
+        Test Case:
+        Wait for the named module to become active.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        self.log.info("Wait for OM on %s." % fdscfg.rt_om_node.nd_conf_dict['node-name'])
+
+        return modWait("orchMgr", fdscfg.rt_om_node)
+
+
 # This class contains the attributes and methods to test
 # shutting down an Orchestration Manager (OM) module.
 class TestOMShutDown(TestCase.FDSTestCase):
@@ -520,6 +833,67 @@ class TestOMShutDown(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
+# waiting for an Access Manager (AM) module to start.
+class TestAMWait(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestAMWait, self).__init__(parameters)
+
+
+    def runTest(self):
+        """
+        Used by qaautotest module's test runner to run the test case
+        and clean up the fixture as necessary.
+
+        With PyUnit, the same method is run although PyUnit will also
+        call any defined tearDown method to do test fixture cleanup as well.
+        """
+        test_passed = True
+
+        self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_AMWait():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Wait for AM module to start caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_AMWait(self):
+        """
+        Test Case:
+        Wait for the AM module(s) to start
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_get_obj('cfg_am')
+        for n in nodes:
+            self.log.info("Wait for AM on %s." % n.nd_conf_dict['fds_node'])
+
+            if not modWait("AMAgent", n.nd_am_node):
+                return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
 # shutting down an Access Manager (AM) module.
 class TestAMShutDown(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
@@ -563,7 +937,7 @@ class TestAMShutDown(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        nodes = fdscfg.rt_obj.cfg_nodes
+        nodes = fdscfg.rt_get_obj('cfg_am')
         for n in nodes:
             self.log.info("Shutdown AM on %s." % n.nd_conf_dict['node-name'])
 
@@ -585,9 +959,16 @@ class TestAMShutDown(TestCase.FDSTestCase):
                 self.log.error("AM (AMAgent) shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
                 return False
 
+            status = n.nd_agent.exec_wait("pkill -9 -f com.formationds.om.Main;")
+
+            if status != 0:
+                self.log.error("AM (com.formationds.om.Main) shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+                return False
+
             time.sleep(2)
 
         return True
+
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
