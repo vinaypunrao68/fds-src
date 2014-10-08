@@ -38,7 +38,6 @@ class FdsnIf;
  */
 class FdsnServer : public Module {
   private:
-    FDS_NativeAPI::ptr       am_api;
     fds_uint32_t             port;
     typedef boost::shared_ptr<FdsnIf> FdsnIfPtr;
     FdsnIfPtr fdsnInterface;
@@ -69,7 +68,7 @@ class FdsnServer : public Module {
     void mod_startup();
     void mod_shutdown();
 
-    virtual void init_server(FDS_NativeAPI::ptr api);
+    virtual void init_server();
     virtual void deinit_server();
 };
 

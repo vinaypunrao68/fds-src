@@ -31,16 +31,9 @@ class AMMain : public PlatformProcess
 
         PlatformProcess::proc_pre_startup();
 
-        FDS_NativeAPI::ptr api(new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3));
-        gl_FdsnServer.init_server(api);
-        if (conf_helper_.get<bool>("testing.enable_probe") == true) {
-            // Add the AM probe to the S3 connector probe
-            // gl_probeS3Eng.probe_add_adapter(&gl_AmProbe);
-            // gl_AmProbe.init_server(api);
-        }
-
         argv = mod_vectors_->mod_argv(&argc);
         CreateSHMode(argc, argv, false, 0 , 0);
+        gl_FdsnServer.init_server();
     }
     int run() override {
         gl_FdsnServer.deinit_server();

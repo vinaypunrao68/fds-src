@@ -27,9 +27,6 @@ FdsnServer gl_FdsnServer("Global FDSN Server");
  */
 class FdsnIf : public apis::AmServiceIf {
   private:
-    /// Pointer to AM's data API
-    FDS_NativeAPI::ptr am_api;
-
     /// Uturn test all AM service APIs
     fds_bool_t testUturnAll;
     /// Uturn test start tx API
@@ -51,9 +48,8 @@ class FdsnIf : public apis::AmServiceIf {
     fds_uint64_t            io_log_interval;
 
   public:
-    explicit FdsnIf(FDS_NativeAPI::ptr api)
-            : am_api(api),
-              io_log_counter(0),
+    FdsnIf()
+            : io_log_counter(0),
               io_log_interval(100) {
         FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
         testUturnAll = conf.get_abs<bool>("fds.am.testing.uturn_amserv_all");
@@ -100,10 +96,8 @@ class FdsnIf : public apis::AmServiceIf {
                       boost::shared_ptr<std::string>& volumeName) {
         AttachVolumeResponseHandler::ptr handler(
             new AttachVolumeResponseHandler());
-
-        am_api->attachVolume(*volumeName,
-                             SHARED_DYN_CAST(Callback, handler));
-
+        storHvisor->enqueueAttachReq(*volumeName,
+                                     SHARED_DYN_CAST(Callback, handler));
         handler->wait();
         handler->process();
     }
@@ -118,7 +112,11 @@ class FdsnIf : public apis::AmServiceIf {
                       boost::shared_ptr<std::string>& volumeName) {
         LOGDEBUG << "volumeStatus for vol:" << *volumeName;
         StatVolumeResponseHandler::ptr handler(new StatVolumeResponseHandler(_return));
-        am_api->GetVolumeMetaData(*volumeName, SHARED_DYN_CAST(Callback, handler));
+        Error err = STORHANDLER(GetVolumeMetaDataHandler,
+                                fds::FDS_GET_VOLUME_METADATA)->handleRequest(*volumeName,
+                                                                             handler);
+        fds_verify(err.ok());
+
         handler->wait();
         handler->process();
     }
@@ -140,16 +138,11 @@ class FdsnIf : public apis::AmServiceIf {
                                                        "accessid",
                                                        "secretkey");
         ListBucketResponseHandler::ptr handler(new ListBucketResponseHandler(_return));
-        STORHANDLER(GetBucketHandler, fds::FDS_LIST_BUCKET)->
+        STORHANDLER(GetBucketHandler, FDS_LIST_BUCKET)->
                 handleRequest(bucket_ctxt,
                               *offset, *count,
                               SHARED_DYN_CAST(Callback, handler));
-        /*
-        am_api->GetBucket(bucket_ctxt,
-                          "", "", "", *count,
-                          NULL,
-                          fn_ListBucketHandler, &handler);
-        */
+
         handler->wait();
         handler->process();
     }
@@ -174,10 +167,8 @@ class FdsnIf : public apis::AmServiceIf {
 
         StatBlobResponseHandler::ptr handler(
             new StatBlobResponseHandler(_return));
-
-        am_api->StatBlob(*volumeName,
-                         *blobName,
-                         SHARED_DYN_CAST(Callback, handler));
+        STORHANDLER(StatBlobHandler, FDS_STAT_BLOB)->
+                handleRequest(*volumeName, *blobName, SHARED_DYN_CAST(Callback, handler));
 
         handler->wait();
         handler->process();
@@ -204,7 +195,12 @@ class FdsnIf : public apis::AmServiceIf {
         StartBlobTxResponseHandler::ptr handler(
             new StartBlobTxResponseHandler(_return));
 
-        am_api->StartBlobTx(*volumeName, *blobName, *blobMode, SHARED_DYN_CAST(Callback, handler));
+        FdsBlobReq *blobReq = new StartBlobTxReq(invalid_vol_id,
+                                                 *volumeName,
+                                                 *blobName,
+                                                 *blobMode,
+                                                 SHARED_DYN_CAST(Callback, handler));
+        storHvisor->enqueueBlobReq(blobReq);
 
         handler->wait();
         handler->process();
@@ -232,8 +228,12 @@ class FdsnIf : public apis::AmServiceIf {
 
         SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
 
-        am_api->CommitBlobTx(*volumeName, *blobName, blobTxDesc,
-                SHARED_DYN_CAST(Callback, handler));
+        FdsBlobReq *blobReq = new CommitBlobTxReq(invalid_vol_id,
+                                                  *volumeName,
+                                                  *blobName,
+                                                  blobTxDesc,
+                                                  SHARED_DYN_CAST(Callback, handler));
+        storHvisor->enqueueBlobReq(blobReq);
 
         handler->wait();
 
@@ -270,8 +270,12 @@ class FdsnIf : public apis::AmServiceIf {
         BlobTxId::ptr blobTxDesc(new BlobTxId(
             txDesc->txId));
 
-        am_api->AbortBlobTx(*volumeName, *blobName, blobTxDesc,
-                              SHARED_DYN_CAST(Callback, handler));
+        FdsBlobReq *blobReq = new AbortBlobTxReq(invalid_vol_id,
+                                                 *volumeName,
+                                                 *blobName,
+                                                 blobTxDesc,
+                                                 SHARED_DYN_CAST(Callback, handler));
+        storHvisor->enqueueBlobReq(blobReq);
 
         handler->wait();
         handler->process();
@@ -316,18 +320,15 @@ class FdsnIf : public apis::AmServiceIf {
         // from the return string so we can avoid one extra copy.
         GetObjectResponseHandler::ptr getHandler(new GetObjectResponseHandler(buf));
 
-        // Do async getobject
-        // TODO(Andrew): The error path callback maybe called
-        // in THIS thread's context...need to fix or handle that.
-        // TODO(Andrew): Pass in the request context
-        am_api->GetObject(bucket_ctx,
-                          *blobName,
-                          NULL,  // No get conditions
-                          static_cast<fds_uint64_t>(objectOffset->value),
-                          *length,
-                          buf,
-                          *length,  // We always allocate buf of the requested size
-                          SHARED_DYN_CAST(Callback, getHandler));
+        FdsBlobReq *blobReq= new GetBlobReq(invalid_vol_id,
+                                            *volumeName,
+                                            *blobName,
+                                            static_cast<fds_uint64_t>(objectOffset->value),
+                                            *length,
+                                            buf,
+                                            *length,
+                                            SHARED_DYN_CAST(Callback, getHandler));
+        storHvisor->enqueueBlobReq(blobReq);
 
         // Wait for a signal from the callback thread
         getHandler->wait();
@@ -379,8 +380,14 @@ class FdsnIf : public apis::AmServiceIf {
         BlobTxId::ptr blobTxDesc(new BlobTxId(
             txDesc->txId));
 
-        am_api->setBlobMetaData(*volumeName, *blobName, blobTxDesc, metaDataList,
-                                SHARED_DYN_CAST(Callback, handler));
+        FdsBlobReq *blobReq = new SetBlobMetaDataReq(invalid_vol_id,
+                                                     *volumeName,
+                                                     *blobName,
+                                                     blobTxDesc,
+                                                     metaDataList,
+                                                     SHARED_DYN_CAST(Callback, handler));
+        storHvisor->enqueueBlobReq(blobReq);
+
         handler->wait();
         LOGDEBUG << "set meta data returned";
         handler->process();
@@ -416,18 +423,17 @@ class FdsnIf : public apis::AmServiceIf {
         // Create context handler
         PutObjectResponseHandler putHandler;
 
-        // Do async putobject
-        // TODO(Andrew): The error path callback maybe called
-        // in THIS thread's context...need to fix or handle that.
-        am_api->PutBlobOnce(*volumeName,
-                            *blobName,
-                            const_cast<char *>(bytes->c_str()),
-                            static_cast<fds_uint64_t>(objectOffset->value),
-                            *length,
-                            *blobMode,
-                            metadata,
-                            fn_PutObjectHandler,
-                            static_cast<void *>(&putHandler));
+        FdsBlobReq *blobReq = new PutBlobReq(invalid_vol_id,
+                                             *volumeName,
+                                             *blobName,
+                                             static_cast<fds_uint64_t>(objectOffset->value),
+                                             *length,
+                                             const_cast<char *>(bytes->c_str()),
+                                             *blobMode,
+                                             metadata,
+                                             fn_PutObjectHandler,
+                                             static_cast<void *>(&putHandler));
+        storHvisor->enqueueBlobReq(blobReq);
 
         // Wait for a signal from the callback thread
         putHandler.wait();
@@ -485,20 +491,20 @@ class FdsnIf : public apis::AmServiceIf {
         BlobTxId::ptr blobTxDesc(new BlobTxId(
             txDesc->txId));
 
-        // Do async putobject
-        // TODO(Andrew): The error path callback maybe called
-        // in THIS thread's context...need to fix or handle that.
-        am_api->PutBlob(&bucket_ctx,
-                        *blobName,
-                        NULL,  // Not passing any put properties
-                        NULL,  // Not passing any context for the callback
-                        const_cast<char *>(bytes->c_str()),
-                        static_cast<fds_uint64_t>(objectOffset->value),
-                        *length,
-                        blobTxDesc,
-                        *isLast,
-                        fn_PutObjectHandler,
-                        static_cast<void *>(&putHandler));
+        FdsBlobReq *blobReq = new PutBlobReq(invalid_vol_id,
+                                             *volumeName,
+                                             *blobName,
+                                             static_cast<fds_uint64_t>(objectOffset->value),
+                                             *length,
+                                             const_cast<char *>(bytes->c_str()),
+                                             blobTxDesc,
+                                             *isLast,
+                                             &bucket_ctx,
+                                             NULL,
+                                             NULL,
+                                             fn_PutObjectHandler,
+                                             static_cast<void *>(&putHandler));
+        storHvisor->enqueueBlobReq(blobReq);
 
         // Wait for a signal from the callback thread
         putHandler.wait();
@@ -599,13 +605,8 @@ FdsnServer::mod_shutdown() {
  * Initializes the server component
  */
 void
-FdsnServer::init_server(FDS_NativeAPI::ptr api) {
-    fds_verify(api != NULL);
-    am_api = api;
-
-    // We init here becuse we need the apiobject to
-    // init the processor and server
-    fdsnInterface.reset(new FdsnIf(am_api));
+FdsnServer::init_server() {
+    fdsnInterface.reset(new FdsnIf());
     processor.reset(new apis::AmServiceProcessor(
         fdsnInterface));
     // event_handler_.reset(new ServerEventHandler(*this));
