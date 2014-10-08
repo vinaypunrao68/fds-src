@@ -93,5 +93,6 @@ source/unit-test/fds-probe/platform/node-work.h
 source/java/target
 source/am-engine/misc/build.linux-x86_64
 source/am-engine
+chef/nodes
 chef/vagrant/*/.vagrant/*
 source/java/${project.build.dir}
