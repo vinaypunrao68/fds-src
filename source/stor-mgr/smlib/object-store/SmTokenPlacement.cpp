@@ -49,7 +49,7 @@ ObjectLocationTable::getDiskId(fds_token_id smToken,
 }
 
 fds_bool_t
-ObjectLocationTable::isDiskIdValid(fds_uint16_t diskId) const {
+ObjectLocationTable::isDiskIdValid(fds_uint16_t diskId) {
     return (diskId != fds_diskid_invalid);
 }
 
