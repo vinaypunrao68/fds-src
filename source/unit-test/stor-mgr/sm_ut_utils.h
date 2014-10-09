@@ -34,6 +34,65 @@ class SmUtUtils {
         }
         dlt->generateNodeTokenMap();
     }
+    /**
+     * Checks if there is an existing disk-map in /fds/dev/
+     * and if it has at least one disk. If so, the method does not
+     * do anything -- the test will be just using already setup disk map
+     * If there is no disk-map, the method creates /fds/dev/disk-map
+     * and creates dirs for /fds/dev/hdd-* and /fds/dev/ssd-*
+     * @return true if disk map was setup for the test
+     */
+    static fds_bool_t setupDiskMap(const FdsRootDir* dir,
+                                   fds_uint32_t simHddCount,
+                                   fds_uint32_t simSsdCount) {
+        std::string devDir = dir->dir_dev();
+        std::string diskmapPath = devDir + std::string("disk-map");
+        std::ifstream map(diskmapPath, std::ifstream::in);
+        fds_uint32_t diskCount = 0;
+        if (map.fail() == false) {
+            // we opened a map, now see there is at least one disk
+            int           idx;
+            fds_uint64_t  uuid;
+            std::string   path, dev;
+            if (!map.eof()) {
+                map >> dev >> idx >> std::hex >> uuid >> std::dec >> path;
+                if (!map.fail()) {
+                    // we have at least one device in disk map, assuming
+                    // devices already setup by platform
+                    GLOGDEBUG << "Looks like disk-map already setup, will use it";
+                    return false;
+                }
+            }
+        }
+        GLOGDEBUG << "Will create fake disk map for testing";
+        cleanFdsTestDev(dir);  // clean dirs just in case
+
+        FdsRootDir::fds_mkdir(dir->dir_dev().c_str());
+        std::ofstream omap(diskmapPath,
+                           std::ofstream::out | std::ofstream::trunc);
+        int idx = 0;
+        for (fds_uint32_t i = 0; i < simHddCount; ++i) {
+            fds_uint64_t uuid = idx + 1234;
+            std::string path = devDir + "hdd-test-" + std::to_string(idx);
+            omap << path.c_str() << " " << idx << " "
+                 << std::hex << uuid << std::dec
+                 << " " << path.c_str()  << "\n";
+            ++idx;
+            GLOGNORMAL << "Creating disk "<< path;
+            FdsRootDir::fds_mkdir(path.c_str());
+        }
+        for (fds_uint32_t i = 0; i < simSsdCount; ++i) {
+            fds_uint64_t uuid = idx + 12340;
+            std::string path = devDir + "ssd-test-" + std::to_string(idx);
+            omap << path.c_str() << " " << idx << " "
+                 << std::hex << uuid << std::dec
+                 << " " << path.c_str()  << "\n";
+            ++idx;
+            GLOGNORMAL << "Creating disk "<< path;
+            FdsRootDir::fds_mkdir(path.c_str());
+        }
+        return true;
+    }
     static void getDiskMap(
         const FdsRootDir *dir,
         std::unordered_map<fds_uint16_t, std::string>* diskMap) {
@@ -55,20 +114,29 @@ class SmUtUtils {
             (*diskMap)[idx] = path;
         }
     }
+    static void cleanFdsTestDev(const FdsRootDir* dir) {
+        // remove test dev dirs and disk-map from  <fds-root>/dev
+        const std::string rm_dev = "rm -rf " + dir->dir_dev() + "*-test-*";
+        int ret = std::system((const char *)rm_dev.c_str());
+        const std::string rm_diskmap = "rm -rf " + dir->dir_dev() + "disk-map";
+        ret = std::system((const char *)rm_diskmap.c_str());
+    }
     static void cleanFdsDev(const FdsRootDir* dir) {
         std::unordered_map<fds_uint16_t, std::string> diskMap;
         std::unordered_map<fds_uint16_t, std::string>::const_iterator cit;
         SmUtUtils::getDiskMap(dir, &diskMap);
         // remove token data and meta, and superblock
         for (cit = diskMap.cbegin(); cit != diskMap.cend(); ++cit) {
-            const std::string rm_base = "rm -rf  " + cit->second;
+            const std::string rm_base = "rm -rf " + cit->second;
             // remove token files
             const std::string rm_data = rm_base + "//tokenFile*";;
             int ret = std::system((const char *)rm_data.c_str());
             // remove levelDB files
             const std::string rm_meta = rm_base + "//SNodeObjIndex_*";;
             ret = std::system((const char *)rm_meta.c_str());
-            // TODO(Anna) remove superblock
+            // remove superblock
+            const std::string rm_sb = rm_base + "/SmSuper*";
+            ret = std::system((const char *)rm_sb.c_str());
         }
     }
 };
