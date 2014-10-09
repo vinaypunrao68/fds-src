@@ -51,6 +51,9 @@ fds_dev_packages = %w[
   fds-pkgtools
   fds-systemdir
   fds-coredump
+  npm
+  ruby
+  ruby-sass 
   python-paramiko
   python-redis
   python-requests
