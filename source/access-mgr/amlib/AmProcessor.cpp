@@ -165,7 +165,11 @@ AmProcessor::getBlobCb(AmQosReq *qosReq, const Error& error) {
 
     GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb);
 
-    // TODO(Andrew): Update the AM's blob object cache here
+    if (ERR_OK == error) {
+        // TODO(bszmyd): Thu 09 Oct 2014 04:30:52 PM MDT
+        // We have successfully retrieved the BLOB, let's stick it in the cache
+        // if it didn't already exist there (call is idempotent).
+    }
 
     // Tell QoS the request is done
     qosCtrl->markIODone(qosReq);
