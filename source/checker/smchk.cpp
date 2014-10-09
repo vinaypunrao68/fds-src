@@ -61,7 +61,6 @@ namespace fds {
             std::string path(smDiskMap->getDiskPath(*cit, diskio::diskTier));
             rev_map[path].push_back(*cit);
         }
-        std::cout << "HIT HERE";
         for (auto entry : rev_map) {
             std::cout << "PATH: " << entry.first << "\n";
             for (auto val : entry.second) {
@@ -71,60 +70,20 @@ namespace fds {
     }
 
     void SMChk::list_metadata() {
-        SmTokenSet all_toks = getSmTokens();
-
-        boost::shared_ptr<ObjMetaData> omd;
-        leveldb::ReadOptions options;
-
-        for (auto token : all_toks) {
-            leveldb::DB *ldb;
-            leveldb::Iterator *it;
-
-            GLOGNORMAL << "Reading metadata db for SM token " << token << "\n";
-            smMdDb->snapshot(token, ldb, options);
-            it = ldb->NewIterator(options);
-            for (it->SeekToFirst(); it->Valid(); it->Next()) {
-                omd = boost::shared_ptr<ObjMetaData>(new ObjMetaData());
-                omd->deserializeFrom(it->value());
-
-                std::cout << *omd << "\n";
-
-                // omd will auto delete when it goes out of scope
-            }
-            ldb->ReleaseSnapshot(options.snapshot);
-            // Delete ldb and it
-            delete it;
-            delete ldb;
+        MetadataIterator md_iter(this);
+        for (md_iter.start(); !md_iter.end(); md_iter.next()) {
+            std::cout << *(md_iter.value()) << "\n";
         }
     }
 
     int SMChk::bytes_reclaimable() {
-        SmTokenSet all_toks = getSmTokens();
         int bytes = 0;
-
-        boost::shared_ptr<ObjMetaData> omd;
-        leveldb::ReadOptions options;
-
-        for (auto token : all_toks) {
-            leveldb::DB *ldb;
-            leveldb::Iterator *it;
-
-            GLOGNORMAL << "Reading metadata db for SM token " << token << "\n";
-            smMdDb->snapshot(token, ldb, options);
-            it = ldb->NewIterator(options);
-            for (it->SeekToFirst(); it->Valid(); it->Next()) {
-                omd = boost::shared_ptr<ObjMetaData>(new ObjMetaData());
-                omd->deserializeFrom(it->value());
-
-                if (omd->getRefCnt() == 0) {
-                    bytes += omd->getObjSize();
-                }
-                // omd will auto delete when it goes out of scope
+        MetadataIterator md_it(this);
+        for (md_it.start(); !md_it.end(); md_it.next()) {
+            boost::shared_ptr<ObjMetaData> omd = md_it.value();
+            if (omd->getRefCnt() == 0) {
+                bytes += omd->getObjSize();
             }
-            ldb->ReleaseSnapshot(options.snapshot);
-            // Delete ldb and it
-            delete it;
-            delete ldb;
         }
         std::cout << "Found " << bytes << " bytes reclaimable.\n";
         return bytes;
@@ -133,56 +92,33 @@ namespace fds {
     bool SMChk::full_consistency_check() {
         int error_count = 0;
         int objs_count = 0;
-        // Token stuffs
-        SmTokenSet all_toks = getSmTokens();
+        MetadataIterator md_it(this);
+        for (md_it.start(); !md_it.end(); md_it.next()) {
+            const ObjectID id(md_it.key());
+            boost::shared_ptr<ObjMetaData> omd = md_it.value();
+            fds_uint32_t obj_size = omd->getObjSize();
 
-        boost::shared_ptr<ObjMetaData> omd;
-        leveldb::ReadOptions options;
+            // Get object
+            Error err(ERR_OK);
+            boost::shared_ptr<const std::string> dataPtr
+                    = smObjStore->getObjectData(invalid_vol_id, id, omd, err);
 
-        for (auto token : all_toks) {
-            leveldb::DB *ldb;
-            leveldb::Iterator *it;
+            // Get hash of data
+            ObjectID hashId = ObjIdGen::genObjectId((*dataPtr).c_str(),
+                    static_cast<size_t>(obj_size));
 
-            GLOGNORMAL << "Reading metadata db for SM token " << token << "\n";
-            smMdDb->snapshot(token, ldb, options);
-            it = ldb->NewIterator(options);
-            for (it->SeekToFirst(); it->Valid(); it->Next()) {
-                const ObjectID id(it->key().ToString());
+            GLOGDEBUG << "Hasher found: " << hashId
+                        << " and objId was: " << id << "\n";
 
-                omd = boost::shared_ptr<ObjMetaData>(new ObjMetaData());
-                omd->deserializeFrom(it->value());
-
-                fds_uint32_t obj_size = omd->getObjSize();
-
-                GLOGDEBUG << *omd << "\n" << "Disk Path: "
-                            << smDiskMap->getDiskPath(token, diskio::diskTier);
-
-                // Get object
-                Error err(ERR_OK);
-                boost::shared_ptr<const std::string> dataPtr
-                        = smObjStore->getObjectData(invalid_vol_id, id, omd, err);
-
-                // Get hash of data
-                ObjectID hashId = ObjIdGen::genObjectId((*dataPtr).c_str(),
-                        static_cast<size_t>(obj_size));
-
-                GLOGDEBUG << "Hasher found: " << hashId
-                            << " and objId was: " << id << "\n";
-
-                // Compare hash to objID
-                if (hashId != id) {
-                    std::cout << "An error was found with " << id << "\n";
-                    GLOGNORMAL << id << " corrupt!\n";
-                    error_count++;
-                }
-                // Increment the number of objects we've checked
-                objs_count++;
-                // omd will auto delete when it goes out of scope
+            // Compare hash to objID
+            if (hashId != id) {
+                std::cout << "An error was found with " << id << "\n";
+                GLOGNORMAL << id << " corrupt!\n";
+                error_count++;
             }
-            ldb->ReleaseSnapshot(options.snapshot);
-            // Delete ldb and it
-            delete it;
-            delete ldb;
+            // Increment the number of objects we've checked
+            objs_count++;
+            // omd will auto delete when it goes out of scope
         }
         GLOGNORMAL << objs_count << " objects checked, " << error_count << " errors were found.\n";
         if (error_count > 0) {
@@ -193,11 +129,10 @@ namespace fds {
         std::cout << "SUCCESS! " << objs_count << " objects checked; no errors found.\n";
         return true;
     }
-    // ---------------------- MetadataIterator -------------------------------- //
-#if 0
-    SMChk::MetadataIterator::MetadataIterator(SMChk * instance) {
-        GLOGDEBUG << "MetadataIterator init";
 
+    // ---------------------- MetadataIterator -------------------------------- //
+
+    SMChk::MetadataIterator::MetadataIterator(SMChk * instance) {
         smchk = instance;
         ldb = nullptr;
         ldb_it = nullptr;
@@ -206,38 +141,48 @@ namespace fds {
 
     void SMChk::MetadataIterator::start() {
         token_it = all_toks.begin();
+        GLOGNORMAL << "Reading metadata db for SM token " << *token_it << "\n";
         smchk->smMdDb->snapshot(*token_it, ldb, options);
         ldb_it = ldb->NewIterator(options);
+        ldb_it->SeekToFirst();
+        if (!ldb_it->Valid()) {
+            next();
+        }
     }
 
     bool SMChk::MetadataIterator::end() {
         if (token_it == all_toks.end()) {
-            return true;
+            if (!ldb_it->Valid()) {
+                return true;
+            }
         }
         return false;
     }
 
     void SMChk::MetadataIterator::next() {
-        if (!ldb_it->Valid()) {
-            while (ldb_it == nullptr || !(ldb_it->Valid())) {
-                // No leveldb open or iterator invalid
-                if (ldb != nullptr) {
-                    ldb->ReleaseSnapshot(options.snapshot);
-                }
-                delete ldb_it;
-                delete ldb;
-
-                GLOGDEBUG << "Moving to next token in iterator.";
-                // Move to the next token
-                ++token_it;
-                if (token_it == all_toks.end()) {return;}
-                // Open levelDB, create new levelDB iterator
-                smchk->smMdDb->snapshot(*token_it, ldb, options);
-                ldb_it = ldb->NewIterator(options);
-            }
-        } else {
+        // If we're currently valid, lets try to call next
+        if (ldb_it->Valid()) {
             ldb_it->Next();
         }
+        // If we're no longer valid (or never were, keep moving until we are)
+        while (!ldb_it->Valid()) {
+            // Moving to next was invalid so we must increase token iterator
+            ++token_it;
+            if (end()) { return; }
+
+            delete ldb_it;
+            delete ldb;
+
+            // Create new from new token
+            GLOGNORMAL << "Reading metadata db for SM token " << *token_it << "\n";
+            smchk->smMdDb->snapshot(*token_it, ldb, options);
+            ldb_it = ldb->NewIterator(options);
+            ldb_it->SeekToFirst();
+        }
+    }
+
+    std::string SMChk::MetadataIterator::key() {
+        return ldb_it->key().ToString();
     }
 
     boost::shared_ptr<ObjMetaData> SMChk::MetadataIterator::value() {
@@ -248,7 +193,8 @@ namespace fds {
         }
         return omd;
     }
-#endif
+
+
 
     SMChkDriver::SMChkDriver(int argc, char *argv[],
             const std::string &config,
@@ -281,7 +227,10 @@ namespace fds {
                         "Print paths by token.")
                 ("list-metadata,p",
                         po::bool_switch()->default_value(false),
-                        "Print all metadata.");
+                        "Print all metadata.")
+                ("gc,g",
+                        po::bool_switch()->default_value(false),
+                        "Calculate and print bytes reclaimable by garbage collector.");
 
         po::variables_map vm;
         po::parsed_options parsed =
@@ -302,6 +251,8 @@ namespace fds {
             cmd = RunFunc::PRINT_PATH_BY_TOK;
         } else if (vm["list-metadata"].as<bool>()) {
             cmd = RunFunc::PRINT_MD;
+        } else if (vm["gc"].as<bool>()) {
+            cmd = RunFunc::CALC_BYTES_RECLAIMABLE;
         } else {
             cmd = RunFunc::FULL_CHECK;
         }

@@ -35,6 +35,7 @@ namespace fds {
         int  bytes_reclaimable();
         // bool consistency_check(ObjectId obj_id);  // test a single object
 
+
     protected:
         // Data
         int sm_count;
@@ -45,7 +46,6 @@ namespace fds {
         // Methods
         SmTokenSet getSmTokens();
 
-#if 0
         class MetadataIterator {
         public:
             MetadataIterator(SMChk * instance);
@@ -53,6 +53,7 @@ namespace fds {
             bool end();
             void start();
             MdPtr value();
+            std::string key();
             void next();
         private:
             SMChk * smchk;
@@ -66,7 +67,6 @@ namespace fds {
 
             MdPtr omd;
         };
-#endif
     };
 
     class SMChkDriver : public FdsProcess {
