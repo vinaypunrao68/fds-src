@@ -54,7 +54,8 @@ ADD resources/tmux.conf /home/pairing/.tmux.conf
 RUN mkdir -p /home/pairing/projects /home/pairing/.ssh
 ADD resources/ssh/id_rsa-fds-src /home/pairing/.ssh/id_rsa-fds-src
 ADD resources/ssh/github-config /home/pairing/.ssh/config
-RUN chmod 600 /home/pairing/.ssh/id_rsa-fds-src
+RUN sudo chown pairing /home/pairing/.ssh/id_rsa-fds-src
+RUN sudo chmod 600 /home/pairing/.ssh/id_rsa-fds-src
 RUN git clone git@fds-src.github.com:FDS-Dev/fds-src.git /home/pairing/projects/fds-src
 
 WORKDIR /home/pairing/projects/fds-src/source
