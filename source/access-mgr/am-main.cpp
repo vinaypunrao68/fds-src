@@ -7,6 +7,7 @@
 #include <native_api.h>
 #include <am-platform.h>
 #include <net/net-service.h>
+#include <AccessMgr.h>
 
 extern void CreateSHMode(int argc,
                          char *argv[],
@@ -32,22 +33,19 @@ class AMMain : public PlatformProcess
         PlatformProcess::proc_pre_startup();
 
         argv = mod_vectors_->mod_argv(&argc);
-        CreateSHMode(argc, argv, false, 0 , 0);
-        gl_FdsnServer.init_server();
+        am = AccessMgr::unique_ptr(new AccessMgr("AMMain AM Module",
+                                                 this));
     }
     int run() override {
-        gl_FdsnServer.deinit_server();
+        am->run();
         return 0;
     }
+
+  private:
+    AccessMgr::unique_ptr am;
 };
 
 }  // namespace fds
-
-extern "C" {
-    extern void CreateStorHvisorS3(int argc, char *argv[]);
-}
-
-int am_gdb = 1;
 
 int main(int argc, char **argv)
 {
@@ -55,10 +53,8 @@ int main(int argc, char **argv)
         &fds::gl_fds_stat,
         &fds::gl_AmPlatform,
         &fds::gl_NetService,
-        &fds::gl_FdsnServer,
         nullptr
     };
-    while (am_gdb == 0) { sleep(1); }
 
     fds::AMMain amMain(argc, argv, &fds::gl_AmPlatform, am_mod_vec);
     return amMain.main();

@@ -10,6 +10,7 @@
 #include <native_api.h>
 #include <apis/AmService.h>
 #include <concurrency/Thread.h>
+#include <AmDataApi.h>
 
 #include <arpa/inet.h>
 #include <thrift/concurrency/ThreadManager.h>
@@ -39,8 +40,7 @@ class FdsnIf;
 class FdsnServer : public Module {
   private:
     fds_uint32_t             port;
-    typedef boost::shared_ptr<FdsnIf> FdsnIfPtr;
-    FdsnIfPtr fdsnInterface;
+    AmDataApi::shared_ptr dataApi;
     fds_uint32_t numFdsnThreads;
 
     /*
@@ -59,10 +59,11 @@ class FdsnServer : public Module {
     boost::shared_ptr<boost::thread> listen_thread;
 
   public:
-    explicit FdsnServer(const std::string &name);
+    explicit FdsnServer(const std::string &name,
+                        AmDataApi::shared_ptr &_dataApi);
     virtual ~FdsnServer() {
     }
-    typedef boost::shared_ptr<FdsnServer> ptr;
+    typedef std::unique_ptr<FdsnServer> unique_ptr;
 
     int  mod_init(SysParams const *const param);
     void mod_startup();
@@ -71,8 +72,6 @@ class FdsnServer : public Module {
     virtual void init_server();
     virtual void deinit_server();
 };
-
-extern FdsnServer gl_FdsnServer;
 
 }  // namespace fds
 
