@@ -117,22 +117,6 @@ Error& Error::operator=(const fds_errno_t& rhs) {
     return *this;
 }
 
-bool Error::operator==(const Error& rhs) const {
-    return (this->_errno == rhs._errno);
-}
-
-bool Error::operator==(const fds_errno_t& rhs) const {
-    return (this->_errno == rhs);
-}
-
-bool Error::operator!=(const Error& rhs) const {
-    return !(*this == rhs);
-}
-
-bool Error::operator!=(const fds_errno_t& rhs) const {
-    return !(*this == rhs);
-}
-
 Error::~Error() {
 }
 

@@ -214,10 +214,9 @@ namespace fds {
 
         Error& operator=(const fds_errno_t& rhs);
 
-        bool operator==(const Error& rhs) const;
-        bool operator==(const fds_errno_t& rhs) const;
-        bool operator!=(const Error& rhs) const;
-        bool operator!=(const fds_errno_t& rhs) const;
+        friend bool operator==(const Error& lhs, const Error& rhs);
+        friend bool operator!=(const Error& lhs, const Error& rhs);
+
         ~Error();
     };
 
@@ -227,6 +226,14 @@ namespace fds {
 
     FDSN_Status getStatusFromError(const Error& error);
     std::string toString(FDSN_Status status);
+
+    inline bool operator==(const Error& lhs, const Error& rhs) {
+        return (lhs._errno == rhs._errno);
+    }
+
+    inline bool operator!=(const Error& lhs, const Error& rhs) {
+        return !(lhs == rhs);
+    }
 
 }  // namespace fds
 
