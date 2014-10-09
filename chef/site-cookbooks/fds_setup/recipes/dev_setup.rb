@@ -103,7 +103,7 @@ fds_dev_python_packages.each do |pkg|
 end
 
 link "/usr/lib/jvm/java-8-oracle" do
-  notif "test -d /usr/lib/jvm/java-8-oracle"
+  not_if "test -d /usr/lib/jvm/java-8-oracle"
   to "/usr/lib/jvm/java-8-oracle-amd64"
 end
 
