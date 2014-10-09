@@ -869,4 +869,15 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volume_id,
     return err;
 }
 
+//
+// This function returns  the  vvc meta data size.
+//
+
+fds_uint32_t
+DmVolumeCatalog::getVvcMetaSize(fds_volid_t volume_id) {
+     // TODO(Sanjay) will fill in, once we have the new scale up design
+     // in place. For now return the some value.
+     return 1024;
+}
+
 }  // namespace fds

@@ -94,12 +94,15 @@ def bringup_cluster(env, verbose, debug):
 ###
 # exit the test, shutdown if requested
 #
-def exit_test(env, shutdown):
-    print "Test Passed, cleaning up..."
+def exit_test(env, shutdown, returncode):
+    if returncode == 0:
+        print "Test Passed, cleaning up..."
+    else:
+        print "Test Failed, cleaning up..."
 
     if shutdown:
         env.cleanup()
-    sys.exit(0)
+    sys.exit(returncode)
 
 #########################################################################################
 ###
@@ -107,7 +110,7 @@ def exit_test(env, shutdown):
 #
 def testsuite_pre_commit(am_ip):
     os.chdir(env.srcdir + '/Build/linux-x86_64.debug/tools')
-    subprocess.call("./smokeTest " + am_ip, shell=True)
+    return subprocess.call("./smokeTest " + am_ip, shell=True)
 
 #########################################################################################
 if __name__ == "__main__":
@@ -180,10 +183,10 @@ if __name__ == "__main__":
     # run make precheckin and exit
     #
     if args.smoke_test == 'false':
-        testsuite_pre_commit(am_ip)
-        exit_test(env, shutdown)
+        returncode = testsuite_pre_commit(am_ip)
+        exit_test(env, shutdown, returncode)
 
     ###
     # clean exit
     #
-    exit_test(env, shutdown)
+    exit_test(env, shutdown, 0)

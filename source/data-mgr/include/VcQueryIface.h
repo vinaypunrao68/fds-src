@@ -100,6 +100,10 @@ class VolumeCatalogQueryIface {
     virtual Error deleteBlob(fds_volid_t volume_id,
                      const std::string& blob_name,
                      blob_version_t blob_version) = 0;
+    /**
+     * get  vvc mata size
+     */
+     virtual fds_uint32_t  getVvcMetaSize(fds_volid_t volume_id) = 0;
 };
 
 }  // namespace fds
