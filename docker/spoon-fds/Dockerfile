@@ -50,15 +50,18 @@ RUN git clone https://github.com/adnichols/tmux-and-vim.git /home/pairing/.janus
 RUN bash -l -c /home/pairing/.janus/setup/setup.sh
 ADD resources/zshrc.default /home/pairing/.zshrc
 ADD resources/tmux.conf /home/pairing/.tmux.conf
-#ADD resources/clone-fds-src.sh /home/pairing/clone-fds-src.sh
 
-RUN mkdir /home/pairing/projects
-RUN git clone https://0e02efff0ef46f7a2002decdca4912db60153ba6@github.com/fds-dev/fds-src.git /home/pairing/projects/fds-src
+RUN mkdir -p /home/pairing/projects /home/pairing/.ssh
+ADD resources/ssh/id_rsa-fds-src /home/pairing/.ssh/id_rsa-fds-src
+ADD resources/ssh/github-config /home/pairing/.ssh/config
+RUN chmod 600 /home/pairing/.ssh/id_rsa-fds-src
+RUN git clone git@fds-src.github.com:FDS-Dev/fds-src.git /home/pairing/projects/fds-src
 
 WORKDIR /home/pairing/projects/fds-src/source
 RUN touch ~/.ihaveaswapfile
 RUN make devsetup
 RUN git remote set-url origin https://github.com/fds-dev/fds-src
+RUN rm -f ~/.ssh/*
 
 USER root
 
