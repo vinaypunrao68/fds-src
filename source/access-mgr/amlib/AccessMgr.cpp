@@ -26,7 +26,7 @@ AccessMgr::AccessMgr(const std::string &modName,
     storHvisor->StartOmClient();
     storHvisor->qos_ctrl->runScheduler();
 
-    dataApi = AmDataApi::shared_ptr(new AmDataApi());
+    dataApi = boost::make_shared<AmDataApi>();
 
     // Init the FDSN server to serve XDI data requests
     fdsnServer = FdsnServer::unique_ptr(new FdsnServer("AM FDSN Server", dataApi));

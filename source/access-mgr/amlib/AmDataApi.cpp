@@ -17,35 +17,35 @@ AmDataApi::AmDataApi()
           io_log_interval(100) {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
     testUturnAll = conf.get_abs<bool>("fds.am.testing.uturn_amserv_all");
-    if (testUturnAll == true) {
+    if (true == testUturnAll) {
         LOGDEBUG << "Enabling uturn testing for all AM service APIs";
     }
     testUturnStartTx = conf.get_abs<bool>("fds.am.testing.uturn_amserv_starttx");
-    if (testUturnStartTx == true) {
+    if (true == testUturnStartTx) {
         LOGDEBUG << "Enabling uturn testing for AM service start tx API";
     }
     testUturnUpdateBlob = conf.get_abs<bool>("fds.am.testing.uturn_amserv_updateblob");
-    if (testUturnUpdateBlob == true) {
+    if (true == testUturnUpdateBlob) {
         LOGDEBUG << "Enabling uturn testing for AM service update blob API";
     }
     testUturnUpdateMeta = conf.get_abs<bool>("fds.am.testing.uturn_amserv_updatemeta");
-    if (testUturnUpdateMeta == true) {
+    if (true == testUturnUpdateMeta) {
         LOGDEBUG << "Enabling uturn testing for AM service update metadata API";
     }
     testUturnCommitTx = conf.get_abs<bool>("fds.am.testing.uturn_amserv_committx");
-    if (testUturnCommitTx == true) {
+    if (true == testUturnCommitTx) {
         LOGDEBUG << "Enabling uturn testing for AM service commit tx API";
     }
     testUturnAbortTx = conf.get_abs<bool>("fds.am.testing.uturn_amserv_aborttx");
-    if (testUturnAbortTx == true) {
+    if (true == testUturnAbortTx) {
         LOGDEBUG << "Enabling uturn testing for AM service abort tx API";
     }
     testUturnStatBlob = conf.get_abs<bool>("fds.am.testing.uturn_amserv_statblob");
-    if (testUturnStatBlob == true) {
+    if (true == testUturnStatBlob) {
         LOGDEBUG << "Enabling uturn testing for AM service stat blob API";
     }
     testUturnGetBlob = conf.get_abs<bool>("fds.am.testing.uturn_amserv_getblob");
-    if (testUturnGetBlob == true) {
+    if (true == testUturnGetBlob) {
         LOGDEBUG << "Enabling uturn testing for AM service get blob API";
     }
 }
@@ -134,8 +134,8 @@ AmDataApi::statBlob(apis::BlobDescriptor& _return,
                     boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName) {
-    if ((testUturnAll == true) ||
-        (testUturnStatBlob == true)) {
+    if ((true == testUturnAll) ||
+        (true == testUturnStatBlob)) {
         LOGDEBUG << "Uturn testing stat blob";
         _return.name = *blobName;
         _return.byteCount = 0;
@@ -166,8 +166,8 @@ AmDataApi::startBlobTx(apis::TxDescriptor& _return,
                        boost::shared_ptr<std::string>& volumeName,
                        boost::shared_ptr<std::string>& blobName,
                        boost::shared_ptr<fds_int32_t>& blobMode) {
-    if ((testUturnAll == true) ||
-        (testUturnStartTx == true)) {
+    if ((true == testUturnAll) ||
+        (true == testUturnStartTx)) {
         LOGDEBUG << "Uturn testing start blob tx";
         return;
     }
@@ -199,8 +199,8 @@ AmDataApi::commitBlobTx(boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<std::string>& blobName,
                         boost::shared_ptr<apis::TxDescriptor>& txDesc) {
-    if ((testUturnAll == true) ||
-        (testUturnCommitTx == true)) {
+    if ((true == testUturnAll) ||
+        (true == testUturnCommitTx)) {
         LOGDEBUG << "Uturn testing commit blob tx";
         return;
     }
@@ -243,8 +243,8 @@ AmDataApi::abortBlobTx(boost::shared_ptr<std::string>& domainName,
                        boost::shared_ptr<std::string>& volumeName,
                        boost::shared_ptr<std::string>& blobName,
                        boost::shared_ptr<apis::TxDescriptor>& txDesc) {
-    if ((testUturnAll == true) ||
-        (testUturnAbortTx == true)) {
+    if ((true == testUturnAll) ||
+        (true == testUturnAbortTx)) {
         LOGDEBUG << "Uturn testing abort blob tx";
         return;
     }
@@ -283,8 +283,8 @@ AmDataApi::getBlob(std::string& _return,
                    boost::shared_ptr<std::string>& blobName,
                    boost::shared_ptr<int32_t>& length,
                    boost::shared_ptr<apis::ObjectOffset>& objectOffset) {
-    if ((testUturnAll == true) ||
-        (testUturnGetBlob == true)) {
+    if ((true == testUturnAll) ||
+        (true == testUturnGetBlob)) {
         LOGDEBUG << "Uturn testing get blob";
         return;
     }
@@ -351,8 +351,8 @@ AmDataApi::updateMetadata(boost::shared_ptr<std::string>& domainName,
                           boost::shared_ptr<std::string>& blobName,
                           boost::shared_ptr<apis::TxDescriptor>& txDesc,
                           boost::shared_ptr< std::map<std::string, std::string> >& metadata) {
-    if ((testUturnAll == true) ||
-        (testUturnUpdateMeta == true)) {
+    if ((true == testUturnAll) ||
+        (true == testUturnUpdateMeta)) {
         LOGDEBUG << "Uturn testing update metadata";
         return;
     }
@@ -404,8 +404,8 @@ AmDataApi::updateBlobOnce(boost::shared_ptr<std::string>& domainName,
                           boost::shared_ptr<int32_t>& length,
                           boost::shared_ptr<apis::ObjectOffset>& objectOffset,
                           boost::shared_ptr< std::map<std::string, std::string> >& metadata) {
-    if ((testUturnAll == true) ||
-        (testUturnUpdateBlob == true)) {
+    if ((true == testUturnAll) ||
+        (true == testUturnUpdateBlob)) {
         LOGDEBUG << "Uturn testing update blob";
         return;
     }
@@ -469,8 +469,8 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<int32_t>& length,
                       boost::shared_ptr<apis::ObjectOffset>& objectOffset,
                       boost::shared_ptr<bool>& isLast) {
-    if ((testUturnAll == true) ||
-        (testUturnUpdateBlob == true)) {
+    if ((true == testUturnAll) ||
+        (true == testUturnUpdateBlob)) {
         LOGDEBUG << "Uturn testing update blob";
         return;
     }
