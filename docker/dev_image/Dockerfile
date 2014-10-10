@@ -2,7 +2,7 @@ FROM coke.formationds.com:5000/spoon-base
 MAINTAINER Aaron Nichols <aaron@formationds.com>
 #
 USER pairing
-RUN mkdir -p /home/pairing/projects /home/pairing/.ssh
+RUN mkdir -p /home/pairing/.ssh /home/pairing/projects
 ADD resources/ssh/id_rsa-fds-src /home/pairing/.ssh/id_rsa-fds-src
 ADD resources/ssh/github-config /home/pairing/.ssh/config
 USER root

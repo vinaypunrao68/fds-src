@@ -42,7 +42,6 @@ RUN echo "pairing:pairing" | chpasswd
 RUN echo "pairing        ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 USER pairing
-RUN mkdir -p /home/pairing/.ssh /home/pairing/projects
 RUN git clone https://github.com/robbyrussell/oh-my-zsh.git /home/pairing/.oh-my-zsh
 RUN chown -R pairing /home/pairing/.oh-my-zsh
 
@@ -51,7 +50,6 @@ RUN git clone https://github.com/adnichols/tmux-and-vim.git /home/pairing/.janus
 RUN bash -l -c /home/pairing/.janus/setup/setup.sh
 ADD resources/zshrc.default /home/pairing/.zshrc
 ADD resources/tmux.conf /home/pairing/.tmux.conf
-RUN mkdir -p /home/pairing/projects
 
 USER root
 
@@ -65,7 +63,6 @@ RUN mkdir /root/.ssh
 RUN chmod 700 /root/.ssh
 ADD resources/ssh/id_rsa.pub /root/.ssh/authorized_keys
 ADD resources/ssh/config /root/.ssh/config
-RUN chown pairing /home/pairing/projects
 RUN chmod u+s /usr/bin/sudo
 
 
