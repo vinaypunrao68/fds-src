@@ -232,5 +232,8 @@ namespace fds {
         void checkSize();
         fds_uint8_t maxDlts;
     };
+
+    typedef boost::shared_ptr<DLTManager> DLTManagerPtr;
+
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_DLT_H_

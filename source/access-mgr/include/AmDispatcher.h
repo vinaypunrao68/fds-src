@@ -6,6 +6,7 @@
 
 #include <string>
 #include <fds_module.h>
+#include <AmCache.h>
 #include <StorHvVolumes.h>
 #include <net/SvcRequest.h>
 
@@ -27,6 +28,7 @@ class AmDispatcher : public Module, public boost::noncopyable {
      * iterface with platform lib.
      */
     AmDispatcher(const std::string &modName,
+                 DLTManagerPtr _dltMgr,
                  DMTManagerPtr _dmtMgr);
     ~AmDispatcher();
     typedef std::unique_ptr<AmDispatcher> unique_ptr;
@@ -52,13 +54,37 @@ class AmDispatcher : public Module, public boost::noncopyable {
                        const Error& error,
                        boost::shared_ptr<std::string> payload);
 
+    /**
+     * Dipatches a start blob transaction request.
+     */
+    void dispatchGetObject(AmQosReq *qosReq);
+
+    void dispatchQueryCatalog(AmQosReq *qosReq);
+
   private:
-    /// Shared ptr to the DMT manager used for deciding who
-    /// to dispatch to
+    /// Shared ptrs to the DLT and DMT managers used
+    /// for deciding who to dispatch to
+    DLTManagerPtr dltMgr;
     DMTManagerPtr dmtMgr;
 
     /// Uturn test all network requests
     fds_bool_t uturnAll;
+
+    /**
+     * Callback for get blob responses.
+     */
+    void getObjectCb(AmQosReq* qosReq,
+                     FailoverSvcRequest* svcReq,
+                     const Error& error,
+                     boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for catalog query responses.
+     */
+    void getQueryCatalogCb(AmQosReq* qosReq,
+                           FailoverSvcRequest* svcReq,
+                           const Error& error,
+                           boost::shared_ptr<std::string> payload);
 };
 
 }  // namespace fds

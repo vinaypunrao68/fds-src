@@ -208,7 +208,8 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        fds_log *parent_log,
                        boost::shared_ptr<netSessionTbl> nst,
                        Platform *plf)
-        : dmtMgr(new DMTManager(1)) {
+        : dltMgr(new DLTManager()),
+          dmtMgr(new DMTManager(1)) {
   fds_verify(_omPort != 0);
   my_node_type = node_type;
   omIpStr      = _omIpStr;
@@ -682,9 +683,9 @@ Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
     LOGNOTIFY << "OMClient received new DLT version  " << dlt_type;
 
     omc_lock.write_lock();
-    err = dltMgr.addSerializedDLT(dlt_data,dlt_type);
+    err = dltMgr->addSerializedDLT(dlt_data,dlt_type);
     if (err.ok()) {
-        dltMgr.dump();
+        dltMgr->dump();
     } else {
         LOGERROR << "Failed to update DLT! check dlt_data was set";
     }
@@ -700,9 +701,9 @@ int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
             << dlt_info->dlt_type;
 
     omc_lock.write_lock();
-    err = dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
+    err = dltMgr->addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
     if (err.ok()) {
-        dltMgr.dump();
+        dltMgr->dump();
     } else {
         LOGERROR << "Failed to update DLT! check dlt_data was set";
     }
@@ -839,9 +840,9 @@ Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
             << dlt_info->dlt_type;
 
     omc_lock.write_lock();
-    err = dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
+    err = dltMgr->addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
     if (err.ok()) {
-        dltMgr.dump(); 
+        dltMgr->dump(); 
     } 
     omc_lock.write_unlock();
 
@@ -906,7 +907,7 @@ fds_uint32_t
 OMgrClient::getLatestDlt(std::string& dlt_data) {
     // TODO: Set to a macro'd invalid version
     omc_lock.read_lock();
-    Error err = const_cast <DLT* > (dltMgr.getDLT())->getSerialized(dlt_data);
+    Error err = const_cast <DLT* > (dltMgr->getDLT())->getSerialized(dlt_data);
     fds_verify(err.ok());
     omc_lock.read_unlock();
 
@@ -915,7 +916,7 @@ OMgrClient::getLatestDlt(std::string& dlt_data) {
 
 const DLT* OMgrClient::getCurrentDLT() {
     omc_lock.read_lock();
-    const DLT *dlt = dltMgr.getDLT();
+    const DLT *dlt = dltMgr->getDLT();
     omc_lock.read_unlock();
 
     return dlt;
@@ -924,8 +925,8 @@ const DLT* OMgrClient::getCurrentDLT() {
 const DLT*
 OMgrClient::getPreviousDLT() {
     omc_lock.read_lock();
-    fds_uint64_t version = (dltMgr.getDLT()->getVersion()) - 1;
-    const DLT *dlt = dltMgr.getDLT(version);
+    fds_uint64_t version = (dltMgr->getDLT()->getVersion()) - 1;
+    const DLT *dlt = dltMgr->getDLT(version);
     omc_lock.read_unlock();
 
     return dlt;
@@ -936,7 +937,7 @@ OMgrClient::getDltVersion() {
     // TODO: Set to a macro'd invalid version
     fds_uint64_t version = DLT_VER_INVALID;
     omc_lock.read_lock();
-    version = dltMgr.getDLT()->getVersion();
+    version = dltMgr->getDLT()->getVersion();
     omc_lock.read_unlock();
 
     return version;
@@ -954,7 +955,7 @@ OMgrClient::getNodeType() const {
 
 const TokenList&
 OMgrClient::getTokensForNode(const NodeUuid &uuid) const {
-    return dltMgr.getDLT()->getTokens(uuid);
+    return dltMgr->getDLT()->getTokens(uuid);
 }
 
 fds_uint32_t
@@ -973,13 +974,8 @@ OMgrClient::getMigClient(fds_uint64_t node_id) {
     return clustMap->getMigClient(node_id);
 }
 
-DMTManagerPtr
-OMgrClient::getDmtManager() {
-    return dmtMgr;
-}
-
 DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(const ObjectID &objId) {
- return dltMgr.getDLT()->getNodes(objId);
+ return dltMgr->getDLT()->getNodes(objId);
 
 }
 

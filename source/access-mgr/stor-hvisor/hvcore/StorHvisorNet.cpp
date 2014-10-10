@@ -182,13 +182,14 @@ StorHvCtrl::StorHvCtrl(int argc,
     // Init the AM transaction manager
     amTxMgr = AmTxManager::shared_ptr(new AmTxManager("AM Transaction Manager Module"));
     // Init the AM cache manager
-    amCache = AmCache::unique_ptr(new AmCache("AM Cache Manager Module"));
+    amCache = AmCache::shared_ptr(new AmCache("AM Cache Manager Module"));
 
     // Init the dispatcher layer
     // TODO(Andrew): Decide if AM or AmProcessor should own
     // this layer.
     amDispatcher = AmDispatcher::shared_ptr(
         new AmDispatcher("AM Dispatcher Module",
+                         om_client->getDltManager(),
                          om_client->getDmtManager()));
     // Init the processor layer
     amProcessor = AmProcessor::unique_ptr(
@@ -196,7 +197,8 @@ StorHvCtrl::StorHvCtrl(int argc,
                         amDispatcher,
                         qos_ctrl,
                         vol_table,
-                        amTxMgr));
+                        amTxMgr,
+                        amCache));
 
     chksumPtr =  new checksum_calc();
 
