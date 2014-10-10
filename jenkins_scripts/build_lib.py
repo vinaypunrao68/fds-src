@@ -16,7 +16,7 @@ def shell_retry(cmd, max_retry = 5):
             break
 
 def create_lockfiles():
-    for file in [ "/tmp/.devsetup.chk", "/home/pairing/.ihaveaswapfile" ]:
+    for file in [ "/tmp/.devsetup.chk", os.environ["HOME"] + "/.ihaveaswapfile" ]:
         touch(file)
 
 def touch(fname):
