@@ -70,15 +70,15 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
 
     getReq->response_cb = std::bind(
-            &SMSvcHandler::getObjectCb, this,
-            asyncHdr,
-            std::placeholders::_1, std::placeholders::_2);
+        &SMSvcHandler::getObjectCb, this,
+        asyncHdr,
+        std::placeholders::_1, std::placeholders::_2);
 
     err = objStorMgr->enqueueMsg(getReq->getVolId(), getReq);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
-                << err;
+                 << err;
         getObjectCb(asyncHdr, err, getReq);
     }
 }
@@ -153,15 +153,15 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     putReq->opQoSWaitCtx.reset_volid(putObjMsg->volume_id);
 
     putReq->response_cb= std::bind(
-            &SMSvcHandler::putObjectCb, this,
-            asyncHdr,
-            std::placeholders::_1, std::placeholders::_2);
+        &SMSvcHandler::putObjectCb, this,
+        asyncHdr,
+        std::placeholders::_1, std::placeholders::_2);
 
     err = objStorMgr->enqueueMsg(putReq->getVolId(), putReq);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoPutObjectReq to StorMgr.  Error: "
-                << err;
+                 << err;
         putObjectCb(asyncHdr, err, putReq);
     }
 }
@@ -259,8 +259,8 @@ SMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     VolumeDesc vdb(vol_msg->vol_desc);
     FDSP_NotifyVolFlag vol_flag = vol_msg->vol_flag;
     GLOGNOTIFY << "Received create for vol "
-                       << "[" << std::hex << volumeId << std::dec << ", "
-                       << vdb.getName() << "]";
+               << "[" << std::hex << volumeId << std::dec << ", "
+               << vdb.getName() << "]";
 
     Error err = objStorMgr->regVol(vdb);
     if (err.ok()) {
@@ -270,7 +270,7 @@ SMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
         fds_volid_t queueId = vol->getQueue()->getVolUuid();
         if (!objStorMgr->getQueue(queueId)) {
             err = objStorMgr->regVolQos(queueId, static_cast<FDS_VolumeQueue*>(
-                    vol->getQueue().get()));
+                vol->getQueue().get()));
         }
 
         if (err.ok()) {
@@ -297,12 +297,31 @@ SMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 {
     fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
     std::string volName  = vol_msg->vol_desc.vol_name;
-    GLOGNOTIFY << "Received delete for vol "
-               << "[" << std::hex << volumeId << std::dec << ", "
-               << volName << "]";
-    objStorMgr->quieseceIOsQos(volumeId);
-    objStorMgr->deregVolQos(volumeId);
-    objStorMgr->deregVol(volumeId);
+
+    if (vol_msg->vol_flag == FDSP_NOTIFY_VOL_CHECK_ONLY) {
+        GLOGNOTIFY << "Received del chk for vol "
+                   << "[" << volumeId
+                   <<  ":" << volName << "]";
+    } else  {
+        GLOGNOTIFY << "Received delete for vol "
+                   << "[" << std::hex << volumeId << std::dec << ", "
+                   << volName << "]";
+
+        // wait for queue to be empty.
+        fds_uint32_t qSize = objStorMgr->qosCtrl->queueSize(volumeId);
+        int count = 0;
+        while (qSize > 0) {
+            LOGWARN << "wait for delete - q not empty for vol:" << volumeId
+                    << " size:" << qSize
+                    << " waited for [" << ++count << "] secs";
+            usleep(1*1000*1000);
+            qSize = objStorMgr->qosCtrl->queueSize(volumeId);
+        }
+
+        objStorMgr->quieseceIOsQos(volumeId);
+        objStorMgr->deregVolQos(volumeId);
+        objStorMgr->deregVol(volumeId);
+    }
     hdr->msg_code = 0;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), *vol_msg);
 }
@@ -318,8 +337,8 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     fds_volid_t volumeId = vol_msg->vol_desc.volUUID;
     VolumeDesc vdbc(vol_msg->vol_desc), * vdb = &vdbc;
     GLOGNOTIFY << "Received modify for vol "
-                       << "[" << std::hex << volumeId << std::dec << ", "
-                       << vdb->getName() << "]";
+               << "[" << std::hex << volumeId << std::dec << ", "
+               << vdb->getName() << "]";
 
     StorMgrVolume * vol = objStorMgr->getVol(volumeId);
     fds_assert(vol != NULL);
@@ -330,7 +349,7 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 
     vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
     err = objStorMgr->modVolQos(vol->getVolId(),
-                                     vdb->iops_min, vdb->iops_max, vdb->relativePrio);
+                                vdb->iops_min, vdb->iops_max, vdb->relativePrio);
     if ( !err.ok() )  {
         GLOGERROR << "Modify volume policy failed for vol " << vdb->getName()
                   << std::hex << volumeId << std::dec << " error: "
@@ -376,7 +395,7 @@ SMSvcHandler::TierPolicyAudit(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 }
 
 void SMSvcHandler::addObjectRef(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-        boost::shared_ptr<fpi::AddObjectRefMsg>& addObjRefMsg) {
+                                boost::shared_ptr<fpi::AddObjectRefMsg>& addObjRefMsg) {
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << " " << fds::logString(*addObjRefMsg));
     Error err(ERR_OK);
 
@@ -409,7 +428,7 @@ void SMSvcHandler::addObjectRef(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 }
 
 void SMSvcHandler::addObjectRefCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-        const Error &err, SmIoAddObjRefReq* addObjRefReq) {
+                                  const Error &err, SmIoAddObjRefReq* addObjRefReq) {
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
 
     auto resp = boost::make_shared<fpi::AddObjectRefRspMsg>();
@@ -421,7 +440,7 @@ void SMSvcHandler::addObjectRefCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
 void
 SMSvcHandler::NotifyScavenger(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                 boost::shared_ptr<fpi::CtrlNotifyScavenger> &msg)
+                              boost::shared_ptr<fpi::CtrlNotifyScavenger> &msg)
 {
     LOGNORMAL << " receive scavenger cmd " << msg->scavenger.cmd;
     switch (msg->scavenger.cmd) {
@@ -453,7 +472,7 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 {
     Error err(ERR_OK);
     LOGNOTIFY << "Received new DLT commit version  "
-            << dlt->dlt_data.dlt_type;
+              << dlt->dlt_data.dlt_type;
     err = objStorMgr->omClient->updateDlt(dlt->dlt_data.dlt_type, dlt->dlt_data.dlt_data);
     fds_assert(err.ok());
     objStorMgr->handleDltUpdate();

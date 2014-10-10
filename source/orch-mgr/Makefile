@@ -19,8 +19,8 @@ user_build_dir    := \
 user_fds_ar_libs  := \
     fds-util \
     fds-om-common \
-    fds-om-dlt \
     fds-om-lib \
+    fds-om-dlt \
     fds-om-discovery \
     fds-om-plat \
     fds-plat-lib \

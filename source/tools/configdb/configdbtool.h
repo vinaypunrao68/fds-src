@@ -6,8 +6,11 @@
 
 #include <cmdconsole.h>
 #include <kvstore/configdb.h>
+#include <string>
+#include <vector>
 #define COMMAND(Name) void cmd##Name(std::vector <std::string>& args)
 
+namespace fds {
 struct HelpInfo {
     std::string command;
     std::string args;
@@ -15,8 +18,8 @@ struct HelpInfo {
 };
 
 class ConfigDBTool : public CmdConsole {
-public:
-    ConfigDBTool(std::string host = "localhost",int port = 6379);
+  public:
+    ConfigDBTool(std::string host = "localhost", int port = 6379);
 
     bool check();
 
@@ -29,12 +32,12 @@ public:
     COMMAND(Node);
     COMMAND(Help);
 
-    kvstore::ConfigDB* db;
+    fds::kvstore::ConfigDB* db;
 
     std::string host;
 
     std::vector<HelpInfo> helpInfo;
     int port;
 };
-
-#endif
+}  // namespace fds
+#endif  // SOURCE_TOOLS_CONFIGDB_CONFIGDBTOOL_H_
