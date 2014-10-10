@@ -100,12 +100,15 @@ AmProcessor::startBlobTxCb(AmQosReq *qosReq,
 void
 AmProcessor::getBlob(AmQosReq *qosReq) {
     // Pull out the Get request
-    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(
-        qosReq->getBlobReqPtr());
+    GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
     fds_volid_t volId = blobReq->getVolId();
     StorHvVolume *shVol = volTable->getVolume(volId);
+    // TODO(bszmyd): Friday, October 10th 2014
+    // This logic was copied directly from StorHvCtrl, but it's not
+    // quite clear how using the non-locking call above would still
+    // allow the following to function. Investigation needed.
     if ((shVol == NULL) || (!shVol->isValidLocked())) {
         LOGCRITICAL << "getBlob failed to get volume for vol " << volId;
         getBlobCb(qosReq, ERR_INVALID);
@@ -150,7 +153,7 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
             // obtained there. Fallback to retrieving the data from the SM.
             blobReq->setObjId(*objectId);
             blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, qosReq);
-            amDispatcher->dispatchGetBlob(qosReq);
+            amDispatcher->dispatchGetObject(qosReq);
         }
     } else {
         blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::queryCatalogCb, qosReq);
@@ -180,10 +183,9 @@ AmProcessor::getBlobCb(AmQosReq *qosReq, const Error& error) {
 void
 AmProcessor::queryCatalogCb(AmQosReq *qosReq, const Error& error) {
     if (error == ERR_OK) {
-        fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(
-            qosReq->getBlobReqPtr());
+        GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
         blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, qosReq);
-        amDispatcher->dispatchGetBlob(qosReq);
+        amDispatcher->dispatchGetObject(qosReq);
     } else {
         getBlobCb(qosReq, error);
     }

@@ -11,10 +11,11 @@
 namespace fds {
 
 AmDispatcher::AmDispatcher(const std::string &modName,
-                           OMgrClient *_om_client)
+                           DLTManagerPtr _dltMgr,
+                           DMTManagerPtr _dmtMgr)
         : Module(modName.c_str()),
-          om_client(_om_client),
-          dmtMgr(_om_client->getDmtManager()) {
+          dltMgr(_dltMgr),
+          dmtMgr(_dmtMgr) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     uturnAll = conf.get<fds_bool_t>("testing.uturn_dispatcher_all");
 }
@@ -70,7 +71,7 @@ AmDispatcher::dispatchStartBlobTx(AmQosReq *qosReq) {
     asyncStartBlobTxReq->invoke();
 
     LOGDEBUG << asyncStartBlobTxReq->logString()
-             << fds::logString(*startBlobTxMsg);
+             << logString(*startBlobTxMsg);
 }
 
 void
@@ -91,13 +92,13 @@ AmDispatcher::startBlobTxCb(AmQosReq *qosReq,
 }
 
 void
-AmDispatcher::dispatchGetBlob(AmQosReq *qosReq)
+AmDispatcher::dispatchGetObject(AmQosReq *qosReq)
 {
     Error error(ERR_OK);
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
-    fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx);
+    PerfTracer::tracePointBegin(blobReq->smPerfCtx);
     fds_volid_t volId = blobReq->getVolId();
     ObjectID objId    = blobReq->getObjId();
 
@@ -120,29 +121,29 @@ AmDispatcher::dispatchGetBlob(AmQosReq *qosReq)
                                                 (size_t)objId.GetLen());
 
     auto asyncGetReq = gSvcRequestPool->newFailoverSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
+        boost::make_shared<DltObjectIdEpProvider>(dltMgr->getDLT()->getNodes(objId)));
     asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
-    asyncGetReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getBlobCb, qosReq));
+    asyncGetReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getObjectCb, qosReq));
     asyncGetReq->invoke();
 
-    LOGDEBUG << asyncGetReq->logString() << fds::logString(*getObjMsg);
+    LOGDEBUG << asyncGetReq->logString() << logString(*getObjMsg);
 }
 
 void
-AmDispatcher::getBlobCb(fds::AmQosReq* qosReq,
+AmDispatcher::getObjectCb(AmQosReq* qosReq,
                         FailoverSvcRequest* svcReq,
                         const Error& error,
                         boost::shared_ptr<std::string> payload)
 {
-    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
+    GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
     GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb);
 
     fpi::GetObjectRespPtr getObjRsp =
         net::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
-    fds::PerfTracer::tracePointEnd(blobReq->smPerfCtx);
+    PerfTracer::tracePointEnd(blobReq->smPerfCtx);
 
     if (error == ERR_OK) {
-        LOGDEBUG << svcReq->logString() << fds::logString(*getObjRsp);
+        LOGDEBUG << svcReq->logString() << logString(*getObjRsp);
         /* NOTE: we are currently supporting only getting the whole blob
          * so the requester does not know about the blob length, 
          * we get the blob length in response from SM;
@@ -174,7 +175,7 @@ AmDispatcher::dispatchQueryCatalog(AmQosReq *qosReq) {
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
-    fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx);
+    PerfTracer::tracePointBegin(blobReq->dmPerfCtx);
     std::string blobName = blobReq->getBlobName();
     size_t blobOffset = blobReq->getBlobOffset();
     fds_volid_t volId = blobReq->getVolId();
@@ -195,25 +196,25 @@ AmDispatcher::dispatchQueryCatalog(AmQosReq *qosReq) {
 
     auto asyncQueryReq = gSvcRequestPool->newFailoverSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(
-            om_client->getDMTNodesForVolume(blobReq->base_vol_id)));
+            dmtMgr->getCommittedNodeGroup(blobReq->base_vol_id)));
     asyncQueryReq->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), queryMsg);
-    asyncQueryReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getBlobQueryCatalogCb, qosReq));
+    asyncQueryReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::getQueryCatalogCb, qosReq));
     asyncQueryReq->invoke();
 
-    LOGDEBUG << asyncQueryReq->logString() << fds::logString(*queryMsg);
+    LOGDEBUG << asyncQueryReq->logString() << logString(*queryMsg);
 }
 
 void
-AmDispatcher::getBlobQueryCatalogCb(fds::AmQosReq* qosReq,
+AmDispatcher::getQueryCatalogCb(AmQosReq* qosReq,
                                     FailoverSvcRequest* svcReq,
                                     const Error& error,
                                     boost::shared_ptr<std::string> payload)
 {
-    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
+    GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
     fpi::QueryCatalogMsgPtr qryCatRsp =
         net::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
 
-    fds::PerfTracer::tracePointEnd(blobReq->dmPerfCtx);
+    PerfTracer::tracePointEnd(blobReq->dmPerfCtx);
 
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
@@ -223,7 +224,7 @@ AmDispatcher::getBlobQueryCatalogCb(fds::AmQosReq* qosReq,
         return;
     }
 
-    LOGDEBUG << svcReq->logString() << fds::logString(*qryCatRsp);
+    LOGDEBUG << svcReq->logString() << logString(*qryCatRsp);
 
     // TODO(Andrew): Update the AM's blob offset cache here
 

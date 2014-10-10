@@ -189,7 +189,8 @@ StorHvCtrl::StorHvCtrl(int argc,
     // this layer.
     amDispatcher = AmDispatcher::shared_ptr(
         new AmDispatcher("AM Dispatcher Module",
-                         om_client));
+                         om_client->getDltManager(),
+                         om_client->getDmtManager()));
     // Init the processor layer
     amProcessor = AmProcessor::unique_ptr(
         new AmProcessor("AM Processor Module",

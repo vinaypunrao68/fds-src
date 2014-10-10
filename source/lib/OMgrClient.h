@@ -88,7 +88,7 @@ class Platform;
     std::string omIpStr;
     fds_uint32_t omConfigPort;
     const DLT *dlt;
-    DLTManager dltMgr;
+    DLTManagerPtr dltMgr;
     DMTManagerPtr dmtMgr;
     float current_throttle_level;
 
@@ -188,12 +188,10 @@ class Platform;
     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
     fds_uint32_t getNodeMigPort(NodeUuid uuid);
     fds_uint32_t getNodeMetaSyncPort(NodeUuid uuid);
-#if 0
-    int  getDLTNodesForDoidKey(unsigned char doid_key,
-                              fds_int32_t *node_ids,
-                              fds_int32_t *n_nodes);
-#endif
-    DMTManagerPtr getDmtManager();
+
+    DLTManagerPtr getDltManager() { return dltMgr; }
+    DMTManagerPtr getDmtManager() { return dmtMgr; }
+
     /**
      * Returns nodes from currently committed DMT
      */
