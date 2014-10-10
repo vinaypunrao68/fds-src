@@ -97,6 +97,8 @@ void BaseAsyncSvcHandler::asyncResp(
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
+    fiu_do_on("svc.disable.schedule", asyncRespHandler(header, payload); return;);
+
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
         NetMgr::ep_mgr_singleton()->ep_get_task_executor();
 

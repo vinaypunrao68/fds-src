@@ -124,6 +124,9 @@ void SvcRequestIf::setCompletionCb(SvcRequestCompletionCb &completionCb)
 void SvcRequestIf::invoke()
 {
 #if 1
+    /* Disable to scheduling thread pool */
+    fiu_do_on("svc.disable.schedule", invokeWork_(); return;);
+
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
         NetMgr::ep_mgr_singleton()->ep_get_task_executor();
     /* Execute on synchronized task exector so that invocation and response

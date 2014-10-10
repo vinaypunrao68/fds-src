@@ -67,6 +67,7 @@ TEST_F(SMApi, putsPerf)
     bool failSendsafter = this->getArg<bool>("failsends-after");
     bool uturnAsyncReq = this->getArg<bool>("uturn-asyncreqt");
     bool uturnPuts = this->getArg<bool>("uturn");
+    bool disableSchedule = this->getArg<bool>("disable-schedule");
 
     fpi::SvcUuid svcUuid;
     svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
@@ -93,6 +94,9 @@ TEST_F(SMApi, putsPerf)
     }
     if (uturnPuts) {
         ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
+    }
+    if (disableSchedule) {
+        fiu_enable("svc.disable.schedule", 1, NULL, 0);
     }
 
     /* Start google profiler */
@@ -133,6 +137,9 @@ TEST_F(SMApi, putsPerf)
     if (uturnPuts) {
         ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.putobject"));
     }
+    if (disableSchedule) {
+        fiu_disable("svc.disable.schedule");
+    }
 
     /* End profiler */
     if (profile) {
@@ -157,7 +164,8 @@ int main(int argc, char** argv) {
         ("failsends-before", po::value<bool>()->default_value(false), "fail sends before")
         ("failsends-after", po::value<bool>()->default_value(false), "fail sends after")
         ("uturn-asyncreqt", po::value<bool>()->default_value(false), "uturn async reqt")
-        ("uturn", po::value<bool>()->default_value(false), "uturn");
+        ("uturn", po::value<bool>()->default_value(false), "uturn")
+        ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();
 }
