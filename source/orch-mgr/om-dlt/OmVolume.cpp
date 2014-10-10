@@ -14,7 +14,7 @@
 #include <OmDmtDeploy.h>
 #include <orch-mgr/om-service.h>
 #include <util/type.h>
-
+#include <unistd.h>
 #define STATELOG(...) GLOGDEBUG << "[evt:" << fds::util::type(evt) \
     << " src:" << fds::util::type(src)                             \
     << " dst:" << fds::util::type(dst)                             \
@@ -250,7 +250,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>, public HasLog
         msf::Row< VST_Active     , VolDeleteEvt  , VST_DetachPend , VACT_Detach    , GRD_Detach  >   , //NOLINT
         msf::Row< VST_DetachPend , VolOpRespEvt  , VST_DelPend    , VACT_QueueDel  , GRD_QueueDel>   , //NOLINT
         msf::Row< VST_DelPend    , ResumeDelEvt  , VST_DelSent    , VACT_DelChk    , msf::none   >   , //NOLINT
-        msf::Row< VST_DelSent    , DelRespEvt  , VST_DelNotPend , VACT_DelNotify , GRD_DelSent >   , //NOLINT
+        msf::Row< VST_DelSent    , DelRespEvt    , VST_DelNotPend , VACT_DelNotify , GRD_DelSent >   , //NOLINT
         msf::Row< VST_DelNotPend , VolOpRespEvt  , VST_DelDone    , VACT_DelDone   , GRD_DelDone >     //NOLINT
         // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
         >{};  // NOLINT
@@ -603,6 +603,11 @@ bool VolumeFSM::GRD_DelSent::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
     }
 
     GLOGDEBUG << "GRD_DelSent: acks to wait " << src.del_chk_ack_wait << " return " << ret;
+    if (ret) {
+        uint64_t TIMEWAIT = 10;  // 10 secs
+        GLOGWARN << "waiting for [" << TIMEWAIT << "] seconds";
+        usleep(TIMEWAIT*1000*1000);
+    }
     return ret;
 }
 
@@ -621,9 +626,14 @@ VolumeFSM::VACT_Detach::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     VolumeDesc* volDesc = vol->vol_get_properties();
 
     // start delete volume process
-    fds_uint32_t detach_count = vol->vol_start_delete();
-    if (detach_count > 0) {
-        dst.detach_ack_wait = detach_count;
+    dst.detach_ack_wait = vol->vol_start_delete();
+    if (dst.detach_ack_wait <= 0) {
+        // no attached ams ..
+        // dummy am
+        dst.detach_ack_wait = 1;
+        fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(), vol,
+                                       om_notify_vol_detach,
+                                       Error(ERR_OK)));
     }
 }
 
