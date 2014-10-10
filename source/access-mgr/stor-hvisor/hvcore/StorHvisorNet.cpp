@@ -161,7 +161,9 @@ StorHvCtrl::StorHvCtrl(int argc,
     om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
 
     /*  Create the QOS Controller object */
-    qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, GetLog());
+    fds_uint32_t qos_threads = config.get<int>("qos_threads");
+    qos_ctrl = new StorHvQosCtrl(qos_threads,
+				 fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, GetLog());
     qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
     om_client->startAcceptingControlMessages();
 

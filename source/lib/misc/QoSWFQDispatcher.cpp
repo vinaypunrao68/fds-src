@@ -214,6 +214,9 @@ namespace fds {
       max_outstanding_ios = maximum_outstanding_ios;
       num_pending_ios = ATOMIC_VAR_INIT(0);
       num_outstanding_ios = ATOMIC_VAR_INIT(0);
+      FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
+      bypass_dispatcher = config.get_abs<bool>("fds.disable_qos");
+      LOGNOTIFY << "Will bypass QoS? " << bypass_dispatcher;
 
       num_ios_dispatched = 0;
       num_rate_based_slots_serviced = 0;
