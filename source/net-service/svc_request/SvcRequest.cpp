@@ -154,7 +154,8 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
 
     try {
         /* Fault injection */
-        fiu_do_on("svc.fail.sendpayload", throw util::FiuException("svc.fail.sendpayload"));
+        fiu_do_on("svc.fail.sendpayload_before",
+                  throw util::FiuException("svc.fail.sendpayload_before"));
         /* send the payload */
  do_again:
         auto ep = NetMgr::ep_mgr_singleton()->\
@@ -171,6 +172,8 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
         }
         ep->svc_rpc<fpi::BaseAsyncSvcClient>()->asyncReqt(header, *payloadBuf_);
         GLOGDEBUG << fds::logString(header) << " sent payload size: " << payloadBuf_->size();
+        fiu_do_on("svc.fail.sendpayload_after",
+                  throw util::FiuException("svc.fail.sendpayload_after"));
 
        /* start the timer */
        if (timeoutMs_) {

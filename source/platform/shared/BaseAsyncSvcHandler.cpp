@@ -7,6 +7,7 @@
 #include <net/SvcRequest.h>
 #include <net/SvcRequestTracker.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
+#include <util/fiu_util.h>
 
 namespace fds {
 
