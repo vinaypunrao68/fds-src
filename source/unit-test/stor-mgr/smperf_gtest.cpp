@@ -62,9 +62,10 @@ TEST_F(SMApi, putsPerf)
 {
     int dataCacheSz = 100;
     int nPuts =  this->getArg<int>("puts-cnt");
-    bool uturnPuts = this->getArg<bool>("uturn");
     bool failSendsbefore = this->getArg<bool>("failsends-before");
     bool failSendsafter = this->getArg<bool>("failsends-after");
+    bool uturnAsyncReq = this->getArg<bool>("uturn-asyncreqt");
+    bool uturnPuts = this->getArg<bool>("uturn");
 
     fpi::SvcUuid svcUuid;
     svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
@@ -79,15 +80,18 @@ TEST_F(SMApi, putsPerf)
                                                            true,
                                                            putMsgGenF);
     /* Set fault to uturn all puts */
-    if (uturnPuts) {
-        ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
-    }
     if (failSendsbefore) {
         fiu_enable("svc.fail.sendpayload_before", 1, NULL, 0);
     }
     if (failSendsafter) {
         fiu_enable("svc.fail.sendpayload_after", 1, NULL, 0);
         ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.drop.putobject"));
+    }
+    if (uturnAsyncReq) {
+        ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.asyncreqt"));
+    }
+    if (uturnPuts) {
+        ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
     }
 
     /* Start google profiler */
@@ -113,15 +117,18 @@ TEST_F(SMApi, putsPerf)
     POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), nPuts, (nPuts * 3));
 
     /* Disable fault injection */
-    if (uturnPuts) {
-        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.putobject"));
-    }
     if (failSendsbefore) {
         fiu_disable("svc.fail.sendpayload_before");
     }
     if (failSendsafter) {
         fiu_disable("svc.fail.sendpayload_after");
         ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.drop.putobject"));
+    }
+    if (uturnAsyncReq) {
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.asyncreqt"));
+    }
+    if (uturnPuts) {
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.putobject"));
     }
 
     /* End profiler */
@@ -143,6 +150,7 @@ int main(int argc, char** argv) {
         ("puts-cnt", po::value<int>(), "puts count")
         ("failsends-before", po::value<bool>()->default_value(false), "fail sends before")
         ("failsends-after", po::value<bool>()->default_value(false), "fail sends after")
+        ("uturn-asyncreqt", po::value<bool>()->default_value(false), "uturn async reqt")
         ("uturn", po::value<bool>()->default_value(false), "uturn");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();

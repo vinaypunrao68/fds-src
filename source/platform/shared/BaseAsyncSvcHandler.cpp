@@ -59,6 +59,10 @@ void BaseAsyncSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& heade
 void BaseAsyncSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                                     boost::shared_ptr<std::string>& payload)
 {
+    fiu_do_on("svc.uturn.asyncreqt",
+              header->msg_code = ERR_INVALID; \
+              sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()));
+
     GLOGDEBUG << logString(*header);
     try {
         /* Deserialize the message and invoke the handler.  Deserialization is performed
