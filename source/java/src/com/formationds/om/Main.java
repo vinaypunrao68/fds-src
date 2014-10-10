@@ -3,11 +3,11 @@ package com.formationds.om;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import com.formationds.om.plotter.DisplayVolumeStats;
-import com.formationds.om.plotter.ListActiveVolumes;
-import com.formationds.om.plotter.RegisterVolumeStats;
 import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.rest.*;
+import com.formationds.om.rest.metrics.IngestVolumeStats;
+import com.formationds.om.rest.metrics.QueryMetrics;
+import com.formationds.om.rest.metrics.QueryVolumeMetrics;
 import com.formationds.om.rest.snapshot.*;
 import com.formationds.security.*;
 import com.formationds.util.Configuration;
@@ -92,14 +92,19 @@ public class Main {
         authenticate(HttpMethod.PUT, "/api/config/streams", (t) -> new DeregisterStream(configCache));
 
         /*
-         * provides snapshot RESTful API
+         * provides snapshot RESTful API endpoints
          */
         snapshot(configCache, authorizer);
 
+        /*
+         * provides metrics RESTful API endpoints
+         */
+        metrics();
+
         // Demo volume stats
-        webApp.route(HttpMethod.GET, "/api/stats/volumes", () -> new ListActiveVolumes(volumeStatistics));
-        webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
-        webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
+//        webApp.route(HttpMethod.GET, "/api/stats/volumes", () -> new ListActiveVolumes(volumeStatistics));
+//        webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
+//        webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
 
         fdsAdminOnly(HttpMethod.GET, "/api/system/token/:userid", (t) -> new ShowToken(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.POST, "/api/system/token/:userid", (t) -> new ReissueToken(configCache, secretKey), authorizer);
@@ -143,6 +148,31 @@ public class Main {
         HttpErrorHandler eh = new HttpErrorHandler(new HttpAuthenticator(f, xdi.getAuthenticator()));
         webApp.route(method, route, () -> eh);
     }
+
+  private void metrics()
+  {
+    if( !FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
+      return;
+    }
+
+    LOG.trace( "registering metrics endpoints" );
+    metricsGets();
+    metricsPost();
+    LOG.trace( "registered metrics endpoints" );
+  }
+
+  private void metricsGets()
+  {
+    authenticate( HttpMethod.GET, "/api/stats/volumes",
+                  ( t ) -> new QueryMetrics() );
+    authenticate( HttpMethod.GET, "/api/stats/volumes/:volume",
+                  ( t ) -> new QueryVolumeMetrics() );
+  }
+
+  private void metricsPost()
+  {
+    webApp.route( HttpMethod.POST, "/api/stats", IngestVolumeStats::new );
+  }
 
   private void snapshot( final ConfigurationApi config, Authorizer authorizer ) {
     if( !FdsFeatureToggles.SNAPSHOT_ENDPOINT.isActive() ) {
