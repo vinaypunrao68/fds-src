@@ -11,12 +11,16 @@ import org.slf4j.LoggerFactory;
 
 import javax.jdo.JDOHelper;
 import javax.jdo.Query;
-import java.util.*;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Persistence;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 /**
  * @author ptinius
  */
-
 public class MetricsRepository
   extends JDORepository<VolumeDatapoint,Long> {
 
@@ -24,14 +28,14 @@ public class MetricsRepository
     LoggerFactory.getLogger( MetricsRepository.class );
 
   private static final String DBNAME = "/fds/user-repo/db/metrics.db";
+  private static final String VOLUME_NAME = "volumeName";
+  private static final String KEY = "key";
 
   /**
    * default constructor
    */
   public MetricsRepository() {
-    super();
-
-    initialize( DBNAME );
+    this( DBNAME );
   }
 
   /**
@@ -64,7 +68,6 @@ public class MetricsRepository
                                          .execute();
   }
 
-
   /**
    * @param queryName the name of the query
    * @param params    the query parameters
@@ -72,7 +75,8 @@ public class MetricsRepository
    * @return the list of entities
    */
   @Override
-  public List<VolumeDatapoint> find( final String queryName, final Map params ) {
+  public List<VolumeDatapoint> find( final String queryName,
+                                     final Map params ) {
     return null;
   }
 
@@ -103,9 +107,16 @@ public class MetricsRepository
    */
   @Override
   public long countAll() {
+    long count = 0;
     final Query query = manager().newQuery( VolumeDatapoint.class );
-    query.compile();
-    return ( ( Collection )query.execute() ).size();
+    try {
+      query.compile();
+      count = ( ( Collection )query.execute() ).size();
+    } finally {
+      query.closeAll();
+    }
+
+    return count;
   }
 
   /**
@@ -115,22 +126,33 @@ public class MetricsRepository
    */
   @Override
   public long countAllBy( final VolumeDatapoint entity ) {
-    final Query query = manager().newQuery( VolumeDatapoint.class );
-    final Map<String,String> params = new HashMap<>( );
-
-    if( entity.getVolumeName() != null ) {
-      query.declareParameters( "String volumeName" );
-      params.put( "volumeName", entity.getVolumeName() );
-    }
-
-    if( entity.getKey() != null ) {
-      query.declareParameters( "String key" );
-      params.put( "key", entity.getKey() );
-    }
-
-    query.compile();
-    return ( ( Collection )query.executeWithMap( params ) ).size();
+    return countAllBy( VOLUME_NAME, entity.getVolumeName() );
   }
+
+  /**
+   * @param paramName the {@link String} representing the parameter name
+   * @param paramValue the {@link String} representing the parameter value
+   *
+   * @return the number of entities
+   */
+  public long countAllBy( final String paramName, final String paramValue )
+  {
+    int count = 0;
+    Query query = null;
+    try {
+      query = manager().newQuery( VolumeDatapoint.class );
+      query.setFilter( paramName + " == '" + paramValue + "'" );
+
+      count = ( (Collection ) query.execute( ) ).size( );
+    } finally {
+      if( query != null ) {
+        query.closeAll();
+      }
+    }
+
+    return count;
+  }
+
 
   /**
    * @param entity the entity to save
@@ -190,5 +212,8 @@ public class MetricsRepository
 
     factory( JDOHelper.getPersistenceManagerFactory( properties ) );
     manager( factory().getPersistenceManager() );
+    final EntityManagerFactory emf =
+      Persistence.createEntityManagerFactory( dbName );
+    entity( emf.createEntityManager() );
   }
 }

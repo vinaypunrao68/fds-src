@@ -20,6 +20,7 @@ import com.formationds.commons.model.abs.ModelBase;
 import com.google.gson.annotations.SerializedName;
 
 import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
 import javax.xml.bind.annotation.XmlRootElement;
 
 /**
@@ -31,39 +32,41 @@ public class VolumeDatapoint
   extends ModelBase {
   private static final long serialVersionUID = -528746171551767393L;
 
+  @GeneratedValue
+  private Integer id;
   @SerializedName("timestamp")
-  private long dateTime;
+  private Long timestamp;
   @SerializedName("volume")
   private String volumeName;
   private String key;
-  private double value;
+  private Double value;
 
   /**
    * @return Returns the {@code double} representing the statistic value for the {@code key}
    */
-  public double getValue() {
+  public Double getValue() {
     return value;
   }
 
   /**
    * @param value the {@code double} representing the statistic value for the {@code key}
    */
-  public void setValue( final double value ) {
+  public void setValue( final Double value ) {
     this.value = value;
   }
 
   /**
    * @return Returns the {@code long} representing the timestamp
    */
-  public long getDateTime() {
-    return dateTime;
+  public Long getTimestamp() {
+    return timestamp;
   }
 
   /**
-   * @param dateTime the {@code long} representing the timestamp
+   * @param timestamp the {@code long} representing the timestamp
    */
-  public void setDateTime( final long dateTime ) {
-    this.dateTime = dateTime;
+  public void setTimestamp( final Long timestamp ) {
+    this.timestamp = timestamp;
   }
 
   /**

@@ -4,8 +4,6 @@
 
 package com.formationds.commons.model;
 
-import com.formationds.commons.model.abs.ModelBase;
-
 import javax.xml.bind.annotation.XmlRootElement;
 
 /**
@@ -13,7 +11,7 @@ import javax.xml.bind.annotation.XmlRootElement;
  */
 @XmlRootElement
 public class Volume
-  extends ModelBase
+  extends Context
 {
   private static final long serialVersionUID = 7961922641732546048L;
 
@@ -25,12 +23,21 @@ public class Volume
   private Connector data_connector;
   private Usage current_usage;
 
+
   /**
    * default constructor
    */
   public Volume()
   {
     super();
+  }
+
+  /**
+   * @return Returns a {@link T} representing the context
+   */
+  @Override
+  public <T> T getContext() {
+    return ( T ) getName();
   }
 
   /**
