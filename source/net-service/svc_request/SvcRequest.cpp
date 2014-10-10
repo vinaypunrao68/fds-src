@@ -11,6 +11,7 @@
 #include <fdsp_utils.h>
 #include <net/SvcRequest.h>
 #include <net/SvcRequestPool.h>
+#include <util/fiu_util.h>
 
 namespace fds {
 
@@ -152,6 +153,8 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
     DBG(GLOGDEBUG << fds::logString(header));
 
     try {
+        /* Fault injection */
+        fiu_do_on("svc.fail.sendpayload", throw util::FiuException("svc.fail.sendpayload"));
         /* send the payload */
  do_again:
         auto ep = NetMgr::ep_mgr_singleton()->\
@@ -176,6 +179,12 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
                       schedule(timer_, std::chrono::milliseconds(timeoutMs_));
            fds_assert(ret == true);
        }
+    } catch(util::FiuException &e) {
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
+        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
+        GLOGERROR << logString() << " Error: " << respHdr->msg_code
+            << " exception: " << e.what();
+        gSvcRequestPool->postError(respHdr);
     } catch(std::exception &e) {
         auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;

@@ -11,6 +11,7 @@
 #include <net/SvcRequestPool.h>
 #include <fdsp_utils.h>
 #include <ObjectId.h>
+#include <fiu-control.h>
 #include <testlib/DataGen.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
@@ -62,6 +63,7 @@ TEST_F(SMApi, putsPerf)
     int dataCacheSz = 100;
     int nPuts =  this->getArg<int>("puts-cnt");
     bool uturnPuts = this->getArg<bool>("uturn");
+    bool failSends = this->getArg<bool>("failsends");
 
     fpi::SvcUuid svcUuid;
     svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
@@ -78,6 +80,9 @@ TEST_F(SMApi, putsPerf)
     /* Set fault to uturn all puts */
     if (uturnPuts) {
         ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
+    }
+    if (failSends) {
+        fiu_enable("svc.fail.sendpayload", 1, NULL, 0);
     }
 
     /* Start google profiler */
@@ -100,17 +105,22 @@ TEST_F(SMApi, putsPerf)
     }
 
     /* Poll for completion */
-    POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 500, (nPuts+2) * 1000);
+    POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), nPuts, (nPuts * 3));
 
     /* Disable fault injection */
     if (uturnPuts) {
         ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.putobject"));
     }
+    if (failSends) {
+        fiu_disable("svc.fail.sendpayload");
+    }
 
     /* End profiler */
     // ProfilerStop();
 
-    std::cout << "Time taken: " << endTs_ - startTs_ << "(ns)\n";
+    std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
+            << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
+            << "(ns)\n";
     ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
         << " putsSuccessCnt_: " << putsSuccessCnt_
         << " putsFailedCnt_: " << putsFailedCnt_;
@@ -122,6 +132,7 @@ int main(int argc, char** argv) {
     opts.add_options()
         ("help", "produce help message")
         ("puts-cnt", po::value<int>(), "puts count")
+        ("failsends", po::value<bool>()->default_value(false), "fail sends")
         ("uturn", po::value<bool>()->default_value(false), "uturn");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();
