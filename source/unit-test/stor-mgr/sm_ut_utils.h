@@ -9,6 +9,7 @@
 #include <thread>
 #include <string>
 #include <boost/shared_ptr.hpp>
+#include <boost/filesystem.hpp>
 
 #include <ObjectId.h>
 #include <dlt.h>
@@ -137,6 +138,22 @@ class SmUtUtils {
             // remove superblock
             const std::string rm_sb = rm_base + "/SmSuper*";
             ret = std::system((const char *)rm_sb.c_str());
+        }
+    }
+    /* This function removes everything under a dir.
+     * But leaves the dir in place.
+     */
+    static void cleanAllInDir(const FdsRootDir* dir) {
+        const std::string rmPath = dir->dir_dev();
+        boost::filesystem::path removeInPath(rmPath.c_str());
+
+        if (boost::filesystem::is_directory(rmPath.c_str())) {
+            for (boost::filesystem::directory_iterator itEndDir, it(removeInPath);
+                 it != itEndDir;
+                 ++it) {
+                GLOGNORMAL << "Removing "<< it->path();
+                boost::filesystem::remove_all(it->path());
+            }
         }
     }
 };

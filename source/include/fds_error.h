@@ -83,7 +83,7 @@ namespace fds {
         /* FDS actor is shutdown */
         ERR_FAR_SHUTDOWN,
 
-        /* Storage manager error range [2000-2500) */
+        /* Storage manager error range [2000-2999) */
         ERR_SM_NOT_IN_SYNC_MODE = 2000,
         ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND,
         ERR_SM_TOKENSTATEDB_DUPLICATE_KEY,
@@ -92,7 +92,9 @@ namespace fds {
         ERR_SM_SUPERBLOCK_MISSING_FILE,
         ERR_SM_SUPERBLOCK_CHECKSUM_FAIL,
         ERR_SM_SUPERBLOCK_DATA_CORRUPT,
+        ERR_SM_SUPERBLOCK_READ_FAIL,
         ERR_SM_SUPERBLOCK_WRITE_FAIL,
+        ERR_SM_SUPERBLOCK_NO_RECONCILE,
 
         /* Network errors */
         ERR_NETWORK_TRANSPORT = 3000,
