@@ -101,9 +101,9 @@ class VolumeCatalogQueryIface {
                      const std::string& blob_name,
                      blob_version_t blob_version) = 0;
     /**
-     * get  vvc mata size
+     * get total matadata size for a volume
      */
-     virtual fds_uint32_t  getVvcMetaSize(fds_volid_t volume_id) = 0;
+     virtual fds_uint64_t getTotalMetadataSize(fds_volid_t volume_id) = 0;
 };
 
 }  // namespace fds

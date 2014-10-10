@@ -8,6 +8,11 @@
 #include <string>
 #include <thread>
 
+#include <dm-vol-cat/DmVolumeDirectory.h>
+
+#define DM_CATALOG_TYPE DmVolumeDirectory
+// #define DM_CATALOG_TYPE DmVolumeCatalog
+
 static std::atomic<fds_uint32_t> taskCount;
 
 class DmVolumeCatalogTest : public ::testing::Test {
@@ -21,14 +26,14 @@ class DmVolumeCatalogTest : public ::testing::Test {
 
     void testDeleteBlob(fds_volid_t volId, const std::string blobName, blob_version_t version);
 
-    boost::shared_ptr<DmVolumeCatalog> volcat;
+    boost::shared_ptr<DM_CATALOG_TYPE> volcat;
 
     std::vector<boost::shared_ptr<VolumeDesc> > volumes;
 };
 
 void DmVolumeCatalogTest::SetUp() {
-    volcat.reset(new DmVolumeCatalog("dm_volume_catallog_gtest.ldb"));
-    ASSERT_NE(static_cast<DmVolumeCatalog*>(0), volcat.get());
+    volcat.reset(new DM_CATALOG_TYPE("dm_volume_catallog_gtest.ldb"));
+    ASSERT_NE(static_cast<DM_CATALOG_TYPE*>(0), volcat.get());
 
     volcat->registerExpungeObjectsCb(&expungeObjects);
 
@@ -73,8 +78,15 @@ void DmVolumeCatalogTest::testDeleteBlob(fds_volid_t volId, const std::string bl
     Error rc = volcat->deleteBlob(volId, blobName, version);
     fds_uint64_t endTs = util::getTimeStampNanos();
     deleteCounter->update(endTs - startTs);
-    if (taskCount) taskCount--;
     EXPECT_TRUE(rc.ok());
+
+    // Get
+    fpi::FDSP_MetaDataList metaList;
+    fpi::FDSP_BlobObjectList objList;
+    rc = volcat->getBlob(volId, blobName, 0, &version, &metaList, &objList);
+    EXPECT_FALSE(rc.ok());
+
+    if (taskCount) taskCount--;
 }
 
 void DmVolumeCatalogTest::TearDown() {
@@ -173,7 +185,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
             EXPECT_EQ(metaList.size(), NUM_TAGS);
 
             if (NO_DELETE) {
-                blobCount--;
+                taskCount--;
                 continue;
             }
 

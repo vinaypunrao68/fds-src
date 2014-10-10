@@ -56,7 +56,8 @@ Catalog::Catalog(const std::string& _file,
                  fds_uint32_t cacheSize /* = CACHE_SIZE */,
                  const std::string& logDirName /* = empty */,
                  const std::string& logFilePrefix /* = empty */,
-                 fds_uint32_t maxLogFiles /* = 0 */) : backing_file(_file) {
+                 fds_uint32_t maxLogFiles /* = 0 */,
+                 leveldb::Comparator * cmp /* = 0 */) : backing_file(_file) {
     /*
      * Setup DB options
      */
@@ -65,6 +66,9 @@ Catalog::Catalog(const std::string& _file,
             leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
     options.write_buffer_size = writeBufferSize;
     options.block_cache = leveldb::NewLRUCache(cacheSize);
+    if (cmp) {
+        options.comparator = cmp;
+    }
     env = new leveldb::CopyEnv(leveldb::Env::Default());
     if (!logDirName.empty() && !logFilePrefix.empty()) {
         leveldb::CopyEnv * cenv = static_cast<leveldb::CopyEnv*>(env);

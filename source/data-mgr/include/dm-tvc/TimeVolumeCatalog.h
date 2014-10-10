@@ -13,8 +13,12 @@
 #include <DmBlobTypes.h>
 #include <dm-tvc/CommitLog.h>
 #include <dm-vol-cat/DmVolumeCatalog.h>
+#include <dm-vol-cat/DmVolumeDirectory.h>
 #include <util/Log.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
+
+// #define DM_VOLUME_CATALOG_TYPE DmVolumeCatalog
+#define DM_VOLUME_CATALOG_TYPE DmVolumeDirectory
 
 namespace fds {
 
@@ -47,7 +51,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * Internal volume catalog pointer. The actual catalog is owned by
      * the TVC and only a query interface is exposed
      */
-    DmVolumeCatalog::ptr volcat;
+    DM_VOLUME_CATALOG_TYPE::ptr volcat;
 
     // as the configuration will not be refreshed frequently, we can read it without lock
     FdsConfigAccessor config_helper_;
@@ -81,7 +85,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     typedef std::function<void (const Error &)> FwdCommitCb;
 
     /// Allow sync related interface to volume catalog
-    friend class DmVolumeCatalog;
+    friend class DM_VOLUME_CATALOG_TYPE;
 
     /**
      * Notification about new volume managed by this DM.
