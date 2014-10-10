@@ -18,7 +18,7 @@ RUN apt-get install -y zip openssl git ack-grep python wget xsel python-pip zsh 
   curl build-essential runit openssh-server ruby tree vim openssh-server sudo \
   lshw
 RUN apt-get -y install libevent-dev libncurses-dev
-RUN apt-get -y install host npm nodejs ruby ruby-sass rake 
+RUN apt-get -y install host npm nodejs ruby ruby-sass rake
 
 # Install the Docker client
 RUN curl -sSL https://get.docker.io/ubuntu/ | sudo sh
@@ -51,19 +51,6 @@ RUN bash -l -c /home/pairing/.janus/setup/setup.sh
 ADD resources/zshrc.default /home/pairing/.zshrc
 ADD resources/tmux.conf /home/pairing/.tmux.conf
 
-RUN mkdir -p /home/pairing/projects /home/pairing/.ssh
-ADD resources/ssh/id_rsa-fds-src /home/pairing/.ssh/id_rsa-fds-src
-ADD resources/ssh/github-config /home/pairing/.ssh/config
-RUN sudo chown pairing /home/pairing/.ssh/id_rsa-fds-src
-RUN sudo chmod 600 /home/pairing/.ssh/id_rsa-fds-src
-RUN git clone git@fds-src.github.com:FDS-Dev/fds-src.git /home/pairing/projects/fds-src
-
-WORKDIR /home/pairing/projects/fds-src/source
-RUN touch ~/.ihaveaswapfile
-RUN make devsetup
-RUN git remote set-url origin https://github.com/fds-dev/fds-src
-RUN rm -f ~/.ssh/*
-
 USER root
 
 # Runit setup
@@ -76,7 +63,7 @@ RUN mkdir /root/.ssh
 RUN chmod 700 /root/.ssh
 ADD resources/ssh/id_rsa.pub /root/.ssh/authorized_keys
 ADD resources/ssh/config /root/.ssh/config
-RUN chown pairing /home/pairing/projects
+RUN chmod u+s /usr/bin/sudo
 
 
 EXPOSE 22

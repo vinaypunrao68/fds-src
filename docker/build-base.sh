@@ -4,10 +4,11 @@ if [ ! -x `which docker` ] ; then
 	echo "http://docs.docker.com/installation/"
 fi
 
-IMG_NAME="coke.formationds.com:5000/spoon-fds"
+IMG_NAME="coke.formationds.com:5000/fds_base"
+
 echo "Building on xwing"
 export DOCKER_HOST=tcp://xwing.formationds.com:2375
-docker build --no-cache -t $IMG_NAME spoon-fds
+docker build --no-cache -t $IMG_NAME base_image
 docker push $IMG_NAME
 
 export DOCKER_HOST=tcp://10.2.10.20:2375
