@@ -53,13 +53,14 @@ fds_dev_packages = %w[
   fds-coredump
   npm
   ruby
-  ruby-sass 
+  ruby-sass
   python-paramiko
   python-redis
   python-requests
   python-boto
   python-argh
   python-thrift
+  python-xmlrunner
 ]
 
 fds_dev_python_packages = %w[
@@ -127,7 +128,7 @@ end
 
 # file "#{node['fds_setup']['fds_dev_homedir']}/clone-fds.sh" do
 #     owner node['fds_setup']['fds_dev_username']
-#     group node['fds_setup']['fds_dev_groupname'] 
+#     group node['fds_setup']['fds_dev_groupname']
 #     mode '0755'
 #     action :create_if_missing
 #     content "git clone https://github.com/fds-dev/fds-src\ngit fetch origin dev\ngit checkout dev"
