@@ -20,7 +20,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-// #include <google/profiler.h>
+#include <google/profiler.h>
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -62,6 +62,7 @@ TEST_F(SMApi, putsPerf)
 {
     int dataCacheSz = 100;
     int nPuts =  this->getArg<int>("puts-cnt");
+    bool profile = this->getArg<bool>("profile");
     bool failSendsbefore = this->getArg<bool>("failsends-before");
     bool failSendsafter = this->getArg<bool>("failsends-after");
     bool uturnAsyncReq = this->getArg<bool>("uturn-asyncreqt");
@@ -95,7 +96,9 @@ TEST_F(SMApi, putsPerf)
     }
 
     /* Start google profiler */
-    // ProfilerStart("/tmp/output.prof");
+    if (profile) {
+        ProfilerStart("/tmp/output.prof");
+    }
 
     /* Start timer */
     startTs_ = util::getTimeStampNanos();
@@ -132,7 +135,9 @@ TEST_F(SMApi, putsPerf)
     }
 
     /* End profiler */
-    // ProfilerStop();
+    if (profile) {
+        ProfilerStop();
+    }
 
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
@@ -148,6 +153,7 @@ int main(int argc, char** argv) {
     opts.add_options()
         ("help", "produce help message")
         ("puts-cnt", po::value<int>(), "puts count")
+        ("profile", po::value<bool>()->default_value(false), "google profile")
         ("failsends-before", po::value<bool>()->default_value(false), "fail sends before")
         ("failsends-after", po::value<bool>()->default_value(false), "fail sends after")
         ("uturn-asyncreqt", po::value<bool>()->default_value(false), "uturn async reqt")
