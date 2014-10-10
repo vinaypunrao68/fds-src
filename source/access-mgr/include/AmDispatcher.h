@@ -60,14 +60,6 @@ class AmDispatcher : public Module, public boost::noncopyable {
 
     void dispatchQueryCatalog(AmQosReq *qosReq);
 
-    /**
-     * Callback for start blob transaction responses.
-     */
-//    void getBlobCb(AmQosReq* qosReq,
-//                   QuorumSvcRequest* svcReq,
-//                   const Error& error,
-//                   boost::shared_ptr<std::string> payload);
-
   private:
     /// Shared ptr to the DMT manager used for deciding who
     /// to dispatch to
@@ -81,11 +73,17 @@ class AmDispatcher : public Module, public boost::noncopyable {
     /// Uturn test all network requests
     fds_bool_t uturnAll;
 
+    /**
+     * Callback for get blob responses.
+     */
     void getBlobCb(fds::AmQosReq* qosReq,
                    FailoverSvcRequest* svcReq,
                    const Error& error,
                    boost::shared_ptr<std::string> payload);
 
+    /**
+     * Callback for catalog query responses.
+     */
     void getBlobQueryCatalogCb(fds::AmQosReq* qosReq,
                                FailoverSvcRequest* svcReq,
                                const Error& error,
