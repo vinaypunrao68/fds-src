@@ -124,6 +124,12 @@ EvBlockMod::mod_shutdown()
     Module::mod_shutdown();
 }
 
+static void
+stdin_cb(struct ev_loop *loop, ev_io *ev, int revents)
+{
+    std::cout << "std in cb" << std::endl;
+}
+
 /**
  * blk_run_loop
  * ------------
@@ -131,6 +137,8 @@ EvBlockMod::mod_shutdown()
 void
 EvBlockMod::blk_run_loop()
 {
+    ev_io_init(&ev_stdin, stdin_cb, 0, EV_READ);
+    ev_io_start(ev_blk_loop, &ev_stdin);
     ev_run(ev_blk_loop, 0);
 }
 
@@ -226,10 +234,6 @@ NbdBlockMod::blk_attach_vol(const blk_vol_creat_t *r)
     fds_assert(vol->ev_sk > 0);
 
     ret = ioctl(fd, NBD_SET_SOCK, vol->ev_sk);
-    if (ret < 0) {
-        return ret;
-    }
-    ret = ioctl(fd, NBD_DO_IT);
     if (ret < 0) {
         return ret;
     }
