@@ -57,9 +57,8 @@ public class MetricQueryBuilder {
    * @return Returns {@link MetricQueryBuilder}
    */
   public MetricQueryBuilder withContext( Context context ) {
-    if( this.contexts == null )
-    {
-      this.contexts = new ArrayList<>( );
+    if( this.contexts == null ) {
+      this.contexts = new ArrayList<>();
     }
 
     this.contexts.add( context );
@@ -91,19 +90,18 @@ public class MetricQueryBuilder {
    *
    * @return Return {@link MetricQueryBuilder}
    */
-  public MetricQueryBuilder withSeriesType( Metrics seriesType )
-  {
+  public MetricQueryBuilder withSeriesType( Metrics seriesType ) {
     this.seriesType = seriesType;
     return this;
   }
 
   /**
-   * @param seriesType the {@link String} representing the {@link com.formationds.commons.model.type.Metrics}
+   * @param seriesType the {@link String} representing the {@link
+   *                   com.formationds.commons.model.type.Metrics}
    *
    * @return Return {@link MetricQueryBuilder}
    */
-  public MetricQueryBuilder withSeriesType( String seriesType )
-  {
+  public MetricQueryBuilder withSeriesType( String seriesType ) {
     this.seriesType = Metrics.valueOf( seriesType );
     return this;
   }
@@ -114,11 +112,11 @@ public class MetricQueryBuilder {
   public MetricQuery build() {
     MetricQuery metricQuery = new MetricQuery();
 
-    if( range != null  ) {
+    if( range != null ) {
       metricQuery.setRange( range );
     }
 
-    if( seriesType != null  ) {
+    if( seriesType != null ) {
       metricQuery.setSeriesType( seriesType );
     }
 
