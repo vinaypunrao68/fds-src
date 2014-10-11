@@ -7,6 +7,8 @@
 #include <boost/atomic.hpp>
 #include <boost/intrusive_ptr.hpp>
 
+namespace bo = boost;
+
 /**
  * Template to embed intrusive pointer to an object.
  */

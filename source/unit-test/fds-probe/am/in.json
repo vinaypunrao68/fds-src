@@ -1,0 +1,9 @@
+{
+    "Run-Setup": {
+        "foo": {
+           "sanjay": { "time": 10, "date": "hello world", "favorite": 30 },
+           "bao": { "like": "string", "v1": 20, "v2": 30, "v4": "This is a string" },
+           "vy": { "v1": "This is another string", "V2": 30, "V3": "This is string" }
+        }
+    }
+}

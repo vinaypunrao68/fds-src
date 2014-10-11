@@ -13,6 +13,7 @@
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
 #include <platform/platform-lib.h>
+#include <am-nbd.h>
 
 namespace fds {
 
@@ -37,9 +38,9 @@ class TestProcess : public ProbeProcess
 int main(int argc, char **argv)
 {
     fds::Module *probe_vec[] = {
-        /* Add your module vectors here. */
+        &fds::gl_NbdBlockMod,
         NULL
     };
-    fds::TestProcess probe(argc, argv, "my.log", &fds::gl_XX_ProbeMod, probe_vec);
+    fds::TestProcess probe(argc, argv, "am-probe.log", &fds::gl_AmProbeMod, probe_vec);
     return probe.main();
 }

@@ -7,6 +7,7 @@
 #include <net/PlatNetSvcHandler.h>
 #include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
+#include <net/BaseAsyncSvcHandler.h>
 #include <AMSvcHandler.h>
 
 namespace fds {
@@ -52,9 +53,11 @@ void
 AMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 {
 }
+
 // -------------------------------------------------------------------------------------
-// DM Specific Platform
+// AM Specific Platform
 // -------------------------------------------------------------------------------------
+AmPlatform::~AmPlatform() {}
 AmPlatform::AmPlatform()
     : Platform("DM-Platform",
                fpi::FDSP_STOR_HVISOR,
