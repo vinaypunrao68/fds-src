@@ -13,11 +13,15 @@
 #include <kvstore/platformdb.h>
 #include <platform/node-inventory.h>
 #include <platform/fds_flags.h>
-#include <net/BaseAsyncSvcHandler.h>
+
+namespace fpi = FDS_ProtocolInterface;
+namespace FDS_ProtocolInterface {
+}  // namespace FDS_ProtocolInterface
 
 namespace fds {
 
 class Platform;
+class BaseAsyncSvcHandler;
 
 /**
  * On disk format: POD type to persist the node's inventory.

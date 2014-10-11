@@ -63,9 +63,11 @@ void
 SMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 {
 }
+
 // -------------------------------------------------------------------------------------
 // SM Specific Platform
 // -------------------------------------------------------------------------------------
+SmPlatform::~SmPlatform() {}
 SmPlatform::SmPlatform()
     : Platform("SM-Platform",
                fpi::FDSP_STOR_MGR,
