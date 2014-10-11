@@ -27,6 +27,26 @@ template "/etc/collectd/collectd.conf" do
 	notifies :restart, "service[collectd]", :immediately
 end
 
+group "collectd" do
+    action :create
+end
+
+user "collectd" do
+    comment 'collectd account'
+    gid "collectd"
+    home "/home/collectd"
+    supports :manage_home => true
+    shell '/bin/bash'
+    action :create
+    system true
+end
+
+cookbook_file "/home/collectd/get_cpu_core_count.sh" do
+	source "get_cpu_core_count.sh"
+	action :create
+    mode '0644'
+end
+
 service "collectd" do
 	action [:enable, :start]
 end
