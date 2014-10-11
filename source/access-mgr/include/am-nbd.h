@@ -5,6 +5,7 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_AM_NBD_H_
 
 #include <ev.h>
+#include <linux/nbd.h>
 #include <fds_ptr.h>
 #include <apis/am-block.h>
 #include <concurrency/spinlock.h>
