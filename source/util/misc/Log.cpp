@@ -31,7 +31,7 @@ inline std::basic_ostream< CharT, TraitsT >& operator<< (std::basic_ostream< Cha
                 "trace",
                 "debug",
                 "normal",
-                "notification",
+                "notify",
                 "warning",
                 "error",
                 "CRITICAL"

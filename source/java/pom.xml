@@ -7,12 +7,35 @@
     <version>1.0</version>
     <name>fds</name>
     <url>http://www.formationds.com</url>
+
     <properties>
-        <encoding>UTF-8</encoding>
+      <encoding>UTF-8</encoding>
       <togglz.version>2.0.1.Final</togglz.version>
+      <javax-jdo.version>2.2</javax-jdo.version>
+      <javax-persistence.version>1.0.2</javax-persistence.version>
+      <jedis.version>2.6.0</jedis.version>
     </properties>
 
+  <repositories>
+    <repository>
+      <id>objectdb</id>
+      <name>ObjectDB Repository</name>
+      <url>http://m2.objectdb.com</url>
+    </repository>
+  </repositories>
+
     <dependencies>
+      <dependency>
+        <groupId>com.objectdb</groupId>
+        <artifactId>objectdb</artifactId>
+        <version>2.5.7_01</version>
+      </dependency>
+      <dependency>
+        <groupId>redis.clients</groupId>
+        <artifactId>jedis</artifactId>
+        <version>2.6.0</version>
+      </dependency>
+
         <dependency>
             <groupId>fds</groupId>
             <artifactId>fds-thrift</artifactId>

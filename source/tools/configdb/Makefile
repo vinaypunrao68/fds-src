@@ -11,7 +11,9 @@ user_fds_ar_libs  := \
 	fds-fdsp \
 	fds-umod \
 	fds-thread \
-    fds-osdep
+	fds-plat-lib \
+	fds-xdi	\
+        fds-osdep
 
 user_non_fds_libs := \
     cmdconsole

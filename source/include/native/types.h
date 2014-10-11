@@ -399,8 +399,8 @@ namespace fds {
         /*
          * Buffer members
          */
-        fds_uint64_t  dataLen;
-        char         *dataBuf;
+        std::size_t dataLen;
+        char        *dataBuf;
 
         /*
          * Callback members
@@ -464,7 +464,7 @@ namespace fds {
         fds_uint64_t getBlobOffset() const;
         void setBlobOffset(fds_uint64_t offset);
         const char *getDataBuf() const;
-        fds_uint64_t getDataLen() const;
+        std::size_t getDataLen() const;
         void setDataLen(fds_uint64_t len);
         void setDataBuf(const char* _buf);
         ObjectID getObjId() const;

@@ -24,6 +24,106 @@ extern StorHvCtrl *storHvisor;
 using namespace std;
 using namespace FDS_ProtocolInterface;
 
+std::atomic_uint nextIoReqId;
+
+void
+StorHvCtrl::enqueueAttachReq(const std::string& volumeName,
+                             CallbackPtr cb) {
+    LOGDEBUG << "Attach request for volume " << volumeName;
+
+    // check if volume is already attached
+    fds_volid_t volId = invalid_vol_id;
+    if (vol_table->volumeExists(volumeName)) {
+        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
+        fds_verify(volId != invalid_vol_id);
+        LOGDEBUG << "Volume " << volumeName
+                 << " with UUID " << volId
+                 << " already attached";
+        cb->call(ERR_OK);
+        return;
+    }
+
+    // Create a noop request to put into wait queue
+    AttachVolBlobReq *blobReq =
+            new AttachVolBlobReq(volId,
+                                 volumeName,
+                                 "",  // No blob name
+                                 0,  // No blob offset
+                                 0,  // No data length
+                                 NULL,  // No buffer
+                                 cb);
+
+    // Enqueue this request to process the callback
+    // when the attach is complete
+    vol_table->addBlobToWaitQueue(volumeName, blobReq);
+
+    fds_verify(sendTestBucketToOM(volumeName,
+                                  "",  // The access key isn't used
+                                  "") == ERR_OK); // The secret key isn't used
+}
+
+Error
+StorHvCtrl::pushBlobReq(FdsBlobReq *blobReq) {
+    fds_verify(blobReq->magicInUse() == true);
+    Error err(ERR_OK);
+
+    PerfTracer::tracePointBegin(blobReq->e2eReqPerfCtx); 
+    PerfTracer::tracePointBegin(blobReq->qosPerfCtx); 
+    /*
+     * Pack the blobReq in to a qosReq to pass to QoS
+     */
+    fds_uint32_t reqId = atomic_fetch_add(&nextIoReqId, (fds_uint32_t)1);
+    AmQosReq *qosReq  = new AmQosReq(blobReq, reqId);
+    fds_volid_t volId = blobReq->getVolId();
+
+    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
+    if ((shVol == NULL) || (shVol->volQueue == NULL)) {
+        if (shVol)
+            shVol->readUnlock();
+        LOGERROR << "Volume and queueus are NOT setup for volume " << volId;
+        err = ERR_INVALID_ARG;
+        PerfTracer::tracePointEnd(blobReq->qosPerfCtx); 
+        delete qosReq;
+        return err;
+    }
+    /*
+     * TODO: We should handle some sort of success/failure here?
+     */
+    qos_ctrl->enqueueIO(volId, qosReq);
+    shVol->readUnlock();
+
+    LOGDEBUG << "Queued IO for vol " << volId;
+
+    return err;
+}
+
+void
+StorHvCtrl::enqueueBlobReq(FdsBlobReq *blobReq) {
+    fds_verify(blobReq->magicInUse() == true);
+
+    // check if volume is attached to this AM
+    if (vol_table->volumeExists(blobReq->volumeName)) {
+        fds_volid_t volId = vol_table->getVolumeUUID(blobReq->volumeName);
+        fds_verify(volId != invalid_vol_id);
+        // Set the vol id because we may have only know the volume name
+        blobReq->setVolId(volId);
+    } else {
+        vol_table->addBlobToWaitQueue(blobReq->volumeName, blobReq);
+        fds_verify(sendTestBucketToOM(blobReq->volumeName,
+                                      "",  // The access key isn't used
+                                      "") == ERR_OK); // The secret key isn't used
+    }
+
+    PerfTracer::tracePointBegin(blobReq->e2eReqPerfCtx); 
+    PerfTracer::tracePointBegin(blobReq->qosPerfCtx); 
+
+    fds_uint32_t reqId = atomic_fetch_add(&nextIoReqId, (fds_uint32_t)1);
+    // Pack the blobReq in to a qosReq to pass to QoS
+    AmQosReq *qosReq = new AmQosReq(blobReq, reqId);
+
+    fds_verify(qos_ctrl->enqueueIO(blobReq->getVolId(), qosReq) == ERR_OK);
+}
+
 Error
 StorHvCtrl::abortBlobTxSvc(AmQosReq *qosReq) {
     fds_verify(qosReq != NULL);

@@ -45,7 +45,7 @@ struct ObjectLocationTable {
                    fds_uint16_t diskId);
     fds_uint16_t getDiskId(fds_token_id smToken,
                            diskio::DataTier tier) const;
-    fds_bool_t isDiskIdValid(fds_uint16_t diskId) const;
+    static fds_bool_t isDiskIdValid(fds_uint16_t diskId);
 
     /**
      * Get a set of SM tokens that reside on a given disk

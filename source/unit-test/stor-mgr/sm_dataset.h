@@ -11,6 +11,7 @@
 #include <boost/shared_ptr.hpp>
 
 #include <ObjectId.h>
+#include <fds_volume.h>
 #include <dlt.h>
 #include <FdsRandom.h>
 

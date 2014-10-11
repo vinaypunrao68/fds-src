@@ -63,8 +63,7 @@ test/bower_components/
 /source/fdsp/gmon.out
 gmock-1.7.0/gmock_test
 nginx/src/main/ngx_modules.c
-/source/am-engine/misc/am-urls.cpp
-/source/am-engine/am-urls.cpp
+**/am-urls.cpp
 *.deb
 tmppkg*/
 .cproject
@@ -93,5 +92,6 @@ source/unit-test/fds-probe/platform/node-work.h
 source/java/target
 source/am-engine/misc/build.linux-x86_64
 source/am-engine
+chef/nodes
 chef/vagrant/*/.vagrant/*
 source/java/${project.build.dir}

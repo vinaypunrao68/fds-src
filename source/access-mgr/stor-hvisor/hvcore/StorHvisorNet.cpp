@@ -161,7 +161,9 @@ StorHvCtrl::StorHvCtrl(int argc,
     om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
 
     /*  Create the QOS Controller object */
-    qos_ctrl = new StorHvQosCtrl(50, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, GetLog());
+    fds_uint32_t qos_threads = config.get<int>("qos_threads");
+    qos_ctrl = new StorHvQosCtrl(qos_threads,
+				 fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, GetLog());
     qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
     om_client->startAcceptingControlMessages();
 
@@ -180,13 +182,14 @@ StorHvCtrl::StorHvCtrl(int argc,
     // Init the AM transaction manager
     amTxMgr = AmTxManager::shared_ptr(new AmTxManager("AM Transaction Manager Module"));
     // Init the AM cache manager
-    amCache = AmCache::unique_ptr(new AmCache("AM Cache Manager Module"));
+    amCache = AmCache::shared_ptr(new AmCache("AM Cache Manager Module"));
 
     // Init the dispatcher layer
     // TODO(Andrew): Decide if AM or AmProcessor should own
     // this layer.
     amDispatcher = AmDispatcher::shared_ptr(
         new AmDispatcher("AM Dispatcher Module",
+                         om_client->getDltManager(),
                          om_client->getDmtManager()));
     // Init the processor layer
     amProcessor = AmProcessor::unique_ptr(
@@ -194,7 +197,8 @@ StorHvCtrl::StorHvCtrl(int argc,
                         amDispatcher,
                         qos_ctrl,
                         vol_table,
-                        amTxMgr));
+                        amTxMgr,
+                        amCache));
 
     chksumPtr =  new checksum_calc();
 
