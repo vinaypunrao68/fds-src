@@ -46,6 +46,7 @@ class EvBlockMod : public BlockMod
     void blk_run_loop();
 
   protected:
+    ev_io                    ev_stdin;
     struct ev_loop          *ev_blk_loop;
 
     virtual BlkVol::ptr blk_alloc_vol(const blk_vol_creat_t *r) override;

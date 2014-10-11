@@ -31,6 +31,7 @@ fds_dev_packages = %w[
   libssl-dev
   libfuse-dev
   libevent-dev
+  libev-dev
   libfiu-dev
   fiu-utils
   bison
