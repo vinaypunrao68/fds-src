@@ -13,15 +13,17 @@
 
 namespace fds {
 
-typedef struct sanjay_in sanjay_in_t;
-struct sanjay_in
+typedef struct nbd_vol_in nbd_vol_in_t;
+struct nbd_vol_in
 {
-    fds_uint32_t		time;
-    char *			date;
-    fds_uint32_t		favorite;
+    fds_uint32_t		block_size;
+    char *			name;
+    char *			device;
+    fds_uint32_t		vol_blocks;
+    fds_uint32_t		uuid;
 };
 
-class SanjayObj : public JsObject
+class NbdVolObj : public JsObject
 {
   public:
     /**
@@ -30,152 +32,38 @@ class SanjayObj : public JsObject
     virtual JsObject *
     js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out) override;
 
-    inline sanjay_in_t * sanjay_in() {
-        return static_cast<sanjay_in_t *>(js_pod_object());
+    inline nbd_vol_in_t * nbd_vol_in() {
+        return static_cast<nbd_vol_in_t *>(js_pod_object());
     }
 };
 
 /**
  * Decoder for:
- * "Sanjay": { .. }
+ * "NbdVol": { .. }
  */
-class SanjayTmpl : public JsObjTemplate
+class NbdVolTmpl : public JsObjTemplate
 {
   public:
-    explicit SanjayTmpl(JsObjManager *mgr) : JsObjTemplate("sanjay", mgr) {}
+    explicit NbdVolTmpl(JsObjManager *mgr) : JsObjTemplate("nbd_vol", mgr) {}
     virtual JsObject *js_new(json_t *in) override
     {
-        sanjay_in_t *p = new sanjay_in_t;
-        if (json_unpack(in, "{"
-                     "s:i "
-                     "s:s "
-                     "s:i "
-                     "}",
-                     "time", &p->time,
-                     "date", &p->date,
-                     "favorite", &p->favorite)) {
-            delete p;
-            return NULL;
-        }
-        return js_parse(new SanjayObj(), in, p);
-    }
-};
-
-typedef struct bao_in bao_in_t;
-struct bao_in
-{
-    char *			like;
-    fds_uint32_t		v1;
-    fds_uint32_t		v2;
-    char *			v4;
-};
-
-class BaoObj : public JsObject
-{
-  public:
-    /**
-     * You need to provide the implementation for this method.
-     */
-    virtual JsObject *
-    js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out) override;
-
-    inline bao_in_t * bao_in() {
-        return static_cast<bao_in_t *>(js_pod_object());
-    }
-};
-
-/**
- * Decoder for:
- * "Bao": { .. }
- */
-class BaoTmpl : public JsObjTemplate
-{
-  public:
-    explicit BaoTmpl(JsObjManager *mgr) : JsObjTemplate("bao", mgr) {}
-    virtual JsObject *js_new(json_t *in) override
-    {
-        bao_in_t *p = new bao_in_t;
-        if (json_unpack(in, "{"
-                     "s:s "
-                     "s:i "
-                     "s:i "
-                     "s:s "
-                     "}",
-                     "like", &p->like,
-                     "v1", &p->v1,
-                     "v2", &p->v2,
-                     "v4", &p->v4)) {
-            delete p;
-            return NULL;
-        }
-        return js_parse(new BaoObj(), in, p);
-    }
-};
-
-typedef struct vy_in vy_in_t;
-struct vy_in
-{
-    fds_uint32_t		v2;
-    char *			v1;
-    char *			v3;
-};
-
-class VyObj : public JsObject
-{
-  public:
-    /**
-     * You need to provide the implementation for this method.
-     */
-    virtual JsObject *
-    js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out) override;
-
-    inline vy_in_t * vy_in() {
-        return static_cast<vy_in_t *>(js_pod_object());
-    }
-};
-
-/**
- * Decoder for:
- * "Vy": { .. }
- */
-class VyTmpl : public JsObjTemplate
-{
-  public:
-    explicit VyTmpl(JsObjManager *mgr) : JsObjTemplate("vy", mgr) {}
-    virtual JsObject *js_new(json_t *in) override
-    {
-        vy_in_t *p = new vy_in_t;
+        nbd_vol_in_t *p = new nbd_vol_in_t;
         if (json_unpack(in, "{"
                      "s:i "
                      "s:s "
                      "s:s "
+                     "s:i "
+                     "s:i "
                      "}",
-                     "V2", &p->v2,
-                     "v1", &p->v1,
-                     "V3", &p->v3)) {
+                     "block_size", &p->block_size,
+                     "name", &p->name,
+                     "device", &p->device,
+                     "vol_blocks", &p->vol_blocks,
+                     "uuid", &p->uuid)) {
             delete p;
             return NULL;
         }
-        return js_parse(new VyObj(), in, p);
-    }
-};
-
-/**
- * Decoder for:
- * "Foo": { .. }
- */
-class FooTmpl : public JsObjTemplate
-{
-  public:
-    explicit FooTmpl(JsObjManager *mgr)
-        : JsObjTemplate("foo", mgr)
-    {
-        js_decode["sanjay"] = new SanjayTmpl(mgr);
-        js_decode["bao"] = new BaoTmpl(mgr);
-        js_decode["vy"] = new VyTmpl(mgr);
-    }
-    virtual JsObject *js_new(json_t *in) {
-        return js_parse(new JsObject(), in, NULL);
+        return js_parse(new NbdVolObj(), in, p);
     }
 };
 
@@ -189,7 +77,7 @@ class RunSetupTmpl : public JsObjTemplate
     explicit RunSetupTmpl(JsObjManager *mgr)
         : JsObjTemplate("Run-Setup", mgr)
     {
-        js_decode["foo"] = new FooTmpl(mgr);
+        js_decode["nbd_vol"] = new NbdVolTmpl(mgr);
     }
     virtual JsObject *js_new(json_t *in) {
         return js_parse(new JsObject(), in, NULL);

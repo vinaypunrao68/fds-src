@@ -7,6 +7,7 @@
 #include <fds_process.h>
 #include <AmDispatcher.h>
 #include <net/SvcRequestPool.h>
+#include <net/net-service-tmpl.hpp>
 
 namespace fds {
 

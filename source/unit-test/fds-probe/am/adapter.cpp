@@ -1,34 +1,26 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
- *
- * Template to write probe adapter.  Replace XX with your namespace.
  */
-#include <o.h>
+#include <in.h>
+#include <am-nbd.h>
 
 namespace fds {
 
-// -----------------------------------------------------------------------------------
-// Replace it with your handlers
-// -----------------------------------------------------------------------------------
 JsObject *
-SanjayObj::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
+NbdVolObj::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 {
-    sanjay_in_t *in = sanjay_in();
-    std::cout << "Sanjay obj is called " << in->date << std::endl;
-    return this;
-}
+    int              rt;
+    blk_vol_creat_t  r;
+    nbd_vol_in_t    *in  = nbd_vol_in();
+    NbdBlockMod     *blk = NbdBlockMod::nbd_singleton();
 
-JsObject *
-BaoObj::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
-{
-    std::cout << "Bao obj is called" << std::endl;
-    return this;
-}
+    r.v_name = in->name;
+    r.v_dev  = in->device;
+    r.v_uuid = in->uuid;
+    r.v_blksz     = in->block_size;
+    r.v_vol_blksz = in->vol_blocks;
 
-JsObject *
-VyObj::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
-{
-    std::cout << "Vy obj is called" << std::endl;
+    rt = blk->blk_attach_vol(&r);
     return this;
 }
 
