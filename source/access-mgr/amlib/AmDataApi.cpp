@@ -81,12 +81,11 @@ void
 AmDataApi::volumeStatus(apis::VolumeStatus& _return,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName) {
-    LOGDEBUG << "volumeStatus for vol:" << *volumeName;
     StatVolumeResponseHandler::ptr handler(new StatVolumeResponseHandler(_return));
-    Error err = STORHANDLER(GetVolumeMetaDataHandler,
-                            fds::FDS_GET_VOLUME_METADATA)->handleRequest(*volumeName,
-                                                                             handler);
-    fds_verify(err.ok());
+    FdsBlobReq *blobReq = new GetVolumeMetaDataReq(invalid_vol_id,
+                                                   *volumeName,
+                                                   SHARED_DYN_CAST(Callback, handler));
+    storHvisor->enqueueBlobReq(blobReq);
 
     handler->wait();
     handler->process();

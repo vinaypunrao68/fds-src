@@ -38,6 +38,44 @@ AmDispatcher::mod_shutdown() {
 }
 
 void
+AmDispatcher::dispatchGetVolumeMetadata(AmQosReq *qosReq) {
+    GetVolumeMetaDataReq* volReq = static_cast<GetVolumeMetaDataReq *>(qosReq->getBlobReqPtr());
+    fds_verify(true == volReq->magicInUse());
+
+    GetVolumeMetaDataMsgPtr volMDMsg(new fpi::GetVolumeMetaDataMsg());
+    volMDMsg->volume_id = volReq->getVolId();
+    FailoverSvcRequestRespCb respCb(
+        RESPONSE_MSG_HANDLER(AmDispatcher::getVolumeMetadataCb,
+                             qosReq));
+
+    auto asyncGetVolMetadataReq = gSvcRequestPool->newFailoverSvcRequest(
+        boost::make_shared<DmtVolumeIdEpProvider>(
+            dmtMgr->getCommittedNodeGroup(volReq->getVolId())));
+    asyncGetVolMetadataReq->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeMetaDataMsg),
+                                    volMDMsg);
+    asyncGetVolMetadataReq->onResponseCb(respCb);
+    asyncGetVolMetadataReq->invoke();
+}
+
+void
+AmDispatcher::getVolumeMetadataCb(AmQosReq* qosReq,
+                                  FailoverSvcRequest* svcReq,
+                                  const Error& error,
+                                  boost::shared_ptr<std::string> payload) {
+    GetVolumeMetaDataReq * volReq =
+            static_cast<fds::GetVolumeMetaDataReq*>(qosReq->getBlobReqPtr());
+    GetVolumeMetaDataMsgPtr volMDMsg =
+        net::ep_deserialize<fpi::GetVolumeMetaDataMsg>(const_cast<Error&>(error), payload);
+
+    volReq->volumeMetadata = volMDMsg->volume_meta_data;
+    // Notify upper layers that the request is done. When this
+    // completes, all upper layers should be notified and we
+    // can safely delete the request
+    volReq->processorCb(error);
+    delete volReq;
+}
+
+void
 AmDispatcher::dispatchStartBlobTx(AmQosReq *qosReq) {
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(
         qosReq->getBlobReqPtr());
@@ -63,8 +101,8 @@ AmDispatcher::dispatchStartBlobTx(AmQosReq *qosReq) {
     startBlobTxMsg->dmt_version  = blobReq->dmtVersion;
 
     auto asyncStartBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(
-        dmtMgr->getCommittedNodeGroup(blobReq->getVolId())));
+        boost::make_shared<DmtVolumeIdEpProvider>(
+            dmtMgr->getCommittedNodeGroup(blobReq->getVolId())));
     asyncStartBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::StartBlobTxMsg),
                                     startBlobTxMsg);
     asyncStartBlobTxReq->onResponseCb(respCb);

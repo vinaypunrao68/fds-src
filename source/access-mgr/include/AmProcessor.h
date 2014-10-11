@@ -44,6 +44,17 @@ class AmProcessor : public Module, public boost::noncopyable {
     void mod_shutdown();
 
     /**
+     * Processes a get volume metadata request
+     */
+    void getVolumeMetadata(AmQosReq *qosReq);
+
+    /**
+     * Callback for a get volume metadata request
+     */
+    void getVolumeMetadataCb(AmQosReq *qosReq,
+                             const Error &error);
+
+    /**
      * Processes a start blob transaction
      */
     void startBlobTx(AmQosReq *qosReq);
@@ -51,8 +62,8 @@ class AmProcessor : public Module, public boost::noncopyable {
     /**
      * Callback for start blob transaction
      */
-    void startBlobTxCb(AmQosReq* qosReq,
-                       const Error& error);
+    void startBlobTxCb(AmQosReq *qosReq,
+                       const Error &error);
 
     /**
      * Processes a get blob request

@@ -537,7 +537,7 @@ static void processBlobReq(AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
     switch (qosReq->io_type) {
         case fds::FDS_START_BLOB_TX:
-            if (storHvisor->toggleNewPath == true) {
+            if (true == storHvisor->toggleNewPath) {
                 storHvisor->amProcessor->startBlobTx(qosReq);
             } else {
                 err = storHvisor->startBlobTxSvc(qosReq);
@@ -579,7 +579,11 @@ static void processBlobReq(AmQosReq *qosReq) {
             err = storHvisor->setBlobMetaDataSvc(qosReq);
             break;
         case fds::FDS_GET_VOLUME_METADATA:
-            err = storHvisor->getVolumeMetaDataSvc(qosReq);
+            if (true == storHvisor->toggleNewPath) {
+                storHvisor->amProcessor->getVolumeMetadata(qosReq);
+            } else {
+                err = storHvisor->getVolumeMetaDataSvc(qosReq);
+            }
             break;
 
         // new handlers
