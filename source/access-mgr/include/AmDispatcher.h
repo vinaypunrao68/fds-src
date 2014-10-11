@@ -42,6 +42,19 @@ class AmDispatcher : public Module, public boost::noncopyable {
     void mod_shutdown();
 
     /**
+     * Dipatches a get volume metadata request.
+     */
+    void dispatchGetVolumeMetadata(AmQosReq *qosReq);
+
+    /**
+     * Callback for get volume metadata responses.
+     */
+    void getVolumeMetadataCb(AmQosReq* qosReq,
+                             FailoverSvcRequest* svcReq,
+                             const Error& error,
+                             boost::shared_ptr<std::string> payload);
+
+    /**
      * Dipatches a start blob transaction request.
      */
     void dispatchStartBlobTx(AmQosReq *qosReq);

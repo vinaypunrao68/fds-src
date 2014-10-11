@@ -46,6 +46,29 @@ AmProcessor::mod_shutdown() {
 }
 
 void
+AmProcessor::getVolumeMetadata(AmQosReq *qosReq) {
+    GetVolumeMetaDataReq* volReq = static_cast<GetVolumeMetaDataReq *>(qosReq->getBlobReqPtr());
+    fds_verify(true == volReq->magicInUse());
+
+    // Set the processor callback
+    volReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::getVolumeMetadataCb, qosReq);
+    amDispatcher->dispatchGetVolumeMetadata(qosReq);
+}
+
+void
+AmProcessor::getVolumeMetadataCb(AmQosReq *qosReq,
+                                 const Error &error) {
+    GetVolumeMetaDataReq* volReq = static_cast<GetVolumeMetaDataReq *>(qosReq->getBlobReqPtr());
+    fds_verify(true == volReq->magicInUse());
+
+    GetVolumeMetaDataCallback::ptr cb =
+            SHARED_DYN_CAST(GetVolumeMetaDataCallback, volReq->cb);
+    cb->volumeMetaData = volReq->volumeMetadata;
+    qosCtrl->markIODone(qosReq);
+    cb->call(error);
+}
+
+void
 AmProcessor::startBlobTx(AmQosReq *qosReq) {
     // Get the blob request
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());

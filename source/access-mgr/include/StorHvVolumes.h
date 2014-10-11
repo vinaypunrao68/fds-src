@@ -403,6 +403,12 @@ struct GetVolumeMetaDataReq : FdsBlobReq {
     virtual ~GetVolumeMetaDataReq() {
         fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
+
+    /// Metadata to be returned
+    fpi::FDSP_VolumeMetaData volumeMetadata;
+
+    typedef std::function<void (const Error&)> GetVolMetadataProcCb;
+    GetVolMetadataProcCb processorCb;
 };
 
 struct GetBlobMetaDataReq : FdsBlobReq {
