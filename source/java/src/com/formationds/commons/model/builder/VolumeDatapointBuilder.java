@@ -10,10 +10,10 @@ import com.formationds.commons.model.VolumeDatapoint;
  * @author ptinius
  */
 public class VolumeDatapointBuilder {
-  private long dateTime;
+  private Long timestamp;
   private String volumeName;
   private String key;
-  private double value;
+  private Double value;
 
   /**
    * default constructor
@@ -22,12 +22,12 @@ public class VolumeDatapointBuilder {
   }
 
   /**
-   * @param dateTime the {@code long} representing the date/time in seconds
+   * @param timestamp the {@link Long} representing the timestamp in seconds
    *
    * @return Returns the {@link com.formationds.commons.model.builder.VolumeDatapointBuilder}
    */
-  public VolumeDatapointBuilder withDateTime( long dateTime ) {
-    this.dateTime = dateTime;
+  public VolumeDatapointBuilder withTimestamp( Long timestamp ) {
+    this.timestamp = timestamp;
     return this;
   }
 
@@ -52,11 +52,11 @@ public class VolumeDatapointBuilder {
   }
 
   /**
-   * @param value the {@code double} representing thevalue
+   * @param value the {@link Double} representing the value
    *
    * @return Returns the {@link com.formationds.commons.model.builder.VolumeDatapointBuilder}
    */
-  public VolumeDatapointBuilder withValue( double value ) {
+  public VolumeDatapointBuilder withValue( Double value ) {
     this.value = value;
     return this;
   }
@@ -66,10 +66,23 @@ public class VolumeDatapointBuilder {
    */
   public VolumeDatapoint build() {
     VolumeDatapoint volumeDatapoint = new VolumeDatapoint();
-    volumeDatapoint.setDateTime( dateTime );
-    volumeDatapoint.setVolumeName( volumeName );
-    volumeDatapoint.setKey( key );
-    volumeDatapoint.setValue( value );
+
+    if( volumeName != null  ) {
+      volumeDatapoint.setVolumeName( volumeName );
+    }
+
+    if( key != null ) {
+      volumeDatapoint.setKey( key );
+    }
+
+    if( timestamp != null ) {
+      volumeDatapoint.setTimestamp( timestamp );
+    }
+
+    if( value != null ) {
+      volumeDatapoint.setValue( value );
+    }
+
     return volumeDatapoint;
   }
 }

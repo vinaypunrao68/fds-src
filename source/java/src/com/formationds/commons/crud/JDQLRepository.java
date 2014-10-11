@@ -29,6 +29,7 @@ public abstract class JDQLRepository<T, PrimaryKey extends Serializable>
 
   private EntityManagerFactory factory;
   private EntityManager manager;
+  private EntityManager entity;
 
   /**
    * @return Returns the {@link javax.persistence.EntityManagerFactory}
@@ -56,6 +57,20 @@ public abstract class JDQLRepository<T, PrimaryKey extends Serializable>
    */
   protected void manager( final EntityManager manager ) {
     this.manager = manager;
+  }
+
+  /**
+   * @return Returns the {@link EntityManager}
+   */
+  public EntityManager entity() {
+    return entity;
+  }
+
+  /**
+   * @param entity the {@link javax.persistence.EntityManager}
+   */
+  protected void entity( final EntityManager entity ) {
+    this.entity = entity;
   }
 
   /**
