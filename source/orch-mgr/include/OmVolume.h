@@ -86,17 +86,27 @@ class VolOpRespEvt
     Error op_err;
 };
 
-class VolDelChkEvt
+class VolDeleteEvt
 {
  public:
-    VolDelChkEvt(const ResourceUUID& uuid, VolumeInfo* vol)
+    VolDeleteEvt(const ResourceUUID& uuid, VolumeInfo* vol)
             : vol_uuid(uuid), vol_ptr(vol) {}
 
     ResourceUUID vol_uuid;
     VolumeInfo* vol_ptr;
 };
 
-class DelChkAckEvt
+class ResumeDelEvt
+{
+  public:
+    ResumeDelEvt(const ResourceUUID& uuid, VolumeInfo* vol)
+            : vol_uuid(uuid), vol_ptr(vol) {}
+    ResourceUUID vol_uuid;
+    VolumeInfo* vol_ptr;
+};
+
+
+class DelRespEvt
 {
  public:
     /**
@@ -106,7 +116,7 @@ class DelChkAckEvt
      * rebalancing was going on, then we call this event when
      * rebalancing is finished so that we can continue vol delete
      */
-    DelChkAckEvt(VolumeInfo* vol,
+    DelRespEvt(VolumeInfo* vol,
                  Error err,
                  fds_bool_t ack = true)
             : vol_ptr(vol), chk_err(err), recvd_ack(ack) {}
@@ -115,18 +125,6 @@ class DelChkAckEvt
     Error chk_err;
     fds_bool_t recvd_ack;
 };
-
-class DetachAllEvt
-{
- public:
-    DetachAllEvt() {}
-};
-
-struct SendDelVolEvt {
-    explicit SendDelVolEvt(VolumeInfo* vol) : vol_ptr(vol) {}
-    VolumeInfo* vol_ptr;
-};
-
 
 class DelNotifEvt
 {
@@ -155,7 +153,7 @@ typedef struct om_vol_msg_s
 /**
  * Volume Object.
  */
-class VolumeInfo : public Resource
+class VolumeInfo : public Resource, public HasState
 {
   public:
     typedef boost::intrusive_ptr<VolumeInfo> pointer;
@@ -192,6 +190,15 @@ class VolumeInfo : public Resource
         return vol_properties;
     }
 
+    fpi::ResourceState getState() {
+        if (vol_properties) return vol_properties->getState();
+        return fpi::ResourceState::Unknown;
+    }
+
+    void setState(fpi::ResourceState state) {
+        if (vol_properties) vol_properties->setState(state);
+    }
+
     /**
      * Return the string containing current state of the volume
      */
@@ -204,11 +211,10 @@ class VolumeInfo : public Resource
     void vol_event(VolCrtOkEvt const &evt);
     void vol_event(VolOpEvt const &evt);
     void vol_event(VolOpRespEvt const &evt);
-    void vol_event(VolDelChkEvt const &evt);
-    void vol_event(DelChkAckEvt const &evt);
-    void vol_event(DetachAllEvt const &evt);
+    void vol_event(VolDeleteEvt const &evt);
+    void vol_event(DelRespEvt const &evt);
+    void vol_event(ResumeDelEvt const &evt);
     void vol_event(DelNotifEvt const &evt);
-    void vol_event(SendDelVolEvt const &evt);
     fds_bool_t isVolumeInactive();
     fds_bool_t isDeletePending();
     fds_bool_t isCheckDelete();

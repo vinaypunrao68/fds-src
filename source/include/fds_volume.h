@@ -23,7 +23,7 @@
 #include <boost/lockfree/queue.hpp>
 #include <boost/atomic.hpp>
 #include <serialize.h>
-
+#include <fds_resource.h>
 #define FdsSysTaskQueueId 0xefffffff
 #define FdsSysTaskPri 5
 
@@ -41,7 +41,7 @@ static const fds_volid_t admin_vol_id = 0x8001;
  * to be a cacheable/passable description of a volume instance.
  * The authoritative volume information is stored on the OM.
  */
-class VolumeDesc {
+class VolumeDesc : public HasState {
   public:
     // Basic ID information.
     std::string            name;
@@ -126,6 +126,13 @@ class VolumeDesc {
     fds_volid_t getLookupVolumeId() const;
 
     friend std::ostream& operator<<(std::ostream& out, const VolumeDesc& vol_desc);
+    fpi::ResourceState getState() {
+        return state;
+    }
+
+    void setState(fpi::ResourceState state) {
+        this->state = state;
+    }
 };
 
 /**

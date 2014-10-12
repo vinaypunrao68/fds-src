@@ -83,7 +83,7 @@ namespace fds {
         /* FDS actor is shutdown */
         ERR_FAR_SHUTDOWN,
 
-        /* Storage manager error range [2000-2500) */
+        /* Storage manager error range [2000-2999) */
         ERR_SM_NOT_IN_SYNC_MODE = 2000,
         ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND,
         ERR_SM_TOKENSTATEDB_DUPLICATE_KEY,
@@ -92,7 +92,9 @@ namespace fds {
         ERR_SM_SUPERBLOCK_MISSING_FILE,
         ERR_SM_SUPERBLOCK_CHECKSUM_FAIL,
         ERR_SM_SUPERBLOCK_DATA_CORRUPT,
+        ERR_SM_SUPERBLOCK_READ_FAIL,
         ERR_SM_SUPERBLOCK_WRITE_FAIL,
+        ERR_SM_SUPERBLOCK_NO_RECONCILE,
 
         /* Network errors */
         ERR_NETWORK_TRANSPORT = 3000,
@@ -214,10 +216,9 @@ namespace fds {
 
         Error& operator=(const fds_errno_t& rhs);
 
-        bool operator==(const Error& rhs) const;
-        bool operator==(const fds_errno_t& rhs) const;
-        bool operator!=(const Error& rhs) const;
-        bool operator!=(const fds_errno_t& rhs) const;
+        friend bool operator==(const Error& lhs, const Error& rhs);
+        friend bool operator!=(const Error& lhs, const Error& rhs);
+
         ~Error();
     };
 
@@ -227,6 +228,14 @@ namespace fds {
 
     FDSN_Status getStatusFromError(const Error& error);
     std::string toString(FDSN_Status status);
+
+    inline bool operator==(const Error& lhs, const Error& rhs) {
+        return (lhs._errno == rhs._errno);
+    }
+
+    inline bool operator!=(const Error& lhs, const Error& rhs) {
+        return !(lhs == rhs);
+    }
 
 }  // namespace fds
 

@@ -33,6 +33,7 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     explicit ObjectDataStore(const std::string &modName);
     ~ObjectDataStore();
     typedef std::unique_ptr<ObjectDataStore> unique_ptr;
+    typedef std::shared_ptr<ObjectDataStore> ptr;
 
     /**
      * Opens object data store

@@ -31,6 +31,7 @@ fds_dev_packages = %w[
   libssl-dev
   libfuse-dev
   libevent-dev
+  libev-dev
   libfiu-dev
   fiu-utils
   bison
@@ -51,12 +52,16 @@ fds_dev_packages = %w[
   fds-pkgtools
   fds-systemdir
   fds-coredump
+  npm
+  ruby
+  ruby-sass
   python-paramiko
   python-redis
   python-requests
   python-boto
   python-argh
   python-thrift
+  python-xmlrunner
 ]
 
 fds_dev_python_packages = %w[
@@ -103,6 +108,7 @@ fds_dev_python_packages.each do |pkg|
 end
 
 link "/usr/lib/jvm/java-8-oracle" do
+  not_if "test -d /usr/lib/jvm/java-8-oracle"
   to "/usr/lib/jvm/java-8-oracle-amd64"
 end
 
@@ -123,7 +129,7 @@ end
 
 # file "#{node['fds_setup']['fds_dev_homedir']}/clone-fds.sh" do
 #     owner node['fds_setup']['fds_dev_username']
-#     group node['fds_setup']['fds_dev_groupname'] 
+#     group node['fds_setup']['fds_dev_groupname']
 #     mode '0755'
 #     action :create_if_missing
 #     content "git clone https://github.com/fds-dev/fds-src\ngit fetch origin dev\ngit checkout dev"

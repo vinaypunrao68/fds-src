@@ -174,7 +174,7 @@ class FilePersisDataIO : public PersisDataIO
     int                      fi_fd;
     fds_uint16_t             fi_id;
     fds_int64_t              fi_cur_off;
-    char const *const        fi_path;
+    const std::string        fi_path;
 
     /**
      * statistics useful for automated garbage collection, etc.

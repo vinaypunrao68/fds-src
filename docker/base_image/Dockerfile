@@ -18,7 +18,7 @@ RUN apt-get install -y zip openssl git ack-grep python wget xsel python-pip zsh 
   curl build-essential runit openssh-server ruby tree vim openssh-server sudo \
   lshw
 RUN apt-get -y install libevent-dev libncurses-dev
-RUN apt-get -y install host npm nodejs ruby ruby-sass rake 
+RUN apt-get -y install host npm nodejs ruby ruby-sass rake
 
 # Install the Docker client
 RUN curl -sSL https://get.docker.io/ubuntu/ | sudo sh
@@ -50,15 +50,6 @@ RUN git clone https://github.com/adnichols/tmux-and-vim.git /home/pairing/.janus
 RUN bash -l -c /home/pairing/.janus/setup/setup.sh
 ADD resources/zshrc.default /home/pairing/.zshrc
 ADD resources/tmux.conf /home/pairing/.tmux.conf
-#ADD resources/clone-fds-src.sh /home/pairing/clone-fds-src.sh
-
-RUN mkdir /home/pairing/projects
-RUN git clone https://0e02efff0ef46f7a2002decdca4912db60153ba6@github.com/fds-dev/fds-src.git /home/pairing/projects/fds-src
-
-WORKDIR /home/pairing/projects/fds-src/source
-RUN touch ~/.ihaveaswapfile
-RUN make devsetup
-RUN git remote set-url origin https://github.com/fds-dev/fds-src
 
 USER root
 
@@ -72,7 +63,7 @@ RUN mkdir /root/.ssh
 RUN chmod 700 /root/.ssh
 ADD resources/ssh/id_rsa.pub /root/.ssh/authorized_keys
 ADD resources/ssh/config /root/.ssh/config
-RUN chown pairing /home/pairing/projects
+RUN chmod u+s /usr/bin/sudo
 
 
 EXPOSE 22

@@ -15,6 +15,7 @@
 #include <shared/fds_types.h>
 #include <concurrency/Mutex.h>
 #include <fdsp/fds_service_types.h>
+#include <fdsp/common_types.h>
 #include <fds_typedefs.h>
 
 namespace fds {
@@ -249,6 +250,20 @@ class RsContainer
 
   private:
     INTRUSIVE_PTR_DEFS(RsContainer, rs_refcnt);
+};
+
+struct HasState {
+    virtual fpi::ResourceState getState() = 0;
+    virtual void setState(fpi::ResourceState state) = 0;
+
+    std::string getStateName();
+    bool isStateLoading();
+    bool isStateCreated();
+    bool isStateActive();
+    bool isStateOffline();
+    bool isStateMarkedForDeletion();
+    bool isStateDeleted();
+    virtual ~HasState() {}
 };
 
 // ----------------------------------------------------------------------------
