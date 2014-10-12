@@ -149,7 +149,7 @@ public class MetricsRepositoryTest {
   {
     store.save( new VolumeDatapointBuilder().withKey( Metrics.PUTS.key() )
                                             .withVolumeName( "TestVolume" )
-                                            .withDateTime( System.currentTimeMillis() / 1000 )
+                                            .withTimestamp( System.currentTimeMillis() / 1000 )
                                             .withValue( 1.0 )
                                             .build() );
     Assert.assertTrue( Files.exists( Paths.get( DB_PATH ) ) );

@@ -77,7 +77,6 @@ public interface CRUDRepository<T, PrimaryKey extends Serializable> {
    */
   long countAllBy( final T entity );
 
-
   /**
    * @param entity the entity to save
    *

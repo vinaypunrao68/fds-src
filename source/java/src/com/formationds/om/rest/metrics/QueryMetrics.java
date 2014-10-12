@@ -4,10 +4,10 @@
 
 package com.formationds.om.rest.metrics;
 
+import com.formationds.commons.model.MetricQuery;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -32,9 +32,10 @@ public class QueryMetrics
 
     try( final Reader reader =
            new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
-      Gson gson = new GsonBuilder().create();
-//      final VolumeQuery volumeQuery = gson.fromJson( reader,
-//                                                     VolumeQuery.class );
+      final MetricQuery metricQuery = new GsonBuilder().create()
+                                           .fromJson( reader,
+                                                      MetricQuery.class );
+
 
       // TODO finish implementation
     }

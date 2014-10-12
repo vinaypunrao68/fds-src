@@ -18,6 +18,7 @@ package com.formationds.commons.model.builder;
 
 import com.formationds.commons.model.Connector;
 import com.formationds.commons.model.Volume;
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.ConnectorType;
 import com.formationds.util.SizeUnit;
 import org.junit.Assert;
@@ -84,5 +85,15 @@ public class VolumeBuilderTest {
   public void volumeId() {
     final Volume volume = new VolumeBuilder().withId( "ID Only" ).build();
     Assert.assertSame( volume.getId(), "ID Only" );
+  }
+
+  private static final String NATE_JSON =
+    "{\"priority\":10,\"sla\":0,\"limit\":300,\"snapshotPolicies\":[],\"name\":\"thirdtry\",\"data_connector\":{\"type\":\"Object\",\"api\":\"S3, Swift\"}}";
+
+  @Test
+  public void nate()
+  {
+    final Volume volume = ObjectModelHelper.toObject( NATE_JSON, Volume.class );
+    System.out.println( volume );
   }
 }

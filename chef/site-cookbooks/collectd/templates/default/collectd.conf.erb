@@ -94,7 +94,7 @@ LoadPlugin disk
 #LoadPlugin email
 LoadPlugin entropy
 #LoadPlugin ethstat
-#LoadPlugin exec
+LoadPlugin exec
 #LoadPlugin filecount
 #LoadPlugin fscache
 #LoadPlugin gmond
@@ -424,11 +424,9 @@ LoadPlugin write_http
 #	MappedOnly false
 #</Plugin>
 
-#<Plugin exec>
-#	Exec user "/path/to/exec"
-#	Exec "user:group" "/path/to/exec"
-#	NotificationExec user "/path/to/exec"
-#</Plugin>
+<Plugin exec>
+        Exec "collectd" "/home/collectd/get_cpu_core_count.sh"
+</Plugin>
 
 #<Plugin filecount>
 #	<Directory "/path/to/dir">
