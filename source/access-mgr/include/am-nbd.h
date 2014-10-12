@@ -7,7 +7,7 @@
 #include <ev.h>
 #include <linux/nbd.h>
 #include <fds_ptr.h>
-#include <apis/am-block.h>
+#include <access-mgr/am-block.h>
 #include <concurrency/spinlock.h>
 
 namespace fds {
