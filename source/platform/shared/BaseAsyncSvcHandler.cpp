@@ -61,7 +61,8 @@ void BaseAsyncSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::Asy
 {
     fiu_do_on("svc.uturn.asyncreqt",
               header->msg_code = ERR_INVALID; \
-              sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()));
+              sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()); \
+              return;);
 
     GLOGDEBUG << logString(*header);
     try {

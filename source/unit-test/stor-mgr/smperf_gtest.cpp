@@ -38,6 +38,7 @@ struct SMApi : SingleNodeTest
                boost::shared_ptr<std::string> payload)
     {
         if (error != ERR_OK) {
+            GLOGWARN << "Req Id: " << svcReq->getRequestId() << " " << error;
             putsFailedCnt_++;
         } else {
             putsSuccessCnt_++;
