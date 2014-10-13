@@ -4,7 +4,8 @@
 
 package com.formationds.commons.model.builder;
 
-import com.formationds.commons.model.VolumeDatapoint;
+import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.commons.model.entity.builder.VolumeDatapointBuilder;
 import org.junit.Assert;
 import org.junit.Test;
 

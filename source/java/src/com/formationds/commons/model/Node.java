@@ -7,7 +7,6 @@ package com.formationds.commons.model;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.type.NodeState;
 
-import javax.xml.bind.annotation.XmlRootElement;
 import java.beans.Transient;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,13 +14,11 @@ import java.util.List;
 /**
  * @author ptinius
  */
-@XmlRootElement
 public class Node
-  extends ModelBase
-{
+  extends ModelBase {
   private static final long serialVersionUID = -6684434195412037211L;
 
-  private Integer id ;
+  private Integer id;
   private String name;
   private Long uuid;
 
@@ -39,8 +36,7 @@ public class Node
   /**
    * default package level constructor
    */
-  public Node()
-  {
+  public Node() {
     super();
   }
 
@@ -48,232 +44,235 @@ public class Node
    * @return Returns {@code true} if the name is set
    */
   @Transient
-  public boolean isName( ) { return isSet( getName() ); }
+  public boolean isName() {
+    return isSet( getName() );
+  }
 
   /**
    * @return Returns {@code true} if the site is set
    */
   @Transient
-  public boolean isSite( ) { return isSet( getSite() ); }
+  public boolean isSite() {
+    return isSet( getSite() );
+  }
 
   /**
    * @return Returns {@code true} if the server uuid is set
    */
   @Transient
-  public boolean isDomain( ) { return isSet( getDomain() ); }
+  public boolean isDomain() {
+    return isSet( getDomain() );
+  }
 
   /**
    * @return Returns {@code true} if the server uuid is set
    */
   @Transient
-  public boolean isLocalDomain( ) { return isSet( getLocalDomain() ); }
+  public boolean isLocalDomain() {
+    return isSet( getLocalDomain() );
+  }
 
   /**
    * @return Returns {@code true} if the server uuid is set
    */
   @Transient
-  public boolean isState( ) { return isSet( getState() ); }
+  public boolean isState() {
+    return isSet( getState() );
+  }
 
   /**
    * @return Returns {@code true} if the uuid is set
    */
   @Transient
-  public boolean isUuid( ) { return getUuid() != -1L; }
+  public boolean isUuid() {
+    return getUuid() != -1L;
+  }
 
   /**
    * @return Returns {@code true} if the uuid is set
    */
   @Transient
-  public boolean isRoot( ) { return getRoot() != null; }
+  public boolean isRoot() {
+    return getRoot() != null;
+  }
 
   /**
    * @return Returns {@code true} if the uuid is set
    */
   @Transient
-  public boolean isService( ) { return services != null; }
+  public boolean isService() {
+    return services != null;
+  }
 
   /**
    * @return Returns {@code true} if the node id is set
    */
   @Transient
-  public boolean isId( ) { return getId() != -1; }
+  public boolean isId() {
+    return getId() != -1;
+  }
 
   /**
    * @return Returns {@code true} if the meta sync port is set
    */
   @Transient
-  public boolean isLoAddr( ) { return isSet( getLoAddr() ); }
+  public boolean isLoAddr() {
+    return isSet( getLoAddr() );
+  }
 
   /**
    * @return Returns {@code true} if the meta sync port is set
    */
-  public boolean isHiAddr( ) { return isSet( getHiAddr() ); }
+  public boolean isHiAddr() {
+    return isSet( getHiAddr() );
+  }
 
   /**
    * @return Returns {@code long} representing the universal unique identifier
    */
-  public long getUuid()
-  {
+  public long getUuid() {
     return uuid;
   }
 
   /**
    * @param uuid the {@code long} representing the universal unique identifier
    */
-  public void setUuid( final long uuid )
-  {
+  public void setUuid( final long uuid ) {
     this.uuid = uuid;
   }
 
   /**
    * @return Returns {@link String} representing the domain
    */
-  public String getDomain()
-  {
+  public String getDomain() {
     return domain;
   }
 
   /**
    * @param domain the {@link String} representing the domain
    */
-  public void setDomain( final String domain )
-  {
+  public void setDomain( final String domain ) {
     this.domain = domain;
   }
 
   /**
    * @return Returns {@code long} representing the high order of the IP address
    */
-  public long getHiAddr()
-  {
+  public long getHiAddr() {
     return hiAddr;
   }
 
   /**
-   * @param hiAddr the {@code long} representing the high order of the IP address
+   * @param hiAddr the {@code long} representing the high order of the IP
+   *               address
    */
-  public void setHiAddr( final long hiAddr )
-  {
+  public void setHiAddr( final long hiAddr ) {
     this.hiAddr = hiAddr;
   }
 
   /**
    * @return Returns {@link String} representing identifier
    */
-  public int getId()
-  {
+  public int getId() {
     return id;
   }
 
   /**
    * @param id the {@code int} representing the identifier
    */
-  public void setId( final int id )
-  {
+  public void setId( final int id ) {
     this.id = id;
   }
 
   /**
    * @return Returns {@code long} representing the low order of the IP address
    */
-  public long getLoAddr()
-  {
+  public long getLoAddr() {
     return loAddr;
   }
 
   /**
-   * @param loAddr the {@code long} representing the low order of the IP address
+   * @param loAddr the {@code long} representing the low order of the IP
+   *               address
    */
-  public void setLoAddr( final long loAddr )
-  {
+  public void setLoAddr( final long loAddr ) {
     this.loAddr = loAddr;
   }
 
   /**
    * @return Returns {@link String} representing the domain
    */
-  public String getLocalDomain()
-  {
+  public String getLocalDomain() {
     return localDomain;
   }
 
   /**
    * @param localDomain the {@link String} representing the domain
    */
-  public void setLocalDomain( final String localDomain )
-  {
+  public void setLocalDomain( final String localDomain ) {
     this.localDomain = localDomain;
   }
 
   /**
    * @return Returns {@link String} representing the name
    */
-  public String getName()
-  {
+  public String getName() {
     return name;
   }
 
   /**
    * @param name the {@link String} representing the name
    */
-  public void setName( final String name )
-  {
+  public void setName( final String name ) {
     this.name = name;
   }
 
   /**
    * @return Returns {@link String} representing the root
    */
-  public String getRoot()
-  {
+  public String getRoot() {
     return root;
   }
 
   /**
    * @param root the {@link String} representing the root
    */
-  public void setRoot( final String root )
-  {
+  public void setRoot( final String root ) {
     this.root = root;
   }
 
   /**
    * @return Returns {@link String} representing the site
    */
-  public String getSite()
-  {
+  public String getSite() {
     return site;
   }
 
   /**
    * @param site the {@link String} representing the site
    */
-  public void setSite( final String site )
-  {
+  public void setSite( final String site ) {
     this.site = site;
   }
 
   /**
    * @return Returns {@link NodeState}
    */
-  public NodeState getState()
-  {
+  public NodeState getState() {
     return state;
   }
 
   /**
    * @param state the {@link NodeState}
    */
-  public void setState( final NodeState state )
-  {
+  public void setState( final NodeState state ) {
     this.state = state;
   }
 
   /**
    * @return Returns {@code true} if the node is detached
    */
-  public boolean isDetached()
-  {
+  public boolean isDetached() {
     /*
       Nate's javascript for determining if a node is attached or detached.
 
@@ -290,27 +289,23 @@ public class Node
   /**
    * @param service the {@link Service}
    */
-  public void addService( final Service service )
-  {
-    if( services == null )
-    {
-      services = new ArrayList<>( );
+  public void addService( final Service service ) {
+    if( services == null ) {
+      services = new ArrayList<>();
     }
 
-    if( !services.contains( service ) )
-    {
+    if( !services.contains( service ) ) {
       services.add( service );
     }
   }
 
   /**
-   * @return Returns {@link List} of {@link Service} that are installed on this node
+   * @return Returns {@link List} of {@link Service} that are installed on this
+   * node
    */
-  public List<Service> getServices()
-  {
-    if( !isService() )
-    {
-      services = new ArrayList<>( );
+  public List<Service> getServices() {
+    if( !isService() ) {
+      services = new ArrayList<>();
     }
 
     return services;

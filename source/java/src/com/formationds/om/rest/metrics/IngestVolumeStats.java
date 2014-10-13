@@ -4,7 +4,7 @@
 
 package com.formationds.om.rest.metrics;
 
-import com.formationds.commons.model.VolumeDatapoint;
+import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.repository.SingletonMetricsRepository;
 import com.formationds.web.toolkit.JsonResource;
@@ -27,7 +27,7 @@ public class IngestVolumeStats
   private static final Logger LOG =
     LoggerFactory.getLogger( IngestVolumeStats.class );
 
-  public IngestVolumeStats( ) {
+  public IngestVolumeStats() {
     super();
   }
 
@@ -37,7 +37,9 @@ public class IngestVolumeStats
     LOG.info( "METADATA RECEIVED!" );
     JSONArray array = new JSONArray( IOUtils.toString( request.getInputStream() ) );
     int x = 0;
-    for( int i = 0; i < array.length(); i++ ) {
+    for( int i = 0;
+         i < array.length();
+         i++ ) {
       SingletonMetricsRepository.instance()
                                 .getMetricsRepository()
                                 .save(

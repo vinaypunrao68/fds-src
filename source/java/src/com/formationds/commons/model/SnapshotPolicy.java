@@ -7,15 +7,11 @@ package com.formationds.commons.model;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.exception.ParseException;
 
-import javax.xml.bind.annotation.XmlRootElement;
-
 /**
  * @author ptinius
  */
-@XmlRootElement
 public class SnapshotPolicy
-  extends ModelBase
-{
+  extends ModelBase {
   private static final long serialVersionUID = -1485532787782450871L;
 
   private Long id;
@@ -26,48 +22,44 @@ public class SnapshotPolicy
   /**
    * default constructor
    */
-  public SnapshotPolicy()
-  {
+  public SnapshotPolicy() {
     super();
   }
 
   /**
    * @return Returns the {@code long} representing the snapshot policy id
    */
-  public Long getId()
-  {
+  public Long getId() {
     return id;
   }
 
   /**
    * @param id the {@code long} representing the snapshot policy id
    */
-  public void setId( final Long id )
-  {
+  public void setId( final Long id ) {
     this.id = id;
   }
 
   /**
-   * @return Returns {@link String} representing the name of the snapshot policy
+   * @return Returns {@link String} representing the name of the snapshot
+   * policy
    */
-  public String getName()
-  {
+  public String getName() {
     return name;
   }
 
   /**
-   * @param name the {@link String} representing the name of the snapshot policy
+   * @param name the {@link String} representing the name of the snapshot
+   *             policy
    */
-  public void setName( final String name )
-  {
+  public void setName( final String name ) {
     this.name = name;
   }
 
   /**
    * @return Returns the {@link String}
    */
-  public RecurrenceRule getRecurrenceRule()
-  {
+  public RecurrenceRule getRecurrenceRule() {
     return recurrenceRule;
   }
 
@@ -89,16 +81,15 @@ public class SnapshotPolicy
   /**
    * @return Returns {@code long} representing the retention period in seconds
    */
-  public Long getRetention()
-  {
+  public Long getRetention() {
     return retention;
   }
 
   /**
-   * @param retention the {@code long} representing the retention period in seconds
+   * @param retention the {@code long} representing the retention period in
+   *                  seconds
    */
-  public void setRetention( final Long retention )
-  {
+  public void setRetention( final Long retention ) {
     this.retention = retention;
   }
 }

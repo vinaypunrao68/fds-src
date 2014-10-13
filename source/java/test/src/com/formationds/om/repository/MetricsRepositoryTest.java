@@ -4,8 +4,8 @@
 
 package com.formationds.om.repository;
 
-import com.formationds.commons.model.VolumeDatapoint;
-import com.formationds.commons.model.builder.VolumeDatapointBuilder;
+import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.commons.model.entity.builder.VolumeDatapointBuilder;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.Metrics;
 import org.json.JSONArray;
@@ -134,19 +134,19 @@ public class MetricsRepositoryTest {
   private static
   MetricsRepository store = null;
 
-  public void setUp()
-  {
+  public void setUp() {
     store = new MetricsRepository( DB_PATH );
     final JSONArray array = new JSONArray( JSON );
-    for( int i = 0; i < array.length(); i++ ) {
+    for( int i = 0;
+         i < array.length();
+         i++ ) {
       DATAPOINTS.add( ObjectModelHelper.toObject( array.getJSONObject( i )
                                                        .toString(),
                                                   VolumeDatapoint.class ) );
     }
   }
 
-  public void create()
-  {
+  public void create() {
     store.save( new VolumeDatapointBuilder().withKey( Metrics.PUTS.key() )
                                             .withVolumeName( "TestVolume" )
                                             .withTimestamp( System.currentTimeMillis() / 1000 )
@@ -155,13 +155,11 @@ public class MetricsRepositoryTest {
     Assert.assertTrue( Files.exists( Paths.get( DB_PATH ) ) );
   }
 
-  public void populate()
-  {
+  public void populate() {
     DATAPOINTS.forEach( store::save );
   }
 
-  public void counts()
-  {
+  public void counts() {
     System.out.println( "Total row count: " +
                           store.countAll() );
 
@@ -173,14 +171,12 @@ public class MetricsRepositoryTest {
                               .build() ) );
   }
 
-  public void findAll()
-  {
+  public void findAll() {
     store.findAll()
          .forEach( System.out::println );
   }
 
-  public void remove()
-  {
+  public void remove() {
     System.out.println( "before: " + store.countAll() );
     store.findAll()
          .stream()
@@ -190,16 +186,14 @@ public class MetricsRepositoryTest {
     System.out.println( "after: " + store.countAll() );
   }
 
-  public void removeAll()
-  {
+  public void removeAll() {
     System.out.println( "before: " + store.countAll() );
     store.findAll()
          .forEach( store::delete );
     System.out.println( "after: " + store.countAll() );
   }
 
-  public void cleanup()
-  {
+  public void cleanup() {
     try {
       if( Files.exists( Paths.get( DB_PATH ) ) ) {
         Files.delete( Paths.get( DB_PATH ) );
@@ -209,7 +203,8 @@ public class MetricsRepositoryTest {
         Files.delete( Paths.get( DB_PATH_TRANS_LOG ) );
       }
 
-      if( Files.exists( Paths.get( DB_PATH ).getParent() ) ) {
+      if( Files.exists( Paths.get( DB_PATH )
+                             .getParent() ) ) {
         Files.delete( Paths.get( DB_PATH )
                            .getParent() );
       }
