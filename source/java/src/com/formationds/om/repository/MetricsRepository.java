@@ -27,7 +27,7 @@ public class MetricsRepository
   private static final Logger logger =
     LoggerFactory.getLogger( MetricsRepository.class );
 
-  private static final String DBNAME = "/fds/var/db/metrics.db";
+  private static final String DBNAME = "/fds/var/db/metrics.odb";
   private static final String VOLUME_NAME = "volumeName";
   private static final String KEY = "key";
 
