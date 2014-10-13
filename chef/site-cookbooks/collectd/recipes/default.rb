@@ -41,10 +41,26 @@ user "collectd" do
     system true
 end
 
+directory "/var/log/collectd" do
+	action :create
+	mode '0755'
+	owner 'nobody'
+	group 'nogroup'
+end	
+
+file "/var/log/collectd/collectd.log" do
+	action :create
+	mode '0766'
+	owner 'nobody'
+	group 'nogroup'
+end	
+
 cookbook_file "/home/collectd/get_cpu_core_count.sh" do
 	source "get_cpu_core_count.sh"
 	action :create
-    mode '0644'
+	owner 'collectd'
+	group 'collectd'
+    mode '0755'
 end
 
 service "collectd" do
