@@ -30,16 +30,25 @@ table.default {
             &.center {
                 text-align: center;
             }
+            
+            &.no-top-padding {
+                padding-top: 2px;
+            }
         }
     }
 
     td {
         padding: .7em $side_padding;
         vertical-align: middle;
+        
+        &.pad {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
     }
 
     tr {
-        border-bottom: 1px solid black;
+        border-bottom: 1px solid $text_very_light_color;
 
         &.no-border {
             border-bottom: 0px;

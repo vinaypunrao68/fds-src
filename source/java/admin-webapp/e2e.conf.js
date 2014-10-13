@@ -68,6 +68,7 @@ exports.config = {
     login: ['test/e2e/main/logintest_spec.js'],
     volumes: ['test/e2e/volumes/volume_create_spec.js'],
     tenants: ['test/e2e/tenants/tenant_mgmt_spec.js'],
+    snapshots: ['test/e2e/volumes/snapshot_spec.js'],
     users: ['test/e2e/users/*']
 
   },

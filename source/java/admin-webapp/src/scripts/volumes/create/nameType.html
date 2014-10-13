@@ -1,22 +1,66 @@
-<div class="name-type" ng-controller="nameTypeController">
+<div class="name-type" ng-controller="nameTypeController" style="width: 350px;">
     <section>
         <div class="header">
             <span class="light-print" translate>volumes.l_volume_name</span>
         </div>
         <div class="volume-settings-panel">
             <div class="volume-option form-group">
-                <input type="text" class="volume-name form-control" size="32" placeholder="Enter Volume Name" ng-model="name">
+                <input type="text" class="volume-name form-control" size="32" placeholder="Enter Volume Name" ng-model="name" ng-disabled="!nameEnablement">
                 <!--<div class="clear-icon" ng-click="name = ''">
                 </div>-->
             </div>
         </div>
     </section>
 
+
     <section>
         <div class="header">
             <span class="light-print" translate>volumes.l_data_connector</span>
+            <div class="pull-right" ng-show="dataConnectorEnablment === true">
+                <span class="icon fui-new edit-data-connector-button" ng-click="editing = true"></span>
+            </div>
         </div>
 
+        <table class="default">
+            <thead>
+                <tr>
+                    <th class="no-top-padding"></th>
+                    <th class="no-top-padding"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <div class="data-connector-display" ng-show="editing === false">{{data_connector.type}}</div>
+                        <div class="flex" ng-show="editing === true">
+                            <fui-dropdown class="data-connector-dropdown" selected="data_connector" items="connectors" skinny="true" background="none" color="black" name-property="type"></fui-dropdown>
+                        </div>
+                    </td>
+                    <td>
+                        <div ng-show="data_connector.attributes.size">
+                        
+                            <div class="flex" ng-show="editing === false">
+                                <span style="margin-right: 4px;">{{data_connector.attributes.size}}</span>
+                                <span>{{data_connector.attributes.unit}}</span>
+                            </div>
+                            
+                            <div class="flex" ng-show="editing === true">
+                                <spinner class="data-connector-size-spinner" value="_selectedSize" min="1" max="999" step="1" class="skinny" style="margin-right: 4px;"></spinner>
+                                <fui-dropdown skinny="true" background-color="#2486F8" items="sizes" selected="_selectedUnit"></fui-dropdown>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="flex" ng-show="editing === true" style="justify-content: flex-end;">
+            <button class="btn btn-primary skinny save-name-type-data" ng-click="saveConnectorChanges( data_connector )" translate style="margin-right: 4px;">common.l_save</button>
+            <button class="btn btn-secondary skinny" ng-click="stopEditing()" translate>common.l_cancel</button>            
+        </div>
+        
+    </section>
+<!--
         <div class="volume-data-type-summary" ng-show="!editing">
             <div class="form-group inline">
                 <span>Data Type:</span>
@@ -72,6 +116,7 @@
             </div>
         </div>
     </section>
+-->
 
 <!--
     <p class="fine-print">

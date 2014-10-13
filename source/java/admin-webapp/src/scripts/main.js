@@ -53,3 +53,7 @@ app.config(['$translateProvider', function( $translateProvider ) {
         .translations( 'en', en_US )
         .preferredLanguage( 'en' );
 }]);
+
+var genericFailure = function( response, code ){
+    alert( 'Error ' + code + ':\n' + response.message );
+};

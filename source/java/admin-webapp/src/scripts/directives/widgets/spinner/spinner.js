@@ -25,7 +25,7 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
 
             var dividend = $scope.max;
 
-            while( dividend = (dividend / 10) >= 1 ){
+            while( (dividend = (dividend / 10)) >= 1 ){
                 $scope.maxlength++;
             }
 

@@ -5,6 +5,8 @@ angular.module( 'volumes' ).controller( 'qualityOfServiceController', ['$scope',
         $scope.capacity = 0;
         $scope.iopLimit = 300;
         $scope.editing = false;
+        
+        $scope.updateData();
     };
 
     $scope.priorityOptions = [10,9,8,7,6,5,4,3,2,1];
@@ -16,18 +18,33 @@ angular.module( 'volumes' ).controller( 'qualityOfServiceController', ['$scope',
             limit: $scope.iopLimit
         });
     };
+    
+    $scope.doneEditing = function(){
+        $scope.editing = false;
+        $scope.updateData();
+    };
 
     $scope.$on( 'fds::create_volume_initialize', function(){
         $scope.updateData();
     });
 
-    $scope.$on( 'fds::volume_done_editing', init );
 
-    $scope.$watch( 'priority', function(){ $scope.updateData() ; });
-    $scope.$watch( 'capacity', function(){ $scope.updateData() ; });
-    $scope.$watch( 'iopLimit', function(){ $scope.updateData() ; });
-    $scope.$watch( 'editing', function(){ $scope.$broadcast( 'fds::fui-slider-refresh' ); });
+    $scope.$watch( 'volumeVars.creating', function( newVal ){
+        if ( newVal === true ){
+            init();
+        }
+    });
+    
+    $scope.$watch( 'volumeVars.editing', function( newVal ){
+        
+        if ( newVal === true ){
+            $scope.priority = $scope.volumeVars.selectedVolume.priority;
+            $scope.capacity = $scope.volumeVars.selectedVolume.sla;
+            $scope.iopLimit = $scope.volumeVars.selectedVolume.limit;;
+            $scope.editing = false;
 
-    init();
+            $scope.updateData();
+        }
+    });
 
 }]);
