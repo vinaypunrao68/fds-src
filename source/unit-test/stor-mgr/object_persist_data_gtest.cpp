@@ -39,7 +39,7 @@ class ObjPersistDataUtProc : public FdsProcess {
 class SmObjectPersistDataTest : public ::testing::Test {
   public:
     SmObjectPersistDataTest()
-            : persistData(new ObjectPersistData("UT Object Persist Data")),
+            : persistData(new ObjectPersistData("UT Object Persist Data", NULL)),
               smDiskMap(new SmDiskMap("Test SM Disk Map")) {}
 
     virtual void SetUp() override;
@@ -110,7 +110,7 @@ SmObjectPersistDataTest::TearDown() {
 void
 SmObjectPersistDataTest::restart() {
     // first destruct persist data store and sm disk map
-    persistData.reset(new ObjectPersistData("UT Object Persist Data"));
+    persistData.reset(new ObjectPersistData("UT Object Persist Data", NULL));
     smDiskMap.reset(new SmDiskMap("Test SM Disk Map"));
 
     // init them again
@@ -120,7 +120,7 @@ SmObjectPersistDataTest::restart() {
 void
 SmObjectPersistDataTest::cleanRestart() {
     // first destruct persist data store and sm disk map
-    persistData.reset(new ObjectPersistData("UT Object Persist Data"));
+    persistData.reset(new ObjectPersistData("UT Object Persist Data", NULL));
     smDiskMap.reset(new SmDiskMap("Test SM Disk Map"));
 
     // remove everything from /<fds-root>/dev/<disk>/* including superblock

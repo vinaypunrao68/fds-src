@@ -445,16 +445,16 @@ SMSvcHandler::NotifyScavenger(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     LOGNORMAL << " receive scavenger cmd " << msg->scavenger.cmd;
     switch (msg->scavenger.cmd) {
         case FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE:
-            objStorMgr->scavenger->enableScavenger();
+            // objStorMgr->scavenger->enableScavenger();
             break;
         case FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE:
-            objStorMgr->scavenger->disableScavenger();
+            // objStorMgr->scavenger->disableScavenger();
             break;
         case FDS_ProtocolInterface::FDSP_SCAVENGER_START:
-            objStorMgr->scavenger->startScavengeProcess();
+            // objStorMgr->scavenger->startScavengeProcess();
             break;
         case FDS_ProtocolInterface::FDSP_SCAVENGER_STOP:
-            objStorMgr->scavenger->stopScavengeProcess();
+            // objStorMgr->scavenger->stopScavengeProcess();
             break;
         default:
             fds_verify(false);  // unknown scavenger command

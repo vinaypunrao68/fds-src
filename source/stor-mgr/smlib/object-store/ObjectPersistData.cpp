@@ -8,8 +8,10 @@
 
 namespace fds {
 
-ObjectPersistData::ObjectPersistData(const std::string &modName)
-        : Module(modName.c_str()) {
+ObjectPersistData::ObjectPersistData(const std::string &modName,
+                                     SmIoReqHandler *data_store)
+        : Module(modName.c_str()),
+          scavenger(new ScavControl("SM Disk Scavenger", data_store, this)) {
 }
 
 ObjectPersistData::~ObjectPersistData() {
@@ -58,6 +60,15 @@ ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap) {
             break;
         }
     }
+
+    // we enable scavenger by default
+    // TODO(Anna) need a bit more testing before enabling GC
+    /*
+    err = scavenger->enableScavenger(diskMap);
+    if (!err.ok()) {
+        LOGERROR << "Failed to start Scavenger " << err;
+    }
+    */
     return err;
 }
 
@@ -275,6 +286,12 @@ ObjectPersistData::getSmTokenStats(fds_token_id smTokId,
  */
 int
 ObjectPersistData::mod_init(SysParams const *const p) {
+    static Module *objPersistDepMods[] = {
+        scavenger.get(),
+        NULL
+    };
+    mod_intern = objPersistDepMods;
+
     Module::mod_init(p);
     return 0;
 }

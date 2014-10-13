@@ -2,15 +2,15 @@
  * Copyright 2013 Formation Data Systems, Inc.                                                                                              
  */
 
-#ifndef SOURCE_STOR_MGR_INCLUDE_TOKENCOMPACTOR_H_
-#define SOURCE_STOR_MGR_INCLUDE_TOKENCOMPACTOR_H_
+#ifndef SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_TOKENCOMPACTOR_H_
+#define SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_TOKENCOMPACTOR_H_
 
 #include <list>
 #include <vector>
 #include <fds_types.h>
 #include <fds_timer.h>
 #include <ObjMeta.h>
-#include <StorMgrVolumes.h>
+#include <SmIo.h>
 
 /**
  * Current token compaction process:
@@ -42,6 +42,8 @@
 
 namespace fds {
 
+class SmPersistStoreHandler;
+
     /**
      * Callback type to notify that compaction process is finished for this token
      */
@@ -65,7 +67,8 @@ namespace fds {
      */
     class TokenCompactor {
   public:
-        explicit TokenCompactor(SmIoReqHandler *_data_store);
+        TokenCompactor(SmIoReqHandler *_data_store,
+                       SmPersistStoreHandler* persist_store);
         ~TokenCompactor();
 
         typedef enum {
@@ -187,7 +190,11 @@ namespace fds {
          * passed in constructor, does not own
          */
         SmIoReqHandler *data_store;
-
+        /**
+         * Pointer to SmPersistStoreHandler for communicating with
+         * persistent data store for GC related tasks
+         */
+        SmPersistStoreHandler *persistGcHandler;
         /**
          * request to snapshot index db for a given token, we re-use this object
          * but we set appropriate fiels based on current compaction request
@@ -231,4 +238,4 @@ namespace fds {
 
 }  // namespace fds
 
-#endif  // SOURCE_STOR_MGR_INCLUDE_TOKENCOMPACTOR_H_
+#endif  // SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_TOKENCOMPACTOR_H_

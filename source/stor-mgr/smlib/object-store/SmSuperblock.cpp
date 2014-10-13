@@ -582,6 +582,22 @@ SmSuperblockMgr::getSmOwnedTokens() const {
     return tokens;
 }
 
+SmTokenSet
+SmSuperblockMgr::getSmOwnedTokens(fds_uint16_t diskId) const {
+    // get all tokens that can reside on disk diskId
+    SmTokenSet diskToks = superblockMaster.olt.getSmTokens(diskId);
+    // filter tokens that this SM owns
+    SmTokenSet retToks;
+    for (SmTokenSet::const_iterator cit = diskToks.cbegin();
+         cit != diskToks.cend();
+         ++cit) {
+        if (ownedTokens.count(*cit) > 0) {
+            retToks.insert(*cit);
+        }
+    }
+    return retToks;
+}
+
 // So we can print class members for logging
 std::ostream& operator<< (std::ostream &out,
                           const SmSuperblockMgr& sbMgr) {
@@ -598,4 +614,15 @@ std::ostream& operator<< (std::ostream &out,
     }
     return out;
 }
+
+// since DiskIdSet is typedef of std::set, need to specifically overlaod boost ostream
+boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
+                                            const DiskIdSet& diskIds) {
+    for (auto cit = diskIds.begin(); cit != diskIds.end(); ++cit) {
+        out << "[" << *cit << "]";
+    }
+    out << "\n";
+    return out;
+}
+
 }  // namespace fds

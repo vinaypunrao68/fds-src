@@ -4,17 +4,20 @@
 
 #include <vector>
 #include <map>
-#include <TokenCompactor.h>
+#include <object-store/ObjectPersistData.h>
+#include <object-store/TokenCompactor.h>
 
 namespace fds {
 
 typedef std::map<fds_uint32_t, ObjectID> offset_oid_map_t;
 typedef std::map<fds_uint32_t, offset_oid_map_t> loc_oid_map_t;
 
-TokenCompactor::TokenCompactor(SmIoReqHandler *_data_store)
+TokenCompactor::TokenCompactor(SmIoReqHandler *_data_store,
+                               SmPersistStoreHandler* persist_store)
         : token_id(0),
           done_evt_handler(NULL),
           data_store(_data_store),
+          persistGcHandler(persist_store),
           tc_timer(new FdsTimer()),
           tc_timer_task(new CompactorTimerTask(*tc_timer, this))
 {
@@ -46,7 +49,6 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
                                       compaction_done_handler_t done_evt_hdlr)
 {
     Error err(ERR_OK);
-    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
     tcStateType expect = TCSTATE_IDLE;
     if (!std::atomic_compare_exchange_strong(&state, &expect, TCSTATE_PREPARE_WORK)) {
         LOGNOTIFY << "startCompaction called in non-idle state, ignoring";
@@ -73,7 +75,7 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     // start garbage collection for this token -- tell persistent layer
     // to start routing requests to shadow (new) file to which we will
     // copy non-garbage objects
-    dio_mgr.notify_start_gc(token_id, cur_disk_id, cur_tier);
+    persistGcHandler->notifyStartGc(token_id, cur_tier);
 
     // we may have writes currently in flight that are writing to old file.
     // If we take db snapshot before these in flight write finish and
@@ -159,7 +161,6 @@ void TokenCompactor::snapDoneCb(const Error& error,
     Error err(ERR_OK);
     ObjMetaData omd;
     fds_uint32_t offset = 0;
-    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
 
     LOGNORMAL << "Index DB snapshot for token " << token_id
               << " received with result " << error;
@@ -196,7 +197,7 @@ void TokenCompactor::snapDoneCb(const Error& error,
         // filter out objects that are already in shadow file --
         // this could happen between times we started writing objs
         // to shadow file and we took this db snapshot
-        if (dio_mgr.is_shadow_location(loc, token_id)) {
+        if (persistGcHandler->isShadowLocation(loc, token_id)) {
             LOGDEBUG << id << " already in shadow file (disk_id "
                      << loc->obj_stor_loc_id << " file_id "
                      << loc->obj_file_id << " tok " << token_id
@@ -319,7 +320,6 @@ void TokenCompactor::objsCompactedCb(const Error& error,
 Error TokenCompactor::handleCompactionDone(const Error& tc_error)
 {
     Error err(ERR_OK);
-    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
 
     tcStateType expect = TCSTATE_IN_PROGRESS;
     tcStateType new_state = tc_error.ok() ? TCSTATE_DONE : TCSTATE_ERROR;
@@ -340,7 +340,7 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
     }
 
     // tell persistent layer we are done copying -- remove the old file
-    dio_mgr.notify_end_gc(token_id, cur_disk_id, cur_tier);
+    persistGcHandler->notifyEndGc(token_id, cur_tier);
 
     // set token compactor state to idle -- scavenger can use this TokenCompactor
     // for a new compactino job

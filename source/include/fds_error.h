@@ -95,6 +95,8 @@ namespace fds {
         ERR_SM_SUPERBLOCK_READ_FAIL,
         ERR_SM_SUPERBLOCK_WRITE_FAIL,
         ERR_SM_SUPERBLOCK_NO_RECONCILE,
+        ERR_SM_GC_ENABLED,
+        ERR_SM_AUTO_GC_FAILED,
 
         /* Network errors */
         ERR_NETWORK_TRANSPORT = 3000,

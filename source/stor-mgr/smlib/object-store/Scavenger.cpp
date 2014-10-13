@@ -2,65 +2,36 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+#include <sys/statvfs.h>
 #include <set>
 #include <vector>
+#include <string>
 #include <util/Log.h>
 #include <fds_assert.h>
-#include <StorMgr.h>
-#include <TokenCompactor.h>
-#include <persistent-layer/persistentdata.h>
-#include <persistent-layer/dm_service.h>
-#include <persistent-layer/dm_io.h>
-#include <Scavenger.h>
+#include <object-store/TokenCompactor.h>
+#include <object-store/ObjectPersistData.h>
+#include <object-store/Scavenger.h>
 
 using diskio::DiskStat;
 
 namespace fds {
 
 #define SCAV_TIMER_SECONDS (2*3600)  // 2 hours
+#define DEFAULT_MAX_DISKS_COMPACTING (2)
 
-extern ObjectStorMgr *objStorMgr;
-extern diskio::DataDiscoveryModule  dataDiscoveryMod;
-extern diskio::DataIOModule gl_dataIOMod;
 
-ScavControl::ScavControl(fds_uint32_t const num_thrds)
-        : scav_lock("Scav Lock"),
-          max_disks_compacting(num_thrds),
+ScavControl::ScavControl(const std::string &modName,
+                         SmIoReqHandler *data_store,
+                         SmPersistStoreHandler *persist_store)
+        : Module(modName.c_str()),
+          scav_lock("Scav Lock"),
+          max_disks_compacting(DEFAULT_MAX_DISKS_COMPACTING),
+          dataStoreReqHandler(data_store),
+          persistStoreGcHandler(persist_store),
           scav_timer(new FdsTimer()),
           scav_timer_task(new ScavTimerTask(*scav_timer, this))
 {
-    enabled = ATOMIC_VAR_INIT(true);
-    num_hdd = 0;
-    num_ssd = 0;
-    std::set<fds_uint16_t> hdd_ids;
-    std::set<fds_uint16_t> ssd_ids;
-    diskio::dataDiscoveryMod.get_hdd_ids(&hdd_ids);
-    diskio::dataDiscoveryMod.get_ssd_ids(&ssd_ids);
-    // create scavengers for HDDs
-    for (std::set<fds_uint16_t>::const_iterator cit = hdd_ids.cbegin();
-         cit != hdd_ids.cend();
-         ++cit) {
-        DiskScavenger *diskScav = new DiskScavenger(*cit, diskio::diskTier);
-        diskScavTbl[*cit] = diskScav;
-        ++num_hdd;
-        LOGNORMAL << "Added scavenger for HDD " << *cit << " (" << num_hdd << ")";
-    }
-    // create scavengers got SSDs
-    for (std::set<fds_uint16_t>::const_iterator cit = ssd_ids.cbegin();
-         cit != ssd_ids.cend();
-         ++cit) {
-        DiskScavenger *diskScav = new DiskScavenger(*cit, diskio::flashTier);
-        diskScavTbl[*cit] = diskScav;
-        ++num_ssd;
-        LOGNORMAL << "Added scavenger for SSD " << *cit << " (" << num_ssd << ")";
-    }
-
-    // start timer to update disk stats
-    if (!scav_timer->scheduleRepeated(scav_timer_task,
-                                      std::chrono::seconds(SCAV_TIMER_SECONDS))) {
-        LOGWARN << "Failed to schedule timer for updating disks stats! "
-                << " will not run automatic GC, only manual";
-    }
+    enabled = ATOMIC_VAR_INIT(false);
 }
 
 ScavControl::~ScavControl() {
@@ -73,6 +44,20 @@ ScavControl::~ScavControl() {
             delete diskScav;
         }
     }
+}
+
+int
+ScavControl::mod_init(SysParams const *const param) {
+    Module::mod_init(param);
+    return 0;
+}
+
+void
+ScavControl::mod_startup() {
+}
+
+void
+ScavControl::mod_shutdown() {
 }
 
 void ScavControl::updateDiskStats()
@@ -89,22 +74,71 @@ void ScavControl::updateDiskStats()
     }
 }
 
-void ScavControl::enableScavenger()
+void
+ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
+    // TODO(Anna) this method still assumes that once we discover disks
+    // they never change (no disks added/removed). So we are going to populate
+    // diskScavTable once and keep it unchanged for now. Will have to revisit
+    // this and make more dynamic
+    fds_mutex::scoped_lock l(scav_lock);
+    if (diskScavTbl.size() == 0) {
+        DiskIdSet hddIds = diskMap->getDiskIds(diskio::diskTier);
+        DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
+        // create scavengers for HDDs
+        for (DiskIdSet::const_iterator cit = hddIds.cbegin();
+             cit != hddIds.cend();
+             ++cit) {
+            DiskScavenger *diskScav = new DiskScavenger(*cit, diskio::diskTier,
+                                                        dataStoreReqHandler,
+                                                        persistStoreGcHandler,
+                                                        diskMap);
+            fds_verify(diskScavTbl.count(*cit) == 0);
+            diskScavTbl[*cit] = diskScav;
+            LOGNORMAL << "Added scavenger for HDD " << *cit;
+        }
+        // create scavengers got SSDs
+        // TODO(Anna) commenting out SSD scavenger, until we put back tiering
+        /*
+        for (DiskIdSet::const_iterator cit = ssdIds.cbegin();
+             cit != ssdIds.cend();
+             ++cit) {
+            DiskScavenger *diskScav = new DiskScavenger(*cit, diskio::flashTier,
+                                                        dataStoreReqHandler,
+                                                        persistStoreGcHandler,
+                                                        diskMap);
+            fds_verify(diskScavTbl.count(*cit) == 0);
+            diskScavTbl[*cit] = diskScav;
+            LOGNORMAL << "Added scavenger for SSD " << *cit;
+        }
+        */
+    }
+}
+
+Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap)
 {
+    Error err(ERR_OK);
     fds_bool_t expect = false;
+
+    // if this is called for the first time and diskScavTbl is empty,
+    // populate diskScavTable first (before changing enabled to true,
+    // so that the scavengers do not start to early)
+    createDiskScavengers(diskMap);
+
     if (!std::atomic_compare_exchange_strong(&enabled, &expect, true)) {
         LOGNOTIFY << "Scavenger cycle is already enabled, nothing else to do";
-        return;
+        return ERR_SM_GC_ENABLED;
     }
     LOGNOTIFY << "Enabling Scavenger";
 
-    // start the periodic timer that checks disk stats, etc. and starts
-    // scavenging if needed
+    // start timer to update disk stats
     if (!scav_timer->scheduleRepeated(scav_timer_task,
                                       std::chrono::seconds(SCAV_TIMER_SECONDS))) {
         LOGWARN << "Failed to schedule timer for updating disks stats! "
                 << " will not run automatic GC, only manual";
+        return ERR_SM_AUTO_GC_FAILED;
     }
+
+    return err;
 }
 
 void ScavControl::disableScavenger()
@@ -171,9 +205,14 @@ void ScavControl::stopScavengeProcess()
 }
 
 DiskScavenger::DiskScavenger(fds_uint16_t _disk_id,
-                             diskio::DataTier _tier)
+                             diskio::DataTier _tier,
+                             SmIoReqHandler *data_store,
+                             SmPersistStoreHandler* persist_store,
+                             const SmDiskMap::const_ptr& diskMap)
         : disk_id(_disk_id),
           disk_scav_lock("Disk-Scav Lock"),
+          smDiskMap(diskMap),
+          persistStoreGcHandler(persist_store),
           tier(_tier),
           scav_policy()  // default policy
 {
@@ -181,7 +220,8 @@ DiskScavenger::DiskScavenger(fds_uint16_t _disk_id,
 
     in_progress = ATOMIC_VAR_INIT(false);
     for (fds_uint32_t i = 0; i < scav_policy.proc_max_tokens; ++i) {
-        tok_compactor_vec.push_back(TokenCompactorPtr(new TokenCompactor(objStorMgr)));
+        tok_compactor_vec.push_back(TokenCompactorPtr(new TokenCompactor(data_store,
+                                                                         persist_store)));
     }
 }
 
@@ -196,13 +236,44 @@ void DiskScavenger::setProcMaxTokens(fds_uint32_t max_toks) {
     scav_policy.proc_max_tokens = max_toks;
 }
 
+Error
+DiskScavenger::getDiskStats(diskio::DiskStat* retStat) {
+    Error err(ERR_OK);
+    struct statvfs statbuf;
+    std::string diskPath = smDiskMap->getDiskPath(disk_id);
+    if (statvfs(diskPath.c_str(), &statbuf) < 0) {
+        return fds::Error(fds::ERR_DISK_READ_FAILED);
+    }
+
+    // aggregate token stats for total deleted bytes
+    SmTokenSet diskToks = smDiskMap->getSmTokens(disk_id);
+    fds_uint64_t totDeletedBytes = 0;
+    for (SmTokenSet::const_iterator cit = diskToks.cbegin();
+         cit != diskToks.cend();
+         ++cit) {
+        diskio::TokenStat stat;
+        persistStoreGcHandler->getSmTokenStats(*cit, tier, &stat);
+        totDeletedBytes += stat.tkn_reclaim_size;
+        LOGDEBUG << "Disk id " << disk_id << " SM token " << *cit
+                 << " reclaim bytes " << stat.tkn_reclaim_size;
+    }
+
+    fds_verify(retStat);
+    (*retStat).dsk_tot_size = statbuf.f_blocks * statbuf.f_bsize;
+    (*retStat).dsk_avail_size = statbuf.f_bfree * statbuf.f_bsize;
+    (*retStat).dsk_reclaim_size = totDeletedBytes;
+    return err;
+}
+
 void DiskScavenger::updateDiskStats() {
+    Error err(ERR_OK);
     DiskStat disk_stat;
     double tot_size;
     fds_uint32_t avail_percent;  // percent of available capacity
     fds_uint32_t token_reclaim_threshold;
 
-    diskio::gl_dataIOMod.get_disk_stats(tier, disk_id, &disk_stat);
+    err = getDiskStats(&disk_stat);
+    fds_verify(err.ok());
     tot_size = disk_stat.dsk_tot_size;
     avail_percent = (disk_stat.dsk_avail_size / tot_size) * 100;
     LOGDEBUG << "Tier " << tier << " disk " << disk_id
@@ -269,32 +340,32 @@ fds_bool_t DiskScavenger::isTokenCompacted(const fds_token_id& tok_id) {
 // TODO(xxx) pass in policy which tokens need to be scavenged
 // for now all tokens we get from persistent layer
 void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
-    std::vector<diskio::TokenStat> token_stats;
     fds_uint32_t reclaim_percent;
-    double tot_size;
     // note that we are not using lock here, because updateTokenDb()
     // and getNextCompactToken are serialized
 
     // reset tokenDb
     tokenDb.clear();
 
-    // get all tokens with their stats from persistent layer
-    diskio::gl_dataIOMod.get_disk_token_stats(tier, disk_id, &token_stats);
+    // get all tokens that SM owns and that reside on this disk
+    SmTokenSet diskToks = smDiskMap->getSmTokens(disk_id);
 
     // add tokens to tokenDb that we need to compact
-    for (std::vector<diskio::TokenStat>::const_iterator cit = token_stats.cbegin();
-         cit != token_stats.cend();
+    for (SmTokenSet::const_iterator cit = diskToks.cbegin();
+         cit != diskToks.cend();
          ++cit) {
-        tot_size = (*cit).tkn_tot_size;
-        reclaim_percent = ((*cit).tkn_reclaim_size / tot_size) * 100;
-        LOGDEBUG << "Disk " << disk_id << " token " << (*cit).tkn_id
-                 << " total bytes " << (*cit).tkn_tot_size
-                 << ", deleted bytes " << (*cit).tkn_reclaim_size
+        diskio::TokenStat stat;
+        persistStoreGcHandler->getSmTokenStats(*cit, tier, &stat);
+        double tot_size = stat.tkn_tot_size;
+        reclaim_percent = (stat.tkn_reclaim_size / tot_size) * 100;
+        LOGDEBUG << "Disk " << disk_id << " token " << stat.tkn_id
+                 << " total bytes " << stat.tkn_tot_size
+                 << ", deleted bytes " << stat.tkn_reclaim_size
                  << " (" << reclaim_percent << "%)";
 
-        if ((*cit).tkn_reclaim_size > 0) {
+        if (stat.tkn_reclaim_size > 0) {
             if (reclaim_percent >= token_reclaim_threshold) {
-                tokenDb.insert((*cit).tkn_id);
+                tokenDb.insert(stat.tkn_id);
             }
         }
     }
@@ -328,11 +399,13 @@ void DiskScavenger::startScavenge(fds_uint32_t token_reclaim_threshold) {
             std::atomic_exchange(&in_progress, false);
             break;
         }
-        if (!objStorMgr->isTokenInSyncMode(tok_id)) {
+        // TODO(Anna) commenting our isTokenInSyncMode -- need to revisit
+        // when porting back token migration
+        // if (!objStorMgr->isTokenInSyncMode(tok_id)) {
            tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, std::bind(
                &DiskScavenger::compactionDoneCb, this,
                std::placeholders::_1, std::placeholders::_2));
-        }
+           // }
     }
 }
 
@@ -365,11 +438,13 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
                     in_prog = false;
                     break;
                 }
-                if (!objStorMgr->isTokenInSyncMode(tok_id)) {
+                // TODO(Anna) commenting our isTokenInSyncMode -- need to revisit
+                // when porting back token migration
+                // if (!objStorMgr->isTokenInSyncMode(tok_id)) {
                    tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, std::bind(
                        &DiskScavenger::compactionDoneCb, this,
                        std::placeholders::_1, std::placeholders::_2));
-                 }
+                   // }
              }
         }
     } else {

@@ -130,6 +130,11 @@ SmDiskMap::getSmTokens() const {
     return superblock->getSmOwnedTokens();
 }
 
+SmTokenSet
+SmDiskMap::getSmTokens(fds_uint16_t diskId) const {
+    return superblock->getSmOwnedTokens(diskId);
+}
+
 fds_uint16_t
 SmDiskMap::getDiskId(const ObjectID& objId,
                      diskio::DataTier tier) const {
@@ -149,6 +154,25 @@ SmDiskMap::getDiskPath(fds_token_id smTokId,
     fds_uint16_t diskId = superblock->getDiskId(smTokId, tier);
     fds_verify(disk_map.count(diskId) > 0);
     return disk_map.at(diskId);
+}
+
+std::string
+SmDiskMap::getDiskPath(fds_uint16_t diskId) const {
+    fds_verify(disk_map.count(diskId) > 0);
+    return disk_map.at(diskId);
+}
+
+DiskIdSet
+SmDiskMap::getDiskIds(diskio::DataTier tier) const {
+    DiskIdSet diskIds;
+    if (tier == diskio::diskTier) {
+        diskIds.insert(hdd_ids.begin(), hdd_ids.end());
+    } else if (tier == diskio::flashTier) {
+        diskIds.insert(ssd_ids.begin(), ssd_ids.end());
+    } else {
+        fds_panic("Unknown tier request from SM disk map\n");
+    }
+    return diskIds;
 }
 
 }  // namespace fds

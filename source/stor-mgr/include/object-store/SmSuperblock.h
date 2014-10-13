@@ -288,7 +288,7 @@ class SmSuperblockMgr {
      * Will revisit this method when we have more SM token states
      */
     SmTokenSet getSmOwnedTokens() const;
-
+    SmTokenSet getSmOwnedTokens(fds_uint16_t diskId) const;
 
     /* Set of interfaces for unit testing */
     std::string SmSuperblockMgrTestGetFileName();
@@ -331,6 +331,9 @@ class SmSuperblockMgr {
 
 std::ostream& operator<< (std::ostream &out,
                           const DiskLocMap& diskMap);
+
+boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
+                                            const DiskIdSet& diskIds);
 
 }  // namespace fds
 

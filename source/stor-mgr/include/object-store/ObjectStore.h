@@ -52,6 +52,7 @@ class ObjectStore : public Module, public boost::noncopyable {
 
   public:
     ObjectStore(const std::string &modName,
+                SmIoReqHandler *data_store,
                 StorMgrVolumeTable* volTbl);
     ~ObjectStore();
     typedef std::unique_ptr<ObjectStore> unique_ptr;

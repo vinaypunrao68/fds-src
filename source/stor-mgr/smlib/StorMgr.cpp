@@ -18,7 +18,6 @@
 #include <NetSession.h>
 #include <fds_obj_cache.h>
 #include <fds_timestamp.h>
-#include <TokenCompactor.h>
 #include <fdsp_utils.h>
 #include <net/net_utils.h>
 #include <net/net-service.h>
@@ -258,6 +257,7 @@ void ObjectStorMgr::mod_startup()
     // any prior data and possibly perform recovery before allowing
     // another module layer to come up above it.
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
+                                                          this,
                                                           volTbl));
     objectStore->mod_init(mod_params);
 
@@ -298,7 +298,6 @@ void ObjectStorMgr::mod_startup()
                                   slab_allocator_type_default,
                                   eviction_policy_type_default,
                                   g_fdslog);
-    scavenger = new ScavControl(2);
 
     // TODO(???): join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
@@ -2837,10 +2836,13 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_SNAPSHOT_TOKEN:
         {
+            /*
             StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
             fds_assert(smVol);
             err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
                     static_cast<FDS_IOType*>(ioReq));
+            */
+            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         }
         /* Following are messages that require io synchronization at object

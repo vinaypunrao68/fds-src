@@ -291,7 +291,7 @@ main(int argc, char** argv) {
             new fds::SmDiskMap("SMchk"));
 
     fds::ObjectDataStore::ptr smObjStore = fds::ObjectDataStore::ptr(
-            new fds::ObjectDataStore("SMchk"));
+        new fds::ObjectDataStore("SMchk", NULL));
 
     fds::Module *vec[] = {
             &diskio::gl_dataIOMod,
