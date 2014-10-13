@@ -24,11 +24,22 @@ angular.module( 'volumes' ).controller( 'qualityOfServiceController', ['$scope',
         $scope.updateData();
     };
 
-    $scope.$on( 'fds::create_volume_initialize', function(){
-        $scope.updateData();
+    $scope.$watch( 'volumeVars.clone', function( newVal ){
+        
+        if ( !angular.isDefined( newVal ) || newVal == null ){
+            return;
+        }
+        
+        // snapshots won't have this data.
+        if ( !angular.isDefined( newVal.priority ) ){
+            return;
+        }
+        
+        $scope.priority = newVal.priority;
+        $scope.iopLimit = newVal.limit;
+        $scope.capacity = newVal.sla;
     });
-
-
+    
     $scope.$watch( 'volumeVars.creating', function( newVal ){
         if ( newVal === true ){
             init();

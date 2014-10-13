@@ -1,27 +1,41 @@
 angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$volume_api', '$snapshot_service', '$modal_data_service', function( $scope, $volume_api, $snapshot_service, $modal_data_service ){
 
+    var creationCallback = function( newVolume ){
+
+            // for each time deliniation used we need to create a policy and attach
+            // it using the volume id in the name so we can identify it easily
+            for ( var i = 0; angular.isDefined( volume.snapshotPolicies ) && i < volume.snapshotPolicies.length; i++ ){
+                volume.snapshotPolicies[i].name =
+                    newVolume.id + '_' + volume.snapshotPolicies[i].name;
+
+                $snapshot_service.createSnapshotPolicy( volume.snapshotPolicies[i], function( policy, code ){
+                    // attach the policy to the volume
+                    $snapshot_service.attachPolicyToVolume( policy, newVolume.id, function(){} );
+                });
+            }
+    };
+    
     var createVolume = function( volume ){
         /**
         * Because this is a shim the API does not yet have business
         * logic to combine the attachments so we need to do this in many calls
         * TODO:  Replace with server side logic
         **/
-        $volume_api.save( volume, function( newVolume ){
+        $volume_api.save( volume, creationCallback, genericFailure );
 
-                // for each time deliniation used we need to create a policy and attach
-                // it using the volume id in the name so we can identify it easily
-                for ( var i = 0; angular.isDefined( volume.snapshotPolicies ) && i < volume.snapshotPolicies.length; i++ ){
-                    volume.snapshotPolicies[i].name =
-                        newVolume.id + '_' + volume.snapshotPolicies[i].name;
-
-                    $snapshot_service.createSnapshotPolicy( volume.snapshotPolicies[i], function( policy, code ){
-                        // attach the policy to the volume
-                        $snapshot_service.attachPolicyToVolume( policy, newVolume.id, function(){} );
-                    });
-                }
-        },
-        genericFailure );
-
+        $scope.cancel();
+    };
+    
+    var cloneVolume = function( volume ){
+        volume.id = $scope.volumeVars.clone.id;
+        
+        if ( !angular.isDefined( $scope.volumeVars.clone.sla ) ){
+            $volume_api.cloneSnapshot( volume, creationCallback, genericFailure );
+        }
+        else {
+            $volume_api.clone( volume, creationCallback, genericFailure );
+        }
+        
         $scope.cancel();
     };
     
@@ -119,7 +133,12 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$v
         }
         
         if ( $scope.volumeVars.creating === true ){
-            createVolume( volume );
+            
+            if ( $scope.volumeVars.toClone === true ){
+            }
+            else{
+                createVolume( volume );
+            }
         }
         else{
             editVolume( volume );
@@ -129,6 +148,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$v
     $scope.cancel = function(){
         $scope.volumeVars.editing = false;
         $scope.volumeVars.creating = false;
+        $scope.volumeVars.toClone = false;
         $scope.volumeVars.back();
     };
 

@@ -57,6 +57,13 @@ angular.module( 'volumes' ).controller( 'nameTypeController', ['$scope', '$data_
         $scope.updateData();
     });
     
+    $scope.$watch( 'volumeVars.clone', function( newVal ){
+        
+        if ( angular.isDefined( newVal ) && newVal !== null ){
+            $scope.data_connector = newVal.data_connector;
+        }
+    });
+    
     $scope.$watch( 'volumeVars.creating', function( newVal ){
         if ( newVal === true ){
             init();

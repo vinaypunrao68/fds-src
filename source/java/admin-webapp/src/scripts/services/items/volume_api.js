@@ -30,7 +30,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http', '$rootS
         });
     });
 
-    api.save = function( volume, callback ){
+    api.save = function( volume, callback, failure ){
 
         // save a new one
         if ( !angular.isDefined( volume.id ) ){
@@ -54,6 +54,38 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http', '$rootS
                 .success( getVolumes );
         }
     };
+    
+    api.clone = function( volume, callback, failure ){
+        return $http.post( '/api/config/volumes/clone' + volume.id + '/' + volume.name )
+            .success(
+                function( response ){
+
+                    getVolumes();
+
+                    if ( angular.isDefined( callback ) ){
+                        callback( response );
+                    }
+                })
+            .error( function(){
+                alert( 'Volume creation failed.' );
+            });
+    };
+    
+    api.cloneSnapshot = function( volume, callback, failure ){
+        return $http.post( '/api/config/snapshot/clone/' + volume.id + '/' + volume.name )
+            .success(
+                function( response ){
+
+                    getVolumes();
+
+                    if ( angular.isDefined( callback ) ){
+                        callback( response );
+                    }
+                })
+            .error( function(){
+                alert( 'Volume creation failed.' );
+            });
+    };
 
     api.delete = function( volume ){
         return $http.delete( '/api/config/volumes/' + volume.id )
@@ -65,7 +97,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http', '$rootS
     
     api.createSnapshot = function( volumeId, newName, callback, failure ){
         
-        return $http.post( '/api/volume/snapshot', {volumeId: volumeId, name: newName, retention: 0} )
+        return $http.post( '/api/config/volume/snapshot', {volumeId: volumeId, name: newName, retention: 0} )
             .success( callback ).error( failure );
     };
     

@@ -17,7 +17,7 @@ mockVolume = function(){
             volService.volumes = temp;
         };
 
-        volService.save = function( volume, callback ){
+        volService.save = function( volume, callback, failure ){
             
             for ( var i = 0; i < volService.volumes.length; i++ ){
                 var thisVol = volService.volumes[i];
@@ -41,6 +41,14 @@ mockVolume = function(){
             if ( angular.isDefined( callback ) ){
                 callback( volume );
             }
+        };
+        
+        volService.clone = function( volume, callback, failure ){
+            volService.save( volume, callback, failure );
+        };
+        
+        volService.cloneSnapshot = function( volume, callback, failure ){
+            volService.save( volume, callback, failure );
         };
 
         volService.createSnapshot = function( volumeId, newName, callback, failure ){
