@@ -1,32 +1,45 @@
-<div ng-controller="snapshotPolicyController">
-
-    <section class="summary-form-section">
-        <div class="header">
-            <span translate>volumes.l_snapshot_policy</span>
+<div ng-controller="snapshotPolicyController" style="width: 350px;">
+    
+    <div class="header">
+        <span translate>volumes.l_snapshot_policy</span>
+        <div class="pull-right" ng-click="editing = true" ng-show="editing == false">
+            <span class="icon fui-new edit-snapshot-policies"></span>
         </div>
-
-        <div class="summary-row" ng-show="!editing">
-            <div>
-                <span translate>volumes.f_policy</span>
-                <span class="value">{{summaryText}}</span>
-            </div>
-
-            <span class="icon fui-new" ng-click="editing = true"></span>
-        </div>
-
-        <div ng-show="editing">
-            <div class="snapshot-policy-row" ng-repeat="policy in policies">
-                <tri-state-check check-state="policy.use" class="use-box"></tri-state-check>
-                <span style="width: 100px;">{{policy.displayName}}</span>
-                <span style="padding-right: 4px;">Keep for:</span>
-                <spinner class="skinny" style="margin-right: 4px;" min="1" max="9999" value="policy.value"></spinner>
-                <fui-dropdown skinny="true" items="timeChoices" selected="policy.units"></fui-dropdown>
-            </div>
-
-            <div>
-                <button class="btn btn-primary" ng-click="done()" translate>common.l_done</button>
-            </div>
-        </div>
-
-    </section>
+    </div>
+    
+    <table class="default">
+        <thead>
+            <tr>
+                <th class="no-top-padding"></th>
+                <th class="no-top-padding"></th>
+                <th class="no-top-padding"></th>
+                <th class="no-top-padding"></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr ng-repeat="policy in policies">
+                <td>
+                    <tri-state-check check-state="policy.use" class="use-box"></tri-state-check>
+                </td>
+                <td>
+                    <span style="width: 100px;">{{policy.displayName}}</span>
+                </td>
+                <td>
+                    <div class="policy-value-display" ng-show="editing == false">Keep for {{policy.value}} {{policy.units.name.toLowerCase()}}</div>
+                    <div class="flex" style="vertical-align: middle;" ng-show="editing == true">
+                        <span style="padding-right: 4px;margin-top: 8px;">Keep for:</span>
+                        <spinner class="skinny retention-spinner" style="margin-right: 4px;" min="1" max="9999" value="policy.value"></spinner>
+                        <fui-dropdown class="retention-dropdown" skinny="true" items="timeChoices" selected="policy.units" background="none" color="black" border="gray"></fui-dropdown>
+                    </div>
+                </td>
+                <td>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <div>
+        <button class="btn btn-primary skinny save-snapshot-policies" translate ng-click="done()" ng-show="editing == true">
+            common.l_done
+        </button>
+    </div>
 </div>

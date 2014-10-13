@@ -1,0 +1,8 @@
+<div class="flex fds-radio">
+    <input ng-model="selectedValue" name="{{name}}" value="{{value}}" type="radio">
+    <div class="selector" ng-click="selectedValue = value">
+        <div class="outer-ring"></div>
+        <div class="inner-ring" ng-show="selectedValue === value"></div>
+    </div>
+    <label for="{{value}}">{{label}}</label>
+</div>
