@@ -39,6 +39,9 @@ def suiteConstruction():
     # Load test.
     suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
 
+    # Everyone should still be up.
+    suite.addTest(nodeUpSuite)
+
     suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
 
     # Cleanup FDS installation directory.
@@ -57,9 +60,13 @@ if __name__ == '__main__':
         log_dir = 'test-reports'
 
     # Get a test runner that will output an xUnit XML report for Jenkins
-    # TODO(Greg) I've tried everything I can think of, but failfast does not
-    # stop the suite upon first failure.
-    runner = xmlrunner.XMLTestRunner(output=log_dir, failfast=failfast)
+    # TODO(Greg) I've tried everything I can think of, but stop-on-fail/failfast does not
+    # stop the suite upon first test case failure. So I've implemented our own
+    # "failfast" via the TestCase.pyUnitTCFailure global. (And besides, some system
+    # test users - most notably, Jenkins - were reporting that XMLTestRunner did not
+    # recognize the failfast argument.)
+    #runner = xmlrunner.XMLTestRunner(output=log_dir, failfast=failfast)
+    runner = xmlrunner.XMLTestRunner(output=log_dir)
 
     test_suite = suiteConstruction()
 
