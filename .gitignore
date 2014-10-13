@@ -95,3 +95,4 @@ source/am-engine
 chef/nodes
 chef/vagrant/*/.vagrant/*
 source/java/${project.build.dir}
+source/test/.idea
