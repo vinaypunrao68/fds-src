@@ -1,17 +1,5 @@
 /*
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
- *
- * This software is furnished under a license and may be used and copied only
- * in  accordance  with  the  terms  of such  license and with the inclusion
- * of the above copyright notice. This software or  any  other copies thereof
- * may not be provided or otherwise made available to any other person.
- * No title to and ownership of  the  software  is  hereby transferred.
- *
- * The information in this software is subject to change without  notice
- * and  should  not be  construed  as  a commitment by Formation Data Systems.
- *
- * Formation Data Systems assumes no responsibility for the use or  reliability
- * of its software on equipment which is not supplied by Formation Date Systems.
  */
 
 package com.formationds.commons.model;
@@ -25,7 +13,6 @@ import com.formationds.commons.model.type.iCalFields;
 import com.formationds.commons.model.util.iCalValidator;
 import com.google.gson.annotations.SerializedName;
 
-import javax.xml.bind.annotation.XmlRootElement;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -33,7 +20,6 @@ import java.util.*;
 /**
  * @author ptinius
  */
-@XmlRootElement
 public class RecurrenceRule
   extends ModelBase {
   private static final long serialVersionUID = 5047799369275124734L;
@@ -79,8 +65,8 @@ public class RecurrenceRule
   }
 
   /**
-   * @param count the {@link Integer} representing the number of times the event
-   *              recurs
+   * @param count the {@link Integer} representing the number of times the
+   *              event recurs
    */
   public void setCount( Integer count ) {
     this.count = count;
@@ -118,8 +104,8 @@ public class RecurrenceRule
   }
 
   /**
-   * @return Returns {@link Integer} representing interval between 2 occurrences of
-   * the event
+   * @return Returns {@link Integer} representing interval between 2
+   * occurrences of the event
    */
   public Integer getInterval() {
     return interval;
@@ -160,12 +146,13 @@ public class RecurrenceRule
    * @param field the {@link iCalFields}
    * @param value the {@code int} value to be validated
    *
-   * @return Returns {@code true} if {@code value} is c=valid. Otherwise {@code false}
+   * @return Returns {@code true} if {@code value} is c=valid. Otherwise {@code
+   * false}
    */
-  @SuppressWarnings( "UnusedDeclaration" )
-  protected boolean isValid( final iCalFields field, final int value )
-  {
-    return VALIDATORS.get( field ).isValid( value );
+  @SuppressWarnings("UnusedDeclaration")
+  protected boolean isValid( final iCalFields field, final int value ) {
+    return VALIDATORS.get( field )
+                     .isValid( value );
   }
 
   /**
@@ -183,22 +170,26 @@ public class RecurrenceRule
     while( t.hasMoreTokens() ) {
       String token = t.nextToken();
 
-      if( iCalFields.FREQ.name().equals( token ) ||
-          "frequency".equals( token ) ) {
+      if( iCalFields.FREQ.name()
+                         .equals( token ) ||
+        "frequency".equals( token ) ) {
         builder = builder.withFrequency( next( t, token ) );
-      } else if( iCalFields.COUNT.name().equals( token ) ) {
+      } else if( iCalFields.COUNT.name()
+                                 .equals( token ) ) {
         try {
           builder = builder.withCount( Integer.valueOf( next( t, token ) ) );
         } catch( NumberFormatException e ) {
           throw new ParseException( e.getMessage(), token );
         }
-      } else if( iCalFields.INTERVAL.name().equals( token ) ) {
+      } else if( iCalFields.INTERVAL.name()
+                                    .equals( token ) ) {
         try {
           builder = builder.withInterval( Integer.valueOf( next( t, token ) ) );
         } catch( NumberFormatException e ) {
           throw new ParseException( token );
         }
-      } else if( iCalFields.UNTIL.name().equals( token ) ) {
+      } else if( iCalFields.UNTIL.name()
+                                 .equals( token ) ) {
         try {
           builder = builder.withUntil( ObjectModelHelper.toiCalFormat( next( t, token ) ) );
         } catch( java.text.ParseException e ) {
@@ -215,12 +206,12 @@ public class RecurrenceRule
                               final String lastToken ) {
     try {
       return t.nextToken();
-    } catch (NoSuchElementException ignored ) {
+    } catch( NoSuchElementException ignored ) {
     }
 
     throw new IllegalArgumentException(
       String.format( ModelResource.getString( "ical.missing.token" ),
-                     lastToken ));
+                     lastToken ) );
   }
 
 // TODO finish filling in the rest of the iCal Recurrence Rule properties
@@ -314,37 +305,35 @@ public class RecurrenceRule
    */
   @Override
   public String toString() {
-    final StringBuilder sb = new StringBuilder( );
+    final StringBuilder sb = new StringBuilder();
 
     sb.append( iCalFields.FREQ.name() )
       .append( "=" )
       .append( getFrequency() )
       .append( ";" );
 
-    if( getUntil() != null )
-    {
+    if( getUntil() != null ) {
       sb.append( iCalFields.UNTIL.name() )
         .append( "=" )
         .append( UNTIL_DATE.format( getUntil() ) )
         .append( ";" );
     }
 
-    if( getInterval() != null )
-    {
+    if( getInterval() != null ) {
       sb.append( iCalFields.INTERVAL.name() )
         .append( "=" )
         .append( getInterval() )
         .append( ";" );
     }
 
-    if( getCount() != null )
-    {
+    if( getCount() != null ) {
       sb.append( iCalFields.COUNT.name() )
         .append( "=" )
         .append( getCount() )
         .append( ";" );
     }
 
-    return sb.substring( 0, sb.length() ).trim();
+    return sb.substring( 0, sb.length() )
+             .trim();
   }
 }

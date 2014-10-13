@@ -4,7 +4,7 @@
 
 package com.formationds.commons.model.type;
 
-import com.formationds.commons.model.VolumeDatapoint;
+import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import org.json.JSONArray;
@@ -124,10 +124,11 @@ public class MetricsTest {
   private static final List<VolumeDatapoint> DATAPOINTS = new ArrayList<>();
 
   @Before
-  public void setUp()
-  {
+  public void setUp() {
     final JSONArray array = new JSONArray( JSON );
-    for( int i = 0; i < array.length(); i++ ) {
+    for( int i = 0;
+         i < array.length();
+         i++ ) {
       DATAPOINTS.add( ObjectModelHelper.toObject( array.getJSONObject( i )
                                                        .toString(),
                                                   VolumeDatapoint.class ) );
@@ -136,8 +137,7 @@ public class MetricsTest {
 
   @Test
   public void test() {
-    for( final VolumeDatapoint vdp : DATAPOINTS )
-    {
+    for( final VolumeDatapoint vdp : DATAPOINTS ) {
       try {
         Metrics.byMetadataKey( vdp.getKey() );
       } catch( UnsupportedMetricException e ) {

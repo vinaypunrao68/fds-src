@@ -2,11 +2,11 @@
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.model.builder;
+package com.formationds.commons.model.entity.builder;
 
 import com.formationds.commons.model.Context;
 import com.formationds.commons.model.DateRange;
-import com.formationds.commons.model.MetricQuery;
+import com.formationds.commons.model.entity.MetricQuery;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.ResultType;
 
@@ -107,7 +107,7 @@ public class MetricQueryBuilder {
   }
 
   /**
-   * @return Returns the {@link com.formationds.commons.model.MetricQuery}
+   * @return Returns the {@link com.formationds.commons.model.entity.MetricQuery}
    */
   public MetricQuery build() {
     MetricQuery metricQuery = new MetricQuery();

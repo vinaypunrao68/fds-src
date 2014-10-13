@@ -5,7 +5,7 @@
 package com.formationds.om.repository;
 
 import com.formationds.commons.crud.JDORepository;
-import com.formationds.commons.model.VolumeDatapoint;
+import com.formationds.commons.model.entity.VolumeDatapoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,7 +22,7 @@ import java.util.Properties;
  * @author ptinius
  */
 public class MetricsRepository
-  extends JDORepository<VolumeDatapoint,Long> {
+  extends JDORepository<VolumeDatapoint, Long> {
 
   private static final Logger logger =
     LoggerFactory.getLogger( MetricsRepository.class );
@@ -39,7 +39,8 @@ public class MetricsRepository
   }
 
   /**
-   * @param dbName the {@link String} representing the name and location of the repository
+   * @param dbName the {@link String} representing the name and location of the
+   *               repository
    */
   public MetricsRepository( final String dbName ) {
     super();
@@ -111,7 +112,7 @@ public class MetricsRepository
     final Query query = manager().newQuery( VolumeDatapoint.class );
     try {
       query.compile();
-      count = ( ( Collection )query.execute() ).size();
+      count = ( ( Collection ) query.execute() ).size();
     } finally {
       query.closeAll();
     }
@@ -130,20 +131,19 @@ public class MetricsRepository
   }
 
   /**
-   * @param paramName the {@link String} representing the parameter name
+   * @param paramName  the {@link String} representing the parameter name
    * @param paramValue the {@link String} representing the parameter value
    *
    * @return the number of entities
    */
-  public long countAllBy( final String paramName, final String paramValue )
-  {
+  public long countAllBy( final String paramName, final String paramValue ) {
     int count = 0;
     Query query = null;
     try {
       query = manager().newQuery( VolumeDatapoint.class );
       query.setFilter( paramName + " == '" + paramValue + "'" );
 
-      count = ( (Collection ) query.execute( ) ).size( );
+      count = ( ( Collection ) query.execute() ).size();
     } finally {
       if( query != null ) {
         query.closeAll();
@@ -163,13 +163,16 @@ public class MetricsRepository
   public VolumeDatapoint save( final VolumeDatapoint entity ) {
     try {
       logger.trace( "SAVING: " + entity.toString() );
-      manager().currentTransaction().begin();
+      manager().currentTransaction()
+               .begin();
       manager().makePersistent( entity );
-      manager().currentTransaction().commit();
+      manager().currentTransaction()
+               .commit();
       logger.trace( "SAVED: " + entity.toString() );
       return entity;
     } finally {
-      if (manager().currentTransaction().isActive()) {
+      if( manager().currentTransaction()
+                   .isActive() ) {
         logger.trace( "ROLLING BACK: " + entity.toString() );
         manager().currentTransaction()
                  .rollback();
@@ -185,12 +188,15 @@ public class MetricsRepository
   public void delete( final VolumeDatapoint entity ) {
     try {
       logger.trace( "SAVING: " + entity.toString() );
-      manager().currentTransaction().begin();
+      manager().currentTransaction()
+               .begin();
       manager().deletePersistent( entity );
-      manager().currentTransaction().commit();
+      manager().currentTransaction()
+               .commit();
       logger.trace( "SAVED: " + entity.toString() );
     } finally {
-      if (manager().currentTransaction().isActive()) {
+      if( manager().currentTransaction()
+                   .isActive() ) {
         logger.trace( "ROLLING BACK: " + entity.toString() );
         manager().currentTransaction()
                  .rollback();
@@ -200,11 +206,12 @@ public class MetricsRepository
   }
 
   /**
-   * @param dbName the {@link String} representing the name and location of the repository
+   * @param dbName the {@link String} representing the name and location of the
+   *               repository
    */
   @Override
   protected void initialize( final String dbName ) {
-    final Properties properties = new Properties( );
+    final Properties properties = new Properties();
     properties.setProperty( "javax.jdo.PersistenceManagerFactoryClass",
                             "com.objectdb.jdo.PMF" );
     properties.setProperty( "javax.jdo.option.ConnectionURL",
