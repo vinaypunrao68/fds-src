@@ -83,6 +83,8 @@ describe( 'Testing volume creation permutations', function(){
         
         element.all( by.buttonText( 'Edit Volume' )).get( 0 ).click();
         
+        browser.sleep( 200 );
+        
         // click "new" and make sure the policy isn't there
         element( by.css( '.new_volume' ) ).click();
         
@@ -93,9 +95,13 @@ describe( 'Testing volume creation permutations', function(){
         
         element.all( by.buttonText( 'Cancel' ) ).get( 0 ).click();
         
+        browser.sleep( 210 );
+        
         snapVolume.element( by.css( '.fui-new' ) ).click();
         
-        browser.sleep( 200 );
+        browser.sleep( 210 );
+        
+        element.all( by.buttonText( 'Cancel' ) ).get( 0 ).click();
 
 // mock service isn't accepting edits yet        
 //        expect( checks.get( 1 ).element( by.css( '.checked' )).getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
@@ -108,6 +114,22 @@ describe( 'Testing volume creation permutations', function(){
     });
     
     it ( 'should be able to take a snapshot and see it in the list', function(){
+        
+        snapVolume.element( by.css( '.fui-windows' ) ).click();
+        
+        browser.switchTo().alert().accept();
+        
+        snapVolume.click();
+        
+        var window = element.all( by.css( '.slide-window-stack-slide' ) ).get( 2 );
+        expect( window.getAttribute( 'style' ) ).toContain( 'left: 0%' );
+        
+        browser.sleep( 210 );
+        
+        var snapshotRows = element.all( by.css( '.snapshot-row' ) );
+        snapshotRows.count().then( function( num ){
+            expect( num ).toBe( 1 );
+        });
     });
     
 });

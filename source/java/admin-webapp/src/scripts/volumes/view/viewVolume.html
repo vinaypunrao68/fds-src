@@ -1,4 +1,4 @@
-<div ng-controller="viewVolumeController" show-notify>
+<div class="view-volume-screen" ng-controller="viewVolumeController" show-notify>
 
     <div class="page-vertical-spacer"></div>
 
@@ -20,7 +20,7 @@
                 </tr>
             </thead>
             <tbody>
-                <tr ng-repeat="snapshot in snapshots">
+                <tr ng-repeat="snapshot in snapshots" class="snapshot-row">
                     <td>{{formatDate( snapshot.creation );}}</td>
                     <td>{{snapshot.expiration}}</td>
                     <td>

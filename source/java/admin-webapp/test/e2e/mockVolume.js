@@ -18,7 +18,7 @@ mockVolume = function(){
         };
 
         volService.save = function( volume, callback ){
-
+            
             for ( var i = 0; i < volService.volumes.length; i++ ){
                 var thisVol = volService.volumes[i];
 
@@ -35,6 +35,7 @@ mockVolume = function(){
             }
 
             volume.id = (new Date()).getTime();
+            volume.snapshots = [];
             volService.volumes.push( volume );
 
             if ( angular.isDefined( callback ) ){
@@ -43,6 +44,23 @@ mockVolume = function(){
         };
 
         volService.createSnapshot = function( volumeId, newName, callback, failure ){
+            
+            var volume;
+            
+            for ( var i = 0; i < volService.volumes.length; i++ ){
+                if ( volService.volumes[i].id === volumeId ){
+                    volume = volService.volumes[i];
+                    break;
+                }
+            }
+            
+            if ( !angular.isDefined( volume.snapshots ) ){
+                volume.snapshots = [];
+            }
+            
+            var id = (new Date()).getTime();
+            volume.snapshots.push( { id: id, name: id, creation: id } );
+            
             callback();
         };
 
@@ -52,6 +70,17 @@ mockVolume = function(){
 
         volService.getSnapshots = function( volumeId, callback, failure ){
             //callback( [] );
+            
+            for ( var i = 0; i < volService.volumes.length; i++ ){
+                if ( volService.volumes[i].id === volumeId ){
+                    
+                    if ( angular.isFunction( callback ) ){
+                        callback( volService.volumes[i].snapshots );
+                    }
+                    
+                    return volService.volumes[i].snapshots;
+                }
+            }
         };
 
         volService.getSnapshotPoliciesForVolume = function( volumeId, callback, failure ){
