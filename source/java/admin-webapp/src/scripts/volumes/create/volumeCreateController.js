@@ -134,7 +134,8 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$v
         
         if ( $scope.volumeVars.creating === true ){
             
-            if ( $scope.volumeVars.toClone === true ){
+            if ( $scope.volumeVars.toClone === 'clone' ){
+                cloneVolume( volume );
             }
             else{
                 createVolume( volume );

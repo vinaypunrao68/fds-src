@@ -56,7 +56,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http', '$rootS
     };
     
     api.clone = function( volume, callback, failure ){
-        return $http.post( '/api/config/volumes/clone' + volume.id + '/' + volume.name )
+        return $http.post( '/api/config/volumes/clone/' + volume.id + '/' + volume.name )
             .success(
                 function( response ){
 
