@@ -567,11 +567,17 @@ class PutBlobReq: public FdsBlobReq {
 
 
 struct DeleteBlobReq: FdsBlobReq, TxnRequest {
+    typedef std::function<void (const Error&)> DeleteBlobProcCb;
+
     BucketContext *bucket_ctxt;
     std::string ObjKey;
     void *req_context;
     fdsnResponseHandler responseCallback;
     void *callback_data;
+
+    DeleteBlobProcCb processorCb;
+    fds_volid_t base_vol_id;
+    StorHvVolumeLock *vol_lock;
 
     DeleteBlobReq(fds_volid_t _volid,
                   const std::string& _blob_name,
@@ -633,6 +639,8 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
     }
 
     virtual ~DeleteBlobReq() {
+        if (vol_lock)
+            delete vol_lock;
         fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 

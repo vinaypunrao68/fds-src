@@ -121,6 +121,47 @@ AmProcessor::startBlobTxCb(AmQosReq *qosReq,
 }
 
 void
+AmProcessor::deleteBlob(AmQosReq *qosReq) {
+    Error err(ERR_OK);
+
+    DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
+    fds_volid_t volId = blobReq->getVolId();
+    StorHvVolume* shVol = volTable->getLockedVolume(volId);
+
+    LOGDEBUG    << " volume:" << volId
+                << " blob:" << blobReq->getBlobName()
+                << " txn:" << blobReq->txDesc;
+
+    blobReq->base_vol_id = volTable->getBaseVolumeId(volId);
+    blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
+        boost::posix_time::microsec_clock::universal_time()));
+
+    if ((shVol == NULL) || (!shVol->isValidLocked())) {
+        LOGCRITICAL << "unable to get volume info for vol: " << volId;
+        deleteBlobCb(qosReq, FDSN_StatusErrorUnknown);
+        shVol->readUnlock();
+        return;
+    }
+
+    // check if this is a snapshot
+    if (shVol->voldesc->isSnapshot()) {
+        LOGWARN << "delete blob on a snapshot is not allowed.";
+        deleteBlobCb(qosReq, FDSN_StatusErrorAccessDenied);
+        shVol->readUnlock();
+        return;
+    }
+
+    blobReq->vol_lock = new StorHvVolumeLock(shVol);
+    shVol->readUnlock();
+
+    // Update the tx manager with the delete op
+    txMgr->updateTxOpType(*(blobReq->txDesc), blobReq->getIoType());
+
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::deleteBlobCb, qosReq);
+    amDispatcher->dispatchDeleteBlob(qosReq);
+}
+
+void
 AmProcessor::getBlob(AmQosReq *qosReq) {
     // Pull out the Get request
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
@@ -185,11 +226,21 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
 }
 
 void
+AmProcessor::deleteBlobCb(AmQosReq *qosReq, const Error& error) {
+    DeleteBlobReq *blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse() == true);
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+    delete blobReq;
+}
+
+
+void
 AmProcessor::getBlobCb(AmQosReq *qosReq, const Error& error) {
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
-
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb);
 
     if (ERR_OK == error) {
         // TODO(bszmyd): Thu 09 Oct 2014 04:30:52 PM MDT
@@ -199,7 +250,7 @@ AmProcessor::getBlobCb(AmQosReq *qosReq, const Error& error) {
 
     // Tell QoS the request is done
     qosCtrl->markIODone(qosReq);
-    cb->call(error);
+    blobReq->cb->call(error);
     delete blobReq;
 }
 
