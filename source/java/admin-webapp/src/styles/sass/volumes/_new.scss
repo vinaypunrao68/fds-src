@@ -10,38 +10,6 @@ nav.volume-nav {
   }
 }
 
-.qos-panel {
-
-    .volume-edit-container {
-        padding: 0px;
-
-        &.open {
-            height: 312px;
-            padding: 12px;
-        }
-    }
-}
-
-.volume-qos-summary-container {
-//    margin-left: 10px;
-
-    div {
-        padding-right: 8px;
-
-        &.icon-container {
-            color: $text_light_color;
-        }
-
-        span {
-
-            &.value {
-                font-size: 1.2em;
-                font-weight: bold;
-            }
-        }
-    }
-}
-
 #data-connectors {
 
     tr {
@@ -229,12 +197,5 @@ nav.volume-nav {
   .fine-print {
     font-size: 1em;
     color: $text_light_color;
-  }
-}
-
-.name-type {
-  .header {
-    color: $default_text_color;
-    font-size: 1em;
   }
 }

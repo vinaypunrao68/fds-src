@@ -1,0 +1,28 @@
+<div ng-controller="cloneVolumeController" class="clone-volume-selector" style="color: black;width: 500px;" ng-show="volumeVars.creating === true">
+
+    <div class="header">
+        <span class="light-print" translate>volumes.l_starting_point</span>
+    </div>
+    
+    <div class="flex to-clone-or-not">
+        <fds-radio ng-model="volumeVars.toClone" value="new" name="clone" label="{{ 'volumes.l_create_blank_volume' | translate }}"></fds-radio>
+        <fds-radio ng-model="volumeVars.toClone" value="clone" name="clone" label="{{ 'volumes.l_clone_existing' | translate }}"></fds-radio>
+<!--
+        <input type="radio" name="clone" value="new" ng-model="volumeVars.toClone"><span>Create new volume</span>
+        <input type="radio" name="clone" value="clone" ng-model="volumeVars.toClone"><span>Create from clone</span>
+-->
+    </div>
+    
+    <div class="flex" ng-show="choosing === false && volumeVars.toClone === 'clone'">
+        <div>Clone from {{selectedItem.name}}</div>
+        <span class="icon fui-new" ng-click="choosing = true"></span>
+    </div>
+    
+    <div ng-show="volumeVars.toClone === 'clone' && choosing === true">
+        <tree-grid data="cloneOptions" columns="cloneColumns" ng-model="selectedItem"></tree-grid>
+        <div class="pull-right flex">
+            <button class="btn btn-primary skinny" ng-click="choose()" translate>common.l_save</button>
+            <button class="btn btn-secondary skinny" ng-click="cancel()" translate>common.l_cancel</button>
+        </div>
+    </div>
+</div>

@@ -1,10 +1,9 @@
-angular.module( 'volumes' ).controller( 'snapshotPolicyController', ['$scope', '$modal_data_service', '$snapshot_service', function( $scope, $modal_data_service, $snapshot_service ){
+angular.module( 'volumes' ).controller( 'snapshotPolicyController', ['$scope', '$modal_data_service', '$snapshot_service', '$volume_api', function( $scope, $modal_data_service, $snapshot_service, $volume_api ){
 
     $scope.policies = [];
-
+    
     var init = function(){
 
-        $scope.summaryText = '';
         $scope.timeChoices = [{name: 'Hours'},{name: 'Days'},{name: 'Weeks'},{name: 'Months'},{name: 'Years'}];
 
         $scope.policies = [
@@ -15,48 +14,9 @@ angular.module( 'volumes' ).controller( 'snapshotPolicyController', ['$scope', '
             {name: 'Yearly', displayName: 'Yearly', units: $scope.timeChoices[4], value: 0, use: false}];
 
         $scope.editing = false;
-
     };
-
-    $scope.generateSummaryText = function(){
-
-        var types = [];
-
-        for ( var i = 0; i < $scope.policies.length; i++ ){
-
-            if ( $scope.policies[i].use === true || $scope.policies[i].use === 'checked' ){
-                types.push( $scope.policies[i] );
-            }
-        }
-
-        var typeString = '';
-
-        for( var j = 0; j < types.length; j++ ){
-
-            if ( types[j].use === true || types[j].use === 'checked' ){
-
-                if ( (j+1) === types.length && j !== 0 ){
-                    typeString += ' and ';
-                }
-
-                typeString += types[j].name;
-
-                if ( (j+2) < types.length ){
-                    typeString += ', ';
-                }
-            }
-        }
-
-        if ( typeString === '' ){
-            typeString = 'None';
-        }
-
-        $scope.summaryText = typeString;
-    };
-
+    
     $scope.updatePolicyDefs = function(){
-
-        $scope.generateSummaryText();
 
         var policyList = [];
 
@@ -73,6 +33,18 @@ angular.module( 'volumes' ).controller( 'snapshotPolicyController', ['$scope', '
                     },
                     retention: $snapshot_service.convertTimePeriodToSeconds( tempPolicy.value, tempPolicy.units.name.toUpperCase() )
                 };
+                
+                if ( angular.isDefined( tempPolicy.id ) ){
+                    policy.id = tempPolicy.id;
+                }
+                
+                if ( angular.isDefined( tempPolicy.use ) ){
+                    policy.use = tempPolicy.use;
+                }
+                
+                if ( angular.isDefined( tempPolicy.displayName ) ){
+                    policy.displayName = tempPolicy.displayName;
+                }
 
                 policyList.push( policy );
             }
@@ -90,8 +62,42 @@ angular.module( 'volumes' ).controller( 'snapshotPolicyController', ['$scope', '
 
     $scope.$on( 'change', $scope.updatePolicyDefs );
 
-    $scope.$on( 'fds::create_volume_initialize', init );
-
-    $scope.generateSummaryText();
+    $scope.$watch( 'volumeVars.creating', function( newVal ){
+        if ( newVal === true ){
+            init();
+        }
+    });
+    
+    $scope.$watch( 'volumeVars.editing', function( newVal ){
+        
+        if ( newVal === false || !angular.isDefined( newVal ) ){
+            return;
+        }
+        
+        init();
+        
+        $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id,
+            function( realPolicies ){
+                
+                $scope.volumeVars.selectedVolume.snapshotPolicies = realPolicies;
+            
+                // set the UI policies to the real data.
+                for ( var i = 0; i < realPolicies.length; i++ ){
+                    for ( var j = 0; j < $scope.policies.length; j++ ){
+                        if ( realPolicies[i].name.indexOf( $scope.policies[j].name.toUpperCase() ) != -1 ){
+                            $scope.policies[j].name = realPolicies[i].name;
+                            $scope.policies[j].use = true;
+                            
+                            var ret = $snapshot_service.convertSecondsToTimePeriod( realPolicies[i].retention );
+                            $scope.policies[j].value = ret.value;
+                            $scope.policies[j].units = $scope.timeChoices[ret.units];
+                            $scope.policies[j].id = realPolicies[i].id;
+                        }
+                    }
+                }
+            
+                $scope.updatePolicyDefs();
+            });
+    });
 
 }]);

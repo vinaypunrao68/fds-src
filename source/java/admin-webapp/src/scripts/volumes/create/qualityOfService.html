@@ -1,53 +1,55 @@
-<div ng-controller="qualityOfServiceController" class="volume-edit-row qos-panel">
-
-        <div class="header">
-            <span class="light-print" translate>volumes.l_qos</span>
-        </div>
-
-    <div class="volume-qos-summary-container" ng-show="!editing">
-        <div class="form-group inline">
-            <span>Priority: </span>
-            <span class="value">{{priority}}</span>
-        </div>
-        <div class="form-group inline">
-            <span>IOPs Capacity Gaurantee: </span>
-            <span class="value" ng-show="capacity != 0">{{capacity}}%</span>
-            <span class="value" ng-show="capacity == 0" translate>common.l_none</span>
-        </div>
-        <div class="form-group inline">
-            <span translate>volumes.f_iops_limit</span>
-            <span class="value">{{iopLimit}} IOPs</span>
-        </div>
-        <div class="inline icon-container" ng-click="editing = true" title="{{ 'volumes.l_edit_settings' | translate }}">
+<div ng-controller="qualityOfServiceController" class="qos-panel" style="width: 290px;">
+       
+    <div class="header">
+        <span translate>volumes.l_qos</span>
+        <div class="pull-right" ng-click="editing = true" ng-show="editing == false">
             <span class="icon fui-new"></span>
         </div>
     </div>
 
-    <div class="volume-edit-container" ng-class="{open: editing}">
-        <section>
-            <div>
-                <span class="light-print" translate>volumes.f_priority</span>
-                <span class="volume-edit-label">{{priority}}</span>
-            </div>
-            <fui-slider values="priorityOptions" value="priority" min-label="{{ 'common.l_low' | translate }}" max-label="{{ 'common.l_high' | translate }}"></fui-slider>
-        </section>
-        <section>
-            <div style="margin-bottom: 8px;">
-                <span class="light-print" translate>volumes.f_iops_guarantee</span>
-                <span class="volume-edit-label" ng-show="capacity != 0">{{capacity}}%</span>
-                <span class="volume-edit-label" ng-show="capacity == 0" translate>common.l_none</span>
-            </div>
-            <fui-slider min="0" max="100" step="10" value="capacity" min-label="0%" max-label="100%"></fui-slider>
-        </section>
-        <section>
-            <div style="margin-bottom: 8px;">
-                <span class="light-print" translate>volumes.f_iops_limit</span>
-                <span class="volume-edit-label">{{iopLimit}}</span>
-            </div>
-            <fui-slider min="0" max="3000" step="100" value="iopLimit" min-label="{{ 'common.l_none' | translate }}" max-label="3000"></fui-slider>
-        </section>
-        <div class="pull-right">
-            <button class="btn btn-primary" ng-click="editing = false" translate>common.l_done</button>
-        </div>
+    <table class="default" style="width: 100%;">
+        <thead>
+            <tr>
+                <th class="no-top-padding">
+                </th>
+                <th class="no-top-padding">
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td translate>volumes.th_priority</td>
+                <td class="pad">
+                    <span class="volume-priority-display-only" ng-show="editing === false">{{priority}}</span>
+                    <span class="flex" ng-show="editing === true">
+                        <spinner class="skinny volume-priority-spinner" value="priority" min="1" max="10" step="1"></spinner>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td translate>volumes.th_iops_guarantee</td>
+                <td class="pad">
+                    <span class="volume-sla-display" ng-show="editing === false">{{capacity}}%</span>
+                    <span class="flex" ng-show="editing === true">
+                        <spinner class="skinny volume-sla-spinner" value="capacity" min="0" max="100" step="10"></spinner>
+                        <span style="padding-left: 4px; padding-top: 8px;">%</span>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td translate>volumes.th_iops_limit</td>
+                <td class="pad">
+                    <span class="volume-limit-display" ng-show="editing === false">{{iopLimit}}</span>
+                    <span ng-show="editing === true">
+                        <spinner class="skinny volume-limit-spinner" value="iopLimit" min="0" max="3000" step="100"></spinner>
+                    </span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <div>
+        <button class="btn btn-primary skinny save-qos-settings" translate ng-show="editing === true" ng-click="doneEditing()">
+            common.l_done
+        </button>
     </div>
 </div>

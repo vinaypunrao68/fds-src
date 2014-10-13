@@ -1,0 +1,27 @@
+<div class="treegrid">
+    
+    <div>{{ treeTitle }}</div>
+    
+    <table class="default">
+        <thead>
+            <tr>
+                <th ng-repeat="column in columns" class="{{column.class}}">{{ column.name }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr ng-repeat="datum in flatData" ng-show="datum.show === true" class="no-border" ng-click="selectRow( datum )" ng-class="{ 'row-selected': selection === datum }">
+                <td ng-repeat="column in columns" ng-style="{ 'padding-left': (datum.level * 24) + 'px' }">
+                    <div>
+                        <div ng-class="{ open: datum.expanded === true }" class="arrow-container" ng-show="datum[ childrenProperty ].length > 0">
+                            <span class="fui-triangle-right-large" style="font-size: 10px;vertical-align: middle;cursor: pointer;" ng-click="toggleNode( datum, $event )">
+                            </span>
+                        </div>
+                        <span style="margin-left: 4px;">
+                            {{ datum[ column.property ] }}
+                        </span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>

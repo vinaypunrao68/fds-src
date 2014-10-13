@@ -1,0 +1,39 @@
+.fds-radio {
+    
+    margin-right: 8px;
+    
+    input[type=radio]{
+        display: none;
+    }
+    
+    .selector {
+        width: 16px;
+        height: 16px;
+        position: relative;
+        top: 10px;
+        margin-right: 8px;
+        cursor: pointer;
+        
+        .outer-ring {
+            width: 16px;
+            height: 16px;
+            border-radius: 8px;
+            border: 1px solid $text_very_light_color;
+            
+            position: absolute;
+            top: 0px;
+            left: 0px;
+        }
+        
+        .inner-ring {
+            width: 10px;
+            height: 10px;
+            border-radius: 6px;
+            background-color: $fds_dark_green;
+            
+            position: absolute;
+            top: 3px;
+            left: 3px;
+        }
+    }
+}
