@@ -11,7 +11,6 @@ import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.rest.*;
 import com.formationds.om.rest.metrics.IngestVolumeStats;
 import com.formationds.om.rest.metrics.QueryMetrics;
-import com.formationds.om.rest.metrics.QueryVolumeMetrics;
 import com.formationds.om.rest.snapshot.*;
 import com.formationds.security.*;
 import com.formationds.util.Configuration;
@@ -85,11 +84,6 @@ public class Main {
     fdsAdminOnly( HttpMethod.GET, "/api/config/services", ( t ) -> new ListServices( legacyConfigClient ), authorizer );
     fdsAdminOnly( HttpMethod.POST, "/api/config/services/:node_uuid", ( t ) -> new ActivatePlatform( legacyConfigClient ), authorizer );
 
-    authenticate( HttpMethod.GET, "/api/config/volumes", ( t ) -> new ListVolumes( xdi, amService, legacyConfigClient, t ) );
-    authenticate( HttpMethod.POST, "/api/config/volumes", ( t ) -> new CreateVolume( xdi, legacyConfigClient, t ) );
-    authenticate( HttpMethod.DELETE, "/api/config/volumes/:name", ( t ) -> new DeleteVolume( xdi, t ) );
-    authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid", ( t ) -> new SetVolumeQosParams( legacyConfigClient, configCache, amService, authorizer, t ) );
-
     fdsAdminOnly( HttpMethod.GET, "/api/config/globaldomain", ( t ) -> new ShowGlobalDomain(), authorizer );
     fdsAdminOnly( HttpMethod.GET, "/api/config/domains", ( t ) -> new ListDomains(), authorizer );
 
@@ -98,20 +92,21 @@ public class Main {
     authenticate( HttpMethod.GET, "/api/config/streams", ( t ) -> new ListStreams( configCache ) );
     authenticate( HttpMethod.PUT, "/api/config/streams", ( t ) -> new DeregisterStream( configCache ) );
 
-        /*
-         * provides snapshot RESTful API endpoints
-         */
+    /*
+     * provides snapshot RESTful API endpoints
+     */
     snapshot( configCache, authorizer );
 
-        /*
-         * provides metrics RESTful API endpoints
-         */
+    /*
+     * provides metrics RESTful API endpoints
+     */
     metrics();
 
-    // Demo volume stats
-//        webApp.route(HttpMethod.GET, "/api/stats/volumes", () -> new ListActiveVolumes(volumeStatistics));
-//        webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
-//        webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
+    authenticate( HttpMethod.GET, "/api/config/volumes", ( t ) -> new ListVolumes( xdi, amService, legacyConfigClient, t ) );
+    authenticate( HttpMethod.POST, "/api/config/volumes", ( t ) -> new CreateVolume( xdi, legacyConfigClient, t ) );
+    authenticate( HttpMethod.POST, "/api/config/volumes/clone/:volumeId/:cloneVolumeName", ( t ) -> new CloneVolume( configCache ) );
+    authenticate( HttpMethod.DELETE, "/api/config/volumes/:name", ( t ) -> new DeleteVolume( xdi, t ) );
+    authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid", ( t ) -> new SetVolumeQosParams( legacyConfigClient, configCache, amService, authorizer, t ) );
 
     fdsAdminOnly( HttpMethod.GET, "/api/system/token/:userid", ( t ) -> new ShowToken( configCache, secretKey ), authorizer );
     fdsAdminOnly( HttpMethod.POST, "/api/system/token/:userid", ( t ) -> new ReissueToken( configCache, secretKey ), authorizer );
@@ -174,7 +169,7 @@ public class Main {
     authenticate( HttpMethod.GET, "/api/stats/volumes",
                   ( t ) -> new QueryMetrics() );
     authenticate( HttpMethod.GET, "/api/stats/volumes/:volume",
-                  ( t ) -> new QueryVolumeMetrics() );
+                  ( t ) -> new QueryMetrics() );
   }
 
   private void metricsPost() {
@@ -208,12 +203,11 @@ public class Main {
                   ( t ) -> new CreateSnapshotPolicy( config ), authorizer );
     fdsAdminOnly( HttpMethod.POST, "/api/config/volumes/:volumeId/snapshot",
                   ( t ) -> new CreateSnapshot( config ), authorizer );
-
-    fdsAdminOnly( HttpMethod.POST, "/api/snapshot/restore/:snapshotId/:volumeId",
+    fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/restore/:snapshotId/:volumeId",
                   ( t ) -> new RestoreSnapshot( config ), authorizer );
-    fdsAdminOnly( HttpMethod.POST, "/api/snapshot/clone/:snapshotId/:cloneVolumeName",
+    fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/clone/:snapshotId/:cloneVolumeName",
                   ( t ) -> new CloneSnapshot( config ), authorizer );
-    fdsAdminOnly( HttpMethod.POST, "/api/volume/snapshot",
+    fdsAdminOnly( HttpMethod.POST, "/api/config/volume/snapshot",
                   ( t ) -> new CreateSnapshot( config ), authorizer );
   }
 
