@@ -2,9 +2,9 @@
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.model.builder;
+package com.formationds.commons.model.entity.builder;
 
-import com.formationds.commons.model.VolumeDatapoint;
+import com.formationds.commons.model.entity.VolumeDatapoint;
 
 /**
  * @author ptinius
@@ -24,7 +24,7 @@ public class VolumeDatapointBuilder {
   /**
    * @param timestamp the {@link Long} representing the timestamp in seconds
    *
-   * @return Returns the {@link com.formationds.commons.model.builder.VolumeDatapointBuilder}
+   * @return Returns the {@link VolumeDatapointBuilder}
    */
   public VolumeDatapointBuilder withTimestamp( Long timestamp ) {
     this.timestamp = timestamp;
@@ -34,7 +34,7 @@ public class VolumeDatapointBuilder {
   /**
    * @param volumeName the {@link String} representing the volume names
    *
-   * @return Returns the {@link com.formationds.commons.model.builder.VolumeDatapointBuilder}
+   * @return Returns the {@link VolumeDatapointBuilder}
    */
   public VolumeDatapointBuilder withVolumeName( String volumeName ) {
     this.volumeName = volumeName;
@@ -44,7 +44,7 @@ public class VolumeDatapointBuilder {
   /**
    * @param key the {@link String} representing the key
    *
-   * @return Returns the {@link com.formationds.commons.model.builder.VolumeDatapointBuilder}
+   * @return Returns the {@link VolumeDatapointBuilder}
    */
   public VolumeDatapointBuilder withKey( String key ) {
     this.key = key;
@@ -54,7 +54,7 @@ public class VolumeDatapointBuilder {
   /**
    * @param value the {@link Double} representing the value
    *
-   * @return Returns the {@link com.formationds.commons.model.builder.VolumeDatapointBuilder}
+   * @return Returns the {@link VolumeDatapointBuilder}
    */
   public VolumeDatapointBuilder withValue( Double value ) {
     this.value = value;
@@ -62,12 +62,12 @@ public class VolumeDatapointBuilder {
   }
 
   /**
-   * @return Returns the {@link com.formationds.commons.model.VolumeDatapoint}
+   * @return Returns the {@link com.formationds.commons.model.entity.VolumeDatapoint}
    */
   public VolumeDatapoint build() {
     VolumeDatapoint volumeDatapoint = new VolumeDatapoint();
 
-    if( volumeName != null  ) {
+    if( volumeName != null ) {
       volumeDatapoint.setVolumeName( volumeName );
     }
 

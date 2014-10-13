@@ -1,6 +1,5 @@
-/**
- * Copyright (c) 2014 Formation Data Systems.
- * All rights reserved.
+/*
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.om.rest.snapshot;
@@ -36,13 +35,13 @@ public class CreateSnapshot
            new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
       Gson gson = new GsonBuilder().create();
       final Snapshot snapshot = gson.fromJson( reader,
-                                                   Snapshot.class );
+                                               Snapshot.class );
 
       config.createSnapshot( snapshot.getVolumeId(),
-                            snapshot.getName(),
-                            snapshot.getRetention() );
+                             snapshot.getName(),
+                             snapshot.getRetention() );
     }
 
-    return new JsonResource(new JSONObject().put("status", "OK"));
+    return new JsonResource( new JSONObject().put( "status", "OK" ) );
   }
 }

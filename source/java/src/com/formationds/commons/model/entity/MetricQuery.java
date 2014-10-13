@@ -2,8 +2,10 @@
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.model;
+package com.formationds.commons.model.entity;
 
+import com.formationds.commons.model.Context;
+import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.ResultType;
@@ -17,10 +19,10 @@ import java.util.List;
  */
 @NamedQueries(
   {
-    @NamedQuery( name="Query.Average",
-               query="" ),
-    @NamedQuery( name="Query.Sum",
-                 query="" )
+    @NamedQuery(name = "Query.Average",
+                query = ""),
+    @NamedQuery(name = "Query.Sum",
+                query = "")
   }
 )
 public class MetricQuery

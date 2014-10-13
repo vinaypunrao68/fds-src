@@ -2,10 +2,10 @@
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.model.builder;
+package com.formationds.commons.model.entity.builder;
 
 import com.formationds.commons.model.Context;
-import com.formationds.commons.model.VolumeDatapoint;
+import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.ResultType;
 
@@ -46,8 +46,8 @@ public class VolumeCriteriaQueryBuilder {
     this.cb = em.getCriteriaBuilder();
     this.cq = cb.createQuery( VolumeDatapoint.class );
     this.from = cq.from( VolumeDatapoint.class );
-    this.predicates = new ArrayList<>( );
-    this.selections = new ArrayList<>( );
+    this.predicates = new ArrayList<>();
+    this.selections = new ArrayList<>();
     this.selections.add( from );
   }
 
@@ -70,9 +70,8 @@ public class VolumeCriteriaQueryBuilder {
   }
 
   public VolumeCriteriaQueryBuilder withContexts( final List<Context> contexts ) {
-    final List<String> in = new ArrayList<>( );
-    for( final Context c : contexts )
-    {
+    final List<String> in = new ArrayList<>();
+    for( final Context c : contexts ) {
       in.add( c.getContext() );
     }
 
@@ -81,21 +80,18 @@ public class VolumeCriteriaQueryBuilder {
     return this;
   }
 
-  public VolumeCriteriaQueryBuilder maxResults( final int maxResults )
-  {
+  public VolumeCriteriaQueryBuilder maxResults( final int maxResults ) {
     this.maxResults = maxResults;
     return this;
   }
 
-  public VolumeCriteriaQueryBuilder fistResult( final int firstResult )
-  {
+  public VolumeCriteriaQueryBuilder fistResult( final int firstResult ) {
     this.firstResult = firstResult;
     return this;
   }
 
   public VolumeCriteriaQueryBuilder withResultType( final ResultType type ) {
-    switch( type.name() )
-    {
+    switch( type.name() ) {
       case "MIN":
         selections.add( cb.min( from.get( VALUE ) ) );
         break;
@@ -128,8 +124,7 @@ public class VolumeCriteriaQueryBuilder {
   }
 
   public List<VolumeDatapoint> execute() {
-    if( firstResult != null && maxResults != null )
-    {
+    if( firstResult != null && maxResults != null ) {
       return build().setFirstResult( firstResult )
                     .setMaxResults( maxResults )
                     .getResultList();
