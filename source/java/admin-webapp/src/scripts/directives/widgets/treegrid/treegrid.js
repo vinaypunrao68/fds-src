@@ -43,14 +43,11 @@ angular.module( 'form-directives' ).directive( 'treeGrid', function(){
                         lNode[$scope.columns[0].property] = 'Loading...';
                         
                         list[i][$scope.childrenProperty] = lNode;
+                        list[i].loaded = false;
                     }
                 }
             };
-            
-            var childrenReturned = function( node, childs ){
-                
-            };
-            
+
             var showChildren = function( node, show ){
                 
                 var childs = node[$scope.childrenProperty];
@@ -82,6 +79,21 @@ angular.module( 'form-directives' ).directive( 'treeGrid', function(){
                     $scope.childrenFunction( node, function( childs ){
                         node[$scope.childrenProperty] = childs;
                         node.loaded = true;
+                        
+                        for ( var j = 0; j < childs.length; j++ ){
+                            childs[j].level = node.level + 1;
+                            childs[j].loaded = false;
+                        }
+                        
+                        // find the place in the flat data to put this list
+                        for ( var i = 0; i < $scope.flatData.length; i++ ){
+                            if ( $scope.flatData[i] === node ){
+                                var frontHalf = $scope.flatData.slice( 0, i+1 );
+                                var backHalf = $scope.flatData.slice( i+1 );
+                                $scope.flatData = frontHalf.concat( childs ).concat( backHalf );
+                            }
+                        }
+                        
                         showChildren( node, node.expanded );
                     });
                 }

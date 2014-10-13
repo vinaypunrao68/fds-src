@@ -1,6 +1,6 @@
 angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$volume_api', '$snapshot_service', '$modal_data_service', function( $scope, $volume_api, $snapshot_service, $modal_data_service ){
 
-    var creationCallback = function( newVolume ){
+    var creationCallback = function( volume, newVolume ){
 
             // for each time deliniation used we need to create a policy and attach
             // it using the volume id in the name so we can identify it easily
@@ -21,7 +21,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$v
         * logic to combine the attachments so we need to do this in many calls
         * TODO:  Replace with server side logic
         **/
-        $volume_api.save( volume, creationCallback, genericFailure );
+        $volume_api.save( volume, function( newVolume ){ creationCallback( volume, newVolume ); }, genericFailure );
 
         $scope.cancel();
     };
@@ -30,10 +30,10 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$v
         volume.id = $scope.volumeVars.clone.id;
         
         if ( !angular.isDefined( $scope.volumeVars.clone.sla ) ){
-            $volume_api.cloneSnapshot( volume, creationCallback, genericFailure );
+            $volume_api.cloneSnapshot( volume, function( newVolume ){ creationCallback( volume, newVolume ); }, genericFailure );
         }
         else {
-            $volume_api.clone( volume, creationCallback, genericFailure );
+            $volume_api.clone( volume, function( newVolume ){ creationCallback( volume, newVolume ); }, genericFailure );
         }
         
         $scope.cancel();

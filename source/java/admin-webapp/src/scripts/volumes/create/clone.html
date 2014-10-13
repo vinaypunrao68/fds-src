@@ -19,10 +19,10 @@
     </div>
     
     <div ng-show="volumeVars.toClone === 'clone' && choosing === true">
-        <tree-grid data="cloneOptions" columns="cloneColumns" ng-model="selectedItem"></tree-grid>
+        <tree-grid data="cloneOptions" columns="cloneColumns" ng-model="selectedItem" children-function="getSnapshots"></tree-grid>
         <div class="pull-right flex">
             <button class="btn btn-primary skinny" ng-click="choose()" translate>common.l_save</button>
-            <button class="btn btn-secondary skinny" ng-click="cancel()" translate>common.l_cancel</button>
+<!--            <button class="btn btn-secondary skinny" ng-click="cancel()" translate>common.l_cancel</button>-->
         </div>
     </div>
 </div>

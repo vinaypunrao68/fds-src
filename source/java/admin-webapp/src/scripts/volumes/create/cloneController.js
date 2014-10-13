@@ -10,6 +10,14 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
         { name: 'Name', property: 'name' }
     ];
     
+    $scope.getSnapshots = function( volume, callback ){
+        $volume_api.getSnapshots( volume.id, callback );
+    };
+    
+    $scope.cancel = function(){
+        $scope.choosing = false;
+    };
+    
     $scope.choose = function(){
         $scope.choosing = false;
         $scope.volumeVars.clone = $scope.selectedItem;

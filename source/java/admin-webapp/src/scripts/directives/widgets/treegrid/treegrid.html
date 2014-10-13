@@ -12,7 +12,7 @@
             <tr ng-repeat="datum in flatData" ng-show="datum.show === true" class="no-border" ng-click="selectRow( datum )" ng-class="{ 'row-selected': selection === datum }">
                 <td ng-repeat="column in columns" ng-style="{ 'padding-left': (datum.level * 24) + 'px' }">
                     <div>
-                        <div ng-class="{ open: datum.expanded === true }" class="arrow-container" ng-show="datum[ childrenProperty ].length > 0">
+                        <div ng-class="{ open: datum.expanded === true }" class="arrow-container" ng-show="datum[ childrenProperty ].length > 0 || datum.loaded === false">
                             <span class="fui-triangle-right-large" style="font-size: 10px;vertical-align: middle;cursor: pointer;" ng-click="toggleNode( datum, $event )">
                             </span>
                         </div>
