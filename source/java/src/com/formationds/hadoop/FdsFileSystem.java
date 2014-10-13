@@ -1,9 +1,9 @@
 package com.formationds.hadoop;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.filefilter.FileFilterUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 
@@ -16,20 +16,22 @@ import java.util.Arrays;
  * Copyright (c) 2014 Formation Data Systems, Inc.
  */
 public class FdsFileSystem extends FileSystem {
-    private final static String PREFIX = "fds-repo";
+    private final static String PREFIX = "/tmp";
     private Path workingDirectory;
     private URI uri;
 
     public FdsFileSystem() throws URISyntaxException, IOException {
-        workingDirectory = new Path(new URI("fds://volume/"));
+        uri = new URI("fds://volume/");
+        workingDirectory = new Path(uri);
         setConf(new Configuration());
-        FileUtils.forceMkdir(new File("./" + PREFIX));
+        FileUtils.forceMkdir(new File(PREFIX));
     }
 
     @Override
     public void initialize(URI uri, Configuration conf) throws IOException {
         setConf(conf);
         this.uri = URI.create(getScheme() + "://" + uri.getAuthority());
+        workingDirectory = new Path(uri);
     }
 
     @Override
@@ -82,13 +84,13 @@ public class FdsFileSystem extends FileSystem {
     }
 
     @Override
-    public void setWorkingDirectory(Path new_dir) {
-        workingDirectory = new_dir;
+    public Path getWorkingDirectory() {
+        return workingDirectory;
     }
 
     @Override
-    public Path getWorkingDirectory() {
-        return workingDirectory;
+    public void setWorkingDirectory(Path new_dir) {
+        workingDirectory = new_dir;
     }
 
     @Override
@@ -121,7 +123,7 @@ public class FdsFileSystem extends FileSystem {
         }
 
         URI uri = path.toUri();
-        String s = uri.toString().replaceAll("fds://volume/", "./" + PREFIX + "/");
+        String s = uri.toString().replaceAll("fds://volume/", PREFIX + "/");
         return new File(s);
     }
 }
