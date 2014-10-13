@@ -236,9 +236,10 @@ class DmVolumeCatalog : public Module,
     Error syncCatalog(fds_volid_t volume_id,
                       const NodeUuid& dm_uuid);
     /**
-     * get  vvc mata size
+     * Get total matadata size for a volume
      */
-     fds_uint32_t  getVvcMetaSize(fds_volid_t volume_id);
+     fds_uint64_t getTotalMetadataSize(fds_volid_t volume_id);
+
   private:
     /**
      * Internal function to get a blob's metadata extent, whether
