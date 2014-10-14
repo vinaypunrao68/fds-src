@@ -68,7 +68,12 @@ class AmDispatcher : public Module, public boost::noncopyable {
                        boost::shared_ptr<std::string> payload);
 
     /**
-     * Dipatches a start blob transaction request.
+     * Dispatches a delete blob transaction request.
+     */
+    void dispatchDeleteBlob(AmQosReq *qosReq);
+
+    /**
+     * Dispatches a start blob transaction request.
      */
     void dispatchGetObject(AmQosReq *qosReq);
 
@@ -82,6 +87,14 @@ class AmDispatcher : public Module, public boost::noncopyable {
 
     /// Uturn test all network requests
     fds_bool_t uturnAll;
+
+    /**
+     * Callback for delete blob responses.
+     */
+    void deleteBlobCb(AmQosReq *qosReq,
+                      QuorumSvcRequest* svcReq,
+                      const Error& error,
+                      boost::shared_ptr<std::string> payload);
 
     /**
      * Callback for get blob responses.

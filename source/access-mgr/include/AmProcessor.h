@@ -76,6 +76,12 @@ class AmProcessor : public Module, public boost::noncopyable {
     void getBlobCb(AmQosReq *qosReq, const Error& error);
 
     /**
+     * Processes a get blob request
+     */
+    void deleteBlob(AmQosReq *qosReq);
+    void deleteBlobCb(AmQosReq *qosReq, const Error& error);
+
+    /**
      * Callback for catalog query request
      */
     void queryCatalogCb(AmQosReq *qosReq, const Error& error);
