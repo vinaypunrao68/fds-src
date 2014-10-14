@@ -136,14 +136,14 @@ AmDispatcher::dispatchDeleteBlob(AmQosReq *qosReq)
     DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
-    DeleteBlobMsgPtr message(new DeleteBlobMsg());
+    DeleteBlobMsgPtr message = boost::make_shared<DeleteBlobMsg>();
     message->volume_id = blobReq->getVolId();
     message->blob_name = blobReq->getBlobName();
     message->blob_version = blob_version_invalid;
     message->txId = blobReq->txDesc->getValue();
 
     auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(
+        boost::make_shared<DmtVolumeIdEpProvider>(
             dmtMgr->getCommittedNodeGroup(blobReq->base_vol_id)));
 
     // Create callback
