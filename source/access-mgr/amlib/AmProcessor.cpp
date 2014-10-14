@@ -163,7 +163,6 @@ void
 AmProcessor::getBlob(AmQosReq *qosReq) {
     // Pull out the Get request
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
-    fds_verify(blobReq->magicInUse() == true);
 
     fds_volid_t volId = blobReq->getVolId();
     StorHvVolume *shVol = volTable->getVolume(volId);
@@ -224,9 +223,44 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
 }
 
 void
+AmProcessor::statBlob(AmQosReq *qosReq) {
+    Error err(ERR_OK);
+    StatBlobReq* blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
+    fds_volid_t volId = blobReq->getVolId();
+
+    LOGDEBUG << "volume:" << volId <<" blob:" << blobReq->getBlobName();
+
+    // Check cache for blob descriptor
+    BlobDescriptor::ptr cachedBlobDesc = amCache->getBlobDescriptor(volId,
+                                                                    blobReq->getBlobName(),
+                                                                    err);
+    if (ERR_OK == err) {
+        LOGTRACE << "Found cached blob descriptor for " << std::hex
+            << volId << std::dec << " blob " << blobReq->getBlobName();
+
+        StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, blobReq->cb);
+        // Fill in the data here
+        cb->blobDesc.setBlobName(cachedBlobDesc->getBlobName());
+        cb->blobDesc.setBlobSize(cachedBlobDesc->getBlobSize());
+        for (const_kv_iterator meta = cachedBlobDesc->kvMetaBegin();
+             meta != cachedBlobDesc->kvMetaEnd();
+             ++meta) {
+            cb->blobDesc.addKvMeta(meta->first,  meta->second);
+        }
+        statBlobCb(qosReq, ERR_OK);
+        return;
+    }
+    LOGTRACE << "Did not find cached blob descriptor for " << std::hex
+        << volId << std::dec << " blob " << blobReq->getBlobName();
+
+    blobReq->base_vol_id = volTable->getBaseVolumeId(volId);
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::statBlobCb, qosReq);
+    amDispatcher->dispatchStatBlob(qosReq);
+}
+
+void
 AmProcessor::deleteBlobCb(AmQosReq *qosReq, const Error& error) {
     DeleteBlobReq *blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
-    fds_verify(blobReq->magicInUse() == true);
 
     // Tell QoS the request is done
     qosCtrl->markIODone(qosReq);
@@ -238,7 +272,6 @@ AmProcessor::deleteBlobCb(AmQosReq *qosReq, const Error& error) {
 void
 AmProcessor::getBlobCb(AmQosReq *qosReq, const Error& error) {
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
-    fds_verify(blobReq->magicInUse() == true);
 
     if (ERR_OK == error) {
         // TODO(bszmyd): Thu 09 Oct 2014 04:30:52 PM MDT
@@ -261,6 +294,21 @@ AmProcessor::queryCatalogCb(AmQosReq *qosReq, const Error& error) {
     } else {
         getBlobCb(qosReq, error);
     }
+}
+
+void
+AmProcessor::statBlobCb(AmQosReq *qosReq, const Error& error) {
+    DeleteBlobReq *blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
+
+    if (ERR_OK == error) {
+        // TODO(bszmyd): Tuesday 14 Oct 2014 12:21:41 PM MDT
+        // Update the descriptor cache here
+    }
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+    delete blobReq;
 }
 
 }  // namespace fds

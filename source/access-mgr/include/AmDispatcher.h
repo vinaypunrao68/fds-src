@@ -79,6 +79,11 @@ class AmDispatcher : public Module, public boost::noncopyable {
 
     void dispatchQueryCatalog(AmQosReq *qosReq);
 
+    /**
+     * Dispatches a stat blob transaction request.
+     */
+    void dispatchStatBlob(AmQosReq *qosReq);
+
   private:
     /// Shared ptrs to the DLT and DMT managers used
     /// for deciding who to dispatch to
@@ -111,6 +116,14 @@ class AmDispatcher : public Module, public boost::noncopyable {
                            FailoverSvcRequest* svcReq,
                            const Error& error,
                            boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for stat blob responses.
+     */
+    void statBlobCb(AmQosReq *qosReq,
+                    FailoverSvcRequest* svcReq,
+                    const Error& error,
+                    boost::shared_ptr<std::string> payload);
 };
 
 }  // namespace fds
