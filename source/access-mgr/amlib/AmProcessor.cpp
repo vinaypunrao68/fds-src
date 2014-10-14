@@ -94,4 +94,49 @@ AmProcessor::startBlobTxCb(AmQosReq *qosReq,
     cb->call(error.GetErrno());
 }
 
+void
+AmProcessor::commitBlobTx(AmQosReq *qosReq) {
+    fds_verify(qosReq != NULL);
+
+    Error err(ERR_OK);
+
+    // Get the blob request
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
+
+    fds_uint64_t dmt_version;
+    err = amTxMgr->getTxDmtVersion(*(blobReq->getTxId()), &dmt_version);
+    fds_verify(err == ERR_OK);
+
+    // Setup callback.
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::commitBlobTxCb, qosReq);
+
+    amDispatcher->dispatchCommitBlobTx(qosReq);
+}
+
+void
+AmProcessor::commitBlobTxCb(const Error &error) {
+    StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
+
+    StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
+                                                  blobReq->cb);
+
+    if (error.ok()) {
+        // Update callback and record new open transaction
+        cb->blobTxId  = blobReq->txId;
+        fds_verify(txMgr->addTx(blobReq->getVolId(),
+                                blobReq->txId,
+                                blobReq->dmtVersion,
+                                blobReq->getBlobName()) == ERR_OK);
+    }
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    cb->call(error.GetErrno());
+}
+
 }  // namespace fds

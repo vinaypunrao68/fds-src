@@ -53,6 +53,16 @@ class AmProcessor : public Module, public boost::noncopyable {
     void startBlobTxCb(AmQosReq* qosReq,
                        const Error& error);
 
+    /**
+     * Processes a commit blob transaction
+     */
+    void commitBlobTx(AmQosReq *qosReq);
+
+    /**
+     * Callback for commit blob transaction
+     */
+    void commitBlobTxCb(const Error& error);
+
   private:
     /// Raw pointer to QoS controller
     // TODO(Andrew): Move this to unique once it's owned here.

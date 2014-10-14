@@ -541,7 +541,11 @@ static void processBlobReq(AmQosReq *qosReq) {
             break;
 
         case fds::FDS_COMMIT_BLOB_TX:
-            err = storHvisor->commitBlobTxSvc(qosReq);
+            if (storHvisor->toggleNewPath == true) {
+                storHvisor->amProcessor->commitBlobTx(qosReq);
+            } else {
+                err = storHvisor->commitBlobTxSvc(qosReq);
+            }
             break;
 
         case fds::FDS_ABORT_BLOB_TX:
