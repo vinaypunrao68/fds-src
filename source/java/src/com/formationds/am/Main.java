@@ -25,7 +25,6 @@ import org.eclipse.jetty.io.ByteBufferPool;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.File;
 import java.util.concurrent.ForkJoinPool;
 
 public class Main {
@@ -71,7 +70,11 @@ public class Main {
 
             Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
             ByteBufferPool bbp = new ArrayByteBufferPool();
-            XdiAsync.Factory xdiAsync = new XdiAsync.Factory(authorizer, clientFactory.makeCsAsyncPool(omHost, omConfigPort), clientFactory.makeAmAsyncPool("localhost", 9988), bbp);
+            XdiAsync.Factory xdiAsync = new XdiAsync.Factory(authorizer,
+                    clientFactory.makeCsAsyncPool(omHost, omConfigPort),
+                    clientFactory.makeAmAsyncPool("localhost", 9988),
+                    bbp,
+                    configCache);
 
             int s3HttpPort = platformConfig.lookup("fds.am.s3_http_port").intValue();
             int s3SslPort = platformConfig.lookup("fds.am.s3_https_port").intValue();
