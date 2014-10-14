@@ -150,8 +150,6 @@ AmProcessor::deleteBlob(AmQosReq *qosReq) {
         shVol->readUnlock();
         return;
     }
-
-    blobReq->vol_lock = new StorHvVolumeLock(shVol);
     shVol->readUnlock();
 
     // Update the tx manager with the delete op
