@@ -119,7 +119,12 @@ class TestDMBringUp(TestCase.FDSTestCase):
         """
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_DMBringUp():
@@ -189,7 +194,12 @@ class TestDMWait(TestCase.FDSTestCase):
         """
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_DMWait():
@@ -243,7 +253,12 @@ class TestDMShutDown(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_DMShutDown():
@@ -309,7 +324,12 @@ class TestSMBringUp(TestCase.FDSTestCase):
         """
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_SMBringUp():
@@ -379,7 +399,12 @@ class TestSMWait(TestCase.FDSTestCase):
         """
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_SMWait():
@@ -433,7 +458,12 @@ class TestSMShutDown(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_SMShutDown():
@@ -492,7 +522,12 @@ class TestPMBringUp(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_PMBringUp():
@@ -561,7 +596,12 @@ class TestPMWait(TestCase.FDSTestCase):
         """
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_PMWait():
@@ -615,7 +655,12 @@ class TestPMShutDown(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_PMShutDown():
@@ -674,7 +719,12 @@ class TestOMBringUp(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_OMBringUp():
@@ -733,7 +783,12 @@ class TestOMWait(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_OMWait():
@@ -782,7 +837,12 @@ class TestOMShutDown(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_OMShutDown():
@@ -854,7 +914,12 @@ class TestAMWait(TestCase.FDSTestCase):
         """
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_AMWait():
@@ -908,7 +973,12 @@ class TestAMShutDown(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_AMShutDown():
