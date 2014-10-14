@@ -231,6 +231,7 @@ AmProcessor::commitBlobTx(AmQosReq *qosReq) {
     fds_verify(err == ERR_OK);
 
     // Setup callback.
+    blobReq->dmtVersion = dmt_version;
     blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::commitBlobTxCb, qosReq);
 
     amDispatcher->dispatchCommitBlobTx(qosReq);
