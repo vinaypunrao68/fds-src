@@ -34,6 +34,9 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
     metaStore->setNumBitsPerToken(nbits);
 
     Error err = diskMap->handleNewDlt(dlt);
+    if (err == ERR_DUPLICATE) {
+        return;  // everythin setup already
+    }
     fds_verify(err.ok());
 
     // open metadata store for tokens owned by this SM
