@@ -9,6 +9,8 @@ namespace fds {
 
 const fds_uint8_t ObjLocationTablePoison = 0xff;
 const fds_uint16_t fds_diskid_invalid = 0xffff;
+const fds_uint16_t fds_hdd_row = 0;
+const fds_uint16_t fds_ssd_row = 1;
 
 ObjectLocationTable::ObjectLocationTable() {
     memset(this, ObjLocationTablePoison, sizeof(*this));
@@ -25,9 +27,9 @@ ObjectLocationTable::setDiskId(fds_token_id smToken,
     // here we are explicit with translation of tier to row number
     // if tier enum changes ....
     if (tier == diskio::diskTier) {
-        table[0][smToken] = diskId;
+        table[fds_hdd_row][smToken] = diskId;
     } else if (tier == diskio::flashTier) {
-        table[1][smToken] = diskId;
+        table[fds_ssd_row][smToken] = diskId;
     } else {
         fds_panic("Unknown tier set to object location table\n");
     }
@@ -40,9 +42,9 @@ ObjectLocationTable::getDiskId(fds_token_id smToken,
     // here we are explicit with translation of tier to row number
     // if tier enum changes ....
     if (tier == diskio::diskTier) {
-        return table[0][smToken];
+        return table[fds_hdd_row][smToken];
     } else if (tier == diskio::flashTier) {
-        return table[1][smToken];
+        return table[fds_ssd_row][smToken];
     }
     fds_panic("Unknown tier request from object location table\n");
     return 0;
@@ -111,6 +113,34 @@ ObjectLocationTable::operator ==(const ObjectLocationTable& rhs) const {
                         sizeof(table)));
 }
 
+/*
+ * Get set of disks from the specified tier (HDD or SSD) in the OLT
+ * record.  There can be multiple entry of the same disk ID, but
+ * std::set should filter out duplicate entries.
+ */
+std::set<uint16_t>
+ObjectLocationTable::getDiskSet(diskio::DataTier tier)
+{
+    uint16_t rowOffset;
+    std::set<uint16_t> diskSet;
+
+    if (tier == diskio::diskTier) {
+        rowOffset = fds_hdd_row;
+    } else if (tier == diskio::flashTier) {
+        rowOffset = fds_ssd_row;
+    } else {
+        fds_panic("Unknown tier");
+    }
+
+    for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
+        if (fds_diskid_invalid != table[rowOffset][tok]) {
+            diskSet.insert(table[rowOffset][tok]);
+        }
+    }
+
+    return diskSet;
+}
+
 std::ostream& operator<< (std::ostream &out,
                           const ObjectLocationTable& tbl) {
     out << "Object Location Table:\n";
@@ -177,5 +207,6 @@ SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
         }
     }
 }
+
 
 }  // namespace fds

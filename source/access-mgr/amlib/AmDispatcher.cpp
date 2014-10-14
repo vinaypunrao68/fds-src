@@ -131,6 +131,48 @@ AmDispatcher::startBlobTxCb(AmQosReq *qosReq,
 }
 
 void
+AmDispatcher::dispatchDeleteBlob(AmQosReq *qosReq)
+{
+    DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse() == true);
+
+    DeleteBlobMsgPtr message = boost::make_shared<DeleteBlobMsg>();
+    message->volume_id = blobReq->getVolId();
+    message->blob_name = blobReq->getBlobName();
+    message->blob_version = blob_version_invalid;
+    message->txId = blobReq->txDesc->getValue();
+
+    auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
+        boost::make_shared<DmtVolumeIdEpProvider>(
+            dmtMgr->getCommittedNodeGroup(blobReq->base_vol_id)));
+
+    // Create callback
+    QuorumSvcRequestRespCb respCb(RESPONSE_MSG_HANDLER(AmDispatcher::deleteBlobCb, qosReq));
+
+    asyncReq->setPayload(fpi::DeleteBlobMsgTypeId, message);
+    asyncReq->onResponseCb(respCb);
+    asyncReq->invoke();
+}
+
+void
+AmDispatcher::deleteBlobCb(AmQosReq* qosReq,
+                           QuorumSvcRequest* svcReq,
+                           const Error& error,
+                           boost::shared_ptr<std::string> payload)
+{
+    DeleteBlobReq* blobReq = static_cast<DeleteBlobReq*>(qosReq->getBlobReqPtr());
+    LOGDEBUG << " volume:" << blobReq->getVolId()
+             << " blob:" << blobReq->getBlobName()
+             << " txn:" << blobReq->txDesc;
+
+    // Return if err
+    if (error != ERR_OK) {
+        LOGWARN << "error in response: " << error;
+    }
+    blobReq->processorCb(error);
+}
+
+void
 AmDispatcher::dispatchGetObject(AmQosReq *qosReq)
 {
     Error error(ERR_OK);

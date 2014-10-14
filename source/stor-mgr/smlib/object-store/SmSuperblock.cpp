@@ -315,11 +315,25 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
         err = syncSuperblock();
         fds_assert(err == ERR_OK);
     } else {
+        /* Reconcile superblock().  Elect one "master" superblock, if
+         * possible.  Failure to reconcile should be a *very* rare case.
+         */
         err = reconcileSuperblock();
         if (err != ERR_OK) {
             fds_panic("Cannot reconcile SM superblocks");
         }
+
+        /* Since, we have a "master" superblock, check if the disk topology
+         * has changed from the last persisten state.  For example:
+         * 1) disk(s) were added.
+         * 2) disk(s) were removed.
+         * 3) 1 and 2.
+         * For now, if the topology has changed, just panic.  We don't have
+         * a mechanism to handle this case, yet.
+         */
+        checkDiskTopology(hddIds, ssdIds);
     }
+
 
     // for now we are not keeping any persistent state about SM tokens
     // that SM owns. Since our current setup we support is 4-node domain
@@ -334,11 +348,83 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
     return err;
 }
 
+/*
+ * A function that returns the difference between the diskSet 1 and diskSet 2.
+ * The difference is defined as element(s) in diskSet1, but not in diskSet2.
+ */
+DiskIdSet
+SmSuperblockMgr::diffDiskSet(const DiskIdSet& diskSet1,
+                             const DiskIdSet& diskSet2)
+{
+    DiskIdSet deltaDiskSet;
+
+    std::set_difference(diskSet1.begin(), diskSet1.end(),
+                        diskSet2.begin(), diskSet2.end(),
+                        std::inserter(deltaDiskSet, deltaDiskSet.begin()));
+
+    return deltaDiskSet;
+}
+
+/*
+ * Determine if the node's disk topology has changed or not.
+ *
+ * TODO(sean)
+ * This function will panic if the disk topology has changed on
+ * this node.  In the future, we have to take an appropriate
+ * action, which is yet defined.
+ */
+void
+SmSuperblockMgr::checkDiskTopology(const DiskIdSet& newHDDs,
+                                   const DiskIdSet& newSSDs)
+{
+    DiskIdSet persistentHDDs, persistentSSDs;
+    DiskIdSet addedHDDs, removedHDDs;
+    DiskIdSet addedSSDs, removedSSDs;
+
+    /* Get the list of unique disk IDs from the OLT table.  This is
+     * used to compare with the new set of HDDs and SSDs to determine
+     * if any disk was added or removed for each tier.
+     */
+    persistentHDDs = superblockMaster.olt.getDiskSet(diskio::diskTier);
+    persistentSSDs = superblockMaster.olt.getDiskSet(diskio::flashTier);
+
+    /* Determine if any HDD was added or removed.
+     */
+    removedHDDs = diffDiskSet(persistentHDDs, newHDDs);
+    addedHDDs = diffDiskSet(newHDDs, persistentHDDs);
+
+    /* Determine if any HDD was added or removed.
+     */
+    removedSSDs = diffDiskSet(persistentSSDs, newSSDs);
+    addedSSDs = diffDiskSet(newSSDs, persistentSSDs);
+
+    /* For now, if the disk topology has changed, then just panic.
+     *
+     * TODO(sean)
+     * In the future, we will probably have to do some handshaking
+     * with platform manager and migrate tokens according to the new
+     * disk topology???  TBD.
+     */
+    if ((removedHDDs.size() > 0) ||
+        (addedHDDs.size() > 0) ||
+        (removedSSDs.size() > 0) ||
+        (addedSSDs.size() > 0)) {
+        fds_panic("Disk Topology Changed: removed HDDs=%lu, added HDDs=%lu, "
+                  "removed SSDs=%lu, added SSDs=%lu",
+                  removedHDDs.size(),
+                  addedHDDs.size(),
+                  removedSSDs.size(),
+                  addedSSDs.size());
+    }
+}
+
 Error
 SmSuperblockMgr::syncSuperblock()
 {
     Error err(ERR_OK);
     std::string superblockPath;
+
+    fds_assert(diskMap.size() > 0);
 
     /* At this point, in-memory superblock can be sync'ed to the disk.
      * Calculate and stuff the checksum, and write to disks.
@@ -362,6 +448,8 @@ SmSuperblockMgr::syncSuperblock(const std::set<uint16_t>& setSuperblock)
 {
     Error err(ERR_OK);
     std::string superblockPath;
+
+    fds_assert(diskMap.size() > 0);
 
     for (auto cit = setSuperblock.begin(); cit != setSuperblock.end(); ++cit) {
         superblockPath = getSuperblockPath(diskMap[*cit]);
@@ -396,6 +484,8 @@ SmSuperblockMgr::checkPristineState()
 {
     uint32_t noSuperblockCnt = 0;
 
+    fds_assert(diskMap.size() > 0);
+
     for (auto cit = diskMap.begin(); cit != diskMap.end(); ++cit) {
         std::string superblockPath = getSuperblockPath(cit->second.c_str());
 
@@ -425,6 +515,8 @@ SmSuperblockMgr::reconcileSuperblock()
     std::unordered_map<uint16_t, fds_checksum32_t> diskGoodSuperblock;
     std::multimap<fds_checksum32_t, uint16_t> checksumToGoodDiskIdMap;
     std::set<uint16_t> diskBadSuperblock;
+
+    fds_assert(diskMap.size() > 0);
 
     /* TODO(sean)
      * Make this loop a function.

@@ -48,7 +48,7 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     Error putObjectData(fds_volid_t volId,
                         const ObjectID &objId,
                         diskio::DataTier tier,
-                        boost::shared_ptr<const std::string> objData,
+                        boost::shared_ptr<const std::string>& objData,
                         obj_phy_loc_t& objPhyLoc);
 
     /**

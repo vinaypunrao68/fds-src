@@ -180,8 +180,8 @@ class ProbeRequest : public fdsio::Request
     //
     const char *pr_rd_buf(size_t *size)
     {
-        *size = pr_buf.size;
-        return pr_buf.data.data();
+        *size = pr_buf.getSize();
+        return pr_buf.getData();
     }
 
   protected:
