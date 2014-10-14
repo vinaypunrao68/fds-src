@@ -386,7 +386,7 @@ SmSuperblockMgr::checkDiskTopology(const DiskIdSet& newHDDs,
      * if any disk was added or removed for each tier.
      */
     persistentHDDs = superblockMaster.olt.getDiskSet(diskio::diskTier);
-    persistentSSDs = superblockMaster.olt.getDiskSet(diskio::diskTier);
+    persistentSSDs = superblockMaster.olt.getDiskSet(diskio::flashTier);
 
     /* Determine if any HDD was added or removed.
      */
@@ -396,7 +396,7 @@ SmSuperblockMgr::checkDiskTopology(const DiskIdSet& newHDDs,
     /* Determine if any HDD was added or removed.
      */
     removedSSDs = diffDiskSet(persistentSSDs, newSSDs);
-    addedSSDs = diffDiskSet(newSSDs, persistentHDDs);
+    addedSSDs = diffDiskSet(newSSDs, persistentSSDs);
 
     /* For now, if the disk topology has changed, then just panic.
      *
