@@ -1,40 +1,156 @@
-mockVol = function(){
-    angular.module( 'volume-management', [] ).factory( '$volume_api', function(){
+mockVolume = function(){
+    angular.module( 'volume-management', ['qos'] ).factory( '$volume_api', ['$snapshot_service', function( $snapshot_service ){
 
-        var api = {};
-        api.volumes = [];
+        var volService = {};
+        volService.volumes = [];
 
-        api.delete = function( volume ){
+        volService.delete = function( volume ){
 
             var temp = [];
 
-            api.volumes.forEach( function( v ){
+            volService.volumes.forEach( function( v ){
                 if ( v.name != volume.name ){
                     temp.push( v );
                 }
             });
 
-            api.volumes = temp;
+            volService.volumes = temp;
         };
 
-        api.save = function( volume, callback ){
+        volService.save = function( volume, callback, failure ){
+            
+            for ( var i = 0; i < volService.volumes.length; i++ ){
+                var thisVol = volService.volumes[i];
 
-            api.volumes.push( volume );
+                if ( thisVol.name === volume.name ){
+                    // edit
+                    volService.volumes[i] = volume;
+
+                    if ( angular.isDefined( callback ) ){
+                        callback();
+                    }
+
+                    return;
+                }
+            }
+
+            volume.id = (new Date()).getTime();
+            volume.snapshots = [];
+            volService.volumes.push( volume );
 
             if ( angular.isDefined( callback ) ){
                 callback( volume );
             }
         };
+        
+        volService.clone = function( volume, callback, failure ){
+            volService.save( volume, callback, failure );
+        };
+        
+        volService.cloneSnapshot = function( volume, callback, failure ){
+            volService.save( volume, callback, failure );
+        };
 
-        api.getSnapshots = function( volumeId, callback, failure ){
+        volService.createSnapshot = function( volumeId, newName, callback, failure ){
+            
+            var volume;
+            
+            for ( var i = 0; i < volService.volumes.length; i++ ){
+                if ( volService.volumes[i].id === volumeId ){
+                    volume = volService.volumes[i];
+                    break;
+                }
+            }
+            
+            if ( !angular.isDefined( volume.snapshots ) ){
+                volume.snapshots = [];
+            }
+            
+            var id = (new Date()).getTime();
+            volume.snapshots.push( { id: id, name: id, creation: id } );
+            
+            callback();
+        };
+
+        volService.deleteSnapshot = function( volumeId, snapshotId, callback, failure ){
+            callback();
+        };
+
+        volService.getSnapshots = function( volumeId, callback, failure ){
             //callback( [] );
+            
+            for ( var i = 0; i < volService.volumes.length; i++ ){
+                if ( volService.volumes[i].id === volumeId ){
+                    
+                    if ( angular.isFunction( callback ) ){
+                        callback( volService.volumes[i].snapshots );
+                    }
+                    
+                    return volService.volumes[i].snapshots;
+                }
+            }
         };
 
-        api.getSnapshotPoliciesForVolume = function( volumeId, callback, failure ){
-//                callback( [] );
+        volService.getSnapshotPoliciesForVolume = function( volumeId, callback, failure ){
+        //                callback( [] );
+            var ps = $snapshot_service.getPolicies();
+            var rtn = [];
+
+            for ( var i = 0; i < ps.length; i++ ){
+                
+                if ( ps[i].name.indexOf( volumeId ) != -1 ){
+                    rtn.push( ps[i] );
+                }
+            }
+            
+            if ( angular.isFunction( callback ) ){
+                callback( rtn );
+            }
         };
 
-        api.refresh = function(){};
+        volService.refresh = function(){};
+
+        return volService;
+    }]);
+    
+    
+    angular.module( 'volume-management' ).factory( '$data_connector_api', function(){
+
+        var api = {};
+        api.connectors = [];
+
+        var getConnectorTypes = function(){
+    //        return $http.get( '/api/config/data_connectors' )
+    //            .success( function( data ){
+    //                api.connectors = data;
+    //            });
+
+            api.connectors = [{
+                type: 'Block',
+                api: 'Basic, Cinder',
+                options: {
+                    max_size: '100',
+                    unit: ['GB', 'TB', 'PB']
+                },
+                attributes: {
+                    size: '10',
+                    unit: 'GB'
+                }
+            },
+            {
+                type: 'Object',
+                api: 'S3, Swift'
+            }];
+        }();
+
+        api.editConnector = function( connector ){
+
+            api.connectors.forEach( function( realConnector ){
+                if ( connector.type === realConnector.type ){
+                    realConnector = connector;
+                }
+            });
+        };
 
         return api;
     });

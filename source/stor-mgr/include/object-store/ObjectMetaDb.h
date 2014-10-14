@@ -30,6 +30,7 @@ class ObjectMetadataDb {
     ~ObjectMetadataDb();
 
     typedef std::unique_ptr<ObjectMetadataDb> unique_ptr;
+    typedef std::shared_ptr<ObjectMetadataDb> ptr;
 
     /**
      * Opens object metadata DB

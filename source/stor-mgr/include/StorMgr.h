@@ -26,7 +26,6 @@ extern "C" {
 #include "persistent-layer/dm_io.h"
 #include "fds_migration.h"
 #include "TransJournal.h"
-#include "Scavenger.h"
 #include "hash/md5.h"
 
 #include "fds_qos.h"
@@ -291,7 +290,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          }
      };
 
-     SmQosCtrl  *qosCtrl;
 
      SmVolQueue *sysTaskQueue;
 
@@ -411,8 +409,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void setup_datapath_server(const std::string &ip);
      void setup_migration_svc(const std::string &obj_dir);
 
-    public:
-     explicit ObjectStorMgr(CommonModuleProviderIf *modProvider);
+  public:
+    SmQosCtrl  *qosCtrl;
+    explicit ObjectStorMgr(CommonModuleProviderIf *modProvider);
      /* This constructor is exposed for mock testing */
      ObjectStorMgr()
              : Module("sm"), totalRate(20000) {
@@ -425,7 +424,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          volTbl = nullptr;
          objStorMutex = nullptr;
          omJrnl = nullptr;
-         scavenger = nullptr;
      }
      /* this is for standalone testing */
      void setModProvider(CommonModuleProviderIf *modProvider);
@@ -446,7 +444,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      fds_bool_t testUturnPutObj;
 
      TierEngine     *tierEngine;
-     ScavControl     *scavenger;
      SmObjDb        *smObjDb;  // Object Index DB <ObjId, Meta-data + data_loc>
      checksum_calc   *chksumPtr;
     // Extneral plugin object to handle policy requests.

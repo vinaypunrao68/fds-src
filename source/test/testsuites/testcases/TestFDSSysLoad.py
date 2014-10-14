@@ -11,6 +11,7 @@ import TestCase
 # Module-specific requirements
 import sys
 import os
+import time
 
 
 # This class contains the attributes and methods to test
@@ -23,7 +24,12 @@ class TestSmokeLoad(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_SmokeLoad():
@@ -51,6 +57,15 @@ class TestSmokeLoad(TestCase.FDSTestCase):
         WARNING: This implementation assumes a localhost node in all cases.
         """
 
+        # Currently, 10/13/2014, we require a bit of a delay after all components are
+        # up so that they can initialize themselves among each other before proceeding,
+        # confident that we have a workable system.
+        delay = 20
+        self.log.warning("Waiting an obligatory %d seconds to allow FDS components to initialize among themselves before "
+                         "starting test load." %
+                         delay)
+        time.sleep(delay)
+
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
@@ -60,7 +75,7 @@ class TestSmokeLoad(TestCase.FDSTestCase):
 
             cur_dir = os.getcwd()
             os.chdir(fdscfg.rt_env.env_fdsSrc + '/Build/linux-x86_64.debug/tools')
-            status = n.nd_am_node.nd_agent.exec_wait('bash -c \"(nohup ./smokeTest %s > ../bin/smokeTest.out 2>&1 &) \"' %
+            status = n.nd_am_node.nd_agent.exec_wait('./smokeTest %s > ../bin/smokeTest.out 2>&1' %
                                                      n.nd_am_node.nd_host)
             os.chdir(cur_dir)
 

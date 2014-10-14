@@ -407,6 +407,12 @@ struct GetVolumeMetaDataReq : FdsBlobReq {
     virtual ~GetVolumeMetaDataReq() {
         fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
+
+    /// Metadata to be returned
+    fpi::FDSP_VolumeMetaData volumeMetadata;
+
+    typedef std::function<void (const Error&)> GetVolMetadataProcCb;
+    GetVolMetadataProcCb processorCb;
 };
 
 struct GetBlobMetaDataReq : FdsBlobReq {
@@ -458,7 +464,13 @@ class AttachVolBlobReq : public FdsBlobReq {
 
 class GetBlobReq: public FdsBlobReq {
   public:
+    typedef std::function<void (const Error&)> GetBlobProcCb;
+    GetBlobProcCb processorCb;
+
+    fds_volid_t base_vol_id;
+
     GetBlobReq(fds_volid_t _volid,
+               const std::string& _volumeName,
                const std::string& _blob_name,
                fds_uint64_t _blob_offset,
                fds_uint64_t _data_len,
@@ -500,6 +512,7 @@ class PutBlobReq: public FdsBlobReq {
 
     /// Constructor used on regular putBlob requests.
     PutBlobReq(fds_volid_t _volid,
+               const std::string& _volumeName,
                const std::string& _blob_name,
                fds_uint64_t _blob_offset,
                fds_uint64_t _data_len,
@@ -514,6 +527,7 @@ class PutBlobReq: public FdsBlobReq {
 
     /// Constructor used on putBlobOnce requests.
     PutBlobReq(fds_volid_t          _volid,
+               const std::string&   _volumeName,
                const std::string&   _blob_name,
                fds_uint64_t         _blob_offset,
                fds_uint64_t         _data_len,
@@ -746,14 +760,6 @@ class AmQosReq : public FDS_IOType {
         io_vol_id = blobReq->getVolId();
         io_type   = blobReq->getIoType();
         io_req_id = _reqId;
-
-        /*
-         * Zero out FBD stuff to make sure we don't use it.
-         * TODO: Remove this once it's remove from base class.
-         */
-        fbd_req = NULL;
-        vbd     = NULL;
-        vbd_req = NULL;
     }
     ~AmQosReq() {
     }

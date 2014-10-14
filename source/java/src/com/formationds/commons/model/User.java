@@ -7,16 +7,13 @@ package com.formationds.commons.model;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.type.IdentityType;
 
-import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlTransient;
 
 /**
  * @author ptinius
  */
-@XmlRootElement
 public class User
-  extends ModelBase
-{
+  extends ModelBase {
   private static final long serialVersionUID = -2139739643610025641L;
 
   private Long id;
@@ -30,80 +27,70 @@ public class User
   /**
    * default constructor
    */
-  public User()
-  {
+  public User() {
     super();
   }
 
   /**
    * @return Returns the user's id
    */
-  public long getId()
-  {
+  public long getId() {
     return id;
   }
 
   /**
    * @param id the user's id
    */
-  public void setId( final long id )
-  {
+  public void setId( final long id ) {
     this.id = id;
   }
 
   /**
    * @return Returns the user's {@link com.formationds.commons.model.type.IdentityType}
    */
-  public IdentityType getIdentifier()
-  {
+  public IdentityType getIdentifier() {
     return identifier;
   }
 
   /**
    * @param identifier the user's {@link com.formationds.commons.model.type.IdentityType}
    */
-  public void setIdentifier( final IdentityType identifier )
-  {
+  public void setIdentifier( final IdentityType identifier ) {
     this.identifier = identifier;
   }
 
   /**
    * @param identifier the user's {@link com.formationds.commons.model.type.IdentityType}
    */
-  public void setIdentifier( final String identifier )
-  {
+  public void setIdentifier( final String identifier ) {
     this.identifier = IdentityType.lookUp( identifier );
   }
 
   /**
    * @return Returns the user's hashed password
    */
-  public String getPasswordHash()
-  {
+  public String getPasswordHash() {
     return passwordHash;
   }
 
   /**
    * @param passwordHash the user's hashed password
    */
-  public void setPasswordHash( final String passwordHash )
-  {
+  public void setPasswordHash( final String passwordHash ) {
     this.passwordHash = passwordHash;
   }
 
   /**
    * @return Returns the secret
    */
-  public String getSecret()
-  {
+  public String getSecret() {
     return secret;
   }
 
   /**
    * @param secret the secret
    */
-  public void setSecret( final String secret )
-  {
+  public void setSecret( final String secret ) {
     this.secret = secret;
   }
 
@@ -111,8 +98,7 @@ public class User
    * @return Returns {@code true} if user is an FDS Admin
    */
   @XmlTransient
-  public boolean isFdsAdmin()
-  {
+  public boolean isFdsAdmin() {
     return getIdentifier().equals( IdentityType.ADMIN );
   }
 
@@ -120,12 +106,11 @@ public class User
    * @return Returns the {@link String} representing this object
    */
   @Override
-  public String toString()
-  {
+  public String toString() {
     return "User[ " +
-           "id=" + getId() +
-           ", identifier=" + getIdentifier() +
-           ", isFDS Admin=" + isFdsAdmin() +
-           " ]";
+      "id=" + getId() +
+      ", identifier=" + getIdentifier() +
+      ", isFDS Admin=" + isFdsAdmin() +
+      " ]";
   }
 }

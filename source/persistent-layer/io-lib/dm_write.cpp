@@ -51,9 +51,9 @@ FilePersisDataIO::delete_file()
     fi_mutex.unlock();
 
     close(fd);
-    int ret = unlink(fi_path);
+    int ret = unlink(fi_path.c_str());
     if (ret < 0) {
-        printf("Can't unlink file %s\n", fi_path);
+        printf("Can't unlink file %s\n", fi_path.c_str());
         perror("Reason: ");
         return fds::Error(fds::ERR_DISK_FILE_UNLINK_FAILED);
     }

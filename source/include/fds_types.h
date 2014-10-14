@@ -279,16 +279,6 @@ class FDS_IOType {
     fds_uint64_t dispatch_ts;
     fds_uint64_t io_done_ts;
 
-    /*
-     * TODO: Blkdev specific fields that can be REMOVED.
-     * These are left here simply because legacy, unused code
-     * still references these and needs them to compile.
-     */
-    void *fbd_req;
-    void *vbd;
-    void *vbd_req;
-    blkdev_complete_req_cb_t comp_req;
-
     // performance data collection related structures
     std::string perfNameStr;
     PerfEventType opReqFailedPerfEventType;

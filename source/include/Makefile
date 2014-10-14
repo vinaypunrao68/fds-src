@@ -15,6 +15,7 @@ user_build_dir := \
     persistent-layer \
     shared \
     orch-mgr \
+    access-mgr \
     util \
     leveldb \
     cache

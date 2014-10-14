@@ -51,7 +51,7 @@ class DmPlatform : public Platform
 {
   public:
     DmPlatform();
-    virtual ~DmPlatform() {}
+    virtual ~DmPlatform();
 
     virtual void plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
@@ -71,7 +71,7 @@ class DmPlatform : public Platform
 
     DMEpPlugin::pointer           dm_plugin;
     bo::shared_ptr<DMSvcHandler>  dm_recv;
-    EndPoint<fpi::DMSvcClient, fpi::DMSvcProcessor>::pointer dm_ep;
+    bo::intrusive_ptr<EndPoint<fpi::DMSvcClient, fpi::DMSvcProcessor>> dm_ep;
 };
 
 extern DmPlatform gl_DmPlatform;

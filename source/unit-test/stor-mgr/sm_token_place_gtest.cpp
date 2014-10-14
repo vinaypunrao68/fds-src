@@ -65,7 +65,7 @@ TEST(SmTokenPlacement, compute) {
         // compute sm token placement
         ObjectLocationTable olt;
         SmTokenPlacement::compute(hdds, ssds, &olt);
-        GLOGNORMAL << "Initial computation - " << olt << std::endl;
+        GLOGNORMAL << "Initial computation - " << olt;
 
         // if ssd count == 0, olt must have invalid disk id on ssd row
         // otherwise disk id must be valid for each SM token
@@ -105,7 +105,7 @@ TEST(SmTokenPlacement, empty) {
 
     // compute when no disks
     SmTokenPlacement::compute(hdds, ssds, &olt);
-    GLOGNORMAL << "Initial computation - " << olt << std::endl;
+    GLOGNORMAL << "Initial computation - " << olt;
 
     // every cell should still contain invalid disk id
     for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
@@ -126,12 +126,12 @@ TEST(SmTokenPlacement, comparison) {
     // compute sm token placement
     ObjectLocationTable olt;
     SmTokenPlacement::compute(hdds, ssds, &olt);
-    GLOGNORMAL << "Initial computation - " << olt << std::endl;
+    GLOGNORMAL << "Initial computation - " << olt;
 
     // create token places for same set of disks
     ObjectLocationTable olt2;
     SmTokenPlacement::compute(hdds, ssds, &olt2);
-    GLOGNORMAL << "Another OLT for same set of disks - " << olt2 << std::endl;
+    GLOGNORMAL << "Another OLT for same set of disks - " << olt2;
 
     // test comparison of same obj loc tables
     EXPECT_TRUE(olt == olt2);
@@ -151,7 +151,7 @@ TEST(SmTokenPlacement, validation) {
     // compute sm token placement
     ObjectLocationTable olt;
     SmTokenPlacement::compute(hdds, ssds, &olt);
-    GLOGNORMAL << "Initial computation - " << olt << std::endl;
+    GLOGNORMAL << "Initial computation - " << olt;
 
     // validate for the same set of HDD and SSD devices
     Error err = olt.validate(hdds, diskio::diskTier);

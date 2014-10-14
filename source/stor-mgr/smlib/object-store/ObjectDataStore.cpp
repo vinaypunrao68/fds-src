@@ -8,9 +8,10 @@
 
 namespace fds {
 
-ObjectDataStore::ObjectDataStore(const std::string &modName)
+ObjectDataStore::ObjectDataStore(const std::string &modName,
+                                 SmIoReqHandler *data_store)
         : Module(modName.c_str()),
-          persistData(new ObjectPersistData("SM Object Persistent Data Store")) {
+          persistData(new ObjectPersistData("SM Obj Persist Data Store", data_store)) {
     dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));
 }
 

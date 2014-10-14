@@ -10,8 +10,11 @@ user_cpp_flags    :=
 user_cpp          := \
 	DmVolumeCatalog.cpp \
 	DmVcCache.cpp \
-        DmExtentTypes.cpp \
-	DmPersistVc.cpp
+	DmExtentTypes.cpp \
+	DmPersistVc.cpp \
+	DmVolumeDirectory.cpp \
+	DmPersistVolDir.cpp \
+	DmPersistVolDB.cpp
 
 user_ar_libs      := fds-dm-lib
 fds-dm-lib        := $(user_cpp)

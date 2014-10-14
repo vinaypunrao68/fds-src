@@ -1,43 +1,10 @@
-<div ng-controller="viewVolumeController" show-notify>
+<div class="view-volume-screen" ng-controller="viewVolumeController" show-notify>
 
     <div class="page-vertical-spacer"></div>
 
     <div class="modal-header">
         <span>{{volumeVars.selectedVolume.name}}</span>
     </div>
-
-    <section class="form-section">
-        <div>
-            <span class="light-print" translate>volumes.l_snapshot_policies</span>
-        </div>
-
-        <section class="summary-form-section">
-            <div class="summary-row" style="color: black" ng-show="!editing">
-                <div>
-                    <span>Policy:</span>
-                    <span class="value">{{summaryText}}</span>
-                </div>
-
-                <span class="icon fui-new" ng-click="editing = true"></span>
-            </div>
-
-            <div ng-show="editing">
-                <div style="display: flex;color: black;margin-bottom: 4px;" ng-repeat="policy in policies">
-                    <tri-state-check check-state="policy.use" style="margin-top: 6px;margin-right: 4px;"></tri-state-check>
-                    <span style="width: 100px;">{{policy.displayName}}</span>
-                    <span style="padding-right: 4px;">Keep for:</span>
-                    <spinner class="skinny" style="margin-right: 4px;" min="1" max="9999" value="policy.value"></spinner>
-                    <fui-dropdown skinny="true" items="timeChoices" selected="policy.units"></fui-dropdown>
-                </div>
-
-                <div>
-                    <button class="btn btn-primary" ng-click="doneEditing()" translate>common.l_done</button>
-                </div>
-            </div>
-        </section>
-    </section>
-
-    <div class="page-vertical-spacer"></div>
 
     <section class="form-section">
         <div>
@@ -53,7 +20,7 @@
                 </tr>
             </thead>
             <tbody>
-                <tr ng-repeat="snapshot in snapshots">
+                <tr ng-repeat="snapshot in snapshots" class="snapshot-row">
                     <td>{{formatDate( snapshot.creation );}}</td>
                     <td>{{snapshot.expiration}}</td>
                     <td>

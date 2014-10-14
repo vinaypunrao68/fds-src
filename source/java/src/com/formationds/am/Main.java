@@ -50,7 +50,6 @@ public class Main {
 
             AmService.Iface am = useFakeAm ? new FakeAmService() :
                     clientFactory.remoteAmService("localhost", 9988);
-            //clientFactory.remoteAmService("localhost", 4242);
 
             ConfigurationApi configCache = new ConfigurationApi(clientFactory.remoteOmService(omHost, omConfigPort));
             boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();

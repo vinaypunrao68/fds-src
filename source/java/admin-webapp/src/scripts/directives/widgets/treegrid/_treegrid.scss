@@ -1,0 +1,31 @@
+.treegrid{
+    
+    td span{
+        cursor: pointer;
+    }
+    
+    td div{
+        @include display-flex();
+    }
+    
+    .arrow-container{
+        width: 8px;
+        height: 12px;
+        margin-top: 4px;
+        
+        @include transition( linear, 150ms );
+    }
+    
+    .open{
+        @include rotate( 90 );
+    }
+    
+    .no-border{
+        border: none;
+    }
+    
+    .row-selected {
+        background-color: rgba( 0, 60, 150, 0.4 );
+        color: white;
+    }
+}

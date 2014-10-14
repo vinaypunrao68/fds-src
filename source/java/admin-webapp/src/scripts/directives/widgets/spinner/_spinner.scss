@@ -1,5 +1,5 @@
 .spinner-parent {
-    display: inline-block;
+    @include display-flex();
 
     input {
         border-top-left-radius: 6px;

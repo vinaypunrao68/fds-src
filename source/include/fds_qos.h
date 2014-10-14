@@ -3,6 +3,7 @@
 #include <fds_types.h>
 #include <fds_error.h>
 #include <util/Log.h>
+#include <fds_process.h>
 #include <concurrency/RwLock.h>
 #include <concurrency/Mutex.h>
 #include <unordered_map>
@@ -39,6 +40,7 @@ namespace fds {
     fds_uint64_t num_ios_dispatched = 0;
 
     std::atomic_bool shuttingDown;
+    fds_bool_t bypass_dispatcher;
 
     virtual fds_qid_t getNextQueueForDispatch() = 0;
     
@@ -56,6 +58,9 @@ namespace fds {
       max_outstanding_ios = 0;
       num_pending_ios = ATOMIC_VAR_INIT(0);
       num_outstanding_ios = ATOMIC_VAR_INIT(0);
+      FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
+      bypass_dispatcher = config.get_abs<bool>("fds.disable_qos");
+      LOGNOTIFY << "Will bypass QoS? " << bypass_dispatcher;
     }
     ~FDS_QoSDispatcher() {
       shuttingDown = true;
@@ -219,6 +224,7 @@ namespace fds {
     virtual Error enqueueIO(fds_qid_t queue_id, FDS_IOType *io) {
 
       Error err(ERR_OK);
+      fds_uint32_t n_pios = 0;
 
       io->enqueue_ts = util::getTimeStampNanos();
 
@@ -229,20 +235,23 @@ namespace fds {
       }
 
       PerfTracer::tracePointBegin(io->opQoSWaitCtx);
-
-      FDS_VolumeQueue *que = queue_map[queue_id];      
-      que->enqueueIO(io);
+      if (bypass_dispatcher == false) {
+	FDS_VolumeQueue *que = queue_map[queue_id];      
+	que->enqueueIO(io);
       
-      ioProcessForEnqueue(queue_id, io);  
+	ioProcessForEnqueue(queue_id, io);  
       
-      fds_uint32_t n_pios;
-      n_pios = atomic_fetch_add(&(num_pending_ios), (unsigned int)1);
-      FDS_PLOG(qda_log) << "Dispatcher: enqueueIO at queue - 0x"
-                        << std::hex << queue_id << std::dec
-			<<  " : # of pending ios = " << n_pios+1;
-      assert(n_pios >= 0);
+	n_pios = atomic_fetch_add(&(num_pending_ios), (unsigned int)1);
+	FDS_PLOG(qda_log) << "Dispatcher: enqueueIO at queue - 0x"
+			  << std::hex << queue_id << std::dec
+			  <<  " : # of pending ios = " << n_pios+1;
+	assert(n_pios >= 0);
+      }
 
       qda_lock.read_unlock();
+      if (bypass_dispatcher == true) {
+	parent_ctrlr->processIO(io);
+      }
       return err;
 
     }
@@ -307,7 +316,11 @@ namespace fds {
           } else if (n_pios > 0) {
 	    break;
 	  }
-	  boost::this_thread::sleep(boost::posix_time::microseconds(100));
+	  if (bypass_dispatcher == false) {
+	    boost::this_thread::sleep(boost::posix_time::microseconds(100));
+	  } else {
+	    boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+	  }
 	}
 
 	fds_uint32_t n_oios = 0;
@@ -367,16 +380,18 @@ namespace fds {
 
     virtual Error markIODone(FDS_IOType *io) {
       Error err(ERR_OK);
+      fds_uint32_t n_oios = 1;
 
-      fds_uint32_t n_oios;
-      n_oios = atomic_fetch_sub(&(num_outstanding_ios), (unsigned int)1);
-      if (max_outstanding_ios > 0) {
-        /*
-         * We shouldn't be going over max_outstanding_ios,
-         * but we might (oops...). We check that we're not
-         * too far over it though (a looser check).
-         */
-        fds_verify(n_oios < 2 * max_outstanding_ios);
+      if (bypass_dispatcher == false) {
+	n_oios = atomic_fetch_sub(&(num_outstanding_ios), (unsigned int)1);
+	if (max_outstanding_ios > 0) {
+	  /*
+	   * We shouldn't be going over max_outstanding_ios,
+	   * but we might (oops...). We check that we're not
+	   * too far over it though (a looser check).
+	   */
+	  fds_verify(n_oios < 2 * max_outstanding_ios);
+	}
       }
 
       io->io_done_ts = util::getTimeStampNanos();

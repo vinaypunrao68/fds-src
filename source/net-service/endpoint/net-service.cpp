@@ -12,6 +12,7 @@
 #include <fdsp/DMSvc.h>
 #include <fdsp/AMSvc.h>
 #include <fdsp/FDSP_ControlPathReq.h>
+#include <net/BaseAsyncSvcHandler.h>
 
 namespace fds {
 

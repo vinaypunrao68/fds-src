@@ -7,19 +7,20 @@
 #include <ObjectId.h>
 #include <fds_process.h>
 #include <PerfTrace.h>
-#include <TokenCompactor.h>
+#include <object-store/TokenCompactor.h>
 #include <object-store/ObjectStore.h>
 
 namespace fds {
 
 ObjectStore::ObjectStore(const std::string &modName,
+                         SmIoReqHandler *data_store,
                          StorMgrVolumeTable* volTbl)
         : Module(modName.c_str()),
           volumeTbl(volTbl),
           conf_verify_data(true),
           numBitsPerToken(0),
           diskMap(new SmDiskMap("SM Disk Map Module")),
-          dataStore(new ObjectDataStore("SM Object Data Storage Module")),
+          dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
           metaStore(new ObjectMetadataStore(
               "SM Object Metadata Storage Module")) {
 }

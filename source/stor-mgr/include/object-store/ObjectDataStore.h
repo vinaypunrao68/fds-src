@@ -30,9 +30,11 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     // TODO(Andrew): Add some private GC interfaces here?
 
   public:
-    explicit ObjectDataStore(const std::string &modName);
+    explicit ObjectDataStore(const std::string &modName,
+                             SmIoReqHandler *data_store);
     ~ObjectDataStore();
     typedef std::unique_ptr<ObjectDataStore> unique_ptr;
+    typedef std::shared_ptr<ObjectDataStore> ptr;
 
     /**
      * Opens object data store

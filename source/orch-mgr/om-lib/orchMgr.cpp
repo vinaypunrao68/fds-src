@@ -22,13 +22,13 @@ OrchMgr *orchMgr;
 
 OrchMgr::OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec)
     : PlatformProcess(argc, argv, "fds.om.", "om.log", platform, mod_vec),
-          conf_port_num(0),
-          ctrl_port_num(0),
-          test_mode(false),
-          omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
-          cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
-          cfg_req_handler(new FDSP_ConfigPathReqHandler(this)),
-      snapshotMgr(this)
+      conf_port_num(0),
+      ctrl_port_num(0),
+      test_mode(false),
+      omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
+      cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
+      cfg_req_handler(new FDSP_ConfigPathReqHandler(this)),
+      snapshotMgr(this), deleteScheduler(this)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
 

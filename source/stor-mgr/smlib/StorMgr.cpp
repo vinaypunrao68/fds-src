@@ -18,7 +18,6 @@
 #include <NetSession.h>
 #include <fds_obj_cache.h>
 #include <fds_timestamp.h>
-#include <TokenCompactor.h>
 #include <fdsp_utils.h>
 #include <net/net_utils.h>
 #include <net/net-service.h>
@@ -51,275 +50,57 @@ ObjectStorMgrI::~ObjectStorMgrI()
 void
 ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
                           FDSP_PutObjTypePtr& putObj) {
-    LOGDEBUG << "Received a Putobject() network request";
-
-    if ((objStorMgr->testUturnAll == true) ||
-        (objStorMgr->testUturnPutObj == true)) {
-        LOGDEBUG << "Uturn testing put object";
-        msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
-        msgHdr->result = FDSP_ERR_OK;
-        objStorMgr->swapMgrId(msgHdr);
-        objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
-        return;
-    }
-
-    // Store the mapping of this service UUID to its session UUID,
-    // except when this is a proxied request
-    if (msgHdr->proxy_count == 0) {
-        NodeUuid svcUuid((fds_uint64_t)msgHdr->src_service_uuid.uuid);
-        objStorMgr->addSvcMap(svcUuid,
-                              msgHdr->session_uuid);
-    }
-
-    // check the payload checksum  and return Error, if we run in to issues
-    std::string new_checksum;
-
-    //    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.hash_high);
-    //    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.hash_low);
-    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.digest);
-    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_len);
-    objStorMgr->chksumPtr->checksum_update(putObj->volume_offset);
-    objStorMgr->chksumPtr->checksum_update(putObj->dlt_version);
-    objStorMgr->chksumPtr->checksum_update(putObj->data_obj);
-
-    objStorMgr->chksumPtr->get_checksum(new_checksum);
-    LOGDEBUG << "RPC Checksum :" << new_checksum << " received checksum: "
-             << msgHdr->payload_chksum;
-
-    /*
-      if (msgHdr->payload_chksum.compare(new_checksum) != 0) {
-      msgHdr->result = FDSP_ERR_CKSUM_MISMATCH; 			
-      msgHdr->err_code = FDSP_ERR_RPC_CKSUM; 			
-      LOGERROR << "RPC Checksum: " << new_checksum << " received checksum: " << msgHdr->payload_chksum; 
-
-      msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
-      objStorMgr->swapMgrId(msgHdr);
-      objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
-      LOGWARN << "Sent async PutObj response after checksum mismatch";
-      return;
-      }
-    */
-
-    /*
-     * Track the outstanding get request.
-     */
-
-    if ((uint)putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
-        /*
-         * Track the outstanding get request.
-         */
-        objStorMgr->PutObject(msgHdr, putObj);
-    } else {
-        msgHdr->err_code = ERR_IO_DLT_MISMATCH;
-        // send the dlt version of SM to AM
-        putObj->dlt_version = objStorMgr->omClient->getDltVersion();
-        // update the resp  with new DLT
-        objStorMgr->omClient->getLatestDlt(putObj->dlt_data);
-        LOGWARN << "DLT version Conflict returning the latest";
-    }
-
-    /*
-     * If we failed to enqueue the I/O return the error response
-     * now as there is no more processing to do.
-     */
-    if (msgHdr->err_code != ERR_OK || msgHdr->result != FDSP_ERR_OK) {
-        msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
-        objStorMgr->swapMgrId(msgHdr);
-        try {
-            objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
-        } catch(att::TTransportException& e) {
-            LOGERROR << "error during network call: " << e.what();
-        }
-
-
-        LOGERROR << "Sent async PutObj response after receiving";
-    }
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 void
 ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
                           FDSP_GetObjTypePtr& getObj)
 {
-    LOGDEBUG << "Received a Getobject() network request";
-
-#ifdef FDS_TEST_SM_NOOP
-    try {
-        msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
-        msgHdr->result = FDSP_ERR_OK;
-        objStorMgr->swapMgrId(msgHdr);
-
-        objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(
-            msgHdr, getObj);
-        LOGDEBUG << "FDS_TEST_SM_NOOP defined. Sent async GetObj "
-                 << "response right after receiving req.";
-    } catch(att::TTransportException& e) {
-        LOGERROR << "error during network call: " << e.what();
-    }
-
-    return;
-#endif /* FDS_TEST_SM_NOOP */
-
-    // Store the mapping of this service UUID to its session UUID,
-    // except when this is a proxied request
-    if (msgHdr->proxy_count == 0) {
-        NodeUuid svcUuid((fds_uint64_t)msgHdr->src_service_uuid.uuid);
-        objStorMgr->addSvcMap(svcUuid,
-                              msgHdr->session_uuid);
-    }
-
-    /*
-     * Track the outstanding get request.
-     */
-    /*
-     * Submit the request to be enqueued
-     */
-    objStorMgr->GetObject(msgHdr, getObj);
-    /*
-     * If we failed to enqueue the I/O return the error response
-     * now as there is no more processing to do.
-     */
-    if (msgHdr->err_code != ERR_OK || msgHdr->result != FDSP_ERR_OK) {
-        msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
-        if ((uint)getObj->dlt_version != objStorMgr->omClient->getDltVersion()) {
-            msgHdr->err_code = ERR_IO_DLT_MISMATCH;
-            // send the dlt version of SM to AM
-            getObj->dlt_version = objStorMgr->omClient->getDltVersion();
-            // update the resp  with new DLT
-            objStorMgr->omClient->getLatestDlt(getObj->dlt_data);
-        }
-
-        objStorMgr->swapMgrId(msgHdr);
-
-        try {
-            objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
-        } catch(att::TTransportException& e) {
-            LOGERROR << "error during network call: " << e.what();
-        }
-    }
-    LOGDEBUG << "Sent async GetObj response after receiving";
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 void
 ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
                              FDSP_DeleteObjTypePtr& delObj)
 {
-    LOGDEBUG << "Received a Deleteobject() network request";
-
-#ifdef FDS_TEST_SM_NOOP
-    msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
-    msgHdr->result = FDSP_ERR_OK;
-    objStorMgr->swapMgrId(msgHdr);
-    objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
-    LOGDEBUG << "FDS_TEST_SM_NOOP defined. Sent async DeleteObj response "
-             << "right after receiving req";
-    return;
-#endif /* FDS_TEST_SM_NOOP */
-
-    // Store the mapping of this service UUID to its session UUID,
-    // except when this is a proxied request
-    if (msgHdr->proxy_count == 0) {
-        NodeUuid svcUuid((fds_uint64_t)msgHdr->src_service_uuid.uuid);
-        objStorMgr->addSvcMap(svcUuid,
-                              msgHdr->session_uuid);
-    }
-
-    /*
-     * Track the outstanding get request.
-     */
-    if ((uint)delObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
-        objStorMgr->DeleteObject(msgHdr, delObj);
-    } else {
-        msgHdr->err_code = ERR_IO_DLT_MISMATCH;
-        // send the dlt version of SM to AM
-        delObj->dlt_version = objStorMgr->omClient->getDltVersion();
-        // update the resp  with new DLT
-        objStorMgr->omClient->getLatestDlt(delObj->dlt_data);
-    }
-
-    /*
-     * If we failed to enqueue the I/O return the error response
-     * now as there is no more processing to do.
-     */
-    if (msgHdr->err_code != ERR_OK || msgHdr->result != FDSP_ERR_OK) {
-        msgHdr->msg_code = FDSP_MSG_DELETE_OBJ_RSP;
-        objStorMgr->swapMgrId(msgHdr);
-        try {
-            objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
-        } catch(att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-        }
-
-        LOGDEBUG << "Sent async DeleteObj response after receiving";
-    }
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 void
 ObjectStorMgrI::OffsetWriteObject(FDSP_MsgHdrTypePtr& msg_hdr,
                                   FDSP_OffsetWriteObjTypePtr& offset_write_obj) {
-    LOGDEBUG << "In the interface offsetwrite()";
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 void
 ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr,
                                 FDSP_RedirReadObjTypePtr& redir_read_obj) {
-    LOGDEBUG << "In the interface redirread()";
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 void ObjectStorMgrI::GetObjectMetadata(
         boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req) {  // NOLINT
-    Error err(ERR_OK);
-    SmIoReadObjectMetadata *sm_req = new SmIoReadObjectMetadata();
-
-    sm_req->io_type = FDS_SM_READ_OBJECTMETADATA;
-    sm_req->setObjId(ObjectID(metadata_req->obj_id.digest));
-    sm_req->meta_data.object_id = metadata_req->obj_id;
-    sm_req->cookie = metadata_req;
-    sm_req->smio_readmd_resp_cb = std::bind(
-        &ObjectStorMgrI::GetObjectMetadataCb, this,
-        std::placeholders::_1, std::placeholders::_2);
-
-    err = objStorMgr->enqueueMsg(FdsSysTaskQueueId, sm_req);
-    if (err != fds::ERR_OK) {
-        fds_assert(!"Hit an error in enqueing");
-        LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
-                << err;
-        sm_req->smio_readmd_resp_cb(err, sm_req);
-        delete sm_req;
-    }
+    // This should never be called
+    fds_assert(1 == 0);
 }
 void ObjectStorMgrI::GetObjectMetadataCb(const Error &err,
         SmIoReadObjectMetadata *read_data)
 {
-    boost::shared_ptr<FDSP_GetObjMetadataReq> md_req =
-            boost::static_pointer_cast<FDSP_GetObjMetadataReq>(read_data->cookie);
-    FDSP_GetObjMetadataResp resp;
-
-    resp.header = md_req->header;
-    if (err == ERR_OK) {
-        resp.header.result = FDS_ProtocolInterface::FDSP_ERR_OK;
-        resp.header.err_code = err.getFdspErr();
-        resp.meta_data = read_data->meta_data;
-    } else {
-        resp.header.result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
-        resp.header.err_code = err.getFdspErr();
-    }
-
-    delete read_data;
-
-    objStorMgr->fdspDataPathClient(
-            resp.header.session_uuid)->GetObjectMetadataResp(resp);
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
             boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)
 {
-    std::unordered_map<int, int> stats;
-    objStorMgr->getTokenStateDb()->getTokenStats(stats);
-    _return.completed = stats[static_cast<int>(kvstore::TokenStateInfo::HEALTHY)];
-    _return.inflight = stats[static_cast<int>(kvstore::TokenStateInfo::COPYING)] +
-            stats[static_cast<int>(kvstore::TokenStateInfo::SYNCING)] +
-            stats[static_cast<int>(kvstore::TokenStateInfo::PULL_REMAINING)];
-    _return.pending = stats[static_cast<int>(kvstore::TokenStateInfo::UNINITIALIZED)];
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 /**
@@ -476,6 +257,7 @@ void ObjectStorMgr::mod_startup()
     // any prior data and possibly perform recovery before allowing
     // another module layer to come up above it.
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
+                                                          this,
                                                           volTbl));
     objectStore->mod_init(mod_params);
 
@@ -516,7 +298,6 @@ void ObjectStorMgr::mod_startup()
                                   slab_allocator_type_default,
                                   eviction_policy_type_default,
                                   g_fdslog);
-    scavenger = new ScavControl(2);
 
     // TODO(???): join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
@@ -3055,10 +2836,13 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_SNAPSHOT_TOKEN:
         {
+            /*
             StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
             fds_assert(smVol);
             err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
                     static_cast<FDS_IOType*>(ioReq));
+            */
+            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         }
         /* Following are messages that require io synchronization at object

@@ -24,7 +24,12 @@ class TestNodeActivate(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_NodeActivate():
@@ -91,7 +96,13 @@ class TestNodeShutdown(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        # We'll continue to shutdown the nodes even in the event of failure upstream.
+        if TestCase.pyUnitTCFailure and not True:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_NodeShutdown():

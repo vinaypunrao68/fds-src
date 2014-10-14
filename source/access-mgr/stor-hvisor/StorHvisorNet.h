@@ -38,6 +38,7 @@
 #include <AmCache.h>
 #include <AmDispatcher.h>
 #include <AmProcessor.h>
+#include <AmReqHandlers.h>
 
 #include <map>
 // #include "util/concurrency/Thread.h"
@@ -250,7 +251,7 @@ public:
     // TODO(Andrew): Move this to a unique_ptr and only into
     // AmProcessor once that's ready
     AmTxManager::shared_ptr amTxMgr;
-    AmCache::unique_ptr amCache;
+    AmCache::shared_ptr amCache;
 
     Error sendTestBucketToOM(const std::string& bucket_name,
                              const std::string& access_key_id = "",
@@ -260,7 +261,10 @@ public:
                      const std::string& bucket_name);
 
     void attachVolume(AmQosReq *qosReq);
+    void enqueueAttachReq(const std::string& volumeName,
+                         CallbackPtr cb);
     fds::Error pushBlobReq(FdsBlobReq *blobReq);
+    void enqueueBlobReq(FdsBlobReq *blobReq);
     fds::Error putBlob(AmQosReq *qosReq);
     fds::Error deleteBlob(AmQosReq *qosReq);
 
@@ -533,7 +537,7 @@ static void processBlobReq(AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
     switch (qosReq->io_type) {
         case fds::FDS_START_BLOB_TX:
-            if (storHvisor->toggleNewPath == true) {
+            if (true == storHvisor->toggleNewPath) {
                 storHvisor->amProcessor->startBlobTx(qosReq);
             } else {
                 err = storHvisor->startBlobTxSvc(qosReq);
@@ -558,7 +562,11 @@ static void processBlobReq(AmQosReq *qosReq) {
 
         case fds::FDS_IO_READ:
         case fds::FDS_GET_BLOB:
-            err = storHvisor->getBlobSvc(qosReq);
+            if (storHvisor->toggleNewPath) {
+                storHvisor->amProcessor->getBlob(qosReq);
+            } else {
+                err = storHvisor->getBlobSvc(qosReq);
+            }
             break;
 
         case fds::FDS_IO_WRITE:
@@ -575,7 +583,11 @@ static void processBlobReq(AmQosReq *qosReq) {
             err = storHvisor->setBlobMetaDataSvc(qosReq);
             break;
         case fds::FDS_GET_VOLUME_METADATA:
-            err = storHvisor->getVolumeMetaDataSvc(qosReq);
+            if (true == storHvisor->toggleNewPath) {
+                storHvisor->amProcessor->getVolumeMetadata(qosReq);
+            } else {
+                err = storHvisor->getVolumeMetaDataSvc(qosReq);
+            }
             break;
 
         // new handlers
