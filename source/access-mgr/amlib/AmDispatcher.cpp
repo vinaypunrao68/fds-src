@@ -175,7 +175,6 @@ AmDispatcher::deleteBlobCb(AmQosReq* qosReq,
 void
 AmDispatcher::dispatchGetObject(AmQosReq *qosReq)
 {
-    Error error(ERR_OK);
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
@@ -192,7 +191,7 @@ AmDispatcher::dispatchGetObject(AmQosReq *qosReq)
         GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb);
         cb->returnSize = 0;
 
-        blobReq->processorCb(error);
+        blobReq->processorCb(ERR_OK);
         return;
     }
 
@@ -336,9 +335,10 @@ AmDispatcher::getQueryCatalogCb(AmQosReq* qosReq,
 void
 AmDispatcher::dispatchStatBlob(AmQosReq *qosReq)
 {
-    GetBlobMetaDataMsgPtr message = boost::make_shared<GetBlobMetaDataMsg>();
-
     StatBlobReq* blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse() == true);
+
+    GetBlobMetaDataMsgPtr message = boost::make_shared<GetBlobMetaDataMsg>();
     message->volume_id = blobReq->getVolId();
     message->blob_name = blobReq->getBlobName();
 
