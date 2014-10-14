@@ -19,8 +19,7 @@ namespace fds {
     ObjCacheBufPtrType allocate_object_buf(fds_uint32_t obj_size) {
 
       ObjCacheBufPtrType newObjBufPtr(new ObjectCacheBuf());
-      newObjBufPtr->data.resize(obj_size);
-      newObjBufPtr->size = obj_size;
+      newObjBufPtr->resize(obj_size);
       return newObjBufPtr;
 
     }
