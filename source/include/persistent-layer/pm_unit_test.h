@@ -21,8 +21,7 @@ class DiskReqTest : public diskio::DiskRequest
                 diskio::DataTier    tier)
     : tst_wr(wr), tst_rd(rd), tst_iter(0),
       diskio::DiskRequest(vio, oid, buf, block, tier) {
-        tst_verf.size = buf->size;
-        tst_verf.data.reserve(buf->size);
+        (tst_verf.data)->reserve(buf->getSize());
     }
     DiskReqTest(meta_vol_io_t       &vio,
                 meta_obj_id_t       &oid,

@@ -27,7 +27,7 @@ Error
 ObjectDataStore::putObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                diskio::DataTier tier,
-                               boost::shared_ptr<const std::string> objData,
+                               boost::shared_ptr<const std::string>& objData,
                                obj_phy_loc_t& objPhyLoc) {
     Error err(ERR_OK);
 
@@ -35,10 +35,13 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     meta_vol_io_t    vio;
     meta_obj_id_t    oid;
     fds_bool_t       sync = true;
-    // TODO(Andrew): Should take a shared_ptr not a raw object buf
     // TODO(Anna): we also dob't need meta_obj_id_t structure in disk
     // request, should be able to use ObjectID type
-    ObjectBuf objBuf(*objData);
+    // TODO(Anna) cast not pretty, I think we should change API to
+    // have shared_ptr of non const string
+    boost::shared_ptr<std::string> sameObjData =
+            boost::const_pointer_cast<std::string>(objData);
+    ObjectBuf objBuf(sameObjData);
     memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
     diskio::DiskRequest *plReq =
             new diskio::DiskRequest(vio, oid,
@@ -49,7 +52,6 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
         PerfContext tmp_pctx(SM_OBJ_DATA_DISK_WRITE,
                              volId, PerfTracer::perfNameStr(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-        // err = diskMgr->disk_write(plReq);
         err = persistData->writeObjectData(objId, plReq);
     }
 
@@ -109,8 +111,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
     }
     plReq->setTier(tier);
     plReq->set_phy_loc(objMetaData->getObjPhyLoc(tier));
-    objBuf.size = objMetaData->getObjSize();
-    objBuf.data.resize(objBuf.size, 0);
+    (objBuf.data)->resize(objMetaData->getObjSize(), 0);
 
     {  // scope for perf counter
         PerfContext tmp_pctx(SM_OBJ_DATA_DISK_READ,
@@ -131,7 +132,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
         // TODO(Andrew): Remove the ObjectBuf concept and just pass the
         // data pointer directly to the persistent layer so that this
         // copy can be avoided.
-        boost::shared_ptr<const std::string> objData(new std::string(objBuf.data));
+        boost::shared_ptr<std::string> objData(objBuf.data);
         delete plReq;
         return objData;
     } else {

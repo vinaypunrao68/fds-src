@@ -13,8 +13,7 @@ ProbeRequest::ProbeRequest(int stat_cnt, size_t buf_siz, ProbeMod *mod)
     } else {
         pr_stats = nullptr;
     }
-    pr_buf.size = buf_siz;
-    pr_buf.data.reserve(buf_siz);
+    (pr_buf.data)->reserve(buf_siz);
 }
 
 ProbeRequest::~ProbeRequest()
@@ -220,8 +219,7 @@ ProbeIORequest::ProbeIORequest(int          stat_cnt,
       pr_wr_size(buf_siz), pr_wr_buf(wr_buf)
 {
     if (wr_buf == nullptr) {
-        pr_buf.size = buf_siz;
-        pr_buf.data.reserve(buf_siz);
+        (pr_buf.data)->reserve(buf_siz);
     }
 }
 

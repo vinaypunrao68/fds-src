@@ -31,10 +31,9 @@ namespace fds {
     ObjectCacheBuf()
       : io_in_progress(false), copy_is_dirty(false)
       {
-	size = 0;
-	data = "";
-	vol_id = 0;
-	plcy_data = NULL;
+          data = boost::make_shared<std::string>(std::string(""));
+          vol_id = 0;
+          plcy_data = NULL;
       }
   };
 

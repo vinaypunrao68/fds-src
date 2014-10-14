@@ -250,8 +250,8 @@ namespace fds{
     vol_cache->object_map.erase(objId);
     vol_cache->num_objects_evicted++;
     vol_cache->vol_cache_lock->unlock();
-    std::atomic_fetch_sub(&vol_cache->total_mem_used, (fds_uint64_t) delObjBuf->size);
-    std::atomic_fetch_sub(&total_mem_used, (fds_uint64_t) delObjBuf->size);
+    std::atomic_fetch_sub(&vol_cache->total_mem_used, (fds_uint64_t) delObjBuf->getSize());
+    std::atomic_fetch_sub(&total_mem_used, (fds_uint64_t) delObjBuf->getSize());
     return delObjBuf; // upto the caller to delete the object
 
   }
