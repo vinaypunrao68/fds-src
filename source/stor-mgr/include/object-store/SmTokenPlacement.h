@@ -47,6 +47,10 @@ struct ObjectLocationTable {
                            diskio::DataTier tier) const;
     static fds_bool_t isDiskIdValid(fds_uint16_t diskId);
 
+    /* Get disk topology information from a specified tier.
+     */
+    std::set<uint16_t> getDiskSet(diskio::DataTier tier);
+
     /**
      * Get a set of SM tokens that reside on a given disk
      * @param[out] tokenSet is populated with SM tokens

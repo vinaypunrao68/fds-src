@@ -307,6 +307,13 @@ class SmSuperblockMgr {
     size_t
     countUniqChecksum(const std::multimap<fds_checksum32_t, uint16_t>& checksumMap);
 
+    void
+    checkDiskTopology(const DiskIdSet& newHDDs, const DiskIdSet& newSSDs);
+
+    DiskIdSet
+    diffDiskSet(const DiskIdSet& diskSet1, const DiskIdSet& diskSet2);
+
+
   private:
     /// Master superblock. The master copy will persist
     SmSuperblock superblockMaster;
