@@ -512,7 +512,7 @@ TEST(SmSuperblockTestDriver, DISABLED_test5)
      * we haven't implemented proper action behind it.
      * It should panic before reaching here.
      */
-    EXPECT_TRUE(0 == 0);
+    EXPECT_TRUE(0 == 1);
     /*           \<> /
      *
      * Almost made a face with it.  ;-)
@@ -523,14 +523,55 @@ TEST(SmSuperblockTestDriver, DISABLED_test5)
 
 /* test6
  *
- * This test deals with a condition where a set of SSD or HHD is different
- * than that of superblock information.
+ * Tests condition where a disk is removed from persistent table.
+ * Test is disabled, since it will just panic.
  *
- * TBD....
+ * To run
+ * "./sm_superblock_gtest --gtest_also_run_disabled_tests --gtest_filter=*test6"
  */
 TEST(SmSuperblockTestDriver, DISABLED_test6)
 {
+    SmSuperblockTestDriver *test6 = new SmSuperblockTestDriver();
 
+    test6->deleteDirs();
+    test6->createDirs();
+    test6->loadSuperblock();
+
+    delete test6;
+
+    test6 = new SmSuperblockTestDriver(2, 0);
+    test6->loadSuperblock();
+
+    /* Never reached here.
+     */
+    EXPECT_TRUE(0 == 1);
+}
+
+/* test7
+ *
+ * Tests condition where a new disk is added between SM instances.
+ * Test is disabled, since it will just panic.
+ *
+ * To run
+ * "./sm_superblock_gtest --gtest_also_run_disabled_tests --gtest_filter=*test7"
+ */
+TEST(SmSuperblockTestDriver, DISABLED_test7)
+{
+    SmSuperblockTestDriver *test7 = new SmSuperblockTestDriver();
+
+    test7->deleteDirs();
+    test7->createDirs();
+    test7->loadSuperblock();
+
+    delete test7;
+
+    test7 = new SmSuperblockTestDriver(4, 0);
+    test7->createDirs();
+    test7->loadSuperblock();
+
+    /* Never reached here
+     */
+    EXPECT_TRUE(0 == 1);
 }
 
 
