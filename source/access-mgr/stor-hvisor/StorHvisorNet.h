@@ -592,8 +592,12 @@ static void processBlobReq(AmQosReq *qosReq) {
                 storHvisor->amProcessor->deleteBlob(qosReq);
                 break;
 	    }
-        case fds::FDS_LIST_BUCKET:
         case fds::FDS_STAT_BLOB:
+	    if (storHvisor->toggleNewPath) {
+                storHvisor->amProcessor->statBlob(qosReq);
+                break;
+	    }
+        case fds::FDS_LIST_BUCKET:
             err = storHvisor->handlers.at(qosReq->io_type)->handleQueueItem(qosReq);
             break;
 

@@ -316,6 +316,11 @@ class StartBlobTxReq : public FdsBlobReq {
 
 class StatBlobReq : public FdsBlobReq {
   public:
+    typedef std::function<void (const Error&)> GetBlobProcCb;
+
+    GetBlobProcCb processorCb;
+    fds_volid_t base_vol_id;
+
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob

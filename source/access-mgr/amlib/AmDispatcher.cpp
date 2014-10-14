@@ -287,9 +287,9 @@ AmDispatcher::dispatchQueryCatalog(AmQosReq *qosReq) {
 
 void
 AmDispatcher::getQueryCatalogCb(AmQosReq* qosReq,
-                                    FailoverSvcRequest* svcReq,
-                                    const Error& error,
-                                    boost::shared_ptr<std::string> payload)
+                                FailoverSvcRequest* svcReq,
+                                const Error& error,
+                                boost::shared_ptr<std::string> payload)
 {
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
     fpi::QueryCatalogMsgPtr qryCatRsp =
@@ -331,6 +331,49 @@ AmDispatcher::getQueryCatalogCb(AmQosReq* qosReq,
     LOGDEBUG << "blob name: " << blobReq->getBlobName() << "offset: "
              << blobReq->getBlobOffset() << " not in returned offset list from DM";
     blobReq->processorCb(ERR_BLOB_OFFSET_INVALID);
+}
+
+void
+AmDispatcher::dispatchStatBlob(AmQosReq *qosReq)
+{
+    GetBlobMetaDataMsgPtr message = boost::make_shared<GetBlobMetaDataMsg>();
+
+    StatBlobReq* blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
+    message->volume_id = blobReq->getVolId();
+    message->blob_name = blobReq->getBlobName();
+
+    auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(
+        boost::make_shared<DmtVolumeIdEpProvider>(
+            dmtMgr->getCommittedNodeGroup(blobReq->base_vol_id)));
+
+    asyncReq->setPayload(fpi::GetBlobMetaDataMsgTypeId, message);
+    asyncReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::statBlobCb, qosReq));
+
+    asyncReq->invoke();
+}
+
+void
+AmDispatcher::statBlobCb(AmQosReq* qosReq,
+                         FailoverSvcRequest* svcReq,
+                         const Error& error,
+                         boost::shared_ptr<std::string> payload)
+{
+    StatBlobReq* blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
+
+    // Deserialize if all OK
+    if (ERR_OK == error) {
+        // using the same structure for input and output
+        auto response = MSG_DESERIALIZE(GetBlobMetaDataMsg, error, payload);
+
+        StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, blobReq->cb);
+        // Fill in the data here
+        cb->blobDesc.setBlobName(blobReq->getBlobName());
+        cb->blobDesc.setBlobSize(response->byteCount);
+        for (const auto& meta : response->metaDataList) {
+            cb->blobDesc.addKvMeta(meta.key,  meta.value);
+        }
+    }
+    blobReq->processorCb(error);
 }
 
 }  // namespace fds
