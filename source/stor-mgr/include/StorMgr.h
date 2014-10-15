@@ -155,8 +155,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
      fds_mutex *objStorMutex;
-     osm::ObjectDB  *objStorDB;
-     osm::ObjectDB  *objIndexDB;
 
     /// Manager of persistent object storage
     ObjectStore::unique_ptr objectStore;
@@ -529,7 +527,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                           diskio::DataTier to_tier);
      void handleDltUpdate();
 
-     inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
      static void nodeEventOmHandler(int node_id,
                                     unsigned int node_ip_addr,
                                     int node_state,
