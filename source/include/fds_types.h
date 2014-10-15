@@ -288,8 +288,6 @@ class FDS_IOType {
     PerfContext opReqLatencyCtx;
     PerfContext opLatencyCtx;
 
-    PerfContext opTransactionWaitCtx;
-
     PerfContext opQoSWaitCtx;
 };
 
