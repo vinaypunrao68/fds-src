@@ -85,7 +85,7 @@ const char* FdsBlobReq::getDataBuf() const {
     return dataBuf;
 }
 
-fds_uint64_t FdsBlobReq::getDataLen() const {
+std::size_t FdsBlobReq::getDataLen() const {
     return dataLen;
 }
 

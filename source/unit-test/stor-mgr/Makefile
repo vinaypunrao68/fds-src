@@ -68,7 +68,8 @@ user_cpp          := \
         sm_disk_map_test.cpp      \
         sm_token_place_gtest.cpp \
 	smapi_gtest.cpp \
-	smperf_gtest.cpp
+	smperf_gtest.cpp \
+        object_persist_data_gtest.cpp
 
 user_no_style     :=
 
@@ -81,7 +82,8 @@ user_bin_exe      := \
     smtokenplace_gtest \
     smapi_gtest \
     smperf_gtest \
-    sm_superblock_gtest 
+    sm_superblock_gtest \
+    obj_persist_gtest \
 
 ObjectStoreUnitTest := object_store_unit_test.cpp
 ObjectStoreLoadTest := object_store_load_test.cpp
@@ -92,5 +94,6 @@ smapi_gtest	        := smapi_gtest.cpp ngx_modules.c
 sm_load_test        := sm_load_test.cpp
 smperf_gtest         := smperf_gtest.cpp ngx_modules.c
 sm_superblock_gtest := sm_superblock_gtest.cpp
+obj_persist_gtest   := object_persist_data_gtest.cpp
 
 include $(topdir)/Makefile.incl

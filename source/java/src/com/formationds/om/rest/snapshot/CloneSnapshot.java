@@ -17,7 +17,7 @@ import java.util.Map;
 public class CloneSnapshot
   implements RequestHandler {
 
-  private static final String REQ_PARAM_VOLUME_ID = "volumeId";
+  private static final String REQ_PARAM_SNAPSHOT_ID = "snapshotId";
   private static final String REQ_PARAM_POLICY_ID = "policyId";
   private static final String REQ_PARAM_CLONED_VOLUME_NAME = "clonedVolumeName";
   private ConfigurationApi config;
@@ -31,7 +31,7 @@ public class CloneSnapshot
                           final Map<String, String> routeParameters )
     throws Exception {
     final long clonedVolumeId = config.cloneVolume(
-      requiredLong( routeParameters, REQ_PARAM_VOLUME_ID ),
+      requiredLong( routeParameters, REQ_PARAM_SNAPSHOT_ID ),
       requiredLong( routeParameters, REQ_PARAM_POLICY_ID ),
       requiredString( routeParameters, REQ_PARAM_CLONED_VOLUME_NAME ) );
 

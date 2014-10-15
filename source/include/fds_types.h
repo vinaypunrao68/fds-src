@@ -176,21 +176,24 @@ struct DiskLoc {
 
 class ObjectBuf {
   public:
-    fds_uint32_t size;
-    std::string data;
+    boost::shared_ptr<std::string> data;
     ObjectBuf()
-      : size(0), data("")
-      {
-      }
-    explicit ObjectBuf(const std::string &str)
-    : data(str)
-    {
-        size = str.length();
+            : data(new std::string()) {
     }
-    void resize(const size_t &sz)
-    {
-        size = sz;
-        data.resize(sz);
+    explicit ObjectBuf(boost::shared_ptr<std::string>& str)
+            : data(str) {
+    }
+    void resize(const size_t &sz) {
+        data->resize(sz);
+    }
+    inline fds_uint32_t getSize() const {
+        return data->length();
+    }
+    inline const char* getData() const {
+        return data->data();
+    }
+    inline void clear() {
+        data->clear();
     }
 };
 
@@ -279,23 +282,11 @@ class FDS_IOType {
     fds_uint64_t dispatch_ts;
     fds_uint64_t io_done_ts;
 
-    /*
-     * TODO: Blkdev specific fields that can be REMOVED.
-     * These are left here simply because legacy, unused code
-     * still references these and needs them to compile.
-     */
-    void *fbd_req;
-    void *vbd;
-    void *vbd_req;
-    blkdev_complete_req_cb_t comp_req;
-
     // performance data collection related structures
     std::string perfNameStr;
     PerfEventType opReqFailedPerfEventType;
     PerfContext opReqLatencyCtx;
     PerfContext opLatencyCtx;
-
-    PerfContext opTransactionWaitCtx;
 
     PerfContext opQoSWaitCtx;
 };

@@ -72,7 +72,8 @@ class Catalog {
     /** Constructor */
     Catalog(const std::string& _file, fds_uint32_t writeBufferSize = WRITE_BUFFER_SIZE,
             fds_uint32_t cacheSize = CACHE_SIZE, const std::string& logDirName = empty,
-            const std::string& logFilePrefix = empty, fds_uint32_t maxLogFiles = 0);
+            const std::string& logFilePrefix = empty, fds_uint32_t maxLogFiles = 0,
+            leveldb::Comparator * cmp = 0);
     /** Default destructor */
     ~Catalog();
 
@@ -87,6 +88,14 @@ class Catalog {
     catalog_iterator_t *NewIterator() { return db->NewIterator(read_options); }
 
     typedef leveldb::ReadOptions catalog_roptions_t;
+
+    inline const leveldb::Options & GetOptions() const {
+        return options;
+    }
+
+    inline leveldb::WriteOptions & GetWriteOptions() {
+        return write_options;
+    }
 
     fds::Error Update(const Record& key, const Record& val);
     fds::Error Update(CatWriteBatch* batch);

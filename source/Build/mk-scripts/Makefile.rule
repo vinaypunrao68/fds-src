@@ -61,7 +61,7 @@ include $(incl_scripts)/Makefile.scpt
 # Main make rule.
 #
 .PHONY: all
-all: devsetup $(user_predep) devenv base_predepend $(user_postdep) \
+all: $(user_predep) devenv base_predepend $(user_postdep) \
      $(user_predepend) $(user_postdepend)                           \
 	 $(user_preall) base_dirs base_style base_objs base_all $(user_postall)     \
 	 $(user_tool) $(user_scripts) base_postmake                                 \
@@ -378,25 +378,17 @@ $(fdsrepofile) : $(reposetupscript)
 fdsrepo :  $(fdsrepofile)
 
 # -----------------------------------------------------------------------------
-# Check for installed packages
+# Setup Chef client for chef-zero convergence
 # -----------------------------------------------------------------------------
-devsetup_chkfile:=/tmp/.devsetup.chk
-devsetup_script:=$(incl_scripts)/devsetup.sh
+chef_client_binary := /opt/chef/bin/chef-client
+chef_command := sudo chef-client --config chef/chef-client-config.rb -z -o fds_setup::dev_setup
+$(chef_client_binary):
+	@curl -L https://www.getchef.com/chef/install.sh | sudo bash
+	@sudo touch ${chef_client_binary}
 
-$(devsetup_chkfile): $(devsetup_script)
-	@$(devsetup_script)
-	@touch $(devsetup_chkfile)
-
-devsetup-force: $(devsetup_script)
-	@$(devsetup_script)
-	@touch $(devsetup_chkfile)
-
-fdspkgs: fdsrepo $(devsetup_script) 
-	@$(devsetup_script) --fdspkgs
-	@touch $(devsetup_chkfile)
-
-.PHONY : devsetup 
-devsetup: $(devsetup_chkfile)
+.PHONY : devsetup
+devsetup: $(chef_client_binary)
+	@cd $(incl_scripts)/../../../; $(chef_command)
 
 # -----------------------------------------------------------------------------
 # List Targets

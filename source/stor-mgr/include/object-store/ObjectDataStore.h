@@ -30,9 +30,11 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     // TODO(Andrew): Add some private GC interfaces here?
 
   public:
-    explicit ObjectDataStore(const std::string &modName);
+    explicit ObjectDataStore(const std::string &modName,
+                             SmIoReqHandler *data_store);
     ~ObjectDataStore();
     typedef std::unique_ptr<ObjectDataStore> unique_ptr;
+    typedef std::shared_ptr<ObjectDataStore> ptr;
 
     /**
      * Opens object data store
@@ -46,7 +48,7 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     Error putObjectData(fds_volid_t volId,
                         const ObjectID &objId,
                         diskio::DataTier tier,
-                        boost::shared_ptr<const std::string> objData,
+                        boost::shared_ptr<const std::string>& objData,
                         obj_phy_loc_t& objPhyLoc);
 
     /**

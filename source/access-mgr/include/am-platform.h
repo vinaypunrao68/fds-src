@@ -48,7 +48,7 @@ class AmPlatform : public Platform
 {
   public:
     AmPlatform();
-    virtual ~AmPlatform() {}
+    virtual ~AmPlatform();
 
     /**
      * Module methods
@@ -88,9 +88,9 @@ class AmPlatform : public Platform
                          fpi::FDSP_DMT_TypePtr   &dmt_info);
 
   protected:
-    AMEpPlugin::pointer                am_plugin;
+    AMEpPlugin::pointer           am_plugin;
     bo::shared_ptr<AMSvcHandler>  am_recv;
-    EndPoint<fpi::AMSvcClient, fpi::AMSvcProcessor>::pointer am_ep;
+    bo::intrusive_ptr<EndPoint<fpi::AMSvcClient, fpi::AMSvcProcessor>> am_ep;
 };
 
 extern AmPlatform gl_AmPlatform;

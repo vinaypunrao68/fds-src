@@ -61,7 +61,7 @@ Error TokenSyncLog::add(const ObjectID& id, const ObjMetaData &entry) {
 
     std::string k = create_key(id, entry);
     leveldb::Slice key(k);
-    leveldb::Slice value(buf.data.data(), buf.data.length());
+    leveldb::Slice value(buf.getData(), buf.getSize());
     leveldb::Status status = db_->Put(write_options_, key, value);
 
     if (!status.ok()) {

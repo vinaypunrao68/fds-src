@@ -269,6 +269,7 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dlt_resp, this, msg,
                                    std::placeholders::_1, std::placeholders::_2,
                                    std::placeholders::_3));
+    om_req->setTimeoutMs(20000);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
     curDlt->dump();

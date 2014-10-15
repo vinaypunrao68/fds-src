@@ -26,6 +26,7 @@
 #include <kvstore/configdb.h>
 #include <platform/platform-lib.h>
 #include <snapshot/manager.h>
+#include <deletescheduler.h>
 
 #define MAX_OM_NODES            (512)
 #define DEFAULT_LOC_DOMAIN_ID   (1)
@@ -132,6 +133,7 @@ class OrchMgr: public PlatformProcess {
     int AuditTierPolicy(::fpi::tier_pol_auditPtr& audit);  // NOLINT
 
     fds::snapshot::Manager snapshotMgr;
+    DeleteScheduler deleteScheduler;
 };
 
 /* config path: cli -> OM  */

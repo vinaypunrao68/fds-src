@@ -2,13 +2,16 @@ angular.module( 'volumes' ).controller( 'nameTypeController', ['$scope', '$data_
 
     $scope.sizes = [{name:'GB'}, {name:'TB'},{name:'PB'}];
     $scope._selectedSize = 10;
-    $scope._selectedUnit = $scope.sizes[0].name;
+    $scope._selectedUnit = $scope.sizes[0];
 
     var init = function(){
         $scope.name = '';
         $scope.editing = false;
         $scope.connectors = $data_connector_api.connectors;
         $scope.data_connector = $scope.connectors[1];
+        
+        $scope.nameEnablement = true;      
+        $scope.dataConnectorEnablment = true;
     };
 
     var findUnit = function( str ){
@@ -33,6 +36,7 @@ angular.module( 'volumes' ).controller( 'nameTypeController', ['$scope', '$data_
 
     $scope.stopEditing = function(){
         $scope.editingConnector = {};
+        $scope.editing = false;
     };
 
     $scope.saveConnectorChanges = function( connector ){
@@ -49,19 +53,34 @@ angular.module( 'volumes' ).controller( 'nameTypeController', ['$scope', '$data_
         });
     };
 
-    $scope.$on( 'fds::volume_done_editing', init );
-
-    $scope.$on( 'fds::create_volume_initialize', function(){
-        $scope.updateData();
-    });
-
     $scope.$watch( 'name', function(){
         $scope.updateData();
     });
-
-    $scope.$watch( 'data_connector', function(){
-        $scope.updateData();
+    
+    $scope.$watch( 'volumeVars.clone', function( newVal ){
+        
+        if ( angular.isDefined( newVal ) && newVal !== null ){
+            $scope.data_connector = newVal.data_connector;
+        }
+    });
+    
+    $scope.$watch( 'volumeVars.creating', function( newVal ){
+        if ( newVal === true ){
+            init();
+        }
+    });
+    
+    $scope.$watch( 'volumeVars.editing', function( newVal ){
+        
+        if ( newVal === true ){
+            $scope.name = $scope.volumeVars.selectedVolume.name;
+            $scope.editing = false;
+            $scope.connectors = $data_connector_api.connectors;
+            $scope.data_connector = $scope.volumeVars.selectedVolume.data_connector;
+            
+            $scope.nameEnablement = false;
+            $scope.dataConnectorEnablment = false;
+        }
     });
 
-    init();
 }]);

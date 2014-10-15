@@ -1,7 +1,7 @@
 <div ng-controller="accountController" class="account-page">
 
     <div class="header top-label">
-        <span>Account Details</span>
+        <span translate>account.title</span>
     </div>
 
     <div class="page-vertical-spacer"></div>
@@ -9,11 +9,11 @@
     <section class="block-section">
 
         <div class="section-header ">
-            <span class="header">Name</span>
+            <span class="header" translate>account.l_name</span>
         </div>
         <div>
             <span class="main-value username">{{username}}</span>
-            <a>Edit</a>
+            <a translate>common.l_edit</a>
         </div>
     </section>
 
@@ -22,16 +22,16 @@
     <section class="block-section">
 
         <div class="section-header">
-            <span class="header">Role</span>
+            <span class="header" translate>account.l_role</span>
         </div>
 
         <div>
-            <span class="main-value">Tenant Admin</span>
-            <a>Change Role</a>
+            <span class="main-value" translate>account.l_tenant_admin</span>
+            <a translate>account.l_change_role</a>
         </div>
 
-        <div class="detail-value">
-            Tenant Admins can create modify and delete Tenant and App Developer users.  Additionally you can modify most system settings,create storage volumes and do everything else lower-level users can do.
+        <div class="detail-value" translate>
+            account.desc_tenant_admin
         </div>
     </section>
 
@@ -40,7 +40,7 @@
     <section class="block-section">
 
         <div class="section-header">
-            <span class="header">Email</span>
+            <span class="header" translate>account.l_email</span>
         </div>
 
         <div>
@@ -50,7 +50,7 @@
                 <button class="btn btn-secondary" ng-click="tempEmailAddress = emailAddress;email_changing = false;">Cancel</button>
             </div>
             <span class="detail-value" style="font-size: 1.4em;" ng-show="!email_changing">{{emailAddress}}</span>
-            <a ng-show="!email_changing" ng-click="email_changing = true;">Change Email</a>
+            <a ng-show="!email_changing" ng-click="email_changing = true;" translate>account.l_change_email</a>
         </div>
     </section>
 
@@ -59,12 +59,12 @@
     <section class="block-section">
 
         <div class="section-header">
-            <span class="header">Password</span>
+            <span class="header" translate>common.password</span>
         </div>
 
         <div ng-show="!password_changing" class="change-password-summary">
             <span class="detail-value">********************</span>
-            <a class="change-password" ng-click="password_changing=true;">Change Password</a>
+            <a class="change-password" ng-click="password_changing=true;" translate>account.l_change_password</a>
         </div>
 
         <div ng-show="password_changing">
@@ -75,8 +75,8 @@
                 {{ changePasswordError }}
             </div>
             <div style="display: flex;padding-top: 12px;" ng-show="password_changing" class="std-transition">
-                <button class="btn btn-primary save-password" style="margin-right: 4px;" ng-click="changePassword()">Save</button>
-                <button class="btn btn-secondary cancel-password-change" ng-click="password_changing = false;">Cancel</button>
+                <button class="btn btn-primary save-password" style="margin-right: 4px;" ng-click="changePassword()" translate>common.l_save</button>
+                <button class="btn btn-secondary cancel-password-change" ng-click="password_changing = false;" translate>common.l_cancel</button>
             </div>
         </div>
 

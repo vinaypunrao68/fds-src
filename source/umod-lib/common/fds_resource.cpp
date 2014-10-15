@@ -4,7 +4,7 @@
 #include <fds_assert.h>
 #include <fds_resource.h>
 #include <fdsp_utils.h>
-
+#include <string>
 namespace fds {
 
 // ------------------------------------------------------------------------------------
@@ -212,6 +212,41 @@ RsContainer::rs_foreach(ResourceIter *iter)
         }
     }
 }
+
+//  --- States
+std::string HasState::getStateName() {
+    auto iter = fpi::_ResourceState_VALUES_TO_NAMES.find(getState());
+    if (iter != fpi::_ResourceState_VALUES_TO_NAMES.end()) {
+        return iter->second;
+    }
+    return "Unknown";
+}
+
+bool HasState::isStateLoading() {
+    return getState() == fpi::ResourceState::Loading;
+}
+
+bool HasState::isStateCreated() {
+    return getState() == fpi::ResourceState::Created;
+}
+
+bool HasState::isStateActive() {
+    return getState() == fpi::ResourceState::Active;
+}
+
+bool HasState::isStateOffline() {
+    return getState() == fpi::ResourceState::Offline;
+}
+
+bool HasState::isStateMarkedForDeletion() {
+    return getState() == fpi::ResourceState::MarkedForDeletion;
+}
+
+bool HasState::isStateDeleted() {
+    return getState() == fpi::ResourceState::Deleted;
+}
+
+//  ----------
 
 QueryMgr::QueryMgr()
 {

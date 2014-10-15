@@ -83,7 +83,7 @@ namespace fds {
         /* FDS actor is shutdown */
         ERR_FAR_SHUTDOWN,
 
-        /* Storage manager error range [2000-2500) */
+        /* Storage manager error range [2000-2999) */
         ERR_SM_NOT_IN_SYNC_MODE = 2000,
         ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND,
         ERR_SM_TOKENSTATEDB_DUPLICATE_KEY,
@@ -92,7 +92,11 @@ namespace fds {
         ERR_SM_SUPERBLOCK_MISSING_FILE,
         ERR_SM_SUPERBLOCK_CHECKSUM_FAIL,
         ERR_SM_SUPERBLOCK_DATA_CORRUPT,
+        ERR_SM_SUPERBLOCK_READ_FAIL,
         ERR_SM_SUPERBLOCK_WRITE_FAIL,
+        ERR_SM_SUPERBLOCK_NO_RECONCILE,
+        ERR_SM_GC_ENABLED,
+        ERR_SM_AUTO_GC_FAILED,
 
         /* Network errors */
         ERR_NETWORK_TRANSPORT = 3000,
@@ -197,29 +201,48 @@ namespace fds {
 
     class Error {
         fds_errno_t _errno;
+
      public:
-        Error();
-        Error(fds_errno_t errno_arg);  //NOLINT
-        Error(fds_uint32_t errno_fdsp); //NOLINT
-        Error(const Error& err);
+        Error() : _errno(ERR_OK) {}
+        Error(fds_errno_t errno_arg) : _errno(errno_arg) {} //NOLINT
+        Error(fds_uint32_t errno_fdsp) : _errno(static_cast<fds_errno_t>(errno_fdsp)) {} //NOLINT
+        Error(const Error& err) : _errno(err._errno) {}
 
-        bool OK() const;
+        bool OK() const
+        { return _errno == ERR_OK; }
 
-        bool ok() const;
-        fds_errno_t GetErrno() const;
+        bool ok() const
+        { return OK(); }
+
+        fds_errno_t GetErrno() const
+        { return _errno; }
+
         std::string GetErrstr() const;
 
         FDS_ProtocolInterface::FDSP_ErrType getFdspErr() const;
-        Error& operator=(const Error& rhs);
 
-        Error& operator=(const fds_errno_t& rhs);
+        Error& operator=(const Error& rhs)
+        { if (this != &rhs) _errno = rhs._errno; return *this; }
 
-        bool operator==(const Error& rhs) const;
-        bool operator==(const fds_errno_t& rhs) const;
-        bool operator!=(const Error& rhs) const;
-        bool operator!=(const fds_errno_t& rhs) const;
-        ~Error();
+        Error& operator=(const fds_errno_t& rhs)
+        { _errno = rhs; return *this; }
+
+        explicit operator bool() const
+        { return OK(); }
+
+        friend bool operator==(const Error& lhs, const Error& rhs);
+        friend bool operator!=(const Error& lhs, const Error& rhs);
     };
+
+    inline std::string Error::GetErrstr() const {
+        if (_errno <= ERR_INVALID_DMT) return fds_errstrs[_errno];
+        return std::string("Error no: ") + std::to_string(_errno);
+    }
+
+    inline FDS_ProtocolInterface::FDSP_ErrType Error::getFdspErr() const {
+        return (OK() ? FDS_ProtocolInterface::FDSP_ERR_OKOK :
+                FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE);
+    }
 
     std::ostream& operator<<(std::ostream& out, const Error& err);
 
@@ -227,6 +250,14 @@ namespace fds {
 
     FDSN_Status getStatusFromError(const Error& error);
     std::string toString(FDSN_Status status);
+
+    inline bool operator==(const Error& lhs, const Error& rhs) {
+        return (lhs._errno == rhs._errno);
+    }
+
+    inline bool operator!=(const Error& lhs, const Error& rhs) {
+        return !(lhs == rhs);
+    }
 
 }  // namespace fds
 

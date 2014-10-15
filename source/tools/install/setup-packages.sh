@@ -19,6 +19,8 @@ needed_packages=(
 
 basedebs=(
     libpcre3
+    "libconfig++9"
+    libreadline5
     xfsprogs
     libjemalloc1
     redis-tools
@@ -120,10 +122,10 @@ function installBaseDebs() {
     for pkg in ${basedebs[@]}
     do
         loginfo "[fdssetup] : installing $pkg"
-        debfile=$(ls -1t ${pkg}*.deb 2>/dev/null | head -n1)
+        debfile=$(ls -1t "${pkg}"*.deb 2>/dev/null | head -n1)
         if [[ -n $debfile ]] ; then
-            sudo dpkg -i $debfile
-            postinstall $pkg
+            sudo dpkg -i "$debfile"
+            postinstall "${pkg}"
             echo ""
         else
             logerror "unable to locate : $pkg"

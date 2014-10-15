@@ -22,7 +22,8 @@ class AmCache : public Module, public boost::noncopyable {
   public:
     explicit AmCache(const std::string &modName);
     ~AmCache();
-    typedef std::unique_ptr<AmCache> unique_ptr;
+//    typedef std::unique_ptr<AmCache> unique_ptr;
+    typedef std::shared_ptr<AmCache> shared_ptr;
 
     /**
      * Module methods

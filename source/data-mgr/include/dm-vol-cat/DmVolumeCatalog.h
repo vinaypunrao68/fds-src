@@ -235,6 +235,10 @@ class DmVolumeCatalog : public Module,
      */
     Error syncCatalog(fds_volid_t volume_id,
                       const NodeUuid& dm_uuid);
+    /**
+     * Get total matadata size for a volume
+     */
+     fds_uint64_t getTotalMetadataSize(fds_volid_t volume_id);
 
   private:
     /**

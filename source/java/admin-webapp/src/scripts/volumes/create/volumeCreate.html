@@ -1,17 +1,29 @@
 <!--<div class="create-panel volumes" ng-controller="volumeCreateController" ng-class="{shown: $parent.creating,hideit: !$parent.creating}">-->
 <div class="create-panel volumes" ng-controller="volumeCreateController">
     <div class="modal-header">
-        <span>Create Volume</span>
+        <span translate class="create-volume-create-title" ng-show="volumeVars.creating === true">volumes.l_create_volume</span>
+        <span translate class="create-volume-edit-title" ng-show="volumeVars.editing === true">volumes.l_edit_volume</span>
+        <div class="pull-right flex">
+            <button class="btn btn-primary skinny" style="display: inline-block;margin-right: 8px;" ng-click="save()">
+                <span ng-show="volumeVars.creating === true" translate>volumes.l_create_volume</span>
+                <span ng-show="volumeVars.editing === true" translate>volumes.l_edit_volume</span>
+            </button>
+            <button class="btn btn-secondary cancel-creation skinny" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
+        </div>
     </div>
 
     <div class="settings-body">
-        <div ng-include="'scripts/volumes/create/nameType.html'"></div>
-        <div ng-include="'scripts/volumes/create/qualityOfService.html'"></div>
-        <div ng-include="'scripts/volumes/create/snapshotPolicy.html'"></div>
+        <div ng-include="'scripts/volumes/create/clone.html'" class="add-bottom-space"></div>
+        <div ng-include="'scripts/volumes/create/nameType.html'" class="add-bottom-space"></div>
+        <div ng-include="'scripts/volumes/create/qualityOfService.html'" class="add-bottom-space"></div>
+        <div ng-include="'scripts/volumes/create/snapshotPolicy.html'" class="add-bottom-space"></div>
     </div>
 
     <div class="pull-left"style="padding-top: 12px;margin-bottom: 42px;">
-        <button class="btn btn-primary" style="display: inline-block;" ng-click="save()">Create Volume</button>
-        <button class="btn btn-secondary cancel-creation" style="display: inline-block;" ng-click="cancel()">Cancel</button>
+        <button class="btn btn-primary" style="display: inline-block;" ng-click="save()">
+            <span ng-show="volumeVars.creating === true" translate>volumes.l_create_volume</span>
+            <span ng-show="volumeVars.editing === true" translate>volumes.l_edit_volume</span>
+        </button>
+        <button class="btn btn-secondary cancel-creation" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
     </div>
 </div>

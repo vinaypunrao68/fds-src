@@ -178,7 +178,8 @@ def process_command_line_arguments ():
     parser.add_option ('-t', '--target', dest = 'target', default = None,
                        help = 'target node to apply -u, -d, -c, and -s against')
 
-    parser.add_option ('-i', dest = 'clus_inst', default = False, help = SUPPRESS_HELP)
+    # To make the lower level libraries work, they should be fixed
+    parser.add_option ('-i', dest = 'tar_file', default = False, help = SUPPRESS_HELP)
     parser.add_option ('-S', dest = 'fds_source_dir', default = '', help = SUPPRESS_HELP)
 
     (options, args) = parser.parse_args()

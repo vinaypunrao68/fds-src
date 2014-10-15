@@ -33,7 +33,7 @@ DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
         : Module(name.c_str()), opSynchronizer_(tp),
         config_helper_(g_fdsprocess->get_conf_helper()), tp_(tp)
 {
-    volcat = DmVolumeCatalog::ptr(new DmVolumeCatalog("DM Volume Catalog"));
+    volcat = DM_VOLUME_CATALOG_TYPE::ptr(new DM_VOLUME_CATALOG_TYPE("DM Volume Catalog"));
     // TODO(Andrew): The module vector should be able to take smart pointers.
     // To get around this for now, we're extracting the raw pointer and
     // expecting that any reference to are done once this returns...

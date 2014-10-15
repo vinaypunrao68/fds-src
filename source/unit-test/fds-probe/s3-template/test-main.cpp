@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <string>
 #include <iostream>
-#include <adapter.h>
+#include <probe-adapter.h>
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
 #include <platform/platform-lib.h>

@@ -7,15 +7,11 @@ package com.formationds.commons.model;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.util.SizeUnit;
 
-import javax.xml.bind.annotation.XmlRootElement;
-
 /**
  * @author ptinius
  */
-@XmlRootElement
 public class ConnectorAttributes
-  extends ModelBase
-{
+  extends ModelBase {
   private static final long serialVersionUID = 4629648232746455453L;
 
   private SizeUnit unit;
@@ -24,40 +20,37 @@ public class ConnectorAttributes
   /**
    * default constructor
    */
-  public ConnectorAttributes()
-  {
+  public ConnectorAttributes() {
     super();
   }
 
   /**
-   * @return Returns the {@link SizeUnit} representing the {@code units} of the {@link #getSize()}
+   * @return Returns the {@link SizeUnit} representing the {@code units} of the
+   * {@link #getSize()}
    */
-  public SizeUnit getUnit()
-  {
+  public SizeUnit getUnit() {
     return unit;
   }
 
   /**
-   * @param unit the {@link SizeUnit} representing the {@code units} of the {@link #getSize()}
+   * @param unit the {@link SizeUnit} representing the {@code units} of the
+   *             {@link #getSize()}
    */
-  public void setUnit( final SizeUnit unit )
-  {
+  public void setUnit( final SizeUnit unit ) {
     this.unit = unit;
   }
 
   /**
    * @return Returns {@link Long} representing the size
    */
-  public Long getSize()
-  {
+  public Long getSize() {
     return size;
   }
 
   /**
    * @param size the {@link Long} representing the size
    */
-  public void setSize( final Long size )
-  {
+  public void setSize( final Long size ) {
     this.size = size;
   }
 }

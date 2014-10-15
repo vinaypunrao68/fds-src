@@ -12,6 +12,12 @@
     transition: $scope, $time;
 }
 
+@mixin rotate( $degrees ){
+    -ms-transform: rotate( $degrees + deg); /* IE 9 */
+    -webkit-transform: rotate( $degrees + deg); /* Chrome, Safari, Opera */
+    transform: rotate( $degrees + deg );
+}
+
 @mixin image-2x($image, $suffix, $width, $height) {
 
     background-image: url( $image + '.' + $suffix );

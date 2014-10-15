@@ -62,7 +62,7 @@ fds::Error ObjectDB::Put(const DiskLoc& disk_location,
     fds::Error err(fds::ERR_OK);
 
     leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
-    leveldb::Slice value(obj_buf.data.data(), obj_buf.size);
+    leveldb::Slice value(obj_buf.getData(), obj_buf.getSize());
 
     timer_start();
     leveldb::Status status = db->Put(write_options, key, value);
@@ -140,7 +140,7 @@ fds::Error ObjectDB::Put(const ObjectID& object_id,
     fds::Error err(fds::ERR_OK);
 
     leveldb::Slice key((const char *)object_id.GetId(), object_id.getDigestLength());
-    leveldb::Slice value(obj_buf.data.data(), obj_buf.size);
+    leveldb::Slice value(obj_buf.getData(), obj_buf.getSize());
 
     timer_start();
     leveldb::Status status = db->Put(write_options, key, value);
@@ -180,8 +180,7 @@ fds::Error ObjectDB::Get(const DiskLoc& disk_location,
         return ERR_NO_BYTES_READ;
     }
 
-    obj_buf.data = value;
-    obj_buf.size = value.size();
+    *(obj_buf.data) = value;
 
     return err;
 }
@@ -239,7 +238,7 @@ fds::Error ObjectDB::Get(const ObjectID& obj_id,
         return ERR_NO_BYTES_READ;
     }
 
-    obj_buf.data = value;
+    *(obj_buf.data) = value;
 
     return err;
 }
