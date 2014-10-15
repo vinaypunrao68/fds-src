@@ -30,7 +30,7 @@ struct Serializer {
     uint32_t writeTimeStamp(const fds::util::TimeStamp timestamp);
     uint32_t writeDouble(const double dub);
     uint32_t writeString(const std::string& str);
-    uint32_t writeBuffer(const int8_t* buf, const uint32_t& len);
+    uint32_t writeBuffer(const int8_t* buf, uint32_t len);
     template <class T>
     uint32_t writeVector(const std::vector<T>& v);
 
@@ -63,7 +63,7 @@ struct Deserializer {
     uint32_t readI64(fds_uint64_t& ui64);
     uint32_t readTimeStamp(fds::util::TimeStamp& timestamp);
 
-    uint32_t readBuffer(int8_t* buf, const uint32_t& len);
+    uint32_t readBuffer(int8_t* buf, uint32_t len);
     template <class T>
     uint32_t readVector(std::vector<T>& v);
 
