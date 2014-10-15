@@ -216,6 +216,9 @@ class AbortBlobTxReq : public FdsBlobReq {
   public:
     BlobTxId::ptr txDesc;
 
+    typedef std::function<void (const Error&)> AbortBlobTxProcCb;
+    AbortBlobTxProcCb processorCb;
+
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob

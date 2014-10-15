@@ -69,6 +69,15 @@ AmProcessor::getVolumeMetadataCb(AmQosReq *qosReq,
 }
 
 void
+AmProcessor::abortBlobTx(AmQosReq *qosReq) {
+    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(qosReq->getBlobReqPtr());
+
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::abortBlobTxCb, qosReq);
+
+    amDispatcher->dispatchAbortBlobTx(qosReq);
+}
+
+void
 AmProcessor::startBlobTx(AmQosReq *qosReq) {
     // Get the blob request
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
@@ -122,8 +131,6 @@ AmProcessor::startBlobTxCb(AmQosReq *qosReq,
 
 void
 AmProcessor::deleteBlob(AmQosReq *qosReq) {
-    Error err(ERR_OK);
-
     DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
     fds_volid_t volId = blobReq->getVolId();
     StorHvVolume* shVol = volTable->getLockedVolume(volId);
@@ -190,7 +197,7 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
                                                           blobReq->getBlobOffset(),
                                                           err);
     // ObjectID was found in the cache
-    if (err == ERR_OK) {
+    if (ERR_OK == err) {
         // TODO(Andrew): Consider adding this back when we revisit
         // zero length objects
         // fds_verify(*objectId != NullObjectID);
@@ -256,6 +263,20 @@ AmProcessor::statBlob(AmQosReq *qosReq) {
     blobReq->base_vol_id = volTable->getBaseVolumeId(volId);
     blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::statBlobCb, qosReq);
     amDispatcher->dispatchStatBlob(qosReq);
+}
+
+void
+AmProcessor::abortBlobTxCb(AmQosReq *qosReq,
+                           const Error &error) {
+    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(qosReq->getBlobReqPtr());
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+
+    fds_verify(ERR_OK == txMgr->removeTx(*(blobReq->getTxId())));
+
+    delete blobReq;
 }
 
 void

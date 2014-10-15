@@ -549,7 +549,12 @@ static void processBlobReq(AmQosReq *qosReq) {
             break;
 
         case fds::FDS_ABORT_BLOB_TX:
-            err = storHvisor->abortBlobTxSvc(qosReq);
+            if (storHvisor->toggleNewPath)
+            {
+                storHvisor->amProcessor->abortBlobTx(qosReq);
+            } else {
+                err = storHvisor->abortBlobTxSvc(qosReq);
+            }
             break;
 
         case fds::FDS_ATTACH_VOL:
