@@ -1193,7 +1193,6 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     if ((err == ERR_OK) &&
         (tier == diskio::flashTier)) {
          vol->ssdByteCnt += objId.GetLen();
-         PerfTracer::incr(PUT_SSD_OBJ, volId, "volume:" + std::to_string(volId));
          if (vol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_SSD) {
            /*
             * If written to flash, add to dirty flash list
@@ -1206,8 +1205,6 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
         // TODO(Anna) if this is a write-back thread, then volId passed to this method
         // is currently 0. In reality, an object maybe associated with multiple volumes,
         // so we need to think whose counters we update (probably all volumes?)
-        // For now, counters will not properly work here.
-         PerfTracer::incr(PUT_HDD_OBJ, volId, "volume:" + std::to_string(volId));
          if (vol) {
              vol->hddByteCnt += objId.GetLen();
          }
@@ -1347,13 +1344,10 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
     if (objBufPtr != NULL) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
 
-        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, putReq->perfNameStr);
-
         // Now check for dedup here.
         if (*(objBufPtr->data) == putReq->data_obj) {
             err = ERR_DUPLICATE;
         } else {
-            PerfTracer::incr(HASH_COLLISION, volId, putReq->perfNameStr);
             /*
              * Handle hash-collision - insert the next collision-id+obj-id
              */
@@ -1378,7 +1372,6 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
     }
 
     if (err == ERR_DUPLICATE) {
-        PerfTracer::incr(DUPLICATE_OBJ, volId, putReq->perfNameStr);
         if (new_buff_allocated) {
             added_cache = true;
             objCache->object_add(volId, objId, objBufPtr, false);
@@ -1442,7 +1435,6 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
         }
 
         if (err != fds::ERR_OK) {
-            PerfTracer::incr(putReq->opReqFailedPerfEventType, volId, putReq->perfNameStr);
             objCache->object_release(volId, objId, objBufPtr);
             objCache->object_delete(volId, objId);
             objCache->object_release(volId, objId, objBufPtr);
@@ -1525,7 +1517,6 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
                         tierUsed,
                         amIPrimary(objId));
 
-    PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
 
     omJrnl->release_transaction(putReq->getTransId());
 
@@ -1549,9 +1540,7 @@ ObjectStorMgr::putObjectInternalSvcV2(SmIoPutObjectReq *putReq)
     fds_assert(volId != 0);
     fds_assert(objId != NullObjectID);
 
-    LOGDEBUG << "Executing putObjectInternalSvcV2";
-
-    PerfTracer::tracePointBegin(putReq->opReqLatencyCtx);
+    // latency of ObjectStore layer
     PerfTracer::tracePointBegin(putReq->opLatencyCtx);
 
     // TODO(Andrew): Remove this copy. The network should allocated
@@ -1565,8 +1554,8 @@ ObjectStorMgr::putObjectInternalSvcV2(SmIoPutObjectReq *putReq)
                         tierUsed,
                         amIPrimary(objId));
 
+    // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(putReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
 
     putReq->response_cb(err, putReq);
     return err;
@@ -1588,7 +1577,6 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
                                 SmIoReq *ioReq, TransJournalId &trans_id)
 {
     GLOGDEBUG << "enqTransactionIo " << ioReq->getTransId() << endl;
-    PerfTracer::tracePointBegin(ioReq->opReqLatencyCtx);
 
     // TODO(Rao): Refactor create_transaction so that it just takes key and cb as
     // params
@@ -1597,9 +1585,6 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
                                            std::bind(&ObjectStorMgr::create_transaction_cb, this,
                                                      msgHdr, ioReq, std::placeholders::_1));
     if (err != ERR_OK && err != ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
-        PerfTracer::tracePointEnd(ioReq->opReqLatencyCtx);
-        PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->getVolId(), ioReq->perfNameStr);
-
         return err;
     }
 
@@ -1611,10 +1596,6 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
     fds_assert(smVol);
 
     err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(), ioReq);
-    if (err != ERR_OK) {
-        PerfTracer::tracePointEnd(ioReq->opReqLatencyCtx);
-        PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->getVolId(), ioReq->perfNameStr);
-    }
     return err;
 }
 
@@ -1690,7 +1671,6 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
     qosCtrl->markIODone(*delReq, diskio::diskTier);
 
     PerfTracer::tracePointEnd(delReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(delReq->opReqLatencyCtx);
 
     omJrnl->release_transaction(delReq->getTransId());
     delReq->response_cb(err, delReq);
@@ -1714,15 +1694,15 @@ ObjectStorMgr::deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq)
 
     LOGDEBUG << "Executing deleteObjectInternalSvcV2";
 
-    PerfTracer::tracePointBegin(delReq->opReqLatencyCtx);
+    // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(delReq->opLatencyCtx);
 
     err = objectStore->deleteObject(volId, objId);
 
     qosCtrl->markIODone(*delReq, diskio::diskTier);
 
+    // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(delReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(delReq->opReqLatencyCtx);
 
     delReq->response_cb(err, delReq);
     return err;
@@ -1740,7 +1720,7 @@ ObjectStorMgr::addObjectRefInternalSvc(SmIoAddObjRefReq* addObjRefReq) {
         return rc;
     }
 
-    PerfTracer::tracePointBegin(addObjRefReq->opReqLatencyCtx);
+    // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(addObjRefReq->opLatencyCtx);
 
     for (auto objId : addObjRefReq->objIds()) {
@@ -1748,17 +1728,15 @@ ObjectStorMgr::addObjectRefInternalSvc(SmIoAddObjRefReq* addObjRefReq) {
         rc = objectStore->copyAssociation(addObjRefReq->getSrcVolId(),
                 addObjRefReq->getDestVolId(), oid);
         if (!rc.ok()) {
-            LOGERROR << "Failed to add association entry for object " << oid <<
-                    "in to odb with err " << rc;
-            PerfTracer::incr(addObjRefReq->opReqFailedPerfEventType,
-                    addObjRefReq->getSrcVolId(), addObjRefReq->perfNameStr);
+            LOGERROR << "Failed to add association entry for object " << oid
+                     << "in to odb with err " << rc;
             break;
         }
     }
 
     qosCtrl->markIODone(*addObjRefReq, diskio::maxTier, true);
+    // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(addObjRefReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(addObjRefReq->opReqLatencyCtx);
 
     addObjRefReq->response_cb(rc, addObjRefReq);
 
@@ -1824,7 +1802,6 @@ ObjectStorMgr::getObjectInternalSvc(SmIoGetObjectReq *getReq) {
     // objStorMutex->unlock();
 
     if (err != fds::ERR_OK) {
-        PerfTracer::incr(getReq->opReqFailedPerfEventType, volId, getReq->perfNameStr);
         LOGERROR << "Failed to get object " << objId
                  << " with error " << err;
         getReq->obj_data.data.clear();
@@ -1840,7 +1817,6 @@ ObjectStorMgr::getObjectInternalSvc(SmIoGetObjectReq *getReq) {
     qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
 
     PerfTracer::tracePointEnd(getReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
 
     /*
      * Prepare a response to send back.
@@ -1875,7 +1851,7 @@ ObjectStorMgr::getObjectInternalSvcV2(SmIoGetObjectReq *getReq)
 
     LOGDEBUG << "Executing getObjectInternalSvcV2";
 
-    PerfTracer::tracePointBegin(getReq->opReqLatencyCtx);
+    // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(getReq->opLatencyCtx);
 
     boost::shared_ptr<const std::string> objData =
@@ -1891,8 +1867,8 @@ ObjectStorMgr::getObjectInternalSvcV2(SmIoGetObjectReq *getReq)
 
     qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
 
+    // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(getReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
 
     getReq->response_cb(err, getReq);
     return err;
@@ -2336,32 +2312,6 @@ ObjectStorMgr::readObjectMetadataInternal(SmIoReq* ioReq)
     omJrnl->release_transaction(read_entry->getTransId());
 
     read_entry->smio_readmd_resp_cb(err, read_entry);
-}
-
-inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
-    FDSP_MgrIdType temp_id;
-    fds_int32_t tmp_addr;
-    fds_uint32_t tmp_port;
-
-    temp_id = fdsp_msg->dst_id;
-    fdsp_msg->dst_id = fdsp_msg->src_id;
-    fdsp_msg->src_id = temp_id;
-
-    tmp_addr = fdsp_msg->dst_ip_hi_addr;
-    fdsp_msg->dst_ip_hi_addr = fdsp_msg->src_ip_hi_addr;
-    fdsp_msg->src_ip_hi_addr = tmp_addr;
-
-    tmp_addr = fdsp_msg->dst_ip_lo_addr;
-    fdsp_msg->dst_ip_lo_addr = fdsp_msg->src_ip_lo_addr;
-    fdsp_msg->src_ip_lo_addr = tmp_addr;
-
-    tmp_port = fdsp_msg->dst_port;
-    fdsp_msg->dst_port = fdsp_msg->src_port;
-    fdsp_msg->src_port = tmp_port;
-
-    fdsp_msg->src_service_uuid.uuid =
-            (fds_int64_t)(PlatformProcess::plf_manager()->
-                          plf_get_my_svc_uuid())->uuid_get_val();
 }
 
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {

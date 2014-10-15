@@ -55,7 +55,12 @@ class AmDispatcher : public Module, public boost::noncopyable {
                              boost::shared_ptr<std::string> payload);
 
     /**
-     * Dispatches a start blob transaction request.
+     * Aborts a blob transaction request.
+     */
+    void dispatchAbortBlobTx(AmQosReq *qosReq);
+
+    /**
+     * Dipatches a start blob transaction request.
      */
     void dispatchStartBlobTx(AmQosReq *qosReq);
 
@@ -92,6 +97,11 @@ class AmDispatcher : public Module, public boost::noncopyable {
 
     void dispatchQueryCatalog(AmQosReq *qosReq);
 
+    /**
+     * Dispatches a stat blob transaction request.
+     */
+    void dispatchStatBlob(AmQosReq *qosReq);
+
   private:
     /// Shared ptrs to the DLT and DMT managers used
     /// for deciding who to dispatch to
@@ -100,6 +110,14 @@ class AmDispatcher : public Module, public boost::noncopyable {
 
     /// Uturn test all network requests
     fds_bool_t uturnAll;
+
+    /**
+     * Callback for delete blob responses.
+     */
+    void abortBlobTxCb(AmQosReq *qosReq,
+                       QuorumSvcRequest* svcReq,
+                       const Error& error,
+                       boost::shared_ptr<std::string> payload);
 
     /**
      * Callback for delete blob responses.
@@ -124,6 +142,14 @@ class AmDispatcher : public Module, public boost::noncopyable {
                            FailoverSvcRequest* svcReq,
                            const Error& error,
                            boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for stat blob responses.
+     */
+    void statBlobCb(AmQosReq *qosReq,
+                    FailoverSvcRequest* svcReq,
+                    const Error& error,
+                    boost::shared_ptr<std::string> payload);
 };
 
 }  // namespace fds

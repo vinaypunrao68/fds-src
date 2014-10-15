@@ -55,6 +55,17 @@ class AmProcessor : public Module, public boost::noncopyable {
                              const Error &error);
 
     /**
+     * Processes a abort blob transaction
+     */
+    void abortBlobTx(AmQosReq *qosReq);
+
+    /**
+     * Callback for abort blob transaction
+     */
+    void abortBlobTxCb(AmQosReq *qosReq,
+                       const Error &error);
+
+    /**
      * Processes a start blob transaction
      */
     void startBlobTx(AmQosReq *qosReq);
@@ -76,10 +87,16 @@ class AmProcessor : public Module, public boost::noncopyable {
     void getBlobCb(AmQosReq *qosReq, const Error& error);
 
     /**
-     * Processes a get blob request
+     * Processes a delete blob request
      */
     void deleteBlob(AmQosReq *qosReq);
     void deleteBlobCb(AmQosReq *qosReq, const Error& error);
+
+    /**
+     * Processes a stat blob request
+     */
+    void statBlob(AmQosReq *qosReq);
+    void statBlobCb(AmQosReq *qosReq, const Error& error);
 
     /**
      * Callback for catalog query request

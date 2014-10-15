@@ -41,6 +41,7 @@ pdio_write(fds_threadpool *wr, fds_threadpool *rd, DiskReqTest *cur)
     ObjectBuf       *buf;
     diskio::DataIO  &pio = diskio::DataIO::disk_singleton();
     diskio::DataTier tier;
+    fds_uint32_t buf_size = 0;
 
     if (cur == nullptr) {
         vio.vol_rsvd    = 0;
@@ -50,8 +51,8 @@ pdio_write(fds_threadpool *wr, fds_threadpool *rd, DiskReqTest *cur)
                oid.metaDigest[i] = random();
 
         buf = new ObjectBuf;
-        buf->size = 8 << diskio::DataIO::disk_io_blk_shift();
-        buf->data.reserve(buf->size);
+        buf_size = 8 << diskio::DataIO::disk_io_blk_shift();
+        (buf->data)->reserve(buf_size);
 
         /*
          * Randomly pick a tier
@@ -90,7 +91,7 @@ DiskReqTest::req_complete()
             if (tst_iter % 2) {
                 tst_wr->schedule(pdio_write, tst_wr, tst_rd, this);
             } else {
-                dat_buf->data.clear();
+                dat_buf->clear();
                 tst_rd->schedule(pdio_read, this);
             }
         } else {
@@ -108,9 +109,9 @@ DiskReqTest::req_verify()
 {
     std::string::iterator s1, s2;
 
-    s1 = dat_buf->data.begin();
-    s2 = tst_verf.data.begin();
-    for (uint i = 0; i < dat_buf->size; i++) {
+    s1 = (dat_buf->data)->begin();
+    s2 = (tst_verf.data)->begin();
+    for (uint i = 0; i < dat_buf->getSize(); i++) {
         fds_verify(*s1 == *s2);
         s1++;
         s2++;
@@ -126,17 +127,17 @@ DiskReqTest::req_gen_pattern()
     char *p, start, save[200];
     std::string::iterator s1, s2;
 
-    fds_verify(dat_buf->size == tst_verf.size);
+    fds_verify(dat_buf->getSize() == tst_verf.getSize());
 //    snprintf(save, sizeof(save), "[0x%p] - 0x%llx 0x%llx", this,
 //             idx_oid.oid_hash_hi, idx_oid.oid_hash_lo);
     // not sure  can memcpy  -- SAN 
     memcpy(save, idx_oid.metaDigest, sizeof(idx_oid));
     p  = save;
-    s1 = dat_buf->data.begin();
-    s2 = tst_verf.data.begin();
+    s1 = (dat_buf->data)->begin();
+    s2 = (tst_verf.data)->begin();
 
     start = (idx_oid.metaDigest[1] % 2) ? 'A' : 'a';
-    for (uint i = 0; i < dat_buf->size; i++) {
+    for (uint i = 0; i < dat_buf->getSize(); i++) {
         if (*p != '\0') {
             *s1 = *p;
             *s2 = *p;
