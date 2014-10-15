@@ -710,7 +710,7 @@ class FdsConfigRun(object):
 
         self.rt_env = env
         if self.rt_env is None:
-            self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.clus_inst, _fds_source_dir=opt.fds_source_dir,
+            self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.tar_file, _fds_source_dir=opt.fds_source_dir,
                                       _verbose=opt.verbose, _test_harness=test_harness)
 
         self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
