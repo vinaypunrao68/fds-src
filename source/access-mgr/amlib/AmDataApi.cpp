@@ -413,7 +413,8 @@ AmDataApi::updateBlobOnce(boost::shared_ptr<std::string>& domainName,
     fds_verify(objectOffset->value >= 0);
 
     // Create context handler
-    PutObjectResponseHandler putHandler;
+    UpdateBlobResponseHandler::ptr putHandler(
+        new UpdateBlobResponseHandler());
 
     FdsBlobReq *blobReq = new PutBlobReq(invalid_vol_id,
                                          *volumeName,
@@ -423,12 +424,11 @@ AmDataApi::updateBlobOnce(boost::shared_ptr<std::string>& domainName,
                                          const_cast<char *>(bytes->c_str()),
                                          *blobMode,
                                          metadata,
-                                         fn_PutObjectHandler,
-                                         static_cast<void *>(&putHandler));
+                                         putHandler);
     storHvisor->enqueueBlobReq(blobReq);
 
     // Wait for a signal from the callback thread
-    putHandler.wait();
+    putHandler->wait();
 
     io_log_counter++;
     if ((io_log_counter % io_log_interval) == 0) {
@@ -438,10 +438,10 @@ AmDataApi::updateBlobOnce(boost::shared_ptr<std::string>& domainName,
     }
     LOGDEBUG << "Finishing updateBlobOnce for blob " << *blobName
              << " at object offset " << objectOffset->value
-             << " status:" << putHandler.status;
+             << " status:" << putHandler->status;
 
         // Throw an exception if we didn't get an OK response
-    if (putHandler.status != ERR_OK) {
+    if (putHandler->status != ERR_OK) {
         apis::ApiException fdsE;
         throw fdsE;
     }
@@ -480,7 +480,9 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
     fds_verify(objectOffset->value >= 0);
 
     // Create context handler
-    PutObjectResponseHandler putHandler;
+    // PutObjectResponseHandler putHandler;
+    UpdateBlobResponseHandler::ptr putHandler(
+        new UpdateBlobResponseHandler());
 
     // Setup the transcation descriptor
     BlobTxId::ptr blobTxDesc(new BlobTxId(
@@ -497,12 +499,11 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
                                          &bucket_ctx,
                                          NULL,
                                          NULL,
-                                         fn_PutObjectHandler,
-                                         static_cast<void *>(&putHandler));
+                                         putHandler);
     storHvisor->enqueueBlobReq(blobReq);
 
     // Wait for a signal from the callback thread
-    putHandler.wait();
+    putHandler->wait();
 
     io_log_counter++;
     if ((io_log_counter % io_log_interval) == 0) {
@@ -514,7 +515,7 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
              << " at object offset " << objectOffset->value;
 
     // Throw an exception if we didn't get an OK response
-    if (putHandler.status != ERR_OK) {
+    if (putHandler->status != ERR_OK) {
         apis::ApiException fdsE;
         throw fdsE;
     }

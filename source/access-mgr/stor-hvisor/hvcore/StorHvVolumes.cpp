@@ -588,9 +588,10 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        BucketContext* _bucket_ctxt,
                        PutPropertiesPtr _put_props,
                        void* _req_context,
-                       fdsnPutObjectHandler _put_obj_handler,
-                       void* _callback_data)
-: FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
+                       CallbackPtr _cb)
+// fdsnPutObjectHandler _put_obj_handler,
+// void* _callback_data)
+                       : FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
              _data_len, _data_buf, FDS_NativeAPI::DoCallback,
              this, Error(ERR_OK), 0),
     lastBuf(_last_buf),
@@ -598,13 +599,14 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
     ObjKey(_blob_name),
     putProperties(_put_props),
     req_context(_req_context),
-    putObjCallback(_put_obj_handler),
-    callback_data(_callback_data),
+                     // putObjCallback(_put_obj_handler),
+                     // callback_data(_callback_data),
     txDesc(_txDesc),
     respAcks(2),
     retStatus(ERR_OK)
 {
     volumeName = _volumeName;
+    cb = _cb;
     stopWatch.start();
     e2eReqPerfCtx.type = AM_PUT_OBJ_REQ;
     e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
@@ -633,8 +635,9 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                        char*                _data_buf,
                        fds_int32_t          _blobMode,
                        boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
-                       fdsnPutObjectHandler _put_obj_handler,
-                       void*                _callback_data)
+                       CallbackPtr _cb)
+// fdsnPutObjectHandler _put_obj_handler,
+// void*                _callback_data)
         : FdsBlobReq(FDS_PUT_BLOB_ONCE, _volid, _blob_name, _blob_offset,
                      _data_len, _data_buf, FDS_NativeAPI::DoCallback,
                      this, Error(ERR_OK), 0),
@@ -642,11 +645,12 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                 txDesc(NULL),
                 blobMode(_blobMode),
                 metadata(_metadata),
-                putObjCallback(_put_obj_handler),
-                callback_data(_callback_data),
+                     // putObjCallback(_put_obj_handler),
+                     // callback_data(_callback_data),
                 respAcks(2),
                 retStatus(ERR_OK) {
     volumeName = _volumeName;
+    cb = _cb;
     stopWatch.start();
     e2eReqPerfCtx.type = AM_PUT_OBJ_REQ;
     e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
@@ -673,6 +677,17 @@ PutBlobReq::~PutBlobReq()
     storHvisor->getCounters().puts_latency.update(stopWatch.getElapsedNanos());
 }
 
+void
+PutBlobReq::notifyResponse(AmQosReq* qosReq, const Error &e) {
+    respAcks--;
+    fds_verify(respAcks >= 0);
+
+    if (respAcks == 0) {
+        // Call back to processing layer
+        processorCb(e);
+    }
+}
+
 void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl,
                                 fds::AmQosReq* qosReq, const Error &e)
 {
@@ -692,25 +707,30 @@ void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl,
     DBG(LOGDEBUG << "cnt: " << cnt << e);
 
     if (cnt == 0) {
-        if ((ioType == FDS_PUT_BLOB_ONCE) && (e == ERR_OK)) {
-            // Push the commited update to the cache and remove from manager
-            // We push here because we ONCE messages don't have an explicit
-            // commit and here is where we know we've actually committed
-            // to SM and DM.
-            // TODO(Andrew): Inserting the entire tx transaction currently
-            // assumes that the tx descriptor has all of the contents needed
-            // for a blob descriptor (e.g., size, version, etc..). Today this
-            // is true for S3/Swift and doesn't get used anyways for block (so
-            // the actual cached descriptor for block will not be correct).
-            AmTxDescriptor::ptr txDescriptor;
-            fds_verify(storHvisor->amTxMgr->getTxDescriptor(*txDesc,
-                                                            txDescriptor) == ERR_OK);
-            fds_verify(storHvisor->amCache->putTxDescriptor(txDescriptor) == ERR_OK);
-            fds_verify(storHvisor->amTxMgr->removeTx(*txDesc) == ERR_OK);
+        if (storHvisor->toggleNewPath) {
+            if ((ioType == FDS_PUT_BLOB_ONCE) && (e == ERR_OK)) {
+                // Push the commited update to the cache and remove from manager
+                // We push here because we ONCE messages don't have an explicit
+                // commit and here is where we know we've actually committed
+                // to SM and DM.
+                // TODO(Andrew): Inserting the entire tx transaction currently
+                // assumes that the tx descriptor has all of the contents needed
+                // for a blob descriptor (e.g., size, version, etc..). Today this
+                // is true for S3/Swift and doesn't get used anyways for block (so
+                // the actual cached descriptor for block will not be correct).
+                AmTxDescriptor::ptr txDescriptor;
+                fds_verify(storHvisor->amTxMgr->getTxDescriptor(*txDesc,
+                                                                txDescriptor) == ERR_OK);
+                fds_verify(storHvisor->amCache->putTxDescriptor(txDescriptor) == ERR_OK);
+                fds_verify(storHvisor->amTxMgr->removeTx(*txDesc) == ERR_OK);
+            }
+            qos_ctrl->markIODone(qosReq);
+            cb->call(e);
+            delete this;
+        } else {
+            // Call back to processing layer
+            processorCb(e);
         }
-        qos_ctrl->markIODone(qosReq);
-        cbWithResult(retStatus.GetErrno());
-        delete this;
     }
 }
 
