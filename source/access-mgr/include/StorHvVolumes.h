@@ -249,7 +249,7 @@ class CommitBlobTxReq : public FdsBlobReq {
     BlobTxId::ptr txDesc;
 
     typedef std::function<void (const Error&)> CommitBlobProcCb;
-	CommitBlobProcCb processorCb;
+    CommitBlobProcCb processorCb;
 
     /**
      * Request constructor. Some of the fields

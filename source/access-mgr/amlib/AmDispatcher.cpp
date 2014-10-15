@@ -348,9 +348,8 @@ AmDispatcher::dispatchCommitBlobTx(AmQosReq *qosReq) {
     commitBlobTxMsg->blob_name    = blobReq->getBlobName();
     commitBlobTxMsg->blob_version = blob_version_invalid;
     commitBlobTxMsg->volume_id    = blobReq->getVolId();
-    commitBlobTxMsg->blob_mode    = blobReq->getBlobMode();
-    commitBlobTxMsg->txId         = blobReq->txId.getValue();
-    commitBlobTxMsg->dmt_version  = blobReq->dmtVersion;
+    commitBlobTxMsg->txId         = blobReq->getTxId()->getValue();
+    commitBlobTxMsg->dmt_version  = dmtMgr->getCommittedVersion();
 
     auto asyncCommitBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(

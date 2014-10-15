@@ -287,12 +287,12 @@ AmProcessor::commitBlobTx(AmQosReq *qosReq) {
 }
 
 void
-AmProcessor::commitBlobTxCb(const Error &error) {
-    StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
+AmProcessor::commitBlobTxCb(AmQosReq *qosReq, const Error &error) {
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
-    fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
+    fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
 
-    StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
+    StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(CommitBlobTxCallback,
                                                   blobReq->cb);
 
     if (error.ok()) {
