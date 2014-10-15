@@ -13,7 +13,7 @@ Error GetBucketHandler::handleRequest(BucketContext* bucket_context,
                                       CallbackPtr cb) {
     StorHvCtrl::BlobRequestHelper helper(storHvisor, bucket_context->bucketName);
     LOGDEBUG <<" volume:" << bucket_context->bucketName;
-    helper.blobReq = new ListBucketReq(helper.volId,
+    helper.blobReq = new VolumeContentsReq(helper.volId,
                                        bucket_context,
                                        maxkeys,
                                        cb);
@@ -67,7 +67,7 @@ Error GetBucketHandler::handleQueueItem(AmQosReq *qosReq) {
     }
 
     GetBucketMsgPtr message(new GetBucketMsg());
-    ListBucketReq* blobReq = static_cast<ListBucketReq*>(helper.blobReq);
+    VolumeContentsReq* blobReq = static_cast<VolumeContentsReq*>(helper.blobReq);
     message->volume_id = blobReq->getVolId();
     message->startPos  = 0;
     message->maxKeys   = blobReq->maxkeys;

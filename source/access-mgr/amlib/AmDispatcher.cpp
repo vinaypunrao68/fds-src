@@ -174,7 +174,7 @@ void
 AmDispatcher::dispatchDeleteBlob(AmQosReq *qosReq)
 {
     DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
-    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->magicInUse());
 
     fiu_do_on("am.uturn.dispatcher", blobReq->processorCb(ERR_OK); delete blobReq; return;);
 
@@ -379,7 +379,7 @@ void
 AmDispatcher::dispatchGetObject(AmQosReq *qosReq)
 {
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
-    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->magicInUse());
 
     fiu_do_on("am.uturn.dispatcher",
               GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb); \
@@ -463,7 +463,7 @@ AmDispatcher::getObjectCb(AmQosReq* qosReq,
 void
 AmDispatcher::dispatchQueryCatalog(AmQosReq *qosReq) {
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
-    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->magicInUse());
 
     fiu_do_on("am.uturn.dispatcher",
               blobReq->setObjId(ObjectID()); \
@@ -553,7 +553,7 @@ void
 AmDispatcher::dispatchStatBlob(AmQosReq *qosReq)
 {
     StatBlobReq* blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
-    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->magicInUse());
 
     fiu_do_on("am.uturn.dispatcher",
               StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, blobReq->cb); \
