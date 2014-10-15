@@ -1,0 +1,88 @@
+---
+-   name: install needed packages for devsetup
+    hosts: 127.0.0.1
+    sudo: yes
+
+    tasks:
+
+    - name: add JRE ppa
+      apt_repository: repo=ppa:webupd8team/java state=present
+
+    - name: add redis-server ppa
+      apt_repository: repo=ppa:chris-lea/redis-server state=present
+
+#    - name: add fds repo
+#      apt_repository: repo='deb http://coke.formationds.com:8000 fds test' state=present
+
+    - name: automatically select the oracle license
+      shell: echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
+
+    - name: install os packages
+      apt: name={{item}} state=present update_cache=yes cache_valid_time=600
+      with_items:
+        - git
+        - linux-generic
+        - linux-headers-generic
+        - linux-image-generic
+        - python3-distupgrade
+        - ubuntu-release-upgrader-core
+        - gdb
+        - build-essential
+        - python-software-properties
+        - software-properties-common
+        - redis-server
+        - redis-tools
+        - maven
+        - libudev-dev
+        - libparted0-dev
+        - python2.7
+        - python-dev
+        - python-pip
+        - python-boto
+        - libpcre3-dev
+        - libpcre3
+        - libssl-dev
+        - libfuse-dev
+        - libevent-dev
+        - libev-dev
+        - libfiu-dev
+        - fiu-utils
+        - bison
+        - flex
+        - ragel
+        - ccache
+        - libboost-log1.54-dev
+        - libboost-program-options1.54-dev
+        - libboost-timer1.54-dev
+        - libboost-thread1.54-dev
+        - libboost-regex1.54-dev
+        - libical-dev
+        - libical1
+        - libleveldb-dev
+        - libconfig++-dev
+        - oracle-java8-installer
+        - npm
+        - ruby
+        - ruby-sass
+        - python-paramiko
+        - python-redis
+        - python-requests
+        - python-boto
+        - python-argh
+        - python-thrift
+#        - fds-pkghelper
+#        - fds-pkg
+#        - fds-pkgtools
+#        - fds-systemdir
+#        - fds-coredump
+
+    - name: install pip packages
+      pip: name={{item}} state=present 
+      with_items:
+        - scp
+        - PyYAML
+        - tabulate
+        - xmlrunner
+
+    - name: create java home script
+      copy: src=jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755
