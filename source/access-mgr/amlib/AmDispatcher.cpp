@@ -77,6 +77,17 @@ AmDispatcher::getVolumeMetadataCb(AmQosReq* qosReq,
 }
 
 void
+AmDispatcher::dispatchAbortBlobTx(AmQosReq *qosReq) {
+}
+
+void
+AmDispatcher::abortBlobTxCb(AmQosReq *qosReq,
+                            QuorumSvcRequest *svcReq,
+                            const Error &error,
+                            boost::shared_ptr<std::string> payload) {
+}
+
+void
 AmDispatcher::dispatchStartBlobTx(AmQosReq *qosReq) {
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(
         qosReq->getBlobReqPtr());

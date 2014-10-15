@@ -69,6 +69,10 @@ AmProcessor::getVolumeMetadataCb(AmQosReq *qosReq,
 }
 
 void
+AmProcessor::abortBlobTx(AmQosReq *qosReq) {
+}
+
+void
 AmProcessor::startBlobTx(AmQosReq *qosReq) {
     // Get the blob request
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
@@ -256,6 +260,11 @@ AmProcessor::statBlob(AmQosReq *qosReq) {
     blobReq->base_vol_id = volTable->getBaseVolumeId(volId);
     blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::statBlobCb, qosReq);
     amDispatcher->dispatchStatBlob(qosReq);
+}
+
+void
+AmProcessor::abortBlobTxCb(AmQosReq *qosReq,
+                           const Error &error) {
 }
 
 void
