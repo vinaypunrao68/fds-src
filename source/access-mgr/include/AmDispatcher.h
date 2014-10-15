@@ -6,6 +6,7 @@
 
 #include <string>
 #include <fds_module.h>
+#include <AmCache.h>
 #include <StorHvVolumes.h>
 #include <net/SvcRequest.h>
 
@@ -27,6 +28,7 @@ class AmDispatcher : public Module, public boost::noncopyable {
      * iterface with platform lib.
      */
     AmDispatcher(const std::string &modName,
+                 DLTManagerPtr _dltMgr,
                  DMTManagerPtr _dmtMgr);
     ~AmDispatcher();
     typedef std::unique_ptr<AmDispatcher> unique_ptr;
@@ -38,6 +40,24 @@ class AmDispatcher : public Module, public boost::noncopyable {
     int mod_init(SysParams const *const param);
     void mod_startup();
     void mod_shutdown();
+
+    /**
+     * Dipatches a get volume metadata request.
+     */
+    void dispatchGetVolumeMetadata(AmQosReq *qosReq);
+
+    /**
+     * Callback for get volume metadata responses.
+     */
+    void getVolumeMetadataCb(AmQosReq* qosReq,
+                             FailoverSvcRequest* svcReq,
+                             const Error& error,
+                             boost::shared_ptr<std::string> payload);
+
+    /**
+     * Aborts a blob transaction request.
+     */
+    void dispatchAbortBlobTx(AmQosReq *qosReq);
 
     /**
      * Dipatches a start blob transaction request.
@@ -52,13 +72,71 @@ class AmDispatcher : public Module, public boost::noncopyable {
                        const Error& error,
                        boost::shared_ptr<std::string> payload);
 
+    /**
+     * Dispatches a delete blob transaction request.
+     */
+    void dispatchDeleteBlob(AmQosReq *qosReq);
+
+    /**
+     * Dispatches a start blob transaction request.
+     */
+    void dispatchGetObject(AmQosReq *qosReq);
+
+    void dispatchQueryCatalog(AmQosReq *qosReq);
+
+    /**
+     * Dispatches a stat blob transaction request.
+     */
+    void dispatchStatBlob(AmQosReq *qosReq);
+
   private:
-    /// Shared ptr to the DMT manager used for deciding who
-    /// to dispatch to
+    /// Shared ptrs to the DLT and DMT managers used
+    /// for deciding who to dispatch to
+    DLTManagerPtr dltMgr;
     DMTManagerPtr dmtMgr;
 
     /// Uturn test all network requests
     fds_bool_t uturnAll;
+
+    /**
+     * Callback for delete blob responses.
+     */
+    void abortBlobTxCb(AmQosReq *qosReq,
+                       QuorumSvcRequest* svcReq,
+                       const Error& error,
+                       boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for delete blob responses.
+     */
+    void deleteBlobCb(AmQosReq *qosReq,
+                      QuorumSvcRequest* svcReq,
+                      const Error& error,
+                      boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for get blob responses.
+     */
+    void getObjectCb(AmQosReq* qosReq,
+                     FailoverSvcRequest* svcReq,
+                     const Error& error,
+                     boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for catalog query responses.
+     */
+    void getQueryCatalogCb(AmQosReq* qosReq,
+                           FailoverSvcRequest* svcReq,
+                           const Error& error,
+                           boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for stat blob responses.
+     */
+    void statBlobCb(AmQosReq *qosReq,
+                    FailoverSvcRequest* svcReq,
+                    const Error& error,
+                    boost::shared_ptr<std::string> payload);
 };
 
 }  // namespace fds

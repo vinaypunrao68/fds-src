@@ -12,8 +12,8 @@ import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.AsyncResourcePool;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.blob.Mode;
-import io.netty.buffer.ByteBuf;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.thrift.TException;
 import org.apache.thrift.async.AsyncMethodCallback;
 import org.eclipse.jetty.io.ByteBufferPool;
 import org.joda.time.DateTime;
@@ -30,24 +30,45 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 public class XdiAsync {
+    private final AuthenticationToken token;
     private AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool;
     private Authorizer authorizer;
     private AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool;
     private ByteBufferPool bufferPool;
-    private final AuthenticationToken token;
+    private ConfigurationApi configurationApi;
     private AsyncRequestStatistics statistics;
 
     public XdiAsync(Authorizer authorizer,
                     AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool,
                     AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool,
                     ByteBufferPool bufferPool,
-                    AuthenticationToken token) {
+                    AuthenticationToken token,
+                    ConfigurationApi configurationApi) {
         this.authorizer = authorizer;
         this.csPool = csPool;
         this.amPool = amPool;
         this.bufferPool = bufferPool;
         this.token = token;
+        this.configurationApi = configurationApi;
         statistics = new AsyncRequestStatistics();
+    }
+
+    private static <T, R> AsyncMethodCallback<T> makeThriftCallbacks(CompletableFuture<R> future, FunctionWithExceptions<T, R> extractor) {
+        return new AsyncMethodCallback<T>() {
+            @Override
+            public void onComplete(T result) {
+                try {
+                    future.complete(extractor.apply(result));
+                } catch (Exception ex) {
+                    future.completeExceptionally(ex);
+                }
+            }
+
+            @Override
+            public void onError(Exception e) {
+                future.completeExceptionally(e);
+            }
+        };
     }
 
     public XdiAsync withStats(AsyncRequestStatistics statistics) {
@@ -74,7 +95,8 @@ public class XdiAsync {
                     cf.complete(null);
                 } catch (Exception e) {
                     cf.completeExceptionally(e);
-                }});
+                }
+            });
             return cf;
         });
     }
@@ -103,7 +125,7 @@ public class XdiAsync {
         // TODO: do we need to worry about limiting reads?
         ArrayList<CompletableFuture<ByteBuffer>> readFutures = new ArrayList<>();
         for (FdsObjectFrame frame : FdsObjectFrame.frames(0, blobInfo.blobDescriptor.byteCount, objectSize)) {
-            if(frame.objectOffset == 0)
+            if (frame.objectOffset == 0)
                 readFutures.add(CompletableFuture.completedFuture(blobInfo.object0));
             else
                 readFutures.add(getBlob(blobInfo.domain, blobInfo.volume, blobInfo.blob, frame.objectOffset, frame.internalLength));
@@ -123,13 +145,13 @@ public class XdiAsync {
                     .thenCompose(volumeDescriptor -> firstPut(new PutParameters(domain, volume, blob, reader, volumeDescriptor.getPolicy().getMaxObjectSizeInBytes(), asmd, metadata), 0))
                     .thenCompose(_completion -> asmd.get())
                     .thenApply(digestBytes -> new PutResult(digestBytes));
-        } catch(NoSuchAlgorithmException ex) {
+        } catch (NoSuchAlgorithmException ex) {
             return CompletableFutureUtility.exceptionFuture(ex);
         }
     }
 
     private ByteBuffer condenseBuffer(ByteBuffer buffer) {
-        if(buffer.remaining() < buffer.capacity() / 2) {
+        if (buffer.remaining() < buffer.capacity() / 2) {
             ByteBuffer targetBuffer = ByteBuffer.allocate(buffer.remaining()); //bufferPool.acquire(buffer.remaining(), false);
             targetBuffer.limit(targetBuffer.capacity());
             targetBuffer.put(buffer);
@@ -200,7 +222,7 @@ public class XdiAsync {
             CompletableFuture<Void> digestFuture = putParameters.digest.update(condensedBuffer);
             CompletableFuture<Void> writeFuture = null;
             CompletableFuture<Void> readNextFuture = null;
-            if(condensedBuffer.remaining() == 0) {
+            if (condensedBuffer.remaining() == 0) {
                 bufferPool.release(condensedBuffer);
                 writeFuture = CompletableFuture.<Void>completedFuture(null);
             } else {
@@ -209,7 +231,7 @@ public class XdiAsync {
                         .whenComplete((r, ex) -> bufferPool.release(condensedBuffer));
             }
 
-            if(condensedBuffer.remaining() < putParameters.objectSize)
+            if (condensedBuffer.remaining() < putParameters.objectSize)
                 readNextFuture = CompletableFuture.<Void>completedFuture(null);
             else
                 readNextFuture = digestFuture.thenCompose(_digestCompletion -> putSequence(putParameters, tx, objectOffset + 1));
@@ -221,27 +243,38 @@ public class XdiAsync {
     public <T> CompletableFuture<T> amUseVolume(String volume, AsyncResourcePool.BindWithException<XdiClientConnection<AmService.AsyncIface>, CompletableFuture<T>> operation) {
         if(authorizer.hasAccess(token, volume)) {
             CompletableFuture<Void> poolWaitTime = statistics.time("amPoolWaitTime", new CompletableFuture<>());
-            return amPool.use(am -> { poolWaitTime.complete(null); statistics.note("am connection pool sample: " + amPool.getUsedCount()); return operation.apply(am); }  );
+            return amPool.use(am -> {
+                poolWaitTime.complete(null);
+                statistics.note("am connection pool sample: " + amPool.getUsedCount());
+                return operation.apply(am);
+            });
         } else {
             return CompletableFutureUtility.exceptionFuture(new SecurityException());
         }
     }
 
     public <T> CompletableFuture<T> csUseVolume(String volume, AsyncResourcePool.BindWithException<XdiClientConnection<ConfigurationService.AsyncIface>, CompletableFuture<T>> operation) {
-        if(authorizer.hasAccess(token, volume)) {
+        if (authorizer.hasAccess(token, volume)) {
             CompletableFuture<Void> poolWaitTime = statistics.time("csPoolWaitTime", new CompletableFuture<>());
-            return csPool.use(cs -> { poolWaitTime.complete(null);  return operation.apply(cs); });
+            return csPool.use(cs -> {
+                poolWaitTime.complete(null);
+                return operation.apply(cs);
+            });
         } else {
             return CompletableFutureUtility.exceptionFuture(new SecurityException());
         }
     }
 
     public CompletableFuture<VolumeDescriptor> statVolume(String domain, String volume) {
-        return csUseVolume(volume, cs -> {
-            CompletableFuture<VolumeDescriptor> result = statistics.time("statVolume", new CompletableFuture<>());
-            cs.getClient().statVolume(domain, volume, makeThriftCallbacks(result, r -> r.getResult()));
-            return result;
-        });
+        CompletableFuture<VolumeDescriptor> cf = new CompletableFuture<>();
+        try {
+            VolumeDescriptor volumeDescriptor = configurationApi.statVolume(domain, volume);
+            cf.complete(volumeDescriptor);
+        } catch (TException e) {
+            cf.completeExceptionally(e);
+        }
+
+        return cf;
     }
 
     public CompletableFuture<BlobDescriptor> statBlob(String domain, String volume, String blob) {
@@ -274,6 +307,78 @@ public class XdiAsync {
             am.getClient().startBlobTx(domain, volume, blob, mode, makeThriftCallbacks(result, r -> new TransactionHandle(domain, volume, blob, r.getResult())));
             return result;
         });
+    }
+
+    private <T> CompletableFuture<T> thenComposeExceptionally(CompletableFuture<T> future, Function<Throwable, CompletableFuture<Void>> handler) {
+        CompletableFuture<T> result = new CompletableFuture<>();
+
+        future.whenComplete((r, ex) -> {
+            if (ex == null)
+                result.complete(r);
+            else
+                handler.apply(ex).thenApply(_null -> result.completeExceptionally(ex));
+        });
+
+        return result;
+    }
+
+    // TODO: factor this stuff into somewhere more accessible
+    private interface FunctionWithExceptions<TIn, TOut> {
+        public TOut apply(TIn input) throws Exception;
+    }
+
+    private static class PutParameters {
+        public final String domain;
+        public final String volume;
+        public final String blob;
+        public final Function<ByteBuffer, CompletableFuture<Void>> reader;
+        public final int objectSize;
+        public final AsyncMessageDigest digest;
+        public final Map<String, String> metadata;
+
+        private PutParameters(String domain, String volume, String blob, Function<ByteBuffer, CompletableFuture<Void>> reader, int objectSize, AsyncMessageDigest digest, Map<String, String> metadata) {
+            this.domain = domain;
+            this.volume = volume;
+            this.blob = blob;
+            this.reader = reader;
+            this.objectSize = objectSize;
+            this.digest = digest;
+            this.metadata = metadata;
+        }
+
+        private CompletableFuture<Map<String, String>> getFinalizedMetadata() {
+            HashMap<String, String> md = new HashMap<>(metadata);
+            md.computeIfAbsent(Xdi.LAST_MODIFIED, lm -> Long.toString(DateTime.now().getMillis()));
+            return digest.get()
+                    .thenApply(bytes -> {
+                        md.put("etag", Hex.encodeHexString(bytes));
+                        return md;
+                    });
+        }
+    }
+
+    public static class Factory {
+        private final Authorizer authorizer;
+        private final AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool;
+        private final AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool;
+        private final ByteBufferPool bufferPool;
+        private ConfigurationApi configurationApi;
+
+        public Factory(Authorizer authorizer,
+                       AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool,
+                       AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool,
+                       ByteBufferPool bufferPool,
+                       ConfigurationApi configurationApi) {
+            this.authorizer = authorizer;
+            this.csPool = csPool;
+            this.amPool = amPool;
+            this.bufferPool = bufferPool;
+            this.configurationApi = configurationApi;
+        }
+
+        public XdiAsync createAuthenticated(AuthenticationToken token) {
+            return new XdiAsync(authorizer, csPool, amPool, bufferPool, token, configurationApi);
+        }
     }
 
     public class PutResult {
@@ -330,72 +435,6 @@ public class XdiAsync {
         }
     }
 
-    // TODO: factor this stuff into somewhere more accessible
-    private interface FunctionWithExceptions<TIn, TOut> {
-        public TOut apply(TIn input) throws Exception;
-    }
-
-    private <T> CompletableFuture<T> thenComposeExceptionally(CompletableFuture<T> future, Function<Throwable, CompletableFuture<Void>> handler) {
-        CompletableFuture<T> result = new CompletableFuture<>();
-
-        future.whenComplete((r, ex) -> {
-            if(ex == null)
-                result.complete(r);
-            else
-                handler.apply(ex).thenApply(_null -> result.completeExceptionally(ex));
-        });
-
-        return result;
-    }
-
-    private static <T,R> AsyncMethodCallback<T> makeThriftCallbacks(CompletableFuture<R> future, FunctionWithExceptions<T, R> extractor) {
-        return new AsyncMethodCallback<T>() {
-            @Override
-            public void onComplete(T result) {
-                try {
-                    future.complete(extractor.apply(result));
-                } catch(Exception ex) {
-                    future.completeExceptionally(ex);
-                }
-            }
-
-            @Override
-            public void onError(Exception e) {
-                future.completeExceptionally(e);
-            }
-        };
-    }
-
-    private static class PutParameters {
-        public final String domain;
-        public final String volume;
-        public final String blob;
-        public final Function<ByteBuffer, CompletableFuture<Void>> reader;
-        public final int objectSize;
-        public final AsyncMessageDigest digest;
-        public final Map<String, String> metadata;
-
-        private PutParameters(String domain, String volume, String blob, Function<ByteBuffer, CompletableFuture<Void>> reader, int objectSize, AsyncMessageDigest digest, Map<String, String> metadata) {
-            this.domain = domain;
-            this.volume = volume;
-            this.blob = blob;
-            this.reader = reader;
-            this.objectSize = objectSize;
-            this.digest = digest;
-            this.metadata = metadata;
-        }
-
-        private CompletableFuture<Map<String,String>> getFinalizedMetadata() {
-            HashMap<String, String> md = new HashMap<>(metadata);
-            md.computeIfAbsent(Xdi.LAST_MODIFIED, lm -> Long.toString(DateTime.now().getMillis()));
-            return digest.get()
-                    .thenApply(bytes -> {
-                        md.put("etag", Hex.encodeHexString(bytes));
-                        return md;
-                    });
-        }
-    }
-
     public class BlobInfo {
         public String domain;
         public String volume;
@@ -411,27 +450,6 @@ public class XdiAsync {
             blobDescriptor = bd;
             volumeDescriptor = vd;
             this.object0 = object0;
-        }
-    }
-
-    public static class Factory {
-        private final Authorizer authorizer;
-        private final AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool;
-        private final AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool;
-        private final ByteBufferPool bufferPool;
-
-        public Factory(Authorizer authorizer,
-                               AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool,
-                               AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool,
-                               ByteBufferPool bufferPool) {
-            this.authorizer = authorizer;
-            this.csPool = csPool;
-            this.amPool = amPool;
-            this.bufferPool = bufferPool;
-        }
-
-        public XdiAsync createAuthenticated(AuthenticationToken token) {
-            return new XdiAsync(authorizer, csPool, amPool, bufferPool, token);
         }
     }
 }

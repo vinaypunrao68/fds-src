@@ -102,10 +102,17 @@ public class VolumeBuilder {
   public Volume build() {
     Volume volume = new Volume();
     volume.setName( name );
-    volume.setLimit( limit );
-    volume.setSla( sla );
+    if( limit != null ) {
+      volume.setLimit( limit );
+    }
+    if( sla != null ) {
+      volume.setSla( sla );
+    }
     volume.setId( id );
-    volume.setPriority( priority );
+
+    if( priority != null ) {
+      volume.setPriority( priority );
+    }
     volume.setData_connector( data_connector );
     volume.setCurrent_usage( current_usage );
     return volume;

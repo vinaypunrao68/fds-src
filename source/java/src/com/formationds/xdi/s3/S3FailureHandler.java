@@ -17,23 +17,6 @@ public class S3FailureHandler implements Function<AuthenticationToken, RequestHa
         this.supplier = supplier;
     }
 
-    @Override
-    public RequestHandler apply(AuthenticationToken authenticationToken) {
-        return (request, routeParameters) -> {
-            String requestedResource = request.getRequestURI();
-
-            try {
-                return supplier.apply(authenticationToken).handle(request, routeParameters);
-            } catch (ApiException e) {
-                return makeS3Failure(requestedResource, e);
-            } catch (SecurityException e) {
-                return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", requestedResource);
-            } catch (ServletException e) {
-                return new S3Failure(S3Failure.ErrorCode.InvalidRequest, e.getMessage(), requestedResource);
-            }
-        };
-    }
-
     public static S3Failure makeS3Failure(String requestedResource, ApiException e) {
         switch (e.getErrorCode()) {
             case MISSING_RESOURCE:
@@ -49,7 +32,7 @@ public class S3FailureHandler implements Function<AuthenticationToken, RequestHa
                 return new S3Failure(S3Failure.ErrorCode.ServiceUnavailable, "The service is unavailable (no storage nodes?)", requestedResource);
 
             case RESOURCE_ALREADY_EXISTS:
-                return new S3Failure(S3Failure.ErrorCode.BucketAlreadyExists, "Bucket already exists", requestedResource);
+                return new S3Failure(S3Failure.ErrorCode.BucketAlreadyExists, "The requested bucket name is not available. The bucket namespace is shared by all users of the system. Please select a different name and try again.", requestedResource);
 
             case RESOURCE_NOT_EMPTY:
                 return new S3Failure(S3Failure.ErrorCode.BucketNotEmpty, "Bucket is not empty", requestedResource);
@@ -57,5 +40,22 @@ public class S3FailureHandler implements Function<AuthenticationToken, RequestHa
             default:
                 return new S3Failure(S3Failure.ErrorCode.InternalError, e.getMessage(), requestedResource);
         }
+    }
+
+    @Override
+    public RequestHandler apply(AuthenticationToken authenticationToken) {
+        return (request, routeParameters) -> {
+            String requestedResource = request.getRequestURI();
+
+            try {
+                return supplier.apply(authenticationToken).handle(request, routeParameters);
+            } catch (ApiException e) {
+                return makeS3Failure(requestedResource, e);
+            } catch (SecurityException e) {
+                return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", requestedResource);
+            } catch (ServletException e) {
+                return new S3Failure(S3Failure.ErrorCode.InvalidRequest, e.getMessage(), requestedResource);
+            }
+        };
     }
 }

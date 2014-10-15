@@ -136,7 +136,7 @@ int
 main(int argc, char** argv) {
     volTbl = new StorMgrVolumeTable();
     objectStore = ObjectStore::unique_ptr(
-        new ObjectStore("Unit Test Object Store", volTbl));
+        new ObjectStore("Unit Test Object Store", NULL, volTbl));
 
     fds::Module *smVec[] = {
         &diskio::gl_dataIOMod,

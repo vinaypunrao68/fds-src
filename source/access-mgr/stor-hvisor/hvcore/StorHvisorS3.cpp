@@ -24,8 +24,6 @@ using namespace std;
 using namespace FDS_ProtocolInterface;
 typedef fds::hash::Sha1 GeneratorHash;
 
-std::atomic_uint nextIoReqId;
-
 StorHvCtrl::TxnResponseHelper::TxnResponseHelper(StorHvCtrl* storHvisor,
                                                  fds_volid_t  volId, fds_uint32_t txnId)
         : storHvisor(storHvisor), txnId(txnId), volId(volId)
@@ -225,40 +223,6 @@ fds::Error StorHvCtrl::BlobRequestHelper::processRequest() {
 
     // if we are here, bucket is not attached to this AM, send test bucket msg to OM
     return storHvisor->sendTestBucketToOM(volumeName, "", "");
-}
-
-fds::Error StorHvCtrl::pushBlobReq(fds::FdsBlobReq *blobReq) {
-    fds_verify(blobReq->magicInUse() == true);
-    fds::Error err(ERR_OK);
-
-    fds::PerfTracer::tracePointBegin(blobReq->e2eReqPerfCtx); 
-    fds::PerfTracer::tracePointBegin(blobReq->qosPerfCtx); 
-    /*
-     * Pack the blobReq in to a qosReq to pass to QoS
-     */
-    fds_uint32_t reqId = atomic_fetch_add(&nextIoReqId, (fds_uint32_t)1);
-    AmQosReq *qosReq  = new AmQosReq(blobReq, reqId);
-    fds_volid_t volId = blobReq->getVolId();
-
-    fds::StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
-    if ((shVol == NULL) || (shVol->volQueue == NULL)) {
-        if (shVol)
-            shVol->readUnlock();
-        LOGERROR << "Volume and queueus are NOT setup for volume " << volId;
-        err = fds::ERR_INVALID_ARG;
-        fds::PerfTracer::tracePointEnd(blobReq->qosPerfCtx); 
-        delete qosReq;
-        return err;
-    }
-    /*
-     * TODO: We should handle some sort of success/failure here?
-     */
-    qos_ctrl->enqueueIO(volId, qosReq);
-    shVol->readUnlock();
-
-    LOGDEBUG << "Queued IO for vol " << volId;
-
-    return err;
 }
 
 /*

@@ -231,10 +231,9 @@ uint32_t ObjMetaData::getEstimatedSize() const
  */
 uint32_t ObjMetaData::serializeTo(ObjectBuf& buf) const
 {
-    Error ret = getSerialized(buf.data);
+    Error ret = getSerialized(*(buf.data));
     fds_assert(ret.ok());
-    buf.size = buf.data.size();
-    return buf.size;
+    return buf.getSize();
 }
 
 /**
@@ -244,7 +243,7 @@ uint32_t ObjMetaData::serializeTo(ObjectBuf& buf) const
  */
 bool ObjMetaData::deserializeFrom(const ObjectBuf& buf)
 {
-    Error ret = loadSerialized(buf.data);
+    Error ret = loadSerialized(*(buf.data));
     fds_assert(ret.ok());
     return ret.ok();
 }

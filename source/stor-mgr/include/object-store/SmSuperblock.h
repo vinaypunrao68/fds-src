@@ -6,6 +6,7 @@
 
 #include <string>
 #include <set>
+#include <map>
 
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmTokenPlacement.h>
@@ -99,8 +100,20 @@ struct SmSuperblockHeader {
 
     void initSuperblockHeader();
     Error validateSuperblockHeader();
-    void setSuperblockHeaderChecksum(const fds_checksum32_t chksum);
-    fds_checksum32_t getSuperblockHeaderChecksum();
+
+    inline void setSuperblockHeaderChecksum(const fds_checksum32_t chksum) {
+        SmSbHdrChecksum = chksum;
+    };
+
+    inline fds_checksum32_t getSuperblockHeaderChecksum() {
+        return SmSbHdrChecksum;
+    };
+
+    /* Utility function to validate the SM Superblock header.
+     */
+    inline void assertMagic() {
+        fds_assert(SmSbHdrMagic == SmSuperblockMagicValue);
+    };
 
     /* NOTE:
      *   Exclusively define the size of each variable and make sure there
@@ -151,11 +164,6 @@ struct SmSuperblockHeader {
     /* Structure is padded at this point.  The size of the data structure
      * should be modulo 512.
      */
-
-  private:
-    inline void assertMagic() {
-        fds_assert(SmSbHdrMagic == SmSuperblockMagicValue);
-    };
 } __attribute__((aligned(SM_SUPERBLOCK_SECTOR_SIZE)));
 
 /* compile time assert to check that the superblock header is 512 bytes aligned.
@@ -189,16 +197,27 @@ struct SmSuperblock {
 
     /* Set superblock checksum, which is the first 4 bytes of the superblock.
      */
-    void setSuperblockChecksum();
+    inline void setSuperblockChecksum();
+
+    /* Get superblock checksum value.
+     */
+    inline fds_checksum32_t getSuperblockChecksum() {
+        return Header.getSuperblockHeaderChecksum();
+    };
 
     /* Validity check for superblock.  Consists of checksum check and
      * header consistency check.
      */
     Error validateSuperblock();
 
+
     /* Initializes mainly the header of the superblock.
      */
     void initSuperblock();
+
+    /* == operator for superblock.
+     */
+    fds_bool_t operator ==(const SmSuperblock& rhs) const;
 
     /* POD data definitions.  Collection of superblock header and data.
      */
@@ -206,7 +225,7 @@ struct SmSuperblock {
     ObjectLocationTable olt;
 };
 
-/* compile time assert to check that the superblock header is
+/* compile time assert to check that the superblock header is properly aligned
  */
 static_assert((sizeof(struct SmSuperblock) % SM_SUPERBLOCK_SECTOR_SIZE) == 0,
               "size of the  struct SmSuperblock should be multiple of 512");
@@ -250,6 +269,11 @@ class SmSuperblockMgr {
                          const DiskLocMap & latestDiskMap,
                          SmTokenSet& smTokensOwned);
     Error syncSuperblock();
+    Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
+
+    /* Reconcile superblocks, is there is inconsistency.
+     */
+    Error reconcileSuperblock();
 
     /**
      * Get disk ID where given SM token resides on a given tier
@@ -264,6 +288,7 @@ class SmSuperblockMgr {
      * Will revisit this method when we have more SM token states
      */
     SmTokenSet getSmOwnedTokens() const;
+    SmTokenSet getSmOwnedTokens(fds_uint16_t diskId) const;
 
     /* Set of interfaces for unit testing */
     std::string SmSuperblockMgrTestGetFileName();
@@ -273,7 +298,21 @@ class SmSuperblockMgr {
                                      const SmSuperblockMgr& sbMgr);
 
   private:  // methods
-    std::string getSuperblockPath(const std::string& dir_path);
+    std::string
+    getSuperblockPath(const std::string& dir_path);
+
+    bool
+    checkPristineState();
+
+    size_t
+    countUniqChecksum(const std::multimap<fds_checksum32_t, uint16_t>& checksumMap);
+
+    void
+    checkDiskTopology(const DiskIdSet& newHDDs, const DiskIdSet& newSSDs);
+
+    DiskIdSet
+    diffDiskSet(const DiskIdSet& diskSet1, const DiskIdSet& diskSet2);
+
 
   private:
     /// Master superblock. The master copy will persist
@@ -299,6 +338,9 @@ class SmSuperblockMgr {
 
 std::ostream& operator<< (std::ostream &out,
                           const DiskLocMap& diskMap);
+
+boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
+                                            const DiskIdSet& diskIds);
 
 }  // namespace fds
 

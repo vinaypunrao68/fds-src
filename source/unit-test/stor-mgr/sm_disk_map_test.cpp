@@ -58,6 +58,22 @@ loadDiskMap(fds_uint32_t sm_count) {
     return smDiskMap;
 }
 
+boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
+                                            const SmTokenSet& toks) {
+    out << "tokens {";
+    if (toks.size() == 0) out << "none";
+    for (SmTokenSet::const_iterator cit = toks.cbegin();
+         cit != toks.cend();
+         ++cit) {
+        if (cit != toks.cbegin()) {
+            out << ", ";
+        }
+        out << *cit;
+    }
+    out << "}\n";
+    return out;
+}
+
 void
 printSmTokens(const SmDiskMap::const_ptr& smDiskMap) {
     SmTokenSet smToks = smDiskMap->getSmTokens();
@@ -79,6 +95,25 @@ TEST(SmDiskMap, basic) {
 
     SmDiskMap::ptr smDiskMap = loadDiskMap(sm_count);
     printSmTokens(smDiskMap);
+
+    // print disk ids
+    DiskIdSet diskIds = smDiskMap->getDiskIds(diskio::diskTier);
+    GLOGDEBUG << "HDD tier disk IDs " << diskIds;
+    for (DiskIdSet::const_iterator cit = diskIds.cbegin();
+         cit != diskIds.cend();
+         ++cit) {
+        SmTokenSet toks = smDiskMap->getSmTokens(*cit);
+        GLOGDEBUG << "Disk " << *cit << " " << toks;
+    }
+
+    diskIds = smDiskMap->getDiskIds(diskio::flashTier);
+    GLOGDEBUG << "Flash tier disk Ids " << diskIds;
+    for (DiskIdSet::const_iterator cit = diskIds.cbegin();
+         cit != diskIds.cend();
+         ++cit) {
+        SmTokenSet toks = smDiskMap->getSmTokens(*cit);
+        GLOGDEBUG << "Disk " << *cit << " " << toks;
+    }
 }
 
 TEST(SmDiskMap, up_down) {

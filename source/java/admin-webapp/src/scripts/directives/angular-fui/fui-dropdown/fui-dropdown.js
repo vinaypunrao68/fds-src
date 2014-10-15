@@ -6,14 +6,26 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
         replace: true,
         // items format is [{name: 'text', ...}, ...]
         // type is 'action' of 'select'
-        scope: {selected: '=', defaultLabel: '=', items: '=', background: '@', type: '@', callback: '=', backgroundColor: '@', skinny: '@', color: '@', border: '@'},
+        scope: {selected: '=', defaultLabel: '=', items: '=', background: '@', type: '@', callback: '=', backgroundColor: '@', skinny: '@', color: '@', border: '@', nameProperty: '@'},
         templateUrl: 'scripts/directives/angular-fui/fui-dropdown/fui-dropdown.html',
         controller: function( $scope, $element, $timeout ){
 
             $scope.leftShift = '0px';
+            $scope.td = false;
             $scope.open = false;
             $scope.currentLabel = $scope.defaultLabel;
 
+            if ( !angular.isDefined( $scope.nameProperty ) ){
+                $scope.nameProperty = 'name';
+            }
+            
+            // figure out if we're in a table and make css adjustment
+            var tdParents = $( $element[0] ).parents( 'td' );
+            
+            if ( angular.isDefined( tdParents ) && tdParents.length > 0 ){
+                $scope.td = true;
+            }
+            
             var positionList = function(){
 
                 // test whether the drop down will be on the screen.
@@ -50,7 +62,7 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
                         item = $scope.items[0];
                     }
 
-                    $scope.currentLabel = item.name;
+                    $scope.currentLabel = item[ $scope.nameProperty ];
                     $scope.selected = item;
                 }
                 else{
@@ -75,6 +87,10 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
 
             if ( !angular.isDefined( $attrs.type ) ){
                 $attrs.type = 'select';
+            }
+            
+            if ( !angular.isDefined( $attrs.nameProperty ) ){
+                $attrs.nameProperty = 'name';
             }
         }
     };

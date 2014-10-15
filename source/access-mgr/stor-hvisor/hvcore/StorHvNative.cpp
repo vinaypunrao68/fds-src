@@ -305,6 +305,7 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
     /* create request */
     start = end;
     blob_req = new GetBlobReq(volid,
+                              "", // Not used at the moment
                               blobName,
                               startByte,
                               buflen,
@@ -408,6 +409,7 @@ FDS_NativeAPI::PutBlobOnce(const std::string& volumeName,
     }
 
     FdsBlobReq *blob_req = new PutBlobReq(volid,
+                                          "",
                                           blobName,
                                           startByte,
                                           buflen,
@@ -461,6 +463,7 @@ FDS_NativeAPI::PutBlob(BucketContext *bucket_ctxt,
 
     /* create request */
     FdsBlobReq *blob_req = new PutBlobReq(volid,
+                                          "",
                                           ObjKey,
                                           startByte,
                                           buflen,

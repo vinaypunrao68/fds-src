@@ -14,6 +14,7 @@ user_no_style     := $(patsubst %.json,%.h,$(user_json) adapter.h)
 user_cc           := ngx_modules.c
 user_cpp          := \
     test-main.cpp \
+    probe-adapter.cpp \
     adapter.cpp
 
 user_bin_exe      := example-s3

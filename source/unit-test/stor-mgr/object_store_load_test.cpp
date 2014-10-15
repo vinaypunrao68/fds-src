@@ -299,7 +299,7 @@ int main(int argc, char * argv[]) {
 
     // create data store
     objectStore = ObjectStore::unique_ptr(
-            new ObjectStore("Load Test Object Store", volTbl));
+                     new ObjectStore("Load Test Object Store", NULL, volTbl));
     std::cout << "Will test ObjectStore" << std::endl;
     LOGNOTIFY << "Will test ObjectStore";
 

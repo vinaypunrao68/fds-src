@@ -1,12 +1,12 @@
 <div ng-controller="adminController" style="padding-left: 15px" class="admin">
 
     <div class="header light-print admin-header">
-        <span>Admin Dashboard</span>
+        <span translate>admin.header</span>
     </div>
 
     <section class="form-section">
         <div>
-            <span class="light-print">System Version</span>
+            <span class="light-print" translate>admin.l_version</span>
         </div>
 
         <div class="version-text">
@@ -14,15 +14,15 @@
         </div>
         <div class="upgrade-panel" ng-show="isAllowed( 'TENANT_MGMT' )">
             <div>
-                <span>Update available: v1.06</span>
-                <span class="primary-color">Release notes</span>
+                <span>{{ 'admin.l_update_available' | translate }} v1.06</span>
+                <span class="primary-color" translate>admin.l_release_notes</span>
             </div>
             <div class="button-panel">
                 <span>
-                    <button class="btn btn-primary">Update Now</button>
+                    <button class="btn btn-primary" translate>admin.l_update</button>
                 </span>
                 <span>or</span>
-                <span class="primary-color">Rollback</span>
+                <span class="primary-color" translate>admin.l_rollback</span>
             </div>
         </div>
 
@@ -31,15 +31,15 @@
 
     <section class="form-section">
         <div>
-            <span class="light-print">Data Connectors</span>
+            <span class="light-print" translate>admin.l_data_connectors</span>
         </div>
 
         <div class="volume-data-type-panel open">
             <table class="default volumes">
                 <thead>
-                    <th>Data Type</th>
-                    <th>API</th>
-                    <th>Default Capacity</th>
+                    <th translate>admin.th_data_type</th>
+                    <th translate>admin.th_api</th>
+                    <th translate>admin.th_default_capacity</th>
                     <th></th>
                 </thead>
                 <tbody id="data-connectors">
@@ -59,8 +59,8 @@
                                     <div class="inline">
                                         <fui-dropdown skinny="true" background-color="#2486F8" items="sizes" selected="$parent._selectedUnit"></fui-dropdown>
                                     </div>
-                                    <button class="btn btn-primary skinny" ng-click="saveConnectorChanges( connector )">Save</button>
-                                    <button class="btn btn-secondary skinny" ng-click="stopEditing()">Cancel</button>
+                                    <button class="btn btn-primary skinny" ng-click="saveConnectorChanges( connector )" translate>common.l_save</button>
+                                    <button class="btn btn-secondary skinny" ng-click="stopEditing()" translate>common.l_cancel</button>
                                 </div>
                             </span>
                         </td>
@@ -75,7 +75,7 @@
 
     <section class="form-section log-and-alert-panel" ng-show="isAllowed( 'TENANT_MGMT' )">
         <div class="spacer">
-            <span class="light-print">Log and Alert Settings</span>
+            <span class="light-print" translate>admin.l_log_alert</span>
         </div>
         <div>
             <fui-dropdown skinny="true" items="levels" selected="alertLevel" color="black" background="none" border="gray"></fui-dropdown>

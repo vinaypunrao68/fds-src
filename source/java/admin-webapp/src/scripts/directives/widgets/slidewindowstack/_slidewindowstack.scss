@@ -5,6 +5,7 @@
     height: 100%;
     padding-right: 4px;
     padding-left: 4px;
+    overflow-x: hidden;
     
     @include transition( linear, 200ms );
 }

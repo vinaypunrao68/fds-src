@@ -3,8 +3,8 @@ speedup           := -j 3
 user_build_dir    := \
     shared       \
     s3           \
+    am pm sm     \
     thrift       \
-    pm sm        \
     sm-embed     \
     s3-template  \
     blk-template \

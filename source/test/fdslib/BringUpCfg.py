@@ -35,7 +35,7 @@ class FdsConfig(object):
 #
 class FdsNodeConfig(FdsConfig):
     def __init__(self, name, items, verbose):
-        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_connect_agent')
+        log = logging.getLogger(self.__class__.__name__ + '.' + '__init__')
 
         super(FdsNodeConfig, self).__init__(items, verbose)
         self.nd_conf_dict['node-name'] = name
@@ -209,9 +209,11 @@ class FdsNodeConfig(FdsConfig):
         # When running from the test harness, we want to wait for results
         # but not assume we are running from an FDS package install.
         if test_harness:
-#            status = self.nd_agent.exec_wait('bash -c \"(nohup %s/platformd ' % bin_dir + port_arg +
-            status = self.nd_agent.exec_wait('bash -c \"(nohup %s/platformd ' % bin_dir +
-                                             ' > %s/pm.out 2>&1 &) \"' % log_dir)
+            cur_dir = os.getcwd()
+            os.chdir(bin_dir)
+            status = self.nd_agent.exec_wait('bash -c \"(nohup ./platformd --fds-root=%s > %s/pm.out 2>&1 &) \"' %
+                                                 (fds_dir, log_dir if self.nd_agent.env_install else "."))
+            os.chdir(cur_dir)
         else:
             status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
                                             ' > %s/pm.out' % log_dir)
@@ -296,20 +298,30 @@ class FdsNodeConfig(FdsConfig):
                 os.chdir(var_dir + '/core')
                 status = self.nd_agent.exec_wait('rm *.core')
 
-            #status = self.nd_agent.exec_wait('ls ' + tools_dir)
-            #if status != 0:
-            #    os.chdir(tools_dir)
-            #    status = self.nd_agent.exec_wait('./fds clean -i')
+            status = self.nd_agent.exec_wait('ls ' + tools_dir)
+            if status == 0:
+                os.chdir(tools_dir)
+                status = self.nd_agent.exec_wait('./fds clean -i')
 
             status = self.nd_agent.exec_wait('ls ' + dev_dir)
             if status == 0:
                 os.chdir(dev_dir)
-                status = self.nd_agent.exec_wait('rm -rf hdd-*/* && rm -f ssd-*/*')
+                status = self.nd_agent.exec_wait('rm -rf hdd-*/*')
+
+            status = self.nd_agent.exec_wait('ls ' + dev_dir)
+            if status == 0:
+                os.chdir(dev_dir)
+                status = self.nd_agent.exec_wait('rm -f ssd-*/*')
 
             status = self.nd_agent.exec_wait('ls ' + fds_dir)
             if status == 0:
                 os.chdir(fds_dir)
-                status = self.nd_agent.exec_wait('rm -r sys-repo/ && rm -r user-repo/')
+                status = self.nd_agent.exec_wait('rm -r sys-repo/')
+
+            status = self.nd_agent.exec_wait('ls ' + fds_dir)
+            if status == 0:
+                os.chdir(fds_dir)
+                status = self.nd_agent.exec_wait('rm -r user-repo/')
 
             status = self.nd_agent.exec_wait('ls ' + '/dev/shm')
             if status == 0:
@@ -698,7 +710,7 @@ class FdsConfigRun(object):
 
         self.rt_env = env
         if self.rt_env is None:
-            self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.clus_inst, _fds_source_dir=opt.fds_source_dir,
+            self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.tar_file, _fds_source_dir=opt.fds_source_dir,
                                       _verbose=opt.verbose, _test_harness=test_harness)
 
         self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)

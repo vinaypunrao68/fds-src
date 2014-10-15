@@ -8,115 +8,8 @@ describe( 'Testing volume creation permutations', function(){
     var createEl;
     var newText;
 
-    var mockVol = function(){
-        angular.module( 'volume-management', [] ).factory( '$volume_api', function(){
 
-            var volService = {};
-            volService.volumes = [];
-
-            volService.delete = function( volume ){
-
-                var temp = [];
-
-                volService.volumes.forEach( function( v ){
-                    if ( v.name != volume.name ){
-                        temp.push( v );
-                    }
-                });
-
-                volService.volumes = temp;
-            };
-
-            volService.save = function( volume, callback ){
-
-                volService.volumes.push( volume );
-
-                if ( angular.isDefined( callback ) ){
-                    callback( volume );
-                }
-            };
-
-            volService.getSnapshots = function( volumeId, callback, failure ){
-                //callback( [] );
-            };
-
-            volService.getSnapshotPoliciesForVolume = function( volumeId, callback, failure ){
-//                callback( [] );
-            };
-
-            volService.refresh = function(){};
-
-            return volService;
-        });
-
-        angular.module( 'volume-management' ).factory( '$data_connector_api', function(){
-
-            var api = {};
-            api.connectors = [];
-
-            var getConnectorTypes = function(){
-        //        return $http.get( '/api/config/data_connectors' )
-        //            .success( function( data ){
-        //                api.connectors = data;
-        //            });
-
-                api.connectors = [{
-                    type: 'Block',
-                    api: 'Basic, Cinder',
-                    options: {
-                        max_size: '100',
-                        unit: ['GB', 'TB', 'PB']
-                    },
-                    attributes: {
-                        size: '10',
-                        unit: 'GB'
-                    }
-                },
-                {
-                    type: 'Object',
-                    api: 'S3, Swift'
-                }];
-            }();
-
-            api.editConnector = function( connector ){
-
-                api.connectors.forEach( function( realConnector ){
-                    if ( connector.type === realConnector.type ){
-                        realConnector = connector;
-                    }
-                });
-            };
-
-            return api;
-        });
-    };
-
-    var mockSnap = function(){
-        angular.module( 'qos' ).factory( '$snapshot_api', ['$http', function( $http ){
-
-            var service = {};
-
-            service.createSnapshotPolicy = function( policy, callback, failure ){
-            };
-
-            service.deleteSnapshotPolicy = function( policy, callback, failure ){
-            };
-
-            service.attachPolicyToVolue = function( policy, volumeId, callback, failure ){
-            };
-
-            service.detachPolicy = function( policy, volumeId, callback, failure ){
-            };
-
-            service.cloneSnapshotToNewVolume = function( snapshot, volumeName, callback, failure ){
-            };
-
-            return service;
-        }]);
-    };
-
-    browser.addMockModule( 'volume-management', mockVol );
-    browser.addMockModule( 'qos', mockSnap );
+//    browser.addMockModule( 'qos', mockSnap );
 
     it( 'should not find any volumes in the table', function(){
 
@@ -127,7 +20,7 @@ describe( 'Testing volume creation permutations', function(){
 
         createLink = element( by.css( 'a.new_volume') );
         createEl = $('.create-panel.volumes');
-        createButton = element( by.buttonText( 'Create Volume' ) );
+        createButton = element.all( by.buttonText( 'Create Volume' ) ).get(0);
         mainEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(0);
         newText = element( by.model( 'name') );
 
@@ -174,32 +67,64 @@ describe( 'Testing volume creation permutations', function(){
             });
         });
     });
-
-    it ( 'should be able to edit the priority of a volume', function(){
-
+    
+    it ( 'should go to the edit screen on press of the edit button', function(){
+        
         var edit = element( by.css( '.button-group span.fui-new' ) );
         edit.click();
 
         browser.sleep( 210 );
+        
+        // the screen should slide over
+        expect( mainEl.getAttribute( 'style' ) ).toContain( '-100%' );
+        
+        // title should say "edit"
+        var editTitle = element( by.css( '.create-volume-edit-title' ) );
+        expect( editTitle.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+        
+        // name field shouldn't be editable
+        var input = element( by.css( 'input.volume-name' ));
+        expect( input.isEnabled() ).toBe( false );
+        
+        // make sure the clone section isn't present
+        var cloneBlock = element( by.css( '.clone-volume-selector' ));
+        expect( cloneBlock.getAttribute( 'class' )).toContain( 'ng-hide' );
+        
+    });
 
-        var editRow = element.all( by.css( '#volume-edit-row' ) ).get( 0 );
-        expect( editRow.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+    it ( 'should be able to edit the priority of a volume', function(){
 
-        var priority8 = element( by.css( '#volume-edit-row section:first-child .ui-slider-segment:nth-child(6)' ));
-
-        priority8.click();
+        var editQosButton = element( by.css( '.qos-panel .fui-new' ));
+        editQosButton.click();
+        
         browser.sleep( 200 );
 
-        var saveButton = element.all( by.css( '.volume-edit-row' )).get( 0 ).element( by.buttonText( 'Save' ) );
-        saveButton.click();
+        // panel should now be editable
+        var priorityDisplay = element( by.css( '.volume-priority-display-only' ) );
+        expect( priorityDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+        
+        var prioritySpinner = element( by.css( '.volume-priority-spinner' ) ).element( by.tagName( 'input' ) );
+        prioritySpinner.clear();
+        prioritySpinner.sendKeys( '8' );
+        
+        var doneButton = element( by.css( '.save-qos-settings' ) );
+        doneButton.click();
         browser.sleep( 210 );
 
-        expect( editRow.getAttribute( 'class' ) ).toContain( 'ng-hide' );
-
+        priorityDisplay.getText().then( function( txt ){
+            expect( txt ).toBe( '8' );
+        });
+        
+        // save the change
+        var editButton = element.all( by.buttonText( 'Edit Volume' ) ).get( 0 );
+        editButton.click();
+        
+        browser.sleep( 210 );
+        
         element.all( by.css( '.volume-row .priority' ) ).then( function( priorityCols ){
             priorityCols.forEach( function( td ){
                 td.getText().then( function( txt ){
-                    expect( txt ).toBe( '4' );
+                    expect( txt ).toBe( '8' );
                 });
             });
         });
@@ -229,7 +154,7 @@ describe( 'Testing volume creation permutations', function(){
 
         newText.sendKeys( 'This should go away' );
 
-        var cancelButton = element( by.css( 'button.cancel-creation' ));
+        var cancelButton = element.all( by.css( 'button.cancel-creation' )).get( 0 );
         cancelButton.click();
         browser.sleep( 210 );
 
@@ -254,71 +179,79 @@ describe( 'Testing volume creation permutations', function(){
         newText.sendKeys( 'Complex Volume' );
 
         // messing with the chosen data connector
-        var dcEditPanel = element( by.css( '.volume-data-type-panel' ));
-        expect( dcEditPanel.getAttribute( 'class' ) ).not.toContain( 'open' );
-
-        element( by.css( '.volume-data-type-summary .fui-new')).click();
-        browser.sleep( 210 );
-
-        expect( dcEditPanel.getAttribute( 'class' ) ).toContain( 'open' );
-
-        // switching the selection
-        element( by.css( '.volume-data-type-panel tr:last-child td:first-child')).click();
-        element( by.css( '.volume-data-type-panel' )).element( by.buttonText( 'Done' ) ).click();
-
-        browser.sleep( 210 );
-
-        expect( dcEditPanel.getAttribute( 'class' ) ).not.toContain( 'open' );
-
-        var dataTypeEl = element.all( by.css( '.volume-data-type-summary span.value' )).get( 0 );
-        dataTypeEl.getText().then( function( txt ){
-            expect( txt ).toBe( 'Object' );
+        var dcDisplay = element( by.css( '.data-connector-display' ));
+        expect( dcDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+        
+        var editDcButton = element( by.css( '.edit-data-connector-button' ) );
+        editDcButton.click();
+        
+        expect( dcDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+        
+        var typeMenu = element( by.css( '.data-connector-dropdown' ) );
+        var blockEl = typeMenu.all( by.tagName( 'li' ) ).first();
+        
+        typeMenu.click();
+        blockEl.click();
+        
+        var sizeSpinner = element( by.css( '.data-connector-size-spinner' )).element( by.tagName( 'input' ));
+        sizeSpinner.clear();
+        sizeSpinner.sendKeys( '1' );
+        
+        var doneName = element( by.css( '.save-name-type-data' ));
+        doneName.click();
+        
+        dcDisplay.getText().then( function( txt ){
+            expect( txt ).toBe( 'Block' );
         });
 
         // changing the QoS
-        var qosEditEl = element( by.css( '.qos-panel .volume-edit-container'));
-        expect( qosEditEl.getAttribute( 'class' )).not.toContain( 'open' );
+        var editQosButton = element( by.css( '.qos-panel .fui-new' ));
+        editQosButton.click();
+        
+        browser.sleep( 200 );
 
-        element( by.css( '.volume-qos-summary-container span.fui-new' )).click();
-        browser.sleep( 210 );
-        expect( qosEditEl.getAttribute( 'class' )).toContain( 'open' );
+        // panel should now be editable
+        var priorityDisplay = element( by.css( '.volume-priority-display-only' ) );
+        expect( priorityDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+        
+        var slaDisplay = element( by.css( '.volume-sla-display' ) );
+        expect( slaDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+        
+        var limitDisplay = element( by.css( '.volume-limit-display' ) );
+        expect( limitDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+        
+        var prioritySpinner = element( by.css( '.volume-priority-spinner' ) ).element( by.tagName( 'input' ) );
+        prioritySpinner.clear();
+        prioritySpinner.sendKeys( '2' );
+        
+        var slaSpinner = element( by.css( '.volume-sla-spinner' )).element( by.tagName( 'input' ));
+        slaSpinner.clear();
+        slaSpinner.sendKeys( '90' );
+        
+        var limitSpinner = element( by.css( '.volume-limit-spinner' )).element( by.tagName( 'input' ));
+        limitSpinner.clear();
+        limitSpinner.sendKeys( '2000' );
+        
+        var doneButton = element( by.css( '.save-qos-settings' ) );
+        doneButton.click();
 
-        // set the priority to 2
-        var priority2 = element( by.css( '.qos-panel .volume-edit-container section:first-child .ui-slider-segment:nth-child(8)' ));
-        priority2.click();
-
-        var sla90 = element( by.css( '.qos-panel .volume-edit-container section:nth-child(2) .ui-slider-segment:nth-child(8)' ));
-        sla90.click();
-
-        var limit = element( by.css( '.qos-panel .volume-edit-container section:nth-child(3) .ui-slider-segment:nth-child(4)' ));
-        limit.click();
-
-        browser.sleep( 210 );
-
-        element( by.css( '.qos-panel .volume-edit-container' )).element( by.buttonText( 'Done' )).click();
-        browser.sleep( 210 );
-
-        expect( qosEditEl.getAttribute( 'class' )).not.toContain( 'open' );
-
-        element.all( by.css( '.volume-qos-summary-container span.value' )).then( function( list ){
-
-            // the fourth is the % sign
-            expect( list.length ).toBe( 4 );
-
-            list[0].getText().then( function( txt ){
-                expect( txt ).toBe( '2' );
-            });
-
-            list[1].getText().then( function( txt ){
-                expect( txt ).toBe( '80%' );
-            });
-
-            list[3].getText().then( function( txt ){
-                expect( txt ).toBe( '400 IOPs' );
-            });
+        expect( priorityDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+        expect( slaDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+        expect( limitDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+        
+        priorityDisplay.getText().then( function( txt ){
+            expect( txt ).toBe( '2' );
+        });
+        
+        slaDisplay.getText().then( function( txt ){
+            expect( txt) .toBe( '90%' );
+        });
+        
+        limitDisplay.getText().then( function( txt ){
+            expect( txt ).toBe( '2000' );
         });
 
-        element( by.buttonText( 'Create Volume' )).click();
+        element.all( by.buttonText( 'Create Volume' )).get( 0 ).click();
         browser.sleep( 300 );
 
 //        element.all( by.css( '.volume-row .priority' ) ).then( function( priorityCols ){

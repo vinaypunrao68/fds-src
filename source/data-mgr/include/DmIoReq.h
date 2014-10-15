@@ -25,26 +25,6 @@
 
 namespace fds {
 
-    struct RequestHeader {
-        fds_volid_t volId;
-        long srcIp;  //NOLINT
-        long dstIp;  //NOLINT
-        fds_uint32_t srcPort;
-        fds_uint32_t dstPort;
-        std::string session_uuid;
-        fds_uint32_t reqCookie;
-
-        explicit RequestHeader(const fpi::FDSP_MsgHdrTypePtr &hdr) {
-            volId = hdr->glob_volume_id;
-            srcIp = hdr->src_ip_lo_addr;
-            dstIp = hdr->dst_ip_lo_addr;
-            srcPort = hdr->src_port;
-            dstPort = hdr->dst_port;
-            session_uuid = hdr->session_uuid;
-            reqCookie = hdr->req_cookie;
-        }
-    };
-
     /*
      * TODO: Make more generic name than catalog request
      */
@@ -53,138 +33,25 @@ namespace fds {
         fds_volid_t  volId;
         std::string blob_name;
         blob_version_t blob_version;
-        fds_uint32_t transId;
-        fds_uint32_t transOp;
-        fds_uint32_t srcIp;
-        fds_uint32_t dstIp;
-        fds_uint32_t srcPort;
-        fds_uint32_t dstPort;
         std::string session_uuid;
-        fds_uint32_t reqCookie;
         BlobTxId::const_ptr blobTxId;
-        fpi::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
-        boost::shared_ptr<fpi::FDSP_MetaDataList> metadataList;
         std::function<void(const Error &e, dmCatReq *dmRequest)> cb = NULL;
         std::function<void(dmCatReq * req)> proc = NULL;
 
         dmCatReq(fds_volid_t  _volId,
-                 fds_uint32_t _srcIp,
-                 fds_uint32_t _dstIp,
-                 fds_uint32_t _srcPort,
-                 fds_uint32_t _dstPort,
-                 std::string  _session_uuid,
-                 fds_uint32_t _reqCookie,
-                 fds_io_op_t  _ioType)
-                : volId(_volId), srcIp(_srcIp), dstIp(_dstIp),
-                  srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
-                  reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
-            io_type = _ioType;
-            io_vol_id = _volId;
-            blob_version = blob_version_invalid;
-
-            // perf-trace related data
-            perfNameStr = "volume:" + std::to_string(_volId);
-        }
-
-        dmCatReq(fds_volid_t  _volId,
-                 const std::string &blobName,
-                 fds_uint32_t _srcIp,
-                 fds_uint32_t _dstIp,
-                 fds_uint32_t _srcPort,
-                 fds_uint32_t _dstPort,
-                 std::string  _session_uuid,
-                 fds_uint32_t _reqCookie,
-                 fds_io_op_t  _ioType)
-                : volId(_volId), blob_name(blobName), srcIp(_srcIp), dstIp(_dstIp),
-                  srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
-            reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
-            io_type = _ioType;
-            io_vol_id = _volId;
-            blob_version = blob_version_invalid;
-
-            // perf-trace related data
-            perfNameStr = "volume:" + std::to_string(_volId);
-        }
-
-        dmCatReq(const RequestHeader& hdr,
-                 fds_io_op_t ioType)
-                : volId(hdr.volId), srcIp(hdr.srcIp), dstIp(hdr.dstIp),
-                  srcPort(hdr.srcPort), dstPort(hdr.dstPort), session_uuid(hdr.session_uuid),
-                  reqCookie(hdr.reqCookie),
-                  blob_version(blob_version_invalid) {
-            io_type = ioType;
-            io_vol_id = hdr.volId;
-
-            // perf-trace related data
-            perfNameStr = "volume:" + std::to_string(hdr.volId);
-        }
-
-        dmCatReq(fds_volid_t        _volId,
-                 std::string        _blob_name,
-                 fds_uint32_t _transId,
-                 fds_uint32_t _transOp,
-                 fds_uint32_t _srcIp,
-                 fds_uint32_t _dstIp,
-                 fds_uint32_t _srcPort,
-                 fds_uint32_t _dstPort,
-                 std::string _session_uuid,
-                 fds_uint32_t _reqCookie,
-                 fds_io_op_t _ioType,
-                 FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr _updCatReq) {
-            volId             = _volId;
-            blob_name         = _blob_name;
-            blob_version      = blob_version_invalid;
-            transId           = _transId;
-            transOp           = _transOp;
-            srcIp             = _srcIp;
-            dstIp             = _dstIp;
-            srcPort           = _srcPort;
-            dstPort           = _dstPort;
-            session_uuid     = _session_uuid;
-            reqCookie         = _reqCookie;
-            FDS_IOType::io_type = _ioType;
-            FDS_IOType::io_vol_id = _volId;
-            fdspUpdCatReqPtr = _updCatReq;
-            if ((_ioType != FDS_CAT_UPD) && (_ioType != FDS_DM_FWD_CAT_UPD)) {
-                fds_verify(_updCatReq == (FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr)NULL);
-            }
-
-            // perf-trace related data
-            perfNameStr = "volume:" + std::to_string(_volId);
-        }
-
-        dmCatReq(const fds_volid_t  &_volId,
                  const std::string &_blobName,
-                 const blob_version_t &_blob_version,
-                 const fds_io_op_t  &_ioType)
-
-        : dmCatReq(_volId,
-                 _blobName,
-                 0,
-                 0,
-                 0,
-                 0,
-                 "",
-                 0,
-                 _ioType)
-        {
+                 std::string  _session_uuid,
+                 blob_version_t _blob_version,
+                 fds_io_op_t  _ioType)
+                : volId(_volId), blob_name(_blobName), session_uuid(_session_uuid) {
+            io_type = _ioType;
+            io_vol_id = _volId;
             blob_version = _blob_version;
-
             // perf-trace related data
             perfNameStr = "volume:" + std::to_string(_volId);
         }
 
-        // TODO(Andrew): Remove this...
         dmCatReq() {
-        }
-
-        void fillResponseHeader(fpi::FDSP_MsgHdrTypePtr& msg_hdr) const{
-            msg_hdr->src_ip_lo_addr =  dstIp;
-            msg_hdr->dst_ip_lo_addr =  srcIp;
-            msg_hdr->src_port =  dstPort;
-            msg_hdr->dst_port =  srcPort;
-            msg_hdr->glob_volume_id =  volId;
-            msg_hdr->req_cookie =  reqCookie;
         }
 
         fds_volid_t getVolId() const {
@@ -192,7 +59,6 @@ namespace fds {
         }
 
         virtual ~dmCatReq() {
-            fdspUpdCatReqPtr = NULL;
         }
 
         void setBlobVersion(blob_version_t version) {
@@ -258,7 +124,7 @@ namespace fds {
 class DmIoPushMetaDone: public dmCatReq {
   public:
     explicit DmIoPushMetaDone(fds_volid_t _volId)
-            : dmCatReq(_volId, "", blob_version_invalid,
+            : dmCatReq(_volId, "", "", blob_version_invalid,
                        FDS_DM_PUSH_META_DONE) {
     }
 
@@ -279,7 +145,7 @@ class DmIoPushMetaDone: public dmCatReq {
 class DmIoMetaRecvd: public dmCatReq {
   public:
     explicit DmIoMetaRecvd(fds_volid_t _volId)
-            : dmCatReq(_volId, "", blob_version_invalid,
+            : dmCatReq(_volId, "", "", blob_version_invalid,
                        FDS_DM_META_RECVD) {
     }
     friend std::ostream& operator<<(std::ostream& out, const DmIoMetaRecvd& io) {
@@ -302,7 +168,7 @@ class DmIoCommitBlobTx: public dmCatReq {
                      const std::string &_blobName,
                      const blob_version_t &_blob_version,
                      fds_uint64_t _dmt_version)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_COMMIT_BLOB_TX) {
+            : dmCatReq(_volId, _blobName, "", _blob_version, FDS_COMMIT_BLOB_TX) {
         dmt_version = _dmt_version;
 
         // perf-trace related data
@@ -367,7 +233,7 @@ class DmIoAbortBlobTx: public dmCatReq {
     DmIoAbortBlobTx(const fds_volid_t  &_volId,
                     const std::string &_blobName,
                     const blob_version_t &_blob_version)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_ABORT_BLOB_TX) {
+            : dmCatReq(_volId, _blobName, "", _blob_version, FDS_ABORT_BLOB_TX) {
         // perf-trace related data
         opReqFailedPerfEventType = DM_TX_OP_REQ_ERR;
 
@@ -408,7 +274,8 @@ class DmIoStartBlobTx: public dmCatReq {
                     const blob_version_t &_blob_version,
                     const fds_int32_t _blob_mode,
                     const fds_uint64_t _dmt_ver)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_START_BLOB_TX), blob_mode(_blob_mode),
+            : dmCatReq(_volId, _blobName,
+                        "", _blob_version, FDS_START_BLOB_TX), blob_mode(_blob_mode),
             dmt_version(_dmt_ver) {
         // perf-trace related data
         opReqFailedPerfEventType = DM_TX_OP_REQ_ERR;
@@ -458,6 +325,7 @@ class DmIoQueryCat: public dmCatReq {
     explicit DmIoQueryCat(boost::shared_ptr<fpi::QueryCatalogMsg>& qMsg)
             : dmCatReq(qMsg->volume_id,
                        qMsg->blob_name,
+                       "",
                        qMsg->blob_version,
                        FDS_CAT_QRY),
               queryMsg(qMsg) {
@@ -495,7 +363,7 @@ class DmIoFwdCat : public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoFwdCat *req)> CbType;
     explicit DmIoFwdCat(boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdMsg)
-            : dmCatReq(fwdMsg->volume_id, fwdMsg->blob_name, fwdMsg->blob_version,
+            : dmCatReq(fwdMsg->volume_id, fwdMsg->blob_name, "", fwdMsg->blob_version,
                        FDS_DM_FWD_CAT_UPD), fwdCatMsg(fwdMsg) {}
 
     virtual std::string log_string() const override {
@@ -523,7 +391,7 @@ class DmIoUpdateCat: public dmCatReq {
 
   public:
     explicit DmIoUpdateCat(boost::shared_ptr<fpi::UpdateCatalogMsg>& _updcatMsg)
-            : dmCatReq(_updcatMsg->volume_id, _updcatMsg->blob_name, _updcatMsg->blob_version,
+            : dmCatReq(_updcatMsg->volume_id, _updcatMsg->blob_name, "", _updcatMsg->blob_version,
             FDS_CAT_UPD), ioBlobTxDesc(new BlobTxId(_updcatMsg->txId)),
             obj_list(_updcatMsg->obj_list), updcatMsg(_updcatMsg) {
         // perf-trace related data
@@ -567,6 +435,7 @@ class DmIoUpdateCatOnce : public dmCatReq {
         DmIoCommitBlobTx *_commitReq)
             : dmCatReq(_updcatMsg->volume_id,
                        _updcatMsg->blob_name,
+                       "",
                        _updcatMsg->blob_version,
                        FDS_CAT_UPD_ONCE),
               ioBlobTxDesc(new BlobTxId(_updcatMsg->txId)),
@@ -613,7 +482,7 @@ class DmIoSetBlobMetaData: public dmCatReq {
 
   public:
     explicit DmIoSetBlobMetaData(boost::shared_ptr<fpi::SetBlobMetaDataMsg> & _setMDMsg)
-            : dmCatReq(_setMDMsg->volume_id, _setMDMsg->blob_name, _setMDMsg->blob_version,
+            : dmCatReq(_setMDMsg->volume_id, _setMDMsg->blob_name, "", _setMDMsg->blob_version,
             FDS_SET_BLOB_METADATA), ioBlobTxDesc(new BlobTxId(_setMDMsg->txId)),
             md_list(_setMDMsg->metaDataList), setMDMsg(_setMDMsg) {
         // perf-trace related data
@@ -655,7 +524,7 @@ class DmIoDeleteCat: public dmCatReq {
     DmIoDeleteCat(const fds_volid_t  &_volId,
                   const std::string &_blobName,
                   const blob_version_t &_blob_version)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_DELETE_BLOB_SVC) {
+            : dmCatReq(_volId, _blobName, "", _blob_version, FDS_DELETE_BLOB_SVC) {
     }
 
     virtual std::string log_string() const override {
@@ -679,7 +548,8 @@ class DmIoGetBlobMetaData: public dmCatReq {
                         const std::string &_blobName,
                         const blob_version_t &_blob_version,
                         boost::shared_ptr<fpi::GetBlobMetaDataMsg> message)
-            : message(message), dmCatReq(_volId, _blobName, _blob_version, FDS_GET_BLOB_METADATA) {
+            : message(message), dmCatReq(_volId, _blobName,
+                     "", _blob_version, FDS_GET_BLOB_METADATA) {
         // perf-trace related data
         opReqFailedPerfEventType = DM_QUERY_REQ_ERR;
 
@@ -714,7 +584,7 @@ struct DmIoGetVolumeMetaData : dmCatReq {
     typedef std::function<void (const Error &e, DmIoGetVolumeMetaData *req)> CbType;
 
     explicit DmIoGetVolumeMetaData(boost::shared_ptr<fpi::GetVolumeMetaDataMsg> message)
-            : dmCatReq(message->volume_id, "", 0, FDS_GET_VOLUME_METADATA), msg(message) {
+            : dmCatReq(message->volume_id, "", "", 0, FDS_GET_VOLUME_METADATA), msg(message) {
         // perf-trace related data
         opReqFailedPerfEventType = DM_QUERY_REQ_ERR;
 
@@ -743,7 +613,7 @@ class DmIoStatStream : public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoStatStream *req)> CbType;
     DmIoStatStream(fds_volid_t volid, boost::shared_ptr<fpi::StatStreamMsg>& statMsg)
-            : dmCatReq(volid, "", 1,
+            : dmCatReq(volid, "", "", 1,
                        FDS_DM_STAT_STREAM), statStreamMsg(statMsg) {}
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoStatStream& io) {
@@ -758,13 +628,13 @@ class DmIoStatStream : public dmCatReq {
 struct DmIoGetSysStats : dmCatReq {
     boost::shared_ptr<fpi::GetDmStatsMsg> message;
     explicit DmIoGetSysStats(boost::shared_ptr<fpi::GetDmStatsMsg> message)
-            : message(message) , dmCatReq(message->volume_id, "", 0, FDS_DM_SYS_STATS) {}
+            : message(message) , dmCatReq(message->volume_id, "", "", 0, FDS_DM_SYS_STATS) {}
 };
 
 struct DmIoGetBucket : dmCatReq {
     boost::shared_ptr<fpi::GetBucketMsg> message;
     explicit DmIoGetBucket(boost::shared_ptr<fpi::GetBucketMsg> message)
-            : message(message) , dmCatReq(message->volume_id, "", 0, FDS_LIST_BLOB) {}
+            : message(message) , dmCatReq(message->volume_id, "", "", 0, FDS_LIST_BLOB) {}
 };
 
 struct DmIoDeleteBlob: dmCatReq {
@@ -772,6 +642,7 @@ struct DmIoDeleteBlob: dmCatReq {
     explicit DmIoDeleteBlob(boost::shared_ptr<fpi::DeleteBlobMsg> message)
             : message(message) , dmCatReq(message->volume_id,
                                           message->blob_name,
+                                          "",
                                           message->blob_version,
                                           FDS_DELETE_BLOB) {
     }

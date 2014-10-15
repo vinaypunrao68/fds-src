@@ -21,6 +21,7 @@ pyUnitVerbose = False
 pyUnitDryrun = False
 pyUnitInstall = False
 pyUnitSudoPw = None
+pyUnitTCFailure = False
 
 # This global is ued to indicate whether we've already
 # set up the logging facilities during a PyUnit run.
@@ -154,10 +155,15 @@ class FDSTestCase(unittest.TestCase):
         """
         Just a quick report of results for the test case.
         """
+        global pyUnitTCFailure
+
         if test_passed:
             self.log.info("Test Case %s passed." % self.__class__.__name__)
         else:
             self.log.info("Test Case %s failed." % self.__class__.__name__)
+
+            if self.parameters["stop_on_fail"]:
+                pyUnitTCFailure = True
 
 
     @staticmethod
@@ -177,9 +183,11 @@ class FDSTestCase(unittest.TestCase):
         global pyUnitSudoPw
 
         log_dir = None
+        failfast = False
 
         # We must have the -i option but that will be checked later.
-        options, args = getopt.getopt(_argv[1:], 'q:l:d:vri', ['qat-file', 'log-dir', 'sudo-password', 'verbose', 'dryrun' 'install'])
+        options, args = getopt.getopt(_argv[1:], 'q:l:d:vrif', ['qat-file', 'log-dir', 'sudo-password', 'verbose',
+                                                                'dryrun', 'install', 'failfast'])
 
         idx = 1
         for opt, value in options:
@@ -207,7 +215,26 @@ class FDSTestCase(unittest.TestCase):
                 # Remove this option and its argument from argv so as not to confuse PyUnit.
                 _argv.pop(idx)
                 _argv.pop(idx)
+            elif opt in ('-f','--failfast'):
+                failfast = True
+                _argv.pop(idx)
             else:
                 idx += 1
 
-        return log_dir
+        # Instantiate an FDSTestCase so we can initialize our fixture from the configuration file.
+        initialCase = FDSTestCase(parameters=None)
+
+        # From either the command line or from the config file, one must
+        # have given us a log_dir.
+        if log_dir is None:
+            log_dir = _parameters["log_dir"]
+
+        # Make sure we're covered with the stop-on-fail/failfast option.
+        # qaautotest calls it stop-on-fail. pyUnit calls it failfast
+        if _parameters["stop_on_fail"]:
+            failfast = True
+
+        if failfast:
+            _parameters["stop_on_fail"] = True
+
+        return log_dir, failfast

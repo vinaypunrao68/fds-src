@@ -48,7 +48,7 @@ class SMEpPlugin: public EpEvtPlugin {
 class SmPlatform : public Platform {
     public:
      SmPlatform();
-     virtual ~SmPlatform() {}
+     virtual ~SmPlatform();
 
      virtual void plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
 
@@ -67,7 +67,7 @@ class SmPlatform : public Platform {
 
      SMEpPlugin::pointer           sm_plugin;
      bo::shared_ptr<SMSvcHandler>  sm_recv;
-     EndPoint<fpi::SMSvcClient, fpi::SMSvcProcessor>::pointer sm_ep;
+     bo::intrusive_ptr<EndPoint<fpi::SMSvcClient, fpi::SMSvcProcessor>> sm_ep;
 };
 
 extern SmPlatform gl_SmPlatform;

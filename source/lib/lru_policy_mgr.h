@@ -82,7 +82,7 @@ namespace fds {
 	if (objBuf->vol_id == vol_id) {
             // Update the lru to reflect the removal of the object
             lru_queue->erase(it++);
-            bytes_reclaimed += objBuf->size;
+            bytes_reclaimed += objBuf->getSize();
             ObjectID objId = objBuf->obj_id;
             parent_cache->object_evict(objBuf->vol_id, objId);
 	}
@@ -106,7 +106,7 @@ namespace fds {
 
       for (auto it = lru_queue->begin(); it != lru_queue->end();) {
 	ObjCacheBufPtrType& objBuf = *it;
-	fds_uint64_t obj_size = objBuf->size;
+	fds_uint64_t obj_size = objBuf->getSize();
 	//std::cout << "Looking at object " << objBuf->obj_id 
 	//	  << " in volume " << objBuf->vol_id << endl;
 	if (parent_cache->volume_evictable(objBuf->vol_id)) {	  

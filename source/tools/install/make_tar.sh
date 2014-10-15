@@ -1,10 +1,16 @@
 #!/bin/bash -le
 
 package_basename="fdsinstall-"
-build_stamp="`date +%Y%m%d-%H%M`"
 package_tailname=".tar.gz"
 
-dest_tarfile="${package_basename}${build_stamp}${package_tailname}"
+if [[ ${#1} -gt 0 ]]
+then
+   dest_tarfile=${1}
+else
+   build_stamp="`date +%Y%m%d-%H%M`"
+   dest_tarfile="${package_basename}${build_stamp}${package_tailname}"
+fi
+
 
 if [[ ${#BUILD_NUMBER} -gt 0 ]]
 then

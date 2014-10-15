@@ -18,7 +18,6 @@
 #include <NetSession.h>
 #include <fds_obj_cache.h>
 #include <fds_timestamp.h>
-#include <TokenCompactor.h>
 #include <fdsp_utils.h>
 #include <net/net_utils.h>
 #include <net/net-service.h>
@@ -51,275 +50,57 @@ ObjectStorMgrI::~ObjectStorMgrI()
 void
 ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
                           FDSP_PutObjTypePtr& putObj) {
-    LOGDEBUG << "Received a Putobject() network request";
-
-    if ((objStorMgr->testUturnAll == true) ||
-        (objStorMgr->testUturnPutObj == true)) {
-        LOGDEBUG << "Uturn testing put object";
-        msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
-        msgHdr->result = FDSP_ERR_OK;
-        objStorMgr->swapMgrId(msgHdr);
-        objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
-        return;
-    }
-
-    // Store the mapping of this service UUID to its session UUID,
-    // except when this is a proxied request
-    if (msgHdr->proxy_count == 0) {
-        NodeUuid svcUuid((fds_uint64_t)msgHdr->src_service_uuid.uuid);
-        objStorMgr->addSvcMap(svcUuid,
-                              msgHdr->session_uuid);
-    }
-
-    // check the payload checksum  and return Error, if we run in to issues
-    std::string new_checksum;
-
-    //    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.hash_high);
-    //    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.hash_low);
-    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_id.digest);
-    objStorMgr->chksumPtr->checksum_update(putObj->data_obj_len);
-    objStorMgr->chksumPtr->checksum_update(putObj->volume_offset);
-    objStorMgr->chksumPtr->checksum_update(putObj->dlt_version);
-    objStorMgr->chksumPtr->checksum_update(putObj->data_obj);
-
-    objStorMgr->chksumPtr->get_checksum(new_checksum);
-    LOGDEBUG << "RPC Checksum :" << new_checksum << " received checksum: "
-             << msgHdr->payload_chksum;
-
-    /*
-      if (msgHdr->payload_chksum.compare(new_checksum) != 0) {
-      msgHdr->result = FDSP_ERR_CKSUM_MISMATCH; 			
-      msgHdr->err_code = FDSP_ERR_RPC_CKSUM; 			
-      LOGERROR << "RPC Checksum: " << new_checksum << " received checksum: " << msgHdr->payload_chksum; 
-
-      msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
-      objStorMgr->swapMgrId(msgHdr);
-      objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
-      LOGWARN << "Sent async PutObj response after checksum mismatch";
-      return;
-      }
-    */
-
-    /*
-     * Track the outstanding get request.
-     */
-
-    if ((uint)putObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
-        /*
-         * Track the outstanding get request.
-         */
-        objStorMgr->PutObject(msgHdr, putObj);
-    } else {
-        msgHdr->err_code = ERR_IO_DLT_MISMATCH;
-        // send the dlt version of SM to AM
-        putObj->dlt_version = objStorMgr->omClient->getDltVersion();
-        // update the resp  with new DLT
-        objStorMgr->omClient->getLatestDlt(putObj->dlt_data);
-        LOGWARN << "DLT version Conflict returning the latest";
-    }
-
-    /*
-     * If we failed to enqueue the I/O return the error response
-     * now as there is no more processing to do.
-     */
-    if (msgHdr->err_code != ERR_OK || msgHdr->result != FDSP_ERR_OK) {
-        msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
-        objStorMgr->swapMgrId(msgHdr);
-        try {
-            objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
-        } catch(att::TTransportException& e) {
-            LOGERROR << "error during network call: " << e.what();
-        }
-
-
-        LOGERROR << "Sent async PutObj response after receiving";
-    }
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 void
 ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
                           FDSP_GetObjTypePtr& getObj)
 {
-    LOGDEBUG << "Received a Getobject() network request";
-
-#ifdef FDS_TEST_SM_NOOP
-    try {
-        msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
-        msgHdr->result = FDSP_ERR_OK;
-        objStorMgr->swapMgrId(msgHdr);
-
-        objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(
-            msgHdr, getObj);
-        LOGDEBUG << "FDS_TEST_SM_NOOP defined. Sent async GetObj "
-                 << "response right after receiving req.";
-    } catch(att::TTransportException& e) {
-        LOGERROR << "error during network call: " << e.what();
-    }
-
-    return;
-#endif /* FDS_TEST_SM_NOOP */
-
-    // Store the mapping of this service UUID to its session UUID,
-    // except when this is a proxied request
-    if (msgHdr->proxy_count == 0) {
-        NodeUuid svcUuid((fds_uint64_t)msgHdr->src_service_uuid.uuid);
-        objStorMgr->addSvcMap(svcUuid,
-                              msgHdr->session_uuid);
-    }
-
-    /*
-     * Track the outstanding get request.
-     */
-    /*
-     * Submit the request to be enqueued
-     */
-    objStorMgr->GetObject(msgHdr, getObj);
-    /*
-     * If we failed to enqueue the I/O return the error response
-     * now as there is no more processing to do.
-     */
-    if (msgHdr->err_code != ERR_OK || msgHdr->result != FDSP_ERR_OK) {
-        msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
-        if ((uint)getObj->dlt_version != objStorMgr->omClient->getDltVersion()) {
-            msgHdr->err_code = ERR_IO_DLT_MISMATCH;
-            // send the dlt version of SM to AM
-            getObj->dlt_version = objStorMgr->omClient->getDltVersion();
-            // update the resp  with new DLT
-            objStorMgr->omClient->getLatestDlt(getObj->dlt_data);
-        }
-
-        objStorMgr->swapMgrId(msgHdr);
-
-        try {
-            objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
-        } catch(att::TTransportException& e) {
-            LOGERROR << "error during network call: " << e.what();
-        }
-    }
-    LOGDEBUG << "Sent async GetObj response after receiving";
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 void
 ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
                              FDSP_DeleteObjTypePtr& delObj)
 {
-    LOGDEBUG << "Received a Deleteobject() network request";
-
-#ifdef FDS_TEST_SM_NOOP
-    msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
-    msgHdr->result = FDSP_ERR_OK;
-    objStorMgr->swapMgrId(msgHdr);
-    objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
-    LOGDEBUG << "FDS_TEST_SM_NOOP defined. Sent async DeleteObj response "
-             << "right after receiving req";
-    return;
-#endif /* FDS_TEST_SM_NOOP */
-
-    // Store the mapping of this service UUID to its session UUID,
-    // except when this is a proxied request
-    if (msgHdr->proxy_count == 0) {
-        NodeUuid svcUuid((fds_uint64_t)msgHdr->src_service_uuid.uuid);
-        objStorMgr->addSvcMap(svcUuid,
-                              msgHdr->session_uuid);
-    }
-
-    /*
-     * Track the outstanding get request.
-     */
-    if ((uint)delObj->dlt_version == objStorMgr->omClient->getDltVersion()) {
-        objStorMgr->DeleteObject(msgHdr, delObj);
-    } else {
-        msgHdr->err_code = ERR_IO_DLT_MISMATCH;
-        // send the dlt version of SM to AM
-        delObj->dlt_version = objStorMgr->omClient->getDltVersion();
-        // update the resp  with new DLT
-        objStorMgr->omClient->getLatestDlt(delObj->dlt_data);
-    }
-
-    /*
-     * If we failed to enqueue the I/O return the error response
-     * now as there is no more processing to do.
-     */
-    if (msgHdr->err_code != ERR_OK || msgHdr->result != FDSP_ERR_OK) {
-        msgHdr->msg_code = FDSP_MSG_DELETE_OBJ_RSP;
-        objStorMgr->swapMgrId(msgHdr);
-        try {
-            objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
-        } catch(att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what();
-        }
-
-        LOGDEBUG << "Sent async DeleteObj response after receiving";
-    }
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 void
 ObjectStorMgrI::OffsetWriteObject(FDSP_MsgHdrTypePtr& msg_hdr,
                                   FDSP_OffsetWriteObjTypePtr& offset_write_obj) {
-    LOGDEBUG << "In the interface offsetwrite()";
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 void
 ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr,
                                 FDSP_RedirReadObjTypePtr& redir_read_obj) {
-    LOGDEBUG << "In the interface redirread()";
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 void ObjectStorMgrI::GetObjectMetadata(
         boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req) {  // NOLINT
-    Error err(ERR_OK);
-    SmIoReadObjectMetadata *sm_req = new SmIoReadObjectMetadata();
-
-    sm_req->io_type = FDS_SM_READ_OBJECTMETADATA;
-    sm_req->setObjId(ObjectID(metadata_req->obj_id.digest));
-    sm_req->meta_data.object_id = metadata_req->obj_id;
-    sm_req->cookie = metadata_req;
-    sm_req->smio_readmd_resp_cb = std::bind(
-        &ObjectStorMgrI::GetObjectMetadataCb, this,
-        std::placeholders::_1, std::placeholders::_2);
-
-    err = objStorMgr->enqueueMsg(FdsSysTaskQueueId, sm_req);
-    if (err != fds::ERR_OK) {
-        fds_assert(!"Hit an error in enqueing");
-        LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
-                << err;
-        sm_req->smio_readmd_resp_cb(err, sm_req);
-        delete sm_req;
-    }
+    // This should never be called
+    fds_assert(1 == 0);
 }
 void ObjectStorMgrI::GetObjectMetadataCb(const Error &err,
         SmIoReadObjectMetadata *read_data)
 {
-    boost::shared_ptr<FDSP_GetObjMetadataReq> md_req =
-            boost::static_pointer_cast<FDSP_GetObjMetadataReq>(read_data->cookie);
-    FDSP_GetObjMetadataResp resp;
-
-    resp.header = md_req->header;
-    if (err == ERR_OK) {
-        resp.header.result = FDS_ProtocolInterface::FDSP_ERR_OK;
-        resp.header.err_code = err.getFdspErr();
-        resp.meta_data = read_data->meta_data;
-    } else {
-        resp.header.result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
-        resp.header.err_code = err.getFdspErr();
-    }
-
-    delete read_data;
-
-    objStorMgr->fdspDataPathClient(
-            resp.header.session_uuid)->GetObjectMetadataResp(resp);
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
             boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)
 {
-    std::unordered_map<int, int> stats;
-    objStorMgr->getTokenStateDb()->getTokenStats(stats);
-    _return.completed = stats[static_cast<int>(kvstore::TokenStateInfo::HEALTHY)];
-    _return.inflight = stats[static_cast<int>(kvstore::TokenStateInfo::COPYING)] +
-            stats[static_cast<int>(kvstore::TokenStateInfo::SYNCING)] +
-            stats[static_cast<int>(kvstore::TokenStateInfo::PULL_REMAINING)];
-    _return.pending = stats[static_cast<int>(kvstore::TokenStateInfo::UNINITIALIZED)];
+    // This should never be called
+    fds_assert(1 == 0);
 }
 
 /**
@@ -476,6 +257,7 @@ void ObjectStorMgr::mod_startup()
     // any prior data and possibly perform recovery before allowing
     // another module layer to come up above it.
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
+                                                          this,
                                                           volTbl));
     objectStore->mod_init(mod_params);
 
@@ -516,10 +298,6 @@ void ObjectStorMgr::mod_startup()
                                   slab_allocator_type_default,
                                   eviction_policy_type_default,
                                   g_fdslog);
-    scavenger = new ScavControl(2);
-
-    // TODO(???): join this thread
-    std::thread *stats_thread = new std::thread(log_ocache_stats);
 
     // qos defaults
     qosThrds = modProvider_->get_fds_config()->get<int>(
@@ -1121,57 +899,6 @@ Error ObjectStorMgr::writeBackObj(const ObjectID &objId)
     return err;
 }
 
-void ObjectStorMgr::unitTest() {
-    Error err(ERR_OK);
-
-    LOGDEBUG << "Running unit test";
-
-    /*
-     * Create fake objects
-     */
-    std::string object_data("Hi, I'm object data.");
-    FDSP_PutObjTypePtr put_obj_req(new FDSP_PutObjType());
-
-    put_obj_req->volume_offset = 0;
-    put_obj_req->data_obj_id.digest[0] = 0x11;
-    put_obj_req->data_obj_id.digest[1] = 0x12;
-    put_obj_req->data_obj_id.digest[2] = 0x13;
-    put_obj_req->data_obj_id.digest[3] = 0x14;
-    put_obj_req->data_obj_len = object_data.length() + 1;
-    put_obj_req->data_obj = object_data;
-
-    /*
-     * Create fake volume ID
-     */
-    fds_uint64_t vol_id   = 0xbeef;
-    fds_uint32_t num_objs = 1;
-    FDSP_MsgHdrTypePtr msgHdr = static_cast<FDSP_MsgHdrTypePtr>(new FDSP_MsgHdrType);
-
-    /*
-     * Write fake object.
-     * Note: we're just adding a hard coded 0 for
-     * the request ID.
-     */
-    err = enqPutObjectReq(msgHdr, put_obj_req, vol_id, 0, num_objs);
-    if (err != ERR_OK) {
-        LOGERROR << "Failed to put object ";
-        // delete put_obj_req;
-        return;
-    }
-    // delete put_obj_req;
-
-    FDSP_GetObjTypePtr get_obj_req(new FDSP_GetObjType());
-    memset(reinterpret_cast<char *>(&(get_obj_req->data_obj_id)),
-           0x00,
-           sizeof(get_obj_req->data_obj_id));
-    get_obj_req->data_obj_id.digest[0] = 0x21;
-    get_obj_req->data_obj_id.digest[1] = 0x22;
-    get_obj_req->data_obj_id.digest[2] = 0x23;
-    get_obj_req->data_obj_id.digest[3] = 0x24;
-    err = enqGetObjectReq(msgHdr, get_obj_req, vol_id, 1, num_objs);
-    // delete get_obj_req;
-}
-
 Error
 ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
         const ObjectID& objId,
@@ -1355,80 +1082,10 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
                           fds_volid_t volId) {
     Error err(ERR_OK);
 
-    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
-    SmPlReq     *disk_req;
-    meta_vol_io_t   vio;
-    meta_obj_id_t   oid;
-    diskio::DataTier tierToUse;
+    // if this is called, we did not move all the code
+    // to the new path
+    fds_panic("This method should not be called");
 
-    /*
-     * TODO: Why to we create another oid structure here?
-     * Just pass a ref to objId?
-     */
-    memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-
-    // create a blocking request object
-    disk_req = new SmPlReq(vio, oid, static_cast<ObjectBuf *>(&objData), true);
-
-    /*
-     * Read all of the object's locations
-     */
-    {
-        PerfContext tmp_pctx(SM_OBJ_METADATA_DB_READ, volId, "volume:" + std::to_string(volId));
-        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-        err = readObjMetaData(objId, objMetadata);
-    }
-    if (err == ERR_OK) {
-        /*
-         * Read obj from flash if we can
-         */
-        if (objMetadata.onFlashTier()) {
-            tierToUse = diskio::flashTier;
-        } else {
-            /*
-             * Read obj from disk
-             */
-            tierToUse = diskio::diskTier;
-        }
-        // Update the request with the tier info from disk
-        disk_req->setTier(tierToUse);
-        disk_req->set_phy_loc(objMetadata.getObjPhyLoc(tierToUse));
-        tierUsed = tierToUse;
-
-        LOGDEBUG << "Reading object " << objId << " from "
-                << ((disk_req->getTier() == diskio::diskTier) ? "disk" : "flash")
-                 << " tier, volume " << std::hex << volId << std::dec;
-        objData.size = objMetadata.getObjSize();
-        objData.data.resize(objData.size, 0);
-        // Now Read the object buffer from the disk
-        {
-            PerfContext tmp_pctx(SM_OBJ_DATA_DISK_READ, volId, "volume:" + std::to_string(volId));
-            SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-            err = dio_mgr.disk_read(disk_req);
-        }
-        if (err != ERR_OK) {
-            LOGDEBUG << " Disk Read Err: " << err;
-            delete disk_req;
-            return err;
-        }
-        if (tierUsed == diskio::flashTier) {
-            PerfTracer::incr(GET_SSD_OBJ, volId, "volume:" + std::to_string(volId));
-        }
-
-        if (fds_data_verify) {
-           ObjectID onDiskObjId;
-           // Recompute ObjecId for the on-disk object buffer
-           onDiskObjId = ObjIdGen::genObjectId(objData.data.c_str(),
-                                       objData.data.size());
-           LOGDEBUG << " Disk Read ObjectId: " << onDiskObjId.ToHex().c_str() << " err  " << err;
-           if (onDiskObjId != objId) {
-                err = ERR_ONDISK_DATA_CORRUPT;
-                fds_panic("Encountered a on-disk data corruption checking requsted object %s \n != %s. Bailing out now!",  // NOLINT
-                          objId.ToHex().c_str(), onDiskObjId.ToHex().c_str());
-           }
-       }
-    }
-    delete disk_req;
     return err;
 }
 
@@ -1445,57 +1102,7 @@ Error
 ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
         const ObjectBuf& objCompData, ObjMetaData &objMap) {
     Error err(ERR_OK);
-
-    ObjectBuf objGetData;
-
-    /*
-     * We need to fix this once diskmanager keeps track of object size
-     * and allocates buffer automatically.
-     * For now, we will pass the fixed block size for size and preallocate
-     * memory for that size.
-     */
-
-    objGetData.size = 0;
-    objGetData.data = "";
-
-    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objMap, objGetData);
-
-    if (err == ERR_OK) {
-        /*
-         * Perform an inline check that the data is the same.
-         * This uses the std::string comparison function.
-         * TODO: We need a better solution. This is going to
-         * be crazy slow to always do an inline check.
-         */
-        if (objGetData.data == objCompData.data) {
-            err = ERR_DUPLICATE;
-        } else {
-            /*
-             * Handle hash-collision - insert the next collision-id+obj-id
-             */
-            if (fds_data_verify) {
-              ObjectID putBufObjId;
-              putBufObjId = ObjIdGen::genObjectId(objCompData.data.c_str(),
-                                       objCompData.data.size());
-              LOGDEBUG << " Network-RPC ObjectId: " << putBufObjId.ToHex().c_str()
-                       << " err  " << err;
-              if (putBufObjId != objId) {
-                  err = ERR_NETWORK_CORRUPT;
-              }
-            } else {
-                err = ERR_HASH_COLLISION;
-                fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
-                            objId.ToHex().c_str());
-            }
-        }
-    } else if (err == ERR_NOT_FOUND) {
-        /*
-         * This error indicates the DB entry was empty
-         * so we can reset the error to OK.
-         */
-        err = ERR_OK;
-    }
-
+    fds_panic("Must not get here!");
     return err;
 }
 
@@ -1579,14 +1186,13 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
         // Initially we probably want just leveldb get and put
         PerfContext tmp_pctx(SM_OBJ_METADATA_DB_WRITE, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-        err = writeObjectMetaData(opCtx, objId, objData.data.length(),
+        err = writeObjectMetaData(opCtx, objId, objData.getSize(),
                 disk_req->req_get_phy_loc(), false, diskio::diskTier, &vio);
     }
     StorMgrVolume *vol = volTbl->getVolume(volId);
     if ((err == ERR_OK) &&
         (tier == diskio::flashTier)) {
          vol->ssdByteCnt += objId.GetLen();
-         PerfTracer::incr(PUT_SSD_OBJ, volId, "volume:" + std::to_string(volId));
          if (vol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_SSD) {
            /*
             * If written to flash, add to dirty flash list
@@ -1599,8 +1205,6 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
         // TODO(Anna) if this is a write-back thread, then volId passed to this method
         // is currently 0. In reality, an object maybe associated with multiple volumes,
         // so we need to think whose counters we update (probably all volumes?)
-        // For now, counters will not properly work here.
-         PerfTracer::incr(PUT_HDD_OBJ, volId, "volume:" + std::to_string(volId));
          if (vol) {
              vol->hddByteCnt += objId.GetLen();
          }
@@ -1677,8 +1281,7 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
     OpCtx opCtx(OpCtx::RELOCATE, 0);
     ObjMetaData objMeta;
 
-    objGetData.size = 0;
-    objGetData.data = "";
+    objGetData.clear();
 
     err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objMeta, objGetData);
 
@@ -1698,7 +1301,7 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
         delete disk_req;
         return err;
     }
-    err = writeObjectMetaData(opCtx, objId, objGetData.data.length(),
+    err = writeObjectMetaData(opCtx, objId, objGetData.getSize(),
             disk_req->req_get_phy_loc(), true, from_tier, &vio);
 
     LOGDEBUG << "relocateObject " << objId << " into the "
@@ -1741,13 +1344,10 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
     if (objBufPtr != NULL) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
 
-        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, putReq->perfNameStr);
-
         // Now check for dedup here.
-        if (objBufPtr->data == putReq->data_obj) {
+        if (*(objBufPtr->data) == putReq->data_obj) {
             err = ERR_DUPLICATE;
         } else {
-            PerfTracer::incr(HASH_COLLISION, volId, putReq->perfNameStr);
             /*
              * Handle hash-collision - insert the next collision-id+obj-id
              */
@@ -1762,7 +1362,7 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
 
         objBufPtr = objCache->object_alloc(volId, objId, putReq->data_obj.size());
         // TODO(Rao): We should use std move here
-        memcpy(const_cast<char *>(objBufPtr->data.c_str()),
+        memcpy(const_cast<char *>(objBufPtr->data->c_str()),
                reinterpret_cast<const void *>(putReq->data_obj.c_str()),
                putReq->data_obj.size());
         new_buff_allocated = true;
@@ -1772,7 +1372,6 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
     }
 
     if (err == ERR_DUPLICATE) {
-        PerfTracer::incr(DUPLICATE_OBJ, volId, putReq->perfNameStr);
         if (new_buff_allocated) {
             added_cache = true;
             objCache->object_add(volId, objId, objBufPtr, false);
@@ -1836,7 +1435,6 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
         }
 
         if (err != fds::ERR_OK) {
-            PerfTracer::incr(putReq->opReqFailedPerfEventType, volId, putReq->perfNameStr);
             objCache->object_release(volId, objId, objBufPtr);
             objCache->object_delete(volId, objId);
             objCache->object_release(volId, objId, objBufPtr);
@@ -1919,7 +1517,6 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
                         tierUsed,
                         amIPrimary(objId));
 
-    PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
 
     omJrnl->release_transaction(putReq->getTransId());
 
@@ -1943,9 +1540,7 @@ ObjectStorMgr::putObjectInternalSvcV2(SmIoPutObjectReq *putReq)
     fds_assert(volId != 0);
     fds_assert(objId != NullObjectID);
 
-    LOGDEBUG << "Executing putObjectInternalSvcV2";
-
-    PerfTracer::tracePointBegin(putReq->opReqLatencyCtx);
+    // latency of ObjectStore layer
     PerfTracer::tracePointBegin(putReq->opLatencyCtx);
 
     // TODO(Andrew): Remove this copy. The network should allocated
@@ -1953,256 +1548,16 @@ ObjectStorMgr::putObjectInternalSvcV2(SmIoPutObjectReq *putReq)
     // after the network message is freed.
     err = objectStore->putObject(volId,
                                  objId,
-                                 boost::make_shared<const std::string>(
+                                 boost::make_shared<std::string>(
                                      putReq->putObjectNetReq->data_obj));
     qosCtrl->markIODone(*putReq,
                         tierUsed,
                         amIPrimary(objId));
 
+    // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(putReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
 
     putReq->response_cb(err, putReq);
-    return err;
-}
-
-
-/**
- * Process a single object put.
- * @param the request structure ptr
- * @return any associated error
- */
-Error
-ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
-    Error err(ERR_OK);
-    const ObjectID&  objId    = putReq->getObjId();
-    fds_volid_t volId         = putReq->getVolId();
-    diskio::DataTier tierUsed = diskio::maxTier;
-    ObjBufPtrType objBufPtr = NULL;
-    const FDSP_PutObjTypePtr& putObjReq = putReq->getPutObjReq();
-    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(putReq->getTransId());
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
-    OpCtx opCtx(OpCtx::PUT, msgHdr->origin_timestamp);
-    bool new_buff_allocated = false, added_cache = false;
-
-    ObjMetaData objMap;
-    // objStorMutex->lock();
-
-#ifdef OBJCACHE_ENABLE
-    objBufPtr = objCache->object_retrieve(volId, objId);
-    if (objBufPtr != NULL) {
-        fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
-
-        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, putReq->perfNameStr);
-
-        // Now check for dedup here.
-        if (objBufPtr->data == putObjReq->data_obj) {
-            PerfTracer::incr(DUPLICATE_OBJ, volId, putReq->perfNameStr);
-            err = ERR_DUPLICATE;
-        } else {
-            /*
-             * Handle hash-collision - insert the next collision-id+obj-id
-             */
-            err = ERR_HASH_COLLISION;
-        }
-        objCache->object_release(volId, objId, objBufPtr);
-    }
-
-    // Find if this object is a duplicate
-    if (err == ERR_OK) {
-        // Nothing in cache. Let's allocate a new buf from cache mgr and copy over the data
-
-        objBufPtr = objCache->object_alloc(volId, objId, putObjReq->data_obj.size());
-        memcpy(const_cast<char *>(objBufPtr->data.c_str()),
-               reinterpret_cast<const void *>(putObjReq->data_obj.c_str()),
-               putObjReq->data_obj.size());
-        new_buff_allocated = true;
-
-        err = checkDuplicate(objId,
-                *objBufPtr, objMap);
-    }
-
-    if (err == ERR_DUPLICATE) {
-        if (new_buff_allocated) {
-            added_cache = true;
-            objCache->object_add(volId, objId, objBufPtr, false);
-            objCache->object_release(volId, objId, objBufPtr);
-        }
-        LOGDEBUG << "Put dup:  " << err
-                << ", returning success";
-
-        smObjDb->lock(objId);
-        // Update  the AssocEntry for dedupe-ing
-        err = readObjMetaData(objId, objMap);
-        if (err.ok()) {
-            std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
-            if (amIPrimary(objId)) {
-                objMap.getVolsRefcnt(vols_refcnt);
-            }
-
-            objMap.updateAssocEntry(objId, volId);
-            err = smObjDb->put(opCtx, objId, objMap);
-            if (err == ERR_OK) {
-                volTbl->updateDupObj(volId, objId, putObjReq->data_obj.size(),
-                                     true, vols_refcnt);
-                LOGDEBUG << "Dedupe object Assoc Entry for object "
-                         << objId << " to " << objMap;
-            } else {
-                LOGERROR << "Failed to put ObjMetaData " << objId
-                         << " into odb with error " << err;
-            }
-        } else {
-            LOGERROR << "Failed to read ObjMetaData from db" << err;
-        }
-        smObjDb->unlock(objId);
-
-        /*
-         * Reset the err to OK to ack the metadata update.
-         */
-        err = ERR_OK;
-    } else if (err != ERR_OK) {
-        if (new_buff_allocated) {
-            objCache->object_release(volId, objId, objBufPtr);
-            objCache->object_delete(volId, objId);
-        }
-        LOGERROR << "Failed to check object duplicate status on put: "
-                 << err;
-    } else {
-        /*
-         * Write the object and record which tier it went to
-         */
-        SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
-        err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
-
-        if (err != fds::ERR_OK) {
-            objCache->object_release(volId, objId, objBufPtr);
-            objCache->object_delete(volId, objId);
-            objCache->object_release(volId, objId, objBufPtr);
-            LOGDEBUG << "Successfully put object " << objId;
-            /* if we successfully put to flash -- notify ranking engine */
-            if (tierUsed == diskio::flashTier) {
-                StorMgrVolume *vol = volTbl->getVolume(volId);
-                fds_verify(vol);
-                rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
-            }
-        } else if (added_cache == false) {
-            objCache->object_add(volId, objId, objBufPtr, false);
-        }
-
-
-
-        /*
-         * Stores a reverse mapping from the volume's disk location
-         * to the oid at that location.
-         */
-        /*
-          TODO: Comment this back in!
-          volTbl->createVolIndexEntry(putReq.io_vol_id,
-          put_obj_req->volume_offset,
-          put_obj_req->data_obj_id,
-          put_obj_req->data_obj_len);
-        */
-    }
-#else
-        objBufPtr = objCache->object_alloc(volId, objId, putObjReq->data_obj.size());
-        memcpy(const_cast<void *>(objBufPtr->data.c_str()),
-               reinterpret_cast<const void *>(putObjReq->data_obj.c_str()),
-               putObjReq->data_obj.size());
-
-        err = checkDuplicate(objId,
-                *objBufPtr, objMap);
-        if (err == ERR_DUPLICATE) {
-          // Update  the AssocEntry for dedupe-ing
-          LOGDEBUG << " Object  ID: " << objId << " objMap: " << objMap;
-          smObjDb->lock(objId);
-          err = readObjMetaData(objId, objMap);
-          /* At this point object metadata must exist */
-          fds_verify(err == ERR_OK);
-
-          std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
-          if (amIPrimary(objId)) {
-              objMap.getVolsRefcnt(vols_refcnt);
-          }
-
-          objMap.updateAssocEntry(objId, volId);
-          err = smObjDb->put(opCtx, objId, objMap);
-          if (err.ok()) {
-              volTbl->updateDupObj(volId, objId, putObjReq->data_obj.size(),
-                                   true, vols_refcnt);
-          }
-          smObjDb->unlock(objId);
-          if (err == ERR_OK) {
-              LOGDEBUG << "Dedupe object Assoc Entry for object "
-                      << objId << " to " << objMap;
-          } else {
-              LOGERROR << "Failed to put ObjMetaData " << objId
-                      << " into odb with error " << err;
-          }
-
-          err = ERR_OK;
-        } else {
-         SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
-         err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
-
-          if (err != fds::ERR_OK) {
-              LOGDEBUG << "Successfully put object " << objId;
-              /* if we successfully put to flash -- notify ranking engine */
-              if (tierUsed == diskio::flashTier) {
-                  StorMgrVolume *vol = volTbl->getVolume(volId);
-                  fds_verify(vol);
-                  rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
-              }
-         }
-       }
-       objCache->object_release(volId, objId, objBufPtr);
-       objCache->object_delete(volId, objId);
-
-#endif
-    // objStorMutex->unlock();
-
-    qosCtrl->markIODone(*putReq,
-                        tierUsed,
-                        amIPrimary(objId));
-
-    PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
-
-    /*
-     * Prepare a response to send back.
-     */
-
-    FDSP_PutObjTypePtr putObj(new FDSP_PutObjType());
-    putObj->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-    putObj->data_obj_len          = putObjReq->data_obj_len;
-
-    if (err == ERR_OK) {
-        msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
-        msgHdr->err_code = err.getFdspErr();
-    } else {
-        PerfTracer::incr(putReq->opReqFailedPerfEventType, volId, putReq->perfNameStr);
-        msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
-        msgHdr->err_code = err.getFdspErr();
-    }
-
-    msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_RSP;
-    swapMgrId(msgHdr);
-    try {
-        fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
-    } catch(att::TTransportException& e) {
-        LOGERROR << "error during network call: " << e.what();
-    } catch(...) {
-        LOGERROR << "Unexpected exception during network call";
-        throw;
-    }
-    omJrnl->release_transaction(putReq->getTransId());
-    LOGDEBUG << "Sent async PutObj response after processing " << objId;
-
-    /*
-     * Free the IO request structure that
-     * was allocated when the request was
-     * enqueued.
-     */
-    delete putReq;
-
     return err;
 }
 
@@ -2222,7 +1577,6 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
                                 SmIoReq *ioReq, TransJournalId &trans_id)
 {
     GLOGDEBUG << "enqTransactionIo " << ioReq->getTransId() << endl;
-    PerfTracer::tracePointBegin(ioReq->opReqLatencyCtx);
 
     // TODO(Rao): Refactor create_transaction so that it just takes key and cb as
     // params
@@ -2231,9 +1585,6 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
                                            std::bind(&ObjectStorMgr::create_transaction_cb, this,
                                                      msgHdr, ioReq, std::placeholders::_1));
     if (err != ERR_OK && err != ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
-        PerfTracer::tracePointEnd(ioReq->opReqLatencyCtx);
-        PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->getVolId(), ioReq->perfNameStr);
-
         return err;
     }
 
@@ -2245,10 +1596,6 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
     fds_assert(smVol);
 
     err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(), ioReq);
-    if (err != ERR_OK) {
-        PerfTracer::tracePointEnd(ioReq->opReqLatencyCtx);
-        PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->getVolId(), ioReq->perfNameStr);
-    }
     return err;
 }
 
@@ -2268,145 +1615,6 @@ void ObjectStorMgr::create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
         ObjectIdJrnlEntry *jrnlEntry = omJrnl->get_transaction_nolock(trans_id);
         jrnlEntry->setMsgHdr(msgHdr);
     }
-}
-
-Error
-ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
-                               FDSP_PutObjTypePtr putObjReq,
-                               fds_volid_t        volId,
-                               fds_uint32_t       am_transId,
-                               fds_uint32_t       numObjs) {
-    fds::Error err(fds::ERR_OK);
-    TransJournalId trans_id;
-    ObjectID obj_id(putObjReq->data_obj_id.digest);
-
-    fds_verify(msgHdr->origin_timestamp != 0);
-
-    for (fds_uint32_t obj_num = 0; obj_num < numObjs; obj_num++) {
-        /*
-         * Allocate the ioReq structure. The pointer will get copied
-         * into the queue and freed later once the IO completes.
-         */
-        SmIoReq *ioReq = new SmIoReq(putObjReq->data_obj_id.digest,
-                                     // putObjReq->data_obj,
-                                     putObjReq,
-                                     volId,
-                                     FDS_IO_WRITE,
-                                     am_transId);
-        err = enqTransactionIo(msgHdr, obj_id, ioReq, trans_id);
-        if (err != ERR_OK) {
-            /*
-             * Just return if we see an error. The way the function is setup
-             * it's a bit unnatrual to return errors for multiple IOs so
-             * we'll just stop at the first error we see to make sure it
-             * doesn't get lost.
-             */
-            LOGERROR << "Unable to enqueue putObject request "
-                     << am_transId << ":" << trans_id;
-            delete ioReq;
-            return err;
-        }
-        LOGDEBUG << "Successfully enqueued putObject request "
-                 << am_transId << ":" << trans_id;
-    }
-
-    return err;
-}
-
-Error
-ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
-    Error err(ERR_OK);
-    const ObjectID&  objId    = delReq->getObjId();
-    fds_volid_t volId         = delReq->getVolId();
-    ObjBufPtrType objBufPtr = NULL;
-    const FDSP_DeleteObjTypePtr& delObjReq = delReq->getDeleteObjReq();
-    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(delReq->getTransId());
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
-    OpCtx opCtx(OpCtx::DELETE, msgHdr->origin_timestamp);
-    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
-    ObjMetaData objMetadata;
-    meta_obj_id_t   oid;
-
-    objBufPtr = objCache->object_retrieve(volId, objId);
-    if (objBufPtr != NULL) {
-        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, delReq->perfNameStr);
-        objCache->object_release(volId, objId, objBufPtr);
-        objCache->object_delete(volId, objId);
-    }
-
-    PerfTracer::tracePointBegin(delReq->opLatencyCtx);
-    /*
-     * Delete the object, decrement refcnt of the assoc entry & overall refcnt
-     */
-    {
-        PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
-        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-        err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
-    }
-    if (err.ok()) {
-        LOGDEBUG << "Successfully delete object " << objId
-                 << " refcnt = " << objMetadata.getRefCnt();
-
-        if (objMetadata.getRefCnt() < 1) {
-            // tell persistent layer we deleted the object so that garbage collection
-            // knows how much disk space we need to clean
-            memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-            PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
-            SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-            if (objMetadata.onTier(diskio::diskTier)) {
-                dio_mgr.disk_delete_obj(&oid,
-                                        objMetadata.getObjSize(),
-                                        objMetadata.getObjPhyLoc(diskio::diskTier));
-            } else if (objMetadata.onTier(diskio::flashTier)) {
-                dio_mgr.disk_delete_obj(&oid,
-                                        objMetadata.getObjSize(),
-                                        objMetadata.getObjPhyLoc(diskio::flashTier));
-            }
-        }
-    } else {
-        LOGERROR << "Failed to delete object " << objId << ", " << err;
-    }
-
-    qosCtrl->markIODone(*delReq,
-                        diskio::diskTier);
-
-    PerfTracer::tracePointEnd(delReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(delReq->opReqLatencyCtx);
-
-    /*
-     * Prepare a response to send back.
-     */
-
-    FDSP_DeleteObjTypePtr delObj(new FDS_ProtocolInterface::FDSP_DeleteObjType());
-    delObj->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-    delObj->data_obj_len          = delObjReq->data_obj_len;
-
-    if (err == ERR_OK) {
-        msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
-        msgHdr->err_code = err.getFdspErr();
-    } else {
-        msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
-        msgHdr->err_code = err.getFdspErr();
-    }
-
-    msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_OBJ_RSP;
-    swapMgrId(msgHdr);
-    try {
-        fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
-    } catch(att::TTransportException& e) {
-        LOGERROR << "error during network call: " << e.what();
-    }
-    omJrnl->release_transaction(delReq->getTransId());
-    LOGDEBUG << "Sent async DelObj response after processing";
-
-    /*
-     * Free the IO request structure that
-     * was allocated when the request was
-     * enqueued.
-     */
-    delete delReq;
-
-    return err;
 }
 
 Error
@@ -2463,7 +1671,6 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
     qosCtrl->markIODone(*delReq, diskio::diskTier);
 
     PerfTracer::tracePointEnd(delReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(delReq->opReqLatencyCtx);
 
     omJrnl->release_transaction(delReq->getTransId());
     delReq->response_cb(err, delReq);
@@ -2487,15 +1694,15 @@ ObjectStorMgr::deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq)
 
     LOGDEBUG << "Executing deleteObjectInternalSvcV2";
 
-    PerfTracer::tracePointBegin(delReq->opReqLatencyCtx);
+    // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(delReq->opLatencyCtx);
 
     err = objectStore->deleteObject(volId, objId);
 
     qosCtrl->markIODone(*delReq, diskio::diskTier);
 
+    // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(delReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(delReq->opReqLatencyCtx);
 
     delReq->response_cb(err, delReq);
     return err;
@@ -2513,7 +1720,7 @@ ObjectStorMgr::addObjectRefInternalSvc(SmIoAddObjRefReq* addObjRefReq) {
         return rc;
     }
 
-    PerfTracer::tracePointBegin(addObjRefReq->opReqLatencyCtx);
+    // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(addObjRefReq->opLatencyCtx);
 
     for (auto objId : addObjRefReq->objIds()) {
@@ -2521,81 +1728,19 @@ ObjectStorMgr::addObjectRefInternalSvc(SmIoAddObjRefReq* addObjRefReq) {
         rc = objectStore->copyAssociation(addObjRefReq->getSrcVolId(),
                 addObjRefReq->getDestVolId(), oid);
         if (!rc.ok()) {
-            LOGERROR << "Failed to add association entry for object " << oid <<
-                    "in to odb with err " << rc;
-            PerfTracer::incr(addObjRefReq->opReqFailedPerfEventType,
-                    addObjRefReq->getSrcVolId(), addObjRefReq->perfNameStr);
+            LOGERROR << "Failed to add association entry for object " << oid
+                     << "in to odb with err " << rc;
             break;
         }
     }
 
     qosCtrl->markIODone(*addObjRefReq, diskio::maxTier, true);
+    // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(addObjRefReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(addObjRefReq->opReqLatencyCtx);
 
     addObjRefReq->response_cb(rc, addObjRefReq);
 
     return rc;
-}
-
-void
-ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                         const FDSP_PutObjTypePtr& put_obj_req) {
-    Error err(ERR_OK);
-
-    // Verify the integrity of the FDSP msg using chksums
-    //
-    // stor_mgr_verify_msg(fdsp_msg);
-    //
-    ObjectID oid(put_obj_req->data_obj_id.digest);
-
-    LOGDEBUG << "PutObject Obj ID: " << oid
-             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
-             << ", for request ID: " << fdsp_msg->req_cookie
-             << ", Num Objs: " << fdsp_msg->num_objects;
-    err = enqPutObjectReq(fdsp_msg, put_obj_req,
-                          fdsp_msg->glob_volume_id,
-                          fdsp_msg->req_cookie,
-                          fdsp_msg->num_objects);
-    if (err != ERR_OK) {
-        fdsp_msg->result = FDSP_ERR_FAILED;
-        fdsp_msg->err_code = err.getFdspErr();
-    } else {
-        fdsp_msg->result = FDSP_ERR_OK;
-        fdsp_msg->err_code = err.getFdspErr();
-    }
-
-    counters_->put_reqs.incr();
-}
-
-
-void
-ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                            const FDSP_DeleteObjTypePtr& del_obj_req) {
-    Error err(ERR_OK);
-
-    // Verify the integrity of the FDSP msg using chksums
-    //
-    // stor_mgr_verify_msg(fdsp_msg);
-    //
-    ObjectID oid(del_obj_req->data_obj_id.digest);
-
-    LOGDEBUG << "DeleteObject Obj ID: " << oid
-             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
-             << ", for request ID: " << fdsp_msg->req_cookie
-             << ", Num Objs: " << fdsp_msg->num_objects;
-    err = enqDeleteObjectReq(fdsp_msg, del_obj_req,
-                             fdsp_msg->glob_volume_id,
-                             fdsp_msg->req_cookie);
-    if (err != ERR_OK) {
-        fdsp_msg->result = FDSP_ERR_FAILED;
-        fdsp_msg->err_code = err.getFdspErr();
-    } else {
-        fdsp_msg->result = FDSP_ERR_OK;
-        fdsp_msg->err_code = err.getFdspErr();
-    }
-
-    counters_->del_reqs.incr();
 }
 
 Error
@@ -2626,14 +1771,13 @@ ObjectStorMgr::getObjectInternalSvc(SmIoGetObjectReq *getReq) {
     if (!objBufPtr) {
         ObjectBuf objData;
         ObjMetaData objMetadata;
-        objData.size = 0;
-        objData.data = "";
+        objData.clear();
         err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed, volId);
         if (err == fds::ERR_OK) {
-            objBufPtr = objCache->object_alloc(volId, objId, objData.size);
-            memcpy(const_cast<char *>(objBufPtr->data.c_str()),
-                   reinterpret_cast<const void *>(objData.data.c_str()),
-                   objData.size);
+            objBufPtr = objCache->object_alloc(volId, objId, objData.getSize());
+            memcpy(const_cast<char *>((objBufPtr->data)->c_str()),
+                   reinterpret_cast<const void *>((objData.data)->c_str()),
+                   objData.getSize());
             objCache->object_add(volId, objId, objBufPtr, false);  // read data is always clean
 
             // ACL: If this Volume never put this object, then it should not access the object
@@ -2658,7 +1802,6 @@ ObjectStorMgr::getObjectInternalSvc(SmIoGetObjectReq *getReq) {
     // objStorMutex->unlock();
 
     if (err != fds::ERR_OK) {
-        PerfTracer::incr(getReq->opReqFailedPerfEventType, volId, getReq->perfNameStr);
         LOGERROR << "Failed to get object " << objId
                  << " with error " << err;
         getReq->obj_data.data.clear();
@@ -2668,13 +1811,12 @@ ObjectStorMgr::getObjectInternalSvc(SmIoGetObjectReq *getReq) {
                  << " from tier " << tierUsed << ", volume "
                  << std::hex << volId << std::dec;
         // TODO(Rao): Use std move here
-        getReq->obj_data.data = objBufPtr->data;
+        getReq->obj_data.data = *(objBufPtr->data);
     }
 
     qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
 
     PerfTracer::tracePointEnd(getReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
 
     /*
      * Prepare a response to send back.
@@ -2709,7 +1851,7 @@ ObjectStorMgr::getObjectInternalSvcV2(SmIoGetObjectReq *getReq)
 
     LOGDEBUG << "Executing getObjectInternalSvcV2";
 
-    PerfTracer::tracePointBegin(getReq->opReqLatencyCtx);
+    // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(getReq->opLatencyCtx);
 
     boost::shared_ptr<const std::string> objData =
@@ -2725,183 +1867,10 @@ ObjectStorMgr::getObjectInternalSvcV2(SmIoGetObjectReq *getReq)
 
     qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
 
+    // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(getReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
 
     getReq->response_cb(err, getReq);
-    return err;
-}
-
-Error
-ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
-    Error            err(ERR_OK);
-    const ObjectID  &objId = getReq->getObjId();
-    fds_volid_t volId      = getReq->getVolId();
-    diskio::DataTier tierUsed = diskio::maxTier;
-    const FDSP_GetObjTypePtr& getObjReq = getReq->getGetObjReq();
-    ObjBufPtrType objBufPtr = NULL;
-
-    PerfTracer::tracePointBegin(getReq->opLatencyCtx);
-
-    /*
-     * We need to fix this once diskmanager keeps track of object size
-     * and allocates buffer automatically.
-     * For now, we will pass the fixed block size for size and preallocate
-     * memory for that size.
-     */
-
-    // objStorMutex->lock();
-    objBufPtr = objCache->object_retrieve(volId, objId);
-
-    if (!objBufPtr) {
-        ObjectBuf objData;
-        ObjMetaData objMetadata;
-        objData.size = 0;
-        objData.data = "";
-        err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed, volId);
-        if (err == fds::ERR_OK) {
-            objBufPtr = objCache->object_alloc(volId, objId, objData.size);
-            memcpy(const_cast<char *>(objBufPtr->data.c_str()),
-                   reinterpret_cast<const void *>(objData.data.c_str()),
-                   objData.size);
-            objCache->object_add(volId, objId, objBufPtr, false);  // read data is always clean
-            // ACL: If this Volume never put this object, then it should not access the object
-            if (!objMetadata.isVolumeAssociated(volId)) {
-            // TODO(bao): Need a way to ignore acl to run checker process
-#define _IGNORE_ACL_CHECK_FOR_TEST_
-#ifdef _IGNORE_ACL_CHECK_FOR_TEST_
-                err = fds::ERR_OK;
-#else
-               err = ERR_UNAUTH_ACCESS;
-               LOGDEBUG << "Volume " << volId << " unauth-access of object " << objId
-                // << " and data " << objData.data
-                << " for request ID " << getReq->io_req_id;
-#endif
-            }
-        }
-    } else {
-        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, getReq->perfNameStr);
-        fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
-    }
-
-    // objStorMutex->unlock();
-
-    if (err != fds::ERR_OK) {
-        PerfTracer::incr(getReq->opReqFailedPerfEventType, volId, getReq->perfNameStr);
-        LOGERROR << "Failed to get object " << objId
-                 << " with error " << err;
-        /*
-         * Set the data to empty so we don't return
-         * garbage.
-         */
-    } else {
-        LOGDEBUG << "Successfully got object " << objId
-                // << " and data " << objData.data
-                 << " for request ID " << getReq->io_req_id;
-    }
-
-    qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
-
-    PerfTracer::tracePointEnd(getReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
-
-    /*
-     * Prepare a response to send back.
-     */
-    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(getReq->getTransId());
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
-
-    /*
-     * This does an additional object copy into the network buffer.
-     */
-    FDS_ProtocolInterface::FDSP_GetObjTypePtr
-            getObj(new FDS_ProtocolInterface::FDSP_GetObjType());
-
-    getObj->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-    getObj->data_obj                 = (err == ERR_OK)? objBufPtr->data:"";
-    getObj->data_obj_len             = (err == ERR_OK)? objBufPtr->size:0;
-
-    if (err == ERR_OK) {
-        msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
-        msgHdr->err_code = err.getFdspErr();
-    } else {
-        msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
-        msgHdr->err_code = err.getFdspErr();
-    }
-    msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
-    swapMgrId(msgHdr);
-
-    DPRespClientPtr client = fdspDataPathClient(msgHdr->session_uuid);
-    if (client == NULL) {
-        // We may not know about this session uuid because it may be
-        // a redirected(proxied) get from anothe SM. Let's try and
-        // locate our session uuid based on the service uuid
-        NodeUuid svcUuid(msgHdr->src_service_uuid.uuid);
-        SessionUuid sessUuid = getSvcSess(svcUuid);
-        client = fdspDataPathClient(sessUuid);
-        fds_verify(client != NULL);
-        LOGWARN << "Doing a get() redirection to AM with service UUID "
-                << svcUuid;
-    }
-    try {
-       client->GetObjectResp(msgHdr, getObj);
-    } catch(att::TTransportException& e) {
-        LOGERROR << "error during network call: " << e.what();
-    }
-    LOGDEBUG << "Sent async GetObj response after processing";
-    omJrnl->release_transaction(getReq->getTransId());
-
-    objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());
-    volTbl->updateVolStats(getReq->getVolId());
-
-    objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());
-    volTbl->updateVolStats(getReq->getVolId());
-
-    objCache->object_release(volId, objId, objBufPtr);
-
-    /*
-     * Free the IO request structure that
-     * was allocated when the request was
-     * enqueued.
-     */
-    delete getReq;
-
-    return err;
-}
-
-Error
-ObjectStorMgr::enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
-                                  FDSP_DeleteObjTypePtr delObjReq,
-                                  fds_volid_t        volId,
-                                  fds_uint32_t       am_transId) {
-    Error err(ERR_OK);
-    TransJournalId trans_id;
-    ObjectID obj_id(delObjReq->data_obj_id.digest);
-
-    fds_verify(msgHdr->origin_timestamp != 0);
-
-    /*
-     * Allocate and enqueue an IO request. The request is freed
-     * when the IO completes.
-     */
-    SmIoReq *ioReq = new SmIoReq(delObjReq->data_obj_id.digest,
-                                 // "",
-                                 delObjReq,
-                                 volId,
-                                 FDS_DELETE_BLOB,
-                                 msgHdr->req_cookie);
-
-    err =  enqTransactionIo(msgHdr, obj_id, ioReq, trans_id);
-
-    if (err != fds::ERR_OK) {
-        LOGERROR << "Unable to enqueue delObject request "
-                 << am_transId << ":" << trans_id;
-        delete ioReq;
-        return err;
-    }
-    LOGDEBUG << "Successfully enqueued delObject request "
-             << am_transId << ":" << trans_id;
-
     return err;
 }
 
@@ -2940,92 +1909,6 @@ ObjectStorMgr::getProxyClient(ObjectID& oid,
     return smClient;
 }
 
-/*
- * TODO: The error response is currently returned via the msgHdr.
- * We should change the function to return an error. That's a
- * clearer interface.
- */
-void
-ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
-                         const FDSP_GetObjTypePtr& get_obj_req) {
-    // Verify the integrity of the FDSP msg using chksums
-    //
-    // stor_mgr_verify_msg(fdsp_msg);
-    //
-    Error err(ERR_OK);
-    ObjectID oid(get_obj_req->data_obj_id.digest);
-
-    LOGDEBUG << "GetObject XID: " << fdsp_msg->req_cookie
-             << ", Obj ID: " << oid
-             << ", glob_vol_id: " << fdsp_msg->glob_volume_id
-             << ", Num Objs: " << fdsp_msg->num_objects;
-
-    // check if we have the object or else we need to proxy it
-    // TODO(Andrew): We should actually be checking if we're in
-    // a sync mode for this token, not just blindly redirecting...
-    if (!smObjDb->dataPhysicallyExists(oid)) {
-        LOGWARN << "object id " << oid << " is not here , find it else where";
-
-        NodeAgentDpClientPtr client = getProxyClient(oid, fdsp_msg);
-        fds_verify(client != NULL);
-        client->GetObject(*fdsp_msg, *get_obj_req);
-
-        counters_->proxy_gets.incr();
-        return;
-    }
-
-    err = enqGetObjectReq(fdsp_msg, get_obj_req,
-                          fdsp_msg->glob_volume_id,
-                          fdsp_msg->req_cookie,
-                          fdsp_msg->num_objects);
-    if (err != ERR_OK) {
-        fdsp_msg->result = FDSP_ERR_FAILED;
-        fdsp_msg->err_code = err.getFdspErr();
-    } else {
-        fdsp_msg->result = FDSP_ERR_OK;
-        fdsp_msg->err_code = err.getFdspErr();
-    }
-
-    counters_->get_reqs.incr();
-}
-
-Error
-ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
-                               FDSP_GetObjTypePtr getObjReq,
-                               fds_volid_t        volId,
-                               fds_uint32_t       am_transId,
-                               fds_uint32_t       numObjs) {
-    Error err(ERR_OK);
-    TransJournalId trans_id;
-    ObjectID obj_id(getObjReq->data_obj_id.digest);
-
-    /*
-     * Allocate and enqueue an IO request. The request is freed
-     * when the IO completes.
-     */
-    SmIoReq *ioReq = new SmIoReq(getObjReq->data_obj_id.digest,
-                                 // "",
-                                 getObjReq,
-                                 volId,
-                                 FDS_IO_READ,
-                                 am_transId);
-
-    err =  enqTransactionIo(msgHdr, obj_id, ioReq, trans_id);
-
-    if (err != fds::ERR_OK) {
-        LOGERROR << "Unable to enqueue getObject request "
-                 << am_transId << ":" << trans_id;
-        getObjReq->data_obj_len = 0;
-        getObjReq->data_obj.assign("");
-        delete ioReq;
-        return err;
-    }
-    LOGDEBUG << "Successfully enqueued getObject request "
-             << am_transId << ":" << trans_id;
-
-    return err;
-}
-
 /**
  * @brief Enqueues a message into storage manager for processing
  *
@@ -3055,10 +1938,13 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_SNAPSHOT_TOKEN:
         {
+            /*
             StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
             fds_assert(smVol);
             err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
                     static_cast<FDS_IOType*>(ioReq));
+            */
+            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         }
         /* Following are messages that require io synchronization at object
@@ -3180,9 +2066,8 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
         /* Moving the data to not incur copy penalty */
         DBG(std::string temp_data = obj.data);
         ObjectBuf objData;
-        objData.data = std::move(obj.data);
-        objData.size = objData.data.size();
-        fds_assert(temp_data == objData.data);
+        *(objData.data) = std::move(obj.data);
+        fds_assert(temp_data == *(objData.data));
         obj.data.clear();
 
         /* write data to storage tier */
@@ -3266,78 +2151,6 @@ ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
     applyMdReq->smio_sync_md_resp_cb(e, applyMdReq);
 }
 
-Error
-ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId,
-                                      diskio::DataTier tier)
-{
-    Error err(ERR_OK);
-    ObjMetaData objMetadata;
-    ObjectBuf objData;
-    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
-
-    err = readObjMetaData(objId, objMetadata);
-    if (!err.ok()) {
-        LOGERROR << "failed to read metadata for obj " << objId
-                 << " error " << err;
-        return err;
-    }
-
-    if (!TokenCompactor::isDataGarbage(objMetadata, tier)) {
-        OpCtx opCtx(OpCtx::GC_COPY, 0);
-        meta_obj_id_t   oid;
-        meta_vol_io_t   vio;  // passing to disk_req but not used
-        SmPlReq     *disk_req = NULL;
-
-        LOGDEBUG << "Will copy " << objId << " to new file on tier " << tier;
-
-        // not garbage, read obj data
-        memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-        disk_req = new SmPlReq(vio, oid, static_cast<ObjectBuf *>(&objData), true);
-        disk_req->setTier(tier);
-        disk_req->set_phy_loc(objMetadata.getObjPhyLoc(tier));
-        objData.size = objMetadata.getObjSize();
-        objData.data.resize(objData.size, 0);
-        err = dio_mgr.disk_read(disk_req);
-        if (!err.ok()) {
-            LOGERROR << " Disk Read Err: " << err;
-            delete disk_req;
-            return err;
-        }
-
-        // disk write will write it to the new file
-        err = dio_mgr.disk_write(disk_req);
-        if (!err.ok()) {
-            LOGERROR << " Disk Write Err: " << err;
-            delete disk_req;
-            return err;
-        }
-
-        // ok if concurrent reads happen for this obj before
-        // updating metadata, because object is still in both places
-
-        // update metadata
-        err = writeObjectMetaData(opCtx, objId, objData.data.length(),
-                                  disk_req->req_get_phy_loc(), false, tier, &vio);
-        if (!err.ok()) {
-            LOGERROR << "Failed to update metadata for obj " << objId;
-        }
-
-        delete disk_req;
-    } else {
-        // not going to copy obj
-        LOGNORMAL << "Will garbage-collect " << objId << " on tier " << tier;
-        // remove entry from index db if data + meta is garbage
-        if (TokenCompactor::isGarbage(objMetadata)) {
-            LOGNORMAL << "Removing metadata for " << objId;
-            smObjDb->lock(objId);
-            err = smObjDb->remove(objId);
-            smObjDb->unlock(objId);
-        }
-    }
-
-    return err;
-}
-
 void
 ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
 {
@@ -3352,11 +2165,7 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
                  << " on tier " << cobjs_req->tier;
 
         // copy this object if not garbage, otherwise rm object db entry
-        if (execNewStubs) {
-            err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier);
-        } else {
-            err = condCopyObjectInternal(obj_id, cobjs_req->tier);
-        }
+        err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier);
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;
@@ -3422,9 +2231,8 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
     /* Moving the data to not incur copy penalty */
     DBG(std::string temp_data = applydata_entry->obj_data);
     ObjectBuf objData;
-    objData.data = std::move(applydata_entry->obj_data);
-    objData.size = objData.data.size();
-    fds_assert(temp_data == objData.data);
+    *(objData.data) = std::move(applydata_entry->obj_data);
+    fds_assert(temp_data == *(objData.data));
     applydata_entry->obj_data.clear();
 
     /* write data to storage tier */
@@ -3470,7 +2278,7 @@ ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
         read_entry->smio_readdata_resp_cb(err, read_entry);
     }
     // TODO(Rao): use std::move here
-    read_entry->obj_data.data = objData.data;
+    read_entry->obj_data.data = *(objData.data);
     fds_assert(read_entry->obj_data.data.size() > 0);
 
     qosCtrl->markIODone(*read_entry,
@@ -3506,47 +2314,6 @@ ObjectStorMgr::readObjectMetadataInternal(SmIoReq* ioReq)
     read_entry->smio_readmd_resp_cb(err, read_entry);
 }
 
-inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
-    FDSP_MgrIdType temp_id;
-    fds_int32_t tmp_addr;
-    fds_uint32_t tmp_port;
-
-    temp_id = fdsp_msg->dst_id;
-    fdsp_msg->dst_id = fdsp_msg->src_id;
-    fdsp_msg->src_id = temp_id;
-
-    tmp_addr = fdsp_msg->dst_ip_hi_addr;
-    fdsp_msg->dst_ip_hi_addr = fdsp_msg->src_ip_hi_addr;
-    fdsp_msg->src_ip_hi_addr = tmp_addr;
-
-    tmp_addr = fdsp_msg->dst_ip_lo_addr;
-    fdsp_msg->dst_ip_lo_addr = fdsp_msg->src_ip_lo_addr;
-    fdsp_msg->src_ip_lo_addr = tmp_addr;
-
-    tmp_port = fdsp_msg->dst_port;
-    fdsp_msg->dst_port = fdsp_msg->src_port;
-    fdsp_msg->src_port = tmp_port;
-
-    fdsp_msg->src_service_uuid.uuid =
-            (fds_int64_t)(PlatformProcess::plf_manager()->
-                          plf_get_my_svc_uuid())->uuid_get_val();
-}
-
-// TODO(Sean)
-// These three ifaces --  {get,put,del}ObjectExt() may be deprecated.
-// Should consider removing them.
-void getObjectExt(SmIoReq* getReq) {
-    objStorMgr->getObjectInternal(getReq);
-}
-
-void putObjectExt(SmIoReq* putReq) {
-    objStorMgr->putObjectInternal(putReq);
-}
-
-void delObjectExt(SmIoReq* putReq) {
-    objStorMgr->deleteObjectInternal(putReq);
-}
-
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
     SmIoReq *io = static_cast<SmIoReq*>(_io);
@@ -3558,12 +2325,8 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
 
     switch (io->io_type) {
         case FDS_IO_READ:
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
-            threadPool->schedule(getObjectExt, io);
-            break;
         case FDS_IO_WRITE:
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
-            threadPool->schedule(putObjectExt, io);
+            fds_panic("must not get here!");
             break;
         case FDS_SM_DELETE_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
@@ -3676,20 +2439,6 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     }
 
     return err;
-}
-
-
-void log_ocache_stats() {
-    /*
-     *TODO(Vy): this is kind of bloated stat, the file grows quite big with redudant
-     *data, disable it.
-     */
-#if 0
-    while (1) {
-        usleep(500000);
-        objStorMgr->getObjCache()->log_stats_to_file("ocache_stats.dat");
-    }
-#endif
 }
 
 

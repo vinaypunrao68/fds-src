@@ -8,9 +8,10 @@
 
 namespace fds {
 
-ObjectDataStore::ObjectDataStore(const std::string &modName)
+ObjectDataStore::ObjectDataStore(const std::string &modName,
+                                 SmIoReqHandler *data_store)
         : Module(modName.c_str()),
-          persistData(new ObjectPersistData("SM Object Persistent Data Store")) {
+          persistData(new ObjectPersistData("SM Obj Persist Data Store", data_store)) {
     dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));
 }
 
@@ -26,7 +27,7 @@ Error
 ObjectDataStore::putObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                diskio::DataTier tier,
-                               boost::shared_ptr<const std::string> objData,
+                               boost::shared_ptr<const std::string>& objData,
                                obj_phy_loc_t& objPhyLoc) {
     Error err(ERR_OK);
 
@@ -34,10 +35,13 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     meta_vol_io_t    vio;
     meta_obj_id_t    oid;
     fds_bool_t       sync = true;
-    // TODO(Andrew): Should take a shared_ptr not a raw object buf
     // TODO(Anna): we also dob't need meta_obj_id_t structure in disk
     // request, should be able to use ObjectID type
-    ObjectBuf objBuf(*objData);
+    // TODO(Anna) cast not pretty, I think we should change API to
+    // have shared_ptr of non const string
+    boost::shared_ptr<std::string> sameObjData =
+            boost::const_pointer_cast<std::string>(objData);
+    ObjectBuf objBuf(sameObjData);
     memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
     diskio::DiskRequest *plReq =
             new diskio::DiskRequest(vio, oid,
@@ -48,7 +52,6 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
         PerfContext tmp_pctx(SM_OBJ_DATA_DISK_WRITE,
                              volId, PerfTracer::perfNameStr(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-        // err = diskMgr->disk_write(plReq);
         err = persistData->writeObjectData(objId, plReq);
     }
 
@@ -56,7 +59,7 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     if (err.ok()) {
         LOGDEBUG << "Wrote " << objId << " to persistent layer";
         if (tier == diskio::flashTier) {
-            PerfTracer::incr(PUT_SSD_OBJ, volId, PerfTracer::perfNameStr(volId));
+            PerfTracer::incr(SM_OBJ_DATA_SSD_WRITE, volId, PerfTracer::perfNameStr(volId));
         }
 
         // get location in persistent layer to return with this method
@@ -108,8 +111,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
     }
     plReq->setTier(tier);
     plReq->set_phy_loc(objMetaData->getObjPhyLoc(tier));
-    objBuf.size = objMetaData->getObjSize();
-    objBuf.data.resize(objBuf.size, 0);
+    (objBuf.data)->resize(objMetaData->getObjSize(), 0);
 
     {  // scope for perf counter
         PerfContext tmp_pctx(SM_OBJ_DATA_DISK_READ,
@@ -123,14 +125,14 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
                  << " tier " << tier << " volume " << std::hex
                  << volId << std::dec;
         if (tier == diskio::flashTier) {
-            PerfTracer::incr(GET_SSD_OBJ, volId, PerfTracer::perfNameStr(volId));
+            PerfTracer::incr(SM_OBJ_DATA_SSD_READ, volId, PerfTracer::perfNameStr(volId));
         }
 
         // Copy the data to the give buffer
         // TODO(Andrew): Remove the ObjectBuf concept and just pass the
         // data pointer directly to the persistent layer so that this
         // copy can be avoided.
-        boost::shared_ptr<const std::string> objData(new std::string(objBuf.data));
+        boost::shared_ptr<std::string> objData(objBuf.data);
         delete plReq;
         return objData;
     } else {

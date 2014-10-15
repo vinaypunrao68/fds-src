@@ -2,7 +2,13 @@ topdir            := ..
 user_target       := exe
 user_rtime_env    := user
 speedup           := -j 6
-user_build_dir    := include amlib stor-hvisor platform
+user_build_dir    := \
+    include \
+    amlib \
+    stor-hvisor \
+    platform \
+    block
+
 user_incl_dir     := stor-hvisor include
 user_cpp_flags    :=
 user_fds_so_libs  :=

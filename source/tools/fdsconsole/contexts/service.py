@@ -145,8 +145,9 @@ class ServiceContext(Context):
 
     	    data = []
 	    data += [("commitlogsize",statscb.payload.commitlog_size)]
+	    data += [("extent0size",statscb.payload.extent0_size)]
 	    data += [("extentsize",statscb.payload.extent_size)]
-	    data += [("vvcsize",statscb.payload.vvc_size)]
+	    data += [("metadatasize",statscb.payload.metadata_size)]
 	    return  tabulate(data, tablefmt=self.config.getTableFormat())
 
         except Exception, e:

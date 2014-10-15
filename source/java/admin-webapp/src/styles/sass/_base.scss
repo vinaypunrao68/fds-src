@@ -53,6 +53,10 @@ li:active, li:focus, a:active, a:focus {
   border-radius: 0px;
 }
 
+.add-bottom-space {
+    margin-bottom: 20px;
+}
+
 .error-color {
     color: red;
 }
@@ -98,8 +102,16 @@ input.form-control {
     display: inline-block;
 }
 
+.flex {
+    @include display-flex();
+}
+
 .text-centered {
   text-align: center;
+}
+
+.text-right {
+    text-align: right !important;
 }
 
 .vertical-middle {

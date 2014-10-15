@@ -67,6 +67,7 @@ DMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 // -------------------------------------------------------------------------------------
 // DM Specific Platform
 // -------------------------------------------------------------------------------------
+DmPlatform::~DmPlatform() {}
 DmPlatform::DmPlatform()
     : Platform("DM-Platform",
                fpi::FDSP_DATA_MGR,

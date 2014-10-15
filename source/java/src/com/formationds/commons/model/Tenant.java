@@ -6,13 +6,11 @@ package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
 
-import javax.xml.bind.annotation.XmlRootElement;
 import java.util.List;
 
 /**
  * @author ptinius
  */
-@XmlRootElement
 public class Tenant
   extends ModelBase {
   private static final long serialVersionUID = -1159983056189923654L;
