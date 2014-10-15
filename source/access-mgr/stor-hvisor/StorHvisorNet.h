@@ -611,6 +611,10 @@ static void processBlobReq(AmQosReq *qosReq) {
                 break;
 	    }
         case fds::FDS_VOLUME_CONTENTS:
+	    if (storHvisor->toggleNewPath) {
+                storHvisor->amProcessor->volumeContents(qosReq);
+                break;
+	    }
             err = storHvisor->handlers.at(qosReq->io_type)->handleQueueItem(qosReq);
             break;
 

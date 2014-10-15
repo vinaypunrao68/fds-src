@@ -393,6 +393,18 @@ AmProcessor::abortBlobTxCb(AmQosReq *qosReq,
 }
 
 void
+AmProcessor::volumeContents(AmQosReq *qosReq) {
+    VolumeContentsReq* blobReq = static_cast<VolumeContentsReq*>(qosReq->getBlobReqPtr());
+    LOGDEBUG << "volume:" << blobReq->getVolId()
+        <<" blob:" << blobReq->getBlobName();
+
+    blobReq->base_vol_id = volTable->getBaseVolumeId(blobReq->getVolId());
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::volumeContentsCb, qosReq);
+
+    amDispatcher->dispatchVolumeContents(qosReq);
+}
+
+void
 AmProcessor::deleteBlobCb(AmQosReq *qosReq, const Error& error) {
     DeleteBlobReq *blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
 
@@ -486,4 +498,13 @@ AmProcessor::commitBlobTxCb(AmQosReq *qosReq, const Error &error) {
     delete blobReq;
 }
 
+void
+AmProcessor::volumeContentsCb(AmQosReq *qosReq, const Error& error) {
+    VolumeContentsReq *blobReq = static_cast<VolumeContentsReq *>(qosReq->getBlobReqPtr());
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+    delete blobReq;
+}
 }  // namespace fds

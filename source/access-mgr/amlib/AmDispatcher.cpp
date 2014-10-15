@@ -647,4 +647,57 @@ AmDispatcher::commitBlobTxCb(AmQosReq *qosReq,
     // can safely delete the request
     blobReq->processorCb(error);
 }
+
+void
+AmDispatcher::dispatchVolumeContents(AmQosReq *qosReq)
+{
+    VolumeContentsReq* blobReq = static_cast<VolumeContentsReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse());
+
+    GetBucketMsgPtr message = boost::make_shared<GetBucketMsg>();
+    message->volume_id = blobReq->getVolId();
+    message->startPos  = 0;
+    message->maxKeys   = blobReq->maxkeys;
+
+    auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(
+        boost::make_shared<DmtVolumeIdEpProvider>(
+            dmtMgr->getCommittedNodeGroup(blobReq->base_vol_id)));
+
+    asyncReq->setPayload(fpi::GetBucketMsgTypeId, message);
+    asyncReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::volumeContentsCb, qosReq));
+
+    asyncReq->invoke();
+}
+
+void
+AmDispatcher::volumeContentsCb(AmQosReq* qosReq,
+                               FailoverSvcRequest* svcReq,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload)
+{
+    VolumeContentsReq* blobReq = static_cast<VolumeContentsReq *>(qosReq->getBlobReqPtr());
+
+    // Return if err
+    if (ERR_OK == error) {
+        // using the same structure for input and output
+        auto response = MSG_DESERIALIZE(GetBucketMsg, error, payload);
+
+        GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, blobReq->cb);
+        cb->contentsCount = response->blob_info_list.size();
+        ListBucketContents* bucketContents = new ListBucketContents[cb->contentsCount];
+        LOGDEBUG << " volid: " << response->volume_id
+            << " numBlobs: " << response->blob_info_list.size();
+        for (int i = 0; i < cb->contentsCount; ++i) {
+            bucketContents[i].set(response->blob_info_list[i].blob_name,
+                                  0,  // last modified
+                                  "",  // eTag
+                                  response->blob_info_list[i].blob_size,
+                                  "",  // ownerId
+                                  "");
+        }
+        cb->contents = bucketContents;
+    }
+    blobReq->processorCb(error);
+}
+
 }  // namespace fds
