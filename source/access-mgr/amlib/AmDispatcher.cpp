@@ -89,7 +89,7 @@ AmDispatcher::dispatchAbortBlobTx(AmQosReq *qosReq) {
     stBlobTxMsg->volume_id      = volId;
 
     auto asyncAbortBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(dltMgr->getDLT()->getNodes(volId)));
+        boost::make_shared<DmtVolumeIdEpProvider>(dmtMgr->getCommittedNodeGroup(volId)));
     asyncAbortBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::AbortBlobTxMsg), stBlobTxMsg);
     asyncAbortBlobTxReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::abortBlobTxCb, qosReq));
 

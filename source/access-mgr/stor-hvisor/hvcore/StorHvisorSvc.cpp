@@ -159,7 +159,7 @@ void StorHvCtrl::issueAbortBlobTxMsg(const std::string& blobName,
     stBlobTxMsg->txId = txId;
 
     auto asyncAbortBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_table->getBaseVolumeId(volId))));
+        boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(vol_table->getBaseVolumeId(volId))));
     asyncAbortBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::AbortBlobTxMsg), stBlobTxMsg);
     asyncAbortBlobTxReq->onResponseCb(respCb);
     asyncAbortBlobTxReq->invoke();
