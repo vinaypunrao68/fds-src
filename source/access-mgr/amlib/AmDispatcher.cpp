@@ -78,6 +78,23 @@ AmDispatcher::getVolumeMetadataCb(AmQosReq* qosReq,
 
 void
 AmDispatcher::dispatchAbortBlobTx(AmQosReq *qosReq) {
+    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(qosReq->getBlobReqPtr());
+
+    fds_volid_t volId = blobReq->getVolId();
+
+    AbortBlobTxMsgPtr stBlobTxMsg(new AbortBlobTxMsg());
+    stBlobTxMsg->blob_name      = blobReq->getBlobName();
+    stBlobTxMsg->blob_version   = blob_version_invalid;
+    stBlobTxMsg->txId           = blobReq->getTxId()->getValue();
+    stBlobTxMsg->volume_id      = volId;
+
+    auto asyncAbortBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
+        boost::make_shared<DltObjectIdEpProvider>(dltMgr->getDLT()->getNodes(volId)));
+    asyncAbortBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::AbortBlobTxMsg), stBlobTxMsg);
+    asyncAbortBlobTxReq->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::abortBlobTxCb, qosReq));
+
+    asyncAbortBlobTxReq->invoke();
+    LOGDEBUG << asyncAbortBlobTxReq->logString() << fds::logString(*stBlobTxMsg);
 }
 
 void
@@ -85,6 +102,10 @@ AmDispatcher::abortBlobTxCb(AmQosReq *qosReq,
                             QuorumSvcRequest *svcReq,
                             const Error &error,
                             boost::shared_ptr<std::string> payload) {
+    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse());
+
+    blobReq->processorCb(error);
 }
 
 void
