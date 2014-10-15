@@ -76,7 +76,8 @@ user_no_style     :=  \
 user_cpp          := \
 	th_am.cpp \
 	th_sm.cpp \
-	threadpool_test.cpp
+	threadpool_test.cpp \
+    serializer_gtest.cpp
 
 user_clean	  := \
 	$(wildcard svc_constants.*) \
@@ -88,10 +89,12 @@ user_clean	  := \
 user_bin_exe      := \
 	th_am \
 	th_sm \
-	threadpool_test
+	threadpool_test \
+    serializer_gtest
 
 th_am := th_am.cpp svc_constants.cpp svc_types.cpp TestAMSvc.cpp TestSMSvc.cpp ngx_modules.c
 th_sm := th_sm.cpp svc_constants.cpp svc_types.cpp TestAMSvc.cpp TestSMSvc.cpp ngx_modules.c
 threadpool_test := threadpool_test.cpp ngx_modules.c
+serializer_gtest := serializer_gtest.cpp ngx_modules.c
 
 include $(topdir)/Makefile.incl
