@@ -20,6 +20,7 @@ needed_packages=(
 basedebs=(
     libpcre3
     "libconfig++9"
+    libreadline5
     xfsprogs
     libjemalloc1
     redis-tools
