@@ -114,11 +114,6 @@ int fn_PutObjectHandler(void *reqContext,
                         void *callbackData,
                         FDSN_Status status,
                         ErrorDetails* errorDetails) {
-    // PutObjectResponseHandler* handler= reinterpret_cast<PutObjectResponseHandler*>(callbackData); //NOLINT
-    // handler->status = status;
-    // handler->errorDetails = errorDetails;
-
-    // handler->ready();
     return 0;
 }
 

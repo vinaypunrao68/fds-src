@@ -531,8 +531,6 @@ class PutBlobReq: public FdsBlobReq {
                PutPropertiesPtr _put_props,
                void* _req_context,
                CallbackPtr _cb);
-    // fdsnPutObjectHandler _put_obj_handler,
-    // void* _callback_data);
 
     /// Constructor used on putBlobOnce requests.
     PutBlobReq(fds_volid_t          _volid,
@@ -544,8 +542,6 @@ class PutBlobReq: public FdsBlobReq {
                fds_int32_t          _blobMode,
                boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
                CallbackPtr _cb);
-    // fdsnPutObjectHandler _put_obj_handler,
-    // void*                _callback_data);
 
     fds_bool_t isLastBuf() const {
         return lastBuf;

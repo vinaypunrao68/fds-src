@@ -589,8 +589,6 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        PutPropertiesPtr _put_props,
                        void* _req_context,
                        CallbackPtr _cb)
-// fdsnPutObjectHandler _put_obj_handler,
-// void* _callback_data)
                        : FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
              _data_len, _data_buf, FDS_NativeAPI::DoCallback,
              this, Error(ERR_OK), 0),
@@ -599,8 +597,6 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
     ObjKey(_blob_name),
     putProperties(_put_props),
     req_context(_req_context),
-                     // putObjCallback(_put_obj_handler),
-                     // callback_data(_callback_data),
     txDesc(_txDesc),
     respAcks(2),
     retStatus(ERR_OK)
@@ -636,8 +632,6 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                        fds_int32_t          _blobMode,
                        boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
                        CallbackPtr _cb)
-// fdsnPutObjectHandler _put_obj_handler,
-// void*                _callback_data)
         : FdsBlobReq(FDS_PUT_BLOB_ONCE, _volid, _blob_name, _blob_offset,
                      _data_len, _data_buf, FDS_NativeAPI::DoCallback,
                      this, Error(ERR_OK), 0),
@@ -645,8 +639,6 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                 txDesc(NULL),
                 blobMode(_blobMode),
                 metadata(_metadata),
-                     // putObjCallback(_put_obj_handler),
-                     // callback_data(_callback_data),
                 respAcks(2),
                 retStatus(ERR_OK) {
     volumeName = _volumeName;
