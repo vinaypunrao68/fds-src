@@ -1,23 +1,20 @@
-angular.module( 'tenant-management' ).factory( '$tenant_service', ['$http', function( $http ){
+angular.module( 'tenant-management' ).factory( '$tenant_service', ['$http_fds', function( $http_fds ){
 
     var service = {};
 
     service.getTenants = function( callback, failure ){
 
-        return $http.get( '/api/system/tenants' )
-            .success( callback ).error( failure );
+        return $http_fds.get( '/api/system/tenants', callback, failure );
     };
 
     service.createTenant = function( tenant, callback, failure ){
 
-        return $http.post( '/api/system/tenants/' + tenant.name )
-            .success( callback ).error( failure );
+        return $http_fds.post( '/api/system/tenants/' + tenant.name, {}, callback, failure );
     };
 
     service.attachUser = function( tenant, userId, callback, failure ){
 
-        return $http.put( '/api/system/tenants/' + tenant.id + '/' + userId )
-            .success( callback ).error( failure );
+        return $http_fds.put( '/api/system/tenants/' + tenant.id + '/' + userId, {}, callback, failure );
     };
 
     return service;

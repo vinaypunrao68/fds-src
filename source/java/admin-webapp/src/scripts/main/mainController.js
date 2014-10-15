@@ -129,6 +129,10 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
 
     var determineWhereToGo = function(){
         
+        if ( $scope.validAuth === false ){
+            return;
+        }
+        
         var noState = true;
         
         for ( var i = 0; i < $scope.views.length; i++ ){
@@ -152,9 +156,17 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
 
     $scope.$watch( function(){ return $authentication.isAuthenticated; }, function( val ) {
         $scope.loggedInUser = $authorization.getUsername();
+        
+        if ( !angular.isDefined( $scope.loggedInUser ) ){
+            $scope.validAuth = false;
+            return;
+        }
+        
         $scope.validAuth = val;
         $scope.username = '';
         $scope.password = '';
+        
+        determineWhereToGo();
     });
 
     $scope.$watch( function(){ return $authentication.error; }, function( val ) {

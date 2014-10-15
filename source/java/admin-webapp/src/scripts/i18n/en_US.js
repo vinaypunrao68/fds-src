@@ -30,13 +30,19 @@ var en_US = {
         activity: 'Activity',
         title: 'Status',
         
+        l_capacity: 'Capacity',
+        l_firebreak: 'Firebreak',
+        l_performance: 'Performance',
+        
         th_type: 'Type',
         th_message: 'Message',
         th_received: 'Received',
         
         tt_firebreak: 'Firebreak {{value}} {{units}} ago.',
         
-        desc_firebreak: 'Events in the past 24 hours'
+        desc_firebreak: 'Events in the past 24 hours',
+        desc_dedup_capacity: 'Deduplicated storage capacity used.',
+        desc_pre_dedup_capacity: 'Logical storage capacity consumed before deduplication.'
     },
     inbox: {
         messages: 'Messages',

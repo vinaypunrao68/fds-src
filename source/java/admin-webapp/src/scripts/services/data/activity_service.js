@@ -1,11 +1,11 @@
-angular.module( 'activity-management' ).factory( '$activity_service', [ '$http', function( $http ){
+angular.module( 'activity-management' ).factory( '$activity_service', [ '$http_fds', function( $http_fds ){
 
     var service = {};
 
     service.getActivities = function( start, end, max, callback ){
 
-        return $http.get( '/scripts/services/data/fakelogs.js' )
-            .success( function( response ){
+        return $http_fds.get( '/scripts/services/data/fakelogs.js',
+            function( response ){
                 callback( response );
             });
     };

@@ -1,8 +1,12 @@
 angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$volume_api', function( $scope, $volume_api ){
     
-    $scope.volumeVars.toClone = 'new';
-    $scope.selectedItem = {name: 'None'};
-    $scope.choosing = false;
+    var init = function(){
+        $scope.volumeVars.toClone = 'new';
+        $scope.selectedItem = {name: 'None'};
+        $scope.choosing = false;
+    }
+    
+    init();
     
     $scope.cloneOptions = [];
     
@@ -33,6 +37,7 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
         }
         
         $scope.cloneOptions = $volume_api.volumes;
+        init();
     };
     
     $scope.$watch( 'volumeVars.creating', refresh );
