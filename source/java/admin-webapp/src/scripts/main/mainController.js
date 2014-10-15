@@ -50,7 +50,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
              id: 'tenants', 
              link: 'homepage.tenants', 
              text: $filter( 'translate' )('tenants.title' ), 
-             iconClass: 'icon-tenants', 
+             iconClass: 'icon-tenant', 
              selected: false, 
              permission: SYS_MGMT },
         { 
