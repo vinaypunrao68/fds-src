@@ -71,7 +71,7 @@ LoadPlugin syslog
 # Specify what features to activate.                                         #
 ##############################################################################
 
-LoadPlugin aggregation
+#LoadPlugin aggregation
 #LoadPlugin amqp
 #LoadPlugin apache
 #LoadPlugin apcups
@@ -81,7 +81,7 @@ LoadPlugin aggregation
 #LoadPlugin cgroups
 #LoadPlugin conntrack
 #LoadPlugin contextswitch
-LoadPlugin cpu
+#LoadPlugin cpu
 #LoadPlugin cpufreq
 #LoadPlugin csv
 #LoadPlugin curl
@@ -174,28 +174,28 @@ LoadPlugin write_http
 # ription of those options is available in the collectd.conf(5) manual page. #
 ##############################################################################
 
-<Plugin "aggregation">
-	<Aggregation>
+#<Plugin "aggregation">
+#	<Aggregation>
 #		#Host "unspecified"
-		Plugin "cpu"
+#		Plugin "cpu"
 #		PluginInstance "/[0,2,4,6,8]$/"
-		Type "cpu"
+#		Type "cpu"
 #		#TypeInstance "unspecified"
 #
 #		SetPlugin "cpu"
 #		SetPluginInstance "even-%{aggregation}"
 #
-		GroupBy "Host"
-		GroupBy "TypeInstance"
+#		GroupBy "Host"
+#		GroupBy "TypeInstance"
 #
 #		CalculateNum false
-		CalculateSum true
+#		CalculateSum true
 #		CalculateAverage true
 #		CalculateMinimum false
 #		CalculateMaximum false
 #		CalculateStddev false
-	</Aggregation>
-</Plugin>
+#	</Aggregation>
+#</Plugin>
 
 #<Plugin amqp>
 #	<Publish "name">
