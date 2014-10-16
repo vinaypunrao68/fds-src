@@ -14,7 +14,9 @@ user_cpp          := \
 	DmPersistVc.cpp \
 	DmVolumeDirectory.cpp \
 	DmPersistVolDir.cpp \
-	DmPersistVolDB.cpp
+	DmPersistVolDB.cpp \
+	DmOIDArrayMmap.cpp \
+	DmPersistVolFile.cpp
 
 user_ar_libs      := fds-dm-lib
 fds-dm-lib        := $(user_cpp)

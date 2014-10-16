@@ -12,6 +12,7 @@
 #include <DmBlobTypes.h>
 
 #include <dm-vol-cat/DmPersistVolDB.h>
+#include <dm-vol-cat/DmPersistVolFile.h>
 #include <dm-vol-cat/DmVolumeDirectory.h>
 
 #define GET_VOL(volId) \
@@ -61,7 +62,9 @@ Error DmVolumeDirectory::addCatalog(const VolumeDesc & voldesc) {
                     voldesc.isSnapshot(), voldesc.isSnapshot(),
                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
     } else {
-        // vol.reset(new DmPersistVolFile(voldesc.volUUID, voldesc.maxObjSizeInBytes));
+        vol.reset(new DmPersistVolFile(voldesc.volUUID, voldesc.maxObjSizeInBytes,
+                    voldesc.isSnapshot(), voldesc.isSnapshot(),
+                    voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
     }
 
     SCOPEDWRITE(volMapLock_);
@@ -113,8 +116,8 @@ Error DmVolumeDirectory::copyVolume(const VolumeDesc & voldesc) {
             vol.reset(new DmPersistVolDB(voldesc.volUUID, objSize, voldesc.isSnapshot(),
                     voldesc.isSnapshot(), voldesc.srcVolumeId));
         } else {
-            // vol.reset(new DmPersistVolFile(voldesc.volUUID, objSize, voldesc.isSnapshot(),
-            //         voldesc.isSnapshot()));
+            vol.reset(new DmPersistVolFile(voldesc.volUUID, objSize, voldesc.isSnapshot(),
+                    voldesc.isSnapshot(), voldesc.srcVolumeId));
         }
 
         SCOPEDWRITE(volMapLock_);
@@ -240,7 +243,8 @@ Error DmVolumeDirectory::getVolumeObjects(fds_volid_t volId, std::set<ObjectID> 
     for (const auto & it : blobMetaList) {
         fds_uint64_t lastObjectSize = DmVolumeDirectory::getLastObjSize(it.desc.blob_size,
                 vol->getObjSize());
-        fds_uint64_t lastObjOffset = it.desc.blob_size - lastObjectSize;
+        fds_uint64_t lastObjOffset = it.desc.blob_size ?
+                it.desc.blob_size - lastObjectSize : 0;
 
         BlobObjList objList;
         rc = vol->getObject(it.desc.blob_name, 0, lastObjOffset, objList);
@@ -296,7 +300,7 @@ Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
     GET_VOL_N_CHECK_DELETED(volId);
 
     fds_uint64_t lastObjectSize = DmVolumeDirectory::getLastObjSize(blobSize, vol->getObjSize());
-    fds_uint64_t endOffset = blobSize - lastObjectSize;
+    fds_uint64_t endOffset = blobSize ? blobSize - lastObjectSize : 0;
 
     rc = vol->getObject(blobName, startOffset, endOffset, *objList);
 
@@ -397,7 +401,7 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
     const fds_uint64_t oldBlobSize = blobMeta.desc.blob_size;
     const fds_uint32_t oldLastObjSize = DmVolumeDirectory::getLastObjSize(oldBlobSize,
             vol->getObjSize());
-    const fds_uint64_t oldLastOffset = oldBlobSize - oldLastObjSize;
+    const fds_uint64_t oldLastOffset = oldBlobSize ? oldBlobSize - oldLastObjSize : 0;
     BlobObjList oldBlobObjList;
 
     // new details
@@ -541,7 +545,8 @@ Error DmVolumeDirectory::deleteBlob(fds_volid_t volId, const std::string& blobNa
 
     fds_uint64_t lastObjectSize = DmVolumeDirectory::getLastObjSize(blobMeta.desc.blob_size,
                 vol->getObjSize());
-    fds_uint64_t endOffset = blobMeta.desc.blob_size - lastObjectSize;
+    fds_uint64_t endOffset = blobMeta.desc.blob_size ?
+            blobMeta.desc.blob_size - lastObjectSize : 0;
 
     fpi::FDSP_BlobObjectList objList;
     rc = vol->getObject(blobName, 0, endOffset, objList);
