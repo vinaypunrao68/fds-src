@@ -24,6 +24,7 @@
 #include "TestAMSvc.h"
 #include "TestSMSvc.h"
 #include "Threadpool.h"
+#include "Threadpool2.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -84,7 +85,14 @@ struct ThreadPoolTest: BaseTestFixture
 
     void doWork2(ThreadPool *tp, uint64_t iterCnt) {
         work(iterCnt);
-        tp->enqueue(&ThreadPoolTest::workDoneCb, this);
+        // tp->enqueue(&ThreadPoolTest::workDoneCb, this);
+        workDoneCb();
+    }
+
+    void doWorkTp2(TP *tp, uint64_t iterCnt) {
+        work(iterCnt);
+        // tp->enqueue(std::bind(&ThreadPoolTest::workDoneCb, this));
+        workDoneCb();
     }
     void printStats() {
         std::cout << "Total time: " << endTs_ - startTs_ << " (ns)\n"
@@ -197,6 +205,23 @@ TEST_F(ThreadPoolTest, DISABLED_threadpool)
     for (int i = 0; i < cnt; i++) {
         issued_++;
         tp->enqueue(&ThreadPoolTest::doWork2, this, tp.get(), iterCnt);
+    }
+    /* Poll for completion */
+    POLL_MS((issued_ == completed_), 2000, (issued_* 20));
+    printStats();
+    ASSERT_TRUE(issued_ == completed_) << "Issued: " << issued_
+        << " completed_: " << completed_;
+}
+
+TEST_F(ThreadPoolTest, threadpool2)
+{
+    int cnt = this->getArg<int>("cnt");
+    uint64_t iterCnt = this->getArg<uint64_t>("iter-cnt");
+    std::unique_ptr<TP> tp(new TP(10));
+    startTs_ = util::getTimeStampNanos();
+    for (int i = 0; i < cnt; i++) {
+        issued_++;
+        tp->enqueue(std::bind(&ThreadPoolTest::doWorkTp2, this, tp.get(), iterCnt));
     }
     /* Poll for completion */
     POLL_MS((issued_ == completed_), 2000, (issued_* 20));
