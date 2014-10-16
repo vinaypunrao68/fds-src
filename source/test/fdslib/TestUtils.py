@@ -109,7 +109,7 @@ def get_options(pyUnit):
                       default = False, help = 'enable verbosity')
     parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
                       default = False, help = 'dry run, print commands only')
-    parser.add_option('-i', '--install', action = 'store_true', dest = 'clus_inst',
+    parser.add_option('-i', '--install', action = 'store_true', dest = 'tar_file',
                       default = False, help = 'perform an install from an FDS package as opposed '
                                               'to a development environment')
     parser.add_option('-d', '--sudo-password', action = 'store', dest = 'sudo_password',
@@ -301,9 +301,9 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     if params["dryrun"] == False:
         params["dryrun"] = pyUnitDryrun
         setattr(options, "dryrun", params["dryrun"])
-    if params["clus_inst"] == False:
-        params["clus_inst"] = pyUnitInstall
-        setattr(options, "clus_inst", params["clus_inst"])
+    if params["tar_file"] == False:
+        params["tar_file"] = pyUnitInstall
+        setattr(options, "tar_file", params["tar_file"])
     if params["sudo_password"] is None:
         params["sudo_password"] = pyUnitSudoPw
         setattr(options, "sudo_password", params["sudo_password"])
