@@ -21,6 +21,7 @@ PKGCACHEDIR="${SOURCEDIR}/.pkg.cache"
 externalpkgs=(
     libpcre3_8.31-2ubuntu2_amd64.deb
     libconfig++9_1.4.9-2_amd64.deb
+    libreadline5_5.2+dfsg-2_amd64.deb
 
     xfsprogs_3.1.9ubuntu2_amd64.deb
     java-common_0.51_all.deb

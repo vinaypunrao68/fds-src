@@ -1,0 +1,11 @@
+---
+node_ips:
+        node1: 172.16.10.10
+        node2: 172.16.10.11
+        node3: 172.16.10.12
+        node4: 172.16.10.13
+
+default_nic: eth0
+
+metrics_enabled: "false"
+metricsdb_ip: 127.0.0.1
