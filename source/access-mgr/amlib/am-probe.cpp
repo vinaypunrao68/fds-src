@@ -166,7 +166,7 @@ struct ProbeStartBlobTxResponseHandler : public StartBlobTxResponseHandler {
     }
 };
 
-struct ProbeUpdateBlobResponseHandler : public PutObjectResponseHandler {
+struct ProbeUpdateBlobResponseHandler : public UpdateBlobResponseHandler {
     explicit ProbeUpdateBlobResponseHandler() {
         type = HandlerType::IMMEDIATE;
     }
