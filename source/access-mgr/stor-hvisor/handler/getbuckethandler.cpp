@@ -5,6 +5,8 @@
 #include "./handler.h"
 #include "../StorHvisorNet.h"
 #include <net/net-service-tmpl.hpp>
+#include "responsehandler.h"
+
 namespace fds {
 
 Error GetBucketHandler::handleRequest(BucketContext* bucket_context,
@@ -37,18 +39,14 @@ Error GetBucketHandler::handleResponse(AmQosReq *qosReq,
     // using the same structure for input and output
     auto response = MSG_DESERIALIZE(GetBucketMsg, error, payload);
 
-    GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, helper.blobReq->cb);
-    cb->contentsCount = response->blob_info_list.size();
-    cb->contents = new ListBucketContents[cb->contentsCount];
+    ListBucketResponseHandler::ptr cb = SHARED_DYN_CAST(ListBucketResponseHandler,
+                                                        helper.blobReq->cb);
+    size_t count = response->blob_info_list.size();
     LOGDEBUG << " volid: " << response->volume_id
              << " numBlobs: " << response->blob_info_list.size();
-    for (int i = 0; i < cb->contentsCount; ++i) {
-        const_cast<ListBucketContents*>(cb->contents)[i].set(response->blob_info_list[i].blob_name,
-                            0,  // last modified
-                            "",  // eTag
-                            response->blob_info_list[i].blob_size,
-                            "",  // ownerId
-                            "");
+    for (size_t i = 0; i < count; ++i) {
+        cb->vecBlobs.push_back(apis::BlobDescriptor(response->blob_info_list[i].blob_size,
+                                                    response->blob_info_list[i].blob_name));
     }
 
     return err;
