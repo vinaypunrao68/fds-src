@@ -94,6 +94,10 @@ angular.module( 'display-widgets' ).directive( 'tooltip', function(){
             
             $scope.$watch( 'event', function( newVal, oldVal ){
                 
+                if ( !angular.isDefined( newVal ) ){
+                    return;
+                }
+                
                 if ( $scope.ignore === true ){
                     return;
                 }

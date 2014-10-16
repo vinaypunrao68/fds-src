@@ -1,4 +1,4 @@
-angular.module( 'node-management' ).factory( '$node_service', ['$http', '$interval', '$rootScope', function( $http, $interval, $rootScope ){
+angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$interval', '$rootScope', function( $http_fds, $interval, $rootScope ){
 
     var service = {};
 
@@ -54,7 +54,7 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http', '$interv
     service.addNodes = function( nodes ){
 
         nodes.forEach( function( node ){
-            $http.post( '/api/config/services/' + node.node_uuid, {am: node.am, sm: node.sm, dm: node.dm} )
+            $http_fds.post( '/api/config/services/' + node.node_uuid, {am: node.am, sm: node.sm, dm: node.dm} )
                 .then( getNodes );
         });
     };
@@ -119,13 +119,11 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http', '$interv
     };
 
     var getNodes = function(){
-        return $http.get( '/api/config/services' )
-            .success( function( data ){
+        return $http_fds.get( '/api/config/services',
+            function( data ){
 
                 parseData( data );
                 $interval.cancel( pollerId );
-            })
-            .error( function(){
             });
     };
 

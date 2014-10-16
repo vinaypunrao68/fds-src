@@ -158,5 +158,11 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$v
             $modal_data_service.start();
         }
     });
+    
+    $scope.$watch( 'volumeVars.editing', function( newVal ){
+        if ( newVal === true ){
+            $modal_data_service.start();
+        }
+    });
 
 }]);
