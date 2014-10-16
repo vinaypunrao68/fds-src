@@ -9,12 +9,6 @@
 #include <net/net-service.h>
 #include <AccessMgr.h>
 
-extern void CreateSHMode(int argc,
-                         char *argv[],
-                         fds_bool_t test_mode,
-                         fds_uint32_t sm_port,
-                         fds_uint32_t dm_port);
-
 namespace fds {
 
 class AMMain : public PlatformProcess

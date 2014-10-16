@@ -112,10 +112,11 @@ StorHvCtrl::enqueueBlobReq(FdsBlobReq *blobReq) {
         fds_verify(sendTestBucketToOM(blobReq->volumeName,
                                       "",  // The access key isn't used
                                       "") == ERR_OK); // The secret key isn't used
+        return;
     }
 
-    PerfTracer::tracePointBegin(blobReq->e2eReqPerfCtx); 
-    PerfTracer::tracePointBegin(blobReq->qosPerfCtx); 
+    PerfTracer::tracePointBegin(blobReq->e2eReqPerfCtx);
+    PerfTracer::tracePointBegin(blobReq->qosPerfCtx);
 
     fds_uint32_t reqId = atomic_fetch_add(&nextIoReqId, (fds_uint32_t)1);
     // Pack the blobReq in to a qosReq to pass to QoS

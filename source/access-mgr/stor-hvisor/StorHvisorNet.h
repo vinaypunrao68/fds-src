@@ -573,7 +573,11 @@ static void processBlobReq(AmQosReq *qosReq) {
         case fds::FDS_IO_WRITE:
         case fds::FDS_PUT_BLOB_ONCE:
         case fds::FDS_PUT_BLOB:
-            err = storHvisor->putBlobSvc(qosReq);
+            if (storHvisor->toggleNewPath) {
+                storHvisor->amProcessor->putBlob(qosReq);
+            } else {
+                err = storHvisor->putBlobSvc(qosReq);
+            }
             break;
 
         case fds::FDS_BUCKET_STATS:
