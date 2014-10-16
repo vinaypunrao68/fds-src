@@ -41,8 +41,6 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         else {
             $volume_api.clone( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
         }
-        
-        $scope.cancel();
     };
     
     var editVolume = function( volume ){
