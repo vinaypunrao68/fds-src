@@ -123,7 +123,7 @@ class ObjectID : public serialize::Serializable {
     */
 
     fds_uint64_t getTokenBits(fds_uint32_t numBits) const;
-    fds_uint32_t GetLen() const;
+    size_t GetLen() const;
     std::string ToString() const;
     bool operator==(const ObjectID& rhs) const;
     bool operator!=(const ObjectID& rhs) const;

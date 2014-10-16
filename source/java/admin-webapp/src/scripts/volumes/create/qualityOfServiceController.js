@@ -38,6 +38,8 @@ angular.module( 'volumes' ).controller( 'qualityOfServiceController', ['$scope',
         $scope.priority = newVal.priority;
         $scope.iopLimit = newVal.limit;
         $scope.capacity = newVal.sla;
+        
+        $scope.updateData();
     });
     
     $scope.$watch( 'volumeVars.creating', function( newVal ){

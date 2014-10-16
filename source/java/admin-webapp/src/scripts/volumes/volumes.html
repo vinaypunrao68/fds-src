@@ -16,7 +16,7 @@
                     <thead>
                         <th translate>volumes.th_performance</th>
                         <th translate>common.th_name</th>
-                        <th translate>volumes.th_data_type</th>
+                        <th translate>common.th_data_type</th>
                         <th>
                             <div translate>volumes.th_capacity</div>
                             <div translate>volumes.th_used_limit</div>
@@ -56,9 +56,10 @@
                                 </em>
                             </td>
                             <td class="button-group">
-                                <div class="inline">
-                                    <span class="fui-windows" ng-click="takeSnapshot( $event, volume )" title="Take snapshot"></span>
-                                    <span class="fui-new" ng-click="edit( $event, volume )" title="Edit settings"></span>
+                                <div class="inline" style="position: relative;">
+                                    <span class="icon-cake" ng-click="takeSnapshot( $event, volume )" title="Take a snapshot">
+                                    </span>
+                                    <span class="icon-pencil" ng-click="edit( $event, volume )" title="Edit settings"></span>
                                     <!--<span class="fui-cross" ng-click="delete( volume )" title="Delete volume"></span>-->
                                 </div>
                             </td>

@@ -4,7 +4,7 @@
         <span class="light-print" translate>volumes.l_starting_point</span>
     </div>
     
-    <div class="flex to-clone-or-not">
+    <div class="to-clone-or-not">
         <fds-radio ng-model="volumeVars.toClone" value="new" name="clone" label="{{ 'volumes.l_create_blank_volume' | translate }}"></fds-radio>
         <fds-radio ng-model="volumeVars.toClone" value="clone" name="clone" label="{{ 'volumes.l_clone_existing' | translate }}"></fds-radio>
 <!--
@@ -14,12 +14,13 @@
     </div>
     
     <div class="flex" ng-show="choosing === false && volumeVars.toClone === 'clone'">
-        <div>Clone from {{selectedItem.name}}</div>
-        <span class="icon fui-new" ng-click="choosing = true"></span>
+        <div>Clone from {{getSelectedName()}}</div>
+        <span class="icon icon-pencil" ng-click="choosing = true" style="margin-left: 8px;color: #A0A0A0"></span>
     </div>
     
-    <div ng-show="volumeVars.toClone === 'clone' && choosing === true">
-        <tree-grid data="cloneOptions" columns="cloneColumns" ng-model="selectedItem" children-function="getSnapshots"></tree-grid>
+    <div ng-show="volumeVars.toClone === 'clone' && choosing === true" style="height: 250px;">
+<!--        <tree-grid data="cloneOptions" columns="cloneColumns" ng-model="selectedItem" children-function="getSnapshots"></tree-grid>-->
+        <mac-browser data="cloneOptions" ng-model="selectedItem" children-function="getSnapshots" columns="cloneColumns"></mac-browser>
         <div class="pull-right flex">
             <button class="btn btn-primary skinny" ng-click="choose()" translate>common.l_save</button>
 <!--            <button class="btn btn-secondary skinny" ng-click="cancel()" translate>common.l_cancel</button>-->

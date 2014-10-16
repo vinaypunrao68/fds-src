@@ -122,7 +122,7 @@ namespace fds {
     /*
      * Returns the size of the OID in bytes.
      */
-    fds_uint32_t ObjectID::GetLen() const {
+    size_t ObjectID::GetLen() const {
       return sizeof(digest);
     }
 

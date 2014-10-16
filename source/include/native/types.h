@@ -502,6 +502,10 @@ struct StartBlobTxCallback : virtual Callback {
     BlobTxId      blobTxId;
 };
 
+struct UpdateBlobCallback : virtual Callback {
+    typedef boost::shared_ptr<UpdateBlobCallback> ptr;
+};
+
 struct GetObjectCallback : virtual Callback {
     typedef boost::shared_ptr<GetObjectCallback> ptr;
     char *returnBuffer;
