@@ -111,7 +111,7 @@ class AmProcessor : public Module, public boost::noncopyable {
     /**
      * Callback for commit blob transaction
      */
-    void commitBlobTxCb(const Error& error);
+    void commitBlobTxCb(AmQosReq *qosReq, const Error& error);
 
   private:
     /// Raw pointer to QoS controller

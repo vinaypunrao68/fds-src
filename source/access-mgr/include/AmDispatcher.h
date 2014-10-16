@@ -73,7 +73,7 @@ class AmDispatcher : public Module, public boost::noncopyable {
                        boost::shared_ptr<std::string> payload);
 
     /**
-     * Dispatches a start blob transaction request.
+     * Dispatches a commit blob transaction request.
      */
     void dispatchCommitBlobTx(AmQosReq *qosReq);
 

@@ -344,12 +344,7 @@ AmProcessor::commitBlobTx(AmQosReq *qosReq) {
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
 
-    fds_uint64_t dmt_version;
-    err = amTxMgr->getTxDmtVersion(*(blobReq->getTxId()), &dmt_version);
-    fds_verify(err == ERR_OK);
-
     // Setup callback.
-    blobReq->dmtVersion = dmt_version;
     blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::commitBlobTxCb, qosReq);
 
     amDispatcher->dispatchCommitBlobTx(qosReq);
@@ -357,25 +352,27 @@ AmProcessor::commitBlobTx(AmQosReq *qosReq) {
 
 void
 AmProcessor::commitBlobTxCb(AmQosReq *qosReq, const Error &error) {
+    fds_verify(qosReq != NULL);
     CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
-    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq != NULL);
     fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
 
-    StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(CommitBlobTxCallback,
-                                                  blobReq->cb);
+    // Push the committed update to the cache and remove from manager
+    // TODO(Andrew): Inserting the entire tx transaction currently
+    // assumes that the tx descriptor has all of the contents needed
+    // for a blob descriptor (e.g., size, version, etc..). Today this
+    // is true for S3/Swift and doesn't get used anyways for block (so
+    // the actual cached descriptor for block will not be correct).
+    AmTxDescriptor::ptr txDesc;
+    fds_verify(txMgr->getTxDescriptor(*(blobReq->getTxId()),
+                                        txDesc) == ERR_OK);
+    fds_verify(amCache->putTxDescriptor(txDesc) == ERR_OK);
+    fds_verify(txMgr->removeTx(*(blobReq->getTxId())) == ERR_OK);
 
-    if (error.ok()) {
-        // Update callback and record new open transaction
-        cb->blobTxId  = blobReq->txId;
-        fds_verify(txMgr->addTx(blobReq->getVolId(),
-                                blobReq->txId,
-                                blobReq->dmtVersion,
-                                blobReq->getBlobName()) == ERR_OK);
-    }
-
-    // Tell QoS the request is done
     qosCtrl->markIODone(qosReq);
-    cb->call(error.GetErrno());
+    blobReq->cb->call(error);
+
+    delete blobReq;
 }
 
 }  // namespace fds
