@@ -4,7 +4,16 @@ angular.module( 'main' ).controller( 'accountController', ['$scope', '$authentic
     $scope.tempEmailAddress = $scope.emailAddress;
     $scope.changePasswordError = false;
     $scope.username = $authorization.getUsername();
+    $scope.password_changing = false;
 
+    $scope.changePasswordClicked = function(){
+        $scope.password_changing = true;
+    };
+    
+    $scope.stopChangingPassword = function(){
+        $scope.password_changing = false;
+    }   
+    
     $scope.changePassword = function(){
 
         $scope.changePasswordError = false;
@@ -18,7 +27,7 @@ angular.module( 'main' ).controller( 'accountController', ['$scope', '$authentic
             function(){
                 $scope.newPassword = '';
                 $scope.confirmPassword = '';
-                $scope.password_changing = false;
+                $scope.stopChangingPassword();
             },
             function( error, code ){
                 $scope.changePasswordError = code + ' - ' + error.message;

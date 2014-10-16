@@ -17,7 +17,7 @@
         <div class="header">
             <span class="light-print" translate>volumes.l_data_connector</span>
             <div class="pull-right" ng-show="dataConnectorEnablment === true">
-                <span class="icon fui-new edit-data-connector-button" ng-click="editing = true"></span>
+                <span class="icon icon-pencil edit-data-connector-button" ng-click="editing = true"></span>
             </div>
         </div>
 
@@ -60,67 +60,4 @@
         </div>
         
     </section>
-<!--
-        <div class="volume-data-type-summary" ng-show="!editing">
-            <div class="form-group inline">
-                <span>Data Type:</span>
-                <span class="value">{{data_connector.type}}</span>
-            </div>
-            <div class="form-group inline" ng-show="data_connector.attributes.size">
-                <span>Capacity:</span>
-                <span class="value">{{data_connector.attributes.size}} {{data_connector.attributes.unit}}</span>
-            </div>
-            <div class="inline icon-container">
-                <span class="icon fui-new" ng-click="editing = true" title="Edit settings"></span>
-            </div>
-        </div>
-
-        <div class="volume-data-type-panel" ng-class="{open: editing}">
-            <table class="default volumes">
-                <thead>
-                    <th translate>admin.th_data_type</th>
-                    <th translate>admin.th_api</th>
-                    <th translate>{{ 'volumes.th_capacity' | translate }}<br />{{ 'volumes.desc_if_applicable' | translate }}</th>
-                    <th></th>
-                </thead>
-                <tbody id="data-connectors">
-                    <tr ng-repeat="connector in connectors" ng-click="setSelected( connector );">
-                        <td>{{connector.type}}</td>
-                        <td>{{connector.api}}</td>
-                        <td>
-                            <span class="connector-attributes" ng-show="connector.attributes && connector.attributes.size">
-                                <button class="btn btn-primary skinny" ng-click="editConnector( connector )" ng-show="editingConnector != connector">
-                                    {{connector.attributes.size}}
-                                    {{connector.attributes.unit}}
-                                </button>
-                                <div ng-show="editingConnector == connector">
-                                    <div class="inline vertical-middle">
-                                        <spinner value="$parent._selectedSize" min="1" max="999" step="1" class="skinny"></spinner>
-                                    </div>
-                                    <div class="inline">
-                                        <fui-dropdown skinny="true" background-color="#2486F8" items="sizes" selected="$parent._selectedUnit"></fui-dropdown>
-                                    </div>
-                                    <button class="btn btn-primary skinny" ng-click="saveConnectorChanges( connector )">Save</button>
-                                    <button class="btn btn-secondary skinny" ng-click="stopEditing()">Cancel</button>
-                                </div>
-                            </span>
-                        </td>
-                        <td class="checkmark">
-                            <span ng-class="{'fui-check': data_connector == connector}"></span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            <div class="pull-right">
-                <button class="btn btn-primary" ng-click="editing = false" translate>common.l_done</button>
-            </div>
-        </div>
-    </section>
--->
-
-<!--
-    <p class="fine-print">
-    The key policy determines the initial policy that will be used. The master key will be assigned upon creation of this volume. You can then modify the policy or create additional keys with different policies.
-    </p>
--->
 </div>

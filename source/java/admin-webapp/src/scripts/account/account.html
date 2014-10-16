@@ -62,12 +62,12 @@
             <span class="header" translate>common.password</span>
         </div>
 
-        <div ng-show="!password_changing" class="change-password-summary">
+        <div ng-show="password_changing === false" class="change-password-summary">
             <span class="detail-value">********************</span>
-            <a class="change-password" ng-click="password_changing=true;" translate>account.l_change_password</a>
+            <a class="change-password" ng-click="changePasswordClicked()" translate>account.l_change_password</a>
         </div>
 
-        <div ng-show="password_changing">
+        <div ng-show="password_changing === true">
 <!--            <input type="password" class="form-control skinny" ng-model="password" size="32" placeholder="Old Password" style="margin-bottom: 8px;width: 300px;"/>-->
             <input type="password" class="form-control skinny" ng-model="newPassword" size="32" placeholder="New Password" style="margin-bottom: 8px;width: 300px;"/>
             <input type="password" class="form-control skinny" ng-model="confirmPassword" size="32" placeholder="Confirm Password" style="margin-bottom: 8px;width: 300px;"/>
@@ -76,7 +76,7 @@
             </div>
             <div style="display: flex;padding-top: 12px;" ng-show="password_changing" class="std-transition">
                 <button class="btn btn-primary save-password" style="margin-right: 4px;" ng-click="changePassword()" translate>common.l_save</button>
-                <button class="btn btn-secondary cancel-password-change" ng-click="password_changing = false;" translate>common.l_cancel</button>
+                <button class="btn btn-secondary cancel-password-change" ng-click="stopChangingPassword()" translate>common.l_cancel</button>
             </div>
         </div>
 

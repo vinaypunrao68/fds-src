@@ -408,16 +408,18 @@ FDS_NativeAPI::PutBlobOnce(const std::string& volumeName,
         fds_verify(volid != invalid_vol_id);
     }
 
-    FdsBlobReq *blob_req = new PutBlobReq(volid,
-                                          "",
-                                          blobName,
-                                          startByte,
-                                          buflen,
-                                          buffer,
-                                          blobMode,
-                                          metadata,
-                                          putObjHandler,
-                                          callbackData);
+    // TODO(Andrew): The constructor no longer exists.
+    // Just remove this file.
+    FdsBlobReq *blob_req = NULL;  // new PutBlobReq(volid,
+    //        "",
+    //                                    blobName,
+    //                                    startByte,
+    //                                    buflen,
+    //                                    buffer,
+    //                                    blobMode,
+    //                                    metadata,
+    //                                    putObjHandler,
+    //                                    callbackData);
 
     if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
@@ -461,20 +463,21 @@ FDS_NativeAPI::PutBlob(BucketContext *bucket_ctxt,
     // create Put request and put it to wait queue, to make sure that attach arrives
     // after we put a request to the wait queue and not before!
 
-    /* create request */
-    FdsBlobReq *blob_req = new PutBlobReq(volid,
-                                          "",
-                                          ObjKey,
-                                          startByte,
-                                          buflen,
-                                          buffer,
-                                          txDesc,
-                                          lastBuf,
-                                          bucket_ctxt,
-                                          put_properties,
-                                          req_context,
-                                          putObjHandler,
-                                          callback_data);
+    // TODO(Andrew): The constructor no longer exists.
+    // Just remove this file.
+    FdsBlobReq *blob_req = NULL;  // new PutBlobReq(volid,
+    //     "",
+    //                                    ObjKey,
+    //                                    startByte,
+    //                                    buflen,
+    //                                    buffer,
+    //                                    txDesc,
+    //                                    lastBuf,
+    //                                    bucket_ctxt,
+    //                                    put_properties,
+    //                                    req_context,
+    //                                    putObjHandler,
+    //                                    callback_data);
 
     if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
