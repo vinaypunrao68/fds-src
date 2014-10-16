@@ -480,7 +480,6 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
     fds_verify(objectOffset->value >= 0);
 
     // Create context handler
-    // PutObjectResponseHandler putHandler;
     UpdateBlobResponseHandler::ptr putHandler(
         new UpdateBlobResponseHandler());
 
