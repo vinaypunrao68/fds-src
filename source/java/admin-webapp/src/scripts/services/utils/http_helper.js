@@ -1,4 +1,4 @@
-angular.module( 'base' ).factory( '$http_fds', ['$http', function( $http ){
+angular.module( 'base' ).factory( '$http_fds', ['$http', '$rootScope', function( $http, $rootScope ){
     
     var service = {};
     
@@ -9,13 +9,19 @@ angular.module( 'base' ).factory( '$http_fds', ['$http', function( $http ){
         }
     };
     
-    var genericFailure = function( response, code ){
+    service.genericFailure = function( response, code ){
         
         if ( code === 401 || code === 0 ){
             return;
         }
         
-        alert( 'Error ' + code + ':\n' + response.message );
+        var $event = {
+            type: 'ERROR',
+            text: (angular.isDefined( code ) ? 'Error ' + code + ': ' + response.message : response.message )
+        };
+        
+        $rootScope.$emit( 'fds::alert', $event );
+//        alert( 'Error ' + code + ':\n' + response.message );
     };
     
     var handleError = function( response, code, failure ){
@@ -24,10 +30,10 @@ angular.module( 'base' ).factory( '$http_fds', ['$http', function( $http ){
             failure( response, code );
         }
         else if ( angular.isString( failure ) ){
-            genericFailure( failure );
+            service.genericFailure( failure );
         }
         else {
-            genericFailure( response, code );
+            service.genericFailure( response, code );
         }
     };
     
