@@ -13,11 +13,6 @@
 
 namespace fds {
 
-// TODO(umesh): remove this
-// objIndex = startOffset / objSize;
-// oidArrayMmapId = (objIndex * 20) / FRAGMENT_SIZE;
-// oidOffset = baseOffset + (objIndex * 20) % FRAGMENT_SIZE;
-
 /**
  * This class mmaps into flat file which stores object ID array.
  * Object IDs belonging to a blob or a volume are stored in long,
