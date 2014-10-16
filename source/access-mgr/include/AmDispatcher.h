@@ -86,15 +86,33 @@ class AmDispatcher : public Module, public boost::noncopyable {
                        boost::shared_ptr<std::string> payload);
 
     /**
+     * Dispatches an update catalog request.
+     */
+    void dispatchUpdateCatalog(AmQosReq *qosReq);
+
+    /**
+     * Dispatches an update catalog once request.
+     */
+    void dispatchUpdateCatalogOnce(AmQosReq *qosReq);
+
+    /**
+     * Dipatches a put object request.
+     */
+    void dispatchPutObject(AmQosReq *qosReq);
+
+    /**
+     * Dipatches a get object request.
+     */
+    void dispatchGetObject(AmQosReq *qosReq);
+
+    /**
      * Dispatches a delete blob transaction request.
      */
     void dispatchDeleteBlob(AmQosReq *qosReq);
 
     /**
-     * Dispatches a start blob transaction request.
+     * Dipatches a query catalog request.
      */
-    void dispatchGetObject(AmQosReq *qosReq);
-
     void dispatchQueryCatalog(AmQosReq *qosReq);
 
     /**
@@ -150,6 +168,22 @@ class AmDispatcher : public Module, public boost::noncopyable {
                     FailoverSvcRequest* svcReq,
                     const Error& error,
                     boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for update blob responses.
+     */
+    void updateCatalogCb(AmQosReq* qosReq,
+                         QuorumSvcRequest* svcReq,
+                         const Error& error,
+                         boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for put object responses.
+     */
+    void putObjectCb(AmQosReq* qosReq,
+                     QuorumSvcRequest* svcReq,
+                     const Error& error,
+                     boost::shared_ptr<std::string> payload);
 };
 
 }  // namespace fds

@@ -429,6 +429,7 @@ int OMgrClient::testBucket(const std::string& bucket_name,
     test_buck_msg->accessKeyId = accessKeyId;
     test_buck_msg->secretAccessKey;
     req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlTestBucket), pkt);
+    req->setTimeoutMs(0);
     req->invoke();
     LOGNOTIFY << " sending test bucket request to OM " << bucket_name;
   } catch (...) {

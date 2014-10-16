@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <string>
+#include <ObjectId.h>
 #include <fds_process.h>
 #include <AmProcessor.h>
 
@@ -164,6 +165,118 @@ AmProcessor::deleteBlob(AmQosReq *qosReq) {
 
     blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::deleteBlobCb, qosReq);
     amDispatcher->dispatchDeleteBlob(qosReq);
+}
+
+void
+AmProcessor::putBlob(AmQosReq *qosReq) {
+    PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse() == true);
+
+    // check if this is a snapshot
+    // TODO(Andrew): Why not just let DM reject the IO?
+    StorHvVolume *shVol = volTable->getLockedVolume(blobReq->getVolId());
+    if (shVol->voldesc->isSnapshot()) {
+        LOGWARN << "txn on a snapshot is not allowed.";
+        shVol->readUnlock();
+        StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
+                                                      blobReq->cb);
+        qosCtrl->markIODone(qosReq);
+        cb->call(FDSN_StatusErrorAccessDenied);
+        delete blobReq;
+        return;
+    }
+    shVol->readUnlock();
+
+    // TODO(Andrew): Here we're turning the offset aligned
+    // blobOffset back into an absolute blob offset (i.e.,
+    // not aligned to the maximum object size). This allows
+    // the rest of the putBlob routines to still expect an
+    // absolute offset in case we need it
+    fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
+    blobReq->setBlobOffset(blobReq->getBlobOffset() * maxObjSize);
+
+    // Use a stock object ID if the length is 0.
+    if (blobReq->getDataLen() == 0) {
+        LOGWARN << "zero size object - "
+                << " [objkey:" << blobReq->ObjKey <<"]";
+        blobReq->setObjId(ObjectID());
+    } else {
+        SCOPED_PERF_TRACEPOINT_CTX(blobReq->hashPerfCtx);
+        blobReq->setObjId(ObjIdGen::genObjectId(blobReq->getDataBuf(),
+                                                blobReq->getDataLen()));
+    }
+
+    if (blobReq->getIoType() == FDS_PUT_BLOB_ONCE) {
+        // Sending the update in a single request. Create transaction ID to
+        // use for the single request
+        blobReq->setTxId(BlobTxId(randNumGen->genNumSafe()));
+    }
+
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, qosReq);
+
+    if (blobReq->getIoType() == FDS_PUT_BLOB_ONCE) {
+        amDispatcher->dispatchUpdateCatalogOnce(qosReq);
+    } else {
+        amDispatcher->dispatchUpdateCatalog(qosReq);
+    }
+    amDispatcher->dispatchPutObject(qosReq);
+}
+
+void
+AmProcessor::putBlobCb(AmQosReq *qosReq, const Error& error) {
+    PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse() == true);
+
+    if (error.ok()) {
+        // Add the Tx to the manager is this an updateOnce
+        if (blobReq->getIoType() == FDS_PUT_BLOB_ONCE) {
+            fds_verify(txMgr->addTx(blobReq->getVolId(),
+                                    *(blobReq->txDesc),
+                                    blobReq->dmtVersion,
+                                    blobReq->getBlobName()) == ERR_OK);
+            // Stage the transaction metadata changes
+            fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->txDesc),
+                                                   blobReq->metadata) == ERR_OK);
+        }
+        // Update the tx manager with this update
+        fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->getTxId()),
+                                               blobReq->getDataLen()) == ERR_OK);
+        // Update the transaction manager with the stage offset update
+        fds_verify(txMgr->updateStagedBlobOffset(*(blobReq->getTxId()),
+                                                 blobReq->getBlobName(),
+                                                 blobReq->getBlobOffset(),
+                                                 blobReq->getObjId()) == ERR_OK);
+        // Update the transaction manager with the stage object data
+        if (blobReq->getDataLen() > 0) {
+            fds_verify(txMgr->updateStagedBlobObject(*(blobReq->getTxId()),
+                                                     blobReq->getObjId(),
+                                                     blobReq->getDataBuf(),
+                                                     blobReq->getDataLen())
+                   == ERR_OK);
+        }
+
+        if (blobReq->getIoType() == FDS_PUT_BLOB_ONCE) {
+            // Push the commited update to the cache and remove from manager
+            // We push here because we ONCE messages don't have an explicit
+            // commit and here is where we know we've actually committed
+            // to SM and DM.
+            // TODO(Andrew): Inserting the entire tx transaction currently
+            // assumes that the tx descriptor has all of the contents needed
+            // for a blob descriptor (e.g., size, version, etc..). Today this
+            // is true for S3/Swift and doesn't get used anyways for block (so
+            // the actual cached descriptor for block will not be correct).
+            AmTxDescriptor::ptr txDescriptor;
+            fds_verify(txMgr->getTxDescriptor(*(blobReq->getTxId()),
+                                              txDescriptor) == ERR_OK);
+            fds_verify(amCache->putTxDescriptor(txDescriptor) == ERR_OK);
+            fds_verify(txMgr->removeTx(*(blobReq->getTxId())) == ERR_OK);
+        }
+    }
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+    delete blobReq;
 }
 
 void

@@ -77,6 +77,16 @@ class AmProcessor : public Module, public boost::noncopyable {
                        const Error &error);
 
     /**
+     * Processes a put blob request
+     */
+    void putBlob(AmQosReq *qosReq);
+
+    /**
+     * Callback for get blob request
+     */
+    void putBlobCb(AmQosReq *qosReq, const Error& error);
+
+    /**
      * Processes a get blob request
      */
     void getBlob(AmQosReq *qosReq);
