@@ -50,7 +50,12 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     };
     
     api.clone = function( volume, callback, failure ){
-        return $http_fds.post( '/api/config/volumes/clone/' + volume.id + '/' + volume.name, volume,
+        
+        // the actual volume we try to create should now have an ID yet - but the ID here will be 
+        // the original one
+        var id = volume.id;
+        volume.id = '';
+        return $http_fds.post( '/api/config/volumes/clone/' + id + '/' + volume.name, volume,
             function( response ){
 
                 getVolumes();
