@@ -183,6 +183,7 @@ AmProcessor::putBlob(AmQosReq *qosReq) {
         qosCtrl->markIODone(qosReq);
         cb->call(FDSN_StatusErrorAccessDenied);
         delete blobReq;
+        return;
     }
     shVol->readUnlock();
 

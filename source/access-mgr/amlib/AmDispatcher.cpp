@@ -209,7 +209,7 @@ AmDispatcher::dispatchUpdateCatalog(AmQosReq *qosReq) {
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
-    UpdateCatalogMsgPtr updCatMsg(new UpdateCatalogMsg());
+    UpdateCatalogMsgPtr updCatMsg(boost::make_shared<UpdateCatalogMsg>());
     updCatMsg->blob_name    = blobReq->getBlobName();
     updCatMsg->blob_version = blob_version_invalid;
     updCatMsg->volume_id    = blobReq->getVolId();
@@ -218,7 +218,6 @@ AmDispatcher::dispatchUpdateCatalog(AmQosReq *qosReq) {
     // Setup blob offset updates
     // TODO(Andrew): Today we only expect one offset update
     // TODO(Andrew): Remove lastBuf when we have real transactions
-    updCatMsg->obj_list.clear();
     FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
     updBlobInfo.offset   = blobReq->getBlobOffset();
     updBlobInfo.size     = blobReq->getDataLen();
@@ -246,14 +245,12 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmQosReq *qosReq) {
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
-    UpdateCatalogOnceMsgPtr updCatMsg(new UpdateCatalogOnceMsg());
+    UpdateCatalogOnceMsgPtr updCatMsg(boost::make_shared<UpdateCatalogOnceMsg>());
     updCatMsg->blob_name    = blobReq->getBlobName();
     updCatMsg->blob_version = blob_version_invalid;
     updCatMsg->volume_id    = blobReq->getVolId();
     updCatMsg->txId         = blobReq->txDesc->getValue();
     updCatMsg->blob_mode    = blobReq->blobMode;
-    updCatMsg->obj_list.clear();
-    updCatMsg->meta_list.clear();
 
     // Setup blob offset updates
     // TODO(Andrew): Today we only expect one offset update
@@ -314,7 +311,7 @@ AmDispatcher::dispatchPutObject(AmQosReq *qosReq) {
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getDataLen() > 0);
 
-    PutObjectMsgPtr putObjMsg(new PutObjectMsg);
+    PutObjectMsgPtr putObjMsg(boost::make_shared<PutObjectMsg>());
     putObjMsg->volume_id        = blobReq->getVolId();
     putObjMsg->origin_timestamp = util::getTimeStampMillis();
     putObjMsg->data_obj.assign(blobReq->getDataBuf(), blobReq->getDataLen());

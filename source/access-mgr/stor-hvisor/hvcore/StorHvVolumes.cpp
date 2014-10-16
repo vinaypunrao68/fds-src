@@ -671,7 +671,7 @@ PutBlobReq::~PutBlobReq()
 
 void
 PutBlobReq::notifyResponse(AmQosReq* qosReq, const Error &e) {
-    respAcks--;
+    -- respAcks;
     fds_verify(respAcks >= 0);
 
     if (respAcks == 0) {

@@ -414,7 +414,7 @@ AmDataApi::updateBlobOnce(boost::shared_ptr<std::string>& domainName,
 
     // Create context handler
     UpdateBlobResponseHandler::ptr putHandler(
-        new UpdateBlobResponseHandler());
+        boost::make_shared<UpdateBlobResponseHandler>());
 
     FdsBlobReq *blobReq = new PutBlobReq(invalid_vol_id,
                                          *volumeName,
@@ -481,7 +481,7 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
 
     // Create context handler
     UpdateBlobResponseHandler::ptr putHandler(
-        new UpdateBlobResponseHandler());
+        boost::make_shared<UpdateBlobResponseHandler>());
 
     // Setup the transcation descriptor
     BlobTxId::ptr blobTxDesc(new BlobTxId(
