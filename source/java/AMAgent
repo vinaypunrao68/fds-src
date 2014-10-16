@@ -3,11 +3,11 @@
 ./bare_am $* &
 sleep 1
 
-for i in ../lib/java/fds-1.0-bin/fds-1.0/* ; do {
-    CLASSPATH=$CLASSPATH:$i ;
-} done
+#for i in ../lib/java/fds-1.0-bin/fds-1.0/* ; do {
+#    CLASSPATH=$CLASSPATH:$i ;
+#} done
 
-CLASSPATH=$CLASSPATH:../lib/java/classes
+CLASSPATH=$CLASSPATH:../lib/java/fds-1.0-bin/fds-1.0/\*:../lib/java/classes
 
 java -classpath $CLASSPATH \
      -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=4000 \
