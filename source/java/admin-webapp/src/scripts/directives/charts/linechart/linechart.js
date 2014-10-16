@@ -5,8 +5,10 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/charts/linechart/linechart.html',
-        scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@' },
+        scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@', suffix: '@', axisColor: '@', tooltip: '=?', lineColors: '=?', lineStipples: '=?' },
         controller: function( $scope, $element, $resize_service ){
+            
+            $scope.hoverEvent = false;
             
             var root = {};
             
@@ -26,8 +28,13 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 $scope.drawPoints = false;
             }
             
-            $svg = d3.select( '.line-chart' )
-                .append( 'svg' )
+            if ( !angular.isDefined( $scope.axisColor ) ){
+                $scope.axisColor = 'black';
+            }
+            
+            var el = d3.select( $element[0] ).select( '.line-chart' );
+            
+            $svg = el.append( 'svg' )
                 .attr( 'width', '100%' )
                 .attr( 'height', '100%' );
             
@@ -42,12 +49,12 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             
             // calculate off of real data.  Depends on max calculation
             var buildScales = function(){
-                
+               
                 buildMax();
                 
                 $xScale = d3.scale.linear()
                     // all series must have the same number of points
-                    .domain( [0,$scope.data.series[0].length] )
+                    .domain( [0,$scope.data.series[0].length-1] )
                     .range( [$left_label + $left_padding, $element.width() - $right_padding] );
                 
                 $yScale = d3.scale.linear()
@@ -56,11 +63,17 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             };
             
             var clean = function(){
-                $svg.removeAll();
+                $svg.selectAll( '.series-group' ).remove();
+            };
+            
+            var removeGuides = function(){
+                
+                $svg.selectAll( '.guide-lines' ).remove();
             };
             
             var update = function(){
                 
+                removeGuides();
                 buildScales();
                 
                 var area = d3.svg.area()
@@ -86,10 +99,54 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .attr( 'cy', function( d ){
                         return $yScale( d.y );
                     });
+                
+                var chunks = Math.round( $max / 4 );
+                
+                chunks = [chunks, chunks*2, chunks*3 ];
+                
+                var guideGroup = $svg.selectAll( '.guide-lines' ).data( chunks ).enter()
+                    .append( 'g' )
+                    .attr( 'class', 'guide-lines' );
+                
+                guideGroup.selectAll( '.guide-lines' ).data( chunks ).enter()
+                    .append( 'line' )
+                    .attr( 'x1', $xScale( 0 ) )
+                    .attr( 'y1', function( d ){ 
+                        return $yScale( d ); 
+                    })
+                    .attr( 'x2', $xScale( $scope.data.series[0].length-1 ) )
+                    .attr( 'y2', function( d ){ 
+                        return $yScale( d ); 
+                    })
+                    .attr( 'stroke', $scope.axisColor )
+                    .attr( 'stroke-dasharray', '3,3' );
+                
+                guideGroup.selectAll( '.guide-lines' ).data( chunks ).enter()
+                    .append( 'text' )
+                    .text( function( d ){
+                        return d + ' ' + $scope.suffix;
+                    })
+                    .attr( 'x', $xScale( 0 ) )
+                    .attr( 'y', function( d ){
+                        return $yScale( d ) - 4;
+                    })
+                    .attr( 'fill', $scope.axisColor )
+                    .attr( 'font-size', '11px' );
+                
+                // baseline
+                $svg.append( 'line' )
+                    .attr( 'class', 'guide-lines' )
+                    .attr( 'x1', $xScale( 0 ) )
+                    .attr( 'x2', $xScale( $scope.data.series[0].length-1 ) )
+                    .attr( 'y1', $yScale( 0 ) )
+                    .attr( 'y2', $yScale( 0 ) )
+                    .attr( 'stroke', 'black' );
+                    
             };
             
             var create = function(){
                 
+                clean();
                 buildScales();
                 
                 var area = d3.svg.area()
@@ -105,11 +162,25 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .interpolate( 'monotone' );
                 
                 var groups = $svg.selectAll( '.series-group' ).data( $scope.data.series ).enter()
-                    .append( 'g' )
+                    .insert( 'g', ':first-child' )
                     .attr( 'class', 'series-group' );
                 
-                                groups.append( 'path' )
-                    .attr( 'stroke', '#ACACAC' )
+                groups.append( 'path' )
+                    .attr( 'stroke', function( d, i ){
+                        if ( $scope.lineColors && $scope.colors.length > i ){
+                            return $scope.lineColors[i];
+                        }
+                    
+                        return '#ACACAC';
+                    })
+                    .attr( 'stroke-dasharray', function( d, i ){
+                        
+                        if ( $scope.lineStipples && $scope.lineStipples.length > i ){
+                            return $scope.lineStipples[i];
+                        }
+                    
+                        return null;
+                    })
                     .attr( 'fill', function( d, i ){
                         if ( $scope.colors && $scope.colors.length > i ){
                             return $scope.colors[i];
@@ -125,7 +196,16 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         return 0.8;
                     })
                     .attr( 'class', 'line' )
-                    .attr( 'd', area );
+                    .attr( 'd', area )
+                    .on( 'mouseover', function( d, i, j ){
+                          if ( angular.isFunction( $scope.tooltip ) ){
+                            $scope.tooltipText = $scope.tooltip( d, i, j );
+                            var el = $( $element[0] ).find( '.tooltip-placeholder' );
+                            el.empty();
+                            var ttEl = $('<div/>').html( $scope.tooltipText ).contents();
+                            el.append( ttEl );
+                        }
+                    });
                 
                 
                 groups.selectAll( 'series-group' )
@@ -153,8 +233,18 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 
                 update();
             };
+            
+            $scope.setHoverEvent = function( $event ){
+                
+                if ( angular.isFunction( $scope.tooltip ) ){
+                    $event.target = $event.currentTarget;
+                    $scope.hoverEvent = $event;
+                }
+            };
 
             create();
+            
+            $resize_service.register( $scope.$id, update );
             
             $scope.$watch( 'data', function( oldVal, newVal ){
                 

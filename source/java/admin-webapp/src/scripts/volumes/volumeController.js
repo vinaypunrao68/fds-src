@@ -54,10 +54,6 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume
         
         $scope.volumeVars.creating = false;
     };
-
-    $scope.$on( 'fds::volume_done_editing', function(){
-        $scope.editing = false;
-    });
     
     $scope.$on( 'fds::authentication_logout', function(){
         $scope.volumes = [];
@@ -69,6 +65,9 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume
             $scope.volumes = $volume_api.volumes;
         }
     });
+    
+    $scope.$watch( 'volumeVars.creating', function( newVal ){ if ( newVal === false ){ $volume_api.refresh(); }} );
+    $scope.$watch( 'volumeVars.editing', function( newVal ){ if ( newVal === false ){ $volume_api.refresh(); }} );
 
     $volume_api.refresh();
 

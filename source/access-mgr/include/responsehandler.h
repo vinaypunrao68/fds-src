@@ -91,14 +91,11 @@ struct AbortBlobTxResponseHandler : ResponseHandler, AbortBlobTxCallback {
     virtual ~AbortBlobTxResponseHandler();
 };
 
-struct PutObjectResponseHandler : ResponseHandler {
-    void *reqContext = NULL;
-    fds_uint64_t bufferSize = 0;
-    fds_off_t offset = 0;
-    char *buffer;
+struct UpdateBlobResponseHandler : ResponseHandler, UpdateBlobCallback {
+    typedef boost::shared_ptr<UpdateBlobResponseHandler> ptr;
 
     virtual void process();
-    virtual ~PutObjectResponseHandler();
+    virtual ~UpdateBlobResponseHandler();
 };
 
 struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {

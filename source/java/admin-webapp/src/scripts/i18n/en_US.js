@@ -12,11 +12,14 @@ var en_US = {
         l_cancel: 'Cancel',
         l_done: 'Done',
         l_edit: 'Edit',
+        l_error: 'Error',
         l_high: 'High',
+        l_info: 'Information',
         l_low: 'Low',
         l_none: 'None',
         l_required: 'Required',
         l_save: 'Save',
+        l_warning: 'Warning',
         th_date: 'Date',
         th_data_type: 'Data Type',
         th_name: 'Name'
@@ -30,13 +33,19 @@ var en_US = {
         activity: 'Activity',
         title: 'Status',
         
+        l_capacity: 'Capacity',
+        l_firebreak: 'Firebreak',
+        l_performance: 'Performance',
+        
         th_type: 'Type',
         th_message: 'Message',
         th_received: 'Received',
         
         tt_firebreak: 'Firebreak {{value}} {{units}} ago.',
         
-        desc_firebreak: 'Events in the past 24 hours'
+        desc_firebreak: 'Events in the past 24 hours',
+        desc_dedup_capacity: 'Deduplicated storage capacity used.',
+        desc_pre_dedup_capacity: 'Logical storage capacity consumed before deduplication.'
     },
     inbox: {
         messages: 'Messages',
@@ -53,6 +62,7 @@ var en_US = {
         l_clone_existing: 'Clone from an existing volume',
         l_create_volume: 'Create Volume',
         l_create_blank_volume: 'Create a blank volume',
+        l_current_state: 'Current state',
         l_data_connector: 'Data Connector',
         l_edit_settings: 'Edit Settings',
         l_edit_volume: 'Edit Volume',
