@@ -57,19 +57,40 @@ struct RandAlphaNumStringF
 template <class RandDataFuncT = RandAlphaNumStringF>
 struct RandDataGenerator : DataGenIf
 {
-    RandDataGenerator(size_t min, size_t max)
+    RandDataGenerator(int32_t count, size_t min, size_t max)
     {
+        maxCount_ = count;
+        curCnt_ = 0;
         min_ = min;
         max_ = max;
     }
+    RandDataGenerator(size_t min, size_t max)
+    :RandDataGenerator(-1, min, max) 
+    {
+    }
     virtual StringPtr nextItem() override
     {
+        if (maxCount_ != -1 && curCnt_ >= maxCount_) {
+            return nullptr;
+        }
+        curCnt_++;
         size_t sz = (rand() % ((max_ - min_)+1)) + min_;  // NOLINT
         return randDataF_(sz);
     }
+    virtual bool hasNext()
+    {
+        return (maxCount_ == -1 || curCnt_ < maxCount_);
+    }
  protected:
+    /* Number of items to produce. -1 to indicate unlimited */
+    int32_t maxCount_;
+    /* # of times nextItem has been called */
+    int32_t curCnt_;
+    /* Minimum size for the data returned by nextItem() */
     size_t min_;
+    /* Minimum size for the data returned by nextItem() */
     size_t max_;
+    /* Function that generates the random data */
     RandDataFuncT randDataF_;
 };
 
