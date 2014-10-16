@@ -12,11 +12,12 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
-from FDS_ProtocolInterface.ttypes import *
 from fds_service.ttypes import *
 from fds_service.constants import *
 
 from FdsException import *
+
+from FDS_ProtocolInterface.ttypes import *
 
 log = logging.getLogger(__name__)
 
@@ -202,4 +203,28 @@ def newGetBucketMsg(volId, startOff, maxKey):
 def newGetDmStatsMsg(volId):
     msg = GetDmStatsMsg()
     msg.volume_id = volId
+    return msg
+
+def newEnableScavengerMsg():
+    msg = CtrlNotifyScavenger()
+    msg.scavenger = FDSP_ScavengerType()
+    msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_ENABLE
+    return msg
+
+def newDisableScavengerMsg():
+    msg = CtrlNotifyScavenger()
+    msg.scavenger = FDSP_ScavengerType()
+    msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_DISABLE
+    return msg
+
+def newStartScavengerMsg():
+    msg = CtrlNotifyScavenger()
+    msg.scavenger = FDSP_ScavengerType()
+    msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_START
+    return msg
+
+def newStopScavengerMsg():
+    msg = CtrlNotifyScavenger()
+    msg.scavenger = FDSP_ScavengerType()
+    msg.scavenger.cmd = FDSP_ScavengerType = FDSP_ScavengerCmd.FDSP_SCAVENGER_STOP
     return msg
