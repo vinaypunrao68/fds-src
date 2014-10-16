@@ -59,6 +59,7 @@ var en_US = {
         l_clone_existing: 'Clone from an existing volume',
         l_create_volume: 'Create Volume',
         l_create_blank_volume: 'Create a blank volume',
+        l_current_state: 'Current state',
         l_data_connector: 'Data Connector',
         l_edit_settings: 'Edit Settings',
         l_edit_volume: 'Edit Volume',
