@@ -11,12 +11,6 @@
 
 #include <dm-vol-cat/DmPersistVolDB.h>
 
-#define IS_OP_ALLOWED() \
-    if (isSnapshot() || isReadOnly()) { \
-        LOGWARN << "Volume is either snapshot or read only. Updates not allowed"; \
-        return ERR_DM_OP_NOT_ALLOWED; \
-    } \
-
 namespace fds {
 
 const std::string DmPersistVolDB::CATALOG_WRITE_BUFFER_SIZE_STR("catalog_write_buffer_size");
@@ -124,7 +118,8 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offse
     Error rc = catalog_->Query(keyRec, &value);
     if (!rc.ok()) {
         LOGNOTIFY << "Failed to get oid for offset: '" << std::hex << offset << std::dec
-                << "' blob: '" << blobName << "' volume: '" << volId_ << "'";
+                << "' blob: '" << blobName << "' volume: '" << std::hex << volId_ <<
+                std::dec << "'";
         return rc;
     }
 
