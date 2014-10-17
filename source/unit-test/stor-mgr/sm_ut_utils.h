@@ -19,17 +19,23 @@ namespace fds {
 
 class SmUtUtils {
   public:
-    static void populateDlt(DLT* dlt, fds_uint32_t sm_count) {
+    static void populateDlt(DLT* dlt, fds_uint32_t sm_count,
+                            fds_uint32_t first_sm_id = 1) {
         fds_uint64_t numTokens = pow(2, dlt->getWidth());
         fds_uint32_t column_depth = dlt->getDepth();
         DltTokenGroup tg(column_depth);
-        fds_uint32_t first_sm_id = 1;
         fds_uint32_t cur_id = first_sm_id;
+        fds_uint32_t count = 0;
         for (fds_token_id i = 0; i < numTokens; i++) {
             for (fds_uint32_t j = 0; j < column_depth; j++) {
                 NodeUuid uuid(cur_id);
                 tg.set(j, uuid);
-                cur_id = (cur_id % sm_count) + 1;
+                ++count;
+                if ((count % sm_count) == 0) {
+                    cur_id = first_sm_id;
+                } else {
+                    cur_id++;
+                }
             }
             dlt->setNodes(i, tg);
         }
