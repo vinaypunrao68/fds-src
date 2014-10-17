@@ -19,7 +19,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
+#include <google/profiler.h>
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -66,7 +66,7 @@ TEST_F(SMApi, put_get)
 
     /* To generate random data between 10 to 100 bytes */
     auto g = boost::make_shared<RandDataGenerator<>>(10, 100);
-
+    ProfilerStart("/tmp/output.prof");
     /* Issue puts */
     for (int i = 0; i < nPuts; i++) {
         auto putObjMsg = SvcMsgFactory::newPutObjectMsg(volId_, g);
@@ -81,6 +81,8 @@ TEST_F(SMApi, put_get)
 
     /* Poll for completion.  For now giving 1000ms/per put.  We should tighten that */
     POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 500, nPuts * 1000);
+
+    ProfilerStop();
 
     ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
         << " putsSuccessCnt: " << putsSuccessCnt_;

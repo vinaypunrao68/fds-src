@@ -37,8 +37,7 @@ user_cpp          :=  \
     sharedcache_unit_test.cpp \
     sharedcache_gtest.cpp \
     object_logger_test.cpp \
-    HashedLocks_ut.cpp \
-    serializer_gtest.cpp
+    HashedLocks_ut.cpp
 
 
 user_cc           :=
@@ -51,8 +50,7 @@ user_no_style     :=                \
     counters_test.cpp               \
     trans_journal_ut.cpp            \
     SynchronizedTaskExecutor_ut.cpp \
-    perf_trace_unit_test.cpp	    \
-    serializer_gtest.cpp
+    perf_trace_unit_test.cpp
 
 user_bin_exe      := \
     fds_timer_test \
@@ -69,8 +67,7 @@ user_bin_exe      := \
     kvcache_unit_test \
     object_logger_test \
     Tracebuffer_ut \
-    HashedLocks_ut \
-    serializer_gtest
+    HashedLocks_ut
 
 catalog_test                   := catalog_unit_test.cpp
 perfstat_unit_test             := perfstat_unit_test.cpp
@@ -87,6 +84,5 @@ kvcache_unit_test              := kvcache_unit_test.cpp
 object_logger_test             := object_logger_test.cpp
 Tracebuffer_ut		       := Tracebuffer_ut.cpp
 HashedLocks_ut		       := HashedLocks_ut.cpp
-serializer_gtest	       := serializer_gtest.cpp       
 
 include $(topdir)/Makefile.incl

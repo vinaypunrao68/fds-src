@@ -20,6 +20,7 @@ CONFIG_ETC=${SOURCEDIR}/config/etc
 BINDIR="${SOURCEDIR}/Build/linux-x86_64.debug/bin"
 KODIR="${SOURCEDIR}/fds_client/blk_dev"
 FDSROOT=/fds
+FDSTEST_ROOT=/fds-test
 
 # else run from install dir
 run_from_install_dir=0
@@ -71,6 +72,14 @@ function setupFdsDirs() {
     loginfo "setting up: ${FDSROOT}/etc "
     if [[ $(readlink ${FDSROOT}/etc) != "${CONFIG_ETC}" ]] ; then
         cp -rf ${CONFIG_ETC} ${FDSROOT}
+    fi
+    # setup fds test dir
+    loginfo "setting up: ${FDSTEST_ROOT} "
+    if [[ ! -d ${FDSTEST_ROOT} ]] ; then mkdir -p ${FDSTEST_ROOT} ; fi
+
+    loginfo "setting up: ${FDSTEST_ROOT}/etc "
+    if [[ $(readlink ${FDSTEST_ROOT}/etc) != "${CONFIG_ETC}" ]] ; then
+        cp -rf ${CONFIG_ETC} ${FDSTEST_ROOT}
     fi
 }
 

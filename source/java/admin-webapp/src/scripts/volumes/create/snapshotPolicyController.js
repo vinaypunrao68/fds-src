@@ -59,6 +59,26 @@ angular.module( 'volumes' ).controller( 'snapshotPolicyController', ['$scope', '
         $scope.updatePolicyDefs();
         $scope.editing = false;
     };
+    
+    var translatePoliciesToScreen =  function( realPolicies ){
+
+        // set the UI policies to the real data.
+        for ( var i = 0; i < realPolicies.length; i++ ){
+            for ( var j = 0; j < $scope.policies.length; j++ ){
+                if ( realPolicies[i].name.indexOf( $scope.policies[j].name.toUpperCase() ) != -1 ){
+                    $scope.policies[j].name = realPolicies[i].name;
+                    $scope.policies[j].use = true;
+
+                    var ret = $snapshot_service.convertSecondsToTimePeriod( realPolicies[i].retention );
+                    $scope.policies[j].value = ret.value;
+                    $scope.policies[j].units = $scope.timeChoices[ret.units];
+                    $scope.policies[j].id = realPolicies[i].id;
+                }
+            }
+        }
+
+        $scope.updatePolicyDefs();
+    };
 
     $scope.$on( 'change', $scope.updatePolicyDefs );
 
@@ -66,6 +86,24 @@ angular.module( 'volumes' ).controller( 'snapshotPolicyController', ['$scope', '
         if ( newVal === true ){
             init();
         }
+    });
+    
+    $scope.$watch( 'volumeVars.clone', function( newVal ){
+    
+        if ( !angular.isDefined( newVal ) || newVal == null ){
+            return;
+        }
+        
+        $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.clone.id, function( realPolicies ){
+            
+            // get rid of the IDs... it shouldn't have any
+            for ( var i = 0; i < realPolicies.length; i++ ){
+                realPolicies[i].name = realPolicies[i].name.substring( realPolicies[i].name.indexOf( '_' ) + 1 );
+                realPolicies[i].recurrenceRule.FREQ = realPolicies[i].name;
+            }
+            
+            translatePoliciesToScreen( realPolicies );
+        });
     });
     
     $scope.$watch( 'volumeVars.editing', function( newVal ){
@@ -76,28 +114,11 @@ angular.module( 'volumes' ).controller( 'snapshotPolicyController', ['$scope', '
         
         init();
         
-        $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id,
-            function( realPolicies ){
-                
-                $scope.volumeVars.selectedVolume.snapshotPolicies = realPolicies;
-            
-                // set the UI policies to the real data.
-                for ( var i = 0; i < realPolicies.length; i++ ){
-                    for ( var j = 0; j < $scope.policies.length; j++ ){
-                        if ( realPolicies[i].name.indexOf( $scope.policies[j].name.toUpperCase() ) != -1 ){
-                            $scope.policies[j].name = realPolicies[i].name;
-                            $scope.policies[j].use = true;
-                            
-                            var ret = $snapshot_service.convertSecondsToTimePeriod( realPolicies[i].retention );
-                            $scope.policies[j].value = ret.value;
-                            $scope.policies[j].units = $scope.timeChoices[ret.units];
-                            $scope.policies[j].id = realPolicies[i].id;
-                        }
-                    }
-                }
-            
-                $scope.updatePolicyDefs();
-            });
+        $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id, function( realPolicies ){
+            $scope.volumeVars.selectedVolume.snapshotPolicies = realPolicies;
+            translatePoliciesToScreen( realPolicies );
+        });
+           
     });
 
 }]);

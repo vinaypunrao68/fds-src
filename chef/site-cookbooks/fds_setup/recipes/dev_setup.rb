@@ -46,6 +46,8 @@ fds_dev_packages = %w[
   libical-dev
   libical1
   libleveldb-dev
+  google-perftools
+  libgoogle-perftools-dev
   libconfig++-dev
   fds-pkghelper
   fds-pkg

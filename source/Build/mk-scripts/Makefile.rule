@@ -390,6 +390,16 @@ $(chef_client_binary):
 devsetup: $(chef_client_binary)
 	@cd $(incl_scripts)/../../../; $(chef_command)
 
+
+ansible_dir := $(incl_scripts)/../../../ansible
+ansible_devsetup_command := ansible-playbook -i $(ansible_dir)/ansible_hosts -c local $(ansible_dir)/devsetup/devsetup.yml
+
+.PHONY : devsetup-ansible
+devsetup-ansible: 
+	@sudo apt-get install -fy python-dev python-pip
+	@sudo pip install ansible
+	@$(ansible_devsetup_command)
+
 # -----------------------------------------------------------------------------
 # List Targets
 # http://stackoverflow.com/a/9524878

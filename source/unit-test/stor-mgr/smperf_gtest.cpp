@@ -11,6 +11,7 @@
 #include <net/SvcRequestPool.h>
 #include <fdsp_utils.h>
 #include <ObjectId.h>
+#include <fiu-control.h>
 #include <testlib/DataGen.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
@@ -19,12 +20,11 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
+#include <google/profiler.h>
 
 using ::testing::AtLeast;
 using ::testing::Return;
 using namespace fds;  // NOLINT
-
 
 struct SMApi : SingleNodeTest
 {
@@ -38,6 +38,7 @@ struct SMApi : SingleNodeTest
                boost::shared_ptr<std::string> payload)
     {
         if (error != ERR_OK) {
+            GLOGWARN << "Req Id: " << svcReq->getRequestId() << " " << error;
             putsFailedCnt_++;
         } else {
             putsSuccessCnt_++;
@@ -62,25 +63,54 @@ TEST_F(SMApi, putsPerf)
 {
     int dataCacheSz = 100;
     int nPuts =  this->getArg<int>("puts-cnt");
+    bool profile = this->getArg<bool>("profile");
+    bool failSendsbefore = this->getArg<bool>("failsends-before");
+    bool failSendsafter = this->getArg<bool>("failsends-after");
+    bool uturnAsyncReq = this->getArg<bool>("uturn-asyncreqt");
     bool uturnPuts = this->getArg<bool>("uturn");
+    bool disableSchedule = this->getArg<bool>("disable-schedule");
 
     fpi::SvcUuid svcUuid;
     svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
+    /* To generate random data between 10 to 100 bytes */
+    auto datagen = boost::make_shared<RandDataGenerator<>>(4096, 4096);
+    auto putMsgGenF = std::bind(&SvcMsgFactory::newPutObjectMsg, volId_, datagen);
+    /* To geenrate put messages and cache them.  Wraps datagen from above */
+    auto putMsgGen = boost::make_shared<
+                    CachedMsgGenerator<fpi::PutObjectMsg>>(dataCacheSz,
+                                                           true,
+                                                           putMsgGenF);
     /* Set fault to uturn all puts */
+    if (failSendsbefore) {
+        fiu_enable("svc.fail.sendpayload_before", 1, NULL, 0);
+    }
+    if (failSendsafter) {
+        fiu_enable("svc.fail.sendpayload_after", 1, NULL, 0);
+        ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.drop.putobject"));
+    }
+    if (uturnAsyncReq) {
+        ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.asyncreqt"));
+    }
     if (uturnPuts) {
         ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
     }
+    if (disableSchedule) {
+        fiu_enable("svc.disable.schedule", 1, NULL, 0);
+    }
 
-    /* To generate random data between 10 to 100 bytes */
-    auto g = boost::make_shared<CachedRandDataGenerator<>>(dataCacheSz, true, 4096, 4096);
+    /* Start google profiler */
+    if (profile) {
+        ProfilerStart("/tmp/output.prof");
+    }
 
     /* Start timer */
     startTs_ = util::getTimeStampNanos();
+
     /* Issue puts */
     for (int i = 0; i < nPuts; i++) {
-        auto putObjMsg = SvcMsgFactory::newPutObjectMsg(volId_, g);
+        auto putObjMsg = putMsgGen->nextItem();
         auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
         asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
         asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this,
@@ -92,16 +122,37 @@ TEST_F(SMApi, putsPerf)
     }
 
     /* Poll for completion */
-    POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 500, (nPuts+2) * 1000);
+    POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), nPuts, (nPuts * 3));
 
     /* Disable fault injection */
+    if (failSendsbefore) {
+        fiu_disable("svc.fail.sendpayload_before");
+    }
+    if (failSendsafter) {
+        fiu_disable("svc.fail.sendpayload_after");
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.drop.putobject"));
+    }
+    if (uturnAsyncReq) {
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.asyncreqt"));
+    }
     if (uturnPuts) {
-        ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.putobject"));
+    }
+    if (disableSchedule) {
+        fiu_disable("svc.disable.schedule");
     }
 
+    /* End profiler */
+    if (profile) {
+        ProfilerStop();
+    }
+
+    std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
+            << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
+            << "(ns)\n";
     ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
-        << " putsSuccessCnt_: " << putsFailedCnt_;
-    std::cout << "Time taken: " << endTs_ - startTs_ << "(ns)\n";
+        << " putsSuccessCnt_: " << putsSuccessCnt_
+        << " putsFailedCnt_: " << putsFailedCnt_;
 }
 
 int main(int argc, char** argv) {
@@ -110,7 +161,12 @@ int main(int argc, char** argv) {
     opts.add_options()
         ("help", "produce help message")
         ("puts-cnt", po::value<int>(), "puts count")
-        ("uturn", po::value<bool>()->default_value(false), "uturn");
+        ("profile", po::value<bool>()->default_value(false), "google profile")
+        ("failsends-before", po::value<bool>()->default_value(false), "fail sends before")
+        ("failsends-after", po::value<bool>()->default_value(false), "fail sends after")
+        ("uturn-asyncreqt", po::value<bool>()->default_value(false), "uturn async reqt")
+        ("uturn", po::value<bool>()->default_value(false), "uturn")
+        ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();
 }
