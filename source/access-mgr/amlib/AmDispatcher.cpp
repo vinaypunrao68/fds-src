@@ -561,6 +561,8 @@ AmDispatcher::dispatchCommitBlobTx(AmQosReq *qosReq) {
     CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(
         qosReq->getBlobReqPtr());
 
+    fiu_do_on("am.uturn.dispatcher", blobReq->processorCb(ERR_OK); delete blobReq; return;);
+
     // Create callback
     QuorumSvcRequestRespCb respCb(
         RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb,
