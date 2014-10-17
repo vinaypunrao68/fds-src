@@ -17,7 +17,7 @@
 #include "fds_types.h"
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmDiskMap.h>
-#include "TokenCompactor.h"
+#include <object-store/TokenCompactor.h>
 
 namespace fds {
 
