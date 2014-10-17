@@ -27,6 +27,9 @@
 
 package com.formationds.util;
 
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.formationds.util.s3.S3SignatureGenerator;
 import org.apache.commons.cli.*;
 import org.apache.http.ConnectionReuseStrategy;
 import org.apache.http.HttpHost;
@@ -73,7 +76,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * org.apache.http.nio.pool.NIOConnFactory, int)
  * @see org.apache.http.impl.nio.pool.BasicNIOConnFactory
  */
-public class TrafficGren {
+public class TrafficGen {
 
     static AtomicInteger successes = new AtomicInteger(0);
     static AtomicInteger failures = new AtomicInteger(0);
@@ -90,6 +93,8 @@ public class TrafficGren {
     static int n_conns = 2;
 
     static RandomFile rf = null;
+    private static String username;
+    private static String token;
 
     static public BasicHttpEntityEnclosingRequest createPutRequest(int size, String vol, String obj, int n_objs) throws FileNotFoundException, IOException {
         if (rf == null) {
@@ -140,6 +145,19 @@ public class TrafficGren {
                 .hasArg()
                 .withDescription("Number of NIO connections")
                 .create("n_conns"));
+        options.addOption(OptionBuilder.withArgName("username")
+                .isRequired(false)
+                .hasArg()
+                .withDescription("User name")
+                .create("username"));
+        options.addOption(OptionBuilder.withArgName("token")
+                .isRequired(false)
+                .hasArg()
+                .withDescription("S3 Authentication token")
+                .create("token"));
+
+
+
         CommandLineParser parser = new BasicParser();
 
 
@@ -168,6 +186,12 @@ public class TrafficGren {
             }
             if (line.hasOption("n_conns")) {
                 osize = Integer.parseInt(line.getOptionValue("n_conns"));
+            }
+            if (line.hasOption("username")) {
+                username = line.getOptionValue("username");
+            }
+            if (line.hasOption("token")) {
+                token = line.getOptionValue("token");
             }
         } catch (ParseException exp) {
             // oops, something went wrong
@@ -233,10 +257,10 @@ public class TrafficGren {
             int obj_index = i % n_files;
             switch (test_type) {
                 case "GET":
-                    requests.add(new BasicHttpRequest(test_type, "/" + volume_name + "/file" + obj_index));
+                    requests.add(sign(new BasicHttpRequest(test_type, "/" + volume_name + "/file" + obj_index)));
                     break;
                 case "PUT":
-                    BasicHttpEntityEnclosingRequest req = createPutRequest(osize, volume_name, "file" + obj_index, n_files);
+                    BasicHttpEntityEnclosingRequest req = (BasicHttpEntityEnclosingRequest) sign(createPutRequest(osize, volume_name, "file" + obj_index, n_files));
                     requests.add(req);
                     break;
                 default:
@@ -308,6 +332,16 @@ public class TrafficGren {
         System.out.println("Shutting down I/O reactor");
         ioReactor.shutdown();
         System.out.println("Done");
+    }
+
+    private static HttpRequest sign(HttpRequest request) {
+        if (username != null) {
+            AWSCredentials creds = new BasicAWSCredentials(username, token);
+            String signature = S3SignatureGenerator.hash(request, creds);
+            request.addHeader("Authorization", signature);
+        }
+
+        return request;
     }
 
 }
