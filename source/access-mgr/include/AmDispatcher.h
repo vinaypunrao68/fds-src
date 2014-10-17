@@ -126,9 +126,6 @@ class AmDispatcher : public Module, public boost::noncopyable {
     DLTManagerPtr dltMgr;
     DMTManagerPtr dmtMgr;
 
-    /// Uturn test all network requests
-    fds_bool_t uturnAll;
-
     /**
      * Callback for delete blob responses.
      */

@@ -8,6 +8,8 @@
 #include <AmDispatcher.h>
 #include <net/SvcRequestPool.h>
 #include <net/net-service-tmpl.hpp>
+#include <fiu-control.h>
+#include <util/fiu_util.h>
 
 namespace fds {
 
@@ -18,7 +20,9 @@ AmDispatcher::AmDispatcher(const std::string &modName,
           dltMgr(_dltMgr),
           dmtMgr(_dmtMgr) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    uturnAll = conf.get<fds_bool_t>("testing.uturn_dispatcher_all");
+    if (conf.get<fds_bool_t>("testing.uturn_dispatcher_all")) {
+        fiu_enable("am.uturn.dispatcher", 1, NULL, 0);
+    }
 }
 
 AmDispatcher::~AmDispatcher() {
@@ -80,6 +84,8 @@ void
 AmDispatcher::dispatchAbortBlobTx(AmQosReq *qosReq) {
     AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(qosReq->getBlobReqPtr());
 
+    fiu_do_on("am.uturn.dispatcher", blobReq->processorCb(ERR_OK); delete blobReq; return;);
+
     fds_volid_t volId = blobReq->getVolId();
 
     AbortBlobTxMsgPtr stBlobTxMsg(new AbortBlobTxMsg());
@@ -118,6 +124,8 @@ AmDispatcher::dispatchStartBlobTx(AmQosReq *qosReq) {
     // version we cache in the blobReq now and the version we
     // actually dispatch on below. Make the update/dispatch consistent.
     blobReq->dmtVersion = dmtMgr->getCommittedVersion();
+
+    fiu_do_on("am.uturn.dispatcher", blobReq->processorCb(ERR_OK); delete blobReq; return;);
 
     // Create callback
     QuorumSvcRequestRespCb respCb(
@@ -168,6 +176,8 @@ AmDispatcher::dispatchDeleteBlob(AmQosReq *qosReq)
     DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
+    fiu_do_on("am.uturn.dispatcher", blobReq->processorCb(ERR_OK); delete blobReq; return;);
+
     DeleteBlobMsgPtr message = boost::make_shared<DeleteBlobMsg>();
     message->volume_id = blobReq->getVolId();
     message->blob_name = blobReq->getBlobName();
@@ -209,6 +219,10 @@ AmDispatcher::dispatchUpdateCatalog(AmQosReq *qosReq) {
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
+    fiu_do_on("am.uturn.dispatcher",
+              blobReq->notifyResponse(qosReq, ERR_OK);  \
+              return;);
+
     UpdateCatalogMsgPtr updCatMsg(boost::make_shared<UpdateCatalogMsg>());
     updCatMsg->blob_name    = blobReq->getBlobName();
     updCatMsg->blob_version = blob_version_invalid;
@@ -244,6 +258,10 @@ void
 AmDispatcher::dispatchUpdateCatalogOnce(AmQosReq *qosReq) {
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
+
+    fiu_do_on("am.uturn.dispatcher",
+              blobReq->notifyResponse(qosReq, ERR_OK); \
+              return;);
 
     UpdateCatalogOnceMsgPtr updCatMsg(boost::make_shared<UpdateCatalogOnceMsg>());
     updCatMsg->blob_name    = blobReq->getBlobName();
@@ -297,8 +315,9 @@ AmDispatcher::updateCatalogCb(AmQosReq* qosReq,
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << blobReq->getObjId()
-            << " blob name: " << blobReq->getBlobName()
-            << " offset: " << blobReq->getBlobOffset() << " Error: " << error;
+                 << " blob name: " << blobReq->getBlobName()
+                 << " offset: " << blobReq->getBlobOffset()
+                 << " Error: " << error;
     } else {
         LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
     }
@@ -310,6 +329,10 @@ AmDispatcher::dispatchPutObject(AmQosReq *qosReq) {
     PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getDataLen() > 0);
+
+    fiu_do_on("am.uturn.dispatcher",
+              blobReq->notifyResponse(qosReq, ERR_OK); \
+              return;);
 
     PutObjectMsgPtr putObjMsg(boost::make_shared<PutObjectMsg>());
     putObjMsg->volume_id        = blobReq->getVolId();
@@ -357,6 +380,13 @@ AmDispatcher::dispatchGetObject(AmQosReq *qosReq)
 {
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
+
+    fiu_do_on("am.uturn.dispatcher",
+              GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb); \
+              cb->returnSize = blobReq->getDataLen(); \
+              memset(cb->returnBuffer, 0x00, cb->returnSize); \
+              blobReq->processorCb(ERR_OK); \
+              return;);
 
     PerfTracer::tracePointBegin(blobReq->smPerfCtx);
     fds_volid_t volId = blobReq->getVolId();
@@ -434,6 +464,11 @@ void
 AmDispatcher::dispatchQueryCatalog(AmQosReq *qosReq) {
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
+
+    fiu_do_on("am.uturn.dispatcher",
+              blobReq->setObjId(ObjectID()); \
+              blobReq->processorCb(ERR_OK); \
+              return;);
 
     PerfTracer::tracePointBegin(blobReq->dmPerfCtx);
     std::string blobName = blobReq->getBlobName();
@@ -517,6 +552,13 @@ AmDispatcher::dispatchStatBlob(AmQosReq *qosReq)
 {
     StatBlobReq* blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
+
+    fiu_do_on("am.uturn.dispatcher",
+              StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, blobReq->cb); \
+              cb->blobDesc.setBlobName(blobReq->getBlobName()); \
+              cb->blobDesc.setBlobSize(0); \
+              blobReq->processorCb(ERR_OK); \
+              return;);
 
     GetBlobMetaDataMsgPtr message = boost::make_shared<GetBlobMetaDataMsg>();
     message->volume_id = blobReq->getVolId();
