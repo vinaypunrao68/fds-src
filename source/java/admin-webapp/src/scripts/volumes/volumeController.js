@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume_api', '$element', '$timeout', '$compile', '$snapshot_service', function( $scope, $volume_api, $element, $timeout, $compile, $snapshot_service ){
+angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume_api', '$element', '$timeout', '$compile', '$snapshot_service', '$rootScope', '$filter', function( $scope, $volume_api, $element, $timeout, $compile, $snapshot_service, $rootScope, $filter ){
     
     $scope.date = new Date();
     $scope.volumes = [];
@@ -18,7 +18,15 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume
         
         $event.stopPropagation();
         
-        $volume_api.createSnapshot( volume.id, volume.name + '.' + (new Date()).getTime(), function(){ alert( 'Snapshot created.' );} );
+        $volume_api.createSnapshot( volume.id, volume.name + '.' + (new Date()).getTime(), 
+            function(){ 
+                var $event = {
+                    type: 'INFO',
+                    text: $filter( 'translate' )( 'volumes.desc_snapshot_created' )
+                };
+        
+                $rootScope.$emit( 'fds::alert', $event );
+            });
     };
 
     $scope.edit = function( $event, volume ) {
