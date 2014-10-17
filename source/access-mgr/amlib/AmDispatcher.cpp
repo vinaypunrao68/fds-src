@@ -600,6 +600,5 @@ AmDispatcher::commitBlobTxCb(AmQosReq *qosReq,
     // completes, all upper layers should be notified and we
     // can safely delete the request
     blobReq->processorCb(error);
-    delete blobReq;
 }
 }  // namespace fds

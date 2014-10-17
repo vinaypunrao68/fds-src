@@ -449,8 +449,6 @@ void
 AmProcessor::commitBlobTx(AmQosReq *qosReq) {
     fds_verify(qosReq != NULL);
 
-    Error err(ERR_OK);
-
     // Get the blob request
     CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq != NULL);
