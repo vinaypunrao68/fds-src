@@ -96,7 +96,7 @@ public class Main {
     /*
      * provides snapshot RESTful API endpoints
      */
-    snapshot( configCache, authorizer );
+    snapshot( configCache, legacyConfigClient, authorizer );
 
     /*
      * provides metrics RESTful API endpoints
@@ -190,9 +190,7 @@ public class Main {
   }
 
   private void metricsGets() {
-    authenticate( HttpMethod.GET, "/api/stats/volumes",
-                  ( t ) -> new QueryMetrics() );
-    authenticate( HttpMethod.GET, "/api/stats/volumes/:volume",
+    authenticate( HttpMethod.PUT, "/api/stats/volumes",
                   ( t ) -> new QueryMetrics() );
   }
 
@@ -200,7 +198,9 @@ public class Main {
     webApp.route(HttpMethod.POST, "/api/stats", IngestVolumeStats::new);
   }
 
-  private void snapshot( final ConfigurationApi config, Authorizer authorizer ) {
+  private void snapshot( final ConfigurationApi config,
+                         final FDSP_ConfigPathReq.Iface legacyConfigPath,
+                         Authorizer authorizer ) {
     if( !FdsFeatureToggles.SNAPSHOT_ENDPOINT.isActive() ) {
       return;
     }
@@ -215,12 +215,13 @@ public class Main {
     LOG.trace( "registering snapshot endpoints" );
     snapshotGets( config, authorizer );
     snapshotDeletes( config, authorizer );
-    snapshotPosts( config, authorizer );
+    snapshotPosts( config, legacyConfigPath, authorizer );
     snapshotPuts( config, authorizer );
     LOG.trace( "registered snapshot endpoints" );
   }
 
   private void snapshotPosts( final ConfigurationApi config,
+                              final FDSP_ConfigPathReq.Iface legacyConfigPath,
                               final Authorizer authorizer ) {
     // POST methods
     fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/policies",
@@ -230,7 +231,7 @@ public class Main {
     fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/restore/:snapshotId/:volumeId",
                   ( t ) -> new RestoreSnapshot( config ), authorizer );
     fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/clone/:snapshotId/:cloneVolumeName",
-                  ( t ) -> new CloneSnapshot( config ), authorizer );
+                  ( t ) -> new CloneSnapshot( config, legacyConfigPath ), authorizer );
   }
 
   private void snapshotPuts( final ConfigurationApi config,

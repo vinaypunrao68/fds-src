@@ -7,8 +7,7 @@ package com.formationds.commons.model.type;
 /**
  * @author ptinius
  */
-public enum NodeState
-{
+public enum NodeState {
   UP( "FDS_Node_Up" ),
   DOWN( "FDS_Node_Down" ),
   REMOVED( "FDS_Node_Rmvd" ),
@@ -18,30 +17,26 @@ public enum NodeState
 
   private String fdsDefined;
 
-  NodeState( final String fdsDefined )
-  {
+  NodeState( final String fdsDefined ) {
     this.fdsDefined = fdsDefined;
   }
 
   /**
    * @return Returns {@link String} representing the fds defined state
    */
-  public String getFdsDefined()
-  {
+  public String getFdsDefined() {
     return fdsDefined;
   }
 
   /**
    * @param fdsState the {@link String} representing the fds defined state
    *
-   * @return
+   * @return Return the {@link NodeState}
    */
-  public static NodeState byFdsState( final String fdsState )
-  {
-    for( final NodeState state : NodeState.values() )
-    {
-      if( state.getFdsDefined( ).equalsIgnoreCase( fdsState ) )
-      {
+  public static NodeState byFdsState( final String fdsState ) {
+    for( final NodeState state : NodeState.values() ) {
+      if( state.getFdsDefined()
+               .equalsIgnoreCase( fdsState ) ) {
         return state;
       }
     }

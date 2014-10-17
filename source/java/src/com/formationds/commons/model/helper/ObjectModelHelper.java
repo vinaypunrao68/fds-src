@@ -10,6 +10,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.joda.time.format.ISODateTimeFormat;
 
+import java.io.Reader;
 import java.lang.reflect.Type;
 import java.text.ParseException;
 import java.util.Date;
@@ -18,20 +19,17 @@ import java.util.List;
 /**
  * @author ptinius
  */
-public class ObjectModelHelper
-{
+public class ObjectModelHelper {
   /**
    * @param protocols the {@link List} of {@link com.formationds.commons.model.type.Protocol}
    *
    * @return Returns {@link String} representing a comma separated list of
-   *         {@link com.formationds.commons.model.type.Protocol}
+   * {@link com.formationds.commons.model.type.Protocol}
    */
   public static String toProtocalString( final List<Protocol> protocols ) {
-    final StringBuilder sb = new StringBuilder( );
-    for( final Protocol protocol : protocols )
-    {
-      if( sb.length() != 0 )
-      {
+    final StringBuilder sb = new StringBuilder();
+    for( final Protocol protocol : protocols ) {
+      if( sb.length() != 0 ) {
         sb.append( "," );
       }
 
@@ -59,11 +57,22 @@ public class ObjectModelHelper
    * @param json the {@link String} representing the JSON object
    * @param type the {@link Type} to parse the JSON into
    *
-   * @return Returns the
+   * @return Returns the {@link Type} represented within the JSON
    */
-  public static <T> T toObject( final String json, final Type type )
-  {
-    return new GsonBuilder().create().fromJson( json, type );
+  public static <T> T toObject( final String json, final Type type ) {
+    return new GsonBuilder().create()
+                            .fromJson( json, type );
+  }
+
+  /**
+   * @param reader the {@link java.io.Reader}
+   * @param type   the {@link Type} to parse the JSON into
+   *
+   * @return Returns the {@link Type} represented within the JSON
+   */
+  public static <T> T toObject( final Reader reader, final Type type ) {
+    return new GsonBuilder().create()
+                            .fromJson( reader, type );
   }
 
   /**
@@ -71,8 +80,7 @@ public class ObjectModelHelper
    *
    * @return Returns the {@link String} representing the JSON
    */
-  public static String toJSON( final Object object )
-  {
+  public static String toJSON( final Object object ) {
     Gson gson =
       new GsonBuilder().setFieldNamingPolicy( FieldNamingPolicy.IDENTITY )
                        .setPrettyPrinting()
@@ -83,8 +91,7 @@ public class ObjectModelHelper
   /**
    * default singleton
    */
-  private ObjectModelHelper()
-  {
+  private ObjectModelHelper() {
     super();
   }
 }

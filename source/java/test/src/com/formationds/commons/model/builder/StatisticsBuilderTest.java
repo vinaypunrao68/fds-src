@@ -18,9 +18,9 @@ import java.util.List;
 public class StatisticsBuilderTest {
   private static final String EXPECTED_NAME =
     "TestVolume %s";
-  private static final long EXPECTED_LIMIT = 1024L;
-  private static final long EXPECTED_SLA = 256L;
-  private static final int EXPECTED_PRIORITY = 30;
+  private static final long EXPECTED_LIMIT = 300;
+  private static final long EXPECTED_SLA = 0;
+  private static final int EXPECTED_PRIORITY = 10;
 
   private static final SizeUnit EXPECTED_UNITS = SizeUnit.GB;
   private static final long EXPECTED_SIZE = 100;
@@ -40,9 +40,9 @@ public class StatisticsBuilderTest {
                        .withSla( EXPECTED_SLA )
                        .build();
 
-  final static List<Series> series = new ArrayList<>( );
-  static
-  {
+  final static List<Series> series = new ArrayList<>();
+
+  static {
     series.add( new SeriesBuilder().withContext( volume )
                                    .withDatapoint( new DatapointBuilder().withX( 55L )
                                                                          .withY( 123456789L )

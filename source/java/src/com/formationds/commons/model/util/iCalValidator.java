@@ -15,7 +15,8 @@ public class iCalValidator {
   /**
    * @param minValue the {@code int} representing the minimum value allowed
    * @param maxValue the {@code int} representing the maximum value allowed
-   * @param allowed the {@code boolean} representing is negative number are supported.
+   * @param allowed  the {@code boolean} representing is negative number are
+   *                 supported.
    */
   public iCalValidator( final int minValue,
                         final int maxValue,
@@ -40,7 +41,8 @@ public class iCalValidator {
   }
 
   /**
-   * @return Returns {@code boolean} representing if negative numbers are supported
+   * @return Returns {@code boolean} representing if negative numbers are
+   * supported
    */
   public boolean isAllowed() {
     return allowed;
@@ -51,9 +53,8 @@ public class iCalValidator {
    *
    * @return Returns {@code true} if is valid. Otherwise {@code false}
    */
-  public boolean isValid( final int value )
-  {
+  public boolean isValid( final int value ) {
     // if value is between min and max then valid, otherwise invalid
-    return ( value < getMinValue() ) && ( value > getMaxValue() );
+    return ( value >= getMinValue() ) && ( value <= getMaxValue() );
   }
 }
