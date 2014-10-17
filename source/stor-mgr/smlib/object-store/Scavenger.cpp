@@ -204,6 +204,98 @@ void ScavControl::stopScavengeProcess()
     }
 }
 
+// set policy on all disks
+Error
+ScavControl::setScavengerPolicy(fds_uint32_t dsk_avail_threshold_1,
+                                fds_uint32_t dsk_avail_threshold_2,
+                                fds_uint32_t tok_reclaim_threshold,
+                                fds_uint32_t proc_max_tokens) {
+    Error err(ERR_OK);
+    DiskScavPolicyInternal policy;
+    if ((dsk_avail_threshold_1 > 100) ||
+        (dsk_avail_threshold_2 > 100) ||
+        (tok_reclaim_threshold > 100)) {
+        return ERR_INVALID_ARG;
+    }
+    // params are valid
+    policy.dsk_avail_threshold_1 = dsk_avail_threshold_1;
+    policy.dsk_avail_threshold_2 = dsk_avail_threshold_2;
+    policy.tok_reclaim_threshold = tok_reclaim_threshold;
+    policy.proc_max_tokens = proc_max_tokens;
+
+    // set same policy for all disks, the policy will take effect
+    // in the next GC cycle (not the current one if it is currently in
+    // progress), except for proc_max_tokens which will take effect
+    // in the current GC cycle
+    LOGNORMAL << "Changing scavenger policy for every disk to " << policy;
+    fds_mutex::scoped_lock l(scav_lock);
+    for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
+         cit != diskScavTbl.cend();
+         ++cit) {
+        DiskScavenger *diskScav = cit->second;
+        if (diskScav != NULL) {
+            diskScav->setPolicy(policy);
+        }
+    }
+
+    return err;
+}
+
+// returns policy (for now we have same policy on all disks
+// so getting from first disk we find)
+Error
+ScavControl::getScavengerPolicy(fds_uint32_t* dsk_avail_threshold_1,
+                                fds_uint32_t* dsk_avail_threshold_2,
+                                fds_uint32_t* tok_reclaim_threshold,
+                                fds_uint32_t* proc_max_tokens) {
+    Error err(ERR_OK);
+    DiskScavenger *diskScav = NULL;
+    {  // for getting scavenger policy
+        fds_mutex::scoped_lock l(scav_lock);
+        DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
+        if (cit == diskScavTbl.cend()) {
+            return ERR_NOT_FOUND;  // no disks
+        }
+        diskScav = cit->second;
+    }
+    fds_verify(diskScav != NULL);
+    DiskScavPolicyInternal policy = diskScav->getPolicy();
+
+    *dsk_avail_threshold_1 = policy.dsk_avail_threshold_1;
+    *dsk_avail_threshold_2 = policy.dsk_avail_threshold_2;
+    *tok_reclaim_threshold = policy.tok_reclaim_threshold;
+    *proc_max_tokens = policy.proc_max_tokens;
+    return err;
+}
+
+fds_uint32_t
+ScavControl::getProgress() {
+    fds_uint32_t totalToksCompacting = 0;
+    fds_uint32_t totalToksFinished = 0;
+
+    if (std::atomic_load(&enabled) == false) {
+        return 100;
+    }
+
+    fds_mutex::scoped_lock l(scav_lock);
+    for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
+         cit != diskScavTbl.cend();
+         ++cit) {
+        fds_uint32_t toksCompacting = 0;
+        fds_uint32_t toksFinished = 0;
+        DiskScavenger *diskScav = cit->second;
+        if (diskScav != NULL) {
+            diskScav->getProgress(&toksCompacting,
+                                  &toksFinished);
+            totalToksCompacting += toksCompacting;
+            totalToksFinished += toksFinished;
+        }
+    }
+
+    fds_verify(totalToksFinished <= totalToksCompacting);
+    return (totalToksFinished / totalToksCompacting);
+}
+
 DiskScavenger::DiskScavenger(fds_uint16_t _disk_id,
                              diskio::DataTier _tier,
                              SmIoReqHandler *data_store,
@@ -234,6 +326,11 @@ void DiskScavenger::setPolicy(const DiskScavPolicyInternal& policy) {
 
 void DiskScavenger::setProcMaxTokens(fds_uint32_t max_toks) {
     scav_policy.proc_max_tokens = max_toks;
+}
+
+DiskScavPolicyInternal
+DiskScavenger::getPolicy() const {
+    return scav_policy;
 }
 
 Error
@@ -418,6 +515,36 @@ void DiskScavenger::stopScavenge() {
     }
 }
 
+void
+DiskScavenger::getProgress(fds_uint32_t *toksCompacting,
+                           fds_uint32_t *toksFinished) {
+    *toksCompacting = 0;
+    *toksFinished = 0;
+    if (atomic_load(&in_progress) == false) {
+        return;
+    }
+
+    // we already got scavenger lock, and this map changes
+    fds_uint32_t count = 0;
+    fds_uint32_t nextTok = next_token;
+    // TODO(Anna) make next_token atomic,.. ok here, because we do not
+    // need to be super exact in progress reporting
+    for (std::set<fds_token_id>::const_iterator cit = tokenDb.cbegin();
+         cit != tokenDb.cend();
+         ++cit) {
+        if (*cit < nextTok) {
+            ++count;
+        } else {
+            break;
+        }
+    }
+    *toksCompacting = tokenDb.size();
+    *toksFinished = count;
+    LOGDEBUG << "Disk " << disk_id << " progress: " << *toksCompacting
+             << " total tokens compacting, " << *toksFinished
+             << " total tokens finished compaction";
+}
+
 void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) {
     fds_token_id tok_id;
     fds_bool_t in_prog = std::atomic_load(&in_progress);
@@ -487,6 +614,16 @@ DiskScavPolicyInternal::operator=(const DiskScavPolicyInternal& other) {
     tok_reclaim_threshold = other.tok_reclaim_threshold;
     proc_max_tokens = other.proc_max_tokens;
     return *this;
+}
+
+std::ostream& operator<< (std::ostream &out,
+                          const DiskScavPolicyInternal& policy) {
+    out << "Disk threshold 1 = " << policy.dsk_avail_threshold_1 << ",";
+    out << "Disk threshold 2 = " << policy.dsk_avail_threshold_2 << ",";
+    out << "Threshold for reclaimable bytes in SM token = "
+        << policy.tok_reclaim_threshold << ",";
+    out << "Max tokens to compact per disk = " << policy.proc_max_tokens;
+    return out;
 }
 
 }  // namespace fds
