@@ -51,7 +51,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
             units = $filter( 'translate' )( 'common.minutes' );
         }
         
-        var str = '<div><div style="font-weight: bold;font-size: 11px;">' + data.name + '</div><div style="font-size: 10px;">' + $filter( 'translate' )( 'status.tt_firebreak', { value: value,units: units} ) + '</div></div>';
+        var str = '<div><div style="font-weight: bold;font-size: 11px;">' + data.context.name + '</div><div style="font-size: 10px;">' + $filter( 'translate' )( 'status.tt_firebreak', { value: value,units: units} ) + '</div></div>';
         
         return str;
     };

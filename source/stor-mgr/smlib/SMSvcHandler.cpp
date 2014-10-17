@@ -11,6 +11,8 @@
 #include <string>
 #include <net/SvcRequest.h>
 #include <fiu-local.h>
+#include <random>
+#include <chrono>
 
 namespace fds {
 
@@ -27,12 +29,59 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolRemove, NotifyRmVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyVolMod, NotifyModVol);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyScavenger, NotifyScavenger);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScavengerStatus, queryScavengerStatus);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScavengerProgress, queryScavengerProgress);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSetScavengerPolicy, setScavengerPolicy);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScavengerPolicy, queryScavengerPolicy);
+
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicy, TierPolicy);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicyAudit, TierPolicyAudit);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
+}
+
+void SMSvcHandler::queryScavengerProgress(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+            boost::shared_ptr<fpi::CtrlQueryScavengerProgress> &query_msg) {
+    boost::shared_ptr<fpi::CtrlQueryScavengerProgressResp> resp
+            (new fpi::CtrlQueryScavengerProgressResp());
+     resp->progress_pct = 10;
+    GLOGDEBUG << "Response set: " << resp->progress_pct << " should be sending async resp now.";
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlQueryScavengerProgressResp), *resp);
+2}
+
+void SMSvcHandler::setScavengerPolicy(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+            boost::shared_ptr<fpi::CtrlSetScavengerPolicy> &policy_msg) {
+    boost::shared_ptr<fpi::CtrlSetScavengerPolicyResp> resp
+            (new fpi::CtrlSetScavengerPolicyResp());
+    Error err(ERR_OK);
+    // DO stuff
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlSetScavengerPolicyResp), *resp);
+}
+
+void SMSvcHandler::queryScavengerPolicy(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+        boost::shared_ptr<fpi::CtrlQueryScavengerPolicy> &query_msg) {
+    boost::shared_ptr<fpi::CtrlQueryScavengerPolicyResp> resp
+            (new fpi::CtrlQueryScavengerPolicyResp());
+    // resp->progress_pct = ???
+    // GLOGDEBUG << "Response set: " << resp->progress_pct << " should be sending async resp now.";
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlQueryScavengerPolicyResp), *resp);
+}
+
+void SMSvcHandler::queryScavengerStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+        boost::shared_ptr<fpi::CtrlQueryScavengerStatus> &query_msg) {
+    boost::shared_ptr<fpi::CtrlQueryScavengerStatusResp> resp
+            (new fpi::CtrlQueryScavengerStatusResp());
+
+    std::default_random_engine generator(std::chrono::system_clock::now()
+            .time_since_epoch().count());
+    std::uniform_int_distribution<int> distribution(1, 3);
+
+    resp->status = static_cast<FDSP_ScavengerStatusType>(distribution(generator));
+    GLOGDEBUG << "Response set: " << resp->status << " should be sending async resp now.";
+
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlQueryScavengerStatusResp), *resp);
 }
 
 void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

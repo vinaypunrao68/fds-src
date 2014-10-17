@@ -34,7 +34,7 @@
 <!--                <div class="firebreak-tile tile"></div>-->
                 <status-tile tile-title="{{ 'status.l_firebreak' | translate }}" bold-number="firebreakStats.summaryData.hoursSinceLastEvent"
                     description="{{ 'status.desc_firebreak' | translate }}">
-                    <treemap data="firebreakStats.series[0]" tooltip="setFirebreakToolipText" color-property="secondsSinceLastFirebreak"></treemap>
+                    <treemap data="firebreakStats" tooltip="setFirebreakToolipText" color-property="secondsSinceLastFirebreak"></treemap>
                 </status-tile>
             </div>
         </div>

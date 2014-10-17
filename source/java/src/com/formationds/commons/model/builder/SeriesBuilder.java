@@ -4,9 +4,9 @@
 
 package com.formationds.commons.model.builder;
 
-import com.formationds.commons.model.Context;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
+import com.formationds.commons.model.abs.Context;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,9 +50,8 @@ public class SeriesBuilder {
    * @return Returns the {@link com.formationds.commons.model.builder.SeriesBuilder}
    */
   public SeriesBuilder withDatapoint( Datapoint datapoint ) {
-    if( datapoints == null )
-    {
-      this.datapoints = new ArrayList<>( );
+    if( datapoints == null ) {
+      this.datapoints = new ArrayList<>();
     }
 
     this.datapoints.add( datapoint );
@@ -72,7 +71,7 @@ public class SeriesBuilder {
     if( datapoints != null ) {
       volumeDatapointSeries.setDatapoints( datapoints );
     } else {
-      volumeDatapointSeries.setDatapoints( new ArrayList<>( ) );
+      volumeDatapointSeries.setDatapoints( new ArrayList<>() );
     }
 
     return volumeDatapointSeries;

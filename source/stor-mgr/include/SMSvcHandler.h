@@ -29,7 +29,6 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
-
     void getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                    boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg);
     void getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -66,6 +65,18 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     virtual void
     NotifyScavenger(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlNotifyScavenger> &vol_msg);
+
+    void queryScavengerStatus(boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+            boost::shared_ptr<fpi::CtrlQueryScavengerStatus> &query_msg);
+
+    void queryScavengerProgress(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+            boost::shared_ptr<fpi::CtrlQueryScavengerProgress> &query_msg);
+
+    void setScavengerPolicy(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+            boost::shared_ptr<fpi::CtrlSetScavengerPolicy> &policy_msg);
+
+    void queryScavengerPolicy(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+            boost::shared_ptr<fpi::CtrlQueryScavengerPolicy> &policy_msg);
 
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,

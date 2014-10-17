@@ -6,6 +6,7 @@
 #include <ObjectId.h>
 #include <apis/ConfigurationService.h>
 #include <DataGen.hpp>
+#include <boost/make_shared.hpp>
 #include <SvcMsgFactory.h>
 
 namespace fds {
@@ -24,24 +25,32 @@ SvcMsgFactory::newPutObjectMsg(const uint64_t& volId, DataGenIfPtr dataGen)
     return putObjMsg;
 }
 
-
 void
 UpdateBlobInfo(FDS_ProtocolInterface::UpdateCatalogMsgPtr  updateCatMsg,
                           DataGenIfPtr dataGen, size_t blobSize)
 {
-        uint64_t blobOffset = 0;
-        while (dataGen->hasNext()) {
-             auto data = dataGen->nextItem();
-             auto objId = ObjIdGen::genObjectId(data->c_str(), data->length());
-             FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
-             updBlobInfo.offset   = blobOffset;
-             updBlobInfo.size     = blobSize;
-             updBlobInfo.blob_end = dataGen->hasNext() == false;
-             updBlobInfo.data_obj_id.digest =
+    uint64_t blobOffset = 0;
+    while (dataGen->hasNext()) {
+         auto data = dataGen->nextItem();
+         auto objId = ObjIdGen::genObjectId(data->c_str(), data->length());
+         FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
+         updBlobInfo.offset   = blobOffset;
+         updBlobInfo.size     = blobSize;
+         updBlobInfo.blob_end = dataGen->hasNext() == false;
+         updBlobInfo.data_obj_id.digest =
                    std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-             updateCatMsg->obj_list.push_back(updBlobInfo);
-             blobOffset += data->length();
-       }
+         updateCatMsg->obj_list.push_back(updBlobInfo);
+         blobOffset += data->length();
+    }
+}
+
+fpi::GetObjectMsgPtr
+SvcMsgFactory::newGetObjectMsg(const uint64_t& volId, const ObjectID& objId)
+{
+    fpi::GetObjectMsgPtr getObjMsg = boost::make_shared<fpi::GetObjectMsg>();
+    getObjMsg->volume_id = volId;
+    assign(getObjMsg->data_obj_id, objId);
+    return getObjMsg;
 }
 
 apis::VolumeSettings SvcMsgFactory::defaultS3VolSettings()

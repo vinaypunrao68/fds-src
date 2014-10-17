@@ -5,6 +5,7 @@
 #define SOURCE_INCLUDE_SVCMSGFACTORY_H_
 
 #include <boost/shared_ptr.hpp>
+#include <fds_types.h>
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
@@ -24,6 +25,7 @@ class DeleteBlobMsg;
 class CommitBlobTxMsg;
 class AbortBlobTxMsg;
 class FDSP_BlobObjectInfo;
+class GetObjectMsg;
 typedef boost::shared_ptr<PutObjectMsg> PutObjectMsgPtr;
 typedef boost::shared_ptr<QueryCatalogMsg> QueryCatalogMsgPtr;
 typedef boost::shared_ptr<UpdateCatalogMsg> UpdateCatalogMsgPtr;
@@ -40,6 +42,7 @@ typedef boost::shared_ptr<DeleteBlobMsg> DeleteBlobMsgPtr;
 typedef boost::shared_ptr<CommitBlobTxMsg> CommitBlobTxMsgPtr;
 typedef boost::shared_ptr<AbortBlobTxMsg> AbortBlobTxMsgPtr;
 typedef boost::shared_ptr<FDSP_BlobObjectInfo> FDSP_BlobObjectInfoPtr;
+typedef boost::shared_ptr<GetObjectMsg> GetObjectMsgPtr;
 }
 
 namespace fds {
@@ -79,6 +82,10 @@ struct SvcMsgFactory {
         newSetBlobMetaDataMsg(const uint64_t& volId, const std::string blobName);
     static FDS_ProtocolInterface::GetBlobMetaDataMsgPtr
         newGetBlobMetaDataMsg(const uint64_t& volId, const std::string blobName);
+
+    static FDS_ProtocolInterface::GetObjectMsgPtr
+        newGetObjectMsg(const uint64_t& volId, const ObjectID& objId);
+
     static apis::VolumeSettings defaultS3VolSettings();
 };
 

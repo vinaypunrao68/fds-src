@@ -73,7 +73,7 @@ def modWait(mod, node):
             if mod == "orchMgr":
                 orchMgrPID = stdout
 
-            # For module AMAgent, there shoudl be two child processes.
+            # For module AMAgent, there should be two child processes.
             if mod == "AMAgent":
                 AMAgentPID = stdout
 
