@@ -166,9 +166,7 @@ public class Main {
   }
 
   private void metricsGets() {
-    authenticate( HttpMethod.GET, "/api/stats/volumes",
-                  ( t ) -> new QueryMetrics() );
-    authenticate( HttpMethod.GET, "/api/stats/volumes/:volume",
+    authenticate( HttpMethod.PUT, "/api/stats/volumes",
                   ( t ) -> new QueryMetrics() );
   }
 

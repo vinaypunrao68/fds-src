@@ -10,13 +10,16 @@ import com.formationds.om.repository.SingletonMetricsRepository;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import org.apache.commons.io.IOUtils;
+import com.google.gson.reflect.TypeToken;
 import org.eclipse.jetty.server.Request;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.lang.reflect.Type;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -24,8 +27,13 @@ import java.util.Map;
  */
 public class IngestVolumeStats
   implements RequestHandler {
+
   private static final Logger LOG =
     LoggerFactory.getLogger( IngestVolumeStats.class );
+
+  private static final Type TYPE =
+    new TypeToken<List<VolumeDatapoint>>() {
+    }.getType();
 
   public IngestVolumeStats() {
     super();
@@ -34,21 +42,18 @@ public class IngestVolumeStats
   @Override
   public Resource handle( Request request, Map<String, String> routeParameters )
     throws Exception {
-    LOG.info( "METADATA RECEIVED!" );
-    JSONArray array = new JSONArray( IOUtils.toString( request.getInputStream() ) );
-    int x = 0;
-    for( int i = 0;
-         i < array.length();
-         i++ ) {
-      SingletonMetricsRepository.instance()
-                                .getMetricsRepository()
-                                .save(
-                                  ObjectModelHelper.toObject( array.getJSONObject( i )
-                                                                   .toString(),
-                                                              VolumeDatapoint.class ) );
-      x = i;
+    try( final Reader reader =
+           new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
+
+      final List<VolumeDatapoint> volumeDatapoints =
+        ObjectModelHelper.toObject( reader, TYPE );
+      for( final VolumeDatapoint datapoint : volumeDatapoints ) {
+        SingletonMetricsRepository.instance()
+                                  .getMetricsRepository()
+                                  .save( datapoint );
+      }
     }
-    LOG.info( "METADATA RECORDS PROCESSED: " + x );
+
     return new JsonResource( new JSONObject().put( "status", "OK" ) );
   }
 }

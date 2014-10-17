@@ -4,16 +4,22 @@
 
 package com.formationds.om.rest.metrics;
 
-import com.formationds.commons.model.entity.MetricQuery;
+import com.formationds.commons.model.Statistics;
+import com.formationds.commons.model.entity.QueryCriteria;
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.om.repository.SingletonMetricsRepository;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.lang.reflect.Type;
 import java.util.Map;
 
 /**
@@ -21,6 +27,12 @@ import java.util.Map;
  */
 public class QueryMetrics
   implements RequestHandler {
+  private static final transient Logger logger =
+    LoggerFactory.getLogger( QueryMetrics.class );
+
+  private static final Type TYPE =
+    new TypeToken<QueryCriteria>() {
+    }.getType();
 
   public QueryMetrics() {
     super();
@@ -32,14 +44,13 @@ public class QueryMetrics
 
     try( final Reader reader =
            new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
-      final MetricQuery metricQuery = new GsonBuilder().create()
-                                                       .fromJson( reader,
-                                                                  MetricQuery.class );
+      final QueryCriteria metricQuery =
+        ObjectModelHelper.toObject( reader, TYPE );
+      final Statistics stats = SingletonMetricsRepository.instance()
+                                                         .getMetricsRepository()
+                                                         .query( metricQuery );
 
-
-      // TODO finish implementation
+      return new JsonResource( new JSONObject( stats ) );
     }
-
-    return new JsonResource( new JSONObject().put( "status", "OK" ) );
   }
 }
