@@ -9,6 +9,7 @@ import com.formationds.apis.AmService;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.rest.*;
+import com.formationds.om.rest.events.QueryEvents;
 import com.formationds.om.rest.metrics.IngestVolumeStats;
 import com.formationds.om.rest.metrics.QueryMetrics;
 import com.formationds.om.rest.snapshot.*;
@@ -102,6 +103,11 @@ public class Main {
      */
     metrics();
 
+    /*
+     * provide events RESTful API endpoints
+     */
+    events();
+
     authenticate( HttpMethod.GET, "/api/config/volumes", ( t ) -> new ListVolumes( xdi, amService, legacyConfigClient, t ) );
     authenticate( HttpMethod.POST, "/api/config/volumes", ( t ) -> new CreateVolume( xdi, legacyConfigClient, t ) );
     authenticate( HttpMethod.POST, "/api/config/volumes/clone/:volumeId/:cloneVolumeName", ( t ) -> new CloneVolume( configCache, legacyConfigClient ) );
@@ -154,6 +160,24 @@ public class Main {
     webApp.route( method, route, () -> eh );
   }
 
+  private void events() {
+    if( !FdsFeatureToggles.ACTIVITIES_ENDPOINT.isActive() ) {
+        return;
+    }
+
+    LOG.trace( "registering activities endpoints" );
+    authenticate(HttpMethod.GET, "/api/events/", (t) -> new QueryEvents());
+    authenticate(HttpMethod.GET, "/api/events/range/:start/:end", (t) -> new QueryEvents());
+    authenticate(HttpMethod.GET, "/api/events/paged/:start/:end", (t) -> new QueryEvents());
+    authenticate(HttpMethod.GET, "/api/events/tenants/:tenantId/range/:start/:end", (t) -> new QueryEvents());
+    authenticate(HttpMethod.GET, "/api/events/tenants/:tenantId/paged/:start/:end", (t) -> new QueryEvents());
+    authenticate(HttpMethod.GET, "/api/events/volumes/:volumeId/range/:start/:end", (t) -> new QueryEvents());
+    authenticate(HttpMethod.GET, "/api/events/volumes/:volumeId/paged/:start/:end", (t) -> new QueryEvents());
+    authenticate(HttpMethod.GET, "/api/events/users/:userId/range/:start/:end", (t) -> new QueryEvents());
+    authenticate(HttpMethod.GET, "/api/events/users/:userId/paged/:start/:end", (t) -> new QueryEvents());
+    LOG.trace( "registered activities endpoints" );
+  }
+
   private void metrics() {
     if( !FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
       return;
@@ -173,7 +197,7 @@ public class Main {
   }
 
   private void metricsPost() {
-    webApp.route( HttpMethod.POST, "/api/stats", IngestVolumeStats::new );
+    webApp.route(HttpMethod.POST, "/api/stats", IngestVolumeStats::new);
   }
 
   private void snapshot( final ConfigurationApi config, Authorizer authorizer ) {
