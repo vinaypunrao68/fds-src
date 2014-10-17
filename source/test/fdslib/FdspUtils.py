@@ -226,5 +226,5 @@ def newStartScavengerMsg():
 def newStopScavengerMsg():
     msg = CtrlNotifyScavenger()
     msg.scavenger = FDSP_ScavengerType()
-    msg.scavenger.cmd = FDSP_ScavengerType = FDSP_ScavengerCmd.FDSP_SCAVENGER_STOP
+    msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_STOP
     return msg

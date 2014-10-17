@@ -30,6 +30,13 @@ public class VolumeDatapoint
   private Double value;
 
   /**
+   * @return Returns the auto-generated id
+   */
+  public Integer getId() {
+    return id;
+  }
+
+  /**
    * @return Returns the {@code double} representing the statistic value for
    * the {@code key}
    */

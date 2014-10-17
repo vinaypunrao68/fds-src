@@ -36,6 +36,8 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
     Error err = diskMap->handleNewDlt(dlt);
     if (err == ERR_DUPLICATE) {
         return;  // everythin setup already
+    } else if (err == ERR_INVALID_DLT) {
+        return;  // we are ignoring this DLT
     }
     fds_verify(err.ok());
 

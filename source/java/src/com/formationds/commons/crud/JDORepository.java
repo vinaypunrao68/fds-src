@@ -13,8 +13,11 @@ import java.lang.reflect.ParameterizedType;
 /**
  * @author ptinius
  */
-public abstract class JDORepository<T, PrimaryKey extends Serializable>
-  implements CRUDRepository<T, PrimaryKey> {
+public abstract class JDORepository<T,
+  PrimaryKey extends Serializable,
+  QueryResults extends SearchResults,
+  QueryCriteria extends SearchCriteria>
+  implements CRUDRepository<T, PrimaryKey, QueryResults, QueryCriteria> {
 
   private PersistenceManagerFactory factory;
   private PersistenceManager manager;
@@ -65,15 +68,16 @@ public abstract class JDORepository<T, PrimaryKey extends Serializable>
   /**
    * @return the class
    */
-  @SuppressWarnings( "unchecked" )
+  @SuppressWarnings("unchecked")
   @Override
   public Class getEntityClass() {
     return ( Class<T> ) ( ( ParameterizedType ) getClass()
-      .getGenericSuperclass( ) ).getActualTypeArguments( )[ 0 ];
+      .getGenericSuperclass() ).getActualTypeArguments()[ 0 ];
   }
 
   /**
-   * @param dbName the {@link String} representing the name and location of the repository
+   * @param dbName the {@link String} representing the name and location of the
+   *               repository
    */
   protected abstract void initialize( final String dbName );
 }
