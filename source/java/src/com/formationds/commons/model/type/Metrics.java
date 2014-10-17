@@ -5,6 +5,7 @@
 package com.formationds.commons.model.type;
 
 import com.formationds.commons.model.exception.UnsupportedMetricException;
+import com.formationds.commons.model.i18n.ModelResource;
 
 /**
  * @author ptinius
@@ -31,7 +32,9 @@ public enum Metrics {
   STP_WMA( "Short Term Perf WMA" ),
   LTP_WMA( "Long Term Perf WMA" );
 
-  private static final String UNKNOWN_METRIC = "Unsupported Metrics '%s'";
+  private static final String UNKNOWN_METRIC =
+    ModelResource.getString( "model.metrics.unsupported" );
+
   private final String key;
 
   /**
@@ -44,29 +47,31 @@ public enum Metrics {
   /**
    * @return Returns{@link String} representing the metadata key
    */
-  public String key()
-  {
+  public String key() {
     return this.key;
   }
 
   /**
-   * @param metadataKey the case sensitive {@link String} representing the metadata key name
+   * @param metadataKey the case sensitive {@link String} representing the
+   *                    metadata key name
    *
-   * @return Returns {@link com.formationds.commons.model.type.Metrics} associated with {@code metadataKey}
+   * @return Returns {@link com.formationds.commons.model.type.Metrics}
+   * associated with {@code metadataKey}
    *
-   * @throws UnsupportedMetricException if the the {@code metadataKey} is not found
+   * @throws UnsupportedMetricException if the the {@code metadataKey} is not
+   *                                    found
    */
   public static Metrics byMetadataKey( final String metadataKey )
     throws UnsupportedMetricException {
-    for( final Metrics m : values() )
-    {
-      if( m.key().equals( metadataKey ) )
-      {
+    for( final Metrics m : values() ) {
+      if( m.key()
+           .equals( metadataKey ) ) {
         return m;
       }
     }
 
-    throw new UnsupportedMetricException( String.format( UNKNOWN_METRIC, metadataKey ) );
+    throw new UnsupportedMetricException( String.format( UNKNOWN_METRIC,
+                                                         metadataKey ) );
   }
 
 }

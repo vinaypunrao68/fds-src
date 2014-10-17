@@ -35,7 +35,7 @@ import static org.junit.Assert.assertEquals;
 public class S3TestCase {
     //  @Test
     public void cleanupAwsVolumes() throws Exception {
-        new Configuration("foo", new String[] {"--console"});
+        new Configuration("foo", new String[]{"--console"});
         AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("AKIAINOGA4D75YX26VXQ", "/ZE1BUJ/vJ8BDESUvf5F3pib7lJW+pBa5FTakmjf"));
         Arrays.stream(Main.VOLUMES)
                 .forEach(v -> {
@@ -63,7 +63,7 @@ public class S3TestCase {
 
     //@Test
     public void deleteMultipleObjects() throws Exception {
-        new Configuration("foo", new String[] {"--console"});
+        new Configuration("foo", new String[]{"--console"});
         AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("admin", "22a9d1dc60ba060c083e9b200dda6f323282f000f8b90f0df8b4a853df171187e320700f44c5994ec5d28c36030fb7483fb191f7cc59c105d4a37752973c6bb9"));
         client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
         client.setEndpoint("http://localhost:8000");
@@ -79,7 +79,7 @@ public class S3TestCase {
 
     // @Test
     public void testFoo() throws Exception {
-        new Configuration("foo", new String[] {"--console"});
+        new Configuration("foo", new String[]{"--console"});
         AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("admin", "a024f46c38be01f35f3ca39b0b1cd86588a33d634407d3f4ffcf3eec62306cc0c01212073b1906aa64584ba20e07ea8b549ee43a357e519a95fca2950b746c16"));
         client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
         client.setEndpoint("http://localhost:8000");
@@ -125,7 +125,7 @@ public class S3TestCase {
         AmazonS3Client client = makeAmazonS3Client();
         String bucketName = "foo";
         String objectName = "bar";
-        byte[] data = new byte[] { 1, 2, 3, 4 };
+        byte[] data = new byte[]{1, 2, 3, 4};
 
         createBucketIdempotent(client, bucketName);
         ObjectMetadata obji = new ObjectMetadata();
@@ -156,23 +156,22 @@ public class S3TestCase {
         String key = "wooky";
         String copySourceKey = "wookySrc";
 
-        byte[] copyChunk = new byte[] { 12, 13, 14, 15 };
+        byte[] copyChunk = new byte[]{12, 13, 14, 15};
         PutObjectResult putObjectResult = client.putObject(bucketName, copySourceKey, new ByteArrayInputStream(copyChunk), new ObjectMetadata());
 
         InitiateMultipartUploadRequest req = new InitiateMultipartUploadRequest(bucketName, key);
         InitiateMultipartUploadResult initiateResult = client.initiateMultipartUpload(req);
 
-        byte[][] chunks = new byte[][] {
-                new byte[] { 0, 1, 2, 3 },
-                new byte[] { 4, 5, 6, 7 },
-                new byte[] { 8, 9, 10, 11 }
+        byte[][] chunks = new byte[][]{
+                new byte[]{0, 1, 2, 3},
+                new byte[]{4, 5, 6, 7},
+                new byte[]{8, 9, 10, 11}
         };
-
 
 
         int ordinal = 0;
         List<PartETag> parts = new ArrayList<>();
-        for(byte[] chunk : chunks) {
+        for (byte[] chunk : chunks) {
             UploadPartRequest upr = new UploadPartRequest()
                     .withBucketName(bucketName)
                     .withKey(key)
@@ -212,13 +211,13 @@ public class S3TestCase {
         byte[] s3bytes = s3output.toByteArray();
 
         int idx = 0;
-        for(byte[] chunk : chunks) {
-            for(byte b : chunk) {
+        for (byte[] chunk : chunks) {
+            for (byte b : chunk) {
                 assertEquals(b, s3bytes[idx++]);
             }
         }
 
-        for(byte b : copyChunk) {
+        for (byte b : copyChunk) {
             assertEquals(b, s3bytes[idx++]);
         }
     }
@@ -227,7 +226,7 @@ public class S3TestCase {
         ByteArrayOutputStream s3output = new ByteArrayOutputStream();
         byte[] buf = new byte[4096];
         int read = 0;
-        while((read = obj.getObjectContent().read(buf)) != -1)
+        while ((read = obj.getObjectContent().read(buf)) != -1)
             s3output.write(buf, 0, read);
         return s3output;
     }
@@ -240,13 +239,13 @@ public class S3TestCase {
         AmazonS3Client client = makeAmazonS3Client();
         createBucketIdempotent(client, bucket);
 
-        byte[] srcBytes = new byte[] { 1, 2, 3, 4 };
+        byte[] srcBytes = new byte[]{1, 2, 3, 4};
         client.putObject(bucket, cpySourceName, new ByteArrayInputStream(srcBytes), new ObjectMetadata());
         InitiateMultipartUploadRequest impuReq = new InitiateMultipartUploadRequest(bucket, mpuTarget);
         InitiateMultipartUploadResult result = client.initiateMultipartUpload(impuReq);
 
         ArrayList<PartETag> partETags = new ArrayList<>();
-        for(int i = 0; i < 10; i++) {
+        for (int i = 0; i < 10; i++) {
             CopyPartRequest cpr = new CopyPartRequest()
                     .withDestinationBucketName(bucket)
                     .withDestinationKey(mpuTarget)
@@ -265,8 +264,8 @@ public class S3TestCase {
         S3Object object = client.getObject(bucket, mpuTarget);
         byte[] data = bufferS3Content(object).toByteArray();
         int idx = 0;
-        for(int i = 0; i < 10; i++) {
-            for(byte b : srcBytes) {
+        for (int i = 0; i < 10; i++) {
+            for (byte b : srcBytes) {
                 assertEquals(b, data[idx++]);
             }
         }
@@ -276,8 +275,8 @@ public class S3TestCase {
     private void createBucketIdempotent(AmazonS3Client client, String bucketName) {
         try {
             client.createBucket(bucketName);
-        } catch(AmazonS3Exception ex) {
-            if(!ex.getErrorCode().equals(S3Failure.ErrorCode.BucketAlreadyExists.toString()))
+        } catch (AmazonS3Exception ex) {
+            if (!ex.getErrorCode().equals(S3Failure.ErrorCode.BucketAlreadyExists.toString()))
                 throw ex;
         }
     }

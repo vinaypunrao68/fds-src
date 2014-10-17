@@ -5,7 +5,17 @@
 package com.formationds.om.repository;
 
 import com.formationds.commons.crud.JDORepository;
+import com.formationds.commons.model.Series;
+import com.formationds.commons.model.Statistics;
+import com.formationds.commons.model.builder.DatapointBuilder;
+import com.formationds.commons.model.builder.SeriesBuilder;
+import com.formationds.commons.model.builder.StatisticsBuilder;
+import com.formationds.commons.model.builder.VolumeBuilder;
+import com.formationds.commons.model.entity.QueryCriteria;
 import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.commons.model.entity.builder.VolumeCriteriaQueryBuilder;
+import com.formationds.commons.model.exception.UnsupportedMetricException;
+import com.formationds.commons.model.type.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,23 +23,19 @@ import javax.jdo.JDOHelper;
 import javax.jdo.Query;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 /**
  * @author ptinius
  */
 public class MetricsRepository
-  extends JDORepository<VolumeDatapoint, Long> {
+  extends JDORepository<VolumeDatapoint, Long, Statistics, QueryCriteria> {
 
-  private static final Logger logger =
+  private static final transient Logger logger =
     LoggerFactory.getLogger( MetricsRepository.class );
 
   private static final String DBNAME = "/fds/var/db/metrics.odb";
   private static final String VOLUME_NAME = "volumeName";
-  private static final String KEY = "key";
 
   /**
    * default constructor
@@ -55,7 +61,14 @@ public class MetricsRepository
    */
   @Override
   public VolumeDatapoint findById( final Long id ) {
-    return null;
+    final Query query = manager().newQuery( VolumeDatapoint.class,
+                                            "id == :id" );
+    query.setUnique( true );
+    try {
+      return ( VolumeDatapoint ) query.execute( id );
+    } finally {
+      query.closeAll();
+    }
   }
 
   /**
@@ -67,40 +80,6 @@ public class MetricsRepository
     return
       ( List<VolumeDatapoint> ) manager().newQuery( VolumeDatapoint.class )
                                          .execute();
-  }
-
-  /**
-   * @param queryName the name of the query
-   * @param params    the query parameters
-   *
-   * @return the list of entities
-   */
-  @Override
-  public List<VolumeDatapoint> find( final String queryName,
-                                     final Map params ) {
-    return null;
-  }
-
-  /**
-   * @param entity the entity to find
-   *
-   * @return the list of entities
-   */
-  @Override
-  public List<VolumeDatapoint> find( final VolumeDatapoint entity ) {
-    return null;
-  }
-
-  /**
-   * @param queryName the name of the query
-   * @param params    the query parameters
-   *
-   * @return the list of entities
-   */
-  @Override
-  public List<VolumeDatapoint> find( final String queryName,
-                                     final Object... params ) {
-    return null;
   }
 
   /**
@@ -153,7 +132,6 @@ public class MetricsRepository
     return count;
   }
 
-
   /**
    * @param entity the entity to save
    *
@@ -162,23 +140,87 @@ public class MetricsRepository
   @Override
   public VolumeDatapoint save( final VolumeDatapoint entity ) {
     try {
-      logger.trace( "SAVING: " + entity.toString() );
       manager().currentTransaction()
                .begin();
       manager().makePersistent( entity );
       manager().currentTransaction()
                .commit();
-      logger.trace( "SAVED: " + entity.toString() );
       return entity;
     } finally {
       if( manager().currentTransaction()
                    .isActive() ) {
-        logger.trace( "ROLLING BACK: " + entity.toString() );
+        logger.trace( "SAVE ROLLING BACK: " + entity.toString() );
         manager().currentTransaction()
                  .rollback();
-        logger.trace( "ROLLED BACK: " + entity.toString() );
+        logger.trace( "SAVE ROLLED BACK: " + entity.toString() );
       }
     }
+  }
+
+  /**
+   * @param criteria the search criteria
+   *
+   * @return Returns the search criteria results
+   */
+  @Override
+  public Statistics query( final QueryCriteria criteria ) {
+    final Map<String, Series> seriesMap = new HashMap<>();
+    for( final VolumeDatapoint vdp : ( new VolumeCriteriaQueryBuilder( entity() )
+      .searchFor( criteria )
+      .build() ).getResultList() ) {
+      final String key = vdp.getVolumeName() + "::" + vdp.getKey();
+      if( !seriesMap.containsKey( key ) ) {
+        final Series s =
+          new SeriesBuilder().withContext(
+            new VolumeBuilder().withName( vdp.getVolumeName() )
+                               .build() )
+                             .withDatapoint(
+                               new DatapointBuilder().withX( vdp.getTimestamp() )
+                                                     .withY( vdp.getValue()
+                                                                .longValue() )
+                                                     .build() )
+                             .build();
+        try {
+          s.setType( Metrics.byMetadataKey( vdp.getKey() ) );
+        } catch( UnsupportedMetricException e ) {
+          logger.error( "not providing series type because of {}",
+                        e.getMessage(),
+                        e );
+        }
+
+        seriesMap.put( key, s );
+      } else {
+        seriesMap.get( key )
+                 .setDatapoint(
+                   new DatapointBuilder().withX( vdp.getValue()
+                                                    .longValue() )
+                                         .withY( vdp.getTimestamp() )
+                                         .build() );
+      }
+    }
+
+    StatisticsBuilder stats = new StatisticsBuilder();
+    // add series
+    for( final String key : seriesMap.keySet()
+                                     .toArray( new String[ seriesMap.size() ] ) ) {
+      stats.addSeries( seriesMap.get( key ) );
+    }
+    /*
+     * TODO finish calculated
+     *
+     * CAPACITY
+     * de-dup ratio ( capacity )
+     * percentage full ( capacity )
+     * to full ( capacity )
+     * consumed ( capacity )
+     *
+     * PERFORMANCE
+     * ??
+     */
+
+    // TODO finish metadata
+
+    return stats.build();
   }
 
   /**
@@ -187,20 +229,18 @@ public class MetricsRepository
   @Override
   public void delete( final VolumeDatapoint entity ) {
     try {
-      logger.trace( "SAVING: " + entity.toString() );
       manager().currentTransaction()
                .begin();
       manager().deletePersistent( entity );
       manager().currentTransaction()
                .commit();
-      logger.trace( "SAVED: " + entity.toString() );
     } finally {
       if( manager().currentTransaction()
                    .isActive() ) {
-        logger.trace( "ROLLING BACK: " + entity.toString() );
+        logger.trace( "DELETE ROLLING BACK: " + entity.toString() );
         manager().currentTransaction()
                  .rollback();
-        logger.trace( "ROLLED BACK: " + entity.toString() );
+        logger.trace( "DELETE ROLLED BACK: " + entity.toString() );
       }
     }
   }
@@ -219,8 +259,10 @@ public class MetricsRepository
 
     factory( JDOHelper.getPersistenceManagerFactory( properties ) );
     manager( factory().getPersistenceManager() );
+
     final EntityManagerFactory emf =
       Persistence.createEntityManagerFactory( dbName );
+
     entity( emf.createEntityManager() );
   }
 }

@@ -305,13 +305,6 @@ void ObjectStorMgr::mod_startup()
     qosOutNum = modProvider_->get_fds_config()->get<int>(
         "fds.sm.qos.default_outstanding_io");
 
-    // Temporary boolean to determine which stubs to execute
-    // Mainly to toggle between two execution paths: old and new.
-    // This is to mitigate risk with new code paths.
-    execNewStubs = modProvider_->get_fds_config()->get<bool>(
-        "fds.sm.testing.exec_new_stubs");
-    LOGDEBUG << "execNewStubs flag=" << execNewStubs;
-
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
         /*
          * Register/boostrap from OM
@@ -1938,53 +1931,25 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_SNAPSHOT_TOKEN:
         {
-            /*
-            StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
-            fds_assert(smVol);
-            err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
-                    static_cast<FDS_IOType*>(ioReq));
-            */
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         }
-        /* Following are messages that require io synchronization at object
-         * id level via transaction table
-         */
         case FDS_SM_GET_OBJECT:
-            // This is a toggle to execute either a legacy code path or a new
-            // code path
-            if (execNewStubs == true) {
-                StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
-                fds_assert(smVol);
-                err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
-                        static_cast<FDS_IOType*>(ioReq));
-            } else {
-                objectId = static_cast<SmIoGetObjectReq *>(ioReq)->getObjId();
-                err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            }
+            {
+            StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+            fds_assert(smVol);
+            err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
+                                     static_cast<FDS_IOType*>(ioReq));
             break;
-        case FDS_SM_PUT_OBJECT:
-            // This is a toggle to execute either a legacy code path or a new
-            // code path
-            if (execNewStubs == true) {
-                err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            } else {
-                objectId = static_cast<SmIoPutObjectReq *>(ioReq)->getObjId();
-                err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
             }
+        case FDS_SM_PUT_OBJECT:
+            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         case FDS_SM_ADD_OBJECT_REF:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         case FDS_SM_DELETE_OBJECT:
-            // This is a toggle to execute either a legacy code path or a new
-            // code path
-            if (execNewStubs == true) {
-                err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            } else {
-                objectId = static_cast<SmIoDeleteObjectReq *>(ioReq)->getObjId();
-                err = enqTransactionIo(nullptr, objectId, ioReq, trans_id);
-            }
+            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         case FDS_SM_SYNC_APPLY_METADATA:
             objectId.SetId(static_cast<SmIoApplySyncMetadata*>(ioReq)->md.object_id.digest);
@@ -2118,15 +2083,9 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
 
-    if (execNewStubs) {
-        objectStore->snapshotMetadata(snapReq->token_id,
-                                      snapReq->smio_snap_resp_cb);
-    } else {
-        leveldb::DB *db;
-        leveldb::ReadOptions options;
-        smObjDb->snapshot(snapReq->token_id, db, options);
-        snapReq->smio_snap_resp_cb(err, snapReq, options, db);
-    }
+    objectStore->snapshotMetadata(snapReq->token_id,
+                                  snapReq->smio_snap_resp_cb);
+
     /* Mark the request as complete */
     qosCtrl->markIODone(*snapReq,
                         diskio::diskTier);
@@ -2318,9 +2277,6 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
     SmIoReq *io = static_cast<SmIoReq*>(_io);
 
-    // Boolean to determine which code paths (new vs. legacy) to execute
-    bool exec_new_stubs = parentSm->execNewStubs;
-
     PerfTracer::tracePointEnd(io->opQoSWaitCtx);
 
     switch (io->io_type) {
@@ -2330,48 +2286,21 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             break;
         case FDS_SM_DELETE_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
-
-            // This is a temporary toggle to execute either a legacy code path
-            // or a new code path.
-            if (exec_new_stubs == true) {
                 threadPool->schedule(&ObjectStorMgr::deleteObjectInternalSvcV2,
                                      objStorMgr,
                                      static_cast<SmIoDeleteObjectReq *>(io));
-            } else {
-                threadPool->schedule(&ObjectStorMgr::deleteObjectInternalSvc,
-                                     objStorMgr,
-                                     static_cast<SmIoDeleteObjectReq *>(io));
-            }
             break;
         case FDS_SM_GET_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
-
-            // This is a temporary toggle to execute either a legacy code path
-            // or a new code path.
-            if (exec_new_stubs == true) {
-                threadPool->schedule(&ObjectStorMgr::getObjectInternalSvcV2,
-                                     objStorMgr,
-                                     static_cast<SmIoGetObjectReq *>(io));
-            } else {
-                threadPool->schedule(&ObjectStorMgr::getObjectInternalSvc,
-                                     objStorMgr,
-                                     static_cast<SmIoGetObjectReq *>(io));
-            }
+            threadPool->schedule(&ObjectStorMgr::getObjectInternalSvcV2,
+                                 objStorMgr,
+                                 static_cast<SmIoGetObjectReq *>(io));
             break;
         case FDS_SM_PUT_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
-
-            // This is a temporary toggle to execute either a legacy code path
-            // or a new code path.
-            if (exec_new_stubs == true) {
-                threadPool->schedule(&ObjectStorMgr::putObjectInternalSvcV2,
-                                     objStorMgr,
-                                     static_cast<SmIoPutObjectReq *>(io));
-            } else {
-                threadPool->schedule(&ObjectStorMgr::putObjectInternalSvc,
-                                     objStorMgr,
-                                     static_cast<SmIoPutObjectReq *>(io));
-            }
+            threadPool->schedule(&ObjectStorMgr::putObjectInternalSvcV2,
+                                 objStorMgr,
+                                 static_cast<SmIoPutObjectReq *>(io));
             break;
         case FDS_SM_ADD_OBJECT_REF:
         {

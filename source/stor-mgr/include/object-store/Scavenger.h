@@ -17,7 +17,7 @@
 #include "fds_types.h"
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmDiskMap.h>
-#include "TokenCompactor.h"
+#include <object-store/TokenCompactor.h>
 
 namespace fds {
 
@@ -64,6 +64,9 @@ class DiskScavPolicyInternal {
     DiskScavPolicyInternal();  // uses SCAV_DEFAULT_* defaults
     DiskScavPolicyInternal(const DiskScavPolicyInternal& policy);
     DiskScavPolicyInternal& operator=(const DiskScavPolicyInternal& other);
+
+    friend std::ostream& operator<< (std::ostream &out,
+                                     const DiskScavPolicyInternal& policy);
 };
 
 class DiskScavenger {
@@ -83,6 +86,21 @@ class DiskScavenger {
      */
     void setPolicy(const DiskScavPolicyInternal& policy);
     void setProcMaxTokens(fds_uint32_t max_tokens);
+
+    /**
+     * Returns current scavenger policy
+     */
+    DiskScavPolicyInternal getPolicy() const;
+
+    /**
+     * Returns number of tokens that are in the process
+     * of being compacted, and number of tokens that this
+     * disk scavenger already compacted
+     * If scavenger is not in progress, returns 0 for both
+     * values
+     */
+    void getProgress(fds_uint32_t *toksCompacting,
+                     fds_uint32_t *toksFinished);
 
     /**
      * @return true if this disk scavenger is for given tier
@@ -198,6 +216,31 @@ class ScavControl : public Module {
      * Stop scavenging if it is in progress
      */
     void stopScavengeProcess();
+
+    /**
+     * Changes scavenger policy for all existing disks
+     * TODO(Anna) we may want to set policy on a particular disk
+     */
+    Error setScavengerPolicy(fds_uint32_t dsk_avail_threshold_1,
+                             fds_uint32_t dsk_avail_threshold_2,
+                             fds_uint32_t tok_reclaim_threshold,
+                             fds_uint32_t proc_max_tokens);
+    /**
+     * Query current scavenger policy. Since for now all disks
+     * have the same scavenger policy, we return the policy that is
+     * set on all disks.
+     * TODO(Anna) may want to get policy for a particular disk
+     */
+    Error getScavengerPolicy(fds_uint32_t* dsk_avail_threshold_1,
+                             fds_uint32_t* dsk_avail_threshold_2,
+                             fds_uint32_t* tok_reclaim_threshold,
+                             fds_uint32_t* proc_max_tokens);
+
+    /**
+     * Returns progress in terms of percent. Returns 100 if
+     * scavenger is not running
+     */
+    fds_uint32_t getProgress();
 
     /**
      * Called on timer to query & update disk/token file state

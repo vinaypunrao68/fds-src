@@ -72,6 +72,23 @@ void SmDiskMap::getDiskMap() {
 
 Error SmDiskMap::handleNewDlt(const DLT* dlt) {
     Error err(ERR_OK);
+    // get list of DLT tokens that this SM is responsible for
+    // according to the DLT
+    NodeUuid mySvcUuid;
+    if (!test_mode) {
+        mySvcUuid = *(Platform::plf_get_my_svc_uuid());
+    } else {
+        mySvcUuid = 1;
+    }
+    const TokenList& dlt_toks = dlt->getTokens(mySvcUuid);
+    // if there are no DLT tokens that belong to this SM
+    // we don't care about this DLT
+    if (dlt_toks.size() == 0) {
+        LOGWARN << "DLT does not contain any tokens owned by this SM";
+        return ERR_INVALID_DLT;
+    }
+
+    // see if this is the first DLT we got
     fds_bool_t first_dlt = true;
     if (bitsPerToken_ == 0) {
         bitsPerToken_ = dlt->getNumBitsForToken();
@@ -85,15 +102,8 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt) {
     LOGDEBUG << "Will handle new DLT, bits per token " << bitsPerToken_;
     LOGTRACE << *dlt;
 
-    // get list of tokens that this SM is responsible for
-    NodeUuid mySvcUuid;
-    if (!test_mode) {
-        mySvcUuid = *(Platform::plf_get_my_svc_uuid());
-    } else {
-        mySvcUuid = 1;
-    }
+    // get list of SM tokens that this SM is responsible for
     SmTokenSet sm_toks;
-    const TokenList& dlt_toks = dlt->getTokens(mySvcUuid);
     for (TokenList::const_iterator cit = dlt_toks.cbegin();
          cit != dlt_toks.cend();
          ++cit) {

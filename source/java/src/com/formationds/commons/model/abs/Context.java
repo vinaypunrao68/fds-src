@@ -2,9 +2,7 @@
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.model;
-
-import com.formationds.commons.model.abs.ModelBase;
+package com.formationds.commons.model.abs;
 
 /**
  * @author ptinius
