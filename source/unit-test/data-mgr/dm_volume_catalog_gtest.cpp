@@ -64,7 +64,7 @@ void DmVolumeCatalogTest::testGetBlob(fds_volid_t volId, const std::string blobN
     // Get
     fds_uint64_t startTs = util::getTimeStampNanos();
     // TODO(Andrew/Umesh): Get a meaningful offset
-    Error rc = volcat->getBlob(volId, blobName, 0, &version, &metaList, &objList);
+    Error rc = volcat->getBlob(volId, blobName, 0, -1, &version, &metaList, &objList);
     fds_uint64_t endTs = util::getTimeStampNanos();
     getCounter->update(endTs - startTs);
     if (taskCount) taskCount--;
