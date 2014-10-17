@@ -7,10 +7,15 @@
 #include <ev.h>
 #include <linux/nbd.h>
 #include <fds_ptr.h>
+#include <fds-aio.h>
 #include <access-mgr/am-block.h>
 #include <concurrency/spinlock.h>
 
 namespace fds {
+
+class NbdBlkIO;
+class NbdBlkVol;
+class NbdBlockMod;
 
 /**
  * Event based volume descriptor.
@@ -21,10 +26,18 @@ class EvBlkVol : public BlkVol
     typedef bo::intrusive_ptr<EvBlkVol> ptr;
     explicit EvBlkVol(const blk_vol_creat_t *r);
 
-    int                      ev_sk;
-    int                      ev_fd;
-    ev_io                    ev_watch;
-    EvBlkVol::ptr            ev_vol;         /* must be next to ev_io */
+    void ev_vol_event(struct ev_loop *, ev_io *ev, int revents);
+
+  protected:
+    friend class NbdBlockMod;
+
+    int                      vio_sk;
+    ev_io                    vio_watch;
+    FdsAIO                  *vio_read;
+    FdsAIO                  *vio_write;
+
+    /* Factory method. */
+    virtual FdsAIO *ev_alloc_vio() = 0;
 };
 
 /*
@@ -46,10 +59,32 @@ class EvBlockMod : public BlockMod
     void blk_run_loop();
 
   protected:
-    ev_io                    ev_stdin;
+    ev_idle                  ev_idle_evt;
     struct ev_loop          *ev_blk_loop;
+};
 
-    virtual BlkVol::ptr blk_alloc_vol(const blk_vol_creat_t *r) override;
+/**
+ * Async NBD Block IO request.
+ */
+class NbdBlkIO : public FdsAIO
+{
+  public:
+    NbdBlkIO(bo::intrusive_ptr<NbdBlkVol> vol, int iovcnt, int fd);
+
+    virtual void aio_on_error();
+
+    virtual void aio_rearm_read();
+    virtual void aio_read_complete();
+
+    virtual void aio_rearm_write();
+    virtual void aio_write_complete();
+
+  protected:
+    friend class NbdBlkVol;
+
+    bo::intrusive_ptr<NbdBlkVol> nbd_vol;
+    struct nbd_request           nbd_reqt;
+    struct nbd_reply             nbd_repl;
 };
 
 /**
@@ -59,10 +94,22 @@ class NbdBlkVol : public EvBlkVol
 {
   public:
     typedef bo::intrusive_ptr<NbdBlkVol> ptr;
+
+    virtual ~NbdBlkVol();
     explicit NbdBlkVol(const blk_vol_creat_t *r);
 
-    struct nbd_request       nbd_reqt;
-    struct nbd_reply         nbd_repl;
+    void nbd_vol_read(NbdBlkIO *io);
+    void nbd_vol_write(NbdBlkIO *io);
+    void nbd_vol_close();
+    void nbd_vol_flush();
+    void nbd_vol_trim();
+
+  protected:
+    NbdBlkIO                *vio_repl;
+    char                    *vio_buffer;
+
+    /* Factory method. */
+    virtual FdsAIO *ev_alloc_vio();
 };
 
 /**
@@ -71,8 +118,8 @@ class NbdBlkVol : public EvBlkVol
 class NbdBlockMod : public EvBlockMod
 {
   public:
-    virtual ~NbdBlockMod() {}
-    NbdBlockMod() : EvBlockMod() {}
+    virtual ~NbdBlockMod();
+    NbdBlockMod();
 
     static NbdBlockMod *nbd_singleton() { return &gl_NbdBlockMod; }
 
