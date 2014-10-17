@@ -5,11 +5,14 @@
 #define SOURCE_INCLUDE_SVCMSGFACTORY_H_
 
 #include <boost/shared_ptr.hpp>
+#include <fds_types.h>
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
 class PutObjectMsg;
 typedef boost::shared_ptr<PutObjectMsg> PutObjectMsgPtr;
+class GetObjectMsg;
+typedef boost::shared_ptr<GetObjectMsg> GetObjectMsgPtr;
 }
 
 namespace fds {
@@ -27,6 +30,9 @@ class VolumeSettings;
 struct SvcMsgFactory {
     static FDS_ProtocolInterface::PutObjectMsgPtr
         newPutObjectMsg(const uint64_t& volId, DataGenIfPtr dataGen);
+
+    static FDS_ProtocolInterface::GetObjectMsgPtr
+        newGetObjectMsg(const uint64_t& volId, const ObjectID& objId);
 
     static apis::VolumeSettings defaultS3VolSettings();
 };

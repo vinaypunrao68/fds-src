@@ -5,6 +5,7 @@
 #include <ObjectId.h>
 #include <apis/ConfigurationService.h>
 #include <DataGen.hpp>
+#include <boost/make_shared.hpp>
 #include <SvcMsgFactory.h>
 
 namespace fds {
@@ -21,6 +22,15 @@ SvcMsgFactory::newPutObjectMsg(const uint64_t& volId, DataGenIfPtr dataGen)
     putObjMsg->data_obj_len = data->length();
     fds::assign(putObjMsg->data_obj_id, objId);
     return putObjMsg;
+}
+
+fpi::GetObjectMsgPtr
+SvcMsgFactory::newGetObjectMsg(const uint64_t& volId, const ObjectID& objId)
+{
+    fpi::GetObjectMsgPtr getObjMsg = boost::make_shared<fpi::GetObjectMsg>();
+    getObjMsg->volume_id = volId;
+    assign(getObjMsg->data_obj_id, objId);
+    return getObjMsg;
 }
 
 apis::VolumeSettings SvcMsgFactory::defaultS3VolSettings()
