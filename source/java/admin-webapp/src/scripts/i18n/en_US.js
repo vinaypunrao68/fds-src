@@ -59,6 +59,7 @@ var en_US = {
         title: 'Volumes',
         desc_if_applicable: '(if applicable)',
         desc_no_volumes: 'There are no registered volumes.',
+        desc_snapshot_created: 'Snapshot successfully created.',
         l_clone_existing: 'Clone from an existing volume',
         l_create_volume: 'Create Volume',
         l_create_blank_volume: 'Create a blank volume',
