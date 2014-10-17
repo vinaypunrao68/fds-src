@@ -254,9 +254,15 @@ public class TrafficGren {
             semaphore.acquire();
             // System.out.println("Request: " + request.toString());
             // Thread.sleep(100);
-            final long reqStartTime = System.nanoTime();
+            final long[] reqStartTime = new long[1];
             requester.execute(
-                    new BasicAsyncRequestProducer(target, request),
+                    new BasicAsyncRequestProducer(target, request) {
+                        @Override
+                        public synchronized HttpRequest generateRequest() {
+                            reqStartTime[0] = System.nanoTime();
+                            return super.generateRequest();
+                        }
+                    },
                     new BasicAsyncResponseConsumer(),
                     pool,
                     coreContext,
