@@ -30,7 +30,7 @@ user_build_dir :=                       \
     tools                               \
     testlib                             \
     java                                \
-    unit-test                           \
+#    unit-test                           \
     checker                             
 
 ifdef SKIP_JAVA_BUILD
