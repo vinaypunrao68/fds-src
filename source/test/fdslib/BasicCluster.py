@@ -82,7 +82,6 @@ class basic_cluster:
                 print "Copying the file: %s to %s" % (tar_file, node.nd_agent.get_host_name())
             node.nd_agent.ssh_exec ('rm -rf ./fdsinstall')
             node.nd_agent.scp_copy (tar_file, "~/.")
-            print os.path.basename (tar_file)
             node.nd_agent.ssh_exec ('tar xf ' + os.path.basename (tar_file))
             node.nd_agent.ssh_exec ('rm -f ' + os.path.basename (tar_file))
 
