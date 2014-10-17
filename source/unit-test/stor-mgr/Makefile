@@ -57,6 +57,7 @@ user_non_fds_libs :=  \
     cryptopp \
     leveldb \
     gmock \
+    profiler \
     pthread
 
 

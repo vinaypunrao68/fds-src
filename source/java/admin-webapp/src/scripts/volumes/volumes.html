@@ -1,43 +1,5 @@
 <div class="volume-page" ng-controller="volumeController">
-    <!-- if it's not in a table the TR elements are deleted.  If it's not outside of
-        the real table it sometimes gets removed from the DOM by angular -->
-    <table>
-        <tbody id="volume-temp-table">
-            <tr id="volume-edit-row" class="volume-edit-row" ng-show="editing">
-                <td colspan="100%">
-                    <div class="volume-edit-container" ng-class="{open: editing}">
-                        <section>
-                            <div>
-                                <span class="light-print" translate>volumes.f_priority</span>
-                                <span class="volume-edit-label">{{priority}}</span>
-                            </div>
-                            <fui-slider values="priorityOptions" value="priority" min-label="Low" max-label="High"></fui-slider>
-                        </section>
-                        <section>
-                            <div style="margin-bottom: 8px;">
-                                <span class="light-print" translate>volumes.f_iops_guarantee</span>
-                                <span class="volume-edit-label" ng-show="capacity != 0">{{capacity}}%</span>
-                                <span class="volume-edit-label" ng-show="capacity == 0">None</span>
-                            </div>
-                            <fui-slider min="0" max="100" step="10" value="capacity" min-label="None" max-label="100%"></fui-slider>
-                        </section>
-                        <section>
-                            <div style="margin-bottom: 8px;">
-                                <span class="light-print" translate>volumes.f_iops_limit</span>
-                                <span class="volume-edit-label">{{iopLimit}}</span>
-                            </div>
-                            <fui-slider min="0" max="3000" step="100" value="iopLimit" min-label="None" max-label="3000"></fui-slider>
-                        </section>
-                    </div>
-                    <div class="pull-right">
-                        <button class="btn btn-primary" ng-click="save()" translate>common.l_save</button>
-                        <button class="btn btn-secondary" ng-click="cancel()" translate>common.l_cancel</button>
-                    </div>
-                </td>
-            </tr>
-        </tbody>
-    </table>
-
+    
     <!-- Real stuff -->
     <div class="volumecontainer">
 
@@ -54,7 +16,7 @@
                     <thead>
                         <th translate>volumes.th_performance</th>
                         <th translate>common.th_name</th>
-                        <th translate>volumes.th_data_type</th>
+                        <th translate>common.th_data_type</th>
                         <th>
                             <div translate>volumes.th_capacity</div>
                             <div translate>volumes.th_used_limit</div>
@@ -79,7 +41,7 @@
 
                             <td class="consume">
                                 {{volume.current_usage.size}}{{volume.current_usage.unit}}
-                                <span>/</span>
+                                <span ng-show="volume.data_connector.attributes.size">/</span>
                                 {{volume.data_connector.attributes.size}}{{volume.data_connector.attributes.unit}}
                             </td>
 
@@ -94,9 +56,10 @@
                                 </em>
                             </td>
                             <td class="button-group">
-                                <div class="inline">
-                                    <span class="fui-windows" ng-click="takeSnapshot( $event, volume )" title="Take snapshot"></span>
-                                    <span class="fui-new" ng-click="edit( $event, volume )" title="Edit settings"></span>
+                                <div class="inline" style="position: relative;">
+                                    <span class="icon-cake" ng-click="takeSnapshot( $event, volume )" title="Take a snapshot">
+                                    </span>
+                                    <span class="icon-pencil" ng-click="edit( $event, volume )" title="Edit settings"></span>
                                     <!--<span class="fui-cross" ng-click="delete( volume )" title="Delete volume"></span>-->
                                 </div>
                             </td>

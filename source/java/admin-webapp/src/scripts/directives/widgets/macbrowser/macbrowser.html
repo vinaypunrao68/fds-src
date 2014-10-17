@@ -1,0 +1,23 @@
+<div class="macbrowser flex" style="width: 100%;">
+
+    <div style="height: 100%;width: 33.33333333%;" class="browser-section">
+        <div class="column-header">{{ columns[0].title }}</div>
+        <ul>
+            <li ng-repeat="datum in data" class="selectable-item" ng-class="{selected: datum.selected === true}" ng-click="itemSelected( datum )">
+                {{ datum[columns[0].property] }}
+            </li>
+        </ul>
+    </div>
+
+    <div style="height: 100%;width: 33.33333333%;" class="browser-section">
+        <div class="column-header">{{ columns[1].title }}</div>
+        <ul>
+            <li ng-repeat="child in children" class="selectable-item" ng-class="{selected: child.selected === true}" ng-click="itemSelected( child )">
+                {{ child[columns[1].property] }}
+            </li>
+        </ul>
+    </div>
+    
+    <div style="height: 100%;width: 33.33333333%" class="browser-section"></div>
+    
+</div>

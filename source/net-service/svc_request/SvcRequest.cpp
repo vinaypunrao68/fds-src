@@ -11,6 +11,7 @@
 #include <fdsp_utils.h>
 #include <net/SvcRequest.h>
 #include <net/SvcRequestPool.h>
+#include <util/fiu_util.h>
 
 namespace fds {
 
@@ -123,6 +124,9 @@ void SvcRequestIf::setCompletionCb(SvcRequestCompletionCb &completionCb)
 void SvcRequestIf::invoke()
 {
 #if 1
+    /* Disable to scheduling thread pool */
+    fiu_do_on("svc.disable.schedule", invokeWork_(); return;);
+
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
         NetMgr::ep_mgr_singleton()->ep_get_task_executor();
     /* Execute on synchronized task exector so that invocation and response
@@ -152,6 +156,9 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
     DBG(GLOGDEBUG << fds::logString(header));
 
     try {
+        /* Fault injection */
+        fiu_do_on("svc.fail.sendpayload_before",
+                  throw util::FiuException("svc.fail.sendpayload_before"));
         /* send the payload */
  do_again:
         auto ep = NetMgr::ep_mgr_singleton()->\
@@ -168,6 +175,8 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
         }
         ep->svc_rpc<fpi::BaseAsyncSvcClient>()->asyncReqt(header, *payloadBuf_);
         GLOGDEBUG << fds::logString(header) << " sent payload size: " << payloadBuf_->size();
+        fiu_do_on("svc.fail.sendpayload_after",
+                  throw util::FiuException("svc.fail.sendpayload_after"));
 
        /* start the timer */
        if (timeoutMs_) {
@@ -176,6 +185,12 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
                       schedule(timer_, std::chrono::milliseconds(timeoutMs_));
            fds_assert(ret == true);
        }
+    } catch(util::FiuException &e) {
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
+        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
+        GLOGERROR << logString() << " Error: " << respHdr->msg_code
+            << " exception: " << e.what();
+        gSvcRequestPool->postError(respHdr);
     } catch(std::exception &e) {
         auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;

@@ -26,7 +26,6 @@ extern "C" {
 #include "persistent-layer/dm_io.h"
 #include "fds_migration.h"
 #include "TransJournal.h"
-#include "Scavenger.h"
 #include "hash/md5.h"
 
 #include "fds_qos.h"
@@ -156,8 +155,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
      fds_mutex *objStorMutex;
-     osm::ObjectDB  *objStorDB;
-     osm::ObjectDB  *objIndexDB;
 
     /// Manager of persistent object storage
     ObjectStore::unique_ptr objectStore;
@@ -333,20 +330,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                             SmIoReq *ioReq, TransJournalId &trans_id);
      void create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
                                 SmIoReq *ioReq, TransJournalId trans_id);
-     Error enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
-                           FDSP_GetObjTypePtr getObjReq,
-                           fds_volid_t        volId,
-                           fds_uint32_t       transId,
-                           fds_uint32_t       numObjs);
-     Error enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
-                           FDSP_PutObjTypePtr putObjReq,
-                           fds_volid_t        volId,
-                           fds_uint32_t       transId,
-                           fds_uint32_t       numObjs);
-     Error enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
-                              FDSP_DeleteObjTypePtr delObjReq,
-                              fds_volid_t        volId,
-                              fds_uint32_t       transId);
      Error checkDuplicate(const ObjectID  &objId,
                           const ObjectBuf &objCompData,
                           ObjMetaData &objMeta);
@@ -425,7 +408,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          volTbl = nullptr;
          objStorMutex = nullptr;
          omJrnl = nullptr;
-         scavenger = nullptr;
      }
      /* this is for standalone testing */
      void setModProvider(CommonModuleProviderIf *modProvider);
@@ -446,7 +428,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      fds_bool_t testUturnPutObj;
 
      TierEngine     *tierEngine;
-     ScavControl     *scavenger;
      SmObjDb        *smObjDb;  // Object Index DB <ObjId, Meta-data + data_loc>
      checksum_calc   *chksumPtr;
     // Extneral plugin object to handle policy requests.
@@ -520,24 +501,12 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      void sampleSMStats(fds_uint64_t timestamp);
 
-     // TODO(Sean)
-     // Do we need these 3 ifaces?  These are deprecated and should be removed.
-     void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                    const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
-     void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                    const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
-     void DeleteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                       const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& del_obj);
-
-     Error getObjectInternal(SmIoReq* getReq);
      Error getObjectInternalSvc(SmIoGetObjectReq *getReq);
      Error getObjectInternalSvcV2(SmIoGetObjectReq *getReq);
 
-     Error putObjectInternal(SmIoReq* putReq);
      Error putObjectInternalSvc(SmIoPutObjectReq* putReq);
      Error putObjectInternalSvcV2(SmIoPutObjectReq* putReq);
 
-     Error deleteObjectInternal(SmIoReq* delReq);
      Error deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq);
      Error deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq);
 
@@ -552,15 +521,12 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void readObjectDataInternal(SmIoReq* ioReq);
      void readObjectMetadataInternal(SmIoReq* ioReq);
      void compactObjectsInternal(SmIoReq* ioReq);
-     Error condCopyObjectInternal(const ObjectID &objId,
-                                  diskio::DataTier tier);
 
      Error relocateObject(const ObjectID &objId,
                           diskio::DataTier from_tier,
                           diskio::DataTier to_tier);
      void handleDltUpdate();
 
-     inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
      static void nodeEventOmHandler(int node_id,
                                     unsigned int node_ip_addr,
                                     int node_state,
@@ -586,7 +552,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      Error putTokenObjects(const fds_token_id &token,
                            FDSP_MigrateObjectList &obj_list);
-     void unitTest();
 
      const std::string getStorPrefix() {
          return modProvider_->get_fds_config()->get<std::string>("fds.sm.prefix");

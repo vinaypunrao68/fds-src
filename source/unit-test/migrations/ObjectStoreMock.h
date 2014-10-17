@@ -118,7 +118,8 @@ class MObjStore : public ObjectStorMgr {
         if (err != ERR_OK) {
             return ERR_DISK_READ_FAILED;
         }
-        objCompData = ObjectBuf(itr->second);
+        boost::shared_ptr<std::string> str(new std::string(itr->second));
+        objCompData = ObjectBuf(str);
         return ERR_OK;
     }
 
@@ -170,13 +171,12 @@ class MObjStore : public ObjectStorMgr {
             /* Moving the data to not incur copy penalty */
             DBG(std::string temp_data = obj.data);
             ObjectBuf objData;
-            objData.data = std::move(obj.data);
-            objData.size = objData.data.size();
-            fds_assert(temp_data == objData.data);
+            *(objData.data) = std::move(obj.data);
+            fds_assert(temp_data == *(objData.data));
             obj.data.clear();
 
             /* write data to storage tier */
-            writeObjectData(objId, objData.data);
+            writeObjectData(objId, *(objData.data));
 
             /* write the metadata */
             obj_phy_loc_t phy_loc;
@@ -315,9 +315,8 @@ class MObjStore : public ObjectStorMgr {
         /* Moving the data to not incur copy penalty */
         DBG(std::string temp_data = applydata_entry->obj_data);
         ObjectBuf objData;
-        objData.data = std::move(applydata_entry->obj_data);
-        objData.size = objData.data.size();
-        fds_assert(temp_data == objData.data);
+        *(objData.data) = std::move(applydata_entry->obj_data);
+        fds_assert(temp_data == *(objData.data));
         applydata_entry->obj_data.clear();
 
         /* write data to storage tier */
@@ -326,7 +325,7 @@ class MObjStore : public ObjectStorMgr {
         phys_loc.obj_stor_offset = 10;
         phys_loc.obj_file_id = 1;
         phys_loc.obj_tier = diskio::diskTier;
-        writeObjectData(objId, objData.data);
+        writeObjectData(objId, *(objData.data));
 
         /* write the metadata */
         objMetadata.updatePhysLocation(&phys_loc);
@@ -351,7 +350,7 @@ class MObjStore : public ObjectStorMgr {
             LOGERROR << "Failed to read object id: " << read_entry->getObjId();
         }
         // TODO(Rao): use std::move here
-        read_entry->obj_data.data = objData.data;
+        read_entry->obj_data.data = *(objData.data);
         fds_assert(read_entry->obj_data.data.size() > 0);
 
         read_entry->smio_readdata_resp_cb(err, read_entry);

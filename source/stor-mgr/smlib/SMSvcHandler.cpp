@@ -52,27 +52,24 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     getReq->obj_data.obj_id = getObjMsg->data_obj_id;
     // perf-trace related data
     getReq->perfNameStr = "volume:" + std::to_string(getObjMsg->volume_id);
-    getReq->opReqFailedPerfEventType = GET_OBJ_REQ_ERR;
-    getReq->opReqLatencyCtx.type = GET_OBJ_REQ;
+    getReq->opReqFailedPerfEventType = SM_GET_OBJ_REQ_ERR;
+    getReq->opReqLatencyCtx.type = SM_E2E_GET_OBJ_REQ;
     getReq->opReqLatencyCtx.name = getReq->perfNameStr;
     getReq->opReqLatencyCtx.reset_volid(getObjMsg->volume_id);
-    getReq->opLatencyCtx.type = GET_IO;
+    getReq->opLatencyCtx.type = SM_GET_IO;
     getReq->opLatencyCtx.name = getReq->perfNameStr;
     getReq->opLatencyCtx.reset_volid(getObjMsg->volume_id);
-    // moving to task synchronizer, so using new type here, will remove
-    // this counter once we delete trans table
-    getReq->opTransactionWaitCtx.type = GET_OBJ_TASK_SYNC_WAIT;
-    getReq->opTransactionWaitCtx.name = getReq->perfNameStr;
-    getReq->opTransactionWaitCtx.reset_volid(getObjMsg->volume_id);
-    getReq->opQoSWaitCtx.type = GET_QOS_QUEUE_WAIT;
+    getReq->opQoSWaitCtx.type = SM_GET_QOS_QUEUE_WAIT;
     getReq->opQoSWaitCtx.name = getReq->perfNameStr;
     getReq->opQoSWaitCtx.reset_volid(getObjMsg->volume_id);
-
 
     getReq->response_cb = std::bind(
         &SMSvcHandler::getObjectCb, this,
         asyncHdr,
         std::placeholders::_1, std::placeholders::_2);
+
+    // start measuring E2E latency
+    PerfTracer::tracePointBegin(getReq->opReqLatencyCtx);
 
     err = objStorMgr->enqueueMsg(getReq->getVolId(), getReq);
     if (err != fds::ERR_OK) {
@@ -103,6 +100,13 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         resp = getReq->getObjectNetResp;
     }
 
+    // E2E latency end
+    PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
+    if (!err.ok()) {
+        PerfTracer::incr(getReq->opReqFailedPerfEventType,
+                         getReq->getVolId(), getReq->perfNameStr);
+    }
+
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetObjectResp), *resp);
     delete getReq;
 }
@@ -123,7 +127,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
     fiu_do_on("svc.drop.putobject", return);
-    fiu_do_on("svc.uturn.putobject", putObjectCb(asyncHdr, ERR_OK, NULL));
+    fiu_do_on("svc.uturn.putobject", putObjectCb(asyncHdr, ERR_OK, NULL); return;);
 
     Error err(ERR_OK);
     auto putReq = new SmIoPutObjectReq(putObjMsg);
@@ -136,19 +140,14 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     putReq->data_obj = putObjMsg->data_obj;
     // perf-trace related data
     putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
-    putReq->opReqFailedPerfEventType = PUT_OBJ_REQ_ERR;
-    putReq->opReqLatencyCtx.type = PUT_OBJ_REQ;
+    putReq->opReqFailedPerfEventType = SM_PUT_OBJ_REQ_ERR;
+    putReq->opReqLatencyCtx.type = SM_E2E_PUT_OBJ_REQ;
     putReq->opReqLatencyCtx.name = putReq->perfNameStr;
     putReq->opReqLatencyCtx.reset_volid(putObjMsg->volume_id);
-    putReq->opLatencyCtx.type = PUT_IO;
+    putReq->opLatencyCtx.type = SM_PUT_IO;
     putReq->opLatencyCtx.name = putReq->perfNameStr;
     putReq->opLatencyCtx.reset_volid(putObjMsg->volume_id);
-    // moving to task synchronizer, so using new type here, will remove
-    // this counter once we delete trans table
-    putReq->opTransactionWaitCtx.type = PUT_OBJ_TASK_SYNC_WAIT;
-    putReq->opTransactionWaitCtx.name = putReq->perfNameStr;
-    putReq->opTransactionWaitCtx.reset_volid(putObjMsg->volume_id);
-    putReq->opQoSWaitCtx.type = PUT_QOS_QUEUE_WAIT;
+    putReq->opQoSWaitCtx.type = SM_PUT_QOS_QUEUE_WAIT;
     putReq->opQoSWaitCtx.name = putReq->perfNameStr;
     putReq->opQoSWaitCtx.reset_volid(putObjMsg->volume_id);
 
@@ -156,6 +155,9 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         &SMSvcHandler::putObjectCb, this,
         asyncHdr,
         std::placeholders::_1, std::placeholders::_2);
+
+    // start measuring E2E latency
+    PerfTracer::tracePointBegin(putReq->opReqLatencyCtx);
 
     err = objStorMgr->enqueueMsg(putReq->getVolId(), putReq);
     if (err != fds::ERR_OK) {
@@ -171,6 +173,16 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                SmIoPutObjectReq* putReq)
 {
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
+
+    // E2E latency end
+    if (putReq) {
+        // check if there was not a uturn test
+        PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
+        if (!err.ok()) {
+            PerfTracer::incr(putReq->opReqFailedPerfEventType,
+                             putReq->getVolId(), putReq->perfNameStr);
+        }
+    }
 
     auto resp = boost::make_shared<fpi::PutObjectRspMsg>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
@@ -201,22 +213,21 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     delReq->setObjId(ObjectID(expObjMsg->objId.digest));
     // perf-trace related data
     delReq->perfNameStr = "volume:" + std::to_string(expObjMsg->volId);
-    delReq->opReqFailedPerfEventType = DELETE_OBJ_REQ_ERR;
-    delReq->opReqLatencyCtx.type = DELETE_OBJ_REQ;
+    delReq->opReqFailedPerfEventType = SM_DELETE_OBJ_REQ_ERR;
+    delReq->opReqLatencyCtx.type = SM_E2E_DELETE_OBJ_REQ;
     delReq->opReqLatencyCtx.name = delReq->perfNameStr;
-    delReq->opLatencyCtx.type = DELETE_IO;
+    delReq->opLatencyCtx.type = SM_DELETE_IO;
     delReq->opLatencyCtx.name = delReq->perfNameStr;
-    // moving to task synchronizer, so using new type here, will remove
-    // this counter once we delete trans table
-    delReq->opTransactionWaitCtx.type = DELETE_OBJ_TASK_SYNC_WAIT;
-    delReq->opTransactionWaitCtx.name = delReq->perfNameStr;
-    delReq->opQoSWaitCtx.type = DELETE_QOS_QUEUE_WAIT;
+    delReq->opQoSWaitCtx.type =SM_DELETE_QOS_QUEUE_WAIT;
     delReq->opQoSWaitCtx.name = delReq->perfNameStr;
 
     delReq->response_cb = std::bind(
         &SMSvcHandler::deleteObjectCb, this,
         asyncHdr,
         std::placeholders::_1, std::placeholders::_2);
+
+    // start measuring E2E latency
+    PerfTracer::tracePointBegin(delReq->opReqLatencyCtx);
 
     err = objStorMgr->enqueueMsg(delReq->getVolId(), delReq);
     if (err != fds::ERR_OK) {
@@ -232,6 +243,13 @@ void SMSvcHandler::deleteObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                   SmIoDeleteObjectReq* del_req)
 {
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
+
+    // E2E latency end
+    PerfTracer::tracePointEnd(del_req->opReqLatencyCtx);
+    if (!err.ok()) {
+        PerfTracer::incr(del_req->opReqFailedPerfEventType,
+                         del_req->getVolId(), del_req->perfNameStr);
+    }
 
     auto resp = boost::make_shared<fpi::DeleteObjectRspMsg>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
@@ -403,20 +421,21 @@ void SMSvcHandler::addObjectRef(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // perf-trace related data
     addObjRefReq->perfNameStr = "volume:" + std::to_string(addObjRefMsg->srcVolId);
-    addObjRefReq->opReqFailedPerfEventType = ADD_OBJECT_REF_REQ_ERR;
-    addObjRefReq->opReqLatencyCtx.type = ADD_OBJECT_REF_REQ;
+    addObjRefReq->opReqFailedPerfEventType = SM_ADD_OBJ_REF_REQ_ERR;
+    addObjRefReq->opReqLatencyCtx.type = SM_E2E_ADD_OBJ_REF_REQ;
     addObjRefReq->opReqLatencyCtx.name = addObjRefReq->perfNameStr;
-    addObjRefReq->opLatencyCtx.type = ADD_OBJECT_REF_IO;
+    addObjRefReq->opLatencyCtx.type = SM_ADD_OBJ_REF_IO;
     addObjRefReq->opLatencyCtx.name = addObjRefReq->perfNameStr;
-    addObjRefReq->opTransactionWaitCtx.type = ADD_OBJECT_REF_TRANS_QUEUE_WAIT;
-    addObjRefReq->opTransactionWaitCtx.name = addObjRefReq->perfNameStr;
-    addObjRefReq->opQoSWaitCtx.type = ADD_OBJECT_REF_QOS_QUEUE_WAIT;
+    addObjRefReq->opQoSWaitCtx.type = SM_ADD_OBJ_REF_QOS_QUEUE_WAIT;
     addObjRefReq->opQoSWaitCtx.name = addObjRefReq->perfNameStr;
 
     addObjRefReq->response_cb = std::bind(
         &SMSvcHandler::addObjectRefCb, this,
         asyncHdr,
         std::placeholders::_1, std::placeholders::_2);
+
+    // start measuring E2E latency
+    PerfTracer::tracePointBegin(addObjRefReq->opReqLatencyCtx);
 
     err = objStorMgr->enqueueMsg(addObjRefReq->getSrcVolId(), addObjRefReq);
     if (err != fds::ERR_OK) {
@@ -430,6 +449,13 @@ void SMSvcHandler::addObjectRef(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void SMSvcHandler::addObjectRefCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                   const Error &err, SmIoAddObjRefReq* addObjRefReq) {
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
+
+    // E2E latency end
+    PerfTracer::tracePointEnd(addObjRefReq->opReqLatencyCtx);
+    if (!err.ok()) {
+        PerfTracer::incr(addObjRefReq->opReqFailedPerfEventType,
+                         addObjRefReq->getVolId(), addObjRefReq->perfNameStr);
+    }
 
     auto resp = boost::make_shared<fpi::AddObjectRefRspMsg>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
@@ -445,16 +471,16 @@ SMSvcHandler::NotifyScavenger(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     LOGNORMAL << " receive scavenger cmd " << msg->scavenger.cmd;
     switch (msg->scavenger.cmd) {
         case FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE:
-            objStorMgr->scavenger->enableScavenger();
+            // objStorMgr->scavenger->enableScavenger();
             break;
         case FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE:
-            objStorMgr->scavenger->disableScavenger();
+            // objStorMgr->scavenger->disableScavenger();
             break;
         case FDS_ProtocolInterface::FDSP_SCAVENGER_START:
-            objStorMgr->scavenger->startScavengeProcess();
+            // objStorMgr->scavenger->startScavengeProcess();
             break;
         case FDS_ProtocolInterface::FDSP_SCAVENGER_STOP:
-            objStorMgr->scavenger->stopScavengeProcess();
+            // objStorMgr->scavenger->stopScavengeProcess();
             break;
         default:
             fds_verify(false);  // unknown scavenger command

@@ -68,7 +68,7 @@ diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
     meta_obj_map_t  *map;
     fds::ObjectBuf const *const buf = req->req_obj_buf();
 
-    blk = DataIO::disk_io_round_up_blk(buf->size);
+    blk = DataIO::disk_io_round_up_blk(buf->getSize());
 
     fi_mutex.lock();
     fds_verify(fi_fd >= 0);
@@ -85,22 +85,22 @@ diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
     idx_phy_loc->obj_stor_loc_id = disk_loc_id();
     idx_phy_loc->obj_file_id = file_id();
     idx_phy_loc->obj_tier        = static_cast<fds_uint8_t>(req->getTier());
-    map->obj_size        = buf->size;
+    map->obj_size        = buf->getSize();
 
     fds_uint32_t retry_cnt =0;
     off_blk <<= shft;
-    while (retry_cnt++ < 3 && len != buf->size) {
-       len = pwrite64(fi_fd, static_cast<const void *>(buf->data.c_str()),
-                      buf->size, off_blk);
+    while (retry_cnt++ < 3 && len != buf->getSize()) {
+        len = pwrite64(fi_fd, static_cast<const void *>((buf->data)->c_str()),
+                       buf->getSize(), off_blk);
        if (len < 0) {
            perror("Error: ");
            return fds::ERR_DISK_WRITE_FAILED;
        }
-       if (len == buf->size) {
+       if (len == buf->getSize()) {
           break;
        }
     }
-    if (len != buf->size) {
+    if (len != buf->getSize()) {
        perror("Error: ");
        return fds::ERR_DISK_WRITE_FAILED;
     }

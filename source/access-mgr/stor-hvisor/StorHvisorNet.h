@@ -549,7 +549,12 @@ static void processBlobReq(AmQosReq *qosReq) {
             break;
 
         case fds::FDS_ABORT_BLOB_TX:
-            err = storHvisor->abortBlobTxSvc(qosReq);
+            if (storHvisor->toggleNewPath)
+            {
+                storHvisor->amProcessor->abortBlobTx(qosReq);
+            } else {
+                err = storHvisor->abortBlobTxSvc(qosReq);
+            }
             break;
 
         case fds::FDS_ATTACH_VOL:
@@ -568,7 +573,11 @@ static void processBlobReq(AmQosReq *qosReq) {
         case fds::FDS_IO_WRITE:
         case fds::FDS_PUT_BLOB_ONCE:
         case fds::FDS_PUT_BLOB:
-            err = storHvisor->putBlobSvc(qosReq);
+            if (storHvisor->toggleNewPath) {
+                storHvisor->amProcessor->putBlob(qosReq);
+            } else {
+                err = storHvisor->putBlobSvc(qosReq);
+            }
             break;
 
         case fds::FDS_BUCKET_STATS:
@@ -588,8 +597,16 @@ static void processBlobReq(AmQosReq *qosReq) {
 
         // new handlers
         case fds::FDS_DELETE_BLOB:
-        case fds::FDS_LIST_BUCKET:
+	    if (storHvisor->toggleNewPath) {
+                storHvisor->amProcessor->deleteBlob(qosReq);
+                break;
+	    }
         case fds::FDS_STAT_BLOB:
+	    if (storHvisor->toggleNewPath) {
+                storHvisor->amProcessor->statBlob(qosReq);
+                break;
+	    }
+        case fds::FDS_LIST_BUCKET:
             err = storHvisor->handlers.at(qosReq->io_type)->handleQueueItem(qosReq);
             break;
 

@@ -72,37 +72,62 @@ void SmDiskMap::getDiskMap() {
 
 Error SmDiskMap::handleNewDlt(const DLT* dlt) {
     Error err(ERR_OK);
-    if (bitsPerToken_ == 0) {
-        bitsPerToken_ = dlt->getNumBitsForToken();
-    } else {
-        // dlt width should not change
-        fds_verify(bitsPerToken_ == dlt->getNumBitsForToken());
-    }
-    LOGDEBUG << "Will handle new DLT, bits per token " << bitsPerToken_;
-    LOGTRACE << *dlt;
-
-    // get list of tokens that this SM is responsible for
+    // get list of DLT tokens that this SM is responsible for
+    // according to the DLT
     NodeUuid mySvcUuid;
     if (!test_mode) {
         mySvcUuid = *(Platform::plf_get_my_svc_uuid());
     } else {
         mySvcUuid = 1;
     }
-    SmTokenSet sm_toks;
     const TokenList& dlt_toks = dlt->getTokens(mySvcUuid);
+    // if there are no DLT tokens that belong to this SM
+    // we don't care about this DLT
+    if (dlt_toks.size() == 0) {
+        LOGWARN << "DLT does not contain any tokens owned by this SM";
+        return ERR_INVALID_DLT;
+    }
+
+    // see if this is the first DLT we got
+    fds_bool_t first_dlt = true;
+    if (bitsPerToken_ == 0) {
+        bitsPerToken_ = dlt->getNumBitsForToken();
+    } else {
+        // we already got DLT and set initial disk map
+        first_dlt = false;
+
+        // dlt width should not change
+        fds_verify(bitsPerToken_ == dlt->getNumBitsForToken());
+    }
+    LOGDEBUG << "Will handle new DLT, bits per token " << bitsPerToken_;
+    LOGTRACE << *dlt;
+
+    // get list of SM tokens that this SM is responsible for
+    SmTokenSet sm_toks;
     for (TokenList::const_iterator cit = dlt_toks.cbegin();
          cit != dlt_toks.cend();
          ++cit) {
         sm_toks.insert(smTokenId(*cit));
     }
 
-    // tell superblock about existing disks and SM tokens
-    // in this first implementation once we reported initial
-    // set of disks and SM tokens, they are not expected to
-    // change -- we need to implement handling changes in disks
-    // and SM tokens
-    err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map, sm_toks);
-    LOGDEBUG << "Loaded superblock " << err << " " << *superblock;
+    if (first_dlt) {
+        // tell superblock about existing disks and SM tokens
+        // in this first implementation once we reported initial
+        // set of disks and SM tokens, they are not expected to
+        // change -- we need to implement handling changes in disks
+        // and SM tokens
+        err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map, sm_toks);
+        LOGDEBUG << "Loaded superblock " << err << " " << *superblock;
+    } else {
+        // TODO(Anna) before beta, we are supporting 4-node cluster, so
+        // expecting no changes in SM owned tokens; will have to handle this
+        // properly by 1.0
+        // so make sure token ownership did not change
+        SmTokenSet ownToks = superblock->getSmOwnedTokens();
+        fds_verify(ownToks == sm_toks);
+        LOGNOTIFY << "No change in SM tokens or disk map";
+        return ERR_DUPLICATE;  // to indicate we already set disk map/superblock
+    }
 
     return err;
 }
@@ -130,6 +155,11 @@ SmDiskMap::getSmTokens() const {
     return superblock->getSmOwnedTokens();
 }
 
+SmTokenSet
+SmDiskMap::getSmTokens(fds_uint16_t diskId) const {
+    return superblock->getSmOwnedTokens(diskId);
+}
+
 fds_uint16_t
 SmDiskMap::getDiskId(const ObjectID& objId,
                      diskio::DataTier tier) const {
@@ -149,6 +179,25 @@ SmDiskMap::getDiskPath(fds_token_id smTokId,
     fds_uint16_t diskId = superblock->getDiskId(smTokId, tier);
     fds_verify(disk_map.count(diskId) > 0);
     return disk_map.at(diskId);
+}
+
+std::string
+SmDiskMap::getDiskPath(fds_uint16_t diskId) const {
+    fds_verify(disk_map.count(diskId) > 0);
+    return disk_map.at(diskId);
+}
+
+DiskIdSet
+SmDiskMap::getDiskIds(diskio::DataTier tier) const {
+    DiskIdSet diskIds;
+    if (tier == diskio::diskTier) {
+        diskIds.insert(hdd_ids.begin(), hdd_ids.end());
+    } else if (tier == diskio::flashTier) {
+        diskIds.insert(ssd_ids.begin(), ssd_ids.end());
+    } else {
+        fds_panic("Unknown tier request from SM disk map\n");
+    }
+    return diskIds;
 }
 
 }  // namespace fds

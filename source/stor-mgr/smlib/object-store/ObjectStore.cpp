@@ -7,19 +7,20 @@
 #include <ObjectId.h>
 #include <fds_process.h>
 #include <PerfTrace.h>
-#include <TokenCompactor.h>
+#include <object-store/TokenCompactor.h>
 #include <object-store/ObjectStore.h>
 
 namespace fds {
 
 ObjectStore::ObjectStore(const std::string &modName,
+                         SmIoReqHandler *data_store,
                          StorMgrVolumeTable* volTbl)
         : Module(modName.c_str()),
           volumeTbl(volTbl),
           conf_verify_data(true),
           numBitsPerToken(0),
           diskMap(new SmDiskMap("SM Disk Map Module")),
-          dataStore(new ObjectDataStore("SM Object Data Storage Module")),
+          dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
           metaStore(new ObjectMetadataStore(
               "SM Object Metadata Storage Module")) {
 }
@@ -33,6 +34,11 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
     metaStore->setNumBitsPerToken(nbits);
 
     Error err = diskMap->handleNewDlt(dlt);
+    if (err == ERR_DUPLICATE) {
+        return;  // everythin setup already
+    } else if (err == ERR_INVALID_DLT) {
+        return;  // we are ignoring this DLT
+    }
     fds_verify(err.ok());
 
     // open metadata store for tokens owned by this SM
@@ -60,11 +66,15 @@ Error
 ObjectStore::putObject(fds_volid_t volId,
                        const ObjectID &objId,
                        boost::shared_ptr<const std::string> objData) {
+    PerfContext objWaitCtx(SM_PUT_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    PerfTracer::tracePointEnd(objWaitCtx);
 
     Error err(ERR_OK);
     diskio::DataTier useTier = diskio::maxTier;
-    GLOGTRACE << "Putting object " << objId;
+    LOGTRACE << "Putting object " << objId << " volume " << std::hex << volId
+             << std::dec;
 
     // New object metadata to update the refcnts
     ObjMetaData::ptr updatedMeta;
@@ -102,7 +112,7 @@ ObjectStore::putObject(fds_volid_t volId,
         // Create new object metadata to update the refcnts
         updatedMeta.reset(new ObjMetaData(objMeta));
 
-        PerfTracer::incr(DUPLICATE_OBJ, volId, PerfTracer::perfNameStr(volId));
+        PerfTracer::incr(SM_PUT_DUPLICATE_OBJ, volId, PerfTracer::perfNameStr(volId));
         err = ERR_DUPLICATE;
     } else {  // if (getMetadata != OK)
         // We didn't find any metadata, make sure it was just not there and reset
@@ -167,7 +177,10 @@ boost::shared_ptr<const std::string>
 ObjectStore::getObject(fds_volid_t volId,
                        const ObjectID &objId,
                        Error& err) {
+    PerfContext objWaitCtx(SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    PerfTracer::tracePointEnd(objWaitCtx);
 
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
@@ -215,7 +228,10 @@ ObjectStore::getObject(fds_volid_t volId,
 Error
 ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId) {
+    PerfContext objWaitCtx(SM_DELETE_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    PerfTracer::tracePointEnd(objWaitCtx);
 
     Error err(ERR_OK);
 
@@ -279,7 +295,12 @@ Error
 ObjectStore::copyAssociation(fds_volid_t srcVolId,
                              fds_volid_t destVolId,
                              const ObjectID& objId) {
+    PerfContext objWaitCtx(SM_ADD_OBJ_REF_TASK_SYNC_WAIT, destVolId,
+                           PerfTracer::perfNameStr(destVolId));
+    PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    PerfTracer::tracePointEnd(objWaitCtx);
+
     Error err(ERR_OK);
 
     // New object metadata to update association

@@ -123,7 +123,7 @@ class ObjectID : public serialize::Serializable {
     */
 
     fds_uint64_t getTokenBits(fds_uint32_t numBits) const;
-    fds_uint32_t GetLen() const;
+    size_t GetLen() const;
     std::string ToString() const;
     bool operator==(const ObjectID& rhs) const;
     bool operator!=(const ObjectID& rhs) const;
@@ -176,21 +176,24 @@ struct DiskLoc {
 
 class ObjectBuf {
   public:
-    fds_uint32_t size;
-    std::string data;
+    boost::shared_ptr<std::string> data;
     ObjectBuf()
-      : size(0), data("")
-      {
-      }
-    explicit ObjectBuf(const std::string &str)
-    : data(str)
-    {
-        size = str.length();
+            : data(new std::string()) {
     }
-    void resize(const size_t &sz)
-    {
-        size = sz;
-        data.resize(sz);
+    explicit ObjectBuf(boost::shared_ptr<std::string>& str)
+            : data(str) {
+    }
+    void resize(const size_t &sz) {
+        data->resize(sz);
+    }
+    inline fds_uint32_t getSize() const {
+        return data->length();
+    }
+    inline const char* getData() const {
+        return data->data();
+    }
+    inline void clear() {
+        data->clear();
     }
 };
 
@@ -284,8 +287,6 @@ class FDS_IOType {
     PerfEventType opReqFailedPerfEventType;
     PerfContext opReqLatencyCtx;
     PerfContext opLatencyCtx;
-
-    PerfContext opTransactionWaitCtx;
 
     PerfContext opQoSWaitCtx;
 };

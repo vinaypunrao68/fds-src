@@ -50,6 +50,17 @@ public class S3TestCase {
                 });
     }
 
+
+    //@Test
+    public void debugIssue() throws Exception {
+        new Configuration("foo", new String[]{"--console"});
+        AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("anichols", "cacf0a325b5e8bd357fb04f7b53680cee7fd8fcec2bdd53033c9754c8ec53bef4541790ca2415ddfce79f341ba0c3502376a44146e8351c4eb40d27cf7719ee4"));
+        client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
+        client.setEndpoint("https://us-east.formationds.com");
+        client.createBucket("fabricebucket");
+        client.listBuckets().forEach(b -> System.out.println(b.getName()));
+    }
+
     //@Test
     public void deleteMultipleObjects() throws Exception {
         new Configuration("foo", new String[] {"--console"});

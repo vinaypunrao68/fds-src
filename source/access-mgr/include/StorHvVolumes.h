@@ -216,6 +216,9 @@ class AbortBlobTxReq : public FdsBlobReq {
   public:
     BlobTxId::ptr txDesc;
 
+    typedef std::function<void (const Error&)> AbortBlobTxProcCb;
+    AbortBlobTxProcCb processorCb;
+
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
@@ -316,6 +319,11 @@ class StartBlobTxReq : public FdsBlobReq {
 
 class StatBlobReq : public FdsBlobReq {
   public:
+    typedef std::function<void (const Error&)> GetBlobProcCb;
+
+    GetBlobProcCb processorCb;
+    fds_volid_t base_vol_id;
+
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
@@ -496,6 +504,7 @@ class PutBlobReq: public FdsBlobReq {
 
     // Needed fields
     BlobTxId::ptr txDesc;
+    fds_uint64_t dmtVersion;
 
     /// Used for putBlobOnce scenarios.
     boost::shared_ptr< std::map<std::string, std::string> > metadata;
@@ -505,6 +514,9 @@ class PutBlobReq: public FdsBlobReq {
     std::atomic<int> respAcks;
     /* Return status for completion callback */
     Error retStatus;
+
+    typedef std::function<void (const Error&)> UpdateBlobProcCb;
+    UpdateBlobProcCb processorCb;
 
     /// Constructor used on regular putBlob requests.
     PutBlobReq(fds_volid_t _volid,
@@ -518,8 +530,7 @@ class PutBlobReq: public FdsBlobReq {
                BucketContext* _bucket_ctxt,
                PutPropertiesPtr _put_props,
                void* _req_context,
-               fdsnPutObjectHandler _put_obj_handler,
-               void* _callback_data);
+               CallbackPtr _cb);
 
     /// Constructor used on putBlobOnce requests.
     PutBlobReq(fds_volid_t          _volid,
@@ -530,8 +541,7 @@ class PutBlobReq: public FdsBlobReq {
                char*                _data_buf,
                fds_int32_t          _blobMode,
                boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
-               fdsnPutObjectHandler _put_obj_handler,
-               void*                _callback_data);
+               CallbackPtr _cb);
 
     fds_bool_t isLastBuf() const {
         return lastBuf;
@@ -562,16 +572,22 @@ class PutBlobReq: public FdsBlobReq {
                          callback_data, status, errDetails);
     }
 
+    void notifyResponse(fds::AmQosReq* qosReq, const Error &e);
     void notifyResponse(StorHvQosCtrl *qos_ctrl, fds::AmQosReq* qosReq, const Error &e);
 };
 
 
 struct DeleteBlobReq: FdsBlobReq, TxnRequest {
+    typedef std::function<void (const Error&)> DeleteBlobProcCb;
+
     BucketContext *bucket_ctxt;
     std::string ObjKey;
     void *req_context;
     fdsnResponseHandler responseCallback;
     void *callback_data;
+
+    DeleteBlobProcCb processorCb;
+    fds_volid_t base_vol_id;
 
     DeleteBlobReq(fds_volid_t _volid,
                   const std::string& _blob_name,

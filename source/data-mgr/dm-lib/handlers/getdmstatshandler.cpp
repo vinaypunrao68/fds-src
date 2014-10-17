@@ -40,7 +40,7 @@ void DmSysStatsHandler::handleQueueItem(dmCatReq *dmRequest) {
      request->message->commitlog_size = commitLog->getActiveTx();
      request->message->extent0_size = MAX_EXTENT0_OBJS;
      request->message->extent_size = MAX_EXTENT_OBJS;
-     request->message->metadata_size = volCatIf->getVvcMetaSize(dmRequest->volId);
+     request->message->metadata_size = volCatIf->getTotalMetadataSize(dmRequest->volId);
 }
 
 void DmSysStatsHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

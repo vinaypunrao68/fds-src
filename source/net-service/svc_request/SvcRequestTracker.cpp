@@ -19,11 +19,9 @@ bool SvcRequestTracker::addForTracking(const SvcRequestId& id,
     DBG(GLOGDEBUG << req->logString());
 
     fds_scoped_lock l(svcReqMaplock_);
-    if (svcReqMap_.find(id) == svcReqMap_.end()) {
-        svcReqMap_[id] = req;
-        return true;
-    }
-    return false;
+    auto pair = std::make_pair(id, req);
+    auto ret = svcReqMap_.insert(pair);
+    return ret.second;
 }
 
 /**

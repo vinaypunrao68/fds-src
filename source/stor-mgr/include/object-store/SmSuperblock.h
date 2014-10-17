@@ -288,7 +288,7 @@ class SmSuperblockMgr {
      * Will revisit this method when we have more SM token states
      */
     SmTokenSet getSmOwnedTokens() const;
-
+    SmTokenSet getSmOwnedTokens(fds_uint16_t diskId) const;
 
     /* Set of interfaces for unit testing */
     std::string SmSuperblockMgrTestGetFileName();
@@ -306,6 +306,13 @@ class SmSuperblockMgr {
 
     size_t
     countUniqChecksum(const std::multimap<fds_checksum32_t, uint16_t>& checksumMap);
+
+    void
+    checkDiskTopology(const DiskIdSet& newHDDs, const DiskIdSet& newSSDs);
+
+    DiskIdSet
+    diffDiskSet(const DiskIdSet& diskSet1, const DiskIdSet& diskSet2);
+
 
   private:
     /// Master superblock. The master copy will persist
@@ -331,6 +338,9 @@ class SmSuperblockMgr {
 
 std::ostream& operator<< (std::ostream &out,
                           const DiskLocMap& diskMap);
+
+boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
+                                            const DiskIdSet& diskIds);
 
 }  // namespace fds
 

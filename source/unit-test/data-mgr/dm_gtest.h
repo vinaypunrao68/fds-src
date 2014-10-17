@@ -125,6 +125,7 @@ void generateVolumes(std::vector<boost::shared_ptr<VolumeDesc> > & volumes) {
         vdesc->globDomainId = i;
 
         vdesc->volType = fpi::FDSP_VOL_S3_TYPE;
+        // vdesc->volType = fpi::FDSP_VOL_BLKDEV_TYPE;
         vdesc->capacity = 100 * 1024 * 1024;     // 100TB
         vdesc->maxQuota = 90;
         vdesc->replicaCnt = 1;

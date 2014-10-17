@@ -205,6 +205,7 @@ struct SvcRequestIf {
     boost::shared_ptr<std::string> payloadBuf_;
     /* Completion cb */
     SvcRequestCompletionCb completionCb_;
+    /* Minor version */
     int minor_version;
 };
 typedef boost::shared_ptr<SvcRequestIf> SvcRequestIfPtr;

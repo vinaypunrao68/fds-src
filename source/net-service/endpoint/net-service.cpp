@@ -12,6 +12,7 @@
 #include <fdsp/DMSvc.h>
 #include <fdsp/AMSvc.h>
 #include <fdsp/FDSP_ControlPathReq.h>
+#include <fdsp/Streaming.h>
 #include <net/BaseAsyncSvcHandler.h>
 
 namespace fds {
@@ -584,7 +585,10 @@ NetMgr::alloc_rpc_client(const fpi::SvcUuid   &peer,
             fds_verify(maj == 0 && min == 0);
             return bo::make_shared<fpi::DMSvcClient>(protocol);
         case fpi::FDSP_STOR_HVISOR:
-            fds_verify(maj == 0 && min == 0);
+            fds_verify(maj == 0 && (min == 0 || min ==2));
+            if (min == 2) {
+                return bo::make_shared<fpi::StreamingClient>(protocol);
+            }
             return bo::make_shared<fpi::AMSvcClient>(protocol);
         case fpi::FDSP_ORCH_MGR:
             return bo::make_shared<fpi::PlatNetSvcClient>(protocol);

@@ -21,6 +21,7 @@ pyUnitVerbose = False
 pyUnitDryrun = False
 pyUnitInstall = False
 pyUnitSudoPw = None
+pyUnitTCFailure = False
 
 # This global is ued to indicate whether we've already
 # set up the logging facilities during a PyUnit run.
@@ -154,10 +155,15 @@ class FDSTestCase(unittest.TestCase):
         """
         Just a quick report of results for the test case.
         """
+        global pyUnitTCFailure
+
         if test_passed:
             self.log.info("Test Case %s passed." % self.__class__.__name__)
         else:
             self.log.info("Test Case %s failed." % self.__class__.__name__)
+
+            if self.parameters["stop_on_fail"]:
+                pyUnitTCFailure = True
 
 
     @staticmethod
@@ -209,6 +215,9 @@ class FDSTestCase(unittest.TestCase):
                 # Remove this option and its argument from argv so as not to confuse PyUnit.
                 _argv.pop(idx)
                 _argv.pop(idx)
+            elif opt in ('-f','--failfast'):
+                failfast = True
+                _argv.pop(idx)
             else:
                 idx += 1
 
@@ -220,10 +229,12 @@ class FDSTestCase(unittest.TestCase):
         if log_dir is None:
             log_dir = _parameters["log_dir"]
 
-        # Since in this case we are running from PyUnit, we'll need to add to
-        # sysargs if the config file had "stop_on_fail" set True.
+        # Make sure we're covered with the stop-on-fail/failfast option.
+        # qaautotest calls it stop-on-fail. pyUnit calls it failfast
         if _parameters["stop_on_fail"]:
-            _argv.append("--failfast")
             failfast = True
+
+        if failfast:
+            _parameters["stop_on_fail"] = True
 
         return log_dir, failfast

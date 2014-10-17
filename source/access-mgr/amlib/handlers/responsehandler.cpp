@@ -80,10 +80,10 @@ SimpleResponseHandler::~SimpleResponseHandler() {
 
 //================================================================================
 
-void PutObjectResponseHandler::process() {
+void UpdateBlobResponseHandler::process() {
 }
 
-PutObjectResponseHandler::~PutObjectResponseHandler() {
+UpdateBlobResponseHandler::~UpdateBlobResponseHandler() {
 }
 //================================================================================
 

@@ -67,7 +67,7 @@ angular.module( 'user-management' ).factory( '$authentication', ['$http', '$docu
 //                    alert( 'Error ' + response.status + ': ' + response.statusText );
                 }
                 
-                return response;
+                return $q.reject( response );
             }
         };
     });

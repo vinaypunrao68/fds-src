@@ -55,6 +55,11 @@ class AmDispatcher : public Module, public boost::noncopyable {
                              boost::shared_ptr<std::string> payload);
 
     /**
+     * Aborts a blob transaction request.
+     */
+    void dispatchAbortBlobTx(AmQosReq *qosReq);
+
+    /**
      * Dipatches a start blob transaction request.
      */
     void dispatchStartBlobTx(AmQosReq *qosReq);
@@ -68,11 +73,39 @@ class AmDispatcher : public Module, public boost::noncopyable {
                        boost::shared_ptr<std::string> payload);
 
     /**
-     * Dipatches a start blob transaction request.
+     * Dispatches an update catalog request.
+     */
+    void dispatchUpdateCatalog(AmQosReq *qosReq);
+
+    /**
+     * Dispatches an update catalog once request.
+     */
+    void dispatchUpdateCatalogOnce(AmQosReq *qosReq);
+
+    /**
+     * Dipatches a put object request.
+     */
+    void dispatchPutObject(AmQosReq *qosReq);
+
+    /**
+     * Dipatches a get object request.
      */
     void dispatchGetObject(AmQosReq *qosReq);
 
+    /**
+     * Dispatches a delete blob transaction request.
+     */
+    void dispatchDeleteBlob(AmQosReq *qosReq);
+
+    /**
+     * Dipatches a query catalog request.
+     */
     void dispatchQueryCatalog(AmQosReq *qosReq);
+
+    /**
+     * Dispatches a stat blob transaction request.
+     */
+    void dispatchStatBlob(AmQosReq *qosReq);
 
   private:
     /// Shared ptrs to the DLT and DMT managers used
@@ -82,6 +115,22 @@ class AmDispatcher : public Module, public boost::noncopyable {
 
     /// Uturn test all network requests
     fds_bool_t uturnAll;
+
+    /**
+     * Callback for delete blob responses.
+     */
+    void abortBlobTxCb(AmQosReq *qosReq,
+                       QuorumSvcRequest* svcReq,
+                       const Error& error,
+                       boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for delete blob responses.
+     */
+    void deleteBlobCb(AmQosReq *qosReq,
+                      QuorumSvcRequest* svcReq,
+                      const Error& error,
+                      boost::shared_ptr<std::string> payload);
 
     /**
      * Callback for get blob responses.
@@ -98,6 +147,30 @@ class AmDispatcher : public Module, public boost::noncopyable {
                            FailoverSvcRequest* svcReq,
                            const Error& error,
                            boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for stat blob responses.
+     */
+    void statBlobCb(AmQosReq *qosReq,
+                    FailoverSvcRequest* svcReq,
+                    const Error& error,
+                    boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for update blob responses.
+     */
+    void updateCatalogCb(AmQosReq* qosReq,
+                         QuorumSvcRequest* svcReq,
+                         const Error& error,
+                         boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for put object responses.
+     */
+    void putObjectCb(AmQosReq* qosReq,
+                     QuorumSvcRequest* svcReq,
+                     const Error& error,
+                     boost::shared_ptr<std::string> payload);
 };
 
 }  // namespace fds

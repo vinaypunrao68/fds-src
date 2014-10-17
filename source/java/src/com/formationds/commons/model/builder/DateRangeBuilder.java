@@ -22,6 +22,15 @@ public class DateRangeBuilder {
   }
 
   /**
+   * @param start the {@link Date} representing the starting date.
+   * @param end the {@link Date} representing the ending date.
+   */
+  public DateRangeBuilder( final Date start, final Date end ) {
+    withStart( start );
+    withEnd( end );
+  }
+
+  /**
    * @param start the {@link Date} representing the start date
    *
    * @return Returns {@link com.formationds.commons.model.builder.DateRangeBuilder}

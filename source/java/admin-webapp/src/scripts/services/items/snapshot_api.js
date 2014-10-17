@@ -1,4 +1,4 @@
-angular.module( 'qos' ).factory( '$snapshot_service', ['$http', function( $http ){
+angular.module( 'qos' ).factory( '$snapshot_service', ['$http_fds', function( $http_fds ){
 
     var service = {};
     
@@ -59,40 +59,32 @@ angular.module( 'qos' ).factory( '$snapshot_service', ['$http', function( $http 
 
     service.createSnapshotPolicy = function( policy, callback, failure ){
 
-        return $http.post( '/api/config/snapshot/policies', policy )
-            .success( callback )
-            .error( failure );
+        return $http_fds.post( '/api/config/snapshot/policies', policy, callback, failure );
     };
 
     service.deleteSnapshotPolicy = function( policyId, callback, failure ){
 
-        return $http.delete( '/api/config/snapshot/policies/' + policyId )
-            .success( callback ).error( failure );
+        return $http_fds.delete( '/api/config/snapshot/policies/' + policyId, callback, failure );
     };
     
     service.editSnapshotPolicy = function( policy, callback, failure ){
         
-        return $http.put( '/api/config/snapshot/policies', policy )
-            .success( callback ).error( failure );
+        return $http_fds.put( '/api/config/snapshot/policies', policy, callback, failure );
     };
 
     service.attachPolicyToVolume = function( policy, volumeId, callback, failure ){
 
-        return $http.put( '/api/config/snapshot/policies/' + policy.id + '/attach/' + volumeId )
-            .success( callback )
-            .error( failure );
+        return $http_fds.put( '/api/config/snapshot/policies/' + policy.id + '/attach/' + volumeId, {}, callback, failure );
     };
 
     service.detachPolicy = function( policy, volumeId, callback, failure ){
 
-        return $http.put( '/api/config/snapshot/policies/' + policy.id + '/detach/' + volumeId )
-            .success( callback ).error( failure );
+        return $http_fds.put( '/api/config/snapshot/policies/' + policy.id + '/detach/' + volumeId, {}, callback, failure );
     };
 
     service.cloneSnapshotToNewVolume = function( snapshot, volumeName, callback, failure ){
 
-        return $http.post( '/api/snapshot/clone/' + snapshot.id + '/' + escape( volumeName ) )
-            .success( callback ).error( failure );
+        return $http_fds.post( '/api/snapshot/clone/' + snapshot.id + '/' + escape( volumeName ), snapshot, callback, failure );
     };
 
     return service;

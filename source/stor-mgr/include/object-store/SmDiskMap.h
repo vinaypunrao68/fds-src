@@ -47,6 +47,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * Return a set of SM tokens that this SM currently owns
      */
     SmTokenSet getSmTokens() const;
+    SmTokenSet getSmTokens(fds_uint16_t diskId) const;
 
     /**
      * Get disk ID where ObjectID (or SM token) data and metadata
@@ -62,6 +63,12 @@ class SmDiskMap : public Module, public boost::noncopyable {
      */
     std::string getDiskPath(fds_token_id smTokId,
                             diskio::DataTier tier) const;
+    std::string getDiskPath(fds_uint16_t diskId) const;
+
+    /**
+     * Returns IDs of all existing disks of a given tier
+     */
+    DiskIdSet getDiskIds(diskio::DataTier tier) const;
 
     /**
      * Module methods

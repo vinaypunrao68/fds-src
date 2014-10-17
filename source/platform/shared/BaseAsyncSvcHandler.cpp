@@ -7,6 +7,7 @@
 #include <net/SvcRequest.h>
 #include <net/SvcRequestTracker.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
+#include <util/fiu_util.h>
 
 namespace fds {
 
@@ -58,6 +59,11 @@ void BaseAsyncSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& heade
 void BaseAsyncSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                                     boost::shared_ptr<std::string>& payload)
 {
+    fiu_do_on("svc.uturn.asyncreqt",
+              header->msg_code = ERR_INVALID; \
+              sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()); \
+              return;);
+
     GLOGDEBUG << logString(*header);
     try {
         /* Deserialize the message and invoke the handler.  Deserialization is performed
@@ -92,6 +98,8 @@ void BaseAsyncSvcHandler::asyncResp(
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
+    fiu_do_on("svc.disable.schedule", asyncRespHandler(header, payload); return;);
+
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
         NetMgr::ep_mgr_singleton()->ep_get_task_executor();
 

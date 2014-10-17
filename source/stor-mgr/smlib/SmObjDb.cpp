@@ -329,7 +329,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         err = objStorMgr->readObject(NON_SYNC_MERGED, objId,
                 objMetadata, objData, tierUsed);
         if (err == ERR_OK) {
-            if ((max_size - tot_msg_len) >= objData.size) {
+            if ((max_size - tot_msg_len) >= objData.getSize()) {
                 LOGDEBUG << "Adding a new objectId to objList" << objId;
 
                 FDSP_MigrateObjectData mig_obj;
@@ -337,10 +337,10 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                 mig_obj.meta_data.token_id = token;
                 objMetadata.extractSyncData(mig_obj.meta_data);
 
-                mig_obj.data = objData.data;
+                mig_obj.data = *(objData.data);
 
                 obj_list.push_back(mig_obj);
-                tot_msg_len += objData.size;
+                tot_msg_len += objData.getSize();
 
                 objStorMgr->counters_->get_tok_objs.incr();
                 DBG(obj_itr_cnt++);

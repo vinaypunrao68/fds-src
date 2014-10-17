@@ -11,6 +11,7 @@
 #include <concurrency/RwLock.h>
 #include <persistent-layer/dm_io.h>
 #include <persistent-layer/persistentdata.h>
+#include <object-store/Scavenger.h>
 #include <object-store/SmDiskMap.h>
 
 namespace fds {
@@ -45,9 +46,48 @@ namespace fds {
 #define SM_MAX_TOKEN_FILES        64
 
 /**
+ * Abstract class for handling scavenger (garbage collection) tasks on
+ * persistent store
+ */
+class SmPersistStoreHandler {
+  public:
+    /**
+     * @param[out] retStat stats of active file (which we are writing,
+     * not gc) for a given SM token and tier
+     */
+    virtual void getSmTokenStats(fds_token_id smTokId,
+                                 diskio::DataTier tier,
+                                 diskio::TokenStat* retStat) = 0;
+
+    /**
+     * Notify about start garbage collection for given token id 'tok_id'
+     * and tier. If many disks contain this token, then token file on each
+     * disk will be compacted. All new writes will be re-routed to the
+     * appropriate (new) token file.
+     */
+    virtual void notifyStartGc(fds_token_id smTokId,
+                               diskio::DataTier tier) = 0;
+
+    /**
+     * Notify about end of garbage collection for a given token id
+     * 'tok_id' and tier.
+     */
+    virtual Error notifyEndGc(fds_token_id smTokId,
+                              diskio::DataTier tier) = 0;
+
+    /**
+     * Returns true if a given location is a shadow file
+     */
+    virtual fds_bool_t isShadowLocation(obj_phy_loc_t* loc,
+                                        fds_token_id smTokId) = 0;
+};
+
+/**
  * Class that manages persistent storage of object data.
  */
-class ObjectPersistData : public Module, public boost::noncopyable {
+class ObjectPersistData : public Module,
+        public boost::noncopyable,
+        public SmPersistStoreHandler {
   private:
     SmDiskMap::const_ptr smDiskMap;
 
@@ -67,8 +107,12 @@ class ObjectPersistData : public Module, public boost::noncopyable {
     std::map<fds_uint64_t, fds_uint16_t> writeFileIdMap;
     fds_rwlock mapLock;  // lock for both tokFileTbl and writeFileIdMap
 
+    // Scavenget (garbage collector)
+    ScavControl::unique_ptr scavenger;
+
   public:
-    explicit ObjectPersistData(const std::string &modName);
+    explicit ObjectPersistData(const std::string &modName,
+                               SmIoReqHandler *data_store);
     ~ObjectPersistData();
 
     typedef std::unique_ptr<ObjectPersistData> unique_ptr;
@@ -99,32 +143,13 @@ class ObjectPersistData : public Module, public boost::noncopyable {
                            fds_uint32_t objSize,
                            const obj_phy_loc_t* loc);
 
-    /**
-     * Notify about start garbage collection for given token id 'tok_id'
-     * and tier. If many disks contain this token, then token file on each
-     * disk will be compacted. All new writes will be re-routed to the
-     * appropriate (new) token file.
-     */
+     // Implementation of SmScavengerHandler
     void notifyStartGc(fds_token_id smTokId,
                        diskio::DataTier tier);
-
-    /**
-     * Notify about end of garbage collection for a given token id
-     * 'tok_id' and tier.
-     */
     Error notifyEndGc(fds_token_id smTokId,
                       diskio::DataTier tier);
-
-    /**
-     * Returns true if a given location is a shadow file
-     */
     fds_bool_t isShadowLocation(obj_phy_loc_t* loc,
                                 fds_token_id smTokId);
-
-    /**
-     * @param[out] retStat stats of active file (which we are writing,
-     * not gc) for a given SM token and tier
-     */
     void getSmTokenStats(fds_token_id smTokId,
                          diskio::DataTier tier,
                          diskio::TokenStat* retStat);

@@ -35,7 +35,12 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
         """
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_FDSCreateInstDir():
@@ -141,7 +146,12 @@ class TestFDSPkgInst(TestCase.FDSTestCase):
         """
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_FDSPkgInst():
@@ -205,7 +215,12 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
         """
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_FDSDeleteInstDir():
@@ -273,7 +288,12 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        self.log.info("Running Case %s." % self.__class__.__name__)
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
             if not self.test_RestartRedisClean():

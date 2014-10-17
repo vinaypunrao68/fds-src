@@ -83,6 +83,8 @@ void SingleNodeTest::init(int argc, char *argv[],
     /* Add fds-tools as an option that must be set */
     optDesc.add_options()
         ("fds-tools", po::value<std::string>(), "tools dir");
+    optDesc.add_options()
+        ("deploy", po::value<bool>()->default_value(true), "bring up singlenode domain");
 
     /* Init base test fixture class */
     BaseTestFixture::init(argc, argv, optDesc);
@@ -95,7 +97,11 @@ void SingleNodeTest::init(int argc, char *argv[],
 
     /* Create deployer object */
     volName_ = volName;
-    deployer_.reset(new Deployer(BaseTestFixture::getArg<std::string>("fds-tools")));
+
+    /* Create a deployer only if deploy option is set */
+    if (BaseTestFixture::getArg<bool>("deploy")) {
+        deployer_.reset(new Deployer(BaseTestFixture::getArg<std::string>("fds-tools")));
+    }
 }
 
 /**
@@ -107,9 +113,11 @@ void SingleNodeTest::SetUpTestCase()
 {
     BaseTestFixture::SetUpTestCase();
 
-    /* TODO(Rao): Run fds start */
-    bool ret = deployer_->setupOneNodeDomain();
-    ASSERT_TRUE(ret == true);
+    /* Only deploy, if deploy option was set */
+    if (deployer_) {
+        bool ret = deployer_->setupOneNodeDomain();
+        ASSERT_TRUE(ret == true);
+    }
 
     /* Start test platform */
     platform_.reset(new TestPlatform(argc_, argv_, "SingleNodeTest.log", nullptr));
@@ -146,11 +154,13 @@ void SingleNodeTest::TearDownTestCase()
     platform_->shutdown_modules();
     platform_.reset();
 
-    bool ret = deployer_->tearDownOneNodeDomain(true);
-    std::cout << "Teardown exit status: " << ret << std::endl;
-    // TODO(Rao): Enable below when fds stop starts returning 0 as exit status
-    // EXPECT_TRUE(ret == true) << "fds stop is returning status code 1 for some reason";
-    deployer_.reset();
+    if (deployer_) {
+        bool ret = deployer_->tearDownOneNodeDomain(true);
+        std::cout << "Teardown exit status: " << ret << std::endl;
+        // TODO(Rao): Enable below when fds stop starts returning 0 as exit status
+        // EXPECT_TRUE(ret == true) << "fds stop is returning status code 1 for some reason";
+        deployer_.reset();
+    }
 
     BaseTestFixture::TearDownTestCase();
 }

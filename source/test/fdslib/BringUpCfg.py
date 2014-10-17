@@ -286,7 +286,7 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_agent.exec_wait('ls ' + var_dir)
             if status == 0:
                 os.chdir(var_dir)
-                #status = self.nd_agent.exec_wait('rm -r logs stats')
+                status = self.nd_agent.exec_wait('rm -r logs stats')
 
             status = self.nd_agent.exec_wait('ls ' + '/corefiles')
             if status == 0:
@@ -298,10 +298,10 @@ class FdsNodeConfig(FdsConfig):
                 os.chdir(var_dir + '/core')
                 status = self.nd_agent.exec_wait('rm *.core')
 
-            #status = self.nd_agent.exec_wait('ls ' + tools_dir)
-            #if status != 0:
-            #    os.chdir(tools_dir)
-            #    status = self.nd_agent.exec_wait('./fds clean -i')
+            status = self.nd_agent.exec_wait('ls ' + tools_dir)
+            if status == 0:
+                os.chdir(tools_dir)
+                status = self.nd_agent.exec_wait('./fds clean -i')
 
             status = self.nd_agent.exec_wait('ls ' + dev_dir)
             if status == 0:
@@ -710,7 +710,7 @@ class FdsConfigRun(object):
 
         self.rt_env = env
         if self.rt_env is None:
-            self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.clus_inst, _fds_source_dir=opt.fds_source_dir,
+            self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.tar_file, _fds_source_dir=opt.fds_source_dir,
                                       _verbose=opt.verbose, _test_harness=test_harness)
 
         self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)

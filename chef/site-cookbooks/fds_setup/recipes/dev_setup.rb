@@ -46,6 +46,8 @@ fds_dev_packages = %w[
   libical-dev
   libical1
   libleveldb-dev
+  google-perftools
+  libgoogle-perftools-dev
   libconfig++-dev
   fds-pkghelper
   fds-pkg
@@ -61,13 +63,13 @@ fds_dev_packages = %w[
   python-boto
   python-argh
   python-thrift
-  python-xmlrunner
 ]
 
 fds_dev_python_packages = %w[
   scp
   PyYAML
   tabulate
+  xmlrunner
 ]
 
 apt_repository 'fds' do
@@ -87,13 +89,6 @@ apt_repository 'redis-server' do
   components [ 'trusty', 'main' ]
 end
 
-package 'openjdk-7-jre' do
-  action :purge
-end
-package 'openjdk-7-jre-headless' do
-  action :purge
-end
-
 fds_dev_packages.each do |pkg|
   apt_package pkg do
       action :install
@@ -111,26 +106,3 @@ link "/usr/lib/jvm/java-8-oracle" do
   not_if "test -d /usr/lib/jvm/java-8-oracle"
   to "/usr/lib/jvm/java-8-oracle-amd64"
 end
-
-# group node['fds_setup']['fds_dev_groupname'] do
-#     action :create
-# end
-
-# user node['fds_setup']['fds_dev_username'] do
-#     comment 'FDS Admin service account'
-#     gid node['fds_setup']['fds_dev_groupname']
-#     home node['fds_setup']['fds_dev_homedir']
-#     supports :manage_home => true
-#     shell '/bin/bash'
-#     password '$1$xyz$DOnIMQ/Uv9FXtWI/mUEC61'
-#     action :create
-#     system true
-# end
-
-# file "#{node['fds_setup']['fds_dev_homedir']}/clone-fds.sh" do
-#     owner node['fds_setup']['fds_dev_username']
-#     group node['fds_setup']['fds_dev_groupname']
-#     mode '0755'
-#     action :create_if_missing
-#     content "git clone https://github.com/fds-dev/fds-src\ngit fetch origin dev\ngit checkout dev"
-# end

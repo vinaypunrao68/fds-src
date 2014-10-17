@@ -7,15 +7,11 @@ package com.formationds.commons.model;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.util.SizeUnit;
 
-import javax.xml.bind.annotation.XmlRootElement;
-
 /**
  * @author ptinius
  */
-@XmlRootElement
 public class Usage
-  extends ModelBase
-{
+  extends ModelBase {
   private static final long serialVersionUID = -2938435229361709388L;
 
   private SizeUnit unit;
@@ -24,40 +20,36 @@ public class Usage
   /**
    * default package level constructor
    */
-  public Usage()
-  {
+  public Usage() {
     super();
   }
 
   /**
    * Property bound setter for {@code size}.
    */
-  public void setSize( String size )
-  {;
+  public void setSize( String size ) {
+    ;
     this.size = size;
   }
 
   /**
    * Property bound setter for {@code size}.
    */
-  public String getSize()
-  {
+  public String getSize() {
     return size;
   }
 
   /**
    * Property bound setter for {@code unit}.
    */
-  public void setUnit( SizeUnit unit )
-  {
+  public void setUnit( SizeUnit unit ) {
     this.unit = unit;
   }
 
   /**
    * Property bound setter for {@code unit}.
    */
-  public SizeUnit getUnit()
-  {
+  public SizeUnit getUnit() {
     return unit;
   }
 }

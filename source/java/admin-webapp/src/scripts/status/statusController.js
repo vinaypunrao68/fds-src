@@ -4,9 +4,14 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.firebreakMax = 1440;
     $scope.firebreakStats = { series: [[]], summaryData: { hoursSinceLastEvent: 0 }};
     $scope.performanceStats = { series: [[]] };
+    $scope.capacityStats = { series: [[]] };
     
-    $scope.fakeColors = [ 'green', 'green' ];
+    $scope.fakeColors = [ '#73DE8C', '#73DE8C' ];
+    $scope.fakeCapColors = [ '#71AEEA', '#AAD2F4' ];
     $scope.fakeOpacities = [0.7,0.7];
+    
+    $scope.capacityLineStipples = ['none', '2,2'];
+    $scope.capacityLineColors = ['#1C82FB', '#71AFF8'];
     
     $scope.activitiesReturned = function( list ){
         $scope.activities = eval(list);
@@ -18,6 +23,10 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $scope.performanceReturned = function( data ){
         $scope.performanceStats = data;
+    };
+    
+    $scope.capacityReturned = function( data ){
+        $scope.capacityStats = data;
     };
     
     // this callback creates the tooltip element
@@ -46,6 +55,15 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         
         return str;
     };
+    
+    $scope.setCapacityTooltipText = function( data, i, j ){
+        if ( i == 0 ){
+            return $filter( 'translate' )( 'status.desc_dedup_capacity' );
+        }
+        else {
+            return $filter( 'translate' )( 'status.desc_pre_dedup_capacity' );
+        }
+    };
 
     $scope.isAllowed = function( permission ){
         var isit = $authorization.isAllowed( permission );
@@ -64,5 +82,6 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $stats_service.getFirebreakSummary( $scope.firebreakReturned );
     $stats_service.getPerformanceSummary( $scope.performanceReturned );
+    $stats_service.getCapacitySummary( $scope.capacityReturned );
 
 }]);

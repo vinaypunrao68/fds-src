@@ -39,7 +39,7 @@ class ObjPersistDataUtProc : public FdsProcess {
 class SmObjectPersistDataTest : public ::testing::Test {
   public:
     SmObjectPersistDataTest()
-            : persistData(new ObjectPersistData("UT Object Persist Data")),
+            : persistData(new ObjectPersistData("UT Object Persist Data", NULL)),
               smDiskMap(new SmDiskMap("Test SM Disk Map")) {}
 
     virtual void SetUp() override;
@@ -110,7 +110,7 @@ SmObjectPersistDataTest::TearDown() {
 void
 SmObjectPersistDataTest::restart() {
     // first destruct persist data store and sm disk map
-    persistData.reset(new ObjectPersistData("UT Object Persist Data"));
+    persistData.reset(new ObjectPersistData("UT Object Persist Data", NULL));
     smDiskMap.reset(new SmDiskMap("Test SM Disk Map"));
 
     // init them again
@@ -120,7 +120,7 @@ SmObjectPersistDataTest::restart() {
 void
 SmObjectPersistDataTest::cleanRestart() {
     // first destruct persist data store and sm disk map
-    persistData.reset(new ObjectPersistData("UT Object Persist Data"));
+    persistData.reset(new ObjectPersistData("UT Object Persist Data", NULL));
     smDiskMap.reset(new SmDiskMap("Test SM Disk Map"));
 
     // remove everything from /<fds-root>/dev/<disk>/* including superblock
@@ -161,8 +161,7 @@ diskio::DiskRequest* createGetRequest(ObjectID objId,
                                     sync);
     plReq->setTier(tier);
     plReq->set_phy_loc(loc);
-    objBuf->size = objSize;
-    (objBuf->data).resize(objBuf->size, 0);
+    (objBuf->data)->resize(objSize, 0);
     return plReq;
 }
 
@@ -178,7 +177,7 @@ SmObjectPersistDataTest::writeDataset(
         ObjectID oid = testdata.dataset_[i];
         boost::shared_ptr<std::string> data =
                 testdata.dataset_map_[oid].getObjectData();
-        ObjectBuf objBuf(*data);
+        ObjectBuf objBuf(data);
         diskio::DiskRequest* req = createPutRequest(oid, &objBuf, diskio::diskTier);
         err = persistData->writeObjectData(oid, req);
         EXPECT_TRUE(err.ok());
@@ -209,7 +208,7 @@ SmObjectPersistDataTest::readDataset(
         err = persistData->readObjectData(oid, req);
         EXPECT_TRUE(err.ok());
 
-        boost::shared_ptr<const std::string> objData(new std::string(objBuf.data));
+        boost::shared_ptr<const std::string> objData(objBuf.data);
         EXPECT_TRUE(testdata.dataset_map_[oid].isValid(objData));
         delete req;
     }

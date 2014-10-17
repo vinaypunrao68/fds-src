@@ -31,6 +31,16 @@ source/unit-test/fds-probe/thrift/server/endpoint-test.P
 source/unit-test/fds-probe/thrift/server/endpoint-test.cpp-chk
 source/unit-test/fds-probe/thrift/server/ngx_modules.P
 source/unit-test/fds-probe/thrift/server/ngx_modules.c-chk
+source/unit-test/svc-layer/TestAMSvc.cpp
+source/unit-test/svc-layer/TestAMSvc.h
+source/unit-test/svc-layer/TestAMSvc_server.skeleton.cpp
+source/unit-test/svc-layer/TestSMSvc.cpp
+source/unit-test/svc-layer/TestSMSvc.h
+source/unit-test/svc-layer/TestSMSvc_server.skeleton.cpp
+source/unit-test/svc-layer/svc_constants.cpp
+source/unit-test/svc-layer/svc_constants.h
+source/unit-test/svc-layer/svc_types.cpp
+source/unit-test/svc-layer/svc_types.h
 /source/orch_mgr/java/gen-java/*
 /source/orch_mgr/java/target/*
 /source/java/target
@@ -95,3 +105,5 @@ source/am-engine
 chef/nodes
 chef/vagrant/*/.vagrant/*
 source/java/${project.build.dir}
+source/test/.idea
+ansible/resources/*
