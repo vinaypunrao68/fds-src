@@ -48,9 +48,9 @@ public class CloneSnapshot
                                              .fromJson( reader,
                                                         Volume.class );
       final String name = requiredString( routeParameters,
-                                          REQ_PARAM_SNAPSHOT_ID );
+                                          REQ_PARAM_CLONE_VOLUME_NAME );
       clonedVolumeId = config.cloneVolume(
-        requiredLong( routeParameters, REQ_PARAM_CLONE_VOLUME_NAME ),
+        requiredLong( routeParameters, REQ_PARAM_SNAPSHOT_ID ),
         0L,       // optional parameter so setting it to zero!
         name );
 
