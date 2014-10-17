@@ -4,6 +4,15 @@
 
 package com.formationds.commons.model;
 
+import com.formationds.commons.model.abs.Context;
+import com.formationds.commons.model.util.ModelFieldValidator;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static com.formationds.commons.model.util.ModelFieldValidator.KeyFields;
+import static com.formationds.commons.model.util.ModelFieldValidator.outOfRange;
+
 /**
  * @author ptinius
  */
@@ -19,6 +28,25 @@ public class Volume
   private Connector data_connector;
   private Usage current_usage;
 
+  // TODO volume uuid, shouldn't it be part of the volume model object?
+
+  private static final Map<String, ModelFieldValidator> VALIDATORS =
+    new HashMap<>();
+
+  static {
+    VALIDATORS.put( "priority",
+                    new ModelFieldValidator( KeyFields.PRIORITY,
+                                             PRIORITY_MIN,
+                                             PRIORITY_MAX ) );
+    VALIDATORS.put( "sla",
+                    new ModelFieldValidator( KeyFields.SLA,
+                                             SLA_MIN,
+                                             SLA_MAX ) );
+    VALIDATORS.put( "limit",
+                    new ModelFieldValidator( KeyFields.LIMIT,
+                                             SLA_MIN,
+                                             SLA_MAX ) );
+  }
 
   /**
    * default constructor
@@ -30,9 +58,10 @@ public class Volume
   /**
    * @return Returns a {@link T} representing the context
    */
+  @SuppressWarnings("unchecked")
   @Override
   public <T> T getContext() {
-    return ( T ) getName();
+    return ( T ) this.getName();
   }
 
   /**
@@ -62,6 +91,12 @@ public class Volume
    *                 this volume
    */
   public void setPriority( final int priority ) {
+    if( !VALIDATORS.get( "priority" )
+                   .isValid( priority ) ) {
+      throw new IllegalArgumentException(
+        outOfRange(
+          VALIDATORS.get( "priority" ), ( long ) priority ) );
+    }
     this.priority = priority;
   }
 
@@ -93,6 +128,13 @@ public class Volume
    *            for IOPS
    */
   public void setSla( final long sla ) {
+    if( !VALIDATORS.get( "sla" )
+                   .isValid( sla ) ) {
+      throw new IllegalArgumentException(
+        outOfRange(
+          VALIDATORS.get( "sla" ), sla ) );
+    }
+
     this.sla = sla;
   }
 
@@ -109,6 +151,13 @@ public class Volume
    *              agreement for IOPS
    */
   public void setLimit( final long limit ) {
+    if( !VALIDATORS.get( "limit" )
+                   .isValid( limit ) ) {
+      throw new IllegalArgumentException(
+        outOfRange(
+          VALIDATORS.get( "limit" ), limit ) );
+    }
+
     this.limit = limit;
   }
 
