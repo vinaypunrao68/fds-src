@@ -49,7 +49,7 @@ void SMSvcHandler::queryScavengerProgress(boost::shared_ptr<fpi::AsyncHdr> &hdr,
      resp->progress_pct = 10;
     GLOGDEBUG << "Response set: " << resp->progress_pct << " should be sending async resp now.";
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlQueryScavengerProgressResp), *resp);
-2}
+}
 
 void SMSvcHandler::setScavengerPolicy(boost::shared_ptr<fpi::AsyncHdr> &hdr,
             boost::shared_ptr<fpi::CtrlSetScavengerPolicy> &policy_msg) {
