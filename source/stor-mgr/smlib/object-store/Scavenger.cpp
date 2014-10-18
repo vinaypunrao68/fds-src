@@ -298,8 +298,9 @@ ScavControl::getScavengerStatus(const fpi::CtrlQueryScavengerStatusRespPtr& stat
 
 fds_uint32_t
 ScavControl::getProgress() {
-    fds_uint32_t totalToksCompacting = 0;
-    fds_uint32_t totalToksFinished = 0;
+    double totalToksCompacting = 0;
+    double totalToksFinished = 0;
+    double progress = 0;
 
     if (std::atomic_load(&enabled) == false) {
         return 100;
@@ -321,10 +322,12 @@ ScavControl::getProgress() {
     }
 
     fds_verify(totalToksFinished <= totalToksCompacting);
-    if (totalToksCompacting == 0) {
-        return 0;
+    LOGTRACE << "total compacting " << totalToksCompacting
+             << " toks finished " << totalToksFinished;
+    if (totalToksCompacting > 0) {
+        progress = 100 * totalToksFinished / totalToksCompacting;
     }
-    return (totalToksFinished / totalToksCompacting);
+    return progress;
 }
 
 DiskScavenger::DiskScavenger(fds_uint16_t _disk_id,
