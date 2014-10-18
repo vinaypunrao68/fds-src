@@ -55,6 +55,7 @@ ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap) {
 
         // actually open SM token file
         err = openTokenFile(diskio::diskTier, *cit, fileId);
+        fds_verify(err != ERR_DUPLICATE);  // file should not be already open
         if (!err.ok()) {
             LOGERROR << "Failed to open File for SM token " << *cit << " " << err;
             break;
@@ -79,7 +80,7 @@ ObjectPersistData::writeObjectData(const ObjectID& objId,
     fds_uint16_t fileId = getWriteFileId(req->getTier(), smTokId);
     diskio::PersisDataIO *iop = getTokenFile(req->getTier(),
                                              smTokId,
-                                             fileId);
+                                             fileId, false);
 
     fds_verify(iop);
     return iop->disk_write(req);
@@ -93,7 +94,7 @@ ObjectPersistData::readObjectData(const ObjectID& objId,
     fds_uint16_t fileId = loc->obj_file_id;
     diskio::PersisDataIO *iop = getTokenFile(req->getTier(),
                                              smTokId,
-                                             fileId);
+                                             fileId, true);
     fds_verify(iop);
     return iop->disk_read(req);
 }
@@ -106,7 +107,7 @@ ObjectPersistData::notifyDataDeleted(const ObjectID& objId,
     fds_uint16_t fileId = loc->obj_file_id;
     diskio::PersisDataIO *iop = getTokenFile((diskio::DataTier)loc->obj_tier,
                                              smTokId,
-                                             fileId);
+                                             fileId, true);
 
     iop->disk_delete(objSize);
 }
@@ -209,7 +210,9 @@ ObjectPersistData::openTokenFile(diskio::DataTier tier,
             + std::to_string(smTokId) + "_" + std::to_string(fileId);
 
     SCOPEDWRITE(mapLock);
-    fds_verify(tokFileTbl.count(fkey) == 0);
+    if (tokFileTbl.count(fkey) > 0) {
+        return ERR_DUPLICATE;
+    }
     fdesc = new(std::nothrow) diskio::FilePersisDataIO(filename.c_str(), fileId, diskId);
     if (!fdesc) {
         LOGERROR << "Failed to create FilePersisDataIO for " << filename;
@@ -245,10 +248,22 @@ ObjectPersistData::closeTokenFile(diskio::DataTier tier,
 diskio::FilePersisDataIO*
 ObjectPersistData::getTokenFile(diskio::DataTier tier,
                                 fds_token_id smTokId,
-                                fds_uint16_t fileId) {
+                                fds_uint16_t fileId,
+                                fds_bool_t openIfNotExist) {
     diskio::FilePersisDataIO *fdesc = NULL;
     fds_uint64_t fkey = getFileKey(tier, smTokId, fileId);
 
+    read_synchronized(mapLock) {
+        if (tokFileTbl.count(fkey) > 0) {
+            return tokFileTbl[fkey];
+        } else {
+            fds_verify(openIfNotExist == true);
+        }
+    }
+
+    // if we are here, file not open and we were asked to open it
+    Error err = openTokenFile(tier, smTokId, fileId);
+    fds_verify(err.ok() || (err == ERR_DUPLICATE));
     SCOPEDREAD(mapLock);
     fds_verify(tokFileTbl.count(fkey) > 0);
     return tokFileTbl[fkey];
@@ -268,7 +283,7 @@ ObjectPersistData::getSmTokenStats(fds_token_id smTokId,
                                    diskio::DataTier tier,
                                    diskio::TokenStat* retStat) {
     fds_uint16_t fileId = getWriteFileId(tier, smTokId);
-    diskio::FilePersisDataIO *fdesc = getTokenFile(tier, smTokId, fileId);
+    diskio::FilePersisDataIO *fdesc = getTokenFile(tier, smTokId, fileId, false);
     fds_verify(fdesc);
 
     // TODO(Anna) if we do multiple files per SM token, this method should
@@ -330,6 +345,11 @@ ObjectPersistData::scavengerControlCmd(SmScavengerCmd* scavCmd) {
             }
             break;
         case SmScavengerCmd::SCAV_GET_STATUS:
+            {
+                SmScavengerGetStatusCmd *statCmd =
+                        static_cast<SmScavengerGetStatusCmd*>(scavCmd);
+                scavenger->getScavengerStatus(statCmd->retStatus);
+            }
             break;
         default:
             fds_panic("Unknown scavenger command");

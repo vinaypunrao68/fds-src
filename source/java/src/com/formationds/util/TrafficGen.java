@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
@@ -81,7 +82,7 @@ public class TrafficGen {
     static AtomicInteger successes = new AtomicInteger(0);
     static AtomicInteger failures = new AtomicInteger(0);
     static AtomicInteger keepalive = new AtomicInteger(0);
-    static AtomicInteger total_latency = new AtomicInteger(0);
+    static AtomicLong total_latency = new AtomicLong(0);
 
     static String test_type = "GET";
     static String volume_name = "volume0";
@@ -275,7 +276,6 @@ public class TrafficGen {
 
         for (final HttpRequest request : requests) {
             HttpCoreContext coreContext = HttpCoreContext.create();
-            semaphore.acquire();
             // System.out.println("Request: " + request.toString());
             // Thread.sleep(100);
             final long[] reqStartTime = new long[1];
@@ -283,6 +283,11 @@ public class TrafficGen {
                     new BasicAsyncRequestProducer(target, request) {
                         @Override
                         public synchronized HttpRequest generateRequest() {
+                            try {
+                                semaphore.acquire();
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
                             reqStartTime[0] = System.nanoTime();
                             return super.generateRequest();
                         }
@@ -295,7 +300,7 @@ public class TrafficGen {
 
                         public void completed(final HttpResponse response) {
                             long reqEndTime = System.nanoTime();
-                            // total_latency.  incrementAndGet(reqEndTime - reqStartTime);
+                            total_latency.addAndGet(reqEndTime - reqStartTime[0]);
                             semaphore.release();
                             successes.incrementAndGet();
                             keepalive.incrementAndGet();
@@ -326,6 +331,7 @@ public class TrafficGen {
         System.out.println("successes: " + successes);
         System.out.println("failures: " + failures);
         System.out.println("keepalive: " + keepalive);
+        System.out.println("Average latency [ms]: " + total_latency.doubleValue() / successes.doubleValue());
 
         //rf.close();
 
