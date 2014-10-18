@@ -74,11 +74,10 @@ user_cpp          :=  \
     dm_volume_catalog_gtest.cpp \
     dm_mod_gtest.cpp
 
-user_bin_exe      := \
-    dm_volume_catalog_gtest \
-    dm_mod_gtest
+user_bin_exe      :=  \
+    dm_volume_catalog_gtest
 
 dm_volume_catalog_gtest     := dm_volume_catalog_gtest.cpp
-dm_mod_gtest                := dm_mod_gtest.cpp ngx_modules.c
+dm_mod_gtest                := dm_mod_gtest.cpp
 
 include $(topdir)/Makefile.incl
