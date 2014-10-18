@@ -15,6 +15,8 @@ import com.formationds.xdi.ConfigurationApi;
 import com.google.gson.GsonBuilder;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -22,6 +24,8 @@ import java.util.Map;
 
 public class CloneSnapshot
   implements RequestHandler {
+  private static final transient Logger logger =
+    LoggerFactory.getLogger( CloneSnapshot.class );
 
   private static final String REQ_PARAM_SNAPSHOT_ID = "snapshotId";
   private static final String REQ_PARAM_CLONE_VOLUME_NAME = "cloneVolumeName";
@@ -40,17 +44,23 @@ public class CloneSnapshot
                           final Map<String, String> routeParameters )
     throws Exception {
 
-    long clonedVolumeId;
+    long clonedSnapshotId;
     try( final Reader reader =
            new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
 
       final Volume volume = new GsonBuilder().create()
                                              .fromJson( reader,
                                                         Volume.class );
+      logger.trace( "CLONE SNAPSHOT:VOLUME: {}", volume );
+
       final String name = requiredString( routeParameters,
                                           REQ_PARAM_CLONE_VOLUME_NAME );
-      clonedVolumeId = config.cloneVolume(
-        requiredLong( routeParameters, REQ_PARAM_SNAPSHOT_ID ),
+      final long snapshotId = requiredLong( routeParameters,
+                                            REQ_PARAM_SNAPSHOT_ID );
+      logger.trace( "CLONE SNAPSHOT:NAME {} ID {}", name, snapshotId );
+
+      clonedSnapshotId = config.cloneVolume(
+        snapshotId,
         0L,       // optional parameter so setting it to zero!
         name );
 
@@ -66,7 +76,7 @@ public class CloneSnapshot
 
     return new JsonResource(
       new JSONObject(
-        new VolumeBuilder().withId( String.valueOf( clonedVolumeId ) )
+        new VolumeBuilder().withId( String.valueOf( clonedSnapshotId ) )
                            .build() ) );
   }
 }
