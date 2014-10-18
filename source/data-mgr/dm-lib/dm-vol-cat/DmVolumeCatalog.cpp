@@ -710,13 +710,14 @@ Error DmVolumeCatalog::getBlobMeta(fds_volid_t volume_id,
 //
 Error DmVolumeCatalog::getBlob(fds_volid_t volume_id,
                                const std::string& blob_name,
-                               fds_uint64_t blob_offset,
+                               fds_uint64_t start_offset,
+                               fds_int64_t end_offset,
                                blob_version_t* blob_version,
                                fpi::FDSP_MetaDataList* meta_list,
                                fpi::FDSP_BlobObjectList* obj_list)
 {
     Error err(ERR_OK);
-    LOGDEBUG << "Will retrieve blob " << blob_name << " offset " << blob_offset
+    LOGDEBUG << "Will retrieve blob " << blob_name << " offset " << start_offset
              << " volid " << std::hex << volume_id << std::dec;
 
     // get extent 0
@@ -737,7 +738,7 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volume_id,
     // find out which extend id to read
     BlobExtent::ptr extent = extent0;
     fds_extent_id extentId = persistCat->getExtentId(volume_id,
-                                                     blob_offset);
+                                                     start_offset);
     // Get extent if it's not the metadata extent0
     if (extentId != 0) {
         extent = getExtent(volume_id, blob_name, extentId, err);

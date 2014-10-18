@@ -401,6 +401,11 @@ ObjectStore::snapshotMetadata(fds_token_id smTokId,
     metaStore->snapshot(smTokId, notifFn);
 }
 
+Error
+ObjectStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
+    return dataStore->scavengerControlCmd(scavCmd);
+}
+
 /**
  * Module initialization
  */

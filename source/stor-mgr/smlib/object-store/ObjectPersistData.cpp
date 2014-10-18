@@ -281,6 +281,63 @@ ObjectPersistData::getSmTokenStats(fds_token_id smTokId,
     (*retStat).tkn_reclaim_size = fdesc->get_deleted_bytes();
 }
 
+Error
+ObjectPersistData::scavengerControlCmd(SmScavengerCmd* scavCmd) {
+    Error err(ERR_OK);
+    // if we did not get disk map, we are not ready to process
+    // scavenger commands
+    if (!smDiskMap) {
+        LOGERROR << "Not ready to execute scavenger command";
+        return ERR_NOT_READY;
+    }
+
+    LOGDEBUG << "Executing scavenger command " << scavCmd->command;
+    switch (scavCmd->command) {
+        case SmScavengerCmd::SCAV_ENABLE:
+            err = scavenger->enableScavenger(smDiskMap);
+            break;
+        case SmScavengerCmd::SCAV_DISABLE:
+            scavenger->disableScavenger();
+            break;
+        case SmScavengerCmd::SCAV_START:
+            scavenger->startScavengeProcess();
+            break;
+        case SmScavengerCmd::SCAV_STOP:
+            scavenger->stopScavengeProcess();
+            break;
+        case SmScavengerCmd::SCAV_SET_POLICY:
+            {
+                SmScavengerSetPolicyCmd *policyCmd =
+                        static_cast<SmScavengerSetPolicyCmd*>(scavCmd);
+                err = scavenger->setScavengerPolicy(policyCmd->policy->dsk_threshold1,
+                                                    policyCmd->policy->dsk_threshold2,
+                                                    policyCmd->policy->token_reclaim_threshold,
+                                                    policyCmd->policy->tokens_per_dsk);
+            }
+            break;
+        case SmScavengerCmd::SCAV_GET_POLICY:
+            {
+                SmScavengerGetPolicyCmd *policyCmd =
+                        static_cast<SmScavengerGetPolicyCmd*>(scavCmd);
+                err = scavenger->getScavengerPolicy(policyCmd->retPolicy);
+            }
+            break;
+        case SmScavengerCmd::SCAV_GET_PROGRESS:
+            {
+                SmScavengerGetProgressCmd *progCmd =
+                        static_cast<SmScavengerGetProgressCmd*>(scavCmd);
+                progCmd->retProgress = scavenger->getProgress();
+            }
+            break;
+        case SmScavengerCmd::SCAV_GET_STATUS:
+            break;
+        default:
+            fds_panic("Unknown scavenger command");
+    };
+
+    return err;
+}
+
 /**
  * Module initialization
  */

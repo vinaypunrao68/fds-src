@@ -4,6 +4,7 @@
 
 #include <string>
 #include <PerfTrace.h>
+#include <SmCtrl.h>
 #include <object-store/ObjectDataStore.h>
 
 namespace fds {
@@ -164,6 +165,11 @@ ObjectDataStore::removeObjectData(fds_volid_t volId,
     }
 
     return err;
+}
+
+Error
+ObjectDataStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
+    return persistData->scavengerControlCmd(scavCmd);
 }
 
 /**
