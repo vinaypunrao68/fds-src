@@ -1,12 +1,15 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
 #include <fds-aio.h>
 
 namespace fds {
 
 FdsAIO::~FdsAIO() {}
-FdsAIO::FdsAIO(int iovcnt, int fd) : fdsio::Request(false), io_cnt(iovcnt), io_fd(fd)
+FdsAIO::FdsAIO(int iovcnt, int fd) : io_link(this), io_cnt(iovcnt), io_fd(fd)
 {
     memset(io_vec, 0, sizeof(io_vec));
     io_retry   = 0;
@@ -22,7 +25,9 @@ FdsAIO::FdsAIO(int iovcnt, int fd) : fdsio::Request(false), io_cnt(iovcnt), io_f
 void
 FdsAIO::aio_read()
 {
-    aio_do_iov(true);
+    if (io_cnt > 0) {
+        aio_do_iov(true);
+    }
 }
 
 /**
@@ -32,7 +37,9 @@ FdsAIO::aio_read()
 void
 FdsAIO::aio_write()
 {
-    aio_do_iov(false);
+    if (io_cnt > 0) {
+        aio_do_iov(false);
+    }
 }
 
 /**
@@ -51,11 +58,13 @@ FdsAIO::aio_on_error()
 void
 FdsAIO::aio_do_iov(bool rd)
 {
+    char   *base;
+    size_t  dif;
     ssize_t len;
 
     while (io_cur_idx < io_cnt) {
         if (io_cur_ptr == NULL) {
-            aio_reset_iov(io_cur_idx);
+            aio_assign_iov(io_cur_idx);
             fds_assert(io_cur_len > 0);
             fds_assert(io_cur_ptr != NULL);
         }
@@ -69,12 +78,11 @@ FdsAIO::aio_do_iov(bool rd)
             io_cur_len -= len;
             if (io_cur_len == 0) {
                 /* We finish with the current vector. */
-                char   *base = reinterpret_cast<char *>(io_vec[io_cur_idx].iov_base);
-                size_t  ldif = static_cast<size_t>(io_cur_ptr - base);
-                fds_assert(ldif == io_vec[io_cur_idx].iov_len);
+                base = reinterpret_cast<char *>(io_vec[io_cur_idx].iov_base);
+                dif  = static_cast<size_t>(io_cur_ptr - base);
+                fds_assert(dif == io_vec[io_cur_idx].iov_len);
 
                 io_cur_ptr = NULL;
-                io_cur_len = 0;
                 io_cur_idx++;
             }
             continue;
@@ -90,13 +98,14 @@ FdsAIO::aio_do_iov(bool rd)
         }
         return;
     }
+    fds_assert(io_cur_ptr == NULL);
     fds_verify(io_cur_idx == io_cnt);
-    fds_verify(io_cur_ptr == NULL);
     if (rd == true) {
         aio_read_complete();
     } else {
         aio_write_complete();
     }
+    /* This obj may be used by different task right now. */
 }
 
 }  // namespace fds

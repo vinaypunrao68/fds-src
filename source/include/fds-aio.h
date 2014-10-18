@@ -5,12 +5,12 @@
 #define SOURCE_INCLUDE_FDS_AIO_H_
 
 #include <sys/uio.h>
+#include <cpplist.h>
 #include <fds_assert.h>
-#include <fds_request.h>
 
 namespace fds {
 
-class FdsAIO : public fdsio::Request
+class FdsAIO
 {
   public:
     static const int iov_max = 4;
@@ -24,20 +24,31 @@ class FdsAIO : public fdsio::Request
     inline void aio_set_fd(int fd) {
         io_fd = fd;
     }
+    inline void aio_reset() {
+        io_cnt     = 0;
+        io_cur_idx = 0;
+    }
     /**
      * Setup a vector buffer at the index location.
      */
-    inline void aio_set_iov(int idx, void *base, size_t len)
+    inline void aio_set_iov(int idx, char *base, size_t len)
     {
         fds_assert((idx < FdsAIO::iov_max) && ((io_cnt + 1) < FdsAIO::iov_max));
         io_vec[idx].iov_len  = len;
-        io_vec[idx].iov_base = reinterpret_cast<char *>(base);
+        io_vec[idx].iov_base = base;
         io_cnt++;
     }
+    inline void aio_reset_iov(char *base, size_t len)
+    {
+        io_vec[0].iov_len  = len;
+        io_vec[0].iov_base = base;
+        io_cnt     = 1;
+        io_cur_idx = 0;
+    }
     /**
-     * Reset the current index at the location specified by the arg.
+     * Assign the current tracking ptr and len from iov of the given index.
      */
-    inline void aio_reset_iov(int idx = 0)
+    inline void aio_assign_iov(int idx)
     {
         fds_assert(idx < io_cnt);
         io_cur_idx = idx;
@@ -55,6 +66,7 @@ class FdsAIO : public fdsio::Request
     virtual void aio_write_complete() = 0;
 
   protected:
+    ChainLink               io_link;
     int                     io_fd;
     int                     io_cnt;
     struct iovec            io_vec[FdsAIO::iov_max];

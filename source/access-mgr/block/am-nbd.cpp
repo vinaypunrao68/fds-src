@@ -80,12 +80,12 @@ BlockMod::blk_detach_vol(fds_uint64_t uuid)
 
 /**
  * -----------------------------------------------------------------------------------
- * Ev based module methods.
+ * Ev Block Volume and Module.
  * -----------------------------------------------------------------------------------
  */
-EvBlkVol::EvBlkVol(const blk_vol_creat_t *r)
+EvBlkVol::EvBlkVol(const blk_vol_creat_t *r, struct ev_loop *loop)
     : BlkVol(r->v_name, r->v_dev, r->v_uuid, r->v_vol_blksz, r->v_blksz),
-      vio_sk(-1), vio_read(NULL), vio_write(NULL) {}
+      vio_sk(-1), vio_ev_loop(loop), vio_read(NULL), vio_write(NULL) {}
 
 /**
  * ev_vol_event
@@ -96,15 +96,34 @@ EvBlkVol::ev_vol_event(struct ev_loop *loop, ev_io *ev, int revents)
 {
     FdsAIO *vio;
 
-    if (((revents & EV_WRITE) != 0) && (vio_write != NULL)) {
+    fds_assert(vio_ev_loop == loop);
+    if (((revents & EV_WRITE) != 0) || (vio_write != NULL)) {
         vio_write->aio_write();
+        if (vio_write != NULL) {
+            /* Don't do anything until we can push this write out. */
+            return;
+        }
     }
+    fds_assert(vio_write == NULL);
     if (revents & EV_READ) {
         if (vio_read == NULL) {
             vio_read = static_cast<FdsAIO *>(ev_alloc_vio());
         }
         vio_read->aio_read();
     }
+}
+
+/**
+ * ev_vol_rearm
+ * ------------
+ * Rearm the EV watcher with new events.
+ */
+void
+EvBlkVol::ev_vol_rearm(int events)
+{
+    ev_io_stop(vio_ev_loop, &vio_watch);
+    ev_io_set(&vio_watch, vio_sk, events);
+    ev_io_start(vio_ev_loop, &vio_watch);
 }
 
 /**
@@ -176,18 +195,16 @@ EvBlockMod::blk_run_loop()
 
 /**
  * -----------------------------------------------------------------------------------
- *  NBD block module methods.
+ *  NBD Block Volume
  * -----------------------------------------------------------------------------------
  */
-NbdBlkVol::NbdBlkVol(const blk_vol_creat_t *r) : EvBlkVol(r)
+NbdBlkVol::NbdBlkVol(const blk_vol_creat_t *r, struct ev_loop *loop) : EvBlkVol(r, loop)
 {
-    vio_repl = new NbdBlkIO(this, 0, 0);
     vio_buffer = new char [1 << 20];
 }
 
 NbdBlkVol::~NbdBlkVol()
 {
-    delete vio_repl;
     delete [] vio_buffer;
 }
 
@@ -256,7 +273,7 @@ NbdBlkIO::NbdBlkIO(NbdBlkVol::ptr vol, int iovcnt, int fd)
 {
     nbd_repl.magic = htonl(NBD_REPLY_MAGIC);
     nbd_repl.error = htonl(0);
-    aio_set_iov(0, &nbd_reqt, sizeof(nbd_reqt));
+    aio_set_iov(0, reinterpret_cast<char *>(&nbd_reqt), sizeof(nbd_reqt));
 }
 
 /**
@@ -266,6 +283,9 @@ NbdBlkIO::NbdBlkIO(NbdBlkVol::ptr vol, int iovcnt, int fd)
 void
 NbdBlkIO::aio_on_error()
 {
+    std::cout << "We got error\n";
+    nbd_vol->vio_write = NULL;
+    FdsAIO::aio_on_error();
 }
 
 /**
@@ -284,6 +304,61 @@ NbdBlkIO::aio_rearm_read()
 void
 NbdBlkIO::aio_read_complete()
 {
+    ssize_t len;
+
+    if (aio_cur_iov()== 1) {
+        /* We got the header. */
+        if (nbd_reqt.magic != htonl(NBD_REQUEST_MAGIC)) {
+            aio_on_error();
+            return;
+        }
+        memcpy(nbd_repl.handle, nbd_reqt.handle, sizeof(nbd_repl.handle));
+        nbd_cur_off = ntohll(nbd_reqt.from);
+
+        len = ntohl(nbd_reqt.len);
+        fds_verify((len > 0) && (len < (1 << 20)));
+
+        switch (ntohl(nbd_reqt.type)) {
+        case NBD_CMD_READ:
+            nbd_vol->nbd_vol_read(this);
+
+            /* For now, assume we have data to send back. */
+            this->vio_setup_write_reply();
+            aio_set_iov(0, reinterpret_cast<char *>(&nbd_repl), sizeof(nbd_repl));
+            aio_set_iov(1, nbd_vol->vio_buffer, len);
+            this->aio_write();
+            break;
+
+        case NBD_CMD_WRITE:
+            aio_set_iov(1, nbd_vol->vio_buffer, len);
+            this->aio_read();
+            break;
+
+        case NBD_CMD_DISC:
+            nbd_vol->nbd_vol_close();
+            break;
+
+        case NBD_CMD_FLUSH:
+            nbd_vol->nbd_vol_flush();
+            break;
+
+        case NBD_CMD_TRIM:
+            nbd_vol->nbd_vol_trim();
+            break;
+
+        default:
+            break;
+        }
+    } else {
+        /* We got the data for NBD_CMD_WRITE from the socket. */
+        fds_verify(aio_cur_iov() == 2);
+        nbd_vol->nbd_vol_write(this);
+
+        /* Send the response back. */
+        this->vio_setup_write_reply();
+        aio_set_iov(0, reinterpret_cast<char *>(&nbd_repl), sizeof(nbd_repl));
+        this->aio_write();
+    }
 }
 
 /**
@@ -293,6 +368,7 @@ NbdBlkIO::aio_read_complete()
 void
 NbdBlkIO::aio_rearm_write()
 {
+    nbd_vol->ev_vol_rearm(EV_READ | EV_WRITE);
 }
 
 /**
@@ -302,6 +378,12 @@ NbdBlkIO::aio_rearm_write()
 void
 NbdBlkIO::aio_write_complete()
 {
+    fds_assert(nbd_vol->vio_write == nbd_vol->vio_read);
+    nbd_vol->vio_write = NULL;
+
+    /* Stop NBD socket write watch. */
+    vio_setup_new_read();
+    nbd_vol->ev_vol_rearm(EV_READ);
 }
 
 /*
@@ -319,7 +401,8 @@ NbdBlockMod::NbdBlockMod() : EvBlockMod() {}
 BlkVol::ptr
 NbdBlockMod::blk_alloc_vol(const blk_vol_creat *r)
 {
-    return new NbdBlkVol(r);
+    fds_verify(ev_blk_loop != NULL);
+    return new NbdBlkVol(r, ev_blk_loop);
 }
 
 /**
@@ -332,47 +415,6 @@ NbdBlockMod::mod_startup()
     EvBlockMod::mod_startup();
 }
 
-static int
-write_all(int fd, char *buf, ssize_t len)
-{
-    ssize_t written;
-
-    while (len > 0) {
-        written = write(fd, buf, len);
-        if (written < 0) {
-            perror("Write error");
-            std::cout << "error " << errno << ", wr " << written
-                << ", len " << len << std::endl;
-        }
-        fds_assert(written > 0);
-        buf += written;
-        len -= written;
-    }
-    return 0;
-}
-
-static void
-read_all(int fd, char *buf, ssize_t len)
-{
-    ssize_t cur;
-
-    while (len > 0) {
-        cur = read(fd, buf, len);
-        if (cur <= 0) {
-            std::cout << "read " << cur << ", error no " << errno << std::endl;
-            if (cur == 0) {
-                continue;
-            }
-            if (errno != EAGAIN) {
-                return;
-            }
-            continue;
-        }
-        len -= cur;
-        buf += cur;
-    }
-}
-
 /**
  * nbd_vol_callback
  * ----------------
@@ -380,46 +422,10 @@ read_all(int fd, char *buf, ssize_t len)
 static void
 nbd_vol_callback(struct ev_loop *loop, ev_io *ev, int revents)
 {
-#if 0
-    ssize_t             len, from;
-    NbdBlkVol::ptr      vol;
-    struct nbd_reply   *res;
-    struct nbd_request *req;
+    NbdBlkVol::ptr vol;
 
     vol = reinterpret_cast<NbdBlkVol *>(ev->data);
-    req = &vol->nbd_reqt;
-    res = &vol->nbd_repl;
-    read_all(vol->vio_sk, reinterpret_cast<char *>(req), sizeof(*req));
-    memcpy(res->handle, req->handle, sizeof(res->handle));
-
-    len  = ntohl(req->len);
-    from = ntohll(req->from);
-    fds_verify((len > 0) && (len < (1 << 20)));
-
-    switch (ntohl(req->type)) {
-    case NBD_CMD_READ:
-        write_all(vol->vio_sk, reinterpret_cast<char *>(res), sizeof(*res));
-        write_all(vol->vio_sk, vol->nbd_buffer, len);
-        break;
-
-    case NBD_CMD_WRITE:
-        read_all(vol->vio_sk, vol->nbd_buffer, len);
-        write_all(vol->vio_sk, reinterpret_cast<char *>(res), sizeof(*res));
-        break;
-
-    case NBD_CMD_DISC:
-        break;
-
-    case NBD_CMD_FLUSH:
-        break;
-
-    case NBD_CMD_TRIM:
-        break;
-
-    default:
-        break;
-    }
-#endif
+    vol->ev_vol_event(loop, ev, revents);
 }
 
 /**
@@ -444,7 +450,7 @@ NbdBlockMod::blk_attach_vol(const blk_vol_creat_t *r)
         /* The vol will be freed when it's out of scope. */
         return -1;
     }
-    ret = socketpair(AF_UNIX, SOCK_STREAM, 0, sp);
+    ret = socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, sp);
     fds_verify(ret == 0);
 
     ret = ioctl(fd, NBD_SET_SIZE, r->v_vol_blksz * r->v_blksz);
