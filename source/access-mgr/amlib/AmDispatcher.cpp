@@ -598,4 +598,51 @@ AmDispatcher::statBlobCb(AmQosReq* qosReq,
     blobReq->processorCb(error);
 }
 
+void
+AmDispatcher::dispatchCommitBlobTx(AmQosReq *qosReq) {
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(
+        qosReq->getBlobReqPtr());
+
+    fiu_do_on("am.uturn.dispatcher", blobReq->processorCb(ERR_OK); delete blobReq; return;);
+
+    // Create callback
+    QuorumSvcRequestRespCb respCb(
+        RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb,
+                             qosReq));
+
+    // Create network message
+    CommitBlobTxMsgPtr commitBlobTxMsg = boost::make_shared<CommitBlobTxMsg>();
+    commitBlobTxMsg->blob_name    = blobReq->getBlobName();
+    commitBlobTxMsg->blob_version = blob_version_invalid;
+    commitBlobTxMsg->volume_id    = blobReq->getVolId();
+    commitBlobTxMsg->txId         = blobReq->getTxId()->getValue();
+    commitBlobTxMsg->dmt_version  = dmtMgr->getCommittedVersion();
+
+    auto asyncCommitBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
+        boost::make_shared<DmtVolumeIdEpProvider>(
+            dmtMgr->getCommittedNodeGroup(blobReq->getVolId())));
+    asyncCommitBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg),
+                                    commitBlobTxMsg);
+    asyncCommitBlobTxReq->onResponseCb(respCb);
+    asyncCommitBlobTxReq->invoke();
+
+    LOGDEBUG << asyncCommitBlobTxReq->logString()
+             << logString(*commitBlobTxMsg);
+}
+
+void
+AmDispatcher::commitBlobTxCb(AmQosReq *qosReq,
+                            QuorumSvcRequest *svcReq,
+                            const Error &error,
+                            boost::shared_ptr<std::string> payload) {
+    fds_verify(qosReq != NULL);
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
+
+    // Notify upper layers that the request is done. When this
+    // completes, all upper layers should be notified and we
+    // can safely delete the request
+    blobReq->processorCb(error);
+}
 }  // namespace fds
