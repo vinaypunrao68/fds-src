@@ -742,7 +742,9 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
     fpi::QueryCatalogMsgPtr queryMsg(new fpi::QueryCatalogMsg());
     queryMsg->volume_id    = volId;
     queryMsg->blob_name    = blobName;
-    queryMsg->blob_offset  = blobOffset;
+    queryMsg->start_offset  = blobOffset;
+    // TODO(umesh): need to use valid end_offset; -1 for all starting from start_offset
+    queryMsg->end_offset = -1;
     // We don't currently specify a version
     queryMsg->blob_version = blob_version_invalid;
     queryMsg->obj_list.clear();
