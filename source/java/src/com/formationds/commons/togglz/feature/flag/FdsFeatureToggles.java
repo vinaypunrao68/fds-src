@@ -5,6 +5,7 @@
 package com.formationds.commons.togglz.feature.flag;
 
 import com.formationds.commons.togglz.FdsFeatureManagerProvider;
+import com.formationds.commons.togglz.feature.annotation.Activities;
 import com.formationds.commons.togglz.feature.annotation.Snapshot;
 import com.formationds.commons.togglz.feature.annotation.Statistics;
 import org.togglz.core.Feature;
@@ -22,9 +23,13 @@ public enum FdsFeatureToggles
 
   @Label( "Statistics Feature" )
   @Statistics
-  STATISTICS_ENDPOINT;
+  STATISTICS_ENDPOINT,
 
-  /**
+  @Label( "Activities Feature" )
+  @Activities
+  ACTIVITIES_ENDPOINT;
+
+    /**
    * @return Returns {@code true} if the feature associated with {@code this} is enabled
    */
   public boolean isActive()
