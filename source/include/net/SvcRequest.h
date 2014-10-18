@@ -16,6 +16,7 @@
 #include <dlt.h>
 #include <net/net-service.h>
 #include <fdsp_utils.h>
+#include <concurrency/taskstatus.h>
 
 namespace fds {
 /* Forward declarations */
@@ -48,6 +49,38 @@ enum SvcRequestState {
     PRIOR_INVOCATION,
     INVOCATION_PROGRESS,
     SVC_REQUEST_COMPLETE
+};
+
+namespace net {
+template<class PayloadT> boost::shared_ptr<PayloadT>
+ep_deserialize(Error &e, boost::shared_ptr<std::string> payload);
+}
+
+template <class ReqT, class RespMsgT>
+struct SvcRequestCbTask : concurrency::TaskStatus {
+    SvcRequestCbTask() {
+        error = ERR_INVALID;
+        cb = std::bind(&SvcRequestCbTask<ReqT, RespMsgT>::respCb, this);
+    }
+    void respCb(ReqT* req, const Error &e, boost::shared_ptr<std::string> respPayload)
+    {
+        response = net::ep_deserialize<RespMsgT>(const_cast<Error&>(e), respPayload);
+        error = e;
+        done();
+    }
+    bool success() {
+        return error == ERR_OK;
+    }
+    virtual void reset() override
+    {
+        response.reset(nullptr);
+        error = ERR_INVALID;
+        concurrency::TaskStatus::reset();
+    }
+
+    boost::shared_ptr<RespMsgT> response;
+    Error error;
+    std::function<void(ReqT*, const Error&, boost::shared_ptr<std::string>)> cb;
 };
 
 /**

@@ -11,8 +11,7 @@ import java.io.Serializable;
 /**
  * @author ptinius
  */
-public abstract class KeyValueRepository<T, PrimaryKey extends Serializable>
-  implements CRUDRepository<T, PrimaryKey> {
+public abstract class KeyValueRepository<T, PrimaryKey extends Serializable> {
 
   private Jedis jedis;
 

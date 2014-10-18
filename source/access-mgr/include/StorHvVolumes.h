@@ -250,6 +250,10 @@ class AbortBlobTxReq : public FdsBlobReq {
 class CommitBlobTxReq : public FdsBlobReq {
   public:
     BlobTxId::ptr txDesc;
+
+    typedef std::function<void (const Error&)> CommitBlobProcCb;
+    CommitBlobProcCb processorCb;
+
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob

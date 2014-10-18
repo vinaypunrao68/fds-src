@@ -49,7 +49,7 @@ public class CloneVolume
                                           REQ_PARAM_CLONE_VOLUME_NAME );
       clonedVolumeId = config.cloneVolume(
         requiredLong( routeParameters, REQ_PARAM_VOLUME_ID ),
-        0L,
+        0L,                 // optional parameter so setting it to zero!
         name );
 
       Thread.sleep( 200 );

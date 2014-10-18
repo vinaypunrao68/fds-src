@@ -153,7 +153,8 @@ class DmVolumeDirectory : public Module, public HasLogger,
      * Retrieves all info about the blob with given blobName and volume 'volId'
      * @param[in] volId volume uuid
      * @param[in] blobName name of the blob
-     * @param[in] blobOffset blob offset being queried
+     * @param[in] startOffset starting offset being queried
+     * @param[in] endOffset end offset being queried
      * @param[in,out] blobVersion version of the blob to retrieve, if not set,
      *                the most recent version is retrieved. When the method returns,
      *                blobVersion is set to actual version that is retrieved
@@ -162,7 +163,7 @@ class DmVolumeDirectory : public Module, public HasLogger,
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      */
     Error getBlob(fds_volid_t volId, const std::string& blobName, fds_uint64_t startOffset,
-            blob_version_t* blobVersion, fpi::FDSP_MetaDataList* metaList,
+            fds_int64_t endOffset, blob_version_t* blobVersion, fpi::FDSP_MetaDataList* metaList,
             fpi::FDSP_BlobObjectList* objList);
 
     /**

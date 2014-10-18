@@ -8,6 +8,8 @@
 #include <AmDispatcher.h>
 #include <net/SvcRequestPool.h>
 #include <net/net-service-tmpl.hpp>
+#include <fiu-control.h>
+#include <util/fiu_util.h>
 
 namespace fds {
 
@@ -18,7 +20,9 @@ AmDispatcher::AmDispatcher(const std::string &modName,
           dltMgr(_dltMgr),
           dmtMgr(_dmtMgr) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    uturnAll = conf.get<fds_bool_t>("testing.uturn_dispatcher_all");
+    if (conf.get<fds_bool_t>("testing.uturn_dispatcher_all")) {
+        fiu_enable("am.uturn.dispatcher", 1, NULL, 0);
+    }
 }
 
 AmDispatcher::~AmDispatcher() {
@@ -80,6 +84,8 @@ void
 AmDispatcher::dispatchAbortBlobTx(AmQosReq *qosReq) {
     AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(qosReq->getBlobReqPtr());
 
+    fiu_do_on("am.uturn.dispatcher", blobReq->processorCb(ERR_OK); delete blobReq; return;);
+
     fds_volid_t volId = blobReq->getVolId();
 
     AbortBlobTxMsgPtr stBlobTxMsg(new AbortBlobTxMsg());
@@ -118,6 +124,8 @@ AmDispatcher::dispatchStartBlobTx(AmQosReq *qosReq) {
     // version we cache in the blobReq now and the version we
     // actually dispatch on below. Make the update/dispatch consistent.
     blobReq->dmtVersion = dmtMgr->getCommittedVersion();
+
+    fiu_do_on("am.uturn.dispatcher", blobReq->processorCb(ERR_OK); delete blobReq; return;);
 
     // Create callback
     QuorumSvcRequestRespCb respCb(
@@ -168,6 +176,8 @@ AmDispatcher::dispatchDeleteBlob(AmQosReq *qosReq)
     DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
+    fiu_do_on("am.uturn.dispatcher", blobReq->processorCb(ERR_OK); delete blobReq; return;);
+
     DeleteBlobMsgPtr message = boost::make_shared<DeleteBlobMsg>();
     message->volume_id = blobReq->getVolId();
     message->blob_name = blobReq->getBlobName();
@@ -209,6 +219,10 @@ AmDispatcher::dispatchUpdateCatalog(AmQosReq *qosReq) {
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
+    fiu_do_on("am.uturn.dispatcher",
+              blobReq->notifyResponse(qosReq, ERR_OK);  \
+              return;);
+
     UpdateCatalogMsgPtr updCatMsg(boost::make_shared<UpdateCatalogMsg>());
     updCatMsg->blob_name    = blobReq->getBlobName();
     updCatMsg->blob_version = blob_version_invalid;
@@ -244,6 +258,10 @@ void
 AmDispatcher::dispatchUpdateCatalogOnce(AmQosReq *qosReq) {
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
+
+    fiu_do_on("am.uturn.dispatcher",
+              blobReq->notifyResponse(qosReq, ERR_OK); \
+              return;);
 
     UpdateCatalogOnceMsgPtr updCatMsg(boost::make_shared<UpdateCatalogOnceMsg>());
     updCatMsg->blob_name    = blobReq->getBlobName();
@@ -297,8 +315,9 @@ AmDispatcher::updateCatalogCb(AmQosReq* qosReq,
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << blobReq->getObjId()
-            << " blob name: " << blobReq->getBlobName()
-            << " offset: " << blobReq->getBlobOffset() << " Error: " << error;
+                 << " blob name: " << blobReq->getBlobName()
+                 << " offset: " << blobReq->getBlobOffset()
+                 << " Error: " << error;
     } else {
         LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
     }
@@ -310,6 +329,10 @@ AmDispatcher::dispatchPutObject(AmQosReq *qosReq) {
     PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getDataLen() > 0);
+
+    fiu_do_on("am.uturn.dispatcher",
+              blobReq->notifyResponse(qosReq, ERR_OK); \
+              return;);
 
     PutObjectMsgPtr putObjMsg(boost::make_shared<PutObjectMsg>());
     putObjMsg->volume_id        = blobReq->getVolId();
@@ -357,6 +380,13 @@ AmDispatcher::dispatchGetObject(AmQosReq *qosReq)
 {
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
+
+    fiu_do_on("am.uturn.dispatcher",
+              GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb); \
+              cb->returnSize = blobReq->getDataLen(); \
+              memset(cb->returnBuffer, 0x00, cb->returnSize); \
+              blobReq->processorCb(ERR_OK); \
+              return;);
 
     PerfTracer::tracePointBegin(blobReq->smPerfCtx);
     fds_volid_t volId = blobReq->getVolId();
@@ -435,6 +465,11 @@ AmDispatcher::dispatchQueryCatalog(AmQosReq *qosReq) {
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
+    fiu_do_on("am.uturn.dispatcher",
+              blobReq->setObjId(ObjectID()); \
+              blobReq->processorCb(ERR_OK); \
+              return;);
+
     PerfTracer::tracePointBegin(blobReq->dmPerfCtx);
     std::string blobName = blobReq->getBlobName();
     size_t blobOffset = blobReq->getBlobOffset();
@@ -448,7 +483,9 @@ AmDispatcher::dispatchQueryCatalog(AmQosReq *qosReq) {
     fpi::QueryCatalogMsgPtr queryMsg(new fpi::QueryCatalogMsg());
     queryMsg->volume_id    = volId;
     queryMsg->blob_name    = blobName;
-    queryMsg->blob_offset  = blobOffset;
+    queryMsg->start_offset  = blobOffset;
+    // TODO(umesh): need to use valid end_offset; -1 for all starting from start_offset
+    queryMsg->end_offset   = -1;
     // We don't currently specify a version
     queryMsg->blob_version = blob_version_invalid;
     queryMsg->obj_list.clear();
@@ -518,6 +555,13 @@ AmDispatcher::dispatchStatBlob(AmQosReq *qosReq)
     StatBlobReq* blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
+    fiu_do_on("am.uturn.dispatcher",
+              StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, blobReq->cb); \
+              cb->blobDesc.setBlobName(blobReq->getBlobName()); \
+              cb->blobDesc.setBlobSize(0); \
+              blobReq->processorCb(ERR_OK); \
+              return;);
+
     GetBlobMetaDataMsgPtr message = boost::make_shared<GetBlobMetaDataMsg>();
     message->volume_id = blobReq->getVolId();
     message->blob_name = blobReq->getBlobName();
@@ -556,4 +600,51 @@ AmDispatcher::statBlobCb(AmQosReq* qosReq,
     blobReq->processorCb(error);
 }
 
+void
+AmDispatcher::dispatchCommitBlobTx(AmQosReq *qosReq) {
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(
+        qosReq->getBlobReqPtr());
+
+    fiu_do_on("am.uturn.dispatcher", blobReq->processorCb(ERR_OK); delete blobReq; return;);
+
+    // Create callback
+    QuorumSvcRequestRespCb respCb(
+        RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb,
+                             qosReq));
+
+    // Create network message
+    CommitBlobTxMsgPtr commitBlobTxMsg = boost::make_shared<CommitBlobTxMsg>();
+    commitBlobTxMsg->blob_name    = blobReq->getBlobName();
+    commitBlobTxMsg->blob_version = blob_version_invalid;
+    commitBlobTxMsg->volume_id    = blobReq->getVolId();
+    commitBlobTxMsg->txId         = blobReq->getTxId()->getValue();
+    commitBlobTxMsg->dmt_version  = dmtMgr->getCommittedVersion();
+
+    auto asyncCommitBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
+        boost::make_shared<DmtVolumeIdEpProvider>(
+            dmtMgr->getCommittedNodeGroup(blobReq->getVolId())));
+    asyncCommitBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg),
+                                    commitBlobTxMsg);
+    asyncCommitBlobTxReq->onResponseCb(respCb);
+    asyncCommitBlobTxReq->invoke();
+
+    LOGDEBUG << asyncCommitBlobTxReq->logString()
+             << logString(*commitBlobTxMsg);
+}
+
+void
+AmDispatcher::commitBlobTxCb(AmQosReq *qosReq,
+                            QuorumSvcRequest *svcReq,
+                            const Error &error,
+                            boost::shared_ptr<std::string> payload) {
+    fds_verify(qosReq != NULL);
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
+
+    // Notify upper layers that the request is done. When this
+    // completes, all upper layers should be notified and we
+    // can safely delete the request
+    blobReq->processorCb(error);
+}
 }  // namespace fds

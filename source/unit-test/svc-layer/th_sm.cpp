@@ -70,7 +70,7 @@ class TestSMSvcHandler : virtual public FDS_ProtocolInterface::TestSMSvcIf {
         amTrans->open();
         clientTbl_[cntr] = amClient;
 
-        std::cout << "associated with " << ip << ":" << port << std::endl;
+        std::cout << "associated with " << ip << ":" << port << " id: " << cntr << std::endl;
         return cntr;
     }
 

@@ -42,7 +42,7 @@ class AmDispatcher : public Module, public boost::noncopyable {
     void mod_shutdown();
 
     /**
-     * Dipatches a get volume metadata request.
+     * Dispatches a get volume metadata request.
      */
     void dispatchGetVolumeMetadata(AmQosReq *qosReq);
 
@@ -68,6 +68,19 @@ class AmDispatcher : public Module, public boost::noncopyable {
      * Callback for start blob transaction responses.
      */
     void startBlobTxCb(AmQosReq* qosReq,
+                       QuorumSvcRequest* svcReq,
+                       const Error& error,
+                       boost::shared_ptr<std::string> payload);
+
+    /**
+     * Dispatches a commit blob transaction request.
+     */
+    void dispatchCommitBlobTx(AmQosReq *qosReq);
+
+    /**
+     * Callback for commit blob transaction responses.
+     */
+    void commitBlobTxCb(AmQosReq* qosReq,
                        QuorumSvcRequest* svcReq,
                        const Error& error,
                        boost::shared_ptr<std::string> payload);
@@ -112,9 +125,6 @@ class AmDispatcher : public Module, public boost::noncopyable {
     /// for deciding who to dispatch to
     DLTManagerPtr dltMgr;
     DMTManagerPtr dmtMgr;
-
-    /// Uturn test all network requests
-    fds_bool_t uturnAll;
 
     /**
      * Callback for delete blob responses.

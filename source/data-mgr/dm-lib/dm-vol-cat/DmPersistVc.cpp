@@ -398,7 +398,8 @@ Error PersistVolumeMeta::syncToDM(NodeUuid dm_uuid) {
     write_synchronized(snap_lock_) {
         retcode = std::system((const char *)rm_cmd.c_str());
         if (retcode == 0) {
-            retcode = std::system((const char *)copy_cmd.c_str());
+           //  retcode = std::system((const char *)copy_cmd.c_str());
+            Error err   = copyDB(loc_snap_dir);
         }
     }
 

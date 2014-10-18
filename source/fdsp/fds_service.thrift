@@ -77,6 +77,14 @@ enum  FDSPMsgTypeId {
     /* SM messages. */
     CtrlStartMigrationTypeId           = 2040,
     CtrlNotifyScavengerTypeId          = 2041,
+	CtrlQueryScavengerStatusTypeId	   = 2042,
+	CtrlQueryScavengerStatusRespTypeId = 2043,
+	CtrlQueryScavengerProgressTypeId   = 2044,
+	CtrlQueryScavengerProgressRespTypeId = 2045,
+	CtrlSetScavengerPolicyTypeId 	   = 2046,
+	CtrlSetScavengerPolicyRespTypeId   = 2047,
+	CtrlQueryScavengerPolicyTypeId     = 2048,
+	CtrlQueryScavengerPolicyRespTypeId = 2049,
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,
@@ -108,6 +116,7 @@ enum  FDSPMsgTypeId {
 	DeleteObjectRspMsgTypeId,
     AddObjectRefMsgTypeId,
     AddObjectRefRspMsgTypeId,
+	
 
     /* DM Type Ids */
     QueryCatalogMsgTypeId = 20000,
@@ -455,6 +464,49 @@ struct CtrlNotifyQosControl {
      1: FDSP.FDSP_QoSControlMsgType qosctrl;
 } 
 
+/* ---------------------  CtrlScavengerStatusTypeId  --------------------------- */
+enum FDSP_ScavengerStatusType {
+	 ACTIVE					  = 1,
+	 INACTIVE				  = 2,
+	 DISABLED				  = 3	 
+}
+
+struct CtrlQueryScavengerStatus {
+}
+
+struct CtrlQueryScavengerStatusResp {
+	   1: FDSP_ScavengerStatusType 	status;
+}
+
+/* ---------------------  CtrlScavengerProgressTypeId  --------------------------- */
+struct CtrlQueryScavengerProgress {
+}
+
+struct CtrlQueryScavengerProgressResp {
+	   1: i32					  progress_pct;
+}	   
+
+/* ---------------------  CtrlScavengerPolicyTypeId  --------------------------- */
+struct CtrlSetScavengerPolicy {
+	   1: i32					  dsk_threshold1;
+	   2: i32					  dsk_threshold2;
+	   3: i32					  token_reclaim_threshold;
+	   4: i32					  tokens_per_dsk;
+}
+
+struct CtrlSetScavengerPolicyResp {
+}
+
+struct CtrlQueryScavengerPolicy {
+}
+
+struct CtrlQueryScavengerPolicyResp {
+       1: i32                     dsk_threshold1;
+       2: i32                     dsk_threshold2;
+       3: i32                     token_reclaim_threshold;
+       4: i32                     tokens_per_dsk;
+}
+
 /* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
 struct CtrlNotifyDLTUpdate {
      1: FDSP.FDSP_DLT_Data_Type   dlt_data;
@@ -630,10 +682,11 @@ service SMSvc extends PlatNetSvc {
 struct QueryCatalogMsg {
    1: i64    			volume_id;
    2: string   			blob_name;		/* User visible name of the blob*/
-   3: i64                       blob_offset;            /* Offset into the blob */
-   4: i64 			blob_version;        	/* Version of the blob to query */
-   5: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
-   6: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
+   3: i64               start_offset;   /* Starting offset into the blob */
+   4: i64               end_offset;     /* End offset into the blob */
+   5: i64 			    blob_version;   /* Version of the blob to query */
+   6: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
+   7: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
 }
 
 // TODO(Rao): Use QueryCatalogRspMsg.  In current implementation we are using QueryCatalogMsg

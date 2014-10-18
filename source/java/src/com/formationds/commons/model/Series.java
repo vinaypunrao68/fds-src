@@ -4,21 +4,30 @@
 
 package com.formationds.commons.model;
 
+import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.ModelBase;
+import com.formationds.commons.model.type.Metrics;
 import com.google.gson.annotations.SerializedName;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * @author ptinius
  */
 public class Series
-extends ModelBase {
+  extends ModelBase {
   private static final long serialVersionUID = 8246474218117834832L;
 
-  @SerializedName( "context" )
+  /*
+   * use a series for the Statistics model object
+   */
+
+  @SerializedName("type")
+  private Metrics type;
+  @SerializedName("context")
   private Context context;
-  @SerializedName( "datapoints" )
+  @SerializedName("datapoints")
   private List<Datapoint> datapoints;
 
   /**
@@ -36,6 +45,17 @@ extends ModelBase {
   }
 
   /**
+   * @param datapoint the {@link Datapoint}
+   */
+  public void setDatapoint( final Datapoint datapoint ) {
+    if( this.datapoints == null ) {
+      this.datapoints = new ArrayList<>();
+    }
+
+    this.datapoints.add( datapoint );
+  }
+
+  /**
    * @return Returns the {@link com.formationds.commons.model.Volume}
    */
   public Context getContext() {
@@ -43,9 +63,23 @@ extends ModelBase {
   }
 
   /**
-   * @param context the {@link com.formationds.commons.model.Context}
+   * @param context the {@link com.formationds.commons.model.abs.Context}
    */
   public void setContext( final Context context ) {
     this.context = context;
+  }
+
+  /**
+   * @return Returns the {@link com.formationds.commons.model.type.Metrics}
+   */
+  public Metrics getType() {
+    return type;
+  }
+
+  /**
+   * @param type the {@link com.formationds.commons.model.type.Metrics}
+   */
+  public void setType( final Metrics type ) {
+    this.type = type;
   }
 }
