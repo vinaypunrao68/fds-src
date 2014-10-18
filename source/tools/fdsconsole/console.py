@@ -21,6 +21,7 @@ from contexts import service
 from contexts import user
 from contexts import tenant
 from contexts import scavenger
+from contexts import ScavengerPolicy
 
 """
 Console exit exception. This is needed to exit cleanly as 
@@ -459,7 +460,8 @@ class FDSConsole(cmd.Cmd):
         self.root.add_sub_context(service.ServiceContext(self.config,'service'))
         self.root.add_sub_context(tenant.TenantContext(self.config,'tenant'))
         self.root.add_sub_context(user.UserContext(self.config,'user'))
-        self.root.add_sub_context(scavenger.ScavengerContext(self.config,'scavenger'))
+        scav = self.root.add_sub_context(scavenger.ScavengerContext(self.config,'scavenger'))
+        scav.add_sub_context(ScavengerPolicy.ScavengerPolicyContext(self.config, 'policy'))
 
     def run(self, argv = None):
         l =  []

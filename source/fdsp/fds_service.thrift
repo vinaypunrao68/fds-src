@@ -77,6 +77,14 @@ enum  FDSPMsgTypeId {
     /* SM messages. */
     CtrlStartMigrationTypeId           = 2040,
     CtrlNotifyScavengerTypeId          = 2041,
+	CtrlQueryScavengerStatusTypeId	   = 2042,
+	CtrlQueryScavengerStatusRespTypeId = 2043,
+	CtrlQueryScavengerProgressTypeId   = 2044,
+	CtrlQueryScavengerProgressRespTypeId = 2045,
+	CtrlSetScavengerPolicyTypeId 	   = 2046,
+	CtrlSetScavengerPolicyRespTypeId   = 2047,
+	CtrlQueryScavengerPolicyTypeId     = 2048,
+	CtrlQueryScavengerPolicyRespTypeId = 2049,
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,
@@ -108,6 +116,7 @@ enum  FDSPMsgTypeId {
 	DeleteObjectRspMsgTypeId,
     AddObjectRefMsgTypeId,
     AddObjectRefRspMsgTypeId,
+	
 
     /* DM Type Ids */
     QueryCatalogMsgTypeId = 20000,
@@ -454,6 +463,49 @@ struct CtrlNotifyScavenger {
 struct CtrlNotifyQosControl {
      1: FDSP.FDSP_QoSControlMsgType qosctrl;
 } 
+
+/* ---------------------  CtrlScavengerStatusTypeId  --------------------------- */
+enum FDSP_ScavengerStatusType {
+	 ACTIVE					  = 1,
+	 INACTIVE				  = 2,
+	 DISABLED				  = 3	 
+}
+
+struct CtrlQueryScavengerStatus {
+}
+
+struct CtrlQueryScavengerStatusResp {
+	   1: FDSP_ScavengerStatusType 	status;
+}
+
+/* ---------------------  CtrlScavengerProgressTypeId  --------------------------- */
+struct CtrlQueryScavengerProgress {
+}
+
+struct CtrlQueryScavengerProgressResp {
+	   1: i32					  progress_pct;
+}	   
+
+/* ---------------------  CtrlScavengerPolicyTypeId  --------------------------- */
+struct CtrlSetScavengerPolicy {
+	   1: i32					  dsk_threshold1;
+	   2: i32					  dsk_threshold2;
+	   3: i32					  token_reclaim_threshold;
+	   4: i32					  tokens_per_dsk;
+}
+
+struct CtrlSetScavengerPolicyResp {
+}
+
+struct CtrlQueryScavengerPolicy {
+}
+
+struct CtrlQueryScavengerPolicyResp {
+       1: i32                     dsk_threshold1;
+       2: i32                     dsk_threshold2;
+       3: i32                     token_reclaim_threshold;
+       4: i32                     tokens_per_dsk;
+}
 
 /* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
 struct CtrlNotifyDLTUpdate {

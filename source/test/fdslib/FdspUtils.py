@@ -228,3 +228,24 @@ def newStopScavengerMsg():
     msg.scavenger = FDSP_ScavengerType()
     msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_STOP
     return msg
+
+def newScavengerStatusMsg():
+    msg = CtrlQueryScavengerStatus()
+    return msg
+
+def newScavengerProgressMsg():
+    msg = CtrlQueryScavengerProgress()
+    return msg
+
+def newSetScavengerPolicyMsg(t1, t2, t3, t4):
+    msg = CtrlQueryScavengerSetPolicy()
+    msg.dsk_threshold1 = t1
+    msg.dsk_threshold2 = t2
+    msg.token_reclaim_threshold = t3
+    msg.tokens_per_dsk = t4
+ 
+    return msg
+
+def newQueryScavengerPolicyMsg():
+    msg = CtrlQueryScavengerStatus()
+    return msg

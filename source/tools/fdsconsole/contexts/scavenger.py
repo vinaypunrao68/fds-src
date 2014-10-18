@@ -10,15 +10,16 @@ class ScavengerContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
 
+        self.smClient = self.config.platform
+
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @cliadmincmd
     def enable(self):
         try: 
-            smClient = self.config.platform;
-            smUuids = smClient.svcMap.svcUuids('sm')
+            smUuids = self.smClient.svcMap.svcUuids('sm')
             getScavMsg = FdspUtils.newEnableScavengerMsg()
             scavCB = WaitedCallback()
-            smClient.sendAsyncSvcReq(smUuids[0], getScavMsg, scavCB)
+            self.smClient.sendAsyncSvcReq(smUuids[0], getScavMsg, scavCB)
 
         except Exception, e:
             log.exception(e)
@@ -26,45 +27,78 @@ class ScavengerContext(Context):
     
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @cliadmincmd
     def disable(self):
         try: 
-            smClient = self.config.platform;
-            smUuids = smClient.svcMap.svcUuids('sm')
+            smUuids = self.smClient.svcMap.svcUuids('sm')
             getScavMsg = FdspUtils.newDisableScavengerMsg()
             scavCB = WaitedCallback()
-            smClient.sendAsyncSvcReq(smUuids[0], getScavMsg, scavCB)
+            self.smClient.sendAsyncSvcReq(smUuids[0], getScavMsg, scavCB)
         except Exception, e:
             log.exception(e)
             return 'disable failed'
     
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @cliadmincmd
     def start(self):
         try: 
-            smClient = self.config.platform;
-            smUuids = smClient.svcMap.svcUuids('sm')
+            smUuids = self.smClient.svcMap.svcUuids('sm')
             getScavMsg = FdspUtils.newStartScavengerMsg()
             scavCB = WaitedCallback()
-            smClient.sendAsyncSvcReq(smUuids[0], getScavMsg, scavCB)
+            self.smClient.sendAsyncSvcReq(smUuids[0], getScavMsg, scavCB)
         except Exception, e:
             log.exception(e)
             return 'start failed'
     
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @cliadmincmd
     def stop(self):
         try: 
-            smClient = self.config.platform;
-            smUuids = smClient.svcMap.svcUuids('sm')
+            smUuids = self.smClient.svcMap.svcUuids('sm')
             getScavMsg = FdspUtils.newStopScavengerMsg()
             scavCB = WaitedCallback()
-            smClient.sendAsyncSvcReq(smUuids[0], getScavMsg, scavCB)
+            self.smClient.sendAsyncSvcReq(smUuids[0], getScavMsg, scavCB)
         except Exception, e:
             log.exception(e)
             return 'stop failed'
 
 
-    
-    
     #--------------------------------------------------------------------------------------
+
+    @cliadmincmd
+    def status(self):
+        try:
+            smUuids = self.smClient.svcMap.svcUuids('sm')
+            getStatusMsg = FdspUtils.newScavengerStatusMsg()
+            scavCB = WaitedCallback()
+            self.smClient.sendAsyncSvcReq(smUuids[0], getStatusMsg, scavCB)
+            scavCB.wait()
+            resp = scavCB.payload.status
+            print "Scavenger status: ",
+            if resp == 1:
+                print "ACTIVE"
+            elif resp == 2:
+                print "INACTIVE"
+            elif resp == 3:
+                print "DISABLED"
+
+        except Exception, e:
+            log.exception(e)
+            return 'get status failed'
+
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    def progress(self):
+        try:
+            smUuids = self.smClient.svcMap.svcUuids('sm')
+            getStatusMsg = FdspUtils.newScavengerProgressMsg()
+            scavCB = WaitedCallback()
+            self.smClient.sendAsyncSvcReq(smUuids[0], getStatusMsg, scavCB)
+            scavCB.wait()
+            resp = scavCB.payload.progress_pct
+            print "Scavenger progress: {}%".format(10)
+        except Exception, e:
+            log.exception(e)
+            return 'get progress failed'
+
