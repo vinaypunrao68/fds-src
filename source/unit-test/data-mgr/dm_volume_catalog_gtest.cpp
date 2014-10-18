@@ -83,7 +83,7 @@ void DmVolumeCatalogTest::testDeleteBlob(fds_volid_t volId, const std::string bl
     // Get
     fpi::FDSP_MetaDataList metaList;
     fpi::FDSP_BlobObjectList objList;
-    rc = volcat->getBlob(volId, blobName, 0, &version, &metaList, &objList);
+    rc = volcat->getBlob(volId, blobName, 0, -1, &version, &metaList, &objList);
     EXPECT_FALSE(rc.ok());
 
     if (taskCount) taskCount--;
