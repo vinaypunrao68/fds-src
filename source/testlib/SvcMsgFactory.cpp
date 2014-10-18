@@ -68,7 +68,8 @@ SvcMsgFactory::newQueryCatalogMsg(const uint64_t& volId,
     fpi::QueryCatalogMsgPtr queryCatMsg(new fpi::QueryCatalogMsg);
     queryCatMsg->volume_id = volId;
     queryCatMsg->blob_name = blobName;
-    queryCatMsg->blob_offset = blobOffset;
+    queryCatMsg->start_offset = blobOffset;
+    queryCatMsg->end_offset = -1;
     queryCatMsg->blob_version = blob_version_invalid;
     return queryCatMsg;
 }
