@@ -15,7 +15,7 @@ if __name__ == '__main__':
                       help = 'enable verbosity')
     parser.add_option('-p', '--package', action = 'store_true', dest = 'make_pkg',
                       help = 'package fds tar ball')
-    parser.add_option('-i', '--install', action = 'store_true', dest = 'clus_inst',
+    parser.add_option('-i', '--install', action = 'store_true', dest = 'tar_file',
                       help = 'install fds package to remote machines')
     parser.add_option('-m', '--manual', action = 'store_true', dest = 'manual',
                       help = 'Only run OM and platform, admit nodes manually')
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     steps = cfg.rt_get_obj('cfg_scenarios')
 
     # Install package
-    if options.clus_inst:
+    if options.tar_file:
         for n in nodes:
             n.nd_install_rmt_pkg()
 
