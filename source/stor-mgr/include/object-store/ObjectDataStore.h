@@ -14,6 +14,8 @@
 
 namespace fds {
 
+class SmScavengerCmd;
+
 /**
  * Class that manages storage of object data. The class persistetnly stores
  * and caches object data.
@@ -68,6 +70,9 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     Error removeObjectData(fds_volid_t volId,
                            const ObjectID& objId,
                            const ObjMetaData::const_ptr& objMetaData);
+
+    // control commands
+    Error scavengerControlCmd(SmScavengerCmd* scavCmd);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

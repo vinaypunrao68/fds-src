@@ -43,44 +43,50 @@ SMSvcHandler::SMSvcHandler()
 }
 
 void SMSvcHandler::queryScavengerProgress(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-            boost::shared_ptr<fpi::CtrlQueryScavengerProgress> &query_msg) {
-    boost::shared_ptr<fpi::CtrlQueryScavengerProgressResp> resp
-            (new fpi::CtrlQueryScavengerProgressResp());
-     resp->progress_pct = 10;
-    GLOGDEBUG << "Response set: " << resp->progress_pct << " should be sending async resp now.";
+                                          fpi::CtrlQueryScavengerProgressPtr &query_msg) {
+    Error err(ERR_OK);
+    fpi::CtrlQueryScavengerProgressRespPtr resp(new fpi::CtrlQueryScavengerProgressResp());
+
+    SmScavengerGetProgressCmd scavCmd;
+    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    resp->progress_pct = scavCmd.retProgress;
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    GLOGDEBUG << "Response set: " << resp->progress_pct << " " << err;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlQueryScavengerProgressResp), *resp);
-2}
+}
 
 void SMSvcHandler::setScavengerPolicy(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-            boost::shared_ptr<fpi::CtrlSetScavengerPolicy> &policy_msg) {
-    boost::shared_ptr<fpi::CtrlSetScavengerPolicyResp> resp
-            (new fpi::CtrlSetScavengerPolicyResp());
+                                      fpi::CtrlSetScavengerPolicyPtr &policy_msg) {
+    fpi::CtrlSetScavengerPolicyRespPtr resp(new fpi::CtrlSetScavengerPolicyResp());
     Error err(ERR_OK);
-    // DO stuff
+    SmScavengerSetPolicyCmd scavCmd(policy_msg);
+    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    GLOGDEBUG << "Setting scavenger policy " << err;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlSetScavengerPolicyResp), *resp);
 }
 
 void SMSvcHandler::queryScavengerPolicy(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-        boost::shared_ptr<fpi::CtrlQueryScavengerPolicy> &query_msg) {
-    boost::shared_ptr<fpi::CtrlQueryScavengerPolicyResp> resp
-            (new fpi::CtrlQueryScavengerPolicyResp());
-    // resp->progress_pct = ???
-    // GLOGDEBUG << "Response set: " << resp->progress_pct << " should be sending async resp now.";
+                                        fpi::CtrlQueryScavengerPolicyPtr &query_msg) {
+    fpi::CtrlQueryScavengerPolicyRespPtr resp(new fpi::CtrlQueryScavengerPolicyResp());
+    SmScavengerGetPolicyCmd scavCmd(resp);
+    Error err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    GLOGDEBUG << "Got scavenger policy " << err;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlQueryScavengerPolicyResp), *resp);
 }
 
 void SMSvcHandler::queryScavengerStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-        boost::shared_ptr<fpi::CtrlQueryScavengerStatus> &query_msg) {
-    boost::shared_ptr<fpi::CtrlQueryScavengerStatusResp> resp
-            (new fpi::CtrlQueryScavengerStatusResp());
+                                        fpi::CtrlQueryScavengerStatusPtr &query_msg) {
+    Error err(ERR_OK);
+    fpi::CtrlQueryScavengerStatusRespPtr resp(new fpi::CtrlQueryScavengerStatusResp());
+    SmScavengerGetStatusCmd scavCmd(resp);
+    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
 
-    std::default_random_engine generator(std::chrono::system_clock::now()
-            .time_since_epoch().count());
-    std::uniform_int_distribution<int> distribution(1, 3);
-
-    resp->status = static_cast<FDSP_ScavengerStatusType>(distribution(generator));
-    GLOGDEBUG << "Response set: " << resp->status << " should be sending async resp now.";
-
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    GLOGDEBUG << "Response set: " << resp->status << " " << err;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlQueryScavengerStatusResp), *resp);
 }
 
@@ -517,23 +523,11 @@ void
 SMSvcHandler::NotifyScavenger(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyScavenger> &msg)
 {
+    Error err(ERR_OK);
     LOGNORMAL << " receive scavenger cmd " << msg->scavenger.cmd;
-    switch (msg->scavenger.cmd) {
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE:
-            // objStorMgr->scavenger->enableScavenger();
-            break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE:
-            // objStorMgr->scavenger->disableScavenger();
-            break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_START:
-            // objStorMgr->scavenger->startScavengeProcess();
-            break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGER_STOP:
-            // objStorMgr->scavenger->stopScavengeProcess();
-            break;
-        default:
-            fds_verify(false);  // unknown scavenger command
-    };
+    SmScavengerActionCmd scavCmd(msg->scavenger.cmd);
+    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+
     hdr->msg_code = 0;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyScavenger), *msg);
 }

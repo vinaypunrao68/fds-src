@@ -466,9 +466,10 @@ struct CtrlNotifyQosControl {
 
 /* ---------------------  CtrlScavengerStatusTypeId  --------------------------- */
 enum FDSP_ScavengerStatusType {
-	 ACTIVE					  = 1,
-	 INACTIVE				  = 2,
-	 DISABLED				  = 3	 
+	 SCAV_ACTIVE				  = 1,
+	 SCAV_INACTIVE				  = 2,
+	 SCAV_DISABLED				  = 3,
+         SCAV_STOPPING                            = 4	 
 }
 
 struct CtrlQueryScavengerStatus {
