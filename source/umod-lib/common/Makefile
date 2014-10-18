@@ -11,6 +11,7 @@ user_cpp         := \
     fds_python_bind.cpp \
     fdsp_utils.cpp \
     fds-fsm.cpp \
+    fds-aio.cpp \
     Tracebuffer.cpp
 
 user_no_style    := \
