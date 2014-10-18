@@ -4,6 +4,8 @@
 #define GTEST_USE_OWN_TR1_TUPLE 0
 
 #include <chrono>
+#include <utility>
+#include <vector>
 #include <atomic>
 #include <thread>
 #include <string>
