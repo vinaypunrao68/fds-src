@@ -9,6 +9,7 @@
 #include <fds_module.h>
 #include <fds_types.h>
 #include <concurrency/RwLock.h>
+#include <SmCtrl.h>
 #include <persistent-layer/dm_io.h>
 #include <persistent-layer/persistentdata.h>
 #include <object-store/Scavenger.h>
@@ -153,6 +154,9 @@ class ObjectPersistData : public Module,
     void getSmTokenStats(fds_token_id smTokId,
                          diskio::DataTier tier,
                          diskio::TokenStat* retStat);
+
+    // control commands
+    Error scavengerControlCmd(SmScavengerCmd* scavCmd);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

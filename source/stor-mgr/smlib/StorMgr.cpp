@@ -992,58 +992,6 @@ ObjectStorMgr::readObjMetaData(const ObjectID &objId,
 }
 
 Error
-ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
-                                    const ObjectID& objId, fds_volid_t vol_id,
-                                    ObjMetaData& objMap) {
-    Error err(ERR_OK);
-
-    smObjDb->lock(objId);
-    /*
-     * Get existing object locations
-     */
-    err = readObjMetaData(objId, objMap);
-    if (err != ERR_OK && err != ERR_NOT_FOUND) {
-        LOGERROR << "Failed to read existing object locations"
-                << " during location write";
-        smObjDb->unlock(objId);
-        return err;
-    } else if (err == ERR_NOT_FOUND) {
-        /*
-         * Assume this error means the key just did not exist.
-         * TODO: Add an err to differention "no key" from "failed read".
-         */
-        LOGDEBUG << "Not able to read existing object locations"
-                << ", assuming no prior entry existed";
-        err = ERR_OK;
-        smObjDb->unlock(objId);
-        return err;
-    }
-
-    /*
-     * Set the ref_cnt to 0, which will be the delete marker for the Garbage collector
-     */
-    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
-    if (amIPrimary(objId)) {
-        objMap.getVolsRefcnt(vols_refcnt);
-    }
-
-    objMap.deleteAssocEntry(objId, vol_id, fds::util::getTimeStampMillis());
-    err = smObjDb->put(opCtx, objId, objMap);
-    if (err == ERR_OK) {
-        volTbl->updateDupObj(vol_id, objId, objMap.getObjSize(),
-                             false, vols_refcnt);
-        LOGDEBUG << "Setting the delete marker for object "
-                << objId << " to " << objMap;
-    } else {
-        LOGERROR << "Failed to put object " << objId
-                << " into odb with error " << err;
-    }
-    smObjDb->unlock(objId);
-
-    return err;
-}
-
-Error
 ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
         ObjMetaData& objMetadata,
         ObjectBuf& objData) {
@@ -1611,72 +1559,7 @@ void ObjectStorMgr::create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
 }
 
 Error
-ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
-    Error err(ERR_OK);
-    const ObjectID&  objId    = delReq->getObjId();
-    fds_volid_t volId         = delReq->getVolId();
-    ObjBufPtrType objBufPtr = NULL;
-    const FDSP_DeleteObjTypePtr& delObjReq = delReq->getDeleteObjReq();
-    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(delReq->getTransId());
-    OpCtx opCtx(OpCtx::DELETE, delReq->origin_timestamp);
-
-    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
-    ObjMetaData objMetadata;
-    meta_obj_id_t   oid;
-
-    objBufPtr = objCache->object_retrieve(volId, objId);
-    if (objBufPtr != NULL) {
-        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, delReq->perfNameStr);
-        objCache->object_release(volId, objId, objBufPtr);
-        objCache->object_delete(volId, objId);
-    }
-
-    PerfTracer::tracePointBegin(delReq->opLatencyCtx);
-    /*
-     * Delete the object, decrement refcnt of the assoc entry & overall refcnt
-     */
-    {
-        PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
-        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-        err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
-    }
-    if (err.ok()) {
-        LOGDEBUG << "Successfully delete object " << objId
-                 << " refcnt = " << objMetadata.getRefCnt();
-
-        if (objMetadata.getRefCnt() < 1) {
-            // tell persistent layer we deleted the object so that garbage collection
-            // knows how much disk space we need to clean
-            memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-            PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
-            SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-            if (objMetadata.onTier(diskio::diskTier)) {
-                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
-                                        objMetadata.getObjPhyLoc(diskio::diskTier));
-            } else if (objMetadata.onTier(diskio::flashTier)) {
-                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
-                                        objMetadata.getObjPhyLoc(diskio::flashTier));
-            }
-        }
-    } else {
-        LOGERROR << "Failed to delete object " << objId << ", " << err;
-    }
-    qosCtrl->markIODone(*delReq, diskio::diskTier);
-
-    PerfTracer::tracePointEnd(delReq->opLatencyCtx);
-
-    omJrnl->release_transaction(delReq->getTransId());
-    delReq->response_cb(err, delReq);
-
-    return err;
-}
-
-//
-// This is an empty interface stub for getObjectInternalSvc.
-// It's intent is to plug in a new implementation of future
-// architecture into this interface for testing and evaluation.
-Error
-ObjectStorMgr::deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq)
+ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 {
     Error err(ERR_OK);
     const ObjectID&  objId    = delReq->getObjId();
@@ -1685,7 +1568,8 @@ ObjectStorMgr::deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq)
     fds_assert(volId != 0);
     fds_assert(objId != NullObjectID);
 
-    LOGDEBUG << "Executing deleteObjectInternalSvcV2";
+    LOGDEBUG << "Volume " << std::hex << volId << std::dec
+             << " " << objId;
 
     // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(delReq->opLatencyCtx);
@@ -2286,7 +2170,7 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             break;
         case FDS_SM_DELETE_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
-                threadPool->schedule(&ObjectStorMgr::deleteObjectInternalSvcV2,
+                threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
                                      objStorMgr,
                                      static_cast<SmIoDeleteObjectReq *>(io));
             break;
