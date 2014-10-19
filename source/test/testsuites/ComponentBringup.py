@@ -15,7 +15,7 @@ import NodeWaitSuite
 def suiteConstruction():
     """
     Construct the ordered set of test cases that comprise the
-    test cases necessary to check whether a node is started.
+    test cases necessary to bring upa node component by component.
     """
     suite = unittest.TestSuite()
 
