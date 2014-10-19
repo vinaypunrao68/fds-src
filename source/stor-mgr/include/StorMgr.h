@@ -495,15 +495,10 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      void sampleSMStats(fds_uint64_t timestamp);
 
-     Error getObjectInternalSvc(SmIoGetObjectReq *getReq);
-     Error getObjectInternalSvcV2(SmIoGetObjectReq *getReq);
-
-     Error putObjectInternalSvc(SmIoPutObjectReq* putReq);
-     Error putObjectInternalSvcV2(SmIoPutObjectReq* putReq);
-
+     Error getObjectInternal(SmIoGetObjectReq *getReq);
+     Error putObjectInternal(SmIoPutObjectReq* putReq);
      Error deleteObjectInternal(SmIoDeleteObjectReq* delReq);
-
-     Error addObjectRefInternalSvc(SmIoAddObjRefReq* addRefReq);
+     Error addObjectRefInternal(SmIoAddObjRefReq* addRefReq);
 
      void putTokenObjectsInternal(SmIoReq* ioReq);
      void getTokenObjectsInternal(SmIoReq* ioReq);
