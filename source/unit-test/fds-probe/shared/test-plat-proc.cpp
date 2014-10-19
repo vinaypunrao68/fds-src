@@ -122,7 +122,7 @@ FdsProbeProcess::proc_pre_service()
 ProbeProcess::~ProbeProcess() {}
 ProbeProcess::ProbeProcess(int argc, char *argv[],
                            const std::string &log,
-                           ProbeMod *probe, Module **vec)
+                           ProbeMod *probe, Module **vec, const std::string &cfg)
 {
     static Module *plat_vec[] = {
         &gl_NodePlatform,
@@ -135,7 +135,7 @@ ProbeProcess::ProbeProcess(int argc, char *argv[],
     };
     svc_probe   = probe;
     svc_modules = Module::mod_cat(plat_vec, vec);
-    init(argc, argv, "fds.plat.", log, &gl_NodePlatform, svc_modules);
+    init(argc, argv, cfg, log, &gl_NodePlatform, svc_modules);
 }
 
 }  // namespace fds

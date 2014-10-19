@@ -14,6 +14,7 @@
 #include <fds-probe/s3-probe.h>
 #include <platform/platform-lib.h>
 #include <am-nbd.h>
+#include <AccessMgr.h>
 
 namespace fds {
 
@@ -22,15 +23,24 @@ class TestProcess : public ProbeProcess
   public:
     TestProcess(int argc, char *argv[],
                 const std::string &log, ProbeMod *probe, Module **vec) :
-        ProbeProcess(argc, argv, log, probe, vec) {}
+        ProbeProcess(argc, argv, log, probe, vec, "fds.am.") {}
 
+    void proc_pre_startup() override
+    {
+        ProbeProcess::proc_pre_startup();
+        am = AccessMgr::unique_ptr(new AccessMgr("AMMain Probe", this));
+    }
     int run() override
     {
         while (1) {
             sleep(2);
         }
+        am->run();
         return 0;
     }
+
+  private:
+    AccessMgr::unique_ptr am;
 };
 
 }  // namespace fds
