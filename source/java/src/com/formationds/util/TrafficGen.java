@@ -276,7 +276,6 @@ public class TrafficGen {
 
         for (final HttpRequest request : requests) {
             HttpCoreContext coreContext = HttpCoreContext.create();
-            semaphore.acquire();
             // System.out.println("Request: " + request.toString());
             // Thread.sleep(100);
             final long[] reqStartTime = new long[1];
@@ -284,6 +283,11 @@ public class TrafficGen {
                     new BasicAsyncRequestProducer(target, request) {
                         @Override
                         public synchronized HttpRequest generateRequest() {
+                            try {
+                                semaphore.acquire();
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
                             reqStartTime[0] = System.nanoTime();
                             return super.generateRequest();
                         }
