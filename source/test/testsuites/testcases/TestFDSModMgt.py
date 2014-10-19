@@ -15,6 +15,7 @@ import TestCase
 import sys
 import time
 import logging
+import os
 
 
 def pidWaitParent(pid, child_count, node):
@@ -161,7 +162,8 @@ class TestDMBringUp(TestCase.FDSTestCase):
 
             self.log.info("Start DM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_agent.exec_wait("%s/DataMgr --fds-root=%s > %s/dm.out" % (bin_dir, fds_dir, log_dir))
+            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/DataMgr --fds-root=%s > %s/dm.out 2>&1 &) \"' %
+                                          (bin_dir, fds_dir, log_dir))
 
             if status != 0:
                 self.log.error("DM bringup on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -366,7 +368,8 @@ class TestSMBringUp(TestCase.FDSTestCase):
 
             self.log.info("Start SM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_agent.exec_wait("%s/StorMgr --fds-root=%s > %s/sm.out" % (bin_dir, fds_dir, log_dir))
+            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/StorMgr --fds-root=%s > %s/sm.out 2>&1 &) \"' %
+                                          (bin_dir, fds_dir, log_dir))
 
             if status != 0:
                 self.log.error("SM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -891,6 +894,77 @@ class TestOMShutDown(TestCase.FDSTestCase):
 
         return True
 
+
+# This class contains the attributes and methods to test
+# bringing up an Access Manager (AM) module.
+class TestAMBringup(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestAMBringup, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_AMBringUp():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("AM module bringup caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_AMBringUp(self):
+        """
+        Test Case:
+        Attempt to start the AM module(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        log_dir = fdscfg.rt_env.get_log_dir()
+        nodes = fdscfg.rt_get_obj('cfg_am')
+
+        for n in nodes:
+            self.log.info("Start AM on %s." % n.nd_conf_dict['fds_node'])
+
+            fds_dir = n.nd_am_node.nd_conf_dict['fds_root']
+
+            # The AMAgent script expected to be invoked from the bin directory in which resides.
+            cur_dir = os.getcwd()
+            os.chdir(bin_dir)
+            status = n.nd_am_node.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s > ./am.out 2>&1 &) \"' %
+                                                     fds_dir)
+            os.chdir(cur_dir)
+
+            if status != 0:
+                self.log.error("AM on %s returned status %d." % (n.nd_conf_dict['fds_node'], status))
+                return False
+
+        return True
 
 # This class contains the attributes and methods to test
 # waiting for an Access Manager (AM) module to start.
