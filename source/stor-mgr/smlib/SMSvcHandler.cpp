@@ -86,7 +86,7 @@ void SMSvcHandler::queryScavengerStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
 
     hdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    GLOGDEBUG << "Response set: " << resp->status << " " << err;
+    GLOGDEBUG << "Scavenger status = " << resp->status << " " << err;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlQueryScavengerStatusResp), *resp);
 }
 
