@@ -810,6 +810,7 @@ void DataMgr::mod_startup()
                                   GetLog(),
                                   nstable,
                                   modProvider_->get_plf_manager());
+        omClient->setNoNetwork(true);
         omClient->initialize();
         omClient->registerCatalogEventHandler(volcat_evt_handler);
         /*
@@ -834,11 +835,15 @@ void DataMgr::mod_startup()
 void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
-    NodeAgent::pointer my_agent = Platform::plf_dm_nodes()->agent_info(*mySvcUuid);
     fpi::StorCapMsg stor_cap;
-    my_agent->init_stor_cap_msg(&stor_cap);
-    LOGNOTIFY << "Will set totalRate to " << stor_cap.disk_iops_min;
+    if (!isTestMode()) {
+        const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
+        NodeAgent::pointer my_agent = Platform::plf_dm_nodes()->agent_info(*mySvcUuid);
+        my_agent->init_stor_cap_msg(&stor_cap);
+        LOGNOTIFY << "Will set totalRate to " << stor_cap.disk_iops_min;
+    } else {
+        stor_cap.disk_iops_min = 1000;
+    }
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
@@ -867,45 +872,23 @@ void DataMgr::mod_enable_service() {
                                         DmTimeVolCatalog("DM Time Volume Catalog",
                                                          *qosCtrl->threadPool));
 
+
     // create stats aggregator that aggregates stats for vols for which
     // this DM is primary
-    statStreamAggr_ = StatStreamAggregator::ptr(
-        new StatStreamAggregator("DM Stat Stream Aggregator", modProvider_->get_fds_config()));
+        statStreamAggr_ = StatStreamAggregator::ptr(
+            new StatStreamAggregator("DM Stat Stream Aggregator", modProvider_->get_fds_config()));
 
-    // enable collection of local stats in DM
-    StatsCollector::singleton()->registerOmClient(omClient);
-    // since aggregator is in the same module, for stats that need to go to
+        // enable collection of local stats in DM
+        StatsCollector::singleton()->registerOmClient(omClient);
+    if (!isTestMode()) {
+        // since aggregator is in the same module, for stats that need to go to
     // local aggregator, we just directly stream to aggregator (not over network)
-    StatsCollector::singleton()->startStreaming(
-        std::bind(&DataMgr::sampleDMStats, this, std::placeholders::_1),
-        std::bind(&DataMgr::handleLocalStatStream, this,
+        StatsCollector::singleton()->startStreaming(
+            std::bind(&DataMgr::sampleDMStats, this, std::placeholders::_1),
+            std::bind(&DataMgr::handleLocalStatStream, this,
                   std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-
-#if 0
-    if (runMode == TEST_MODE) {
-        // Create test volumes.
-        std::string testVolName;
-        VolumeDesc*  testVdb;
-        for (fds_uint32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
-            testVolName = "testVol" + std::to_string(testVolId);
-            // We're using the ID as the min/max/priority
-            // for the volume QoS.
-            testVdb = new VolumeDesc(testVolName,
-                                     testVolId,
-                                     testVolId,
-                                     testVolId * 2,
-                                     testVolId);
-            fds_assert(testVdb != NULL);
-            vol_handler(testVolId,
-                        testVdb,
-                        fds_notify_vol_add,
-                        fpi::FDSP_NOTIFY_VOL_NO_FLAG,
-                        FDS_ProtocolInterface::FDSP_ERR_OK);
-            delete testVdb;
-        }
+        statStreamAggr_->mod_startup();
     }
-#endif
-
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
 
@@ -915,8 +898,6 @@ void DataMgr::mod_enable_service() {
     timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
             &DataMgr::expungeObjectsIfPrimary, this,
             std::placeholders::_1, std::placeholders::_2));
-
-    statStreamAggr_->mod_startup();
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
 }
 
