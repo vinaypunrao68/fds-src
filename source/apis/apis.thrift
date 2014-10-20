@@ -148,9 +148,9 @@ service AsyncAmServiceResponse {
 
         oneway void deleteBlobResponse(1:RequestId requestId),
 
-        oneway void volumeStatus(1:RequestId requestId, 2:VolumeStatus volumeStatus),
+        oneway void volumeStatus(1:RequestId requestId, 2:VolumeStatus response)
 
-	oneway void completeExceptionally(1:RequestId requestId, 2:ApiException e)
+	oneway void completeExceptionally(1:RequestId requestId, 2:ErrorCode errorCode, 3:string message)
 }
 
 
