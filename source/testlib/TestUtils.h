@@ -36,6 +36,7 @@ class Platform;
 */
 struct TestUtils {
     static FDS_ProtocolInterface::SvcUuid getAnyNonResidentSmSvcuuid(Platform* platform);
+    static FDS_ProtocolInterface::SvcUuid getAnyNonResidentDmSvcuuid(Platform* platform);
     static bool enableFault(const fpi::SvcUuid &svcUuid, const std::string &faultId);
     static bool disableFault(const fpi::SvcUuid &svcUuid, const std::string &faultId);
 };

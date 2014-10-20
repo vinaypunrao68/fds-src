@@ -25,10 +25,12 @@ namespace fds {
         DLT* dlt = new DLT(8, cols, 1, true);
         SmUtUtils::populateDlt(dlt, sm_count);
         GLOGDEBUG << "Using DLT: " << *dlt;
-        smDiskMap->handleNewDlt(dlt);
+        Error err = smDiskMap->handleNewDlt(dlt);
+        fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
 
         // Open the data store
-        smObjStore->openDataStore(smDiskMap);
+        smObjStore->openDataStore(smDiskMap,
+                                  (err == ERR_SM_NOERR_PRISTINE_STATE));
 
         // Meta db
         smMdDb->openMetadataDb(smDiskMap);
@@ -89,6 +91,68 @@ namespace fds {
         return bytes;
     }
 
+    ObjectID SMChk::hash_data(boost::shared_ptr<const std::string> dataPtr, fds_uint32_t obj_size) {
+        return ObjIdGen::genObjectId((*dataPtr).c_str(),
+                static_cast<size_t>(obj_size));
+    }
+
+    bool SMChk::consistency_check(fds_token_id token) {
+        leveldb::DB *ldb;
+        leveldb::Iterator *it;
+        leveldb::ReadOptions options;
+
+        int error_count = 0;
+
+        smMdDb->snapshot(token, ldb, options);
+        it = ldb->NewIterator(options);
+        for (it->SeekToFirst(); it->Valid(); it->Next()) {
+            const ObjectID id(it->key().ToString());
+
+
+            boost::shared_ptr<ObjMetaData> omd =
+                    boost::shared_ptr<ObjMetaData>(new ObjMetaData());
+            omd->deserializeFrom(it->value());
+
+            fds_uint32_t obj_size = omd->getObjSize();
+
+            GLOGDEBUG << *omd << "\n" << "Disk Path: "
+                        << smDiskMap->getDiskPath(token, diskio::diskTier);
+
+            // Get object
+            Error err(ERR_OK);
+            boost::shared_ptr<const std::string> dataPtr
+                    = smObjStore->getObjectData(invalid_vol_id, id, omd, err);
+
+            ObjectID hashId = hash_data(dataPtr, obj_size);
+
+            GLOGDEBUG << "Hasher found: " << hashId
+                        << " and objId was: " << id << "\n";
+
+            // Compare hash to objID
+            if (hashId != id) {
+                std::cout << "An error was found with " << id << "\n";
+                GLOGNORMAL << id << " corrupt!\n";
+                error_count++;
+            }
+            // omd will auto delete when it goes out of scope
+        }
+        ldb->ReleaseSnapshot(options.snapshot);
+        // Delete ldb and it
+        delete it;
+        delete ldb;
+
+        if (error_count > 0) {
+            std::cout << "WARNING: " << error_count << " errors were found.\n";
+            return false;
+        }
+        std::cout << "SUCCESS! No errors found.\n";
+        return true;
+    }
+
+    bool SMChk::consistency_check(ObjectID obj_id) {
+        return true;
+    }
+
     bool SMChk::full_consistency_check() {
         int error_count = 0;
         int objs_count = 0;
@@ -104,8 +168,7 @@ namespace fds {
                     = smObjStore->getObjectData(invalid_vol_id, id, omd, err);
 
             // Get hash of data
-            ObjectID hashId = ObjIdGen::genObjectId((*dataPtr).c_str(),
-                    static_cast<size_t>(obj_size));
+            ObjectID hashId = hash_data(dataPtr, obj_size);
 
             GLOGDEBUG << "Hasher found: " << hashId
                         << " and objId was: " << id << "\n";
@@ -276,6 +339,7 @@ namespace fds {
                 break;
             case RunFunc::CALC_BYTES_RECLAIMABLE:
                 checker->bytes_reclaimable();
+                break;
             default:
                 checker->full_consistency_check();
                 break;

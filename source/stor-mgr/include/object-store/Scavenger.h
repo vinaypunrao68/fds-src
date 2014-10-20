@@ -15,6 +15,7 @@
 #include <fds_module.h>
 #include "fds_error.h"
 #include "fds_types.h"
+#include <fdsp/fds_service_types.h>
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmDiskMap.h>
 #include <object-store/TokenCompactor.h>
@@ -75,10 +76,17 @@ class DiskScavenger {
                   diskio::DataTier _tier,
                   SmIoReqHandler *data_store,
                   SmPersistStoreHandler* persist_store,
-                  const SmDiskMap::const_ptr& diskMap);
+                  const SmDiskMap::const_ptr& diskMap,
+                  fds_bool_t noPersistStateScavStats);
     ~DiskScavenger();
 
-    void startScavenge(fds_uint32_t token_reclaim_threshold = 0);
+    enum ScavState {
+        SCAV_STATE_IDLE,     // not doing any compaction
+        SCAV_STATE_INPROG,   // compaction in progress
+        SCAV_STATE_STOPPING  // stop was called, finishing compaction
+    };
+
+    Error startScavenge(fds_uint32_t token_reclaim_threshold = 0);
     void stopScavenge();
 
     /**
@@ -101,6 +109,10 @@ class DiskScavenger {
      */
     void getProgress(fds_uint32_t *toksCompacting,
                      fds_uint32_t *toksFinished);
+
+    ScavState getState() const {
+        return atomic_load(&state);
+    }
 
     /**
      * @return true if this disk scavenger is for given tier
@@ -142,7 +154,9 @@ class DiskScavenger {
     Error getDiskStats(diskio::DiskStat* retStat);
 
   private:
-    std::atomic<fds_bool_t> in_progress;  // protects from starting multiple scavenge cycles
+    // state of compaction progress
+    std::atomic<ScavState> state;
+    fds_bool_t noPersistScavStats;
 
     /**
      * non-configurable params (set in constructor
@@ -231,16 +245,29 @@ class ScavControl : public Module {
      * set on all disks.
      * TODO(Anna) may want to get policy for a particular disk
      */
-    Error getScavengerPolicy(fds_uint32_t* dsk_avail_threshold_1,
-                             fds_uint32_t* dsk_avail_threshold_2,
-                             fds_uint32_t* tok_reclaim_threshold,
-                             fds_uint32_t* proc_max_tokens);
+    Error getScavengerPolicy(const fpi::CtrlQueryScavengerPolicyRespPtr& policyResp);
+
+    /**
+     * Status getters
+     */
+    fds_bool_t isEnabled() const {
+        return atomic_load(&enabled);
+    }
+    void getScavengerStatus(const fpi::CtrlQueryScavengerStatusRespPtr& statusResp);
 
     /**
      * Returns progress in terms of percent. Returns 100 if
      * scavenger is not running
      */
     fds_uint32_t getProgress();
+
+    /**
+     * Tells scavenger that SM came up from persistent state
+     * Since we don't persist some stats needed by scavenger like
+     * deleted bytes, reclaimable bytes, this tells scavenger to get the
+     * stats (later during next scavenger cycle) from the object DB
+     */
+    void setPersistState();
 
     /**
      * Called on timer to query & update disk/token file state
@@ -258,6 +285,7 @@ class ScavControl : public Module {
 
   private:
     std::atomic<fds_bool_t> enabled;
+    fds_bool_t noPersistScavStats;
 
     ScavPolicyType  scavPolicy;
 

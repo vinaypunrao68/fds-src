@@ -9,11 +9,34 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.UUID;
 
 public class S3Failure extends XmlResource {
+    private static String SNIPPET = "<Error>" +
+            "<Key>%s</Key>" +
+            "<Code>%s</Code>" +
+            "<Message>%s</Message>" +
+            "</Error>";
+    private static String FORMAT = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+            "<Error>" +
+            "<Code>%s</Code>" +
+            "<Message>%s</Message>" +
+            "<Resource>%s</Resource>" +
+            "<RequestId>%s</RequestId>" +
+            "</Error>\n";
     private ErrorCode errorCode;
     private String message;
     private String resource;
 
-    static enum ErrorCode {
+    public S3Failure(ErrorCode errorCode, String message, String resource) {
+        super(String.format(FORMAT, errorCode.toString(), message, resource, UUID.randomUUID().toString()), errorCode.getHttpStatus());
+        this.errorCode = errorCode;
+        this.message = message;
+        this.resource = resource;
+    }
+
+    public String asSnippet() {
+        return String.format(SNIPPET, resource, errorCode.toString(), message.toString());
+    }
+
+    public static enum ErrorCode {
         AccessDenied(HttpServletResponse.SC_FORBIDDEN),
         NoSuchKey(HttpServletResponse.SC_NOT_FOUND),
         InvalidRequest(HttpServletResponse.SC_BAD_REQUEST),
@@ -32,29 +55,4 @@ public class S3Failure extends XmlResource {
             return httpStatus;
         }
     }
-
-    public S3Failure(ErrorCode errorCode, String message, String resource) {
-        super(String.format(FORMAT, errorCode.toString(), message, resource, UUID.randomUUID().toString()), errorCode.getHttpStatus());
-        this.errorCode = errorCode;
-        this.message = message;
-        this.resource = resource;
-    }
-
-    public String asSnippet() {
-        return String.format(SNIPPET, resource, errorCode.toString(), message.toString());
-    }
-
-    private static String SNIPPET = "<Error>" +
-            "<Key>%s</Key>" +
-            "<Code>%s</Code>" +
-            "<Message>%s</Message>" +
-            "</Error>";
-
-    private static String FORMAT = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-            "<Error>" +
-            "<Code>%s</Code>" +
-            "<Message>%s</Message>" +
-            "<Resource>%s</Resource>" +
-            "<RequestId>%s</RequestId>" +
-            "</Error>\n";
 }

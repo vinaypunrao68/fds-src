@@ -19,13 +19,16 @@ angular.module( 'charts' ).directive( 'treemap', function(){
             
             var buildColorScale = function(){
                 
-                var max = d3.max( $scope.data, function( d ){
+                var max = d3.max( $scope.data.series, function( d ){
                     
-//                    if ( angular.isDefined( d.secondsSinceLastFirebreak ) ){
-                    if ( d.hasOwnProperty( $scope.colorProperty ) ){
-                        return d[$scope.colorProperty];
+                    if ( !angular.isDefined( d ) || !angular.isDefined( d.datapoints ) ){
+                        return 0;
                     }
-                    return d.y;
+                    
+                    if ( d.datapoints[0].hasOwnProperty( $scope.colorProperty ) ){
+                        return d.datapoints[0][$scope.colorProperty];
+                    }
+                    return d.datapoints[0].y;
                 });
                 
                 $colorScale = d3.scale.linear()
@@ -36,12 +39,20 @@ angular.module( 'charts' ).directive( 'treemap', function(){
             
             var computeMap = function( c ){
                 
+                if ( !angular.isDefined( $scope.data.series ) ){
+                    return;
+                }
+                
                 // preserve the y value
-                for ( var i = 0; i < $scope.data.length; i++ ){
+                for ( var i = 0; i < $scope.data.series.length; i++ ){
+                    
+                    if ( !angular.isDefined( $scope.data.series[i].datapoints ) ){
+                        continue;
+                    }
                     
 //                    if ( !angular.isDefined( $scope.data[i].secondsSinceLastFirebreak ) ){
-                    if ( !$scope.data[i].hasOwnProperty( $scope.colorProperty ) ){
-                        $scope.data[i][$scope.colorProperty] = $scope.data[i].y;
+                    if ( !$scope.data.series[i].datapoints[0].hasOwnProperty( $scope.colorProperty ) ){
+                        $scope.data.series[i][$scope.colorProperty] = $scope.data.series[i].datapoints[0].y;
                     }
                 }
                 
@@ -50,17 +61,22 @@ angular.module( 'charts' ).directive( 'treemap', function(){
                     .size( [$element.width(),$element.height()] )
                     .sticky( true )
                     .children( function( d ){
+                        
                         return d;
                     })
                     .value( function( d,i,j ){
                         
-                        if ( angular.isDefined( d.value ) ){
-                            return d.value;
+                        if ( !angular.isDefined( d.datapoints ) ){
+                            return 0;
                         }
                         
-                        return d.x;
+                        if ( angular.isDefined( d.datapoints[0].value ) ){
+                            return d.datapoints[0].value;
+                        }
+                        
+                        return d.datapoints[0].x;
                     })
-                    .nodes( $scope.data );
+                    .nodes( $scope.data.series );
             };
 
             var create = function(){
@@ -72,7 +88,7 @@ angular.module( 'charts' ).directive( 'treemap', function(){
 
                 root.selectAll( '.node' ).remove();
 
-                root.selectAll( '.node' ).data( $scope.data ).enter()
+                root.selectAll( '.node' ).data( $scope.data.series ).enter()
                     .append( 'div' )
                     .classed( {'node': true } )
                     .attr( 'id', function( d, i ){

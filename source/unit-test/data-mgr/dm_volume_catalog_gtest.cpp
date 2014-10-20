@@ -64,7 +64,7 @@ void DmVolumeCatalogTest::testGetBlob(fds_volid_t volId, const std::string blobN
     // Get
     fds_uint64_t startTs = util::getTimeStampNanos();
     // TODO(Andrew/Umesh): Get a meaningful offset
-    Error rc = volcat->getBlob(volId, blobName, 0, &version, &metaList, &objList);
+    Error rc = volcat->getBlob(volId, blobName, 0, -1, &version, &metaList, &objList);
     fds_uint64_t endTs = util::getTimeStampNanos();
     getCounter->update(endTs - startTs);
     if (taskCount) taskCount--;
@@ -83,7 +83,7 @@ void DmVolumeCatalogTest::testDeleteBlob(fds_volid_t volId, const std::string bl
     // Get
     fpi::FDSP_MetaDataList metaList;
     fpi::FDSP_BlobObjectList objList;
-    rc = volcat->getBlob(volId, blobName, 0, &version, &metaList, &objList);
+    rc = volcat->getBlob(volId, blobName, 0, -1, &version, &metaList, &objList);
     EXPECT_FALSE(rc.ok());
 
     if (taskCount) taskCount--;
@@ -154,7 +154,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
         fds_uint64_t size = 0, blobCount = 0, objCount = 0;
         Error rc = volcat->getVolumeMeta(vdesc->volUUID, &size, &blobCount, &objCount);
         EXPECT_TRUE(rc.ok());
-        EXPECT_EQ(size, blobCount * BLOB_SIZE);
+        EXPECT_EQ(size, static_cast<fds_uint64_t>(blobCount) * BLOB_SIZE);
 
         // get list of blobs for volume
         fpi::BlobInfoListType blobList;

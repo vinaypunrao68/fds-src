@@ -39,13 +39,14 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
     } else if (err == ERR_INVALID_DLT) {
         return;  // we are ignoring this DLT
     }
-    fds_verify(err.ok());
+    fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
 
     // open metadata store for tokens owned by this SM
     err = metaStore->openMetadataStore(diskMap);
     fds_verify(err.ok());
 
-    err = dataStore->openDataStore(diskMap);
+    err = dataStore->openDataStore(diskMap,
+                                   (err == ERR_SM_NOERR_PRISTINE_STATE));
     fds_verify(err.ok());
 }
 
@@ -399,6 +400,11 @@ void
 ObjectStore::snapshotMetadata(fds_token_id smTokId,
                               SmIoSnapshotObjectDB::CbType notifFn) {
     metaStore->snapshot(smTokId, notifFn);
+}
+
+Error
+ObjectStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
+    return dataStore->scavengerControlCmd(scavCmd);
 }
 
 /**

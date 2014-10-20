@@ -1,0 +1,19 @@
+test_topdir       := ../..
+user_incl_dir     :=
+user_cpp_flags    :=
+user_fds_so_libs  :=
+user_fds_ar_libs  :=
+
+user_cc           := ngx_modules.c
+user_cpp          := \
+    smapi_gtest.cpp
+
+user_no_style     :=
+user_bin_exe      := \
+    smapi_gtest \
+    smperf_gtest
+
+smapi_gtest       := smapi_gtest.cpp ngx_modules.c
+smperf_gtesti     := smperf_gtest.cpp ngx_modules.c
+
+include $(test_topdir)/Makefile.svc

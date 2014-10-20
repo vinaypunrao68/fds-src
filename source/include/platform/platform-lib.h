@@ -387,7 +387,8 @@ class ProbeProcess : public FdsProbeProcess
   public:
     virtual ~ProbeProcess();
     ProbeProcess(int argc, char *argv[],
-                 const std::string &log, ProbeMod *probe, Module **vec);
+                 const std::string &log, ProbeMod *probe, Module **vec,
+                 const std::string &cfg = "fds.plat.");
 };
 
 /*

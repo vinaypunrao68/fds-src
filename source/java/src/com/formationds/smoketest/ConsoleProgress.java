@@ -1,6 +1,5 @@
 package com.formationds.smoketest;
 
-import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 
 /**
@@ -9,12 +8,18 @@ import java.util.function.IntUnaryOperator;
  */
 
 public class ConsoleProgress implements IntUnaryOperator {
-    private int totalEvents;
+    private final int totalEvents;
+    private int module;
 
-    public ConsoleProgress(String name, int totalEvents) {
+    public ConsoleProgress(String name, int totalEvents, int module) {
         this.totalEvents = totalEvents;
+        this.module = module;
         System.out.print("    " + name);
         System.out.flush();
+    }
+
+    public ConsoleProgress(String name, int totalEvents) {
+        this(name, totalEvents, 1);
     }
 
     @Override
@@ -23,8 +28,10 @@ public class ConsoleProgress implements IntUnaryOperator {
             System.out.println("  done.");
             System.out.flush();
         } else {
-            System.out.print(".");
-            System.out.flush();
+            if (integer % module == 0) {
+                System.out.print(".");
+                System.out.flush();
+            }
         }
         return integer;
     }

@@ -445,4 +445,45 @@ AmProcessor::statBlobCb(AmQosReq *qosReq, const Error& error) {
     delete blobReq;
 }
 
+void
+AmProcessor::commitBlobTx(AmQosReq *qosReq) {
+    fds_verify(qosReq != NULL);
+
+    // Get the blob request
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
+
+    // Setup callback.
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::commitBlobTxCb, qosReq);
+
+    amDispatcher->dispatchCommitBlobTx(qosReq);
+}
+
+void
+AmProcessor::commitBlobTxCb(AmQosReq *qosReq, const Error &error) {
+    fds_verify(qosReq != NULL);
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
+
+    // Push the committed update to the cache and remove from manager
+    // TODO(Andrew): Inserting the entire tx transaction currently
+    // assumes that the tx descriptor has all of the contents needed
+    // for a blob descriptor (e.g., size, version, etc..). Today this
+    // is true for S3/Swift and doesn't get used anyways for block (so
+    // the actual cached descriptor for block will not be correct).
+    AmTxDescriptor::ptr txDesc;
+    fds_verify(txMgr->getTxDescriptor(*(blobReq->getTxId()),
+                                        txDesc) == ERR_OK);
+    fds_verify(amCache->putTxDescriptor(txDesc) == ERR_OK);
+    fds_verify(txMgr->removeTx(*(blobReq->getTxId())) == ERR_OK);
+
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+
+    delete blobReq;
+}
+
 }  // namespace fds

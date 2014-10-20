@@ -992,58 +992,6 @@ ObjectStorMgr::readObjMetaData(const ObjectID &objId,
 }
 
 Error
-ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
-                                    const ObjectID& objId, fds_volid_t vol_id,
-                                    ObjMetaData& objMap) {
-    Error err(ERR_OK);
-
-    smObjDb->lock(objId);
-    /*
-     * Get existing object locations
-     */
-    err = readObjMetaData(objId, objMap);
-    if (err != ERR_OK && err != ERR_NOT_FOUND) {
-        LOGERROR << "Failed to read existing object locations"
-                << " during location write";
-        smObjDb->unlock(objId);
-        return err;
-    } else if (err == ERR_NOT_FOUND) {
-        /*
-         * Assume this error means the key just did not exist.
-         * TODO: Add an err to differention "no key" from "failed read".
-         */
-        LOGDEBUG << "Not able to read existing object locations"
-                << ", assuming no prior entry existed";
-        err = ERR_OK;
-        smObjDb->unlock(objId);
-        return err;
-    }
-
-    /*
-     * Set the ref_cnt to 0, which will be the delete marker for the Garbage collector
-     */
-    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
-    if (amIPrimary(objId)) {
-        objMap.getVolsRefcnt(vols_refcnt);
-    }
-
-    objMap.deleteAssocEntry(objId, vol_id, fds::util::getTimeStampMillis());
-    err = smObjDb->put(opCtx, objId, objMap);
-    if (err == ERR_OK) {
-        volTbl->updateDupObj(vol_id, objId, objMap.getObjSize(),
-                             false, vols_refcnt);
-        LOGDEBUG << "Setting the delete marker for object "
-                << objId << " to " << objMap;
-    } else {
-        LOGERROR << "Failed to put object " << objId
-                << " into odb with error " << err;
-    }
-    smObjDb->unlock(objId);
-
-    return err;
-}
-
-Error
 ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
         ObjMetaData& objMetadata,
         ObjectBuf& objData) {
@@ -1309,221 +1257,8 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
  * FDSP Protocol internal processing 
  -------------------------------------------------------------------------------------*/
 
-/**
- * Process a single object put.
- * @param the request structure ptr
- * @return any associated error
- */
 Error
-ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
-    Error err(ERR_OK);
-    const ObjectID&  objId    = putReq->getObjId();
-    fds_volid_t volId         = putReq->getVolId();
-    diskio::DataTier tierUsed = diskio::maxTier;
-    ObjBufPtrType objBufPtr = NULL;
-    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(putReq->getTransId());
-    OpCtx opCtx(OpCtx::PUT, putReq->origin_timestamp);
-    bool new_buff_allocated = false, added_cache = false;
-
-    ObjMetaData objMap;
-    // objStorMutex->lock();
-
-    fds_assert(volId != 0);
-    fds_assert(objId != NullObjectID);
-    fds_assert(putReq->origin_timestamp != 0);
-
-#ifdef OBJCACHE_ENABLE
-    objBufPtr = objCache->object_retrieve(volId, objId);
-    if (objBufPtr != NULL) {
-        fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
-
-        // Now check for dedup here.
-        if (*(objBufPtr->data) == putReq->data_obj) {
-            err = ERR_DUPLICATE;
-        } else {
-            /*
-             * Handle hash-collision - insert the next collision-id+obj-id
-             */
-            err = ERR_HASH_COLLISION;
-        }
-        objCache->object_release(volId, objId, objBufPtr);
-    }
-
-    // Find if this object is a duplicate
-    if (err == ERR_OK) {
-        // Nothing in cache. Let's allocate a new buf from cache mgr and copy over the data
-
-        objBufPtr = objCache->object_alloc(volId, objId, putReq->data_obj.size());
-        // TODO(Rao): We should use std move here
-        memcpy(const_cast<char *>(objBufPtr->data->c_str()),
-               reinterpret_cast<const void *>(putReq->data_obj.c_str()),
-               putReq->data_obj.size());
-        new_buff_allocated = true;
-
-        err = checkDuplicate(objId,
-                *objBufPtr, objMap);
-    }
-
-    if (err == ERR_DUPLICATE) {
-        if (new_buff_allocated) {
-            added_cache = true;
-            objCache->object_add(volId, objId, objBufPtr, false);
-            objCache->object_release(volId, objId, objBufPtr);
-        }
-        LOGDEBUG << "Put dup:  " << err
-                << ", returning success";
-
-        smObjDb->lock(objId);
-        // Update  the AssocEntry for dedupe-ing
-        err = readObjMetaData(objId, objMap);
-        if (err.ok()) {
-            std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
-            if (amIPrimary(objId)) {
-                objMap.getVolsRefcnt(vols_refcnt);
-            }
-
-            objMap.updateAssocEntry(objId, volId);
-            err = smObjDb->put(opCtx, objId, objMap);
-            if (err == ERR_OK) {
-                dedupeByteCnt += objId.GetLen();
-                volTbl->updateDupObj(volId, objId, putReq->data_obj.size(),
-                                     true, vols_refcnt);
-                LOGDEBUG << "Dedupe object Assoc Entry for object "
-                         << objId << " to " << objMap;
-            } else {
-                LOGERROR << "Failed to put ObjMetaData " << objId
-                         << " into odb with error " << err;
-            }
-        } else {
-            LOGERROR << "Failed to read ObjMetaData from db" << err;
-        }
-        smObjDb->unlock(objId);
-
-        /*
-         * Reset the err to OK to ack the metadata update.
-         */
-        err = ERR_OK;
-    } else if (err != ERR_OK) {
-        if (new_buff_allocated) {
-            objCache->object_release(volId, objId, objBufPtr);
-            objCache->object_delete(volId, objId);
-        }
-        LOGERROR << "Failed to check object duplicate status on put: "
-                 << err;
-    } else {
-        /*
-         * Write the object and record which tier it went to
-         */        
-        SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
-
-        err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
-        if (err.ok()) {
-            LOGDEBUG << "Successfully put object " << objId;
-            /* if we successfully put to flash -- notify ranking engine */
-            if (tierUsed == diskio::flashTier) {
-                StorMgrVolume *vol = volTbl->getVolume(volId);
-                fds_verify(vol);
-                rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
-            }
-        }
-
-        if (err != fds::ERR_OK) {
-            objCache->object_release(volId, objId, objBufPtr);
-            objCache->object_delete(volId, objId);
-            objCache->object_release(volId, objId, objBufPtr);
-        } else if (added_cache == false) {
-            objCache->object_add(volId, objId, objBufPtr, false);
-        }
-
-
-        /*
-         * Stores a reverse mapping from the volume's disk location
-         * to the oid at that location.
-         */
-        /*
-          TODO: Comment this back in!
-          volTbl->createVolIndexEntry(putReq.io_vol_id,
-          put_obj_req->volume_offset,
-          put_obj_req->data_obj_id,
-          put_obj_req->data_obj_len);
-        */
-    }
-#else
-        objBufPtr = objCache->object_alloc(volId, objId, putReq->data_obj.size());
-        memcpy(const_cast<void *>(objBufPtr->data.c_str()),
-               reinterpret_cast<const void *>(putReq->data_obj.c_str()),
-               putReq->data_obj.size());
-
-        err = checkDuplicate(objId,
-                *objBufPtr, objMap);
-        if (err == ERR_DUPLICATE) {
-          // Update  the AssocEntry for dedupe-ing
-          LOGDEBUG << " Object  ID: " << objId << " objMap: " << objMap;
-          smObjDb->lock(objId);
-          err = readObjMetaData(objId, objMap);
-          /* At this point object metadata must exist */
-          fds_verify(err == ERR_OK);
-
-          std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
-          if (amIPrimary(objId)) {
-              objMap.getVolsRefcnt(vols_refcnt);
-          }
-
-          objMap.updateAssocEntry(objId, volId);
-          err = smObjDb->put(opCtx, objId, objMap);
-          if (err.ok()) {
-              volTbl->updateDupObj(volId, objId, putReq->data_obj.size(),
-                                   true, vols_refcnt);
-          }
-          smObjDb->unlock(objId);
-          if (err == ERR_OK) {
-              LOGDEBUG << "Dedupe object Assoc Entry for object "
-                      << objId << " to " << objMap;
-          } else {
-              LOGERROR << "Failed to put ObjMetaData " << objId
-                      << " into odb with error " << err;
-          }
-
-          err = ERR_OK;
-        } else {
-         SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
-         err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
-         if (err.ok()) {
-             LOGDEBUG << "Successfully put object " << objId;
-             /* if we successfully put to flash -- notify ranking engine */
-             if (tierUsed == diskio::flashTier) {
-                 StorMgrVolume *vol = volTbl->getVolume(volId);
-                 fds_verify(vol);
-                 rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
-             }
-         } else {
-             PerfTracer::incr(putReq->opReqFailedPerfEventType, volId, putReq->perfNameStr);
-         }
-       }
-       objCache->object_release(volId, objId, objBufPtr);
-       objCache->object_delete(volId, objId);
-
-#endif
-    // objStorMutex->unlock();
-
-    qosCtrl->markIODone(*putReq,
-                        tierUsed,
-                        amIPrimary(objId));
-
-
-    omJrnl->release_transaction(putReq->getTransId());
-
-    putReq->response_cb(err, putReq);
-
-    return err;
-}
-
-//
-// This is an empty interface stub for getObjectInternalSvc.
-// It's intent is to plug in a new implementation of future
-// architecture into this interface for testing and evaluation.
-Error
-ObjectStorMgr::putObjectInternalSvcV2(SmIoPutObjectReq *putReq)
+ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
 {
     Error err(ERR_OK);
     const ObjectID&  objId    = putReq->getObjId();
@@ -1611,72 +1346,7 @@ void ObjectStorMgr::create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
 }
 
 Error
-ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
-    Error err(ERR_OK);
-    const ObjectID&  objId    = delReq->getObjId();
-    fds_volid_t volId         = delReq->getVolId();
-    ObjBufPtrType objBufPtr = NULL;
-    const FDSP_DeleteObjTypePtr& delObjReq = delReq->getDeleteObjReq();
-    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(delReq->getTransId());
-    OpCtx opCtx(OpCtx::DELETE, delReq->origin_timestamp);
-
-    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
-    ObjMetaData objMetadata;
-    meta_obj_id_t   oid;
-
-    objBufPtr = objCache->object_retrieve(volId, objId);
-    if (objBufPtr != NULL) {
-        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, delReq->perfNameStr);
-        objCache->object_release(volId, objId, objBufPtr);
-        objCache->object_delete(volId, objId);
-    }
-
-    PerfTracer::tracePointBegin(delReq->opLatencyCtx);
-    /*
-     * Delete the object, decrement refcnt of the assoc entry & overall refcnt
-     */
-    {
-        PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
-        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-        err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
-    }
-    if (err.ok()) {
-        LOGDEBUG << "Successfully delete object " << objId
-                 << " refcnt = " << objMetadata.getRefCnt();
-
-        if (objMetadata.getRefCnt() < 1) {
-            // tell persistent layer we deleted the object so that garbage collection
-            // knows how much disk space we need to clean
-            memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-            PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
-            SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-            if (objMetadata.onTier(diskio::diskTier)) {
-                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
-                                        objMetadata.getObjPhyLoc(diskio::diskTier));
-            } else if (objMetadata.onTier(diskio::flashTier)) {
-                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
-                                        objMetadata.getObjPhyLoc(diskio::flashTier));
-            }
-        }
-    } else {
-        LOGERROR << "Failed to delete object " << objId << ", " << err;
-    }
-    qosCtrl->markIODone(*delReq, diskio::diskTier);
-
-    PerfTracer::tracePointEnd(delReq->opLatencyCtx);
-
-    omJrnl->release_transaction(delReq->getTransId());
-    delReq->response_cb(err, delReq);
-
-    return err;
-}
-
-//
-// This is an empty interface stub for getObjectInternalSvc.
-// It's intent is to plug in a new implementation of future
-// architecture into this interface for testing and evaluation.
-Error
-ObjectStorMgr::deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq)
+ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 {
     Error err(ERR_OK);
     const ObjectID&  objId    = delReq->getObjId();
@@ -1685,7 +1355,8 @@ ObjectStorMgr::deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq)
     fds_assert(volId != 0);
     fds_assert(objId != NullObjectID);
 
-    LOGDEBUG << "Executing deleteObjectInternalSvcV2";
+    LOGDEBUG << "Volume " << std::hex << volId << std::dec
+             << " " << objId;
 
     // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(delReq->opLatencyCtx);
@@ -1702,7 +1373,7 @@ ObjectStorMgr::deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq)
 }
 
 Error
-ObjectStorMgr::addObjectRefInternalSvc(SmIoAddObjRefReq* addObjRefReq) {
+ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq) {
     fds_assert(0 != addObjRefReq);
     fds_assert(0 != addObjRefReq->getSrcVolId());
     fds_assert(0 != addObjRefReq->getDestVolId());
@@ -1737,102 +1408,7 @@ ObjectStorMgr::addObjectRefInternalSvc(SmIoAddObjRefReq* addObjRefReq) {
 }
 
 Error
-ObjectStorMgr::getObjectInternalSvc(SmIoGetObjectReq *getReq) {
-    Error            err(ERR_OK);
-    const ObjectID  &objId = getReq->getObjId();
-    fds_volid_t volId      = getReq->getVolId();
-    diskio::DataTier tierUsed = diskio::maxTier;
-    ObjBufPtrType objBufPtr = NULL;
-
-    fds_assert(volId != 0);
-    fds_assert(objId != NullObjectID);
-
-    PerfTracer::tracePointBegin(getReq->opLatencyCtx);
-
-    /*
-     * We need to fix this once diskmanager keeps track of object size
-     * and allocates buffer automatically.
-     * For now, we will pass the fixed block size for size and preallocate
-     * memory for that size.
-     */
-
-    // objStorMutex->lock();
-#ifdef OBJCACHE_ENABLE
-    objBufPtr = objCache->object_retrieve(volId, objId);
-#endif
-
-    if (!objBufPtr) {
-        ObjectBuf objData;
-        ObjMetaData objMetadata;
-        objData.clear();
-        err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed, volId);
-        if (err == fds::ERR_OK) {
-            objBufPtr = objCache->object_alloc(volId, objId, objData.getSize());
-            memcpy(const_cast<char *>((objBufPtr->data)->c_str()),
-                   reinterpret_cast<const void *>((objData.data)->c_str()),
-                   objData.getSize());
-            objCache->object_add(volId, objId, objBufPtr, false);  // read data is always clean
-
-            // ACL: If this Volume never put this object, then it should not access the object
-            if (!objMetadata.isVolumeAssociated(volId)) {
-            // TODO(bao): Need a way to ignore acl to run checker process
-#define _IGNORE_ACL_CHECK_FOR_TEST_
-#ifdef _IGNORE_ACL_CHECK_FOR_TEST_
-                err = fds::ERR_OK;
-#else
-               err = ERR_UNAUTH_ACCESS;
-               LOGDEBUG << "Volume " << volId << " unauth-access of object " << objId
-                // << " and data " << objData.data
-                << " for request ID " << getReq->io_req_id;
-#endif
-            }
-        }
-    } else {
-        PerfTracer::incr(SM_OBJ_DATA_CACHE_HIT, volId, getReq->perfNameStr);
-        fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
-    }
-
-    // objStorMutex->unlock();
-
-    if (err != fds::ERR_OK) {
-        LOGERROR << "Failed to get object " << objId
-                 << " with error " << err;
-        getReq->obj_data.data.clear();
-    } else {
-        LOGDEBUG << "Successfully got object " << objId
-                 << " for request ID " << getReq->io_req_id
-                 << " from tier " << tierUsed << ", volume "
-                 << std::hex << volId << std::dec;
-        // TODO(Rao): Use std move here
-        getReq->obj_data.data = *(objBufPtr->data);
-    }
-
-    qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
-
-    PerfTracer::tracePointEnd(getReq->opLatencyCtx);
-
-    /*
-     * Prepare a response to send back.
-     */
-    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(getReq->getTransId());
-    omJrnl->release_transaction(getReq->getTransId());
-
-    objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());
-    volTbl->updateVolStats(getReq->getVolId());
-
-    objCache->object_release(volId, objId, objBufPtr);
-
-    getReq->response_cb(err, getReq);
-
-    return err;
-}
-
-//
-// This is an empty interface stub for getObjectInternalSvc.
-// It's intent is to plug in a new implementation of future
-// architecture into this interface for testing and evaluation.
-Error
-ObjectStorMgr::getObjectInternalSvcV2(SmIoGetObjectReq *getReq)
+ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
 {
     Error err(ERR_OK);
     const ObjectID&  objId    = getReq->getObjId();
@@ -1842,7 +1418,8 @@ ObjectStorMgr::getObjectInternalSvcV2(SmIoGetObjectReq *getReq)
     fds_assert(volId != 0);
     fds_assert(objId != NullObjectID);
 
-    LOGDEBUG << "Executing getObjectInternalSvcV2";
+    LOGDEBUG << "volume " << std::hex << volId << std::dec
+             << " " << objId;
 
     // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(getReq->opLatencyCtx);
@@ -2286,26 +1863,26 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             break;
         case FDS_SM_DELETE_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
-                threadPool->schedule(&ObjectStorMgr::deleteObjectInternalSvcV2,
+                threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
                                      objStorMgr,
                                      static_cast<SmIoDeleteObjectReq *>(io));
             break;
         case FDS_SM_GET_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
-            threadPool->schedule(&ObjectStorMgr::getObjectInternalSvcV2,
+            threadPool->schedule(&ObjectStorMgr::getObjectInternal,
                                  objStorMgr,
                                  static_cast<SmIoGetObjectReq *>(io));
             break;
         case FDS_SM_PUT_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
-            threadPool->schedule(&ObjectStorMgr::putObjectInternalSvcV2,
+            threadPool->schedule(&ObjectStorMgr::putObjectInternal,
                                  objStorMgr,
                                  static_cast<SmIoPutObjectReq *>(io));
             break;
         case FDS_SM_ADD_OBJECT_REF:
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing and add object reference request";
-            threadPool->schedule(&ObjectStorMgr::addObjectRefInternalSvc,
+            threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
                                  objStorMgr,
                                  static_cast<SmIoAddObjRefReq *>(io));
             break;

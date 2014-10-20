@@ -119,6 +119,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     void snapshotMetadata(fds_token_id smTokId,
                           SmIoSnapshotObjectDB::CbType notifFn);
 
+    // control methods
+    Error scavengerControlCmd(SmScavengerCmd* scavCmd);
+
     // FDS module control functions
     int  mod_init(SysParams const *const param);
     void mod_startup();

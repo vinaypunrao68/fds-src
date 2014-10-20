@@ -187,6 +187,7 @@ VolCatProbe::getBlob(const OpParams& getParams) {
     err = gl_DmVolCatMod.getBlob(getParams.vol_id,
                                  getParams.blob_name,
                                  *offsets.begin(),
+                                 *offsets.rbegin(),
                                  &blob_version,
                                  &meta_list, &obj_list);
 

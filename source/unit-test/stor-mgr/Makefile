@@ -1,77 +1,20 @@
-topdir            := ../..
-user_target       := test
-user_std_libs     := true
-user_rtime_env    := user
-user_install_loc  := test
-
-user_incl_dir     := \
-	$(topdir) \
-	$(topdir)/stor-mgr/include \
-	$(topdir)/stor-mgr/migrations \
-	$(topdir)/lib
-
+test_topdir       := ..
+user_build_dir    := svc-test
+user_incl_dir     :=
 user_cpp_flags    :=
 user_fds_so_libs  :=
-user_fds_ar_libs  := \
-    fds-test \
-    fds-probe-ut \
-    fds-plat-daemon \
-    fds-probe \
-    fds-am-engine \
-    fds-am-plat \
-    fds-dsk-io \
-    fds-dsk-mgnt \
-    fds-plat-disk \
-    fds-hash \
-    fds-xdi \
-    fds-smlib     \
-    fds-vpolicy   \
-    fds-hash      \
-    fds-migrations \
-    fds-odb       \
-    fds-sm-plat   \
-    fds-smlib
-
-local_nginx_libs   :=  \
-    ngx-http-module \
-    ngx-http \
-    ngx-event-module \
-    ngx-event \
-    ngx-core \
-    ngx-os \
-    ngx-core
-
-user_non_fds_libs :=  \
-    jansson \
-	udev \
-	parted \
-    $(local_nginx_libs) \
-    config++    \
-    boost_timer \
-    leveldb \
-    ssl \
-    crypt \
-    pcre \
-    crypto \
-    z \
-    cryptopp \
-    leveldb \
-    gmock \
-    profiler \
-    pthread
-
+user_fds_ar_libs  :=
 
 user_cpp          := \
-	object_store_unit_test.cpp \
-	object_store_load_test.cpp \
-        sm_load_test.cpp \
-        metastore_unit_test.cpp   \
-        sm_disk_map_test.cpp      \
-        sm_token_place_gtest.cpp \
-	smapi_gtest.cpp \
-	smperf_gtest.cpp \
-        object_persist_data_gtest.cpp \
-        sm_token_compactor_gtest.cpp
+    object_store_unit_test.cpp \
+    object_store_load_test.cpp \
+    sm_load_test.cpp \
+    metastore_unit_test.cpp   \
+    sm_disk_map_test.cpp      \
+    sm_token_place_gtest.cpp \
+    object_persist_data_gtest.cpp \
+    sm_token_compactor_gtest.cpp \
+    sm_token_state_gtest.cpp
 
 user_no_style     :=
 
@@ -82,22 +25,20 @@ user_bin_exe      := \
     metastore_unit_test \
     smdiskmap_unit_test \
     smtokenplace_gtest \
-    smapi_gtest \
-    smperf_gtest \
     sm_superblock_gtest \
     obj_persist_gtest \
-    smtokcompactor_gtest
+    smtokcompactor_gtest \
+    smtoken_state_gtest
 
 ObjectStoreUnitTest := object_store_unit_test.cpp
 ObjectStoreLoadTest := object_store_load_test.cpp
 metastore_unit_test := metastore_unit_test.cpp
 smdiskmap_unit_test := sm_disk_map_test.cpp
 smtokenplace_gtest  := sm_token_place_gtest.cpp
-smapi_gtest	        := smapi_gtest.cpp ngx_modules.c
 sm_load_test        := sm_load_test.cpp
-smperf_gtest         := smperf_gtest.cpp ngx_modules.c
 sm_superblock_gtest := sm_superblock_gtest.cpp
 obj_persist_gtest   := object_persist_data_gtest.cpp
 smtokcompactor_gtest := sm_token_compactor_gtest.cpp
+smtoken_state_gtest  := sm_token_state_gtest.cpp
 
-include $(topdir)/Makefile.incl
+include $(test_topdir)/Makefile.sm

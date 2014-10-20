@@ -17,6 +17,31 @@ namespace fds {
 *
 * @return 
 */
+
+fpi::SvcUuid TestUtils::getAnyNonResidentDmSvcuuid(Platform* platform)
+{
+    fpi::SvcUuid svcUuid;
+    fpi::SvcUuid myDmUuid;
+    platform->plf_get_my_dm_svc_uuid(&myDmUuid);
+
+    RsArray dmNodes;
+    platform->plf_dm_nodes()->rs_container_snapshot(&dmNodes);
+    for (auto n : dmNodes) {
+        auto uuid = (int64_t)(n->rs_get_uuid().uuid_get_val());
+        // Hack to ignore OM SM svc uuid
+        /* TODO(Rao/Vy): Fix this */
+        if (uuid == 0xcac1) {
+            continue;
+        }
+        if (myDmUuid.svc_uuid != (int64_t)(n->rs_get_uuid().uuid_get_val())) {
+            svcUuid.svc_uuid = n->rs_get_uuid().uuid_get_val();
+            break;
+        }
+    }
+    return svcUuid;
+}
+
+
 fpi::SvcUuid TestUtils::getAnyNonResidentSmSvcuuid(Platform* platform)
 {
     fpi::SvcUuid svcUuid;

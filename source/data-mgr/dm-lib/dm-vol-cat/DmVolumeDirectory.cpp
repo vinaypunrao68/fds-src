@@ -281,7 +281,7 @@ Error DmVolumeDirectory::getBlobMeta(fds_volid_t volId, const std::string & blob
 }
 
 Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
-        fds_uint64_t startOffset, blob_version_t* blobVersion,
+        fds_uint64_t startOffset, fds_int64_t endOffset, blob_version_t* blobVersion,
         fpi::FDSP_MetaDataList* metaList, fpi::FDSP_BlobObjectList* objList) {
     LOGDEBUG << "Will retrieve blob '" << blobName << "' offset '" << startOffset <<
             "' volume '" << std::hex << volId << std::dec << "'";
@@ -296,11 +296,14 @@ Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
 
     // TODO(umesh): do not panic here, return error
     fds_verify(startOffset < blobSize);
+    fds_verify(endOffset < static_cast<fds_int64_t>(blobSize));
 
     GET_VOL_N_CHECK_DELETED(volId);
 
     fds_uint64_t lastObjectSize = DmVolumeDirectory::getLastObjSize(blobSize, vol->getObjSize());
-    fds_uint64_t endOffset = blobSize ? blobSize - lastObjectSize : 0;
+    if (endOffset < 0) {
+        endOffset = blobSize ? blobSize - lastObjectSize : 0;
+    }
 
     rc = vol->getObject(blobName, startOffset, endOffset, *objList);
 

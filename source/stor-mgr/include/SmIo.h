@@ -278,8 +278,6 @@ class SmIoPutObjectReq : public SmIoReq {
 
     /// TODO(Andrew): Client assigned timestamp. Can this be removed?
     int64_t origin_timestamp;
-    /// TODO(Andrew): Data. Can be removed.
-    std::string data_obj;
 
     /// Service layer put request
     boost::shared_ptr<fpi::PutObjectMsg> putObjectNetReq;

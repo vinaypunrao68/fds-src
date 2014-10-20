@@ -1,35 +1,31 @@
 package com.formationds.util.s3;
 
 import com.amazonaws.AmazonClientException;
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.Request;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.http.HttpMethodName;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
+import com.formationds.xdi.s3.S3Failure;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class S3SignatureGeneratorTest {
     @Test
@@ -86,8 +82,9 @@ public class S3SignatureGeneratorTest {
         public final AuthorizerReferenceServer authReferenceServer;
         public final AWSCredentials credentials;
         private final AmazonS3Client s3client;
+        Exception exc;
 
-        public SignatureGeneratorTestContext(AWSCredentials credentials, int port)  throws IOException {
+        public SignatureGeneratorTestContext(AWSCredentials credentials, int port) throws IOException {
             authReferenceServer = new AuthorizerReferenceServer(port);
             this.credentials = credentials;
             s3client = new AmazonS3Client(credentials);
@@ -95,7 +92,6 @@ public class S3SignatureGeneratorTest {
             s3client.setEndpoint("http://localhost:" + port);
         }
 
-        Exception exc;
         public void test(Consumer<AmazonS3Client> operation) {
             try {
                 operation.accept(s3client);
@@ -153,12 +149,18 @@ class AuthorizerReferenceServer implements HttpHandler, AutoCloseable {
                 e.setValue(null);
         }
 
+        S3Failure failure = new S3Failure(S3Failure.ErrorCode.NoSuchKey, "Hello, world!", "foo");
         lastMethod = httpExchange.getRequestMethod();
         lastPath = httpExchange.getRequestURI().getPath();
         lastQueryString = httpExchange.getRequestURI().getQuery();
         lastHeaders = httpExchange.getRequestHeaders();
 
-        httpExchange.sendResponseHeaders(404, 0);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        failure.render(baos);
+        byte[] bytes = baos.toByteArray();
+
+        httpExchange.sendResponseHeaders(404, bytes.length);
+        httpExchange.getResponseBody().write(bytes);
         httpExchange.getResponseBody().close();
     }
 

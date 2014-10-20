@@ -5,6 +5,7 @@
 
 #include <unistd.h>
 #include <string>
+#include <list>
 #include <iostream>
 #include <boost/make_shared.hpp>
 #include <platform/platform-lib.h>
@@ -32,6 +33,9 @@ struct SMApi : SingleNodeTest
         putsIssued_ = 0;
         putsSuccessCnt_ = 0;
         putsFailedCnt_ = 0;
+        getsIssued_ = 0;
+        getsSuccessCnt_ = 0;
+        getsFailedCnt_ = 0;
     }
     void putCb(EPSvcRequest* svcReq,
                const Error& error,
@@ -44,10 +48,24 @@ struct SMApi : SingleNodeTest
         }
         // std::cout << "pubcb: " << error << std::endl;
     }
+    void getCb(EPSvcRequest* svcReq,
+               const Error& error,
+               boost::shared_ptr<std::string> payload)
+    {
+        if (error != ERR_OK) {
+            getsFailedCnt_++;
+        } else {
+            getsSuccessCnt_++;
+        }
+        // std::cout << "pubcb: " << error << std::endl;
+    }
  protected:
     std::atomic<uint32_t> putsIssued_;
     std::atomic<uint32_t> putsSuccessCnt_;
     std::atomic<uint32_t> putsFailedCnt_;
+    std::atomic<uint32_t> getsIssued_;
+    std::atomic<uint32_t> getsSuccessCnt_;
+    std::atomic<uint32_t> getsFailedCnt_;
 };
 
 
@@ -58,9 +76,9 @@ struct SMApi : SingleNodeTest
 TEST_F(SMApi, put_get)
 {
     int nPuts =  this->getArg<int>("puts-cnt");
-    int nGets = 10;
 
     fpi::SvcUuid svcUuid;
+    std::list<ObjectID> objIds;
     svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
@@ -77,15 +95,34 @@ TEST_F(SMApi, put_get)
                                             std::placeholders::_2, std::placeholders::_3));
         putsIssued_++;
         asyncPutReq->invoke();
+
+        objIds.push_back(ObjectID(putObjMsg->data_obj_id.digest));
     }
 
     /* Poll for completion.  For now giving 1000ms/per put.  We should tighten that */
     POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 500, nPuts * 1000);
 
+    /* Issue gets */
+    for (int i = 0; i < nPuts; i++) {
+        auto getObjMsg = SvcMsgFactory::newGetObjectMsg(volId_, objIds.front());
+        auto asyncGetReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+        asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
+        asyncGetReq->onResponseCb(std::bind(&SMApi::getCb, this,
+                                            std::placeholders::_1,
+                                            std::placeholders::_2, std::placeholders::_3));
+        getsIssued_++;
+        asyncGetReq->invoke();
+
+        objIds.pop_front();
+    }
+
+    /* Poll for completion.  For now giving 1000ms/per get.  We should tighten that */
+    POLL_MS((getsIssued_ == getsSuccessCnt_ + getsFailedCnt_), 500, nPuts * 1000);
+
     ProfilerStop();
 
-    ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
-        << " putsSuccessCnt: " << putsSuccessCnt_;
+    ASSERT_TRUE(getsIssued_ == getsSuccessCnt_) << "getsIssued: " << getsIssued_
+        << " getsSuccessCnt: " << getsSuccessCnt_;
 }
 
 /**
