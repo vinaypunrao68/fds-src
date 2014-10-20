@@ -41,8 +41,10 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     /**
      * Opens object data store
      * @param[in] map of SM tokens to disks
+     * @param[in] true if SM comes up for the first time
      */
-    Error openDataStore(const SmDiskMap::const_ptr& diskMap);
+    Error openDataStore(const SmDiskMap::const_ptr& diskMap,
+                        fds_bool_t pristineState);
 
     /**
      * Peristently stores object data.

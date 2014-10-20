@@ -101,6 +101,8 @@ class SmDiskMap : public Module, public boost::noncopyable {
     /// if true, test mode where we assume no contact with
     /// platform, and use SM service uuid = 1
     fds_bool_t test_mode;
+
+    friend class ObjectPersistData;
 };
 
 }  // namespace fds

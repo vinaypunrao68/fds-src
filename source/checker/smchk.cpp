@@ -25,10 +25,12 @@ namespace fds {
         DLT* dlt = new DLT(8, cols, 1, true);
         SmUtUtils::populateDlt(dlt, sm_count);
         GLOGDEBUG << "Using DLT: " << *dlt;
-        smDiskMap->handleNewDlt(dlt);
+        Error err = smDiskMap->handleNewDlt(dlt);
+        fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
 
         // Open the data store
-        smObjStore->openDataStore(smDiskMap);
+        smObjStore->openDataStore(smDiskMap,
+                                  (err == ERR_SM_NOERR_PRISTINE_STATE));
 
         // Meta db
         smMdDb->openMetadataDb(smDiskMap);
