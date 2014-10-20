@@ -5,7 +5,6 @@ user_cpp         :=      \
     dlt.cpp \
     FdsRandom.cpp        \
     NetSession.cpp       \
-    PerfTrace.cpp        \
     Catalog.cpp          \
     VolumeCatalog.cpp    \
     fds_timer.cpp        \
@@ -16,7 +15,6 @@ user_cpp         :=      \
     fds_obj_cache.cpp	 \
     qos_min_prio.cpp     \
     jsoncpp.cpp          \
-    fds_process.cpp      \
     serialize.cpp        \
     fds_counters.cpp     \
     fds_types.cpp        \
@@ -31,7 +29,6 @@ user_cpp         :=      \
 
 user_incl_dir    := .. $(topdir)
 user_no_style    := \
-    PerfTrace.cpp        \
     VolumeCatalog.cpp    \
     OMgrClient.cpp       \
     QoSWFQDispatcher.cpp \

@@ -6,7 +6,7 @@ angular.module( 'display-widgets' ).directive( 'slideWindowStack', function(){
         replace: true,
         scope: { globalVars: '=?'},
         templateUrl: 'scripts/directives/widgets/slidewindowstack/slidewindowstack.html',
-        controller: function( $scope, $element ){
+        controller: function( $scope, $element, $timeout ){
             
             $scope.slides = [];
             $scope.currentStack = [];
