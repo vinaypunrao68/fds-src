@@ -76,7 +76,8 @@ class DiskScavenger {
                   diskio::DataTier _tier,
                   SmIoReqHandler *data_store,
                   SmPersistStoreHandler* persist_store,
-                  const SmDiskMap::const_ptr& diskMap);
+                  const SmDiskMap::const_ptr& diskMap,
+                  fds_bool_t noPersistStateScavStats);
     ~DiskScavenger();
 
     enum ScavState {
@@ -155,6 +156,7 @@ class DiskScavenger {
   private:
     // state of compaction progress
     std::atomic<ScavState> state;
+    fds_bool_t noPersistScavStats;
 
     /**
      * non-configurable params (set in constructor
@@ -260,6 +262,14 @@ class ScavControl : public Module {
     fds_uint32_t getProgress();
 
     /**
+     * Tells scavenger that SM came up from persistent state
+     * Since we don't persist some stats needed by scavenger like
+     * deleted bytes, reclaimable bytes, this tells scavenger to get the
+     * stats (later during next scavenger cycle) from the object DB
+     */
+    void setPersistState();
+
+    /**
      * Called on timer to query & update disk/token file state
      */
     void updateDiskStats();
@@ -275,6 +285,7 @@ class ScavControl : public Module {
 
   private:
     std::atomic<fds_bool_t> enabled;
+    fds_bool_t noPersistScavStats;
 
     ScavPolicyType  scavPolicy;
 
