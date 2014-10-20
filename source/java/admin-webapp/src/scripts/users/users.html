@@ -1,18 +1,10 @@
-<div ng-controller="userController">
-
-    <div class="coming-soon-parent" ng-show="!isAllowed( 'SYS_MGMT' )">
-        <div class="coming-soon-child">
-            <div style="">
-                <span style="color: white;" translate>common.coming_soon</span>
-            </div>
-        </div>
-    </div>
+<div ng-controller="userController" style="width: 100%;left: 0;top:0;">
 
     <div class="header top-label">
 
         <div>
             <span translate>users.title</span>
-            <a ng-click="createNewUser()" class=" add-user-link pull-right" translate>users.l_create_user</a>
+            <a ng-click="createNewUser()" class="add-user-link pull-right" translate>users.l_create_user</a>
         </div>
 
         <div style="position: relative;width: 100%;padding-top: 12px;" class="clearfix">
@@ -21,6 +13,7 @@
             </div>
         </div>
 
+<!--
         <div style="display: flex;padding-top: 12px;">
             <div style="padding-right: 8px;">
                 <fui-dropdown skinny="true" type="action" items="actionItems" default-label="actionLabel" callback="actionSelected" background="none" color="black" border="gray"></fui-dropdown>
@@ -30,28 +23,17 @@
                 <div>selected users</div>
             </div>
         </div>
+-->
 
         <table class="default">
             <thead>
-                <th><input type="checkbox" /></th>
+<!--                <th><input type="checkbox" /></th>-->
                 <th translate>common.th_name</th>
-<!--
-                <th>Tenant</th>
-                <th>Role</th>
-                <th>Access</th>
-                <th>Last Activity</th>
--->
             </thead>
             <tboday>
                 <tr class="user-row" ng-repeat="user in users | filter:userQuery">
-                    <td><input type="checkbox" /></td>
+<!--                    <td><input type="checkbox" /></td>-->
                     <td class="user-identifier">{{user.identifier}}</td>
-<!--
-                    <td>{{user.tenant}}</td>
-                    <td>{{user.role}}</td>
-                    <td>{{user.access}}</td>
-                    <td>{{user.last_activity}}</td>
--->
                 </tr>
             </tboday>
         </table>
