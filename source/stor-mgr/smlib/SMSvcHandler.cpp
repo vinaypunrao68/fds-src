@@ -86,7 +86,7 @@ void SMSvcHandler::queryScavengerStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
 
     hdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    GLOGDEBUG << "Response set: " << resp->status << " " << err;
+    GLOGDEBUG << "Scavenger status = " << resp->status << " " << err;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlQueryScavengerStatusResp), *resp);
 }
 
@@ -143,17 +143,7 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     boost::shared_ptr<GetObjectResp> resp;
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    // TODO(Andrew): This is temp code. For now we want to preseve the
-    // legacy IO path. This checks if the legacy IO path filled data or
-    // if the new one did. If the new one dide, the network msg already
-    // has the data. No need to copy.
-    if (getReq->obj_data.data.size() != 0) {
-        resp = boost::make_shared<GetObjectResp>();
-        resp->data_obj_len = getReq->obj_data.data.size();
-        resp->data_obj = getReq->obj_data.data;
-    } else {
-        resp = getReq->getObjectNetResp;
-    }
+    resp = getReq->getObjectNetResp;
 
     // E2E latency end
     PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
@@ -190,9 +180,6 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     putReq->setVolId(putObjMsg->volume_id);
     putReq->origin_timestamp = putObjMsg->origin_timestamp;
     putReq->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
-    // putReq->data_obj = std::move(putObjMsg->data_obj);
-    // putObjMsg->data_obj.clear();
-    putReq->data_obj = putObjMsg->data_obj;
     // perf-trace related data
     putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
     putReq->opReqFailedPerfEventType = SM_PUT_OBJ_REQ_ERR;

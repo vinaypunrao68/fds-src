@@ -154,7 +154,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
         fds_uint64_t size = 0, blobCount = 0, objCount = 0;
         Error rc = volcat->getVolumeMeta(vdesc->volUUID, &size, &blobCount, &objCount);
         EXPECT_TRUE(rc.ok());
-        EXPECT_EQ(size, blobCount * BLOB_SIZE);
+        EXPECT_EQ(size, static_cast<fds_uint64_t>(blobCount) * BLOB_SIZE);
 
         // get list of blobs for volume
         fpi::BlobInfoListType blobList;

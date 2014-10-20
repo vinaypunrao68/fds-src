@@ -224,7 +224,8 @@ class ObjectPersistData : public Module,
 
     diskio::FilePersisDataIO* getTokenFile(diskio::DataTier tier,
                                            fds_token_id smTokId,
-                                           fds_uint16_t fileId);
+                                           fds_uint16_t fileId,
+                                           fds_bool_t openIfNotExist);
 };
 
 }  // namespace fds

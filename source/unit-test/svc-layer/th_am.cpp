@@ -132,6 +132,7 @@ TEST_F(AMTest, test)
     int connCnt = this->getArg<int>("conn-cnt");
     int nPuts =  this->getArg<int>("puts-cnt");
     std::string smIp = this->getArg<std::string>("sm-ip");
+    std::string myIp = this->getArg<std::string>("my-ip");
     int smPort = this->getArg<int>("sm-port");
     int amPort = this->getArg<int>("am-port");
 
@@ -152,7 +153,7 @@ TEST_F(AMTest, test)
         smClients[i].second.reset(new fpi::TestSMSvcClient(smProto));
         /* Connect to SM by sending my ip port so sm can connect to me */
         smTrans->open();
-        smClients[i].first = smClients[i].second->associate("127.0.0.1", amPort);
+        smClients[i].first = smClients[i].second->associate(myIp, amPort);
         std::cout << "started connection. Id : " << smClients[i].first << "\n";
     }
 
@@ -205,6 +206,7 @@ int main(int argc, char** argv) {
         ("puts-cnt", po::value<int>()->default_value(10), "puts count")
         ("sm-ip", po::value<std::string>()->default_value("127.0.0.1"), "sm-ip")
         ("sm-port", po::value<int>()->default_value(9092), "sm port")
+        ("my-ip", po::value<std::string>()->default_value("127.0.0.1"), "my ip")
         ("am-port", po::value<int>()->default_value(9094), "am port");
     AMTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
