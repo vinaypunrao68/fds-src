@@ -2,7 +2,8 @@ probe_topdir      := ..
 source_dir        := $(probe_topdir)/../..
 user_incl_dir     := \
     $(source_dir)/access-mgr/stor-hvisor \
-    $(source_dir)/access-mgr/include
+    $(source_dir)/access-mgr/include \
+    $(source_dir)/net-service/include
 
 user_json         := in.json
 user_cpp_flags    :=

@@ -1,10 +1,5 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
- *
- * Template code to create a stand-alone unit test using the probe
- * framework to pump data to the test code.
- *
- * Replace XX with your adapter name.
  */
 #include <unistd.h>
 #include <string>
@@ -15,6 +10,7 @@
 #include <platform/platform-lib.h>
 #include <am-nbd.h>
 #include <AccessMgr.h>
+#include <net-platform.h>
 
 namespace fds {
 
