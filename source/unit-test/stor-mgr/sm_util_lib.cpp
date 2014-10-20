@@ -2,14 +2,15 @@
 * Copyright 2014 Formation Data Systems, Inc.
 */
 
-#include "sm_dataset.h"
+#include "sm_util_lib.h"
 
 #include <unistd.h>
-
+#include <fds_config.hpp>
 #include <string>
 #include <boost/shared_ptr.hpp>
 #include <ObjectId.h>
 #include <dlt.h>
+#include <fds_volume.h>
 #include <FdsRandom.h>
 
 namespace fds {
@@ -30,7 +31,7 @@ namespace fds {
                 std::ifstream::in);
 
         diskMap->clear();
-        fds_verify(map.fail() == nullptr);
+        fds_verify(map.fail() == false);
         while (!map.eof()) {
             map >> dev >> idx >> std::hex >> uuid >> std::dec >> path;
             if (map.fail()) {
@@ -87,7 +88,6 @@ namespace fds {
     static fds_bool_t SafeSmMgmt::setupDiskMap(const FdsRootDir* dir,
             fds_uint32_t simHddCount,
             fds_uint32_t simSsdCount) {
-
         if (SafeSmMgmt::diskMapPresent(dir)) {
             return false;
         }
@@ -253,4 +253,4 @@ namespace fds {
         return err;
     }
 
-} // namespace fds
+}  // namespace fds
