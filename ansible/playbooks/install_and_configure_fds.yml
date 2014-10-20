@@ -5,7 +5,7 @@
     remote_user: vagrant
     sudo: True
     vars_files:
-        - node_spec.yml
+        - ../vars_files/node_spec.yml
 
     handlers:
     -   name: restart ssh
@@ -28,13 +28,13 @@
         shell: ./fdsinstall.py -o 5 -o 4  && touch /root/.fdsinstall_step4_ran chdir=/root/fdsinstall creates=/root/.fdsinstall_step4_ran
 
     -   name: render formation.conf
-        action: template src=formation.conf.j2 dest=/fds/sbin/formation.conf owner=root group=root mode=0644
+        action: template src=../templates/formation.conf.j2 dest=/fds/sbin/formation.conf owner=root group=root mode=0644
 
     -   name: render platform.conf
-        action: template src=platform.conf.j2 dest=/fds/etc/platform.conf owner=root group=root mode=0644
+        action: template src=../templates/platform.conf.j2 dest=/fds/etc/platform.conf owner=root group=root mode=0644
 
     -   name: render orch_mgr.conf
-        action: template src=orch_mgr.conf.j2 dest=/fds/etc/orch_mgr.conf owner=root group=root mode=0644
+        action: template src=../templates/orch_mgr.conf.j2 dest=/fds/etc/orch_mgr.conf owner=root group=root mode=0644
 
     -   name: fix FdsSetup.py
         command: sed -ie 's/return_stdin[)]:/return_stdin=False):/g' FdsSetup.py chdir=/usr/local/lib/python2.7/dist-packages/fdslib
