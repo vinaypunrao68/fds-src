@@ -35,7 +35,6 @@ void OMgrClientRPCI::NotifyAddVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
     assert(vol_msg->type == fpi::FDSP_NOTIFY_ADD_VOL);
     fds_vol_notify_t type = fds_notify_vol_add;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    // om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyModVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -43,7 +42,6 @@ void OMgrClientRPCI::NotifyModVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
     assert(vol_msg->type == fpi::FDSP_NOTIFY_MOD_VOL);
     fds_vol_notify_t type = fds_notify_vol_mod;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    // om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifyRmVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -51,7 +49,6 @@ void OMgrClientRPCI::NotifyRmVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
     assert(vol_msg->type == fpi::FDSP_NOTIFY_RM_VOL);
     fds_vol_notify_t type = fds_notify_vol_rm;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    // om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::NotifySnapVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -59,7 +56,6 @@ void OMgrClientRPCI::NotifySnapVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
     assert(vol_msg->type == fpi::FDSP_NOTIFY_SNAP_VOL);
     fds_vol_notify_t type = fds_notify_vol_snap;
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
-    // om_client->recvNotifyVol(vdb, type, vol_msg->flag, msg_hdr->result, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::AttachVol(fpi::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -129,7 +125,6 @@ void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
 
 void OMgrClientRPCI::NotifyScavengerCmd(FDSP_MsgHdrTypePtr& msg_hdr,
                                         FDSP_ScavengerTypePtr& gc_info) {
-    // om_client->recvScavengerEvt(gc_info->cmd);
 }
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
@@ -276,6 +271,7 @@ void OMgrClient::registerCatalogEventHandler(catalog_event_handler_t evt_hdlr) {
  */
 void OMgrClient::start_omrpc_handler()
 {
+    if (fNoNetwork) return;
     try {
         nst_->listenServer(omrpc_handler_session_);
     } catch(const att::TTransportException& e) {
@@ -287,6 +283,7 @@ void OMgrClient::start_omrpc_handler()
 
 // Call this to setup the (receiving side) endpoint to lister for control path requests from OM.
 int OMgrClient::startAcceptingControlMessages() {
+    if (fNoNetwork) return 0;
     std::string myIp = fds::net::get_local_ip(
         g_fdsprocess->get_fds_config()->get<std::string>("fds.nic_if"));
     int myIpInt = netSession::ipString2Addr(myIp);
@@ -337,6 +334,7 @@ void OMgrClient::initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 // Should be called after calling starting subscription endpoint and control path endpoint.
 int OMgrClient::registerNodeWithOM(Platform *plat)
 {
+    if (fNoNetwork) return 0;
     try {
         omclient_prx_session_ = nst_->startSession<netOMControlPathClientSession>(
             omIpStr, omConfigPort, FDSP_ORCH_MGR, 1, /* number of channels */
@@ -394,7 +392,8 @@ int OMgrClient::registerNodeWithOM(Platform *plat)
 
 int OMgrClient::pushPerfstatsToOM(const std::string& start_ts,
                                   int stat_slot_len,
-                                  const fpi::FDSP_VolPerfHistListType& hist_list) { //NOLINT
+                                  const fpi::FDSP_VolPerfHistListType& hist_list) {
+    if (fNoNetwork) return 0;
     try {
         auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
         fpi::CtrlPerfStatsPtr pkt(new fpi::CtrlPerfStats());
@@ -420,6 +419,7 @@ int OMgrClient::testBucket(const std::string& bucket_name,
                            const std::string& accessKeyId,
                            const std::string& secretAccessKey)
 {
+    if (fNoNetwork) return 0;
     try {
         auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
         fpi::CtrlTestBucketPtr pkt(new fpi::CtrlTestBucket());
@@ -440,6 +440,7 @@ int OMgrClient::testBucket(const std::string& bucket_name,
 
 int OMgrClient::pushGetBucketStatsToOM(fds_uint32_t req_cookie)
 {
+    if (fNoNetwork) return 0;
     try {
         auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
         fpi::CtrlGetBucketStatsPtr pkt(new fpi::CtrlGetBucketStats());
@@ -460,6 +461,7 @@ int OMgrClient::pushGetBucketStatsToOM(fds_uint32_t req_cookie)
 
 int OMgrClient::pushCreateBucketToOM(const fpi::FDSP_VolumeInfoTypePtr& volInfo)
 {
+    if (fNoNetwork) return 0;
     try {
         auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
         fpi::CtrlCreateBucketPtr pkt(new fpi::CtrlCreateBucket());
@@ -501,6 +503,7 @@ int OMgrClient::pushCreateBucketToOM(const fpi::FDSP_VolumeInfoTypePtr& volInfo)
 int OMgrClient::pushModifyBucketToOM(const std::string& bucket_name,
                                      const fpi::FDSP_VolumeDescTypePtr& vol_desc)
 {
+    if (fNoNetwork) return 0;
     try {
         auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
         fpi::CtrlModifyBucketPtr pkt(new fpi::CtrlModifyBucket());
@@ -524,6 +527,7 @@ int OMgrClient::pushModifyBucketToOM(const std::string& bucket_name,
 
 int OMgrClient::pushDeleteBucketToOM(const fpi::FDSP_DeleteVolTypePtr& volInfo)
 {
+    if (fNoNetwork) return 0;
     try {
         auto req =  gSvcRequestPool->newEPSvcRequest(gl_OmUuid.toSvcUuid());
         fpi::CtrlDeleteBucketPtr pkt(new fpi::CtrlDeleteBucket());
@@ -552,6 +556,7 @@ int OMgrClient::recvMigrationEvent(bool dlt_type)
 }
 
 int OMgrClient::sendMigrationStatusToOM(const Error& err) {
+    if (fNoNetwork) return 0;
     try {
         FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
         initOMMsgHdr(msg_hdr);
@@ -575,6 +580,7 @@ int OMgrClient::sendMigrationStatusToOM(const Error& err) {
 Error OMgrClient::sendDMTPushMetaAck(const Error& op_err,
                                      const std::string& session_uuid) {
     Error err(ERR_OK);
+    if (fNoNetwork) return err;
 
     // send ack back to OM
     boost::shared_ptr<fpi::FDSP_ControlPathRespClient> resp_client_prx =
@@ -806,6 +812,7 @@ void OMgrClient::recvDMTClose(fds_uint64_t dmt_version,
 int OMgrClient::sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
                                     const std::string& session_uuid)
 {
+    if (fNoNetwork) return 0;
     Error err(ERR_OK);
     LOGDEBUG << "Sending dmt close ack to OM";
 

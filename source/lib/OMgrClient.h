@@ -87,6 +87,7 @@ class OMgrClient {
     int domain_id;
     FDSP_MgrIdType my_node_type;
     NodeUuid myUuid;
+    bool fNoNetwork = false;
     std::string my_node_name;
     std::string omIpStr;
     fds_uint32_t omConfigPort;
@@ -145,6 +146,9 @@ class OMgrClient {
                fds_log *parent_log,
                boost::shared_ptr<netSessionTbl> nst,
                Platform *plf_mgr);
+    void setNoNetwork(bool fNoNetwork) {
+        this->fNoNetwork = fNoNetwork;
+    }
     ~OMgrClient();
     int initialize();
     void start_omrpc_handler();
