@@ -8,8 +8,10 @@
 #include <set>
 #include <map>
 
+#include <concurrency/RwLock.h>
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmTokenPlacement.h>
+#include <object-store/SmTokenState.h>
 
 namespace fds {
 
@@ -223,6 +225,7 @@ struct SmSuperblock {
      */
     SmSuperblockHeader Header;
     ObjectLocationTable olt;
+    TokenDescTable tokTbl;
 };
 
 /* compile time assert to check that the superblock header is properly aligned
@@ -281,14 +284,22 @@ class SmSuperblockMgr {
      * or superblock was not loaded / initialized properly
      */
     fds_uint16_t getDiskId(fds_token_id smTokId,
-                           diskio::DataTier tier) const;
+                           diskio::DataTier tier);
 
     /**
      * Returns a set of SM tokens that this SM currently owns
      * Will revisit this method when we have more SM token states
      */
-    SmTokenSet getSmOwnedTokens() const;
-    SmTokenSet getSmOwnedTokens(fds_uint16_t diskId) const;
+    SmTokenSet getSmOwnedTokens();
+    SmTokenSet getSmOwnedTokens(fds_uint16_t diskId);
+    fds_uint16_t getWriteFileId(fds_token_id smToken,
+                                diskio::DataTier tier);
+    fds_bool_t compactionInProgress(fds_token_id smToken,
+                                    diskio::DataTier tier);
+    Error changeCompactionState(fds_token_id smToken,
+                                diskio::DataTier tier,
+                                fds_bool_t inProg,
+                                fds_uint16_t newFileId);
 
     /* Set of interfaces for unit testing */
     std::string SmSuperblockMgrTestGetFileName();
@@ -317,23 +328,17 @@ class SmSuperblockMgr {
   private:
     /// Master superblock. The master copy will persist
     SmSuperblock superblockMaster;
+    /// lock for superblockMaster, for now used
+    /// when updating compaction state, other ops are
+    /// serialized by the caller. We will most likely refactor this
+    /// pretty soon
+    fds_rwlock sbLock;
 
     /// set of disks.
     DiskLocMap diskMap;
 
     /// Name of the superblock file.
     const std::string superblockName = "SmSuperblock";
-
-    /**
-     * TODO(Anna) We should revisit this when we add GC and migration state
-     * but for now keeping a list of SM tokens that this SM owns
-     * In our current case of 4-node cluster and 4-way replication, every SM
-     * owns all tokens. For future and a more general case, we should keep
-     * persistent state of which SM tokens this SM currently owns. I think
-     * it will be a map of SM token id to SM token state (which will also
-     * include GC state, possibly migration state, etc)
-     */
-    SmTokenSet ownedTokens;
 };
 
 std::ostream& operator<< (std::ostream &out,

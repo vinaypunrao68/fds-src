@@ -8,15 +8,10 @@
 #include <set>
 #include <map>
 
+#include <SmTypes.h>
 #include <persistent-layer/dm_io.h>
 
 namespace fds {
-
-#define SMTOKEN_MASK  0xff
-#define SMTOKEN_COUNT 256
-#define SM_TIER_COUNT  2
-
-typedef std::set<fds_token_id> SmTokenSet;
 
 /**
  * Plain Old Data definition of the object location table that maps

@@ -14,6 +14,6 @@ user_bin_exe      := \
     smperf_gtest
 
 smapi_gtest       := smapi_gtest.cpp ngx_modules.c
-smperf_gtesti     := smperf_gtest.cpp ngx_modules.c
+smperf_gtest     := smperf_gtest.cpp ngx_modules.c
 
 include $(test_topdir)/Makefile.svc

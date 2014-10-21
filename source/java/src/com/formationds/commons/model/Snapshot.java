@@ -15,9 +15,9 @@ public class Snapshot
   extends ModelBase {
   private static final long serialVersionUID = 7430533053472660819L;
 
-  private Long id;
+  private String id;
   private String name;
-  private Long volumeId;
+  private String volumeId;
   private Date creation;
   private Long retention;
 
@@ -29,16 +29,16 @@ public class Snapshot
   }
 
   /**
-   * @return Returns the {@link long} representing the snapshot id
+   * @return Returns the {@link String} representing the snapshot id
    */
-  public Long getId() {
+  public String getId() {
     return id;
   }
 
   /**
-   * @param id the {@link long} representing the snapshot id
+   * @param id the {@link String} representing the snapshot id
    */
-  public void setId( final Long id ) {
+  public void setId( final String id ) {
     this.id = id;
   }
 
@@ -57,16 +57,16 @@ public class Snapshot
   }
 
   /**
-   * @return Returns {@code long} representing the volume id
+   * @return Returns {@link String} representing the volume id
    */
-  public Long getVolumeId() {
+  public String getVolumeId() {
     return volumeId;
   }
 
   /**
-   * @param volumeId the {@code long} representing the volume id:w
+   * @param volumeId the {@link String} representing the volume id:w
    */
-  public void setVolumeId( final Long volumeId ) {
+  public void setVolumeId( final String volumeId ) {
     this.volumeId = volumeId;
   }
 

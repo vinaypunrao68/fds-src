@@ -22,7 +22,15 @@ var en_US = {
         l_warning: 'Warning',
         th_date: 'Date',
         th_data_type: 'Data Type',
-        th_name: 'Name'
+        th_name: 'Name',
+        
+        bytes: 'bytes',
+        kb: 'KB',
+        mb: 'MB',
+        gb: 'GB',
+        tb: 'TB',
+        pb: 'PB',
+        eb: 'EB'
     },
     login: {
         lost_your_password: 'Lost your password?',

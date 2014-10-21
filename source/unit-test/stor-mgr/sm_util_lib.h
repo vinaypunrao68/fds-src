@@ -2,6 +2,9 @@
 * Copyright 2014 Formation Data Systems, Inc.
 */
 
+#ifndef SOURCE_UNIT_TEST_STOR_MGR_SM_UTIL_LIB_H_
+#define SOURCE_UNIT_TEST_STOR_MGR_SM_UTIL_LIB_H_
+
 #include "sm_dataset.h"
 #include <unistd.h>
 
@@ -66,3 +69,5 @@ namespace fds {
     };
 
 }  // namespace fds
+
+#endif
