@@ -10,8 +10,8 @@ osdep_kern_cc_flags  +=
 osdep_kern_ld_flags  +=
 osdep_kern_ar_flags  +=
 
-osdep_user_cc_flags  += -O1
-osdep_user_cpp_flags += -O1
+osdep_user_cc_flags  += -g -O2 -fno-strict-aliasing
+osdep_user_cpp_flags += -g -O2 -fno-strict-aliasing
 osdep_user_ld_flags  +=
 osdep_user_so_flags  +=
 osdep_user_ar_flags  +=

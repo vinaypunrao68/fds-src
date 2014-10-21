@@ -223,9 +223,9 @@ StorHvCtrl::StorHvCtrl(int argc,
      * Setup RPC endpoints based on comm mode.
      */
     std::string dataMgrIPAddress;
-    int dataMgrPortNum;
+    int dataMgrPortNum = 0;
     std::string storMgrIPAddress;
-    int storMgrPortNum;
+    int storMgrPortNum = 0;
     if ((mode == DATA_MGR_TEST) ||
         (mode == TEST_BOTH)) {
         /*
