@@ -5,12 +5,17 @@
 package com.formationds.commons.model.capacity;
 
 import com.formationds.commons.model.abs.Calculated;
+import com.google.gson.annotations.SerializedName;
 
 /**
  * @author ptinius
  */
+
 public class CapacityDeDupRatio
   extends Calculated {
+  private static final long serialVersionUID = 455524997304050359L;
+
+  @SerializedName("ratio")
   private Double ratio;
 
   /**

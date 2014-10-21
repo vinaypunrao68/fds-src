@@ -140,11 +140,11 @@ public class VolumeCriteriaQueryBuilder {
                                   .getEnd() );
     }
 
-    if( searchCriteria.getSeriesType() != null && !searchCriteria.getSeriesType()
-                                                                 .isEmpty() ) {
-      for( final Metrics metrics : searchCriteria.getSeriesType() ) {
-        this.withSeries( metrics );
-      }
+    if( searchCriteria.getSeriesType() != null &&
+      !searchCriteria.getSeriesType()
+                     .isEmpty() ) {
+      searchCriteria.getSeriesType()
+                    .forEach( this::withSeries );
     }
 
     if( searchCriteria.getContexts() != null &&

@@ -9,12 +9,10 @@ import com.google.gson.annotations.SerializedName;
 
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
-import javax.xml.bind.annotation.XmlRootElement;
 
 /**
  * @author ptinius
  */
-@XmlRootElement
 @Entity
 public class VolumeDatapoint
   extends ModelBase {

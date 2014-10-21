@@ -4,7 +4,6 @@
 
 package com.formationds.om.rest.metrics;
 
-import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.entity.QueryCriteria;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.repository.SingletonMetricsRepository;
@@ -46,11 +45,10 @@ public class QueryMetrics
            new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
       final QueryCriteria metricQuery =
         ObjectModelHelper.toObject( reader, TYPE );
-      final Statistics stats = SingletonMetricsRepository.instance()
-                                                         .getMetricsRepository()
-                                                         .query( metricQuery );
-
-      return new JsonResource( new JSONObject( stats ) );
+      return new JsonResource(
+        new JSONObject( SingletonMetricsRepository.instance()
+                                                  .getMetricsRepository()
+                                                  .query( metricQuery ) ) );
     }
   }
 }
