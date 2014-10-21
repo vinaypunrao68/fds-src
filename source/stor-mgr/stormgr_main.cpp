@@ -22,7 +22,6 @@ class SMMain : public PlatformProcess
             &fds::gl_SmPlatform,
             &fds::gl_NetService,
             &fds::gl_tierPolicy,
-            &fds::gl_objStats,
             sm,
             nullptr
         };

@@ -333,16 +333,14 @@ SMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                 vol->getQueue().get()));
         }
 
-        if (err.ok()) {
-            objStorMgr->createCache(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
-        } else {
+        if (!err.ok()) {
             // most likely axceeded min iops
             objStorMgr->deregVol(volumeId);
         }
     }
     if (!err.ok()) {
         GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
-                  << std::dec << " error: " << err.GetErrstr();
+                  << std::dec << " " << err;
     }
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), *vol_msg);

@@ -18,15 +18,27 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume
         
         $event.stopPropagation();
         
-        $volume_api.createSnapshot( volume.id, volume.name + '.' + (new Date()).getTime(), 
-            function(){ 
-                var $event = {
-                    type: 'INFO',
-                    text: $filter( 'translate' )( 'volumes.desc_snapshot_created' )
-                };
+        var confirm = {
+            type: 'CONFIRM',
+            text: $filter( 'translate' )( 'volumes.desc_confirm_snapshot' ),
+            confirm: function( result ){
+                if ( result === false ){
+                    return;
+                }
+                
+                $volume_api.createSnapshot( volume.id, volume.name + '.' + (new Date()).getTime(), 
+                    function(){ 
+                        var $event = {
+                            type: 'INFO',
+                            text: $filter( 'translate' )( 'volumes.desc_snapshot_created' )
+                        };
+
+                        $rootScope.$emit( 'fds::alert', $event );
+                });
+            }
+        };
         
-                $rootScope.$emit( 'fds::alert', $event );
-            });
+        $rootScope.$emit( 'fds::confirm', confirm );
     };
 
     $scope.edit = function( $event, volume ) {
