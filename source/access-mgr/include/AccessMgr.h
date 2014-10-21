@@ -26,9 +26,10 @@ class AccessMgr : public Module, public boost::noncopyable {
     /**
      * Module methods
      */
-    int mod_init(SysParams const *const param);
-    void mod_startup();
-    void mod_shutdown();
+    int mod_init(SysParams const *const param) override;
+    void mod_startup() override;
+    void mod_lockstep_start_service() override;
+    void mod_shutdown() override;
 
     void run();
 

@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <stdlib.h>
+#include <stdarg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <string>
@@ -201,6 +202,27 @@ int FdsProcess::main()
 }
 
 /**
+ * Wrapper to assign modules that will run in lockstep order.
+ */
+void FdsProcess::proc_assign_locksteps(int cnt, ...)
+{
+    va_list  vl;
+    Module  *mods[cnt + 1];
+
+    fds_verify(cnt < ModuleVector::mod_max_added_vec);
+    va_start(vl, cnt);
+    for (int i = 0; i < cnt; i++) {
+        mods[i] = va_arg(vl, Module *);
+        if (mods[i] == NULL) {
+            cnt = i;
+            break;
+        }
+    }
+    va_end(vl);
+    mod_vectors_->mod_assign_locksteps(mods);
+}
+
+/**
 * @brief Runs mod_init() and mod_startup() on all the modules.
 */
 void FdsProcess::start_modules() {
@@ -209,13 +231,19 @@ void FdsProcess::start_modules() {
     /* The process should have all objects allocated in proper place. */
     proc_pre_startup();
 
+    /* The false flags runs module appended by the pre_startup() call. */
+    mod_vectors_->mod_init_modules(false);
+
     /* Do FDS process startup sequence. */
     mod_vectors_->mod_startup_modules();
-    mod_vectors_->mod_run_locksteps();
+    mod_vectors_->mod_startup_modules(false);
 
     /*  Star to run the main process. */
     proc_pre_service();
     mod_vectors_->mod_start_services();
+    mod_vectors_->mod_start_services(false);
+
+    mod_vectors_->mod_run_locksteps();
 }
 
 /**
