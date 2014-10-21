@@ -49,8 +49,8 @@ diskio::DataTier RankTierPutAlgo::selectTier(const ObjectID& oid,
             ret_tier = diskio::flashTier;
         }
     } else {  // else ret_tier already set to disk
-        FDS_PLOG(tpa_log)
-                << "RankTierPutAlgo: selectTier received unexpected media policy: " << media_policy;
+        LOGDEBUG << "RankTierPutAlgo: selectTier received unexpected media policy: "
+                 << media_policy;
     }
 
     return ret_tier;

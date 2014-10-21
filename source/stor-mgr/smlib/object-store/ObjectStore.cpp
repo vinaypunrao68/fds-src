@@ -20,6 +20,9 @@ ObjectStore::ObjectStore(const std::string &modName,
           conf_verify_data(true),
           numBitsPerToken(0),
           diskMap(new SmDiskMap("SM Disk Map Module")),
+          tierEngine(new TierEngine("SM Tier Engine",
+                                    TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
+                                    volTbl)),
           dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
           metaStore(new ObjectMetadataStore(
               "SM Object Metadata Storage Module")) {
@@ -416,6 +419,7 @@ ObjectStore::mod_init(SysParams const *const p) {
         diskMap.get(),
         dataStore.get(),
         metaStore.get(),
+        tierEngine.get(),
         NULL
     };
     mod_intern = objStoreDepMods;
