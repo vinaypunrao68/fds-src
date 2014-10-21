@@ -41,7 +41,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             // calculate this off of real data.
             var buildMax = function(){
                 $max = d3.max( $scope.data.series, function( d ){
-                    return d3.max( d, function( s ){
+                    return d3.max( d.datapoints, function( s ){
                         return s.y;
                     });
                 });
@@ -52,9 +52,15 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                
                 buildMax();
                 
+                var xMax = 1;
+                
+                if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
+                    xMax = $scope.data.series[0].datapoints.length - 1;
+                }
+                
                 $xScale = d3.scale.linear()
                     // all series must have the same number of points
-                    .domain( [0,$scope.data.series[0].length-1] )
+                    .domain( [0,xMax] )
                     .range( [$left_label + $left_padding, $element.width() - $right_padding] );
                 
                 $yScale = d3.scale.linear()
@@ -91,7 +97,9 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 $svg.selectAll( '.line' )
                     .transition()
                     .duration( 500 )
-                    .attr( 'd', area );
+                    .attr( 'd', function( d ){
+                        return area( d.datapoints );
+                    });
                 
                 $svg.selectAll( '.point' )
                     .transition()
@@ -114,7 +122,19 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .attr( 'y1', function( d ){ 
                         return $yScale( d ); 
                     })
-                    .attr( 'x2', $xScale( $scope.data.series[0].length-1 ) )
+                    .attr( 'x2', function( d ){
+                        
+                        var val = 0;
+                    
+                        if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
+                            val = $xScale( $scope.data.series[0].datapoints.length-1 );
+                        }
+                        else {
+                            val = $xScale( 0 );
+                        }
+                        
+                        return val;
+                    })
                     .attr( 'y2', function( d ){ 
                         return $yScale( d ); 
                     })
@@ -137,7 +157,14 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 $svg.append( 'line' )
                     .attr( 'class', 'guide-lines' )
                     .attr( 'x1', $xScale( 0 ) )
-                    .attr( 'x2', $xScale( $scope.data.series[0].length-1 ) )
+                    .attr( 'x2', function( d ){
+                    
+                        if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints )){
+                            return $xScale( $scope.data.series[0].datapoints.length-1 );
+                        }
+                    
+                        return $xScale( 0 );
+                    })
                     .attr( 'y1', $yScale( 0 ) )
                     .attr( 'y2', $yScale( 0 ) )
                     .attr( 'stroke', 'black' );
@@ -196,7 +223,9 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         return 0.8;
                     })
                     .attr( 'class', 'line' )
-                    .attr( 'd', area )
+                    .attr( 'd', function( d ){
+                        return area( d.datapoints ); 
+                    })
                     .on( 'mouseover', function( d, i, j ){
                           if ( angular.isFunction( $scope.tooltip ) ){
                             $scope.tooltipText = $scope.tooltip( d, i, j );

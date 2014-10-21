@@ -1,0 +1,49 @@
+topdir            := $(test_topdir)/..
+user_target       := test
+user_std_libs     := true
+user_rtime_env    := user
+
+user_incl_dir     += \
+    $(topdir)/fds-probe/include \
+	$(topdir)/platform/include \
+	$(topdir)/access-mgr/include \
+    $(topdir)/nginx-driver \
+    $(topdir)
+
+user_cpp_flags    +=
+user_fds_so_libs  +=
+user_fds_ar_libs  +=  \
+    fds-test \
+    fds-probe-ut \
+    fds-plat-daemon \
+    fds-probe \
+    fds-am-engine \
+    fds-am-plat \
+    fds-dsk-io \
+    fds-dsk-mgnt \
+    fds-plat-disk \
+    fds-hash \
+    fds-xdi
+
+local_nginx_libs   :=  \
+    ngx-http-module \
+    ngx-http \
+    ngx-event-module \
+    ngx-event \
+    ngx-core \
+    ngx-os \
+    ngx-core
+
+user_non_fds_libs +=  \
+    jansson \
+	udev \
+	parted \
+    $(local_nginx_libs) \
+    pthread crypt pcre crypto \
+	z cryptopp \
+    ssl \
+    gmock \
+    leveldb \
+    profiler
+
+include $(topdir)/Makefile.incl

@@ -309,11 +309,13 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
          */
         superblockMaster.initSuperblock();
         SmTokenPlacement::compute(hddIds, ssdIds, &(superblockMaster.olt));
+        superblockMaster.tokTbl.initialize(smTokensOwned);
 
         /* After creating a new superblock, sync to disks.
          */
         err = syncSuperblock();
         fds_assert(err == ERR_OK);
+        err = ERR_SM_NOERR_PRISTINE_STATE;
     } else {
         /* Reconcile superblock().  Elect one "master" superblock, if
          * possible.  Failure to reconcile should be a *very* rare case.
@@ -333,17 +335,6 @@ SmSuperblockMgr::loadSuperblock(const DiskIdSet& hddIds,
          */
         checkDiskTopology(hddIds, ssdIds);
     }
-
-
-    // for now we are not keeping any persistent state about SM tokens
-    // that SM owns. Since our current setup we support is 4-node domain
-    // with 4-way replication, SM always owns all tokens, so here we just
-    // save them and not do anything else (other modules use it for now
-    // to only open token files, so not breaking anything if SM thinks it
-    // owns more tokens than it does, in case of > 4 node domain); will
-    // have to revisit very soon when we implement adding new nodes for
-    // > 4 node domains, doing token migration and so on.
-    ownedTokens.swap(smTokensOwned);
 
     return err;
 }
@@ -662,23 +653,54 @@ SmSuperblockMgr::SmSuperblockMgrTestGetFileName()
 
 fds_uint16_t
 SmSuperblockMgr::getDiskId(fds_token_id smTokId,
-                        diskio::DataTier tier) const {
+                        diskio::DataTier tier) {
+    SCOPEDREAD(sbLock);
     return superblockMaster.olt.getDiskId(smTokId, tier);
 }
 
-SmTokenSet
-SmSuperblockMgr::getSmOwnedTokens() const {
-    // we will return a copy
-    SmTokenSet tokens;
-    tokens.insert(ownedTokens.begin(), ownedTokens.end());
-    return tokens;
+fds_uint16_t
+SmSuperblockMgr::getWriteFileId(fds_token_id smToken,
+                                diskio::DataTier tier) {
+    SCOPEDREAD(sbLock);
+    return superblockMaster.tokTbl.getWriteFileId(smToken, tier);
+}
+
+fds_bool_t
+SmSuperblockMgr::compactionInProgress(fds_token_id smToken,
+                                      diskio::DataTier tier) {
+    SCOPEDREAD(sbLock);
+    return superblockMaster.tokTbl.isCompactionInProgress(smToken, tier);
+}
+
+Error
+SmSuperblockMgr::changeCompactionState(fds_token_id smToken,
+                                       diskio::DataTier tier,
+                                       fds_bool_t inProg,
+                                       fds_uint16_t newFileId) {
+    Error err(ERR_OK);
+    SCOPEDWRITE(sbLock);
+    superblockMaster.tokTbl.setCompactionState(smToken, tier, inProg);
+    if (inProg) {
+        superblockMaster.tokTbl.setWriteFileId(smToken, tier, newFileId);
+    }
+    // sync superblock
+    err = syncSuperblock();
+    return err;
 }
 
 SmTokenSet
-SmSuperblockMgr::getSmOwnedTokens(fds_uint16_t diskId) const {
+SmSuperblockMgr::getSmOwnedTokens() {
+    SCOPEDREAD(sbLock);
+    return superblockMaster.tokTbl.getSmTokens();
+}
+
+SmTokenSet
+SmSuperblockMgr::getSmOwnedTokens(fds_uint16_t diskId) {
+    SCOPEDREAD(sbLock);
     // get all tokens that can reside on disk diskId
     SmTokenSet diskToks = superblockMaster.olt.getSmTokens(diskId);
     // filter tokens that this SM owns
+    SmTokenSet ownedTokens = superblockMaster.tokTbl.getSmTokens();
     SmTokenSet retToks;
     for (SmTokenSet::const_iterator cit = diskToks.cbegin();
          cit != diskToks.cend();
@@ -695,7 +717,7 @@ std::ostream& operator<< (std::ostream &out,
                           const SmSuperblockMgr& sbMgr) {
     out << "Current disk map:\n" << sbMgr.diskMap;
     out << sbMgr.superblockMaster.olt;
-    out << "SM tokens owned by this SM: " << sbMgr.ownedTokens;
+    out << sbMgr.superblockMaster.tokTbl;
     return out;
 }
 

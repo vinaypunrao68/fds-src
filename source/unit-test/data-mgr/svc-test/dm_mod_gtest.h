@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_UNIT_TEST_DATA_MGR_DM_MOD_GTEST_H_
-#define SOURCE_UNIT_TEST_DATA_MGR_DM_MOD_GTEST_H_
+#ifndef SOURCE_UNIT_TEST_DATA_MGR_SVC_TEST_DM_MOD_GTEST_H_
+#define SOURCE_UNIT_TEST_DATA_MGR_SVC_TEST_DM_MOD_GTEST_H_
 
 #define GTEST_USE_OWN_TR1_TUPLE 0
 
@@ -181,4 +181,4 @@ struct DMApi : SingleNodeTest
       std::atomic<uint32_t> getVolumeMetaSuccess_;
 };
 
-#endif  // SOURCE_UNIT_TEST_DATA_MGR_DM_MOD_GTEST_H_
+#endif  // SOURCE_UNIT_TEST_DATA_MGR_SVC_TEST_DM_MOD_GTEST_H_

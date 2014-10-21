@@ -243,19 +243,19 @@ TEST_F(SmObjectPersistDataTest, restart) {
     Error err(ERR_OK);
 
     // open data store
-    err = persistData->openPersistDataStore(smDiskMap);
+    err = persistData->openPersistDataStore(smDiskMap, true);
     EXPECT_TRUE(err.ok());
 
     // restart without cleaning
     restart();
 
     // open data store again
-    err = persistData->openPersistDataStore(smDiskMap);
+    err = persistData->openPersistDataStore(smDiskMap, false);
     EXPECT_TRUE(err.ok());
 
     // restart from clean state
     cleanRestart();
-    err = persistData->openPersistDataStore(smDiskMap);
+    err = persistData->openPersistDataStore(smDiskMap, true);
     EXPECT_TRUE(err.ok());
 }
 
@@ -267,7 +267,7 @@ TEST_F(SmObjectPersistDataTest, write_read) {
     testdata.generateDataset(dsize, objSize);
 
     // open data store
-    err = persistData->openPersistDataStore(smDiskMap);
+    err = persistData->openPersistDataStore(smDiskMap, true);
     EXPECT_TRUE(err.ok());
 
     // do few puts
@@ -281,7 +281,7 @@ TEST_F(SmObjectPersistDataTest, write_read) {
 
     // restart, and then read and validate again
     restart();
-    err = persistData->openPersistDataStore(smDiskMap);
+    err = persistData->openPersistDataStore(smDiskMap, false);
     EXPECT_TRUE(err.ok());
     readDataset(objSize, testdata, locMap);
 }
@@ -294,7 +294,7 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
     testdata.generateDataset(dsize, objSize);
 
     // open data store
-    err = persistData->openPersistDataStore(smDiskMap);
+    err = persistData->openPersistDataStore(smDiskMap, true);
     EXPECT_TRUE(err.ok());
 
     // do few puts
@@ -331,7 +331,7 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
 
     // restart
     restart();
-    err = persistData->openPersistDataStore(smDiskMap);
+    err = persistData->openPersistDataStore(smDiskMap, false);
     EXPECT_TRUE(err.ok());
 
     // verify stats after restart

@@ -1127,7 +1127,8 @@ boost::shared_ptr<apis::ConfigurationServiceClient> OmAgent::get_om_config_svc()
     using namespace apache::thrift::protocol; // NOLINT
     using namespace apache::thrift::transport; // NOLINT
     if (!om_cfg_svc) {
-        boost::shared_ptr<TTransport> socket(new TSocket("localhost", 9090));
+        boost::shared_ptr<TTransport> socket(new TSocket(
+                *gModuleProvider->get_plf_manager()->plf_get_om_ip(), 9090));
         boost::shared_ptr<TTransport> transport(new TFramedTransport(socket));
         boost::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
         om_cfg_svc = boost::make_shared<apis::ConfigurationServiceClient>(protocol);

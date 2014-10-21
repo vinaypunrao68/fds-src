@@ -35,7 +35,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     var cloneVolume = function( volume ){
         volume.id = $scope.volumeVars.clone.id;
         
-        if ( !angular.isDefined( $scope.volumeVars.clone.sla ) ){
+        if ( angular.isDefined( $scope.volumeVars.clone.cloneType ) ){
             $volume_api.cloneSnapshot( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
         }
         else {

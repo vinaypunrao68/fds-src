@@ -81,6 +81,8 @@ class ScavengerContext(Context):
                 print "INACTIVE"
             elif resp == 3:
                 print "DISABLED"
+            elif resp == 4:
+                print "FINISHING"
 
         except Exception, e:
             log.exception(e)
@@ -97,7 +99,7 @@ class ScavengerContext(Context):
             self.smClient.sendAsyncSvcReq(smUuids[0], getStatusMsg, scavCB)
             scavCB.wait()
             resp = scavCB.payload.progress_pct
-            print "Scavenger progress: {}%".format(10)
+            print "Scavenger progress: {}%".format(resp)
         except Exception, e:
             log.exception(e)
             return 'get progress failed'

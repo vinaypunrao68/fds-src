@@ -74,7 +74,7 @@ void SMSvcHandler::queryScavengerPolicy(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     Error err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
 
     hdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    GLOGDEBUG << "Got scavenger policy " << err;
+    GLOGDEBUG << "Got scavenger policy " << resp->dsk_threshold1;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlQueryScavengerPolicyResp), *resp);
 }
 
