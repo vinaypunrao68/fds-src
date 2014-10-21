@@ -44,6 +44,7 @@ angular.module( 'display-widgets' ).directive( 'tooltip', function(){
                     $scope.top = /*$scope.mousePosition.y +*/ '-1000px';
                     $scope.left = /*$scope.mousePosition.x +*/ '-1000px';
                     $scope.below = true;
+                    $scope.leftSide = true;
 
                     var el = $( $element[0] ).children( '.tooltip-body' );
 
@@ -61,13 +62,15 @@ angular.module( 'display-widgets' ).directive( 'tooltip', function(){
                     $scope.below = false;
 
                     var yPad = -1*(h+12);
-                    var xPad = -12;
+                    var xPad = 0;
 
+                    // shift it right
                     if ( $scope.mousePosition.x + xPad + w > parentW ){
                         xPad = xPad - w;
-                        
+                        $scope.leftSide = false;
                     }
 
+                    // shift it down
                     if ( $scope.mousePosition.y + yPad < 0 ){
                         yPad = 10;
                         $scope.below = true;

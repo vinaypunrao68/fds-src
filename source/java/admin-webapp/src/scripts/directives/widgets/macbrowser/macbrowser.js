@@ -84,6 +84,7 @@ angular.module( 'form-directives' ).directive( 'macBrowser', function(){
             
             $scope.$watch( 'data', function( newVal ){
                 augment( $scope.data, 0 );
+                $scope.itemSelected( $scope.data[0] );
             });
         },
         link: function( $scope, $element, $attrs ){
