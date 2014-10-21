@@ -26,19 +26,19 @@ angular.module( 'base' ).factory( '$byte_converter', [ '$filter', function( $fil
         if ( bytes < service.KB ){
             return bytes + ' ' + service.byteStr;
         }
-        else if ( bytes <= service.MB ){
+        else if ( bytes < service.MB ){
             return (bytes/service.KB).toFixed( decimals ) + ' ' + service.kbStr;
         }
-        else if( bytes <= service.GB ){
+        else if( bytes < service.GB ){
             return ( bytes / service.MB ).toFixed( decimals ) + ' ' + service.mbStr;
         }
-        else if ( bytes <= service.TB ){
+        else if ( bytes < service.TB ){
             return ( bytes / service.GB ).toFixed( decimals ) + ' ' + service.gbStr;
         }
-        else if ( bytes <= service.PB ){
+        else if ( bytes < service.PB ){
             return ( bytes / service.TB ).toFixed( decimals ) + ' ' + service.tbStr;
         }
-        else if ( bytes <= service.EB ){
+        else if ( bytes < service.EB ){
             return ( bytes / service.PB ).toFixed( decimals ) + ' ' + service.pbStr;
         }
         else {
