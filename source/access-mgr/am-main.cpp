@@ -29,6 +29,9 @@ class AMMain : public PlatformProcess
         argv = mod_vectors_->mod_argv(&argc);
         am = AccessMgr::unique_ptr(new AccessMgr("AMMain AM Module",
                                                  this));
+        proc_add_module(am.get());
+        Module *lckstp[] = { am.get(), NULL };
+        proc_assign_locksteps(lckstp);
     }
     int run() override {
         am->run();

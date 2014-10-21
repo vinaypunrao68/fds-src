@@ -73,6 +73,30 @@ class FdsProcess : public boost::noncopyable,
               const std::string &base_path,
               const std::string &def_log_file,  Module **mod_vec);
 
+    /**
+     * Add dynamic module created during proc_pre_startup() call.  It's not correct to
+     * make this call outside the proc_pre_startup() call.
+     */
+    inline void proc_add_module(Module *mod)
+    {
+        mod_vectors_->mod_append(mod);
+    }
+
+    /**
+     * Assign modules so that their lockstep methods will be called in the lockstep order.
+     * Note that a lockstep method may be async, which requires the owner to call the
+     * completion callback.
+     *
+     * Example: proc_assign_locksteps(3, &A, &B, &C, NULL).
+     *   A : platform library to establish domain connectivity.
+     *   B : plugin OM's workflow.
+     *   C : old OMClient.
+     */
+    inline void proc_assign_locksteps(Module **mods)
+    {
+        mod_vectors_->mod_assign_locksteps(mods);
+    }
+
     virtual ~FdsProcess();
 
     /**

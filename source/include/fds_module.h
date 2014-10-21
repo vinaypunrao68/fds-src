@@ -5,7 +5,9 @@
 #define SOURCE_INCLUDE_FDS_MODULE_H_
 
 #include <string>
+#include <boost/thread/condition.hpp>
 #include <fds_types.h>
+#include <concurrency/Mutex.h>
 
 namespace fds {
 
@@ -39,7 +41,9 @@ class ModuleVector;
 const int MOD_ST_NULL       = 0x00000000;
 const int MOD_ST_INIT       = 0x00000001;
 const int MOD_ST_STARTUP    = 0x00000002;
-const int MOD_ST_LOCKSTEP   = 0x04000000;      /**< rsvd most bits for lockstep */
+const int MOD_ST_LOCKSTEP   = 0x04000000;
+const int MOD_ST_LSTEP_DONE = 0x00100000;
+const int MOD_ST_LSTEP_DOWN = 0x00200000;
 const int MOD_ST_FUNCTIONAL = 0x40000000;
 const int MOD_ST_SHUTDOWN   = 0x80000000;
 
@@ -54,11 +58,18 @@ class Module
     //
     virtual int  mod_init(SysParams const *const param);
     virtual void mod_startup() = 0;
-    virtual void mod_lockstep_startup();
     virtual void mod_enable_service();
 
-    virtual void mod_disable_service();
+    // If the async argument is true, the caller must call mod_lockstep_done() to run
+    // the next module's method.
+    //
+    virtual void mod_lockstep_start_service();
+    virtual void mod_lockstep_done();
+
     virtual void mod_lockstep_shutdown();
+    virtual void mod_lockstep_shutdown_done();
+
+    virtual void mod_disable_service();
     virtual void mod_shutdown() = 0;
 
     virtual const char* getName();
@@ -79,11 +90,11 @@ class Module
     //
     virtual void mod_lockstep_sync();
 
-    int                      mod_lstp_cnt;
+    int                      mod_lstp_idx;
     int                      mod_intern_cnt;
     fds_uint32_t             mod_exec_state;
-    Module                   **mod_lockstep;
-    Module                   **mod_intern;
+    Module                 **mod_intern;
+    ModuleVector            *mod_owner;
     char const *const        mod_name;
     SysParams const *        mod_params;
 };
@@ -91,6 +102,9 @@ class Module
 class ModuleVector
 {
   public:
+    /* We shouldn't have more dynamic vector module than this. */
+    static const int mod_max_added_vec = 16;
+
     ModuleVector(int argc, char **argv, Module **mods);
     virtual ~ModuleVector();
 
@@ -111,10 +125,10 @@ class ModuleVector
      *   | A1 | B | ... |   | A1 | A | B1 | ... |   | A1 | B1 | ... |
      *   +----+---+-----+   +----+---+----+-----+   +----+----+-----+
      */
-    void mod_init_modules();
-    void mod_startup_modules();
+    void mod_init_modules(bool predef = true);
+    void mod_startup_modules(bool predef = true);
+    void mod_start_services(bool predef = true);
     void mod_run_locksteps();
-    void mod_start_services();
 
     /**
      * Wrapper to bringup everything in proper order.  Only used when the caller
@@ -122,9 +136,25 @@ class ModuleVector
      */
     void mod_execute();
 
-    void mod_stop_services();
     void mod_shutdown_locksteps();
-    void mod_shutdown();
+    void mod_stop_services(bool predef = true);
+    void mod_shutdown(bool predef = true);
+
+    /**
+     * Assign modules to be coordinated in lockstep.
+     * Lockstep modules are executed in the order from index 0.  The caller must free
+     * the Module vector if needed.  The input array must be terminated by NULL.
+     *
+     * If this obj already has lock step vector, the input will be appended.  Their
+     * lockstep methods are called in the final lockstep order.
+     */
+    void mod_assign_locksteps(Module **mods);
+
+    /**
+     * Append module allocated and not in the static list.  The best place to call
+     * this function is in proc_pre_startup() call in fds_process.
+     */
+    void mod_append(Module *mod);
 
     inline SysParams *get_sys_params() {
         return &sys_params;
@@ -135,13 +165,24 @@ class ModuleVector
     }
 
   private:
-    virtual void mod_mk_sysparams();
+    friend class Module;
 
     int                      sys_mod_cnt;
+    int                      sys_add_cnt;
+    int                      sys_lckstp_cnt;
     int                      sys_argc;
-    char                     **sys_argv;
-    Module                   **sys_mods;
+    char                   **sys_argv;
+    Module                 **sys_mods;              /* static module vector. */
+    Module                 **sys_add_mods;          /* dynamic module vector. */
+    Module                 **sys_lckstps;
     SysParams                sys_params;
+
+    boost::condition        *sys_waitq;
+    fds_mutex                sys_mtx;
+
+    void     mod_mk_sysparams();
+    void     mod_done_lockstep(Module *mod, bool shutdown = false);
+    Module **mod_select_vec(bool predef, int *mod_cnt);
 };
 
 /**
