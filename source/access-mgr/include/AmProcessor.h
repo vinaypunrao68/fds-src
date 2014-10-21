@@ -109,6 +109,12 @@ class AmProcessor : public Module, public boost::noncopyable {
     void statBlobCb(AmQosReq *qosReq, const Error& error);
 
     /**
+     * Processes a volumeContents (aka ListBucket) request
+     */
+    void volumeContents(AmQosReq *qosReq);
+    void volumeContentsCb(AmQosReq *qosReq, const Error& error);
+
+    /**
      * Callback for catalog query request
      */
     void queryCatalogCb(AmQosReq *qosReq, const Error& error);
