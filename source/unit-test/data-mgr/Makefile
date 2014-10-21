@@ -7,8 +7,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  :=
 user_non_fds_libs :=
 user_cpp_flags    :=
-user_cpp          :=  \
-    dm_volume_catalog_gtest.cpp
+user_cpp          :=  $(wildcard *.cpp)
 
 user_bin_exe      := \
     dm_volume_catalog_gtest
