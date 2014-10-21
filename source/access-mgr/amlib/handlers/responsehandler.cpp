@@ -103,20 +103,9 @@ ListBucketResponseHandler::ListBucketResponseHandler(std::vector<apis::BlobDescr
 
 void ListBucketResponseHandler::process() {
     XCHECKSTATUS(status);
-    for (int i = 0; i < contentsCount; i++) {
-        apis::BlobDescriptor blob;
-        blob.name = contents[i].objKey;
-        blob.byteCount = contents[i].size;
-        vecBlobs.push_back(blob);
-    }
 }
 
 ListBucketResponseHandler::~ListBucketResponseHandler() {
-    if (contents) delete[] contents;
-    if (commonPrefixes) {
-        // delete *commonPrefixes;
-        // delete commonPrefixes;
-    }
 }
 
 //================================================================================
