@@ -61,7 +61,7 @@ include $(incl_scripts)/Makefile.scpt
 # Main make rule.
 #
 .PHONY: all
-all: $(user_predep) devenv base_predepend $(user_postdep) \
+all: devsetup-ansible $(user_predep) devenv base_predepend $(user_postdep) \
      $(user_predepend) $(user_postdepend)                           \
 	 $(user_preall) base_dirs base_style base_objs base_all $(user_postall)     \
 	 $(user_tool) $(user_scripts) base_postmake                                 \
@@ -392,13 +392,32 @@ devsetup: $(chef_client_binary)
 
 
 ansible_dir := $(incl_scripts)/../../../ansible
-ansible_devsetup_command := ansible-playbook -i $(ansible_dir)/ansible_hosts -c local $(ansible_dir)/playbooks/devsetup.yml
+ansible_devsetup_command := ansible-playbook -i $(ansible_dir)/ansible_hosts -c local $(ansible_dir)/playbooks/devsetup.yml 
+devsetup_playbook := $(ansible_dir)/playbooks/devsetup.yml
+devsetup_chkfile := $(ansible_dir)/.devsetup-is-up-to-date
+devsetup_is_running := $(ansible_dir)/.devsetup-is-running
 
-.PHONY : devsetup-ansible
-devsetup-ansible: 
-	@sudo apt-get install -fy python-dev python-pip
-	@sudo pip install ansible
-	@$(ansible_devsetup_command)
+print_playbook_full_path:
+	@echo $(devsetup_playbook)
+	@echo $(devsetup_chkfile)
+	@echo $(devsetup_is_running)
+
+$(devsetup_chkfile): $(devsetup_playbook)
+	@if [ ! -e $(devsetup_is_running) ]; then \
+		touch $(devsetup_is_running) ; \
+		rm -f $(devsetup_chkfile) ; \
+		sudo apt-get install -fy python-dev python-pip ; \
+		sudo pip install ansible ; \
+		$(ansible_devsetup_command) ; \
+		touch $(devsetup_chkfile) ; \
+		rm -f $(devsetup_is_running) ; \
+	else \
+		echo "waiting for devsetup to complete" ; \
+		while [ ! -e $(devsetup_chkfile) ]; do sleep 10; done ; \
+	fi
+
+.PHONY: devsetup-ansible
+devsetup-ansible: $(devsetup_chkfile)
 
 # -----------------------------------------------------------------------------
 # List Targets
