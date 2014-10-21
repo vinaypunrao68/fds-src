@@ -92,7 +92,10 @@ class FdsProcess : public boost::noncopyable,
      *   B : plugin OM's workflow.
      *   C : old OMClient.
      */
-    void proc_assign_locksteps(int cnt, ...);
+    inline void proc_assign_locksteps(Module **mods)
+    {
+        mod_vectors_->mod_assign_locksteps(mods);
+    }
 
     virtual ~FdsProcess();
 

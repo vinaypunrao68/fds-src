@@ -27,7 +27,8 @@ class TestProcess : public ProbeProcess
         am = AccessMgr::unique_ptr(new AccessMgr("AMMain Probe", this));
 
         proc_add_module(am.get());
-        proc_assign_locksteps(3, &gl_PlatformdNetSvc, am.get(), NULL);
+        Module *lckstp[] = { &gl_PlatformdNetSvc, am.get(), NULL };
+        proc_assign_locksteps(lckstp);
     }
     int run() override
     {

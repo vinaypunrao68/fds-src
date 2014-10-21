@@ -202,27 +202,6 @@ int FdsProcess::main()
 }
 
 /**
- * Wrapper to assign modules that will run in lockstep order.
- */
-void FdsProcess::proc_assign_locksteps(int cnt, ...)
-{
-    va_list  vl;
-    Module  *mods[cnt + 1];
-
-    fds_verify(cnt < ModuleVector::mod_max_added_vec);
-    va_start(vl, cnt);
-    for (int i = 0; i < cnt; i++) {
-        mods[i] = va_arg(vl, Module *);
-        if (mods[i] == NULL) {
-            cnt = i;
-            break;
-        }
-    }
-    va_end(vl);
-    mod_vectors_->mod_assign_locksteps(mods);
-}
-
-/**
 * @brief Runs mod_init() and mod_startup() on all the modules.
 */
 void FdsProcess::start_modules() {
