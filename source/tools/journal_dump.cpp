@@ -118,11 +118,16 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
   }
 
   virtual void Delete(const Slice& key) {
+#ifdef USE_NEW_LDB_STRUCTURES
+    const fds::BlobObjKey * objKey = reinterpret_cast<const fds::BlobObjKey *>(key.data());
+    std::cout << "=>del Blob: '" << objKey->blobId << "' Index: '" << objKey->objIndex << "'\n";
+#else
     std::string keyStr(key.data(), key.size());
     fds::ExtentKey extKey;
     extKey.loadSerialized(keyStr);
     std::cout << "  del 'Blob:" << extKey.blob_name << ", Extent:" << extKey.extent_id
             << "'" << std::endl;
+#endif
   }
 };
 
