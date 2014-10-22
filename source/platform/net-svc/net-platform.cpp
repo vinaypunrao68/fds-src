@@ -111,9 +111,7 @@ PlatformdNetSvc::mod_enable_service()
 void
 PlatformdNetSvc::mod_lockstep_start_service()
 {
-    /* Just sleep for now to allow platform time to join the physical domain. */
-    sleep(2);
-    this->mod_lockstep_done();
+    /* Search for mod_lockstep_done to see this module's lockstep task. */
 }
 
 // mod_shutdown
@@ -425,6 +423,8 @@ PlatAgentPlugin::ep_connected()
         ignore.clear();
         rpc->notifyNodeInfo(ignore, *msg, false);
     }
+    /* Notify completion of platform lockstep. */
+    NetPlatform::nplat_singleton()->mod_lockstep_done();
 }
 
 // ep_down
