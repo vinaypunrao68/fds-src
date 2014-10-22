@@ -54,12 +54,11 @@
 
 namespace fds {
 
-class DataMgr;
+struct DataMgr;
 class DMSvcHandler;
 extern DataMgr *dataMgr;
 
-class DataMgr : public Module, public DmIoReqHandler {
-  public:
+struct DataMgr : Module, DmIoReqHandler {
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
     class ReqHandler;
@@ -107,13 +106,15 @@ class DataMgr : public Module, public DmIoReqHandler {
 
     Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
 
- private:
     typedef enum {
       NORMAL_MODE = 0,
       TEST_MODE   = 1,
       MAX
     } dmRunModes;
     dmRunModes    runMode;
+    bool isTestMode() {
+        return runMode == TEST_MODE;
+    }
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
 
     /**
@@ -134,8 +135,7 @@ class DataMgr : public Module, public DmIoReqHandler {
     StatStreamAggregator::ptr statStreamAggr_;
 
 
-    class dmQosCtrl : public FDS_QoSControl {
-      public:
+    struct dmQosCtrl : FDS_QoSControl {
         DataMgr *parentDm;
 
         dmQosCtrl(DataMgr *_parent,
@@ -317,11 +317,9 @@ class DataMgr : public Module, public DmIoReqHandler {
                                fds_volid_t volume_id,
                                const std::vector<StatSlot>& slots);
 
-  protected:
     void setup_metadatapath_server(const std::string &ip);
     void setup_metasync_service();
 
-  public:
     explicit DataMgr(CommonModuleProviderIf *modProvider);
     ~DataMgr();
     std::map<fds_io_op_t, dm::Handler*> handlers;
