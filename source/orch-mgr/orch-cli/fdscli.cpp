@@ -285,7 +285,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
 
         NETWORKCHECK(return_code = cfgPrx->CreateVol(msg_hdr, volData));
         if (return_code !=0) {
-            std::system("clear");
+            auto sret = std::system("clear");
             cout << "Error: Creating the Volume \n";
         }
 
@@ -645,7 +645,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
 
         NETWORKCHECK(return_code = cfgPrx->SnapVol(msg_hdr, volData));
         if (return_code !=0) {
-            std::system("clear");
+            auto sret = std::system("clear");
             cout << "Error: Snap Volume \n";
         }
     } else {

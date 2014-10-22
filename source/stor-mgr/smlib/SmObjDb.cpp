@@ -365,7 +365,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     itr.done = true;
 
     DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-        << " cnt: " << obj_itr_cnt) << " token retrieve complete";
+        << " cnt: " << obj_itr_cnt << " token retrieve complete");
 }
 
 /**
