@@ -103,6 +103,12 @@ class AmProcessor : public Module, public boost::noncopyable {
     void deleteBlobCb(AmQosReq *qosReq, const Error& error);
 
     /**
+     * Processes a set metadata on blob request
+     */
+    void setBlobMetadata(AmQosReq *qosReq);
+    void setBlobMetadataCb(AmQosReq *qosReq, const Error& error);
+
+    /**
      * Processes a stat blob request
      */
     void statBlob(AmQosReq *qosReq);

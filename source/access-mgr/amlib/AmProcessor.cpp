@@ -343,6 +343,32 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
 }
 
 void
+AmProcessor::setBlobMetadata(AmQosReq *qosReq) {
+    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
+    LOGDEBUG << "processing SetBlobMetaData for vol:" << qosReq->io_vol_id;
+
+    // Stage the transaction metadata changes
+    fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->getTxId()), blobReq->getMetaDataListPtr()))
+
+    fds_verify(txMgr->getTxDmtVersion(*(blobReq->getTxId()), &(blobReq->dmt_version)));
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::setBlobMetadataCb, qosReq);
+
+    amDispatcher->dispatchSetBlobMetadata(qosReq);
+}
+
+void
+AmProcessor::setBlobMetadataCb(AmQosReq *qosReq,
+                               const Error &error) {
+    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+
+    delete blobReq;
+}
+
+void
 AmProcessor::statBlob(AmQosReq *qosReq) {
     Error err(ERR_OK);
     StatBlobReq* blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
