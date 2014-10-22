@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <stdlib.h>
+#include <stdarg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <string>
@@ -209,13 +210,19 @@ void FdsProcess::start_modules() {
     /* The process should have all objects allocated in proper place. */
     proc_pre_startup();
 
+    /* The false flags runs module appended by the pre_startup() call. */
+    mod_vectors_->mod_init_modules(false);
+
     /* Do FDS process startup sequence. */
     mod_vectors_->mod_startup_modules();
-    mod_vectors_->mod_run_locksteps();
+    mod_vectors_->mod_startup_modules(false);
 
     /*  Star to run the main process. */
     proc_pre_service();
     mod_vectors_->mod_start_services();
+    mod_vectors_->mod_start_services(false);
+
+    mod_vectors_->mod_run_locksteps();
 }
 
 /**

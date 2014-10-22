@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <string>
+#include <am-nbd.h>
 #include <fdsn-server.h>
 #include <util/fds_stat.h>
 #include <native_api.h>
@@ -29,6 +30,9 @@ class AMMain : public PlatformProcess
         argv = mod_vectors_->mod_argv(&argc);
         am = AccessMgr::unique_ptr(new AccessMgr("AMMain AM Module",
                                                  this));
+        proc_add_module(am.get());
+        Module *lckstp[] = { am.get(), NULL };
+        proc_assign_locksteps(lckstp);
     }
     int run() override {
         am->run();
@@ -47,6 +51,7 @@ int main(int argc, char **argv)
         &fds::gl_fds_stat,
         &fds::gl_AmPlatform,
         &fds::gl_NetService,
+        &fds::gl_NbdBlockMod,
         nullptr
     };
 

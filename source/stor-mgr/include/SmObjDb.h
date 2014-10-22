@@ -37,12 +37,10 @@ extern "C" {
 
 #include "fds_qos.h"
 #include "qos_ctrl.h"
-#include "fds_obj_cache.h"
 #include "fds_assert.h"
 #include "fds_config.hpp"
 #include "util/timeutils.h"
 
-#include "ObjStats.h"
 #include "ObjMeta.h"
 
 #define SM_TOKEN_MASK 0x000000ff

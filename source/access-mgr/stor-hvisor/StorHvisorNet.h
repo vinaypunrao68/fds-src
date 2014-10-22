@@ -238,6 +238,9 @@ public:
     std::string                 myIp;
     std::string                 my_node_name;
 
+    /// Toggle AM standalone mode for testing
+    fds_bool_t toggleStandAlone;
+
     /// Toggle to use new AM processing path
     fds_bool_t toggleNewPath;
 
@@ -610,7 +613,11 @@ static void processBlobReq(AmQosReq *qosReq) {
                 storHvisor->amProcessor->statBlob(qosReq);
                 break;
 	    }
-        case fds::FDS_LIST_BUCKET:
+        case fds::FDS_VOLUME_CONTENTS:
+	    if (storHvisor->toggleNewPath) {
+                storHvisor->amProcessor->volumeContents(qosReq);
+                break;
+	    }
             err = storHvisor->handlers.at(qosReq->io_type)->handleQueueItem(qosReq);
             break;
 

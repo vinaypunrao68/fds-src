@@ -285,7 +285,6 @@ int main(int argc, char *argv[]) {
     srand (time(NULL));
 
     fds::Module *smVec[] = {
-        &fds::gl_objStats,
         NULL
     };
     MigrationTester t(argc, argv, "migration_ut.conf", "", "temp.log", smVec);

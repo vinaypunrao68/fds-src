@@ -5,8 +5,7 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_TIERPUTALGORITHMS_H_
 #define SOURCE_STOR_MGR_INCLUDE_TIERPUTALGORITHMS_H_
 
-#include "stor-mgr/include/TierEngine.h"
-#include "stor-mgr/include/ObjRank.h"
+#include <TierEngine.h>
 
 namespace fds {
 
@@ -41,11 +40,9 @@ class RandomTestAlgo : public TierPutAlgo {
 class RankTierPutAlgo: public TierPutAlgo {
     public:
      RankTierPutAlgo(StorMgrVolumeTable* _sm_volTbl,
-                     ObjectRankEngine* _rank_eng,
-                     fds_log *_log)
-         : rank_eng(_rank_eng),
-         sm_volTbl(_sm_volTbl),
-         tpa_log(_log) {
+                     ObjectRankEngine* _rank_eng)
+             : rank_eng(_rank_eng),
+               sm_volTbl(_sm_volTbl) {
          }
      ~RankTierPutAlgo() {
      }
@@ -59,9 +56,6 @@ class RankTierPutAlgo: public TierPutAlgo {
 
      /* does not own, gets passed from SM */
      StorMgrVolumeTable* sm_volTbl;
-
-     /* does not own, passed to the constructor */
-     fds_log* tpa_log;
 };
 
 }  // namespace fds

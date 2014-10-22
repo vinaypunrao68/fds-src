@@ -320,6 +320,9 @@ Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
     /*
      * update the stats 
      */
+    // TODO(Anna) -- remember why we need this, and when we do, uncomment or move
+    // to appropriate place
+    /*
     vol->lastAccessTimeR =  vol->objStats.last_access_ts;
     slotChange = vol->objStats.increment(objStorMgr->objStats->startTime, COUNTER_UPDATE_SLOT_TIME);
     if (slotChange == true) {
@@ -327,6 +330,7 @@ Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
                                                                   COUNTER_UPDATE_SLOT_TIME);
         LOGDEBUG << "STATS-VOL: Average Objects  per Vol slot : " << vol->averageObjectsRead;
     }
+    */
     volume_map[vol_uuid] = vol;
 
     map_rwlock.write_unlock();

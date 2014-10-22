@@ -105,6 +105,17 @@ PlatformdNetSvc::mod_enable_service()
     NetPlatSvc::mod_enable_service();
 }
 
+// mod_lockstep_start_service
+// --------------------------
+//
+void
+PlatformdNetSvc::mod_lockstep_start_service()
+{
+    /* Just sleep for now to allow platform time to join the physical domain. */
+    sleep(2);
+    this->mod_lockstep_done();
+}
+
 // mod_shutdown
 // ------------
 //

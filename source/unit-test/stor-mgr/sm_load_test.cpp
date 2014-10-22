@@ -574,9 +574,7 @@ SmLoadProc::regVolume(TestVolume::ptr& volume) {
                 vol->getQueue().get()));
         }
 
-        if (err.ok()) {
-            sm->createCache(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
-        } else {
+        if (!err.ok()) {
             sm->deregVol(volumeId);
         }
     }
@@ -595,7 +593,6 @@ int main(int argc, char * argv[]) {
     std::cout << "Will test SM" << std::endl;
     fds::Module *smVec[] = {
         &diskio::gl_dataIOMod,
-        &fds::gl_objStats,
         sm,
         nullptr
     };

@@ -18,11 +18,11 @@ def process_command_line_arguments ():
     parser.add_option ('-p', '--package', action = 'store_true', dest = 'package',
                        help = 'Builds an installable tarball')
 
-    parser.add_option ('-i', '--install', dest = 'tar_file',
-                       help = 'Installs TAR_FILE on cluster nodes, TAR_FILE is ignored when given in conjuction with --package')
+    parser.add_option ('-i', '--install', action='store_true', dest = 'tar_file',
+                       help = 'Installs SOURCE on cluster nodes, SOURCE is ignored when given in conjunction with --package')
 
     parser.add_option ('-d', '--deploy', action = 'store_true', dest = 'deploy',
-                       help = 'Installs FDS software (e.g., ./fdsinstallpy -o 4)')
+                       help = 'Installs FDS software (e.g., ./fdsinstall.py -o 4)')
 
     # Shared options
     parser.add_option ('-f', '--file', dest = 'config_file', default = 'formation.conf',
@@ -33,6 +33,9 @@ def process_command_line_arguments ():
 
     parser.add_option ('-t', '--target', dest = 'target', default = None,
                        help = 'target node to apply -i or -d, against')
+
+    parser.add_option ('-s', '--source', dest='source', default=None,
+                       help='source tar bar path to use with -i, against')
 
     #Options requird by lower level libraries, but not supported by this script
     parser.add_option ('-n', '--dryrun', action = 'store_true', dest = 'dryrun',
@@ -70,8 +73,12 @@ def main():
         config = fdscfg.FdsConfigRun (None, options)
         cluster = BasicCluster.basic_cluster (config.rt_get_obj('cfg_nodes'), config.rt_get_obj('cfg_am'), config.rt_get_obj('cfg_cli'))
 
-        if not options.package:
-            filename = options.tar_file
+        if not filename and options.tar_file:
+            if options.source:
+                filename = options.source
+            else:
+                print 'Error: Package file name needed install or deploy.  Use --source.'
+                sys.exit(1)
 
         if options.tar_file:
             (code, message) = cluster.install (filename, True)

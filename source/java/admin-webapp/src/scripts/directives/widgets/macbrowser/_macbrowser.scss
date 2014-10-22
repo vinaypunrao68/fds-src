@@ -13,6 +13,11 @@
         }
     }
     
+    .list-container {
+        height: 100%;
+        overflow: auto;
+    }
+    
     ul {
         padding: 2px;
     }

@@ -79,7 +79,7 @@ public class SmokeTest {
         new SecureRandom().nextBytes(randomBytes);
         prefix = UUID.randomUUID().toString();
         count = 10;
-        config = new XdiClientFactory().remoteOmService("localhost", 9090);
+        config = new XdiClientFactory().remoteOmService(host, 9090);
     }
 
     void sleep(long ms) {

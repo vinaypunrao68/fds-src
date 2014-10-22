@@ -37,6 +37,10 @@ angular.module( 'form-directives' ).directive( 'macBrowser', function(){
 
             $scope.itemSelected = function( item ){
                 
+                if ( !angular.isDefined( item ) ){
+                    return;
+                }
+                
                 // de-select anyone else that is selected
                 var siblings = [];
                 
@@ -84,6 +88,7 @@ angular.module( 'form-directives' ).directive( 'macBrowser', function(){
             
             $scope.$watch( 'data', function( newVal ){
                 augment( $scope.data, 0 );
+                $scope.itemSelected( $scope.data[0] );
             });
         },
         link: function( $scope, $element, $attrs ){

@@ -76,7 +76,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava-gwt</artifactId>
-            <version>16.0.1</version>
+            <version>18.0</version>
         </dependency>
         <dependency>
             <groupId>joda-time</groupId>
@@ -142,11 +142,6 @@
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore-nio</artifactId>
             <version>4.3.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpasyncclient</artifactId>
-            <version>4.0.2</version>
         </dependency>
         <dependency>
             <groupId>commons-cli</groupId>

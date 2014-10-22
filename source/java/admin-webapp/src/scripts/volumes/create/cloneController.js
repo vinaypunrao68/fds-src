@@ -55,6 +55,7 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
             $scope.volumeVars.clone = $scope.selectedItem.parent;
             $scope.volumeVars.clone.id = $scope.selectedItem.id;
             $scope.volumeVars.clone.name = $scope.selectedItem.name;
+            $scope.volumeVars.clone.cloneType = 'snapshot';
         }
         else{
             $scope.volumeVars.clone = $scope.selectedItem;

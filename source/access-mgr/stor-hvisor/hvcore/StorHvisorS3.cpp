@@ -1399,7 +1399,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
     msgHdr->src_port       = 0;
     //  msgHdr->src_node_name  = my_node_name;
     msgHdr->src_node_name = storHvisor->myIp;
-    msgHdr->bucket_name    = blobReq->getBlobName(); /* ListBucketReq stores bucket name in blob name */
+    msgHdr->bucket_name    = blobReq->getBlobName(); /* VolumeContentsReq stores bucket name in blob name */
  
     /*
      * Setup journal entry
@@ -1409,7 +1409,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
     journEntry->dm_msg = msgHdr;
     journEntry->sm_ack_cnt = 0;
     journEntry->dm_ack_cnt = 0;
-    journEntry->op = FDS_LIST_BUCKET;
+    journEntry->op = FDS_VOLUME_CONTENTS;
     journEntry->data_obj_id.digest.clear(); 
     journEntry->data_obj_len = 0;
     journEntry->io = qosReq;
@@ -1438,8 +1438,8 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
     msgHdr->dst_ip_lo_addr = node_ip;
     msgHdr->dst_port = node_port;
 
-    get_bucket_list_req->max_blobs_to_return = static_cast<ListBucketReq*>(blobReq)->maxkeys;
-    get_bucket_list_req->iterator_cookie = static_cast<ListBucketReq*>(blobReq)->iter_cookie;
+    get_bucket_list_req->max_blobs_to_return = static_cast<VolumeContentsReq*>(blobReq)->maxkeys;
+    get_bucket_list_req->iterator_cookie = static_cast<VolumeContentsReq*>(blobReq)->iter_cookie;
 
     // Call Get Volume Blob List to DM
     try {
@@ -1494,7 +1494,7 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
     fds_verify(qosReq != NULL);
     fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
     fds_verify(blobReq != NULL);
-    fds_verify(blobReq->getIoType() == FDS_LIST_BUCKET);
+    fds_verify(blobReq->getIoType() == FDS_VOLUME_CONTENTS);
     LOGDEBUG << "Responding to getBucket trans " << transId
               <<" for bucket " << blobReq->getBlobName()
               << " num of blobs " << blobListResp->num_blobs_in_resp
@@ -1522,10 +1522,10 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
         }
 
         /* in case there are more blobs in the list, remember iter_cookie */
-        ListBucketReq* list_buck = static_cast<ListBucketReq*>(blobReq);
+        VolumeContentsReq* list_buck = static_cast<VolumeContentsReq*>(blobReq);
         list_buck->iter_cookie = blobListResp->iterator_cookie;
 
-        /* call ListBucketReq's callback directly */
+        /* call VolumeContentsReq's callback directly */
         list_buck->DoCallback( (blobListResp->end_of_list == true) ? 0 : 1, //isTrancated == 0 if no more blobs to return?
                                "", // next_marker ?
                                blobListResp->num_blobs_in_resp,

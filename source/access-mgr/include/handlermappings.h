@@ -23,15 +23,6 @@ fn_StartBlobTxHandler(FDSN_Status status,
                       BlobTxId blobTxId,
                       void *callbackData);
 
-void fn_ListBucketHandler(int isTruncated,
-                          const char *nextMarker,
-                          int contentsCount,
-                          const ListBucketContents *contents,
-                          int commonPrefixesCount,
-                          const char **commonPrefixes,
-                          void *callbackData,
-                          FDSN_Status status);
-
 void fn_BucketStatsHandler(const std::string& timestamp,
                            int content_count,
                            const BucketStatsContent* contents,

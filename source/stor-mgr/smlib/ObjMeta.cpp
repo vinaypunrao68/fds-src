@@ -9,11 +9,8 @@
 
 #include <fdsp_utils.h>
 #include <ObjMeta.h>
-#include <StorMgr.h>
 
 namespace fds {
-
-extern ObjectStorMgr *objStorMgr;
 
 SyncMetaData::SyncMetaData()
 {
@@ -484,7 +481,7 @@ void ObjMetaData::removePhyLocation(diskio::DataTier tier) {
  * Applies incoming data to metadata.
  * @param data
  */
-void ObjMetaData::apply(const FDSP_MigrateObjectMetadata& data)
+void ObjMetaData::apply(const fpi::FDSP_MigrateObjectMetadata& data)
 {
     fds_assert(!syncDataExists());
 
@@ -524,7 +521,7 @@ void ObjMetaData::apply(const FDSP_MigrateObjectMetadata& data)
  * Extracts sync entry data.  Metadata that is node specific is skipped
  * @param md
  */
-void ObjMetaData::extractSyncData(FDSP_MigrateObjectMetadata &md) const
+void ObjMetaData::extractSyncData(fpi::FDSP_MigrateObjectMetadata &md) const
 {
     /* Object id */
     fds::assign(md.object_id, obj_map.obj_id);
@@ -546,7 +543,7 @@ void ObjMetaData::extractSyncData(FDSP_MigrateObjectMetadata &md) const
     for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; i++) {
         if (assoc_entry[i].ref_cnt > 0) {
             fds_assert(assoc_entry[i].vol_uuid != 0);
-            FDSP_ObjectVolumeAssociation a;
+            fpi::FDSP_ObjectVolumeAssociation a;
             a.vol_id.uuid = assoc_entry[i].vol_uuid;
             a.ref_cnt = assoc_entry[i].ref_cnt;
             md.associations.push_back(a);
@@ -594,7 +591,7 @@ void ObjMetaData::checkAndDemoteUnsyncedData(const uint64_t& syncTs)
  * Applies data to sync metadata.  Normal metadata is unaffected.
  * @param data
  */
-void ObjMetaData::applySyncData(const FDSP_MigrateObjectMetadata& data)
+void ObjMetaData::applySyncData(const fpi::FDSP_MigrateObjectMetadata& data)
 {
     if (!syncDataExists()) {
         mask |= SYNCMETADATA_MASK;
@@ -654,7 +651,6 @@ void ObjMetaData::mergeNewAndUnsyncedData()
         assoc_entry.clear();
         obj_map.obj_refcnt = 0;
 
-        objStorMgr->getCounters()->resolve_used_sync_cnt.incr();
         /* Merge happens below */
     }
 #endif
@@ -678,8 +674,6 @@ void ObjMetaData::mergeNewAndUnsyncedData()
     /* Sync data isn't needed anymore */
     mask = 0;
     sync_data.reset();
-
-    objStorMgr->getCounters()->resolve_mrgd_cnt.incr();
 }
 
 /**

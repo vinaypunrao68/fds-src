@@ -79,9 +79,9 @@ public class SnapshotBuilder {
    */
   public Snapshot build() {
     Snapshot snapshot = new Snapshot();
-    snapshot.setId( id );
+    snapshot.setId( String.valueOf( id ) );
     snapshot.setName( name );
-    snapshot.setVolumeId( volumeId );
+    snapshot.setVolumeId( String.valueOf( volumeId ) );
     snapshot.setCreation( creation );
     snapshot.setRetention( retention );
 

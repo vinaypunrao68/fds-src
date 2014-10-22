@@ -5,7 +5,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/charts/linechart/linechart.html',
-        scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@', suffix: '@', axisColor: '@', tooltip: '=?', lineColors: '=?', lineStipples: '=?' },
+        scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@', yAxisLabelFunction: '=', axisColor: '@', 
+            tooltip: '=?', lineColors: '=?', lineStipples: '=?' },
         controller: function( $scope, $element, $resize_service ){
             
             $scope.hoverEvent = false;
@@ -144,7 +145,12 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 guideGroup.selectAll( '.guide-lines' ).data( chunks ).enter()
                     .append( 'text' )
                     .text( function( d ){
-                        return d + ' ' + $scope.suffix;
+                    
+                        if ( angular.isFunction( $scope.yAxisLabelFunction ) ){
+                            return ( $scope.yAxisLabelFunction( d ) );
+                        }
+                    
+                        return d;
                     })
                     .attr( 'x', $xScale( 0 ) )
                     .attr( 'y', function( d ){
