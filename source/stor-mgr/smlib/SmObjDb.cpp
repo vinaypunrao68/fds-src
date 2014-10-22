@@ -326,8 +326,10 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
 
         /* Read metadata and object */
         ObjMetaData objMetadata;
+        /*
         err = objStorMgr->readObject(NON_SYNC_MERGED, objId,
                 objMetadata, objData, tierUsed);
+        */
         if (err == ERR_OK) {
             if ((max_size - tot_msg_len) >= objData.getSize()) {
                 LOGDEBUG << "Adding a new objectId to objList" << objId;

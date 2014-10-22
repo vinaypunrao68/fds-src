@@ -16,7 +16,6 @@
 #include <policy_tier.h>
 #include <StorMgr.h>
 #include <NetSession.h>
-#include <fds_obj_cache.h>
 #include <fds_timestamp.h>
 #include <fdsp_utils.h>
 #include <net/net_utils.h>
@@ -28,7 +27,6 @@ using diskio::DataTier;
 namespace fds {
 
 fds_bool_t  stor_mgr_stopping = false;
-fds_bool_t  fds_data_verify = true;
 
 #define FDS_XPORT_PROTO_TCP 1
 #define FDS_XPORT_PROTO_UDP 2
@@ -155,10 +153,7 @@ ObjectStorMgr::~ObjectStorMgr() {
 
     delete qosCtrl;
 
-    delete writeBackThreads;
     delete dirtyFlashObjs;
-    delete tierEngine;
-    delete rankEngine;
 
     delete volTbl;
     delete objStorMutex;
@@ -168,7 +163,6 @@ ObjectStorMgr::~ObjectStorMgr() {
 int
 ObjectStorMgr::mod_init(SysParams const *const param) {
     shuttingDown = false;
-    numWBThreads = 1;
     maxDirtyObjs = 10000;
 
     // Init  the log infra
@@ -202,12 +196,6 @@ void ObjectStorMgr::mod_startup()
      */
     dirtyFlashObjs = new ObjQueue(maxDirtyObjs);
     fds_verify(dirtyFlashObjs->is_lock_free() == true);
-    writeBackThreads = new fds_threadpool(numWBThreads);
-
-    /*
-     * stats class init
-     */
-    objStats = &gl_objStats;
 
     // Create leveldb
     smObjDb = new  SmObjDb(this, obj_dir, g_fdslog);
@@ -263,41 +251,6 @@ void ObjectStorMgr::mod_startup()
 
     /* Create tier related classes -- has to be after volTbl is created */
     FdsRootDir::fds_mkdir(modProvider_->proc_fdsroot()->dir_fds_var_stats().c_str());
-    std::string obj_stats_dir = modProvider_->proc_fdsroot()->dir_fds_var_stats();
-
-    // over-write data verify from config
-    fds_data_verify = modProvider_->get_fds_config()->get<bool>("fds.sm.data_verify");
-
-    /**
-     * Config for Rank Engine
-     */
-    fds_uint32_t rank_tbl_size = DEFAULT_RANK_TBL_SIZE;
-    fds_uint32_t hot_threshold = DEFAULT_HOT_THRESHOLD;
-    fds_uint32_t cold_threshold = DEFAULT_COLD_THRESHOLD;
-    fds_uint32_t rank_freq_sec = DEFAULT_RANK_FREQUENCY;
-    // if tier testing is on, config will over-write default tier params
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.test_tier")) {
-        rank_tbl_size = modProvider_->get_fds_config()->get<int>("fds.sm.testing.rank_tbl_size");
-        rank_freq_sec = modProvider_->get_fds_config()->get<int>("fds.sm.testing.rank_freq_sec");
-        hot_threshold = modProvider_->get_fds_config()->get<int>("fds.sm.testing.hot_threshold");
-        cold_threshold = modProvider_->get_fds_config()->get<int>("fds.sm.testing.cold_threshold");
-    }
-
-    rankEngine = new ObjectRankEngine(obj_stats_dir, rank_tbl_size, rank_freq_sec,
-                                      hot_threshold, cold_threshold, volTbl, objStats);
-    tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
-                                volTbl, rankEngine, g_fdslog);
-
-    fds_uint32_t max_cache_sz_mb = modProvider_->get_fds_config()->get<int>(
-        "fds.sm.cache.default_cache_size");
-    vol_max_cache_sz_mb_ = modProvider_->get_fds_config()->get<int>(
-        "fds.sm.cache.default_vol_max_cache_size");
-    vol_min_cache_sz_mb_ = modProvider_->get_fds_config()->get<int>(
-        "fds.sm.cache.default_vol_min_cache_size");
-    objCache = new FdsObjectCache(1024 * 1024 * max_cache_sz_mb,
-                                  slab_allocator_type_default,
-                                  eviction_policy_type_default,
-                                  g_fdslog);
 
     // qos defaults
     qosThrds = modProvider_->get_fds_config()->get<int>(
@@ -373,9 +326,6 @@ void ObjectStorMgr::mod_enable_service()
 
     qosCtrl->registerVolume(FdsSysTaskQueueId,
                             sysTaskQueue);
-    // TODO(Rao): Size it appropriately
-    objCache->vol_cache_create(FdsSysTaskQueueId, 1024 * 1024 * vol_min_cache_sz_mb_,
-                               1024 * 1024 * vol_max_cache_sz_mb_);
 
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
         // Enable stats collection in SM for stats streaming
@@ -431,7 +381,9 @@ void ObjectStorMgr::mod_enable_service()
     /*
      * Kick off the writeback thread(s)
      */
-    writeBackThreads->schedule(writeBackFunc, this);
+    // TODO(Anna) move write back functionality to ObjectStore
+    // and do through QoS, not separate threadpool
+    // writeBackThreads->schedule(writeBackFunc, this);
 }
 
 void ObjectStorMgr::mod_shutdown()
@@ -728,12 +680,7 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                 err = objStorMgr->qosCtrl->registerVolume(vdb->isSnapshot() ?
                         vdb->qosQueueId : vol->getVolId(),
                         static_cast<FDS_VolumeQueue*>(vol->getQueue().get()));
-                if (err.ok()) {
-                    objStorMgr->objCache->
-                            vol_cache_create(volumeId,
-                                             1024 * 1024 * objStorMgr->vol_min_cache_sz_mb_,
-                                             1024 * 1024 * objStorMgr->vol_max_cache_sz_mb_);
-                } else {
+                if (!err.ok()) {
                     // most likely axceeded min iops
                     objStorMgr->volTbl->deregisterVolume(volumeId);
                 }
@@ -872,7 +819,8 @@ Error ObjectStorMgr::writeBackObj(const ObjectID &objId)
      */
     ObjectBuf objData;
     ObjMetaData objMap;
-    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objMap, objData);
+    // err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objMap, objData);
+    fds_panic("This method should not be called");
     if (err != ERR_OK) {
         return err;
     }
@@ -910,7 +858,8 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
     /*
      * Get existing object locations
      */
-    err = readObjMetaData(objId, objMap);
+    fds_panic("must not get here");
+    // err = readObjMetaData(objId, objMap);
     if (err != ERR_OK && err != ERR_NOT_FOUND) {
         LOGERROR << "Failed to read existing object locations"
                     << " during location write";
@@ -965,85 +914,6 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
     }
     smObjDb->unlock(objId);
 
-    return err;
-}
-
-/*
- * Reads all object locations
- */
-Error
-ObjectStorMgr::readObjMetaData(const ObjectID &objId,
-                               ObjMetaData& objMap)
-{
-    Error err = smObjDb->get(objId, objMap);
-    if (err == ERR_OK) {
-        LOGDEBUG << objId
-                 << " refcnt:" << objMap.getRefCnt()
-                 << " dataexists:" << objMap.dataPhysicallyExists();
-        /* While sync is going on we can have metadata but object could be missing */
-        if (!objMap.dataPhysicallyExists()) {
-            fds_verify(isTokenInSyncMode(getDLT()->getToken(objId)));
-            err = ERR_SM_OBJECT_DATA_MISSING;
-        }
-    } else {
-        LOGDEBUG << "unable to read object meta: " << objId;
-    }
-    return err;
-}
-
-Error
-ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
-        ObjMetaData& objMetadata,
-        ObjectBuf& objData) {
-    diskio::DataTier tier;
-    return readObject(view, objId, objMetadata, objData, tier, 0);
-}
-
-Error
-ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
-        ObjectBuf& objData) {
-    ObjMetaData objMetadata;
-    diskio::DataTier tier;
-    return readObject(view, objId, objMetadata, objData, tier, 0);
-}
-
-/*
- * Note the tierUsed parameter is an output param.
- * It gets set in the function and the prior
- * value is unused.
- * It is only guaranteed to be set if success
- * is returned
- */
-Error
-ObjectStorMgr::readObject(const SmObjDb::View& view,
-                          const ObjectID   &objId,
-                          ObjMetaData      &objMetadata,
-                          ObjectBuf        &objData,
-                          diskio::DataTier &tierUsed,
-                          fds_volid_t volId) {
-    Error err(ERR_OK);
-
-    // if this is called, we did not move all the code
-    // to the new path
-    fds_panic("This method should not be called");
-
-    return err;
-}
-
-/**
- * Checks if an object ID already exists. An object
- * data buffer is passed so that inline buffer
- * comparison needs to be made.
- *
- * An err value of ERR_DUPLICATE is returned if the object
- * is a duplicate, ERR_OK if it is not a duplicate, and an
- * error if something else when wrong during the lookup.
- */
-Error
-ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
-        const ObjectBuf& objCompData, ObjMetaData &objMap) {
-    Error err(ERR_OK);
-    fds_panic("Must not get here!");
     return err;
 }
 
@@ -1224,7 +1094,8 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
 
     objGetData.clear();
 
-    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objMeta, objGetData);
+    fds_panic("This method should not be called");
+    //    err = readObject(SmObjDb::NON_SYNC_MERGED, objId, objMeta, objGetData);
 
     diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
     SmPlReq     *disk_req;
@@ -1803,8 +1674,12 @@ ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
     ObjMetaData objMetadata;
     diskio::DataTier tierUsed;
 
+    /*
     Error err = readObject(SmObjDb::NON_SYNC_MERGED, read_entry->getObjId(),
                            objMetadata, objData, tierUsed, 0);
+    */
+    Error err(ERR_OK);
+    fds_panic("This method should not be called");
     if (err != ERR_OK) {
         fds_assert(!"failed to read");
         LOGERROR << "Failed to read object id: " << read_entry->getObjId();

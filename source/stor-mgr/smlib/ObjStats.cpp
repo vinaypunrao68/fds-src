@@ -13,11 +13,6 @@ ObjStatsTracker gl_objStats;
 
 ObjStatsTracker::ObjStatsTracker()
         : Module("SM Obj Stats Track") {
-    /*
-     * init the  log 
-     */
-    stats_log = NULL;
-
     objStatsMapLock = new fds_mutex("Added object Stats lock");
     fds_verify(objStatsMapLock != NULL);
 
@@ -38,15 +33,13 @@ ObjStatsTracker::~ObjStatsTracker() {
 int
 ObjStatsTracker::mod_init(fds::SysParams const *const param) {
     Module::mod_init(param);
-    stats_log = g_fdslog;
-    fds_assert(stats_log != NULL);
-    FDS_PLOG(stats_log) << "STATS:Start TIME: " << startTime;
+    LOGTRACE << "STATS:Start TIME: " << startTime;
 
     FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
     const FdsRootDir *fdsroot = g_fdsprocess->proc_fdsroot();
 
     fdsroot->fds_mkdir(fdsroot->dir_fds_var_stats().c_str());
-    root  = fdsroot->dir_fds_var_stats();
+    std::string root  = fdsroot->dir_fds_var_stats();
     root += conf_helper.get<std::string>("prefix");
     root += "objStats";
 
@@ -89,15 +82,15 @@ Error ObjStatsTracker::updateIOpathStats(fds_volid_t vol_uuid, const ObjectID& o
     fds_bool_t  slotChange;
     ioPathStats   *oStats;
 
-    FDS_PLOG(stats_log) << "STATS: inside update IOPathStats:"  << objId;
+    LOGTRACE << "STATS: inside update IOPathStats:"  << objId;
     /*
      * update the map stats 
      */
     objStatsMapLock->lock();
 
     if (objStatsExists(objId) == true) {
-        FDS_PLOG(stats_log) << "STATS: obj stats  map EXISTS:"
-                            << objId << "startTime: " << startTime;
+        LOGTRACE << "STATS: obj stats  map EXISTS:"
+                 << objId << "startTime: " << startTime;
         /* update  the stats  */
         oStats = ioPathStatsObj_map[objId];
         oStats->lastAccessTimeR =  oStats->objStats.last_access_ts;
@@ -106,33 +99,33 @@ Error ObjStatsTracker::updateIOpathStats(fds_volid_t vol_uuid, const ObjectID& o
             oStats->averageObjectsRead =
                     oStats->objStats.getWeightedCount(startTime,
                                                       COUNTER_UPDATE_SLOT_TIME);
-            FDS_PLOG(stats_log) << "STATS-DB: Average Objects  per slot :"
-                                << oStats->averageObjectsRead;
+            LOGDEBUG << "STATS-DB: Average Objects  per slot :"
+                     << oStats->averageObjectsRead;
 
             /* classify the  objects  for tiering */
             if (oStats->averageObjectsRead > hotObjThreshold) {
                 /* check  if this object is in cold list  and delete  before adding to  Hot list */
                 coldObjList.erase(objId);
-                FDS_PLOG(stats_log) << "STATS-DB: Object classified  as HOT :" <<objId;
+                LOGDEBUG << "STATS-DB: Object classified  as HOT :" <<objId;
                 hotObjList.insert(objId);
             }
 
             if (oStats->averageObjectsRead  < coldObjThreshold) {
-                FDS_PLOG(stats_log) << "STATS-DB: Object classified  as COLD :" <<objId;
+                LOGDEBUG << "STATS-DB: Object classified  as COLD :" <<objId;
                 coldObjList.insert(objId);
             }
 
             if ((oStats->averageObjectsRead  > coldObjThreshold) &&
                 (oStats->averageObjectsRead < hotObjThreshold)) {
-                FDS_PLOG(stats_log) << "STATS-DB: Object classification list CLEAN :" <<objId;
+                LOGDEBUG << "STATS-DB: Object classification list CLEAN :" <<objId;
                 coldObjList.erase(objId);
                 hotObjList.erase(objId);
             }
         }
         ioPathStatsObj_map[objId] = oStats;
     } else {
-        FDS_PLOG(stats_log) << "STATS: obj stats   Does not map Exists:"
-                            << objId << "startTime: " << startTime;
+        LOGDEBUG << "STATS: obj stats   Does not map Exists:"
+                 << objId << "startTime: " << startTime;
         oStats = new ioPathStats();
         slotChange = oStats->objStats.increment(startTime, COUNTER_UPDATE_SLOT_TIME);
         oStats->lastAccessTimeR =  boost::posix_time::second_clock::universal_time();
@@ -199,11 +192,11 @@ fds_uint32_t ObjStatsTracker::getObjectAccess(const ObjectID& objId) {
         oStats = ioPathStatsObj_map[objId];
         AveNumObjAccess = oStats->objStats.getWeightedCount(startTime, COUNTER_UPDATE_SLOT_TIME);
         objStatsMapLock->unlock();
-        FDS_PLOG(stats_log) << "STATS: Objects  recived  on SLOT :"  << AveNumObjAccess;
+        LOGTRACE << "STATS: Objects  recived  on SLOT :"  << AveNumObjAccess;
         return AveNumObjAccess;
     }
 
-    FDS_PLOG(stats_log) << "STATS:Objects  does not  exists in the map:"  << objId;
+    LOGTRACE << "STATS:Objects  does not  exists in the map:"  << objId;
     objStatsMapLock->unlock();
 
     return AveNumObjAccess;
@@ -249,16 +242,16 @@ Error ObjStatsTracker::updateDbStats(const ObjectID& oid, ioPathStats *updStats)
 
         leveldb::Status status = db->Put(writeopts, key, value);
         if (!status.ok()) {
-            FDS_PLOG(stats_log) << "STATS-LVL:Failed to  put   the object stats "
-                                << status.ToString();
+            LOGWARN << "STATS-LVL:Failed to  put   the object stats "
+                    << status.ToString();
         } else {
-            FDS_PLOG(stats_log) << "STATS-LVL:Successfully added the per "
-                                << "objects stats to level DB: "
-                                << oid;
+            LOGDEBUG << "STATS-LVL:Successfully added the per "
+                     << "objects stats to level DB: "
+                     << oid;
         }
     } else {
-        FDS_PLOG(stats_log) << "STATS-LVL:Objects  exists in levelDB:"
-                            << oid << "numObjs:" << stats->numObjsRead;
+        LOGDEBUG << "STATS-LVL:Objects  exists in levelDB:"
+                 << oid << "numObjs:" << stats->numObjsRead;
         /*
          * we already have the key and value in level DB, update the stats 
          */
@@ -267,12 +260,11 @@ Error ObjStatsTracker::updateDbStats(const ObjectID& oid, ioPathStats *updStats)
 
         leveldb::Status status = db->Put(writeopts, key, value);
         if (!status.ok()) {
-            FDS_PLOG(stats_log) << "STATS-LVL:Failed to  update  the object stats  "
-                                << status.ToString();
+            LOGWARN << "STATS-LVL:Failed to  update  the object stats  "
+                    << status.ToString();
         } else {
-            FDS_PLOG(stats_log) << "STATS-LVL:Successfully updated the per "
-                                << "objects stats to level DB "
-                                << oid;
+            LOGDEBUG << "STATS-LVL:Successfully updated the per "
+                     << "objects stats to level DB " << oid;
         }
     }
     return err;

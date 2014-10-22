@@ -51,7 +51,7 @@ BlockMod::blk_creat_vol(const blk_vol_creat_t *r)
 
     vol = blk_alloc_vol(r);
     if (vol == NULL) {
-        LOGNORMAL << "[Blk] Failed to allo vol " << r->v_name << ", dev " << r->v_dev;
+        LOGNORMAL << "[Blk] Failed to alloc vol " << r->v_name << ", dev " << r->v_dev;
         return NULL;
     }
     blk_splck.lock();

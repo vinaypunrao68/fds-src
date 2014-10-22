@@ -17,6 +17,7 @@ user_incl_dir     := \
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
+    fds-smlib\
     fds-migrations\
     fds-am-engine \
     fds-am-plat \
@@ -24,8 +25,7 @@ user_fds_ar_libs  := \
     fds-dsk-io \
     fds-odb \
     fds-vpolicy \
-    fds-smlib\
-    fds-xdi 
+    fds-xdi
 
 user_non_fds_libs := \
     boost_timer \
