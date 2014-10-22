@@ -125,8 +125,8 @@ fds_spawn(char *const argv[], int daemonize)
         close(fd);
     }
     fd = open("/dev/null", O_RDWR);  // will be 0
-    dup(fd); // will be 1
-    dup(fd); // will be 2
+    (void) dup(fd); // will be 1
+    (void) dup(fd); // will be 2
 
 
     if (daemonize) {

@@ -223,6 +223,48 @@ struct CachedMsgGenerator : SvcMsgGenerator<MsgT>
     bool wrapAround_;
 };
 
+/**
+ * Generates fix sized unique data;
+ */
+class SequentialBlobDataGen {
+  public:
+    /// size of blob data
+    fds_uint32_t blobSize;
+    /// data of size blobSize
+    boost::shared_ptr<std::string> blobData;
+    /// blob name length is const
+    boost::shared_ptr<std::string> blobName;
+
+    SequentialBlobDataGen(fds_uint32_t size,
+                          fds_uint8_t streamId)
+            : blobSize(size),
+              counter(0),
+              blobData(new std::string()),
+              blobName(new std::string()) {
+        fds_verify(blobSize >= 16);
+        blobData->resize(blobSize, streamId);
+        streamIdStr = std::to_string(streamId);
+        streamIdStr.resize(4, '0');
+        *blobName = "TestBlob_" + streamIdStr + "_00000000";
+    }
+
+    /**
+     * Every time this method is called, blobData and blobName are modified
+     */
+    void generateNext() {
+        ++counter;
+        std::string counterStr = std::to_string(counter);
+        counterStr.resize(8, '0');
+        blobName->replace(14, 8, counterStr);
+        blobData->replace(0, 8, counterStr);
+    }
+
+  private:
+    /// used to generate data
+    fds_uint32_t counter;
+    std::string streamIdStr;
+};
+
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_DATAGEN_H_  // NOLINT

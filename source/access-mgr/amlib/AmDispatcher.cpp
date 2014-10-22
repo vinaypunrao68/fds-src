@@ -578,6 +578,49 @@ AmDispatcher::dispatchStatBlob(AmQosReq *qosReq)
 }
 
 void
+AmDispatcher::dispatchSetBlobMetadata(AmQosReq *qosReq) {
+    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
+
+    fds_volid_t   vol_id = blobReq->getVolId();
+
+    SetBlobMetaDataMsgPtr setMDMsg = boost::make_shared<SetBlobMetaDataMsg>();
+    setMDMsg->blob_name = blobReq->getBlobName();
+    setMDMsg->blob_version = blob_version_invalid;
+    setMDMsg->volume_id = vol_id;
+    setMDMsg->txId = blobReq->dmt_version;
+
+    setMDMsg->metaDataList = std::move(*blobReq->getMetaDataListPtr());
+
+    auto asyncSetMDReq = gSvcRequestPool->newQuorumSvcRequest(
+        boost::make_shared<DmtVolumeIdEpProvider>(
+            dmtMgr->getVersionNodeGroup(vol_id, blobReq->dmt_version)));
+
+    // Create callback
+    QuorumSvcRequestRespCb respCb(RESPONSE_MSG_HANDLER(AmDispatcher::setBlobMetadataCb, qosReq));
+
+    asyncSetMDReq->setPayload(FDSP_MSG_TYPEID(fpi::SetBlobMetaDataMsg), setMDMsg);
+    asyncSetMDReq->onResponseCb(respCb);
+    asyncSetMDReq->invoke();
+}
+
+void
+AmDispatcher::setBlobMetadataCb(AmQosReq *qosReq,
+                                QuorumSvcRequest *svcReq,
+                                const Error &error,
+                                boost::shared_ptr<std::string> payload) {
+    SetBlobMetaDataReq *blobReq = static_cast<fds::SetBlobMetaDataReq*>(qosReq->getBlobReqPtr());
+
+    if (error != ERR_OK) {
+        LOGERROR << "Set metadata blob name: " << blobReq->getBlobName() << " Error: " << error;
+    } else {
+        fpi::SetBlobMetaDataRspMsgPtr setMDRsp =
+            net::ep_deserialize<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
+        LOGDEBUG << svcReq->logString() << fds::logString(*setMDRsp);
+    }
+    blobReq->processorCb(error);
+}
+
+void
 AmDispatcher::statBlobCb(AmQosReq* qosReq,
                          FailoverSvcRequest* svcReq,
                          const Error& error,
@@ -690,7 +733,7 @@ AmDispatcher::volumeContentsCb(AmQosReq* qosReq,
             apis::BlobDescriptor bd;
             bd.name = response->blob_info_list[i].blob_name;
             bd.byteCount = response->blob_info_list[i].blob_size;
-            cb->vecBlobs.push_back(apis::BlobDescriptor(bd));
+            cb->vecBlobs.push_back(bd);
         }
     }
     blobReq->processorCb(error);

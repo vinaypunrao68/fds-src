@@ -121,6 +121,11 @@ class AmDispatcher : public Module, public boost::noncopyable {
     void dispatchStatBlob(AmQosReq *qosReq);
 
     /**
+     * Dispatches a set metadata on blob transaction request.
+     */
+    void dispatchSetBlobMetadata(AmQosReq *qosReq);
+
+    /**
      * Dispatches a volume contents (list bucket) transaction request.
      */
     void dispatchVolumeContents(AmQosReq *qosReq);
@@ -160,6 +165,14 @@ class AmDispatcher : public Module, public boost::noncopyable {
      */
     void getQueryCatalogCb(AmQosReq* qosReq,
                            FailoverSvcRequest* svcReq,
+                           const Error& error,
+                           boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for set metadata on blob responses.
+     */
+    void setBlobMetadataCb(AmQosReq *qosReq,
+                           QuorumSvcRequest* svcReq,
                            const Error& error,
                            boost::shared_ptr<std::string> payload);
 
