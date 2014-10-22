@@ -19,7 +19,6 @@
 
 using ::testing::AtLeast;
 using ::testing::Return;
-using namespace fds;  // NOLINT
 namespace po = boost::program_options;
 
 static fds_uint32_t MAX_OBJECT_SIZE = 2097152;    // 2MB

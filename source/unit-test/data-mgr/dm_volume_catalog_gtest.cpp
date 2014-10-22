@@ -3,8 +3,8 @@
  */
 
 #include "./dm_mocks.h"
+#include "./dm_gtest.h"
 #include "./dm_utils.h"
-#include <dm_gtest.h>
 #include <vector>
 #include <string>
 #include <thread>
