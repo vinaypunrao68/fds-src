@@ -62,4 +62,9 @@ AccessMgr::run() {
     fdsnServer->deinit_server();
 }
 
+Error
+AccessMgr::registerVolume(const VolumeDesc& volDesc) {
+    return storHvisor->vol_table->registerVolume(volDesc);
+}
+
 }  // namespace fds
