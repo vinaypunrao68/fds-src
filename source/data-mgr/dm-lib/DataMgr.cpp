@@ -840,10 +840,10 @@ void DataMgr::mod_enable_service() {
         const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
         NodeAgent::pointer my_agent = Platform::plf_dm_nodes()->agent_info(*mySvcUuid);
         my_agent->init_stor_cap_msg(&stor_cap);
-        LOGNOTIFY << "Will set totalRate to " << stor_cap.disk_iops_min;
     } else {
-        stor_cap.disk_iops_min = 1000;
+        stor_cap.disk_iops_min = 60*1000;  // for testing
     }
+    LOGNOTIFY << "Will set totalRate to " << stor_cap.disk_iops_min;
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
