@@ -5,9 +5,9 @@
 package com.formationds.om.repository;
 
 import com.formationds.commons.crud.JDORepository;
-import com.formationds.commons.model.entity.QueryCriteria;
 import com.formationds.commons.model.entity.VolumeDatapoint;
-import com.formationds.commons.model.entity.builder.VolumeCriteriaQueryBuilder;
+import com.formationds.om.repository.query.QueryCriteria;
+import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
 import com.formationds.om.repository.result.VolumeDatapointList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +47,17 @@ public class MetricsRepository
     super();
 
     initialize( dbName );
+
+    Runtime.getRuntime()
+           .addShutdownHook( new Thread() {
+             /**
+              * make sure we close the repository
+              */
+             @Override
+             public void run() {
+               close();
+             }
+           } );
   }
 
   /**
@@ -69,7 +80,7 @@ public class MetricsRepository
   /**
    * @return the list of entities
    */
-  @SuppressWarnings( "unchecked" )
+  @SuppressWarnings("unchecked")
   @Override
   public List<VolumeDatapoint> findAll() {
     return
@@ -166,7 +177,7 @@ public class MetricsRepository
 
     final VolumeDatapointList list = new VolumeDatapointList();
     results.stream()
-           .forEach( list::add );
+           .forEach( new VolumeDatapointList()::add );
     return list;
   }
 
@@ -190,6 +201,16 @@ public class MetricsRepository
         logger.trace( "DELETE ROLLED BACK: " + entity.toString() );
       }
     }
+  }
+
+  /**
+   * close the repository
+   */
+  @Override
+  public void close() {
+    entity().close();
+    manager().close();
+    factory().close();
   }
 
   /**

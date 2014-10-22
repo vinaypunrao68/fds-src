@@ -4,9 +4,9 @@
 
 package com.formationds.om.rest.metrics;
 
-import com.formationds.commons.model.entity.QueryCriteria;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.repository.SingletonMetricsRepository;
+import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;

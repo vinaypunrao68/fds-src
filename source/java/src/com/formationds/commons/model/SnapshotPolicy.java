@@ -5,7 +5,8 @@
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
-import com.formationds.commons.model.exception.ParseException;
+
+import java.text.ParseException;
 
 /**
  * @author ptinius
@@ -68,7 +69,7 @@ public class SnapshotPolicy
    */
   public void setRecurrenceRule( final String recurrenceRule )
     throws ParseException {
-    this.recurrenceRule = RecurrenceRule.parser( recurrenceRule );
+    this.recurrenceRule = new RecurrenceRule().parser( recurrenceRule );
   }
 
   /**

@@ -8,11 +8,11 @@ import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.capacity.CapacityDeDupRatio;
-import com.formationds.commons.model.entity.QueryCriteria;
 import com.formationds.commons.model.entity.VolumeDatapoint;
-import com.formationds.commons.model.entity.builder.QueryCriteriaBuilder;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.repository.SingletonMetricsRepository;
+import com.formationds.om.repository.query.QueryCriteria;
+import com.formationds.om.repository.query.builder.QueryCriteriaBuilder;
 import com.formationds.om.repository.result.VolumeDatapointList;
 
 /**

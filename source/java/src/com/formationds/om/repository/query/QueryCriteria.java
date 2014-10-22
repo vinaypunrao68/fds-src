@@ -2,7 +2,7 @@
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.model.entity;
+package com.formationds.om.repository.query;
 
 import com.formationds.commons.crud.SearchCriteria;
 import com.formationds.commons.model.DateRange;
@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * @author ptinius
  */
-@SuppressWarnings("UnusedDeclaration")
+@SuppressWarnings( "UnusedDeclaration" )
 public class QueryCriteria
   extends ModelBase
   implements SearchCriteria {

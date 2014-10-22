@@ -2,12 +2,12 @@
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.model.entity.builder;
+package com.formationds.om.repository.query.builder;
 
 import com.formationds.commons.model.abs.Context;
-import com.formationds.commons.model.entity.QueryCriteria;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.repository.query.QueryCriteria;
 
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
@@ -120,7 +120,7 @@ public class VolumeCriteriaQueryBuilder {
   }
 
   /**
-   * @param searchCriteria the {@link com.formationds.commons.model.entity.QueryCriteria}
+   * @param searchCriteria the {@link com.formationds.om.repository.query.QueryCriteria}
    *
    * @return Returns {@link VolumeCriteriaQueryBuilder}
    */
