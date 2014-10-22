@@ -7,8 +7,8 @@
             {{$event.text}}
         </div>
         <div class="button-panel">
-            <button class="btn btn-primary skinny" ng-click="okPressed()">OK</button>
-            <button class="btn btn-secondary" ng-click="cancel()" ng-show="false">Cancel</button>
+            <button class="btn btn-primary skinny" ng-click="okPressed()">{{ okText }}</button>
+            <button class="btn btn-secondary skinny" ng-click="cancel()" ng-show="showCancel">{{ cancelText }}</button>
         </div>
     </div>
 </div>

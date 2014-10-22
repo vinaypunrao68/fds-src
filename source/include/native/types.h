@@ -316,14 +316,14 @@ namespace fds {
                                         const ErrorDetails *errorDetails,
                                         void *callbackData);
 
-    typedef void (*fdsnListBucketHandler)(int isTruncated,
-                                          const char *nextMarker,
-                                          int contentsCount,
-                                          const ListBucketContents *contents,
-                                          int commonPrefixesCount,
-                                          const char **commonPrefixes,
-                                          void *callbackData,
-                                          FDSN_Status status);
+    typedef void (*fdsnVolumeContentsHandler)(int isTruncated,
+                                              const char *nextMarker,
+                                              int contentsCount,
+                                              const ListBucketContents *contents,
+                                              int commonPrefixesCount,
+                                              const char **commonPrefixes,
+                                              void *callbackData,
+                                              FDSN_Status status);
 
     typedef void (*fdsnBucketStatsHandler)(const std::string& timestamp,
                                            int content_count,

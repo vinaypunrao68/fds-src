@@ -343,6 +343,31 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
 }
 
 void
+AmProcessor::setBlobMetadata(AmQosReq *qosReq) {
+    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
+
+    // Stage the transaction metadata changes
+    fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->getTxId()), blobReq->getMetaDataListPtr()))
+
+    fds_verify(txMgr->getTxDmtVersion(*(blobReq->getTxId()), &(blobReq->dmt_version)));
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::setBlobMetadataCb, qosReq);
+
+    amDispatcher->dispatchSetBlobMetadata(qosReq);
+}
+
+void
+AmProcessor::setBlobMetadataCb(AmQosReq *qosReq,
+                               const Error &error) {
+    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+
+    delete blobReq;
+}
+
+void
 AmProcessor::statBlob(AmQosReq *qosReq) {
     Error err(ERR_OK);
     StatBlobReq* blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
@@ -390,6 +415,18 @@ AmProcessor::abortBlobTxCb(AmQosReq *qosReq,
     fds_verify(ERR_OK == txMgr->removeTx(*(blobReq->getTxId())));
 
     delete blobReq;
+}
+
+void
+AmProcessor::volumeContents(AmQosReq *qosReq) {
+    VolumeContentsReq* blobReq = static_cast<VolumeContentsReq*>(qosReq->getBlobReqPtr());
+    LOGDEBUG << "volume:" << blobReq->getVolId()
+        <<" blob:" << blobReq->getBlobName();
+
+    blobReq->base_vol_id = volTable->getBaseVolumeId(blobReq->getVolId());
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::volumeContentsCb, qosReq);
+
+    amDispatcher->dispatchVolumeContents(qosReq);
 }
 
 void
@@ -486,4 +523,13 @@ AmProcessor::commitBlobTxCb(AmQosReq *qosReq, const Error &error) {
     delete blobReq;
 }
 
+void
+AmProcessor::volumeContentsCb(AmQosReq *qosReq, const Error& error) {
+    VolumeContentsReq *blobReq = static_cast<VolumeContentsReq *>(qosReq->getBlobReqPtr());
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+    delete blobReq;
+}
 }  // namespace fds

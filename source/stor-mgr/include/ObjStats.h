@@ -5,35 +5,21 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_OBJSTATS_H_
 #define SOURCE_STOR_MGR_INCLUDE_OBJSTATS_H_
 
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-extern "C" {
-#include <assert.h>
-#include <strings.h>
-#include <pthread.h>
-#include <sys/types.h>
-#include <unistd.h>
-}
-
 #include <atomic>
 #include <iostream>
-#include <list>
 #include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
-#include "fds_volume.h"
-#include "fds_types.h"
-#include "util/Log.h"
-#include "concurrency/Mutex.h"
+#include <fds_volume.h>
+#include <fds_types.h>
+#include <concurrency/Mutex.h>
 
-#include "include/fds_assert.h"
-#include "util/counter.h"
-#include "leveldb/db.h"
-#include "fds_module.h"
+#include <fds_assert.h>
+#include <util/counter.h>
+#include <leveldb/db.h>
+#include <fds_module.h>
 
 namespace fds {
 
@@ -50,21 +36,11 @@ class ObjStatsTracker : public Module {
      void mod_shutdown();
 
      /*
-      * Local storage location
-      */
-     std::string root;
-
-     /*
       * get the start time 
       */
      CounterHist8bit *objStats;
      /*  per volume lock */
      fds_mutex *objStatsMapLock;
-
-     /*
-      * log  derived from parent
-      */
-     fds_log *stats_log;
 
      /*
       * level db for storing the stats 
@@ -161,8 +137,6 @@ class ObjStatsTracker : public Module {
 
      ioPathStatsObj_map_t  ioPathStatsObj_map;
 };
-
-extern ObjStatsTracker gl_objStats;
 
 }  // namespace fds
 

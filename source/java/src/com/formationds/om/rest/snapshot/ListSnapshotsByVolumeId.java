@@ -1,6 +1,5 @@
-/**
- * Copyright (c) 2014 Formation Data Systems.
- * All rights reserved.
+/*
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.om.rest.snapshot;
@@ -19,41 +18,42 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-public class ListSnapshotsByVolumeId implements RequestHandler {
+public class ListSnapshotsByVolumeId
+  implements RequestHandler {
 
-    private static final String REQ_PARAM_VOLUME_ID = "volumeId";
-    private ConfigurationApi config;
+  private static final String REQ_PARAM_VOLUME_ID = "volumeId";
+  private ConfigurationApi config;
 
-    public ListSnapshotsByVolumeId(final ConfigurationApi config) {
-        this.config = config;
+  public ListSnapshotsByVolumeId( final ConfigurationApi config ) {
+    this.config = config;
+  }
+
+  @Override
+  public Resource handle( final Request request,
+                          final Map<String, String> routeParameters )
+    throws Exception {
+    final ObjectMapper mapper = new ObjectMapper();
+    final List<Snapshot> snapshots = new ArrayList<>();
+
+    final long volumeId = requiredLong( routeParameters,
+                                        REQ_PARAM_VOLUME_ID );
+    final List<com.formationds.apis.Snapshot> _snapshots =
+      config.listSnapshots( volumeId );
+    if( _snapshots == null || _snapshots.isEmpty() ) {
+      return new JsonResource( new JSONArray( snapshots ) );
     }
 
-    @Override
-    public Resource handle(final Request request,
-                           final Map<String, String> routeParameters)
-            throws Exception {
-        final ObjectMapper mapper = new ObjectMapper();
-        final List<Snapshot> snapshots = new ArrayList<>();
+    for( final com.formationds.apis.Snapshot snapshot : _snapshots ) {
+      final Snapshot mSnapshot = new Snapshot();
 
-        final long volumeId = requiredLong(routeParameters,
-                REQ_PARAM_VOLUME_ID);
-        final List<com.formationds.apis.Snapshot> _snapshots =
-          config.listSnapshots( volumeId );
-        if (_snapshots == null || _snapshots.isEmpty()) {
-          return new JsonResource( new JSONArray( snapshots ) );
-        }
+      mSnapshot.setId( String.valueOf( snapshot.getSnapshotId() ) );
+      mSnapshot.setName( snapshot.getSnapshotName() );
+      mSnapshot.setVolumeId( String.valueOf( snapshot.getVolumeId() ) );
+      mSnapshot.setCreation( new Date( snapshot.getCreationTimestamp() ) );
 
-        for (final com.formationds.apis.Snapshot snapshot : _snapshots) {
-          final Snapshot mSnapshot = new Snapshot();
-
-          mSnapshot.setId(snapshot.getSnapshotId());
-          mSnapshot.setName(snapshot.getSnapshotName());
-          mSnapshot.setVolumeId(snapshot.getVolumeId());
-          mSnapshot.setCreation(new Date(snapshot.getCreationTimestamp()));
-
-          snapshots.add(mSnapshot);
-        }
-
-        return new JsonResource(new JSONArray(mapper.writeValueAsString(snapshots)));
+      snapshots.add( mSnapshot );
     }
+
+    return new JsonResource( new JSONArray( mapper.writeValueAsString( snapshots ) ) );
+  }
 }

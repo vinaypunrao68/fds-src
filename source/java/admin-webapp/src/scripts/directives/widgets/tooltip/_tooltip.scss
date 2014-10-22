@@ -6,4 +6,12 @@
     border-radius: 4px;
     padding: 4px;
     z-index: 1000;
+    
+    .left-side {
+        left: 8px;
+    }
+    
+    .right-side {
+        right: 8px;
+    }
 }

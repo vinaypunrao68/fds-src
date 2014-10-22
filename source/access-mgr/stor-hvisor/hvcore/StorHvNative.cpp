@@ -96,7 +96,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
                               std::string delimiter,
                               fds_uint32_t maxkeys,
                               void *req_context,
-                              fdsnListBucketHandler handler,
+                              fdsnVolumeContentsHandler handler,
                               void *callback_data)
 {
     Error err(ERR_OK);
@@ -115,7 +115,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
     // after we put a request to the wait queue and not before!
 
     /* create request */
-    blob_req = new ListBucketReq(volid,
+    blob_req = new VolumeContentsReq(volid,
                                  bucket_ctxt,
                                  prefix,
                                  marker,
@@ -129,7 +129,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
         (handler)(0, "", 0, NULL, 0, NULL, callback_data, FDSN_StatusInternalError);
         LOGERROR << "FDS_NativeAPI::GetBucket for bucket "
                  << bucket_ctxt->bucketName
-                 << " -- failed to allocate ListBucketReq";
+                 << " -- failed to allocate VolumeContentsReq";
         return;
     }
 
@@ -604,10 +604,10 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
         case FDS_DELETE_BLOB:
             static_cast<DeleteBlobReq*>(blob_req)->DoCallback(status, NULL);
             break;
-        case FDS_LIST_BUCKET:
+        case FDS_VOLUME_CONTENTS:
             /* in case of list bucket, this method is called only on error */
             fds_verify(!error.ok() || (result != 0));
-            static_cast<ListBucketReq*>(blob_req)->DoCallback(0, "", 0, NULL, status, NULL); //NOLINT
+            static_cast<VolumeContentsReq*>(blob_req)->DoCallback(0, "", 0, NULL, status, NULL); //NOLINT
             break;
         case FDS_BUCKET_STATS:
             /* in case of get bucket stats, this method is called only on error */

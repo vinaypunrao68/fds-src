@@ -58,9 +58,9 @@ FdsShmem::shm_attach(int flags)
         } else {
             sh_addr = mmap(NULL, sh_size, flags, MAP_SHARED, fd, 0);
         }
+        // We should no longer need the file descriptor
+        close(fd);
     }
-    // We should no longer need the file descriptor
-    close(fd);
 
     // Return a pointer to the shared region
     return sh_addr;

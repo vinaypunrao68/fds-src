@@ -37,18 +37,20 @@ thrift            := $(user_cc) $(user_cpp)
 
 # Customize Makefile rules to build .lex and .yy
 #
-user_predep      := thrifty.cc thriftl.cc
+user_predep      := thrift_dir thrifty.cc thriftl.cc
 user_clean       := thrifty.h thrifty.cc thriftl.cc
 
 include $(thrift_dir)/Makefile.incl
+
+thrift_dir:
+	@mkdir -p $(comm_dir_objs)/generate
+	@mkdir -p $(comm_dir_objs)/parse
 
 thrifty.cc: thrifty.yy
 	@echo "    [BISON]       $<"
 	@$(yacc) -y -d $<
 	@mv y.tab.h thrifty.h
 	@mv y.tab.c thrifty.cc
-	mkdir -p $(osdep_user_build)/generate
-	mkdir -p $(osdep_user_build)/parse
 
 thriftl.cc: thriftl.ll
 	@echo "    [FLEX]        $<"

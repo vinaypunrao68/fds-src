@@ -15,7 +15,7 @@ namespace diskio {
 fds::Error
 diskio::FilePersisDataIO::disk_do_read(DiskRequest *req)
 {
-    ssize_t         len;
+    ssize_t         len = 0;
     fds_uint64_t    off;
     fds::ObjectBuf *buf = req->req_obj_rd_buf();
     meta_obj_map_t *map = req->req_get_vmap();

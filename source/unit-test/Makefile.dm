@@ -18,13 +18,14 @@ user_fds_ar_libs  +=  \
     fds-dm-lib \
     fds-dm-plat \
     fds-dsk-mgnt \
+    fds-net-svc \
     fds-xdi \
     fds-dm-lib
 
 user_non_fds_libs +=  \
     boost_timer \
     crypt crypto \
-	z cryptopp \
+    z cryptopp \
     ssl \
     gmock \
     leveldb \

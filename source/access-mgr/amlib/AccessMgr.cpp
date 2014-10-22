@@ -23,8 +23,6 @@ AccessMgr::AccessMgr(const std::string &modName,
     fds::ModuleVector io_dm(argc, argv, io_dm_vec);
     storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
                                 StorHvCtrl::NORMAL);
-    storHvisor->StartOmClient();
-    storHvisor->qos_ctrl->runScheduler();
 
     dataApi = boost::make_shared<AmDataApi>();
 
@@ -51,9 +49,21 @@ AccessMgr::mod_shutdown() {
 }
 
 void
+AccessMgr::mod_lockstep_start_service() {
+    storHvisor->StartOmClient();
+    storHvisor->qos_ctrl->runScheduler();
+    this->mod_lockstep_done();
+}
+
+void
 AccessMgr::run() {
     // Run until the data server stops
     fdsnServer->deinit_server();
+}
+
+Error
+AccessMgr::registerVolume(const VolumeDesc& volDesc) {
+    return storHvisor->vol_table->registerVolume(volDesc);
 }
 
 }  // namespace fds

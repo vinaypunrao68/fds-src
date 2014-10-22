@@ -161,9 +161,9 @@ function stopApp() {
 }
 
 function statusApp() {
-    echo "====================================================================================="
-    echo "=    This feature is deprecated, please use fdsadmin --status (or --process-status) ="
-    echo "====================================================================================="
+#    echo "====================================================================================="
+#    echo "=    This feature is deprecated, please use fdsadmin --status (or --process-status) ="
+#    echo "====================================================================================="
     
     # the header
     echo "$(yellow app: $(ps u --pid 1000000 | awk '{for(i=1;i<12;i++) printf("\t%s",$i) }'))"
