@@ -95,6 +95,8 @@ class basic_cluster:
             if verbose:
                 print "Deploying FDS software upgrades on %s" % (node.nd_agent.get_host_name())
 
+            node.nd_agent.ssh_exec (cmd='cd fdsinstall && ./fdsinstall.py -o 2', return_stdin = True, wait_compl = True)
+            node.nd_agent.ssh_exec (cmd='cd fdsinstall && ./fdsinstall.py -o 3', return_stdin = True, wait_compl = True)
             node.nd_agent.ssh_exec (cmd='cd fdsinstall && ./fdsinstall.py -o 4', return_stdin = True, wait_compl = True)
         return 0, "All Okay"
 
