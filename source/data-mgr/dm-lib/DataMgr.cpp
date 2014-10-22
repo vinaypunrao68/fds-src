@@ -459,7 +459,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // create volume stat  directory.
         const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
         const std::string stat_dir = root->dir_user_repo_stats() + std::to_string(vol_uuid);
-        std::system((const char *)("mkdir -p "+stat_dir+" ").c_str());
+        auto sret = std::system((const char *)("mkdir -p "+stat_dir+" ").c_str());
     }
 
     return err;
@@ -1378,7 +1378,8 @@ DataMgr::queryCatalogBackendSvc(void * _io)
 
     err = timeVolCat_->queryIface()->getBlob(qryCatReq->volId,
                                              qryCatReq->blob_name,
-                                             qryCatReq->queryMsg->blob_offset,
+                                             qryCatReq->queryMsg->start_offset,
+                                             qryCatReq->queryMsg->end_offset,
                                              &(qryCatReq->blob_version),
                                              &(qryCatReq->queryMsg->meta_list),
                                              &(qryCatReq->queryMsg->obj_list));

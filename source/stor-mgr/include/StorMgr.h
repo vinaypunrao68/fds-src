@@ -5,11 +5,6 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_STORMGR_H_
 #define SOURCE_STOR_MGR_INCLUDE_STORMGR_H_
 
-extern "C" {
-#include <assert.h>
-#include <unistd.h>
-}
-
 #include <atomic>
 #include <string>
 #include <queue>
@@ -22,7 +17,6 @@ extern "C" {
 #include "util/Log.h"
 #include "StorMgrVolumes.h"
 #include "SmObjDb.h"
-#include "persistent-layer/dm_service.h"
 #include "persistent-layer/dm_io.h"
 #include "fds_migration.h"
 #include "TransJournal.h"
@@ -30,14 +24,10 @@ extern "C" {
 
 #include "fds_qos.h"
 #include "qos_ctrl.h"
-#include "fds_obj_cache.h"
 #include "fds_assert.h"
 #include "fds_config.hpp"
 #include "util/timeutils.h"
 #include "lib/StatsCollector.h"
-
-#include "ObjStats.h"
-#include "ObjMeta.h"
 
 /*
  * TODO: Move this header out of lib/
@@ -51,9 +41,6 @@ extern "C" {
 #include "lib/OMgrClient.h"
 #include "concurrency/Mutex.h"
 
-#include "TierEngine.h"
-#include "ObjRank.h"
-
 #include "fds_module.h"
 #include "platform/platform-lib.h"
 
@@ -64,7 +51,6 @@ extern "C" {
 #include <SmDiskTypes.h>
 #include <object-store/ObjectStore.h>
 
-#undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -86,14 +72,11 @@ extern ObjectStorMgr *objStorMgr;
 
 using DPReqClientPtr = boost::shared_ptr<FDSP_DataPathReqClient>;
 using DPRespClientPtr = boost::shared_ptr<FDSP_DataPathRespClient>;
-void log_ocache_stats();
 
 /*
  * Forward declarations
  */
 class ObjectStorMgrI;
-class TierEngine;
-class ObjectRankEngine;
 
 /**
  * @brief Storage manager counters
@@ -156,8 +139,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
      fds_mutex *objStorMutex;
 
-    /// Manager of persistent object storage
-    ObjectStore::unique_ptr objectStore;
+     /// Manager of persistent object storage
+     ObjectStore::unique_ptr objectStore;
 
      /*
       * FDSP RPC members
@@ -170,11 +153,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      /** Cluster communication manager */
      ClusterCommMgrPtr clust_comm_mgr_;
-
-     // default per-volume max cache size in MB
-     fds_uint32_t vol_max_cache_sz_mb_;
-     // default per-volume min cache size in MB
-     fds_uint32_t vol_min_cache_sz_mb_;
 
      /** Migrations related */
      FdsMigrationSvcPtr migrationSvc_;
@@ -292,13 +270,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      SmVolQueue *sysTaskQueue;
 
      /*
-      * Tiering related members
-      */
-     ObjectRankEngine *rankEngine;
-
-     FdsObjectCache *objCache;
-
-     /*
       * Flash write-back members.
       * TODO: These should probably be in the persistent layer
       * but is easier here for now since needs the index.
@@ -306,8 +277,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      typedef boost::lockfree::queue<ObjectID*> ObjQueue;  /* Dirty list type */
      static void writeBackFunc(ObjectStorMgr *parent);    /* Function for write-back */
      std::atomic_bool  shuttingDown;      /* SM shut down flag for write-back thread */
-     fds_uint32_t      numWBThreads;      /* Number of write-back threads */
-     fds_threadpool   *writeBackThreads;  /* Threads performing write-back */
      fds_uint32_t      maxDirtyObjs;      /* Max dirty list size */
      ObjQueue         *dirtyFlashObjs;    /* Flash's dirty list */
 
@@ -330,9 +299,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                             SmIoReq *ioReq, TransJournalId &trans_id);
      void create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
                                 SmIoReq *ioReq, TransJournalId trans_id);
-     Error checkDuplicate(const ObjectID  &objId,
-                          const ObjectBuf &objCompData,
-                          ObjMetaData &objMeta);
      Error writeObjectMetaData(const OpCtx &opCtx,
                                const ObjectID &objId,
                                fds_uint32_t  obj_size,
@@ -340,14 +306,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                                fds_bool_t    relocate_flag,
                                diskio::DataTier      from_tier,
                                meta_vol_io_t  *vio);
-     Error readObjMetaData(const ObjectID &objId,
-                           ObjMetaData &objMaps);
-     /**
-      * @return objMap object metadata that we marked as deleted
-      */
-     Error deleteObjectMetaData(const OpCtx &opCtx,
-                                const ObjectID &objId, fds_volid_t vol_id,
-                                ObjMetaData &objMap);
+
      Error writeObject(const OpCtx &opCtx,
                        const ObjectID   &objId,
                        const ObjectBuf  &objCompData,
@@ -362,19 +321,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                                  const ObjectBuf &objData,
                                  diskio::DataTier tier,
                                  obj_phy_loc_t& phys_loc);
-     Error readObject(const SmObjDb::View& view,
-                      const ObjectID& objId,
-                      ObjMetaData& objMetadata,
-                      ObjectBuf& objData);
-     Error readObject(const SmObjDb::View& view,
-                      const ObjectID &objId,
-                      ObjectBuf      &objCompData);
-     TVIRTUAL Error readObject(const SmObjDb::View& view,
-                               const ObjectID   &objId,
-                               ObjMetaData      &objMetadata,
-                               ObjectBuf        &objCompData,
-                               diskio::DataTier &tier,
-                               fds_volid_t volId = invalid_vol_id);
 
      inline fds_uint32_t getSysTaskIopsMin() {
          return totalRate/10;  // 10% of total rate
@@ -401,10 +347,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
              : Module("sm"), totalRate(20000) {
          smObjDb = nullptr;
          qosCtrl = nullptr;
-         writeBackThreads = nullptr;
          dirtyFlashObjs = nullptr;
          tierEngine = nullptr;
-         rankEngine = nullptr;
          volTbl = nullptr;
          objStorMutex = nullptr;
          omJrnl = nullptr;
@@ -430,13 +374,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      TierEngine     *tierEngine;
      SmObjDb        *smObjDb;  // Object Index DB <ObjId, Meta-data + data_loc>
      checksum_calc   *chksumPtr;
-    // Extneral plugin object to handle policy requests.
-    VolPolicyServ  *omc_srv_pol;
-
-     // stats class
-     ObjStatsTracker   *objStats;
-
-
+     // Extneral plugin object to handle policy requests.
+     VolPolicyServ  *omc_srv_pol;
 
      fds_bool_t isShuttingDown() const {
          return shuttingDown;
@@ -449,10 +388,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      Error regVol(const VolumeDesc& vdb) {
          return volTbl->registerVolume(vdb);
      }
-
-    int createCache(fds_volid_t volId, fds_uint64_t m, fds_uint64_t M) {
-        return objCache->vol_cache_create(volId, m, M);
-    }
 
     Error deregVol(fds_volid_t volId) {
         return volTbl->deregisterVolume(volId);
@@ -501,16 +436,10 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      void sampleSMStats(fds_uint64_t timestamp);
 
-     Error getObjectInternalSvc(SmIoGetObjectReq *getReq);
-     Error getObjectInternalSvcV2(SmIoGetObjectReq *getReq);
-
-     Error putObjectInternalSvc(SmIoPutObjectReq* putReq);
-     Error putObjectInternalSvcV2(SmIoPutObjectReq* putReq);
-
-     Error deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq);
-     Error deleteObjectInternalSvcV2(SmIoDeleteObjectReq* delReq);
-
-     Error addObjectRefInternalSvc(SmIoAddObjRefReq* addRefReq);
+     Error getObjectInternal(SmIoGetObjectReq *getReq);
+     Error putObjectInternal(SmIoPutObjectReq* putReq);
+     Error deleteObjectInternal(SmIoDeleteObjectReq* delReq);
+     Error addObjectRefInternal(SmIoAddObjRefReq* addRefReq);
 
      void putTokenObjectsInternal(SmIoReq* ioReq);
      void getTokenObjectsInternal(SmIoReq* ioReq);
@@ -557,10 +486,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          return modProvider_->get_fds_config()->get<std::string>("fds.sm.prefix");
      }
 
-     FdsObjectCache *getObjCache() {
-         return objCache;
-     }
-
      NodeUuid getUuid() const;
      fds_bool_t amIPrimary(const ObjectID& objId);
 
@@ -588,6 +513,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      friend ObjectStorMgrI;
      friend class SmObjDb;
      friend class SmLoadProc;
+     friend class SMSvcHandler;
 };
 
 class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {

@@ -54,6 +54,7 @@ class PlatformdNetSvc : public NetPlatSvc
     virtual int  mod_init(SysParams const *const p) override;
     virtual void mod_startup() override;
     virtual void mod_enable_service() override;
+    virtual void mod_lockstep_start_service() override;
     virtual void mod_shutdown() override;
 
     // Net platform services

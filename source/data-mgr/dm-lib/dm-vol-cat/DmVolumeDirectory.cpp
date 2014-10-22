@@ -57,15 +57,20 @@ Error DmVolumeDirectory::addCatalog(const VolumeDesc & voldesc) {
             std::hex << voldesc.volUUID << std::dec << "'";
 
     DmPersistVolDir::ptr vol;
+    /*
+     * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
     if (fpi::FDSP_VOL_S3_TYPE == voldesc.volType) {
+    */
         vol.reset(new DmPersistVolDB(voldesc.volUUID, voldesc.maxObjSizeInBytes,
                     voldesc.isSnapshot(), voldesc.isSnapshot(),
                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
+    /*
     } else {
         vol.reset(new DmPersistVolFile(voldesc.volUUID, voldesc.maxObjSizeInBytes,
                     voldesc.isSnapshot(), voldesc.isSnapshot(),
                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
     }
+    */
 
     SCOPEDWRITE(volMapLock_);
     fds_verify(!volMap_.count(voldesc.volUUID));
@@ -112,13 +117,18 @@ Error DmVolumeDirectory::copyVolume(const VolumeDesc & voldesc) {
 
     if (rc.ok()) {
         DmPersistVolDir::ptr vol;
+        /*
+         * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
         if (fpi::FDSP_VOL_S3_TYPE == volType) {
+        */
             vol.reset(new DmPersistVolDB(voldesc.volUUID, objSize, voldesc.isSnapshot(),
                     voldesc.isSnapshot(), voldesc.srcVolumeId));
+        /*
         } else {
             vol.reset(new DmPersistVolFile(voldesc.volUUID, objSize, voldesc.isSnapshot(),
                     voldesc.isSnapshot(), voldesc.srcVolumeId));
         }
+        */
 
         SCOPEDWRITE(volMapLock_);
         fds_verify(0 == volMap_.count(voldesc.volUUID));
@@ -281,7 +291,7 @@ Error DmVolumeDirectory::getBlobMeta(fds_volid_t volId, const std::string & blob
 }
 
 Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
-        fds_uint64_t startOffset, blob_version_t* blobVersion,
+        fds_uint64_t startOffset, fds_int64_t endOffset, blob_version_t* blobVersion,
         fpi::FDSP_MetaDataList* metaList, fpi::FDSP_BlobObjectList* objList) {
     LOGDEBUG << "Will retrieve blob '" << blobName << "' offset '" << startOffset <<
             "' volume '" << std::hex << volId << std::dec << "'";
@@ -296,11 +306,14 @@ Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
 
     // TODO(umesh): do not panic here, return error
     fds_verify(startOffset < blobSize);
+    fds_verify(endOffset < static_cast<fds_int64_t>(blobSize));
 
     GET_VOL_N_CHECK_DELETED(volId);
 
     fds_uint64_t lastObjectSize = DmVolumeDirectory::getLastObjSize(blobSize, vol->getObjSize());
-    fds_uint64_t endOffset = blobSize ? blobSize - lastObjectSize : 0;
+    if (endOffset < 0) {
+        endOffset = blobSize ? blobSize - lastObjectSize : 0;
+    }
 
     rc = vol->getObject(blobName, startOffset, endOffset, *objList);
 

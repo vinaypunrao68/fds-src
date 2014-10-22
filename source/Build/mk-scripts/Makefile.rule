@@ -241,7 +241,7 @@ ifdef VERBOSE
 	$(call scpt_check_style,$(cc_style),$(local_chk_cc),$(user_no_style),$<,$@)
 else
 	@echo -n "    [CC STYLE]    $<"
-	@mkdir -p build.linux-x86_64
+	@mkdir -p $(comm_dir_objs)
 	@$(call scpt_check_style,$(cc_style),$(local_chk_cc),$(user_no_style),$<,$@)
 endif
 
@@ -251,7 +251,7 @@ ifdef VERBOSE
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 else
 	@echo -n "    [H STYLE]   $<"
-	@mkdir -p build.linux-x86_64
+	@mkdir -p $(comm_dir_objs)
 	@$(call scpt_check_style, \
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 endif
@@ -265,7 +265,7 @@ ifdef VERBOSE
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 else
 	@echo -n "    [CPP STYLE]   $<"
-	@mkdir -p build.linux-x86_64
+	@mkdir -p $(comm_dir_objs)
 	@$(call scpt_check_style, \
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 endif
@@ -276,7 +276,7 @@ ifdef VERBOSE
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 else
 	@echo -n "    [H STYLE]   $<"
-	@mkdir -p build.linux-x86_64
+	@mkdir -p $(comm_dir_objs)
 	@$(call scpt_check_style, \
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 endif
@@ -289,7 +289,7 @@ ifdef VERBOSE
 	$(cc) -MMD $(local_cc_flags) -c $< -o $@
 else
 	@echo "    [CC]          $<"
-	@mkdir -p build.linux-x86_64
+	@mkdir -p $(comm_dir_objs)
 	@$(cc) -MMD $(local_cc_flags) -c $< -o $@
 endif
 	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
@@ -302,7 +302,7 @@ ifdef VERBOSE
 	$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
 else
 	@echo "    [CPP]         $<"
-	@mkdir -p build.linux-x86_64
+	@mkdir -p $(comm_dir_objs)
 	@$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
 endif
 	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
@@ -312,7 +312,7 @@ ifdef VERBOSE
 	$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
 else
 	@echo "    [CPP]         $<"
-	@mkdir -p build.linux-x86_64
+	@mkdir -p $(comm_dir_objs)
 	@$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
 endif
 	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
@@ -359,6 +359,7 @@ mk_debug:
 	@echo user_rtime = $(user_rtime_env), user_target = $(user_target)
 	@echo osdep_target = $(osdep_target) flags = $(local_cc_flags)
 	@echo ld = $(rule_ld_flags)
+	@echo comm_dir_objs = $(comm_dir_objs)
 	@echo user_predep= $(user_predep)
 	@echo comm_cc_chks= $(comm_cc_chks)
 	@echo user_hh= $(user_hh)
@@ -392,7 +393,7 @@ devsetup: $(chef_client_binary)
 
 
 ansible_dir := $(incl_scripts)/../../../ansible
-ansible_devsetup_command := ansible-playbook -i $(ansible_dir)/ansible_hosts -c local $(ansible_dir)/devsetup/devsetup.yml
+ansible_devsetup_command := ansible-playbook -i $(ansible_dir)/ansible_hosts -c local $(ansible_dir)/playbooks/devsetup.yml
 
 .PHONY : devsetup-ansible
 devsetup-ansible: 

@@ -83,7 +83,7 @@ def setUpModule():
             log.info("Run as root (--run-as-root or .ini config 'run_as_root'): %s." % _parameters["run_as_root"])
             log.info("Verbose logging (-v|--verbose or .ini config 'verbose'): %s." % _parameters["verbose"])
             log.info("'Dry run' test (-r|--dryrun or .ini config 'dryrun'): %s." % _parameters["dryrun"])
-            log.info("Install from release package (-i|--install or .ini config 'install'): %s." % _parameters["clus_inst"])
+            log.info("Install from release package (-i|--install or .ini config 'install'): %s." % _parameters["tar_file"])
             log.info("FDS config file (.ini config 'fds_config_file'): %s." % _parameters["fds_config_file"])
 
 

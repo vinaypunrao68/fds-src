@@ -11,11 +11,15 @@ user_cpp         := \
     fds_python_bind.cpp \
     fdsp_utils.cpp \
     fds-fsm.cpp \
+    fds-aio.cpp \
+    fds_process.cpp \
+    PerfTrace.cpp \
     Tracebuffer.cpp
 
 user_no_style    := \
     fds_request.cpp \
-    fds_stat.cpp
+    fds_stat.cpp \
+    PerfTrace.cpp
 
 user_ar_libs     := fds-umod
 fds-umod         := $(user_cpp)

@@ -742,7 +742,9 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
     fpi::QueryCatalogMsgPtr queryMsg(new fpi::QueryCatalogMsg());
     queryMsg->volume_id    = volId;
     queryMsg->blob_name    = blobName;
-    queryMsg->blob_offset  = blobOffset;
+    queryMsg->start_offset  = blobOffset;
+    // TODO(umesh): need to use valid end_offset; -1 for all starting from start_offset
+    queryMsg->end_offset = -1;
     // We don't currently specify a version
     queryMsg->blob_version = blob_version_invalid;
     queryMsg->obj_list.clear();
@@ -1120,16 +1122,6 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
     fds_verify(respCb != nullptr);
     
     setMDMsg->metaDataList = std::move(*md_list);
-
-#if 0
-    // Manually copy the MD entri[es over to the new list
-    // TODO(brian): Find a more elegant way to do this
-    for (auto kv : *md_list) {
-        setMDMsg->metaDataList.push_back(kv);
-    }
-    
-    fds_assert(setMDMsg->metaDataList.size() > 0);
-#endif
 
     LOGDEBUG << " Invoking  Message Interface";
     auto asyncSetMDReq = gSvcRequestPool->newQuorumSvcRequest(

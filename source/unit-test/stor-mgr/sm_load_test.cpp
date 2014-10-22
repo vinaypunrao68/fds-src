@@ -411,7 +411,6 @@ SmLoadProc::putSm(fds_volid_t volId,
     putReq->setVolId(putObjMsg->volume_id);
     putReq->origin_timestamp = 0;
     putReq->setObjId(objId);
-    putReq->data_obj = *objData;
     putReq->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
     putReq->opReqFailedPerfEventType = SM_PUT_OBJ_REQ_ERR;
     putReq->opReqLatencyCtx.type = SM_E2E_PUT_OBJ_REQ;
@@ -575,9 +574,7 @@ SmLoadProc::regVolume(TestVolume::ptr& volume) {
                 vol->getQueue().get()));
         }
 
-        if (err.ok()) {
-            sm->createCache(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
-        } else {
+        if (!err.ok()) {
             sm->deregVol(volumeId);
         }
     }
@@ -596,7 +593,6 @@ int main(int argc, char * argv[]) {
     std::cout << "Will test SM" << std::endl;
     fds::Module *smVec[] = {
         &diskio::gl_dataIOMod,
-        &fds::gl_objStats,
         sm,
         nullptr
     };

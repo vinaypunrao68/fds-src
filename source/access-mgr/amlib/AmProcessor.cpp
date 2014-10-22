@@ -343,6 +343,31 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
 }
 
 void
+AmProcessor::setBlobMetadata(AmQosReq *qosReq) {
+    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
+
+    // Stage the transaction metadata changes
+    fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->getTxId()), blobReq->getMetaDataListPtr()))
+
+    fds_verify(txMgr->getTxDmtVersion(*(blobReq->getTxId()), &(blobReq->dmt_version)));
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::setBlobMetadataCb, qosReq);
+
+    amDispatcher->dispatchSetBlobMetadata(qosReq);
+}
+
+void
+AmProcessor::setBlobMetadataCb(AmQosReq *qosReq,
+                               const Error &error) {
+    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+
+    delete blobReq;
+}
+
+void
 AmProcessor::statBlob(AmQosReq *qosReq) {
     Error err(ERR_OK);
     StatBlobReq* blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
@@ -390,6 +415,18 @@ AmProcessor::abortBlobTxCb(AmQosReq *qosReq,
     fds_verify(ERR_OK == txMgr->removeTx(*(blobReq->getTxId())));
 
     delete blobReq;
+}
+
+void
+AmProcessor::volumeContents(AmQosReq *qosReq) {
+    VolumeContentsReq* blobReq = static_cast<VolumeContentsReq*>(qosReq->getBlobReqPtr());
+    LOGDEBUG << "volume:" << blobReq->getVolId()
+        <<" blob:" << blobReq->getBlobName();
+
+    blobReq->base_vol_id = volTable->getBaseVolumeId(blobReq->getVolId());
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::volumeContentsCb, qosReq);
+
+    amDispatcher->dispatchVolumeContents(qosReq);
 }
 
 void
@@ -445,4 +482,54 @@ AmProcessor::statBlobCb(AmQosReq *qosReq, const Error& error) {
     delete blobReq;
 }
 
+void
+AmProcessor::commitBlobTx(AmQosReq *qosReq) {
+    fds_verify(qosReq != NULL);
+
+    // Get the blob request
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
+
+    // Setup callback.
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::commitBlobTxCb, qosReq);
+
+    amDispatcher->dispatchCommitBlobTx(qosReq);
+}
+
+void
+AmProcessor::commitBlobTxCb(AmQosReq *qosReq, const Error &error) {
+    fds_verify(qosReq != NULL);
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
+
+    // Push the committed update to the cache and remove from manager
+    // TODO(Andrew): Inserting the entire tx transaction currently
+    // assumes that the tx descriptor has all of the contents needed
+    // for a blob descriptor (e.g., size, version, etc..). Today this
+    // is true for S3/Swift and doesn't get used anyways for block (so
+    // the actual cached descriptor for block will not be correct).
+    AmTxDescriptor::ptr txDesc;
+    fds_verify(txMgr->getTxDescriptor(*(blobReq->getTxId()),
+                                        txDesc) == ERR_OK);
+    fds_verify(amCache->putTxDescriptor(txDesc) == ERR_OK);
+    fds_verify(txMgr->removeTx(*(blobReq->getTxId())) == ERR_OK);
+
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+
+    delete blobReq;
+}
+
+void
+AmProcessor::volumeContentsCb(AmQosReq *qosReq, const Error& error) {
+    VolumeContentsReq *blobReq = static_cast<VolumeContentsReq *>(qosReq->getBlobReqPtr());
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+    delete blobReq;
+}
 }  // namespace fds

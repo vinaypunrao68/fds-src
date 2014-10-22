@@ -250,6 +250,10 @@ class AbortBlobTxReq : public FdsBlobReq {
 class CommitBlobTxReq : public FdsBlobReq {
   public:
     BlobTxId::ptr txDesc;
+
+    typedef std::function<void (const Error&)> CommitBlobProcCb;
+    CommitBlobProcCb processorCb;
+
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
@@ -319,9 +323,9 @@ class StartBlobTxReq : public FdsBlobReq {
 
 class StatBlobReq : public FdsBlobReq {
   public:
-    typedef std::function<void (const Error&)> GetBlobProcCb;
+    typedef std::function<void (const Error&)> StatBlobProcCb;
 
-    GetBlobProcCb processorCb;
+    StatBlobProcCb processorCb;
     fds_volid_t base_vol_id;
 
     /**
@@ -367,8 +371,14 @@ class StatBlobReq : public FdsBlobReq {
 
 struct SetBlobMetaDataReq : FdsBlobReq {
   public:
+    typedef std::function<void (const Error&)> SetBlobMetadataProcCb;
+
     BlobTxId::ptr txDesc;
     boost::shared_ptr<FDSP_MetaDataList> metaDataList;
+
+    SetBlobMetadataProcCb processorCb;
+    fds_uint64_t dmt_version;
+
     SetBlobMetaDataReq(fds_volid_t _volid,
                        const std::string   &_vol_name,
                        const std::string   &_blob_name,
@@ -692,32 +702,37 @@ class BucketStatsReq: public FdsBlobReq {
     }
 };
 
-class ListBucketReq: public FdsBlobReq {
+class VolumeContentsReq: public FdsBlobReq {
   public:
+    typedef std::function<void (const Error&)> VolumeContentsProcCb;
+
     BucketContext *bucket_ctxt;
     std::string prefix;
     std::string marker;
     std::string delimiter;
     fds_uint32_t maxkeys;
     void *request_context;
-    fdsnListBucketHandler handler;
+    fdsnVolumeContentsHandler handler;
     void *callback_data;
     fds_long_t iter_cookie = 0;
+
+    VolumeContentsProcCb processorCb;
+    fds_volid_t base_vol_id;
 
     /* sets bucket name to blob name in the base class,
      * which is used to get trans id in journal table, and
      * some magic number for offset */
 
-    ListBucketReq(fds_volid_t _volid,
+    VolumeContentsReq(fds_volid_t _volid,
                   BucketContext *_bucket_ctxt,
                   const std::string& _prefix,
                   const std::string& _marker,
                   const std::string& _delimiter,
                   fds_uint32_t _max_keys,
                   void* _req_context,
-                  fdsnListBucketHandler _handler,
+                  fdsnVolumeContentsHandler _handler,
                   void* _callback_data)
-            : FdsBlobReq(FDS_LIST_BUCKET, _volid,
+            : FdsBlobReq(FDS_VOLUME_CONTENTS, _volid,
                          _bucket_ctxt->bucketName, FDS_SH_BUCKET_LIST_MAGIC, 0, NULL,
                          FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
         bucket_ctxt(_bucket_ctxt),
@@ -731,15 +746,15 @@ class ListBucketReq: public FdsBlobReq {
         iter_cookie(0) {
     }
 
-    ListBucketReq(fds_volid_t _volid,
+    VolumeContentsReq(fds_volid_t _volid,
                   BucketContext *_bucket_ctxt,
                   fds_uint32_t _max_keys,
                   CallbackPtr cb)
-            : FdsBlobReq(FDS_LIST_BUCKET, _volid,
+            : FdsBlobReq(FDS_VOLUME_CONTENTS, _volid,
                          _bucket_ctxt->bucketName, 0, 0, NULL, cb), bucket_ctxt(_bucket_ctxt) {
     }
 
-    ~ListBucketReq() {}
+    ~VolumeContentsReq() {}
 
     void DoCallback(int isTruncated,
                     const char* next_marker,

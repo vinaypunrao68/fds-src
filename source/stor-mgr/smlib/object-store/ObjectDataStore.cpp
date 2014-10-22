@@ -4,6 +4,7 @@
 
 #include <string>
 #include <PerfTrace.h>
+#include <SmCtrl.h>
 #include <object-store/ObjectDataStore.h>
 
 namespace fds {
@@ -19,8 +20,9 @@ ObjectDataStore::~ObjectDataStore() {
 }
 
 Error
-ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap) {
-    return persistData->openPersistDataStore(diskMap);
+ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap,
+                               fds_bool_t pristineState) {
+    return persistData->openPersistDataStore(diskMap, pristineState);
 }
 
 Error
@@ -164,6 +166,11 @@ ObjectDataStore::removeObjectData(fds_volid_t volId,
     }
 
     return err;
+}
+
+Error
+ObjectDataStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
+    return persistData->scavengerControlCmd(scavCmd);
 }
 
 /**

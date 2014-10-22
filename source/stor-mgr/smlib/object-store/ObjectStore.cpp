@@ -20,6 +20,9 @@ ObjectStore::ObjectStore(const std::string &modName,
           conf_verify_data(true),
           numBitsPerToken(0),
           diskMap(new SmDiskMap("SM Disk Map Module")),
+          tierEngine(new TierEngine("SM Tier Engine",
+                                    TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
+                                    volTbl)),
           dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
           metaStore(new ObjectMetadataStore(
               "SM Object Metadata Storage Module")) {
@@ -39,13 +42,14 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
     } else if (err == ERR_INVALID_DLT) {
         return;  // we are ignoring this DLT
     }
-    fds_verify(err.ok());
+    fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
 
     // open metadata store for tokens owned by this SM
     err = metaStore->openMetadataStore(diskMap);
     fds_verify(err.ok());
 
-    err = dataStore->openDataStore(diskMap);
+    err = dataStore->openDataStore(diskMap,
+                                   (err == ERR_SM_NOERR_PRISTINE_STATE));
     fds_verify(err.ok());
 }
 
@@ -401,6 +405,11 @@ ObjectStore::snapshotMetadata(fds_token_id smTokId,
     metaStore->snapshot(smTokId, notifFn);
 }
 
+Error
+ObjectStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
+    return dataStore->scavengerControlCmd(scavCmd);
+}
+
 /**
  * Module initialization
  */
@@ -410,6 +419,7 @@ ObjectStore::mod_init(SysParams const *const p) {
         diskMap.get(),
         dataStore.get(),
         metaStore.get(),
+        tierEngine.get(),
         NULL
     };
     mod_intern = objStoreDepMods;

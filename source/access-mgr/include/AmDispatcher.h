@@ -42,7 +42,7 @@ class AmDispatcher : public Module, public boost::noncopyable {
     void mod_shutdown();
 
     /**
-     * Dipatches a get volume metadata request.
+     * Dispatches a get volume metadata request.
      */
     void dispatchGetVolumeMetadata(AmQosReq *qosReq);
 
@@ -68,6 +68,19 @@ class AmDispatcher : public Module, public boost::noncopyable {
      * Callback for start blob transaction responses.
      */
     void startBlobTxCb(AmQosReq* qosReq,
+                       QuorumSvcRequest* svcReq,
+                       const Error& error,
+                       boost::shared_ptr<std::string> payload);
+
+    /**
+     * Dispatches a commit blob transaction request.
+     */
+    void dispatchCommitBlobTx(AmQosReq *qosReq);
+
+    /**
+     * Callback for commit blob transaction responses.
+     */
+    void commitBlobTxCb(AmQosReq* qosReq,
                        QuorumSvcRequest* svcReq,
                        const Error& error,
                        boost::shared_ptr<std::string> payload);
@@ -106,6 +119,16 @@ class AmDispatcher : public Module, public boost::noncopyable {
      * Dispatches a stat blob transaction request.
      */
     void dispatchStatBlob(AmQosReq *qosReq);
+
+    /**
+     * Dispatches a set metadata on blob transaction request.
+     */
+    void dispatchSetBlobMetadata(AmQosReq *qosReq);
+
+    /**
+     * Dispatches a volume contents (list bucket) transaction request.
+     */
+    void dispatchVolumeContents(AmQosReq *qosReq);
 
   private:
     /// Shared ptrs to the DLT and DMT managers used
@@ -146,6 +169,14 @@ class AmDispatcher : public Module, public boost::noncopyable {
                            boost::shared_ptr<std::string> payload);
 
     /**
+     * Callback for set metadata on blob responses.
+     */
+    void setBlobMetadataCb(AmQosReq *qosReq,
+                           QuorumSvcRequest* svcReq,
+                           const Error& error,
+                           boost::shared_ptr<std::string> payload);
+
+    /**
      * Callback for stat blob responses.
      */
     void statBlobCb(AmQosReq *qosReq,
@@ -168,6 +199,14 @@ class AmDispatcher : public Module, public boost::noncopyable {
                      QuorumSvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for stat blob responses.
+     */
+    void volumeContentsCb(AmQosReq *qosReq,
+                          FailoverSvcRequest* svcReq,
+                          const Error& error,
+                          boost::shared_ptr<std::string> payload);
 };
 
 }  // namespace fds

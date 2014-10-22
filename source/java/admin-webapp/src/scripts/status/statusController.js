@@ -1,4 +1,4 @@
-angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval ){
+angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', '$byte_converter', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval, $byte_converter ){
     
     $scope.activities = [];
     $scope.firebreakMax = 1440;
@@ -51,7 +51,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
             units = $filter( 'translate' )( 'common.minutes' );
         }
         
-        var str = '<div><div style="font-weight: bold;font-size: 11px;">' + data.name + '</div><div style="font-size: 10px;">' + $filter( 'translate' )( 'status.tt_firebreak', { value: value,units: units} ) + '</div></div>';
+        var str = '<div><div style="font-weight: bold;font-size: 11px;">' + data.context.name + '</div><div style="font-size: 10px;">' + $filter( 'translate' )( 'status.tt_firebreak', { value: value,units: units} ) + '</div></div>';
         
         return str;
     };
@@ -63,6 +63,10 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         else {
             return $filter( 'translate' )( 'status.desc_pre_dedup_capacity' );
         }
+    };
+    
+    $scope.capacityLabelFx = function( data ){
+        return $byte_converter.convertBytesToString( data, 0 );
     };
 
     $scope.isAllowed = function( permission ){

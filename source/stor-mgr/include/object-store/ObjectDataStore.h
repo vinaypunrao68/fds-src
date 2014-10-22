@@ -14,6 +14,8 @@
 
 namespace fds {
 
+class SmScavengerCmd;
+
 /**
  * Class that manages storage of object data. The class persistetnly stores
  * and caches object data.
@@ -39,8 +41,10 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     /**
      * Opens object data store
      * @param[in] map of SM tokens to disks
+     * @param[in] true if SM comes up for the first time
      */
-    Error openDataStore(const SmDiskMap::const_ptr& diskMap);
+    Error openDataStore(const SmDiskMap::const_ptr& diskMap,
+                        fds_bool_t pristineState);
 
     /**
      * Peristently stores object data.
@@ -68,6 +72,9 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     Error removeObjectData(fds_volid_t volId,
                            const ObjectID& objId,
                            const ObjMetaData::const_ptr& objMetaData);
+
+    // control commands
+    Error scavengerControlCmd(SmScavengerCmd* scavCmd);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

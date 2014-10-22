@@ -10,6 +10,7 @@
 #include <StorMgrVolumes.h>
 #include <concurrency/HashedLocks.hpp>
 #include <object-store/SmDiskMap.h>
+#include <TierEngine.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
 
@@ -33,6 +34,9 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// SM disk map keeps track of SM tokens and their locations
     SmDiskMap::ptr diskMap;
+
+    /// Tiering engine
+    TierEngine::unique_ptr tierEngine;
 
     /// Volume table for accessing vol descriptors
     // Does not own, passed from SM processing layer
@@ -118,6 +122,9 @@ class ObjectStore : public Module, public boost::noncopyable {
      */
     void snapshotMetadata(fds_token_id smTokId,
                           SmIoSnapshotObjectDB::CbType notifFn);
+
+    // control methods
+    Error scavengerControlCmd(SmScavengerCmd* scavCmd);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

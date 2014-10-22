@@ -35,8 +35,9 @@ include_directories(source/include
                     source/orch-mgr/
                     source/orch-mgr/include/
                     source/orch-mgr/include/snapshot/
-                    leveldb-1.12.0/include/leveldb
+                    leveldb-1.12.0/include/leveldb/
                     /usr/local/include/boost/
+                    source/unit-test/stor-mgr/
                     )
 set(SOURCE_FILES
     cmdconsole/cmdconsole.cpp

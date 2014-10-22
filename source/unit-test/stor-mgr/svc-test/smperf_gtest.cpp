@@ -71,7 +71,10 @@ TEST_F(SMApi, putsPerf)
     bool disableSchedule = this->getArg<bool>("disable-schedule");
 
     fpi::SvcUuid svcUuid;
-    svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+    svcUuid.svc_uuid = this->getArg<uint64_t>("smuuid");
+    if (svcUuid.svc_uuid == 0) {
+        svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+    }
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
     /* To generate random data between 10 to 100 bytes */
@@ -122,7 +125,7 @@ TEST_F(SMApi, putsPerf)
     }
 
     /* Poll for completion */
-    POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), nPuts, (nPuts * 3));
+    POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 2000, (nPuts * 10));
 
     /* Disable fault injection */
     if (failSendsbefore) {
@@ -160,6 +163,7 @@ int main(int argc, char** argv) {
     po::options_description opts("Allowed options");
     opts.add_options()
         ("help", "produce help message")
+        ("smuuid", po::value<uint64_t>()->default_value(0), "smuuid")
         ("puts-cnt", po::value<int>(), "puts count")
         ("profile", po::value<bool>()->default_value(false), "google profile")
         ("failsends-before", po::value<bool>()->default_value(false), "fail sends before")
