@@ -13,15 +13,6 @@ AccessMgr::AccessMgr(const std::string &modName,
                      CommonModuleProviderIf *modProvider)
         : Module(modName.c_str()),
           modProvider_(modProvider) {
-}
-
-AccessMgr::~AccessMgr() {
-}
-
-int
-AccessMgr::mod_init(SysParams const *const param) {
-    Module::mod_init(param);
-
     // Init the storHvisor global object. It takes a bunch of arguments
     // but doesn't really need them so we just create stock values.
     fds::Module *io_dm_vec[] = {
@@ -38,6 +29,14 @@ AccessMgr::mod_init(SysParams const *const param) {
     // Init the FDSN server to serve XDI data requests
     fdsnServer = FdsnServer::unique_ptr(new FdsnServer("AM FDSN Server", dataApi));
     fdsnServer->init_server();
+}
+
+AccessMgr::~AccessMgr() {
+}
+
+int
+AccessMgr::mod_init(SysParams const *const param) {
+    Module::mod_init(param);
     return 0;
 }
 

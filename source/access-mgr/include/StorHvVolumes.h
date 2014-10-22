@@ -371,8 +371,14 @@ class StatBlobReq : public FdsBlobReq {
 
 struct SetBlobMetaDataReq : FdsBlobReq {
   public:
+    typedef std::function<void (const Error&)> SetBlobMetadataProcCb;
+
     BlobTxId::ptr txDesc;
     boost::shared_ptr<FDSP_MetaDataList> metaDataList;
+
+    SetBlobMetadataProcCb processorCb;
+    fds_uint64_t dmt_version;
+
     SetBlobMetaDataReq(fds_volid_t _volid,
                        const std::string   &_vol_name,
                        const std::string   &_blob_name,

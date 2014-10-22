@@ -374,9 +374,10 @@ void FdsProcess::daemonize() {
 
     /* obtain a new process group */
     setsid();
+    int ret;
     int i;
     for (i = getdtablesize(); i >= 0 ; --i) close(i); /* close all descriptors */
-    i = open("/dev/null", O_RDWR); dup(i); dup(i); /* handle standart I/O */
+    i = open("/dev/null", O_RDWR); ret = dup(i); ret = dup(i); /* handle standart I/O */
     // umask(027); /* set newly created file permissions */
     // ignore tty signals
     signal(SIGTSTP, SIG_IGN);

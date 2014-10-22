@@ -48,7 +48,7 @@ Error GetBucketHandler::handleResponse(AmQosReq *qosReq,
         apis::BlobDescriptor bd;
         bd.name = response->blob_info_list[i].blob_name;
         bd.byteCount = response->blob_info_list[i].blob_size;
-        cb->vecBlobs.push_back(apis::BlobDescriptor(bd));
+        cb->vecBlobs.push_back(bd);
     }
 
     return err;
