@@ -1,0 +1,5 @@
+start on startup
+expect fork
+setuid {{ influxdb_collectd_proxy_user }}
+setgid {{ influxdb_collectd_proxy_user }}
+exec /home/{{ influxdb_collectd_proxy_user }}/proxy/bin/proxy --influxdb="{{ influxdb_ip }}:{{ influxdb_port }}" --database="{{ influxdb_db }}" --username="{{ influxdb_user }}" --password="{{ influxdb_password }}" --typesdb="/usr/share/collectd/types.db" &
