@@ -32,6 +32,9 @@ class AccessMgr : public Module, public boost::noncopyable {
     void mod_shutdown() override;
 
     void run();
+    /// Interface to directly register a volume. Only
+    /// used for testing today.
+    Error registerVolume(const VolumeDesc& volDesc);
 
     /// Shared ptr to AM's data API. It's public so that
     /// other components (e.g., unit tests, perf tests) can
