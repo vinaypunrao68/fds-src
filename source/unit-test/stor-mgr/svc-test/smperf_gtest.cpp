@@ -33,10 +33,12 @@ struct SMApi : SingleNodeTest
         putsSuccessCnt_ = 0;
         putsFailedCnt_ = 0;
     }
-    void putCb(EPSvcRequest* svcReq,
+    void putCb(uint64_t opStartTs, EPSvcRequest* svcReq,
                const Error& error,
                boost::shared_ptr<std::string> payload)
     {
+        auto opEndTs = util::getTimeStampNanos();
+        avgLatency_.update(opEndTs - opStartTs);
         if (error != ERR_OK) {
             GLOGWARN << "Req Id: " << svcReq->getRequestId() << " " << error;
             putsFailedCnt_++;
@@ -53,6 +55,7 @@ struct SMApi : SingleNodeTest
     std::atomic<uint32_t> putsFailedCnt_;
     util::TimeStamp startTs_;
     util::TimeStamp endTs_;
+    LatencyCounter avgLatency_;
 };
 
 /**
@@ -113,10 +116,11 @@ TEST_F(SMApi, putsPerf)
 
     /* Issue puts */
     for (int i = 0; i < nPuts; i++) {
+        auto opStartTs = util::getTimeStampNanos();
         auto putObjMsg = putMsgGen->nextItem();
         auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
         asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
-        asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this,
+        asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this, opStartTs,
                                             std::placeholders::_1,
                                             std::placeholders::_2, std::placeholders::_3));
         asyncPutReq->setTimeoutMs(1000);
@@ -152,7 +156,7 @@ TEST_F(SMApi, putsPerf)
 
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
-            << "(ns)\n";
+            << "(ns) Avg op latency: " << avgLatency_.value() << std::endl;
     ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
         << " putsSuccessCnt_: " << putsSuccessCnt_
         << " putsFailedCnt_: " << putsFailedCnt_;
