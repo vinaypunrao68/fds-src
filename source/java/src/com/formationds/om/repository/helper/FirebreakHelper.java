@@ -7,8 +7,10 @@ package com.formationds.om.repository.helper;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonMetricsRepository;
+import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
 import com.formationds.om.repository.result.VolumeFirebreak;
 import javafx.util.Pair;
 
@@ -34,17 +36,19 @@ public class FirebreakHelper {
    */
   public List<Datapoint> findFirebreak() {
 
-//    final Map<String,List<VolumeFirebreak>> allCapacity =
-//      findFirebreak(
-//        new VolumeCriteriaQueryBuilder( repo.entity() )
-//          .withSeries( Metrics.STC_SIGMA )
-//          .withSeries( Metrics.LTC_SIGMA ).resultsList() );
-//
-//    final Map<String,List<VolumeFirebreak>> allPerformance =
-//      findFirebreak(
-//        new VolumeCriteriaQueryBuilder( repo.entity() )
-//          .withSeries( Metrics.STP_SIGMA )
-//          .withSeries( Metrics.LTP_SIGMA ).resultsList() );
+    final Map<String, Datapoint> allCapacity =
+      findFirebreak(
+        new VolumeCriteriaQueryBuilder( repo.entity() )
+          .withSeries( Metrics.STC_SIGMA )
+          .withSeries( Metrics.LTC_SIGMA )
+          .resultsList() );
+
+    final Map<String, Datapoint> allPerformance =
+      findFirebreak(
+        new VolumeCriteriaQueryBuilder( repo.entity() )
+          .withSeries( Metrics.STP_SIGMA )
+          .withSeries( Metrics.LTP_SIGMA )
+          .resultsList() );
 
     /*
      * should have one per volume, if any firebreaks have occurred.
@@ -62,13 +66,20 @@ public class FirebreakHelper {
   /**
    * @param datapoints the {@link VolumeDatapoint} representing the datapoint
    *
-   * @return Returns {@link Map} of {@link List} of {@link VolumeFirebreak}
+   * @return Returns {@link java.util.Map} of {@link Datapoint}
    */
-  public static Map<String, List<Datapoint>> findFirebreak(
+  public static Map<String, Datapoint> findFirebreak(
     final List<VolumeDatapoint> datapoints ) {
-    final Map<String, List<Datapoint>> results = new HashMap<>();
+    final Map<String, Datapoint> results = new HashMap<>();
+
+    final Comparator<VolumeDatapoint> VolumeDatapointComprator =
+      Comparator.comparing( VolumeDatapoint::getVolumeName )
+                .thenComparing( VolumeDatapoint::getTimestamp );
+
+    final VolumeFirebreak[] previous = { null };
 
     datapoints.stream()
+              .sorted( VolumeDatapointComprator )
               .flatMap( ( dp1 ) ->
                           datapoints.stream()
                                     .filter( ( dp2 ) ->
@@ -82,28 +93,42 @@ public class FirebreakHelper {
                                                             .equals( dp2.getId() ) )
                                     .map( dp2 -> build( dp1, dp2 ) ) )
               .forEach( o -> {
-                final String volumeName = o.getKey()
-                                           .getVolumeName();
-                final Date x = new Date( o.getKey()
-                                          .getTimestamp() * 1000 );
-                final Datapoint firebreak = new Datapoint();
+                final VolumeDatapoint v1 = o.getKey();
+                final VolumeDatapoint v2 = o.getValue();
 
-                if( Calculation.isFirebreak( o.getKey()
-                                              .getValue(),
-                                             o.getValue()
-                                              .getValue() ) ) {
-                  if( !results.containsKey( volumeName ) ) {
-                    results.put( volumeName, new ArrayList<>() );
+                if( !results.containsKey( v1.getVolumeName() ) ) {
+                  final Datapoint empty = new Datapoint();
+                  empty.setY( 0L );
+                  empty.setX( 0L );
+                  results.put( v1.getVolumeName(), empty );
+                }
+
+                if( Calculation.isFirebreak( v1.getValue(), v2.getValue() ) ) {
+                  final VolumeFirebreak c =
+                    new VolumeFirebreak( v1.getVolumeName(),
+                                         v1.getId()
+                                           .toString(),
+                                         new Date( v1.getTimestamp() * 1000 ) );
+                  if( previous[ 0 ] == null ) {
+                    previous[ 0 ] = c;
                   }
 
-                  if( !results.get( volumeName )
-                              .contains( firebreak ) ) {
-                    results.get( volumeName )
-                           .add( firebreak );
+                  if( previous[ 0 ].getVolumeName()
+                                   .equalsIgnoreCase( c.getVolumeName() ) &&
+                    previous[ 0 ].getLastOccurred()
+                                 .before( c.getLastOccurred() ) ) {
+
+                    results.get( previous[ 0 ].getVolumeName() )
+                           .setY( v1.getValue()
+                                    .longValue() );
+                    results.get( previous[ 0 ].getVolumeName() )
+                           .setX( previous[ 0 ].getLastOccurred()
+                                               .getTime() );
+
+                    previous[ 0 ] = c;
                   }
                 }
               } );
-
 
     return results;
   }
