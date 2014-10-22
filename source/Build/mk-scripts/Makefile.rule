@@ -394,30 +394,25 @@ devsetup: $(chef_client_binary)
 ansible_dir := $(incl_scripts)/../../../ansible
 ansible_devsetup_command := ansible-playbook -i $(ansible_dir)/ansible_hosts -c local $(ansible_dir)/playbooks/devsetup.yml 
 devsetup_playbook := $(ansible_dir)/playbooks/devsetup.yml
-devsetup_chkfile := $(ansible_dir)/.devsetup-is-up-to-date
+devsetup_is_up_to_date := $(ansible_dir)/.devsetup-is-up-to-date
 devsetup_is_running := $(ansible_dir)/.devsetup-is-running
 
-print_playbook_full_path:
-	@echo $(devsetup_playbook)
-	@echo $(devsetup_chkfile)
-	@echo $(devsetup_is_running)
-
-$(devsetup_chkfile): $(devsetup_playbook)
+$(devsetup_is_up_to_date): $(devsetup_playbook)
 	@if [ ! -e $(devsetup_is_running) ]; then \
 		touch $(devsetup_is_running) ; \
-		rm -f $(devsetup_chkfile) ; \
+		rm -f $(devsetup_is_up_to_date) ; \
 		sudo apt-get install -fy python-dev python-pip ; \
 		sudo pip install ansible ; \
 		$(ansible_devsetup_command) ; \
-		touch $(devsetup_chkfile) ; \
+		touch $(devsetup_is_up_to_date) ; \
 		rm -f $(devsetup_is_running) ; \
 	else \
 		echo "waiting for devsetup to complete" ; \
-		while [ ! -e $(devsetup_chkfile) ]; do sleep 10; done ; \
+		while [ ! -e $(devsetup_is_up_to_date) ]; do sleep 10; done ; \
 	fi
 
 .PHONY: devsetup-ansible
-devsetup-ansible: $(devsetup_chkfile)
+devsetup-ansible: $(devsetup_is_up_to_date)
 
 # -----------------------------------------------------------------------------
 # List Targets
