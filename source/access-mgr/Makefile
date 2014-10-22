@@ -58,6 +58,9 @@ user_non_fds_libs :=  \
     fiu \
     dl
 
+user_static_libs  := \
+    ev
+
 user_cc           :=
 
 user_incl_dir     += $(topdir) \

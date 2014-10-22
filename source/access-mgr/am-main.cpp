@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <string>
+#include <am-nbd.h>
 #include <fdsn-server.h>
 #include <util/fds_stat.h>
 #include <native_api.h>
@@ -50,6 +51,7 @@ int main(int argc, char **argv)
         &fds::gl_fds_stat,
         &fds::gl_AmPlatform,
         &fds::gl_NetService,
+        &fds::gl_NbdBlockMod,
         nullptr
     };
 
