@@ -125,7 +125,6 @@ void
 Module::mod_lockstep_done()
 {
     fds_verify(mod_owner != NULL);
-    fds_verify(mod_exec_state & MOD_ST_LOCKSTEP);
     mod_owner->mod_done_lockstep(this);
 }
 
@@ -417,12 +416,12 @@ void
 ModuleVector::mod_done_lockstep(Module *mod, bool shutdown)
 {
     fds_verify(mod->mod_owner == this);
-    fds_verify((mod->mod_exec_state & MOD_ST_LOCKSTEP) != 0);
-    fds_verify(sys_waitq != NULL);
 
     sys_mtx.lock();
     mod->mod_exec_state |= MOD_ST_LSTEP_DONE;
-    sys_waitq->notify_one();
+    if (sys_waitq != NULL) {
+        sys_waitq->notify_one();
+    }
     sys_mtx.unlock();
 }
 

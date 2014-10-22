@@ -9,8 +9,8 @@ user_json         := in.json
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := 
-user_non_fds_libs := \
-    ev
+user_non_fds_libs :=
+user_static_libs  := ev
 
 # Don't do style check on auto gen code.
 user_hh           := $(wildcard *.h)
