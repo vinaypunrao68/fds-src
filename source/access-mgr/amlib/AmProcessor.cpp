@@ -345,7 +345,6 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
 void
 AmProcessor::setBlobMetadata(AmQosReq *qosReq) {
     SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
-    LOGDEBUG << "processing SetBlobMetaData for vol:" << qosReq->io_vol_id;
 
     // Stage the transaction metadata changes
     fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->getTxId()), blobReq->getMetaDataListPtr()))

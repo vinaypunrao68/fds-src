@@ -591,7 +591,6 @@ AmDispatcher::dispatchSetBlobMetadata(AmQosReq *qosReq) {
 
     setMDMsg->metaDataList = std::move(*blobReq->getMetaDataListPtr());
 
-    LOGDEBUG << " Invoking  Message Interface";
     auto asyncSetMDReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(
             dmtMgr->getVersionNodeGroup(vol_id, blobReq->dmt_version)));
