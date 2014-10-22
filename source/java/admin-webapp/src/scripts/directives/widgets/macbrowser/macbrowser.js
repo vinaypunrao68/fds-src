@@ -37,6 +37,10 @@ angular.module( 'form-directives' ).directive( 'macBrowser', function(){
 
             $scope.itemSelected = function( item ){
                 
+                if ( !angular.isDefined( item ) ){
+                    return;
+                }
+                
                 // de-select anyone else that is selected
                 var siblings = [];
                 

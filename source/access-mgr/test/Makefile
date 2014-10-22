@@ -1,16 +1,11 @@
-topdir            := ..
-user_target       := exe
+topdir            := ../../
+user_target       := test
+user_install_loc  := test
 user_rtime_env    := user
 speedup           := -j 6
-user_build_dir    := \
-    include \
-    amlib \
-    stor-hvisor \
-    platform \
-    block \
-    test
+user_build_dir    :=
 
-user_incl_dir     := stor-hvisor include
+user_incl_dir     := $(topdir) ../include ../stor-hvisor
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
@@ -30,16 +25,6 @@ user_fds_ar_libs  :=  \
     fds-thread \
     fds-osdep
 
-user_nginx_libs   :=  \
-    ngx-http-module \
-    ngx-http \
-    ngx-event-module \
-    ngx-event \
-    ngx-core \
-    ngx-os \
-    ngx-core \
-    pthread crypt pcre crypto z
-
 user_non_fds_libs :=  \
     boost_log \
     boost_system \
@@ -52,15 +37,12 @@ user_non_fds_libs :=  \
     jansson \
     config++ \
     cryptopp \
+    gmock \
     hiredis \
     event \
-	rt \
-    $(user_nginx_libs) \
+    rt \
     fiu \
     dl
-
-user_static_libs  := \
-    ev
 
 user_cc           :=
 
@@ -70,10 +52,8 @@ user_incl_dir     += $(topdir) \
 
 user_cpp      := $(wildcard *.cpp)
 
-#user_ld_flags := -shared -Wl,--no-allow-shlib-undefined
-
 user_no_style     := $(user_cc) $(wildcard com_*.h)
-user_bin_exe      := bare_am
-bare_am           := $(user_cpp) $(user_cc)
+user_bin_exe      := AmFunctionalTest
+AmFunctionalTest  := $(user_cpp) $(user_cc)
 
 include $(topdir)/Makefile.incl

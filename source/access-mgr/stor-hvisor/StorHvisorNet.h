@@ -238,6 +238,9 @@ public:
     std::string                 myIp;
     std::string                 my_node_name;
 
+    /// Toggle AM standalone mode for testing
+    fds_bool_t toggleStandAlone;
+
     /// Toggle to use new AM processing path
     fds_bool_t toggleNewPath;
 

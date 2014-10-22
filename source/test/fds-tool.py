@@ -101,9 +101,9 @@ if __name__ == '__main__':
 
     # Status
     if options.clus_status:
-        print "====================================================================================="
-        print "=    This feature is deprecated, please use fdsadmin --status (or --process-status) ="
-        print "====================================================================================="
+        print "============================================================================================="
+        print "= fds-tool.py -s --status is deprecated, please use fdsadmin --status (or --process-status) ="
+        print "============================================================================================="
      
         for n in nodes:
             n.nd_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.om.Main', output = True)

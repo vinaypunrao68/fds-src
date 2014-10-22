@@ -240,6 +240,7 @@ Platform::mod_init(SysParams const *const param)
     plf_om_ip_str    = conf.get_abs<std::string>("fds.plat.om_ip");
     plf_om_ctrl_port = conf.get_abs<int>("fds.plat.om_port");
     plf_om_svc_port  = conf.get_abs<int>("fds.plat.om_platform_port");
+
     LOGNOTIFY << "om_ip: " << plf_om_ip_str << " ctrl port: " << plf_om_ctrl_port
         << " svc port: " << plf_om_svc_port;
     return 0;
