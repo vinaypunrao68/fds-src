@@ -1,112 +1,139 @@
 <html ng-app="formation" class="no-js">
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Formation</title>
-    <meta name="description" content="Formation Data Systems is building a revolutionary converged data platform for web-scale computing.">
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Formation</title>
+  <meta name="description"
+        content="Formation Data Systems is building a revolutionary converged data platform for web-scale computing.">
 
-    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
-    <meta http-equiv='Cache-control' content='no-cache'>
-    <meta http-equiv='Expires' content='0'>
-    <meta http-equiv='Pragma' content='no-cache'>
+  <meta name="viewport"
+        content="initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta http-equiv='Cache-control' content='no-cache'>
+  <meta http-equiv='Expires' content='0'>
+  <meta http-equiv='Pragma' content='no-cache'>
 
-    <!--iOS Meta and Logo -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <link rel="shortcut icon" href="images/favicon.ico">
-    <link rel="apple-touch-icon" href="images/apple-touch-logo.png" />
-    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-logo.png" />
-    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-logo.png" />
-    <link rel="stylesheet" type="text/css" href="libs/bootstrap/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" type="text/css" href="libs/flat-ui.css">
-    <link rel="stylesheet" type="text/css" href="styles/main.min.css">
+  <!--iOS Meta and Logo -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="shortcut icon" href="images/favicon.ico">
+  <link rel="apple-touch-icon" href="images/apple-touch-logo.png"/>
+  <link rel="apple-touch-icon" sizes="72x72"
+        href="images/apple-touch-logo.png"/>
+  <link rel="apple-touch-icon" sizes="114x114"
+        href="images/apple-touch-logo.png"/>
+  <link rel="stylesheet" type="text/css"
+        href="libs/bootstrap/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" type="text/css" href="libs/flat-ui.css">
+  <link rel="stylesheet" type="text/css" href="styles/main.min.css">
 
-    <script type="text/javascript" src="libs/jquery/dist/jquery.min.js"></script>
-    <script type="text/javascript" src="libs/angular/angular.js"></script>
-    <script type="text/javascript" src="libs/angular-ui-router/release/angular-ui-router.js"></script>
-    <script type="text/javascript" src="libs/angular-translate/angular-translate.js"></script>
-    <script type="text/javascript" src="libs/d3/d3.min.js"></script>
+  <script type="text/javascript" src="libs/jquery/dist/jquery.min.js"></script>
+  <script type="text/javascript" src="libs/angular/angular.js"></script>
+  <script type="text/javascript"
+          src="libs/angular-ui-router/release/angular-ui-router.js"></script>
+  <script type="text/javascript"
+          src="libs/angular-translate/angular-translate.js"></script>
+  <script type="text/javascript" src="libs/d3/d3.min.js"></script>
 
-<!--@@RELEASE@@    <script type="text/javascript" src="scripts/main.min.js"></script>@@RELEASE@@-->
-<!--@@DEV@@ 
-    <script type="text/javascript" src="scripts/i18n/en_US.js"></script>
-    <script type="text/javascript" src="scripts/main.js"></script>
-    <script type="text/javascript" src="scripts/enums.js"></script>
-    
-    <script type="text/javascript" src="scripts/module-manifest.js"></script>
+  <!--@@RELEASE@@    <script type="text/javascript" src="scripts/main.min.js"></script>@@RELEASE@@-->
+  <!--@@DEV@@
+      <script type="text/javascript" src="scripts/i18n/en_US.js"></script>
+      <script type="text/javascript" src="scripts/main.js"></script>
+      <script type="text/javascript" src="scripts/enums.js"></script>
 
-    <script type="text/javascript" src="scripts/services/utils/http_helper.js"></script>
-    <script type="text/javascript" src="scripts/services/utils/byte_converter.js"></script>
-    <script type="text/javascript" src="scripts/services/admin/authorization.js"></script>
-    <script type="text/javascript" src="scripts/services/admin/authentication.js"></script>
-    <script type="text/javascript" src="scripts/services/items/volume_api.js"></script>
-    <script type="text/javascript" src="scripts/services/items/data_connector_api.js"></script>
-    <script type="text/javascript" src="scripts/services/utils/modal_data_service.js"></script>
-    <script type="text/javascript" src="scripts/services/items/domain_service.js"></script>
-    <script type="text/javascript" src="scripts/services/items/node_service.js"></script>
-    <script type="text/javascript" src="scripts/services/data/activity_service.js"></script>
-    <script type="text/javascript" src="scripts/services/data/inbox_service.js"></script>
-    <script type="text/javascript" src="scripts/services/admin/user_service.js"></script>
-    <script type="text/javascript" src="scripts/services/data/stats_service.js"></script>
-    <script type="text/javascript" src="scripts/services/utils/resize_service.js"></script>
-    <script type="text/javascript" src="scripts/services/items/snapshot_api.js"></script>
-    <script type="text/javascript" src="scripts/services/admin/tenant_service.js"></script>
+      <script type="text/javascript" src="scripts/module-manifest.js"></script>
 
-    <script type="text/javascript" src="scripts/main/mainController.js"></script>
-    <script type="text/javascript" src="scripts/volumes/volumeContainerController.js"></script>
-    <script type="text/javascript" src="scripts/volumes/volumeController.js"></script>
-    <script type="text/javascript" src="scripts/volumes/create/volumeCreateController.js"></script>
-    <script type="text/javascript" src="scripts/volumes/create/nameTypeController.js"></script>
-    <script type="text/javascript" src="scripts/system/systemController.js"></script>
-    <script type="text/javascript" src="scripts/volumes/create/qualityOfServiceController.js"></script>
-    <script type="text/javascript" src="scripts/volumes/create/cloneController.js"></script>
-    <script type="text/javascript" src="scripts/inbox/inboxController.js"></script>
-    <script type="text/javascript" src="scripts/activity/activityController.js"></script>
-    <script type="text/javascript" src="scripts/status/statusController.js"></script>
-    <script type="text/javascript" src="scripts/tenants/tenantController.js"></script>
-    <script type="text/javascript" src="scripts/tenants/tenantContainerController.js"></script>
-    <script type="text/javascript" src="scripts/tenants/create/createTenantController.js"></script>
-    <script type="text/javascript" src="scripts/users/userController.js"></script>
-    <script type="text/javascript" src="scripts/users/create/createUserController.js"></script>
-    <script type="text/javascript" src="scripts/users/userContainerController.js"></script>
-    <script type="text/javascript" src="scripts/account/accountController.js"></script>
-    <script type="text/javascript" src="scripts/volumes/create/snapshotPolicyController.js"></script>
-    <script type="text/javascript" src="scripts/admin/admin.js"></script>
-    <script type="text/javascript" src="scripts/admin/profile/profile.js"></script>
-    <script type="text/javascript" src="scripts/admin/firebreak/firebreak.js"></script>
-    <script type="text/javascript" src="scripts/volumes/view/viewVolumeController.js"></script>
-    <script type="text/javascript" src="scripts/system/addnode/addnode.js"></script>@@DEV@@-->
+      <script type="text/javascript" src="scripts/services/utils/http_helper.js"></script>
+      <script type="text/javascript" src="scripts/services/utils/byte_converter.js"></script>
+      <script type="text/javascript" src="scripts/services/admin/authorization.js"></script>
+      <script type="text/javascript" src="scripts/services/admin/authentication.js"></script>
+      <script type="text/javascript" src="scripts/services/items/volume_api.js"></script>
+      <script type="text/javascript" src="scripts/services/items/data_connector_api.js"></script>
+      <script type="text/javascript" src="scripts/services/utils/modal_data_service.js"></script>
+      <script type="text/javascript" src="scripts/services/items/domain_service.js"></script>
+      <script type="text/javascript" src="scripts/services/items/node_service.js"></script>
+      <script type="text/javascript" src="scripts/services/data/activity_service.js"></script>
+      <script type="text/javascript" src="scripts/services/data/inbox_service.js"></script>
+      <script type="text/javascript" src="scripts/services/admin/user_service.js"></script>
+      <script type="text/javascript" src="scripts/services/data/stats_service.js"></script>
+      <script type="text/javascript" src="scripts/services/utils/resize_service.js"></script>
+      <script type="text/javascript" src="scripts/services/items/snapshot_api.js"></script>
+      <script type="text/javascript" src="scripts/services/admin/tenant_service.js"></script>
 
-    <script type="text/javascript" src="templates.js"></script>
+      <script type="text/javascript" src="scripts/main/mainController.js"></script>
+      <script type="text/javascript" src="scripts/volumes/volumeContainerController.js"></script>
+      <script type="text/javascript" src="scripts/volumes/volumeController.js"></script>
+      <script type="text/javascript" src="scripts/volumes/create/volumeCreateController.js"></script>
+      <script type="text/javascript" src="scripts/volumes/create/nameTypeController.js"></script>
+      <script type="text/javascript" src="scripts/system/systemController.js"></script>
+      <script type="text/javascript" src="scripts/volumes/create/qualityOfServiceController.js"></script>
+      <script type="text/javascript" src="scripts/volumes/create/cloneController.js"></script>
+      <script type="text/javascript" src="scripts/inbox/inboxController.js"></script>
+      <script type="text/javascript" src="scripts/activity/activityController.js"></script>
+      <script type="text/javascript" src="scripts/status/statusController.js"></script>
+      <script type="text/javascript" src="scripts/tenants/tenantController.js"></script>
+      <script type="text/javascript" src="scripts/tenants/tenantContainerController.js"></script>
+      <script type="text/javascript" src="scripts/tenants/create/createTenantController.js"></script>
+      <script type="text/javascript" src="scripts/users/userController.js"></script>
+      <script type="text/javascript" src="scripts/users/create/createUserController.js"></script>
+      <script type="text/javascript" src="scripts/users/userContainerController.js"></script>
+      <script type="text/javascript" src="scripts/account/accountController.js"></script>
+      <script type="text/javascript" src="scripts/volumes/create/snapshotPolicyController.js"></script>
+      <script type="text/javascript" src="scripts/admin/admin.js"></script>
+      <script type="text/javascript" src="scripts/admin/profile/profile.js"></script>
+      <script type="text/javascript" src="scripts/admin/firebreak/firebreak.js"></script>
+      <script type="text/javascript" src="scripts/volumes/view/viewVolumeController.js"></script>
+      <script type="text/javascript" src="scripts/system/addnode/addnode.js"></script>@@DEV@@-->
 
-    <script type="text/javascript" src="scripts/directives/widgets/priorityslider/priorityslider.js"></script>
-    <script type="text/javascript" src="scripts/directives/widgets/variableslider/variableslider.js"></script>
-    <script type="text/javascript" src="scripts/directives/widgets/fds-modal/fds-modal.js"></script>
-    <script type="text/javascript" src="scripts/directives/widgets/navitem/navitem.js"></script>
-    <script type="text/javascript" src="scripts/directives/widgets/slidewindowstack/slidewindowstack.js"></script>
-    <script type="text/javascript" src="scripts/directives/widgets/tristatecheck/tristatecheck.js"></script>
-    <script type="text/javascript" src="scripts/directives/widgets/fds-radio/fds-radio.js"></script>
-    <script type="text/javascript" src="scripts/directives/angular-fui/fui-checkbox/fui-checkbox.js"></script>
-    <script type="text/javascript" src="scripts/directives/angular-fui/fui-dropdown/fui-dropdown.js"></script>
-    <script type="text/javascript" src="scripts/directives/angular-fui/fui-input/fui-input.js"></script>
-    <script type="text/javascript" src="scripts/directives/angular-fui/fui-slider/fui-slider.js"></script>
-    <script type="text/javascript" src="scripts/directives/widgets/treegrid/treegrid.js"></script>
-    <script type="text/javascript" src="scripts/directives/widgets/macbrowser/macbrowser.js"></script>
-    <script type="text/javascript" src="scripts/directives/widgets/spinner/spinner.js"></script>
-    <script type="text/javascript" src="scripts/directives/widgets/linkbuttons/linkbuttons.js"></script>
-    <script type="text/javascript" src="scripts/directives/widgets/statustile/statusTile.js"></script>
-    <script type="text/javascript" src="scripts/directives/widgets/tooltip/tooltip.js"></script>
+  <script type="text/javascript" src="templates.js"></script>
 
-    <script type="text/javascript" src="scripts/directives/utils/shownotify/shownotify.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/priorityslider/priorityslider.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/variableslider/variableslider.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/fds-modal/fds-modal.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/navitem/navitem.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/slidewindowstack/slidewindowstack.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/tristatecheck/tristatecheck.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/fds-radio/fds-radio.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/angular-fui/fui-checkbox/fui-checkbox.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/angular-fui/fui-dropdown/fui-dropdown.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/angular-fui/fui-input/fui-input.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/angular-fui/fui-slider/fui-slider.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/treegrid/treegrid.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/macbrowser/macbrowser.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/spinner/spinner.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/linkbuttons/linkbuttons.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/statustile/statusTile.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/widgets/tooltip/tooltip.js"></script>
 
-    <script type="text/javascript" src="scripts/directives/charts/treemap/treemap.js"></script>
-    <script type="text/javascript" src="scripts/directives/charts/linechart/linechart.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/utils/shownotify/shownotify.js"></script>
+
+  <script type="text/javascript"
+          src="scripts/directives/charts/treemap/treemap.js"></script>
+  <script type="text/javascript"
+          src="scripts/directives/charts/linechart/linechart.js"></script>
 </head>
 
 <body class="menu-active">
 
-    <div ui-view>
-    </div>
+<div ui-view>
+</div>
 </body>
 
 </html>

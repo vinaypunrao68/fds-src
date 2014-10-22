@@ -1,79 +1,84 @@
 <div class="volume-page" ng-controller="volumeController">
-    
-    <!-- Real stuff -->
-    <div class="volumecontainer">
 
-        <div class="header volumes">
-            <span>{{name}}</span>
-            <span translate>volumes.title</span>
-            <a ng-click="createNewVolume()" class="pull-right new_volume" translate>volumes.l_create_volume</a>
-        </div>
+  <!-- Real stuff -->
+  <div class="volumecontainer">
 
-        <div class="">
-            <!-- actual table -->
-            <div class="table-container">
-                <table class="default volumes clickable" style="margin-bottom: 48px;">
-                    <thead>
-<!--                        <th translate>volumes.th_performance</th>-->
-                        <th translate>common.th_name</th>
-                        <th translate>common.th_data_type</th>
-                        <th>
-                            <div translate>volumes.th_capacity</div>
-                            <div translate>volumes.th_used_limit</div>
-                        </th>
-                        <th translate>volumes.th_iops_guarantee</th>
-                        <th class="priority" translate>volumes.th_priority</th>
-                        <th></th>
-                    </thead>
-                    <tbody>
-                        <!-- row per volume -->
-                        <tr class="volume-row" ng-repeat="volume in volumes" ng-click="clicked( volume )">
-<!--
-                            <td class="volume_time">
-                                <div></div>
-                            </td>
--->
-
-                            <td class="name primary-color">
-                                {{volume.name}}
-                            </td>
-                            <td>
-                                {{volume.data_connector.type}}
-                            </td>
-
-                            <td class="consume">
-                                {{volume.current_usage.size}}{{volume.current_usage.unit}}
-                                <span ng-show="volume.data_connector.attributes.size">/</span>
-                                {{volume.data_connector.attributes.size}}{{volume.data_connector.attributes.unit}}
-                            </td>
-
-                            <td class="iopLimit">
-                                <span ng-show="volume.sla != 0">{{ volume.sla }}%</span>
-                                <span ng-show="volume.sla == 0" translate>common.l_none</span>
-                            </td>
-
-                            <td class="priority">
-                                <em>
-                                    {{volume.priority}}
-                                </em>
-                            </td>
-                            <td class="button-group">
-                                <div class="inline" style="position: relative;">
-                                    <span class="icon-cake" ng-click="takeSnapshot( $event, volume )" title="Take a snapshot">
-                                    </span>
-                                    <span class="icon-pencil" ng-click="edit( $event, volume )" title="Edit settings"></span>
-                                    <!--<span class="fui-cross" ng-click="delete( volume )" title="Delete volume"></span>-->
-                                </div>
-                            </td>
-                        </tr>
-                        <tr class="disabled" ng-show="!volumes.length || volumes.length === 0">
-                            <td colspan="100%" translate>
-                                volumes.desc_no_volumes
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    <div class="header volumes">
+      <span>{{name}}</span>
+      <span translate>volumes.title</span>
+      <a ng-click="createNewVolume()" class="pull-right new_volume" translate>volumes.l_create_volume</a>
     </div>
+
+    <div class="">
+      <!-- actual table -->
+      <div class="table-container">
+        <table class="default volumes clickable" style="margin-bottom: 48px;">
+          <thead>
+          <!--                        <th translate>volumes.th_performance</th>-->
+          <th translate>common.th_name</th>
+          <th translate>common.th_data_type</th>
+          <th>
+            <div translate>volumes.th_capacity</div>
+            <div translate>volumes.th_used_limit</div>
+          </th>
+          <th translate>volumes.th_iops_guarantee</th>
+          <th class="priority" translate>volumes.th_priority</th>
+          <th></th>
+          </thead>
+          <tbody>
+          <!-- row per volume -->
+          <tr class="volume-row" ng-repeat="volume in volumes"
+              ng-click="clicked( volume )">
+            <!--
+                                        <td class="volume_time">
+                                            <div></div>
+                                        </td>
+            -->
+
+            <td class="name primary-color">
+              {{volume.name}}
+            </td>
+            <td>
+              {{volume.data_connector.type}}
+            </td>
+
+            <td class="consume">
+              {{volume.current_usage.size}}{{volume.current_usage.unit}}
+              <span ng-show="volume.data_connector.attributes.size">/</span>
+              {{volume.data_connector.attributes.size}}{{volume.data_connector.attributes.unit}}
+            </td>
+
+            <td class="iopLimit">
+              <span ng-show="volume.sla != 0">{{ volume.sla }}%</span>
+              <span ng-show="volume.sla == 0" translate>common.l_none</span>
+            </td>
+
+            <td class="priority">
+              <em>
+                {{volume.priority}}
+              </em>
+            </td>
+            <td class="button-group">
+              <div class="inline" style="position: relative;">
+                                    <span class="icon-cake"
+                                          ng-click="takeSnapshot( $event, volume )"
+                                          title="Take a snapshot">
+                                    </span>
+                <span class="icon-pencil" ng-click="edit( $event, volume )"
+                      title="Edit settings"></span>
+                <!--<span class="fui-cross" ng-click="delete( volume )" title="Delete volume"></span>-->
+              </div>
+            </td>
+          </tr>
+          <tr class="disabled"
+              ng-show="!volumes.length || volumes.length === 0">
+            <td colspan="100%" translate>
+              volumes.desc_no_volumes
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>

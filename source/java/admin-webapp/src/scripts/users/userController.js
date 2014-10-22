@@ -1,37 +1,36 @@
-angular.module( 'user-page' ).controller( 'userController', ['$scope', '$user_service', '$authorization', function( $scope, $user_service, $authorization ){
+angular.module('user-page').controller('userController', ['$scope', '$user_service', '$authorization', function ($scope, $user_service, $authorization) {
 
-    $scope.actionLabel = 'Actions';
+  $scope.actionLabel = 'Actions';
 //    $scope.actionItems = [{name: 'Edit User'},{name: 'Delete User'},{name: 'Disable User'}];
-    $scope.users = [];
-    $scope.creating = false;
+  $scope.users = [];
+  $scope.creating = false;
 
-    $scope.createNewUser = function(){
-        $scope.userVars.next( 'createuser' );
-    };
-    
-    $scope.actionSelected = function( action ){
-    };
+  $scope.createNewUser = function () {
+    $scope.userVars.next('createuser');
+  };
 
-    $scope.usersReturned = function( response ){
-        $scope.users = eval( response );
-    };
+  $scope.actionSelected = function (action) {
+  };
 
-    $scope.isAllowed = function( permission ){
-        return $authorization.isAllowed( permission );
-    };
+  $scope.usersReturned = function (response) {
+    $scope.users = eval(response);
+  };
 
-    $scope.refresh = function(){
-        $user_service.getUsers( $scope.usersReturned );
-    };
-    
-    $scope.$watch( 'userVars.index', function( newVal ){
-        if ( newVal === 0 ){
-            $scope.refresh();
-        }
-    });
-    
-    $scope.refresh();
-    
-    
+  $scope.isAllowed = function (permission) {
+    return $authorization.isAllowed(permission);
+  };
+
+  $scope.refresh = function () {
+    $user_service.getUsers($scope.usersReturned);
+  };
+
+  $scope.$watch('userVars.index', function (newVal) {
+    if (newVal === 0) {
+      $scope.refresh();
+    }
+  });
+
+  $scope.refresh();
+
 
 }]);

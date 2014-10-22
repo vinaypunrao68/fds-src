@@ -1,39 +1,39 @@
-.macbrowser{
-    
-    .browser-section {
+.macbrowser {
 
-        border-right: 1px solid $text_very_light_color;
-        
-        .column-header {
-            padding-left: 2px;
-            padding-right: 2px;
-            color: white;
-            background-color: $fds_dark_gray;
-            width: 100%;
-        }
+  .browser-section {
+
+    border-right: 1px solid $text_very_light_color;
+
+    .column-header {
+      padding-left: 2px;
+      padding-right: 2px;
+      color: white;
+      background-color: $fds_dark_gray;
+      width: 100%;
     }
-    
-    .list-container {
-        height: 100%;
-        overflow: auto;
+  }
+
+  .list-container {
+    height: 100%;
+    overflow: auto;
+  }
+
+  ul {
+    padding: 2px;
+  }
+
+  li {
+    padding-left: 4px;
+    list-style-type: none;
+  }
+
+  .selectable-item {
+
+    cursor: pointer;
+
+    &.selected {
+      background-color: $highlight_color;
+      color: $highlight_text_color;
     }
-    
-    ul {
-        padding: 2px;
-    }
-    
-    li {
-        padding-left: 4px;
-        list-style-type: none;
-    }
-    
-    .selectable-item {
-        
-        cursor: pointer;
-        
-        &.selected {
-            background-color: $highlight_color;
-            color: $highlight_text_color;
-        }
-    }
+  }
 }

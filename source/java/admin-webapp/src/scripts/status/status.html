@@ -1,60 +1,72 @@
 <div ng-controller="statusController" style="position: relative;">
 
-    <div class="coming-soon-parent" ng-show="!isAllowed( 'SYS_MGMT' )">
-        <div class="coming-soon-child">
-            <div style="">
-                <span style="color: white;" translate>common.coming_soon</span>
-            </div>
-        </div>
+  <div class="coming-soon-parent" ng-show="!isAllowed( 'SYS_MGMT' )">
+    <div class="coming-soon-child">
+      <div style="">
+        <span style="color: white;" translate>common.coming_soon</span>
+      </div>
     </div>
+  </div>
 
-    <div class="tile-container">
-        <div class="tile-pair">
-            <div class="tile-parent">
-                <div class="system-tile tile"></div>
+  <div class="tile-container">
+    <div class="tile-pair">
+      <div class="tile-parent">
+        <div class="system-tile tile"></div>
 
-            </div>
-            <div class="tile-parent">
-<!--                <div class="capacity-tile tile"></div>-->
-                <status-tile tile-title="{{ 'status.l_capacity' | translate }}" bold-number="62"
-                    description="what what what what">
-                    <line-chart data="capacityStats" colors="fakeCapColors" opacities="fakeOpacities" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText"></line-chart>
-                </status-tile>
-            </div>
-        </div>
-        <div class="tile-pair">
-            <div class="tile-parent">
-<!--                <div class="performance-tile tile"></div>-->
-                <status-tile tile-title="{{ 'status.l_performance' | translate }}" bold-number="23"
-                    description="what what what what">
-                    <line-chart data="performanceStats" colors="fakeColors" opacities="fakeOpacities" suffix="IOPs" axis-color="#A0A0A0"></line-chart>
-                </status-tile>
-            </div>
-            <div class="tile-parent">
-<!--                <div class="firebreak-tile tile"></div>-->
-                <status-tile tile-title="{{ 'status.l_firebreak' | translate }}" bold-number="firebreakStats.summaryData.hoursSinceLastEvent"
-                    description="{{ 'status.desc_firebreak' | translate }}">
-                    <treemap data="firebreakStats" tooltip="setFirebreakToolipText" color-property="secondsSinceLastFirebreak"></treemap>
-                </status-tile>
-            </div>
-        </div>
+      </div>
+      <div class="tile-parent">
+        <!--                <div class="capacity-tile tile"></div>-->
+        <status-tile tile-title="{{ 'status.l_capacity' | translate }}"
+                     bold-number="62"
+                     description="what what what what">
+          <line-chart data="capacityStats" colors="fakeCapColors"
+                      opacities="fakeOpacities"
+                      y-axis-label-function="capacityLabelFx"
+                      axis-color="#A0A0A0" line-stipples="capacityLineStipples"
+                      line-colors="capacityLineColors"
+                      tooltip="setCapacityTooltipText"></line-chart>
+        </status-tile>
+      </div>
     </div>
-
-    <div class="page-vertical-spacer"></div>
-    <div class="page-vertical-spacer"></div>
-
-    <div class="header top-label">
-        <span class="header" style="margin-bottom: 12px;" translate>status.activity</span>
-
-        <table class="default">
-            <tbody>
-                <tr ng-repeat="activity in activities">
-                    <td style="text-align: left;">{{activity.type}}</td>
-                    <td>{{activity.message}}</td>
-                    <td style="text-align: right;">{{activity.time}}</td>
-                </tr>
-            </tbody>
-        </table>
+    <div class="tile-pair">
+      <div class="tile-parent">
+        <!--                <div class="performance-tile tile"></div>-->
+        <status-tile tile-title="{{ 'status.l_performance' | translate }}"
+                     bold-number="23"
+                     description="what what what what">
+          <line-chart data="performanceStats" colors="fakeColors"
+                      opacities="fakeOpacities" suffix="IOPs"
+                      axis-color="#A0A0A0"></line-chart>
+        </status-tile>
+      </div>
+      <div class="tile-parent">
+        <!--                <div class="firebreak-tile tile"></div>-->
+        <status-tile tile-title="{{ 'status.l_firebreak' | translate }}"
+                     bold-number="firebreakStats.summaryData.hoursSinceLastEvent"
+                     description="{{ 'status.desc_firebreak' | translate }}">
+          <treemap data="firebreakStats" tooltip="setFirebreakToolipText"
+                   color-property="secondsSinceLastFirebreak"></treemap>
+        </status-tile>
+      </div>
     </div>
+  </div>
+
+  <div class="page-vertical-spacer"></div>
+  <div class="page-vertical-spacer"></div>
+
+  <div class="header top-label">
+    <span class="header" style="margin-bottom: 12px;"
+          translate>status.activity</span>
+
+    <table class="default">
+      <tbody>
+      <tr ng-repeat="activity in activities">
+        <td style="text-align: left;">{{activity.type}}</td>
+        <td>{{activity.message}}</td>
+        <td style="text-align: right;">{{activity.time}}</td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
 
 </div>

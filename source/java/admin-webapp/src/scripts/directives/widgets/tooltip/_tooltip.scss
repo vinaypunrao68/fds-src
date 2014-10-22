@@ -1,17 +1,17 @@
 .fds-tooltip {
-    max-width: 75%;
-    background-color: rgba( 255, 255, 255, 0.9 );
-    color: black;
-    position: absolute;
-    border-radius: 4px;
-    padding: 4px;
-    z-index: 1000;
-    
-    .left-side {
-        left: 8px;
-    }
-    
-    .right-side {
-        right: 8px;
-    }
+  max-width: 75%;
+  background-color: rgba(255, 255, 255, 0.9);
+  color: black;
+  position: absolute;
+  border-radius: 4px;
+  padding: 4px;
+  z-index: 1000;
+
+  .left-side {
+    left: 8px;
+  }
+
+  .right-side {
+    right: 8px;
+  }
 }

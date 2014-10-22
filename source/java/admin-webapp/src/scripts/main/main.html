@@ -1,73 +1,90 @@
 <div ng-controller="mainController" class="main">
 
-<!--
-    <div style="position: absolute;top: 0px;left: 0px;bottom: 0px;right: 0px;z-index: 100;background-color: rgba(0,0,0,0.5);" ng-show="false">
-        <div style="width: 200px;background-color: white;color: black;border: 1px solid gray;text-align: center;margin-right: auto;margin-left: auto;margin-top: 150px;">
-            I'm a dialog
+  <!--
+      <div style="position: absolute;top: 0px;left: 0px;bottom: 0px;right: 0px;z-index: 100;background-color: rgba(0,0,0,0.5);" ng-show="false">
+          <div style="width: 200px;background-color: white;color: black;border: 1px solid gray;text-align: center;margin-right: auto;margin-left: auto;margin-top: 150px;">
+              I'm a dialog
+          </div>
+      </div>
+  -->
+  <fds-modal show-event="fds::alert" confirm-event="fds::confirm"></fds-modal>
+
+  <div class="login" ng-show="!validAuth">
+
+    <div class="login-container">
+      <div class="logo"></div>
+      <form>
+
+        <fui-input name="username"
+                   placeholder="{{ 'common.username' | translate }}"
+                   ng-model="username" icon-class="fui-mail"
+                   ng-keyup="keyEntered( $event )"></fui-input>
+
+        <fui-input name="password"
+                   placeholder="{{ 'common.password' | translate }}"
+                   type="password" ng-model="password" icon-class="fui-lock"
+                   ng-keyup="keyEntered( $event )"></fui-input>
+        <!--
+                        <div class="checkbox-parent">
+                            <fui-checkbox label="{{ 'login.remember_me' | translate }}" checked="rememberChecked"></fui-checkbox>
+                        </div>
+        -->
+
+        <div class="form-actions">
+          <button id="login.submit" class="btn btn-primary" ng-click="login()"
+                  translate>
+            login.submit
+          </button>
         </div>
+
+        <div class="alert alert-info" ng-show="error">
+          {{ error }}
+        </div>
+
+        <div class="lost-password" translate>
+          login.lost_your_password
+        </div>
+
+      </form>
     </div>
--->
-    <fds-modal show-event="fds::alert" confirm-event="fds::confirm"></fds-modal>
-    
-    <div class="login" ng-show="!validAuth">
+  </div>
 
-        <div class="login-container">
-            <div class="logo"></div>
-            <form>
+  <div id="main.content" ng-show="validAuth"
+       style="color: white;height: 100%;overflow: hidden;">
 
-                <fui-input name="username" placeholder="{{ 'common.username' | translate }}" ng-model="username" icon-class="fui-mail" ng-keyup="keyEntered( $event )"></fui-input>
+    <div class="header-parent">
+      <div class="header-image">
+      </div>
+      <div style="float: right;display: flex;">
+        <fui-dropdown id="main.usermenu" selected="loggedInUser"
+                      items="menuItems" default-label="loggedInUser"
+                      background="none" type="action"
+                      callback="itemSelected"></fui-dropdown>
 
-                <fui-input name="password" placeholder="{{ 'common.password' | translate }}" type="password" ng-model="password" icon-class="fui-lock" ng-keyup="keyEntered( $event )"></fui-input>
-<!--
-                <div class="checkbox-parent">
-                    <fui-checkbox label="{{ 'login.remember_me' | translate }}" checked="rememberChecked"></fui-checkbox>
-                </div>
--->
-
-                <div class="form-actions">
-                    <button id="login.submit" class="btn btn-primary" ng-click="login()" translate>
-                        login.submit
-                    </button>
-                </div>
-
-                <div class="alert alert-info" ng-show="error">
-                    {{ error }}
-                </div>
-
-                <div class="lost-password" translate>
-                    login.lost_your_password
-                </div>
-
-            </form>
-        </div>
+      </div>
     </div>
 
-    <div id="main.content" ng-show="validAuth" style="color: white;height: 100%;overflow: hidden;">
-        
-        <div class="header-parent">
-            <div class="header-image">
-            </div>
-            <div style="float: right;display: flex;">
-                <fui-dropdown id="main.usermenu" selected="loggedInUser" items="menuItems" default-label="loggedInUser" background="none" type="action" callback="itemSelected"></fui-dropdown>
-
-            </div>
+    <div class="nav-container" style="position: relative;">
+      <div class="nav-parent" ng-style="{width: menuWidth + 'px'}"
+           ng-mouseover="showMenu()" ng-mouseleave="hideMenu()">
+        <div>
+          <nav id="nav">
+            <ul>
+              <li ng-repeat="view in views">
+                <navitem id="main.{{view.id}}" label="{{view.text}}"
+                         icon-class="{{view.iconClass}}"
+                         selected="view.selected" ng-click="navigate( view );"
+                         notifications="view.notifications"
+                         ng-show="isAllowed( view.permission );"></navitem>
+              </li>
+            </ul>
+          </nav>
         </div>
-        
-        <div class="nav-container" style="position: relative;">
-            <div class="nav-parent" ng-style="{width: menuWidth + 'px'}" ng-mouseover="showMenu()" ng-mouseleave="hideMenu()">
-                <div>
-                    <nav id="nav">
-                        <ul>
-                            <li ng-repeat="view in views">
-                                <navitem id="main.{{view.id}}" label="{{view.text}}" icon-class="{{view.iconClass}}" selected="view.selected" ng-click="navigate( view );" notifications="view.notifications" ng-show="isAllowed( view.permission );"></navitem>
-                            </li>
-                        </ul>
-                    </nav>
-                </div>
-            </div>
-            <div id="wrap" class="main-container" ui-view ng-style="{left: menuWidth + 'px'}">
+      </div>
+      <div id="wrap" class="main-container" ui-view
+           ng-style="{left: menuWidth + 'px'}">
 
-            </div>
-        </div>
+      </div>
     </div>
+  </div>
 </div>

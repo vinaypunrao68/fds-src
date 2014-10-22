@@ -1,24 +1,24 @@
 .slide-window-stack-parent {
-    position: relative;
-    top: 0px;
-    width: 100%;
-    height: 100%;
-    padding-right: 4px;
-    padding-left: 4px;
-    overflow-x: hidden;
-    
-    @include transition( linear, 200ms );
+  position: relative;
+  top: 0px;
+  width: 100%;
+  height: 100%;
+  padding-right: 4px;
+  padding-left: 4px;
+  overflow-x: hidden;
+
+  @include transition(linear, 200ms);
 }
 
 .slide-window-stack-slide {
-    @include transition( linear, 200ms );
-    width: 100%;
-    height: 100%;
-    padding-left: 4px;
-    padding-right: 24px;
-    position: absolute;
-    top: 0px;
-    left: 0px;
-    right: 0px;
-    bottom: 0px;
+  @include transition(linear, 200ms);
+  width: 100%;
+  height: 100%;
+  padding-left: 4px;
+  padding-right: 24px;
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
 }
