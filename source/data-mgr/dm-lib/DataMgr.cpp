@@ -810,7 +810,7 @@ void DataMgr::mod_startup()
                                   GetLog(),
                                   nstable,
                                   modProvider_->get_plf_manager());
-        omClient->setNoNetwork(true);
+        omClient->setNoNetwork(false);
         omClient->initialize();
         omClient->registerCatalogEventHandler(volcat_evt_handler);
         /*
