@@ -657,13 +657,11 @@ void
 DMSvcHandler::setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 const Error &e, DmIoSetBlobMetaData *req)
 {
-    LOGDEBUG << logString(*asyncHdr);
+    DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    // TODO(sanjay) - we will have to revisit  this call
-    fpi::SetBlobMetaDataRspMsg setBlobMetaDataRspMsg;
+    fpi::SetBlobMetaDataRspMsg setBlobMetaRsp;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(SetBlobMetaDataRspMsg),
-                  setBlobMetaDataRspMsg);
-
+                  setBlobMetaRsp);
     delete req;
 }
 

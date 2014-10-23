@@ -178,4 +178,13 @@ SvcMsgFactory::newGetBlobMetaDataMsg(const uint64_t& volId, const std::string bl
     return getBlobMeta;
 }
 
+fpi::GetBucketMsgPtr
+SvcMsgFactory::newGetBucketMsg(const uint64_t& volId, const uint64_t& start_pos)
+{
+    fpi::GetBucketMsgPtr  getBucket(new fpi::GetBucketMsg);
+    getBucket->volume_id = volId;
+    getBucket->startPos = start_pos;
+    return getBucket;
+}
+
 }  // namespace fds
