@@ -239,6 +239,9 @@ void ObjectStorMgr::mod_startup()
      */
     volTbl = new StorMgrVolumeTable(this, GetLog());
 
+    // create stats dir before creating ObjectStore (that sets up tier engine, etc)
+    FdsRootDir::fds_mkdir(modProvider_->proc_fdsroot()->dir_fds_var_stats().c_str());
+
     // Init the object store
     // TODO(Andrew): The object store should be executed as part
     // of the module initialization since it needs to discover
@@ -248,9 +251,6 @@ void ObjectStorMgr::mod_startup()
                                                           this,
                                                           volTbl));
     objectStore->mod_init(mod_params);
-
-    /* Create tier related classes -- has to be after volTbl is created */
-    FdsRootDir::fds_mkdir(modProvider_->proc_fdsroot()->dir_fds_var_stats().c_str());
 
     // qos defaults
     qosThrds = modProvider_->get_fds_config()->get<int>(
