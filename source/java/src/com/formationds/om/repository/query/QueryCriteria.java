@@ -10,6 +10,7 @@ import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.type.Metrics;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -52,6 +53,9 @@ public class QueryCriteria
    * @return Returns the {@link com.formationds.commons.model.type.Metrics}
    */
   public List<Metrics> getSeriesType() {
+    if( seriesType == null ) {
+      this.seriesType = new ArrayList<>( );
+    }
     return seriesType;
   }
 
@@ -66,6 +70,9 @@ public class QueryCriteria
    * @return Returns the {@link List} of {@link com.formationds.commons.model.abs.Context}
    */
   public List<Context> getContexts() {
+    if( contexts == null ) {
+      this.contexts = new ArrayList<>( );
+    }
     return contexts;
   }
 

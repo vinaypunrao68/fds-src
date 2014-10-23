@@ -10,6 +10,7 @@ import com.formationds.commons.model.capacity.CapacityDeDupRatio;
  * @author ptinius
  */
 public class CapacityDeDupRatioBuilder {
+  private String volumeName;
   private Double ratio;
 
   /**
@@ -28,7 +29,20 @@ public class CapacityDeDupRatioBuilder {
     return this;
   }
 
+  /**
+   * @param volumeName the {@link String} representing the volume name
+   *
+   * @return Returns the {@link com.formationds.commons.model.capacity.builder.CapacityDeDupRatioBuilder}
+   */
+  public CapacityDeDupRatioBuilder withVolumeName( String volumeName ) {
+    this.volumeName = volumeName;
+    return this;
+  }
+
+  /**
+   * @return Returns the {@link CapacityDeDupRatio}
+   */
   public CapacityDeDupRatio build() {
-    return new CapacityDeDupRatio( ratio );
+    return new CapacityDeDupRatio( volumeName, ratio );
   }
 }

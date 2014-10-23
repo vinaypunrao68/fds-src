@@ -140,12 +140,15 @@ public class VolumeCriteriaQueryBuilder {
                                   .getEnd() );
     }
 
-    if( searchCriteria.getSeriesType() != null &&
-      !searchCriteria.getSeriesType()
-                     .isEmpty() ) {
-      searchCriteria.getSeriesType()
-                    .forEach( this::withSeries );
-    }
+/*
+ * get every row, let the next level figure out what the query was asking for
+ *   if( searchCriteria.getSeriesType() != null &&
+ *     !searchCriteria.getSeriesType()
+ *                   .isEmpty() ) {
+ *     searchCriteria.getSeriesType()
+ *                   .forEach( this::withSeries );
+ *   }
+ */
 
     if( searchCriteria.getContexts() != null &&
       !searchCriteria.getContexts()

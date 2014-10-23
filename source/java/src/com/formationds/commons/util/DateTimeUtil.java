@@ -27,4 +27,13 @@ public class DateTimeUtil {
   public static int yearLength( final Integer year ) {
     return isLeapYear( year ) ? 366 : 365;
   }
+
+  /**
+   * @param epoch the {@code long} representing number of seconds since January 1, 1970.
+   *
+   * @return Returns {@code long} representing
+   */
+  public static Long epochToMilliseconds( final long epoch ) {
+    return epoch * 1000;
+  }
 }

@@ -81,8 +81,7 @@ public class VolumeDatapoint
   /**
    * @return Returns the {@link String} representing the metadata key
    */
-  public String
-  getKey() {
+  public String getKey() {
     return key;
   }
 

@@ -7,12 +7,14 @@ package com.formationds.om.repository.helper;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
-import com.formationds.om.repository.MetricsRepository;
-import com.formationds.om.repository.SingletonMetricsRepository;
-import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
+import com.formationds.commons.util.DateTimeUtil;
+import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.om.repository.result.VolumeFirebreak;
 import javafx.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -20,47 +22,23 @@ import java.util.*;
  * @author ptinius
  */
 public class FirebreakHelper {
-  private final MetricsRepository repo;
+  private static final transient Logger logger =
+    LoggerFactory.getLogger( FirebreakHelper.class );
+
+  private static List<Metrics> FIREBREAKS = new ArrayList<>( );
+  static {
+    FIREBREAKS.add( Metrics.STC_SIGMA );
+    FIREBREAKS.add( Metrics.LTC_SIGMA );
+    FIREBREAKS.add( Metrics.STP_SIGMA );
+    FIREBREAKS.add( Metrics.LTP_SIGMA );
+    FIREBREAKS.add( Metrics.STC_WMA );
+    FIREBREAKS.add( Metrics.LTC_WMA );
+  }
 
   /**
    * default constructor
    */
   public FirebreakHelper() {
-    this.repo =
-      SingletonMetricsRepository.instance()
-                                .getMetricsRepository();
-  }
-
-  /**
-   * @return Returns {@link List} of {@link VolumeFirebreak}
-   */
-  public List<Datapoint> findFirebreak() {
-
-    final Map<String, Datapoint> allCapacity =
-      findFirebreak(
-        new VolumeCriteriaQueryBuilder( repo.entity() )
-          .withSeries( Metrics.STC_SIGMA )
-          .withSeries( Metrics.LTC_SIGMA )
-          .resultsList() );
-
-    final Map<String, Datapoint> allPerformance =
-      findFirebreak(
-        new VolumeCriteriaQueryBuilder( repo.entity() )
-          .withSeries( Metrics.STP_SIGMA )
-          .withSeries( Metrics.LTP_SIGMA )
-          .resultsList() );
-
-    /*
-     * should have one per volume, if any firebreaks have occurred.
-     */
-
-    /**
-     * TODO finish implementation
-     * need one fire break per volume, which ever is the most recent between
-     * the capacity and performance
-     */
-
-    return null;
   }
 
   /**
@@ -68,20 +46,21 @@ public class FirebreakHelper {
    *
    * @return Returns {@link java.util.Map} of {@link Datapoint}
    */
-  public static Map<String, Datapoint> findFirebreak(
+  public Map<String, Datapoint> findFirebreak(
     final List<VolumeDatapoint> datapoints ) {
     final Map<String, Datapoint> results = new HashMap<>();
 
-    final Comparator<VolumeDatapoint> VolumeDatapointComprator =
+    final Comparator<VolumeDatapoint> VolumeDatapointComparator =
       Comparator.comparing( VolumeDatapoint::getVolumeName )
                 .thenComparing( VolumeDatapoint::getTimestamp );
 
     final VolumeFirebreak[] previous = { null };
 
     datapoints.stream()
-              .sorted( VolumeDatapointComprator )
+              .sorted( VolumeDatapointComparator )
               .flatMap( ( dp1 ) ->
                           datapoints.stream()
+                                    .filter( this::isFirebreakType )
                                     .filter( ( dp2 ) ->
                                                dp2.getVolumeName()
                                                   .equalsIgnoreCase( dp1.getVolumeName() ) )
@@ -91,6 +70,7 @@ public class FirebreakHelper {
                                                     dp2.getTimestamp() ) )
                                     .filter( ( dp2 ) -> !dp1.getId()
                                                             .equals( dp2.getId() ) )
+                                    .filter( this::isFirebreakType )
                                     .map( dp2 -> build( dp1, dp2 ) ) )
               .forEach( o -> {
                 final VolumeDatapoint v1 = o.getKey();
@@ -108,7 +88,12 @@ public class FirebreakHelper {
                     new VolumeFirebreak( v1.getVolumeName(),
                                          v1.getId()
                                            .toString(),
-                                         new Date( v1.getTimestamp() * 1000 ) );
+                                         new Date(
+                                           DateTimeUtil.epochToMilliseconds(
+                                             v1.getTimestamp()
+                                                                           )
+                                         )
+                    );
                   if( previous[ 0 ] == null ) {
                     previous[ 0 ] = c;
                   }
@@ -131,6 +116,16 @@ public class FirebreakHelper {
               } );
 
     return results;
+  }
+
+  private boolean isFirebreakType( final VolumeDatapoint vdp ) {
+    try {
+      return FIREBREAKS.contains( Metrics.byMetadataKey( vdp.getKey() ) );
+    } catch( UnsupportedMetricException e ) {
+      logger.warn( e.getMessage() );
+      logger.trace( ExceptionHelper.toString( e ) );
+      return false;
+    }
   }
 
   private static Pair<VolumeDatapoint, VolumeDatapoint> build(

@@ -55,7 +55,7 @@ public class CapacityHelper {
     }
 
     if( enumerator != null && denominator != null ) {
-      return new CapacityDeDupRatio( Calculation.ratio( enumerator,
+      return new CapacityDeDupRatio( volumeName, Calculation.ratio( enumerator,
                                                         denominator ) );
     }
 

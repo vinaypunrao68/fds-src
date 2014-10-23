@@ -19,7 +19,7 @@ public class Statistics
   private static final long serialVersionUID = 1565568840222449672L;
 
   private List<Series> series;
-  private List<Calculated> calculated;    // firebreak/de-dup ratio/etc.
+  private List<Calculated> calculated;    // de-dup ratio/% consumer/etc.
   private List<Metadata> metadata;        // query details
 
   /**
@@ -32,6 +32,10 @@ public class Statistics
    * @return Returns the {@link List} of {@link Series}
    */
   public List<Series> getSeries() {
+    if( this.series == null ) {
+      this.series = new ArrayList<>( );
+    }
+
     return series;
   }
 
@@ -57,6 +61,10 @@ public class Statistics
    * @return Returns the {@link List} of {@link Calculated}
    */
   public List<Calculated> getCalculated() {
+    if( this.calculated == null ) {
+      this.calculated = new ArrayList<>( );
+    }
+
     return calculated;
   }
 
@@ -82,6 +90,10 @@ public class Statistics
    * @return Returns the {@link List} of {@link Metadata}
    */
   public List<Metadata> getMetadata() {
+    if( this.metadata == null ) {
+      this.metadata = new ArrayList<>( );
+    }
+
     return metadata;
   }
 
