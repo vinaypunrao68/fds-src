@@ -14,7 +14,6 @@ namespace fds {
 DMSvcHandler::DMSvcHandler()
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::QueryCatalogMsg, queryCatalogObject);
-    REGISTER_FDSP_MSG_HANDLER(fpi::UpdateCatalogMsg, updateCatalog);
     REGISTER_FDSP_MSG_HANDLER(fpi::UpdateCatalogOnceMsg, updateCatalogOnce);
     REGISTER_FDSP_MSG_HANDLER(fpi::StartBlobTxMsg, startBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
@@ -460,59 +459,6 @@ DMSvcHandler::updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         dmUpdCatReq->getVolId(),
         static_cast<FDS_IOType*>(dmUpdCatReq));
     fds_verify(err == ERR_OK);
-}
-
-void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                 boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg)
-{
-    if ((dataMgr->testUturnAll == true) ||
-        (dataMgr->testUturnUpdateCat == true)) {
-        GLOGDEBUG << "Uturn testing update catalog "
-                  << logString(*asyncHdr) << logString(*updcatMsg);
-        updateCatalogCb(asyncHdr, ERR_OK, NULL);
-    }
-
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*updcatMsg));
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_updates > 0));
-
-    /*
-     * allocate a new query cat log  class and  queue  to per volume queue.
-     */
-    auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg);
-
-    dmUpdCatReq->dmio_updatecat_resp_cb =
-            BIND_MSG_CALLBACK2(DMSvcHandler::updateCatalogCb, asyncHdr);
-
-    PerfTracer::tracePointBegin(dmUpdCatReq->opReqLatencyCtx);
-
-    Error err = dataMgr->qosCtrl->enqueueIO(dmUpdCatReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmUpdCatReq));
-
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue Update Catalog request "
-                << logString(*asyncHdr) << logString(*updcatMsg);
-        PerfTracer::tracePointEnd(dmUpdCatReq->opReqLatencyCtx);
-        PerfTracer::incr(dmUpdCatReq->opReqFailedPerfEventType, dmUpdCatReq->getVolId(),
-                         dmUpdCatReq->perfNameStr);
-        dmUpdCatReq->dmio_updatecat_resp_cb(err, dmUpdCatReq);
-    }
-}
-
-void DMSvcHandler::updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                   const Error &e, DmIoUpdateCat *req)
-{
-    DBG(GLOGDEBUG << logString(*asyncHdr));
-    fpi::UpdateCatalogRspMsg updcatRspMsg;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::UpdateCatalogRspMsg), updcatRspMsg);
-
-    if ((dataMgr->testUturnAll == true) ||
-        (dataMgr->testUturnUpdateCat == true)) {
-        fds_verify(req == NULL);
-        return;
-    }
-
-    delete req;
 }
 
 void

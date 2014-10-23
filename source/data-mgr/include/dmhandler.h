@@ -78,6 +78,15 @@ struct DeleteBlobHandler : Handler {
                         const Error &e, dmCatReq *dmRequest);
 };
 
+struct UpdateCatalogHandler : Handler {
+    UpdateCatalogHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::UpdateCatalogMsg> & message);
+    void handleQueueItem(dmCatReq * dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::UpdateCatalogMsg> & message,
+                        const Error &e, dmCatReq *dmRequest);
+};
 
 }  // namespace dm
 }  // namespace fds
