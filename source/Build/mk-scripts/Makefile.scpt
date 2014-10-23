@@ -233,7 +233,7 @@ endef
 #
 define scpt_check_style
 	@for f in $(3); do                                                       \
-		if [ "`basename $$f`" = "$(4)" ]; then                               \
+		if [ "`basename $$f`" = "`basename $(4)`" ]; then                    \
 			echo " ...skipped!"; touch $(5);                                 \
 			exit 0;                                                          \
 		fi;                                                                  \
