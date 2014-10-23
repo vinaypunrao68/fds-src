@@ -26,6 +26,7 @@ static fds_uint64_t txStartTs = 0;
 * @brief basic  DM tests- startBlob, UpdateBlob and Commit  
 *
 */
+
 TEST_F(DMApi, metaDataTest)
 {
     std::string blobName("testBlob");
@@ -64,8 +65,13 @@ TEST_F(DMApi, metaDataTest)
     asyncUpdCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), updateCatMsg);
     asyncUpdCatReq->onResponseCb(updWaiter.cb);
     updateCatIssued_++;
+    {
+    fds_uint64_t startTs = util::getTimeStampNanos();
     asyncUpdCatReq->invoke();
     updWaiter.await();
+    fds_uint64_t endTs = util::getTimeStampNanos();
+    updateTxCounter->update(endTs - startTs);
+    }
     ASSERT_EQ(updWaiter.error, ERR_OK) << "Error: " << updWaiter.error;
 
     SvcRequestCbTask<EPSvcRequest, fpi::CommitBlobTxRspMsg> commitWaiter;
@@ -89,6 +95,9 @@ TEST_F(DMApi, metaDataTest)
     std::cout << "\033[33m[startTx latency]\033[39m " << std::fixed << std::setprecision(3)
             << (startTxCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
             << startTxCounter->count() << std::endl;
+    std::cout << "\033[33m[CommitBlobTx latency]\033[39m " << std::fixed << std::setprecision(3)
+            << (updateTxCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
+            << updateTxCounter->count() << std::endl;
     std::cout << "\033[33m[CommitBlobTx latency]\033[39m " << std::fixed << std::setprecision(3)
             << (commitTxCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
             << commitTxCounter->count() << std::endl;
@@ -160,27 +169,77 @@ TEST_F(DMApi, setBlobMeta)
     svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
+    // start transaction
+    SvcRequestCbTask<EPSvcRequest, fpi::StartBlobTxRspMsg> waiter;
+    auto startBlobTx = SvcMsgFactory::newStartBlobTxMsg(volId_, blobName);
+    auto asyncBlobTxReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+    startBlobTx->txId = 2;
+    startBlobTx->dmt_version = 1;
+    startBlobTx->blob_mode = 0;
+    asyncBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::StartBlobTxMsg), startBlobTx);
+    asyncBlobTxReq->onResponseCb(waiter.cb);
+    startBlobTxIssued_++;
+    {
+    fds_uint64_t startTs = util::getTimeStampNanos();
+    txStartTs = startTs;
+    asyncBlobTxReq->invoke();
+    waiter.await();
+    fds_uint64_t endTs = util::getTimeStampNanos();
+    startTxCounter->update(endTs - startTs);
+    }
+    ASSERT_EQ(waiter.error, ERR_OK) << "Error: " << waiter.error;
 
-    SvcRequestCbTask<EPSvcRequest, fpi::SetBlobMetaDataRspMsg> qryCatWaiter;
+
+    SvcRequestCbTask<EPSvcRequest, fpi::SetBlobMetaDataRspMsg> setBlobWaiter;
     auto setBlobMeta = SvcMsgFactory::newSetBlobMetaDataMsg(volId_, blobName);
     auto setBlobMetaReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+    setBlobMeta->txId  = 2;
     setBlobMetaReq->setPayload(FDSP_MSG_TYPEID(fpi::SetBlobMetaDataMsg), setBlobMeta);
-    setBlobMetaReq->onResponseCb(qryCatWaiter.cb);
+    setBlobMetaReq->onResponseCb(setBlobWaiter.cb);
     setBlobMetaIssued_++;
     {
     fds_uint64_t startTs = util::getTimeStampNanos();
     setBlobMetaReq->invoke();
-    qryCatWaiter.await();
+    setBlobWaiter.await();
     fds_uint64_t endTs = util::getTimeStampNanos();
     setBlobMetaCounter->update(endTs - startTs);
     }
-    ASSERT_EQ(qryCatWaiter.error, ERR_OK) << "Error: " << qryCatWaiter.error;
-    std::cout << "\033[33m[Tx latency]\033[39m " << std::fixed << std::setprecision(3)
+    ASSERT_EQ(setBlobWaiter.error, ERR_OK) << "Error: " << setBlobWaiter.error;
+
+    SvcRequestCbTask<EPSvcRequest, fpi::CommitBlobTxRspMsg> commitWaiter;
+    auto commitBlobMsg = SvcMsgFactory::newCommitBlobTxMsg(volId_, blobName);
+    auto asyncCommitBlobReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+    commitBlobMsg->txId  = 2;
+    commitBlobMsg->dmt_version = 1;
+    asyncCommitBlobReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg), commitBlobMsg);
+    asyncCommitBlobReq->onResponseCb(commitWaiter.cb);
+    commitBlobTxIssued_++;
+    {
+    fds_uint64_t startTs = util::getTimeStampNanos();
+    asyncCommitBlobReq->invoke();
+    commitWaiter.await();
+    fds_uint64_t endTs = util::getTimeStampNanos();
+    commitTxCounter->update(endTs - startTs);
+    txCounter->update(endTs - txStartTs);
+    }
+    ASSERT_EQ(commitWaiter.error, ERR_OK) << "Error: " << commitWaiter.error;
+
+    std::cout << "\033[33m[startBlobTx latency]\033[39m " << std::fixed << std::setprecision(3)
+            << (startTxCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
+            << startTxCounter->count() << std::endl;
+    std::cout << "\033[33m[setBlobMeta latency]\033[39m " << std::fixed << std::setprecision(3)
             << (setBlobMetaCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
             << setBlobMetaCounter->count() << std::endl;
+    std::cout << "\033[33m[commitBlobTx latency]\033[39m " << std::fixed << std::setprecision(3)
+            << (commitTxCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
+            << commitTxCounter->count() << std::endl;
+    std::cout << "\033[33m[Tx latency]\033[39m " << std::fixed << std::setprecision(3)
+            << (txCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
+            << txCounter->count() << std::endl;
 }
 
 
+#if 0
 TEST_F(DMApi, deleteCatObject)
 {
     std::string blobName("testBlob");
@@ -204,7 +263,7 @@ TEST_F(DMApi, deleteCatObject)
     delCatObjCounter->update(endTs - startTs);
     }
     ASSERT_EQ(delCatObjWaiter.error, ERR_OK) << "Error: " << delCatObjWaiter.error;
-    std::cout << "\033[33m[Tx latency]\033[39m " << std::fixed << std::setprecision(3)
+    std::cout << "\033[33m[deleteBlobMeta latency]\033[39m " << std::fixed << std::setprecision(3)
             << (delCatObjCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
             << delCatObjCounter->count() << std::endl;
 }
@@ -231,10 +290,11 @@ TEST_F(DMApi, getBucket)
     getBucketCounter->update(endTs - startTs);
     }
     ASSERT_EQ(getBucketWaiter.error, ERR_OK) << "Error: " << getBucketWaiter.error;
-    std::cout << "\033[33m[Tx latency]\033[39m " << std::fixed << std::setprecision(3)
+    std::cout << "\033[33m[getBucket latency]\033[39m " << std::fixed << std::setprecision(3)
             << (getBucketCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
             << getBucketCounter->count() << std::endl;
 }
+#endif
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
