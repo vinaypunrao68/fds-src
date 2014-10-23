@@ -1,8 +1,9 @@
 topdir            := ../../
+include $(topdir)/Makefile.cpus
 user_target       := test
 user_install_loc  := test
 user_rtime_env    := user
-speedup           := -j 6
+speedup           := -j $(parallel_build_count)
 user_build_dir    :=
 
 user_incl_dir     := $(topdir) ../include ../stor-hvisor

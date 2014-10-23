@@ -1,5 +1,6 @@
 topdir            := ../..
-speedup           := -j 3
+include $(topdir)/Makefile.cpus
+speedup           := -j $(parallel_build_count)
 user_build_dir    := \
     shared       \
     s3           \

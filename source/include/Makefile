@@ -1,6 +1,7 @@
 topdir         := ..
+include $(topdir)/Makefile.cpus
 user_target    := lib
-speedup        := -j 5
+speedup        := -j $(parallel_build_count)
 user_rtime_env := user
 user_build_dir := \
     fdsp \

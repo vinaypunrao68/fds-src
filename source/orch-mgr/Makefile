@@ -1,5 +1,6 @@
 topdir            := ..
-speedup           := -j 5
+include $(topdir)/Makefile.cpus
+speedup           := -j $(parallel_build_count)
 user_target       := exe
 user_std_libs     := true
 user_rtime_env    := user

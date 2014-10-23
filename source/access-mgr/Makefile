@@ -1,7 +1,8 @@
 topdir            := ..
+include $(topdir)/Makefile.cpus
 user_target       := exe
 user_rtime_env    := user
-speedup           := -j 6
+speedup           := -j $(parallel_build_count)
 user_build_dir    := \
     include \
     amlib \
