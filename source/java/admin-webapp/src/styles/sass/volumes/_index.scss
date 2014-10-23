@@ -17,35 +17,11 @@
 }
 
 .create-panel.volumes {
+}
 
-//    display: inline-block;
-//    width: 100%;
-//    @include transition(linear, 200ms);
-//    padding: 2px;
-//    padding-left: 20px;
-//    margin-bottom: 12px;
-//    position: absolute;
-//    left: 100%;
-//    top: 0px;
-//
-//    &.shown {
-//        opacity: 1.0;
-//        display: inline-block
-//    }
-//
-//    &.hideit {
-//        opacity: 0.0;
-//        display: none;
-//    }
-//
-//    .content {
-//        display: inline-block;
-//        border-bottom: 1px solid $gray_border;
-//    }
-//
-//    .settings-panel {
-//        width: 100%;
-//    }
+.clone-details-div {
+    margin: 8px;
+    line-height: 1.2;
 }
 
 .volume-edit-container {
