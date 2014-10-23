@@ -1,27 +1,45 @@
-<div class="macbrowser flex" style="width: 100%;">
+<div class="macbrowser" ng-style="{ height: height + 'px', width: (columns[0].width + columns[1].width + columns[2].width) + 'px'}">
 
-    <div style="height: 100%;width: 33.33333333%;" class="browser-section">
-        <div class="column-header">{{ columns[0].title }}</div>
-        <div class="list-container">
-            <ul>
-                <li ng-repeat="datum in data" class="selectable-item" ng-class="{selected: datum.selected === true}" ng-click="itemSelected( datum )">
-                    {{ datum[columns[0].property] }}
-                </li>
-            </ul>
-        </div>
+    <div class="browser-title">
+        {{ browserTitle }}
     </div>
+    
+    <div class="flex" style="position: absolute;top: 34px;bottom: 34px;right: 0px;left: 0px;">
+        <div class="browser-section" ng-style="{ width: columns[0].width + 'px'}">
+            <div class="column-header">{{ columns[0].title }}</div>
+            <div class="list-container">
+                <ul>
+                    <li ng-repeat="datum in data" class="selectable-item" ng-class="{selected: datum.selected === true}" ng-click="itemSelected( datum )">
+                        {{ datum[columns[0].property] }}
+                    </li>
+                </ul>
+            </div>
+        </div>
 
-    <div style="height: 100%;width: 33.33333333%;" class="browser-section">
-        <div class="column-header">{{ columns[1].title }}</div>
-        <div class="list-container">
-            <ul>
-                <li ng-repeat="child in children" class="selectable-item" ng-class="{selected: child.selected === true}" ng-click="itemSelected( child )">
-                    {{ child[columns[1].property] }}
-                </li>
-            </ul>
+        <div class="browser-section" ng-style="{ width: (columns[1].width+1) + 'px' }">
+            <div class="column-header">{{ columns[1].title }}</div>
+            <div class="list-container">
+                <ul>
+                    <li ng-repeat="child in children" class="selectable-item" ng-class="{selected: child.selected === true}" ng-click="itemSelected( child )">
+                        {{ child[columns[1].property] }}
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="browser-section" ng-style="{ width: columns[2].width + 'px'}">
+            <div class="column-header">{{ columns[2].title }}</div>
+            <div class="list-container">
+                <div ng-transclude></div>
+            </div>
         </div>
     </div>
     
-    <div style="height: 100%;width: 33.33333333%" class="browser-section"></div>
+    <div class="bottom-border flex">
+       <div class="button-panel">
+            <button class="btn btn-primary skinny" ng-click="cancelPressed()" translate>common.l_done</button>
+            <button class="btn btn-secondary skinny" ng-click="donePressed()" translate>common.l_cancel</button>
+        </div>
+    </div>
     
 </div>
