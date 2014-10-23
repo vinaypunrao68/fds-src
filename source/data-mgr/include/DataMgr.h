@@ -162,9 +162,6 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_START_BLOB_TX:
                     threadPool->schedule(&DataMgr::startBlobTx, dataMgr, io);
                     break;
-                case FDS_CAT_UPD:
-                    threadPool->schedule(&DataMgr::updateCatalog, dataMgr, io);
-                    break;
                 case FDS_CAT_UPD_ONCE:
                     threadPool->schedule(&DataMgr::updateCatalogOnce,
                                          dataMgr,
@@ -215,6 +212,7 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_DM_SYS_STATS:
                 case FDS_DELETE_BLOB:
                 case FDS_LIST_BLOB:
+                case FDS_CAT_UPD:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
@@ -350,7 +348,6 @@ struct DataMgr : Module, DmIoReqHandler {
 
     /* TODO(Rao): Add the new refactored DM messages handlers here */
     void startBlobTx(dmCatReq *io);
-    void updateCatalog(dmCatReq *io);
     void updateCatalogOnce(dmCatReq *io);
     void commitBlobTx(dmCatReq *io);
     /**
@@ -384,7 +381,6 @@ struct DataMgr : Module, DmIoReqHandler {
     void handleDMTClose(dmCatReq *io);
     void handleForwardComplete(dmCatReq *io);
     void handleStatStream(dmCatReq *io);
-    // void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
 
     void scheduleGetBlobMetaDataSvc(void *io);
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);

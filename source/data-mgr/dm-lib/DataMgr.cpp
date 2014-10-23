@@ -726,6 +726,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_LIST_BLOB]   = new dm::GetBucketHandler();
     handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler();
     handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler();
+    handlers[FDS_CAT_UPD] = new dm::UpdateCatalogHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1044,22 +1045,6 @@ void DataMgr::startBlobTx(dmCatReq *io)
     PerfTracer::tracePointEnd(startBlobReq->opLatencyCtx);
     PerfTracer::tracePointEnd(startBlobReq->opReqLatencyCtx);
     startBlobReq->dmio_start_blob_tx_resp_cb(err, startBlobReq);
-}
-
-void DataMgr::updateCatalog(dmCatReq *io)
-{
-    DmIoUpdateCat *updCatReq= static_cast<DmIoUpdateCat*>(io);
-    Error err = timeVolCat_->updateBlobTx(updCatReq->volId,
-                                    updCatReq->ioBlobTxDesc,
-                                    updCatReq->obj_list);
-    if (!err.ok()) {
-        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
-                updCatReq->perfNameStr);
-    }
-    qosCtrl->markIODone(*updCatReq);
-    PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
-    updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
 }
 
 void

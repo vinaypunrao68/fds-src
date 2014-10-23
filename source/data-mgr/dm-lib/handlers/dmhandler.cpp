@@ -22,6 +22,15 @@ QueueHelper::QueueHelper(dmCatReq *dmRequest) : dmRequest(dmRequest) {
 
 QueueHelper::~QueueHelper() {
     dataMgr->qosCtrl->markIODone(*dmRequest);
+    /*
+     * TODO(umesh): ignore this for now, uncomment it later
+    PerfTracer::tracePointEnd(dmRequest->opLatencyCtx);
+    PerfTracer::tracePointEnd(dmRequest->opReqLatencyCtx);
+    if (!err.ok()) {
+        PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId(),
+                dmRequest->perfNameStr);
+    }
+     */
     LOGDEBUG << "calling cb for volid: " << dmRequest->volId;
     dmRequest->cb(err, dmRequest);
 }
@@ -35,6 +44,14 @@ void Handler::addToQueue(dmCatReq *dmRequest) {
             voldesc->qosQueueId : dmRequest->getVolId(), dmRequest);
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request for volid:" << dmRequest->getVolId();
+        /*
+         * TODO(umesh): ignore this for now, uncomment it later
+        PerfTracer::tracePointEnd(dmRequest->opLatencyCtx);
+        if (!err.ok()) {
+            PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId(),
+                    dmRequest->perfNameStr);
+        }
+         */
         dmRequest->cb(err, dmRequest);
     } else {
         LOGTRACE << "dmrequest added to queue successfully";

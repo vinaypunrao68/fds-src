@@ -25,10 +25,6 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
                             const fpi::QueryCatalogMsg& queryMsg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
-    void updateCatalog(const fpi::AsyncHdr& asyncHdr,
-                       const fpi::UpdateCatalogMsg& updcatMsg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
 
     void deleteCatalogObject(const fpi::AsyncHdr& asyncHdr,
                              const fpi::DeleteCatalogObjectMsg& delcatMsg) {
@@ -105,13 +101,9 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
                               boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg,
                               const Error &e, dmCatReq *req);
 
-    void updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg);
     void updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                            boost::shared_ptr<
                            fpi::UpdateCatalogOnceMsg>& updcatMsg);
-    void updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         const Error &e, DmIoUpdateCat *req);
     void updateCatalogOnceCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                              const Error &e,
                              DmIoUpdateCatOnce *req);
