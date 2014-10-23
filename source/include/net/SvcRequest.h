@@ -55,27 +55,28 @@ namespace net {
 template<class PayloadT> boost::shared_ptr<PayloadT>
 ep_deserialize(Error &e, boost::shared_ptr<std::string> payload);
 }
-
 template <class ReqT, class RespMsgT>
 struct SvcRequestCbTask : concurrency::TaskStatus {
-    SvcRequestCbTask() {
-        error = ERR_INVALID;
-        cb = std::bind(&SvcRequestCbTask<ReqT, RespMsgT>::respCb, this);
-    }
     void respCb(ReqT* req, const Error &e, boost::shared_ptr<std::string> respPayload)
     {
         response = net::ep_deserialize<RespMsgT>(const_cast<Error&>(e), respPayload);
         error = e;
         done();
     }
+    SvcRequestCbTask() {
+        error = ERR_INVALID;
+        cb = std::bind(&SvcRequestCbTask<ReqT, RespMsgT>::respCb, this,
+			std::placeholders::_1,  // NOLINT
+			std::placeholders::_2, std::placeholders::_3);  // NOLINT
+    }
     bool success() {
         return error == ERR_OK;
     }
-    virtual void reset() override
+    void reset()
     {
         response.reset(nullptr);
         error = ERR_INVALID;
-        concurrency::TaskStatus::reset();
+        concurrency::TaskStatus::reset(1);
     }
 
     boost::shared_ptr<RespMsgT> response;

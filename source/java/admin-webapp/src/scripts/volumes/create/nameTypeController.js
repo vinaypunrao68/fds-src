@@ -23,10 +23,6 @@ angular.module( 'volumes' ).controller( 'nameTypeController', ['$scope', '$data_
         }
     };
 
-    $scope.setSelected = function( connector ){
-        $scope.data_connector = connector;
-    };
-
     $scope.editConnector = function( connector ){
         $scope._selectedUnit = findUnit( connector.attributes.unit );
         $scope._selectedSize = parseInt( connector.attributes.size );
@@ -56,6 +52,8 @@ angular.module( 'volumes' ).controller( 'nameTypeController', ['$scope', '$data_
     $scope.$watch( 'name', function(){
         $scope.updateData();
     });
+    
+    $scope.$watch( 'data_connector', $scope.updateData );
     
     $scope.$watch( 'volumeVars.clone', function( newVal ){
         
