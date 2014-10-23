@@ -29,6 +29,14 @@ $macbrowser_background_color: rgb(234,234,234);
         }
     }
     
+    .section-container {
+        position: absolute;
+        top: 34px;
+        bottom: 34px;
+        right: 0px;
+        left: 0px;
+    }
+    
     .list-container {
         position: absolute;
         top: 26px;

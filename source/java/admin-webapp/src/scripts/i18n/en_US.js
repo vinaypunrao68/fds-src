@@ -109,6 +109,8 @@ var en_US = {
         th_used_limit: 'Used/Limit',
         
         snapshot: {
+            l_retention_summary: 'Keep for',
+            
             l_on_monday: 'on Mondays',
             l_on_tuesday: 'on Tuesdays',
             l_on_wednesday: 'on Wednesdays',

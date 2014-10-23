@@ -41,7 +41,7 @@
                     </div>
                 </td>
                 <td>
-                    <div class="policy-value-display" ng-show="editing == false">Keep for {{policy.value}} {{policy.units.name.toLowerCase()}}</div>
+                    <div class="policy-value-display" ng-show="editing == false">{{ 'volumes.snapshot.l_retention_summary' | translate }} {{policy.value}} {{policy.units.name.toLowerCase()}}</div>
                     <div class="flex" style="vertical-align: middle;" ng-show="editing == true">
                         <span style="padding-right: 4px;margin-top: 8px;">Keep for:</span>
                         <spinner class="skinny retention-spinner" style="margin-right: 4px;" min="1" max="9999" value="policy.value"></spinner>
