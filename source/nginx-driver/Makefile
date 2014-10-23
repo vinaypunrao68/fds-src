@@ -1,6 +1,5 @@
 topdir           := ..
-include $(topdir)/Makefile.cpus
-speedup          := -j $(parallel_build_count)
+speedup          = -j $(threads)
 user_build_dir   := include misc
 
 include $(topdir)/Makefile.incl
