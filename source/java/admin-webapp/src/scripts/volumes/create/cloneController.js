@@ -16,8 +16,9 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
     var currentStateLabel = $filter( 'translate' )( 'volumes.l_current_state' );
     
     $scope.cloneColumns = [
-        { title: 'Volumes', property: 'name' },
-        { title: 'Snapshots', property: 'name' }
+        { title: 'Volumes', property: 'name', width: 200 },
+        { title: 'Snapshots', property: 'name', width: 300 },
+        { title: 'Details', property: 'details', width: 180 }
     ];
     
     $scope.getSelectedName = function(){

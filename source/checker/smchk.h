@@ -27,6 +27,9 @@ namespace fds {
         SMChk(int sm_count, SmDiskMap::ptr smDiskMap,
                 ObjectDataStore::ptr smObjStore,
                 ObjectMetadataDb::ptr smMdDb);
+        SMChk(DLT* dlt, SmDiskMap::ptr smDiskMap,
+                ObjectDataStore::ptr smObjStore,
+                ObjectMetadataDb::ptr smMdDb);
         ~SMChk() {}
 
         void list_path_by_token();
