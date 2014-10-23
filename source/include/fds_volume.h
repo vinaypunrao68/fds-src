@@ -24,6 +24,8 @@
 #include <boost/atomic.hpp>
 #include <serialize.h>
 #include <fds_resource.h>
+#include <shared/fds-constants.h>
+
 #define FdsSysTaskQueueId 0xefffffff
 #define FdsSysTaskPri 5
 
@@ -86,6 +88,9 @@ class VolumeDesc : public HasState {
     fds_volid_t            qosQueueId = invalid_vol_id;
 
     fpi::ResourceState     state;
+
+    /* Output from block device */
+    char                   vol_blkdev[FDS_MAX_VOL_NAME];
 
     VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeInfoType& volinfo,
                fds_volid_t vol_uuid);
