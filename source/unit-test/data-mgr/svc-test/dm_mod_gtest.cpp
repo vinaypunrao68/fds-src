@@ -95,7 +95,7 @@ TEST_F(DMApi, metaDataTest)
     std::cout << "\033[33m[startTx latency]\033[39m " << std::fixed << std::setprecision(3)
             << (startTxCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
             << startTxCounter->count() << std::endl;
-    std::cout << "\033[33m[CommitBlobTx latency]\033[39m " << std::fixed << std::setprecision(3)
+    std::cout << "\033[33m[updateBlobTx latency]\033[39m " << std::fixed << std::setprecision(3)
             << (updateTxCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
             << updateTxCounter->count() << std::endl;
     std::cout << "\033[33m[CommitBlobTx latency]\033[39m " << std::fixed << std::setprecision(3)
