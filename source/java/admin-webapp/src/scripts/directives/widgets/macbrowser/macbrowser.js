@@ -11,12 +11,17 @@ angular.module( 'form-directives' ).directive( 'macBrowser', function(){
         
         restrict: 'E',
         replace: true,
-        transclude: false,
+        transclude: true,
         templateUrl: 'scripts/directives/widgets/macbrowser/macbrowser.html',
-        scope: { data: '=', selected: '=ngModel', childrenFunction: '=?', childrenProperty: '@', columns: '=' },
+        scope: { data: '=', selected: '=ngModel', childrenFunction: '=?', childrenProperty: '@', columns: '=', height: '@', browserTitle: '@',
+               cancelFunction: '=?', chooseFunction: '=?'},
         controller: function( $scope ){
             
             $scope.children = [];
+            
+            if ( !angular.isDefined( $scope.height ) || parseInt( $scope.height ) < 100 ){
+                $scope.height = 250;
+            }
             
             var augment = function( list, level, parent ){
                 
@@ -84,6 +89,20 @@ angular.module( 'form-directives' ).directive( 'macBrowser', function(){
                     
                     $scope.selected = item;
                 }
+            };
+            
+            $scope.donePressed = function(){
+                
+                if ( angular.isFunction( $scope.chooseFunction ) ){
+                    $scope.chooseFunction();
+                }
+            };
+            
+            $scope.cancelPressed = function(){
+                
+                if ( angular.isFunction( $scope.cancelFunction ) ){
+                    $scope.cancelFunction();
+                }                
             };
             
             $scope.$watch( 'data', function( newVal ){

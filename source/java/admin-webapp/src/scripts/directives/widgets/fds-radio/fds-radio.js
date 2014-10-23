@@ -5,7 +5,7 @@ angular.module( 'form-directives' ).directive( 'fdsRadio', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/widgets/fds-radio/fds-radio.html',
-        scope: { selectedValue: '=ngModel', name: '@', value: '@', label: '@', enabled: '=?' },
+        scope: { selectedValue: '=ngModel', name: '@', value: '@', label: '@', enabled: '=?', iconClass: '@' },
         controller: function( $scope ){
             
             var localEnabled = true;

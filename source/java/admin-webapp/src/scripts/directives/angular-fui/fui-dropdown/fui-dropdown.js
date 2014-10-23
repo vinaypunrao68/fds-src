@@ -6,7 +6,9 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
         replace: true,
         // items format is [{name: 'text', ...}, ...]
         // type is 'action' of 'select'
-        scope: {selected: '=', defaultLabel: '=', items: '=', background: '@', type: '@', callback: '=', backgroundColor: '@', skinny: '@', color: '@', border: '@', nameProperty: '@'},
+        scope: {selected: '=', defaultLabel: '=', items: '=', background: '@', type: '@', callback: '=', 
+                backgroundColor: '@', skinny: '@', color: '@', border: '@', nameProperty: '@', width: '@',
+                enabled: '=?'},
         templateUrl: 'scripts/directives/angular-fui/fui-dropdown/fui-dropdown.html',
         controller: function( $scope, $element, $timeout ){
 
@@ -14,6 +16,10 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
             $scope.td = false;
             $scope.open = false;
             $scope.currentLabel = $scope.defaultLabel;
+            
+            if ( !angular.isDefined( $scope.enabled ) ){
+                $scope.enabled = true;
+            }
 
             if ( !angular.isDefined( $scope.nameProperty ) ){
                 $scope.nameProperty = 'name';
@@ -28,7 +34,7 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
             
             var positionList = function(){
 
-                // test whether the drop down will be on the screen.
+                // test whether the drop down will be on the screen to the right.
                 var ulElem = $element.find( 'ul.dropdown-menu' );
                 var offset = ulElem.offset();
                 var c = offset.left + ulElem[0].offsetWidth;
@@ -36,9 +42,15 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
                 if ( c > (innerWidth-2) ){
                     $scope.leftShift = ((innerWidth-2) - c) + 'px';
                 }
+                
             };
 
             $scope.openList = function(){
+                
+                if ( $scope.enabled === false ){
+                    return;
+                }
+                
                 $scope.open = !$scope.open;
 
                 positionList();
