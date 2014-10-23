@@ -99,6 +99,8 @@ StorHvVolumeLock::~StorHvVolumeLock()
 
 std::atomic<unsigned int> next_io_req_id;
 
+const fds_volid_t StorHvVolumeTable::fds_default_vol_uuid;
+
 /* creates its own logger */
 StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
         : parent_sh(sh_ctrl)
@@ -128,13 +130,13 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
     }
 
     if (sh_ctrl->GetRunTimeMode() == StorHvCtrl::TEST_BOTH) {
-        VolumeDesc vdesc("default_vol", FDS_DEFAULT_VOL_UUID);
+        VolumeDesc vdesc("default_vol", fds_default_vol_uuid);
         vdesc.iops_min = 200;
         vdesc.iops_max = 500;
         vdesc.relativePrio = 8;
         vdesc.capacity = 10*1024;
         StorHvVolume *vol =
-                volume_map[FDS_DEFAULT_VOL_UUID] = new StorHvVolume(vdesc, parent_sh, GetLog());
+                volume_map[fds_default_vol_uuid] = new StorHvVolume(vdesc, parent_sh, GetLog());
         sh_ctrl->qos_ctrl->registerVolume(vdesc.volUUID, vol->volQueue);
         LOGNORMAL << "StorHvVolumeTable - constructor registered volume 1";
     }

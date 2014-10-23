@@ -22,6 +22,9 @@
  * these values.
  */
 namespace fds {
+
+struct FdsBlobReq;
+
 /**
  * FDS_NativeAPI  object class : One object per client Type so that the semantics of
  * the particular access protocols can be followed in returning the data

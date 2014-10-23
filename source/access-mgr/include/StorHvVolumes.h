@@ -1,20 +1,19 @@
 /*
- * Copyright 2013 Formation Data Systems, Inc.
+ * Copyright 2013-2014 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_STORHVVOLUMES_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_STORHVVOLUMES_H_
 
+#include <iostream>
+#include <map>
 #include <string>
 #include <vector>
-#include <map>
+#include <unordered_map>
+#include <boost/atomic.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/queue.hpp>
-#include <iostream>
-#include <boost/atomic.hpp>
 #include <concurrency/ThreadPool.h>
-
-#include <unordered_map>
 
 #include <fds_error.h>
 #include <fds_types.h>
@@ -28,10 +27,6 @@
 #include <StorHvJournal.h>
 #include <native_api.h>
 #include "PerfTrace.h"
-
-
-/* defaults */
-#define FDS_DEFAULT_VOL_UUID 1
 
 
 /*
@@ -91,9 +86,13 @@ class StorHvVolumeLock
   private:
     StorHvVolume *shvol;
 };
+
 class AmQosReq;
+struct FdsBlobReq;
 
 class StorHvVolumeTable : public HasLogger {
+    static const fds_volid_t fds_default_vol_uuid = 1;
+
   public:
     /// A logger is created if not passed in
     explicit StorHvVolumeTable(StorHvCtrl *sh_ctrl);
@@ -210,6 +209,144 @@ struct TxnRequest {
     void setBlobTxId(BlobTxId::ptr txDesc) {
         this->txDesc = txDesc;
     }
+};
+
+struct FdsBlobReq {
+     /*
+      * Callback members
+      * TODO: Resolve this with what's needed by the object-based callbacks.
+      */
+     typedef boost::function<void(fds_int32_t)> callbackBind;
+     std::string volumeName;
+
+     FdsBlobReq(fds_io_op_t         _op,
+                fds_volid_t         _volId,
+                const std::string&  _blobName,
+                fds_uint64_t        _blobOffset,
+                fds_uint64_t        _dataLen,
+                char*               _dataBuf);
+
+     FdsBlobReq(fds_io_op_t         _op,
+                fds_volid_t         _volId,
+                const std::string&  _blobName,
+                fds_uint64_t        _blobOffset,
+                fds_uint64_t        _dataLen,
+                char*               _dataBuf,
+                CallbackPtr         _cb);
+
+     template<typename F, typename A, typename B, typename C>
+        FdsBlobReq(fds_io_op_t          _op,
+                   fds_volid_t          _volId,
+                   const std::string&   _blobName,
+                   fds_uint64_t         _blobOffset,
+                   fds_uint64_t         _dataLen,
+                   char*                _dataBuf,
+                   F f, A a, B b, C c);
+
+     virtual ~FdsBlobReq()
+     { magic = FDS_SH_IO_MAGIC_NOT_IN_USE; }
+
+     CallbackPtr cb;
+
+     bool magicInUse() const
+     { return (magic == FDS_SH_IO_MAGIC_IN_USE); }
+
+     fds_volid_t getVolId() const
+     { return volId; }
+
+     fds_io_op_t  getIoType() const
+     { return ioType; }
+
+     void setVolId(fds_volid_t vol_id)
+     { volId = vol_id; }
+
+     void cbWithResult(int result)
+     { return callback(result); }
+
+     const std::string& getBlobName() const
+     { return blobName; }
+
+     const std::string& getVolumeName() const
+     { return volumeName; }
+
+     void setVolumeName(const std::string& _volumeName)
+     { volumeName = _volumeName; }
+
+     fds_uint64_t getBlobOffset() const
+     { return blobOffset; }
+
+     void setBlobOffset(fds_uint64_t offset)
+     { blobOffset = offset; }
+
+     const char *getDataBuf() const
+     { return dataBuf; }
+
+     std::size_t getDataLen() const
+     { return dataLen; }
+
+     void setDataLen(fds_uint64_t len)
+     { dataLen = len; }
+
+
+     void setDataBuf(const char* _buf)
+     { memcpy(dataBuf, _buf, dataLen); }
+
+     ObjectID getObjId() const
+     { return objId; }
+
+     void setObjId(const ObjectID& _oid)
+     { objId = _oid; }
+
+     void setQueuedUsec(fds_uint64_t _usec)
+     { queuedUsec = _usec; }
+
+     // Performance
+     PerfContext e2eReqPerfCtx;
+     PerfContext qosPerfCtx;
+     PerfContext hashPerfCtx;
+     PerfContext dmPerfCtx;
+     PerfContext smPerfCtx;
+
+    protected:
+     /*
+      * Common request header members
+      */
+     fds_uint32_t magic;
+     fds_io_op_t  ioType;
+
+     /*
+      * Volume members
+      */
+     fds_volid_t volId;
+
+     /*
+      * Blob members
+      */
+     std::string  blobName;
+     fds_uint64_t blobOffset;
+     /*
+      * Object members
+      */
+     ObjectID objId;
+
+     /*
+      * Buffer members
+      */
+     std::size_t dataLen;
+     char        *dataBuf;
+
+     /*
+      * Callback members
+      */
+     callbackBind callback;
+
+     /*
+      * Perf members
+      */
+     fds_uint64_t queuedUsec;  /* Time spec in queue */
+
+     /* Lifecycle latency */
+     util::StopWatch stopWatch;
 };
 
 class AbortBlobTxReq : public FdsBlobReq {
@@ -802,6 +939,59 @@ class AmQosReq : public FDS_IOType {
         blobReq->setVolId(volid);
     }
 };
+
+inline FdsBlobReq::FdsBlobReq(fds_io_op_t      _op,
+                       fds_volid_t        _volId,
+                       const std::string &_blobName,
+                       fds_uint64_t       _blobOffset,
+                       fds_uint64_t       _dataLen,
+                       char              *_dataBuf)
+        : magic(FDS_SH_IO_MAGIC_IN_USE),
+          ioType(_op),
+          volId(_volId),
+          blobName(_blobName),
+          blobOffset(_blobOffset),
+          dataLen(_dataLen),
+          dataBuf(_dataBuf) {
+}
+
+inline FdsBlobReq::FdsBlobReq(fds_io_op_t       _op,
+                       fds_volid_t        _volId,
+                       const std::string &_blobName,
+                       fds_uint64_t       _blobOffset,
+                       fds_uint64_t       _dataLen,
+                       char              *_dataBuf,
+                       CallbackPtr        _cb)
+        : magic(FDS_SH_IO_MAGIC_IN_USE),
+          ioType(_op),
+          volId(_volId),
+          blobName(_blobName),
+          blobOffset(_blobOffset),
+          dataLen(_dataLen),
+          dataBuf(_dataBuf),
+          cb(_cb) {
+}
+
+template<typename F, typename A, typename B, typename C>
+inline FdsBlobReq::FdsBlobReq(fds_io_op_t      _op,
+           fds_volid_t        _volId,
+           const std::string &_blobName,
+           fds_uint64_t       _blobOffset,
+           fds_uint64_t       _dataLen,
+           char              *_dataBuf,
+           F f,
+           A a,
+           B b,
+           C c)
+    : magic(FDS_SH_IO_MAGIC_IN_USE),
+    ioType(_op),
+    volId(_volId),
+    blobName(_blobName),
+    blobOffset(_blobOffset),
+    dataLen(_dataLen),
+    dataBuf(_dataBuf),
+    callback(boost::bind(f, a, b, c, _1)) {
+    }
 
 }  // namespace fds
 
