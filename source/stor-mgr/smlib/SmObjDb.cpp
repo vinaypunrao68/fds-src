@@ -55,7 +55,17 @@ ObjectDB *SmObjDb::openObjectDB(fds_token_id tokId) {
     std::string filename = std::string(diskio::gl_dataIOMod.disk_path(tokId, diskio::diskTier)) +
              "//SNodeObjIndex_" + std::to_string(dbId);
     // std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
-    objdb  = new ObjectDB(filename);
+    try
+    {
+        objdb = new osm::ObjectDB(filename);
+    }
+    catch(const osm::OsmException& e)
+    {
+        LOGERROR << "Failed to create ObjectDB " << filename;
+        LOGERROR << e.what();
+        return NULL;
+    }
+
     tokenTbl[dbId] = objdb;
 
     return objdb;
@@ -85,7 +95,17 @@ ObjectDB *SmObjDb::getObjectDB(fds_token_id tokId) {
     std::string filename = std::string(diskio::gl_dataIOMod.disk_path(tokId, diskio::diskTier)) +
              "//SNodeObjIndex_" + std::to_string(dbId);
     // std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
-    objdb  = new ObjectDB(filename);
+    try
+    {
+        objdb = new osm::ObjectDB(filename);
+    }
+    catch(const osm::OsmException& e)
+    {
+        LOGERROR << "Failed to create ObjectDB " << filename;
+        LOGERROR << e.what();
+        return NULL;
+    }
+
     tokenTbl[dbId] = objdb;
     return objdb;
 }

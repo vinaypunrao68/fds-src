@@ -29,7 +29,16 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix,
     rankTimer(new FdsTimer()),
     rankTimerTask(new RankTimerTask(*rankTimer, this)) {
     std::string filename(_sm_prefix + "ObjRankDB");
-    rankDB = new Catalog(filename);
+    try
+    {
+        rankDB = new Catalog(filename);
+    }
+    catch(const CatalogException& e)
+    {
+        LOGERROR << "Failed to create Catalog " << filename;
+        LOGERROR << e.what();
+        return;
+    }
 
     map_mutex = new fds_mutex("RankEngineMutex");
     tbl_mutex = new fds_mutex("RankEngineChgTblMutex");

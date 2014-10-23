@@ -41,7 +41,17 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
                 voldesc->getPriority()));
     }
 
-    volumeIndexDB  = new osm::ObjectDB(filename);
+    try
+    {
+        volumeIndexDB  = new osm::ObjectDB(filename);
+    }
+    catch(const osm::OsmException& e)
+    {
+        LOGERROR << "Failed to create ObjectDB " << filename;
+        LOGERROR << e.what();
+        return;
+    }
+
     averageObjectsRead = 0;
     dedupBytes_ = 0;
 }

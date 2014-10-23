@@ -59,13 +59,20 @@ Error DmPersistVolDB::activate() {
     std::string logDirName = snapshot_ ? "" : root->dir_user_repo_dm() + getVolIdStr() + "/";
     std::string logFilePrefix(snapshot_ ? "" : "catalog.journal");
 
-    catalog_ = new Catalog(catName, writeBufferSize, cacheSize, logDirName,
-                logFilePrefix, maxLogFiles, &cmp_);
-    catalog_->GetWriteOptions().sync = false;
-    if (!catalog_) {
+    try
+    {
+        catalog_ = new Catalog(catName, writeBufferSize, cacheSize, logDirName,
+                    logFilePrefix, maxLogFiles, &cmp_);
+    }
+    catch(const CatalogException& e)
+    {
         LOGERROR << "Failed to create catalog for volume " << std::hex << volId_ << std::dec;
+        LOGERROR << e.what();
         return ERR_OUT_OF_MEMORY;
     }
+
+    catalog_->GetWriteOptions().sync = false;
+
     return ERR_OK;
 }
 

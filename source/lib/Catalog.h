@@ -17,6 +17,17 @@
 
 namespace fds {
 
+struct CatalogException : std::exception {
+    std::string msg;
+
+    CatalogException(const std::string& msg) : msg(msg) {
+    }
+
+    const char* what() const noexcept{
+        return msg.c_str();
+    }
+};
+
 struct CopyDetails {
     CopyDetails(const std::string & src, const std::string & dest)
             : srcPath(src), destPath(dest) {}

@@ -12,6 +12,13 @@
 namespace fds {
 namespace osm {
 
+OsmException::OsmException(const std::string& msg) : msg(msg) {
+}
+
+const char* OsmException::what() const noexcept{
+    return msg.c_str();
+}
+
 #define WRITE_BUFFER_SIZE   50 * 1024 * 1024;
 #define FILTER_BITS_PER_KEY 128  // Todo: Change this to the max size of DiskLoc
 
@@ -34,7 +41,12 @@ ObjectDB::ObjectDB(const std::string& filename)
     write_options.sync = true;
 
     leveldb::Status status = leveldb::DB::Open(options, file, &db);
+
     /* Open has to succeed */
+    if (!status.ok())
+    {
+        throw OsmException(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " :leveldb::DB::Open(): " + status.ToString());
+    }
     assert(status.ok());
 
     histo_all.Clear();

@@ -24,8 +24,13 @@ using PolicyInfo = fpi::FDSP_PolicyInfoType;
 
 struct ConfigException : std::exception {
     std::string msg;
-    explicit ConfigException(const std::string& msg);
-    virtual const char* what() const noexcept;
+
+    ConfigException(const std::string& msg) : msg(msg) {
+    }
+
+    const char* what() const noexcept{
+        return msg.c_str();
+    }
 };
 
 struct ConfigDB : KVStore {

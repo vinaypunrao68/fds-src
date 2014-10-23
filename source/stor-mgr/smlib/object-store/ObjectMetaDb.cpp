@@ -62,11 +62,17 @@ ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
     if (iter != tokenTbl.end()) return ERR_OK;
 
     // create leveldb
-    objdb = new(std::nothrow) osm::ObjectDB(filename);
-    if (!objdb) {
+    try
+    {
+        objdb = new osm::ObjectDB(filename);
+    }
+    catch(const osm::OsmException& e)
+    {
         LOGERROR << "Failed to create ObjectDB " << filename;
+        LOGERROR << e.what();
         return ERR_OUT_OF_MEMORY;
     }
+
     tokenTbl[smTokId] = objdb;
     return ERR_OK;
 }

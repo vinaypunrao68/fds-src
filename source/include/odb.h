@@ -23,6 +23,12 @@
 namespace fds {
 namespace osm {
 
+struct OsmException : std::exception {
+    std::string msg;
+    explicit OsmException(const std::string& msg);
+    virtual const char* what() const noexcept;
+};
+
   class ObjectDB {
  public:
     /*
