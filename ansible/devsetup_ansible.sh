@@ -13,7 +13,6 @@ if [ -d ${sem_dir} ]; then
 	current_time=$(date +"%s")
 
 	if [ $((current_time - dir_mtime)) -gt ${sem_expiration_seconds} ]; then
-		echo "old semaphore expired - removing"
 		rmdir ${sem_dir}
 	fi
 fi
@@ -22,7 +21,6 @@ mkdir "${sem_dir}" 2>/dev/null
 
 case $? in
 	0)
-		echo "running devsetup"
 		ansible-playbook -i ${script_dir}/ansible_hosts -c local ${script_dir}/playbooks/devsetup.yml
 		rmdir ${sem_dir}
 		touch ${script_dir}/.devsetup-is-up-to-date
@@ -32,6 +30,5 @@ case $? in
 	do
 		sleep 1
 	done
-	echo "devsetup already running, slept until complete - continuing now"
 	;;
 esac
