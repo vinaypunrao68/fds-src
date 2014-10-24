@@ -23,15 +23,8 @@
 namespace fds {
 namespace osm {
 
-struct OsmException : std::exception {
-    std::string msg;
-
-    OsmException(const std::string& msg) : msg(msg) {
-    }
-
-    const char* what() const noexcept{
-        return msg.c_str();
-    }
+struct OsmException : std::runtime_error {
+	   explicit OsmException (const std::string& what_arg) : std::runtime_error(what_arg) {}
 };
 
   class ObjectDB {

@@ -22,15 +22,8 @@ struct node_data;
 namespace kvstore {
 using PolicyInfo = fpi::FDSP_PolicyInfoType;
 
-struct ConfigException : std::exception {
-    std::string msg;
-
-    ConfigException(const std::string& msg) : msg(msg) {
-    }
-
-    const char* what() const noexcept{
-        return msg.c_str();
-    }
+struct ConfigException : std::runtime_error {
+	   explicit ConfigException (const std::string& what_arg) : std::runtime_error(what_arg) {}
 };
 
 struct ConfigDB : KVStore {

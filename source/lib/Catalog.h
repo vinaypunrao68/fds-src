@@ -17,15 +17,8 @@
 
 namespace fds {
 
-struct CatalogException : std::exception {
-    std::string msg;
-
-    CatalogException(const std::string& msg) : msg(msg) {
-    }
-
-    const char* what() const noexcept{
-        return msg.c_str();
-    }
+struct CatalogException : std::runtime_error {
+	   explicit CatalogException (const std::string& what_arg) : std::runtime_error(what_arg) {}
 };
 
 struct CopyDetails {
