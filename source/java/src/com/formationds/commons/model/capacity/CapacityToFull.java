@@ -5,6 +5,7 @@
 package com.formationds.commons.model.capacity;
 
 import com.formationds.commons.model.abs.Calculated;
+import com.google.gson.annotations.SerializedName;
 
 /**
  * @author ptinius
@@ -13,6 +14,7 @@ public class CapacityToFull
   extends Calculated {
   private static final long serialVersionUID = 4144617532432238800L;
 
+  @SerializedName( "to_full" )
   private Integer toFull;
 
   /**

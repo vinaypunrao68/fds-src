@@ -4,6 +4,8 @@
 
 package com.formationds.commons.util;
 
+import java.time.Instant;
+
 /**
  * @author ptinius
  */
@@ -29,11 +31,12 @@ public class DateTimeUtil {
   }
 
   /**
-   * @param epoch the {@code long} representing number of seconds since January 1, 1970.
+   * @param epoch the {@code long} representing the number of seconds since
+   *              1970-01-01T00:00:00Z ( epoch )
    *
    * @return Returns {@code long} representing
    */
   public static Long epochToMilliseconds( final long epoch ) {
-    return epoch * 1000;
+    return Instant.ofEpochSecond( epoch ).toEpochMilli();
   }
 }

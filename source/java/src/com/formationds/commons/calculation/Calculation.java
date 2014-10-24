@@ -32,8 +32,12 @@ public class Calculation {
    *
    * @return Returns {@link Double} representing the ratio
    */
-  public static Double ratio( final Double enumerator,
+  public static Double ratio( final double enumerator,
                               final Double denominator ) {
-    return enumerator / denominator;
+    if( ( enumerator > 0.0 ) && ( denominator > 0.0 ) ) {
+      return enumerator / denominator;
+    }
+
+    return 0.0;
   }
 }

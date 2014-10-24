@@ -100,7 +100,7 @@ public class Main {
     /*
      * provides metrics RESTful API endpoints
      */
-    metrics();
+    metrics( configCache );
 
     authenticate( HttpMethod.GET, "/api/config/volumes", ( t ) -> new ListVolumes( xdi, amService, legacyConfigClient, t ) );
     authenticate( HttpMethod.POST, "/api/config/volumes",
@@ -155,24 +155,25 @@ public class Main {
     webApp.route( method, route, () -> eh );
   }
 
-  private void metrics() {
+  private void metrics( final ConfigurationApi config ) {
     if( !FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
       return;
     }
 
     LOG.trace( "registering metrics endpoints" );
     metricsGets();
-    metricsPost();
+    metricsPost( config );
     LOG.trace( "registered metrics endpoints" );
   }
 
-  private void metricsGets() {
+  private void metricsGets( ) {
     authenticate( HttpMethod.PUT, "/api/stats/volumes",
                   ( t ) -> new QueryMetrics() );
   }
 
-  private void metricsPost() {
-    webApp.route( HttpMethod.POST, "/api/stats", IngestVolumeStats::new );
+  private void metricsPost( final ConfigurationApi config ) {
+    webApp.route( HttpMethod.POST, "/api/stats",
+                  ( ) -> new IngestVolumeStats( config ) );
   }
 
   private void snapshot( final ConfigurationApi config,

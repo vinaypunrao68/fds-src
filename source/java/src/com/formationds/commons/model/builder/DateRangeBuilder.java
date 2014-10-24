@@ -54,9 +54,19 @@ public class DateRangeBuilder {
    * @return Returns {@link com.formationds.commons.model.DateRange}
    */
   public DateRange build() {
+    if( start == null && end == null ) {
+      throw new IllegalArgumentException( );
+    }
+
     DateRange dateRange = new DateRange();
-    dateRange.setStart( start );
-    dateRange.setEnd( end );
+    if( start != null ) {
+      dateRange.setStart( start.getTime() );
+    }
+
+    if( end != null ) {
+      dateRange.setEnd( end.getTime() );
+    }
+
     return dateRange;
   }
 }
