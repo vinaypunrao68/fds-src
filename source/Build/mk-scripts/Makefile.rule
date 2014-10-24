@@ -398,18 +398,7 @@ devsetup_is_up_to_date := $(ansible_dir)/.devsetup-is-up-to-date
 devsetup_is_running := $(ansible_dir)/.devsetup-is-running
 
 $(devsetup_is_up_to_date): $(devsetup_playbook)
-	@if [ ! -e $(devsetup_is_running) ]; then \
-		touch $(devsetup_is_running) ; \
-		rm -f $(devsetup_is_up_to_date) ; \
-		sudo apt-get install -fy python-dev python-pip ; \
-		sudo pip install ansible ; \
-		$(ansible_devsetup_command) ; \
-		touch $(devsetup_is_up_to_date) ; \
-		rm -f $(devsetup_is_running) ; \
-	else \
-		echo "waiting for devsetup to complete" ; \
-		while [ ! -e $(devsetup_is_up_to_date) ]; do sleep 10; done ; \
-	fi
+	@$(ansible_dir)/devsetup_ansible.sh
 
 .PHONY: devsetup-ansible
 devsetup-ansible: $(devsetup_is_up_to_date)
