@@ -218,20 +218,21 @@ AmProcessor::putBlob(AmQosReq *qosReq) {
                                                 blobReq->getDataLen()));
     }
 
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, qosReq);
+
     if (blobReq->getIoType() == FDS_PUT_BLOB_ONCE) {
         // Sending the update in a single request. Create transaction ID to
         // use for the single request
         blobReq->setTxId(BlobTxId(randNumGen->genNumSafe()));
-    }
-
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, qosReq);
-
-    if (blobReq->getIoType() == FDS_PUT_BLOB_ONCE) {
         amDispatcher->dispatchUpdateCatalogOnce(qosReq);
     } else {
         amDispatcher->dispatchUpdateCatalog(qosReq);
     }
-    amDispatcher->dispatchPutObject(qosReq);
+
+    // Either dispatch the put blob request or, if there's no data, just call
+    // our callback handler now (NO-OP).
+    blobReq->getDataLen() > 0 ? amDispatcher->dispatchPutObject(qosReq) :
+                                blobReq->notifyResponse(qosReq, ERR_OK);
 }
 
 void
