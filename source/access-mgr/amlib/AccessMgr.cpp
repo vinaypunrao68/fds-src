@@ -4,6 +4,7 @@
 
 #include <string>
 #include <AccessMgr.h>
+#include <access-mgr/am-block.h>
 
 extern StorHvCtrl *storHvisor;
 
@@ -44,6 +45,7 @@ AccessMgr::mod_init(SysParams const *const param) {
 
 void
 AccessMgr::mod_startup() {
+    BlockMod::blk_singleton()->blk_bind_to_am(storHvisor);
 }
 
 void

@@ -10,7 +10,7 @@
 #include "StorHvQosCtrl.h"
 
 #include "PerfTrace.h"
-
+#include <access-mgr/am-block.h>
 #include <atomic>
 
 extern StorHvCtrl *storHvisor;
@@ -193,14 +193,34 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
 
     LOGNOTIFY << "StorHvVolumeTable - Register new volume " << vdesc.name << " "
               << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
-              << " (iops_min=" << vdesc.iops_min << ", iops_max=" << vdesc.iops_max <<", prio=" << vdesc.relativePrio << ")"
+              << " (iops_min=" << vdesc.iops_min << ", iops_max="
+              << vdesc.iops_max <<", prio=" << vdesc.relativePrio << ")"
               << " result: " << err.GetErrstr();
 
     /* check if any blobs are waiting for volume to be registered, and if so,
      * move them to appropriate qos queue  */
-    if (err.ok())
+    if (err.ok()) {
         moveWaitBlobsToQosQueue(vol_uuid, vdesc.name, err);
+        if (vdesc.volType == fpi::FDSP_VOL_BLKDEV_TYPE) {
+            blk_vol_creat_t vreq;
 
+            vreq.v_name  = vdesc.name.c_str();
+            vreq.v_dev   = NULL;
+            vreq.v_uuid  = vdesc.volUUID;
+            vreq.v_blksz = 4 << 10; /* TODO(Vy): 4K for now. */
+
+            /* The volume capacity is in MB. */
+            vreq.v_blkdev[0] = '\0';
+            vreq.v_vol_blksz =
+                static_cast<fds_uint64_t>(vdesc.capacity / vreq.v_blksz) << 10;
+
+            BlockMod *mod = BlockMod::blk_singleton();
+            if (mod->blk_attach_vol(&vreq) == 0) {
+                fds_assert(vreq.v_blkdev[0] != '\0');
+            }
+            LOGNOTIFY << "Create block vol " << vdesc.name << ", dev " << vreq.v_blkdev;
+        }
+    }
     return err;
 }
 

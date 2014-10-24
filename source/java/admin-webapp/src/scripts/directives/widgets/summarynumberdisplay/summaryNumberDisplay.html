@@ -1,0 +1,15 @@
+<div class="summary-number-display flex">
+    
+    <div>
+        <div style="width: 4px;height: 4px;border: 1px solid gray;border-radius: 2px;" ng-repeat="item in data"></div>
+    </div>
+    
+    <div style="position: relative;">
+        <div class="pull-left main-number">{{data[visibleIndex].wholeNumber}}</div>
+        <div class="pull-left decimals">
+            <span ng-show="decimals > 0">{{data[visibleIndex].decimals}}</span>
+            <span>{{data[visibleIndex].suffix}}</span>
+        </div>
+        <div class="pull-left tile-description">{{data[visibleIndex].description}}</div>
+    </div>
+</div>

@@ -6,16 +6,21 @@
 
 #include <ev.h>
 #include <linux/nbd.h>
+
+#include <string>
 #include <fds_ptr.h>
 #include <fds-aio.h>
 #include <access-mgr/am-block.h>
 #include <concurrency/spinlock.h>
+#include <fdsp/fds_service_types.h>
 
 namespace fds {
 
 class NbdBlkIO;
 class NbdBlkVol;
 class NbdBlockMod;
+class QuorumSvcRequest;
+class FailoverSvcRequest;
 
 /**
  * Event based volume descriptor.
@@ -35,6 +40,7 @@ class EvBlkVol : public BlkVol
 
     int                      vio_sk;
     ev_io                    vio_watch;
+    fds_uint64_t             vio_txid;
     struct ev_loop          *vio_ev_loop;
     FdsAIO                  *vio_read;
     FdsAIO                  *vio_write;
@@ -62,7 +68,7 @@ class EvBlockMod : public BlockMod
     void blk_run_loop();
 
   protected:
-    ev_idle                  ev_idle_evt;
+    ev_timer                 ev_timer_evt;
     struct ev_loop          *ev_blk_loop;
 };
 
@@ -82,6 +88,12 @@ class NbdBlkVol : public EvBlkVol
     void nbd_vol_close();
     void nbd_vol_flush();
     void nbd_vol_trim();
+
+    void nbd_vol_write_cb(fpi::UpdateCatalogOnceMsgPtr, QuorumSvcRequest *,
+                          const Error &, bo::shared_ptr<std::string>);
+
+    void nbd_vol_read_cb(NbdBlkIO *vio, FailoverSvcRequest *req,
+                         const Error &, bo::shared_ptr<std::string>);
 
   protected:
     friend class NbdBlkIO;
@@ -113,6 +125,7 @@ class NbdBlkIO : public FdsAIO
     NbdBlkVol::ptr           nbd_vol;
     struct nbd_request       nbd_reqt;
     struct nbd_reply         nbd_repl;
+    ssize_t                  nbd_cur_len;
     ssize_t                  nbd_cur_off;
 
     inline void vio_setup_new_read()
@@ -143,12 +156,15 @@ class NbdBlockMod : public EvBlockMod
     virtual void mod_startup() override;
 
     /* Block driver methods. */
-    virtual int blk_attach_vol(const blk_vol_creat_t *r) override;
+    virtual int blk_attach_vol(blk_vol_creat_t *r) override;
     virtual int blk_detach_vol(fds_uint64_t uuid) override;
     virtual int blk_suspend_vol(fds_uint64_t uuid) override;
 
   protected:
     virtual BlkVol::ptr blk_alloc_vol(const blk_vol_creat_t *r) override;
+
+  private:
+    int                      nbd_devno;
 };
 
 }  // namespace fds
