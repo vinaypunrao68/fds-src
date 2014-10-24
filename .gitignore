@@ -107,3 +107,4 @@ chef/vagrant/*/.vagrant/*
 source/java/${project.build.dir}
 source/test/.idea
 ansible/resources/*
+ansible/.devsetup-is-*
