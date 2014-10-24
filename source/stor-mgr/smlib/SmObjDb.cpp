@@ -63,7 +63,16 @@ ObjectDB *SmObjDb::openObjectDB(fds_token_id tokId) {
     {
         LOGERROR << "Failed to create ObjectDB " << filename;
         LOGERROR << e.what();
-        objdb = NULL;
+
+        /*
+         * TODO(Greg): We need to end this process at this point, but we need
+         * a more controlled and graceful way of doing it. I suggest that in
+         * such cases we throw another exception to be caught by the mainline
+         * method which can then perform any cleanup, log a useful message, and
+         * shutdown.
+         */
+        LOGNORMAL << "SM shutting down with a failure condition.";
+        exit(EXIT_FAILURE);
     }
 
     tokenTbl[dbId] = objdb;
@@ -103,7 +112,16 @@ ObjectDB *SmObjDb::getObjectDB(fds_token_id tokId) {
     {
         LOGERROR << "Failed to create ObjectDB " << filename;
         LOGERROR << e.what();
-        objdb = NULL;
+
+        /*
+         * TODO(Greg): We need to end this process at this point, but we need
+         * a more controlled and graceful way of doing it. I suggest that in
+         * such cases we throw another exception to be caught by the mainline
+         * method which can then perform any cleanup, log a useful message, and
+         * shutdown.
+         */
+        LOGNORMAL << "SM shutting down with a failure condition.";
+        exit(EXIT_FAILURE);
     }
 
     tokenTbl[dbId] = objdb;
