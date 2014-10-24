@@ -44,6 +44,9 @@ public class EventRepository extends JDORepository<Event, Long, Events, EventQue
         initialize( dbName );
     }
 
+		@Override
+		public void close() { /* TODO */ }
+
     @Override
     protected void initialize(String dbName) {
 

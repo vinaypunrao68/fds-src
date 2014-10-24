@@ -113,7 +113,7 @@ public class Main {
      */
     events();
 
-    authenticate( HttpMethod.GET, "/api/config/volumes", ( t ) -> new ListVolumes( xdi, amService, legacyConfigClient, t ) );
+    authenticate( HttpMethod.GET, "/api/config/volumes", ( t ) -> new ListVolumes( xdi, legacyConfigClient, t ) );
     authenticate( HttpMethod.POST, "/api/config/volumes",
                   ( t ) -> new CreateVolume( xdi, legacyConfigClient, configCache, t ) );
     authenticate( HttpMethod.POST, "/api/config/volumes/clone/:volumeId/:cloneVolumeName", ( t ) -> new CloneVolume( configCache, legacyConfigClient ) );

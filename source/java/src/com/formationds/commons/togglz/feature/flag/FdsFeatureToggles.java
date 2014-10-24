@@ -27,7 +27,7 @@ public enum FdsFeatureToggles
 
   @Label( "Activities Feature" )
   @Activities
-  ACTIVITIES_ENDPOINT;
+  ACTIVITIES_ENDPOINT,
 
   @Label("Firebreak Feature")
   @Firebreak
