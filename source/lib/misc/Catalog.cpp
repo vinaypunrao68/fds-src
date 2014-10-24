@@ -91,7 +91,6 @@ Catalog::Catalog(const std::string& _file,
         throw CatalogException(std::string(__FILE__) + ":" + std::to_string(__LINE__) +
                                " :leveldb::DB::Open(): " + status.ToString());
     }
-    assert(status.ok());
 }
 
 /** The default destructor

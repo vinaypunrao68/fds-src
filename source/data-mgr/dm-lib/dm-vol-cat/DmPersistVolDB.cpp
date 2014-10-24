@@ -68,7 +68,7 @@ Error DmPersistVolDB::activate() {
     {
         LOGERROR << "Failed to create catalog for volume " << std::hex << volId_ << std::dec;
         LOGERROR << e.what();
-        return ERR_OUT_OF_MEMORY;
+        return ERR_NOT_READY;
     }
 
     catalog_->GetWriteOptions().sync = false;

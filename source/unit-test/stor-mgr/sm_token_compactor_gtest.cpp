@@ -66,7 +66,7 @@ class TestReqHandler: public SmIoReqHandler {
 
         try
         {
-            odb = new(std::nothrow) osm::ObjectDB(filename);
+            odb = new osm::ObjectDB(filename);
         }
         catch(const osm::OsmException& e)
         {

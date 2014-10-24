@@ -70,7 +70,7 @@ ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
     {
         LOGERROR << "Failed to create ObjectDB " << filename;
         LOGERROR << e.what();
-        return ERR_OUT_OF_MEMORY;
+        return ERR_NOT_READY;
     }
 
     tokenTbl[smTokId] = objdb;

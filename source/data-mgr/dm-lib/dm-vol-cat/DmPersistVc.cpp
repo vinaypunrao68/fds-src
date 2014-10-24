@@ -295,7 +295,7 @@ Error PersistVolumeMeta::init() {
         LOGERROR << "Failed to create catalog for volume "
                  << std::hex << volume_id << std::dec;
         LOGERROR << e.what();
-        return ERR_OUT_OF_MEMORY;
+        err = fds::Error(fds::ERR_NOT_READY);
     }
 
     return err;

@@ -25,8 +25,13 @@ namespace osm {
 
 struct OsmException : std::exception {
     std::string msg;
-    explicit OsmException(const std::string& msg);
-    virtual const char* what() const noexcept;
+
+    OsmException(const std::string& msg) : msg(msg) {
+    }
+
+    const char* what() const noexcept{
+        return msg.c_str();
+    }
 };
 
   class ObjectDB {

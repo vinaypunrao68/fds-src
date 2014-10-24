@@ -63,7 +63,7 @@ ObjectDB *SmObjDb::openObjectDB(fds_token_id tokId) {
     {
         LOGERROR << "Failed to create ObjectDB " << filename;
         LOGERROR << e.what();
-        return NULL;
+        objdb = NULL;
     }
 
     tokenTbl[dbId] = objdb;
@@ -103,7 +103,7 @@ ObjectDB *SmObjDb::getObjectDB(fds_token_id tokId) {
     {
         LOGERROR << "Failed to create ObjectDB " << filename;
         LOGERROR << e.what();
-        return NULL;
+        objdb = NULL;
     }
 
     tokenTbl[dbId] = objdb;
