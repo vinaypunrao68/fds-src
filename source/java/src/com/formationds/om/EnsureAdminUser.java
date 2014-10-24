@@ -10,8 +10,13 @@ import org.apache.thrift.TException;
 
 import java.util.UUID;
 
-public class EnsureAdminUser {
+class EnsureAdminUser {
     private final static Logger LOG = Logger.getLogger(EnsureAdminUser.class);
+    public static final String ADMIN_USERNAME = "admin";
+
+    static void bootstrapAdminUser(ConfigurationService.Iface config) throws TException {
+        new EnsureAdminUser(config).execute();
+    }
 
     private ConfigurationService.Iface config;
 
@@ -21,12 +26,16 @@ public class EnsureAdminUser {
 
     public void execute() throws TException {
         boolean hasAdmin = config.allUsers(0).stream()
-                .filter(u -> "admin".equals(u.getIdentifier()))
+                .filter(u -> ADMIN_USERNAME.equals(u.getIdentifier()))
                 .findFirst()
                 .isPresent();
 
         if (!hasAdmin) {
-            config.createUser("admin", new HashedPassword().hash("admin"), UUID.randomUUID().toString(), true);
+            // TODO: default passwords are a security risk (even when "secure" passwords are used).
+            // Installer should set or admin webapp should detect that this is a first time boot
+            // and step the customer through first-time configuration steps, including defining a
+            // secure password.
+            config.createUser(ADMIN_USERNAME, new HashedPassword().hash(ADMIN_USERNAME), UUID.randomUUID().toString(), true);
             LOG.info("First time boot, created admin user");
         }
     }

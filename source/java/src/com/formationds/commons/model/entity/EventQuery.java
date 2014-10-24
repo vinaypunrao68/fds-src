@@ -4,11 +4,11 @@
 
 package com.formationds.commons.model.entity;
 
-import com.formationds.commons.model.Context;
+import com.formationds.commons.crud.SearchCriteria;
 import com.formationds.commons.model.DateRange;
+import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.type.Metrics;
-import com.formationds.commons.model.type.ResultType;
 
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
@@ -23,7 +23,7 @@ import java.util.List;
                 query = "")
   }
 )
-public class EventQuery extends ModelBase {
+public class EventQuery extends ModelBase implements SearchCriteria {
   private static final long serialVersionUID = 1;
 
   private DateRange range;
@@ -50,14 +50,14 @@ public class EventQuery extends ModelBase {
   }
 
   /**
-   * @return Returns the {@link java.util.List} of {@link com.formationds.commons.model.Context}
+   * @return Returns the {@link java.util.List} of {@link Context}
    */
   public List<Context> getContexts() {
     return contexts;
   }
 
   /**
-   * @param contexts the {@link java.util.List} of {@link com.formationds.commons.model.Context}
+   * @param contexts the {@link java.util.List} of {@link Context}
    */
   public void setContexts( final List<Context> contexts ) {
     this.contexts = contexts;

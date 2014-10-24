@@ -20,6 +20,7 @@ import com.formationds.web.toolkit.*;
 import com.formationds.xdi.ConfigurationApi;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
+import com.formationds.xdi.XdiImpl;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 import org.joda.time.Duration;
@@ -54,17 +55,21 @@ public class Main {
     SecretKey secretKey = new SecretKeySpec( keyBytes, "AES" );
 
     XdiClientFactory clientFactory = new XdiClientFactory();
-    ConfigurationApi configCache = new ConfigurationApi( clientFactory.remoteOmService( "localhost", 9090 ) );
-    new EnsureAdminUser( configCache ).execute();
-    AmService.Iface amService = clientFactory.remoteAmService( "localhost", 9988 );
 
+    // TODO: OM should always be running on localhost, but is there a use case where we should get its ip
+    // from platform config?  For example, if bound to a specific NIC?
     String omHost = "localhost";
-    int omPort = platformConfig.lookup( "fds.om.config_port" )
-                               .intValue();
-    String webDir = platformConfig.lookup( "fds.om.web_dir" )
-                                  .stringValue();
+    int omConfigPort = platformConfig.defaultInt("fds.om.config_port", 8903);
+    ConfigurationApi configCache = new ConfigurationApi( clientFactory.remoteOmService( omHost, 9090 ) );
+    EnsureAdminUser.bootstrapAdminUser(configCache);
 
-    FDSP_ConfigPathReq.Iface legacyConfigClient = clientFactory.legacyConfig( omHost, omPort );
+    // TODO: lookup remote OM host/port from platform configuration.
+    //int amPort = platformConfig.defaultInt("fds.am.config_port", 8904);
+    AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
+
+    String webDir = platformConfig.lookup( "fds.om.web_dir" ).stringValue();
+
+    FDSP_ConfigPathReq.Iface legacyConfigClient = clientFactory.legacyConfig( omHost, omConfigPort );
     VolumeStatistics volumeStatistics = new VolumeStatistics( Duration.standardMinutes( 20 ) );
 
     boolean enforceAuthentication = platformConfig.lookup( "fds.authentication" )
@@ -72,7 +77,7 @@ public class Main {
     Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator( configCache, secretKey ) : new NullAuthenticator();
     Authorizer authorizer = enforceAuthentication ? new FdsAuthorizer( configCache ) : new DumbAuthorizer();
 
-    xdi = new Xdi( amService, configCache, authenticator, authorizer, legacyConfigClient );
+    xdi = new XdiImpl( amService, configCache, authenticator, authorizer, legacyConfigClient );
 
     webApp = new WebApp( webDir );
 
@@ -108,11 +113,11 @@ public class Main {
      */
     events();
 
-    authenticate( HttpMethod.GET, "/api/config/volumes", ( t ) -> new ListVolumes( xdi, amService, legacyConfigClient, t ) );
+    authenticate( HttpMethod.GET, "/api/config/volumes", ( t ) -> new ListVolumes( xdi, legacyConfigClient, t ) );
     authenticate( HttpMethod.POST, "/api/config/volumes", ( t ) -> new CreateVolume( xdi, legacyConfigClient, t ) );
     authenticate( HttpMethod.POST, "/api/config/volumes/clone/:volumeId/:cloneVolumeName", ( t ) -> new CloneVolume( configCache, legacyConfigClient ) );
     authenticate( HttpMethod.DELETE, "/api/config/volumes/:name", ( t ) -> new DeleteVolume( xdi, t ) );
-    authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid", ( t ) -> new SetVolumeQosParams( legacyConfigClient, configCache, amService, authorizer, t ) );
+    authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid", ( t ) -> new SetVolumeQosParams( xdi, legacyConfigClient, configCache, authorizer, t ) );
 
     fdsAdminOnly( HttpMethod.GET, "/api/system/token/:userid", ( t ) -> new ShowToken( configCache, secretKey ), authorizer );
     fdsAdminOnly( HttpMethod.POST, "/api/system/token/:userid", ( t ) -> new ReissueToken( configCache, secretKey ), authorizer );
@@ -123,13 +128,13 @@ public class Main {
     fdsAdminOnly( HttpMethod.GET, "/api/system/users", ( t ) -> new ListUsers( configCache, secretKey ), authorizer );
     fdsAdminOnly( HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid", ( t ) -> new AssignUserToTenant( configCache, secretKey ), authorizer );
 
-    new Thread( () -> {
-      try {
-        //new com.formationds.demo.Main().start(configuration.getDemoConfig());
-      } catch( Exception e ) {
-        LOG.error( "Couldn't start demo app", e );
-      }
-    } ).start();
+//    new Thread( () -> {
+//      try {
+//        //new com.formationds.demo.Main().start(configuration.getDemoConfig());
+//      } catch( Exception e ) {
+//        LOG.error( "Couldn't start demo app", e );
+//      }
+//    } ).start();
 
     int httpPort = platformConfig.lookup( "fds.om.http_port" )
                                  .intValue();

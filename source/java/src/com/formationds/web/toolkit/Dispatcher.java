@@ -79,7 +79,7 @@ public class Dispatcher extends HttpServlet {
         } catch (UsageException e) {
             resource = new JsonResource(new JSONObject().put("message", e.getMessage()), HttpServletResponse.SC_BAD_REQUEST);
         } catch (Throwable t) {
-                LOG.fatal(t.getMessage(), t);
+            LOG.fatal(t.getMessage(), t);
             resource = new ErrorPage(t.getMessage(), t);
         }
 
@@ -100,6 +100,9 @@ public class Dispatcher extends HttpServlet {
         outputStream.flush();
         outputStream.doCloseForReal();
 
+        // TODO why do this ourselves instead of using standard Jetty (or other) request logging?
+        // only benefit I see is that we may capture additional log info in the context of the
+        // request execution.
         long elapsed = System.currentTimeMillis() - then;
         LOG.info("Request URI: [" + request.getMethod() + " " + request.getRequestURI() + "], HTTP status: " + resource.getHttpStatus() + ", " + elapsed + "ms");
     }

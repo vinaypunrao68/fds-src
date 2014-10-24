@@ -22,6 +22,10 @@ import java.util.Optional;
 import java.util.function.Function;
 
 public class HttpAuthenticator implements RequestHandler {
+    // TODO: move to security package or somewhere more appropriate.. This is necessary for events to be
+    // able to uniformly access authentication tokens.
+    public static final ThreadLocal<AuthenticationToken> AUTH_SESSION = new InheritableThreadLocal<>();
+
     private static final Logger LOG = Logger.getLogger(HttpAuthenticator.class);
     public static final String FDS_TOKEN = "token";
     private Function<AuthenticationToken, RequestHandler> f;
@@ -35,7 +39,7 @@ public class HttpAuthenticator implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-
+        // TODO: do I need to put the Anonymous user into AUTH_SESSION here?  Anonymous actions are likely less important to track...
         if (authenticator.allowAll()) {
             return f.apply(AuthenticationToken.ANONYMOUS).handle(request, routeParameters);
         }
@@ -56,10 +60,17 @@ public class HttpAuthenticator implements RequestHandler {
 
         try {
             AuthenticationToken token = authenticator.resolveToken(result.get().getValue());
+
+            // Set the authentication in the thread local storage to allow access by the event manager
+            AUTH_SESSION.set(token);
             return f.apply(token).handle(request, routeParameters);
         } catch (LoginException e) {
             LOG.error("Authentication error", e);
             return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
+        }
+        finally {
+            // remove the authentication token immediately upon completion of the request handling
+            AUTH_SESSION.remove();
         }
     }
 

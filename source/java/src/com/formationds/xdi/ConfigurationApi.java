@@ -5,11 +5,14 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.commons.events.*;
 import com.formationds.streaming.StreamingRegistrationMsg;
 import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -37,6 +40,53 @@ public class ConfigurationApi
     new Thread( new Updater() ).start();
   }
 
+
+  enum ConfigEvent implements EventDescriptor {
+
+      CREATE_TENANT(EventCategory.VOLUMES, "Created tenant {}", "identifier"),
+      CREATE_USER(EventCategory.SYSTEM, "Created user {} - admin={}; id={}", "identifier", "isFdsAdmin", "userId"),
+      UPDATE_USER(EventCategory.SYSTEM, "Updated user {} - admin={}; id={}", "identifier", "isFdsAdmin", "userId"),
+      ASSIGN_USER_TENANT(EventCategory.SYSTEM, "Assigned user {} to tenant {}", "userId", "tenantId"),
+      REVOKE_USER_TENANT(EventCategory.SYSTEM, "Revoked user {} from tenant {}", "userId", "tenantId"),
+      CREATE_VOLUME(EventCategory.VOLUMES, "Created volume: domain={}; name={}; settings={}, tenantId={}",
+              "domainName", "volumeName", "volumeSettings", "tenantId" ),
+      DELETE_VOLUME(EventCategory.VOLUMES, "Deleted volume: domain={}; name={}", "domainName", "volumeName"),
+      CREATE_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Created snapshot policy {} {} {}; id={}", "name", "recurrence", "retention", "id" ),
+      DELETE_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Deleted snapshot policy: id={}", "id"),
+      ATTACH_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Attached snapshot policy {} to volume id {}", "policyId", "volumeId"),
+      DETACH_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Detached snapshot policy {} from volume id {}", "policyId", "volumeId"),
+      CREATE_SNAPSHOT(EventCategory.VOLUMES, "Created snapshot {} of volume {}.  Retention time = {}", "snapshotName", "volumeId", "retentionTime"),
+
+      CLONE_VOLUME(EventCategory.VOLUMES, "Cloned volume {} with policy id {}; clone name={}; Cloned volume Id = {}", "volumeId", "policyId", "clonedVolumeName", "clonedVolumeId" ),
+      RESTORE_CLONE(EventCategory.VOLUMES, "Restored cloned volume {} with snapshot id {}", "volumeId", "snapshotId");
+
+      private final EventType type;
+      private final EventCategory category;
+      private final EventSeverity severity;
+      private final String defaultMessage;
+      private final List<String> argNames;
+
+      private ConfigEvent(EventCategory category, String defaultMessage, String... argNames) {
+          this(EventType.USER_ACTIVITY, category, EventSeverity.CONFIG, defaultMessage, argNames);
+      }
+      private ConfigEvent(EventType type, EventCategory category, EventSeverity severity,
+                          String defaultMessage, String... argNames) {
+          this.type = type;
+          this.category = category;
+          this.severity = severity;
+          this.defaultMessage = defaultMessage;
+          this.argNames = (argNames != null ? Arrays.asList(argNames) : new ArrayList<String>(0));
+      }
+
+      public String key()               { return name(); }
+      public List<String> argNames()    { return argNames; }
+      public EventType type()           { return type;  }
+      public EventCategory category()   { return category; }
+      public EventSeverity severity()   { return severity; }
+      public String defaultMessage()    { return defaultMessage; }
+
+  }
+
   public long createSnapshotPolicy( final String name, final String recurrence, final long retention )
     throws TException {
     final SnapshotPolicy apisPolicy = new SnapshotPolicy();
@@ -45,7 +95,7 @@ public class ConfigurationApi
     apisPolicy.setRecurrenceRule( recurrence );
     apisPolicy.setRetentionTimeSeconds( retention );
 
-    return config.createSnapshotPolicy( apisPolicy );
+    return createSnapshotPolicy(apisPolicy);
   }
 
   @Override
@@ -53,6 +103,7 @@ public class ConfigurationApi
     throws ApiException, TException {
     long tenantId = config.createTenant( identifier );
     dropCache();
+    EventManager.notifyEvent(ConfigEvent.CREATE_TENANT, identifier);
     return tenantId;
   }
 
@@ -68,6 +119,7 @@ public class ConfigurationApi
     throws ApiException, TException {
     long userId = config.createUser( identifier, passwordHash, secret, isFdsAdmin );
     dropCache();
+    EventManager.notifyEvent(ConfigEvent.CREATE_USER, identifier, isFdsAdmin, userId);
     return userId;
   }
 
@@ -76,6 +128,7 @@ public class ConfigurationApi
     throws ApiException, TException {
     config.assignUserToTenant( userId, tenantId );
     dropCache();
+    EventManager.notifyEvent(ConfigEvent.ASSIGN_USER_TENANT, userId, tenantId);
   }
 
   @Override
@@ -83,6 +136,7 @@ public class ConfigurationApi
     throws ApiException, TException {
     config.revokeUserFromTenant( userId, tenantId );
     dropCache();
+    EventManager.notifyEvent(ConfigEvent.REVOKE_USER_TENANT, userId, tenantId);
   }
 
   @Override
@@ -104,6 +158,7 @@ public class ConfigurationApi
     throws ApiException, TException {
     config.updateUser( userId, identifier, passwordHash, secret, isFdsAdmin );
     dropCache();
+    EventManager.notifyEvent(ConfigEvent.UPDATE_USER, identifier, isFdsAdmin, userId);
   }
 
   @Override
@@ -117,6 +172,7 @@ public class ConfigurationApi
     throws ApiException, TException {
     config.createVolume( domainName, volumeName, volumeSettings, tenantId );
     dropCache();
+    EventManager.notifyEvent(ConfigEvent.CREATE_VOLUME, domainName, volumeName, volumeSettings, tenantId);
   }
 
   @Override
@@ -128,7 +184,7 @@ public class ConfigurationApi
   @Override
   public String getVolumeName( long volumeId )
     throws ApiException, org.apache.thrift.TException {
-    return config.getVolumeName( volumeId );
+    return config.getVolumeName(volumeId);
   }
 
   @Override
@@ -136,6 +192,7 @@ public class ConfigurationApi
     throws ApiException, TException {
     config.deleteVolume( domainName, volumeName );
     dropCache();
+    EventManager.notifyEvent(ConfigEvent.DELETE_VOLUME, domainName, volumeName);
   }
 
   @Override
@@ -155,25 +212,28 @@ public class ConfigurationApi
   @Override
   public int registerStream( String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds )
     throws TException {
-    return config.registerStream( url, http_method, volume_names, sample_freq_seconds, duration_seconds );
+    return config.registerStream(url, http_method, volume_names, sample_freq_seconds, duration_seconds);
   }
 
   @Override
   public List<StreamingRegistrationMsg> getStreamRegistrations( int ignore )
     throws TException {
-    return config.getStreamRegistrations( ignore );
+    return config.getStreamRegistrations(ignore);
   }
 
   @Override
   public void deregisterStream( int registration_id )
     throws TException {
-    config.deregisterStream( registration_id );
+    config.deregisterStream(registration_id);
   }
 
   @Override
   public long createSnapshotPolicy( com.formationds.apis.SnapshotPolicy policy )
     throws ApiException, org.apache.thrift.TException {
-    return config.createSnapshotPolicy( policy );
+    long l = config.createSnapshotPolicy(policy);
+    // TODO: is the value returned the new policy id?
+    EventManager.notifyEvent(ConfigEvent.CREATE_SNAPSHOT_POLICY, policy.getPolicyName(), policy.getRecurrenceRule(), policy.getRetentionTimeSeconds(), l);
+    return l;
   }
 
   @Override
@@ -187,7 +247,8 @@ public class ConfigurationApi
   @Override
   public void deleteSnapshotPolicy( long id )
     throws ApiException, org.apache.thrift.TException {
-    config.deleteSnapshotPolicy( id );
+      config.deleteSnapshotPolicy( id );
+      EventManager.notifyEvent(ConfigEvent.DELETE_SNAPSHOT_POLICY, id);
   }
 
   // TODO need deleteSnapshotForVolume Iface call.
@@ -196,42 +257,47 @@ public class ConfigurationApi
   public void attachSnapshotPolicy( long volumeId, long policyId )
     throws ApiException, org.apache.thrift.TException {
     config.attachSnapshotPolicy( volumeId, policyId );
+    EventManager.notifyEvent(ConfigEvent.ATTACH_SNAPSHOT_POLICY, policyId, volumeId);
   }
 
   @Override
   public List<com.formationds.apis.SnapshotPolicy> listSnapshotPoliciesForVolume( long volumeId )
     throws ApiException, org.apache.thrift.TException {
-    return config.listSnapshotPoliciesForVolume( volumeId );
+    return config.listSnapshotPoliciesForVolume(volumeId);
   }
 
   @Override
   public void detachSnapshotPolicy( long volumeId, long policyId )
     throws ApiException, org.apache.thrift.TException {
     config.detachSnapshotPolicy( volumeId, policyId );
+    EventManager.notifyEvent(ConfigEvent.DETACH_SNAPSHOT_POLICY, policyId, volumeId);
   }
 
   @Override
   public List<Long> listVolumesForSnapshotPolicy( long policyId )
     throws ApiException, org.apache.thrift.TException {
-    return config.listVolumesForSnapshotPolicy( policyId );
+    return config.listVolumesForSnapshotPolicy(policyId);
   }
 
   @Override
   public void createSnapshot( long volumeId, String snapshotName, long retentionTime )
     throws ApiException, TException {
-    config.createSnapshot( volumeId, snapshotName, retentionTime );
+    config.createSnapshot(volumeId, snapshotName, retentionTime);
+    // TODO: is there a generated snapshot id?
+    EventManager.notifyEvent(ConfigEvent.CREATE_SNAPSHOT, snapshotName, volumeId, retentionTime);
   }
 
   @Override
   public List<com.formationds.apis.Snapshot> listSnapshots( long volumeId )
     throws ApiException, org.apache.thrift.TException {
-    return config.listSnapshots( volumeId );
+    return config.listSnapshots(volumeId);
   }
 
   @Override
   public void restoreClone( long volumeId, long snapshotId )
     throws ApiException, org.apache.thrift.TException {
     config.restoreClone( volumeId, snapshotId );
+    EventManager.notifyEvent(ConfigEvent.RESTORE_CLONE, volumeId, snapshotId);
   }
 
   @Override
@@ -243,6 +309,7 @@ public class ConfigurationApi
     }
     dropCache();
 
+    EventManager.notifyEvent(ConfigEvent.CLONE_VOLUME, volumeId, fdsp_PolicyInfoId, clonedVolumeName, clonedVolumeId);
     return clonedVolumeId;
   }
 

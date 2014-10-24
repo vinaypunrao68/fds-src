@@ -3,6 +3,10 @@
  */
 package com.formationds.commons.model.entity;
 
+import com.formationds.commons.events.EventCategory;
+import com.formationds.commons.events.EventSeverity;
+import com.formationds.commons.events.EventState;
+import com.formationds.commons.events.EventType;
 import com.formationds.commons.model.abs.ModelBase;
 
 import javax.persistence.*;
@@ -16,89 +20,24 @@ import java.time.Instant;
  * Design note: this prototype departs from the common JPA pattern with public setters for everything.
  * Instead, it makes all of the setters protected, which still allows JPA to call the setters when loading the
  * object from the persistent store, but allows them to be treated as if they were immutable to clients.
- * It should also be possible to annotate fields and NOT have setters at all for those fields considered
- * immutable.
+ * In most JPA implementations (hibernate) it is possible to annotate fields and NOT have setters at
+ * all for those fields considered immutable.
  */
 @XmlRootElement
 @Entity
-public class Event extends ModelBase {
-
-    /**
-     * TODO: this may make more sense as subclass for each different type of event to allow different representations?
-     */
-    public enum EventType {
-        USER_ACTIVITY,
-        SYSTEM_EVENT
-    }
-
-    /**
-     *
-     */
-    public enum EventCategory {
-        PERFORMANCE,
-        FIREBREAK,
-        VOLUMES,
-        STORAGE,
-        SYSTEM
-    }
-
-    /**
-     * TODO: do we want to represent state similar to Nagios
-     * where there is a SOFT (detected problem, but give it some time to re-check)
-     * and a HARD state type indicating configured re-check attempts have all failed.
-     *
-     * http://nagios.sourceforge.net/docs/nagioscore/4/en/statetypes.html
-     */
-    public enum EventState { SOFT, HARD, RECOVERED }
-
-    /**
-     * TODO: use SLF4J (or similar) severity definitions?
-     */
-    public enum Severity {
-        /** Unknown severity */
-        UNKNOWN,
-
-        /** Represents a configuration change */
-        CONFIG,
-
-        /** The event is informational in nature.  No administrator action is required */
-        INFO,
-
-        /**
-         * The event represents a warning that something in the system has occurred that
-         * may require administrator action to identify and resolve.  The system is operating
-         * normally at this time.
-         */
-        WARNING,
-
-        /**
-         * An error has occurred in the system and may require administrator action to
-         * identify and resolve.  One or more features may not be operating properly, but
-         * the system as a whole is operating.
-         */
-        ERROR,
-
-        /**
-         * A critical event indicates that one or more subsystems has an error that requires
-         * immediate administrator action to identify and resolve.
-         */
-        CRITICAL,
-
-        /**
-         * A fatal event indicates that one or more subsystems has failed and the system is
-         * not operating properly.  Recovery attempts have failed and immediate administrator
-         * action is required.
-         */
-        FATAL
-    }
+abstract public class Event extends ModelBase {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    private long id;
+    private Long id;
 
     @Enumerated(EnumType.ORDINAL) private EventType type;
     @Enumerated(EnumType.ORDINAL) private EventCategory category;
-    @Enumerated(EnumType.ORDINAL) private Severity severity;
+    @Enumerated(EnumType.ORDINAL) private EventSeverity severity;
+
+    // TODO: do we need to represent Success/Failure events?  For example in configuration activity?
+    // TODO: should a change in event state be treated as a new event?  If so, we will need a mechanism to
+    // track the original event?
     @Enumerated(EnumType.ORDINAL) private EventState state;
 
     @Temporal(TemporalType.TIMESTAMP) private Timestamp initialTimestamp;
@@ -134,12 +73,13 @@ public class Event extends ModelBase {
      * @param messageKey resource bundle message lookup key
      * @param messageArgs resource bundle message arguments
      */
-    public Event(EventType type, EventCategory category, Severity severity,
+    public Event(EventType type, EventCategory category, EventSeverity severity,
                  String messageKey, Object... messageArgs) {
         this.type = type;
         this.category = category;
         this.severity = severity;
         this.initialTimestamp = new Timestamp(Instant.now().toEpochMilli());
+        this.modifiedTimestamp = this.initialTimestamp;
         this.messageKey = messageKey;
         this.messageArgs = (messageArgs != null ? messageArgs.clone() : new Object[0]);
         state = EventState.SOFT;
@@ -237,7 +177,7 @@ public class Event extends ModelBase {
      *
      * @return the event severity
      */
-    public Severity getSeverity() {
+    public EventSeverity getSeverity() {
         return severity;
     }
 
@@ -249,7 +189,7 @@ public class Event extends ModelBase {
      *
      * @param severity
      */
-    protected void setSeverity(Severity severity) {
+    protected void setSeverity(EventSeverity severity) {
         this.severity = severity;
     }
 
@@ -265,7 +205,7 @@ public class Event extends ModelBase {
      * Set the event state.
      *
      * Note that this is provided to satisfy JPA persistence requirements.  The state should
-     * only be set through the {@link #updateEventState(com.formationds.commons.model.entity.Event.EventState)}
+     * only be set through the {@link #updateEventState(com.formationds.commons.events.EventState)}
      * API.
      *
      * @param state
@@ -306,7 +246,7 @@ public class Event extends ModelBase {
      *
      * Note that this is provided to satisfy JPA persistence requirements.
      * The modified timestamp should only be modified internally through APIs that alter the event, such
-     * as {@link #updateEventState(com.formationds.commons.model.entity.Event.EventState)}.
+     * as {@link #updateEventState(com.formationds.commons.events.EventState)}.
      *
      * @param modifiedTimestamp
      */

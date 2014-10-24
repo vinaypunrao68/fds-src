@@ -6,7 +6,7 @@ package com.formationds.xdi.s3;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.*;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.XdiAsync;
+import com.formationds.xdi.XdiAsyncImpl;
 import org.joda.time.DateTime;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -20,15 +20,15 @@ public class S3Endpoint {
     public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
 
     private Xdi xdi;
-    private XdiAsync.Factory xdiAsync;
+    private XdiAsyncImpl.Factory xdiAsyncFactory;
     private SecretKey secretKey;
     private HttpsConfiguration httpsConfiguration;
     private HttpConfiguration httpConfiguration;
     private final WebApp webApp;
 
-    public S3Endpoint(Xdi xdi, XdiAsync.Factory xdiAsync, SecretKey secretKey, HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
+    public S3Endpoint(Xdi xdi, XdiAsyncImpl.Factory xdiAsyncFactory, SecretKey secretKey, HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
         this.xdi = xdi;
-        this.xdiAsync = xdiAsync;
+        this.xdiAsyncFactory = xdiAsyncFactory;
         this.secretKey = secretKey;
         this.httpsConfiguration = httpsConfiguration;
         this.httpConfiguration = httpConfiguration;
@@ -49,7 +49,7 @@ public class S3Endpoint {
         authenticate(HttpMethod.HEAD, "/:bucket/:object", (t) -> new HeadObject(xdi, t));
         authenticate(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
 
-        webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsync, new S3Authenticator(xdi, secretKey)));
+        webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsyncFactory, new S3Authenticator(xdi, secretKey)));
 
         webApp.start(httpConfiguration, httpsConfiguration);
     }

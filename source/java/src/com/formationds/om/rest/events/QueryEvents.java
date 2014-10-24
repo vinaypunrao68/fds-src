@@ -5,7 +5,6 @@
 package com.formationds.om.rest.events;
 
 import com.formationds.commons.model.entity.EventQuery;
-import com.formationds.commons.model.entity.MetricQuery;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
