@@ -78,9 +78,9 @@ public class QueryHelper {
           logger.trace( "firebreak series: {}", s );
           series.add( s );
         }
-      } else {
-        logger.trace( "no firebreak data available" );
       }
+
+      // TODO add check for firebreak, if is a firebreak query then skip everything below!
 
       for( final Metrics m : query.getSeriesType() ) {
         logger.trace( "Gathering statistics for '{}'", m.key() );
@@ -156,7 +156,7 @@ public class QueryHelper {
                           s.setType( metrics );
                           s.setContext(
                             new VolumeBuilder().withName( p.getVolumeName() )
-                                               .withId( String.valueOf( p.getId() ) )
+                                               .withId( String.valueOf( p.getVolumeId() ) )
                                                .build() );
                       } );
       series.add( s );

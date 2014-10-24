@@ -67,12 +67,12 @@ public class RecurrenceRule
    */
   static enum iCalWeekDay {
     SU( 0 ),
-    MO( 0 ),
-    TU( 0 ),
-    WE( 0 ),
-    TH( 0 ),
-    FR( 0 ),
-    SA( 0 );
+    MO( 1 ),
+    TU( 2 ),
+    WE( 3 ),
+    TH( 4 ),
+    FR( 5 ),
+    SA( 6 );
 
     private final int offset;
 
@@ -94,7 +94,7 @@ public class RecurrenceRule
     /**
      * @param weekDay the {@link iCalWeekDay}
      *
-     * @return Returns {@code true} if equal. Otherwise, {P@code false}
+     * @return Returns {@code true} if equal. Otherwise, {@code false}
      */
     public final boolean equals( final iCalWeekDay weekDay ) {
       return weekDay != null && weekDay.getOffset() == getOffset();
@@ -192,106 +192,184 @@ public class RecurrenceRule
     validate();
   }
 
+  /**
+   * @return Returns {@link Integer} representing the ical interval
+   */
   public Integer getInterval() {
     return interval;
   }
 
+  /**
+   * @param interval the {@link Integer} representing the ical interval
+   */
   public void setInterval( final Integer interval ) {
     this.interval = interval;
   }
 
+  /**
+   * @return Returns {@link Integer} representing the ical count
+   */
   public Integer getCount() {
     return count;
   }
 
+  /**
+   * @param count the {@link Integer} representing the ical count
+   */
   public void setCount( final Integer count ) {
     this.count = count;
   }
 
+  /**
+   * @return Returns {@link Date} representing the ical until
+   */
   public Date getUntil() {
     return until;
   }
 
+  /**
+   * @param until the {@link Date} representing the ical until
+   */
   public void setUntil( final Date until ) {
     this.until = until;
   }
 
+  /**
+   * @return Returns {@link String} representing the ical week start day
+   */
   public String getWeekStartDay() {
     return weekStartDay;
   }
 
+  /**
+   * @param weekStartDay the {@link String} representing the ical week start day
+   */
   public void setWeekStartDay( final String weekStartDay ) {
     this.weekStartDay = weekStartDay;
   }
 
+  /**
+   * @return Returns {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public Numbers<Integer> getPosition() {
     return position;
   }
 
+  /**
+   * @param position {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public void setPosition( final Numbers<Integer> position ) {
     this.position = position;
   }
 
+  /**
+   * @return Returns {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public Numbers<Integer> getMonths() {
     return months;
   }
 
+  /**
+   * @param months {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public void setMonths( final Numbers<Integer> months ) {
     this.months = months;
   }
 
+  /**
+   * @return Returns {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public Numbers<Integer> getWeekNo() {
     return weekNo;
   }
 
+  /**
+   * @param weekNo the {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public void setWeekNo( final Numbers<Integer> weekNo ) {
     this.weekNo = weekNo;
   }
 
+  /**
+   * @return Returns {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public Numbers<Integer> getYearDays() {
     return yearDays;
   }
 
+  /**
+   * @param yearDays teh {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public void setYearDays( final Numbers<Integer> yearDays ) {
     this.yearDays = yearDays;
   }
 
+  /**
+   * @return Returns {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public Numbers<Integer> getMonthDays() {
     return monthDays;
   }
 
+  /**
+   * @param monthDays the {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public void setMonthDays( final Numbers<Integer> monthDays ) {
     this.monthDays = monthDays;
   }
 
+  /**
+   * @return Returns {@link WeekDays} of {@link iCalWeekDay}
+   */
   public WeekDays<iCalWeekDay> getDays() {
     return days;
   }
 
+  /**
+   * @param days the {@link WeekDays} of {@link iCalWeekDay}
+   */
   public void setDays( final WeekDays<iCalWeekDay> days ) {
     this.days = days;
   }
 
+  /**
+   * @return Returns the {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public Numbers<Integer> getMinutes() {
     return minutes;
   }
 
+  /**
+   * @param minutes the the {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public void setMinutes( final Numbers<Integer> minutes ) {
     this.minutes = minutes;
   }
 
+  /**
+   * @return Returns the {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public Numbers<Integer> getHours() {
     return hours;
   }
 
+  /**
+   * @param hours the the {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public void setHours( final Numbers<Integer> hours ) {
     this.hours = hours;
   }
 
+  /**
+   * @return Returns the {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public Numbers<Integer> getSeconds() {
     return seconds;
   }
 
+  /**
+   * @param seconds teh the {@link com.formationds.commons.util.Numbers} of {@link java.lang.Integer}
+   */
   public void setSeconds( final Numbers<Integer> seconds ) {
     this.seconds = seconds;
   }
@@ -319,41 +397,42 @@ public class RecurrenceRule
       if( iCalKeys.FREQ.equals( iCalKeys.valueOf( token ) ) ) {
         RRule.setFrequency( nextToken( t, token ) );
       } else {
+        final iCalKeys key = iCalKeys.valueOf( token );
         if( iCalKeys.UNTIL.equals( iCalKeys.valueOf( token ) ) ) {
           final String untilString = nextToken( t, token );
           RRule.setUntil( ObjectModelHelper.toiCalFormat( untilString ) );
-        } else if( iCalKeys.COUNT.equals( iCalKeys.valueOf( token ) ) ) {
+        } else if( iCalKeys.COUNT.equals( key ) ) {
           RRule.setCount( Integer.parseInt( nextToken( t, token ) ) );
-        } else if( iCalKeys.INTERVAL.equals( iCalKeys.valueOf( token ) ) ) {
+        } else if( iCalKeys.INTERVAL.equals( key ) ) {
           RRule.setInterval( Integer.parseInt( nextToken( t, token ) ) );
-        } else if( iCalKeys.BYSECOND.equals( iCalKeys.valueOf( token ) ) ) {
+        } else if( iCalKeys.BYSECOND.equals( key ) ) {
           seconds.add( nextToken( t, token ), "," );
           RRule.setSeconds( seconds );
-        } else if( iCalKeys.BYMINUTE.equals( iCalKeys.valueOf( token ) ) ) {
+        } else if( iCalKeys.BYMINUTE.equals( key ) ) {
           minutes.add( nextToken( t, token ), "," );
           RRule.setMinutes( minutes );
-        } else if( iCalKeys.BYHOUR.equals( iCalKeys.valueOf( token ) ) ) {
+        } else if( iCalKeys.BYHOUR.equals( key ) ) {
           hours.add( nextToken( t, token ), "," );
           RRule.setHours( hours );
-        } else if( iCalKeys.BYDAY.equals( iCalKeys.valueOf( token ) ) ) {
+        } else if( iCalKeys.BYDAY.equals( key ) ) {
           days.add( nextToken( t, token ), "," );
           RRule.setDays( days );
-        } else if( iCalKeys.BYMONTHDAY.equals( iCalKeys.valueOf( token ) ) ) {
+        } else if( iCalKeys.BYMONTHDAY.equals( key ) ) {
           monthDays.add( nextToken( t, token ), "," );
           RRule.setMonthDays( monthDays );
-        } else if( iCalKeys.BYYEARDAY.equals( iCalKeys.valueOf( token ) ) ) {
+        } else if( iCalKeys.BYYEARDAY.equals( key ) ) {
           yearDays.add( nextToken( t, token ), "," );
           RRule.setYearDays( yearDays );
-        } else if( iCalKeys.BYWEEKNO.equals( iCalKeys.valueOf( token ) ) ) {
+        } else if( iCalKeys.BYWEEKNO.equals( key ) ) {
           weekNo.add( nextToken( t, token ), "," );
           RRule.setWeekNo( weekNo );
-        } else if( iCalKeys.BYMONTH.equals( iCalKeys.valueOf( token ) ) ) {
+        } else if( iCalKeys.BYMONTH.equals( key ) ) {
           months.add( nextToken( t, token ), "," );
           RRule.setMonths( months );
-        } else if( iCalKeys.BYSETPOS.equals( iCalKeys.valueOf( token ) ) ) {
+        } else if( iCalKeys.BYSETPOS.equals( key ) ) {
           position.add( nextToken( t, token ), "," );
           RRule.setPosition( position );
-        } else if( iCalKeys.WKST.equals( iCalKeys.valueOf( token ) ) ) {
+        } else if( iCalKeys.WKST.equals( key ) ) {
           weekStartDay = nextToken( t, token );
           RRule.setWeekStartDay( weekStartDay );
         }
