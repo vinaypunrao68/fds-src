@@ -4,13 +4,39 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
         restrict: 'E',
         replace: true,
         transclude: false,
-        templateUrl: 'scripts/directives/widgets/statustile/statusTile.html',
+        templateUrl: 'scripts/directives/widgets/summarynumberdisplay/summaryNumberDisplay.html',
         // data is an array of numbers and can hold up to 3
         // [{number: number, description: desc, suffix: suffix}, ... ]
-        scope: { data: '=ngModel' }, 
-        controller: function( $scope ){
+        scope: { data: '=ngModel', autoChange: '@' }, 
+        controller: function( $scope, $interval ){
             
-            $scope.visibleIndex = 0;
+            $scope.visibleIndex = -1;
+            $scope.numberFontSize = 34;
+            $scope.numberMinWidth = 0;
+            $scope.decimalFontSize = 18;
+            $scope.decimalMinWidth = 0;
+            $scope.intervalId = -1;
+            
+            $scope.dotClicked = function( $index ){
+                
+                var numSize = measureText( $scope.data[$index].wholeNumber, $scope.numberFontSize );
+                $scope.numberMinWidth = numSize.width + 'px';
+                
+                var dStr = '';
+                
+                if ( $scope.data[$index].decimals > 0 ){
+                    dStr = $scope.data[$index].decimals + '.';
+                }
+                
+                if ( angular.isDefined( $scope.data[ $index ].suffix ) ){
+                    dStr += $scope.data[ $index].suffix;
+                }
+                
+                var decSize = measureText( dStr, $scope.decimalFontSize );
+                $scope.decimalMinWidth = decSize.width + 'px';
+                
+                $scope.visibleIndex = $index;
+            };
             
             var calculateNumbers = function( item ){
                 
@@ -23,12 +49,37 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
             
             $scope.$watch( 'data', function( newVal ){
                 
-                if ( $scope.data.length === 0 ){
+                if ( !angular.isDefined( $scope.data ) || $scope.data.length === 0 ){
                     return;
                 }
                 
                 for ( var i = 0; i < $scope.data.length; i++ ){
-                    calculateNumbers();
+                    calculateNumbers( $scope.data[i] );
+                }
+                
+                if ( $scope.visibleIndex === -1 ){
+                    $scope.dotClicked( 0 );
+                }
+            });
+            
+            if ( $scope.autoChange === true || $scope.autoChange === 'true' ){
+                intervalId = $interval( function(){
+                    
+                    if ( !angular.isDefined( $scope.data ) ){
+                        $interval.cancel( intervalId );
+                        return;
+                    }
+                    
+                    var i = $scope.visibleIndex;
+                    i = (i+1) % $scope.data.length;
+                    $scope.visibleIndex = i;
+                },
+                10000 );
+            }
+            
+            $scope.$on( '$destroy', function(){
+                if ( intervalId !== -1 ){
+                    $interval.cancel( intervalId );
                 }
             });
         }

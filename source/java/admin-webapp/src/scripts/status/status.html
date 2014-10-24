@@ -16,8 +16,7 @@
             </div>
             <div class="tile-parent">
 <!--                <div class="capacity-tile tile"></div>-->
-                <status-tile tile-title="{{ 'status.l_capacity' | translate }}" bold-number="62"
-                    description="what what what what">
+                <status-tile tile-title="{{ 'status.l_capacity' | translate }}" calculated-data="items">
                     <line-chart data="capacityStats" colors="fakeCapColors" opacities="fakeOpacities" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText"></line-chart>
                 </status-tile>
             </div>
@@ -25,15 +24,13 @@
         <div class="tile-pair">
             <div class="tile-parent">
 <!--                <div class="performance-tile tile"></div>-->
-                <status-tile tile-title="{{ 'status.l_performance' | translate }}" bold-number="23"
-                    description="what what what what">
+                <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="items">
                     <line-chart data="performanceStats" colors="fakeColors" opacities="fakeOpacities" suffix="IOPs" axis-color="#A0A0A0"></line-chart>
                 </status-tile>
             </div>
             <div class="tile-parent">
 <!--                <div class="firebreak-tile tile"></div>-->
-                <status-tile tile-title="{{ 'status.l_firebreak' | translate }}" bold-number="firebreakStats.summaryData.hoursSinceLastEvent"
-                    description="{{ 'status.desc_firebreak' | translate }}">
+                <status-tile tile-title="{{ 'status.l_firebreak' | translate }}" calculated-data="items">
                     <treemap data="firebreakStats" tooltip="setFirebreakToolipText" color-property="secondsSinceLastFirebreak"
                         domain="firebreakDomain" range="firebreakRange" transform-value-function="transformFirebreakTime"></treemap>
                 </status-tile>
