@@ -26,6 +26,8 @@ ifdef user_std_libs
         hiredis \
         fiu \
         dl
+
+	user_static_libs := ev
 endif
 
 incl_scripts := $(M)$(topdir)/Build/mk-scripts

@@ -66,7 +66,7 @@ class TierPutAlgo {
       * @return the tier to place the object
       */
      virtual diskio::DataTier selectTier(const ObjectID &oid,
-                                         fds_volid_t     vol) = 0;
+                                         const VolumeDesc& voldesc) = 0;
      virtual ~TierPutAlgo() {}
 };
 
@@ -158,7 +158,7 @@ class TierEngine : public Module {
       * @return the tier to place object
       */
      diskio::DataTier selectTier(const ObjectID &oid,
-                                 fds_volid_t     vol);
+                                 const VolumeDesc& voldesc);
 
      /**
       * Called when new object is inserted to flash tier

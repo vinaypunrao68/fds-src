@@ -25,6 +25,7 @@ user_fds_ar_libs  :=  \
     fds-thread \
     fds-osdep
 
+user_static_libs  := ev
 user_non_fds_libs :=  \
     boost_log \
     boost_system \
