@@ -2,10 +2,18 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
 
     var api = {};
 
-    var pollerId;
+    var pollerId = -1;
 
+    var startPoller = function(){
+        pollerId = $interval( getVolumes, 10000 );
+    };
+    
     var getVolumes = function( callback ){
 
+        if ( pollerId === -1 ){
+            startPoller();
+        }
+        
         return $http_fds.get( '/api/config/volumes',
             function( data ){
                 api.volumes = data;
@@ -22,10 +30,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     });
 
     $rootScope.$on( 'fds::authentication_success', function(){
-
-        getVolumes().then( function(){
-            pollerId = $interval( getVolumes, 10000 );
-        });
+        getVolumes().then( startPoller );
     });
 
     api.save = function( volume, callback, failure ){
