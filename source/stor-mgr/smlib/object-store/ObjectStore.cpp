@@ -20,6 +20,9 @@ ObjectStore::ObjectStore(const std::string &modName,
           conf_verify_data(true),
           numBitsPerToken(0),
           diskMap(new SmDiskMap("SM Disk Map Module")),
+          tierEngine(new TierEngine("SM Tier Engine",
+                                    TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
+                                    volTbl)),
           dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
           metaStore(new ObjectMetadataStore(
               "SM Object Metadata Storage Module")) {
@@ -39,13 +42,14 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
     } else if (err == ERR_INVALID_DLT) {
         return;  // we are ignoring this DLT
     }
-    fds_verify(err.ok());
+    fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
 
     // open metadata store for tokens owned by this SM
     err = metaStore->openMetadataStore(diskMap);
     fds_verify(err.ok());
 
-    err = dataStore->openDataStore(diskMap);
+    err = dataStore->openDataStore(diskMap,
+                                   (err == ERR_SM_NOERR_PRISTINE_STATE));
     fds_verify(err.ok());
 }
 
@@ -141,14 +145,22 @@ ObjectStore::putObject(fds_volid_t volId,
     // on a subsequent scavenger pass.
     if (err.ok()) {
         // object not duplicate
-        // TODO(Anna) call tierEngine->selectTier(objId, volId);
-        useTier = diskio::diskTier;
+        // select tier to put object
+        StorMgrVolume *vol = volumeTbl->getVolume(volId);
+        fds_verify(vol);
+        useTier = tierEngine->selectTier(objId, *vol->voldesc);
+        // put object to datastore
         obj_phy_loc_t objPhyLoc;  // will be set by data store
         err = dataStore->putObjectData(volId, objId, useTier, objData, objPhyLoc);
         if (!err.ok()) {
             LOGERROR << "Failed to write " << objId << " to obj data store "
                      << err;
             return err;
+        }
+        // successfully put object
+        if (useTier == diskio::flashTier) {
+            // notify tier engine we put object to flash
+            tierEngine->handleObjectPutToFlash(objId, *vol->voldesc);
         }
 
         // update physical location that we got from data store
@@ -222,6 +234,8 @@ ObjectStore::getObject(fds_volid_t volId,
         }
     }
 
+    // TODO(Anna) update tier stats that an object was accessed
+
     return objData;
 }
 
@@ -287,6 +301,21 @@ ObjectStore::deleteObject(fds_volid_t volId,
     if (updatedMeta->getRefCnt() < 1) {
         err = dataStore->removeObjectData(volId, objId, updatedMeta);
     }
+
+    return err;
+}
+
+Error
+ObjectStore::moveObjectToTier(const ObjectID& objId,
+                              diskio::DataTier fromTier,
+                              diskio::DataTier toTier,
+                              fds_bool_t relocateFlag) {
+    Error err(ERR_OK);
+    fds_panic("Not implemented yet");
+    // TODO(Anna) read from 'fromTier' tier, write to 'toTier'
+    // and then update metadata
+    // if relocateFlag == true: remove 'fromTier' location --
+    // removePhyLocation(fromTier)
 
     return err;
 }
@@ -415,6 +444,7 @@ ObjectStore::mod_init(SysParams const *const p) {
         diskMap.get(),
         dataStore.get(),
         metaStore.get(),
+        tierEngine.get(),
         NULL
     };
     mod_intern = objStoreDepMods;

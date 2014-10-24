@@ -57,15 +57,20 @@ Error DmVolumeDirectory::addCatalog(const VolumeDesc & voldesc) {
             std::hex << voldesc.volUUID << std::dec << "'";
 
     DmPersistVolDir::ptr vol;
+    /*
+     * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
     if (fpi::FDSP_VOL_S3_TYPE == voldesc.volType) {
+    */
         vol.reset(new DmPersistVolDB(voldesc.volUUID, voldesc.maxObjSizeInBytes,
                     voldesc.isSnapshot(), voldesc.isSnapshot(),
                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
+    /*
     } else {
         vol.reset(new DmPersistVolFile(voldesc.volUUID, voldesc.maxObjSizeInBytes,
                     voldesc.isSnapshot(), voldesc.isSnapshot(),
                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
     }
+    */
 
     SCOPEDWRITE(volMapLock_);
     fds_verify(!volMap_.count(voldesc.volUUID));
@@ -112,13 +117,18 @@ Error DmVolumeDirectory::copyVolume(const VolumeDesc & voldesc) {
 
     if (rc.ok()) {
         DmPersistVolDir::ptr vol;
+        /*
+         * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
         if (fpi::FDSP_VOL_S3_TYPE == volType) {
+        */
             vol.reset(new DmPersistVolDB(voldesc.volUUID, objSize, voldesc.isSnapshot(),
                     voldesc.isSnapshot(), voldesc.srcVolumeId));
+        /*
         } else {
             vol.reset(new DmPersistVolFile(voldesc.volUUID, objSize, voldesc.isSnapshot(),
                     voldesc.isSnapshot(), voldesc.srcVolumeId));
         }
+        */
 
         SCOPEDWRITE(volMapLock_);
         fds_verify(0 == volMap_.count(voldesc.volUUID));

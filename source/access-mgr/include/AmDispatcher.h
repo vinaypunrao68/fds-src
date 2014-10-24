@@ -120,6 +120,16 @@ class AmDispatcher : public Module, public boost::noncopyable {
      */
     void dispatchStatBlob(AmQosReq *qosReq);
 
+    /**
+     * Dispatches a set metadata on blob transaction request.
+     */
+    void dispatchSetBlobMetadata(AmQosReq *qosReq);
+
+    /**
+     * Dispatches a volume contents (list bucket) transaction request.
+     */
+    void dispatchVolumeContents(AmQosReq *qosReq);
+
   private:
     /// Shared ptrs to the DLT and DMT managers used
     /// for deciding who to dispatch to
@@ -159,6 +169,14 @@ class AmDispatcher : public Module, public boost::noncopyable {
                            boost::shared_ptr<std::string> payload);
 
     /**
+     * Callback for set metadata on blob responses.
+     */
+    void setBlobMetadataCb(AmQosReq *qosReq,
+                           QuorumSvcRequest* svcReq,
+                           const Error& error,
+                           boost::shared_ptr<std::string> payload);
+
+    /**
      * Callback for stat blob responses.
      */
     void statBlobCb(AmQosReq *qosReq,
@@ -181,6 +199,14 @@ class AmDispatcher : public Module, public boost::noncopyable {
                      QuorumSvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for stat blob responses.
+     */
+    void volumeContentsCb(AmQosReq *qosReq,
+                          FailoverSvcRequest* svcReq,
+                          const Error& error,
+                          boost::shared_ptr<std::string> payload);
 };
 
 }  // namespace fds

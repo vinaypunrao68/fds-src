@@ -58,7 +58,7 @@ class FDS_NativeAPI {
                    std::string prefix, std::string marker,
                    std::string delimiter, fds_uint32_t maxkeys,
                    void *requestContext,
-                   fdsnListBucketHandler handler, void *callbackData);
+                   fdsnVolumeContentsHandler handler, void *callbackData);
 
     /// Delete a bucket
     void DeleteBucket(BucketContext *bucketCtxt,

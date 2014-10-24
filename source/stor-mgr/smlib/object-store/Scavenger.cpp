@@ -28,6 +28,7 @@ ScavControl::ScavControl(const std::string &modName,
           max_disks_compacting(DEFAULT_MAX_DISKS_COMPACTING),
           dataStoreReqHandler(data_store),
           persistStoreGcHandler(persist_store),
+          noPersistScavStats(false),
           scav_timer(new FdsTimer()),
           scav_timer_task(new ScavTimerTask(*scav_timer, this))
 {
@@ -91,7 +92,8 @@ ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
             DiskScavenger *diskScav = new DiskScavenger(*cit, diskio::diskTier,
                                                         dataStoreReqHandler,
                                                         persistStoreGcHandler,
-                                                        diskMap);
+                                                        diskMap,
+                                                        noPersistScavStats);
             fds_verify(diskScavTbl.count(*cit) == 0);
             diskScavTbl[*cit] = diskScav;
             LOGNORMAL << "Added scavenger for HDD " << *cit;
@@ -112,6 +114,7 @@ ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
         }
         */
     }
+    noPersistScavStats = false;
 }
 
 Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap)
@@ -160,6 +163,13 @@ void ScavControl::disableScavenger()
     } else {
         LOGNOTIFY << "Scavenger was already disabled";
     }
+}
+
+void
+ScavControl::setPersistState() {
+    // call this method in disabled state only
+    fds_verify(!std::atomic_load(&enabled));
+    noPersistScavStats = true;
 }
 
 void ScavControl::startScavengeProcess()
@@ -334,12 +344,14 @@ DiskScavenger::DiskScavenger(fds_uint16_t _disk_id,
                              diskio::DataTier _tier,
                              SmIoReqHandler *data_store,
                              SmPersistStoreHandler* persist_store,
-                             const SmDiskMap::const_ptr& diskMap)
+                             const SmDiskMap::const_ptr& diskMap,
+                             fds_bool_t noPersistStateScavStats)
         : disk_id(_disk_id),
           disk_scav_lock("Disk-Scav Lock"),
           smDiskMap(diskMap),
           persistStoreGcHandler(persist_store),
           tier(_tier),
+          noPersistScavStats(noPersistStateScavStats),
           scav_policy()  // default policy
 {
     state = ATOMIC_VAR_INIT(SCAV_STATE_IDLE);
@@ -401,7 +413,17 @@ void DiskScavenger::updateDiskStats() {
     DiskStat disk_stat;
     double tot_size;
     fds_uint32_t avail_percent;  // percent of available capacity
-    fds_uint32_t token_reclaim_threshold;
+    fds_uint32_t token_reclaim_threshold = 0;
+
+    // we are not persisting deleted bytes, so we if this is the
+    // first time we are checking if we should do GC after SM
+    // restart, we cannot check deleted bytes (except for reading
+    // the whole objectDB and recalculating them; should we do that?)
+    // In this case, we are going to start compaction process for this
+    // disk without checking stats
+    if (noPersistScavStats) {
+        startScavenge(token_reclaim_threshold);
+    }
 
     err = getDiskStats(&disk_stat);
     fds_verify(err.ok());
@@ -494,7 +516,7 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
                  << ", deleted bytes " << stat.tkn_reclaim_size
                  << " (" << reclaim_percent << "%)";
 
-        if (stat.tkn_reclaim_size > 0) {
+        if ((stat.tkn_reclaim_size > 0) || (noPersistScavStats)) {
             if (reclaim_percent >= token_reclaim_threshold) {
                 tokenDb.insert(stat.tkn_id);
             }
@@ -521,7 +543,8 @@ Error DiskScavenger::startScavenge(fds_uint32_t token_reclaim_threshold) {
      }
 
     LOGNORMAL << "Scavenger process started for disk_id " << disk_id << " tier "
-              << tier << " number of tokens " << tokenDb.size();
+              << tier << " number of tokens " << tokenDb.size()
+              << ", assume no scavenger stats = " << noPersistScavStats;
     next_token = 0;
 
     for (i = 0; i < scav_policy.proc_max_tokens; ++i) {
@@ -624,6 +647,7 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
     }
 
     if (finished) {
+        noPersistScavStats = false;
         ScavState expectState = SCAV_STATE_INPROG;
         if (std::atomic_compare_exchange_strong(&state, &expectState, SCAV_STATE_IDLE)) {
             LOGNORMAL << "Scavenger process finished for disk_id " << disk_id;

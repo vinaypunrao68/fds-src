@@ -105,6 +105,15 @@ PlatformdNetSvc::mod_enable_service()
     NetPlatSvc::mod_enable_service();
 }
 
+// mod_lockstep_start_service
+// --------------------------
+//
+void
+PlatformdNetSvc::mod_lockstep_start_service()
+{
+    /* Search for mod_lockstep_done to see this module's lockstep task. */
+}
+
 // mod_shutdown
 // ------------
 //
@@ -414,6 +423,8 @@ PlatAgentPlugin::ep_connected()
         ignore.clear();
         rpc->notifyNodeInfo(ignore, *msg, false);
     }
+    /* Notify completion of platform lockstep. */
+    NetPlatform::nplat_singleton()->mod_lockstep_done();
 }
 
 // ep_down

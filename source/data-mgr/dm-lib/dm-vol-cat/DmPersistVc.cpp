@@ -376,7 +376,7 @@ Error PersistVolumeMeta::syncToDM(NodeUuid dm_uuid) {
     std::string dst_ip;
 
     // make dir if it does not exist yet
-    std::system((const char *)("mkdir -p "+loc_snap_dir+" ").c_str());
+    auto sret = std::system((const char *)("mkdir -p "+loc_snap_dir+" ").c_str());
 
     if (NetMgr::ep_mgr_singleton()->ep_uuid_binding(dm_uuid.toSvcUuid(), 0, 0, &dst_ip) < 0) {
         LOGERROR << "Failed to sync catalog: Failed to get IP address for destination DM "

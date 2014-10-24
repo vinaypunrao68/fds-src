@@ -4,6 +4,7 @@
 
 #include <string>
 #include <AccessMgr.h>
+#include <access-mgr/am-block.h>
 
 extern StorHvCtrl *storHvisor;
 
@@ -44,6 +45,7 @@ AccessMgr::mod_init(SysParams const *const param) {
 
 void
 AccessMgr::mod_startup() {
+    BlockMod::blk_singleton()->blk_bind_to_am(storHvisor);
 }
 
 void
@@ -51,9 +53,23 @@ AccessMgr::mod_shutdown() {
 }
 
 void
+AccessMgr::mod_lockstep_start_service() {
+    this->mod_lockstep_done();
+}
+
+void
 AccessMgr::run() {
     // Run until the data server stops
     fdsnServer->deinit_server();
+}
+
+Error
+AccessMgr::registerVolume(const VolumeDesc& volDesc) {
+    // TODO(Andrew): Create cache separately since
+    // the volume data doesn't do it. We should converge
+    // on a single volume add location.
+    storHvisor->amCache->createCache(volDesc);
+    return storHvisor->vol_table->registerVolume(volDesc);
 }
 
 }  // namespace fds

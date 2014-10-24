@@ -1,10 +1,13 @@
-angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval ){
+angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', '$byte_converter', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval, $byte_converter ){
     
     $scope.activities = [];
     $scope.firebreakMax = 1440;
     $scope.firebreakStats = { series: [[]], summaryData: { hoursSinceLastEvent: 0 }};
     $scope.performanceStats = { series: [[]] };
     $scope.capacityStats = { series: [[]] };
+    
+    $scope.firebreakDomain = [ 'max', 3600*12, 3600*6, 3600*3, 3600, 0 ];
+    $scope.firebreakRange = ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'];
     
     $scope.fakeColors = [ '#73DE8C', '#73DE8C' ];
     $scope.fakeCapColors = [ '#71AEEA', '#AAD2F4' ];
@@ -64,14 +67,34 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
             return $filter( 'translate' )( 'status.desc_pre_dedup_capacity' );
         }
     };
+    
+    $scope.capacityLabelFx = function( data ){
+        return $byte_converter.convertBytesToString( data, 0 );
+    };
 
+    $scope.transformFirebreakTime = function( value ){
+        return value;
+    };
+    
     $scope.isAllowed = function( permission ){
         var isit = $authorization.isAllowed( permission );
         return isit;
     };
 
     // pollers
-    var firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( $scope.firebreakReturned );}, 10000 );
+    var buildFirebreakFilter = function(){
+        var filter = StatQueryFilter.create( [], 
+            [ StatQueryFilter.SHORT_TERM_CAPACITY_SIGMA,
+             StatQueryFilter.LONG_TERM_CAPACITY_SIGMA,
+             StatQueryFilter.SHORT_TERM_PERFORMANCE_SIGMA,
+             StatQueryFilter.LONG_TERM_PERFORMANCE_SIGMA],
+            (new Date()).getTime(),
+            (new Date()).getTime() - (1000*60*60*24) );
+    
+        return filter;
+    };
+                                                            
+    var firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
     
     $activity_service.getActivities( '', '', 30, $scope.activitiesReturned );
     
@@ -80,7 +103,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $interval.cancel( firebreakInterval );
     });
     
-    $stats_service.getFirebreakSummary( $scope.firebreakReturned );
+    $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
     $stats_service.getPerformanceSummary( $scope.performanceReturned );
     $stats_service.getCapacitySummary( $scope.capacityReturned );
 

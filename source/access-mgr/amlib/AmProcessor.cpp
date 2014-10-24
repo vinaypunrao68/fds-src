@@ -7,6 +7,8 @@
 #include <ObjectId.h>
 #include <fds_process.h>
 #include <AmProcessor.h>
+#include <fiu-control.h>
+#include <util/fiu_util.h>
 
 namespace fds {
 
@@ -25,6 +27,10 @@ AmProcessor::AmProcessor(const std::string &modName,
           volTable(_volTable),
           txMgr(_amTxMgr),
           amCache(_amCache) {
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
+        fiu_enable("am.uturn.processor", 1, NULL, 0);
+    }
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
 }
@@ -84,6 +90,12 @@ AmProcessor::startBlobTx(AmQosReq *qosReq) {
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
+
+    fiu_do_on("am.uturn.processor",
+              qosCtrl->markIODone(qosReq); \
+              blobReq->cb->call(ERR_OK); \
+              delete blobReq; \
+              return;);
 
     // check if this is a snapshot
     // TODO(Andrew): Why not just let DM reject the IO?
@@ -343,6 +355,31 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
 }
 
 void
+AmProcessor::setBlobMetadata(AmQosReq *qosReq) {
+    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
+
+    // Stage the transaction metadata changes
+    fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->getTxId()), blobReq->getMetaDataListPtr()))
+
+    fds_verify(txMgr->getTxDmtVersion(*(blobReq->getTxId()), &(blobReq->dmt_version)));
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::setBlobMetadataCb, qosReq);
+
+    amDispatcher->dispatchSetBlobMetadata(qosReq);
+}
+
+void
+AmProcessor::setBlobMetadataCb(AmQosReq *qosReq,
+                               const Error &error) {
+    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+
+    delete blobReq;
+}
+
+void
 AmProcessor::statBlob(AmQosReq *qosReq) {
     Error err(ERR_OK);
     StatBlobReq* blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
@@ -390,6 +427,18 @@ AmProcessor::abortBlobTxCb(AmQosReq *qosReq,
     fds_verify(ERR_OK == txMgr->removeTx(*(blobReq->getTxId())));
 
     delete blobReq;
+}
+
+void
+AmProcessor::volumeContents(AmQosReq *qosReq) {
+    VolumeContentsReq* blobReq = static_cast<VolumeContentsReq*>(qosReq->getBlobReqPtr());
+    LOGDEBUG << "volume:" << blobReq->getVolId()
+        <<" blob:" << blobReq->getBlobName();
+
+    blobReq->base_vol_id = volTable->getBaseVolumeId(blobReq->getVolId());
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::volumeContentsCb, qosReq);
+
+    amDispatcher->dispatchVolumeContents(qosReq);
 }
 
 void
@@ -486,4 +535,13 @@ AmProcessor::commitBlobTxCb(AmQosReq *qosReq, const Error &error) {
     delete blobReq;
 }
 
+void
+AmProcessor::volumeContentsCb(AmQosReq *qosReq, const Error& error) {
+    VolumeContentsReq *blobReq = static_cast<VolumeContentsReq *>(qosReq->getBlobReqPtr());
+
+    // Tell QoS the request is done
+    qosCtrl->markIODone(qosReq);
+    blobReq->cb->call(error);
+    delete blobReq;
+}
 }  // namespace fds

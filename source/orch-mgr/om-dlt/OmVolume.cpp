@@ -1590,7 +1590,7 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
 
 
     //  The following is ugly
-    om_vol_notify_t type;
+    om_vol_notify_t type = om_notify_vol_max;
 
     if (from_svc.uuid_get_type() == FDSP_STOR_HVISOR) {
         switch (cmd_type) {

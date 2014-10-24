@@ -22,16 +22,11 @@
  *
  */
 diskio::DataTier RankTierPutAlgo::selectTier(const ObjectID& oid,
-                                             fds_volid_t volid)
+                                             const VolumeDesc& voldesc)
 {
     diskio::DataTier ret_tier = diskio::diskTier;
-    FDSP_MediaPolicy media_policy;
+    FDSP_MediaPolicy media_policy = voldesc.mediaPolicy;
     fds_uint32_t rank;
-    StorMgrVolume* vol = sm_volTbl->getVolume(volid);
-    fds_verify(vol != NULL);
-    fds_verify(vol->voldesc != NULL);
-
-    media_policy = vol->voldesc->mediaPolicy;
 
     if (media_policy == FDSP_MEDIA_POLICY_SSD) {
         /* if 'all ssd', put to ssd */
@@ -43,14 +38,14 @@ diskio::DataTier RankTierPutAlgo::selectTier(const ObjectID& oid,
         ret_tier = diskio::diskTier;
     } else if (media_policy == FDSP_MEDIA_POLICY_HYBRID) {
         /* hybrid tier policy */
-        fds_uint32_t rank = rank_eng->getRank(oid, *vol->voldesc);
+        fds_uint32_t rank = rank_eng->getRank(oid, voldesc);
         if (rank < rank_eng->getTblTailRank()) {
             /* lower value means higher rank */
             ret_tier = diskio::flashTier;
         }
     } else {  // else ret_tier already set to disk
-        FDS_PLOG(tpa_log)
-                << "RankTierPutAlgo: selectTier received unexpected media policy: " << media_policy;
+        LOGDEBUG << "RankTierPutAlgo: selectTier received unexpected media policy: "
+                 << media_policy;
     }
 
     return ret_tier;

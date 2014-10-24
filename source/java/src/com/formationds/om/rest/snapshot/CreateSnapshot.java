@@ -37,7 +37,7 @@ public class CreateSnapshot
       final Snapshot snapshot = gson.fromJson( reader,
                                                Snapshot.class );
 
-      config.createSnapshot( snapshot.getVolumeId(),
+      config.createSnapshot( Long.valueOf( snapshot.getVolumeId() ),
                              snapshot.getName(),
                              snapshot.getRetention() );
     }

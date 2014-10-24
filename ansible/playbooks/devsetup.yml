@@ -11,14 +11,14 @@
     - name: add redis-server ppa
       apt_repository: repo=ppa:chris-lea/redis-server state=present
 
-#    - name: add fds repo
-#      apt_repository: repo='deb http://coke.formationds.com:8000 fds test' state=present
+    - name: add fds repo
+      apt_repository: repo='deb http://coke.formationds.com:8000 fds test' state=present
 
     - name: automatically select the oracle license
       shell: echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
 
     - name: install os packages
-      apt: name={{item}} state=present update_cache=yes cache_valid_time=600
+      apt: name={{item}} force=yes state=present update_cache=yes cache_valid_time=600
       with_items:
         - git
         - linux-generic
@@ -59,6 +59,8 @@
         - libical-dev
         - libical1
         - libleveldb-dev
+        - google-perftools
+        - libgoogle-perftools-dev
         - libconfig++-dev
         - oracle-java8-installer
         - npm
@@ -70,11 +72,11 @@
         - python-boto
         - python-argh
         - python-thrift
-#        - fds-pkghelper
-#        - fds-pkg
-#        - fds-pkgtools
-#        - fds-systemdir
-#        - fds-coredump
+        - fds-pkghelper
+        - fds-pkg
+        - fds-pkgtools
+        - fds-systemdir
+        - fds-coredump
 
     - name: install pip packages
       pip: name={{item}} state=present 
@@ -85,4 +87,4 @@
         - xmlrunner
 
     - name: create java home script
-      copy: src=jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755
+      copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755

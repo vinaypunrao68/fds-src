@@ -29,7 +29,8 @@ ObjectPersistData::~ObjectPersistData() {
 }
 
 Error
-ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap) {
+ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap,
+                                        fds_bool_t pristineState) {
     Error err(ERR_OK);
     smDiskMap = diskMap;
     LOGDEBUG << "Will open token data files";
@@ -40,14 +41,11 @@ ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap) {
          ++cit) {
         // TODO(Anna) for now opening on disk tier only -- revisit when porting
         // back tiering
-        // TODO(Anna) we are not opening files we are going to write to, which is ok
-        // if SM always comes up from clean state and no GC. When porting back GC, will need to
-        // open all files for an SM token. We will know from GC persistent state
 
-        // so.. set file to 'initial file id', have to revisit right away
-        // and make it a file id where are we writing to
+        // get write file IDs from SM superblock and open corresponding token files
         fds_uint64_t wkey = getWriteFileIdKey(diskio::diskTier, *cit);
-        fds_uint16_t fileId = SM_INIT_FILE_ID;
+        fds_uint16_t fileId = diskMap->superblock->getWriteFileId(*cit, diskio::diskTier);
+        fds_verify(fileId != SM_INVALID_FILE_ID);
         write_synchronized(mapLock) {
             fds_verify(writeFileIdMap.count(wkey) == 0);
             writeFileIdMap[wkey] = fileId;
@@ -60,6 +58,21 @@ ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap) {
             LOGERROR << "Failed to open File for SM token " << *cit << " " << err;
             break;
         }
+
+        // also open old file if compaction is in progress
+        if (diskMap->superblock->compactionInProgress(*cit, diskio::diskTier)) {
+            fds_uint16_t oldFileId = getShadowFileId(fileId);
+            err = openTokenFile(diskio::diskTier, *cit, oldFileId);
+            fds_verify(err.ok());
+        }
+    }
+
+    // at this moment scavenger should be disabled
+    if (!pristineState) {
+        // for now this just tells scavenger that some
+        // stats may not be available (like delete bytes,
+        // reclaimable bytes) because we don't persist them (yet)
+        scavenger->setPersistState();
     }
 
     // we enable scavenger by default
@@ -120,6 +133,13 @@ ObjectPersistData::notifyStartGc(fds_token_id smTokId,
     fds_uint16_t newFileId = SM_INVALID_FILE_ID;
     fds_uint64_t wkey = getWriteFileIdKey(tier, smTokId);
 
+    // if compaction already in progress, shadow file does not change
+    if (smDiskMap->superblock->compactionInProgress(smTokId, tier)) {
+        LOGNOTIFY << "Compaction already in progress for token " << smTokId
+                  << " tier " << tier << " -- will continue";
+        return;
+    }
+
     read_synchronized(mapLock) {
         fds_verify(writeFileIdMap.count(wkey) > 0);
         curFileId = writeFileIdMap[wkey];
@@ -129,6 +149,11 @@ ObjectPersistData::notifyStartGc(fds_token_id smTokId,
     // and to which non-garbage data will be copied)
     // but do not set until we open token file
     newFileId = getShadowFileId(curFileId);
+
+    // first persist new file ID and set compaction state
+    err = smDiskMap->superblock->changeCompactionState(smTokId, tier,
+                                                       true, newFileId);
+    fds_verify(err.ok());
 
     // we shouldn't have a file with newFileId open; if it is open,
     // most likely we did not finish last GC properly
@@ -153,26 +178,33 @@ ObjectPersistData::notifyEndGc(fds_token_id smTokId,
     fds_uint16_t oldFileId = SM_INVALID_FILE_ID;
     diskio::FilePersisDataIO *delFdesc = NULL;
 
-    SCOPEDWRITE(mapLock);
-    fds_verify(writeFileIdMap.count(wkey) > 0);
-    shadowFileId = writeFileIdMap[wkey];
+    write_synchronized(mapLock) {
+        fds_verify(writeFileIdMap.count(wkey) > 0);
+        shadowFileId = writeFileIdMap[wkey];
 
-    // old file id is the same as next shadow file id
-    oldFileId = getShadowFileId(shadowFileId);
+        // old file id is the same as next shadow file id
+        oldFileId = getShadowFileId(shadowFileId);
 
-    // remove the token file with old file id (garbage collect)
-    // it is up to the TokenCompactor to check that it copied all
-    // non-garbage data to the shadow file
-    // TODO(Anna) update below code when supporting multiple files
-    fds_uint64_t fkey = getFileKey(tier, smTokId, oldFileId);
-    fds_verify(tokFileTbl.count(fkey) > 0);
-    delFdesc = tokFileTbl[fkey];
-    if (delFdesc) {
-        err = delFdesc->delete_file();
-        delete delFdesc;
-        delFdesc = NULL;
+        // remove the token file with old file id (garbage collect)
+        // it is up to the TokenCompactor to check that it copied all
+        // non-garbage data to the shadow file
+        // TODO(Anna) update below code when supporting multiple files
+        fds_uint64_t fkey = getFileKey(tier, smTokId, oldFileId);
+        fds_verify(tokFileTbl.count(fkey) > 0);
+        delFdesc = tokFileTbl[fkey];
+        if (delFdesc) {
+            err = delFdesc->delete_file();
+            delete delFdesc;
+            delFdesc = NULL;
+        }
+        tokFileTbl.erase(fkey);
     }
-    tokFileTbl.erase(fkey);
+
+    if (err.ok()) {
+        // compaction is done and we successfully deleted the old file
+        err = smDiskMap->superblock->changeCompactionState(smTokId, tier, false, 0);
+        fds_verify(err.ok());
+    }
     return err;
 }
 

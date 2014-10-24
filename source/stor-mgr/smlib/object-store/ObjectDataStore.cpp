@@ -20,8 +20,9 @@ ObjectDataStore::~ObjectDataStore() {
 }
 
 Error
-ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap) {
-    return persistData->openPersistDataStore(diskMap);
+ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap,
+                               fds_bool_t pristineState) {
+    return persistData->openPersistDataStore(diskMap, pristineState);
 }
 
 Error

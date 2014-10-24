@@ -5,12 +5,9 @@
     </div>
     
     <div class="to-clone-or-not">
-        <fds-radio ng-model="volumeVars.toClone" value="new" name="clone" label="{{ 'volumes.l_create_blank_volume' | translate }}"></fds-radio>
-        <fds-radio ng-model="volumeVars.toClone" value="clone" name="clone" label="{{ 'volumes.l_clone_existing' | translate }}"></fds-radio>
-<!--
-        <input type="radio" name="clone" value="new" ng-model="volumeVars.toClone"><span>Create new volume</span>
-        <input type="radio" name="clone" value="clone" ng-model="volumeVars.toClone"><span>Create from clone</span>
--->
+        <fds-radio ng-model="volumeVars.toClone" value="new" name="clone" icon-class="icon-clone" label="{{ 'volumes.l_create_blank_volume' | translate }}"></fds-radio>
+        <fds-radio ng-model="volumeVars.toClone" value="clone" name="clone" icon-class="icon-presets" label="{{ 'volumes.l_clone_existing' | translate }}" ng-show="cloneOptions.length > 0"></fds-radio>
+
     </div>
     
     <div class="flex" ng-show="choosing === false && volumeVars.toClone === 'clone'">
@@ -18,12 +15,13 @@
         <span class="icon icon-pencil" ng-click="choosing = true" style="margin-left: 8px;color: #A0A0A0"></span>
     </div>
     
-    <div ng-show="volumeVars.toClone === 'clone' && choosing === true" style="height: 250px;">
+    <div ng-show="volumeVars.toClone === 'clone' && choosing === true">
 <!--        <tree-grid data="cloneOptions" columns="cloneColumns" ng-model="selectedItem" children-function="getSnapshots"></tree-grid>-->
-        <mac-browser data="cloneOptions" ng-model="selectedItem" children-function="getSnapshots" columns="cloneColumns"></mac-browser>
-        <div class="pull-right flex">
-            <button class="btn btn-primary skinny" ng-click="choose()" translate>common.l_save</button>
-<!--            <button class="btn btn-secondary skinny" ng-click="cancel()" translate>common.l_cancel</button>-->
-        </div>
+        <mac-browser data="cloneOptions" ng-model="selectedItem" children-function="getSnapshots" columns="cloneColumns" height="350" browser-title="{{ 'volumes.l_select_to_clone' | translate }}" cancel-function="cancel" choose-function="choose">
+            <div class="clone-details-div" ng-if="selectedItem.parent.data_connector">{{selectedItem.parent.data_connector.type}}</div>
+            <div class="clone-details-div">{{selectedItem.data_connector.size}}</div>
+            <div class="clone-details-div" translate>volumes.desc_cloning</div>
+        </mac-browser>
+
     </div>
 </div>

@@ -7,5 +7,11 @@
     padding: 4px;
     z-index: 1000;
     
-    @include transition( linear, 200 );
+    .left-side {
+        left: 8px;
+    }
+    
+    .right-side {
+        right: 8px;
+    }
 }

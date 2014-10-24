@@ -26,6 +26,30 @@ SvcMsgFactory::newPutObjectMsg(const uint64_t& volId, DataGenIfPtr dataGen)
 }
 
 void
+UpdateBlobInfoNoData(FDS_ProtocolInterface::UpdateCatalogMsgPtr  updateCatMsg,
+                            size_t objSize, size_t blobSize)
+{
+    for (fds_uint64_t blobOffset = 0; blobOffset < blobSize; blobOffset += objSize) {
+            std::string data = updateCatMsg->blob_name + std::to_string(blobOffset) +
+                    std::to_string(util::getTimeStampNanos());
+
+         ObjectID objId = ObjIdGen::genObjectId(data.c_str(), data.size());
+         fds_uint64_t sz = ((blobOffset + objSize) < blobSize ? objSize
+                    : (blobSize - blobOffset));
+         FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
+         updBlobInfo.offset   = blobOffset;
+         updBlobInfo.size     = sz;
+         if ((blobOffset + objSize) < blobSize)
+             updBlobInfo.blob_end =  false;
+         else
+             updBlobInfo.blob_end =  true;
+         updBlobInfo.data_obj_id.digest =
+                   std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
+         updateCatMsg->obj_list.push_back(updBlobInfo);
+        }
+}
+
+void
 UpdateBlobInfo(FDS_ProtocolInterface::UpdateCatalogMsgPtr  updateCatMsg,
                           DataGenIfPtr dataGen, size_t blobSize)
 {
@@ -152,6 +176,15 @@ SvcMsgFactory::newGetBlobMetaDataMsg(const uint64_t& volId, const std::string bl
     getBlobMeta->blob_name = blobName;
     getBlobMeta->blob_version = blob_version_invalid;
     return getBlobMeta;
+}
+
+fpi::GetBucketMsgPtr
+SvcMsgFactory::newGetBucketMsg(const uint64_t& volId, const uint64_t& start_pos)
+{
+    fpi::GetBucketMsgPtr  getBucket(new fpi::GetBucketMsg);
+    getBucket->volume_id = volId;
+    getBucket->startPos = start_pos;
+    return getBucket;
 }
 
 }  // namespace fds

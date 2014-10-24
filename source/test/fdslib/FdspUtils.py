@@ -238,7 +238,7 @@ def newScavengerProgressMsg():
     return msg
 
 def newSetScavengerPolicyMsg(t1, t2, t3, t4):
-    msg = CtrlQueryScavengerSetPolicy()
+    msg = CtrlSetScavengerPolicy()
     msg.dsk_threshold1 = t1
     msg.dsk_threshold2 = t2
     msg.token_reclaim_threshold = t3
@@ -247,5 +247,5 @@ def newSetScavengerPolicyMsg(t1, t2, t3, t4):
     return msg
 
 def newQueryScavengerPolicyMsg():
-    msg = CtrlQueryScavengerStatus()
+    msg = CtrlQueryScavengerPolicy()
     return msg

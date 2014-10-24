@@ -2,7 +2,11 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
     
     var init = function(){
         $scope.volumeVars.toClone = 'new';
-        $scope.selectedItem = {name: 'None'};
+        
+        if ( !angular.isDefined( $scope.selectedItem ) || !angular.isDefined( $scope.selectedItem.name ) ){
+            $scope.selectedItem = {name: 'None'};
+        }
+        
         $scope.choosing = false;
     };
     
@@ -12,8 +16,9 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
     var currentStateLabel = $filter( 'translate' )( 'volumes.l_current_state' );
     
     $scope.cloneColumns = [
-        { title: 'Volumes', property: 'name' },
-        { title: 'Snapshots', property: 'name' }
+        { title: 'Volumes', property: 'name', width: 200 },
+        { title: 'Snapshots', property: 'name', width: 300 },
+        { title: 'Details', property: 'details', width: 180 }
     ];
     
     $scope.getSelectedName = function(){
@@ -43,7 +48,19 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
     
     $scope.choose = function(){
         $scope.choosing = false;
-        $scope.volumeVars.clone = $scope.selectedItem;
+//        $scope.volumeVars.clone = $scope.selectedItem;
+        
+        // if it's a snapshot we need to fill in the parent volumes
+        // settings
+        if ( angular.isDefined( $scope.selectedItem.parent ) ){
+            $scope.volumeVars.clone = $scope.selectedItem.parent;
+            $scope.volumeVars.clone.id = $scope.selectedItem.id;
+            $scope.volumeVars.clone.name = $scope.selectedItem.name;
+            $scope.volumeVars.clone.cloneType = 'snapshot';
+        }
+        else{
+            $scope.volumeVars.clone = $scope.selectedItem;
+        }
     };
     
     $scope.$watch( 'selectedItem', function( newVal ){
@@ -56,6 +73,8 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
         }
         
         $scope.cloneOptions = $volume_api.volumes;
+        $scope.selectedItem = $scope.cloneOptions[0];
+        
         init();
     };
     

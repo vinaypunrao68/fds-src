@@ -1,13 +1,14 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-speedup           := -j 6
+speedup           = -j $(threads)
 user_build_dir    := \
     include \
     amlib \
     stor-hvisor \
     platform \
-    block
+    block \
+    test
 
 user_incl_dir     := stor-hvisor include
 user_cpp_flags    :=
@@ -57,6 +58,9 @@ user_non_fds_libs :=  \
     $(user_nginx_libs) \
     fiu \
     dl
+
+user_static_libs  := \
+    ev
 
 user_cc           :=
 

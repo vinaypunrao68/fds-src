@@ -10,6 +10,7 @@
 #include <StorMgrVolumes.h>
 #include <concurrency/HashedLocks.hpp>
 #include <object-store/SmDiskMap.h>
+#include <TierEngine.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
 
@@ -33,6 +34,9 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// SM disk map keeps track of SM tokens and their locations
     SmDiskMap::ptr diskMap;
+
+    /// Tiering engine
+    TierEngine::unique_ptr tierEngine;
 
     /// Volume table for accessing vol descriptors
     // Does not own, passed from SM processing layer
@@ -96,6 +100,17 @@ class ObjectStore : public Module, public boost::noncopyable {
      */
     Error deleteObject(fds_volid_t volId,
                        const ObjectID &objId);
+
+    /**
+     * Relocate/write back object from tier 'fromTier' to tier 'toTier'
+     * @param[in] relocateFlag true means object will be removed from
+     * 'fromTier' tier; false means object will be written to tier 'toTier'
+     * and object will also remain on tier 'fromTier'
+     */
+    Error moveObjectToTier(const ObjectID& objId,
+                           diskio::DataTier fromTier,
+                           diskio::DataTier toTier,
+                           fds_bool_t relocateFlag);
 
     /**
      * Copies associated volumes from source to destination volume

@@ -1,10 +1,5 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
- *
- * Template code to create a stand-alone unit test using the probe
- * framework to pump data to the test code.
- *
- * Replace XX with your adapter name.
  */
 #include <unistd.h>
 #include <string>
@@ -14,6 +9,8 @@
 #include <fds-probe/s3-probe.h>
 #include <platform/platform-lib.h>
 #include <am-nbd.h>
+#include <AccessMgr.h>
+#include <net-platform.h>
 
 namespace fds {
 
@@ -22,15 +19,28 @@ class TestProcess : public ProbeProcess
   public:
     TestProcess(int argc, char *argv[],
                 const std::string &log, ProbeMod *probe, Module **vec) :
-        ProbeProcess(argc, argv, log, probe, vec) {}
+        ProbeProcess(argc, argv, log, probe, vec, "fds.am.") {}
 
+    void proc_pre_startup() override
+    {
+        ProbeProcess::proc_pre_startup();
+        am = AccessMgr::unique_ptr(new AccessMgr("AMMain Probe", this));
+
+        proc_add_module(am.get());
+        Module *lckstp[] = { &gl_PlatformdNetSvc, am.get(), NULL };
+        proc_assign_locksteps(lckstp);
+    }
     int run() override
     {
         while (1) {
             sleep(2);
         }
+        am->run();
         return 0;
     }
+
+  private:
+    AccessMgr::unique_ptr am;
 };
 
 }  // namespace fds

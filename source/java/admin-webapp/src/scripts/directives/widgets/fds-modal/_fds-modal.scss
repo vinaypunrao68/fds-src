@@ -33,6 +33,10 @@
             width: 100%;
             @include display-flex();
             @include justify-content( center );
+            
+            button {
+                margin: 4px;
+            }
         }
     }
 }

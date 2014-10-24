@@ -1123,16 +1123,6 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
     
     setMDMsg->metaDataList = std::move(*md_list);
 
-#if 0
-    // Manually copy the MD entri[es over to the new list
-    // TODO(brian): Find a more elegant way to do this
-    for (auto kv : *md_list) {
-        setMDMsg->metaDataList.push_back(kv);
-    }
-    
-    fds_assert(setMDMsg->metaDataList.size() > 0);
-#endif
-
     LOGDEBUG << " Invoking  Message Interface";
     auto asyncSetMDReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_table->getBaseVolumeId(vol_id),

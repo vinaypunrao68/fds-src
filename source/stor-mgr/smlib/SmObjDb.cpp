@@ -326,8 +326,10 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
 
         /* Read metadata and object */
         ObjMetaData objMetadata;
+        /*
         err = objStorMgr->readObject(NON_SYNC_MERGED, objId,
                 objMetadata, objData, tierUsed);
+        */
         if (err == ERR_OK) {
             if ((max_size - tot_msg_len) >= objData.getSize()) {
                 LOGDEBUG << "Adding a new objectId to objList" << objId;
@@ -342,7 +344,6 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                 obj_list.push_back(mig_obj);
                 tot_msg_len += objData.getSize();
 
-                objStorMgr->counters_->get_tok_objs.incr();
                 DBG(obj_itr_cnt++);
             } else {
                 DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
@@ -363,7 +364,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     itr.done = true;
 
     DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-        << " cnt: " << obj_itr_cnt) << " token retrieve complete";
+        << " cnt: " << obj_itr_cnt << " token retrieve complete");
 }
 
 /**

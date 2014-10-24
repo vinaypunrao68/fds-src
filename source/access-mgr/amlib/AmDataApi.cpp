@@ -111,7 +111,7 @@ AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
                                                    "accessid",
                                                    "secretkey");
     ListBucketResponseHandler::ptr handler(new ListBucketResponseHandler(_return));
-    STORHANDLER(GetBucketHandler, FDS_LIST_BUCKET)->
+    STORHANDLER(GetBucketHandler, FDS_VOLUME_CONTENTS)->
             handleRequest(bucket_ctxt,
                           *offset, *count,
                           SHARED_DYN_CAST(Callback, handler));

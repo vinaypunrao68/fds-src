@@ -2,8 +2,9 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-#include <dm_gtest.h>
-
+#include "./dm_mocks.h"
+#include "./dm_gtest.h"
+#include "./dm_utils.h"
 #include <vector>
 #include <string>
 #include <thread>
@@ -154,7 +155,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
         fds_uint64_t size = 0, blobCount = 0, objCount = 0;
         Error rc = volcat->getVolumeMeta(vdesc->volUUID, &size, &blobCount, &objCount);
         EXPECT_TRUE(rc.ok());
-        EXPECT_EQ(size, blobCount * BLOB_SIZE);
+        EXPECT_EQ(size, static_cast<fds_uint64_t>(blobCount) * BLOB_SIZE);
 
         // get list of blobs for volume
         fpi::BlobInfoListType blobList;
@@ -216,3 +217,44 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
     std::this_thread::yield();
 }
 
+
+int main(int argc, char** argv) {
+    // The following line must be executed to initialize Google Mock
+    // (and Google Test) before running the tests.
+    ::testing::InitGoogleMock(&argc, argv);
+
+    MockDataMgr mockDm(argc, argv);
+
+    // process command line options
+    po::options_description desc("\nDM test Command line options");
+    desc.add_options()
+            ("help,h", "help/ usage message")
+            ("num-volumes,v",
+            po::value<fds_uint32_t>(&NUM_VOLUMES)->default_value(NUM_VOLUMES),
+            "number of volumes")
+            ("obj-size,o",
+            po::value<fds_uint32_t>(&MAX_OBJECT_SIZE)->default_value(MAX_OBJECT_SIZE),
+            "max object size in bytes")
+            ("blob-size,b",
+            po::value<fds_uint64_t>(&BLOB_SIZE)->default_value(BLOB_SIZE),
+            "blob size in bytes")
+            ("num-blobs,n",
+            po::value<fds_uint32_t>(&NUM_BLOBS)->default_value(NUM_BLOBS),
+            "number of blobs")
+            ("puts-only", "do put operations only")
+            ("no-delete", "do put & get operations only");
+
+    po::variables_map vm;
+    po::store(po::command_line_parser(argc, argv).options(desc).allow_unregistered().run(), vm);
+    po::notify(vm);
+
+    if (vm.count("help")) {
+        std::cout << desc << std::endl;
+        return 1;
+    }
+
+    PUTS_ONLY = 0 != vm.count("puts-only");
+    NO_DELETE = 0 != vm.count("no-delete");
+
+    return RUN_ALL_TESTS();
+}

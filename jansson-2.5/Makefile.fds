@@ -1,5 +1,5 @@
 topdir         := ..
-speedup        := -j 5
+speedup        = -j $(threads)
 user_build_dir := src test/bin
 
 include $(topdir)/Makefile.incl

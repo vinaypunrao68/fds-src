@@ -803,7 +803,7 @@ void ObjectRankEngine::runRankingThreadInternal()
         /* set flag that we finished ranking process (even if we stopped due to stopObjRanking */
         atomic_store(&rankingEnabled, false);
 
-        objStorMgr->tierEngine->migrator->startRankTierMigration();
+        // objStorMgr->tierEngine->migrator->startRankTierMigration();
     }
 }
 
@@ -919,7 +919,7 @@ void ObjectRankEngine::runRankingThread(ObjectRankEngine* self)
 void RankTimerTask::runTimerTask()
 {
     rank_eng->analyzeStats();
-    objStorMgr->tierEngine->migrator->startRankTierMigration();
+    // objStorMgr->tierEngine->migrator->startRankTierMigration();
 }
 
 }  // namespace fds

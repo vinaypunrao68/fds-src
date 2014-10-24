@@ -12,6 +12,7 @@ FdsAIO::~FdsAIO() {}
 FdsAIO::FdsAIO(int iovcnt, int fd) : io_link(this), io_cnt(iovcnt), io_fd(fd)
 {
     memset(io_vec, 0, sizeof(io_vec));
+    io_wait    = true;
     io_retry   = 0;
     io_cur_idx = 0;
     io_cur_len = 0;
@@ -106,6 +107,33 @@ FdsAIO::aio_do_iov(bool rd)
         aio_write_complete();
     }
     /* This obj may be used by different task right now. */
+}
+
+/**
+ * aio_wait
+ * --------
+ */
+void
+FdsAIO::aio_wait(fds_mutex *mtx, boost::condition *waitq)
+{
+    mtx->lock();
+    while (io_wait == true) {
+        waitq->wait(*mtx);
+    }
+    mtx->unlock();
+}
+
+/**
+ * aio_wakeup
+ * ----------
+ */
+void
+FdsAIO::aio_wakeup(fds_mutex *mtx, boost::condition *waitq)
+{
+    mtx->lock();
+    io_wait = false;
+    waitq->notify_one();
+    mtx->unlock();
 }
 
 }  // namespace fds
