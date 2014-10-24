@@ -102,6 +102,17 @@ class ObjectStore : public Module, public boost::noncopyable {
                        const ObjectID &objId);
 
     /**
+     * Relocate/write back object from tier 'fromTier' to tier 'toTier'
+     * @param[in] relocateFlag true means object will be removed from
+     * 'fromTier' tier; false means object will be written to tier 'toTier'
+     * and object will also remain on tier 'fromTier'
+     */
+    Error moveObjectToTier(const ObjectID& objId,
+                           diskio::DataTier fromTier,
+                           diskio::DataTier toTier,
+                           fds_bool_t relocateFlag);
+
+    /**
      * Copies associated volumes from source to destination volume
      */
     Error copyAssociation(fds_volid_t srcVolId,
