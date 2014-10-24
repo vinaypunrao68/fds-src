@@ -18,16 +18,12 @@ if [ -d ${sem_dir} ]; then
 	fi
 fi
 
-echo ${sem_dir}
 mkdir "${sem_dir}" 2>/dev/null
 
-blah=$?
-echo "mkdir result: ${blah}"
-
-case ${blah} in
+case $? in
 	0)
 		echo "running devsetup"
-		sleep 30
+		ansible-playbook -i ${script_dir}/ansible_hosts -c local ${script_dir}/playbooks/devsetup.yml
 		rmdir ${sem_dir}
 		touch ${script_dir}/.devsetup-is-up-to-date
 		;;
