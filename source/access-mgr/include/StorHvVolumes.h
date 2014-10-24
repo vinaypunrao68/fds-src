@@ -28,6 +28,9 @@
 #include <native_api.h>
 #include "PerfTrace.h"
 
+#include "AmQosReq.h"
+#include "FdsBlobReq.h"
+
 
 /*
  * Forward declaration of SH control class
@@ -86,9 +89,6 @@ class StorHvVolumeLock
   private:
     StorHvVolume *shvol;
 };
-
-class AmQosReq;
-struct FdsBlobReq;
 
 class StorHvVolumeTable : public HasLogger {
     static const fds_volid_t fds_default_vol_uuid = 1;
@@ -203,155 +203,9 @@ class StorHvVolumeTable : public HasLogger {
     StorHvCtrl *parent_sh;
 };
 
-struct TxnRequest {
-    BlobTxId::ptr txDesc;
-
-    void setBlobTxId(BlobTxId::ptr txDesc) {
-        this->txDesc = txDesc;
-    }
-};
-
-struct FdsBlobReq {
-     /*
-      * Callback members
-      * TODO: Resolve this with what's needed by the object-based callbacks.
-      */
-     typedef boost::function<void(fds_int32_t)> callbackBind;
-     std::string volumeName;
-
-     FdsBlobReq(fds_io_op_t         _op,
-                fds_volid_t         _volId,
-                const std::string&  _blobName,
-                fds_uint64_t        _blobOffset,
-                fds_uint64_t        _dataLen,
-                char*               _dataBuf);
-
-     FdsBlobReq(fds_io_op_t         _op,
-                fds_volid_t         _volId,
-                const std::string&  _blobName,
-                fds_uint64_t        _blobOffset,
-                fds_uint64_t        _dataLen,
-                char*               _dataBuf,
-                CallbackPtr         _cb);
-
-     template<typename F, typename A, typename B, typename C>
-        FdsBlobReq(fds_io_op_t          _op,
-                   fds_volid_t          _volId,
-                   const std::string&   _blobName,
-                   fds_uint64_t         _blobOffset,
-                   fds_uint64_t         _dataLen,
-                   char*                _dataBuf,
-                   F f, A a, B b, C c);
-
-     virtual ~FdsBlobReq()
-     { magic = FDS_SH_IO_MAGIC_NOT_IN_USE; }
-
-     CallbackPtr cb;
-
-     bool magicInUse() const
-     { return (magic == FDS_SH_IO_MAGIC_IN_USE); }
-
-     fds_volid_t getVolId() const
-     { return volId; }
-
-     fds_io_op_t  getIoType() const
-     { return ioType; }
-
-     void setVolId(fds_volid_t vol_id)
-     { volId = vol_id; }
-
-     void cbWithResult(int result)
-     { return callback(result); }
-
-     const std::string& getBlobName() const
-     { return blobName; }
-
-     const std::string& getVolumeName() const
-     { return volumeName; }
-
-     void setVolumeName(const std::string& _volumeName)
-     { volumeName = _volumeName; }
-
-     fds_uint64_t getBlobOffset() const
-     { return blobOffset; }
-
-     void setBlobOffset(fds_uint64_t offset)
-     { blobOffset = offset; }
-
-     const char *getDataBuf() const
-     { return dataBuf; }
-
-     std::size_t getDataLen() const
-     { return dataLen; }
-
-     void setDataLen(fds_uint64_t len)
-     { dataLen = len; }
-
-
-     void setDataBuf(const char* _buf)
-     { memcpy(dataBuf, _buf, dataLen); }
-
-     ObjectID getObjId() const
-     { return objId; }
-
-     void setObjId(const ObjectID& _oid)
-     { objId = _oid; }
-
-     void setQueuedUsec(fds_uint64_t _usec)
-     { queuedUsec = _usec; }
-
-     // Performance
-     PerfContext e2eReqPerfCtx;
-     PerfContext qosPerfCtx;
-     PerfContext hashPerfCtx;
-     PerfContext dmPerfCtx;
-     PerfContext smPerfCtx;
-
-    protected:
-     /*
-      * Common request header members
-      */
-     fds_uint32_t magic;
-     fds_io_op_t  ioType;
-
-     /*
-      * Volume members
-      */
-     fds_volid_t volId;
-
-     /*
-      * Blob members
-      */
-     std::string  blobName;
-     fds_uint64_t blobOffset;
-     /*
-      * Object members
-      */
-     ObjectID objId;
-
-     /*
-      * Buffer members
-      */
-     std::size_t dataLen;
-     char        *dataBuf;
-
-     /*
-      * Callback members
-      */
-     callbackBind callback;
-
-     /*
-      * Perf members
-      */
-     fds_uint64_t queuedUsec;  /* Time spec in queue */
-
-     /* Lifecycle latency */
-     util::StopWatch stopWatch;
-};
-
 class AbortBlobTxReq : public FdsBlobReq {
   public:
-    BlobTxId::ptr txDesc;
+    BlobTxId::ptr tx_desc;
 
     typedef std::function<void (const Error&)> AbortBlobTxProcCb;
     AbortBlobTxProcCb processorCb;
@@ -367,26 +221,22 @@ class AbortBlobTxReq : public FdsBlobReq {
                    BlobTxId::ptr _txDesc,
                    CallbackPtr        _cb) :
             FdsBlobReq(FDS_ABORT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
-            txDesc(_txDesc) {
-        setVolumeName(_vol_name);
-        e2eReqPerfCtx.type = AM_ABORT_BLOB_OBJ_REQ;
-        e2eReqPerfCtx.name = "volume:" + std::to_string(_volid);
-        e2eReqPerfCtx.reset_volid(_volid);
+            tx_desc(_txDesc) {
+        volume_name = _vol_name;
+        e2e_req_perf_ctx.type = AM_ABORT_BLOB_OBJ_REQ;
+        e2e_req_perf_ctx.name = "volume:" + std::to_string(_volid);
+        e2e_req_perf_ctx.reset_volid(_volid);
 
-        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
+        fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
     virtual ~AbortBlobTxReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
-    }
-
-    BlobTxId::const_ptr getTxId() const {
-        return txDesc;
+        fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
     }
 };
 
 class CommitBlobTxReq : public FdsBlobReq {
   public:
-    BlobTxId::ptr txDesc;
+    BlobTxId::ptr tx_desc;
 
     typedef std::function<void (const Error&)> CommitBlobProcCb;
     CommitBlobProcCb processorCb;
@@ -402,29 +252,25 @@ class CommitBlobTxReq : public FdsBlobReq {
                    BlobTxId::ptr _txDesc,
                    CallbackPtr        _cb) :
             FdsBlobReq(FDS_COMMIT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
-            txDesc(_txDesc) {
-        setVolumeName(_vol_name);
-        e2eReqPerfCtx.type = AM_COMMIT_BLOB_OBJ_REQ;
-        e2eReqPerfCtx.name = "volume:" + std::to_string(_volid);
-        e2eReqPerfCtx.reset_volid(_volid);
+            tx_desc(_txDesc) {
+        volume_name = _vol_name;
+        e2e_req_perf_ctx.type = AM_COMMIT_BLOB_OBJ_REQ;
+        e2e_req_perf_ctx.name = "volume:" + std::to_string(_volid);
+        e2e_req_perf_ctx.reset_volid(_volid);
 
-        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
+        fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
     virtual ~CommitBlobTxReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
-    }
-
-    BlobTxId::const_ptr getTxId() const {
-        return txDesc;
+        fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
     }
 };
 
 class StartBlobTxReq : public FdsBlobReq {
   public:
-    std::string  volumeName;
-    fds_int32_t  blobMode;
-    BlobTxId     txId;
-    fds_uint64_t dmtVersion;
+    std::string     volumeName;
+    fds_int32_t     blobMode;
+    BlobTxId::ptr   tx_desc;
+    fds_uint64_t    dmtVersion;
 
     typedef std::function<void (const Error&)> StartBlobTxProcCb;
     StartBlobTxProcCb processorCb;
@@ -441,16 +287,16 @@ class StartBlobTxReq : public FdsBlobReq {
                    CallbackPtr        _cb) :
             FdsBlobReq(FDS_START_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
             volumeName(_vol_name), blobMode(_blob_mode) {
-        setVolumeName(_vol_name);
-        e2eReqPerfCtx.type = AM_START_BLOB_OBJ_REQ;
-        e2eReqPerfCtx.name = "volume:" + std::to_string(_volid);
-        e2eReqPerfCtx.reset_volid(_volid);
+        volume_name = _vol_name;
+        e2e_req_perf_ctx.type = AM_START_BLOB_OBJ_REQ;
+        e2e_req_perf_ctx.name = "volume:" + std::to_string(_volid);
+        e2e_req_perf_ctx.reset_volid(_volid);
 
-        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
+        fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 
     virtual ~StartBlobTxReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
+        fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
     }
 
     fds_int32_t getBlobMode() const {
@@ -458,59 +304,11 @@ class StartBlobTxReq : public FdsBlobReq {
     }
 };
 
-class StatBlobReq : public FdsBlobReq {
-  public:
-    typedef std::function<void (const Error&)> StatBlobProcCb;
-
-    StatBlobProcCb processorCb;
-    fds_volid_t base_vol_id;
-
-    /**
-     * Request constructor. Some of the fields
-     * are not actually needed...the base blob
-     * request class just expects them.
-     */
-    StatBlobReq(fds_volid_t          _volid,
-                const std::string   &_vol_name,
-                const std::string   &_blob_name,
-                fds_uint64_t         _blob_offset,
-                fds_uint64_t         _data_len,
-                char                *_data_buf,
-                CallbackPtr cb) :
-            FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, _blob_offset,
-                       _data_len, _data_buf, cb) {
-        setVolumeName(_vol_name);
-        e2eReqPerfCtx.type = AM_STAT_BLOB_OBJ_REQ;
-        e2eReqPerfCtx.name = "volume:" + std::to_string(_volid);
-        e2eReqPerfCtx.reset_volid(_volid);
-
-        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
-    }
-
-    StatBlobReq(fds_volid_t          _volid,
-                const std::string   &_vol_name,
-                const std::string   &_blob_name,
-                CallbackPtr cb) :
-            FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, 0,
-                       0, NULL, cb) {
-        setVolumeName(_vol_name);
-        e2eReqPerfCtx.type = AM_STAT_BLOB_OBJ_REQ;
-        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
-        e2eReqPerfCtx.reset_volid(volId);
-
-        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
-    }
-
-    virtual ~StatBlobReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
-    }
-};
-
 struct SetBlobMetaDataReq : FdsBlobReq {
   public:
     typedef std::function<void (const Error&)> SetBlobMetadataProcCb;
 
-    BlobTxId::ptr txDesc;
+    BlobTxId::ptr tx_desc;
     boost::shared_ptr<FDSP_MetaDataList> metaDataList;
 
     SetBlobMetadataProcCb processorCb;
@@ -523,63 +321,37 @@ struct SetBlobMetaDataReq : FdsBlobReq {
                        boost::shared_ptr<FDSP_MetaDataList> _metaDataList,
                        CallbackPtr cb) :
             FdsBlobReq(FDS_SET_BLOB_METADATA, _volid, _blob_name, 0, 0, NULL, cb),
-            txDesc(_txDesc),  metaDataList(_metaDataList) {
-        setVolumeName(_vol_name);
-        e2eReqPerfCtx.type = AM_SET_BLOB_META_OBJ_REQ;
-        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
-        e2eReqPerfCtx.reset_volid(volId);
+            tx_desc(_txDesc),  metaDataList(_metaDataList) {
+        volume_name = _vol_name;
+        e2e_req_perf_ctx.type = AM_SET_BLOB_META_OBJ_REQ;
+        e2e_req_perf_ctx.name = "volume:" + std::to_string(vol_id);
+        e2e_req_perf_ctx.reset_volid(vol_id);
 
-        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
+        fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 
     virtual ~SetBlobMetaDataReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
+        fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
     }
 
     boost::shared_ptr<FDSP_MetaDataList> getMetaDataListPtr()
             const { return metaDataList; }
-
-    BlobTxId::const_ptr getTxId() const {
-        return txDesc;
-    }
-};
-
-struct GetVolumeMetaDataReq : FdsBlobReq {
-    GetVolumeMetaDataReq(fds_volid_t volId, const std::string & volumeName, CallbackPtr cb) :
-            FdsBlobReq(FDS_GET_VOLUME_METADATA, volId, "" , 0, 0, NULL, cb) {
-        setVolumeName(volumeName);
-        e2eReqPerfCtx.type = AM_GET_VOLUME_META_OBJ_REQ;
-        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
-        e2eReqPerfCtx.reset_volid(volId);
-
-        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
-    }
-
-    virtual ~GetVolumeMetaDataReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
-    }
-
-    /// Metadata to be returned
-    fpi::FDSP_VolumeMetaData volumeMetadata;
-
-    typedef std::function<void (const Error&)> GetVolMetadataProcCb;
-    GetVolMetadataProcCb processorCb;
 };
 
 struct GetBlobMetaDataReq : FdsBlobReq {
     GetBlobMetaDataReq(fds_volid_t volId, const std::string & volumeName,
                        const std::string &_blob_name, CallbackPtr cb) :
             FdsBlobReq(FDS_GET_BLOB_METADATA, volId, _blob_name , 0, 0, NULL, cb) {
-        setVolumeName(volumeName);
-        e2eReqPerfCtx.type = AM_GET_BLOB_META_OBJ_REQ;
-        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
-        e2eReqPerfCtx.reset_volid(volId);
+        volume_name = volumeName;
+        e2e_req_perf_ctx.type = AM_GET_BLOB_META_OBJ_REQ;
+        e2e_req_perf_ctx.name = "volume:" + std::to_string(volId);
+        e2e_req_perf_ctx.reset_volid(volId);
 
-        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
+        fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 
     virtual ~GetBlobMetaDataReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
+        fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
     }
 };
 
@@ -607,7 +379,7 @@ class AttachVolBlobReq : public FdsBlobReq {
                      CallbackPtr cb) :
             FdsBlobReq(FDS_ATTACH_VOL, _volid, _blob_name, _blob_offset,
                        _data_len, _data_buf, cb) {
-        setVolumeName(_vol_name);
+        volume_name = _vol_name;
     }
     ~AttachVolBlobReq() {
     }
@@ -650,7 +422,7 @@ class PutBlobReq: public FdsBlobReq {
     fdsnPutObjectHandler putObjCallback;
 
     // Needed fields
-    BlobTxId::ptr txDesc;
+    BlobTxId::ptr tx_desc;
     fds_uint64_t dmtVersion;
 
     /// Used for putBlobOnce scenarios.
@@ -704,294 +476,20 @@ class PutBlobReq: public FdsBlobReq {
 
     void setTxId(const BlobTxId &txId) {
         // We only expect to need to set this in putBlobOnce cases
-        fds_verify(txDesc == NULL);
-        txDesc = BlobTxId::ptr(new BlobTxId(txId));
-    }
-
-    BlobTxId::const_ptr getTxId() const {
-        return txDesc;
+        fds_verify(tx_desc == NULL);
+        tx_desc = BlobTxId::ptr(new BlobTxId(txId));
     }
 
     virtual ~PutBlobReq();
 
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
-        (putObjCallback)(req_context, dataLen, blobOffset, dataBuf,
+        (putObjCallback)(req_context, data_len, blob_offset, data_buf,
                          callback_data, status, errDetails);
     }
 
     void notifyResponse(fds::AmQosReq* qosReq, const Error &e);
     void notifyResponse(StorHvQosCtrl *qos_ctrl, fds::AmQosReq* qosReq, const Error &e);
 };
-
-
-struct DeleteBlobReq: FdsBlobReq, TxnRequest {
-    typedef std::function<void (const Error&)> DeleteBlobProcCb;
-
-    BucketContext *bucket_ctxt;
-    std::string ObjKey;
-    void *req_context;
-    fdsnResponseHandler responseCallback;
-    void *callback_data;
-
-    DeleteBlobProcCb processorCb;
-    fds_volid_t base_vol_id;
-
-    DeleteBlobReq(fds_volid_t _volid,
-                  const std::string& _blob_name,
-                  BucketContext* _bucket_ctxt,
-                  void* _req_context,
-                  fdsnResponseHandler _resp_handler,
-                  void* _callback_data)
-            : FdsBlobReq(FDS_DELETE_BLOB, _volid, _blob_name, 0, 0, NULL,
-                         FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
-              bucket_ctxt(_bucket_ctxt),
-              ObjKey(_blob_name),
-              req_context(_req_context),
-              responseCallback(_resp_handler),
-              callback_data(_callback_data) {
-        e2eReqPerfCtx.type = AM_DELETE_OBJ_REQ;
-        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
-        e2eReqPerfCtx.reset_volid(volId);
-        qosPerfCtx.type = AM_DELETE_QOS;
-        qosPerfCtx.name = "volume:" + std::to_string(volId);
-        qosPerfCtx.reset_volid(volId);
-        hashPerfCtx.type = AM_DELETE_HASH;
-        hashPerfCtx.name = "volume:" + std::to_string(volId);
-        hashPerfCtx.reset_volid(volId);
-        dmPerfCtx.type = AM_DELETE_DM;
-        dmPerfCtx.name = "volume:" + std::to_string(volId);
-        dmPerfCtx.reset_volid(volId);
-        smPerfCtx.type = AM_DELETE_SM;
-        smPerfCtx.name = "volume:" + std::to_string(volId);
-        smPerfCtx.reset_volid(volId);
-
-        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
-    }
-
-    DeleteBlobReq(fds_volid_t _volid,
-                  const std::string& _blob_name,
-                  const std::string& volumeName,
-                  CallbackPtr cb)
-            : FdsBlobReq(FDS_DELETE_BLOB, _volid,
-                         _blob_name, 0, 0, NULL, cb) {
-        setVolumeName(volumeName);
-
-        e2eReqPerfCtx.type = AM_DELETE_OBJ_REQ;
-        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
-        e2eReqPerfCtx.reset_volid(volId);
-        qosPerfCtx.type = AM_DELETE_QOS;
-        qosPerfCtx.name = "volume:" + std::to_string(volId);
-        qosPerfCtx.reset_volid(volId);
-        hashPerfCtx.type = AM_DELETE_HASH;
-        hashPerfCtx.name = "volume:" + std::to_string(volId);
-        hashPerfCtx.reset_volid(volId);
-        dmPerfCtx.type = AM_DELETE_DM;
-        dmPerfCtx.name = "volume:" + std::to_string(volId);
-        dmPerfCtx.reset_volid(volId);
-        smPerfCtx.type = AM_DELETE_SM;
-        smPerfCtx.name = "volume:" + std::to_string(volId);
-        smPerfCtx.reset_volid(volId);
-
-        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
-    }
-
-    virtual ~DeleteBlobReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
-    }
-
-    void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
-        (responseCallback)(status, errDetails, callback_data);
-    }
-};
-
-
-#define FDS_SH_BUCKET_LIST_MAGIC  0xBCE12345
-#define FDS_SH_BUCKET_STATS_MAGIC 0xCDF23456
-class BucketStatsReq: public FdsBlobReq {
-  public:
-    void *request_context;
-    fdsnBucketStatsHandler resp_handler;
-    void *callback_data;
-
-    /* for "get all bucket stats", blob name in base class is set to
-     * "all", it's ok if some other bucket will have this name, because
-     * we can identify response to a request by trans id (once request is dispatched */
-
-    BucketStatsReq(void *_req_context,
-                   fdsnBucketStatsHandler _handler,
-                   void *_callback_data)
-            : FdsBlobReq(FDS_BUCKET_STATS, admin_vol_id, "all", FDS_SH_BUCKET_STATS_MAGIC, 0, NULL,
-                         FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
-              request_context(_req_context),
-              resp_handler(_handler),
-              callback_data(_callback_data) {
-    }
-
-    ~BucketStatsReq() {}
-
-    void DoCallback(const std::string& timestamp,
-                    int content_count,
-                    const BucketStatsContent* contents,
-                    FDSN_Status status,
-                    ErrorDetails *err_details) {
-        (resp_handler)(timestamp, content_count, contents,
-                       request_context, callback_data, status, err_details);
-    }
-};
-
-class VolumeContentsReq: public FdsBlobReq {
-  public:
-    typedef std::function<void (const Error&)> VolumeContentsProcCb;
-
-    BucketContext *bucket_ctxt;
-    std::string prefix;
-    std::string marker;
-    std::string delimiter;
-    fds_uint32_t maxkeys;
-    void *request_context;
-    fdsnVolumeContentsHandler handler;
-    void *callback_data;
-    fds_long_t iter_cookie = 0;
-
-    VolumeContentsProcCb processorCb;
-    fds_volid_t base_vol_id;
-
-    /* sets bucket name to blob name in the base class,
-     * which is used to get trans id in journal table, and
-     * some magic number for offset */
-
-    VolumeContentsReq(fds_volid_t _volid,
-                  BucketContext *_bucket_ctxt,
-                  const std::string& _prefix,
-                  const std::string& _marker,
-                  const std::string& _delimiter,
-                  fds_uint32_t _max_keys,
-                  void* _req_context,
-                  fdsnVolumeContentsHandler _handler,
-                  void* _callback_data)
-            : FdsBlobReq(FDS_VOLUME_CONTENTS, _volid,
-                         _bucket_ctxt->bucketName, FDS_SH_BUCKET_LIST_MAGIC, 0, NULL,
-                         FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
-        bucket_ctxt(_bucket_ctxt),
-        prefix(_prefix),
-        marker(_marker),
-        delimiter(_delimiter),
-        maxkeys(_max_keys),
-        request_context(_req_context),
-        handler(_handler),
-        callback_data(_callback_data),
-        iter_cookie(0) {
-    }
-
-    VolumeContentsReq(fds_volid_t _volid,
-                  BucketContext *_bucket_ctxt,
-                  fds_uint32_t _max_keys,
-                  CallbackPtr cb)
-            : FdsBlobReq(FDS_VOLUME_CONTENTS, _volid,
-                         _bucket_ctxt->bucketName, 0, 0, NULL, cb), bucket_ctxt(_bucket_ctxt) {
-    }
-
-    ~VolumeContentsReq() {}
-
-    void DoCallback(int isTruncated,
-                    const char* next_marker,
-                    int contents_count,
-                    const ListBucketContents* contents,
-                    FDSN_Status status,
-                    ErrorDetails* errDetails) {
-        (handler)(isTruncated, next_marker, contents_count,
-                  contents, 0, NULL, callback_data, status);
-    }
-};
-
-/*
- * Internal wrapper class for AM QoS
- * requests.
- */
-class AmQosReq : public FDS_IOType {
-  private:
-    FdsBlobReq *blobReq;
-
-  public:
-    AmQosReq(FdsBlobReq *_br,
-             fds_uint32_t _reqId)
-            : blobReq(_br) {
-        /*
-         * Set the base class defaults
-         */
-        io_magic  = FDS_SH_IO_MAGIC_IN_USE;
-        io_module = STOR_HV_IO;
-        io_vol_id = blobReq->getVolId();
-        io_type   = blobReq->getIoType();
-        io_req_id = _reqId;
-    }
-    ~AmQosReq() {
-    }
-
-    fds_bool_t magicInUse() const {
-        return blobReq->magicInUse();
-    }
-    FdsBlobReq* getBlobReqPtr() {
-        return blobReq;
-    }
-    void setVolId(fds_volid_t volid) {
-        io_vol_id = volid;
-        blobReq->setVolId(volid);
-    }
-};
-
-inline FdsBlobReq::FdsBlobReq(fds_io_op_t      _op,
-                       fds_volid_t        _volId,
-                       const std::string &_blobName,
-                       fds_uint64_t       _blobOffset,
-                       fds_uint64_t       _dataLen,
-                       char              *_dataBuf)
-        : magic(FDS_SH_IO_MAGIC_IN_USE),
-          ioType(_op),
-          volId(_volId),
-          blobName(_blobName),
-          blobOffset(_blobOffset),
-          dataLen(_dataLen),
-          dataBuf(_dataBuf) {
-}
-
-inline FdsBlobReq::FdsBlobReq(fds_io_op_t       _op,
-                       fds_volid_t        _volId,
-                       const std::string &_blobName,
-                       fds_uint64_t       _blobOffset,
-                       fds_uint64_t       _dataLen,
-                       char              *_dataBuf,
-                       CallbackPtr        _cb)
-        : magic(FDS_SH_IO_MAGIC_IN_USE),
-          ioType(_op),
-          volId(_volId),
-          blobName(_blobName),
-          blobOffset(_blobOffset),
-          dataLen(_dataLen),
-          dataBuf(_dataBuf),
-          cb(_cb) {
-}
-
-template<typename F, typename A, typename B, typename C>
-inline FdsBlobReq::FdsBlobReq(fds_io_op_t      _op,
-           fds_volid_t        _volId,
-           const std::string &_blobName,
-           fds_uint64_t       _blobOffset,
-           fds_uint64_t       _dataLen,
-           char              *_dataBuf,
-           F f,
-           A a,
-           B b,
-           C c)
-    : magic(FDS_SH_IO_MAGIC_IN_USE),
-    ioType(_op),
-    volId(_volId),
-    blobName(_blobName),
-    blobOffset(_blobOffset),
-    dataLen(_dataLen),
-    dataBuf(_dataBuf),
-    callback(boost::bind(f, a, b, c, _1)) {
-    }
 
 }  // namespace fds
 

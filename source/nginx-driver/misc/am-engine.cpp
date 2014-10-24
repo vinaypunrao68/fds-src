@@ -1658,7 +1658,7 @@ Conn_GetBucketStats::ame_request_handler()
     FDS_NativeAPI *api;
 
     api = ame->ame_fds_hook();
-    api->GetBucketStats(NULL, fdsn_getbucket_stat_cb,
+    api->GetVolumeStats(NULL, fdsn_getbucket_stat_cb,
                         static_cast<void *>(this));
 }
 

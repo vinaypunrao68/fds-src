@@ -7,6 +7,8 @@
 #include <net/net-service-tmpl.hpp>
 #include "responsehandler.h"
 
+#include "requests/VolumeContentsReq.h"
+
 namespace fds {
 
 Error GetBucketHandler::handleRequest(BucketContext* bucket_context,
@@ -57,7 +59,7 @@ Error GetBucketHandler::handleResponse(AmQosReq *qosReq,
 Error GetBucketHandler::handleQueueItem(AmQosReq *qosReq) {
     Error err(ERR_OK);
     StorHvCtrl::RequestHelper helper(storHvisor, qosReq);
-    LOGDEBUG << "volume:" << helper.blobReq->getVolId()
+    LOGDEBUG << "volume:" << helper.blobReq->vol_id
              <<" blob:" << helper.blobReq->getBlobName();
 
     if (!helper.isValidVolume()) {
@@ -68,7 +70,7 @@ Error GetBucketHandler::handleQueueItem(AmQosReq *qosReq) {
 
     GetBucketMsgPtr message(new GetBucketMsg());
     VolumeContentsReq* blobReq = static_cast<VolumeContentsReq*>(helper.blobReq);
-    message->volume_id = blobReq->getVolId();
+    message->volume_id = blobReq->vol_id;
     message->startPos  = 0;
     message->maxKeys   = blobReq->maxkeys;
 

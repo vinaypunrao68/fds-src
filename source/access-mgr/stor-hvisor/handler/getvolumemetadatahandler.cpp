@@ -6,6 +6,8 @@
 #include <NetSession.h>
 #include "../StorHvisorNet.h"
 
+#include "requests/GetVolumeMetaDataReq.h"
+
 namespace fds {
 
 Error GetVolumeMetaDataHandler::handleRequest(const std::string& volumeName, CallbackPtr cb) {
@@ -77,7 +79,7 @@ Error GetVolumeMetaDataHandler::handleQueueItem(AmQosReq *qosReq) {
     auto client = session->getClient();
     msgHdr->session_uuid = session->getSessionId();
 
-    boost::shared_ptr<std::string> volNamePtr(new std::string(blobReq->volumeName));
+    boost::shared_ptr<std::string> volNamePtr(new std::string(blobReq->volume_name));
 
     // Send async RPC request
     try {

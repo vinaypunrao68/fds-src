@@ -5,6 +5,9 @@
 #include "./handler.h"
 #include "../StorHvisorNet.h"
 #include <net/net-service-tmpl.hpp>
+
+#include "requests/StatBlobReq.h"
+
 namespace fds {
 
 Error StatBlobHandler::handleRequest(const std::string& volumeName,
@@ -53,7 +56,7 @@ Error StatBlobHandler::handleResponse(AmQosReq *qosReq,
 Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
     Error err(ERR_OK);
     StorHvCtrl::RequestHelper helper(storHvisor, qosReq);
-    LOGDEBUG << "volume:" << helper.blobReq->getVolId()
+    LOGDEBUG << "volume:" << helper.blobReq->vol_id
              <<" blob:" << helper.blobReq->getBlobName();
 
     if (!helper.isValidVolume()) {
@@ -65,12 +68,12 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
     // Check cache for blob descriptor
     BlobDescriptor::ptr cachedBlobDesc =
             helper.storHvisor->amCache->getBlobDescriptor(
-                helper.blobReq->getVolId(),
+                helper.blobReq->vol_id,
                 helper.blobReq->getBlobName(),
                 err);
     if (err == ERR_OK) {
         LOGTRACE << "Found cached blob descriptor for " << std::hex
-                 << helper.blobReq->getVolId() << std::dec << " blob "
+                 << helper.blobReq->vol_id << std::dec << " blob "
                  << helper.blobReq->getBlobName();
 
         StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, helper.blobReq->cb);
@@ -92,11 +95,11 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
         return ERR_OK;
     }
     LOGTRACE << "Did not find cached blob descriptor for " << std::hex
-             << helper.blobReq->getVolId() << std::dec << " blob "
+             << helper.blobReq->vol_id << std::dec << " blob "
              << helper.blobReq->getBlobName();
 
     GetBlobMetaDataMsgPtr message(new GetBlobMetaDataMsg());
-    message->volume_id = helper.blobReq->getVolId();
+    message->volume_id = helper.blobReq->vol_id;
     message->blob_name = helper.blobReq->getBlobName();
 
     auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(

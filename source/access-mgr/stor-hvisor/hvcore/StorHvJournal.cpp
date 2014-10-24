@@ -438,9 +438,9 @@ StorHvJournalEntry::fbd_process_req_timeout() {
 
     fds::Error err(ERR_OK);
 
-    fds_volid_t   volId = blobReq->getVolId();
+    fds_volid_t   volId = blobReq->vol_id;
     LOGWARN << "Trans id" << trans_id << " timing out, responding to blob "
-            << blobReq->getBlobName() << " offset" << blobReq->getBlobOffset();
+            << blobReq->getBlobName() << " offset" << blobReq->blob_offset;
     if (isActive()) {
         // try all the SM nodes and if we are not able to get the data  return error
         StorHvVolume *vol = storHvisor->vol_table->getVolume(volId);
@@ -465,7 +465,7 @@ StorHvJournalEntry::fbd_process_req_timeout() {
                  */
                 err = storHvisor->dispatchSmPutMsg(txn,
                         storHvisor->om_client->\
-                        getCurrentDLT()->getNode(blobReq->getObjId(), txn->nodeSeq));
+                        getCurrentDLT()->getNode(blobReq->obj_id, txn->nodeSeq));
             }
         } else {
             // We searched all SMs, should not happen -- either blob does not exist
@@ -474,7 +474,7 @@ StorHvJournalEntry::fbd_process_req_timeout() {
             // To debug WIN-366, assert here. It still could be a case we can get out
             // like setting more throttling on AM, etc.
             LOGCRITICAL << "Timed out accessing all SMs for blob " << blobReq->getBlobName()
-                        << " offset " << blobReq->getBlobOffset() << " trans_id " << trans_id;
+                        << " offset " << blobReq->blob_offset << " trans_id " << trans_id;
             fds_panic("Timed out accessing all SMs!");
 
             // fds::PerfTracer::tracePointEnd(blobReq->e2eReqPerfCtx);

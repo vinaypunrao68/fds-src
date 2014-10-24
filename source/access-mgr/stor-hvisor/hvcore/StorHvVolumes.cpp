@@ -1,8 +1,12 @@
 /*
- * Copyright 2013 Formation Data Systems, Inc.
+ * Copyright 2013-2014 Formation Data Systems, Inc.
  */
+#include <atomic>
+
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
+
+#include "access-mgr/am-block.h"
 
 #include "StorHvisorNet.h"
 #include "StorHvJournal.h"
@@ -10,8 +14,6 @@
 #include "StorHvQosCtrl.h"
 
 #include "PerfTrace.h"
-#include <access-mgr/am-block.h>
-#include <atomic>
 
 extern StorHvCtrl *storHvisor;
 
@@ -37,13 +39,9 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
 
 StorHvVolume::~StorHvVolume() {
     parent_sh->qos_ctrl->deregisterVolume(voldesc->volUUID);
-    if (journal_tbl)
-        delete journal_tbl;
-    if (vol_catalog_cache)
-        delete vol_catalog_cache;
-    if(volQueue) {
-        delete volQueue;
-    }
+    delete journal_tbl; journal_tbl = nullptr;
+    delete vol_catalog_cache; vol_catalog_cache = nullptr;
+    delete volQueue; volQueue = nullptr;
 }
 
 /* safely destroys journal table and volume catalog cache
@@ -56,16 +54,10 @@ void StorHvVolume::destroy() {
     }
 
     /* destroy data */
-    delete journal_tbl;
-    journal_tbl = NULL;
-    delete vol_catalog_cache;
-    vol_catalog_cache = NULL;
-
+    delete journal_tbl; journal_tbl = nullptr;
+    delete vol_catalog_cache; vol_catalog_cache = nullptr;
+    delete volQueue; volQueue = nullptr;
     is_valid = false;
-    if ( volQueue) {
-        delete volQueue;
-        volQueue = NULL;
-    }
     rwlock.write_unlock();
 }
 
@@ -510,7 +502,7 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
                 fds_verify(req != NULL);
                 req->setVolId(vol_uuid);
                 //fds::PerfTracer::tracePointBegin(req->getBlobReqPtr()->e2eReqPerfCtx);
-                fds::PerfTracer::tracePointBegin(req->getBlobReqPtr()->qosPerfCtx);
+                fds::PerfTracer::tracePointBegin(req->getBlobReqPtr()->qos_perf_ctx);
                 storHvisor->qos_ctrl->enqueueIO(vol_uuid, req);
             }
             blobs.clear();
@@ -531,7 +523,7 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
             // Hard coding a result!
             LOGERROR << "some issue : " << err;
             LOGWARN << "Calling back with error since request is waiting"
-                    << " for volume " << blobReq->getVolId()
+                    << " for volume " << blobReq->vol_id
                     << " that doesn't exist";
             if (blobReq->cb.get() != NULL) {
                 blobReq->cb->call(FDSN_StatusEntityDoesNotExist);
@@ -571,32 +563,32 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        CallbackPtr cb)
     : FdsBlobReq(FDS_GET_BLOB, _volid, _blob_name, _blob_offset,
                  _data_len, _data_buf, cb) {
-    volumeName = _volumeName;
-    stopWatch.start();
+    volume_name = _volumeName;
+    stopwatch.start();
     
-    e2eReqPerfCtx.type = AM_GET_OBJ_REQ;
-    e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
-    e2eReqPerfCtx.reset_volid(volId);
-    qosPerfCtx.type = AM_GET_QOS;
-    qosPerfCtx.name = "volume:" + std::to_string(volId);
-    qosPerfCtx.reset_volid(volId);
-    hashPerfCtx.type = AM_GET_HASH;
-    hashPerfCtx.name = "volume:" + std::to_string(volId);
-    hashPerfCtx.reset_volid(volId);
-    dmPerfCtx.type = AM_GET_DM;
-    dmPerfCtx.name = "volume:" + std::to_string(volId);
-    dmPerfCtx.reset_volid(volId);
-    smPerfCtx.type = AM_GET_SM;
-    smPerfCtx.name = "volume:" + std::to_string(volId);
-    smPerfCtx.reset_volid(volId);
+    e2e_req_perf_ctx.type = AM_GET_OBJ_REQ;
+    e2e_req_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    e2e_req_perf_ctx.reset_volid(vol_id);
+    qos_perf_ctx.type = AM_GET_QOS;
+    qos_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    qos_perf_ctx.reset_volid(vol_id);
+    hash_perf_ctx.type = AM_GET_HASH;
+    hash_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    hash_perf_ctx.reset_volid(vol_id);
+    dm_perf_ctx.type = AM_GET_DM;
+    dm_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    dm_perf_ctx.reset_volid(vol_id);
+    sm_perf_ctx.type = AM_GET_SM;
+    sm_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    sm_perf_ctx.reset_volid(vol_id);
 
-    fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
+    fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
 }
 
 GetBlobReq::~GetBlobReq()
 {
-    fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
-    storHvisor->getCounters().gets_latency.update(stopWatch.getElapsedNanos());
+    fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx); 
+    storHvisor->getCounters().gets_latency.update(stopwatch.getElapsedNanos());
 }
 
 PutBlobReq::PutBlobReq(fds_volid_t _volid,
@@ -619,30 +611,30 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
     ObjKey(_blob_name),
     putProperties(_put_props),
     req_context(_req_context),
-    txDesc(_txDesc),
+    tx_desc(_txDesc),
     respAcks(2),
     retStatus(ERR_OK)
 {
-    volumeName = _volumeName;
+    volume_name = _volumeName;
     cb = _cb;
-    stopWatch.start();
-    e2eReqPerfCtx.type = AM_PUT_OBJ_REQ;
-    e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
-    e2eReqPerfCtx.reset_volid(volId);
-    qosPerfCtx.type = AM_PUT_QOS;
-    qosPerfCtx.name = "volume:" + std::to_string(volId);
-    qosPerfCtx.reset_volid(volId);
-    hashPerfCtx.type = AM_PUT_HASH;
-    hashPerfCtx.name = "volume:" + std::to_string(volId);
-    hashPerfCtx.reset_volid(volId);
-    dmPerfCtx.type = AM_PUT_DM;
-    dmPerfCtx.name = "volume:" + std::to_string(volId);
-    dmPerfCtx.reset_volid(volId);
-    smPerfCtx.type = AM_PUT_SM;
-    smPerfCtx.name = "volume:" + std::to_string(volId);
-    smPerfCtx.reset_volid(volId);
+    stopwatch.start();
+    e2e_req_perf_ctx.type = AM_PUT_OBJ_REQ;
+    e2e_req_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    e2e_req_perf_ctx.reset_volid(vol_id);
+    qos_perf_ctx.type = AM_PUT_QOS;
+    qos_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    qos_perf_ctx.reset_volid(vol_id);
+    hash_perf_ctx.type = AM_PUT_HASH;
+    hash_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    hash_perf_ctx.reset_volid(vol_id);
+    dm_perf_ctx.type = AM_PUT_DM;
+    dm_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    dm_perf_ctx.reset_volid(vol_id);
+    sm_perf_ctx.type = AM_PUT_SM;
+    sm_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    sm_perf_ctx.reset_volid(vol_id);
 
-    fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
+    fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
 }
 
 PutBlobReq::PutBlobReq(fds_volid_t          _volid,
@@ -658,37 +650,37 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                      _data_len, _data_buf, FDS_NativeAPI::DoCallback,
                      this, Error(ERR_OK), 0),
                 ObjKey(_blob_name),
-                txDesc(NULL),
+                tx_desc(nullptr),
                 blobMode(_blobMode),
                 metadata(_metadata),
                 respAcks(2),
                 retStatus(ERR_OK) {
-    volumeName = _volumeName;
+    volume_name = _volumeName;
     cb = _cb;
-    stopWatch.start();
-    e2eReqPerfCtx.type = AM_PUT_OBJ_REQ;
-    e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
-    e2eReqPerfCtx.reset_volid(volId);
-    qosPerfCtx.type = AM_PUT_QOS;
-    qosPerfCtx.name = "volume:" + std::to_string(volId);
-    qosPerfCtx.reset_volid(volId);
-    hashPerfCtx.type = AM_PUT_HASH;
-    hashPerfCtx.name = "volume:" + std::to_string(volId);
-    hashPerfCtx.reset_volid(volId);
-    dmPerfCtx.type = AM_PUT_DM;
-    dmPerfCtx.name = "volume:" + std::to_string(volId);
-    dmPerfCtx.reset_volid(volId);
-    smPerfCtx.type = AM_PUT_SM;
-    smPerfCtx.name = "volume:" + std::to_string(volId);
-    smPerfCtx.reset_volid(volId);
+    stopwatch.start();
+    e2e_req_perf_ctx.type = AM_PUT_OBJ_REQ;
+    e2e_req_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    e2e_req_perf_ctx.reset_volid(vol_id);
+    qos_perf_ctx.type = AM_PUT_QOS;
+    qos_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    qos_perf_ctx.reset_volid(vol_id);
+    hash_perf_ctx.type = AM_PUT_HASH;
+    hash_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    hash_perf_ctx.reset_volid(vol_id);
+    dm_perf_ctx.type = AM_PUT_DM;
+    dm_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    dm_perf_ctx.reset_volid(vol_id);
+    sm_perf_ctx.type = AM_PUT_SM;
+    sm_perf_ctx.name = "volume:" + std::to_string(vol_id);
+    sm_perf_ctx.reset_volid(vol_id);
 
-    fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
+    fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
 }
 
 PutBlobReq::~PutBlobReq()
 {
-    fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
-    storHvisor->getCounters().puts_latency.update(stopWatch.getElapsedNanos());
+    fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx); 
+    storHvisor->getCounters().puts_latency.update(stopwatch.getElapsedNanos());
 }
 
 void
@@ -720,7 +712,7 @@ void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl,
 
     if (cnt == 0) {
         if (storHvisor->toggleNewPath) {
-            if ((ioType == FDS_PUT_BLOB_ONCE) && (e == ERR_OK)) {
+            if ((io_type == FDS_PUT_BLOB_ONCE) && (e == ERR_OK)) {
                 // Push the commited update to the cache and remove from manager
                 // We push here because we ONCE messages don't have an explicit
                 // commit and here is where we know we've actually committed
@@ -731,10 +723,10 @@ void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl,
                 // is true for S3/Swift and doesn't get used anyways for block (so
                 // the actual cached descriptor for block will not be correct).
                 AmTxDescriptor::ptr txDescriptor;
-                fds_verify(storHvisor->amTxMgr->getTxDescriptor(*txDesc,
+                fds_verify(storHvisor->amTxMgr->getTxDescriptor(*tx_desc,
                                                                 txDescriptor) == ERR_OK);
                 fds_verify(storHvisor->amCache->putTxDescriptor(txDescriptor) == ERR_OK);
-                fds_verify(storHvisor->amTxMgr->removeTx(*txDesc) == ERR_OK);
+                fds_verify(storHvisor->amTxMgr->removeTx(*tx_desc) == ERR_OK);
             }
             qos_ctrl->markIODone(qosReq);
             cb->call(e);

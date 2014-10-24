@@ -325,7 +325,7 @@ namespace fds {
                                               void *callbackData,
                                               FDSN_Status status);
 
-    typedef void (*fdsnBucketStatsHandler)(const std::string& timestamp,
+    typedef void (*fdsnVolumeStatsHandler)(const std::string& timestamp,
                                            int content_count,
                                            const BucketStatsContent* contents,
                                            void *req_context,

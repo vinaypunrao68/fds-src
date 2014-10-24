@@ -8,6 +8,9 @@
 #include <StorHvisorNet.h>
 #include <string>
 #include <util/timeutils.h>
+
+#include "requests/requests.h"
+
 extern StorHvCtrl *storHvisor;
 
 namespace fds {
@@ -247,19 +250,17 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
 }
 
 /* get bucket stats for all existing buckets from OM*/
-void FDS_NativeAPI::GetBucketStats(void *req_ctxt,
-                                   fdsnBucketStatsHandler resp_handler,
+void FDS_NativeAPI::GetVolumeStats(void *req_ctxt,
+                                   fdsnVolumeStatsHandler resp_handler,
                                    void *callback_data)
 {
     FdsBlobReq *blob_req = NULL;
-    LOGDEBUG << "FDS_NativeAPI::GetBucketStats for all existing buckets";
+    LOGDEBUG << "FDS_NativeAPI::GetVolumeStats for all existing buckets";
 
     /* this request will go directly to OM,
        so not need to check if buckets are attached, etc. */
 
-    blob_req = new BucketStatsReq(req_ctxt,
-                                  resp_handler,
-                                  callback_data);
+    blob_req = new VolumeStatsReq(req_ctxt, resp_handler, callback_data);
 
     if (!blob_req) {
         (resp_handler)("", 0, NULL, req_ctxt, callback_data, FDSN_StatusOutOfMemory, NULL); //NOLINT
@@ -612,7 +613,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
         case FDS_BUCKET_STATS:
             /* in case of get bucket stats, this method is called only on error */
             fds_verify(!error.ok() || (result != 0));
-            static_cast<BucketStatsReq*>(blob_req)->DoCallback("", 0, NULL, status, NULL);
+            static_cast<VolumeStatsReq*>(blob_req)->DoCallback("", 0, NULL, status, NULL);
             break;
         default:
             fds_panic("Unknown blob request type!");

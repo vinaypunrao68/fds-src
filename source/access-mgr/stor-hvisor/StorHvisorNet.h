@@ -532,7 +532,7 @@ extern StorHvCtrl *storHvisor;
  */
 static void processBlobReq(AmQosReq *qosReq) {
     FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
-    fds::PerfTracer::tracePointEnd(blobReq->qosPerfCtx);
+    fds::PerfTracer::tracePointEnd(blobReq->qos_perf_ctx);
 
     fds_verify(qosReq->io_module == FDS_IOType::STOR_HV_IO);
     fds_verify(qosReq->magicInUse() == true);

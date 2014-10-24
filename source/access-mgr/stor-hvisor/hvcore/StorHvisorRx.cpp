@@ -88,9 +88,9 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                 fds_verify(blobReq != NULL);
                 Error err = vol->vol_catalog_cache->Update(
                     blobReq->getBlobName(),
-                    blobReq->getBlobOffset(),
-                    (fds_uint32_t)blobReq->getDataLen(),
-                    blobReq->getObjId(),
+                    blobReq->blob_offset,
+                    (fds_uint32_t)blobReq->data_len,
+                    blobReq->obj_id,
                     blobReq->isLastBuf());
                 fds_verify(err == ERR_OK);
 
@@ -387,7 +387,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         storHvisor->qos_ctrl->markIODone(journEntry->io);
         journEntry->trans_state = FDS_TRANS_EMPTY;
 
-        blobReq->setDataLen(0);
+        blobReq->data_len = 0;
         fds_int32_t result = -1;
         if (fdsp_msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_BLOB_NOT_FOUND) {
             // Set the error code accordingly if the blob wasn't found
@@ -427,7 +427,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         // TODO(Andrew): Today DM just gives us the entire
         // blob, so it doesn't tell us if the offset we queried
         // about was in the list or not
-        if ((fds_uint64_t)(*it).offset == blobReq->getBlobOffset()) {
+        if ((fds_uint64_t)(*it).offset == blobReq->blob_offset) {
             offsetFound = true;
         }
     }
@@ -437,14 +437,14 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         // in the response
         LOGWARN << "Blob " << blobReq->getBlobName()
                 << " query catalog did NOT return requested offset "
-                << blobReq->getBlobOffset();
+                << blobReq->blob_offset;
         
         storHvisor->qos_ctrl->markIODone(journEntry->io);
         journEntry->trans_state = FDS_TRANS_DONE;
 
         journEntry->reset();
         shvol->journal_tbl->releaseTransId(trans_id);
-        blobReq->setDataLen(0);        
+        blobReq->data_len = 0;        
         blobReq->cbWithResult(FDSN_StatusEntityDoesNotExist);
         
         return;
@@ -453,7 +453,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     // Get the object ID from the cache
     ObjectID offsetObjId;
     err = shvol->vol_catalog_cache->Query(blobReq->getBlobName(),
-                                          blobReq->getBlobOffset(),
+                                          blobReq->blob_offset,
                                           journEntry->trans_id,
                                           &offsetObjId);
     fds_verify(err == ERR_OK);
@@ -469,7 +469,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     journEntry->getMsg->data_obj_id.digest =
             std::string((const char *)offsetObjId.GetId(),
                         (size_t)offsetObjId.GetLen());
-    journEntry->getMsg->data_obj_len = blobReq->getDataLen();
+    journEntry->getMsg->data_obj_len = blobReq->data_len;
     journEntry->trans_state = FDS_TRANS_GET_OBJ;
     if (fSizeZero) {
         LOGWARN << "zero size object "
@@ -481,13 +481,13 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
 
         journEntry->reset();
         shvol->journal_tbl->releaseTransId(trans_id);
-        blobReq->setDataLen(0);
+        blobReq->data_len = 0;
         blobReq->cbWithResult(FDSN_StatusEntityEmpty);
         
     } else {
         LOGDEBUG << "sending get request to sm"
                   << " name:" << blobReq->getBlobName()
-                  << " size:" << blobReq->getDataLen();
+                  << " size:" << blobReq->data_len;
         err = storHvisor->dispatchSmGetMsg(journEntry);
     }
     

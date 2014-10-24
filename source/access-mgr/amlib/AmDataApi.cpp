@@ -10,6 +10,8 @@
 #include <responsehandler.h>
 #include <StorHvisorNet.h>
 
+#include "requests/requests.h"
+
 namespace fds {
 
 AmDataApi::AmDataApi()

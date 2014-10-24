@@ -80,8 +80,8 @@ class FDS_NativeAPI {
      * Buckets do not need to be attached to this AM, retrieves stats directly from OM
      * Note: in the future, we can also have API to get stats for a particular bucket
      */
-    void GetBucketStats(void *req_ctxt,
-                        fdsnBucketStatsHandler resp_handler,
+    void GetVolumeStats(void *req_ctxt,
+                        fdsnVolumeStatsHandler resp_handler,
                         void *callback_data);
 
     /// After this call returns bucketctx, get_cond are no longer valid.
