@@ -7,6 +7,8 @@
 #include <ObjectId.h>
 #include <fds_process.h>
 #include <AmProcessor.h>
+#include <fiu-control.h>
+#include <util/fiu_util.h>
 
 namespace fds {
 
@@ -25,6 +27,10 @@ AmProcessor::AmProcessor(const std::string &modName,
           volTable(_volTable),
           txMgr(_amTxMgr),
           amCache(_amCache) {
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
+        fiu_enable("am.uturn.processor", 1, NULL, 0);
+    }
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
 }
@@ -84,6 +90,12 @@ AmProcessor::startBlobTx(AmQosReq *qosReq) {
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
+
+    fiu_do_on("am.uturn.processor",
+              qosCtrl->markIODone(qosReq); \
+              blobReq->cb->call(ERR_OK); \
+              delete blobReq; \
+              return;);
 
     // check if this is a snapshot
     // TODO(Andrew): Why not just let DM reject the IO?
