@@ -106,15 +106,16 @@ public class Main {
     /*
      * provides metrics RESTful API endpoints
      */
-    metrics();
+    metrics( configCache );
 
     /*
      * provide events RESTful API endpoints
      */
     events();
 
-    authenticate( HttpMethod.GET, "/api/config/volumes", ( t ) -> new ListVolumes( xdi, legacyConfigClient, t ) );
-    authenticate( HttpMethod.POST, "/api/config/volumes", ( t ) -> new CreateVolume( xdi, legacyConfigClient, t ) );
+    authenticate( HttpMethod.GET, "/api/config/volumes", ( t ) -> new ListVolumes( xdi, amService, legacyConfigClient, t ) );
+    authenticate( HttpMethod.POST, "/api/config/volumes",
+                  ( t ) -> new CreateVolume( xdi, legacyConfigClient, configCache, t ) );
     authenticate( HttpMethod.POST, "/api/config/volumes/clone/:volumeId/:cloneVolumeName", ( t ) -> new CloneVolume( configCache, legacyConfigClient ) );
     authenticate( HttpMethod.DELETE, "/api/config/volumes/:name", ( t ) -> new DeleteVolume( xdi, t ) );
     authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid", ( t ) -> new SetVolumeQosParams( xdi, legacyConfigClient, configCache, authorizer, t ) );
@@ -183,24 +184,25 @@ public class Main {
     LOG.trace( "registered activities endpoints" );
   }
 
-  private void metrics() {
+  private void metrics( final ConfigurationApi config ) {
     if( !FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
       return;
     }
 
     LOG.trace( "registering metrics endpoints" );
     metricsGets();
-    metricsPost();
+    metricsPost( config );
     LOG.trace( "registered metrics endpoints" );
   }
 
-  private void metricsGets() {
+  private void metricsGets( ) {
     authenticate( HttpMethod.PUT, "/api/stats/volumes",
                   ( t ) -> new QueryMetrics() );
   }
 
-  private void metricsPost() {
-    webApp.route(HttpMethod.POST, "/api/stats", IngestVolumeStats::new);
+  private void metricsPost( final ConfigurationApi config ) {
+    webApp.route( HttpMethod.POST, "/api/stats",
+                  ( ) -> new IngestVolumeStats( config ) );
   }
 
   private void snapshot( final ConfigurationApi config,
