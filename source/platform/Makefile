@@ -2,7 +2,7 @@ topdir           := ../
 user_std_libs    := true
 user_target      := exe
 user_rtime_env   := user
-speedup          := -j 5
+speedup          = -j $(threads)
 user_build_dir   := include shared common disk net-svc python
 
 user_incl_dir    := include ../net-service/include

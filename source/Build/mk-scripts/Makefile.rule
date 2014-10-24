@@ -136,7 +136,7 @@ ifdef user_build_dir
                    if [ x"${fastb}" = x ]; then \
 			($(MAKE) -C $$f -f Makefile.fds $(MAKECMDGOALS) $$makearg) || exit 1;     \
                    else \
-			($(MAKE) -C $$f -j 5 -f Makefile.fds $(MAKECMDGOALS) $$makearg) || exit 1;     \
+			($(MAKE) -C $$f $(speedup) -f Makefile.fds $(MAKECMDGOALS) $$makearg) || exit 1;     \
                    fi \
 		else                                                                          \
                    if [ x"${fastb}" = x ]; then \
