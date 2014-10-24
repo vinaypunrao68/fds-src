@@ -50,8 +50,8 @@ class AmLoadProc {
         fds_verify(am->registerVolume(volDesc) == ERR_OK);
 
         // hardcoding test config
-        concurrency = 1;
-        totalOps = 10000000;
+        concurrency = 4;
+        totalOps = 800000;
         blobSize = 4096;
         opCount = ATOMIC_VAR_INIT(0);
 
@@ -83,6 +83,7 @@ class AmLoadProc {
         fds_uint64_t localLatencyTotal = 0;
         fds_uint32_t localOpCount = 0;
         while ((ops + 1) <= totalOps) {
+            fds_uint64_t start_nano = util::getTimeStampNanos();
             if (opType == PUT) {
                 try {
                     am->dataApi->updateBlobOnce(domainName, volumeName,
@@ -92,24 +93,34 @@ class AmLoadProc {
                     fds_panic("updateBlob failed");
                 }
             } else if (opType == GET) {
-                // do GET
+                try {
+                    std::string data;
+                    am->dataApi->getBlob(data,
+                                         domainName,
+                                         volumeName,
+                                         blobGen.blobName,
+                                         blobLength,
+                                         off);
+                } catch(apis::ApiException fdsE) {
+                    fds_panic("getBlob failed");
+                }
             } else if (opType == STARTTX) {
                 try {
                     apis::TxDescriptor txDesc;
-                    fds_uint64_t start_nano = util::getTimeStampNanos();
                     am->dataApi->startBlobTx(txDesc,
                                              domainName,
                                              volumeName,
                                              blobGen.blobName,
                                              blobMode);
-                    localLatencyTotal += (util::getTimeStampNanos() - start_nano);
-                    ++localOpCount;
                 } catch(apis::ApiException fdsE) {
                     fds_panic("statBlob failed");
                 }
             } else {
                 fds_panic("Unknown op type");
             }
+            localLatencyTotal += (util::getTimeStampNanos() - start_nano);
+            ++localOpCount;
+
             ops = atomic_fetch_add(&opCount, (fds_uint32_t)1);
             blobGen.generateNext();
         }
@@ -180,6 +191,11 @@ AmLoadProc::unique_ptr amLoad;
 TEST(AccessMgr, updateBlobOnce) {
     GLOGDEBUG << "Testing updateBlobOnce";
     amLoad->runTask(AmLoadProc::PUT);
+}
+
+TEST(AccessMgr, getBlob) {
+    GLOGDEBUG << "Testing getBlob";
+    amLoad->runTask(AmLoadProc::GET);
 }
 
 TEST(AccessMgr, startBlobTx) {

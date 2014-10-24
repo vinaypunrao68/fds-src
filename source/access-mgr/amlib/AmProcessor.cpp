@@ -296,6 +296,12 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
     // Pull out the Get request
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
 
+    fiu_do_on("am.uturn.processor",
+              qosCtrl->markIODone(qosReq); \
+              blobReq->cb->call(ERR_OK); \
+              delete blobReq; \
+              return;);
+
     fds_volid_t volId = blobReq->getVolId();
     StorHvVolume *shVol = volTable->getVolume(volId);
     // TODO(bszmyd): Friday, October 10th 2014
