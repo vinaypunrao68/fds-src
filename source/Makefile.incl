@@ -32,3 +32,5 @@ endif
 
 incl_scripts := $(M)$(topdir)/Build/mk-scripts
 include $(incl_scripts)/Makefile.start
+
+threads = 5
