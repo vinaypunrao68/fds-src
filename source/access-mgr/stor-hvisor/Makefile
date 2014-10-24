@@ -1,5 +1,5 @@
 topdir            := ../..
-speedup           := -j 5
+speedup           = -j $(threads)
 user_build_dir    := handler hvcore
 user_incl_dir     := ../include
 
