@@ -4,10 +4,9 @@
 
 package com.formationds.om.rest.metrics;
 
-import com.formationds.commons.model.Statistics;
-import com.formationds.commons.model.entity.QueryCriteria;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.om.repository.SingletonMetricsRepository;
+import com.formationds.om.repository.helper.QueryHelper;
+import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -30,9 +29,7 @@ public class QueryMetrics
   private static final transient Logger logger =
     LoggerFactory.getLogger( QueryMetrics.class );
 
-  private static final Type TYPE =
-    new TypeToken<QueryCriteria>() {
-    }.getType();
+  private static final Type TYPE = new TypeToken<QueryCriteria>() { }.getType();
 
   public QueryMetrics() {
     super();
@@ -44,13 +41,11 @@ public class QueryMetrics
 
     try( final Reader reader =
            new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
-      final QueryCriteria metricQuery =
-        ObjectModelHelper.toObject( reader, TYPE );
-      final Statistics stats = SingletonMetricsRepository.instance()
-                                                         .getMetricsRepository()
-                                                         .query( metricQuery );
 
-      return new JsonResource( new JSONObject( stats ) );
+      return new JsonResource(
+        new JSONObject(
+          new QueryHelper().execute(
+            ObjectModelHelper.toObject( reader, TYPE ) ) ) );
     }
   }
 }

@@ -2,7 +2,7 @@
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.model.entity.builder;
+package com.formationds.om.repository.query.builder;
 
 import com.formationds.commons.model.entity.VolumeDatapoint;
 
