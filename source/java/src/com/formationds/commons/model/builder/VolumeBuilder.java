@@ -15,7 +15,7 @@ public class VolumeBuilder {
   private String name;
   private Long limit;                    // maximum IOPS
   private Long sla;                      // minimum IOPS
-  private String id;
+  private String id;                     // volume id
   private Integer priority;
   private Connector data_connector;
   private Usage current_usage;
@@ -37,7 +37,7 @@ public class VolumeBuilder {
   }
 
   /**
-   * @param limit the {@code long} representing the iops limit
+   * @param limit the {@code long} representing the maximum IOPS
    *
    * @return Returns {@link com.formationds.commons.model.builder.VolumeBuilder}
    */
@@ -101,6 +101,7 @@ public class VolumeBuilder {
    */
   public Volume build() {
     Volume volume = new Volume();
+
     volume.setName( name );
     if( limit != null ) {
       volume.setLimit( limit );

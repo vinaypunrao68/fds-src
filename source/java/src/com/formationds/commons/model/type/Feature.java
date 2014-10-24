@@ -78,13 +78,13 @@ public enum Feature {
   public static List<Feature> byRole( final IdentityType type ) {
     final List<Feature> features = new ArrayList<>();
 
-    switch( type.name() )
+    switch( type )
     {
-      case "ADMIN":
+      case ADMIN:
         features.add( SYS_MGMT );
-      case "TENANT":
+      case TENANT:
         features.add( TENANT_MGMT );
-      case "USER":
+      case USER:
         features.add( VOL_MGMT );
         features.add( USER_MGMT );
     }

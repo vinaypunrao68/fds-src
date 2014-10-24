@@ -6,6 +6,7 @@ package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.util.ModelFieldValidator;
+import com.google.gson.annotations.SerializedName;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,10 +21,11 @@ public class Volume
   extends Context {
   private static final long serialVersionUID = 7961922641732546048L;
 
+  @SerializedName( "name" )
   private String name;
   private Long limit;                    // maximum IOPS
   private Long sla;                      // minimum IOPS -- service level agreement
-  private String id;
+  private String id;                     // volume Id
   private Integer priority;
   private Connector data_connector;
   private Usage current_usage;
@@ -53,15 +55,6 @@ public class Volume
    */
   public Volume() {
     super();
-  }
-
-  /**
-   * @return Returns a {@link T} representing the context
-   */
-  @SuppressWarnings("unchecked")
-  @Override
-  public <T> T getContext() {
-    return ( T ) this.getName();
   }
 
   /**
@@ -189,5 +182,14 @@ public class Volume
    */
   public void setCurrent_usage( final Usage current_usage ) {
     this.current_usage = current_usage;
+  }
+
+  /**
+   * @return Returns a {@link T} representing the context
+   */
+  @SuppressWarnings( "unchecked" )
+  @Override
+  public <T> T getContext() {
+    return ( T ) this.name;
   }
 }

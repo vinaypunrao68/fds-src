@@ -5,6 +5,7 @@
 package com.formationds.commons.model.capacity;
 
 import com.formationds.commons.model.abs.Calculated;
+import com.google.gson.annotations.SerializedName;
 
 /**
  * @author ptinius
@@ -13,6 +14,7 @@ public class CapacityConsumed
   extends Calculated {
   private static final long serialVersionUID = 7937889375009213316L;
 
+  @SerializedName( "consumed" )
   private Double total;
 
   /**

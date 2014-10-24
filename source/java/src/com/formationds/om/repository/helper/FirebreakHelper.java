@@ -12,6 +12,7 @@ import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.DateTimeUtil;
 import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.om.repository.result.VolumeFirebreak;
+import com.formationds.util.SizeUnit;
 import javafx.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,7 +79,9 @@ public class FirebreakHelper {
 
                 if( !results.containsKey( v1.getVolumeName() ) ) {
                   final Datapoint empty = new Datapoint();
+                  // y: last occurred
                   empty.setY( 0L );
+                  // x: volume capacity
                   empty.setX( 0L );
                   results.put( v1.getVolumeName(), empty );
                 }
@@ -102,12 +105,13 @@ public class FirebreakHelper {
                                    .equalsIgnoreCase( c.getVolumeName() ) &&
                     previous[ 0 ].getLastOccurred()
                                  .before( c.getLastOccurred() ) ) {
-
+                    // TODO get the size, i.e. capacity of the volume and set X
+                    // x: volume capacity
                     results.get( previous[ 0 ].getVolumeName() )
-                           .setY( v1.getValue()
-                                    .longValue() );
+                           .setX( SizeUnit.GB.totalBytes( 10 ) );
+                    // y: last occurred
                     results.get( previous[ 0 ].getVolumeName() )
-                           .setX( previous[ 0 ].getLastOccurred()
+                           .setY( previous[ 0 ].getLastOccurred()
                                                .getTime() );
 
                     previous[ 0 ] = c;

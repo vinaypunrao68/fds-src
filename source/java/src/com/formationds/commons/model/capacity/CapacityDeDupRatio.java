@@ -15,17 +15,13 @@ public class CapacityDeDupRatio
   extends Calculated {
   private static final long serialVersionUID = 455524997304050359L;
 
-  @SerializedName( "volumeName" )
-  private String volumeName;
-  @SerializedName("ratio")
+  @SerializedName("dedup_ratio")
   private Double ratio;
 
   /**
-   * @param volumeName the {@link String} representing the name of the volume
    * @param ratio the {@link Double} representing the de-duplication ratio
    */
-  public CapacityDeDupRatio( final String volumeName, final Double ratio ) {
-    this.volumeName = volumeName;
+  public CapacityDeDupRatio( final Double ratio ) {
     this.ratio = ratio;
   }
 
@@ -34,12 +30,5 @@ public class CapacityDeDupRatio
    */
   public Double getRatio() {
     return ratio;
-  }
-
-  /**
-   * @return Returns {@link String} representing the name of the volume
-   */
-  public String getVolumeName() {
-    return volumeName;
   }
 }
