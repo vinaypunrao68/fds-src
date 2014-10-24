@@ -117,3 +117,4 @@ files_before_starting_fds
 files_before_stopping_fds
 files_before_system_test
 files_before_unit_test
+ansible/.devsetup-is-*
