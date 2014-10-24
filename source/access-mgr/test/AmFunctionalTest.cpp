@@ -50,8 +50,8 @@ class AmLoadProc {
         fds_verify(am->registerVolume(volDesc) == ERR_OK);
 
         // hardcoding test config
-        concurrency = 8;
-        totalOps = 1000000;
+        concurrency = 1;
+        totalOps = 10000000;
         blobSize = 4096;
         opCount = ATOMIC_VAR_INIT(0);
 
@@ -64,7 +64,7 @@ class AmLoadProc {
     enum TaskOps {
         PUT,
         GET,
-        STAT
+        STARTTX
     };
 
     void task(int id, TaskOps opType) {
@@ -80,6 +80,8 @@ class AmLoadProc {
                 boost::make_shared<std::map<std::string, std::string>>(metaData);
 
         SequentialBlobDataGen blobGen(blobSize, id);
+        fds_uint64_t localLatencyTotal = 0;
+        fds_uint32_t localOpCount = 0;
         while ((ops + 1) <= totalOps) {
             if (opType == PUT) {
                 try {
@@ -91,10 +93,17 @@ class AmLoadProc {
                 }
             } else if (opType == GET) {
                 // do GET
-            } else if (opType == STAT) {
+            } else if (opType == STARTTX) {
                 try {
-                    apis::BlobDescriptor blobDesc;
-                    am->dataApi->statBlob(blobDesc, domainName, volumeName, blobGen.blobName);
+                    apis::TxDescriptor txDesc;
+                    fds_uint64_t start_nano = util::getTimeStampNanos();
+                    am->dataApi->startBlobTx(txDesc,
+                                             domainName,
+                                             volumeName,
+                                             blobGen.blobName,
+                                             blobMode);
+                    localLatencyTotal += (util::getTimeStampNanos() - start_nano);
+                    ++localOpCount;
                 } catch(apis::ApiException fdsE) {
                     fds_panic("statBlob failed");
                 }
@@ -104,10 +113,12 @@ class AmLoadProc {
             ops = atomic_fetch_add(&opCount, (fds_uint32_t)1);
             blobGen.generateNext();
         }
+        avgLatencyTotal += (localLatencyTotal / localOpCount);
     }
 
     virtual int runTask(TaskOps opType) {
         opCount = 0;
+        avgLatencyTotal = 0;
         fds_uint64_t start_nano = util::getTimeStampNanos();
         for (unsigned i = 0; i < concurrency; ++i) {
             std::thread* new_thread = new std::thread(&AmLoadProc::task, this, i, opType);
@@ -127,8 +138,10 @@ class AmLoadProc {
         } else {
             std::cout << "Average IOPS = " << totalOps / time_sec << std::endl;
             GLOGNOTIFY << "Average IOPS = " << totalOps / time_sec;
-            std::cout << "Average latency = " << duration_nano / totalOps << std::endl;
-            GLOGNOTIFY << "Averate latency = " << duration_nano / totalOps;
+            std::cout << "Average latency = " << avgLatencyTotal / concurrency
+                      << " nanosec" << std::endl;
+            GLOGNOTIFY << "Average latency = " << avgLatencyTotal / concurrency
+                       << " nanosec";
         }
 
         for (unsigned x = 0; x < concurrency; ++x) {
@@ -154,6 +167,9 @@ class AmLoadProc {
     /// to count number of ops completed
     std::atomic<fds_uint32_t> opCount;
 
+    /// total latency observed by each thread
+    std::atomic<fds_uint64_t> avgLatencyTotal;
+
     /// domain name
     boost::shared_ptr<std::string> domainName;
     boost::shared_ptr<std::string> volumeName;
@@ -166,9 +182,9 @@ TEST(AccessMgr, updateBlobOnce) {
     amLoad->runTask(AmLoadProc::PUT);
 }
 
-TEST(AccessMgr, statBlob) {
-    GLOGDEBUG << "Testing statBlob";
-    amLoad->runTask(AmLoadProc::STAT);
+TEST(AccessMgr, startBlobTx) {
+    GLOGDEBUG << "Testing startBlobTx";
+    amLoad->runTask(AmLoadProc::STARTTX);
 }
 
 }  // namespace fds
