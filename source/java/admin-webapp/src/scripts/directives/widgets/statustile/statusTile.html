@@ -2,12 +2,16 @@
     <div class="tile-title">{{tileTitle}}</div>
     <div class="tile-content" ng-transclude></div>
     <div class="tile-status-bar">
+        
+        <summary-number-display ng-model="calculatedData" auto-change="true" ng-show="calculatedData"></summary-number-display>
+<!--
         <div class="pull-left main-number">{{wholeNumber}}</div>
         <div class="pull-left decimals">
             <span ng-show="decimals > 0">{{decimals}}</span>
             <span>{{suffix}}</span>
         </div>
         <div class="pull-left tile-description">{{description}}</div>
+-->
 
         <div class="notification-parent" ng-show="notifications && notifications > 0">
             <div class="pull-right notifications">{{notifications}}</div>

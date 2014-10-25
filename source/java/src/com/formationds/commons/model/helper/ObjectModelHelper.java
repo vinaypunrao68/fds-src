@@ -8,11 +8,12 @@ import com.formationds.commons.model.type.Protocol;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.Reader;
 import java.lang.reflect.Type;
+import java.text.DateFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
@@ -20,6 +21,10 @@ import java.util.List;
  * @author ptinius
  */
 public class ObjectModelHelper {
+
+  private static final DateFormat ISO_DATE =
+    new SimpleDateFormat( "yyyyMMdd'T'HHmmss" );
+
   /**
    * @param protocols the {@link List} of {@link com.formationds.commons.model.type.Protocol}
    *
@@ -48,9 +53,28 @@ public class ObjectModelHelper {
    */
   public static Date toiCalFormat( final String date )
     throws ParseException {
-    return ISODateTimeFormat.dateOptionalTimeParser()
-                            .parseDateTime( date )
-                            .toDate();
+    return fromISODateTime( date );
+  }
+
+  /**
+   * @param date the {@link Date} representing the date
+   *
+   * @return Returns {@link String} representing the ISO Date format of
+   * "yyyyMMddTHHmmssZ"
+   */
+  public static String isoDateTimeUTC( final Date date ) {
+    return ISO_DATE.format( date );
+  }
+
+  /**
+   * @param date the {@link String} representing the ISO Date format of
+   *             "yyyyMMddThhmmss"
+   *
+   * @return Date Returns {@link Date} representing the {@code date}
+   */
+  public static Date fromISODateTime( final String date )
+    throws ParseException {
+    return ISO_DATE.parse( date );
   }
 
   /**

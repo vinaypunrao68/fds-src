@@ -13,6 +13,7 @@
 #include <util/timeutils.h>
 #include <dm-platform.h>
 #include <DataMgr.h>
+#include <fdsp/fds_service_types.h>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,21 @@ static Error expungeObjects(fds_volid_t volId, const std::vector<ObjectID> & oid
     */
     return ERR_OK;
 }
+
+#define BIND_OBJ_CALLBACK(obj, func, header , ...)                       \
+    std::bind(&func, &obj , header, ##__VA_ARGS__ , std::placeholders::_1, \
+              std::placeholders::_2);
+
+struct DMCallback {
+    boost::shared_ptr<fpi::AsyncHdr> asyncHdr;
+    Error e;
+    fds::dmCatReq *req;
+    void handler(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr, const fds::Error &e, fds::dmCatReq *req) { //NOLINT
+        this->asyncHdr = asyncHdr;
+        this->e = e;
+        this->req = req;
+    }
+};
 
 struct BlobDetails {
     std::string name;

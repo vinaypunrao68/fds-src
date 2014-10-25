@@ -20,6 +20,9 @@ include $(topdir)/Makefile.incl
 
 #	@rm -rf $(comm_dir_lib)/java
 
+clean:
+	@cd admin-webapp; node_modules/grunt-cli/bin/grunt clean
+
 compile:
 	@rm -f $(comm_dir_bin)/AMAgent
 	@rm -rf $(comm_dir_lib)/java

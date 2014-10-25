@@ -63,7 +63,17 @@ class TestReqHandler: public SmIoReqHandler {
             GLOGNOTIFY << "Creating " << odbDir << " directory";
             boost::filesystem::create_directory(odbPath);
         }
-        odb = new(std::nothrow) osm::ObjectDB(filename);
+
+        try
+        {
+            odb = new osm::ObjectDB(filename);
+        }
+        catch(const osm::OsmException& e)
+        {
+            LOGERROR << "Failed to create ObjectDB " << filename;
+            LOGERROR << e.what();
+            odb = NULL;
+        }
         EXPECT_TRUE(odb != NULL);
         GLOGNOTIFY << "Opened ObjectDB " << filename;
     }

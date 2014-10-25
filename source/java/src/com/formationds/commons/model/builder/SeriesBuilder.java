@@ -7,6 +7,7 @@ package com.formationds.commons.model.builder;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.abs.Context;
+import com.formationds.commons.model.type.Metrics;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.List;
  */
 public class SeriesBuilder {
   private Context context;
+  private Metrics type;
   private List<Datapoint> datapoints;
 
   /**
@@ -59,6 +61,16 @@ public class SeriesBuilder {
   }
 
   /**
+   * @param type the {@link com.formationds.commons.model.type.Metrics} type
+   *
+   * @return Returns the {@link com.formationds.commons.model.builder.SeriesBuilder}
+   */
+  public SeriesBuilder withType( final Metrics type ) {
+    this.type = type;
+    return this;
+  }
+
+  /**
    * @return Returns the {@link com.formationds.commons.model.Series}
    */
   public Series build() {
@@ -72,6 +84,10 @@ public class SeriesBuilder {
       volumeDatapointSeries.setDatapoints( datapoints );
     } else {
       volumeDatapointSeries.setDatapoints( new ArrayList<>() );
+    }
+
+    if( type != null ) {
+      volumeDatapointSeries.setType( type );
     }
 
     return volumeDatapointSeries;
