@@ -322,7 +322,11 @@ Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
     if (rc.ok()) {
         fpi::FDSP_BlobObjectList::reverse_iterator iter = objList->rbegin();
         if (objList->rend() != iter) {
-            iter->size = lastObjectSize;
+            const fds_uint64_t lastOffset =
+                    DmVolumeDirectory::getLastOffset(blobSize, vol->getObjSize());
+            if (static_cast<fds_int64_t>(lastOffset) == iter->offset) {
+                iter->size = lastObjectSize;
+            }
         }
     }
 
