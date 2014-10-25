@@ -34,8 +34,13 @@ ObjectDB::ObjectDB(const std::string& filename)
     write_options.sync = true;
 
     leveldb::Status status = leveldb::DB::Open(options, file, &db);
+
     /* Open has to succeed */
-    assert(status.ok());
+    if (!status.ok())
+    {
+        throw OsmException(std::string(__FILE__) + ":" + std::to_string(__LINE__) +
+                           " :leveldb::DB::Open(): " + status.ToString());
+    }
 
     histo_all.Clear();
     histo_put.Clear();
