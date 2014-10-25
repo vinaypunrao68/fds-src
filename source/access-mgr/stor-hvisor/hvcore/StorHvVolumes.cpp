@@ -691,10 +691,8 @@ PutBlobReq::~PutBlobReq()
 
 void
 PutBlobReq::notifyResponse(AmQosReq* qosReq, const Error &e) {
-    -- respAcks;
-    fds_verify(respAcks >= 0);
-
-    if (respAcks == 0) {
+    fds_verify(respAcks > 0);
+    if (0 == --respAcks) {
         // Call back to processing layer
         processorCb(e);
     }

@@ -11,6 +11,9 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/shared_ptr.hpp>
+#include <condition_variable>
+
+#include <google/profiler.h>
 
 #include <fds_assert.h>
 #include <fds_process.h>
@@ -50,17 +53,6 @@ class SmLoadProc : public FdsProcess {
     Error populateStore(TestVolume::ptr& volume);
     Error validateStore(TestVolume::ptr& volume);
 
-    // wrappers for get/put/delete
-    Error get(fds_volid_t volId,
-              const ObjectID& objId,
-              boost::shared_ptr<const std::string>& objData);
-    Error put(fds_volid_t volId,
-              const ObjectID& objId,
-              boost::shared_ptr<const std::string> objData);
-    Error remove(fds_volid_t volId,
-                 const ObjectID& objId);
-
-  private:  // methods
     Error getSm(fds_volid_t volId,
                 const ObjectID& objId,
                 boost::shared_ptr<const std::string>& objData);
@@ -80,11 +72,6 @@ class SmLoadProc : public FdsProcess {
                     SmIoDeleteObjectReq* delReq);
 
   private:
-    /**
-     * Params from from config file
-     */
-    fds_bool_t simulate;
-
     std::vector<std::thread*> threads_;
     std::atomic<fds_bool_t> test_pass_;
 
@@ -93,6 +80,12 @@ class SmLoadProc : public FdsProcess {
     TestVolumeMap volumes_;
 
     fds_bool_t validating_;
+    std::condition_variable done_cond;
+    std::mutex done_mutex;
+
+    // to ensure configure concurrency
+    std::condition_variable concurrency_cond;
+    std::mutex concurrency_mutex;
 };
 
 SmLoadProc::SmLoadProc(int argc, char * argv[], const std::string & config,
@@ -106,66 +99,9 @@ SmLoadProc::SmLoadProc(int argc, char * argv[], const std::string & config,
     volumes_.init(fdsconf, "fds.sm_load.");
 
     // initialize dynamic counters
-    simulate = false;
     validating_ = false;
     test_pass_ = ATOMIC_VAR_INIT(true);
     StatsCollector::singleton()->enableQosStats("ObjStoreLoadTest");
-}
-
-Error
-SmLoadProc::get(fds_volid_t volId,
-                const ObjectID& objId,
-                boost::shared_ptr<const std::string>& objData) {
-    Error err(ERR_OK);
-    fds_uint64_t start_nano = util::getTimeStampNanos();
-    if (simulate) {
-        boost::this_thread::sleep(boost::posix_time::microseconds(2000));
-    } else {
-        err = getSm(volId, objId, objData);
-    }
-    if (!err.ok()) return err;
-
-    // record stat
-    fds_uint64_t lat_nano = util::getTimeStampNanos() - start_nano;
-    StatsCollector::singleton()->recordEvent(volId,
-                                             util::getTimeStampNanos(),
-                                             STAT_AM_GET_OBJ,
-                                             static_cast<double>(lat_nano) / 1000.0);
-    return ERR_OK;
-}
-
-Error
-SmLoadProc::put(fds_volid_t volId,
-                const ObjectID& objId,
-                boost::shared_ptr<const std::string> objData) {
-    Error err(ERR_OK);
-    fds_uint64_t start_nano = util::getTimeStampNanos();
-    if (simulate) {
-        boost::this_thread::sleep(boost::posix_time::microseconds(2000));
-    } else {
-        err = putSm(volId, objId, objData);
-    }
-    if (!err.ok()) return err;
-
-    // record stat
-    fds_uint64_t lat_nano = util::getTimeStampNanos() - start_nano;
-    StatsCollector::singleton()->recordEvent(volId,
-                                             util::getTimeStampNanos(),
-                                             STAT_AM_PUT_OBJ,
-                                             static_cast<double>(lat_nano) / 1000.0);
-
-    return ERR_OK;
-}
-
-Error SmLoadProc::remove(fds_volid_t volId,
-                         const ObjectID& objId) {
-    Error err(ERR_OK);
-    if (simulate) {
-        boost::this_thread::sleep(boost::posix_time::microseconds(2000));
-    } else {
-        err = removeSm(volId, objId);
-    }
-    return err;
 }
 
 Error SmLoadProc::populateStore(TestVolume::ptr& volume) {
@@ -175,31 +111,35 @@ Error SmLoadProc::populateStore(TestVolume::ptr& volume) {
     for (fds_uint32_t i = 0;
          i < (volume->testdata_).dataset_.size();
          ++i) {
-        while (1) {
-            dispatched = atomic_load(&(volume->dispatched_count));
-            if (dispatched < volume->concurrency_) {
-                break;
+        if (atomic_load(&(volume->dispatched_count)) >= volume->concurrency_) {
+            std::unique_lock<std::mutex> lk(concurrency_mutex);
+            if (concurrency_cond.wait_for(lk, std::chrono::milliseconds(10000),
+                [volume](){
+                return (atomic_load(&(volume->dispatched_count)) < volume->concurrency_);})) {
+                GLOGTRACE << "Will send IO: " << atomic_load(&(volume->dispatched_count));
+            } else {
+                GLOGWARN << "Timeout waiting for request to complete";
+                return ERR_SVC_REQUEST_TIMEOUT;  // timeout should not happen :(
             }
-            boost::this_thread::sleep(boost::posix_time::microseconds(100));
         }
 
         ObjectID oid = (volume->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
                 (volume->testdata_).dataset_map_[oid].getObjectData();
-        err = put((volume->voldesc_).volUUID, oid, data);
+        err = putSm((volume->voldesc_).volUUID, oid, data);
         if (!err.ok()) return err;
         dispatched = atomic_fetch_add(&(volume->dispatched_count), (fds_uint32_t)1);
     }
 
     // wait till all writes complete
-    while (1) {
-        dispatched = atomic_load(&(volume->dispatched_count));
-        if (dispatched < 1) {
-            break;
-        }
-        boost::this_thread::sleep(boost::posix_time::microseconds(100));
+    std::unique_lock<std::mutex> lk(done_mutex);
+    if (done_cond.wait_for(lk, std::chrono::milliseconds(10000),
+              [volume](){return (atomic_load(&(volume->dispatched_count)) < 1);})) {
+        GLOGNOTIFY << "Finished populating store...";
+    } else {
+        GLOGWARN << "Timeout waiting for all reads to complete";
+        err = ERR_SVC_REQUEST_TIMEOUT;
     }
-
     return err;
 }
 
@@ -211,28 +151,33 @@ Error SmLoadProc::validateStore(TestVolume::ptr& volume) {
     for (fds_uint32_t i = 0;
          i < (volume->testdata_).dataset_.size();
          ++i) {
-        while (1) {
-            dispatched = atomic_load(&(volume->dispatched_count));
-            if (dispatched < volume->concurrency_) {
-                break;
+        if (atomic_load(&(volume->dispatched_count)) >= volume->concurrency_) {
+            std::unique_lock<std::mutex> lk(concurrency_mutex);
+            if (concurrency_cond.wait_for(lk, std::chrono::milliseconds(10000),
+                [volume](){
+                return (atomic_load(&(volume->dispatched_count)) < volume->concurrency_);})) {
+                GLOGTRACE << "Will send IO: " << atomic_load(&(volume->dispatched_count));
+            } else {
+                GLOGWARN << "Timeout waiting for request to complete";
+                return ERR_SVC_REQUEST_TIMEOUT;  // timeout should not happen :(
             }
-            boost::this_thread::sleep(boost::posix_time::microseconds(100));
         }
 
         ObjectID oid = (volume->testdata_).dataset_[i];
         boost::shared_ptr<const std::string> objData;
-        err = get((volume->voldesc_).volUUID, oid, objData);
+        err = getSm((volume->voldesc_).volUUID, oid, objData);
         if (!err.ok()) return err;
         dispatched = atomic_fetch_add(&(volume->dispatched_count), (fds_uint32_t)1);
     }
 
     // wait till all reads complete
-    while (1) {
-        dispatched = atomic_load(&(volume->dispatched_count));
-        if (dispatched < 1) {
-            break;
-        }
-        boost::this_thread::sleep(boost::posix_time::microseconds(100));
+    std::unique_lock<std::mutex> lk(done_mutex);
+    if (done_cond.wait_for(lk, std::chrono::milliseconds(10000),
+              [volume](){return (atomic_load(&(volume->dispatched_count)) < 1);})) {
+        GLOGNOTIFY << "Finished validating store...";
+    } else {
+        GLOGWARN << "Timeout waiting for all reads to complete";
+        err = ERR_SVC_REQUEST_TIMEOUT;
     }
     validating_ = false;
     return err;
@@ -275,6 +220,7 @@ int SmLoadProc::run() {
         }
     }
 
+    ProfilerStart("/tmp/SM_output.prof");
     fds_uint32_t num_volumes = volumes_.volmap.size();
     for (TestVolMap::iterator it = volumes_.volmap.begin();
          it != volumes_.volmap.end();
@@ -287,6 +233,7 @@ int SmLoadProc::run() {
     for (unsigned x = 0; x < num_volumes; ++x) {
         threads_[x]->join();
     }
+    ProfilerStop();
 
     for (unsigned x = 0; x < num_volumes; ++x) {
         std::thread* th = threads_[x];
@@ -330,12 +277,17 @@ void SmLoadProc::task(fds_volid_t volId) {
     fds_uint64_t start_nano = util::getTimeStampNanos();
     while ((ops + 1) <= volume->num_ops_)
     {
-        while (1) {
-            dispatched = atomic_load(&(volume->dispatched_count));
-            if (dispatched < volume->concurrency_) {
+        if (atomic_load(&(volume->dispatched_count)) >= volume->concurrency_) {
+            std::unique_lock<std::mutex> lk(concurrency_mutex);
+            if (concurrency_cond.wait_for(lk, std::chrono::milliseconds(10000),
+                       [volume](){return
+                       (atomic_load(&(volume->dispatched_count)) < volume->concurrency_);})) {
+                GLOGTRACE << "Will send IO: " << atomic_load(&(volume->dispatched_count));
+            } else {
+                GLOGWARN << "Timeout waiting for request to complete";
+                err = ERR_SVC_REQUEST_TIMEOUT;  // timeout should not happen :(
                 break;
             }
-            boost::this_thread::sleep(boost::posix_time::microseconds(100));
         }
 
         // do op
@@ -347,18 +299,18 @@ void SmLoadProc::task(fds_volid_t volId) {
                 {
                     boost::shared_ptr<std::string> data =
                             (volume->testdata_).dataset_map_[oid].getObjectData();
-                    err = put(volId, oid, data);
+                    err = putSm(volId, oid, data);
                     break;
                 }
             case TestVolume::STORE_OP_GET:
                 {
                     boost::shared_ptr<const std::string> data;
-                    err = get(volId, oid, data);
+                    err = getSm(volId, oid, data);
                     break;
                 }
             case TestVolume::STORE_OP_DELETE:
                 {
-                    err = remove(volId, oid);
+                    err = removeSm(volId, oid);
                     break;
                 }
             default:
@@ -445,6 +397,19 @@ SmLoadProc::putSmCb(const Error &err,
     fds_verify(volumes_.volmap.count(volId) > 0);
     TestVolume::ptr vol = volumes_.volmap[volId];
     fds_uint32_t dispatched = atomic_fetch_sub(&(vol->dispatched_count), (fds_uint32_t)1);
+    if (dispatched <= 1) {
+        done_cond.notify_all();
+    }
+    if (dispatched <= vol->concurrency_) {
+        concurrency_cond.notify_all();
+    }
+
+    // record stat
+    fds_uint64_t lat_nano = util::getTimeStampNanos() - putReq->enqueue_ts;
+    StatsCollector::singleton()->recordEvent(volId,
+                                             util::getTimeStampNanos(),
+                                             STAT_AM_PUT_OBJ,
+                                             static_cast<double>(lat_nano) / 1000.0);
     delete putReq;
 }
 
@@ -508,6 +473,20 @@ SmLoadProc::getSmCb(const Error &err,
         }
     }
     fds_uint32_t dispatched = atomic_fetch_sub(&(vol->dispatched_count), (fds_uint32_t)1);
+    if (dispatched <= 1) {
+        done_cond.notify_all();
+    }
+    if (dispatched <= vol->concurrency_) {
+        concurrency_cond.notify_all();
+    }
+
+    // record stat
+    fds_uint64_t lat_nano = util::getTimeStampNanos() - getReq->enqueue_ts;
+    StatsCollector::singleton()->recordEvent(volId,
+                                             util::getTimeStampNanos(),
+                                             STAT_AM_GET_OBJ,
+                                             static_cast<double>(lat_nano) / 1000.0);
+
     delete getReq;
 }
 
@@ -556,6 +535,13 @@ SmLoadProc::removeSmCb(const Error &err,
     fds_verify(volumes_.volmap.count(volId) > 0);
     TestVolume::ptr vol = volumes_.volmap[volId];
     fds_uint32_t dispatched = atomic_fetch_sub(&(vol->dispatched_count), (fds_uint32_t)1);
+    if (dispatched <= 1) {
+        done_cond.notify_all();
+    }
+    if (dispatched <= vol->concurrency_) {
+        concurrency_cond.notify_all();
+    }
+
     delete delReq;
 }
 
