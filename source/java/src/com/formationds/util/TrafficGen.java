@@ -29,6 +29,7 @@ package com.formationds.util;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.formationds.commons.util.SystemUtility;
 import com.formationds.util.s3.S3SignatureGenerator;
 import org.apache.commons.cli.*;
 import org.apache.http.ConnectionReuseStrategy;
@@ -39,6 +40,7 @@ import org.apache.http.concurrent.FutureCallback;
 import org.apache.http.config.ConnectionConfig;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.DefaultConnectionReuseStrategy;
+import org.apache.http.impl.NoConnectionReuseStrategy;
 import org.apache.http.impl.nio.DefaultHttpClientIODispatch;
 import org.apache.http.impl.nio.pool.BasicNIOConnPool;
 import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor;
@@ -50,19 +52,21 @@ import org.apache.http.nio.protocol.HttpAsyncRequestExecutor;
 import org.apache.http.nio.protocol.HttpAsyncRequester;
 import org.apache.http.nio.reactor.ConnectingIOReactor;
 import org.apache.http.nio.reactor.IOEventDispatch;
-import org.apache.http.protocol.HttpCoreContext;
-import org.apache.http.protocol.HttpProcessor;
-import org.apache.http.protocol.HttpProcessorBuilder;
+import org.apache.http.protocol.*;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 
 /**
@@ -92,6 +96,8 @@ public class TrafficGen {
     static int slots = 100;
     static int osize = 4096;
     static int n_conns = 2;
+    static boolean no_reuse = false;
+    static boolean verify = false;
 
     static RandomFile rf = null;
     private static String username;
@@ -146,6 +152,8 @@ public class TrafficGen {
                 .hasArg()
                 .withDescription("Number of NIO connections")
                 .create("n_conns"));
+        options.addOption("no_reuse", false, "Disable connection reuse");
+        options.addOption("verify", false, "Verify data");
         options.addOption(OptionBuilder.withArgName("username")
                 .isRequired(false)
                 .hasArg()
@@ -186,7 +194,13 @@ public class TrafficGen {
                 hostname = line.getOptionValue("hostname");
             }
             if (line.hasOption("n_conns")) {
-                osize = Integer.parseInt(line.getOptionValue("n_conns"));
+                n_conns = Integer.parseInt(line.getOptionValue("n_conns"));
+            }
+            if (line.hasOption("no_reuse")) {
+                no_reuse = true;
+            }
+            if (line.hasOption("verify")) {
+                verify = true;
             }
             if (line.hasOption("username")) {
                 username = line.getOptionValue("username");
@@ -205,17 +219,21 @@ public class TrafficGen {
         System.out.println("volume_name: " + volume_name);
         System.out.println("test_type: " + test_type);
         System.out.println("n_conns: " + n_conns);
+        System.out.println("hostname: " + hostname);
+        System.out.println("no_reuse: " + no_reuse);
+        System.out.println("verify: " + verify);
 
 
         // Create HTTP protocol processing chain
-//        HttpProcessor httpproc = HttpProcessorBuilder.create()
-//                // Use standard client-side protocol interceptors
-//                .add(new RequestContent())
-//                .add(new RequestTargetHost())
-//                .add(new RequestConnControl())
-//                .add(new RequestExpectContinue())
-//                .build();
-        HttpProcessor httpproc = HttpProcessorBuilder.create().build();
+        HttpProcessor httpproc = HttpProcessorBuilder.create()
+                // Use standard client-side protocol interceptors
+                .add(new RequestContent())
+                .add(new RequestTargetHost())
+                .add(new RequestConnControl())
+                .add(new RequestUserAgent("Test/1.1"))
+                .add(new RequestExpectContinue(true))
+                .build();
+        // HttpProcessor httpproc = HttpProcessorBuilder.create().build();
         ConnectionConfig connectionConfig = ConnectionConfig.DEFAULT;
         System.out.println("connectionConfig: " + connectionConfig.toString());
         // Create client-side HTTP protocol handler
@@ -248,7 +266,13 @@ public class TrafficGen {
         // Start the client thread
         t.start();
         // Create HTTP requester
-        ConnectionReuseStrategy connectionReuseStrategy = new DefaultConnectionReuseStrategy();
+        ConnectionReuseStrategy connectionReuseStrategy = null;
+        if (no_reuse == true) {
+            connectionReuseStrategy = new NoConnectionReuseStrategy();
+        } else {
+            connectionReuseStrategy = new DefaultConnectionReuseStrategy();
+        }
+        assert connectionReuseStrategy != null;
         HttpAsyncRequester requester = new HttpAsyncRequester(httpproc, connectionReuseStrategy);
         // Execute HTTP GETs to the following hosts and
         HttpHost target = new HttpHost(hostname, 8000, "http");
@@ -297,15 +321,38 @@ public class TrafficGen {
                     coreContext,
                     // Handle HTTP response from a callback
                     new FutureCallback<HttpResponse>() {
-
                         public void completed(final HttpResponse response) {
                             long reqEndTime = System.nanoTime();
                             total_latency.addAndGet(reqEndTime - reqStartTime[0]);
                             semaphore.release();
-                            successes.incrementAndGet();
                             keepalive.incrementAndGet();
                             latch.countDown();
+                            int response_code = response.getStatusLine().getStatusCode();
+                            if (response_code != 200) {
+                                failures.incrementAndGet();
+                            } else {
+                                successes.incrementAndGet();
+                            }
                             // System.out.println(target + "->" + response.getStatusLine());
+                            if (verify) {
+                                try {
+                                    System.out.println("Status code: " + response.getStatusLine().getStatusCode());
+                                    InputStream is = response.getEntity().getContent();
+                                    int len = is.available();
+                                    byte [] buf = new byte[len];
+                                    is.read(buf);
+                                    try {
+                                        MessageDigest md = MessageDigest.getInstance("MD5");
+                                        byte[] thedigest = md.digest(buf);
+                                        System.out.println("len: " + len + " md5sum: " + thedigest.toString());
+                                    } catch (NoSuchAlgorithmException e1) {
+                                        throw new RuntimeException(e1);
+                                    }
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+
+                            }
                         }
 
                         public void failed(final Exception ex) {
@@ -331,7 +378,7 @@ public class TrafficGen {
         System.out.println("successes: " + successes);
         System.out.println("failures: " + failures);
         System.out.println("keepalive: " + keepalive);
-        System.out.println("Average latency [ms]: " + total_latency.doubleValue() / successes.doubleValue());
+        System.out.println("Average latency [ns]: " + total_latency.doubleValue() / successes.doubleValue());
 
         //rf.close();
 

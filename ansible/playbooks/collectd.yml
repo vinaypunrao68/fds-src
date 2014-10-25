@@ -1,0 +1,55 @@
+---
+
+-   name: install and configure collectd
+    hosts: collectd-hosts
+    sudo: True
+    vars_files:
+        - ../vars_files/node_spec.yml
+
+    handlers:
+    -   name: restart collectd
+        service: name=collectd state=restarted
+
+    -   name: start proxy
+        service: name=influxdb-collectd-proxy state=started
+
+    tasks:
+    -   name: create collectd group
+        group: name=collectd
+
+    -   name: create collectd user
+        user: name=collectd group=collectd shell=/bin/bash home=/home/collectd system=yes state=present
+
+    -   name: create influxdb-collectd proxy group
+        group: name={{influxdb_collectd_proxy_user}}
+
+    -   name: create influxdb-collectd proxy user
+        user: name={{influxdb_collectd_proxy_user}} group={{influxdb_collectd_proxy_user}} shell=/bin/bash home=/home/influxdb_collectd_proxy system=yes state=present
+
+    -   name: install packages
+        apt: name={{item}} force=yes state=present update_cache=yes cache_valid_time=600
+        with_items:
+            - collectd
+            - collectd-utils
+            - golang
+            - git
+
+    -   name: set up collectd log dir
+        file: path=/var/log/collectd state=directory owner=nobody group=nogroup mode=0755
+
+    -   name: copy collectd core count script
+        copy: src=../files/collectd/get_cpu_core_count.sh dest=/home/collectd/get_cpu_core_count.sh owner=collectd group=collectd mode=0755
+
+    -   name: render collectd config
+        action: template src=../templates/collectd/collectd.conf.j2 dest=/etc/collectd/collectd.conf owner=root group=root mode=0644
+        notify: restart collectd
+
+    -   name: clone influxdb-collectd-proxy repo
+        git: repo=https://github.com/cboggs/influxdb-collectd-proxy.git dest=/home/{{influxdb_collectd_proxy_user}}/proxy
+
+    -   name: build influxdb-collectd-proxy
+        command: make chdir=/home/{{influxdb_collectd_proxy_user}}/proxy creates=/home/{{influxdb_collectd_proxy_user}}/proxy/bin/proxy
+
+    -   name: render influxdb-collectd-proxy upstart config
+        action: template src=../templates/collectd/collectd-influxdb-proxy-upstart.j2 dest=/etc/init/influxdb-collectd-proxy.conf owner=root group=root mode=0644
+        notify: start proxy

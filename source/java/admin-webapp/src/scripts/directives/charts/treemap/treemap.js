@@ -8,7 +8,7 @@ angular.module( 'charts' ).directive( 'treemap', function(){
         // the tooltip element here is a call back to let the implementor
         // set the text.
         // colorProerty is the property this class will use to pick a color for the box
-        scope: { data: '=', tooltip: '=', colorProperty: '@' },
+        scope: { data: '=', tooltip: '=', colorProperty: '@', domain: '=', range: '=', clamp: '=?', transformValueFunction: '=?' },
         controller: function( $scope, $element, $resize_service ){
 
             var root = {};
@@ -16,6 +16,10 @@ angular.module( 'charts' ).directive( 'treemap', function(){
             var $colorScale;
             $scope.hoverEvent = {};
             $scope.tooltipText = 'None';
+            
+            if ( !angular.isDefined( $scope.clamp ) ){
+                $scope.clamp = true;
+            }
             
             var buildColorScale = function(){
                 
@@ -31,10 +35,14 @@ angular.module( 'charts' ).directive( 'treemap', function(){
                     return d.datapoints[0].y;
                 });
                 
+                $scope.domain[0] = max;
+                
                 $colorScale = d3.scale.linear()
-                    .domain( [max, 3600*12, 3600*6, 3600*3, 3600, 0] )
-                    .range( ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'] )
-                    .clamp( true );
+//                    .domain( [max, 3600*12, 3600*6, 3600*3, 3600, 0] )
+                    .domain( $scope.domain )
+//                    .range( ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'] )
+                    .range( $scope.range )
+                    .clamp( $scope.clamp );
             };
             
             var computeMap = function( c ){
@@ -102,7 +110,14 @@ angular.module( 'charts' ).directive( 'treemap', function(){
                     .style( {'border': '1px solid white'} )
                     .style( {'background-color': function( d ){
                         if ( d.hasOwnProperty( $scope.colorProperty ) ){
-                            return $colorScale( d[ $scope.colorProperty ] );
+                            
+                            var val = d[ $scope.colorProperty ];
+                            
+                            if ( angular.isFunction( $scope.transformValueFunction ) ){
+                                val = $scope.transformValueFunction( val );
+                            }
+                            
+                            return $colorScale( val );
                         }
                         return $colorScale( 0 );
                     }})
@@ -117,7 +132,7 @@ angular.module( 'charts' ).directive( 'treemap', function(){
                     });
             };
             
-            $scope.$on( '$destory', function(){
+            $scope.$on( '$destroy', function(){
                 $resize_service.unregister( $scope.id );
             });
             

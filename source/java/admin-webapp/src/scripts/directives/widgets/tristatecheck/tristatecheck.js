@@ -5,9 +5,13 @@ angular.module( 'form-directives' ).directive( 'triStateCheck', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/widgets/tristatecheck/tristatecheck.html',
-        scope: { checkState: '='},
+        scope: { checkState: '=', enabled: '=?'},
         controller: function( $scope ){
 
+            if ( !angular.isDefined( $scope.enabled ) ){
+                $scope.enabled = true;
+            }
+            
             var UNCHECKED = false;
             var CHECKED = true;
             var PARTIAL = 'partial';
@@ -17,11 +21,21 @@ angular.module( 'form-directives' ).directive( 'triStateCheck', function(){
             };
 
             $scope.uncheck = function(){
+                
+                if ( $scope.enabled === false ){
+                    return;
+                }
+                
                 $scope.checkState = UNCHECKED;
                 notify();
             };
 
             $scope.check = function(){
+                
+                if ( $scope.enabled === false ){
+                    return;
+                }
+                
                 $scope.checkState = CHECKED;
                 notify();
             };

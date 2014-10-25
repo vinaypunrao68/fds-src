@@ -59,6 +59,8 @@
         - libical-dev
         - libical1
         - libleveldb-dev
+        - google-perftools
+        - libgoogle-perftools-dev
         - libconfig++-dev
         - oracle-java8-installer
         - npm

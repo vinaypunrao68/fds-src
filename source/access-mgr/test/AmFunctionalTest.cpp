@@ -21,28 +21,53 @@ namespace fds {
 
 AccessMgr::unique_ptr am;
 
-class AmLoadProc : public FdsProcess {
+class AmProcessWrapper : public FdsProcess {
   public:
-    AmLoadProc(int argc, char * argv[], const std::string & config,
-               const std::string & basePath, Module * vec[])
-            : FdsProcess(argc, argv, config, basePath, vec),
-              domainName(new std::string("Test Domain")),
-              volumeName(new std::string("Test Volume")) {
+    AmProcessWrapper(int argc, char * argv[], const std::string & config,
+                     const std::string & basePath, Module * vec[])
+            : FdsProcess(argc, argv, config, basePath, vec) {
         am = AccessMgr::unique_ptr(new AccessMgr("AM Functional Test Module",
                                                  this));
-        dataApi = am->dataApi;
+    }
+    virtual ~AmProcessWrapper() {
+    }
+
+    virtual int run() override {
+        return 0;
+    }
+};
+
+class AmLoadProc {
+  public:
+    AmLoadProc()
+            : domainName(new std::string("Test Domain")),
+              volumeName(new std::string("Test Volume")) {
+        // register and populate volumes
+        VolumeDesc volDesc(*volumeName, 5);
+        volDesc.iops_min = 0;
+        volDesc.iops_max = 0;
+        volDesc.relativePrio = 1;
+        fds_verify(am->registerVolume(volDesc) == ERR_OK);
 
         // hardcoding test config
-        concurrency = 10;
-        totalOps = 100;
+        concurrency = 4;
+        totalOps = 800000;
         blobSize = 4096;
-        putOp = true;
         opCount = ATOMIC_VAR_INIT(0);
+
+        threads_.resize(concurrency);
     }
     virtual ~AmLoadProc() {
     }
+    typedef std::unique_ptr<AmLoadProc> unique_ptr;
 
-    void task(int id) {
+    enum TaskOps {
+        PUT,
+        GET,
+        STARTTX
+    };
+
+    void task(int id, TaskOps opType) {
         fds_uint32_t ops = atomic_fetch_add(&opCount, (fds_uint32_t)1);
         GLOGDEBUG << "Starting thread " << id;
         // constants we are going to pass to api
@@ -55,33 +80,60 @@ class AmLoadProc : public FdsProcess {
                 boost::make_shared<std::map<std::string, std::string>>(metaData);
 
         SequentialBlobDataGen blobGen(blobSize, id);
+        fds_uint64_t localLatencyTotal = 0;
+        fds_uint32_t localOpCount = 0;
         while ((ops + 1) <= totalOps) {
-            if (putOp) {
-                // do PUT
-                am->dataApi->updateBlobOnce(domainName, volumeName,
-                                            blobGen.blobName, blobMode,
-                                            blobGen.blobData, blobLength, off, meta);
+            fds_uint64_t start_nano = util::getTimeStampNanos();
+            if (opType == PUT) {
+                try {
+                    am->dataApi->updateBlobOnce(domainName, volumeName,
+                                                blobGen.blobName, blobMode,
+                                                blobGen.blobData, blobLength, off, meta);
+                } catch(apis::ApiException fdsE) {
+                    fds_panic("updateBlob failed");
+                }
+            } else if (opType == GET) {
+                try {
+                    std::string data;
+                    am->dataApi->getBlob(data,
+                                         domainName,
+                                         volumeName,
+                                         blobGen.blobName,
+                                         blobLength,
+                                         off);
+                } catch(apis::ApiException fdsE) {
+                    fds_panic("getBlob failed");
+                }
+            } else if (opType == STARTTX) {
+                try {
+                    apis::TxDescriptor txDesc;
+                    am->dataApi->startBlobTx(txDesc,
+                                             domainName,
+                                             volumeName,
+                                             blobGen.blobName,
+                                             blobMode);
+                } catch(apis::ApiException fdsE) {
+                    fds_panic("statBlob failed");
+                }
             } else {
-                // do GET
+                fds_panic("Unknown op type");
             }
+            localLatencyTotal += (util::getTimeStampNanos() - start_nano);
+            ++localOpCount;
+
             ops = atomic_fetch_add(&opCount, (fds_uint32_t)1);
             blobGen.generateNext();
         }
+        avgLatencyTotal += (localLatencyTotal / localOpCount);
     }
 
-    virtual int run() override {
-        // register and populate volumes
-        VolumeDesc volDesc(*volumeName, 5);
-        fds_verify(am->registerVolume(volDesc) == ERR_OK);
-
-        if (!putOp) {
-            // populate store (cache) before doing GET ops
-        }
-
+    virtual int runTask(TaskOps opType) {
+        opCount = 0;
+        avgLatencyTotal = 0;
         fds_uint64_t start_nano = util::getTimeStampNanos();
         for (unsigned i = 0; i < concurrency; ++i) {
-            std::thread* new_thread = new std::thread(&AmLoadProc::task, this, i);
-            threads_.push_back(new_thread);
+            std::thread* new_thread = new std::thread(&AmLoadProc::task, this, i, opType);
+            threads_[i] = new_thread;
         }
 
         // Wait for all threads
@@ -89,11 +141,6 @@ class AmLoadProc : public FdsProcess {
             threads_[x]->join();
         }
 
-        for (unsigned x = 0; x < concurrency; ++x) {
-            std::thread* th = threads_[x];
-            delete th;
-            threads_[x] = NULL;
-        }
         fds_uint64_t duration_nano = util::getTimeStampNanos() - start_nano;
         double time_sec = duration_nano / 1000000000.0;
         if (time_sec < 10) {
@@ -102,21 +149,28 @@ class AmLoadProc : public FdsProcess {
         } else {
             std::cout << "Average IOPS = " << totalOps / time_sec << std::endl;
             GLOGNOTIFY << "Average IOPS = " << totalOps / time_sec;
+            std::cout << "Average latency = " << avgLatencyTotal / concurrency
+                      << " nanosec" << std::endl;
+            GLOGNOTIFY << "Average latency = " << avgLatencyTotal / concurrency
+                       << " nanosec";
+        }
+
+        for (unsigned x = 0; x < concurrency; ++x) {
+            std::thread* th = threads_[x];
+            delete th;
+            threads_[x] = NULL;
         }
 
         return 0;
     }
 
   private:
-    AmDataApi::shared_ptr dataApi;
-
     /// performance test setup
     fds_uint32_t concurrency;
     /// total number of ops to execute
     fds_uint32_t totalOps;
     /// blob size in bytes
     fds_uint32_t blobSize;
-    fds_bool_t putOp;  // false == get
 
     /// threads for blocking AM
     std::vector<std::thread*> threads_;
@@ -124,21 +178,29 @@ class AmLoadProc : public FdsProcess {
     /// to count number of ops completed
     std::atomic<fds_uint32_t> opCount;
 
+    /// total latency observed by each thread
+    std::atomic<fds_uint64_t> avgLatencyTotal;
+
     /// domain name
     boost::shared_ptr<std::string> domainName;
     boost::shared_ptr<std::string> volumeName;
 };
 
-TEST(AccessMgr, statBlob) {
-    GLOGDEBUG << "Testing stat blob";
-    apis::BlobDescriptor blobDesc;
-    boost::shared_ptr<std::string> domainName(
-        boost::make_shared<std::string>("Test Domain"));
-    boost::shared_ptr<std::string> volumeName(
-        boost::make_shared<std::string>("Test Volume"));
-    boost::shared_ptr<std::string> blobName(
-        boost::make_shared<std::string>("Test Blob"));
-    am->dataApi->statBlob(blobDesc, domainName, volumeName, blobName);
+AmLoadProc::unique_ptr amLoad;
+
+TEST(AccessMgr, updateBlobOnce) {
+    GLOGDEBUG << "Testing updateBlobOnce";
+    amLoad->runTask(AmLoadProc::PUT);
+}
+
+TEST(AccessMgr, getBlob) {
+    GLOGDEBUG << "Testing getBlob";
+    amLoad->runTask(AmLoadProc::GET);
+}
+
+TEST(AccessMgr, startBlobTx) {
+    GLOGDEBUG << "Testing startBlobTx";
+    amLoad->runTask(AmLoadProc::STARTTX);
 }
 
 }  // namespace fds
@@ -149,8 +211,10 @@ main(int argc, char **argv) {
     fds::Module *amVec[] = {
         nullptr
     };
-    fds::AmLoadProc ap(argc, argv, "platform.conf", "fds.am.", amVec);
-    ap.main();
+    fds::AmProcessWrapper apw(argc, argv, "platform.conf", "fds.am.", amVec);
+    apw.main();
+
+    amLoad = AmLoadProc::unique_ptr(new AmLoadProc());
 
     return RUN_ALL_TESTS();
 }

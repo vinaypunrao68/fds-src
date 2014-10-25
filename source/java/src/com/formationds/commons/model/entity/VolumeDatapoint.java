@@ -9,12 +9,10 @@ import com.google.gson.annotations.SerializedName;
 
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
-import javax.xml.bind.annotation.XmlRootElement;
 
 /**
  * @author ptinius
  */
-@XmlRootElement
 @Entity
 public class VolumeDatapoint
   extends ModelBase {
@@ -26,8 +24,13 @@ public class VolumeDatapoint
   private Long timestamp;
   @SerializedName("volume")
   private String volumeName;
+  @SerializedName( "volumeId" )
+  private String volumeId;
   private String key;
   private Double value;
+
+  public VolumeDatapoint() {
+  }
 
   /**
    * @return Returns the auto-generated id
@@ -78,6 +81,20 @@ public class VolumeDatapoint
    */
   public void setVolumeName( final String volumeName ) {
     this.volumeName = volumeName;
+  }
+
+  /**
+   * @return Returns {@link String} representing the volume id
+   */
+  public String getVolumeId() {
+    return volumeId;
+  }
+
+  /**
+   * @param volumeId the {@link String} representing the volume id
+   */
+  public void setVolumeId( final String volumeId ) {
+    this.volumeId = volumeId;
   }
 
   /**

@@ -124,7 +124,6 @@ Module::mod_lockstep_start_service()
 void
 Module::mod_lockstep_done()
 {
-    fds_verify(mod_owner != NULL);
     mod_owner->mod_done_lockstep(this);
 }
 
@@ -296,7 +295,6 @@ ModuleVector::mod_assign_locksteps(Module **mods)
 
         fds_assert(mods[i]->mod_lstp_idx == -1);
         mods[i]->mod_lstp_idx = i;
-        mods[i]->mod_owner    = this;
     }
     sys_lckstps[sys_lckstp_cnt] = NULL;
     fds_assert(sys_lckstp_cnt < ModuleVector::mod_max_added_vec);
@@ -340,6 +338,8 @@ ModuleVector::mod_init_modules(bool predef)
     for (i = 0; i < mod_cnt; i++) {
         mod = mods[i];
         fds_verify(mod != NULL);
+
+        mod->mod_owner = this;
         if ((mod->mod_exec_state & MOD_ST_INIT) == 0) {
             retval   = mod->mod_init(&sys_params);
             bailout += retval;

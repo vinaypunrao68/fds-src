@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-speedup           := -j 6
+speedup           = -j $(threads)
 user_build_dir    := \
     include \
     amlib \

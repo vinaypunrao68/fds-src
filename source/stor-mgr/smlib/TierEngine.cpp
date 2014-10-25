@@ -53,7 +53,7 @@ int TierEngine::mod_init(SysParams const *const param) {
 
     switch (algoType) {
         case FDS_TIER_PUT_ALGO_BASIC_RANK:
-            tpa = new RankTierPutAlgo(sm_volTbl, rankEng);
+            tpa = new RankTierPutAlgo(rankEng);
             LOGNORMAL << "TierEngine: will use basic rank tier put algorithm";
             break;
         default:
@@ -75,8 +75,8 @@ void TierEngine::mod_shutdown() {
  * vol struct. A lookup should be done internally.
  */
 diskio::DataTier TierEngine::selectTier(const ObjectID    &oid,
-                                        fds_volid_t        vol) {
-    return tpa->selectTier(oid, vol);
+                                        const VolumeDesc& voldesc) {
+    return tpa->selectTier(oid, voldesc);
 }
 
 void
