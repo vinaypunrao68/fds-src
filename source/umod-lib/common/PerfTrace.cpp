@@ -302,6 +302,7 @@ void PerfTracer::reconfig() {
 void PerfTracer::updateCounter(PerfContext & ctx, const PerfEventType & type,
         const uint64_t & val,  const uint64_t cnt, const fds_volid_t volid,
         const std::string name) {
+    if (!isEnabled()) return;
     GLOGTRACE << "Updating performance counter for type='" << eventTypeToStr[ctx.type]
               << "' val='" << val << "' count='" << cnt << "' name='"
               << ctx.name << "'";
@@ -324,6 +325,7 @@ void PerfTracer::updateCounter(PerfContext & ctx, const PerfEventType & type,
 
 void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid,
             uint64_t val, uint64_t cnt, const std::string & name) {
+    if (!isEnabled()) return;
     PerfContext * ctx = 0;
 
     FDSGUARD(ptrace_mutex_named_);
@@ -354,6 +356,7 @@ void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid,
 
 void PerfTracer::decrement(const PerfEventType & type, fds_volid_t volid,
             uint64_t val, const std::string & name) {
+    if (!isEnabled()) return;
     FDSGUARD(ptrace_mutex_named_);
 
     PerfContextMap::iterator pos = namedCounters_[type][volid].find(name);
@@ -369,21 +372,19 @@ void PerfTracer::decrement(const PerfEventType & type, fds_volid_t volid,
 }
 
 void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid, std::string name /* = "" */) {
+    if (!isEnabled()) return;
     PerfTracer::incr(type, volid, 1, 0, name);
 }
 
 void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid, std::string name /* = "" */) {
+    if (!isEnabled()) return;
     PerfTracer::decr(type, volid, 1, name);
 }
 
 void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid,
         uint64_t val, uint64_t cnt /* = 0 */, std::string name /* = "" */) {
+    if (!isEnabled()) return;
     fds_assert(type < MAX_EVENT_TYPE);
-
-    // check if performance data collection is enabled
-    if (!instance().enable_) {
-        return;
-    }
 
     if (instance().useEventsFilter_  && !instance().eventsFilter_[type]) {
         return;
@@ -408,12 +409,8 @@ void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid,
 
 void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid,
         uint64_t val, std::string name /* = "" */) {
+    if (!isEnabled()) return;
     fds_assert(type < MAX_EVENT_TYPE);
-
-    // check if performance data collection is enabled
-    if (!instance().enable_) {
-        return;
-    }
 
     if (instance().useEventsFilter_  && !instance().eventsFilter_[type]) {
         return;
@@ -440,6 +437,7 @@ void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid,
 void PerfTracer::tracePointBegin(const std::string & id,
         const PerfEventType & type, fds_volid_t volid,
         std::string name /* = "" */) {
+    if (!isEnabled()) return;
     GLOGTRACE << "Received tracePointBegin() for id='" << id << "' type='" <<
             eventTypeToStr[type] << "' name='" << name << "'  volid='" << volid << "'";
     PerfContext * ctx = new PerfContext(type, volid, name);
@@ -460,6 +458,7 @@ void PerfTracer::tracePointBegin(const std::string & id,
 }
 
 void PerfTracer::tracePointBegin(PerfContext & ctx) {
+    if (!isEnabled()) return;
     GLOGTRACE << "Starting perf trace for type='" << eventTypeToStr[ctx.type] << "' name='" <<
             ctx.name << "'";
 #ifdef USE_RDTSC_TIME
@@ -471,7 +470,7 @@ void PerfTracer::tracePointBegin(PerfContext & ctx) {
 
 boost::shared_ptr<PerfContext> PerfTracer::tracePointEnd(const std::string & id) {
     PerfContext * ppc = 0;
-
+    if (!isEnabled()) boost::shared_ptr<PerfContext>(ppc);
     GLOGTRACE << "Received tracePointEnd() for id='" << id << "'";
     {
         FDSGUARD(instance().latency_map_mutex_);
@@ -489,6 +488,7 @@ boost::shared_ptr<PerfContext> PerfTracer::tracePointEnd(const std::string & id)
 }
 
 void PerfTracer::tracePointEnd(PerfContext & ctx) {
+    if (!isEnabled()) return;
     GLOGTRACE << "Ending perf trace for type='" << eventTypeToStr[ctx.type] << "' name='" <<
             ctx.name << "'";
 #ifdef USE_RDTSC_TIME
