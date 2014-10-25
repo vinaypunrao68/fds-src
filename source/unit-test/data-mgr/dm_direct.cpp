@@ -5,6 +5,7 @@
 #include "./dm_mocks.h"
 #include "./dm_gtest.h"
 #include "./dm_utils.h"
+#include <testlib/SvcMsgFactory.h>
 #include <vector>
 #include <string>
 #include <thread>
@@ -14,13 +15,9 @@ fds::DMTester* dmTester = NULL;
 
 struct DmUnitTest : ::testing::Test {
     virtual void SetUp() override {
-        if (dmTester->start()) {
-            generateVolumes(dmTester->volumes);
-        }
     }
 
     virtual void TearDown() override {
-        dmTester->stop();
     }
 
     Error addVolume(uint num) {
@@ -43,6 +40,65 @@ TEST_F(DmUnitTest, AddVolume) {
     }
 }
 
+TEST_F(DmUnitTest, PutBlob) {
+    // start tx
+    boost::shared_ptr<fpi::StartBlobTxMsg> startBlbTx(new fpi::StartBlobTxMsg());
+
+    startBlbTx->volume_id = dmTester->volumes[0]->volUUID;
+    startBlbTx->blob_name = "testblob";
+    startBlbTx->txId = 1;
+    startBlbTx->dmt_version = 1;
+    auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
+                                           startBlbTx->blob_name,
+                                           startBlbTx->blob_version,
+                                           startBlbTx->blob_mode,
+                                           startBlbTx->dmt_version);
+    dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
+
+    DMCallback cb;
+    PerfTracer::tracePointBegin(dmBlobTxReq->opReqLatencyCtx);
+    PerfTracer::tracePointBegin(dmBlobTxReq->opLatencyCtx);
+    boost::shared_ptr<fpi::AsyncHdr> asyncHdr(new fpi::AsyncHdr());
+    dmBlobTxReq->dmio_start_blob_tx_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+    dataMgr->startBlobTx(dmBlobTxReq);
+    EXPECT_EQ(ERR_OK, cb.e);
+
+    // update
+    boost::shared_ptr<fpi::UpdateCatalogMsg> updcatMsg(new fpi::UpdateCatalogMsg());
+    updcatMsg->volume_id = dmTester->volumes[0]->volUUID;
+    updcatMsg->blob_name = "testblob";
+    updcatMsg->txId = 1;
+    updcatMsg->obj_list;
+    fds::UpdateBlobInfoNoData(updcatMsg, MAX_OBJECT_SIZE, BLOB_SIZE);
+
+    auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg);
+    PerfTracer::tracePointBegin(dmUpdCatReq->opLatencyCtx);
+    PerfTracer::tracePointBegin(dmUpdCatReq->opReqLatencyCtx);
+    boost::shared_ptr<fpi::AsyncHdr> asyncHdr1(new fpi::AsyncHdr());
+    dmUpdCatReq->dmio_updatecat_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr1);
+    dataMgr->updateCatalog(dmUpdCatReq);
+    EXPECT_EQ(ERR_OK, cb.e);
+
+    // commit
+    boost::shared_ptr<fpi::CommitBlobTxMsg> commitBlbTx(new fpi::CommitBlobTxMsg());
+    commitBlbTx->volume_id = dmTester->volumes[0]->volUUID;
+    commitBlbTx->blob_name = "testblob";
+    commitBlbTx->txId = 1;
+
+    auto dmBlobTxReq1 = new DmIoCommitBlobTx(commitBlbTx->volume_id,
+                                            commitBlbTx->blob_name,
+                                            commitBlbTx->blob_version,
+                                            commitBlbTx->dmt_version);
+    boost::shared_ptr<fpi::AsyncHdr> asyncHdr2(new fpi::AsyncHdr());
+
+    dmBlobTxReq1->dmio_commit_blob_tx_resp_cb =
+            BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr2);
+    PerfTracer::tracePointBegin(dmBlobTxReq1->opLatencyCtx);
+    PerfTracer::tracePointBegin(dmBlobTxReq1->opReqLatencyCtx);
+    dmBlobTxReq1->ioBlobTxDesc = dmBlobTxReq->ioBlobTxDesc;
+    dataMgr->commitBlobTx(dmBlobTxReq1);
+    EXPECT_EQ(ERR_OK, cb.e);
+}
 
 
 int main(int argc, char** argv) {
@@ -72,5 +128,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    return RUN_ALL_TESTS();
+    dmTester->start();
+    generateVolumes(dmTester->volumes);
+    int retCode = RUN_ALL_TESTS();
+    dmTester->stop();
+    return retCode;
 }
