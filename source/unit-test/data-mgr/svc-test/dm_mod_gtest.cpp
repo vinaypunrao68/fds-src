@@ -18,6 +18,7 @@ boost::shared_ptr<LatencyCounter> qryCatCounter(new LatencyCounter("getBlobMeta"
 boost::shared_ptr<LatencyCounter> setBlobMetaCounter(new LatencyCounter("getBlobMeta", 0, 0));
 boost::shared_ptr<LatencyCounter> delCatObjCounter(new LatencyCounter("getBlobMeta", 0, 0));
 boost::shared_ptr<LatencyCounter> getBucketCounter(new LatencyCounter("getBlobMeta", 0, 0));
+boost::shared_ptr<LatencyCounter> updateCatOnceCounter(new LatencyCounter("getBlobMeta", 0, 0));
 boost::shared_ptr<LatencyCounter> txCounter(new LatencyCounter("tx", 0, 0));
 
 static fds_uint64_t txStartTs = 0;
@@ -26,8 +27,38 @@ static fds_uint64_t txStartTs = 0;
 * @brief basic  DM tests- startBlob, UpdateBlob and Commit  
 *
 */
+TEST_F(DMApi, putBlobOnceTest)
+{
+    std::string blobName("testBlobOnce");
 
-TEST_F(DMApi, metaDataTest)
+    fpi::SvcUuid svcUuid;
+    svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
+    ASSERT_NE(svcUuid.svc_uuid, 0);
+
+    SvcRequestCbTask<EPSvcRequest, fpi::UpdateCatalogOnceMsg> putBlobOnceWaiter;
+    auto putBlobOnce = SvcMsgFactory::newUpdateCatalogOnceMsg(volId_, blobName);
+    auto asyncPutBlobTxReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+    fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
+    putBlobOnce->txId = 1;
+    putBlobOnce->dmt_version = 1;
+    putBlobOnce->blob_mode = 0;
+    asyncPutBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), putBlobOnce);
+    asyncPutBlobTxReq->onResponseCb(putBlobOnceWaiter.cb);
+    {
+    fds_uint64_t startTs = util::getTimeStampNanos();
+    txStartTs = startTs;
+    asyncPutBlobTxReq->invoke();
+    putBlobOnceWaiter.await();
+    fds_uint64_t endTs = util::getTimeStampNanos();
+    updateCatOnceCounter->update(endTs - startTs);
+    }
+    ASSERT_EQ(putBlobOnceWaiter.error, ERR_OK) << "Error: " << putBlobOnceWaiter.error;
+    std::cout << "\033[33m[updateCatOnce latency]\033[39m " << std::fixed << std::setprecision(3)
+         << (updateCatOnceCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
+         << updateCatOnceCounter->count() << std::endl;
+}
+
+TEST_F(DMApi, putBlobTest)
 {
     std::string blobName("testBlob");
 

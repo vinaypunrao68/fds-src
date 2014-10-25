@@ -54,9 +54,15 @@ typedef boost::shared_ptr<DataGenIf> DataGenIfPtr;
 
 void UpdateBlobInfo(FDS_ProtocolInterface::UpdateCatalogMsgPtr  updateCatMsg,
                           DataGenIfPtr dataGen, size_t blobSize);
+
+template<typename T>
+void
+UpdateBlobInfoNoData(boost::shared_ptr<T> updateCatMsg, size_t objSize, size_t blobSize);
+/*
 void
 UpdateBlobInfoNoData(FDS_ProtocolInterface::UpdateCatalogMsgPtr  updateCatMsg,
                             size_t objSize, size_t blobSize);
+*/
 namespace apis {
 class VolumeSettings;
 }
