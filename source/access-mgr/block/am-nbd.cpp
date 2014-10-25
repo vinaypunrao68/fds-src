@@ -90,7 +90,9 @@ BlockMod::blk_detach_vol(fds_uint64_t uuid)
  */
 EvBlkVol::EvBlkVol(const blk_vol_creat_t *r, struct ev_loop *loop)
     : BlkVol(r->v_name, r->v_dev, r->v_uuid, r->v_vol_blksz, r->v_blksz),
-      vio_sk(-1), vio_ev_loop(loop), vio_read(NULL), vio_write(NULL) {}
+      vio_sk(-1), vio_ev_loop(loop), vio_read(NULL), vio_write(NULL)
+{
+}
 
 /**
  * ev_vol_event
@@ -132,6 +134,17 @@ EvBlkVol::ev_vol_rearm(int events)
 }
 
 /**
+ * blk_run_loop
+ * ------------
+ */
+void
+EvBlkVol::blk_run_loop()
+{
+    fds_verify(vio_ev_loop != NULL);
+    ev_run(vio_ev_loop, 0);
+}
+
+/**
  * mod_init
  * --------
  */
@@ -139,7 +152,6 @@ int
 EvBlockMod::mod_init(SysParams const *const p)
 {
     gl_BlockMod = &gl_NbdBlockMod;
-    ev_blk_loop = EV_DEFAULT;
 
     return Module::mod_init(p);
 }
@@ -172,16 +184,6 @@ void
 EvBlockMod::mod_shutdown()
 {
     Module::mod_shutdown();
-}
-
-/**
- * blk_run_loop
- * ------------
- */
-void
-EvBlockMod::blk_run_loop()
-{
-    ev_run(ev_blk_loop, 0);
 }
 
 /**
@@ -274,9 +276,10 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
     len = vio->nbd_cur_len + (vio->nbd_cur_len & vol->vol_blksz_mask);
 
     while (len > 0) {
-        ss << off;
+        ss << (off + 1);
         blob.offset = off;
         blob.size   = vol->vol_blksz_byte;
+        blob.blob_end = false;
         blob.data_obj_id.digest = ss.str();
 
         if (len > vol->vol_blksz_byte) {
@@ -294,6 +297,8 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
 
     upcat_req->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), upcat);
     upcat_req->onResponseCb(RESPONSE_MSG_HANDLER(NbdBlkVol::nbd_vol_write_cb, upcat));
+
+    return;
     upcat_req->invoke();
 }
 
@@ -485,8 +490,11 @@ NbdBlockMod::NbdBlockMod() : EvBlockMod(), nbd_devno(0) {}
 BlkVol::ptr
 NbdBlockMod::blk_alloc_vol(const blk_vol_creat *r)
 {
-    fds_verify(ev_blk_loop != NULL);
-    return new NbdBlkVol(r, ev_blk_loop);
+    if (ev_prim_loop == NULL) {
+        ev_prim_loop = EV_DEFAULT;
+        return new NbdBlkVol(r, ev_prim_loop);
+    }
+    return new NbdBlkVol(r, ev_loop_new(0));
 }
 
 /**
@@ -577,10 +585,10 @@ NbdBlockMod::blk_attach_vol(blk_vol_creat_t *r)
     ev_init(&vol->vio_watch, nbd_vol_callback);
     vol->vio_watch.data = reinterpret_cast<void *>(vol.get());
     ev_io_set(&vol->vio_watch, vol->vio_sk, EV_READ);
-    ev_io_start(ev_blk_loop, &vol->vio_watch);
+    ev_io_start(vol->vio_ev_loop, &vol->vio_watch);
 
     fds_threadpool *pool = g_fdsprocess->proc_thrpool();
-    pool->schedule(&EvBlockMod::blk_run_loop, this);
+    pool->schedule(&EvBlkVol::blk_run_loop, vol);
     return 0;
 }
 
