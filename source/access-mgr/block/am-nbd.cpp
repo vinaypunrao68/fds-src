@@ -259,7 +259,7 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
     ssize_t             len, off;
     NbdBlkVol::ptr      vol;
     std::stringstream   ss;
-    fpi::FDSP_BlobObjectInfo     blob;
+    fpi::FDSP_BlobObjectInfo     object;
     fpi::UpdateCatalogOnceMsgPtr upcat(bo::make_shared<fpi::UpdateCatalogOnceMsg>());
 
     vol = vio->nbd_vol;
@@ -274,10 +274,11 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
     len = vio->nbd_cur_len + (vio->nbd_cur_len & vol->vol_blksz_mask);
 
     while (len > 0) {
-        ss << off;
-        blob.offset = off;
-        blob.size   = vol->vol_blksz_byte;
-        blob.data_obj_id.digest = ss.str();
+        ss << (off + 1);
+        object.offset = off;
+        object.size   = vol->vol_blksz_byte;
+        object.data_obj_id.digest = ss.str();
+        object.blob_end = false;
 
         if (len > vol->vol_blksz_byte) {
             len -= vol->vol_blksz_byte;
@@ -285,7 +286,7 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
         } else {
             len  = 0;
         }
-        upcat->obj_list.push_back(blob);
+        upcat->obj_list.push_back(object);
     }
     auto dmtMgr = BlockMod::blk_singleton()->blk_amc->om_client->getDmtManager();
     auto upcat_req = gSvcRequestPool->newQuorumSvcRequest(
