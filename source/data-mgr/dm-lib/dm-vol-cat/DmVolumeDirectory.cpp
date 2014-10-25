@@ -304,9 +304,11 @@ Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
         return rc;
     }
 
-    // TODO(umesh): do not panic here, return error
-    fds_verify(startOffset < blobSize);
-    fds_verify(endOffset < static_cast<fds_int64_t>(blobSize));
+    if (startOffset >= blobSize) {
+        return ERR_CAT_ENTRY_NOT_FOUND;
+    } else if (endOffset >= static_cast<fds_int64_t>(blobSize)) {
+        endOffset = -1;
+    }
 
     GET_VOL_N_CHECK_DELETED(volId);
 
@@ -319,11 +321,9 @@ Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
 
     if (rc.ok()) {
         fpi::FDSP_BlobObjectList::reverse_iterator iter = objList->rbegin();
-        fds_verify(objList->rend() != iter);
-        // TODO(umesh): offset below is long wraps around at 4GB!
-        // fds_verify(static_cast<fds_uint64_t>(iter->offset) == endOffset);
-
-        iter->size = lastObjectSize;
+        if (objList->rend() != iter) {
+            iter->size = lastObjectSize;
+        }
     }
 
     return rc;
