@@ -145,8 +145,11 @@ AmDataApi::statBlob(apis::BlobDescriptor& _return,
 
     StatBlobResponseHandler::ptr handler(
         new StatBlobResponseHandler(_return));
-    STORHANDLER(StatBlobHandler, FDS_STAT_BLOB)->
-            handleRequest(*volumeName, *blobName, SHARED_DYN_CAST(Callback, handler));
+    FdsBlobReq *blobReq = new StatBlobReq(invalid_vol_id,
+                                          *volumeName,
+                                          *blobName,
+                                          SHARED_DYN_CAST(Callback, handler));
+    storHvisor->enqueueBlobReq(blobReq);
 
     handler->wait();
     handler->process();

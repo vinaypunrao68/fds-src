@@ -62,4 +62,9 @@ public interface CRUDRepository<T,
    * @param entity the entity to delete
    */
   void delete( final T entity );
+
+  /**
+   * close the repository
+   */
+  void close();
 }

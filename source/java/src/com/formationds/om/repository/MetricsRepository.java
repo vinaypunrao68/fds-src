@@ -5,17 +5,10 @@
 package com.formationds.om.repository;
 
 import com.formationds.commons.crud.JDORepository;
-import com.formationds.commons.model.Series;
-import com.formationds.commons.model.Statistics;
-import com.formationds.commons.model.builder.DatapointBuilder;
-import com.formationds.commons.model.builder.SeriesBuilder;
-import com.formationds.commons.model.builder.StatisticsBuilder;
-import com.formationds.commons.model.builder.VolumeBuilder;
-import com.formationds.commons.model.entity.QueryCriteria;
 import com.formationds.commons.model.entity.VolumeDatapoint;
-import com.formationds.commons.model.entity.builder.VolumeCriteriaQueryBuilder;
-import com.formationds.commons.model.exception.UnsupportedMetricException;
-import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.repository.query.QueryCriteria;
+import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
+import com.formationds.om.repository.result.VolumeDatapointList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,13 +16,15 @@ import javax.jdo.JDOHelper;
 import javax.jdo.Query;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Properties;
 
 /**
  * @author ptinius
  */
 public class MetricsRepository
-  extends JDORepository<VolumeDatapoint, Long, Statistics, QueryCriteria> {
+  extends JDORepository<VolumeDatapoint, Long, VolumeDatapointList, QueryCriteria> {
 
   private static final transient Logger logger =
     LoggerFactory.getLogger( MetricsRepository.class );
@@ -52,6 +47,17 @@ public class MetricsRepository
     super();
 
     initialize( dbName );
+
+    Runtime.getRuntime()
+           .addShutdownHook( new Thread() {
+             /**
+              * make sure we close the repository
+              */
+             @Override
+             public void run() {
+               close();
+             }
+           } );
   }
 
   /**
@@ -74,7 +80,7 @@ public class MetricsRepository
   /**
    * @return the list of entities
    */
-  @SuppressWarnings( "unchecked" )
+  @SuppressWarnings("unchecked")
   @Override
   public List<VolumeDatapoint> findAll() {
     return
@@ -163,64 +169,16 @@ public class MetricsRepository
    * @return Returns the search criteria results
    */
   @Override
-  public Statistics query( final QueryCriteria criteria ) {
-    final Map<String, Series> seriesMap = new HashMap<>();
-    for( final VolumeDatapoint vdp : ( new VolumeCriteriaQueryBuilder( entity() )
-      .searchFor( criteria )
-      .build() ).getResultList() ) {
-      final String key = vdp.getVolumeName() + "::" + vdp.getKey();
-      if( !seriesMap.containsKey( key ) ) {
-        final Series s =
-          new SeriesBuilder().withContext(
-            new VolumeBuilder().withName( vdp.getVolumeName() )
-                               .build() )
-                             .withDatapoint(
-                               new DatapointBuilder().withX( vdp.getTimestamp() )
-                                                     .withY( vdp.getValue()
-                                                                .longValue() )
-                                                     .build() )
-                             .build();
-        try {
-          s.setType( Metrics.byMetadataKey( vdp.getKey() ) );
-        } catch( UnsupportedMetricException e ) {
-          logger.error( "not providing series type because of {}",
-                        e.getMessage(),
-                        e );
-        }
+  public VolumeDatapointList query( final QueryCriteria criteria ) {
+    final List<VolumeDatapoint> results =
+      ( new VolumeCriteriaQueryBuilder( entity() ).searchFor( criteria )
+                                                  .build() )
+        .getResultList();
 
-        seriesMap.put( key, s );
-      } else {
-        seriesMap.get( key )
-                 .setDatapoint(
-                   new DatapointBuilder().withX( vdp.getValue()
-                                                    .longValue() )
-                                         .withY( vdp.getTimestamp() )
-                                         .build() );
-      }
-    }
-
-    StatisticsBuilder stats = new StatisticsBuilder();
-    // add series
-    for( final String key : seriesMap.keySet()
-                                     .toArray( new String[ seriesMap.size() ] ) ) {
-      stats.addSeries( seriesMap.get( key ) );
-    }
-    /*
-     * TODO finish calculated
-     *
-     * CAPACITY
-     * de-dup ratio ( capacity )
-     * percentage full ( capacity )
-     * to full ( capacity )
-     * consumed ( capacity )
-     *
-     * PERFORMANCE
-     * ??
-     */
-
-    // TODO finish metadata
-
-    return stats.build();
+    final VolumeDatapointList list = new VolumeDatapointList();
+    results.stream()
+           .forEach( new VolumeDatapointList()::add );
+    return list;
   }
 
   /**
@@ -243,6 +201,16 @@ public class MetricsRepository
         logger.trace( "DELETE ROLLED BACK: " + entity.toString() );
       }
     }
+  }
+
+  /**
+   * close the repository
+   */
+  @Override
+  public void close() {
+    entity().close();
+    manager().close();
+    factory().close();
   }
 
   /**

@@ -13,6 +13,8 @@
 #include <boost/shared_ptr.hpp>
 #include <condition_variable>
 
+#include <google/profiler.h>
+
 #include <fds_assert.h>
 #include <fds_process.h>
 #include <ObjectId.h>
@@ -218,6 +220,7 @@ int SmLoadProc::run() {
         }
     }
 
+    ProfilerStart("/tmp/SM_output.prof");
     fds_uint32_t num_volumes = volumes_.volmap.size();
     for (TestVolMap::iterator it = volumes_.volmap.begin();
          it != volumes_.volmap.end();
@@ -230,6 +233,7 @@ int SmLoadProc::run() {
     for (unsigned x = 0; x < num_volumes; ++x) {
         threads_[x]->join();
     }
+    ProfilerStop();
 
     for (unsigned x = 0; x < num_volumes; ++x) {
         std::thread* th = threads_[x];
