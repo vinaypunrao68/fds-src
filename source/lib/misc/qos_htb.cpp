@@ -86,7 +86,7 @@ Error QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
                                           wait_time_microsec, 
                                           default_que_burst_size);
   if (!qstate) {
-    FDS_PLOG_SEV(qda_log, fds::fds_log::error) 
+    LOGERROR
       << "QoSHTBDispatcher: failed to allocate memory for queue state for queue: " << queue_id;
     err = ERR_MAX;
     return err;
@@ -99,9 +99,9 @@ Error QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
   if ((q_min_rate + total_min_rate) > total_rate) {
     qda_lock.write_unlock();
     delete qstate;
-    FDS_PLOG_SEV(qda_log, fds::fds_log::error) << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
-    		<< q_min_rate << " total_min_rate: " << total_min_rate << " total_rate: "
-    		<< total_rate;
+    LOGERROR << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
+             << q_min_rate << " total_min_rate: " << total_min_rate << " total_rate: "
+             << total_rate;
     err = Error(ERR_EXCEED_MIN_IOPS);
     return err;
   }
@@ -134,13 +134,12 @@ Error QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
   qstate_map[queue_id] = qstate;
   qda_lock.write_unlock();
 
-  FDS_PLOG_SEV(qda_log, fds::fds_log::notification)
-          << "QosHTBDispatcher: registered queue 0x" << std::hex << queue_id << std::dec
-          << "with min_iops=" << queue->iops_min
-          << "; max_iops=" << queue->iops_max
-          << "; prio=" << queue->priority
-          << "; total_min_rate " << new_total_min_rate 
-          << ", total_avail_rate " << new_total_avail_rate;
+  LOGNOTIFY << "QosHTBDispatcher: registered queue 0x" << std::hex << queue_id << std::dec
+            << "with min_iops=" << queue->iops_min
+            << "; max_iops=" << queue->iops_max
+            << "; prio=" << queue->priority
+            << "; total_min_rate " << new_total_min_rate 
+            << ", total_avail_rate " << new_total_avail_rate;
 
   return err;
 }
@@ -180,10 +179,10 @@ Error QoSHTBDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
    *  TODO: should we scale down all volumes' min rates? */
   if ((q_min_rate > qstate->min_rate) && ((q_min_rate - qstate->min_rate + total_min_rate) > total_rate)) {
     qda_lock.write_unlock();
-    FDS_PLOG_SEV(qda_log, fds::fds_log::error) << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
-					       << q_min_rate << " total_min_rate: " 
-					       << total_min_rate-qstate->min_rate+q_min_rate 
-					       << "  total_rate: " << total_rate;
+    LOGERROR << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
+             << q_min_rate << " total_min_rate: " 
+             << total_min_rate-qstate->min_rate+q_min_rate 
+             << "  total_rate: " << total_rate;
     err = Error(ERR_EXCEED_MIN_IOPS);
     return err;
   }
@@ -220,12 +219,12 @@ Error QoSHTBDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
   setQueueThrottleLevel(qstate, current_throttle_level);
   qda_lock.write_unlock();
 
-  FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "QosHTBDispatcher: modified queue " << queue_id
-		    << "new min_iops=" << q_min_rate
-		    << "; max_iops=" << q_max_rate
-		    << "; prio=" << prio
-                    << "; total_min_rate " << new_total_min_rate 
-                    << ", total_avail_rate " << new_total_avail_rate;
+  LOGNOTIFY << "QosHTBDispatcher: modified queue " << queue_id
+            << "new min_iops=" << q_min_rate
+            << "; max_iops=" << q_max_rate
+            << "; prio=" << prio
+            << "; total_min_rate " << new_total_min_rate 
+            << ", total_avail_rate " << new_total_avail_rate;
 
   return err;
 }
@@ -265,10 +264,9 @@ Error QoSHTBDispatcher::deregisterQueue(fds_qid_t queue_id)
   /* cleanup */
   delete qstate;
  
-  FDS_PLOG_SEV(qda_log, fds::fds_log::notification)
-          << "QosHTBDispatcher: deregistered queue 0x" << std::hex << queue_id << std::dec
-          << "; total_min_rate " << new_total_min_rate
-          << ", total_avail_rate " << new_total_avail_rate; 
+  LOGNOTIFY << "QosHTBDispatcher: deregistered queue 0x" << std::hex << queue_id << std::dec
+            << "; total_min_rate " << new_total_min_rate
+            << ", total_avail_rate " << new_total_avail_rate; 
   
   return err;
 }
@@ -310,13 +308,13 @@ void QoSHTBDispatcher::setQueueThrottleLevel(TBQueueState *qstate, fds_uint32_t 
      * all volumes are throttled down, and no sharing is happening */
   }
 
-  FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "QosHTBDispatcher: setThrottleLevel(X=" 
-						    << tlevel_x <<", Y/10=" << tlevel_frac 
-						    << ") queue " << qstate->queue_id 
-						    << " Policy (" << qstate->min_rate 
-						    << "," << qstate->max_rate << "," << qstate->priority
-						    << "), effective min_rate=" << qstate->getEffectiveMinRate() 
-						    << ", effective max_rate=" << qstate->getEffectiveMaxRate();
+  LOGNOTIFY << "QosHTBDispatcher: setThrottleLevel(X=" 
+            << tlevel_x <<", Y/10=" << tlevel_frac 
+            << ") queue " << qstate->queue_id 
+            << " Policy (" << qstate->min_rate 
+            << "," << qstate->max_rate << "," << qstate->priority
+            << "), effective min_rate=" << qstate->getEffectiveMinRate() 
+            << ", effective max_rate=" << qstate->getEffectiveMaxRate();
 
 }
 
@@ -326,10 +324,10 @@ void QoSHTBDispatcher::setThrottleLevel(float throttle_level)
   fds_int32_t tlevel_x = (fds_int32_t) throttle_level;
   double tlevel_frac = fabs((double)throttle_level - (double)tlevel_x);
 
-  FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "QosHTBDispatcher: set throttle level to " 
-						    << throttle_level
-						    << "; X=" << tlevel_x 
-						    << ", Y/10=" << tlevel_frac;
+  LOGNOTIFY << "QosHTBDispatcher: set throttle level to " 
+            << throttle_level
+            << "; X=" << tlevel_x 
+            << ", Y/10=" << tlevel_frac;
 
   qda_lock.write_lock();
   for (qstate_map_it_t it = qstate_map.begin();
@@ -350,9 +348,9 @@ void QoSHTBDispatcher::ioProcessForEnqueue(fds_qid_t queue_id,
   TBQueueState* qstate = qstate_map[queue_id];
   assert(qstate);
   fds_uint32_t queued_ios = qstate->handleIoEnqueue(io);
-  FDS_PLOG(qda_log) << "QoSHTBDispatcher: handling enqueue IO to queue 0x"
-                    << std::hex << queue_id << std::dec
-		    << " ; # of queued_ios " << (queued_ios+1);
+  LOGDEBUG << "QoSHTBDispatcher: handling enqueue IO to queue 0x"
+           << std::hex << queue_id << std::dec
+           << " ; # of queued_ios " << (queued_ios+1);
 }
 
 void QoSHTBDispatcher::ioProcessForDispatch(fds_qid_t queue_id,
@@ -403,10 +401,10 @@ fds_qid_t QoSHTBDispatcher::getNextQueueForDispatch()
       if (exp_assured_toks > 0) {
 	/* first put expired assured tokens to the avail_pool */
 	avail_pool.addTokens(exp_assured_toks);
-	FDS_PLOG_SEV(qda_log, fds::fds_log::debug) << "QoSHTVDispatcher: moving " 
-						   << exp_assured_toks << " expired assured toks from "
-						   << "queue 0x" << std::hex << qstate->queue_id 
-						   << std::dec << " to the pool of available tokens";
+	LOGDEBUG << "QoSHTVDispatcher: moving " 
+                 << exp_assured_toks << " expired assured toks from "
+                 << "queue 0x" << std::hex << qstate->queue_id 
+                 << std::dec << " to the pool of available tokens";
       }
 
       /* try to see if we can serve the io from the head of queue with assured tokens */
@@ -414,8 +412,8 @@ fds_qid_t QoSHTBDispatcher::getNextQueueForDispatch()
       if (state == TBQueueState::TBQUEUE_STATE_OK) {
         /* we found a queue whose IO we will dispatch to meet its min_ios */
         last_dispatch_qid = it->first;
-        FDS_PLOG_SEV(qda_log, fds::fds_log::debug) << "QoSHTBDispatcher: dispatch (min_iops) io from queue 0x"
-                                                   << std::hex << it->first << std::dec;
+        LOGDEBUG << "QoSHTBDispatcher: dispatch (min_iops) io from queue 0x"
+                 << std::hex << it->first << std::dec;
         return it->first;
       }
       else if (state == TBQueueState::TBQUEUE_STATE_NO_ASSURED_TOKENS) {
@@ -453,8 +451,8 @@ fds_qid_t QoSHTBDispatcher::getNextQueueForDispatch()
      if (bHasToks) {
          min_wma_qstate->consumeTokens(1);
          ret_qid = min_wma_qstate->queue_id;
-         FDS_PLOG_SEV(qda_log, fds::fds_log::debug) << "QoSHTBDispatcher: dispatch (avail) io from queue 0x"
-                                                    << std::hex << ret_qid << std::dec;
+         LOGDEBUG << "QoSHTBDispatcher: dispatch (avail) io from queue 0x"
+                  << std::hex << ret_qid << std::dec;
          break;
      }
     }
@@ -467,8 +465,7 @@ fds_qid_t QoSHTBDispatcher::getNextQueueForDispatch()
      if ((assured_delay_microsec > 0) && (delay_microsec > assured_delay_microsec))
         delay_microsec = assured_delay_microsec;
 
-     FDS_PLOG_SEV(qda_log, fds::fds_log::debug)
-             << "QoSHTBDispatcher: no tokens available, will sleep for " << delay_microsec;
+     LOGDEBUG << "QoSHTBDispatcher: no tokens available, will sleep for " << delay_microsec;
      if (delay_microsec > 0) {
         qda_lock.read_unlock();
         boost::this_thread::sleep(boost::posix_time::microseconds(delay_microsec));
