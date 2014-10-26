@@ -405,8 +405,7 @@ namespace fds {
                << " completed in " << io->io_service_time
                << " usecs with a wait time of " << io->io_wait_time
                << " usecs with total io time of " << io->io_total_time
-               << " usecs. # of outstanding ios = " << n_oios-1
-               << " queue size " << count(io->io_vol_id);
+               << " usecs. # of outstanding ios = " << n_oios-1;
 
       return err;
     }
