@@ -35,7 +35,7 @@ namespace fds {
     if (num_ios_dispatched >= total_capacity) {
       num_ios_dispatched = 0;
       num_rate_based_slots_serviced = 0;
-      last_reset_time = boost::posix_time::microsec_clock::universal_time();
+      last_reset_time = util::getTimeStampMicros();
     }
   }
 
@@ -65,9 +65,8 @@ namespace fds {
   // Requires the caller to hold the qda read lock while calling this.
   fds_qid_t QoSWFQDispatcher::getNextQueueForDispatch() {
       
-    boost::posix_time::ptime current_time = boost::posix_time::microsec_clock::universal_time();
-    boost::posix_time::time_duration elapsed_time = current_time - last_reset_time;
-    fds_uint64_t elapsed_usecs = elapsed_time.total_microseconds();
+    fds_uint64_t current_time = util::getTimeStampMicros();
+    fds_uint64_t elapsed_usecs = current_time - last_reset_time;
     // float current_rate = ((float)num_ios_dispatched * 1000000)/ elapsed_usecs; // ios per second that we have been able to achieve since last reset time.
     float current_guaranteed_ios_rate = ((float)num_rate_based_slots_serviced * 1000000)/elapsed_usecs;
     float expected_guaranteed_ios_rate = total_rate_based_spots;
@@ -217,7 +216,7 @@ namespace fds {
 
       num_ios_dispatched = 0;
       num_rate_based_slots_serviced = 0;
-      last_reset_time = boost::posix_time::microsec_clock::universal_time();
+      last_reset_time = util::getTimeStampMicros();
 
       cur_total_min_rate = 0;
       total_capacity = total_svc_rate = total_server_rate;
