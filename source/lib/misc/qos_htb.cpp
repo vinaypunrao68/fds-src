@@ -377,7 +377,8 @@ fds_qid_t QoSHTBDispatcher::getNextQueueForDispatch()
     min_wma_qstate = NULL;
 
     /* all tokens are demand-driven, so make sure to update state first */
-    avail_pool.updateTBState();
+    fds_uint64_t nowMicrosec = util::getTimeStampMicros();
+    avail_pool.updateTBState(nowMicrosec);
 
     /**** search if any queues has IOs that need to be dispatched to meet min_iops ****/
     /* we will check the queue that we serviced last time last */
@@ -397,7 +398,8 @@ fds_qid_t QoSHTBDispatcher::getNextQueueForDispatch()
       assert(qstate != NULL);
 
       /* before querying any state, update tokens */
-      fds_uint64_t exp_assured_toks = qstate->updateTokens();
+      nowMicrosec = util::getTimeStampMicros();
+      fds_uint64_t exp_assured_toks = qstate->updateTokens(nowMicrosec);
       if (exp_assured_toks > 0) {
 	/* first put expired assured tokens to the avail_pool */
 	avail_pool.addTokens(exp_assured_toks);
@@ -498,8 +500,7 @@ TBQueueState::TBQueueState(fds_qid_t _queue_id,
   memset(recent_iops, 0, sizeof(fds_uint32_t) * HTB_WMA_LENGTH);
 
   /* align next_hist_ts to a second boundary, so that all volumes histories are aligned */
-  next_hist_ts = boost::posix_time::second_clock::universal_time() +
-    boost::posix_time::microseconds(HTB_WMA_SLOT_SIZE_MICROSEC);
+  next_hist_ts = util::getTimeStampMicros() + HTB_WMA_SLOT_SIZE_MICROSEC;
   hist_slotix = 0;
 }
 
@@ -520,7 +521,7 @@ fds_uint32_t TBQueueState::handleIoDispatch(FDS_IOType* /*io*/)
   /* since this implementation assumes single dispatcher thread, each IO
    * dispatch happens one after another, if that assumption does not hold anymore
    * will need to change wma calculation  */  
-  boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+  fds_uint64_t now = util::getTimeStampMicros();
   if (now < next_hist_ts) {
     /* we are still filling the same slot */
     recent_iops[hist_slotix]++;
@@ -528,7 +529,7 @@ fds_uint32_t TBQueueState::handleIoDispatch(FDS_IOType* /*io*/)
   else {
     /* will start the next slot, possibly skipping idle */
     do {
-      next_hist_ts += boost::posix_time::microseconds(HTB_WMA_SLOT_SIZE_MICROSEC);
+      next_hist_ts += HTB_WMA_SLOT_SIZE_MICROSEC;
       hist_slotix = (hist_slotix + 1) % HTB_WMA_LENGTH;
       recent_iops[hist_slotix] = 0;
     } while (now > next_hist_ts);
@@ -557,17 +558,16 @@ double TBQueueState::getIOPerfWMA()
 }
 
 /* Updates both token buckets and returns number of expired 'assured' tokens */   
-fds_uint64_t TBQueueState::updateTokens(void)
+fds_uint64_t TBQueueState::updateTokens(fds_uint64_t nowMicrosec)
 {
   /* TODO: we can make it more efficient by getting the current time here
    * and adding token bucket methods that take current time (since 
    * get time seems quite expensive), will do later, we may anyway try 
    * to use chrono nanosec timers (cannot compile for some reason). */
-  boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-  moveToNextHistTs(now);
+  moveToNextHistTs(nowMicrosec);
 
-  tb_max.updateTBState();
-  return tb_min.updateTBState();
+  tb_max.updateTBState(nowMicrosec);
+  return tb_min.updateTBState(nowMicrosec);
 }
 
 /* will consume 'io_cost' tokens from tb_min if they are available, there is at 
