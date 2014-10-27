@@ -8,7 +8,10 @@
 #include <net/net-service-tmpl.hpp>
 static fds_uint32_t MAX_OBJECT_SIZE = 1024 * 1024 * 2;    // 2MB
 static fds_uint32_t NUM_OBJTS = 1;    // 2MB
-static fds_uint64_t BLOB_SIZE = static_cast<fds_uint64_t>(10) * 1024 * 1024 * 1024;   // 1GB
+// static fds_uint64_t BLOB_SIZE = static_cast<fds_uint64_t>(10) * 1024 * 1024 * 1024;   // 1GB
+static fds_uint64_t BLOB_SIZE = 1 * 1024 * 1024 * 1024;   // 1GB
+static fds_uint32_t NUM_VOLUMES = 1;
+static fds_uint32_t NUM_BLOBS = 1;
 
 boost::shared_ptr<LatencyCounter> startTxCounter(new LatencyCounter("startBLobTx", 0, 0));
 boost::shared_ptr<LatencyCounter> updateTxCounter(new LatencyCounter("updateBlobTx", 0, 0));
@@ -32,14 +35,6 @@ static fds_uint64_t txStartTs = 0;
 TEST_F(DMApi, putBlobOnceTest)
 {
     std::string blobName("testBlobOnce");
-    /*
-    size_t  blob_size =  this->getArg<size_t>("Blob-size");
-    size_t  obj_size =  this->getArg<size_t>("Obj-size");
-    if (!blob_size)
-      blob_size = BLOB_SIZE;
-    if (!obj_size)
-      obj_size = MAX_OBJECT_SIZE;
-    */
     fpi::SvcUuid svcUuid;
     svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
@@ -414,11 +409,17 @@ TEST_F(DMApi, deleteBlobTest)
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    po::options_description opts("Allowed options");
-    opts.add_options()
-        ("help", "produce help message")
-        ("Blob-size", po::value<size_t>(), "Size of the Blob")
-        ("Obj-size", po::value<size_t>(), "Size of the Object");
-    DMApi::init(argc, argv, opts, "vol1");
+    // process command line options
+    po::options_description desc("\nDM test Command line options");
+    desc.add_options()
+            ("help,h"       , "help/ usage message")  // NOLINT
+            ("num-volumes,v", po::value<fds_uint32_t>(&NUM_VOLUMES)->default_value(NUM_VOLUMES)        , "number of volumes")  // NOLINT
+            ("obj-size,o"   , po::value<fds_uint32_t>(&MAX_OBJECT_SIZE)->default_value(MAX_OBJECT_SIZE), "max object size in bytes")  // NOLINT
+            ("blob-size,b"  , po::value<fds_uint64_t>(&BLOB_SIZE)->default_value(BLOB_SIZE)            , "blob size in bytes")  // NOLINT
+            ("num-blobs,n"  , po::value<fds_uint32_t>(&NUM_BLOBS)->default_value(NUM_BLOBS)            , "number of blobs")  // NOLINT
+            ("puts-only"    , "do put operations only")
+            ("no-delete"    , "do put & get operations only");
+
+    DMApi::init(argc, argv, desc, "vol1");
     return RUN_ALL_TESTS();
 }
