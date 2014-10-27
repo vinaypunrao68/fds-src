@@ -30,7 +30,9 @@ struct TimePrinter {
     ~TimePrinter() {
         std::cout << Color::Yellow << "[" << std::setw(10) << name << "] " << Color::End
                   << std::fixed << std::setprecision(3)
+                  << Color::Red
                   << (stopwatch.getElapsedNanos()/(1000.0*1000)) << " ms"
+                  << Color::End
                   << std::endl;
     }
 };
