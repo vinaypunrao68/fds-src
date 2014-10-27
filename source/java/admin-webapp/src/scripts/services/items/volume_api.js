@@ -3,6 +3,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     var api = {};
 
     var pollerId = -1;
+    var errCount = 0;
 
     var startPoller = function(){
         pollerId = $interval( getVolumes, 10000 );
@@ -16,10 +17,18 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
         
         return $http_fds.get( '/api/config/volumes',
             function( data ){
+                errCount = 0;
                 api.volumes = data;
 
                 if ( angular.isDefined( callback ) && angular.isFunction( callback ) ){
                     callback( api.volumes );
+                }
+            },
+            function( error ){
+                errCount++;
+            
+                if ( errCount >= 3 ){
+                    $interval.cancel( pollerId );
                 }
             });
     };

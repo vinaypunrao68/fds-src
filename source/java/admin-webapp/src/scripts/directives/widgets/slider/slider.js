@@ -1,11 +1,11 @@
-angular.module( 'angular-fui' ).directive( 'fuiSlider', function(){
+angular.module( 'form-directives' ).directive( 'slider', function(){
 
     return {
         restrict: 'E',
         replace: true,
         transclude: false,
         scope: { min: '@', max: '@', value: '=ngModel', minLabel: '@', maxLabel: '@', labelFunction: '=?', step: '@', values: '=' },
-        templateUrl: 'scripts/directives/angular-fui/fui-slider/fui-slider.html',
+        templateUrl: 'scripts/directives/widgets/slider/slider.html',
         controller: function( $scope, $document, $element ){
 
             $scope.position = 0;
@@ -13,7 +13,7 @@ angular.module( 'angular-fui' ).directive( 'fuiSlider', function(){
             $scope.segments = [];
 
             var initBounds = function(){
-                if ( !angular.isDefined( $scope.min ) && angular.isDefined( $scope.values ) ){
+                if ( angular.isDefined( $scope.values ) ){
                     $scope.min = 0;
                     $scope.max = $scope.values.length - 1;
                     $scope.step = 1;
@@ -31,7 +31,7 @@ angular.module( 'angular-fui' ).directive( 'fuiSlider', function(){
                 var v = Math.ceil( eWidth / totalSteps );
 
                 $scope.segments = [];
-                for( var i = 0; i < totalSteps-1 && v > 10; i++ ){
+                for( var i = 0; i < totalSteps && v > 10; i++ ){
                     $scope.segments.push( {id: i, px: v} );
                 }
 
@@ -64,7 +64,8 @@ angular.module( 'angular-fui' ).directive( 'fuiSlider', function(){
                 var foundValue = 0;
 
                 if ( angular.isDefined( $scope.values ) ){
-                    foundValue =  $scope.values[steps];
+                    $scope.value =  $scope.values[steps];
+                    return;
                 }
                 else {
                     foundValue = $scope.min + (steps * $scope.step);
@@ -114,11 +115,46 @@ angular.module( 'angular-fui' ).directive( 'fuiSlider', function(){
                     }
                 }
                 else {
-                    steps = Math.round( $scope.value / $scope.step );
+                    steps = Math.round( ($scope.value - $scope.min) / $scope.step );
                     $scope.value = $scope.min + ( steps * $scope.step );
                 }
 
-                $scope.position = pxPerStep * steps;
+                $scope.position = (pxPerStep * (steps));
+            };
+            
+            $scope.getLabel = function( $index ){
+                
+                var val = $scope.getIndexValue( $index );
+                
+                if ( angular.isFunction( $scope.labelFunction ) ){
+                    return $scope.labelFunction( val  );
+                }
+                
+                return val;
+            };
+            
+            $scope.getLeftForSegmentLabel = function( segment ){
+                
+                // we don't want weird hangovers so the first label will be at 0px
+                if ( segment.id === 0 ){
+                    return 0;
+                }
+                
+                var size = measureText( $scope.getLabel( segment.id ), 11 );
+                
+                // the 2 here is for the padding...
+                var pos = (segment.id * segment.px) - ( size.width / 2 ) - 2;
+                
+                return pos;
+            };
+            
+            $scope.getIndexValue = function( $index ){
+                if ( angular.isDefined( $scope.values ) ){
+                    return $scope.values[ $index ];
+                }
+                else {
+                    return $index * $scope.step + $scope.min;
+                }
             };
 
             $document.on( 'mousemove', null, $scope.mouseMoved );
@@ -129,6 +165,7 @@ angular.module( 'angular-fui' ).directive( 'fuiSlider', function(){
                 $document.off( 'mouseup', null, function(){ $scope.grabbed = false; });
             });
 
+            $scope.$on( 'fds::page_shown', $scope.setValue );
             $scope.$on( 'fds::fui-slider-refresh', $scope.setValue );
 
             $scope.setValue();

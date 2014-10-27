@@ -88,8 +88,8 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
              StatQueryFilter.LONG_TERM_CAPACITY_SIGMA,
              StatQueryFilter.SHORT_TERM_PERFORMANCE_SIGMA,
              StatQueryFilter.LONG_TERM_PERFORMANCE_SIGMA],
-            (new Date()).getTime(),
-            (new Date()).getTime() - (1000*60*60*24) );
+            (new Date()).getTime() - (1000*60*60*24),
+            (new Date()).getTime() );
     
         return filter;
     };
