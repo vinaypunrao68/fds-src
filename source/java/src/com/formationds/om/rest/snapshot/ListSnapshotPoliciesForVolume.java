@@ -5,7 +5,7 @@
 
 package com.formationds.om.rest.snapshot;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.formationds.commons.model.RecurrenceRule;
 import com.formationds.commons.model.SnapshotPolicy;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
@@ -30,29 +30,39 @@ public class ListSnapshotPoliciesForVolume
     @Override
     public Resource handle(final Request request, final Map<String, String> routeParameters)
             throws Exception {
-        final ObjectMapper mapper = new ObjectMapper();
-        final List<SnapshotPolicy> policies = new ArrayList<>();
-
         final long volumeId = requiredLong( routeParameters,
                                             REQ_PARAM_VOLUME_ID );
 
-        final List<com.formationds.apis.SnapshotPolicy> internalPolicyDefs =
+        final List<com.formationds.apis.SnapshotPolicy> _policies =
           config.listSnapshotPoliciesForVolume(volumeId);
-        if (internalPolicyDefs == null || internalPolicyDefs.isEmpty()) {
-          return new JsonResource( new JSONArray( policies ) );
+        if( _policies == null || _policies.isEmpty() ) {
+          return new JsonResource( new JSONArray( new ArrayList<>() ) );
         }
 
-        for (final com.formationds.apis.SnapshotPolicy policy : internalPolicyDefs) {
-          final SnapshotPolicy modelPolicy = new SnapshotPolicy();
+      final List<SnapshotPolicy> policies = new ArrayList<>();
+    /*
+     * process each thrift snapshot policy, and map it to the object model
+     * version
+     */
+      _policies.stream()
+               .forEach( ( p ) -> {
+                 final SnapshotPolicy modelPolicy = new SnapshotPolicy();
 
-          modelPolicy.setId(policy.getId());
-          modelPolicy.setName(policy.getPolicyName());
-          modelPolicy.setRecurrenceRule( policy.getRecurrenceRule());
-          modelPolicy.setRetention(policy.getRetentionTimeSeconds());
+                 RecurrenceRule rrule;
+                 try {
+                   rrule = new RecurrenceRule().parser( p.getRecurrenceRule() );
+                 } catch( Exception e ) {
+                   e.printStackTrace();
+                   rrule = new RecurrenceRule();
+                 }
 
-          policies.add(modelPolicy);
-        }
+                 modelPolicy.setId( p.getId() );
+                 modelPolicy.setName( p.getPolicyName() );
+                 modelPolicy.setRecurrenceRule( rrule );
+                 modelPolicy.setRetention( p.getRetentionTimeSeconds() );
+                 policies.add( modelPolicy );
+               } );
 
-        return new JsonResource(new JSONArray(mapper.writeValueAsString(policies)));
+      return new JsonResource( new JSONArray( policies ) );
     }
 }
