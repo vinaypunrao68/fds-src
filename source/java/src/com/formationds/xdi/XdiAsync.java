@@ -7,6 +7,7 @@ import com.formationds.apis.*;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.ByteBufferUtility;
+import com.formationds.util.FunctionWithExceptions;
 import com.formationds.util.async.AsyncMessageDigest;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.AsyncResourcePool;
@@ -31,22 +32,19 @@ import java.util.function.Function;
 
 public class XdiAsync {
     private final AuthenticationToken token;
-    private AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool;
     private Authorizer authorizer;
-    private AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool;
+    private AsyncAm asyncAm;
     private ByteBufferPool bufferPool;
     private ConfigurationApi configurationApi;
     private AsyncRequestStatistics statistics;
 
     public XdiAsync(Authorizer authorizer,
-                    AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool,
-                    AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool,
+                    AsyncAm asyncAm,
                     ByteBufferPool bufferPool,
                     AuthenticationToken token,
                     ConfigurationApi configurationApi) {
         this.authorizer = authorizer;
-        this.csPool = csPool;
-        this.amPool = amPool;
+        this.asyncAm = asyncAm;
         this.bufferPool = bufferPool;
         this.token = token;
         this.configurationApi = configurationApi;
@@ -253,18 +251,6 @@ public class XdiAsync {
         }
     }
 
-    public <T> CompletableFuture<T> csUseVolume(String volume, AsyncResourcePool.BindWithException<XdiClientConnection<ConfigurationService.AsyncIface>, CompletableFuture<T>> operation) {
-        if (authorizer.hasAccess(token, volume)) {
-            CompletableFuture<Void> poolWaitTime = statistics.time("csPoolWaitTime", new CompletableFuture<>());
-            return csPool.use(cs -> {
-                poolWaitTime.complete(null);
-                return operation.apply(cs);
-            });
-        } else {
-            return CompletableFutureUtility.exceptionFuture(new SecurityException());
-        }
-    }
-
     public CompletableFuture<VolumeDescriptor> statVolume(String domain, String volume) {
         CompletableFuture<VolumeDescriptor> cf = new CompletableFuture<>();
         try {
@@ -322,11 +308,6 @@ public class XdiAsync {
         return result;
     }
 
-    // TODO: factor this stuff into somewhere more accessible
-    private interface FunctionWithExceptions<TIn, TOut> {
-        public TOut apply(TIn input) throws Exception;
-    }
-
     private static class PutParameters {
         public final String domain;
         public final String volume;
@@ -377,7 +358,7 @@ public class XdiAsync {
         }
 
         public XdiAsync createAuthenticated(AuthenticationToken token) {
-            return new XdiAsync(authorizer, csPool, amPool, bufferPool, token, configurationApi);
+            return new XdiAsync(authorizer, amPool, bufferPool, token, configurationApi);
         }
     }
 
