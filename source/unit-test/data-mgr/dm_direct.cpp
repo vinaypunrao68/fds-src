@@ -105,7 +105,11 @@ TEST_F(DmUnitTest, PutBlobOnce) {
     putBlobOnce->blob_name = "testblobonce";
     putBlobOnce->txId = 1;
     putBlobOnce->dmt_version = 1;
-    fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
+
+    TIMEDBLOCK("fill") {
+        fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
+    }
+
     auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(putBlobOnce->volume_id,
                                               putBlobOnce->blob_name,
                                               putBlobOnce->blob_version,
@@ -138,7 +142,9 @@ TEST_F(DmUnitTest, PutBlob) {
     updcatMsg->blob_name = dmTester->TESTBLOB;
     updcatMsg->txId = 1;
     updcatMsg->obj_list;
-    fds::UpdateBlobInfoNoData(updcatMsg, MAX_OBJECT_SIZE, BLOB_SIZE);
+    TIMEDBLOCK("fill") {
+        fds::UpdateBlobInfoNoData(updcatMsg, MAX_OBJECT_SIZE, BLOB_SIZE);
+    }
 
     auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg);
     dmUpdCatReq->dmio_updatecat_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
@@ -206,7 +212,7 @@ TEST_F(DmUnitTest, GetMeta) {
                                          getBlobMeta->blob_version,
                                          getBlobMeta);
     dmReq->dmio_getmd_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-    TIMEDBLOCK("getmeta") {
+    TIMEDBLOCK("process") {
         dataMgr->scheduleGetBlobMetaDataSvc(dmReq);
         cb.wait();
     }

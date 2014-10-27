@@ -18,16 +18,17 @@
 #include <vector>
 #include <concurrency/taskstatus.h>
 #include <util/color.h>
-
+#include <map>
 using fds::util::Color;
 struct TimePrinter {
     std::string name;
     fds::util::StopWatch stopwatch;
     bool done = false;
+    TimePrinter() {}
     explicit TimePrinter(std::string name) :  name(name){
         stopwatch.start();
     }
-    ~TimePrinter() {
+    void summary() {
         std::cout << Color::Yellow << "[" << std::setw(10) << name << "] " << Color::End
                   << std::fixed << std::setprecision(3)
                   << Color::Red
@@ -35,8 +36,16 @@ struct TimePrinter {
                   << Color::End
                   << std::endl;
     }
+    ~TimePrinter() {
+        if (done) summary();
+    }
 };
-
+std::map<std::string, TimePrinter> timeMap;
+#define TIMEIT(NAME, ...) \
+    timeMap[NAME].stopwatch.reset(); \
+    timeMap[NAME].name = NAME; \
+    __VA_ARGS__ ; \
+    timeMap[NAME].summary()
 #define TIMEDBLOCK(NAME) for (TimePrinter __tp__(NAME); !__tp__.done ; __tp__.done = true)
 #define TIMEDOUTERBLOCK(NAME) for (TimePrinter __otp__(NAME); !__otp__.done ; __otp__.done = true)
 
