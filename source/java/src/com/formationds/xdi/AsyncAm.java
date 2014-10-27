@@ -1,10 +1,14 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authorizer;
 import com.formationds.util.BiConsumerWithException;
 import com.formationds.util.FunctionWithExceptions;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.AsyncResourcePool;
+import com.formationds.util.async.CompletableFutureUtility;
+import org.apache.thrift.TException;
 import org.apache.thrift.async.AsyncMethodCallback;
 
 import java.nio.ByteBuffer;
@@ -17,10 +21,12 @@ import java.util.concurrent.CompletableFuture;
  */
 public class AsyncAm {
     private AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool;
+    private Authorizer authorizer;
     private AsyncRequestStatistics statistics;
 
-    public AsyncAm(AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool) {
+    public AsyncAm(AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool, Authorizer authorizer) {
         this.amPool = amPool;
+        this.authorizer = authorizer;
         statistics = new AsyncRequestStatistics();
     }
 
@@ -42,7 +48,12 @@ public class AsyncAm {
         };
     }
 
-    private <T> CompletableFuture<T> schedule(String actionName, String volumeName, BiConsumerWithException<AmService.AsyncIface, CompletableFuture<T>> consumer) {
+    private <T> CompletableFuture<T> schedule(AuthenticationToken token, String actionName, String volumeName, BiConsumerWithException<AmService.AsyncIface, CompletableFuture<T>> consumer) {
+
+        if (!authorizer.hasAccess(token, volumeName)) {
+            return CompletableFutureUtility.exceptionFuture(new SecurityException());
+        }
+
         CompletableFuture<T> cf = statistics.time(actionName, new CompletableFuture<>());
         CompletableFuture<Void> poolWaitTime = statistics.time("amPoolWaitTime", new CompletableFuture<>());
         return amPool.use(am -> {
@@ -56,92 +67,78 @@ public class AsyncAm {
         });
     }
 
-    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset) {
-        return schedule("volumeContents", volumeName, (am, cf) -> {
+    public CompletableFuture<Void> attachVolume(AuthenticationToken token, String domainName, String volumeName) throws TException {
+        return schedule(token, "attachVolume", volumeName, (am, cf) -> {
+            am.attachVolume(domainName, volumeName, makeThriftCallbacks(cf, v -> null));
+        });
+    }
+
+    public CompletableFuture<List<BlobDescriptor>> volumeContents(AuthenticationToken token, String domainName, String volumeName, int count, long offset) {
+        return schedule(token, "volumeContents", volumeName, (am, cf) -> {
             am.volumeContents(domainName, volumeName, count, offset, makeThriftCallbacks(cf, v -> v.getResult()));
         });
     }
 
-    public CompletableFuture<BlobDescriptor> statBlob(String domainName, String volumeName, String blobName) {
-        return schedule("statBlob", volumeName, (am, cf) -> {
+    public CompletableFuture<BlobDescriptor> statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) {
+        return schedule(token, "statBlob", volumeName, (am, cf) -> {
             am.statBlob(domainName, volumeName, blobName, makeThriftCallbacks(cf, v -> v.getResult()));
         });
     }
 
-    public CompletableFuture<TxDescriptor> startBlobTx(String domainName, String volumeName, String blobName, int blobMode) {
-        return amPool.use(am -> {
-            CompletableFuture<TxDescriptor> cf = new CompletableFuture<>();
-            am.getClient().startBlobTx(domainName, volumeName, blobName, blobMode, makeThriftCallbacks(cf, v -> v.getResult()));
-            return cf;
+    public CompletableFuture<TxDescriptor> startBlobTx(AuthenticationToken token, String domainName, String volumeName, String blobName, int blobMode) {
+        return schedule(token, "startBlobTx", volumeName, (am, cf) -> {
+            am.startBlobTx(domainName, volumeName, blobName, blobMode, makeThriftCallbacks(cf, v -> v.getResult()));
         });
     }
 
-    public CompletableFuture<Void> commitBlobTx(String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
-        return amPool.use(am -> {
-            CompletableFuture<Void> cf = new CompletableFuture<>();
-            am.getClient().commitBlobTx(domainName, volumeName, blobName, txDescriptor, makeThriftCallbacks(cf, v -> null));
-            return cf;
+    public CompletableFuture<Void> commitBlobTx(AuthenticationToken token, String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
+        return schedule(token, "commitBlobTx", volumeName, (am, cf) -> {
+            am.commitBlobTx(domainName, volumeName, blobName, txDescriptor, makeThriftCallbacks(cf, v -> null));
         });
     }
 
-    public CompletableFuture<Void> abortBlobTx(String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
-        return amPool.use(am -> {
-            CompletableFuture<Void> cf = new CompletableFuture<>();
-            am.getClient().abortBlobTx(domainName, volumeName, blobName, txDescriptor, makeThriftCallbacks(cf, v -> null));
-            return cf;
+    public CompletableFuture<Void> abortBlobTx(AuthenticationToken token, String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
+        return schedule(token, "abortBlobTx", volumeName, (am, cf) -> {
+            am.abortBlobTx(domainName, volumeName, blobName, txDescriptor, makeThriftCallbacks(cf, v -> null));
         });
     }
 
-    public CompletableFuture<ByteBuffer> getBlob(String domainName, String volumeName, String blobName, int length, ObjectOffset offset) {
-        return amPool.use(am -> {
-            CompletableFuture<ByteBuffer> cf = new CompletableFuture<>();
-            am.getClient().getBlob(domainName, volumeName, blobName, length, offset, makeThriftCallbacks(cf, v -> v.getResult()));
-            return cf;
+    public CompletableFuture<ByteBuffer> getBlob(AuthenticationToken token, String domainName, String volumeName, String blobName, int length, ObjectOffset offset) {
+        return schedule(token, "getBlob", volumeName, (am, cf) -> {
+            am.getBlob(domainName, volumeName, blobName, length, offset, makeThriftCallbacks(cf, v -> v.getResult()));
         });
     }
 
-    public CompletableFuture<Void> updateMetadata(String domainName, String volumeName, String blobName,
+    public CompletableFuture<Void> updateMetadata(AuthenticationToken token, String domainName, String volumeName, String blobName,
                                                   TxDescriptor txDescriptor, Map<String, String> metadata) {
-        return amPool.use(am -> {
-            CompletableFuture<Void> cf = new CompletableFuture<>();
-            am.getClient().updateMetadata(domainName, volumeName, blobName, txDescriptor, metadata, makeThriftCallbacks(cf, v -> null));
-            return cf;
+        return schedule(token, "updateMetadata", volumeName, (am, cf) -> {
+            am.updateMetadata(domainName, volumeName, blobName, txDescriptor, metadata, makeThriftCallbacks(cf, v -> null));
         });
     }
 
-    public CompletableFuture<Void> updateBlob(String domainName, String volumeName, String blobName,
+    public CompletableFuture<Void> updateBlob(AuthenticationToken token, String domainName, String volumeName, String blobName,
                                               TxDescriptor txDescriptor, ByteBuffer bytes, int length, ObjectOffset objectOffset, boolean isLast) {
-        return amPool.use(am -> {
-            CompletableFuture<Void> cf = new CompletableFuture<>();
-            am.getClient().updateBlob(domainName, volumeName, blobName, txDescriptor, bytes, length, objectOffset, isLast, makeThriftCallbacks(cf, v -> null));
-            return cf;
+        return schedule(token, "updateBlob", volumeName, (am, cf) -> {
+            am.updateBlob(domainName, volumeName, blobName, txDescriptor, bytes, length, objectOffset, isLast, makeThriftCallbacks(cf, v -> null));
         });
     }
 
-    public CompletableFuture<Void> updateBlobOnce(String domainName, String volumeName, String blobName,
+    public CompletableFuture<Void> updateBlobOnce(AuthenticationToken token, String domainName, String volumeName, String blobName,
                                                   int blobMode, ByteBuffer bytes, int length, ObjectOffset offset, Map<String, String> metadata) {
-        return amPool.use(am -> {
-            CompletableFuture<Void> cf = new CompletableFuture<>();
-            am.getClient().updateBlobOnce(domainName, volumeName, blobName, blobMode, bytes, length, offset, metadata, makeThriftCallbacks(cf, v -> null));
-            return cf;
+        return schedule(token, "updateBlobOnce", volumeName, (am, cf) -> {
+            am.updateBlobOnce(domainName, volumeName, blobName, blobMode, bytes, length, offset, metadata, makeThriftCallbacks(cf, v -> null));
         });
-
     }
 
-    public CompletableFuture<Void> deleteBlob(String domainName, String volumeName, String blobName) {
-        return amPool.use(am -> {
-            CompletableFuture<Void> cf = new CompletableFuture<>();
-            am.getClient().deleteBlob(domainName, volumeName, blobName, makeThriftCallbacks(cf, v -> null));
-            return cf;
+    public CompletableFuture<Void> deleteBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) {
+        return schedule(token, "deleteBlob", volumeName, (am, cf) -> {
+            am.deleteBlob(domainName, volumeName, blobName, makeThriftCallbacks(cf, v -> null));
         });
-
     }
 
-    public CompletableFuture<VolumeStatus> volumeStatus(String domainName, String volumeName) {
-        return amPool.use(am -> {
-            CompletableFuture<VolumeStatus> cf = new CompletableFuture<>();
-            am.getClient().volumeStatus(domainName, volumeName, makeThriftCallbacks(cf, v -> v.getResult()));
-            return cf;
+    public CompletableFuture<VolumeStatus> volumeStatus(AuthenticationToken token, String domainName, String volumeName) {
+        return schedule(token, "volumeStatus", volumeName, (am, cf) -> {
+            am.volumeStatus(domainName, volumeName, makeThriftCallbacks(cf, v -> v.getResult()));
         });
     }
 }
