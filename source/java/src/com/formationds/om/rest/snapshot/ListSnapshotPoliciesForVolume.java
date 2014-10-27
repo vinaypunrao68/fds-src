@@ -7,9 +7,11 @@ package com.formationds.om.rest.snapshot;
 
 import com.formationds.commons.model.RecurrenceRule;
 import com.formationds.commons.model.SnapshotPolicy;
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
@@ -62,7 +64,6 @@ public class ListSnapshotPoliciesForVolume
                  modelPolicy.setRetention( p.getRetentionTimeSeconds() );
                  policies.add( modelPolicy );
                } );
-
-      return new JsonResource( new JSONArray( policies ) );
+      return new TextResource( ObjectModelHelper.toJSON( policies ) );
     }
 }
