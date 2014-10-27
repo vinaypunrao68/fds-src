@@ -4,6 +4,9 @@
 #include <string>
 #include <NetSession.h>
 
+#include "requests/GetBlobReq.h"
+#include "requests/PutBlobReq.h"
+
 using namespace std;
 using namespace FDS_ProtocolInterface;
 #define SRC_IP  0x0a010a65
