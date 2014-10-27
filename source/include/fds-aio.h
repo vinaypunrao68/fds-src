@@ -27,7 +27,8 @@ class FdsAIO
     inline void aio_set_fd(int fd) {
         io_fd = fd;
     }
-    inline void aio_reset() {
+    inline void aio_reset(bool w = true) {
+        io_wait    = w;
         io_cnt     = 0;
         io_cur_idx = 0;
     }
