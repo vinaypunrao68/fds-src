@@ -9,32 +9,32 @@ sem_dir="${script_dir}/${0##*/}.semaphore"
 sem_expiration_seconds=1800
 
 if [ -d ${sem_dir} ]; then
-	dir_mtime=$(stat -c %Y ${sem_dir})
-	current_time=$(date +"%s")
+    dir_mtime=$(stat -c %Y ${sem_dir})
+    current_time=$(date +"%s")
 
-	if [ $((current_time - dir_mtime)) -gt ${sem_expiration_seconds} ]; then
-		rmdir ${sem_dir}
-	fi
+    if [ $((current_time - dir_mtime)) -gt ${sem_expiration_seconds} ]; then
+    	rmdir ${sem_dir}
+    fi
 fi
 
 mkdir "${sem_dir}" 2>/dev/null
 
 case $? in
-	0)
+    0)
         if [ ! -f /usr/local/bin/ansible-playbook ]; then
             sudo apt-get install -y --force-yes python-pip python-dev
             sudo pip install ansible
         fi
 
-		ansible-playbook -i ${script_dir}/ansible_hosts -c local ${script_dir}/playbooks/devsetup.yml
+        ansible-playbook -i ${script_dir}/ansible_hosts -c local ${script_dir}/playbooks/devsetup.yml
 
-		rmdir ${sem_dir}
-		touch ${script_dir}/.devsetup-is-up-to-date
-		;;
-	*)
-	while [[ -d ${sem_dir} ]]
-	do
-		sleep 1
-	done
-	;;
+        rmdir ${sem_dir}
+        touch ${script_dir}/.devsetup-is-up-to-date
+        ;;
+    *)
+    while [[ -d ${sem_dir} ]]
+    do
+        sleep 1
+    done
+    ;;
 esac
