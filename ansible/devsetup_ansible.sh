@@ -23,7 +23,7 @@ case $? in
     0)
         if [ ! -f /usr/local/bin/ansible-playbook ]; then
             sudo apt-get install -y --force-yes python-pip python-dev
-            sudo pip install ansible
+            sudo pip install -q ansible
         fi
 
         ansible-playbook -i ${script_dir}/ansible_hosts -c local ${script_dir}/playbooks/devsetup.yml
