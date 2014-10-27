@@ -20,13 +20,6 @@ namespace fds { namespace kvstore {
 using redis::Reply;
 using redis::RedisException;
 
-ConfigException::ConfigException(const std::string& msg) : msg(msg) {
-}
-
-const char* ConfigException::what() const noexcept{
-    return msg.c_str();
-}
-
 ConfigDB::ConfigDB(const std::string& host,
                    uint port,
                    uint poolsize) : KVStore(host, port, poolsize) {

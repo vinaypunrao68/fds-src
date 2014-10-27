@@ -10,7 +10,7 @@
 
 #include <fds_module.h>
 #include <fds_process.h>
-
+#include <concurrency/Mutex.h>
 #include <string>
 #include <vector>
 namespace fds {
@@ -134,8 +134,9 @@ static fds::Module *dmVec[] = {
 };
 
 struct DMTester :  FdsProcess {
-    int testCount = 0;
     std::vector<boost::shared_ptr<VolumeDesc> > volumes;
+    std::string TESTBLOB;
+    fds_volid_t TESTVOLID;
     DMTester(int argc, char *argv[])
             : FdsProcess(argc,
                          argv,
@@ -149,12 +150,17 @@ struct DMTester :  FdsProcess {
 
     void initDM() {
         gl_PlatformSvc = new TestPlatform();
+        std::cout << "initing dm" << std::endl;
+        PerfTracer::setEnabled(false);
         dataMgr = new DataMgr(this);
         dataMgr->runMode = DataMgr::TEST_MODE;
         dataMgr->use_om = false;
         dataMgr->omConfigPort = 8904;
         dataMgr->omIpStr = "localhost";
         dataMgr->vol_map_mtx = new fds_mutex("Volume map mutex");
+        dataMgr->feature.fQosEnabled= false;
+        dataMgr->feature.fTestMode= true;
+        dataMgr->feature.fCatSyncEnabled = false;
         auto nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
         dataMgr->omClient = new TestOMgrClient(FDSP_DATA_MGR,
                                                dataMgr->omIpStr,
@@ -165,24 +171,17 @@ struct DMTester :  FdsProcess {
                                                get_plf_manager());
 
         dataMgr->omClient->initialize();
+        dataMgr->initHandlers();
         dataMgr->mod_enable_service();
     }
 
-    bool start() {
-        if (0 == testCount) {
-            start_modules();
-            initDM();
-        }
-        testCount++;
-        return (testCount == 1);
+    void start() {
+        start_modules();
+        initDM();
     }
 
-    bool stop() {
-        testCount--;
-        if (0 == testCount) {
-            shutdown_modules();
-        }
-        return (0 == testCount);
+    void stop() {
+        shutdown_modules();
     }
 
     int run() override {

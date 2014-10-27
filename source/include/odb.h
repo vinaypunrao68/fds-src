@@ -23,6 +23,10 @@
 namespace fds {
 namespace osm {
 
+struct OsmException : std::runtime_error {
+	   explicit OsmException (const std::string& what_arg) : std::runtime_error(what_arg) {}
+};
+
   class ObjectDB {
  public:
     /*

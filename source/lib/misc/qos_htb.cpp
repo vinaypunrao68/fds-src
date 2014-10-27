@@ -86,7 +86,7 @@ Error QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
                                           wait_time_microsec, 
                                           default_que_burst_size);
   if (!qstate) {
-    FDS_PLOG_SEV(qda_log, fds::fds_log::error) 
+    LOGERROR
       << "QoSHTBDispatcher: failed to allocate memory for queue state for queue: " << queue_id;
     err = ERR_MAX;
     return err;
@@ -99,9 +99,9 @@ Error QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
   if ((q_min_rate + total_min_rate) > total_rate) {
     qda_lock.write_unlock();
     delete qstate;
-    FDS_PLOG_SEV(qda_log, fds::fds_log::error) << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
-    		<< q_min_rate << " total_min_rate: " << total_min_rate << " total_rate: "
-    		<< total_rate;
+    LOGERROR << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
+             << q_min_rate << " total_min_rate: " << total_min_rate << " total_rate: "
+             << total_rate;
     err = Error(ERR_EXCEED_MIN_IOPS);
     return err;
   }
@@ -134,13 +134,12 @@ Error QoSHTBDispatcher::registerQueue(fds_qid_t queue_id,
   qstate_map[queue_id] = qstate;
   qda_lock.write_unlock();
 
-  FDS_PLOG_SEV(qda_log, fds::fds_log::notification)
-          << "QosHTBDispatcher: registered queue 0x" << std::hex << queue_id << std::dec
-          << "with min_iops=" << queue->iops_min
-          << "; max_iops=" << queue->iops_max
-          << "; prio=" << queue->priority
-          << "; total_min_rate " << new_total_min_rate 
-          << ", total_avail_rate " << new_total_avail_rate;
+  LOGNOTIFY << "QosHTBDispatcher: registered queue 0x" << std::hex << queue_id << std::dec
+            << "with min_iops=" << queue->iops_min
+            << "; max_iops=" << queue->iops_max
+            << "; prio=" << queue->priority
+            << "; total_min_rate " << new_total_min_rate 
+            << ", total_avail_rate " << new_total_avail_rate;
 
   return err;
 }
@@ -180,10 +179,10 @@ Error QoSHTBDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
    *  TODO: should we scale down all volumes' min rates? */
   if ((q_min_rate > qstate->min_rate) && ((q_min_rate - qstate->min_rate + total_min_rate) > total_rate)) {
     qda_lock.write_unlock();
-    FDS_PLOG_SEV(qda_log, fds::fds_log::error) << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
-					       << q_min_rate << " total_min_rate: " 
-					       << total_min_rate-qstate->min_rate+q_min_rate 
-					       << "  total_rate: " << total_rate;
+    LOGERROR << "QoSHTBDispatcher: invalid qos rates.  q_min_rate: "
+             << q_min_rate << " total_min_rate: " 
+             << total_min_rate-qstate->min_rate+q_min_rate 
+             << "  total_rate: " << total_rate;
     err = Error(ERR_EXCEED_MIN_IOPS);
     return err;
   }
@@ -220,12 +219,12 @@ Error QoSHTBDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
   setQueueThrottleLevel(qstate, current_throttle_level);
   qda_lock.write_unlock();
 
-  FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "QosHTBDispatcher: modified queue " << queue_id
-		    << "new min_iops=" << q_min_rate
-		    << "; max_iops=" << q_max_rate
-		    << "; prio=" << prio
-                    << "; total_min_rate " << new_total_min_rate 
-                    << ", total_avail_rate " << new_total_avail_rate;
+  LOGNOTIFY << "QosHTBDispatcher: modified queue " << queue_id
+            << "new min_iops=" << q_min_rate
+            << "; max_iops=" << q_max_rate
+            << "; prio=" << prio
+            << "; total_min_rate " << new_total_min_rate 
+            << ", total_avail_rate " << new_total_avail_rate;
 
   return err;
 }
@@ -265,10 +264,9 @@ Error QoSHTBDispatcher::deregisterQueue(fds_qid_t queue_id)
   /* cleanup */
   delete qstate;
  
-  FDS_PLOG_SEV(qda_log, fds::fds_log::notification)
-          << "QosHTBDispatcher: deregistered queue 0x" << std::hex << queue_id << std::dec
-          << "; total_min_rate " << new_total_min_rate
-          << ", total_avail_rate " << new_total_avail_rate; 
+  LOGNOTIFY << "QosHTBDispatcher: deregistered queue 0x" << std::hex << queue_id << std::dec
+            << "; total_min_rate " << new_total_min_rate
+            << ", total_avail_rate " << new_total_avail_rate; 
   
   return err;
 }
@@ -310,13 +308,13 @@ void QoSHTBDispatcher::setQueueThrottleLevel(TBQueueState *qstate, fds_uint32_t 
      * all volumes are throttled down, and no sharing is happening */
   }
 
-  FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "QosHTBDispatcher: setThrottleLevel(X=" 
-						    << tlevel_x <<", Y/10=" << tlevel_frac 
-						    << ") queue " << qstate->queue_id 
-						    << " Policy (" << qstate->min_rate 
-						    << "," << qstate->max_rate << "," << qstate->priority
-						    << "), effective min_rate=" << qstate->getEffectiveMinRate() 
-						    << ", effective max_rate=" << qstate->getEffectiveMaxRate();
+  LOGNOTIFY << "QosHTBDispatcher: setThrottleLevel(X=" 
+            << tlevel_x <<", Y/10=" << tlevel_frac 
+            << ") queue " << qstate->queue_id 
+            << " Policy (" << qstate->min_rate 
+            << "," << qstate->max_rate << "," << qstate->priority
+            << "), effective min_rate=" << qstate->getEffectiveMinRate() 
+            << ", effective max_rate=" << qstate->getEffectiveMaxRate();
 
 }
 
@@ -326,10 +324,10 @@ void QoSHTBDispatcher::setThrottleLevel(float throttle_level)
   fds_int32_t tlevel_x = (fds_int32_t) throttle_level;
   double tlevel_frac = fabs((double)throttle_level - (double)tlevel_x);
 
-  FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "QosHTBDispatcher: set throttle level to " 
-						    << throttle_level
-						    << "; X=" << tlevel_x 
-						    << ", Y/10=" << tlevel_frac;
+  LOGNOTIFY << "QosHTBDispatcher: set throttle level to " 
+            << throttle_level
+            << "; X=" << tlevel_x 
+            << ", Y/10=" << tlevel_frac;
 
   qda_lock.write_lock();
   for (qstate_map_it_t it = qstate_map.begin();
@@ -350,9 +348,9 @@ void QoSHTBDispatcher::ioProcessForEnqueue(fds_qid_t queue_id,
   TBQueueState* qstate = qstate_map[queue_id];
   assert(qstate);
   fds_uint32_t queued_ios = qstate->handleIoEnqueue(io);
-  FDS_PLOG(qda_log) << "QoSHTBDispatcher: handling enqueue IO to queue 0x"
-                    << std::hex << queue_id << std::dec
-		    << " ; # of queued_ios " << (queued_ios+1);
+  LOGDEBUG << "QoSHTBDispatcher: handling enqueue IO to queue 0x"
+           << std::hex << queue_id << std::dec
+           << " ; # of queued_ios " << (queued_ios+1);
 }
 
 void QoSHTBDispatcher::ioProcessForDispatch(fds_qid_t queue_id,
@@ -379,7 +377,8 @@ fds_qid_t QoSHTBDispatcher::getNextQueueForDispatch()
     min_wma_qstate = NULL;
 
     /* all tokens are demand-driven, so make sure to update state first */
-    avail_pool.updateTBState();
+    fds_uint64_t nowMicrosec = util::getTimeStampMicros();
+    avail_pool.updateTBState(nowMicrosec);
 
     /**** search if any queues has IOs that need to be dispatched to meet min_iops ****/
     /* we will check the queue that we serviced last time last */
@@ -399,14 +398,15 @@ fds_qid_t QoSHTBDispatcher::getNextQueueForDispatch()
       assert(qstate != NULL);
 
       /* before querying any state, update tokens */
-      fds_uint64_t exp_assured_toks = qstate->updateTokens();
+      nowMicrosec = util::getTimeStampMicros();
+      fds_uint64_t exp_assured_toks = qstate->updateTokens(nowMicrosec);
       if (exp_assured_toks > 0) {
 	/* first put expired assured tokens to the avail_pool */
 	avail_pool.addTokens(exp_assured_toks);
-	FDS_PLOG_SEV(qda_log, fds::fds_log::debug) << "QoSHTVDispatcher: moving " 
-						   << exp_assured_toks << " expired assured toks from "
-						   << "queue 0x" << std::hex << qstate->queue_id 
-						   << std::dec << " to the pool of available tokens";
+	LOGDEBUG << "QoSHTVDispatcher: moving " 
+                 << exp_assured_toks << " expired assured toks from "
+                 << "queue 0x" << std::hex << qstate->queue_id 
+                 << std::dec << " to the pool of available tokens";
       }
 
       /* try to see if we can serve the io from the head of queue with assured tokens */
@@ -414,8 +414,8 @@ fds_qid_t QoSHTBDispatcher::getNextQueueForDispatch()
       if (state == TBQueueState::TBQUEUE_STATE_OK) {
         /* we found a queue whose IO we will dispatch to meet its min_ios */
         last_dispatch_qid = it->first;
-        FDS_PLOG_SEV(qda_log, fds::fds_log::debug) << "QoSHTBDispatcher: dispatch (min_iops) io from queue 0x"
-                                                   << std::hex << it->first << std::dec;
+        LOGDEBUG << "QoSHTBDispatcher: dispatch (min_iops) io from queue 0x"
+                 << std::hex << it->first << std::dec;
         return it->first;
       }
       else if (state == TBQueueState::TBQUEUE_STATE_NO_ASSURED_TOKENS) {
@@ -453,8 +453,8 @@ fds_qid_t QoSHTBDispatcher::getNextQueueForDispatch()
      if (bHasToks) {
          min_wma_qstate->consumeTokens(1);
          ret_qid = min_wma_qstate->queue_id;
-         FDS_PLOG_SEV(qda_log, fds::fds_log::debug) << "QoSHTBDispatcher: dispatch (avail) io from queue 0x"
-                                                    << std::hex << ret_qid << std::dec;
+         LOGDEBUG << "QoSHTBDispatcher: dispatch (avail) io from queue 0x"
+                  << std::hex << ret_qid << std::dec;
          break;
      }
     }
@@ -467,8 +467,7 @@ fds_qid_t QoSHTBDispatcher::getNextQueueForDispatch()
      if ((assured_delay_microsec > 0) && (delay_microsec > assured_delay_microsec))
         delay_microsec = assured_delay_microsec;
 
-     FDS_PLOG_SEV(qda_log, fds::fds_log::debug)
-             << "QoSHTBDispatcher: no tokens available, will sleep for " << delay_microsec;
+     LOGDEBUG << "QoSHTBDispatcher: no tokens available, will sleep for " << delay_microsec;
      if (delay_microsec > 0) {
         qda_lock.read_unlock();
         boost::this_thread::sleep(boost::posix_time::microseconds(delay_microsec));
@@ -501,8 +500,7 @@ TBQueueState::TBQueueState(fds_qid_t _queue_id,
   memset(recent_iops, 0, sizeof(fds_uint32_t) * HTB_WMA_LENGTH);
 
   /* align next_hist_ts to a second boundary, so that all volumes histories are aligned */
-  next_hist_ts = boost::posix_time::second_clock::universal_time() +
-    boost::posix_time::microseconds(HTB_WMA_SLOT_SIZE_MICROSEC);
+  next_hist_ts = util::getTimeStampMicros() + HTB_WMA_SLOT_SIZE_MICROSEC;
   hist_slotix = 0;
 }
 
@@ -523,7 +521,7 @@ fds_uint32_t TBQueueState::handleIoDispatch(FDS_IOType* /*io*/)
   /* since this implementation assumes single dispatcher thread, each IO
    * dispatch happens one after another, if that assumption does not hold anymore
    * will need to change wma calculation  */  
-  boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+  fds_uint64_t now = util::getTimeStampMicros();
   if (now < next_hist_ts) {
     /* we are still filling the same slot */
     recent_iops[hist_slotix]++;
@@ -531,7 +529,7 @@ fds_uint32_t TBQueueState::handleIoDispatch(FDS_IOType* /*io*/)
   else {
     /* will start the next slot, possibly skipping idle */
     do {
-      next_hist_ts += boost::posix_time::microseconds(HTB_WMA_SLOT_SIZE_MICROSEC);
+      next_hist_ts += HTB_WMA_SLOT_SIZE_MICROSEC;
       hist_slotix = (hist_slotix + 1) % HTB_WMA_LENGTH;
       recent_iops[hist_slotix] = 0;
     } while (now > next_hist_ts);
@@ -560,17 +558,16 @@ double TBQueueState::getIOPerfWMA()
 }
 
 /* Updates both token buckets and returns number of expired 'assured' tokens */   
-fds_uint64_t TBQueueState::updateTokens(void)
+fds_uint64_t TBQueueState::updateTokens(fds_uint64_t nowMicrosec)
 {
   /* TODO: we can make it more efficient by getting the current time here
    * and adding token bucket methods that take current time (since 
    * get time seems quite expensive), will do later, we may anyway try 
    * to use chrono nanosec timers (cannot compile for some reason). */
-  boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-  moveToNextHistTs(now);
+  moveToNextHistTs(nowMicrosec);
 
-  tb_max.updateTBState();
-  return tb_min.updateTBState();
+  tb_max.updateTBState(nowMicrosec);
+  return tb_min.updateTBState(nowMicrosec);
 }
 
 /* will consume 'io_cost' tokens from tb_min if they are available, there is at 

@@ -33,7 +33,7 @@ class TestProcess : public ProbeProcess
     int run() override
     {
         while (1) {
-            sleep(2);
+            sleep(200);
         }
         am->run();
         return 0;

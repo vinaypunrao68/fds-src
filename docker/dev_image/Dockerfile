@@ -1,4 +1,4 @@
-FROM coke.formationds.com:5000/fds_base
+FROM registry.formationds.com:5000/fds_base
 MAINTAINER Aaron Nichols <aaron@formationds.com>
 #
 USER pairing

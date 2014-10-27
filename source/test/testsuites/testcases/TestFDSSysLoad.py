@@ -75,8 +75,11 @@ class TestSmokeLoad(TestCase.FDSTestCase):
 
             cur_dir = os.getcwd()
             os.chdir(fdscfg.rt_env.env_fdsSrc + '/Build/linux-x86_64.debug/tools')
-            status = n.nd_am_node.nd_agent.exec_wait('./smokeTest %s > ../bin/smokeTest.out 2>&1' %
-                                                     n.nd_am_node.nd_host)
+            status, stdout = n.nd_am_node.nd_agent.exec_wait('./smokeTest %s' %
+                                                     n.nd_am_node.nd_host, return_stdin=True)
+            if stdout is not None:
+                self.log.info(stdout)
+
             os.chdir(cur_dir)
 
             if status != 0:

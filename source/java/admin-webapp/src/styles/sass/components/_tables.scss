@@ -11,12 +11,14 @@ table.default {
     border-collapse: collapse;
     background: #fff;
     font-size: 0.9em;
+//    border-top: 1px solid $text_very_light_color;
 
     thead {
         th {
             vertical-align: bottom;
             padding: 2em $side_padding 0.3em;
             border-bottom: 1px solid $text_very_light_color;
+            border-top: 1px solid $text_very_light_color;
             text-align: left;
             font-size: .9em;
             font-weight: normal;
@@ -49,10 +51,10 @@ table.default {
 
     tr {
         border-bottom: 1px solid $text_very_light_color;
-
-        &.no-border {
-            border-bottom: 0px;
-        }
+        
+//        &.no-border {
+//            border-bottom: 0px;
+//        }
     }
 }
 

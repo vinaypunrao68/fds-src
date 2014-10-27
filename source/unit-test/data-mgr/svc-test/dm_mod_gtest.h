@@ -71,11 +71,16 @@ struct DMApi : SingleNodeTest
         getVolumeMetaIssued_ = 0;
         getVolumeMetaFailed_ = 0;
         getVolumeMetaSuccess_ = 0;
+
+        delBlobIssued_ = 0;
+        delBlobFailed_ = 0;
+        delBlobSuccess_ = 0;
     }
 
     void queryCatCb(EPSvcRequest* svcReq, const Error& error,
                              boost::shared_ptr<std::string> payload)
     {
+        std::cout << "queryCatCb  successfull";
         if (error != ERR_OK) {
             queryCatFailed_++;
         } else {
@@ -179,6 +184,10 @@ struct DMApi : SingleNodeTest
       std::atomic<uint32_t> getVolumeMetaIssued_;
       std::atomic<uint32_t> getVolumeMetaFailed_;
       std::atomic<uint32_t> getVolumeMetaSuccess_;
+
+      std::atomic<uint32_t> delBlobIssued_;
+      std::atomic<uint32_t> delBlobFailed_;
+      std::atomic<uint32_t> delBlobSuccess_;
 };
 
 #endif  // SOURCE_UNIT_TEST_DATA_MGR_SVC_TEST_DM_MOD_GTEST_H_
