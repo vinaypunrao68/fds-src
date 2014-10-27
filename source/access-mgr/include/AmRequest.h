@@ -12,7 +12,12 @@
 namespace fds
 {
 
-struct AmRequest {
+class AmRequest {
+    // Callback members
+    typedef boost::function<void(fds_int32_t)> callbackBind;
+    typedef std::function<void (const Error&)> ProcessorCallback;
+
+ public:
     // Performance
     PerfContext    e2e_req_perf_ctx;
     PerfContext    qos_perf_ctx;
@@ -26,54 +31,49 @@ struct AmRequest {
     std::string    volume_name;
     ObjectID       obj_id;
 
-    /*
-     * Callback members
-     * TODO: Resolve this with what's needed by the object-based callbacks.
-     */
-    typedef boost::function<void(fds_int32_t)> callbackBind;
-    typedef std::function<void (const Error&)> ProcessorCallback;
-
     ProcessorCallback proc_cb;
+    CallbackPtr cb;
 
     AmRequest(fds_io_op_t         _op,
-              fds_volid_t         _volId,
-              const std::string&  _blobName,
-              fds_uint64_t        _blobOffset,
-              fds_uint64_t        _dataLen,
-              char*               _dataBuf,
-              CallbackPtr         _cb = nullptr)
+              fds_volid_t         _vol_id,
+              const std::string&  _vol_name,
+              const std::string&  _blob_name,
+              CallbackPtr         _cb,
+              fds_uint64_t        _blob_offset = 0,
+              fds_uint64_t        _data_len = 0,
+              char*               _data_buf = nullptr)
         : magic(FDS_SH_IO_MAGIC_IN_USE),
         io_type(_op),
-        vol_id(_volId),
-        blob_name(_blobName),
-        blob_offset(_blobOffset),
-        data_len(_dataLen),
-        data_buf(_dataBuf),
+        vol_id(_vol_id),
+        volume_name(_vol_name),
+        blob_name(_blob_name),
+        blob_offset(_blob_offset),
+        data_len(_data_len),
+        data_buf(_data_buf),
         cb(_cb)
     { }
 
     template<typename F, typename A, typename B, typename C>
     AmRequest(fds_io_op_t          _op,
-              fds_volid_t          _volId,
-              const std::string&   _blobName,
-              fds_uint64_t         _blobOffset,
-              fds_uint64_t         _dataLen,
-              char*                _dataBuf,
+              fds_volid_t          _vol_id,
+              const std::string&   _vol_name,
+              const std::string&   _blob_name,
+              fds_uint64_t         _blob_offset,
+              fds_uint64_t         _data_len,
+              char*                _data_buf,
               F f, A a, B b, C c)
         : magic(FDS_SH_IO_MAGIC_IN_USE),
         io_type(_op),
-        vol_id(_volId),
-        blob_name(_blobName),
-        blob_offset(_blobOffset),
-        data_len(_dataLen),
-        data_buf(_dataBuf),
+        vol_id(_vol_id),
+        blob_name(_blob_name),
+        blob_offset(_blob_offset),
+        data_len(_data_len),
+        data_buf(_data_buf),
         callback(boost::bind(f, a, b, c, _1))
     {}
 
     virtual ~AmRequest()
     { magic = FDS_SH_IO_MAGIC_NOT_IN_USE; }
-
-    CallbackPtr cb;
 
     bool magicInUse() const
     { return (magic == FDS_SH_IO_MAGIC_IN_USE); }
@@ -89,9 +89,6 @@ struct AmRequest {
 
     const char *getDataBuf() const
     { return data_buf; }
-
-    void setDataBuf(const char* _buf)
-    { memcpy(data_buf, _buf, data_len); }
 
     void setQueuedUsec(fds_uint64_t _usec)
     { queued_usec = _usec; }

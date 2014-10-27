@@ -12,8 +12,7 @@
 namespace fds
 {
 
-class GetBlobReq: public AmRequest {
-  public:
+struct GetBlobReq: public AmRequest {
     fds_volid_t base_vol_id;
 
     GetBlobReq(fds_volid_t _volid,
@@ -22,7 +21,6 @@ class GetBlobReq: public AmRequest {
                fds_uint64_t _blob_offset,
                fds_uint64_t _data_len,
                char* _data_buf,
-               fds_uint64_t _byte_count,
                CallbackPtr cb);
 
     virtual ~GetBlobReq();

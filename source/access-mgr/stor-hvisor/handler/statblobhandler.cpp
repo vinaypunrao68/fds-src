@@ -17,10 +17,7 @@ Error StatBlobHandler::handleRequest(const std::string& volumeName,
     LOGDEBUG << " volume:" << volumeName
              <<" blob:" << blobName << " helper.volId: " << helper.volId;
 
-    helper.blobReq = new StatBlobReq(helper.volId,
-                                     volumeName,
-                                     blobName,
-                                     cb);
+    helper.blobReq = new StatBlobReq(helper.volId, volumeName, blobName, cb);
     return helper.processRequest();
 }
 

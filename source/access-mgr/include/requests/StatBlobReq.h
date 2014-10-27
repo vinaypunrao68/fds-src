@@ -24,30 +24,11 @@ class StatBlobReq : public AmRequest {
     StatBlobReq(fds_volid_t          _volid,
                 const std::string   &_vol_name,
                 const std::string   &_blob_name,
-                fds_uint64_t         _blob_offset,
-                fds_uint64_t         _data_len,
-                char                *_data_buf,
-                CallbackPtr cb) :
-            AmRequest(FDS_STAT_BLOB, _volid, _blob_name, _blob_offset,
-                       _data_len, _data_buf, cb) {
-        volume_name = _vol_name;
+                CallbackPtr         cb) :
+            AmRequest(FDS_STAT_BLOB, _volid, _vol_name, _blob_name, cb) {
         e2e_req_perf_ctx.type = AM_STAT_BLOB_OBJ_REQ;
         e2e_req_perf_ctx.name = "volume:" + std::to_string(_volid);
         e2e_req_perf_ctx.reset_volid(_volid);
-
-        fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
-    }
-
-    StatBlobReq(fds_volid_t          _volid,
-                const std::string   &_vol_name,
-                const std::string   &_blob_name,
-                CallbackPtr cb) :
-            AmRequest(FDS_STAT_BLOB, _volid, _blob_name, 0,
-                       0, NULL, cb) {
-        volume_name = _vol_name;
-        e2e_req_perf_ctx.type = AM_STAT_BLOB_OBJ_REQ;
-        e2e_req_perf_ctx.name = "volume:" + std::to_string(vol_id);
-        e2e_req_perf_ctx.reset_volid(vol_id);
 
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }

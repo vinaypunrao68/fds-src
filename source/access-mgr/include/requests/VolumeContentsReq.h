@@ -32,7 +32,6 @@ class VolumeContentsReq: public AmRequest {
     /* sets bucket name to blob name in the base class,
      * which is used to get trans id in journal table, and
      * some magic number for offset */
-
     VolumeContentsReq(fds_volid_t _volid,
                   BucketContext *_bucket_ctxt,
                   const std::string& _prefix,
@@ -42,8 +41,8 @@ class VolumeContentsReq: public AmRequest {
                   void* _req_context,
                   fdsnVolumeContentsHandler _handler,
                   void* _callback_data)
-            : AmRequest(FDS_VOLUME_CONTENTS, _volid,
-                         _bucket_ctxt->bucketName, fds_sh_volume_list_magic, 0, NULL,
+            : AmRequest(FDS_VOLUME_CONTENTS, _volid, "",
+                         _bucket_ctxt->bucketName, fds_sh_volume_list_magic, 0, nullptr,
                          FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
         bucket_ctxt(_bucket_ctxt),
         prefix(_prefix),
@@ -60,8 +59,8 @@ class VolumeContentsReq: public AmRequest {
                   BucketContext *_bucket_ctxt,
                   fds_uint32_t _max_keys,
                   CallbackPtr cb)
-            : AmRequest(FDS_VOLUME_CONTENTS, _volid,
-                         _bucket_ctxt->bucketName, 0, 0, NULL, cb), bucket_ctxt(_bucket_ctxt) {
+            : AmRequest(FDS_VOLUME_CONTENTS, _volid, "",
+                         _bucket_ctxt->bucketName, cb), bucket_ctxt(_bucket_ctxt) {
     }
 
     ~VolumeContentsReq() {}

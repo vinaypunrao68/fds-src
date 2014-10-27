@@ -318,7 +318,6 @@ AmDataApi::getBlob(std::string& _return,
                                         static_cast<fds_uint64_t>(objectOffset->value),
                                         *length,
                                         buf,
-                                        *length,
                                         SHARED_DYN_CAST(Callback, getHandler));
     storHvisor->enqueueBlobReq(blobReq);
 

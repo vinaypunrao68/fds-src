@@ -91,7 +91,6 @@ class FDS_NativeAPI {
                    fds_uint64_t startByte,
                    fds_uint64_t byteCount,
                    char *buffer,
-                   fds_uint64_t buflen,
                    CallbackPtr cb);
 
     void PutBlob(BucketContext *bucket_ctxt,

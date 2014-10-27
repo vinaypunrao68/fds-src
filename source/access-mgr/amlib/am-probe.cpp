@@ -315,7 +315,6 @@ AmProbe::doAsyncGetBlob(const std::string &volumeName,
                                   blobOffset,
                                   dataLength,
                                   buf,
-                                  dataLength,
                                   SHARED_DYN_CAST(Callback, handler));
 }
 

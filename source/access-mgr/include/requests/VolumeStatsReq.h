@@ -15,10 +15,7 @@
 namespace fds
 {
 
-class VolumeStatsReq: public AmRequest {
-    static const fds_uint64_t fds_sh_volume_stats_magic = 0xCDF23456;
-
-  public:
+struct VolumeStatsReq: public AmRequest {
     void *request_context;
     fdsnVolumeStatsHandler resp_handler;
     void *callback_data;
@@ -30,8 +27,9 @@ class VolumeStatsReq: public AmRequest {
     VolumeStatsReq(void *_req_context,
                    fdsnVolumeStatsHandler _handler,
                    void *_callback_data)
-            : AmRequest(FDS_BUCKET_STATS, admin_vol_id, "all", fds_sh_volume_stats_magic, 0, NULL,
-                         FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
+            : AmRequest(FDS_BUCKET_STATS, admin_vol_id, "all", "",
+                        fds_sh_volume_stats_magic, 0, NULL,
+                        FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
               request_context(_req_context),
               resp_handler(_handler),
               callback_data(_callback_data) {
@@ -47,6 +45,9 @@ class VolumeStatsReq: public AmRequest {
         (resp_handler)(timestamp, content_count, contents,
                        request_context, callback_data, status, err_details);
     }
+
+ private:
+    static const fds_uint64_t fds_sh_volume_stats_magic = 0xCDF23456;
 };
 
 }  // namespace fds

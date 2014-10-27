@@ -14,7 +14,6 @@ namespace fds
 {
 
 struct SetBlobMetaDataReq : AmRequest {
-  public:
     BlobTxId::ptr tx_desc;
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataList> metaDataList;
 
@@ -26,9 +25,8 @@ struct SetBlobMetaDataReq : AmRequest {
                        BlobTxId::ptr _txDesc,
                        boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataList> _metaDataList,
                        CallbackPtr cb) :
-            AmRequest(FDS_SET_BLOB_METADATA, _volid, _blob_name, 0, 0, NULL, cb),
+            AmRequest(FDS_SET_BLOB_METADATA, _volid, _vol_name, _blob_name, cb),
             tx_desc(_txDesc),  metaDataList(_metaDataList) {
-        volume_name = _vol_name;
         e2e_req_perf_ctx.type = AM_SET_BLOB_META_OBJ_REQ;
         e2e_req_perf_ctx.name = "volume:" + std::to_string(vol_id);
         e2e_req_perf_ctx.reset_volid(vol_id);

@@ -280,7 +280,6 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
                          fds_uint64_t startByte,
                          fds_uint64_t byteCount,
                          char* buffer,
-                         fds_uint64_t buflen,
                          CallbackPtr cb) {
     Error err(ERR_OK);
     fds_volid_t volid = invalid_vol_id;
@@ -309,9 +308,8 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
                               "", // Not used at the moment
                               blobName,
                               startByte,
-                              buflen,
-                              buffer,
                               byteCount,
+                              buffer,
                               cb);
 
     end = fds::util::getClockTicks();
@@ -363,14 +361,7 @@ FDS_NativeAPI::attachVolume(const std::string& volumeName,
     // Make sure the volume isn't attached already
     fds_verify(volId == invalid_vol_id);
 
-    AttachVolBlobReq *blobReq =
-            new AttachVolBlobReq(volId,
-                                 volumeName,
-                                 "",  // No blob name
-                                 0,  // No blob offset
-                                 0,  // No data length
-                                 NULL,  // No buffer
-                                 cb);
+    AttachVolBlobReq *blobReq = new AttachVolBlobReq(volId, volumeName, cb);
     fds_verify(blobReq != NULL);
 
     // Enqueue this request to process the callback
@@ -733,14 +724,7 @@ void FDS_NativeAPI::StatBlob(const std::string& volumeName,
     }
 
     
-    AmRequest *blobReq = NULL;
-    blobReq = new StatBlobReq(volId,
-                              volumeName,
-                              blobName,
-                              0,  // No blob offset
-                              0,  // No data length
-                              NULL,  // No buffer
-                              cb);
+    AmRequest *blobReq = new StatBlobReq(volId, volumeName, blobName, cb);
     fds_verify(blobReq != NULL);
 
     // Push the request if we have the vol already

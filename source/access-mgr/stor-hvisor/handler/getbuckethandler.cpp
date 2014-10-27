@@ -17,10 +17,7 @@ Error GetBucketHandler::handleRequest(BucketContext* bucket_context,
                                       CallbackPtr cb) {
     StorHvCtrl::BlobRequestHelper helper(storHvisor, bucket_context->bucketName);
     LOGDEBUG <<" volume:" << bucket_context->bucketName;
-    helper.blobReq = new VolumeContentsReq(helper.volId,
-                                       bucket_context,
-                                       maxkeys,
-                                       cb);
+    helper.blobReq = new VolumeContentsReq(helper.volId, bucket_context, maxkeys, cb);
     return helper.processRequest();
 }
 

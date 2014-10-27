@@ -19,26 +19,20 @@ namespace fds
  * to call the callback and notify that the
  * attach is complete.
  */
-class AttachVolBlobReq : public AmRequest {
-  public:
+struct AttachVolBlobReq : public AmRequest {
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
      * request class just expects them.
      */
-    AttachVolBlobReq(fds_volid_t          _volid,
-                     const std::string   &_vol_name,
-                     const std::string   &_blob_name,
-                     fds_uint64_t         _blob_offset,
-                     fds_uint64_t         _data_len,
-                     char                *_data_buf,
-                     CallbackPtr cb) :
-            AmRequest(FDS_ATTACH_VOL, _volid, _blob_name, _blob_offset,
-                       _data_len, _data_buf, cb) {
-        volume_name = _vol_name;
+    AttachVolBlobReq(fds_volid_t        _volid,
+                     const std::string& _vol_name,
+                     CallbackPtr        cb) :
+        AmRequest(FDS_ATTACH_VOL, _volid, _vol_name, "", cb)
+    {
     }
-    ~AttachVolBlobReq() {
-    }
+
+    ~AttachVolBlobReq() { }
 };
 
 }  // namespace fds

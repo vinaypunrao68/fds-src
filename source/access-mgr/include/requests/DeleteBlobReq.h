@@ -29,7 +29,7 @@ struct DeleteBlobReq: AmRequest {
                   void* _req_context,
                   fdsnResponseHandler _resp_handler,
                   void* _callback_data)
-            : AmRequest(FDS_DELETE_BLOB, volId, _blob_name, 0, 0, NULL,
+            : AmRequest(FDS_DELETE_BLOB, volId, "", _blob_name, 0, 0, nullptr,
                          FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
               bucket_ctxt(_bucket_ctxt),
               ObjKey(_blob_name),
@@ -59,10 +59,7 @@ struct DeleteBlobReq: AmRequest {
                   const std::string& _blob_name,
                   const std::string& volumeName,
                   CallbackPtr cb)
-            : AmRequest(FDS_DELETE_BLOB, volId,
-                         _blob_name, 0, 0, NULL, cb) {
-        volume_name = volumeName;
-
+            : AmRequest(FDS_DELETE_BLOB, volId, volumeName, _blob_name, cb) {
         e2e_req_perf_ctx.type = AM_DELETE_OBJ_REQ;
         e2e_req_perf_ctx.name = "volume:" + std::to_string(volId);
         e2e_req_perf_ctx.reset_volid(volId);

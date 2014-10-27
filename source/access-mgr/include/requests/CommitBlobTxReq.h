@@ -26,10 +26,9 @@ struct CommitBlobTxReq :
                    const std::string &_blob_name,
                    BlobTxId::ptr _txDesc,
                    CallbackPtr        _cb) :
-            AmRequest(FDS_COMMIT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
+            AmRequest(FDS_COMMIT_BLOB_TX, _volid, _vol_name, _blob_name, _cb),
             AmTxReq(_txDesc)
     {
-        volume_name = _vol_name;
         e2e_req_perf_ctx.type = AM_COMMIT_BLOB_OBJ_REQ;
         e2e_req_perf_ctx.name = "volume:" + std::to_string(_volid);
         e2e_req_perf_ctx.reset_volid(_volid);

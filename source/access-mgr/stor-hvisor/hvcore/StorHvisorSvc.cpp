@@ -46,14 +46,7 @@ StorHvCtrl::enqueueAttachReq(const std::string& volumeName,
     }
 
     // Create a noop request to put into wait queue
-    AttachVolBlobReq *blobReq =
-            new AttachVolBlobReq(volId,
-                                 volumeName,
-                                 "",  // No blob name
-                                 0,  // No blob offset
-                                 0,  // No data length
-                                 NULL,  // No buffer
-                                 cb);
+    AttachVolBlobReq *blobReq = new AttachVolBlobReq(volId, volumeName, cb);
 
     // Enqueue this request to process the callback
     // when the attach is complete

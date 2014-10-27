@@ -15,7 +15,7 @@ namespace fds
 struct AmQosReq;
 struct StorHvQosCtrl;
 
-class PutBlobReq: public AmRequest {
+struct PutBlobReq: public AmRequest {
   public:
     // TODO(Andrew): Fields that could use some cleanup.
     // We can mostly remove these with the new callback mechanism
