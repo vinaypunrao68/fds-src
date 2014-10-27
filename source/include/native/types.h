@@ -242,31 +242,6 @@ namespace fds {
     };
 
     /**
-     * This callback is made during a put object operation, to obtain the next
-     * chunk of data to put to the FDS system as the contents of the object.  This
-     * callback is made repeatedly, each time acquiring the next chunk of data to
-     * write to the service, until a negative or 0 value is returned.
-     *
-     * @param bufferSize gives the maximum number of bytes that may be written
-     *        into the buffer parameter by this callback
-     * @param buffer gives the buffer to fill with at most bufferSize bytes of
-     *        data as the next chunk of data to send to S3 as the contents of this
-     *        object
-     * @param offset of the buffer that was put
-     * @param callbackData is the callback data as specified when the request
-     *        was issued.
-     * @return < 0 to abort the request with the S3StatusAbortedByCallback, which
-     *        will be pased to the response complete callback for this request, or
-     *        0 to indicate the end of data, or > 0 to identify the number of
-     *        bytes that were written into the buffer by this callback
-     **/
-    typedef int (*fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize,
-                                        fds_off_t offset, char *buffer,
-                                        void *callbackData, FDSN_Status status,
-                                        ErrorDetails* errDetails);
-
-
-    /**
      * This callback is made repeatedly, each time
      * providing the next chunk of data read, until the complete object contents
      * have been passed through the callback in this way, or the callback

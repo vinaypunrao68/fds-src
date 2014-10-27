@@ -37,23 +37,6 @@ AmProcessor::AmProcessor(const std::string &modName,
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
 }
 
-AmProcessor::~AmProcessor() {
-}
-
-int
-AmProcessor::mod_init(SysParams const *const param) {
-    Module::mod_init(param);
-    return 0;
-}
-
-void
-AmProcessor::mod_startup() {
-}
-
-void
-AmProcessor::mod_shutdown() {
-}
-
 void
 AmProcessor::getVolumeMetadata(AmQosReq *qosReq) {
     GetVolumeMetaDataReq* volReq = static_cast<GetVolumeMetaDataReq *>(qosReq->getBlobReqPtr());
@@ -65,8 +48,7 @@ AmProcessor::getVolumeMetadata(AmQosReq *qosReq) {
 }
 
 void
-AmProcessor::getVolumeMetadataCb(AmQosReq *qosReq,
-                                 const Error &error) {
+AmProcessor::getVolumeMetadataCb(AmQosReq *qosReq, const Error &error) {
     GetVolumeMetaDataReq* volReq = static_cast<GetVolumeMetaDataReq *>(qosReq->getBlobReqPtr());
     fds_verify(true == volReq->magicInUse());
 
@@ -121,8 +103,7 @@ AmProcessor::startBlobTx(AmQosReq *qosReq) {
 }
 
 void
-AmProcessor::startBlobTxCb(AmQosReq *qosReq,
-                           const Error &error) {
+AmProcessor::startBlobTxCb(AmQosReq *qosReq, const Error &error) {
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
@@ -377,8 +358,7 @@ AmProcessor::setBlobMetadata(AmQosReq *qosReq) {
 }
 
 void
-AmProcessor::setBlobMetadataCb(AmQosReq *qosReq,
-                               const Error &error) {
+AmProcessor::setBlobMetadataCb(AmQosReq *qosReq, const Error &error) {
     SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
 
     // Tell QoS the request is done
@@ -425,8 +405,7 @@ AmProcessor::statBlob(AmQosReq *qosReq) {
 }
 
 void
-AmProcessor::abortBlobTxCb(AmQosReq *qosReq,
-                           const Error &error) {
+AmProcessor::abortBlobTxCb(AmQosReq *qosReq, const Error &error) {
     AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(qosReq->getBlobReqPtr());
 
     // Tell QoS the request is done

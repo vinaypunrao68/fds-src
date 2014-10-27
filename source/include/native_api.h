@@ -103,7 +103,6 @@ class FDS_NativeAPI {
                  fds_uint64_t buflen,
                  BlobTxId::ptr txDesc,
                  fds_bool_t lastBuf,
-                 fdsnPutObjectHandler putObjHandler,
                  void *callbackData);
 
     /**
@@ -119,7 +118,6 @@ class FDS_NativeAPI {
                      fds_uint64_t buflen,
                      fds_int32_t blobMode,
                      boost::shared_ptr< std::map<std::string, std::string> >& metadata,
-                     fdsnPutObjectHandler putObjHandler,
                      void *callbackData);
 
     void DeleteObject(BucketContext *bucket_ctxt,

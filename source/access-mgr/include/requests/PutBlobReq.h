@@ -25,7 +25,6 @@ class PutBlobReq: public AmRequest {
     void *req_context;
     void *callback_data;
     fds_bool_t lastBuf;
-    fdsnPutObjectHandler putObjCallback;
 
     // Needed fields
     BlobTxId::ptr tx_desc;
@@ -84,11 +83,6 @@ class PutBlobReq: public AmRequest {
     }
 
     virtual ~PutBlobReq();
-
-    void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
-        (putObjCallback)(req_context, data_len, blob_offset, data_buf,
-                         callback_data, status, errDetails);
-    }
 
     void notifyResponse(fds::AmQosReq* qosReq, const Error &e);
     void notifyResponse(StorHvQosCtrl *qos_ctrl, fds::AmQosReq* qosReq, const Error &e);

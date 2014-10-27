@@ -33,15 +33,16 @@ class AmProcessor : public Module, public boost::noncopyable {
                 StorHvVolumeTable *_volTable,
                 AmTxManager::shared_ptr _amTxMgr,
                 AmCache::shared_ptr _amCache);
-    ~AmProcessor();
+    ~AmProcessor() {}
     typedef std::unique_ptr<AmProcessor> unique_ptr;
 
     /**
      * Module methods
      */
-    int mod_init(SysParams const *const param);
-    void mod_startup();
-    void mod_shutdown();
+    int mod_init(SysParams const *const param)
+    { Module::mod_init(param); return 0; }
+    void mod_startup() {}
+    void mod_shutdown() {}
 
     /**
      * Processes a get volume metadata request

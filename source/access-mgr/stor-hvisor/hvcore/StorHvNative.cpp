@@ -392,7 +392,6 @@ FDS_NativeAPI::PutBlobOnce(const std::string& volumeName,
                            fds_uint64_t buflen,
                            fds_int32_t blobMode,
                            boost::shared_ptr< std::map<std::string, std::string> >& metadata,
-                           fdsnPutObjectHandler putObjHandler,
                            void *callbackData) {
     LOGDEBUG << "Start putBlobOnce for volume " << volumeName
              << " blob " << blobName
@@ -409,19 +408,7 @@ FDS_NativeAPI::PutBlobOnce(const std::string& volumeName,
         fds_verify(volid != invalid_vol_id);
     }
 
-    // TODO(Andrew): The constructor no longer exists.
-    // Just remove this file.
-    AmRequest *blob_req = NULL;  // new PutBlobReq(volid,
-    //        "",
-    //                                    blobName,
-    //                                    startByte,
-    //                                    buflen,
-    //                                    buffer,
-    //                                    blobMode,
-    //                                    metadata,
-    //                                    putObjHandler,
-    //                                    callbackData);
-
+    AmRequest *blob_req = NULL;
     if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
         storHvisor->pushBlobReq(blob_req);
@@ -444,7 +431,6 @@ FDS_NativeAPI::PutBlob(BucketContext *bucket_ctxt,
                        fds_uint64_t buflen,
                        BlobTxId::ptr txDesc,
                        fds_bool_t lastBuf,
-                       fdsnPutObjectHandler putObjHandler,
                        void *callback_data) {
     Error err(ERR_OK);
     LOGDEBUG << "Start putBlob for volume " << bucket_ctxt->bucketName
@@ -464,22 +450,7 @@ FDS_NativeAPI::PutBlob(BucketContext *bucket_ctxt,
     // create Put request and put it to wait queue, to make sure that attach arrives
     // after we put a request to the wait queue and not before!
 
-    // TODO(Andrew): The constructor no longer exists.
-    // Just remove this file.
-    AmRequest *blob_req = NULL;  // new PutBlobReq(volid,
-    //     "",
-    //                                    ObjKey,
-    //                                    startByte,
-    //                                    buflen,
-    //                                    buffer,
-    //                                    txDesc,
-    //                                    lastBuf,
-    //                                    bucket_ctxt,
-    //                                    put_properties,
-    //                                    req_context,
-    //                                    putObjHandler,
-    //                                    callback_data);
-
+    AmRequest *blob_req = NULL;
     if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
         storHvisor->pushBlobReq(blob_req);
@@ -595,13 +566,6 @@ void FDS_NativeAPI::DoCallback(AmRequest  *blob_req,
     }
 
     switch (blob_req->getIoType()) {
-        case FDS_PUT_BLOB_ONCE:
-        case FDS_PUT_BLOB:
-            static_cast<PutBlobReq*>(blob_req)->DoCallback(status, NULL);
-            break;
-        case FDS_GET_BLOB:
-            static_cast<GetBlobReq*>(blob_req)->DoCallback(status, NULL);
-            break;
         case FDS_DELETE_BLOB:
             static_cast<DeleteBlobReq*>(blob_req)->DoCallback(status, NULL);
             break;

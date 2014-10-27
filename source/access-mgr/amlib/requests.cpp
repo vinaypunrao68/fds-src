@@ -65,10 +65,8 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        BucketContext* _bucket_ctxt,
                        PutPropertiesPtr _put_props,
                        void* _req_context,
-                       CallbackPtr _cb)
-                       : AmRequest(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
-             _data_len, _data_buf, FDS_NativeAPI::DoCallback,
-             this, Error(ERR_OK), 0),
+                       CallbackPtr _cb) :
+    AmRequest(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset, _data_len, _data_buf),
     lastBuf(_last_buf),
     bucket_ctxt(_bucket_ctxt),
     ObjKey(_blob_name),
@@ -108,16 +106,15 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                        char*                _data_buf,
                        fds_int32_t          _blobMode,
                        boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
-                       CallbackPtr _cb)
-        : AmRequest(FDS_PUT_BLOB_ONCE, _volid, _blob_name, _blob_offset,
-                     _data_len, _data_buf, FDS_NativeAPI::DoCallback,
-                     this, Error(ERR_OK), 0),
-                ObjKey(_blob_name),
-                tx_desc(nullptr),
-                blobMode(_blobMode),
-                metadata(_metadata),
-                respAcks(2),
-                retStatus(ERR_OK) {
+                       CallbackPtr _cb) :
+    AmRequest(FDS_PUT_BLOB_ONCE, _volid, _blob_name, _blob_offset, _data_len, _data_buf),
+    ObjKey(_blob_name),
+    tx_desc(nullptr),
+    blobMode(_blobMode),
+    metadata(_metadata),
+    respAcks(2),
+    retStatus(ERR_OK)
+{
     volume_name = _volumeName;
     cb = _cb;
     stopwatch.start();

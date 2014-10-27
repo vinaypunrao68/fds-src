@@ -26,10 +26,6 @@ class GetBlobReq: public AmRequest {
                CallbackPtr cb);
 
     virtual ~GetBlobReq();
-
-    void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
-        fds_panic("Depricated. You shouldn't be here!");
-    }
 };
 
 }  // namespace fds
