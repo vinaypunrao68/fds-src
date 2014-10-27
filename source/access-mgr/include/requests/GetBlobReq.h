@@ -23,7 +23,7 @@ struct GetBlobReq: public AmRequest {
                char* _data_buf,
                CallbackPtr cb);
 
-    virtual ~GetBlobReq();
+    ~GetBlobReq();
 };
 
 }  // namespace fds

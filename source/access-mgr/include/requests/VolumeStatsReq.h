@@ -33,9 +33,9 @@ struct VolumeStatsReq: public AmRequest {
               request_context(_req_context),
               resp_handler(_handler),
               callback_data(_callback_data) {
+        e2e_req_perf_ctx.type = AM_VOLUME_STATS_REQ;
+        fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
-
-    ~VolumeStatsReq() {}
 
     void DoCallback(const std::string& timestamp,
                     int content_count,

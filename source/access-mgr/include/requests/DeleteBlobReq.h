@@ -36,9 +36,6 @@ struct DeleteBlobReq: AmRequest {
               req_context(_req_context),
               responseCallback(_resp_handler),
               callback_data(_callback_data) {
-        e2e_req_perf_ctx.type = AM_DELETE_OBJ_REQ;
-        e2e_req_perf_ctx.name = "volume:" + std::to_string(volId);
-        e2e_req_perf_ctx.reset_volid(volId);
         qos_perf_ctx.type = AM_DELETE_QOS;
         qos_perf_ctx.name = "volume:" + std::to_string(volId);
         qos_perf_ctx.reset_volid(volId);
@@ -52,6 +49,7 @@ struct DeleteBlobReq: AmRequest {
         sm_perf_ctx.name = "volume:" + std::to_string(volId);
         sm_perf_ctx.reset_volid(volId);
 
+        e2e_req_perf_ctx.type = AM_DELETE_OBJ_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 
@@ -60,9 +58,6 @@ struct DeleteBlobReq: AmRequest {
                   const std::string& volumeName,
                   CallbackPtr cb)
             : AmRequest(FDS_DELETE_BLOB, volId, volumeName, _blob_name, cb) {
-        e2e_req_perf_ctx.type = AM_DELETE_OBJ_REQ;
-        e2e_req_perf_ctx.name = "volume:" + std::to_string(volId);
-        e2e_req_perf_ctx.reset_volid(volId);
         qos_perf_ctx.type = AM_DELETE_QOS;
         qos_perf_ctx.name = "volume:" + std::to_string(volId);
         qos_perf_ctx.reset_volid(volId);
@@ -76,11 +71,8 @@ struct DeleteBlobReq: AmRequest {
         sm_perf_ctx.name = "volume:" + std::to_string(volId);
         sm_perf_ctx.reset_volid(volId);
 
+        e2e_req_perf_ctx.type = AM_DELETE_OBJ_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
-    }
-
-    virtual ~DeleteBlobReq() {
-        fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
     }
 
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {

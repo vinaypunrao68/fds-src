@@ -27,9 +27,6 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                  _data_len, _data_buf) {
     stopwatch.start();
 
-    e2e_req_perf_ctx.type = AM_GET_OBJ_REQ;
-    e2e_req_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    e2e_req_perf_ctx.reset_volid(vol_id);
     qos_perf_ctx.type = AM_GET_QOS;
     qos_perf_ctx.name = "volume:" + std::to_string(vol_id);
     qos_perf_ctx.reset_volid(vol_id);
@@ -43,12 +40,12 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
     sm_perf_ctx.name = "volume:" + std::to_string(vol_id);
     sm_perf_ctx.reset_volid(vol_id);
 
+    e2e_req_perf_ctx.type = AM_GET_OBJ_REQ;
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
 }
 
 GetBlobReq::~GetBlobReq()
 {
-    fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
     storHvisor->getCounters().gets_latency.update(stopwatch.getElapsedNanos());
 }
 
@@ -75,9 +72,6 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
     retStatus(ERR_OK)
 {
     stopwatch.start();
-    e2e_req_perf_ctx.type = AM_PUT_OBJ_REQ;
-    e2e_req_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    e2e_req_perf_ctx.reset_volid(vol_id);
     qos_perf_ctx.type = AM_PUT_QOS;
     qos_perf_ctx.name = "volume:" + std::to_string(vol_id);
     qos_perf_ctx.reset_volid(vol_id);
@@ -91,6 +85,7 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
     sm_perf_ctx.name = "volume:" + std::to_string(vol_id);
     sm_perf_ctx.reset_volid(vol_id);
 
+    e2e_req_perf_ctx.type = AM_PUT_OBJ_REQ;
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
 }
 
@@ -113,9 +108,6 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
     retStatus(ERR_OK)
 {
     stopwatch.start();
-    e2e_req_perf_ctx.type = AM_PUT_OBJ_REQ;
-    e2e_req_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    e2e_req_perf_ctx.reset_volid(vol_id);
     qos_perf_ctx.type = AM_PUT_QOS;
     qos_perf_ctx.name = "volume:" + std::to_string(vol_id);
     qos_perf_ctx.reset_volid(vol_id);
@@ -129,12 +121,12 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
     sm_perf_ctx.name = "volume:" + std::to_string(vol_id);
     sm_perf_ctx.reset_volid(vol_id);
 
+    e2e_req_perf_ctx.type = AM_PUT_OBJ_REQ;
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
 }
 
 PutBlobReq::~PutBlobReq()
 {
-    fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
     storHvisor->getCounters().puts_latency.update(stopwatch.getElapsedNanos());
 }
 

@@ -30,13 +30,8 @@ struct AbortBlobTxReq :
         AmTxReq(_txDesc)
     {
         e2e_req_perf_ctx.type = AM_ABORT_BLOB_OBJ_REQ;
-        e2e_req_perf_ctx.name = "volume:" + std::to_string(_volid);
-        e2e_req_perf_ctx.reset_volid(_volid);
-
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
-
-    ~AbortBlobTxReq() { fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx); }
 };
 
 }  // namespace fds

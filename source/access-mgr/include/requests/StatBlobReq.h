@@ -27,14 +27,7 @@ class StatBlobReq : public AmRequest {
                 CallbackPtr         cb) :
             AmRequest(FDS_STAT_BLOB, _volid, _vol_name, _blob_name, cb) {
         e2e_req_perf_ctx.type = AM_STAT_BLOB_OBJ_REQ;
-        e2e_req_perf_ctx.name = "volume:" + std::to_string(_volid);
-        e2e_req_perf_ctx.reset_volid(_volid);
-
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
-    }
-
-    virtual ~StatBlobReq() {
-        fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
     }
 };
 

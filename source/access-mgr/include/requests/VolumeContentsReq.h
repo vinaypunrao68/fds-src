@@ -53,6 +53,8 @@ class VolumeContentsReq: public AmRequest {
         handler(_handler),
         callback_data(_callback_data),
         iter_cookie(0) {
+        e2e_req_perf_ctx.type = AM_VOLUME_CONTENTS_REQ;
+        fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 
     VolumeContentsReq(fds_volid_t _volid,
@@ -61,9 +63,9 @@ class VolumeContentsReq: public AmRequest {
                   CallbackPtr cb)
             : AmRequest(FDS_VOLUME_CONTENTS, _volid, "",
                          _bucket_ctxt->bucketName, cb), bucket_ctxt(_bucket_ctxt) {
+        e2e_req_perf_ctx.type = AM_VOLUME_CONTENTS_REQ;
+        fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
-
-    ~VolumeContentsReq() {}
 
     void DoCallback(int isTruncated,
                     const char* next_marker,

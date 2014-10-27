@@ -17,14 +17,7 @@ struct GetBlobMetaDataReq : AmRequest {
                        const std::string &_blob_name, CallbackPtr cb) :
             AmRequest(FDS_GET_BLOB_METADATA, volId, volumeName, _blob_name , cb) {
         e2e_req_perf_ctx.type = AM_GET_BLOB_META_OBJ_REQ;
-        e2e_req_perf_ctx.name = "volume:" + std::to_string(volId);
-        e2e_req_perf_ctx.reset_volid(volId);
-
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
-    }
-
-    virtual ~GetBlobMetaDataReq() {
-        fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
     }
 };
 

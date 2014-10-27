@@ -51,7 +51,10 @@ class AmRequest {
         data_len(_data_len),
         data_buf(_data_buf),
         cb(_cb)
-    { }
+    {
+        e2e_req_perf_ctx.name = "volume:" + std::to_string(_vol_id);
+        e2e_req_perf_ctx.reset_volid(_vol_id);
+    }
 
     template<typename F, typename A, typename B, typename C>
     AmRequest(fds_io_op_t          _op,
@@ -70,10 +73,16 @@ class AmRequest {
         data_len(_data_len),
         data_buf(_data_buf),
         callback(boost::bind(f, a, b, c, _1))
-    {}
+    {
+        e2e_req_perf_ctx.name = "volume:" + std::to_string(_vol_id);
+        e2e_req_perf_ctx.reset_volid(_vol_id);
+    }
 
     virtual ~AmRequest()
-    { magic = FDS_SH_IO_MAGIC_NOT_IN_USE; }
+    {
+        fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
+        magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
+    }
 
     bool magicInUse() const
     { return (magic == FDS_SH_IO_MAGIC_IN_USE); }
