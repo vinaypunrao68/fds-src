@@ -70,7 +70,7 @@ describe( 'Testing volume creation permutations', function(){
     
     it ( 'should go to the edit screen on press of the edit button', function(){
         
-        var edit = element( by.css( '.button-group span.fui-new' ) );
+        var edit = element( by.css( '.button-group span.icon-pencil' ) );
         edit.click();
 
         browser.sleep( 210 );
@@ -94,25 +94,29 @@ describe( 'Testing volume creation permutations', function(){
 
     it ( 'should be able to edit the priority of a volume', function(){
 
-        var editQosButton = element( by.css( '.qos-panel .fui-new' ));
+        var editQosButton = element( by.css( '.qos-panel .icon-pencil' ));
         editQosButton.click();
         
         browser.sleep( 200 );
 
         // panel should now be editable
-        var priorityDisplay = element( by.css( '.volume-priority-display-only' ) );
-        expect( priorityDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+        var slaDisplay = element( by.css( '.volume-sla-edit-display' ) );
+        expect( slaDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+
+        var prioritySliderSegments = element( by.css( '.volume-priority-slider' ) ).all( by.css( '.segment' ) );
+        prioritySliderSegments.count().then( function( num ){
+            expect( num ).toBe( 9 );
+        });
         
-        var prioritySpinner = element( by.css( '.volume-priority-spinner' ) ).element( by.tagName( 'input' ) );
-        prioritySpinner.clear();
-        prioritySpinner.sendKeys( '8' );
+        browser.actions().mouseMove( prioritySliderSegments.get( 7 ) ).click().perform();
         
         var doneButton = element( by.css( '.save-qos-settings' ) );
         doneButton.click();
         browser.sleep( 210 );
 
+        var priorityDisplay = element( by.css( '.volume-priority-display-only' ) );
         priorityDisplay.getText().then( function( txt ){
-            expect( txt ).toBe( '8' );
+            expect( txt ).toContain( '8' );
         });
         
         // save the change
@@ -205,39 +209,42 @@ describe( 'Testing volume creation permutations', function(){
         });
 
         // changing the QoS
-        var editQosButton = element( by.css( '.qos-panel .fui-new' ));
+        var editQosButton = element( by.css( '.qos-panel .icon-pencil' ));
         editQosButton.click();
         
         browser.sleep( 200 );
 
         // panel should now be editable
-        var priorityDisplay = element( by.css( '.volume-priority-display-only' ) );
-        expect( priorityDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+        var slaEditDisplay = element( by.css( '.volume-sla-edit-display' ) );
+        expect( slaEditDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
         
-        var slaDisplay = element( by.css( '.volume-sla-display' ) );
-        expect( slaDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+        var slaTableDisplay = element( by.css( '.volume-display-only' ) );
+        expect( slaTableDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
         
-        var limitDisplay = element( by.css( '.volume-limit-display' ) );
-        expect( limitDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+//        var prioritySpinner = element( by.css( '.volume-priority-spinner' ) ).element( by.tagName( 'input' ) );
+//        prioritySpinner.clear();
+//        prioritySpinner.sendKeys( '2' );
+        browser.actions().mouseMove( element( by.css( '.volume-priority-slider' ) ).all( by.css( '.segment' )).get( 1 ) ).click().perform();
         
-        var prioritySpinner = element( by.css( '.volume-priority-spinner' ) ).element( by.tagName( 'input' ) );
-        prioritySpinner.clear();
-        prioritySpinner.sendKeys( '2' );
+//        var slaSpinner = element( by.css( '.volume-sla-spinner' )).element( by.tagName( 'input' ));
+//        slaSpinner.clear();
+//        slaSpinner.sendKeys( '90' );
+        browser.actions().mouseMove( element( by.css( '.volume-iops-slider' ) ).all( by.css( '.segment' )).get( 8 ) ).click().perform();
         
-        var slaSpinner = element( by.css( '.volume-sla-spinner' )).element( by.tagName( 'input' ));
-        slaSpinner.clear();
-        slaSpinner.sendKeys( '90' );
-        
-        var limitSpinner = element( by.css( '.volume-limit-spinner' )).element( by.tagName( 'input' ));
-        limitSpinner.clear();
-        limitSpinner.sendKeys( '2000' );
+//        var limitSpinner = element( by.css( '.volume-limit-spinner' )).element( by.tagName( 'input' ));
+//        limitSpinner.clear();
+//        limitSpinner.sendKeys( '2000' );
+        browser.actions().mouseMove( element( by.css( '.volume-limit-slider' ) ).all( by.css( '.segment' )).get( 7 ) ).click().perform();
         
         var doneButton = element( by.css( '.save-qos-settings' ) );
         doneButton.click();
 
-        expect( priorityDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
-        expect( slaDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
-        expect( limitDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+        expect( slaTableDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+        expect( slaEditDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
+        
+        var priorityDisplay = element( by.css( '.volume-priority-display-only' ) );
+        var slaDisplay = element( by.css( '.volume-sla-display' ) );
+        var limitDisplay = element( by.css( '.volume-limit-display' ) );
         
         priorityDisplay.getText().then( function( txt ){
             expect( txt ).toBe( '2' );
@@ -248,7 +255,7 @@ describe( 'Testing volume creation permutations', function(){
         });
         
         limitDisplay.getText().then( function( txt ){
-            expect( txt ).toBe( '2000' );
+            expect( txt ).toContain( '2000' );
         });
 
         element.all( by.buttonText( 'Create Volume' )).get( 0 ).click();

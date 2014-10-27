@@ -104,13 +104,13 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             // if it has an ID then it's already exists
             if ( angular.isDefined( sPolicy.id ) ){
                 
-                $snapshot_service.editSnapshotPolicy( createPolicy( sPolicy ), function(){} );
+                $snapshot_service.editSnapshotPolicy( sPolicy, function(){} );
             }
             else {
                 
                 // if it's in use, create it.
                 if ( sPolicy.use === true ){
-                    $snapshot_service.createSnapshotPolicy( createPolicy( sPolicy ), function( policy ){
+                    $snapshot_service.createSnapshotPolicy( sPolicy, function( policy ){
                         $snapshot_service.attachPolicyToVolume( policy, $scope.volumeVars.selectedVolume.id, function(){} );
                     } );
                 }
