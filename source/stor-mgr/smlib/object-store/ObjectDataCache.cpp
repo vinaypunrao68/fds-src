@@ -48,8 +48,10 @@ void
 ObjectDataCache::putObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                boost::shared_ptr<const std::string> &objData) {
-    boost::shared_ptr<const std::string> evictedData
-            = dataCache->add(objId, objData);
+    if (maxEntries > 0) {
+           boost::shared_ptr<const std::string> evictedData
+                 = dataCache->add(objId, objData);
+    }
 }
 
 boost::shared_ptr<const std::string>
@@ -58,7 +60,11 @@ ObjectDataCache::getObjectData(fds_volid_t volId,
                                Error& err) {
     // Query the cache and touch the entry
     boost::shared_ptr<const std::string> objData;
-    err = dataCache->get(objId, objData);
+    if (maxEntries > 0) {
+        err = dataCache->get(objId, objData);
+    } else {
+        err = ERR_NOT_FOUND;
+    }
     return objData;
 }
 
@@ -66,7 +72,9 @@ void
 ObjectDataCache::removeObjectData(fds_volid_t volId,
                                   const ObjectID &objId) {
     // Query the cache and touch the entry
-    dataCache->remove(objId);
+    if (maxEntries > 0) {
+        dataCache->remove(objId);
+    }
 }
 
 }  // namespace fds

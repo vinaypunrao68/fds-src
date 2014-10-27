@@ -47,6 +47,9 @@ class EvBlkVol : public BlkVol
 
     /* Factory method. */
     virtual FdsAIO *ev_alloc_vio() = 0;
+
+    /* The run loop used by ev lib. */
+    void blk_run_loop();
 };
 
 /*
@@ -56,7 +59,7 @@ class EvBlockMod : public BlockMod
 {
   public:
     virtual ~EvBlockMod() {}
-    EvBlockMod() : BlockMod(), ev_blk_loop(NULL) {}
+    EvBlockMod() : BlockMod(), ev_prim_loop(NULL) {}
 
     /* Module methods. */
     virtual int  mod_init(SysParams const *const p) override;
@@ -64,12 +67,8 @@ class EvBlockMod : public BlockMod
     virtual void mod_enable_service() override;
     virtual void mod_shutdown() override;
 
-    /* The run loop used by ev lib. */
-    void blk_run_loop();
-
   protected:
-    ev_timer                 ev_timer_evt;
-    struct ev_loop          *ev_blk_loop;
+    struct ev_loop          *ev_prim_loop;
 };
 
 /**

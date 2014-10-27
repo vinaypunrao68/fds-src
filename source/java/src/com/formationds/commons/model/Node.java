@@ -41,46 +41,6 @@ public class Node
   }
 
   /**
-   * @return Returns {@code true} if the name is set
-   */
-  @Transient
-  public boolean isName() {
-    return isSet( getName() );
-  }
-
-  /**
-   * @return Returns {@code true} if the site is set
-   */
-  @Transient
-  public boolean isSite() {
-    return isSet( getSite() );
-  }
-
-  /**
-   * @return Returns {@code true} if the server uuid is set
-   */
-  @Transient
-  public boolean isDomain() {
-    return isSet( getDomain() );
-  }
-
-  /**
-   * @return Returns {@code true} if the server uuid is set
-   */
-  @Transient
-  public boolean isLocalDomain() {
-    return isSet( getLocalDomain() );
-  }
-
-  /**
-   * @return Returns {@code true} if the server uuid is set
-   */
-  @Transient
-  public boolean isState() {
-    return isSet( getState() );
-  }
-
-  /**
    * @return Returns {@code true} if the uuid is set
    */
   @Transient
@@ -110,21 +70,6 @@ public class Node
   @Transient
   public boolean isId() {
     return getId() != -1;
-  }
-
-  /**
-   * @return Returns {@code true} if the meta sync port is set
-   */
-  @Transient
-  public boolean isLoAddr() {
-    return isSet( getLoAddr() );
-  }
-
-  /**
-   * @return Returns {@code true} if the meta sync port is set
-   */
-  public boolean isHiAddr() {
-    return isSet( getHiAddr() );
   }
 
   /**

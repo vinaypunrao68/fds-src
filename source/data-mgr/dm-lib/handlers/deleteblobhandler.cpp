@@ -11,7 +11,9 @@ namespace fds {
 namespace dm {
 
 DeleteBlobHandler::DeleteBlobHandler() {
-    REGISTER_DM_MSG_HANDLER(fpi::DeleteBlobMsg, handleRequest);
+    if (!dataMgr->feature.isTestMode()) {
+        REGISTER_DM_MSG_HANDLER(fpi::DeleteBlobMsg, handleRequest);
+    }
 }
 
 void DeleteBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

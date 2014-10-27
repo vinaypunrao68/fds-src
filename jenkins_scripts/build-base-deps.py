@@ -14,4 +14,4 @@ os.environ["npm_config_loglevel"] = "error"
 os.environ["JENKINS_URL"] = "true"
 
 build_lib.create_lockfiles()
-build_lib.shell_retry('make -j9')
+build_lib.shell_retry('make fastb=1 threads=13')

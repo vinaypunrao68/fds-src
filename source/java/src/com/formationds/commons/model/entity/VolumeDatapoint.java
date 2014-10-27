@@ -7,27 +7,46 @@ package com.formationds.commons.model.entity;
 import com.formationds.commons.model.abs.ModelBase;
 import com.google.gson.annotations.SerializedName;
 
+ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
-import javax.xml.bind.annotation.XmlRootElement;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
 
 /**
  * @author ptinius
  */
-@XmlRootElement
 @Entity
 public class VolumeDatapoint
   extends ModelBase {
   private static final long serialVersionUID = -528746171551767393L;
 
-  @GeneratedValue
+  @Id
+  @GeneratedValue(strategy = GenerationType.AUTO)
   private Integer id;
+
   @SerializedName("timestamp")
   private Long timestamp;
+
+  @Column
   @SerializedName("volume")
   private String volumeName;
+
+  @Column
+  @SerializedName( "volumeId" )
+  private String volumeId;
+
+  @Column
   private String key;
+
+  @Column
   private Double value;
+
+  /**
+   * default constructor
+   */
+  public VolumeDatapoint() {
+  }
 
   /**
    * @return Returns the auto-generated id
@@ -78,6 +97,20 @@ public class VolumeDatapoint
    */
   public void setVolumeName( final String volumeName ) {
     this.volumeName = volumeName;
+  }
+
+  /**
+   * @return Returns {@link String} representing the volume id
+   */
+  public String getVolumeId() {
+    return volumeId;
+  }
+
+  /**
+   * @param volumeId the {@link String} representing the volume id
+   */
+  public void setVolumeId( final String volumeId ) {
+    this.volumeId = volumeId;
   }
 
   /**

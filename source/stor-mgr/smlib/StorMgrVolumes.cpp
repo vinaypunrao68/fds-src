@@ -41,7 +41,26 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
                 voldesc->getPriority()));
     }
 
-    volumeIndexDB  = new osm::ObjectDB(filename);
+    try
+    {
+        volumeIndexDB  = new osm::ObjectDB(filename);
+    }
+    catch(const osm::OsmException& e)
+    {
+        LOGERROR << "Failed to create ObjectDB " << filename;
+        LOGERROR << e.what();
+
+        /*
+         * TODO(Greg): We need to end this process at this point, but we need
+         * a more controlled and graceful way of doing it. I suggest that in
+         * such cases we throw another exception to be caught by the mainline
+         * method which can then perform any cleanup, log a useful message, and
+         * shutdown.
+         */
+        LOGNORMAL << "SM shutting down with a failure condition.";
+        exit(EXIT_FAILURE);
+    }
+
     averageObjectsRead = 0;
     dedupBytes_ = 0;
 }

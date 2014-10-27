@@ -7,6 +7,8 @@
 #include <ObjectId.h>
 #include <fds_process.h>
 #include <AmProcessor.h>
+#include <fiu-control.h>
+#include <util/fiu_util.h>
 
 namespace fds {
 
@@ -25,6 +27,10 @@ AmProcessor::AmProcessor(const std::string &modName,
           volTable(_volTable),
           txMgr(_amTxMgr),
           amCache(_amCache) {
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
+        fiu_enable("am.uturn.processor.*", 1, NULL, 0);
+    }
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
 }
@@ -84,6 +90,12 @@ AmProcessor::startBlobTx(AmQosReq *qosReq) {
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
+
+    fiu_do_on("am.uturn.processor.startBlobTx",
+              qosCtrl->markIODone(qosReq); \
+              blobReq->cb->call(ERR_OK); \
+              delete blobReq; \
+              return;);
 
     // check if this is a snapshot
     // TODO(Andrew): Why not just let DM reject the IO?
@@ -206,20 +218,21 @@ AmProcessor::putBlob(AmQosReq *qosReq) {
                                                 blobReq->getDataLen()));
     }
 
+    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, qosReq);
+
     if (blobReq->getIoType() == FDS_PUT_BLOB_ONCE) {
         // Sending the update in a single request. Create transaction ID to
         // use for the single request
         blobReq->setTxId(BlobTxId(randNumGen->genNumSafe()));
-    }
-
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, qosReq);
-
-    if (blobReq->getIoType() == FDS_PUT_BLOB_ONCE) {
         amDispatcher->dispatchUpdateCatalogOnce(qosReq);
     } else {
         amDispatcher->dispatchUpdateCatalog(qosReq);
     }
-    amDispatcher->dispatchPutObject(qosReq);
+
+    // Either dispatch the put blob request or, if there's no data, just call
+    // our callback handler now (NO-OP).
+    blobReq->getDataLen() > 0 ? amDispatcher->dispatchPutObject(qosReq) :
+                                blobReq->notifyResponse(qosReq, ERR_OK);
 }
 
 void
@@ -283,6 +296,12 @@ void
 AmProcessor::getBlob(AmQosReq *qosReq) {
     // Pull out the Get request
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
+
+    fiu_do_on("am.uturn.processor.getBlob",
+              qosCtrl->markIODone(qosReq); \
+              blobReq->cb->call(ERR_OK); \
+              delete blobReq; \
+              return;);
 
     fds_volid_t volId = blobReq->getVolId();
     StorHvVolume *shVol = volTable->getVolume(volId);

@@ -11,6 +11,11 @@
 
 namespace fds {
 
+template void UpdateBlobInfoNoData(fpi::UpdateCatalogMsgPtr updateCat, size_t objSize,
+        size_t blobSize);
+template void UpdateBlobInfoNoData(fpi::UpdateCatalogOnceMsgPtr updateCat, size_t objSize,
+        size_t blobSize);
+
 fpi::PutObjectMsgPtr
 SvcMsgFactory::newPutObjectMsg(const uint64_t& volId, DataGenIfPtr dataGen)
 {
@@ -25,12 +30,12 @@ SvcMsgFactory::newPutObjectMsg(const uint64_t& volId, DataGenIfPtr dataGen)
     return putObjMsg;
 }
 
+template<typename T>
 void
-UpdateBlobInfoNoData(FDS_ProtocolInterface::UpdateCatalogMsgPtr  updateCatMsg,
-                            size_t objSize, size_t blobSize)
+UpdateBlobInfoNoData(boost::shared_ptr<T> updateCat, size_t objSize, size_t blobSize)
 {
     for (fds_uint64_t blobOffset = 0; blobOffset < blobSize; blobOffset += objSize) {
-            std::string data = updateCatMsg->blob_name + std::to_string(blobOffset) +
+            std::string data = updateCat->blob_name + std::to_string(blobOffset) +
                     std::to_string(util::getTimeStampNanos());
 
          ObjectID objId = ObjIdGen::genObjectId(data.c_str(), data.size());
@@ -45,7 +50,7 @@ UpdateBlobInfoNoData(FDS_ProtocolInterface::UpdateCatalogMsgPtr  updateCatMsg,
              updBlobInfo.blob_end =  true;
          updBlobInfo.data_obj_id.digest =
                    std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-         updateCatMsg->obj_list.push_back(updBlobInfo);
+         updateCat->obj_list.push_back(updBlobInfo);
         }
 }
 
@@ -185,6 +190,24 @@ SvcMsgFactory::newGetBucketMsg(const uint64_t& volId, const uint64_t& start_pos)
     getBucket->volume_id = volId;
     getBucket->startPos = start_pos;
     return getBucket;
+}
+
+fpi::GetDmStatsMsgPtr
+SvcMsgFactory::newGetDmStatsMsg(const uint64_t& volId)
+{
+    fpi::GetDmStatsMsgPtr  getDmStats(new fpi::GetDmStatsMsg);
+    getDmStats->volume_id = volId;
+    return getDmStats;
+}
+
+fpi::DeleteBlobMsgPtr
+SvcMsgFactory::newDeleteBlobMsg(const uint64_t& volId, const std::string blobName)
+{
+    fpi::DeleteBlobMsgPtr  delBlob(new fpi::DeleteBlobMsg);
+    delBlob->volume_id = volId;
+    delBlob->blob_name = blobName;
+    delBlob->blob_version = blob_version_invalid;
+    return delBlob;
 }
 
 }  // namespace fds

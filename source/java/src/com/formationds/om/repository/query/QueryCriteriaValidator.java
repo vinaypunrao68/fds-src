@@ -2,7 +2,7 @@
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.model.entity;
+package com.formationds.om.repository.query;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -1,5 +1,10 @@
 angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', '$byte_converter', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval, $byte_converter ){
     
+    $scope.items = [
+        {number: 12.5, description: 'This is a number and a really long line of text that we hope wraps'},
+        {number: 79, description: 'Something else', suffix: '%' }
+    ];
+    
     $scope.activities = [];
     $scope.firebreakMax = 1440;
     $scope.firebreakStats = { series: [[]], summaryData: { hoursSinceLastEvent: 0 }};
