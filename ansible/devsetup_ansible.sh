@@ -13,7 +13,7 @@ if [ -d ${sem_dir} ]; then
     current_time=$(date +"%s")
 
     if [ $((current_time - dir_mtime)) -gt ${sem_expiration_seconds} ]; then
-    	rmdir ${sem_dir}
+        rmdir ${sem_dir}
     fi
 fi
 
@@ -26,10 +26,18 @@ case $? in
             sudo pip install -q ansible
         fi
 
+        rm -f ${script_dir}/.devsetup-is-up-to-date
+
         ansible-playbook -i ${script_dir}/ansible_hosts -c local ${script_dir}/playbooks/devsetup.yml
 
+        if [ $? -eq 0 ]; then
+            touch ${script_dir}/.devsetup-is-up-to-date
+        else
+            rmdir ${sem_dir}
+            exit 1
+        fi
+
         rmdir ${sem_dir}
-        touch ${script_dir}/.devsetup-is-up-to-date
         ;;
     *)
     while [[ -d ${sem_dir} ]]
