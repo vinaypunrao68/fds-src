@@ -17,6 +17,27 @@
 #include <string>
 #include <vector>
 #include <concurrency/taskstatus.h>
+#include <util/color.h>
+
+using fds::util::Color;
+struct TimePrinter {
+    std::string name;
+    fds::util::StopWatch stopwatch;
+    bool done = false;
+    explicit TimePrinter(std::string name) :  name(name){
+        stopwatch.start();
+    }
+    ~TimePrinter() {
+        std::cout << Color::Yellow << "[" << std::setw(10) << name << "] " << Color::End
+                  << std::fixed << std::setprecision(3)
+                  << (stopwatch.getElapsedNanos()/(1000.0*1000)) << " ms"
+                  << std::endl;
+    }
+};
+
+#define TIMEDBLOCK(NAME) for (TimePrinter __tp__(NAME); !__tp__.done ; __tp__.done = true)
+#define TIMEDOUTERBLOCK(NAME) for (TimePrinter __otp__(NAME); !__otp__.done ; __otp__.done = true)
+
 static Error expungeObjects(fds_volid_t volId, const std::vector<ObjectID> & oids) {
     /*
     for (auto i : oids) {
