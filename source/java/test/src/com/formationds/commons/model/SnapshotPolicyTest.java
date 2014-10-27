@@ -34,7 +34,7 @@ public class SnapshotPolicyTest {
           new RecurrenceRule().parser( rrule ) );
 
         policy.setId( new Random().nextLong() );
-        policy.setName( String.format( "snapshotpolicy_%s",
+        policy.setName( String.format( "snapshot::policy_%s",
                                        policy.getRecurrenceRule()
                                              .getFrequency() ) );
         policy.setRetention( retention );
