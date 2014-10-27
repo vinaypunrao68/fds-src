@@ -224,24 +224,31 @@ public class FdsFileSystemTest {
         assertFalse(result);
     }
 
-    // TODO: ideally we could configure these test cases to run against a real AM as part of the smoke test as well
     @Before
-    public void setUp() throws Exception {
+    // TODO: ideally we could configure these test cases to run against a real AM as part of the smoke test as well
+    public void setUpUnit() throws Exception {
         String volumeName = "volume";
         MemoryAmService am = new MemoryAmService();
         am.createVolume(volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0));
-//        XdiClientFactory xdiCf = new XdiClientFactory();
-//        ConfigurationService.Iface cs = xdiCf.remoteOmService("localhost", 9090);
-//        AmService.Iface am = xdiCf.remoteAmService("localhost", 9988);
-//
-//        String tenantName = "hdfs-tenant-" + UUID.randomUUID().toString();
-//        String userName = "hdfs-user-" + UUID.randomUUID().toString();
-//        String volumeName = "hdfs-volume-" + UUID.randomUUID().toString();
-//
-//        long tenantId = cs.createTenant(tenantName);
-//        long userId = cs.createUser(userName, "x", "x", false);
-//
-//        cs.createVolume(FdsFileSystem.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0), userId);
+        fileSystem = new FdsFileSystem(am, "fds://" + volumeName + "/", OBJECT_SIZE);
+    }
+
+    //@Before
+    public void setUpIntegration() throws Exception {
+
+        XdiClientFactory xdiCf = new XdiClientFactory();
+        ConfigurationService.Iface cs = xdiCf.remoteOmService("localhost", 9090);
+        AmService.Iface am = xdiCf.remoteAmService("localhost", 9988);
+
+        String tenantName = "hdfs-tenant-" + UUID.randomUUID().toString();
+        String userName = "hdfs-user-" + UUID.randomUUID().toString();
+        String volumeName = "hdfs-volume-" + UUID.randomUUID().toString();
+
+        long tenantId = cs.createTenant(tenantName);
+        long userId = cs.createUser(userName, "x", "x", false);
+        cs.assignUserToTenant(userId, tenantId);
+
+        cs.createVolume(FdsFileSystem.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0), userId);
         fileSystem = new FdsFileSystem(am, "fds://" + volumeName + "/", OBJECT_SIZE);
     }
 

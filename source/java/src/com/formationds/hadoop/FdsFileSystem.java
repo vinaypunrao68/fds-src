@@ -203,7 +203,7 @@ public class FdsFileSystem extends FileSystem {
     @Override
     public boolean mkdirs(Path path, FsPermission permission) throws IOException {
         Path absolutePath = getAbsolutePath(path);
-        if(absolutePath.getParent() != null) {
+        if(!absolutePath.getParent().isRoot()) {
             mkdirs(absolutePath.getParent(), permission);
         }
         mkDirBlob(absolutePath);
