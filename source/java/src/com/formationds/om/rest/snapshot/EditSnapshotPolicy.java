@@ -43,7 +43,7 @@ public class EditSnapshotPolicy
                                       SnapshotPolicy.class );
 
 
-        logger.trace( policy.toString() );
+        logger.trace( "EDIT::" + policy.toString() );
 
         final com.formationds.apis.SnapshotPolicy apisPolicy =
           new com.formationds.apis.SnapshotPolicy( policy.getId(),
