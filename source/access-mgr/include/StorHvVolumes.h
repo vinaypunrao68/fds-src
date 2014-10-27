@@ -29,7 +29,6 @@
 #include "PerfTrace.h"
 
 #include "AmQosReq.h"
-#include "FdsBlobReq.h"
 
 
 /*
@@ -40,6 +39,7 @@ class StorHvCtrl;
 namespace fds {
 
 /* Forward declarations */
+struct AmRequest;
 class StorHvQosCtrl;
 
 class StorHvVolume : public FDS_Volume , public HasLogger
@@ -161,7 +161,7 @@ class StorHvVolumeTable : public HasLogger {
      * appropriate qos queue
      */
     void addBlobToWaitQueue(const std::string& bucket_name,
-                            FdsBlobReq* blob_req);
+                            AmRequest* blob_req);
 
     /**
      * Complete blob requests that are waiting in wait queue

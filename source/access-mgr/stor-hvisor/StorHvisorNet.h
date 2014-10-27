@@ -272,8 +272,8 @@ public:
     void attachVolume(AmQosReq *qosReq);
     void enqueueAttachReq(const std::string& volumeName,
                          CallbackPtr cb);
-    fds::Error pushBlobReq(FdsBlobReq *blobReq);
-    void enqueueBlobReq(FdsBlobReq *blobReq);
+    fds::Error pushBlobReq(AmRequest *blobReq);
+    void enqueueBlobReq(AmRequest *blobReq);
     fds::Error putBlob(AmQosReq *qosReq);
     fds::Error deleteBlob(AmQosReq *qosReq);
 
@@ -334,7 +334,7 @@ public:
         StorHvVolumeLock *vol_lock = NULL;
         StorHvJournalEntryLock *je_lock = NULL;
         StorHvVolume* vol = NULL;
-        fds::FdsBlobReq* blobReq = NULL;
+        fds::AmRequest* blobReq = NULL;
 
         TxnResponseHelper(StorHvCtrl* storHvisor, fds_volid_t  volId, fds_uint32_t txnId);
         void setStatus(FDSN_Status  status);
@@ -351,7 +351,7 @@ public:
         StorHvJournalEntryLock *jeLock = NULL;
         StorHvVolume* vol = NULL;
         AmQosReq *qosReq;
-        fds::FdsBlobReq* blobReq = NULL;
+        fds::AmRequest* blobReq = NULL;
 
         TxnRequestHelper(StorHvCtrl* storHvisor, AmQosReq *qosReq);
 
@@ -369,7 +369,7 @@ public:
         fds_volid_t  volId = 0;
         StorHvVolumeLock *vol_lock = NULL;
         StorHvVolume* vol = NULL;
-        fds::FdsBlobReq* blobReq = NULL;
+        fds::AmRequest* blobReq = NULL;
         AmQosReq *qosReq;
         ResponseHelper(StorHvCtrl* storHvisor, AmQosReq *qosReq);
         void setStatus(FDSN_Status  status);
@@ -383,7 +383,7 @@ public:
         StorHvVolume *shVol = NULL;
         StorHvVolume* vol = NULL;
         AmQosReq *qosReq;
-        fds::FdsBlobReq* blobReq = NULL;
+        fds::AmRequest* blobReq = NULL;
 
         RequestHelper(StorHvCtrl* storHvisor, AmQosReq *qosReq);
 
@@ -396,7 +396,7 @@ public:
     struct BlobRequestHelper {
         StorHvCtrl* storHvisor = NULL;
         fds_volid_t volId = invalid_vol_id;
-        FdsBlobReq *blobReq = NULL;
+        AmRequest *blobReq = NULL;
         const std::string& volumeName;
 
         explicit BlobRequestHelper(StorHvCtrl* storHvisor, const std::string& volumeName);
@@ -510,7 +510,7 @@ public:
                                const Error& error,
                                boost::shared_ptr<std::string> payload);
 
-    fds::Error updateCatalogCache(FdsBlobReq *blobReq,
+    fds::Error updateCatalogCache(AmRequest *blobReq,
                                   FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);
     inline AMCounters& getCounters()
     {
@@ -537,7 +537,7 @@ extern StorHvCtrl *storHvisor;
  * Static function for process IO via a threadpool
  */
 static void processBlobReq(AmQosReq *qosReq) {
-    FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    AmRequest *blobReq = qosReq->getBlobReqPtr();
     fds::PerfTracer::tracePointEnd(blobReq->qos_perf_ctx);
 
     fds_verify(qosReq->io_module == FDS_IOType::STOR_HV_IO);

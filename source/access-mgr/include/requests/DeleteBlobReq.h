@@ -8,14 +8,12 @@
 #include <string>
 
 #include "native_api.h"
-#include "FdsBlobReq.h"
+#include "AmRequest.h"
 
 namespace fds
 {
 
-struct DeleteBlobReq: FdsBlobReq {
-    typedef std::function<void (const Error&)> DeleteBlobProcCb;
-
+struct DeleteBlobReq: AmRequest {
     BucketContext *bucket_ctxt;
     std::string ObjKey;
     void *req_context;
@@ -23,7 +21,6 @@ struct DeleteBlobReq: FdsBlobReq {
     void *callback_data;
     BlobTxId::ptr tx_desc;
 
-    DeleteBlobProcCb processorCb;
     fds_volid_t base_vol_id;
 
     DeleteBlobReq(fds_volid_t volId,
@@ -32,7 +29,7 @@ struct DeleteBlobReq: FdsBlobReq {
                   void* _req_context,
                   fdsnResponseHandler _resp_handler,
                   void* _callback_data)
-            : FdsBlobReq(FDS_DELETE_BLOB, volId, _blob_name, 0, 0, NULL,
+            : AmRequest(FDS_DELETE_BLOB, volId, _blob_name, 0, 0, NULL,
                          FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
               bucket_ctxt(_bucket_ctxt),
               ObjKey(_blob_name),
@@ -62,7 +59,7 @@ struct DeleteBlobReq: FdsBlobReq {
                   const std::string& _blob_name,
                   const std::string& volumeName,
                   CallbackPtr cb)
-            : FdsBlobReq(FDS_DELETE_BLOB, volId,
+            : AmRequest(FDS_DELETE_BLOB, volId,
                          _blob_name, 0, 0, NULL, cb) {
         volume_name = volumeName;
 

@@ -60,7 +60,7 @@ AmProcessor::getVolumeMetadata(AmQosReq *qosReq) {
     fds_verify(true == volReq->magicInUse());
 
     // Set the processor callback
-    volReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::getVolumeMetadataCb, qosReq);
+    volReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getVolumeMetadataCb, qosReq);
     amDispatcher->dispatchGetVolumeMetadata(qosReq);
 }
 
@@ -81,7 +81,7 @@ void
 AmProcessor::abortBlobTx(AmQosReq *qosReq) {
     AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(qosReq->getBlobReqPtr());
 
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::abortBlobTxCb, qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::abortBlobTxCb, qosReq);
 
     amDispatcher->dispatchAbortBlobTx(qosReq);
 }
@@ -115,7 +115,7 @@ AmProcessor::startBlobTx(AmQosReq *qosReq) {
 
     // Generate a random transaction ID to use
     blobReq->tx_desc = boost::make_shared<BlobTxId>(randNumGen->genNumSafe());
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::startBlobTxCb, qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::startBlobTxCb, qosReq);
 
     amDispatcher->dispatchStartBlobTx(qosReq);
 }
@@ -177,7 +177,7 @@ AmProcessor::deleteBlob(AmQosReq *qosReq) {
     // Update the tx manager with the delete op
     txMgr->updateTxOpType(*(blobReq->tx_desc), blobReq->getIoType());
 
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::deleteBlobCb, qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::deleteBlobCb, qosReq);
     amDispatcher->dispatchDeleteBlob(qosReq);
 }
 
@@ -220,7 +220,7 @@ AmProcessor::putBlob(AmQosReq *qosReq) {
                                                 blobReq->data_len);
     }
 
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, qosReq);
 
     if (blobReq->getIoType() == FDS_PUT_BLOB_ONCE) {
         // Sending the update in a single request. Create transaction ID to
@@ -354,11 +354,11 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
             // We couldn't find the data in the cache even though the id was
             // obtained there. Fallback to retrieving the data from the SM.
             blobReq->obj_id = *objectId;
-            blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, qosReq);
+            blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, qosReq);
             amDispatcher->dispatchGetObject(qosReq);
         }
     } else {
-        blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::queryCatalogCb, qosReq);
+        blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::queryCatalogCb, qosReq);
         amDispatcher->dispatchQueryCatalog(qosReq);
     }
 }
@@ -371,7 +371,7 @@ AmProcessor::setBlobMetadata(AmQosReq *qosReq) {
     fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->getMetaDataListPtr()))
 
     fds_verify(txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version)));
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::setBlobMetadataCb, qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::setBlobMetadataCb, qosReq);
 
     amDispatcher->dispatchSetBlobMetadata(qosReq);
 }
@@ -420,7 +420,7 @@ AmProcessor::statBlob(AmQosReq *qosReq) {
         << volId << std::dec << " blob " << blobReq->getBlobName();
 
     blobReq->base_vol_id = volTable->getBaseVolumeId(volId);
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::statBlobCb, qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::statBlobCb, qosReq);
     amDispatcher->dispatchStatBlob(qosReq);
 }
 
@@ -445,7 +445,7 @@ AmProcessor::volumeContents(AmQosReq *qosReq) {
         <<" blob:" << blobReq->getBlobName();
 
     blobReq->base_vol_id = volTable->getBaseVolumeId(blobReq->vol_id);
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::volumeContentsCb, qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::volumeContentsCb, qosReq);
 
     amDispatcher->dispatchVolumeContents(qosReq);
 }
@@ -481,7 +481,7 @@ void
 AmProcessor::queryCatalogCb(AmQosReq *qosReq, const Error& error) {
     if (error == ERR_OK) {
         GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
-        blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, qosReq);
+        blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, qosReq);
         amDispatcher->dispatchGetObject(qosReq);
     } else {
         getBlobCb(qosReq, error);
@@ -514,7 +514,7 @@ AmProcessor::commitBlobTx(AmQosReq *qosReq) {
     fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
 
     // Setup callback.
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::commitBlobTxCb, qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::commitBlobTxCb, qosReq);
 
     amDispatcher->dispatchCommitBlobTx(qosReq);
 }

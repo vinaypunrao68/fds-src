@@ -6,7 +6,7 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_AMQOSREQ_H_
 
 #include "fds_types.h"
-#include "FdsBlobReq.h"
+#include "AmRequest.h"
 
 namespace fds
 {
@@ -16,13 +16,13 @@ namespace fds
  * requests.
  */
 struct AmQosReq : public FDS_IOType {
-    AmQosReq(FdsBlobReq *_br, fds_uint32_t _reqId);
+    AmQosReq(AmRequest *_br, fds_uint32_t _reqId);
 
     fds_bool_t magicInUse() const {
         return blobReq->magicInUse();
     }
 
-    FdsBlobReq* getBlobReqPtr() const {
+    AmRequest* getBlobReqPtr() const {
         return blobReq;
     }
 
@@ -32,7 +32,7 @@ struct AmQosReq : public FDS_IOType {
     }
 
  private:
-    FdsBlobReq *blobReq;
+    AmRequest *blobReq;
 };
 
 }  // namespace fds

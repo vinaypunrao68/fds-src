@@ -152,7 +152,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
          */
         fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
         fds_verify(qosReq != NULL);
-        fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+        fds::AmRequest *blobReq = qosReq->getBlobReqPtr();
         fds_verify(blobReq != NULL);
         upd_obj_req->blob_name = blobReq->getBlobName();
         upd_obj_req->dmt_version = txn->dmt_version;
@@ -267,7 +267,7 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
                       << " received min DM acks";
             fds::AmQosReq *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
             fds_verify(qosReq != NULL);
-            fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+            fds::AmRequest *blobReq = qosReq->getBlobReqPtr();
             fds_verify(blobReq != NULL);
             fds_verify(blobReq->getIoType() == FDS_DELETE_BLOB);
             LOGDEBUG << "Responding to deleteBlob trans " << transId

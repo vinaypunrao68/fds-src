@@ -7,16 +7,13 @@
 
 #include <string>
 
-#include "FdsBlobReq.h"
+#include "AmRequest.h"
 
 namespace fds
 {
 
-class StatBlobReq : public FdsBlobReq {
+class StatBlobReq : public AmRequest {
   public:
-    typedef std::function<void (const Error&)> StatBlobProcCb;
-
-    StatBlobProcCb processorCb;
     fds_volid_t base_vol_id;
 
     /**
@@ -31,7 +28,7 @@ class StatBlobReq : public FdsBlobReq {
                 fds_uint64_t         _data_len,
                 char                *_data_buf,
                 CallbackPtr cb) :
-            FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, _blob_offset,
+            AmRequest(FDS_STAT_BLOB, _volid, _blob_name, _blob_offset,
                        _data_len, _data_buf, cb) {
         volume_name = _vol_name;
         e2e_req_perf_ctx.type = AM_STAT_BLOB_OBJ_REQ;
@@ -45,7 +42,7 @@ class StatBlobReq : public FdsBlobReq {
                 const std::string   &_vol_name,
                 const std::string   &_blob_name,
                 CallbackPtr cb) :
-            FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, 0,
+            AmRequest(FDS_STAT_BLOB, _volid, _blob_name, 0,
                        0, NULL, cb) {
         volume_name = _vol_name;
         e2e_req_perf_ctx.type = AM_STAT_BLOB_OBJ_REQ;

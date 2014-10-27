@@ -7,18 +7,15 @@
 
 #include <string>
 
-#include "FdsBlobReq.h"
+#include "AmRequest.h"
 
 namespace fds
 {
 
-class CommitBlobTxReq : public FdsBlobReq {
-  public:
-    BlobTxId::ptr tx_desc;
-
-    typedef std::function<void (const Error&)> CommitBlobProcCb;
-    CommitBlobProcCb processorCb;
-
+struct CommitBlobTxReq : 
+    public AmRequest,
+    public AmTxReq
+{
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
@@ -29,8 +26,9 @@ class CommitBlobTxReq : public FdsBlobReq {
                    const std::string &_blob_name,
                    BlobTxId::ptr _txDesc,
                    CallbackPtr        _cb) :
-            FdsBlobReq(FDS_COMMIT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
-            tx_desc(_txDesc) {
+            AmRequest(FDS_COMMIT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
+            AmTxReq(_txDesc)
+    {
         volume_name = _vol_name;
         e2e_req_perf_ctx.type = AM_COMMIT_BLOB_OBJ_REQ;
         e2e_req_perf_ctx.name = "volume:" + std::to_string(_volid);

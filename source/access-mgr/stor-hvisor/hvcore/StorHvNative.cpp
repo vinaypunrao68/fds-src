@@ -104,7 +104,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
 {
     Error err(ERR_OK);
     fds_volid_t volid = invalid_vol_id;
-    FdsBlobReq *blob_req = NULL;
+    AmRequest *blob_req = NULL;
     LOGDEBUG << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName;
 
     /* check if bucket is attached to this AM */
@@ -254,7 +254,7 @@ void FDS_NativeAPI::GetVolumeStats(void *req_ctxt,
                                    fdsnVolumeStatsHandler resp_handler,
                                    void *callback_data)
 {
-    FdsBlobReq *blob_req = NULL;
+    AmRequest *blob_req = NULL;
     LOGDEBUG << "FDS_NativeAPI::GetVolumeStats for all existing buckets";
 
     /* this request will go directly to OM,
@@ -285,7 +285,7 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
     Error err(ERR_OK);
     fds_volid_t volid = invalid_vol_id;
     fds_uint64_t start, end;
-    FdsBlobReq *blob_req = NULL;
+    AmRequest *blob_req = NULL;
     LOGDEBUG << "FDS_NativeAPI::GetObject for volume " << bucket_ctxt->bucketName
               << ", blob " << blobName << " of size " << byteCount << " at offset "
               << startByte;
@@ -411,7 +411,7 @@ FDS_NativeAPI::PutBlobOnce(const std::string& volumeName,
 
     // TODO(Andrew): The constructor no longer exists.
     // Just remove this file.
-    FdsBlobReq *blob_req = NULL;  // new PutBlobReq(volid,
+    AmRequest *blob_req = NULL;  // new PutBlobReq(volid,
     //        "",
     //                                    blobName,
     //                                    startByte,
@@ -466,7 +466,7 @@ FDS_NativeAPI::PutBlob(BucketContext *bucket_ctxt,
 
     // TODO(Andrew): The constructor no longer exists.
     // Just remove this file.
-    FdsBlobReq *blob_req = NULL;  // new PutBlobReq(volid,
+    AmRequest *blob_req = NULL;  // new PutBlobReq(volid,
     //     "",
     //                                    ObjKey,
     //                                    startByte,
@@ -512,7 +512,7 @@ void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt,
 {
     Error err(ERR_OK);
     fds_volid_t volid = invalid_vol_id;
-    FdsBlobReq *blob_req = NULL;
+    AmRequest *blob_req = NULL;
     LOGDEBUG << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
               << " objKey " << ObjKey;
 
@@ -567,7 +567,7 @@ void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt,
     }
 }
 
-void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
+void FDS_NativeAPI::DoCallback(AmRequest  *blob_req,
                                Error        error,
                                fds_uint32_t ignore,
                                fds_int32_t  result)
@@ -648,7 +648,7 @@ FDS_NativeAPI::AbortBlobTx(const std::string& volumeName,
         fds_verify(volId != invalid_vol_id);
     }
 
-    FdsBlobReq *blobReq = NULL;
+    AmRequest *blobReq = NULL;
     blobReq = new AbortBlobTxReq(volId,
                                  volumeName,
                                  blobName,
@@ -690,7 +690,7 @@ FDS_NativeAPI::CommitBlobTx(const std::string& volumeName,
         fds_verify(volId != invalid_vol_id);
     }
 
-    FdsBlobReq *blobReq = NULL;
+    AmRequest *blobReq = NULL;
     blobReq = new CommitBlobTxReq(volId, volumeName, blobName, txDesc, cb);
     fds_verify(blobReq != NULL);
 
@@ -727,7 +727,7 @@ FDS_NativeAPI::StartBlobTx(const std::string& volumeName,
         fds_verify(volId != invalid_vol_id);
     }
 
-    FdsBlobReq *blobReq = NULL;
+    AmRequest *blobReq = NULL;
     blobReq = new StartBlobTxReq(volId, volumeName, blobName, blobMode, cb);
     fds_verify(blobReq != NULL);
 
@@ -769,7 +769,7 @@ void FDS_NativeAPI::StatBlob(const std::string& volumeName,
     }
 
     
-    FdsBlobReq *blobReq = NULL;
+    AmRequest *blobReq = NULL;
     blobReq = new StatBlobReq(volId,
                               volumeName,
                               blobName,
@@ -817,7 +817,7 @@ void FDS_NativeAPI::setBlobMetaData(const std::string& volumeName,
     }
     LOGDEBUG << "ready to send some meta to be updated..";
 
-    FdsBlobReq *blobReq = NULL;
+    AmRequest *blobReq = NULL;
     blobReq = new SetBlobMetaDataReq(volId,
                                      volumeName,
                                      blobName,

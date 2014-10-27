@@ -7,14 +7,14 @@
 
 #include <string>
 
-#include "FdsBlobReq.h"
+#include "AmRequest.h"
 
 namespace fds
 {
 
-struct GetVolumeMetaDataReq : FdsBlobReq {
+struct GetVolumeMetaDataReq : AmRequest {
     GetVolumeMetaDataReq(fds_volid_t volId, const std::string & volumeName, CallbackPtr cb) :
-            FdsBlobReq(FDS_GET_VOLUME_METADATA, volId, "" , 0, 0, NULL, cb) {
+            AmRequest(FDS_GET_VOLUME_METADATA, volId, "" , 0, 0, NULL, cb) {
         volume_name = volumeName;
         e2e_req_perf_ctx.type = AM_GET_VOLUME_META_OBJ_REQ;
         e2e_req_perf_ctx.name = "volume:" + std::to_string(volId);
@@ -29,9 +29,6 @@ struct GetVolumeMetaDataReq : FdsBlobReq {
 
     /// Metadata to be returned
     fpi::FDSP_VolumeMetaData volumeMetadata;
-
-    typedef std::function<void (const Error&)> GetVolMetadataProcCb;
-    GetVolMetadataProcCb processorCb;
 };
 
 }  // namespace fds

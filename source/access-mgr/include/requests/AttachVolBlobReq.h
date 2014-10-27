@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "FdsBlobReq.h"
+#include "AmRequest.h"
 
 namespace fds
 {
@@ -19,7 +19,7 @@ namespace fds
  * to call the callback and notify that the
  * attach is complete.
  */
-class AttachVolBlobReq : public FdsBlobReq {
+class AttachVolBlobReq : public AmRequest {
   public:
     /**
      * Request constructor. Some of the fields
@@ -33,7 +33,7 @@ class AttachVolBlobReq : public FdsBlobReq {
                      fds_uint64_t         _data_len,
                      char                *_data_buf,
                      CallbackPtr cb) :
-            FdsBlobReq(FDS_ATTACH_VOL, _volid, _blob_name, _blob_offset,
+            AmRequest(FDS_ATTACH_VOL, _volid, _blob_name, _blob_offset,
                        _data_len, _data_buf, cb) {
         volume_name = _vol_name;
     }

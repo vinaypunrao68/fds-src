@@ -65,7 +65,7 @@ StorHvCtrl::enqueueAttachReq(const std::string& volumeName,
 }
 
 Error
-StorHvCtrl::pushBlobReq(FdsBlobReq *blobReq) {
+StorHvCtrl::pushBlobReq(AmRequest *blobReq) {
     fds_verify(blobReq->magicInUse() == true);
     Error err(ERR_OK);
 
@@ -100,7 +100,7 @@ StorHvCtrl::pushBlobReq(FdsBlobReq *blobReq) {
 }
 
 void
-StorHvCtrl::enqueueBlobReq(FdsBlobReq *blobReq) {
+StorHvCtrl::enqueueBlobReq(AmRequest *blobReq) {
     fds_verify(blobReq->magicInUse() == true);
 
     // check if volume is attached to this AM
@@ -314,7 +314,7 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
 
     issueStartBlobTxMsg(blobReq->getBlobName(),
                         volId,
-                        blobReq->getBlobMode(),
+                        blobReq->blob_mode,
                         txId->getValue(),
                         blobReq->dmtVersion,
                         RESPONSE_MSG_HANDLER(StorHvCtrl::startBlobTxMsgResp, qosReq));

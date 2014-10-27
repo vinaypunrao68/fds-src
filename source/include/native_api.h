@@ -23,7 +23,7 @@
  */
 namespace fds {
 
-struct FdsBlobReq;
+struct AmRequest;
 
 /**
  * FDS_NativeAPI  object class : One object per client Type so that the semantics of
@@ -128,7 +128,7 @@ class FDS_NativeAPI {
                       fdsnResponseHandler responseHandler,
                       void *callbackData);
 
-    static void DoCallback(FdsBlobReq* blob_req,
+    static void DoCallback(AmRequest* blob_req,
                            Error error,
                            fds_uint32_t ignore,
                            fds_int32_t  result);

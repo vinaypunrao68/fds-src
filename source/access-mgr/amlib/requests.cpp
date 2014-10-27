@@ -24,7 +24,7 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        char* _data_buf,
                        fds_uint64_t _byte_count,
                        CallbackPtr cb)
-    : FdsBlobReq(FDS_GET_BLOB, _volid, _blob_name, _blob_offset,
+    : AmRequest(FDS_GET_BLOB, _volid, _blob_name, _blob_offset,
                  _data_len, _data_buf, cb) {
     volume_name = _volumeName;
     stopwatch.start();
@@ -66,7 +66,7 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        PutPropertiesPtr _put_props,
                        void* _req_context,
                        CallbackPtr _cb)
-                       : FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
+                       : AmRequest(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
              _data_len, _data_buf, FDS_NativeAPI::DoCallback,
              this, Error(ERR_OK), 0),
     lastBuf(_last_buf),
@@ -109,7 +109,7 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                        fds_int32_t          _blobMode,
                        boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
                        CallbackPtr _cb)
-        : FdsBlobReq(FDS_PUT_BLOB_ONCE, _volid, _blob_name, _blob_offset,
+        : AmRequest(FDS_PUT_BLOB_ONCE, _volid, _blob_name, _blob_offset,
                      _data_len, _data_buf, FDS_NativeAPI::DoCallback,
                      this, Error(ERR_OK), 0),
                 ObjKey(_blob_name),
@@ -151,7 +151,7 @@ PutBlobReq::notifyResponse(AmQosReq* qosReq, const Error &e) {
     fds_verify(respAcks > 0);
     if (0 == --respAcks) {
         // Call back to processing layer
-        processorCb(e);
+        proc_cb(e);
     }
 }
 
@@ -196,7 +196,7 @@ void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl,
             delete this;
         } else {
             // Call back to processing layer
-            processorCb(e);
+            proc_cb(e);
         }
     }
 }

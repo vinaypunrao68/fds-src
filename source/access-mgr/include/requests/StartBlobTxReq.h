@@ -7,20 +7,18 @@
 
 #include <string>
 
-#include "FdsBlobReq.h"
+#include "AmRequest.h"
 
 namespace fds
 {
 
-class StartBlobTxReq : public FdsBlobReq {
-  public:
+struct StartBlobTxReq : 
+    public AmRequest,
+    public AmTxReq
+{
     std::string     volumeName;
-    fds_int32_t     blobMode;
-    BlobTxId::ptr   tx_desc;
+    fds_int32_t     blob_mode;
     fds_uint64_t    dmtVersion;
-
-    typedef std::function<void (const Error&)> StartBlobTxProcCb;
-    StartBlobTxProcCb processorCb;
 
     /**
      * Request constructor. Some of the fields
@@ -32,8 +30,9 @@ class StartBlobTxReq : public FdsBlobReq {
                    const std::string &_blob_name,
                    const int32_t _blob_mode,
                    CallbackPtr        _cb) :
-            FdsBlobReq(FDS_START_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
-            volumeName(_vol_name), blobMode(_blob_mode) {
+            AmRequest(FDS_START_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
+            volumeName(_vol_name), blob_mode(_blob_mode)
+    {
         volume_name = _vol_name;
         e2e_req_perf_ctx.type = AM_START_BLOB_OBJ_REQ;
         e2e_req_perf_ctx.name = "volume:" + std::to_string(_volid);
@@ -44,10 +43,6 @@ class StartBlobTxReq : public FdsBlobReq {
 
     virtual ~StartBlobTxReq() {
         fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
-    }
-
-    fds_int32_t getBlobMode() const {
-        return blobMode;
     }
 };
 

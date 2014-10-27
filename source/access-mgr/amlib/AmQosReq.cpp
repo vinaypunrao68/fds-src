@@ -7,7 +7,7 @@
 namespace fds
 {
 
-AmQosReq::AmQosReq(FdsBlobReq *_br, fds_uint32_t _reqId)
+AmQosReq::AmQosReq(AmRequest *_br, fds_uint32_t _reqId)
     : blobReq(_br)
     {
         /*

@@ -7,7 +7,6 @@
 #include "requests/CommitBlobTxReq.h"
 #include "requests/DeleteBlobReq.h"
 #include "requests/GetBlobReq.h"
-#include "requests/GetBlobMetaDataReq.h"
 #include "requests/GetVolumeMetaDataReq.h"
 #include "requests/PutBlobReq.h"
 #include "requests/SetBlobMetaDataReq.h"
@@ -15,3 +14,7 @@
 #include "requests/StatBlobReq.h"
 #include "requests/VolumeContentsReq.h"
 #include "requests/VolumeStatsReq.h"
+
+/* This appears to be unused ATM
+ * #include "requests/GetBlobMetaDataReq.h"
+ */

@@ -425,7 +425,7 @@ StorHvVolumeTable::getVolumeName(fds_volid_t volId) {
  * to appropriate qos queue
  */
 void StorHvVolumeTable::addBlobToWaitQueue(const std::string& bucket_name,
-                                           FdsBlobReq* blob_req)
+                                           AmRequest* blob_req)
 {
     fds_verify(blob_req->magicInUse() == true);
     LOGDEBUG << "VolumeTable -- adding blob to wait queue, waiting for "
@@ -519,7 +519,7 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
         for (uint i = 0; i < blobs.size(); ++i) {
             AmQosReq* qosReq = blobs[i];
             blobs[i] = NULL;
-            FdsBlobReq* blobReq = qosReq->getBlobReqPtr();
+            AmRequest* blobReq = qosReq->getBlobReqPtr();
             // Hard coding a result!
             LOGERROR << "some issue : " << err;
             LOGWARN << "Calling back with error since request is waiting"

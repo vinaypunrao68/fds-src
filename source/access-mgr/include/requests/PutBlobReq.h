@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "FdsBlobReq.h"
+#include "AmRequest.h"
 
 namespace fds
 {
@@ -15,7 +15,7 @@ namespace fds
 struct AmQosReq;
 struct StorHvQosCtrl;
 
-class PutBlobReq: public FdsBlobReq {
+class PutBlobReq: public AmRequest {
   public:
     // TODO(Andrew): Fields that could use some cleanup.
     // We can mostly remove these with the new callback mechanism
@@ -39,9 +39,6 @@ class PutBlobReq: public FdsBlobReq {
     std::atomic<int> respAcks;
     /* Return status for completion callback */
     Error retStatus;
-
-    typedef std::function<void (const Error&)> UpdateBlobProcCb;
-    UpdateBlobProcCb processorCb;
 
     /// Constructor used on regular putBlob requests.
     PutBlobReq(fds_volid_t _volid,

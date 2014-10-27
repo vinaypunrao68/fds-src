@@ -433,7 +433,7 @@ StorHvJournal::get_journal_entry(fds_uint32_t trans_id) {
 // And takes care of releasing the transaction id to the free pool
 void
 StorHvJournalEntry::fbd_process_req_timeout() {
-    FdsBlobReq *blobReq = static_cast<fds::AmQosReq*>(io)->getBlobReqPtr();
+    AmRequest *blobReq = static_cast<fds::AmQosReq*>(io)->getBlobReqPtr();
     fds_verify(blobReq != NULL);
 
     fds::Error err(ERR_OK);

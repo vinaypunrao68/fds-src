@@ -2,8 +2,8 @@
  * Copyright 2013-2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_FDSBLOBREQ_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_FDSBLOBREQ_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_AMREQUEST_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_AMREQUEST_H_
 
 #include <string>
 
@@ -12,7 +12,7 @@
 namespace fds
 {
 
-struct FdsBlobReq {
+struct AmRequest {
      // Performance
      PerfContext    e2e_req_perf_ctx;
      PerfContext    qos_perf_ctx;
@@ -31,15 +31,18 @@ struct FdsBlobReq {
       * TODO: Resolve this with what's needed by the object-based callbacks.
       */
      typedef boost::function<void(fds_int32_t)> callbackBind;
+     typedef std::function<void (const Error&)> ProcessorCallback;
 
-     FdsBlobReq(fds_io_op_t         _op,
+     ProcessorCallback proc_cb;
+
+     AmRequest(fds_io_op_t         _op,
                 fds_volid_t         _volId,
                 const std::string&  _blobName,
                 fds_uint64_t        _blobOffset,
                 fds_uint64_t        _dataLen,
                 char*               _dataBuf);
 
-     FdsBlobReq(fds_io_op_t         _op,
+     AmRequest(fds_io_op_t         _op,
                 fds_volid_t         _volId,
                 const std::string&  _blobName,
                 fds_uint64_t        _blobOffset,
@@ -48,7 +51,7 @@ struct FdsBlobReq {
                 CallbackPtr         _cb);
 
      template<typename F, typename A, typename B, typename C>
-        FdsBlobReq(fds_io_op_t          _op,
+        AmRequest(fds_io_op_t          _op,
                    fds_volid_t          _volId,
                    const std::string&   _blobName,
                    fds_uint64_t         _blobOffset,
@@ -56,7 +59,7 @@ struct FdsBlobReq {
                    char*                _dataBuf,
                    F f, A a, B b, C c);
 
-     virtual ~FdsBlobReq()
+     virtual ~AmRequest()
      { magic = FDS_SH_IO_MAGIC_NOT_IN_USE; }
 
      CallbackPtr cb;
@@ -92,7 +95,13 @@ struct FdsBlobReq {
      util::StopWatch    stopwatch;
 };
 
-inline FdsBlobReq::FdsBlobReq(fds_io_op_t      _op,
+struct AmTxReq {
+    AmTxReq() : tx_desc(nullptr) {}
+    explicit AmTxReq(BlobTxId::ptr _tx_desc) : tx_desc(_tx_desc) {}
+    BlobTxId::ptr tx_desc;
+};
+
+inline AmRequest::AmRequest(fds_io_op_t      _op,
                        fds_volid_t        _volId,
                        const std::string &_blobName,
                        fds_uint64_t       _blobOffset,
@@ -107,7 +116,7 @@ inline FdsBlobReq::FdsBlobReq(fds_io_op_t      _op,
           data_buf(_dataBuf)
 { }
 
-inline FdsBlobReq::FdsBlobReq(fds_io_op_t       _op,
+inline AmRequest::AmRequest(fds_io_op_t       _op,
                        fds_volid_t        _volId,
                        const std::string &_blobName,
                        fds_uint64_t       _blobOffset,
@@ -125,7 +134,7 @@ inline FdsBlobReq::FdsBlobReq(fds_io_op_t       _op,
 { }
 
 template<typename F, typename A, typename B, typename C>
-inline FdsBlobReq::FdsBlobReq(fds_io_op_t      _op,
+inline AmRequest::AmRequest(fds_io_op_t      _op,
            fds_volid_t        _volId,
            const std::string &_blobName,
            fds_uint64_t       _blobOffset,
@@ -147,4 +156,4 @@ inline FdsBlobReq::FdsBlobReq(fds_io_op_t      _op,
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_FDSBLOBREQ_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_AMREQUEST_H_

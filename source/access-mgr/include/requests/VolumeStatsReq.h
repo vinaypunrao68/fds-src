@@ -10,12 +10,12 @@
 #include "native/types.h"
 #include "fds_volume.h"
 
-#include "FdsBlobReq.h"
+#include "AmRequest.h"
 
 namespace fds
 {
 
-class VolumeStatsReq: public FdsBlobReq {
+class VolumeStatsReq: public AmRequest {
     static const fds_uint64_t fds_sh_volume_stats_magic = 0xCDF23456;
 
   public:
@@ -30,7 +30,7 @@ class VolumeStatsReq: public FdsBlobReq {
     VolumeStatsReq(void *_req_context,
                    fdsnVolumeStatsHandler _handler,
                    void *_callback_data)
-            : FdsBlobReq(FDS_BUCKET_STATS, admin_vol_id, "all", fds_sh_volume_stats_magic, 0, NULL,
+            : AmRequest(FDS_BUCKET_STATS, admin_vol_id, "all", fds_sh_volume_stats_magic, 0, NULL,
                          FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
               request_context(_req_context),
               resp_handler(_handler),

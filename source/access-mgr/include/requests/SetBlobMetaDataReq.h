@@ -8,19 +8,16 @@
 #include <string>
 
 #include "fdsp/FDSP_types.h"
-#include "FdsBlobReq.h"
+#include "AmRequest.h"
 
 namespace fds
 {
 
-struct SetBlobMetaDataReq : FdsBlobReq {
+struct SetBlobMetaDataReq : AmRequest {
   public:
-    typedef std::function<void (const Error&)> SetBlobMetadataProcCb;
-
     BlobTxId::ptr tx_desc;
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataList> metaDataList;
 
-    SetBlobMetadataProcCb processorCb;
     fds_uint64_t dmt_version;
 
     SetBlobMetaDataReq(fds_volid_t _volid,
@@ -29,7 +26,7 @@ struct SetBlobMetaDataReq : FdsBlobReq {
                        BlobTxId::ptr _txDesc,
                        boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataList> _metaDataList,
                        CallbackPtr cb) :
-            FdsBlobReq(FDS_SET_BLOB_METADATA, _volid, _blob_name, 0, 0, NULL, cb),
+            AmRequest(FDS_SET_BLOB_METADATA, _volid, _blob_name, 0, 0, NULL, cb),
             tx_desc(_txDesc),  metaDataList(_metaDataList) {
         volume_name = _vol_name;
         e2e_req_perf_ctx.type = AM_SET_BLOB_META_OBJ_REQ;

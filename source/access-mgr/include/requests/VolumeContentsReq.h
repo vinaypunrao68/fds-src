@@ -8,17 +8,15 @@
 #include <string>
 
 #include "native_api.h"
-#include "FdsBlobReq.h"
+#include "AmRequest.h"
 
 namespace fds
 {
 
-class VolumeContentsReq: public FdsBlobReq {
+class VolumeContentsReq: public AmRequest {
     static const fds_uint64_t fds_sh_volume_list_magic = 0xBCE12345;
 
   public:
-    typedef std::function<void (const Error&)> VolumeContentsProcCb;
-
     BucketContext *bucket_ctxt;
     std::string prefix;
     std::string marker;
@@ -29,7 +27,6 @@ class VolumeContentsReq: public FdsBlobReq {
     void *callback_data;
     fds_long_t iter_cookie = 0;
 
-    VolumeContentsProcCb processorCb;
     fds_volid_t base_vol_id;
 
     /* sets bucket name to blob name in the base class,
@@ -45,7 +42,7 @@ class VolumeContentsReq: public FdsBlobReq {
                   void* _req_context,
                   fdsnVolumeContentsHandler _handler,
                   void* _callback_data)
-            : FdsBlobReq(FDS_VOLUME_CONTENTS, _volid,
+            : AmRequest(FDS_VOLUME_CONTENTS, _volid,
                          _bucket_ctxt->bucketName, fds_sh_volume_list_magic, 0, NULL,
                          FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
         bucket_ctxt(_bucket_ctxt),
@@ -63,7 +60,7 @@ class VolumeContentsReq: public FdsBlobReq {
                   BucketContext *_bucket_ctxt,
                   fds_uint32_t _max_keys,
                   CallbackPtr cb)
-            : FdsBlobReq(FDS_VOLUME_CONTENTS, _volid,
+            : AmRequest(FDS_VOLUME_CONTENTS, _volid,
                          _bucket_ctxt->bucketName, 0, 0, NULL, cb), bucket_ctxt(_bucket_ctxt) {
     }
 

@@ -7,16 +7,13 @@
 
 #include <string>
 
-#include "FdsBlobReq.h"
+#include "AmRequest.h"
 
 namespace fds
 {
 
-class GetBlobReq: public FdsBlobReq {
+class GetBlobReq: public AmRequest {
   public:
-    typedef std::function<void (const Error&)> GetBlobProcCb;
-    GetBlobProcCb processorCb;
-
     fds_volid_t base_vol_id;
 
     GetBlobReq(fds_volid_t _volid,

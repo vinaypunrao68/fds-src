@@ -1108,7 +1108,7 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
     return err;
 }
 
-fds::Error StorHvCtrl::updateCatalogCache(FdsBlobReq *blobReq,
+fds::Error StorHvCtrl::updateCatalogCache(AmRequest *blobReq,
                                           FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList )
 {
     // Get the volume specific to the request
@@ -1188,7 +1188,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     int node_state = -1;
     fds::Error err(ERR_OK);
     ObjectID oid;
-    FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    AmRequest *blobReq = qosReq->getBlobReqPtr();
     fds_verify(blobReq->magicInUse() == true);
     DeleteBlobReq *del_blob_req = (DeleteBlobReq *)blobReq;
 
@@ -1339,7 +1339,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
     /*
      * Pull out the blob request
      */
-    FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    AmRequest *blobReq = qosReq->getBlobReqPtr();
     fds_verify(blobReq->magicInUse() == true);
 
     fds_volid_t   volId = blobReq->vol_id;
@@ -1494,7 +1494,7 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
      */
     fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
     fds_verify(qosReq != NULL);
-    fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    fds::AmRequest *blobReq = qosReq->getBlobReqPtr();
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->getIoType() == FDS_VOLUME_CONTENTS);
     LOGDEBUG << "Responding to getBucket trans " << transId
@@ -1572,7 +1572,7 @@ fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
     /*
      * Pull out the blob request
      */
-    FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    AmRequest *blobReq = qosReq->getBlobReqPtr();
     fds_verify(blobReq->magicInUse() == true);
 
     fds_volid_t   volId = blobReq->vol_id;
@@ -1686,7 +1686,7 @@ void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
      */
     fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
     fds_verify(qosReq != NULL);
-    fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    fds::AmRequest *blobReq = qosReq->getBlobReqPtr();
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->getIoType() == FDS_BUCKET_STATS);
     LOGDEBUG << "Responding to getBucketStats trans " << transId
