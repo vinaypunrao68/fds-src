@@ -14,9 +14,11 @@
 #include <unistd.h>
 #include <linux/nbd.h>
 
+#include <string>
 #include <am-nbd.h>
 #include <fds_process.h>
 #include <util/Log.h>
+#include <StorHvisorNet.h>
 
 namespace fds {
 
@@ -33,12 +35,15 @@ BlkVol::BlkVol(const char *name, const char *dev,
                fds_uint64_t uuid, fds_uint64_t vol_sz, fds_uint32_t blk_sz)
     : vol_uuid(uuid), vol_sz_blks(vol_sz), vol_blksz_byte(blk_sz)
 {
+    vol_blksz_mask = vol_blksz_byte - 1;
+    fds_assert((vol_blksz_byte & vol_blksz_mask) == 0);
+
     memcpy(vol_name, name, FDS_MAX_VOL_NAME);
     memcpy(vol_dev, dev, FDS_MAX_VOL_NAME);
 }
 
 BlockMod::~BlockMod() {}
-BlockMod::BlockMod() : Module("FDS Block") {}
+BlockMod::BlockMod() : Module("FDS Block"), blk_amc(NULL) {}
 
 /**
  * blk_creat_vol
@@ -85,7 +90,9 @@ BlockMod::blk_detach_vol(fds_uint64_t uuid)
  */
 EvBlkVol::EvBlkVol(const blk_vol_creat_t *r, struct ev_loop *loop)
     : BlkVol(r->v_name, r->v_dev, r->v_uuid, r->v_vol_blksz, r->v_blksz),
-      vio_sk(-1), vio_ev_loop(loop), vio_read(NULL), vio_write(NULL) {}
+      vio_sk(-1), vio_ev_loop(loop), vio_read(NULL), vio_write(NULL)
+{
+}
 
 /**
  * ev_vol_event
@@ -127,6 +134,17 @@ EvBlkVol::ev_vol_rearm(int events)
 }
 
 /**
+ * blk_run_loop
+ * ------------
+ */
+void
+EvBlkVol::blk_run_loop()
+{
+    fds_verify(vio_ev_loop != NULL);
+    ev_run(vio_ev_loop, 0);
+}
+
+/**
  * mod_init
  * --------
  */
@@ -134,7 +152,6 @@ int
 EvBlockMod::mod_init(SysParams const *const p)
 {
     gl_BlockMod = &gl_NbdBlockMod;
-    ev_blk_loop = EV_DEFAULT;
 
     return Module::mod_init(p);
 }
@@ -156,9 +173,6 @@ EvBlockMod::mod_startup()
 void
 EvBlockMod::mod_enable_service()
 {
-    fds_threadpool *pool = g_fdsprocess->proc_thrpool();
-
-    pool->schedule(&EvBlockMod::blk_run_loop, this);
     Module::mod_enable_service();
 }
 
@@ -170,27 +184,6 @@ void
 EvBlockMod::mod_shutdown()
 {
     Module::mod_shutdown();
-}
-
-/**
- * ev_idle_cb
- * ----------
- */
-static void
-ev_idle_cb(struct ev_loop *loop, ev_idle *ev, int revents)
-{
-}
-
-/**
- * blk_run_loop
- * ------------
- */
-void
-EvBlockMod::blk_run_loop()
-{
-    ev_idle_init(&ev_idle_evt, ev_idle_cb);
-    ev_idle_start(ev_blk_loop, &ev_idle_evt);
-    ev_run(ev_blk_loop, 0);
 }
 
 /**
@@ -215,6 +208,47 @@ NbdBlkVol::~NbdBlkVol()
 void
 NbdBlkVol::nbd_vol_read(NbdBlkIO *vio)
 {
+    ssize_t            len, off;
+    NbdBlkVol::ptr     vol;
+    std::stringstream  ss;
+    fpi::QueryCatalogMsgPtr   qcat(bo::make_shared<fpi::QueryCatalogMsg>());
+
+    vol = vio->nbd_vol;
+    qcat->blob_name.assign(vol->vol_name);
+    qcat->volume_id    = vol->vol_uuid;
+    qcat->blob_version = blob_version_invalid;
+    qcat->start_offset = vio->nbd_cur_off & ~vol->vol_blksz_mask;
+    qcat->end_offset   = vio->nbd_cur_off + vio->nbd_cur_len;
+
+    if (qcat->end_offset & vol->vol_blksz_mask) {
+        qcat->end_offset = (qcat->end_offset & vol->vol_blksz_mask) + vol->vol_blksz_byte;
+    }
+    qcat->obj_list.clear();
+    qcat->meta_list.clear();
+
+    auto dmtMgr = BlockMod::blk_singleton()->blk_amc->om_client->getDmtManager();
+    auto qcat_req = gSvcRequestPool->newFailoverSvcRequest(
+                boost::make_shared<DmtVolumeIdEpProvider>(
+                    dmtMgr->getCommittedNodeGroup(vol->vol_uuid)));
+
+    qcat_req->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), qcat);
+    qcat_req->onResponseCb(RESPONSE_MSG_HANDLER(NbdBlkVol::nbd_vol_read_cb, vio));
+    qcat_req->invoke();
+
+    vio->aio_wait(&vol_mtx, &vol_waitq);
+}
+
+/**
+ * nbd_vol_read_cb
+ * ---------------
+ */
+void
+NbdBlkVol::nbd_vol_read_cb(NbdBlkIO                    *vio,
+                           FailoverSvcRequest          *svcreq,
+                           const Error                 &err,
+                           bo::shared_ptr<std::string>  payload)
+{
+    vio->aio_wakeup(&vol_mtx, &vol_waitq);
 }
 
 /**
@@ -223,6 +257,60 @@ NbdBlkVol::nbd_vol_read(NbdBlkIO *vio)
  */
 void
 NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
+{
+    ssize_t             len, off;
+    NbdBlkVol::ptr      vol;
+    std::stringstream   ss;
+    fpi::FDSP_BlobObjectInfo     object;
+    fpi::UpdateCatalogOnceMsgPtr upcat(bo::make_shared<fpi::UpdateCatalogOnceMsg>());
+
+    vol = vio->nbd_vol;
+    upcat->blob_name.assign(vol->vol_name);
+
+    upcat->blob_version = blob_version_invalid;
+    upcat->volume_id    = vol->vol_uuid;
+    upcat->txId         = vol->vio_txid++;
+    upcat->blob_mode    = false;
+
+    off = vio->nbd_cur_off & ~vol->vol_blksz_mask;
+    len = vio->nbd_cur_len + (vio->nbd_cur_len & vol->vol_blksz_mask);
+
+    while (len > 0) {
+        ss << (off + 1);
+        object.offset = off;
+        object.size   = vol->vol_blksz_byte;
+        object.data_obj_id.digest = ss.str();
+        object.blob_end = false;
+
+        if (len > vol->vol_blksz_byte) {
+            len -= vol->vol_blksz_byte;
+            off += vol->vol_blksz_byte;
+        } else {
+            len  = 0;
+        }
+        upcat->obj_list.push_back(object);
+    }
+    auto dmtMgr = BlockMod::blk_singleton()->blk_amc->om_client->getDmtManager();
+    auto upcat_req = gSvcRequestPool->newQuorumSvcRequest(
+                boost::make_shared<DmtVolumeIdEpProvider>(
+                    dmtMgr->getCommittedNodeGroup(vol->vol_uuid)));
+
+    upcat_req->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), upcat);
+    upcat_req->onResponseCb(RESPONSE_MSG_HANDLER(NbdBlkVol::nbd_vol_write_cb, upcat));
+
+    return;
+    upcat_req->invoke();
+}
+
+/**
+ * nbd_vol_write
+ * -------------
+ */
+void
+NbdBlkVol::nbd_vol_write_cb(fpi::UpdateCatalogOnceMsgPtr  upcat,
+                            QuorumSvcRequest             *svcreq,
+                            const Error                  &err,
+                            bo::shared_ptr<std::string>   payload)
 {
 }
 
@@ -314,8 +402,9 @@ NbdBlkIO::aio_read_complete()
         }
         memcpy(nbd_repl.handle, nbd_reqt.handle, sizeof(nbd_repl.handle));
         nbd_cur_off = ntohll(nbd_reqt.from);
+        nbd_cur_len = ntohl(nbd_reqt.len);
 
-        len = ntohl(nbd_reqt.len);
+        len = nbd_cur_len;
         fds_verify((len > 0) && (len < (1 << 20)));
 
         switch (ntohl(nbd_reqt.type)) {
@@ -392,7 +481,7 @@ NbdBlkIO::aio_write_complete()
  * -----------------------------------------------------------------------------------
  */
 NbdBlockMod::~NbdBlockMod() {}
-NbdBlockMod::NbdBlockMod() : EvBlockMod() {}
+NbdBlockMod::NbdBlockMod() : EvBlockMod(), nbd_devno(0) {}
 
 /**
  * blk_alloc_vol
@@ -401,8 +490,11 @@ NbdBlockMod::NbdBlockMod() : EvBlockMod() {}
 BlkVol::ptr
 NbdBlockMod::blk_alloc_vol(const blk_vol_creat *r)
 {
-    fds_verify(ev_blk_loop != NULL);
-    return new NbdBlkVol(r, ev_blk_loop);
+    if (ev_prim_loop == NULL) {
+        ev_prim_loop = EV_DEFAULT;
+        return new NbdBlkVol(r, ev_prim_loop);
+    }
+    return new NbdBlkVol(r, ev_loop_new(0));
 }
 
 /**
@@ -433,12 +525,20 @@ nbd_vol_callback(struct ev_loop *loop, ev_io *ev, int revents)
  * --------------
  */
 int
-NbdBlockMod::blk_attach_vol(const blk_vol_creat_t *r)
+NbdBlockMod::blk_attach_vol(blk_vol_creat_t *r)
 {
-    int            ret, tfd, fd, sp[2];
+    int            ret, tfd, fd, dev, sp[2];
     BlkVol::ptr    vb;
     NbdBlkVol::ptr vol;
 
+    if (r->v_dev == NULL) {
+        blk_splck.lock();
+        dev = nbd_devno++;
+        blk_splck.unlock();
+
+        snprintf(r->v_blkdev, sizeof(r->v_blkdev), "/dev/nbd%d", dev);
+        r->v_dev = r->v_blkdev;
+    }
     vb = blk_creat_vol(r);
     if (vb == NULL) {
         return -1;
@@ -485,7 +585,10 @@ NbdBlockMod::blk_attach_vol(const blk_vol_creat_t *r)
     ev_init(&vol->vio_watch, nbd_vol_callback);
     vol->vio_watch.data = reinterpret_cast<void *>(vol.get());
     ev_io_set(&vol->vio_watch, vol->vio_sk, EV_READ);
-    ev_io_start(ev_blk_loop, &vol->vio_watch);
+    ev_io_start(vol->vio_ev_loop, &vol->vio_watch);
+
+    fds_threadpool *pool = g_fdsprocess->proc_thrpool();
+    pool->schedule(&EvBlkVol::blk_run_loop, vol);
     return 0;
 }
 

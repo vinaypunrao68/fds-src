@@ -26,6 +26,7 @@ user_cc           := ngx_modules.c
 user_cpp          := \
     th_am.cpp \
     th_sm.cpp \
+    th_am_server.cpp \
     svc_constants.cpp \
     svc_types.cpp \
     TestAMSvc.cpp \
@@ -37,6 +38,7 @@ user_clean	      := $(user_no_style)
 user_bin_exe      := \
 	th_am \
 	th_sm \
+    th_am_server \
 	threadpool_test \
     serializer_gtest
 
@@ -47,6 +49,10 @@ th_am := \
 th_sm := \
     th_sm.cpp \
     svc_constants.cpp svc_types.cpp TestAMSvc.cpp TestSMSvc.cpp ngx_modules.c
+
+th_am_server := \
+    th_am_server.cpp \
+    svc_constants.cpp svc_types.cpp TestAMSvcSync.cpp ngx_modules.c
 
 threadpool_test := threadpool_test.cpp ngx_modules.c
 serializer_gtest := serializer_gtest.cpp ngx_modules.c

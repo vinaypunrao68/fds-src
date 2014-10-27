@@ -7,6 +7,9 @@ package com.formationds.commons.model.type;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.i18n.ModelResource;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * @author ptinius
  */
@@ -31,6 +34,14 @@ public enum Metrics {
   LTP_SIGMA( "Long Term Perf Sigma" ),
   STP_WMA( "Short Term Perf WMA" ),
   LTP_WMA( "Long Term Perf WMA" );
+
+  private static final List<Metrics> FIREBREAK_TYPES = new ArrayList<>( );
+  static {
+    FIREBREAK_TYPES.add( Metrics.STC_SIGMA );
+    FIREBREAK_TYPES.add( Metrics.LTC_SIGMA );
+    FIREBREAK_TYPES.add( Metrics.STP_SIGMA );
+    FIREBREAK_TYPES.add( Metrics.LTP_SIGMA );
+  }
 
   private static final String UNKNOWN_METRIC =
     ModelResource.getString( "model.metrics.unsupported" );
@@ -74,4 +85,10 @@ public enum Metrics {
                                                          metadataKey ) );
   }
 
+  /**
+   * @return Returns the {@link List} of firebreak values
+   */
+  public static List<Metrics> firebreakValues() {
+    return FIREBREAK_TYPES;
+  }
 }

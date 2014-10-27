@@ -112,9 +112,22 @@ struct DataMgr : Module, DmIoReqHandler {
       MAX
     } dmRunModes;
     dmRunModes    runMode;
-    bool isTestMode() {
-        return runMode == TEST_MODE;
-    }
+
+    struct Features {
+        bool fQosEnabled = true;
+        bool fCatSyncEnabled = true;
+        bool fTestMode = false;
+        bool isTestMode() {
+            return fTestMode;
+        }
+        bool isQosEnabled() {
+            return fQosEnabled;
+        }
+        bool isCatSyncEnabled() {
+            return fCatSyncEnabled;
+        }
+    } feature;
+
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
 
     /**

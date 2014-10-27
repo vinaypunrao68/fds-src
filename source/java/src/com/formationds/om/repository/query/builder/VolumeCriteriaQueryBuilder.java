@@ -2,18 +2,17 @@
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.model.entity.builder;
+package com.formationds.om.repository.query.builder;
 
 import com.formationds.commons.model.abs.Context;
-import com.formationds.commons.model.entity.QueryCriteria;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.repository.query.QueryCriteria;
 
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.*;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -49,24 +48,24 @@ public class VolumeCriteriaQueryBuilder {
   }
 
   /**
-   * @param start the {@link Date} representing the search starting period
+   * @param start the {@link Long} representing the search starting period
    *
    * @return Returns {@link VolumeCriteriaQueryBuilder}
    */
-  public VolumeCriteriaQueryBuilder withStart( final Date start ) {
+  public VolumeCriteriaQueryBuilder withStart( final Long start ) {
     andPredicates.add( cb.lessThanOrEqualTo( from.<Long>get( TIMESTAMP ),
-                                             start.getTime() ) );
+                                             start ) );
     return this;
   }
 
   /**
-   * @param end the {@link Date} representing the search end period
+   * @param end the {@link Long} representing the search end period
    *
    * @return Returns {@link VolumeCriteriaQueryBuilder}
    */
-  public VolumeCriteriaQueryBuilder withEnd( final Date end ) {
+  public VolumeCriteriaQueryBuilder withEnd( final Long end ) {
     andPredicates.add( cb.greaterThanOrEqualTo( from.<Long>get( TIMESTAMP ),
-                                                end.getTime() ) );
+                                                end ) );
     return this;
   }
 
@@ -120,7 +119,7 @@ public class VolumeCriteriaQueryBuilder {
   }
 
   /**
-   * @param searchCriteria the {@link com.formationds.commons.model.entity.QueryCriteria}
+   * @param searchCriteria the {@link com.formationds.om.repository.query.QueryCriteria}
    *
    * @return Returns {@link VolumeCriteriaQueryBuilder}
    */
@@ -140,12 +139,15 @@ public class VolumeCriteriaQueryBuilder {
                                   .getEnd() );
     }
 
-    if( searchCriteria.getSeriesType() != null && !searchCriteria.getSeriesType()
-                                                                 .isEmpty() ) {
-      for( final Metrics metrics : searchCriteria.getSeriesType() ) {
-        this.withSeries( metrics );
-      }
-    }
+/*
+ * get every row, let the next level figure out what the query was asking for
+ *   if( searchCriteria.getSeriesType() != null &&
+ *     !searchCriteria.getSeriesType()
+ *                   .isEmpty() ) {
+ *     searchCriteria.getSeriesType()
+ *                   .forEach( this::withSeries );
+ *   }
+ */
 
     if( searchCriteria.getContexts() != null &&
       !searchCriteria.getContexts()

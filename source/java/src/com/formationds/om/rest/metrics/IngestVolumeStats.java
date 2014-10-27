@@ -10,6 +10,7 @@ import com.formationds.om.repository.SingletonMetricsRepository;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.xdi.ConfigurationApi;
 import com.google.gson.reflect.TypeToken;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -27,16 +28,17 @@ import java.util.Map;
  */
 public class IngestVolumeStats
   implements RequestHandler {
-
-  private static final Logger LOG =
+  private static final transient Logger logger =
     LoggerFactory.getLogger( IngestVolumeStats.class );
 
   private static final Type TYPE =
     new TypeToken<List<VolumeDatapoint>>() {
     }.getType();
 
-  public IngestVolumeStats() {
-    super();
+  private final ConfigurationApi config;
+
+  public IngestVolumeStats( final ConfigurationApi config ) {
+    this.config = config;
   }
 
   @Override
@@ -48,6 +50,14 @@ public class IngestVolumeStats
       final List<VolumeDatapoint> volumeDatapoints =
         ObjectModelHelper.toObject( reader, TYPE );
       for( final VolumeDatapoint datapoint : volumeDatapoints ) {
+
+        datapoint.setVolumeId(
+          String.valueOf(
+            config.getVolumeId( datapoint.getVolumeName() ) ) );
+
+        logger.trace( "DATAPOINT: {}", datapoint );
+
+        // TODO replace with inject
         SingletonMetricsRepository.instance()
                                   .getMetricsRepository()
                                   .save( datapoint );

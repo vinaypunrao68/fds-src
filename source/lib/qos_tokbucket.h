@@ -13,9 +13,8 @@
 #ifndef SOURCE_LIB_QOS_TOKBUCKET_H_
 #define SOURCE_LIB_QOS_TOKBUCKET_H_
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include "fds_types.h"
-
+#include <fds_types.h>
+#include <util/timeutils.h>
 
 namespace fds {
 
@@ -40,7 +39,7 @@ namespace fds {
           fds_uint64_t wburst = (fds_uint64_t)( (double)_burst_length_microsec/1000000.0 * (double)rate);
           if (wburst < burst) burst = wburst;
        }
-       t_last_update = boost::posix_time::microsec_clock::universal_time();
+       t_last_update = util::getTimeStampMicros();   // current time in microseconds
        token_count = 0.0; /* start with 0 tokens */
     }
     ~TokenBucket() {}
@@ -53,7 +52,8 @@ namespace fds {
      * to a new burst. This does not change the number of tokens that we 
      * accumulated with the old rate. */
     inline void modifyParams(fds_uint64_t _rate, fds_uint64_t _burst) {
-        updateTokensOnly();
+        fds_uint64_t nowMicrosec = util::getTimeStampMicros();
+        updateTokensOnly(nowMicrosec);
         /* do not cap to burst size now, updateState() will do it so it can 
          * the number of spilled tokens */
         rate = _rate;
@@ -90,9 +90,9 @@ namespace fds {
  
     /* Update number of tokens in the token bucket
      * returns the number of tokens that spilled over the burst size */
-    inline fds_uint64_t updateTBState(void) {
+    inline fds_uint64_t updateTBState(fds_uint64_t nowMicrosec) {
        fds_uint64_t expired_tokens = 0;
-       updateTokensOnly();
+       updateTokensOnly(nowMicrosec);
     
        /* cap token counter to burst size */
        if ((fds_uint64_t)token_count > burst) {
@@ -105,14 +105,11 @@ namespace fds {
     } 
 
   protected: /* methods */
-    inline void updateTokensOnly(void) {
-        boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-        boost::posix_time::time_duration elapsed = now - t_last_update;
-        fds_uint64_t elapsed_microsec = elapsed.total_microseconds();
-
+    inline void updateTokensOnly(fds_uint64_t nowMicrosec) {
+        fds_uint64_t elapsed_microsec = nowMicrosec - t_last_update;
         if (elapsed_microsec > 0) {
            token_count += ((double)elapsed_microsec / 1000000.0) * (double)rate;
-           t_last_update = now;
+           t_last_update = nowMicrosec;
         }
     }
 
@@ -122,7 +119,7 @@ namespace fds {
     fds_uint64_t burst; /* maximum number of tokens that bucket can accumulate */
 
     /* dynamic state */
-    boost::posix_time::ptime t_last_update; /* last time token bucket state was updated */
+    fds_uint64_t t_last_update; /* last time in microsec token bucket state was updated */
     double token_count; /* number of tokens in the token bucket since t_last_update */
   };
 

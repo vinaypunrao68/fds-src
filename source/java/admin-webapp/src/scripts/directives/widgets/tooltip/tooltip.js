@@ -78,7 +78,6 @@ angular.module( 'display-widgets' ).directive( 'tooltip', function(){
 
                     $scope.top = ($scope.mousePosition.y + yPad) + 'px';
                     $scope.left = ($scope.mousePosition.x + xPad) + 'px';
-//                    console.log( 'mx: ' + $scope.mousePosition.x + ' xpad: ' + xPad );
                 }
             };
             
