@@ -16,6 +16,29 @@
 #include <fdsp/fds_service_types.h>
 #include <string>
 #include <vector>
+#include <concurrency/taskstatus.h>
+#include <util/color.h>
+
+using fds::util::Color;
+struct TimePrinter {
+    std::string name;
+    fds::util::StopWatch stopwatch;
+    bool done = false;
+    explicit TimePrinter(std::string name) :  name(name){
+        stopwatch.start();
+    }
+    ~TimePrinter() {
+        std::cout << Color::Yellow << "[" << std::setw(10) << name << "] " << Color::End
+                  << std::fixed << std::setprecision(3)
+                  << Color::Red
+                  << (stopwatch.getElapsedNanos()/(1000.0*1000)) << " ms"
+                  << Color::End
+                  << std::endl;
+    }
+};
+
+#define TIMEDBLOCK(NAME) for (TimePrinter __tp__(NAME); !__tp__.done ; __tp__.done = true)
+#define TIMEDOUTERBLOCK(NAME) for (TimePrinter __otp__(NAME); !__otp__.done ; __otp__.done = true)
 
 static Error expungeObjects(fds_volid_t volId, const std::vector<ObjectID> & oids) {
     /*
@@ -31,14 +54,33 @@ static Error expungeObjects(fds_volid_t volId, const std::vector<ObjectID> & oid
     std::bind(&func, &obj , header, ##__VA_ARGS__ , std::placeholders::_1, \
               std::placeholders::_2);
 
+#define DEFINE_SHARED_PTR(TYPE, NAME) \
+    boost::shared_ptr<fpi::TYPE> NAME(new fpi::TYPE());
+
 struct DMCallback {
     boost::shared_ptr<fpi::AsyncHdr> asyncHdr;
     Error e;
     fds::dmCatReq *req;
+    fds::concurrency::TaskStatus taskStatus;
+
+    void reset() {
+        taskStatus.reset(1);
+    }
+
+    bool wait(ulong timeout = 0) {
+        if (timeout > 0) {
+            return taskStatus.await(timeout);
+        } else {
+            taskStatus.await();
+            return true;
+        }
+    }
+
     void handler(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr, const fds::Error &e, fds::dmCatReq *req) { //NOLINT
         this->asyncHdr = asyncHdr;
         this->e = e;
         this->req = req;
+        taskStatus.done();
     }
 };
 

@@ -11,7 +11,9 @@ namespace fds {
 namespace dm {
 
 GetBucketHandler::GetBucketHandler() {
-    REGISTER_DM_MSG_HANDLER(fpi::GetBucketMsg, handleRequest);
+    if (!dataMgr->feature.isTestMode()) {
+        REGISTER_DM_MSG_HANDLER(fpi::GetBucketMsg, handleRequest);
+    }
 }
 
 void GetBucketHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

@@ -81,8 +81,9 @@ public class FirebreakHelper {
                   final Datapoint empty = new Datapoint();
                   // y: last occurred
                   empty.setY( 0L );
+                  // TODO get the size, i.e. capacity of the volume and set X
                   // x: volume capacity
-                  empty.setX( 0L );
+                  empty.setX( SizeUnit.GB.totalBytes( 10 ) );
                   results.put( v1.getVolumeName(), empty );
                 }
 
@@ -122,6 +123,15 @@ public class FirebreakHelper {
     return results;
   }
 
+  /**
+   * @param metrics
+   *
+   * @return
+   */
+  public boolean isFirebreakQuery( final List<Metrics> metrics ) {
+    return metrics.containsAll( Metrics.firebreakValues() );
+  }
+
   private boolean isFirebreakType( final VolumeDatapoint vdp ) {
     try {
       return FIREBREAKS.contains( Metrics.byMetadataKey( vdp.getKey() ) );
@@ -132,7 +142,7 @@ public class FirebreakHelper {
     }
   }
 
-  private static Pair<VolumeDatapoint, VolumeDatapoint> build(
+  private Pair<VolumeDatapoint, VolumeDatapoint> build(
     final VolumeDatapoint dp1,
     final VolumeDatapoint dp2 ) {
 

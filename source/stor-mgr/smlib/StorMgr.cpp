@@ -1331,26 +1331,26 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             fds_panic("must not get here!");
             break;
         case FDS_SM_DELETE_OBJECT:
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
+            LOGDEBUG << "Processing a Delete request";
                 threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
                                      objStorMgr,
                                      static_cast<SmIoDeleteObjectReq *>(io));
             break;
         case FDS_SM_GET_OBJECT:
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
+            LOGDEBUG << "Processing a get request";
             threadPool->schedule(&ObjectStorMgr::getObjectInternal,
                                  objStorMgr,
                                  static_cast<SmIoGetObjectReq *>(io));
             break;
         case FDS_SM_PUT_OBJECT:
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
+            LOGDEBUG << "Processing a put request";
             threadPool->schedule(&ObjectStorMgr::putObjectInternal,
                                  objStorMgr,
                                  static_cast<SmIoPutObjectReq *>(io));
             break;
         case FDS_SM_ADD_OBJECT_REF:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing and add object reference request";
+            LOGDEBUG << "Processing and add object reference request";
             threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
                                  objStorMgr,
                                  static_cast<SmIoAddObjRefReq *>(io));
@@ -1358,53 +1358,53 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         }
         case FDS_SM_WRITE_TOKEN_OBJECTS:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a write token ibjects";
+            LOGDEBUG << "Processing a write token ibjects";
             threadPool->schedule(&ObjectStorMgr::putTokenObjectsInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_READ_TOKEN_OBJECTS:
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a read token objects";
+            LOGDEBUG << "Processing a read token objects";
             threadPool->schedule(&ObjectStorMgr::getTokenObjectsInternal, objStorMgr, io);
             break;
         case FDS_SM_SNAPSHOT_TOKEN:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing snapshot";
+            LOGDEBUG << "Processing snapshot";
             threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_COMPACT_OBJECTS:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing sync apply metadata";
+            LOGDEBUG << "Processing sync apply metadata";
             threadPool->schedule(&ObjectStorMgr::compactObjectsInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_SYNC_APPLY_METADATA:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing sync apply metadata";
+            LOGDEBUG << "Processing sync apply metadata";
             threadPool->schedule(&ObjectStorMgr::applySyncMetadataInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_SYNC_RESOLVE_SYNC_ENTRY:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing sync resolve";
+            LOGDEBUG << "Processing sync resolve";
             threadPool->schedule(&ObjectStorMgr::resolveSyncEntryInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_APPLY_OBJECTDATA:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing sync apply object metadata";
+            LOGDEBUG << "Processing sync apply object metadata";
             threadPool->schedule(&ObjectStorMgr::applyObjectDataInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_READ_OBJECTDATA:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing read object data";
+            LOGDEBUG << "Processing read object data";
             threadPool->schedule(&ObjectStorMgr::readObjectDataInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_READ_OBJECTMETADATA:
         {
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing read object metadata";
+            LOGDEBUG << "Processing read object metadata";
             threadPool->schedule(&ObjectStorMgr::readObjectMetadataInternal, objStorMgr, io);
             break;
         }
