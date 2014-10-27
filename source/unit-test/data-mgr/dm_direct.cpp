@@ -130,28 +130,7 @@ TEST_F(DmUnitTest, PutBlob) {
     DMCallback cb;
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
 
-    // start tx
     startTxn(dmTester->TESTVOLID, dmTester->TESTBLOB);
-    /*
-    DEFINE_SHARED_PTR(StartBlobTxMsg, startBlbTx);
-
-    startBlbTx->volume_id = dmTester->TESTVOLID;
-    startBlbTx->blob_name = dmTester->TESTBLOB;
-    startBlbTx->txId = 1;
-    startBlbTx->dmt_version = 1;
-    auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
-                                           startBlbTx->blob_name,
-                                           startBlbTx->blob_version,
-                                           startBlbTx->blob_mode,
-                                           startBlbTx->dmt_version);
-    dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
-    dmBlobTxReq->dmio_start_blob_tx_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-    TIMEDBLOCK("start") {
-        dataMgr->startBlobTx(dmBlobTxReq);
-        cb.wait();
-    }
-    EXPECT_EQ(ERR_OK, cb.e);
-    */
 
     // update
     DEFINE_SHARED_PTR(UpdateCatalogMsg, updcatMsg);
@@ -169,29 +148,7 @@ TEST_F(DmUnitTest, PutBlob) {
     }
     EXPECT_EQ(ERR_OK, cb.e);
 
-    // commit
     commitTxn(dmTester->TESTVOLID, dmTester->TESTBLOB);
-    /*
-    DEFINE_SHARED_PTR(CommitBlobTxMsg, commitBlbTx);
-    commitBlbTx->volume_id = dmTester->TESTVOLID;
-    commitBlbTx->blob_name = dmTester->TESTBLOB;
-    commitBlbTx->txId = 1;
-
-    auto dmBlobTxReq1 = new DmIoCommitBlobTx(commitBlbTx->volume_id,
-                                            commitBlbTx->blob_name,
-                                            commitBlbTx->blob_version,
-                                            commitBlbTx->dmt_version);
-    cb.reset();
-    dmBlobTxReq1->dmio_commit_blob_tx_resp_cb =
-            BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-
-    dmBlobTxReq1->ioBlobTxDesc = dmBlobTxReq->ioBlobTxDesc;
-    TIMEDBLOCK("commit") {
-        dataMgr->commitBlobTx(dmBlobTxReq1);
-        cb.wait();
-    }
-    EXPECT_EQ(ERR_OK, cb.e);
-    */
 }
 
 TEST_F(DmUnitTest, QueryCatalog) {
@@ -215,35 +172,17 @@ TEST_F(DmUnitTest, SetMeta) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
 
     // start tx
-    DEFINE_SHARED_PTR(StartBlobTxMsg, startBlbTx);
-
-    startBlbTx->volume_id = dmTester->TESTVOLID;
-    startBlbTx->blob_name = dmTester->TESTBLOB;
-    startBlbTx->txId = 2;
-    startBlbTx->dmt_version = 1;
-    auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
-                                           startBlbTx->blob_name,
-                                           startBlbTx->blob_version,
-                                           startBlbTx->blob_mode,
-                                           startBlbTx->dmt_version);
-    dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
-    dmBlobTxReq->dmio_start_blob_tx_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-    TIMEDBLOCK("start") {
-        dataMgr->startBlobTx(dmBlobTxReq);
-        cb.wait();
-    }
-    EXPECT_EQ(ERR_OK, cb.e);
+    startTxn(dmTester->TESTVOLID, dmTester->TESTBLOB);
 
     // update
     auto setBlobMeta = SvcMsgFactory::newSetBlobMetaDataMsg(dmTester->TESTVOLID,
                                                             dmTester->TESTBLOB);
-    setBlobMeta->txId  = 2;
+    setBlobMeta->txId  = 1;
     fpi::FDSP_MetaDataPair metaData;
     metaData.key = "blobType";
     metaData.value = "test Blob S3";
     setBlobMeta->metaDataList.push_back(metaData);
     auto dmSetMDReq = new DmIoSetBlobMetaData(setBlobMeta);
-    cb.reset();
     dmSetMDReq->dmio_setmd_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
 
     TIMEDBLOCK("process") {
@@ -253,25 +192,7 @@ TEST_F(DmUnitTest, SetMeta) {
     EXPECT_EQ(ERR_OK, cb.e);
 
     // commit
-    DEFINE_SHARED_PTR(CommitBlobTxMsg, commitBlbTx);
-    commitBlbTx->volume_id = dmTester->TESTVOLID;
-    commitBlbTx->blob_name = dmTester->TESTBLOB;
-    commitBlbTx->txId = 2;
-
-    auto dmBlobTxReq1 = new DmIoCommitBlobTx(commitBlbTx->volume_id,
-                                            commitBlbTx->blob_name,
-                                            commitBlbTx->blob_version,
-                                            commitBlbTx->dmt_version);
-    cb.reset();
-    dmBlobTxReq1->dmio_commit_blob_tx_resp_cb =
-            BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-
-    dmBlobTxReq1->ioBlobTxDesc = dmBlobTxReq->ioBlobTxDesc;
-    TIMEDBLOCK("commit") {
-        dataMgr->commitBlobTx(dmBlobTxReq1);
-        cb.wait();
-    }
-    EXPECT_EQ(ERR_OK, cb.e);
+    commitTxn(dmTester->TESTVOLID, dmTester->TESTBLOB);
 }
 
 TEST_F(DmUnitTest, GetMeta) {
@@ -327,30 +248,12 @@ TEST_F(DmUnitTest, DeleteBlob) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
 
     // start tx
-    DEFINE_SHARED_PTR(StartBlobTxMsg, startBlbTx);
-
-    startBlbTx->volume_id = dmTester->TESTVOLID;
-    startBlbTx->blob_name = dmTester->TESTBLOB;
-    startBlbTx->txId = 1;
-    startBlbTx->dmt_version = 1;
-    auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
-                                           startBlbTx->blob_name,
-                                           startBlbTx->blob_version,
-                                           startBlbTx->blob_mode,
-                                           startBlbTx->dmt_version);
-    dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
-    dmBlobTxReq->dmio_start_blob_tx_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-    TIMEDBLOCK("start") {
-        dataMgr->startBlobTx(dmBlobTxReq);
-        cb.wait();
-    }
-    EXPECT_EQ(ERR_OK, cb.e);
+    startTxn(dmTester->TESTVOLID, dmTester->TESTBLOB);
 
     // delete
     auto message = SvcMsgFactory::newDeleteBlobMsg(dmTester->TESTVOLID, dmTester->TESTBLOB);
     message->txId = 1;
     auto dmRequest = new DmIoDeleteBlob(message);
-    cb.reset();
     dmRequest->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
     TIMEDBLOCK("process") {
         dataMgr->handlers[FDS_DELETE_BLOB]->handleQueueItem(dmRequest);
@@ -359,25 +262,7 @@ TEST_F(DmUnitTest, DeleteBlob) {
     EXPECT_EQ(ERR_OK, cb.e);
 
     // commit
-    DEFINE_SHARED_PTR(CommitBlobTxMsg, commitBlbTx);
-    commitBlbTx->volume_id = dmTester->TESTVOLID;
-    commitBlbTx->blob_name = dmTester->TESTBLOB;
-    commitBlbTx->txId = 1;
-
-    auto dmBlobTxReq1 = new DmIoCommitBlobTx(commitBlbTx->volume_id,
-                                            commitBlbTx->blob_name,
-                                            commitBlbTx->blob_version,
-                                            commitBlbTx->dmt_version);
-    cb.reset();
-    dmBlobTxReq1->dmio_commit_blob_tx_resp_cb =
-            BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-
-    dmBlobTxReq1->ioBlobTxDesc = dmBlobTxReq->ioBlobTxDesc;
-    TIMEDBLOCK("commit") {
-        dataMgr->commitBlobTx(dmBlobTxReq1);
-        cb.wait();
-    }
-    EXPECT_EQ(ERR_OK, cb.e);
+    commitTxn(dmTester->TESTVOLID, dmTester->TESTBLOB);
 }
 
 
