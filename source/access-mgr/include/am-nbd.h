@@ -88,7 +88,7 @@ class NbdBlkVol : public EvBlkVol
     void nbd_vol_flush();
     void nbd_vol_trim();
 
-    void nbd_vol_write_cb(fpi::UpdateCatalogOnceMsgPtr, QuorumSvcRequest *,
+    void nbd_vol_write_cb(NbdBlkIO *vio, QuorumSvcRequest *,
                           const Error &, bo::shared_ptr<std::string>);
 
     void nbd_vol_read_cb(NbdBlkIO *vio, FailoverSvcRequest *req,
