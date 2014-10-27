@@ -28,10 +28,16 @@ AccessMgr::AccessMgr(const std::string &modName,
     storHvisor->qos_ctrl->runScheduler();
 
     dataApi = boost::make_shared<AmDataApi>();
+    asyncDataApi = boost::make_shared<AmAsyncDataApi>();
 
     // Init the FDSN server to serve XDI data requests
     fdsnServer = FdsnServer::unique_ptr(new FdsnServer("AM FDSN Server", dataApi));
     fdsnServer->init_server();
+
+    // Init the async server
+    asyncServer = AsyncDataServer::unique_ptr(
+        new AsyncDataServer("AM Async Server", asyncDataApi));
+    asyncServer->init_server();
 }
 
 AccessMgr::~AccessMgr() {
