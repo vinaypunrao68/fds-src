@@ -180,10 +180,12 @@ AsyncStartBlobTxResponseHandler::AsyncStartBlobTxResponseHandler(
     boost::shared_ptr<apis::RequestId>& _reqId)
         : respApi(_api),
           requestId(_reqId) {
+    type = HandlerType::IMMEDIATE;
 }
 
 void
 AsyncStartBlobTxResponseHandler::process() {
+    txDesc = boost::make_shared<apis::TxDescriptor>();
     txDesc->txId = blobTxId.getValue();
     respApi->startBlobTxResp(error, requestId, txDesc);
 }

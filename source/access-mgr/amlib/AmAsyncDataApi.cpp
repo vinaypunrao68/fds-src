@@ -54,6 +54,11 @@ AmAsyncDataApi::~AmAsyncDataApi() {
 }
 
 void
+AmAsyncDataApi::setResponseApi(AmAsyncResponseApi::shared_ptr respApi) {
+    responseApi = respApi;
+}
+
+void
 AmAsyncDataApi::volumeStatus(const apis::RequestId& requestId,
                              const std::string& domainName,
                              const std::string& volumeName) {

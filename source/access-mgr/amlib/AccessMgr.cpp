@@ -67,6 +67,7 @@ void
 AccessMgr::run() {
     // Run until the data server stops
     fdsnServer->deinit_server();
+    asyncServer->deinit_server();
 }
 
 Error
