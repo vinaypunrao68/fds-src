@@ -28,10 +28,17 @@ case $? in
 
         rm -f ${script_dir}/.devsetup-is-up-to-date
 
-        ansible-playbook --inventory ${script_dir}/ansible_hosts   \
-                         --connection local                        \
-                         --ask-sudo-pass                           \
-                         ${script_dir}/playbooks/devsetup.yml
+        # Construct the collection of ansible args
+
+        ansible_args="--inventory ${script_dir}/ansible_hosts --connection local 
+                      --inventory ${script_dir}/ansible_hosts 
+                      ${script_dir}/playbooks/devsetup.yml"
+
+        if [ ${#JENKINS_URL} -eq 0 ]; then
+            ansible_args="${ansible_args} --ask-sudo-pass"
+        fi
+
+        ansible-playbook ${ansible_args}
 
         if [ $? -eq 0 ]; then
             touch ${script_dir}/.devsetup-is-up-to-date
