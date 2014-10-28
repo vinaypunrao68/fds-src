@@ -147,6 +147,7 @@ class ObjectID : public serialize::Serializable {
 
     friend class ObjectLess;
     friend class ObjIdGen;
+    friend class ObjectHash;
 };
 
 /* NullObjectID */
@@ -157,7 +158,7 @@ std::ostream& operator<<(std::ostream& out, const ObjectID& oid);
 class ObjectHash {
   public:
     size_t operator()(const ObjectID& oid) const {
-      return std::hash<std::string>()(oid.ToHex());
+        return *(reinterpret_cast<const size_t *>(oid.digest));
     }
 };
 
