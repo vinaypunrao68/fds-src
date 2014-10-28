@@ -14,6 +14,14 @@ AccessMgr::AccessMgr(const std::string &modName,
                      CommonModuleProviderIf *modProvider)
         : Module(modName.c_str()),
           modProvider_(modProvider) {
+}
+
+AccessMgr::~AccessMgr() {
+}
+
+int
+AccessMgr::mod_init(SysParams const *const param) {
+    Module::mod_init(param);
     // Init the storHvisor global object. It takes a bunch of arguments
     // but doesn't really need them so we just create stock values.
     fds::Module *io_dm_vec[] = {
@@ -24,9 +32,6 @@ AccessMgr::AccessMgr(const std::string &modName,
     fds::ModuleVector io_dm(argc, argv, io_dm_vec);
     storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
                                 StorHvCtrl::NORMAL);
-    storHvisor->StartOmClient();
-    storHvisor->qos_ctrl->runScheduler();
-
     dataApi = boost::make_shared<AmDataApi>();
     asyncDataApi = boost::make_shared<AmAsyncDataApi>();
 
@@ -38,20 +43,12 @@ AccessMgr::AccessMgr(const std::string &modName,
     asyncServer = AsyncDataServer::unique_ptr(
         new AsyncDataServer("AM Async Server", asyncDataApi));
     asyncServer->init_server();
-}
-
-AccessMgr::~AccessMgr() {
-}
-
-int
-AccessMgr::mod_init(SysParams const *const param) {
-    Module::mod_init(param);
     return 0;
 }
 
 void
 AccessMgr::mod_startup() {
-    BlockMod::blk_singleton()->blk_bind_to_am(storHvisor);
+    BlockMod::blk_bind_to_am(storHvisor);
 }
 
 void
@@ -60,6 +57,9 @@ AccessMgr::mod_shutdown() {
 
 void
 AccessMgr::mod_lockstep_start_service() {
+    storHvisor->StartOmClient();
+    storHvisor->qos_ctrl->runScheduler();
+
     this->mod_lockstep_done();
 }
 

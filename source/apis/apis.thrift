@@ -97,11 +97,13 @@ struct RequestId {
 }
 
 service AsyncAmServiceRequest {
-	oneway void attachVolume(1:RequestId requestId, 2: string domainName, 
-	       3:string volumeName),
+// TODO: uncomment when ready
+//	oneway void attachVolume(1:RequestId requestId, 2: string domainName, 
+//	       3:string volumeName),
 
-        oneway void volumeContents(1:RequestId requestId, 2:string domainName, 
-	       3:string volumeName, 4:i32 count, 5:i64 offset),
+
+ //       oneway void volumeContents(1:RequestId requestId, 2:string domainName, 
+//	       3:string volumeName, 4:i32 count, 5:i64 offset),
 
 	oneway void statBlob(1:RequestId requestId, 2:string domainName, 
 	       3:string volumeName, 4:string blobName),
@@ -136,9 +138,10 @@ service AsyncAmServiceRequest {
 }
 
 service AsyncAmServiceResponse {
-	oneway void attachVolumeResponse(1:RequestId requestId),
+// TODO: uncomment when ready
+//	oneway void attachVolumeResponse(1:RequestId requestId),
 
-        oneway void volumeContents(1:RequestId requestId, 2:list<BlobDescriptor> response),
+//       oneway void volumeContents(1:RequestId requestId, 2:list<BlobDescriptor> response),
 
         oneway void statBlobResponse(1:RequestId requestId, 2:BlobDescriptor response),
 
