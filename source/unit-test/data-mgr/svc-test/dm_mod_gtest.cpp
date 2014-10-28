@@ -34,32 +34,36 @@ static fds_uint64_t txStartTs = 0;
 */
 TEST_F(DMApi, putBlobOnceTest)
 {
-    std::string blobName("testBlobOnce");
+    std::string blobPrefix("testBlobOnce");
     fpi::SvcUuid svcUuid;
     svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
-    SvcRequestCbTask<EPSvcRequest, fpi::UpdateCatalogOnceMsg> putBlobOnceWaiter;
-    auto putBlobOnce = SvcMsgFactory::newUpdateCatalogOnceMsg(volId_, blobName);
-    auto asyncPutBlobTxReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
-    fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
-    putBlobOnce->txId = 1;
-    putBlobOnce->dmt_version = 1;
-    putBlobOnce->blob_mode = 0;
-    asyncPutBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), putBlobOnce);
-    asyncPutBlobTxReq->onResponseCb(putBlobOnceWaiter.cb);
-    {
-    fds_uint64_t startTs = util::getTimeStampNanos();
-    txStartTs = startTs;
-    asyncPutBlobTxReq->invoke();
-    putBlobOnceWaiter.await();
-    fds_uint64_t endTs = util::getTimeStampNanos();
-    updateCatOnceCounter->update(endTs - startTs);
-    }
-    ASSERT_EQ(putBlobOnceWaiter.error, ERR_OK) << "Error: " << putBlobOnceWaiter.error;
-    std::cout << "\033[33m[putBlobOnceTest latency]\033[39m " << std::fixed << std::setprecision(3)
+    for (fds_uint64_t numBlobs = 0; numBlobs < NUM_BLOBS; numBlobs++) {
+        std::string blobName = blobPrefix + std::to_string(numBlobs);
+        SvcRequestCbTask<EPSvcRequest, fpi::UpdateCatalogOnceMsg> putBlobOnceWaiter;
+        auto putBlobOnce = SvcMsgFactory::newUpdateCatalogOnceMsg(volId_, blobName);
+        auto asyncPutBlobTxReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+        fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
+        putBlobOnce->txId = 1;
+        putBlobOnce->dmt_version = 1;
+        putBlobOnce->blob_mode = 0;
+        asyncPutBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), putBlobOnce);
+        asyncPutBlobTxReq->onResponseCb(putBlobOnceWaiter.cb);
+        {
+          fds_uint64_t startTs = util::getTimeStampNanos();
+          txStartTs = startTs;
+          asyncPutBlobTxReq->invoke();
+          putBlobOnceWaiter.await();
+          fds_uint64_t endTs = util::getTimeStampNanos();
+          updateCatOnceCounter->update(endTs - startTs);
+       }
+       ASSERT_EQ(putBlobOnceWaiter.error, ERR_OK) << "Error: " << putBlobOnceWaiter.error;
+       std::cout << "\033[33m[putBlobOnceTest latency]\033[39m "
+         << std::fixed << std::setprecision(3)
          << (updateCatOnceCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
          << updateCatOnceCounter->count() << std::endl;
+    }
 }
 
 TEST_F(DMApi, putBlobTest)
