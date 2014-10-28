@@ -17,7 +17,7 @@
             <div class="tile-parent">
 <!--                <div class="capacity-tile tile"></div>-->
                 <status-tile tile-title="{{ 'status.l_capacity' | translate }}" calculated-data="items">
-                    <line-chart data="capacityStats" colors="fakeCapColors" opacities="fakeOpacities" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText"></line-chart>
+                    <line-chart data="capacityStats" colors="fakeCapColors" opacities="fakeOpacities" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText" domain-labels="capacityLabels" background-color="#f7f7f7"></line-chart>
                 </status-tile>
             </div>
         </div>
@@ -25,7 +25,7 @@
             <div class="tile-parent">
 <!--                <div class="performance-tile tile"></div>-->
                 <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="items">
-                    <line-chart data="performanceStats" colors="fakeColors" opacities="fakeOpacities" suffix="IOPs" axis-color="#A0A0A0"></line-chart>
+                    <line-chart data="performanceStats" colors="fakeColors" opacities="fakeOpacities" suffix="IOPs" axis-color="#A0A0A0" domain-labels="performanceLabels" background-color="#f7f7f7"></line-chart>
                 </status-tile>
             </div>
             <div class="tile-parent">
