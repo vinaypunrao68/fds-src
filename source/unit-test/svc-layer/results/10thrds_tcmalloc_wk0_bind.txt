@@ -1,0 +1,138 @@
+['perf', 'stat', '../../Build/linux-x86_64.release/tests/threadpool_test', '--type=0', '--iter-cnt=100000', '--cnt=100000', '--producers=1', '--tp-size=10', '--gtest_filter=ThreadPoolTest.fdsthreadpool']
+Note: Google Test filter = ThreadPoolTest.fdsthreadpool
+[==========] Running 1 test from 1 test case.
+[----------] Global test environment set-up.
+[----------] 1 test from ThreadPoolTest
+[ RUN      ] ThreadPoolTest.fdsthreadpool
+Avg latency: 23753.069820 (ns)
+Avg worktime: 350.276000 (ns)
+Throughput: 174914
+[       OK ] ThreadPoolTest.fdsthreadpool (2573 ms)
+[----------] 1 test from ThreadPoolTest (2573 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test case ran. (2573 ms total)
+[  PASSED  ] 1 test.
+
+ Performance counter stats for '../../Build/linux-x86_64.release/tests/threadpool_test --type=0 --iter-cnt=100000 --cnt=100000 --producers=1 --tp-size=10 --gtest_filter=ThreadPoolTest.fdsthreadpool':
+
+       2117.503358 task-clock (msec)         #    0.422 CPUs utilized          
+           159,296 context-switches          #    0.075 M/sec                  
+               159 cpu-migrations            #    0.075 K/sec                  
+             2,053 page-faults               #    0.970 K/sec                  
+     3,623,953,051 cycles                    #    1.711 GHz                     [85.24%]
+     2,623,521,531 stalled-cycles-frontend   #   72.39% frontend cycles idle    [83.86%]
+     2,058,497,503 stalled-cycles-backend    #   56.80% backend  cycles idle    [65.50%]
+     1,574,117,857 instructions              #    0.43  insns per cycle        
+                                             #    1.67  stalled cycles per insn [82.94%]
+       349,398,860 branches                  #  165.005 M/sec                   [83.18%]
+         4,126,400 branch-misses             #    1.18% of all branches         [82.30%]
+
+       5.012641604 seconds time elapsed
+
+
+['perf', 'stat', '../../Build/linux-x86_64.release/tests/threadpool_test', '--type=0', '--iter-cnt=100000', '--cnt=100000', '--producers=1', '--tp-size=10', '--gtest_filter=ThreadPoolTest.ithreadpool']
+Note: Google Test filter = ThreadPoolTest.ithreadpool
+[==========] Running 1 test from 1 test case.
+[----------] Global test environment set-up.
+[----------] 1 test from ThreadPoolTest
+[ RUN      ] ThreadPoolTest.ithreadpool
+Avg latency: 13974.271530 (ns)
+Avg worktime: 156.010360 (ns)
+Throughput: 1535077
+[       OK ] ThreadPoolTest.ithreadpool (2069 ms)
+[----------] 1 test from ThreadPoolTest (2069 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test case ran. (2069 ms total)
+[  PASSED  ] 1 test.
+
+ Performance counter stats for '../../Build/linux-x86_64.release/tests/threadpool_test --type=0 --iter-cnt=100000 --cnt=100000 --producers=1 --tp-size=10 --gtest_filter=ThreadPoolTest.ithreadpool':
+
+        755.534834 task-clock (msec)         #    0.151 CPUs utilized          
+             5,634 context-switches          #    0.007 M/sec                  
+                57 cpu-migrations            #    0.075 K/sec                  
+             2,044 page-faults               #    0.003 M/sec                  
+     1,395,500,148 cycles                    #    1.847 GHz                     [85.97%]
+       864,025,501 stalled-cycles-frontend   #   61.92% frontend cycles idle    [84.19%]
+       401,752,084 stalled-cycles-backend    #   28.79% backend  cycles idle    [61.73%]
+     1,847,134,339 instructions              #    1.32  insns per cycle        
+                                             #    0.47  stalled cycles per insn [85.86%]
+       400,249,033 branches                  #  529.756 M/sec                   [83.46%]
+         1,641,754 branch-misses             #    0.41% of all branches         [84.86%]
+
+       5.015370419 seconds time elapsed
+
+
+[1, 100000, 100000, 23753.06982, 350.276, 174914.0, 159296, 0.422, 13974.27153, 156.01036, 1535077.0, 5634, 0.151]
+['perf', 'stat', '../../Build/linux-x86_64.release/tests/threadpool_test', '--type=0', '--iter-cnt=100000', '--cnt=100000', '--producers=4', '--tp-size=10', '--gtest_filter=ThreadPoolTest.fdsthreadpool']
+Note: Google Test filter = ThreadPoolTest.fdsthreadpool
+[==========] Running 1 test from 1 test case.
+[----------] Global test environment set-up.
+[----------] 1 test from ThreadPoolTest
+[ RUN      ] ThreadPoolTest.fdsthreadpool
+Avg latency: 42419.907923 (ns)
+Avg worktime: 301.735475 (ns)
+Throughput: 241956
+[       OK ] ThreadPoolTest.fdsthreadpool (3654 ms)
+[----------] 1 test from ThreadPoolTest (3654 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test case ran. (3654 ms total)
+[  PASSED  ] 1 test.
+
+ Performance counter stats for '../../Build/linux-x86_64.release/tests/threadpool_test --type=0 --iter-cnt=100000 --cnt=100000 --producers=4 --tp-size=10 --gtest_filter=ThreadPoolTest.fdsthreadpool':
+
+      11077.052598 task-clock (msec)         #    1.841 CPUs utilized          
+           363,818 context-switches          #    0.033 M/sec                  
+            36,495 cpu-migrations            #    0.003 M/sec                  
+             2,117 page-faults               #    0.191 K/sec                  
+    16,645,284,451 cycles                    #    1.503 GHz                     [84.33%]
+    12,165,532,505 stalled-cycles-frontend   #   73.09% frontend cycles idle    [83.14%]
+     9,965,670,397 stalled-cycles-backend    #   59.87% backend  cycles idle    [65.81%]
+     5,674,376,376 instructions              #    0.34  insns per cycle        
+                                             #    2.14  stalled cycles per insn [82.58%]
+     1,463,560,723 branches                  #  132.125 M/sec                   [83.71%]
+        10,809,038 branch-misses             #    0.74% of all branches         [83.02%]
+
+       6.015349036 seconds time elapsed
+
+
+['perf', 'stat', '../../Build/linux-x86_64.release/tests/threadpool_test', '--type=0', '--iter-cnt=100000', '--cnt=100000', '--producers=4', '--tp-size=10', '--gtest_filter=ThreadPoolTest.ithreadpool']
+Note: Google Test filter = ThreadPoolTest.ithreadpool
+[==========] Running 1 test from 1 test case.
+[----------] Global test environment set-up.
+[----------] 1 test from ThreadPoolTest
+[ RUN      ] ThreadPoolTest.ithreadpool
+Avg latency: 221747.618807 (ns)
+Avg worktime: 150.696497 (ns)
+Throughput: 2852321
+[       OK ] ThreadPoolTest.ithreadpool (2144 ms)
+[----------] 1 test from ThreadPoolTest (2144 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test case ran. (2144 ms total)
+[  PASSED  ] 1 test.
+
+ Performance counter stats for '../../Build/linux-x86_64.release/tests/threadpool_test --type=0 --iter-cnt=100000 --cnt=100000 --producers=4 --tp-size=10 --gtest_filter=ThreadPoolTest.ithreadpool':
+
+       1636.428361 task-clock (msec)         #    0.326 CPUs utilized          
+             7,410 context-switches          #    0.005 M/sec                  
+               264 cpu-migrations            #    0.161 K/sec                  
+             2,418 page-faults               #    0.001 M/sec                  
+     3,183,784,551 cycles                    #    1.946 GHz                     [82.97%]
+     2,125,041,277 stalled-cycles-frontend   #   66.75% frontend cycles idle    [84.74%]
+     1,207,162,309 stalled-cycles-backend    #   37.92% backend  cycles idle    [67.55%]
+     3,436,729,589 instructions              #    1.08  insns per cycle        
+                                             #    0.62  stalled cycles per insn [84.66%]
+       740,842,228 branches                  #  452.719 M/sec                   [79.94%]
+         2,070,704 branch-misses             #    0.28% of all branches         [84.93%]
+
+       5.014248395 seconds time elapsed
+
+
+[4, 100000, 100000, 42419.907923, 301.735475, 241956.0, 363818, 1.841, 221747.618807, 150.696497, 2852321.0, 7410, 0.326]
+  prdcrs    schdCnt     itr    S AvgLat    wktime    throughput      cs    cpu    F AvgLat    wktime    throughput    cs    cpu
+--------  ---------  ------  ----------  --------  ------------  ------  -----  ----------  --------  ------------  ----  -----
+       1     100000  100000     23753.1   350.276        174914  159296  0.422     13974.3   156.01    1.53508e+06  5634  0.151
+       4     100000  100000     42419.9   301.735        241956  363818  1.841    221748     150.696   2.85232e+06  7410  0.326
