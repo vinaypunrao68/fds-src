@@ -23,6 +23,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <google/profiler.h>
+#include "IThreadpool.h"
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -36,10 +37,12 @@ struct SMApi : BaseTestFixture
         putsFailedCnt_ = 0;
     }
     static void SetUpTestCase() {
+        tp = new IThreadpool(10);
         platform_.reset(new TestPlatform(argc_, argv_, "SingleNodeTest.log", nullptr));
         platform_->start_modules();
     }
     static void TearDownTestCase() {
+        delete tp;
         platform_->shutdown_modules();
     }
     void putCb(uint64_t opStartTs, EPSvcRequest* svcReq,
@@ -58,8 +61,9 @@ struct SMApi : BaseTestFixture
            endTs_ = util::getTimeStampNanos();
         }
     }
- protected:
+
     static std::unique_ptr<TestPlatform> platform_;
+    static IThreadpool *tp;
     std::atomic<uint32_t> putsIssued_;
     std::atomic<uint32_t> putsSuccessCnt_;
     std::atomic<uint32_t> putsFailedCnt_;
@@ -68,6 +72,8 @@ struct SMApi : BaseTestFixture
     LatencyCounter avgLatency_;
 };
 std::unique_ptr<TestPlatform> SMApi::platform_;
+IThreadpool* SMApi::tp;
+
 
 void invokeWork(SMApi *smapi,
         uint64_t opStartTs,
@@ -87,8 +93,8 @@ void invokeWork(SMApi *smapi,
         // respHdr.msg_code = ERR_SVC_REQUEST_INVOCATION;
         // smapi->putCb(opStartTs, nullptr, ERR_OK, nullptr);
         // gSvcRequestPool->postError(respHdr);
-        NetMgr::ep_mgr_thrpool()->schedule(&SMApi::putCb, smapi,
-                opStartTs, nullptr, ERR_OK, nullptr);
+        // NetMgr::ep_mgr_thrpool()->schedule(&SMApi::putCb, smapi,opStartTs, nullptr, ERR_OK, nullptr);
+        smapi->tp->enqueue(std::bind(&SMApi::putCb, smapi, opStartTs, nullptr, ERR_OK, nullptr));
     } catch (std::exception &e) {
     }
     return;
