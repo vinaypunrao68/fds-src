@@ -116,6 +116,18 @@ struct UpdateBlobResponseHandler : ResponseHandler, UpdateBlobCallback {
     virtual ~UpdateBlobResponseHandler();
 };
 
+struct AsyncUpdateBlobOnceResponseHandler : ResponseHandler, UpdateBlobCallback {
+    AsyncUpdateBlobOnceResponseHandler(AmAsyncResponseApi::shared_ptr _api,
+                                   boost::shared_ptr<apis::RequestId>& _reqId);
+    typedef boost::shared_ptr<AsyncUpdateBlobOnceResponseHandler> ptr;
+
+    AmAsyncResponseApi::shared_ptr respApi;
+    boost::shared_ptr<apis::RequestId> requestId;
+
+    virtual void process();
+    virtual ~AsyncUpdateBlobOnceResponseHandler();
+};
+
 struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
     explicit GetObjectResponseHandler(char *buf);
 

@@ -193,6 +193,22 @@ AsyncStartBlobTxResponseHandler::process() {
 AsyncStartBlobTxResponseHandler::~AsyncStartBlobTxResponseHandler() {
 }
 
+AsyncUpdateBlobOnceResponseHandler::AsyncUpdateBlobOnceResponseHandler(
+    AmAsyncResponseApi::shared_ptr _api,
+    boost::shared_ptr<apis::RequestId>& _reqId)
+        : respApi(_api),
+          requestId(_reqId) {
+    type = HandlerType::IMMEDIATE;
+}
+
+void
+AsyncUpdateBlobOnceResponseHandler::process() {
+    respApi->updateBlobOnceResp(error, requestId);
+}
+
+AsyncUpdateBlobOnceResponseHandler::~AsyncUpdateBlobOnceResponseHandler() {
+}
+
 AttachVolumeResponseHandler::AttachVolumeResponseHandler() {
 }
 

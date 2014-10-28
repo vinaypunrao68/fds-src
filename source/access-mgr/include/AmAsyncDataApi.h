@@ -46,12 +46,30 @@ class AmAsyncDataApi : public apis::AsyncAmServiceRequestIf {
 
     void setResponseApi(AmAsyncResponseApi::shared_ptr respApi);
 
+    void attachVolume(const apis::RequestId& requestId,
+                      const std::string& domainName,
+                      const std::string& volumeName);
+    void attachVolume(boost::shared_ptr<apis::RequestId>& requestId,
+                      boost::shared_ptr<std::string>& domainName,
+                      boost::shared_ptr<std::string>& volumeName);
+
     void volumeStatus(const apis::RequestId& requestId,
                       const std::string& domainName,
                       const std::string& volumeName);
     void volumeStatus(boost::shared_ptr<apis::RequestId>& requestId,
                       boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName);
+
+    void volumeContents(const apis::RequestId& requestId,
+                        const std::string& domainName,
+                        const std::string& volumeName,
+                        const int32_t count,
+                        const int64_t offset);
+    void volumeContents(boost::shared_ptr<apis::RequestId>& requestId,
+                        boost::shared_ptr<std::string>& domainName,
+                        boost::shared_ptr<std::string>& volumeName,
+                        boost::shared_ptr<int32_t>& count,
+                        boost::shared_ptr<int64_t>& offset);
 
     void statBlob(const apis::RequestId& requestId,
                   const std::string& domainName,

@@ -81,6 +81,12 @@ class BlockMod : public Module
     BlockMod();
 
     static BlockMod *blk_singleton() { return gl_BlockMod; }
+    static void blk_bind_to_am(StorHvCtrl *amc)
+    {
+        if (gl_BlockMod != NULL) {
+            gl_BlockMod->blk_amc = amc;
+        }
+    }
 
     /* Module methods. */
     virtual int  mod_init(SysParams const *const p) = 0;
@@ -93,9 +99,6 @@ class BlockMod : public Module
     virtual int blk_detach_vol(fds_uint64_t uuid);
     virtual int blk_suspend_vol(fds_uint64_t uuid) = 0;
 
-    inline void blk_bind_to_am(StorHvCtrl *amc) {
-        blk_amc = amc;
-    }
     StorHvCtrl              *blk_amc;
 
   protected:
