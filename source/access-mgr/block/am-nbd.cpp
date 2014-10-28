@@ -296,10 +296,10 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
                     dmtMgr->getCommittedNodeGroup(vol->vol_uuid)));
 
     upcat_req->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), upcat);
-    upcat_req->onResponseCb(RESPONSE_MSG_HANDLER(NbdBlkVol::nbd_vol_write_cb, upcat));
-
-    return;
+    upcat_req->onResponseCb(RESPONSE_MSG_HANDLER(NbdBlkVol::nbd_vol_write_cb, vio));
     upcat_req->invoke();
+
+    vio->aio_wait(&vol_mtx, &vol_waitq);
 }
 
 /**
@@ -307,11 +307,12 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
  * -------------
  */
 void
-NbdBlkVol::nbd_vol_write_cb(fpi::UpdateCatalogOnceMsgPtr  upcat,
+NbdBlkVol::nbd_vol_write_cb(NbdBlkIO                     *vio,
                             QuorumSvcRequest             *svcreq,
                             const Error                  &err,
                             bo::shared_ptr<std::string>   payload)
 {
+    vio->aio_wakeup(&vol_mtx, &vol_waitq);
 }
 
 /**

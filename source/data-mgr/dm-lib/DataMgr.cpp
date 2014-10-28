@@ -898,7 +898,7 @@ void DataMgr::mod_enable_service() {
     /*
      *  init Data Manager  QOS class.
      */
-    qosCtrl = new dmQosCtrl(this, 50, FDS_QoSControl::FDS_DISPATCH_WFQ, GetLog());
+    qosCtrl = new dmQosCtrl(this, 10, FDS_QoSControl::FDS_DISPATCH_WFQ, GetLog());
     qosCtrl->runScheduler();
 
     // Create a queue for system (background) tasks
