@@ -31,6 +31,19 @@ AmAsyncDataApi::setResponseApi(AmAsyncResponseApi::shared_ptr respApi) {
 }
 
 void
+AmAsyncDataApi::attachVolume(const apis::RequestId& requestId,
+                             const std::string& domainName,
+                             const std::string& volumeName) {
+    fds_panic("You shouldn't be here.");
+}
+
+void
+AmAsyncDataApi::attachVolume(boost::shared_ptr<apis::RequestId>& requestId,
+                             boost::shared_ptr<std::string>& domainName,
+                             boost::shared_ptr<std::string>& volumeName) {
+}
+
+void
 AmAsyncDataApi::volumeStatus(const apis::RequestId& requestId,
                              const std::string& domainName,
                              const std::string& volumeName) {
@@ -41,6 +54,23 @@ void
 AmAsyncDataApi::volumeStatus(boost::shared_ptr<apis::RequestId>& requestId,
                              boost::shared_ptr<std::string>& domainName,
                              boost::shared_ptr<std::string>& volumeName) {
+}
+
+void
+AmAsyncDataApi::volumeContents(const apis::RequestId& requestId,
+                               const std::string& domainName,
+                               const std::string& volumeName,
+                               const int32_t count,
+                               const int64_t offset) {
+    fds_panic("You shouldn't be here.");
+}
+
+void
+AmAsyncDataApi::volumeContents(boost::shared_ptr<apis::RequestId>& requestId,
+                               boost::shared_ptr<std::string>& domainName,
+                               boost::shared_ptr<std::string>& volumeName,
+                               boost::shared_ptr<int32_t>& count,
+                               boost::shared_ptr<int64_t>& offset) {
 }
 
 void
