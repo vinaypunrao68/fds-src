@@ -34,11 +34,7 @@ case $? in
                       --inventory ${script_dir}/ansible_hosts 
                       ${script_dir}/playbooks/devsetup.yml"
 
-        if [ ${#JENKINS_URL} -eq 0 ]; then
-            ansible_args="${ansible_args} --ask-sudo-pass"
-        fi
-
-        ansible-playbook ${ansible_args}
+        sudo ansible-playbook ${ansible_args}
 
         if [ $? -eq 0 ]; then
             touch ${script_dir}/.devsetup-is-up-to-date
