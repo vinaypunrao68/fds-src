@@ -80,9 +80,6 @@ class StorHvIoTimerTask : public fds::FdsTimerTask {
 
 typedef boost::shared_ptr<StorHvIoTimerTask> StorHvIoTimerTaskPtr;
 
-/// Forward declare to avoid circular dependency
-class AmQosReq;
-
 /// Represents an outstanding operations to a blob
 class  StorHvJournalEntry {
   private:

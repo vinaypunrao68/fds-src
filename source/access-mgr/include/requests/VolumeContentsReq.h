@@ -27,8 +27,6 @@ class VolumeContentsReq: public AmRequest {
     void *callback_data;
     fds_long_t iter_cookie = 0;
 
-    fds_volid_t base_vol_id;
-
     /* sets bucket name to blob name in the base class,
      * which is used to get trans id in journal table, and
      * some magic number for offset */

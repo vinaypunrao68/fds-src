@@ -21,8 +21,6 @@ struct DeleteBlobReq: AmRequest {
     void *callback_data;
     BlobTxId::ptr tx_desc;
 
-    fds_volid_t base_vol_id;
-
     DeleteBlobReq(fds_volid_t volId,
                   const std::string& _blob_name,
                   BucketContext* _bucket_ctxt,

@@ -13,8 +13,6 @@ namespace fds
 {
 
 struct GetBlobReq: public AmRequest {
-    fds_volid_t base_vol_id;
-
     GetBlobReq(fds_volid_t _volid,
                const std::string& _volumeName,
                const std::string& _blob_name,

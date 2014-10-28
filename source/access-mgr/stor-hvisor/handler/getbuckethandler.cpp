@@ -21,12 +21,12 @@ Error GetBucketHandler::handleRequest(BucketContext* bucket_context,
     return helper.processRequest();
 }
 
-Error GetBucketHandler::handleResponse(AmQosReq *qosReq,
+Error GetBucketHandler::handleResponse(AmRequest *amReq,
                                        FailoverSvcRequest* svcReq,
                                        const Error& error,
                                        boost::shared_ptr<std::string> payload) {
     Error err(ERR_OK);
-    StorHvCtrl::ResponseHelper helper(storHvisor, qosReq);
+    StorHvCtrl::ResponseHelper helper(storHvisor, amReq);
 
     // Return if err
     if (error != ERR_OK) {
@@ -53,10 +53,10 @@ Error GetBucketHandler::handleResponse(AmQosReq *qosReq,
     return err;
 }
 
-Error GetBucketHandler::handleQueueItem(AmQosReq *qosReq) {
+Error GetBucketHandler::handleQueueItem(AmRequest *amReq) {
     Error err(ERR_OK);
-    StorHvCtrl::RequestHelper helper(storHvisor, qosReq);
-    LOGDEBUG << "volume:" << helper.blobReq->vol_id
+    StorHvCtrl::RequestHelper helper(storHvisor, amReq);
+    LOGDEBUG << "volume:" << helper.blobReq->io_vol_id
              <<" blob:" << helper.blobReq->getBlobName();
 
     if (!helper.isValidVolume()) {
@@ -67,7 +67,7 @@ Error GetBucketHandler::handleQueueItem(AmQosReq *qosReq) {
 
     GetBucketMsgPtr message(new GetBucketMsg());
     VolumeContentsReq* blobReq = static_cast<VolumeContentsReq*>(helper.blobReq);
-    message->volume_id = blobReq->vol_id;
+    message->volume_id = blobReq->io_vol_id;
     message->startPos  = 0;
     message->maxKeys   = blobReq->maxkeys;
 
@@ -77,7 +77,7 @@ Error GetBucketHandler::handleQueueItem(AmQosReq *qosReq) {
                 storHvisor->vol_table->getBaseVolumeId(helper.volId))));
 
     asyncReq->setPayload(fpi::GetBucketMsgTypeId, message);
-    auto cb = RESPONSE_MSG_HANDLER(GetBucketHandler::handleResponse, qosReq);
+    auto cb = RESPONSE_MSG_HANDLER(GetBucketHandler::handleResponse, amReq);
 
     asyncReq->onResponseCb(cb);
     LOGDEBUG << "invoke";

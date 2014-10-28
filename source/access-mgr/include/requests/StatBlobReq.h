@@ -14,8 +14,6 @@ namespace fds
 
 class StatBlobReq : public AmRequest {
   public:
-    fds_volid_t base_vol_id;
-
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob

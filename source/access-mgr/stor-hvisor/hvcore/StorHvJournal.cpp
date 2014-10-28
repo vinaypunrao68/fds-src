@@ -433,14 +433,14 @@ StorHvJournal::get_journal_entry(fds_uint32_t trans_id) {
 // And takes care of releasing the transaction id to the free pool
 void
 StorHvJournalEntry::fbd_process_req_timeout() {
-    AmRequest *blobReq = static_cast<fds::AmQosReq*>(io)->getBlobReqPtr();
-    fds_verify(blobReq != NULL);
+    AmRequest *amReq = static_cast<fds::AmRequest*>(io);
+    fds_verify(amReq != NULL);
 
     fds::Error err(ERR_OK);
 
-    fds_volid_t   volId = blobReq->vol_id;
+    fds_volid_t   volId = amReq->io_vol_id;
     LOGWARN << "Trans id" << trans_id << " timing out, responding to blob "
-            << blobReq->getBlobName() << " offset" << blobReq->blob_offset;
+            << amReq->getBlobName() << " offset" << amReq->blob_offset;
     if (isActive()) {
         // try all the SM nodes and if we are not able to get the data  return error
         StorHvVolume *vol = storHvisor->vol_table->getVolume(volId);
@@ -465,7 +465,7 @@ StorHvJournalEntry::fbd_process_req_timeout() {
                  */
                 err = storHvisor->dispatchSmPutMsg(txn,
                         storHvisor->om_client->\
-                        getCurrentDLT()->getNode(blobReq->obj_id, txn->nodeSeq));
+                        getCurrentDLT()->getNode(amReq->obj_id, txn->nodeSeq));
             }
         } else {
             // We searched all SMs, should not happen -- either blob does not exist
@@ -473,16 +473,16 @@ StorHvJournalEntry::fbd_process_req_timeout() {
             // SMs rejecting IO (eg. because queues are full, etc).
             // To debug WIN-366, assert here. It still could be a case we can get out
             // like setting more throttling on AM, etc.
-            LOGCRITICAL << "Timed out accessing all SMs for blob " << blobReq->getBlobName()
-                        << " offset " << blobReq->blob_offset << " trans_id " << trans_id;
+            LOGCRITICAL << "Timed out accessing all SMs for blob " << amReq->getBlobName()
+                        << " offset " << amReq->blob_offset << " trans_id " << trans_id;
             fds_panic("Timed out accessing all SMs!");
 
-            // fds::PerfTracer::tracePointEnd(blobReq->e2eReqPerfCtx);
+            // fds::PerfTracer::tracePointEnd(amReq->e2eReqPerfCtx);
             storHvisor->qos_ctrl->markIODone(io);
             vol->journal_tbl->releaseTransId(trans_id);
-            blobReq->cbWithResult(-1);
-            delete blobReq;
-            blobReq = NULL;
+            amReq->cbWithResult(-1);
+            delete amReq;
+            amReq = nullptr;
             reset();
         }
     }

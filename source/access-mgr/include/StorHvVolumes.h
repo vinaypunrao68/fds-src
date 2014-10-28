@@ -28,9 +28,6 @@
 #include <native_api.h>
 #include "PerfTrace.h"
 
-#include "AmQosReq.h"
-
-
 /*
  * Forward declaration of SH control class
  */
@@ -193,7 +190,7 @@ class StorHvVolumeTable : public HasLogger {
      * list of blobs that are waiting for OM to attach appropriate
      * bucket to AM if it exists/ or return 'does not exist error
      */
-    typedef std::vector<AmQosReq*> bucket_wait_vec_t;
+    typedef std::vector<AmRequest*> bucket_wait_vec_t;
     typedef std::map<std::string, bucket_wait_vec_t> wait_blobs_t;
     typedef std::map<std::string, bucket_wait_vec_t>::iterator wait_blobs_it_t;
     wait_blobs_t wait_blobs;

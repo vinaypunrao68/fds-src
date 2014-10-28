@@ -12,10 +12,18 @@
 namespace fds
 {
 
-class AmRequest {
+class AmRequest : public FDS_IOType {
     // Callback members
     typedef boost::function<void(fds_int32_t)> callbackBind;
     typedef std::function<void (const Error&)> ProcessorCallback;
+
+    void setupFdsIOType(fds_io_op_t _op, fds_volid_t _vol_id) {
+        io_magic  = FDS_SH_IO_MAGIC_IN_USE;
+        io_module = STOR_HV_IO;
+        io_req_id = 0;
+        io_type   = _op;
+        io_vol_id = _vol_id;
+    }
 
  public:
     // Performance
@@ -27,7 +35,6 @@ class AmRequest {
 
     std::size_t    data_len;
     fds_uint64_t   blob_offset;
-    fds_volid_t    vol_id;
     std::string    volume_name;
     ObjectID       obj_id;
 
@@ -42,16 +49,15 @@ class AmRequest {
               fds_uint64_t        _blob_offset = 0,
               fds_uint64_t        _data_len = 0,
               char*               _data_buf = nullptr)
-        : magic(FDS_SH_IO_MAGIC_IN_USE),
-        io_type(_op),
-        vol_id(_vol_id),
-        volume_name(_vol_name),
+        : volume_name(_vol_name),
         blob_name(_blob_name),
         blob_offset(_blob_offset),
         data_len(_data_len),
         data_buf(_data_buf),
         cb(_cb)
     {
+        setupFdsIOType(_op, _vol_id);
+
         e2e_req_perf_ctx.name = "volume:" + std::to_string(_vol_id);
         e2e_req_perf_ctx.reset_volid(_vol_id);
     }
@@ -65,27 +71,23 @@ class AmRequest {
               fds_uint64_t         _data_len,
               char*                _data_buf,
               F f, A a, B b, C c)
-        : magic(FDS_SH_IO_MAGIC_IN_USE),
-        io_type(_op),
-        vol_id(_vol_id),
-        blob_name(_blob_name),
+        : blob_name(_blob_name),
         blob_offset(_blob_offset),
         data_len(_data_len),
         data_buf(_data_buf),
         callback(boost::bind(f, a, b, c, _1))
     {
+        setupFdsIOType(_op, _vol_id);
+
         e2e_req_perf_ctx.name = "volume:" + std::to_string(_vol_id);
         e2e_req_perf_ctx.reset_volid(_vol_id);
     }
 
     virtual ~AmRequest()
-    {
-        fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
-        magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
-    }
+    { fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx); }
 
     bool magicInUse() const
-    { return (magic == FDS_SH_IO_MAGIC_IN_USE); }
+    { return (io_magic == FDS_SH_IO_MAGIC_IN_USE); }
 
     fds_io_op_t  getIoType() const
     { return io_type; }
@@ -104,7 +106,6 @@ class AmRequest {
 
  protected:
     fds_uint32_t       magic;
-    fds_io_op_t        io_type;
     fds_uint64_t       queued_usec;  /* Time spent in queue */
     char*              data_buf;
     std::string        blob_name;

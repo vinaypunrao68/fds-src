@@ -85,9 +85,9 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         
                 // Add the vvc entry
                 // If we are thinking of adding the cache , we may have to keep a copy on the cache 
-                fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
-                fds_verify(qosReq != NULL);
-                fds::PutBlobReq *blobReq = static_cast<fds::PutBlobReq *>(qosReq->getBlobReqPtr());
+                fds::AmRequest *amReq  = static_cast<fds::AmRequest *>(txn->io);
+                fds_verify(amReq != NULL);
+                fds::PutBlobReq *blobReq = static_cast<fds::PutBlobReq *>(amReq);
                 fds_verify(blobReq != NULL);
                 Error err = vol->vol_catalog_cache->Update(
                     blobReq->getBlobName(),
@@ -98,7 +98,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                 fds_verify(err == ERR_OK);
 
                 // Mark the IO complete
-                qos_ctrl->markIODone(qosReq);
+                qos_ctrl->markIODone(amReq);
 
                 // Resume any pending operations waiting for this txn
                 // TODO(Andrew): This performs the op with the
@@ -150,11 +150,9 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         /*
          * Set the blob name from the blob request
          */
-        fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
-        fds_verify(qosReq != NULL);
-        fds::AmRequest *blobReq = qosReq->getBlobReqPtr();
-        fds_verify(blobReq != NULL);
-        upd_obj_req->blob_name = blobReq->getBlobName();
+        fds::AmRequest   *amReq  = static_cast<fds::AmRequest *>(txn->io);
+        fds_verify(amReq != NULL);
+        upd_obj_req->blob_name = amReq->getBlobName();
         upd_obj_req->dmt_version = txn->dmt_version;
  
     
@@ -265,9 +263,7 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
             LOGDEBUG << "Move trans " << transId
                       << " to FDS_TRANS_COMMITTED:"
                       << " received min DM acks";
-            fds::AmQosReq *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
-            fds_verify(qosReq != NULL);
-            fds::AmRequest *blobReq = qosReq->getBlobReqPtr();
+            fds::AmRequest *blobReq  = static_cast<fds::AmRequest *>(txn->io);
             fds_verify(blobReq != NULL);
             fds_verify(blobReq->getIoType() == FDS_DELETE_BLOB);
             LOGDEBUG << "Responding to deleteBlob trans " << transId
@@ -371,9 +367,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     fds_verify(journEntry->isActive());
 
     // Get the blob request from the journal
-    fds::AmQosReq   *qosReq  = (AmQosReq *)journEntry->io;
-    fds_verify(qosReq != NULL);
-    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
+    fds::AmRequest   *blobReq  = static_cast<AmRequest*>(journEntry->io);
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->getBlobName() == cat_obj_req->blob_name);
 

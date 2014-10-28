@@ -437,16 +437,16 @@ void StorHvVolumeTable::addBlobToWaitQueue(const std::string& bucket_name,
      * pass to QoS. SHCtrl has a request counter but
      * we can't see if from here...Let's fix that eventually.
      */
-    AmQosReq *qosReq = new AmQosReq(blob_req, 885);
+    blob_req->io_req_id = 885;
 
     wait_rwlock.write_lock();
     wait_blobs_it_t it = wait_blobs.find(bucket_name);
     if (it != wait_blobs.end()) {
         /* we already have vector of waiting blobs for this bucket name */
-        (it->second).push_back(qosReq);
+        (it->second).push_back(blob_req);
     } else {
         /* we need to start a new vector */
-        wait_blobs[bucket_name].push_back(qosReq);
+        wait_blobs[bucket_name].push_back(blob_req);
     }
     wait_rwlock.write_unlock();
 
@@ -498,11 +498,11 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
                          << vol_uuid << std::dec << " vol_name " << vol_name;
                 // since we did not know the volume id before, volid for this io is set to 0
                 // so set its volume id now to actual volume id
-                AmQosReq* req = blobs[i];
+                AmRequest* req = blobs[i];
                 fds_verify(req != NULL);
-                req->setVolId(vol_uuid);
-                //fds::PerfTracer::tracePointBegin(req->getBlobReqPtr()->e2eReqPerfCtx);
-                fds::PerfTracer::tracePointBegin(req->getBlobReqPtr()->qos_perf_ctx);
+                req->io_vol_id = vol_uuid;
+
+                fds::PerfTracer::tracePointBegin(req->qos_perf_ctx);
                 storHvisor->qos_ctrl->enqueueIO(vol_uuid, req);
             }
             blobs.clear();
@@ -517,20 +517,19 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
          * got 'error' parameter with !err.ok() or we couldn't find volume
          * so complete blobs in 'blobs' vector with error (if there are any) */
         for (uint i = 0; i < blobs.size(); ++i) {
-            AmQosReq* qosReq = blobs[i];
-            blobs[i] = NULL;
-            AmRequest* blobReq = qosReq->getBlobReqPtr();
+            AmRequest* blobReq = blobs[i];
+            blobs[i] = nullptr;
             // Hard coding a result!
             LOGERROR << "some issue : " << err;
             LOGWARN << "Calling back with error since request is waiting"
-                    << " for volume " << blobReq->vol_id
+                    << " for volume " << blobReq->io_vol_id
                     << " that doesn't exist";
             if (blobReq->cb.get() != NULL) {
                 blobReq->cb->call(FDSN_StatusEntityDoesNotExist);
             } else {
                 FDS_NativeAPI::DoCallback(blobReq, err, 0, 0);
             }
-            delete qosReq;
+            delete blobReq;
         }
         blobs.clear();
     }

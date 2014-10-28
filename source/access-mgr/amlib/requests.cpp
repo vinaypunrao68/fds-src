@@ -27,18 +27,19 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                  _data_len, _data_buf) {
     stopwatch.start();
 
+    std::string vol_str = std::string("volume: ") + std::to_string(io_vol_id);
     qos_perf_ctx.type = AM_GET_QOS;
-    qos_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    qos_perf_ctx.reset_volid(vol_id);
+    qos_perf_ctx.name = vol_str;
+    qos_perf_ctx.reset_volid(io_vol_id);
     hash_perf_ctx.type = AM_GET_HASH;
-    hash_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    hash_perf_ctx.reset_volid(vol_id);
+    hash_perf_ctx.name = vol_str;
+    hash_perf_ctx.reset_volid(io_vol_id);
     dm_perf_ctx.type = AM_GET_DM;
-    dm_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    dm_perf_ctx.reset_volid(vol_id);
+    dm_perf_ctx.name = vol_str;
+    dm_perf_ctx.reset_volid(io_vol_id);
     sm_perf_ctx.type = AM_GET_SM;
-    sm_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    sm_perf_ctx.reset_volid(vol_id);
+    sm_perf_ctx.name = vol_str;
+    sm_perf_ctx.reset_volid(io_vol_id);
 
     e2e_req_perf_ctx.type = AM_GET_OBJ_REQ;
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
@@ -72,18 +73,20 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
     retStatus(ERR_OK)
 {
     stopwatch.start();
+
+    std::string vol_str = std::string("volume: ") + std::to_string(io_vol_id);
     qos_perf_ctx.type = AM_PUT_QOS;
-    qos_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    qos_perf_ctx.reset_volid(vol_id);
+    qos_perf_ctx.name = vol_str;
+    qos_perf_ctx.reset_volid(io_vol_id);
     hash_perf_ctx.type = AM_PUT_HASH;
-    hash_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    hash_perf_ctx.reset_volid(vol_id);
+    hash_perf_ctx.name = vol_str;
+    hash_perf_ctx.reset_volid(io_vol_id);
     dm_perf_ctx.type = AM_PUT_DM;
-    dm_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    dm_perf_ctx.reset_volid(vol_id);
+    dm_perf_ctx.name = vol_str;
+    dm_perf_ctx.reset_volid(io_vol_id);
     sm_perf_ctx.type = AM_PUT_SM;
-    sm_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    sm_perf_ctx.reset_volid(vol_id);
+    sm_perf_ctx.name = vol_str;
+    sm_perf_ctx.reset_volid(io_vol_id);
 
     e2e_req_perf_ctx.type = AM_PUT_OBJ_REQ;
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
@@ -108,18 +111,20 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
     retStatus(ERR_OK)
 {
     stopwatch.start();
+
+    std::string vol_str = std::string("volume: ") + std::to_string(io_vol_id);
     qos_perf_ctx.type = AM_PUT_QOS;
-    qos_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    qos_perf_ctx.reset_volid(vol_id);
+    qos_perf_ctx.name = vol_str;
+    qos_perf_ctx.reset_volid(io_vol_id);
     hash_perf_ctx.type = AM_PUT_HASH;
-    hash_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    hash_perf_ctx.reset_volid(vol_id);
+    hash_perf_ctx.name = vol_str;
+    hash_perf_ctx.reset_volid(io_vol_id);
     dm_perf_ctx.type = AM_PUT_DM;
-    dm_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    dm_perf_ctx.reset_volid(vol_id);
+    dm_perf_ctx.name = vol_str;
+    dm_perf_ctx.reset_volid(io_vol_id);
     sm_perf_ctx.type = AM_PUT_SM;
-    sm_perf_ctx.name = "volume:" + std::to_string(vol_id);
-    sm_perf_ctx.reset_volid(vol_id);
+    sm_perf_ctx.name = vol_str;
+    sm_perf_ctx.reset_volid(io_vol_id);
 
     e2e_req_perf_ctx.type = AM_PUT_OBJ_REQ;
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
@@ -131,7 +136,7 @@ PutBlobReq::~PutBlobReq()
 }
 
 void
-PutBlobReq::notifyResponse(AmQosReq* qosReq, const Error &e) {
+PutBlobReq::notifyResponse(AmRequest* amReq, const Error &e) {
     fds_verify(respAcks > 0);
     if (0 == --respAcks) {
         // Call back to processing layer
@@ -140,7 +145,7 @@ PutBlobReq::notifyResponse(AmQosReq* qosReq, const Error &e) {
 }
 
 void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl,
-                                fds::AmQosReq* qosReq, const Error &e)
+                                fds::AmRequest* amReq, const Error &e)
 {
     int cnt;
     /* NOTE: There is a race here in setting the error from
@@ -175,7 +180,7 @@ void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl,
                 fds_verify(storHvisor->amCache->putTxDescriptor(txDescriptor) == ERR_OK);
                 fds_verify(storHvisor->amTxMgr->removeTx(*tx_desc) == ERR_OK);
             }
-            qos_ctrl->markIODone(qosReq);
+            qos_ctrl->markIODone(amReq);
             cb->call(e);
             delete this;
         } else {

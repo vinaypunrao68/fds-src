@@ -12,7 +12,6 @@
 namespace fds
 {
 
-struct AmQosReq;
 struct StorHvQosCtrl;
 
 struct PutBlobReq: public AmRequest {
@@ -84,8 +83,8 @@ struct PutBlobReq: public AmRequest {
 
     virtual ~PutBlobReq();
 
-    void notifyResponse(fds::AmQosReq* qosReq, const Error &e);
-    void notifyResponse(StorHvQosCtrl *qos_ctrl, fds::AmQosReq* qosReq, const Error &e);
+    void notifyResponse(fds::AmRequest* amReq, const Error &e);
+    void notifyResponse(StorHvQosCtrl *qos_ctrl, fds::AmRequest* amReq, const Error &e);
 };
 
 }  // namespace fds

@@ -44,10 +44,10 @@ Error GetVolumeMetaDataHandler::handleResponse(fpi::FDSP_MsgHdrTypePtr& header,
     return err;
 }
 
-Error GetVolumeMetaDataHandler::handleQueueItem(AmQosReq *qosReq) {
+Error GetVolumeMetaDataHandler::handleQueueItem(AmRequest *amReq) {
     Error err(ERR_OK);
 
-    StorHvCtrl::TxnRequestHelper helper(storHvisor, qosReq);
+    StorHvCtrl::TxnRequestHelper helper(storHvisor, amReq);
 
     if (!helper.isValidVolume()) {
         LOGCRITICAL << "unable to get volume info for vol: " << helper.volId;
@@ -65,7 +65,7 @@ Error GetVolumeMetaDataHandler::handleQueueItem(AmQosReq *qosReq) {
              << " for vol:" << helper.volId;
 
     helper.txn->op          = FDS_GET_VOLUME_METADATA;
-    helper.txn->io          = qosReq;
+    helper.txn->io          = amReq;
 
     fpi::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
     storHvisor->InitDmMsgHdr(msgHdr);
