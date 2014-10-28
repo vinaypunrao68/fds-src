@@ -52,7 +52,7 @@ AccessMgr::mod_shutdown() {
 void
 AccessMgr::mod_lockstep_start_service() {
     storHvisor->StartOmClient();
-    // storHvisor->qos_ctrl->runScheduler();
+    storHvisor->qos_ctrl->runScheduler();
 
     this->mod_lockstep_done();
 }
