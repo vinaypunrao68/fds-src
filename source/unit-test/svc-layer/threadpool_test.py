@@ -21,8 +21,8 @@ results = []
 iterations = [100]
 cnt = [1000000]
 producers = [1, 4]
-#tests = ['fdsthreadpool', 'ithreadpool']
-tests = ['fdsthreadpool', 'lfsqthreadpool']
+tests = ['fdsthreadpool', 'ithreadpool']
+#tests = ['fdsthreadpool', 'lfsqthreadpool']
 results = []
 
 for i in iterations:

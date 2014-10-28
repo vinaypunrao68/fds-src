@@ -266,7 +266,7 @@ TEST_F(ThreadPoolTest, fdsthreadpool)
 TEST_F(ThreadPoolTest, ithreadpool)
 {
     int tpSize = this->getArg<int>("tp-size");
-    std::unique_ptr<IThreadpool> tp(new IThreadpool(tpSize));
+    std::unique_ptr<IThreadpool> tp(new IThreadpool(tpSize, true));
     runWorkload(std::bind(&Producer::ITpDispFunc, tp.get(),
                 std::placeholders::_1, std::placeholders::_2));
 }

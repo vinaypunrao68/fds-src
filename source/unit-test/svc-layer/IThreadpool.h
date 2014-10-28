@@ -19,19 +19,25 @@
 typedef std::function<void()> LockFreeTask;
 
 struct LockfreeWorker {
-    LockfreeWorker(int id)
+    LockfreeWorker(int id, bool steal, std::vector<LockfreeWorker*> &peers)
     : id_(id),
+    steal_(steal),
+    peers_(peers),
     tasks(1500),
-    stop(false),
-    worker(&LockfreeWorker::workLoop, this)
+    stop(false)
     {
+    }
+
+    void start() {
+        worker = new std::thread(&LockfreeWorker::workLoop, this);
     }
 
     void finish()
     {
         stop = true;
         condition.notify_one();
-        worker.join();
+        worker->join();
+        delete worker;
     }
 
     void enqueue(LockFreeTask *t)
@@ -70,9 +76,26 @@ struct LockfreeWorker {
                 if (stop) {
                     return;
                 }
+                /* Pop work */
                 if (tasks.pop(task)) {
                     break;
                 }
+                /* No work. Try and steal */
+                if (steal_) {
+                    bool found = false;
+                    for (uint32_t i = 0; i < peers_.size(); i++) {
+                        auto idx = (id_ + i + 1) % peers_.size();
+                        if (peers_[idx]->tasks.pop(task)) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found) {
+                        break;
+                    }
+                    spinCnt = 1000;
+                }
+
                 ++spinCnt;
                 if (spinCnt > 100000) {
                     std::unique_lock<std::mutex> lock(this->queue_mutex);
@@ -84,6 +107,8 @@ struct LockfreeWorker {
         }
     }
     int id_;
+    bool steal_;
+    std::vector<LockfreeWorker*> &peers_;
     // the task queue
     boost::lockfree::queue<LockFreeTask*> tasks;
 
@@ -91,16 +116,19 @@ struct LockfreeWorker {
     std::mutex queue_mutex;
     std::condition_variable condition;
     std::atomic<bool> stop;
-    std::thread worker;
+    std::thread* worker;
 };
 
 struct IThreadpool {
-    IThreadpool(uint32_t sz)
+    IThreadpool(uint32_t sz, bool steal = false)
     : workers(sz),
       idx(0)
     {
         for (uint32_t i = 0; i < workers.size(); i++) {
-            workers[i] = new LockfreeWorker(i);
+            workers[i] = new LockfreeWorker(i, steal, workers);
+        }
+        for (uint32_t i = 0; i < workers.size(); i++) {
+            workers[i]->start();
         }
     }
     ~IThreadpool()
