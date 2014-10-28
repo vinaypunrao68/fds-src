@@ -1,7 +1,9 @@
+{% extends 'fds_config_defaults.j2' %}
+{% block content %}
 fds: {
     /* Network interface that all fds nodes should have */
-    
-    nic_if="eth0"
+
+    nic_if="{{ default_nic }}"
 
     /* Use genkey to generate a new one */
     aes_key="005ecbcf2a3ddf8fc634a43b8adb44cc"
@@ -31,7 +33,7 @@ fds: {
         platform_port = 7000
 
         /* Orchestration manager info */
-        om_ip            = "127.0.0.1"
+        om_ip            = "{{ om_ip }}"
         om_port          = 8904
         om_platform_port = 7000
 
@@ -39,10 +41,10 @@ fds: {
         auto_start_services = true
 
         /* Graphite is enabled or not */
-        enable_graphite = false
+        enable_graphite = {{ metrics_enabled }}
         graphite: {
             /* Graphite server ip */
-            ip = "10.1.10.232"
+            ip = "{{ metricsdb_ip }}"
             /* Graphite server port */
             port = 2003
             period = 5
@@ -74,7 +76,7 @@ fds: {
         /* process id */
         id      = "dm"
         no_om   = false;
-        om_ip   = "127.0.0.1"
+        om_ip   = "{{ om_ip }}"
         om_port = 8904
 
         /* Log file */
@@ -89,10 +91,10 @@ fds: {
 	}
 
         /* Graphite is enabled or not */
-        enable_graphite = false
+        enable_graphite = {{ metrics_enabled }}
         graphite: {
             /* Graphite server ip */
-            ip = "10.1.10.232"
+            ip = "{{ metricsdb_ip }}"
 
             /* Graphite server port */
             port = 2003
@@ -138,7 +140,7 @@ fds: {
         /* process id */
         id      = "sm"
         prefix  = ""
-        om_ip   = "127.0.0.1"
+        om_ip   = "{{ om_ip }}"
         om_port = 8904
 
         /* Log file */
@@ -179,14 +181,14 @@ fds: {
             /* General testing mode...should depricate */
             test_mode = false
 
-	    /* Number of volumes to create in test mode.  Valid when test_mode is true */
-	    test_volume_cnt=10
+            /* Number of volumes to create in test mode.  Valid when test_mode is true */
+            test_volume_cnt=10
 
-	    /* Forces all SM APIs to immediately return success */
-	    uturn_all = false
+            /* Forces all SM APIs to immediately return success */
+            uturn_all = false
 
-	    /* Forces put object calls to immediately return success */
-	    uturn_putobj = false
+            /* Forces put object calls to immediately return success */
+            uturn_putobj = false
 
             /* if test_tier is enable, rank engine will be configured from the config below */
             test_tier = false
@@ -209,16 +211,16 @@ fds: {
         /* Migration related info */
         migration: {
             /* IP of the migration server */
-            ip="10.1.10.119"
+            ip = "{{ om_ip }}"
 
             /* Number of threads for doing migration work */
             thread_cnt=5
         }
         /* Graphite is enabled or not */
-        enable_graphite=true
+        enable_graphite = {{ metrics_enabled }}
         graphite: {
             /* Graphite server ip */
-            ip="10.1.10.232"
+            ip = "{{ metricsdb_ip }}"
 
             /* Graphite server port */
             port=2003
@@ -231,11 +233,12 @@ fds: {
         }
         log_severity = "trace"
         logfile      = "am"
-        om_ip        = "127.0.0.1"
+        om_ip        = "{{ om_ip }}"
         om_port      = 8904
-	/* TODO(Rao): Get this from platform */
-	om_config_port = 8903
-        enable_graphite = false
+
+        /* TODO(Rao): Get this from platform */
+        om_config_port = 8903
+        enable_graphite = {{ metrics_enabled }}
 
         s3_http_port=8000
         s3_https_port=8443
@@ -312,8 +315,8 @@ fds: {
         logfile="om"
         config_port=8903
         control_port=8904
-        ip_address="127.0.0.1"
-        enable_graphite=false
+        ip_address = "{{ om_ip }}"
+        enable_graphite = {{ metrics_enabled }}
         token_factor=8
         replica_factor=4
         placement_algo="ConsistHash"
@@ -343,12 +346,12 @@ fds: {
         control_port = 6991
 
         /* Orchestration manager ip */
-        om_ip = "10.1.10.119"
+        om_ip = "{{ om_ip }}"
 
         /* Orchestration manager port */
         om_port = 8904
 
-        enable_graphite = false
+        enable_graphite = {{ metrics_enabled }}
 
         threadpool: {
             max_task    = 10
@@ -360,3 +363,4 @@ fds: {
     }
 
 }
+{% endblock %}

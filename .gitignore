@@ -106,6 +106,8 @@ chef/nodes
 chef/vagrant/*/.vagrant/*
 source/java/${project.build.dir}
 source/test/.idea
+source/test/formation.conf
+source/config/etc/*.conf
 ansible/resources/*
 files_after_smoke_test
 files_after_starting_fds

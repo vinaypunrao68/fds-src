@@ -1,15 +1,24 @@
-[fds_nodes]
-node[0:3]
+[localhost]
+127.0.0.1
 
-[cody-local]
-test1
+[localhost:vars]
+#fds_default_nic=eth0
+#fds_om_host=127.0.0.1
+#fds_metrics_enabled=true
+#fds_metricsdb_ip=10.2.10.22
+#fds_ssh_user=root
+#fds_ssh_password=passwd
 
-[cody-local:vars]
-influxdb_ip=10.2.10.22
-influxdb_port=8086
-influxdb_db=codytest
-influxdb_user=test
-influxdb_password=test
+[fremont_node_cluster]
+node[0:2].formationds.com
+
+[fremont_node_cluster:vars]
+fds_default_nic=em1
+fds_om_host=node0.formationds.com
+fds_metrics_enabled=false
+fds_metricsdb_ip=127.0.0.1
+fds_ssh_user=root
+fds_ssh_password=passwd
 
 [fds-cloud]
 servernode[0:3]
@@ -22,7 +31,6 @@ influxdb_user=fds
 influxdb_password=Formation1234
 
 [collectd-hosts:children]
-cody-local
 fds-cloud
 
 [collectd-hosts:vars]
@@ -31,3 +39,14 @@ influxdb_collectd_proxy_ip=127.0.0.1
 influxdb_collectd_proxy_precision=s
 influxdb_collectd_proxy_verbose=false
 influxdb_collectd_proxy_user=influxdb_collectd_proxy
+
+[local-fds-nodes]
+node[0:3]
+
+[local-fds-nodes:vars]
+fds_default_nic=eth1
+fds_om_host=node0
+fds_metrics_enabled=false
+fds_metricsdb_ip=192.168.2.1
+fds_ssh_user=root
+fds_ssh_password=vagrant
