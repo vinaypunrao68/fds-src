@@ -67,7 +67,7 @@ public class Main {
                 ops = new BlockExclusionWrapper(ops, 4096);
             NbdHost nbdHost = new NbdHost(nbdPort, ops);
 
-            new Thread(() -> nbdHost.run()).start();
+            new Thread(() -> nbdHost.run(), "NBD thread").start();
 
             Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
             ByteBufferPool bbp = new ArrayByteBufferPool();
@@ -80,7 +80,7 @@ public class Main {
             HttpConfiguration httpConfiguration = new HttpConfiguration(s3HttpPort, "0.0.0.0");
             HttpsConfiguration httpsConfiguration = new HttpsConfiguration(s3SslPort, configuration);
 
-            new Thread(() -> new S3Endpoint(xdi, factory, secretKey, httpsConfiguration, httpConfiguration).start()).start();
+            new Thread(() -> new S3Endpoint(xdi, factory, secretKey, httpsConfiguration, httpConfiguration).start(), "S3 service thread").start();
 
             startStreamingServer(8999, configCache);
 
@@ -109,7 +109,7 @@ public class Main {
             }
         };
 
-        new Thread(runnable).start();
+        new Thread(runnable, "Statistics streaming thread").start();
     }
 
 }
