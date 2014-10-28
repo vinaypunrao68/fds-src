@@ -33,11 +33,19 @@ AccessMgr::mod_init(SysParams const *const param) {
     storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
                                 StorHvCtrl::NORMAL);
     dataApi = boost::make_shared<AmDataApi>();
+    asyncDataApi = boost::make_shared<AmAsyncDataApi>();
 
     // Init the FDSN server to serve XDI data requests
     fdsnServer = FdsnServer::unique_ptr(new FdsnServer("AM FDSN Server", dataApi));
     fdsnServer->init_server();
-    return 0;
+
+    // Init the async server
+    asyncServer = AsyncDataServer::unique_ptr(
+        new AsyncDataServer("AM Async Server", asyncDataApi));
+    asyncServer->init_server();
+}
+
+AccessMgr::~AccessMgr() {
 }
 
 void
@@ -61,6 +69,7 @@ void
 AccessMgr::run() {
     // Run until the data server stops
     fdsnServer->deinit_server();
+    asyncServer->deinit_server();
 }
 
 Error

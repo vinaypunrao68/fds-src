@@ -175,6 +175,24 @@ StartBlobTxResponseHandler::process() {
 StartBlobTxResponseHandler::~StartBlobTxResponseHandler() {
 }
 
+AsyncStartBlobTxResponseHandler::AsyncStartBlobTxResponseHandler(
+    AmAsyncResponseApi::shared_ptr _api,
+    boost::shared_ptr<apis::RequestId>& _reqId)
+        : respApi(_api),
+          requestId(_reqId) {
+    type = HandlerType::IMMEDIATE;
+}
+
+void
+AsyncStartBlobTxResponseHandler::process() {
+    txDesc = boost::make_shared<apis::TxDescriptor>();
+    txDesc->txId = blobTxId.getValue();
+    respApi->startBlobTxResp(error, requestId, txDesc);
+}
+
+AsyncStartBlobTxResponseHandler::~AsyncStartBlobTxResponseHandler() {
+}
+
 AttachVolumeResponseHandler::AttachVolumeResponseHandler() {
 }
 
