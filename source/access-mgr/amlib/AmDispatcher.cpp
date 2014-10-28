@@ -220,7 +220,7 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
     fds_verify(blobReq->magicInUse() == true);
 
     fiu_do_on("am.uturn.dispatcher",
-              blobReq->notifyResponse(amReq, ERR_OK);  \
+              blobReq->notifyResponse(ERR_OK);  \
               return;);
 
     UpdateCatalogMsgPtr updCatMsg(boost::make_shared<UpdateCatalogMsg>());
@@ -260,7 +260,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
     fds_verify(blobReq->magicInUse() == true);
 
     fiu_do_on("am.uturn.dispatcher",
-              blobReq->notifyResponse(amReq, ERR_OK); \
+              blobReq->notifyResponse(ERR_OK); \
               return;);
 
     UpdateCatalogOnceMsgPtr updCatMsg(boost::make_shared<UpdateCatalogOnceMsg>());
@@ -321,7 +321,7 @@ AmDispatcher::updateCatalogCb(AmRequest* amReq,
     } else {
         LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
     }
-    blobReq->notifyResponse(amReq, error);
+    blobReq->notifyResponse(error);
 }
 
 void
@@ -331,7 +331,7 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
     fds_verify(blobReq->data_len > 0);
 
     fiu_do_on("am.uturn.dispatcher",
-              blobReq->notifyResponse(amReq, ERR_OK); \
+              blobReq->notifyResponse(ERR_OK); \
               return;);
 
     PutObjectMsgPtr putObjMsg(boost::make_shared<PutObjectMsg>());
@@ -372,7 +372,7 @@ AmDispatcher::putObjectCb(AmRequest* amReq,
     } else {
         LOGDEBUG << svcReq->logString() << logString(*putObjRsp);
     }
-    blobReq->notifyResponse(amReq, error);
+    blobReq->notifyResponse(error);
 }
 
 void

@@ -94,7 +94,6 @@ Error StorHvQosCtrl::markIODone(FDS_IOType *io) {
                                            STAT_AM_QUEUE_WAIT,
                                            io->io_wait_time);
 
-  delete io;
   return err;
 }
 

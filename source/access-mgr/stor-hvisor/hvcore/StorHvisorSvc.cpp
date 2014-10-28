@@ -470,7 +470,7 @@ Error StorHvCtrl::putBlobSvc(fds::AmRequest *amReq)
     if (fZeroSize) {
         // If there's not object data to write, just update the
         // SM's response ack count
-        blobReq->notifyResponse(qos_ctrl, amReq, err);
+        blobReq->notifyResponse(qos_ctrl, err);
     } else {
         // Update the transaction manager with the stage object data
         fds_verify(amTxMgr->updateStagedBlobObject(*(blobReq->tx_desc),
@@ -622,7 +622,7 @@ void StorHvCtrl::putBlobPutObjectMsgResp(fds::AmRequest* amReq,
     } else {
         LOGDEBUG << svcReq->logString() << fds::logString(*putObjRsp);
     }
-    blobReq->notifyResponse(qos_ctrl, amReq, error);
+    blobReq->notifyResponse(qos_ctrl, error);
 }
 
 void StorHvCtrl::putBlobUpdateCatalogMsgResp(fds::AmRequest* amReq,
@@ -642,7 +642,7 @@ void StorHvCtrl::putBlobUpdateCatalogMsgResp(fds::AmRequest* amReq,
     } else {
         LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
     }
-    blobReq->notifyResponse(qos_ctrl, amReq, error);
+    blobReq->notifyResponse(qos_ctrl, error);
 }
 
 void
@@ -662,7 +662,7 @@ StorHvCtrl::putBlobUpdateCatalogOnceMsgResp(fds::AmRequest* amReq,
     } else {
         LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
     }
-    blobReq->notifyResponse(qos_ctrl, amReq, error);
+    blobReq->notifyResponse(qos_ctrl, error);
 }
 
 

@@ -214,7 +214,7 @@ AmProcessor::putBlob(AmRequest *amReq) {
     // Either dispatch the put blob request or, if there's no data, just call
     // our callback handler now (NO-OP).
     blobReq->data_len > 0 ? amDispatcher->dispatchPutObject(amReq) :
-                                blobReq->notifyResponse(amReq, ERR_OK);
+                                blobReq->notifyResponse(ERR_OK);
 }
 
 void

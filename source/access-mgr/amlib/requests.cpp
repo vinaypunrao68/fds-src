@@ -136,7 +136,7 @@ PutBlobReq::~PutBlobReq()
 }
 
 void
-PutBlobReq::notifyResponse(AmRequest* amReq, const Error &e) {
+PutBlobReq::notifyResponse(const Error &e) {
     fds_verify(respAcks > 0);
     if (0 == --respAcks) {
         // Call back to processing layer
@@ -144,8 +144,7 @@ PutBlobReq::notifyResponse(AmRequest* amReq, const Error &e) {
     }
 }
 
-void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl,
-                                fds::AmRequest* amReq, const Error &e)
+void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl, const Error &e)
 {
     int cnt;
     /* NOTE: There is a race here in setting the error from
@@ -180,9 +179,8 @@ void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl,
                 fds_verify(storHvisor->amCache->putTxDescriptor(txDescriptor) == ERR_OK);
                 fds_verify(storHvisor->amTxMgr->removeTx(*tx_desc) == ERR_OK);
             }
-            qos_ctrl->markIODone(amReq);
             cb->call(e);
-            delete this;
+            qos_ctrl->markIODone(this);
         } else {
             // Call back to processing layer
             proc_cb(e);
