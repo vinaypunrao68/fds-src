@@ -17,6 +17,10 @@
 
 namespace fds {
 
+struct CatalogException : std::runtime_error {
+	   explicit CatalogException (const std::string& what_arg) : std::runtime_error(what_arg) {}
+};
+
 struct CopyDetails {
     CopyDetails(const std::string & src, const std::string & dest)
             : srcPath(src), destPath(dest) {}

@@ -4,7 +4,6 @@
 
 package com.formationds.commons.model;
 
-import com.formationds.commons.crud.SearchResults;
 import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.abs.ModelBase;
@@ -16,12 +15,11 @@ import java.util.List;
  * @author ptinius
  */
 public class Statistics
-  extends ModelBase
-  implements SearchResults {
+  extends ModelBase {
   private static final long serialVersionUID = 1565568840222449672L;
 
   private List<Series> series;
-  private List<Calculated> calculated;    //
+  private List<Calculated> calculated;    // de-dup ratio/% consumer/etc.
   private List<Metadata> metadata;        // query details
 
   /**
@@ -34,6 +32,10 @@ public class Statistics
    * @return Returns the {@link List} of {@link Series}
    */
   public List<Series> getSeries() {
+    if( this.series == null ) {
+      this.series = new ArrayList<>( );
+    }
+
     return series;
   }
 
@@ -59,6 +61,10 @@ public class Statistics
    * @return Returns the {@link List} of {@link Calculated}
    */
   public List<Calculated> getCalculated() {
+    if( this.calculated == null ) {
+      this.calculated = new ArrayList<>( );
+    }
+
     return calculated;
   }
 
@@ -84,6 +90,10 @@ public class Statistics
    * @return Returns the {@link List} of {@link Metadata}
    */
   public List<Metadata> getMetadata() {
+    if( this.metadata == null ) {
+      this.metadata = new ArrayList<>( );
+    }
+
     return metadata;
   }
 

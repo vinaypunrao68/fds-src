@@ -285,13 +285,19 @@ Error PersistVolumeMeta::init() {
     std::string logDirName = snapshot_ ? "" : root->dir_user_repo_dm() + volumeIdStr() + "/";
     std::string logFilePrefix(snapshot_ ? "" : "catalog.journal");
 
-    catalog_ = new(std::nothrow) Catalog(catName, writeBufferSize, cacheSize, logDirName,
-            logFilePrefix, maxLogFiles);
-    if (!catalog_) {
+    try
+    {
+        catalog_ = new Catalog(catName, writeBufferSize, cacheSize, logDirName,
+                logFilePrefix, maxLogFiles);
+    }
+    catch(const CatalogException& e)
+    {
         LOGERROR << "Failed to create catalog for volume "
                  << std::hex << volume_id << std::dec;
-        return ERR_OUT_OF_MEMORY;
+        LOGERROR << e.what();
+        err = fds::Error(fds::ERR_NOT_READY);
     }
+
     return err;
 }
 

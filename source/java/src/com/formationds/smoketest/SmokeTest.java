@@ -4,6 +4,9 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.Snapshot;
+import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -15,11 +18,6 @@ import org.json.JSONObject;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import com.formationds.apis.*;
-import com.formationds.xdi.*;
-import org.apache.thrift.protocol.TBinaryProtocol;
-import org.apache.thrift.transport.TSocket;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.SecureRandom;
@@ -30,8 +28,7 @@ import java.util.stream.IntStream;
 import static org.junit.Assert.*;
 
 /**
- * Copyright (c) 2014 Formation Data Systems.
- * All rights reserved.
+ * Copyright (c) 2014 Formation Data Systems. All rights reserved.
  */
 
 // We're just telling the unit test runner to ignore this, the class is ran SmokeTestRunner
@@ -52,24 +49,31 @@ public class SmokeTest {
     private final int count;
     ConfigurationService.Iface config;
 
-    public SmokeTest() throws Exception {
+    public SmokeTest()
+            throws Exception {
         System.setProperty(AMAZON_DISABLE_SSL, "true");
-        String host = (String) System.getProperties().getOrDefault("fds.host", "localhost");
+        String host = (String) System.getProperties()
+                .getOrDefault("fds.host", "localhost");
         String omUrl = "https://" + host + ":7443";
         turnLog4jOff();
         JSONObject adminUserObject = getObject(omUrl + "/api/auth/token?login=admin&password=admin", "");
         String adminToken = adminUserObject.getString("token");
 
-        String tenantName = UUID.randomUUID().toString();
+        String tenantName = UUID.randomUUID()
+                .toString();
         long tenantId = doPost(omUrl + "/api/system/tenants/" + tenantName, adminToken).getLong("id");
 
-        String userName = UUID.randomUUID().toString();
-        String password = UUID.randomUUID().toString();
+        String userName = UUID.randomUUID()
+                .toString();
+        String password = UUID.randomUUID()
+                .toString();
         long userId = doPost(omUrl + "/api/system/users/" + userName + "/" + password, adminToken).getLong("id");
         String userToken = getObject(omUrl + "/api/system/token/" + userId, adminToken).getString("token");
         doPut(omUrl + "/api/system/tenants/" + tenantId + "/" + userId, adminToken);
-        adminBucket = UUID.randomUUID().toString();
-        userBucket = UUID.randomUUID().toString();
+        adminBucket = UUID.randomUUID()
+                .toString();
+        userBucket = UUID.randomUUID()
+                .toString();
         snapBucket = "snap_" + userBucket;
         adminClient = s3Client(host, ADMIN_USERNAME, adminToken);
         userClient = s3Client(host, userName, userToken);
@@ -77,7 +81,8 @@ public class SmokeTest {
         userClient.createBucket(userBucket);
         randomBytes = new byte[4096];
         new SecureRandom().nextBytes(randomBytes);
-        prefix = UUID.randomUUID().toString();
+        prefix = UUID.randomUUID()
+                .toString();
         count = 10;
         config = new XdiClientFactory().remoteOmService(host, 9090);
     }
@@ -91,7 +96,8 @@ public class SmokeTest {
 
     @Test
     public void testMultipartUpload() {
-        String key = UUID.randomUUID().toString();
+        String key = UUID.randomUUID()
+                .toString();
         InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
         int partCount = 5;
 
@@ -120,12 +126,16 @@ public class SmokeTest {
 
     // @Test
     public void testCopyObject() {
-        String source = UUID.randomUUID().toString();
-        String destination = UUID.randomUUID().toString();
+        String source = UUID.randomUUID()
+                .toString();
+        String destination = UUID.randomUUID()
+                .toString();
         userClient.putObject(userBucket, source, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
         userClient.copyObject(userBucket, source, userBucket, destination);
-        String sourceEtag = userClient.getObjectMetadata(userBucket, destination).getETag();
-        String destinationEtag = userClient.getObjectMetadata(userBucket, destination).getETag();
+        String sourceEtag = userClient.getObjectMetadata(userBucket, destination)
+                .getETag();
+        String destinationEtag = userClient.getObjectMetadata(userBucket, destination)
+                .getETag();
         assertEquals(sourceEtag, destinationEtag);
     }
 
@@ -146,7 +156,7 @@ public class SmokeTest {
         long volumeId = 0;
         try {
             volumeId = config.getVolumeId(userBucket);
-            config.createSnapshot(volumeId,snapBucket, 0);
+            config.createSnapshot(volumeId, snapBucket, 0);
             sleep(3000);
             List<Snapshot> snaps = config.listSnapshots(volumeId);
             assertEquals(1, snaps.size());
@@ -162,7 +172,8 @@ public class SmokeTest {
                     S3Object object = userClient.getObject(snapBucket, key);
                     //assertEquals(key, object.getObjectMetadata().getUserMetaDataOf(CUSTOM_METADATA_HEADER));
                     //assertEquals(last[0].getContentMd5(), object.getObjectMetadata().getContentMD5());
-                    assertEquals(last[0].getETag(), object.getObjectMetadata().getETag());
+                    assertEquals(last[0].getETag(), object.getObjectMetadata()
+                            .getETag());
                     try {
                         assertArrayEquals(randomBytes, IOUtils.toByteArray(object.getObjectContent()));
                     } catch (IOException e) {
@@ -170,6 +181,15 @@ public class SmokeTest {
                         fail("Error reading object");
                     }
                 });
+    }
+
+    @Test
+    public void testPutGetOneObject() throws Exception {
+        String key = UUID.randomUUID().toString();
+        userClient.putObject(userBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        S3Object object = userClient.getObject(userBucket, key);
+        byte[] bytes = IOUtils.toByteArray(object.getObjectContent());
+        assertArrayEquals(randomBytes, bytes);
     }
 
     @Test
@@ -191,9 +211,11 @@ public class SmokeTest {
                 .forEach(i -> {
                     String key = prefix + "-" + i;
                     S3Object object = userClient.getObject(userBucket, key);
-                    assertEquals(key, object.getObjectMetadata().getUserMetaDataOf(CUSTOM_METADATA_HEADER));
+                    assertEquals(key, object.getObjectMetadata()
+                            .getUserMetaDataOf(CUSTOM_METADATA_HEADER));
                     //assertEquals(last[0].getContentMd5(), object.getObjectMetadata().getContentMD5());
-                    assertEquals(last[0].getETag(), object.getObjectMetadata().getETag());
+                    assertEquals(last[0].getETag(), object.getObjectMetadata()
+                            .getETag());
                     try {
                         assertArrayEquals(randomBytes, IOUtils.toByteArray(object.getObjectContent()));
                     } catch (IOException e) {
@@ -208,12 +230,15 @@ public class SmokeTest {
                     String key = prefix + "-" + i;
                     userClient.deleteObject(userBucket, key);
                 });
-        assertEquals(0, userClient.listObjects(userBucket).getObjectSummaries().size());
+        assertEquals(0, userClient.listObjects(userBucket)
+                .getObjectSummaries()
+                .size());
     }
 
     @Test
     public void testUsersCannotAccessUnauthorizedObjects() {
-        String key = UUID.randomUUID().toString();
+        String key = UUID.randomUUID()
+                .toString();
         adminClient.putObject(adminBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
         try {
             userClient.getObject(adminBucket, key);
@@ -263,32 +288,39 @@ public class SmokeTest {
         return client;
     }
 
-    private JSONObject getObject(String url, String token) throws Exception {
+    private JSONObject getObject(String url, String token)
+            throws Exception {
         return new JSONObject(getString(url, token));
     }
 
-    private String getString(String url, String token) throws Exception {
+    private String getString(String url, String token)
+            throws Exception {
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpGet httpGet = new HttpGet(url);
         httpGet.setHeader(FDS_AUTH_HEADER, token);
         HttpResponse response = httpClient.execute(httpGet);
-        return IOUtils.toString(response.getEntity().getContent());
+        return IOUtils.toString(response.getEntity()
+                .getContent());
     }
 
-    private JSONObject doPost(String url, String token) throws Exception {
+    private JSONObject doPost(String url, String token)
+            throws Exception {
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpPost httpPost = new HttpPost(url);
         httpPost.setHeader(FDS_AUTH_HEADER, token);
         HttpResponse response = httpClient.execute(httpPost);
-        return new JSONObject(IOUtils.toString(response.getEntity().getContent()));
+        return new JSONObject(IOUtils.toString(response.getEntity()
+                .getContent()));
     }
 
-    private JSONObject doPut(String url, String token) throws Exception {
+    private JSONObject doPut(String url, String token)
+            throws Exception {
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpPut httpPut = new HttpPut(url);
         httpPut.setHeader(FDS_AUTH_HEADER, token);
         HttpResponse response = httpClient.execute(httpPut);
-        return new JSONObject(IOUtils.toString(response.getEntity().getContent()));
+        return new JSONObject(IOUtils.toString(response.getEntity()
+                .getContent()));
     }
 
     private void turnLog4jOff() {

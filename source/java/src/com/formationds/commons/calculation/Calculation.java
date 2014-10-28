@@ -25,4 +25,19 @@ public class Calculation {
                                      final Double longTerm ) {
     return ( ( shortTerm / longTerm ) > THRESHOLD );
   }
+
+  /**
+   * @param enumerator  the {@link Double} representing the enumerator
+   * @param denominator the {@link Double} representing the denominator
+   *
+   * @return Returns {@link Double} representing the ratio
+   */
+  public static Double ratio( final double enumerator,
+                              final Double denominator ) {
+    if( ( enumerator > 0.0 ) && ( denominator > 0.0 ) ) {
+      return enumerator / denominator;
+    }
+
+    return 0.0;
+  }
 }

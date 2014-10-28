@@ -1,4 +1,4 @@
-<div ng-controller="snapshotPolicyController" style="width: 350px;">
+<div ng-controller="snapshotPolicyController" ng-style="{ width : (editing === true ) ? '880px' : '650px' }">
     
     <div class="header">
         <span translate>volumes.l_snapshot_policy</span>
@@ -10,29 +10,43 @@
     <table class="default">
         <thead>
             <tr>
+                <th class="no-top-padding">Interval</th>
                 <th class="no-top-padding"></th>
-                <th class="no-top-padding"></th>
-                <th class="no-top-padding"></th>
-                <th class="no-top-padding"></th>
+                <th class="no-top-padding">Schedule</th>
+                <th class="no-top-padding">Kept for</th>
             </tr>
         </thead>
         <tbody>
             <tr ng-repeat="policy in policies">
-                <td>
-                    <tri-state-check check-state="policy.use" class="use-box"></tri-state-check>
-                </td>
-                <td>
-                    <span style="width: 100px;">{{policy.displayName}}</span>
-                </td>
-                <td>
-                    <div class="policy-value-display" ng-show="editing == false">Keep for {{policy.value}} {{policy.units.name.toLowerCase()}}</div>
-                    <div class="flex" style="vertical-align: middle;" ng-show="editing == true">
-                        <span style="padding-right: 4px;margin-top: 8px;">Keep for:</span>
-                        <spinner class="skinny retention-spinner" style="margin-right: 4px;" min="1" max="9999" value="policy.value"></spinner>
-                        <fui-dropdown class="retention-dropdown" skinny="true" items="timeChoices" selected="policy.units" background="none" color="black" border="gray"></fui-dropdown>
+                <td colspan="2">
+                    <div class="flex">
+                        <tri-state-check check-state="policy.use" class="use-box" enabled="editing"></tri-state-check>
+    <!--                </td>-->
+    <!--                <td>-->
+                        <span style="width: 100px;padding-left: 4px;">{{policy.displayName}}</span>
                     </div>
                 </td>
                 <td>
+                    <div class="flex" ng-show="!editing">
+                        <span style="padding-right: 4px;">{{ policy.startTime.name }}</span>
+                        <span>{{ policy.startRule.displayName }}</span>
+                    </div>
+                    <div class="flex" ng-show="editing">
+                        <span style="padding-right: 4px;">
+                            <fui-dropdown class="schedule-dropdown" skinny="true" items="startTimeChoices" selected="policy.startTime" background="none" color="black" border="gray" name-property="name" width="106px" enabled="policy.timeEnabled"></fui-dropdown>
+                        </span>
+                        <span>
+                            <fui-dropdown class="recurrence-dropdown" skinny="true" items="policy.rules" selected="policy.startRule" background="none" color="black" border="gray" width="300px" name-property="displayName" enabled="policy.ruleEnabled"></fui-dropdown>
+                        </span>
+                    </div>
+                </td>
+                <td>
+                    <div class="policy-value-display" ng-show="editing == false">{{ 'volumes.snapshot.l_retention_summary' | translate }} {{policy.value}} {{policy.units.name.toLowerCase()}}</div>
+                    <div class="flex" style="vertical-align: middle;" ng-show="editing == true">
+                        <span style="padding-right: 4px;margin-top: 8px;">Keep for:</span>
+                        <spinner class="skinny retention-spinner" style="margin-right: 4px;" min="1" max="9999" value="policy.value"></spinner>
+                        <fui-dropdown class="retention-dropdown" skinny="true" items="timeChoices" selected="policy.units" background="none" color="black" border="gray" width="150px"></fui-dropdown>
+                    </div>
                 </td>
             </tr>
         </tbody>

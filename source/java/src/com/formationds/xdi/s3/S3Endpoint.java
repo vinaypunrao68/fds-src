@@ -18,15 +18,14 @@ public class S3Endpoint {
     public static final String FDS_S3_SYSTEM = "FDS_S3_SYSTEM";
     public static final String X_AMZ_COPY_SOURCE = "x-amz-copy-source";
     public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
-
+    private final WebApp webApp;
     private Xdi xdi;
-    private XdiAsync.Factory xdiAsync;
+    private Function<AuthenticationToken, XdiAsync> xdiAsync;
     private SecretKey secretKey;
     private HttpsConfiguration httpsConfiguration;
     private HttpConfiguration httpConfiguration;
-    private final WebApp webApp;
 
-    public S3Endpoint(Xdi xdi, XdiAsync.Factory xdiAsync, SecretKey secretKey, HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
+    public S3Endpoint(Xdi xdi, Function<AuthenticationToken, XdiAsync> xdiAsync, SecretKey secretKey, HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
         this.xdi = xdi;
         this.xdiAsync = xdiAsync;
         this.secretKey = secretKey;
@@ -34,6 +33,10 @@ public class S3Endpoint {
         this.httpConfiguration = httpConfiguration;
 
         webApp = new WebApp();
+    }
+
+    public static String formatAwsDate(DateTime dateTime) {
+        return dateTime.toString(ISODateTimeFormat.dateTime());
     }
 
     public void start() {
@@ -64,9 +67,5 @@ public class S3Endpoint {
                 return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", r.getRequestURI());
             }
         });
-    }
-
-    public static String formatAwsDate(DateTime dateTime) {
-        return dateTime.toString(ISODateTimeFormat.dateTime());
     }
 }

@@ -84,8 +84,13 @@ Catalog::Catalog(const std::string& _file,
     write_options.sync = true;
 
     leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
+
     /* Open has to succeed */
-    assert(status.ok());
+    if (!status.ok())
+    {
+        throw CatalogException(std::string(__FILE__) + ":" + std::to_string(__LINE__) +
+                               " :leveldb::DB::Open(): " + status.ToString());
+    }
 }
 
 /** The default destructor

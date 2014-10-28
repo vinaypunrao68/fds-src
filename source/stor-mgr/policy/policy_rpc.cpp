@@ -78,8 +78,9 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
     }
     VolumeDesc *desc = vol->voldesc;
     if (tier->tier_interval_sec != TIER_SCHED_DEACTIVATE) {
-        //
-        objStorMgr->tierEngine->migrator->startRankTierMigration();
+        // TODO(Anna) are we using this path? if yes, need to port
+        // to new SM org...
+        // objStorMgr->tierEngine->migrator->startRankTierMigration();
         if (tier->tier_media == fdp::TIER_MEDIA_SSD) {
             desc->mediaPolicy = fdp::FDSP_MEDIA_POLICY_SSD;
         } else if (tier->tier_media == fdp::TIER_MEDIA_HDD) {
@@ -94,7 +95,9 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
             boost::posix_time::second_clock::universal_time();
     } else {
         // Stop the migration
-        objStorMgr->tierEngine->migrator->stopRankTierMigration();
+        // TODO(Anna) are we using this path? if yes, need to port
+        // to new SM org...
+        // objStorMgr->tierEngine->migrator->stopRankTierMigration();
         desc->tier_duration_sec = 0;
         desc->mediaPolicy = fdp::FDSP_MEDIA_POLICY_HDD;
     }

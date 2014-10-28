@@ -36,10 +36,15 @@ public class HeadObject implements RequestHandler {
         String lastModified = metadata.getOrDefault("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));
         String etag = "\"" + metadata.getOrDefault("etag", "") + "\"";
         long byteCount = stat.getByteCount();
-        return new TextResource("")
+        Resource result = new TextResource("")
                 .withContentType(contentType)
                 .withHeader("Content-Length", Long.toString(byteCount))
                 .withHeader("Last-Modified", lastModified)
                 .withHeader("ETag", etag);
+
+        for(Map.Entry<String, String> entry : S3UserMetadataUtility.extractUserMetadata(metadata).entrySet())
+            result = result.withHeader(entry.getKey(), entry.getValue());
+
+        return result;
     }
 }

@@ -10,21 +10,28 @@
 #include <shared/fds-constants.h>
 #include <concurrency/spinlock.h>
 
+class StorHvCtrl;
+
 namespace fds {
 
 class BlockMod;
-class NbdBlockMod;;
+class NbdBlockMod;
+
 extern BlockMod             *gl_BlockMod;
 extern NbdBlockMod           gl_NbdBlockMod;
 
 typedef struct blk_vol_creat blk_vol_creat_t;
 struct blk_vol_creat
 {
+    /* Input params. */
     const char        *v_name;
     const char        *v_dev;
     fds_uint64_t       v_uuid;
     fds_uint64_t       v_vol_blksz;
     fds_uint32_t       v_blksz;
+
+    /* Output params. */
+    char               v_blkdev[FDS_MAX_VOL_NAME];
 };
 
 /**
@@ -44,6 +51,11 @@ class BlkVol
     fds_uint64_t       vol_uuid;              /* volume uuid; used as the key. */
     fds_uint64_t       vol_sz_blks;           /* volume size in blocks. */
     fds_uint32_t       vol_blksz_byte;        /* volume block size in bytes. */
+    fds_uint32_t       vol_blksz_mask;
+
+  protected:
+    fds_mutex          vol_mtx;
+    boost::condition   vol_waitq;
 
   private:
     INTRUSIVE_PTR_DEFS(BlkVol, vol_refcnt);
@@ -69,6 +81,12 @@ class BlockMod : public Module
     BlockMod();
 
     static BlockMod *blk_singleton() { return gl_BlockMod; }
+    static void blk_bind_to_am(StorHvCtrl *amc)
+    {
+        if (gl_BlockMod != NULL) {
+            gl_BlockMod->blk_amc = amc;
+        }
+    }
 
     /* Module methods. */
     virtual int  mod_init(SysParams const *const p) = 0;
@@ -77,9 +95,11 @@ class BlockMod : public Module
     virtual void mod_shutdown() = 0;
 
     /* Block driver methods. */
-    virtual int blk_attach_vol(const blk_vol_creat_t *req) = 0;
+    virtual int blk_attach_vol(blk_vol_creat_t *req) = 0;
     virtual int blk_detach_vol(fds_uint64_t uuid);
     virtual int blk_suspend_vol(fds_uint64_t uuid) = 0;
+
+    StorHvCtrl              *blk_amc;
 
   protected:
     BlkVolMap                blk_vols;

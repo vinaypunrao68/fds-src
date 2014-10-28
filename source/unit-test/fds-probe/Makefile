@@ -1,5 +1,5 @@
 topdir            := ../..
-speedup           := -j 3
+speedup           = -j $(threads)
 user_build_dir    := \
     shared       \
     s3           \

@@ -9,6 +9,8 @@
 #include <string>
 #include <apis/apis_types.h>
 #include <vector>
+#include <AmAsyncResponseApi.h>
+
 namespace fds {
 /**
  * HandlerType:
@@ -71,6 +73,22 @@ struct StartBlobTxResponseHandler : ResponseHandler, StartBlobTxCallback {
     virtual ~StartBlobTxResponseHandler();
 };
 
+struct AsyncStartBlobTxResponseHandler
+        : ResponseHandler, StartBlobTxCallback {
+    AsyncStartBlobTxResponseHandler(AmAsyncResponseApi::shared_ptr _api,
+                                    boost::shared_ptr<apis::RequestId>& _reqId);
+    typedef boost::shared_ptr<AsyncStartBlobTxResponseHandler> ptr;
+
+    AmAsyncResponseApi::shared_ptr respApi;
+    boost::shared_ptr<apis::RequestId> requestId;
+
+    /// Trans descriptor to be filled in on success
+    boost::shared_ptr<apis::TxDescriptor> txDesc;
+
+    virtual void process();
+    virtual ~AsyncStartBlobTxResponseHandler();
+};
+
 struct CommitBlobTxResponseHandler : ResponseHandler, CommitBlobTxCallback {
     explicit CommitBlobTxResponseHandler(apis::TxDescriptor &retVal);
     typedef boost::shared_ptr<CommitBlobTxResponseHandler> ptr;
@@ -96,6 +114,18 @@ struct UpdateBlobResponseHandler : ResponseHandler, UpdateBlobCallback {
 
     virtual void process();
     virtual ~UpdateBlobResponseHandler();
+};
+
+struct AsyncUpdateBlobOnceResponseHandler : ResponseHandler, UpdateBlobCallback {
+    AsyncUpdateBlobOnceResponseHandler(AmAsyncResponseApi::shared_ptr _api,
+                                   boost::shared_ptr<apis::RequestId>& _reqId);
+    typedef boost::shared_ptr<AsyncUpdateBlobOnceResponseHandler> ptr;
+
+    AmAsyncResponseApi::shared_ptr respApi;
+    boost::shared_ptr<apis::RequestId> requestId;
+
+    virtual void process();
+    virtual ~AsyncUpdateBlobOnceResponseHandler();
 };
 
 struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {

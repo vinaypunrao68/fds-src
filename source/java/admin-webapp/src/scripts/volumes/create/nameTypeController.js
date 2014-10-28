@@ -4,6 +4,13 @@ angular.module( 'volumes' ).controller( 'nameTypeController', ['$scope', '$data_
     $scope._selectedSize = 10;
     $scope._selectedUnit = $scope.sizes[0];
 
+    $scope.updateData = function(){
+        $modal_data_service.update({
+            name: $scope.name,
+            data_connector: $scope.data_connector
+        });
+    };
+    
     var init = function(){
         $scope.name = '';
         $scope.editing = false;
@@ -12,6 +19,8 @@ angular.module( 'volumes' ).controller( 'nameTypeController', ['$scope', '$data_
         
         $scope.nameEnablement = true;      
         $scope.dataConnectorEnablment = true;
+        
+        $scope.updateData();
     };
 
     var findUnit = function( str ){
@@ -21,10 +30,6 @@ angular.module( 'volumes' ).controller( 'nameTypeController', ['$scope', '$data_
                 return $scope.sizes[i];
             }
         }
-    };
-
-    $scope.setSelected = function( connector ){
-        $scope.data_connector = connector;
     };
 
     $scope.editConnector = function( connector ){
@@ -46,16 +51,11 @@ angular.module( 'volumes' ).controller( 'nameTypeController', ['$scope', '$data_
         $scope.stopEditing();
     };
 
-    $scope.updateData = function(){
-        $modal_data_service.update({
-            name: $scope.name,
-            data_connector: $scope.data_connector
-        });
-    };
-
     $scope.$watch( 'name', function(){
         $scope.updateData();
     });
+    
+    $scope.$watch( 'data_connector', $scope.updateData );
     
     $scope.$watch( 'volumeVars.clone', function( newVal ){
         
@@ -80,6 +80,7 @@ angular.module( 'volumes' ).controller( 'nameTypeController', ['$scope', '$data_
             
             $scope.nameEnablement = false;
             $scope.dataConnectorEnablment = false;
+            $scope.updateData();
         }
     });
 

@@ -18,8 +18,8 @@ def process_command_line_arguments ():
     parser.add_option ('-p', '--package', action = 'store_true', dest = 'package',
                        help = 'Builds an installable tarball')
 
-    parser.add_option ('-i', '--install', action='store_true', dest = 'tar_file',
-                       help = 'Installs SOURCE on cluster nodes, SOURCE is ignored when given in conjunction with --package')
+    parser.add_option ('-i', '--install', action='store_true', dest = 'install',
+                       help = 'Moves the installation tar ball to the host(s) and expands the tar ball')
 
     parser.add_option ('-d', '--deploy', action = 'store_true', dest = 'deploy',
                        help = 'Installs FDS software (e.g., ./fdsinstall.py -o 4)')
@@ -32,10 +32,10 @@ def process_command_line_arguments ():
                        help = 'enable verbosity')
 
     parser.add_option ('-t', '--target', dest = 'target', default = None,
-                       help = 'target node to apply -i or -d, against')
+                       help = 'target node to apply -i or -d against')
 
-    parser.add_option ('-s', '--source', dest='source', default=None,
-                       help='source tar bar path to use with -i, against')
+    parser.add_option ('-s', '--source', dest='tar_file', default=None,
+                       help='path and tar ball to use with -i')
 
     #Options requird by lower level libraries, but not supported by this script
     parser.add_option ('-n', '--dryrun', action = 'store_true', dest = 'dryrun',
@@ -63,24 +63,35 @@ def main():
     filename = None
     code = 0
 
+    if not (options.package or options.install or options.deploy):
+        print "Error: must specify one of --package, --install, or --deploy"
+        sys.exit(1)
+
     if options.package:      # Package
         filename = build_install_package()
 
         # Add verbose check
         print "Built installer file:  ", filename
 
-    if options.tar_file or options.deploy:
+    if options.install or options.deploy:
+        # Check for some error conditions before creating ssh connections
+        if options.install:                   # are we installing without --source and --package
+            if filename is None:
+                if options.tar_file:
+                    filename = options.tar_file
+                else:
+                    print 'Error: a tar ball file name is needed for --install (when not using --package).  Use --source.'
+                    sys.exit(1)
+
+        if options.deploy:                    # Avoid confusion with --deploy and giving a source file name
+            if (not options.install) and options.tar_file:
+                print 'Error: using --source without --install, will not move %s to the remote systems.' % options.tar_file
+                sys.exit(1)
+
         config = fdscfg.FdsConfigRun (None, options)
         cluster = BasicCluster.basic_cluster (config.rt_get_obj('cfg_nodes'), config.rt_get_obj('cfg_am'), config.rt_get_obj('cfg_cli'))
 
-        if not filename and options.tar_file:
-            if options.source:
-                filename = options.source
-            else:
-                print 'Error: Package file name needed install or deploy.  Use --source.'
-                sys.exit(1)
-
-        if options.tar_file:
+        if options.install:
             (code, message) = cluster.install (filename, True)
 
         if code != 0:

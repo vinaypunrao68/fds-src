@@ -112,9 +112,22 @@ struct DataMgr : Module, DmIoReqHandler {
       MAX
     } dmRunModes;
     dmRunModes    runMode;
-    bool isTestMode() {
-        return runMode == TEST_MODE;
-    }
+
+    struct Features {
+        bool fQosEnabled = true;
+        bool fCatSyncEnabled = true;
+        bool fTestMode = false;
+        bool isTestMode() {
+            return fTestMode;
+        }
+        bool isQosEnabled() {
+            return fQosEnabled;
+        }
+        bool isCatSyncEnabled() {
+            return fCatSyncEnabled;
+        }
+    } feature;
+
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
 
     /**
@@ -144,7 +157,7 @@ struct DataMgr : Module, DmIoReqHandler {
                   fds_log *log) :
                 FDS_QoSControl(_max_thrds, algo, log, "DM") {
             parentDm = _parent;
-            dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, _max_thrds, log);
+            dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, 2 * _max_thrds, log);
             // dispatcher = new QoSMinPrioDispatcher(this, log, parentDm->scheduleRate);
         }
 
