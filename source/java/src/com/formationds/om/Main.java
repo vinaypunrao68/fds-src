@@ -20,7 +20,6 @@ import com.formationds.web.toolkit.*;
 import com.formationds.xdi.ConfigurationApi;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
-import com.formationds.xdi.XdiImpl;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 import org.joda.time.Duration;
@@ -77,7 +76,7 @@ public class Main {
     Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator( configCache, secretKey ) : new NullAuthenticator();
     Authorizer authorizer = enforceAuthentication ? new FdsAuthorizer( configCache ) : new DumbAuthorizer();
 
-    xdi = new XdiImpl( amService, configCache, authenticator, authorizer, legacyConfigClient );
+    xdi = new Xdi( amService, configCache, authenticator, authorizer, legacyConfigClient );
 
     webApp = new WebApp( webDir );
 

@@ -11,7 +11,6 @@ import com.formationds.util.async.AsyncResourcePool;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.web.toolkit.AsyncRequestExecutor;
 import com.formationds.xdi.XdiAsync;
-import com.formationds.xdi.XdiAsyncImpl;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.http.HttpStatus;
@@ -38,12 +37,12 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
 
     public static final int CONCURRENCY = 500;
     private final S3Authenticator authenticator;
-    private XdiAsyncImpl.Factory xdiAsyncFactory;
+    private XdiAsync.Factory xdiAsyncFactory;
     private AsyncRequestStatistics.Aggregate aggregateStats;
     private final LinkedList<AsyncRequestStatistics> requestStatisticsWindow;
     private final AsyncResourcePool<Void> requestLimiter;
 
-    public S3AsyncApplication(XdiAsyncImpl.Factory xdiAsyncFactory, S3Authenticator authenticator) {
+    public S3AsyncApplication(XdiAsync.Factory xdiAsyncFactory, S3Authenticator authenticator) {
         this.xdiAsyncFactory = xdiAsyncFactory;
         this.authenticator = authenticator;
         this.aggregateStats = new AsyncRequestStatistics.Aggregate();
@@ -177,7 +176,7 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
             metadata.putAll(S3UserMetadataUtility.requestUserMetadata(request));
 
             appendStandardHeaders(response, "text/html", HttpStatus.OK_200);
-            CompletableFuture<XdiAsyncImpl.PutResult> putResult = xdiAsync.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, metadata, request.getInputStream());
+            CompletableFuture<XdiAsync.PutResult> putResult = xdiAsync.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, metadata, request.getInputStream());
             return putResult.thenAccept(result -> response.addHeader("etag", formatEtag(result.digest)));
         } catch(Exception e) {
             return CompletableFutureUtility.exceptionFuture(e);

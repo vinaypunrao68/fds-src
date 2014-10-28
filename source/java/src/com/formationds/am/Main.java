@@ -68,9 +68,9 @@ public class Main {
 
             new Thread(() -> nbdHost.run()).start();
 
-            Xdi xdi = new XdiImpl(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
+            Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
             ByteBufferPool bbp = new ArrayByteBufferPool();
-            XdiAsyncImpl.Factory xdiAsync = new XdiAsyncImpl.Factory(authorizer,
+            XdiAsync.Factory xdiAsync = new XdiAsync.Factory(authorizer,
                     clientFactory.makeCsAsyncPool(omHost, omConfigPort),
                     clientFactory.makeAmAsyncPool("localhost", 9988),
                     bbp,

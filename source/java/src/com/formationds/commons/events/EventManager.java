@@ -8,7 +8,6 @@ import com.formationds.commons.events.annotation.EventUtil;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.SystemActivityEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
-import com.formationds.om.repository.EventRepository;
 import com.formationds.om.rest.HttpAuthenticator;
 import com.formationds.security.AuthenticationToken;
 import org.slf4j.Logger;
@@ -19,7 +18,6 @@ import java.util.Objects;
 
 /**
  * The event manager is responsible for receiving events and storing them in the event repository.
- *
  */
 // TODO: prototype to get us to beta.  not sure if singleton makes sense here in the long run
 public enum EventManager {
@@ -29,7 +27,7 @@ public enum EventManager {
      */
     INSTANCE;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(EventManager.class);
+    static final Logger LOGGER = LoggerFactory.getLogger(EventManager.class);
 
     /**
      * Event notification handler interface.  Default implementation in EventManager simply
@@ -54,7 +52,10 @@ public enum EventManager {
      *
      * @return
      */
-    // TODO: this is really only valid if using the Event/Audit annotations and a dynamic proxy type approach
+    // TODO: this is really only valid if using the Event/Audit annotations and a dynamic proxy
+    // type approach which requires us to define interfaces.  The Thrift ConfigurationService and
+    // other APIs are interfaces, so this is possible.  However, for this initial implementation,
+    // we are modifying ConfigurationApi and explicitly adding EventManager calls.
     public static boolean eventInterceptor(Method m, Object[] args) {
         Event e = EventUtil.toPersistentEvent(m, args);
         if (e == null)
@@ -64,10 +65,11 @@ public enum EventManager {
     }
 
     /**
+     * Notify the EventManager of a new event with the specified descriptor and event arguments.
      *
      * @param d
      * @param eventArgs
-     * @return
+     * @return true if successfully notifying of the event.
      */
     public static boolean notifyEvent(EventDescriptor d, Object... eventArgs) {
         return notifyEvent(d.type(), d.category(), d.severity(), d.key(), eventArgs);
@@ -88,6 +90,7 @@ public enum EventManager {
     }
 
     /**
+     * Create a new event of the specified type.
      *
      * @param t
      * @param c
@@ -102,6 +105,7 @@ public enum EventManager {
             case SYSTEM_EVENT:
                 return new SystemActivityEvent(c, s, key, eventArgs);
             case USER_ACTIVITY:
+                // TODO: this introduces a dependency on om.rest packages which we don't want.
                 AuthenticationToken token = HttpAuthenticator.AUTH_SESSION.get();
                 long userId = (token != null ? token.getUserId() : -1);
                 return new UserActivityEvent(userId, c, s, key, eventArgs);
@@ -113,12 +117,31 @@ public enum EventManager {
         }
     }
 
-    // TODO: default implementation goes against repository... this probably needs to be a bit smarter.
+// This needs to be managed outside of commons.events package to prevent
+// circular dependency on om.repository.EventRepository
+//    public static enum EventNotifier implements EventNotificationHandler {
+//        REPOSITORY {
+//            private final EventRepository events = new EventRepository();
+//            @Override
+//            public boolean handleEventNotification(Event e) {
+//                Event persisted = events.save(e);
+//                return true;
+//            }
+//        },
+//        LOGGER {
+//            @Override
+//            public boolean handleEventNotification(Event e) {
+//                EventManager.LOGGER.info(e.getMessageKey(), e.getMessageArgs());
+//                return true;
+//            }
+//        }
+//    }
+
+    // default logger notifier
     private EventNotificationHandler notifier = new EventNotificationHandler() {
-        private final EventRepository events = new EventRepository();
         @Override
         public boolean handleEventNotification(Event e) {
-            Event persisted = events.save(e);
+            EventManager.LOGGER.info(e.getMessageKey(), e.getMessageArgs());
             return true;
         }
     };
@@ -127,6 +150,10 @@ public enum EventManager {
     private Object key = null;
 
     /**
+     * Initialize the event manager with the specified notification handler implementation.  The caller must
+     * have a valid key in order to change the notification handler.  Assuming the key is private to the
+     * object that owns it, this ensures that the notification handler configuration is managed from a
+     * single location and prevents unintended modifications.
      *
      * @param key
      * @param n
@@ -152,55 +179,6 @@ public enum EventManager {
         }
     }
 
-//    public static final long DEFAULT_TIMEOUT = 1;
-//    public static final TimeUnit DEFAULT_UNIT = TimeUnit.SECONDS;
-
-    //public boolean notifyEvent(Event e, long timeout, TimeUnit unit) throws InterruptedException;
-
-//    // TODO create adjustable semaphore for adjustable bounded queues (allowing runtime re-configuration as needed).
-//    private BlockingQueue<Event> incomingEventQueue = new LinkedBlockingQueue<>(1000);
-//
-//    // TODO: cache events by timestamp.
-//    private ConcurrentSkipListSet<Event> eventCache = new ConcurrentSkipListSet<Event>(new Comparator<Event>() {
-//        public int compare(Event e1, Event e2) {
-//            return e1.getModifiedTimestamp().compareTo(e2.getModifiedTimestamp());
-//        }
-//    });
-//
-//    /**
-//     * Notify the event manager of a new event.
-//     * <p/>
-//     * This is a potentially <em>BLOCKING</em> call if the internal incoming event queue fills faster than
-//     * it can be processed.
-//     *
-//     * @param e
-//     * @return true if the event is successfully queued
-//     * @throws InterruptedException if event queue operation is interrupted by another thread.
-//     */
-//    public boolean notify(Event e) throws InterruptedException {
-//        incomingEventQueue.put(e);
-//        return true;
-//    }
-//
-//    /**
-//     * Notify the event manager of a new event.
-//     * <p/>
-//     * This is a potentially <em>BLOCKING</em> call if the internal incoming event queue fills faster than
-//     * it can be processed.
-//     *
-//     * @param e
-//     * @param timeout
-//     * @param unit
-//     *
-//     * @return true if the event is successfully queued.  False if the queue attempt times out before it
-//     * can be queued.
-//     *
-//     * @throws InterruptedException if the event queue operation is interrupted by another thread.
-//     */
-//    // TODO: Is there a more effective Java8 lambda/streams mechanism to make this async
-//    public boolean notify(Event e, long timeout, TimeUnit unit) throws InterruptedException {
-//        return incomingEventQueue.offer(e, timeout, unit);
-//    }
 //
 //    // TODO: NOT IMPLEMENTED
 //    public List<Event> getEvents() { return null; }
