@@ -28,6 +28,18 @@ var en_US = {
         th_data_type: 'Data Type',
         th_name: 'Name',
         
+        //time labels
+        l_30_days: '30 Days',
+        l_15_days: '15 Days',
+        l_1_week: '1 Week',
+        l_1_day: '1 Day',
+        l_1_hour: '1 Hour',
+        l_today: 'Today',
+        l_yesterday: 'Yesterday',
+        l_30_minutes: '30 Minutes',
+        l_15_minutes: '15 Minutes',
+        l_now: 'Now',
+        
         l_months: 'Months',
         l_days: 'Days',
         l_hours: 'Hours',
@@ -119,7 +131,17 @@ var en_US = {
 
         th_used_limit: 'Used/Limit',
         
+        view : {
+            desc_dedup_suffix: 'Deduplicated',
+            desc_logical_suffix: 'Logical',
+            desc_iops_capacity: 'IOPs Capacity',
+            l_data_connector_settings: 'Data Connector Settings',
+            l_performance_settings: 'Performance Settings',
+            l_volume_details: 'Volume Details'
+        },
+        
         snapshot: {
+            l_no_snapshots: 'There are no snapshots for this volume.',
             l_retention_summary: 'Keep for',
             
             l_on_monday: 'on Mondays',
