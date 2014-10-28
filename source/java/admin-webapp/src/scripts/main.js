@@ -10,7 +10,7 @@ app.config( function( $stateProvider, $urlRouterProvider ){
             templateUrl: 'scripts/main/main.html'
         })
         .state( 'homepage.volumes', {
-            url: '/volumes',
+            url: '/volumes/:state/:id',
             templateUrl: 'scripts/volumes/volumeContainer.html'
         })
         .state( 'homepage.system', {
