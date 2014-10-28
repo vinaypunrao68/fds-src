@@ -26,10 +26,13 @@ class AmProcessWrapper : public FdsProcess {
     AmProcessWrapper(int argc, char * argv[], const std::string & config,
                      const std::string & basePath, Module * vec[])
             : FdsProcess(argc, argv, config, basePath, vec) {
-        am = AccessMgr::unique_ptr(new AccessMgr("AM Functional Test Module",
-                                                 this));
     }
     virtual ~AmProcessWrapper() {
+    }
+    virtual void proc_pre_startup() override {
+        FdsProcess::proc_pre_startup();
+        am = AccessMgr::unique_ptr(new AccessMgr("AM Functional Test Module", this));
+        proc_add_module(am.get());
     }
 
     virtual int run() override {
