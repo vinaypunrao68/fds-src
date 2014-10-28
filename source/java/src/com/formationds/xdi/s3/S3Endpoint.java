@@ -18,22 +18,25 @@ public class S3Endpoint {
     public static final String FDS_S3_SYSTEM = "FDS_S3_SYSTEM";
     public static final String X_AMZ_COPY_SOURCE = "x-amz-copy-source";
     public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
-
+    private final WebApp webApp;
     private Xdi xdi;
-    private XdiAsync.Factory xdiAsyncFactory;
+    private Function<AuthenticationToken, XdiAsync> xdiAsync;
     private SecretKey secretKey;
     private HttpsConfiguration httpsConfiguration;
     private HttpConfiguration httpConfiguration;
-    private final WebApp webApp;
 
-    public S3Endpoint(Xdi xdi, XdiAsync.Factory xdiAsyncFactory, SecretKey secretKey, HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
+    public S3Endpoint(Xdi xdi, Function<AuthenticationToken, XdiAsync> xdiAsync, SecretKey secretKey, HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
         this.xdi = xdi;
-        this.xdiAsyncFactory = xdiAsyncFactory;
+        this.xdiAsync = xdiAsync;
         this.secretKey = secretKey;
         this.httpsConfiguration = httpsConfiguration;
         this.httpConfiguration = httpConfiguration;
 
         webApp = new WebApp();
+    }
+
+    public static String formatAwsDate(DateTime dateTime) {
+        return dateTime.toString(ISODateTimeFormat.dateTime());
     }
 
     public void start() {
@@ -49,7 +52,7 @@ public class S3Endpoint {
         authenticate(HttpMethod.HEAD, "/:bucket/:object", (t) -> new HeadObject(xdi, t));
         authenticate(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
 
-        webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsyncFactory, new S3Authenticator(xdi, secretKey)));
+        webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsync, new S3Authenticator(xdi, secretKey)));
 
         webApp.start(httpConfiguration, httpsConfiguration);
     }
@@ -64,9 +67,5 @@ public class S3Endpoint {
                 return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", r.getRequestURI());
             }
         });
-    }
-
-    public static String formatAwsDate(DateTime dateTime) {
-        return dateTime.toString(ISODateTimeFormat.dateTime());
     }
 }
