@@ -104,6 +104,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             // if it has an ID then it's already exists
             if ( angular.isDefined( sPolicy.id ) ){
                 
+                sPolicy.recurrenceRule.FREQ = sPolicy.displayName.toUpperCase();
                 $snapshot_service.editSnapshotPolicy( sPolicy, function(){} );
             }
             else {
