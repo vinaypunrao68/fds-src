@@ -28,7 +28,10 @@ case $? in
 
         rm -f ${script_dir}/.devsetup-is-up-to-date
 
-        ansible-playbook -i ${script_dir}/ansible_hosts -c local ${script_dir}/playbooks/devsetup.yml
+        ansible-playbook --inventory ${script_dir}/ansible_hosts   \
+                         --connection local                        \
+                         --ask-sudo-pass                           \
+                         ${script_dir}/playbooks/devsetup.yml
 
         if [ $? -eq 0 ]; then
             touch ${script_dir}/.devsetup-is-up-to-date
