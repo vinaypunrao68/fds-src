@@ -14,7 +14,7 @@ import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.formationds.om.rest.HttpAuthenticator;
+import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import org.slf4j.LoggerFactory;
 
@@ -77,7 +77,7 @@ public class EventUtil {
             case SYSTEM_EVENT:
                 return new SystemActivityEvent(c, s, key, eventArgs.toArray());
             case USER_ACTIVITY:
-                AuthenticationToken token = HttpAuthenticator.AUTH_SESSION.get();
+                AuthenticationToken token = AuthenticatedRequestContext.getToken();
                 return new UserActivityEvent(token.getUserId(), c, s, key, eventArgs.toArray());
             default:
                 // TODO: log warning or throw exception on unknown/unsupported type?  Fow now logging.

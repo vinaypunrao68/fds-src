@@ -14,6 +14,12 @@ class EnsureAdminUser {
     private final static Logger LOG = Logger.getLogger(EnsureAdminUser.class);
     public static final String ADMIN_USERNAME = "admin";
 
+    /**
+     * Bootstrap the admin user if not already defined.
+     *
+     * @param config
+     * @throws TException
+     */
     static void bootstrapAdminUser(ConfigurationService.Iface config) throws TException {
         new EnsureAdminUser(config).execute();
     }

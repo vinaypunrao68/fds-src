@@ -4,16 +4,14 @@
 
 package com.formationds.commons.events;
 
-import com.formationds.commons.events.annotation.EventUtil;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.SystemActivityEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
-import com.formationds.om.rest.HttpAuthenticator;
+import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Method;
 import java.util.Objects;
 
 /**
@@ -27,7 +25,7 @@ public enum EventManager {
      */
     INSTANCE;
 
-    static final Logger LOGGER = LoggerFactory.getLogger(EventManager.class);
+    static final Logger LOG = LoggerFactory.getLogger(EventManager.class);
 
     /**
      * Event notification handler interface.  Default implementation in EventManager simply
@@ -44,24 +42,6 @@ public enum EventManager {
          * @return true if successfully handled.  False otherwise.
          */
         public boolean handleEventNotification(Event e);
-    }
-
-    /**
-     * @param m
-     * @param args
-     *
-     * @return
-     */
-    // TODO: this is really only valid if using the Event/Audit annotations and a dynamic proxy
-    // type approach which requires us to define interfaces.  The Thrift ConfigurationService and
-    // other APIs are interfaces, so this is possible.  However, for this initial implementation,
-    // we are modifying ConfigurationApi and explicitly adding EventManager calls.
-    public static boolean eventInterceptor(Method m, Object[] args) {
-        Event e = EventUtil.toPersistentEvent(m, args);
-        if (e == null)
-            return false;
-
-        return INSTANCE.notifyEvent(e);
     }
 
     /**
@@ -105,14 +85,13 @@ public enum EventManager {
             case SYSTEM_EVENT:
                 return new SystemActivityEvent(c, s, key, eventArgs);
             case USER_ACTIVITY:
-                // TODO: this introduces a dependency on om.rest packages which we don't want.
-                AuthenticationToken token = HttpAuthenticator.AUTH_SESSION.get();
+                AuthenticationToken token = AuthenticatedRequestContext.getToken();
                 long userId = (token != null ? token.getUserId() : -1);
                 return new UserActivityEvent(userId, c, s, key, eventArgs);
             default:
                 // TODO: log warning or throw exception on unknown/unsupported type?  Fow now logging.
                 // throw new IllegalArgumentException("Unsupported event type (" + t + ")");
-                LoggerFactory.getLogger(EventUtil.class).warn("Unsupported event type %s", t);
+                LOG.warn("Unsupported event type %s", t);
                 return null;
         }
     }
@@ -141,7 +120,7 @@ public enum EventManager {
     private EventNotificationHandler notifier = new EventNotificationHandler() {
         @Override
         public boolean handleEventNotification(Event e) {
-            EventManager.LOGGER.info(e.getMessageKey(), e.getMessageArgs());
+            EventManager.LOG.info(e.getMessageKey(), e.getMessageArgs());
             return true;
         }
     };
@@ -174,7 +153,7 @@ public enum EventManager {
     public boolean notifyEvent(Event e) {
         try { return notifier.handleEventNotification(e); }
         catch (RuntimeException re) {
-            LOGGER.error(String.format("Failed to persist event key={}", key), re);
+            LOG.error(String.format("Failed to persist event key={}", key), re);
             return false;
         }
     }
