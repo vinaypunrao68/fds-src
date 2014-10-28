@@ -34,6 +34,8 @@ class AmProcessWrapper : public FdsProcess {
         FdsProcess::proc_pre_startup();
         am = AccessMgr::unique_ptr(new AccessMgr("AM Functional Test Module", this));
         proc_add_module(am.get());
+        Module *lckstp[] = { am.get(), NULL };
+        proc_assign_locksteps(lckstp);
     }
 
     virtual int run() override {
@@ -60,7 +62,7 @@ class AmLoadProc : public AmAsyncResponseApi {
         fds_verify(am->registerVolume(volDesc) == ERR_OK);
 
         // hardcoding test config
-        concurrency = 4;
+        concurrency = 1;
         totalOps = 1000000;
         blobSize = 4096;
         opCount = ATOMIC_VAR_INIT(0);
@@ -90,6 +92,15 @@ class AmLoadProc : public AmAsyncResponseApi {
         }
     }
 
+    void updateBlobOnceResp(const Error &error,
+                            boost::shared_ptr<apis::RequestId>& requestId) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
     void asyncTask(int id, TaskOps opType) {
         fds_uint32_t ops = atomic_fetch_add(&opCount, (fds_uint32_t)1);
         GLOGDEBUG << "Starting thread " << id;
@@ -104,7 +115,20 @@ class AmLoadProc : public AmAsyncResponseApi {
 
         SequentialBlobDataGen blobGen(blobSize, id);
         while ((ops + 1) <= totalOps) {
-            if (opType == STARTTX) {
+            if (opType == PUT) {
+                // Always use an empty request ID since we don't track
+                boost::shared_ptr<apis::RequestId> reqId(
+                    boost::make_shared<apis::RequestId>());
+                am->asyncDataApi->updateBlobOnce(reqId,
+                                                 domainName,
+                                                 volumeName,
+                                                 blobGen.blobName,
+                                                 blobMode,
+                                                 blobGen.blobData,
+                                                 blobLength,
+                                                 off,
+                                                 meta);
+            } else if (opType == STARTTX) {
                 // Always use an empty request ID since we don't track
                 boost::shared_ptr<apis::RequestId> reqId(
                     boost::make_shared<apis::RequestId>());
@@ -313,6 +337,11 @@ TEST(AccessMgr, startBlobTx) {
 TEST(AccessMgr, asyncStartBlobTx) {
     GLOGDEBUG << "Testing async startBlobTx";
     amLoad->runAsyncTask(AmLoadProc::STARTTX);
+}
+
+TEST(AccessMgr, asyncUpdateBlob) {
+    GLOGDEBUG << "Testing async updateBlob";
+    amLoad->runAsyncTask(AmLoadProc::PUT);
 }
 
 }  // namespace fds
