@@ -4,6 +4,7 @@ package com.formationds.am;
  */
 
 import com.formationds.apis.AmService;
+import com.formationds.apis.AsyncAmServiceRequest;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.nbd.*;
 import com.formationds.security.*;
@@ -71,7 +72,8 @@ public class Main {
 
             Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
             ByteBufferPool bbp = new ArrayByteBufferPool();
-            AsyncAm asyncAm = new AsyncAm(clientFactory.makeAmAsyncPool("localhost", 9988), authorizer);
+            AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm("localhost", 8899);
+            AsyncAm asyncAm = new AsyncAm(clientFactory.makeAmAsyncPool("localhost", 9988), oneWayAm, authorizer);
             Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm, bbp, token, configCache);
 
             int s3HttpPort = platformConfig.lookup("fds.am.s3_http_port").intValue();

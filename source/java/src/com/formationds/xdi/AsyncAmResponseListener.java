@@ -30,6 +30,8 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
                 })
                 .expireAfterWrite(timeout, timeUnit)
                 .build();
+
+        pending.cleanUp();
     }
 
     public <T> CompletableFuture<T> expect(RequestId requestId) {
