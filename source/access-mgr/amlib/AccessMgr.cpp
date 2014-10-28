@@ -43,9 +43,7 @@ AccessMgr::mod_init(SysParams const *const param) {
     asyncServer = AsyncDataServer::unique_ptr(
         new AsyncDataServer("AM Async Server", asyncDataApi));
     asyncServer->init_server();
-}
-
-AccessMgr::~AccessMgr() {
+    return 0;
 }
 
 void
