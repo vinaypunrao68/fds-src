@@ -34,6 +34,8 @@ class AmProcessWrapper : public FdsProcess {
         FdsProcess::proc_pre_startup();
         am = AccessMgr::unique_ptr(new AccessMgr("AM Functional Test Module", this));
         proc_add_module(am.get());
+        Module *lckstp[] = { am.get(), NULL };
+        proc_assign_locksteps(lckstp);
     }
 
     virtual int run() override {
