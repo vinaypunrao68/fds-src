@@ -14,6 +14,7 @@
 #include <net/net-service.h>
 #include <AccessMgr.h>
 
+#include <google/profiler.h>
 #include <gtest/gtest.h>
 #include <testlib/DataGen.hpp>
 
@@ -63,7 +64,7 @@ class AmLoadProc : public AmAsyncResponseApi {
 
         // hardcoding test config
         concurrency = 1;
-        totalOps = 1000000;
+        totalOps = 2000000;
         blobSize = 4096;
         opCount = ATOMIC_VAR_INIT(0);
 
@@ -94,6 +95,24 @@ class AmLoadProc : public AmAsyncResponseApi {
 
     void updateBlobOnceResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
+    void abortBlobTxResp(const Error &error,
+                         boost::shared_ptr<apis::RequestId>& requestId) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
+    void commitBlobTxResp(const Error &error,
+                          boost::shared_ptr<apis::RequestId>& requestId) {
         fds_verify(ERR_OK == error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -246,6 +265,7 @@ class AmLoadProc : public AmAsyncResponseApi {
         opCount = 0;
         opsDone = 0;
         asyncStartNano = util::getTimeStampNanos();
+        // ProfilerStart("/tmp/AM_output.prof");
         for (unsigned i = 0; i < concurrency; ++i) {
             std::thread* new_thread = new std::thread(&AmLoadProc::asyncTask, this, i, opType);
             threads_[i] = new_thread;
@@ -263,6 +283,7 @@ class AmLoadProc : public AmAsyncResponseApi {
                            [this](){return totalOps == opsDone;});
 
         fds_uint64_t duration_nano = asyncStopNano - asyncStartNano;
+        // ProfilerStop();
         double time_sec = duration_nano / 1000000000.0;
         if (time_sec < 10) {
             std::cout << "Experiment ran for too short time to calc IOPS" << std::endl;

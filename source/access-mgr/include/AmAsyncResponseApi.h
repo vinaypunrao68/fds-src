@@ -26,6 +26,10 @@ class AmAsyncResponseApi {
     virtual void startBlobTxResp(const Error &error,
                                  boost::shared_ptr<apis::RequestId>& requestId,
                                  boost::shared_ptr<apis::TxDescriptor>& txDesc) = 0;
+    virtual void abortBlobTxResp(const Error &error,
+                                 boost::shared_ptr<apis::RequestId>& requestId) = 0;
+    virtual void commitBlobTxResp(const Error &error,
+                                  boost::shared_ptr<apis::RequestId>& requestId) = 0;
     virtual void updateBlobOnceResp(const Error &error,
                                     boost::shared_ptr<apis::RequestId>& requestId) = 0;
 };
@@ -43,6 +47,10 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
     void startBlobTxResp(const Error &error,
                          boost::shared_ptr<apis::RequestId>& requestId,
                          boost::shared_ptr<apis::TxDescriptor>& txDesc);
+    void abortBlobTxResp(const Error &error,
+                         boost::shared_ptr<apis::RequestId>& requestId);
+    void commitBlobTxResp(const Error &error,
+                          boost::shared_ptr<apis::RequestId>& requestId);
     void updateBlobOnceResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId);
 };
