@@ -48,12 +48,12 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
         pending.invalidate(requestId);
     }
 
-    //@Override
+    @Override
     public void attachVolumeResponse(RequestId requestId) throws TException {
         complete(requestId, null);
     }
 
-    //@Override
+    @Override
     public void volumeContents(RequestId requestId, List<BlobDescriptor> blobDescriptors) throws TException {
         complete(requestId, blobDescriptors);
     }
