@@ -180,6 +180,23 @@ AmAsyncDataApi::updateBlobOnce(boost::shared_ptr<apis::RequestId>& requestId,
                                boost::shared_ptr<int32_t>& length,
                                boost::shared_ptr<apis::ObjectOffset>& objectOffset,
                                boost::shared_ptr< std::map<std::string, std::string> >& metadata) {
+    fds_verify(*length >= 0);
+    fds_verify(objectOffset->value >= 0);
+
+    AsyncUpdateBlobOnceResponseHandler::ptr putHandler(
+        boost::make_shared<AsyncUpdateBlobOnceResponseHandler>(responseApi,
+                                                               requestId));
+
+    FdsBlobReq *blobReq = new PutBlobReq(invalid_vol_id,
+                                         *volumeName,
+                                         *blobName,
+                                         static_cast<fds_uint64_t>(objectOffset->value),
+                                         *length,
+                                         const_cast<char *>(bytes->c_str()),
+                                         *blobMode,
+                                         metadata,
+                                         putHandler);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 void
