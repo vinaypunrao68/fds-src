@@ -17,7 +17,14 @@ done
 TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
 SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
 CONFIG_ETC=${SOURCEDIR}/config/etc
-BINDIR="${SOURCEDIR}/Build/linux-x86_64.debug/bin"
+
+BUILDMODE="debug"
+RELEASEMODEFILE="${SOURCEDIR}/Build/.build-mode-release.chk"
+if [[ -e $RELEASEMODEFILE ]]; then
+    BUILDMODE="release"
+fi
+
+BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
 KODIR="${SOURCEDIR}/fds_client/blk_dev"
 FDSROOT=/fds
 FDSTEST_ROOT=/fds-test
@@ -46,7 +53,6 @@ apps["sm"]="StorMgr"
 apps["dm"]="DataMgr"
 apps["pm"]="platformd"
 
-
 function usage() {
     log "$(yellow usage: $(basename $0) [cmd] [app] [options])"
     log " cmd : "
@@ -59,10 +65,43 @@ function usage() {
     log "   - $(yellow cleanstart): stop+clean+start all"
     log "   - $(yellow tail)      : tail the application log file"
     log "   - $(red    gdb)       : gdb attach app"
+    log "   - $(yellow release)   : switch to $(green release) build"
+    log "   - $(yellow debug)     : switch to $(red debug) build"
     log " options :"
     log "   : $(yellow --fds-root/-f) rootdir"
     log " app : om/pm/sm/am/dm/all"
+    printBuildMode
     exit 0
+}
+
+function printBuildMode() {
+    case "${BUILDMODE}" in
+        release)
+            logwarn "$(blue current build mode) : $(green ${BUILDMODE})"
+            ;;
+        debug)
+            logwarn "$(blue current build mode) : $(red ${BUILDMODE})"
+            ;;
+        *)
+            logerror "unknown build mode : ${BUILDMODE}"
+            ;;
+    esac
+}
+
+function setBuildMode() {
+    local mode="$1"
+
+    if [[ $mode == "release" ]]; then
+        touch $RELEASEMODEFILE
+    elif [[ $mode == "debug" ]]; then
+        rm -f $RELEASEMODEFILE
+    else
+        logerror "unknown build mode : $mode"
+        return 1
+    fi
+    BUILDMODE=$mode
+    printBuildMode
+    return 0
 }
 
 function setupFdsDirs() {
@@ -294,7 +333,7 @@ function taillog() {
 
 function cleanBinDirs() {
     for node in bin node2 node3 node4; do
-        bin_dir=${SOURCEDIR}/Build/linux-x86_64.debug/${node}
+        bin_dir=${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/${node}
         if [[ -d $bin_dir ]] ; then
             (
                 cd ${bin_dir}
@@ -378,6 +417,14 @@ do
         -h|--help)
             usage
             ;;
+        release)
+            setBuildMode release
+            exit 0
+            ;;
+        debug)
+            setBuildMode debug
+            exit 0
+            ;;
         *)
             if [[ -z $CMD ]] ; then CMD=$opt
             elif [[ -z $APP ]] ; then APP=$opt
@@ -422,6 +469,8 @@ case "${APP}" in
         logerror "unknown app [$APP]"
         usage ;;
 esac
+
+printBuildMode
 
 case "${CMD}" in
     start) startApp $APP
