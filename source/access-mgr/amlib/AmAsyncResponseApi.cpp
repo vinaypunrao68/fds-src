@@ -56,6 +56,38 @@ AmAsyncXdiResponse::startBlobTxResp(const Error &error,
 }
 
 void
+AmAsyncXdiResponse::abortBlobTxResp(const Error &error,
+                                    boost::shared_ptr<apis::RequestId>& requestId) {
+    if (!error.ok()) {
+        boost::shared_ptr<apis::ErrorCode> errorCode(
+            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<std::string> message(
+            boost::make_shared<std::string>());
+        asyncRespClient->completeExceptionally(requestId,
+                                               errorCode,
+                                               message);
+    } else {
+        asyncRespClient->abortBlobTxResponse(requestId);
+    }
+}
+
+void
+AmAsyncXdiResponse::commitBlobTxResp(const Error &error,
+                                     boost::shared_ptr<apis::RequestId>& requestId) {
+    if (!error.ok()) {
+        boost::shared_ptr<apis::ErrorCode> errorCode(
+            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<std::string> message(
+            boost::make_shared<std::string>());
+        asyncRespClient->completeExceptionally(requestId,
+                                               errorCode,
+                                               message);
+    } else {
+        asyncRespClient->commitBlobTxResponse(requestId);
+    }
+}
+
+void
 AmAsyncXdiResponse::updateBlobOnceResp(const Error &error,
                                        boost::shared_ptr<apis::RequestId>& requestId) {
     if (!error.ok()) {

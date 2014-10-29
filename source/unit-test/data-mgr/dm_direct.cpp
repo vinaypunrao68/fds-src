@@ -10,6 +10,7 @@
 #include <vector>
 #include <string>
 #include <thread>
+#include <google/profiler.h>
 
 static std::atomic<fds_uint32_t> taskCount;
 fds::DMTester* dmTester = NULL;
@@ -82,6 +83,8 @@ TEST_F(DmUnitTest, AddVolume) {
 TEST_F(DmUnitTest, PutBlobOnce) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
 
+    if (profile)
+        ProfilerStart("/tmp/dm_direct.prof");
     // start tx
     DEFINE_SHARED_PTR(UpdateCatalogOnceMsg, putBlobOnce);
 
@@ -91,8 +94,8 @@ TEST_F(DmUnitTest, PutBlobOnce) {
         fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
     }
     uint64_t txnId;
+    DMCallback cb;
     for (uint i = 0; i < NUM_BLOBS; i++) {
-        DMCallback cb;
         txnId = dmTester->getNextTxnId();
         putBlobOnce->blob_name = dmTester->getBlobName(i);
         putBlobOnce->txId = txnId;
@@ -116,6 +119,9 @@ TEST_F(DmUnitTest, PutBlobOnce) {
         }
         EXPECT_EQ(ERR_OK, cb.e);
     }
+    EXPECT_EQ(ERR_OK, cb.e);
+    if (profile)
+        ProfilerStop();
     printStats();
 }
 
@@ -306,6 +312,10 @@ int main(int argc, char** argv) {
             ("num-volumes,v", po::value<fds_uint32_t>(&NUM_VOLUMES)->default_value(NUM_VOLUMES)        , "number of volumes")  // NOLINT
             ("obj-size,o"   , po::value<fds_uint32_t>(&MAX_OBJECT_SIZE)->default_value(MAX_OBJECT_SIZE), "max object size in bytes")  // NOLINT
             ("blob-size,b"  , po::value<fds_uint64_t>(&BLOB_SIZE)->default_value(BLOB_SIZE)            , "blob size in bytes")  // NOLINT
+            ("num-blobs,n"  , po::value<fds_uint32_t>(&NUM_BLOBS)->default_value(NUM_BLOBS)            , "number of blobs")  // NOLINT
+            ("profile,p"    , po::value<bool>(&profile)->default_value(profile)                        , "enable profile ")  // NOLINT
+            ("puts-only"    , "do put operations only")
+            ("no-delete"    , "do put & get operations only");
             ("num-blobs,n"  , po::value<fds_uint32_t>(&NUM_BLOBS)->default_value(NUM_BLOBS)            , "number of blobs");  // NOLINT
 
     po::variables_map vm;
