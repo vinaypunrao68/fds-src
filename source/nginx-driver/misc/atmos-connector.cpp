@@ -88,22 +88,6 @@ Atmos_PutObject::ame_format_response_hdr()
     return NGX_OK;
 }
 
-static int
-atmos_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
-                  char *buffer, void *callbackData, FDSN_Status status,
-                  ErrorDetails* errDetails)
-{
-    AME_Ctx        *ctx = static_cast<AME_Ctx *>(reqContext);
-    Conn_PutObject *conn_po = static_cast<Conn_PutObject *>(callbackData);
-
-    ctx->ame_update_input_buf(bufferSize);
-    if (status == ERR_OK) {
-        status = FDSN_StatusCreated;
-    }
-    conn_po->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
-    return 0;
-}
-
 void
 Atmos_PutObject::ame_request_handler()
 {
@@ -125,7 +109,7 @@ Atmos_PutObject::ame_request_handler()
     api->PutBlob(&bucket_ctx, get_object_id(), NULL,
                  static_cast<void *>(ame_ctx), buf, offset,
                  len, txDesc, false,
-                 atmos_putobj_cbfn, static_cast<void *>(this));
+                 static_cast<void *>(this));
 }
 
 std::string Atmos_PutObject::get_bucket_id()

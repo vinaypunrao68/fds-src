@@ -10,6 +10,8 @@
 #include <responsehandler.h>
 #include <StorHvisorNet.h>
 
+#include "requests/requests.h"
+
 namespace fds {
 
 AmAsyncDataApi::AmAsyncDataApi() {
@@ -107,7 +109,7 @@ AmAsyncDataApi::startBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
         new AsyncStartBlobTxResponseHandler(responseApi,
                                             requestId));
 
-    FdsBlobReq *blobReq = new StartBlobTxReq(invalid_vol_id,
+    AmRequest *blobReq = new StartBlobTxReq(invalid_vol_id,
                                              *volumeName,
                                              *blobName,
                                              *blobMode,
@@ -138,7 +140,7 @@ AmAsyncDataApi::commitBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
         new AsyncCommitBlobTxResponseHandler(responseApi,
                                              requestId));
 
-    FdsBlobReq *blobReq = new CommitBlobTxReq(invalid_vol_id,
+    AmRequest *blobReq = new CommitBlobTxReq(invalid_vol_id,
                                               *volumeName,
                                               *blobName,
                                               blobTxDesc,
@@ -169,7 +171,7 @@ AmAsyncDataApi::abortBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
     BlobTxId::ptr blobTxDesc(new BlobTxId(
         txDesc->txId));
 
-    FdsBlobReq *blobReq = new AbortBlobTxReq(invalid_vol_id,
+    AmRequest *blobReq = new AbortBlobTxReq(invalid_vol_id,
                                              *volumeName,
                                              *blobName,
                                              blobTxDesc,
@@ -245,7 +247,7 @@ AmAsyncDataApi::updateBlobOnce(boost::shared_ptr<apis::RequestId>& requestId,
         boost::make_shared<AsyncUpdateBlobOnceResponseHandler>(responseApi,
                                                                requestId));
 
-    FdsBlobReq *blobReq = new PutBlobReq(invalid_vol_id,
+    AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                          *volumeName,
                                          *blobName,
                                          static_cast<fds_uint64_t>(objectOffset->value),
