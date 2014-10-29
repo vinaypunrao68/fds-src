@@ -30,6 +30,8 @@ class AmAsyncResponseApi {
                                  boost::shared_ptr<apis::RequestId>& requestId) = 0;
     virtual void commitBlobTxResp(const Error &error,
                                   boost::shared_ptr<apis::RequestId>& requestId) = 0;
+    virtual void updateBlobResp(const Error &error,
+                                boost::shared_ptr<apis::RequestId>& requestId) = 0;
     virtual void updateBlobOnceResp(const Error &error,
                                     boost::shared_ptr<apis::RequestId>& requestId) = 0;
 };
@@ -60,6 +62,8 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
                          boost::shared_ptr<apis::RequestId>& requestId);
     void commitBlobTxResp(const Error &error,
                           boost::shared_ptr<apis::RequestId>& requestId);
+    void updateBlobResp(const Error &error,
+                        boost::shared_ptr<apis::RequestId>& requestId);
     void updateBlobOnceResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId);
 };
