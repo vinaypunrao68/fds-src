@@ -157,7 +157,7 @@ struct DataMgr : Module, DmIoReqHandler {
                   fds_log *log) :
                 FDS_QoSControl(_max_thrds, algo, log, "DM") {
             parentDm = _parent;
-            dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, _max_thrds, log);
+            dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, 2 * _max_thrds, log);
             // dispatcher = new QoSMinPrioDispatcher(this, log, parentDm->scheduleRate);
         }
 

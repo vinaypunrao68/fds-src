@@ -192,4 +192,22 @@ SvcMsgFactory::newGetBucketMsg(const uint64_t& volId, const uint64_t& start_pos)
     return getBucket;
 }
 
+fpi::GetDmStatsMsgPtr
+SvcMsgFactory::newGetDmStatsMsg(const uint64_t& volId)
+{
+    fpi::GetDmStatsMsgPtr  getDmStats(new fpi::GetDmStatsMsg);
+    getDmStats->volume_id = volId;
+    return getDmStats;
+}
+
+fpi::DeleteBlobMsgPtr
+SvcMsgFactory::newDeleteBlobMsg(const uint64_t& volId, const std::string blobName)
+{
+    fpi::DeleteBlobMsgPtr  delBlob(new fpi::DeleteBlobMsg);
+    delBlob->volume_id = volId;
+    delBlob->blob_name = blobName;
+    delBlob->blob_version = blob_version_invalid;
+    return delBlob;
+}
+
 }  // namespace fds

@@ -118,3 +118,8 @@ files_before_stopping_fds
 files_before_system_test
 files_before_unit_test
 ansible/.devsetup-is-*
+source/cit/*.xml
+source/cit/PyUnit.log*
+source/cit/classes
+source/cit/surefire-reports
+source/sm*log

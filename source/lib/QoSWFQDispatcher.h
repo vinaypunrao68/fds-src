@@ -72,7 +72,7 @@ namespace fds {
 
     fds_uint64_t num_ios_dispatched;
     fds_uint64_t num_rate_based_slots_serviced;
-    boost::posix_time::ptime last_reset_time;
+    fds_uint64_t last_reset_time;
 
     fds_uint32_t priority_to_wfq_weight(fds_uint32_t priority) {
       assert((priority >= 0) && (priority <= 10));

@@ -55,7 +55,7 @@ describe( 'Testing volume creation permutations', function(){
         
         // find our volume
         snapVolume = element( by.cssContainingText( '.volume-row', 'SnapshotVolume' ));
-        snapVolume.element( by.css( '.fui-new' ) ).click();
+        snapVolume.element( by.css( '.icon-pencil' ) ).click();
         
         // verify the snapshot policy is there
         expect( checks.get( 0 ).element( by.css( '.checked' )).getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
@@ -91,13 +91,12 @@ describe( 'Testing volume creation permutations', function(){
         expect( checks.get( 0 ).element( by.css( '.checked' ) ).getAttribute( 'class' ) ).toContain( 'ng-hide' );
         expect( checks.get( 1 ).element( by.css( '.checked' ) ).getAttribute( 'class' ) ).toContain( 'ng-hide' );
         expect( checks.get( 2 ).element( by.css( '.checked' ) ).getAttribute( 'class' ) ).toContain( 'ng-hide' );
-        expect( checks.get( 3 ).element( by.css( '.checked' ) ).getAttribute( 'class' ) ).toContain( 'ng-hide' );
         
         element.all( by.buttonText( 'Cancel' ) ).get( 0 ).click();
         
         browser.sleep( 210 );
         
-        snapVolume.element( by.css( '.fui-new' ) ).click();
+        snapVolume.element( by.css( '.icon-pencil' ) ).click();
         
         browser.sleep( 210 );
         
@@ -115,9 +114,9 @@ describe( 'Testing volume creation permutations', function(){
     
     it ( 'should be able to take a snapshot and see it in the list', function(){
         
-        snapVolume.element( by.css( '.fui-windows' ) ).click();
+        snapVolume.element( by.css( '.icon-cake' ) ).click();
         
-        browser.switchTo().alert().accept();
+        element( by.css( '.fds-modal-ok' ) ).click();
         
         snapVolume.click();
         

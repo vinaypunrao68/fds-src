@@ -135,6 +135,8 @@ static fds::Module *dmVec[] = {
 
 struct DMTester :  FdsProcess {
     std::vector<boost::shared_ptr<VolumeDesc> > volumes;
+    std::string TESTBLOB;
+    fds_volid_t TESTVOLID;
     DMTester(int argc, char *argv[])
             : FdsProcess(argc,
                          argv,
@@ -169,6 +171,7 @@ struct DMTester :  FdsProcess {
                                                get_plf_manager());
 
         dataMgr->omClient->initialize();
+        dataMgr->initHandlers();
         dataMgr->mod_enable_service();
     }
 

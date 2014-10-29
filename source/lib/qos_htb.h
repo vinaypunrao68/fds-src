@@ -95,7 +95,7 @@ namespace fds {
     double getIOPerfWMA();
 
     /* Update number of tokens and returns the number of expired 'assured' tokens */         
-    fds_uint64_t updateTokens(void);
+    fds_uint64_t updateTokens(fds_uint64_t nowMicrosec);
     
     /* Uses the state from the last call to updateTokens().
      * For the IO at the head of the queue, try to consume tokens that were created with minRate 
@@ -115,13 +115,13 @@ namespace fds {
     }
  
   private:
-    inline void moveToNextHistTs(const boost::posix_time::ptime& now) {
-      if (now > next_hist_ts) {
+    inline void moveToNextHistTs(fds_uint64_t nowMicrosec) {
+      if (nowMicrosec > next_hist_ts) {
 	do {
-	  next_hist_ts += boost::posix_time::microseconds(HTB_WMA_SLOT_SIZE_MICROSEC);
+	  next_hist_ts += HTB_WMA_SLOT_SIZE_MICROSEC;
           hist_slotix = (hist_slotix + 1) % HTB_WMA_LENGTH;
 	  recent_iops[hist_slotix] = 0;
-	} while (now> next_hist_ts);
+	} while (nowMicrosec > next_hist_ts);
       }
     }
 
@@ -142,7 +142,7 @@ namespace fds {
     *  This is used (by the parent dispatcher) to fairly share available tokens among 
     *  among queues with the same priority */
     fds_uint32_t recent_iops[HTB_WMA_LENGTH];  /* a window of the recent iops performance */
-    boost::posix_time::ptime next_hist_ts;
+    fds_uint64_t next_hist_ts;
     fds_uint32_t hist_slotix;
     static const double kweights[HTB_MAX_WMA_LENGTH];
   
