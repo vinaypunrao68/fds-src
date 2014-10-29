@@ -18,6 +18,7 @@
 #include <am-nbd.h>
 #include <fds_process.h>
 #include <util/Log.h>
+#include <nbd-test-mod.h>
 #include <StorHvisorNet.h>
 
 namespace fds {
@@ -151,8 +152,14 @@ EvBlkVol::blk_run_loop()
 int
 EvBlockMod::mod_init(SysParams const *const p)
 {
-    gl_BlockMod = &gl_NbdBlockMod;
+    FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
+    std::string mod = conf.get_abs<std::string>("fds.am.testing.nbd_vol_module", "blk");
 
+    if (mod == "sm") {
+        gl_BlockMod = &gl_NbdSmMod;
+    } else {
+        gl_BlockMod = &gl_NbdBlockMod;
+    }
     return Module::mod_init(p);
 }
 
