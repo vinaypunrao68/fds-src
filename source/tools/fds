@@ -425,6 +425,10 @@ do
             setBuildMode debug
             exit 0
             ;;
+        mode)
+            printBuildMode
+            exit 0
+            ;;
         *)
             if [[ -z $CMD ]] ; then CMD=$opt
             elif [[ -z $APP ]] ; then APP=$opt
