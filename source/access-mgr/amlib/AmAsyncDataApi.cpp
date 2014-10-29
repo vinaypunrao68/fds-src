@@ -130,6 +130,20 @@ AmAsyncDataApi::commitBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
                              boost::shared_ptr<std::string>& volumeName,
                              boost::shared_ptr<std::string>& blobName,
                              boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    // Setup the transcation descriptor
+    BlobTxId::ptr blobTxDesc(new BlobTxId(
+        txDesc->txId));
+
+    AsyncCommitBlobTxResponseHandler::ptr handler(
+        new AsyncCommitBlobTxResponseHandler(responseApi,
+                                             requestId));
+
+    FdsBlobReq *blobReq = new CommitBlobTxReq(invalid_vol_id,
+                                              *volumeName,
+                                              *blobName,
+                                              blobTxDesc,
+                                              SHARED_DYN_CAST(Callback, handler));
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 void
@@ -147,6 +161,20 @@ AmAsyncDataApi::abortBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
                             boost::shared_ptr<std::string>& volumeName,
                             boost::shared_ptr<std::string>& blobName,
                             boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    AsyncAbortBlobTxResponseHandler::ptr handler(
+        new AsyncAbortBlobTxResponseHandler(responseApi,
+                                            requestId));
+
+    // Setup the transcation descriptor
+    BlobTxId::ptr blobTxDesc(new BlobTxId(
+        txDesc->txId));
+
+    FdsBlobReq *blobReq = new AbortBlobTxReq(invalid_vol_id,
+                                             *volumeName,
+                                             *blobName,
+                                             blobTxDesc,
+                                             SHARED_DYN_CAST(Callback, handler));
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 void
