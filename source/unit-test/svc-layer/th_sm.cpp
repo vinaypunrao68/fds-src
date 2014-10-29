@@ -50,6 +50,7 @@ class TestSMSvcHandler : virtual public FDS_ProtocolInterface::TestSMSvcIf {
  public:
     explicit TestSMSvcHandler(SMTest* smTest) {
         smTest_ = smTest;
+        connCntr_ = 0;
     }    /* Connect to SM */
     int32_t associate(const std::string& ip, const int32_t port) {
         return 0;
@@ -79,7 +80,7 @@ class TestSMSvcHandler : virtual public FDS_ProtocolInterface::TestSMSvcIf {
     {
         std::cout << "Received put object. Sending response " << std::endl;
         // TODO(Rao): Swap the src and dst id
-        clientTbl_[asyncHdr->msg_src_id]->\
+        clientTbl_[asyncHdr->msg_src_uuid.svc_uuid]->\
             putObjectRsp(*asyncHdr, ::FDS_ProtocolInterface::PutObjectRspMsg());
     }
 

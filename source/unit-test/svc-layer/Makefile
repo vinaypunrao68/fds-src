@@ -18,6 +18,7 @@ user_cc           := ngx_modules.c
 user_cpp          := \
     th_am.cpp \
     th_sm.cpp \
+    th_dm.cpp \
 	threadpool_test.cpp \
     serializer_gtest.cpp
 
@@ -25,6 +26,7 @@ user_clean	      :=
 user_bin_exe      := \
 	th_am \
 	th_sm \
+    th_dm \
     th_am_server \
 	threadpool_test \
     serializer_gtest
@@ -34,6 +36,10 @@ th_am := \
 
 th_sm := \
     th_sm.cpp \
+    ngx_modules.c
+
+th_dm := \
+    th_dm.cpp \
     ngx_modules.c
 
 #th_am_server := \

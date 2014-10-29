@@ -26,6 +26,7 @@
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TTransportUtils.h>
 #include <fdsp/TestAMSvc.h>
+#include <fdsp/TestDMSvc.h>
 
 namespace fds {
 
@@ -41,6 +42,7 @@ NbdBlockMod                  gl_NbdBlockMod;
 class TestAMSvcHandler : virtual public TestAMSvcIf {
  public:
     TestAMSvcHandler() {
+        reqId_ = 0;
         // Your initialization goes here
     }
     int32_t associate(const std::string& myip, const int32_t port) {
@@ -68,13 +70,29 @@ class TestAMSvcHandler : virtual public TestAMSvcIf {
     void updateCatalogRsp(boost::shared_ptr< ::FDS_ProtocolInterface::AsyncHdr>& asyncHdr,
                           boost::shared_ptr< ::FDS_ProtocolInterface::UpdateCatalogOnceRspMsg>& payload)  // NOLINT
     {
-        volPtr_->nbd_vol_write_cb(nullptr, nullptr, ERR_OK, nullptr);
+        lock_.lock();
+        NbdBlkIO* io = reqMap_[asyncHdr->msg_src_id];
+        reqMap_.erase(asyncHdr->msg_src_id);
+        lock_.unlock();
+        volPtr_->nbd_vol_write_cb(io, nullptr, ERR_OK, nullptr);
     }
 
     void setNbdVol(NbdBlkVol::ptr volPtr)
     {
         volPtr_ = volPtr;
     }
+
+    int addRequest(NbdBlkIO* io) {
+        lock_.lock();
+        int reqId = reqId_++;
+        reqMap_[reqId] = io;
+        lock_.unlock();
+        return reqId;
+    }
+
+    fds_mutex lock_;
+    int reqId_;
+    std::unordered_map<int, NbdBlkIO*> reqMap_;
 
     NbdBlkVol::ptr volPtr_;
 };
@@ -104,6 +122,9 @@ struct TestAMServer {
     boost::shared_ptr<TThreadedServer> server_;
 };
 std::unique_ptr<TestAMServer> amServer;
+boost::shared_ptr<fpi::TestDMSvcClient> dmClient;
+int dmSessionId;
+int dmPort = 9097;
 int amPort = 9595;
 
 /**
@@ -421,14 +442,11 @@ NbdBlkVol::nbd_vol_th_write(NbdBlkIO *vio)
         }
         upcat->obj_list.push_back(object);
     }
-    auto dmtMgr = BlockMod::blk_singleton()->blk_amc->om_client->getDmtManager();
-    auto upcat_req = gSvcRequestPool->newQuorumSvcRequest(
-                boost::make_shared<DmtVolumeIdEpProvider>(
-                    dmtMgr->getCommittedNodeGroup(vol->vol_uuid)));
 
-    upcat_req->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), upcat);
-    upcat_req->onResponseCb(RESPONSE_MSG_HANDLER(NbdBlkVol::nbd_vol_write_cb, vio));
-    upcat_req->invoke();
+    fpi::AsyncHdr hdr;
+    hdr.msg_src_uuid.svc_uuid = dmSessionId;
+    hdr.msg_src_id = amServer->handler_->addRequest(vio);
+    dmClient->updateCatalog(hdr, *upcat);
 
     vio->aio_wait(&vol_mtx, &vol_waitq);
 }
@@ -642,6 +660,15 @@ NbdBlockMod::mod_startup()
 {
     amServer.reset(new TestAMServer(amPort));;
     amServer->serve();
+    sleep(5);
+
+    boost::shared_ptr<TTransport> dmSock(new TSocket("127.0.0.1", dmPort));
+    boost::shared_ptr<TFramedTransport> dmTrans(new TFramedTransport(dmSock));
+    boost::shared_ptr<TProtocol> dmProto(new TBinaryProtocol(dmTrans));
+    dmClient.reset(new fpi::TestDMSvcClient(dmProto));
+    /* Connect to DM by sending my ip port so dm can connect to me */
+    dmTrans->open();
+    dmSessionId = dmClient->associate("127.0.0.1", amPort);
     sleep(1);
 
     EvBlockMod::mod_startup();

@@ -25,6 +25,7 @@
 #include <testlib/TestFixtures.h>
 #include "TestAMSvc.h"
 #include "TestSMSvc.h"
+#include "TestDMSvc.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -103,6 +104,7 @@ class TestAMSvcHandler : virtual public FDS_ProtocolInterface::TestAMSvcIf {
     void updateCatalogRsp(boost::shared_ptr< ::FDS_ProtocolInterface::AsyncHdr>& asyncHdr,
                           boost::shared_ptr< ::FDS_ProtocolInterface::UpdateCatalogOnceRspMsg>& payload)  // NOLINT
     {
+        std::cout << "Update catalog resp\n";
     }
 
  protected:
@@ -139,7 +141,7 @@ AMTest::~AMTest()
     t_->join();
 }
 
-TEST_F(AMTest, test)
+TEST_F(AMTest, DISABLED_test)
 {
     int dataCacheSz = 100;
     int connCnt = this->getArg<int>("conn-cnt");
@@ -191,7 +193,7 @@ TEST_F(AMTest, test)
         int clientIdx = i % smClients.size();
         auto putObjMsg = putMsgGen->nextItem();
         fpi::AsyncHdr hdr;
-        hdr.msg_src_id = smClients[clientIdx].first;
+        hdr.msg_src_uuid.svc_uuid = smClients[clientIdx].first;
         putsIssued_++;
         smClients[clientIdx].second->putObject(hdr, *putObjMsg);
     }
@@ -210,6 +212,46 @@ TEST_F(AMTest, test)
         << " putsFailedCnt_: " << putsFailedCnt_;
 }
 
+TEST_F(AMTest, dmtest)
+{
+    int dataCacheSz = 100;
+    int connCnt = this->getArg<int>("conn-cnt");
+    int nPuts =  this->getArg<int>("puts-cnt");
+    std::string dmIp = this->getArg<std::string>("dm-ip");
+    std::string myIp = this->getArg<std::string>("my-ip");
+    int dmPort = this->getArg<int>("dm-port");
+    int amPort = this->getArg<int>("am-port");
+
+    int volId = 0;
+    std::vector<std::pair<int, boost::shared_ptr<fpi::TestDMSvcClient>>> dmClients(connCnt);
+
+    /* start server for responses */
+    serve();
+
+    /* Wait a bit */
+    sleep(2);
+
+    /* Create connections against DM */
+    for (int i = 0; i < connCnt; i++) {
+        boost::shared_ptr<TTransport> dmSock(new TSocket(dmIp, dmPort));
+        boost::shared_ptr<TFramedTransport> dmTrans(new TFramedTransport(dmSock));
+        boost::shared_ptr<TProtocol> dmProto(new TBinaryProtocol(dmTrans));
+        dmClients[i].second.reset(new fpi::TestDMSvcClient(dmProto));
+        /* Connect to DM by sending my ip port so dm can connect to me */
+        dmTrans->open();
+        dmClients[i].first = dmClients[i].second->associate(myIp, amPort);
+        std::cout << "started connection. Id : " << dmClients[i].first << "\n";
+    }
+
+    sleep(5);
+
+    fpi::AsyncHdr hdr;
+    fpi::UpdateCatalogOnceMsg upcat;
+    hdr.msg_src_uuid.svc_uuid = dmClients[0].first;
+    dmClients[0].second->updateCatalog(hdr, upcat);
+
+    sleep(5);
+}
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     po::options_description opts("Allowed options");
@@ -219,6 +261,8 @@ int main(int argc, char** argv) {
         ("puts-cnt", po::value<int>()->default_value(10), "puts count")
         ("sm-ip", po::value<std::string>()->default_value("127.0.0.1"), "sm-ip")
         ("sm-port", po::value<int>()->default_value(9092), "sm port")
+        ("dm-ip", po::value<std::string>()->default_value("127.0.0.1"), "dm-ip")
+        ("dm-port", po::value<int>()->default_value(9097), "dm port")
         ("my-ip", po::value<std::string>()->default_value("127.0.0.1"), "my ip")
         ("am-port", po::value<int>()->default_value(9094), "am port");
     AMTest::init(argc, argv, opts);
