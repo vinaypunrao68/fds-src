@@ -5,7 +5,6 @@
 
 package com.formationds.om.rest.snapshot;
 
-import com.formationds.commons.model.RecurrenceRule;
 import com.formationds.commons.model.SnapshotPolicy;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.web.toolkit.JsonResource;
@@ -15,13 +14,19 @@ import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class ListSnapshotPoliciesForVolume
   implements RequestHandler {
+    private static final transient Logger logger =
+        LoggerFactory.getLogger( ListSnapshotPoliciesForVolume.class );
+
     private static final String REQ_PARAM_VOLUME_ID = "volumeId";
     private ConfigurationApi config;
 
@@ -50,17 +55,14 @@ public class ListSnapshotPoliciesForVolume
                .forEach( ( p ) -> {
                  final SnapshotPolicy modelPolicy = new SnapshotPolicy();
 
-                 RecurrenceRule rrule;
-                 try {
-                   rrule = new RecurrenceRule().parser( p.getRecurrenceRule() );
-                 } catch( Exception e ) {
-                   e.printStackTrace();
-                   rrule = new RecurrenceRule();
-                 }
-
                  modelPolicy.setId( p.getId() );
                  modelPolicy.setName( p.getPolicyName() );
-                 modelPolicy.setRecurrenceRule( rrule );
+                   try {
+                       modelPolicy.setRecurrenceRule( p.getRecurrenceRule() );
+                   } catch( ParseException e ) {
+                       logger.error( "Failed to parse RRULE: " + p.getRecurrenceRule(),
+                                     e);
+                   }
                  modelPolicy.setRetention( p.getRetentionTimeSeconds() );
                  policies.add( modelPolicy );
                } );
