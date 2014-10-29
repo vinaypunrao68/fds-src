@@ -219,7 +219,7 @@ AmAsyncDataApi::updateBlobOnce(boost::shared_ptr<apis::RequestId>& requestId,
         boost::make_shared<AsyncUpdateBlobOnceResponseHandler>(responseApi,
                                                                requestId));
 
-    FdsBlobReq *blobReq = new PutBlobReq(invalid_vol_id,
+    AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                          *volumeName,
                                          *blobName,
                                          static_cast<fds_uint64_t>(objectOffset->value),
