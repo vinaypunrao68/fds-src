@@ -574,7 +574,10 @@ Error DmVolumeDirectory::deleteBlob(fds_volid_t volId, const std::string& blobNa
 
     std::vector<ObjectID> expungeList;
     for (const auto & it : objList) {
-        expungeList.push_back(ObjectID(it.data_obj_id.digest));
+        const ObjectID obj(it.data_obj_id.digest);
+        if (NullObjectID != obj) {
+            expungeList.push_back(obj);
+        }
     }
 
     rc = vol->deleteObject(blobName, 0, endOffset);
