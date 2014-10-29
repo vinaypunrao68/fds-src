@@ -22,11 +22,22 @@ namespace fds {
 namespace xdi_att = apache::thrift::transport;
 namespace xdi_atp = apache::thrift::protocol;
 
-AmAsyncXdiResponse::AmAsyncXdiResponse() {
+AmAsyncXdiResponse::AmAsyncXdiResponse()
+        : serverIp("127.0.0.1"),
+          serverPort(9876) {
+    // Set client to unitialized
+    asyncRespClient.reset();
+}
+
+AmAsyncXdiResponse::~AmAsyncXdiResponse() {
+}
+
+void
+AmAsyncXdiResponse::initiateClientConnect() {
     // Setup the async response client
     boost::shared_ptr<xdi_att::TTransport> respSock(
-        boost::make_shared<xdi_att::TSocket>("127.0.0.1",
-                                             9876));
+        boost::make_shared<xdi_att::TSocket>(serverIp,
+                                             serverPort));
     boost::shared_ptr<xdi_att::TFramedTransport> respTrans(
         boost::make_shared<xdi_att::TFramedTransport>(respSock));
     boost::shared_ptr<xdi_atp::TProtocol> respProto(
@@ -34,13 +45,11 @@ AmAsyncXdiResponse::AmAsyncXdiResponse() {
     asyncRespClient = boost::make_shared<apis::AsyncAmServiceResponseClient>(respProto);
 }
 
-AmAsyncXdiResponse::~AmAsyncXdiResponse() {
-}
-
 void
 AmAsyncXdiResponse::startBlobTxResp(const Error &error,
                                     boost::shared_ptr<apis::RequestId>& requestId,
                                     boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
             boost::make_shared<apis::ErrorCode>());
@@ -58,6 +67,7 @@ AmAsyncXdiResponse::startBlobTxResp(const Error &error,
 void
 AmAsyncXdiResponse::abortBlobTxResp(const Error &error,
                                     boost::shared_ptr<apis::RequestId>& requestId) {
+    checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
             boost::make_shared<apis::ErrorCode>());
@@ -74,6 +84,7 @@ AmAsyncXdiResponse::abortBlobTxResp(const Error &error,
 void
 AmAsyncXdiResponse::commitBlobTxResp(const Error &error,
                                      boost::shared_ptr<apis::RequestId>& requestId) {
+    checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
             boost::make_shared<apis::ErrorCode>());
@@ -90,6 +101,7 @@ AmAsyncXdiResponse::commitBlobTxResp(const Error &error,
 void
 AmAsyncXdiResponse::updateBlobOnceResp(const Error &error,
                                        boost::shared_ptr<apis::RequestId>& requestId) {
+    checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
             boost::make_shared<apis::ErrorCode>());
