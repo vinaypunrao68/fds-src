@@ -29,7 +29,7 @@ struct blk_vol_creat
     fds_uint64_t       v_uuid;
     fds_uint64_t       v_vol_blksz;
     fds_uint32_t       v_blksz;
-
+    bool               v_test_vol_flag;
     /* Output params. */
     char               v_blkdev[FDS_MAX_VOL_NAME];
 };
@@ -45,6 +45,9 @@ class BlkVol
     virtual ~BlkVol();
     BlkVol(const char *name, const char *dev,
            fds_uint64_t uuid, fds_uint64_t vol_sz, fds_uint32_t blk_sz);
+    BlkVol(const char *name, const char *dev,
+           fds_uint64_t uuid, fds_uint64_t vol_sz, fds_uint32_t blk_sz, bool test_vol_flag);
+
 
     char               vol_name[FDS_MAX_VOL_NAME];
     char               vol_dev[FDS_MAX_VOL_NAME];
@@ -52,6 +55,7 @@ class BlkVol
     fds_uint64_t       vol_sz_blks;           /* volume size in blocks. */
     fds_uint32_t       vol_blksz_byte;        /* volume block size in bytes. */
     fds_uint32_t       vol_blksz_mask;
+    bool               vol_test_flag;         /* flag to sprcify unit test volume */
 
   protected:
     fds_mutex          vol_mtx;
