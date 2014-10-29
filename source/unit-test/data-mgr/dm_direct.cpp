@@ -94,8 +94,8 @@ TEST_F(DmUnitTest, PutBlobOnce) {
         fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
     }
     uint64_t txnId;
-    DMCallback cb;
     for (uint i = 0; i < NUM_BLOBS; i++) {
+        DMCallback cb;
         txnId = dmTester->getNextTxnId();
         putBlobOnce->blob_name = dmTester->getBlobName(i);
         putBlobOnce->txId = txnId;
