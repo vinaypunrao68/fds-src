@@ -19,7 +19,35 @@
 #include <concurrency/taskstatus.h>
 #include <util/color.h>
 #include <map>
+#include <util/stats.h>
+
 using fds::util::Color;
+std::map<std::string, fds::util::Stats> statsMap;
+
+void printStats() {
+    for (auto& iter : statsMap) {
+        auto& stats = iter.second;
+        stats.calculate();
+        if (stats.getCount() > 1) {
+            std::cout << Color::Yellow << "[" << std::setw(10) << iter.first << "] " << Color::End
+                      << std::fixed << std::setprecision(3)
+                      << Color::Green << "["
+                      << " count:" << stats.getCount()
+                      << " median:" << stats.getMedian()
+                      << " avg:" << stats.getAverage()
+                      << " stddev:" << stats.getStdDev()
+                      << " min:" << stats.getMin()
+                      << " max:" << stats.getMax()
+                      << " ]" << Color::End << std::endl;
+        } else {
+            std::cout << Color::Yellow << "[" << std::setw(10) << iter.first << "] " << Color::End
+                      << std::fixed << std::setprecision(3)
+                      << Color::Green << stats.getAverage() << Color::End << std::endl;
+        }
+    }
+    statsMap.clear();
+}
+
 struct TimePrinter {
     std::string name;
     fds::util::StopWatch stopwatch;
@@ -36,16 +64,20 @@ struct TimePrinter {
                   << Color::End
                   << std::endl;
     }
+
     ~TimePrinter() {
-        if (done) summary();
+        if (done) {
+            // summary();
+            statsMap[name].add(stopwatch.getElapsedNanos()/(1000000.0));
+        }
     }
 };
+
 std::map<std::string, TimePrinter> timeMap;
-#define TIMEIT(NAME, ...) \
-    timeMap[NAME].stopwatch.reset(); \
-    timeMap[NAME].name = NAME; \
-    __VA_ARGS__ ; \
-    timeMap[NAME].summary()
+
+#define TIMEDSECTION(NAME, ...) timeMap[NAME].stopwatch.reset();  timeMap[NAME].name = NAME; \
+    __VA_ARGS__ ; timeMap[NAME].summary()
+
 #define TIMEDBLOCK(NAME) for (TimePrinter __tp__(NAME); !__tp__.done ; __tp__.done = true)
 #define TIMEDOUTERBLOCK(NAME) for (TimePrinter __otp__(NAME); !__otp__.done ; __otp__.done = true)
 
