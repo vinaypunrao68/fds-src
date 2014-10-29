@@ -74,7 +74,7 @@ TEST_F(DMApi, putBlobTest)
     svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
-    // start transaction
+    /* Prepare start tx */
     SvcRequestCbTask<EPSvcRequest, fpi::StartBlobTxRspMsg> waiter;
     auto startBlobTx = SvcMsgFactory::newStartBlobTxMsg(volId_, blobName);
     auto asyncBlobTxReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
@@ -84,16 +84,8 @@ TEST_F(DMApi, putBlobTest)
     asyncBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::StartBlobTxMsg), startBlobTx);
     asyncBlobTxReq->onResponseCb(waiter.cb);
     startBlobTxIssued_++;
-    {
-    fds_uint64_t startTs = util::getTimeStampNanos();
-    txStartTs = startTs;
-    asyncBlobTxReq->invoke();
-    waiter.await();
-    fds_uint64_t endTs = util::getTimeStampNanos();
-    startTxCounter->update(endTs - startTs);
-    }
-    ASSERT_EQ(waiter.error, ERR_OK) << "Error: " << waiter.error;
 
+    /* Prepare update tx */
     SvcRequestCbTask<EPSvcRequest, fpi::UpdateCatalogRspMsg> updWaiter;
     auto updateCatMsg = SvcMsgFactory::newUpdateCatalogMsg(volId_, blobName);
     auto asyncUpdCatReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
@@ -104,6 +96,29 @@ TEST_F(DMApi, putBlobTest)
     asyncUpdCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), updateCatMsg);
     asyncUpdCatReq->onResponseCb(updWaiter.cb);
     updateCatIssued_++;
+
+    /* Prepare commit tx */
+    SvcRequestCbTask<EPSvcRequest, fpi::CommitBlobTxRspMsg> commitWaiter;
+    auto commitBlobMsg = SvcMsgFactory::newCommitBlobTxMsg(volId_, blobName);
+    auto asyncCommitBlobReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+    commitBlobMsg->txId  = 1;
+    commitBlobMsg->dmt_version = 1;
+    asyncCommitBlobReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg), commitBlobMsg);
+    asyncCommitBlobReq->onResponseCb(commitWaiter.cb);
+    commitBlobTxIssued_++;
+
+    /* Start tx */
+    {
+    fds_uint64_t startTs = util::getTimeStampNanos();
+    txStartTs = startTs;
+    asyncBlobTxReq->invoke();
+    waiter.await();
+    fds_uint64_t endTs = util::getTimeStampNanos();
+    startTxCounter->update(endTs - startTs);
+    }
+    ASSERT_EQ(waiter.error, ERR_OK) << "Error: " << waiter.error;
+
+    /* Update tx */
     {
     fds_uint64_t startTs = util::getTimeStampNanos();
     asyncUpdCatReq->invoke();
@@ -113,14 +128,7 @@ TEST_F(DMApi, putBlobTest)
     }
     ASSERT_EQ(updWaiter.error, ERR_OK) << "Error: " << updWaiter.error;
 
-    SvcRequestCbTask<EPSvcRequest, fpi::CommitBlobTxRspMsg> commitWaiter;
-    auto commitBlobMsg = SvcMsgFactory::newCommitBlobTxMsg(volId_, blobName);
-    auto asyncCommitBlobReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
-    commitBlobMsg->txId  = 1;
-    commitBlobMsg->dmt_version = 1;
-    asyncCommitBlobReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg), commitBlobMsg);
-    asyncCommitBlobReq->onResponseCb(commitWaiter.cb);
-    commitBlobTxIssued_++;
+    /* Commit tx */
     {
     fds_uint64_t startTs = util::getTimeStampNanos();
     asyncCommitBlobReq->invoke();

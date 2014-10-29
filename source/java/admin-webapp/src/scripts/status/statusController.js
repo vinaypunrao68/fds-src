@@ -21,6 +21,9 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.capacityLineStipples = ['none', '2,2'];
     $scope.capacityLineColors = ['#1C82FB', '#71AFF8'];
     
+    $scope.capacityLabels = [ $filter( 'translate' )( 'common.l_30_days' ), $filter( 'translate' )( 'common.l_15_days' ), $filter( 'translate' )( 'common.l_today' )];
+    $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
+    
     $scope.activitiesReturned = function( list ){
         $scope.activities = eval(list);
     };
@@ -109,7 +112,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     });
     
     $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
-    $stats_service.getPerformanceSummary( $scope.performanceReturned );
-    $stats_service.getCapacitySummary( $scope.capacityReturned );
+    $stats_service.getPerformanceSummary( {}, $scope.performanceReturned );
+    $stats_service.getCapacitySummary( {}, $scope.capacityReturned );
 
 }]);

@@ -48,8 +48,9 @@ struct AMServerTest : BaseTestFixture
 
 class TestAMSvcSyncHandler : virtual public FDS_ProtocolInterface::TestAMSvcSyncIf {
  public:
-    explicit TestAMSvcSyncHandler(AMServerTest* amTest) {
+    explicit TestAMSvcSyncHandler(AMServerTest* amTest, double sleepTime) {
         amTest_ = amTest;
+        sleepTime_ = sleepTime;
     }
 
     /* Connect to AM */
@@ -64,29 +65,33 @@ class TestAMSvcSyncHandler : virtual public FDS_ProtocolInterface::TestAMSvcSync
                     boost::shared_ptr<int32_t>& length,
                     boost::shared_ptr<int32_t>& offset) {
         // Your implementation goes here
-        printf("getBlob\n");
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        _return = "Fuck you XDI";
+        if (sleepTime_ > 0)
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime_));
+
+        _return = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";  // NOLINT
     }
 
  protected:
     // std::atomic<int> connCntr_;
     // std::unordered_map<int, boost::shared_ptr<fpi::TestAMSvcClient>> clientTbl_;
     AMServerTest *amTest_;
+    int sleepTime_;
 };
 
 AMServerTest::AMServerTest()
 {
     /* setup server */
     int amPort = this->getArg<int>("am-port");
-    boost::shared_ptr<TestAMSvcSyncHandler> handler(new TestAMSvcSyncHandler(this));
+    int thPoolSize = this->getArg<int>("tp-size");
+    double sleepTime = this->getArg<double>("sleep-time");
+    boost::shared_ptr<TestAMSvcSyncHandler> handler(new TestAMSvcSyncHandler(this, sleepTime));
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
     boost::shared_ptr<TProcessor> processor(
         new ::FDS_ProtocolInterface::TestAMSvcSyncProcessor(handler));
     // boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(amPort));
     // boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
     boost::shared_ptr<ThreadManager> threadManager =
-            ThreadManager::newSimpleThreadManager(30);
+            ThreadManager::newSimpleThreadManager(thPoolSize);
     boost::shared_ptr<PosixThreadFactory> threadFactory(new PosixThreadFactory());
     threadManager->threadFactory(threadFactory);
     threadManager->start();
@@ -112,7 +117,10 @@ int main(int argc, char** argv) {
     po::options_description opts("Allowed options");
     opts.add_options()
         ("help", "produce help message")
-        ("am-port", po::value<int>()->default_value(9092), "am port");
+        ("am-port", po::value<int>()->default_value(9092), "am port")
+        ("tp-size", po::value<int>()->default_value(15), "thread pool size")
+        ("sleep-time", po::value<double>()->default_value(0), "sleep time [ms]");
+
     AMServerTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }

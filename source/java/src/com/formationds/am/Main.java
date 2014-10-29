@@ -26,6 +26,7 @@ import org.eclipse.jetty.io.ByteBufferPool;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.Function;
 
 public class Main {
     private static Logger LOG = Logger.getLogger(Main.class);
@@ -66,15 +67,12 @@ public class Main {
                 ops = new BlockExclusionWrapper(ops, 4096);
             NbdHost nbdHost = new NbdHost(nbdPort, ops);
 
-            new Thread(() -> nbdHost.run()).start();
+            new Thread(() -> nbdHost.run(), "NBD thread").start();
 
             Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
             ByteBufferPool bbp = new ArrayByteBufferPool();
-            XdiAsync.Factory xdiAsync = new XdiAsync.Factory(authorizer,
-                    clientFactory.makeCsAsyncPool(omHost, omConfigPort),
-                    clientFactory.makeAmAsyncPool("localhost", 9988),
-                    bbp,
-                    configCache);
+            AsyncAm asyncAm = new AsyncAm(clientFactory.makeAmAsyncPool("localhost", 9988), authorizer);
+            Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm, bbp, token, configCache);
 
             int s3HttpPort = platformConfig.lookup("fds.am.s3_http_port").intValue();
             int s3SslPort = platformConfig.lookup("fds.am.s3_https_port").intValue();
@@ -82,7 +80,7 @@ public class Main {
             HttpConfiguration httpConfiguration = new HttpConfiguration(s3HttpPort, "0.0.0.0");
             HttpsConfiguration httpsConfiguration = new HttpsConfiguration(s3SslPort, configuration);
 
-            new Thread(() -> new S3Endpoint(xdi, xdiAsync, secretKey, httpsConfiguration, httpConfiguration).start()).start();
+            new Thread(() -> new S3Endpoint(xdi, factory, secretKey, httpsConfiguration, httpConfiguration).start(), "S3 service thread").start();
 
             startStreamingServer(8999, configCache);
 
@@ -111,7 +109,7 @@ public class Main {
             }
         };
 
-        new Thread(runnable).start();
+        new Thread(runnable, "Statistics streaming thread").start();
     }
 
 }

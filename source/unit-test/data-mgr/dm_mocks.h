@@ -137,6 +137,8 @@ struct DMTester :  FdsProcess {
     std::vector<boost::shared_ptr<VolumeDesc> > volumes;
     std::string TESTBLOB;
     fds_volid_t TESTVOLID;
+    uint64_t txnId = 0;
+
     DMTester(int argc, char *argv[])
             : FdsProcess(argc,
                          argv,
@@ -165,7 +167,7 @@ struct DMTester :  FdsProcess {
         dataMgr->omClient = new TestOMgrClient(FDSP_DATA_MGR,
                                                dataMgr->omIpStr,
                                                dataMgr->omConfigPort,
-                                               "testdm",
+                                               "dm",
                                                GetLog(),
                                                nstable,
                                                get_plf_manager());
@@ -173,6 +175,29 @@ struct DMTester :  FdsProcess {
         dataMgr->omClient->initialize();
         dataMgr->initHandlers();
         dataMgr->mod_enable_service();
+    }
+
+    std::string getBlobName(int num) {
+        if (0 == num) {
+            return TESTBLOB;
+        }
+        return TESTBLOB + std::to_string(num);
+    }
+
+    Error addVolume(uint num) {
+        Error err(ERR_OK);
+        std::cout << "adding volume: " << volumes[num]->volUUID
+                  << ":" << volumes[num]->name
+                  << ":" << dataMgr->getPrefix()
+                  << std::endl;
+        return dataMgr->_process_add_vol(dataMgr->getPrefix() +
+                                        std::to_string(volumes[num]->volUUID),
+                                        volumes[num]->volUUID, volumes[num].get(),
+                                        false);
+    }
+
+    uint64_t getNextTxnId() {
+        return ++txnId;
     }
 
     void start() {

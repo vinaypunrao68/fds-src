@@ -30,19 +30,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class S3AsyncApplication implements AsyncRequestExecutor {
-    private final static Logger LOG = Logger.getLogger(S3AsyncApplication.class);
-
     public static final int CONCURRENCY = 500;
+    private final static Logger LOG = Logger.getLogger(S3AsyncApplication.class);
     private final S3Authenticator authenticator;
-    private XdiAsync.Factory xdiAsyncFactory;
-    private AsyncRequestStatistics.Aggregate aggregateStats;
     private final LinkedList<AsyncRequestStatistics> requestStatisticsWindow;
     private final AsyncResourcePool<Void> requestLimiter;
+    private Function<AuthenticationToken, XdiAsync> xdiAsyncFactory;
+    private AsyncRequestStatistics.Aggregate aggregateStats;
 
-    public S3AsyncApplication(XdiAsync.Factory xdi, S3Authenticator authenticator) {
+    public S3AsyncApplication(Function<AuthenticationToken, XdiAsync> xdi, S3Authenticator authenticator) {
         this.xdiAsyncFactory = xdi;
         this.authenticator = authenticator;
         this.aggregateStats = new AsyncRequestStatistics.Aggregate();
@@ -62,7 +62,8 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
         }
 
         AsyncRequestStatistics requestStatistics = new AsyncRequestStatistics();
-        final XdiAsync xdiAsync = xdiAsyncFactory.createAuthenticated(token)
+
+        final XdiAsync xdiAsync = xdiAsyncFactory.apply(token)
                 .withStats(requestStatistics);
 
         String sanitizedPath = uri.getPath().replaceAll("^/|/$", "");
