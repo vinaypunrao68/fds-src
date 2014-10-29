@@ -67,7 +67,7 @@ public class FdsOutputStream extends OutputStream {
 
                 if (currentBuffer.remaining() == 0) {
                     currentBuffer.flip();
-                    am.updateBlobOnce(domain, volume, blobName, 0, currentBuffer, currentBuffer.limit(), new ObjectOffset(currentObject), metadata);
+                    am.updateBlobOnce(domain, volume, blobName, Mode.TRUNCATE.getValue(), currentBuffer, currentBuffer.limit(), new ObjectOffset(currentObject), metadata);
                 } else {
                     // read-update-write
                     ByteBuffer existing = null;
@@ -86,7 +86,7 @@ public class FdsOutputStream extends OutputStream {
                         currentBuffer.put(existing);
                     }
                     currentBuffer.flip();
-                    am.updateBlobOnce(domain, volume, blobName, 0, currentBuffer, currentBuffer.limit(), new ObjectOffset(currentObject), metadata);
+                    am.updateBlobOnce(domain, volume, blobName, Mode.TRUNCATE.getValue(), currentBuffer, currentBuffer.limit(), new ObjectOffset(currentObject), metadata);
                 }
 
                 currentBuffer.position(position);

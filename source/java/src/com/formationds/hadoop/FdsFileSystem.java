@@ -2,6 +2,7 @@ package com.formationds.hadoop;
 
 import com.formationds.apis.*;
 import com.formationds.util.HostAndPort;
+import com.formationds.util.blob.Mode;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
@@ -267,7 +268,7 @@ public class FdsFileSystem extends FileSystem {
         try {
             Map<String, String> map = new HashMap<>();
             map.put(DIRECTORY_SPECIFIER_KEY, "true");
-            am.updateBlobOnce(DOMAIN, getVolume(), targetPath, 0, ByteBuffer.allocate(0), 0, new ObjectOffset(0), map);
+            am.updateBlobOnce(DOMAIN, getVolume(), targetPath, Mode.TRUNCATE.getValue(), ByteBuffer.allocate(0), 0, new ObjectOffset(0), map);
         } catch(Exception ex) {
             throw new IOException(ex);
         }
