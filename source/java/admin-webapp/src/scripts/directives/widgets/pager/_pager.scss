@@ -1,0 +1,39 @@
+.fds-pager {
+    
+    width: 100%;
+    height: 30px;
+    background-color: transparent;
+    
+    @include display-flex();
+    
+    .button-row {
+        flex-grow: 2;
+        height: 100%;
+        
+        .selected {
+            background-color: #657D95;
+        }
+        
+        .button-parent {
+            height: 100%;
+            margin-right: auto;
+            margin-left: auto;
+            display: flex;
+            @include justify-content( center );
+            
+            .page-button {
+                border-radius: 0px;  
+            }
+            
+            .right-end {
+                border-top-left-radius: 0px;
+                border-bottom-left-radius: 0px;
+            }
+            
+            .left-end {
+                border-top-right-radius: 0px;
+                border-bottom-right-radius: 0px;
+            }            
+        }
+    }
+}
