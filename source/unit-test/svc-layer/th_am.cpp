@@ -57,6 +57,10 @@ struct AMTest : BaseTestFixture
     boost::shared_ptr<TThreadedServer> server_;
 };
 
+struct TestAMServer {
+    TestAMServer();
+};
+
 class TestAMSvcHandler : virtual public FDS_ProtocolInterface::TestAMSvcIf {
  public:
     explicit TestAMSvcHandler(AMTest* amTest) {
@@ -92,10 +96,19 @@ class TestAMSvcHandler : virtual public FDS_ProtocolInterface::TestAMSvcIf {
             amTest_->endTs_ = util::getTimeStampNanos();
         }
     }
+    void updateCatalogRsp(const  ::FDS_ProtocolInterface::AsyncHdr& asyncHdr,
+                          const  ::FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& payload) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void updateCatalogRsp(boost::shared_ptr< ::FDS_ProtocolInterface::AsyncHdr>& asyncHdr,
+                          boost::shared_ptr< ::FDS_ProtocolInterface::UpdateCatalogOnceRspMsg>& payload)  // NOLINT
+    {
+    }
 
  protected:
     AMTest *amTest_;
 };
+
 
 AMTest::AMTest()
 {

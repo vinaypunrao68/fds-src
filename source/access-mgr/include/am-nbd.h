@@ -84,6 +84,7 @@ class NbdBlkVol : public EvBlkVol
 
     void nbd_vol_read(NbdBlkIO *io);
     void nbd_vol_write(NbdBlkIO *io);
+    void nbd_vol_th_write(NbdBlkIO *io);
     void nbd_vol_close();
     void nbd_vol_flush();
     void nbd_vol_trim();

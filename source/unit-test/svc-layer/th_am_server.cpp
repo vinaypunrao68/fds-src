@@ -22,7 +22,7 @@
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
-#include "TestAMSvcSync.h"
+#include <TestAMSvcSync.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
