@@ -38,6 +38,15 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
   private:
     /// Thrift client to response to XDI
     boost::shared_ptr<apis::AsyncAmServiceResponseClient> asyncRespClient;
+    std::string serverIp;
+    fds_uint32_t serverPort;
+
+    void initiateClientConnect();
+    inline void checkClientConnect() {
+        if (asyncRespClient == NULL) {
+            initiateClientConnect();
+        }
+    }
 
   public:
     AmAsyncXdiResponse();
