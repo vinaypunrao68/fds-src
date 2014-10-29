@@ -30,7 +30,7 @@
             </div>
             <div class="tile-parent">
 <!--                <div class="firebreak-tile tile"></div>-->
-                <status-tile tile-title="{{ 'status.l_firebreak' | translate }}" calculated-data="items">
+                <status-tile tile-title="{{ 'status.l_firebreak' | translate }}" calculated-data="firebreakItems">
                     <treemap data="firebreakStats" tooltip="setFirebreakToolipText" color-property="secondsSinceLastFirebreak"
                         domain="firebreakDomain" range="firebreakRange" transform-value-function="transformFirebreakTime"></treemap>
                 </status-tile>
