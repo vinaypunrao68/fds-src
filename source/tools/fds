@@ -25,6 +25,7 @@ if [[ -e $RELEASEMODEFILE ]]; then
 fi
 
 BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
+TESTDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/tests"
 KODIR="${SOURCEDIR}/fds_client/blk_dev"
 FDSROOT=/fds
 FDSTEST_ROOT=/fds-test
@@ -427,6 +428,14 @@ do
             ;;
         mode)
             printBuildMode
+            exit 0
+            ;;
+        bindir)
+            echo $BINDIR
+            exit 0
+            ;;
+        testdir)
+            echo $TESTDIR
             exit 0
             ;;
         *)
