@@ -119,7 +119,7 @@ TEST_F(DmUnitTest, PutBlobOnce) {
         }
         EXPECT_EQ(ERR_OK, cb.e);
     }
-    EXPECT_EQ(ERR_OK, cb.e);
+
     if (profile)
         ProfilerStop();
     printStats();
