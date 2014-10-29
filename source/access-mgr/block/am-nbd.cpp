@@ -27,6 +27,7 @@
 #include <thrift/transport/TTransportUtils.h>
 #include <fdsp/TestAMSvc.h>
 #include <fdsp/TestDMSvc.h>
+#include <util/fiu_util.h>
 
 namespace fds {
 
@@ -360,8 +361,7 @@ NbdBlkVol::nbd_vol_read_cb(NbdBlkIO                    *vio,
 void
 NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
 {
-    nbd_vol_th_write(vio);
-    return;
+    fiu_do_on("nbd.usethrift", nbd_vol_th_write(vio); return;);
 
     ssize_t             len, off;
     NbdBlkVol::ptr      vol;
@@ -395,13 +395,16 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
         }
         upcat->obj_list.push_back(object);
     }
+    fiu_do_on("nbd.uturn.afterloop", return;);
     auto dmtMgr = BlockMod::blk_singleton()->blk_amc->om_client->getDmtManager();
     auto upcat_req = gSvcRequestPool->newQuorumSvcRequest(
                 boost::make_shared<DmtVolumeIdEpProvider>(
                     dmtMgr->getCommittedNodeGroup(vol->vol_uuid)));
+    fiu_do_on("nbd.uturn.afterquorumreq", return;);
 
     upcat_req->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), upcat);
     upcat_req->onResponseCb(RESPONSE_MSG_HANDLER(NbdBlkVol::nbd_vol_write_cb, vio));
+    fiu_do_on("nbd.uturn.beforeinvoke", return;);
     upcat_req->invoke();
 
     vio->aio_wait(&vol_mtx, &vol_waitq);
