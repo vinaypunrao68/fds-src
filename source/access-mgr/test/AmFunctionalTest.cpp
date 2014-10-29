@@ -64,7 +64,7 @@ class AmLoadProc : public AmAsyncResponseApi {
 
         // hardcoding test config
         concurrency = 1;
-        totalOps = 2000000;
+        totalOps = 1000000;
         blobSize = 4096;
         opCount = ATOMIC_VAR_INIT(0);
 
@@ -86,6 +86,15 @@ class AmLoadProc : public AmAsyncResponseApi {
     void startBlobTxResp(const Error &error,
                          boost::shared_ptr<apis::RequestId>& requestId,
                          boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
+    void updateBlobResp(const Error &error,
+                        boost::shared_ptr<apis::RequestId>& requestId) {
         fds_verify(ERR_OK == error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();

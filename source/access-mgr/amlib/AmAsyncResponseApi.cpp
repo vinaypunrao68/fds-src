@@ -22,6 +22,15 @@ namespace fds {
 namespace xdi_att = apache::thrift::transport;
 namespace xdi_atp = apache::thrift::protocol;
 
+#define XDICLIENTCALL(client, func)                   \
+    try {                                             \
+        client->func;                                 \
+    } catch(const xdi_att::TTransportException& e) {  \
+        client.reset();                               \
+        LOGERROR << "Unable to respond to XDI! "      \
+                 << "Dropping response and uninitializing the connection!"; \
+    }
+
 AmAsyncXdiResponse::AmAsyncXdiResponse()
         : serverIp("127.0.0.1"),
           serverPort(9876) {
@@ -43,6 +52,7 @@ AmAsyncXdiResponse::initiateClientConnect() {
     boost::shared_ptr<xdi_atp::TProtocol> respProto(
         boost::make_shared<xdi_atp::TBinaryProtocol>(respTrans));
     asyncRespClient = boost::make_shared<apis::AsyncAmServiceResponseClient>(respProto);
+    respSock->open();
 }
 
 void
@@ -55,12 +65,12 @@ AmAsyncXdiResponse::startBlobTxResp(const Error &error,
             boost::make_shared<apis::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
-        asyncRespClient->completeExceptionally(requestId,
-                                               errorCode,
-                                               message);
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
     } else {
-        asyncRespClient->startBlobTxResponse(requestId,
-                                             txDesc);
+        XDICLIENTCALL(asyncRespClient, startBlobTxResponse(requestId,
+                                                           txDesc));
     }
 }
 
@@ -73,11 +83,11 @@ AmAsyncXdiResponse::abortBlobTxResp(const Error &error,
             boost::make_shared<apis::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
-        asyncRespClient->completeExceptionally(requestId,
-                                               errorCode,
-                                               message);
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
     } else {
-        asyncRespClient->abortBlobTxResponse(requestId);
+        XDICLIENTCALL(asyncRespClient, abortBlobTxResponse(requestId));
     }
 }
 
@@ -90,11 +100,28 @@ AmAsyncXdiResponse::commitBlobTxResp(const Error &error,
             boost::make_shared<apis::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
-        asyncRespClient->completeExceptionally(requestId,
-                                               errorCode,
-                                               message);
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
     } else {
-        asyncRespClient->commitBlobTxResponse(requestId);
+        XDICLIENTCALL(asyncRespClient, commitBlobTxResponse(requestId));
+    }
+}
+
+void
+AmAsyncXdiResponse::updateBlobResp(const Error &error,
+                                   boost::shared_ptr<apis::RequestId>& requestId) {
+    checkClientConnect();
+    if (!error.ok()) {
+        boost::shared_ptr<apis::ErrorCode> errorCode(
+            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<std::string> message(
+            boost::make_shared<std::string>());
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
+    } else {
+        XDICLIENTCALL(asyncRespClient, updateBlobResponse(requestId));
     }
 }
 
@@ -107,11 +134,11 @@ AmAsyncXdiResponse::updateBlobOnceResp(const Error &error,
             boost::make_shared<apis::ErrorCode>());
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
-        asyncRespClient->completeExceptionally(requestId,
-                                               errorCode,
-                                               message);
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
     } else {
-        asyncRespClient->updateBlobOnceResponse(requestId);
+        XDICLIENTCALL(asyncRespClient, updateBlobOnceResponse(requestId));
     }
 }
 
