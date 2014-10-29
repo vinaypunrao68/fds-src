@@ -271,14 +271,13 @@ public class RecurrenceRule
                         hours.add( nextToken( t, token ), "," );
                         RRule.setHours( hours );
                         break;
-//                    TODO fix serialization issue with enum iCalWeekDays
-//                    case BYDAY:
-//                        if( days == null ) {
-//                            days = new WeekDays<>( );
-//                        }
-//                        days.add( nextToken( t, token ), "," );
-//                        RRule.setDays( days );
-//                        break;
+                    case BYDAY:
+                        if( days == null ) {
+                            days = new WeekDays<>( );
+                        }
+                        days.add( nextToken( t, token ), "," );
+                        RRule.setDays( days );
+                        break;
                     case BYWEEKNO:
                         if( weekNo == null ) {
                             weekNo = new Numbers<>( );

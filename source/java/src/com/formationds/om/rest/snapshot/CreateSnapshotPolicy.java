@@ -41,7 +41,7 @@ public class CreateSnapshotPolicy
             new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
         final SnapshotPolicy policy =
           ObjectModelHelper.toObject( reader, SnapshotPolicy.class );
-        logger.trace( "snapshot policy:: " + policy );
+        logger.trace( "SNAPSHOT POLICY:: " + policy );
 
         policyId = config.createSnapshotPolicy( policy.getName(),
                                                 policy.getRecurrenceRule().toString(),

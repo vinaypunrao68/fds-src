@@ -9,6 +9,8 @@ import com.google.gson.annotations.SerializedName;
 
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
 
 /**
  * @author ptinius
@@ -20,6 +22,7 @@ public class VolumeDatapoint
 
   @GeneratedValue
   private Integer id;
+  @Temporal( TemporalType.TIMESTAMP )
   @SerializedName("timestamp")
   private Long timestamp;
   @SerializedName("volume")
@@ -56,7 +59,7 @@ public class VolumeDatapoint
   }
 
   /**
-   * @return Returns the {@code long} representing the timestamp
+   * @return Returns the {@code Long} representing the timestamp
    */
   public Long getTimestamp() {
     return timestamp;
@@ -65,7 +68,7 @@ public class VolumeDatapoint
   /**
    * @param timestamp the {@code long} representing the timestamp
    */
-  public void setTimestamp( final Long timestamp ) {
+  public void setTimestamp( final long timestamp ) {
     this.timestamp = timestamp;
   }
 

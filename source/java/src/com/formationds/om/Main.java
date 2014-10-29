@@ -7,7 +7,7 @@ package com.formationds.om;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import com.formationds.om.plotter.VolumeStatistics;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.rest.*;
 import com.formationds.om.rest.metrics.IngestVolumeStats;
 import com.formationds.om.rest.metrics.QueryMetrics;
@@ -21,7 +21,6 @@ import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
-import org.joda.time.Duration;
 import org.json.JSONObject;
 
 import javax.crypto.SecretKey;
@@ -54,6 +53,14 @@ public class Main {
 
     XdiClientFactory clientFactory = new XdiClientFactory();
     ConfigurationApi configCache = new ConfigurationApi( clientFactory.remoteOmService( "localhost", 9090 ) );
+    /*
+     * TODO remove this singleton, replace with injection once beta is released
+     *
+     * Just the quickest way to get beta code released. The whole OM handling
+     * of rest/api object will be changing (most likely)
+     */
+    SingletonConfigAPI.instance().set( configCache );
+
     new EnsureAdminUser( configCache ).execute();
     AmService.Iface amService = clientFactory.remoteAmService( "localhost", 9988 );
 
@@ -64,7 +71,8 @@ public class Main {
                                   .stringValue();
 
     FDSP_ConfigPathReq.Iface legacyConfigClient = clientFactory.legacyConfig( omHost, omPort );
-    VolumeStatistics volumeStatistics = new VolumeStatistics( Duration.standardMinutes( 20 ) );
+//    Deprecated part of the old stats
+//    VolumeStatistics volumeStatistics = new VolumeStatistics( Duration.standardMinutes( 20 ) );
 
     boolean enforceAuthentication = platformConfig.lookup( "fds.authentication" )
                                                   .booleanValue();
@@ -72,7 +80,6 @@ public class Main {
     Authorizer authorizer = enforceAuthentication ? new FdsAuthorizer( configCache ) : new DumbAuthorizer();
 
     xdi = new Xdi( amService, configCache, authenticator, authorizer, legacyConfigClient );
-
     webApp = new WebApp( webDir );
 
     webApp.route( HttpMethod.GET, "", () -> new LandingPage( webDir ) );
@@ -118,13 +125,14 @@ public class Main {
     fdsAdminOnly( HttpMethod.GET, "/api/system/users", ( t ) -> new ListUsers( configCache, secretKey ), authorizer );
     fdsAdminOnly( HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid", ( t ) -> new AssignUserToTenant( configCache, secretKey ), authorizer );
 
-    new Thread( () -> {
-      try {
-        //new com.formationds.demo.Main().start(configuration.getDemoConfig());
-      } catch( Exception e ) {
-        LOG.error( "Couldn't start demo app", e );
-      }
-    } ).start();
+// Deprecated, demo code should be removed from production code!!
+//    new Thread( () -> {
+//      try {
+//        //new com.formationds.demo.Main().start(configuration.getDemoConfig());
+//      } catch( Exception e ) {
+//        LOG.error( "Couldn't start demo app", e );
+//      }
+//    } ).start();
 
     int httpPort = platformConfig.lookup( "fds.om.http_port" )
                                  .intValue();
