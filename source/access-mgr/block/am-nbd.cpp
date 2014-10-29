@@ -44,13 +44,9 @@ BlkVol::BlkVol(const char *name, const char *dev,
 
 BlkVol::BlkVol(const char *name, const char *dev,
                fds_uint64_t uuid, fds_uint64_t vol_sz, fds_uint32_t blk_sz, bool test_vol_flag)
-    : vol_uuid(uuid), vol_sz_blks(vol_sz), vol_blksz_byte(blk_sz), vol_test_flag(test_vol_flag)
+    : BlkVol(name, dev, uuid, vol_sz, blk_sz)
 {
-    vol_blksz_mask = vol_blksz_byte - 1;
-    fds_assert((vol_blksz_byte & vol_blksz_mask) == 0);
-
-    memcpy(vol_name, name, FDS_MAX_VOL_NAME);
-    memcpy(vol_dev, dev, FDS_MAX_VOL_NAME);
+    vol_test_flag = test_vol_flag;
 }
 
 BlockMod::~BlockMod() {}
@@ -559,6 +555,7 @@ NbdBlockMod::blk_attach_vol(blk_vol_creat_t *r)
 
         snprintf(r->v_blkdev, sizeof(r->v_blkdev), "/dev/nbd%d", dev);
         r->v_dev = r->v_blkdev;
+        r->v_test_vol_flag = false;
     }
     vb = blk_creat_vol(r);
     if (vb == NULL) {
