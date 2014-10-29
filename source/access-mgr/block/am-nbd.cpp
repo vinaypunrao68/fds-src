@@ -124,9 +124,21 @@ struct TestAMServer {
 };
 std::unique_ptr<TestAMServer> amServer;
 boost::shared_ptr<fpi::TestDMSvcClient> dmClient;
+
 int dmSessionId;
 int dmPort = 9097;
 int amPort = 9595;
+
+struct NbdCounters : FdsCounters {
+    NbdCounters() 
+    : FdsCounters("Am.nbd.", g_cntrs_mgr.get()),
+    getDmNodegroup("getDmNodegroup", this)
+    {
+    }
+
+    LatencyCounter getDmNodegroup;
+};
+NbdCounters *gNbdCntrs;
 
 /**
  * -----------------------------------------------------------------------------------
@@ -368,6 +380,7 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
     std::stringstream   ss;
     fpi::FDSP_BlobObjectInfo     object;
     fpi::UpdateCatalogOnceMsgPtr upcat(bo::make_shared<fpi::UpdateCatalogOnceMsg>());
+    StopWatch sw;
 
     vol = vio->nbd_vol;
     upcat->blob_name.assign(vol->vol_name);
@@ -396,10 +409,12 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
         upcat->obj_list.push_back(object);
     }
     fiu_do_on("nbd.uturn.afterloop", return;);
+    sw.start();
     auto dmtMgr = BlockMod::blk_singleton()->blk_amc->om_client->getDmtManager();
     auto upcat_req = gSvcRequestPool->newQuorumSvcRequest(
                 boost::make_shared<DmtVolumeIdEpProvider>(
                     dmtMgr->getCommittedNodeGroup(vol->vol_uuid)));
+    gNbdCntrs->getDmNodegroup.update(sw.getElapsedNanos());
     fiu_do_on("nbd.uturn.afterquorumreq", return;);
 
     upcat_req->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), upcat);
@@ -661,6 +676,8 @@ NbdBlockMod::blk_alloc_vol(const blk_vol_creat *r)
 void
 NbdBlockMod::mod_startup()
 {
+    gNbdCntrs = new NbdCounters();
+
     amServer.reset(new TestAMServer(amPort));;
     amServer->serve();
     sleep(5);
