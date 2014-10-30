@@ -157,7 +157,8 @@ struct DataMgr : Module, DmIoReqHandler {
                   fds_log *log) :
                 FDS_QoSControl(_max_thrds, algo, log, "DM") {
             parentDm = _parent;
-            dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, 2 * _max_thrds, log);
+            dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
+                    parentDm->qosOutstandingTasks, log);
             // dispatcher = new QoSMinPrioDispatcher(this, log, parentDm->scheduleRate);
         }
 
@@ -337,6 +338,10 @@ struct DataMgr : Module, DmIoReqHandler {
     ~DataMgr();
     std::map<fds_io_op_t, dm::Handler*> handlers;
     dmQosCtrl   *qosCtrl;
+
+    fds_uint32_t qosThreadCount;
+    fds_uint32_t qosOutstandingTasks;
+
     // Test related members
     fds_bool_t testUturnAll;
     fds_bool_t testUturnUpdateCat;
