@@ -620,13 +620,14 @@ def main():
     parser.add_argument('--am_port', default=FDS_DEFAULT_PORT, type=int,
                         help='port to run tests against')
     parser.add_argument('--user_id', default=FDS_DEFAULT_KEY_ID,
-                        help='access key id')
+                        help='access key id/user')
     parser.add_argument('--user_token', default=FDS_DEFAULT_SECRET_ACCESS_KEY,
-                        help='access key id')
+                        help='secret key id')
     parser.add_argument('--insecure', action='store_false', dest="secure",
-                        default=FDS_DEFAULT_IS_SECURE, help='access key id')
+                        default=FDS_DEFAULT_IS_SECURE,
+                        help='Disable secure (SSL) mode')
     parser.add_argument('--secure', action='store_true', dest="secure",
-                        help='access key id')
+                        help='Enable secure (SSL) mode - default on')
     parser.add_argument('--fds_pass', dest="fds_pass", default=False,
                         help='define FDS pass to use Tenant API for auth token')
     parser.add_argument('--auth_port', dest="auth_port",
