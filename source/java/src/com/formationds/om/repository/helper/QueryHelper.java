@@ -24,7 +24,7 @@ import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.DateTimeUtil;
 import com.formationds.om.repository.MetricsRepository;
-import com.formationds.om.repository.SingletonMetricsRepository;
+import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
 import com.formationds.util.SizeUnit;
@@ -69,7 +69,7 @@ public class QueryHelper {
      */
     public QueryHelper() {
         this.repo =
-            SingletonMetricsRepository.instance()
+            SingletonRepositoryManager.instance()
                                       .getMetricsRepository();
     }
 
@@ -308,12 +308,12 @@ public class QueryHelper {
      */
     protected CapacityDeDupRatio deDupRatio() {
         final Double lbytes =
-            SingletonMetricsRepository.instance()
+            SingletonRepositoryManager.instance()
                                       .getMetricsRepository()
                                       .sumLogicalBytes();
 
         final Double pbytes =
-            SingletonMetricsRepository.instance()
+            SingletonRepositoryManager.instance()
                                       .getMetricsRepository()
                                       .sumPhysicalBytes();
 
@@ -324,7 +324,7 @@ public class QueryHelper {
      * @return Returns {@link CapacityConsumed}
      */
     protected CapacityConsumed bytesConsumed() {
-        return new CapacityConsumed( SingletonMetricsRepository.instance()
+        return new CapacityConsumed( SingletonRepositoryManager.instance()
                                                                .getMetricsRepository()
                                                                .sumLogicalBytes() );
     }

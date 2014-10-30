@@ -7,15 +7,15 @@ package com.formationds.om.repository;
 /**
  * @author ptinius
  */
-public class SingletonMetricsRepository {
-    private static SingletonMetricsRepository instance = null;
+public class SingletonRepositoryManager {
+    private static SingletonRepositoryManager instance = null;
 
     /**
      * singleton instance of SingletonMetricsRepository
      */
-    public static SingletonMetricsRepository instance() {
+    public static SingletonRepositoryManager instance() {
         if (instance == null) {
-            instance = new SingletonMetricsRepository();
+            instance = new SingletonRepositoryManager();
         }
 
         return instance;
@@ -24,7 +24,7 @@ public class SingletonMetricsRepository {
     /**
      * singleton default constructor
      */
-    private SingletonMetricsRepository() {
+    private SingletonRepositoryManager() {
     }
 
     private MetricsRepository metricsRepository = null;
