@@ -12,9 +12,15 @@ import com.formationds.util.async.CompletableFutureUtility;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.apache.thrift.async.AsyncMethodCallback;
+import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.server.TNonblockingServer;
+import org.apache.thrift.server.TServer;
+import org.apache.thrift.server.TSimpleServer;
 import org.apache.thrift.server.TThreadedSelectorServer;
 import org.apache.thrift.transport.TFramedTransport;
 import org.apache.thrift.transport.TNonblockingServerSocket;
+import org.apache.thrift.transport.TServerSocket;
+import org.apache.thrift.transport.TTransportFactory;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -40,10 +46,11 @@ public class AsyncAm {
         this.oneWayAm = oneWayAm;
         this.authorizer = authorizer;
         statistics = new AsyncRequestStatistics();
-        responseListener = new AsyncAmResponseListener(1, TimeUnit.SECONDS);
+        responseListener = new AsyncAmResponseListener(2, TimeUnit.SECONDS);
         AsyncAmServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncAmServiceResponse.Processor<>(responseListener);
 
-        TThreadedSelectorServer server = new TThreadedSelectorServer(new TThreadedSelectorServer.Args(new TNonblockingServerSocket(PORT))
+        TSimpleServer server = new TSimpleServer(new TServer.Args(new TServerSocket(PORT))
+                .protocolFactory(new TBinaryProtocol.Factory())
                 .transportFactory(new TFramedTransport.Factory())
                 .processor(processor));
 
@@ -126,14 +133,14 @@ public class AsyncAm {
     }
 
     public CompletableFuture<Void> commitBlobTx(AuthenticationToken token, String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
-        return schedule(token, "commitBlobTx", volumeName, (am, cf) -> {
-            am.commitBlobTx(domainName, volumeName, blobName, txDescriptor, makeThriftCallbacks(cf, v -> null));
+        return scheduleAsync(token, domainName, volumeName, rid -> {
+            oneWayAm.commitBlobTx(rid, domainName, volumeName, blobName, txDescriptor);
         });
     }
 
     public CompletableFuture<Void> abortBlobTx(AuthenticationToken token, String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
-        return schedule(token, "abortBlobTx", volumeName, (am, cf) -> {
-            am.abortBlobTx(domainName, volumeName, blobName, txDescriptor, makeThriftCallbacks(cf, v -> null));
+        return scheduleAsync(token, domainName, volumeName, rid -> {
+            oneWayAm.abortBlobTx(rid, domainName, volumeName, blobName, txDescriptor);
         });
     }
 

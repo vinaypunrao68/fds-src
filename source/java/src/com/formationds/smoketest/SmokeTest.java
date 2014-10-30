@@ -1,11 +1,13 @@
 package com.formationds.smoketest;
 
+import com.amazonaws.AmazonClientException;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.Snapshot;
+import com.formationds.util.s3.S3SignatureGenerator;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
@@ -48,14 +50,17 @@ public class SmokeTest {
     private final String prefix;
     private final int count;
     ConfigurationService.Iface config;
+    private final String userName;
+    private final String userToken;
+    private final String host;
 
     public SmokeTest()
             throws Exception {
         System.setProperty(AMAZON_DISABLE_SSL, "true");
-        String host = (String) System.getProperties()
+        host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");
         String omUrl = "https://" + host + ":7443";
-        turnLog4jOff();
+        turnLog4jOn();
         JSONObject adminUserObject = getObject(omUrl + "/api/auth/token?login=admin&password=admin", "");
         String adminToken = adminUserObject.getString("token");
 
@@ -63,12 +68,12 @@ public class SmokeTest {
                 .toString();
         long tenantId = doPost(omUrl + "/api/system/tenants/" + tenantName, adminToken).getLong("id");
 
-        String userName = UUID.randomUUID()
+        userName = UUID.randomUUID()
                 .toString();
         String password = UUID.randomUUID()
                 .toString();
         long userId = doPost(omUrl + "/api/system/users/" + userName + "/" + password, adminToken).getLong("id");
-        String userToken = getObject(omUrl + "/api/system/token/" + userId, adminToken).getString("token");
+        userToken = getObject(omUrl + "/api/system/token/" + userId, adminToken).getString("token");
         doPut(omUrl + "/api/system/tenants/" + tenantId + "/" + userId, adminToken);
         adminBucket = UUID.randomUUID()
                 .toString();
@@ -187,8 +192,12 @@ public class SmokeTest {
     public void testPutGetOneObject() throws Exception {
         String key = UUID.randomUUID().toString();
         userClient.putObject(userBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
-        S3Object object = userClient.getObject(userBucket, key);
-        byte[] bytes = IOUtils.toByteArray(object.getObjectContent());
+        HttpClient httpClient = new HttpClientFactory().makeHttpClient();
+        HttpGet httpGet = new HttpGet("https://" + host + ":8443/" + userBucket + "/" + key);
+        String hash = S3SignatureGenerator.hash(httpGet, new BasicAWSCredentials(userName, userToken));
+        httpGet.addHeader("Authorization", hash);
+        HttpResponse response = httpClient.execute(httpGet);
+        byte[] bytes = IOUtils.toByteArray(response.getEntity().getContent());
         assertArrayEquals(randomBytes, bytes);
     }
 
