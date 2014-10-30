@@ -6,12 +6,12 @@ import com.formationds.util.blob.Mode;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 import org.apache.thrift.TException;
 
-import java.io.*;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
@@ -71,33 +71,49 @@ public class FdsFileSystem extends FileSystem {
         this.uri = URI.create(getScheme() + "://" + uri.getAuthority());
         workingDirectory = new Path(uri);
 
-        if(am != null) {
+        if (am != null) {
             HostAndPort amConnectionData = HostAndPort.parseWithDefaultPort(am, 9988);
             amClient = cf.remoteAmService(amConnectionData.getHost(), amConnectionData.getPort());
-        } else if(this.am != null) {
+        } else if (this.am != null) {
             amClient = this.am;
         } else {
             throw new IOException("required configuration key 'fds.am.endpoint' with format HOST:PORT not found in configuration");
         }
         this.am = amClient;
 
-        if(cs != null) {
+        if (cs != null) {
             ConfigurationService.Iface csClient = null;
             HostAndPort csConnectionData = HostAndPort.parseWithDefaultPort(cs, 9090);
             csClient = cf.remoteOmService(csConnectionData.getHost(), csConnectionData.getPort());
             try {
                 VolumeDescriptor status = csClient.statVolume(DOMAIN, getVolume());
-                if(status == null)
+                if (status == null)
                     throw new FileNotFoundException();
-            } catch(ApiException ex) {
-                if(ex.getErrorCode() == ErrorCode.MISSING_RESOURCE)
+                blockSize = status.getPolicy().getMaxObjectSizeInBytes();
+            } catch (ApiException ex) {
+                if (ex.getErrorCode() == ErrorCode.MISSING_RESOURCE)
                     throw new FileNotFoundException();
                 throw new IOException(ex);
-            } catch(Exception e) {
+            } catch (Exception e) {
                 throw new IOException(e);
             }
-        } else if(blockSize == 0) {
+        } else if (blockSize == 0) {
             throw new IOException("required configuration key 'fds.cs.endpoint' with format HOST:PORT not found in configuration");
+        }
+
+        createRootIfNeeded();
+    }
+
+    private void createRootIfNeeded() throws IOException {
+        Path root = new Path(uri + "/");
+        try {
+            am.statBlob(DOMAIN, getVolume(), root.toString());
+        } catch (ApiException e) {
+            if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
+                mkDirBlob(root);
+            }
+        } catch (Exception e) {
+            throw new IOException(e);
         }
     }
 
@@ -121,6 +137,9 @@ public class FdsFileSystem extends FileSystem {
     @Override
     public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress) throws IOException {
         Path absolutePath = getAbsolutePath(path);
+        if (!exists(absolutePath.getParent())) {
+            mkdirs(absolutePath.getParent());
+        }
         checkIsValidWriteTarget(absolutePath);
         return new FSDataOutputStream(FdsOutputStream.openNew(am, DOMAIN, getVolume(), absolutePath.toString(), getBlockSize()));
     }
@@ -138,14 +157,36 @@ public class FdsFileSystem extends FileSystem {
         Path srcAbsolutePath = getAbsolutePath(srcPath);
         Path dstAbsolutePath = getAbsolutePath(dstPath);
 
+        if (isDirectory(srcAbsolutePath)) {
+            FileStatus[] file = listStatus(srcAbsolutePath);
+            for (FileStatus fileStatus : file) {
+                if (fileStatus.isDirectory()) {
+                    rename(fileStatus.getPath(), new Path(dstAbsolutePath, fileStatus.getPath().getName()));
+                } else {
+                    renameFile(fileStatus.getPath(), new Path(dstAbsolutePath, fileStatus.getPath().getName()));
+                }
+            }
+            return true;
+        } else {
+            return renameFile(srcPath, dstPath);
+        }
+    }
+
+    private boolean renameFile(Path srcAbsolutePath, Path dstAbsolutePath) throws IOException {
+
         checkIsValidReadTarget(srcAbsolutePath);
+
+        if (!exists(dstAbsolutePath.getParent())) {
+            mkdirs(dstAbsolutePath.getParent());
+        }
+
         checkIsValidWriteTarget(dstAbsolutePath);
         FSDataInputStream in = open(srcAbsolutePath);
         FSDataOutputStream out = create(dstAbsolutePath);
 
         byte[] data = new byte[8192];
         int readLength = 0;
-        while((readLength = in.read(data)) != -1) {
+        while ((readLength = in.read(data)) != -1) {
             out.write(data, 0, readLength);
         }
         out.close();
@@ -158,19 +199,19 @@ public class FdsFileSystem extends FileSystem {
         Path absolutePath = getAbsolutePath(path);
         try {
             List<Path> subPaths = getAllSubPaths(absolutePath, true);
-            if(subPaths.isEmpty())
+            if (subPaths.isEmpty())
                 return false;
 
             if (recursive) {
                 for (Path subPath : subPaths) {
                     am.deleteBlob(DOMAIN, getVolume(), subPath.toString());
                 }
-            } else if(subPaths.size() != 1) {
+            } else if (subPaths.size() != 1) {
                 return false;
             } else {
                 am.deleteBlob(DOMAIN, getVolume(), absolutePath.toString());
             }
-        } catch(Exception ex) {
+        } catch (Exception ex) {
             throw new IOException(ex);
         }
         return true;
@@ -181,10 +222,10 @@ public class FdsFileSystem extends FileSystem {
         Path absolutePath = getAbsolutePath(path);
         List<Path> contents = getPathContents(absolutePath);
         ArrayList<FileStatus> status = new ArrayList<>(contents.size());
-        for(Path elt : contents) {
+        for (Path elt : contents) {
             try {
                 status.add(getFileStatus(elt));
-            } catch(FileNotFoundException ex) {
+            } catch (FileNotFoundException ex) {
                 // do nothing
             }
         }
@@ -204,7 +245,7 @@ public class FdsFileSystem extends FileSystem {
     @Override
     public boolean mkdirs(Path path, FsPermission permission) throws IOException {
         Path absolutePath = getAbsolutePath(path);
-        if(!absolutePath.getParent().isRoot()) {
+        if (!absolutePath.getParent().isRoot()) {
             mkdirs(absolutePath.getParent(), permission);
         }
         mkDirBlob(absolutePath);
@@ -223,38 +264,38 @@ public class FdsFileSystem extends FileSystem {
         try {
             BlobDescriptor bd = am.statBlob(DOMAIN, getVolume(), absolutePath.toString());
             return new FileStatus(bd.byteCount, isDirectory(bd), 1, getBlockSize(), getMtime(bd), absolutePath);
-        } catch(ApiException ex) {
-            if(ex.getErrorCode() == ErrorCode.MISSING_RESOURCE)
+        } catch (ApiException ex) {
+            if (ex.getErrorCode() == ErrorCode.MISSING_RESOURCE)
                 throw new FileNotFoundException();
             throw new IOException(ex);
-        } catch(Exception ex) {
+        } catch (Exception ex) {
             throw new IOException(ex);
         }
     }
 
     private void checkIsValidWriteTarget(Path path) throws IOException {
         checkParent(path);
-        if(exists(path) && isDirectory(path))
+        if (exists(path) && isDirectory(path))
             throw new IOException(path.toString() + " is a directory");
     }
 
     private void checkIsValidReadTarget(Path path) throws IOException {
         checkParent(path);
-        if(!exists(path))
+        if (!exists(path))
             throw new FileNotFoundException(path.toString() + " does not exist");
-        if(isDirectory(path))
+        if (isDirectory(path))
             throw new IOException(path.toString() + " is a directory");
     }
 
     private void checkParent(Path path) throws IOException {
         // TODO: there are serious problems with this approach, there is nothing preventing someone from deleting the directory after the check, for example
-        if(path.getParent().isRoot())
+        if (path.getParent().isRoot())
             return;
 
-        if(!exists(path.getParent()))
+        if (!exists(path.getParent()))
             throw new FileNotFoundException("parent directory does not exist");
 
-        if(!isDirectory(path.getParent())) {
+        if (!isDirectory(path.getParent())) {
             throw new IOException("parent is not a directory");
         }
     }
@@ -269,7 +310,7 @@ public class FdsFileSystem extends FileSystem {
             Map<String, String> map = new HashMap<>();
             map.put(DIRECTORY_SPECIFIER_KEY, "true");
             am.updateBlobOnce(DOMAIN, getVolume(), targetPath, Mode.TRUNCATE.getValue(), ByteBuffer.allocate(0), 0, new ObjectOffset(0), map);
-        } catch(Exception ex) {
+        } catch (Exception ex) {
             throw new IOException(ex);
         }
     }
@@ -279,7 +320,7 @@ public class FdsFileSystem extends FileSystem {
     }
 
     private long getMtime(BlobDescriptor bd) {
-        if(!bd.metadata.containsKey(LAST_MODIFIED_KEY)) {
+        if (!bd.metadata.containsKey(LAST_MODIFIED_KEY)) {
             return Calendar.getInstance().getTimeInMillis();
         } else {
             String data = bd.metadata.get(LAST_MODIFIED_KEY);
@@ -299,23 +340,23 @@ public class FdsFileSystem extends FileSystem {
         try {
             List<Path> paths = new ArrayList<>();
             List<BlobDescriptor> descriptors = am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0);
-            for(BlobDescriptor bd : descriptors) {
+            for (BlobDescriptor bd : descriptors) {
                 Path blobPath = new Path(bd.getName());
-                if(isParent(path, blobPath))
+                if (isParent(path, blobPath))
                     paths.add(blobPath);
-                else if(includeSelf && path.equals(blobPath))
+                else if (includeSelf && path.equals(blobPath))
                     paths.add(blobPath);
             }
             return paths;
-        } catch(Exception ex) {
+        } catch (Exception ex) {
             throw new IOException(ex);
         }
     }
 
     private boolean isParent(Path path, Path other) {
         Path p = other.getParent();
-        while(p != null) {
-            if(path.equals(p))
+        while (p != null) {
+            if (path.equals(p))
                 return true;
             p = p.getParent();
         }
@@ -327,20 +368,20 @@ public class FdsFileSystem extends FileSystem {
         try {
             List<Path> paths = new ArrayList<>();
             List<BlobDescriptor> descriptors = am.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0);
-            for(BlobDescriptor bd : descriptors) {
+            for (BlobDescriptor bd : descriptors) {
                 Path name = new Path(bd.getName());
-                if(name.getParent() != null && name.getParent().equals(path)) {
+                if (name.getParent() != null && name.getParent().equals(path)) {
                     paths.add(name);
                 }
             }
             return paths;
-        } catch(Exception ex) {
+        } catch (Exception ex) {
             throw new IOException(ex);
         }
     }
 
     private Path getAbsolutePath(Path path) {
-        if(!path.isAbsolute()) {
+        if (!path.isAbsolute()) {
             return new Path(workingDirectory.toString() + "/" + path.toString());
         }
         return path;
