@@ -59,6 +59,11 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             // calculate this off of real data.
             var buildMax = function(){
                 $max = d3.max( $scope.data.series, function( d ){
+                    
+                    if ( !angular.isDefined( d.datapoints ) ){
+                        return 1;
+                    }
+                    
                     return d3.max( d.datapoints, function( s ){
                         return s.y;
                     });
@@ -166,7 +171,14 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .transition()
                     .duration( 500 )
                     .attr( 'd', function( d ){
-                        return area( d.datapoints );
+                        
+                        var vals = []
+                    
+                        if ( angular.isDefined( d.datapoints ) ){
+                            vals = d.datapoints;
+                        }
+                    
+                        return area( vals );
                     });
                 
                 $svg.selectAll( '.point' )
@@ -297,7 +309,14 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     })
                     .attr( 'class', 'line' )
                     .attr( 'd', function( d ){
-                        return area( d.datapoints ); 
+                        
+                        var vals = [];
+                    
+                        if ( angular.isDefined( d.datapoints ) ){
+                            vals = d.datapoints;
+                        }
+                    
+                        return area( vals ); 
                     })
                     .on( 'mouseover', function( d, i, j ){
                           if ( angular.isFunction( $scope.tooltip ) ){

@@ -70,7 +70,7 @@ describe( 'Testing volume creation permutations', function(){
     
     it ( 'should go to the edit screen on press of the edit button', function(){
         
-        var edit = element( by.css( '.button-group span.icon-pencil' ) );
+        var edit = element( by.css( '.button-group span.icon-edit' ) );
         edit.click();
 
         browser.sleep( 210 );
@@ -94,7 +94,7 @@ describe( 'Testing volume creation permutations', function(){
 
     it ( 'should be able to edit the priority of a volume', function(){
 
-        var editQosButton = element( by.css( '.qos-panel .icon-pencil' ));
+        var editQosButton = element( by.css( '.qos-panel .icon-edit' ));
         editQosButton.click();
         
         browser.sleep( 200 );
@@ -209,7 +209,7 @@ describe( 'Testing volume creation permutations', function(){
         });
 
         // changing the QoS
-        var editQosButton = element( by.css( '.qos-panel .icon-pencil' ));
+        var editQosButton = element( by.css( '.qos-panel .icon-edit' ));
         editQosButton.click();
         
         browser.sleep( 200 );

@@ -45,6 +45,9 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
                     item.wholeNumber = Math.floor( item.number );
                     item.decimals = (item.number - item.wholeNumber)*100;
                 }
+                else {
+                    item.wholeNumber = item.number;
+                }
             };
             
             $scope.$watch( 'data', function( newVal ){
