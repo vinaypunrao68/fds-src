@@ -2,6 +2,7 @@ import subprocess
 import os
 
 def shell_retry(cmd, max_retry = 5):
+    proc = None
     for i in xrange(max_retry):
         proc = subprocess.Popen(cmd, shell=True)
         (stdout, stderr) = proc.communicate()
@@ -14,6 +15,11 @@ def shell_retry(cmd, max_retry = 5):
             print stdout
             print "Success"
             break
+
+    if proc.returncode != 0:
+        return 1
+
+    return 0
 
 def create_lockfiles():
     for file in [ "/tmp/.devsetup.chk", os.environ["HOME"] + "/.ihaveaswapfile" ]:

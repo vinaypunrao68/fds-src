@@ -70,7 +70,17 @@ public class SeriesBuilder {
     return this;
   }
 
-  /**
+    /**
+     * @param type the {@link com.formationds.commons.model.type.Metrics} type
+     *
+     * @return Returns the {@link com.formationds.commons.model.builder.SeriesBuilder}
+     */
+    public SeriesBuilder withType( final String type ) {
+        this.type = Metrics.valueOf( type );
+        return this;
+    }
+
+    /**
    * @return Returns the {@link com.formationds.commons.model.Series}
    */
   public Series build() {
@@ -87,7 +97,7 @@ public class SeriesBuilder {
     }
 
     if( type != null ) {
-      volumeDatapointSeries.setType( type );
+      volumeDatapointSeries.setType( type.name() );
     }
 
     return volumeDatapointSeries;

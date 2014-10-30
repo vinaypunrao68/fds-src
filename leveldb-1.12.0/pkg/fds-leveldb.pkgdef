@@ -1,7 +1,0 @@
-package: fds-leveldb
-version: 1.12
-description: Level DB library for c/c++
-
-files:
-  dest: /usr/lib/libleveldb.so.1.12
-  src : ../libleveldb.so.1.12

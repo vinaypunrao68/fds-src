@@ -607,7 +607,7 @@ Error DmVolumeDirectory::deleteBlob(fds_volid_t volId, const std::string& blobNa
 }
 
 Error DmVolumeDirectory::syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid) {
-    // TODO(umesh): implement this
-    return ERR_OK;
+    GET_VOL_N_CHECK_DELETED(volId);
+    return vol->syncCatalog(dmUuid);
 }
 }  // namespace fds

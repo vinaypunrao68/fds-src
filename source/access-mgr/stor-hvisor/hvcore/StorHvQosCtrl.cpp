@@ -28,7 +28,7 @@ FDS_VolumeQueue* StorHvQosCtrl::getQueue(fds_volid_t queueId) {
 
 Error StorHvQosCtrl::processIO(FDS_IOType *io) {
   fds_verify(io->io_module == FDS_IOType::STOR_HV_IO);
-  threadPool->schedule(processBlobReq, static_cast<AmQosReq*>(io));
+  threadPool->schedule(processBlobReq, static_cast<AmRequest*>(io));
   return ERR_OK;
 }
 
@@ -94,7 +94,6 @@ Error StorHvQosCtrl::markIODone(FDS_IOType *io) {
                                            STAT_AM_QUEUE_WAIT,
                                            io->io_wait_time);
 
-  delete io;
   return err;
 }
 

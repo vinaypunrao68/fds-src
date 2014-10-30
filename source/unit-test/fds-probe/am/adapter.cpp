@@ -19,7 +19,7 @@ NbdVolObj::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
     r.v_uuid = in->uuid;
     r.v_blksz     = in->block_size;
     r.v_vol_blksz = in->vol_blocks;
-
+    r.v_test_vol_flag = in->test_vol_flag;
     rt = blk->blk_attach_vol(&r);
     return this;
 }

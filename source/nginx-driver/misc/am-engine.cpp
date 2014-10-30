@@ -936,43 +936,6 @@ Conn_PutObject::~Conn_PutObject()
 {
 }
 
-// put_callback_fn
-// ---------------
-//
-static int
-fdsn_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
-                 char *buffer, void *callbackData, FDSN_Status status,
-                 ErrorDetails* errDetails)
-{
-    AME_Ctx        *ctx = static_cast<AME_Ctx *>(reqContext);
-    Conn_PutObject *conn_po = static_cast<Conn_PutObject *>(callbackData);
-
-    LOGNORMAL << "Received FDSN put() callback for blob " << conn_po->get_object_id()
-              << " with data at offset " << offset << " of length " << bufferSize
-              << " and result " << status;
-
-    // Update the status of this single request
-    AME_Ctx::AME_Ctx_Ack ack_status = AME_Ctx::OK;
-    if (status != ERR_OK) {
-        ack_status = AME_Ctx::FAILED;
-    }
-    Error err = ctx->ame_upd_ctx_req(offset, ack_status);
-    fds_verify(err == ERR_OK);
-
-    // Check the status of the entire put request
-    ack_status = ctx->ame_check_status();
-    if (ack_status == AME_Ctx::OK) {
-        conn_po->ame_signal_resume(AME_Request::ame_map_fdsn_status(ERR_OK));
-    } else if (ack_status == AME_Ctx::FAILED) {
-        conn_po->ame_signal_resume(
-            AME_Request::ame_map_fdsn_status(status));
-    } else {
-        fds_verify(ack_status == AME_Ctx::WAITING);
-    }
-
-    return 0;
-}
-
 // ame_request_resume
 // ------------------
 // We're here after the callback function wakes up the event loop to resume
@@ -1039,8 +1002,7 @@ Conn_PutObject::ame_request_handler()
         api = ame->ame_fds_hook();
         api->PutBlob(&bucket_ctx, get_object_id(), putProps,
                      static_cast<void *>(ame_ctx), buf, 0,
-                     len, txDesc, true, fdsn_putobj_cbfn,
-                     static_cast<void *>(this));
+                     len, txDesc, true, static_cast<void *>(this));
     }
 
     while (len != 0) {
@@ -1076,8 +1038,7 @@ Conn_PutObject::ame_request_handler()
         api = ame->ame_fds_hook();
         api->PutBlob(&bucket_ctx, get_object_id(), putProps,
                      static_cast<void *>(ame_ctx), buf, offset,
-                     len, txDesc, last_byte, fdsn_putobj_cbfn,
-                     static_cast<void *>(this));
+                     len, txDesc, last_byte, static_cast<void *>(this));
 
         // Get the next data and data len
         buf = ame_reqt_iter_data_next(get_max_buf_len(), &len);
@@ -1658,7 +1619,7 @@ Conn_GetBucketStats::ame_request_handler()
     FDS_NativeAPI *api;
 
     api = ame->ame_fds_hook();
-    api->GetBucketStats(NULL, fdsn_getbucket_stat_cb,
+    api->GetVolumeStats(NULL, fdsn_getbucket_stat_cb,
                         static_cast<void *>(this));
 }
 

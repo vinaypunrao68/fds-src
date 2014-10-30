@@ -10,6 +10,8 @@
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 
+#include "requests/requests.h"
+
 namespace fds {
 
 #define AMPROCESSOR_CB_HANDLER(func, ...) \
@@ -35,93 +37,74 @@ AmProcessor::AmProcessor(const std::string &modName,
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
 }
 
-AmProcessor::~AmProcessor() {
-}
-
-int
-AmProcessor::mod_init(SysParams const *const param) {
-    Module::mod_init(param);
-    return 0;
-}
-
 void
-AmProcessor::mod_startup() {
-}
-
-void
-AmProcessor::mod_shutdown() {
-}
-
-void
-AmProcessor::getVolumeMetadata(AmQosReq *qosReq) {
-    GetVolumeMetaDataReq* volReq = static_cast<GetVolumeMetaDataReq *>(qosReq->getBlobReqPtr());
+AmProcessor::getVolumeMetadata(AmRequest *amReq) {
+    GetVolumeMetaDataReq* volReq = static_cast<GetVolumeMetaDataReq *>(amReq);
     fds_verify(true == volReq->magicInUse());
 
     // Set the processor callback
-    volReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::getVolumeMetadataCb, qosReq);
-    amDispatcher->dispatchGetVolumeMetadata(qosReq);
+    volReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getVolumeMetadataCb, amReq);
+    amDispatcher->dispatchGetVolumeMetadata(amReq);
 }
 
 void
-AmProcessor::getVolumeMetadataCb(AmQosReq *qosReq,
-                                 const Error &error) {
-    GetVolumeMetaDataReq* volReq = static_cast<GetVolumeMetaDataReq *>(qosReq->getBlobReqPtr());
+AmProcessor::getVolumeMetadataCb(AmRequest *amReq, const Error &error) {
+    GetVolumeMetaDataReq* volReq = static_cast<GetVolumeMetaDataReq *>(amReq);
     fds_verify(true == volReq->magicInUse());
 
     GetVolumeMetaDataCallback::ptr cb =
             SHARED_DYN_CAST(GetVolumeMetaDataCallback, volReq->cb);
     cb->volumeMetaData = volReq->volumeMetadata;
-    qosCtrl->markIODone(qosReq);
+    qosCtrl->markIODone(amReq);
     cb->call(error);
 }
 
 void
-AmProcessor::abortBlobTx(AmQosReq *qosReq) {
-    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(qosReq->getBlobReqPtr());
+AmProcessor::abortBlobTx(AmRequest *amReq) {
+    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(amReq);
 
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::abortBlobTxCb, qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::abortBlobTxCb, amReq);
 
-    amDispatcher->dispatchAbortBlobTx(qosReq);
+    amDispatcher->dispatchAbortBlobTx(amReq);
 }
 
 void
-AmProcessor::startBlobTx(AmQosReq *qosReq) {
+AmProcessor::startBlobTx(AmRequest *amReq) {
     // Get the blob request
-    StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
+    StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(amReq);
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
 
     fiu_do_on("am.uturn.processor.startBlobTx",
-              qosCtrl->markIODone(qosReq); \
+              qosCtrl->markIODone(amReq); \
               blobReq->cb->call(ERR_OK); \
               delete blobReq; \
               return;);
 
     // check if this is a snapshot
     // TODO(Andrew): Why not just let DM reject the IO?
-    StorHvVolume *shVol = volTable->getLockedVolume(blobReq->getVolId());
+    StorHvVolume *shVol = volTable->getLockedVolume(blobReq->io_vol_id);
     if (shVol->voldesc->isSnapshot()) {
         LOGWARN << "txn on a snapshot is not allowed.";
         shVol->readUnlock();
         StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                       blobReq->cb);
-        qosCtrl->markIODone(qosReq);
+        qosCtrl->markIODone(amReq);
         cb->call(FDSN_StatusErrorAccessDenied);
         delete blobReq;
     }
     shVol->readUnlock();
 
     // Generate a random transaction ID to use
-    blobReq->txId = BlobTxId(randNumGen->genNumSafe());
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::startBlobTxCb, qosReq);
+    blobReq->tx_desc = boost::make_shared<BlobTxId>(randNumGen->genNumSafe());
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::startBlobTxCb, amReq);
 
-    amDispatcher->dispatchStartBlobTx(qosReq);
+    amDispatcher->dispatchStartBlobTx(amReq);
 }
 
 void
-AmProcessor::startBlobTxCb(AmQosReq *qosReq,
-                           const Error &error) {
-    StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
+AmProcessor::startBlobTxCb(AmRequest *amReq, const Error &error) {
+    StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(amReq);
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
 
@@ -130,35 +113,34 @@ AmProcessor::startBlobTxCb(AmQosReq *qosReq,
 
     if (error.ok()) {
         // Update callback and record new open transaction
-        cb->blobTxId  = blobReq->txId;
-        fds_verify(txMgr->addTx(blobReq->getVolId(),
-                                blobReq->txId,
+        cb->blobTxId  = *blobReq->tx_desc;
+        fds_verify(txMgr->addTx(blobReq->io_vol_id,
+                                *blobReq->tx_desc,
                                 blobReq->dmtVersion,
                                 blobReq->getBlobName()) == ERR_OK);
     }
 
     // Tell QoS the request is done
-    qosCtrl->markIODone(qosReq);
+    qosCtrl->markIODone(amReq);
     cb->call(error.GetErrno());
 }
 
 void
-AmProcessor::deleteBlob(AmQosReq *qosReq) {
-    DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
-    fds_volid_t volId = blobReq->getVolId();
+AmProcessor::deleteBlob(AmRequest *amReq) {
+    DeleteBlobReq* blobReq = static_cast<DeleteBlobReq *>(amReq);
+    fds_volid_t volId = blobReq->io_vol_id;
     StorHvVolume* shVol = volTable->getLockedVolume(volId);
 
     LOGDEBUG    << " volume:" << volId
                 << " blob:" << blobReq->getBlobName()
-                << " txn:" << blobReq->txDesc;
+                << " txn:" << blobReq->tx_desc;
 
-    blobReq->base_vol_id = volTable->getBaseVolumeId(volId);
     blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
         boost::posix_time::microsec_clock::universal_time()));
 
     if ((shVol == NULL) || (!shVol->isValidLocked())) {
         LOGCRITICAL << "unable to get volume info for vol: " << volId;
-        deleteBlobCb(qosReq, FDSN_StatusErrorUnknown);
+        deleteBlobCb(amReq, FDSN_StatusErrorUnknown);
         shVol->readUnlock();
         return;
     }
@@ -166,33 +148,33 @@ AmProcessor::deleteBlob(AmQosReq *qosReq) {
     // check if this is a snapshot
     if (shVol->voldesc->isSnapshot()) {
         LOGWARN << "delete blob on a snapshot is not allowed.";
-        deleteBlobCb(qosReq, FDSN_StatusErrorAccessDenied);
+        deleteBlobCb(amReq, FDSN_StatusErrorAccessDenied);
         shVol->readUnlock();
         return;
     }
     shVol->readUnlock();
 
     // Update the tx manager with the delete op
-    txMgr->updateTxOpType(*(blobReq->txDesc), blobReq->getIoType());
+    txMgr->updateTxOpType(*(blobReq->tx_desc), blobReq->getIoType());
 
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::deleteBlobCb, qosReq);
-    amDispatcher->dispatchDeleteBlob(qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::deleteBlobCb, amReq);
+    amDispatcher->dispatchDeleteBlob(amReq);
 }
 
 void
-AmProcessor::putBlob(AmQosReq *qosReq) {
-    PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
+AmProcessor::putBlob(AmRequest *amReq) {
+    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
     fds_verify(blobReq->magicInUse() == true);
 
     // check if this is a snapshot
     // TODO(Andrew): Why not just let DM reject the IO?
-    StorHvVolume *shVol = volTable->getLockedVolume(blobReq->getVolId());
+    StorHvVolume *shVol = volTable->getLockedVolume(blobReq->io_vol_id);
     if (shVol->voldesc->isSnapshot()) {
         LOGWARN << "txn on a snapshot is not allowed.";
         shVol->readUnlock();
         StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                       blobReq->cb);
-        qosCtrl->markIODone(qosReq);
+        qosCtrl->markIODone(amReq);
         cb->call(FDSN_StatusErrorAccessDenied);
         delete blobReq;
         return;
@@ -205,66 +187,66 @@ AmProcessor::putBlob(AmQosReq *qosReq) {
     // the rest of the putBlob routines to still expect an
     // absolute offset in case we need it
     fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
-    blobReq->setBlobOffset(blobReq->getBlobOffset() * maxObjSize);
+    blobReq->blob_offset = (blobReq->blob_offset * maxObjSize);
 
     // Use a stock object ID if the length is 0.
-    if (blobReq->getDataLen() == 0) {
+    if (blobReq->data_len == 0) {
         LOGWARN << "zero size object - "
                 << " [objkey:" << blobReq->ObjKey <<"]";
-        blobReq->setObjId(ObjectID());
+        blobReq->obj_id = ObjectID();
     } else {
-        SCOPED_PERF_TRACEPOINT_CTX(blobReq->hashPerfCtx);
-        blobReq->setObjId(ObjIdGen::genObjectId(blobReq->getDataBuf(),
-                                                blobReq->getDataLen()));
+        SCOPED_PERF_TRACEPOINT_CTX(blobReq->hash_perf_ctx);
+        blobReq->obj_id = ObjIdGen::genObjectId(blobReq->getDataBuf(),
+                                                blobReq->data_len);
     }
 
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, amReq);
 
     if (blobReq->getIoType() == FDS_PUT_BLOB_ONCE) {
         // Sending the update in a single request. Create transaction ID to
         // use for the single request
         blobReq->setTxId(BlobTxId(randNumGen->genNumSafe()));
-        amDispatcher->dispatchUpdateCatalogOnce(qosReq);
+        amDispatcher->dispatchUpdateCatalogOnce(amReq);
     } else {
-        amDispatcher->dispatchUpdateCatalog(qosReq);
+        amDispatcher->dispatchUpdateCatalog(amReq);
     }
 
     // Either dispatch the put blob request or, if there's no data, just call
     // our callback handler now (NO-OP).
-    blobReq->getDataLen() > 0 ? amDispatcher->dispatchPutObject(qosReq) :
-                                blobReq->notifyResponse(qosReq, ERR_OK);
+    blobReq->data_len > 0 ? amDispatcher->dispatchPutObject(amReq) :
+                                blobReq->notifyResponse(ERR_OK);
 }
 
 void
-AmProcessor::putBlobCb(AmQosReq *qosReq, const Error& error) {
-    PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
+AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
+    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
     fds_verify(blobReq->magicInUse() == true);
 
     if (error.ok()) {
         // Add the Tx to the manager is this an updateOnce
         if (blobReq->getIoType() == FDS_PUT_BLOB_ONCE) {
-            fds_verify(txMgr->addTx(blobReq->getVolId(),
-                                    *(blobReq->txDesc),
+            fds_verify(txMgr->addTx(blobReq->io_vol_id,
+                                    *(blobReq->tx_desc),
                                     blobReq->dmtVersion,
                                     blobReq->getBlobName()) == ERR_OK);
             // Stage the transaction metadata changes
-            fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->txDesc),
+            fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc),
                                                    blobReq->metadata) == ERR_OK);
         }
         // Update the tx manager with this update
-        fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->getTxId()),
-                                               blobReq->getDataLen()) == ERR_OK);
+        fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc),
+                                               blobReq->data_len) == ERR_OK);
         // Update the transaction manager with the stage offset update
-        fds_verify(txMgr->updateStagedBlobOffset(*(blobReq->getTxId()),
+        fds_verify(txMgr->updateStagedBlobOffset(*(blobReq->tx_desc),
                                                  blobReq->getBlobName(),
-                                                 blobReq->getBlobOffset(),
-                                                 blobReq->getObjId()) == ERR_OK);
+                                                 blobReq->blob_offset,
+                                                 blobReq->obj_id) == ERR_OK);
         // Update the transaction manager with the stage object data
-        if (blobReq->getDataLen() > 0) {
-            fds_verify(txMgr->updateStagedBlobObject(*(blobReq->getTxId()),
-                                                     blobReq->getObjId(),
+        if (blobReq->data_len > 0) {
+            fds_verify(txMgr->updateStagedBlobObject(*(blobReq->tx_desc),
+                                                     blobReq->obj_id,
                                                      blobReq->getDataBuf(),
-                                                     blobReq->getDataLen())
+                                                     blobReq->data_len)
                    == ERR_OK);
         }
 
@@ -279,31 +261,31 @@ AmProcessor::putBlobCb(AmQosReq *qosReq, const Error& error) {
             // is true for S3/Swift and doesn't get used anyways for block (so
             // the actual cached descriptor for block will not be correct).
             AmTxDescriptor::ptr txDescriptor;
-            fds_verify(txMgr->getTxDescriptor(*(blobReq->getTxId()),
+            fds_verify(txMgr->getTxDescriptor(*(blobReq->tx_desc),
                                               txDescriptor) == ERR_OK);
             fds_verify(amCache->putTxDescriptor(txDescriptor) == ERR_OK);
-            fds_verify(txMgr->removeTx(*(blobReq->getTxId())) == ERR_OK);
+            fds_verify(txMgr->removeTx(*(blobReq->tx_desc)) == ERR_OK);
         }
     }
 
     // Tell QoS the request is done
-    qosCtrl->markIODone(qosReq);
+    qosCtrl->markIODone(amReq);
     blobReq->cb->call(error);
     delete blobReq;
 }
 
 void
-AmProcessor::getBlob(AmQosReq *qosReq) {
+AmProcessor::getBlob(AmRequest *amReq) {
     // Pull out the Get request
-    GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
+    GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
 
     fiu_do_on("am.uturn.processor.getBlob",
-              qosCtrl->markIODone(qosReq); \
+              qosCtrl->markIODone(amReq); \
               blobReq->cb->call(ERR_OK); \
               delete blobReq; \
               return;);
 
-    fds_volid_t volId = blobReq->getVolId();
+    fds_volid_t volId = blobReq->io_vol_id;
     StorHvVolume *shVol = volTable->getVolume(volId);
     // TODO(bszmyd): Friday, October 10th 2014
     // This logic was copied directly from StorHvCtrl, but it's not
@@ -311,7 +293,7 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
     // allow the following to function. Investigation needed.
     if ((shVol == NULL) || (!shVol->isValidLocked())) {
         LOGCRITICAL << "getBlob failed to get volume for vol " << volId;
-        getBlobCb(qosReq, ERR_INVALID);
+        getBlobCb(amReq, ERR_INVALID);
         return;
     }
 
@@ -319,14 +301,13 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
     // offsets, so we need to be consistent in query catalog
     // Review this in the next sprint!
     fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
-    blobReq->setBlobOffset(blobReq->getBlobOffset() * maxObjSize);
-    blobReq->base_vol_id = volTable->getBaseVolumeId(blobReq->getVolId());
+    blobReq->blob_offset = (blobReq->blob_offset * maxObjSize);
 
     // Check cache for object ID
     Error err = ERR_OK;
     ObjectID::ptr objectId = amCache->getBlobOffsetObject(volId,
                                                           blobReq->getBlobName(),
-                                                          blobReq->getBlobOffset(),
+                                                          blobReq->blob_offset,
                                                           err);
     // ObjectID was found in the cache
     if (ERR_OK == err) {
@@ -344,53 +325,52 @@ AmProcessor::getBlob(AmQosReq *qosReq) {
 
             // Only return UP-TO the amount of data requested, never more
             GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb);
-            cb->returnSize = std::min(blobReq->getDataLen(), objectData->size());
+            cb->returnSize = std::min(blobReq->data_len, objectData->size());
             memcpy(cb->returnBuffer, objectData->c_str(), cb->returnSize);
 
-            getBlobCb(qosReq, err);
+            getBlobCb(amReq, err);
         } else {
             // We couldn't find the data in the cache even though the id was
             // obtained there. Fallback to retrieving the data from the SM.
-            blobReq->setObjId(*objectId);
-            blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, qosReq);
-            amDispatcher->dispatchGetObject(qosReq);
+            blobReq->obj_id = *objectId;
+            blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
+            amDispatcher->dispatchGetObject(amReq);
         }
     } else {
-        blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::queryCatalogCb, qosReq);
-        amDispatcher->dispatchQueryCatalog(qosReq);
+        blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::queryCatalogCb, amReq);
+        amDispatcher->dispatchQueryCatalog(amReq);
     }
 }
 
 void
-AmProcessor::setBlobMetadata(AmQosReq *qosReq) {
-    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
+AmProcessor::setBlobMetadata(AmRequest *amReq) {
+    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(amReq);
 
     // Stage the transaction metadata changes
-    fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->getTxId()), blobReq->getMetaDataListPtr()))
+    fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->getMetaDataListPtr()))
 
-    fds_verify(txMgr->getTxDmtVersion(*(blobReq->getTxId()), &(blobReq->dmt_version)));
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::setBlobMetadataCb, qosReq);
+    fds_verify(txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version)));
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::setBlobMetadataCb, amReq);
 
-    amDispatcher->dispatchSetBlobMetadata(qosReq);
+    amDispatcher->dispatchSetBlobMetadata(amReq);
 }
 
 void
-AmProcessor::setBlobMetadataCb(AmQosReq *qosReq,
-                               const Error &error) {
-    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
+AmProcessor::setBlobMetadataCb(AmRequest *amReq, const Error &error) {
+    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(amReq);
 
     // Tell QoS the request is done
-    qosCtrl->markIODone(qosReq);
+    qosCtrl->markIODone(amReq);
     blobReq->cb->call(error);
 
     delete blobReq;
 }
 
 void
-AmProcessor::statBlob(AmQosReq *qosReq) {
+AmProcessor::statBlob(AmRequest *amReq) {
     Error err(ERR_OK);
-    StatBlobReq* blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
-    fds_volid_t volId = blobReq->getVolId();
+    StatBlobReq* blobReq = static_cast<StatBlobReq *>(amReq);
+    fds_volid_t volId = blobReq->io_vol_id;
 
     LOGDEBUG << "volume:" << volId <<" blob:" << blobReq->getBlobName();
 
@@ -411,57 +391,54 @@ AmProcessor::statBlob(AmQosReq *qosReq) {
              ++meta) {
             cb->blobDesc.addKvMeta(meta->first,  meta->second);
         }
-        statBlobCb(qosReq, ERR_OK);
+        statBlobCb(amReq, ERR_OK);
         return;
     }
     LOGTRACE << "Did not find cached blob descriptor for " << std::hex
         << volId << std::dec << " blob " << blobReq->getBlobName();
 
-    blobReq->base_vol_id = volTable->getBaseVolumeId(volId);
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::statBlobCb, qosReq);
-    amDispatcher->dispatchStatBlob(qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::statBlobCb, amReq);
+    amDispatcher->dispatchStatBlob(amReq);
 }
 
 void
-AmProcessor::abortBlobTxCb(AmQosReq *qosReq,
-                           const Error &error) {
-    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(qosReq->getBlobReqPtr());
+AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
+    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(amReq);
 
     // Tell QoS the request is done
-    qosCtrl->markIODone(qosReq);
+    qosCtrl->markIODone(amReq);
     blobReq->cb->call(error);
 
-    fds_verify(ERR_OK == txMgr->removeTx(*(blobReq->getTxId())));
+    fds_verify(ERR_OK == txMgr->removeTx(*(blobReq->tx_desc)));
 
     delete blobReq;
 }
 
 void
-AmProcessor::volumeContents(AmQosReq *qosReq) {
-    VolumeContentsReq* blobReq = static_cast<VolumeContentsReq*>(qosReq->getBlobReqPtr());
-    LOGDEBUG << "volume:" << blobReq->getVolId()
+AmProcessor::volumeContents(AmRequest *amReq) {
+    VolumeContentsReq* blobReq = static_cast<VolumeContentsReq*>(amReq);
+    LOGDEBUG << "volume:" << blobReq->io_vol_id
         <<" blob:" << blobReq->getBlobName();
 
-    blobReq->base_vol_id = volTable->getBaseVolumeId(blobReq->getVolId());
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::volumeContentsCb, qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::volumeContentsCb, amReq);
 
-    amDispatcher->dispatchVolumeContents(qosReq);
+    amDispatcher->dispatchVolumeContents(amReq);
 }
 
 void
-AmProcessor::deleteBlobCb(AmQosReq *qosReq, const Error& error) {
-    DeleteBlobReq *blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
+AmProcessor::deleteBlobCb(AmRequest *amReq, const Error& error) {
+    DeleteBlobReq *blobReq = static_cast<DeleteBlobReq *>(amReq);
 
     // Tell QoS the request is done
-    qosCtrl->markIODone(qosReq);
+    qosCtrl->markIODone(amReq);
     blobReq->cb->call(error);
     delete blobReq;
 }
 
 
 void
-AmProcessor::getBlobCb(AmQosReq *qosReq, const Error& error) {
-    GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
+AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
+    GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
 
     if (ERR_OK == error) {
         // TODO(bszmyd): Thu 09 Oct 2014 04:30:52 PM MDT
@@ -470,25 +447,25 @@ AmProcessor::getBlobCb(AmQosReq *qosReq, const Error& error) {
     }
 
     // Tell QoS the request is done
-    qosCtrl->markIODone(qosReq);
+    qosCtrl->markIODone(amReq);
     blobReq->cb->call(error);
     delete blobReq;
 }
 
 void
-AmProcessor::queryCatalogCb(AmQosReq *qosReq, const Error& error) {
+AmProcessor::queryCatalogCb(AmRequest *amReq, const Error& error) {
     if (error == ERR_OK) {
-        GetBlobReq *blobReq = static_cast<GetBlobReq *>(qosReq->getBlobReqPtr());
-        blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, qosReq);
-        amDispatcher->dispatchGetObject(qosReq);
+        GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
+        blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
+        amDispatcher->dispatchGetObject(amReq);
     } else {
-        getBlobCb(qosReq, error);
+        getBlobCb(amReq, error);
     }
 }
 
 void
-AmProcessor::statBlobCb(AmQosReq *qosReq, const Error& error) {
-    DeleteBlobReq *blobReq = static_cast<DeleteBlobReq *>(qosReq->getBlobReqPtr());
+AmProcessor::statBlobCb(AmRequest *amReq, const Error& error) {
+    DeleteBlobReq *blobReq = static_cast<DeleteBlobReq *>(amReq);
 
     if (ERR_OK == error) {
         // TODO(bszmyd): Tuesday 14 Oct 2014 12:21:41 PM MDT
@@ -496,31 +473,31 @@ AmProcessor::statBlobCb(AmQosReq *qosReq, const Error& error) {
     }
 
     // Tell QoS the request is done
-    qosCtrl->markIODone(qosReq);
+    qosCtrl->markIODone(amReq);
     blobReq->cb->call(error);
     delete blobReq;
 }
 
 void
-AmProcessor::commitBlobTx(AmQosReq *qosReq) {
-    fds_verify(qosReq != NULL);
+AmProcessor::commitBlobTx(AmRequest *amReq) {
+    fds_verify(amReq != NULL);
 
     // Get the blob request
-    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(amReq);
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
 
     // Setup callback.
-    blobReq->processorCb = AMPROCESSOR_CB_HANDLER(AmProcessor::commitBlobTxCb, qosReq);
+    blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::commitBlobTxCb, amReq);
 
-    amDispatcher->dispatchCommitBlobTx(qosReq);
+    amDispatcher->dispatchCommitBlobTx(amReq);
 }
 
 void
-AmProcessor::commitBlobTxCb(AmQosReq *qosReq, const Error &error) {
-    fds_verify(qosReq != NULL);
-    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
+AmProcessor::commitBlobTxCb(AmRequest *amReq, const Error &error) {
+    fds_verify(amReq != NULL);
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(amReq);
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
 
@@ -531,23 +508,23 @@ AmProcessor::commitBlobTxCb(AmQosReq *qosReq, const Error &error) {
     // is true for S3/Swift and doesn't get used anyways for block (so
     // the actual cached descriptor for block will not be correct).
     AmTxDescriptor::ptr txDesc;
-    fds_verify(txMgr->getTxDescriptor(*(blobReq->getTxId()),
+    fds_verify(txMgr->getTxDescriptor(*(blobReq->tx_desc),
                                         txDesc) == ERR_OK);
     fds_verify(amCache->putTxDescriptor(txDesc) == ERR_OK);
-    fds_verify(txMgr->removeTx(*(blobReq->getTxId())) == ERR_OK);
+    fds_verify(txMgr->removeTx(*(blobReq->tx_desc)) == ERR_OK);
 
-    qosCtrl->markIODone(qosReq);
+    qosCtrl->markIODone(amReq);
     blobReq->cb->call(error);
 
     delete blobReq;
 }
 
 void
-AmProcessor::volumeContentsCb(AmQosReq *qosReq, const Error& error) {
-    VolumeContentsReq *blobReq = static_cast<VolumeContentsReq *>(qosReq->getBlobReqPtr());
+AmProcessor::volumeContentsCb(AmRequest *amReq, const Error& error) {
+    VolumeContentsReq *blobReq = static_cast<VolumeContentsReq *>(amReq);
 
     // Tell QoS the request is done
-    qosCtrl->markIODone(qosReq);
+    qosCtrl->markIODone(amReq);
     blobReq->cb->call(error);
     delete blobReq;
 }

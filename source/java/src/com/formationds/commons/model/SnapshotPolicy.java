@@ -73,13 +73,6 @@ public class SnapshotPolicy
   }
 
   /**
-   * @param recurrenceRule the {@link RecurrenceRule}
-   */
-  public void setRecurrenceRule( final RecurrenceRule recurrenceRule ) {
-    this.recurrenceRule = recurrenceRule;
-  }
-
-  /**
    * @return Returns {@code long} representing the retention period in seconds
    */
   public Long getRetention() {
