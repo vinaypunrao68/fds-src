@@ -7,11 +7,12 @@ package com.formationds.commons.model.type;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import org.json.JSONArray;
+import com.google.gson.reflect.TypeToken;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -123,23 +124,22 @@ public class MetricsTest {
       "]";
   private static final List<VolumeDatapoint> DATAPOINTS = new ArrayList<>();
 
+  private static final Type TYPE =
+    new TypeToken<List<VolumeDatapoint>>() {
+    }.getType();
+
   @Before
   public void setUp() {
-    final JSONArray array = new JSONArray( JSON );
-    for( int i = 0;
-         i < array.length();
-         i++ ) {
-      DATAPOINTS.add( ObjectModelHelper.toObject( array.getJSONObject( i )
-                                                       .toString(),
-                                                  VolumeDatapoint.class ) );
-    }
+    DATAPOINTS.addAll( ObjectModelHelper.toObject( JSON, TYPE ) );
   }
 
   @Test
   public void test() {
     for( final VolumeDatapoint vdp : DATAPOINTS ) {
       try {
-        Metrics.byMetadataKey( vdp.getKey() );
+        if( vdp != null ) {
+          Metrics.byMetadataKey( vdp.getKey() );
+        }
       } catch( UnsupportedMetricException e ) {
         e.printStackTrace();
         Assert.fail( e.getMessage() );

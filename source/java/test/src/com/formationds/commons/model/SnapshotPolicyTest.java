@@ -4,57 +4,54 @@
 
 package com.formationds.commons.model;
 
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import org.junit.Assert;
+import org.junit.Test;
+
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
 public class SnapshotPolicyTest {
-//  @Test
-//  public void createTest() {
-//    try {
-//      final Long id = 1L;
-//      final SnapshotPolicy policy = new SnapshotPolicy();
-//      final Long retention = System.currentTimeMillis() / 1000;
-//
-//      policy.setId( id );
-//      policy.setName( String.format( "snapshot policy name %d", 1 ) );
-//      policy.setRecurrenceRule( new RecurrenceRule( "RRULE:FREQ=MONTHLY;INTERVAL=2;BYDAY=TU" ) );
-//      policy.setRetention( retention );
-//
-//      System.out.println( policy.toString() );
-//
-//      Assert.assertEquals( "Id don't match", policy.getId(), id );
-//      Assert.assertEquals( "Name don't match", policy.getName(),
-//                           "snapshot policy name 1" );
-//      Assert.assertEquals( "RRULE:FREQ=MONTHLY;INTERVAL=2;BYDAY=TU",
-//                           policy.getRecurrenceRule()
-//                                 .toString() );
-//      Assert.assertEquals( "Retention don't match", policy.getRetention(),
-//                           retention );
-//
-//      System.out.println( ObjectModelHelper.toJSON( policy ) );
-//    } catch( ParseException e ) {
-//      Assert.fail( e.getMessage() );
-//      e.printStackTrace();
-//    }
-//  }
+    private static final List<String> RRULES = new ArrayList<>();
 
-  //  private static final String JSON_1 =
-//    "{\n" +
-//      "  \"id\": 1,\n" +
-//      "  \"name\": \"snapshot policy name 1\",\n" +
-//      "  \"recurrenceRule\": {\n" +
-//      "    \"frequency\": \"DAILY\",\n" +
-//      "    \"count\": 10\n" +
-//      "  },\n" +
-//      "  \"retention\": 1412281425\n" +
-//      "}";
-  private static final String JSON_2 =
-    "{\"name\":\"1898484965023354702_DAILY\",\"recurrenceRule\":{\"FREQ\":\"DAILY\"},\"retention\":604800}";
+    static {
+        RRULES.add( "RRULE:FREQ=WEEKLY;BYHOUR=0;BYDAY=WE" );
+        RRULES.add( "RRULE:FREQ=MONTHLY;INTERVAL=2;BYDAY=TU" );
+        RRULES.add( "RRULE:FREQ=DAILY;UNTIL=19971224T000000Z" );
+        RRULES.add( "RRULE:FREQ=MONTHLY;INTERVAL=2;COUNT=10;BYDAY=1SU,-1SU" );
+        RRULES.add( "RRULE:FREQ=MONTHLY;INTERVAL=18;COUNT=10;BYMONTHDAY=10,11,12,13,14,15" );
+    }
 
-//  @Test
-//  public void jsonTest() {
-//    System.out.println( "POLICY JSON_1::" +
-//                          ObjectModelHelper.toObject( JSON_1,
-//                                                      SnapshotPolicy.class ) );
-//    System.out.println( "POLICY JSON_2::" +
-//                        ObjectModelHelper.toObject( JSON_2,
-//                                                    SnapshotPolicy.class ) );
-//  }
+    @Test
+    public void test() {
+        try {
+            for( final String rrule : RRULES ) {
+                final SnapshotPolicy policy = new SnapshotPolicy();
+                final Long retention = System.currentTimeMillis() / 1000;
+
+                policy.setRecurrenceRule( rrule );
+
+                policy.setId( new Random().nextLong() );
+                policy.setName( String.format( "snapshot::policy::%s",
+                                               policy.getRecurrenceRule()
+                                                     .getFrequency() ) );
+                policy.setRetention( retention );
+
+                System.out.println( "toString:: " + policy.toString() );
+
+                final String json = ObjectModelHelper.toJSON( policy );
+                System.out.println( "toJson:: " + json );
+
+                System.out.println( "toObject::" +
+                                        ObjectModelHelper.toObject( json,
+                                                                    SnapshotPolicy.class )
+                                                         .toString() );
+            }
+        } catch( ParseException e ) {
+            Assert.fail( e.getMessage() );
+            e.printStackTrace();
+        }
+    }
 }

@@ -99,6 +99,22 @@ struct CommitBlobTxResponseHandler : ResponseHandler, CommitBlobTxCallback {
     virtual ~CommitBlobTxResponseHandler();
 };
 
+struct AsyncCommitBlobTxResponseHandler
+        : ResponseHandler, CommitBlobTxCallback {
+    AsyncCommitBlobTxResponseHandler(AmAsyncResponseApi::shared_ptr _api,
+                                    boost::shared_ptr<apis::RequestId>& _reqId);
+    typedef boost::shared_ptr<AsyncCommitBlobTxResponseHandler> ptr;
+
+    AmAsyncResponseApi::shared_ptr respApi;
+    boost::shared_ptr<apis::RequestId> requestId;
+
+    /// Trans descriptor to be filled in on success
+    boost::shared_ptr<apis::TxDescriptor> txDesc;
+
+    virtual void process();
+    virtual ~AsyncCommitBlobTxResponseHandler();
+};
+
 struct AbortBlobTxResponseHandler : ResponseHandler, AbortBlobTxCallback {
     explicit AbortBlobTxResponseHandler(apis::TxDescriptor &retVal);
     typedef boost::shared_ptr<AbortBlobTxResponseHandler> ptr;
@@ -116,6 +132,18 @@ struct UpdateBlobResponseHandler : ResponseHandler, UpdateBlobCallback {
     virtual ~UpdateBlobResponseHandler();
 };
 
+struct AsyncUpdateBlobResponseHandler : ResponseHandler, UpdateBlobCallback {
+    AsyncUpdateBlobResponseHandler(AmAsyncResponseApi::shared_ptr _api,
+                                   boost::shared_ptr<apis::RequestId>& _reqId);
+    typedef boost::shared_ptr<AsyncUpdateBlobResponseHandler> ptr;
+
+    AmAsyncResponseApi::shared_ptr respApi;
+    boost::shared_ptr<apis::RequestId> requestId;
+
+    virtual void process();
+    virtual ~AsyncUpdateBlobResponseHandler();
+};
+
 struct AsyncUpdateBlobOnceResponseHandler : ResponseHandler, UpdateBlobCallback {
     AsyncUpdateBlobOnceResponseHandler(AmAsyncResponseApi::shared_ptr _api,
                                    boost::shared_ptr<apis::RequestId>& _reqId);
@@ -126,6 +154,18 @@ struct AsyncUpdateBlobOnceResponseHandler : ResponseHandler, UpdateBlobCallback 
 
     virtual void process();
     virtual ~AsyncUpdateBlobOnceResponseHandler();
+};
+
+struct AsyncAbortBlobTxResponseHandler : ResponseHandler {
+    AsyncAbortBlobTxResponseHandler(AmAsyncResponseApi::shared_ptr _api,
+                                    boost::shared_ptr<apis::RequestId>& _reqId);
+    typedef boost::shared_ptr<AsyncAbortBlobTxResponseHandler> ptr;
+
+    AmAsyncResponseApi::shared_ptr respApi;
+    boost::shared_ptr<apis::RequestId> requestId;
+
+    virtual void process();
+    virtual ~AsyncAbortBlobTxResponseHandler();
 };
 
 struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {

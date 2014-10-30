@@ -77,7 +77,7 @@ public class ModelFieldValidator {
   /**
    * @param validator the {@link ModelFieldValidator}
    *
-   * @return Returns {@link String} representing teh out-of-range message
+   * @return Returns {@link String} representing the out-of-range message
    */
   public static String outOfRange( final ModelFieldValidator validator,
                                    final Long value ) {

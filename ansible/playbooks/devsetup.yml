@@ -64,6 +64,7 @@
         - libconfig++-dev
         - oracle-java8-installer
         - npm
+        - nodejs-legacy
         - ruby
         - ruby-sass
         - python-paramiko
