@@ -98,6 +98,7 @@ class NbdBlkVol : public EvBlkVol
   protected:
     friend class NbdBlkIO;
     char                    *vio_buffer;
+    DmtColumnPtr                dmtGroup;
 
     /* Factory method. */
     virtual FdsAIO *ev_alloc_vio();

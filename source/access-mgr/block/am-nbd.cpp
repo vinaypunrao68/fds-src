@@ -411,10 +411,12 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
     }
     fiu_do_on("nbd.uturn.afterloop", return;);
     sw.start();
+    if (dmtGroup.get() == nullptr) {
+        dmtGroup = boost::make_shared<DmtVolumeIdEpProvider>(
+            dmtMgr->getCommittedNodeGroup(vol->vol_uuid));
+    }
     auto dmtMgr = BlockMod::blk_singleton()->blk_amc->om_client->getDmtManager();
-    auto upcat_req = gSvcRequestPool->newQuorumSvcRequest(
-                boost::make_shared<DmtVolumeIdEpProvider>(
-                    dmtMgr->getCommittedNodeGroup(vol->vol_uuid)));
+    auto upcat_req = gSvcRequestPool->newQuorumSvcRequest(dmtGroup);
     gNbdCntrs->getDmNodegroup.update(sw.getElapsedNanos());
     fiu_do_on("nbd.uturn.afterquorumreq", return;);
 
