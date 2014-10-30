@@ -28,6 +28,7 @@
 #include <fdsp/TestAMSvc.h>
 #include <fdsp/TestDMSvc.h>
 #include <util/fiu_util.h>
+#include <util/timeutils.h>
 
 namespace fds {
 
@@ -130,7 +131,7 @@ int dmPort = 9097;
 int amPort = 9595;
 
 struct NbdCounters : FdsCounters {
-    NbdCounters() 
+    NbdCounters()
     : FdsCounters("Am.nbd.", g_cntrs_mgr.get()),
     getDmNodegroup("getDmNodegroup", this)
     {
@@ -380,7 +381,7 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
     std::stringstream   ss;
     fpi::FDSP_BlobObjectInfo     object;
     fpi::UpdateCatalogOnceMsgPtr upcat(bo::make_shared<fpi::UpdateCatalogOnceMsg>());
-    StopWatch sw;
+    util::StopWatch sw;
 
     vol = vio->nbd_vol;
     upcat->blob_name.assign(vol->vol_name);
