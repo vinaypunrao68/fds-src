@@ -1,4 +1,9 @@
-[
+[{
+    pageStart: 0,
+    pageEnd: 19,
+    pageSize: 20,
+    totalRecords: 300,
+    records: [
     {
         time: 'one minute ago',
         message: 'Volume \"Eng_01\" is limited but within SLA.',
@@ -48,5 +53,5 @@
         time: '6 months ago',
         message: 'Volume \"PromoApp_11\" created by user \"Ralph\".',
         type: 'System'
-    }
-];
+    }]
+}];

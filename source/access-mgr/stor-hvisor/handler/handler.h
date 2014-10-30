@@ -29,7 +29,7 @@ struct Handler: HasLogger {
 
     // providing a default empty implmentation to support requests that
     // do not need queuing
-    virtual fds::Error handleQueueItem(AmQosReq *qosReq) {
+    virtual fds::Error handleQueueItem(AmRequest *amReq) {
         return ERR_OK;
     }
     virtual ~Handler() {}
@@ -40,7 +40,7 @@ struct GetVolumeMetaDataHandler : Handler {
     fds::Error handleRequest(const std::string& volumeName, CallbackPtr cb);
     fds::Error handleResponse(fpi::FDSP_MsgHdrTypePtr& header,
                               fpi::FDSP_VolumeMetaDataPtr& volumeMeta);
-    fds::Error handleQueueItem(AmQosReq *qosReq);
+    fds::Error handleQueueItem(AmRequest *amReq);
 };
 
 struct StatBlobHandler : Handler {
@@ -48,11 +48,11 @@ struct StatBlobHandler : Handler {
     fds::Error handleRequest(const std::string& volumeName,
                              const std::string& blobName,
                              CallbackPtr cb);
-    fds::Error handleResponse(AmQosReq *qosReq,
+    fds::Error handleResponse(AmRequest *amReq,
                               FailoverSvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload);
-    fds::Error handleQueueItem(AmQosReq *qosReq);
+    fds::Error handleQueueItem(AmRequest *amReq);
 };
 
 struct GetBucketHandler : Handler {
@@ -61,11 +61,11 @@ struct GetBucketHandler : Handler {
                              fds_uint32_t start,
                              fds_uint32_t maxkeys,
                              CallbackPtr cb);
-    fds::Error handleResponse(AmQosReq *qosReq,
+    fds::Error handleResponse(AmRequest *amReq,
                               FailoverSvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload);
-    fds::Error handleQueueItem(AmQosReq *qosReq);
+    fds::Error handleQueueItem(AmRequest *amReq);
 };
 
 struct DeleteBlobHandler : Handler {
@@ -74,11 +74,11 @@ struct DeleteBlobHandler : Handler {
                              const std::string& blobName,
                              BlobTxId::ptr blobTxId,
                              CallbackPtr cb);
-    fds::Error handleResponse(AmQosReq *qosReq,
+    fds::Error handleResponse(AmRequest *amReq,
                               QuorumSvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload);
-    fds::Error handleQueueItem(AmQosReq *qosReq);
+    fds::Error handleQueueItem(AmRequest *amReq);
 };
 
 

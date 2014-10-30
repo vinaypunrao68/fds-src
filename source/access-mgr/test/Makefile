@@ -43,7 +43,8 @@ user_non_fds_libs :=  \
     event \
     rt \
     fiu \
-    dl
+    dl \
+    profiler
 
 user_cc           :=
 

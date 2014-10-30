@@ -6,6 +6,8 @@
 #include <NetSession.h>
 #include "../StorHvisorNet.h"
 
+#include "requests/GetVolumeMetaDataReq.h"
+
 namespace fds {
 
 Error GetVolumeMetaDataHandler::handleRequest(const std::string& volumeName, CallbackPtr cb) {
@@ -42,10 +44,10 @@ Error GetVolumeMetaDataHandler::handleResponse(fpi::FDSP_MsgHdrTypePtr& header,
     return err;
 }
 
-Error GetVolumeMetaDataHandler::handleQueueItem(AmQosReq *qosReq) {
+Error GetVolumeMetaDataHandler::handleQueueItem(AmRequest *amReq) {
     Error err(ERR_OK);
 
-    StorHvCtrl::TxnRequestHelper helper(storHvisor, qosReq);
+    StorHvCtrl::TxnRequestHelper helper(storHvisor, amReq);
 
     if (!helper.isValidVolume()) {
         LOGCRITICAL << "unable to get volume info for vol: " << helper.volId;
@@ -63,7 +65,7 @@ Error GetVolumeMetaDataHandler::handleQueueItem(AmQosReq *qosReq) {
              << " for vol:" << helper.volId;
 
     helper.txn->op          = FDS_GET_VOLUME_METADATA;
-    helper.txn->io          = qosReq;
+    helper.txn->io          = amReq;
 
     fpi::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
     storHvisor->InitDmMsgHdr(msgHdr);
@@ -77,7 +79,7 @@ Error GetVolumeMetaDataHandler::handleQueueItem(AmQosReq *qosReq) {
     auto client = session->getClient();
     msgHdr->session_uuid = session->getSessionId();
 
-    boost::shared_ptr<std::string> volNamePtr(new std::string(blobReq->volumeName));
+    boost::shared_ptr<std::string> volNamePtr(new std::string(blobReq->volume_name));
 
     // Send async RPC request
     try {

@@ -193,6 +193,54 @@ AsyncStartBlobTxResponseHandler::process() {
 AsyncStartBlobTxResponseHandler::~AsyncStartBlobTxResponseHandler() {
 }
 
+AsyncAbortBlobTxResponseHandler::AsyncAbortBlobTxResponseHandler(
+    AmAsyncResponseApi::shared_ptr _api,
+    boost::shared_ptr<apis::RequestId>& _reqId)
+        : respApi(_api),
+          requestId(_reqId) {
+    type = HandlerType::IMMEDIATE;
+}
+
+void
+AsyncAbortBlobTxResponseHandler::process() {
+    respApi->abortBlobTxResp(error, requestId);
+}
+
+AsyncAbortBlobTxResponseHandler::~AsyncAbortBlobTxResponseHandler() {
+}
+
+AsyncCommitBlobTxResponseHandler::AsyncCommitBlobTxResponseHandler(
+    AmAsyncResponseApi::shared_ptr _api,
+    boost::shared_ptr<apis::RequestId>& _reqId)
+        : respApi(_api),
+          requestId(_reqId) {
+    type = HandlerType::IMMEDIATE;
+}
+
+void
+AsyncCommitBlobTxResponseHandler::process() {
+    respApi->commitBlobTxResp(error, requestId);
+}
+
+AsyncCommitBlobTxResponseHandler::~AsyncCommitBlobTxResponseHandler() {
+}
+
+AsyncUpdateBlobResponseHandler::AsyncUpdateBlobResponseHandler(
+    AmAsyncResponseApi::shared_ptr _api,
+    boost::shared_ptr<apis::RequestId>& _reqId)
+        : respApi(_api),
+          requestId(_reqId) {
+    type = HandlerType::IMMEDIATE;
+}
+
+void
+AsyncUpdateBlobResponseHandler::process() {
+    respApi->updateBlobResp(error, requestId);
+}
+
+AsyncUpdateBlobResponseHandler::~AsyncUpdateBlobResponseHandler() {
+}
+
 AsyncUpdateBlobOnceResponseHandler::AsyncUpdateBlobOnceResponseHandler(
     AmAsyncResponseApi::shared_ptr _api,
     boost::shared_ptr<apis::RequestId>& _reqId)

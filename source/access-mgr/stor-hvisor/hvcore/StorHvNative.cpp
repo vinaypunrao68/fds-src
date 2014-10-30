@@ -8,6 +8,9 @@
 #include <StorHvisorNet.h>
 #include <string>
 #include <util/timeutils.h>
+
+#include "requests/requests.h"
+
 extern StorHvCtrl *storHvisor;
 
 namespace fds {
@@ -101,7 +104,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
 {
     Error err(ERR_OK);
     fds_volid_t volid = invalid_vol_id;
-    FdsBlobReq *blob_req = NULL;
+    AmRequest *blob_req = NULL;
     LOGDEBUG << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName;
 
     /* check if bucket is attached to this AM */
@@ -247,19 +250,17 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
 }
 
 /* get bucket stats for all existing buckets from OM*/
-void FDS_NativeAPI::GetBucketStats(void *req_ctxt,
-                                   fdsnBucketStatsHandler resp_handler,
+void FDS_NativeAPI::GetVolumeStats(void *req_ctxt,
+                                   fdsnVolumeStatsHandler resp_handler,
                                    void *callback_data)
 {
-    FdsBlobReq *blob_req = NULL;
-    LOGDEBUG << "FDS_NativeAPI::GetBucketStats for all existing buckets";
+    AmRequest *blob_req = NULL;
+    LOGDEBUG << "FDS_NativeAPI::GetVolumeStats for all existing buckets";
 
     /* this request will go directly to OM,
        so not need to check if buckets are attached, etc. */
 
-    blob_req = new BucketStatsReq(req_ctxt,
-                                  resp_handler,
-                                  callback_data);
+    blob_req = new VolumeStatsReq(req_ctxt, resp_handler, callback_data);
 
     if (!blob_req) {
         (resp_handler)("", 0, NULL, req_ctxt, callback_data, FDSN_StatusOutOfMemory, NULL); //NOLINT
@@ -279,12 +280,11 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
                          fds_uint64_t startByte,
                          fds_uint64_t byteCount,
                          char* buffer,
-                         fds_uint64_t buflen,
                          CallbackPtr cb) {
     Error err(ERR_OK);
     fds_volid_t volid = invalid_vol_id;
     fds_uint64_t start, end;
-    FdsBlobReq *blob_req = NULL;
+    AmRequest *blob_req = NULL;
     LOGDEBUG << "FDS_NativeAPI::GetObject for volume " << bucket_ctxt->bucketName
               << ", blob " << blobName << " of size " << byteCount << " at offset "
               << startByte;
@@ -308,9 +308,8 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
                               "", // Not used at the moment
                               blobName,
                               startByte,
-                              buflen,
-                              buffer,
                               byteCount,
+                              buffer,
                               cb);
 
     end = fds::util::getClockTicks();
@@ -362,14 +361,7 @@ FDS_NativeAPI::attachVolume(const std::string& volumeName,
     // Make sure the volume isn't attached already
     fds_verify(volId == invalid_vol_id);
 
-    AttachVolBlobReq *blobReq =
-            new AttachVolBlobReq(volId,
-                                 volumeName,
-                                 "",  // No blob name
-                                 0,  // No blob offset
-                                 0,  // No data length
-                                 NULL,  // No buffer
-                                 cb);
+    AttachVolBlobReq *blobReq = new AttachVolBlobReq(volId, volumeName, cb);
     fds_verify(blobReq != NULL);
 
     // Enqueue this request to process the callback
@@ -391,7 +383,6 @@ FDS_NativeAPI::PutBlobOnce(const std::string& volumeName,
                            fds_uint64_t buflen,
                            fds_int32_t blobMode,
                            boost::shared_ptr< std::map<std::string, std::string> >& metadata,
-                           fdsnPutObjectHandler putObjHandler,
                            void *callbackData) {
     LOGDEBUG << "Start putBlobOnce for volume " << volumeName
              << " blob " << blobName
@@ -408,19 +399,7 @@ FDS_NativeAPI::PutBlobOnce(const std::string& volumeName,
         fds_verify(volid != invalid_vol_id);
     }
 
-    // TODO(Andrew): The constructor no longer exists.
-    // Just remove this file.
-    FdsBlobReq *blob_req = NULL;  // new PutBlobReq(volid,
-    //        "",
-    //                                    blobName,
-    //                                    startByte,
-    //                                    buflen,
-    //                                    buffer,
-    //                                    blobMode,
-    //                                    metadata,
-    //                                    putObjHandler,
-    //                                    callbackData);
-
+    AmRequest *blob_req = NULL;
     if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
         storHvisor->pushBlobReq(blob_req);
@@ -443,7 +422,6 @@ FDS_NativeAPI::PutBlob(BucketContext *bucket_ctxt,
                        fds_uint64_t buflen,
                        BlobTxId::ptr txDesc,
                        fds_bool_t lastBuf,
-                       fdsnPutObjectHandler putObjHandler,
                        void *callback_data) {
     Error err(ERR_OK);
     LOGDEBUG << "Start putBlob for volume " << bucket_ctxt->bucketName
@@ -463,22 +441,7 @@ FDS_NativeAPI::PutBlob(BucketContext *bucket_ctxt,
     // create Put request and put it to wait queue, to make sure that attach arrives
     // after we put a request to the wait queue and not before!
 
-    // TODO(Andrew): The constructor no longer exists.
-    // Just remove this file.
-    FdsBlobReq *blob_req = NULL;  // new PutBlobReq(volid,
-    //     "",
-    //                                    ObjKey,
-    //                                    startByte,
-    //                                    buflen,
-    //                                    buffer,
-    //                                    txDesc,
-    //                                    lastBuf,
-    //                                    bucket_ctxt,
-    //                                    put_properties,
-    //                                    req_context,
-    //                                    putObjHandler,
-    //                                    callback_data);
-
+    AmRequest *blob_req = NULL;
     if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
         storHvisor->pushBlobReq(blob_req);
@@ -511,7 +474,7 @@ void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt,
 {
     Error err(ERR_OK);
     fds_volid_t volid = invalid_vol_id;
-    FdsBlobReq *blob_req = NULL;
+    AmRequest *blob_req = NULL;
     LOGDEBUG << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
               << " objKey " << ObjKey;
 
@@ -566,7 +529,7 @@ void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt,
     }
 }
 
-void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
+void FDS_NativeAPI::DoCallback(AmRequest  *blob_req,
                                Error        error,
                                fds_uint32_t ignore,
                                fds_int32_t  result)
@@ -594,13 +557,6 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
     }
 
     switch (blob_req->getIoType()) {
-        case FDS_PUT_BLOB_ONCE:
-        case FDS_PUT_BLOB:
-            static_cast<PutBlobReq*>(blob_req)->DoCallback(status, NULL);
-            break;
-        case FDS_GET_BLOB:
-            static_cast<GetBlobReq*>(blob_req)->DoCallback(status, NULL);
-            break;
         case FDS_DELETE_BLOB:
             static_cast<DeleteBlobReq*>(blob_req)->DoCallback(status, NULL);
             break;
@@ -612,7 +568,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
         case FDS_BUCKET_STATS:
             /* in case of get bucket stats, this method is called only on error */
             fds_verify(!error.ok() || (result != 0));
-            static_cast<BucketStatsReq*>(blob_req)->DoCallback("", 0, NULL, status, NULL);
+            static_cast<VolumeStatsReq*>(blob_req)->DoCallback("", 0, NULL, status, NULL);
             break;
         default:
             fds_panic("Unknown blob request type!");
@@ -647,7 +603,7 @@ FDS_NativeAPI::AbortBlobTx(const std::string& volumeName,
         fds_verify(volId != invalid_vol_id);
     }
 
-    FdsBlobReq *blobReq = NULL;
+    AmRequest *blobReq = NULL;
     blobReq = new AbortBlobTxReq(volId,
                                  volumeName,
                                  blobName,
@@ -689,7 +645,7 @@ FDS_NativeAPI::CommitBlobTx(const std::string& volumeName,
         fds_verify(volId != invalid_vol_id);
     }
 
-    FdsBlobReq *blobReq = NULL;
+    AmRequest *blobReq = NULL;
     blobReq = new CommitBlobTxReq(volId, volumeName, blobName, txDesc, cb);
     fds_verify(blobReq != NULL);
 
@@ -726,7 +682,7 @@ FDS_NativeAPI::StartBlobTx(const std::string& volumeName,
         fds_verify(volId != invalid_vol_id);
     }
 
-    FdsBlobReq *blobReq = NULL;
+    AmRequest *blobReq = NULL;
     blobReq = new StartBlobTxReq(volId, volumeName, blobName, blobMode, cb);
     fds_verify(blobReq != NULL);
 
@@ -768,14 +724,7 @@ void FDS_NativeAPI::StatBlob(const std::string& volumeName,
     }
 
     
-    FdsBlobReq *blobReq = NULL;
-    blobReq = new StatBlobReq(volId,
-                              volumeName,
-                              blobName,
-                              0,  // No blob offset
-                              0,  // No data length
-                              NULL,  // No buffer
-                              cb);
+    AmRequest *blobReq = new StatBlobReq(volId, volumeName, blobName, cb);
     fds_verify(blobReq != NULL);
 
     // Push the request if we have the vol already
@@ -816,7 +765,7 @@ void FDS_NativeAPI::setBlobMetaData(const std::string& volumeName,
     }
     LOGDEBUG << "ready to send some meta to be updated..";
 
-    FdsBlobReq *blobReq = NULL;
+    AmRequest *blobReq = NULL;
     blobReq = new SetBlobMetaDataReq(volId,
                                      volumeName,
                                      blobName,

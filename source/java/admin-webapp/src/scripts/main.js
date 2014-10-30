@@ -15,7 +15,7 @@ app.config( function( $stateProvider, $urlRouterProvider ){
         })
         .state( 'homepage.system', {
             url: '/system',
-            templateUrl: 'scripts/system/system.html'
+            templateUrl: 'scripts/system/systemContainer.html'
         })
         .state( 'homepage.status', {
             url: '/status',

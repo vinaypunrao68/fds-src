@@ -10,6 +10,8 @@
 #include <responsehandler.h>
 #include <StorHvisorNet.h>
 
+#include "requests/requests.h"
+
 namespace fds {
 
 AmAsyncDataApi::AmAsyncDataApi() {
@@ -107,7 +109,7 @@ AmAsyncDataApi::startBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
         new AsyncStartBlobTxResponseHandler(responseApi,
                                             requestId));
 
-    FdsBlobReq *blobReq = new StartBlobTxReq(invalid_vol_id,
+    AmRequest *blobReq = new StartBlobTxReq(invalid_vol_id,
                                              *volumeName,
                                              *blobName,
                                              *blobMode,
@@ -130,6 +132,20 @@ AmAsyncDataApi::commitBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
                              boost::shared_ptr<std::string>& volumeName,
                              boost::shared_ptr<std::string>& blobName,
                              boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    // Setup the transcation descriptor
+    BlobTxId::ptr blobTxDesc(new BlobTxId(
+        txDesc->txId));
+
+    AsyncCommitBlobTxResponseHandler::ptr handler(
+        new AsyncCommitBlobTxResponseHandler(responseApi,
+                                             requestId));
+
+    AmRequest *blobReq = new CommitBlobTxReq(invalid_vol_id,
+                                              *volumeName,
+                                              *blobName,
+                                              blobTxDesc,
+                                              SHARED_DYN_CAST(Callback, handler));
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 void
@@ -147,6 +163,20 @@ AmAsyncDataApi::abortBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
                             boost::shared_ptr<std::string>& volumeName,
                             boost::shared_ptr<std::string>& blobName,
                             boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    AsyncAbortBlobTxResponseHandler::ptr handler(
+        new AsyncAbortBlobTxResponseHandler(responseApi,
+                                            requestId));
+
+    // Setup the transcation descriptor
+    BlobTxId::ptr blobTxDesc(new BlobTxId(
+        txDesc->txId));
+
+    AmRequest *blobReq = new AbortBlobTxReq(invalid_vol_id,
+                                             *volumeName,
+                                             *blobName,
+                                             blobTxDesc,
+                                             SHARED_DYN_CAST(Callback, handler));
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 void
@@ -217,7 +247,7 @@ AmAsyncDataApi::updateBlobOnce(boost::shared_ptr<apis::RequestId>& requestId,
         boost::make_shared<AsyncUpdateBlobOnceResponseHandler>(responseApi,
                                                                requestId));
 
-    FdsBlobReq *blobReq = new PutBlobReq(invalid_vol_id,
+    AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                          *volumeName,
                                          *blobName,
                                          static_cast<fds_uint64_t>(objectOffset->value),
@@ -252,6 +282,33 @@ AmAsyncDataApi::updateBlob(boost::shared_ptr<apis::RequestId>& requestId,
                            boost::shared_ptr<int32_t>& length,
                            boost::shared_ptr<apis::ObjectOffset>& objectOffset,
                            boost::shared_ptr<bool>& isLast) {
+    BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
+
+    fds_verify(*length >= 0);
+    fds_verify(objectOffset->value >= 0);
+
+    // Create context handler
+    AsyncUpdateBlobResponseHandler::ptr putHandler(
+        boost::make_shared<AsyncUpdateBlobResponseHandler>(responseApi,
+                                                           requestId));
+
+    // Setup the transcation descriptor
+    BlobTxId::ptr blobTxDesc(new BlobTxId(
+        txDesc->txId));
+
+    AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
+                                         *volumeName,
+                                         *blobName,
+                                         static_cast<fds_uint64_t>(objectOffset->value),
+                                         *length,
+                                         const_cast<char *>(bytes->c_str()),
+                                         blobTxDesc,
+                                         *isLast,
+                                         &bucket_ctx,
+                                         NULL,
+                                         NULL,
+                                         putHandler);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 void

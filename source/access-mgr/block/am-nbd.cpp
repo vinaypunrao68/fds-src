@@ -43,6 +43,13 @@ BlkVol::BlkVol(const char *name, const char *dev,
     memcpy(vol_dev, dev, FDS_MAX_VOL_NAME);
 }
 
+BlkVol::BlkVol(const char *name, const char *dev,
+               fds_uint64_t uuid, fds_uint64_t vol_sz, fds_uint32_t blk_sz, bool test_vol_flag)
+    : BlkVol(name, dev, uuid, vol_sz, blk_sz)
+{
+    vol_test_flag = test_vol_flag;
+}
+
 BlockMod::~BlockMod() {}
 BlockMod::BlockMod() : Module("FDS Block"), blk_amc(NULL) {}
 
@@ -90,7 +97,7 @@ BlockMod::blk_detach_vol(fds_uint64_t uuid)
  * -----------------------------------------------------------------------------------
  */
 EvBlkVol::EvBlkVol(const blk_vol_creat_t *r, struct ev_loop *loop)
-    : BlkVol(r->v_name, r->v_dev, r->v_uuid, r->v_vol_blksz, r->v_blksz),
+    : BlkVol(r->v_name, r->v_dev, r->v_uuid, r->v_vol_blksz, r->v_blksz, r->v_test_vol_flag),
       vio_sk(-1), vio_ev_loop(loop), vio_read(NULL), vio_write(NULL)
 {
 }
@@ -233,6 +240,10 @@ NbdBlkVol::nbd_vol_read(NbdBlkIO *vio)
     qcat->obj_list.clear();
     qcat->meta_list.clear();
 
+    if (true == vol->vol_test_flag) {
+        return;
+    }
+
     auto dmtMgr = BlockMod::blk_singleton()->blk_amc->om_client->getDmtManager();
     auto qcat_req = gSvcRequestPool->newFailoverSvcRequest(
                 boost::make_shared<DmtVolumeIdEpProvider>(
@@ -297,6 +308,11 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
         }
         upcat->obj_list.push_back(object);
     }
+
+    if (true == vol->vol_test_flag) {
+        return;
+    }
+
     auto dmtMgr = BlockMod::blk_singleton()->blk_amc->om_client->getDmtManager();
     auto upcat_req = gSvcRequestPool->newQuorumSvcRequest(
                 boost::make_shared<DmtVolumeIdEpProvider>(
@@ -546,6 +562,7 @@ NbdBlockMod::blk_attach_vol(blk_vol_creat_t *r)
 
         snprintf(r->v_blkdev, sizeof(r->v_blkdev), "/dev/nbd%d", dev);
         r->v_dev = r->v_blkdev;
+        r->v_test_vol_flag = false;
     }
     vb = blk_creat_vol(r);
     if (vb == NULL) {

@@ -5,6 +5,9 @@
 #include "./handler.h"
 #include "../StorHvisorNet.h"
 #include <net/net-service-tmpl.hpp>
+
+#include "requests/DeleteBlobReq.h"
+
 namespace fds {
 
 Error DeleteBlobHandler::handleRequest(const std::string& volumeName,
@@ -18,20 +21,20 @@ Error DeleteBlobHandler::handleRequest(const std::string& volumeName,
                                                blobName,
                                                volumeName,
                                                cb);
-    blobReq->setBlobTxId(blobTxId);
+    blobReq->tx_desc = blobTxId;
     helper.blobReq = blobReq;
     return helper.processRequest();
 }
 
-Error DeleteBlobHandler::handleResponse(AmQosReq *qosReq,
+Error DeleteBlobHandler::handleResponse(AmRequest *amReq,
                                         QuorumSvcRequest* svcReq,
                                         const Error& error,
                                         boost::shared_ptr<std::string> payload) {
-    StorHvCtrl::ResponseHelper helper(storHvisor, qosReq);
+    StorHvCtrl::ResponseHelper helper(storHvisor, amReq);
     DeleteBlobReq* blobReq = static_cast<DeleteBlobReq*>(helper.blobReq);
-    LOGDEBUG << " volume:" << blobReq->getVolId()
+    LOGDEBUG << " volume:" << blobReq->io_vol_id
              << " blob:" << blobReq->getBlobName()
-             << " txn:" << blobReq->txDesc;
+             << " txn:" << blobReq->tx_desc;
 
     // Return if err
     if (error != ERR_OK) {
@@ -42,13 +45,13 @@ Error DeleteBlobHandler::handleResponse(AmQosReq *qosReq,
     return error;
 }
 
-Error DeleteBlobHandler::handleQueueItem(AmQosReq *qosReq) {
+Error DeleteBlobHandler::handleQueueItem(AmRequest *amReq) {
     Error err(ERR_OK);
-    StorHvCtrl::RequestHelper helper(storHvisor, qosReq);
+    StorHvCtrl::RequestHelper helper(storHvisor, amReq);
     DeleteBlobReq* blobReq = static_cast<DeleteBlobReq*>(helper.blobReq);
-    LOGDEBUG << " volume:" << helper.blobReq->getVolId()
+    LOGDEBUG << " volume:" << helper.blobReq->io_vol_id
              << " blob:" << helper.blobReq->getBlobName()
-             << " txn:" << blobReq->txDesc;
+             << " txn:" << blobReq->tx_desc;
 
     if (!helper.isValidVolume()) {
         LOGCRITICAL << "unable to get volume info for vol: " << helper.volId;
@@ -63,13 +66,13 @@ Error DeleteBlobHandler::handleQueueItem(AmQosReq *qosReq) {
     }
 
     // Update the tx manager with the delete op
-    storHvisor->amTxMgr->updateTxOpType(*(blobReq->txDesc), blobReq->getIoType());
+    storHvisor->amTxMgr->updateTxOpType(*(blobReq->tx_desc), blobReq->getIoType());
 
     DeleteBlobMsgPtr message(new DeleteBlobMsg());
-    message->volume_id = blobReq->getVolId();
+    message->volume_id = blobReq->io_vol_id;
     message->blob_name = blobReq->getBlobName();
     message->blob_version = blob_version_invalid;
-    message->txId = blobReq->txDesc->getValue();
+    message->txId = blobReq->tx_desc->getValue();
 
     auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(
@@ -77,7 +80,7 @@ Error DeleteBlobHandler::handleQueueItem(AmQosReq *qosReq) {
                 storHvisor->vol_table->getBaseVolumeId(helper.volId))));
 
     asyncReq->setPayload(fpi::DeleteBlobMsgTypeId, message);
-    auto cb = RESPONSE_MSG_HANDLER(DeleteBlobHandler::handleResponse, qosReq);
+    auto cb = RESPONSE_MSG_HANDLER(DeleteBlobHandler::handleResponse, amReq);
 
     asyncReq->onResponseCb(cb);
     LOGDEBUG << "invoke";
