@@ -27,7 +27,7 @@ import java.util.Map;
  */
 public class QueryMetrics
   implements RequestHandler {
-  private static final transient Logger logger =
+  private static final Logger logger =
     LoggerFactory.getLogger( QueryMetrics.class );
 
   private static final Type TYPE = new TypeToken<QueryCriteria>() { }.getType();
