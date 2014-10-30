@@ -140,6 +140,9 @@ class DmPersistVolDir {
 
     virtual Error deleteBlobMetaDesc(const std::string & blobName) = 0;
 
+    // sync
+    virtual Error syncCatalog(const NodeUuid & dmUuid);
+
   protected:
     // methods
     static inline fds_uint64_t getBlobIdFromName(const std::string & blobName) {
