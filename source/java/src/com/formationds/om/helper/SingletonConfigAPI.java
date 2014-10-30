@@ -6,38 +6,47 @@ package com.formationds.om.helper;
 
 import com.formationds.xdi.ConfigurationApi;
 
+import java.io.Serializable;
+
 /**
  * @author ptinius
  */
-public class SingletonConfigAPI {
-  private static SingletonConfigAPI ourInstance = new SingletonConfigAPI();
+public class SingletonConfigAPI
+    implements Serializable {
+    private static final long serialVersionUID = 8183577476145998036L;
 
-  /**
-   * singleton instance of SingletonConfigAPI
-   */
-  public static SingletonConfigAPI instance() {
-    return ourInstance;
-  }
+    private static class SingletonConfigAPIHolder {
+        protected static final SingletonConfigAPI INSTANCE =
+            new SingletonConfigAPI();
+    }
 
-  /**
-   * singleton constructor
-   */
-  private SingletonConfigAPI() {
-  }
+    /**
+     * @return Returns the singleton instance
+     */
+    public static SingletonConfigAPI instance() {
+        return SingletonConfigAPIHolder.INSTANCE;
+    }
 
-  private ConfigurationApi api;
+    /**
+     * @return Returns the singleton instance
+     */
+    protected Object readResolve() {
+        return instance();
+    }
 
-  /**
-   * @return Returns the {@link ConfigurationApi}
-   */
-  public ConfigurationApi get() {
-    return api;
-  }
+    private ConfigurationApi api;
 
-  /**
-   * @param api the {@link ConfigurationApi}
-   */
-  public void set( final ConfigurationApi api ) {
-    this.api = api;
-  }
+    /**
+     * @return Returns {@link com.formationds.xdi.ConfigurationApi}
+     */
+    public ConfigurationApi api() {
+        return api;
+    }
+
+    /**
+     * @param api the {@link com.formationds.xdi.ConfigurationApi}
+     */
+    public void api( final ConfigurationApi api ) {
+        this.api = api;
+    }
 }

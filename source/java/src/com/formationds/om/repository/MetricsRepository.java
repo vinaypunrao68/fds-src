@@ -34,7 +34,7 @@ public class MetricsRepository
   VolumeDatapointList,
   QueryCriteria> {
 
-    private static final transient Logger logger =
+    private static final Logger logger =
     LoggerFactory.getLogger( MetricsRepository.class );
 
   private static final String DBNAME = "/fds/var/db/metrics.odb";
