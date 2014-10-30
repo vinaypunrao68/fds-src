@@ -33,6 +33,8 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScavengerProgress, queryScavengerProgress);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSetScavengerPolicy, setScavengerPolicy);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScavengerPolicy, queryScavengerPolicy);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSetScrubberStatus, setScrubberStatus);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlQueryScrubberStatus, queryScrubberStatus);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicy, TierPolicy);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicyAudit, TierPolicyAudit);
@@ -42,8 +44,19 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
 }
 
+void SMSvcHandler::queryScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+        fpi::CtrlQueryScrubberStatusPtr &scrub_msg) {
+    GLOGDEBUG << "Scrubber status called";
+}
+
+void SMSvcHandler::setScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+        fpi::CtrlSetScrubberStatusPtr &scrub_msg) {
+    Error(ERR_OK);
+    GLOGDEBUG << "Scrubber handler called with message " << scrub_msg;
+}
+
 void SMSvcHandler::queryScavengerProgress(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                                          fpi::CtrlQueryScavengerProgressPtr &query_msg) {
+        fpi::CtrlQueryScavengerProgressPtr &query_msg) {
     Error err(ERR_OK);
     fpi::CtrlQueryScavengerProgressRespPtr resp(new fpi::CtrlQueryScavengerProgressResp());
 
