@@ -12,16 +12,21 @@ import com.formationds.security.AuthenticationToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
  * The event manager is responsible for receiving events and storing them in the event repository.
+ * <p/>
+ * Initialization of the event manager EventNotificationHandler implementation is required if
+ * persistence to anything other than a common log file is desired.  Given the singleton implementation,
+ * an Object key is used to ensure that the event manager can only be modified by its owner.
  */
 // TODO: prototype to get us to beta.  not sure if singleton makes sense here in the long run
 public enum EventManager {
 
     /*
-     * This initial implementation is extremely simplistic.  It simply takes events and
+     * The singleton instance
      */
     INSTANCE;
 
@@ -29,7 +34,7 @@ public enum EventManager {
 
     /**
      * Event notification handler interface.  Default implementation in EventManager simply
-     * persists the event to the event repository.  More sophisticated implementations may
+     * persists the event to a log file.  More sophisticated implementations may
      * queue events and persist them asynchronously.
      */
     public interface EventNotificationHandler {
@@ -81,6 +86,13 @@ public enum EventManager {
      * @return a new event
      */
     public static Event newEvent(EventType t, EventCategory c, EventSeverity s, String key, Object[] eventArgs) {
+        String[] eventArgStr = new String[eventArgs.length];
+        int i =0;
+        for (Object arg : eventArgs)
+        {
+            // TODO: convert to JSON or some other format?
+            eventArgStr[i++] = arg.toString();
+        }
         switch (t) {
             case SYSTEM_EVENT:
                 return new SystemActivityEvent(c, s, key, eventArgs);
@@ -117,13 +129,14 @@ public enum EventManager {
 //    }
 
     // default logger notifier
-    private EventNotificationHandler notifier = new EventNotificationHandler() {
-        @Override
-        public boolean handleEventNotification(Event e) {
-            EventManager.LOG.info(e.getMessageKey(), e.getMessageArgs());
-            return true;
-        }
+    private EventNotificationHandler notifier = (e) -> {
+        getLog().info(e.getMessageKey(), e.getMessageArgs());
+        return true;
     };
+
+    // This is necessary to workaround a limitation of making a static
+    // reference to the LOG in the lambda expression initializing the default notifier above.
+    private static Logger getLog() { return EventManager.LOG; }
 
     // key used to guard against someone other than the owner changing the notifier.
     private Object key = null;

@@ -46,16 +46,21 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
       UPDATE_USER(EventCategory.SYSTEM, "Updated user {} - admin={}; id={}", "identifier", "isFdsAdmin", "userId"),
       ASSIGN_USER_TENANT(EventCategory.SYSTEM, "Assigned user {} to tenant {}", "userId", "tenantId"),
       REVOKE_USER_TENANT(EventCategory.SYSTEM, "Revoked user {} from tenant {}", "userId", "tenantId"),
-      CREATE_VOLUME(EventCategory.VOLUMES, "Created volume: domain={}; name={}; settings={}, tenantId={}",
-              "domainName", "volumeName", "volumeSettings", "tenantId" ),
+      CREATE_VOLUME(EventCategory.VOLUMES, "Created volume: domain={}; name={}; tenantId={}; settings={}",
+                    "domainName", "volumeName", "tenantId", "volumeType", "maxSize" ),
       DELETE_VOLUME(EventCategory.VOLUMES, "Deleted volume: domain={}; name={}", "domainName", "volumeName"),
-      CREATE_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Created snapshot policy {} {} {}; id={}", "name", "recurrence", "retention", "id" ),
+      CREATE_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Created snapshot policy {} {} {}; id={}",
+                             "name", "recurrence", "retention", "id" ),
       DELETE_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Deleted snapshot policy: id={}", "id"),
-      ATTACH_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Attached snapshot policy {} to volume id {}", "policyId", "volumeId"),
-      DETACH_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Detached snapshot policy {} from volume id {}", "policyId", "volumeId"),
-      CREATE_SNAPSHOT(EventCategory.VOLUMES, "Created snapshot {} of volume {}.  Retention time = {}", "snapshotName", "volumeId", "retentionTime"),
+      ATTACH_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Attached snapshot policy {} to volume id {}",
+                             "policyId", "volumeId"),
+      DETACH_SNAPSHOT_POLICY(EventCategory.VOLUMES, "Detached snapshot policy {} from volume id {}",
+                             "policyId", "volumeId"),
+      CREATE_SNAPSHOT(EventCategory.VOLUMES, "Created snapshot {} of volume {}.  Retention time = {}",
+                      "snapshotName", "volumeId", "retentionTime"),
 
-      CLONE_VOLUME(EventCategory.VOLUMES, "Cloned volume {} with policy id {}; clone name={}; Cloned volume Id = {}", "volumeId", "policyId", "clonedVolumeName", "clonedVolumeId" ),
+      CLONE_VOLUME(EventCategory.VOLUMES, "Cloned volume {} with policy id {}; clone name={}; Cloned volume Id = {}",
+                   "volumeId", "policyId", "clonedVolumeName", "clonedVolumeId" ),
       RESTORE_CLONE(EventCategory.VOLUMES, "Restored cloned volume {} with snapshot id {}", "volumeId", "snapshotId");
 
       private final EventType type;
@@ -170,7 +175,14 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
             throws ApiException, TException {
         config.createVolume(domainName, volumeName, volumeSettings, tenantId);
         dropCache();
-        EventManager.notifyEvent(ConfigEvent.CREATE_VOLUME, domainName, volumeName, volumeSettings, tenantId);
+
+        VolumeType vt = volumeSettings.getVolumeType();
+        long maxSize = (VolumeType.BLOCK.equals(vt) ?
+                                volumeSettings.getBlockDeviceSizeInBytes() :
+                                volumeSettings.getMaxObjectSizeInBytes());
+        EventManager.notifyEvent(ConfigEvent.CREATE_VOLUME, domainName, volumeName, tenantId,
+                                 vt.name(),
+                                 maxSize);
     }
 
     @Override
@@ -230,7 +242,8 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
             throws ApiException, org.apache.thrift.TException {
         long l = config.createSnapshotPolicy(policy);
         // TODO: is the value returned the new policy id?
-        EventManager.notifyEvent(ConfigEvent.CREATE_SNAPSHOT_POLICY, policy.getPolicyName(), policy.getRecurrenceRule(), policy.getRetentionTimeSeconds(), l);
+        EventManager.notifyEvent(ConfigEvent.CREATE_SNAPSHOT_POLICY, policy.getPolicyName(), policy.getRecurrenceRule(),
+                                 policy.getRetentionTimeSeconds(), l);
         return l;
     }
 
@@ -255,7 +268,7 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
     public void attachSnapshotPolicy(long volumeId, long policyId)
             throws ApiException, org.apache.thrift.TException {
         config.attachSnapshotPolicy(volumeId, policyId);
-    EventManager.notifyEvent(ConfigEvent.ATTACH_SNAPSHOT_POLICY, policyId, volumeId);
+        EventManager.notifyEvent(ConfigEvent.ATTACH_SNAPSHOT_POLICY, policyId, volumeId);
     }
 
     @Override

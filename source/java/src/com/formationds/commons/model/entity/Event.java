@@ -15,13 +15,17 @@ import java.sql.Timestamp;
 import java.time.Instant;
 
 /**
- * TODO: Is an event an Entity to be persisted in the JPA DB like the VolumeDatapoint?
- *
- * Design note: this prototype departs from the common JPA pattern with public setters for everything.
- * Instead, it makes all of the setters protected, which still allows JPA to call the setters when loading the
- * object from the persistent store, but allows them to be treated as if they were immutable to clients.
- * In most JPA implementations (hibernate) it is possible to annotate fields and NOT have setters at
- * all for those fields considered immutable.
+ * Represents a persisted event.  Events are stored with a generated id, a timestamp, type, category, severity and
+ * a state.  The event details include a message key and arguments.  The key and arguments are intended to match
+ * a resource bundle key to enable localization of messages either by the server before sending to clients, or at
+ * the client side.  All fields except for the state and the modified timestamp are <i>effectively immutable</i>
+ * via protected setters that allow JPA system access.
+ * <p/>
+ * The valid state transitions are SOFT -> HARD -> RECOVERED or SOFT -> RECOVERED;  Any modification in state updates
+ * the modifiedTimestamp.
+ * <p/>
+ * The Event should be overridden to provide access to event type specific information.  For example, a user activity
+ * or audit event will include a user id or name.
  */
 @XmlRootElement
 @Entity
@@ -43,11 +47,6 @@ abstract public class Event extends ModelBase {
     @Temporal(TemporalType.TIMESTAMP) private Timestamp initialTimestamp;
     @Temporal(TemporalType.TIMESTAMP)  private Timestamp modifiedTimestamp;
 
-    // TODO: event details are different based on user activity vs system events.
-    // At this point it's not clear if there is value in subclassing and breaking this
-    // down further vs. stuffing all the details into a string message.  We'll start
-    // here and enhance it as needed.
-
     /**
      * ResourceBundle message lookup key for the event.  Enables event message localization.
      */
@@ -66,6 +65,7 @@ abstract public class Event extends ModelBase {
     protected Event() { }
 
     /**
+     * Create a new event.  The event state will be initialized to SOFT and the timestamp set to now.
      *
      * @param type
      * @param category

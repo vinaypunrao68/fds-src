@@ -24,7 +24,9 @@ package com.formationds.security;
  *     <li>It will not work reliably if requests are split into multiple sub-tasks that execute in a thread-pool.
  *     The expectation is that it is accessed in code that executes on the same thread that manages the context.</li>
  *     <li>Access must follow the try/finally model in the same way required for java.util.concurrent.lock.ReentrantLock
- *     access, as illustrated above.  Otherwise, it may be susceptible to causing memory leaks over time.</li>
+ *     access, as illustrated above.  Otherwise, it may be susceptible to causing memory leaks over time as references
+ *     to the authentication token may prevent GC. Similarly, if the thread executing the request is from a thread
+ *     pool, the authenticated session context might "leak" into another request handling execution.</li>
  * </ul>
  */
 public enum AuthenticatedRequestContext {
@@ -35,7 +37,7 @@ public enum AuthenticatedRequestContext {
      * created a circular dependency from the events code (in commons) package, and the Xdi package.
      *
      * There may be alternative solutions in Java 8 lambda support that make this approach obsolete.  This is
-     * the minimum necessary to access the auth token for beta 1 and may changee.
+     * the minimum necessary to access the auth token for beta 1 and may change.
      */
 
 

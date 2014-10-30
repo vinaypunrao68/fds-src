@@ -8,6 +8,7 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_VolumeDescType;
+import com.formationds.apis.AmService;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.apis.VolumeType;
@@ -31,13 +32,15 @@ public class ListVolumes implements RequestHandler {
     private static final Logger LOG = Logger.getLogger(ListVolumes.class);
 
     private Xdi xdi;
+    private AmService.Iface amApi;
     private FDSP_ConfigPathReq.Iface legacyConfig;
     private AuthenticationToken token;
 
     private static DecimalFormat df = new DecimalFormat("#.00");
 
-    public ListVolumes(Xdi xdi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token) {
+    public ListVolumes( Xdi xdi, AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
         this.xdi = xdi;
+        this.amApi = amApi;
         this.legacyConfig = legacyConfig;
         this.token = token;
     }
@@ -73,23 +76,25 @@ struct VolumeDescriptor {
 }
 */
 
-  private JSONObject toJsonObject( VolumeDescriptor v )
-    throws TException {
-    VolumeStatus status = null;
-    FDSP_VolumeDescType volInfo = null;
-    if( v != null && v.getName() != null ) {
-      try {
-        volInfo = legacyConfig.GetVolInfo( new FDSP_MsgHdrType(),
-                                           new FDSP_GetVolInfoReqType( v.getName(), 0 ) );
-      } catch( TException e ) {
-        LOG.warn( "Getting Volume Info Failed", e );
-      }
+    private JSONObject toJsonObject( VolumeDescriptor v ) throws TException {
+        VolumeStatus status = null;
+        FDSP_VolumeDescType volInfo = null;
+        if (v != null && v.getName() != null) {
+            try {
+                volInfo = legacyConfig.GetVolInfo(new FDSP_MsgHdrType(),
+                                                new FDSP_GetVolInfoReqType(v.getName(), 0));
+            } catch (TException e) {
+                LOG.warn("Getting Volume Info Failed", e);
+            }
 
-      try {
-        status = amApi.volumeStatus("", v.getName());
-      } catch( TException e ) {
-        LOG.warn( "Getting Volume Status Failed", e );
-      }
+            try {
+                status = amApi.volumeStatus("", v.getName());
+            } catch (TException e) {
+                LOG.warn("Getting Volume Status Failed", e);
+            }
+        }
+
+        return toJsonObject( v, volInfo, status );
     }
 
     public static JSONObject toJsonObject(VolumeDescriptor v, FDSP_VolumeDescType volInfo, VolumeStatus status) {

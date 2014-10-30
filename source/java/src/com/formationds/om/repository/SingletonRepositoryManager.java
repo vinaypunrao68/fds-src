@@ -7,27 +7,24 @@ package com.formationds.om.repository;
 /**
  * @author ptinius
  */
-public class SingletonRepositoryManager {
-    private static SingletonRepositoryManager instance = null;
+public enum SingletonRepositoryManager {
+
+    instance;
 
     /**
      * singleton instance of SingletonMetricsRepository
      */
     public static SingletonRepositoryManager instance() {
-        if (instance == null) {
-            instance = new SingletonRepositoryManager();
-        }
-
         return instance;
     }
 
-    /**
-     * singleton default constructor
-     */
-    private SingletonRepositoryManager() {
-    }
-
     private MetricsRepository metricsRepository = null;
+    private final EventRepository eventRepository = new EventRepository();
+
+    /**
+     * @return the {@link com.formationds.om.repository.EventRepository}
+     */
+    public EventRepository getEventRepository() { return eventRepository; }
 
     /**
      * @return Returns the {@link com.formationds.om.repository.MetricsRepository}
