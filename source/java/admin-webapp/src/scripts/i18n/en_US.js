@@ -9,6 +9,9 @@ var en_US = {
         days: 'days',
         hours: 'hours',
         minutes: 'minutes',
+        months: 'months',
+        years: 'years',
+        l_back: 'Back',
         l_cancel: 'Cancel',
         l_confirm: 'Confirm',
         l_done: 'Done',
@@ -17,6 +20,7 @@ var en_US = {
         l_high: 'High',
         l_info: 'Information',
         l_low: 'Low',
+        l_next: 'Next',
         l_no: 'No',
         l_none: 'None',
         l_ok: 'OK',
@@ -66,12 +70,14 @@ var en_US = {
         l_capacity: 'Capacity',
         l_firebreak: 'Firebreak',
         l_performance: 'Performance',
+        l_health: 'System Health',
         
         th_type: 'Type',
         th_message: 'Message',
         th_received: 'Received',
         
         tt_firebreak: 'Firebreak {{value}} {{units}} ago.',
+        tt_firebreak_never: 'This volume has never had a firebreak.',
         
         desc_firebreak: 'Events in the past 24 hours',
         desc_dedup_capacity: 'Deduplicated storage capacity used.',

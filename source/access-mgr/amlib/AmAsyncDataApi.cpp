@@ -282,6 +282,33 @@ AmAsyncDataApi::updateBlob(boost::shared_ptr<apis::RequestId>& requestId,
                            boost::shared_ptr<int32_t>& length,
                            boost::shared_ptr<apis::ObjectOffset>& objectOffset,
                            boost::shared_ptr<bool>& isLast) {
+    BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
+
+    fds_verify(*length >= 0);
+    fds_verify(objectOffset->value >= 0);
+
+    // Create context handler
+    AsyncUpdateBlobResponseHandler::ptr putHandler(
+        boost::make_shared<AsyncUpdateBlobResponseHandler>(responseApi,
+                                                           requestId));
+
+    // Setup the transcation descriptor
+    BlobTxId::ptr blobTxDesc(new BlobTxId(
+        txDesc->txId));
+
+    AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
+                                         *volumeName,
+                                         *blobName,
+                                         static_cast<fds_uint64_t>(objectOffset->value),
+                                         *length,
+                                         const_cast<char *>(bytes->c_str()),
+                                         blobTxDesc,
+                                         *isLast,
+                                         &bucket_ctx,
+                                         NULL,
+                                         NULL,
+                                         putHandler);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 void

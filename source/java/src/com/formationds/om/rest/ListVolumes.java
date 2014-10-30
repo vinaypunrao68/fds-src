@@ -89,23 +89,12 @@ struct VolumeDescriptor {
       } catch( TException e ) {
         LOG.warn( "Getting Volume Info Failed", e );
       }
-/*
-struct VolumeStatus {
-       1: required i64 blobCount
-       2: required i64 currentUsageInBytes;
-}
- */
-        /*
-         * issue WIN-1147 -- OM should not call AM's volumeStatus on
-         * listVolumes/SetQosParams
-         *
-         * P. Tinius -- 10/13/2014
-         */
-//        try {
-//          status = amApi.volumeStatus("", v.getName());
-//        } catch( TException e ) {
-//          LOG.warn( "Getting Volume Status Failed", e );
-//        }
+
+      try {
+        status = amApi.volumeStatus("", v.getName());
+      } catch( TException e ) {
+        LOG.warn( "Getting Volume Status Failed", e );
+      }
     }
 
     return toJsonObject( v, volInfo, status );

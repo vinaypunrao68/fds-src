@@ -6,7 +6,6 @@ package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.ModelBase;
-import com.formationds.commons.model.type.Metrics;
 import com.google.gson.annotations.SerializedName;
 
 import java.util.ArrayList;
@@ -24,7 +23,7 @@ public class Series
    */
 
   @SerializedName("type")
-  private Metrics type;
+  private String type;
   @SerializedName("context")
   private Context context;
   @SerializedName("datapoints")
@@ -70,16 +69,16 @@ public class Series
   }
 
   /**
-   * @return Returns the {@link com.formationds.commons.model.type.Metrics}
+   * @return Returns the {@link String}
    */
-  public Metrics getType() {
+  public String getType() {
     return type;
   }
 
   /**
-   * @param type the {@link com.formationds.commons.model.type.Metrics}
+   * @param type the {@link String}
    */
-  public void setType( final Metrics type ) {
+  public void setType( final String type ) {
     this.type = type;
   }
 }

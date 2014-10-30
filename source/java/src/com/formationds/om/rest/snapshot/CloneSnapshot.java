@@ -24,7 +24,7 @@ import java.util.Map;
 
 public class CloneSnapshot
   implements RequestHandler {
-  private static final transient Logger logger =
+  private static final Logger logger =
     LoggerFactory.getLogger( CloneSnapshot.class );
 
   private static final String REQ_PARAM_SNAPSHOT_ID = "snapshotId";

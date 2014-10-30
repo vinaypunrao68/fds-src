@@ -8,7 +8,7 @@ angular.module( 'charts' ).directive( 'treemap', function(){
         // the tooltip element here is a call back to let the implementor
         // set the text.
         // colorProerty is the property this class will use to pick a color for the box
-        scope: { data: '=', tooltip: '=', colorProperty: '@', domain: '=', range: '=', clamp: '=?', transformValueFunction: '=?' },
+        scope: { data: '=', tooltip: '=', colorProperty: '@', domain: '=', range: '=', clamp: '=?', transformValueFunction: '=?', minArea: '=' },
         controller: function( $scope, $element, $resize_service ){
 
             var root = {};
@@ -78,11 +78,20 @@ angular.module( 'charts' ).directive( 'treemap', function(){
                             return 0;
                         }
                         
+                        var val = 0;
+                        
                         if ( angular.isDefined( d.datapoints[0].value ) ){
-                            return d.datapoints[0].value;
+                            val = d.datapoints[0].value;
+                        }
+                        else {
+                            val = d.datapoints[0].x;
                         }
                         
-                        return d.datapoints[0].x;
+                        if ( angular.isNumber( $scope.minArea ) && val < $scope.minArea ){
+                            val = $scope.minArea;
+                        }
+                        
+                        return val;
                     })
                     .nodes( $scope.data.series );
             };
