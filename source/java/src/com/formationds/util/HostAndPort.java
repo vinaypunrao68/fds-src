@@ -3,9 +3,27 @@ package com.formationds.util;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
 public class HostAndPort {
     private int port;
     private String host;
+
+    public HostAndPort(String host, int port) {
+        setHost(host);
+        setPort(port);
+    }
+
+    public static HostAndPort parseWithDefaultPort(String hostAndPort, int defaultPortIfAbsent) {
+        URI uri = null;
+        try {
+            uri = new URI("http://" + hostAndPort);
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Invalid host and port syntax (should be host:port)");
+        }
+        return new HostAndPort(uri.getHost(), uri.getPort() == -1 ? defaultPortIfAbsent : uri.getPort());
+    }
 
     @Override
     public String toString() {
@@ -19,34 +37,11 @@ public class HostAndPort {
 
     @Override
     public boolean equals(Object obj) {
-        if(!(obj instanceof HostAndPort))
+        if (!(obj instanceof HostAndPort))
             return false;
 
         HostAndPort other = (HostAndPort) obj;
         return getHost().equals(other.getHost()) && getPort() == other.getPort();
-    }
-
-    public HostAndPort(String hostAndPort) {
-        String[] parts = hostAndPort.split(":");
-        if(parts.length != 2)
-            throw new IllegalArgumentException("expecting hostAndPort to contain one and only one colon, instead got: '" + hostAndPort + "'");
-        setHost(parts[0]);
-        setPort(Integer.parseInt(parts[1]));
-    }
-
-    public HostAndPort(String host, int port) {
-        setHost(host);
-        setPort(port);
-    }
-
-    public static HostAndPort parseWithDefaultPort(String hostAndPort, int defaultPortIfAbsent) {
-        String[] parts = hostAndPort.split(":");
-        if(parts.length > 2)
-            throw new IllegalArgumentException("too many colons in host specifier, got: '" + hostAndPort + "'");
-        if(parts.length == 2)
-            return new HostAndPort(parts[0], Integer.parseInt(parts[1]));
-
-        return new HostAndPort(parts[0], defaultPortIfAbsent);
     }
 
     public String getHost() {
@@ -54,8 +49,6 @@ public class HostAndPort {
     }
 
     public void setHost(String host) {
-        if(host.contains(":"))
-            throw new IllegalArgumentException("host may not contain a colon character");
         this.host = host;
     }
 
