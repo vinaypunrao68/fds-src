@@ -1,28 +1,34 @@
 package com.formationds.hadoop;
 
-import com.formationds.apis.*;
-import com.formationds.streaming.StreamingRegistrationMsg;
+import com.formationds.apis.AmService;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeType;
 import com.formationds.xdi.MemoryAmService;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.hadoop.fs.*;
-import org.apache.thrift.TException;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
-import java.io.*;
-import java.nio.ByteBuffer;
-import java.security.MessageDigest;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.util.UUID;
 
 import static org.junit.Assert.*;
 
+@Ignore
 public class FdsFileSystemTest {
 
-    private FdsFileSystem fileSystem;
     private final int OBJECT_SIZE = 1024 * 1024 * 64;
+    private FdsFileSystem fileSystem;
+
+    private static boolean isIntegrationTest() {
+        return false;
+    }
 
     @Test
     public void testListFiles() throws Exception {
@@ -40,8 +46,8 @@ public class FdsFileSystemTest {
     @Test
     public void testStat() throws Exception {
         Path f1 = new Path("/bar.txt");
-        byte[] data1 = new byte[] { 1, 2, 3, 4};
-        byte[] data2 = new byte[] { 4, 5, 6, 7};
+        byte[] data1 = new byte[]{1, 2, 3, 4};
+        byte[] data2 = new byte[]{4, 5, 6, 7};
 
         createWithContent(f1, data1);
         FileStatus status1 = fileSystem.getFileStatus(f1);
@@ -61,7 +67,7 @@ public class FdsFileSystemTest {
 
     @Test
     public void basicIoTest() throws Exception {
-        byte[] data = { 1, 2, 3, 4 };
+        byte[] data = {1, 2, 3, 4};
 
         Path f = new Path("/bar.txt");
         createWithContent(f, data);
@@ -117,7 +123,7 @@ public class FdsFileSystemTest {
         Path src = new Path("/bar");
         Path dst = new Path("/bard");
 
-        byte[] data = new byte[] { 1, 2, 4, 5 };
+        byte[] data = new byte[]{1, 2, 4, 5};
         createWithContent(src, data);
         assertTrue(fileSystem.exists(src));
         assertTrue(!fileSystem.exists(dst));
@@ -130,8 +136,8 @@ public class FdsFileSystemTest {
     @Test
     public void appendTest() throws Exception {
         Path f = new Path("/peanuts");
-        byte[] data1 = new byte[] { 1, 2, 3, 4 };
-        byte[] data2 = new byte[] { 5, 6, 7, 8 };
+        byte[] data1 = new byte[]{1, 2, 3, 4};
+        byte[] data2 = new byte[]{5, 6, 7, 8};
         byte[] catenation = new byte[data1.length + data2.length];
         System.arraycopy(data1, 0, catenation, 0, data1.length);
         System.arraycopy(data2, 0, catenation, data1.length, data2.length);
@@ -152,16 +158,16 @@ public class FdsFileSystemTest {
         FileSystem fs = new FdsFileSystem(mas, "fds://volume/", objectSize);
 
         Path f = new Path("/mr.meatloaf");
-        byte[] chunk = new byte[] { 1, 2, 3, 4, 5 };
+        byte[] chunk = new byte[]{1, 2, 3, 4, 5};
         FSDataOutputStream fsdo = fs.create(f);
         int chunks = 20 * (1 + (objectSize / chunk.length));
-        for(int i = 0; i < chunks; i++)
+        for (int i = 0; i < chunks; i++)
             fsdo.write(chunk);
         fsdo.close();
 
         FSDataInputStream fsdi = fs.open(f);
         byte[] readChunk = new byte[chunk.length];
-        for(int i = 0; i < chunks; i++) {
+        for (int i = 0; i < chunks; i++) {
             fsdi.readFully(readChunk);
             assertArrayEquals(chunk, readChunk);
         }
@@ -190,7 +196,7 @@ public class FdsFileSystemTest {
             int readResult = fsdi.read();
             fsdi.close();
             fail("should not be able to call open() on a directory");
-        } catch(IOException ex) {
+        } catch (IOException ex) {
             // expect this to throw an exception
         }
     }
@@ -212,7 +218,7 @@ public class FdsFileSystemTest {
             Path f = new Path("/bar.txt");
             fileSystem.open(f);
             fail("this open should not succeed");
-        } catch(FileNotFoundException ex) {
+        } catch (FileNotFoundException ex) {
             // do nothing
         }
     }
@@ -255,10 +261,6 @@ public class FdsFileSystemTest {
     @After
     public void tearDown() throws Exception {
 
-    }
-
-    private static boolean isIntegrationTest() {
-        return false;
     }
 
     private void touch(Path f) throws IOException {
