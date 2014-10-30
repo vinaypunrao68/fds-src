@@ -6,9 +6,14 @@
 #include <dm_mod_gtest.h>
 #include <net/SvcRequest.h>
 #include <net/net-service-tmpl.hpp>
+#include <google/profiler.h>
 static fds_uint32_t MAX_OBJECT_SIZE = 1024 * 1024 * 2;    // 2MB
 static fds_uint32_t NUM_OBJTS = 1;    // 2MB
-static fds_uint64_t BLOB_SIZE = static_cast<fds_uint64_t>(10) * 1024 * 1024 * 1024;   // 1GB
+// static fds_uint64_t BLOB_SIZE = static_cast<fds_uint64_t>(10) * 1024 * 1024 * 1024;   // 1GB
+static fds_uint64_t BLOB_SIZE = 1 * 1024 * 1024 * 1024;   // 1GB
+static fds_uint32_t NUM_VOLUMES = 1;
+static fds_uint32_t NUM_BLOBS = 1;
+static bool  profile = false;
 
 boost::shared_ptr<LatencyCounter> startTxCounter(new LatencyCounter("startBLobTx", 0, 0));
 boost::shared_ptr<LatencyCounter> updateTxCounter(new LatencyCounter("updateBlobTx", 0, 0));
@@ -31,40 +36,40 @@ static fds_uint64_t txStartTs = 0;
 */
 TEST_F(DMApi, putBlobOnceTest)
 {
-    std::string blobName("testBlobOnce");
-    /*
-    size_t  blob_size =  this->getArg<size_t>("Blob-size");
-    size_t  obj_size =  this->getArg<size_t>("Obj-size");
-    if (!blob_size)
-      blob_size = BLOB_SIZE;
-    if (!obj_size)
-      obj_size = MAX_OBJECT_SIZE;
-    */
+    std::string blobPrefix("testBlobOnce");
     fpi::SvcUuid svcUuid;
     svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
-    SvcRequestCbTask<EPSvcRequest, fpi::UpdateCatalogOnceMsg> putBlobOnceWaiter;
-    auto putBlobOnce = SvcMsgFactory::newUpdateCatalogOnceMsg(volId_, blobName);
-    auto asyncPutBlobTxReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
-    fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
-    putBlobOnce->txId = 1;
-    putBlobOnce->dmt_version = 1;
-    putBlobOnce->blob_mode = 0;
-    asyncPutBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), putBlobOnce);
-    asyncPutBlobTxReq->onResponseCb(putBlobOnceWaiter.cb);
-    {
-    fds_uint64_t startTs = util::getTimeStampNanos();
-    txStartTs = startTs;
-    asyncPutBlobTxReq->invoke();
-    putBlobOnceWaiter.await();
-    fds_uint64_t endTs = util::getTimeStampNanos();
-    updateCatOnceCounter->update(endTs - startTs);
-    }
-    ASSERT_EQ(putBlobOnceWaiter.error, ERR_OK) << "Error: " << putBlobOnceWaiter.error;
-    std::cout << "\033[33m[putBlobOnceTest latency]\033[39m " << std::fixed << std::setprecision(3)
+    if (profile)
+        ProfilerStart("/tmp/dm.prof");
+    for (fds_uint64_t numBlobs = 0; numBlobs < NUM_BLOBS; numBlobs++) {
+        std::string blobName = blobPrefix + std::to_string(numBlobs);
+        SvcRequestCbTask<EPSvcRequest, fpi::UpdateCatalogOnceMsg> putBlobOnceWaiter;
+        auto putBlobOnce = SvcMsgFactory::newUpdateCatalogOnceMsg(volId_, blobName);
+        auto asyncPutBlobTxReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+        fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
+        putBlobOnce->txId = 1;
+        putBlobOnce->dmt_version = 1;
+        putBlobOnce->blob_mode = 0;
+        asyncPutBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), putBlobOnce);
+        asyncPutBlobTxReq->onResponseCb(putBlobOnceWaiter.cb);
+        {
+          fds_uint64_t startTs = util::getTimeStampNanos();
+          txStartTs = startTs;
+          asyncPutBlobTxReq->invoke();
+          putBlobOnceWaiter.await();
+          fds_uint64_t endTs = util::getTimeStampNanos();
+          updateCatOnceCounter->update(endTs - startTs);
+       }
+       ASSERT_EQ(putBlobOnceWaiter.error, ERR_OK) << "Error: " << putBlobOnceWaiter.error;
+       std::cout << "\033[33m[putBlobOnceTest latency]\033[39m "
+         << std::fixed << std::setprecision(3)
          << (updateCatOnceCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
          << updateCatOnceCounter->count() << std::endl;
+    }
+    if (profile)
+        ProfilerStop();
 }
 
 TEST_F(DMApi, putBlobTest)
@@ -75,7 +80,7 @@ TEST_F(DMApi, putBlobTest)
     svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
     ASSERT_NE(svcUuid.svc_uuid, 0);
 
-    // start transaction
+    /* Prepare start tx */
     SvcRequestCbTask<EPSvcRequest, fpi::StartBlobTxRspMsg> waiter;
     auto startBlobTx = SvcMsgFactory::newStartBlobTxMsg(volId_, blobName);
     auto asyncBlobTxReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
@@ -85,16 +90,8 @@ TEST_F(DMApi, putBlobTest)
     asyncBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::StartBlobTxMsg), startBlobTx);
     asyncBlobTxReq->onResponseCb(waiter.cb);
     startBlobTxIssued_++;
-    {
-    fds_uint64_t startTs = util::getTimeStampNanos();
-    txStartTs = startTs;
-    asyncBlobTxReq->invoke();
-    waiter.await();
-    fds_uint64_t endTs = util::getTimeStampNanos();
-    startTxCounter->update(endTs - startTs);
-    }
-    ASSERT_EQ(waiter.error, ERR_OK) << "Error: " << waiter.error;
 
+    /* Prepare update tx */
     SvcRequestCbTask<EPSvcRequest, fpi::UpdateCatalogRspMsg> updWaiter;
     auto updateCatMsg = SvcMsgFactory::newUpdateCatalogMsg(volId_, blobName);
     auto asyncUpdCatReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
@@ -105,6 +102,29 @@ TEST_F(DMApi, putBlobTest)
     asyncUpdCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), updateCatMsg);
     asyncUpdCatReq->onResponseCb(updWaiter.cb);
     updateCatIssued_++;
+
+    /* Prepare commit tx */
+    SvcRequestCbTask<EPSvcRequest, fpi::CommitBlobTxRspMsg> commitWaiter;
+    auto commitBlobMsg = SvcMsgFactory::newCommitBlobTxMsg(volId_, blobName);
+    auto asyncCommitBlobReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+    commitBlobMsg->txId  = 1;
+    commitBlobMsg->dmt_version = 1;
+    asyncCommitBlobReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg), commitBlobMsg);
+    asyncCommitBlobReq->onResponseCb(commitWaiter.cb);
+    commitBlobTxIssued_++;
+
+    /* Start tx */
+    {
+    fds_uint64_t startTs = util::getTimeStampNanos();
+    txStartTs = startTs;
+    asyncBlobTxReq->invoke();
+    waiter.await();
+    fds_uint64_t endTs = util::getTimeStampNanos();
+    startTxCounter->update(endTs - startTs);
+    }
+    ASSERT_EQ(waiter.error, ERR_OK) << "Error: " << waiter.error;
+
+    /* Update tx */
     {
     fds_uint64_t startTs = util::getTimeStampNanos();
     asyncUpdCatReq->invoke();
@@ -114,14 +134,7 @@ TEST_F(DMApi, putBlobTest)
     }
     ASSERT_EQ(updWaiter.error, ERR_OK) << "Error: " << updWaiter.error;
 
-    SvcRequestCbTask<EPSvcRequest, fpi::CommitBlobTxRspMsg> commitWaiter;
-    auto commitBlobMsg = SvcMsgFactory::newCommitBlobTxMsg(volId_, blobName);
-    auto asyncCommitBlobReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
-    commitBlobMsg->txId  = 1;
-    commitBlobMsg->dmt_version = 1;
-    asyncCommitBlobReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg), commitBlobMsg);
-    asyncCommitBlobReq->onResponseCb(commitWaiter.cb);
-    commitBlobTxIssued_++;
+    /* Commit tx */
     {
     fds_uint64_t startTs = util::getTimeStampNanos();
     asyncCommitBlobReq->invoke();
@@ -414,11 +427,18 @@ TEST_F(DMApi, deleteBlobTest)
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    po::options_description opts("Allowed options");
-    opts.add_options()
-        ("help", "produce help message")
-        ("Blob-size", po::value<size_t>(), "Size of the Blob")
-        ("Obj-size", po::value<size_t>(), "Size of the Object");
-    DMApi::init(argc, argv, opts, "vol1");
+    // process command line options
+    po::options_description desc("\nDM test Command line options");
+    desc.add_options()
+            ("help,h"       , "help/ usage message")  // NOLINT
+            ("num-volumes,v", po::value<fds_uint32_t>(&NUM_VOLUMES)->default_value(NUM_VOLUMES)        , "number of volumes")  // NOLINT
+            ("obj-size,o"   , po::value<fds_uint32_t>(&MAX_OBJECT_SIZE)->default_value(MAX_OBJECT_SIZE), "max object size in bytes")  // NOLINT
+            ("blob-size,b"  , po::value<fds_uint64_t>(&BLOB_SIZE)->default_value(BLOB_SIZE)            , "blob size in bytes")  // NOLINT
+            ("num-blobs,n"  , po::value<fds_uint32_t>(&NUM_BLOBS)->default_value(NUM_BLOBS)            , "number of blobs")  // NOLINT
+            ("profile,p"    , po::value<bool>(&profile)->default_value(profile)                        , "enable profile ")  // NOLINT
+            ("puts-only"    , "do put operations only")
+            ("no-delete"    , "do put & get operations only");
+
+    DMApi::init(argc, argv, desc, "vol1");
     return RUN_ALL_TESTS();
 }

@@ -39,13 +39,13 @@
 #include <AmDispatcher.h>
 #include <AmProcessor.h>
 #include <AmReqHandlers.h>
+#include "AmRequest.h"
 
 #include <map>
 // #include "util/concurrency/Thread.h"
 #include <concurrency/Synchronization.h>
 #include <fds_counters.h>
 #include "PerfTrace.h"
-
 
 #undef  FDS_TEST_SH_NOOP              /* IO returns (filled with 0s for read) as soon as SH receives it from ubd */
 #undef FDS_TEST_SH_NOOP_DISPATCH     /* IO returns (filled with 0s for read) as soon as dispatcher takes it from the queue */
@@ -78,6 +78,13 @@
 #define HVISOR_SECTOR_SIZE 		512
 
 typedef unsigned int volid_t;
+
+// Just a couple forward-declarations to satisfy the function
+// prototypes below.
+namespace fds {
+struct CommitBlobTxReq;
+struct PutBlobReq;
+}
 
 using namespace FDS_ProtocolInterface;
 using namespace std;
@@ -263,13 +270,13 @@ public:
     void initVolInfo(FDSP_VolumeInfoTypePtr vol_info,
                      const std::string& bucket_name);
 
-    void attachVolume(AmQosReq *qosReq);
+    void attachVolume(AmRequest *amReq);
     void enqueueAttachReq(const std::string& volumeName,
                          CallbackPtr cb);
-    fds::Error pushBlobReq(FdsBlobReq *blobReq);
-    void enqueueBlobReq(FdsBlobReq *blobReq);
-    fds::Error putBlob(AmQosReq *qosReq);
-    fds::Error deleteBlob(AmQosReq *qosReq);
+    fds::Error pushBlobReq(AmRequest *blobReq);
+    void enqueueBlobReq(AmRequest *blobReq);
+    fds::Error putBlob(AmRequest *amReq);
+    fds::Error deleteBlob(AmRequest *amReq);
 
     // Stuff for pending offset operations
     // TODO(Andrew): Reconcile with dispatchSm...
@@ -281,8 +288,8 @@ public:
     fds::Error resumeGetBlob(StorHvJournalEntry *journEntry);
     fds::Error resumeDeleteBlob(StorHvJournalEntry *journEntry);
 
-    fds::Error listBucket(AmQosReq *qosReq);
-    fds::Error getBucketStats(AmQosReq *qosReq);
+    fds::Error listBucket(AmRequest *amReq);
+    fds::Error getBucketStats(AmRequest *amReq);
     fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                           const FDSP_PutObjTypePtr& putObjRsp);
     fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
@@ -328,7 +335,7 @@ public:
         StorHvVolumeLock *vol_lock = NULL;
         StorHvJournalEntryLock *je_lock = NULL;
         StorHvVolume* vol = NULL;
-        fds::FdsBlobReq* blobReq = NULL;
+        fds::AmRequest* blobReq = NULL;
 
         TxnResponseHelper(StorHvCtrl* storHvisor, fds_volid_t  volId, fds_uint32_t txnId);
         void setStatus(FDSN_Status  status);
@@ -344,10 +351,10 @@ public:
         StorHvJournalEntry *txn = NULL;
         StorHvJournalEntryLock *jeLock = NULL;
         StorHvVolume* vol = NULL;
-        AmQosReq *qosReq;
-        fds::FdsBlobReq* blobReq = NULL;
+        AmRequest *amReq;
+        fds::AmRequest* blobReq = NULL;
 
-        TxnRequestHelper(StorHvCtrl* storHvisor, AmQosReq *qosReq);
+        TxnRequestHelper(StorHvCtrl* storHvisor, AmRequest *amReq);
 
         bool getPrimaryDM(fds_uint32_t& ip, fds_uint32_t& port);
         bool isValidVolume();
@@ -363,9 +370,8 @@ public:
         fds_volid_t  volId = 0;
         StorHvVolumeLock *vol_lock = NULL;
         StorHvVolume* vol = NULL;
-        fds::FdsBlobReq* blobReq = NULL;
-        AmQosReq *qosReq;
-        ResponseHelper(StorHvCtrl* storHvisor, AmQosReq *qosReq);
+        fds::AmRequest* blobReq = NULL;
+        ResponseHelper(StorHvCtrl* storHvisor, AmRequest *amReq);
         void setStatus(FDSN_Status  status);
         ~ResponseHelper();
     };
@@ -376,10 +382,10 @@ public:
         FDSN_Status  status = FDSN_StatusNOTSET;
         StorHvVolume *shVol = NULL;
         StorHvVolume* vol = NULL;
-        AmQosReq *qosReq;
-        fds::FdsBlobReq* blobReq = NULL;
+        AmRequest *amReq;
+        fds::AmRequest* blobReq = NULL;
 
-        RequestHelper(StorHvCtrl* storHvisor, AmQosReq *qosReq);
+        RequestHelper(StorHvCtrl* storHvisor, AmRequest *amReq);
 
         bool isValidVolume();
         bool hasError();
@@ -390,7 +396,7 @@ public:
     struct BlobRequestHelper {
         StorHvCtrl* storHvisor = NULL;
         fds_volid_t volId = invalid_vol_id;
-        FdsBlobReq *blobReq = NULL;
+        AmRequest *blobReq = NULL;
         const std::string& volumeName;
 
         explicit BlobRequestHelper(StorHvCtrl* storHvisor, const std::string& volumeName);
@@ -398,14 +404,14 @@ public:
         fds::Error processRequest();
     };
 
-    fds::Error getBlobSvc(fds::AmQosReq *qosReq);
-    fds::Error putBlobSvc(fds::AmQosReq *qosReq);
-    fds::Error startBlobTxSvc(AmQosReq *qosReq);
-    fds::Error commitBlobTxSvc(AmQosReq *qosReq);
-    fds::Error abortBlobTxSvc(AmQosReq *qosReq);
-    fds::Error deleteBlobSvc(fds::AmQosReq *qosReq);
-    fds::Error setBlobMetaDataSvc(fds::AmQosReq *qosReq);
-    fds::Error getVolumeMetaDataSvc(fds::AmQosReq* qosReq);
+    fds::Error getBlobSvc(fds::AmRequest *amReq);
+    fds::Error putBlobSvc(fds::AmRequest *amReq);
+    fds::Error startBlobTxSvc(AmRequest *amReq);
+    fds::Error commitBlobTxSvc(AmRequest *amReq);
+    fds::Error abortBlobTxSvc(AmRequest *amReq);
+    fds::Error deleteBlobSvc(fds::AmRequest *amReq);
+    fds::Error setBlobMetaDataSvc(fds::AmRequest *amReq);
+    fds::Error getVolumeMetaDataSvc(fds::AmRequest* amReq);
 
     void issueSetBlobMetaData(const fds_volid_t& vol_id,
                               const std::string& blob_name,
@@ -421,7 +427,7 @@ public:
                            const fds_uint64_t& blobOffset,
                            const fds_volid_t& volId,
                            FailoverSvcRequestRespCb respCb);
-    void issueGetObject(AmQosReq *qosReq,
+    void issueGetObject(AmRequest *amReq,
                         FailoverSvcRequestRespCb respCb);
     void issueStartBlobTxMsg(const std::string& blobName,
                              const fds_volid_t& volId,
@@ -459,52 +465,52 @@ public:
                                const fds_uint64_t& txId,
                                const fds_uint64_t& dmt_version,
                                QuorumSvcRequestRespCb respCb);
-    void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
+    void getBlobQueryCatalogResp(fds::AmRequest* amReq,
                                  FailoverSvcRequest* svcReq,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
-    void getBlobGetObjectResp(fds::AmQosReq* qosReq,
+    void getBlobGetObjectResp(fds::AmRequest* amReq,
                               FailoverSvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload);
-    void startBlobTxMsgResp(fds::AmQosReq* qosReq,
+    void startBlobTxMsgResp(fds::AmRequest* amReq,
                             QuorumSvcRequest* svcReq,
                             const Error& error,
                             boost::shared_ptr<std::string> payload);
-    void commitBlobTxMsgResp(fds::AmQosReq* qosReq,
+    void commitBlobTxMsgResp(fds::AmRequest* amReq,
                             QuorumSvcRequest* svcReq,
                             const Error& error,
                             boost::shared_ptr<std::string> payload);
-    void abortBlobTxMsgResp(fds::AmQosReq* qosReq,
+    void abortBlobTxMsgResp(fds::AmRequest* amReq,
                             QuorumSvcRequest* svcReq,
                             const Error& error,
                             boost::shared_ptr<std::string> payload);
-    void putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
+    void putBlobUpdateCatalogMsgResp(fds::AmRequest* amReq,
                                      QuorumSvcRequest* svcReq,
                                      const Error& error,
                                      boost::shared_ptr<std::string> payload);
-    void putBlobUpdateCatalogOnceMsgResp(fds::AmQosReq* qosReq,
+    void putBlobUpdateCatalogOnceMsgResp(fds::AmRequest* amReq,
                                          QuorumSvcRequest* svcReq,
                                          const Error& error,
                                          boost::shared_ptr<std::string> payload);
-    void putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
+    void putBlobPutObjectMsgResp(fds::AmRequest* amReq,
                                  QuorumSvcRequest* svcReq,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
-    void deleteObjectMsgResp(fds::AmQosReq* qosReq,
+    void deleteObjectMsgResp(fds::AmRequest* amReq,
                              QuorumSvcRequest* svcReq,
                              const Error& error,
                              boost::shared_ptr<std::string> payload);
-    void setBlobMetaDataMsgResp(fds::AmQosReq* qosReq,
+    void setBlobMetaDataMsgResp(fds::AmRequest* amReq,
                                 QuorumSvcRequest* svcReq,
                                 const Error& error,
                                 boost::shared_ptr<std::string> payload);
-    void getVolumeMetaDataMsgResp(fds::AmQosReq* qosReq,
+    void getVolumeMetaDataMsgResp(fds::AmRequest* amReq,
                                FailoverSvcRequest* svcReq,
                                const Error& error,
                                boost::shared_ptr<std::string> payload);
 
-    fds::Error updateCatalogCache(FdsBlobReq *blobReq,
+    fds::Error updateCatalogCache(AmRequest *blobReq,
                                   FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);
     inline AMCounters& getCounters()
     {
@@ -530,50 +536,49 @@ extern StorHvCtrl *storHvisor;
 /*
  * Static function for process IO via a threadpool
  */
-static void processBlobReq(AmQosReq *qosReq) {
-    FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
-    fds::PerfTracer::tracePointEnd(blobReq->qosPerfCtx);
+static void processBlobReq(AmRequest *amReq) {
+    fds::PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
 
-    fds_verify(qosReq->io_module == FDS_IOType::STOR_HV_IO);
-    fds_verify(qosReq->magicInUse() == true);
+    fds_verify(amReq->io_module == FDS_IOType::STOR_HV_IO);
+    fds_verify(amReq->magicInUse() == true);
 
     fds::Error err(ERR_OK);
-    switch (qosReq->io_type) {
+    switch (amReq->io_type) {
         case fds::FDS_START_BLOB_TX:
             if (true == storHvisor->toggleNewPath) {
-                storHvisor->amProcessor->startBlobTx(qosReq);
+                storHvisor->amProcessor->startBlobTx(amReq);
             } else {
-                err = storHvisor->startBlobTxSvc(qosReq);
+                err = storHvisor->startBlobTxSvc(amReq);
             }
             break;
 
         case fds::FDS_COMMIT_BLOB_TX:
             if (storHvisor->toggleNewPath == true) {
-                storHvisor->amProcessor->commitBlobTx(qosReq);
+                storHvisor->amProcessor->commitBlobTx(amReq);
             } else {
-                err = storHvisor->commitBlobTxSvc(qosReq);
+                err = storHvisor->commitBlobTxSvc(amReq);
             }
             break;
 
         case fds::FDS_ABORT_BLOB_TX:
             if (storHvisor->toggleNewPath)
             {
-                storHvisor->amProcessor->abortBlobTx(qosReq);
+                storHvisor->amProcessor->abortBlobTx(amReq);
             } else {
-                err = storHvisor->abortBlobTxSvc(qosReq);
+                err = storHvisor->abortBlobTxSvc(amReq);
             }
             break;
 
         case fds::FDS_ATTACH_VOL:
-            storHvisor->attachVolume(qosReq);
+            storHvisor->attachVolume(amReq);
             break;
 
         case fds::FDS_IO_READ:
         case fds::FDS_GET_BLOB:
             if (storHvisor->toggleNewPath) {
-                storHvisor->amProcessor->getBlob(qosReq);
+                storHvisor->amProcessor->getBlob(amReq);
             } else {
-                err = storHvisor->getBlobSvc(qosReq);
+                err = storHvisor->getBlobSvc(amReq);
             }
             break;
 
@@ -581,48 +586,48 @@ static void processBlobReq(AmQosReq *qosReq) {
         case fds::FDS_PUT_BLOB_ONCE:
         case fds::FDS_PUT_BLOB:
             if (storHvisor->toggleNewPath) {
-                storHvisor->amProcessor->putBlob(qosReq);
+                storHvisor->amProcessor->putBlob(amReq);
             } else {
-                err = storHvisor->putBlobSvc(qosReq);
+                err = storHvisor->putBlobSvc(amReq);
             }
             break;
 
         case fds::FDS_BUCKET_STATS:
-            err = storHvisor->getBucketStats(qosReq);
+            err = storHvisor->getBucketStats(amReq);
             break;
 
         case fds::FDS_SET_BLOB_METADATA:
             if (true == storHvisor->toggleNewPath) {
-                storHvisor->amProcessor->setBlobMetadata(qosReq);
+                storHvisor->amProcessor->setBlobMetadata(amReq);
             } else {
-                err = storHvisor->setBlobMetaDataSvc(qosReq);
+                err = storHvisor->setBlobMetaDataSvc(amReq);
             }
             break;
         case fds::FDS_GET_VOLUME_METADATA:
             if (true == storHvisor->toggleNewPath) {
-                storHvisor->amProcessor->getVolumeMetadata(qosReq);
+                storHvisor->amProcessor->getVolumeMetadata(amReq);
             } else {
-                err = storHvisor->getVolumeMetaDataSvc(qosReq);
+                err = storHvisor->getVolumeMetaDataSvc(amReq);
             }
             break;
 
         // new handlers
         case fds::FDS_DELETE_BLOB:
 	    if (storHvisor->toggleNewPath) {
-                storHvisor->amProcessor->deleteBlob(qosReq);
+                storHvisor->amProcessor->deleteBlob(amReq);
                 break;
 	    }
         case fds::FDS_STAT_BLOB:
 	    if (storHvisor->toggleNewPath) {
-                storHvisor->amProcessor->statBlob(qosReq);
+                storHvisor->amProcessor->statBlob(amReq);
                 break;
 	    }
         case fds::FDS_VOLUME_CONTENTS:
 	    if (storHvisor->toggleNewPath) {
-                storHvisor->amProcessor->volumeContents(qosReq);
+                storHvisor->amProcessor->volumeContents(amReq);
                 break;
 	    }
-            err = storHvisor->handlers.at(qosReq->io_type)->handleQueueItem(qosReq);
+            err = storHvisor->handlers.at(amReq->io_type)->handleQueueItem(amReq);
             break;
 
         default :

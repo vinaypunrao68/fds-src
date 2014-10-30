@@ -28,7 +28,17 @@ public class HttpErrorHandler implements RequestHandler {
             return rh.handle(request, routeParameters);
         } catch (Exception e) {
             LOG.error("Error executing " + request.getRequestURI(), e);
-            return new JsonResource(new JSONObject().put("message", "Internal server error"), HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            if( e.getMessage() != null && e.getMessage().length() > 1 ) {
+                return new JsonResource(
+                    new JSONObject().put( "message",
+                                          e.getMessage() ),
+                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR );
+            }
+
+            return new JsonResource(
+                new JSONObject().put( "message",
+                                      "Internal server error" ),
+                HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
 }

@@ -46,21 +46,6 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     var editVolume = function( volume ){
         
         volume.id = $scope.volumeVars.selectedVolume.id;
-        
-          // helper to create a real policy from the UI parts
-        var createPolicy = function( makePolicy ){
-             var policy = {
-                id: makePolicy.id,
-                name: makePolicy.name.toUpperCase(),
-                recurrenceRule: {
-                    FREQ: makePolicy.displayName.toUpperCase()
-                },
-//                retention: $snapshot_service.convertTimePeriodToSeconds( makePolicy.value, makePolicy.units.name.toUpperCase() )
-                retention: makePolicy.retention
-            };
-            
-            return policy;
-        };
 
         var newPolicies = $modal_data_service.getData().snapshotPolicies;
         var oldPolicies = $scope.volumeVars.selectedVolume.snapshotPolicies;
@@ -104,13 +89,17 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             // if it has an ID then it's already exists
             if ( angular.isDefined( sPolicy.id ) ){
                 
-                $snapshot_service.editSnapshotPolicy( createPolicy( sPolicy ), function(){} );
+                // earlier the frequency was set to the policy name,
+                // but for edit that means it has a long too... get rid of it
+                // and reset the frequency to the displayname property - which matches the enum.
+                sPolicy.recurrenceRule.FREQ = sPolicy.displayName.toUpperCase();
+                $snapshot_service.editSnapshotPolicy( sPolicy, function(){} );
             }
             else {
                 
                 // if it's in use, create it.
                 if ( sPolicy.use === true ){
-                    $snapshot_service.createSnapshotPolicy( createPolicy( sPolicy ), function( policy ){
+                    $snapshot_service.createSnapshotPolicy( sPolicy, function( policy ){
                         $snapshot_service.attachPolicyToVolume( policy, $scope.volumeVars.selectedVolume.id, function(){} );
                     } );
                 }

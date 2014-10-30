@@ -21,6 +21,12 @@ angular.module( 'utility-directives' ).directive( 'showNotify', function(){
 
                 var classes = $element[0].getAttribute( 'class' );
 
+                if ( !angular.isDefined( classes ) || classes === null ||
+                   !angular.isDefined( newList ) || !angular.isDefined( oldList ) ||
+                   newList === null || oldList === null ){
+                    return;
+                }
+                
                 var oldShown = determineVisibility( oldList );
                 var newShown = determineVisibility( newList );
 

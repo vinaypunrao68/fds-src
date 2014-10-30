@@ -61,7 +61,7 @@ include $(incl_scripts)/Makefile.scpt
 # Main make rule.
 #
 .PHONY: all
-all: $(user_predep) devenv base_predepend $(user_postdep) \
+all: devsetup $(user_predep) devenv base_predepend $(user_postdep) \
      $(user_predepend) $(user_postdepend)                           \
 	 $(user_preall) base_dirs base_style base_objs base_all $(user_postall)     \
 	 $(user_tool) $(user_scripts) base_postmake                                 \
@@ -381,15 +381,15 @@ fdsrepo :  $(fdsrepofile)
 # -----------------------------------------------------------------------------
 # Setup Chef client for chef-zero convergence
 # -----------------------------------------------------------------------------
-chef_client_binary := /opt/chef/bin/chef-client
-chef_command := sudo chef-client --config chef/chef-client-config.rb -z -o fds_setup::dev_setup
-$(chef_client_binary):
-	@curl -L https://www.getchef.com/chef/install.sh | sudo bash
-	@sudo touch ${chef_client_binary}
+#chef_client_binary := /opt/chef/bin/chef-client
+#chef_command := sudo chef-client --config chef/chef-client-config.rb -z -o fds_setup::dev_setup
+#$(chef_client_binary):
+#	@curl -L https://www.getchef.com/chef/install.sh | sudo bash
+#	@sudo touch ${chef_client_binary}
 
-.PHONY : devsetup
-devsetup: $(chef_client_binary)
-	@cd $(incl_scripts)/../../../; $(chef_command)
+#.PHONY : devsetup
+#devsetup: $(chef_client_binary)
+#	@cd $(incl_scripts)/../../../; $(chef_command)
 
 
 ansible_dir := $(incl_scripts)/../../../ansible
@@ -398,11 +398,13 @@ devsetup_playbook := $(ansible_dir)/playbooks/devsetup.yml
 devsetup_is_up_to_date := $(ansible_dir)/.devsetup-is-up-to-date
 devsetup_is_running := $(ansible_dir)/.devsetup-is-running
 
-$(devsetup_is_up_to_date): $(devsetup_playbook)
-	@$(ansible_dir)/devsetup_ansible.sh
+$(devsetup_is_up_to_date): $(devsetup_playbook) $(ansible_dir)/devsetup_ansible.sh
+	@if [ ! "x${skip-devsetup}" = "xtrue" ]; then \
+		$(ansible_dir)/devsetup_ansible.sh ; \
+	fi
 
-.PHONY: devsetup-ansible
-devsetup-ansible: $(devsetup_is_up_to_date)
+.PHONY: devsetup
+devsetup: $(devsetup_is_up_to_date)
 
 # -----------------------------------------------------------------------------
 # List Targets

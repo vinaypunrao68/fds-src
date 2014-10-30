@@ -6,7 +6,7 @@ angular.module( 'form-directives' ).directive( 'variableSlider', function(){
         transclude: false,
         templateUrl: 'scripts/directives/widgets/variableslider/variableslider.html',
         // data should be in format [val,val,val ... ]
-        scope: { selection: '=', selections: '=', description: '@'},
+        scope: { selection: '=ngModel', selections: '=', description: '@'},
         controller: function( $scope ){
 
             if ( !angular.isDefined( $scope.selection ) ){

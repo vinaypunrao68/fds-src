@@ -44,7 +44,7 @@ toolchain_boost_incl := /usr/local/include
 
 # Level DB settings.
 #
-toolchain_ldb        := $(topdir)/../leveldb-1.12.0
+toolchain_ldb        := $(topdir)/../leveldb-1.15.0
 toolchain_ldb_incl   := $(toolchain_ldb)/include
 toolchain_ldb_lib    := $(toolchain_ldb)
 

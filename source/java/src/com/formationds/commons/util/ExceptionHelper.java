@@ -15,7 +15,7 @@ import java.io.StringWriter;
  * @author ptinius
  */
 public class ExceptionHelper {
-  private static final transient Logger logger =
+  private static final Logger logger =
     LoggerFactory.getLogger( ExceptionHelper.class );
 
   /**

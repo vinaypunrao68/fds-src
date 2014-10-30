@@ -54,14 +54,14 @@ struct TxDescriptor {
        1: required i64 txId
 }
 
-service AmService {
+service AmService { 
 	void attachVolume(1: string domainName, 2:string volumeName)
              throws (1: ApiException e),
 
         list<BlobDescriptor> volumeContents(1:string domainName, 2:string volumeName, 3:i32 count, 4:i64 offset)
              throws (1: ApiException e),
 
-        BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)
+       BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)
              throws (1: ApiException e),
 
         TxDescriptor startBlobTx(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 blobMode)
@@ -97,6 +97,12 @@ struct RequestId {
 }
 
 service AsyncAmServiceRequest {
+	oneway void attachVolume(1:RequestId requestId, 2: string domainName, 
+	       3:string volumeName),
+
+        oneway void volumeContents(1:RequestId requestId, 2:string domainName, 
+	       3:string volumeName, 4:i32 count, 5:i64 offset),
+
 	oneway void statBlob(1:RequestId requestId, 2:string domainName, 
 	       3:string volumeName, 4:string blobName),
 
@@ -130,6 +136,10 @@ service AsyncAmServiceRequest {
 }
 
 service AsyncAmServiceResponse {
+	oneway void attachVolumeResponse(1:RequestId requestId),
+
+        oneway void volumeContents(1:RequestId requestId, 2:list<BlobDescriptor> response),
+
         oneway void statBlobResponse(1:RequestId requestId, 2:BlobDescriptor response),
 
         oneway void startBlobTxResponse(1:RequestId requestId, 2:TxDescriptor response),

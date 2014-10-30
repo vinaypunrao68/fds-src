@@ -4,18 +4,8 @@ angular.module( 'node-management' ).controller( 'addNodeController', ['$scope','
 
     $scope.detachedNodes = [];
 
-//    var isChecked = function( val ){
-//
-//        if ( val === 'checked' ){
-//            return true;
-//        }
-//        else {
-//            return false;
-//        }
-//    };
-
     $scope.cancel = function(){
-        $scope.$emit( 'fds::node_done_adding' );
+        $scope.systemVars.back();
     };
 
     $scope.addNodes = function(){
@@ -23,10 +13,6 @@ angular.module( 'node-management' ).controller( 'addNodeController', ['$scope','
         var toAdd = [];
 
         $scope.detachedNodes.forEach( function( node ){
-
-//            node.am = isChecked( node.am );
-//            node.dm = isChecked( node.dm );
-//            node.sm = isChecked( node.sm );
 
             if ( node.addAll === true || node.addAll === 'partial' ){
                 toAdd.push( node );

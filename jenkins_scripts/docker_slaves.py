@@ -31,7 +31,7 @@ DOCKER_SLAVES = {
             "jenkins-slave04": "10044"
             }
         }
-IMAGE="coke.formationds.com:5000/fds_dev"
+IMAGE="registry.formationds.com:5000/fds_dev"
 
 def docker_connect(url):
     return(docker.Client(base_url=url))

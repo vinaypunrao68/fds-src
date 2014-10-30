@@ -739,6 +739,13 @@ int DataMgr::mod_init(SysParams const *const param)
     closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,
                                                                 std::bind(&DataMgr::finishCloseDMT,
                                                                           this));
+
+    // qos threadpool config
+    qosThreadCount = modProvider_->get_fds_config()->\
+            get<fds_uint32_t>("fds.dm.qos.default_qos_threads", 10);
+    qosOutstandingTasks = modProvider_->get_fds_config()->\
+            get<fds_uint32_t>("fds.dm.qos.default_outstanding_io", 20);
+
     // If we're in test mode, don't daemonize.
     // TODO(Andrew): We probably want another config field and
     // not to override test_mode
@@ -898,7 +905,7 @@ void DataMgr::mod_enable_service() {
     /*
      *  init Data Manager  QOS class.
      */
-    qosCtrl = new dmQosCtrl(this, 50, FDS_QoSControl::FDS_DISPATCH_WFQ, GetLog());
+    qosCtrl = new dmQosCtrl(this, qosThreadCount, FDS_QoSControl::FDS_DISPATCH_WFQ, GetLog());
     qosCtrl->runScheduler();
 
     // Create a queue for system (background) tasks

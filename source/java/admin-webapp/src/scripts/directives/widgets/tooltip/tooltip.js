@@ -62,11 +62,11 @@ angular.module( 'display-widgets' ).directive( 'tooltip', function(){
                     $scope.below = false;
 
                     var yPad = -1*(h+12);
-                    var xPad = 0;
+                    var xPad = -12;
 
                     // shift it right
                     if ( $scope.mousePosition.x + xPad + w > parentW ){
-                        xPad = xPad - w;
+                        xPad = xPad - w + 12;
                         $scope.leftSide = false;
                     }
 

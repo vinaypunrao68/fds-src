@@ -9,6 +9,7 @@ var en_US = {
         days: 'days',
         hours: 'hours',
         minutes: 'minutes',
+        l_back: 'Back',
         l_cancel: 'Cancel',
         l_confirm: 'Confirm',
         l_done: 'Done',
@@ -17,6 +18,7 @@ var en_US = {
         l_high: 'High',
         l_info: 'Information',
         l_low: 'Low',
+        l_next: 'Next',
         l_no: 'No',
         l_none: 'None',
         l_ok: 'OK',
@@ -27,6 +29,18 @@ var en_US = {
         th_date: 'Date',
         th_data_type: 'Data Type',
         th_name: 'Name',
+        
+        //time labels
+        l_30_days: '30 Days',
+        l_15_days: '15 Days',
+        l_1_week: '1 Week',
+        l_1_day: '1 Day',
+        l_1_hour: '1 Hour',
+        l_today: 'Today',
+        l_yesterday: 'Yesterday',
+        l_30_minutes: '30 Minutes',
+        l_15_minutes: '15 Minutes',
+        l_now: 'Now',
         
         l_months: 'Months',
         l_days: 'Days',
@@ -87,8 +101,19 @@ var en_US = {
         l_data_connector: 'Data Connector',
         l_edit_settings: 'Edit Settings',
         l_edit_volume: 'Edit Volume',
-        l_qos: 'Quality of Service',
+        l_highest: 'Highest',
+        l_l_highest: '(highest)',
+        l_iops: 'IOPs',
+        l_iops_guarantee: 'IOPs Capacity Guarantee',
+        l_iops_limit: 'IOPs Limit',
+        l_lowest: 'Lowest',
+        l_l_lowest: '(lowest)',
+        l_max_iops: 'Max number of IOPs',
+        l_number_of_iops: 'Number of IOPs',
+        l_priority: 'Priority',
+        l_qos: 'Performance',
         l_select_to_clone: 'Select a Volume to Clone',
+        l_settings: 'Settings',
         l_snapshots: 'Snapshots',
         l_snapshot_policy: 'Snapshot Policy',
         l_snapshot_policies: 'Snapshot Policies',
@@ -108,7 +133,17 @@ var en_US = {
 
         th_used_limit: 'Used/Limit',
         
+        view : {
+            desc_dedup_suffix: 'Deduplicated',
+            desc_logical_suffix: 'Logical',
+            desc_iops_capacity: 'IOPs Capacity',
+            l_data_connector_settings: 'Data Connector Settings',
+            l_performance_settings: 'Performance Settings',
+            l_volume_details: 'Volume Details'
+        },
+        
         snapshot: {
+            l_no_snapshots: 'There are no snapshots for this volume.',
             l_retention_summary: 'Keep for',
             
             l_on_monday: 'on Mondays',

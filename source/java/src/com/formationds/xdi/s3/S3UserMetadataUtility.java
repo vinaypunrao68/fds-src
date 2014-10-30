@@ -27,7 +27,8 @@ public class S3UserMetadataUtility {
     public static Map<String, String> extractUserMetadata(Map<String, String> fdsMetadata) {
         HashMap<String, String> umd = new HashMap<>();
         for(Map.Entry<String, String> fdsMetadataEntry : fdsMetadata.entrySet()) {
-            umd.put(fdsMetadataEntry.getKey(), fdsMetadataEntry.getValue());
+            if(fdsMetadataEntry.getKey().startsWith(s3UserMetadataPrefix))
+                umd.put(fdsMetadataEntry.getKey(), fdsMetadataEntry.getValue());
         }
         return umd;
     }
