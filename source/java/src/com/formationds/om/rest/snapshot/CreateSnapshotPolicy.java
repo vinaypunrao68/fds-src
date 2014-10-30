@@ -23,7 +23,7 @@ import java.util.Map;
 
 public class CreateSnapshotPolicy
   implements RequestHandler {
-    private static final transient Logger logger =
+    private static final Logger logger =
       LoggerFactory.getLogger( CreateSnapshotPolicy.class );
 
     private ConfigurationApi config;

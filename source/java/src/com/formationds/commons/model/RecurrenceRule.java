@@ -13,6 +13,8 @@ import com.formationds.commons.model.util.RRIntegerValidator;
 import com.formationds.commons.util.Numbers;
 import com.formationds.commons.util.WeekDays;
 import com.google.gson.annotations.SerializedName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.text.ParseException;
 import java.util.Date;
@@ -27,11 +29,13 @@ public class RecurrenceRule
     extends ModelBase {
     private static final long serialVersionUID = -6056637443021228929L;
 
+    private static final Logger logger =
+        LoggerFactory.getLogger( RecurrenceRule.class );
+
     private static final String MISSING_TOKEN =
         "Missing expected token, last token: '%s'";
 
     private static final String RRULE_STARTSWITH = "RRULE:";
-
 
     @SerializedName( "FREQ" )
     private String frequency;
@@ -316,6 +320,11 @@ public class RecurrenceRule
                         }
                         position.add( nextToken( t, token ), "," );
                         RRule.setPosition( position );
+                        break;
+                    default:
+                        logger.warn(
+                            String.format( "%s -- assuming its a experimental value, skipping.",
+                                           key.name() ) );
                         break;
                     // SKIP -- assuming its a experimental value.
                 }

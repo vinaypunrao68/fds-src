@@ -24,7 +24,7 @@ import java.util.Map;
 
 public class ListSnapshotPolicies
   implements RequestHandler {
-    private static final transient Logger logger =
+    private static final Logger logger =
         LoggerFactory.getLogger( ListSnapshotPolicies.class );
 
   private ConfigurationApi config;

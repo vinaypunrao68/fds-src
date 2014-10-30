@@ -23,6 +23,7 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 
 public class CreateVolume
   implements RequestHandler {
-  private static final transient Logger logger =
+  private static final Logger logger =
     LoggerFactory.getLogger( CreateVolume.class );
 
   // TODO pull these values form the platform.conf file.
@@ -94,8 +95,6 @@ public class CreateVolume
 
     /**
      * there has to be a better way!
-     *
-     * If there are
      */
     final Map<Integer, List<String>> streamMap = new HashMap<>();
     configApi.getStreamRegistrations( unused_argument )
@@ -116,6 +115,13 @@ public class CreateVolume
                                          stream.getId(),
                                      e );
                    }
+               } else {
+                   // assume it did not already exists in the stream registration
+                   if( !streamMap.containsKey( 0 ) ) {
+                       streamMap.put( 0, new ArrayList<>( ) );
+
+                   }
+                   streamMap.get( 0 ).add( name );
                }
            } );
 

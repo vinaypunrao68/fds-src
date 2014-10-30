@@ -24,7 +24,7 @@ import java.util.Map;
 
 public class ListSnapshotPoliciesForVolume
   implements RequestHandler {
-    private static final transient Logger logger =
+    private static final Logger logger =
         LoggerFactory.getLogger( ListSnapshotPoliciesForVolume.class );
 
     private static final String REQ_PARAM_VOLUME_ID = "volumeId";

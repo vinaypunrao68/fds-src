@@ -23,7 +23,7 @@ import java.util.List;
  */
 @SuppressWarnings("UnusedDeclaration")
 public class VolumeCriteriaQueryBuilder {
-    private static final transient Logger logger =
+    private static final Logger logger =
         LoggerFactory.getLogger( VolumeCriteriaQueryBuilder.class );
 
     private static final String TIMESTAMP = "timestamp";

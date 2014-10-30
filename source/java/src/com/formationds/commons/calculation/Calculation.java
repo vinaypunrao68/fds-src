@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
  * @author ptinius
  */
 public class Calculation {
-   private static final transient Logger logger =
+   private static final Logger logger =
      LoggerFactory.getLogger( Calculation.class );
 
    /*
