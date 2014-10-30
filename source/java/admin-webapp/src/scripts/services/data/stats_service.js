@@ -54,7 +54,14 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
             ]
         };
         
-        callback( data );
+//        callback( data );
+        
+        return $http_fds.put( '/api/stats/volumes', filter, 
+            function( response ){
+                if ( angular.isFunction( callback ) ){
+                    callback( response );
+                }
+            });
         
     };
     
@@ -92,7 +99,13 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
             ]
         };
         
-        callback( data );
+//        callback( data );
+        return $http_fds.put( '/api/stats/volumes', filter, 
+            function( response ){
+                if ( angular.isFunction( callback ) ){
+                    callback( response );
+                }
+            });        
         
     };    
 

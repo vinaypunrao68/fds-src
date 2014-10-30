@@ -11,13 +11,14 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.snapshots = [];
     
-    $scope.volume = {};
+    $scope.thisVolume = {};
     $scope.capacityStats = { series: [] };
     $scope.performanceStats = { series: [] };
     $scope.capacityLineStipples = ['none', '2,2'];
     $scope.capacityLineColors = ['#1C82FB', '#71AFF8'];
     $scope.capacityColors = [ '#71AEEA', '#AAD2F4' ];
-    $scope.performanceColors = [ '#73DE8C', '#73DE8C' ];    
+    $scope.performanceColors = [ '#A4D966' ];
+    $scope.performanceLine = ['#55A918'];   
     $scope.opacities = [0.7,0.7];
     
     $scope.dedupLabel = '';
@@ -112,13 +113,13 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         capacityQuery = StatQueryFilter.create( [$scope.volume], 
             [StatQueryFilter.LOGICAL_CAPACITY, StatQueryFilter.PHYSICAL_CAPACITY], 
-            now.getTime() - $scope.capacityTimeChoice.value,
-            now );
+            Math.round( (now.getTime() - $scope.capacityTimeChoice.value)/1000 ),
+            Math.round( now.getTime() / 1000 ) );
         
         performanceQuery = StatQueryFilter.create( [$scope.volume],
             [StatQueryFilter.SHORT_TERM_PERFORMANCE],
-            now.getTime() - $scope.performanceTimeChoice.value,
-            now );
+            Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
+            Math.round( now.getTime() / 1000 ) );
     };
     
     var pollCapacity = function(){
@@ -146,7 +147,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         if ( newVal === true ){
             $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.id, function( data ){ $scope.snapshots = data; } );
             
-            $scope.volume = $scope.volumeVars.selectedVolume;
+            $scope.thisVolume = $scope.volumeVars.selectedVolume;
             
             buildQueries();
             

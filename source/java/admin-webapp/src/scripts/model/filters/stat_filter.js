@@ -10,14 +10,16 @@ var StatQueryFilter = {
     
     create: function( contextList, seriesTypes, startTime, endTime ){
         
-        this.seriesType = seriesTypes;
-        this.contextList = contextList;
-        this.range = {
-            start: startTime,
-            end: endTime
+        var val = { 
+            seriesType: seriesTypes,
+            contextList: contextList,
+            range: {
+                start: startTime,
+                end: endTime
+            }
         };
         
-        return this;
+        return val;
     }
     
 };

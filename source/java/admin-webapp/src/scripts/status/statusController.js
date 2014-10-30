@@ -4,9 +4,12 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         {number: 12.5, description: 'This is a number and a really long line of text that we hope wraps'},
         {number: 79, description: 'Something else', suffix: '%' }
     ];
+
+    $scope.healthStatus = [{number: 'Excellent'}];
     
     $scope.activities = [];
     $scope.firebreakMax = 1440;
+    $scope.minArea = 1000;
     $scope.firebreakStats = { series: [[]], summaryData: { hoursSinceLastEvent: 0 }};
     $scope.firebreakItems = [];
     $scope.performanceStats = { series: [[]] };
@@ -15,7 +18,8 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.firebreakDomain = [ 'max', 3600*12, 3600*6, 3600*3, 3600, 0 ];
     $scope.firebreakRange = ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'];
     
-    $scope.fakeColors = [ '#73DE8C', '#73DE8C' ];
+    $scope.performanceColors = [ '#A4D966' ];
+    $scope.performanceLine = ['#55A918'];
     $scope.fakeCapColors = [ '#71AEEA', '#AAD2F4' ];
     $scope.fakeOpacities = [0.7,0.7];
     
@@ -49,8 +53,22 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         var units = '';
         var value = $scope.transformFirebreakTime( data.secondsSinceLastFirebreak );
         
-        // set the text as days
-        if ( value > 24*60*60 ){
+        if ( data.secondsSinceLastFirebreak === 0 ){
+            var str = '<div><div style="font-weight: bold;font-size: 11px;">' + data.context.name + '</div><div style="font-size: 10px;">' + $filter( 'translate' )( 'status.tt_firebreak_never' ) + '</div></div>';
+            return str;
+        }
+        // set the text as years
+        if ( value > 365*24*60*60 ){
+            value = Math.floor( value / (365*60*60*24) );
+            units = $filter( 'translate' )( 'common.years' );
+        }
+        // set the text as months
+        else if ( value > 30*24*60*60 ){
+            value = Math.floor( value / (30*60*60*24) );
+            units = $filter( 'translate' )( 'common.months' );
+        }
+        // set as days
+        else if ( value > 24*60*60 ){
             value = Math.floor( value / (24*60*60) )
             units = $filter( 'translate' )( 'common.days' );
         }
@@ -112,18 +130,40 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
         return filter;
     };
+    
+    var buildPerformanceFilter = function(){
+        var filter = StatQueryFilter.create( [],
+            [ StatQueryFilter.SHORT_TERM_PERFORMANCE ],
+            Math.round( ((new Date()).getTime() - (1000*60*60*24))/1000 ),
+            Math.round( (new Date()).getTime() / 1000 ) );
+        
+        return filter;
+    };
+    
+    var buildCapacityFilter = function(){
+        var filter = StatQueryFilter.create( [],
+            [ StatQueryFilter.PHYSICAL_CAPACITY, StatQueryFilter.LOGICAL_CAPACITY ],
+            Math.round( ((new Date()).getTime() - (1000*60*60*24*30))/1000 ),
+            Math.round( (new Date()).getTime() / 1000 ) );
+        
+        return filter;
+    };
                                                             
     var firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
+    var performanceInterval = $interval( function(){ $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );}, 60000 );
+    var capacityInterval = $interval( function(){ $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );}, 60000 );
     
     $activity_service.getActivities( {}, $scope.activitiesReturned );
     
     // cleanup the pollers
     $scope.$on( '$destroy', function(){
         $interval.cancel( firebreakInterval );
+        $interval.cancel( performanceInterval );
+        $interval.cancel( capacityInterval );
     });
     
     $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
-    $stats_service.getPerformanceSummary( {}, $scope.performanceReturned );
-    $stats_service.getCapacitySummary( {}, $scope.capacityReturned );
+    $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );
+    $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );
 
 }]);
