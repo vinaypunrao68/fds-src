@@ -35,9 +35,7 @@ StorHvCtrl::enqueueAttachReq(const std::string& volumeName,
 
     // check if volume is already attached
     fds_volid_t volId = invalid_vol_id;
-    if (vol_table->volumeExists(volumeName)) {
-        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
-        fds_verify(volId != invalid_vol_id);
+    if (invalid_vol_id != (volId = vol_table->getVolumeUUID(volumeName))) {
         LOGDEBUG << "Volume " << volumeName
                  << " with UUID " << volId
                  << " already attached";
@@ -94,12 +92,7 @@ StorHvCtrl::enqueueBlobReq(AmRequest *blobReq) {
     fds_verify(blobReq->magicInUse() == true);
 
     // check if volume is attached to this AM
-    if (vol_table->volumeExists(blobReq->volume_name)) {
-        fds_volid_t volId = vol_table->getVolumeUUID(blobReq->volume_name);
-        fds_verify(volId != invalid_vol_id);
-        // Set the vol id because we may have only know the volume name
-        blobReq->io_vol_id = volId;
-    } else {
+    if (invalid_vol_id == (blobReq->io_vol_id = vol_table->getVolumeUUID(blobReq->volume_name))) {
         vol_table->addBlobToWaitQueue(blobReq->volume_name, blobReq);
         fds_verify(sendTestBucketToOM(blobReq->volume_name,
                                       "",  // The access key isn't used

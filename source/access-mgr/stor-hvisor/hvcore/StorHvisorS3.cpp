@@ -199,10 +199,7 @@ StorHvCtrl::BlobRequestHelper::BlobRequestHelper(StorHvCtrl* storHvisor,
             }
 
 void StorHvCtrl::BlobRequestHelper::setupVolumeInfo() {
-    if (storHvisor->vol_table->volumeExists(volumeName)) {
-        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
-        fds_verify(volId != invalid_vol_id);
-    }
+    volId = storHvisor->vol_table->getVolumeUUID(volumeName);
 }
 
 fds::Error StorHvCtrl::BlobRequestHelper::processRequest() {
