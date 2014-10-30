@@ -12,6 +12,7 @@ import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
 import NodeWaitSuite
+import LargeBLOBSuite
 
 
 def suiteConstruction():
@@ -38,6 +39,10 @@ def suiteConstruction():
 
     # Load test.
     suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
+
+    # Large BLOB test.
+    largeBLOBSuite = LargeBLOBSuite.suiteConstruction()
+    suite.addTest(largeBLOBSuite)
 
     # Everyone should still be up.
     suite.addTest(nodeUpSuite)

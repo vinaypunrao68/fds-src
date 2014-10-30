@@ -342,7 +342,5 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     # FDS: Now record whether we are being run by PyUnit.
     params["pyUnit"] = pyUnit
 
-
     return params
-
 
