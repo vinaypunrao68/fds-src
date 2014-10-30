@@ -85,6 +85,9 @@ enum  FDSPMsgTypeId {
 	CtrlSetScavengerPolicyRespTypeId   = 2047,
 	CtrlQueryScavengerPolicyTypeId     = 2048,
 	CtrlQueryScavengerPolicyRespTypeId = 2049,
+	CtrlQueryScrubberStatusTypeId	   = 2050,
+	CtrlQueryScrubberStatusRespTypeId  = 2051,
+	CtrlSetScrubberStatusTypeId		   = 2052,
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,
@@ -469,7 +472,7 @@ enum FDSP_ScavengerStatusType {
 	 SCAV_ACTIVE				  = 1,
 	 SCAV_INACTIVE				  = 2,
 	 SCAV_DISABLED				  = 3,
-         SCAV_STOPPING                            = 4	 
+     SCAV_STOPPING                = 4	 
 }
 
 struct CtrlQueryScavengerStatus {
@@ -506,6 +509,25 @@ struct CtrlQueryScavengerPolicyResp {
        2: i32                     dsk_threshold2;
        3: i32                     token_reclaim_threshold;
        4: i32                     tokens_per_dsk;
+}
+
+/* ------------------------  CtrlQueryScrubberStatusTypeId  ------------------------- */
+struct CtrlQueryScrubberStatus {
+}
+
+/* ------------------------  CtrlQueryScrubberStatusRespTypeId  ---------------------- */
+struct CtrlQueryScrubberStatusResp {
+	 1: FDSP_ScavengerStatusType	scrubber_status;
+}
+
+/* ------------------------  CtrlQueryScrubberStatusRespTypeId  ---------------------- */
+enum FDSP_ScrubberStatusType {
+	 SCRUB_ENABLE			 = 1,
+	 SCRUB_DISABLE			 = 2
+}
+
+struct CtrlSetScrubberStatus {
+	 1: FDSP_ScrubberStatusType		scrubber_status;
 }
 
 /* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
