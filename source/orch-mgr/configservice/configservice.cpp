@@ -148,6 +148,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
+        VolumeInfo::pointer vol = volContainer->get_volume(*volumeName);
         Error err = volContainer->getVolumeStatus(*volumeName);
         if (err == ERR_OK) apiException("volume already exists", RESOURCE_ALREADY_EXISTS);
 
