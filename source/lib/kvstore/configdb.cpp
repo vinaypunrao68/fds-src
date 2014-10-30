@@ -113,6 +113,14 @@ bool ConfigDB::getLocalDomains(std::map<int, std::string>& mapDomains, int globa
 }
 
 // volumes
+fds_uint64_t ConfigDB::getNewVolumeId() {
+    try {
+        return r.incr("volumes:nextid");
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return -1;
+}
 bool ConfigDB::addVolume(const VolumeDesc& vol) {
     TRACKMOD();
     // add the volume to the volume list for the domain
@@ -148,7 +156,8 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " iops.max %.3f"
                               " relative.priority %d"
                               " fsnapshot %d"
-                              " parentvolumeid %ld",
+                              " parentvolumeid %ld"
+                              " state %d",
                               vol.volUUID, vol.volUUID,
                               vol.name.c_str(),
                               vol.tennantId,
@@ -172,13 +181,24 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.iops_max,
                               vol.relativePrio,
                               vol.fSnapshot,
-                              vol.srcVolumeId
-                              );
+                              vol.srcVolumeId,
+                              vol.getState());
         if (reply.isOk()) return true;
         LOGWARN << "msg: " << reply.getString();
     } catch(RedisException& e) {
         LOGERROR << e.what();
         TRACKMOD();
+    }
+    return false;
+}
+
+bool ConfigDB::setVolumeState(fds_volid_t volumeId, fpi::ResourceState state) {
+    TRACKMOD();
+    try {
+        return r.sendCommand("hset vol:%ld state %d", volumeId, static_cast<int>(state)).isOk();
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+        NOMOD();
     }
     return false;
 }
@@ -308,6 +328,7 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "iops.max") {vol.iops_max = strtod (value.c_str(), NULL);}
             else if (key == "relative.priority") {vol.relativePrio = atoi(value.c_str());}
             else if (key == "fsnapshot") {vol.fSnapshot = atoi(value.c_str());}
+            else if (key == "state") {vol.setState((fpi::ResourceState) atoi(value.c_str()));}
             else if (key == "parentvolumeid") {vol.srcVolumeId = strtoull(value.c_str(), NULL, 10);} //NOLINT
             else { //NOLINT
                 LOGWARN << "unknown key for volume [" << volumeId <<"] - " << key;
