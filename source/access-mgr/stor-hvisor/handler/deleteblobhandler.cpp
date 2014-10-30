@@ -66,7 +66,7 @@ Error DeleteBlobHandler::handleQueueItem(AmRequest *amReq) {
     }
 
     // Update the tx manager with the delete op
-    storHvisor->amTxMgr->updateTxOpType(*(blobReq->tx_desc), blobReq->getIoType());
+    storHvisor->amTxMgr->updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
 
     DeleteBlobMsgPtr message(new DeleteBlobMsg());
     message->volume_id = blobReq->io_vol_id;
