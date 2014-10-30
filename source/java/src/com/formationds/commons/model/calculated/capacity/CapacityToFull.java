@@ -2,7 +2,7 @@
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.model.capacity;
+package com.formationds.commons.model.calculated.capacity;
 
 import com.formationds.commons.model.abs.Calculated;
 import com.google.gson.annotations.SerializedName;

@@ -64,6 +64,6 @@ public class VolumeDatapointBuilderTest {
     Assert.assertSame( datapoint.getKey(), key );
     Assert.assertSame( datapoint.getValue(), value );
     Assert.assertSame( datapoint.getVolumeName(), volumeName );
-    Assert.assertSame( datapoint.getTimestamp(), timestamp );
+    Assert.assertEquals( datapoint.getTimestamp(), timestamp );
   }
 }

@@ -73,36 +73,23 @@ struct VolumeDescriptor {
 }
 */
 
-    private JSONObject toJsonObject(VolumeDescriptor v) throws TException {
-      VolumeStatus status = null;
-      FDSP_VolumeDescType volInfo = null;
-      if( v != null && v.getName() != null ) {
-        try {
-          volInfo = legacyConfig.GetVolInfo( new FDSP_MsgHdrType(),
-                                             new FDSP_GetVolInfoReqType( v.getName(), 0 ) );
-        } catch( TException e ) {
-          LOG.warn( "Getting Volume Info Failed", e );
-        }
-/*
-struct VolumeStatus {
-       1: required i64 blobCount
-       2: required i64 currentUsageInBytes;
-}
- */
-        /*
-         * issue WIN-1147 -- OM should not call AM's volumeStatus on
-         * listVolumes/SetQosParams
-         *
-         * P. Tinius -- 10/13/2014
-         */
-//        try {
-//          status = amApi.volumeStatus("", v.getName());
-//        } catch( TException e ) {
-//          LOG.warn( "Getting Volume Status Failed", e );
-//        }
+  private JSONObject toJsonObject( VolumeDescriptor v )
+    throws TException {
+    VolumeStatus status = null;
+    FDSP_VolumeDescType volInfo = null;
+    if( v != null && v.getName() != null ) {
+      try {
+        volInfo = legacyConfig.GetVolInfo( new FDSP_MsgHdrType(),
+                                           new FDSP_GetVolInfoReqType( v.getName(), 0 ) );
+      } catch( TException e ) {
+        LOG.warn( "Getting Volume Info Failed", e );
       }
 
-      return toJsonObject(v, volInfo, status);
+      try {
+        status = amApi.volumeStatus("", v.getName());
+      } catch( TException e ) {
+        LOG.warn( "Getting Volume Status Failed", e );
+      }
     }
 
     public static JSONObject toJsonObject(VolumeDescriptor v, FDSP_VolumeDescType volInfo, VolumeStatus status) {

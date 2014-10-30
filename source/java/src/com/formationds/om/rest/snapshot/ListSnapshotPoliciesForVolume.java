@@ -5,21 +5,28 @@
 
 package com.formationds.om.rest.snapshot;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formationds.commons.model.SnapshotPolicy;
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class ListSnapshotPoliciesForVolume
   implements RequestHandler {
+    private static final Logger logger =
+        LoggerFactory.getLogger( ListSnapshotPoliciesForVolume.class );
+
     private static final String REQ_PARAM_VOLUME_ID = "volumeId";
     private ConfigurationApi config;
 
@@ -30,29 +37,35 @@ public class ListSnapshotPoliciesForVolume
     @Override
     public Resource handle(final Request request, final Map<String, String> routeParameters)
             throws Exception {
-        final ObjectMapper mapper = new ObjectMapper();
-        final List<SnapshotPolicy> policies = new ArrayList<>();
-
         final long volumeId = requiredLong( routeParameters,
                                             REQ_PARAM_VOLUME_ID );
 
-        final List<com.formationds.apis.SnapshotPolicy> internalPolicyDefs =
+        final List<com.formationds.apis.SnapshotPolicy> _policies =
           config.listSnapshotPoliciesForVolume(volumeId);
-        if (internalPolicyDefs == null || internalPolicyDefs.isEmpty()) {
-          return new JsonResource( new JSONArray( policies ) );
+        if( _policies == null || _policies.isEmpty() ) {
+          return new JsonResource( new JSONArray( new ArrayList<>() ) );
         }
 
-        for (final com.formationds.apis.SnapshotPolicy policy : internalPolicyDefs) {
-          final SnapshotPolicy modelPolicy = new SnapshotPolicy();
+      final List<SnapshotPolicy> policies = new ArrayList<>();
+    /*
+     * process each thrift snapshot policy, and map it to the object model
+     * version
+     */
+      _policies.stream()
+               .forEach( ( p ) -> {
+                 final SnapshotPolicy modelPolicy = new SnapshotPolicy();
 
-          modelPolicy.setId(policy.getId());
-          modelPolicy.setName(policy.getPolicyName());
-          modelPolicy.setRecurrenceRule( policy.getRecurrenceRule());
-          modelPolicy.setRetention(policy.getRetentionTimeSeconds());
-
-          policies.add(modelPolicy);
-        }
-
-        return new JsonResource(new JSONArray(mapper.writeValueAsString(policies)));
+                 modelPolicy.setId( p.getId() );
+                 modelPolicy.setName( p.getPolicyName() );
+                   try {
+                       modelPolicy.setRecurrenceRule( p.getRecurrenceRule() );
+                   } catch( ParseException e ) {
+                       logger.error( "Failed to parse RRULE: " + p.getRecurrenceRule(),
+                                     e);
+                   }
+                 modelPolicy.setRetention( p.getRetentionTimeSeconds() );
+                 policies.add( modelPolicy );
+               } );
+      return new TextResource( ObjectModelHelper.toJSON( policies ) );
     }
 }
