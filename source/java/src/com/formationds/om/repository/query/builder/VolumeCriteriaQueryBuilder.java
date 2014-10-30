@@ -137,7 +137,7 @@ public class VolumeCriteriaQueryBuilder {
     }
 
     /**
-     * @param searchCriteria the {@link com.formationds.om.repository.query.QueryCriteria}
+     * @param searchCriteria the {@link com.formationds.om.repository.query.MetricQueryCriteria}
      *
      * @return Returns {@link VolumeCriteriaQueryBuilder}
      */

@@ -27,7 +27,7 @@ import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.DateTimeUtil;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
-import com.formationds.om.repository.query.QueryCriteria;
+import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
 import com.formationds.util.SizeUnit;
 import org.apache.thrift.TException;
@@ -109,12 +109,12 @@ public class QueryHelper {
     }
 
     /**
-     * @param query the {@link QueryCriteria} representing the query
+     * @param query the {@link com.formationds.om.repository.query.MetricQueryCriteria} representing the query
      *
      * @return Returns the {@link Statistics} representing the result of {@code
      * query}
      */
-    public Statistics execute( final QueryCriteria query )
+    public Statistics execute( final MetricQueryCriteria query )
         throws TException {
         final Statistics stats = new Statistics();
         if( query != null ) {
@@ -327,7 +327,7 @@ public class QueryHelper {
                                           .doubleValue();
         calculated.add( percentageFull( consumed, systemCapacity ) );
         // TODO finish implementing once Nate provides a library
-        calculated.add( toFull() );
+        calculated.add(toFull());
 
         return calculated;
     }
