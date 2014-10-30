@@ -15,7 +15,7 @@
     <div class="page-vertical-spacer"></div>
 
     <div class="header top-label">
-            <input type="text" class="form-control skinny" placeholder="Search..." ng-model="searchQuery" style="width: 300px;">
+        <input type="text" class="form-control skinny" placeholder="Search..." ng-model="searchQuery" style="width: 300px;">
         <div>
             <table class="default" style="margin-top: 8px;">
                 <tbody>
@@ -27,5 +27,6 @@
                 </tbody>
             </table>
         </div>
+        <pager ng-model="activities" filter="filter" call="getActivities" back-label="{{ 'common.l_back' | translate }}" next-label="{{ 'common.l_next' | translate }}"></pager>
     </div>
 </div>
