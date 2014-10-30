@@ -541,9 +541,14 @@ AmDataApi::deleteBlob(boost::shared_ptr<std::string>& domainName,
     BlobTxId::ptr blobTxId(new BlobTxId(txnId.txId));
 
     SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
-    STORHANDLER(DeleteBlobHandler, fds::FDS_DELETE_BLOB)->
-            handleRequest(*volumeName, *blobName, blobTxId,
-                          SHARED_DYN_CAST(Callback, handler));
+    AmRequest *blobReq = new DeleteBlobReq(invalid_vol_id,
+                                           *blobName,
+                                           *volumeName,
+                                           blobTxId,
+                                           SHARED_DYN_CAST(Callback, handler));
+
+    storHvisor->enqueueBlobReq(blobReq);
+
     handler->wait();
     boost::shared_ptr<apis::TxDescriptor> txnPtr(new apis::TxDescriptor());
     txnPtr->txId = txnId.txId;

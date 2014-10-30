@@ -523,23 +523,16 @@ static void processBlobReq(AmRequest *amReq) {
             storHvisor->amProcessor->getVolumeMetadata(amReq);
             break;
 
-        // new handlers
         case fds::FDS_DELETE_BLOB:
-	    if (storHvisor->toggleNewPath) {
-                storHvisor->amProcessor->deleteBlob(amReq);
-                break;
-	    }
+            storHvisor->amProcessor->deleteBlob(amReq);
+            break;
+
         case fds::FDS_STAT_BLOB:
-	    if (storHvisor->toggleNewPath) {
-                storHvisor->amProcessor->statBlob(amReq);
-                break;
-	    }
+            storHvisor->amProcessor->statBlob(amReq);
+            break;
+
         case fds::FDS_VOLUME_CONTENTS:
-	    if (storHvisor->toggleNewPath) {
-                storHvisor->amProcessor->volumeContents(amReq);
-                break;
-	    }
-            err = storHvisor->handlers.at(amReq->io_type)->handleQueueItem(amReq);
+            storHvisor->amProcessor->volumeContents(amReq);
             break;
 
         default :

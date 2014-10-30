@@ -68,19 +68,5 @@ struct GetBucketHandler : Handler {
     fds::Error handleQueueItem(AmRequest *amReq);
 };
 
-struct DeleteBlobHandler : Handler {
-    explicit DeleteBlobHandler(StorHvCtrl* storHvisor) : Handler(storHvisor) {}
-    fds::Error handleRequest(const std::string& volumeName,
-                             const std::string& blobName,
-                             BlobTxId::ptr blobTxId,
-                             CallbackPtr cb);
-    fds::Error handleResponse(AmRequest *amReq,
-                              QuorumSvcRequest* svcReq,
-                              const Error& error,
-                              boost::shared_ptr<std::string> payload);
-    fds::Error handleQueueItem(AmRequest *amReq);
-};
-
-
 }  // namespace fds
 #endif  // SOURCE_ACCESS_MGR_STOR_HVISOR_HANDLER_HANDLER_H_
