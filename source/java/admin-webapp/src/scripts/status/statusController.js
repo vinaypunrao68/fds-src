@@ -8,6 +8,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.activities = [];
     $scope.firebreakMax = 1440;
     $scope.firebreakStats = { series: [[]], summaryData: { hoursSinceLastEvent: 0 }};
+    $scope.firebreakItems = [];
     $scope.performanceStats = { series: [[]] };
     $scope.capacityStats = { series: [[]] };
     
@@ -25,11 +26,12 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
     
     $scope.activitiesReturned = function( list ){
-        $scope.activities = eval(list);
+        $scope.activities = list.records;
     };
     
     $scope.firebreakReturned = function( data ){
         $scope.firebreakStats = data;
+        $scope.firebreakItems = [{ number: data.calculated[0].count, description: $filter( 'translate' )( 'status.desc_firebreak' )}];
     };
     
     $scope.performanceReturned = function( data ){
@@ -45,26 +47,30 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.setFirebreakToolipText = function( data ){
         
         var units = '';
-        var value = 0;
+        var value = $scope.transformFirebreakTime( data.secondsSinceLastFirebreak );
         
         // set the text as days
-        if ( data.secondsSinceLastFirebreak > 24*60*60 ){
-            value = Math.floor( data.secondsSinceLastFirebreak / (24*60*60) )
+        if ( value > 24*60*60 ){
+            value = Math.floor( value / (24*60*60) )
             units = $filter( 'translate' )( 'common.days' );
         }
         // set the text as hours
-        else if ( data.secondsSinceLastFirebreak > (60*60) ){
-            value = Math.floor( data.secondsSinceLastFirebreak / (60*60) )
+        else if ( value > (60*60) ){
+            value = Math.floor( value / (60*60) )
             units = $filter( 'translate' )( 'common.hours' );            
         }
         else {
-            value = Math.floor( data.secondsSinceLastFirebreak / 60 );
+            value = Math.floor( value / 60 );
             units = $filter( 'translate' )( 'common.minutes' );
         }
         
-        var str = '<div><div style="font-weight: bold;font-size: 11px;">' + data.context.name + '</div><div style="font-size: 10px;">' + $filter( 'translate' )( 'status.tt_firebreak', { value: value,units: units} ) + '</div></div>';
+        if ( angular.isDefined( data.context ) ){
+            
+            var str = '<div><div style="font-weight: bold;font-size: 11px;">' + data.context.name + '</div><div style="font-size: 10px;">' + $filter( 'translate' )( 'status.tt_firebreak', { value: value,units: units} ) + '</div></div>';
+            return str;
+        }
         
-        return str;
+        return '';
     };
     
     $scope.setCapacityTooltipText = function( data, i, j ){
@@ -81,7 +87,12 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     };
 
     $scope.transformFirebreakTime = function( value ){
-        return value;
+        
+        var nowSeconds = (new Date()).getTime() / 1000;
+        
+        var val = nowSeconds - value;
+        
+        return val;
     };
     
     $scope.isAllowed = function( permission ){
@@ -96,15 +107,15 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
              StatQueryFilter.LONG_TERM_CAPACITY_SIGMA,
              StatQueryFilter.SHORT_TERM_PERFORMANCE_SIGMA,
              StatQueryFilter.LONG_TERM_PERFORMANCE_SIGMA],
-            (new Date()).getTime() - (1000*60*60*24),
-            (new Date()).getTime() );
+             Math.round( ((new Date()).getTime() - (1000*60*60*24))/1000 ),
+             Math.round( (new Date()).getTime() / 1000 ) );
     
         return filter;
     };
                                                             
     var firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
     
-    $activity_service.getActivities( '', '', 30, $scope.activitiesReturned );
+    $activity_service.getActivities( {}, $scope.activitiesReturned );
     
     // cleanup the pollers
     $scope.$on( '$destroy', function(){

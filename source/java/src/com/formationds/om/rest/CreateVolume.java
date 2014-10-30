@@ -17,18 +17,21 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.Xdi;
 import org.apache.commons.io.IOUtils;
+import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class CreateVolume
   implements RequestHandler {
-  private static final transient Logger logger =
+  private static final Logger logger =
     LoggerFactory.getLogger( CreateVolume.class );
 
   // TODO pull these values form the platform.conf file.
@@ -57,9 +60,10 @@ public class CreateVolume
     throws Exception {
     long volumeId;
     final String domainName = "";
+      final int unused_argument = 0;
 
-    String source = IOUtils.toString( request.getInputStream() );
-    JSONObject o = new JSONObject( source );
+      String source = IOUtils.toString( request.getInputStream() );
+      JSONObject o = new JSONObject( source );
     String name = o.getString( "name" );
     int priority = o.getInt( "priority" );
     int sla = o.getInt( "sla" );
@@ -89,12 +93,53 @@ public class CreateVolume
       new VolumeBuilder().withId( String.valueOf( volumeId ) )
                          .build();
 
+    /**
+     * there has to be a better way!
+     */
+    final Map<Integer, List<String>> streamMap = new HashMap<>();
+    configApi.getStreamRegistrations( unused_argument )
+           .stream()
+           .forEach( ( stream ) -> {
+               if( stream.getVolume_names()
+                         .contains( name ) ) {
+                   final List<String> volumeNames = stream.getVolume_names();
+
+                   streamMap.put( stream.getId(), volumeNames );
+                   try {
+                       configApi.deregisterStream( stream.getId() );
+                   } catch( TException e ) {
+                       logger.error( "Failed to de-register stream id " +
+                                         stream.getId() +
+                                         " reason: " + e.getMessage() );
+                       logger.trace( "Failed to de-register stream id " +
+                                         stream.getId(),
+                                     e );
+                   }
+               } else {
+                   // assume it did not already exists in the stream registration
+                   if( !streamMap.containsKey( 0 ) ) {
+                       streamMap.put( 0, new ArrayList<>( ) );
+
+                   }
+                   streamMap.get( 0 ).add( name );
+               }
+           } );
+
+    streamMap.forEach( ( key, list ) -> {
     logger.trace( "registering volume {} for metadata streaming...", name );
-    configApi.registerStream( URL,
-                              METHOD,
-                              Arrays.asList( name ),
-                              FREQUENCY.intValue(),
-                              DURATION.intValue() );
+        try {
+            configApi.registerStream( URL,
+                                      METHOD,
+                                      list,
+                                      FREQUENCY.intValue(),
+                                      DURATION.intValue() );
+        } catch( TException e ) {
+            logger.error( "Failed to re-register volumes " +
+                          list + " reason: " + e.getMessage() );
+            logger.trace( "Failed to re-register volumes " +
+                          list , e );
+        }
+    } );
 
     return new JsonResource( new JSONObject( volume ) );
   }
