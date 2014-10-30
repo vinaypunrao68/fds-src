@@ -3,28 +3,29 @@ package com.formationds.hadoop;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.*;
+import com.formationds.apis.AmService;
+import com.formationds.apis.ApiException;
+import com.formationds.apis.ErrorCode;
+import com.formationds.apis.ObjectOffset;
 import com.formationds.xdi.FdsObjectFrame;
 import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.Seekable;
 
 import java.io.EOFException;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 public class FdsInputStream extends InputStream implements Seekable, PositionedReadable {
     private final int objectSize;
-    private AmService.Iface am;
     private final String domain;
     private final String volume;
     private final String blobName;
-
+    private final Object bufferStateLock = new Object();
+    private AmService.Iface am;
     private long readObject;
     private ByteBuffer readBuffer;
     private long position;
-    private final Object bufferStateLock = new Object();
 
     public FdsInputStream(AmService.Iface am, String domain, String volume, String blobName, int objectSize) {
         this.am = am;
@@ -65,7 +66,7 @@ public class FdsInputStream extends InputStream implements Seekable, PositionedR
     }
 
     @Override
-    public int read(byte[] b, int off, int len) throws IOException {
+    public synchronized int read(byte[] b, int off, int len) throws IOException {
         int readLength = read(position, b, off, len);
         position += readLength;
         return readLength;
@@ -77,7 +78,7 @@ public class FdsInputStream extends InputStream implements Seekable, PositionedR
     }
 
     @Override
-    public int read() throws IOException {
+    public synchronized int read() throws IOException {
         ByteBuffer buf = getBuffer(position);
         if(buf.remaining() == 0)
             return -1;
@@ -86,12 +87,12 @@ public class FdsInputStream extends InputStream implements Seekable, PositionedR
     }
 
     @Override
-    public void seek(long pos) throws IOException {
+    public synchronized void seek(long pos) throws IOException {
         position = pos;
     }
 
     @Override
-    public long getPos() throws IOException {
+    public synchronized long getPos() throws IOException {
         return position;
     }
 
