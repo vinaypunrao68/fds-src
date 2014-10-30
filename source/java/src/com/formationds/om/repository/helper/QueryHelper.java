@@ -6,11 +6,13 @@ package com.formationds.om.repository.helper;
 
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
+import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
+import com.formationds.commons.model.builder.DateRangeBuilder;
 import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
@@ -28,16 +30,19 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
 import com.formationds.util.SizeUnit;
+import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.*;
 
 /**
  * @author ptinius
  */
 public class QueryHelper {
-    private static final transient Logger logger =
+    private static final Logger logger =
         LoggerFactory.getLogger( QueryHelper.class );
 
     private final MetricsRepository repo;
@@ -53,15 +58,17 @@ public class QueryHelper {
     public static List<Metrics> PERFORMANCE = new ArrayList<>();
     static {
         PERFORMANCE.add( Metrics.STP_WMA );
-        PERFORMANCE.add( Metrics.LTP_WMA );
+        // Currently the UI does not request
+//        PERFORMANCE.add( Metrics.LTP_WMA );
     }
 
     public static final List<Metrics> CAPACITY = new ArrayList<>( );
     static {
         CAPACITY.add( Metrics.PBYTES );
         CAPACITY.add( Metrics.LBYTES );
-        CAPACITY.add( Metrics.STC_WMA );
-        CAPACITY.add( Metrics.LTC_WMA );
+        // Currently the UI does not request
+//        CAPACITY.add( Metrics.STC_WMA );
+//        CAPACITY.add( Metrics.LTC_WMA );
     }
 
     /**
@@ -107,7 +114,8 @@ public class QueryHelper {
      * @return Returns the {@link Statistics} representing the result of {@code
      * query}
      */
-    public Statistics execute( final QueryCriteria query ) {
+    public Statistics execute( final QueryCriteria query )
+        throws TException {
         final Statistics stats = new Statistics();
         if( query != null ) {
             final List<Series> series = new ArrayList<>();
@@ -189,7 +197,7 @@ public class QueryHelper {
             final List<Calculated> calculatedList = new ArrayList<>( );
             if( isFirebreakQuery( query.getSeriesType() ) ) {
                 // TODO query to populate
-                calculatedList.add( new FirebreaksLast24Hours( 0 ) );
+                calculatedList.add( new FirebreaksLast24Hours( last24Hours() ) );
             } else if( isPerformanceQuery( query.getSeriesType() ) ) {
                 // TODO query to populate
                 calculatedList.add( new IOPsCapacity( 0.0 ) );
@@ -238,6 +246,34 @@ public class QueryHelper {
         }
 
         return true;
+    }
+
+    /**
+     * @param datapoints the {@link List} of {!link VolumeDatapoint}
+     *
+     * @return Returns a {@link Map} of {@link VolumeDatapoint}
+     */
+    public Map<String, List<VolumeDatapoint>> byVolumeId(
+        final List<VolumeDatapoint> datapoints ) {
+
+        final Map<String, List<VolumeDatapoint>> byVolumeId = new HashMap<>( );
+
+        final Comparator<VolumeDatapoint> VolumeDatapointComparator =
+            Comparator.comparing( VolumeDatapoint::getVolumeId )
+                      .thenComparing( VolumeDatapoint::getTimestamp )
+                      .thenComparing( VolumeDatapoint::getKey );
+
+        Collections.sort( datapoints, VolumeDatapointComparator );
+        for( final VolumeDatapoint vdp : datapoints ) {
+            final String key = vdp.getVolumeId();
+            if( !byVolumeId.containsKey( key ) ) {
+                byVolumeId.put( key, new ArrayList<>( ) );
+            }
+
+            byVolumeId.get( key ).add( vdp );
+        }
+
+        return byVolumeId;
     }
 
     /**
@@ -350,5 +386,38 @@ public class QueryHelper {
     protected CapacityToFull toFull() {
         // TODO finish implementation
         return new CapacityToFull( 24 );
+    }
+
+    /**
+     * @return Returns {@link Integer} representing the number of firebreaks
+     *         that have occurred in the last 24 hours.
+     */
+    protected Integer last24Hours() {
+        final VolumeCriteriaQueryBuilder builder =
+            new VolumeCriteriaQueryBuilder( repo.entity() );
+        FIREBREAKS.stream().forEach( builder::withSeries );
+
+        final LocalDateTime end = LocalDateTime.now();
+        final LocalDateTime start = end.withHour( 23 );
+
+        final DateRange last24hours =
+            new DateRangeBuilder( ).withStart( new Timestamp( DateTimeUtil.toUnixEpoch( start ) ) )
+                                   .withEnd( new Timestamp( DateTimeUtil.toUnixEpoch( end ) ) )
+                                   .build();
+        builder.withDateRange( last24hours );
+
+        final Map<String,List<VolumeDatapoint>> organized =
+            organize( builder.resultsList() );
+
+        final int count[ ] = { 0 };
+        organized.forEach( ( key, volumeDatapoints ) -> {
+            volumeDatapoints.stream().forEach( ( vdp ) -> {
+                if( Calculation.isFirebreak( 0.0, 0.0 ) ) {
+                    count[ 0 ]++;
+                }
+            } );
+        } );
+
+        return count[ 0 ];
     }
 }

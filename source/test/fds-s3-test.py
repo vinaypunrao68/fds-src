@@ -9,6 +9,7 @@ import boto
 import unittest
 import time
 import hashlib
+import requests
 from tempfile import NamedTemporaryFile
 from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
@@ -72,6 +73,19 @@ def delete_all_keys_helper(conn, bucket_name):
         res_set = bucket.get_all_keys()
         res_set = bucket.delete_keys(res_set)
 
+def get_user_token(user, password, host, port, secure, validate):
+    if secure:
+        proto = 'https'
+    else:
+        proto = 'http'
+
+    url = '%s://%s:%d/api/auth/token?login=%s&password=%s' % (proto, host, port, user, password)
+    print("Getting credentials from: ", url)
+    r = requests.get(url, verify=validate)
+    rjson = r.json()
+    print(rjson)
+    return rjson['token']
+
 class TestS3Conn(unittest.TestCase):
 
     # TODO: improve by creating/deleting more buckets
@@ -85,7 +99,7 @@ class TestS3Conn(unittest.TestCase):
         self.assertTrue(self.conn)
 
     def test_create_bucket(self):
-        create_buckets_helper(self.conn, self.param, self.param.bucket_name)
+        create_buckets_helper(self.conn, self.param)
 
     def test_get_bucket(self):
         bucket = self.conn.get_bucket(self.param.bucket_name)
@@ -120,7 +134,7 @@ class TestS3Bucket(unittest.TestCase):
         self.conn  = g_connection.get_s3_connection()
         self.param = g_parameters
         self.assertTrue(self.conn)
-        create_buckets_helper(self.conn, self.param, bucket_name=self.param.bucket_name, count=1)
+        create_buckets_helper(self.conn, self.param, count=1)
 
     def tearDown(self):
         self.assertTrue(self.conn)
@@ -172,6 +186,8 @@ class TestS3Bucket(unittest.TestCase):
         time.sleep(5)
         bucket = self.conn.get_bucket(bucket_name[0])
         bucket.delete()
+        # Need to wait a bit after deleting the bucket before moving on
+        time.sleep(5)
 
         # TODO: Add a case for delete non-empty volume.  Not now, FDS does not handle this.
 
@@ -240,7 +256,7 @@ class TestS3Key(unittest.TestCase):
         self.conn  = g_connection.get_s3_connection()
         self.param = g_parameters
         self.assertTrue(self.conn)
-        create_buckets_helper(self.conn, self.param, bucket_name=self.param.bucket_name, count=1)
+        create_buckets_helper(self.conn, self.param, count=1)
 
     def tearDown(self):
         self.assertTrue(self.conn)
@@ -541,7 +557,7 @@ class TestParameters():
         self.keys_count  = keys_count
 
 class S3Connection():
-    def __init__(self, id, token, host, port, secure, debug=False):
+    def __init__(self, id, token, host, port, secure, debug=0):
         self.access_key_id      = id
         self.secret_access_key  = token
         self.host               = host
@@ -581,13 +597,13 @@ FDS_DEFAULT_SECRET_ACCESS_KEY = 'ufHg8UgCyy78MErjyFAS3HUWd2+dBceS7784UVb5'
 FDS_DEFAULT__HOST             = 's3.amazonaws.com'
 
 FDS_DEFAULT_PORT              = 443
+FDS_AUTH_DEFAULT_PORT         = 443
 FDS_DEFAULT_IS_SECURE         = True
 
 FDS_DEFAULT_BUCKET_NAME       = "demo_volume2"
 FDS_DEFAULT_KEY_NAME          = "file_1"
 FDS_DEFAULT_KEYS_COUNT        = 10
 FDS_DEFAULT_FILE_PATH         = "/tmp/foobar"
-
 TEST_DEBUG                    = 1
 
 def main():
@@ -597,23 +613,45 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--verbose', action='store_true', default=False,
                         help='enables verbose mode')
+    parser.add_argument('--debug', default=0, dest='debug', type=int,
+                        help='Set boto debug level [1,2]')
     parser.add_argument('--am_url', default=FDS_DEFAULT__HOST,
                         help='ip/url to run tests against')
-    parser.add_argument('--am_port', default=FDS_DEFAULT_PORT,
+    parser.add_argument('--am_port', default=FDS_DEFAULT_PORT, type=int,
                         help='port to run tests against')
     parser.add_argument('--user_id', default=FDS_DEFAULT_KEY_ID,
                         help='access key id')
     parser.add_argument('--user_token', default=FDS_DEFAULT_SECRET_ACCESS_KEY,
                         help='access key id')
+    parser.add_argument('--insecure', action='store_false', dest="secure",
+                        default=FDS_DEFAULT_IS_SECURE, help='access key id')
+    parser.add_argument('--secure', action='store_true', dest="secure",
+                        help='access key id')
+    parser.add_argument('--fds_pass', dest="fds_pass", default=False,
+                        help='define FDS pass to use Tenant API for auth token')
+    parser.add_argument('--auth_port', dest="auth_port",
+                        default=FDS_AUTH_DEFAULT_PORT, type=int,
+                        help='define FDS pass to use Tenant API for auth token')
+    parser.add_argument('--novalidate-cert', action='store_false', default=True,
+                        dest='validate',
+                        help='Disable cert validation in URL requests')
 
     args         = parser.parse_args()
     TEST_DEBUG   = args.verbose
+    # If we pass in --fds_pass then we use the API to get our token
+    if args.fds_pass != False:
+        args.user_token = get_user_token(user=args.user_id,
+                                         password=args.fds_pass,
+                                         host=args.am_url,
+                                         port=args.auth_port,
+                                         secure=args.secure,
+                                         validate=args.validate)
     g_connection = S3Connection(args.user_id,
                                 args.user_token,
                                 args.am_url,
                                 args.am_port,
-                                FDS_DEFAULT_IS_SECURE,
-                                TEST_DEBUG)
+                                args.secure,
+                                args.debug)
 
     g_parameters = TestParameters(FDS_DEFAULT_BUCKET_NAME,
                                   FDS_DEFAULT_KEY_NAME,
@@ -626,6 +664,12 @@ def main():
     test_classes = [TestS3Conn, TestS3Bucket, TestS3Key]
     loader       = unittest.TestLoader()
     suites_list  = []
+
+    # Make sure FDS_DEFAULT_FILE_PATH exists
+    if not os.path.isfile(FDS_DEFAULT_FILE_PATH):
+        file = open(FDS_DEFAULT_FILE_PATH, 'w+')
+        file.write('This file used for testing fds-s3-test.py')
+        file.close()
 
     for test_class in test_classes:
         suite = loader.loadTestsFromTestCase(test_class)
