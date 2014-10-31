@@ -115,7 +115,11 @@ bool ConfigDB::getLocalDomains(std::map<int, std::string>& mapDomains, int globa
 // volumes
 fds_uint64_t ConfigDB::getNewVolumeId() {
     try {
-        return r.incr("volumes:nextid");
+        fds_uint64_t volId;
+        for (;;) {
+            volId = r.incr("volumes:nextid");
+            if (!volumeExists(volId)) return volId;
+        }
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
     }
