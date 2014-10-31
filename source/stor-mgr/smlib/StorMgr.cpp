@@ -1168,10 +1168,12 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
         const ObjectID& obj_id = (cobjs_req->oid_list)[i];
 
         LOGDEBUG << "Compaction is working on object " << obj_id
-                 << " on tier " << cobjs_req->tier;
+                 << " on tier " << cobjs_req->tier << " verify data?"
+                 << cobjs_req->verifyData;
 
         // copy this object if not garbage, otherwise rm object db entry
-        err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier);
+        err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier,
+                                                   cobjs_req->verifyData);
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;

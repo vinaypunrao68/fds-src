@@ -98,6 +98,12 @@ ObjectStore::putObject(fds_volid_t volId,
             fds_panic("Missing data in the persistent layer!");  // implement
         }
 
+        // check if existing object corrupted
+        if (objMeta->isObjCorrupted()) {
+            LOGCRITICAL << "Obj metadata indicates dup object corrupted, returning err";
+            return ERR_SM_DUP_OBJECT_CORRUPT;
+        }
+
         if (conf_verify_data == true) {
             // verify data -- read object from object data store
             boost::shared_ptr<const std::string> existObjData
@@ -202,6 +208,13 @@ ObjectStore::getObject(fds_volid_t volId,
         return NULL;
     }
 
+    // check if object corrupted
+    if (objMeta->isObjCorrupted()) {
+        LOGCRITICAL << "Obj metadata indicates data corrupted, will return err";
+        err = ERR_ONDISK_DATA_CORRUPT;
+        return NULL;
+    }
+
     /*
      * TODO(umesh): uncomment this when reference counting is used.
      *
@@ -260,6 +273,12 @@ ObjectStore::deleteObject(fds_volid_t volId,
         LOGDEBUG << "Not able to read existing object locations, "
                  << "assuming no prior entry existed " << objId;
         return ERR_OK;
+    }
+
+    // if object corrupted, no point of updating metadata
+    if (objMeta->isObjCorrupted()) {
+        LOGCRITICAL << "Object corrupted, returning error ";
+        return err = ERR_ONDISK_DATA_CORRUPT;
     }
 
     // Create new object metadata to update the refcnts
@@ -362,7 +381,8 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
 
 Error
 ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
-                                     diskio::DataTier tier) {
+                                     diskio::DataTier tier,
+                                     fds_bool_t verifyData) {
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     Error err(ERR_OK);
 
@@ -392,6 +412,26 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                      << "to new file (not garbage collect) " << err;
             return err;
         }
+        // Create new object metadata for update
+        updatedMeta.reset(new ObjMetaData(objMeta));
+
+        // we may be copying file with objects that already has 'corrupt'
+        // flag set. Since we are not yet recovering corrupted objects, we
+        // are going to copy corrupted objects to new files (not loose them)
+        if (!objMeta->isObjCorrupted() && verifyData) {
+            ObjectID onDiskObjId;
+            onDiskObjId = ObjIdGen::genObjectId(objData->c_str(),
+                                                objData->size());
+            if (onDiskObjId != objId) {
+                // on-disk data corruption
+                // mark object metadata as corrupted! will copy it to new
+                // location anyway so we can debug the issue
+                LOGCRITICAL << "Encountered a on-disk data corruption object "
+                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex();
+                // set flag in object metadata
+                updatedMeta->setObjCorrupted();
+            }
+        }
 
         // write to object data store (will automatically write to new file)
         obj_phy_loc_t objPhyLoc;  // will be set by data store with new location
@@ -402,8 +442,6 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
             return err;
         }
 
-        // Create new object metadata to update physical location
-        updatedMeta.reset(new ObjMetaData(objMeta));
         // update physical location that we got from data store
         updatedMeta->updatePhysLocation(&objPhyLoc);
         // write metadata to metadata store

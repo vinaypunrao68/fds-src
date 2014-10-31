@@ -314,7 +314,6 @@ void StatsCollector::print()
 // record service-specific stats
 //
 void StatsCollector::sampleStats() {
-#ifdef LLIU_TODO_DISABLE_SEE_CALLTRACE
     fds_uint64_t now = util::getTimeStampNanos();
     fds_uint64_t stat_slot_nanos = slotsec_stat_;
     stat_slot_nanos *= 1000000000;
@@ -332,7 +331,6 @@ void StatsCollector::sampleStats() {
     if (last_sample_ts_) {
         record_stats_cb_(last_sample_ts_);
     }
-#endif
 }
 
 //

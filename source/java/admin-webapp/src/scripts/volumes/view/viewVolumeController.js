@@ -15,10 +15,10 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.capacityStats = { series: [] };
     $scope.performanceStats = { series: [] };
     $scope.capacityLineStipples = ['none', '2,2'];
-    $scope.capacityLineColors = ['#1C82FB', '#71AFF8'];
-    $scope.capacityColors = [ '#71AEEA', '#AAD2F4' ];
+    $scope.capacityLineColors = ['#2486F8', '#78B5FA'];
+    $scope.capacityColors = [ '#72AEEB', '#ABD3F5' ];
     $scope.performanceColors = [ '#A4D966' ];
-    $scope.performanceLine = ['#55A918'];   
+    $scope.performanceLine = ['#66B22E'];   
     $scope.opacities = [0.7,0.7];
     
     $scope.dedupLabel = '';
