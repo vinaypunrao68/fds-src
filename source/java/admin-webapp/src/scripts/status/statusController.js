@@ -19,12 +19,12 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.firebreakRange = ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'];
     
     $scope.performanceColors = [ '#A4D966' ];
-    $scope.performanceLine = ['#55A918'];
-    $scope.fakeCapColors = [ '#71AEEA', '#AAD2F4' ];
+    $scope.performanceLine = ['#66B22E'];
+    $scope.fakeCapColors = [ '#72AEEB', '#ABD3F5' ];
     $scope.fakeOpacities = [0.7,0.7];
     
     $scope.capacityLineStipples = ['none', '2,2'];
-    $scope.capacityLineColors = ['#1C82FB', '#71AFF8'];
+    $scope.capacityLineColors = ['#2486F8', '#78B5FA'];
     
     $scope.capacityLabels = [ $filter( 'translate' )( 'common.l_30_days' ), $filter( 'translate' )( 'common.l_15_days' ), $filter( 'translate' )( 'common.l_today' )];
     $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
