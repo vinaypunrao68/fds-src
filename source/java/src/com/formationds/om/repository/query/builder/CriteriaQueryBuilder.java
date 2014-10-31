@@ -136,6 +136,12 @@ public class CriteriaQueryBuilder<T> {
             this.withContexts( searchCriteria.getContexts() );
         }
 
+        if ( searchCriteria.getFirstPoint() != null )
+            this.firstResult( searchCriteria.getFirstPoint().intValue() );
+
+        if ( searchCriteria.getPoints() != null )
+            this.maxResults( searchCriteria.getPoints().intValue() );
+
         return (CQ)this;
     }
 

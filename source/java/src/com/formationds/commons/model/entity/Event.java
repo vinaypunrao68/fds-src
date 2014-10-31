@@ -62,17 +62,15 @@ abstract public class Event extends ModelBase {
     @Column(nullable = true)
     private Object[] messageArgs;
 
-    @Column(nullable = true)
+    @Column(nullable = false)
     private String messageFormat;
 
-    //private String defaultMessage;
+    private String defaultMessage;
 
     /**
      * Default constructor for JPA support
      */
     protected Event() { }
-
-    public String getDefaultMessage() { return MessageFormat.format(messageFormat, messageArgs); }
 
     /**
      * Create a new event.  The event state will be initialized to SOFT and the timestamp set to now.
@@ -80,6 +78,7 @@ abstract public class Event extends ModelBase {
      * @param type
      * @param category
      * @param severity
+     * @param defaultMessageFmt the default (english) message format.
      * @param messageKey resource bundle message lookup key
      * @param messageArgs resource bundle message arguments
      */
@@ -94,7 +93,20 @@ abstract public class Event extends ModelBase {
         this.messageKey = messageKey;
         this.messageArgs = (messageArgs != null ? messageArgs.clone() : new Object[0]);
         state = EventState.SOFT;
+
+        this.defaultMessage = MessageFormat.format(messageFormat, messageArgs);
     }
+
+    /**
+     * @return the default (english) message to be used if localization fails.
+     */
+    public String getDefaultMessage() { return defaultMessage; }
+
+    /**
+     *
+     * @param d
+     */
+    protected void setDefaultMessage(String d) { defaultMessage = d; }
 
     /**
      * Update the event state to the specified state.
