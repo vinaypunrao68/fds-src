@@ -200,6 +200,12 @@ AmProcessor::putBlob(AmRequest *amReq) {
                                                 blobReq->data_len);
     }
 
+    fiu_do_on("am.uturn.processor.putBlob",
+              qosCtrl->markIODone(amReq);       \
+              blobReq->cb->call(ERR_OK);        \
+              delete blobReq;                   \
+              return;);
+
     blobReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, amReq);
 
     if (blobReq->getIoType() == FDS_PUT_BLOB_ONCE) {
