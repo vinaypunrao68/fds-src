@@ -3,6 +3,11 @@ include "../fdsp/fds_stream.thrift"
 namespace cpp fds.apis
 namespace java com.formationds.apis
 
+enum MediaPolicy {
+	 SSD_ONLY = 0,
+	 HDD_ONLY = 1
+}
+
 enum VolumeType {
      OBJECT = 0,
      BLOCK = 1
@@ -11,7 +16,8 @@ enum VolumeType {
 struct VolumeSettings {
        1: required i32 maxObjectSizeInBytes,
        2: required VolumeType volumeType,
-       3: required i64 blockDeviceSizeInBytes
+       3: required i64 blockDeviceSizeInBytes,
+	   4: MediaPolicy mediaPolicy
 }
 
 struct VolumeDescriptor {
