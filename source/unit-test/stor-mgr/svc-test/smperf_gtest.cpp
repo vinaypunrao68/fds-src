@@ -33,7 +33,7 @@ struct SMApi : SingleNodeTest
         putsSuccessCnt_ = 0;
         putsFailedCnt_ = 0;
     }
-    void putCb(uint64_t opStartTs, EPSvcRequest* svcReq,
+    void putCb(uint64_t opStartTs, QuorumSvcRequest* svcReq,
                const Error& error,
                boost::shared_ptr<std::string> payload)
     {
@@ -72,13 +72,17 @@ TEST_F(SMApi, putsPerf)
     bool uturnAsyncReq = this->getArg<bool>("uturn-asyncreqt");
     bool uturnPuts = this->getArg<bool>("uturn");
     bool disableSchedule = this->getArg<bool>("disable-schedule");
+    LatencyCounter creationLat;
 
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = this->getArg<uint64_t>("smuuid");
     if (svcUuid.svc_uuid == 0) {
         svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
     }
-    ASSERT_NE(svcUuid.svc_uuid, 0);
+    ASSERT_NE(svcUuid.svc_uuid, 0);;
+    DltTokenGroupPtr tokGroup = boost::make_shared<DltTokenGroup>(1);
+    tokGroup->set(0, NodeUuid(svcUuid));
+    auto epProvider = boost::make_shared<DltObjectIdEpProvider>(tokGroup);
 
     /* To generate random data between 10 to 100 bytes */
     auto datagen = boost::make_shared<RandDataGenerator<>>(4096, 4096);
@@ -116,9 +120,13 @@ TEST_F(SMApi, putsPerf)
 
     /* Issue puts */
     for (int i = 0; i < nPuts; i++) {
+        util::StopWatch sw;
         auto opStartTs = util::getTimeStampNanos();
         auto putObjMsg = putMsgGen->nextItem();
-        auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+        sw.start();
+        auto asyncPutReq = gSvcRequestPool->newQuorumSvcRequest(
+            boost::make_shared<DltObjectIdEpProvider>(tokGroup));
+        creationLat.update(sw.getElapsedNanos());
         asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
         asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this, opStartTs,
                                             std::placeholders::_1,
@@ -155,6 +163,9 @@ TEST_F(SMApi, putsPerf)
     }
 
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
+            << "putsCnt: " << putsIssued_ << "\n"
+            << "Throughput: " << (putsIssued_ * 1000 * 1000 * 1000) / (endTs_ - startTs_) << "\n"
+            << "Avg creationLat: " << creationLat.value() << std::endl
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
             << "(ns) Avg op latency: " << avgLatency_.value() << std::endl;
     ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
