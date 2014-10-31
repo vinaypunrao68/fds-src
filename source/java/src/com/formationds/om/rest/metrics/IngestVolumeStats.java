@@ -28,7 +28,7 @@ import java.util.Map;
  */
 public class IngestVolumeStats
   implements RequestHandler {
-  private static final transient Logger logger =
+  private static final Logger logger =
     LoggerFactory.getLogger( IngestVolumeStats.class );
 
   private static final Type TYPE =

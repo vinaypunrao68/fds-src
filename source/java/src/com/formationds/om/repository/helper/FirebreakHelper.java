@@ -4,148 +4,177 @@
 
 package com.formationds.om.repository.helper;
 
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.VolumeStatus;
+import com.formationds.apis.VolumeType;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
-import com.formationds.commons.util.DateTimeUtil;
 import com.formationds.commons.util.ExceptionHelper;
-import com.formationds.om.repository.result.VolumeFirebreak;
-import com.formationds.util.SizeUnit;
-import javafx.util.Pair;
+import com.formationds.commons.util.StreamHelper;
+import com.formationds.om.helper.SingletonAmAPI;
+import com.formationds.om.helper.SingletonConfigAPI;
+import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author ptinius
  */
 public class FirebreakHelper {
-  private static final transient Logger logger =
-    LoggerFactory.getLogger( FirebreakHelper.class );
+    private static final Logger logger =
+        LoggerFactory.getLogger( FirebreakHelper.class );
+    private static final String INDEX_OUT_BOUNDS =
+        "index is out-of-bounds %d, must between %d and %d.";
+    private static final Long NEVER = 0L;
 
-  private static List<Metrics> FIREBREAKS = new ArrayList<>( );
-  static {
-    FIREBREAKS.add( Metrics.STC_SIGMA );
-    FIREBREAKS.add( Metrics.LTC_SIGMA );
-    FIREBREAKS.add( Metrics.STP_SIGMA );
-    FIREBREAKS.add( Metrics.LTP_SIGMA );
-    FIREBREAKS.add( Metrics.STC_WMA );
-    FIREBREAKS.add( Metrics.LTC_WMA );
-  }
-
-  /**
-   * default constructor
-   */
-  public FirebreakHelper() {
-  }
-
-  /**
-   * @param datapoints the {@link VolumeDatapoint} representing the datapoint
-   *
-   * @return Returns {@link java.util.Map} of {@link Datapoint}
-   */
-  public Map<String, Datapoint> findFirebreak(
-    final List<VolumeDatapoint> datapoints ) {
-    final Map<String, Datapoint> results = new HashMap<>();
-
-    final Comparator<VolumeDatapoint> VolumeDatapointComparator =
-      Comparator.comparing( VolumeDatapoint::getVolumeName )
-                .thenComparing( VolumeDatapoint::getTimestamp );
-
-    final VolumeFirebreak[] previous = { null };
-
-    datapoints.stream()
-              .sorted( VolumeDatapointComparator )
-              .flatMap( ( dp1 ) ->
-                          datapoints.stream()
-                                    .filter( this::isFirebreakType )
-                                    .filter( ( dp2 ) ->
-                                               dp2.getVolumeName()
-                                                  .equalsIgnoreCase( dp1.getVolumeName() ) )
-                                    .filter( ( dp2 ) ->
-                                               dp1.getTimestamp()
-                                                  .equals(
-                                                    dp2.getTimestamp() ) )
-                                    .filter( ( dp2 ) -> !dp1.getId()
-                                                            .equals( dp2.getId() ) )
-                                    .filter( this::isFirebreakType )
-                                    .map( dp2 -> build( dp1, dp2 ) ) )
-              .forEach( o -> {
-                final VolumeDatapoint v1 = o.getKey();
-                final VolumeDatapoint v2 = o.getValue();
-
-                if( !results.containsKey( v1.getVolumeName() ) ) {
-                  final Datapoint empty = new Datapoint();
-                  // y: last occurred
-                  empty.setY( 0L );
-                  // TODO get the size, i.e. capacity of the volume and set X
-                  // x: volume capacity
-                  empty.setX( SizeUnit.GB.totalBytes( 10 ) );
-                  results.put( v1.getVolumeName(), empty );
-                }
-
-                if( Calculation.isFirebreak( v1.getValue(), v2.getValue() ) ) {
-                  final VolumeFirebreak c =
-                    new VolumeFirebreak( v1.getVolumeName(),
-                                         v1.getId()
-                                           .toString(),
-                                         new Date(
-                                           DateTimeUtil.epochToMilliseconds(
-                                             v1.getTimestamp()
-                                                                           )
-                                         )
-                    );
-                  if( previous[ 0 ] == null ) {
-                    previous[ 0 ] = c;
-                  }
-
-                  if( previous[ 0 ].getVolumeName()
-                                   .equalsIgnoreCase( c.getVolumeName() ) &&
-                    previous[ 0 ].getLastOccurred()
-                                 .before( c.getLastOccurred() ) ) {
-                    // TODO get the size, i.e. capacity of the volume and set X
-                    // x: volume capacity
-                    results.get( previous[ 0 ].getVolumeName() )
-                           .setX( SizeUnit.GB.totalBytes( 10 ) );
-                    // y: last occurred
-                    results.get( previous[ 0 ].getVolumeName() )
-                           .setY( previous[ 0 ].getLastOccurred()
-                                               .getTime() );
-
-                    previous[ 0 ] = c;
-                  }
-                }
-              } );
-
-    return results;
-  }
-
-  /**
-   * @param metrics
-   *
-   * @return
-   */
-  public boolean isFirebreakQuery( final List<Metrics> metrics ) {
-    return metrics.containsAll( Metrics.firebreakValues() );
-  }
-
-  private boolean isFirebreakType( final VolumeDatapoint vdp ) {
-    try {
-      return FIREBREAKS.contains( Metrics.byMetadataKey( vdp.getKey() ) );
-    } catch( UnsupportedMetricException e ) {
-      logger.warn( e.getMessage() );
-      logger.trace( ExceptionHelper.toString( e ) );
-      return false;
+    /**
+     * default constructor
+     */
+    public FirebreakHelper() {
     }
-  }
 
-  private Pair<VolumeDatapoint, VolumeDatapoint> build(
-    final VolumeDatapoint dp1,
-    final VolumeDatapoint dp2 ) {
+    /**
+     * @param datapoints the {@link VolumeDatapoint} representing the
+     *                   datapoint
+     *
+     * @return Returns {@link java.util.Map} of {@link Datapoint}
+     */
+    public Map<String, Datapoint> findFirebreak(
+        final List<VolumeDatapoint> datapoints )
+        throws TException {
 
-    return new Pair<>( dp1, dp2 );
-  }
+        final Map<String, Datapoint> results = new HashMap<>();
+        final List<VolumeDatapoint> firebreakDP = new ArrayList<>( );
+        final List<Pair> paired = new ArrayList<>( );
+
+        /*
+         * filter just the firebreak volume datapoints
+         */
+        datapoints.stream()
+                  .filter( this::isFirebreakType )
+                  .forEach( firebreakDP::add );
+        /*
+         * consecutive stream, create datapoint pairs
+         */
+        StreamHelper.consecutiveStream( firebreakDP.stream(), 2 )
+            .map( ( list ) -> new Pair( list.get( 0 ), list.get( 1 ) ) )
+            .forEach( paired::add );
+
+        final Map<String, VolumeDescriptor> volumeMap = new HashMap<>( );
+        SingletonConfigAPI.instance()
+                          .api()
+                          .listVolumes( "" )
+                          .stream()
+                          .forEach( ( d ) -> {
+                              final String key = d.getName();
+                              if( !volumeMap.containsKey( key ) ) {
+                                  volumeMap.put( key, d );
+                              }
+                          } );
+
+        paired.stream().forEach( pair -> {
+            final String key = pair.getSigma( 0 ).getVolumeId();
+            final String volumeName = pair.getSigma( 0 )
+                                          .getVolumeName();
+            final VolumeDescriptor vDescriptor =
+                volumeMap.get( volumeName );
+
+            if( !results.containsKey( key ) ) {
+                final Datapoint datapoint = new Datapoint();
+                datapoint.setY( NEVER );    // firebreak last occurrence
+
+                if( vDescriptor.getPolicy()
+                               .getVolumeType()
+                               .equals( VolumeType.BLOCK ) ) {
+                    // set the capacity
+                    datapoint.setX( vDescriptor.getPolicy()
+                                               .getBlockDeviceSizeInBytes() );
+                } else {
+                    /*
+                     * Object volume types have no fixed capacity, so use
+                     * current usage as the capacity
+                     */
+                    try {
+                        final VolumeStatus status =
+                            SingletonAmAPI.instance()
+                                          .api()
+                                          .volumeStatus( "", volumeName );
+                        if( status != null ) {
+                            /*
+                             * use the usage, OBJECT volumes have no fixed capacity
+                             */
+                            datapoint.setX( status.getCurrentUsageInBytes() );
+                        }
+                    } catch( TException e ) {
+                        logger.warn( "Failed to get Volume status",
+                                     e );
+                    }
+                }
+
+                results.put( key, datapoint );
+            }
+
+            if( Calculation.isFirebreak( pair.getSigma( 0 )
+                                                .getValue(),
+                                            pair.getSigma( 1 )
+                                                .getValue() ) ) {
+                results.get( key ).setY( pair.getSigma( 0 ).getTimestamp() );
+            }
+        } );
+
+        return results;
+    }
+
+    private boolean isFirebreakType( final VolumeDatapoint vdp ) {
+        try {
+            return QueryHelper.FIREBREAKS.contains( Metrics.byMetadataKey( vdp.getKey() ) );
+        } catch( UnsupportedMetricException e ) {
+            logger.warn( e.getMessage() );
+            logger.trace( ExceptionHelper.toString( e ) );
+            return false;
+        }
+    }
+
+    class Pair {
+        private final VolumeDatapoint sigma1;
+        private final VolumeDatapoint sigma2;
+
+        Pair( VolumeDatapoint shortTerm, VolumeDatapoint longTerm ) {
+            this.sigma1 = shortTerm;
+            this.sigma2 = longTerm;
+        }
+
+        /**
+         * @param index the {@code int} representing the index
+         *
+         * @return Returns the {@link VolumeDatapoint} by its index
+         */
+        public VolumeDatapoint getSigma( final int index ) {
+            switch( index ) {
+                case 0:
+                    return sigma1;
+                case 1:
+                    return sigma2;
+                default:
+                    throw new IndexOutOfBoundsException(
+                        String.format( INDEX_OUT_BOUNDS, index, 0, 1 ) );
+            }
+        }
+
+        /**
+         * @return Returns a {@link String} representing this object
+         */
+        @Override
+        public String toString() {
+            return  "[ " + sigma1 + "\n" + sigma2 + " ]";
+        }
+    }
 }

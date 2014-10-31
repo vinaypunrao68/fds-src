@@ -6,7 +6,6 @@ package com.formationds.commons.model.helper;
 
 import com.formationds.commons.model.type.Protocol;
 import com.google.gson.FieldNamingPolicy;
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import java.io.Reader;
@@ -105,11 +104,10 @@ public class ObjectModelHelper {
    * @return Returns the {@link String} representing the JSON
    */
   public static String toJSON( final Object object ) {
-    Gson gson =
-      new GsonBuilder().setFieldNamingPolicy( FieldNamingPolicy.IDENTITY )
-                       .setPrettyPrinting()
-                       .create();
-    return gson.toJson( object );
+   return new GsonBuilder().setFieldNamingPolicy( FieldNamingPolicy.IDENTITY )
+                           .setPrettyPrinting()
+                           .create()
+                           .toJson( object );
   }
 
   /**

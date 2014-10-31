@@ -26,6 +26,12 @@ class AmAsyncResponseApi {
     virtual void startBlobTxResp(const Error &error,
                                  boost::shared_ptr<apis::RequestId>& requestId,
                                  boost::shared_ptr<apis::TxDescriptor>& txDesc) = 0;
+    virtual void abortBlobTxResp(const Error &error,
+                                 boost::shared_ptr<apis::RequestId>& requestId) = 0;
+    virtual void commitBlobTxResp(const Error &error,
+                                  boost::shared_ptr<apis::RequestId>& requestId) = 0;
+    virtual void updateBlobResp(const Error &error,
+                                boost::shared_ptr<apis::RequestId>& requestId) = 0;
     virtual void updateBlobOnceResp(const Error &error,
                                     boost::shared_ptr<apis::RequestId>& requestId) = 0;
 };
@@ -34,6 +40,15 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
   private:
     /// Thrift client to response to XDI
     boost::shared_ptr<apis::AsyncAmServiceResponseClient> asyncRespClient;
+    std::string serverIp;
+    fds_uint32_t serverPort;
+
+    void initiateClientConnect();
+    inline void checkClientConnect() {
+        if (asyncRespClient == NULL) {
+            initiateClientConnect();
+        }
+    }
 
   public:
     AmAsyncXdiResponse();
@@ -43,6 +58,12 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
     void startBlobTxResp(const Error &error,
                          boost::shared_ptr<apis::RequestId>& requestId,
                          boost::shared_ptr<apis::TxDescriptor>& txDesc);
+    void abortBlobTxResp(const Error &error,
+                         boost::shared_ptr<apis::RequestId>& requestId);
+    void commitBlobTxResp(const Error &error,
+                          boost::shared_ptr<apis::RequestId>& requestId);
+    void updateBlobResp(const Error &error,
+                        boost::shared_ptr<apis::RequestId>& requestId);
     void updateBlobOnceResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId);
 };

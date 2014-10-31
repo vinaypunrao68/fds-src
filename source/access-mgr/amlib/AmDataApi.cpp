@@ -10,6 +10,8 @@
 #include <responsehandler.h>
 #include <StorHvisorNet.h>
 
+#include "requests/requests.h"
+
 namespace fds {
 
 AmDataApi::AmDataApi()
@@ -82,7 +84,7 @@ AmDataApi::volumeStatus(apis::VolumeStatus& _return,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName) {
     StatVolumeResponseHandler::ptr handler(new StatVolumeResponseHandler(_return));
-    FdsBlobReq *blobReq = new GetVolumeMetaDataReq(invalid_vol_id,
+    AmRequest *blobReq = new GetVolumeMetaDataReq(invalid_vol_id,
                                                    *volumeName,
                                                    SHARED_DYN_CAST(Callback, handler));
     storHvisor->enqueueBlobReq(blobReq);
@@ -143,7 +145,7 @@ AmDataApi::statBlob(apis::BlobDescriptor& _return,
 
     StatBlobResponseHandler::ptr handler(
         new StatBlobResponseHandler(_return));
-    FdsBlobReq *blobReq = new StatBlobReq(invalid_vol_id,
+    AmRequest *blobReq = new StatBlobReq(invalid_vol_id,
                                           *volumeName,
                                           *blobName,
                                           SHARED_DYN_CAST(Callback, handler));
@@ -177,7 +179,7 @@ AmDataApi::startBlobTx(apis::TxDescriptor& _return,
     StartBlobTxResponseHandler::ptr handler(
         new StartBlobTxResponseHandler(_return));
 
-    FdsBlobReq *blobReq = new StartBlobTxReq(invalid_vol_id,
+    AmRequest *blobReq = new StartBlobTxReq(invalid_vol_id,
                                              *volumeName,
                                              *blobName,
                                              *blobMode,
@@ -213,7 +215,7 @@ AmDataApi::commitBlobTx(boost::shared_ptr<std::string>& domainName,
 
     SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
 
-    FdsBlobReq *blobReq = new CommitBlobTxReq(invalid_vol_id,
+    AmRequest *blobReq = new CommitBlobTxReq(invalid_vol_id,
                                               *volumeName,
                                               *blobName,
                                               blobTxDesc,
@@ -257,7 +259,7 @@ AmDataApi::abortBlobTx(boost::shared_ptr<std::string>& domainName,
     BlobTxId::ptr blobTxDesc(new BlobTxId(
         txDesc->txId));
 
-    FdsBlobReq *blobReq = new AbortBlobTxReq(invalid_vol_id,
+    AmRequest *blobReq = new AbortBlobTxReq(invalid_vol_id,
                                              *volumeName,
                                              *blobName,
                                              blobTxDesc,
@@ -310,13 +312,12 @@ AmDataApi::getBlob(std::string& _return,
     // from the return string so we can avoid one extra copy.
     GetObjectResponseHandler::ptr getHandler(new GetObjectResponseHandler(buf));
 
-    FdsBlobReq *blobReq= new GetBlobReq(invalid_vol_id,
+    AmRequest *blobReq= new GetBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
                                         static_cast<fds_uint64_t>(objectOffset->value),
                                         *length,
                                         buf,
-                                        *length,
                                         SHARED_DYN_CAST(Callback, getHandler));
     storHvisor->enqueueBlobReq(blobReq);
 
@@ -372,7 +373,7 @@ AmDataApi::updateMetadata(boost::shared_ptr<std::string>& domainName,
     BlobTxId::ptr blobTxDesc(new BlobTxId(
         txDesc->txId));
 
-    FdsBlobReq *blobReq = new SetBlobMetaDataReq(invalid_vol_id,
+    AmRequest *blobReq = new SetBlobMetaDataReq(invalid_vol_id,
                                                  *volumeName,
                                                  *blobName,
                                                  blobTxDesc,
@@ -419,7 +420,7 @@ AmDataApi::updateBlobOnce(boost::shared_ptr<std::string>& domainName,
     UpdateBlobResponseHandler::ptr putHandler(
         boost::make_shared<UpdateBlobResponseHandler>());
 
-    FdsBlobReq *blobReq = new PutBlobReq(invalid_vol_id,
+    AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                          *volumeName,
                                          *blobName,
                                          static_cast<fds_uint64_t>(objectOffset->value),
@@ -490,7 +491,7 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
     BlobTxId::ptr blobTxDesc(new BlobTxId(
         txDesc->txId));
 
-    FdsBlobReq *blobReq = new PutBlobReq(invalid_vol_id,
+    AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                          *volumeName,
                                          *blobName,
                                          static_cast<fds_uint64_t>(objectOffset->value),

@@ -10,6 +10,7 @@
 #include <string>
 #include <fds_ptr.h>
 #include <fds-aio.h>
+#include <ObjectId.h>
 #include <access-mgr/am-block.h>
 #include <concurrency/spinlock.h>
 #include <fdsp/fds_service_types.h>
@@ -18,6 +19,7 @@
 namespace fds {
 
 class NbdBlkIO;
+class NbdSmVol;
 class NbdBlkVol;
 class NbdBlockMod;
 class QuorumSvcRequest;
@@ -83,12 +85,12 @@ class NbdBlkVol : public EvBlkVol
     virtual ~NbdBlkVol();
     explicit NbdBlkVol(const blk_vol_creat_t *r, struct ev_loop *loop);
 
-    void nbd_vol_read(NbdBlkIO *io);
-    void nbd_vol_write(NbdBlkIO *io);
+    virtual void nbd_vol_read(NbdBlkIO *io);
+    virtual void nbd_vol_write(NbdBlkIO *io);
     void nbd_vol_th_write(NbdBlkIO *io);
-    void nbd_vol_close();
-    void nbd_vol_flush();
-    void nbd_vol_trim();
+    virtual void nbd_vol_close();
+    virtual void nbd_vol_flush();
+    virtual void nbd_vol_trim();
 
     void nbd_vol_write_cb(NbdBlkIO *vio, QuorumSvcRequest *,
                           const Error &, bo::shared_ptr<std::string>);
@@ -121,7 +123,14 @@ class NbdBlkIO : public FdsAIO
     virtual void aio_rearm_write();
     virtual void aio_write_complete();
 
+    char *aio_buffer(ssize_t *len, int idx = 1)
+    {
+        *len = io_vec[idx].iov_len;
+        return reinterpret_cast<char *>(io_vec[idx].iov_base);
+    }
+
   protected:
+    friend class NbdSmVol;
     friend class NbdBlkVol;
 
     NbdBlkVol::ptr           nbd_vol;
@@ -129,6 +138,7 @@ class NbdBlkIO : public FdsAIO
     struct nbd_reply         nbd_repl;
     ssize_t                  nbd_cur_len;
     ssize_t                  nbd_cur_off;
+    ObjectID                 nbd_cur_obj;
 
     inline void vio_setup_new_read()
     {
