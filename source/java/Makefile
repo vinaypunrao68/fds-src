@@ -12,6 +12,7 @@ user_install_loc  := exe
 user_clean        := \
 	target \
 	gen-java \
+        admin-webapp \
 	$(comm_dir_lib)/java \
 	$(comm_dir_lib)/admin-webapp \
 	$(comm_dir_lib)/demo
@@ -19,9 +20,6 @@ user_clean        := \
 include $(topdir)/Makefile.incl
 
 #	@rm -rf $(comm_dir_lib)/java
-
-clean:
-	@cd admin-webapp; node_modules/grunt-cli/bin/grunt clean
 
 compile:
 	@rm -f $(comm_dir_bin)/AMAgent
