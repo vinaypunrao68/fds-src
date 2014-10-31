@@ -25,7 +25,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
             id: 'activity', 
             link: 'homepage.activity', 
             text: $filter( 'translate' )('activities.title' ), 
-            iconClass: 'icon-activity_pulse', 
+            iconClass: 'icon-activity', 
             selected: false },
         { 
             id: 'system', 

@@ -3,7 +3,6 @@
     @include flex-wrap(wrap);
 
     @include justify-content(space-around);
-    padding-left: 20px;
 
     .tile-pair {
         width: 50%;
