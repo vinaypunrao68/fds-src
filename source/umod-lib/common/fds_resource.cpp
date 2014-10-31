@@ -134,9 +134,9 @@ RsContainer::rs_unregister_mtx(Resource::pointer rs)
 
     std::string lowername = util::strlower(rs->rs_name);
     auto iter = rs_name_map.find(lowername.c_str());
-    if (iter != rs_uuid_map.end()) {
+    if (iter != rs_name_map.end()) {
         if (iter->second == rs) {
-            rs_uuid_map.erase(iter);
+            rs_name_map.erase(iter);
         } else {
             GLOGWARN << "resource [" << iter->second->rs_uuid.uuid_get_val()
                      << "] exists with name : " << rs->rs_name
