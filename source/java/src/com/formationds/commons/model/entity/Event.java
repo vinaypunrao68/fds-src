@@ -13,6 +13,7 @@ import com.google.gson.annotations.SerializedName;
 import javax.persistence.*;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.sql.Timestamp;
+import java.text.MessageFormat;
 import java.time.Instant;
 
 /**
@@ -61,10 +62,17 @@ abstract public class Event extends ModelBase {
     @Column(nullable = true)
     private Object[] messageArgs;
 
+    @Column(nullable = true)
+    private String messageFormat;
+
+    //private String defaultMessage;
+
     /**
      * Default constructor for JPA support
      */
     protected Event() { }
+
+    public String getDefaultMessage() { return MessageFormat.format(messageFormat, messageArgs); }
 
     /**
      * Create a new event.  The event state will be initialized to SOFT and the timestamp set to now.
@@ -75,13 +83,14 @@ abstract public class Event extends ModelBase {
      * @param messageKey resource bundle message lookup key
      * @param messageArgs resource bundle message arguments
      */
-    public Event(EventType type, EventCategory category, EventSeverity severity,
+    public Event(EventType type, EventCategory category, EventSeverity severity, String defaultMessageFmt,
                  String messageKey, Object... messageArgs) {
         this.type = type;
         this.category = category;
         this.severity = severity;
         this.initialTimestamp = Instant.now().toEpochMilli();
         this.modifiedTimestamp = this.initialTimestamp;
+        this.messageFormat = defaultMessageFmt;
         this.messageKey = messageKey;
         this.messageArgs = (messageArgs != null ? messageArgs.clone() : new Object[0]);
         state = EventState.SOFT;

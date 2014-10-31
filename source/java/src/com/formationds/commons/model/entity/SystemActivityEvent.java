@@ -19,7 +19,7 @@ public class SystemActivityEvent extends Event {
     protected SystemActivityEvent() {
     }
 
-    public SystemActivityEvent(EventCategory category, EventSeverity severity, String messageKey, Object... messageArgs) {
-        super(EventType.SYSTEM_EVENT, category, severity, messageKey, messageArgs);
+    public SystemActivityEvent(EventCategory category, EventSeverity severity, String defaultMessageFmt, String messageKey, Object... messageArgs) {
+        super(EventType.SYSTEM_EVENT, category, severity, defaultMessageFmt, messageKey, messageArgs);
     }
 }

@@ -59,7 +59,7 @@ public enum EventManager {
      * @return true if successfully notifying of the event.
      */
     public static boolean notifyEvent(EventDescriptor d, Object... eventArgs) {
-        return notifyEvent(d.type(), d.category(), d.severity(), d.key(), eventArgs);
+        return notifyEvent(d.type(), d.category(), d.severity(), d.defaultMessage(), d.key(), eventArgs);
     }
 
     /**
@@ -71,8 +71,8 @@ public enum EventManager {
      * @param eventArgs
      * @return
      */
-    public static boolean notifyEvent(EventType t, EventCategory c, EventSeverity s, String key, Object[] eventArgs) {
-        Event e = newEvent(t, c, s, key, eventArgs);
+    public static boolean notifyEvent(EventType t, EventCategory c, EventSeverity s, String dflt, String key, Object[] eventArgs) {
+        Event e = newEvent(t, c, s, dflt, key, eventArgs);
         return (e != null ? INSTANCE.notifyEvent(e) : false);
     }
 
@@ -87,7 +87,7 @@ public enum EventManager {
      *
      * @return a new event
      */
-    public static Event newEvent(EventType t, EventCategory c, EventSeverity s, String key, Object[] eventArgs) {
+    public static Event newEvent(EventType t, EventCategory c, EventSeverity s, String dflt, String key, Object[] eventArgs) {
         String[] eventArgStr = new String[eventArgs.length];
         int i =0;
         for (Object arg : eventArgs)
@@ -97,11 +97,11 @@ public enum EventManager {
         }
         switch (t) {
             case SYSTEM_EVENT:
-                return new SystemActivityEvent(c, s, key, eventArgs);
+                return new SystemActivityEvent(c, s, dflt, key, eventArgs);
             case USER_ACTIVITY:
                 AuthenticationToken token = AuthenticatedRequestContext.getToken();
                 long userId = (token != null ? token.getUserId() : -1);
-                return new UserActivityEvent(userId, c, s, key, eventArgs);
+                return new UserActivityEvent(userId, c, s, dflt, key, eventArgs);
             default:
                 // TODO: log warning or throw exception on unknown/unsupported type?  Fow now logging.
                 // throw new IllegalArgumentException("Unsupported event type (" + t + ")");

@@ -22,8 +22,8 @@ public class UserActivityEvent extends Event {
     protected UserActivityEvent() {
     }
 
-    public UserActivityEvent(Long userId, EventCategory category, EventSeverity severity, String messageKey, Object... messageArgs) {
-        super(EventType.USER_ACTIVITY, category, severity, messageKey, messageArgs);
+    public UserActivityEvent(Long userId, EventCategory category, EventSeverity severity, String defaultMessageFmt, String messageKey, Object... messageArgs) {
+        super(EventType.USER_ACTIVITY, category, severity, defaultMessageFmt, messageKey, messageArgs);
         this.userId = userId;
     }
 }
