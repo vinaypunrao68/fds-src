@@ -226,8 +226,8 @@ def get_test_parms():
     #results_2014-08-05_nvols\:1.threads\:1.type\:GET.nfiles\:10000.test_type\:tgen.fsize\:4096.nreqs\:100000.test
     m = re.match("(\w+)_(\d+-)_nvols:(\d+).threads:(\d+).type:(\w+).nfiles:(\d+).test_type:(\w+).fsize:(\d+).nreqs:(\d+).test", options.directory)
 
-def print_counter(counters, agent, counter, ctype, table):
-    c_node = "han" #FIXME
+def print_counter(counters, agent, counter, ctype, table, node):
+    c_node = node
     series = counters.get_cntr(c_node, agent, counter, ctype)
     if ctype == "count":
         if series is not None:
@@ -238,20 +238,30 @@ def print_counter(counters, agent, counter, ctype, table):
                 rate = np.diff(values) / np.diff(time)
                 value = getmax(rate)
                 print agent + "-" + counter + ", ", value, ", ",
-                table[agent+":"+counter] = value 
+                table[agent+":"+counter+":count"] = value 
         else:
             print agent + "-" + counter + ", ", -1, ", ",
-            table[agent+":"+counter] = -1 
+            table[agent+":"+counter+":count"] = -1 
 
     else:
         if series is not None:
             for v in series:
                 value = getmax(series[v][0])/1e6
                 print agent + "-" + counter + ", ", value, ", ",
-                table[agent+":"+counter] = value
+                table[agent+":"+counter+":latency"] = value
         else:
             print agent + "-" + counter + ", ", -1, ", ",
-            table[agent+":"+counter] = -1
+            table[agent+":"+counter+":latency"] = -1
+
+# results_2014-10-21_nvols:1.outstanding:50.test_type:tgen_java.fsize:4096.threads:4.nfiles:1000.nreqs:1000000.type:GET.test , results_2014-10-21_nvols:1.outstanding:50.test_type:tgen_java.fsize:4096.threads:4.nfiles:1000.nreqs:1000000.type:GET.test
+def tokenize_name(name):
+    _name = name.lstrip('results_').rstrip('\.test')
+    m = re.match("^(\d+-\d+-\d+)_.*", _name)
+    assert m != None
+    date = m.group(1)
+    _name = re.sub("[\d-]+_","",_name)
+    tokens = _name.split('.')
+    return tokens
 
 # FIXME: multivolumes!
 
@@ -259,6 +269,7 @@ def main():
     parser = OptionParser()
     parser.add_option("-d", "--directory", dest = "directory", help = "Directory")
     parser.add_option("-n", "--name", dest = "name", help = "Name")
+    parser.add_option("-N", "--node", dest = "node", help = "Node the counters have been collected")
     #parser.add_option("-c", "--column", dest = "column", help = "Column")
     parser.add_option("-p", "--plot-enable", dest = "plot_enable", action = "store_true", default = False, help = "Plot graphs")
     parser.add_option("-A", "--ab-enable", dest = "ab_enable", action = "store_true", default = False, help = "AB mode")
@@ -286,6 +297,10 @@ def main():
     # counters.get_cntr()
     print options.name,",",
     table["name"] = options.name
+    tokens = tokenize_name(options.name)
+    for e in tokens:
+        _t = e.split(':')
+        table[_t[0]] = _t[1]
     time.sleep(1)
     th = get_avgth()
     print "th,", th,",",
@@ -326,19 +341,19 @@ def main():
             cs = getavg(get_cs(node))
             print "cs,",cs,", ",
             table["cs"] = cs
-    print_counter(counters, "am", "am_get_obj_req", "latency", table)
-    print_counter(counters, "am", "am_get_obj_req", "count", table)
+    print_counter(counters, "am", "am_get_obj_req", "latency", table, options.node)
+    print_counter(counters, "am", "am_get_obj_req", "count", table, options.node)
     # am:am_get_obj_req,am:am_get_sm,am:am_get_dm,am:am_get_qos
-    print_counter(counters, "am", "am_get_sm", "latency", table)
-    print_counter(counters, "am", "am_get_dm", "latency", table)
-    print_counter(counters, "am", "am_get_qos", "latency", table)
+    print_counter(counters, "am", "am_get_sm", "latency", table, options.node)
+    print_counter(counters, "am", "am_get_dm", "latency", table, options.node)
+    print_counter(counters, "am", "am_get_qos", "latency", table, options.node)
 
 
-    print_counter(counters, "am", "am_put_obj_req", "latency", table)
-    print_counter(counters, "am", "am_put_obj_req", "count", table)
-    print_counter(counters, "am", "am_put_sm", "latency", table)
-    print_counter(counters, "am", "am_put_dm", "latency", table)
-    print_counter(counters, "am", "am_put_qos", "latency", table)
+    print_counter(counters, "am", "am_put_obj_req", "latency", table, options.node)
+    print_counter(counters, "am", "am_put_obj_req", "count", table, options.node)
+    print_counter(counters, "am", "am_put_sm", "latency", table, options.node)
+    print_counter(counters, "am", "am_put_dm", "latency", table, options.node)
+    print_counter(counters, "am", "am_put_qos", "latency", table, options.node)
     
     javalat = getavg(get_java_cntr())
     print "avgjavalat,", javalat, ", ",
@@ -362,8 +377,8 @@ def main():
     print "" 
     if options.dump_to_db != None and db != None:
         db["experiments"].insert(table)
-        for e in db["experiments"].all():
-            print e
+        # for e in db["experiments"].all():
+        #    print e
 
 if __name__ == "__main__":
     main()
