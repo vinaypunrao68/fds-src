@@ -5,10 +5,7 @@
 package com.formationds.om.repository.helper;
 
 import com.formationds.commons.calculation.Calculation;
-import com.formationds.commons.model.Datapoint;
-import com.formationds.commons.model.DateRange;
-import com.formationds.commons.model.Series;
-import com.formationds.commons.model.Statistics;
+import com.formationds.commons.model.*;
 import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
@@ -28,6 +25,7 @@ import com.formationds.commons.util.DateTimeUtil;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.MetricQueryCriteria;
+import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
 import com.formationds.util.SizeUnit;
 import org.apache.thrift.TException;
@@ -210,6 +208,12 @@ public class QueryHelper {
         }
 
         return stats;
+    }
+
+    public Events executeEventQuery( final QueryCriteria query )
+            throws TException {
+
+        return null;
     }
 
     protected boolean isPerformanceQuery( final List<Metrics> metrics ) {
