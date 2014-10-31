@@ -11,6 +11,8 @@ import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
+import com.formationds.om.helper.SingletonAmAPI;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.rest.*;
 import com.formationds.om.rest.events.IngestEvents;
 import com.formationds.om.rest.events.QueryEvents;
@@ -26,7 +28,6 @@ import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
-import org.joda.time.Duration;
 import org.json.JSONObject;
 
 import javax.crypto.SecretKey;
@@ -57,8 +58,7 @@ public class Main {
         }
     }
 
-    public void start(String[] args)
-            throws Exception {
+    public void start(String[] args) throws Exception {
         configuration = new Configuration("om-xdi", args);
         NativeOm.startOm(args);
 
@@ -78,14 +78,20 @@ public class Main {
         XdiClientFactory clientFactory = new XdiClientFactory();
         configCache = new ConfigurationApi(clientFactory.remoteOmService("localhost", 9090));
         EnsureAdminUser.bootstrapAdminUser(configCache);
+
+        SingletonConfigAPI.instance().api( configCache );
+
         AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
 
         String omHost = "localhost";
         int omPort = platformConfig.defaultInt("fds.om.config_port", 8903);
         String webDir = platformConfig.defaultString("fds.om.web_dir", "../lib/admin-webapp");
 
+        SingletonAmAPI.instance().api( amService );
+
         FDSP_ConfigPathReq.Iface legacyConfigClient = clientFactory.legacyConfig(omHost, omPort);
-        VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
+//    Deprecated part of the old stats
+//    VolumeStatistics volumeStatistics = new VolumeStatistics( Duration.standardMinutes( 20 ) );
 
         boolean enforceAuthentication = platformConfig.defaultBoolean("fds.authentication", true);
         Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
@@ -120,12 +126,7 @@ public class Main {
         /*
          * provides metrics RESTful API endpoints
          */
-        metrics(configCache);
-
-        /*
-         * provide events RESTful API endpoints
-         */
-        events();
+        metrics();
 
         authenticate(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(xdi, amService, legacyConfigClient, t));
         authenticate(HttpMethod.POST, "/api/config/volumes",
@@ -143,37 +144,139 @@ public class Main {
         fdsAdminOnly(HttpMethod.GET, "/api/system/users", (t) -> new ListUsers(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid", (t) -> new AssignUserToTenant(configCache, secretKey), authorizer);
 
+        /*
+         * provide events RESTful API endpoints
+         */
+        events();
+
         int httpPort = platformConfig.defaultInt("fds.om.http_port", 7777);
         int httpsPort = platformConfig.defaultInt("fds.om.https_port", 7443);
         webApp.start(new HttpConfiguration(httpPort), new HttpsConfiguration(httpsPort, configuration));
+  }
+
+  private void fdsAdminOnly( HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f, Authorizer authorizer ) {
+    authenticate( method, route, ( t ) -> {
+      try {
+        if( authorizer.userFor( t )
+                      .isIsFdsAdmin() ) {
+          return f.apply( t );
+        } else {
+          return ( r, p ) -> new JsonResource( new JSONObject().put( "message", "Invalid permissions" ), HttpServletResponse.SC_UNAUTHORIZED );
+        }
+      } catch( SecurityException e ) {
+        LOG.error( "Error authorizing request, userId = " + t.getUserId(), e );
+        return ( r, p ) -> new JsonResource( new JSONObject().put( "message", "Invalid permissions" ), HttpServletResponse.SC_UNAUTHORIZED );
+      }
+    } );
+  }
+
+  private void authenticate( HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f ) {
+    HttpErrorHandler eh = new HttpErrorHandler( new HttpAuthenticator( f, xdi.getAuthenticator() ) );
+    webApp.route( method, route, () -> eh );
+  }
+
+  private void metrics() {
+    if( !FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
+      return;
     }
 
-    private void fdsAdminOnly(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f, Authorizer authorizer) {
-        authenticate(method, route, (t) -> {
-            try {
-                if (authorizer.userFor(t)
-                        .isIsFdsAdmin()) {
-                    return f.apply(t);
-                } else {
-                    return (r, p) -> new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
-                }
-            } catch (SecurityException e) {
-                LOG.error("Error authorizing request, userId = " + t.getUserId(), e);
-                return (r, p) -> new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
-            }
-        });
+    LOG.trace( "registering metrics endpoints" );
+    metricsGets();
+    metricsPost();
+    LOG.trace( "registered metrics endpoints" );
+  }
+
+  private void metricsGets() {
+    authenticate( HttpMethod.PUT, "/api/stats/volumes",
+                  ( t ) -> new QueryMetrics() );
+  }
+
+  private void metricsPost() {
+    webApp.route( HttpMethod.POST, "/api/stats", ( ) -> new IngestVolumeStats( configCache ) );
+  }
+
+  private void snapshot( final ConfigurationApi config,
+                         final FDSP_ConfigPathReq.Iface legacyConfigPath,
+                         Authorizer authorizer ) {
+    if( !FdsFeatureToggles.SNAPSHOT_ENDPOINT.isActive() ) {
+      return;
     }
 
-    private void authenticate( HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f ) {
-        HttpErrorHandler eh = new HttpErrorHandler( new HttpAuthenticator( f, xdi.getAuthenticator() ) );
-        webApp.route(method, route, () -> eh);
+    /**
+     * logical grouping for each HTTP method.
+     *
+     * This will allow future additions to the snapshot API to be extended
+     * and quickly view to ensure that all API are added. Its very lightweight,
+     * but make it easy to follow and maintain.
+     */
+    LOG.trace( "registering snapshot endpoints" );
+    snapshotGets( config, authorizer );
+    snapshotDeletes( config, authorizer );
+    snapshotPosts( config, legacyConfigPath, authorizer );
+    snapshotPuts( config, authorizer );
+    LOG.trace( "registered snapshot endpoints" );
+  }
+
+  private void snapshotPosts( final ConfigurationApi config,
+                              final FDSP_ConfigPathReq.Iface legacyConfigPath,
+                              final Authorizer authorizer ) {
+    // POST methods
+    fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/policies",
+                  ( t ) -> new CreateSnapshotPolicy( config ), authorizer );
+    fdsAdminOnly( HttpMethod.POST, "/api/config/volumes/:volumeId/snapshot",
+                  ( t ) -> new CreateSnapshot( config ), authorizer );
+    fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/restore/:snapshotId/:volumeId",
+                  ( t ) -> new RestoreSnapshot( config ), authorizer );
+    fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/clone/:snapshotId/:cloneVolumeName",
+                  ( t ) -> new CloneSnapshot( config, legacyConfigPath ), authorizer );
+  }
+
+  private void snapshotPuts( final ConfigurationApi config,
+                             final Authorizer authorizer ) {
+    //PUT methods
+    fdsAdminOnly( HttpMethod.PUT,
+                  "/api/config/snapshot/policies/:policyId/attach/:volumeId",
+                  ( t ) -> new AttachSnapshotPolicyIdToVolumeId( config ),
+                  authorizer );
+    fdsAdminOnly( HttpMethod.PUT,
+                  "/api/config/snapshot/policies/:policyId/detach/:volumeId",
+                  ( t ) -> new DetachSnapshotPolicyIdToVolumeId( config ),
+                  authorizer );
+    fdsAdminOnly( HttpMethod.PUT, "/api/config/snapshot/policies",
+                  ( t ) -> new EditSnapshotPolicy( config ), authorizer );
+    }
+
+    private void snapshotGets(final ConfigurationApi config,
+                              final Authorizer authorizer) {
+    // GET methods
+    fdsAdminOnly( HttpMethod.GET, "/api/config/snapshot/policies",
+                  ( t ) -> new ListSnapshotPolicies( config ), authorizer );
+    fdsAdminOnly( HttpMethod.GET, "/api/config/volumes/:volumeId/snapshot/policies",
+                  ( t ) -> new ListSnapshotPoliciesForVolume( config ), authorizer );
+    fdsAdminOnly( HttpMethod.GET, "/api/config/snapshots/policies/:policyId/volumes",
+                  ( t ) -> new ListVolumeIdsForSnapshotId( config ), authorizer );
+    fdsAdminOnly( HttpMethod.GET, "/api/config/volumes/:volumeId/snapshots",
+                  ( t ) -> new ListSnapshotsByVolumeId( config ), authorizer );
+  }
+
+  private void snapshotDeletes( final ConfigurationApi config,
+                                final Authorizer authorizer ) {
+    // DELETE methods
+    fdsAdminOnly( HttpMethod.DELETE, "/api/config/snapshot/policies/:policyId",
+                  ( t ) -> new DeleteSnapshotPolicy( config ), authorizer );
+
+      /*
+       * TODO this call does not currently exists, maybe it should for API completeness
+       */
+//    fdsAdminOnly( HttpMethod.DELETE, "/api/config/snapshot/:volumeId/:snapshotId",
+//                  ( t ) -> new DeleteSnapshotForVolume(), authorizer );
     }
 
     private void events() {
         if( !FdsFeatureToggles.ACTIVITIES_ENDPOINT.isActive() ) {
             return;
         }
-    
+
         LOG.trace( "registering activities endpoints" );
 
         // TODO: only the AM should be sending this event to us.  How can we validate that?
@@ -189,104 +292,7 @@ public class Main {
         authenticate(HttpMethod.GET, "/api/events/users/:userId/range/:start/:end", (t) -> new QueryEvents());
         authenticate(HttpMethod.GET, "/api/events/users/:userId/paged/:start/:end", (t) -> new QueryEvents());
         LOG.trace( "registered activities endpoints" );
-  }
-
-    private void metrics( final ConfigurationApi config ) {
-        if( !FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
-          return;
-        }
-
-        LOG.trace("registering metrics endpoints");
-        metricsGets();
-        metricsPost(config);
-        LOG.trace("registered metrics endpoints");
     }
 
-    private void metricsGets() {
-        authenticate(HttpMethod.PUT, "/api/stats/volumes",
-                (t) -> new QueryMetrics());
-    }
-
-    private void metricsPost(final ConfigurationApi config) {
-        webApp.route(HttpMethod.POST, "/api/stats",
-                () -> new IngestVolumeStats(config));
-    }
-
-    private void snapshot(final ConfigurationApi config,
-                          final FDSP_ConfigPathReq.Iface legacyConfigPath,
-                          Authorizer authorizer) {
-        if (!FdsFeatureToggles.SNAPSHOT_ENDPOINT.isActive()) {
-            return;
-        }
-
-        /**
-         * logical grouping for each HTTP method.
-         *
-         * This will allow future additions to the snapshot API to be extended
-         * and quickly view to ensure that all API are added. Its very lightweight,
-         * but make it easy to follow and maintain.
-         */
-        LOG.trace("registering snapshot endpoints");
-        snapshotGets(config, authorizer);
-        snapshotDeletes(config, authorizer);
-        snapshotPosts(config, legacyConfigPath, authorizer);
-        snapshotPuts(config, authorizer);
-        LOG.trace("registered snapshot endpoints");
-    }
-
-    private void snapshotPosts(final ConfigurationApi config,
-                               final FDSP_ConfigPathReq.Iface legacyConfigPath,
-                               final Authorizer authorizer) {
-        // POST methods
-        fdsAdminOnly(HttpMethod.POST, "/api/config/snapshot/policies",
-                (t) -> new CreateSnapshotPolicy(config), authorizer);
-        fdsAdminOnly(HttpMethod.POST, "/api/config/volumes/:volumeId/snapshot",
-                (t) -> new CreateSnapshot(config), authorizer);
-        fdsAdminOnly(HttpMethod.POST, "/api/config/snapshot/restore/:snapshotId/:volumeId",
-                (t) -> new RestoreSnapshot(config), authorizer);
-        fdsAdminOnly(HttpMethod.POST, "/api/config/snapshot/clone/:snapshotId/:cloneVolumeName",
-                (t) -> new CloneSnapshot(config, legacyConfigPath), authorizer);
-    }
-
-    private void snapshotPuts(final ConfigurationApi config,
-                              final Authorizer authorizer) {
-        //PUT methods
-        fdsAdminOnly(HttpMethod.PUT,
-                "/api/config/snapshot/policies/:policyId/attach/:volumeId",
-                (t) -> new AttachSnapshotPolicyIdToVolumeId(config),
-                authorizer);
-        fdsAdminOnly(HttpMethod.PUT,
-                "/api/config/snapshot/policies/:policyId/detach/:volumeId",
-                (t) -> new DetachSnapshotPolicyIdToVolumeId(config),
-                authorizer);
-        fdsAdminOnly(HttpMethod.PUT, "/api/config/snapshot/policies",
-                (t) -> new EditSnapshotPolicy(config), authorizer);
-    }
-
-    private void snapshotGets(final ConfigurationApi config,
-                              final Authorizer authorizer) {
-        // GET methods
-        fdsAdminOnly(HttpMethod.GET, "/api/config/snapshot/policies",
-                (t) -> new ListSnapshotPolicies(config), authorizer);
-        fdsAdminOnly(HttpMethod.GET, "/api/config/volumes/:volumeId/snapshot/policies",
-                (t) -> new ListSnapshotPoliciesForVolume(config), authorizer);
-        fdsAdminOnly(HttpMethod.GET, "/api/config/snapshots/policies/:policyId/volumes",
-                (t) -> new ListVolumeIdsForSnapshotId(config), authorizer);
-        fdsAdminOnly(HttpMethod.GET, "/api/config/volumes/:volumeId/snapshots",
-                (t) -> new ListSnapshotsByVolumeId(config), authorizer);
-    }
-
-    private void snapshotDeletes(final ConfigurationApi config,
-                                 final Authorizer authorizer) {
-        // DELETE methods
-        fdsAdminOnly(HttpMethod.DELETE, "/api/config/snapshot/policies/:policyId",
-                (t) -> new DeleteSnapshotPolicy(config), authorizer);
-
-      /*
-       * TODO this call does not currently exists, maybe it should for API completeness
-       */
-//    fdsAdminOnly( HttpMethod.DELETE, "/api/config/snapshot/:volumeId/:snapshotId",
-//                  ( t ) -> new DeleteSnapshotForVolume(), authorizer );
-    }
 }
 

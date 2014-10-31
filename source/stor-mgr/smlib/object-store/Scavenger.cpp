@@ -29,6 +29,7 @@ ScavControl::ScavControl(const std::string &modName,
           dataStoreReqHandler(data_store),
           persistStoreGcHandler(persist_store),
           noPersistScavStats(false),
+          verifyData(false),
           scav_timer(new FdsTimer()),
           scav_timer_task(new ScavTimerTask(*scav_timer, this))
 {
@@ -70,7 +71,7 @@ void ScavControl::updateDiskStats()
          ++cit) {
         DiskScavenger *diskScav = cit->second;
         if (diskScav != NULL) {
-            diskScav->updateDiskStats();
+            diskScav->updateDiskStats(verifyData);
         }
     }
 }
@@ -188,7 +189,7 @@ void ScavControl::startScavengeProcess()
          ++cit) {
         DiskScavenger *diskScav = cit->second;
         if (diskScav != NULL) {
-            diskScav->startScavenge();
+            diskScav->startScavenge(verifyData);
         }
     }
 }
@@ -408,12 +409,13 @@ DiskScavenger::getDiskStats(diskio::DiskStat* retStat) {
     return err;
 }
 
-void DiskScavenger::updateDiskStats() {
+void DiskScavenger::updateDiskStats(fds_bool_t verify_data) {
     Error err(ERR_OK);
     DiskStat disk_stat;
     double tot_size;
     fds_uint32_t avail_percent;  // percent of available capacity
     fds_uint32_t token_reclaim_threshold = 0;
+    verifyData = verify_data;
 
     // we are not persisting deleted bytes, so we if this is the
     // first time we are checking if we should do GC after SM
@@ -422,7 +424,7 @@ void DiskScavenger::updateDiskStats() {
     // In this case, we are going to start compaction process for this
     // disk without checking stats
     if (noPersistScavStats) {
-        startScavenge(token_reclaim_threshold);
+        startScavenge(verifyData, token_reclaim_threshold);
     }
 
     err = getDiskStats(&disk_stat);
@@ -446,7 +448,7 @@ void DiskScavenger::updateDiskStats() {
         }
 
         // start token compaction process
-        startScavenge(token_reclaim_threshold);
+        startScavenge(verifyData, token_reclaim_threshold);
     }
 }
 
@@ -524,7 +526,8 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
     }
 }
 
-Error DiskScavenger::startScavenge(fds_uint32_t token_reclaim_threshold) {
+Error DiskScavenger::startScavenge(fds_bool_t verify,
+                                   fds_uint32_t token_reclaim_threshold) {
     Error err(ERR_OK);
     fds_uint32_t i = 0;
     fds_token_id tok_id;
@@ -533,6 +536,9 @@ Error DiskScavenger::startScavenge(fds_uint32_t token_reclaim_threshold) {
         LOGNOTIFY << "Scavenger is either running or trying to finish, ignoring command";
         return ERR_NOT_READY;
     }
+
+    // type of work we are going to do
+    verifyData = verify;
 
     // get list of tokens for this tier/disk from persistent layer
     findTokensToCompact(token_reclaim_threshold);
@@ -557,7 +563,7 @@ Error DiskScavenger::startScavenge(fds_uint32_t token_reclaim_threshold) {
         // TODO(Anna) commenting our isTokenInSyncMode -- need to revisit
         // when porting back token migration
         // if (!objStorMgr->isTokenInSyncMode(tok_id)) {
-           tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, std::bind(
+        tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, verifyData, std::bind(
                &DiskScavenger::compactionDoneCb, this,
                std::placeholders::_1, std::placeholders::_2));
            // }
@@ -613,7 +619,8 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
     ScavState curState = std::atomic_load(&state);
 
     LOGNORMAL << "Compaction done notif for token " << token_id
-              << " disk_id " << disk_id << " result " << error;
+              << " disk_id " << disk_id << " verify data?" << verifyData
+              << " result " << error;
 
     fds_verify(curState != SCAV_STATE_IDLE);
     if (curState == SCAV_STATE_STOPPING) {
@@ -635,9 +642,10 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
                 // TODO(Anna) commenting our isTokenInSyncMode -- need to revisit
                 // when porting back token migration
                 // if (!objStorMgr->isTokenInSyncMode(tok_id)) {
-                   tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, std::bind(
-                       &DiskScavenger::compactionDoneCb, this,
-                       std::placeholders::_1, std::placeholders::_2));
+                tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, verifyData,
+                                     std::bind(
+                                         &DiskScavenger::compactionDoneCb, this,
+                                         std::placeholders::_1, std::placeholders::_2));
                    // }
              }
         }

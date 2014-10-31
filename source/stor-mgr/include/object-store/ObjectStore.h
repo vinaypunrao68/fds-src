@@ -124,7 +124,8 @@ class ObjectStore : public Module, public boost::noncopyable {
      * to new file from the file that is being garbage collected
      */
     Error copyObjectToNewLocation(const ObjectID& objId,
-                                  diskio::DataTier tier);
+                                  diskio::DataTier tier,
+                                  fds_bool_t verifyData);
 
 
     /**

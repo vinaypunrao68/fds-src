@@ -112,6 +112,8 @@ cc_assert(vio1, fds_offset_of(meta_vol_adr_t, vol_uuid) ==
  */
 #define MAX_PHY_LOC_MAP 3
 #define MAX_ASSOC_ENTRY 64
+#define SYNCMETADATA_MASK    0x1
+#define OBJ_FLAG_CORRUPTED   0x40
 struct __attribute__((__packed__)) obj_phy_loc_v0 {
     fds_int8_t           obj_tier;            /* tier location               */
     fds_uint16_t         obj_stor_loc_id;     /* physical location in tier   */
@@ -139,6 +141,7 @@ struct __attribute__((__packed__)) meta_obj_map_v0
     fds_uint64_t         obj_del_time;        /* deletion time.         */
     fds_uint64_t         assoc_mod_time;      /* Modification time.         */
     fds_uint64_t         expire_time;         /* Object Expiration time */
+    fds_uint8_t          obj_flags;            /* flags / status */
 
     /* Object transition time to a archive tier */
     fds_uint64_t         transition_time;
