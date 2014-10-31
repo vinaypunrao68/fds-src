@@ -282,7 +282,7 @@ public class Main {
         // TODO: only the AM should be sending this event to us.  How can we validate that?
         webApp.route(HttpMethod.PUT, "/api/events/log/:event", () -> new IngestEvents());
 
-        authenticate(HttpMethod.PUT, "/api/config/events/", (t) -> new QueryEvents());
+        authenticate(HttpMethod.PUT, "/api/config/events", (t) -> new QueryEvents());
 
 //        authenticate(HttpMethod.GET, "/api/events/range/:start/:end", (t) -> new QueryEvents());
 //        authenticate(HttpMethod.GET, "/api/events/paged/:start/:end", (t) -> new QueryEvents());
