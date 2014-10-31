@@ -100,9 +100,6 @@ public class Dispatcher extends HttpServlet {
         outputStream.flush();
         outputStream.doCloseForReal();
 
-        // TODO why do this ourselves instead of using standard Jetty (or other) request logging?
-        // only benefit I see is that we may capture additional log info in the context of the
-        // request execution.
         long elapsed = System.currentTimeMillis() - then;
         LOG.info("Request URI: [" + request.getMethod() + " " + request.getRequestURI() + "], HTTP status: " + resource.getHttpStatus() + ", " + elapsed + "ms");
     }

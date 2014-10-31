@@ -90,20 +90,6 @@ public class WebApp {
         contextHandler.setContextPath("/");
         contextHandler.addServlet(new ServletHolder(dispatcher), "/");
         handlers.addHandler(contextHandler);
-
-        // TODO: DO NOT CHECKIN.  We currently do this logging ourselves in Dispatcher.
-        // At this point I just want to see that the handlers work the way I expect before
-        // I consider plugging in a custom handler to capture user activity events.  Given
-        // our implementation, it might make more sense plug into the dispatcher instead of
-        // using a Jetty handler.
-//        RequestLogHandler requestLogHandler = new RequestLogHandler();
-//        NCSARequestLog requestLog = new AsyncNCSARequestLog( "/fds/var/logs/om-request-yyyymmdd.log" );
-//        requestLog.setRetainDays(30);
-//        requestLog.setAppend(true);
-//        requestLog.setExtended(false);
-//        requestLog.setLogTimeZone("UTC");
-//        requestLogHandler.setRequestLog(requestLog);
-//        handlers.addHandler(requestLogHandler);
         server.setHandler(handlers);
 
         try {
