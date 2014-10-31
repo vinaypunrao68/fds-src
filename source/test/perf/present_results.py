@@ -74,7 +74,7 @@ def generate_scaling_lat(conns, lat):
     plt.savefig(filename)
     return filename
 
-def mail_success(images):
+def mail_success(recipients, images):
     # githead = get_githead(directory)
     # gitbranch = get_gitbranch(directory)
     # hostname = get_hostname()
@@ -100,17 +100,17 @@ def mail_success(images):
         _f.write(epilogue + "\n")
     # mail_address = "engineering@formationds.com"
     
-    mail_address = "matteo@formationds.com"
     attachments = ""
     for e in images:
         attachments += "-a %s " % e
-    cmd = "cat .mail | mail -s 'performance regression' %s %s" % (attachments, mail_address)
+    cmd = "cat .mail | mail -s 'performance regression' %s %s" % (attachments, recipients)
     print cmd
     os.system(cmd)
 
 
 if __name__ == "__main__":
     test_db = sys.argv[1]
+    recipients = sys.argv[2]
     # directory = sys.argv[1]
     # test_id = int(sys.argv[2])
     # mode = sys.argv[3]
@@ -133,6 +133,6 @@ if __name__ == "__main__":
     images = [] 
     images.append(generate_scaling_iops(conns, iops))
     images.append(generate_scaling_lat(conns, lat))
-    mail_success(images)
+    mail_success(recipients, images)
     
 
