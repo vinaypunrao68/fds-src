@@ -260,7 +260,6 @@ StorHvCtrl::~StorHvCtrl()
 void StorHvCtrl::initHandlers() {
     handlers[fds::FDS_STAT_BLOB]            = new StatBlobHandler(this);
     handlers[fds::FDS_GET_VOLUME_METADATA]  = new GetVolumeMetaDataHandler(this);
-    handlers[fds::FDS_VOLUME_CONTENTS]      = new GetBucketHandler(this);
 }
 
 SysParams* StorHvCtrl::getSysParams() {
