@@ -11,9 +11,33 @@
 #include <fdsp_utils.h>
 #include <net/SvcRequest.h>
 #include <net/SvcRequestPool.h>
+#include <fds_module_provider.h>
 #include <util/fiu_util.h>
 
 namespace fds {
+
+/**
+* @brief Constructor
+*
+* @param id
+* @param mgr
+*/
+SvcRequestCounters::SvcRequestCounters(const std::string &id, FdsCountersMgr *mgr)
+    : FdsCounters(id, mgr),
+    timedout("timedout", this),
+    invokeerrors("invokeerrors", this),
+    appsuccess("appsuccess", this),
+    apperrors("apperrors", this),
+    serializationLat("serializationLat", this),
+    deserializationLat("deserializationLat", this),
+    sendLat("sendLat", this),
+    reqLat("reqLat", this)
+{
+}
+
+SvcRequestCounters::~SvcRequestCounters()
+{
+}
 
 SvcRequestTimer::SvcRequestTimer(const SvcRequestId &id,
                                  const fpi::FDSPMsgTypeId &msgTypeId,

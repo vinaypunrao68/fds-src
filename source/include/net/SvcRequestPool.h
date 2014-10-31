@@ -14,25 +14,6 @@
 namespace fds {
 
 /**
- * @brief Svc request counters
- */
-class SvcRequestCounters : public FdsCounters
-{
- public:
-    SvcRequestCounters(const std::string &id, FdsCountersMgr *mgr);
-    ~SvcRequestCounters();
-
-    /* Number of requests that have timedout */
-    NumericCounter timedout;
-    /* Number of requests that experienced transport error */
-    NumericCounter invokeerrors;
-    /* Number of responses that resulted in app acceptance */
-    NumericCounter appsuccess;
-    /* Number of responses that resulted in app rejections */
-    NumericCounter apperrors;
-};
-
-/**
  * Svc request factory. Use this class for constructing various Svc request objects
  */
 class SvcRequestPool {
@@ -75,8 +56,6 @@ class SvcRequestPool {
     /* Common completion callback for svc requests */
     SvcRequestCompletionCb finishTrackingCb_;
 };
-
-extern SvcRequestCounters* gSvcRequestCntrs;
 extern SvcRequestPool *gSvcRequestPool;
 }  // namespace fds
 

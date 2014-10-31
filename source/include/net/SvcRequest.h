@@ -17,12 +17,20 @@
 #include <net/net-service.h>
 #include <fdsp_utils.h>
 #include <concurrency/taskstatus.h>
+#include <fds_counters.h>
+
+#define SVCPERF(statement) statement
 
 namespace fds {
 /* Forward declarations */
 struct EPSvcRequest;
 struct FailoverSvcRequest;
 struct QuorumSvcRequest;
+
+namespace net {
+template<class PayloadT> boost::shared_ptr<PayloadT>
+ep_deserialize(Error &e, boost::shared_ptr<std::string> payload);
+}
 
 /* Async svc request identifier */
 typedef uint64_t SvcRequestId;
@@ -51,10 +59,35 @@ enum SvcRequestState {
     SVC_REQUEST_COMPLETE
 };
 
-namespace net {
-template<class PayloadT> boost::shared_ptr<PayloadT>
-ep_deserialize(Error &e, boost::shared_ptr<std::string> payload);
-}
+/**
+ * @brief Svc request counters
+ */
+class SvcRequestCounters : public FdsCounters
+{
+ public:
+    SvcRequestCounters(const std::string &id, FdsCountersMgr *mgr);
+    ~SvcRequestCounters();
+
+    /* Number of requests that have timedout */
+    NumericCounter      timedout;
+    /* Number of requests that experienced transport error */
+    NumericCounter      invokeerrors;
+    /* Number of responses that resulted in app acceptance */
+    NumericCounter      appsuccess;
+    /* Number of responses that resulted in app rejections */
+    NumericCounter      apperrors;
+
+    /* Serialization latency */
+    LatencyCounter      serializationLat;
+    /* Deserialization latency */
+    LatencyCounter      deserializationLat;
+    /* Send latency */
+    LatencyCounter      sendLat;
+    /* Request latency */
+    LatencyCounter      reqLat;
+};
+extern SvcRequestCounters* gSvcRequestCntrs;
+
 template <class ReqT, class RespMsgT>
 struct SvcRequestCbTask : concurrency::TaskStatus {
     void respCb(ReqT* req, const Error &e, boost::shared_ptr<std::string> respPayload)
@@ -186,7 +219,9 @@ struct SvcRequestIf {
     {
         boost::shared_ptr<std::string>buf;
         /* NOTE: Doing the serialization on calling thread */
+        SVCPERF(util::StopWatch sw; sw.start());
         fds::serializeFdspMsg(*payload, buf);
+        SVCPERF(gSvcRequestCntrs->serializationLat.update(sw.getElapsedNanos()));
         setPayloadBuf(msgTypeId, buf);
     }
     void setPayloadBuf(const fpi::FDSPMsgTypeId &msgTypeId,
@@ -212,6 +247,10 @@ struct SvcRequestIf {
     void setRequestId(const SvcRequestId &id);
 
     void setCompletionCb(SvcRequestCompletionCb &completionCb);
+
+ public:
+    /* Request latency stop watch */
+    util::StopWatch latencySw_;
 
  protected:
     virtual void invokeWork_() = 0;

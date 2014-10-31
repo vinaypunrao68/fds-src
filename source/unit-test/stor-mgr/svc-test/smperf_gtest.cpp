@@ -167,7 +167,9 @@ TEST_F(SMApi, putsPerf)
             << "Throughput: " << (putsIssued_ * 1000 * 1000 * 1000) / (endTs_ - startTs_) << "\n"
             << "Avg creationLat: " << creationLat.value() << std::endl
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
-            << "(ns) Avg op latency: " << avgLatency_.value() << std::endl;
+            << "(ns) Avg op latency: " << avgLatency_.value() << std::endl
+            << "svc op latency: " << gSvcRequestCntrs->reqLat.value() << std::endl
+            << "svc serialization latency: " << gSvcRequestCntrs->serializationLat.value() << std::endl;
     ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
         << " putsSuccessCnt_: " << putsSuccessCnt_
         << " putsFailedCnt_: " << putsFailedCnt_;

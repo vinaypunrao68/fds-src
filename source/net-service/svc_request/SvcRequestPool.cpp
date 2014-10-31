@@ -16,27 +16,8 @@ namespace fds {
 
 // TODO(Rao): Make SvcRequestPool and SvcRequestTracker a module
 SvcRequestPool *gSvcRequestPool;
-SvcRequestTracker* gSvcRequestTracker;
 SvcRequestCounters* gSvcRequestCntrs;
-
-/**
-* @brief Constructor
-*
-* @param id
-* @param mgr
-*/
-SvcRequestCounters::SvcRequestCounters(const std::string &id, FdsCountersMgr *mgr)
-    : FdsCounters(id, mgr),
-    timedout("timedout", this),
-    invokeerrors("invokeerrors", this),
-    appsuccess("appsuccess", this),
-    apperrors("apperrors", this)
-{
-}
-
-SvcRequestCounters::~SvcRequestCounters()
-{
-}
+SvcRequestTracker* gSvcRequestTracker;
 
 /**
  * Constructor
