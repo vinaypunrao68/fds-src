@@ -161,6 +161,31 @@ void StatBlobResponseHandler::process() {
 StatBlobResponseHandler::~StatBlobResponseHandler() {
 }
 
+AsyncStatBlobResponseHandler::AsyncStatBlobResponseHandler(
+    AmAsyncResponseApi::shared_ptr _api,
+    boost::shared_ptr<apis::RequestId>& _reqId)
+        : respApi(_api),
+          requestId(_reqId) {
+    type = HandlerType::IMMEDIATE;
+}
+
+
+void AsyncStatBlobResponseHandler::process() {
+    retBlobDesc = boost::make_shared<apis::BlobDescriptor>();
+    retBlobDesc->name = blobDesc.getBlobName();
+    retBlobDesc->byteCount = blobDesc.getBlobSize();
+
+    for (const_kv_iterator it = blobDesc.kvMetaBegin();
+         it != blobDesc.kvMetaEnd();
+         it++) {
+        retBlobDesc->metadata[it->first] = it->second;
+    }
+    respApi->statBlobResp(error, requestId, retBlobDesc);
+}
+
+AsyncStatBlobResponseHandler::~AsyncStatBlobResponseHandler() {
+}
+
 StartBlobTxResponseHandler::StartBlobTxResponseHandler(
     apis::TxDescriptor& retVal) : retTxDesc(retVal) {
 }

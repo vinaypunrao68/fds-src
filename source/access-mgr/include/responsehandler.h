@@ -55,6 +55,20 @@ struct StatBlobResponseHandler : ResponseHandler , StatBlobCallback {
     virtual ~StatBlobResponseHandler();
 };
 
+struct AsyncStatBlobResponseHandler : ResponseHandler , StatBlobCallback {
+    AsyncStatBlobResponseHandler(AmAsyncResponseApi::shared_ptr _api,
+                                 boost::shared_ptr<apis::RequestId>& _reqId);
+    typedef boost::shared_ptr<AsyncStatBlobResponseHandler> ptr;
+
+    AmAsyncResponseApi::shared_ptr respApi;
+    boost::shared_ptr<apis::RequestId> requestId;
+
+    boost::shared_ptr<apis::BlobDescriptor> retBlobDesc;
+
+    virtual void process();
+    virtual ~AsyncStatBlobResponseHandler();
+};
+
 struct AttachVolumeResponseHandler : ResponseHandler {
     AttachVolumeResponseHandler();
     typedef boost::shared_ptr<AttachVolumeResponseHandler> ptr;
