@@ -282,15 +282,16 @@ public class Main {
         // TODO: only the AM should be sending this event to us.  How can we validate that?
         webApp.route(HttpMethod.PUT, "/api/events/log/:event", () -> new IngestEvents());
 
-        authenticate(HttpMethod.GET, "/api/events/", (t) -> new QueryEvents());
-        authenticate(HttpMethod.GET, "/api/events/range/:start/:end", (t) -> new QueryEvents());
-        authenticate(HttpMethod.GET, "/api/events/paged/:start/:end", (t) -> new QueryEvents());
-        authenticate(HttpMethod.GET, "/api/events/tenants/:tenantId/range/:start/:end", (t) -> new QueryEvents());
-        authenticate(HttpMethod.GET, "/api/events/tenants/:tenantId/paged/:start/:end", (t) -> new QueryEvents());
-        authenticate(HttpMethod.GET, "/api/events/volumes/:volumeId/range/:start/:end", (t) -> new QueryEvents());
-        authenticate(HttpMethod.GET, "/api/events/volumes/:volumeId/paged/:start/:end", (t) -> new QueryEvents());
-        authenticate(HttpMethod.GET, "/api/events/users/:userId/range/:start/:end", (t) -> new QueryEvents());
-        authenticate(HttpMethod.GET, "/api/events/users/:userId/paged/:start/:end", (t) -> new QueryEvents());
+        authenticate(HttpMethod.PUT, "/api/config/events/", (t) -> new QueryEvents());
+
+//        authenticate(HttpMethod.GET, "/api/events/range/:start/:end", (t) -> new QueryEvents());
+//        authenticate(HttpMethod.GET, "/api/events/paged/:start/:end", (t) -> new QueryEvents());
+//        authenticate(HttpMethod.GET, "/api/events/tenants/:tenantId/range/:start/:end", (t) -> new QueryEvents());
+//        authenticate(HttpMethod.GET, "/api/events/tenants/:tenantId/paged/:start/:end", (t) -> new QueryEvents());
+//        authenticate(HttpMethod.GET, "/api/events/volumes/:volumeId/range/:start/:end", (t) -> new QueryEvents());
+//        authenticate(HttpMethod.GET, "/api/events/volumes/:volumeId/paged/:start/:end", (t) -> new QueryEvents());
+//        authenticate(HttpMethod.GET, "/api/events/users/:userId/range/:start/:end", (t) -> new QueryEvents());
+//        authenticate(HttpMethod.GET, "/api/events/users/:userId/paged/:start/:end", (t) -> new QueryEvents());
         LOG.trace( "registered activities endpoints" );
     }
 
