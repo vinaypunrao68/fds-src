@@ -331,10 +331,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         VolPolicyMgr      *volPolicyMgr = om->om_policy_mgr();
         VolumeInfo::pointer  parentVol, cloneVol;
-        fds_volid_t cloneVolId = fds::getUuidFromVolumeName(*clonedVolumeName);
 
-        cloneVol = VolumeInfo::vol_cast_ptr(
-            volContainer->rs_get_resource(clonedVolumeName->c_str()));
+        cloneVol = volContainer->get_volume(*clonedVolumeName);
         if (cloneVol != NULL) {
             LOGWARN << "volume with same name already exists : " << *clonedVolumeName;
             apiException("volume with same name already exists");
@@ -348,7 +346,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         VolumeDesc desc(*(parentVol->vol_get_properties()));
 
-        desc.volUUID = cloneVolId;
+        desc.volUUID = configDB->getNewVolumeId();
         desc.name = *clonedVolumeName;
         if (*volPolicyId > 0) {
             desc.volPolicyId = *volPolicyId;
@@ -377,7 +375,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         fpi::Snapshot snapshot;
         snapshot.snapshotName = util::strlower(*snapshotName);
         snapshot.volumeId = *volumeId;
-        snapshot.snapshotId = getUuidFromVolumeName(snapshot.snapshotName);
+        snapshot.snapshotId = configDB->getNewVolumeId();
         snapshot.snapshotPolicyId = 0;
         snapshot.creationTimestamp = util::getTimeStampMillis();
         snapshot.retentionTimeSeconds = *retentionTime;

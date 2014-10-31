@@ -451,8 +451,10 @@ OM_NodeAgent::om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& re
     (reg_msg->volumes).reserve((reg.volume_names).size());
     for (uint i = 0; i < (reg.volume_names).size(); i++) {
         std::string volname = (reg.volume_names).at(i);
-        ResourceUUID uuid(getUuidFromVolumeName(volname));
-        (reg_msg->volumes).push_back(uuid.uuid_get_val());
+        OM_NodeContainer * local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volumes = local->om_vol_mgr();
+        VolumeInfo::pointer vol = volumes->get_volume(volname);
+        (reg_msg->volumes).push_back(vol->rs_get_uuid().uuid_get_val());
     }
 
     LOGDEBUG << "Will send StatStreamRegistration with id " << reg.id
