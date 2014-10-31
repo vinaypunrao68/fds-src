@@ -7,12 +7,14 @@ package com.formationds.commons.events;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.SystemActivityEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
+import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -108,26 +110,6 @@ public enum EventManager {
         }
     }
 
-// This needs to be managed outside of commons.events package to prevent
-// circular dependency on om.repository.EventRepository
-//    public static enum EventNotifier implements EventNotificationHandler {
-//        REPOSITORY {
-//            private final EventRepository events = new EventRepository();
-//            @Override
-//            public boolean handleEventNotification(Event e) {
-//                Event persisted = events.save(e);
-//                return true;
-//            }
-//        },
-//        LOGGER {
-//            @Override
-//            public boolean handleEventNotification(Event e) {
-//                EventManager.LOGGER.info(e.getMessageKey(), e.getMessageArgs());
-//                return true;
-//            }
-//        }
-//    }
-
     // default logger notifier
     private EventNotificationHandler notifier = (e) -> {
         getLog().info(e.getMessageKey(), e.getMessageArgs());
@@ -171,8 +153,11 @@ public enum EventManager {
         }
     }
 
-//
-//    // TODO: NOT IMPLEMENTED
-//    public List<Event> getEvents() { return null; }
+    /**
+     * @return the list of events.
+     */
+    public List<Event> getEvents() {
+        return SingletonRepositoryManager.instance().getEventRepository().findAll();
+    }
 
 }

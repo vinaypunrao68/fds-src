@@ -22,6 +22,7 @@ import com.formationds.commons.model.calculated.performance.IOPsConsumed;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.DateTimeUtil;
+import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.MetricQueryCriteria;
@@ -210,10 +211,17 @@ public class QueryHelper {
         return stats;
     }
 
+    /**
+     *
+     * @param query
+     * @return the events mactching the query criteria
+     * @throws TException
+     */
     public Events executeEventQuery( final QueryCriteria query )
             throws TException {
+        EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
 
-        return null;
+        return er.query(query);
     }
 
     protected boolean isPerformanceQuery( final List<Metrics> metrics ) {

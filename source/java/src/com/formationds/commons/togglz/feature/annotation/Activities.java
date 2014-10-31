@@ -21,6 +21,6 @@ import java.lang.annotation.Target;
 @Retention( RetentionPolicy.RUNTIME )
 public @interface Activities
 {
-    // no content, this is the snapshot feature annotation
+    // no content, this is the activities feature annotation
 }
 
