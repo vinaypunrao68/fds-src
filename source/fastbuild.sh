@@ -75,6 +75,10 @@ do
 done
 
 # This  makes one final pass to ensure everything is done
+
+# Since java built once and doesn't have rediculous dependencies, skip the final pass.
+dir_list=${dir_list/java/}
+
 for dir in ${dir_list}
 do
    cd ${dir}
