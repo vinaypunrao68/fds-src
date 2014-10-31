@@ -56,10 +56,9 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
 
     @Override
     public Events query(QueryCriteria queryCriteria) {
+        // TODO: not sure why the build() method doesn't set first/max results but it doesn't currently
         final List<Event> results =
-                (new EventCriteriaQueryBuilder(entity()).searchFor(queryCriteria)
-                                                            .build())
-                        .getResultList();
+                (new EventCriteriaQueryBuilder(entity()).searchFor(queryCriteria).resultsList());
 
         return new Events(results);
     }
