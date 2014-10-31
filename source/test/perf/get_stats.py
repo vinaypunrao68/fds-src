@@ -20,13 +20,18 @@ g_drives = [ "sdg ",
 "nb0", 
 "nb16" ]
 
-nodes = {
-    #"node1" : "10.1.10.16",
-    # "node2" : "10.1.10.17",
-    # "node3" : "10.1.10.18",
-    # "tiefighter" : "10.1.10.102",
-    "han" : "10.1.10.139"
-}
+NODES = {
+        "node1" : "10.1.10.16",
+        "node2" : "10.1.10.17",
+        "node3" : "10.1.10.18",
+        "tiefighter" : "10.1.10.102",
+        "luke" : "10.1.10.222",
+        "han" : "10.1.10.139",
+        "chewie" : "10.1.10.80",
+        "c3po" : "10.1.10.221",
+    }
+
+nodes = {}
 
 def plot_series(series, title = None, ylabel = None, xlabel = "Time [ms]"):
     data = np.asarray(series)
@@ -261,9 +266,15 @@ def main():
     parser.add_option("-g", "--use-graphite-streaming", dest = "use_graphite_streaming", default = False, action = "store_true", help = "Use graphite streaming as input")
     parser.add_option("-j", "--java-tester", dest = "java_tester", default = False, action = "store_true", help = "Java tester output")
     parser.add_option("-b", "--dump-to-db", dest = "dump_to_db", default = None, help = "Dump to database as specified")
+    parser.add_option("", "--fds-nodes", dest = "fds_nodes", default = "han",
+                      help = "List of FDS nodes (for monitoring)")
     global options
     (options, args) = parser.parse_args()
     compute_pidmap()
+    options.nodes = {}
+    for n in options.fds_nodes.split(","):
+        nodes[n] = NODES[n]
+    db = None 
     if options.dump_to_db != None:
         db = dataset.connect('sqlite:///%s' % options.dump_to_db)
 
@@ -349,10 +360,10 @@ def main():
     # else:
     #     print "am_get_latency: ", -1,
     print "" 
-    if options.dump_to_db != None:
+    if options.dump_to_db != None and db != None:
         db["experiments"].insert(table)
-    for e in db["experiments"].all():
-        print e
+        for e in db["experiments"].all():
+            print e
 
 if __name__ == "__main__":
     main()
