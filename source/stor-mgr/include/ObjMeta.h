@@ -30,7 +30,6 @@ extern "C" {
 
 namespace fds {
 
-#define SYNCMETADATA_MASK 0x1
 
 struct SyncMetaData : public serialize::Serializable {
     SyncMetaData();
@@ -94,8 +93,10 @@ class ObjMetaData : public serialize::Serializable {
     void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
 
     void setSyncMask();
+    void setObjCorrupted();
 
     bool syncDataExists() const;
+    fds_bool_t isObjCorrupted() const;
 
     void applySyncData(const fpi::FDSP_MigrateObjectMetadata& data);
 
@@ -150,19 +151,13 @@ class ObjMetaData : public serialize::Serializable {
 
     friend std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMap);
 
-    /* Data mask to indicate which metadata members are valid.
-     * When sync is in progress mask will be set to indicate sync_data
-     * is valid.
-     */
-    uint8_t mask;
-
     /* Physical location entries.  Pointer to field inside obj_map */
     obj_phy_loc_t *phy_loc;
 
     /* Volume association entries */
     std::vector<obj_assoc_entry_t> assoc_entry;
 
-    /* Sync related metadata.  Valid only when mask is set appropriately */
+    /* Sync related metadata. Valid only when SYNCMETADATA_MASK is set */
     SyncMetaData sync_data;
 };
 
@@ -176,6 +171,7 @@ inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
         << "  create_time " << objMd.obj_map.obj_create_time
         << "  del_time " << objMd.obj_map.obj_del_time
         << "  mod_time " << objMd.obj_map.assoc_mod_time
+        << "  flags " << std::hex << objMd.obj_map.obj_flags << std::dec
         << std::endl;
     for (fds_uint32_t i = 0; i < MAX_PHY_LOC_MAP; i++) {
         out << "Object MetaData: "
