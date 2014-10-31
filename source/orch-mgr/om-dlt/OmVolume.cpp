@@ -1160,10 +1160,9 @@ VolumeContainer::om_snap_vol(const FdspMsgHdrPtr &hdr,
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
     std::string         &vname = snap_msg->vol_name;
-    ResourceUUID         uuid(getUuidFromVolumeName(vname));
     VolumeInfo::pointer  vol;
 
-    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
+    vol = get_volume(vname);
     if (vol == NULL) {
         LOGWARN << "Received SnapVol for non-existing volume " << vname;
         return Error(ERR_NOT_FOUND);
@@ -1183,17 +1182,16 @@ VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
 {
     Error err(ERR_OK);
     std::string         &vname = del_msg->vol_name;
-    ResourceUUID         uuid(getUuidFromVolumeName(vname));
     VolumeInfo::pointer  vol;
 
-    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
+    vol = get_volume(vname);
     if (vol == NULL) {
         LOGWARN << "Received DeleteVol for non-existing volume " << vname;
         return Error(ERR_NOT_FOUND);
     }
 
     // start volume delete process
-    vol->vol_event(VolDeleteEvt(uuid, vol.get()));
+    vol->vol_event(VolDeleteEvt(vol->rs_get_uuid(), vol.get()));
 
     return err;
 }
@@ -1228,9 +1226,10 @@ VolumeContainer::om_cleanup_vol(const ResourceUUID& vol_uuid)
     if (volDesc->isSnapshot()) {
         gl_orch_mgr->getConfigDB()->deleteSnapshot(volDesc->getSrcVolumeId(),
                                                    volDesc->volUUID);
-    } else if (!gl_orch_mgr->getConfigDB()->deleteVolume(vol_uuid.uuid_get_val())) {
-        LOGWARN << "unable to delete volume from config db " << vol_uuid;
     }
+    // Nothing to do for volume in config db ..
+    // as it should have been marked as Deleted already..
+    // We need to retail this info for future.
 
     rs_unregister(vol);
     rs_free_resource(vol);
