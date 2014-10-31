@@ -20,13 +20,16 @@
             <table class="default" style="margin-top: 8px;">
                 <tbody>
                     <tr ng-repeat="activity in activities | filter:searchQuery">
-                        <td style="text-align: left;">{{activity.type}}</td>
-                        <td>{{activity.message}}</td>
-                        <td style="text-align: right;">{{activity.time}}</td>
+                        <td style="text-align: left;">
+                            <span class="{{getActivityClass( activity.category )}}{{activity.type}}"></span>
+                            <span>{{ getActivityCategoryString( activity.category ) }}</span>
+                        </td>
+                        <td>{{activity.defaultMessage}}</td>
+                        <td style="text-align: right;">{{ getTimeAgo( activity.initialTimestamp )}}</td>
                     </tr>
                 </tbody>
             </table>
         </div>
-        <pager ng-model="activities" filter="filter" call="getActivities" back-label="{{ 'common.l_back' | translate }}" next-label="{{ 'common.l_next' | translate }}"></pager>
+<!--        <pager ng-model="activities" filter="filter" call="getActivities" back-label="{{ 'common.l_back' | translate }}" next-label="{{ 'common.l_next' | translate }}"></pager>-->
     </div>
 </div>
