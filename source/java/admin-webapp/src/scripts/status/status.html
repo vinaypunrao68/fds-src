@@ -63,9 +63,12 @@
         <table class="default">
             <tbody>
                 <tr ng-repeat="activity in activities">
-                    <td style="text-align: left;">{{activity.type}}</td>
-                    <td>{{activity.message}}</td>
-                    <td style="text-align: right;">{{activity.time}}</td>
+                    <td style="text-align: left;">
+                        <span class="{{ getActivityClass( activity.category )}}"></span>
+                        <span>{{getActivityCategoryString(activity.category)}}</span>
+                    </td>
+                    <td>{{activity.defaultMessage}}</td>
+                    <td style="text-align: right;">{{ getTimeAgo( activity.time ) }}</td>
                 </tr>
             </tbody>
         </table>
