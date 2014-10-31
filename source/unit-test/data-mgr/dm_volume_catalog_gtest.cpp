@@ -8,7 +8,6 @@
 #include <vector>
 #include <string>
 #include <thread>
-#include <map>
 
 #include <dm-vol-cat/DmVolumeDirectory.h>
 #include <PerfTrace.h>
