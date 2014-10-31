@@ -50,8 +50,8 @@
 //        category: 'System'
 //    },
     {
-        time: 1414785099372,
-        defaultMessage: 'Volume \"PromoApp_11\" created by user \"Ralph\".',
+        initialTimestamp: 1414785099372,
+        defaultMessage: 'Created volume: domain\u003d; name\u003dtestvol1; tenantId\u003d0; type\u003dOBJECT; size\u003d2,097,152',
         category: 'SYSTEM',
         severity: 'INFO'
         
