@@ -76,13 +76,10 @@ ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap,
     }
 
     // we enable scavenger by default
-    // TODO(Anna) need a bit more testing before enabling GC
-    /*
     err = scavenger->enableScavenger(diskMap);
     if (!err.ok()) {
         LOGERROR << "Failed to start Scavenger " << err;
     }
-    */
     return err;
 }
 
