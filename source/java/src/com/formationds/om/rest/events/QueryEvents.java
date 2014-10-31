@@ -8,12 +8,11 @@ import com.formationds.commons.model.Events;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.repository.query.QueryCriteria;
-import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 import com.google.gson.reflect.TypeToken;
 import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -38,7 +37,7 @@ public class QueryEvents implements RequestHandler {
             final QueryCriteria eventQuery = ObjectModelHelper.toObject(reader, TYPE);
             final Events events = new QueryHelper().executeEventQuery(eventQuery);
 
-            return new JsonResource(new JSONObject(events));
+            return new TextResource( events.toJSON() );
         }
     }
 }

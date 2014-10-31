@@ -46,8 +46,8 @@ abstract public class Event extends ModelBase {
     // track the original event?
     @Enumerated(EnumType.ORDINAL) private EventState state;
 
-    @Temporal(TemporalType.TIMESTAMP) private Timestamp initialTimestamp;
-    @Temporal(TemporalType.TIMESTAMP)  private Timestamp modifiedTimestamp;
+    @Temporal(TemporalType.TIMESTAMP) private Long initialTimestamp;
+    @Temporal(TemporalType.TIMESTAMP)  private Long modifiedTimestamp;
 
     /**
      * ResourceBundle message lookup key for the event.  Enables event message localization.
@@ -80,7 +80,7 @@ abstract public class Event extends ModelBase {
         this.type = type;
         this.category = category;
         this.severity = severity;
-        this.initialTimestamp = new Timestamp(Instant.now().toEpochMilli());
+        this.initialTimestamp = Instant.now().toEpochMilli();
         this.modifiedTimestamp = this.initialTimestamp;
         this.messageKey = messageKey;
         this.messageArgs = (messageArgs != null ? messageArgs.clone() : new Object[0]);
@@ -117,7 +117,7 @@ abstract public class Event extends ModelBase {
         }
 
         this.state = newState;
-        this.modifiedTimestamp = new Timestamp(Instant.now().toEpochMilli());
+        this.modifiedTimestamp = Instant.now().toEpochMilli();
     }
 
     /**
@@ -220,7 +220,7 @@ abstract public class Event extends ModelBase {
      *
      * @return the initial timestamp for this event
      */
-    public Timestamp getInitialTimestamp() {
+    public Long getInitialTimestamp() {
         return initialTimestamp;
     }
 
@@ -232,14 +232,14 @@ abstract public class Event extends ModelBase {
      *
      * @param initialTimestamp
      */
-    protected void setInitialTimestamp(Timestamp initialTimestamp) {
+    protected void setInitialTimestamp(Long initialTimestamp) {
         this.initialTimestamp = initialTimestamp;
     }
 
     /**
      * @return the last modified timestamp
      */
-    public Timestamp getModifiedTimestamp() {
+    public Long getModifiedTimestamp() {
         return modifiedTimestamp;
     }
 
@@ -252,7 +252,7 @@ abstract public class Event extends ModelBase {
      *
      * @param modifiedTimestamp
      */
-    protected void setModifiedTimestamp(Timestamp modifiedTimestamp) {
+    protected void setModifiedTimestamp(Long modifiedTimestamp) {
         this.modifiedTimestamp = modifiedTimestamp;
     }
 
