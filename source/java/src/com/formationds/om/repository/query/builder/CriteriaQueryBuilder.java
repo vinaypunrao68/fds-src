@@ -28,7 +28,6 @@ public class CriteriaQueryBuilder<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(VolumeCriteriaQueryBuilder.class);
 
-    protected static final String TIMESTAMP = "timestamp";
     protected static final String VALUE = "value";
 
     protected final EntityManager em;
@@ -40,13 +39,14 @@ public class CriteriaQueryBuilder<T> {
     private Integer maxResults;
     private Integer firstResult;
 
+    private final String timestampField;
     private final String contextName;
 
     /**
      * @param entityManager the {@link javax.persistence.EntityManager}
      * @param contextName the name of the context to use in queries
      */
-    public CriteriaQueryBuilder( final EntityManager entityManager, String contextName ) {
+    public CriteriaQueryBuilder( final EntityManager entityManager, String timestampField, String contextName ) {
         this.em = entityManager;
         this.cb = em.getCriteriaBuilder();
         this.cq = cb.createQuery( getEntityClass());
@@ -54,6 +54,7 @@ public class CriteriaQueryBuilder<T> {
         this.andPredicates = new ArrayList<>();
         this.orPredicates = new ArrayList<>();
 
+        this.timestampField = timestampField;
         this.contextName = contextName;
     }
 
@@ -63,13 +64,18 @@ public class CriteriaQueryBuilder<T> {
     public String getContextName() { return contextName; }
 
     /**
+     * @return the context name
+     */
+    public String getTimestampField() { return timestampField; }
+
+    /**
      * @param dateRange the {@link com.formationds.commons.model.DateRange} representing the search date range window
      *
      * @return Returns {@link VolumeCriteriaQueryBuilder}
      */
     public <CQ extends CriteriaQueryBuilder> CQ withDateRange( final DateRange dateRange ) {
         if( dateRange != null ) {
-            final Path<Long> timestamp = from.get( TIMESTAMP );
+            final Path<Long> timestamp = from.get( getTimestampField() );
             logger.trace( String.format( "START:: %d END:: %d ",
                                          dateRange.getStart(),
                                          dateRange.getEnd() ) );
@@ -79,10 +85,10 @@ public class CriteriaQueryBuilder<T> {
                 predicate = cb.and( cb.ge( timestamp, dateRange.getStart() ),
                                     cb.le( timestamp, dateRange.getEnd() ) );
             } else if( dateRange.getStart() != null ) {
-                predicate = cb.ge( from.<Long>get( TIMESTAMP ),
+                predicate = cb.ge( from.<Long>get( getTimestampField() ),
                                    dateRange.getStart() );
             } else if( dateRange.getEnd() != null ) {
-                predicate = cb.le( from.<Long>get( TIMESTAMP ),
+                predicate = cb.le( from.<Long>get( getTimestampField() ),
                                    dateRange.getEnd() );
             }
 
@@ -121,7 +127,8 @@ public class CriteriaQueryBuilder<T> {
      */
     public <CQ extends CriteriaQueryBuilder> CQ searchFor(final QueryCriteria searchCriteria ) {
 
-        this.withDateRange( searchCriteria.getRange() );
+        if ( searchCriteria.getRange() != null )
+            this.withDateRange( searchCriteria.getRange() );
 
         if( searchCriteria.getContexts() != null &&
                     !searchCriteria.getContexts()
@@ -207,7 +214,7 @@ public class CriteriaQueryBuilder<T> {
             return em.createQuery(
                                  cq.select( from )
                                    .orderBy( cb.asc( from.get( getContextName() ) ),
-                                             cb.asc( from.get( TIMESTAMP ) ) )
+                                             cb.asc( from.get( getTimestampField() ) ) )
                                    .where(
                                              cb.and(andPredicates.toArray( new Predicate[ andPredicates.size() ] ) ),
                                              cb.or(orPredicates.toArray( new Predicate[ orPredicates.size() ] ) )
@@ -219,7 +226,7 @@ public class CriteriaQueryBuilder<T> {
             return em.createQuery(
                                  cq.select( from )
                                    .orderBy( cb.asc( from.get( getContextName() ) ),
-                                             cb.asc( from.get( TIMESTAMP ) ) )
+                                             cb.asc( from.get( getTimestampField() ) ) )
                                    .where(
                                              cb.or(orPredicates.toArray( new Predicate[ orPredicates.size() ] ) )
                                          )
@@ -230,7 +237,7 @@ public class CriteriaQueryBuilder<T> {
             return em.createQuery(
                                  cq.select( from )
                                    .orderBy( cb.asc( from.get( getContextName() ) ),
-                                             cb.asc( from.get( TIMESTAMP ) ) )
+                                             cb.asc( from.get( getTimestampField() ) ) )
                                    .where(
                                              cb.and( andPredicates.toArray( new Predicate[ andPredicates.size() ] ) )
                                          )
@@ -240,6 +247,6 @@ public class CriteriaQueryBuilder<T> {
         return em.createQuery(
                              cq.select( from )
                                .orderBy( cb.asc( from.get( getContextName() ) ),
-                                         cb.asc( from.get( TIMESTAMP ) ) ) );
+                                         cb.asc( from.get( getTimestampField() ) ) ) );
     }
 }

@@ -26,6 +26,7 @@ public class VolumeCriteriaQueryBuilder extends CriteriaQueryBuilder<VolumeDatap
     private static final Logger logger =
         LoggerFactory.getLogger( VolumeCriteriaQueryBuilder.class );
 
+    private static final String TIMESTAMP = "timestamp";
     private static final String SERIES_TYPE = "key";
     private static final String CONTEXT = "volumeName";
 
@@ -33,7 +34,7 @@ public class VolumeCriteriaQueryBuilder extends CriteriaQueryBuilder<VolumeDatap
      * @param entityManager the {@link javax.persistence.EntityManager}
      */
     public VolumeCriteriaQueryBuilder( final EntityManager entityManager ) {
-        super(entityManager, CONTEXT);
+        super(entityManager, TIMESTAMP, CONTEXT);
     }
 
     /**

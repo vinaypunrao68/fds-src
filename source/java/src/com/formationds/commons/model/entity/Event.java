@@ -8,6 +8,7 @@ import com.formationds.commons.events.EventSeverity;
 import com.formationds.commons.events.EventState;
 import com.formationds.commons.events.EventType;
 import com.formationds.commons.model.abs.ModelBase;
+import com.google.gson.annotations.SerializedName;
 
 import javax.persistence.*;
 import javax.xml.bind.annotation.XmlRootElement;
@@ -36,6 +37,7 @@ abstract public class Event extends ModelBase {
     private Long id;
 
     @Enumerated(EnumType.ORDINAL) private EventType type;
+    @SerializedName("category")
     @Enumerated(EnumType.ORDINAL) private EventCategory category;
     @Enumerated(EnumType.ORDINAL) private EventSeverity severity;
 

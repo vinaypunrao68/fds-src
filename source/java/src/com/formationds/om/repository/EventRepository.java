@@ -67,10 +67,11 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
     private static class EventCriteriaQueryBuilder extends CriteriaQueryBuilder<Event> {
 
         // TODO: how to support multiple contexts (category and severity)?
-        private static final String CONTEXT = "CATEGORY";
+        private static final String CONTEXT = "category";
+        private static final String TIMESTAMP = "initialTimestamp";
 
         EventCriteriaQueryBuilder(EntityManager em) {
-            super(em, CONTEXT);
+            super(em, TIMESTAMP, CONTEXT);
         }
     }
 
