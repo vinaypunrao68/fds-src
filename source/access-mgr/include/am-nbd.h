@@ -13,6 +13,7 @@
 #include <access-mgr/am-block.h>
 #include <concurrency/spinlock.h>
 #include <fdsp/fds_service_types.h>
+#include <fds_dmt.h>
 
 namespace fds {
 
