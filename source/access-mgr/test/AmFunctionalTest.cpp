@@ -80,7 +80,8 @@ class AmLoadProc : public AmAsyncResponseApi {
     enum TaskOps {
         PUT,
         GET,
-        STARTTX
+        STARTTX,
+        STAT
     };
 
     void startBlobTxResp(const Error &error,
@@ -129,6 +130,16 @@ class AmLoadProc : public AmAsyncResponseApi {
         }
     }
 
+    void statBlobResp(const Error &error,
+                      boost::shared_ptr<apis::RequestId>& requestId,
+                      boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
     void asyncTask(int id, TaskOps opType) {
         fds_uint32_t ops = atomic_fetch_add(&opCount, (fds_uint32_t)1);
         GLOGDEBUG << "Starting thread " << id;
@@ -165,6 +176,14 @@ class AmLoadProc : public AmAsyncResponseApi {
                                               volumeName,
                                               blobGen.blobName,
                                               blobMode);
+            } else if (opType == STAT) {
+                // Always use an empty request ID since we don't track
+                boost::shared_ptr<apis::RequestId> reqId(
+                    boost::make_shared<apis::RequestId>());
+                am->asyncDataApi->statBlob(reqId,
+                                           domainName,
+                                           volumeName,
+                                           blobGen.blobName);
             } else {
                 fds_panic("Unknown op type");
             }
@@ -372,6 +391,11 @@ TEST(AccessMgr, asyncStartBlobTx) {
 TEST(AccessMgr, asyncUpdateBlob) {
     GLOGDEBUG << "Testing async updateBlob";
     amLoad->runAsyncTask(AmLoadProc::PUT);
+}
+
+TEST(AccessMgr, asyncStatBlob) {
+    GLOGDEBUG << "Testing async statBlob";
+    amLoad->runAsyncTask(AmLoadProc::STAT);
 }
 
 }  // namespace fds
