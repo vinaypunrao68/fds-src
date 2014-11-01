@@ -13,6 +13,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.firebreakStats = { series: [[]], summaryData: { hoursSinceLastEvent: 0 }};
     $scope.firebreakItems = [];
     $scope.performanceStats = { series: [[]] };
+    $scope.performanceItems = [];
     $scope.capacityStats = { series: [[]] };
     
     $scope.firebreakDomain = [ 'max', 3600*12, 3600*6, 3600*3, 3600, 0 ];
@@ -40,6 +41,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $scope.performanceReturned = function( data ){
         $scope.performanceStats = data;
+        $scope.performanceItems = [{number: data.calculated[0].dailyAverage, description: $filter( 'translate' )( 'status.desc_performance' )}];
     };
     
     $scope.capacityReturned = function( data ){
@@ -118,6 +120,10 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
 
     $scope.transformFirebreakTime = function( value ){
         
+        if ( value === 0 ){
+            return 0;
+        }
+        
         var nowSeconds = (new Date()).getTime() / 1000;
         
         var val = nowSeconds - value;
@@ -164,7 +170,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     var firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
     var performanceInterval = $interval( function(){ $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );}, 60000 );
     var capacityInterval = $interval( function(){ $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );}, 60000 );
-    var activityInterval = $interval( function(){ $activity_service.getActivities( {}, $scope.activitiesReturned );}, 60000 );
+    var activityInterval = $interval( function(){ $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );}, 60000 );
     
     // cleanup the pollers
     $scope.$on( '$destroy', function(){
@@ -177,6 +183,6 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
     $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );
     $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );
-    $activity_service.getActivities( {}, $scope.activitiesReturned );
+    $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );
 
 }]);

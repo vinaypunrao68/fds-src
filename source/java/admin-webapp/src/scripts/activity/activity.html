@@ -21,11 +21,14 @@
                 <tbody>
                     <tr ng-repeat="activity in activities | filter:searchQuery">
                         <td style="text-align: left;">
-                            <span class="{{getActivityClass( activity.category )}}{{activity.type}}"></span>
+                            <span class="{{getActivityClass( activity.category )}}"></span>
                             <span>{{ getActivityCategoryString( activity.category ) }}</span>
                         </td>
                         <td>{{activity.defaultMessage}}</td>
                         <td style="text-align: right;">{{ getTimeAgo( activity.initialTimestamp )}}</td>
+                    </tr>
+                    <tr ng-show="activities.length === 0">
+                        <td colspan="3" translate>activities.desc_no_activities</td>
                     </tr>
                 </tbody>
             </table>

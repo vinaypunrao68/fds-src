@@ -49,7 +49,7 @@ angular.module( 'activity-management' ).factory( '$activity_service', [ '$http_f
 //                callback( eval( response )[0] );
 //            });
         
-        return $http_fds.put( '/api/config/events', {points: 2}, callback );
+        return $http_fds.put( '/api/config/events', filter, callback );
     };
 
     return service;
