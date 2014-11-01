@@ -216,6 +216,11 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         return val;
                     })
                     .attr( 'y2', function( d ){ 
+                        
+                        if ( !angular.isNumber( d ) ){
+                            d = 0;
+                        }
+                    
                         return $yScale( d ); 
                     })
                     .attr( 'stroke', $scope.axisColor )

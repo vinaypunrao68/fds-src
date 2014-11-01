@@ -48,6 +48,7 @@ var en_US = {
         l_hours_ago: 'hours ago',
         l_weeks_ago: 'weeks ago',
         l_years_ago: 'years ago',
+        l_seconds_ago: 'seconds ago',
         
         l_months: 'Months',
         l_days: 'Days',
@@ -85,6 +86,7 @@ var en_US = {
         tt_firebreak_never: 'This volume has never had a firebreak.',
         
         desc_firebreak: 'Events in the past 24 hours',
+        desc_performance: 'Average IOPs',
         desc_dedup_capacity: 'Deduplicated storage capacity used.',
         desc_pre_dedup_capacity: 'Logical storage capacity consumed before deduplication.'
     },
@@ -99,7 +101,9 @@ var en_US = {
         l_performance: 'Performance',
         l_storage: 'Storage',
         l_system: 'System',
-        l_volumes: 'Volumes'
+        l_volumes: 'Volumes',
+        
+        desc_no_activities: 'No activities or events in the system.'
     },
     volumes: {
         title: 'Volumes',
