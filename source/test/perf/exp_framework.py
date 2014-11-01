@@ -21,7 +21,7 @@ sys.path.append('../../tools/fdsconsole/contexts')
 sys.path.append('../../tools/fdsconsole')
 sys.path.append('../../tools')
 from SvcHandle import SvcMap
-from svchelper import *
+#from svchelper import *
 
 def get_myip():
     cmd = "ifconfig| grep '10\.1' | awk -F '[: ]+' '{print $4}'"
