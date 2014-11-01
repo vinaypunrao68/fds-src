@@ -6,6 +6,7 @@ package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.type.ConnectorType;
+import com.google.gson.annotations.SerializedName;
 
 /**
  * @author ptinius
@@ -14,6 +15,7 @@ public class Connector
   extends ModelBase {
   private static final long serialVersionUID = -6902011114156588870L;
 
+  @SerializedName( "type" )
   private ConnectorType type;
   private ConnectorAttributes attributes;
   private String api;

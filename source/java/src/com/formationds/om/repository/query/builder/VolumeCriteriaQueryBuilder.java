@@ -60,9 +60,7 @@ public class VolumeCriteriaQueryBuilder {
     public VolumeCriteriaQueryBuilder withDateRange( final DateRange dateRange ) {
         if( dateRange != null ) {
             final Path<Long> timestamp = from.get( "timestamp" );
-            logger.trace( String.format( "START:: %d END:: %d ",
-                                         dateRange.getStart(),
-                                         dateRange.getEnd() ) );
+
             Predicate predicate = null;
             if( ( dateRange.getStart() != null ) &&
                 ( dateRange.getEnd() != null ) ) {

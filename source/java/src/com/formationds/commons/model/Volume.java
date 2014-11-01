@@ -31,8 +31,6 @@ public class Volume
   private Connector data_connector;
   private Usage current_usage;
 
-  // TODO volume uuid, shouldn't it be part of the volume model object?
-
   private static final Map<String, ModelFieldValidator> VALIDATORS =
     new HashMap<>();
 
