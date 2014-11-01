@@ -80,13 +80,13 @@ public enum Feature {
 
     switch( type )
     {
-      case ADMIN:
-        features.add( SYS_MGMT );
-      case TENANT:
-        features.add( TENANT_MGMT );
-      case USER:
-        features.add( VOL_MGMT );
-        features.add( USER_MGMT );
+        case ADMIN:
+            features.add( SYS_MGMT );
+        case TENANT:
+            features.add( TENANT_MGMT );
+        case USER:
+            features.add( VOL_MGMT );
+            features.add( USER_MGMT );
     }
 
     return features;

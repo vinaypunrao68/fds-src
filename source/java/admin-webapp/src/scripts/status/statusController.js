@@ -1,4 +1,4 @@
-angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', '$byte_converter', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval, $byte_converter ){
+angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', '$byte_converter', '$time_converter', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval, $byte_converter, $time_converter ){
     
     $scope.items = [
         {number: 12.5, description: 'This is a number and a really long line of text that we hope wraps'},
@@ -30,7 +30,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
     
     $scope.activitiesReturned = function( list ){
-        $scope.activities = list.records;
+        $scope.activities = list.events;
     };
     
     $scope.firebreakReturned = function( data ){
@@ -103,6 +103,18 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.capacityLabelFx = function( data ){
         return $byte_converter.convertBytesToString( data, 0 );
     };
+    
+    $scope.getActivityClass = function( category ){
+        return $activity_service.getClass( category );
+    };
+    
+    $scope.getActivityCategoryString = function( category ){
+        return $activity_service.getCategoryString( category );
+    };
+    
+    $scope.getTimeAgo = function( time ){
+        return $time_converter.convertToTimePastLabel( time );
+    };
 
     $scope.transformFirebreakTime = function( value ){
         
@@ -152,18 +164,19 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     var firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
     var performanceInterval = $interval( function(){ $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );}, 60000 );
     var capacityInterval = $interval( function(){ $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );}, 60000 );
-    
-    $activity_service.getActivities( {}, $scope.activitiesReturned );
+    var activityInterval = $interval( function(){ $activity_service.getActivities( {}, $scope.activitiesReturned );}, 60000 );
     
     // cleanup the pollers
     $scope.$on( '$destroy', function(){
         $interval.cancel( firebreakInterval );
         $interval.cancel( performanceInterval );
         $interval.cancel( capacityInterval );
+        $interval.cancel( activityInterval );
     });
     
     $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
     $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );
     $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );
+    $activity_service.getActivities( {}, $scope.activitiesReturned );
 
 }]);

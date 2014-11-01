@@ -6,7 +6,7 @@ package com.formationds.om.rest.metrics;
 
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.om.repository.SingletonMetricsRepository;
+import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -58,7 +58,7 @@ public class IngestVolumeStats
         logger.trace( "DATAPOINT: {}", datapoint );
 
         // TODO replace with inject
-        SingletonMetricsRepository.instance()
+        SingletonRepositoryManager.instance()
                                   .getMetricsRepository()
                                   .save( datapoint );
       }

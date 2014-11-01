@@ -5,10 +5,7 @@
 package com.formationds.om.repository.helper;
 
 import com.formationds.commons.calculation.Calculation;
-import com.formationds.commons.model.Datapoint;
-import com.formationds.commons.model.DateRange;
-import com.formationds.commons.model.Series;
-import com.formationds.commons.model.Statistics;
+import com.formationds.commons.model.*;
 import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
@@ -25,8 +22,10 @@ import com.formationds.commons.model.calculated.performance.IOPsConsumed;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.DateTimeUtil;
+import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricsRepository;
-import com.formationds.om.repository.SingletonMetricsRepository;
+import com.formationds.om.repository.SingletonRepositoryManager;
+import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
 import com.formationds.util.SizeUnit;
@@ -76,7 +75,7 @@ public class QueryHelper {
      */
     public QueryHelper() {
         this.repo =
-            SingletonMetricsRepository.instance()
+            SingletonRepositoryManager.instance()
                                       .getMetricsRepository();
     }
 
@@ -109,12 +108,12 @@ public class QueryHelper {
     }
 
     /**
-     * @param query the {@link QueryCriteria} representing the query
+     * @param query the {@link com.formationds.om.repository.query.MetricQueryCriteria} representing the query
      *
      * @return Returns the {@link Statistics} representing the result of {@code
      * query}
      */
-    public Statistics execute( final QueryCriteria query )
+    public Statistics execute( final MetricQueryCriteria query )
         throws TException {
         final Statistics stats = new Statistics();
         if( query != null ) {
@@ -210,6 +209,19 @@ public class QueryHelper {
         }
 
         return stats;
+    }
+
+    /**
+     *
+     * @param query
+     * @return the events mactching the query criteria
+     * @throws TException
+     */
+    public Events executeEventQuery( final QueryCriteria query )
+            throws TException {
+        EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
+
+        return er.query(query);
     }
 
     protected boolean isPerformanceQuery( final List<Metrics> metrics ) {
@@ -327,7 +339,7 @@ public class QueryHelper {
                                           .doubleValue();
         calculated.add( percentageFull( consumed, systemCapacity ) );
         // TODO finish implementing once Nate provides a library
-        calculated.add( toFull() );
+        calculated.add(toFull());
 
         return calculated;
     }
@@ -344,12 +356,12 @@ public class QueryHelper {
      */
     protected CapacityDeDupRatio deDupRatio() {
         final Double lbytes =
-            SingletonMetricsRepository.instance()
+            SingletonRepositoryManager.instance()
                                       .getMetricsRepository()
                                       .sumLogicalBytes();
 
         final Double pbytes =
-            SingletonMetricsRepository.instance()
+            SingletonRepositoryManager.instance()
                                       .getMetricsRepository()
                                       .sumPhysicalBytes();
 
@@ -360,7 +372,7 @@ public class QueryHelper {
      * @return Returns {@link CapacityConsumed}
      */
     protected CapacityConsumed bytesConsumed() {
-        return new CapacityConsumed( SingletonMetricsRepository.instance()
+        return new CapacityConsumed( SingletonRepositoryManager.instance()
                                                                .getMetricsRepository()
                                                                .sumLogicalBytes() );
     }

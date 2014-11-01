@@ -44,6 +44,11 @@ var en_US = {
         l_15_minutes: '15 Minutes',
         l_now: 'Now',
         
+        l_minutes_ago: 'minutes ago',
+        l_hours_ago: 'hours ago',
+        l_weeks_ago: 'weeks ago',
+        l_years_ago: 'years ago',
+        
         l_months: 'Months',
         l_days: 'Days',
         l_hours: 'Hours',
@@ -89,7 +94,12 @@ var en_US = {
     },
     activities: {
         title: 'Activities',
-        header: 'System Activity'
+        header: 'System Activity',
+        l_firebreak: 'Firebreak',
+        l_performance: 'Performance',
+        l_storage: 'Storage',
+        l_system: 'System',
+        l_volumes: 'Volumes'
     },
     volumes: {
         title: 'Volumes',
