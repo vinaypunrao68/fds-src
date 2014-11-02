@@ -36,10 +36,10 @@ public class SeriesHelper {
     private static final Integer SECONDS_IN_30_DAYS = SECONDS_IN_DAY * 30;
 
     /**
-     * @param datapoints
-     * @param query
+     * @param datapoints the {@link java.util.List} of {@link com.formationds.commons.model.entity.VolumeDatapoint}
+     * @param query the {@link com.formationds.om.repository.query.QueryCriteria}
      *
-     * @return
+     * @return Returns the {@link java.util.List} of {@link com.formationds.commons.model.Series}
      */
     public final List<Series> getCapacitySeries(
         final List<VolumeDatapoint> datapoints,
@@ -119,63 +119,6 @@ public class SeriesHelper {
 
         series.add( capacity( datapoints, epochStart, Metrics.LBYTES, 2, 30 ) );
         series.add( capacity( datapoints, epochStart, Metrics.PBYTES, 2, 30 ) );
-
-//        Map<Long, List<VolumeDatapoint>> groupByTimestamp =
-//            groupByTimestamp( datapoints );
-//
-//        final List<Datapoint> lbytes =
-//            padWithEmptyDatapoints( epochStart,
-//                                    TimeUnit.MINUTES.toSeconds( 2 ),
-//                                    30 );
-//
-//        groupByTimestamp.forEach( ( lbytesTimestamp, lbytesValues ) -> {
-//            final Double d = lbytesValues.stream()
-//                                         .filter( ( value ) ->
-//                                                      value.getKey()
-//                                                           .equalsIgnoreCase(
-//                                                               Metrics.LBYTES.key() ) )
-//                                         .mapToDouble( VolumeDatapoint::getValue )
-//                                         .sum();
-//
-//            lbytes.add( new DatapointBuilder().withY( d.longValue() )
-//                                              .withX( lbytesTimestamp )
-//                                              .build() );
-//        } );
-
-//        final int lbytes_to = lbytes.size();
-//        final int lbytes_from = lbytes_to - 30;
-//        series.add( new SeriesBuilder().withType( Metrics.LBYTES )
-//                                       .withDatapoints(
-//                                           lbytes.subList( lbytes_from,
-//                                                           lbytes_to ) )
-//                                       .build() );
-
-//        final List<Datapoint> pbytes =
-//            padWithEmptyDatapoints( epochStart,
-//                                    TimeUnit.MINUTES.toSeconds( 2 ),
-//                                    30 );
-//
-//        groupByTimestamp.forEach( ( pbytesTimestamp, pbytesValues ) -> {
-//            final Double d = pbytesValues.stream()
-//                                         .filter( ( value ) ->
-//                                                      value.getKey()
-//                                                           .equalsIgnoreCase(
-//                                                               Metrics.PBYTES.key() ) )
-//                                         .mapToDouble( VolumeDatapoint::getValue )
-//                                         .sum();
-//
-//            pbytes.add( new DatapointBuilder().withY( d.longValue() )
-//                                             .withX( pbytesTimestamp )
-//                                              .build() );
-//        } );
-//
-//        final int pbytes_to = pbytes.size();
-//        final int pbytes_from = pbytes_to - 30;
-//        series.add(
-//            new SeriesBuilder().withType( Metrics.PBYTES )
-//                               .withDatapoints( pbytes.subList( pbytes_from,
-//                                                                pbytes_to ) )
-//                               .build() );
 
         return series;
     }
@@ -271,6 +214,12 @@ public class SeriesHelper {
                                   .build();
     }
 
+    /**
+     * @param datapoints the {@link java.util.List} of {@link com.formationds.commons.model.entity.VolumeDatapoint}
+     * @param query the {@link com.formationds.om.repository.query.QueryCriteria}
+     *
+     * @return Returns the {@link java.util.List} of {@link com.formationds.commons.model.Series}
+     */
     public final List<Series> getPerformanceSeries(
         final List<VolumeDatapoint> datapoints,
         final QueryCriteria query ) {
@@ -349,7 +298,6 @@ public class SeriesHelper {
          */
 
         series.add( capacity( datapoints, epochStart, Metrics.STP_WMA, 2, 30 ) );
-        series.add( capacity( datapoints, epochStart, Metrics.LTP_WMA, 2, 30 ) );
 
         return series;
     }
@@ -366,7 +314,6 @@ public class SeriesHelper {
          *  per volume
          */
         series.add( capacity( datapoints, epochStart, Metrics.STP_WMA, 60, 24 ) );
-        series.add( capacity( datapoints, epochStart, Metrics.LTP_WMA, 60, 24 ) );
 
         return series;
     }
@@ -383,7 +330,6 @@ public class SeriesHelper {
          *  per volume
          */
         series.add( performance( datapoints, epochStart, Metrics.STP_WMA, 360, 28 ) );
-        series.add( performance( datapoints, epochStart, Metrics.LTP_WMA, 360, 28 ) );
 
         return series;
     }
@@ -400,7 +346,6 @@ public class SeriesHelper {
          *  per volume
          */
         series.add( performance( datapoints, epochStart, Metrics.STP_WMA, 1440, 30 ) );
-        series.add( performance( datapoints, epochStart, Metrics.LTP_WMA, 1440, 30 ) );
 
         return series;
     }

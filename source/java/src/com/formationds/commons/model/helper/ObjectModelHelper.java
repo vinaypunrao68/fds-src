@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Reader;
+import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -85,15 +86,16 @@ public class ObjectModelHelper {
   }
 
   /**
-   * @param fullQualifiedFieldName the {@link String} representing the fully
-   *                               qualified field name
+   * @param field the {@link java.lang.reflect.Field} representing the field
+   *              to be excluded.
    */
-  public static void excludeField( final String fullQualifiedFieldName ) {
+  public static void excludeField( final Field field ) {
       try {
-          exclusion.excludeField( fullQualifiedFieldName );
+          exclusion.excludeField( field );
       } catch( ClassNotFoundException e ) {
-          logger.warn( "could not find class or field {}, skipping!",
-                       fullQualifiedFieldName );
+          logger.warn( "could not find either the class {} or the field {}, skipping!",
+                       field.getDeclaringClass(),
+                       field.getName());
       }
   }
 
@@ -110,7 +112,7 @@ public class ObjectModelHelper {
    * @return Returns the {@link Type} represented within the JSON
    */
   public static <T> T toObject( final String json, final Type type ) {
-    return new GsonBuilder().setExclusionStrategies( exclusion )
+    return new GsonBuilder()//.setExclusionStrategies( exclusion )
                             .create()
                             .fromJson( json, type );
   }

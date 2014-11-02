@@ -88,6 +88,7 @@ public class CreateVolume
           }
       }
 
+      VolumeSettings settings;
       final ConnectorType type = volume.getData_connector()
                                        .getType();
       switch( type ) {
@@ -105,28 +106,18 @@ public class CreateVolume
               final ConnectorAttributes attrs =
                   volume.getData_connector()
                         .getAttributes();
-
-              final long sizeInBytes =
-                  SizeUnit.valueOf( attrs.getUnit()
-                                         .name() )
-                          .totalBytes( attrs.getSize() );
-
-              volumeId = xdi.createVolume( token,
-                                           domainName,
-                                           volume.getName(),
-                                           new VolumeSettings(
-                                               DEF_BLOCK_SIZE,
-                                               VolumeType.BLOCK,
-                                               sizeInBytes ) );
+              settings = new VolumeSettings( DEF_BLOCK_SIZE,
+                                             VolumeType.BLOCK,
+                                             SizeUnit.valueOf(
+                                                 attrs.getUnit()
+                                                      .name() )
+                                                     .totalBytes(
+                                                         attrs.getSize() ) );
               break;
           case OBJECT:
-              volumeId = xdi.createVolume( token,
-                                           domainName,
-                                           volume.getName(),
-                                           new VolumeSettings(
-                                               DEF_OBJECT_SIZE,
-                                               VolumeType.OBJECT,
-                                               0 ) );
+              settings = new VolumeSettings( DEF_OBJECT_SIZE,
+                                             VolumeType.OBJECT,
+                                             0 );
               break;
           default:
               throw new IllegalArgumentException(
@@ -134,6 +125,10 @@ public class CreateVolume
                                  type ) );
       }
 
+      volumeId = xdi.createVolume( token,
+                                   domainName,
+                                   volume.getName(),
+                                   settings );
       if( volumeId > 0 ) {
           volume.setId( String.valueOf( volumeId ) );
 
@@ -168,8 +163,8 @@ public class CreateVolume
               volumeNames.add( volume.getName() );
           }
 
-          logger.trace( "registering volume {} for metadata streaming...",
-                        volume.getName() );
+          logger.trace( "registering {} for metadata streaming...",
+                        volumeNames );
           try {
             configApi.registerStream( URL,
                                       METHOD,

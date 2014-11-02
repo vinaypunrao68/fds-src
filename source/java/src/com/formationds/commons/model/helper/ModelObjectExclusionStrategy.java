@@ -7,6 +7,7 @@ package com.formationds.commons.model.helper;
 import com.google.gson.ExclusionStrategy;
 import com.google.gson.FieldAttributes;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -28,29 +29,29 @@ public class ModelObjectExclusionStrategy
      */
     @Override
     public boolean shouldSkipField( final FieldAttributes f ) {
-        return false;
+        return excludeFields.get( f.getDeclaredClass() )
+                            .contains( f.getName() );
     }
 
     /**
-     * @param fqfn the {@link String} representing the full qualified field name
+     * @param field the {@link java.lang.reflect.Field} representing the field
+     *              name to be excluded
      *
      * @throws ClassNotFoundException if the {@link Class} is not found
      */
-    public void excludeField( final String fqfn )
+    public void excludeField( final Field field )
         throws ClassNotFoundException {
-        final Class<?> clazz =
-            Class.forName( fqfn.substring( 0, fqfn.lastIndexOf( "." ) ) );
+        final Class<?> clazz = field.getDeclaringClass();
 
-        final String fieldName = fqfn.substring( fqfn.lastIndexOf( "." ) + 1 );
         if( !excludeFields.containsKey( clazz ) ) {
             excludeFields.put( clazz, new ArrayList<>( ) );
         }
 
-        excludeFields.get( clazz ).add( fieldName );
+        excludeFields.get( clazz ).add( field.getName() );
     }
 
     /**
-     * @param clazz the class object that is under test
+     * @param clazz the {@link Class} representing the {@code clazz} to be excluded.
      *
      * @return true if the class should be ignored; otherwise false
      */
