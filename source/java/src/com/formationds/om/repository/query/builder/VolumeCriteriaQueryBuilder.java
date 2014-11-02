@@ -5,18 +5,15 @@
 package com.formationds.om.repository.query.builder;
 
 import com.formationds.commons.model.DateRange;
-import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
-import com.formationds.om.repository.query.QueryCriteria;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.persistence.EntityManager;
-import javax.persistence.TypedQuery;
-import javax.persistence.criteria.*;
+import javax.persistence.criteria.Path;
+import javax.persistence.criteria.Predicate;
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * @author ptinius
@@ -35,6 +32,39 @@ public class VolumeCriteriaQueryBuilder extends CriteriaQueryBuilder<VolumeDatap
      */
     public VolumeCriteriaQueryBuilder( final EntityManager entityManager ) {
         super(entityManager, TIMESTAMP, CONTEXT);
+
+        this.andPredicates = new ArrayList<>();
+        this.orPredicates = new ArrayList<>();
+    }
+
+    /**
+     * @param dateRange the {@link DateRange} representing the search date range window
+     *
+     * @return Returns {@link VolumeCriteriaQueryBuilder}
+     */
+    public VolumeCriteriaQueryBuilder withDateRange( final DateRange dateRange ) {
+        if( dateRange != null ) {
+            final Path<Long> timestamp = from.get( "timestamp" );
+
+            Predicate predicate = null;
+            if( ( dateRange.getStart() != null ) &&
+                ( dateRange.getEnd() != null ) ) {
+                predicate = cb.and( cb.ge( timestamp, dateRange.getStart() ),
+                                    cb.le( timestamp, dateRange.getEnd() ) );
+            } else if( dateRange.getStart() != null ) {
+                predicate = cb.ge( from.<Long>get( "timestamp" ),
+                                   dateRange.getStart() );
+            } else if( dateRange.getEnd() != null ) {
+                predicate = cb.le( from.<Long>get( "timestamp" ),
+                                   dateRange.getEnd() );
+            }
+
+            if( predicate != null ) {
+                andPredicates.add( predicate );
+            }
+        }
+
+        return this;
     }
 
     /**

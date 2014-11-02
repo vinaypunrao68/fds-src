@@ -14,8 +14,6 @@ import com.formationds.xdi.ConfigurationApi;
 import com.google.gson.reflect.TypeToken;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -28,8 +26,6 @@ import java.util.Map;
  */
 public class IngestVolumeStats
   implements RequestHandler {
-  private static final Logger logger =
-    LoggerFactory.getLogger( IngestVolumeStats.class );
 
   private static final Type TYPE =
     new TypeToken<List<VolumeDatapoint>>() {
@@ -49,15 +45,24 @@ public class IngestVolumeStats
 
       final List<VolumeDatapoint> volumeDatapoints =
         ObjectModelHelper.toObject( reader, TYPE );
+      long timestamp = 0L;
       for( final VolumeDatapoint datapoint : volumeDatapoints ) {
 
         datapoint.setVolumeId(
           String.valueOf(
             config.getVolumeId( datapoint.getVolumeName() ) ) );
 
-        logger.trace( "DATAPOINT: {}", datapoint );
+        if( timestamp <= 0L ) {
+          timestamp = datapoint.getTimestamp();
+        }
 
-        // TODO replace with inject
+        /*
+         * syncing all the times to the first record. This will allow for us
+         * to query for a time range and guarantee that all datapoints will
+         * be aligned
+         */
+        datapoint.setTimestamp( timestamp );
+
         SingletonRepositoryManager.instance()
                                   .getMetricsRepository()
                                   .save( datapoint );
