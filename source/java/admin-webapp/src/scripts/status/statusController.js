@@ -1,9 +1,4 @@
 angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', '$byte_converter', '$time_converter', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval, $byte_converter, $time_converter ){
-    
-    $scope.items = [
-        {number: 12.5, description: 'This is a number and a really long line of text that we hope wraps'},
-        {number: 79, description: 'Something else', suffix: '%' }
-    ];
 
     $scope.healthStatus = [{number: 'Excellent'}];
     
@@ -46,6 +41,13 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $scope.capacityReturned = function( data ){
         $scope.capacityStats = data;
+        
+        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
+        parts = parts.split( ' ' );
+        
+        var num = parseFloat( parts[0] );
+        $scope.capacityItems = [{number: data.calculated[0].ratio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
+            {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
     };
     
     // this callback creates the tooltip element
