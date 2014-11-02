@@ -4,18 +4,23 @@
 
 package com.formationds.commons.events;
 
+import com.formationds.commons.crud.JDORepository;
+import com.formationds.commons.model.Datapoint;
+import com.formationds.commons.model.Series;
+import com.formationds.commons.model.builder.SeriesBuilder;
+import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.SystemActivityEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
+import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.om.repository.SingletonRepositoryManager;
+import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * The event manager is responsible for receiving events and storing them in the event repository.
@@ -32,7 +37,7 @@ public enum EventManager {
      */
     INSTANCE;
 
-    static final Logger LOG = LoggerFactory.getLogger(EventManager.class);
+    static final Logger logger = LoggerFactory.getLogger(EventManager.class);
 
     /**
      * Event notification handler interface.  Default implementation in EventManager simply
@@ -105,7 +110,7 @@ public enum EventManager {
             default:
                 // TODO: log warning or throw exception on unknown/unsupported type?  Fow now logging.
                 // throw new IllegalArgumentException("Unsupported event type (" + t + ")");
-                LOG.warn("Unsupported event type %s", t);
+                logger.warn("Unsupported event type %s", t);
                 return null;
         }
     }
@@ -118,7 +123,7 @@ public enum EventManager {
 
     // This is necessary to workaround a limitation of making a static
     // reference to the LOG in the lambda expression initializing the default notifier above.
-    private static Logger getLog() { return EventManager.LOG; }
+    private static Logger getLog() { return EventManager.logger; }
 
     // key used to guard against someone other than the owner changing the notifier.
     private Object key = null;
@@ -140,6 +145,50 @@ public enum EventManager {
         this.key = key;
     }
 
+    // TODO: this is probably not how we want to do this in the long run... trying to get something working for beta1
+    public void initEventListeners() {
+        SingletonRepositoryManager.instance()
+                                  .getMetricsRepository()
+                                  .addEntityPersistListener(new JDORepository.EntityPersistListener<VolumeDatapoint>() {
+                                      EventDescriptor fbEvent = new EventDescriptor() {
+                                          public EventType type() { return EventType.SYSTEM_EVENT; }
+                                          public EventCategory category() { return EventCategory.FIREBREAK; }
+                                          public EventSeverity severity() { return EventSeverity.WARNING; }
+                                          public String defaultMessage() { return "Volume {0}"; }
+                                          public List<String> argNames() { return Arrays.asList("volumeId"); }
+                                          public String key() { return "VOLUME_FIREBREAK_EVENT"; }
+                                      };
+                                      @Override
+                                      public void postPersist(VolumeDatapoint entity) {
+                                          logger.trace( "postPersist handling of VolumeDatapoint {}", entity);
+                                          try {
+                                              List<VolumeDatapoint> vdp = Arrays.asList(new VolumeDatapoint[] {entity});
+                                              Map<String, Datapoint> fb =
+                                                      new FirebreakHelper().findFirebreak(vdp);
+
+                                              if( !fb.isEmpty() ) {
+                                                  logger.trace( "Gathering firebreak details" );
+
+                                                  final Set<String> keys = fb.keySet();
+
+                                                  // only expect one here (the way this is currently designed...
+                                                  for( final String key : keys ) {
+                                                      logger.trace( "Gathering firebreak for '{}'", key );
+
+                                                      EventManager.notifyEvent(fbEvent, entity.getVolumeId());
+                                                  }
+                                              } else {
+                                                  logger.trace( "no firebreak data available" );
+                                              }
+                                          }
+                                          catch (Throwable t) {
+                                              logger.error("Failed to process datapoint postPersist event detection", t);
+                                              // TODO: do we want to rethrow and cause the VolumeDatapoint commit to fail?
+                                          }
+                                      }
+                                  });
+    }
+
     /**
      *
      * @param e
@@ -148,7 +197,7 @@ public enum EventManager {
     public boolean notifyEvent(Event e) {
         try { return notifier.handleEventNotification(e); }
         catch (RuntimeException re) {
-            LOG.error(String.format("Failed to persist event key={}", key), re);
+            logger.error(String.format("Failed to persist event key={}", key), re);
             return false;
         }
     }

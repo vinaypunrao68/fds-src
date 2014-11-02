@@ -74,6 +74,8 @@ public class Main {
         EventManager.INSTANCE.initEventNotifier(eventMgrKey, (e) -> {
             return SingletonRepositoryManager.instance().getEventRepository().save(e) != null;
         });
+        // initialize the firebreak event listener (callback from repository persist)
+        EventManager.INSTANCE.initEventListeners();
 
         XdiClientFactory clientFactory = new XdiClientFactory();
         configCache = new ConfigurationApi(clientFactory.remoteOmService("localhost", 9090));
