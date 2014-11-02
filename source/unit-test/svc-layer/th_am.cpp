@@ -183,27 +183,29 @@ void AMTest::printOpTs(const std::string fileName) {
             << t.rspHndlrTs << "\n";
     }
     o.close();
-    std::cout << "st-snd\t\t"
-        << "rq-snd\t\t"
-        << "rq-snd-rcv\t\t"
-        << "rq-rcv-hndlr\t\t"
-        << "rsp-hndlr-ser\t\t"
-        << "rsp-ser\t\t"
-        << "rsp-snd-rcv\t\t"
-        << "rsp-rcv-hndlr\t\t"
-        << "total\n";
+    std::cout << "||st-snd|"
+        << "rq-snd|"
+        << "rq-snd-rcv|"
+        << "rq-rcv-hndlr|"
+        << "rsp-hndlr-ser|"
+        << "rsp-ser|"
+        << "rsp-snd-rcv|"
+        << "rsp-rcv-hndlr|"
+        << "total||\n";
 
-    for (uint32_t i = 0; i < opTs_.size(); i+=50) {
+    for (uint32_t i = 0; i < opTs_.size(); i+=100) {
         auto &t = opTs_[i];
-        std::cout << t.rqSendStartTs - t.rqStartTs << "\t\t"
-            << t.rqSendEndTs - t.rqSendStartTs << "\t\t"
-            << t.rqRcvdTs - t.rqSendEndTs << "\t\t"
-            << t.rqHndlrTs - t.rqRcvdTs << "\t\t"
-            << t.rspSerStartTs - t.rqHndlrTs << "\t\t"
-            << t.rspSendStartTs - t.rspSerStartTs << "\t\t"
-            << t.rspRcvdTs - t.rspSendStartTs << "\t\t"
-            << t.rspHndlrTs - t.rspRcvdTs << "\t\t"
-            << t.rspHndlrTs - t.rqStartTs << "\n";
+        std::cout << "|"
+            << t.rqSendStartTs - t.rqStartTs << "|"
+            << t.rqSendEndTs - t.rqSendStartTs << "|"
+            << t.rqRcvdTs - t.rqSendEndTs << "|"
+            << t.rqHndlrTs - t.rqRcvdTs << "|"
+            << t.rspSerStartTs - t.rqHndlrTs << "|"
+            << t.rspSendStartTs - t.rspSerStartTs << "|"
+            << t.rspRcvdTs - t.rspSendStartTs << "|"
+            << t.rspHndlrTs - t.rspRcvdTs << "|"
+            << t.rspHndlrTs - t.rqStartTs
+            << "|\n";
     }
 
     /* Compute averages */
@@ -227,15 +229,17 @@ void AMTest::printOpTs(const std::string fileName) {
         rsp_rcv_hndlr_avg += (t.rspHndlrTs - t.rspRcvdTs);
         total_avg += (t.rspHndlrTs - t.rqStartTs);
     }
-    std::cout << st_snd_avg / opTs_.size() << "\t\t" <<
-        rq_snd_avg / opTs_.size() << "\t\t" <<
-        rq_snd_rcv_avg / opTs_.size() << "\t\t" <<
-        rq_rcv_hndlr_avg / opTs_.size() << "\t\t" <<
-        rsp_hndlr_ser_avg / opTs_.size() << "\t\t" <<
-        rsp_ser_avg / opTs_.size() << "\t\t" <<
-        rsp_snd_rcv_avg / opTs_.size() << "\t\t" <<
-        rsp_rcv_hndlr_avg / opTs_.size() << "\t\t" <<
-        total_avg / opTs_.size() << std::endl;
+    std::cout << "|"
+        << st_snd_avg / opTs_.size() << "|"
+        << rq_snd_avg / opTs_.size() << "|"
+        << rq_snd_rcv_avg / opTs_.size() << "|"
+        << rq_rcv_hndlr_avg / opTs_.size() << "|"
+        << rsp_hndlr_ser_avg / opTs_.size() << "|"
+        << rsp_ser_avg / opTs_.size() << "|"
+        << rsp_snd_rcv_avg / opTs_.size() << "|"
+        << rsp_rcv_hndlr_avg / opTs_.size() << "|"
+        << total_avg / opTs_.size()
+        << "|" << std::endl;
 }
 
 TEST_F(AMTest, test)
