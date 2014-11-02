@@ -26,4 +26,15 @@ public class UserActivityEvent extends Event {
         super(EventType.USER_ACTIVITY, category, severity, defaultMessageFmt, messageKey, messageArgs);
         this.userId = userId;
     }
+
+    /**
+     * @return the user id
+     */
+    public Long getUserId() {
+        return userId;
+    }
+
+    protected void setUserId(Long userId) {
+        this.userId = userId;
+    }
 }

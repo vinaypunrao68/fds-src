@@ -7,12 +7,14 @@ package com.formationds.om.repository;
 import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.model.Events;
 import com.formationds.commons.model.entity.Event;
+import com.formationds.commons.model.entity.UserActivityEvent;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.CriteriaQueryBuilder;
 
 import javax.jdo.Query;
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
+import javax.persistence.criteria.Expression;
 import java.util.List;
 
 // TODO: not implemented
@@ -56,12 +58,23 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
 
     @Override
     public Events query(QueryCriteria queryCriteria) {
-        // TODO: not sure why the build() method doesn't set first/max results but it doesn't currently
-        final List<Event> results =
-                (new EventCriteriaQueryBuilder(entity()).searchFor(queryCriteria).resultsList());
+        final List<Event> results;
 
+        EventCriteriaQueryBuilder tq = new EventCriteriaQueryBuilder(entity()).searchFor(queryCriteria);
+        results = tq.resultsList();
         return new Events(results);
     }
+
+    public Events queryTenantUsers(QueryCriteria queryCriteria, List<Long> tenantUsers) {
+        final List<? extends Event> results;
+
+        UserEventCriteriaQueryBuilder tq =
+                new UserEventCriteriaQueryBuilder(entity()).usersIn(tenantUsers)
+                                                       .searchFor(queryCriteria);
+        results = tq.resultsList();
+        return new Events(results);
+    }
+
 
     private static class EventCriteriaQueryBuilder extends CriteriaQueryBuilder<Event> {
 
@@ -71,6 +84,24 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
 
         EventCriteriaQueryBuilder(EntityManager em) {
             super(em, TIMESTAMP, CONTEXT);
+        }
+    }
+
+    private static class UserEventCriteriaQueryBuilder extends CriteriaQueryBuilder<UserActivityEvent> {
+
+        // TODO: how to support multiple contexts (category and severity)?
+        private static final String CONTEXT = "category";
+        private static final String TIMESTAMP = "initialTimestamp";
+        static final String USER_ID = "userId";
+
+        UserEventCriteriaQueryBuilder(EntityManager em) {
+            super(em, TIMESTAMP, CONTEXT);
+        }
+
+        protected UserEventCriteriaQueryBuilder usersIn(List<Long> in) {
+            final Expression<String> expression = from.get( USER_ID );
+            super.and(expression.in(in.toArray(new Long[in.size()])));
+            return this;
         }
     }
 
