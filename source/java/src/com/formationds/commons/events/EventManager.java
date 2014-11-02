@@ -154,8 +154,8 @@ public enum EventManager {
                                           public EventType type() { return EventType.SYSTEM_EVENT; }
                                           public EventCategory category() { return EventCategory.FIREBREAK; }
                                           public EventSeverity severity() { return EventSeverity.WARNING; }
-                                          public String defaultMessage() { return "Volume {0}"; }
-                                          public List<String> argNames() { return Arrays.asList("volumeId"); }
+                                          public String defaultMessage() { return "Volume {0}; Series data {}"; }
+                                          public List<String> argNames() { return Arrays.asList("volumeId", "series"); }
                                           public String key() { return "VOLUME_FIREBREAK_EVENT"; }
                                       };
                                       @Override
@@ -163,19 +163,18 @@ public enum EventManager {
                                           logger.trace( "postPersist handling of VolumeDatapoint {}", entity);
                                           try {
                                               List<VolumeDatapoint> vdp = Arrays.asList(new VolumeDatapoint[] {entity});
-                                              Map<String, Datapoint> fb =
-                                                      new FirebreakHelper().findFirebreak(vdp);
+                                              List<Series> fb =
+                                                      new FirebreakHelper().processFirebreak(vdp);
 
                                               if( !fb.isEmpty() ) {
                                                   logger.trace( "Gathering firebreak details" );
 
-                                                  final Set<String> keys = fb.keySet();
-
                                                   // only expect one here (the way this is currently designed...
-                                                  for( final String key : keys ) {
-                                                      logger.trace( "Gathering firebreak for '{}'", key );
+                                                  for( final Series s : fb ) {
+                                                      logger.trace( "Firebreak event for '{}' series '{}'", entity.getVolumeName(), s );
 
-                                                      EventManager.notifyEvent(fbEvent, entity.getVolumeId());
+                                                      // TODO: add series data?
+                                                      EventManager.notifyEvent(fbEvent, entity.getVolumeId(), s);
                                                   }
                                               } else {
                                                   logger.trace( "no firebreak data available" );
