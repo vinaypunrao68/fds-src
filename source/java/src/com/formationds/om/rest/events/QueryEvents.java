@@ -14,6 +14,7 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.security.AuthenticatedRequestContext;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -58,7 +59,7 @@ public class QueryEvents implements RequestHandler {
 
             EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
             Events events = null;
-            if (requestUser.isIsFdsAdmin()) {
+            if (requestUser == null || requestUser.isIsFdsAdmin()) {
                 events = er.query(eventQuery);
             } else {
                 final List<Long> tenantUserIds = findTenantUserIds(uid);
