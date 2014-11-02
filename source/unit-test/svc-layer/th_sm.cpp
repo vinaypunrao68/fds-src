@@ -66,7 +66,12 @@ class TestSMSvcHandler : virtual public FDS_ProtocolInterface::TestSMSvcIf {
         int cntr = connCntr_++;
         boost::shared_ptr<fpi::TestAMSvcClient> amClient;
         boost::shared_ptr<TTransport> amSock(new TSocket(*ip, *port));
-        boost::shared_ptr<TFramedTransport> amTrans(new TFramedTransport(amSock));
+        boost::shared_ptr<TTransport> amTrans;
+        if (smTest_->getArg<std::string>("transport") == "framed") {
+            amTrans.reset(new TFramedTransport(amSock));
+        } else {
+            amTrans.reset(new TBufferedTransport(amSock));
+        }
         boost::shared_ptr<TProtocol> amProto(new TBinaryProtocol(amTrans));
         amClient.reset(new fpi::TestAMSvcClient(amProto));
         amTrans->open();

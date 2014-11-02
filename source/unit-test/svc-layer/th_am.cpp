@@ -242,7 +242,7 @@ void AMTest::printOpTs(const std::string fileName) {
         << "|" << std::endl;
 }
 
-TEST_F(AMTest, test)
+TEST_F(AMTest, smtest)
 {
     int dataCacheSz = 100;
     int connCnt = this->getArg<int>("conn-cnt");
@@ -251,6 +251,7 @@ TEST_F(AMTest, test)
     std::string myIp = this->getArg<std::string>("my-ip");
     int smPort = this->getArg<int>("sm-port");
     int amPort = this->getArg<int>("am-port");
+    bool framed = (this->getArg<std::string>("transport") == "framed");
 
     opTs_.resize(nPuts);
 
@@ -266,7 +267,12 @@ TEST_F(AMTest, test)
     /* Create connections against SM */
     for (int i = 0; i < connCnt; i++) {
         boost::shared_ptr<TTransport> smSock(new TSocket(smIp, smPort));
-        boost::shared_ptr<TFramedTransport> smTrans(new TFramedTransport(smSock));
+        boost::shared_ptr<TTransport> smTrans;
+        if (framed) {
+            smTrans.reset(new TFramedTransport(smSock));
+        } else {
+            smTrans.reset(new TBufferedTransport(smSock));
+        }
         boost::shared_ptr<TProtocol> smProto(new TBinaryProtocol(smTrans));
         smClients[i].second.reset(new fpi::TestSMSvcClient(smProto));
         /* Connect to SM by sending my ip port so sm can connect to me */
