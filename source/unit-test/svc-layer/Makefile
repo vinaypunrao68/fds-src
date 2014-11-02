@@ -12,7 +12,8 @@ user_fds_so_libs  :=
 user_fds_ar_libs  :=
 
 user_non_fds_libs := \
-    tcmalloc
+    tcmalloc \
+    event
 
 user_cc           := ngx_modules.c
 user_cpp          := \

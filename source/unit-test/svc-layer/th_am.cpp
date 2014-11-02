@@ -17,6 +17,7 @@
 #include <thrift/concurrency/PosixThreadFactory.h>
 #include <thrift/server/TThreadPoolServer.h>
 #include <thrift/server/TThreadedServer.h>
+#include <thrift/server/TNonblockingServer.h>
 #include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <testlib/DataGen.hpp>
@@ -57,7 +58,7 @@ struct AMTest : BaseTestFixture
     std::vector<SvcRequestIf::SvcReqTs> opTs_;
 
     std::thread *t_;
-    boost::shared_ptr<TThreadedServer> server_;
+    boost::shared_ptr<TServer> server_;
 };
 
 struct TestAMServer {
@@ -132,16 +133,33 @@ AMTest::AMTest()
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
     boost::shared_ptr<TProcessor> processor(
         new ::FDS_ProtocolInterface::TestAMSvcProcessor(handler));
-    boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(amPort));
-    boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
-    server_.reset(new TThreadedServer(processor, serverTransport,
-                                     transportFactory, protocolFactory));
-    std::cout << "Server init at port: " << amPort << std::endl;
+    if (this->getArg<std::string>("server") == "threaded") {
+        boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(amPort));
+        boost::shared_ptr<TTransportFactory> transportFactory;
+        if (this->getArg<std::string>("transport") == "framed") {
+            transportFactory.reset(new TFramedTransportFactory());
+        } else {
+            transportFactory.reset(new TBufferedTransportFactory());
+        }
+        server_.reset(new TThreadedServer(processor, serverTransport,
+                                          transportFactory, protocolFactory));
+        std::cout << "Threaded Server init at port: " << amPort << std::endl;
+    } else {
+        boost::shared_ptr<ThreadManager> threadManager =
+            ThreadManager::newSimpleThreadManager(5);
+        boost::shared_ptr<PosixThreadFactory> threadFactory =
+            boost::shared_ptr<PosixThreadFactory>(new PosixThreadFactory());
+        threadManager->threadFactory(threadFactory);
+        threadManager->start();
+        server_.reset(new TNonblockingServer(processor,
+                                             protocolFactory, amPort, threadManager));
+        std::cout << "Nonblocking Server init at port: " << amPort << std::endl;
+    }
 }
 
 void AMTest::serve()
 {
-    t_ = new std::thread(std::bind(&TThreadedServer::serve, server_.get()));
+    t_ = new std::thread(std::bind(&TServer::serve, server_.get()));
 }
 
 AMTest::~AMTest()
@@ -350,6 +368,8 @@ int main(int argc, char** argv) {
         ("dm-port", po::value<int>()->default_value(9097), "dm port")
         ("my-ip", po::value<std::string>()->default_value("127.0.0.1"), "my ip")
         ("am-port", po::value<int>()->default_value(9094), "am port")
+        ("server", po::value<std::string>()->default_value("threaded"), "Server type")
+        ("transport", po::value<std::string>()->default_value("framed"), "transport type")
         ("output", po::value<std::string>()->default_value("stats.txt"), "stats output");
     AMTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();

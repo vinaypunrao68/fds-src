@@ -15,6 +15,7 @@
 #include <thrift/concurrency/PosixThreadFactory.h>
 #include <thrift/server/TThreadPoolServer.h>
 #include <thrift/server/TThreadedServer.h>
+#include <thrift/server/TNonblockingServer.h>
 #include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <testlib/DataGen.hpp>
@@ -43,7 +44,7 @@ struct SMTest : BaseTestFixture
     SMTest();
     void serve();
  protected:
-    boost::shared_ptr<TThreadedServer> server_;
+    boost::shared_ptr<TServer> server_;
 };
 
 class TestSMSvcHandler : virtual public FDS_ProtocolInterface::TestSMSvcIf {
@@ -100,11 +101,28 @@ SMTest::SMTest()
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
     boost::shared_ptr<TProcessor> processor(
         new ::FDS_ProtocolInterface::TestSMSvcProcessor(handler));
-    boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(smPort));
-    boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
-    server_.reset(new TThreadedServer(processor, serverTransport,
-                                      transportFactory, protocolFactory));
-    std::cout << "Server init at port: " << smPort << std::endl;
+    if (this->getArg<std::string>("server") == "threaded") {
+        boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(smPort));
+        boost::shared_ptr<TTransportFactory> transportFactory;
+        if (this->getArg<std::string>("transport") == "framed") {
+            transportFactory.reset(new TFramedTransportFactory());
+        } else {
+            transportFactory.reset(new TBufferedTransportFactory());
+        }
+        server_.reset(new TThreadedServer(processor, serverTransport,
+                                          transportFactory, protocolFactory));
+        std::cout << "Threaded Server init at port: " << smPort << std::endl;
+    } else {
+        boost::shared_ptr<ThreadManager> threadManager =
+            ThreadManager::newSimpleThreadManager(5);
+        boost::shared_ptr<PosixThreadFactory> threadFactory =
+            boost::shared_ptr<PosixThreadFactory>(new PosixThreadFactory());
+        threadManager->threadFactory(threadFactory);
+        threadManager->start();
+        server_.reset(new TNonblockingServer(processor,
+                                             protocolFactory, smPort, threadManager));
+        std::cout << "Nonblocking Server init at port: " << smPort << std::endl;
+    }
 }
 
 void SMTest::serve()
@@ -123,6 +141,8 @@ int main(int argc, char** argv) {
     po::options_description opts("Allowed options");
     opts.add_options()
         ("help", "produce help message")
+        ("server", po::value<std::string>()->default_value("threaded"), "Server type")
+        ("transport", po::value<std::string>()->default_value("framed"), "transport type")
         ("sm-port", po::value<int>()->default_value(9092), "sm port");
     SMTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
