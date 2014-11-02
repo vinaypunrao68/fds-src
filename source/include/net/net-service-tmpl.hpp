@@ -187,6 +187,8 @@ endpoint_connect_server(int                   port,
 {
     NetMgr               *net;
     EpSvcHandle::pointer  ptr;
+    uint32_t bufSz = 512;
+    fiu_do_on("svc.largebuffer", bufSz = 6144);
 
     net = NetMgr::ep_mgr_singleton();
     if (peer != NullSvcUuid) {
@@ -197,7 +199,7 @@ endpoint_connect_server(int                   port,
         }
     }
     bo::shared_ptr<tt::TTransport> sock(new tt::TSocket(ip, port));
-    bo::shared_ptr<tt::TTransport> trans(new tt::TFramedTransport(sock));
+    bo::shared_ptr<tt::TTransport> trans(new tt::TFramedTransport(sock, bufSz));
     bo::shared_ptr<tp::TProtocol>  proto(new tp::TBinaryProtocol(trans));
     // TODO(Rao): Change this to use alloc_rpc_client()
     bo::shared_ptr<SendIf>         rpc(new SendIf(proto));

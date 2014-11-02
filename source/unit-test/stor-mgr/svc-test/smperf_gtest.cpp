@@ -33,12 +33,15 @@ struct SMApi : SingleNodeTest
         putsSuccessCnt_ = 0;
         putsFailedCnt_ = 0;
     }
-    void putCb(uint64_t opStartTs, QuorumSvcRequest* svcReq,
+    void putCb(uint64_t opStartTs, EPSvcRequest* svcReq,
                const Error& error,
                boost::shared_ptr<std::string> payload)
     {
+        opTs_[svcReq->getRequestId()] = svcReq->ts;
+
         auto opEndTs = util::getTimeStampNanos();
         avgLatency_.update(opEndTs - opStartTs);
+
         if (error != ERR_OK) {
             GLOGWARN << "Req Id: " << svcReq->getRequestId() << " " << error;
             putsFailedCnt_++;
@@ -49,6 +52,75 @@ struct SMApi : SingleNodeTest
            endTs_ = util::getTimeStampNanos();
         }
     }
+    void printOpTs(const std::string fileName) {
+        std::ofstream o(fileName);
+        for (auto &t : opTs_) {
+            fds_verify(t.rqSendStartTs != 0 && t.rqSendEndTs != 0);
+            o << t.rqStartTs << "\t"
+                << t.rqSendStartTs << "\t"
+                << t.rqSendEndTs << "\t"
+                << t.rqRcvdTs << "\t"
+                << t.rqHndlrTs << "\t"
+                << t.rspSerStartTs << "\t"
+                << t.rspSendStartTs << "\t"
+                << t.rspRcvdTs << "\t"
+                << t.rspHndlrTs << "\n";
+        }
+        o.close();
+        std::cout << "st-snd\t\t"
+                << "rq-snd\t\t"
+                << "rq-snd-rcv\t\t"
+                << "rq-rcv-hndlr\t\t"
+                << "rsp-hndlr-ser\t\t"
+                << "rsp-ser\t\t"
+                << "rsp-snd-rcv\t\t"
+                << "rsp-rcv-hndlr\t\t"
+                << "total\n";
+
+        for (uint32_t i = 0; i < opTs_.size(); i+=50) {
+            auto &t = opTs_[i];
+            std::cout << t.rqSendStartTs - t.rqStartTs << "\t\t"
+                << t.rqSendEndTs - t.rqSendStartTs << "\t\t"
+                << t.rqRcvdTs - t.rqSendEndTs << "\t\t"
+                << t.rqHndlrTs - t.rqRcvdTs << "\t\t"
+                << t.rspSerStartTs - t.rqHndlrTs << "\t\t"
+                << t.rspSendStartTs - t.rspSerStartTs << "\t\t"
+                << t.rspRcvdTs - t.rspSendStartTs << "\t\t"
+                << t.rspHndlrTs - t.rspRcvdTs << "\t\t"
+                << t.rspHndlrTs - t.rqStartTs << "\n";
+        }
+
+        /* Compute averages */
+        uint64_t st_snd_avg = 0;
+        uint64_t rq_snd_avg = 0;
+        uint64_t rq_snd_rcv_avg = 0;
+        uint64_t rq_rcv_hndlr_avg = 0;
+        uint64_t rsp_hndlr_ser_avg = 0;
+        uint64_t rsp_ser_avg = 0;
+        uint64_t rsp_snd_rcv_avg = 0;
+        uint64_t rsp_rcv_hndlr_avg = 0;
+        uint64_t total_avg = 0;
+        for (auto &t : opTs_) {
+            st_snd_avg += (t.rqSendStartTs - t.rqStartTs);
+            rq_snd_avg += (t.rqSendEndTs - t.rqSendStartTs);
+            rq_snd_rcv_avg += (t.rqRcvdTs - t.rqSendEndTs);
+            rq_rcv_hndlr_avg += (t.rqHndlrTs - t.rqRcvdTs);
+            rsp_hndlr_ser_avg += (t.rspSerStartTs - t.rqHndlrTs);
+            rsp_ser_avg += (t.rspSendStartTs - t.rspSerStartTs);
+            rsp_snd_rcv_avg += (t.rspRcvdTs - t.rspSendStartTs);
+            rsp_rcv_hndlr_avg += (t.rspHndlrTs - t.rspRcvdTs);
+            total_avg += (t.rspHndlrTs - t.rqStartTs);
+        }
+        std::cout << st_snd_avg / opTs_.size() << "\t\t" <<
+            rq_snd_avg / opTs_.size() << "\t\t" <<
+            rq_snd_rcv_avg / opTs_.size() << "\t\t" <<
+            rq_rcv_hndlr_avg / opTs_.size() << "\t\t" <<
+            rsp_hndlr_ser_avg / opTs_.size() << "\t\t" <<
+            rsp_ser_avg / opTs_.size() << "\t\t" <<
+            rsp_snd_rcv_avg / opTs_.size() << "\t\t" <<
+            rsp_rcv_hndlr_avg / opTs_.size() << "\t\t" <<
+            total_avg / opTs_.size() << std::endl;
+    }
  protected:
     std::atomic<uint32_t> putsIssued_;
     std::atomic<uint32_t> putsSuccessCnt_;
@@ -56,6 +128,7 @@ struct SMApi : SingleNodeTest
     util::TimeStamp startTs_;
     util::TimeStamp endTs_;
     LatencyCounter avgLatency_;
+    std::vector<SvcRequestIf::SvcReqTs> opTs_;
 };
 
 /**
@@ -72,7 +145,9 @@ TEST_F(SMApi, putsPerf)
     bool uturnAsyncReq = this->getArg<bool>("uturn-asyncreqt");
     bool uturnPuts = this->getArg<bool>("uturn");
     bool disableSchedule = this->getArg<bool>("disable-schedule");
-    LatencyCounter creationLat;
+    bool largeFrame = this->getArg<bool>("largeframe");
+
+    opTs_.resize(nPuts);
 
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = this->getArg<uint64_t>("smuuid");
@@ -109,6 +184,9 @@ TEST_F(SMApi, putsPerf)
     if (disableSchedule) {
         fiu_enable("svc.disable.schedule", 1, NULL, 0);
     }
+    if (largeFrame) {
+        fiu_enable("svc.largebuffer", 1, NULL, 0);
+    }
 
     /* Start google profiler */
     if (profile) {
@@ -120,13 +198,9 @@ TEST_F(SMApi, putsPerf)
 
     /* Issue puts */
     for (int i = 0; i < nPuts; i++) {
-        util::StopWatch sw;
         auto opStartTs = util::getTimeStampNanos();
         auto putObjMsg = putMsgGen->nextItem();
-        sw.start();
-        auto asyncPutReq = gSvcRequestPool->newQuorumSvcRequest(
-            boost::make_shared<DltObjectIdEpProvider>(tokGroup));
-        creationLat.update(sw.getElapsedNanos());
+        auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
         asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
         asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this, opStartTs,
                                             std::placeholders::_1,
@@ -156,6 +230,9 @@ TEST_F(SMApi, putsPerf)
     if (disableSchedule) {
         fiu_disable("svc.disable.schedule");
     }
+    if (largeFrame) {
+        fiu_disable("svc.largebuffer");
+    }
 
     /* End profiler */
     if (profile) {
@@ -165,11 +242,14 @@ TEST_F(SMApi, putsPerf)
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
             << "putsCnt: " << putsIssued_ << "\n"
             << "Throughput: " << (putsIssued_ * 1000 * 1000 * 1000) / (endTs_ - startTs_) << "\n"
-            << "Avg creationLat: " << creationLat.value() << std::endl
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
             << "(ns) Avg op latency: " << avgLatency_.value() << std::endl
-            << "svc op latency: " << gSvcRequestCntrs->reqLat.value() << std::endl
-            << "svc serialization latency: " << gSvcRequestCntrs->serializationLat.value() << std::endl;
+            << "svc sendLat: " << gSvcRequestCntrs->sendLat.value() << std::endl
+            << "svc sendPayloadLat: " << gSvcRequestCntrs->sendPayloadLat.value() << std::endl
+            << "svc serialization latency: " << gSvcRequestCntrs->serializationLat.value() << std::endl
+            << "svc op latency: " << gSvcRequestCntrs->reqLat.value() << std::endl;
+    printOpTs(this->getArg<std::string>("output"));
+
     ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
         << " putsSuccessCnt_: " << putsSuccessCnt_
         << " putsFailedCnt_: " << putsFailedCnt_;
@@ -187,6 +267,8 @@ int main(int argc, char** argv) {
         ("failsends-after", po::value<bool>()->default_value(false), "fail sends after")
         ("uturn-asyncreqt", po::value<bool>()->default_value(false), "uturn async reqt")
         ("uturn", po::value<bool>()->default_value(false), "uturn")
+        ("largeframe", po::value<bool>()->default_value(false), "largeframe")
+        ("output", po::value<std::string>()->default_value("stats.txt"), "stats output")
         ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();

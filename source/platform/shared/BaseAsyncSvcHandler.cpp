@@ -59,11 +59,11 @@ void BaseAsyncSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& heade
 void BaseAsyncSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                                     boost::shared_ptr<std::string>& payload)
 {
+    SVCPERF(header->rqRcvdTs = util::getTimeStampNanos());
     fiu_do_on("svc.uturn.asyncreqt",
               header->msg_code = ERR_INVALID; \
               sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()); \
               return;);
-
     GLOGDEBUG << logString(*header);
     try {
         /* Deserialize the message and invoke the handler.  Deserialization is performed
@@ -98,6 +98,7 @@ void BaseAsyncSvcHandler::asyncResp(
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
+    SVCPERF(header->rspRcvdTs = util::getTimeStampNanos());
     fiu_do_on("svc.disable.schedule", asyncRespHandler(header, payload); return;);
 
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
@@ -132,6 +133,13 @@ void BaseAsyncSvcHandler::asyncRespHandler(
         GLOGWARN << logString(*header) << " Request doesn't exist";
         return;
     }
+
+    SVCPERF(asyncReq->ts.rqRcvdTs = header->rqRcvdTs);
+    SVCPERF(asyncReq->ts.rqHndlrTs = header->rqHndlrTs);
+    SVCPERF(asyncReq->ts.rspSerStartTs = header->rspSerStartTs);
+    SVCPERF(asyncReq->ts.rspSendStartTs = header->rspSendStartTs);
+    SVCPERF(asyncReq->ts.rspRcvdTs = header->rspRcvdTs);
+
     asyncReq->handleResponse(header, payload);
 }
 

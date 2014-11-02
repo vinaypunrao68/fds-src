@@ -83,6 +83,7 @@ class SvcRequestCounters : public FdsCounters
     LatencyCounter      deserializationLat;
     /* Send latency */
     LatencyCounter      sendLat;
+    LatencyCounter      sendPayloadLat;
     /* Request latency */
     LatencyCounter      reqLat;
 };
@@ -249,8 +250,18 @@ struct SvcRequestIf {
     void setCompletionCb(SvcRequestCompletionCb &completionCb);
 
  public:
-    /* Request latency stop watch */
-    util::StopWatch latencySw_;
+    struct SvcReqTs {
+        /* Request latency stop watch */
+        mutable uint64_t        rqStartTs;
+        mutable uint64_t        rqSendStartTs;
+        mutable uint64_t        rqSendEndTs;
+        mutable uint64_t        rqRcvdTs;
+        mutable uint64_t        rqHndlrTs;
+        mutable uint64_t        rspSerStartTs;
+        mutable uint64_t        rspSendStartTs;
+        mutable uint64_t        rspRcvdTs;
+        mutable uint64_t        rspHndlrTs;
+    } ts;
 
  protected:
     virtual void invokeWork_() = 0;

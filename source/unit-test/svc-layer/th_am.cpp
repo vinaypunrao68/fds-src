@@ -46,6 +46,7 @@ struct AMTest : BaseTestFixture
     AMTest();
     virtual ~AMTest();
 
+    void printOpTs(const std::string fileName);
     void serve();
 
     std::atomic<uint32_t> putsIssued_;
@@ -53,6 +54,7 @@ struct AMTest : BaseTestFixture
     std::atomic<uint32_t> putsFailedCnt_;
     util::TimeStamp startTs_;
     util::TimeStamp endTs_;
+    std::vector<SvcRequestIf::SvcReqTs> opTs_;
 
     std::thread *t_;
     boost::shared_ptr<TThreadedServer> server_;
@@ -88,6 +90,13 @@ class TestAMSvcHandler : virtual public FDS_ProtocolInterface::TestAMSvcIf {
     void putObjectRsp(boost::shared_ptr< ::FDS_ProtocolInterface::AsyncHdr>& asyncHdr,
                       boost::shared_ptr< ::FDS_ProtocolInterface::PutObjectRspMsg>& payload)
     {
+        amTest_->opTs_[asyncHdr->msg_src_id].rspRcvdTs =
+            amTest_->opTs_[asyncHdr->msg_src_id].rspHndlrTs = util::getTimeStampNanos();
+        amTest_->opTs_[asyncHdr->msg_src_id].rqRcvdTs = asyncHdr->rqRcvdTs;
+        amTest_->opTs_[asyncHdr->msg_src_id].rqHndlrTs = asyncHdr->rqHndlrTs;
+        amTest_->opTs_[asyncHdr->msg_src_id].rspSerStartTs = asyncHdr->rspSerStartTs;
+        amTest_->opTs_[asyncHdr->msg_src_id].rspSendStartTs = asyncHdr->rspSendStartTs;
+
         if (asyncHdr->msg_code != ERR_OK) {
             amTest_->putsFailedCnt_++;
         } else {
@@ -141,7 +150,77 @@ AMTest::~AMTest()
     t_->join();
 }
 
-TEST_F(AMTest, DISABLED_test)
+void AMTest::printOpTs(const std::string fileName) {
+    std::ofstream o(fileName);
+    for (auto &t : opTs_) {
+        fds_verify(t.rqSendStartTs != 0 && t.rqSendEndTs != 0);
+        o << t.rqStartTs << "\t"
+            << t.rqSendStartTs << "\t"
+            << t.rqSendEndTs << "\t"
+            << t.rqRcvdTs << "\t"
+            << t.rqHndlrTs << "\t"
+            << t.rspSerStartTs << "\t"
+            << t.rspSendStartTs << "\t"
+            << t.rspRcvdTs << "\t"
+            << t.rspHndlrTs << "\n";
+    }
+    o.close();
+    std::cout << "st-snd\t\t"
+        << "rq-snd\t\t"
+        << "rq-snd-rcv\t\t"
+        << "rq-rcv-hndlr\t\t"
+        << "rsp-hndlr-ser\t\t"
+        << "rsp-ser\t\t"
+        << "rsp-snd-rcv\t\t"
+        << "rsp-rcv-hndlr\t\t"
+        << "total\n";
+
+    for (uint32_t i = 0; i < opTs_.size(); i+=50) {
+        auto &t = opTs_[i];
+        std::cout << t.rqSendStartTs - t.rqStartTs << "\t\t"
+            << t.rqSendEndTs - t.rqSendStartTs << "\t\t"
+            << t.rqRcvdTs - t.rqSendEndTs << "\t\t"
+            << t.rqHndlrTs - t.rqRcvdTs << "\t\t"
+            << t.rspSerStartTs - t.rqHndlrTs << "\t\t"
+            << t.rspSendStartTs - t.rspSerStartTs << "\t\t"
+            << t.rspRcvdTs - t.rspSendStartTs << "\t\t"
+            << t.rspHndlrTs - t.rspRcvdTs << "\t\t"
+            << t.rspHndlrTs - t.rqStartTs << "\n";
+    }
+
+    /* Compute averages */
+    uint64_t st_snd_avg = 0;
+    uint64_t rq_snd_avg = 0;
+    uint64_t rq_snd_rcv_avg = 0;
+    uint64_t rq_rcv_hndlr_avg = 0;
+    uint64_t rsp_hndlr_ser_avg = 0;
+    uint64_t rsp_ser_avg = 0;
+    uint64_t rsp_snd_rcv_avg = 0;
+    uint64_t rsp_rcv_hndlr_avg = 0;
+    uint64_t total_avg = 0;
+    for (auto &t : opTs_) {
+        st_snd_avg += (t.rqSendStartTs - t.rqStartTs);
+        rq_snd_avg += (t.rqSendEndTs - t.rqSendStartTs);
+        rq_snd_rcv_avg += (t.rqRcvdTs - t.rqSendEndTs);
+        rq_rcv_hndlr_avg += (t.rqHndlrTs - t.rqRcvdTs);
+        rsp_hndlr_ser_avg += (t.rspSerStartTs - t.rqHndlrTs);
+        rsp_ser_avg += (t.rspSendStartTs - t.rspSerStartTs);
+        rsp_snd_rcv_avg += (t.rspRcvdTs - t.rspSendStartTs);
+        rsp_rcv_hndlr_avg += (t.rspHndlrTs - t.rspRcvdTs);
+        total_avg += (t.rspHndlrTs - t.rqStartTs);
+    }
+    std::cout << st_snd_avg / opTs_.size() << "\t\t" <<
+        rq_snd_avg / opTs_.size() << "\t\t" <<
+        rq_snd_rcv_avg / opTs_.size() << "\t\t" <<
+        rq_rcv_hndlr_avg / opTs_.size() << "\t\t" <<
+        rsp_hndlr_ser_avg / opTs_.size() << "\t\t" <<
+        rsp_ser_avg / opTs_.size() << "\t\t" <<
+        rsp_snd_rcv_avg / opTs_.size() << "\t\t" <<
+        rsp_rcv_hndlr_avg / opTs_.size() << "\t\t" <<
+        total_avg / opTs_.size() << std::endl;
+}
+
+TEST_F(AMTest, test)
 {
     int dataCacheSz = 100;
     int connCnt = this->getArg<int>("conn-cnt");
@@ -150,6 +229,8 @@ TEST_F(AMTest, DISABLED_test)
     std::string myIp = this->getArg<std::string>("my-ip");
     int smPort = this->getArg<int>("sm-port");
     int amPort = this->getArg<int>("am-port");
+
+    opTs_.resize(nPuts);
 
     int volId = 0;
     std::vector<std::pair<int, boost::shared_ptr<fpi::TestSMSvcClient>>> smClients(connCnt);
@@ -193,9 +274,12 @@ TEST_F(AMTest, DISABLED_test)
         int clientIdx = i % smClients.size();
         auto putObjMsg = putMsgGen->nextItem();
         fpi::AsyncHdr hdr;
+        hdr.msg_src_id = i;
         hdr.msg_src_uuid.svc_uuid = smClients[clientIdx].first;
         putsIssued_++;
+        opTs_[i].rqStartTs = opTs_[i].rqSendStartTs = util::getTimeStampNanos();
         smClients[clientIdx].second->putObject(hdr, *putObjMsg);
+        opTs_[i].rqSendEndTs = util::getTimeStampNanos();
     }
 
     /* Poll for completion */
@@ -207,12 +291,13 @@ TEST_F(AMTest, DISABLED_test)
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
             << "(ns)\n";
+    printOpTs(this->getArg<std::string>("output"));
     ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
         << " putsSuccessCnt_: " << putsSuccessCnt_
         << " putsFailedCnt_: " << putsFailedCnt_;
 }
 
-TEST_F(AMTest, dmtest)
+TEST_F(AMTest, DISABLED_dmtest)
 {
     int dataCacheSz = 100;
     int connCnt = this->getArg<int>("conn-cnt");
@@ -264,7 +349,8 @@ int main(int argc, char** argv) {
         ("dm-ip", po::value<std::string>()->default_value("127.0.0.1"), "dm-ip")
         ("dm-port", po::value<int>()->default_value(9097), "dm port")
         ("my-ip", po::value<std::string>()->default_value("127.0.0.1"), "my ip")
-        ("am-port", po::value<int>()->default_value(9094), "am port");
+        ("am-port", po::value<int>()->default_value(9094), "am port")
+        ("output", po::value<std::string>()->default_value("stats.txt"), "stats output");
     AMTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }

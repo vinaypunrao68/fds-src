@@ -30,6 +30,7 @@ SvcRequestCounters::SvcRequestCounters(const std::string &id, FdsCountersMgr *mg
     apperrors("apperrors", this),
     serializationLat("serializationLat", this),
     deserializationLat("deserializationLat", this),
+    sendPayloadLat("sendPayloadLat", this),
     sendLat("sendLat", this),
     reqLat("reqLat", this)
 {
@@ -197,7 +198,13 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
             LOGNORMAL << " injected one socket connection losing error ";
             goto do_again;
         }
+        SVCPERF(util::StopWatch sw; sw.start());
+        SVCPERF(ts.rqSendStartTs = util::getTimeStampNanos());
+        SVCPERF(fds_verify(ts.rqSendStartTs != 0));
         ep->svc_rpc<fpi::BaseAsyncSvcClient>()->asyncReqt(header, *payloadBuf_);
+        SVCPERF(ts.rqSendEndTs = util::getTimeStampNanos());
+        SVCPERF(fds_verify(ts.rqSendEndTs != 0));
+        SVCPERF(gSvcRequestCntrs->sendLat.update(sw.getElapsedNanos()));
         GLOGDEBUG << fds::logString(header) << " sent payload size: " << payloadBuf_->size();
         fiu_do_on("svc.fail.sendpayload_after",
                   throw util::FiuException("svc.fail.sendpayload_after"));
@@ -271,7 +278,9 @@ void EPSvcRequest::invokeWork_()
     bool epHealthy = true;
     state_ = INVOCATION_PROGRESS;
     if (epHealthy) {
-       sendPayload_(peerEpId_);
+        SVCPERF(util::StopWatch sw; sw.start());
+        sendPayload_(peerEpId_);
+        SVCPERF(gSvcRequestCntrs->sendPayloadLat.update(sw.getElapsedNanos()));
     } else {
         GLOGERROR << logString() << " No healthy endpoints left";
         auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId_, myEpId_);
@@ -308,6 +317,7 @@ void EPSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 
     /* Invoke response callback */
     if (respCb_) {
+        SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
         respCb_(this, header->msg_code, payload);
     }
 
@@ -558,6 +568,7 @@ void FailoverSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
     /* Handle the case where response from this endpoint is considered success */
     if (bSuccess) {
         if (respCb_) {
+            SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
             respCb_(this, ERR_OK, payload);
         }
         complete(ERR_OK);
@@ -785,6 +796,7 @@ void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
     /* Take action based on the ack counts */
     if (successAckd_ == quorumCnt_) {
         if (respCb_) {
+            SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
             respCb_(this, ERR_OK, payload);
         }
         complete(ERR_OK);

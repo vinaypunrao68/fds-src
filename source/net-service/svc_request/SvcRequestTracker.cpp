@@ -18,7 +18,7 @@ bool SvcRequestTracker::addForTracking(const SvcRequestId& id,
 {
     DBG(GLOGDEBUG << req->logString());
 
-    SVCPERF(req->latencySw_.start());
+    SVCPERF(req->ts.rqStartTs = util::getTimeStampNanos());
 
     fds_scoped_lock l(svcReqMaplock_);
     auto pair = std::make_pair(id, req);
@@ -37,7 +37,6 @@ bool SvcRequestTracker::removeFromTracking(const SvcRequestId& id)
     fds_scoped_lock l(svcReqMaplock_);
     auto itr = svcReqMap_.find(id);
     if (itr != svcReqMap_.end()) {
-        SVCPERF(gSvcRequestCntrs->reqLat.update(itr->second->latencySw_.getElapsedNanos()));
         svcReqMap_.erase(itr);
         return true;
     }

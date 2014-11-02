@@ -17,6 +17,7 @@
 #include <fdsp/fds_service_types.h>
 #include <persistent-layer/dm_metadata.h>
 #include <boost/make_shared.hpp>
+#include <util/fiu_util.h>
 
 /**
  * Maps FDSPMsg type to FDSPMsgTypeId enum
@@ -108,7 +109,10 @@ std::string logString(const FDS_ProtocolInterface::AddObjectRefRspMsg& msg);
 template<class PayloadT>
 void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payloadBuf)
 {
-    bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
+    uint32_t bufSz = 512;
+    /* TODO(Rao): Remove when not needed */
+    fiu_do_on("svc.largebuffer", bufSz = 6144);
+    bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer(bufSz));
     bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
     try {
         auto written = payload.write(binary_buf.get());

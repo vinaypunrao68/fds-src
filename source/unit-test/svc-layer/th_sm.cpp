@@ -78,6 +78,8 @@ class TestSMSvcHandler : virtual public FDS_ProtocolInterface::TestSMSvcIf {
     void putObject(boost::shared_ptr< ::FDS_ProtocolInterface::AsyncHdr>& asyncHdr,
                       boost::shared_ptr< ::FDS_ProtocolInterface::PutObjectMsg>& payload)
     {
+        asyncHdr->rqRcvdTs = asyncHdr->rqHndlrTs = asyncHdr->rspSerStartTs =
+            asyncHdr->rspSendStartTs = util::getTimeStampNanos();
         std::cout << "Received put object. Sending response " << std::endl;
         // TODO(Rao): Swap the src and dst id
         clientTbl_[asyncHdr->msg_src_uuid.svc_uuid]->\
