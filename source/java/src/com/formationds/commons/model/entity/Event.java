@@ -12,7 +12,6 @@ import com.google.gson.annotations.SerializedName;
 
 import javax.persistence.*;
 import javax.xml.bind.annotation.XmlRootElement;
-import java.sql.Timestamp;
 import java.text.MessageFormat;
 import java.time.Instant;
 

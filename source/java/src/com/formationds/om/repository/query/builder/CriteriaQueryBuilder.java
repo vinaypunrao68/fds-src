@@ -255,4 +255,14 @@ public class CriteriaQueryBuilder<T> {
                                .orderBy( cb.asc( from.get( getContextName() ) ),
                                          cb.asc( from.get( getTimestampField() ) ) ) );
     }
+
+    protected <CQ extends CriteriaQueryBuilder> CQ and(Predicate p) {
+        andPredicates.add(p);
+        return (CQ)this;
+    }
+
+    protected <CQ extends CriteriaQueryBuilder> CQ or(Predicate p) {
+        orPredicates.add(p);
+        return (CQ)this;
+    }
 }

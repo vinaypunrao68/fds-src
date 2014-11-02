@@ -17,7 +17,7 @@ import java.util.List;
  */
 public class Events extends ModelBase implements SearchResults {
 
-    final List<Event> events = new LinkedList<>();
+    final List<? super Event> events = new LinkedList<>();
 
     /**
      *
@@ -27,7 +27,7 @@ public class Events extends ModelBase implements SearchResults {
     /**
      * @param events
      */
-    public Events(List<Event> events) {
+    public Events(List<? extends Event> events) {
         this.addEvents(events);
     }
 
@@ -49,7 +49,7 @@ public class Events extends ModelBase implements SearchResults {
      *
      * @return the set of events
      */
-    public List<Event> getEvents() { return this.events; };
+    public List<? super Event> getEvents() { return this.events; };
 
     /**
      * @param e
@@ -62,5 +62,5 @@ public class Events extends ModelBase implements SearchResults {
      * @param events
      * @return this
      */
-    public Events addEvents(List<Event> events) { this.events.addAll(events); return this; }
+    public Events addEvents(List<? extends Event> events) { this.events.addAll(events); return this; }
 }
