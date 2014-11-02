@@ -285,7 +285,7 @@ public class QueryHelper {
     protected CapacityConsumed bytesConsumed() {
         return new CapacityConsumed( SingletonMetricsRepository.instance()
                                                                .getMetricsRepository()
-                                                               .sumLogicalBytes() );
+                                                               .sumPhysicalBytes() );
     }
 
     /**
