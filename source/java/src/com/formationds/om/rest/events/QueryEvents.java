@@ -11,14 +11,11 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
-import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.security.AuthenticatedRequestContext;
-import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.xdi.CachedConfiguration;
 import com.formationds.xdi.ConfigurationApi;
 import com.google.gson.reflect.TypeToken;
 import org.apache.thrift.TException;
@@ -31,7 +28,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 /**
  * @author dsetzke based on QueryMetrics by ptinius
