@@ -7,7 +7,7 @@
     <div class="flex" style="flex-wrap: nowrap;">
         <div class="main-number" ng-style="{ 'min-width': numberMinWidth }">{{data[visibleIndex].wholeNumber}}</div>
         <div class="decimals" ng-style="{ 'min-width': decimalMinWidth }">
-            <span ng-show="data[visibleIndex].decimals > 0">.{{data[visibleIndex].decimals}}</span>
+            <span ng-show="data[visibleIndex].decimals > 0">{{ separator }}{{data[visibleIndex].decimals}}</span>
             <span>{{data[visibleIndex].suffix}}</span>
         </div>
         <div class="tile-description">{{data[visibleIndex].description}}</div>

@@ -1,13 +1,5 @@
 <div ng-controller="statusController" style="position: relative;">
-
-    <div class="coming-soon-parent" ng-show="!isAllowed( 'SYS_MGMT' )">
-        <div class="coming-soon-child">
-            <div style="">
-                <span style="color: white;" translate>common.coming_soon</span>
-            </div>
-        </div>
-    </div>
-
+    
     <div class="tile-container">
         <div class="tile-pair">
             <div class="tile-parent" style="padding-left: 0px;">
@@ -41,7 +33,7 @@
             </div>
             <div class="tile-parent">
 <!--                <div class="capacity-tile tile"></div>-->
-                <status-tile tile-title="{{ 'status.l_capacity' | translate }}" calculated-data="items">
+                <status-tile tile-title="{{ 'status.l_capacity' | translate }}" calculated-data="capacityItems">
                     <line-chart data="capacityStats" colors="fakeCapColors" opacities="fakeOpacities" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText" domain-labels="capacityLabels" background-color="#f7f7f7"></line-chart>
                 </status-tile>
             </div>
@@ -50,7 +42,7 @@
             <div class="tile-parent">
 <!--                <div class="performance-tile tile"></div>-->
                 <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="performanceItems">
-                    <line-chart data="performanceStats" colors="performanceColors" line-colors="performanceLines" opacities="fakeOpacities" suffix="IOPs" axis-color="#A0A0A0" domain-labels="performanceLabels" background-color="#f7f7f7"></line-chart>
+                    <line-chart data="performanceStats" colors="performanceColors" line-colors="performanceLine" opacities="fakeOpacities" suffix="IOPs" axis-color="#A0A0A0" domain-labels="performanceLabels" background-color="#f7f7f7"></line-chart>
                 </status-tile>
             </div>
             <div class="tile-parent">

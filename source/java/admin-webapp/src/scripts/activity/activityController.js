@@ -28,6 +28,6 @@ angular.module( 'activity-management' ).controller( 'activityController', ['$sco
         return $authorization.isAllowed( permission );
     };
 
-    $activity_service.getActivities( {}, $scope.activityCallback );
+    $activity_service.getActivities( $scope.filter, $scope.activityCallback );
 
 }]);
