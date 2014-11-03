@@ -233,6 +233,18 @@ class ScavControl : public Module {
     void getDataVerify(const fpi::CtrlQueryScrubberStatusRespPtr& statusResp);
 
     /**
+    * Set whether the scrubber will run with scavenger or not
+    */
+    void setDataVerify(fds_bool_t verify) {
+        verifyData = verify;
+    }
+
+    /**
+    * Get status of scrubber (enabled=true, disabled=false)
+    */
+    fds_bool_t getDataVerify(const fpi::CtrlQueryScrubberStatusRespPtr& resp);
+
+    /**
      * Start scavenging
      */
     void startScavengeProcess();
@@ -297,6 +309,8 @@ class ScavControl : public Module {
     std::atomic<fds_bool_t> enabled;
     fds_bool_t noPersistScavStats;
     fds_bool_t verifyData;
+
+    ScavPolicyType  scavPolicy;
 
     // disk idx -> DiskScavenger pointer
     // holds disk scavengers for both HDDs and SSDs

@@ -249,3 +249,21 @@ def newSetScavengerPolicyMsg(t1, t2, t3, t4):
 def newQueryScavengerPolicyMsg():
     msg = CtrlQueryScavengerPolicy()
     return msg
+
+def newQueryPolicyMsg():
+    msg = CtrlQueryTierPolicy()
+    return msg
+
+def newQueryScrubberStatusMsg():
+    msg = CtrlQueryScrubberStatus()
+    return msg
+
+def newEnableScrubberMsg():
+    msg = CtrlSetScrubberStatus()
+    msg.scrubber_status = FDSP_ScrubberStatusType.SCRUB_ENABLE
+    return msg
+
+def newDisableScrubberMsg():
+    msg = CtrlSetScrubberStatus()
+    msg.scrubber_status = FDSP_ScrubberStatusType.SCRUB_DISABLE
+    return msg

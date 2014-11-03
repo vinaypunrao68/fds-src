@@ -164,6 +164,13 @@ void ScavControl::disableScavenger()
     } else {
         LOGNOTIFY << "Scavenger was already disabled";
     }
+
+    // Disable scrubber also
+    if (std::atomic_compare_exchange_strong(&verifyData, &expect, false)) {
+        LOGNOTIFY << "Disabled scrubber because scavenger was disabled";
+    } else {
+        LOGNOTIFY << "Scrubber status not changed; scrubber already disabled";
+    }
 }
 
 void
