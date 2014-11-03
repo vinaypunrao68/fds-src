@@ -21,7 +21,6 @@ public class Volume
   extends Context {
   private static final long serialVersionUID = 7961922641732546048L;
 
-  @SerializedName( "volumeName" )
   private String name;
   private Long limit;                    // maximum IOPS
   private Long sla;                      // minimum IOPS -- service level agreement
