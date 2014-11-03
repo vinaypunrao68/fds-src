@@ -20,6 +20,7 @@ if __name__ == "__main__":
     files_path = os.path.abspath(testdir + "/../source/cit")
 
     # Run C++ unit tests
+    failure_count = 0
     os.chdir(testdir + "/../source/")
     files = open(files_path + "/gtest_ut")
     for rec in files:
@@ -32,9 +33,18 @@ if __name__ == "__main__":
         args += ' --gtest_output=xml:' + files_path + '/' + bin_name + '.xml'
         bin_name += (" " + args)
         print "Running:", bin_name
-        subprocess.call(bin_name, shell=True)
+        if 0 != subprocess.call(bin_name, shell=True):
+            failure_count += 1
+
+    if failure_count > 0:
+        print "C++ Unit test failure count:  %d" %(failure_count)
+        exit (failure_count)
 
     # Run Java unit tests
     os.chdir(testdir + "/../source/java")
     cmd = ["make", "test"]
-    subprocess.call(cmd)
+    status = subprocess.call(cmd)
+
+    if status > 0:
+        print "Java Unit test failure"
+        exit (status)
