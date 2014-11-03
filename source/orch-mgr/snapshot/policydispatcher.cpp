@@ -66,6 +66,11 @@ void PolicyDispatcher::run() {
                                 util::getTimeStampMillis()));
             snapshot.volumeId = volId;
             snapshot.snapshotId = om->getConfigDB()->getNewVolumeId();
+            if (invalid_vol_id == snapshot.snapshotId) {
+                LOGWARN << "unable to generate a new snapshot id";
+                continue;
+            }
+
             snapshot.snapshotPolicyId = policyId;
             snapshot.creationTimestamp = util::getTimeStampMillis();
             snapshot.retentionTimeSeconds = policy.retentionTimeSeconds;

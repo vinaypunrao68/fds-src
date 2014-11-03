@@ -347,6 +347,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         VolumeDesc desc(*(parentVol->vol_get_properties()));
 
         desc.volUUID = configDB->getNewVolumeId();
+        if (invalid_vol_id == desc.volUUID) {
+            LOGWARN << "unable to generate a new vol id";
+            apiException("unable to generate a new vol id");
+        }
         desc.name = *clonedVolumeName;
         if (*volPolicyId > 0) {
             desc.volPolicyId = *volPolicyId;
@@ -376,6 +380,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         snapshot.snapshotName = util::strlower(*snapshotName);
         snapshot.volumeId = *volumeId;
         snapshot.snapshotId = configDB->getNewVolumeId();
+        if (invalid_vol_id == snapshot.snapshotId) {
+            LOGWARN << "unable to generate a new snapshot id";
+            apiException("unable to generate a new snapshot id");
+        }
         snapshot.snapshotPolicyId = 0;
         snapshot.creationTimestamp = util::getTimeStampMillis();
         snapshot.retentionTimeSeconds = *retentionTime;

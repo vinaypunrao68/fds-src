@@ -1084,6 +1084,10 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
     }
 
     ResourceUUID         uuid(gl_orch_mgr->getConfigDB()->getNewVolumeId());
+    if (uuid == invalid_vol_id) {
+        LOGWARN << "unable to generate a vol id";
+        return ERR_INVALID_VOL_ID;
+    }
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol != NULL) {
         LOGWARN << "volume uuid [" << uuid << "] already exists : " << vname;

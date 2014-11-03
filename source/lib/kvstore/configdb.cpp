@@ -123,7 +123,7 @@ fds_uint64_t ConfigDB::getNewVolumeId() {
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
     }
-    return -1;
+    return invalid_vol_id;
 }
 bool ConfigDB::addVolume(const VolumeDesc& vol) {
     TRACKMOD();
