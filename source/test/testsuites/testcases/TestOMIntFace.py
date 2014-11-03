@@ -63,7 +63,8 @@ class TestGetAuthToken(TestCase.FDSTestCase):
         self.log.info("Ask OM on %s for an authorization token." % om_node.nd_conf_dict['node-name'])
 
         # With "auth=False", the "connection string" is set up but not tested.
-        omREP = rep.RestEndpoint(om_node.nd_conf_dict['ip'], user='admin', password='admin', auth=False)
+        omREP = rep.RestEndpoint(om_node.nd_conf_dict['ip'], port=7777, user='admin', password='admin', auth=False,
+                                 ssl=False)
 
         # Despite the generic nature of its name, this method will actually log
         # into the specified OM, retrieve and return the authorization token.

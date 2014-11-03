@@ -83,6 +83,7 @@ class TestS3GetConn(TestCase.FDSTestCase):
                                             aws_secret_access_key=om_node.auth_token,
                                             host=om_node.nd_conf_dict['ip'],
                                             port=8443,
+                                            # port=8000,
                                             calling_format=boto.s3.connection.OrdinaryCallingFormat())
 
             if not s3conn:
