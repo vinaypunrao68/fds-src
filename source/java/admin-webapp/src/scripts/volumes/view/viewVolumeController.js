@@ -14,6 +14,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.thisVolume = {};
     $scope.capacityStats = { series: [] };
     $scope.performanceStats = { series: [] };
+    $scope.performanceItems = [];
     $scope.capacityLineStipples = ['none', '2,2'];
     $scope.capacityLineColors = ['#2486F8', '#78B5FA'];
     $scope.capacityColors = [ '#72AEEB', '#ABD3F5' ];
@@ -103,7 +104,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.performanceReturned = function( data ){
         $scope.performanceStats = data;
-        
+        $scope.performanceItems = [{number: data.calculated[0].dailyAverage, description: $filter( 'translate' )( 'status.desc_performance' )}];
         $scope.iopLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.desc_iops_capacity' );
     };
     

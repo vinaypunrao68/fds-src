@@ -17,7 +17,7 @@ typedef struct meta_obj_id         meta_obj_id_t;
 struct __attribute__((__packed__)) meta_obj_id
 {
     // looks like  we have Obj Structure scattered  across. sizing the array is a issue??.
-    uint8_t metaDigest[20];
+    alignas(8) uint8_t metaDigest[20];
 };
 
 /*
@@ -31,6 +31,12 @@ obj_id_set_inval(meta_obj_id_t *oid)
     memset(oid->metaDigest, 0 , sizeof(oid));
 }
 
+/* TODO(sean)
+ * The size of the buffer is hard-coded.  This was there before. But there should be a common
+ * define that is used by all buffer that's sized as ObjectId.
+ */
+static uint8_t InvalidObjId[20];  // global is zero-filled.
+
 /*
  * obj_id_is_valid
  * ---------------
@@ -39,9 +45,10 @@ obj_id_set_inval(meta_obj_id_t *oid)
 static inline bool
 obj_id_is_valid(meta_obj_id_t const *const oid)
 {
-    uint8_t tmpObjId[20];
-    memset(tmpObjId, 0 , sizeof(tmpObjId));
-    return (!(memcmp((const char *)oid->metaDigest, tmpObjId, sizeof(oid)) == 0 ));
+    // size of the invalid object and metaDigest should match.
+    static_assert((sizeof(InvalidObjId) == sizeof(oid->metaDigest)),
+                  "size of ObjId doesn't match oid");
+    return (!(memcmp((const char *)oid->metaDigest, InvalidObjId, sizeof(oid)) == 0 ));
 }
 
 /*
@@ -146,6 +153,9 @@ struct __attribute__((__packed__)) meta_obj_map_v0
     /* Object transition time to a archive tier */
     fds_uint64_t         transition_time;
     obj_phy_loc_t        loc_map[MAX_PHY_LOC_MAP];
+
+    /* add padding to the data structure */
+    char                 meta_obj_padding[32];
 };
 
 struct __attribute__((__packed__)) obj_assoc_entry_v0 {

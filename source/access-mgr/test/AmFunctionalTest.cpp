@@ -14,6 +14,7 @@
 #include <net/net-service.h>
 #include <AccessMgr.h>
 
+#include "boost/program_options.hpp"
 #include <google/profiler.h>
 #include <gtest/gtest.h>
 #include <testlib/DataGen.hpp>
@@ -52,7 +53,7 @@ struct null_deleter
 
 class AmLoadProc : public AmAsyncResponseApi {
   public:
-    AmLoadProc()
+    AmLoadProc(int argc, char **argv)
             : domainName(new std::string("Test Domain")),
               volumeName(new std::string("Test Volume")) {
         // register and populate volumes
@@ -62,12 +63,38 @@ class AmLoadProc : public AmAsyncResponseApi {
         volDesc.relativePrio = 1;
         fds_verify(am->registerVolume(volDesc) == ERR_OK);
 
-        // hardcoding test config
-        concurrency = 1;
-        totalOps = 1000000;
-        blobSize = 4096;
-        opCount = ATOMIC_VAR_INIT(0);
+        namespace po = boost::program_options;
+        po::options_description desc("AM functional test");
+        desc.add_options()
+                ("help,h", "Print this help message")
+                ("threads,t",
+                 po::value<fds_uint32_t>(&concurrency)->default_value(1),
+                 "Number of dispatch threads")
+                ("num-ops,n",
+                 po::value<fds_uint32_t>(&totalOps)->default_value(5000),
+                 "Number of operations")
+                ("blob-size,s",
+                 po::value<fds_uint32_t>(&blobSize)->default_value(4096),
+                 "Blob size")
+                ("profile,p",
+                 po::bool_switch(&profile)->default_value(false),
+                 "Run google profiler")
+                ("profile-file,f",
+                 po::value<std::string>(&profileFile)->default_value("am-profile.prof"),
+                 "Profile output file");
 
+        // hardcoding test config
+        po::variables_map vm;
+        po::parsed_options parsed =
+            po::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
+        po::store(parsed, vm);
+        po::notify(vm);
+        if (vm.count("help")) {
+            std::cout << desc << std::endl;
+            exit(0);
+        }
+
+        opCount = ATOMIC_VAR_INIT(0);
         threads_.resize(concurrency);
 
         responseApi.reset(this, null_deleter());
@@ -293,7 +320,7 @@ class AmLoadProc : public AmAsyncResponseApi {
         opCount = 0;
         opsDone = 0;
         asyncStartNano = util::getTimeStampNanos();
-        // ProfilerStart("/tmp/AM_output.prof");
+        if (profile) ProfilerStart(profileFile.c_str());
         for (unsigned i = 0; i < concurrency; ++i) {
             std::thread* new_thread = new std::thread(&AmLoadProc::asyncTask, this, i, opType);
             threads_[i] = new_thread;
@@ -311,7 +338,7 @@ class AmLoadProc : public AmAsyncResponseApi {
                            [this](){return totalOps == opsDone;});
 
         fds_uint64_t duration_nano = asyncStopNano - asyncStartNano;
-        // ProfilerStop();
+        if (profile) ProfilerStop();
         double time_sec = duration_nano / 1000000000.0;
         if (time_sec < 10) {
             std::cout << "Experiment ran for too short time to calc IOPS" << std::endl;
@@ -338,6 +365,10 @@ class AmLoadProc : public AmAsyncResponseApi {
     fds_uint32_t totalOps;
     /// blob size in bytes
     fds_uint32_t blobSize;
+    /// profiling enabled
+    fds_bool_t profile;
+    /// profile file
+    std::string profileFile;
 
     /// threads for blocking AM
     std::vector<std::thread*> threads_;
@@ -409,7 +440,7 @@ main(int argc, char **argv) {
     fds::AmProcessWrapper apw(argc, argv, "platform.conf", "fds.am.", amVec);
     apw.main();
 
-    amLoad = AmLoadProc::unique_ptr(new AmLoadProc());
+    amLoad = AmLoadProc::unique_ptr(new AmLoadProc(argc, argv));
 
     return RUN_ALL_TESTS();
 }

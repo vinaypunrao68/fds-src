@@ -39,7 +39,7 @@ public class QueryCriteriaValidator {
     return this;
   }
 
-  public void validate( final QueryCriteria criteria )
+  public void validate( final MetricQueryCriteria criteria )
     throws IllegalArgumentException {
     final Set<KeyFields> keys = required.keySet();
     for( final KeyFields key : keys ) {
