@@ -19,7 +19,6 @@
 #include <fds_process.h>
 #include <ObjectId.h>
 #include <FdsRandom.h>
-#include <StatsCollector.h>
 #include <StorMgr.h>
 
 #include <sm_ut_utils.h>
@@ -75,6 +74,9 @@ class SmLoadProc : public FdsProcess {
     std::vector<std::thread*> threads_;
     std::atomic<fds_bool_t> test_pass_;
 
+    // config
+    fds_bool_t dropCaches;
+
     // set of volumes, each volume has its own
     // policy, data set, concurrency
     TestVolumeMap volumes_;
@@ -86,6 +88,10 @@ class SmLoadProc : public FdsProcess {
     // to ensure configure concurrency
     std::condition_variable concurrency_cond;
     std::mutex concurrency_mutex;
+
+    // latency
+    std::atomic<fds_uint64_t> put_lat_micro;
+    std::atomic<fds_uint64_t> get_lat_micro;
 };
 
 SmLoadProc::SmLoadProc(int argc, char * argv[], const std::string & config,
@@ -99,8 +105,11 @@ SmLoadProc::SmLoadProc(int argc, char * argv[], const std::string & config,
     volumes_.init(fdsconf, "fds.sm_load.");
 
     // initialize dynamic counters
+    dropCaches = false;
     validating_ = false;
     test_pass_ = ATOMIC_VAR_INIT(true);
+    put_lat_micro = ATOMIC_VAR_INIT(0);
+    get_lat_micro = ATOMIC_VAR_INIT(0);
     StatsCollector::singleton()->enableQosStats("ObjStoreLoadTest");
 }
 
@@ -220,6 +229,15 @@ int SmLoadProc::run() {
         }
     }
 
+    if (dropCaches) {
+      const std::string cmd = "echo 3 > /proc/sys/vm/drop_caches";
+      int ret = std::system((const char *)cmd.c_str());
+      fds_verify(ret == 0);
+      std::cout << "sleeping after drop_caches" << std::endl;
+      sleep(5);
+      std::cout << "finished sleeping" << std::endl;
+    }
+
     ProfilerStart("/tmp/SM_output.prof");
     fds_uint32_t num_volumes = volumes_.volmap.size();
     for (TestVolMap::iterator it = volumes_.volmap.begin();
@@ -269,6 +287,7 @@ void SmLoadProc::task(fds_volid_t volId) {
     Error err(ERR_OK);
     fds_uint32_t dispatched = 0;
     fds_uint32_t ops = 0;
+    fds_uint32_t cur_ind = 0;
     TestVolume::ptr volume = volumes_.volmap[volId];
 
     std::cout << "Starting thread for volume " << volId
@@ -291,7 +310,11 @@ void SmLoadProc::task(fds_volid_t volId) {
         }
 
         // do op
-        fds_uint32_t index = ops % (volume->testdata_).dataset_.size();
+        fds_uint32_t index = cur_ind % (volume->testdata_).dataset_.size();
+        ++cur_ind;
+        if (volume->op_type_ == TestVolume::STORE_OP_GET) {
+            cur_ind += 122;  // non-sequential access
+        }
         ObjectID oid = (volume->testdata_).dataset_[index];
         switch (volume->op_type_) {
             case TestVolume::STORE_OP_PUT:
@@ -331,16 +354,29 @@ void SmLoadProc::task(fds_volid_t volId) {
 
     fds_uint64_t duration_nano = util::getTimeStampNanos() - start_nano;
     double time_sec = duration_nano / 1000000000.0;
-    if (time_sec < 10) {
+    double ave_lat = 0;
+    fds_uint64_t lat_counter = 0;
+    if (volume->op_type_ == TestVolume::STORE_OP_GET) {
+        lat_counter = atomic_load(&get_lat_micro);
+    } else if (volume->op_type_ == TestVolume::STORE_OP_PUT) {
+        lat_counter = atomic_load(&put_lat_micro);
+    }
+    double total_ops = ops;
+    if (total_ops > 0) {
+        ave_lat = lat_counter / total_ops;
+    }
+    if (time_sec < 5) {
         std::cout << "Volume " << volId << " executed " << ops << " OPS, "
                   << "Experiment ran for too short time to calc IOPS" << std::endl;
         LOGNOTIFY << "Volume " << volId << " executed "<< ops << " OPS, "
                   << "Experiment ran for too short time to calc IOPS";
     } else {
         std::cout << "Volume " << volId << " executed " << ops << " OPS, "
-                  << "Average IOPS = " << ops / time_sec << std::endl;
+                  << "Average IOPS = " << ops / time_sec << " latency "
+                  << ave_lat << " microsec" << std::endl;
         LOGNOTIFY << "Volume " << volId << " executed "<< ops << " OPS, "
-                  << "Average IOPS = " << ops / time_sec;
+                  << "Average IOPS = " << ops / time_sec << " latency "
+                  << ave_lat << " microsec";
     }
 }
 
@@ -406,10 +442,8 @@ SmLoadProc::putSmCb(const Error &err,
 
     // record stat
     fds_uint64_t lat_nano = util::getTimeStampNanos() - putReq->enqueue_ts;
-    StatsCollector::singleton()->recordEvent(volId,
-                                             util::getTimeStampNanos(),
-                                             STAT_AM_PUT_OBJ,
-                                             static_cast<double>(lat_nano) / 1000.0);
+    double lat_micro = lat_nano / 1000.00;
+    fds_uint64_t lat = atomic_fetch_add(&put_lat_micro, (fds_uint64_t)lat_micro);
     delete putReq;
 }
 
@@ -481,12 +515,11 @@ SmLoadProc::getSmCb(const Error &err,
     }
 
     // record stat
-    fds_uint64_t lat_nano = util::getTimeStampNanos() - getReq->enqueue_ts;
-    StatsCollector::singleton()->recordEvent(volId,
-                                             util::getTimeStampNanos(),
-                                             STAT_AM_GET_OBJ,
-                                             static_cast<double>(lat_nano) / 1000.0);
-
+    if (!validating_) {
+        fds_uint64_t lat_nano = util::getTimeStampNanos() - getReq->enqueue_ts;
+        double lat_micro = lat_nano / 1000.00;
+        fds_uint64_t lat = atomic_fetch_add(&get_lat_micro, (fds_uint64_t)lat_micro);
+    }
     delete getReq;
 }
 
