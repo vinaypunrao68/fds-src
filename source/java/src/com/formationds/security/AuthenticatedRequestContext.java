@@ -23,7 +23,7 @@ package com.formationds.security;
  * <ul>
  *     <li>It will not work reliably if requests are split into multiple sub-tasks that execute in a thread-pool.
  *     The expectation is that it is accessed in code that executes on the same thread that manages the context.</li>
- *     <li>Access must follow the try/finally model in the same way required for java.util.concurrent.lock.ReentrantLock
+ *     <li>Access must follow the try/finally model in the same way required for {@link java.util.concurrent.locks.ReentrantLock}
  *     access, as illustrated above.  Otherwise, it may be susceptible to causing memory leaks over time as references
  *     to the authentication token may prevent GC. Similarly, if the thread executing the request is from a thread
  *     pool, the authenticated session context might "leak" into another request handling execution.</li>

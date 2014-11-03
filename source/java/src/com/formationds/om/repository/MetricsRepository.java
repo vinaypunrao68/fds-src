@@ -7,6 +7,7 @@ package com.formationds.om.repository;
 import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
 import com.formationds.om.repository.result.VolumeDatapointList;
@@ -15,26 +16,27 @@ import javax.jdo.Query;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * @author ptinius
  */
+@SuppressWarnings( "UnusedDeclaration" )
 public class MetricsRepository
-  extends JDORepository<VolumeDatapoint,
-  Long,
-  VolumeDatapointList,
-  QueryCriteria> {
+  extends JDORepository<VolumeDatapoint, Long, VolumeDatapointList, QueryCriteria> {
 
-  private static final String DBNAME = "/fds/var/db/metrics.odb";
+  private static final String DBNAME = "var/db/metrics.odb";
   private static final String VOLUME_NAME = "volumeName";
 
   /**
    * default constructor
    */
   public MetricsRepository() {
-    this( DBNAME );
+    this( SingletonConfiguration.instance().getConfig().getFdsRoot() +
+          File.separator +
+          DBNAME );
   }
 
   /**
@@ -78,12 +80,13 @@ public class MetricsRepository
    *
    * @return Returns the search criteria results
    */
+  @SuppressWarnings( "unchecked" )
   @Override
   public VolumeDatapointList query( final QueryCriteria criteria ) {
     final List<VolumeDatapoint> results =
       ( new VolumeCriteriaQueryBuilder( entity() ).searchFor( criteria )
                                                   .build() )
-        .getResultList();
+          .getResultList();
 
     final VolumeDatapointList list = new VolumeDatapointList();
     results.stream()

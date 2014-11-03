@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * @author ptinius
  */
+@SuppressWarnings( "UnusedDeclaration" )
 public class QueryHelper {
     private static final Logger logger =
         LoggerFactory.getLogger( QueryHelper.class );
@@ -108,6 +109,7 @@ public class QueryHelper {
      * @return Returns the {@link Statistics} representing the result of {@code
      * query}
      */
+    @SuppressWarnings( "unchecked" )
     public Statistics execute( final MetricQueryCriteria query )
         throws TException {
         final Statistics stats = new Statistics();
@@ -174,8 +176,8 @@ public class QueryHelper {
 
     /**
      *
-     * @param query
-     * @return the events mactching the query criteria
+     * @param query the {@link com.formationds.om.repository.query.MetricQueryCriteria} representing the query
+     * @return the events matching the query criteria
      * @throws TException
      */
     public Events executeEventQuery( final QueryCriteria query )

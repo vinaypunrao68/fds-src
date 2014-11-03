@@ -13,7 +13,6 @@ import com.formationds.security.AuthenticationToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -148,7 +147,7 @@ public enum EventManager {
     public boolean notifyEvent(Event e) {
         try { return notifier.handleEventNotification(e); }
         catch (RuntimeException re) {
-            LOG.error(String.format("Failed to persist event key={}", key), re);
+            LOG.error("Failed to persist event key={}", key, re);
             return false;
         }
     }

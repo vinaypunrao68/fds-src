@@ -18,8 +18,10 @@ import java.util.ArrayList;
 /**
  * @author ptinius
  */
-@SuppressWarnings("UnusedDeclaration")
-public class VolumeCriteriaQueryBuilder extends CriteriaQueryBuilder<VolumeDatapoint> {
+@SuppressWarnings( "UnusedDeclaration" )
+public class VolumeCriteriaQueryBuilder
+    extends CriteriaQueryBuilder<VolumeDatapoint> {
+
     private static final Logger logger =
         LoggerFactory.getLogger( VolumeCriteriaQueryBuilder.class );
 
@@ -42,9 +44,11 @@ public class VolumeCriteriaQueryBuilder extends CriteriaQueryBuilder<VolumeDatap
      *
      * @return Returns {@link VolumeCriteriaQueryBuilder}
      */
+    @Override
+    @SuppressWarnings( "unchecked" )
     public VolumeCriteriaQueryBuilder withDateRange( final DateRange dateRange ) {
         if( dateRange != null ) {
-            final Path<Long> timestamp = from.get( "timestamp" );
+            final Path<Long> timestamp = from.get( TIMESTAMP );
 
             Predicate predicate = null;
             if( ( dateRange.getStart() != null ) &&
@@ -52,10 +56,10 @@ public class VolumeCriteriaQueryBuilder extends CriteriaQueryBuilder<VolumeDatap
                 predicate = cb.and( cb.ge( timestamp, dateRange.getStart() ),
                                     cb.le( timestamp, dateRange.getEnd() ) );
             } else if( dateRange.getStart() != null ) {
-                predicate = cb.ge( from.<Long>get( "timestamp" ),
+                predicate = cb.ge( from.<Long>get( TIMESTAMP ),
                                    dateRange.getStart() );
             } else if( dateRange.getEnd() != null ) {
-                predicate = cb.le( from.<Long>get( "timestamp" ),
+                predicate = cb.le( from.<Long>get( TIMESTAMP ),
                                    dateRange.getEnd() );
             }
 
