@@ -404,15 +404,15 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 };
                 
                 //sort
-//                for ( var i = 0; angular.isDefined( newVal.series ) && i < newVal.series.length; i++ ){
-//                    var dataset = newVal.series[i].datapoints;
-//                    
-//                    if ( !angular.isDefined( dataset ) ){
-//                        continue;
-//                    }
-//                    
-//                    dataset.sort( sorter );
-//                }
+                for ( var i = 0; angular.isDefined( newVal.series ) && i < newVal.series.length; i++ ){
+                    var dataset = newVal.series[i].datapoints;
+                    
+                    if ( !angular.isDefined( dataset ) ){
+                        continue;
+                    }
+                    
+                    dataset.sort( sorter );
+                }
                 
                 if ( newVal.series.length === oldVal.series.length &&
                    $svg.selectAll( '.series-group' )[0].length !== 0 ){
