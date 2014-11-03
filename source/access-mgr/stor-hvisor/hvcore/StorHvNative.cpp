@@ -537,7 +537,7 @@ void FDS_NativeAPI::DoCallback(AmRequest  *blob_req,
     FDSN_Status status(ERR_OK);
 
     LOGDEBUG << " callback -"
-              << " [iotype:" << blob_req->getIoType() << "]"
+              << " [iotype:" << blob_req->io_type << "]"
               << " [error:"  << error << "]"
               << " [result:" << result << ":" << static_cast<FDSN_Status>(result) << "]";
 
@@ -556,7 +556,7 @@ void FDS_NativeAPI::DoCallback(AmRequest  *blob_req,
         }
     }
 
-    switch (blob_req->getIoType()) {
+    switch (blob_req->io_type) {
         case FDS_DELETE_BLOB:
             static_cast<DeleteBlobReq*>(blob_req)->DoCallback(status, NULL);
             break;

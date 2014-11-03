@@ -13,13 +13,12 @@
 namespace fds
 {
 
-struct DeleteBlobReq: AmRequest {
+struct DeleteBlobReq: AmRequest, AmTxReq {
     BucketContext *bucket_ctxt;
     std::string ObjKey;
     void *req_context;
     fdsnResponseHandler responseCallback;
     void *callback_data;
-    BlobTxId::ptr tx_desc;
 
     DeleteBlobReq(fds_volid_t volId,
                   const std::string& _blob_name,
@@ -54,8 +53,11 @@ struct DeleteBlobReq: AmRequest {
     DeleteBlobReq(fds_volid_t volId,
                   const std::string& _blob_name,
                   const std::string& volumeName,
+                  BlobTxId::ptr _txDesc,
                   CallbackPtr cb)
-            : AmRequest(FDS_DELETE_BLOB, volId, volumeName, _blob_name, cb) {
+            :   AmRequest(FDS_DELETE_BLOB, volId, volumeName, _blob_name, cb),
+                AmTxReq(_txDesc)
+    {
         qos_perf_ctx.type = AM_DELETE_QOS;
         qos_perf_ctx.name = "volume:" + std::to_string(volId);
         qos_perf_ctx.reset_volid(volId);
