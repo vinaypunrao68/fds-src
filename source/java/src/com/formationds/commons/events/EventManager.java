@@ -147,7 +147,7 @@ public enum EventManager {
     public boolean notifyEvent(Event e) {
         try { return notifier.handleEventNotification(e); }
         catch (RuntimeException re) {
-            LOG.error("Failed to persist event key={}", key, re);
+            LOG.error(String.format( "Failed to persist event key=%s", key ), re);
             return false;
         }
     }
