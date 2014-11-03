@@ -70,7 +70,7 @@ public abstract class JDORepository<T,
 
     private void firePostPersist(T entity) {
         for (EntityPersistListener<T> l : listeners) {
-            l.prePersist(entity);
+            l.postPersist(entity);
         }
     }
 

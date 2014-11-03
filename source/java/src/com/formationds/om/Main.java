@@ -8,8 +8,6 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
 import com.formationds.commons.events.EventManager;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import com.formationds.om.plotter.VolumeStatistics;
-import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -38,18 +36,21 @@ import java.util.function.Function;
 public class Main {
     private static final Logger LOG = Logger.getLogger(Main.class);
 
-    private WebApp webApp;
-    private Configuration configuration;
-
-    private Xdi xdi;
-    private ConfigurationApi configCache;
+    private final Configuration configuration;
 
     // key for managing the singleton EventManager.
     private final Object eventMgrKey = new Object();
 
+    private WebApp webApp;
+
+    private Xdi xdi;
+    private ConfigurationApi configCache;
+
+
     public static void main(String[] args) {
         try {
-            new Main().start(args);
+            Configuration cfg = new Configuration("om-xdi", args);
+            new Main(cfg).start(args);
         } catch (Throwable t) {
             LOG.fatal("Error starting OM", t);
             System.out.println(t.getMessage());
@@ -58,10 +59,16 @@ public class Main {
         }
     }
 
+    public Main(Configuration cfg) {
+        this.configuration = cfg;
+    }
+
     public void start(String[] args) throws Exception {
-        configuration = new Configuration("om-xdi", args);
+
+        LOG.trace("Starting native OM");
         NativeOm.startOm(args);
 
+        LOG.trace("Loading platform configuration.");
         ParsedConfig platformConfig = configuration.getPlatformConfig();
         byte[] keyBytes = Hex.decodeHex(platformConfig.lookup("fds.aes_key")
                              .stringValue()
@@ -71,11 +78,18 @@ public class Main {
         // TODO: this is needed before bootstrapping the admin user but not sure if there is config required first.
         // alternatively, we could initialize it with an empty event notifier or disabled flag and not log the
         // initial first-time bootstrap of the admin user as an event.
+        LOG.trace("Initializing repository event notifier.");
         EventManager.INSTANCE.initEventNotifier(eventMgrKey, (e) -> {
             return SingletonRepositoryManager.instance().getEventRepository().save(e) != null;
         });
-        // initialize the firebreak event listener (callback from repository persist)
-        EventManager.INSTANCE.initEventListeners();
+        if(FdsFeatureToggles.FIREBREAK_EVENT.isActive()) {
+            LOG.trace("Firebreak events feature is enabled.  Initializing repository firebreak callback.");
+            // initialize the firebreak event listener (callback from repository persist)
+            EventManager.INSTANCE.initEventListeners();
+        }
+        else {
+            LOG.info("Firebreak events feature is disabled.");
+        }
 
         XdiClientFactory clientFactory = new XdiClientFactory();
         configCache = new ConfigurationApi(clientFactory.remoteOmService("localhost", 9090));
