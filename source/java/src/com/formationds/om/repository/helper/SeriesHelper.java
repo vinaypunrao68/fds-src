@@ -17,9 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -207,10 +205,10 @@ public class SeriesHelper {
         final int to = datapoints.size();
         final int from = to - maxResults;
 
+        final List<Datapoint> subList = datapoints.subList( from, to );
+        sortByTimestamp( subList );
         return new SeriesBuilder().withType( metrics )
-                                  .withDatapoints(
-                                      datapoints.subList( from,
-                                                          to ) )
+                                  .withDatapoints( subList )
                                   .build();
     }
 
@@ -310,7 +308,7 @@ public class SeriesHelper {
 
         /*
          * for each volume
-         *  sum all datapoints for each  hours to produce one datapoint,
+         *  sum all datapoints for each hours to produce one datapoint,
          *  per volume
          */
         series.add( capacity( datapoints, epochStart, Metrics.STP_WMA, 60, 24 ) );
@@ -381,10 +379,11 @@ public class SeriesHelper {
         final int to = datapoints.size();
         final int from = to - maxResults;
 
+        final List<Datapoint> subList = datapoints.subList( from, to );
+        sortByTimestamp( subList );
+
         return new SeriesBuilder().withType( metrics )
-                                  .withDatapoints(
-                                      datapoints.subList( from,
-                                                          to ) )
+                                  .withDatapoints( subList )
                                   .build();
     }
 
@@ -424,6 +423,13 @@ public class SeriesHelper {
         }
 
         return empty;
+    }
+
+    /**
+     * @param datapoints the {@link List} of {@link com.formationds.commons.model.Datapoint}
+     */
+    private void sortByTimestamp( final List<Datapoint> datapoints ) {
+        Collections.sort( datapoints, Comparator.comparing( Datapoint::getX ) );
     }
 
 }

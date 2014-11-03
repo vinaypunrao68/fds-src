@@ -8,26 +8,28 @@ import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.model.Events;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.UserActivityEvent;
+import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.CriteriaQueryBuilder;
 
 import javax.jdo.Query;
 import javax.persistence.EntityManager;
-import javax.persistence.TypedQuery;
 import javax.persistence.criteria.Expression;
+import java.io.File;
 import java.util.List;
 
 // TODO: not implemented
 public class EventRepository extends JDORepository<Event, Long, Events, QueryCriteria> {
 
-    // TODO: default should be based on fdsroot (is this available somewhere?)
-    private static final String DBNAME = "/fds/var/db/events.odb";
+    private static final String DBNAME = "var/db/events.odb";
 
     /**
      * default constructor
      */
     public EventRepository() {
-        this(DBNAME);
+        this( SingletonConfiguration.instance().getConfig().getFdsRoot() +
+                  File.separator +
+                  DBNAME );
     }
 
     /**
