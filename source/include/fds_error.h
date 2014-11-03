@@ -67,6 +67,7 @@ typedef enum {
     ERR_DM_VOL_MARKED_DELETED = 44,
     ERR_DM_OP_NOT_ALLOWED     = 45,
     ERR_DM_SNAPSHOT_FAILED    = 46,
+    ERR_INVALID_VOL_ID        = 47,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
@@ -260,6 +261,21 @@ inline bool operator== (const Error& lhs, const Error& rhs) {
 inline bool operator!= (const Error& lhs, const Error& rhs) {
     return !(lhs == rhs);
 }
+
+struct Exception : std::exception {
+    explicit Exception(const Error& e, const std::string& message="") throw();
+    explicit Exception(const std::string& message) throw();
+    Exception(const Exception&) throw();
+    Exception& operator= (const Exception&) throw();
+    const Error& getError() const;
+    virtual ~Exception() throw();
+    virtual const char* what() const throw();
+
+  protected:
+    Error err;
+    std::string message;
+};
+
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_FDS_ERROR_H_
