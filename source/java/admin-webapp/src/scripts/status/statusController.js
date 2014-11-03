@@ -1,6 +1,12 @@
-angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', '$byte_converter', '$time_converter', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval, $byte_converter, $time_converter ){
+angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', '$byte_converter', '$time_converter', '$rootScope', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval, $byte_converter, $time_converter, $rootScope ){
 
     $scope.healthStatus = [{number: 'Excellent'}];
+    
+    var firebreakInterval = -1;
+    var performanceInterval = -1;
+    var capacityInterval = -1;
+    var activityInterval = -1;
+    
     
     $scope.activities = [];
     $scope.firebreakMax = 1440;
@@ -169,11 +175,6 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         return filter;
     };
                                                             
-    var firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
-    var performanceInterval = $interval( function(){ $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );}, 60000 );
-    var capacityInterval = $interval( function(){ $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );}, 60000 );
-    var activityInterval = $interval( function(){ $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );}, 60000 );
-    
     // cleanup the pollers
     $scope.$on( '$destroy', function(){
         $interval.cancel( firebreakInterval );
@@ -182,9 +183,24 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $interval.cancel( activityInterval );
     });
     
-    $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
-    $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );
-    $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );
-    $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );
+    var init = function(){
+        
+        firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
+        performanceInterval = $interval( function(){ $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );}, 60000 );
+        capacityInterval = $interval( function(){ $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );}, 60000 );
+        activityInterval = $interval( function(){ $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );}, 60000 );
+
+        
+        $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
+        $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );
+        $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );
+        $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );
+    };
+    
+    $rootScope.$on( 'fds::authentication_success', function(){
+        init();
+    });
+    
+    init();
 
 }]);
