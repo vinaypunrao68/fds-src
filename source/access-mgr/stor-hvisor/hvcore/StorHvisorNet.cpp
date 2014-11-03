@@ -171,10 +171,13 @@ StorHvCtrl::StorHvCtrl(int argc,
 
         StatsCollector::singleton()->registerOmClient(om_client);
         fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");
+        fds_bool_t disableStreamingStats = config.get_abs<bool>("fds.am.testing.toggleDisableStreamingStats");
         if (print_qos_stats) {
             StatsCollector::singleton()->enableQosStats("AM");
         }
-        StatsCollector::singleton()->startStreaming(NULL, NULL);
+        if (!disableStreamingStats) {
+            StatsCollector::singleton()->startStreaming(NULL, NULL);
+        }
     }
 
     DMTManagerPtr dmtMgr;
