@@ -95,8 +95,10 @@ namespace fds {
         ERR_SM_SUPERBLOCK_READ_FAIL,
         ERR_SM_SUPERBLOCK_WRITE_FAIL,
         ERR_SM_SUPERBLOCK_NO_RECONCILE,
+        ERR_SM_NOERR_PRISTINE_STATE,
         ERR_SM_GC_ENABLED,
         ERR_SM_AUTO_GC_FAILED,
+        ERR_SM_DUP_OBJECT_CORRUPT,
 
         /* Network errors */
         ERR_NETWORK_TRANSPORT = 3000,
@@ -201,28 +203,48 @@ namespace fds {
 
     class Error {
         fds_errno_t _errno;
+
      public:
-        Error();
-        Error(fds_errno_t errno_arg);  //NOLINT
-        Error(fds_uint32_t errno_fdsp); //NOLINT
-        Error(const Error& err);
+        Error() : _errno(ERR_OK) {}
+        Error(fds_errno_t errno_arg) : _errno(errno_arg) {} //NOLINT
+        Error(fds_uint32_t errno_fdsp) : _errno(static_cast<fds_errno_t>(errno_fdsp)) {} //NOLINT
+        Error(const Error& err) : _errno(err._errno) {}
 
-        bool OK() const;
+        bool OK() const
+        { return _errno == ERR_OK; }
 
-        bool ok() const;
-        fds_errno_t GetErrno() const;
+        bool ok() const
+        { return OK(); }
+
+        fds_errno_t GetErrno() const
+        { return _errno; }
+
         std::string GetErrstr() const;
 
         FDS_ProtocolInterface::FDSP_ErrType getFdspErr() const;
-        Error& operator=(const Error& rhs);
 
-        Error& operator=(const fds_errno_t& rhs);
+        Error& operator=(const Error& rhs)
+        { if (this != &rhs) _errno = rhs._errno; return *this; }
+
+        Error& operator=(const fds_errno_t& rhs)
+        { _errno = rhs; return *this; }
+
+        explicit operator bool() const
+        { return OK(); }
 
         friend bool operator==(const Error& lhs, const Error& rhs);
         friend bool operator!=(const Error& lhs, const Error& rhs);
-
-        ~Error();
     };
+
+    inline std::string Error::GetErrstr() const {
+        if (_errno <= ERR_INVALID_DMT) return fds_errstrs[_errno];
+        return std::string("Error no: ") + std::to_string(_errno);
+    }
+
+    inline FDS_ProtocolInterface::FDSP_ErrType Error::getFdspErr() const {
+        return (OK() ? FDS_ProtocolInterface::FDSP_ERR_OKOK :
+                FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE);
+    }
 
     std::ostream& operator<<(std::ostream& out, const Error& err);
 

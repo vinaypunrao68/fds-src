@@ -11,6 +11,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/shared_ptr.hpp>
+#include <google/profiler.h>
 
 #include <fds_assert.h>
 #include <fds_process.h>
@@ -199,6 +200,7 @@ int ObjectStoreLoadProc::run() {
     }
 
     fds_uint64_t start_nano = util::getTimeStampNanos();
+    ProfilerStart("/tmp/SMObjStore_output.prof");
     for (unsigned i = 0; i < volume_->concurrency_; ++i) {
         std::thread* new_thread = new std::thread(&ObjectStoreLoadProc::task, this, i);
         threads_.push_back(new_thread);
@@ -208,6 +210,7 @@ int ObjectStoreLoadProc::run() {
     for (unsigned x = 0; x < volume_->concurrency_; ++x) {
         threads_[x]->join();
     }
+    ProfilerStop();
 
     for (unsigned x = 0; x < volume_->concurrency_; ++x) {
         std::thread* th = threads_[x];

@@ -9,11 +9,8 @@
 
 #include <fdsp_utils.h>
 #include <ObjMeta.h>
-#include <StorMgr.h>
 
 namespace fds {
-
-extern ObjectStorMgr *objStorMgr;
 
 SyncMetaData::SyncMetaData()
 {
@@ -92,8 +89,6 @@ SyncMetaData::operator=(const SyncMetaData &rhs) {
 
 ObjMetaData::ObjMetaData()
 {
-    mask = 0;
-
     memset(&obj_map, 0, sizeof(obj_map));
 
     phy_loc = &obj_map.loc_map[0];
@@ -108,7 +103,6 @@ ObjMetaData::ObjMetaData(const ObjectBuf& buf)
 }
 
 ObjMetaData::ObjMetaData(const ObjMetaData::const_ptr &rhs) {
-    mask = rhs->mask;
     memcpy(&obj_map, &(rhs->obj_map), sizeof(obj_map));
     phy_loc = &obj_map.loc_map[0];
     assoc_entry = rhs->assoc_entry;
@@ -163,8 +157,6 @@ void ObjMetaData::unmarshall(const ObjectBuf& buf) {
 uint32_t ObjMetaData::write(serialize::Serializer* serializer) const
 {
     uint32_t sz = 0;
-    sz += serializer->writeByte(static_cast<int8_t>(mask));
-
     sz += serializer->writeBuffer(reinterpret_cast<int8_t*>(
             const_cast<meta_obj_map_t*>(&obj_map)),
             sizeof(obj_map));
@@ -187,7 +179,6 @@ uint32_t ObjMetaData::write(serialize::Serializer* serializer) const
 uint32_t ObjMetaData::read(serialize::Deserializer* deserializer)
 {
     uint32_t sz = 0;
-    sz += deserializer->readByte((int8_t&)mask);
 
     uint32_t nread = deserializer->\
             readBuffer(reinterpret_cast<int8_t*>(&obj_map), sizeof(obj_map));
@@ -213,8 +204,7 @@ uint32_t ObjMetaData::read(serialize::Deserializer* deserializer)
  */
 uint32_t ObjMetaData::getEstimatedSize() const
 {
-    uint32_t sz = sizeof(mask) +
-            sizeof(obj_map) +
+    uint32_t sz = sizeof(obj_map) +
             serialize::getEstimatedSize(assoc_entry);
 
     if (syncDataExists()) {
@@ -484,7 +474,7 @@ void ObjMetaData::removePhyLocation(diskio::DataTier tier) {
  * Applies incoming data to metadata.
  * @param data
  */
-void ObjMetaData::apply(const FDSP_MigrateObjectMetadata& data)
+void ObjMetaData::apply(const fpi::FDSP_MigrateObjectMetadata& data)
 {
     fds_assert(!syncDataExists());
 
@@ -524,7 +514,7 @@ void ObjMetaData::apply(const FDSP_MigrateObjectMetadata& data)
  * Extracts sync entry data.  Metadata that is node specific is skipped
  * @param md
  */
-void ObjMetaData::extractSyncData(FDSP_MigrateObjectMetadata &md) const
+void ObjMetaData::extractSyncData(fpi::FDSP_MigrateObjectMetadata &md) const
 {
     /* Object id */
     fds::assign(md.object_id, obj_map.obj_id);
@@ -546,7 +536,7 @@ void ObjMetaData::extractSyncData(FDSP_MigrateObjectMetadata &md) const
     for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; i++) {
         if (assoc_entry[i].ref_cnt > 0) {
             fds_assert(assoc_entry[i].vol_uuid != 0);
-            FDSP_ObjectVolumeAssociation a;
+            fpi::FDSP_ObjectVolumeAssociation a;
             a.vol_id.uuid = assoc_entry[i].vol_uuid;
             a.ref_cnt = assoc_entry[i].ref_cnt;
             md.associations.push_back(a);
@@ -570,7 +560,7 @@ void ObjMetaData::checkAndDemoteUnsyncedData(const uint64_t& syncTs)
          * NOTE: For each field here, there should be an association resolve in
          * mergeNewAndUnsyncedData
          */
-        mask |= SYNCMETADATA_MASK;
+        obj_map.obj_flags |= SYNCMETADATA_MASK;
 
         /* Creation time */
         sync_data.born_ts = obj_map.obj_create_time;
@@ -594,10 +584,10 @@ void ObjMetaData::checkAndDemoteUnsyncedData(const uint64_t& syncTs)
  * Applies data to sync metadata.  Normal metadata is unaffected.
  * @param data
  */
-void ObjMetaData::applySyncData(const FDSP_MigrateObjectMetadata& data)
+void ObjMetaData::applySyncData(const fpi::FDSP_MigrateObjectMetadata& data)
 {
     if (!syncDataExists()) {
-        mask |= SYNCMETADATA_MASK;
+        obj_map.obj_flags |= SYNCMETADATA_MASK;
         LOGWARN << "syncDataExists is false " << logString();
     }
 
@@ -654,7 +644,6 @@ void ObjMetaData::mergeNewAndUnsyncedData()
         assoc_entry.clear();
         obj_map.obj_refcnt = 0;
 
-        objStorMgr->getCounters()->resolve_used_sync_cnt.incr();
         /* Merge happens below */
     }
 #endif
@@ -676,10 +665,8 @@ void ObjMetaData::mergeNewAndUnsyncedData()
         obj_map.obj_refcnt += e.ref_cnt;
     }
     /* Sync data isn't needed anymore */
-    mask = 0;
+    obj_map.obj_flags &= ~SYNCMETADATA_MASK;
     sync_data.reset();
-
-    objStorMgr->getCounters()->resolve_mrgd_cnt.incr();
 }
 
 /**
@@ -753,17 +740,26 @@ bool ObjMetaData::dataPhysicallyExists() const
 
 void ObjMetaData::setSyncMask()
 {
-    mask |= SYNCMETADATA_MASK;
+    obj_map.obj_flags |= SYNCMETADATA_MASK;
+}
+
+void ObjMetaData::setObjCorrupted() {
+    obj_map.obj_flags |= OBJ_FLAG_CORRUPTED;
+}
+
+fds_bool_t ObjMetaData::isObjCorrupted() const {
+    return (obj_map.obj_flags & OBJ_FLAG_CORRUPTED);
 }
 
 bool ObjMetaData::syncDataExists() const
 {
-    return (mask & SYNCMETADATA_MASK) != 0;
+    return (obj_map.obj_flags & SYNCMETADATA_MASK) != 0;
 }
 
 bool ObjMetaData::operator==(const ObjMetaData &rhs) const
 {
-    if (mask == rhs.mask && assoc_entry.size() == rhs.assoc_entry.size() &&
+    if (obj_map.obj_flags == rhs.obj_map.obj_flags &&
+        assoc_entry.size() == rhs.assoc_entry.size() &&
         (memcmp(assoc_entry.data(), rhs.assoc_entry.data(),
                 sizeof(obj_assoc_entry_t) * assoc_entry.size()) == 0)) {
         if (syncDataExists()) {
@@ -779,7 +775,7 @@ std::string ObjMetaData::logString() const
     std::ostringstream oss;
     ObjectID obj_id(std::string((const char*)(obj_map.obj_id.metaDigest),
             sizeof(obj_map.obj_id.metaDigest)));
-    oss << "id: " << obj_id << " mask: " << (uint32_t)mask
+    oss << "id: " << obj_id << " flags: " << (uint32_t)obj_map.obj_flags
             << " len: " << obj_map.obj_size
             << " assoc_entry_cnt: " << assoc_entry.size();
     return oss.str();

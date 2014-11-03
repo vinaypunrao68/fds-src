@@ -4,7 +4,7 @@ angular.module( 'angular-fui' ).directive( 'fuiSlider', function(){
         restrict: 'E',
         replace: true,
         transclude: false,
-        scope: { min: '@', max: '@', value: '=', minLabel: '@', maxLabel: '@', labelFunction: '=?', step: '@', values: '=' },
+        scope: { min: '@', max: '@', value: '=ngModel', minLabel: '@', maxLabel: '@', labelFunction: '=?', step: '@', values: '=' },
         templateUrl: 'scripts/directives/angular-fui/fui-slider/fui-slider.html',
         controller: function( $scope, $document, $element ){
 

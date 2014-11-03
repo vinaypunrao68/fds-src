@@ -68,27 +68,6 @@ void fn_AbortBlobTxHandler(FDSN_Status status,
     handler->ready();
 }
 
-void fn_ListBucketHandler(int isTruncated,
-                          const char *nextMarker,
-                          int contentsCount,
-                          const ListBucketContents *contents,
-                          int commonPrefixesCount,
-                          const char **commonPrefixes,
-                          void *callbackData,
-                          FDSN_Status status) {
-    ListBucketResponseHandler* handler= reinterpret_cast<ListBucketResponseHandler*>(callbackData); //NOLINT
-    handler->status = status;
-
-    handler->isTruncated = isTruncated;
-    handler->nextMarker = nextMarker;
-    handler->contentsCount = contentsCount;
-    handler->contents = contents;
-    handler->commonPrefixesCount = commonPrefixesCount;
-    handler->commonPrefixes = commonPrefixes;
-
-    handler->ready();
-}
-
 void fn_BucketStatsHandler(const std::string& timestamp,
                            int content_count,
                            const BucketStatsContent* contents,
@@ -114,11 +93,6 @@ int fn_PutObjectHandler(void *reqContext,
                         void *callbackData,
                         FDSN_Status status,
                         ErrorDetails* errorDetails) {
-    PutObjectResponseHandler* handler= reinterpret_cast<PutObjectResponseHandler*>(callbackData); //NOLINT
-    handler->status = status;
-    handler->errorDetails = errorDetails;
-
-    handler->ready();
     return 0;
 }
 

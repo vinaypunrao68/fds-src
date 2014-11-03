@@ -20,6 +20,8 @@ from contexts import snapshotpolicy
 from contexts import service
 from contexts import user
 from contexts import tenant
+from contexts import scavenger
+from contexts import ScavengerPolicy
 
 """
 Console exit exception. This is needed to exit cleanly as 
@@ -182,7 +184,7 @@ class FDSConsole(cmd.Cmd):
             
         if len(argv) == 0 or argv[0] in ['help']:
             self.print_topics("commands in context" , sorted(ctx.get_method_names(self.config.getSystem(KEY_ACCESSLEVEL))),   15,80)
-            self.print_topics("subcontexts : [use cc <context> to switch]",ctx.get_subcontext_names(), 15, 80)
+            self.print_topics("subcontexts : [use \'cc <context>\' to switch]",ctx.get_subcontext_names(), 15, 80)
             self.print_topics("globals",self.get_global_commands(), 15, 80)
         else:
             if line in self.get_global_commands():
@@ -458,6 +460,8 @@ class FDSConsole(cmd.Cmd):
         self.root.add_sub_context(service.ServiceContext(self.config,'service'))
         self.root.add_sub_context(tenant.TenantContext(self.config,'tenant'))
         self.root.add_sub_context(user.UserContext(self.config,'user'))
+        scav = self.root.add_sub_context(scavenger.ScavengerContext(self.config,'scavenger'))
+        scav.add_sub_context(ScavengerPolicy.ScavengerPolicyContext(self.config, 'policy'))
 
     def run(self, argv = None):
         l =  []

@@ -3,6 +3,10 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
     $scope.addingnode = false;
     $scope.nodes = $node_service.nodes;
 
+    $scope.addNode = function(){
+        $scope.systemVars.next( 'addNode' );
+    };
+    
     $scope.getOverallStatus = function( node ){
         return $scope.getStatus( $node_service.getOverallStatus( node ) );
     };

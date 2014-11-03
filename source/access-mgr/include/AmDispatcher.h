@@ -42,47 +42,93 @@ class AmDispatcher : public Module, public boost::noncopyable {
     void mod_shutdown();
 
     /**
-     * Dipatches a get volume metadata request.
+     * Dispatches a get volume metadata request.
      */
-    void dispatchGetVolumeMetadata(AmQosReq *qosReq);
+    void dispatchGetVolumeMetadata(AmRequest *amReq);
 
     /**
      * Callback for get volume metadata responses.
      */
-    void getVolumeMetadataCb(AmQosReq* qosReq,
+    void getVolumeMetadataCb(AmRequest* amReq,
                              FailoverSvcRequest* svcReq,
                              const Error& error,
                              boost::shared_ptr<std::string> payload);
 
     /**
+     * Aborts a blob transaction request.
+     */
+    void dispatchAbortBlobTx(AmRequest *amReq);
+
+    /**
      * Dipatches a start blob transaction request.
      */
-    void dispatchStartBlobTx(AmQosReq *qosReq);
+    void dispatchStartBlobTx(AmRequest *amReq);
 
     /**
      * Callback for start blob transaction responses.
      */
-    void startBlobTxCb(AmQosReq* qosReq,
+    void startBlobTxCb(AmRequest* amReq,
                        QuorumSvcRequest* svcReq,
                        const Error& error,
                        boost::shared_ptr<std::string> payload);
 
     /**
-     * Dispatches a delete blob transaction request.
+     * Dispatches a commit blob transaction request.
      */
-    void dispatchDeleteBlob(AmQosReq *qosReq);
+    void dispatchCommitBlobTx(AmRequest *amReq);
 
     /**
-     * Dispatches a start blob transaction request.
+     * Callback for commit blob transaction responses.
      */
-    void dispatchGetObject(AmQosReq *qosReq);
+    void commitBlobTxCb(AmRequest* amReq,
+                       QuorumSvcRequest* svcReq,
+                       const Error& error,
+                       boost::shared_ptr<std::string> payload);
 
-    void dispatchQueryCatalog(AmQosReq *qosReq);
+    /**
+     * Dispatches an update catalog request.
+     */
+    void dispatchUpdateCatalog(AmRequest *amReq);
+
+    /**
+     * Dispatches an update catalog once request.
+     */
+    void dispatchUpdateCatalogOnce(AmRequest *amReq);
+
+    /**
+     * Dipatches a put object request.
+     */
+    void dispatchPutObject(AmRequest *amReq);
+
+    /**
+     * Dipatches a get object request.
+     */
+    void dispatchGetObject(AmRequest *amReq);
+
+    /**
+     * Dispatches a delete blob transaction request.
+     */
+    void dispatchDeleteBlob(AmRequest *amReq);
+
+    /**
+     * Dipatches a query catalog request.
+     */
+    void dispatchQueryCatalog(AmRequest *amReq);
 
     /**
      * Dispatches a stat blob transaction request.
      */
-    void dispatchStatBlob(AmQosReq *qosReq);
+    void dispatchStatBlob(AmRequest *amReq);
+
+    /**
+     * Dispatches a set metadata on blob transaction request.
+     */
+    void dispatchSetBlobMetadata(AmRequest *amReq);
+
+    /**
+     * Dispatches a volume contents (list bucket) transaction request.
+     */
+    void dispatchVolumeContents(AmRequest *amReq);
 
   private:
     /// Shared ptrs to the DLT and DMT managers used
@@ -90,13 +136,18 @@ class AmDispatcher : public Module, public boost::noncopyable {
     DLTManagerPtr dltMgr;
     DMTManagerPtr dmtMgr;
 
-    /// Uturn test all network requests
-    fds_bool_t uturnAll;
+    /**
+     * Callback for delete blob responses.
+     */
+    void abortBlobTxCb(AmRequest *amReq,
+                       QuorumSvcRequest* svcReq,
+                       const Error& error,
+                       boost::shared_ptr<std::string> payload);
 
     /**
      * Callback for delete blob responses.
      */
-    void deleteBlobCb(AmQosReq *qosReq,
+    void deleteBlobCb(AmRequest *amReq,
                       QuorumSvcRequest* svcReq,
                       const Error& error,
                       boost::shared_ptr<std::string> payload);
@@ -104,7 +155,7 @@ class AmDispatcher : public Module, public boost::noncopyable {
     /**
      * Callback for get blob responses.
      */
-    void getObjectCb(AmQosReq* qosReq,
+    void getObjectCb(AmRequest* amReq,
                      FailoverSvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);
@@ -112,18 +163,50 @@ class AmDispatcher : public Module, public boost::noncopyable {
     /**
      * Callback for catalog query responses.
      */
-    void getQueryCatalogCb(AmQosReq* qosReq,
+    void getQueryCatalogCb(AmRequest* amReq,
                            FailoverSvcRequest* svcReq,
+                           const Error& error,
+                           boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for set metadata on blob responses.
+     */
+    void setBlobMetadataCb(AmRequest *amReq,
+                           QuorumSvcRequest* svcReq,
                            const Error& error,
                            boost::shared_ptr<std::string> payload);
 
     /**
      * Callback for stat blob responses.
      */
-    void statBlobCb(AmQosReq *qosReq,
+    void statBlobCb(AmRequest *amReq,
                     FailoverSvcRequest* svcReq,
                     const Error& error,
                     boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for update blob responses.
+     */
+    void updateCatalogCb(AmRequest* amReq,
+                         QuorumSvcRequest* svcReq,
+                         const Error& error,
+                         boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for put object responses.
+     */
+    void putObjectCb(AmRequest* amReq,
+                     QuorumSvcRequest* svcReq,
+                     const Error& error,
+                     boost::shared_ptr<std::string> payload);
+
+    /**
+     * Callback for stat blob responses.
+     */
+    void volumeContentsCb(AmRequest *amReq,
+                          FailoverSvcRequest* svcReq,
+                          const Error& error,
+                          boost::shared_ptr<std::string> payload);
 };
 
 }  // namespace fds

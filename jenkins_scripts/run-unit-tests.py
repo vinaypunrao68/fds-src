@@ -24,10 +24,15 @@ if __name__ == "__main__":
     files = open(files_path + "/gtest_ut")
     for rec in files:
         rec = rec.rstrip('\n')
-        bin_name = re.split("/", rec)
-        xml_path='--gtest_output=xml:' + files_path + '/' + bin_name[-1] + '.xml'
-        print "Running:", rec, xml_path
-        subprocess.call([rec, xml_path])
+        params = rec.split(' ', 1)
+        bin_name = params.pop(0)
+        args = ""
+        if len(params) > 0:
+            args += params.pop(0)
+        args += ' --gtest_output=xml:' + files_path + '/' + bin_name + '.xml'
+        bin_name += (" " + args)
+        print "Running:", bin_name
+        subprocess.call(bin_name, shell=True)
 
     # Run Java unit tests
     os.chdir(testdir + "/../source/java")

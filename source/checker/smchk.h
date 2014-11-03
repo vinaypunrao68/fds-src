@@ -17,13 +17,17 @@ namespace fds {
         PRINT_MD,
         PRINT_TOK_BY_PATH,
         PRINT_PATH_BY_TOK,
-        CALC_BYTES_RECLAIMABLE
+        CALC_BYTES_RECLAIMABLE,
+        TOKEN_CHECK
     };
 
     class SMChk {
     // friend class MetadataIterator;
     public:
         SMChk(int sm_count, SmDiskMap::ptr smDiskMap,
+                ObjectDataStore::ptr smObjStore,
+                ObjectMetadataDb::ptr smMdDb);
+        SMChk(DLT* dlt, SmDiskMap::ptr smDiskMap,
                 ObjectDataStore::ptr smObjStore,
                 ObjectMetadataDb::ptr smMdDb);
         ~SMChk() {}
@@ -33,7 +37,8 @@ namespace fds {
         void list_metadata();
         bool full_consistency_check();
         int  bytes_reclaimable();
-        // bool consistency_check(ObjectId obj_id);  // test a single object
+        bool consistency_check(ObjectID obj_id);  // test a single object
+        bool consistency_check(fds_token_id tokId); // test a single token
 
 
     protected:
@@ -45,6 +50,7 @@ namespace fds {
         fds::ObjectMetadataDb::ptr smMdDb;
         // Methods
         SmTokenSet getSmTokens();
+        ObjectID hash_data(boost::shared_ptr<const std::string> dataPtr, fds_uint32_t obj_size);
 
         class MetadataIterator {
         public:

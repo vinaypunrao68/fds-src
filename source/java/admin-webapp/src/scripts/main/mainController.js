@@ -25,7 +25,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
             id: 'activity', 
             link: 'homepage.activity', 
             text: $filter( 'translate' )('activities.title' ), 
-            iconClass: 'icon-activity_pulse', 
+            iconClass: 'icon-activity', 
             selected: false },
         { 
             id: 'system', 
@@ -37,6 +37,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
         { 
             id: 'volumes', 
             link: 'homepage.volumes', 
+            data: { state: 'list' },
             text: $filter( 'translate' )('volumes.title' ), 
             iconClass: 'icon-volumes', 
             selected: false },
@@ -50,7 +51,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
              id: 'tenants', 
              link: 'homepage.tenants', 
              text: $filter( 'translate' )('tenants.title' ), 
-             iconClass: 'icon-tenants', 
+             iconClass: 'icon-tenant', 
              selected: false, 
              permission: SYS_MGMT },
         { 
@@ -77,7 +78,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
 
         item.selected = true;
 
-        $state.transitionTo( item.link );
+        $state.transitionTo( item.link, item.data );
     };
 
     $scope.login = function(){
@@ -129,6 +130,10 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
 
     var determineWhereToGo = function(){
         
+        if ( $scope.validAuth === false ){
+            return;
+        }
+        
         var noState = true;
         
         for ( var i = 0; i < $scope.views.length; i++ ){
@@ -152,9 +157,17 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
 
     $scope.$watch( function(){ return $authentication.isAuthenticated; }, function( val ) {
         $scope.loggedInUser = $authorization.getUsername();
+        
+        if ( !angular.isDefined( $scope.loggedInUser ) ){
+            $scope.validAuth = false;
+            return;
+        }
+        
         $scope.validAuth = val;
         $scope.username = '';
         $scope.password = '';
+        
+        determineWhereToGo();
     });
 
     $scope.$watch( function(){ return $authentication.error; }, function( val ) {

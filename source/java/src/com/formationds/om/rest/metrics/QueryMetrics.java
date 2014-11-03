@@ -4,16 +4,23 @@
 
 package com.formationds.om.rest.metrics;
 
-import com.formationds.commons.model.entity.MetricQuery;
+import com.formationds.commons.model.Statistics;
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.om.repository.helper.QueryHelper;
+import com.formationds.om.repository.query.MetricQueryCriteria;
+import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.lang.reflect.Type;
 import java.util.Map;
 
 /**
@@ -21,6 +28,10 @@ import java.util.Map;
  */
 public class QueryMetrics
   implements RequestHandler {
+  private static final Logger logger =
+    LoggerFactory.getLogger( QueryMetrics.class );
+
+  private static final Type TYPE = new TypeToken<MetricQueryCriteria>() { }.getType();
 
   public QueryMetrics() {
     super();
@@ -32,14 +43,13 @@ public class QueryMetrics
 
     try( final Reader reader =
            new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
-      final MetricQuery metricQuery = new GsonBuilder().create()
-                                                       .fromJson( reader,
-                                                                  MetricQuery.class );
 
+      final Statistics stats = new QueryHelper().execute(
+        ObjectModelHelper.toObject( reader, TYPE ) );
 
-      // TODO finish implementation
+      logger.trace( "STATS: {} ", stats );
+
+      return new JsonResource( new JSONObject( stats ) );
     }
-
-    return new JsonResource( new JSONObject().put( "status", "OK" ) );
   }
 }

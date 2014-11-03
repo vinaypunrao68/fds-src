@@ -4,6 +4,16 @@
 
 package com.formationds.commons.model;
 
+import com.formationds.commons.model.abs.Context;
+import com.formationds.commons.model.util.ModelFieldValidator;
+import com.google.gson.annotations.SerializedName;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static com.formationds.commons.model.util.ModelFieldValidator.KeyFields;
+import static com.formationds.commons.model.util.ModelFieldValidator.outOfRange;
+
 /**
  * @author ptinius
  */
@@ -14,25 +24,35 @@ public class Volume
   private String name;
   private Long limit;                    // maximum IOPS
   private Long sla;                      // minimum IOPS -- service level agreement
-  private String id;
+  @SerializedName( "volumeId" )
+  private String id;                     // volume Id
   private Integer priority;
   private Connector data_connector;
   private Usage current_usage;
 
+  private static final Map<String, ModelFieldValidator> VALIDATORS =
+    new HashMap<>();
+
+  static {
+    VALIDATORS.put( "priority",
+                    new ModelFieldValidator( KeyFields.PRIORITY,
+                                             PRIORITY_MIN,
+                                             PRIORITY_MAX ) );
+    VALIDATORS.put( "sla",
+                    new ModelFieldValidator( KeyFields.SLA,
+                                             SLA_MIN,
+                                             SLA_MAX ) );
+    VALIDATORS.put( "limit",
+                    new ModelFieldValidator( KeyFields.LIMIT,
+                                             SLA_MIN,
+                                             SLA_MAX ) );
+  }
 
   /**
    * default constructor
    */
   public Volume() {
     super();
-  }
-
-  /**
-   * @return Returns a {@link T} representing the context
-   */
-  @Override
-  public <T> T getContext() {
-    return ( T ) getName();
   }
 
   /**
@@ -62,6 +82,12 @@ public class Volume
    *                 this volume
    */
   public void setPriority( final int priority ) {
+    if( !VALIDATORS.get( "priority" )
+                   .isValid( priority ) ) {
+      throw new IllegalArgumentException(
+        outOfRange(
+          VALIDATORS.get( "priority" ), ( long ) priority ) );
+    }
     this.priority = priority;
   }
 
@@ -93,6 +119,13 @@ public class Volume
    *            for IOPS
    */
   public void setSla( final long sla ) {
+    if( !VALIDATORS.get( "sla" )
+                   .isValid( sla ) ) {
+      throw new IllegalArgumentException(
+        outOfRange(
+          VALIDATORS.get( "sla" ), sla ) );
+    }
+
     this.sla = sla;
   }
 
@@ -109,6 +142,13 @@ public class Volume
    *              agreement for IOPS
    */
   public void setLimit( final long limit ) {
+    if( !VALIDATORS.get( "limit" )
+                   .isValid( limit ) ) {
+      throw new IllegalArgumentException(
+        outOfRange(
+          VALIDATORS.get( "limit" ), limit ) );
+    }
+
     this.limit = limit;
   }
 
@@ -140,5 +180,14 @@ public class Volume
    */
   public void setCurrent_usage( final Usage current_usage ) {
     this.current_usage = current_usage;
+  }
+
+  /**
+   * @return Returns a {@link T} representing the context
+   */
+  @SuppressWarnings( "unchecked" )
+  @Override
+  public <T> T getContext() {
+    return ( T ) this.name;
   }
 }

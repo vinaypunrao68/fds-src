@@ -12,8 +12,8 @@
 namespace fds {
 
 Module::Module(char const *const name)
-    : mod_lstp_cnt(0), mod_intern_cnt(0), mod_exec_state(MOD_ST_NULL),
-      mod_lockstep(NULL), mod_intern(NULL), mod_name(name), mod_params(NULL) {}
+    : mod_lstp_idx(-1), mod_intern_cnt(0), mod_exec_state(MOD_ST_NULL),
+      mod_owner(NULL), mod_intern(NULL), mod_name(name), mod_params(NULL) {}
 
 Module::~Module() {}
 
@@ -109,26 +109,22 @@ Module::mod_startup()
     }
 }
 
-// \Module::mod_lockstep_startup
-// -----------------------------
+// mod_lockstep_start_service
+// --------------------------
 //
 void
-Module::mod_lockstep_startup()
+Module::mod_lockstep_start_service()
 {
-    int i;
+    mod_lockstep_done();
+}
 
-    if (mod_exec_state & MOD_ST_STARTUP) {
-        return;
-    }
-    mod_exec_state |= MOD_ST_STARTUP;
-    if (mod_intern != NULL) {
-        for (i = 0; mod_intern[i] != NULL; i++) {
-            mod_intern[i]->mod_lockstep_startup();
-        }
-        fds_verify(i == mod_intern_cnt);
-    }
-    // Block & wait for all dependent lockstep modules to finish.
-    mod_lockstep_sync();
+// mod_lockstep_done
+// -----------------
+//
+void
+Module::mod_lockstep_done()
+{
+    mod_owner->mod_done_lockstep(this);
 }
 
 // \Module::mod_enable_service
@@ -181,17 +177,14 @@ Module::mod_disable_service()
 void
 Module::mod_lockstep_shutdown()
 {
-    int    i;
+}
 
-    if ((mod_intern != NULL) && (mod_intern[0] != NULL)) {
-        fds_verify(mod_intern_cnt != 0);
-        for (i = mod_intern_cnt - 1; i >= 0; i--) {
-            fds_verify(mod_intern[i] != NULL);
-            mod_intern[i]->mod_lockstep_shutdown();
-        }
-    }
-    // Block & wait for all dependent lockstep modules to finish.
-    mod_lockstep_sync();
+// mod_lockstep_shutdown_done
+// --------------------------
+//
+void
+Module::mod_lockstep_shutdown_done()
+{
 }
 
 // \Module::mod_shutdown
@@ -223,7 +216,9 @@ Module::mod_lockstep_sync()
 // \ModuleVector
 // ----------------------------------------------------------------------------
 ModuleVector::ModuleVector(int argc, char **argv, Module **mods)
-    : sys_mod_cnt(0), sys_argc(argc), sys_argv(argv), sys_mods(NULL)
+    : sys_mod_cnt(0), sys_add_cnt(0), sys_lckstp_cnt(0),
+      sys_argc(argc), sys_argv(argv), sys_mods(NULL), sys_add_mods(NULL),
+      sys_lckstps(NULL), sys_waitq(NULL)
 {
     sys_mods = mods;
     if (sys_mods != NULL) {
@@ -278,28 +273,80 @@ ModuleVector::mod_mk_sysparams()
     FdsRootDir::fds_mkdir(sys_params.fds_root.c_str());
 }
 
+/**
+ * mod_assign_locksteps
+ * --------------------
+ * This path is called by the single init. thread.  We don't need any lock here.
+ */
+void
+ModuleVector::mod_assign_locksteps(Module **mods)
+{
+    int i;
+
+    if (sys_lckstps == NULL) {
+        sys_lckstps = new Module * [ModuleVector::mod_max_added_vec];
+        fds_assert(sys_lckstps != NULL);
+        fds_assert(sys_lckstp_cnt == 0);
+    }
+    for (i = 0; mods[i] != NULL; i++) {
+        fds_assert(sys_lckstp_cnt < ModuleVector::mod_max_added_vec);
+        sys_lckstps[sys_lckstp_cnt] = mods[i];
+        sys_lckstp_cnt++;
+
+        fds_assert(mods[i]->mod_lstp_idx == -1);
+        mods[i]->mod_lstp_idx = i;
+    }
+    sys_lckstps[sys_lckstp_cnt] = NULL;
+    fds_assert(sys_lckstp_cnt < ModuleVector::mod_max_added_vec);
+}
+
+/**
+ * mod_append
+ * ----------
+ * This path is called by the single init. thread.  We don't need any lock here.
+ */
+void
+ModuleVector::mod_append(Module *mod)
+{
+    if (sys_add_mods == NULL) {
+        sys_add_mods = new Module * [ModuleVector::mod_max_added_vec];
+        fds_assert(sys_add_mods != NULL);
+        fds_assert(sys_add_cnt == 0);
+        memset(sys_add_mods, 0, ModuleVector::mod_max_added_vec * sizeof(sys_add_mods));
+    }
+    fds_verify((sys_add_cnt + 1) < ModuleVector::mod_max_added_vec);
+    fds_verify(sys_add_mods[sys_add_cnt] == NULL);
+    sys_add_mods[sys_add_cnt++] = mod;
+}
+
 // mod_init_modules
 // ----------------
 //
 void
-ModuleVector::mod_init_modules()
+ModuleVector::mod_init_modules(bool predef)
 {
-    int     i, bailout, retval;
-    Module *mod;
+    int     i, mod_cnt, bailout, retval;
+    Module *mod, **mods;
 
-    if (sys_mod_cnt == 0) {
+    mods = mod_select_vec(predef, &mod_cnt);
+    if (mod_cnt == 0) {
         return;
     }
-    fds_verify(sys_mods != NULL);
+    fds_verify(mods != NULL);
 
     bailout = 0;
-    for (i = 0; i < sys_mod_cnt; i++) {
-        mod = sys_mods[i];
+    for (i = 0; i < mod_cnt; i++) {
+        mod = mods[i];
         fds_verify(mod != NULL);
+
+        mod->mod_owner = this;
         if ((mod->mod_exec_state & MOD_ST_INIT) == 0) {
-            bailout += mod->mod_init(&sys_params);
+            retval   = mod->mod_init(&sys_params);
+            bailout += retval;
             mod->mod_exec_state |= MOD_ST_INIT;
-            GLOGERROR << "module init failed : " << i << " : " << mod->getName();
+            if (retval != 0) {
+                GLOGERROR << "module init failed: " << retval << " : " << mod->getName();
+            }
         }
     }
     if (bailout != 0) {
@@ -311,10 +358,14 @@ ModuleVector::mod_init_modules()
 // -------------------
 //
 void
-ModuleVector::mod_startup_modules()
+ModuleVector::mod_startup_modules(bool predef)
 {
-    for (int i = 0; i < sys_mod_cnt; i++) {
-        Module *mod = sys_mods[i];
+    int      mod_cnt;
+    Module **mods;
+
+    mods = mod_select_vec(predef, &mod_cnt);
+    for (int i = 0; i < mod_cnt; i++) {
+        Module *mod = mods[i];
         if ((mod->mod_exec_state & MOD_ST_STARTUP) == 0) {
             mod->mod_startup();
             mod->mod_exec_state |= MOD_ST_STARTUP;
@@ -324,24 +375,68 @@ ModuleVector::mod_startup_modules()
 
 // mod_run_locksteps
 // -----------------
+// Block the calling thread until the module owner calls the mod_done_lockstep() method.
 //
 void
 ModuleVector::mod_run_locksteps()
 {
-    for (int i = 0; i < sys_mod_cnt; i++) {
-        Module *mod = sys_mods[i];
-        mod->mod_lockstep_startup();
+    boost::condition waitq;
+
+    for (int i = 0; i < sys_lckstp_cnt; i++) {
+        Module *mod = sys_lckstps[i];
+
+        fds_verify(mod != NULL);
+        fds_verify(mod->mod_lstp_idx == i);
+        fds_verify(mod->mod_owner == this);
+
+        if ((mod->mod_exec_state & MOD_ST_LOCKSTEP) != 0) {
+            continue;
+        }
+        fds_verify(sys_waitq == NULL);
+
+        sys_waitq = &waitq;
+        mod->mod_exec_state |= MOD_ST_LOCKSTEP;
+        mod->mod_lockstep_start_service();
+
+        sys_mtx.lock();
+        while ((mod->mod_exec_state & MOD_ST_LSTEP_DONE) == 0) {
+            waitq.wait(sys_mtx);
+        }
+        fds_verify(sys_waitq == &waitq);
+        sys_mtx.unlock();
+        sys_waitq = NULL;
     }
+}
+
+// mod_done_lockstep
+// -----------------
+// Resume the init. thread when the current lockstep module completes its work.
+//
+void
+ModuleVector::mod_done_lockstep(Module *mod, bool shutdown)
+{
+    fds_verify(mod->mod_owner == this);
+
+    sys_mtx.lock();
+    mod->mod_exec_state |= MOD_ST_LSTEP_DONE;
+    if (sys_waitq != NULL) {
+        sys_waitq->notify_one();
+    }
+    sys_mtx.unlock();
 }
 
 // mod_start_services
 // ------------------
 //
 void
-ModuleVector::mod_start_services()
+ModuleVector::mod_start_services(bool predef)
 {
-    for (int i = 0; i < sys_mod_cnt; i++) {
-        Module *mod = sys_mods[i];
+    int      mod_cnt;
+    Module **mods;
+
+    mods = mod_select_vec(predef, &mod_cnt);
+    for (int i = 0; i < mod_cnt; i++) {
+        Module *mod = mods[i];
         if ((mod->mod_exec_state & MOD_ST_FUNCTIONAL) == 0) {
             mod->mod_enable_service();
             mod->mod_exec_state |= MOD_ST_FUNCTIONAL;
@@ -353,13 +448,17 @@ ModuleVector::mod_start_services()
 // -----------------
 //
 void
-ModuleVector::mod_stop_services()
+ModuleVector::mod_stop_services(bool predef)
 {
-    if (sys_mod_cnt == 0) {
+    int      mod_cnt;
+    Module **mods;
+
+    mods = mod_select_vec(predef, &mod_cnt);
+    if (mod_cnt == 0) {
         return;
     }
-    for (int i = sys_mod_cnt - 1; i >= 0; i--) {
-        Module *mod = sys_mods[i];
+    for (int i = mod_cnt - 1; i >= 0; i--) {
+        Module *mod = mods[i];
         fds_verify(mod != NULL);
         mod->mod_disable_service();
     }
@@ -395,22 +494,41 @@ ModuleVector::mod_execute()
 
     mod_init_modules();
     mod_startup_modules();
-    mod_run_locksteps();
     mod_start_services();
+    mod_run_locksteps();
 }
 
 // \ModuleVector::mod_shutdown
 // ---------------------------
 //
 void
-ModuleVector::mod_shutdown()
+ModuleVector::mod_shutdown(bool predef)
 {
-    if (sys_mod_cnt > 0) {
-        for (int i = sys_mod_cnt - 1; i >= 0; i--) {
-            Module *mod = sys_mods[i];
+    int      mod_cnt;
+    Module **mods;
+
+    mods = mod_select_vec(predef, &mod_cnt);
+    if (mod_cnt > 0) {
+        for (int i = mod_cnt - 1; i >= 0; i--) {
+            Module *mod = mods[i];
             mod->mod_shutdown();
         }
     }
+}
+
+// mod_select_vec
+// --------------
+// Select predefined vector or dynamic vector to run.
+//
+Module **
+ModuleVector::mod_select_vec(bool predef, int *mod_cnt)
+{
+    if (predef == true) {
+        *mod_cnt = sys_mod_cnt;
+        return sys_mods;
+    }
+    *mod_cnt = sys_add_cnt;
+    return sys_add_mods;
 }
 
 // --------------------------------------------------------------------------------------

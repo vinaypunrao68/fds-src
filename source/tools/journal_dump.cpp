@@ -21,7 +21,12 @@
 #include "util/logging.h"
 
 #include <boost/scoped_ptr.hpp>
+#include <DmBlobTypes.h>
 #include <dm-vol-cat/DmExtentTypes.h>
+
+#include <dm-vol-cat/DmPersistVolDir.h>
+
+#define USE_NEW_LDB_STRUCTURES
 
 namespace leveldb {
 
@@ -66,6 +71,27 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
   uint64_t sequence_;
 
   virtual void Put(const Slice& key, const Slice& value) {
+#ifdef USE_NEW_LDB_STRUCTURES
+    const fds::BlobObjKey * objKey = reinterpret_cast<const fds::BlobObjKey *>(key.data());
+    if (objKey->objIndex != fds::BLOB_META_INDEX) {
+      std::cout << "=>put Blob: '" << objKey->blobId << "' [Index: " << objKey->objIndex <<
+          " -> " << fds::ObjectID(reinterpret_cast<const uint8_t *>(value.data()), value.size())
+          << "]\n";
+    } else {
+      std::string dataStr(value.data(), value.size());
+      fds::BlobMetaDesc blobMeta;
+      blobMeta.loadSerialized(dataStr);
+
+      std::cout << "=>put Blob: '" << objKey->blobId << "' Name: '" << blobMeta.desc.blob_name
+          << "' Size: '" << blobMeta.desc.blob_size << "' Version: '" << blobMeta.desc.version
+          << "'\n";
+      std::cout << "  [ ";
+      for (const auto & it : blobMeta.meta_list) {
+        std::cout << it.first << ":" << it.second << " ";
+      }
+      std::cout << "]\n";
+    }
+#else
     std::string keyStr(key.data(), key.size());
     std::string dataStr(value.data(), value.size());
 
@@ -88,14 +114,20 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
     for (unsigned i = 0; i < oids.size(); ++i) {
         std::cout << "[Index: " << i << " -> " << oids[i] << "]\n";
     }
+#endif
   }
 
   virtual void Delete(const Slice& key) {
+#ifdef USE_NEW_LDB_STRUCTURES
+    const fds::BlobObjKey * objKey = reinterpret_cast<const fds::BlobObjKey *>(key.data());
+    std::cout << "=>del Blob: '" << objKey->blobId << "' Index: '" << objKey->objIndex << "'\n";
+#else
     std::string keyStr(key.data(), key.size());
     fds::ExtentKey extKey;
     extKey.loadSerialized(keyStr);
     std::cout << "  del 'Blob:" << extKey.blob_name << ", Extent:" << extKey.extent_id
             << "'" << std::endl;
+#endif
   }
 };
 

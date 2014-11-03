@@ -17,10 +17,17 @@ import javax.xml.bind.annotation.XmlRootElement;
  * @author ptinius
  */
 @XmlRootElement
-@JsonInclude( JsonInclude.Include.NON_EMPTY )
+@JsonInclude(JsonInclude.Include.NON_EMPTY)
 public abstract class ModelBase
   implements Tagable {
   private static final long serialVersionUID = -7645839798777744738L;
+
+  protected static final Long SLA_MIN = 0L;         // unlimited
+  protected static final Long SLA_MAX = 100L;
+  protected static final Long CAPACITY_MIN = 0L;
+  protected static final Long CAPACITY_MAX = 100L;
+  protected static final Long PRIORITY_MIN = 1L;
+  protected static final Long PRIORITY_MAX = 10L;
 
   /**
    * @param field the {@link String} representing the field checking
@@ -76,10 +83,11 @@ public abstract class ModelBase
 
   /**
    * @param json the {@link String} representing the JSON
-   * @return Returns {@link T} representing the {@code json} as a Java {@link Object}
+   *
+   * @return Returns {@link T} representing the {@code json} as a Java {@link
+   * Object}
    */
-  public <T> T toObject( final String json )
-  {
+  public <T> T toObject( final String json ) {
     return ObjectModelHelper.toObject( json, this.getClass() );
   }
 

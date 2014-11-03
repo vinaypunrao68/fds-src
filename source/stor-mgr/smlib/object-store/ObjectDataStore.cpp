@@ -4,6 +4,7 @@
 
 #include <string>
 #include <PerfTrace.h>
+#include <SmCtrl.h>
 #include <object-store/ObjectDataStore.h>
 
 namespace fds {
@@ -19,8 +20,9 @@ ObjectDataStore::~ObjectDataStore() {
 }
 
 Error
-ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap) {
-    return persistData->openPersistDataStore(diskMap);
+ObjectDataStore::openDataStore(const SmDiskMap::const_ptr& diskMap,
+                               fds_bool_t pristineState) {
+    return persistData->openPersistDataStore(diskMap, pristineState);
 }
 
 Error
@@ -59,7 +61,7 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     if (err.ok()) {
         LOGDEBUG << "Wrote " << objId << " to persistent layer";
         if (tier == diskio::flashTier) {
-            PerfTracer::incr(PUT_SSD_OBJ, volId, PerfTracer::perfNameStr(volId));
+            PerfTracer::incr(SM_OBJ_DATA_SSD_WRITE, volId, PerfTracer::perfNameStr(volId));
         }
 
         // get location in persistent layer to return with this method
@@ -125,7 +127,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
                  << " tier " << tier << " volume " << std::hex
                  << volId << std::dec;
         if (tier == diskio::flashTier) {
-            PerfTracer::incr(GET_SSD_OBJ, volId, PerfTracer::perfNameStr(volId));
+            PerfTracer::incr(SM_OBJ_DATA_SSD_READ, volId, PerfTracer::perfNameStr(volId));
         }
 
         // Copy the data to the give buffer
@@ -164,6 +166,11 @@ ObjectDataStore::removeObjectData(fds_volid_t volId,
     }
 
     return err;
+}
+
+Error
+ObjectDataStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
+    return persistData->scavengerControlCmd(scavCmd);
 }
 
 /**

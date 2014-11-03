@@ -63,7 +63,7 @@ FilePersisDataIO::delete_file()
 fds::Error
 diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
 {
-    ssize_t         len;
+    ssize_t         len = 0;
     fds_blk_t       off_blk, blk, shft;
     meta_obj_map_t  *map;
     fds::ObjectBuf const *const buf = req->req_obj_buf();

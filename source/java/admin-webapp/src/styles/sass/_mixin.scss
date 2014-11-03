@@ -52,6 +52,16 @@
     flex-wrap: $value;
 }
 
+@mixin flex-grow( $value ){
+    -webkit-flex-grow: $value;
+    flex-grow: $value;
+}
+
+@mixin flex-shrink( $value ){
+    -webkit-flex-shrink: $value;
+    flex-shrink: $value;
+}
+
 @mixin justify-content( $value ){
     -webkit-justify-content: $value;
     justify-content: $value;

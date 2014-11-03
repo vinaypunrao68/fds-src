@@ -7,7 +7,7 @@ import signal
 
 class Options():
     def __init__(self):
-        self.counter_pull_rate = 5 
+        self.counter_pull_rate = 1 
         self.java_counters = False
         self.nodes = {"han" : "10.1.10.139"}
         self.main_node = "han"

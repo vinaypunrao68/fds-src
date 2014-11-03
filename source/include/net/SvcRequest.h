@@ -16,6 +16,7 @@
 #include <dlt.h>
 #include <net/net-service.h>
 #include <fdsp_utils.h>
+#include <concurrency/taskstatus.h>
 
 namespace fds {
 /* Forward declarations */
@@ -48,6 +49,39 @@ enum SvcRequestState {
     PRIOR_INVOCATION,
     INVOCATION_PROGRESS,
     SVC_REQUEST_COMPLETE
+};
+
+namespace net {
+template<class PayloadT> boost::shared_ptr<PayloadT>
+ep_deserialize(Error &e, boost::shared_ptr<std::string> payload);
+}
+template <class ReqT, class RespMsgT>
+struct SvcRequestCbTask : concurrency::TaskStatus {
+    void respCb(ReqT* req, const Error &e, boost::shared_ptr<std::string> respPayload)
+    {
+        response = net::ep_deserialize<RespMsgT>(const_cast<Error&>(e), respPayload);
+        error = e;
+        done();
+    }
+    SvcRequestCbTask() {
+        error = ERR_INVALID;
+        cb = std::bind(&SvcRequestCbTask<ReqT, RespMsgT>::respCb, this,
+			std::placeholders::_1,  // NOLINT
+			std::placeholders::_2, std::placeholders::_3);  // NOLINT
+    }
+    bool success() {
+        return error == ERR_OK;
+    }
+    void reset()
+    {
+        response.reset(nullptr);
+        error = ERR_INVALID;
+        concurrency::TaskStatus::reset(1);
+    }
+
+    boost::shared_ptr<RespMsgT> response;
+    Error error;
+    std::function<void(ReqT*, const Error&, boost::shared_ptr<std::string>)> cb;
 };
 
 /**
@@ -205,6 +239,7 @@ struct SvcRequestIf {
     boost::shared_ptr<std::string> payloadBuf_;
     /* Completion cb */
     SvcRequestCompletionCb completionCb_;
+    /* Minor version */
     int minor_version;
 };
 typedef boost::shared_ptr<SvcRequestIf> SvcRequestIfPtr;

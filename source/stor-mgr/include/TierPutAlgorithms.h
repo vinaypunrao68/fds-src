@@ -5,8 +5,7 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_TIERPUTALGORITHMS_H_
 #define SOURCE_STOR_MGR_INCLUDE_TIERPUTALGORITHMS_H_
 
-#include "stor-mgr/include/TierEngine.h"
-#include "stor-mgr/include/ObjRank.h"
+#include <TierEngine.h>
 
 namespace fds {
 
@@ -17,7 +16,7 @@ namespace fds {
 class RandomTestAlgo : public TierPutAlgo {
     public:
      diskio::DataTier selectTier(const ObjectID &oid,
-                                 fds_volid_t     vol) {
+                                 const VolumeDesc& voldesc) {
          if ((::random() % 2) == 0) {
              return diskio::flashTier;
          }
@@ -39,29 +38,19 @@ class RandomTestAlgo : public TierPutAlgo {
  *       kick the lowest-rank object out of the table)
  */
 class RankTierPutAlgo: public TierPutAlgo {
-    public:
-     RankTierPutAlgo(StorMgrVolumeTable* _sm_volTbl,
-                     ObjectRankEngine* _rank_eng,
-                     fds_log *_log)
-         : rank_eng(_rank_eng),
-         sm_volTbl(_sm_volTbl),
-         tpa_log(_log) {
-         }
+  public:
+     explicit RankTierPutAlgo(ObjectRankEngine* _rank_eng)
+             : rank_eng(_rank_eng) {
+        }
      ~RankTierPutAlgo() {
      }
 
      diskio::DataTier selectTier(const ObjectID &oid,
-                                 fds_volid_t volid);
+                                 const VolumeDesc& voldesc);
 
-    private:
+  private:
      /* does not own, gets passed from SM */
      ObjectRankEngine* rank_eng;
-
-     /* does not own, gets passed from SM */
-     StorMgrVolumeTable* sm_volTbl;
-
-     /* does not own, passed to the constructor */
-     fds_log* tpa_log;
 };
 
 }  // namespace fds

@@ -8,7 +8,7 @@
 #include <concurrency/Mutex.h>
 #include <unordered_map>
 #include <mutex> // std::mutex, std::unique_lock
-#include <condition_variable> 
+#include <condition_variable>
 #include <atomic>
 #include <util/timeutils.h>
 #include "qos_ctrl.h"
@@ -30,7 +30,7 @@ namespace fds {
     float current_throttle_level;
     fds_uint64_t total_svc_rate;
     fds_uint32_t max_outstanding_ios;
-    fds_rwlock qda_lock; // Protects queue_map (and any high level structures in derived class) 
+    fds_rwlock qda_lock; // Protects queue_map (and any high level structures in derived class)
                          // from events like volumes being inserted or removed during enqueue IO or dispatchIO.
 
     std::atomic<unsigned int> num_pending_ios;
@@ -43,7 +43,7 @@ namespace fds {
     fds_bool_t bypass_dispatcher;
 
     virtual fds_qid_t getNextQueueForDispatch() = 0;
-    
+
 
   FDS_QoSDispatcher() :
     shuttingDown(false) {
@@ -73,19 +73,18 @@ namespace fds {
     Error registerQueueWithLockHeld(fds_qid_t queue_id, FDS_VolumeQueue *queue) {
 
       Error err(ERR_OK);
-      
+
       if (queue_map.count(queue_id) != 0) {
 	err = ERR_DUPLICATE;
 	return err;
       }
       queue_map[queue_id] = queue;
 
-      FDS_PLOG_SEV(qda_log, fds::fds_log::notification)
-              << "Dispatcher: registering queue - 0x"
-              << std::hex << queue_id << std::dec << " with min - "
-              << queue->iops_min << ", max - " << queue->iops_max
-              << ", priority - " << queue->priority
-              << ", total server rate = " << total_svc_rate; 
+      LOGNOTIFY << "Dispatcher: registering queue - 0x"
+                << std::hex << queue_id << std::dec << " with min - "
+                << queue->iops_min << ", max - " << queue->iops_max
+                << ", priority - " << queue->priority
+                << ", total server rate = " << total_svc_rate;
 
       return err;
     }
@@ -114,7 +113,7 @@ namespace fds {
     Error modifyQueueQosWithLockHeld(fds_qid_t queue_id,
 				     fds_uint64_t iops_min,
 				     fds_uint64_t iops_max,
-				     fds_uint32_t prio) 
+				     fds_uint32_t prio)
     {
       Error err(ERR_OK);
       if (queue_map.count(queue_id) == 0) {
@@ -123,12 +122,11 @@ namespace fds {
       }
       FDS_VolumeQueue *que = queue_map[queue_id];
 
-      FDS_PLOG_SEV(qda_log, fds::fds_log::notification)
-              << "Dispatcher: modifying queue qos params- 0x"
-              << std::hex << queue_id << std::dec << " with min - "
-              << iops_min << ", max - " << iops_max
-              << ", priority - " << prio
-              << ", total server rate = " << total_svc_rate; 
+      LOGNOTIFY << "Dispatcher: modifying queue qos params- 0x"
+                << std::hex << queue_id << std::dec << " with min - "
+                << iops_min << ", max - " << iops_max
+                << ", priority - " << prio
+                << ", total server rate = " << total_svc_rate;
 
       que->modifyQosParams(iops_min, iops_max, prio);
       return err;
@@ -147,7 +145,7 @@ namespace fds {
     }
 
     virtual Error deregisterQueue(fds_qid_t queue_id) {
-      Error err(ERR_OK);      
+      Error err(ERR_OK);
       qda_lock.write_lock();
       err = deregisterQueueWithLockHeld(queue_id);
       qda_lock.write_unlock();
@@ -158,21 +156,21 @@ namespace fds {
     virtual void ioProcessForEnqueue(fds_qid_t queue_id, FDS_IOType *io)
     {
       // preprocess before enqueuing in the input queue
-      FDS_PLOG(qda_log) << "Request " << io->io_req_id << " being enqueued at queue " << queue_id; 
+      LOGDEBUG << "Request " << io->io_req_id << " being enqueued at queue " << queue_id;
     }
 
     // Assumes caller has the qda read lock
     virtual void ioProcessForDispatch(fds_qid_t queue_id, FDS_IOType *io)
     {
       // do necessary processing before dispatching the io
-      FDS_PLOG(qda_log) << "Dispatching " << io->io_req_id << " from queue "
-                        << std::hex << queue_id << std::dec; 
+      LOGDEBUG << "Dispatching " << io->io_req_id << " from queue "
+               << std::hex << queue_id << std::dec;
     }
 
     // Quiesce queued IOs on this queue & block any new IOs
     virtual void quiesceIOs(fds_qid_t queue_id)  {
         Error err(ERR_OK);
-        if (queue_map.count(queue_id) == 0) {	
+        if (queue_map.count(queue_id) == 0) {
             return;
         }
         FDS_VolumeQueue *que = queue_map[queue_id];
@@ -180,7 +178,7 @@ namespace fds {
     }
 
     virtual void suspendQueue(fds_qid_t queue_id) {
-        if (queue_map.count(queue_id) == 0) {	
+        if (queue_map.count(queue_id) == 0) {
             return;
         }
         FDS_VolumeQueue *que = queue_map[queue_id];
@@ -188,7 +186,7 @@ namespace fds {
     }
 
     virtual void deactivateQueue(fds_qid_t queue_id) {
-        if (queue_map.count(queue_id) == 0) {	
+        if (queue_map.count(queue_id) == 0) {
             return;
         }
         FDS_VolumeQueue *que = queue_map[queue_id];
@@ -196,17 +194,17 @@ namespace fds {
     }
 
     virtual void resumeQueue(fds_qid_t queue_id) {
-        if (queue_map.count(queue_id) == 0) {	
+        if (queue_map.count(queue_id) == 0) {
             return;
         }
         FDS_VolumeQueue *que = queue_map[queue_id];
         que->resumeIO();
-    } 
+    }
 
     virtual void setThrottleLevel(float throttle_level) {
       assert((throttle_level >= -10) && (throttle_level <= 10));
       current_throttle_level = throttle_level;
-      FDS_PLOG(qda_log) << "Dispatcher adjusting current throttle level to " << throttle_level;
+      LOGNORMAL << "Dispatcher adjusting current throttle level to " << throttle_level;
     }
 
     virtual fds_uint32_t count(fds_qid_t queue_id) {
@@ -236,15 +234,15 @@ namespace fds {
 
       PerfTracer::tracePointBegin(io->opQoSWaitCtx);
       if (bypass_dispatcher == false) {
-	FDS_VolumeQueue *que = queue_map[queue_id];      
+	FDS_VolumeQueue *que = queue_map[queue_id];
 	que->enqueueIO(io);
-      
-	ioProcessForEnqueue(queue_id, io);  
-      
+
+	ioProcessForEnqueue(queue_id, io);
+
 	n_pios = atomic_fetch_add(&(num_pending_ios), (unsigned int)1);
-	FDS_PLOG(qda_log) << "Dispatcher: enqueueIO at queue - 0x"
-			  << std::hex << queue_id << std::dec
-			  <<  " : # of pending ios = " << n_pios+1;
+	LOGDEBUG << "Dispatcher: enqueueIO at queue - 0x"
+                 << std::hex << queue_id << std::dec
+                 <<  " : # of pending ios = " << n_pios+1;
 	assert(n_pios >= 0);
       }
 
@@ -263,30 +261,30 @@ namespace fds {
       int ret = 0;
 
       params.sched_priority = sched_get_priority_max(SCHED_FIFO);
-      FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "Dispatcher: trying to set dispatcher thread realtime prio = " << params.sched_priority;
- 
+      LOGNOTIFY << "Dispatcher: trying to set dispatcher thread realtime prio = " << params.sched_priority;
+
       /* Attempt to set thread real-time priority to the SCHED_FIFO policy */
       ret = pthread_setschedparam(this_thread, SCHED_FIFO, &params);
       if (ret != 0) {
-   	FDS_PLOG_SEV(qda_log, fds::fds_log::warning) << "Dispatcher: Unsuccessful in setting scheduler thread realtime prio";
+   	LOGWARN << "Dispatcher: Unsuccessful in setting scheduler thread realtime prio";
       }
       else {
       /* success - Now verify the change in thread priority */
 	int policy = 0;
 	ret = pthread_getschedparam(this_thread, &policy, &params);
 	if (ret != 0) {
-	  FDS_PLOG_SEV(qda_log, fds::fds_log::warning) << "Dispatcher: Couldn't retrieve real-time scheduling parameters for dispatcher thread";
+	  LOGNOTIFY << "Dispatcher: Couldn't retrieve real-time scheduling parameters for dispatcher thread";
 	}
- 
+
 	/* Check the correct policy was applied */
 	if(policy != SCHED_FIFO) {
-	  FDS_PLOG_SEV(qda_log, fds::fds_log::warning) << "Dispatcher:Scheduling is NOT SCHED_FIFO!";
+	  LOGWARN << "Dispatcher:Scheduling is NOT SCHED_FIFO!";
 	} else {
-	  FDS_PLOG(qda_log) << "Dispatcher: thread SCHED_FIFO OK";
+	  LOGNOTIFY << "Dispatcher: thread SCHED_FIFO OK";
 	}
- 
+
 	/* Print thread scheduling priority */
-	FDS_PLOG_SEV(qda_log, fds::fds_log::notification) << "Dispatcher: Scheduler thread priority is " << params.sched_priority;
+	LOGNOTIFY << "Dispatcher: Scheduler thread priority is " << params.sched_priority;
       }
 
     }
@@ -296,8 +294,8 @@ namespace fds {
       Error err(ERR_OK);
 
       /* setting sched thread high prio breaks write perf on high iops
-       * not setting it works ok for both reads and writes; may need to revisit if 
-       * if want to set both scheduler and ice threads (that repond to incoming packets) high prio */       
+       * not setting it works ok for both reads and writes; may need to revisit if
+       * if want to set both scheduler and ice threads (that repond to incoming packets) high prio */
       //setSchedThreadPriority();
 
       while(1) {
@@ -333,18 +331,21 @@ namespace fds {
 	    boost::this_thread::sleep(boost::posix_time::microseconds(100));
 	  }
 	}
-	
-	
+
+
 	qda_lock.read_lock();
 
 	fds_qid_t queue_id = getNextQueueForDispatch();
         if (queue_id == 0) {
+            qda_lock.read_unlock();
+
             // this can happen if there are pending IOs but
             // they are only in inactive queues, so there are no queues
             // to dispatch from
-            FDS_PLOG(qda_log) << "Dispatcher: All active queues empty, retry later";
+
+            LOGDEBUG << "Dispatcher: All active queues empty, retry later";
+
             boost::this_thread::sleep(boost::posix_time::microseconds(100));
-            qda_lock.read_unlock();
             continue;
         }
 	FDS_VolumeQueue *que = queue_map[queue_id];
@@ -365,14 +366,13 @@ namespace fds {
 	n_oios = 0;
 	n_oios = atomic_fetch_add(&(num_outstanding_ios), (unsigned int)1);
 
-	FDS_PLOG(qda_log)
-                << "Dispatcher: dispatchIO from queue 0x" << std::hex << queue_id << std::dec
-                << " : # of outstanding ios = " << n_oios+1
-                << " : # of pending ios = " << n_pios-1;
+	LOGDEBUG << "Dispatcher: dispatchIO from queue 0x" << std::hex << queue_id << std::dec
+                 << " : # of outstanding ios = " << n_oios+1
+                 << " : # of pending ios = " << n_pios-1;
 	// assert(n_oios >= 0);
 
 	parent_ctrlr->processIO(io);
-	
+
       }
 
       return err;
@@ -403,17 +403,16 @@ namespace fds {
       io->io_service_time = static_cast<double>(service_nano) / 1000.0;
       io->io_total_time = static_cast<double>(total_nano) / 1000.0;
 
-      FDS_PLOG(qda_log) << "Dispatcher: IO Request " << io->io_req_id 
-			<< " for vol id 0x" << std::hex << io->io_vol_id << std::dec
-			<< " completed in " << io->io_service_time
-			<< " usecs with a wait time of " << io->io_wait_time
-                        << " usecs with total io time of " << io->io_total_time
-			<< " usecs. # of outstanding ios = " << n_oios-1
-                        << " queue size " << count(io->io_vol_id);
+      LOGDEBUG << "Dispatcher: IO Request " << io->io_req_id
+               << " for vol id 0x" << std::hex << io->io_vol_id << std::dec
+               << " completed in " << io->io_service_time
+               << " usecs with a wait time of " << io->io_wait_time
+               << " usecs with total io time of " << io->io_total_time
+               << " usecs. # of outstanding ios = " << n_oios-1;
 
       return err;
     }
-    
+
   };
 }
 

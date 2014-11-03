@@ -3,6 +3,9 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 #
 
+import os
+import time
+
 # List of proceses expected to be running on all nodes.
 all_nodes_process_list = ['platformd', 'DataMgr', 'StorMgr']
 
@@ -60,7 +63,7 @@ class basic_cluster:
                             else:
                                 print "       %-10s  %s" % (proc + ':', 'Up')
                     else:                       # something failed, figure out what to do with it.
-                        return_val = 2;         # Use 2 to indicate critical in Nagios
+                        return_val = 2          # Use 2 to indicate critical in Nagios
                         if monitor:
                             if not node_name_displayed:
                                 node_name_displayed = True
@@ -71,3 +74,29 @@ class basic_cluster:
 
         if monitor:
             return return_val, return_buffer
+
+    def install (self, tar_file, verbose = False):
+        '''
+        '''
+        for node in self.nodes:
+            if verbose:
+                print "Copying the file: %s to %s" % (tar_file, node.nd_agent.get_host_name())
+            node.nd_agent.ssh_exec ('rm -rf ./fdsinstall', wait_compl=True)
+            node.nd_agent.scp_copy (tar_file, "~/.")
+            node.nd_agent.ssh_exec ('tar -zxf ' + os.path.basename (tar_file), wait_compl=True)
+            node.nd_agent.ssh_exec ('rm -f ' + os.path.basename (tar_file), wait_compl=True)
+
+        return 0, "All Okay"
+
+    def deploy (self, verbose = False):
+        '''
+        '''
+        for node in self.nodes:
+            if verbose:
+                print "Deploying FDS software upgrades on %s" % (node.nd_agent.get_host_name())
+
+            node.nd_agent.ssh_exec (cmd='cd fdsinstall && ./fdsinstall.py -o 2', return_stdin = True, wait_compl = True)
+            node.nd_agent.ssh_exec (cmd='cd fdsinstall && ./fdsinstall.py -o 3', return_stdin = True, wait_compl = True)
+            node.nd_agent.ssh_exec (cmd='cd fdsinstall && ./fdsinstall.py -o 4', return_stdin = True, wait_compl = True)
+        return 0, "All Okay"
+

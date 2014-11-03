@@ -3,13 +3,16 @@ $base_bg_color: #FFFFFF;
 $header_color: #3A424F;
 $sub_header_color: #EBEBEB;
 $widget_color: #4C4C4C;
-$default_text_color: #3A424F;
+$default_text_color: black;
 $text_light_color: #74757B;
 $text_very_light_color: #A0A0A0;
 $text_link_color: #0079FF;
 
 $gray_border: #CCCCCC;
 $dark_border: #444444;
+
+$highlight_color: #2486F8;
+$highlight_text_color: white;
 
 $button_primary: #2486F8;
 $button_primary_hover: #59A6FF;
@@ -20,6 +23,7 @@ $button_secondary_active: #bababa;
 $fds_dark_green: #2486F8;
 $fds_light_green: #9BC9FF;
 $fds_extra_light_green: #59A6FF;
+$fds_dark_gray: #999999;
 
 /* Alert colors */
 $green: #68BC1D;

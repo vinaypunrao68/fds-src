@@ -33,7 +33,6 @@ class SMProc : public FdsProbeProcess
             &gl_SmPlatform,
             &gl_NetService,
             &gl_tierPolicy,
-            &gl_objStats,
             sm,
 
             /* Probe modules. */

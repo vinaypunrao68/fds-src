@@ -1,5 +1,15 @@
 #!/bin/bash
 
+##### WARN: This script is DEPRECATED. Devsetup is handled by Ansible. Please
+# make changes to the appropriate playbook at:
+# fds-src/ansible/playbooks/devsetup.yml
+
+echo "WARN: This script is DEPRECATED. Devsetup is handled by Ansible."
+echo "Please make changes to the appropriate playbook at:"
+echo "fds-src/ansible/playbooks/devsetup.yml"
+exit 1
+
+
 ###########################################################################
 # NOTE:: space/newline separated list of needed pkgs
 # the pkgs will be checked / installed in the order as they are 

@@ -3,34 +3,192 @@
     <div class="page-vertical-spacer"></div>
 
     <div class="modal-header">
-        <span>{{volumeVars.selectedVolume.name}}</span>
+        <span translate>volumes.view.l_volume_details</span>
     </div>
 
-    <section class="form-section">
-        <div>
-            <span class="light-print" translate>volumes.l_snapshots</span>
+    <section class="block-section">
+        <div class="section-header">
+            <span class="header" translate>volumes.l_volume_name</span>
         </div>
+        
+        <div class="main-value">{{thisVolume.name}}</div>
+    </section>
+    
+    <!-- The capacity charting -->
+    <section class="block-section">
+        
+        <div class="flex" style="width: 100%;height: 200px;">
+        
+            <div style="flex-grow: 5;">
+                <status-tile tile-title="{{ 'status.l_capacity' | translate }}" calculated-data="capacityItems">
+                    <line-chart data="capacityStats" colors="capacityColors" opacities="opacities" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText" background-color="#f7f7f7" domain-labels="capacityTimeChoice.labels"></line-chart>
+                </status-tile>
+            </div>
+            
+            <div class="gutter">
+                <div>
+                    <fui-dropdown selected="capacityTimeChoice" items="timeRanges" background="none" color="black" name-property="displayName" width="150px" border="gray" skinny="true"></fui-dropdown>
+                </div>
+                
+                <div class="bottom-stack">
+                    <div class="flex">
+                        <div class="legend-box dotted" ng-style="{ 'border-color': capacityLineColors[1], 'background-color': capacityColors[1] }"></div>
+                        <div class="legend-data">{{ physicalLabel }}</div>
+                    </div>
+                    <div class="flex">
+                        <div class="legend-box" ng-style="{ 'border-color': capacityLineColors[0], 'background-color': capacityColors[0] }"></div>
+                        <div class="legend-data">{{ dedupLabel }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- the IOPs chart -->
+    <section class="block-section">
+        
+        <div class="flex" style="width: 100%;height: 200px;">
+            <div style="flex-grow: 5;">
+                <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="performanceItems">
+                    <line-chart data="performanceStats" colors="performanceColors" opacities="opacities" suffix="IOPs" axis-color="#A0A0A0" background-color="#f7f7f7" domain-labels="performanceTimeChoice.labels" line-colors="performanceLines"></line-chart>
+                </status-tile>
+            </div>
+            <div class="gutter" style="position: relative;">
+                <div>
+                    <fui-dropdown selected="performanceTimeChoice" items="timeRanges" background="none" color="black" name-property="displayName" width="150px" border="gray" skinny="true"></fui-dropdown>
+                </div>
+                <div class="bottom-stack">
+                    <div class="flex">
+                        <div class="legend-box" ng-style="{ 'border-color': gray, 'background-color': performanceColors[0] }"></div>
+                        <div class="legend-data">{{ iopLabel }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section class="block-section">
+        <div class="section-header">
+            <span class="header" translate>volumes.l_settings</span>
+        </div>
+        
+        <div class="section-header">
+            <span class="sub-header" translate>volumes.view.l_data_connector_settings</span>
+        </div>
+        
+        <div class="flex">
+            <div style="position: relative;width: 100%;">
+                <table class="default">
+                    <thead>
+                        <tr>
+                            <th class="no-top-padding"></th>
+                            <th class="no-top-padding"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <div class="data-connector-display">{{thisVolume.data_connector.type}}</div>
+                            </td>
+                            <td>
+                                <div ng-show="thisVolume.data_connector.attributes.size">
 
-        <table class="default">
-            <thead>
-                <tr>
-                    <th translate>common.th_date</th>
-                    <th translate>volumes.th_expiration</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr ng-repeat="snapshot in snapshots" class="snapshot-row">
-                    <td>{{formatDate( snapshot.creation );}}</td>
-                    <td>{{snapshot.expiration}}</td>
-                    <td>
-                        <span class="fui-exit icon" title="Clone to new volume" ng-click="clone( snapshot )"></span>
-                        <span class="fui-cross icon" title="Delete" ng-click="deleteSnapshot( snapshot )"></span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-
+                                    <div class="flex">
+                                        <span style="margin-right: 4px;">{{thisVolume.data_connector.attributes.size}}</span>
+                                        <span>{{thisVolume.data_connector.attributes.unit}}</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="gutter"></div>
+        </div>
+    </section>
+    
+    <div ng-include="'scripts/volumes/view/snapshotPolicy.html'"></div>
+    
+    <section class="block-section">
+        <div class="section-header">
+            <span class="header" translate>volumes.view.l_performance_settings</span>
+        </div>
+        
+        <div class="flex">
+            <div style="position: relative;width: 100%;">
+                <table class="default" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th class="no-top-padding" colspan="2" translate>
+                                volumes.l_settings
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="volume-display-only">
+                        <tr>
+                            <td translate>volumes.th_priority</td>
+                            <td class="pad">
+                                <span class="volume-priority-display-only">{{thisVolume.priority}}</span>
+                                <span translate ng-show="priority === 1">volumes.l_l_highest</span>
+                                <span translate ng-show="priority === 10">volumes.l_l_lowest</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td translate>volumes.th_iops_guarantee</td>
+                            <td class="pad">
+                                <span class="volume-sla-display">{{thisVolume.sla}}%</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td translate>volumes.th_iops_limit</td>
+                            <td class="pad">
+                                <span class="volume-limit-display" ng-show="thisVolume.limit > 0">{{thisVolume.limit}} {{ 'volumes.l_iops' | translate }}</span>
+                                <span class="volume-limit-display-none" ng-show="thisVolume.limit === 0" translate>common.l_none</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="gutter"></div>
+        </div>
+    </section>
+    
+    <section class="block-section">
+        <div class="section-header">
+            <span class="header" translate>volumes.l_snapshots</span>
+        </div>
+        
+        <div class="flex">
+            <div style="position: relative;width: 100%;">
+                <table class="default">
+                    <thead>
+                        <tr>
+                            <th translate>common.th_date</th>
+                            <th translate>volumes.th_expiration</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="snapshot in snapshots" class="snapshot-row">
+                            <td>{{formatDate( snapshot.creation );}}</td>
+                            <td>{{snapshot.expiration}}</td>
+                            <td>
+                                <span class="fui-exit icon" title="Clone to new volume" ng-click="clone( snapshot )"></span>
+                                <span class="fui-cross icon" title="Delete" ng-click="deleteSnapshot( snapshot )"></span>
+                            </td>
+                        </tr>
+                        <tr ng-show="snapshots.length === 0">
+                            <td colspan="3">
+                                <div translate>volumes.snapshot.l_no_snapshots</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="gutter"></div>
+        </div>
     </section>
 
+    <div class="page-vertical-spacer"></div>
+    
 </div>

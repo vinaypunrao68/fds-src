@@ -1,7 +1,8 @@
-package com.formationds.om.rest;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
+
+package com.formationds.om.rest;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
@@ -37,7 +38,7 @@ public class ListVolumes implements RequestHandler {
 
     private static DecimalFormat df = new DecimalFormat("#.00");
 
-    public ListVolumes(Xdi xdi, AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token) {
+    public ListVolumes( Xdi xdi, AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
         this.xdi = xdi;
         this.amApi = amApi;
         this.legacyConfig = legacyConfig;
@@ -75,36 +76,25 @@ struct VolumeDescriptor {
 }
 */
 
-    private JSONObject toJsonObject(VolumeDescriptor v) throws TException {
-      VolumeStatus status = null;
-      FDSP_VolumeDescType volInfo = null;
-      if( v != null && v.getName() != null ) {
-        try {
-          volInfo = legacyConfig.GetVolInfo( new FDSP_MsgHdrType(),
-                                             new FDSP_GetVolInfoReqType( v.getName(), 0 ) );
-        } catch( TException e ) {
-          LOG.warn( "Getting Volume Info Failed", e );
-        }
-/*
-struct VolumeStatus {
-       1: required i64 blobCount
-       2: required i64 currentUsageInBytes;
-}
- */
-        /*
-         * issue WIN-1147 -- OM should not call AM's volumeStatus on
-         * listVolumes/SetQosParams
-         *
-         * P. Tinius -- 10/13/2014
-         */
-//        try {
-//          status = amApi.volumeStatus("", v.getName());
-//        } catch( TException e ) {
-//          LOG.warn( "Getting Volume Status Failed", e );
-//        }
-      }
+    private JSONObject toJsonObject( VolumeDescriptor v ) throws TException {
+        VolumeStatus status = null;
+        FDSP_VolumeDescType volInfo = null;
+        if (v != null && v.getName() != null) {
+            try {
+                volInfo = legacyConfig.GetVolInfo(new FDSP_MsgHdrType(),
+                                                new FDSP_GetVolInfoReqType(v.getName(), 0));
+            } catch (TException e) {
+                LOG.warn("Getting Volume Info Failed", e);
+            }
 
-      return toJsonObject(v, volInfo, status);
+            try {
+                status = amApi.volumeStatus("", v.getName());
+            } catch (TException e) {
+                LOG.warn("Getting Volume Status Failed", e);
+            }
+        }
+
+        return toJsonObject( v, volInfo, status );
     }
 
     public static JSONObject toJsonObject(VolumeDescriptor v, FDSP_VolumeDescType volInfo, VolumeStatus status) {

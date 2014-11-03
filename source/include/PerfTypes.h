@@ -25,48 +25,31 @@ typedef enum {
     TRACE_ERR,
 
     // Store Manager
-    PUT_IO,
-    PUT_OBJ_REQ,
-    PUT_OBJ_REQ_ERR,
-    PUT_QOS_QUEUE_WAIT,
-    PUT_OBJ_TASK_SYNC_WAIT,
-    PUT_SSD_OBJ,
-    PUT_HDD_OBJ,
+    SM_PUT_IO,                 /* Latency of processing PUT in the layer below QoS control */
+    SM_E2E_PUT_OBJ_REQ,        /* End-to-end PUT object request latency in SM */
+    SM_PUT_OBJ_REQ_ERR,        /* Counts SM returns error on PUT request */
+    SM_PUT_QOS_QUEUE_WAIT,     /* PUT object request time in QoS queue in SM */
+    SM_PUT_OBJ_TASK_SYNC_WAIT, /* Latency of PUT request waiting on object task synchronizer */
 
-    DUPLICATE_OBJ,
-    HASH_COLLISION,
+    SM_GET_IO,                 /* Latency of processing GET in the layer below QoS control */
+    SM_E2E_GET_OBJ_REQ,        /* End-to-end GET object request latency in SM */
+    SM_GET_OBJ_REQ_ERR,        /* Counts SM returns error on GET request */
+    SM_GET_QOS_QUEUE_WAIT,     /* GET object request time in QoS queue in SM */
+    SM_GET_OBJ_TASK_SYNC_WAIT, /* Latency of GET request waiting on object task synchronizer */
 
-    GET_IO,
-    GET_OBJ_REQ,
-    GET_OBJ_REQ_ERR,
-    GET_QOS_QUEUE_WAIT,
-    GET_OBJ_TASK_SYNC_WAIT,
-    GET_SSD_OBJ,
-    GET_HDD_OBJ,
+    SM_DELETE_IO,                 /* Latency of processing DELETE in the layer below QoS control */
+    SM_E2E_DELETE_OBJ_REQ,        /* End-to-end DELETE object request latency in SM */
+    SM_DELETE_OBJ_REQ_ERR,        /* Counts SM returns error on DELETE request */
+    SM_DELETE_QOS_QUEUE_WAIT,     /* DELETE object request time in QoS queue in SM */
+    SM_DELETE_OBJ_TASK_SYNC_WAIT, /* Latency of DELETE req waiting on object task synchronizer */
 
-    DELETE_IO,
-    DELETE_OBJ_REQ,
-    DELETE_OBJ_REQ_ERR,
-    DELETE_QOS_QUEUE_WAIT,
-    DELETE_OBJ_TASK_SYNC_WAIT,
+    SM_E2E_ADD_OBJ_REF_REQ,        /* End-to-end add object reference count request latency in SM */
+    SM_ADD_OBJ_REF_REQ_ERR,        /* Counts SM returns error on add ref count request */
+    SM_ADD_OBJ_REF_IO,             /* Add obj ref req processing latency in the layer below QoS */
+    SM_ADD_OBJ_REF_QOS_QUEUE_WAIT, /* Wait in qos queue for add object ref request in SM */
+    SM_ADD_OBJ_REF_TASK_SYNC_WAIT, /* Add obj ref req wait time on object task synchronizer */
 
-    ADD_OBJECT_REF_REQ,
-    ADD_OBJECT_REF_REQ_ERR,
-    ADD_OBJECT_REF_IO,
-    ADD_OBJECT_REF_TRANS_QUEUE_WAIT,
-    ADD_OBJECT_REF_QOS_QUEUE_WAIT,
-
-    MURMUR3_HASH,
-    DLT_LKUP,
-    DMT_LKUP,
-
-    PERSIST_DISK_WRITE,
-    PUT_OBJ_LOC_INDX_UPDATE,
-
-    GET_OBJ_LKUP_LOC_INDX,
-    GET_OBJ_PL_READ_DISK,
-
-    COMMIT_LOG_WRITE,
+    SM_PUT_DUPLICATE_OBJ,        /* put duplicate object (update metadata only) */
     SM_OBJ_METADATA_DB_READ,     /* put object metadata entry into DB */
     SM_OBJ_METADATA_DB_WRITE,    /* get object metadata entry from DB */
     SM_OBJ_METADATA_DB_REMOVE,   /* actual removal of metadata entry from DB */
@@ -74,6 +57,8 @@ typedef enum {
     SM_OBJ_DATA_CACHE_HIT,       /* object data cache hits (get path) */
     SM_OBJ_DATA_DISK_READ,       /* persistent layer read object data */
     SM_OBJ_DATA_DISK_WRITE,      /* persistent layer write object data */
+    SM_OBJ_DATA_SSD_WRITE,       /* persistent layer write object data to SSD (SSD hits) */
+    SM_OBJ_DATA_SSD_READ,        /* persistent layer read object data from SSD (SSD hits) */
     SM_OBJ_MARK_DELETED,         /* mark object deleted in obj metadata */
 
     // Access Manager
@@ -102,6 +87,9 @@ typedef enum {
     AM_START_BLOB_OBJ_REQ,
     AM_COMMIT_BLOB_OBJ_REQ,
     AM_ABORT_BLOB_OBJ_REQ,
+    AM_VOLUME_ATTACH_REQ,
+    AM_VOLUME_CONTENTS_REQ,
+    AM_VOLUME_STATS_REQ,
 
     AM_QOS_QUEUE_SIZE,
 

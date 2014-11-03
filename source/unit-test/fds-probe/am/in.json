@@ -2,10 +2,11 @@
     "Run-Setup": {
         "nbd_vol": {
            "name": "vy",
-           "device": "/dev/nbd0",
+           "device": "/dev/nbd3",
            "block_size": 4096,
            "vol_blocks": 1000000,
-           "uuid": 1234
+           "uuid": 1234,
+           "test_vol_flag": true
         }
     }
 }

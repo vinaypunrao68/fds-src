@@ -37,7 +37,7 @@ class MObjStore : public ObjectStorMgr {
        dlt_(8, 3, 1)
     {
         threadpool_.reset(new fds_threadpool(2));
-        smObjDb = new SmObjDb(this, prefix, g_fdslog);
+        // smObjDb = new SmObjDb(this, prefix, g_fdslog);
         tokenStateDb_.reset(new kvstore::TokenStateDB());
         for (fds_token_id tok = 0; tok < 256; tok++) {
             tokenStateDb_->addToken(tok);
@@ -87,8 +87,11 @@ class MObjStore : public ObjectStorMgr {
         vol.vol_uuid = 1;
         obj_phy_loc.obj_tier = diskio::DataTier::diskTier;
 
-        Error err = this->writeObjectMetaData(opCtx, oid, data.size(), &obj_phy_loc,
+        Error err = ERR_OK;
+        /*
+          this->writeObjectMetaData(opCtx, oid, data.size(), &obj_phy_loc,
                 false, diskio::DataTier::flashTier, &vol);
+        */
         fds_verify(err == ERR_OK);
         writeObjectData(oid, data);
     }
@@ -114,7 +117,8 @@ class MObjStore : public ObjectStorMgr {
         if (itr == object_db_.end()) {
             return ERR_DISK_READ_FAILED;
         }
-        Error err = smObjDb->get(objId, objMetadata);
+        // Error err = smObjDb->get(objId, objMetadata);
+        Error err(ERR_OK);
         if (err != ERR_OK) {
             return ERR_DISK_READ_FAILED;
         }
@@ -148,7 +152,7 @@ class MObjStore : public ObjectStorMgr {
             ObjectID objId(obj.meta_data.object_id.digest);
 
             ObjMetaData objMetadata;
-            err = smObjDb->get(objId, objMetadata);
+            // err = smObjDb->get(objId, objMetadata);
             if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
                 fds_assert(!"ObjMetadata read failed" );
                 LOGERROR << "Failed to write the object: " << objId;
@@ -163,7 +167,7 @@ class MObjStore : public ObjectStorMgr {
 
             if (objMetadata.dataPhysicallyExists()) {
                 /* write metadata */
-                smObjDb->put(OpCtx(OpCtx::COPY), objId, objMetadata);
+                // smObjDb->put(OpCtx(OpCtx::COPY), objId, objMetadata);
                 /* No need to write the object data.  It already exits */
                 continue;
             }
@@ -182,7 +186,7 @@ class MObjStore : public ObjectStorMgr {
             obj_phy_loc_t phy_loc;
             phy_loc.obj_tier = diskio::DataTier::diskTier;
             objMetadata.updatePhysLocation(&phy_loc);
-            smObjDb->put_(objId, objMetadata);
+            // smObjDb->put_(objId, objMetadata);
         }
         putTokReq->response_cb(err, putTokReq);
 
@@ -195,8 +199,8 @@ class MObjStore : public ObjectStorMgr {
         Error err(ERR_OK);
         SmIoGetTokObjectsReq *getTokReq = static_cast<SmIoGetTokObjectsReq*>(ioReq);
 
-        smObjDb->iterRetrieveObjects(getTokReq->token_id,
-                getTokReq->max_size, getTokReq->obj_list, getTokReq->itr);
+        // smObjDb->iterRetrieveObjects(getTokReq->token_id,
+        //        getTokReq->max_size, getTokReq->obj_list, getTokReq->itr);
 
         getTokReq->response_cb(err, getTokReq);
         /* NOTE: We expect the caller to free up ioReq */
@@ -249,10 +253,10 @@ class MObjStore : public ObjectStorMgr {
         Error err(ERR_OK);
         SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
 
-        leveldb::DB *db;
+        leveldb::DB *db = NULL;
         leveldb::ReadOptions options;
 
-        smObjDb->snapshot(snapReq->token_id, db, options);
+        // smObjDb->snapshot(snapReq->token_id, db, options);
 
         snapReq->smio_snap_resp_cb(err, snapReq, options, db);
     }
@@ -265,8 +269,9 @@ class MObjStore : public ObjectStorMgr {
 
         LOGDEBUG << prefix_ << " oid: " << applyMdReq->md.object_id.digest;
 
-        Error e = smObjDb->putSyncEntry(ObjectID(applyMdReq->md.object_id.digest),
-                applyMdReq->md, applyMdReq->dataExists);
+        Error e = ERR_OK;
+        // smObjDb->putSyncEntry(ObjectID(applyMdReq->md.object_id.digest),
+        //        applyMdReq->md, applyMdReq->dataExists);
         if (e != ERR_OK) {
             fds_assert(!"error");
             LOGERROR << "Error in applying sync metadata.  Object Id: "
@@ -280,7 +285,7 @@ class MObjStore : public ObjectStorMgr {
     {
         fds_mutex::scoped_lock l(lock_);
         SmIoResolveSyncEntry *resolve_entry =  static_cast<SmIoResolveSyncEntry*>(ioReq);
-        Error e = smObjDb->resolveEntry(resolve_entry->object_id);
+        Error e = ERR_OK;  // smObjDb->resolveEntry(resolve_entry->object_id);
         if (e != ERR_OK) {
             fds_assert(!"error");
             LOGERROR << "Error in resolving metadata entry.  Object Id: "
@@ -297,7 +302,7 @@ class MObjStore : public ObjectStorMgr {
         ObjectID objId = applydata_entry->obj_id;
         ObjMetaData objMetadata;
 
-        Error err = smObjDb->get(objId, objMetadata);
+        Error err = ERR_OK;  // smObjDb->get(objId, objMetadata);
         if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
             fds_assert(!"ObjMetadata read failed" );
             LOGERROR << "Failed to write the object: " << objId;
@@ -329,7 +334,7 @@ class MObjStore : public ObjectStorMgr {
 
         /* write the metadata */
         objMetadata.updatePhysLocation(&phys_loc);
-        smObjDb->put(OpCtx(OpCtx::SYNC), objId, objMetadata);
+        // smObjDb->put(OpCtx(OpCtx::SYNC), objId, objMetadata);
 
         applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
     }
@@ -362,7 +367,7 @@ class MObjStore : public ObjectStorMgr {
         SmIoReadObjectMetadata *read_entry =  static_cast<SmIoReadObjectMetadata*>(ioReq);
         ObjMetaData objMetadata;
 
-        Error err = smObjDb->get(read_entry->getObjId(), objMetadata);
+        Error err = ERR_OK;  // smObjDb->get(read_entry->getObjId(), objMetadata);
         if (err != ERR_OK) {
             fds_assert(!"failed to read");
             LOGERROR << "Failed to read object metadata id: " << read_entry->getObjId();

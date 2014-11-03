@@ -1,0 +1,42 @@
+.fds-modal{
+    
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    bottom: 0px;
+    right: 0px;
+    z-index: 100;
+    background-color: rgba(0,0,0,0.5);
+    
+    .header {
+        background-color: $header_color;
+        text-align: left;
+        color: white;
+        padding: 8px;
+        width: 100%;
+    }
+    
+    .content-pane {
+        
+        background-color: white;
+        color: black;
+        border: 1px solid gray;
+        text-align: center;margin-right: auto;margin-left: auto;margin-top: 150px;
+        border: 1px solid $text_very_light_color;
+        
+        .text {
+            padding: 8px;
+        }
+        
+        .button-panel {
+            padding: 8px;
+            width: 100%;
+            @include display-flex();
+            @include justify-content( center );
+            
+            button {
+                margin: 4px;
+            }
+        }
+    }
+}

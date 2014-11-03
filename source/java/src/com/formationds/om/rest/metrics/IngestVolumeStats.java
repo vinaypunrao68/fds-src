@@ -6,17 +6,19 @@ package com.formationds.om.rest.metrics;
 
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.om.repository.SingletonMetricsRepository;
+import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import org.apache.commons.io.IOUtils;
+import com.formationds.xdi.ConfigurationApi;
+import com.google.gson.reflect.TypeToken;
 import org.eclipse.jetty.server.Request;
-import org.json.JSONArray;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.lang.reflect.Type;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -24,31 +26,49 @@ import java.util.Map;
  */
 public class IngestVolumeStats
   implements RequestHandler {
-  private static final Logger LOG =
-    LoggerFactory.getLogger( IngestVolumeStats.class );
 
-  public IngestVolumeStats() {
-    super();
+  private static final Type TYPE =
+    new TypeToken<List<VolumeDatapoint>>() {
+    }.getType();
+
+  private final ConfigurationApi config;
+
+  public IngestVolumeStats( final ConfigurationApi config ) {
+    this.config = config;
   }
 
   @Override
   public Resource handle( Request request, Map<String, String> routeParameters )
     throws Exception {
-    LOG.info( "METADATA RECEIVED!" );
-    JSONArray array = new JSONArray( IOUtils.toString( request.getInputStream() ) );
-    int x = 0;
-    for( int i = 0;
-         i < array.length();
-         i++ ) {
-      SingletonMetricsRepository.instance()
-                                .getMetricsRepository()
-                                .save(
-                                  ObjectModelHelper.toObject( array.getJSONObject( i )
-                                                                   .toString(),
-                                                              VolumeDatapoint.class ) );
-      x = i;
+    try( final Reader reader =
+           new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
+
+      final List<VolumeDatapoint> volumeDatapoints =
+        ObjectModelHelper.toObject( reader, TYPE );
+      long timestamp = 0L;
+      for( final VolumeDatapoint datapoint : volumeDatapoints ) {
+
+        datapoint.setVolumeId(
+          String.valueOf(
+            config.getVolumeId( datapoint.getVolumeName() ) ) );
+
+        if( timestamp <= 0L ) {
+          timestamp = datapoint.getTimestamp();
+        }
+
+        /*
+         * syncing all the times to the first record. This will allow for us
+         * to query for a time range and guarantee that all datapoints will
+         * be aligned
+         */
+        datapoint.setTimestamp( timestamp );
+
+        SingletonRepositoryManager.instance()
+                                  .getMetricsRepository()
+                                  .save( datapoint );
+      }
     }
-    LOG.info( "METADATA RECORDS PROCESSED: " + x );
+
     return new JsonResource( new JSONObject().put( "status", "OK" ) );
   }
 }

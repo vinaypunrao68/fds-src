@@ -4,9 +4,10 @@
 
 package com.formationds.commons.model.builder;
 
-import com.formationds.commons.model.Context;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
+import com.formationds.commons.model.abs.Context;
+import com.formationds.commons.model.type.Metrics;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.List;
  */
 public class SeriesBuilder {
   private Context context;
+  private Metrics type;
   private List<Datapoint> datapoints;
 
   /**
@@ -50,9 +52,8 @@ public class SeriesBuilder {
    * @return Returns the {@link com.formationds.commons.model.builder.SeriesBuilder}
    */
   public SeriesBuilder withDatapoint( Datapoint datapoint ) {
-    if( datapoints == null )
-    {
-      this.datapoints = new ArrayList<>( );
+    if( datapoints == null ) {
+      this.datapoints = new ArrayList<>();
     }
 
     this.datapoints.add( datapoint );
@@ -60,6 +61,26 @@ public class SeriesBuilder {
   }
 
   /**
+   * @param type the {@link com.formationds.commons.model.type.Metrics} type
+   *
+   * @return Returns the {@link com.formationds.commons.model.builder.SeriesBuilder}
+   */
+  public SeriesBuilder withType( final Metrics type ) {
+    this.type = type;
+    return this;
+  }
+
+    /**
+     * @param type the {@link com.formationds.commons.model.type.Metrics} type
+     *
+     * @return Returns the {@link com.formationds.commons.model.builder.SeriesBuilder}
+     */
+    public SeriesBuilder withType( final String type ) {
+        this.type = Metrics.valueOf( type );
+        return this;
+    }
+
+    /**
    * @return Returns the {@link com.formationds.commons.model.Series}
    */
   public Series build() {
@@ -72,7 +93,11 @@ public class SeriesBuilder {
     if( datapoints != null ) {
       volumeDatapointSeries.setDatapoints( datapoints );
     } else {
-      volumeDatapointSeries.setDatapoints( new ArrayList<>( ) );
+      volumeDatapointSeries.setDatapoints( new ArrayList<>() );
+    }
+
+    if( type != null ) {
+      volumeDatapointSeries.setType( type.name() );
     }
 
     return volumeDatapointSeries;

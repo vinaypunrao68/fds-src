@@ -12,6 +12,7 @@
 #include <DmBlobTypes.h>
 
 #include <dm-vol-cat/DmPersistVolDB.h>
+#include <dm-vol-cat/DmPersistVolFile.h>
 #include <dm-vol-cat/DmVolumeDirectory.h>
 
 #define GET_VOL(volId) \
@@ -56,13 +57,20 @@ Error DmVolumeDirectory::addCatalog(const VolumeDesc & voldesc) {
             std::hex << voldesc.volUUID << std::dec << "'";
 
     DmPersistVolDir::ptr vol;
+    /*
+     * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
     if (fpi::FDSP_VOL_S3_TYPE == voldesc.volType) {
+    */
         vol.reset(new DmPersistVolDB(voldesc.volUUID, voldesc.maxObjSizeInBytes,
                     voldesc.isSnapshot(), voldesc.isSnapshot(),
                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
+    /*
     } else {
-        // vol.reset(new DmPersistVolFile(voldesc.volUUID, voldesc.maxObjSizeInBytes));
+        vol.reset(new DmPersistVolFile(voldesc.volUUID, voldesc.maxObjSizeInBytes,
+                    voldesc.isSnapshot(), voldesc.isSnapshot(),
+                    voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
     }
+    */
 
     SCOPEDWRITE(volMapLock_);
     fds_verify(!volMap_.count(voldesc.volUUID));
@@ -109,13 +117,18 @@ Error DmVolumeDirectory::copyVolume(const VolumeDesc & voldesc) {
 
     if (rc.ok()) {
         DmPersistVolDir::ptr vol;
+        /*
+         * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
         if (fpi::FDSP_VOL_S3_TYPE == volType) {
+        */
             vol.reset(new DmPersistVolDB(voldesc.volUUID, objSize, voldesc.isSnapshot(),
                     voldesc.isSnapshot(), voldesc.srcVolumeId));
+        /*
         } else {
-            // vol.reset(new DmPersistVolFile(voldesc.volUUID, objSize, voldesc.isSnapshot(),
-            //         voldesc.isSnapshot()));
+            vol.reset(new DmPersistVolFile(voldesc.volUUID, objSize, voldesc.isSnapshot(),
+                    voldesc.isSnapshot(), voldesc.srcVolumeId));
         }
+        */
 
         SCOPEDWRITE(volMapLock_);
         fds_verify(0 == volMap_.count(voldesc.volUUID));
@@ -240,7 +253,8 @@ Error DmVolumeDirectory::getVolumeObjects(fds_volid_t volId, std::set<ObjectID> 
     for (const auto & it : blobMetaList) {
         fds_uint64_t lastObjectSize = DmVolumeDirectory::getLastObjSize(it.desc.blob_size,
                 vol->getObjSize());
-        fds_uint64_t lastObjOffset = it.desc.blob_size - lastObjectSize;
+        fds_uint64_t lastObjOffset = it.desc.blob_size ?
+                it.desc.blob_size - lastObjectSize : 0;
 
         BlobObjList objList;
         rc = vol->getObject(it.desc.blob_name, 0, lastObjOffset, objList);
@@ -277,7 +291,7 @@ Error DmVolumeDirectory::getBlobMeta(fds_volid_t volId, const std::string & blob
 }
 
 Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
-        fds_uint64_t startOffset, blob_version_t* blobVersion,
+        fds_uint64_t startOffset, fds_int64_t endOffset, blob_version_t* blobVersion,
         fpi::FDSP_MetaDataList* metaList, fpi::FDSP_BlobObjectList* objList) {
     LOGDEBUG << "Will retrieve blob '" << blobName << "' offset '" << startOffset <<
             "' volume '" << std::hex << volId << std::dec << "'";
@@ -290,23 +304,30 @@ Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
         return rc;
     }
 
-    // TODO(umesh): do not panic here, return error
-    fds_verify(startOffset < blobSize);
+    if (startOffset >= blobSize) {
+        return ERR_CAT_ENTRY_NOT_FOUND;
+    } else if (endOffset >= static_cast<fds_int64_t>(blobSize)) {
+        endOffset = -1;
+    }
 
     GET_VOL_N_CHECK_DELETED(volId);
 
     fds_uint64_t lastObjectSize = DmVolumeDirectory::getLastObjSize(blobSize, vol->getObjSize());
-    fds_uint64_t endOffset = blobSize - lastObjectSize;
+    if (endOffset < 0) {
+        endOffset = blobSize ? blobSize - lastObjectSize : 0;
+    }
 
     rc = vol->getObject(blobName, startOffset, endOffset, *objList);
 
     if (rc.ok()) {
         fpi::FDSP_BlobObjectList::reverse_iterator iter = objList->rbegin();
-        fds_verify(objList->rend() != iter);
-        // TODO(umesh): offset below is long wraps around at 4GB!
-        // fds_verify(static_cast<fds_uint64_t>(iter->offset) == endOffset);
-
-        iter->size = lastObjectSize;
+        if (objList->rend() != iter) {
+            const fds_uint64_t lastOffset =
+                    DmVolumeDirectory::getLastOffset(blobSize, vol->getObjSize());
+            if (static_cast<fds_int64_t>(lastOffset) == iter->offset) {
+                iter->size = lastObjectSize;
+            }
+        }
     }
 
     return rc;
@@ -397,7 +418,7 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
     const fds_uint64_t oldBlobSize = blobMeta.desc.blob_size;
     const fds_uint32_t oldLastObjSize = DmVolumeDirectory::getLastObjSize(oldBlobSize,
             vol->getObjSize());
-    const fds_uint64_t oldLastOffset = oldBlobSize - oldLastObjSize;
+    const fds_uint64_t oldLastOffset = oldBlobSize ? oldBlobSize - oldLastObjSize : 0;
     BlobObjList oldBlobObjList;
 
     // new details
@@ -541,7 +562,8 @@ Error DmVolumeDirectory::deleteBlob(fds_volid_t volId, const std::string& blobNa
 
     fds_uint64_t lastObjectSize = DmVolumeDirectory::getLastObjSize(blobMeta.desc.blob_size,
                 vol->getObjSize());
-    fds_uint64_t endOffset = blobMeta.desc.blob_size - lastObjectSize;
+    fds_uint64_t endOffset = blobMeta.desc.blob_size ?
+            blobMeta.desc.blob_size - lastObjectSize : 0;
 
     fpi::FDSP_BlobObjectList objList;
     rc = vol->getObject(blobName, 0, endOffset, objList);
@@ -552,7 +574,10 @@ Error DmVolumeDirectory::deleteBlob(fds_volid_t volId, const std::string& blobNa
 
     std::vector<ObjectID> expungeList;
     for (const auto & it : objList) {
-        expungeList.push_back(ObjectID(it.data_obj_id.digest));
+        const ObjectID obj(it.data_obj_id.digest);
+        if (NullObjectID != obj) {
+            expungeList.push_back(obj);
+        }
     }
 
     rc = vol->deleteObject(blobName, 0, endOffset);
@@ -582,7 +607,7 @@ Error DmVolumeDirectory::deleteBlob(fds_volid_t volId, const std::string& blobNa
 }
 
 Error DmVolumeDirectory::syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid) {
-    // TODO(umesh): implement this
-    return ERR_OK;
+    GET_VOL_N_CHECK_DELETED(volId);
+    return vol->syncCatalog(dmUuid);
 }
 }  // namespace fds

@@ -41,7 +41,26 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
                 voldesc->getPriority()));
     }
 
-    volumeIndexDB  = new osm::ObjectDB(filename);
+    try
+    {
+        volumeIndexDB  = new osm::ObjectDB(filename);
+    }
+    catch(const osm::OsmException& e)
+    {
+        LOGERROR << "Failed to create ObjectDB " << filename;
+        LOGERROR << e.what();
+
+        /*
+         * TODO(Greg): We need to end this process at this point, but we need
+         * a more controlled and graceful way of doing it. I suggest that in
+         * such cases we throw another exception to be caught by the mainline
+         * method which can then perform any cleanup, log a useful message, and
+         * shutdown.
+         */
+        LOGNORMAL << "SM shutting down with a failure condition.";
+        exit(EXIT_FAILURE);
+    }
+
     averageObjectsRead = 0;
     dedupBytes_ = 0;
 }
@@ -320,6 +339,9 @@ Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
     /*
      * update the stats 
      */
+    // TODO(Anna) -- remember why we need this, and when we do, uncomment or move
+    // to appropriate place
+    /*
     vol->lastAccessTimeR =  vol->objStats.last_access_ts;
     slotChange = vol->objStats.increment(objStorMgr->objStats->startTime, COUNTER_UPDATE_SLOT_TIME);
     if (slotChange == true) {
@@ -327,6 +349,7 @@ Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
                                                                   COUNTER_UPDATE_SLOT_TIME);
         LOGDEBUG << "STATS-VOL: Average Objects  per Vol slot : " << vol->averageObjectsRead;
     }
+    */
     volume_map[vol_uuid] = vol;
 
     map_rwlock.write_unlock();

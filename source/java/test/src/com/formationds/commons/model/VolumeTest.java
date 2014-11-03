@@ -4,27 +4,21 @@
 
 package com.formationds.commons.model;
 
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.google.gson.reflect.TypeToken;
 import org.junit.Test;
+
+import java.lang.reflect.Type;
 
 public class VolumeTest {
 
   @Test
   public void test() {
-    /*
-[{
-  "data_connector": {"type": "object"},
-  "apis": "S3, Swift",
-  "current_usage": {
-      "unit": "B",
-      "size": "0"
-  },
-  "name": "TestVolume",
-  "limit": 300,
-  "sla": 0,
-  "id": "4565300393392428557",
-  "priority": 10
-}]
-     */
+    final Type TYPE =
+      new TypeToken<Volume>() {
+      }.getType();
+    final String nater = "{\"priority\":10,\"sla\":0,\"limit\":300,\"snapshotPolicies\":[],\"name\":\"test_clone2\",\"data_connector\":{\"type\":\"Object\",\"api\":\"S3, Swift\"},\"id\":3051761627594267600}";
+    final Volume volume = ObjectModelHelper.toObject( nater, TYPE );
+    System.out.println( volume );
   }
-
 }

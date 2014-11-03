@@ -29,7 +29,25 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix,
     rankTimer(new FdsTimer()),
     rankTimerTask(new RankTimerTask(*rankTimer, this)) {
     std::string filename(_sm_prefix + "ObjRankDB");
-    rankDB = new Catalog(filename);
+    try
+    {
+        rankDB = new Catalog(filename);
+    }
+    catch(const CatalogException& e)
+    {
+        LOGERROR << "Failed to create Catalog " << filename;
+        LOGERROR << e.what();
+
+        /*
+         * TODO(Greg): We need to end this process at this point, but we need
+         * a more controlled and graceful way of doing it. I suggest that in
+         * such cases we throw another exception to be caught by the mainline
+         * method which can then perform any cleanup, log a useful message, and
+         * shutdown.
+         */
+        LOGNORMAL << "SM shutting down with a failure condition.";
+        exit(EXIT_FAILURE);
+    }
 
     map_mutex = new fds_mutex("RankEngineMutex");
     tbl_mutex = new fds_mutex("RankEngineChgTblMutex");
@@ -803,7 +821,7 @@ void ObjectRankEngine::runRankingThreadInternal()
         /* set flag that we finished ranking process (even if we stopped due to stopObjRanking */
         atomic_store(&rankingEnabled, false);
 
-        objStorMgr->tierEngine->migrator->startRankTierMigration();
+        // objStorMgr->tierEngine->migrator->startRankTierMigration();
     }
 }
 
@@ -919,7 +937,7 @@ void ObjectRankEngine::runRankingThread(ObjectRankEngine* self)
 void RankTimerTask::runTimerTask()
 {
     rank_eng->analyzeStats();
-    objStorMgr->tierEngine->migrator->startRankTierMigration();
+    // objStorMgr->tierEngine->migrator->startRankTierMigration();
 }
 
 }  // namespace fds

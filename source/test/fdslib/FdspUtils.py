@@ -12,11 +12,12 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
-from FDS_ProtocolInterface.ttypes import *
 from fds_service.ttypes import *
 from fds_service.constants import *
 
 from FdsException import *
+
+from FDS_ProtocolInterface.ttypes import *
 
 log = logging.getLogger(__name__)
 
@@ -202,4 +203,49 @@ def newGetBucketMsg(volId, startOff, maxKey):
 def newGetDmStatsMsg(volId):
     msg = GetDmStatsMsg()
     msg.volume_id = volId
+    return msg
+
+def newEnableScavengerMsg():
+    msg = CtrlNotifyScavenger()
+    msg.scavenger = FDSP_ScavengerType()
+    msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_ENABLE
+    return msg
+
+def newDisableScavengerMsg():
+    msg = CtrlNotifyScavenger()
+    msg.scavenger = FDSP_ScavengerType()
+    msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_DISABLE
+    return msg
+
+def newStartScavengerMsg():
+    msg = CtrlNotifyScavenger()
+    msg.scavenger = FDSP_ScavengerType()
+    msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_START
+    return msg
+
+def newStopScavengerMsg():
+    msg = CtrlNotifyScavenger()
+    msg.scavenger = FDSP_ScavengerType()
+    msg.scavenger.cmd = FDSP_ScavengerCmd.FDSP_SCAVENGER_STOP
+    return msg
+
+def newScavengerStatusMsg():
+    msg = CtrlQueryScavengerStatus()
+    return msg
+
+def newScavengerProgressMsg():
+    msg = CtrlQueryScavengerProgress()
+    return msg
+
+def newSetScavengerPolicyMsg(t1, t2, t3, t4):
+    msg = CtrlSetScavengerPolicy()
+    msg.dsk_threshold1 = t1
+    msg.dsk_threshold2 = t2
+    msg.token_reclaim_threshold = t3
+    msg.tokens_per_dsk = t4
+ 
+    return msg
+
+def newQueryScavengerPolicyMsg():
+    msg = CtrlQueryScavengerPolicy()
     return msg

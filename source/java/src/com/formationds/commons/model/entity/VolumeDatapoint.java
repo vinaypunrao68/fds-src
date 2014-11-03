@@ -9,12 +9,12 @@ import com.google.gson.annotations.SerializedName;
 
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
-import javax.xml.bind.annotation.XmlRootElement;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
 
 /**
  * @author ptinius
  */
-@XmlRootElement
 @Entity
 public class VolumeDatapoint
   extends ModelBase {
@@ -22,12 +22,25 @@ public class VolumeDatapoint
 
   @GeneratedValue
   private Integer id;
+  @Temporal( TemporalType.TIMESTAMP )
   @SerializedName("timestamp")
   private Long timestamp;
   @SerializedName("volume")
   private String volumeName;
+  @SerializedName( "volumeId" )
+  private String volumeId;
   private String key;
   private Double value;
+
+  public VolumeDatapoint() {
+  }
+
+  /**
+   * @return Returns the auto-generated id
+   */
+  public Integer getId() {
+    return id;
+  }
 
   /**
    * @return Returns the {@code double} representing the statistic value for
@@ -46,7 +59,7 @@ public class VolumeDatapoint
   }
 
   /**
-   * @return Returns the {@code long} representing the timestamp
+   * @return Returns the {@code Long} representing the timestamp
    */
   public Long getTimestamp() {
     return timestamp;
@@ -55,7 +68,7 @@ public class VolumeDatapoint
   /**
    * @param timestamp the {@code long} representing the timestamp
    */
-  public void setTimestamp( final Long timestamp ) {
+  public void setTimestamp( final long timestamp ) {
     this.timestamp = timestamp;
   }
 
@@ -71,6 +84,20 @@ public class VolumeDatapoint
    */
   public void setVolumeName( final String volumeName ) {
     this.volumeName = volumeName;
+  }
+
+  /**
+   * @return Returns {@link String} representing the volume id
+   */
+  public String getVolumeId() {
+    return volumeId;
+  }
+
+  /**
+   * @param volumeId the {@link String} representing the volume id
+   */
+  public void setVolumeId( final String volumeId ) {
+    this.volumeId = volumeId;
   }
 
   /**

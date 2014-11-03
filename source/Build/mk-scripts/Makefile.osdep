@@ -14,9 +14,6 @@ else
 osdep_target     := $(osdep_os)-$(osdep_arch)
 endif
 
-osdep_user_build := build.$(osdep_target)
-osdep_kern_build := $(osdep_user_build).kern
-
 # Setup OS dependent compilation flags
 #
 ifeq ($(osdep_os), linux)
@@ -29,13 +26,14 @@ endif
 
 # Modify some variables if want to do a debug or optimize build.
 #
-#ifeq ($(BUILD), debug)
-include $(incl_scripts)/Makefile.debug
-#endif
+ifeq ($(BUILD), release)
+    include $(incl_scripts)/Makefile.release
+else
+    include $(incl_scripts)/Makefile.debug
+endif
 
-#ifeq ($(BUILD), release)
-#    include $(incl_scripts)/Makefile.release
-#endif
+osdep_user_build := build.$(osdep_target)
+osdep_kern_build := $(osdep_user_build).kern
 
 ifeq ($(user_rtime_env), kernel)
     osdep_cc_flags   += $(osdep_kern_cc_flags)

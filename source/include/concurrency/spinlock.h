@@ -2,10 +2,11 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-#include <boost/atomic.hpp>
-
 #ifndef INCLUDE_CONCURRENCY_SPINLOCK_H_
 #define INCLUDE_CONCURRENCY_SPINLOCK_H_
+
+#include <boost/atomic.hpp>
+#include <fds_assert.h>
 
 /**
  * Code from http://www.boost.org/doc/libs/1_54_0/doc/html/atomic/usage_examples.html
@@ -20,6 +21,11 @@ class Spinlock : boost::noncopyable {
         while (state_.exchange(Locked, boost::memory_order_acquire) == Locked) {
             /* busy-wait */
         }
+    }
+    bool try_lock() {
+        // TODO(Rao): Implement.  For now always returning false
+        fds_verify(!"Not implemented");
+        return false;
     }
     void unlock()
     {

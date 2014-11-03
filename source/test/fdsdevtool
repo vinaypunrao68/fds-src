@@ -1,0 +1,111 @@
+#!/usr/bin/env python
+
+# Copyright 2014 by Formation Data Systems, Inc.
+#
+import fdslib.FdsSetup as inst
+import fdslib.BringUpCfg as fdscfg
+import fdslib.BasicCluster as BasicCluster
+
+import optparse as OptParse
+from optparse import SUPPRESS_HELP
+import sys
+import time
+
+def process_command_line_arguments ():
+    parser = OptParse.OptionParser(description = "Formation developers command line tool")
+
+    # Task specific options
+    parser.add_option ('-p', '--package', action = 'store_true', dest = 'package',
+                       help = 'Builds an installable tarball')
+
+    parser.add_option ('-i', '--install', action='store_true', dest = 'install',
+                       help = 'Moves the installation tar ball to the host(s) and expands the tar ball')
+
+    parser.add_option ('-d', '--deploy', action = 'store_true', dest = 'deploy',
+                       help = 'Installs FDS software (e.g., ./fdsinstall.py -o 4)')
+
+    # Shared options
+    parser.add_option ('-f', '--file', dest = 'config_file', default = 'formation.conf',
+                       help = 'configuration file (default:  formation.conf)', metavar = 'FILE')
+
+    parser.add_option ('-v', '--verbose', action = 'store_true', dest = 'verbose',
+                       help = 'enable verbosity')
+
+    parser.add_option ('-t', '--target', dest = 'target', default = None,
+                       help = 'target node to apply -i or -d against')
+
+    parser.add_option ('-s', '--source', dest='tar_file', default=None,
+                       help='path and tar ball to use with -i')
+
+    #Options requird by lower level libraries, but not supported by this script
+    parser.add_option ('-n', '--dryrun', action = 'store_true', dest = 'dryrun',
+                       help = SUPPRESS_HELP)
+    parser.add_option ('-R', '--fds-root', dest = 'fds_root', default = '/fds',
+                       help = SUPPRESS_HELP)
+
+    # To make the lower level libraries work, they should be fixed
+    parser.add_option ('-S', dest = 'fds_source_dir', default = '', help = SUPPRESS_HELP)
+
+    (options, args) = parser.parse_args()
+
+    return options, args
+
+def build_install_package ():
+    env = inst.FdsEnv ('.')
+    pkg = inst.FdsPackage (env)
+
+    tarfile_name = pkg.create_tar_installer()
+
+    return tarfile_name
+
+def main():
+    (options, args) = process_command_line_arguments()
+    filename = None
+    code = 0
+
+    if not (options.package or options.install or options.deploy):
+        print "Error: must specify one of --package, --install, or --deploy"
+        sys.exit(1)
+
+    if options.package:      # Package
+        filename = build_install_package()
+
+        # Add verbose check
+        print "Built installer file:  ", filename
+
+    if options.install or options.deploy:
+        # Check for some error conditions before creating ssh connections
+        if options.install:                   # are we installing without --source and --package
+            if filename is None:
+                if options.tar_file:
+                    filename = options.tar_file
+                else:
+                    print 'Error: a tar ball file name is needed for --install (when not using --package).  Use --source.'
+                    sys.exit(1)
+
+        if options.deploy:                    # Avoid confusion with --deploy and giving a source file name
+            if (not options.install) and options.tar_file:
+                print 'Error: using --source without --install, will not move %s to the remote systems.' % options.tar_file
+                sys.exit(1)
+
+        config = fdscfg.FdsConfigRun (None, options)
+        cluster = BasicCluster.basic_cluster (config.rt_get_obj('cfg_nodes'), config.rt_get_obj('cfg_am'), config.rt_get_obj('cfg_cli'))
+
+        if options.install:
+            (code, message) = cluster.install (filename, True)
+
+        if code != 0:
+            print message;
+            sys.exit (code)
+
+        if options.deploy:
+            (code, message) = cluster.deploy (True)
+
+        if code != 0:
+            print message;
+            sys.exit (code)
+
+        sys.exit (code)
+
+if __name__ == '__main__':
+    main()

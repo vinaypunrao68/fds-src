@@ -1,0 +1,15 @@
+<div class="slider" ng-click="adjustSlider( getClickX( $event ) )" show-notify>
+    <div class="slider-labels">
+        <span class="pull-left light-print">{{minLabel}}</span>
+        <span class="pull-right light-print">{{maxLabel}}</span>
+    </div>
+    <div class="segment-labels">
+        <div class="segment-label" ng-repeat="segment in segments" ng-style="{'left': getLeftForSegmentLabel( segment )}" ng-class="{ selected: getIndexValue( $index ) === value }">{{ getLabel( $index ) }}</div>
+        <div class="segment-label last-label" ng-class="{ selected: getIndexValue( segments.length ) === value }" >{{ getLabel( segments.length ) }}</div>
+    </div>
+    <div class="segments">
+        <div class="segment" ng-repeat="segment in segments" ng-style="{'width': segment.px + 'px'}"></div>
+    </div>
+    <div class="selection-bar" ng-style="{width: position + 'px'}"></div>
+    <a class="slider-handle" ng-mousedown="grabbed = true;" ng-style="{left: (position-5) + 'px'}"></a>
+</div>

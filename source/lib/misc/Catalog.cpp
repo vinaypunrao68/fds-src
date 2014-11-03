@@ -45,7 +45,7 @@ namespace fds {
 const fds_uint32_t Catalog::WRITE_BUFFER_SIZE = 4 * 1024 * 1024;
 const fds_uint32_t Catalog::CACHE_SIZE = 8 * 1024 * 1024;
 
-#define FILTER_BITS_PER_KEY 128  // Todo: Change this something not arbitrary
+#define FILTER_BITS_PER_KEY 12
 
 const std::string Catalog::empty;
 
@@ -84,8 +84,13 @@ Catalog::Catalog(const std::string& _file,
     write_options.sync = true;
 
     leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
+
     /* Open has to succeed */
-    assert(status.ok());
+    if (!status.ok())
+    {
+        throw CatalogException(std::string(__FILE__) + ":" + std::to_string(__LINE__) +
+                               " :leveldb::DB::Open(): " + status.ToString());
+    }
 }
 
 /** The default destructor

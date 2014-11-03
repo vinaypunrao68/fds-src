@@ -11,12 +11,6 @@
 
 #include <dm-vol-cat/DmPersistVolDB.h>
 
-#define IS_OP_ALLOWED() \
-    if (isSnapshot() || isReadOnly()) { \
-        LOGWARN << "Volume is either snapshot or read only. Updates not allowed"; \
-        return ERR_DM_OP_NOT_ALLOWED; \
-    } \
-
 namespace fds {
 
 const std::string DmPersistVolDB::CATALOG_WRITE_BUFFER_SIZE_STR("catalog_write_buffer_size");
@@ -65,13 +59,20 @@ Error DmPersistVolDB::activate() {
     std::string logDirName = snapshot_ ? "" : root->dir_user_repo_dm() + getVolIdStr() + "/";
     std::string logFilePrefix(snapshot_ ? "" : "catalog.journal");
 
-    catalog_ = new Catalog(catName, writeBufferSize, cacheSize, logDirName,
-                logFilePrefix, maxLogFiles, &cmp_);
-    catalog_->GetWriteOptions().sync = false;
-    if (!catalog_) {
-        LOGERROR << "Failed to create catalog for volume " << std::hex << volId_ << std::dec;
-        return ERR_OUT_OF_MEMORY;
+    try
+    {
+        catalog_ = new Catalog(catName, writeBufferSize, cacheSize, logDirName,
+                    logFilePrefix, maxLogFiles, &cmp_);
     }
+    catch(const CatalogException& e)
+    {
+        LOGERROR << "Failed to create catalog for volume " << std::hex << volId_ << std::dec;
+        LOGERROR << e.what();
+        return ERR_NOT_READY;
+    }
+
+    catalog_->GetWriteOptions().sync = false;
+
     return ERR_OK;
 }
 
@@ -124,7 +125,8 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offse
     Error rc = catalog_->Query(keyRec, &value);
     if (!rc.ok()) {
         LOGNOTIFY << "Failed to get oid for offset: '" << std::hex << offset << std::dec
-                << "' blob: '" << blobName << "' volume: '" << volId_ << "'";
+                << "' blob: '" << blobName << "' volume: '" << std::hex << volId_ <<
+                std::dec << "'";
         return rc;
     }
 
@@ -156,7 +158,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
         const BlobObjKey * key = reinterpret_cast<const BlobObjKey *>(dbIt->key().data());
 
         fpi::FDSP_BlobObjectInfo blobInfo;
-        blobInfo.offset = key->objIndex * objSize_;
+        blobInfo.offset = static_cast<fds_uint64_t>(key->objIndex) * objSize_;
         blobInfo.size = objSize_;
         blobInfo.blob_end = false;  // assume false
         blobInfo.data_obj_id.digest = dbIt->value().ToString();
@@ -196,7 +198,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
         blobInfo.size = getObjSize();
         blobInfo.oid.SetId(dbIt->value().data(), dbIt->value().size());
 
-        objList[key->objIndex * objSize_] = blobInfo;
+        objList[static_cast<fds_uint64_t>(key->objIndex) * objSize_] = blobInfo;
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
     delete dbIt;

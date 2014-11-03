@@ -1,20 +1,35 @@
-angular.module( 'volume-management' ).factory( '$volume_api', [ '$http', '$rootScope', '$interval', function( $http, $rootScope, $interval ){
+angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$rootScope', '$interval', function( $http_fds, $rootScope, $interval ){
 
     var api = {};
 
-    var pollerId;
+    var pollerId = -1;
+    var errCount = 0;
 
+    var startPoller = function(){
+        pollerId = $interval( getVolumes, 10000 );
+    };
+    
     var getVolumes = function( callback ){
 
-        return $http.get( '/api/config/volumes' )
-            .success( function( data ){
+        if ( pollerId === -1 ){
+            startPoller();
+        }
+        
+        return $http_fds.get( '/api/config/volumes',
+            function( data ){
+                errCount = 0;
                 api.volumes = data;
 
                 if ( angular.isDefined( callback ) && angular.isFunction( callback ) ){
                     callback( api.volumes );
                 }
-            })
-            .error( function(){
+            },
+            function( error ){
+                errCount++;
+            
+                if ( errCount >= 3 ){
+                    $interval.cancel( pollerId );
+                }
             });
     };
 
@@ -24,92 +39,85 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http', '$rootS
     });
 
     $rootScope.$on( 'fds::authentication_success', function(){
-
-        getVolumes().then( function(){
-            pollerId = $interval( getVolumes, 10000 );
-        });
+        getVolumes().then( startPoller );
     });
 
     api.save = function( volume, callback, failure ){
 
         // save a new one
         if ( !angular.isDefined( volume.id ) ){
-            return $http.post( '/api/config/volumes', volume )
-                .success(
-                    function( response ){
+            return $http_fds.post( '/api/config/volumes', volume,
+                function( response ){
 
-                        getVolumes();
+                    getVolumes();
 
-                        if ( angular.isDefined( callback ) ){
-                            callback( response );
-                        }
-                    })
-                .error( function(){
-                    alert( 'Volume creation failed.' );
-                });
+                    if ( angular.isDefined( callback ) ){
+                        callback( response );
+                    }
+                },
+                failure );
         }
         // update an existing one
         else {
-            return $http.put( '/api/config/volumes/' + volume.id, volume )
-                .success( getVolumes );
+            return $http_fds.put( '/api/config/volumes/' + volume.id, volume, getVolumes );
         }
     };
     
     api.clone = function( volume, callback, failure ){
-        return $http.post( '/api/config/volumes/clone/' + volume.id + '/' + volume.name )
-            .success(
-                function( response ){
+        
+        // the actual volume we try to create should now have an ID yet - but the ID here will be 
+        // the original one
+        var id = volume.id;
+        volume.id = '';
+        return $http_fds.post( '/api/config/volumes/clone/' + id + '/' + volume.name, volume,
+            function( response ){
 
-                    getVolumes();
+                getVolumes();
 
-                    if ( angular.isDefined( callback ) ){
-                        callback( response );
-                    }
-                })
-            .error( function(){
-                alert( 'Volume creation failed.' );
-            });
+                if ( angular.isDefined( callback ) ){
+                    callback( response );
+                }
+            },
+            failure );
     };
     
     api.cloneSnapshot = function( volume, callback, failure ){
-        return $http.post( '/api/config/snapshot/clone/' + volume.id + '/' + volume.name )
-            .success(
-                function( response ){
+        return $http_fds.post( '/api/config/snapshot/clone/' + volume.id + '/' + volume.name, volume,
+            function( response ){
 
-                    getVolumes();
+                getVolumes();
 
-                    if ( angular.isDefined( callback ) ){
-                        callback( response );
-                    }
-                })
-            .error( function(){
-                alert( 'Volume creation failed.' );
-            });
+                if ( angular.isDefined( callback ) ){
+                    callback( response );
+                }
+            },
+            failure );
     };
 
-    api.delete = function( volume ){
-        return $http.delete( '/api/config/volumes/' + volume.id )
-            .success( getVolumes )
-            .error( function(){
-                alert( 'Volume deletion failed.' );
-            });
+    api.delete = function( volume, callback, failure ){
+        return $http_fds.delete( '/api/config/volumes/' + volume.name, 
+            function( result ){
+                getVolumes();
+            
+                if ( angular.isFunction( callback ) ){
+                    callback();
+                }
+            },
+            failure );
     };
     
     api.createSnapshot = function( volumeId, newName, callback, failure ){
         
-        return $http.post( '/api/config/volume/snapshot', {volumeId: volumeId, name: newName, retention: 0} )
-            .success( callback ).error( failure );
+        return $http_fds.post( '/api/config/volumes/' + volumeId + '/snapshot', {volumeId: volumeId, name: newName, retention: 0}, callback, failure );
     };
     
     api.deleteSnapshot = function( volumeId, snapshotId, callback, failure ){
-        $http.delete( '/api/config/snapshot/' + volumeId + '/' + snapshotId )
-            .success( callback ).error( failure );
+        $http_fds.delete( '/api/config/snapshot/' + volumeId + '/' + snapshotId, callback, failure );
     };
 
     api.getSnapshots = function( volumeId, callback, failure ){
 
-        return $http.get( '/api/config/volumes/' + volumeId + '/snapshots' )
-            .success( callback ).error( failure );
+        return $http_fds.get( '/api/config/volumes/' + volumeId + '/snapshots', callback, failure );
     };
 
     api.getSnapshotPoliciesForVolume = function( volumeId, callback, failure ){
@@ -123,9 +131,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http', '$rootS
 //            retentionTime: 3885906383
 //        }];
 
-        return $http.get( '/api/config/volumes/' + volumeId + '/snapshot/policies' )
-            .success( callback )
-            .error( failure );
+        return $http_fds.get( '/api/config/volumes/' + volumeId + '/snapshot/policies', callback, failure );
     };
 
     api.refresh = function( callback ){

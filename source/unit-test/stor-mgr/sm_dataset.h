@@ -1,6 +1,8 @@
 /**
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#ifndef SOURCE_UNIT_TEST_STOR_MGR_SM_DATASET_H_
+#define SOURCE_UNIT_TEST_STOR_MGR_SM_DATASET_H_
 
 #include <unistd.h>
 
@@ -10,6 +12,7 @@
 #include <string>
 #include <boost/shared_ptr.hpp>
 
+#include <fds_config.hpp>
 #include <ObjectId.h>
 #include <fds_volume.h>
 #include <dlt.h>
@@ -223,3 +226,4 @@ void TestDataset::generateDataset(fds_uint32_t dataset_size,
 
 }  // namespace fds
 
+#endif

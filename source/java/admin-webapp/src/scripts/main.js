@@ -10,12 +10,12 @@ app.config( function( $stateProvider, $urlRouterProvider ){
             templateUrl: 'scripts/main/main.html'
         })
         .state( 'homepage.volumes', {
-            url: '/volumes',
+            url: '/volumes/:state/:id',
             templateUrl: 'scripts/volumes/volumeContainer.html'
         })
         .state( 'homepage.system', {
             url: '/system',
-            templateUrl: 'scripts/system/system.html'
+            templateUrl: 'scripts/system/systemContainer.html'
         })
         .state( 'homepage.status', {
             url: '/status',
@@ -54,6 +54,29 @@ app.config(['$translateProvider', function( $translateProvider ) {
         .preferredLanguage( 'en' );
 }]);
 
-var genericFailure = function( response, code ){
-    alert( 'Error ' + code + ':\n' + response.message );
+// helper to get a text measurement for sizing purposes
+var measureText = function( text, fontSize, style ){
+   var lDiv = document.createElement('lDiv');
+
+    document.body.appendChild(lDiv);
+
+    if (style != null) {
+        lDiv.style = style;
+    }
+    lDiv.style.fontSize = "" + fontSize + "px";
+    lDiv.style.position = "absolute";
+    lDiv.style.left = -1000;
+    lDiv.style.top = -1000;
+
+    lDiv.innerHTML = text;
+
+    var lResult = {
+        width: lDiv.clientWidth,
+        height: lDiv.clientHeight
+    };
+
+    document.body.removeChild(lDiv);
+    lDiv = null;
+
+    return lResult;
 };

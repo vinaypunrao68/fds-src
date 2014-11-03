@@ -121,10 +121,6 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     LOGNORMAL << "StorHvisorNet - Constructing the Storage Hvisor";
 
-    /* create OMgr client if in normal mode */
-    om_client = NULL;
-    LOGNORMAL << "StorHvisorNet - Will create and initialize OMgrClient";
-
     struct ifaddrs *ifAddrStruct = NULL;
     struct ifaddrs *ifa          = NULL;
     void   *tmpAddrPtr           = NULL;
@@ -137,35 +133,59 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     dPathRespCback.reset(new FDSP_DataPathRespCbackI());
     mPathRespCback.reset(new FDSP_MetaDataPathRespCbackI());
-    /*
-     * Pass 0 as the data path port since the SH is not
-     * listening on that port.
-     */
-    cout << " om config port : " << omConfigPort << ", om IP " << omIpStr << "\n";
-    om_client = new OMgrClient(FDSP_STOR_HVISOR,
-                               omIpStr,
-                               omConfigPort,
-                               node_name,
-                               GetLog(),
-                               rpcSessionTbl,
-                               &gl_AmPlatform);
-    if (om_client) {
-        om_client->initialize();
-    }
-    else {
-        LOGERROR << "StorHvisorNet - Failed to create OMgrClient, will not receive any OM events";
-    }
-
-
-    /* register handlers for receiving responses to admin requests */
-    om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
 
     /*  Create the QOS Controller object */
     fds_uint32_t qos_threads = config.get<int>("qos_threads");
     qos_ctrl = new StorHvQosCtrl(qos_threads,
-				 fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, GetLog());
-    qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
-    om_client->startAcceptingControlMessages();
+				 fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET,
+                                 GetLog());
+
+    // Check the AM standalone toggle
+    toggleStandAlone = config.get_abs<bool>("fds.am.testing.toggleStandAlone");
+    if (toggleStandAlone) {
+        LOGWARN << "Starting SH CTRL in stand alone mode";
+    }
+
+    /* create OMgr client if in normal mode */
+    if (!toggleStandAlone) {
+        LOGNORMAL << "StorHvisorNet - Will create and initialize OMgrClient";
+        om_client = NULL;
+
+        /*
+         * Pass 0 as the data path port since the SH is not
+         * listening on that port.
+         */
+        om_client = new OMgrClient(FDSP_STOR_HVISOR,
+                                   omIpStr,
+                                   omConfigPort,
+                                   node_name,
+                                   GetLog(),
+                                   rpcSessionTbl,
+                                   &gl_AmPlatform);
+        om_client->initialize();
+        // register handlers for receiving responses to admin requests
+        om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
+
+        qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
+        om_client->startAcceptingControlMessages();
+
+        StatsCollector::singleton()->registerOmClient(om_client);
+        fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");
+        if (print_qos_stats) {
+            StatsCollector::singleton()->enableQosStats("AM");
+        }
+        StatsCollector::singleton()->startStreaming(NULL, NULL);
+    }
+
+    DMTManagerPtr dmtMgr;
+    DLTManagerPtr dltMgr;
+    if (toggleStandAlone) {
+        dmtMgr = boost::make_shared<DMTManager>(1);
+        dltMgr = boost::make_shared<DLTManager>();
+    } else {
+        dmtMgr = om_client->getDmtManager();
+        dltMgr = om_client->getDltManager();
+    }
 
     /* TODO: for now StorHvVolumeTable constructor will create
      * volume 1, revisit this soon when we add multi-volume support
@@ -189,8 +209,8 @@ StorHvCtrl::StorHvCtrl(int argc,
     // this layer.
     amDispatcher = AmDispatcher::shared_ptr(
         new AmDispatcher("AM Dispatcher Module",
-                         om_client->getDltManager(),
-                         om_client->getDmtManager()));
+                         dltMgr,
+                         dmtMgr));
     // Init the processor layer
     amProcessor = AmProcessor::unique_ptr(
         new AmProcessor("AM Processor Module",
@@ -202,80 +222,11 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     chksumPtr =  new checksum_calc();
 
-    /*
-     * Set basic thread properties.
-     */
-
     LOGNORMAL << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
 
-    StatsCollector::singleton()->registerOmClient(om_client);
-    fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");
-    if (print_qos_stats) {
-        StatsCollector::singleton()->enableQosStats("AM");
-    }
-    StatsCollector::singleton()->startStreaming(NULL, NULL);
-
-    /*
-     * Parse options out of config file
-     */
-
-    /*
-     * Setup RPC endpoints based on comm mode.
-     */
-    std::string dataMgrIPAddress;
-    int dataMgrPortNum;
-    std::string storMgrIPAddress;
-    int storMgrPortNum;
-    if ((mode == DATA_MGR_TEST) ||
-        (mode == TEST_BOTH)) {
-        /*
-         * If a port_num to use is set use it,
-         * otherwise pull from config file.
-         */
-        if (dm_port_num != 0) {
-            dataMgrPortNum = dm_port_num;
-        } else {
-            dataMgrPortNum = config.get<int>("fds.dm.PortNumber");
-        }
-        dataMgrIPAddress = config.get<string>("fds.dm.IPAddress");
-        storHvisor->rpcSessionTbl->
-                startSession<netMetaDataPathClientSession>(dataMgrIPAddress,
-                                                           (fds_int32_t)dataMgrPortNum,
-                                                           FDS_ProtocolInterface::FDSP_DATA_MGR,0,storHvisor->mPathRespCback);
-    }
-    if ((mode == STOR_MGR_TEST) ||
-        (mode == TEST_BOTH)) {
-        if (sm_port_num != 0) {
-            storMgrPortNum = sm_port_num;
-        } else {
-            storMgrPortNum  = config.get<int>("fds.sm.PortNumber");
-        }
-        storMgrIPAddress  = config.get<string>("fds.sm.IPAddress");
-        storHvisor->rpcSessionTbl->
-                startSession<netDataPathClientSession>(storMgrIPAddress,
-                                                       (fds_int32_t)storMgrPortNum,
-                                                       FDS_ProtocolInterface::FDSP_STOR_MGR,0,storHvisor->dPathRespCback);
-    }
-
-
-    if ((mode == DATA_MGR_TEST) ||
-        (mode == TEST_BOTH)) {
-        /*
-         * TODO: Currently we always add the DM IP in the DM and BOTH test modes.
-         */
-        fds_uint32_t ip_num  = rpcSessionTbl->ipString2Addr(dataMgrIPAddress);
-        dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
-                                                    ip_num,
-                                                    storMgrPortNum,
-                                                    dataMgrPortNum,
-                                                    om_client);
-    } else if (mode == STOR_MGR_TEST) {
-        fds_uint32_t ip_num = rpcSessionTbl->ipString2Addr(storMgrIPAddress);
-        dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NO_OM_MODE,
-                                                    ip_num,
-                                                    storMgrPortNum,
-                                                    dataMgrPortNum,
-                                                    om_client);
+    if (toggleStandAlone) {
+        dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
+                                                    NULL);
     } else {
         LOGNORMAL <<"StorHvisorNet -  Entring Normal Data placement mode";
         dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
@@ -309,8 +260,6 @@ StorHvCtrl::~StorHvCtrl()
 void StorHvCtrl::initHandlers() {
     handlers[fds::FDS_STAT_BLOB]            = new StatBlobHandler(this);
     handlers[fds::FDS_GET_VOLUME_METADATA]  = new GetVolumeMetaDataHandler(this);
-    handlers[fds::FDS_LIST_BUCKET]          = new GetBucketHandler(this);
-    handlers[fds::FDS_DELETE_BLOB]          = new DeleteBlobHandler(this);
 }
 
 SysParams* StorHvCtrl::getSysParams() {

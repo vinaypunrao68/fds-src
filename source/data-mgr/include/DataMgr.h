@@ -54,12 +54,11 @@
 
 namespace fds {
 
-class DataMgr;
+struct DataMgr;
 class DMSvcHandler;
 extern DataMgr *dataMgr;
 
-class DataMgr : public Module, public DmIoReqHandler {
-  public:
+struct DataMgr : Module, DmIoReqHandler {
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
     class ReqHandler;
@@ -107,13 +106,28 @@ class DataMgr : public Module, public DmIoReqHandler {
 
     Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
 
- private:
     typedef enum {
       NORMAL_MODE = 0,
       TEST_MODE   = 1,
       MAX
     } dmRunModes;
     dmRunModes    runMode;
+
+    struct Features {
+        bool fQosEnabled = true;
+        bool fCatSyncEnabled = true;
+        bool fTestMode = false;
+        bool isTestMode() {
+            return fTestMode;
+        }
+        bool isQosEnabled() {
+            return fQosEnabled;
+        }
+        bool isCatSyncEnabled() {
+            return fCatSyncEnabled;
+        }
+    } feature;
+
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
 
     /**
@@ -134,8 +148,7 @@ class DataMgr : public Module, public DmIoReqHandler {
     StatStreamAggregator::ptr statStreamAggr_;
 
 
-    class dmQosCtrl : public FDS_QoSControl {
-      public:
+    struct dmQosCtrl : FDS_QoSControl {
         DataMgr *parentDm;
 
         dmQosCtrl(DataMgr *_parent,
@@ -144,7 +157,8 @@ class DataMgr : public Module, public DmIoReqHandler {
                   fds_log *log) :
                 FDS_QoSControl(_max_thrds, algo, log, "DM") {
             parentDm = _parent;
-            dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, _max_thrds, log);
+            dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
+                    parentDm->qosOutstandingTasks, log);
             // dispatcher = new QoSMinPrioDispatcher(this, log, parentDm->scheduleRate);
         }
 
@@ -317,15 +331,17 @@ class DataMgr : public Module, public DmIoReqHandler {
                                fds_volid_t volume_id,
                                const std::vector<StatSlot>& slots);
 
-  protected:
     void setup_metadatapath_server(const std::string &ip);
     void setup_metasync_service();
 
-  public:
     explicit DataMgr(CommonModuleProviderIf *modProvider);
     ~DataMgr();
     std::map<fds_io_op_t, dm::Handler*> handlers;
     dmQosCtrl   *qosCtrl;
+
+    fds_uint32_t qosThreadCount = 10;
+    fds_uint32_t qosOutstandingTasks = 20;
+
     // Test related members
     fds_bool_t testUturnAll;
     fds_bool_t testUturnUpdateCat;

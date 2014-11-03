@@ -66,16 +66,6 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolDir {
 
     virtual Error copyVolDir(const std::string & destName) override;
 
-    virtual Error markDeleted() override {
-        LOGNOTIFY << "Catalog for volume '" << volId_ << "' marked deleted";
-        deleted_ = true;
-        return ERR_OK;
-    }
-
-    virtual fds_bool_t isMarkedDeleted() const override {
-        return deleted_;
-    }
-
     // gets
     virtual Error getBlobMetaDesc(const std::string & blobName,
             BlobMetaDesc & blobMeta) override;

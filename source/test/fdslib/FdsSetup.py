@@ -7,6 +7,7 @@ import logging
 import subprocess
 import shlex
 import paramiko
+import datetime
 from scp import SCPClient
 from contextlib import contextmanager
 
@@ -342,7 +343,7 @@ class FdsRmtEnv(FdsEnv):
             self.ssh_connect(args, kwargs)
 
         self.env_scp_clnt = SCPClient(self.env_ssh_clnt.get_transport())
-        return self.env_scp_clnt 
+        return self.env_scp_clnt
 
     def scp_copy(self, local, remote, *args, **kwargs):
         if self.env_scp_clnt is None:
@@ -352,11 +353,11 @@ class FdsRmtEnv(FdsEnv):
     ###
     # Execute command to a remote node through ssh client.
     #
-    def ssh_exec(self, 
-                 cmd, 
-                 wait_compl = False, 
-                 fds_bin = False, 
-                 output = False, 
+    def ssh_exec(self,
+                 cmd,
+                 wait_compl = False,
+                 fds_bin = False,
+                 output = False,
                  return_stdin = False):
         log = logging.getLogger(self.__class__.__name__ + '.' + "ssh_exec")
 
@@ -423,7 +424,7 @@ class FdsRmtEnv(FdsEnv):
     def ssh_exec_fds(self, cmd, wait_compl = False):
         return self.ssh_exec(cmd, wait_compl, True)
 
-    def exec_wait(self, cmd, return_stdin):
+    def exec_wait(self, cmd, return_stdin = False):
         return self.ssh_exec(cmd, wait_compl=True, fds_bin=False, output=True, return_stdin=return_stdin)
 
     def ssh_close(self):
@@ -454,10 +455,22 @@ class FdsPackage:
             print "You must run this command under FDS source tree"
             sys.exit(1)
 
+    def create_tar_installer (self, debug = True):
+        ''' Create a tarball using the make_tar.sh script
+        '''
+        package_name = 'fdsinstall-' + datetime.datetime.now().strftime ("%Y%m%d-%H%M") + ".tar.gz"
+        with pushd(self.p_env.get_fds_source() + "/tools/install"):
+            subprocess.call(['./make_tar.sh', package_name])
+
+        return '/tmp/' + package_name
+
     ###
     # Create a tar ball from FDS source tree.
     #
     def package_tar(self, debug = True):
+        print "Use of this function is deprecated"
+        raise DeprecationWarning
+        '''
         with pushd(self.p_env.get_build_dir(debug)):
             tar_ball = self.p_env.get_pkg_tar(debug)
 
@@ -484,20 +497,28 @@ class FdsPackage:
                 subprocess.call(['tar', 'rf', tar_ball, 'lib'])
 
             sys.stdout.write('..\n')
+        '''
 
     ###
     # Untar the tar ball to the local host under fds_root argument.
     #
     def package_untar(self, debug = True):
+        print "Use of this function is deprecated"
+        raise DeprecationWarning
+        '''
         mkdir_p(self.p_env.get_fds_root())
         with pushd(self.p_env.get_fds_root()):
             tar_ball = self.p_env.get_pkg_tar(debug)
             subprocess.call(['tar', 'xf', tar_ball])
+        '''
 
     ###
     # Install the tar ball to a remote node using default user/passwd from env obj.
     #
     def package_install(self, rmt_ssh, local_path = None):
+        print "Use of this function is deprecated"
+        raise DeprecationWarning
+        '''
         print "Copying the tar ball package to %s at: %s" % (
             rmt_ssh.get_host_name(), self.p_env.get_fds_root())
 
@@ -522,3 +543,4 @@ class FdsPackage:
                          '; mkdir -p var/logs')
 
         return status
+        '''

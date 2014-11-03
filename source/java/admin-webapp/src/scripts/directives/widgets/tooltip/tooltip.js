@@ -41,9 +41,10 @@ angular.module( 'display-widgets' ).directive( 'tooltip', function(){
                         
                     $scope.show = true;
 
-                    $scope.top = $scope.mousePosition.y + 'px';
-                    $scope.left = $scope.mousePosition.x + 'px';
+                    $scope.top = /*$scope.mousePosition.y +*/ '-1000px';
+                    $scope.left = /*$scope.mousePosition.x +*/ '-1000px';
                     $scope.below = true;
+                    $scope.leftSide = true;
 
                     var el = $( $element[0] ).children( '.tooltip-body' );
 
@@ -63,11 +64,13 @@ angular.module( 'display-widgets' ).directive( 'tooltip', function(){
                     var yPad = -1*(h+12);
                     var xPad = -12;
 
+                    // shift it right
                     if ( $scope.mousePosition.x + xPad + w > parentW ){
-                        xPad = xPad - w;
-                        
+                        xPad = xPad - w + 12;
+                        $scope.leftSide = false;
                     }
 
+                    // shift it down
                     if ( $scope.mousePosition.y + yPad < 0 ){
                         yPad = 10;
                         $scope.below = true;
@@ -75,7 +78,6 @@ angular.module( 'display-widgets' ).directive( 'tooltip', function(){
 
                     $scope.top = ($scope.mousePosition.y + yPad) + 'px';
                     $scope.left = ($scope.mousePosition.x + xPad) + 'px';
-//                    console.log( 'mx: ' + $scope.mousePosition.x + ' xpad: ' + xPad );
                 }
             };
             
@@ -93,6 +95,10 @@ angular.module( 'display-widgets' ).directive( 'tooltip', function(){
             });
             
             $scope.$watch( 'event', function( newVal, oldVal ){
+                
+                if ( !angular.isDefined( newVal ) ){
+                    return;
+                }
                 
                 if ( $scope.ignore === true ){
                     return;

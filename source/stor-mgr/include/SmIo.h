@@ -65,23 +65,17 @@ class SmIoReq : public FDS_IOType {
 
         // perf-trace related data
         perfNameStr = "volume:" + std::to_string(_volUuid);
-        opReqFailedPerfEventType = PUT_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
+        opReqFailedPerfEventType = SM_PUT_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
 
-
-        opReqLatencyCtx.type = PUT_OBJ_REQ;
+        opReqLatencyCtx.type = SM_E2E_PUT_OBJ_REQ;
         opReqLatencyCtx.name = perfNameStr;
         opReqLatencyCtx.reset_volid(_volUuid);
 
-        opLatencyCtx.type = PUT_IO;
+        opLatencyCtx.type = SM_PUT_IO;
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volUuid);
 
-        // TODO(Anna) remove this once we remove trans table
-        opTransactionWaitCtx.type = PUT_OBJ_TASK_SYNC_WAIT;
-        opTransactionWaitCtx.name = perfNameStr;
-        opTransactionWaitCtx.reset_volid(_volUuid);
-
-        opQoSWaitCtx.type = PUT_QOS_QUEUE_WAIT;
+        opQoSWaitCtx.type = SM_PUT_QOS_QUEUE_WAIT;
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(_volUuid);
     }
@@ -112,22 +106,17 @@ class SmIoReq : public FDS_IOType {
 
         // perf-trace related data
         perfNameStr = "volume:" + std::to_string(_volUuid);
-        opReqFailedPerfEventType = GET_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
+        opReqFailedPerfEventType = SM_GET_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
 
-        opReqLatencyCtx.type = GET_OBJ_REQ;
+        opReqLatencyCtx.type = SM_E2E_GET_OBJ_REQ;
         opReqLatencyCtx.name = perfNameStr;
         opReqLatencyCtx.reset_volid(_volUuid);
 
-        opLatencyCtx.type = GET_IO;
+        opLatencyCtx.type = SM_GET_IO;
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volUuid);
 
-        // TODO(Anna) remove this once we remove trans table
-        opTransactionWaitCtx.type = GET_OBJ_TASK_SYNC_WAIT;
-        opTransactionWaitCtx.name = perfNameStr;
-        opTransactionWaitCtx.reset_volid(_volUuid);
-
-        opQoSWaitCtx.type = GET_QOS_QUEUE_WAIT;
+        opQoSWaitCtx.type = SM_GET_QOS_QUEUE_WAIT;
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(_volUuid);
     }
@@ -163,22 +152,17 @@ class SmIoReq : public FDS_IOType {
 
         // perf-trace related data
         perfNameStr = "volume:" + std::to_string(_volUuid);
-        opReqFailedPerfEventType = DELETE_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
+        opReqFailedPerfEventType = SM_DELETE_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
 
-        opReqLatencyCtx.type = DELETE_OBJ_REQ;
+        opReqLatencyCtx.type = SM_E2E_DELETE_OBJ_REQ;
         opReqLatencyCtx.name = perfNameStr;
         opReqLatencyCtx.reset_volid(_volUuid);
 
-        opLatencyCtx.type = DELETE_IO;
+        opLatencyCtx.type = SM_DELETE_IO;
         opLatencyCtx.name = perfNameStr;
         opLatencyCtx.reset_volid(_volUuid);
 
-        // TODO(Anna) remove this once we remove trans table
-        opTransactionWaitCtx.type = DELETE_OBJ_TASK_SYNC_WAIT;
-        opTransactionWaitCtx.name = perfNameStr;
-        opTransactionWaitCtx.reset_volid(_volUuid);
-
-        opQoSWaitCtx.type = DELETE_QOS_QUEUE_WAIT;
+        opQoSWaitCtx.type = SM_DELETE_QOS_QUEUE_WAIT;
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(_volUuid);
     }
@@ -294,8 +278,6 @@ class SmIoPutObjectReq : public SmIoReq {
 
     /// TODO(Andrew): Client assigned timestamp. Can this be removed?
     int64_t origin_timestamp;
-    /// TODO(Andrew): Data. Can be removed.
-    std::string data_obj;
 
     /// Service layer put request
     boost::shared_ptr<fpi::PutObjectMsg> putObjectNetReq;
@@ -534,6 +516,9 @@ class SmIoCompactObjects : public SmIoReq {
 
     /* tier that we are compacting */
     diskio::DataTier tier;
+
+    /// also verify data before compacting
+    fds_bool_t verifyData;
 
     /* response callback */
     cbType smio_compactobj_resp_cb;

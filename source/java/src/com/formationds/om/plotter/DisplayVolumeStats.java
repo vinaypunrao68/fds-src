@@ -13,6 +13,13 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
 
+/**
+ * @deprecated the POC functionality has been replaced by
+ *             {@link com.formationds.om.rest.metrics.QueryMetrics}
+ *
+ *             will be removed in the future
+ */
+@Deprecated
 public class DisplayVolumeStats implements RequestHandler {
     private VolumeStatistics volumeStatistics;
 

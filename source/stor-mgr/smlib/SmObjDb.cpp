@@ -55,7 +55,26 @@ ObjectDB *SmObjDb::openObjectDB(fds_token_id tokId) {
     std::string filename = std::string(diskio::gl_dataIOMod.disk_path(tokId, diskio::diskTier)) +
              "//SNodeObjIndex_" + std::to_string(dbId);
     // std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
-    objdb  = new ObjectDB(filename);
+    try
+    {
+        objdb = new osm::ObjectDB(filename);
+    }
+    catch(const osm::OsmException& e)
+    {
+        LOGERROR << "Failed to create ObjectDB " << filename;
+        LOGERROR << e.what();
+
+        /*
+         * TODO(Greg): We need to end this process at this point, but we need
+         * a more controlled and graceful way of doing it. I suggest that in
+         * such cases we throw another exception to be caught by the mainline
+         * method which can then perform any cleanup, log a useful message, and
+         * shutdown.
+         */
+        LOGNORMAL << "SM shutting down with a failure condition.";
+        exit(EXIT_FAILURE);
+    }
+
     tokenTbl[dbId] = objdb;
 
     return objdb;
@@ -85,7 +104,26 @@ ObjectDB *SmObjDb::getObjectDB(fds_token_id tokId) {
     std::string filename = std::string(diskio::gl_dataIOMod.disk_path(tokId, diskio::diskTier)) +
              "//SNodeObjIndex_" + std::to_string(dbId);
     // std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
-    objdb  = new ObjectDB(filename);
+    try
+    {
+        objdb = new osm::ObjectDB(filename);
+    }
+    catch(const osm::OsmException& e)
+    {
+        LOGERROR << "Failed to create ObjectDB " << filename;
+        LOGERROR << e.what();
+
+        /*
+         * TODO(Greg): We need to end this process at this point, but we need
+         * a more controlled and graceful way of doing it. I suggest that in
+         * such cases we throw another exception to be caught by the mainline
+         * method which can then perform any cleanup, log a useful message, and
+         * shutdown.
+         */
+        LOGNORMAL << "SM shutting down with a failure condition.";
+        exit(EXIT_FAILURE);
+    }
+
     tokenTbl[dbId] = objdb;
     return objdb;
 }
@@ -326,8 +364,10 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
 
         /* Read metadata and object */
         ObjMetaData objMetadata;
+        /*
         err = objStorMgr->readObject(NON_SYNC_MERGED, objId,
                 objMetadata, objData, tierUsed);
+        */
         if (err == ERR_OK) {
             if ((max_size - tot_msg_len) >= objData.getSize()) {
                 LOGDEBUG << "Adding a new objectId to objList" << objId;
@@ -342,7 +382,6 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                 obj_list.push_back(mig_obj);
                 tot_msg_len += objData.getSize();
 
-                objStorMgr->counters_->get_tok_objs.incr();
                 DBG(obj_itr_cnt++);
             } else {
                 DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
@@ -363,7 +402,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     itr.done = true;
 
     DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
-        << " cnt: " << obj_itr_cnt) << " token retrieve complete";
+        << " cnt: " << obj_itr_cnt << " token retrieve complete");
 }
 
 /**

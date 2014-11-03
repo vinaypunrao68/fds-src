@@ -9,6 +9,7 @@
 #include <fds_module.h>
 #include <fds_types.h>
 #include <concurrency/RwLock.h>
+#include <SmCtrl.h>
 #include <persistent-layer/dm_io.h>
 #include <persistent-layer/persistentdata.h>
 #include <object-store/Scavenger.h>
@@ -29,14 +30,9 @@ namespace fds {
  * flipping the bit SM_START_TOKFILE_ID_MASK of the current initial file id.
  * When garbage collection finishes moving all valid data from old files to new
  * file(s), the old files are removed and shadow files remain.
+ *
+ * Use SM_WRITE_FILE_ID when need to access a file we are currently appending
  */
-#define SM_INVALID_FILE_ID         0
-/**
- * Not a real file id. Use SM_WRITE_FILE_ID when need to access a file
- * we are currently appending
- */
-#define SM_WRITE_FILE_ID           0x0001
-#define SM_INIT_FILE_ID            0x0002
 #define SM_START_TOKFILE_ID_MASK   0x4000
 /**
  * Maximum number of files per SM token.
@@ -120,8 +116,10 @@ class ObjectPersistData : public Module,
     /**
      * Opens object data files
      * @param[in] diskMap map of SM tokens to disks
+     * @param[in] true if SM comes up for the first time
      */
-    Error openPersistDataStore(const SmDiskMap::const_ptr& diskMap);
+    Error openPersistDataStore(const SmDiskMap::const_ptr& diskMap,
+                               fds_bool_t pristineState);
 
     /**
      * Peristently stores object data.
@@ -153,6 +151,9 @@ class ObjectPersistData : public Module,
     void getSmTokenStats(fds_token_id smTokId,
                          diskio::DataTier tier,
                          diskio::TokenStat* retStat);
+
+    // control commands
+    Error scavengerControlCmd(SmScavengerCmd* scavCmd);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);
@@ -220,7 +221,8 @@ class ObjectPersistData : public Module,
 
     diskio::FilePersisDataIO* getTokenFile(diskio::DataTier tier,
                                            fds_token_id smTokId,
-                                           fds_uint16_t fileId);
+                                           fds_uint16_t fileId,
+                                           fds_bool_t openIfNotExist);
 };
 
 }  // namespace fds

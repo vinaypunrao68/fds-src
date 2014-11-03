@@ -24,7 +24,13 @@
     display: inline-block;
 
     .caret {
-//        margin-top: 8px;
+        margin-top: 8px;
+        border-top-width: 5px;
+        border-left-width: 4px;
+        border-right-width: 4px;
+        
+        position: absolute;
+        right: 8px;
     }
     
     .table-caret {
@@ -37,7 +43,7 @@
         }
         
         .table-caret {
-            margin-top: 6px;
+            margin-top: 8px;
         }
     }
 

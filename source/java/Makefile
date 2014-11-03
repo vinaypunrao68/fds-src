@@ -12,6 +12,7 @@ user_install_loc  := exe
 user_clean        := \
 	target \
 	gen-java \
+        admin-webapp \
 	$(comm_dir_lib)/java \
 	$(comm_dir_lib)/admin-webapp \
 	$(comm_dir_lib)/demo
@@ -35,6 +36,7 @@ ifndef SKIP_UI_BUILD
 endif
 	@cp -r demo $(comm_dir_lib)
 	@cp smokeTest $(main_dir_tools)
+	@cp trafficgen $(comm_dir_bin)
 
 .PHONY: test
 

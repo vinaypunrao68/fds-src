@@ -242,31 +242,6 @@ namespace fds {
     };
 
     /**
-     * This callback is made during a put object operation, to obtain the next
-     * chunk of data to put to the FDS system as the contents of the object.  This
-     * callback is made repeatedly, each time acquiring the next chunk of data to
-     * write to the service, until a negative or 0 value is returned.
-     *
-     * @param bufferSize gives the maximum number of bytes that may be written
-     *        into the buffer parameter by this callback
-     * @param buffer gives the buffer to fill with at most bufferSize bytes of
-     *        data as the next chunk of data to send to S3 as the contents of this
-     *        object
-     * @param offset of the buffer that was put
-     * @param callbackData is the callback data as specified when the request
-     *        was issued.
-     * @return < 0 to abort the request with the S3StatusAbortedByCallback, which
-     *        will be pased to the response complete callback for this request, or
-     *        0 to indicate the end of data, or > 0 to identify the number of
-     *        bytes that were written into the buffer by this callback
-     **/
-    typedef int (*fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize,
-                                        fds_off_t offset, char *buffer,
-                                        void *callbackData, FDSN_Status status,
-                                        ErrorDetails* errDetails);
-
-
-    /**
      * This callback is made repeatedly, each time
      * providing the next chunk of data read, until the complete object contents
      * have been passed through the callback in this way, or the callback
@@ -316,16 +291,16 @@ namespace fds {
                                         const ErrorDetails *errorDetails,
                                         void *callbackData);
 
-    typedef void (*fdsnListBucketHandler)(int isTruncated,
-                                          const char *nextMarker,
-                                          int contentsCount,
-                                          const ListBucketContents *contents,
-                                          int commonPrefixesCount,
-                                          const char **commonPrefixes,
-                                          void *callbackData,
-                                          FDSN_Status status);
+    typedef void (*fdsnVolumeContentsHandler)(int isTruncated,
+                                              const char *nextMarker,
+                                              int contentsCount,
+                                              const ListBucketContents *contents,
+                                              int commonPrefixesCount,
+                                              const char **commonPrefixes,
+                                              void *callbackData,
+                                              FDSN_Status status);
 
-    typedef void (*fdsnBucketStatsHandler)(const std::string& timestamp,
+    typedef void (*fdsnVolumeStatsHandler)(const std::string& timestamp,
                                            int content_count,
                                            const BucketStatsContent* contents,
                                            void *req_context,
@@ -366,121 +341,6 @@ namespace fds {
     typedef boost::shared_ptr<Callback> CallbackPtr;
 
 
-    class FdsBlobReq {
-  public:
-        /*
-         * Callback members
-         * TODO: Resolve this with what's needed by the object-based callbacks.
-         */
-        typedef boost::function<void(fds_int32_t)> callbackBind;
-        std::string volumeName;
-  protected:
-        /*
-         * Common request header members
-         */
-        fds_uint32_t magic;
-        fds_io_op_t  ioType;
-
-        /*
-         * Volume members
-         */
-        fds_volid_t volId;
-
-        /*
-         * Blob members
-         */
-        std::string  blobName;
-        fds_uint64_t blobOffset;
-        /*
-         * Object members
-         */
-        ObjectID objId;
-
-        /*
-         * Buffer members
-         */
-        std::size_t dataLen;
-        char        *dataBuf;
-
-        /*
-         * Callback members
-         */
-        callbackBind callback;
-
-        /*
-         * Perf members
-         */
-        fds_uint64_t queuedUsec;  /* Time spec in queue */
-
-        /* Lifecycle latency */
-        util::StopWatch stopWatch;
-
-  public:
-        FdsBlobReq(fds_io_op_t      _op,
-                   fds_volid_t        _volId,
-                   const std::string &_blobName,
-                   fds_uint64_t       _blobOffset,
-                   fds_uint64_t       _dataLen,
-                   char              *_dataBuf);
-
-        FdsBlobReq(fds_io_op_t        _op,
-                   fds_volid_t        _volId,
-                   const std::string &_blobName,
-                   fds_uint64_t       _blobOffset,
-                   fds_uint64_t       _dataLen,
-                   char              *_dataBuf,
-                   CallbackPtr        _cb);
-        template<typename F, typename A, typename B, typename C>
-        FdsBlobReq(fds_io_op_t      _op,
-                   fds_volid_t        _volId,
-                   const std::string &_blobName,
-                   fds_uint64_t       _blobOffset,
-                   fds_uint64_t       _dataLen,
-                   char              *_dataBuf,
-                   F f,
-                   A a,
-                   B b,
-                   C c)
-                : magic(FDS_SH_IO_MAGIC_IN_USE),
-                ioType(_op),
-                volId(_volId),
-                blobName(_blobName),
-                blobOffset(_blobOffset),
-                dataLen(_dataLen),
-                dataBuf(_dataBuf),
-                callback(boost::bind(f, a, b, c, _1)) {
-        }
-
-        virtual ~FdsBlobReq();
-        CallbackPtr cb;
-        fds_bool_t magicInUse() const;
-        fds_volid_t getVolId() const;
-        fds_io_op_t  getIoType() const;
-        void setVolId(fds_volid_t vol_id);
-        void cbWithResult(int result);
-        const std::string& getBlobName() const;
-        const std::string& getVolumeName() const;
-        void setVolumeName(const std::string& volumeName);
-        fds_uint64_t getBlobOffset() const;
-        void setBlobOffset(fds_uint64_t offset);
-        const char *getDataBuf() const;
-        std::size_t getDataLen() const;
-        void setDataLen(fds_uint64_t len);
-        void setDataBuf(const char* _buf);
-        ObjectID getObjId() const;
-        void setObjId(const ObjectID& _oid);
-        void setQueuedUsec(fds_uint64_t _usec);
-
-  public:
-        // Performance
-        PerfContext e2eReqPerfCtx;
-        PerfContext qosPerfCtx;
-        PerfContext hashPerfCtx;
-        PerfContext dmPerfCtx;
-        PerfContext smPerfCtx;
-    };
-
-
 // RAII model.
 // NOTE: use this cautiously!!!
 // at the end of scope the cb will be called!!
@@ -500,6 +360,10 @@ struct StartBlobTxCallback : virtual Callback {
     typedef boost::shared_ptr<StartBlobTxCallback> ptr;
     /// The blob trans ID to fill in
     BlobTxId      blobTxId;
+};
+
+struct UpdateBlobCallback : virtual Callback {
+    typedef boost::shared_ptr<UpdateBlobCallback> ptr;
 };
 
 struct GetObjectCallback : virtual Callback {

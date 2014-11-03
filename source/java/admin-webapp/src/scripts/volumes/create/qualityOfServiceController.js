@@ -9,8 +9,18 @@ angular.module( 'volumes' ).controller( 'qualityOfServiceController', ['$scope',
         $scope.updateData();
     };
 
-    $scope.priorityOptions = [10,9,8,7,6,5,4,3,2,1];
+//    $scope.priorityOptions = [10,9,8,7,6,5,4,3,2,1];
+    $scope.limitChoices = [100,200,300,400,500,750,1000,2000,3000,0];
 
+    $scope.limitSliderLabel = function( value ){
+        
+        if ( value === 0 ){
+            return '\u221E'
+        }
+        
+        return value;
+    };
+    
     $scope.updateData = function(){
         $modal_data_service.update({
             priority: $scope.priority,
@@ -23,6 +33,10 @@ angular.module( 'volumes' ).controller( 'qualityOfServiceController', ['$scope',
         $scope.editing = false;
         $scope.updateData();
     };
+    
+    $scope.$on( 'fds::page_shown', function(){
+        $scope.$broadcast( 'fds::fui-slider-refresh' );
+    });
 
     $scope.$watch( 'volumeVars.clone', function( newVal ){
         
@@ -38,6 +52,8 @@ angular.module( 'volumes' ).controller( 'qualityOfServiceController', ['$scope',
         $scope.priority = newVal.priority;
         $scope.iopLimit = newVal.limit;
         $scope.capacity = newVal.sla;
+        
+        $scope.updateData();
     });
     
     $scope.$watch( 'volumeVars.creating', function( newVal ){

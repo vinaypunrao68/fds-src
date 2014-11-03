@@ -90,7 +90,7 @@ static const blob_version_t blob_version_deleted =
 static const uint OBJECTID_DIGESTLEN = 20;
 class ObjectID : public serialize::Serializable {
   private:
-    uint8_t  digest[OBJECTID_DIGESTLEN];
+    alignas(8) uint8_t  digest[OBJECTID_DIGESTLEN];
 
   public:
     ObjectID();
@@ -119,11 +119,11 @@ class ObjectID : public serialize::Serializable {
     }
 
    /*
-    * bit mask. this will help to boost the performance 
+    * bit mask. this will help to boost the performance
     */
 
     fds_uint64_t getTokenBits(fds_uint32_t numBits) const;
-    fds_uint32_t GetLen() const;
+    size_t GetLen() const;
     std::string ToString() const;
     bool operator==(const ObjectID& rhs) const;
     bool operator!=(const ObjectID& rhs) const;
@@ -147,6 +147,7 @@ class ObjectID : public serialize::Serializable {
 
     friend class ObjectLess;
     friend class ObjIdGen;
+    friend class ObjectHash;
 };
 
 /* NullObjectID */
@@ -157,7 +158,7 @@ std::ostream& operator<<(std::ostream& out, const ObjectID& oid);
 class ObjectHash {
   public:
     size_t operator()(const ObjectID& oid) const {
-      return std::hash<std::string>()(oid.ToHex());
+        return *(reinterpret_cast<const size_t *>(oid.digest));
     }
 };
 
@@ -226,7 +227,7 @@ typedef enum {
     FDS_GET_VOLUME_METADATA,
     FDS_DELETE_BLOB,
     FDS_DELETE_BLOB_SVC,
-    FDS_LIST_BUCKET,
+    FDS_VOLUME_CONTENTS,
     FDS_BUCKET_STATS,
     FDS_SM_GET_OBJECT,
     FDS_SM_PUT_OBJECT,
@@ -287,8 +288,6 @@ class FDS_IOType {
     PerfEventType opReqFailedPerfEventType;
     PerfContext opReqLatencyCtx;
     PerfContext opLatencyCtx;
-
-    PerfContext opTransactionWaitCtx;
 
     PerfContext opQoSWaitCtx;
 };

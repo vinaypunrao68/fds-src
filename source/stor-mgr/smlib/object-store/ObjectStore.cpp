@@ -20,6 +20,9 @@ ObjectStore::ObjectStore(const std::string &modName,
           conf_verify_data(true),
           numBitsPerToken(0),
           diskMap(new SmDiskMap("SM Disk Map Module")),
+          tierEngine(new TierEngine("SM Tier Engine",
+                                    TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
+                                    volTbl)),
           dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
           metaStore(new ObjectMetadataStore(
               "SM Object Metadata Storage Module")) {
@@ -34,13 +37,19 @@ ObjectStore::handleNewDlt(const DLT* dlt) {
     metaStore->setNumBitsPerToken(nbits);
 
     Error err = diskMap->handleNewDlt(dlt);
-    fds_verify(err.ok());
+    if (err == ERR_DUPLICATE) {
+        return;  // everythin setup already
+    } else if (err == ERR_INVALID_DLT) {
+        return;  // we are ignoring this DLT
+    }
+    fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
 
     // open metadata store for tokens owned by this SM
     err = metaStore->openMetadataStore(diskMap);
     fds_verify(err.ok());
 
-    err = dataStore->openDataStore(diskMap);
+    err = dataStore->openDataStore(diskMap,
+                                   (err == ERR_SM_NOERR_PRISTINE_STATE));
     fds_verify(err.ok());
 }
 
@@ -61,11 +70,15 @@ Error
 ObjectStore::putObject(fds_volid_t volId,
                        const ObjectID &objId,
                        boost::shared_ptr<const std::string> objData) {
+    PerfContext objWaitCtx(SM_PUT_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    PerfTracer::tracePointEnd(objWaitCtx);
 
     Error err(ERR_OK);
     diskio::DataTier useTier = diskio::maxTier;
-    GLOGTRACE << "Putting object " << objId;
+    LOGTRACE << "Putting object " << objId << " volume " << std::hex << volId
+             << std::dec;
 
     // New object metadata to update the refcnts
     ObjMetaData::ptr updatedMeta;
@@ -83,6 +96,12 @@ ObjectStore::putObject(fds_volid_t volId,
             // in the existing implementation, we would write new data to data store
             // and updating the existing metadata is this what we want?
             fds_panic("Missing data in the persistent layer!");  // implement
+        }
+
+        // check if existing object corrupted
+        if (objMeta->isObjCorrupted()) {
+            LOGCRITICAL << "Obj metadata indicates dup object corrupted, returning err";
+            return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
         if (conf_verify_data == true) {
@@ -103,7 +122,7 @@ ObjectStore::putObject(fds_volid_t volId,
         // Create new object metadata to update the refcnts
         updatedMeta.reset(new ObjMetaData(objMeta));
 
-        PerfTracer::incr(DUPLICATE_OBJ, volId, PerfTracer::perfNameStr(volId));
+        PerfTracer::incr(SM_PUT_DUPLICATE_OBJ, volId, PerfTracer::perfNameStr(volId));
         err = ERR_DUPLICATE;
     } else {  // if (getMetadata != OK)
         // We didn't find any metadata, make sure it was just not there and reset
@@ -132,14 +151,22 @@ ObjectStore::putObject(fds_volid_t volId,
     // on a subsequent scavenger pass.
     if (err.ok()) {
         // object not duplicate
-        // TODO(Anna) call tierEngine->selectTier(objId, volId);
-        useTier = diskio::diskTier;
+        // select tier to put object
+        StorMgrVolume *vol = volumeTbl->getVolume(volId);
+        fds_verify(vol);
+        useTier = tierEngine->selectTier(objId, *vol->voldesc);
+        // put object to datastore
         obj_phy_loc_t objPhyLoc;  // will be set by data store
         err = dataStore->putObjectData(volId, objId, useTier, objData, objPhyLoc);
         if (!err.ok()) {
             LOGERROR << "Failed to write " << objId << " to obj data store "
                      << err;
             return err;
+        }
+        // successfully put object
+        if (useTier == diskio::flashTier) {
+            // notify tier engine we put object to flash
+            tierEngine->handleObjectPutToFlash(objId, *vol->voldesc);
         }
 
         // update physical location that we got from data store
@@ -168,13 +195,23 @@ boost::shared_ptr<const std::string>
 ObjectStore::getObject(fds_volid_t volId,
                        const ObjectID &objId,
                        Error& err) {
+    PerfContext objWaitCtx(SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    PerfTracer::tracePointEnd(objWaitCtx);
 
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
     if (!err.ok()) {
         LOGERROR << "Failed to get object metadata" << objId << " volume "
                  << std::hex << volId << std::dec << " " << err;
+        return NULL;
+    }
+
+    // check if object corrupted
+    if (objMeta->isObjCorrupted()) {
+        LOGCRITICAL << "Obj metadata indicates data corrupted, will return err";
+        err = ERR_ONDISK_DATA_CORRUPT;
         return NULL;
     }
 
@@ -210,13 +247,18 @@ ObjectStore::getObject(fds_volid_t volId,
         }
     }
 
+    // TODO(Anna) update tier stats that an object was accessed
+
     return objData;
 }
 
 Error
 ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId) {
+    PerfContext objWaitCtx(SM_DELETE_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
+    PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    PerfTracer::tracePointEnd(objWaitCtx);
 
     Error err(ERR_OK);
 
@@ -231,6 +273,12 @@ ObjectStore::deleteObject(fds_volid_t volId,
         LOGDEBUG << "Not able to read existing object locations, "
                  << "assuming no prior entry existed " << objId;
         return ERR_OK;
+    }
+
+    // if object corrupted, no point of updating metadata
+    if (objMeta->isObjCorrupted()) {
+        LOGCRITICAL << "Object corrupted, returning error ";
+        return err = ERR_ONDISK_DATA_CORRUPT;
     }
 
     // Create new object metadata to update the refcnts
@@ -277,10 +325,30 @@ ObjectStore::deleteObject(fds_volid_t volId,
 }
 
 Error
+ObjectStore::moveObjectToTier(const ObjectID& objId,
+                              diskio::DataTier fromTier,
+                              diskio::DataTier toTier,
+                              fds_bool_t relocateFlag) {
+    Error err(ERR_OK);
+    fds_panic("Not implemented yet");
+    // TODO(Anna) read from 'fromTier' tier, write to 'toTier'
+    // and then update metadata
+    // if relocateFlag == true: remove 'fromTier' location --
+    // removePhyLocation(fromTier)
+
+    return err;
+}
+
+Error
 ObjectStore::copyAssociation(fds_volid_t srcVolId,
                              fds_volid_t destVolId,
                              const ObjectID& objId) {
+    PerfContext objWaitCtx(SM_ADD_OBJ_REF_TASK_SYNC_WAIT, destVolId,
+                           PerfTracer::perfNameStr(destVolId));
+    PerfTracer::tracePointBegin(objWaitCtx);
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
+    PerfTracer::tracePointEnd(objWaitCtx);
+
     Error err(ERR_OK);
 
     // New object metadata to update association
@@ -313,7 +381,8 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
 
 Error
 ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
-                                     diskio::DataTier tier) {
+                                     diskio::DataTier tier,
+                                     fds_bool_t verifyData) {
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     Error err(ERR_OK);
 
@@ -343,6 +412,26 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                      << "to new file (not garbage collect) " << err;
             return err;
         }
+        // Create new object metadata for update
+        updatedMeta.reset(new ObjMetaData(objMeta));
+
+        // we may be copying file with objects that already has 'corrupt'
+        // flag set. Since we are not yet recovering corrupted objects, we
+        // are going to copy corrupted objects to new files (not loose them)
+        if (!objMeta->isObjCorrupted() && verifyData) {
+            ObjectID onDiskObjId;
+            onDiskObjId = ObjIdGen::genObjectId(objData->c_str(),
+                                                objData->size());
+            if (onDiskObjId != objId) {
+                // on-disk data corruption
+                // mark object metadata as corrupted! will copy it to new
+                // location anyway so we can debug the issue
+                LOGCRITICAL << "Encountered a on-disk data corruption object "
+                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex();
+                // set flag in object metadata
+                updatedMeta->setObjCorrupted();
+            }
+        }
 
         // write to object data store (will automatically write to new file)
         obj_phy_loc_t objPhyLoc;  // will be set by data store with new location
@@ -353,8 +442,6 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
             return err;
         }
 
-        // Create new object metadata to update physical location
-        updatedMeta.reset(new ObjMetaData(objMeta));
         // update physical location that we got from data store
         updatedMeta->updatePhysLocation(&objPhyLoc);
         // write metadata to metadata store
@@ -381,6 +468,11 @@ ObjectStore::snapshotMetadata(fds_token_id smTokId,
     metaStore->snapshot(smTokId, notifFn);
 }
 
+Error
+ObjectStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
+    return dataStore->scavengerControlCmd(scavCmd);
+}
+
 /**
  * Module initialization
  */
@@ -390,6 +482,7 @@ ObjectStore::mod_init(SysParams const *const p) {
         diskMap.get(),
         dataStore.get(),
         metaStore.get(),
+        tierEngine.get(),
         NULL
     };
     mod_intern = objStoreDepMods;

@@ -1,36 +1,55 @@
 <div ng-controller="statusController" style="position: relative;">
-
-    <div class="coming-soon-parent" ng-show="!isAllowed( 'SYS_MGMT' )">
-        <div class="coming-soon-child">
-            <div style="">
-                <span style="color: white;" translate>common.coming_soon</span>
-            </div>
-        </div>
-    </div>
-
+    
     <div class="tile-container">
         <div class="tile-pair">
-            <div class="tile-parent">
-                <div class="system-tile tile"></div>
+            <div class="tile-parent" style="padding-left: 0px;">
+<!--                <div class="system-tile tile"></div>-->
+                
+                <status-tile tile-title="{{ 'status.l_health' | translate }}" calculated-data="healthStatus">
+                    
+                    <div class="coming-soon-parent">
+                        <div class="coming-soon-child" style="margin-top: 50px;">
+                            <div style="">
+                                <span style="color: white;" translate>common.coming_soon</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex" style="padding: 4px;">
+                        <span class="icon-excellent" style="font-size: 36px;color: #68C000;"></span>
+                        <span class="status-text">No limiting events have occurred in the past 24 hours.</span>
+                    </div>
+                    <div class="flex" style="padding: 4px;">
+                        <span class="icon-excellent" style="font-size: 36px;color: #68C000;"></span>
+                        <span class="status-text">All volumes have expected services running properly.</span>
+                    </div>
+                    <div class="flex" style="padding: 4px;">
+                        <span class="icon-excellent" style="font-size: 36px;color: #68C000;"></span>
+                        <span class="status-text">All service level agreements have been met for 27 days.</span>
+                    </div>
+                
+                </status-tile>
 
             </div>
             <div class="tile-parent">
-                <div class="capacity-tile tile"></div>
+<!--                <div class="capacity-tile tile"></div>-->
+                <status-tile tile-title="{{ 'status.l_capacity' | translate }}" calculated-data="capacityItems">
+                    <line-chart data="capacityStats" colors="fakeCapColors" opacities="fakeOpacities" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText" domain-labels="capacityLabels" background-color="#f7f7f7"></line-chart>
+                </status-tile>
             </div>
         </div>
         <div class="tile-pair">
             <div class="tile-parent">
 <!--                <div class="performance-tile tile"></div>-->
-                <status-tile tile-title="Performance" bold-number="23"
-                    description="what what what what">
-                    <line-chart data="performanceStats" colors="fakeColors" opacities="fakeOpacities"></line-chart>
+                <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="performanceItems">
+                    <line-chart data="performanceStats" colors="performanceColors" line-colors="performanceLine" opacities="fakeOpacities" suffix="IOPs" axis-color="#A0A0A0" domain-labels="performanceLabels" background-color="#f7f7f7"></line-chart>
                 </status-tile>
             </div>
             <div class="tile-parent">
 <!--                <div class="firebreak-tile tile"></div>-->
-                <status-tile tile-title="Firebreak" bold-number="firebreakStats.summaryData.hoursSinceLastEvent"
-                    description="{{ 'status.desc_firebreak' | translate }}">
-                    <treemap data="firebreakStats.series[0]" tooltip="setFirebreakToolipText" color-property="secondsSinceLastFirebreak"></treemap>
+                <status-tile tile-title="{{ 'status.l_firebreak' | translate }}" calculated-data="firebreakItems">
+                    <treemap data="firebreakStats" tooltip="setFirebreakToolipText" color-property="secondsSinceLastFirebreak"
+                        domain="firebreakDomain" range="firebreakRange" transform-value-function="transformFirebreakTime" min-area="minArea"></treemap>
                 </status-tile>
             </div>
         </div>
@@ -45,9 +64,15 @@
         <table class="default">
             <tbody>
                 <tr ng-repeat="activity in activities">
-                    <td style="text-align: left;">{{activity.type}}</td>
-                    <td>{{activity.message}}</td>
-                    <td style="text-align: right;">{{activity.time}}</td>
+                    <td style="text-align: left;">
+                        <span class="{{ getActivityClass( activity.category )}}"></span>
+                        <span>{{getActivityCategoryString(activity.category)}}</span>
+                    </td>
+                    <td>{{activity.defaultMessage}}</td>
+                    <td style="text-align: right;">{{ getTimeAgo( activity.initialTimestamp ) }}</td>
+                </tr>
+                <tr ng-show="activities.length === 0">
+                    <td colspan="3" translate>activities.desc_no_activities</td>
                 </tr>
             </tbody>
         </table>

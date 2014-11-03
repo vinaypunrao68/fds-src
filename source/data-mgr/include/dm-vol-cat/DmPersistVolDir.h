@@ -12,6 +12,12 @@
 
 #include <DmBlobTypes.h>
 
+#define IS_OP_ALLOWED() \
+    if (isSnapshot() || isReadOnly()) { \
+        LOGWARN << "Volume is either snapshot or read only. Updates not allowed"; \
+        return ERR_DM_OP_NOT_ALLOWED; \
+    }
+
 namespace fds {
 
 extern const fds_uint64_t INVALID_BLOB_ID;
@@ -90,9 +96,15 @@ class DmPersistVolDir {
 
     virtual Error copyVolDir(const std::string & destName) = 0;
 
-    virtual Error markDeleted() = 0;
+    virtual Error markDeleted() {
+        LOGNOTIFY << "Catalog for volume '" << volId_ << "' marked deleted";
+        deleted_ = true;
+        return ERR_OK;
+    }
 
-    virtual fds_bool_t isMarkedDeleted() const = 0;
+    virtual fds_bool_t isMarkedDeleted() const {
+        return deleted_;
+    }
 
     // gets
     virtual Error getBlobMetaDesc(const std::string & blobName, BlobMetaDesc & blobMeta) = 0;
@@ -127,6 +139,9 @@ class DmPersistVolDir {
             fds_uint64_t endOffset) = 0;
 
     virtual Error deleteBlobMetaDesc(const std::string & blobName) = 0;
+
+    // sync
+    virtual Error syncCatalog(const NodeUuid & dmUuid);
 
   protected:
     // methods

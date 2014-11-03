@@ -11,6 +11,7 @@
         </div>
 
 
+<!--
          <div style="display: flex;padding-top: 12px;">
             <div style="padding-right: 8px;">
                 <fui-dropdown skinny="true" type="action" items="actions" default-label="actionLabel" callback="actionSelected" background="none" color="black" border="gray"></fui-dropdown>
@@ -20,16 +21,17 @@
                 <div>selected users</div>
             </div>
         </div>
+-->
 
         <table class="default tenant-table">
             <thead>
-                <th><tri-state-check check-state="checkall"/></th>
+<!--                <th><tri-state-check check-state="checkall"/></th>-->
                 <th translate>tenants.l_tenant_name</th>
                 <th></th>
             </thead>
             <tboday>
                 <tr class="tenant-row" ng-repeat="tenant in tenants | filter:tenantQuery">
-                    <td><tri-state-check check-state="tenant.checked" ng-click="tenantCheckChanged()"/></td>
+<!--                    <td><tri-state-check check-state="tenant.checked" ng-click="tenantCheckChanged()"/></td>-->
                     <td class="tenant-name">{{tenant.name}}</td>
                     <td></td>
                 </tr>

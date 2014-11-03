@@ -1,8 +1,9 @@
 <div class="flex fds-radio">
-    <input ng-model="selectedValue" name="{{name}}" value="{{value}}" type="radio">
-    <div class="selector" ng-click="selectedValue = value">
+    <input ng-model="selectedValue" name="{{name}}" value="{{value}}" type="radio" ng-disabled="!enabled">
+    <div class="selector" ng-click="buttonClicked()" ng-style="{ opacity: (enabled === true )? 1.0 : 0.4 }">
         <div class="outer-ring"></div>
         <div class="inner-ring" ng-show="selectedValue === value"></div>
     </div>
+    <span class="{{ iconClass }} radio-icon"></span>
     <label for="{{value}}">{{label}}</label>
 </div>
