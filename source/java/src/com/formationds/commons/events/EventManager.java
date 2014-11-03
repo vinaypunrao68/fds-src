@@ -5,10 +5,7 @@
 package com.formationds.commons.events;
 
 import com.formationds.commons.crud.JDORepository;
-import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
-import com.formationds.commons.model.builder.SeriesBuilder;
-import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.SystemActivityEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
@@ -20,7 +17,9 @@ import com.formationds.security.AuthenticationToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * The event manager is responsible for receiving events and storing them in the event repository.
@@ -154,7 +153,7 @@ public enum EventManager {
                                           public EventType type() { return EventType.SYSTEM_EVENT; }
                                           public EventCategory category() { return EventCategory.FIREBREAK; }
                                           public EventSeverity severity() { return EventSeverity.WARNING; }
-                                          public String defaultMessage() { return "Volume {0}; Series data {}"; }
+                                          public String defaultMessage() { return "Volume {0}; Series data {1}"; }
                                           public List<String> argNames() { return Arrays.asList("volumeId", "series"); }
                                           public String key() { return "VOLUME_FIREBREAK_EVENT"; }
                                       };
