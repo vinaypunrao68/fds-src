@@ -54,19 +54,19 @@ public class HttpAuthenticator implements RequestHandler {
                 } else {
                     return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
                 }
-            }
-
-            try {
-                token = authenticator.resolveToken(result.get().getValue());
-            } catch (LoginException e) {
-                if (authenticator.allowAll()) {
-                    LOG.error("Authentication error ignored - auth is disabled");
-                    token = AuthenticationToken.ANONYMOUS;
-                } else {
-                    LOG.error("Authentication error: " + e.getMessage());
-                    if (LOG.isDebugEnabled())
-                        LOG.debug("Authentication error: ", e);
-                    return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
+            }  else {
+                try {
+                    token = authenticator.resolveToken(result.get().getValue());
+                } catch (LoginException e) {
+                    if (authenticator.allowAll()) {
+                        LOG.error("Authentication error ignored - auth is disabled");
+                        token = AuthenticationToken.ANONYMOUS;
+                    } else {
+                        LOG.error("Authentication error: " + e.getMessage());
+                        if (LOG.isDebugEnabled())
+                            LOG.debug("Authentication error: ", e);
+                        return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
+                    }
                 }
             }
         }
