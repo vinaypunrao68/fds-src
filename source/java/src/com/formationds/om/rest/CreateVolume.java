@@ -12,6 +12,7 @@ import com.formationds.commons.model.ConnectorAttributes;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.ConnectorType;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.SizeUnit;
 import com.formationds.web.toolkit.JsonResource;
@@ -139,43 +140,45 @@ public class CreateVolume
                                            volume.getPriority(),
                                            ( int ) volume.getLimit() );
 
-          /**
-           * there has to be a better way!
-           */
-          final List<String> volumeNames = new ArrayList<>( );
+          if( FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
+              /**
+               * there has to be a better way!
+               */
+              final List<String> volumeNames = new ArrayList<>();
 
-          configApi.getStreamRegistrations( unused_argument )
-                   .stream()
-                   .forEach( ( stream ) -> {
-                       volumeNames.addAll( stream.getVolume_names() );
-                       try {
-                           configApi.deregisterStream( stream.getId() );
-                       } catch( TException e ) {
-                           logger.error( "Failed to de-register volumes " +
-                                         stream.getVolume_names() +
-                                         " reason: " + e.getMessage() );
-                           logger.trace( "Failed to de-register volumes " +
-                                         stream.getVolume_names(), e );
-                       }
-                   } );
-          // first volume will never be registered
-          if( !volumeNames.contains( volume.getName() ) ) {
-              volumeNames.add( volume.getName() );
-          }
+              configApi.getStreamRegistrations( unused_argument )
+                       .stream()
+                       .forEach( ( stream ) -> {
+                           volumeNames.addAll( stream.getVolume_names() );
+                           try {
+                               configApi.deregisterStream( stream.getId() );
+                           } catch( TException e ) {
+                               logger.error( "Failed to de-register volumes " +
+                                                 stream.getVolume_names() +
+                                                 " reason: " + e.getMessage() );
+                               logger.trace( "Failed to de-register volumes " +
+                                                 stream.getVolume_names(), e );
+                           }
+                       } );
+              // first volume will never be registered
+              if( !volumeNames.contains( volume.getName() ) ) {
+                  volumeNames.add( volume.getName() );
+              }
 
-          logger.trace( "registering {} for metadata streaming...",
-                        volumeNames );
-          try {
-            configApi.registerStream( URL,
-                                      METHOD,
-                                      volumeNames,
-                                      FREQUENCY.intValue(),
-                                      DURATION.intValue() );
-          } catch( TException e ) {
-            logger.error( "Failed to re-register volumes " +
-                          volumeNames + " reason: " + e.getMessage() );
-            logger.trace( "Failed to re-register volumes " +
-                          volumeNames, e );
+              logger.trace( "registering {} for metadata streaming...",
+                            volumeNames );
+              try {
+                  configApi.registerStream( URL,
+                                            METHOD,
+                                            volumeNames,
+                                            FREQUENCY.intValue(),
+                                            DURATION.intValue() );
+              } catch( TException e ) {
+                  logger.error( "Failed to re-register volumes " +
+                                    volumeNames + " reason: " + e.getMessage() );
+                  logger.trace( "Failed to re-register volumes " +
+                                    volumeNames, e );
+              }
           }
 
           return new TextResource( volume.toJSON() );
