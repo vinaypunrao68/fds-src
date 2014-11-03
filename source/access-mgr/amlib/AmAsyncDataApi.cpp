@@ -88,6 +88,14 @@ AmAsyncDataApi::statBlob(boost::shared_ptr<apis::RequestId>& requestId,
                          boost::shared_ptr<std::string>& domainName,
                          boost::shared_ptr<std::string>& volumeName,
                          boost::shared_ptr<std::string>& blobName) {
+    AsyncStatBlobResponseHandler::ptr handler(
+        new AsyncStatBlobResponseHandler(responseApi,
+                                         requestId));
+    AmRequest *blobReq = new StatBlobReq(invalid_vol_id,
+                                          *volumeName,
+                                          *blobName,
+                                          SHARED_DYN_CAST(Callback, handler));
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 void

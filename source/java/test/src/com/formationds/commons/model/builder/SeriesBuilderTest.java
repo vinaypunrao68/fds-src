@@ -19,7 +19,7 @@ import java.util.List;
 
 public class SeriesBuilderTest {
   private static final String EXPECTED_NAME = "TestVolume %s";
-  private static final long EXPECTED_LIMIT = 300L;
+  private static final long EXPECTED_LIMIT = 100L;
   private static final long EXPECTED_SLA = 0L;
   private static final int EXPECTED_PRIORITY = 10;
 

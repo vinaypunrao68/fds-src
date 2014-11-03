@@ -185,6 +185,12 @@ AmProcessor::putBlob(AmRequest *amReq) {
         amReq->obj_id = ObjIdGen::genObjectId(amReq->getDataBuf(), amReq->data_len);
     }
 
+    fiu_do_on("am.uturn.processor.putBlob",
+              qosCtrl->markIODone(amReq);       \
+              amReq->cb->call(ERR_OK);        \
+              delete amReq;                   \
+              return;);
+
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, amReq);
 
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
