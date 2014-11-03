@@ -29,6 +29,7 @@ user_bin_exe      := \
 	th_sm \
     th_dm \
     th_am_server \
+    th_bare \
 	threadpool_test \
     serializer_gtest
 
@@ -42,6 +43,10 @@ th_sm := \
 th_dm := \
     th_dm.cpp \
     ngx_modules.c
+
+th_bare := \
+	th_bare.cpp \
+	ngx_modules.c
 
 #th_am_server := \
 #    th_am_server.cpp \
