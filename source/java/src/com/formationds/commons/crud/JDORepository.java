@@ -29,16 +29,50 @@ public abstract class JDORepository<T,
                                     QueryCriteria extends SearchCriteria>
         implements CRUDRepository<T, PrimaryKey, QueryResults, QueryCriteria> {
 
-  private PersistenceManagerFactory factory;
-  private PersistenceManager manager;
-  private EntityManager entity;
+    private PersistenceManagerFactory factory;
+    private PersistenceManager manager;
+    private EntityManager entity;
 
-  // use non-static logger to tie it to the concrete subclass.
-  private final Logger logger;
+    // use non-static logger to tie it to the concrete subclass.
+    private final Logger logger;
 
-  protected JDORepository() {
+    // TODO: use standard JPA @PrePerist etc entity annotations?
+    public static interface EntityPersistListener<T> {
+        /**
+         * Notification that the entity is about to be saved.
+         * <p/>
+         * Implementations should avoid blocking operations.
+         *
+         * @param entity
+         */
+        default void prePersist(T entity) {}
+        default void postPersist(T entity) {}
+    }
+    private final List<EntityPersistListener<T>> listeners = new ArrayList<>();
+
+    protected JDORepository() {
       logger = LoggerFactory.getLogger(this.getClass());
   }
+
+    public void addEntityPersistListener(EntityPersistListener<T> l) {
+        listeners.add(l);
+    }
+
+    public void removeEntityPersistListener(EntityPersistListener<T> l) {
+        listeners.remove(l);
+    }
+
+    private void firePrePersist(T entity) {
+        for (EntityPersistListener<T> l : listeners) {
+            l.prePersist(entity);
+        }
+    }
+
+    private void firePostPersist(T entity) {
+        for (EntityPersistListener<T> l : listeners) {
+            l.prePersist(entity);
+        }
+    }
 
     /**
      * @return the number of entities
@@ -99,7 +133,11 @@ public abstract class JDORepository<T,
         try {
             logger.trace("Saving entity {}", entity);
             manager().currentTransaction().begin();
+
+            firePrePersist(entity);
             manager().makePersistent( entity );
+            firePostPersist(entity);
+
             manager().currentTransaction().commit();
             logger.trace("Saved entity {}", entity);
             return entity;
