@@ -4,16 +4,13 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         return $filter( 'translate' )( key );
     };
     
-    $scope.items = [
-        {number: 12.5, description: 'This is a number and a really long line of text that we hope wraps'},
-        {number: 79, description: 'Something else', suffix: '%' }
-    ];
-    
     $scope.snapshots = [];
     
     $scope.thisVolume = {};
     $scope.capacityStats = { series: [] };
     $scope.performanceStats = { series: [] };
+    $scope.performanceItems = [];
+    $scope.capacityItems = [];
     $scope.capacityLineStipples = ['none', '2,2'];
     $scope.capacityLineColors = ['#2486F8', '#78B5FA'];
     $scope.capacityColors = [ '#72AEEB', '#ABD3F5' ];
@@ -99,11 +96,18 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         $scope.dedupLabel = getCapacityLegendText( $scope.capacityStats.series[0], 'volumes.view.desc_dedup_suffix' );
         $scope.physicalLabel = getCapacityLegendText( $scope.capacityStats.series[1], 'volumes.view.desc_logical_suffix' );
+        
+        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
+        parts = parts.split( ' ' );
+        
+        var num = parseFloat( parts[0] );
+        $scope.capacityItems = [{number: data.calculated[0].ratio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
+            {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
     };
     
     $scope.performanceReturned = function( data ){
         $scope.performanceStats = data;
-        
+        $scope.performanceItems = [{number: data.calculated[0].dailyAverage, description: $filter( 'translate' )( 'status.desc_performance' )}];
         $scope.iopLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.desc_iops_capacity' );
     };
     

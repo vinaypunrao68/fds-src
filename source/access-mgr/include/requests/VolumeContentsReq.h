@@ -39,9 +39,9 @@ class VolumeContentsReq: public AmRequest {
                   void* _req_context,
                   fdsnVolumeContentsHandler _handler,
                   void* _callback_data)
-            : AmRequest(FDS_VOLUME_CONTENTS, _volid, "",
-                         _bucket_ctxt->bucketName, fds_sh_volume_list_magic, 0, nullptr,
-                         FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
+            : AmRequest(FDS_VOLUME_CONTENTS, _volid, _bucket_ctxt->bucketName,
+                        "", fds_sh_volume_list_magic, 0, nullptr, FDS_NativeAPI::DoCallback,
+                        this, Error(ERR_OK), 0),
         bucket_ctxt(_bucket_ctxt),
         prefix(_prefix),
         marker(_marker),
@@ -59,8 +59,8 @@ class VolumeContentsReq: public AmRequest {
                   BucketContext *_bucket_ctxt,
                   fds_uint32_t _max_keys,
                   CallbackPtr cb)
-            : AmRequest(FDS_VOLUME_CONTENTS, _volid, "",
-                         _bucket_ctxt->bucketName, cb), bucket_ctxt(_bucket_ctxt) {
+            :   AmRequest(FDS_VOLUME_CONTENTS, _volid, _bucket_ctxt->bucketName, "", cb),
+                bucket_ctxt(_bucket_ctxt) {
         e2e_req_perf_ctx.type = AM_VOLUME_CONTENTS_REQ;
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }

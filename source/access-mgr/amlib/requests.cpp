@@ -52,7 +52,7 @@ GetBlobReq::~GetBlobReq()
 
 PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        const std::string& _volName,
-                       const std::string& _blob_name,  // same as objKey
+                       const std::string& _blob_name,
                        fds_uint64_t _blob_offset,
                        fds_uint64_t _data_len,
                        char* _data_buf,
@@ -63,14 +63,13 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        void* _req_context,
                        CallbackPtr _cb) :
     AmRequest(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len, _data_buf),
-    lastBuf(_last_buf),
+    AmTxReq(_txDesc),
+    last_buf(_last_buf),
     bucket_ctxt(_bucket_ctxt),
-    ObjKey(_blob_name),
-    putProperties(_put_props),
+    put_properties(_put_props),
     req_context(_req_context),
-    tx_desc(_txDesc),
-    respAcks(2),
-    retStatus(ERR_OK)
+    resp_acks(2),
+    ret_status(ERR_OK)
 {
     stopwatch.start();
 
@@ -94,7 +93,7 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
 
 PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                        const std::string&   _volName,
-                       const std::string&   _blob_name,  // same as objKey
+                       const std::string&   _blob_name,
                        fds_uint64_t         _blob_offset,
                        fds_uint64_t         _data_len,
                        char*                _data_buf,
@@ -103,12 +102,10 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                        CallbackPtr _cb) :
     AmRequest(FDS_PUT_BLOB_ONCE, _volid, _volName, _blob_name, _cb,
               _blob_offset, _data_len, _data_buf),
-    ObjKey(_blob_name),
-    tx_desc(nullptr),
-    blobMode(_blobMode),
+    blob_mode(_blobMode),
     metadata(_metadata),
-    respAcks(2),
-    retStatus(ERR_OK)
+    resp_acks(2),
+    ret_status(ERR_OK)
 {
     stopwatch.start();
 
@@ -137,8 +134,8 @@ PutBlobReq::~PutBlobReq()
 
 void
 PutBlobReq::notifyResponse(const Error &e) {
-    fds_verify(respAcks > 0);
-    if (0 == --respAcks) {
+    fds_verify(resp_acks > 0);
+    if (0 == --resp_acks) {
         // Call back to processing layer
         proc_cb(e);
     }
@@ -152,11 +149,11 @@ void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl, const Error &e)
      * Most of the case the first error will win.  This should be ok for
      * now, in the event its' not we need a seperate lock here
      */
-    if (retStatus == ERR_OK) {
-        retStatus = e;
+    if (ret_status == ERR_OK) {
+        ret_status = e;
     }
 
-    cnt = --respAcks;
+    cnt = --resp_acks;
 
     fds_assert(cnt >= 0);
     DBG(LOGDEBUG << "cnt: " << cnt << e);

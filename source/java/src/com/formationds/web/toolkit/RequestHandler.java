@@ -63,7 +63,7 @@ public interface RequestHandler {
         try {
             return Integer.parseInt(s);
         } catch (Exception e) {
-            throw new UsageException("Parameter '%s' should be an integer");
+            throw new UsageException(String.format( "Parameter '%s' should be an integer", name ));
         }
     }
 
@@ -72,7 +72,7 @@ public interface RequestHandler {
         try {
             return Long.parseLong(s);
         } catch (Exception e) {
-            throw new UsageException("Parameter '%s' should be an integer");
+            throw new UsageException(String.format( "Parameter '%s' should be an integer", name ));
         }
     }
 

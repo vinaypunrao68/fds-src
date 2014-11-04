@@ -21,7 +21,6 @@ sys.path.append('../../tools/fdsconsole/contexts')
 sys.path.append('../../tools/fdsconsole')
 sys.path.append('../../tools')
 from SvcHandle import SvcMap
-from svchelper import *
 
 def get_myip():
     cmd = "ifconfig| grep '10\.1' | awk -F '[: ]+' '{print $4}'"
@@ -254,8 +253,7 @@ class CounterServerPull:
         for node in self.options.nodes:
             ip = self.options.nodes[node]
             port=7020
-            svc_map = ServiceMap()
-            svc_map.init(ip, port)
+            svc_map = SvcMap(ip, port)
             svclist = svc_map.list()
             for e in svclist:
                 nodeid, svc, ip = e[0], e[1], e[2]

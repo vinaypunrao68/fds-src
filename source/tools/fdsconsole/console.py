@@ -462,6 +462,7 @@ class FDSConsole(cmd.Cmd):
         self.root.add_sub_context(user.UserContext(self.config,'user'))
         scav = self.root.add_sub_context(scavenger.ScavengerContext(self.config,'scavenger'))
         scav.add_sub_context(ScavengerPolicy.ScavengerPolicyContext(self.config, 'policy'))
+        scav.add_sub_context(scavenger.ScrubberContext(self.config, 'scrubber'))
 
     def run(self, argv = None):
         l =  []
