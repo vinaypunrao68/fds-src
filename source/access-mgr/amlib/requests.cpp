@@ -19,10 +19,10 @@ const fds_uint64_t VolumeStatsReq::fds_sh_volume_stats_magic;
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        const std::string& _volumeName,
                        const std::string& _blob_name,  // same as objKey
+                       CallbackPtr cb,
                        fds_uint64_t _blob_offset,
                        fds_uint64_t _data_len,
-                       char* _data_buf,
-                       CallbackPtr cb)
+                       char* _data_buf)
     : AmRequest(FDS_GET_BLOB, _volid, _volumeName, _blob_name, cb, _blob_offset,
                  _data_len, _data_buf) {
     stopwatch.start();

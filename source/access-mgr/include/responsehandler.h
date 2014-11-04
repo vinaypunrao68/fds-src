@@ -219,7 +219,7 @@ struct AsyncGetObjectResponseHandler : ResponseHandler, GetObjectCallback {
     AsyncGetObjectResponseHandler(AmAsyncResponseApi::shared_ptr _api,
                                     boost::shared_ptr<apis::RequestId>& _reqId,
                                     boost::shared_ptr<int32_t>& length,
-                                    char* buf);
+                                    char* buf = nullptr);
     typedef boost::shared_ptr<AsyncGetObjectResponseHandler> ptr;
 
     AmAsyncResponseApi::shared_ptr respApi;

@@ -228,24 +228,8 @@ AmAsyncDataApi::getBlob(boost::shared_ptr<apis::RequestId>& requestId,
                         boost::shared_ptr<std::string>& blobName,
                         boost::shared_ptr<int32_t>& length,
                         boost::shared_ptr<apis::ObjectOffset>& objectOffset) {
-    if ((true == testUturnAll) ||
-        (true == testUturnGetBlob)) {
-        LOGDEBUG << "Uturn testing get blob";
-        return;
-    }
-
-    BucketContextPtr bucket_ctx(
-        new BucketContext("host", *volumeName, "accessid", "secretkey"));
-
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
-
-    // Get a buffer of the requested size
-    // TODO(Andrew): This should be a shared pointer
-    // as we pass it around a lot
-    // TODO(Andrew): We should just resize the return string
-    // rather than doing a reassign at the end
-    char *buf = new char[*length];
 
     // Create request context
     // Set the pointer we want filled in the handler
@@ -254,16 +238,14 @@ AmAsyncDataApi::getBlob(boost::shared_ptr<apis::RequestId>& requestId,
     AsyncGetObjectResponseHandler::ptr getHandler(
             new AsyncGetObjectResponseHandler(responseApi,
                                               requestId,
-                                              length,
-                                              buf));
+                                              length));
 
     AmRequest *blobReq= new GetBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
+                                        SHARED_DYN_CAST(Callback, getHandler),
                                         static_cast<fds_uint64_t>(objectOffset->value),
-                                        *length,
-                                        buf,
-                                        SHARED_DYN_CAST(Callback, getHandler));
+                                        *length);
     storHvisor->enqueueBlobReq(blobReq);
 }
 

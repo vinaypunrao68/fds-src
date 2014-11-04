@@ -316,10 +316,10 @@ AmDataApi::getBlob(std::string& _return,
     AmRequest *blobReq= new GetBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
+                                        SHARED_DYN_CAST(Callback, getHandler),
                                         static_cast<fds_uint64_t>(objectOffset->value),
                                         *length,
-                                        buf,
-                                        SHARED_DYN_CAST(Callback, getHandler));
+                                        buf);
     storHvisor->enqueueBlobReq(blobReq);
 
     // Wait for a signal from the callback thread
