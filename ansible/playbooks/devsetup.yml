@@ -78,6 +78,8 @@
         - fds-pkgtools
         - fds-systemdir
         - fds-coredump
+        - libcryptopp-dev
+        - lintian
 
     - name: install pip packages
       pip: name={{item}} state=present 

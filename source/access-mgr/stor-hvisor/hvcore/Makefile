@@ -8,7 +8,8 @@ user_incl_dir     := .. \
     $(topdir) \
     $(topdir)/lib \
     $(topdir)/access-mgr/include \
-    $(topdir)/access-mgr/stor-hvisor
+    $(topdir)/access-mgr/stor-hvisor \
+		/usr/include/cryptopp
 
 # user_cpp_flags    := -DVVC_CACHE_DISABLE
 user_cpp_flags    :=
