@@ -282,6 +282,26 @@ AsyncUpdateBlobOnceResponseHandler::process() {
 AsyncUpdateBlobOnceResponseHandler::~AsyncUpdateBlobOnceResponseHandler() {
 }
 
+AsyncGetObjectResponseHandler::AsyncGetObjectResponseHandler(
+    AmAsyncResponseApi::shared_ptr _api,
+    boost::shared_ptr<apis::RequestId>& _reqId,
+    boost::shared_ptr<int32_t>& length,
+    char* buf)
+        : respApi(_api),
+          requestId(_reqId),
+          returnSize(*length),
+          returnBuffer(buf){
+    type = HandlerType::IMMEDIATE;
+}
+
+void
+AsyncGetObjectResponseHandler::process() {
+    respApi->getBlobResp(error, requestId, returnBuffer);
+}
+
+AsyncGetObjectResponseHandler::~AsyncGetObjectResponseHandler() {
+}
+
 AttachVolumeResponseHandler::AttachVolumeResponseHandler() {
 }
 

@@ -191,6 +191,20 @@ struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
     virtual ~GetObjectResponseHandler();
 };
 
+struct AsyncGetObjectResponseHandler : ResponseHandler, GetObjectCallback {
+    AsyncGetObjectResponseHandler(AmAsyncResponseApi::shared_ptr _api,
+                                    boost::shared_ptr<apis::RequestId>& _reqId,
+                                    boost::shared_ptr<int32_t>& length,
+                                    char* buf);
+    typedef boost::shared_ptr<AsyncGetObjectResponseHandler> ptr;
+
+    AmAsyncResponseApi::shared_ptr respApi;
+    boost::shared_ptr<apis::RequestId> requestId;
+
+    virtual void process();
+    virtual ~AsyncGetObjectResponseHandler();
+};
+
 struct ListBucketResponseHandler : ResponseHandler, GetBucketCallback {
     explicit ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs);
     TYPE_SHAREDPTR(ListBucketResponseHandler);
