@@ -657,6 +657,8 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
 void
 AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
 {
+    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
+
     GetBucketMsgPtr message = boost::make_shared<GetBucketMsg>();
     message->volume_id = amReq->io_vol_id;
     message->startPos  = 0;
@@ -684,7 +686,7 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
         // using the same structure for input and output
         auto response = MSG_DESERIALIZE(GetBucketMsg, error, payload);
 
-        ListBucketResponseHandler::ptr cb = SHARED_DYN_CAST(ListBucketResponseHandler, amReq->cb);
+        GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
         size_t count = response->blob_info_list.size();
         LOGDEBUG << " volid: " << response->volume_id << " numBlobs: " << count;
         for (size_t i = 0; i < count; ++i) {
