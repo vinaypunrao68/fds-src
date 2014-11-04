@@ -653,7 +653,6 @@ set(SOURCE_FILES
     leveldb-1.12.0/util/testharness.h
     leveldb-1.12.0/util/testutil.cc
     leveldb-1.12.0/util/testutil.h
-    libconfig-1.4.9/contrib/cmake/CMakeFiles/CompilerIdC/CMakeCCompilerId.c
     libconfig-1.4.9/contrib/cmake/CMakeFiles/CompilerIdCXX/CMakeCXXCompilerId.cpp
     libconfig-1.4.9/contrib/cmake/src/main.cpp
     libconfig-1.4.9/contrib/libconfig-ruby/ext/rconfig.c
@@ -1598,6 +1597,7 @@ set(SOURCE_FILES
     source/stor-mgr/include/TierEngine.h
     source/stor-mgr/include/TierPutAlgorithms.h
     source/stor-mgr/include/TokenCompactor.h
+    source/stor-mgr/include/SmCtrl.h
     source/stor-mgr/migrations/fds_base_migrators.h
     source/stor-mgr/migrations/fds_migration.cpp
     source/stor-mgr/migrations/fds_migration.h
