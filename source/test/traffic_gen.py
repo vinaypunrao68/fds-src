@@ -132,7 +132,6 @@ def task(task_id, n_reqs, req_type, vol, files,
                 file_idx = random.randint(0, options.num_files - 1)
             uploaded.add(file_idx)
             # print "PUT", file_idx
-            print ("PUT - volume:", vol, "file_idx: ", file_idx, "task_id: ", task_id)
             e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
             #files.task_done()
         elif req_type == "GET":
