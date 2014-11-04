@@ -541,12 +541,9 @@ bool ConfigDB::addNode(const node_data_t *node) {
     try {
         bool ret;
 
-        ret = r.set(format("%d:cluster:nodes", domainId),
-                    std::string(reinterpret_cast<const char *>(&node->nd_node_uuid),
-                                sizeof(node->nd_node_uuid)));
+        ret = r.sadd(format("%d:cluster:nodes", domainId), node->nd_node_uuid);
         ret = r.set(format("node:%ld", node->nd_node_uuid),
-                    std::string(reinterpret_cast<const char *>(&node->nd_node_uuid),
-                                sizeof(node->nd_node_uuid)));
+                    std::string(reinterpret_cast<const char *>(node), sizeof(node_data_t)));
 
         return ret;
     } catch(const RedisException& e) {
