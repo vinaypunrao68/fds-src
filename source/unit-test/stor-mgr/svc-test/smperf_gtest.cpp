@@ -274,9 +274,10 @@ TEST_F(SMApi, putsPerf)
         ProfilerStop();
     }
 
+    uint64_t throughput = (1000000000 / (endTs_ - startTs_)) * putsIssued_;
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
             << "putsCnt: " << putsIssued_ << "\n"
-            << "Throughput: " << (putsIssued_ * 1000 * 1000 * 1000) / (endTs_ - startTs_) << "\n"
+            << "Throughput: " << throughput << "\n"
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
             << "(ns) Avg op latency: " << avgLatency_.value() << std::endl
             << "svc sendLat: " << gSvcRequestCntrs->sendLat.value() << std::endl
