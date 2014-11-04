@@ -20,7 +20,7 @@
         <div class="flex" style="width: 100%;height: 200px;">
         
             <div style="flex-grow: 5;">
-                <status-tile tile-title="{{ 'status.l_capacity' | translate }}" calculated-data="items">
+                <status-tile tile-title="{{ 'status.l_capacity' | translate }}" calculated-data="capacityItems">
                     <line-chart data="capacityStats" colors="capacityColors" opacities="opacities" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText" background-color="#f7f7f7" domain-labels="capacityTimeChoice.labels"></line-chart>
                 </status-tile>
             </div>
@@ -49,8 +49,8 @@
         
         <div class="flex" style="width: 100%;height: 200px;">
             <div style="flex-grow: 5;">
-                <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="items">
-                    <line-chart data="performanceStats" colors="performanceColors" opacities="opacities" suffix="IOPs" axis-color="#A0A0A0" background-color="#f7f7f7" domain-labels="performanceTimeChoice.labels"></line-chart>
+                <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="performanceItems">
+                    <line-chart data="performanceStats" colors="performanceColors" opacities="opacities" suffix="IOPs" axis-color="#A0A0A0" background-color="#f7f7f7" domain-labels="performanceTimeChoice.labels" line-colors="performanceLines"></line-chart>
                 </status-tile>
             </div>
             <div class="gutter" style="position: relative;">
@@ -142,8 +142,8 @@
                         <tr>
                             <td translate>volumes.th_iops_limit</td>
                             <td class="pad">
-                                <span class="volume-limit-display" ng-show="volume.limit > 0">{{thisVolume.limit}} {{ 'volumes.l_iops' | translate }}</span>
-                                <span class="volume-limit-display-none" ng-show="volume.limit === 0" translate>common.l_none</span>
+                                <span class="volume-limit-display" ng-show="thisVolume.limit > 0">{{thisVolume.limit}} {{ 'volumes.l_iops' | translate }}</span>
+                                <span class="volume-limit-display-none" ng-show="thisVolume.limit === 0" translate>common.l_none</span>
                             </td>
                         </tr>
                     </tbody>

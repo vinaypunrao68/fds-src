@@ -26,6 +26,14 @@ a {
   }
 }
 
+.delete {
+    color: #D0021B;
+    
+    &:hover {
+        color: #D0021B;
+    }
+}
+
 h1, h2 {
   font-weight: normal;
   color: $header_color;
@@ -111,7 +119,7 @@ input.form-control {
 }
 
 .text-centered {
-  text-align: center;
+    text-align: center;
 }
 
 .text-right {
@@ -120,6 +128,8 @@ input.form-control {
 
 .vertical-middle {
     vertical-align: middle;
+    margin-top: auto;
+    margin-bottom: auto;
 }
 
 .underline {

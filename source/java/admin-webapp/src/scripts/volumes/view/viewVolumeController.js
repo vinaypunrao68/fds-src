@@ -4,20 +4,18 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         return $filter( 'translate' )( key );
     };
     
-    $scope.items = [
-        {number: 12.5, description: 'This is a number and a really long line of text that we hope wraps'},
-        {number: 79, description: 'Something else', suffix: '%' }
-    ];
-    
     $scope.snapshots = [];
     
-    $scope.volume = {};
+    $scope.thisVolume = {};
     $scope.capacityStats = { series: [] };
     $scope.performanceStats = { series: [] };
+    $scope.performanceItems = [];
+    $scope.capacityItems = [];
     $scope.capacityLineStipples = ['none', '2,2'];
-    $scope.capacityLineColors = ['#1C82FB', '#71AFF8'];
-    $scope.capacityColors = [ '#71AEEA', '#AAD2F4' ];
-    $scope.performanceColors = [ '#73DE8C', '#73DE8C' ];    
+    $scope.capacityLineColors = ['#2486F8', '#78B5FA'];
+    $scope.capacityColors = [ '#72AEEB', '#ABD3F5' ];
+    $scope.performanceColors = [ '#A4D966' ];
+    $scope.performanceLine = ['#66B22E'];   
     $scope.opacities = [0.7,0.7];
     
     $scope.dedupLabel = '';
@@ -98,11 +96,18 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         $scope.dedupLabel = getCapacityLegendText( $scope.capacityStats.series[0], 'volumes.view.desc_dedup_suffix' );
         $scope.physicalLabel = getCapacityLegendText( $scope.capacityStats.series[1], 'volumes.view.desc_logical_suffix' );
+        
+        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
+        parts = parts.split( ' ' );
+        
+        var num = parseFloat( parts[0] );
+        $scope.capacityItems = [{number: data.calculated[0].ratio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
+            {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
     };
     
     $scope.performanceReturned = function( data ){
         $scope.performanceStats = data;
-        
+        $scope.performanceItems = [{number: data.calculated[0].dailyAverage, description: $filter( 'translate' )( 'status.desc_performance' )}];
         $scope.iopLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.desc_iops_capacity' );
     };
     
@@ -112,13 +117,13 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         capacityQuery = StatQueryFilter.create( [$scope.volume], 
             [StatQueryFilter.LOGICAL_CAPACITY, StatQueryFilter.PHYSICAL_CAPACITY], 
-            now.getTime() - $scope.capacityTimeChoice.value,
-            now );
+            Math.round( (now.getTime() - $scope.capacityTimeChoice.value)/1000 ),
+            Math.round( now.getTime() / 1000 ) );
         
         performanceQuery = StatQueryFilter.create( [$scope.volume],
             [StatQueryFilter.SHORT_TERM_PERFORMANCE],
-            now.getTime() - $scope.performanceTimeChoice.value,
-            now );
+            Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
+            Math.round( now.getTime() / 1000 ) );
     };
     
     var pollCapacity = function(){
@@ -146,7 +151,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         if ( newVal === true ){
             $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.id, function( data ){ $scope.snapshots = data; } );
             
-            $scope.volume = $scope.volumeVars.selectedVolume;
+            $scope.thisVolume = $scope.volumeVars.selectedVolume;
             
             buildQueries();
             

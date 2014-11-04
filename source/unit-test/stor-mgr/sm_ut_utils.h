@@ -53,6 +53,7 @@ class SmUtUtils {
                                    fds_uint32_t simHddCount,
                                    fds_uint32_t simSsdCount) {
         std::string devDir = dir->dir_dev();
+        FdsRootDir::fds_mkdir(dir->dir_dev().c_str());
         std::string diskmapPath = devDir + std::string("disk-map");
         std::ifstream map(diskmapPath, std::ifstream::in);
         fds_uint32_t diskCount = 0;
@@ -74,7 +75,6 @@ class SmUtUtils {
         GLOGDEBUG << "Will create fake disk map for testing";
         cleanFdsTestDev(dir);  // clean dirs just in case
 
-        FdsRootDir::fds_mkdir(dir->dir_dev().c_str());
         std::ofstream omap(diskmapPath,
                            std::ofstream::out | std::ofstream::trunc);
         int idx = 0;
@@ -149,8 +149,7 @@ class SmUtUtils {
     /* This function removes everything under a dir.
      * But leaves the dir in place.
      */
-    static void cleanAllInDir(const FdsRootDir* dir) {
-        const std::string rmPath = dir->dir_dev();
+    static void cleanAllInDir(const std::string& rmPath) {
         boost::filesystem::path removeInPath(rmPath.c_str());
 
         if (boost::filesystem::is_directory(rmPath.c_str())) {
@@ -161,6 +160,11 @@ class SmUtUtils {
                 boost::filesystem::remove_all(it->path());
             }
         }
+    }
+    /// same as above but for fds root dir
+    static void cleanAllInDir(const FdsRootDir* dir) {
+        const std::string rmPath = dir->dir_dev();
+        cleanAllInDir(rmPath);
     }
 };
 

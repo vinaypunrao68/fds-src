@@ -10,7 +10,7 @@ angular.module( 'volume-management' ).factory( '$data_connector_api', ['$http', 
 //            });
 
         api.connectors = [{
-            type: 'Block',
+            type: 'BLOCK',
             api: 'Basic, Cinder',
             options: {
                 max_size: '100',
@@ -22,7 +22,7 @@ angular.module( 'volume-management' ).factory( '$data_connector_api', ['$http', 
             }
         },
         {
-            type: 'Object',
+            type: 'OBJECT',
             api: 'S3, Swift'
         }];
     }();

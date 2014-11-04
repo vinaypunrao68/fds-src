@@ -16,6 +16,7 @@ TokenCompactor::TokenCompactor(SmIoReqHandler *_data_store,
                                SmPersistStoreHandler* persist_store)
         : token_id(0),
           done_evt_handler(NULL),
+          verifyData(false),
           data_store(_data_store),
           persistGcHandler(persist_store),
           tc_timer(new FdsTimer()),
@@ -46,6 +47,7 @@ TokenCompactor::~TokenCompactor()
 Error TokenCompactor::startCompaction(fds_token_id tok_id,
                                       fds_uint16_t disk_id,
                                       diskio::DataTier tier,
+                                      fds_bool_t verify,
                                       compaction_done_handler_t done_evt_hdlr)
 {
     Error err(ERR_OK);
@@ -58,13 +60,15 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     // TODO(anna) do not do compaction if sync is in progress, return 'not ready'
 
     LOGNORMAL << "Start Compaction of token " << tok_id
-              << " disk_id " << disk_id << " tier " << tier;
+              << " disk_id " << disk_id << " tier " << tier
+              << " verify data?" << verify;
 
     // remember the token we are goint to work on and object id range for this
     // token -- to safeguard later that we are copying right objects
     token_id = tok_id;
     cur_disk_id = disk_id;
     cur_tier = tier;
+    verifyData = verify;
     done_evt_handler = done_evt_hdlr;  // set cb to notify about completion
 
     // reset counters and other members that keep track of progress
@@ -136,6 +140,7 @@ Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
     copy_req->io_type = FDS_SM_COMPACT_OBJECTS;
     (copy_req->oid_list).swap(*obj_list);
     copy_req->tier = cur_tier;
+    copy_req->verifyData = verifyData;
     copy_req->smio_compactobj_resp_cb = std::bind(
         &TokenCompactor::objsCompactedCb, this,
         std::placeholders::_1, std::placeholders::_2);
@@ -330,7 +335,7 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
 
     LOGNORMAL << "Compaction finished for token " << token_id
               << " disk_id " << cur_disk_id << " tier " << cur_tier
-              << ", result " << tc_error;
+              << " verify data? " << verifyData << ", result " << tc_error;
 
     // check error happened in the middle of compaction
     if (!tc_error.ok()) {
@@ -343,7 +348,7 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
     persistGcHandler->notifyEndGc(token_id, cur_tier);
 
     // set token compactor state to idle -- scavenger can use this TokenCompactor
-    // for a new compactino job
+    // for a new compaction job
     std::atomic_exchange(&state, TCSTATE_IDLE);
 
     // notify the requester about the completion

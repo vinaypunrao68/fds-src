@@ -317,7 +317,7 @@ TEST_F(SmTokenCompactorTest, normal_operation) {
                    << ", copied objects " << copiedObjs;
         dataStore->populateObjectDB(totalObjs, copiedObjs, diskId, tier);
 
-        err = tokenCompactor->startCompaction(tokId, diskId, tier, std::bind(
+        err = tokenCompactor->startCompaction(tokId, diskId, tier, false, std::bind(
             &SmTokenCompactorTest::compactionDoneCb, this,
             std::placeholders::_1, std::placeholders::_2));
         EXPECT_TRUE(err.ok());
@@ -351,13 +351,13 @@ TEST_F(SmTokenCompactorTest, second_start) {
     diskio::DataTier tier = diskio::diskTier;
 
     dataStore->populateObjectDB(1000, 0, diskId, tier);
-    err = tokenCompactor->startCompaction(tokId, diskId, tier, std::bind(
+    err = tokenCompactor->startCompaction(tokId, diskId, tier, false, std::bind(
         &SmTokenCompactorTest::compactionDoneCb, this,
         std::placeholders::_1, std::placeholders::_2));
     EXPECT_TRUE(err.ok());
 
     // try to start compaction again
-    err = tokenCompactor->startCompaction(tokId, diskId, tier, std::bind(
+    err = tokenCompactor->startCompaction(tokId, diskId, tier, false, std::bind(
         &SmTokenCompactorTest::compactionDoneCb, this,
         std::placeholders::_1, std::placeholders::_2));
     EXPECT_EQ(err, ERR_NOT_READY);

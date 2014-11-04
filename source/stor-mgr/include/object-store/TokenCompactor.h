@@ -97,6 +97,7 @@ class SmPersistStoreHandler;
         Error startCompaction(fds_token_id tok_id,
                               fds_uint16_t disk_id,
                               diskio::DataTier tier,
+                              fds_bool_t verify,
                               compaction_done_handler_t done_evt_hdlr);
 
 
@@ -177,6 +178,10 @@ class SmPersistStoreHandler;
         fds_token_id token_id;
         fds_uint16_t cur_disk_id;   // disk id the compactor currently operates on
         diskio::DataTier cur_tier;  // tier we are compacting
+        // TODO(Anna) we are piggybacking data verification on the same process as
+        // token compaction;
+        // We should consider making this class a base class for background tasks
+        fds_bool_t verifyData;
 
         /**
          * callback for compaction done method which is set every time

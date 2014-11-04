@@ -90,7 +90,7 @@ static const blob_version_t blob_version_deleted =
 static const uint OBJECTID_DIGESTLEN = 20;
 class ObjectID : public serialize::Serializable {
   private:
-    uint8_t  digest[OBJECTID_DIGESTLEN];
+    alignas(8) uint8_t  digest[OBJECTID_DIGESTLEN];
 
   public:
     ObjectID();
@@ -119,7 +119,7 @@ class ObjectID : public serialize::Serializable {
     }
 
    /*
-    * bit mask. this will help to boost the performance 
+    * bit mask. this will help to boost the performance
     */
 
     fds_uint64_t getTokenBits(fds_uint32_t numBits) const;

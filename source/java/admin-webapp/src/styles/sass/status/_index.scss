@@ -3,7 +3,6 @@
     @include flex-wrap(wrap);
 
     @include justify-content(space-around);
-    padding-left: 20px;
 
     .tile-pair {
         width: 50%;
@@ -28,6 +27,15 @@
                 z-index: 0;
             }
         }
+    }
+    
+    .status-text {
+        margin-left: auto;
+        margin-right: auto;
+        flex-grow: 5;
+        color: gray;
+        line-height: 1.2;
+        padding-left: 12px;
     }
 }
 

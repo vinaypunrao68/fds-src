@@ -94,9 +94,16 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
             failure );
     };
 
-    api.delete = function( volume ){
-        return $http_fds.delete( '/api/config/volumes/' + volume.id, getVolumes,
-            'Volume deletion failed.' );
+    api.delete = function( volume, callback, failure ){
+        return $http_fds.delete( '/api/config/volumes/' + volume.name, 
+            function( result ){
+                getVolumes();
+            
+                if ( angular.isFunction( callback ) ){
+                    callback();
+                }
+            },
+            failure );
     };
     
     api.createSnapshot = function( volumeId, newName, callback, failure ){

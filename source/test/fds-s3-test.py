@@ -33,7 +33,7 @@ def create_buckets_helper(conn, param, bucket_name=None, count=1):
     buckets_list = []
     for i in range(count):
         if bucket_name is None:
-            bucket_name = get_new_name_helper(param.bucket_name)
+            bucket_name = get_new_name_helper(param.bucket_prefix)
         try:
             log("creating bucket %s" % bucket_name)
             if count == 1:
@@ -93,15 +93,17 @@ class TestS3Conn(unittest.TestCase):
         global g_connection
         self.conn  = g_connection.get_s3_connection()
         self.param = g_parameters
+        self.param.bucket_name = get_new_name_helper(self.param.bucket_prefix)
         self.assertTrue(self.conn)
 
     def tearDown(self):
         self.assertTrue(self.conn)
 
     def test_create_bucket(self):
-        create_buckets_helper(self.conn, self.param)
+        create_buckets_helper(self.conn, self.param, self.param.bucket_name)
 
     def test_get_bucket(self):
+        create_buckets_helper(self.conn, self.param, self.param.bucket_name)
         bucket = self.conn.get_bucket(self.param.bucket_name)
         self.assertTrue(bucket)
 
@@ -111,17 +113,20 @@ class TestS3Conn(unittest.TestCase):
         # Cannot delete a bucket right after create
         time.sleep(5)
         self.conn.delete_bucket(bucket_name[0])
+        # Sleep after delete before checking
+        time.sleep(5)
 
     def test_get_all_buckets(self):
+        create_buckets_helper(self.conn, self.param, self.param.bucket_name, count=1)
         buckets_list = self.conn.get_all_buckets()
         self.assertTrue(len(buckets_list) > 0)
+        found = None
         for bucket in buckets_list:
             if self.param.verbose:
-                log("bucket: %s" % bucket.name)
+                log("bucket: %s - looking for %s" % (bucket.name, self.param.bucket_name))
             if self.param.bucket_name == bucket.name:
                 found = True
         self.assertTrue(found)
-
 
     # last test to run, delete all buckets created
     def test_z_conn_delete_all_buckets(self):
@@ -133,8 +138,9 @@ class TestS3Bucket(unittest.TestCase):
         global g_connection
         self.conn  = g_connection.get_s3_connection()
         self.param = g_parameters
+        self.param.bucket_name = get_new_name_helper(self.param.bucket_prefix)
         self.assertTrue(self.conn)
-        create_buckets_helper(self.conn, self.param, count=1)
+        create_buckets_helper(self.conn, self.param, self.param.bucket_name, count=1)
 
     def tearDown(self):
         self.assertTrue(self.conn)
@@ -255,8 +261,9 @@ class TestS3Key(unittest.TestCase):
         global g_connection
         self.conn  = g_connection.get_s3_connection()
         self.param = g_parameters
+        self.param.bucket_name = get_new_name_helper(self.param.bucket_prefix)
         self.assertTrue(self.conn)
-        create_buckets_helper(self.conn, self.param, count=1)
+        create_buckets_helper(self.conn, self.param, self.param.bucket_name, count=1)
 
     def tearDown(self):
         self.assertTrue(self.conn)
@@ -549,8 +556,9 @@ class TestS3Key(unittest.TestCase):
         delete_all_keys_helper(self.conn, self.param.bucket_name)
 
 class TestParameters():
-    def __init__(self, bucket_name, key_name, keys_count, file_path, verbose):
+    def __init__(self, bucket_name, bucket_prefix, key_name, keys_count, file_path, verbose):
         self.bucket_name = bucket_name
+        self.bucket_prefix = bucket_prefix
         self.key_name    = key_name
         self.file_path   = file_path
         self.verbose     = verbose
@@ -588,9 +596,9 @@ class S3Connection():
 
 
 # global declaration
-FDS_DEFAULT_KEY_ID            = 'demo_user'
-FDS_DEFAULT_SECRET_ACCESS_KEY = 'a9658f9c5b1ba032f444cb7847aa7f7fce7629821fdfc7078f32429d4a343730a5492dce2431d2af2b4f2e8cac222395d87006fc4e21cceab5418cba5a2cdd06'
-FDS_DEFAULT__HOST             = 'us-east.formationds.com'
+#FDS_DEFAULT_KEY_ID            = 'demo_user'
+#FDS_DEFAULT_SECRET_ACCESS_KEY = 'a9658f9c5b1ba032f444cb7847aa7f7fce7629821fdfc7078f32429d4a343730a5492dce2431d2af2b4f2e8cac222395d87006fc4e21cceab5418cba5a2cdd06'
+#FDS_DEFAULT__HOST             = 'us-east.formationds.com'
 
 FDS_DEFAULT_KEY_ID            = 'AKIAJCNNNWKKBQU667CQ'
 FDS_DEFAULT_SECRET_ACCESS_KEY = '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'
@@ -601,6 +609,7 @@ FDS_AUTH_DEFAULT_PORT         = 443
 FDS_DEFAULT_IS_SECURE         = True
 
 FDS_DEFAULT_BUCKET_NAME       = "demo_volume2"
+FDS_DEFAULT_BUCKET_PREFIX     = "demo_volume"
 FDS_DEFAULT_KEY_NAME          = "file_1"
 FDS_DEFAULT_KEYS_COUNT        = 10
 FDS_DEFAULT_FILE_PATH         = "/tmp/foobar"
@@ -620,13 +629,14 @@ def main():
     parser.add_argument('--am_port', default=FDS_DEFAULT_PORT, type=int,
                         help='port to run tests against')
     parser.add_argument('--user_id', default=FDS_DEFAULT_KEY_ID,
-                        help='access key id')
+                        help='access key id/user')
     parser.add_argument('--user_token', default=FDS_DEFAULT_SECRET_ACCESS_KEY,
-                        help='access key id')
+                        help='secret key id')
     parser.add_argument('--insecure', action='store_false', dest="secure",
-                        default=FDS_DEFAULT_IS_SECURE, help='access key id')
+                        default=FDS_DEFAULT_IS_SECURE,
+                        help='Disable secure (SSL) mode')
     parser.add_argument('--secure', action='store_true', dest="secure",
-                        help='access key id')
+                        help='Enable secure (SSL) mode - default on')
     parser.add_argument('--fds_pass', dest="fds_pass", default=False,
                         help='define FDS pass to use Tenant API for auth token')
     parser.add_argument('--auth_port', dest="auth_port",
@@ -654,6 +664,7 @@ def main():
                                 args.debug)
 
     g_parameters = TestParameters(FDS_DEFAULT_BUCKET_NAME,
+                                  FDS_DEFAULT_BUCKET_PREFIX,
                                   FDS_DEFAULT_KEY_NAME,
                                   FDS_DEFAULT_KEYS_COUNT,
                                   FDS_DEFAULT_FILE_PATH,

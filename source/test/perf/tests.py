@@ -48,30 +48,37 @@ class TestList():
         test["nreqs"] = 10000  # 100000
         test["nfiles"] = 1000  # 10000
         test["nvols"] = 1
-        test["threads"] = 1
+        test["threads"] = 20
         test["fsize"] = size
         test["injector"] = None
-        # tests.append(test)
-        for size in [4096, 1024*1024]:
+        tests.append(test)
+        for size in [4096]:
             for nvols in [1]:
-                for th in [5, 10, 15, 20, 25, 30, 35]:
-                # for th in [30]:
-                    test = dict(template)
-                    test["type"] = "PUT"
-                    test["nreqs"] = 100000
-                    test["nfiles"] = 1000
-                    test["nvols"] = nvols
-                    test["threads"] = th
-                    test["fsize"] = size
-                    tests.append(test)
-                    test = dict(template)
-                    test["type"] = "GET"
-                    test["nreqs"] = 100000
-                    test["nfiles"] = 1000
-                    test["nvols"] = nvols
-                    test["threads"] = th
-                    test["fsize"] = size
-                    tests.append(test)
+                # for th in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40]:
+                for th in range(1,51):
+                    #for outs in [2, 4, 10, 20, 50]:
+                    for outs in [2]:
+                        #for th in [4]:
+                        #for th in [21]:
+                        # for th in [30]:
+                            test = dict(template)
+                            test["type"] = "PUT"
+                            test["nreqs"] = 100000
+                            test["nfiles"] = 1000
+                            test["nvols"] = nvols
+                            test["threads"] = th
+                            test["fsize"] = size
+                            #tests.append(test)
+                            test = dict(template)
+                            # test["test_type"] = "tgen_java"
+                            test["type"] = "GET"
+                            test["nreqs"] = 100000
+                            test["nfiles"] = 1000
+                            test["nvols"] = nvols
+                            test["threads"] = th
+                            test["fsize"] = size
+                            test["outstanding"] = outs
+                            tests.append(test)
 
 #            for nvols in [1]:#[1, 2]: # [1, 2, 3, 4]:
 #                # for th in [5, 10, 15, 20, 25, 30, 35]:

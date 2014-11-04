@@ -1,32 +1,38 @@
-angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', '$byte_converter', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval, $byte_converter ){
+angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', '$byte_converter', '$time_converter', '$rootScope', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval, $byte_converter, $time_converter, $rootScope ){
+
+    $scope.healthStatus = [{number: 'Excellent'}];
     
-    $scope.items = [
-        {number: 12.5, description: 'This is a number and a really long line of text that we hope wraps'},
-        {number: 79, description: 'Something else', suffix: '%' }
-    ];
+    var firebreakInterval = -1;
+    var performanceInterval = -1;
+    var capacityInterval = -1;
+    var activityInterval = -1;
+    
     
     $scope.activities = [];
     $scope.firebreakMax = 1440;
+    $scope.minArea = 1000;
     $scope.firebreakStats = { series: [[]], summaryData: { hoursSinceLastEvent: 0 }};
     $scope.firebreakItems = [];
     $scope.performanceStats = { series: [[]] };
+    $scope.performanceItems = [];
     $scope.capacityStats = { series: [[]] };
     
     $scope.firebreakDomain = [ 'max', 3600*12, 3600*6, 3600*3, 3600, 0 ];
     $scope.firebreakRange = ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'];
     
-    $scope.fakeColors = [ '#73DE8C', '#73DE8C' ];
-    $scope.fakeCapColors = [ '#71AEEA', '#AAD2F4' ];
+    $scope.performanceColors = [ '#A4D966' ];
+    $scope.performanceLine = ['#66B22E'];
+    $scope.fakeCapColors = [ '#72AEEB', '#ABD3F5' ];
     $scope.fakeOpacities = [0.7,0.7];
     
     $scope.capacityLineStipples = ['none', '2,2'];
-    $scope.capacityLineColors = ['#1C82FB', '#71AFF8'];
+    $scope.capacityLineColors = ['#2486F8', '#78B5FA'];
     
-    $scope.capacityLabels = [ $filter( 'translate' )( 'common.l_30_days' ), $filter( 'translate' )( 'common.l_15_days' ), $filter( 'translate' )( 'common.l_today' )];
+    $scope.capacityLabels = [ $filter( 'translate' )( 'common.l_yesterday' ), $filter( 'translate' )( 'common.l_today' )];
     $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
     
     $scope.activitiesReturned = function( list ){
-        $scope.activities = list.records;
+        $scope.activities = list.events;
     };
     
     $scope.firebreakReturned = function( data ){
@@ -36,10 +42,18 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $scope.performanceReturned = function( data ){
         $scope.performanceStats = data;
+        $scope.performanceItems = [{number: data.calculated[0].dailyAverage, description: $filter( 'translate' )( 'status.desc_performance' )}];
     };
     
     $scope.capacityReturned = function( data ){
         $scope.capacityStats = data;
+        
+        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
+        parts = parts.split( ' ' );
+        
+        var num = parseFloat( parts[0] );
+        $scope.capacityItems = [{number: data.calculated[0].ratio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
+            {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
     };
     
     // this callback creates the tooltip element
@@ -49,8 +63,22 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         var units = '';
         var value = $scope.transformFirebreakTime( data.secondsSinceLastFirebreak );
         
-        // set the text as days
-        if ( value > 24*60*60 ){
+        if ( data.secondsSinceLastFirebreak === 0 ){
+            var str = '<div><div style="font-weight: bold;font-size: 11px;">' + data.context.name + '</div><div style="font-size: 10px;">' + $filter( 'translate' )( 'status.tt_firebreak_never' ) + '</div></div>';
+            return str;
+        }
+        // set the text as years
+        if ( value > 365*24*60*60 ){
+            value = Math.floor( value / (365*60*60*24) );
+            units = $filter( 'translate' )( 'common.years' );
+        }
+        // set the text as months
+        else if ( value > 30*24*60*60 ){
+            value = Math.floor( value / (30*60*60*24) );
+            units = $filter( 'translate' )( 'common.months' );
+        }
+        // set as days
+        else if ( value > 24*60*60 ){
             value = Math.floor( value / (24*60*60) )
             units = $filter( 'translate' )( 'common.days' );
         }
@@ -85,8 +113,24 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.capacityLabelFx = function( data ){
         return $byte_converter.convertBytesToString( data, 0 );
     };
+    
+    $scope.getActivityClass = function( category ){
+        return $activity_service.getClass( category );
+    };
+    
+    $scope.getActivityCategoryString = function( category ){
+        return $activity_service.getCategoryString( category );
+    };
+    
+    $scope.getTimeAgo = function( time ){
+        return $time_converter.convertToTimePastLabel( time );
+    };
 
     $scope.transformFirebreakTime = function( value ){
+        
+        if ( value === 0 ){
+            return 0;
+        }
         
         var nowSeconds = (new Date()).getTime() / 1000;
         
@@ -112,18 +156,51 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
         return filter;
     };
+    
+    var buildPerformanceFilter = function(){
+        var filter = StatQueryFilter.create( [],
+            [ StatQueryFilter.SHORT_TERM_PERFORMANCE ],
+            Math.round( ((new Date()).getTime() - (1000*60*60*24))/1000 ),
+            Math.round( (new Date()).getTime() / 1000 ) );
+        
+        return filter;
+    };
+    
+    var buildCapacityFilter = function(){
+        var filter = StatQueryFilter.create( [],
+            [ StatQueryFilter.PHYSICAL_CAPACITY, StatQueryFilter.LOGICAL_CAPACITY ],
+            Math.round( ((new Date()).getTime() - (1000*60*60*24))/1000 ),
+            Math.round( (new Date()).getTime() / 1000 ) );
+        
+        return filter;
+    };
                                                             
-    var firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
-    
-    $activity_service.getActivities( {}, $scope.activitiesReturned );
-    
     // cleanup the pollers
     $scope.$on( '$destroy', function(){
         $interval.cancel( firebreakInterval );
+        $interval.cancel( performanceInterval );
+        $interval.cancel( capacityInterval );
+        $interval.cancel( activityInterval );
     });
     
-    $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
-    $stats_service.getPerformanceSummary( {}, $scope.performanceReturned );
-    $stats_service.getCapacitySummary( {}, $scope.capacityReturned );
+    var init = function(){
+        
+        firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
+        performanceInterval = $interval( function(){ $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );}, 60000 );
+        capacityInterval = $interval( function(){ $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );}, 60000 );
+        activityInterval = $interval( function(){ $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );}, 60000 );
+
+        
+        $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
+        $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );
+        $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );
+        $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );
+    };
+    
+    $rootScope.$on( 'fds::authentication_success', function(){
+        init();
+    });
+    
+    init();
 
 }]);

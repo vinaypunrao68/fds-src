@@ -98,6 +98,7 @@ namespace fds {
         ERR_SM_NOERR_PRISTINE_STATE,
         ERR_SM_GC_ENABLED,
         ERR_SM_AUTO_GC_FAILED,
+        ERR_SM_DUP_OBJECT_CORRUPT,
 
         /* Network errors */
         ERR_NETWORK_TRANSPORT = 3000,

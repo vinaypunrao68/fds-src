@@ -18,6 +18,13 @@ import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * @deprecated the POC functionality has been replaced the UI now creates
+ *             all graphs.
+ *
+ *             will be removed in the future
+ */
+@Deprecated
 public class VolumeStatsPlotter {
 
     public BufferedImage plot(String volumeName, VolumeDatapoint[] datapoints) {

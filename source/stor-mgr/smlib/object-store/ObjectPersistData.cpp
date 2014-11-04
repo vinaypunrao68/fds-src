@@ -4,6 +4,7 @@
 
 #include <string>
 #include <PerfTrace.h>
+#include <fds_process.h>
 #include <object-store/ObjectPersistData.h>
 
 namespace fds {
@@ -76,13 +77,10 @@ ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap,
     }
 
     // we enable scavenger by default
-    // TODO(Anna) need a bit more testing before enabling GC
-    /*
     err = scavenger->enableScavenger(diskMap);
     if (!err.ok()) {
         LOGERROR << "Failed to start Scavenger " << err;
     }
-    */
     return err;
 }
 
@@ -383,6 +381,23 @@ ObjectPersistData::scavengerControlCmd(SmScavengerCmd* scavCmd) {
                 scavenger->getScavengerStatus(statCmd->retStatus);
             }
             break;
+        case SmScavengerCmd::SCRUB_ENABLE:
+            {
+                scavenger->setDataVerify(true);
+            }
+            break;
+        case SmScavengerCmd::SCRUB_DISABLE:
+            {
+                scavenger->setDataVerify(false);
+            }
+            break;
+        case SmScavengerCmd::SCRUB_GET_STATUS:
+            {
+                SmScrubberGetStatusCmd *scrubCmd =
+                        static_cast<SmScrubberGetStatusCmd*>(scavCmd);
+                scavenger->getDataVerify(scrubCmd->scrubStat);
+            }
+            break;
         default:
             fds_panic("Unknown scavenger command");
     };
@@ -400,6 +415,10 @@ ObjectPersistData::mod_init(SysParams const *const p) {
         NULL
     };
     mod_intern = objPersistDepMods;
+
+    fds_bool_t verify =
+            g_fdsprocess->get_fds_config()->get<bool>("fds.sm.data_verify_background");
+    scavenger->setDataVerify(verify);
 
     Module::mod_init(p);
     return 0;

@@ -6,6 +6,7 @@ import paramiko
 import SocketServer
 import multiprocessing
 import threading
+import Queue
 import tempfile
 import shutil
 import datetime
@@ -20,7 +21,6 @@ sys.path.append('../../tools/fdsconsole/contexts')
 sys.path.append('../../tools/fdsconsole')
 sys.path.append('../../tools')
 from SvcHandle import SvcMap
-from svchelper import *
 
 def get_myip():
     cmd = "ifconfig| grep '10\.1' | awk -F '[: ]+' '{print $4}'"
@@ -253,8 +253,7 @@ class CounterServerPull:
         for node in self.options.nodes:
             ip = self.options.nodes[node]
             port=7020
-            svc_map = ServiceMap()
-            svc_map.init(ip, port)
+            svc_map = SvcMap(ip, port)
             svclist = svc_map.list()
             for e in svclist:
                 nodeid, svc, ip = e[0], e[1], e[2]
@@ -405,6 +404,8 @@ class FdsCluster():
             self._init_tgen(test_args)
         elif test_name == "amprobe":
             self._init_amprobe(test_args)
+        elif test_name == "tgen_java":
+            self._init_tgen_java(test_args)
         else:
             assert False, "Test unknown: " + test_name
 
@@ -416,6 +417,8 @@ class FdsCluster():
             output = self._run_tgen(test_args)
         elif test_name == "amprobe":
             output = self._run_amprobe(test_args)
+        elif test_name == "tgen_java":
+            output = self._run_tgen_java(test_args)
         else:
             assert False, "Test unknown: " + test_name    
         outfile = open(self.outdir + "/test.out", "w")
@@ -439,7 +442,7 @@ class FdsCluster():
             requests.put("http://%s:8000/volume%d" % (self.options.nodes[self.options.main_node], i))
 
     def _run_tgen(self, test_args):
-        cmd = "python3.3 /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d -u -N %s" % (
+        cmd = "python3 /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d -u -N %s" % (
                                                                             test_args["threads"],
                                                                             test_args["nreqs"],
                                                                             test_args["type"],
@@ -469,6 +472,37 @@ class FdsCluster():
         of = open("/tmp/.am-get.json", "w")
         of.write(output)
         of.close()
+
+    def _init_tgen_java(self, args):
+        for i in range(args["nvols"]):
+            requests.put("http://%s:8000/volume%d" % (self.options.nodes[self.options.main_node], i))
+
+    def _run_tgen_java(self, test_args):
+        def task(node, outs, queue):
+            cmd = "pushd /home/monchier/linux-x86_64.debug/bin && ./trafficgen --n_reqs 100000 --n_files 1000 --outstanding_reqs %d --test_type GET --object_size 4096 --hostname 10.1.10.139 --n_conns %d && popd" % (outs, outs)
+            output = ssh_exec(node, cmd)
+            queue.put(output)
+        
+        # nodes = ["10.1.10.222", "10.1.10.221"]
+        nodes = ["10.1.10.222"]
+        N = test_args["threads"]
+        outs = test_args["outstanding"]
+        threads = []
+        queue = Queue.Queue()
+        for n in nodes:
+            for i in  range(N):
+                t = threading.Thread(target=task, args=(n, outs, queue))
+                t.start()
+                threads.append(t)
+        for t in threads:
+            t.join()
+
+        output = ""
+        while not queue.empty():
+            e = queue.get()
+            output += e + "\n"
+            queue.task_done()
+        return output
 
     def _run_amprobe(self, test_args):
         cmd = "curl -v -X PUT -T /tmp/.am-get.json http://%s:8080" % (self.options.nodes[self.options.main_node])
