@@ -80,7 +80,9 @@ class SmScrubberActionCmd: public SmScavengerCmd {
 class SmScrubberGetStatusCmd: public SmScavengerCmd {
   public:
     explicit SmScrubberGetStatusCmd(fpi::CtrlQueryScrubberStatusRespPtr& status)
-            : SmScavengerCmd(SCRUB_GET_STATUS) {}
+            : SmScavengerCmd(SCRUB_GET_STATUS), scrubStat(status) {}
+
+    fpi::CtrlQueryScrubberStatusRespPtr scrubStat;
 };
 
 class SmScavengerSetPolicyCmd: public SmScavengerCmd {

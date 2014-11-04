@@ -315,9 +315,12 @@ ScavControl::getScavengerStatus(const fpi::CtrlQueryScavengerStatusRespPtr& stat
 }
 
 void
-ScavControl::getDataVerify(fpi::CtrlQueryScrubberStatusResp& statusResp) {
+ScavControl::getDataVerify(const fpi::CtrlQueryScrubberStatusRespPtr& statusResp) {
     // First get scavenger status
-    fpi::CtrlQueryScavengerStatusResp *scavStatus;
+    GLOGDEBUG << "Calling getDataVerify";
+    boost::shared_ptr<fpi::CtrlQueryScavengerStatusResp> scavStatus =
+            boost::shared_ptr<fpi::CtrlQueryScavengerStatusResp>
+                    (new fpi::CtrlQueryScavengerStatusResp());
     getScavengerStatus(scavStatus);
 
     if (std::atomic_load(&verifyData) == true) {
@@ -325,6 +328,7 @@ ScavControl::getDataVerify(fpi::CtrlQueryScrubberStatusResp& statusResp) {
     } else {
         statusResp->scrubber_status = fpi::SCAV_DISABLED;
     }
+    GLOGDEBUG << "Set statusResp->" << statusResp->scrubber_status;
 }
 
 

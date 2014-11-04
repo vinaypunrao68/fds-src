@@ -157,7 +157,18 @@ class ScrubberContext(Context):
 
             scrubStatusMsg = FdspUtils.newQueryScrubberStatusMsg()
             scrubCB = WaitedCallback()
-            self.smClient.sendAsyncSvcReq(sm, scrubStatusMsg, None)
+            self.smClient.sendAsyncSvcReq(sm, scrubStatusMsg, scrubCB)
+            scrubCB.wait()
+            resp = scrubCB.payload.scrubber_status
+            print "Scrubber status: ",
+            if resp == 1:
+                print "ACTIVE"
+            elif resp == 2:
+                print "INACTIVE"
+            elif resp == 3:
+                print "DISABLED"
+            elif resp == 4:
+                print "FINISHING"
         except Exception, e:
             log.exception(e)
             return 'scrubber status failed'

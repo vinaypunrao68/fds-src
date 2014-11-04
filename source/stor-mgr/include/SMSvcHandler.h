@@ -82,7 +82,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
             boost::shared_ptr<fpi::CtrlQueryScrubberStatus> &scrub_msg);
 
     void setScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-            boost::shared_ptr<fpi::CtrlQueryScrubberStatus> &scrub_msg);
+            boost::shared_ptr<fpi::CtrlSetScrubberStatus> &scrub_msg);
 
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,

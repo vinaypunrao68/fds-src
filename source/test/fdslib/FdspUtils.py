@@ -260,10 +260,10 @@ def newQueryScrubberStatusMsg():
 
 def newEnableScrubberMsg():
     msg = CtrlSetScrubberStatus()
-    msg.scrubber_status = FDSP_ScrubberStatusType.SCRUB_ENABLE
+    msg.scrubber_status = FDSP_ScrubberStatusType.FDSP_SCRUB_ENABLE
     return msg
 
 def newDisableScrubberMsg():
     msg = CtrlSetScrubberStatus()
-    msg.scrubber_status = FDSP_ScrubberStatusType.SCRUB_DISABLE
+    msg.scrubber_status = FDSP_ScrubberStatusType.FDSP_SCRUB_DISABLE
     return msg
