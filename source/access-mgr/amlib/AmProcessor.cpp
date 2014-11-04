@@ -409,6 +409,11 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
     // Tell QoS the request is done
     qosCtrl->markIODone(amReq);
     amReq->cb->call(error);
+
+    // We're finished with our buffer used to return the object.
+    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    delete cb->returnBuffer;
+
     delete amReq;
 }
 

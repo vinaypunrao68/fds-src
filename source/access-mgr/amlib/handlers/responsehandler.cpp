@@ -288,9 +288,9 @@ AsyncGetObjectResponseHandler::AsyncGetObjectResponseHandler(
     boost::shared_ptr<int32_t>& length,
     char* buf)
         : respApi(_api),
-          requestId(_reqId),
-          returnSize(*length),
-          returnBuffer(buf){
+          requestId(_reqId) {
+    returnSize = *length;
+    returnBuffer = buf;
     type = HandlerType::IMMEDIATE;
 }
 

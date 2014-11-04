@@ -157,6 +157,16 @@ class AmLoadProc : public AmAsyncResponseApi {
         }
     }
 
+    void getBlobResp(const Error &error,
+                          boost::shared_ptr<apis::RequestId>& requestId,
+                          char* buf) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
     void statBlobResp(const Error &error,
                       boost::shared_ptr<apis::RequestId>& requestId,
                       boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
