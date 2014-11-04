@@ -17,6 +17,7 @@
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
 #include <apis/ConfigurationService.h>
+#include <thrift/concurrency/Monitor.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -24,11 +25,16 @@
 
 using ::testing::AtLeast;
 using ::testing::Return;
+using namespace apache::thrift; // NOLINT
+using namespace apache::thrift::concurrency; // NOLINT
 using namespace fds;  // NOLINT
 
 struct SMApi : SingleNodeTest
 {
     SMApi() {
+        outStanding_ = 0;
+        concurrency_ = 0;
+        waiting_ = false;
         putsIssued_ = 0;
         putsSuccessCnt_ = 0;
         putsFailedCnt_ = 0;
@@ -41,6 +47,13 @@ struct SMApi : SingleNodeTest
 
         auto opEndTs = util::getTimeStampNanos();
         avgLatency_.update(opEndTs - opStartTs);
+        outStanding_--;
+        {
+            Synchronized s(monitor_);
+            if (waiting_ && outStanding_ < concurrency_) {
+                monitor_.notify();
+            }
+        }
 
         if (error != ERR_OK) {
             GLOGWARN << "Req Id: " << svcReq->getRequestId() << " " << error;
@@ -127,8 +140,12 @@ struct SMApi : SingleNodeTest
     }
  protected:
     std::atomic<uint32_t> putsIssued_;
+    std::atomic<uint32_t> outStanding_;
     std::atomic<uint32_t> putsSuccessCnt_;
     std::atomic<uint32_t> putsFailedCnt_;
+    Monitor monitor_;
+    bool waiting_;
+    uint32_t concurrency_;
     util::TimeStamp startTs_;
     util::TimeStamp endTs_;
     LatencyCounter avgLatency_;
@@ -150,6 +167,10 @@ TEST_F(SMApi, putsPerf)
     bool uturnPuts = this->getArg<bool>("uturn");
     bool disableSchedule = this->getArg<bool>("disable-schedule");
     bool largeFrame = this->getArg<bool>("largeframe");
+    concurrency_ = this->getArg<uint32_t>("concurrency");
+    if (concurrency_ == 0) {
+        concurrency_  = nPuts;
+    }
 
     opTs_.resize(nPuts);
 
@@ -211,7 +232,17 @@ TEST_F(SMApi, putsPerf)
                                             std::placeholders::_2, std::placeholders::_3));
         asyncPutReq->setTimeoutMs(1000);
         putsIssued_++;
+        outStanding_++;
         asyncPutReq->invoke();
+
+        {
+            Synchronized s(monitor_);
+            while (outStanding_ >= concurrency_) {
+                waiting_ = true;
+                monitor_.wait();
+            }
+            waiting_ = false;
+        }
     }
 
     /* Poll for completion */
@@ -273,7 +304,8 @@ int main(int argc, char** argv) {
         ("uturn", po::value<bool>()->default_value(false), "uturn")
         ("largeframe", po::value<bool>()->default_value(false), "largeframe")
         ("output", po::value<std::string>()->default_value("stats.txt"), "stats output")
-        ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling");
+        ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling")
+        ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();
 }

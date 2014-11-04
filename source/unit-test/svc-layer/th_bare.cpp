@@ -31,7 +31,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <google/profiler.h>
-
+#define RECORD_TS(statement) if (recordTs) { statement; }
 using ::testing::AtLeast;
 using ::testing::Return;
 
@@ -43,7 +43,12 @@ using namespace apache::thrift::server; // NOLINT
 using namespace apache::thrift::concurrency; // NOLINT
 
 const uint32_t BUFFER_SZ = (1 * 1024 * 1024);
+bool recordTs = true;
 std::vector<SvcRequestIf::SvcReqTs> *opTs;
+uint32_t sendCntr= 0;
+uint32_t recvCntr= 0;
+util::TimeStamp startTs = 0;
+util::TimeStamp endTs = 0;
 
 struct BaseServer;
 
@@ -118,15 +123,18 @@ void BaseServerTask::run() {
             nbytes = client_->readAll(data, dataSz);
             fds_verify(static_cast<int>(nbytes) == dataSz);
 
-            (*opTs)[cntr].rqRcvdTs = util::getTimeStampNanos();
-            (*opTs)[cntr].rqHndlrTs = (*opTs)[cntr].rqRcvdTs;
-            (*opTs)[cntr].rspSerStartTs = (*opTs)[cntr].rqRcvdTs;
-            (*opTs)[cntr].rspSendStartTs = (*opTs)[cntr].rqRcvdTs;
-            (*opTs)[cntr].rspRcvdTs = (*opTs)[cntr].rqRcvdTs;
-            (*opTs)[cntr].rspHndlrTs = (*opTs)[cntr].rqRcvdTs;
+            RECORD_TS((*opTs)[cntr].rqRcvdTs = util::getTimeStampNanos())
+            RECORD_TS((*opTs)[cntr].rqHndlrTs = (*opTs)[cntr].rqRcvdTs)
+            RECORD_TS((*opTs)[cntr].rspSerStartTs = (*opTs)[cntr].rqRcvdTs)
+            RECORD_TS((*opTs)[cntr].rspSendStartTs = (*opTs)[cntr].rqRcvdTs)
+            RECORD_TS((*opTs)[cntr].rspRcvdTs = (*opTs)[cntr].rqRcvdTs)
+            RECORD_TS((*opTs)[cntr].rspHndlrTs = (*opTs)[cntr].rqRcvdTs)
 
+            recvCntr++;
+            if (sendCntr == recvCntr) {
+                endTs = util::getTimeStampNanos();
+            }
             dispatch_(data, dataSz); 
-            cntr++;
         }
     } catch (const TTransportException& ttx) {
         if (ttx.getType() != TTransportException::END_OF_FILE) {
@@ -344,8 +352,9 @@ TEST_F(AMTest, smtest)
     int amPort = this->getArg<int>("am-port");
     uint32_t dataCacheSz = 100;
     uint64_t volId = 1;
-    opTs_.resize(nPuts);
-    opTs = &opTs_;
+    recordTs = this->getArg<bool>("record");
+    RECORD_TS(opTs_.resize(nPuts))
+    RECORD_TS(opTs = &opTs_)
 
     /* start server for responses */
     serve();
@@ -373,28 +382,31 @@ TEST_F(AMTest, smtest)
         new tt::TMemoryBuffer(buf, BUFFER_SZ, TMemoryBuffer::TAKE_OWNERSHIP));
     int dataSz;
     /* Start timer */
-    startTs_ = util::getTimeStampNanos();
+    startTs = util::getTimeStampNanos();
 
     /* Issue puts */
     for (int i = 0; i < nPuts; i++) {
-        opTs_[i].rqStartTs = util::getTimeStampNanos();
+        sendCntr++;
+        RECORD_TS(opTs_[i].rqStartTs = util::getTimeStampNanos())
         auto putObjMsg = putMsgGen->nextItem();
         /* Serialize */
         memBuffer->resetBuffer();
         boost::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memBuffer));
         dataSz = putObjMsg->write(binary_buf.get());
 
-        opTs_[i].rqSendStartTs = util::getTimeStampNanos();
+        RECORD_TS(opTs_[i].rqSendStartTs = util::getTimeStampNanos())
         /* write data size */
         smSock->write(reinterpret_cast<uint8_t*>(&dataSz), sizeof(int));
         /* write data */
         smSock->write(buf, dataSz);
         smSock->flush();
-        opTs_[i].rqSendEndTs = util::getTimeStampNanos();
+        RECORD_TS(opTs_[i].rqSendEndTs = util::getTimeStampNanos())
     }
 
     sleep(5);
     printOpTs("temp.txt");
+    std::cout << "start: " << startTs << "end: " << endTs << std::endl;
+    std::cout << "Avg time: " << (endTs - startTs) / nPuts;
 }
 
 int main(int argc, char** argv) {
@@ -412,6 +424,7 @@ int main(int argc, char** argv) {
         ("am-port", po::value<int>()->default_value(9094), "am port")
         ("server", po::value<std::string>()->default_value("threaded"), "Server type")
         ("transport", po::value<std::string>()->default_value("framed"), "transport type")
+        ("record", po::value<bool>()->default_value(true), "record op ts")
         ("output", po::value<std::string>()->default_value("stats.txt"), "stats output");
     AMTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
