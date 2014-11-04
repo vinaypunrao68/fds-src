@@ -35,7 +35,6 @@
             <artifactId>objectdb</artifactId>
             <version>2.5.7_01</version>
         </dependency>
-
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
@@ -236,7 +235,6 @@
             <version>2.3</version>
         </dependency>
     </dependencies>
-
     <!--mvn -f distrib.xml -DskipTests clean assembly:directory-->
     <build>
         <directory>${project.build.dir}</directory>
@@ -258,7 +256,6 @@
                     <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
-
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>

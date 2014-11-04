@@ -164,6 +164,13 @@ void ScavControl::disableScavenger()
     } else {
         LOGNOTIFY << "Scavenger was already disabled";
     }
+
+    // Disable scrubber also
+    if (std::atomic_compare_exchange_strong(&verifyData, &expect, false)) {
+        LOGNOTIFY << "Disabled scrubber because scavenger was disabled";
+    } else {
+        LOGNOTIFY << "Scrubber status not changed; scrubber already disabled";
+    }
 }
 
 void
@@ -306,6 +313,24 @@ ScavControl::getScavengerStatus(const fpi::CtrlQueryScavengerStatusRespPtr& stat
     }
     statusResp->status = fpi::SCAV_INACTIVE;
 }
+
+void
+ScavControl::getDataVerify(const fpi::CtrlQueryScrubberStatusRespPtr& statusResp) {
+    // First get scavenger status
+    GLOGDEBUG << "Calling getDataVerify";
+    boost::shared_ptr<fpi::CtrlQueryScavengerStatusResp> scavStatus =
+            boost::shared_ptr<fpi::CtrlQueryScavengerStatusResp>
+                    (new fpi::CtrlQueryScavengerStatusResp());
+    getScavengerStatus(scavStatus);
+
+    if (std::atomic_load(&verifyData) == true) {
+        statusResp->scrubber_status = scavStatus->status;
+    } else {
+        statusResp->scrubber_status = fpi::SCAV_DISABLED;
+    }
+    GLOGDEBUG << "Set statusResp->" << statusResp->scrubber_status;
+}
+
 
 fds_uint32_t
 ScavControl::getProgress() {
