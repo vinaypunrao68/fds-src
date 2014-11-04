@@ -17,7 +17,7 @@ import org.json.JSONObject;
 import java.util.Map;
 
 public class AttachSnapshotPolicyIdToVolumeId implements RequestHandler {
-    private static final Logger LOG =
+    private static final Logger logger =
       Logger.getLogger(AttachSnapshotPolicyIdToVolumeId.class);
 
     private static final String REQ_PARAM_VOLUME_ID = "volumeId";
@@ -32,10 +32,15 @@ public class AttachSnapshotPolicyIdToVolumeId implements RequestHandler {
     public Resource handle(final Request request,
                            final Map<String, String> routeParameters)
             throws Exception {
+
+      routeParameters.forEach( ( key, value ) -> {
+         logger.trace( "KEY::" + key + " VALUE::'" + value + "'" );
+      } );
+
       final long volumeId = requiredLong( routeParameters, REQ_PARAM_VOLUME_ID );
       final long policyId = requiredLong( routeParameters, REQ_PARAM_POLICY_ID );
 
-      LOG.trace( "ATTACH:: VOLUME ID: " + volumeId + " POLICY ID: " + policyId );
+      logger.trace( "ATTACH:: VOLUME ID: " + volumeId + " POLICY ID: " + policyId );
       config.attachSnapshotPolicy( volumeId, policyId );
 
       return new JsonResource(new JSONObject().put("status", "OK"));

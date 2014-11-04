@@ -4,9 +4,7 @@
 
 package com.formationds.om.repository.helper;
 
-import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeStatus;
-import com.formationds.apis.VolumeType;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
@@ -130,60 +128,29 @@ public class FirebreakHelper {
             .map( ( list ) -> new Pair( list.get( 0 ), list.get( 1 ) ) )
             .forEach( paired::add );
 
-        final Map<String, VolumeDescriptor> volumeMap = new HashMap<>( );
-        SingletonConfigAPI.instance()
-                          .api()
-                          .listVolumes( "" )
-                          .stream()
-                          .forEach( ( d ) -> {
-                              final String key = d.getName();
-                              if( !volumeMap.containsKey( key ) ) {
-                                  volumeMap.put( key, d );
-                              }
-                          } );
-
         paired.stream().forEach( pair -> {
             final String key = pair.getSigma( 0 ).getVolumeId();
             final String volumeName = pair.getSigma( 0 )
                                           .getVolumeName();
-            final VolumeDescriptor vDescriptor =
-                volumeMap.get( volumeName );
 
             if( !results.containsKey( key ) ) {
                 final Datapoint datapoint = new Datapoint();
                 datapoint.setY( NEVER );    // firebreak last occurrence
 
-                if( ( vDescriptor != null ) &&
-                    ( vDescriptor.getPolicy() != null ) &&
-                    ( vDescriptor.getPolicy()
-                                 .getVolumeType() != null ) ) {
-                    if( vDescriptor.getPolicy()
-                                   .getVolumeType()
-                                   .equals( VolumeType.BLOCK ) ) {
-                        // set the capacity
-                        datapoint.setX( vDescriptor.getPolicy()
-                                                   .getBlockDeviceSizeInBytes() );
-                    } else {
-                        /*
-                         * Object volume types have no fixed capacity, so use
-                         * current usage as the capacity
-                         */
-                        try {
-                            final VolumeStatus status =
-                                SingletonAmAPI.instance()
-                                              .api()
-                                              .volumeStatus( "", volumeName );
-                            if( status != null ) {
+                try {
+                    final VolumeStatus status =
+                        SingletonAmAPI.instance()
+                                      .api()
+                                      .volumeStatus( "", volumeName );
+                    if( status != null ) {
                             /*
                              * use the usage, OBJECT volumes have no fixed capacity
                              */
-                                datapoint.setX( status.getCurrentUsageInBytes() );
-                            }
-                        } catch( TException e ) {
-                            logger.warn( "Failed to get Volume status",
-                                         e );
-                        }
+                        datapoint.setX( status.getCurrentUsageInBytes() );
                     }
+                } catch( TException e ) {
+                    logger.warn( "Failed to get Volume status",
+                                 e );
                 }
 
                 results.put( key, datapoint );

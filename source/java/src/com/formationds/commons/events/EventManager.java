@@ -148,11 +148,11 @@ public enum EventManager {
 
     // TODO: this is probably not how we want to do this in the long run... trying to get something working for beta1
     public void initEventListeners() {
-        MetricsRepository mr =
-        SingletonRepositoryManager.instance()
-                                  .getMetricsRepository();
+        MetricsRepository mr = SingletonRepositoryManager.instance()
+                                                         .getMetricsRepository();
 
-        JDORepository.EntityPersistListener<VolumeDatapoint> l = new JDORepository.EntityPersistListener<VolumeDatapoint>() {
+        JDORepository.EntityPersistListener<VolumeDatapoint> l =
+                new JDORepository.EntityPersistListener<VolumeDatapoint>() {
             EventDescriptor fbEvent = new EventDescriptor() {
                 public EventType type() { return EventType.SYSTEM_EVENT; }
                 public EventCategory category() { return EventCategory.FIREBREAK; }
@@ -197,7 +197,7 @@ public enum EventManager {
     public boolean notifyEvent(Event e) {
         try { return notifier.handleEventNotification(e); }
         catch (RuntimeException re) {
-            logger.error(String.format("Failed to persist event key={}", key), re);
+            logger.error(String.format( "Failed to persist event key=%s", key ), re);
             return false;
         }
     }

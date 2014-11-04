@@ -8,9 +8,10 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
 import com.formationds.commons.events.EventManager;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.helper.SingletonConfiguration;
+import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.rest.*;
 import com.formationds.om.rest.events.IngestEvents;
 import com.formationds.om.rest.events.QueryEvents;
@@ -64,15 +65,15 @@ public class Main {
     }
 
     public void start(String[] args) throws Exception {
-
         LOG.trace("Starting native OM");
+        SingletonConfiguration.instance().setConfig(configuration);
         NativeOm.startOm(args);
 
         LOG.trace("Loading platform configuration.");
         ParsedConfig platformConfig = configuration.getPlatformConfig();
         byte[] keyBytes = Hex.decodeHex(platformConfig.lookup("fds.aes_key")
-                             .stringValue()
-                             .toCharArray());
+                                                      .stringValue()
+                                                      .toCharArray());
         SecretKey secretKey = new SecretKeySpec(keyBytes, "AES");
 
         // TODO: this is needed before bootstrapping the admin user but not sure if there is config required first.

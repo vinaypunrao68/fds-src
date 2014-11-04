@@ -12,7 +12,13 @@ import com.formationds.commons.model.abs.ModelBase;
 import java.util.ArrayList;
 import java.util.List;
 
-public class QueryCriteria extends ModelBase implements SearchCriteria {
+@SuppressWarnings( "UnusedDeclaration" )
+public class QueryCriteria
+    extends ModelBase
+    implements SearchCriteria {
+
+    private static final long serialVersionUID = 6792621380579634266L;
+
     private DateRange range;           // date range ; starting and ending
     private Integer points;            // number of points to provide in results
     private Long firstPoint;           // first point, i.e. row number
