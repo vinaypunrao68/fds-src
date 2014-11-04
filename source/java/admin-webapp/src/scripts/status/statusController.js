@@ -28,7 +28,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.capacityLineStipples = ['none', '2,2'];
     $scope.capacityLineColors = ['#2486F8', '#78B5FA'];
     
-    $scope.capacityLabels = [ $filter( 'translate' )( 'common.l_30_days' ), $filter( 'translate' )( 'common.l_15_days' ), $filter( 'translate' )( 'common.l_today' )];
+    $scope.capacityLabels = [ $filter( 'translate' )( 'common.l_yesterday' ), $filter( 'translate' )( 'common.l_today' )];
     $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
     
     $scope.activitiesReturned = function( list ){
@@ -169,7 +169,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     var buildCapacityFilter = function(){
         var filter = StatQueryFilter.create( [],
             [ StatQueryFilter.PHYSICAL_CAPACITY, StatQueryFilter.LOGICAL_CAPACITY ],
-            Math.round( ((new Date()).getTime() - (1000*60*60*24*30))/1000 ),
+            Math.round( ((new Date()).getTime() - (1000*60*60*24))/1000 ),
             Math.round( (new Date()).getTime() / 1000 ) );
         
         return filter;
