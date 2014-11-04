@@ -307,6 +307,20 @@ ScavControl::getScavengerStatus(const fpi::CtrlQueryScavengerStatusRespPtr& stat
     statusResp->status = fpi::SCAV_INACTIVE;
 }
 
+void
+ScavControl::getDataVerify(fpi::CtrlQueryScrubberStatusResp& statusResp) {
+    // First get scavenger status
+    fpi::CtrlQueryScavengerStatusResp *scavStatus;
+    getScavengerStatus(scavStatus);
+
+    if (std::atomic_load(&verifyData) == true) {
+        statusResp->scrubber_status = scavStatus->status;
+    } else {
+        statusResp->scrubber_status = fpi::SCAV_DISABLED;
+    }
+}
+
+
 fds_uint32_t
 ScavControl::getProgress() {
     double totalToksCompacting = 0;

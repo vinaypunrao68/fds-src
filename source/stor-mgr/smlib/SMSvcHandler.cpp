@@ -47,12 +47,25 @@ SMSvcHandler::SMSvcHandler()
 void SMSvcHandler::queryScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         fpi::CtrlQueryScrubberStatusPtr &scrub_msg) {
     GLOGDEBUG << "Scrubber status called";
+    Error err(ERR_OK);
+    fpi::CtrlQueryScrubberStatusRespPtr resp(new fpi::CtrlQueryScrubberStatusResp());
+    SmScrubberGetStatusCmd scrubCmd(resp);
+    err = objStorMgr->objectStore->scavengerControlCmd(&scrubCmd);
+
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    GLOGDEBUG << "Scrubber status = " << resp->status << " " << err;
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlQueryScrubberStatusResp), *resp);
 }
 
 void SMSvcHandler::setScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         fpi::CtrlSetScrubberStatusPtr &scrub_msg) {
-    Error(ERR_OK);
-    GLOGDEBUG << "Scrubber handler called with message " << scrub_msg;
+    Error err(ERR_OK);
+    fpi::CtrlSetScrubberStatusRespPtr resp(new fpi::CtrlSetScrubberStatusResp());
+    LOGNORMAL << " receive scrubber cmd " << scrub_msg->scrubber_status;
+    SmScrubberActionCmd scrubCmd(scrub_msg->scrubber_status);
+    err = objStorMgr->objectStore->scavengerControlCmd(&scrubCmd);
+    
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlSetScrubberStatusResp), *resp);
 }
 
 void SMSvcHandler::queryScavengerProgress(boost::shared_ptr<fpi::AsyncHdr> &hdr,

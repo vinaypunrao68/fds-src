@@ -88,6 +88,7 @@ enum  FDSPMsgTypeId {
 	CtrlQueryScrubberStatusTypeId	   = 2050,
 	CtrlQueryScrubberStatusRespTypeId  = 2051,
 	CtrlSetScrubberStatusTypeId		   = 2052,
+	CtrlSetScrubberStatusRespTypeId    = 2053,
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,
@@ -522,12 +523,15 @@ struct CtrlQueryScrubberStatusResp {
 
 /* ------------------------  CtrlQueryScrubberStatusRespTypeId  ---------------------- */
 enum FDSP_ScrubberStatusType {
-	 SCRUB_ENABLE			 = 1,
-	 SCRUB_DISABLE			 = 2
+	 FDSP_SCRUB_ENABLE			 = 1,
+	 FDSP_SCRUB_DISABLE			 = 2
 }
 
 struct CtrlSetScrubberStatus {
 	 1: FDSP_ScrubberStatusType		scrubber_status;
+}
+
+struct CtrlSetScrubberStatusResp {
 }
 
 /* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */

@@ -230,6 +230,7 @@ class ScavControl : public Module {
     void setDataVerify(fds_bool_t verify) {
         verifyData = verify;
     }
+    void getDataVerify(const fpi::CtrlQueryScrubberStatusRespPtr& statusResp);
 
     /**
      * Start scavenging
