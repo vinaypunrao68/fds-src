@@ -6,10 +6,12 @@ package com.formationds.commons.events;
 
 import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.model.Series;
+import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.SystemActivityEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
 import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.security.AuthenticatedRequestContext;
@@ -146,45 +148,45 @@ public enum EventManager {
 
     // TODO: this is probably not how we want to do this in the long run... trying to get something working for beta1
     public void initEventListeners() {
+        MetricsRepository mr =
         SingletonRepositoryManager.instance()
-                                  .getMetricsRepository()
-                                  .addEntityPersistListener(new JDORepository.EntityPersistListener<VolumeDatapoint>() {
-                                      EventDescriptor fbEvent = new EventDescriptor() {
-                                          public EventType type() { return EventType.SYSTEM_EVENT; }
-                                          public EventCategory category() { return EventCategory.FIREBREAK; }
-                                          public EventSeverity severity() { return EventSeverity.WARNING; }
-                                          public String defaultMessage() { return "Volume {0}; Series data {1}"; }
-                                          public List<String> argNames() { return Arrays.asList("volumeId", "series"); }
-                                          public String key() { return "VOLUME_FIREBREAK_EVENT"; }
-                                      };
-                                      @Override
-                                      public void postPersist(VolumeDatapoint entity) {
-                                          logger.trace( "postPersist handling of VolumeDatapoint {}", entity);
-                                          try {
-                                              List<VolumeDatapoint> vdp = Arrays.asList(new VolumeDatapoint[] {entity});
-                                              List<Series> fb =
-                                                      new FirebreakHelper().processFirebreak(vdp);
+                                  .getMetricsRepository();
 
-                                              if( !fb.isEmpty() ) {
-                                                  logger.trace( "Gathering firebreak details" );
+        JDORepository.EntityPersistListener<VolumeDatapoint> l = new JDORepository.EntityPersistListener<VolumeDatapoint>() {
+            EventDescriptor fbEvent = new EventDescriptor() {
+                public EventType type() { return EventType.SYSTEM_EVENT; }
+                public EventCategory category() { return EventCategory.FIREBREAK; }
+                public EventSeverity severity() { return EventSeverity.WARNING; }
+                public String defaultMessage() { return "Volume {0}; Series data {1}"; }
+                public List<String> argNames() { return Arrays.asList("volumeId", "series"); }
+                public String key() { return "VOLUME_FIREBREAK_EVENT"; }
+            };
+            @Override
+            public void postPersist(List<VolumeDatapoint> vdp) {
+                logger.trace( "postPersist handling of Volume data points {}", vdp);
+                try {
+                    List<Series> fb =
+                            new FirebreakHelper().processFirebreak(vdp);
 
-                                                  // only expect one here (the way this is currently designed...
-                                                  for( final Series s : fb ) {
-                                                      logger.trace( "Firebreak event for '{}' series '{}'", entity.getVolumeName(), s );
+                    if( !fb.isEmpty() ) {
+                        for( final Series s : fb ) {
+                            // TODO: can we make Context (and Series) generic so we can know that series.getContext() returns a Volume?
+                            Volume v = (Volume)s.getContext();
+                            logger.trace( "Firebreak event for '{}' series '{}'", s.getContext().toString(), s );
 
-                                                      // TODO: add series data?
-                                                      EventManager.notifyEvent(fbEvent, entity.getVolumeId(), s);
-                                                  }
-                                              } else {
-                                                  logger.trace( "no firebreak data available" );
-                                              }
-                                          }
-                                          catch (Throwable t) {
-                                              logger.error("Failed to process datapoint postPersist event detection", t);
-                                              // TODO: do we want to rethrow and cause the VolumeDatapoint commit to fail?
-                                          }
-                                      }
-                                  });
+                            // TODO: add series data?
+                            EventManager.notifyEvent(fbEvent, v.getId(), s);
+                        }
+                    }
+                }
+                catch (Throwable t) {
+                    logger.error("Failed to process datapoint postPersist event detection", t);
+                    // TODO: do we want to rethrow and cause the VolumeDatapoint commit to fail?
+                }
+            }
+        };
+
+        mr.addEntityPersistListener(l);
     }
 
     /**

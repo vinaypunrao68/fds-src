@@ -7,9 +7,12 @@ package com.formationds.om.repository;
 import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
 import com.formationds.om.repository.result.VolumeDatapointList;
+import com.formationds.xdi.ConfigurationApi;
+import org.apache.thrift.TException;
 
 import javax.jdo.Query;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -31,6 +34,45 @@ public class MetricsRepository
   private static final String VOLUME_NAME = "volumeName";
 
   /**
+   * Listener implementing prePersist to ensure that the volume id is set on each datapoint before
+   * saving it.  When processing multiple datapoints, also aligns the timestamp to the first datapoint.
+   */
+  private static class MetricsEntityPersistListener implements EntityPersistListener<VolumeDatapoint> {
+      public void prePersist(VolumeDatapoint dp) {
+          try {
+              long volid = SingletonConfigAPI.instance().api().getVolumeId(dp.getVolumeName());
+              dp.setVolumeId(String.valueOf(volid));
+          } catch (TException t) {
+              throw new IllegalStateException("prePersist failed processing entity " + dp, t);
+          }
+      }
+
+      public void prePersist(List<VolumeDatapoint> dps) {
+          ConfigurationApi config = SingletonConfigAPI.instance().api();
+          long timestamp = 0L;
+          try {
+              // set the volume id for each datapoint and align the timestamps
+              for (VolumeDatapoint dp : dps) {
+                  long volid = config.getVolumeId(dp.getVolumeName());
+                  dp.setVolumeId(String.valueOf(volid));
+
+                  if (timestamp <= 0L)
+                      timestamp = dp.getTimestamp();
+
+                  /*
+                   * syncing all the times to the first record. This will allow for us
+                   * to query for a time range and guarantee that all datapoints will
+                   * be aligned
+                   */
+                  dp.setTimestamp(timestamp);
+              }
+          } catch (TException t) {
+              throw new IllegalStateException("prePersist failed processing volume data points.", t);
+          }
+      }
+  }
+
+  /**
    * default constructor
    */
   public MetricsRepository() {
@@ -45,6 +87,8 @@ public class MetricsRepository
     super();
 
     initialize( dbName );
+
+    super.addEntityPersistListener(new MetricsEntityPersistListener());
   }
 
   /**

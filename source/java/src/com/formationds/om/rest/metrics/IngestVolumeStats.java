@@ -43,30 +43,8 @@ public class IngestVolumeStats
     try( final Reader reader =
            new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
 
-      final List<VolumeDatapoint> volumeDatapoints =
-        ObjectModelHelper.toObject( reader, TYPE );
-      long timestamp = 0L;
-      for( final VolumeDatapoint datapoint : volumeDatapoints ) {
-
-        datapoint.setVolumeId(
-          String.valueOf(
-            config.getVolumeId( datapoint.getVolumeName() ) ) );
-
-        if( timestamp <= 0L ) {
-          timestamp = datapoint.getTimestamp();
-        }
-
-        /*
-         * syncing all the times to the first record. This will allow for us
-         * to query for a time range and guarantee that all datapoints will
-         * be aligned
-         */
-        datapoint.setTimestamp( timestamp );
-
-        SingletonRepositoryManager.instance()
-                                  .getMetricsRepository()
-                                  .save( datapoint );
-      }
+      final List<VolumeDatapoint> volumeDatapoints = ObjectModelHelper.toObject( reader, TYPE );
+      SingletonRepositoryManager.instance().getMetricsRepository().save(volumeDatapoints);
     }
 
     return new JsonResource( new JSONObject().put( "status", "OK" ) );

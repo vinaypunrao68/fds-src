@@ -55,7 +55,7 @@ public class Calculation {
     */
    public static float percentage( final Double consumed,
                                    final Double systemCapacity ) {
-      if( consumed == 0 || systemCapacity == 0 )
+      if( systemCapacity == 0 )
       {
           logger.warn( "divide by zero -- {} divided by {}",
                        consumed,
