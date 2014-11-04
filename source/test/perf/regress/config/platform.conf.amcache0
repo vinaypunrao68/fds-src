@@ -185,6 +185,9 @@ fds: {
             /* enable if testing SM standalone, no dependency on platform and OM */
             standalone = false
 
+            /* this is temporary until we fix platform, we don't want simulated SSDs */
+            useSsdForMeta = false
+
             /* General testing mode...should depricate */
             test_mode = false
 
