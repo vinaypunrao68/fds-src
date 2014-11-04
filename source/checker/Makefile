@@ -12,7 +12,8 @@ user_incl_dir     := \
 	$(topdir)/lib \
     $(topdir)/am-app/include \
 	$(topdir)/lib \
-	$(topdir)/unit-test/stor-mgr
+	$(topdir)/unit-test/stor-mgr \
+	/usr/include/cryptopp
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
