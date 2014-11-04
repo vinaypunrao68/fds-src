@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3
+#!/usr/bin/python3
 import os,sys,re
 import time
 import threading
@@ -126,10 +126,13 @@ def task(task_id, n_reqs, req_type, vol, files,
                 file_idx = (stats["reqs"] + int(options.n_reqs/options.threads) * task_id) % options.num_files
                 assert not (file_idx in used_files)
                 used_files.add(file_idx)
+            elif options.put_duplicate is True:    
+                file_idx = i % options.num_files
             else:
                 file_idx = random.randint(0, options.num_files - 1)
             uploaded.add(file_idx)
             # print "PUT", file_idx
+            print ("PUT - volume:", vol, "file_idx: ", file_idx, "task_id: ", task_id)
             e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
             #files.task_done()
         elif req_type == "GET":
@@ -318,6 +321,7 @@ if __name__ == "__main__":
     parser.add_option("-P", "--target-port", dest = "target_port", type = "int", default = 8000, help = "Target port (default is 8000)")
     parser.add_option("-V", "--volume-stats", dest = "volume_stats",  default = False, action = "store_true", help = "Enable per volume stats")
     parser.add_option("-S", "--put-seq", dest = "put_seq",  default = False, action = "store_true", help = "Generate put objects sequentially and uniquely")
+    parser.add_option("-D", "--put-duplicate", dest = "put_duplicate",  default = False, action = "store_true", help = "Generate duplicate put objects in each volume")
 
     (options, args) = parser.parse_args()
     if options.req_type == "PUT" or options.req_type == "7030":
