@@ -43,6 +43,11 @@ void
 AmAsyncDataApi::attachVolume(boost::shared_ptr<apis::RequestId>& requestId,
                              boost::shared_ptr<std::string>& domainName,
                              boost::shared_ptr<std::string>& volumeName) {
+    AsyncAttachVolumeResponseHandler::ptr handler(
+        new AsyncAttachVolumeResponseHandler(responseApi,
+                                             requestId));
+    storHvisor->enqueueAttachReq(*volumeName,
+                                 SHARED_DYN_CAST(Callback, handler));
 }
 
 void
@@ -56,6 +61,13 @@ void
 AmAsyncDataApi::volumeStatus(boost::shared_ptr<apis::RequestId>& requestId,
                              boost::shared_ptr<std::string>& domainName,
                              boost::shared_ptr<std::string>& volumeName) {
+    AsyncStatVolumeResponseHandler::ptr handler(
+        new AsyncStatVolumeResponseHandler(responseApi,
+                                           requestId));
+    AmRequest *blobReq = new GetVolumeMetaDataReq(invalid_vol_id,
+                                                   *volumeName,
+                                                   SHARED_DYN_CAST(Callback, handler));
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 void
@@ -73,6 +85,18 @@ AmAsyncDataApi::volumeContents(boost::shared_ptr<apis::RequestId>& requestId,
                                boost::shared_ptr<std::string>& volumeName,
                                boost::shared_ptr<int32_t>& count,
                                boost::shared_ptr<int64_t>& offset) {
+    BucketContext *bucket_ctxt = new BucketContext("host",
+                                                   *volumeName,
+                                                   "accessid",
+                                                   "secretkey");
+    AsyncListBucketResponseHandler::ptr handler(
+        new AsyncListBucketResponseHandler(responseApi,
+                                           requestId));
+    AmRequest *blobReq = new VolumeContentsReq(invalid_vol_id,
+                                               bucket_ctxt,
+                                               *count,
+                                               SHARED_DYN_CAST(Callback, handler));
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 void
@@ -260,6 +284,29 @@ AmAsyncDataApi::updateMetadata(boost::shared_ptr<apis::RequestId>& requestId,
                                boost::shared_ptr<std::string>& blobName,
                                boost::shared_ptr<apis::TxDescriptor>& txDesc,
                                boost::shared_ptr< std::map<std::string, std::string> >& metadata) {
+    AsyncUpdateMetadataResponseHandler::ptr handler(
+        new AsyncUpdateMetadataResponseHandler(responseApi,
+                                               requestId));
+    boost::shared_ptr<fpi::FDSP_MetaDataList> metaDataList(new fpi::FDSP_MetaDataList());
+    LOGDEBUG << "received updateMetadata cmd";
+    fpi::FDSP_MetaDataPair metaPair;
+    for (auto const & meta : *metadata) {
+        LOGDEBUG << meta.first << ":" << meta.second;
+        metaPair.key = meta.first;
+        metaPair.value = meta.second;
+        metaDataList->push_back(metaPair);
+    }
+    // Setup the transcation descriptor
+    BlobTxId::ptr blobTxDesc(new BlobTxId(
+        txDesc->txId));
+
+    AmRequest *blobReq = new SetBlobMetaDataReq(invalid_vol_id,
+                                                 *volumeName,
+                                                 *blobName,
+                                                 blobTxDesc,
+                                                 metaDataList,
+                                                 SHARED_DYN_CAST(Callback, handler));
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 void

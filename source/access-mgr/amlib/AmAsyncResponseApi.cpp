@@ -3,6 +3,7 @@
  */
 
 #include <string>
+#include <vector>
 #include <AmAsyncResponseApi.h>
 
 #include <arpa/inet.h>
@@ -53,6 +54,23 @@ AmAsyncXdiResponse::initiateClientConnect() {
         boost::make_shared<xdi_atp::TBinaryProtocol>(respTrans));
     asyncRespClient = boost::make_shared<apis::AsyncAmServiceResponseClient>(respProto);
     respSock->open();
+}
+
+void
+AmAsyncXdiResponse::attachVolumeResp(const Error &error,
+                                     boost::shared_ptr<apis::RequestId>& requestId) {
+    checkClientConnect();
+    if (!error.ok()) {
+        boost::shared_ptr<apis::ErrorCode> errorCode(
+            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<std::string> message(
+            boost::make_shared<std::string>());
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
+    } else {
+        XDICLIENTCALL(asyncRespClient, attachVolumeResponse(requestId));
+    }
 }
 
 void
@@ -143,6 +161,23 @@ AmAsyncXdiResponse::updateBlobOnceResp(const Error &error,
 }
 
 void
+AmAsyncXdiResponse::updateMetadataResp(const Error &error,
+                                       boost::shared_ptr<apis::RequestId>& requestId) {
+    checkClientConnect();
+    if (!error.ok()) {
+        boost::shared_ptr<apis::ErrorCode> errorCode(
+            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<std::string> message(
+            boost::make_shared<std::string>());
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
+    } else {
+        XDICLIENTCALL(asyncRespClient, updateMetadataResponse(requestId));
+    }
+}
+
+void
 AmAsyncXdiResponse::statBlobResp(const Error &error,
                                  boost::shared_ptr<apis::RequestId>& requestId,
                                  boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
@@ -160,6 +195,49 @@ AmAsyncXdiResponse::statBlobResp(const Error &error,
                                                              message));
     } else {
         XDICLIENTCALL(asyncRespClient, statBlobResponse(requestId, blobDesc));
+    }
+}
+
+void
+AmAsyncXdiResponse::volumeStatusResp(const Error &error,
+                                     boost::shared_ptr<apis::RequestId>& requestId,
+                                     boost::shared_ptr<apis::VolumeStatus>& volumeStatus) {
+    checkClientConnect();
+    if (!error.ok()) {
+        boost::shared_ptr<apis::ErrorCode> errorCode(
+            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<std::string> message(
+            boost::make_shared<std::string>());
+        if (ERR_CAT_ENTRY_NOT_FOUND == error) {
+            *errorCode = apis::MISSING_RESOURCE;
+        }
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
+    } else {
+        XDICLIENTCALL(asyncRespClient, volumeStatus(requestId, volumeStatus));
+    }
+}
+
+void
+AmAsyncXdiResponse::volumeContentsResp(const Error &error,
+                                       boost::shared_ptr<apis::RequestId>& requestId,
+                                       boost::shared_ptr<
+                                       std::vector<apis::BlobDescriptor>>& volContents) {
+    checkClientConnect();
+    if (!error.ok()) {
+        boost::shared_ptr<apis::ErrorCode> errorCode(
+            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<std::string> message(
+            boost::make_shared<std::string>());
+        if (ERR_CAT_ENTRY_NOT_FOUND == error) {
+            *errorCode = apis::MISSING_RESOURCE;
+        }
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
+    } else {
+        XDICLIENTCALL(asyncRespClient, volumeContents(requestId, volContents));
     }
 }
 

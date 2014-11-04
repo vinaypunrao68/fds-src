@@ -23,6 +23,9 @@ class AmAsyncResponseApi {
   public:
     typedef boost::shared_ptr<AmAsyncResponseApi> shared_ptr;
 
+    virtual void attachVolumeResp(const Error &error,
+                                  boost::shared_ptr<apis::RequestId>& requestId) = 0;
+
     virtual void startBlobTxResp(const Error &error,
                                  boost::shared_ptr<apis::RequestId>& requestId,
                                  boost::shared_ptr<apis::TxDescriptor>& txDesc) = 0;
@@ -30,14 +33,24 @@ class AmAsyncResponseApi {
                                  boost::shared_ptr<apis::RequestId>& requestId) = 0;
     virtual void commitBlobTxResp(const Error &error,
                                   boost::shared_ptr<apis::RequestId>& requestId) = 0;
+
     virtual void updateBlobResp(const Error &error,
                                 boost::shared_ptr<apis::RequestId>& requestId) = 0;
     virtual void updateBlobOnceResp(const Error &error,
+                                    boost::shared_ptr<apis::RequestId>& requestId) = 0;
+    virtual void updateMetadataResp(const Error &error,
                                     boost::shared_ptr<apis::RequestId>& requestId) = 0;
 
     virtual void statBlobResp(const Error &error,
                               boost::shared_ptr<apis::RequestId>& requestId,
                               boost::shared_ptr<apis::BlobDescriptor>& blobDesc) = 0;
+    virtual void volumeStatusResp(const Error &error,
+                                  boost::shared_ptr<apis::RequestId>& requestId,
+                                  boost::shared_ptr<apis::VolumeStatus>& volumeStatus) = 0;
+    virtual void volumeContentsResp(
+        const Error &error,
+        boost::shared_ptr<apis::RequestId>& requestId,
+        boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents) = 0;
 
     virtual void getBlobResp(const Error &error,
                              boost::shared_ptr<apis::RequestId>& requestId,
@@ -63,6 +76,9 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
     ~AmAsyncXdiResponse();
     typedef boost::shared_ptr<AmAsyncXdiResponse> shared_ptr;
 
+    void attachVolumeResp(const Error &error,
+                          boost::shared_ptr<apis::RequestId>& requestId);
+
     void startBlobTxResp(const Error &error,
                          boost::shared_ptr<apis::RequestId>& requestId,
                          boost::shared_ptr<apis::TxDescriptor>& txDesc);
@@ -70,14 +86,24 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
                          boost::shared_ptr<apis::RequestId>& requestId);
     void commitBlobTxResp(const Error &error,
                           boost::shared_ptr<apis::RequestId>& requestId);
+
     void updateBlobResp(const Error &error,
                         boost::shared_ptr<apis::RequestId>& requestId);
     void updateBlobOnceResp(const Error &error,
+                            boost::shared_ptr<apis::RequestId>& requestId);
+    void updateMetadataResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId);
 
     void statBlobResp(const Error &error,
                       boost::shared_ptr<apis::RequestId>& requestId,
                       boost::shared_ptr<apis::BlobDescriptor>& blobDesc);
+    void volumeStatusResp(const Error &error,
+                          boost::shared_ptr<apis::RequestId>& requestId,
+                          boost::shared_ptr<apis::VolumeStatus>& volumeStatus);
+    void volumeContentsResp(
+        const Error &error,
+        boost::shared_ptr<apis::RequestId>& requestId,
+        boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents);
 
     void getBlobResp(const Error &error,
                      boost::shared_ptr<apis::RequestId>& requestId,
