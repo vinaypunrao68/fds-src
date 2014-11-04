@@ -381,6 +381,23 @@ ObjectPersistData::scavengerControlCmd(SmScavengerCmd* scavCmd) {
                 scavenger->getScavengerStatus(statCmd->retStatus);
             }
             break;
+        case SmScavengerCmd::SCRUB_ENABLE:
+            {
+                scavenger->setDataVerify(true);
+            }
+            break;
+        case SmScavengerCmd::SCRUB_DISABLE:
+            {
+                scavenger->setDataVerify(false);
+            }
+            break;
+        case SmScavengerCmd::SCRUB_GET_STATUS:
+            {
+                SmScrubberGetStatusCmd *scrubCmd =
+                        static_cast<SmScrubberGetStatusCmd*>(scavCmd);
+                scavenger->getDataVerify(scrubCmd->scrubStat);
+            }
+            break;
         default:
             fds_panic("Unknown scavenger command");
     };
