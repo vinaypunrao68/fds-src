@@ -154,7 +154,7 @@ void BaseServerTask::dispatch_(uint8_t *data, uint32_t dataSz)
     // TODO(Rao):
     fpi::PutObjectMsgPtr putObj(new fpi::PutObjectMsg());
     auto read = mydeserialize(data, dataSz, *putObj);
-    std::cout << "deser sz: " << read << std::endl;
+    // std::cout << "deser sz: " << read << std::endl;
     fds_verify(read == dataSz);
 }
 
@@ -408,6 +408,7 @@ TEST_F(AMTest, smtest)
     double throughput = (static_cast<double>(1000000000) / (endTs - startTs)) * nPuts;
     std::cout << "start: " << startTs << "end: " << endTs << std::endl;
     std::cout << "Avg time: " << (endTs - startTs) / nPuts;
+    std::cout << "throuput: " << throughput << std::endl;
 }
 
 int main(int argc, char** argv) {
