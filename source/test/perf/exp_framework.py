@@ -392,6 +392,24 @@ class FdsCluster():
             self.pidmap.compute_pid_map()
             time.sleep(10)
 
+    def init_test_once(self, test_name, nvols):
+        print "initializing test for the first time:", test_name
+        if test_name == "tgen" or test_name == "amprobe" or test_name == "tgen_java":
+            for i in range(nvols):
+                requests.put("http://%s:8000/volume%d" % (self.options.nodes[self.options.main_node], i))
+        if test_name == "smoke-test":
+            pass
+        elif test_name == "tgen":
+            self._init_tgen_once()
+        elif test_name == "amprobe":
+            self._init_amprobe_once()
+        elif test_name == "tgen_java":
+            self._init_tgen_java_once()
+        elif test_name == "fio":
+            self._init_fio_once()
+        else:
+            assert False, "Test unknown: " + test_name
+
     def init_test(self, test_name, outdir, test_args = None):
         print "initializing test:", test_name
         self.outdir = outdir
@@ -406,6 +424,8 @@ class FdsCluster():
             self._init_amprobe(test_args)
         elif test_name == "tgen_java":
             self._init_tgen_java(test_args)
+        elif test_name == "fio":
+            self._init_fio(test_args)
         else:
             assert False, "Test unknown: " + test_name
 
@@ -419,6 +439,8 @@ class FdsCluster():
             output = self._run_amprobe(test_args)
         elif test_name == "tgen_java":
             output = self._run_tgen_java(test_args)
+        elif test_name == "fio":
+            output = self._run_fio(test_args)
         else:
             assert False, "Test unknown: " + test_name    
         outfile = open(self.outdir + "/test.out", "w")
@@ -431,15 +453,16 @@ class FdsCluster():
         print output
         return output
 
-    def _init_tgen(self, args):
+    def _init_tgen_once(self):
         if self.local_test == True:
             shutil.copyfile(self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py")
             self._loc_exec("rm -f /tmp/fdstrgen*")
         else:
             transfer_file(self.options.test_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
             ssh_exec(self.options.test_node, "rm -f /tmp/fdstrgen*")
-        for i in range(args["nvols"]):
-            requests.put("http://%s:8000/volume%d" % (self.options.nodes[self.options.main_node], i))
+
+    def _init_tgen(self, args):
+        pass
 
     def _run_tgen(self, test_args):
         cmd = "python3 /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d -u -N %s" % (
@@ -459,6 +482,9 @@ class FdsCluster():
         print "-->", output
         return output
 
+    def _init_amprobe_once(self):
+        pass
+
     def _init_amprobe(self, test_args):
         self._init_tgen(test_args)
         # FIXME: maybe redundant
@@ -473,9 +499,11 @@ class FdsCluster():
         of.write(output)
         of.close()
 
+    def _init_tgen_java_once(self):
+        pass
+
     def _init_tgen_java(self, args):
-        for i in range(args["nvols"]):
-            requests.put("http://%s:8000/volume%d" % (self.options.nodes[self.options.main_node], i))
+        pass
 
     def _run_tgen_java(self, test_args):
         def task(node, outs, queue):
@@ -510,6 +538,37 @@ class FdsCluster():
         time.sleep(30) # AM probe will keep processing stuff for a while
         cmd = "cat /fds/var/logs/am.*|grep CRITICAL"
         output = ssh_exec(self.options.main_node, cmd)
+        return output
+
+    def _init_fio_once(self):
+        cmd = "/fds/bin/fdscli --volume-create volume0 -i 1 -s 10240 -p 50 -y blk"
+        output = self._loc_exec(cmd)
+        time.sleep(5)
+        cmd = self.options.local_fds_root + "/source/cinder/nbdadm.py attach localhost volume0"
+        output = self._loc_exec(cmd)
+        time.sleep(5)
+        self.nbdvolume = output.rstrip("\n")
+        print "nbd:", self.nbdvolume
+        cmd = "/fds/bin/fdscli --volume-modify \"volume0\" -s 10240 -g 0 -m 0 -r 10"
+        output = self._loc_exec(cmd)
+        time.sleep(5)
+
+    def _init_fio(self, args):
+        pass
+    def _run_fio(self, test_args):
+        disk = self.nbdvolume
+        bs = test_args["bs"]
+        numjobs = test_args["numjobs"]
+        jobname = test_args["fio_jobname"]
+        rw = test_args["fio_type"]
+        options =   "--name=" + jobname + " " + \
+                    "--rw=" + rw + " " + \
+                    "--filename=" + disk + " " + \
+                    "--bs=" + str(bs) + " " + \
+                    "--numjobs=" + str(numjobs) + " " + \
+                    "--runtime=30 --ioengine=libaio --iodepth=16 --direct=1 --size=10g --minimal "
+        cmd = "fio " + options
+        output = self._loc_exec(cmd)
         return output
 
     # FIXME: move to global

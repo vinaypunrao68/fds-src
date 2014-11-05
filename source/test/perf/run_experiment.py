@@ -112,6 +112,8 @@ def main():
     fds = FdsCluster(options)
     fds.restart()
 
+    fds.init_test_once(tests[0]["test_type"], tests[0]["nvols"])  # FIXME: this is ugly... 
+
     # Execute tests
     for t in tests:
         print t

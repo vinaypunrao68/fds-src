@@ -130,7 +130,7 @@ service AsyncAmServiceRequest {
 	       7:i32 length, 8:ObjectOffset objectOffset, 9:map<string, string> metadata),
 
         oneway void deleteBlob(1:RequestId requestId, 2:string domainName, 
-	       3:string volumeName, 4:string blobName),
+	       3:string volumeName, 4:string blobName, 5:TxDescriptor txDesc),
 
         oneway void volumeStatus(1:RequestId requestId, 2:string domainName, 3:string volumeName)
 }
