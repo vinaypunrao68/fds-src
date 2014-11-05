@@ -42,8 +42,8 @@ do
                 fio $seq_writes --filename=$d --bs=$bs --numjobs=$job $output_format  --output $results/seq_writes.$target.$bs.$ag.$job.fio
                 fio $seq_reads --filename=$d --bs=$bs --numjobs=$job $output_format  --output $results/seq_reads.$target.$bs.$ag.$job.fio
                 fio $seq_readwrites --filename=$d --bs=$bs --numjobs=$job $output_format  --output $results/seq_readwrites.$target.$bs.$ag.$job.fio
-                
-                #fio $rand_writes --filename=$d --bs=$bs --numjobs=$job $output_format  --output $results/rand_writes.$target.$bs.$ag.$job.fio
+                # 
+                fio $rand_writes --filename=$d --bs=$bs --numjobs=$job $output_format  --output $results/rand_writes.$target.$bs.$ag.$job.fio
                 fio $rand_reads --filename=$d --bs=$bs --numjobs=$job $output_format  --output $results/rand_reads.$target.$bs.$ag.$job.fio
                 fio $rand_readwrites --filename=$d --bs=$bs --numjobs=$job $output_format  --output $results/rand_readwrites.$target.$bs.$ag.$job.fio
                 umount $d

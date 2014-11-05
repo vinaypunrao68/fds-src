@@ -408,6 +408,8 @@ class FdsCluster():
             self._init_amprobe(test_args)
         elif test_name == "tgen_java":
             self._init_tgen_java(test_args)
+        elif test_name == "fio":
+            self._init_fio(test_args)
         else:
             assert False, "Test unknown: " + test_name
 
@@ -421,6 +423,8 @@ class FdsCluster():
             output = self._run_amprobe(test_args)
         elif test_name == "tgen_java":
             output = self._run_tgen_java(test_args)
+        elif test_name == "fio":
+            output = self._run_fio(test_args)
         else:
             assert False, "Test unknown: " + test_name    
         outfile = open(self.outdir + "/test.out", "w")
@@ -512,6 +516,35 @@ class FdsCluster():
         time.sleep(30) # AM probe will keep processing stuff for a while
         cmd = "cat /fds/var/logs/am.*|grep CRITICAL"
         output = ssh_exec(self.options.main_node, cmd)
+        return output
+
+    def _init_fio(self, args):
+        cmd = "/fds/bin/fdscli --volume-create volume0 -i 1 -s 10240 -p 50 -y blk"
+        output = self._loc_exec(cmd)
+        time.sleep(5)
+        cmd = "../cinder/nbdadm.py attach localhost volume0"
+        output = self._loc_exec(cmd)
+        time.sleep(5)
+        nbdvolume = output.rstrip("\n")
+        args["disk"] = nbdvolume 
+        cmd = "/fds/bin/fdscli --volume-modify \"volume0\" -s 10240 -g 0 -m 0 -r 10"
+        output = self._loc_exec(cmd)
+        time.sleep(5)
+
+    def _run_fio(self, test_args):
+        filename = test_args["disk"]
+        bs = test_args["bs"]
+        numjobs = test_args["numjobs"]
+        jobname = test_args["fio_jobname"]
+        rw = test_args["fio_type"]
+        options =   "--name=" + jobname + " " +
+                    "--rw=" + fio_type + " " +
+                    "--filename=" + disk + " " +
+                    "--bs=" + bs + " " +
+                    "--numjobs=" + numjobs + " " +
+                    "--runtime=30 --ioengine=libaio --iodepth=16 --direct=$iodirect --size=10g --minimal "
+        cmd = "fio " + options
+        output = self._loc_exec(cmd)
         return output
 
     # FIXME: move to global
