@@ -40,7 +40,7 @@ public class SingletonAmAPI
         return instance();
     }
 
-    private AmService.Iface api;
+    private transient AmService.Iface api;
 
     /**
      * @param api the {@link AmService.Iface} representing the AM api

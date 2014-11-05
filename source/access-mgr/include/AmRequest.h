@@ -89,9 +89,6 @@ class AmRequest : public FDS_IOType {
     bool magicInUse() const
     { return (io_magic == FDS_SH_IO_MAGIC_IN_USE); }
 
-    fds_io_op_t  getIoType() const
-    { return io_type; }
-
     void cbWithResult(int result)
     { return callback(result); }
 
@@ -105,7 +102,6 @@ class AmRequest : public FDS_IOType {
     { queued_usec = _usec; }
 
  protected:
-    fds_uint32_t       magic;
     fds_uint64_t       queued_usec;  /* Time spent in queue */
     char*              data_buf;
     std::string        blob_name;

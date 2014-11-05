@@ -8,7 +8,12 @@ import org.joda.time.Duration;
 
 import java.util.Collection;
 import java.util.stream.Collectors;
-
+/**
+ * @deprecated the POC functionality has been replaced.
+ *
+ *             will be removed in the future
+ */
+@Deprecated
 public class VolumeStatistics {
     private final MinMaxPriorityQueue<VolumeDatapoint> window;
     private final Duration duration;

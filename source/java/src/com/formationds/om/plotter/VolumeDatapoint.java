@@ -6,6 +6,13 @@ package com.formationds.om.plotter;
 import org.joda.time.DateTime;
 import org.json.JSONObject;
 
+/**
+ * @deprecated the POC functionality has been replaced
+ *             {@link com.formationds.commons.model.entity.VolumeDatapoint}
+ *
+ *             will be removed in the future
+ */
+@Deprecated
 public class VolumeDatapoint implements Comparable<VolumeDatapoint> {
     private DateTime dateTime;
     private String volumeName;
