@@ -1,10 +1,10 @@
-#!/bin/bash -le
+#!/bin/bash -l
 
 ulimit -c unlimited
 ulimit -n 400000
 
 #Report the current ulimits
-
+echo "Current ulimit settings:"
 ulimit -a
 
 function unit_tests
@@ -18,7 +18,6 @@ function unit_tests
    cd -
 }
 
-
 function system_tests
 {
    echo "RUNNING SYSTEM TEST"
@@ -30,18 +29,14 @@ function system_tests
    cd -
 }
 
-
 function fds_start
 {
    echo "STARTING FDS"
 
    # bring-up FDS in simulation mode
-   set +e
    source/tools/fds stop
    source/tools/fds cleanstart
-   set -e
 }
-
 
 function fds_smoketest
 {
@@ -51,20 +46,14 @@ function fds_smoketest
    AM_IP=$(grep `hostname` /etc/hosts | awk '{print $1}')
    source/test/fds-primitive-smoke.py --up false --down false --am_ip $AM_IP
    [[ $? -ne 0 ]] && echo "SMOKE TEST:  FAILED" && exit 96
-
-   echo "Done RUNNING SMOKE TESTs"
 }
-
 
 function fds_stop
 {
    echo "STOPPING FDS"
    
    # Tear down
-   set +e
    source/tools/fds stop
-   true
-   set -e
 }
 
 root_dir=$(pwd)
