@@ -112,9 +112,9 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         err =  ERR_NOT_IMPLEMENTED;
     } else {
         if (fCheck) {
-            err = dataMgr->process_rm_vol(vol_uuid, fCheck);
             // delete the volume blobs first
             err = dataMgr->deleteVolumeContents(vol_uuid);
+            err = dataMgr->process_rm_vol(vol_uuid, fCheck);
         } else {
             err = dataMgr->process_rm_vol(vol_uuid, fCheck);
         }

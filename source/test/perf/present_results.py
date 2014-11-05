@@ -193,16 +193,21 @@ if __name__ == "__main__":
         #for e in experiments:
         #    print e
         experiments = [ x for x in experiments]
+        print experiments
         experiemnts = filter(lambda x : x["type"] == "GET", experiments)
         experiments = sorted(experiemnts, key = lambda k : int(k["threads"]))
-        iops = [x["th"] for x in experiments]    
+        #iops = [x["th"] for x in experiments]    
+        iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
+        iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
+        iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
         lat = [x["lat"] for x in experiments]    
         #print [x["nreqs"] for x in experiments]    
         conns = [x["threads"] for x in experiments]    
 
-        max_iops = max(iops)
+        #max_iops = max(iops)
+        iops_50 = iops[-1]
         lat_50 = lat[-1]
-        summary[t] = {"iops" : max_iops, "lat" : lat_50}
+        summary[t] = {"iops" : iops_50, "lat" : lat_50}
 
         #print [x["type"] for x in experiments]    
         # iops = [x["am:am_get_obj_req:count"] for x in experiments]    

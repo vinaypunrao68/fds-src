@@ -60,6 +60,7 @@ class ObjectStore : public Module, public boost::noncopyable {
                 StorMgrVolumeTable* volTbl);
     ~ObjectStore();
     typedef std::unique_ptr<ObjectStore> unique_ptr;
+    typedef std::shared_ptr<ObjectStore> ptr;
 
     /**
      * Notification about DLT change

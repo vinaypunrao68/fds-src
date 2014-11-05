@@ -161,7 +161,7 @@ public enum EventManager {
                                       public void postPersist(VolumeDatapoint entity) {
                                           logger.trace( "postPersist handling of VolumeDatapoint {}", entity);
                                           try {
-                                              List<VolumeDatapoint> vdp = Arrays.asList(new VolumeDatapoint[] {entity});
+                                              List<VolumeDatapoint> vdp = Arrays.asList( new VolumeDatapoint[]{ entity } );
                                               List<Series> fb =
                                                       new FirebreakHelper().processFirebreak(vdp);
 
@@ -195,7 +195,7 @@ public enum EventManager {
     public boolean notifyEvent(Event e) {
         try { return notifier.handleEventNotification(e); }
         catch (RuntimeException re) {
-            logger.error(String.format("Failed to persist event key={}", key), re);
+            logger.error(String.format( "Failed to persist event key=%s", key ), re);
             return false;
         }
     }

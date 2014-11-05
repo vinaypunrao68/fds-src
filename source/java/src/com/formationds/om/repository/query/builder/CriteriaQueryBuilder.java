@@ -24,9 +24,10 @@ import java.util.List;
  *
  * @param <T>
  */
+@SuppressWarnings( "UnusedDeclaration" )
 public class CriteriaQueryBuilder<T> {
 
-    private static final Logger logger = LoggerFactory.getLogger(VolumeCriteriaQueryBuilder.class);
+    private static final Logger logger = LoggerFactory.getLogger(CriteriaQueryBuilder.class);
 
     protected static final String VALUE = "value";
 
@@ -73,6 +74,7 @@ public class CriteriaQueryBuilder<T> {
      *
      * @return Returns {@link VolumeCriteriaQueryBuilder}
      */
+    @SuppressWarnings( "unchecked" )
     public <CQ extends CriteriaQueryBuilder> CQ withDateRange( final DateRange dateRange ) {
         if( dateRange != null ) {
             final Path<Long> timestamp = from.get( getTimestampField() );
@@ -105,6 +107,7 @@ public class CriteriaQueryBuilder<T> {
      *
      * @return Returns {@link CriteriaQueryBuilder}
      */
+    @SuppressWarnings( "unchecked" )
     public <CQ extends CriteriaQueryBuilder> CQ maxResults( final int maxResults ) {
         this.maxResults = maxResults;
         return (CQ)this;
@@ -115,6 +118,7 @@ public class CriteriaQueryBuilder<T> {
      *
      * @return Returns {@link CriteriaQueryBuilder}
      */
+    @SuppressWarnings( "unchecked" )
     public <CQ extends CriteriaQueryBuilder> CQ firstResult( final int firstResult ) {
         this.firstResult = firstResult;
         return (CQ)this;
@@ -125,6 +129,7 @@ public class CriteriaQueryBuilder<T> {
      *
      * @return Returns {@link VolumeCriteriaQueryBuilder}
      */
+    @SuppressWarnings( "unchecked" )
     public <CQ extends CriteriaQueryBuilder> CQ searchFor(final QueryCriteria searchCriteria ) {
 
         if ( searchCriteria.getRange() != null )
@@ -140,7 +145,7 @@ public class CriteriaQueryBuilder<T> {
             this.firstResult( searchCriteria.getFirstPoint().intValue() );
 
         if ( searchCriteria.getPoints() != null )
-            this.maxResults( searchCriteria.getPoints().intValue() );
+            this.maxResults( searchCriteria.getPoints() );
 
         return (CQ)this;
     }
@@ -150,6 +155,7 @@ public class CriteriaQueryBuilder<T> {
      *
      * @return Returns {@link VolumeCriteriaQueryBuilder}
      */
+    @SuppressWarnings( "unchecked" )
     public <CQ extends CriteriaQueryBuilder> CQ withContexts( final List<Context> contexts ) {
         if( contexts != null ) {
             final List<String> in = new ArrayList<>();
@@ -222,8 +228,12 @@ public class CriteriaQueryBuilder<T> {
                                    .orderBy( cb.asc( from.get( getContextName() ) ),
                                              cb.asc( from.get( getTimestampField() ) ) )
                                    .where(
-                                             cb.and(andPredicates.toArray( new Predicate[ andPredicates.size() ] ) ),
-                                             cb.or(orPredicates.toArray( new Predicate[ orPredicates.size() ] ) )
+                                       cb.and(
+                                           andPredicates.toArray(
+                                               new Predicate[ andPredicates.size() ] ) ),
+                                       cb.or(
+                                           orPredicates.toArray(
+                                               new Predicate[ orPredicates.size() ] ) )
                                          )
                          );
         }
@@ -234,7 +244,9 @@ public class CriteriaQueryBuilder<T> {
                                    .orderBy( cb.asc( from.get( getContextName() ) ),
                                              cb.asc( from.get( getTimestampField() ) ) )
                                    .where(
-                                             cb.or(orPredicates.toArray( new Predicate[ orPredicates.size() ] ) )
+                                       cb.or(
+                                           orPredicates.toArray(
+                                               new Predicate[ orPredicates.size() ] ) )
                                          )
                          );
         }
@@ -245,7 +257,9 @@ public class CriteriaQueryBuilder<T> {
                                    .orderBy( cb.asc( from.get( getContextName() ) ),
                                              cb.asc( from.get( getTimestampField() ) ) )
                                    .where(
-                                             cb.and( andPredicates.toArray( new Predicate[ andPredicates.size() ] ) )
+                                       cb.and(
+                                           andPredicates.toArray(
+                                               new Predicate[ andPredicates.size() ] ) )
                                          )
                          );
         }
@@ -256,11 +270,13 @@ public class CriteriaQueryBuilder<T> {
                                          cb.asc( from.get( getTimestampField() ) ) ) );
     }
 
+    @SuppressWarnings( "unchecked" )
     protected <CQ extends CriteriaQueryBuilder> CQ and(Predicate p) {
         andPredicates.add(p);
         return (CQ)this;
     }
 
+    @SuppressWarnings( "unchecked" )
     protected <CQ extends CriteriaQueryBuilder> CQ or(Predicate p) {
         orPredicates.add(p);
         return (CQ)this;

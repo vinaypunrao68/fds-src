@@ -11,6 +11,7 @@ import java.io.Serializable;
 /**
  * @author ptinius
  */
+@SuppressWarnings( "NonSerializableFieldInSerializableClass" )
 public class SingletonConfigAPI
     implements Serializable {
     private static final long serialVersionUID = 8183577476145998036L;

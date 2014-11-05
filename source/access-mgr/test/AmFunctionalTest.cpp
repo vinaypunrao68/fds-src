@@ -108,8 +108,19 @@ class AmLoadProc : public AmAsyncResponseApi {
         PUT,
         GET,
         STARTTX,
-        STAT
+        STAT,
+        PUTMETA,
+        LISTVOL
     };
+
+    void attachVolumeResp(const Error &error,
+                          boost::shared_ptr<apis::RequestId>& requestId) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
 
     void startBlobTxResp(const Error &error,
                          boost::shared_ptr<apis::RequestId>& requestId,
@@ -139,6 +150,15 @@ class AmLoadProc : public AmAsyncResponseApi {
         }
     }
 
+    void updateMetadataResp(const Error &error,
+                        boost::shared_ptr<apis::RequestId>& requestId) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
     void abortBlobTxResp(const Error &error,
                          boost::shared_ptr<apis::RequestId>& requestId) {
         fds_verify(ERR_OK == error);
@@ -160,6 +180,26 @@ class AmLoadProc : public AmAsyncResponseApi {
     void statBlobResp(const Error &error,
                       boost::shared_ptr<apis::RequestId>& requestId,
                       boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
+    void volumeStatusResp(const Error &error,
+                          boost::shared_ptr<apis::RequestId>& requestId,
+                          boost::shared_ptr<apis::VolumeStatus>& volumeStatus) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
+    void volumeContentsResp(const Error &error,
+                            boost::shared_ptr<apis::RequestId>& requestId,
+                            boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents) {
         fds_verify(ERR_OK == error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -211,6 +251,37 @@ class AmLoadProc : public AmAsyncResponseApi {
                                            domainName,
                                            volumeName,
                                            blobGen.blobName);
+            } else if (opType == PUTMETA) {
+                // Always use an empty request ID since we don't track
+                boost::shared_ptr<apis::RequestId> reqId(
+                    boost::make_shared<apis::RequestId>());
+                boost::shared_ptr<apis::TxDescriptor> txDesc(
+                    boost::make_shared<apis::TxDescriptor>());
+                // TODO(Andrew): Setup a test case where this is
+                // set done before hand, otherwise these fail
+                txDesc->txId = 0;
+                am->asyncDataApi->updateMetadata(reqId,
+                                                 domainName,
+                                                 volumeName,
+                                                 blobGen.blobName,
+                                                 txDesc,
+                                                 meta);
+            } else if (opType == LISTVOL) {
+                // Always use an empty request ID since we don't track
+                boost::shared_ptr<apis::RequestId> reqId(
+                    boost::make_shared<apis::RequestId>());
+                // dummy values for state that we don't use
+                boost::shared_ptr<int32_t> count(
+                    boost::make_shared<int32_t>());
+                *count = 0;
+                boost::shared_ptr<int64_t> offset(
+                    boost::make_shared<int64_t>());
+                *offset = 0;
+                am->asyncDataApi->volumeContents(reqId,
+                                                 domainName,
+                                                 volumeName,
+                                                 count,
+                                                 offset);
             } else {
                 fds_panic("Unknown op type");
             }
@@ -427,6 +498,11 @@ TEST(AccessMgr, asyncUpdateBlob) {
 TEST(AccessMgr, asyncStatBlob) {
     GLOGDEBUG << "Testing async statBlob";
     amLoad->runAsyncTask(AmLoadProc::STAT);
+}
+
+TEST(AccessMgr, asyncVolumeContents) {
+    GLOGDEBUG << "Testing async volumeContents";
+    amLoad->runAsyncTask(AmLoadProc::LISTVOL);
 }
 
 }  // namespace fds
