@@ -354,9 +354,6 @@ AsyncGetObjectResponseHandler::process() {
 AsyncGetObjectResponseHandler::~AsyncGetObjectResponseHandler() {
 }
 
-AsyncGetObjectResponseHandler::~AsyncGetObjectResponseHandler() {
-}
-
 AttachVolumeResponseHandler::AttachVolumeResponseHandler() {
 }
 
