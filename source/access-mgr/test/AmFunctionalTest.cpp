@@ -187,6 +187,15 @@ class AmLoadProc : public AmAsyncResponseApi {
         }
     }
 
+    void deleteBlobResp(const Error &error,
+                        boost::shared_ptr<apis::RequestId>& requestId) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
     void volumeStatusResp(const Error &error,
                           boost::shared_ptr<apis::RequestId>& requestId,
                           boost::shared_ptr<apis::VolumeStatus>& volumeStatus) {

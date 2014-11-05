@@ -9,68 +9,41 @@
 namespace fds {
 
 AmCache::AmCache(const std::string &modName)
-        : Module(modName.c_str()),
-          maxEntries(500),
-          evictionType(LRU) {
-    blobDescCache = std::unique_ptr<BlobDescCacheManager>(
-        new BlobDescCacheManager("AM blob descriptor cache manager"));
-    blobOffsetCache = std::unique_ptr<BlobOffsetCacheManager>(
-        new BlobOffsetCacheManager("AM blob offset cache manager"));
-    blobObjectCache = std::unique_ptr<BlobObjectCacheManager>(
-        new BlobObjectCacheManager("AM blob object cache manager"));
-
+    :   Module(modName.c_str()),
+        descriptor_cache("AM blob descriptor cache manager"),
+        offset_cache("AM blob offset cache manager"),
+        object_cache("AM blob object cache manager"),
+        max_entries(500)
+{
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    maxEntries = conf.get<fds_uint32_t>("cache.default_max_entries");
-}
-
-AmCache::~AmCache() {
-}
-
-int
-AmCache::mod_init(SysParams const *const param) {
-    Module::mod_init(param);
-    return 0;
-}
-
-void
-AmCache::mod_startup() {
-}
-
-void
-AmCache::mod_shutdown() {
+    max_entries = conf.get<fds_uint32_t>("cache.default_max_entries");
 }
 
 Error
 AmCache::createCache(const VolumeDesc& volDesc) {
-    Error err = blobDescCache->createCache(volDesc.volUUID,
-                                           maxEntries,
-                                           evictionType);
+    Error err = descriptor_cache.createCache(volDesc.volUUID, max_entries);
     if (err != ERR_OK) {
         return err;
     }
-    err = blobOffsetCache->createCache(volDesc.volUUID,
-                                       maxEntries,
-                                       evictionType);
+    err = offset_cache.createCache(volDesc.volUUID, max_entries);
     if (err != ERR_OK) {
         return err;
     }
-    err = blobObjectCache->createCache(volDesc.volUUID,
-                                       maxEntries,
-                                       evictionType);
+    err = object_cache.createCache(volDesc.volUUID, max_entries);
     return err;
 }
 
 Error
 AmCache::removeCache(fds_volid_t volId) {
-    Error err = blobDescCache->deleteCache(volId);
+    Error err = descriptor_cache.deleteCache(volId);
     if (err != ERR_OK) {
         return err;
     }
-    err = blobOffsetCache->deleteCache(volId);
+    err = offset_cache.deleteCache(volId);
     if (err != ERR_OK) {
         return err;
     }
-    err = blobObjectCache->deleteCache(volId);
+    err = object_cache.deleteCache(volId);
     return err;
 }
 
@@ -81,16 +54,12 @@ AmCache::getBlobDescriptor(fds_volid_t volId,
     LOGTRACE << "Cache lookup for volume " << std::hex << volId << std::dec
              << " blob " << blobName;
 
-    BlobDescriptor *blobDescPtr = NULL;
-    error = blobDescCache->get(volId, blobName, &blobDescPtr);
+    BlobDescriptor::ptr blobDescPtr;
+    error = descriptor_cache.get(volId, blobName, blobDescPtr);
     if (error == ERR_OK) {
         PerfTracer::incr(AM_DESC_CACHE_HIT, volId);
-        // Copy the blob descriptor into an object we can safely
-        // return to the caller
-        BlobDescriptor::ptr blobDesc(new BlobDescriptor(*blobDescPtr));
-        return blobDesc;
     }
-    return NULL;
+    return blobDescPtr;
 }
 
 ObjectID::ptr
@@ -101,17 +70,12 @@ AmCache::getBlobOffsetObject(fds_volid_t volId,
     LOGTRACE << "Cache lookup for volume " << std::hex << volId << std::dec
              << " blob " << blobName << " offset " << blobOffset;
 
-    ObjectID *blobObjectPtr = NULL;
-    BlobOffsetPair offsetPair(blobName, blobOffset);
-    error = blobOffsetCache->get(volId, offsetPair, &blobObjectPtr);
+    ObjectID::ptr blobOffsetPtr;
+    error = offset_cache.get(volId, BlobOffsetPair(blobName, blobOffset), blobOffsetPtr);
     if (error == ERR_OK) {
         PerfTracer::incr(AM_OFFSET_CACHE_HIT, volId);
-        // Copy the blob descriptor into an object we can safely
-        // return to the caller
-        ObjectID::ptr blobObjectId(new ObjectID(*blobObjectPtr));
-        return blobObjectId;
     }
-    return NULL;
+    return blobOffsetPtr;
 }
 
 boost::shared_ptr<std::string>
@@ -121,21 +85,16 @@ AmCache::getBlobObject(fds_volid_t volId,
     LOGTRACE << "Cache lookup for volume " << std::hex << volId << std::dec
              << " object " << objectId;
 
-    std::string *blobObjectPtr = NULL;
-    error = blobObjectCache->get(volId, objectId, &blobObjectPtr);
+    boost::shared_ptr<std::string> blobObjectPtr;
+    error = object_cache.get(volId, objectId, blobObjectPtr);
     if (error == ERR_OK) {
         PerfTracer::incr(AM_OBJECT_CACHE_HIT, volId);
-        // Copy the blob descriptor into an object we can safely
-        // return to the caller
-        boost::shared_ptr<std::string> blobObject(new std::string(
-            *blobObjectPtr));
-        return blobObject;
     }
-    return NULL;
+    return blobObjectPtr;
 }
 
 Error
-AmCache::putTxDescriptor(const AmTxDescriptor::ptr &txDesc) {
+AmCache::putTxDescriptor(const AmTxDescriptor::ptr txDesc) {
     LOGTRACE << "Cache insert tx descriptor for volume " << std::hex
              << txDesc->volId << std::dec << " blob " << txDesc->blobName;
     Error err(ERR_OK);
@@ -150,11 +109,9 @@ AmCache::putTxDescriptor(const AmTxDescriptor::ptr &txDesc) {
         // Add blob descriptor from tx to descriptor cache
         // TODO(Andrew): We copy now because the data given to cache
         // isn't actually shared. It needs its own copy.
-        BlobDescriptor *cacheDesc = new BlobDescriptor(txDesc->stagedBlobDesc);
-        std::unique_ptr<BlobDescriptor> evictedDesc =
-                blobDescCache->add(cacheDesc->getVolId(),
-                                   cacheDesc->getBlobName(),
-                                   cacheDesc);
+        BlobDescriptor::ptr cacheDesc = txDesc->stagedBlobDesc;
+        BlobDescriptor::ptr evictedDesc =
+                descriptor_cache.add(cacheDesc->getVolId(), cacheDesc->getBlobName(), cacheDesc);
         if (evictedDesc != NULL) {
             LOGTRACE << "Evicted cached descriptor " << *evictedDesc;
         }
@@ -164,9 +121,9 @@ AmCache::putTxDescriptor(const AmTxDescriptor::ptr &txDesc) {
             // TODO(Andrew): Allocate an objectId the cache can own.
             // We should change this to just take a pointer from the
             // transaction manager
-            ObjectID *cacheObjId = new ObjectID(offsetPair.second);
-            std::unique_ptr<ObjectID> evictedObjId =
-                    blobOffsetCache->add(txDesc->volId,
+            ObjectID::ptr cacheObjId = boost::make_shared<ObjectID>(offsetPair.second);
+            ObjectID::ptr evictedObjId =
+                    offset_cache.add(txDesc->volId,
                                          offsetPair.first,
                                          cacheObjId);
             if (evictedObjId != NULL) {
@@ -176,14 +133,9 @@ AmCache::putTxDescriptor(const AmTxDescriptor::ptr &txDesc) {
 
         // Add blob objects from tx to object cache
         for (const auto &object : txDesc->stagedBlobObjects) {
-            // Get the object data pointer from the tx descriptor
-            // since it has already been copied by the descriptor
-            std::string *objectData = object.second;
-            std::unique_ptr<std::string> evictedObject =
-                    blobObjectCache->add(txDesc->volId,
-                                         object.first,
-                                         objectData);
-            if (evictedObject != NULL) {
+            boost::shared_ptr<std::string> evictedObject =
+                    object_cache.add(txDesc->volId, object.first, object.second);
+            if (evictedObject) {
                 LOGTRACE << "Evicted cached object data of size " << evictedObject->size();
             }
         }
@@ -194,13 +146,12 @@ AmCache::putTxDescriptor(const AmTxDescriptor::ptr &txDesc) {
 Error
 AmCache::putBlobDescriptor(fds_volid_t volId,
                            const std::string &blobName,
-                           const BlobDescriptor::ptr &blobDesc) {
+                           const BlobDescriptor::ptr blobDesc) {
     // Copy desc contents in structure owned by cache
     // TODO(Andrew): We copy now because the data given to cache
     // isn't actually shared. It needs its own copy.
-    BlobDescriptor *cacheDesc = new BlobDescriptor(blobDesc);
-    std::unique_ptr<BlobDescriptor> evictedDesc =
-            blobDescCache->add(volId, blobName, cacheDesc);
+    BlobDescriptor::ptr cacheDesc = boost::make_shared<BlobDescriptor>(blobDesc);
+    BlobDescriptor::ptr evictedDesc = descriptor_cache.add(volId, blobName, cacheDesc);
 
     if (evictedDesc != NULL) {
         LOGTRACE << "Evicted cached descriptor " << *evictedDesc;
@@ -212,7 +163,7 @@ Error
 AmCache::removeBlob(fds_volid_t volId,
                     const std::string &blobName) {
     // Remove from blob descriptor cache
-    Error err = blobDescCache->remove(volId, blobName);
+    Error err = descriptor_cache.remove(volId, blobName);
 
     // Remove from blob offset cache
     // TODO(Andrew): Need to be able to delete from the offset cache

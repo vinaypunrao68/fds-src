@@ -190,7 +190,7 @@ class VolumeInfo : public Resource, public HasState
         return vol_properties;
     }
 
-    fpi::ResourceState getState() {
+    fpi::ResourceState getState() const {
         if (vol_properties) return vol_properties->getState();
         return fpi::ResourceState::Unknown;
     }

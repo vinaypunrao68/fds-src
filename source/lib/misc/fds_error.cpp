@@ -259,4 +259,36 @@ FDSN_Status getStatusFromError(const Error& error) {
     }
 }
 
+Exception::Exception(const Error& e, const std::string& message) throw()
+        : err(e), message(message) {
+    if (message.empty()) {
+        this->message = e.GetErrstr();
+    }
+}
+
+Exception::Exception(const std::string& message) throw()
+        : err(ERR_INVALID) , message(message) {
+}
+
+Exception::Exception(const Exception& e) throw() {
+    err = e.err;
+    message = e.message;
+}
+
+Exception& Exception::operator= (const Exception& e) throw() {
+    err = e.err;
+    message = e.message;
+    return *this;
+}
+
+const Error& Exception::getError() const {
+    return err;
+}
+
+Exception::~Exception() throw() {}
+
+const char* Exception::what() const throw() {
+    return message.c_str();
+}
+
 }  // namespace fds
