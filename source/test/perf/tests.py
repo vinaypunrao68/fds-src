@@ -80,7 +80,7 @@ class TestList():
         for size in [4096]:
             for nvols in [1]:
                 # for th in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40]:
-                for th in range(10,12):
+                for th in range(10,15):
                     #for outs in [2, 4, 10, 20, 50]:
                     for outs in [2]:
                         #for th in [4]:
