@@ -174,7 +174,7 @@ AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
         // Copy the data into the tx manager. This allows the
         // tx manager to hand off the ptr to the cache later.
         txMapIt->second->stagedBlobObjects[objectId] =
-                new std::string(objectData, dataLen);
+            boost::make_shared<std::string>(objectData, dataLen);
     }
 
     return ERR_OK;
