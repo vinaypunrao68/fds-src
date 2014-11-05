@@ -47,7 +47,7 @@ public class NodeBuilder {
   }
 
   /**
-   * @param uuid teh {@code long} representing the universal unique identifier
+   * @param uuid the {@code long} representing the universal unique identifier
    *
    * @return Returns the {@link NodeBuilder}
    */

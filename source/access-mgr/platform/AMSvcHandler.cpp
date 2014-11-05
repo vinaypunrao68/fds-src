@@ -119,29 +119,27 @@ AMSvcHandler::AttachVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                         boost::shared_ptr<fpi::CtrlNotifyVolAdd> &vol_msg)
 {
     auto vol_uuid = vol_msg->vol_desc.volUUID;
-    VolumeDesc vdesc(vol_msg->vol_desc), * vdb = &vdesc;
+    VolumeDesc vdesc(vol_msg->vol_desc);
     GLOGNOTIFY << "StorHvVolumeTable - Received volume attach event from OM"
                        << " for volume " << std::hex << vol_uuid << std::dec;
 
     Error err(ERR_OK);
     if (vol_uuid != invalid_vol_id) {
-        err = storHvisor->vol_table->registerVolume(vdb ? *vdb : VolumeDesc("", vol_uuid));
+        err = storHvisor->vol_table->registerVolume(vdesc);
         // TODO(Anna) remove this assert when we implement response handling in AM
         // for crete bucket, if err not ok, it is most likely QOS admission control issue
         fds_verify(err.ok());
         // Create cache structures for volume
-        err = storHvisor->amCache->createCache(*vdb);
+        err = storHvisor->amCache->createCache(vdesc);
         fds_verify(err == ERR_OK);
     } else {
         /* complete all requests that are waiting on bucket to attach with error */
-        if (vdb) {
-            GLOGNOTIFY << "Requested volume "
-                       << vdb->name << " does not exist";
-            storHvisor->vol_table->
-                    moveWaitBlobsToQosQueue(vol_uuid,
-                                            vdb->name,
-                                            ERR_NOT_FOUND);
-        }
+        GLOGNOTIFY << "Requested volume "
+                   << vdesc.name << " does not exist";
+        storHvisor->vol_table->
+                moveWaitBlobsToQosQueue(vol_uuid,
+                                        vdesc.name,
+                                        ERR_NOT_FOUND);
     }
 
     // we return without wait for that to be clearly finish, not big deal.

@@ -78,6 +78,12 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void queryScavengerPolicy(boost::shared_ptr<fpi::AsyncHdr> &hdr,
             boost::shared_ptr<fpi::CtrlQueryScavengerPolicy> &policy_msg);
 
+    void queryScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+            boost::shared_ptr<fpi::CtrlQueryScrubberStatus> &scrub_msg);
+
+    void setScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+            boost::shared_ptr<fpi::CtrlSetScrubberStatus> &scrub_msg);
+
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                     boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt);

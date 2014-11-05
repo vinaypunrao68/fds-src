@@ -517,6 +517,9 @@ class SmIoCompactObjects : public SmIoReq {
     /* tier that we are compacting */
     diskio::DataTier tier;
 
+    /// also verify data before compacting
+    fds_bool_t verifyData;
+
     /* response callback */
     cbType smio_compactobj_resp_cb;
 };

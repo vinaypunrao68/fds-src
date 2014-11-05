@@ -25,6 +25,7 @@ linux-*
 /source/net-proxies/*_server.c
 /source/net-proxies/*_xdr.c
 /source/include/fdsp/*
+/source/unit-test/fds-probe/am/in.h
 /source/unit-test/fds-probe/s3-template/o.h
 /source/unit-test/fds-probe/thrift/thrift-gen/*
 source/unit-test/fds-probe/thrift/server/endpoint-test.P

@@ -1,6 +1,8 @@
 Build/linux-x86_64.debug/tests/sharedcache_gtest
 Build/linux-x86_64.debug/tests/smtokenplace_gtest
-Build/linux-x86_64.debug/tests/dm_volume_catalog_gtest
+Build/linux-x86_64.debug/tests/dm_volume_catalog_gtest --fds-root=./config/
 Build/linux-x86_64.debug/tests/sm_superblock_gtest
 Build/linux-x86_64.debug/tests/smtokcompactor_gtest
 Build/linux-x86_64.debug/tests/smtoken_state_gtest
+Build/linux-x86_64.debug/tests/AmFunctionalTest --fds-root=./config/ --fds.am.testing.toggleStandAlone=true --fds.am.log_severity=crit --fds.am.testing.uturn_dispatcher_all=true
+Build/linux-x86_64.debug/tests/smdiskmap_unit_test --fds-root=./config/ --fds.sm.testing.standalone=true

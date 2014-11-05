@@ -86,7 +86,8 @@ class DiskScavenger {
         SCAV_STATE_STOPPING  // stop was called, finishing compaction
     };
 
-    Error startScavenge(fds_uint32_t token_reclaim_threshold = 0);
+    Error startScavenge(fds_bool_t verify,
+                        fds_uint32_t token_reclaim_threshold = 0);
     void stopScavenge();
 
     /**
@@ -133,7 +134,7 @@ class DiskScavenger {
      * Query and update disk stats (available size ,etc)
      * If GC is in progress, this method is noop
      */
-    void updateDiskStats();
+    void updateDiskStats(fds_bool_t verify_data);
 
     fds_bool_t isTokenCompacted(const fds_token_id& tok_id);
 
@@ -159,10 +160,15 @@ class DiskScavenger {
     fds_bool_t noPersistScavStats;
 
     /**
-     * non-configurable params (set in constructor
+     * non-configurable params (set in constructor)
      */
     diskio::DataTier tier;
     fds_uint16_t    disk_id;
+
+    // TODO(Anna) we are piggybacking data verification here
+    // we should consider making it a more generic maintenance
+    // taks, or abstract the generic part into a base class
+    std::atomic<fds_bool_t> verifyData;
 
     /**
      * configurable disk scavenger policy
@@ -221,6 +227,18 @@ class ScavControl : public Module {
      * start scavenger process until enableScavenger() is called
      */
     void disableScavenger();
+
+    /**
+    * Set whether the scrubber will run with scavenger or not
+    */
+    void setDataVerify(fds_bool_t verify) {
+        verifyData = verify;
+    }
+
+    /**
+    * Get status of scrubber (enabled=true, disabled=false)
+    */
+    void getDataVerify(const fpi::CtrlQueryScrubberStatusRespPtr& statusResp);
 
     /**
      * Start scavenging
@@ -286,6 +304,7 @@ class ScavControl : public Module {
   private:
     std::atomic<fds_bool_t> enabled;
     fds_bool_t noPersistScavStats;
+    std::atomic<fds_bool_t> verifyData;
 
     ScavPolicyType  scavPolicy;
 

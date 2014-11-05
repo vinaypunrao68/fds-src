@@ -7,6 +7,7 @@ package com.formationds.om.rest.metrics;
 import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.repository.helper.QueryHelper;
+import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
@@ -27,10 +28,10 @@ import java.util.Map;
  */
 public class QueryMetrics
   implements RequestHandler {
-  private static final transient Logger logger =
+  private static final Logger logger =
     LoggerFactory.getLogger( QueryMetrics.class );
 
-  private static final Type TYPE = new TypeToken<QueryCriteria>() { }.getType();
+  private static final Type TYPE = new TypeToken<MetricQueryCriteria>() { }.getType();
 
   public QueryMetrics() {
     super();

@@ -5,7 +5,8 @@ user_build_dir    :=
 user_incl_dir     := \
     ../include \
     ../stor-hvisor \
-	$(topdir)
+		$(topdir) \
+		/usr/include/cryptopp
 
 user_cpp_flags    :=
 user_cpp          := $(wildcard *.cpp)

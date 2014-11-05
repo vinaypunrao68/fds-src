@@ -39,22 +39,10 @@ SMChk::SMChk(int sm_count, SmDiskMap::ptr smDiskMap,
     delete dlt;
 }
 
-SMChk::SMChk(DLT* dlt, SmDiskMap::ptr smDiskMap,
-        ObjectDataStore::ptr smObjStore, ObjectMetadataDb::ptr smMdDb):
-        smDiskMap(smDiskMap),
+SMChk::SMChk(ObjectDataStore::ptr smObjStore, ObjectMetadataDb::ptr smMdDb)
+        : smDiskMap(nullptr), sm_count(0),
         smObjStore(smObjStore),
-        smMdDb(smMdDb) {
-    GLOGDEBUG << "Using DLT: " << *dlt;
-    Error err = smDiskMap->handleNewDlt(dlt);
-    fds_verify(err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE));
-
-    // Open the data store
-    smObjStore->openDataStore(smDiskMap,
-            (err == ERR_SM_NOERR_PRISTINE_STATE));
-
-    // Meta db
-    smMdDb->openMetadataDb(smDiskMap);
-}
+        smMdDb(smMdDb) {}
 
 SmTokenSet SMChk::getSmTokens() {
     return smDiskMap->getSmTokens();
@@ -104,7 +92,7 @@ int SMChk::bytes_reclaimable() {
             bytes += omd->getObjSize();
         }
     }
-    std::cout << "Found " << bytes << " bytes reclaimable.\n";
+    GLOGNORMAL << "Found " << bytes << " bytes reclaimable.\n";
     return bytes;
 }
 
@@ -147,8 +135,7 @@ bool SMChk::consistency_check(fds_token_id token) {
 
         // Compare hash to objID
         if (hashId != id) {
-            std::cout << "An error was found with " << id << "\n";
-            GLOGNORMAL << id << " corrupt!\n";
+            GLOGNORMAL << "An error was found with " << id << "\n" << *omd;
             error_count++;
         }
         // omd will auto delete when it goes out of scope
@@ -159,10 +146,10 @@ bool SMChk::consistency_check(fds_token_id token) {
     delete ldb;
 
     if (error_count > 0) {
-        std::cout << "WARNING: " << error_count << " errors were found.\n";
+        GLOGNORMAL << "WARNING: " << error_count << " errors were found.\n";
         return false;
     }
-    std::cout << "SUCCESS! No errors found.\n";
+    GLOGNORMAL << "SUCCESS! No errors found.\n";
     return true;
 }
 
@@ -192,8 +179,8 @@ bool SMChk::full_consistency_check() {
 
         // Compare hash to objID
         if (hashId != id) {
-            std::cout << "An error was found with " << id << "\n";
-            GLOGNORMAL << id << " corrupt!\n";
+            GLOGNORMAL << "An error was found with " << id << "\n";
+            GLOGNORMAL << id << " corrupt!\n" << *omd;
             error_count++;
         }
         // Increment the number of objects we've checked
@@ -202,11 +189,11 @@ bool SMChk::full_consistency_check() {
     }
     GLOGNORMAL << objs_count << " objects checked, " << error_count << " errors were found.\n";
     if (error_count > 0) {
-        std::cout << "WARNING: " << error_count << " errors were found. "
+        GLOGNORMAL << "WARNING: " << error_count << " errors were found. "
                 << objs_count << " objects were checked. \n";
         return false;
     }
-    std::cout << "SUCCESS! " << objs_count << " objects checked; no errors found.\n";
+    GLOGNORMAL << "SUCCESS! " << objs_count << " objects checked; no errors found.\n";
     return true;
 }
 
@@ -273,116 +260,4 @@ boost::shared_ptr<ObjMetaData> SMChk::MetadataIterator::value() {
     }
     return omd;
 }
-
-
-
-SMChkDriver::SMChkDriver(int argc, char *argv[],
-        const std::string &config,
-        const std::string &basePath, Module *vec[],
-        fds::SmDiskMap::ptr smDiskMap,
-        fds::ObjectDataStore::ptr smObjStore):
-        FdsProcess(argc, argv, config, basePath, "smchk.log", vec),
-        checker(nullptr),
-        smDiskMap(smDiskMap),
-        smObjStore(smObjStore) {
-    // Create the metadata db
-    smMdDb = fds::ObjectMetadataDb::ptr(
-            new fds::ObjectMetadataDb());
-    // Get from command line args
-    namespace po = boost::program_options;
-    po::options_description desc("Run SM checker");
-    desc.add_options()
-            ("help,h", "Print this help message")
-            ("sm-count,c",
-                    po::value<int>(&sm_count)->default_value(1),
-                    "Number of active SMs.")
-            ("full-check,f",
-                    po::bool_switch()->default_value(false),
-                    "Run full consistency check")
-            ("list-tokens",
-                    po::bool_switch()->default_value(false),
-                    "Print all tokens by path.")
-            ("list-paths",
-                    po::bool_switch()->default_value(false),
-                    "Print paths by token.")
-            ("list-metadata,p",
-                    po::bool_switch()->default_value(false),
-                    "Print all metadata.")
-            ("gc,g",
-                    po::bool_switch()->default_value(false),
-                    "Calculate and print bytes reclaimable by garbage collector.");
-
-    po::variables_map vm;
-    po::parsed_options parsed =
-            po::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
-    po::store(parsed, vm);
-    po::notify(vm);
-
-    if (vm.count("help")) {
-        std::cout << desc << "\n";
-        exit(0);
-    }
-
-    if (vm["full-check"].as<bool>()) {
-        cmd = RunFunc::FULL_CHECK;
-    } else if (vm["list-tokens"].as<bool>()) {
-        cmd = RunFunc::PRINT_TOK_BY_PATH;
-    } else if (vm["list-paths"].as<bool>()) {
-        cmd = RunFunc::PRINT_PATH_BY_TOK;
-    } else if (vm["list-metadata"].as<bool>()) {
-        cmd = RunFunc::PRINT_MD;
-    } else if (vm["gc"].as<bool>()) {
-        cmd = RunFunc::CALC_BYTES_RECLAIMABLE;
-    } else {
-        cmd = RunFunc::FULL_CHECK;
-    }
-    sm_count = vm["sm-count"].as<int>();
-}
-
-int SMChkDriver::run() {
-    checker = new SMChk(sm_count, smDiskMap, smObjStore, smMdDb);
-    switch (cmd) {
-        case RunFunc::FULL_CHECK:
-            checker->full_consistency_check();
-            break;
-        case RunFunc::PRINT_MD:
-            checker->list_metadata();
-            break;
-        case RunFunc::PRINT_PATH_BY_TOK:
-            checker->list_path_by_token();
-            break;
-        case RunFunc::PRINT_TOK_BY_PATH:
-            checker->list_token_by_path();
-            break;
-        case RunFunc::CALC_BYTES_RECLAIMABLE:
-            checker->bytes_reclaimable();
-            break;
-        default:
-            checker->full_consistency_check();
-            break;
-    }
-    return 0;
-}
-
 }  // namespace fds
-
-int
-main(int argc, char** argv) {
-    fds::SmDiskMap::ptr smDiskMap = fds::SmDiskMap::ptr(
-            new fds::SmDiskMap("SMchk"));
-
-    fds::ObjectDataStore::ptr smObjStore = fds::ObjectDataStore::ptr(
-        new fds::ObjectDataStore("SMchk", NULL));
-
-    fds::Module *vec[] = {
-            &diskio::gl_dataIOMod,
-            smDiskMap.get(),
-            smObjStore.get(),
-            nullptr
-    };
-
-    fds::SMChkDriver smChk(argc, argv, "sm_ut.conf", "fds.diskmap_ut.",
-            vec, smDiskMap, smObjStore);
-    smChk.main();
-    return 0;
-}

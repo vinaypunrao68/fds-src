@@ -9,6 +9,9 @@ var en_US = {
         days: 'days',
         hours: 'hours',
         minutes: 'minutes',
+        months: 'months',
+        years: 'years',
+        l_back: 'Back',
         l_cancel: 'Cancel',
         l_confirm: 'Confirm',
         l_done: 'Done',
@@ -17,6 +20,7 @@ var en_US = {
         l_high: 'High',
         l_info: 'Information',
         l_low: 'Low',
+        l_next: 'Next',
         l_no: 'No',
         l_none: 'None',
         l_ok: 'OK',
@@ -27,6 +31,24 @@ var en_US = {
         th_date: 'Date',
         th_data_type: 'Data Type',
         th_name: 'Name',
+        
+        //time labels
+        l_30_days: '30 Days',
+        l_15_days: '15 Days',
+        l_1_week: '1 Week',
+        l_1_day: '1 Day',
+        l_1_hour: '1 Hour',
+        l_today: 'Today',
+        l_yesterday: 'Yesterday',
+        l_30_minutes: '30 Minutes',
+        l_15_minutes: '15 Minutes',
+        l_now: 'Now',
+        
+        l_minutes_ago: 'minutes ago',
+        l_hours_ago: 'hours ago',
+        l_weeks_ago: 'weeks ago',
+        l_years_ago: 'years ago',
+        l_seconds_ago: 'seconds ago',
         
         l_months: 'Months',
         l_days: 'Days',
@@ -54,14 +76,19 @@ var en_US = {
         l_capacity: 'Capacity',
         l_firebreak: 'Firebreak',
         l_performance: 'Performance',
+        l_health: 'System Health',
         
         th_type: 'Type',
         th_message: 'Message',
         th_received: 'Received',
         
         tt_firebreak: 'Firebreak {{value}} {{units}} ago.',
+        tt_firebreak_never: 'This volume has never had a firebreak.',
         
         desc_firebreak: 'Events in the past 24 hours',
+        desc_performance: 'Average IOPs',
+        desc_capacity_used: 'Total capacity used',
+        desc_dedup_ratio: 'Deduplication ratio',
         desc_dedup_capacity: 'Deduplicated storage capacity used.',
         desc_pre_dedup_capacity: 'Logical storage capacity consumed before deduplication.'
     },
@@ -71,20 +98,30 @@ var en_US = {
     },
     activities: {
         title: 'Activities',
-        header: 'System Activity'
+        header: 'System Activity',
+        l_firebreak: 'Firebreak',
+        l_performance: 'Performance',
+        l_storage: 'Storage',
+        l_system: 'System',
+        l_volumes: 'Volumes',
+        
+        desc_no_activities: 'No activities or events in the system.'
     },
     volumes: {
         title: 'Volumes',
         desc_cloning: 'Settings will be auto-filled below, you may choose to change some of them.',
+        desc_confirm_delete: 'Are you sure you want to delete this volume?',
         desc_if_applicable: '(if applicable)',
         desc_no_volumes: 'There are no registered volumes.',
         desc_snapshot_created: 'Snapshot successfully created.',
         desc_confirm_snapshot: 'Are you sure you would like to create a snapshot for this volume?',
+        desc_volume_deleted: 'Volume deleted successfully.',
         l_clone_existing: 'Clone from an existing volume',
         l_create_volume: 'Create Volume',
         l_create_blank_volume: 'Create a blank volume',
         l_current_state: 'Current state',
         l_data_connector: 'Data Connector',
+        l_delete_volume: 'Delete this volume.',
         l_edit_settings: 'Edit Settings',
         l_edit_volume: 'Edit Volume',
         l_highest: 'Highest',
@@ -119,7 +156,17 @@ var en_US = {
 
         th_used_limit: 'Used/Limit',
         
+        view : {
+            desc_dedup_suffix: 'Deduplicated',
+            desc_logical_suffix: 'Logical',
+            desc_iops_capacity: 'IOPs Capacity',
+            l_data_connector_settings: 'Data Connector Settings',
+            l_performance_settings: 'Performance Settings',
+            l_volume_details: 'Volume Details'
+        },
+        
         snapshot: {
+            l_no_snapshots: 'There are no snapshots for this volume.',
             l_retention_summary: 'Keep for',
             
             l_on_monday: 'on Mondays',

@@ -1,6 +1,6 @@
 test_topdir       := ..
 user_build_dir    := svc-test
-user_incl_dir     :=
+user_incl_dir     := /usr/include/cryptopp
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=

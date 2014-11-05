@@ -392,7 +392,7 @@ devsetup_is_up_to_date := $(ansible_dir)/.devsetup-is-up-to-date
 devsetup_is_running := $(ansible_dir)/.devsetup-is-running
 
 $(devsetup_is_up_to_date): $(devsetup_playbook) $(ansible_dir)/devsetup_ansible.sh
-	@if [ x"${skip-devsetup}" = x ]; then \
+	@if [ ! "x${skip-devsetup}" = "xtrue" ]; then \
 		$(ansible_dir)/devsetup_ansible.sh ; \
 	fi
 

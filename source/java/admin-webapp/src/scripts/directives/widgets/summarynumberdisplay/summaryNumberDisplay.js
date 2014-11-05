@@ -16,6 +16,7 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
             $scope.decimalFontSize = 18;
             $scope.decimalMinWidth = 0;
             $scope.intervalId = -1;
+            $scope.separator = '.';
             
             $scope.dotClicked = function( $index ){
                 
@@ -43,7 +44,10 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
                 if ( angular.isNumber( item.number ) ){
                 
                     item.wholeNumber = Math.floor( item.number );
-                    item.decimals = (item.number - item.wholeNumber)*100;
+                    item.decimals = Math.round( (item.number - item.wholeNumber)*100 );
+                }
+                else {
+                    item.wholeNumber = item.number;
                 }
             };
             
@@ -59,6 +63,10 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
                 
                 if ( $scope.visibleIndex === -1 ){
                     $scope.dotClicked( 0 );
+                }
+                
+                if ( angular.isDefined( newVal.separator ) ){
+                    $scope.separator = newVal.separator;
                 }
             });
             

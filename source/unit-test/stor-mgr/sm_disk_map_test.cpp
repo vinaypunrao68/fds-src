@@ -91,7 +91,11 @@ TEST(SmDiskMap, basic) {
 
     // start clean
     const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
-    SmUtUtils::cleanFdsDev(dir);
+    const std::string devPath = dir->dir_dev();
+    SmUtUtils::cleanAllInDir(devPath);
+
+    // create our own disk map
+    SmUtUtils::setupDiskMap(dir, 10, 2);
 
     SmDiskMap::ptr smDiskMap = loadDiskMap(sm_count);
     printSmTokens(smDiskMap);
@@ -104,6 +108,9 @@ TEST(SmDiskMap, basic) {
          ++cit) {
         SmTokenSet toks = smDiskMap->getSmTokens(*cit);
         GLOGDEBUG << "Disk " << *cit << " " << toks;
+        // get disk path
+        GLOGDEBUG << "Disk " << *cit << " path "
+                  << smDiskMap->getDiskPath(*cit);
     }
 
     diskIds = smDiskMap->getDiskIds(diskio::flashTier);
@@ -113,27 +120,70 @@ TEST(SmDiskMap, basic) {
          ++cit) {
         SmTokenSet toks = smDiskMap->getSmTokens(*cit);
         GLOGDEBUG << "Disk " << *cit << " " << toks;
+        // we should be able to get disk path for each token
+        for (SmTokenSet::const_iterator ctok = toks.cbegin();
+             ctok != toks.cend();
+             ++ctok) {
+            GLOGDEBUG << "Disk " << *cit << " token " << *ctok << " "
+                      << smDiskMap->getDiskPath(*ctok, diskio::flashTier);
+        }
     }
+
+    // cleanup
+    SmUtUtils::cleanAllInDir(devPath);
+}
+
+TEST(SmDiskMap, no_ssds) {
+    Error err(ERR_OK);
+    fds_uint32_t sm_count = 1;
+    fds_uint32_t hdd_count = 10;
+
+    // start clean
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    const std::string devPath = dir->dir_dev();
+    SmUtUtils::cleanAllInDir(devPath);
+
+    // create our own disk map
+    SmUtUtils::setupDiskMap(dir, hdd_count, 0);
+
+    SmDiskMap::ptr smDiskMap = loadDiskMap(sm_count);
+    printSmTokens(smDiskMap);
+
+    // we should get empty disk set for SSDs
+    DiskIdSet ssdIds = smDiskMap->getDiskIds(diskio::flashTier);
+    EXPECT_EQ(0, ssdIds.size());
+
+    // we should get 'hdd_count' number of disk IDs for HDDs
+    DiskIdSet hddIds = smDiskMap->getDiskIds(diskio::diskTier);
+    EXPECT_EQ(hdd_count, hddIds.size());
+
+    // cleanup
+    SmUtUtils::cleanAllInDir(devPath);
 }
 
 TEST(SmDiskMap, up_down) {
     Error err(ERR_OK);
     const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    const std::string devPath = dir->dir_dev();
+    SmUtUtils::cleanAllInDir(devPath);
 
     // bring up with different number of SMs
     // each time from clean state
     for (fds_uint32_t i = 1; i < 300; i+=24) {
-        // start clean
-        SmUtUtils::cleanFdsDev(dir);
+        // create our own disk map
+        SmUtUtils::setupDiskMap(dir, 10, 2);
         SmDiskMap::ptr smDiskMap = loadDiskMap(i);
+
+        // cleanup
+        SmUtUtils::cleanAllInDir(devPath);
     }
 }
 
 }  // namespace fds
 
 int main(int argc, char * argv[]) {
-    fds::SmDiskMapUtProc diskMapProc(argc, argv, "sm_ut.conf",
-                                     "fds.diskmap_ut.", NULL);
+    fds::SmDiskMapUtProc diskMapProc(argc, argv, "platform.conf",
+                                     "fds.sm.", NULL);
     ::testing::InitGoogleMock(&argc, argv);
     return RUN_ALL_TESTS();
 }

@@ -1,9 +1,9 @@
-<div ng-controller="systemController" class="page-slider-parent" ng-style="{left: addingnode ? '-100%' : '0px'}">
+<div ng-controller="systemController">
 
     <div class="col-xs-12 node-list front-page">
         <div class="header">
             <span class="light-print" translate>system.l_nodes</span>
-            <a data-href="/nodes/new" class="pull-right" ng-click="addingnode = true;" translate>system.l_add_node</a>
+            <a data-href="/nodes/new" class="pull-right" ng-click="addNode()" translate>system.l_add_node</a>
         </div>
         <div class="nodes-container table-container">
             <table class="default">
@@ -38,7 +38,5 @@
             </table>
         </div>
     </div>
-
-    <div ng-include="'scripts/system/addnode/addnode.html'"></div>
 
 </div>
