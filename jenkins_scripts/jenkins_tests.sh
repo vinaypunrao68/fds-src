@@ -1,4 +1,4 @@
-#!/bin/bash -lex
+#!/bin/bash -le
 
 ulimit -c unlimited
 ulimit -n 400000
