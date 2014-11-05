@@ -62,13 +62,9 @@
     hosts: node0.formationds.com
     remote_user: root
 
-# shell: bash -lxc "./fds-tool.py -f formation.conf -u -v" chdir=/fds/sbin
     tasks:
     -   name: attempt to start FDS
-#        shell: bash -lc "./x.py" chdir=/fds/sbin
-#        command: bash -lc "./x.py" chdir=/fds/sbin
         shell: bash -lc "./x.py" chdir=/fds/sbin
-#        raw: which python
         register: fds-tool_output
         tags:
             -   dbg

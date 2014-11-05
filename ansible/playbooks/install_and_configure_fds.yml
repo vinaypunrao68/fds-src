@@ -4,8 +4,6 @@
     hosts: local-fds-nodes
     remote_user: vagrant
     sudo: True
-#    vars_files:
-#        - ../vars_files/node_spec.yml
 
     handlers:
     -   name: restart ssh

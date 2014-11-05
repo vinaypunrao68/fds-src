@@ -2,12 +2,6 @@
 127.0.0.1
 
 [localhost:vars]
-#fds_default_nic=eth0
-#fds_om_host=127.0.0.1
-#fds_metrics_enabled=true
-#fds_metricsdb_ip=10.2.10.22
-#fds_ssh_user=root
-#fds_ssh_password=passwd
 
 [fremont_node_cluster]
 node[0:2].formationds.com
