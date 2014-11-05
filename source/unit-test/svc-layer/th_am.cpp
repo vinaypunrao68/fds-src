@@ -96,14 +96,12 @@ class TestAMSvcHandler : virtual public FDS_ProtocolInterface::TestAMSvcIf {
                       boost::shared_ptr< ::FDS_ProtocolInterface::PutObjectRspMsg>& payload)
     {
         amTest_->outStanding_--;
-        #if 0
         {
             Synchronized s(amTest_->monitor_);
             if (amTest_->waiting_ && amTest_->outStanding_ < amTest_->concurrency_) {
                 amTest_->monitor_.notify();
             }
         }
-        #endif
 
         amTest_->opTs_[asyncHdr->msg_src_id].rspRcvdTs =
             amTest_->opTs_[asyncHdr->msg_src_id].rspHndlrTs = util::getTimeStampNanos();
@@ -273,6 +271,7 @@ TEST_F(AMTest, smtest)
     if (concurrency_ == 0) {
         concurrency_  = nPuts;
     }
+    std::cout << "Concurrency level: " << concurrency_ << std::endl;
 
     opTs_.resize(nPuts);
 
@@ -330,7 +329,6 @@ TEST_F(AMTest, smtest)
         opTs_[i].rqStartTs = opTs_[i].rqSendStartTs = util::getTimeStampNanos();
         smClients[clientIdx].second->putObject(hdr, *putObjMsg);
         opTs_[i].rqSendEndTs = util::getTimeStampNanos();
-        #if 0
         {
             Synchronized s(monitor_);
             while (outStanding_ >= concurrency_) {
@@ -339,7 +337,6 @@ TEST_F(AMTest, smtest)
             }
             waiting_ = false;
         }
-        #endif
     }
 
     /* Poll for completion */
@@ -349,7 +346,10 @@ TEST_F(AMTest, smtest)
     // ProfilerStop();
 
     double throughput = (static_cast<double>(1000000000) / (endTs_ - startTs_)) * putsIssued_;
+    double sendThroughput = (static_cast<double>(1000000000) /
+                             (opTs_[opTs_.size()-1].rqRcvdTs - opTs_[0].rqStartTs)) * opTs_.size();
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
+            << "Send throughput: " << sendThroughput
             << "Throughput: " << throughput << std::endl
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
             << "(ns)\n";
