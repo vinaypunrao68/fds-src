@@ -11,7 +11,6 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Copyright (c) 2014 Formation Data Systems, Inc.
@@ -32,7 +31,9 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
                 })
                 .expireAfterWrite(timeout, timeUnit)
                 .build();
+    }
 
+    public void start() {
         new Thread(() -> {
             while (true) {
                 try {

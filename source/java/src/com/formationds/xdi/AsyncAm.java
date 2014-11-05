@@ -3,14 +3,12 @@ package com.formationds.xdi;
 import com.formationds.apis.*;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-import com.formationds.security.DumbAuthorizer;
 import com.formationds.util.BiConsumerWithException;
 import com.formationds.util.ConsumerWithException;
 import com.formationds.util.FunctionWithExceptions;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.AsyncResourcePool;
 import com.formationds.util.async.CompletableFutureUtility;
-import com.formationds.xdi.s3.S3Endpoint;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.apache.thrift.async.AsyncMethodCallback;
@@ -21,22 +19,17 @@ import org.apache.thrift.transport.TFramedTransport;
 import org.apache.thrift.transport.TServerSocket;
 
 import java.nio.ByteBuffer;
-import java.security.SecureRandom;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertArrayEquals;
-
 /**
  * Copyright (c) 2014 Formation Data Systems, Inc.
  */
 public class AsyncAm {
     public static final int PORT = 9876;
-    public static final int BLOCKSIZE = 4096;
     private static final Logger LOG = Logger.getLogger(AsyncAm.class);
     private final AsyncAmResponseListener responseListener;
     private AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool;
@@ -50,13 +43,12 @@ public class AsyncAm {
         this.authorizer = authorizer;
         statistics = new AsyncRequestStatistics();
         responseListener = new AsyncAmResponseListener(2, TimeUnit.SECONDS);
+
+    }
+
+    public void start() throws Exception {
         AsyncAmServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncAmServiceResponse.Processor<>(responseListener);
 
-//        TNonblockingServer server = new TNonblockingServer(new TNonblockingServer.Args(new TNonblockingServerSocket(PORT))
-//                .protocolFactory(new TBinaryProtocol.Factory())
-//                .transportFactory(new TFramedTransport.Factory())
-//                .processor(processor));
-//
         TSimpleServer server = new TSimpleServer(new TServer.Args(new TServerSocket(PORT))
                 .protocolFactory(new TBinaryProtocol.Factory())
                 .transportFactory(new TFramedTransport.Factory())
@@ -64,50 +56,6 @@ public class AsyncAm {
 
         new Thread(() -> server.serve(), "AM async listener thread").start();
         LOG.info("Started async AM listener on port " + PORT);
-    }
-
-    public static void main(String[] args) throws Exception {
-        if (args.length != 3) {
-            System.out.println("Usage: AsyncAm hostName volumeName objectName");
-            System.exit(-1);
-        }
-        String host = args[0];
-        String volumeName = args[1];
-        String objectName = args[2];
-        XdiClientFactory factory = new XdiClientFactory();
-        AsyncAmServiceRequest.Iface am = factory.remoteOnewayAm(host, 8899);
-        byte[] bytes = new byte[BLOCKSIZE];
-        SecureRandom secureRandom = new SecureRandom();
-        secureRandom.nextBytes(bytes);
-        am.updateBlobOnce(new RequestId(UUID.randomUUID().toString()), S3Endpoint.FDS_S3, volumeName, objectName, 1, ByteBuffer.wrap(bytes), BLOCKSIZE, new ObjectOffset(0), new HashMap<>());
-    }
-
-    public static void _main(String[] args) throws Exception {
-        SecureRandom secureRandom = new SecureRandom();
-        int length = 4096;
-        byte[] bytes = new byte[length];
-        secureRandom.nextBytes(bytes);
-        String volumeName = UUID.randomUUID().toString();
-        String blobName = UUID.randomUUID().toString();
-
-        XdiClientFactory factory = new XdiClientFactory();
-        VolumeSettings volumeSettings = new VolumeSettings();
-        volumeSettings.setVolumeType(VolumeType.OBJECT);
-        volumeSettings.setMaxObjectSizeInBytes(1024 * 1024 * 2);
-
-        factory.remoteOmService("localhost", 9090).createVolume(S3Endpoint.FDS_S3, volumeName, volumeSettings, 0);
-        Thread.sleep(2000);
-        System.out.println("Done creating volume");
-        AsyncAm asyncAm = new AsyncAm(factory.makeAmAsyncPool("localhost", 9988), factory.remoteOnewayAm("localhost", 8899), new DumbAuthorizer());
-        Thread.sleep(500);
-
-        CompletableFuture<Void> updateCf = asyncAm.updateBlobOnce(AuthenticationToken.ANONYMOUS, S3Endpoint.FDS_S3, volumeName, blobName, 1, ByteBuffer.wrap(bytes), length, new ObjectOffset(0), new HashMap<>());
-        updateCf.get();
-        CompletableFuture<ByteBuffer> readCf = asyncAm.getBlob(AuthenticationToken.ANONYMOUS, S3Endpoint.FDS_S3, volumeName, blobName, length, new ObjectOffset(0));
-        ByteBuffer byteBuffer = readCf.get();
-        byte[] read = new byte[length];
-        byteBuffer.get(read);
-        assertArrayEquals(bytes, read);
     }
 
     private <T, R> AsyncMethodCallback<T> makeThriftCallbacks(CompletableFuture<R> future, FunctionWithExceptions<T, R> extractor) {
