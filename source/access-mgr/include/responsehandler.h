@@ -30,6 +30,9 @@ struct ResponseHandler : virtual Callback {
 
     virtual void process() {}
 
+    // TODO(Greg): May be removed when sync interface is removed.
+    virtual bool isAsyncHandler() {return true;}
+
     virtual ~ResponseHandler();
   protected:
     concurrency::TaskStatus task;
@@ -213,6 +216,8 @@ struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
 
     virtual void process();
     virtual ~GetObjectResponseHandler();
+
+    virtual bool isAsyncHandler() {return false;}
 };
 
 struct AsyncGetObjectResponseHandler : ResponseHandler, GetObjectCallback {

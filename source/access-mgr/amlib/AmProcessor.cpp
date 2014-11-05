@@ -12,6 +12,9 @@
 
 #include "requests/requests.h"
 
+// TODO(Greg): May be removed when sync interface is removed.
+#include <responsehandler.h>
+
 namespace fds {
 
 #define AMPROCESSOR_CB_HANDLER(func, ...) \
@@ -422,10 +425,13 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
     qosCtrl->markIODone(amReq);
     amReq->cb->call(error);
 
-    // We're finished with our buffer used to return the object.
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-    if (cb->returnBuffer != nullptr) {
-        delete cb->returnBuffer;
+    // TODO(Greg): This check may be removed when sync interface is removed.
+    boost::shared_ptr<ResponseHandler> ah =
+            SHARED_DYN_CAST(ResponseHandler, amReq->cb);
+    if (ah->isAsyncHandler()) {
+        // We're finished with our buffer used to return the object.
+        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+        delete[] cb->returnBuffer;
     }
 
     delete amReq;
