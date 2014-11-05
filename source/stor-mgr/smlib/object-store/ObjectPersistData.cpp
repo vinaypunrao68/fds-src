@@ -34,37 +34,48 @@ ObjectPersistData::openPersistDataStore(const SmDiskMap::const_ptr& diskMap,
                                         fds_bool_t pristineState) {
     Error err(ERR_OK);
     smDiskMap = diskMap;
+    DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
     LOGDEBUG << "Will open token data files";
 
     SmTokenSet smToks = diskMap->getSmTokens();
-    for (SmTokenSet::const_iterator cit = smToks.cbegin();
-         cit != smToks.cend();
-         ++cit) {
-        // TODO(Anna) for now opening on disk tier only -- revisit when porting
-        // back tiering
+    diskio::DataTier tier = diskio::diskTier;
+    for (fds_uint32_t tierNum = 0; tierNum < 2; ++tierNum) {
+        for (SmTokenSet::const_iterator cit = smToks.cbegin();
+             cit != smToks.cend();
+             ++cit) {
+            // get write file IDs from SM superblock and open corresponding token files
+            fds_uint64_t wkey = getWriteFileIdKey(tier, *cit);
+            fds_uint16_t fileId = diskMap->superblock->getWriteFileId(*cit, tier);
+            fds_verify(fileId != SM_INVALID_FILE_ID);
+            write_synchronized(mapLock) {
+                fds_verify(writeFileIdMap.count(wkey) == 0);
+                writeFileIdMap[wkey] = fileId;
+            }
 
-        // get write file IDs from SM superblock and open corresponding token files
-        fds_uint64_t wkey = getWriteFileIdKey(diskio::diskTier, *cit);
-        fds_uint16_t fileId = diskMap->superblock->getWriteFileId(*cit, diskio::diskTier);
-        fds_verify(fileId != SM_INVALID_FILE_ID);
-        write_synchronized(mapLock) {
-            fds_verify(writeFileIdMap.count(wkey) == 0);
-            writeFileIdMap[wkey] = fileId;
+            // actually open SM token file
+            err = openTokenFile(tier, *cit, fileId);
+            fds_verify(err != ERR_DUPLICATE);  // file should not be already open
+            if (!err.ok()) {
+                LOGERROR << "Failed to open File for SM token " << *cit
+                         << " tier " << tier << " " << err;
+                break;
+            }
+
+            // also open old file if compaction is in progress
+            if (diskMap->superblock->compactionInProgress(*cit, tier)) {
+                fds_uint16_t oldFileId = getShadowFileId(fileId);
+                err = openTokenFile(diskio::diskTier, *cit, oldFileId);
+                fds_verify(err.ok());
+            }
         }
-
-        // actually open SM token file
-        err = openTokenFile(diskio::diskTier, *cit, fileId);
-        fds_verify(err != ERR_DUPLICATE);  // file should not be already open
-        if (!err.ok()) {
-            LOGERROR << "Failed to open File for SM token " << *cit << " " << err;
+        if ((tierNum == 0) && (ssdIds.size() > 0)) {
+            // also open token files on SSDs
+            fds_verify(tier != diskio::flashTier);
+            LOGDEBUG << "Will open token files on SSDs";
+            tier = diskio::flashTier;
+        } else {
+            // no SSDs, finished opening token files
             break;
-        }
-
-        // also open old file if compaction is in progress
-        if (diskMap->superblock->compactionInProgress(*cit, diskio::diskTier)) {
-            fds_uint16_t oldFileId = getShadowFileId(fileId);
-            err = openTokenFile(diskio::diskTier, *cit, oldFileId);
-            fds_verify(err.ok());
         }
     }
 

@@ -43,6 +43,7 @@ fdsbasedebs=(
     fds-python-scp
     fds-python-paramiko
     fds-jdk-default
+		libcryptopp-dev
 )
 
 python_packages=(
