@@ -1,6 +1,5 @@
 package com.formationds.smoketest;
 
-import com.amazonaws.AmazonClientException;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
@@ -49,10 +48,10 @@ public class SmokeTest {
     private final byte[] randomBytes;
     private final String prefix;
     private final int count;
-    ConfigurationService.Iface config;
     private final String userName;
     private final String userToken;
     private final String host;
+    ConfigurationService.Iface config;
 
     public SmokeTest()
             throws Exception {
@@ -60,7 +59,7 @@ public class SmokeTest {
         host = (String) System.getProperties()
                 .getOrDefault("fds.host", "localhost");
         String omUrl = "https://" + host + ":7443";
-        turnLog4jOn();
+        turnLog4jOff();
         JSONObject adminUserObject = getObject(omUrl + "/api/auth/token?login=admin&password=admin", "");
         String adminToken = adminUserObject.getString("token");
 

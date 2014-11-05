@@ -3,31 +3,33 @@ package com.formationds.xdi;
 import com.formationds.apis.*;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
+import com.formationds.security.DumbAuthorizer;
 import com.formationds.util.BiConsumerWithException;
 import com.formationds.util.ConsumerWithException;
 import com.formationds.util.FunctionWithExceptions;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.AsyncResourcePool;
 import com.formationds.util.async.CompletableFutureUtility;
+import com.formationds.xdi.s3.S3Endpoint;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.apache.thrift.async.AsyncMethodCallback;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.server.TServer;
 import org.apache.thrift.server.TSimpleServer;
-import org.apache.thrift.server.TThreadedSelectorServer;
 import org.apache.thrift.transport.TFramedTransport;
-import org.apache.thrift.transport.TNonblockingServerSocket;
 import org.apache.thrift.transport.TServerSocket;
-import org.apache.thrift.transport.TTransportFactory;
 
 import java.nio.ByteBuffer;
+import java.security.SecureRandom;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+
+import static org.junit.Assert.assertArrayEquals;
 
 /**
  * Copyright (c) 2014 Formation Data Systems, Inc.
@@ -56,6 +58,34 @@ public class AsyncAm {
 
         new Thread(() -> server.serve(), "AM async listener thread").start();
         LOG.info("Started async AM listener on port " + PORT);
+    }
+
+    public static void main(String[] args) throws Exception {
+        SecureRandom secureRandom = new SecureRandom();
+        int length = 4096;
+        byte[] bytes = new byte[length];
+        secureRandom.nextBytes(bytes);
+        String volumeName = UUID.randomUUID().toString();
+        String blobName = UUID.randomUUID().toString();
+
+        XdiClientFactory factory = new XdiClientFactory();
+        VolumeSettings volumeSettings = new VolumeSettings();
+        volumeSettings.setVolumeType(VolumeType.OBJECT);
+        volumeSettings.setMaxObjectSizeInBytes(1024 * 1024 * 2);
+
+        factory.remoteOmService("localhost", 9090).createVolume(S3Endpoint.FDS_S3, volumeName, volumeSettings, 0);
+        Thread.sleep(2000);
+
+        AsyncAm asyncAm = new AsyncAm(factory.makeAmAsyncPool("localhost", 9988), factory.remoteOnewayAm("localhost", 8899), new DumbAuthorizer());
+        Thread.sleep(1000);
+
+        CompletableFuture<Void> updateCf = asyncAm.updateBlobOnce(AuthenticationToken.ANONYMOUS, S3Endpoint.FDS_S3, volumeName, blobName, 1, ByteBuffer.wrap(bytes), length, new ObjectOffset(0), new HashMap<>());
+        updateCf.get();
+        CompletableFuture<ByteBuffer> readCf = asyncAm.getBlob(AuthenticationToken.ANONYMOUS, S3Endpoint.FDS_S3, volumeName, blobName, length, new ObjectOffset(0));
+        ByteBuffer byteBuffer = readCf.get();
+        byte[] read = new byte[length];
+        byteBuffer.get(read);
+        assertArrayEquals(bytes, read);
     }
 
     private <T, R> AsyncMethodCallback<T> makeThriftCallbacks(CompletableFuture<R> future, FunctionWithExceptions<T, R> extractor) {
@@ -110,26 +140,27 @@ public class AsyncAm {
     }
 
     public CompletableFuture<Void> attachVolume(AuthenticationToken token, String domainName, String volumeName) throws TException {
-        return schedule(token, "attachVolume", volumeName, (am, cf) -> {
-            am.attachVolume(domainName, volumeName, makeThriftCallbacks(cf, v -> null));
+        return scheduleAsync(token, domainName, volumeName, rid -> {
+            oneWayAm.attachVolume(rid, domainName, volumeName);
         });
     }
 
     public CompletableFuture<List<BlobDescriptor>> volumeContents(AuthenticationToken token, String domainName, String volumeName, int count, long offset) {
-        return schedule(token, "volumeContents", volumeName, (am, cf) -> {
-            am.volumeContents(domainName, volumeName, count, offset, makeThriftCallbacks(cf, v -> v.getResult()));
+        return scheduleAsync(token, domainName, volumeName, rid -> {
+            oneWayAm.volumeContents(rid, domainName, volumeName, count, offset);
         });
     }
 
     public CompletableFuture<BlobDescriptor> statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) {
-        return schedule(token, "statBlob", volumeName, (am, cf) -> {
-            am.statBlob(domainName, volumeName, blobName, makeThriftCallbacks(cf, v -> v.getResult()));
+        return scheduleAsync(token, domainName, volumeName, rid -> {
+            oneWayAm.statBlob(rid, domainName, volumeName, blobName);
         });
     }
 
     // This one
     public CompletableFuture<TxDescriptor> startBlobTx(AuthenticationToken token, String domainName, String volumeName, String blobName, int blobMode) {
-        return scheduleAsync(token, domainName, volumeName, rid -> oneWayAm.startBlobTx(rid, domainName, volumeName, blobName, blobMode));
+        return scheduleAsync(token, domainName, volumeName, rid ->
+                oneWayAm.startBlobTx(rid, domainName, volumeName, blobName, blobMode));
     }
 
     public CompletableFuture<Void> commitBlobTx(AuthenticationToken token, String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
@@ -152,22 +183,25 @@ public class AsyncAm {
 
     public CompletableFuture<Void> updateMetadata(AuthenticationToken token, String domainName, String volumeName, String blobName,
                                                   TxDescriptor txDescriptor, Map<String, String> metadata) {
-        return schedule(token, "updateMetadata", volumeName, (am, cf) -> {
-            am.updateMetadata(domainName, volumeName, blobName, txDescriptor, metadata, makeThriftCallbacks(cf, v -> null));
+        return scheduleAsync(token, domainName, volumeName, rid -> {
+            oneWayAm.updateMetadata(rid, domainName, volumeName, blobName, txDescriptor, metadata);
         });
     }
 
     public CompletableFuture<Void> updateBlob(AuthenticationToken token, String domainName, String volumeName, String blobName,
                                               TxDescriptor txDescriptor, ByteBuffer bytes, int length, ObjectOffset objectOffset, boolean isLast) {
-        return schedule(token, "updateBlob", volumeName, (am, cf) -> {
-            am.updateBlob(domainName, volumeName, blobName, txDescriptor, bytes, length, objectOffset, isLast, makeThriftCallbacks(cf, v -> null));
+        return scheduleAsync(token, domainName, volumeName, rid -> {
+            oneWayAm.updateBlob(rid, domainName, volumeName, blobName, txDescriptor, bytes, length, new ObjectOffset(objectOffset), isLast);
         });
     }
 
     public CompletableFuture<Void> updateBlobOnce(AuthenticationToken token, String domainName, String volumeName, String blobName,
                                                   int blobMode, ByteBuffer bytes, int length, ObjectOffset offset, Map<String, String> metadata) {
-        return scheduleAsync(token, domainName, volumeName, rid ->
-                oneWayAm.updateBlobOnce(rid, domainName, volumeName, blobName, blobMode, bytes, length, offset, metadata));
+//        return scheduleAsync(token, domainName, volumeName, rid ->
+//                oneWayAm.updateBlobOnce(rid, domainName, volumeName, blobName, blobMode, bytes, length, offset, metadata));
+        return schedule(token, "updateBlobOnce", volumeName, (am, cf) -> {
+            am.updateBlobOnce(domainName, volumeName, blobName, blobMode, bytes, length, new ObjectOffset(offset), metadata, makeThriftCallbacks(cf, v -> null));
+        });
     }
 
     public CompletableFuture<Void> deleteBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) {
@@ -177,8 +211,8 @@ public class AsyncAm {
     }
 
     public CompletableFuture<VolumeStatus> volumeStatus(AuthenticationToken token, String domainName, String volumeName) {
-        return schedule(token, "volumeStatus", volumeName, (am, cf) -> {
-            am.volumeStatus(domainName, volumeName, makeThriftCallbacks(cf, v -> v.getResult()));
+        return scheduleAsync(token, domainName, volumeName, rid -> {
+            oneWayAm.volumeStatus(rid, domainName, volumeName);
         });
     }
 }
