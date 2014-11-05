@@ -318,6 +318,22 @@ AsyncUpdateMetadataResponseHandler::process() {
 AsyncUpdateMetadataResponseHandler::~AsyncUpdateMetadataResponseHandler() {
 }
 
+AsyncDeleteBlobResponseHandler::AsyncDeleteBlobResponseHandler(
+    AmAsyncResponseApi::shared_ptr _api,
+    boost::shared_ptr<apis::RequestId>& _reqId)
+        : respApi(_api),
+          requestId(_reqId) {
+    type = HandlerType::IMMEDIATE;
+}
+
+void
+AsyncDeleteBlobResponseHandler::process() {
+    respApi->deleteBlobResp(error, requestId);
+}
+
+AsyncDeleteBlobResponseHandler::~AsyncDeleteBlobResponseHandler() {
+}
+
 AsyncGetObjectResponseHandler::AsyncGetObjectResponseHandler(
     AmAsyncResponseApi::shared_ptr _api,
     boost::shared_ptr<apis::RequestId>& _reqId,
@@ -333,6 +349,9 @@ AsyncGetObjectResponseHandler::AsyncGetObjectResponseHandler(
 void
 AsyncGetObjectResponseHandler::process() {
     respApi->getBlobResp(error, requestId, returnBuffer);
+}
+
+AsyncGetObjectResponseHandler::~AsyncGetObjectResponseHandler() {
 }
 
 AsyncGetObjectResponseHandler::~AsyncGetObjectResponseHandler() {

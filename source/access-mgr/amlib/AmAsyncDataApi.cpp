@@ -389,7 +389,8 @@ void
 AmAsyncDataApi::deleteBlob(const apis::RequestId& requestId,
                            const std::string& domainName,
                            const std::string& volumeName,
-                           const std::string& blobName) {
+                           const std::string& blobName,
+                           const apis::TxDescriptor& txDesc) {
     fds_panic("You shouldn't be here.");
 }
 
@@ -397,6 +398,18 @@ void
 AmAsyncDataApi::deleteBlob(boost::shared_ptr<apis::RequestId>& requestId,
                            boost::shared_ptr<std::string>& domainName,
                            boost::shared_ptr<std::string>& volumeName,
-                           boost::shared_ptr<std::string>& blobName) {
+                           boost::shared_ptr<std::string>& blobName,
+                           boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    BlobTxId::ptr blobTxId(new BlobTxId(txDesc->txId));
+
+    AsyncDeleteBlobResponseHandler::ptr handler(
+        boost::make_shared<AsyncDeleteBlobResponseHandler>(responseApi,
+                                                           requestId));
+    AmRequest *blobReq = new DeleteBlobReq(invalid_vol_id,
+                                           *blobName,
+                                           *volumeName,
+                                           blobTxId,
+                                           SHARED_DYN_CAST(Callback, handler));
+    storHvisor->enqueueBlobReq(blobReq);
 }
 }  // namespace fds

@@ -1,6 +1,8 @@
 #!/usr/bin/python
-import yaml, json
+import json
 from optparse import OptionParser
+import tabulate
+import pprint
 
 class TestList():
     def __init__(self):
@@ -12,7 +14,32 @@ class TestList():
     def get_tests(self):
         return self.tests
 
-    def create_tests(self):
+    def create_tests_fio(self):
+        # test template
+        template = {
+            "test_type" : "fio",
+            "nvols" : 4,
+            "disk" : None,
+            "bs" : 4096,
+            "numjobs" : 1,
+            "fio_jobname" : "seq_readwrite",
+            "fio_type" : "readwrite",
+            "injector" : None
+        }
+
+        tests = []
+        ############### Test definition ############
+        test_types = ["read", "write", "readwrite", "randwrite", "randread"]
+        for bs in [4096]:
+            for test_type in test_types:
+                test = dict(template)
+                test["bs"] = bs
+                test["fio_jobname"] = test_type
+                test["fio_type"] = test_type
+                tests.append(test)
+        self.tests = tests
+
+    def create_tests_s3(self):
         # test template
         template = {
             "test_type" : "tgen",
@@ -24,8 +51,6 @@ class TestList():
             "nfiles" : 1000,
             "injector" :None
         }
-
-        ############### Test definition ############
 
         # tests = []
         # #for size in [x*256*1024 for x in range(1:9)]:
@@ -55,7 +80,7 @@ class TestList():
         for size in [4096]:
             for nvols in [1]:
                 # for th in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40]:
-                for th in range(1,51):
+                for th in range(10,15):
                     #for outs in [2, 4, 10, 20, 50]:
                     for outs in [2]:
                         #for th in [4]:
@@ -111,8 +136,13 @@ def main():
     (options, args) = parser.parse_args()
 
     tl = TestList()
-    tl.create_tests()
-    print "Json:", tl.get_tests()
+    #tl.create_tests_s3()
+    tl.create_tests_fio()
+    print "Tests:"
+    pp = pprint.PrettyPrinter(indent=4)
+    for e in tl.get_tests():
+        pp.pprint(e)
+    print "Number of tests:", len(tl.get_tests())
     json_string = tl.dump_json()
     if options.json_file != None:
         with open(options.json_file, "w") as _f:

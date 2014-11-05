@@ -209,6 +209,18 @@ struct AsyncAbortBlobTxResponseHandler : ResponseHandler {
     virtual ~AsyncAbortBlobTxResponseHandler();
 };
 
+struct AsyncDeleteBlobResponseHandler : ResponseHandler {
+    AsyncDeleteBlobResponseHandler(AmAsyncResponseApi::shared_ptr _api,
+                                   boost::shared_ptr<apis::RequestId>& _reqId);
+    typedef boost::shared_ptr<AsyncDeleteBlobResponseHandler> ptr;
+
+    AmAsyncResponseApi::shared_ptr respApi;
+    boost::shared_ptr<apis::RequestId> requestId;
+
+    virtual void process();
+    virtual ~AsyncDeleteBlobResponseHandler();
+};
+
 struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
     explicit GetObjectResponseHandler(char *buf);
 
