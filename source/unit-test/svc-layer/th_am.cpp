@@ -53,6 +53,10 @@ struct AMTest : BaseTestFixture
     std::atomic<uint32_t> putsIssued_;
     std::atomic<uint32_t> putsSuccessCnt_;
     std::atomic<uint32_t> putsFailedCnt_;
+    std::atomic<uint32_t> outStanding_;
+    Monitor monitor_;
+    bool waiting_;
+    uint32_t concurrency_;
     util::TimeStamp startTs_;
     util::TimeStamp endTs_;
     std::vector<SvcRequestIf::SvcReqTs> opTs_;
@@ -91,6 +95,16 @@ class TestAMSvcHandler : virtual public FDS_ProtocolInterface::TestAMSvcIf {
     void putObjectRsp(boost::shared_ptr< ::FDS_ProtocolInterface::AsyncHdr>& asyncHdr,
                       boost::shared_ptr< ::FDS_ProtocolInterface::PutObjectRspMsg>& payload)
     {
+        amTest_->outStanding_--;
+        #if 0
+        {
+            Synchronized s(amTest_->monitor_);
+            if (amTest_->waiting_ && amTest_->outStanding_ < amTest_->concurrency_) {
+                amTest_->monitor_.notify();
+            }
+        }
+        #endif
+
         amTest_->opTs_[asyncHdr->msg_src_id].rspRcvdTs =
             amTest_->opTs_[asyncHdr->msg_src_id].rspHndlrTs = util::getTimeStampNanos();
         amTest_->opTs_[asyncHdr->msg_src_id].rqRcvdTs = asyncHdr->rqRcvdTs;
@@ -127,6 +141,9 @@ AMTest::AMTest()
     putsIssued_ = 0;
     putsSuccessCnt_ = 0;
     putsFailedCnt_ = 0;
+    outStanding_ = 0;
+    concurrency_ = 0;
+    waiting_ = false;
 
     int amPort = this->getArg<int>("am-port");
     boost::shared_ptr<TestAMSvcHandler> handler(new TestAMSvcHandler(this));
@@ -252,6 +269,10 @@ TEST_F(AMTest, smtest)
     int smPort = this->getArg<int>("sm-port");
     int amPort = this->getArg<int>("am-port");
     bool framed = (this->getArg<std::string>("transport") == "framed");
+    concurrency_ = this->getArg<uint32_t>("concurrency");
+    if (concurrency_ == 0) {
+        concurrency_  = nPuts;
+    }
 
     opTs_.resize(nPuts);
 
@@ -305,9 +326,20 @@ TEST_F(AMTest, smtest)
         hdr.msg_src_id = i;
         hdr.msg_src_uuid.svc_uuid = smClients[clientIdx].first;
         putsIssued_++;
+        outStanding_++;
         opTs_[i].rqStartTs = opTs_[i].rqSendStartTs = util::getTimeStampNanos();
         smClients[clientIdx].second->putObject(hdr, *putObjMsg);
         opTs_[i].rqSendEndTs = util::getTimeStampNanos();
+        #if 0
+        {
+            Synchronized s(monitor_);
+            while (outStanding_ >= concurrency_) {
+                waiting_ = true;
+                monitor_.wait();
+            }
+            waiting_ = false;
+        }
+        #endif
     }
 
     /* Poll for completion */
@@ -316,7 +348,9 @@ TEST_F(AMTest, smtest)
     /* End profiler */
     // ProfilerStop();
 
+    double throughput = (static_cast<double>(1000000000) / (endTs_ - startTs_)) * putsIssued_;
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
+            << "Throughput: " << throughput << std::endl
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
             << "(ns)\n";
     printOpTs(this->getArg<std::string>("output"));
@@ -380,7 +414,8 @@ int main(int argc, char** argv) {
         ("am-port", po::value<int>()->default_value(9094), "am port")
         ("server", po::value<std::string>()->default_value("threaded"), "Server type")
         ("transport", po::value<std::string>()->default_value("framed"), "transport type")
-        ("output", po::value<std::string>()->default_value("stats.txt"), "stats output");
+        ("output", po::value<std::string>()->default_value("stats.txt"), "stats output")
+        ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency");
     AMTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }

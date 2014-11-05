@@ -405,6 +405,7 @@ TEST_F(AMTest, smtest)
 
     sleep(5);
     printOpTs("temp.txt");
+    double throughput = (static_cast<double>(1000000000) / (endTs - startTs)) * nPuts;
     std::cout << "start: " << startTs << "end: " << endTs << std::endl;
     std::cout << "Avg time: " << (endTs - startTs) / nPuts;
 }
