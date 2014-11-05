@@ -88,6 +88,16 @@ struct UpdateCatalogHandler : Handler {
                         const Error &e, dmCatReq *dmRequest);
 };
 
+struct GetBlobMetaDataHandler : Handler {
+    GetBlobMetaDataHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::GetBlobMetaDataMsg> & message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_

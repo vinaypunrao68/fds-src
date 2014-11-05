@@ -776,6 +776,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler();
     handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler();
     handlers[FDS_CAT_UPD] = new dm::UpdateCatalogHandler();
+    handlers[FDS_GET_BLOB_METADATA] = new dm::GetBlobMetaDataHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1583,30 +1584,6 @@ DataMgr::expungeObjectCb(QuorumSvcRequest* svcReq,
                          const Error& error,
                          boost::shared_ptr<std::string> payload) {
     DBG(GLOGDEBUG << "Expunge cb called");
-}
-
-void DataMgr::scheduleGetBlobMetaDataSvc(void *_io) {
-    Error err(ERR_OK);
-    DmIoGetBlobMetaData *getBlbMeta = static_cast<DmIoGetBlobMetaData*>(_io);
-
-    // TODO(Andrew): We're not using the size...we can remove it
-    fds_uint64_t blobSize;
-    err = timeVolCat_->queryIface()->getBlobMeta(getBlbMeta->volId,
-                                             getBlbMeta->blob_name,
-                                             &(getBlbMeta->blob_version),
-                                             &(blobSize),
-                                             &(getBlbMeta->message->metaDataList));
-    if (!err.ok()) {
-        PerfTracer::incr(getBlbMeta->opReqFailedPerfEventType, getBlbMeta->getVolId(),
-                getBlbMeta->perfNameStr);
-    }
-    getBlbMeta->message->byteCount = blobSize;
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*getBlbMeta);
-    PerfTracer::tracePointEnd(getBlbMeta->opLatencyCtx);
-    PerfTracer::tracePointEnd(getBlbMeta->opReqLatencyCtx);
-    // TODO(Andrew): Note the cat request gets freed
-    // by the callback
-    getBlbMeta->dmio_getmd_resp_cb(err, getBlbMeta);
 }
 
 void DataMgr::setBlobMetaDataSvc(void *io) {

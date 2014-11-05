@@ -212,9 +212,6 @@ struct DataMgr : Module, DmIoReqHandler {
 
                 /* End of new refactored DM message types */
 
-                case FDS_GET_BLOB_METADATA:
-                    threadPool->schedule(&DataMgr::scheduleGetBlobMetaDataSvc, dataMgr, io);
-                    break;
                 case FDS_SET_BLOB_METADATA:
                     threadPool->schedule(&DataMgr::setBlobMetaDataSvc, dataMgr, io);
                     break;
@@ -226,6 +223,7 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_DM_SYS_STATS:
                 case FDS_DELETE_BLOB:
                 case FDS_LIST_BLOB:
+                case FDS_GET_BLOB_METADATA:
                 case FDS_CAT_UPD:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
@@ -400,7 +398,6 @@ struct DataMgr : Module, DmIoReqHandler {
     void handleForwardComplete(dmCatReq *io);
     void handleStatStream(dmCatReq *io);
 
-    void scheduleGetBlobMetaDataSvc(void *io);
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 
     /**

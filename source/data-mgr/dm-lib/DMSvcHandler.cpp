@@ -20,7 +20,6 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CommitBlobTxMsg, commitBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::AbortBlobTxMsg, abortBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::SetBlobMetaDataMsg, setBlobMetaData);
-    REGISTER_FDSP_MSG_HANDLER(fpi::GetBlobMetaDataMsg, getBlobMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, getVolumeMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamMsg, handleStatStream);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
@@ -521,48 +520,6 @@ void DMSvcHandler::deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& async
     // TODO(sanjay) - we will have to revisit  this call
     fpi::DeleteCatalogObjectRspMsg delcatRspMsg;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(DeleteCatalogObjectRspMsg), delcatRspMsg);
-
-    delete req;
-}
-
-void DMSvcHandler::getBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                   boost::shared_ptr<fpi::GetBlobMetaDataMsg>& getBlbMeta) {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*getBlbMeta));
-
-    auto dmReq = new DmIoGetBlobMetaData(getBlbMeta->volume_id,
-                                         getBlbMeta->blob_name,
-                                         getBlbMeta->blob_version,
-                                         getBlbMeta);
-    dmReq->dmio_getmd_resp_cb =
-            BIND_MSG_CALLBACK2(DMSvcHandler::getBlobMetaDataCb, asyncHdr, getBlbMeta);
-
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
-    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmReq->getVolId());
-    Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
-                                            voldesc->qosQueueId : dmReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmReq));
-
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue request "
-                << logString(*asyncHdr) << ":" << logString(*getBlbMeta);
-        PerfTracer::tracePointEnd(dmReq->opReqLatencyCtx);
-        PerfTracer::incr(dmReq->opReqFailedPerfEventType, dmReq->getVolId(),
-                         dmReq->perfNameStr);
-        dmReq->dmio_getmd_resp_cb(err, dmReq);
-    }
-}
-
-// TODO(Rao): Refactor dmCatReq to contain BlobNode information? Check with Andrew.
-void DMSvcHandler::getBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                     boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message,
-                                     const Error &e, DmIoGetBlobMetaData *req) {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
-
-    // TODO(Rao): We should have a seperate response message for QueryCatalogMsg for
-    // consistency
-    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    sendAsyncResp(asyncHdr, fpi::GetBlobMetaDataMsgTypeId, message);
 
     delete req;
 }
