@@ -1,4 +1,4 @@
-#!/bin/bash -le
+#!/bin/bash -lx
 
 ulimit -c unlimited
 ulimit -n 400000
@@ -51,6 +51,8 @@ function fds_smoketest
    AM_IP=$(grep `hostname` /etc/hosts | awk '{print $1}')
    source/test/fds-primitive-smoke.py --up false --down false --am_ip $AM_IP
    [[ $? -ne 0 ]] && echo "SMOKE TEST:  FAILED" && exit 96
+
+   echo "Done RUNNING SMOKE TESTs"
 }
 
 
