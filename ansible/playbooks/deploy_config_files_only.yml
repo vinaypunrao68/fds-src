@@ -1,0 +1,28 @@
+---
+-   name: deploy rendered FDS config files without code
+    hosts: "{{ target_hosts }}"
+    sudo: yes
+
+    tasks:
+    -   name: create safe directory for configs to be dumped to
+        file: path=/root/fds_configs
+            state=directory
+            owner=root
+            group=root
+            mode=755
+
+    -   name: render common configs
+        template:
+            src: ../../source/config/etc/{{item}}.conf.j2
+            dest: /root/fds_configs/{{item}}.conf
+        with_items:
+            - fds
+            - fds-features
+            - platform
+            - orch_mgr
+            - redis
+
+    -   name: render formation.conf
+        template:
+            src: ../../source/test/formation.conf.j2
+            dest: /root/fds_configs/formation.conf
