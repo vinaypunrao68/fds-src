@@ -12,6 +12,9 @@
 
 #include "requests/requests.h"
 
+// TODO(Greg): May be removed when sync interface is removed.
+#include <responsehandler.h>
+
 namespace fds {
 
 #define AMPROCESSOR_CB_HANDLER(func, ...) \
@@ -312,11 +315,23 @@ AmProcessor::getBlob(AmRequest *amReq) {
             // Data was found in cache, so fill data and callback
             LOGTRACE << "Found cached object " << *objectId;
 
-            // Only return UP-TO the amount of data requested, never more
+            // Pull out the GET callback object so we can populate it
+            // with cache contents and send it to the requester.
             GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+
             cb->returnSize = std::min(amReq->data_len, objectData->size());
+
+            // Make sure we have a buffer.
+            // TODO(Andrew): This should be a shared pointer
+            // as we pass it around a lot.
+            if (cb->returnBuffer == nullptr) {
+                cb->returnBuffer = new char[cb->returnSize];
+            }
+
+            // Only return UP-TO the amount of data requested, never more
             memcpy(cb->returnBuffer, objectData->c_str(), cb->returnSize);
 
+            // Report results of GET request to requestor.
             getBlobCb(amReq, err);
         } else {
             // We couldn't find the data in the cache even though the id was
@@ -409,6 +424,16 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
     // Tell QoS the request is done
     qosCtrl->markIODone(amReq);
     amReq->cb->call(error);
+
+    // TODO(Greg): This check may be removed when sync interface is removed.
+    boost::shared_ptr<ResponseHandler> ah =
+            SHARED_DYN_CAST(ResponseHandler, amReq->cb);
+    if (ah->isAsyncHandler()) {
+        // We're finished with our buffer used to return the object.
+        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+        delete[] cb->returnBuffer;
+    }
+
     delete amReq;
 }
 
