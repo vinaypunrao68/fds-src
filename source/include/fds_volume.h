@@ -24,6 +24,8 @@
 #include <boost/atomic.hpp>
 #include <serialize.h>
 #include <fds_resource.h>
+#include <shared/fds-constants.h>
+
 #define FdsSysTaskQueueId 0xefffffff
 #define FdsSysTaskPri 5
 
@@ -87,6 +89,9 @@ class VolumeDesc : public HasState {
 
     fpi::ResourceState     state;
 
+    /* Output from block device */
+    char                   vol_blkdev[FDS_MAX_VOL_NAME];
+
     VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeInfoType& volinfo,
                fds_volid_t vol_uuid);
 
@@ -126,7 +131,7 @@ class VolumeDesc : public HasState {
     fds_volid_t getLookupVolumeId() const;
 
     friend std::ostream& operator<<(std::ostream& out, const VolumeDesc& vol_desc);
-    fpi::ResourceState getState() {
+    fpi::ResourceState getState() const {
         return state;
     }
 

@@ -13,8 +13,73 @@
 #include <util/timeutils.h>
 #include <dm-platform.h>
 #include <DataMgr.h>
+#include <fdsp/fds_service_types.h>
 #include <string>
 #include <vector>
+#include <concurrency/taskstatus.h>
+#include <util/color.h>
+#include <map>
+#include <util/stats.h>
+
+using fds::util::Color;
+std::map<std::string, fds::util::Stats> statsMap;
+
+void printStats() {
+    for (auto& iter : statsMap) {
+        auto& stats = iter.second;
+        stats.calculate();
+        if (stats.getCount() > 1) {
+            std::cout << Color::Yellow << "[" << std::setw(10) << iter.first << "] " << Color::End
+                      << std::fixed << std::setprecision(3)
+                      << Color::Green << "["
+                      << " count:" << stats.getCount()
+                      << " median:" << stats.getMedian()
+                      << " avg:" << stats.getAverage()
+                      << " stddev:" << stats.getStdDev()
+                      << " min:" << stats.getMin()
+                      << " max:" << stats.getMax()
+                      << " ]" << Color::End << std::endl;
+        } else {
+            std::cout << Color::Yellow << "[" << std::setw(10) << iter.first << "] " << Color::End
+                      << std::fixed << std::setprecision(3)
+                      << Color::Green << stats.getAverage() << Color::End << std::endl;
+        }
+    }
+    statsMap.clear();
+}
+
+struct TimePrinter {
+    std::string name;
+    fds::util::StopWatch stopwatch;
+    bool done = false;
+    TimePrinter() {}
+    explicit TimePrinter(std::string name) :  name(name){
+        stopwatch.start();
+    }
+    void summary() {
+        std::cout << Color::Yellow << "[" << std::setw(10) << name << "] " << Color::End
+                  << std::fixed << std::setprecision(3)
+                  << Color::Red
+                  << (stopwatch.getElapsedNanos()/(1000.0*1000)) << " ms"
+                  << Color::End
+                  << std::endl;
+    }
+
+    ~TimePrinter() {
+        if (done) {
+            // summary();
+            statsMap[name].add(stopwatch.getElapsedNanos()/(1000000.0));
+        }
+    }
+};
+
+std::map<std::string, TimePrinter> timeMap;
+
+#define TIMEDSECTION(NAME, ...) timeMap[NAME].stopwatch.reset();  timeMap[NAME].name = NAME; \
+    __VA_ARGS__ ; timeMap[NAME].summary()
+
+#define TIMEDBLOCK(NAME) for (TimePrinter __tp__(NAME); !__tp__.done ; __tp__.done = true)
+#define TIMEDOUTERBLOCK(NAME) for (TimePrinter __otp__(NAME); !__otp__.done ; __otp__.done = true)
 
 static Error expungeObjects(fds_volid_t volId, const std::vector<ObjectID> & oids) {
     /*
@@ -25,6 +90,40 @@ static Error expungeObjects(fds_volid_t volId, const std::vector<ObjectID> & oid
     */
     return ERR_OK;
 }
+
+#define BIND_OBJ_CALLBACK(obj, func, header , ...)                       \
+    std::bind(&func, &obj , header, ##__VA_ARGS__ , std::placeholders::_1, \
+              std::placeholders::_2);
+
+#define DEFINE_SHARED_PTR(TYPE, NAME) \
+    boost::shared_ptr<fpi::TYPE> NAME(new fpi::TYPE());
+
+struct DMCallback {
+    boost::shared_ptr<fpi::AsyncHdr> asyncHdr;
+    Error e;
+    fds::dmCatReq *req;
+    fds::concurrency::TaskStatus taskStatus;
+
+    void reset() {
+        taskStatus.reset(1);
+    }
+
+    bool wait(ulong timeout = 0) {
+        if (timeout > 0) {
+            return taskStatus.await(timeout);
+        } else {
+            taskStatus.await();
+            return true;
+        }
+    }
+
+    void handler(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr, const fds::Error &e, fds::dmCatReq *req) { //NOLINT
+        this->asyncHdr = asyncHdr;
+        this->e = e;
+        this->req = req;
+        taskStatus.done();
+    }
+};
 
 struct BlobDetails {
     std::string name;

@@ -1,0 +1,3 @@
+version=3
+opts=downloadurlmangle=s%.*/%http://leveldb.googlecode.com/files/% \
+http://code.google.com/p/leveldb/downloads/list .*/leveldb-(\d.*)\.(?:tgz|tar\.(?:gz|bz2|xz))

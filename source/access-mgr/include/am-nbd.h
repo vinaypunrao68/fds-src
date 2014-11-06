@@ -6,16 +6,24 @@
 
 #include <ev.h>
 #include <linux/nbd.h>
+
+#include <string>
 #include <fds_ptr.h>
 #include <fds-aio.h>
+#include <ObjectId.h>
 #include <access-mgr/am-block.h>
 #include <concurrency/spinlock.h>
+#include <fdsp/fds_service_types.h>
 
 namespace fds {
 
 class NbdBlkIO;
+class NbdSmVol;
+class NbdDmVol;
 class NbdBlkVol;
 class NbdBlockMod;
+class QuorumSvcRequest;
+class FailoverSvcRequest;
 
 /**
  * Event based volume descriptor.
@@ -32,15 +40,20 @@ class EvBlkVol : public BlkVol
   protected:
     friend class NbdBlkIO;
     friend class NbdBlockMod;
+    friend class NbdDmVol;
 
     int                      vio_sk;
     ev_io                    vio_watch;
+    fds_uint64_t             vio_txid;
     struct ev_loop          *vio_ev_loop;
     FdsAIO                  *vio_read;
     FdsAIO                  *vio_write;
 
     /* Factory method. */
     virtual FdsAIO *ev_alloc_vio() = 0;
+
+    /* The run loop used by ev lib. */
+    void blk_run_loop();
 };
 
 /*
@@ -50,7 +63,7 @@ class EvBlockMod : public BlockMod
 {
   public:
     virtual ~EvBlockMod() {}
-    EvBlockMod() : BlockMod(), ev_blk_loop(NULL) {}
+    EvBlockMod() : BlockMod(), ev_prim_loop(NULL) {}
 
     /* Module methods. */
     virtual int  mod_init(SysParams const *const p) override;
@@ -58,12 +71,8 @@ class EvBlockMod : public BlockMod
     virtual void mod_enable_service() override;
     virtual void mod_shutdown() override;
 
-    /* The run loop used by ev lib. */
-    void blk_run_loop();
-
   protected:
-    ev_idle                  ev_idle_evt;
-    struct ev_loop          *ev_blk_loop;
+    struct ev_loop          *ev_prim_loop;
 };
 
 /**
@@ -77,11 +86,17 @@ class NbdBlkVol : public EvBlkVol
     virtual ~NbdBlkVol();
     explicit NbdBlkVol(const blk_vol_creat_t *r, struct ev_loop *loop);
 
-    void nbd_vol_read(NbdBlkIO *io);
-    void nbd_vol_write(NbdBlkIO *io);
-    void nbd_vol_close();
-    void nbd_vol_flush();
-    void nbd_vol_trim();
+    virtual void nbd_vol_read(NbdBlkIO *io);
+    virtual void nbd_vol_write(NbdBlkIO *io);
+    virtual void nbd_vol_close();
+    virtual void nbd_vol_flush();
+    virtual void nbd_vol_trim();
+
+    void nbd_vol_write_cb(NbdBlkIO *vio, QuorumSvcRequest *,
+                          const Error &, bo::shared_ptr<std::string>);
+
+    void nbd_vol_read_cb(NbdBlkIO *vio, FailoverSvcRequest *req,
+                         const Error &, bo::shared_ptr<std::string>);
 
   protected:
     friend class NbdBlkIO;
@@ -107,13 +122,23 @@ class NbdBlkIO : public FdsAIO
     virtual void aio_rearm_write();
     virtual void aio_write_complete();
 
+    char *aio_buffer(ssize_t *len, int idx = 1)
+    {
+        *len = io_vec[idx].iov_len;
+        return reinterpret_cast<char *>(io_vec[idx].iov_base);
+    }
+
   protected:
+    friend class NbdSmVol;
+    friend class NbdDmVol;
     friend class NbdBlkVol;
 
     NbdBlkVol::ptr           nbd_vol;
     struct nbd_request       nbd_reqt;
     struct nbd_reply         nbd_repl;
+    ssize_t                  nbd_cur_len;
     ssize_t                  nbd_cur_off;
+    ObjectID                 nbd_cur_obj;
 
     inline void vio_setup_new_read()
     {
@@ -143,12 +168,15 @@ class NbdBlockMod : public EvBlockMod
     virtual void mod_startup() override;
 
     /* Block driver methods. */
-    virtual int blk_attach_vol(const blk_vol_creat_t *r) override;
+    virtual int blk_attach_vol(blk_vol_creat_t *r) override;
     virtual int blk_detach_vol(fds_uint64_t uuid) override;
     virtual int blk_suspend_vol(fds_uint64_t uuid) override;
 
   protected:
     virtual BlkVol::ptr blk_alloc_vol(const blk_vol_creat_t *r) override;
+
+  private:
+    int                      nbd_devno;
 };
 
 }  // namespace fds

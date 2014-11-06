@@ -49,8 +49,10 @@ void
 ObjectMetaCache::putObjectMetadata(fds_volid_t volId,
                                    const ObjectID &objId,
                                    ObjMetaData::const_ptr objMeta) {
-    ObjMetaData::const_ptr evictedMeta
-            = metaCache->add(objId, objMeta);
+    if (maxEntries > 0) {
+        ObjMetaData::const_ptr evictedMeta
+                = metaCache->add(objId, objMeta);
+    }
 }
 
 ObjMetaData::const_ptr
@@ -59,7 +61,11 @@ ObjectMetaCache::getObjectMetadata(fds_volid_t volId,
                                    Error &err) {
     // Query the cache and touch the entry
     ObjMetaData::const_ptr objMeta;
-    err = metaCache->get(objId, objMeta);
+    if (maxEntries > 0) {
+        err = metaCache->get(objId, objMeta);
+    } else {
+        err = ERR_NOT_FOUND;
+    }
     return objMeta;
 }
 
@@ -67,7 +73,9 @@ void
 ObjectMetaCache::removeObjectMetadata(fds_volid_t volId,
                                       const ObjectID &objId) {
     // Query the cache and touch the entry
-    metaCache->remove(objId);
+    if (maxEntries > 0) {
+        metaCache->remove(objId);
+    }
 }
 
 }  // namespace fds

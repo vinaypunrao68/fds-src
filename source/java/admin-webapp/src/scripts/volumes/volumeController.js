@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume_api', '$element', '$timeout', '$compile', '$snapshot_service', '$rootScope', '$filter', function( $scope, $volume_api, $element, $timeout, $compile, $snapshot_service, $rootScope, $filter ){
+angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$element', '$timeout', '$compile', '$snapshot_service', '$rootScope', '$filter', function( $scope, $location, $state, $volume_api, $element, $timeout, $compile, $snapshot_service, $rootScope, $filter ){
     
     $scope.date = new Date();
     $scope.volumes = [];
@@ -84,6 +84,10 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$volume
         if ( !$scope.editing ) {
             $scope.volumes = $volume_api.volumes;
         }
+    });
+    
+    $scope.$watch( 'volumeVars.index', function( newVal ){
+        
     });
     
     $scope.$watch( 'volumeVars.creating', function( newVal ){ if ( newVal === false ){ $volume_api.refresh(); }} );

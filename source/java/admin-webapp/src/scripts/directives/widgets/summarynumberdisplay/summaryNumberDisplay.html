@@ -1,0 +1,15 @@
+<div class="summary-number-display flex">
+    
+    <div class="dots-parent" ng-show="data.length > 1">
+        <div class="dot" ng-repeat="item in data" ng-class="{ filled : $index === visibleIndex }" ng-click="dotClicked( $index )"></div>
+    </div>
+    
+    <div class="flex" style="flex-wrap: nowrap;">
+        <div class="main-number" ng-style="{ 'min-width': numberMinWidth }">{{data[visibleIndex].wholeNumber}}</div>
+        <div class="decimals" ng-style="{ 'min-width': decimalMinWidth }">
+            <span ng-show="data[visibleIndex].decimals > 0">{{ separator }}{{data[visibleIndex].decimals}}</span>
+            <span>{{data[visibleIndex].suffix}}</span>
+        </div>
+        <div class="tile-description">{{data[visibleIndex].description}}</div>
+    </div>
+</div>

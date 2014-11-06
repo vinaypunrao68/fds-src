@@ -1,0 +1,36 @@
+---
+-   name: generate packageable FDS config files
+    hosts: localhost
+    vars_files:
+        - ../vars_files/config_files_dev.yml
+
+    tasks:
+    -   name: render fds.conf
+        template:
+            src: ../../source/config/etc/fds.conf.j2
+            dest: ../../source/config/etc/fds.conf
+
+    -   name: render fds-features.conf
+        template:
+            src: ../../source/config/etc/fds-features.conf.j2
+            dest: ../../source/config/etc/fds-features.conf
+
+    -   name: render orch_mgr.conf
+        template:
+            src: ../../source/config/etc/orch_mgr.conf.j2
+            dest: ../../source/config/etc/orch_mgr.conf
+
+    -   name: render platform.conf
+        template:
+            src: ../../source/config/etc/platform.conf.j2
+            dest: ../../source/config/etc/platform.conf
+
+    -   name: render redis.conf
+        template:
+            src: ../../source/config/etc/redis.conf.j2
+            dest: ../../source/config/etc/redis.conf
+
+    -   name: render formation.conf
+        template:
+            src: ../../source/test/formation.conf.j2
+            dest: ../../source/test/formation.conf

@@ -1,0 +1,29 @@
+Description: cstdatomic has been renamed to atomic, fix #include statements.
+Bug: http://code.google.com/p/leveldb/issues/detail?id=3
+---
+ build_detect_platform |    2 +-
+ port/atomic_pointer.h |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+--- leveldb.orig/build_detect_platform
++++ leveldb/build_detect_platform
+@@ -185,7 +185,7 @@ else
+ 
+     # If -std=c++0x works, use <cstdatomic>.  Otherwise use port_posix.h.
+     $CXX $CXXFLAGS -std=c++0x -x c++ - -o $CXXOUTPUT 2>/dev/null  <<EOF
+-      #include <cstdatomic>
++      #include <atomic>
+       int main() {}
+ EOF
+     if [ "$?" = 0 ]; then
+--- leveldb.orig/port/atomic_pointer.h
++++ leveldb/port/atomic_pointer.h
+@@ -21,7 +21,7 @@
+ 
+ #include <stdint.h>
+ #ifdef LEVELDB_CSTDATOMIC_PRESENT
+-#include <cstdatomic>
++#include <atomic>
+ #endif
+ #ifdef OS_WIN
+ #include <windows.h>

@@ -10,7 +10,7 @@ StorHvQosCtrl *storHvQosCtrl; // global pointer to track the singleton instance
 StorHvQosCtrl::StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log)
   : FDS_QoSControl::FDS_QoSControl(max_thrds, algo, log, "SH")
 {
-     total_rate = 20000;
+     total_rate = 200000;
      if ( dispatchAlgo == FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET) {
         htb_dispatcher = new QoSHTBDispatcher(this, qos_log, total_rate);
      }
@@ -28,7 +28,7 @@ FDS_VolumeQueue* StorHvQosCtrl::getQueue(fds_volid_t queueId) {
 
 Error StorHvQosCtrl::processIO(FDS_IOType *io) {
   fds_verify(io->io_module == FDS_IOType::STOR_HV_IO);
-  threadPool->schedule(processBlobReq, static_cast<AmQosReq*>(io));
+  threadPool->schedule(processBlobReq, static_cast<AmRequest*>(io));
   return ERR_OK;
 }
 
@@ -94,7 +94,6 @@ Error StorHvQosCtrl::markIODone(FDS_IOType *io) {
                                            STAT_AM_QUEUE_WAIT,
                                            io->io_wait_time);
 
-  delete io;
   return err;
 }
 

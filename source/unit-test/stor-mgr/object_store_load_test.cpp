@@ -11,12 +11,12 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/shared_ptr.hpp>
+#include <google/profiler.h>
 
 #include <fds_assert.h>
 #include <fds_process.h>
 #include <ObjectId.h>
 #include <FdsRandom.h>
-#include <StatsCollector.h>
 #include <object-store/ObjectStore.h>
 
 #include <sm_ut_utils.h>
@@ -66,15 +66,20 @@ class ObjectStoreLoadProc : public FdsProcess {
     std::atomic<fds_bool_t> test_pass_;
 
     TestVolume::ptr volume_;
+
+    // latency counters
+    std::atomic<fds_uint64_t> put_lat_micro;
+    std::atomic<fds_uint64_t> get_lat_micro;
 };
 
 ObjectStoreLoadProc::ObjectStoreLoadProc(int argc, char * argv[], const std::string & config,
                                          const std::string & basePath, Module * vec[])
         : FdsProcess(argc, argv, config, basePath, vec) {
-    // initialize dynamicc counters
+    // initialize dynamic counters
     op_count = ATOMIC_VAR_INIT(0);
     test_pass_ = ATOMIC_VAR_INIT(true);
-    StatsCollector::singleton()->enableQosStats("ObjStoreLoadTest");
+    put_lat_micro = ATOMIC_VAR_INIT(0);
+    get_lat_micro = ATOMIC_VAR_INIT(0);
 }
 
 
@@ -93,10 +98,8 @@ ObjectStoreLoadProc::get(fds_volid_t volId,
 
     // record stat
     fds_uint64_t lat_nano = util::getTimeStampNanos() - start_nano;
-    StatsCollector::singleton()->recordEvent(volId,
-                                             util::getTimeStampNanos(),
-                                             STAT_AM_GET_OBJ,
-                                             static_cast<double>(lat_nano) / 1000.0);
+    double lat_micro = static_cast<double>(lat_nano) / 1000.0;
+    fds_uint64_t lat = atomic_fetch_add(&get_lat_micro, (fds_uint64_t)lat_micro);
     return ERR_OK;
 }
 
@@ -115,11 +118,8 @@ ObjectStoreLoadProc::put(fds_volid_t volId,
 
     // record stat
     fds_uint64_t lat_nano = util::getTimeStampNanos() - start_nano;
-    StatsCollector::singleton()->recordEvent(volId,
-                                             util::getTimeStampNanos(),
-                                             STAT_AM_PUT_OBJ,
-                                             static_cast<double>(lat_nano) / 1000.0);
-
+    double lat_micro = static_cast<double>(lat_nano) / 1000.0;
+    fds_uint64_t lat = atomic_fetch_add(&put_lat_micro, (fds_uint64_t)lat_micro);
     return ERR_OK;
 }
 
@@ -199,6 +199,7 @@ int ObjectStoreLoadProc::run() {
     }
 
     fds_uint64_t start_nano = util::getTimeStampNanos();
+    ProfilerStart("/tmp/SMObjStore_output.prof");
     for (unsigned i = 0; i < volume_->concurrency_; ++i) {
         std::thread* new_thread = new std::thread(&ObjectStoreLoadProc::task, this, i);
         threads_.push_back(new_thread);
@@ -208,20 +209,35 @@ int ObjectStoreLoadProc::run() {
     for (unsigned x = 0; x < volume_->concurrency_; ++x) {
         threads_[x]->join();
     }
+    ProfilerStop();
+
+    fds_uint64_t duration_nano = util::getTimeStampNanos() - start_nano;
+    double time_sec = duration_nano / 1000000000.0;
+    fds_uint64_t lat_counter = 0;
+    if (volume_->op_type_ == TestVolume::STORE_OP_GET) {
+        lat_counter = atomic_load(&get_lat_micro);
+    } else if (volume_->op_type_ == TestVolume::STORE_OP_PUT) {
+        lat_counter = atomic_load(&put_lat_micro);
+    }
+    double total_ops = volume_->num_ops_;
+    double ave_lat = 0;
+    if (total_ops > 0) {
+        ave_lat = static_cast<double>(lat_counter) / total_ops;
+    }
+    if (time_sec < 10) {
+        std::cout << "Experiment ran for too short time to calc IOPS" << std::endl;
+        LOGNOTIFY << "Experiment ran for too short time to calc IOPS";
+    } else {
+        std::cout << "Average IOPS = " << volume_->num_ops_ / time_sec
+                  << "; Average latency " << ave_lat << " microsec" << std::endl;
+        LOGNOTIFY << "Average IOPS = " << volume_->num_ops_ / time_sec
+                  << "; Average latency " << ave_lat << " microsec";
+    }
 
     for (unsigned x = 0; x < volume_->concurrency_; ++x) {
         std::thread* th = threads_[x];
         delete th;
         threads_[x] = NULL;
-    }
-    fds_uint64_t duration_nano = util::getTimeStampNanos() - start_nano;
-    double time_sec = duration_nano / 1000000000.0;
-    if (time_sec < 10) {
-        std::cout << "Experiment ran for too short time to calc IOPS" << std::endl;
-        LOGNOTIFY << "Experiment ran for too short time to calc IOPS";
-    } else {
-        std::cout << "Average IOPS = " << volume_->num_ops_ / time_sec << std::endl;
-        LOGNOTIFY << "Average IOPS = " << volume_->num_ops_ / time_sec;
     }
 
     // read back and validate

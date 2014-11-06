@@ -5,335 +5,450 @@
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
-import com.formationds.commons.model.builder.RecurrenceRuleBuilder;
-import com.formationds.commons.model.exception.ParseException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.commons.model.i18n.ModelResource;
-import com.formationds.commons.model.type.iCalFields;
-import com.formationds.commons.model.util.iCalValidator;
+import com.formationds.commons.model.type.iCalFrequency;
+import com.formationds.commons.model.type.iCalKeys;
+import com.formationds.commons.model.type.iCalWeekDays;
+import com.formationds.commons.model.util.RRIntegerValidator;
+import com.formationds.commons.util.Numbers;
+import com.formationds.commons.util.WeekDays;
 import com.google.gson.annotations.SerializedName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.text.MessageFormat;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.text.ParseException;
+import java.util.Date;
+import java.util.NoSuchElementException;
+import java.util.StringTokenizer;
 
 /**
  * @author ptinius
  */
+@SuppressWarnings( "UnusedDeclaration" )
 public class RecurrenceRule
-  extends ModelBase {
-  private static final long serialVersionUID = 5047799369275124734L;
+    extends ModelBase {
+    private static final long serialVersionUID = -6056637443021228929L;
 
-  private static final SimpleDateFormat UNTIL_DATE =
-    new SimpleDateFormat( "yyyyMMdd'T'HHmmssZ" );
+    private static final Logger logger =
+        LoggerFactory.getLogger( RecurrenceRule.class );
 
-  @SerializedName("FREQ")
-  private String frequency;
-  @SerializedName("UNTIL")
-  private Date until;
-  @SerializedName("COUNT")
-  private Integer count;
-  @SerializedName("INTERVAL")
-  private Integer interval;
+    private static final String MISSING_TOKEN =
+        "Missing expected token, last token: '%s'";
 
-  private static final Map<iCalFields, iCalValidator> VALIDATORS =
-    new HashMap<>();
+    private static final String RRULE_STARTSWITH = "RRULE:";
 
-  static {
-    VALIDATORS.put( iCalFields.BYHOUR, new iCalValidator( 0, 23, false ) );
-    VALIDATORS.put( iCalFields.BYMINUTE, new iCalValidator( 0, 59, false ) );
-    VALIDATORS.put( iCalFields.BYMONTH, new iCalValidator( 1, 12, false ) );
-    VALIDATORS.put( iCalFields.BYMONTHDAY, new iCalValidator( 1, 31, true ) );
-    VALIDATORS.put( iCalFields.BYSECOND, new iCalValidator( 0, 59, false ) );
-    VALIDATORS.put( iCalFields.BYYEARDAY, new iCalValidator( 1, 366, true ) );
-    VALIDATORS.put( iCalFields.BYWEEKNO, new iCalValidator( 1, 53, true ) );
-  }
+    @SerializedName( "FREQ" )
+    private String frequency;
+    @SerializedName( "UNTIL" )
+    private Date until;
+    @SerializedName( "COUNT" )
+    private Integer count = null;
+    @SerializedName( "INTERVAL" )
+    private Integer interval = null;
 
-  /**
-   * default constructor
-   */
-  public RecurrenceRule() {
-    super();
-  }
+    @SerializedName( "BYSECOND" )
+    private Numbers<Integer> seconds = null;
+    @SerializedName( "BYMINUTE" )
+    private Numbers<Integer> minutes = null;
+    @SerializedName( "BYHOUR" )
+    private Numbers<Integer> hours = null;
+    @SerializedName( "BYMONTHDAY" )
+    private Numbers<Integer> monthDays = null;
+    @SerializedName( "BYYEAR" )
+    private Numbers<Integer> yearDays = null;
+    @SerializedName( "BYWEEKNO" )
+    private Numbers<Integer> weekNo = null;
+    @SerializedName( "BYMONTH" )
+    private Numbers<Integer> months = null;
+    @SerializedName( "BYSETPOS" )
+    private Numbers<Integer> position = null;
 
-  /**
-   * @return Returns {@link Integer} representing the number of times the event
-   * recurs
-   */
-  public Integer getCount() {
-    return count;
-  }
+    @SerializedName( "WKST" )
+    private String weekStartDay;
 
-  /**
-   * @param count the {@link Integer} representing the number of times the
-   *              event recurs
-   */
-  public void setCount( Integer count ) {
-    this.count = count;
-  }
+    @SerializedName( "BYDAY" )
+    private WeekDays<iCalWeekDays> days = null;
 
-  /**
-   * @return Returns {@link String} representing the recurrence frequency (i.e.
-   * how often an event recurs)
-   */
-  public String getFrequency() {
-    return frequency;
-  }
-
-  /**
-   * @param frequency the {@link String} representing the recurrence field
-   *                  (i.e. how often an event recurs)
-   */
-  public void setFrequency( final String frequency ) {
-    this.frequency = frequency;
-    isFrequencyValid();
-  }
-
-  /**
-   * @return Returns {@link Date} representing the ending date
-   */
-  public Date getUntil() {
-    return until;
-  }
-
-  /**
-   * @param until the {@link Date} representing the ending date
-   */
-  public void setUntil( Date until ) {
-    this.until = until;
-  }
-
-  /**
-   * @return Returns {@link Integer} representing interval between 2
-   * occurrences of the event
-   */
-  public Integer getInterval() {
-    return interval;
-  }
-
-  /**
-   * @param interval the {@link Integer} representing interval between 2
-   *                 occurrences of the event
-   */
-  public void setInterval( Integer interval ) {
-    this.interval = interval;
-  }
-
-  /**
-   * @throws IllegalArgumentException is frequency is invalid
-   */
-  public void isFrequencyValid()
-    throws IllegalArgumentException {
-    if( getFrequency() == null ) {
-      throw new IllegalArgumentException(
-        ModelResource.getString( "ical.missing.freq" ) );
+    /**
+     * default constructor
+     */
+    public RecurrenceRule() {
     }
 
-    try {
-      if( iCalFields.valueOf( getFrequency() ) == null ) {
-        throw new IllegalArgumentException(
-          MessageFormat.format( ModelResource.getString( "ical.invalid.freq" ),
-                                getFrequency() ) );
-      }
-    } catch( IllegalArgumentException e ) {
-      throw new IllegalArgumentException(
-        MessageFormat.format( ModelResource.getString( "ical.invalid.freq" ),
-                              getFrequency() ) );
+    /**
+     * @param frequency the {@link String} representing the frequency
+     * @param until     the {@link java.util.Date} defines a date-time value
+     *                  which bounds the recurrence rule in an inclusive
+     *                  manner
+     */
+    public RecurrenceRule( final String frequency, final Date until ) {
+        setFrequency( frequency );
+        setUntil( until );
     }
-  }
 
-  /**
-   * @param field the {@link iCalFields}
-   * @param value the {@code int} value to be validated
-   *
-   * @return Returns {@code true} if {@code value} is c=valid. Otherwise {@code
-   * false}
-   */
-  @SuppressWarnings("UnusedDeclaration")
-  protected boolean isValid( final iCalFields field, final int value ) {
-    return VALIDATORS.get( field )
-                     .isValid( value );
-  }
+    /**
+     * @param frequency the {@link String} representing the frequency
+     * @param count     the {@link Integer} defines the number of occurrences
+     *                  at which to range-bound the recurrence
+     */
+    public RecurrenceRule( final String frequency, final Integer count ) {
+        setFrequency( frequency );
+        setCount( count );
+    }
 
-  /**
-   * @param recurrence the {@link String} representing the Recurrence Rule
-   *
-   * @return Returns {@link com.formationds.commons.model.RecurrenceRule}
-   *
-   * @throws ParseException if any parse errors are encountered
-   */
-  public static RecurrenceRule parser( final String recurrence )
-    throws ParseException {
-    StringTokenizer t = new StringTokenizer( recurrence, ";=:" );
+    /**
+     * @return Returns {@link String} representing the iCAL Frequency
+     */
+    public String getFrequency() {
+        return frequency;
+    }
 
-    RecurrenceRuleBuilder builder = new RecurrenceRuleBuilder();
-    while( t.hasMoreTokens() ) {
-      String token = t.nextToken();
+    public void setFrequency( final String frequency ) {
+        this.frequency = frequency;
+        validate();
+    }
 
-      if( iCalFields.FREQ.name()
-                         .equals( token ) ||
-        "frequency".equals( token ) ) {
-        builder = builder.withFrequency( next( t, token ) );
-      } else if( iCalFields.COUNT.name()
-                                 .equals( token ) ) {
-        try {
-          builder = builder.withCount( Integer.valueOf( next( t, token ) ) );
-        } catch( NumberFormatException e ) {
-          throw new ParseException( e.getMessage(), token );
+    public Integer getInterval() {
+        return interval;
+    }
+
+    public void setInterval( final Integer interval ) {
+        this.interval = interval;
+    }
+
+    public Integer getCount() {
+        return count;
+    }
+
+    public void setCount( final Integer count ) {
+        this.count = count;
+    }
+
+    public Date getUntil() {
+        return until;
+    }
+
+    public void setUntil( final Date until ) {
+        this.until = until;
+    }
+
+    public String getWeekStartDay() {
+        return weekStartDay;
+    }
+
+    public void setWeekStartDay( final String weekStartDay ) {
+        this.weekStartDay = weekStartDay;
+    }
+
+    public Numbers<Integer> getPosition() {
+        return position;
+    }
+
+    public void setPosition( final Numbers<Integer> position ) {
+        this.position = position;
+    }
+
+    public Numbers<Integer> getMonths() {
+        return months;
+    }
+
+    public void setMonths( final Numbers<Integer> months ) {
+        this.months = months;
+    }
+
+    public Numbers<Integer> getWeekNo() {
+        return weekNo;
+    }
+
+    public void setWeekNo( final Numbers<Integer> weekNo ) {
+        this.weekNo = weekNo;
+    }
+
+    public Numbers<Integer> getYearDays() {
+        return yearDays;
+    }
+
+    public void setYearDays( final Numbers<Integer> yearDays ) {
+        this.yearDays = yearDays;
+    }
+
+    public Numbers<Integer> getMonthDays() {
+        return monthDays;
+    }
+
+    public void setMonthDays( final Numbers<Integer> monthDays ) {
+        this.monthDays = monthDays;
+    }
+
+    public WeekDays<iCalWeekDays> getDays() {
+        return days;
+    }
+
+    public void setDays( final WeekDays<iCalWeekDays> days ) {
+        this.days = days;
+    }
+
+    public Numbers<Integer> getMinutes() {
+        return minutes;
+    }
+
+    public void setMinutes( final Numbers<Integer> minutes ) {
+        this.minutes = minutes;
+    }
+
+    public Numbers<Integer> getHours() {
+        return hours;
+    }
+
+    public void setHours( final Numbers<Integer> hours ) {
+        this.hours = hours;
+    }
+
+    public Numbers<Integer> getSeconds() {
+        return seconds;
+    }
+
+    public void setSeconds( final Numbers<Integer> seconds ) {
+        this.seconds = seconds;
+    }
+
+    /**
+     * @param rrule the {@link String} representing the iCal Recurrence Rule
+     *
+     * @return Returns the {@link RecurrenceRule}
+     *
+     * @throws java.text.ParseException any parsing error
+     */
+    public RecurrenceRule parser( final String rrule )
+        throws ParseException {
+
+        final RecurrenceRule RRule = new RecurrenceRule();
+        final StringTokenizer t = new StringTokenizer( rrule, ";=" );
+
+        while( t.hasMoreTokens() ) {
+            String token = t.nextToken();
+            if( token.startsWith( RRULE_STARTSWITH ) ) {
+                token = token.replace( RRULE_STARTSWITH, "" )
+                             .trim();
+            }
+
+            final iCalKeys key = iCalKeys.valueOf( token );
+            if( iCalKeys.FREQ.equals( key ) ) {
+                RRule.setFrequency( nextToken( t, token ) );
+            } else {
+                switch( key ) {
+                    case UNTIL:
+                        final String untilString = nextToken( t, token );
+                        RRule.setUntil( ObjectModelHelper.toiCalFormat( untilString ) );
+                        break;
+                    case COUNT:
+                        RRule.setCount( Integer.parseInt( nextToken( t, token ) ) );
+                        break;
+                    case INTERVAL:
+                        RRule.setInterval( Integer.parseInt( nextToken( t, token ) ) );
+                        break;
+                    case WKST:
+                        weekStartDay = nextToken( t, token );
+                        RRule.setWeekStartDay( weekStartDay );
+                        break;
+                    case BYSECOND:
+                        if( seconds == null ) {
+                            seconds = new Numbers<>( );
+                            seconds.validator( new RRIntegerValidator( 0, 59, false ) );
+                        }
+                        seconds.add( nextToken( t, token ), "," );
+                        RRule.setSeconds( seconds );
+                        break;
+                    case BYMINUTE:
+                        if( minutes == null ) {
+                            minutes = new Numbers<>( );
+                            minutes.validator( new RRIntegerValidator( 0, 59, false ) );
+                        }
+                        minutes.add( nextToken( t, token ), "," );
+                        RRule.setMinutes( minutes );
+                        break;
+                    case BYHOUR:
+                        if( hours == null ) {
+                            hours = new Numbers<>( );
+                            hours.validator( new RRIntegerValidator( 0, 23, false ) );
+                        }
+                        hours.add( nextToken( t, token ), "," );
+                        RRule.setHours( hours );
+                        break;
+                    case BYDAY:
+                        if( days == null ) {
+                            days = new WeekDays<>( );
+                        }
+                        days.add( nextToken( t, token ), "," );
+                        RRule.setDays( days );
+                        break;
+                    case BYWEEKNO:
+                        if( weekNo == null ) {
+                            weekNo = new Numbers<>( );
+                            weekNo.validator( new RRIntegerValidator( 1, 53, true ) );
+                        }
+                        weekNo.add( nextToken( t, token ), "," );
+                        RRule.setWeekNo( weekNo );
+                        break;
+                    case BYMONTHDAY:
+                        if( monthDays == null ) {
+                            monthDays = new Numbers<>( );
+                            monthDays.validator( new RRIntegerValidator( 1, 31, true ) );
+                        }
+                        monthDays.add( nextToken( t, token ), "," );
+                        RRule.setMonthDays( monthDays );
+                        break;
+                    case BYMONTH:
+                        if( months == null ) {
+                            months = new Numbers<>( );
+                            months.validator( new RRIntegerValidator( 1, 12, false ) );
+                        }
+                        months.add( nextToken( t, token ), "," );
+                        RRule.setMonths( months );
+                        break;
+                    case BYYEARDAY:
+                        if( yearDays == null ) {
+                            yearDays = new Numbers<>( );
+                            yearDays.validator( new RRIntegerValidator( 1, 366, true ) );
+                        }
+                        yearDays.add( nextToken( t, token ), "," );
+                        RRule.setYearDays( yearDays );
+                        break;
+                    case BYSETPOS:
+                        if( position == null ) {
+                            position = new Numbers<>( );
+                        }
+                        position.add( nextToken( t, token ), "," );
+                        RRule.setPosition( position );
+                        break;
+                    default:
+                        logger.warn(
+                            String.format( "%s -- assuming its a experimental value, skipping.",
+                                           key.name() ) );
+                        break;
+                    // SKIP -- assuming its a experimental value.
+                }
+            }
         }
-      } else if( iCalFields.INTERVAL.name()
-                                    .equals( token ) ) {
+
+
+        return RRule;
+    }
+
+    private String nextToken( StringTokenizer t, String lastToken ) {
         try {
-          builder = builder.withInterval( Integer.valueOf( next( t, token ) ) );
-        } catch( NumberFormatException e ) {
-          throw new ParseException( token );
+            return t.nextToken();
+        } catch( NoSuchElementException e ) {
+            throw new IllegalArgumentException( String.format( MISSING_TOKEN,
+                                                               lastToken ) );
         }
-      } else if( iCalFields.UNTIL.name()
-                                 .equals( token ) ) {
-        try {
-          builder = builder.withUntil( ObjectModelHelper.toiCalFormat( next( t, token ) ) );
-        } catch( java.text.ParseException e ) {
-          throw new ParseException( token );
+    }
+
+    private void validate() {
+        iCalFrequency.valueOf( getFrequency() );
+    }
+
+    /**
+     * @return Returns {@link String} representing the recurrence rule
+     */
+    @Override
+    public final String toString() {
+        final StringBuilder b = new StringBuilder();
+
+        b.append( iCalKeys.FREQ );
+        b.append( '=' );
+        b.append( frequency );
+
+        if( weekStartDay != null ) {
+            b.append( ';' );
+            b.append( iCalKeys.WKST );
+            b.append( '=' );
+            b.append( weekStartDay );
         }
-      }
-      // TODO finish implementing the rest of the iCal RRULE syntax
+
+        if( until != null ) {
+            b.append( ';' );
+            b.append( iCalKeys.UNTIL );
+            b.append( '=' );
+            b.append( ObjectModelHelper.isoDateTimeUTC( until ) );
+        }
+
+        if( count != null && count >= 1 ) {
+            b.append( ';' );
+            b.append( iCalKeys.COUNT );
+            b.append( '=' );
+            b.append( count );
+        }
+
+        if( interval != null && interval >= 1 ) {
+            b.append( ';' );
+            b.append( iCalKeys.INTERVAL );
+            b.append( '=' );
+            b.append( interval );
+        }
+
+        if( months != null && !months.isEmpty() ) {
+            b.append( ';' );
+            b.append( iCalKeys.BYMONTH );
+            b.append( '=' );
+            b.append( months );
+        }
+        if( weekNo != null && !weekNo.isEmpty() ) {
+            b.append( ';' );
+            b.append( iCalKeys.BYWEEKNO );
+            b.append( '=' );
+            b.append( weekNo );
+        }
+// TODO fix serialization issue with enum iCalWeekDays
+//        if( days != null && !days.isEmpty() ) {
+//            b.append( ';' );
+//            b.append( iCalKeys.BYDAY );
+//            b.append( '=' );
+//            b.append( days );
+//        }
+
+        if( yearDays != null && !yearDays.isEmpty() ) {
+            b.append( ';' );
+            b.append( iCalKeys.BYYEARDAY );
+            b.append( '=' );
+            b.append( yearDays );
+        }
+
+        if( monthDays != null && !monthDays.isEmpty() ) {
+            b.append( ';' );
+            b.append( iCalKeys.BYMONTHDAY );
+            b.append( '=' );
+            b.append( monthDays );
+        }
+
+        if( hours != null && !hours.isEmpty() ) {
+            b.append( ';' );
+            b.append( iCalKeys.BYHOUR );
+            b.append( '=' );
+            b.append( hours );
+        }
+
+        if( minutes != null && !minutes.isEmpty() ) {
+            b.append( ';' );
+            b.append( iCalKeys.BYMINUTE );
+            b.append( '=' );
+            b.append( minutes );
+        }
+
+        if( seconds != null && !seconds.isEmpty() ) {
+            b.append( ';' );
+            b.append( iCalKeys.BYSECOND );
+            b.append( '=' );
+            b.append( seconds );
+        }
+
+        if( position != null && !position.isEmpty() ) {
+            b.append( ';' );
+            b.append( iCalKeys.BYSETPOS );
+            b.append( '=' );
+            b.append( position );
+        }
+
+        return b.toString();
     }
-
-    return builder.build();
-  }
-
-  private static String next( final StringTokenizer t,
-                              final String lastToken ) {
-    try {
-      return t.nextToken();
-    } catch( NoSuchElementException ignored ) {
-    }
-
-    throw new IllegalArgumentException(
-      String.format( ModelResource.getString( "ical.missing.token" ),
-                     lastToken ) );
-  }
-
-// TODO finish filling in the rest of the iCal Recurrence Rule properties
-  /*
-    The value type is defined by the following
-     notation:
-
-     recur      = "FREQ"=freq *(
-
-     ; either until or count may appear in a 'recur',
-     ; but until and count MUST NOT occur in the same 'recur'
-
-     ( ";" "UNTIL" "=" enddate ) /
-     ( ";" "COUNT" "=" 1*DIGIT ) /
-
-     ; the rest of these keywords are optional,
-     ; but MUST NOT occur more than once
-
-     ( ";" "INTERVAL" "=" 1*DIGIT )          /
-     ( ";" "BYSECOND" "=" byseclist )        /
-     ( ";" "BYMINUTE" "=" byminlist )        /
-     ( ";" "BYHOUR" "=" byhrlist )           /
-     ( ";" "BYDAY" "=" bywdaylist )          /
-     ( ";" "BYMONTHDAY" "=" bymodaylist )    /
-     ( ";" "BYYEARDAY" "=" byyrdaylist )     /
-     ( ";" "BYWEEKNO" "=" bywknolist )       /
-     ( ";" "BYMONTH" "=" bymolist )          /
-     ( ";" "BYSETPOS" "=" bysplist )         /
-     ( ";" "WKST" "=" weekday )              /
-     ( ";" x-name "=" text )
-     )
-
-     freq       = "SECONDLY" / "MINUTELY" / "HOURLY" / "DAILY"
-     / "WEEKLY" / "MONTHLY" / "YEARLY"
-
-     enddate    = date
-     enddate    =/ date-time            ;An UTC value
-
-     byseclist  = seconds / ( seconds *("," seconds) )
-
-     seconds    = 1DIGIT / 2DIGIT       ;0 to 59
-
-     byminlist  = minutes / ( minutes *("," minutes) )
-
-     minutes    = 1DIGIT / 2DIGIT       ;0 to 59
-
-     byhrlist   = hour / ( hour *("," hour) )
-
-     hour       = 1DIGIT / 2DIGIT       ;0 to 23
-
-     bywdaylist = weekdaynum / ( weekdaynum *("," weekdaynum) )
-
-     weekdaynum = [([plus] ordwk / minus ordwk)] weekday
-
-     plus       = "+"
-
-     minus      = "-"
-
-     ordwk      = 1DIGIT / 2DIGIT       ;1 to 53
-
-     weekday    = "SU" / "MO" / "TU" / "WE" / "TH" / "FR" / "SA"
-     ;Corresponding to SUNDAY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY,
-     ;FRIDAY, SATURDAY and SUNDAY days of the week.
-
-     bymodaylist = monthdaynum / ( monthdaynum *("," monthdaynum) )
-
-     monthdaynum = ([plus] ordmoday) / (minus ordmoday)
-
-     ordmoday   = 1DIGIT / 2DIGIT       ;1 to 31
-
-     byyrdaylist = yeardaynum / ( yeardaynum *("," yeardaynum) )
-
-     yeardaynum = ([plus] ordyrday) / (minus ordyrday)
-
-     ordyrday   = 1DIGIT / 2DIGIT / 3DIGIT      ;1 to 366
-
-     bywknolist = weeknum / ( weeknum *("," weeknum) )
-     weeknum    = ([plus] ordwk) / (minus ordwk)
-
-     bymolist   = monthnum / ( monthnum *("," monthnum) )
-
-     monthnum   = 1DIGIT / 2DIGIT       ;1 to 12
-
-     bysplist   = setposday / ( setposday *("," setposday) )
-
-     setposday  = yeardaynum
- */
-
-  /**
-   * @return Returns {@link String} representing this object
-   */
-  @Override
-  public String toString() {
-    final StringBuilder sb = new StringBuilder();
-
-    sb.append( iCalFields.FREQ.name() )
-      .append( "=" )
-      .append( getFrequency() )
-      .append( ";" );
-
-    if( getUntil() != null ) {
-      sb.append( iCalFields.UNTIL.name() )
-        .append( "=" )
-        .append( UNTIL_DATE.format( getUntil() ) )
-        .append( ";" );
-    }
-
-    if( getInterval() != null ) {
-      sb.append( iCalFields.INTERVAL.name() )
-        .append( "=" )
-        .append( getInterval() )
-        .append( ";" );
-    }
-
-    if( getCount() != null ) {
-      sb.append( iCalFields.COUNT.name() )
-        .append( "=" )
-        .append( getCount() )
-        .append( ";" );
-    }
-
-    return sb.substring( 0, sb.length() )
-             .trim();
-  }
 }

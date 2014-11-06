@@ -10,11 +10,38 @@
 #include <thread>
 
 #include <dm-vol-cat/DmVolumeDirectory.h>
+#include <util/color.h>
+#include <PerfTrace.h>
 
 #define DM_CATALOG_TYPE DmVolumeDirectory
 // #define DM_CATALOG_TYPE DmVolumeCatalog
 
+boost::shared_ptr<LatencyCounter> tpPutCounter(new LatencyCounter("threadpool put", 0, 0));
+boost::shared_ptr<LatencyCounter> tpGetCounter(new LatencyCounter("threadpool get", 0, 0));
+boost::shared_ptr<LatencyCounter> tpDeleteCounter(new LatencyCounter("threadpool delete", 0, 0));
+
+boost::shared_ptr<LatencyCounter> totalPutCounter(new LatencyCounter("end to end put", 0, 0));
+boost::shared_ptr<LatencyCounter> totalGetCounter(new LatencyCounter("end to end get", 0, 0));
+boost::shared_ptr<LatencyCounter> totalDeleteCounter(
+        new LatencyCounter("end to end delete", 0, 0));
+
+static fds_condition tpCond;
+static fds_mutex tpCondMtx;
 static std::atomic<fds_uint32_t> taskCount;
+
+static void waitOnThreadPool() {
+    boost::unique_lock<fds_mutex> lock(tpCondMtx);
+    while (taskCount) {
+        tpCond.timed_wait(lock, boost::posix_time::milliseconds(100));
+    }
+}
+
+static void notifyThreadDone() {
+    if (!--taskCount) {
+        FDSGUARD(tpCondMtx);
+        tpCond.notify_one();
+    }
+}
 
 class DmVolumeCatalogTest : public ::testing::Test {
   public:
@@ -54,7 +81,9 @@ void DmVolumeCatalogTest::testPutBlob(fds_volid_t volId,
     Error rc = volcat->putBlob(volId, blob->name, blob->metaList, blob->objList, txId);
     fds_uint64_t endTs = util::getTimeStampNanos();
     putCounter->update(endTs - startTs);
-    if (taskCount) taskCount--;
+    boost::shared_ptr<PerfContext> pctx = PerfTracer::tracePointEnd(blob->name);
+    tpPutCounter->update(pctx->end_cycle - pctx->start_cycle);
+    notifyThreadDone();
     EXPECT_TRUE(rc.ok());
 }
 
@@ -68,7 +97,9 @@ void DmVolumeCatalogTest::testGetBlob(fds_volid_t volId, const std::string blobN
     Error rc = volcat->getBlob(volId, blobName, 0, -1, &version, &metaList, &objList);
     fds_uint64_t endTs = util::getTimeStampNanos();
     getCounter->update(endTs - startTs);
-    if (taskCount) taskCount--;
+    boost::shared_ptr<PerfContext> pctx = PerfTracer::tracePointEnd(blobName);
+    tpGetCounter->update(pctx->end_cycle - pctx->start_cycle);
+    notifyThreadDone();
     EXPECT_TRUE(rc.ok());
 }
 
@@ -79,6 +110,8 @@ void DmVolumeCatalogTest::testDeleteBlob(fds_volid_t volId, const std::string bl
     Error rc = volcat->deleteBlob(volId, blobName, version);
     fds_uint64_t endTs = util::getTimeStampNanos();
     deleteCounter->update(endTs - startTs);
+    boost::shared_ptr<PerfContext> pctx = PerfTracer::tracePointEnd(blobName);
+    tpDeleteCounter->update(pctx->end_cycle - pctx->start_cycle);
     EXPECT_TRUE(rc.ok());
 
     // Get
@@ -87,7 +120,7 @@ void DmVolumeCatalogTest::testDeleteBlob(fds_volid_t volId, const std::string bl
     rc = volcat->getBlob(volId, blobName, 0, -1, &version, &metaList, &objList);
     EXPECT_FALSE(rc.ok());
 
-    if (taskCount) taskCount--;
+    notifyThreadDone();
 }
 
 void DmVolumeCatalogTest::TearDown() {
@@ -115,6 +148,7 @@ TEST_F(DmVolumeCatalogTest, copy_volume) {
 
     for (fds_uint32_t i = 0; i < NUM_VOLUMES; ++i) {
         boost::shared_ptr<const BlobDetails> blob(new BlobDetails());
+        PerfTracer::tracePointBegin(blob->name, DM_VOL_CAT_WRITE, volumes[i]->volUUID);
         testPutBlob(volumes[i]->volUUID, blob);
 
         snapshots[i]->fSnapshot = true;
@@ -138,15 +172,19 @@ TEST_F(DmVolumeCatalogTest, copy_volume) {
 
 TEST_F(DmVolumeCatalogTest, all_ops) {
     taskCount = NUM_BLOBS;
+    fds_uint64_t e2eStatTs = util::getTimeStampNanos();
     for (fds_uint32_t i = 0; i < NUM_BLOBS; ++i) {
         fds_volid_t volId = volumes[i % volumes.size()]->volUUID;
 
         boost::shared_ptr<const BlobDetails> blob(new BlobDetails());
+        PerfTracer::tracePointBegin(blob->name, DM_VOL_CAT_WRITE, volId);
         g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testPutBlob,
                 this, volId, blob);
     }
 
-    while (taskCount) usleep(10 * 1024);
+    waitOnThreadPool();
+    fds_uint64_t e2eEndTs = util::getTimeStampNanos();
+    totalPutCounter->update(e2eEndTs - e2eStatTs);
 
     if (PUTS_ONLY) goto done;
 
@@ -169,13 +207,18 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
 //        }
 
         taskCount += blobCount;
+        fds_uint64_t e2eStatTs = util::getTimeStampNanos();
         for (auto it : blobList) {
+            PerfTracer::tracePointBegin(it.blob_name, DM_VOL_CAT_READ, vdesc->volUUID);
             g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testGetBlob,
                     this, vdesc->volUUID, it.blob_name);
         }
-        while (taskCount) usleep(10 * 1024);
+        waitOnThreadPool();
+        fds_uint64_t e2eEndTs = util::getTimeStampNanos();
+        totalGetCounter->update(e2eEndTs - e2eStatTs);
 
         taskCount += blobCount;
+        e2eStatTs = util::getTimeStampNanos();
         for (auto it : blobList) {
             blob_version_t version = 0;
             fds_uint64_t blobSize = 0;
@@ -190,10 +233,13 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
                 continue;
             }
 
+            PerfTracer::tracePointBegin(it.blob_name, DM_TX_OP, vdesc->volUUID);
             g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testDeleteBlob,
                     this, vdesc->volUUID, it.blob_name, version);
         }
-        while (taskCount) usleep(10 * 1024);
+        waitOnThreadPool();
+        e2eEndTs = util::getTimeStampNanos();
+        totalDeleteCounter->update(e2eEndTs - e2eStatTs);
 
         if (NO_DELETE) continue;
 
@@ -205,18 +251,38 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
     }
 
   done:
-    std::cout << "\033[33m[put latency]\033[39m " << std::fixed << std::setprecision(3)
-            << (putCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
-            << putCounter->count() << std::endl;
-    std::cout << "\033[33m[get latency]\033[39m " << std::fixed << std::setprecision(3)
-            << (getCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
-            << getCounter->count() << std::endl;
-    std::cout << "\033[33m[delete latency]\033[39m " << std::fixed << std::setprecision(3)
-            << (deleteCounter->latency() / (1024 * 1024)) << "ms     \033[33m[count]\033[39m "
-            << deleteCounter->count() << std::endl;
+    std::cout << Color::Yellow << "[put latency] " << std::fixed << std::setprecision(3) <<
+            (putCounter->latency() / (1024 * 1024)) << "ms     [count] " << putCounter->count() <<
+            Color::End << std::endl;
+    std::cout << Color::Yellow << "[threadpool put latency] " << std::fixed <<
+            std::setprecision(3) << (tpPutCounter->latency() / (1024 * 1024)) << "ms     [count] "
+            << tpPutCounter->count() << Color::End << std::endl;
+    std::cout << Color::Yellow << "[get latency] " << std::fixed << std::setprecision(3) <<
+            (getCounter->latency() / (1024 * 1024)) << "ms     [count] " << getCounter->count() <<
+            Color::End << std::endl;
+    std::cout << Color::Yellow << "[threadpool get latency] " << std::fixed <<
+            std::setprecision(3) << (tpGetCounter->latency() / (1024 * 1024)) << "ms     [count] "
+            << tpGetCounter->count() << Color::End << std::endl;
+    std::cout << Color::Yellow << "[delete latency] " << std::fixed << std::setprecision(3)
+            << (deleteCounter->latency() / (1024 * 1024)) << "ms     [count] " <<
+            deleteCounter->count() << Color::End << std::endl;
+    std::cout << Color::Yellow << "[threadpool delete latency] " << std::fixed <<
+            std::setprecision(3) << (tpDeleteCounter->latency() / (1024 * 1024))
+            << "ms     [count] " << tpDeleteCounter->count() << Color::End << std::endl;
+
+    std::cout << std::endl;
+    std::cout << Color::Yellow << "[total put latency] " << std::fixed << std::setprecision(3)
+            << (totalPutCounter->latency() / (1024 * 1024)) << "ms     [count] "
+            << totalPutCounter->count() << Color::End << std::endl;
+    std::cout << Color::Yellow << "[total get latency] " << std::fixed << std::setprecision(3)
+            << (totalGetCounter->latency() / (1024 * 1024)) << "ms     [count] "
+            << totalGetCounter->count() << Color::End << std::endl;
+    std::cout << Color::Yellow << "[total delete latency] " << std::fixed << std::setprecision(3)
+            << (totalDeleteCounter->latency() / (1024 * 1024)) << "ms     [count] " <<
+            totalDeleteCounter->count() << Color::End << std::endl;
+
     std::this_thread::yield();
 }
-
 
 int main(int argc, char** argv) {
     // The following line must be executed to initialize Google Mock

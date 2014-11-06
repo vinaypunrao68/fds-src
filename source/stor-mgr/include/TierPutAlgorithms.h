@@ -16,7 +16,7 @@ namespace fds {
 class RandomTestAlgo : public TierPutAlgo {
     public:
      diskio::DataTier selectTier(const ObjectID &oid,
-                                 fds_volid_t     vol) {
+                                 const VolumeDesc& voldesc) {
          if ((::random() % 2) == 0) {
              return diskio::flashTier;
          }
@@ -38,24 +38,19 @@ class RandomTestAlgo : public TierPutAlgo {
  *       kick the lowest-rank object out of the table)
  */
 class RankTierPutAlgo: public TierPutAlgo {
-    public:
-     RankTierPutAlgo(StorMgrVolumeTable* _sm_volTbl,
-                     ObjectRankEngine* _rank_eng)
-             : rank_eng(_rank_eng),
-               sm_volTbl(_sm_volTbl) {
-         }
+  public:
+     explicit RankTierPutAlgo(ObjectRankEngine* _rank_eng)
+             : rank_eng(_rank_eng) {
+        }
      ~RankTierPutAlgo() {
      }
 
      diskio::DataTier selectTier(const ObjectID &oid,
-                                 fds_volid_t volid);
+                                 const VolumeDesc& voldesc);
 
-    private:
+  private:
      /* does not own, gets passed from SM */
      ObjectRankEngine* rank_eng;
-
-     /* does not own, gets passed from SM */
-     StorMgrVolumeTable* sm_volTbl;
 };
 
 }  // namespace fds

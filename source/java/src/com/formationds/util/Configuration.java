@@ -105,6 +105,12 @@ public class Configuration {
         return getParserFacade(path);
     }
 
+    /**
+     * @return Returns the demo configuration
+     *
+     * @deprecated Will be removed very soon.
+     */
+    @Deprecated
     public ParsedConfig getDemoConfig() {
         Path path = Paths.get(getFdsRoot(), "etc", "demo.conf");
         return getParserFacade(path);

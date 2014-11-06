@@ -7,6 +7,7 @@ import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_Service;
 import FDS_ProtocolInterface.FDSP_SessionReqResp;
 import com.formationds.apis.AmService;
+import com.formationds.apis.AsyncAmServiceRequest;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.util.async.AsyncResourcePool;
 import org.apache.commons.pool2.KeyedObjectPool;
@@ -29,6 +30,7 @@ public class XdiClientFactory {
 
     private final GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<ConfigurationService.Iface>> configPool;
     private final GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<AmService.Iface>> amPool;
+    private final GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<AsyncAmServiceRequest.Iface>> onewayAmPool;
     private final GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<FDSP_ConfigPathReq.Iface>> legacyConfigPool;
 
     public XdiClientFactory() {
@@ -42,6 +44,9 @@ public class XdiClientFactory {
 
         XdiClientConnectionFactory<AmService.Iface> amFactory = new XdiClientConnectionFactory<>(proto -> new AmService.Client(proto));
         amPool = new GenericKeyedObjectPool<>(amFactory, config);
+
+        XdiClientConnectionFactory<AsyncAmServiceRequest.Iface> onewayAmFactory = new XdiClientConnectionFactory<>(proto -> new AsyncAmServiceRequest.Client(proto));
+        onewayAmPool = new GenericKeyedObjectPool<>(onewayAmFactory, config);
 
         XdiClientConnectionFactory<FDSP_ConfigPathReq.Iface> legacyConfigFactory = new XdiClientConnectionFactory<>(proto -> {
             FDSP_Service.Client client = new FDSP_Service.Client(proto);
@@ -67,13 +72,13 @@ public class XdiClientFactory {
                     try {
                         return method.invoke(client, args);
                     } catch (InvocationTargetException e) {
-                        if(e.getCause() instanceof TTransportException || e.getCause() instanceof TProtocolException) {
+                        if (e.getCause() instanceof TTransportException || e.getCause() instanceof TProtocolException) {
                             pool.invalidateObject(spec, cnx);
                             cnx = null;
                         }
                         throw e.getCause();
                     } finally {
-                        if(cnx != null)
+                        if (cnx != null)
                             pool.returnObject(spec, cnx);
                     }
                 });
@@ -87,6 +92,11 @@ public class XdiClientFactory {
     public AmService.Iface remoteAmService(String host, int port) {
         return buildRemoteProxy(AmService.Iface.class, amPool, host, port);
     }
+
+    public AsyncAmServiceRequest.Iface remoteOnewayAm(String host, int port) {
+        return buildRemoteProxy(AsyncAmServiceRequest.Iface.class, onewayAmPool, host, port);
+    }
+
 
     public FDSP_ConfigPathReq.Iface legacyConfig(String host, int port) {
         return buildRemoteProxy(FDSP_ConfigPathReq.Iface.class, legacyConfigPool, host, port);

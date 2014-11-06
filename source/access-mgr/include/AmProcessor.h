@@ -33,107 +33,110 @@ class AmProcessor : public Module, public boost::noncopyable {
                 StorHvVolumeTable *_volTable,
                 AmTxManager::shared_ptr _amTxMgr,
                 AmCache::shared_ptr _amCache);
-    ~AmProcessor();
+    ~AmProcessor() {}
     typedef std::unique_ptr<AmProcessor> unique_ptr;
 
     /**
      * Module methods
      */
-    int mod_init(SysParams const *const param);
-    void mod_startup();
-    void mod_shutdown();
+    int mod_init(SysParams const *const param)
+    { Module::mod_init(param); return 0; }
+    void mod_startup() {}
+    void mod_shutdown() {}
 
     /**
      * Processes a get volume metadata request
      */
-    void getVolumeMetadata(AmQosReq *qosReq);
+    void getVolumeMetadata(AmRequest *amReq);
 
     /**
      * Callback for a get volume metadata request
      */
-    void getVolumeMetadataCb(AmQosReq *qosReq,
+    void getVolumeMetadataCb(AmRequest *amReq,
                              const Error &error);
 
     /**
      * Processes a abort blob transaction
      */
-    void abortBlobTx(AmQosReq *qosReq);
+    void abortBlobTx(AmRequest *amReq);
 
     /**
      * Callback for abort blob transaction
      */
-    void abortBlobTxCb(AmQosReq *qosReq,
+    void abortBlobTxCb(AmRequest *amReq,
                        const Error &error);
 
     /**
      * Processes a start blob transaction
      */
-    void startBlobTx(AmQosReq *qosReq);
+    void startBlobTx(AmRequest *amReq);
 
     /**
      * Callback for start blob transaction
      */
-    void startBlobTxCb(AmQosReq *qosReq,
+    void startBlobTxCb(AmRequest *amReq,
                        const Error &error);
 
     /**
      * Processes a put blob request
      */
-    void putBlob(AmQosReq *qosReq);
+    void putBlob(AmRequest *amReq);
 
     /**
      * Callback for get blob request
      */
-    void putBlobCb(AmQosReq *qosReq, const Error& error);
+    void putBlobCb(AmRequest *amReq, const Error& error);
 
     /**
      * Processes a get blob request
      */
-    void getBlob(AmQosReq *qosReq);
+    void getBlob(AmRequest *amReq);
 
     /**
      * Callback for get blob request
      */
-    void getBlobCb(AmQosReq *qosReq, const Error& error);
+    void getBlobCb(AmRequest *amReq, const Error& error);
 
     /**
      * Processes a delete blob request
      */
-    void deleteBlob(AmQosReq *qosReq);
-    void deleteBlobCb(AmQosReq *qosReq, const Error& error);
+    void deleteBlob(AmRequest *amReq);
 
     /**
      * Processes a set metadata on blob request
      */
-    void setBlobMetadata(AmQosReq *qosReq);
-    void setBlobMetadataCb(AmQosReq *qosReq, const Error& error);
+    void setBlobMetadata(AmRequest *amReq);
 
     /**
      * Processes a stat blob request
      */
-    void statBlob(AmQosReq *qosReq);
-    void statBlobCb(AmQosReq *qosReq, const Error& error);
+    void statBlob(AmRequest *amReq);
+    void statBlobCb(AmRequest *amReq, const Error& error);
 
     /**
      * Processes a volumeContents (aka ListBucket) request
      */
-    void volumeContents(AmQosReq *qosReq);
-    void volumeContentsCb(AmQosReq *qosReq, const Error& error);
+    void volumeContents(AmRequest *amReq);
 
     /**
      * Callback for catalog query request
      */
-    void queryCatalogCb(AmQosReq *qosReq, const Error& error);
+    void queryCatalogCb(AmRequest *amReq, const Error& error);
 
     /**
      * Processes a commit blob transaction
      */
-    void commitBlobTx(AmQosReq *qosReq);
+    void commitBlobTx(AmRequest *amReq);
 
     /**
      * Callback for commit blob transaction
      */
-    void commitBlobTxCb(AmQosReq *qosReq, const Error& error);
+    void commitBlobTxCb(AmRequest *amReq, const Error& error);
+
+    /**
+     * Generic callback for a few responses
+     */
+    void genericCb(AmRequest *amReq, const Error& error);
 
   private:
     /// Raw pointer to QoS controller

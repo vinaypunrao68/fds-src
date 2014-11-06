@@ -5,8 +5,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/charts/linechart/linechart.html',
-        scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@', yAxisLabelFunction: '=', axisColor: '@', 
-            tooltip: '=?', lineColors: '=?', lineStipples: '=?' },
+        scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@', yAxisLabelFunction: '=?', axisColor: '@', 
+            tooltip: '=?', lineColors: '=?', lineStipples: '=?', backgroundColor: '@', domainLabels: '=?' },
         controller: function( $scope, $element, $resize_service ){
             
             $scope.hoverEvent = false;
@@ -24,6 +24,11 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             var $yScale;
             var $max;
             var $svg;
+            var $xMin = 0;
+            
+            if ( angular.isDefined( $scope.domainLabels ) ){
+                $bottom_labels = 20;
+            }
             
             if ( $scope.drawPoints !== true && $scope.drawPoints !== false ){
                 $scope.drawPoints = false;
@@ -39,13 +44,33 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 .attr( 'width', '100%' )
                 .attr( 'height', '100%' );
             
+            if ( angular.isDefined( $scope.backgroundColor ) ){
+                
+                $svg.append( 'rect' )
+                    .attr( 'width', '100%' )
+                    .attr( 'height', $element.height() - ($bottom_labels + $bottom_padding) )
+                    .attr( 'class', 'background' )
+                    .attr( 'fill', $scope.backgroundColor );
+            }
+            else {
+                $svg.append( 'g' )
+                    .attr( 'class', 'background' );
+            }
+            
             // calculate this off of real data.
             var buildMax = function(){
                 $max = d3.max( $scope.data.series, function( d ){
+                    
+                    if ( !angular.isDefined( d.datapoints ) ){
+                        return 1;
+                    }
+                    
                     return d3.max( d.datapoints, function( s ){
                         return s.y;
                     });
                 });
+                
+                $max = 1.05*$max;
             };
             
             // calculate off of real data.  Depends on max calculation
@@ -56,17 +81,24 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 var xMax = 1;
                 
                 if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
-                    xMax = $scope.data.series[0].datapoints.length - 1;
+                    var lastXPos = $scope.data.series[0].datapoints.length - 1;
+                    xMax = $scope.data.series[0].datapoints[lastXPos].x;
+                }
+                
+                $xMin = 0;
+                
+                if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
+                    $xMin = $scope.data.series[0].datapoints[0].x;
                 }
                 
                 $xScale = d3.scale.linear()
                     // all series must have the same number of points
-                    .domain( [0,xMax] )
+                    .domain( [$xMin,xMax] )
                     .range( [$left_label + $left_padding, $element.width() - $right_padding] );
                 
                 $yScale = d3.scale.linear()
                     .domain( [ 0, $max ] )
-                    .range( [$element.height() - $top_padding, $bottom_labels + $bottom_padding] );
+                    .range( [$element.height() - ($bottom_labels + $bottom_padding), $top_padding] );
             };
             
             var clean = function(){
@@ -78,11 +110,65 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 $svg.selectAll( '.guide-lines' ).remove();
             };
             
+            var removeLabels = function(){
+                $svg.selectAll( '.x-labels' ).remove();
+            };
+            
+            var drawLabels = function(){
+
+                removeLabels();
+                
+                // the way ticks divides the domain you will never get
+                // the right most label so... we pretend there is one less
+                // and manually add the right most ourselves
+                var ticks = $xScale.ticks( $scope.domainLabels.length );
+
+                ticks = ticks.slice( 0, ticks.length-1 );
+                
+                ticks[0] = $xMin;
+                
+                var labelGroup = $svg.append( 'g' )
+                    .attr( 'class', 'x-labels' );                    
+                
+                for ( var i = 0; i < ticks.length; i++ ){
+                    labelGroup.append( 'text' )
+                        .attr( 'x', function(){
+                            var x = $xScale( ticks[i] );
+
+                            if ( i !== 0 ){
+                                var size = measureText( $scope.domainLabels[i] );
+                                x -= size.width/2;
+                            }
+
+                            return x;
+                        })
+                        // the 4 is just so the tails of y's can be seen
+                        .attr( 'y', $element.height() - ($bottom_padding + 5) )
+                        .text( $scope.domainLabels[i] )
+                        .attr( 'fill', $scope.axisColor )
+                        .attr( 'font-size', '11px' );
+                }
+
+                // adding the right most label.
+                var size = measureText( $scope.domainLabels[ $scope.domainLabels.length - 1 ] );
+                labelGroup.append( 'text' )
+                    .attr( 'x', $element.width() - size.width )
+                    .attr( 'y', $element.height() - ($bottom_padding + 5) )
+                    .text( $scope.domainLabels[ $scope.domainLabels.length - 1 ] )
+                    .attr( 'fill', $scope.axisColor )
+                    .attr( 'font-size', '11px' );
+            };
+            
             var update = function(){
                 
                 removeGuides();
                 buildScales();
                 
+                        // draw labels
+                if ( angular.isDefined( $scope.domainLabels ) ){
+                    drawLabels();
+                }
+        
                 var area = d3.svg.area()
                     .x( function( d ){
                         return $xScale( d.x );
@@ -99,7 +185,14 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .transition()
                     .duration( 500 )
                     .attr( 'd', function( d ){
-                        return area( d.datapoints );
+                        
+                        var vals = []
+                    
+                        if ( angular.isDefined( d.datapoints ) ){
+                            vals = d.datapoints;
+                        }
+                    
+                        return area( vals );
                     });
                 
                 $svg.selectAll( '.point' )
@@ -119,7 +212,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 
                 guideGroup.selectAll( '.guide-lines' ).data( chunks ).enter()
                     .append( 'line' )
-                    .attr( 'x1', $xScale( 0 ) )
+                    .attr( 'x1', $xScale( $xMin ) )
                     .attr( 'y1', function( d ){ 
                         return $yScale( d ); 
                     })
@@ -128,7 +221,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         var val = 0;
                     
                         if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
-                            val = $xScale( $scope.data.series[0].datapoints.length-1 );
+                            var pos = $scope.data.series[0].datapoints.length-1;
+                            val = $xScale( $scope.data.series[0].datapoints[pos].x );
                         }
                         else {
                             val = $xScale( 0 );
@@ -137,6 +231,11 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         return val;
                     })
                     .attr( 'y2', function( d ){ 
+                        
+                        if ( !angular.isNumber( d ) ){
+                            d = 0;
+                        }
+                    
                         return $yScale( d ); 
                     })
                     .attr( 'stroke', $scope.axisColor )
@@ -152,7 +251,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     
                         return d;
                     })
-                    .attr( 'x', $xScale( 0 ) )
+                    .attr( 'x', $xScale( $xMin ) )
                     .attr( 'y', function( d ){
                         return $yScale( d ) - 4;
                     })
@@ -162,14 +261,14 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 // baseline
                 $svg.append( 'line' )
                     .attr( 'class', 'guide-lines' )
-                    .attr( 'x1', $xScale( 0 ) )
+                    .attr( 'x1', $xScale( $xMin ) )
                     .attr( 'x2', function( d ){
                     
                         if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints )){
                             return $xScale( $scope.data.series[0].datapoints.length-1 );
                         }
                     
-                        return $xScale( 0 );
+                        return $xScale( $xMin );
                     })
                     .attr( 'y1', $yScale( 0 ) )
                     .attr( 'y2', $yScale( 0 ) )
@@ -195,7 +294,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .interpolate( 'monotone' );
                 
                 var groups = $svg.selectAll( '.series-group' ).data( $scope.data.series ).enter()
-                    .insert( 'g', ':first-child' )
+                    .insert( 'g', '.guide-lines' )
                     .attr( 'class', 'series-group' );
                 
                 groups.append( 'path' )
@@ -230,7 +329,14 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     })
                     .attr( 'class', 'line' )
                     .attr( 'd', function( d ){
-                        return area( d.datapoints ); 
+                        
+                        var vals = [];
+                    
+                        if ( angular.isDefined( d.datapoints ) ){
+                            vals = d.datapoints;
+                        }
+                    
+                        return area( vals ); 
                     })
                     .on( 'mouseover', function( d, i, j ){
                           if ( angular.isFunction( $scope.tooltip ) ){
@@ -276,13 +382,51 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     $scope.hoverEvent = $event;
                 }
             };
-
-            create();
             
             $resize_service.register( $scope.$id, update );
             
-            $scope.$watch( 'data', function( oldVal, newVal ){
+            $scope.$watch( 'data', function( newVal, oldVal ){
                 
+                if ( !angular.isDefined( newVal ) || newVal.series.length === 0 ){
+                    return;
+                }
+                
+                
+                var sorter = function( a, b ){
+                    if ( a.x > b.x ){
+                        return 1;
+                    }
+                    else if ( a.x < b.x ){
+                        return -1;
+                    }
+
+                    return 0;
+                };
+                
+                //sort
+                for ( var i = 0; angular.isDefined( newVal.series ) && i < newVal.series.length; i++ ){
+                    var dataset = newVal.series[i].datapoints;
+                    
+                    if ( !angular.isDefined( dataset ) ){
+                        continue;
+                    }
+                    
+                    dataset.sort( sorter );
+                }
+                
+                if ( newVal.series.length === oldVal.series.length &&
+                   $svg.selectAll( '.series-group' )[0].length !== 0 ){
+                    
+                    if ( angular.isDefined( oldVal.series[0].datapoints ) && newVal.series[0].datapoints.length === oldVal.series[0].datapoints.length ){
+                        update();
+                    }
+                    else {
+                        create();
+                    }
+                }
+                else {
+                    create();
+                }
             });
         }
     };

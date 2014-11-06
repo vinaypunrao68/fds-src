@@ -5,43 +5,38 @@
 package com.formationds.om.repository;
 
 import com.formationds.commons.crud.JDORepository;
-import com.formationds.commons.model.Series;
-import com.formationds.commons.model.Statistics;
-import com.formationds.commons.model.builder.DatapointBuilder;
-import com.formationds.commons.model.builder.SeriesBuilder;
-import com.formationds.commons.model.builder.StatisticsBuilder;
-import com.formationds.commons.model.builder.VolumeBuilder;
-import com.formationds.commons.model.entity.QueryCriteria;
 import com.formationds.commons.model.entity.VolumeDatapoint;
-import com.formationds.commons.model.entity.builder.VolumeCriteriaQueryBuilder;
-import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.formationds.om.helper.SingletonConfiguration;
+import com.formationds.om.repository.query.QueryCriteria;
+import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
+import com.formationds.om.repository.result.VolumeDatapointList;
 
-import javax.jdo.JDOHelper;
 import javax.jdo.Query;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.Persistence;
-import java.util.*;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Root;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author ptinius
  */
+@SuppressWarnings( "UnusedDeclaration" )
 public class MetricsRepository
-  extends JDORepository<VolumeDatapoint, Long, Statistics, QueryCriteria> {
+  extends JDORepository<VolumeDatapoint, Long, VolumeDatapointList, QueryCriteria> {
 
-  private static final transient Logger logger =
-    LoggerFactory.getLogger( MetricsRepository.class );
-
-  private static final String DBNAME = "/fds/var/db/metrics.odb";
+  private static final String DBNAME = "var/db/metrics.odb";
   private static final String VOLUME_NAME = "volumeName";
 
   /**
    * default constructor
    */
   public MetricsRepository() {
-    this( DBNAME );
+    this( SingletonConfiguration.instance().getConfig().getFdsRoot() +
+          File.separator +
+          DBNAME );
   }
 
   /**
@@ -70,199 +65,150 @@ public class MetricsRepository
       query.closeAll();
     }
   }
-
-  /**
-   * @return the list of entities
-   */
-  @SuppressWarnings( "unchecked" )
-  @Override
-  public List<VolumeDatapoint> findAll() {
-    return
-      ( List<VolumeDatapoint> ) manager().newQuery( VolumeDatapoint.class )
-                                         .execute();
-  }
-
-  /**
-   * @return the number of entities
-   */
-  @Override
-  public long countAll() {
-    long count = 0;
-    final Query query = manager().newQuery( VolumeDatapoint.class );
-    try {
-      query.compile();
-      count = ( ( Collection ) query.execute() ).size();
-    } finally {
-      query.closeAll();
+    /**
+     * @param entity the search criteria
+     *
+     * @return the number of entities
+     */
+    @Override
+    public long countAllBy( final VolumeDatapoint entity ) {
+        return countAllBy( VOLUME_NAME, entity.getVolumeName() );
     }
-
-    return count;
-  }
-
-  /**
-   * @param entity the search criteria
-   *
-   * @return the number of entities
-   */
-  @Override
-  public long countAllBy( final VolumeDatapoint entity ) {
-    return countAllBy( VOLUME_NAME, entity.getVolumeName() );
-  }
-
-  /**
-   * @param paramName  the {@link String} representing the parameter name
-   * @param paramValue the {@link String} representing the parameter value
-   *
-   * @return the number of entities
-   */
-  public long countAllBy( final String paramName, final String paramValue ) {
-    int count = 0;
-    Query query = null;
-    try {
-      query = manager().newQuery( VolumeDatapoint.class );
-      query.setFilter( paramName + " == '" + paramValue + "'" );
-
-      count = ( ( Collection ) query.execute() ).size();
-    } finally {
-      if( query != null ) {
-        query.closeAll();
-      }
-    }
-
-    return count;
-  }
-
-  /**
-   * @param entity the entity to save
-   *
-   * @return Returns the saved entity
-   */
-  @Override
-  public VolumeDatapoint save( final VolumeDatapoint entity ) {
-    try {
-      manager().currentTransaction()
-               .begin();
-      manager().makePersistent( entity );
-      manager().currentTransaction()
-               .commit();
-      return entity;
-    } finally {
-      if( manager().currentTransaction()
-                   .isActive() ) {
-        logger.trace( "SAVE ROLLING BACK: " + entity.toString() );
-        manager().currentTransaction()
-                 .rollback();
-        logger.trace( "SAVE ROLLED BACK: " + entity.toString() );
-      }
-    }
-  }
 
   /**
    * @param criteria the search criteria
    *
    * @return Returns the search criteria results
    */
+  @SuppressWarnings( "unchecked" )
   @Override
-  public Statistics query( final QueryCriteria criteria ) {
-    final Map<String, Series> seriesMap = new HashMap<>();
-    for( final VolumeDatapoint vdp : ( new VolumeCriteriaQueryBuilder( entity() )
-      .searchFor( criteria )
-      .build() ).getResultList() ) {
-      final String key = vdp.getVolumeName() + "::" + vdp.getKey();
-      if( !seriesMap.containsKey( key ) ) {
-        final Series s =
-          new SeriesBuilder().withContext(
-            new VolumeBuilder().withName( vdp.getVolumeName() )
-                               .build() )
-                             .withDatapoint(
-                               new DatapointBuilder().withX( vdp.getTimestamp() )
-                                                     .withY( vdp.getValue()
-                                                                .longValue() )
-                                                     .build() )
-                             .build();
-        try {
-          s.setType( Metrics.byMetadataKey( vdp.getKey() ) );
-        } catch( UnsupportedMetricException e ) {
-          logger.error( "not providing series type because of {}",
-                        e.getMessage(),
-                        e );
-        }
+  public VolumeDatapointList query( final QueryCriteria criteria ) {
+    final List<VolumeDatapoint> results =
+      ( new VolumeCriteriaQueryBuilder( entity() ).searchFor( criteria )
+                                                  .build() )
+          .getResultList();
 
-        seriesMap.put( key, s );
-      } else {
-        seriesMap.get( key )
-                 .setDatapoint(
-                   new DatapointBuilder().withX( vdp.getValue()
-                                                    .longValue() )
-                                         .withY( vdp.getTimestamp() )
-                                         .build() );
-      }
-    }
+    final VolumeDatapointList list = new VolumeDatapointList();
+    results.stream()
+           .forEach( new VolumeDatapointList()::add );
+      return list;
+  }
 
-    StatisticsBuilder stats = new StatisticsBuilder();
-    // add series
-    for( final String key : seriesMap.keySet()
-                                     .toArray( new String[ seriesMap.size() ] ) ) {
-      stats.addSeries( seriesMap.get( key ) );
-    }
-    /*
-     * TODO finish calculated
-     *
-     * CAPACITY
-     * de-dup ratio ( capacity )
-     * percentage full ( capacity )
-     * to full ( capacity )
-     * consumed ( capacity )
-     *
-     * PERFORMANCE
-     * ??
+    /**
+     * @return Returns the {@link Double} representing the calculated sum of logical bytes
      */
+    public Double sumLogicalBytes() {
+        final CriteriaBuilder cb = entity().getCriteriaBuilder();
+        final CriteriaQuery<String> cq = cb.createQuery( String.class );
+        final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
 
-    // TODO finish metadata
+        cq.distinct( true ).select( from.get( "volumeId" ) );
+        cq.where( cb.equal( from.get( "key" ), Metrics.LBYTES.key() ) );
 
-    return stats.build();
-  }
+        final List<VolumeDatapoint> datapoints = new ArrayList<>( );
+        final List<String> volumeIds = entity().createQuery( cq )
+                                               .getResultList();
+        volumeIds.stream().forEach( ( vId ) -> datapoints.add(
+          mostRecentOccurrenceBasedOnTimestamp( Long.valueOf( vId ),
+                                                Metrics.LBYTES ) ) );
 
-  /**
-   * @param entity the entity to delete
-   */
-  @Override
-  public void delete( final VolumeDatapoint entity ) {
-    try {
-      manager().currentTransaction()
-               .begin();
-      manager().deletePersistent( entity );
-      manager().currentTransaction()
-               .commit();
-    } finally {
-      if( manager().currentTransaction()
-                   .isActive() ) {
-        logger.trace( "DELETE ROLLING BACK: " + entity.toString() );
-        manager().currentTransaction()
-                 .rollback();
-        logger.trace( "DELETE ROLLED BACK: " + entity.toString() );
-      }
+        return datapoints.stream()
+                         .mapToDouble( VolumeDatapoint::getValue )
+                         .summaryStatistics()
+                         .getSum();
     }
-  }
 
-  /**
-   * @param dbName the {@link String} representing the name and location of the
-   *               repository
-   */
-  @Override
-  protected void initialize( final String dbName ) {
-    final Properties properties = new Properties();
-    properties.setProperty( "javax.jdo.PersistenceManagerFactoryClass",
-                            "com.objectdb.jdo.PMF" );
-    properties.setProperty( "javax.jdo.option.ConnectionURL",
-                            dbName );
+    /**
+     * @return Returns the {@link Double} representing the calculated sum of physical bytes
+     */
+    public Double sumPhysicalBytes() {
+        final CriteriaBuilder cb = entity().getCriteriaBuilder();
+        final CriteriaQuery<String> cq = cb.createQuery( String.class );
+        final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
 
-    factory( JDOHelper.getPersistenceManagerFactory( properties ) );
-    manager( factory().getPersistenceManager() );
+        cq.distinct( true ).select( from.get( "volumeId" ) );
+        cq.where( cb.equal( from.get( "key" ), Metrics.PBYTES.key() ) );
 
-    final EntityManagerFactory emf =
-      Persistence.createEntityManagerFactory( dbName );
+        final List<VolumeDatapoint> datapoints = new ArrayList<>( );
+        final List<String> volumeIds = entity().createQuery( cq )
+                                               .getResultList();
+        volumeIds.stream().forEach( ( vId ) -> datapoints.add(
+          mostRecentOccurrenceBasedOnTimestamp( Long.valueOf( vId ),
+                                                Metrics.PBYTES ) ) );
 
-    entity( emf.createEntityManager() );
-  }
+        return datapoints.stream()
+                         .mapToDouble( VolumeDatapoint::getValue )
+                         .summaryStatistics()
+                         .getSum();
+    }
+
+    /**
+     * @param volumeName  the {@link String} representing the volume name
+     * @param metric the {@link Metrics}
+     *
+     * @return Returns the {@link VolumeDatapoint} representing the most recent
+     */
+    public VolumeDatapoint mostRecentOccurrenceBasedOnTimestamp(
+      final String volumeName,
+      final Metrics metric ) {
+
+        final CriteriaBuilder cb = entity().getCriteriaBuilder();
+        final CriteriaQuery<VolumeDatapoint> cq = cb.createQuery( VolumeDatapoint.class );
+        final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
+
+        cq.select( from );
+        cq.where( cb.equal( from.get( "key" ), metric.key() ),
+                  cb.and( cb.equal( from.get( "volumeName" ), volumeName ) ) );
+        final List<VolumeDatapoint> datapoints = entity().createQuery( cq )
+                                                         .getResultList();
+        final VolumeDatapoint[] previous = { null };
+        datapoints.stream()
+                  .forEach( ( dp ) -> {
+                      if( previous[ 0 ] == null ) {
+                          previous[ 0 ] = dp;
+                      } else {
+                          if( previous[ 0 ].getTimestamp() < dp.getTimestamp() ) {
+                              previous[ 0 ] = dp;
+                          }
+                      }
+                  } );
+
+        return previous[ 0 ];
+    }
+
+    /**
+     * @param volumeId the {@link Long} representing the volume id
+     * @param metric the {@link Metrics}
+     *
+     * @return Returns the {@link VolumeDatapoint} representing the most recent
+     */
+    public VolumeDatapoint mostRecentOccurrenceBasedOnTimestamp(
+      final Long volumeId,
+      final Metrics metric ) {
+
+        final CriteriaBuilder cb = entity().getCriteriaBuilder();
+        final CriteriaQuery<VolumeDatapoint> cq = cb.createQuery( VolumeDatapoint.class );
+        final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
+
+        cq.select( from );
+        cq.where( cb.equal( from.get( "key" ), metric.key() ),
+                  cb.and( cb.equal( from.get( "volumeId" ),
+                                    volumeId.toString() ) ) );
+        final List<VolumeDatapoint> datapoints = entity().createQuery( cq )
+                                                         .getResultList();
+        final VolumeDatapoint[] previous = { null };
+        datapoints.stream()
+                  .forEach( ( dp ) -> {
+                      if( previous[ 0 ] == null ) {
+                          previous[ 0 ] = dp;
+                      } else {
+                          if( previous[ 0 ].getTimestamp() < dp.getTimestamp() ) {
+                              previous[ 0 ] = dp;
+                          }
+                      }
+                  } );
+
+        return previous[ 0 ];
+    }
+
 }

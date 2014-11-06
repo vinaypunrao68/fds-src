@@ -23,10 +23,19 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
     OMgrClient* om_client = dataMgr->omClient;
     GLOGNORMAL << "Received Volume Catalog request";
     if (catalog_action == fds_catalog_push_meta) {
-        err = dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol, om_client, session_uuid);
+        if (dataMgr->feature.isCatSyncEnabled()) {
+            err = dataMgr->catSyncMgr->startCatalogSync(
+                push_meta->metaVol, om_client, session_uuid);
+        } else {
+            LOGWARN << "catalog sync feature - NOT enabled";
+        }
     } else if (catalog_action == fds_catalog_dmt_commit) {
         // thsi will ignore this msg if catalog sync is not in progress
-        err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid);
+        if (dataMgr->feature.isCatSyncEnabled()) {
+            err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid);
+        } else {
+            LOGWARN << "catalog sync feature - NOT enabled";
+        }
     } else if (catalog_action == fds_catalog_dmt_close) {
         // will finish forwarding when all queued updates are processed
         GLOGNORMAL << "Received DMT Close";
@@ -54,14 +63,22 @@ DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
         err = timeVolCat_->activateVolume(volume_id);
         if (err.ok()) {
             // start processing forwarded updates
-            catSyncRecv->startProcessFwdUpdates(volume_id);
+            if (feature.isCatSyncEnabled()) {
+                catSyncRecv->startProcessFwdUpdates(volume_id);
+            } else {
+                LOGWARN << "catalog sync feature - NOT enabled";
+            }
         }
     } else {
         LOGDEBUG << "Will queue DmIoMetaRecvd message "
                  << std::hex << volume_id << std::dec;
-        DmIoMetaRecvd* metaRecvdIo = new(std::nothrow) DmIoMetaRecvd(volume_id);
-        err = enqueueMsg(catSyncRecv->shadowVolUuid(volume_id), metaRecvdIo);
-        fds_verify(err.ok());
+        if (feature.isCatSyncEnabled()) {
+            DmIoMetaRecvd* metaRecvdIo = new(std::nothrow) DmIoMetaRecvd(volume_id);
+            err = enqueueMsg(catSyncRecv->shadowVolUuid(volume_id), metaRecvdIo);
+            fds_verify(err.ok());
+        } else {
+            LOGWARN << "catalog sync feature - NOT enabled";
+        }
     }
 
     if (!err.ok()) {
@@ -80,7 +97,11 @@ DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
 void DataMgr::handleForwardComplete(dmCatReq *io) {
     LOGNORMAL << "Will open up QoS queue for volume " << std::hex
               << io->volId << std::dec;
-    catSyncRecv->handleFwdDone(io->volId);
+    if (feature.isCatSyncEnabled()) {
+        catSyncRecv->handleFwdDone(io->volId);
+    } else {
+        LOGWARN << "catalog sync feature - NOT enabled";
+    }
 
     vol_map_mtx->lock();
     fds_verify(vol_meta_map.count(io->volId) > 0);
@@ -88,7 +109,7 @@ void DataMgr::handleForwardComplete(dmCatReq *io) {
     vol_meta->dmVolQueue->activate();
     vol_map_mtx->unlock();
 
-    qosCtrl->markIODone(*io);
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*io);
     delete io;
 }
 
@@ -97,7 +118,7 @@ void DataMgr::handleStatStream(dmCatReq *io) {
 
     Error err = statStreamAggr_->handleModuleStatStream(statStreamReq->statStreamMsg);
 
-    qosCtrl->markIODone(*io);
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*io);
     statStreamReq->dmio_statstream_resp_cb(err, statStreamReq);
 }
 
@@ -207,7 +228,12 @@ DataMgr::finishCloseDMT() {
          ++it) {
         // remove the volume from sync_volume list
         LOGNORMAL << "CleanUP: remove Volume " << std::hex << *it << std::dec;
-        if (catSyncMgr->finishedForwardVolmeta(*it)) {
+        if (feature.isCatSyncEnabled()) {
+            if (catSyncMgr->finishedForwardVolmeta(*it)) {
+                all_finished = true;
+            }
+        } else {
+            LOGWARN << "catalog sync feature - NOT enabled";
             all_finished = true;
         }
     }
@@ -243,8 +269,12 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
     vol_map_mtx->unlock();
 
     // notify cat sync mgr
-    if (catSyncMgr->finishedForwardVolmeta(volid)) {
-        all_finished = true;
+    if (feature.isCatSyncEnabled()) {
+        if (catSyncMgr->finishedForwardVolmeta(volid)) {
+            all_finished = true;
+        }
+    } else {
+        LOGWARN << "catalog sync feature - NOT enabled";
     }
 }
 
@@ -594,13 +624,16 @@ Error DataMgr::notifyDMTClose() {
     Error err(ERR_OK);
     DmIoPushMetaDone* pushMetaDoneIo = NULL;
 
-    if (!catSyncMgr->isSyncInProgress()) {
-        err = ERR_CATSYNC_NOT_PROGRESS;
-        return err;
+    if (feature.isCatSyncEnabled()) {
+        if (!catSyncMgr->isSyncInProgress()) {
+            err = ERR_CATSYNC_NOT_PROGRESS;
+            return err;
+        }
+        // set DMT close time in catalog sync mgr
+        catSyncMgr->setDmtCloseNow();
+    } else {
+        LOGWARN << "catalog sync feature - NOT enabled";
     }
-
-    // set DMT close time in catalog sync mgr
-    catSyncMgr->setDmtCloseNow();
 
     // set every volume's state to 'finish forwarding
     // and enqueue DMT close marker to qos queues of volumes
@@ -639,17 +672,26 @@ void DataMgr::handleDMTClose(dmCatReq *io) {
              << "will now notify dst DM to open up volume queues: vol "
              << std::hex << pushMetaDoneReq->volId << std::dec;
 
-    Error err = catSyncMgr->issueServiceVolumeMsg(pushMetaDoneReq->volId);
+    Error err(ERR_OK);
+    if (feature.isCatSyncEnabled()) {
+        err = catSyncMgr->issueServiceVolumeMsg(pushMetaDoneReq->volId);
+    } else {
+        LOGWARN << "catalog sync feature - NOT enabled";
+    }
     // TODO(Anna) if err, send DMT close ack with error???
     fds_verify(err.ok());
 
     // If there are no open transactions that started before we got
     // DMT close, we can finish forwarding right now
-    if (!timeVolCat_->isPendingTx(pushMetaDoneReq->volId, catSyncMgr->dmtCloseTs())) {
-        finishForwarding(pushMetaDoneReq->volId);
+    if (feature.isCatSyncEnabled()) {
+        if (!timeVolCat_->isPendingTx(pushMetaDoneReq->volId, catSyncMgr->dmtCloseTs())) {
+            finishForwarding(pushMetaDoneReq->volId);
+        }
+    } else {
+        LOGWARN << "catalog sync feature - NOT enabled";
     }
 
-    qosCtrl->markIODone(*pushMetaDoneReq);
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*pushMetaDoneReq);
     delete pushMetaDoneReq;
 }
 
@@ -697,6 +739,13 @@ int DataMgr::mod_init(SysParams const *const param)
     closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,
                                                                 std::bind(&DataMgr::finishCloseDMT,
                                                                           this));
+
+    // qos threadpool config
+    qosThreadCount = modProvider_->get_fds_config()->\
+            get<fds_uint32_t>("fds.dm.qos.default_qos_threads", 10);
+    qosOutstandingTasks = modProvider_->get_fds_config()->\
+            get<fds_uint32_t>("fds.dm.qos.default_outstanding_io", 20);
+
     // If we're in test mode, don't daemonize.
     // TODO(Andrew): We probably want another config field and
     // not to override test_mode
@@ -838,7 +887,7 @@ void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     fpi::StorCapMsg stor_cap;
-    if (!isTestMode()) {
+    if (!feature.isTestMode()) {
         const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
         NodeAgent::pointer my_agent = Platform::plf_dm_nodes()->agent_info(*mySvcUuid);
         my_agent->init_stor_cap_msg(&stor_cap);
@@ -858,7 +907,7 @@ void DataMgr::mod_enable_service() {
     /*
      *  init Data Manager  QOS class.
      */
-    qosCtrl = new dmQosCtrl(this, 50, FDS_QoSControl::FDS_DISPATCH_WFQ, GetLog());
+    qosCtrl = new dmQosCtrl(this, qosThreadCount, FDS_QoSControl::FDS_DISPATCH_WFQ, GetLog());
     qosCtrl->runScheduler();
 
     // Create a queue for system (background) tasks
@@ -882,7 +931,7 @@ void DataMgr::mod_enable_service() {
 
         // enable collection of local stats in DM
         StatsCollector::singleton()->registerOmClient(omClient);
-    if (!isTestMode()) {
+    if (!feature.isTestMode()) {
         // since aggregator is in the same module, for stats that need to go to
     // local aggregator, we just directly stream to aggregator (not over network)
         StatsCollector::singleton()->startStreaming(
@@ -906,7 +955,11 @@ void DataMgr::mod_enable_service() {
 void DataMgr::mod_shutdown()
 {
     LOGNORMAL;
-    catSyncMgr->mod_shutdown();
+    if (feature.isCatSyncEnabled()) {
+        catSyncMgr->mod_shutdown();
+    } else {
+        LOGWARN << "catalog sync feature - NOT enabled";
+    }
     timeVolCat_->mod_shutdown();
     statStreamAggr_->mod_shutdown();
 }
@@ -1042,12 +1095,29 @@ void DataMgr::startBlobTx(dmCatReq *io)
                     startBlobReq->perfNameStr);
         }
     }
-    qosCtrl->markIODone(*startBlobReq);
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*startBlobReq);
     PerfTracer::tracePointEnd(startBlobReq->opLatencyCtx);
     PerfTracer::tracePointEnd(startBlobReq->opReqLatencyCtx);
     startBlobReq->dmio_start_blob_tx_resp_cb(err, startBlobReq);
 }
 
+void DataMgr::updateCatalog(dmCatReq *io)
+{
+    DmIoUpdateCat *updCatReq= static_cast<DmIoUpdateCat*>(io);
+    Error err = timeVolCat_->updateBlobTx(updCatReq->volId,
+                                    updCatReq->ioBlobTxDesc,
+                                    updCatReq->obj_list);
+    if (!err.ok()) {
+        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
+                updCatReq->perfNameStr);
+    }
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
+    PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
+    updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+}
+
+>>>>>>> origin/master
 void
 DataMgr::updateCatalogOnce(dmCatReq *io) {
     DmIoUpdateCatOnce *updCatReq= static_cast<DmIoUpdateCatOnce*>(io);
@@ -1059,7 +1129,7 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
     if (err != ERR_OK) {
         LOGERROR << "Failed to start transaction "
                  << *updCatReq->ioBlobTxDesc << ": " << err;
-        qosCtrl->markIODone(*updCatReq);
+        if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
         PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
                          updCatReq->perfNameStr);
         PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
@@ -1081,7 +1151,7 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
             LOGERROR << "Failed to abort transaction "
                      << *updCatReq->ioBlobTxDesc;
         }
-        qosCtrl->markIODone(*updCatReq);
+        if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
         PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
                          updCatReq->perfNameStr);
         PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
@@ -1103,7 +1173,7 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
             LOGERROR << "Failed to abort transaction "
                      << *updCatReq->ioBlobTxDesc;
         }
-        qosCtrl->markIODone(*updCatReq);
+        if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
         PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
                          updCatReq->perfNameStr);
         PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
@@ -1132,7 +1202,7 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
             LOGERROR << "Failed to abort transaction "
                      << *updCatReq->ioBlobTxDesc;
         }
-        qosCtrl->markIODone(*updCatReq);
+        if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
         PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
                          updCatReq->perfNameStr);
         PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
@@ -1159,7 +1229,7 @@ void DataMgr::commitBlobTx(dmCatReq *io)
     if (err != ERR_OK) {
         PerfTracer::incr(commitBlobReq->opReqFailedPerfEventType, commitBlobReq->getVolId(),
                 commitBlobReq->perfNameStr);
-        qosCtrl->markIODone(*commitBlobReq);
+        if (feature.isQosEnabled()) qosCtrl->markIODone(*commitBlobReq);
         PerfTracer::tracePointEnd(io->opLatencyCtx);
         PerfTracer::tracePointEnd(io->opReqLatencyCtx);
         commitBlobReq->dmio_commit_blob_tx_resp_cb(err, commitBlobReq);
@@ -1191,7 +1261,7 @@ void DataMgr::commitBlobTxCb(const Error &err,
     // forwarding, the main time goes to waiting for response
     // from another DM, which is not really consuming local
     // DM resources
-    qosCtrl->markIODone(*commitBlobReq);
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*commitBlobReq);
 
     PerfTracer::tracePointEnd(commitBlobReq->opLatencyCtx);
     PerfTracer::tracePointEnd(commitBlobReq->opReqLatencyCtx);
@@ -1222,8 +1292,12 @@ void DataMgr::commitBlobTxCb(const Error &err,
         if (is_forwarding) {
             // DMT version must not match in order to forward the update!!!
             if (commitBlobReq->dmt_version != omClient->getDMTVersion()) {
-                error = catSyncMgr->forwardCatalogUpdate(commitBlobReq, blob_version,
-                                                         blob_obj_list, meta_list);
+                if (feature.isCatSyncEnabled()) {
+                    error = catSyncMgr->forwardCatalogUpdate(commitBlobReq, blob_version,
+                                                             blob_obj_list, meta_list);
+                } else {
+                    LOGWARN << "catalog sync feature - NOT enabled";
+                }
                 if (error.ok()) {
                     // we forwarded the request!!!
                     forwarded_commit = true;
@@ -1236,7 +1310,7 @@ void DataMgr::commitBlobTxCb(const Error &err,
     }
 
     // check if we can finish forwarding if volume still forwards cat commits
-    if (catSyncMgr->isSyncInProgress()) {
+    if (feature.isCatSyncEnabled() && catSyncMgr->isSyncInProgress()) {
         fds_bool_t is_finish_forward = false;
         VolumeMeta* vol_meta = NULL;
         vol_map_mtx->lock();
@@ -1275,7 +1349,7 @@ void DataMgr::fwdUpdateCatalog(dmCatReq *io)
                                               std::bind(&DataMgr::updateFwdBlobCb, this,
                                                         std::placeholders::_1, fwdCatReq));
     if (!err.ok()) {
-        qosCtrl->markIODone(*fwdCatReq);
+        if (feature.isQosEnabled()) qosCtrl->markIODone(*fwdCatReq);
         fwdCatReq->dmio_fwdcat_resp_cb(err, fwdCatReq);
     }
 }
@@ -1283,7 +1357,7 @@ void DataMgr::fwdUpdateCatalog(dmCatReq *io)
 void DataMgr::updateFwdBlobCb(const Error &err, DmIoFwdCat *fwdCatReq)
 {
     LOGTRACE << "Committed fwd blob " << *fwdCatReq;
-    qosCtrl->markIODone(*fwdCatReq);
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*fwdCatReq);
     fwdCatReq->dmio_fwdcat_resp_cb(err, fwdCatReq);
 }
 
@@ -1331,7 +1405,7 @@ DataMgr::scheduleAbortBlobTxSvc(void * _io)
         PerfTracer::incr(abortBlobTx->opReqFailedPerfEventType, abortBlobTx->getVolId(),
                 abortBlobTx->perfNameStr);
     }
-    qosCtrl->markIODone(*abortBlobTx);
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*abortBlobTx);
     PerfTracer::tracePointEnd(abortBlobTx->opLatencyCtx);
     PerfTracer::tracePointEnd(abortBlobTx->opReqLatencyCtx);
     abortBlobTx->dmio_abort_blob_tx_resp_cb(err, abortBlobTx);
@@ -1355,7 +1429,7 @@ DataMgr::queryCatalogBackendSvc(void * _io)
                 qryCatReq->perfNameStr);
     }
 
-    qosCtrl->markIODone(*qryCatReq);
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*qryCatReq);
     // TODO(Andrew): Note the cat request gets freed
     // by the callback
     PerfTracer::tracePointEnd(qryCatReq->opLatencyCtx);
@@ -1414,7 +1488,7 @@ DataMgr::snapVolCat(dmCatReq *io) {
     snapReq->dmio_snap_vcat_cb(snapReq->volId, err);
 
     // mark this request as complete
-    qosCtrl->markIODone(*snapReq);
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*snapReq);
     delete snapReq;
 }
 
@@ -1513,6 +1587,31 @@ DataMgr::expungeObjectCb(QuorumSvcRequest* svcReq,
     DBG(GLOGDEBUG << "Expunge cb called");
 }
 
+void DataMgr::scheduleGetBlobMetaDataSvc(void *_io) {
+    Error err(ERR_OK);
+    DmIoGetBlobMetaData *getBlbMeta = static_cast<DmIoGetBlobMetaData*>(_io);
+
+    // TODO(Andrew): We're not using the size...we can remove it
+    fds_uint64_t blobSize;
+    err = timeVolCat_->queryIface()->getBlobMeta(getBlbMeta->volId,
+                                             getBlbMeta->blob_name,
+                                             &(getBlbMeta->blob_version),
+                                             &(blobSize),
+                                             &(getBlbMeta->message->metaDataList));
+    if (!err.ok()) {
+        PerfTracer::incr(getBlbMeta->opReqFailedPerfEventType, getBlbMeta->getVolId(),
+                getBlbMeta->perfNameStr);
+    }
+    getBlbMeta->message->byteCount = blobSize;
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*getBlbMeta);
+    PerfTracer::tracePointEnd(getBlbMeta->opLatencyCtx);
+    PerfTracer::tracePointEnd(getBlbMeta->opReqLatencyCtx);
+    // TODO(Andrew): Note the cat request gets freed
+    // by the callback
+    getBlbMeta->dmio_getmd_resp_cb(err, getBlbMeta);
+}
+
+>>>>>>> origin/master
 void DataMgr::setBlobMetaDataSvc(void *io) {
     Error err;
     DmIoSetBlobMetaData *setBlbMetaReq = static_cast<DmIoSetBlobMetaData*>(io);
@@ -1523,7 +1622,7 @@ void DataMgr::setBlobMetaDataSvc(void *io) {
         PerfTracer::incr(setBlbMetaReq->opReqFailedPerfEventType, setBlbMetaReq->getVolId(),
                 setBlbMetaReq->perfNameStr);
     }
-    qosCtrl->markIODone(*setBlbMetaReq);
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*setBlbMetaReq);
     PerfTracer::tracePointEnd(setBlbMetaReq->opLatencyCtx);
     PerfTracer::tracePointEnd(setBlbMetaReq->opReqLatencyCtx);
     setBlbMetaReq->dmio_setmd_resp_cb(err, setBlbMetaReq);
@@ -1540,7 +1639,7 @@ void DataMgr::getVolumeMetaData(dmCatReq *io) {
         PerfTracer::incr(getVolMDReq->opReqFailedPerfEventType, getVolMDReq->getVolId(),
                 getVolMDReq->perfNameStr);
     }
-    qosCtrl->markIODone(*getVolMDReq);
+    if (feature.isQosEnabled()) qosCtrl->markIODone(*getVolMDReq);
     PerfTracer::tracePointEnd(getVolMDReq->opLatencyCtx);
     PerfTracer::tracePointEnd(getVolMDReq->opReqLatencyCtx);
     getVolMDReq->dmio_get_volmd_resp_cb(err, getVolMDReq);

@@ -8,7 +8,7 @@
 #include <fds_module.h>
 #include <fds_volume.h>
 #include <blob/BlobTypes.h>
-#include <cache/VolumeKvCache.h>
+#include <cache/VolumeSharedKvCache.h>
 #include <am-tx-mgr.h>
 
 namespace fds {
@@ -21,16 +21,17 @@ namespace fds {
 class AmCache : public Module, public boost::noncopyable {
   public:
     explicit AmCache(const std::string &modName);
-    ~AmCache();
-//    typedef std::unique_ptr<AmCache> unique_ptr;
+
+    ~AmCache() {}
     typedef std::shared_ptr<AmCache> shared_ptr;
 
     /**
      * Module methods
      */
-    int mod_init(SysParams const *const param);
-    void mod_startup();
-    void mod_shutdown();
+    int mod_init(SysParams const *const param)
+    { Module::mod_init(param); return 0; }
+    void mod_startup()  {}
+    void mod_shutdown() {}
 
     /**
      * Creates cache structures for the volume described
@@ -79,7 +80,7 @@ class AmCache : public Module, public boost::noncopyable {
      * transaction. Any previously existing info will be
      * overwritten.
      */
-    Error putTxDescriptor(const AmTxDescriptor::ptr &txDesc);
+    Error putTxDescriptor(const AmTxDescriptor::ptr txDesc);
 
     /**
      * Updates a blob descriptor in the cache for given volume id
@@ -88,7 +89,7 @@ class AmCache : public Module, public boost::noncopyable {
      */
     Error putBlobDescriptor(fds_volid_t volId,
                             const std::string &blobName,
-                            const BlobDescriptor::ptr &blobDesc);
+                            const BlobDescriptor::ptr blobDesc);
 
     /**
      * Removes cache entries for a specific blob in a volume.
@@ -97,25 +98,12 @@ class AmCache : public Module, public boost::noncopyable {
                      const std::string &blobName);
 
   private:
-    /// Cache of blob descriptors
-    typedef VolumeCacheManager<std::string, BlobDescriptor> BlobDescCacheManager;
-    std::unique_ptr<BlobDescCacheManager> blobDescCache;
-
-    /// Cache of blob offset mappings
-    typedef VolumeCacheManager<BlobOffsetPair, ObjectID,
-                               BlobOffsetPairHash> BlobOffsetCacheManager;
-    std::unique_ptr<BlobOffsetCacheManager> blobOffsetCache;
-
-    /// Cache of blob objects
-    typedef VolumeCacheManager<ObjectID, std::string,
-                               ObjectHash> BlobObjectCacheManager;
-    std::unique_ptr<BlobObjectCacheManager> blobObjectCache;
+    VolumeSharedCacheManager<std::string, BlobDescriptor>                     descriptor_cache;
+    VolumeSharedCacheManager<BlobOffsetPair, ObjectID, BlobOffsetPairHash>    offset_cache;
+    VolumeSharedCacheManager<ObjectID, std::string, ObjectHash>               object_cache;
 
     /// Max number of entries per volume cache
-    fds_uint32_t maxEntries;
-    /// Cache eviction policy
-    // TODO(Andrew): Have some per-volume eviction policy based on volume policy.
-    EvictionType evictionType;
+    size_t max_entries;
 };
 
 }  // namespace fds

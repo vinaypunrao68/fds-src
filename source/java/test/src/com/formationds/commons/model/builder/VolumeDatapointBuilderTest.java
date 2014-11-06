@@ -5,7 +5,7 @@
 package com.formationds.commons.model.builder;
 
 import com.formationds.commons.model.entity.VolumeDatapoint;
-import com.formationds.commons.model.entity.builder.VolumeDatapointBuilder;
+import com.formationds.om.repository.query.builder.VolumeDatapointBuilder;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -64,6 +64,6 @@ public class VolumeDatapointBuilderTest {
     Assert.assertSame( datapoint.getKey(), key );
     Assert.assertSame( datapoint.getValue(), value );
     Assert.assertSame( datapoint.getVolumeName(), volumeName );
-    Assert.assertSame( datapoint.getTimestamp(), timestamp );
+    Assert.assertEquals( datapoint.getTimestamp(), timestamp );
   }
 }

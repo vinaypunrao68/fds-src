@@ -110,9 +110,9 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         err =  ERR_NOT_IMPLEMENTED;
     } else {
         if (fCheck) {
-            err = dataMgr->process_rm_vol(vol_uuid, fCheck);
             // delete the volume blobs first
             err = dataMgr->deleteVolumeContents(vol_uuid);
+            err = dataMgr->process_rm_vol(vol_uuid, fCheck);
         } else {
             err = dataMgr->process_rm_vol(vol_uuid, fCheck);
         }
@@ -560,13 +560,11 @@ void
 DMSvcHandler::setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 const Error &e, DmIoSetBlobMetaData *req)
 {
-    LOGDEBUG << logString(*asyncHdr);
+    DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    // TODO(sanjay) - we will have to revisit  this call
-    fpi::SetBlobMetaDataRspMsg setBlobMetaDataRspMsg;
+    fpi::SetBlobMetaDataRspMsg setBlobMetaRsp;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(SetBlobMetaDataRspMsg),
-                  setBlobMetaDataRspMsg);
-
+                  setBlobMetaRsp);
     delete req;
 }
 

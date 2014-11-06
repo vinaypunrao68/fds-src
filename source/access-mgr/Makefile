@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
-speedup           := -j 6
+speedup           = -j $(threads)
 user_build_dir    := \
     include \
     amlib \
@@ -10,9 +10,11 @@ user_build_dir    := \
     block \
     test
 
-user_incl_dir     := stor-hvisor include
-user_cpp_flags    :=
-user_fds_so_libs  :=
+user_incl_dir     := \
+	stor-hvisor \
+	include \
+	/usr/include/cryptopp
+
 user_fds_ar_libs  :=  \
     fds-probe \
     fds-am-engine \

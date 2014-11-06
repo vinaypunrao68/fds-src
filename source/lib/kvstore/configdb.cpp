@@ -20,13 +20,6 @@ namespace fds { namespace kvstore {
 using redis::Reply;
 using redis::RedisException;
 
-ConfigException::ConfigException(const std::string& msg) : msg(msg) {
-}
-
-const char* ConfigException::what() const noexcept{
-    return msg.c_str();
-}
-
 ConfigDB::ConfigDB(const std::string& host,
                    uint port,
                    uint poolsize) : KVStore(host, port, poolsize) {
@@ -120,6 +113,18 @@ bool ConfigDB::getLocalDomains(std::map<int, std::string>& mapDomains, int globa
 }
 
 // volumes
+fds_uint64_t ConfigDB::getNewVolumeId() {
+    try {
+        fds_uint64_t volId;
+        for (;;) {
+            volId = r.incr("volumes:nextid");
+            if (!volumeExists(volId)) return volId;
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return invalid_vol_id;
+}
 bool ConfigDB::addVolume(const VolumeDesc& vol) {
     TRACKMOD();
     // add the volume to the volume list for the domain
@@ -155,7 +160,8 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " iops.max %.3f"
                               " relative.priority %d"
                               " fsnapshot %d"
-                              " parentvolumeid %ld",
+                              " parentvolumeid %ld"
+                              " state %d",
                               vol.volUUID, vol.volUUID,
                               vol.name.c_str(),
                               vol.tennantId,
@@ -179,13 +185,24 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.iops_max,
                               vol.relativePrio,
                               vol.fSnapshot,
-                              vol.srcVolumeId
-                              );
+                              vol.srcVolumeId,
+                              vol.getState());
         if (reply.isOk()) return true;
         LOGWARN << "msg: " << reply.getString();
     } catch(RedisException& e) {
         LOGERROR << e.what();
         TRACKMOD();
+    }
+    return false;
+}
+
+bool ConfigDB::setVolumeState(fds_volid_t volumeId, fpi::ResourceState state) {
+    TRACKMOD();
+    try {
+        return r.sendCommand("hset vol:%ld state %d", volumeId, static_cast<int>(state)).isOk();
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+        NOMOD();
     }
     return false;
 }
@@ -315,6 +332,7 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "iops.max") {vol.iops_max = strtod (value.c_str(), NULL);}
             else if (key == "relative.priority") {vol.relativePrio = atoi(value.c_str());}
             else if (key == "fsnapshot") {vol.fSnapshot = atoi(value.c_str());}
+            else if (key == "state") {vol.setState((fpi::ResourceState) atoi(value.c_str()));}
             else if (key == "parentvolumeid") {vol.srcVolumeId = strtoull(value.c_str(), NULL, 10);} //NOLINT
             else { //NOLINT
                 LOGWARN << "unknown key for volume [" << volumeId <<"] - " << key;
@@ -523,12 +541,9 @@ bool ConfigDB::addNode(const node_data_t *node) {
     try {
         bool ret;
 
-        ret = r.set(format("%d:cluster:nodes", domainId),
-                    std::string(reinterpret_cast<const char *>(&node->nd_node_uuid),
-                                sizeof(node->nd_node_uuid)));
+        ret = r.sadd(format("%d:cluster:nodes", domainId), node->nd_node_uuid);
         ret = r.set(format("node:%ld", node->nd_node_uuid),
-                    std::string(reinterpret_cast<const char *>(&node->nd_node_uuid),
-                                sizeof(node->nd_node_uuid)));
+                    std::string(reinterpret_cast<const char *>(node), sizeof(node_data_t)));
 
         return ret;
     } catch(const RedisException& e) {
