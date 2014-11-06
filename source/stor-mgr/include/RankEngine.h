@@ -15,7 +15,7 @@ class RankEngine {
     typedef std::set<ObjectID> PromotionSet;
 
     virtual PromotionSet getObjectsToPromote(fds_uint32_t max_size) = 0;
-    virtual fds_bool_t isObjectDemotable(ObjectID oid) = 0;
+    virtual fds_bool_t isObjectDemotable(const ObjectID& oid) = 0;
     virtual void notifyDataPath(fds_io_op_t opType, const ObjectID& oid, diskio::DataTier tier) = 0;
 };
 }  // namespace fds
