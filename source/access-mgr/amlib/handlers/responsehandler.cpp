@@ -348,7 +348,7 @@ AsyncGetObjectResponseHandler::AsyncGetObjectResponseHandler(
 
 void
 AsyncGetObjectResponseHandler::process() {
-    respApi->getBlobResp(error, requestId, returnBuffer);
+    respApi->getBlobResp(error, requestId, returnBuffer, returnSize);
 }
 
 AsyncGetObjectResponseHandler::~AsyncGetObjectResponseHandler() {
