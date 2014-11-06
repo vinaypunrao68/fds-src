@@ -1,6 +1,6 @@
 ---
 -   name: install needed packages for devsetup
-    hosts: 127.0.0.1
+    hosts: localhost
     sudo: yes
 
     tasks:

@@ -1,3 +1,5 @@
+{% extends 'fds_config_defaults.j2' %}
+{% block content %}
 # Redis configuration file
 
 port 6379
@@ -22,3 +24,4 @@ appendfilename appendonly.aof
 # always/everysec/no
 appendfsync always
 no-appendfsync-on-rewrite no
+{% endblock %}

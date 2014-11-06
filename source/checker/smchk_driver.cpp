@@ -121,7 +121,16 @@ main(int argc, char** argv) {
             nullptr
     };
 
-    fds::SMChkDriver smChk(argc, argv, "sm_ut.conf", "fds.diskmap_ut.",
+    std::vector<char*> new_argv;
+    for (int i = 0; i < argc; ++i) {
+        new_argv.push_back(argv[i]);
+    }
+    new_argv.push_back("--fds.sm.testing.standalone=true");
+    new_argv.push_back("--fds.sm.enable_graphite=false");
+
+    argc = new_argv.size();
+
+    fds::SMChkDriver smChk(argc, &new_argv[0], "platform.conf", "fds.sm.",
             vec, smDiskMap, smObjStore);
     smChk.main();
     return 0;
