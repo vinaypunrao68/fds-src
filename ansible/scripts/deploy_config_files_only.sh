@@ -9,7 +9,7 @@ hosts="$1"
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 inventory=${script_dir}/../ansible_hosts
 playbooks=${script_dir}/../playbooks
-ansible_args=" -i ${inventory} -e "target_hosts=${hosts}" ${playbooks}/deploy_config_files_only.yml"
+ansible_args=" -i ${inventory} -e "target_hosts=${hosts}" ${playbooks}/deploy_config_files_only.yml -K"
 
 # Test auth to target hosts
 ansible -i ${inventory} ${hosts} -m ping > /dev/null 2>&1
@@ -19,8 +19,6 @@ if [ $? -eq 3 ]; then
     echo -n "SSH username: "
     read ssh_username
     ansible_args="${ansible_args} -u ${ssh_username} -k"
-else
-    ansible_args="${ansible_args} -K"
 fi
 
 ansible-playbook ${ansible_args}
