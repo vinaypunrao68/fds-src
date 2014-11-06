@@ -33,6 +33,7 @@ user_cpp          :=  \
     perf_trace_unit_test.cpp \
     kvcache_unit_test.cpp \
     Tracebuffer_ut.cpp \
+    sharedcache_perf_test.cpp \
     sharedcache_unit_test.cpp \
     sharedcache_gtest.cpp \
     object_logger_test.cpp \
@@ -59,6 +60,7 @@ user_bin_exe      := \
     counters_test \
     SynchronizedTaskExecutor_ut \
     perf_trace_unit_test \
+    sharedcache_perf_test \
     sharedcache_unit_test \
     sharedcache_gtest \
     kvcache_unit_test \
@@ -74,6 +76,7 @@ fds_config_test                := fds_config_test.cpp
 counters_test                  := counters_test.cpp
 SynchronizedTaskExecutor_ut    := SynchronizedTaskExecutor_ut.cpp
 perf_trace_unit_test           := perf_trace_unit_test.cpp
+sharedcache_perf_test          := sharedcache_perf_test.cpp
 sharedcache_unit_test          := sharedcache_unit_test.cpp
 sharedcache_gtest	       := sharedcache_gtest.cpp 
 kvcache_unit_test              := kvcache_unit_test.cpp
