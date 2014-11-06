@@ -14,6 +14,8 @@ import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
 import com.formationds.om.repository.result.VolumeDatapointList;
 import com.formationds.xdi.ConfigurationApi;
 import org.apache.thrift.TException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jdo.Query;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -38,6 +40,7 @@ public class MetricsRepository
    * saving it.  When processing multiple datapoints, also aligns the timestamp to the first datapoint.
    */
   private static class MetricsEntityPersistListener implements EntityPersistListener<VolumeDatapoint> {
+      private static final Logger logger = LoggerFactory.getLogger(MetricsRepository.class);
       public void prePersist(VolumeDatapoint dp) {
           try {
               long volid = SingletonConfigAPI.instance().api().getVolumeId(dp.getVolumeName());
@@ -51,6 +54,10 @@ public class MetricsRepository
           ConfigurationApi config = SingletonConfigAPI.instance().api();
           long timestamp = 0L;
           try {
+              if (dps.isEmpty())
+                  return;
+
+              logger.trace("Setting volume id and timestamp for {} datapoints", dps.size());
               // set the volume id for each datapoint and align the timestamps
               for (VolumeDatapoint dp : dps) {
                   long volid = config.getVolumeId(dp.getVolumeName());

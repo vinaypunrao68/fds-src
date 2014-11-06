@@ -32,7 +32,7 @@ public abstract class JDORepository<T,
     private EntityManager entity;
 
     // use non-static logger to tie it to the concrete subclass.
-    private final Logger logger;
+    protected final Logger logger;
 
     /**
      * Entity prePersist and postPersist listener callbacks.

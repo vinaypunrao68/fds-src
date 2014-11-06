@@ -172,7 +172,7 @@ public enum EventManager {
                         for( final Series s : fb ) {
                             // TODO: can we make Context (and Series) generic so we can know that series.getContext() returns a Volume?
                             Volume v = (Volume)s.getContext();
-                            logger.trace( "Firebreak event for '{}' series '{}'", s.getContext().toString(), s );
+                            logger.trace("Firebreak event for '{}' series '{}'", s.getContext().toString(), s);
 
                             // TODO: add series data?
                             EventManager.notifyEvent(fbEvent, v.getId(), s);

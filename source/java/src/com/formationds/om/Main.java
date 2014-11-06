@@ -37,16 +37,14 @@ import java.util.function.Function;
 public class Main {
     private static final Logger LOG = Logger.getLogger(Main.class);
 
-    private final Configuration configuration;
+//    private final Configuration configuration;
 
     // key for managing the singleton EventManager.
     private final Object eventMgrKey = new Object();
 
     private WebApp webApp;
-
     private Xdi xdi;
     private ConfigurationApi configCache;
-
 
     public static void main(String[] args) {
         try {
@@ -61,12 +59,12 @@ public class Main {
     }
 
     public Main(Configuration cfg) {
-        this.configuration = cfg;
+        SingletonConfiguration.instance().setConfig(cfg);
     }
 
     public void start(String[] args) throws Exception {
         LOG.trace("Starting native OM");
-        SingletonConfiguration.instance().setConfig(configuration);
+        Configuration configuration = SingletonConfiguration.instance().getConfig();
         NativeOm.startOm(args);
 
         LOG.trace("Loading platform configuration.");
