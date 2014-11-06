@@ -35,7 +35,6 @@ include_directories(source/include
                     source/orch-mgr/
                     source/orch-mgr/include/
                     source/orch-mgr/include/snapshot/
-                    leveldb-1.12.0/include/leveldb/
                     /usr/local/include/boost/
                     source/unit-test/stor-mgr/
                     )
@@ -1502,6 +1501,11 @@ set(SOURCE_FILES
     source/osdep/umod-linux/fds-shmem.cpp
     source/osdep/umod-linux/fds-shmtx.cpp
     source/osdep/umod-linux/fds_osdep.c
+    source/persistent_layer/include/dm_io.h
+    source/persistent_layer/include/disk.h
+    source/persistent_layer/include/disk-label.h
+    source/persistent_layer/include/net-platform.h
+    source/persistent_layer/include/disk-capacity.h
     source/persistent_layer/include/persistentdata.h
     source/persistent_layer/include/tokFileMgr.h
     source/persistent_layer/io-lib/dm_index.cpp

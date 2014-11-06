@@ -55,7 +55,9 @@ class AmLoadProc : public AmAsyncResponseApi {
   public:
     AmLoadProc(int argc, char **argv)
             : domainName(new std::string("Test Domain")),
-              volumeName(new std::string("Test Volume")) {
+              volumeName(new std::string("Test Volume")),
+              serverIp("127.0.0.1"),
+              serverPort(8899) {
         // register and populate volumes
         VolumeDesc volDesc(*volumeName, 5);
         volDesc.iops_min = 0;
@@ -81,7 +83,10 @@ class AmLoadProc : public AmAsyncResponseApi {
                  "Run google profiler")
                 ("profile-file,f",
                  po::value<std::string>(&profileFile)->default_value("am-profile.prof"),
-                 "Profile output file");
+                 "Profile output file")
+                ("thrift,r",
+                 po::bool_switch(&thrift)->default_value(false),
+                 "Use thrift instead of direct call");
 
         // hardcoding test config
         po::variables_map vm;
@@ -99,6 +104,23 @@ class AmLoadProc : public AmAsyncResponseApi {
 
         responseApi.reset(this, null_deleter());
         am->asyncDataApi->setResponseApi(responseApi);
+
+        if (thrift) {
+            // Setup the async response client
+            boost::shared_ptr<xdi_att::TTransport> respSock(
+                boost::make_shared<xdi_att::TSocket>(serverIp,
+                                                     serverPort));
+            boost::shared_ptr<xdi_att::TFramedTransport> respTrans(
+                boost::make_shared<xdi_att::TFramedTransport>(respSock));
+            boost::shared_ptr<xdi_atp::TProtocol> respProto(
+                boost::make_shared<xdi_atp::TBinaryProtocol>(respTrans));
+            asyncThriftClient = boost::make_shared<apis::AsyncAmServiceRequestClient>(respProto);
+            respSock->open();
+            asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncAmServiceRequestIf>(
+                asyncThriftClient);
+        } else {
+            asyncDataApi = am->asyncDataApi;
+        }
     }
     virtual ~AmLoadProc() {
     }
@@ -177,6 +199,17 @@ class AmLoadProc : public AmAsyncResponseApi {
         }
     }
 
+    void getBlobResp(const Error &error,
+                     boost::shared_ptr<apis::RequestId>& requestId,
+                     char* buf,
+                     fds_uint32_t& length) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
     void statBlobResp(const Error &error,
                       boost::shared_ptr<apis::RequestId>& requestId,
                       boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
@@ -234,32 +267,45 @@ class AmLoadProc : public AmAsyncResponseApi {
                 // Always use an empty request ID since we don't track
                 boost::shared_ptr<apis::RequestId> reqId(
                     boost::make_shared<apis::RequestId>());
-                am->asyncDataApi->updateBlobOnce(reqId,
-                                                 domainName,
-                                                 volumeName,
-                                                 blobGen.blobName,
-                                                 blobMode,
-                                                 blobGen.blobData,
-                                                 blobLength,
-                                                 off,
-                                                 meta);
+                // Make copy of data since function "takes" the shared_ptr
+                boost::shared_ptr<std::string> localData(
+                    boost::make_shared<std::string>(*blobGen.blobData));
+                asyncDataApi->updateBlobOnce(reqId,
+                                             domainName,
+                                             volumeName,
+                                             blobGen.blobName,
+                                             blobMode,
+                                             localData,
+                                             blobLength,
+                                             off,
+                                             meta);
+            } else if (opType == GET) {
+                // Always use an empty request ID since we don't track
+                boost::shared_ptr<apis::RequestId> reqId(
+                    boost::make_shared<apis::RequestId>());
+                asyncDataApi->getBlob(reqId,
+                                      domainName,
+                                      volumeName,
+                                      blobGen.blobName,
+                                      blobLength,
+                                      off);
             } else if (opType == STARTTX) {
                 // Always use an empty request ID since we don't track
                 boost::shared_ptr<apis::RequestId> reqId(
                     boost::make_shared<apis::RequestId>());
-                am->asyncDataApi->startBlobTx(reqId,
-                                              domainName,
-                                              volumeName,
-                                              blobGen.blobName,
-                                              blobMode);
+                asyncDataApi->startBlobTx(reqId,
+                                          domainName,
+                                          volumeName,
+                                          blobGen.blobName,
+                                          blobMode);
             } else if (opType == STAT) {
                 // Always use an empty request ID since we don't track
                 boost::shared_ptr<apis::RequestId> reqId(
                     boost::make_shared<apis::RequestId>());
-                am->asyncDataApi->statBlob(reqId,
-                                           domainName,
-                                           volumeName,
-                                           blobGen.blobName);
+                asyncDataApi->statBlob(reqId,
+                                       domainName,
+                                       volumeName,
+                                       blobGen.blobName);
             } else if (opType == PUTMETA) {
                 // Always use an empty request ID since we don't track
                 boost::shared_ptr<apis::RequestId> reqId(
@@ -269,12 +315,12 @@ class AmLoadProc : public AmAsyncResponseApi {
                 // TODO(Andrew): Setup a test case where this is
                 // set done before hand, otherwise these fail
                 txDesc->txId = 0;
-                am->asyncDataApi->updateMetadata(reqId,
-                                                 domainName,
-                                                 volumeName,
-                                                 blobGen.blobName,
-                                                 txDesc,
-                                                 meta);
+                asyncDataApi->updateMetadata(reqId,
+                                             domainName,
+                                             volumeName,
+                                             blobGen.blobName,
+                                             txDesc,
+                                             meta);
             } else if (opType == LISTVOL) {
                 // Always use an empty request ID since we don't track
                 boost::shared_ptr<apis::RequestId> reqId(
@@ -286,11 +332,11 @@ class AmLoadProc : public AmAsyncResponseApi {
                 boost::shared_ptr<int64_t> offset(
                     boost::make_shared<int64_t>());
                 *offset = 0;
-                am->asyncDataApi->volumeContents(reqId,
-                                                 domainName,
-                                                 volumeName,
-                                                 count,
-                                                 offset);
+                asyncDataApi->volumeContents(reqId,
+                                             domainName,
+                                             volumeName,
+                                             count,
+                                             offset);
             } else {
                 fds_panic("Unknown op type");
             }
@@ -318,9 +364,12 @@ class AmLoadProc : public AmAsyncResponseApi {
             fds_uint64_t start_nano = util::getTimeStampNanos();
             if (opType == PUT) {
                 try {
+                    // Make copy of data since function "takes" the shared_ptr
+                    boost::shared_ptr<std::string> localData(
+                        boost::make_shared<std::string>(*blobGen.blobData));
                     am->dataApi->updateBlobOnce(domainName, volumeName,
                                                 blobGen.blobName, blobMode,
-                                                blobGen.blobData, blobLength, off, meta);
+                                                localData, blobLength, off, meta);
                 } catch(apis::ApiException fdsE) {
                     fds_panic("updateBlob failed");
                 }
@@ -449,6 +498,8 @@ class AmLoadProc : public AmAsyncResponseApi {
     fds_bool_t profile;
     /// profile file
     std::string profileFile;
+    /// use thrift
+    fds_bool_t thrift;
 
     /// threads for blocking AM
     std::vector<std::thread*> threads_;
@@ -475,6 +526,16 @@ class AmLoadProc : public AmAsyncResponseApi {
     /// Cond vars to sync responses
     std::condition_variable done_cond;
     std::mutex done_mutex;
+
+    /// Data API to AM
+    boost::shared_ptr<apis::AsyncAmServiceRequestIf> asyncDataApi;
+
+    /// Thrift client
+    boost::shared_ptr<apis::AsyncAmServiceRequestClient> asyncThriftClient;
+    /// Thrift IP
+    std::string serverIp;
+    /// Thrift port
+    fds_uint32_t serverPort;
 };
 
 AmLoadProc::unique_ptr amLoad;
@@ -512,6 +573,12 @@ TEST(AccessMgr, asyncStatBlob) {
 TEST(AccessMgr, asyncVolumeContents) {
     GLOGDEBUG << "Testing async volumeContents";
     amLoad->runAsyncTask(AmLoadProc::LISTVOL);
+}
+
+TEST(AccessMgr, wr) {
+    GLOGDEBUG << "Testing async write-read";
+    amLoad->runAsyncTask(AmLoadProc::PUT);
+    amLoad->runAsyncTask(AmLoadProc::GET);
 }
 
 }  // namespace fds

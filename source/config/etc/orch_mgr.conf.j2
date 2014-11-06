@@ -1,3 +1,5 @@
+{% extends 'fds_config_defaults.j2' %}
+{% block content %}
 fds:
 {
     plat: {
@@ -14,7 +16,7 @@ fds:
         control_port = 7000
 
         /* Orchestration manager ip */
-        om_ip = "127.0.0.1"
+        om_ip = "{{ om_ip }}"
 
         /* Orchestration manager port */
         om_port = 8904
@@ -27,10 +29,10 @@ fds:
         auto_start_services = true
 
         /* Graphite is enabled or not */
-        enable_graphite=false
+        enable_graphite = {{ metrics_enabled }}
         graphite: {
             /* Graphite server ip */
-            ip = "10.1.10.232"
+            ip = "{{ metricsdb_ip }}"
             /* Graphite server port */
             port = 2003
         }
@@ -50,14 +52,14 @@ fds:
         logfile="om"
         config_port=8903
         control_port=8904
-        ip_address="10.1.10.119"
-        enable_graphite=false
+        ip_address="{{ om_ip }}"
+        enable_graphite = {{ metrics_enabled }}
         token_factor=8
         replica_factor=4
         placement_algo="ConsistHash"
-        authentication=false 
-	web_dir="../lib/admin-webapp/"
-	admin_webapp_port=7777
+        authentication=false
+        web_dir="../lib/admin-webapp/"
+        admin_webapp_port=7777
 
         configdb : {
         port=6379
@@ -70,3 +72,4 @@ fds:
         #}
     }
 }
+{% endblock %}
