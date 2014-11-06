@@ -127,7 +127,7 @@ class AmTxManager : public Module, public boost::noncopyable {
      */
     Error updateStagedBlobObject(const BlobTxId &txId,
                                  const ObjectID &objectId,
-                                 boost::shared_ptr<std::string> &objectData,
+                                 boost::shared_ptr<std::string> objectData,
                                  fds_uint32_t dataLen);
 
     /**

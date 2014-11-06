@@ -158,7 +158,7 @@ AmTxManager::updateStagedBlobOffset(const BlobTxId &txId,
 Error
 AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
                                     const ObjectID &objectId,
-                                    boost::shared_ptr<std::string> &objectData,
+                                    boost::shared_ptr<std::string> objectData,
                                     fds_uint32_t dataLen) {
     SCOPEDWRITE(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
