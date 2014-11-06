@@ -103,6 +103,7 @@ public class PutObject implements RequestHandler {
         final DateTime lastModified = lastModifiedTemp;
 
 
+
         if(matchETag != null && !matchETag.equals(copySourceETag))
             return new TextResource(HttpServletResponse.SC_PRECONDITION_FAILED, "");
         if(notMatchETag != null && notMatchETag.equals(copySourceETag))
@@ -110,8 +111,16 @@ public class PutObject implements RequestHandler {
 
         // TODO: last modified checks - x-amz-copy-source-if-unmodified-since and x-amz-copy-source-if-modified-since
 
-        InputStream instr = xdi.readStream(token, S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]);
-        byte[] digest = xdi.writeStream(token, targetDomain, targetBucketName, targetBlobName, instr, metadataMap);
+        byte[] digest = null;
+        if(copySourceBucket.equals(targetBucketName) && copySourceObject.equals(targetBlobName)) {
+            if(metadataDirective != null && metadataDirective.equals("REPLACE")) {
+                xdi.setMetadata(token, targetDomain, targetBucketName, targetBlobName, metadataMap);
+            }
+            digest = Hex.decodeHex(copySourceETag.toCharArray());
+        } else {
+            InputStream instr = xdi.readStream(token, S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]);
+            digest = xdi.writeStream(token, targetDomain, targetBucketName, targetBlobName, instr, metadataMap);
+        }
 
         XmlElement responseFrame = new XmlElement("CopyObjectResult")
                 .withValueElt("LastModified", S3Endpoint.formatAwsDate(lastModified))

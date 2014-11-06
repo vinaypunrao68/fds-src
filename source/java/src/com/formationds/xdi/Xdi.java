@@ -13,6 +13,7 @@ import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -118,5 +119,13 @@ public class Xdi {
     public String getSystemVolumeName(AuthenticationToken token) throws SecurityException {
         long tenantId = authorizer.tenantId(token);
         return "SYSTEM_VOLUME_" + tenantId;
+    }
+
+    public void setMetadata(AuthenticationToken token, String domain, String volume, String blob, HashMap<String, String> metadataMap) throws TException {
+        attemptVolumeAccess(token, volume);
+        TxDescriptor tx = am.startBlobTx(domain, volume, blob, 0);
+        am.updateMetadata(domain, volume, blob, tx, metadataMap);
+        am.commitBlobTx(domain, volume, blob, tx);
+
     }
 }

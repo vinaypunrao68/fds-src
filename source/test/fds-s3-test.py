@@ -94,6 +94,8 @@ class TestS3Conn(unittest.TestCase):
         self.conn  = g_connection.get_s3_connection()
         self.param = g_parameters
         self.assertTrue(self.conn)
+        if self.conn.lookup(self.param.bucket_name) is None:
+            self.conn.create_bucket(self.param.bucket_name)
 
     def tearDown(self):
         self.assertTrue(self.conn)
@@ -115,6 +117,7 @@ class TestS3Conn(unittest.TestCase):
     def test_get_all_buckets(self):
         buckets_list = self.conn.get_all_buckets()
         self.assertTrue(len(buckets_list) > 0)
+        found = False
         for bucket in buckets_list:
             if self.param.verbose:
                 log("bucket: %s" % bucket.name)
@@ -661,6 +664,7 @@ def main():
                                   TEST_DEBUG)
 
     g_connection.s3_connect()
+
 
     test_classes = [TestS3Conn, TestS3Bucket, TestS3Key]
     loader       = unittest.TestLoader()
