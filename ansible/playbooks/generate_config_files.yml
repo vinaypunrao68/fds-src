@@ -5,30 +5,16 @@
         - ../vars_files/config_files_dev.yml
 
     tasks:
-    -   name: render fds.conf
+    -   name: render fds-src/source/config/etc config files
         template:
-            src: ../../source/config/etc/fds.conf.j2
-            dest: ../../source/config/etc/fds.conf
-
-    -   name: render fds-features.conf
-        template:
-            src: ../../source/config/etc/fds-features.conf.j2
-            dest: ../../source/config/etc/fds-features.conf
-
-    -   name: render orch_mgr.conf
-        template:
-            src: ../../source/config/etc/orch_mgr.conf.j2
-            dest: ../../source/config/etc/orch_mgr.conf
-
-    -   name: render platform.conf
-        template:
-            src: ../../source/config/etc/platform.conf.j2
-            dest: ../../source/config/etc/platform.conf
-
-    -   name: render redis.conf
-        template:
-            src: ../../source/config/etc/redis.conf.j2
-            dest: ../../source/config/etc/redis.conf
+            src: ../../source/config/etc/{{item}.conf.j2
+            dest: ../../source/config/etc/{{item}.conf
+        with_items:
+            - fds
+            - fds-features
+            - platform
+            - orch_mgr
+            - redis
 
     -   name: render formation.conf
         template:
