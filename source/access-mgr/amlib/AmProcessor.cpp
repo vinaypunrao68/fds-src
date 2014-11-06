@@ -176,13 +176,14 @@ AmProcessor::putBlob(AmRequest *amReq) {
     amReq->blob_offset = (amReq->blob_offset * maxObjSize);
 
     // Use a stock object ID if the length is 0.
+    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
     if (amReq->data_len == 0) {
         LOGWARN << "zero size object - "
                 << " [objkey:" << amReq->getBlobName() <<"]";
         amReq->obj_id = ObjectID();
     } else {
         SCOPED_PERF_TRACEPOINT_CTX(amReq->hash_perf_ctx);
-        amReq->obj_id = ObjIdGen::genObjectId(amReq->getDataBuf(), amReq->data_len);
+        amReq->obj_id = ObjIdGen::genObjectId(blobReq->dataPtr->c_str(), amReq->data_len);
     }
 
     fiu_do_on("am.uturn.processor.putBlob",
@@ -193,7 +194,6 @@ AmProcessor::putBlob(AmRequest *amReq) {
 
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, amReq);
 
-    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
     if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
         // Sending the update in a single request. Create transaction ID to
         // use for the single request
@@ -236,7 +236,7 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
         if (amReq->data_len > 0) {
             fds_verify(txMgr->updateStagedBlobObject(*(blobReq->tx_desc),
                                                      amReq->obj_id,
-                                                     amReq->getDataBuf(),
+                                                     blobReq->dataPtr,
                                                      amReq->data_len)
                    == ERR_OK);
         }

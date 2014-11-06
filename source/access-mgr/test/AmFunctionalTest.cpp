@@ -234,12 +234,15 @@ class AmLoadProc : public AmAsyncResponseApi {
                 // Always use an empty request ID since we don't track
                 boost::shared_ptr<apis::RequestId> reqId(
                     boost::make_shared<apis::RequestId>());
+                // Make copy of data since function "takes" the shared_ptr
+                boost::shared_ptr<std::string> localData(
+                    new std::string(*blobGen.blobData), null_deleter());
                 am->asyncDataApi->updateBlobOnce(reqId,
                                                  domainName,
                                                  volumeName,
                                                  blobGen.blobName,
                                                  blobMode,
-                                                 blobGen.blobData,
+                                                 localData,
                                                  blobLength,
                                                  off,
                                                  meta);
@@ -318,9 +321,12 @@ class AmLoadProc : public AmAsyncResponseApi {
             fds_uint64_t start_nano = util::getTimeStampNanos();
             if (opType == PUT) {
                 try {
+                    // Make copy of data since function "takes" the shared_ptr
+                    boost::shared_ptr<std::string> localData(
+                        new std::string(*blobGen.blobData), null_deleter());
                     am->dataApi->updateBlobOnce(domainName, volumeName,
                                                 blobGen.blobName, blobMode,
-                                                blobGen.blobData, blobLength, off, meta);
+                                                localData, blobLength, off, meta);
                 } catch(apis::ApiException fdsE) {
                     fds_panic("updateBlob failed");
                 }
@@ -512,6 +518,12 @@ TEST(AccessMgr, asyncStatBlob) {
 TEST(AccessMgr, asyncVolumeContents) {
     GLOGDEBUG << "Testing async volumeContents";
     amLoad->runAsyncTask(AmLoadProc::LISTVOL);
+}
+
+TEST(AccessMgr, wr) {
+    GLOGDEBUG << "Testing async write-read";
+    amLoad->runAsyncTask(AmLoadProc::PUT);
+    amLoad->runTask(AmLoadProc::GET);
 }
 
 }  // namespace fds
