@@ -15,3 +15,5 @@ ifndef JENKINS_URL
 endif
 
 include $(topdir)/Makefile.incl
+
+all: generate-config-files
