@@ -2,8 +2,8 @@
  * Copyright 2013-2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_STOR_MGR_INCLUDE_RANK_POLICIES_RANDOMRANKPOLICY_H_
-#define SOURCE_STOR_MGR_INCLUDE_RANK_POLICIES_RANDOMRANKPOLICY_H_
+#ifndef SOURCE_STOR_MGR_INCLUDE_RANDOMRANKPOLICY_H_
+#define SOURCE_STOR_MGR_INCLUDE_RANDOMRANKPOLICY_H_
 
 #include <fds_types.h>
 #include <persistent-layer/dm_io.h>
@@ -18,4 +18,4 @@ class RandomRankPolicy : public RankEngine {
     virtual void notifyDataPath(fds_io_op_t opType, const ObjectID& oid, diskio::DataTier tier);
 };
 }  // namespace fds
-#endif  // SOURCE_STOR_MGR_INCLUDE_RANK_POLICIES_RANDOMRANKPOLICY_H_
+#endif  // SOURCE_STOR_MGR_INCLUDE_RANDOMRANKPOLICY_H_
