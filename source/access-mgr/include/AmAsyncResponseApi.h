@@ -40,6 +40,8 @@ class AmAsyncResponseApi {
                                     boost::shared_ptr<apis::RequestId>& requestId) = 0;
     virtual void updateMetadataResp(const Error &error,
                                     boost::shared_ptr<apis::RequestId>& requestId) = 0;
+    virtual void deleteBlobResp(const Error &error,
+                                boost::shared_ptr<apis::RequestId>& requestId) = 0;
 
     virtual void statBlobResp(const Error &error,
                               boost::shared_ptr<apis::RequestId>& requestId,
@@ -51,6 +53,11 @@ class AmAsyncResponseApi {
         const Error &error,
         boost::shared_ptr<apis::RequestId>& requestId,
         boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents) = 0;
+
+    virtual void getBlobResp(const Error &error,
+                             boost::shared_ptr<apis::RequestId>& requestId,
+                             char* buf,
+                             fds_uint32_t& length) = 0;
 };
 
 class AmAsyncXdiResponse : public AmAsyncResponseApi {
@@ -89,6 +96,8 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
                             boost::shared_ptr<apis::RequestId>& requestId);
     void updateMetadataResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId);
+    void deleteBlobResp(const Error &error,
+                        boost::shared_ptr<apis::RequestId>& requestId);
 
     void statBlobResp(const Error &error,
                       boost::shared_ptr<apis::RequestId>& requestId,
@@ -100,6 +109,11 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
         const Error &error,
         boost::shared_ptr<apis::RequestId>& requestId,
         boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents);
+
+    void getBlobResp(const Error &error,
+                     boost::shared_ptr<apis::RequestId>& requestId,
+                     char* buf,
+                     fds_uint32_t& length);
 };
 
 }  // namespace fds

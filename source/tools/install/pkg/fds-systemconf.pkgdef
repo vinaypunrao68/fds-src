@@ -6,4 +6,4 @@ depends: fds-systemdir
 
 files:
   - dest: /fds/etc
-    src: "../../../config/etc/*"
+    src: "../../../config/etc/*.conf"

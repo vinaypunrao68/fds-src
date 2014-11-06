@@ -178,6 +178,23 @@ AmAsyncXdiResponse::updateMetadataResp(const Error &error,
 }
 
 void
+AmAsyncXdiResponse::deleteBlobResp(const Error &error,
+                                   boost::shared_ptr<apis::RequestId>& requestId) {
+    checkClientConnect();
+    if (!error.ok()) {
+        boost::shared_ptr<apis::ErrorCode> errorCode(
+            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<std::string> message(
+            boost::make_shared<std::string>());
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
+    } else {
+        XDICLIENTCALL(asyncRespClient, deleteBlobResponse(requestId));
+    }
+}
+
+void
 AmAsyncXdiResponse::statBlobResp(const Error &error,
                                  boost::shared_ptr<apis::RequestId>& requestId,
                                  boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
@@ -241,4 +258,24 @@ AmAsyncXdiResponse::volumeContentsResp(const Error &error,
     }
 }
 
+void
+AmAsyncXdiResponse::getBlobResp(const Error &error,
+                                boost::shared_ptr<apis::RequestId>& requestId,
+                                char* buf,
+                                fds_uint32_t& length) {
+    checkClientConnect();
+    if (!error.ok()) {
+        boost::shared_ptr<apis::ErrorCode> errorCode(
+            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<std::string> message(
+            boost::make_shared<std::string>());
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
+    } else {
+         boost::shared_ptr<std::string> response =
+                 boost::make_shared<std::string>(buf, length);
+        XDICLIENTCALL(asyncRespClient, getBlobResponse(requestId, response));
+    }
+}
 }  // namespace fds

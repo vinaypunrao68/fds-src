@@ -88,7 +88,7 @@ class SharedKvCache : public Module, boost::noncopyable {
       *
       * @return A shared_ptr<T> to any evicted entry
       */
-     value_type add(const key_type& key, value_type value) {
+     value_type add(const key_type& key, const value_type value) {
          SCOPEDWRITE(cache_lock);
          GLOGTRACE << "Adding key " << key;
          // Remove any exiting entry from cache

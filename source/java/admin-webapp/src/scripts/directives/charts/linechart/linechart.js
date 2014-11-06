@@ -182,8 +182,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .interpolate( 'monotone' );
                 
                 $svg.selectAll( '.line' )
-                    .transition()
-                    .duration( 500 )
+//                    .transition()
+//                    .duration( 500 )
                     .attr( 'd', function( d ){
                         
                         var vals = []
@@ -191,8 +191,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         if ( angular.isDefined( d.datapoints ) ){
                             vals = d.datapoints;
                         }
-                    
-                        return area( vals );
+                        vals = area( vals );
+                        return vals;
                     });
                 
                 $svg.selectAll( '.point' )
@@ -289,7 +289,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         return $yScale( 0 );
                     })
                     .y1( function( d ){
-                        return $yScale( 0 );
+                        return $yScale( d.y );
                     })
                     .interpolate( 'monotone' );
                 
@@ -404,21 +404,22 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 };
                 
                 //sort
-                for ( var i = 0; angular.isDefined( newVal.series ) && i < newVal.series.length; i++ ){
-                    var dataset = newVal.series[i].datapoints;
-                    
-                    if ( !angular.isDefined( dataset ) ){
-                        continue;
-                    }
-                    
-                    dataset.sort( sorter );
-                }
+//                for ( var i = 0; angular.isDefined( newVal.series ) && i < newVal.series.length; i++ ){
+//                    var dataset = newVal.series[i].datapoints;
+//                    
+//                    if ( !angular.isDefined( dataset ) ){
+//                        continue;
+//                    }
+//                    
+//                    dataset.sort( sorter );
+//                }
                 
                 if ( newVal.series.length === oldVal.series.length &&
                    $svg.selectAll( '.series-group' )[0].length !== 0 ){
                     
                     if ( angular.isDefined( oldVal.series[0].datapoints ) && newVal.series[0].datapoints.length === oldVal.series[0].datapoints.length ){
-                        update();
+//                        update();
+                        create();
                     }
                     else {
                         create();
