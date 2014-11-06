@@ -43,7 +43,6 @@ public class AsyncAm {
         this.authorizer = authorizer;
         statistics = new AsyncRequestStatistics();
         responseListener = new AsyncAmResponseListener(2, TimeUnit.SECONDS);
-
     }
 
     public void start() throws Exception {
@@ -146,8 +145,8 @@ public class AsyncAm {
     }
 
     public CompletableFuture<ByteBuffer> getBlob(AuthenticationToken token, String domainName, String volumeName, String blobName, int length, ObjectOffset offset) {
-        return schedule(token, "getBlob", volumeName, (am, cf) -> {
-            am.getBlob(domainName, volumeName, blobName, length, offset, makeThriftCallbacks(cf, v -> v.getResult()));
+        return scheduleAsync(token, domainName, volumeName, rid -> {
+            oneWayAm.getBlob(rid, domainName, volumeName, blobName, length, offset);
         });
     }
 
@@ -169,9 +168,6 @@ public class AsyncAm {
                                                   int blobMode, ByteBuffer bytes, int length, ObjectOffset offset, Map<String, String> metadata) {
         return scheduleAsync(token, domainName, volumeName, rid ->
                 oneWayAm.updateBlobOnce(rid, domainName, volumeName, blobName, blobMode, bytes, length, offset, metadata));
-//        return schedule(token, "updateBlobOnce", volumeName, (am, cf) -> {
-//            am.updateBlobOnce(domainName, volumeName, blobName, blobMode, bytes, length, new ObjectOffset(offset), metadata, makeThriftCallbacks(cf, v -> null));
-//        });
     }
 
     public CompletableFuture<Void> deleteBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) {
