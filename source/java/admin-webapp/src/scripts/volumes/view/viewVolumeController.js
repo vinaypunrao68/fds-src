@@ -11,9 +11,9 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.performanceStats = { series: [] };
     $scope.performanceItems = [];
     $scope.capacityItems = [];
-    $scope.capacityLineStipples = ['none', '2,2'];
-    $scope.capacityLineColors = ['#2486F8', '#78B5FA'];
-    $scope.capacityColors = [ '#72AEEB', '#ABD3F5' ];
+    $scope.capacityLineStipples = [ '2,2', 'none' ];
+    $scope.capacityLineColors = [ '#78B5FA', '#2486F8' ];
+    $scope.capacityColors = [ '#ABD3F5', '#72AEEB' ];
     $scope.performanceColors = [ '#A4D966' ];
     $scope.performanceLine = ['#66B22E'];   
     $scope.opacities = [0.7,0.7];
