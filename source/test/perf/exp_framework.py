@@ -68,6 +68,7 @@ def transfer_file(node, local_f, remote_f, mode):
 
 # TODO: change all execute_simple in ssh_exec... should work the same!
 def ssh_exec(node, cmd):
+    print "ssh_exec on",node,"->",cmd
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(node, username='root', password='passwd')
@@ -544,8 +545,13 @@ class FdsCluster():
         cmd = "/fds/bin/fdscli --volume-create volume0 -i 1 -s 10240 -p 50 -y blk"
         output = self._loc_exec(cmd)
         time.sleep(5)
-        cmd = self.options.local_fds_root + "/source/cinder/nbdadm.py attach localhost volume0"
-        output = self._loc_exec(cmd)
+        if self.local_test == True:
+            cmd = "python nbdadm.py attach %s volume0" + self.options.main_node
+            output = self._loc_exec(cmd)
+        else:
+            shutil.copyfile(self.local_fds_root + "/source/cinder/nbdadm.py", "/root/nbdadm.py")
+            cmd = "python nbdadm.py attach %s volume0" % self.options.main_node
+            output = ssh_exec(self.options.test_node, cmd)
         time.sleep(5)
         self.nbdvolume = output.rstrip("\n")
         print "nbd:", self.nbdvolume
@@ -566,9 +572,12 @@ class FdsCluster():
                     "--filename=" + disk + " " + \
                     "--bs=" + str(bs) + " " + \
                     "--numjobs=" + str(numjobs) + " " + \
-                    "--runtime=30 --ioengine=libaio --iodepth=16 --direct=1 --size=10g --minimal "
+                    "--runtime=120 --ioengine=libaio --iodepth=16 --direct=1 --size=10g --minimal "
         cmd = "fio " + options
-        output = self._loc_exec(cmd)
+        if self.local_test == True:
+            output = self._loc_exec(cmd)
+        else:
+            output = ssh_exec(self.options.test_node, cmd)
         return output
 
     # FIXME: move to global
