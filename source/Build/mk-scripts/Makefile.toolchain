@@ -63,11 +63,6 @@ toolchain_hiredis_incl    := -I$(toolchain_hiredis)/
 toolchain_cmdconsole      := $(topdir)/../cmdconsole
 toolchain_cmdconsole_incl := -I$(toolchain_cmdconsole)/
 
-## Cryptopp settings
-#
-toolchain_cryptopp        := $(topdir)/../cryptopp
-toolchain_cryptopp_incl   := -I$(toolchain_cryptopp)
-
 ## gmock settings
 #
 toolchain_gmock        := $(topdir)/../gmock-1.7.0
@@ -94,7 +89,7 @@ toolchain_incl_flags += $(toolchain_thrf_incl)
 toolchain_incl_flags += $(toolchain_jansson_incl)
 toolchain_incl_flags += $(toolchain_hiredis_incl)
 toolchain_incl_flags += $(toolchain_cmdconsole_incl)
-toolchain_incl_flags += $(toolchain_cryptopp_incl)
+#toolchain_incl_flags += $(toolchain_cryptopp_incl)
 toolchain_incl_flags += $(toolchain_python_bind_incl)
 toolchain_incl_flags += $(toolchain_gmock_incl)
 

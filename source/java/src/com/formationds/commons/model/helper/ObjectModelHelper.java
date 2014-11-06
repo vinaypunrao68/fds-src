@@ -7,8 +7,11 @@ package com.formationds.commons.model.helper;
 import com.formationds.commons.model.type.Protocol;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.GsonBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Reader;
+import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -20,6 +23,12 @@ import java.util.List;
  * @author ptinius
  */
 public class ObjectModelHelper {
+
+  private static final Logger logger =
+      LoggerFactory.getLogger( ObjectModelHelper.class );
+
+  private static final ModelObjectExclusionStrategy exclusion =
+      new ModelObjectExclusionStrategy();
 
   private static final DateFormat ISO_DATE =
     new SimpleDateFormat( "yyyyMMdd'T'HHmmss" );
@@ -77,13 +86,34 @@ public class ObjectModelHelper {
   }
 
   /**
+   * @param field the {@link java.lang.reflect.Field} representing the field
+   *              to be excluded.
+   */
+  public static void excludeField( final Field field ) {
+      try {
+          exclusion.excludeField( field );
+      } catch( ClassNotFoundException e ) {
+          logger.warn( "could not find either the class {} or the field {}, skipping!",
+                       field.getDeclaringClass(),
+                       field.getName());
+      }
+  }
+
+  /**
+   * @param clazz the {@link Class} representing the class to exclude
+   */
+  public static void excludeClass( final Class<?> clazz ) {
+      exclusion.excludeClass( clazz );
+  }
+  /**
    * @param json the {@link String} representing the JSON object
    * @param type the {@link Type} to parse the JSON into
    *
    * @return Returns the {@link Type} represented within the JSON
    */
   public static <T> T toObject( final String json, final Type type ) {
-    return new GsonBuilder().create()
+    return new GsonBuilder()//.setExclusionStrategies( exclusion )
+                            .create()
                             .fromJson( json, type );
   }
 

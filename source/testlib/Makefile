@@ -2,7 +2,7 @@ topdir           := ..
 user_target      := lib
 user_rtime_env   := user
 user_build_dir   :=
-user_incl_dir    := $(topdir) .
+user_incl_dir    := $(topdir) . /usr/include/cryptopp
 user_cpp         := \
 	Deployer.cpp \
 	SvcMsgFactory.cpp \

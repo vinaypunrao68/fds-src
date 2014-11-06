@@ -70,6 +70,7 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     fSnapshot = vdesc.fSnapshot;
     srcVolumeId = vdesc.srcVolumeId;
     qosQueueId = vdesc.qosQueueId;
+    state = vdesc.state;
     if (volUUID == invalid_vol_id) {
         GLOGWARN << "volume id is invalid";
     }
@@ -101,6 +102,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     fSnapshot = voldesc.fSnapshot;
     srcVolumeId = voldesc.srcVolumeId;
     qosQueueId = voldesc.qosQueueId;
+    state = voldesc.state;
     if (volUUID == invalid_vol_id) {
         GLOGWARN << "volume id is invalid";
     }
@@ -274,7 +276,7 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " localdomain:" <<vol.localDomainId
               << " global.domain:" << vol.globDomainId
               << " type:" << vol.volType
-              << " max obj size in bytes " << vol.maxObjSizeInBytes
+              << " max.obj.size.bytes:" << vol.maxObjSizeInBytes
               << " capacity:" << vol.capacity
               << " quota:" << vol.maxQuota
               << " replica:" << vol.replicaCnt
@@ -293,6 +295,8 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " isSnapshot:" << vol.fSnapshot
               << " srcVolumeId:" << vol.srcVolumeId
               << " qosQueueId:" << vol.qosQueueId
+              << " state:" << vol.getState()
+              << " statename:" << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second
               << " ]";
 }
 

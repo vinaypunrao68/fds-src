@@ -48,25 +48,35 @@ def main():
 
     parser.add_option("-j", "--java-counters", dest = "java_counters", action = "store_true", default = False,
                       help = "Pull java counters")
+    parser.add_option("-D", "--fds-directory", dest = "fds_directory", default = "/home/monchier/regress/fds-src",
+                      help = "FDS root directory")
+    parser.add_option("", "--fds-nodes", dest = "fds_nodes", default = "han",
+                      help = "List of FDS nodes (for monitoring)")
 
     (options, args) = parser.parse_args()
 
     # Hardcoded options
 
     # FDS paths
-    options.remote_fds_root = "/home/monchier/regress/fds-src"
-    options.local_fds_root = "/home/monchier/regress/fds-src"
+    options.remote_fds_root = options.fds_directory
+    options.local_fds_root = options.fds_directory
+    print "FDS local root:", options.local_fds_root
+    print "FDS remote root:", options.remote_fds_root
     # FDS nodes
-    options.nodes = {
-        # "node1" : "10.1.10.16",
-        # "node2" : "10.1.10.17",
-        # "node3" : "10.1.10.18"
-        # "tiefighter" : "10.1.10.102",
-        # "luke" : "10.1.10.222",
+    NODES = {
+        "node1" : "10.1.10.16",
+        "node2" : "10.1.10.17",
+        "node3" : "10.1.10.18",
+        "tiefighter" : "10.1.10.102",
+        "luke" : "10.1.10.222",
         "han" : "10.1.10.139",
-        # "chewie" : "10.1.10.80",
-        # "c3po" : "10.1.10.171",
+        "chewie" : "10.1.10.80",
+        "c3po" : "10.1.10.221",
     }
+    options.nodes = {}
+    for n in options.fds_nodes.split(","):
+        options.nodes[n] = NODES[n]
+    print "FDS nodes: ", options.nodes    
     options.myip = get_myip()
     print "My IP:", options.myip
 
@@ -101,6 +111,8 @@ def main():
     # start FDS
     fds = FdsCluster(options)
     fds.restart()
+
+    fds.init_test_once(tests[0]["test_type"], tests[0]["nvols"])  # FIXME: this is ugly... 
 
     # Execute tests
     for t in tests:

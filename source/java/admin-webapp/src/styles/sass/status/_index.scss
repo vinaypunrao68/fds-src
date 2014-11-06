@@ -28,6 +28,15 @@
             }
         }
     }
+    
+    .status-text {
+        margin-left: auto;
+        margin-right: auto;
+        flex-grow: 5;
+        color: gray;
+        line-height: 1.2;
+        padding-left: 12px;
+    }
 }
 
 .system-tile {

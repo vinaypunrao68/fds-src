@@ -20,6 +20,9 @@ namespace fds {
 class SmScavengerCmd {
   public:
     enum CommandType {
+        SCRUB_ENABLE,
+        SCRUB_DISABLE,
+        SCRUB_GET_STATUS,
         SCAV_ENABLE,
         SCAV_DISABLE,
         SCAV_START,
@@ -54,8 +57,32 @@ class SmScavengerActionCmd: public SmScavengerCmd {
                 break;
             default:
                 fds_panic("Unknown scavenger command");
-        };
+        }
     }
+};
+
+class SmScrubberActionCmd: public SmScavengerCmd {
+  public:
+    explicit SmScrubberActionCmd(fpi::FDSP_ScrubberStatusType& cmd) {
+        switch (cmd) {
+            case fpi::FDSP_SCRUB_ENABLE:
+                command = SCRUB_ENABLE;
+                break;
+            case fpi::FDSP_SCRUB_DISABLE:
+                command = SCRUB_DISABLE;
+                break;
+            default:
+                fds_panic("Unknown scrubber command");
+        }
+    }
+};
+
+class SmScrubberGetStatusCmd: public SmScavengerCmd {
+  public:
+    explicit SmScrubberGetStatusCmd(fpi::CtrlQueryScrubberStatusRespPtr& status)
+            : SmScavengerCmd(SCRUB_GET_STATUS), scrubStat(status) {}
+
+    fpi::CtrlQueryScrubberStatusRespPtr scrubStat;
 };
 
 class SmScavengerSetPolicyCmd: public SmScavengerCmd {
