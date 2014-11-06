@@ -260,8 +260,9 @@ AmAsyncXdiResponse::volumeContentsResp(const Error &error,
 
 void
 AmAsyncXdiResponse::getBlobResp(const Error &error,
-                                 boost::shared_ptr<apis::RequestId>& requestId,
-                                 char* buf) {
+                                boost::shared_ptr<apis::RequestId>& requestId,
+                                char* buf,
+                                fds_uint32_t& length) {
     checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
@@ -273,7 +274,7 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
                                                              message));
     } else {
          boost::shared_ptr<std::string> response =
-                 boost::make_shared<std::string>(buf);
+                 boost::make_shared<std::string>(buf, length);
         XDICLIENTCALL(asyncRespClient, getBlobResponse(requestId, response));
     }
 }
