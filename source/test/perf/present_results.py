@@ -13,7 +13,9 @@ import matplotlib.pyplot as plt
 
 config_notes = {
     "s3:get:amcache" : "S3 100% GET (50 connections) - 100% AM cache hit",
-    "s3:get:amcache0" : "S3 100% GET (50 connections) - 100% AM cache miss - 100% SM and DM cache hit"
+    "s3:get:amcache0" : "S3 100% GET (50 connections) - 100% AM cache miss - 100% SM and DM cache hit",
+    "fio:randread:amcache" : "Block (FIO) 100% Random reads (50 connections) - 100% AM cache size is 1200 entries",
+    "fio:randread:amcache0" : "Block (FIO) 100% Random reads (50 connections) - 100% AM cache miss - 100% SM and DM cache hit"
 }
 
 class FigureUtils:
@@ -188,34 +190,65 @@ if __name__ == "__main__":
     db = dataset.connect('sqlite:///%s' % test_db)
     summary = {}
     for t in tags:
-        experiments = db["experiments"].find(tag=t)
+        mode, mix, config = t.split(":")
+        if mode == "s3":
+            experiments = db["experiments"].find(tag=t)
 
-        #for e in experiments:
-        #    print e
-        experiments = [ x for x in experiments]
-        print experiments
-        experiemnts = filter(lambda x : x["type"] == "GET", experiments)
-        experiments = sorted(experiemnts, key = lambda k : int(k["threads"]))
-        #iops = [x["th"] for x in experiments]    
-        iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
-        iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
-        iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
-        lat = [x["lat"] for x in experiments]    
-        #print [x["nreqs"] for x in experiments]    
-        conns = [x["threads"] for x in experiments]    
+            #for e in experiments:
+            #    print e
+            experiments = [ x for x in experiments]
+            experiments = filter(lambda x : x["type"] == "GET", experiments)
+            experiments = sorted(experiments, key = lambda k : int(k["threads"]))
+            #iops = [x["th"] for x in experiments]    
+            iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
+            iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
+            iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
+            lat = [x["lat"] for x in experiments]    
+            #print [x["nreqs"] for x in experiments]    
+            conns = [x["threads"] for x in experiments]    
 
-        #max_iops = max(iops)
-        iops_50 = iops[-1]
-        lat_50 = lat[-1]
-        summary[t] = {"iops" : iops_50, "lat" : lat_50}
+            #max_iops = max(iops)
+            iops_50 = iops[-1]
+            lat_50 = lat[-1]
+            summary[t] = {"iops" : iops_50, "lat" : lat_50}
 
-        #print [x["type"] for x in experiments]    
-        # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
-        
-        images = [] 
-        images.append(generate_scaling_iops(conns, iops))
-        images.append(generate_scaling_lat(conns, lat))
-        mail_success(recipients2, images)
+            #print [x["type"] for x in experiments]    
+            # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
+            
+            images = [] 
+            images.append(generate_scaling_iops(conns, iops))
+            images.append(generate_scaling_lat(conns, lat))
+            mail_success(recipients2, images)
+        elif mode == "fio":
+            experiments = db["experiments"].find(tag=t)
+
+            #for e in experiments:
+            #    print e
+            experiments = [ x for x in experiments]
+            print experiments
+            experiments = filter(lambda x : x["fio_type"] == "randread", experiments)
+            experiments = sorted(experiments, key = lambda k : int(k["numjobs"]))
+            #iops = [x["th"] for x in experiments]    
+            iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
+            iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
+            iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
+            lat = [x["lat"] for x in experiments]    
+            #print [x["nreqs"] for x in experiments]    
+            conns = [x["numjobs"] for x in experiments]    
+
+            #max_iops = max(iops)
+            iops_50 = iops[-1]
+            lat_50 = lat[-1]
+            summary[t] = {"iops" : iops_50, "lat" : lat_50}
+
+            #print [x["type"] for x in experiments]    
+            # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
+            
+            images = [] 
+            images.append(generate_scaling_iops(conns, iops))
+            images.append(generate_scaling_lat(conns, lat))
+            mail_success(recipients2, images)
+ 
     mail_summary(summary)
     
 
