@@ -12,8 +12,7 @@ playbooks=${script_dir}/../playbooks
 ansible_args=" -i ${inventory} -e "target_hosts=${hosts}" ${playbooks}/deploy_config_files_only.yml"
 
 # Test auth to target hosts
-
-ansible -i ${inventory} ${hosts} -m setup > /dev/null 2>&1
+ansible -i ${inventory} ${hosts} -m ping > /dev/null 2>&1
 
 if [ $? -eq 3 ]; then
     echo "Problem connecting as $(whoami) via pub key. Trying again with user-entered credentials..."
