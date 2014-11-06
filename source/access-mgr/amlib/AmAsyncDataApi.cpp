@@ -301,16 +301,15 @@ AmAsyncDataApi::updateBlobOnce(boost::shared_ptr<apis::RequestId>& requestId,
     AsyncUpdateBlobOnceResponseHandler::ptr putHandler(
         boost::make_shared<AsyncUpdateBlobOnceResponseHandler>(responseApi,
                                                                requestId));
-
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
-                                         *volumeName,
-                                         *blobName,
-                                         static_cast<fds_uint64_t>(objectOffset->value),
-                                         *length,
-                                         const_cast<char *>(bytes->c_str()),
-                                         *blobMode,
-                                         metadata,
-                                         putHandler);
+                                        *volumeName,
+                                        *blobName,
+                                        static_cast<fds_uint64_t>(objectOffset->value),
+                                        *length,
+                                        bytes,
+                                        *blobMode,
+                                        metadata,
+                                        putHandler);
     storHvisor->enqueueBlobReq(blobReq);
 }
 
@@ -352,17 +351,17 @@ AmAsyncDataApi::updateBlob(boost::shared_ptr<apis::RequestId>& requestId,
         txDesc->txId));
 
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
-                                         *volumeName,
-                                         *blobName,
-                                         static_cast<fds_uint64_t>(objectOffset->value),
-                                         *length,
-                                         const_cast<char *>(bytes->c_str()),
-                                         blobTxDesc,
-                                         *isLast,
-                                         &bucket_ctx,
-                                         NULL,
-                                         NULL,
-                                         putHandler);
+                                        *volumeName,
+                                        *blobName,
+                                        static_cast<fds_uint64_t>(objectOffset->value),
+                                        *length,
+                                        bytes,
+                                        blobTxDesc,
+                                        *isLast,
+                                        &bucket_ctx,
+                                        NULL,
+                                        NULL,
+                                        putHandler);
     storHvisor->enqueueBlobReq(blobReq);
 }
 
