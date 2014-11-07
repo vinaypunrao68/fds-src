@@ -687,7 +687,9 @@ NbdBlockMod::blk_alloc_vol(const blk_vol_creat *r)
     } else {
         volPtr = new NbdBlkVol(r, ev_loop_new(0));
     }
+#if 0
     amServer->handler_->setNbdVol(volPtr);
+#endif
     return volPtr;
 }
 
@@ -700,6 +702,7 @@ NbdBlockMod::mod_startup()
 {
     gNbdCntrs = new NbdCounters();
 
+#if 0
     amServer.reset(new TestAMServer(amPort));;
     amServer->serve();
     sleep(5);
@@ -712,6 +715,7 @@ NbdBlockMod::mod_startup()
     dmTrans->open();
     dmSessionId = dmClient->associate("127.0.0.1", amPort);
     sleep(1);
+#endif
 
     EvBlockMod::mod_startup();
 }
