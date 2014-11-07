@@ -7,8 +7,8 @@
     tasks:
     -   name: render fds-src/source/config/etc config files
         template:
-            src: ../../source/config/etc/{{item}.conf.j2
-            dest: ../../source/config/etc/{{item}.conf
+            src: ../../source/config/etc/{{item}}.conf.j2
+            dest: ../../source/config/etc/{{item}}.conf
         with_items:
             - fds
             - fds-features
