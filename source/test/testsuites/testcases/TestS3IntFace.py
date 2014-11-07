@@ -23,7 +23,7 @@ class S3(object):
     def __init__(self, conn):
         self.conn = conn
         self.bucket1 = None
-        self.keys = {}  # As we add keys to the bucket, add them here as well.
+        self.keys = []  # As we add keys to the bucket, add them here as well.
 
 
 # This class contains the attributes and methods to test
@@ -231,8 +231,8 @@ class TestS3LoadSBLOB(TestCase.FDSTestCase):
             k = Key(s3.bucket1)
 
             # Set the key.
-            s3.keys[1] = "small"
-            k.key = s3.keys[1]
+            s3.keys.append("small")
+            k.key = "small"
 
             self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_string() interface." %
                           (source_path, source_size))
@@ -322,10 +322,10 @@ class TestS3LoadFBLOB(TestCase.FDSTestCase):
             k = Key(s3.bucket1)
 
             # Set the key.
-            s3.keys[2] = "largish"
-            k.key = s3.keys[2]
+            s3.keys.append("largish")
+            k.key = "largish"
 
-            self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_string() interface." %
+            self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_filename() interface." %
                           (source_path, source_size))
 
             # Set the value and write it to the bucket.
@@ -413,10 +413,10 @@ class TestS3LoadMBLOB(TestCase.FDSTestCase):
             k = Key(s3.bucket1)
 
             # Set the key.
-            s3.keys[3] = "largish&metadata"
-            k.key = s3.keys[3]
+            s3.keys.append("largishWITHmetadata")
+            k.key = "largishWITHmetadata"
 
-            self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_string() interface "
+            self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_filename() interface "
                           "and setting meta-data." %
                           (source_path, source_size))
 
@@ -439,7 +439,7 @@ class TestS3LoadMBLOB(TestCase.FDSTestCase):
                     self.log.error("Meta-data 1 is incorrect: %s" % meta)
                     test_passed = False
 
-                meta = k.get_metadata('meta1')
+                meta = k.get_metadata('meta2')
                 if meta != 'This is the second metadata value':
                     self.log.error("Meta-data 2 is incorrect: %s" % meta)
                     test_passed = False
@@ -473,7 +473,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_S3LoadSBLOB():
+            if not self.test_S3LoadLBLOB():
                 test_passed = False
         except Exception as inst:
             self.log.error("Upload a 'large' (> 2MiB) BLOB into an S3 bucket caused exception:")
@@ -491,7 +491,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_S3LoadSBLOB(self):
+    def test_S3LoadLBLOB(self):
         """
         Test Case:
         Attempt to load a 'large BLOB (> 2MiB) into an S3 Bucket.
@@ -516,8 +516,8 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
             source_size = os.stat(source_path).st_size
 
             # Create a multipart upload request
-            s3.keys[4] = "large"
-            mp = s3.bucket1.initiate_multipart_upload(s3.keys[4])
+            s3.keys.append("large")
+            mp = s3.bucket1.initiate_multipart_upload("large")
 
             # Use a chunk size of 50 MiB (feel free to change this)
             chunk_size = 52428800
@@ -619,8 +619,8 @@ class TestS3ListBucketKeys(TestCase.FDSTestCase):
             cnt = 0
             for key in s3.bucket1.list():
                 cnt += 1
-                self.log.info(key, key.storage_class)
-                if not (key.name in s3.keys):
+                self.log.info(key.name)
+                if s3.keys.count(key.name) != 1:
                     self.log.error("Unexpected key %s." % key.name)
                     test_passed = False
 
@@ -690,11 +690,11 @@ class TestS3DelBucketKeys(TestCase.FDSTestCase):
             for key in s3.bucket1.list():
                 key.delete()
 
-            if len(s3.bucket1.list()) != 0:
-                self.log.error("Unexpected keys remaining in bucket: %s" % s3.bucket1.list())
+            for key in s3.bucket1.list():
+                self.log.error("Unexpected keys remaining in bucket: %s" % key.name)
                 return False
-            else:
-                return True
+
+            return True
 
 
 # This class contains the attributes and methods to test
@@ -755,12 +755,13 @@ class TestS3DelBucket(TestCase.FDSTestCase):
 
             s3.conn.delete_bucket('bucket1')
 
-            if len(s3.get_all_buckets()) != 0:
-                self.log.error("Unexpected buckets remain: %s" % s3.get_all_buckets())
+
+            if s3.conn.lookup('bucket1') != None:
+                self.log.error("Unexpected bucket: bucket1")
                 return False
-            else:
-                s3.bucket1 = None
-                return True
+
+            s3.bucket1 = None
+            return True
 
 
 if __name__ == '__main__':
