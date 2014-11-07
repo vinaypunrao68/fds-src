@@ -3,13 +3,13 @@
  */
 
 #include <cstdint>
+#include <chrono>
 #include <cstdio>
-#include <ctime>
 #include <bitset>
 #include <random>
 #include <string>
 #include <utility>
-#include <vector>
+#include <list>
 
 #include <google/profiler.h>
 #include "boost/smart_ptr/make_shared.hpp"
@@ -25,15 +25,11 @@ static const size_t HUNDRED =               TEN * TEN;
 static const size_t THOUSAND =              TEN * HUNDRED;
 static const size_t MILLION =               THOUSAND * THOUSAND;
 
-static const size_t cacheline_min =         TEN;
+static const size_t cacheline_min =         HUNDRED;
 static const size_t cacheline_max =         TEN * THOUSAND;
 static const size_t cacheline_step =        TEN;
 
-static const size_t entries_min =           TEN;
-static const size_t entries_max =           HUNDRED * THOUSAND;
-static const size_t entries_step_mag =      TEN;
-
-static const size_t num_samples =           HUNDRED;
+static const size_t entries_max =           MILLION;
 
 static std::mt19937 twister_32;
 static std::mt19937_64 twister_64;
@@ -61,7 +57,7 @@ sp<uint64_t> gen_nonrandom<uint64_t>()
 
 template<>
 sp<std::string> gen_random<std::string>()
-{ return sp<std::string>(new std::string(tmpnam(nullptr))); }
+{ return sp<std::string>(new std::string(std::to_string(twister_32()))); }
 
 template<>
 sp<std::string> gen_nonrandom<std::string>()
@@ -99,70 +95,128 @@ template<>
 sp<fds::BlobDescriptor> gen_nonrandom<fds::BlobDescriptor>()
 { return sp<fds::BlobDescriptor>(new fds::BlobDescriptor()); }
 
-template<typename K, typename V, typename H>
-std::pair<clock_t, size_t>
-fill_cache(size_t const cache_size, size_t elements_to_insert, bool const rnd = true) {
-    // Create a cache of the right size
-    SharedKvCache<K, V, H> cache("test_cache", cache_size);
+template<typename K, typename V, typename _Hash>
+struct CacheTest {
+    typedef K key_type;
+    typedef sp<V> value_type;
+    typedef std::pair<key_type, value_type> entry_type;
+    typedef std::list<entry_type> list_type;
+    typedef SharedKvCache<key_type, V, _Hash> cache_type;
+    typedef std::chrono::high_resolution_clock clock_type;
 
-    // Create all the elements (don't want to profile the allocation itself)
-    std::vector<std::pair<K, sp<V>>> test_objects;
-    for (; elements_to_insert > 0; --elements_to_insert) {
-        if (rnd)
-            test_objects.push_back(std::make_pair(*(gen_random<K>()), gen_random<V>()));
-        else
-            test_objects.push_back(std::make_pair(*(gen_nonrandom<K>()), gen_nonrandom<V>()));
-    }
-
-    size_t evictions = 0;
-    clock_t start = clock();
-//    ProfilerStart("cache.perf");
+    explicit CacheTest(size_t const number_elements) :
+        entry_count(number_elements),
+        test_objects()
     {
-        auto vec_end = test_objects.end();
-        for (auto it = test_objects.begin(); vec_end != it; ++it) {
-            if (cache.add(it->first, it->second)) ++evictions;
-        }
+        std::cout << "Generating random data..." << std::flush;
+        create_objects(test_objects, entry_count);
+        std::cout << "done." << std::endl;
     }
-//    ProfilerStop();
-    return std::make_pair((clock() - start), evictions);
-}
 
-template<typename K, typename V, typename H = std::hash<K>>
-void fill_test() {
-    std::cout.precision(3);
-    std::cout.setf(std::ios::fixed, std::ios::floatfield);
-    for (size_t cacheline_size = cacheline_min;
-         cacheline_size <= cacheline_max;
-         cacheline_size *= cacheline_step) {
-        for (size_t entry_size = entries_min;
-             entry_size <= entries_max;
-             entry_size *= entries_step_mag) {
-            uint64_t total_time = 0;
-            size_t num_evictions = 0;
-            for (size_t sample_no = num_samples; sample_no > 0; --sample_no) {
-                auto p = fill_cache<K, V, H>(cacheline_size, entry_size);
-               total_time += p.first;
-               num_evictions += p.second;
-            }
+    void fill_test() {
+        for (size_t cacheline_size = cacheline_min;
+             cacheline_size <= cacheline_max;
+             cacheline_size *= cacheline_step) {
             std::cout   << cacheline_size << ",\t"
-                        << entry_size << ",\t"
-                        << static_cast<double>(total_time) / num_samples / entry_size << ",\t"
-                        << num_evictions / num_samples << std::endl;
+                        << entry_count << ",\t" << std::flush;
+
+            auto p = fill_cache(cacheline_size);
+            uint32_t iops = entry_count / p.first;
+            std::cout << iops << ",\t" << p.second << std::endl;
         }
     }
-}
 
+    void read_test(float const hit_percentage) {
+        for (size_t cacheline_size = cacheline_min;
+             cacheline_size <= cacheline_max;
+             cacheline_size *= cacheline_step) {
+            uint32_t hit_rate = hit_percentage > 0 ? 1.00 / hit_percentage : 0;
+
+            cache_type cache("test_cache", cacheline_size);
+            cache_type phony_cache("phony_cache", cacheline_size);
+            auto it = test_objects.begin();
+            for (size_t i = 0; i < cacheline_size; ++i) {
+                if (hit_rate == 0 || i % hit_rate > 0) {
+                    cache.add(*gen_random<key_type>(), gen_nonrandom<V>());
+                } else {
+                    cache.add(it->first, it->second);
+                    ++it;
+                }
+            }
+
+            std::cout   << cacheline_size << ",\t"
+                        << hit_percentage << ",\t" << std::flush;
+
+            value_type v;
+            it = test_objects.begin();
+            size_t actual_cache_hits = 0;
+
+            clock_type::time_point start = clock_type::now();
+            for (size_t i = 0; i < cacheline_size; ++i)
+                if (cache.get((it++)->first, v) == ERR_OK)
+                    ++actual_cache_hits;
+                else
+                    phony_cache.add((it++)->first, v);
+
+            double t = 1e-9*std::chrono::duration_cast<std::chrono::nanoseconds>(clock_type::now() - start).count();
+            uint32_t iops = entry_count / t;
+            std::cout << iops << ",\t" << actual_cache_hits << std::endl;
+        }
+    }
+
+ private:
+    size_t entry_count;
+    list_type test_objects;
+
+    static void create_objects(list_type& objs, size_t elements_to_insert, bool random = true) {
+        // Create all the elements (don't want to profile the allocation itself)
+        for (; elements_to_insert > 0; --elements_to_insert) {
+            if (random)
+                objs.push_front(
+                    std::make_pair(*(gen_random<key_type>()), gen_nonrandom<V>()));
+            else
+                objs.push_front(
+                    std::make_pair(*(gen_nonrandom<key_type>()), gen_nonrandom<V>()));
+        }
+    }
+
+    std::pair<double, size_t> fill_cache(size_t const cache_size) {
+        // Create a cache of the right size
+        cache_type cache("test_cache", cache_size);
+
+        size_t evictions = 0;
+        clock_type::time_point start = clock_type::now();
+        //    ProfilerStart("cache.perf");
+        {
+            for (auto& elem : test_objects)
+                if (cache.add(elem.first, elem.second)) ++evictions;
+        }
+        //    ProfilerStop();
+        return std::make_pair(1e-9*std::chrono::duration_cast<std::chrono::nanoseconds>(clock_type::now() - start).count(), evictions);
+    }
+};
+
+template<typename K, typename _Hash = std::hash<K>>
+void run_test(size_t const entries) {
+    auto test = CacheTest<K, uint32_t, _Hash>(entries);
+    test.fill_test();
+    test.read_test(1.00);
+    test.read_test(0.50);
+    test.read_test(0.25);
+    test.read_test(0.10);
+    test.read_test(0.00);
+}
 
 int main(int argc, char** argv) {
-    std::cout << "Testing <uint32_t, uint32_t>" << std::endl;
-    fill_test<uint32_t, uint32_t>();
-    std::cout << "Testing <uint32_t, string>" << std::endl;
-    fill_test<uint32_t, std::string>();
-    std::cout << "Testing <string, BlobDescriptor>" << std::endl;
-    fill_test<std::string, fds::BlobDescriptor>();
-    std::cout << "Testing <ObjectID, string>" << std::endl;
-    fill_test<fds::ObjectID, std::string, fds::ObjectHash>();
-    std::cout << "Testing <BlobOffsetPair, ObjectID>" << std::endl;
-    fill_test<fds::BlobOffsetPair, fds::ObjectID, fds::BlobOffsetPairHash>();
+    std::cout << "uint32_t ---" << std::endl;
+    run_test<uint32_t>(entries_max);
+    std::cout << "fds_volid_t ---" << std::endl;
+    run_test<uint64_t>(entries_max);
+    std::cout << "std::string ---" << std::endl;
+    run_test<std::string>(entries_max);
+    std::cout << "ObjectID ---" << std::endl;
+    run_test<fds::ObjectID>(entries_max);
+    std::cout << "BlobOffsetPair ---" << std::endl;
+    run_test<fds::BlobOffsetPair, fds::BlobOffsetPairHash>(entries_max);
     return 0;
 }

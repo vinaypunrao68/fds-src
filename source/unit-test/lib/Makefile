@@ -49,6 +49,7 @@ user_no_style     :=                \
     fds_process_interrupt_test.cpp  \
     counters_test.cpp               \
     SynchronizedTaskExecutor_ut.cpp \
+    sharedcache_perf_test.cpp       \
     perf_trace_unit_test.cpp
 
 user_bin_exe      := \
