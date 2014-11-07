@@ -777,6 +777,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler();
     handlers[FDS_CAT_UPD] = new dm::UpdateCatalogHandler();
     handlers[FDS_GET_BLOB_METADATA] = new dm::GetBlobMetaDataHandler();
+    handlers[FDS_CAT_QRY] = new dm::QueryCatalogHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1410,32 +1411,6 @@ DataMgr::scheduleAbortBlobTxSvc(void * _io)
     abortBlobTx->dmio_abort_blob_tx_resp_cb(err, abortBlobTx);
 }
 
-void
-DataMgr::queryCatalogBackendSvc(void * _io)
-{
-    Error err(ERR_OK);
-    DmIoQueryCat *qryCatReq = static_cast<DmIoQueryCat*>(_io);
-
-    err = timeVolCat_->queryIface()->getBlob(qryCatReq->volId,
-                                             qryCatReq->blob_name,
-                                             qryCatReq->queryMsg->start_offset,
-                                             qryCatReq->queryMsg->end_offset,
-                                             &(qryCatReq->blob_version),
-                                             &(qryCatReq->queryMsg->meta_list),
-                                             &(qryCatReq->queryMsg->obj_list));
-    if (!err.ok()) {
-        PerfTracer::incr(qryCatReq->opReqFailedPerfEventType, qryCatReq->getVolId(),
-                qryCatReq->perfNameStr);
-    }
-
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*qryCatReq);
-    // TODO(Andrew): Note the cat request gets freed
-    // by the callback
-    PerfTracer::tracePointEnd(qryCatReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(qryCatReq->opReqLatencyCtx);
-    qryCatReq->dmio_querycat_resp_cb(err, qryCatReq);
-}
-
 void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
                                              FDSP_MsgHdrTypePtr &msg_hdr,
                                              FDS_ProtocolInterface::
@@ -1444,7 +1419,6 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
     Error err(ERR_OK);
     fds_panic("must not get here");
 }
-
 
 /**
  * Make snapshot of volume catalog for sync and notify
