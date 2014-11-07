@@ -364,6 +364,7 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     fiu_do_on("am.uturn.dispatcher",
               GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb); \
               cb->returnSize = amReq->data_len; \
+              cb->returnBuffer = new char[cb->returnSize]; \
               memset(cb->returnBuffer, 0x00, cb->returnSize); \
               amReq->proc_cb(ERR_OK); \
               return;);

@@ -2,29 +2,35 @@
  * Copyright 2013-2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_STOR_MGR_INCLUDE_RANKENGINE_H_
-#define SOURCE_STOR_MGR_INCLUDE_RANKENGINE_H_
+#ifndef SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_RANKENGINE_H_
+#define SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_RANKENGINE_H_
 
 #include <fds_types.h>
 #include <persistent-layer/dm_io.h>
 #include <set>
 
 namespace fds {
+
+/**
+ * Typedef for our set of promotable items
+ */
+typedef std::set<ObjectID> PromotionSet;
+
 class RankEngine {
   public:
-    /**
-    * Typedef for our set of promotable items
-    */
-    typedef std::set<ObjectID> PromotionSet;
-
     /**
     * Calculate and return a set of objects that should be promoted.
     *
     * @param max_size the maximum cardinality of the set to be returned.
-    * Note that max_size should be an upper bound, and PromotionSets
+    * @param oidSet the set of ObjectIDs.  The caller provides a reference
+    *               to a set, and the Object Ranking Policy engine fills
+    *               as many ObjectIDs as possible.
+    *
+    * Note: that max_size should be an upper bound, and PromotionSets
     * smaller than max_size can be returned.
     */
-    virtual PromotionSet getObjectsToPromote(fds_uint32_t max_size) = 0;
+    virtual void getObjectsToPromote(fds_uint32_t maxSize,
+                                     PromotionSet& oidSet) = 0;
 
     /**
     * Determine if a particular object should be demoted or not.
@@ -46,4 +52,4 @@ class RankEngine {
     virtual void notifyDataPath(fds_io_op_t opType, const ObjectID& oid, diskio::DataTier tier) = 0;
 };
 }  // namespace fds
-#endif  // SOURCE_STOR_MGR_INCLUDE_RANKENGINE_H_
+#endif  // SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_RANKENGINE_H_
