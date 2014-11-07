@@ -34,8 +34,11 @@ def suiteConstruction():
     # Create an S3 bucket.
     suite.addTest(testcases.TestS3IntFace.TestS3CrtBucket())
 
+    # Load a 'small' BLOB (<= 2MiB) into the bucket.
+    suite.addTest(testcases.TestS3IntFace.TestS3LoadSBLOB())
+
     # Load a 'large' BLOB (> 2MiB) into the bucket.
-    suite.addTest(testcases.TestS3IntFace.TestS3LoadBLOB())
+    suite.addTest(testcases.TestS3IntFace.TestS3LoadLBLOB())
 
     # List the keys of the bucket.
     suite.addTest(testcases.TestS3IntFace.TestS3ListBucketKeys())

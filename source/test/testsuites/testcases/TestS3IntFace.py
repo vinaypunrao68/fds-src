@@ -15,6 +15,7 @@ import math
 from filechunkio import FileChunkIO
 import boto
 from boto.s3 import connection
+from boto.s3.key import Key
 
 # Class to contain S3 objects used by these test cases.
 class S3(object):
@@ -161,14 +162,95 @@ class TestS3CrtBucket(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
+# the FDS S3 interface to upload a small BLOB.
+#
+# You must have successfully created an S3 connection
+# and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
+# and created a bucket and stored it in self.parameters["s3"].bucket1.
+class TestS3LoadSBLOB(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(TestS3LoadSBLOB, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_S3LoadSBLOB():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Upload a 'small' (<= 2MiB) BLOB into an S3 bucket caused exception:")
+            self.log.error(traceback.format_exc())
+            self.log.error(inst.message)
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_S3LoadSBLOB(self):
+        """
+        Test Case:
+        Attempt to load a 'small' BLOB (<= 2MiB) into an S3 Bucket.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
+            self.log.error("No S3 connection with which to load a BLOB.")
+            return False
+        elif not self.parameters["s3"].bucket1:
+            self.log.error("No S3 bucket with which to load a BLOB.")
+            return False
+        else:
+            self.log.info("Load a 'small' BLOB (<= 2Mib) into an S3 bucket.")
+            s3 = self.parameters["s3"]
+
+            # Get file info
+            source_path = bin_dir + "/AMAgent"
+
+            # Get a Key/Value object for th bucket.
+            k = Key(s3.bucket1)
+
+            # Set the key.
+            k.key = 'AMAgent'
+
+            # Set the value, write it to the bucket, and, while the file containing the value is still
+            # open, read it back to verify.
+            with open(source_path, 'r')  as f:
+                k.set_contents_from_string(f.read())
+
+                if k.get_contents_as_string().__eq__(f.read()):
+                    return True
+
+
+        return False
+
+
+# This class contains the attributes and methods to test
 # the FDS S3 interface to upload a large BLOB.
 #
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
-class TestS3LoadBLOB(TestCase.FDSTestCase):
+class TestS3LoadLBLOB(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestS3LoadBLOB, self).__init__(parameters)
+        super(TestS3LoadLBLOB, self).__init__(parameters)
 
 
     def runTest(self):

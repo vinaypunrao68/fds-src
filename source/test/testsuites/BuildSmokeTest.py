@@ -12,7 +12,7 @@ import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
 import NodeWaitSuite
-import LargeBLOBSuite
+import BLOBSuite
 
 
 def suiteConstruction():
@@ -40,14 +40,14 @@ def suiteConstruction():
     # Load test.
     suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
 
-    # Large BLOB test.
-    largeBLOBSuite = LargeBLOBSuite.suiteConstruction()
-    suite.addTest(largeBLOBSuite)
+    # Small/Large BLOB test.
+    BLOBSuite = BLOBSuite.suiteConstruction()
+    suite.addTest(BLOBSuite)
 
     # Everyone should still be up.
     suite.addTest(nodeUpSuite)
 
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
+    # suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
 
     # Cleanup FDS installation directory.
     suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
