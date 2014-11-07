@@ -4,8 +4,6 @@
 
 #include <cstdint>
 #include <chrono>
-#include <cstdio>
-#include <bitset>
 #include <random>
 #include <string>
 #include <utility>
@@ -159,7 +157,7 @@ struct CacheTest {
                     phony_cache.add((it++)->first, v);
 
             double t = 1e-9*std::chrono::duration_cast<std::chrono::nanoseconds>(clock_type::now() - start).count();
-            uint32_t iops = entry_count / t;
+            uint32_t iops = cacheline_size / t;
             std::cout << iops << ",\t" << actual_cache_hits << std::endl;
         }
     }
