@@ -37,6 +37,12 @@ def suiteConstruction():
     # Load a 'small' BLOB (<= 2MiB) into the bucket.
     suite.addTest(testcases.TestS3IntFace.TestS3LoadSBLOB())
 
+    # Load a 'largish' BLOB (<= 2MiB) into the bucket.
+    suite.addTest(testcases.TestS3IntFace.TestS3LoadFBLOB())
+
+    # Load a 'largish' BLOB (<= 2MiB) into the bucket with meta-data.
+    suite.addTest(testcases.TestS3IntFace.TestS3LoadMBLOB())
+
     # Load a 'large' BLOB (> 2MiB) into the bucket.
     suite.addTest(testcases.TestS3IntFace.TestS3LoadLBLOB())
 

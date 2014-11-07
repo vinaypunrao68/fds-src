@@ -16,12 +16,14 @@ from filechunkio import FileChunkIO
 import boto
 from boto.s3 import connection
 from boto.s3.key import Key
+import filecmp
 
 # Class to contain S3 objects used by these test cases.
 class S3(object):
     def __init__(self, conn):
         self.conn = conn
         self.bucket1 = None
+        self.keys = {}  # As we add keys to the bucket, add them here as well.
 
 
 # This class contains the attributes and methods to test
@@ -223,23 +225,230 @@ class TestS3LoadSBLOB(TestCase.FDSTestCase):
 
             # Get file info
             source_path = bin_dir + "/AMAgent"
+            source_size = os.stat(source_path).st_size
 
             # Get a Key/Value object for th bucket.
             k = Key(s3.bucket1)
 
             # Set the key.
-            k.key = 'AMAgent'
+            s3.keys[1] = "small"
+            k.key = s3.keys[1]
+
+            self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_string() interface." %
+                          (source_path, source_size))
 
             # Set the value, write it to the bucket, and, while the file containing the value is still
             # open, read it back to verify.
             with open(source_path, 'r')  as f:
+                self.log.debug("Read from file %s:" % source_path)
+                self.log.debug(f.read())
                 k.set_contents_from_string(f.read())
 
-                if k.get_contents_as_string().__eq__(f.read()):
+                self.log.debug("Read from FDS %s:" % source_path)
+                self.log.debug(k.get_contents_as_string())
+
+                if k.get_contents_as_string() == (f.read()):
                     return True
+                else:
+                    self.log.error("File mis-match.")
+                    return False
 
 
-        return False
+# This class contains the attributes and methods to test
+# the FDS S3 interface to upload a "largish" BLOB in one piece.
+#
+# You must have successfully created an S3 connection
+# and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
+# and created a bucket and stored it in self.parameters["s3"].bucket1.
+class TestS3LoadFBLOB(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(TestS3LoadFBLOB, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_S3LoadFBLOB():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Upload a 'largish' (<= 2MiB) BLOB into an S3 bucket in one piece caused exception:")
+            self.log.error(traceback.format_exc())
+            self.log.error(inst.message)
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_S3LoadFBLOB(self):
+        """
+        Test Case:
+        Attempt to load a 'largish' BLOB (<= 2MiB) into an S3 Bucket in one piece.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
+            self.log.error("No S3 connection with which to load a BLOB.")
+            return False
+        elif not self.parameters["s3"].bucket1:
+            self.log.error("No S3 bucket with which to load a BLOB.")
+            return False
+        else:
+            self.log.info("Load a 'largish' BLOB (<= 2Mib) into an S3 bucket in one piece.")
+            s3 = self.parameters["s3"]
+
+            # Get file info
+            source_path = bin_dir + "/disk_type.py"
+            source_size = os.stat(source_path).st_size
+
+            # Get a Key/Value object for the bucket.
+            k = Key(s3.bucket1)
+
+            # Set the key.
+            s3.keys[2] = "largish"
+            k.key = s3.keys[2]
+
+            self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_string() interface." %
+                          (source_path, source_size))
+
+            # Set the value and write it to the bucket.
+            k.set_contents_from_filename(source_path)
+
+            # Read it back to a file and then compare.
+            dest_path = bin_dir + "/disk_type.py.boto"
+            k.get_contents_to_filename(dest_path)
+
+            test_passed = filecmp.cmp(source_path, dest_path, shallow=False)
+            if not test_passed:
+                self.log.error("File mis-match")
+
+            os.remove(dest_path)
+
+            return test_passed
+
+
+# This class contains the attributes and methods to test
+# the FDS S3 interface to upload a "largish" BLOB in one piece with meta-data.
+#
+# You must have successfully created an S3 connection
+# and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
+# and created a bucket and stored it in self.parameters["s3"].bucket1.
+class TestS3LoadMBLOB(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(TestS3LoadMBLOB, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_S3LoadMBLOB():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Upload a 'largish' (<= 2MiB) BLOB into an S3 bucket in one piece with meta-data "
+                            "caused exception:")
+            self.log.error(traceback.format_exc())
+            self.log.error(inst.message)
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_S3LoadMBLOB(self):
+        """
+        Test Case:
+        Attempt to load a 'largish' BLOB (<= 2MiB) into an S3 Bucket in one piece with meta-data.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+
+        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
+            self.log.error("No S3 connection with which to load a BLOB.")
+            return False
+        elif not self.parameters["s3"].bucket1:
+            self.log.error("No S3 bucket with which to load a BLOB.")
+            return False
+        else:
+            self.log.info("Load a 'largish' BLOB (<= 2Mib) into an S3 bucket in one piece with meta-data.")
+            s3 = self.parameters["s3"]
+
+            # Get file info
+            source_path = bin_dir + "/disk_type.py"
+            source_size = os.stat(source_path).st_size
+
+            # Get a Key/Value object for the bucket.
+            k = Key(s3.bucket1)
+
+            # Set the key.
+            s3.keys[3] = "largish&metadata"
+            k.key = s3.keys[3]
+
+            self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_string() interface "
+                          "and setting meta-data." %
+                          (source_path, source_size))
+
+            # Set the value and write it to the bucket.
+            k.set_metadata('meta1', 'This is the first metadata value')
+            k.set_metadata('meta2', 'This is the second metadata value')
+            k.set_contents_from_filename(source_path)
+
+            # Read it back to a file and then compare.
+            dest_path = bin_dir + "/disk_type.py.boto"
+            k.get_contents_to_filename(dest_path)
+
+            # Check the file.
+            test_passed = filecmp.cmp(source_path, dest_path, shallow=False)
+
+            # If the file looked OK, check the meta-data.
+            if test_passed:
+                meta = k.get_metadata('meta1')
+                if meta != 'This is the first metadata value':
+                    self.log.error("Meta-data 1 is incorrect: %s" % meta)
+                    test_passed = False
+
+                meta = k.get_metadata('meta1')
+                if meta != 'This is the second metadata value':
+                    self.log.error("Meta-data 2 is incorrect: %s" % meta)
+                    test_passed = False
+            else:
+                self.log.error("File mis-match")
+
+            os.remove(dest_path)
+
+            return test_passed
 
 
 # This class contains the attributes and methods to test
@@ -264,7 +473,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_S3LoadBLOB():
+            if not self.test_S3LoadSBLOB():
                 test_passed = False
         except Exception as inst:
             self.log.error("Upload a 'large' (> 2MiB) BLOB into an S3 bucket caused exception:")
@@ -282,7 +491,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_S3LoadBLOB(self):
+    def test_S3LoadSBLOB(self):
         """
         Test Case:
         Attempt to load a 'large BLOB (> 2MiB) into an S3 Bucket.
@@ -307,13 +516,15 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
             source_size = os.stat(source_path).st_size
 
             # Create a multipart upload request
-            mp = s3.bucket1.initiate_multipart_upload(os.path.basename(source_path))
+            s3.keys[4] = "large"
+            mp = s3.bucket1.initiate_multipart_upload(s3.keys[4])
 
             # Use a chunk size of 50 MiB (feel free to change this)
             chunk_size = 52428800
             chunk_count = int(math.ceil(source_size / chunk_size))
 
-            self.log.info("Loading %s of size %d using %d chunks of max size %d." %
+            self.log.info("Loading %s of size %d using %d chunks of max size %d. using "
+                          "Bobo's 'multi-part' upload interface" %
                           (source_path, source_size, chunk_count + 1, chunk_size))
 
             # Send the file parts, using FileChunkIO to create a file-like object
@@ -330,7 +541,21 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
             # Finish the upload
             mp.complete_upload()
 
-        return True
+            # Read it back to a file and then compare.
+            dest_path = bin_dir + "/bare_am.boto"
+
+            k = Key(s3.bucket1)
+            k.key = 'large'
+
+            k.get_contents_to_filename(dest_path)
+
+            test_passed = filecmp.cmp(source_path, dest_path, shallow=False)
+            if not test_passed:
+                self.log.error("File mis-match.")
+
+            os.remove(dest_path)
+
+            return test_passed
 
 
 # This class contains the attributes and methods to test
@@ -387,12 +612,23 @@ class TestS3ListBucketKeys(TestCase.FDSTestCase):
             return False
         else:
             self.log.info("List the keys of an S3 bucket.")
+            test_passed = True
+
             s3 = self.parameters["s3"]
 
+            cnt = 0
             for key in s3.bucket1.list():
+                cnt += 1
                 self.log.info(key, key.storage_class)
+                if not (key.name in s3.keys):
+                    self.log.error("Unexpected key %s." % key.name)
+                    test_passed = False
 
-        return True
+            if cnt != len(s3.keys):
+                self.log.error("Missing key(s).")
+                test_passed = False
+
+            return test_passed
 
 
 # This class contains the attributes and methods to test
@@ -454,7 +690,11 @@ class TestS3DelBucketKeys(TestCase.FDSTestCase):
             for key in s3.bucket1.list():
                 key.delete()
 
-        return True
+            if len(s3.bucket1.list()) != 0:
+                self.log.error("Unexpected keys remaining in bucket: %s" % s3.bucket1.list())
+                return False
+            else:
+                return True
 
 
 # This class contains the attributes and methods to test
@@ -514,9 +754,13 @@ class TestS3DelBucket(TestCase.FDSTestCase):
             s3 = self.parameters["s3"]
 
             s3.conn.delete_bucket('bucket1')
-            s3.bucket1 = None
 
-        return True
+            if len(s3.get_all_buckets()) != 0:
+                self.log.error("Unexpected buckets remain: %s" % s3.get_all_buckets())
+                return False
+            else:
+                s3.bucket1 = None
+                return True
 
 
 if __name__ == '__main__':
