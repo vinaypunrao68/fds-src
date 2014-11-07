@@ -32,7 +32,7 @@ class KvCache : public Module, boost::noncopyable {
     fds_uint32_t maxEntries;
 
     /// Current number of entries
-    fds_uint32_t numEntries;
+    size_t numEntries;
 
     /// Eviction algorithm being used
     EvictionType evictionType;
@@ -127,7 +127,7 @@ class KvCache : public Module, boost::noncopyable {
      *
      * @return number of entries
      */
-    fds_uint32_t getNumEntries() const {
+    size_t getNumEntries() const {
         return numEntries;
     }
 
@@ -209,10 +209,9 @@ template <class K, class V, class _Hash = std::hash<K>>
         KvPair entry(key, value);
         evictionList->push_front(entry);
         (*cacheMap)[key] = evictionList->begin();
-        this->numEntries++;
 
         // Check if anything needs to be evicted
-        if (this->numEntries > this->maxEntries) {
+        if (this->numEntries++ > this->maxEntries) {
             GLOGTRACE << "Evicting key " << evictionList->back().first;
             V* entryToEvict = evictionList->back().second;
             fds_verify(entryToEvict != NULL);
