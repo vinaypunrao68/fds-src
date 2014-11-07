@@ -41,8 +41,8 @@ def suiteConstruction():
     suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
 
     # Small/Large BLOB test.
-    BLOBSuite = BLOBSuite.suiteConstruction()
-    suite.addTest(BLOBSuite)
+    blobSuite = BLOBSuite.suiteConstruction()
+    suite.addTest(blobSuite)
 
     # Everyone should still be up.
     suite.addTest(nodeUpSuite)
