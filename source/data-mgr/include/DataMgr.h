@@ -170,9 +170,6 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_COMMIT_BLOB_TX:
                     threadPool->schedule(&DataMgr::commitBlobTx, dataMgr, io);
                     break;
-                case FDS_CAT_QRY:
-                    threadPool->schedule(&DataMgr::queryCatalogBackendSvc, dataMgr, io);
-                    break;
                 case FDS_DM_SNAP_VOLCAT:
                 case FDS_DM_SNAPDELTA_VOLCAT:
                     threadPool->schedule(&DataMgr::snapVolCat, dataMgr, io);
@@ -211,6 +208,7 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_LIST_BLOB:
                 case FDS_GET_BLOB_METADATA:
                 case FDS_CAT_UPD:
+                case FDS_CAT_QRY:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
@@ -370,7 +368,6 @@ struct DataMgr : Module, DmIoReqHandler {
     /* End of new refactored DM message handlers */
 
     void setBlobMetaDataSvc(void *io);
-    void queryCatalogBackendSvc(void * _io);
     void scheduleDeleteCatObjSvc(void * _io);
     void scheduleAbortBlobTxSvc(void * _io);
     void setBlobMetaDataBackend(const dmCatReq *request);
