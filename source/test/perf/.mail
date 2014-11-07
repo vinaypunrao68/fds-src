@@ -2,22 +2,20 @@ Performance regression
 Number of nodes: 1
 Branch: master
 hostname: luke
-git version: 707e1a344829a8e2f2c0b16704f30d9ce157557a
+git version: e9c6fe0c6b8e84b657a6e657c671a2f5fe1994f0
 System: Xeon 1S 6-core HT, 32GB DRAM, 1GigE, 12HDD, 2SSDs 
 ---
 
 
 Results:
-Config             IOPs    Latency [ms]
----------------  ------  --------------
-s3:get:amcache   7602.6         1.79291
-s3:get:amcache0  3507.4         3.9743
+Config                  IOPs    Latency [ms]
+--------------------  ------  --------------
+fio:randread:amcache    5187         61.5296
 
 Config Explanation:
-Config           Notes
----------------  ----------------------------------------------------------------------------
-s3:get:amcache   S3 100% GET (50 connections) - 100% AM cache hit
-s3:get:amcache0  S3 100% GET (50 connections) - 100% AM cache miss - 100% SM and DM cache hit
+Config                Notes
+--------------------  -----------------------------------------------------------------------------------
+fio:randread:amcache  Block (FIO) 100% Random reads (50 connections) - 100% AM cache size is 1200 entries
 
 
 
