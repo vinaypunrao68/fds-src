@@ -274,7 +274,8 @@ TEST_F(SMApi, putsPerf)
         ProfilerStop();
     }
 
-    uint64_t throughput = (1000000000 / (endTs_ - startTs_)) * putsIssued_;
+    double throughput = (static_cast<double>(1000000000) /
+                           (endTs_ - startTs_)) * putsIssued_;
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
             << "putsCnt: " << putsIssued_ << "\n"
             << "Throughput: " << throughput << "\n"

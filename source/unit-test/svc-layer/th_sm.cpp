@@ -65,8 +65,14 @@ class TestSMSvcHandler : virtual public FDS_ProtocolInterface::TestSMSvcIf {
                       boost::shared_ptr<int32_t>& port) {
         int cntr = connCntr_++;
         boost::shared_ptr<fpi::TestAMSvcClient> amClient;
-        boost::shared_ptr<TTransport> amSock(new TSocket(*ip, *port));
+        boost::shared_ptr<TTransport> amSock;
         boost::shared_ptr<TTransport> amTrans;
+
+        if (smTest_->getArg<bool>("use-pipe")) {
+            amSock.reset(new TSocket(*ip));
+        } else {
+            amSock.reset(new TSocket(*ip, *port));
+        }
         if (smTest_->getArg<std::string>("transport") == "framed") {
             amTrans.reset(new TFramedTransport(amSock));
         } else {
@@ -107,7 +113,12 @@ SMTest::SMTest()
     boost::shared_ptr<TProcessor> processor(
         new ::FDS_ProtocolInterface::TestSMSvcProcessor(handler));
     if (this->getArg<std::string>("server") == "threaded") {
-        boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(smPort));
+        boost::shared_ptr<TServerTransport> serverTransport;
+        if (this->getArg<bool>("use-pipe")) {
+            serverTransport.reset(new TServerSocket("/tmp/smtest"));
+        } else {
+            serverTransport.reset(new TServerSocket(smPort));
+        }
         boost::shared_ptr<TTransportFactory> transportFactory;
         if (this->getArg<std::string>("transport") == "framed") {
             transportFactory.reset(new TFramedTransportFactory());
@@ -148,6 +159,7 @@ int main(int argc, char** argv) {
         ("help", "produce help message")
         ("server", po::value<std::string>()->default_value("threaded"), "Server type")
         ("transport", po::value<std::string>()->default_value("framed"), "transport type")
+        ("use-pipe", po::value<bool>()->default_value(false), "use pipe transport")
         ("sm-port", po::value<int>()->default_value(9092), "sm port");
     SMTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();

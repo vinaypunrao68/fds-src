@@ -149,7 +149,12 @@ AMTest::AMTest()
     boost::shared_ptr<TProcessor> processor(
         new ::FDS_ProtocolInterface::TestAMSvcProcessor(handler));
     if (this->getArg<std::string>("server") == "threaded") {
-        boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(amPort));
+        boost::shared_ptr<TServerTransport> serverTransport;
+        if (this->getArg<bool>("use-pipe")) {
+            serverTransport.reset(new TServerSocket("/tmp/amtest"));
+        } else {
+            serverTransport.reset(new TServerSocket(amPort));
+        }
         boost::shared_ptr<TTransportFactory> transportFactory;
         if (this->getArg<std::string>("transport") == "framed") {
             transportFactory.reset(new TFramedTransportFactory());
@@ -267,9 +272,14 @@ TEST_F(AMTest, smtest)
     int smPort = this->getArg<int>("sm-port");
     int amPort = this->getArg<int>("am-port");
     bool framed = (this->getArg<std::string>("transport") == "framed");
+    bool pipe = this->getArg<bool>("use-pipe");
     concurrency_ = this->getArg<uint32_t>("concurrency");
     if (concurrency_ == 0) {
         concurrency_  = nPuts;
+    }
+    if (pipe == true) {
+        smIp = "/tmp/smtest";
+        myIp = "/tmp/amtest";
     }
     std::cout << "Concurrency level: " << concurrency_ << std::endl;
 
@@ -286,7 +296,12 @@ TEST_F(AMTest, smtest)
 
     /* Create connections against SM */
     for (int i = 0; i < connCnt; i++) {
-        boost::shared_ptr<TTransport> smSock(new TSocket(smIp, smPort));
+        boost::shared_ptr<TTransport> smSock;
+        if (this->getArg<bool>("use-pipe")) {
+            smSock.reset(new TSocket(smIp));
+        } else {
+            smSock.reset(new TSocket(smIp, smPort));
+        }
         boost::shared_ptr<TTransport> smTrans;
         if (framed) {
             smTrans.reset(new TFramedTransport(smSock));
@@ -415,6 +430,7 @@ int main(int argc, char** argv) {
         ("server", po::value<std::string>()->default_value("threaded"), "Server type")
         ("transport", po::value<std::string>()->default_value("framed"), "transport type")
         ("output", po::value<std::string>()->default_value("stats.txt"), "stats output")
+        ("use-pipe", po::value<bool>()->default_value(false), "use pipe transport")
         ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency");
     AMTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
