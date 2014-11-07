@@ -21,7 +21,6 @@ user_cpp          :=                   \
     ObjRank.cpp                        \
     ObjStats.cpp                       \
     TierEngine.cpp                     \
-#    TierPutAlgorithms.cpp              \
     ObjMeta.cpp                        \
     SmObjDb.cpp                        \
     SMSvcHandler.cpp
