@@ -100,7 +100,7 @@ class SharedKvCache : public Module, boost::noncopyable {
          cache_map[key] = eviction_list.begin();
 
          // Check if anything needs to be evicted
-         if (current_size++ > max_entries) {
+         if (++current_size > max_entries) {
              entry_type evicted = eviction_list.back();
              eviction_list.pop_back();
 
