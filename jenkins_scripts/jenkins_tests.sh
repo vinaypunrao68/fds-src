@@ -21,7 +21,7 @@ function unit_tests
 function system_tests
 {
    echo "RUNNING SYSTEM TEST"
-   
+
    # Run Unit Test
    cd ${root_dir}/source/test/testsuites
    ./BuildSmokeTest.py -q BuildSmokeTest_oncommit.ini -d dummy
@@ -41,7 +41,7 @@ function fds_start
 function fds_smoketest
 {
    echo "RUNNING SMOKE TEST"
-   
+
    # Running smoke test
    AM_IP=$(grep `hostname` /etc/hosts | awk '{print $1}')
    source/test/fds-primitive-smoke.py --up false --down false --am_ip $AM_IP
@@ -51,7 +51,7 @@ function fds_smoketest
 function fds_stop
 {
    echo "STOPPING FDS"
-   
+
    # Tear down
    source/tools/fds stop
 }
@@ -60,9 +60,5 @@ root_dir=$(pwd)
 
 unit_tests
 system_tests
-fds_start
-sleep 5
-fds_smoketest
-fds_stop
 
 exit 0
