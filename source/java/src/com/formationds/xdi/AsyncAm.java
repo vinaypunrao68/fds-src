@@ -3,6 +3,7 @@ package com.formationds.xdi;
 import com.formationds.apis.*;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
+import com.formationds.security.FastUUID;
 import com.formationds.util.BiConsumerWithException;
 import com.formationds.util.ConsumerWithException;
 import com.formationds.util.FunctionWithExceptions;
@@ -21,7 +22,6 @@ import org.apache.thrift.transport.TServerSocket;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -98,7 +98,8 @@ public class AsyncAm {
             return CompletableFutureUtility.exceptionFuture(new SecurityException());
         }
 
-        RequestId requestId = new RequestId(UUID.randomUUID().toString());
+
+        RequestId requestId = new RequestId(FastUUID.randomUUID().toString());
         try {
             CompletableFuture<T> cf = responseListener.expect(requestId);
             consumer.accept(requestId);

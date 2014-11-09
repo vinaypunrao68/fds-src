@@ -51,7 +51,7 @@ public class SmokeTest {
     private final String userName;
     private final String userToken;
     private final String host;
-    ConfigurationService.Iface config;
+    private final ConfigurationService.Iface config;
 
     public SmokeTest()
             throws Exception {

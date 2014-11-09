@@ -22,9 +22,6 @@ public class Configuration {
     public static final String KEYSTORE_PATH = "fds.ssl.keystore_path";
     public static final String KEYSTORE_PASSWORD = "fds.ssl.keystore_password";
     public static final String KEYMANAGER_PASSWORD = "fds.ssl.keymanager_password";
-
-    Properties properties = new Properties();
-    private File fdsRoot;
     private static final Map<String, String> LOGLEVELS = new HashMap<>();
 
     //trace/debug/normal/info/notify/notification/crit/critical,warn/warning/error
@@ -37,6 +34,9 @@ public class Configuration {
         LOGLEVELS.put("error", "ERROR");
         LOGLEVELS.put("critical", "FATAL");
     }
+
+    Properties properties = new Properties();
+    private File fdsRoot;
 
     public Configuration(String commandName, String[] commandLineArgs) {
         OptionParser parser = new OptionParser();
@@ -53,7 +53,8 @@ public class Configuration {
         String logLevel = getPlatformConfig().defaultString("fds.plat.log_severity", "normal").toLowerCase();
 
         if (options.has("console")) {
-            initConsoleLogging(LOGLEVELS.getOrDefault(logLevel, "INFO"));
+            //initConsoleLogging(LOGLEVELS.getOrDefault(logLevel, "INFO"));
+            initConsoleLogging("INFO");
         } else {
             initFileLogging(commandName, fdsRoot, LOGLEVELS.getOrDefault(logLevel, "INFO"));
         }
@@ -107,7 +108,6 @@ public class Configuration {
 
     /**
      * @return Returns the demo configuration
-     *
      * @deprecated Will be removed very soon.
      */
     @Deprecated
