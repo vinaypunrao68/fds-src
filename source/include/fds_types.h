@@ -302,15 +302,6 @@ typedef enum {
 
 }  // namespace fds
 
-namespace std {
-template <>
-struct hash<fds::ObjectID> {
-    std::size_t operator()(const fds::ObjectID oid) const {
-        return std::hash<std::string>()(oid.ToHex());
-    }
-};
-}  // namespace std
-
 /*
  * NOTE!!! include only std typedefs here. Dont use any fds objects !!!!
  */

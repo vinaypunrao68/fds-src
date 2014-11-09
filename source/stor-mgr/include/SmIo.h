@@ -16,10 +16,15 @@
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
-#include <TransJournal.h>
 #include <leveldb/db.h>
 #include <persistent-layer/dm_io.h>
 
+using FDS_ProtocolInterface::FDSP_DeleteObjTypePtr;
+using FDS_ProtocolInterface::FDSP_GetObjTypePtr;
+using FDS_ProtocolInterface::FDSP_MigrateObjectList;
+using FDS_ProtocolInterface::FDSP_MigrateObjectMetadata;
+using FDS_ProtocolInterface::FDSP_ObjectIdDataPair;
+using FDS_ProtocolInterface::FDSP_PutObjTypePtr;
 
 // TODO(Rao):
 // 1. Remove unnecessary headers
@@ -32,7 +37,7 @@ class SmIoReq : public FDS_IOType {
     // ObjectBuf    objData;
     fds_volid_t  volUuid;
     fds_uint64_t volOffset;
-    TransJournalId   transId;
+    unsigned int   transId;
     FDSP_PutObjTypePtr putObjReq;
     FDSP_GetObjTypePtr getObjReq;
     FDSP_DeleteObjTypePtr delObjReq;
@@ -194,11 +199,11 @@ class SmIoReq : public FDS_IOType {
         io_vol_id = id;
     }
 
-    TransJournalId&  getTransId() {
+    unsigned int&  getTransId() {
         return transId;
     }
 
-    void setTransId(TransJournalId trans_id) {
+    void setTransId(unsigned int trans_id) {
         transId = trans_id;
     }
 
