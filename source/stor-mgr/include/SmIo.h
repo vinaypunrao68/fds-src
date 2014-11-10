@@ -528,5 +528,35 @@ class SmIoCompactObjects : public SmIoReq {
     /* response callback */
     cbType smio_compactobj_resp_cb;
 };
+
+/**
+ * Request to move a set of objects from one tier to another tier
+ */
+class SmIoMoveObjsToTier: public SmIoReq {
+  public:
+    typedef std::function<void (const Error&,
+                                SmIoMoveObjsToTier *req)> cbType;
+  public:
+    SmIoMoveObjsToTier() {
+        moveObjsRespCb = NULL;
+        relocate = false;
+    }
+
+    /// list of object ids
+    std::vector<ObjectID> oidList;
+
+    /// tier to move from
+    diskio::DataTier fromTier;
+
+    /// tier to move to
+    diskio::DataTier toTier;
+
+    /// if true, relocate objects (remove from fromTier)
+    fds_bool_t relocate;
+
+    /// response callback
+    cbType moveObjsRespCb;
+};
+
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_SMIO_H_
