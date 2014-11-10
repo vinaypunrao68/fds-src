@@ -363,6 +363,8 @@ struct DataMgr : Module, DmIoReqHandler {
     /* TODO(Rao): Add the new refactored DM messages handlers here */
     void startBlobTx(dmCatReq *io);
     void updateCatalogOnce(dmCatReq *io);
+    void updateCatalog(dmCatReq *io);
+    void scheduleGetBlobMetaDataSvc(void *io);
     void commitBlobTx(dmCatReq *io);
     /**
      * Callback from volume catalog when transaction is commited
