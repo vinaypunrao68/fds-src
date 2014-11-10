@@ -777,6 +777,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler();
     handlers[FDS_CAT_UPD] = new dm::UpdateCatalogHandler();
     handlers[FDS_GET_BLOB_METADATA] = new dm::GetBlobMetaDataHandler();
+    handlers[FDS_CAT_QRY] = new dm::QueryCatalogHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1444,7 +1445,6 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
     Error err(ERR_OK);
     fds_panic("must not get here");
 }
-
 
 /**
  * Make snapshot of volume catalog for sync and notify
