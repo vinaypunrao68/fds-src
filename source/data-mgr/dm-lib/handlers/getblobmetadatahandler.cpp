@@ -15,7 +15,9 @@ namespace fds {
 namespace dm {
 
 GetBlobMetaDataHandler::GetBlobMetaDataHandler() {
-    REGISTER_DM_MSG_HANDLER(fpi::GetBlobMetaDataMsg, handleRequest);
+    if (!dataMgr->feature.isTestMode()) {
+        REGISTER_DM_MSG_HANDLER(fpi::GetBlobMetaDataMsg, handleRequest);
+    }
 }
 
 void GetBlobMetaDataHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
