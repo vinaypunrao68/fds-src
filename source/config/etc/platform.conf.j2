@@ -76,8 +76,8 @@ fds: {
             default_outstanding_io = 20
         }
 
-        catalog_write_buffer_size = "{{ dm_leveldb_write_buffer_size }}"
-        catalog_cache_size =  "{{ dm_leveldb_cache_size }}"
+        catalog_write_buffer_size = {{ dm_catalog_write_buffer_size }}
+        catalog_cache_size =  {{ dm_catalog_cache_size  }}
         catalog_log_max_files = 5
 
         /* process id */
@@ -159,9 +159,9 @@ fds: {
         log_severity = "{{ sm_log_severity }}"
 
         /* verify data on datapath */
-        data_verify = "{{ sm_data_verify }}"
+        data_verify = {{ sm_data_verify }}
         /* verify data in background */
-        data_verify_background = "{{ sm_data_verify_background }}"
+        data_verify_background = {{ sm_data_verify_background }}
 
         objectstore: {
             /* Size of the hashed task synchronizer */
@@ -169,7 +169,7 @@ fds: {
         }
         cache: {
             /* Default max number of data cache entries */
-            default_data_entries =  "{{  sm_cache_entries }}"
+            default_data_entries = {{ sm_cache_default_data_entries }}
             /* Default max number of metadata entries */
             default_meta_entries = 0;
         }
@@ -273,7 +273,7 @@ fds: {
         }
         cache: {
             /* Default max entries in a volume's AM cache */
-            default_max_entries =  "{{ am_cache_entries }}"
+            default_max_entries =  {{ am_cache_default_max_entries }}
             /* Default max staged entries in a volume's tx descriptor */
             tx_max_staged_entries = 10
         }
@@ -284,7 +284,7 @@ fds: {
             toggleStandAlone = false
 
             /* Toggle to disable stats collection for metadata streaming */
-            toggleDisableStreamingStats =  "{{ am_testing_toggle_disable_streaming_stats }}" 
+            toggleDisableStreamingStats = {{ am_testing_toggleDisableStreamingStats }} 
 
             /* NBD module driver */
             nbd_vol_module = "sm"
