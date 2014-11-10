@@ -18,6 +18,8 @@ typedef std::set<ObjectID> PromotionSet;
 
 class RankEngine {
   public:
+    // TODO(brian): Add method for asking if promotion can occur
+
     /**
     * Calculate and return a set of objects that should be promoted.
     *
@@ -49,7 +51,8 @@ class RankEngine {
     * @param oid The ID of the object that is being acted upon
     * @param tier The tier that the action occurred on
     */
-    virtual void notifyDataPath(fds_io_op_t opType, const ObjectID& oid, diskio::DataTier tier) = 0;
+    virtual void notifyDataPath(fds_io_op_t opType, const ObjectID& oid,
+            diskio::DataTier tier, const VolumeDesc& voldesc) = 0;
 };
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_RANKENGINE_H_

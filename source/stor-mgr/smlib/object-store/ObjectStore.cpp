@@ -166,7 +166,8 @@ ObjectStore::putObject(fds_volid_t volId,
         // successfully put object
         if (useTier == diskio::flashTier) {
             // notify tier engine we put object to flash
-            tierEngine->handleObjectPutToFlash(objId, *vol->voldesc);
+            // TODO(brian): Change this to new API
+            tierEngine->notifyIO(objId,  *vol->voldesc);
         }
 
         // update physical location that we got from data store
@@ -247,7 +248,7 @@ ObjectStore::getObject(fds_volid_t volId,
         }
     }
 
-    // TODO(Anna) update tier stats that an object was accessed
+    // TODO(brian): update tier stats that an object was accessed
 
     return objData;
 }
@@ -320,6 +321,10 @@ ObjectStore::deleteObject(fds_volid_t volId,
     if (updatedMeta->getRefCnt() < 1) {
         err = dataStore->removeObjectData(volId, objId, updatedMeta);
     }
+
+    // TODO(brian): Consider notifying TierEngine here to prevent ranking
+    // of deleted objects. This becomes complex when multiple hybrid volumes
+    // enter the picture.
 
     return err;
 }

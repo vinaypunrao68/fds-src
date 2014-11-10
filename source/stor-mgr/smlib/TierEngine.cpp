@@ -10,12 +10,20 @@
 namespace fds {
 
 TierEngine::TierEngine(const std::string &modName,
-                       tierPutAlgoType _algo_type,
+                       rankPolicyType _rank_type,
                        StorMgrVolumeTable* _sm_volTbl) :
         Module(modName.c_str()),
-        algoType(_algo_type),
         sm_volTbl(_sm_volTbl) {
-    objStats = new ObjStatsTracker();
+
+    switch (_rank_type) {
+        case FDS_RANDOM_RANK_POLICY:
+            rankEngine = boost::shared_ptr<RankEngine>(new RandomRankPolicy());
+            break;
+        case FDS_COUNTING_BLOOM_RANK_POLICY:
+            break;
+        default:
+            fds_panic("No valid rank policy provided!");
+    }
 }
 
 /*
@@ -23,8 +31,6 @@ TierEngine::TierEngine(const std::string &modName,
  * the algorithm structure at the moment
  */
 TierEngine::~TierEngine() {
-    delete objStats;
-    delete rankEng;
     delete migrator;
 }
 
@@ -46,8 +52,6 @@ int TierEngine::mod_init(SysParams const *const param) {
         cold_threshold = conf->get<int>("fds.sm.testing.cold_threshold");
     }
     std::string obj_stats_dir = g_fdsprocess->proc_fdsroot()->dir_fds_var_stats();
-    rankEng = new ObjectRankEngine(obj_stats_dir, rank_tbl_size, rank_freq_sec,
-                                   hot_threshold, cold_threshold, sm_volTbl, objStats);
 
     migrator = new TierMigration(max_migration_threads, this);
     return 0;
@@ -79,23 +83,18 @@ diskio::DataTier TierEngine::selectTier(const ObjectID    &oid,
         ret_tier = diskio::diskTier;
     } else if (media_policy == FDSP_MEDIA_POLICY_HYBRID) {
         /* hybrid tier policy */
-        fds_uint32_t rank = rankEng->getRank(oid, voldesc);
-        if (rank < rankEng->getTblTailRank()) {
-            /* lower value means higher rank */
-            ret_tier = diskio::flashTier;
-        }
+        ret_tier = diskio::flashTier;
     } else {  // else ret_tier already set to disk
         LOGDEBUG << "RankTierPutAlgo: selectTier received unexpected media policy: "
                 << media_policy;
     }
-
     return ret_tier;
 }
 
 void
-TierEngine::handleObjectPutToFlash(const ObjectID& objId,
-                                   const VolumeDesc& voldesc) {
-    rankEng->rankAndInsertObject(objId, voldesc);
+TierEngine::notifyIO(const ObjectID& objId, fds_io_op_t opType,
+        const VolumeDesc& voldesc, diskio::DataTier tier) {
+    rankEngine->notifyDataPath(objId, opType, tier, voldesc);
 }
 
 TierMigration::TierMigration(fds_uint32_t _nthreads,
@@ -111,6 +110,8 @@ TierMigration::~TierMigration() {
 }
 
 void migrationJob(TierMigration *migrator, void *arg, fds_uint32_t count) {
+    // TODO(brian): We will no longer need the chg_tbl as demotions will be driven by the scavenger
+    // TODO(brian): So this can fire the scavenger and then promote? Call promote?
     fds_uint32_t len = 100;
     std::pair<ObjectID, ObjectRankEngine::rankOperType> * chg_tbl = (
         std::pair<ObjectID, ObjectRankEngine::rankOperType> *) arg;

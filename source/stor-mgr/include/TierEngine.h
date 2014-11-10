@@ -13,8 +13,7 @@
 
 namespace fds {
 
-class ObjStatsTracker;
-class TierEngine;
+class RankEngine;
 
 const fds_uint32_t max_migration_threads = 30;
 
@@ -36,8 +35,9 @@ class TierMigration {
       */
 
     public:
-     void startRankTierMigration(void);
-     void stopRankTierMigration(void);
+     void startRankTierMigration(void);  // TODO(brian): This will fire off scavenger first
+                                         // before calling getObjsToPromote and promoting them
+     void stopRankTierMigration(void);   // NOLINT TODO(brian): Cancels the scavenger? Prevents the promotion?
      TierEngine *tier_eng;
      fds_bool_t   stopMigrationFlag;
 
@@ -52,17 +52,14 @@ class TierMigration {
 class TierEngine : public Module {
     public:
      typedef enum {
-         FDS_TIER_PUT_ALGO_RANDOM,
-         FDS_TIER_PUT_ALGO_BASIC_RANK,
-     } tierPutAlgoType;
+         FDS_RANDOM_RANK_POLICY,
+         FDS_COUNTING_BLOOM_RANK_POLICY
+     } rankPolicyType;
 
     private:
      fds_uint32_t  numMigThrds;
+     boost::shared_ptr<RankEngine> rankEngine;
 
-     /*
-      * Member algorithms.
-      */
-     tierPutAlgoType algoType;
 
      /*
       * Member references to external objects.
@@ -75,17 +72,13 @@ class TierEngine : public Module {
     public:
      TierMigration *migrator;
 
-     /// Ranking engine
-     ObjectRankEngine* rankEng;
-     ObjStatsTracker *objStats;
-
      /*
       * Constructor for tier engine. This will take
       * references to required external classes and
       * start the tier migration threads.
       */
      TierEngine(const std::string &modName,
-                tierPutAlgoType _algo_type,
+                rankPolicyType _rank_type,
                 StorMgrVolumeTable* _sm_volTbl);
      ~TierEngine();
 
@@ -97,18 +90,26 @@ class TierEngine : public Module {
       * on a put path.
       *
       * @param[in] oid ID of object looking for tier
-      * @param[ib] vol Object's volume
+      * @param[in] vol Object's volume
       *
       * @return the tier to place object
       */
-     diskio::DataTier selectTier(const ObjectID &oid,
-                                 const VolumeDesc& voldesc);
+    // TODO(brian): If we have capacity put to SSD (in SSD case), otherwise right to HDD
+    // Remove all calls to RankEngine
+    diskio::DataTier selectTier(const ObjectID &oid,
+            const VolumeDesc& voldesc);
 
      /**
-      * Called when new object is inserted to flash tier
+      * Called on put/get/delete, and handles any tasks that should occur on IO.
+      * For example, will call RankEngine's updateDataPath method, enabling the
+      * RankEngine to update it's internal stats for rank calculations.
+      *
+      * @param objId[in] Object that was acted on
+      * @param opType[in] type of operation that occurred
+      * @param voldesc[in] Volume descriptor for the object that was acted on
       */
-     void handleObjectPutToFlash(const ObjectID& objId,
-                                 const VolumeDesc& voldesc);
+     void notifyIO(const ObjectID& objId, fds_io_op_t opType,
+             const VolumeDesc& voldesc, diskio::DataTier tier);
 
      // FDS module methods
      int  mod_init(SysParams const *const param);

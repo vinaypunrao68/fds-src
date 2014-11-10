@@ -25,8 +25,8 @@ user_build_dir :=                       \
     tools                               \
     testlib                             \
     java                                \
-    unit-test                           \
-    checker                             
+    checker                             \
+    unit-test
 
 ifdef SKIP_JAVA_BUILD
 	user_build_dir := $(filter-out java, $(user_build_dir))
