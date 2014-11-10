@@ -104,9 +104,7 @@ class SharedKvCache : public Module, boost::noncopyable {
              entry_type evicted = eviction_list.back();
              eviction_list.pop_back();
 
-             GLOGTRACE << "Evicting key " << evicted.first;
              value_type entryToEvict = evicted.second;
-             fds_verify(entryToEvict);
 
              // Remove the cache iterator entry from the map
              cache_map.erase(evicted.first);
@@ -275,20 +273,14 @@ class SharedKvCache : public Module, boost::noncopyable {
          if (mapIt == cache_map.end()) return eviction_list.end();
 
          iterator existingEntry = mapIt->second;
-         value_type value  = (*existingEntry).second;
 
          // Move the entry's position to the front
-         // in the eviction list
-         eviction_list.erase(existingEntry);
-         entry_type updatedEntry(key, value);
-         eviction_list.push_front(updatedEntry);
+         // of the eviction list.
+         eviction_list.splice(eviction_list.begin(),
+                              eviction_list,
+                              existingEntry);
 
-         // Remove the existing map entry since the
-         // iterator into the eviction list is changing
-         cache_map.erase(mapIt);
-         cache_map[key] = eviction_list.begin();
-
-         return eviction_list.begin();
+         return existingEntry;
      }
 };
 }  // namespace fds
