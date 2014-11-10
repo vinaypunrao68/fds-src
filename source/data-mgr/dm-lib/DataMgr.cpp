@@ -1117,7 +1117,6 @@ void DataMgr::updateCatalog(dmCatReq *io)
     updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
 }
 
->>>>>>> origin/master
 void
 DataMgr::updateCatalogOnce(dmCatReq *io) {
     DmIoUpdateCatOnce *updCatReq= static_cast<DmIoUpdateCatOnce*>(io);
@@ -1611,7 +1610,7 @@ void DataMgr::scheduleGetBlobMetaDataSvc(void *_io) {
     getBlbMeta->dmio_getmd_resp_cb(err, getBlbMeta);
 }
 
->>>>>>> origin/master
+
 void DataMgr::setBlobMetaDataSvc(void *io) {
     Error err;
     DmIoSetBlobMetaData *setBlbMetaReq = static_cast<DmIoSetBlobMetaData*>(io);
