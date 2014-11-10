@@ -10,10 +10,12 @@ RequestHelper::RequestHelper(dmCatReq *dmRequest) : dmRequest(dmRequest) {
 }
 
 RequestHelper::~RequestHelper() {
-    Error err = dataMgr->qosCtrl->enqueueIO(dmRequest->getVolId(), dmRequest);
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue request for volid:" << dmRequest->getVolId();
-        dmRequest->cb(err, dmRequest);
+    if (dataMgr->feature.isQosEnabled()) {
+        Error err = dataMgr->qosCtrl->enqueueIO(dmRequest->getVolId(), dmRequest);
+        if (err != ERR_OK) {
+            LOGWARN << "Unable to enqueue request for volid:" << dmRequest->getVolId();
+            dmRequest->cb(err, dmRequest);
+        }
     }
 }
 
@@ -31,6 +33,7 @@ QueueHelper::~QueueHelper() {
                 dmRequest->perfNameStr);
     }
      */
+    if (dataMgr->feature.isQosEnabled()) dataMgr->qosCtrl->markIODone(*dmRequest);
     LOGDEBUG << "calling cb for volid: " << dmRequest->volId;
     dmRequest->cb(err, dmRequest);
 }
@@ -39,6 +42,10 @@ void Handler::handleQueueItem(dmCatReq *dmRequest) {
 }
 
 void Handler::addToQueue(dmCatReq *dmRequest) {
+    if (!dataMgr->feature.isQosEnabled()) {
+        LOGWARN << "qos disabled .. not queuing";
+        return;
+    }
     const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmRequest->getVolId());
     Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
             voldesc->qosQueueId : dmRequest->getVolId(), dmRequest);

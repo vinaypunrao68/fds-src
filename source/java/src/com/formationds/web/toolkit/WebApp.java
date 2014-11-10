@@ -2,6 +2,8 @@ package com.formationds.web.toolkit;
 
 import com.google.common.collect.Lists;
 import org.eclipse.jetty.server.*;
+import org.eclipse.jetty.server.handler.HandlerCollection;
+import org.eclipse.jetty.server.handler.RequestLogHandler;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
@@ -78,13 +80,17 @@ public class WebApp {
             server.addConnector(sslConnector);
         }
 
-        ServletContextHandler contextHandler = new ServletContextHandler();
-        contextHandler.setContextPath("/");
-        server.setHandler(contextHandler);
+        // Each handler in a handler collection is called regardless of whether or not
+        // a particular handler completes the request.  This is in contrast to a ContextHandlerCollection,
+        // which will stop trying additional handlers once one indicates it has handled the request.
+        HandlerCollection handlers= new HandlerCollection(false);
 
         Dispatcher dispatcher = new Dispatcher(routeFinder, webDir, executors);
+        ServletContextHandler contextHandler = new ServletContextHandler();
+        contextHandler.setContextPath("/");
         contextHandler.addServlet(new ServletHolder(dispatcher), "/");
-        server.setHandler(contextHandler);
+        handlers.addHandler(contextHandler);
+        server.setHandler(handlers);
 
         try {
             server.start();

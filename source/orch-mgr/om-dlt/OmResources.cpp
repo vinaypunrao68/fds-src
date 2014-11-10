@@ -801,15 +801,16 @@ OM_NodeDomainMod::om_load_volumes()
     }
 
     // add each volume we found in configDB
-    for (volumeIter = vecVolumes.begin();
-         volumeIter != vecVolumes.end();
-         ++volumeIter) {
+    for (auto& volume : vecVolumes) {
         LOGDEBUG << "processing volume "
-                 << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
+                 << "[" << volume.volUUID << ":" << volume.name << "]";
 
-        if (!om_locDomain->addVolume(*volumeIter)) {
+        if (volume.isStateDeleted()) {
+            LOGWARN << "not loading deleted volume : "
+                    << "[" << volume.volUUID << ":" << volume.name << "]";
+        } else if (!om_locDomain->addVolume(volume)) {
             LOGERROR << "unable to add volume "
-                     << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
+                     << "[" << volume.volUUID << ":" << volume.name << "]";
         }
     }
 

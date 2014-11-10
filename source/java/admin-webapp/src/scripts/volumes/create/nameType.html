@@ -17,7 +17,7 @@
         <div class="header">
             <span class="light-print" translate>volumes.l_data_connector</span>
             <div class="pull-right" ng-show="dataConnectorEnablment === true">
-                <span class="icon icon-pencil edit-data-connector-button" ng-click="editing = true"></span>
+                <span class="icon icon-edit edit-data-connector-button" ng-click="editing = true"></span>
             </div>
         </div>
 
@@ -45,7 +45,7 @@
                             </div>
                             
                             <div class="flex" ng-show="editing === true">
-                                <spinner class="data-connector-size-spinner" value="_selectedSize" min="1" max="999" step="1" class="skinny" style="margin-right: 4px;"></spinner>
+                                <spinner class="data-connector-size-spinner skinny" value="_selectedSize" min="1" max="999" step="1" class="skinny" style="margin-right: 4px;"></spinner>
                                 <fui-dropdown skinny="true" background-color="#2486F8" items="sizes" selected="_selectedUnit"></fui-dropdown>
                             </div>
                         </div>

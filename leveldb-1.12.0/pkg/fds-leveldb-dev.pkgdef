@@ -1,7 +1,0 @@
-package: fds-leveldb-dev
-version: 1.12
-description: Level DB Header files for c/c++
-
-files:
-  dest: /usr/include/leveldb
-  src : "../include/leveldb/*.h"

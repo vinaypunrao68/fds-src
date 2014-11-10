@@ -12,6 +12,7 @@ user_install_loc  := exe
 user_clean        := \
 	target \
 	gen-java \
+        admin-webapp \
 	$(comm_dir_lib)/java \
 	$(comm_dir_lib)/admin-webapp \
 	$(comm_dir_lib)/demo

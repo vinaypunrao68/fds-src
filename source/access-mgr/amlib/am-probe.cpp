@@ -197,25 +197,6 @@ struct ProbeGetBlobResponseHandler : public GetObjectResponseHandler {
     std::string volName_;
 };
 
-int
-probeUpdateBlobHandler(void *reqContext,
-                       fds_uint64_t bufferSize,
-                       fds_off_t offset,
-                       char *buffer,
-                       void *callbackData,
-                       FDSN_Status status,
-                       ErrorDetails* errDetails) {
-    ProbeUpdateBlobResponseHandler* handler =
-            reinterpret_cast<ProbeUpdateBlobResponseHandler*>(callbackData); //NOLINT
-    handler->status = status;
-    handler->errorDetails = errDetails;
-
-    handler->call();
-
-    delete handler;
-    return 0;
-}
-
 void
 AmProbe::incResp() {
     recvdOps++;
@@ -309,7 +290,6 @@ AmProbe::doAsyncUpdateBlob(const std::string &volumeName,
                                dataLength,
                                gl_AmProbe.txDesc,
                                false,  // Never make it last
-                               probeUpdateBlobHandler,
                                static_cast<void *>(handler));
 }
 
@@ -335,7 +315,6 @@ AmProbe::doAsyncGetBlob(const std::string &volumeName,
                                   blobOffset,
                                   dataLength,
                                   buf,
-                                  dataLength,
                                   SHARED_DYN_CAST(Callback, handler));
 }
 

@@ -35,7 +35,7 @@ namespace fds {
     if (num_ios_dispatched >= total_capacity) {
       num_ios_dispatched = 0;
       num_rate_based_slots_serviced = 0;
-      last_reset_time = boost::posix_time::microsec_clock::universal_time();
+      last_reset_time = util::getTimeStampMicros();
     }
   }
 
@@ -44,30 +44,29 @@ namespace fds {
     fds_qid_t queue_with_highest_credits = 0;
     WFQQueueDesc *next_qd = NULL;
     float highest_credits = 0;
-    std::string credits_str = "";
+    // std::string credits_str = "";
     for (auto it=queue_desc_map.begin(); it != queue_desc_map.end(); ++it) {
       next_queue = it->first;
       next_qd = it->second;
       fds_uint32_t n_pios = next_qd->pendingActiveCount();  // pending IOs if queue is active, otherwise 0  
       fds_uint32_t n_credits = next_qd->num_rate_based_credits;
       float accumulated_credits = ((float) n_credits)/next_qd->max_rate_based_credits;
-      credits_str = credits_str + "(" + std::to_string(next_queue) + "," + std::to_string(n_credits)
-	+ "," + std::to_string(accumulated_credits) + "," + std::to_string(n_pios) + "), ";
+      // credits_str = credits_str + "(" + std::to_string(next_queue) + "," + std::to_string(n_credits)
+      //	+ "," + std::to_string(accumulated_credits) + "," + std::to_string(n_pios) + "), ";
       if ((n_pios > 0) && (accumulated_credits > highest_credits)) {
 	queue_with_highest_credits = next_queue;
 	highest_credits = accumulated_credits;
       }
     }
-    FDS_PLOG_SEV(qda_log, fds::fds_log::debug) << "Dispatcher: credit state: [" << credits_str << "]";
+    // LOGDEBUG << "Dispatcher: credit state: [" << credits_str << "]";
     return queue_with_highest_credits;
   }
 
   // Requires the caller to hold the qda read lock while calling this.
   fds_qid_t QoSWFQDispatcher::getNextQueueForDispatch() {
       
-    boost::posix_time::ptime current_time = boost::posix_time::microsec_clock::universal_time();
-    boost::posix_time::time_duration elapsed_time = current_time - last_reset_time;
-    fds_uint64_t elapsed_usecs = elapsed_time.total_microseconds();
+    fds_uint64_t current_time = util::getTimeStampMicros();
+    fds_uint64_t elapsed_usecs = current_time - last_reset_time;
     // float current_rate = ((float)num_ios_dispatched * 1000000)/ elapsed_usecs; // ios per second that we have been able to achieve since last reset time.
     float current_guaranteed_ios_rate = ((float)num_rate_based_slots_serviced * 1000000)/elapsed_usecs;
     float expected_guaranteed_ios_rate = total_rate_based_spots;
@@ -99,9 +98,8 @@ namespace fds {
 	  n_pios = next_qd->pendingActiveCount();  // pending IOs if queue is active, otherwise 0
 	  if ((n_pios == 0) && (next_qd->num_rate_based_credits < next_qd->max_rate_based_credits)) { 
 	    next_qd->num_rate_based_credits++;
-	    FDS_PLOG_SEV(qda_log, fds::fds_log::debug)
-                    << "Dispatcher: Incrementing credit for queue " << next_queue
-                    << " to " << next_qd->num_rate_based_credits;
+	    LOGDEBUG << "Dispatcher: Incrementing credit for queue " << next_queue
+                     << " to " << next_qd->num_rate_based_credits;
 	  }
 
 	  running_late = (current_guaranteed_ios_rate < 0.9 * expected_guaranteed_ios_rate);
@@ -110,11 +108,11 @@ namespace fds {
 
       if ((next_queue != 0) && (n_pios > 0)) {
 	inc_num_ios_dispatched(io_dispatch_type_rate);
-	FDS_PLOG_SEV(qda_log, fds::fds_log::debug) << "Dispatcher: picking next rate based queue " << next_queue
-			  << " for slot " << next_rate_based_spot-1
-	                  << "; current throttle state - ("
-			  << current_guaranteed_ios_rate << ":" << expected_guaranteed_ios_rate  << ", " 
-	                  << running_ahead << ", " << running_late << ")";
+	LOGDEBUG << "Dispatcher: picking next rate based queue " << next_queue
+                 << " for slot " << next_rate_based_spot-1
+                 << "; current throttle state - ("
+                 << current_guaranteed_ios_rate << ":" << expected_guaranteed_ios_rate  << ", " 
+                 << running_ahead << ", " << running_late << ")";
 	return next_queue;
       }
       // Now next_queue is either null or n_pios for that queue is 0 
@@ -135,12 +133,11 @@ namespace fds {
       //assert(next_qd->num_rate_based_credits <= next_qd->max_rate_based_credits);
       next_qd->num_rate_based_credits--;
       inc_num_ios_dispatched(io_dispatch_type_credit);
-      FDS_PLOG_SEV(qda_log, fds::fds_log::debug)
-              << "Dispatcher: picking next credit based queue " << next_queue
-              << "(" << next_qd->num_rate_based_credits << ") for slot " << next_rate_based_spot-1
-              << "; current throttle state - ("  
-              << current_guaranteed_ios_rate << ":" << expected_guaranteed_ios_rate  << ", " 
-              << running_ahead << ", " << running_late << ")";
+      LOGDEBUG << "Dispatcher: picking next credit based queue " << next_queue
+               << "(" << next_qd->num_rate_based_credits << ") for slot " << next_rate_based_spot-1
+               << "; current throttle state - ("  
+               << current_guaranteed_ios_rate << ":" << expected_guaranteed_ios_rate  << ", " 
+               << running_ahead << ", " << running_late << ")";
       return next_queue;
     }
 
@@ -175,12 +172,11 @@ namespace fds {
       assert(next_qd != NULL);
       assert(n_pios > 0);
       // Step3 end: next_queue is the queue we are going to dispatch from. next_qd is it's descriptor
-      FDS_PLOG_SEV(qda_log, fds::fds_log::debug)
-              << "Dispatcher: picking next priority based queue " << next_queue
-              << " for slot " << next_rate_based_spot-1
-              << "; current throttle state - (" 
-              << current_guaranteed_ios_rate << ":" << expected_guaranteed_ios_rate  << ", " 
-              << running_ahead << ", " << running_late << ")";
+      LOGDEBUG << "Dispatcher: picking next priority based queue " << next_queue
+               << " for slot " << next_rate_based_spot-1
+               << "; current throttle state - (" 
+               << current_guaranteed_ios_rate << ":" << expected_guaranteed_ios_rate  << ", " 
+               << running_ahead << ", " << running_late << ")";
 
 
       // Step 3: Now we will update the priority based WFQ state for the next iteration
@@ -220,7 +216,7 @@ namespace fds {
 
       num_ios_dispatched = 0;
       num_rate_based_slots_serviced = 0;
-      last_reset_time = boost::posix_time::microsec_clock::universal_time();
+      last_reset_time = util::getTimeStampMicros();
 
       cur_total_min_rate = 0;
       total_capacity = total_svc_rate = total_server_rate;
@@ -242,7 +238,7 @@ namespace fds {
     FDS_VolumeQueue *queue = qd->queue;
 
     fds_uint64_t current_spot = 0;
-    std::string spot_list_string = "(";
+    // std::string spot_list_string = "(";
     for (fds_uint64_t i = 0; i < queue->iops_min; i++) {
       fds_uint64_t num_spots_searched = 0;
       while ((rate_based_qlist[current_spot] != 0) && (num_spots_searched < total_capacity)) {
@@ -251,15 +247,14 @@ namespace fds {
       }
       assert(rate_based_qlist[current_spot] == 0);
       rate_based_qlist[current_spot] = qd->queue_id;
-      spot_list_string = spot_list_string + std::to_string(current_spot) + ", "; 
+      // spot_list_string = spot_list_string + std::to_string(current_spot) + ", "; 
       qd->rate_based_rr_spots.push_back(current_spot);
       current_spot = (current_spot + (int) total_capacity/queue->iops_min) % total_capacity;
     }
-    spot_list_string = spot_list_string + ")";
+    // spot_list_string = spot_list_string + ")";
     total_rate_based_spots += queue->iops_min;
-    FDS_PLOG_SEV(qda_log, fds::fds_log::debug)
-            << "Dispatcher: assigning to queue " << qd->queue_id
-            << " slots - " << spot_list_string;
+    // LOGDEBUG << "Dispatcher: assigning to queue " << qd->queue_id
+    //         << " slots - " << spot_list_string;
 
     return err;
 
@@ -304,12 +299,11 @@ namespace fds {
       if ((queue->iops_min + cur_total_min_rate) > total_capacity) {
           qda_lock.write_unlock();
           delete qd;
-          FDS_PLOG_SEV(qda_log, fds_log::error)
-                  << "QoSWFQDispatcher: could not admit this volume, because "
-                  << " total min iops would exceed total rate" << std::endl
-                  << "  cur_total_min_rate " << cur_total_min_rate
-                  << " volume's min rate " << queue->iops_min
-                  << " total server rate " << total_capacity;
+          LOGERROR << "QoSWFQDispatcher: could not admit this volume, because "
+                   << " total min iops would exceed total rate" << std::endl
+                   << "  cur_total_min_rate " << cur_total_min_rate
+                   << " volume's min rate " << queue->iops_min
+                   << " total server rate " << total_capacity;
           return Error(ERR_EXCEED_MIN_IOPS);
       }
 
@@ -362,13 +356,12 @@ Error QoSWFQDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
       if ((q_min_rate > qd->queue_rate) &&
           ((q_min_rate - qd->queue_rate + cur_total_min_rate) > total_capacity)) {
           qda_lock.write_unlock();
-          FDS_PLOG_SEV(qda_log, fds_log::error)
-                  << "QoSWFQDispatcher: could not admit increased vol rate, because "
-                  << " total min iops would exceed total rate" << std::endl
-                  << "  cur_total_min_rate " << cur_total_min_rate
-                  << " volume's old min rate " << qd->queue_rate
-                  << " volume's new min rate " << q_min_rate
-                  << " total server rate " << total_capacity;
+          LOGERROR << "QoSWFQDispatcher: could not admit increased vol rate, because "
+                   << " total min iops would exceed total rate" << std::endl
+                   << "  cur_total_min_rate " << cur_total_min_rate
+                   << " volume's old min rate " << qd->queue_rate
+                   << " volume's new min rate " << q_min_rate
+                   << " total server rate " << total_capacity;
           return Error(ERR_EXCEED_MIN_IOPS);
       }
       

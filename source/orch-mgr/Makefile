@@ -1,5 +1,5 @@
 topdir            := ..
-speedup           := -j 5
+speedup           = -j $(threads)
 user_target       := exe
 user_std_libs     := true
 user_rtime_env    := user

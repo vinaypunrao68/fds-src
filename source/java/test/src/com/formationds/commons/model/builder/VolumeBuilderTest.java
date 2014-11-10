@@ -16,7 +16,7 @@ public class VolumeBuilderTest {
   private static final String EXPECTED_APIS = "S3, Swift";
   private static final String EXPECTED_NAME =
     "Volume Name -- " + ( System.currentTimeMillis() / 20000 );
-  private static final long EXPECTED_LIMIT = 300L;
+  private static final long EXPECTED_LIMIT = 100L;
   private static final long EXPECTED_SLA = 0L;
   private static final int EXPECTED_PRIORITY = 10;
 

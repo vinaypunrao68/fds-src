@@ -63,7 +63,17 @@ class TestReqHandler: public SmIoReqHandler {
             GLOGNOTIFY << "Creating " << odbDir << " directory";
             boost::filesystem::create_directory(odbPath);
         }
-        odb = new(std::nothrow) osm::ObjectDB(filename);
+
+        try
+        {
+            odb = new osm::ObjectDB(filename);
+        }
+        catch(const osm::OsmException& e)
+        {
+            LOGERROR << "Failed to create ObjectDB " << filename;
+            LOGERROR << e.what();
+            odb = NULL;
+        }
         EXPECT_TRUE(odb != NULL);
         GLOGNOTIFY << "Opened ObjectDB " << filename;
     }
@@ -307,7 +317,7 @@ TEST_F(SmTokenCompactorTest, normal_operation) {
                    << ", copied objects " << copiedObjs;
         dataStore->populateObjectDB(totalObjs, copiedObjs, diskId, tier);
 
-        err = tokenCompactor->startCompaction(tokId, diskId, tier, std::bind(
+        err = tokenCompactor->startCompaction(tokId, diskId, tier, false, std::bind(
             &SmTokenCompactorTest::compactionDoneCb, this,
             std::placeholders::_1, std::placeholders::_2));
         EXPECT_TRUE(err.ok());
@@ -341,13 +351,13 @@ TEST_F(SmTokenCompactorTest, second_start) {
     diskio::DataTier tier = diskio::diskTier;
 
     dataStore->populateObjectDB(1000, 0, diskId, tier);
-    err = tokenCompactor->startCompaction(tokId, diskId, tier, std::bind(
+    err = tokenCompactor->startCompaction(tokId, diskId, tier, false, std::bind(
         &SmTokenCompactorTest::compactionDoneCb, this,
         std::placeholders::_1, std::placeholders::_2));
     EXPECT_TRUE(err.ok());
 
     // try to start compaction again
-    err = tokenCompactor->startCompaction(tokId, diskId, tier, std::bind(
+    err = tokenCompactor->startCompaction(tokId, diskId, tier, false, std::bind(
         &SmTokenCompactorTest::compactionDoneCb, this,
         std::placeholders::_1, std::placeholders::_2));
     EXPECT_EQ(err, ERR_NOT_READY);

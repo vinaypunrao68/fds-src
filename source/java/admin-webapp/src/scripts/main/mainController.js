@@ -25,7 +25,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
             id: 'activity', 
             link: 'homepage.activity', 
             text: $filter( 'translate' )('activities.title' ), 
-            iconClass: 'icon-activity_pulse', 
+            iconClass: 'icon-activity', 
             selected: false },
         { 
             id: 'system', 
@@ -37,6 +37,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
         { 
             id: 'volumes', 
             link: 'homepage.volumes', 
+            data: { state: 'list' },
             text: $filter( 'translate' )('volumes.title' ), 
             iconClass: 'icon-volumes', 
             selected: false },
@@ -77,7 +78,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
 
         item.selected = true;
 
-        $state.transitionTo( item.link );
+        $state.transitionTo( item.link, item.data );
     };
 
     $scope.login = function(){

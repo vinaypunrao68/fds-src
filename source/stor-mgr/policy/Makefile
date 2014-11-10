@@ -2,7 +2,13 @@ topdir           := ../..
 user_target      := lib
 user_rtime_env   := user
 user_build_dir   :=
-user_incl_dir    := ../smlib ../include $(topdir) $(topdir)/stor-mgr/migrations $(topdir)/lib
+user_incl_dir    := \
+	../smlib \
+	../include \
+	$(topdir) \
+	$(topdir)/stor-mgr/migrations \
+	$(topdir)/lib \
+	/usr/include/cryptopp
 
 user_cpp         :=               \
     policy_rpc.cpp                \

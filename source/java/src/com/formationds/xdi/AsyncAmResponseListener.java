@@ -8,6 +8,7 @@ import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -22,7 +23,8 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
     public AsyncAmResponseListener(long timeout, TimeUnit timeUnit) {
         this.pending = CacheBuilder.newBuilder()
                 .removalListener(notification -> {
-                    if (notification.getCause().equals(RemovalCause.EXPIRED)) {
+                    if (notification.getCause()
+                            .equals(RemovalCause.EXPIRED)) {
                         ((CompletableFuture) notification.getValue()).completeExceptionally(new TimeoutException());
                     }
                 })
@@ -36,11 +38,6 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
         return cf;
     }
 
-    @Override
-    public void statBlobResponse(RequestId requestId, BlobDescriptor blobDescriptor) throws TException {
-        complete(requestId, blobDescriptor);
-    }
-
     private <T> void complete(RequestId requestId, T tee) {
         CompletableFuture cf = pending.getIfPresent(requestId);
         if (cf == null) {
@@ -52,7 +49,22 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
     }
 
     @Override
-    public void startBlobTxResponse(RequestId requestId, TxDescriptor txDescriptor) {
+    public void attachVolumeResponse(RequestId requestId) throws TException {
+        complete(requestId, null);
+    }
+
+    @Override
+    public void volumeContents(RequestId requestId, List<BlobDescriptor> blobDescriptors) throws TException {
+        complete(requestId, blobDescriptors);
+    }
+
+    @Override
+    public void statBlobResponse(RequestId requestId, BlobDescriptor blobDescriptor) throws TException {
+        complete(requestId, blobDescriptor);
+    }
+
+    @Override
+    public void startBlobTxResponse(RequestId requestId, TxDescriptor txDescriptor) throws TException {
         complete(requestId, txDescriptor);
     }
 
