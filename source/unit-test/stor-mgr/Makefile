@@ -19,7 +19,7 @@ user_cpp          := \
 user_no_style     :=
 
 user_bin_exe      := \
-    ObjectStoreUnitTest \
+    sm_objectstore_gtest \
     ObjectStoreLoadTest \
     sm_load_test        \
     metastore_unit_test \
@@ -30,7 +30,7 @@ user_bin_exe      := \
     smtokcompactor_gtest \
     smtoken_state_gtest
 
-ObjectStoreUnitTest := object_store_unit_test.cpp
+sm_objectstore_gtest   := object_store_unit_test.cpp
 ObjectStoreLoadTest := object_store_load_test.cpp
 metastore_unit_test := metastore_unit_test.cpp
 smdiskmap_unit_test := sm_disk_map_test.cpp

@@ -35,10 +35,6 @@ class ObjStatsTracker : public Module {
      void mod_startup();
      void mod_shutdown();
 
-     /*
-      * get the start time 
-      */
-     CounterHist8bit *objStats;
      /*  per volume lock */
      fds_mutex *objStatsMapLock;
 
