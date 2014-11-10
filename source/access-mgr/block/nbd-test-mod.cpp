@@ -20,6 +20,7 @@
 namespace fds {
 
 NbdSmMod                     gl_NbdSmMod;
+NbdDmMod                     gl_NbdDmMod;
 
 /**
  * nbd_vol_read
@@ -104,4 +105,102 @@ NbdSmVol::nbd_vol_read_cb(NbdBlkIO                    *vio,
 {
 }
 
-}  // namespace fds
+/**
+ * nbd_vol_read
+ * ------------
+ */
+void
+NbdDmVol::nbd_vol_read(NbdBlkIO *vio)
+{
+}
+
+/**
+ * nbd_vol_write
+ * -------------
+ */
+void
+NbdDmVol::nbd_vol_write(NbdBlkIO *vio)
+{
+    ssize_t             len, off;
+    NbdDmVol::ptr       vol;
+    std::stringstream   ss;
+    fpi::FDSP_BlobObjectInfo    blob;
+    fpi::UpdateCatalogOnceMsgPtr    upcat(bo::make_shared<fpi::UpdateCatalogOnceMsg>());
+
+    vol = vio->nbd_vol;
+    upcat->blob_name.assign(vol->vol_name);
+
+    upcat->blob_version = blob_version_invalid;
+    upcat->volume_id    = vol->vol_uuid;
+    upcat->txId         = vol->vio_txid++;
+    upcat->blob_mode    = false;
+
+    off = vio->nbd_cur_off & ~vol->vol_blksz_mask;
+    len = vio->nbd_cur_len + (vio->nbd_cur_len & vol->vol_blksz_mask);
+
+    while (len > 0) {
+        ss << off;
+        blob.offset             = off;
+        blob.size               = vol->vol_blksz_mask;
+        blob.data_obj_id.digest = ss.str();
+
+        if (len > vol->vol_blksz_byte) {
+            len -= vol->vol_blksz_byte;
+            off += vol->vol_blksz_byte;
+        } else {
+            len = 0;
+        }
+        upcat->obj_list.push_back(blob);
+    }
+    auto dmtMgr = BlockMod::blk_singleton()->blk_amc->om_client->getDmtManager();
+    auto upcat_req = gSvcRequestPool->newQuorumSvcRequest(
+                bo::make_shared<DmtVolumeIdEpProvider>(
+                    dmtMgr->getCommittedNodeGroup(vol->vol_uuid)));
+
+    upcat_req->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), upcat);
+    upcat_req->onResponseCb(RESPONSE_MSG_HANDLER(NbdBlkVol::nbd_vol_write_cb, vio));
+    upcat_req->invoke();
+
+    vio->aio_wait(&vol_mtx, &vol_waitq);
+}
+
+/**
+ * nbd_vol_write_cb
+ * ----------------
+ */
+void
+NbdDmVol::nbd_vol_write_cb(NbdBlkIO                    *vio,
+                           QuorumSvcRequest            *svcreq,
+                           const Error                 &err,
+                           bo::shared_ptr<std::string>  payload)
+{
+    vio->aio_wakeup(&vol_mtx, &vol_waitq);
+}
+
+/**
+ * blk_alloc_vol
+ * -------------
+ */
+BlkVol::ptr
+NbdDmMod::blk_alloc_vol(const blk_vol_creat_t *r)
+{
+    if (ev_prim_loop == NULL) {
+        ev_prim_loop = EV_DEFAULT;
+        return new NbdDmVol(r, ev_prim_loop);
+    }
+    return new NbdDmVol(r, ev_loop_new(0));
+}
+
+/**
+ * nbd_vol_read_cb
+ * ------------
+ */
+void
+NbdDmVol::nbd_vol_read_cb(NbdBlkIO                     *vio,
+                          FailoverSvcRequest           *svcreq,
+                          const Error                  &err,
+                          bo::shared_ptr<std::string>  payload)
+{
+}
+
+}   // namespace fds

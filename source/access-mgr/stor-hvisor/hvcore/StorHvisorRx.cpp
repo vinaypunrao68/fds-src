@@ -94,7 +94,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                     blobReq->blob_offset,
                     (fds_uint32_t)blobReq->data_len,
                     blobReq->obj_id,
-                    blobReq->isLastBuf());
+                    blobReq->last_buf);
                 fds_verify(err == ERR_OK);
 
                 // Mark the IO complete
@@ -265,7 +265,7 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
                       << " received min DM acks";
             fds::AmRequest *blobReq  = static_cast<fds::AmRequest *>(txn->io);
             fds_verify(blobReq != NULL);
-            fds_verify(blobReq->getIoType() == FDS_DELETE_BLOB);
+            fds_verify(blobReq->io_type == FDS_DELETE_BLOB);
             LOGDEBUG << "Responding to deleteBlob trans " << transId
                       <<" for blob " << blobReq->getBlobName()
                       << " with result " << rxMsg->result;

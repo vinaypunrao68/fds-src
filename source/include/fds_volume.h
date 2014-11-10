@@ -131,7 +131,7 @@ class VolumeDesc : public HasState {
     fds_volid_t getLookupVolumeId() const;
 
     friend std::ostream& operator<<(std::ostream& out, const VolumeDesc& vol_desc);
-    fpi::ResourceState getState() {
+    fpi::ResourceState getState() const {
         return state;
     }
 

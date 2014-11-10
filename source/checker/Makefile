@@ -12,7 +12,8 @@ user_incl_dir     := \
 	$(topdir)/lib \
     $(topdir)/am-app/include \
 	$(topdir)/lib \
-	$(topdir)/unit-test/stor-mgr
+	$(topdir)/unit-test/stor-mgr \
+	/usr/include/cryptopp
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
@@ -38,6 +39,6 @@ user_cpp          := checker.cpp dm_checker.cpp smchk.cpp
 user_bin_exe      := checker dm_checker smchk
 checker		  := checker.cpp
 dm_checker    := dm_checker.cpp
-smchk         := smchk.cpp
+smchk         := smchk.cpp smchk_driver.cpp
 
 include $(topdir)/Makefile.incl

@@ -18,7 +18,7 @@ import java.util.List;
 public class StatisticsBuilderTest {
   private static final String EXPECTED_NAME =
     "TestVolume %s";
-  private static final long EXPECTED_LIMIT = 300;
+  private static final long EXPECTED_LIMIT = 100;
   private static final long EXPECTED_SLA = 0;
   private static final int EXPECTED_PRIORITY = 10;
 

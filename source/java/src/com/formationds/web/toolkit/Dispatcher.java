@@ -79,7 +79,7 @@ public class Dispatcher extends HttpServlet {
         } catch (UsageException e) {
             resource = new JsonResource(new JSONObject().put("message", e.getMessage()), HttpServletResponse.SC_BAD_REQUEST);
         } catch (Throwable t) {
-                LOG.fatal(t.getMessage(), t);
+            LOG.fatal(t.getMessage(), t);
             resource = new ErrorPage(t.getMessage(), t);
         }
 

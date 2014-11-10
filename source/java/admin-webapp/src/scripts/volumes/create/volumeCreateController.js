@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$rootScope', '$volume_api', '$snapshot_service', '$modal_data_service', '$http_fds', function( $scope, $rootScope, $volume_api, $snapshot_service, $modal_data_service, $http_fds ){
+angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$rootScope', '$volume_api', '$snapshot_service', '$modal_data_service', '$http_fds', '$filter', function( $scope, $rootScope, $volume_api, $snapshot_service, $modal_data_service, $http_fds, $filter ){
 
     var creationCallback = function( volume, newVolume ){
 
@@ -109,6 +109,32 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         $volume_api.save( volume, function( savedVolume ){} );
         
         $scope.cancel();
+    };
+    
+    $scope.deleteVolume = function(){
+        
+        var confirm = {
+            type: 'CONFIRM',
+            text: $filter( 'translate' )( 'volumes.desc_confirm_delete' ),
+            confirm: function( result ){
+                if ( result === false ){
+                    return;
+                }
+                
+                $volume_api.delete( $scope.volumeVars.selectedVolume,
+                    function(){ 
+                        var $event = {
+                            type: 'INFO',
+                            text: $filter( 'translate' )( 'volumes.desc_volume_deleted' )
+                        };
+
+                        $rootScope.$emit( 'fds::alert', $event );
+                        $scope.cancel();
+                });
+            }
+        };
+        
+        $rootScope.$emit( 'fds::confirm', confirm );
     };
     
     $scope.save = function(){

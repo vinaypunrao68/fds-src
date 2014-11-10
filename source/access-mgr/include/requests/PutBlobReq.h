@@ -14,29 +14,31 @@ namespace fds
 
 struct StorHvQosCtrl;
 
-struct PutBlobReq: public AmRequest {
-  public:
+struct PutBlobReq
+    :   public AmRequest,
+        public AmTxReq
+{
     // TODO(Andrew): Fields that could use some cleanup.
     // We can mostly remove these with the new callback mechanism
     BucketContext *bucket_ctxt;
-    std::string ObjKey;
-    PutPropertiesPtr putProperties;
     void *req_context;
     void *callback_data;
-    fds_bool_t lastBuf;
+    fds_bool_t last_buf;
 
     // Needed fields
-    BlobTxId::ptr tx_desc;
-    fds_uint64_t dmtVersion;
+    fds_uint64_t dmt_version;
+
+    /// Shared pointer to data. If this is used, the inherited raw pointer is NULL
+    boost::shared_ptr<std::string> dataPtr;
 
     /// Used for putBlobOnce scenarios.
     boost::shared_ptr< std::map<std::string, std::string> > metadata;
-    fds_int32_t blobMode;
+    fds_int32_t blob_mode;
 
     /* ack cnt for responses, decremented when response from SM and DM come back */
-    std::atomic<int> respAcks;
+    std::atomic<int> resp_acks;
     /* Return status for completion callback */
-    Error retStatus;
+    Error ret_status;
 
     /// Constructor used on regular putBlob requests.
     PutBlobReq(fds_volid_t _volid,
@@ -44,7 +46,7 @@ struct PutBlobReq: public AmRequest {
                const std::string& _blob_name,
                fds_uint64_t _blob_offset,
                fds_uint64_t _data_len,
-               char* _data_buf,
+               boost::shared_ptr<std::string> _data,
                BlobTxId::ptr _txDesc,
                fds_bool_t _last_buf,
                BucketContext* _bucket_ctxt,
@@ -58,21 +60,13 @@ struct PutBlobReq: public AmRequest {
                const std::string&   _blob_name,
                fds_uint64_t         _blob_offset,
                fds_uint64_t         _data_len,
-               char*                _data_buf,
+               boost::shared_ptr<std::string> _data,
                fds_int32_t          _blobMode,
                boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
                CallbackPtr _cb);
 
-    fds_bool_t isLastBuf() const {
-        return lastBuf;
-    }
-
     std::string getEtag() const {
-        std::string etag = "";
-        if (putProperties != NULL) {
-            etag = putProperties->md5;
-        }
-        return etag;
+        return put_properties ? put_properties->md5 : std::string();
     }
 
     void setTxId(const BlobTxId &txId) {
@@ -85,6 +79,9 @@ struct PutBlobReq: public AmRequest {
 
     void notifyResponse(const Error &e);
     void notifyResponse(StorHvQosCtrl *qos_ctrl, const Error &e);
+
+ private:
+    PutPropertiesPtr put_properties;
 };
 
 }  // namespace fds

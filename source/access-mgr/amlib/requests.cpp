@@ -19,10 +19,10 @@ const fds_uint64_t VolumeStatsReq::fds_sh_volume_stats_magic;
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        const std::string& _volumeName,
                        const std::string& _blob_name,  // same as objKey
+                       CallbackPtr cb,
                        fds_uint64_t _blob_offset,
                        fds_uint64_t _data_len,
-                       char* _data_buf,
-                       CallbackPtr cb)
+                       char* _data_buf)
     : AmRequest(FDS_GET_BLOB, _volid, _volumeName, _blob_name, cb, _blob_offset,
                  _data_len, _data_buf) {
     stopwatch.start();
@@ -52,25 +52,25 @@ GetBlobReq::~GetBlobReq()
 
 PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        const std::string& _volName,
-                       const std::string& _blob_name,  // same as objKey
+                       const std::string& _blob_name,
                        fds_uint64_t _blob_offset,
                        fds_uint64_t _data_len,
-                       char* _data_buf,
+                       boost::shared_ptr<std::string> _data,
                        BlobTxId::ptr _txDesc,
                        fds_bool_t _last_buf,
                        BucketContext* _bucket_ctxt,
                        PutPropertiesPtr _put_props,
                        void* _req_context,
                        CallbackPtr _cb) :
-    AmRequest(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len, _data_buf),
-    lastBuf(_last_buf),
+AmRequest(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len, NULL),
+    AmTxReq(_txDesc),
+    last_buf(_last_buf),
     bucket_ctxt(_bucket_ctxt),
-    ObjKey(_blob_name),
-    putProperties(_put_props),
+    put_properties(_put_props),
     req_context(_req_context),
-    tx_desc(_txDesc),
-    respAcks(2),
-    retStatus(ERR_OK)
+    resp_acks(2),
+    ret_status(ERR_OK),
+    dataPtr(_data)
 {
     stopwatch.start();
 
@@ -94,21 +94,20 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
 
 PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                        const std::string&   _volName,
-                       const std::string&   _blob_name,  // same as objKey
+                       const std::string&   _blob_name,
                        fds_uint64_t         _blob_offset,
                        fds_uint64_t         _data_len,
-                       char*                _data_buf,
+                       boost::shared_ptr<std::string> _data,
                        fds_int32_t          _blobMode,
                        boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
                        CallbackPtr _cb) :
     AmRequest(FDS_PUT_BLOB_ONCE, _volid, _volName, _blob_name, _cb,
-              _blob_offset, _data_len, _data_buf),
-    ObjKey(_blob_name),
-    tx_desc(nullptr),
-    blobMode(_blobMode),
+              _blob_offset, _data_len, NULL),
+    blob_mode(_blobMode),
     metadata(_metadata),
-    respAcks(2),
-    retStatus(ERR_OK)
+    resp_acks(2),
+    ret_status(ERR_OK),
+    dataPtr(_data)
 {
     stopwatch.start();
 
@@ -137,8 +136,8 @@ PutBlobReq::~PutBlobReq()
 
 void
 PutBlobReq::notifyResponse(const Error &e) {
-    fds_verify(respAcks > 0);
-    if (0 == --respAcks) {
+    fds_verify(resp_acks > 0);
+    if (0 == --resp_acks) {
         // Call back to processing layer
         proc_cb(e);
     }
@@ -152,11 +151,11 @@ void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl, const Error &e)
      * Most of the case the first error will win.  This should be ok for
      * now, in the event its' not we need a seperate lock here
      */
-    if (retStatus == ERR_OK) {
-        retStatus = e;
+    if (ret_status == ERR_OK) {
+        ret_status = e;
     }
 
-    cnt = --respAcks;
+    cnt = --resp_acks;
 
     fds_assert(cnt >= 0);
     DBG(LOGDEBUG << "cnt: " << cnt << e);

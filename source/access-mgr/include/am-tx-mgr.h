@@ -38,7 +38,7 @@ class AmTxDescriptor {
                                BlobOffsetPairHash> BlobOffsetMap;
     BlobOffsetMap stagedBlobOffsets;
     /// Staged blob object updates for the transaction
-    typedef std::unordered_map<ObjectID, std::string*,
+    typedef std::unordered_map<ObjectID, boost::shared_ptr<std::string>,
                                ObjectHash> BlobObjectMap;
     BlobObjectMap stagedBlobObjects;
 
@@ -127,7 +127,7 @@ class AmTxManager : public Module, public boost::noncopyable {
      */
     Error updateStagedBlobObject(const BlobTxId &txId,
                                  const ObjectID &objectId,
-                                 const char *objectData,
+                                 boost::shared_ptr<std::string> objectData,
                                  fds_uint32_t dataLen);
 
     /**

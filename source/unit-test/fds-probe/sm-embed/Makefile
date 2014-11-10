@@ -5,7 +5,8 @@ user_incl_dir     := \
     $(source_topdir)/lib \
     $(source_topdir)/stor-mgr/include \
     $(source_topdir)/stor-mgr/migrations \
-    $(source_topdir)/persistent_layer/include
+    $(source_topdir)/persistent_layer/include \
+		/usr/include/cryptopp
 
 user_json         := in.json
 user_cpp_flags    :=

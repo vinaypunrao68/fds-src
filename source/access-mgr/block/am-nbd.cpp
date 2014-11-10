@@ -280,6 +280,8 @@ EvBlockMod::mod_init(SysParams const *const p)
 
     if (mod == "sm") {
         gl_BlockMod = &gl_NbdSmMod;
+    } else if (mod == "dm") {
+        gl_BlockMod = &gl_NbdDmMod;
     } else {
         gl_BlockMod = &gl_NbdBlockMod;
     }

@@ -35,7 +35,6 @@ include_directories(source/include
                     source/orch-mgr/
                     source/orch-mgr/include/
                     source/orch-mgr/include/snapshot/
-                    leveldb-1.12.0/include/leveldb/
                     /usr/local/include/boost/
                     source/unit-test/stor-mgr/
                     )
@@ -653,7 +652,6 @@ set(SOURCE_FILES
     leveldb-1.12.0/util/testharness.h
     leveldb-1.12.0/util/testutil.cc
     leveldb-1.12.0/util/testutil.h
-    libconfig-1.4.9/contrib/cmake/CMakeFiles/CompilerIdC/CMakeCCompilerId.c
     libconfig-1.4.9/contrib/cmake/CMakeFiles/CompilerIdCXX/CMakeCXXCompilerId.cpp
     libconfig-1.4.9/contrib/cmake/src/main.cpp
     libconfig-1.4.9/contrib/libconfig-ruby/ext/rconfig.c
@@ -1503,6 +1501,11 @@ set(SOURCE_FILES
     source/osdep/umod-linux/fds-shmem.cpp
     source/osdep/umod-linux/fds-shmtx.cpp
     source/osdep/umod-linux/fds_osdep.c
+    source/persistent_layer/include/dm_io.h
+    source/persistent_layer/include/disk.h
+    source/persistent_layer/include/disk-label.h
+    source/persistent_layer/include/net-platform.h
+    source/persistent_layer/include/disk-capacity.h
     source/persistent_layer/include/persistentdata.h
     source/persistent_layer/include/tokFileMgr.h
     source/persistent_layer/io-lib/dm_index.cpp
@@ -1598,6 +1601,7 @@ set(SOURCE_FILES
     source/stor-mgr/include/TierEngine.h
     source/stor-mgr/include/TierPutAlgorithms.h
     source/stor-mgr/include/TokenCompactor.h
+    source/stor-mgr/include/SmCtrl.h
     source/stor-mgr/migrations/fds_base_migrators.h
     source/stor-mgr/migrations/fds_migration.cpp
     source/stor-mgr/migrations/fds_migration.h

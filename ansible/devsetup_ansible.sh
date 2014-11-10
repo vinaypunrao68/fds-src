@@ -34,6 +34,7 @@ case $? in
                       --inventory ${script_dir}/ansible_hosts 
                       ${script_dir}/playbooks/devsetup.yml"
 
+        sudo chmod -R a+w ~/.ansible
         sudo ansible-playbook ${ansible_args}
 
         if [ $? -eq 0 ]; then
