@@ -44,21 +44,53 @@ def plot_series(series, title = None, ylabel = None, xlabel = "Time [ms]"):
         plt.xlabel(xlabel)
     plt.show()
 
+def get_fio(of):
+    with open(of, "r") as f:
+        rbw = 0.0
+        riops = 0.0
+        rclat = 0.0
+        wbw = 0.0
+        wiops = 0.0
+        wclat = 0.0
+        cntr = 0
+        for l in f:
+            tokens = l.rstrip("\n").split(";")
+            rbw += float(tokens[6])
+            riops += float(tokens[7])
+            rclat += float(tokens[15])
+            wbw += float(tokens[47])
+            wiops += float(tokens[48])
+            wclat += float(tokens[55])
+            cntr += 1
+    output = { 
+                    "rbw" : rbw, 
+                    "riops" : riops, 
+                    "rclat" : rclat/cntr, 
+                    "wbw" : wbw, 
+                    "wiops" : wiops, 
+                    "wclat" : wclat/cntr
+                    }
+    return output    
+        
 def get_avglat():
     outfiles = get_outfiles()
     lats = []
     for of in outfiles:        
         if options.ab_enable:
             cmd = "grep 'Time per request' %s |head -1| awk '{print $4}'" % (of)
+            lat = float(os.popen(cmd).read().rstrip('\n'))
         elif options.block_enable:
             return None
         elif options.java_tester:
             cmd ="cat %s |grep Average| awk '{e+=$4; c+=1}END{print e/c*1e-6}'" % (of)
+            lat = float(os.popen(cmd).read().rstrip('\n'))
+        elif options.fio_enable:
+            lat = (get_fio(of)["rclat"] + get_fio(of)["wclat"]) / 2
+            lat = lat * 1e-3
         else:
             # cmd = "cat %s | grep Summary |awk '{print $17}'" % (of)
             cmd = "cat %s | grep Summary | awk '{e+=$17 ; i+=1}END{print e/i}'" % (of)
-
-        lat = float(os.popen(cmd).read().rstrip('\n'))
+            lat = float(os.popen(cmd).read().rstrip('\n'))
         lats.append(lat)
     return sum(lats)/len(lats)
 
@@ -82,15 +114,20 @@ def get_avgth():
     for of in outfiles:        
         if options.ab_enable:
             cmd = "grep 'Requests per second' %s | awk '{print $4}'" % (of)
+            th = float(os.popen(cmd).read().rstrip('\n'))
         elif options.block_enable:
             cmd = "cat %s | grep 'Experiment result' | awk '{print $11}'" % (of)
+            th = float(os.popen(cmd).read().rstrip('\n'))
         elif options.java_tester:
             cmd = "cat %s | grep IOPs | awk '{e+=$2}END{print e}'" % (of)    
+            th = float(os.popen(cmd).read().rstrip('\n'))
+        elif options.fio_enable:
+            th = (get_fio(of)["riops"] + get_fio(of)["wiops"]) / 2
         else:         
             # cmd = "cat %s | grep Summary |awk '{print $15}'" % (of)
             cmd = "cat %s | grep Summary |awk '{e+=$15}END{print e}'" % (of)
+            th = float(os.popen(cmd).read().rstrip('\n'))
 
-        th = float(os.popen(cmd).read().rstrip('\n'))
         ths.append(th)
     return sum(ths)/len(ths)    
 
@@ -281,6 +318,7 @@ def main():
                       help = "List of FDS nodes (for monitoring)")
     parser.add_option("-c", "--config-descr-tag", dest = "config_descr_tag", default = "amcache",
                       help = "Config description tag")
+    parser.add_option("-F", "--fio-enable", dest = "fio_enable", action = "store_true", default = False, help = "FIO mode")
     global options
     (options, args) = parser.parse_args()
     compute_pidmap()

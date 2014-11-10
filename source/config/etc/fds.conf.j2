@@ -1,9 +1,11 @@
+{% extends 'fds_config_defaults.j2' %}
+{% block content %}
 worker_processes  1;
 daemon            off;
 master_process    off;
 error_log         logs/error.log error;
 pid               logs/nginx.pid;
- 
+
 events {
     worker_connections  4096;  ## Default: 1024
 }
@@ -24,3 +26,4 @@ http {
         listen       8080;
     }
 }
+{% endblock %}

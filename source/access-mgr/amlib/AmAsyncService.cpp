@@ -25,7 +25,7 @@ AsyncDataServer::AsyncDataServer(const std::string &name,
           asyncDataApi(_dataApi),
           numServerThreads(10) {
     serverTransport.reset(new xdi_att::TServerSocket(port));
-    transportFactory.reset(new xdi_att::TBufferedTransportFactory());
+    transportFactory.reset(new xdi_att::TFramedTransportFactory());
     protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
 
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
@@ -73,20 +73,20 @@ AsyncDataServer::init_server() {
         asyncDataApi));
     // event_handler_.reset(new ServerEventHandler(*this));
 
-    nbServer.reset(new xdi_ats::TNonblockingServer(
-        processor, protocolFactory, port, threadManager));
-    // server.reset(new xdi_ats::TThreadedServer(processor,
-    //                                       serverTransport,
-    //                                        transportFactory,
-    //                                        protocolFactory));
+    // nbServer.reset(new xdi_ats::TNonblockingServer(
+    // processor, protocolFactory, port, threadManager));
+    ttServer.reset(new xdi_ats::TThreadedServer(processor,
+                                                serverTransport,
+                                                transportFactory,
+                                                protocolFactory));
 
     try {
         LOGNORMAL << "Starting the async data server with " << numServerThreads
                   << " server threads...";
-        listen_thread.reset(new boost::thread(&xdi_ats::TNonblockingServer::serve,
-                                              nbServer.get()));
-        // listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
-        //                                   server.get()));
+        // listen_thread.reset(new boost::thread(&xdi_ats::TNonblockingServer::serve,
+        //                                   nbServer.get()));
+        listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
+                                              ttServer.get()));
     } catch(const xdi_att::TTransportException& e) {
         LOGERROR << "unable to start async data server : " << e.what();
         fds_panic("Unable to start async data server...bailing out");

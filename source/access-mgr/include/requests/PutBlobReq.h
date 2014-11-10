@@ -28,6 +28,9 @@ struct PutBlobReq
     // Needed fields
     fds_uint64_t dmt_version;
 
+    /// Shared pointer to data. If this is used, the inherited raw pointer is NULL
+    boost::shared_ptr<std::string> dataPtr;
+
     /// Used for putBlobOnce scenarios.
     boost::shared_ptr< std::map<std::string, std::string> > metadata;
     fds_int32_t blob_mode;
@@ -43,7 +46,7 @@ struct PutBlobReq
                const std::string& _blob_name,
                fds_uint64_t _blob_offset,
                fds_uint64_t _data_len,
-               char* _data_buf,
+               boost::shared_ptr<std::string> _data,
                BlobTxId::ptr _txDesc,
                fds_bool_t _last_buf,
                BucketContext* _bucket_ctxt,
@@ -57,7 +60,7 @@ struct PutBlobReq
                const std::string&   _blob_name,
                fds_uint64_t         _blob_offset,
                fds_uint64_t         _data_len,
-               char*                _data_buf,
+               boost::shared_ptr<std::string> _data,
                fds_int32_t          _blobMode,
                boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
                CallbackPtr _cb);

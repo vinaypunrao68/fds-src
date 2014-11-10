@@ -316,10 +316,10 @@ AmDataApi::getBlob(std::string& _return,
     AmRequest *blobReq= new GetBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
+                                        SHARED_DYN_CAST(Callback, getHandler),
                                         static_cast<fds_uint64_t>(objectOffset->value),
                                         *length,
-                                        buf,
-                                        SHARED_DYN_CAST(Callback, getHandler));
+                                        buf);
     storHvisor->enqueueBlobReq(blobReq);
 
     // Wait for a signal from the callback thread
@@ -422,14 +422,14 @@ AmDataApi::updateBlobOnce(boost::shared_ptr<std::string>& domainName,
         boost::make_shared<UpdateBlobResponseHandler>());
 
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
-                                         *volumeName,
-                                         *blobName,
-                                         static_cast<fds_uint64_t>(objectOffset->value),
-                                         *length,
-                                         const_cast<char *>(bytes->c_str()),
-                                         *blobMode,
-                                         metadata,
-                                         putHandler);
+                                        *volumeName,
+                                        *blobName,
+                                        static_cast<fds_uint64_t>(objectOffset->value),
+                                        *length,
+                                        bytes,
+                                        *blobMode,
+                                        metadata,
+                                        putHandler);
     storHvisor->enqueueBlobReq(blobReq);
 
     // Wait for a signal from the callback thread
@@ -493,17 +493,17 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
         txDesc->txId));
 
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
-                                         *volumeName,
-                                         *blobName,
-                                         static_cast<fds_uint64_t>(objectOffset->value),
-                                         *length,
-                                         const_cast<char *>(bytes->c_str()),
-                                         blobTxDesc,
-                                         *isLast,
-                                         &bucket_ctx,
-                                         NULL,
-                                         NULL,
-                                         putHandler);
+                                        *volumeName,
+                                        *blobName,
+                                        static_cast<fds_uint64_t>(objectOffset->value),
+                                        *length,
+                                        bytes,
+                                        blobTxDesc,
+                                        *isLast,
+                                        &bucket_ctx,
+                                        NULL,
+                                        NULL,
+                                        putHandler);
     storHvisor->enqueueBlobReq(blobReq);
 
     // Wait for a signal from the callback thread

@@ -116,6 +116,7 @@ Error StorMgrVolume::deleteVolIndexEntry(fds_volid_t      vol_uuid,
 
 StorMgrVolumeTable::StorMgrVolumeTable() {
     created_log = false;
+    parent_sm = NULL;
 }
 
 /* creates its own logger */
