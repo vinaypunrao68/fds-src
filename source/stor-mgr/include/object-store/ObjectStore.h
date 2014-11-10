@@ -60,6 +60,7 @@ class ObjectStore : public Module, public boost::noncopyable {
                 StorMgrVolumeTable* volTbl);
     ~ObjectStore();
     typedef std::unique_ptr<ObjectStore> unique_ptr;
+    typedef std::shared_ptr<ObjectStore> ptr;
 
     /**
      * Notification about DLT change
@@ -124,7 +125,8 @@ class ObjectStore : public Module, public boost::noncopyable {
      * to new file from the file that is being garbage collected
      */
     Error copyObjectToNewLocation(const ObjectID& objId,
-                                  diskio::DataTier tier);
+                                  diskio::DataTier tier,
+                                  fds_bool_t verifyData);
 
 
     /**

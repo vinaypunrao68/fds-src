@@ -47,4 +47,5 @@ angular.module( 'base' ).factory( '$time_converter', [ '$filter', function( $fil
         }
     };
     
+    return service;
 }]);

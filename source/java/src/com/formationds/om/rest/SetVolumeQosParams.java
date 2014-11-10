@@ -12,6 +12,7 @@ import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.xdi.Xdi;
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -22,14 +23,14 @@ import java.util.Map;
 public class SetVolumeQosParams implements RequestHandler {
     private FDSP_ConfigPathReq.Iface client;
     private ConfigurationService.Iface configService;
-    private AmService.Iface amService;
+    private Xdi xdi;
     private Authorizer authorizer;
     private AuthenticationToken token;
 
-    public SetVolumeQosParams(FDSP_ConfigPathReq.Iface legacyClient, ConfigurationService.Iface configService, AmService.Iface amService, Authorizer authorizer, AuthenticationToken token) {
+    public SetVolumeQosParams(Xdi xdi, FDSP_ConfigPathReq.Iface legacyClient, ConfigurationService.Iface configService, Authorizer authorizer, AuthenticationToken token) {
         this.client = legacyClient;
         this.configService = configService;
-        this.amService = amService;
+        this.xdi = xdi;
         this.authorizer = authorizer;
         this.token = token;
     }
@@ -55,7 +56,7 @@ public class SetVolumeQosParams implements RequestHandler {
 
         FDSP_VolumeDescType volInfo = setVolumeQos(client, volumeName, minIops, priority, maxIops);
         VolumeDescriptor descriptor = configService.statVolume("", volumeName);
-        JSONObject o = ListVolumes.toJsonObject(descriptor, volInfo, amService.volumeStatus("", volumeName));
+        JSONObject o = ListVolumes.toJsonObject(descriptor, volInfo, xdi.statVolume(token, "", volumeName));
         return new JsonResource(o);
     }
 

@@ -90,7 +90,7 @@ static const blob_version_t blob_version_deleted =
 static const uint OBJECTID_DIGESTLEN = 20;
 class ObjectID : public serialize::Serializable {
   private:
-    uint8_t  digest[OBJECTID_DIGESTLEN];
+    alignas(8) uint8_t  digest[OBJECTID_DIGESTLEN];
 
   public:
     ObjectID();
@@ -119,7 +119,7 @@ class ObjectID : public serialize::Serializable {
     }
 
    /*
-    * bit mask. this will help to boost the performance 
+    * bit mask. this will help to boost the performance
     */
 
     fds_uint64_t getTokenBits(fds_uint32_t numBits) const;
@@ -242,6 +242,8 @@ typedef enum {
     FDS_SM_READ_OBJECTMETADATA,
     FDS_SM_COMPACT_OBJECTS,
     FDS_SM_ADD_OBJECT_REF,
+    FDS_SM_TIER_WRITEBACK_OBJECTS,
+    FDS_SM_TIER_PROMOTE_OBJECTS,
     FDS_DM_SNAP_VOLCAT,
     FDS_DM_SNAPDELTA_VOLCAT,
     FDS_DM_FWD_CAT_UPD,
@@ -301,15 +303,6 @@ typedef enum {
 }  // namespace blob
 
 }  // namespace fds
-
-namespace std {
-template <>
-struct hash<fds::ObjectID> {
-    std::size_t operator()(const fds::ObjectID oid) const {
-        return std::hash<std::string>()(oid.ToHex());
-    }
-};
-}  // namespace std
 
 /*
  * NOTE!!! include only std typedefs here. Dont use any fds objects !!!!

@@ -25,6 +25,7 @@ linux-*
 /source/net-proxies/*_server.c
 /source/net-proxies/*_xdr.c
 /source/include/fdsp/*
+/source/unit-test/fds-probe/am/in.h
 /source/unit-test/fds-probe/s3-template/o.h
 /source/unit-test/fds-probe/thrift/thrift-gen/*
 source/unit-test/fds-probe/thrift/server/endpoint-test.P
@@ -106,6 +107,8 @@ chef/nodes
 chef/vagrant/*/.vagrant/*
 source/java/${project.build.dir}
 source/test/.idea
+source/test/formation.conf
+source/config/etc/*.conf
 ansible/resources/*
 files_after_smoke_test
 files_after_starting_fds

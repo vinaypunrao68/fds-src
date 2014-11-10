@@ -304,7 +304,10 @@ Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
         return rc;
     }
 
-    if (startOffset >= blobSize) {
+    if (0 == blobSize) {
+        // empty blob
+        return rc;
+    } else if (startOffset >= blobSize) {
         return ERR_CAT_ENTRY_NOT_FOUND;
     } else if (endOffset >= static_cast<fds_int64_t>(blobSize)) {
         endOffset = -1;
@@ -356,12 +359,15 @@ Error DmVolumeDirectory::listBlobs(fds_volid_t volId, fpi::BlobInfoListType* bin
 Error DmVolumeDirectory::putBlobMeta(fds_volid_t volId, const std::string& blobName,
         const MetaDataList::const_ptr& metaList, const BlobTxId::const_ptr& txId) {
     LOGDEBUG << "Will commit metadata for volume '" << std::hex << volId << std::dec <<
-            "' blob '" << blobName << "' " << *metaList;
+            "' blob '" << blobName << "'";
 
     BlobMetaDesc blobMeta;
     Error rc = getBlobMetaDesc(volId, blobName, blobMeta);
     if (rc.ok() || rc == ERR_CAT_ENTRY_NOT_FOUND) {
-        mergeMetaList(blobMeta.meta_list, *metaList);
+        if (metaList) {
+            LOGDEBUG << "Adding metadata " << *metaList;
+            mergeMetaList(blobMeta.meta_list, *metaList);
+        }
         blobMeta.desc.version += 1;
         if (ERR_CAT_ENTRY_NOT_FOUND == rc) {
             blobMeta.desc.blob_name = blobName;
@@ -374,7 +380,7 @@ Error DmVolumeDirectory::putBlobMeta(fds_volid_t volId, const std::string& blobN
 
     if (!rc.ok()) {
         LOGERROR << "Failed to update blob metadata volume: '" << std::hex << volId
-                << std::dec << "' blob: '" << blobName << "' " << *metaList;
+                << std::dec << "' blob: '" << blobName << "'";
     }
 
     return rc;

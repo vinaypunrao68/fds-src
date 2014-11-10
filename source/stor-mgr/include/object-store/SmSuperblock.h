@@ -226,6 +226,10 @@ struct SmSuperblock {
     SmSuperblockHeader Header;
     ObjectLocationTable olt;
     TokenDescTable tokTbl;
+
+    /* Pad the superblock for future extensibility.
+     */
+    char SmSuperblockPadding[2048];
 };
 
 /* compile time assert to check that the superblock header is properly aligned

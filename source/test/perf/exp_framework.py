@@ -6,6 +6,7 @@ import paramiko
 import SocketServer
 import multiprocessing
 import threading
+import Queue
 import tempfile
 import shutil
 import datetime
@@ -20,7 +21,6 @@ sys.path.append('../../tools/fdsconsole/contexts')
 sys.path.append('../../tools/fdsconsole')
 sys.path.append('../../tools')
 from SvcHandle import SvcMap
-from svchelper import *
 
 def get_myip():
     cmd = "ifconfig| grep '10\.1' | awk -F '[: ]+' '{print $4}'"
@@ -68,6 +68,7 @@ def transfer_file(node, local_f, remote_f, mode):
 
 # TODO: change all execute_simple in ssh_exec... should work the same!
 def ssh_exec(node, cmd):
+    print "ssh_exec on",node,"->",cmd
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(node, username='root', password='passwd')
@@ -236,12 +237,19 @@ class CounterServer:
 
 
 class CounterServerPull:
-    def __init__(self, outdir, options):
+    def __init__(self, outdir, options, opt_outfile =  None):
         self.options = options
+        self.opt_outfile = opt_outfile
         self.outdir = outdir
         self.stop = threading.Event()
-        self.datafile, self.datafname = tempfile.mkstemp(prefix = "counters")
-        self.javafile, self.javafname = tempfile.mkstemp(prefix = "javacounters")
+        if opt_outfile != None:
+            self.datafname = opt_outfile + ".counters"
+            self.datafile = os.open(self.datafname, os.O_RDWR|os.O_CREAT)
+            self.javafname = opt_outfile + ".java_counters"
+            self.javafile = os.open(self.javafname, os.O_RDWR|os.O_CREAT)
+        else:
+            self.datafile, self.datafname = tempfile.mkstemp(prefix = "counters")
+            self.javafile, self.javafname = tempfile.mkstemp(prefix = "javacounters")
         task_args = ("counter_server", self.datafile, self.stop)
         # FIXME: move this in its own function
         self.thread = threading.Thread(target = self._task, args = task_args)
@@ -253,8 +261,7 @@ class CounterServerPull:
         for node in self.options.nodes:
             ip = self.options.nodes[node]
             port=7020
-            svc_map = ServiceMap()
-            svc_map.init(ip, port)
+            svc_map = SvcMap(ip, port)
             svclist = svc_map.list()
             for e in svclist:
                 nodeid, svc, ip = e[0], e[1], e[2]
@@ -298,22 +305,24 @@ class CounterServerPull:
 
 
     def terminate(self):
+        self.stop.set()
+        time.sleep(self.options.counter_pull_rate + 1)
+        if self.opt_outfile != None:
+            return
         # terminate udp server
         #datafile, datafname = self.queue.get()
         directory = self.outdir
         if not os.path.exists(directory):
             os.makedirs(directory)
-        self.stop.set()
-        time.sleep(self.options.counter_pull_rate + 1)
         print "copying counter file", self.datafname
         os.close(self.datafile)
         shutil.move(self.datafname, directory + "/counters.dat")
-        os.chmod(directory + "/counters.dat", 755)
+        os.chmod(directory + "/counters.dat", 777)
         if self.options.java_counters == True:
             print "copying counter file", self.javafname
             os.close(self.javafile)
             shutil.move(self.javafname, directory + "/java_counters.dat")
-            os.chmod(directory + "/java_counters.dat", 755)
+            os.chmod(directory + "/java_counters.dat", 777)
 
 
 class AgentsPidMap:
@@ -393,6 +402,24 @@ class FdsCluster():
             self.pidmap.compute_pid_map()
             time.sleep(10)
 
+    def init_test_once(self, test_name, nvols):
+        print "initializing test for the first time:", test_name
+        if test_name == "tgen" or test_name == "amprobe" or test_name == "tgen_java":
+            for i in range(nvols):
+                requests.put("http://%s:8000/volume%d" % (self.options.nodes[self.options.main_node], i))
+        if test_name == "smoke-test":
+            pass
+        elif test_name == "tgen":
+            self._init_tgen_once()
+        elif test_name == "amprobe":
+            self._init_amprobe_once()
+        elif test_name == "tgen_java":
+            self._init_tgen_java_once()
+        elif test_name == "fio":
+            self._init_fio_once()
+        else:
+            assert False, "Test unknown: " + test_name
+
     def init_test(self, test_name, outdir, test_args = None):
         print "initializing test:", test_name
         self.outdir = outdir
@@ -405,6 +432,10 @@ class FdsCluster():
             self._init_tgen(test_args)
         elif test_name == "amprobe":
             self._init_amprobe(test_args)
+        elif test_name == "tgen_java":
+            self._init_tgen_java(test_args)
+        elif test_name == "fio":
+            self._init_fio(test_args)
         else:
             assert False, "Test unknown: " + test_name
 
@@ -416,6 +447,10 @@ class FdsCluster():
             output = self._run_tgen(test_args)
         elif test_name == "amprobe":
             output = self._run_amprobe(test_args)
+        elif test_name == "tgen_java":
+            output = self._run_tgen_java(test_args)
+        elif test_name == "fio":
+            output = self._run_fio(test_args)
         else:
             assert False, "Test unknown: " + test_name    
         outfile = open(self.outdir + "/test.out", "w")
@@ -428,18 +463,19 @@ class FdsCluster():
         print output
         return output
 
-    def _init_tgen(self, args):
+    def _init_tgen_once(self):
         if self.local_test == True:
             shutil.copyfile(self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py")
             self._loc_exec("rm -f /tmp/fdstrgen*")
         else:
             transfer_file(self.options.test_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
             ssh_exec(self.options.test_node, "rm -f /tmp/fdstrgen*")
-        for i in range(args["nvols"]):
-            requests.put("http://%s:8000/volume%d" % (self.options.nodes[self.options.main_node], i))
+
+    def _init_tgen(self, args):
+        pass
 
     def _run_tgen(self, test_args):
-        cmd = "python3.3 /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d -u -N %s" % (
+        cmd = "python3 /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d -u -N %s" % (
                                                                             test_args["threads"],
                                                                             test_args["nreqs"],
                                                                             test_args["type"],
@@ -456,6 +492,9 @@ class FdsCluster():
         print "-->", output
         return output
 
+    def _init_amprobe_once(self):
+        pass
+
     def _init_amprobe(self, test_args):
         self._init_tgen(test_args)
         # FIXME: maybe redundant
@@ -470,12 +509,84 @@ class FdsCluster():
         of.write(output)
         of.close()
 
+    def _init_tgen_java_once(self):
+        pass
+
+    def _init_tgen_java(self, args):
+        pass
+
+    def _run_tgen_java(self, test_args):
+        def task(node, outs, queue):
+            cmd = "pushd /home/monchier/linux-x86_64.debug/bin && ./trafficgen --n_reqs 100000 --n_files 1000 --outstanding_reqs %d --test_type GET --object_size 4096 --hostname 10.1.10.139 --n_conns %d && popd" % (outs, outs)
+            output = ssh_exec(node, cmd)
+            queue.put(output)
+        
+        # nodes = ["10.1.10.222", "10.1.10.221"]
+        nodes = ["10.1.10.222"]
+        N = test_args["threads"]
+        outs = test_args["outstanding"]
+        threads = []
+        queue = Queue.Queue()
+        for n in nodes:
+            for i in  range(N):
+                t = threading.Thread(target=task, args=(n, outs, queue))
+                t.start()
+                threads.append(t)
+        for t in threads:
+            t.join()
+
+        output = ""
+        while not queue.empty():
+            e = queue.get()
+            output += e + "\n"
+            queue.task_done()
+        return output
+
     def _run_amprobe(self, test_args):
         cmd = "curl -v -X PUT -T /tmp/.am-get.json http://%s:8080" % (self.options.nodes[self.options.main_node])
         output = self._loc_exec(cmd)
         time.sleep(30) # AM probe will keep processing stuff for a while
         cmd = "cat /fds/var/logs/am.*|grep CRITICAL"
         output = ssh_exec(self.options.main_node, cmd)
+        return output
+
+    def _init_fio_once(self):
+        cmd = "/fds/bin/fdscli --volume-create volume0 -i 1 -s 10240 -p 50 -y blk"
+        output = self._loc_exec(cmd)
+        time.sleep(5)
+        if self.local_test == True:
+            cmd = "python nbdadm.py attach %s volume0" + self.options.main_node
+            output = self._loc_exec(cmd)
+        else:
+            shutil.copyfile(self.local_fds_root + "/source/cinder/nbdadm.py", "/root/nbdadm.py")
+            cmd = "python nbdadm.py attach %s volume0" % self.options.main_node
+            output = ssh_exec(self.options.test_node, cmd)
+        time.sleep(5)
+        self.nbdvolume = output.rstrip("\n")
+        print "nbd:", self.nbdvolume
+        cmd = "/fds/bin/fdscli --volume-modify \"volume0\" -s 10240 -g 0 -m 0 -r 10"
+        output = self._loc_exec(cmd)
+        time.sleep(5)
+
+    def _init_fio(self, args):
+        pass
+    def _run_fio(self, test_args):
+        disk = self.nbdvolume
+        bs = test_args["bs"]
+        numjobs = test_args["numjobs"]
+        jobname = test_args["fio_jobname"]
+        rw = test_args["fio_type"]
+        options =   "--name=" + jobname + " " + \
+                    "--rw=" + rw + " " + \
+                    "--filename=" + disk + " " + \
+                    "--bs=" + str(bs) + " " + \
+                    "--numjobs=" + str(numjobs) + " " + \
+                    "--runtime=120 --ioengine=libaio --iodepth=16 --direct=1 --size=10g --minimal "
+        cmd = "fio " + options
+        if self.local_test == True:
+            output = self._loc_exec(cmd)
+        else:
+            output = ssh_exec(self.options.test_node, cmd)
         return output
 
     # FIXME: move to global

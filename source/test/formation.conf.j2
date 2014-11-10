@@ -1,0 +1,26 @@
+{% extends 'fds_config_defaults.j2' %}
+{% block content %}
+#
+# Copyright 2014 Formation Data Systems, Inc.
+#
+[user]
+user_name       = {{ ssh_user }}
+password        = {{ ssh_password }}
+
+# The 'node' section defines a nodes paramters. The section must be prefixed
+# with 'node' but is also used as a unique ID for the node.
+#
+
+{% for host in groups[group_names[0]] %}
+[{{ host }}]
+{{ 'om    ' if host == om_host else 'enable' }}          = true
+ip              = {{ hostvars[host]['ansible_'+fds_default_nic]['ipv4']['address'] if fds_default_nic is defined else om_ip }}
+fds_root        = /fds
+
+{% endfor %}
+
+[sh1]
+# Client uses blk services
+blk             = false
+fds_node        = {{ om_host }}
+{% endblock %}

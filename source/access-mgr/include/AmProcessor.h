@@ -101,13 +101,11 @@ class AmProcessor : public Module, public boost::noncopyable {
      * Processes a delete blob request
      */
     void deleteBlob(AmRequest *amReq);
-    void deleteBlobCb(AmRequest *amReq, const Error& error);
 
     /**
      * Processes a set metadata on blob request
      */
     void setBlobMetadata(AmRequest *amReq);
-    void setBlobMetadataCb(AmRequest *amReq, const Error& error);
 
     /**
      * Processes a stat blob request
@@ -119,7 +117,6 @@ class AmProcessor : public Module, public boost::noncopyable {
      * Processes a volumeContents (aka ListBucket) request
      */
     void volumeContents(AmRequest *amReq);
-    void volumeContentsCb(AmRequest *amReq, const Error& error);
 
     /**
      * Callback for catalog query request
@@ -135,6 +132,11 @@ class AmProcessor : public Module, public boost::noncopyable {
      * Callback for commit blob transaction
      */
     void commitBlobTxCb(AmRequest *amReq, const Error& error);
+
+    /**
+     * Generic callback for a few responses
+     */
+    void genericCb(AmRequest *amReq, const Error& error);
 
   private:
     /// Raw pointer to QoS controller

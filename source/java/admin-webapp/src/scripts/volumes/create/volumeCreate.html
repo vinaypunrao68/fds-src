@@ -19,11 +19,16 @@
         <div ng-include="'scripts/volumes/create/snapshotPolicy.html'" class="add-bottom-space"></div>
     </div>
 
-    <div class="pull-left"style="padding-top: 12px;margin-bottom: 42px;">
+    <div style="padding-top: 12px;margin-bottom: 42px;">
         <button class="btn btn-primary" style="display: inline-block;" ng-click="save()">
             <span ng-show="volumeVars.creating === true" translate>volumes.l_create_volume</span>
             <span ng-show="volumeVars.editing === true" translate>volumes.l_edit_volume</span>
         </button>
         <button class="btn btn-secondary cancel-creation" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
+    </div>
+    
+    <div class="flex" ng-show="volumeVars.editing === true">
+        <span class="icon-delete delete vertical-middle"></span>
+        <a class="delete" ng-click="deleteVolume()" translate>volumes.l_delete_volume</a>
     </div>
 </div>
