@@ -273,18 +273,9 @@ template <class K, class V, class _Hash = std::hash<K>>
             return ERR_NOT_FOUND;
         }
 
-        KvMapEntry existingEntry = mapIt->second;
-        V* value  = existingEntry->second;
-        // Remove the existing map entry since the
-        // iterator into the eviction list is changing
-        cacheMap->erase(mapIt);
-
-        // Move the entry's position to the front
-        // in the eviction list
-        evictionList->erase(existingEntry);
-        KvPair updatedEntry(key, value);
-        evictionList->push_front(updatedEntry);
-        (*cacheMap)[key] = evictionList->begin();
+        evictionList->splice(evictionList->begin(),
+                             *evictionList,
+                             mapIt->second);
 
         return ERR_OK;
     }
