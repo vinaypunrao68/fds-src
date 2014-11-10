@@ -45,14 +45,14 @@ public class SmokeTest {
         String cinderVolumeName = "CinderVol";
         System.out.println("Creating volume " + cinderVolumeName +
                            ", policy: 4KB blocksize");
-        VolumeSettings cinderPolicy = new VolumeSettings(4 * 1024, VolumeType.BLOCK, new Size(20, SizeUnit.GB).totalBytes());
+        VolumeSettings cinderPolicy = new VolumeSettings(4 * 1024, VolumeType.BLOCK, new Size(20, SizeUnit.GB).totalBytes(), 0);
         config.createVolume(DOMAIN_NAME, cinderVolumeName, cinderPolicy, 0);
 
         System.out.println("Attaching volume " + cinderVolumeName);
         am.attachVolume(DOMAIN_NAME, cinderVolumeName);
 
         System.out.println("Creating volume " + VOLUME_NAME + ", policy: 2MB blocksize");
-        VolumeSettings volumePolicy = new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0);
+        VolumeSettings volumePolicy = new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0, 0);
         config.createVolume(DOMAIN_NAME, VOLUME_NAME, volumePolicy, 0);
         Thread.sleep(4000);
 

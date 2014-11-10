@@ -45,7 +45,8 @@ public class CreateSnapshotPolicy
 
         policyId = config.createSnapshotPolicy( policy.getName(),
                                                 policy.getRecurrenceRule().toString(),
-                                                policy.getRetention());
+                                                policy.getRetention(),
+                                                policy.getTimelineTime());
       }
 
       final SnapshotPolicy snapshotPolicy =

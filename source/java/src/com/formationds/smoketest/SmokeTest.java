@@ -156,7 +156,7 @@ public class SmokeTest {
         long volumeId = 0;
         try {
             volumeId = config.getVolumeId(userBucket);
-            config.createSnapshot(volumeId, snapBucket, 0);
+            config.createSnapshot(volumeId, snapBucket, 0, 0);
             sleep(3000);
             List<Snapshot> snaps = config.listSnapshots(volumeId);
             assertEquals(1, snaps.size());
