@@ -14,7 +14,6 @@ namespace fds {
 DMSvcHandler::DMSvcHandler()
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::UpdateCatalogOnceMsg, updateCatalogOnce);
-    REGISTER_FDSP_MSG_HANDLER(fpi::StartBlobTxMsg, startBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::CommitBlobTxMsg, commitBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::AbortBlobTxMsg, abortBlobTx);
@@ -307,70 +306,6 @@ void DMSvcHandler::abortBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // TODO(sanjay) - we will have to revisit  this call
     fpi::AbortBlobTxRspMsg stBlobTxRsp;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(AbortBlobTxRspMsg), stBlobTxRsp);
-
-    delete req;
-}
-
-void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                               boost::shared_ptr<fpi::StartBlobTxMsg>& startBlbTx)
-{
-    if ((dataMgr->testUturnAll == true) ||
-        (dataMgr->testUturnStartTx == true)) {
-        LOGNOTIFY << "Uturn testing start blob tx "
-                  << logString(*asyncHdr) << logString(*startBlbTx);
-        startBlobTxCb(asyncHdr, ERR_OK, NULL);
-    }
-
-    LOGDEBUG << logString(*asyncHdr) << logString(*startBlbTx);
-
-    auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
-                                           startBlbTx->blob_name,
-                                           startBlbTx->blob_version,
-                                           startBlbTx->blob_mode,
-                                           startBlbTx->dmt_version);
-    dmBlobTxReq->dmio_start_blob_tx_resp_cb =
-            BIND_MSG_CALLBACK2(DMSvcHandler::startBlobTxCb, asyncHdr);
-
-    PerfTracer::tracePointBegin(dmBlobTxReq->opReqLatencyCtx);
-    /*
-     * allocate a new  Blob transaction  class and  queue  to per volume queue.
-     */
-    dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
-
-
-    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmBlobTxReq));
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue start blob tx  request "
-                << logString(*asyncHdr) << logString(*startBlbTx);
-        PerfTracer::incr(dmBlobTxReq->opReqFailedPerfEventType, dmBlobTxReq->getVolId(),
-                         dmBlobTxReq->perfNameStr);
-        PerfTracer::tracePointEnd(dmBlobTxReq->opReqLatencyCtx);
-        dmBlobTxReq->dmio_start_blob_tx_resp_cb(err, dmBlobTxReq);
-    }
-}
-
-void DMSvcHandler::startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                 const Error &e, DmIoStartBlobTx *req)
-{
-    /*
-     * we are not sending any response  message  in this call, instead we
-     * will send the status  on async header
-     * TODO(sanjay)- we will have to add  call to  send the response without payload
-     * static response
-     */
-    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    LOGDEBUG << "startBlobTx completed " << e << " " << logString(*asyncHdr);
-
-    // TODO(sanjay) - we will have to revisit  this call
-    fpi::StartBlobTxRspMsg stBlobTxRsp;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StartBlobTxRspMsg), stBlobTxRsp);
-
-    if ((dataMgr->testUturnAll == true) ||
-        (dataMgr->testUturnStartTx == true)) {
-        fds_verify(req == NULL);
-        return;
-    }
 
     delete req;
 }

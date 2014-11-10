@@ -108,6 +108,16 @@ struct QueryCatalogHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
+struct StartBlobTxHandler : Handler {
+    StartBlobTxHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::StartBlobTxMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::StartBlobTxMsg>& message,
+                       Error const& e, dmCatReq* dmRequest);
+};
+
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_
