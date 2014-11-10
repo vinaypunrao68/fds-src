@@ -15,6 +15,7 @@
 #include <fds_types.h>
 #include <blob/BlobTypes.h>
 #include <cache/SharedKvCache.h>
+#include <concurrency/ThreadPool.h>
 
 using namespace fds;    // NOLINT
 
@@ -116,11 +117,11 @@ struct CacheTest {
              cacheline_size <= cacheline_max;
              cacheline_size *= cacheline_step) {
             std::cout   << cacheline_size << ",\t"
-                        << entry_count << ",\t" << std::flush;
+                        << "n/a,\t" << std::flush;
 
-            auto p = fill_cache(cacheline_size);
-            uint32_t iops = entry_count / p.first;
-            std::cout << iops << ",\t" << p.second << std::endl;
+            double t = fill_cache(cacheline_size);
+            uint32_t iops = entry_count / t;
+            std::cout << iops << ",\tn/a" << std::endl;
         }
     }
 
@@ -178,19 +179,25 @@ struct CacheTest {
         }
     }
 
-    std::pair<double, size_t> fill_cache(size_t const cache_size) {
+    static void add_to_cache(sp<cache_type> cache, key_type& k, value_type& v) {
+        cache->add(k, v);
+    }
+
+    double fill_cache(size_t const cache_size) {
         // Create a cache of the right size
-        cache_type cache("test_cache", cache_size);
+        sp<cache_type> cache = sp<cache_type>(new cache_type("test_cache", cache_size));
 
         size_t evictions = 0;
         clock_type::time_point start = clock_type::now();
-        //    ProfilerStart("cache.perf");
+//        ProfilerStart(("cache_" + std::to_string(cache_size) + ".perf").c_str());
         {
+//            fds_threadpool pool;
             for (auto& elem : test_objects)
-                if (cache.add(elem.first, elem.second)) ++evictions;
+//                pool.schedule(add_to_cache, cache, elem.first, elem.second);
+                add_to_cache(cache, elem.first, elem.second);
         }
-        //    ProfilerStop();
-        return std::make_pair(1e-9*std::chrono::duration_cast<std::chrono::nanoseconds>(clock_type::now() - start).count(), evictions);
+//        ProfilerStop();
+        return 1e-9*std::chrono::duration_cast<std::chrono::nanoseconds>(clock_type::now() - start).count();
     }
 };
 
@@ -206,15 +213,15 @@ void run_test(size_t const entries) {
 }
 
 int main(int argc, char** argv) {
-    std::cout << "uint32_t ---" << std::endl;
-    run_test<uint32_t>(entries_max);
-    std::cout << "fds_volid_t ---" << std::endl;
-    run_test<uint64_t>(entries_max);
-    std::cout << "std::string ---" << std::endl;
-    run_test<std::string>(entries_max);
+//    std::cout << "uint32_t ---" << std::endl;
+//    run_test<uint32_t>(entries_max);
+//    std::cout << "fds_volid_t ---" << std::endl;
+//    run_test<uint64_t>(entries_max);
+//    std::cout << "std::string ---" << std::endl;
+//    run_test<std::string>(entries_max);
     std::cout << "ObjectID ---" << std::endl;
-    run_test<fds::ObjectID>(entries_max);
-    std::cout << "BlobOffsetPair ---" << std::endl;
-    run_test<fds::BlobOffsetPair, fds::BlobOffsetPairHash>(entries_max);
+    run_test<fds::ObjectID, fds::ObjectHash>(entries_max);
+//    std::cout << "BlobOffsetPair ---" << std::endl;
+//    run_test<fds::BlobOffsetPair, fds::BlobOffsetPairHash>(entries_max);
     return 0;
 }
