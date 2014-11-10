@@ -42,6 +42,32 @@ class SmUtUtils {
         dlt->generateNodeTokenMap();
     }
     /**
+     * Create a set of unique object IDs
+     */
+    static void createUniqueObjectIDs(fds_uint32_t numObjs,
+                                      std::vector<ObjectID>& objset) {
+        fds_uint64_t seed = RandNumGenerator::getRandSeed();
+        RandNumGenerator rgen(seed);
+        fds_uint32_t rnum = (fds_uint32_t)rgen.genNum();
+
+        // populate set with unique objectIDs
+        objset.clear();
+        for (fds_uint32_t i = 0; i < numObjs; ++i) {
+            std::string obj_data = std::to_string(rnum);
+            ObjectID oid = ObjIdGen::genObjectId(obj_data.c_str(), obj_data.size());
+            // we want every object ID in the set to be unique
+            while (std::find(objset.begin(), objset.end(), oid) != objset.end()) {
+                rnum = (fds_uint32_t)rgen.genNum();
+                obj_data = std::to_string(rnum);
+                oid = ObjIdGen::genObjectId(obj_data.c_str(), obj_data.size());
+            }
+            objset.push_back(oid);
+            GLOGDEBUG << "Object set: " << oid;
+            rnum = (fds_uint32_t)rgen.genNum();
+        }
+    }
+
+    /**
      * Checks if there is an existing disk-map in /fds/dev/
      * and if it has at least one disk. If so, the method does not
      * do anything -- the test will be just using already setup disk map
