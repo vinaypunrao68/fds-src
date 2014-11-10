@@ -15,4 +15,18 @@
 {% set metricsdb_ip = fds_metricsdb_ip if fds_metricsdb_ip is defined else '127.0.0.1' %}
 {% set ssh_user = fds_ssh_user if fds_ssh_user is defined else 'root' %}
 {% set ssh_password = fds_ssh_password if fds_ssh_password is defined else 'passwd' %}
+{% set am_log_severity = fds_log_severity if fds_log_severity is defined else 'normal' %}
+{% set sm_log_severity = fds_log_severity if fds_log_severity is defined else 'normal' %}
+{% set dm_log_severity = fds_log_severity if fds_log_severity is defined else 'normal' %}
+{% set om_log_severity = fds_log_severity if fds_log_severity is defined else 'normal' %}
+{% set pm_log_severity = fds_log_severity if fds_log_severity is defined else 'normal' %}
+{% set checker_log_severity = fds_log_severity if fds_log_severity is defined else 'normal' %}
+{% set sm_data_verify = fds_sm_data_verify if fds_sm_data_verify is defined else 'false' %}
+{% set sm_data_verify_background = fds_sm_data_verify_background if fds_sm_data_verify_background is defined else 'false' %}
+{% set am_cache_entries = fds_am_cache_entries if fds_am_cache_entries is defined else '200' %}
+{% set sm_cache_entries = fds_sm_cache_entries if fds_sm_cache_entries is defined else '200' %}
+{% set dm_leveldb_cache_size = fds_dm_leveldb_cache_size if fds_dm_leveldb_cache_size is defined else '16777216' %}
+{% set dm_leveldb_write_buffer_size = fds_dm_leveldb_write_buffer_size if fds_dm_leveldb_write_buffer_size is defined else '52428800' %}
+{% set am_testing_toggle_disable_streaming_stats = fds_am_testing_toggle_disable_streaming_stats if fds_am_testing_toggle_disable_streaming_stats is defined else 'true' %}
 {% block content %}{% endblock %}
+
