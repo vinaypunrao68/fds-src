@@ -307,10 +307,10 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
     blob_req = new GetBlobReq(volid,
                               "", // Not used at the moment
                               blobName,
+                              cb,
                               startByte,
                               byteCount,
-                              buffer,
-                              cb);
+                              buffer);
 
     end = fds::util::getClockTicks();
     fds_stat_record(STAT_FDSN, FDSN_GO_ALLOC_BLOB_REQ, start, end);

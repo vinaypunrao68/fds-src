@@ -24,19 +24,31 @@ class TestList():
             "numjobs" : 1,
             "fio_jobname" : "seq_readwrite",
             "fio_type" : "readwrite",
+            "iodepth" : 32,
             "injector" : None
         }
 
         tests = []
         ############### Test definition ############
-        test_types = ["read", "write", "readwrite", "randwrite", "randread"]
-        for bs in [4096]:
-            for test_type in test_types:
-                test = dict(template)
-                test["bs"] = bs
-                test["fio_jobname"] = test_type
-                test["fio_type"] = test_type
-                tests.append(test)
+        #test_types = ["read", "write", "readwrite", "randwrite", "randread"]
+        test = dict(template)
+        test["bs"] = 4096
+        test["fio_jobname"] = "write"
+        test["fio_type"] = "write"
+        test["numjobs"] = 4
+        tests.append(test)
+        test_types = ["randread"]
+        for d in [4, 16, 32, 64, 128]:
+            for j in range(1,51, 10):
+                for bs in [4096]:
+                    for test_type in test_types:
+                        test = dict(template)
+                        test["bs"] = bs
+                        test["fio_jobname"] = test_type
+                        test["fio_type"] = test_type
+                        test["numjobs"] = j
+                        test["iodepth"] = d
+                        tests.append(test)
         self.tests = tests
 
     def create_tests_s3(self):

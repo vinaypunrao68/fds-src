@@ -56,7 +56,9 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix,
     rankeng_state = RANK_ENG_INITIALIZING;
 
     rank_notify = new fds_notification();
-    rank_thread = new boost::thread(boost::bind(&runRankingThread, this));
+    // TODO(Anna) disabling the thread for now; going to deprecate this
+    // ranking engine soon
+    // rank_thread = new boost::thread(boost::bind(&runRankingThread, this));
 
     /* for now set low threshold for hot objects -- does not impact correctness, just
      * the amount of memory stat tracker will need to keep the list of hot objects */
@@ -81,9 +83,9 @@ ObjectRankEngine::~ObjectRankEngine() {
     rank_notify->notify();
 
     /* wait for ranking thread to finish */
-    rank_thread->join();
+    // rank_thread->join();
 
-    delete rank_thread;
+    // delete rank_thread;
     delete rank_notify;
     delete map_mutex;
     delete tbl_mutex;
@@ -811,8 +813,11 @@ void ObjectRankEngine::runRankingThreadInternal()
         }
 
         /* wait until we are notified to start ranking process */
-        while ( !rank_notify->timed_wait_for_notification(300000) ) {
+        while ( !rank_notify->timed_wait_for_notification(3000) ) {
             if (atomic_load(&rankingEnabled)) break;
+            if (rankeng_state == RANK_ENG_EXITING) {
+                return;
+            }
         }
 
         /* perform ranking */

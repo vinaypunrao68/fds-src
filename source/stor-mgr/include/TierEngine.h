@@ -15,60 +15,6 @@ namespace fds {
 
 class ObjStatsTracker;
 class TierEngine;
-/*
- * Abstract base that defines what a migration algorithm
- * class should provide.
- */
-class MigrationAlgo {
-    private:
-     /*
-      * Member references to needed external objects
-      * Stats: provides obj/vol usage stats
-      * Ranker: provides in flash obj ranks
-      * Volume meta: provides vol placement metadata
-      */
-    public:
-     /*
-      * Determines the next object in disk that
-      * should be promoted to flash.
-      *
-      * @return an object to promote or invalid
-      * object id if nothing to promote
-      */
-     virtual const ObjectID& objToPromote() = 0;
-     /*
-      * Determines the next object in flash that
-      * should be demoted to disk.
-      *
-      * @return an object to demote or invalid
-      * object id if nothing to promote
-      */
-     virtual const ObjectID& objToDemote()  = 0;
-};
-
-/*
- * Abstract base class for inline placement
- * algorithms
- */
-class TierPutAlgo {
-    private:
-     /*
-      * Member references to needed external objects
-      * Stats: provides obj/vol usage stats
-      * Ranker: provides in flash obj ranks
-      * Volume meta: provides vol placement metadata 
-      */
-    public:
-     /*
-      * Determines the tier to place an object for a
-      * volume.
-      *
-      * @return the tier to place the object
-      */
-     virtual diskio::DataTier selectTier(const ObjectID &oid,
-                                         const VolumeDesc& voldesc) = 0;
-     virtual ~TierPutAlgo() {}
-};
 
 const fds_uint32_t max_migration_threads = 30;
 
@@ -84,7 +30,6 @@ class TierMigration {
       */
      fds_uint32_t    numThrds;
      fds_threadpool* threadPool;
-     MigrationAlgo*  migAlgo;
 
      /*
       * Function to be run in a tier migration thread.
@@ -118,7 +63,6 @@ class TierEngine : public Module {
       * Member algorithms.
       */
      tierPutAlgoType algoType;
-     TierPutAlgo *tpa;
 
      /*
       * Member references to external objects.

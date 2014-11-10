@@ -226,11 +226,12 @@ Error StorHvCtrl::putBlobSvc(fds::AmRequest *amReq)
         blobReq->notifyResponse(qos_ctrl, err);
     } else {
         // Update the transaction manager with the stage object data
-        fds_verify(amTxMgr->updateStagedBlobObject(*(blobReq->tx_desc),
-                                                   blobReq->obj_id,
-                                                   blobReq->getDataBuf(),
-                                                   blobReq->data_len)
-                   == ERR_OK);
+        // Removed since it needs to be shared_ptr and is unused...
+        // fds_verify(amTxMgr->updateStagedBlobObject(*(blobReq->tx_desc),
+        //                                        blobReq->obj_id,
+        //                                         blobReq->getDataBuf(),
+        //                                         blobReq->data_len)
+        //         == ERR_OK);
         issuePutObjectMsg(blobReq->obj_id,
                           blobReq->getDataBuf(),
                           blobReq->data_len,
