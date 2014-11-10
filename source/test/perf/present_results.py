@@ -10,6 +10,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+agents = ["am", "xdi", "sm", "dm", "sm", "om"]
 
 config_notes = {
     "s3:get:amcache" : "S3 100% GET (50 connections) - 100% AM cache hit",
@@ -17,44 +18,6 @@ config_notes = {
     "fio:randread:amcache" : "Block (FIO) 100% Random reads (50 connections) - 100% AM cache size is 1200 entries",
     "fio:randread:amcache0" : "Block (FIO) 100% Random reads (50 connections) - 100% AM cache miss - 100% SM and DM cache hit"
 }
-
-class FigureUtils:
-    @staticmethod
-    def new_figure():
-        return plt.figure()
-     
-    @staticmethod
-    def plot_series(series, fig, _label = ""):
-        plt.figure(fig.number)
-        data = numpy.asarray(series)
-        plt.plot(data, label=_label)
-
-    @staticmethod
-    def plot_scatter(point, fig):
-        plt.figure(fig.number)
-        #data = numpy.asarray(series)
-        # plt.scatter(x, y, s=area, c=colors, alpha=0.5)
-        plt.scatter(point[0], point[1])
-    
-    @staticmethod
-    def save_figure(filename, fig, title = None, ylabel = None, xlabel = None):
-        plt.figure(fig.number)
-        if title:
-            plt.title(title)
-        if ylabel:
-            plt.ylabel(ylabel)
-        if xlabel:
-            plt.xlabel(xlabel)
-        plt.ylim(ymin = 0)
-        #plt.legend()
-        ax = plt.subplot(111)
-        box = ax.get_position()
-        #ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-        ax.set_position([0.1, 0.1, 0.5, 0.8])
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        ax.set_aspect("auto")
-        plt.savefig(filename)
-
 
 def generate_scaling_iops(conns, iops):
     filename = "scaling_iops.png"
@@ -69,18 +32,39 @@ def generate_scaling_iops(conns, iops):
     plt.savefig(filename)
     return filename
 
-def generate_scaling_lat(conns, lat):
+def generate_scaling_lat(conns, lat, java_lat, am_lat):
     filename = "scaling_lat.png"
     title = "Latency"
     xlabel = "Connections"
     ylabel = "Latency [ms]"
     plt.figure()
-    plt.plot(conns, lat)
+    plt.plot(conns, lat, label="client e2e")
+    plt.plot(conns, java_lat, label="xdi e2e")
+    plt.plot(conns, am_lat, label="bare\_am e2e")
+    #plt.plot(conns, sm_lat, label="sm e2e")
+    #plt.plot(conns, dm_lat, label="dm e2e")
+    plt.legend()
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(title)
     plt.savefig(filename)
     return filename
+
+def generate_cpus(conns, cpus):
+    filename = "scaling_cpus.png"
+    title = "CPU"
+    xlabel = "Connections"
+    ylabel = "Latency [ms]"
+    plt.figure()
+    for k,v in cpus.iteritems():
+        plt.plot(conns, v, label=k)
+    plt.legend()
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.savefig(filename)
+    return filename
+
 
 def mail_success(recipients, images):
     # githead = get_githead(directory)
@@ -202,6 +186,15 @@ if __name__ == "__main__":
             #iops = [x["th"] for x in experiments]    
             iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
             iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
+            am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
+            #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
+            sm_lat = []
+            #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
+            dm_lat = []
+            java_lat = [x["javalat"] for x in experiments]
+            cpus = {}
+            for a in agents:
+                cpus[a] = [x[a+":cpu"] for x in experiments]
             iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
             lat = [x["lat"] for x in experiments]    
             #print [x["nreqs"] for x in experiments]    
@@ -217,7 +210,8 @@ if __name__ == "__main__":
             
             images = [] 
             images.append(generate_scaling_iops(conns, iops))
-            images.append(generate_scaling_lat(conns, lat))
+            images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+            images.append(generate_cpus(conns, cpus))
             mail_success(recipients2, images)
         elif mode == "fio":
             experiments = db["experiments"].find(tag=t)
@@ -231,6 +225,16 @@ if __name__ == "__main__":
             #iops = [x["th"] for x in experiments]    
             iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
             iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
+            am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
+            #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
+            sm_lat = []
+            #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
+            dm_lat = []
+            java_lat = [x["javalat"] for x in experiments]
+            cpus = {}
+            for a in agents:
+                cpus[a] = [x[a+":cpu"] for x in experiments]
+
             iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
             lat = [x["lat"] for x in experiments]    
             #print [x["nreqs"] for x in experiments]    
@@ -246,7 +250,8 @@ if __name__ == "__main__":
             
             images = [] 
             images.append(generate_scaling_iops(conns, iops))
-            images.append(generate_scaling_lat(conns, lat))
+            images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+            images.append(generate_cpus(conns, cpus))
             mail_success(recipients2, images)
  
     mail_summary(summary)
