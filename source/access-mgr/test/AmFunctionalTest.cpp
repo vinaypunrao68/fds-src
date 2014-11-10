@@ -51,13 +51,15 @@ struct null_deleter
     }
 };
 
-class AmLoadProc : public AmAsyncResponseApi {
+class AmLoadProc : public AmAsyncResponseApi,
+                   public apis::AsyncAmServiceResponseIf {
   public:
     AmLoadProc(int argc, char **argv)
             : domainName(new std::string("Test Domain")),
               volumeName(new std::string("Test Volume")),
               serverIp("127.0.0.1"),
-              serverPort(8899) {
+              serverPort(8899),
+              responsePort(9876) {
         // register and populate volumes
         VolumeDesc volDesc(*volumeName, 5);
         volDesc.iops_min = 0;
@@ -101,11 +103,27 @@ class AmLoadProc : public AmAsyncResponseApi {
 
         opCount = ATOMIC_VAR_INIT(0);
         threads_.resize(concurrency);
+    }
+    virtual ~AmLoadProc() {
+    }
+    typedef std::unique_ptr<AmLoadProc> unique_ptr;
 
+    void init() {
         responseApi.reset(this, null_deleter());
-        am->asyncDataApi->setResponseApi(responseApi);
-
         if (thrift) {
+            // Setup the async response server
+            serverTransport.reset(new xdi_att::TServerSocket(responsePort));
+            transportFactory.reset(new xdi_att::TFramedTransportFactory());
+            protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
+            processor.reset(new apis::AsyncAmServiceResponseProcessor(
+                responseApi));
+            ttServer.reset(new xdi_ats::TThreadedServer(processor,
+                                                        serverTransport,
+                                                        transportFactory,
+                                                        protocolFactory));
+            listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
+                                                  ttServer.get()));
+
             // Setup the async response client
             boost::shared_ptr<xdi_att::TTransport> respSock(
                 boost::make_shared<xdi_att::TSocket>(serverIp,
@@ -119,12 +137,10 @@ class AmLoadProc : public AmAsyncResponseApi {
             asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncAmServiceRequestIf>(
                 asyncThriftClient);
         } else {
+            am->asyncDataApi->setResponseApi(responseApi);
             asyncDataApi = am->asyncDataApi;
         }
     }
-    virtual ~AmLoadProc() {
-    }
-    typedef std::unique_ptr<AmLoadProc> unique_ptr;
 
     enum TaskOps {
         PUT,
@@ -134,6 +150,55 @@ class AmLoadProc : public AmAsyncResponseApi {
         PUTMETA,
         LISTVOL
     };
+
+    // **********
+    // Thrift response handlers
+    // **********
+    void attachVolumeResponse(const apis::RequestId& requestId) {}
+    void attachVolumeResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+    void volumeContents(const apis::RequestId& requestId,
+                        const std::vector<apis::BlobDescriptor> & response) {}
+    void volumeContents(boost::shared_ptr<apis::RequestId>& requestId,
+                        boost::shared_ptr<std::vector<apis::BlobDescriptor> >& response) {}
+    void statBlobResponse(const apis::RequestId& requestId,
+                          const apis::BlobDescriptor& response) {}
+    void statBlobResponse(boost::shared_ptr<apis::RequestId>& requestId,
+                          boost::shared_ptr<apis::BlobDescriptor>& response) {
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+    void startBlobTxResponse(const apis::RequestId& requestId,
+                             const apis::TxDescriptor& response) {}
+    void startBlobTxResponse(boost::shared_ptr<apis::RequestId>& requestId,
+                             boost::shared_ptr<apis::TxDescriptor>& response) {}
+    void commitBlobTxResponse(const apis::RequestId& requestId) {}
+    void commitBlobTxResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+    void abortBlobTxResponse(const apis::RequestId& requestId) {}
+    void abortBlobTxResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+    void getBlobResponse(const apis::RequestId& requestId,
+                         const std::string& response) {}
+    void getBlobResponse(boost::shared_ptr<apis::RequestId>& requestId,
+                         boost::shared_ptr<std::string>& response) {}
+    void updateMetadataResponse(const apis::RequestId& requestId) {}
+    void updateMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+    void updateBlobResponse(const apis::RequestId& requestId) {}
+    void updateBlobResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+    void updateBlobOnceResponse(const apis::RequestId& requestId) {}
+    void updateBlobOnceResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+    void deleteBlobResponse(const apis::RequestId& requestId) {}
+    void deleteBlobResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
+    void volumeStatus(const apis::RequestId& requestId,
+                      const apis::VolumeStatus& response) {}
+    void volumeStatus(boost::shared_ptr<apis::RequestId>& requestId,
+                      boost::shared_ptr<apis::VolumeStatus>& response) {}
+    void completeExceptionally(const apis::RequestId& requestId,
+                               const apis::ErrorCode errorCode,
+                               const std::string& message) {}
+    void completeExceptionally(boost::shared_ptr<apis::RequestId>& requestId,
+                               boost::shared_ptr<apis::ErrorCode>& errorCode,
+                               boost::shared_ptr<std::string>& message) {}
 
     void attachVolumeResp(const Error &error,
                           boost::shared_ptr<apis::RequestId>& requestId) {
@@ -536,6 +601,18 @@ class AmLoadProc : public AmAsyncResponseApi {
     std::string serverIp;
     /// Thrift port
     fds_uint32_t serverPort;
+    /// Thrift response port
+    fds_uint32_t responsePort;
+    /// Thrift response server
+    boost::shared_ptr<xdi_ats::TThreadedServer> ttServer;
+    /// Response server thread
+    boost::shared_ptr<boost::thread> listen_thread;
+
+    /// Thrift server parameters
+    boost::shared_ptr<xdi_att::TServerTransport>  serverTransport;
+    boost::shared_ptr<xdi_att::TTransportFactory> transportFactory;
+    boost::shared_ptr<xdi_atp::TProtocolFactory>  protocolFactory;
+    boost::shared_ptr<apis::AsyncAmServiceResponseProcessor> processor;
 };
 
 AmLoadProc::unique_ptr amLoad;
@@ -570,6 +647,11 @@ TEST(AccessMgr, asyncStatBlob) {
     amLoad->runAsyncTask(AmLoadProc::STAT);
 }
 
+TEST(AccessMgr, asyncGetBlob) {
+    GLOGDEBUG << "Testing async getBlob";
+    amLoad->runAsyncTask(AmLoadProc::GET);
+}
+
 TEST(AccessMgr, asyncVolumeContents) {
     GLOGDEBUG << "Testing async volumeContents";
     amLoad->runAsyncTask(AmLoadProc::LISTVOL);
@@ -593,6 +675,7 @@ main(int argc, char **argv) {
     apw.main();
 
     amLoad = AmLoadProc::unique_ptr(new AmLoadProc(argc, argv));
+    amLoad->init();
 
     return RUN_ALL_TESTS();
 }
