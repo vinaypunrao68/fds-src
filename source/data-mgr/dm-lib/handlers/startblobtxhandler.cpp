@@ -16,7 +16,9 @@ namespace fds {
 namespace dm {
 
 StartBlobTxHandler::StartBlobTxHandler() {
-    REGISTER_DM_MSG_HANDLER(fpi::StartBlobTxMsg, handleRequest);
+    if (!dataMgr->feature.isTestMode()) {
+        REGISTER_DM_MSG_HANDLER(fpi::StartBlobTxMsg, handleRequest);
+    }
 }
 
 void StartBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

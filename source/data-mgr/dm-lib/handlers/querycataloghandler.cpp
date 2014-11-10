@@ -16,7 +16,9 @@ namespace fds {
 namespace dm {
 
 QueryCatalogHandler::QueryCatalogHandler() {
-    REGISTER_DM_MSG_HANDLER(fpi::QueryCatalogMsg, handleRequest);
+    if (!dataMgr->feature.isTestMode()) {
+        REGISTER_DM_MSG_HANDLER(fpi::QueryCatalogMsg, handleRequest);
+    }
 }
 
 void QueryCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

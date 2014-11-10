@@ -23,7 +23,6 @@ QueueHelper::QueueHelper(dmCatReq *dmRequest) : dmRequest(dmRequest) {
 }
 
 QueueHelper::~QueueHelper() {
-    dataMgr->qosCtrl->markIODone(*dmRequest);
     /*
      * TODO(umesh): ignore this for now, uncomment it later
     PerfTracer::tracePointEnd(dmRequest->opLatencyCtx);

@@ -41,9 +41,9 @@ void startTxn(fds_volid_t volId, std::string blobName, int txnNum = 1, int blobM
                                            startBlbTx->blob_mode,
                                            startBlbTx->dmt_version);
     dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
-    dmBlobTxReq->dmio_start_blob_tx_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+    dmBlobTxReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
     TIMEDBLOCK("start") {
-        dataMgr->startBlobTx(dmBlobTxReq);
+        dataMgr->handlers[FDS_START_BLOB_TX]->handleQueueItem(dmBlobTxReq);
         cb.wait();
     }
     EXPECT_EQ(ERR_OK, cb.e);
@@ -152,25 +152,6 @@ TEST_F(DmUnitTest, PutBlob) {
         }
         EXPECT_EQ(ERR_OK, cb.e);
         commitTxn(dmTester->TESTVOLID, blobName, txnId);
-    }
-    printStats();
-}
-
-TEST_F(DmUnitTest, QueryCatalog) {
-    DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
-
-    for (uint i = 0; i < NUM_BLOBS; i++) {
-        DMCallback cb;
-        auto qryCat = SvcMsgFactory::newQueryCatalogMsg(
-            dmTester->TESTVOLID, dmTester->getBlobName(i), 0);
-
-        auto dmQryReq = new DmIoQueryCat(qryCat);
-        dmQryReq->dmio_querycat_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-        TIMEDBLOCK("process") {
-            dataMgr->queryCatalogBackendSvc(dmQryReq);
-            cb.wait();
-        }
-        EXPECT_EQ(ERR_OK, cb.e);
     }
     printStats();
 }
