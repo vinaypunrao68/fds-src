@@ -729,6 +729,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_CAT_UPD] = new dm::UpdateCatalogHandler();
     handlers[FDS_GET_BLOB_METADATA] = new dm::GetBlobMetaDataHandler();
     handlers[FDS_CAT_QRY] = new dm::QueryCatalogHandler();
+    handlers[FDS_START_BLOB_TX] = new dm::StartBlobTxHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1006,47 +1007,6 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
 
     const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
     return (*mySvcUuid == nodes->get(0));
-}
-
-void DataMgr::startBlobTx(dmCatReq *io)
-{
-    Error err(ERR_OK);
-    DmIoStartBlobTx *startBlobReq= static_cast<DmIoStartBlobTx*>(io);
-
-    LOGTRACE << "Will start transaction " << *startBlobReq;
-
-    // TODO(Anna) If this DM is not forwarding for this io's volume anymore
-    // we reject start TX on DMT mismatch
-    vol_map_mtx->lock();
-    if (vol_meta_map.count(startBlobReq->volId) > 0) {
-        VolumeMeta* vol_meta = vol_meta_map[startBlobReq->volId];
-        if ((!vol_meta->isForwarding() || vol_meta->isForwardFinishing()) &&
-            (startBlobReq->dmt_version != omClient->getDMTVersion())) {
-            PerfTracer::incr(startBlobReq->opReqFailedPerfEventType, startBlobReq->getVolId(),
-                    startBlobReq->perfNameStr);
-            err = ERR_IO_DMT_MISMATCH;
-        }
-    } else {
-        PerfTracer::incr(startBlobReq->opReqFailedPerfEventType, startBlobReq->getVolId(),
-                startBlobReq->perfNameStr);
-        err = ERR_VOL_NOT_FOUND;
-    }
-    vol_map_mtx->unlock();
-
-    if (err.ok()) {
-        err = timeVolCat_->startBlobTx(startBlobReq->volId,
-                                       startBlobReq->blob_name,
-                                       startBlobReq->blob_mode,
-                                       startBlobReq->ioBlobTxDesc);
-        if (!err.ok()) {
-            PerfTracer::incr(startBlobReq->opReqFailedPerfEventType, startBlobReq->getVolId(),
-                    startBlobReq->perfNameStr);
-        }
-    }
-    qosCtrl->markIODone(*startBlobReq);
-    PerfTracer::tracePointEnd(startBlobReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(startBlobReq->opReqLatencyCtx);
-    startBlobReq->dmio_start_blob_tx_resp_cb(err, startBlobReq);
 }
 
 void

@@ -159,9 +159,6 @@ struct DataMgr : Module, DmIoReqHandler {
 
             switch (io->io_type){
                 /* TODO(Rao): Add the new refactored DM messages types here */
-                case FDS_START_BLOB_TX:
-                    threadPool->schedule(&DataMgr::startBlobTx, dataMgr, io);
-                    break;
                 case FDS_CAT_UPD_ONCE:
                     threadPool->schedule(&DataMgr::updateCatalogOnce,
                                          dataMgr,
@@ -209,6 +206,7 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_GET_BLOB_METADATA:
                 case FDS_CAT_UPD:
                 case FDS_CAT_QRY:
+                case FDS_START_BLOB_TX:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
@@ -343,7 +341,6 @@ struct DataMgr : Module, DmIoReqHandler {
     }
 
     /* TODO(Rao): Add the new refactored DM messages handlers here */
-    void startBlobTx(dmCatReq *io);
     void updateCatalogOnce(dmCatReq *io);
     void commitBlobTx(dmCatReq *io);
     /**
