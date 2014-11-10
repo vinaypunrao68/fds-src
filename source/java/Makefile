@@ -36,7 +36,7 @@ ifndef SKIP_UI_BUILD
 endif
 	@cp -r demo $(comm_dir_lib)
 	@cp smokeTest $(main_dir_tools)
-	@cp trafficgen $(comm_dir_bin)
+	@cp trafficgen $(main_dir_tools)
 
 .PHONY: test
 
