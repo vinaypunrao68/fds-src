@@ -68,6 +68,7 @@ class SharedKvCache : public Module, boost::noncopyable {
          Module(module_name.c_str()),
          cache_map(),
          eviction_list(),
+         current_size(0),
          max_entries(_max_entries),
          cache_lock() { }
 
@@ -99,7 +100,7 @@ class SharedKvCache : public Module, boost::noncopyable {
          cache_map[key] = eviction_list.begin();
 
          // Check if anything needs to be evicted
-         if (eviction_list.size() > this->max_entries) {
+         if (++current_size > max_entries) {
              entry_type evicted = eviction_list.back();
              eviction_list.pop_back();
 
@@ -110,8 +111,7 @@ class SharedKvCache : public Module, boost::noncopyable {
              // Remove the cache iterator entry from the map
              cache_map.erase(evicted.first);
 
-             // Make sure we're not over the limit
-             fds_verify(eviction_list.size() == this->max_entries);
+             fds_verify(--current_size == max_entries);
              return entryToEvict;
          }
 
@@ -142,6 +142,7 @@ class SharedKvCache : public Module, boost::noncopyable {
          // Clear all of the containers
          eviction_list.clear();
          cache_map.clear();
+         current_size = 0;
      }
 
      /**
@@ -213,7 +214,7 @@ class SharedKvCache : public Module, boost::noncopyable {
       */
      size_type getNumEntries() const {
          SCOPEDREAD(cache_lock);
-         return eviction_list.size();
+         return current_size;
      }
 
      /// Init module
@@ -233,6 +234,7 @@ class SharedKvCache : public Module, boost::noncopyable {
 
      // Cache line itself
      cache_type eviction_list;
+     size_t current_size;
 
      // K->V association lookup
      index_type cache_map;
@@ -257,6 +259,7 @@ class SharedKvCache : public Module, boost::noncopyable {
              cache_map.erase(mapIt);
              // Remove from the eviction_list
              eviction_list.erase(cacheEntry);
+             --current_size;
          }
      }
 
