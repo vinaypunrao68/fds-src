@@ -23,7 +23,7 @@ class RandomRankPolicy : public RankEngine {
     virtual fds_bool_t isObjectDemotable(const ObjectID& oid);
 
     virtual void notifyDataPath(fds_io_op_t opType, const ObjectID& oid,
-            diskio::DataTier tier, const VolumeDesc& voldesc);
+            diskio::DataTier tier);
 };
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_RANDOMRANKPOLICY_H_

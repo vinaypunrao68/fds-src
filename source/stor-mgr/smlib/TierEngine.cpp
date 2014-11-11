@@ -12,9 +12,11 @@
 namespace fds {
 
 TierEngine::TierEngine(const std::string &modName,
-                       rankPolicyType _rank_type,
-                       StorMgrVolumeTable* _sm_volTbl) :
+        rankPolicyType _rank_type,
+        StorMgrVolumeTable* _sm_volTbl,
+        SmIoReqHandler* storMgr) :
         Module(modName.c_str()),
+        migrator(nullptr),
         sm_volTbl(_sm_volTbl) {
     switch (_rank_type) {
         case FDS_RANDOM_RANK_POLICY:
@@ -25,6 +27,8 @@ TierEngine::TierEngine(const std::string &modName,
         default:
             fds_panic("No valid rank policy provided!");
     }
+
+    migrator = new SmTierMigration(storMgr);
 }
 
 /*
@@ -32,6 +36,9 @@ TierEngine::TierEngine(const std::string &modName,
  * the algorithm structure at the moment
  */
 TierEngine::~TierEngine() {
+    if (migrator != nullptr) {
+        delete migrator;
+    }
 }
 
 int TierEngine::mod_init(SysParams const *const param) {
@@ -70,7 +77,6 @@ diskio::DataTier TierEngine::selectTier(const ObjectID    &oid,
                                         const VolumeDesc& voldesc) {
     diskio::DataTier ret_tier = diskio::diskTier;
     FDSP_MediaPolicy media_policy = voldesc.mediaPolicy;
-    fds_uint32_t rank;
 
     if (media_policy == FDSP_MEDIA_POLICY_SSD) {
         /* if 'all ssd', put to ssd */
@@ -92,7 +98,14 @@ diskio::DataTier TierEngine::selectTier(const ObjectID    &oid,
 
 void
 TierEngine::notifyIO(const ObjectID& objId, fds_io_op_t opType,
-        const VolumeDesc& voldesc, diskio::DataTier tier) {
-    rankEngine->notifyDataPath(opType, objId, tier, voldesc);
+        const VolumeDesc& volDesc, diskio::DataTier tier) {
+    // Only notifyDataPath on hybrid IOs
+    if (volDesc.mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID ||
+            volDesc.mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
+        rankEngine->notifyDataPath(opType, objId, tier);
+    }
+    if ((opType == FDS_SM_PUT_OBJECT) && (tier == diskio::flashTier)) {
+        migrator->notifyHybridVolFlashPut(objId);
+    }
 }
 }  // namespace fds
