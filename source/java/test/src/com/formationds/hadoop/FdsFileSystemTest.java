@@ -154,7 +154,7 @@ public class FdsFileSystemTest {
     public void testBlockSpanIo() throws Exception {
         int objectSize = 4;
         MemoryAmService mas = new MemoryAmService();
-        mas.createVolume("volume", new VolumeSettings(objectSize, VolumeType.OBJECT, 4));
+        mas.createVolume("volume", new VolumeSettings(objectSize, VolumeType.OBJECT, 4, 0));
         FileSystem fs = new FdsFileSystem(mas, "fds://volume/", objectSize);
 
         Path f = new Path("/mr.meatloaf");

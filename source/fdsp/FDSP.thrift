@@ -422,7 +422,9 @@ struct FDSP_VolumeInfoType {
   18: i32         		 backupVolume,  // UUID of backup volume
   19: bool                       fSnapshot,
   20: i64                        srcVolumeId,
-  21: i64                        qosQueueId
+  21: i64                        qosQueueId,
+  22: i64                        contCommitlogRetention,
+  23: i64                        timelineTime
 }
 
 struct FDSP_VolumeDescType {
@@ -463,8 +465,10 @@ struct FDSP_VolumeDescType {
   22: FDSP_MediaPolicy       mediaPolicy   /* media policy */
   23: bool                       fSnapshot,
   24: i64                        srcVolumeId,
-  25: i64                        qosQueueId
+  25: i64                        qosQueueId,
   26: common.ResourceState              state,
+  27: i64                        contCommitlogRetention,
+  28: i64                        timelineTime
 }
 
 struct FDSP_CreateDomainType {
