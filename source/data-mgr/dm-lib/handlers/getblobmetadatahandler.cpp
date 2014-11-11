@@ -39,16 +39,16 @@ void GetBlobMetaDataHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dmRequest);
     DmIoGetBlobMetaData* typedRequest = static_cast<DmIoGetBlobMetaData*>(dmRequest);
 
-    Error err(ERR_OK);
+    helper.err = ERR_OK;
 
     // TODO(Andrew): We're not using the size...we can remove it
     fds_uint64_t blobSize;
-    err = dataMgr->timeVolCat_->queryIface()->getBlobMeta(typedRequest->volId,
+    helper.err = dataMgr->timeVolCat_->queryIface()->getBlobMeta(typedRequest->volId,
                                                           typedRequest->blob_name,
                                                           &typedRequest->blob_version,
                                                           &blobSize,
                                                           &typedRequest->message->metaDataList);
-    if (!err.ok()) {
+    if (!helper.err.ok()) {
         PerfTracer::incr(typedRequest->opReqFailedPerfEventType,
                          typedRequest->getVolId(),
                          typedRequest->perfNameStr);

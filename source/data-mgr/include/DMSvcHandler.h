@@ -121,12 +121,6 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
                            boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
                            const Error &e, DmIoGetVolumeMetaData *req);
 
-    void handleStatStream(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                          boost::shared_ptr<fpi::StatStreamMsg>& message);
-    void handleStatStreamCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                            boost::shared_ptr<fpi::StatStreamMsg>& message,
-                            const Error &e, DmIoStatStream *req);
-
     void registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                            boost::shared_ptr<fpi::StatStreamRegistrationMsg>& streamRegstrMsg);
 

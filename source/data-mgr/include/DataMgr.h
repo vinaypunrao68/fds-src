@@ -200,9 +200,6 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_DM_META_RECVD:
                     threadPool->schedule(&DataMgr::handleForwardComplete, dataMgr, io);
                     break;
-                case FDS_DM_STAT_STREAM:
-                    threadPool->schedule(&DataMgr::handleStatStream, dataMgr, io);
-                    break;
 
                 /* End of new refactored DM message types */
 
@@ -221,6 +218,7 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_CAT_UPD:
                 case FDS_CAT_QRY:
                 case FDS_START_BLOB_TX:
+                case FDS_DM_STAT_STREAM:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
@@ -392,7 +390,6 @@ struct DataMgr : Module, DmIoReqHandler {
     void snapVolCat(dmCatReq *io);
     void handleDMTClose(dmCatReq *io);
     void handleForwardComplete(dmCatReq *io);
-    void handleStatStream(dmCatReq *io);
 
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 

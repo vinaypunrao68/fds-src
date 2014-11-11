@@ -113,15 +113,6 @@ void DataMgr::handleForwardComplete(dmCatReq *io) {
     delete io;
 }
 
-void DataMgr::handleStatStream(dmCatReq *io) {
-    DmIoStatStream *statStreamReq = static_cast<DmIoStatStream*>(io);
-
-    Error err = statStreamAggr_->handleModuleStatStream(statStreamReq->statStreamMsg);
-
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*io);
-    statStreamReq->dmio_statstream_resp_cb(err, statStreamReq);
-}
-
 //
 // Called by stats collector to sample DM specific stats
 //
@@ -779,6 +770,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_GET_BLOB_METADATA] = new dm::GetBlobMetaDataHandler();
     handlers[FDS_CAT_QRY] = new dm::QueryCatalogHandler();
     handlers[FDS_START_BLOB_TX] = new dm::StartBlobTxHandler();
+    handlers[FDS_DM_STAT_STREAM] = new dm::StatStreamHandler();
 }
 
 DataMgr::~DataMgr()
