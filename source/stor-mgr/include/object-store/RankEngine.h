@@ -6,6 +6,7 @@
 #define SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_RANKENGINE_H_
 
 #include <fds_types.h>
+#include <fds_volume.h>
 #include <persistent-layer/dm_io.h>
 #include <set>
 

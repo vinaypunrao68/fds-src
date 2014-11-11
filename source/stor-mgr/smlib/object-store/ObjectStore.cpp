@@ -24,7 +24,7 @@ ObjectStore::ObjectStore(const std::string &modName,
           metaStore(new ObjectMetadataStore(
               "SM Object Metadata Storage Module")),
           tierEngine(new TierEngine("SM Tier Engine",
-                                    TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
+                                    TierEngine::FDS_RANDOM_RANK_POLICY,
                                     volTbl)) {
 }
 
@@ -163,12 +163,8 @@ ObjectStore::putObject(fds_volid_t volId,
                      << err;
             return err;
         }
-        // successfully put object
-        if (useTier == diskio::flashTier) {
-            // notify tier engine we put object to flash
-            // TODO(brian): Change this to new API
-            tierEngine->notifyIO(objId,  *vol->voldesc);
-        }
+
+        tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *vol->voldesc, useTier);
 
         // update physical location that we got from data store
         updatedMeta->updatePhysLocation(&objPhyLoc);
@@ -185,9 +181,6 @@ ObjectStore::putObject(fds_volid_t volId,
 
     // write metadata to metadata store
     err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
-    if (err.ok() && (useTier == diskio::flashTier)) {
-        // TODO(Anna) if media policy not ssd, add to dirty flash list
-    }
 
     return err;
 }
@@ -248,7 +241,10 @@ ObjectStore::getObject(fds_volid_t volId,
         }
     }
 
-    // TODO(brian): update tier stats that an object was accessed
+    // We are passing max_tier here, if we decide we
+    // care which tier GET is from we need to change this
+    tierEngine->notifyIO(objId, FDS_SM_GET_OBJECT,
+            *volumeTbl->getVolume(volId)->voldesc, diskio::maxTier);
 
     return objData;
 }
@@ -322,9 +318,9 @@ ObjectStore::deleteObject(fds_volid_t volId,
         err = dataStore->removeObjectData(volId, objId, updatedMeta);
     }
 
-    // TODO(brian): Consider notifying TierEngine here to prevent ranking
-    // of deleted objects. This becomes complex when multiple hybrid volumes
-    // enter the picture.
+    // notifying tier engine, change this if we decide we care which tier the delete happens from
+    tierEngine->notifyIO(objId, FDS_SM_DELETE_OBJECT,
+            *volumeTbl->getVolume(volId)->voldesc, diskio::maxTier);
 
     return err;
 }

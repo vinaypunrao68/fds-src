@@ -9,6 +9,7 @@
 #include <fds_module.h>
 #include <StorMgrVolumes.h>
 #include <ObjRank.h>
+#include <TierMigration.h>
 #include <persistent-layer/dm_io.h>
 
 namespace fds {
@@ -16,34 +17,6 @@ namespace fds {
 class RankEngine;
 
 const fds_uint32_t max_migration_threads = 30;
-
-/*
- * Class responsible for background migration
- * of data between tiers
- */
-class TierMigration {
-    private:
-     /*
-      * Members that manage the migration threads
-      * running
-      */
-     fds_uint32_t    numThrds;
-     fds_threadpool* threadPool;
-
-     /*
-      * Function to be run in a tier migration thread.
-      */
-
-    public:
-     void startRankTierMigration(void);  // TODO(brian): This will fire off scavenger first
-                                         // before calling getObjsToPromote and promoting them
-     void stopRankTierMigration(void);   // NOLINT TODO(brian): Cancels the scavenger? Prevents the promotion?
-     TierEngine *tier_eng;
-     fds_bool_t   stopMigrationFlag;
-
-     TierMigration(fds_uint32_t _nThreads, TierEngine *te);
-     ~TierMigration();
-};
 
 /*
  * Defines the main class that determines tier
@@ -70,8 +43,6 @@ class TierEngine : public Module {
      StorMgrVolumeTable* sm_volTbl;
 
     public:
-     TierMigration *migrator;
-
      /*
       * Constructor for tier engine. This will take
       * references to required external classes and

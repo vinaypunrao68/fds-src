@@ -32,6 +32,7 @@ user_bin_exe      := \
     sm_token_state_gtest  \
     sm_tier_migration_gtest
 
+
 sm_objectstore_gtest   := object_store_unit_test.cpp
 ObjectStoreLoadTest := object_store_load_test.cpp
 metastore_unit_test := metastore_unit_test.cpp

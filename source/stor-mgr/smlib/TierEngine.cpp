@@ -5,7 +5,9 @@
 #include <string>
 #include <fds_process.h>
 #include <ObjStats.h>
+#include <object-store/RankEngine.h>
 #include <TierEngine.h>
+#include <object-store/RandomRankPolicy.h>
 
 namespace fds {
 
@@ -14,7 +16,6 @@ TierEngine::TierEngine(const std::string &modName,
                        StorMgrVolumeTable* _sm_volTbl) :
         Module(modName.c_str()),
         sm_volTbl(_sm_volTbl) {
-
     switch (_rank_type) {
         case FDS_RANDOM_RANK_POLICY:
             rankEngine = boost::shared_ptr<RankEngine>(new RandomRankPolicy());
@@ -31,7 +32,6 @@ TierEngine::TierEngine(const std::string &modName,
  * the algorithm structure at the moment
  */
 TierEngine::~TierEngine() {
-    delete migrator;
 }
 
 int TierEngine::mod_init(SysParams const *const param) {
@@ -53,7 +53,6 @@ int TierEngine::mod_init(SysParams const *const param) {
     }
     std::string obj_stats_dir = g_fdsprocess->proc_fdsroot()->dir_fds_var_stats();
 
-    migrator = new TierMigration(max_migration_threads, this);
     return 0;
 }
 
@@ -94,63 +93,6 @@ diskio::DataTier TierEngine::selectTier(const ObjectID    &oid,
 void
 TierEngine::notifyIO(const ObjectID& objId, fds_io_op_t opType,
         const VolumeDesc& voldesc, diskio::DataTier tier) {
-    rankEngine->notifyDataPath(objId, opType, tier, voldesc);
+    rankEngine->notifyDataPath(opType, objId, tier, voldesc);
 }
-
-TierMigration::TierMigration(fds_uint32_t _nthreads,
-                             TierEngine *te) :
-        tier_eng(te) {
-    threadPool = new fds_threadpool(_nthreads);
-    stopMigrationFlag = true;
-}
-
-TierMigration::~TierMigration() {
-    stopMigrationFlag = true;
-    delete threadPool;
-}
-
-void migrationJob(TierMigration *migrator, void *arg, fds_uint32_t count) {
-    // TODO(brian): We will no longer need the chg_tbl as demotions will be driven by the scavenger
-    // TODO(brian): So this can fire the scavenger and then promote? Call promote?
-    fds_uint32_t len = 100;
-    std::pair<ObjectID, ObjectRankEngine::rankOperType> * chg_tbl = (
-        std::pair<ObjectID, ObjectRankEngine::rankOperType> *) arg;
-    ObjectID oid;
-    for (uint i = 0; i < count; ++i)
-    {
-        if (migrator->stopMigrationFlag) return;
-        oid = chg_tbl[i].first;
-        if (chg_tbl[i].second == ObjectRankEngine::OBJ_RANK_PROMOTION) {
-            LOGDEBUG << "rankMigrationJob: chg table obj "
-                     << oid << " will be promoted";
-            // objStorMgr->relocateObject(oid, diskio::diskTier, diskio::flashTier);
-        } else {
-            LOGDEBUG << "rankMigrationJob: chg table obj "
-                     << oid << " will be demoted";
-            // objStorMgr->relocateObject(oid, diskio::flashTier, diskio::diskTier);
-        }
-    }
-    delete []  chg_tbl;
-}
-
-void TierMigration::startRankTierMigration(void) {
-    stopMigrationFlag = false;
-    fds_uint32_t len = 100;
-    fds_uint32_t count = 0;
-    do {
-        std::pair<ObjectID, ObjectRankEngine::rankOperType> *chg_tbl =
-                new std::pair<ObjectID, ObjectRankEngine::rankOperType> [len];
-        count = tier_eng->rankEng->getDeltaChangeTblSegment(len, chg_tbl);
-        if (count == 0)  {
-            delete [] chg_tbl;
-            break;
-        }
-        threadPool->schedule(migrationJob, this, static_cast<void *>(chg_tbl), count);
-    } while (count > 0 && !stopMigrationFlag);
-}
-
-void TierMigration::stopRankTierMigration(void) {
-    stopMigrationFlag = true;
-}
-
 }  // namespace fds
