@@ -26,9 +26,7 @@ public class FdsFeatureManagerProvider
   private static final Logger logger =
     LoggerFactory.getLogger( FdsFeatureManagerProvider.class );
 
-  private static final String DIRNAME_PRODUCTION = "/fds/etc/";
-  private static final String DIRNAME_DEV =
-    "/Volumes/LaCie/Sandbox/playground/src/main/config/";
+  private static final String DEF_SINGLE_NODE = "/fds/etc/";
 
   private static final String BASENAME_PRODUCTION = "fds-features.conf";
 
@@ -37,13 +35,16 @@ public class FdsFeatureManagerProvider
   private static FileBasedStateRepository stateRepository = null;
   private static NoOpUserProvider userProvider = null;
 
-  private static final List<String> BUNDLE_PATHS = new ArrayList<String>();
+  private static final List<String> BUNDLE_PATHS = new ArrayList<>();
   static
   {
-    // default production location
-    BUNDLE_PATHS.add( DIRNAME_PRODUCTION );
-    // development location
-    BUNDLE_PATHS.add( DIRNAME_DEV );
+    // better be set, otherwise we will have issues
+    if( System.getProperty( "fds-root" ) != null ) {
+      BUNDLE_PATHS.add( System.getProperty( "fds-root" ) );
+    }
+
+    // default single node production location
+    BUNDLE_PATHS.add( DEF_SINGLE_NODE );
   }
 
   private static FeatureManager instance = null;

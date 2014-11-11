@@ -25,6 +25,8 @@ import com.formationds.web.toolkit.*;
 import com.formationds.xdi.ConfigurationApi;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 import org.json.JSONObject;
@@ -32,6 +34,7 @@ import org.json.JSONObject;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.util.function.Function;
 
 public class Main {
@@ -58,8 +61,28 @@ public class Main {
     }
 
     public void start(String[] args) throws Exception {
+
         configuration = new Configuration("om-xdi", args);
         SingletonConfiguration.instance().setConfig(configuration);
+
+        OptionParser parser = new OptionParser();
+
+        parser.allowsUnrecognizedOptions();
+        parser.accepts("fds-root").withRequiredArg();
+        parser.accepts("console");
+        OptionSet options = parser.parse(args);
+        if (options.has("fds-root")) {
+            System.setProperty( "fds-root",
+                                options.valueOf("fds-root") +
+                                File.separator +
+                                "etc" +
+                                File.separator );
+        } else {
+            System.setProperty( "fds-root", "/fds/etc" );
+        }
+
+        LOG.trace( "FDS-ROOT:: " + System.getProperty( "fds-root" ) );
+
         NativeOm.startOm(args);
 
         ParsedConfig platformConfig = configuration.getPlatformConfig();
