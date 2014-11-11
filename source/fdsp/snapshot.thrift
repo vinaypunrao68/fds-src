@@ -16,6 +16,7 @@ struct SnapshotPolicy {
     3: string recurrenceRule, /* Recurrence rule as per iCal format */
     4: i64 retentionTimeSeconds,    /* Retention time in seconds */
     5: common.ResourceState state,
+    7: i64 timelineTime,
 }
 
 struct Snapshot {
@@ -24,8 +25,9 @@ struct Snapshot {
     3:i64 volumeId,
     4:i64 snapshotPolicyId,
     5:i64 creationTimestamp,
-    6:i64 retentionTimeSeconds
+    6:i64 retentionTimeSeconds,
     7:common.ResourceState state,
+    8:i64 timelineTime,
 }
 
 #endif // __SNAPSHOT_H__

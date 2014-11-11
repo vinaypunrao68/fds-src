@@ -9,13 +9,14 @@
 #include <fds_volume.h>
 #include <persistent-layer/dm_io.h>
 #include <set>
+#include <vector>
 
 namespace fds {
 
 /**
  * Typedef for our set of promotable items
  */
-typedef std::set<ObjectID> PromotionSet;
+typedef std::vector<ObjectID> PromotionSet;
 
 class RankEngine {
   public:

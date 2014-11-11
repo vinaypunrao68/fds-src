@@ -20,6 +20,7 @@ public class Snapshot
   private String volumeId;
   private Date creation;
   private Long retention;
+  private Long timelineTime;
 
   /**
    * default constructor
@@ -64,6 +65,13 @@ public class Snapshot
   }
 
   /**
+   * @return Returns {@link String} representing the time line time
+   */
+  public long getTimelineTime() {
+    return timelineTime;
+  }
+
+  /**
    * @param volumeId the {@link String} representing the volume id:w
    */
   public void setVolumeId( final String volumeId ) {
@@ -98,5 +106,12 @@ public class Snapshot
    */
   public void setRetention( Long retention ) {
     this.retention = retention;
+  }
+
+  /**
+   * @param retention the {@link Long} representing the time line time 
+   */
+  public void setTimelineTime( Long timelineTime ) {
+    this.timelineTime = timelineTime;
   }
 }
