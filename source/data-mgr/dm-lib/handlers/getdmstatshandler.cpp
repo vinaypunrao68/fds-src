@@ -12,7 +12,9 @@ namespace fds {
 namespace dm {
 
 DmSysStatsHandler::DmSysStatsHandler() {
-    REGISTER_DM_MSG_HANDLER(fpi::GetDmStatsMsg, handleRequest);
+    if (!dataMgr->feature.isTestMode()) {
+        REGISTER_DM_MSG_HANDLER(fpi::GetDmStatsMsg, handleRequest);
+    }
 }
 
 void DmSysStatsHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

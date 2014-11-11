@@ -48,7 +48,7 @@ pdio_write(fds_threadpool *wr, fds_threadpool *rd, DiskReqTest *cur)
 //        oid.oid_hash_hi = random();
 //        oid.oid_hash_lo = random();
         for (unsigned  int i = 0; i < sizeof(oid); i++)
-               oid.metaDigest[i] = random();
+               oid.metaDigest[i % sizeof(oid)] = random();
 
         buf = new ObjectBuf;
         buf_size = 8 << diskio::DataIO::disk_io_blk_shift();

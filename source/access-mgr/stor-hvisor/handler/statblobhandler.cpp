@@ -5,6 +5,9 @@
 #include "./handler.h"
 #include "../StorHvisorNet.h"
 #include <net/net-service-tmpl.hpp>
+
+#include "requests/StatBlobReq.h"
+
 namespace fds {
 
 Error StatBlobHandler::handleRequest(const std::string& volumeName,
@@ -14,19 +17,16 @@ Error StatBlobHandler::handleRequest(const std::string& volumeName,
     LOGDEBUG << " volume:" << volumeName
              <<" blob:" << blobName << " helper.volId: " << helper.volId;
 
-    helper.blobReq = new StatBlobReq(helper.volId,
-                                     volumeName,
-                                     blobName,
-                                     cb);
+    helper.blobReq = new StatBlobReq(helper.volId, volumeName, blobName, cb);
     return helper.processRequest();
 }
 
-Error StatBlobHandler::handleResponse(AmQosReq *qosReq,
+Error StatBlobHandler::handleResponse(AmRequest *amReq,
                                       FailoverSvcRequest* svcReq,
                                       const Error& error,
                                       boost::shared_ptr<std::string> payload) {
     Error err(ERR_OK);
-    StorHvCtrl::ResponseHelper helper(storHvisor, qosReq);
+    StorHvCtrl::ResponseHelper helper(storHvisor, amReq);
 
     // Return if err
     if (error != ERR_OK) {
@@ -50,10 +50,10 @@ Error StatBlobHandler::handleResponse(AmQosReq *qosReq,
     return err;
 }
 
-Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
+Error StatBlobHandler::handleQueueItem(AmRequest *amReq) {
     Error err(ERR_OK);
-    StorHvCtrl::RequestHelper helper(storHvisor, qosReq);
-    LOGDEBUG << "volume:" << helper.blobReq->getVolId()
+    StorHvCtrl::RequestHelper helper(storHvisor, amReq);
+    LOGDEBUG << "volume:" << helper.blobReq->io_vol_id
              <<" blob:" << helper.blobReq->getBlobName();
 
     if (!helper.isValidVolume()) {
@@ -65,12 +65,12 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
     // Check cache for blob descriptor
     BlobDescriptor::ptr cachedBlobDesc =
             helper.storHvisor->amCache->getBlobDescriptor(
-                helper.blobReq->getVolId(),
+                helper.blobReq->io_vol_id,
                 helper.blobReq->getBlobName(),
                 err);
     if (err == ERR_OK) {
         LOGTRACE << "Found cached blob descriptor for " << std::hex
-                 << helper.blobReq->getVolId() << std::dec << " blob "
+                 << helper.blobReq->io_vol_id << std::dec << " blob "
                  << helper.blobReq->getBlobName();
 
         StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, helper.blobReq->cb);
@@ -92,11 +92,11 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
         return ERR_OK;
     }
     LOGTRACE << "Did not find cached blob descriptor for " << std::hex
-             << helper.blobReq->getVolId() << std::dec << " blob "
+             << helper.blobReq->io_vol_id << std::dec << " blob "
              << helper.blobReq->getBlobName();
 
     GetBlobMetaDataMsgPtr message(new GetBlobMetaDataMsg());
-    message->volume_id = helper.blobReq->getVolId();
+    message->volume_id = helper.blobReq->io_vol_id;
     message->blob_name = helper.blobReq->getBlobName();
 
     auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(
@@ -106,7 +106,7 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
 
     asyncReq->setPayload(fpi::GetBlobMetaDataMsgTypeId, message);
 
-    auto cb = RESPONSE_MSG_HANDLER(StatBlobHandler::handleResponse, qosReq);
+    auto cb = RESPONSE_MSG_HANDLER(StatBlobHandler::handleResponse, amReq);
 
     asyncReq->onResponseCb(cb);
     LOGDEBUG << "invoke";

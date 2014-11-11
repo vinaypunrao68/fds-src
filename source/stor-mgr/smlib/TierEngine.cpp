@@ -6,7 +6,6 @@
 #include <fds_process.h>
 #include <ObjStats.h>
 #include <TierEngine.h>
-#include <TierPutAlgorithms.h>
 
 namespace fds {
 
@@ -26,7 +25,6 @@ TierEngine::TierEngine(const std::string &modName,
 TierEngine::~TierEngine() {
     delete objStats;
     delete rankEng;
-    delete tpa;
     delete migrator;
 }
 
@@ -51,15 +49,6 @@ int TierEngine::mod_init(SysParams const *const param) {
     rankEng = new ObjectRankEngine(obj_stats_dir, rank_tbl_size, rank_freq_sec,
                                    hot_threshold, cold_threshold, sm_volTbl, objStats);
 
-    switch (algoType) {
-        case FDS_TIER_PUT_ALGO_BASIC_RANK:
-            tpa = new RankTierPutAlgo(sm_volTbl, rankEng);
-            LOGNORMAL << "TierEngine: will use basic rank tier put algorithm";
-            break;
-        default:
-            tpa = new RandomTestAlgo();
-            LOGNORMAL << "TierEngine: will use random test tier put algorithm";
-    }
     migrator = new TierMigration(max_migration_threads, this);
     return 0;
 }
@@ -75,8 +64,32 @@ void TierEngine::mod_shutdown() {
  * vol struct. A lookup should be done internally.
  */
 diskio::DataTier TierEngine::selectTier(const ObjectID    &oid,
-                                        fds_volid_t        vol) {
-    return tpa->selectTier(oid, vol);
+                                        const VolumeDesc& voldesc) {
+    diskio::DataTier ret_tier = diskio::diskTier;
+    FDSP_MediaPolicy media_policy = voldesc.mediaPolicy;
+    fds_uint32_t rank;
+
+    if (media_policy == FDSP_MEDIA_POLICY_SSD) {
+        /* if 'all ssd', put to ssd */
+        ret_tier = diskio::flashTier;
+    } else if ((media_policy == FDSP_MEDIA_POLICY_HDD) ||
+            (media_policy == FDSP_MEDIA_POLICY_HYBRID_PREFCAP)) {
+        /* if 'all disk', put to disk
+         * or if hybrid but first preference to capacity tier, put to disk  */
+        ret_tier = diskio::diskTier;
+    } else if (media_policy == FDSP_MEDIA_POLICY_HYBRID) {
+        /* hybrid tier policy */
+        fds_uint32_t rank = rankEng->getRank(oid, voldesc);
+        if (rank < rankEng->getTblTailRank()) {
+            /* lower value means higher rank */
+            ret_tier = diskio::flashTier;
+        }
+    } else {  // else ret_tier already set to disk
+        LOGDEBUG << "RankTierPutAlgo: selectTier received unexpected media policy: "
+                << media_policy;
+    }
+
+    return ret_tier;
 }
 
 void

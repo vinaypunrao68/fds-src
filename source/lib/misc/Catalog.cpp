@@ -76,7 +76,7 @@ Catalog::Catalog(const std::string& _file,
         cenv->logFilePrefix() = logFilePrefix;
         cenv->maxLogFiles() = maxLogFiles;
 
-        cenv->logRotate() = true;
+        cenv->logRotate() = !logFilePrefix.empty();
     }
 
     options.env = env;
@@ -84,8 +84,13 @@ Catalog::Catalog(const std::string& _file,
     write_options.sync = true;
 
     leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
+
     /* Open has to succeed */
-    assert(status.ok());
+    if (!status.ok())
+    {
+        throw CatalogException(std::string(__FILE__) + ":" + std::to_string(__LINE__) +
+                               " :leveldb::DB::Open(): " + status.ToString());
+    }
 }
 
 /** The default destructor

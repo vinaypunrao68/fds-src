@@ -21,6 +21,7 @@ PKGCACHEDIR="${SOURCEDIR}/.pkg.cache"
 externalpkgs=(
     libpcre3_8.31-2ubuntu2_amd64.deb
     libconfig++9_1.4.9-2_amd64.deb
+    libev4_4.15-3_amd64.deb
     libreadline5_5.2+dfsg-2_amd64.deb
 
     xfsprogs_3.1.9ubuntu2_amd64.deb
@@ -60,6 +61,7 @@ fdsrepopkgs=(
     fds-jdk-default
     fds-python-scp
     fds-python-paramiko
+		libcryptopp-dev
 )
 
 function getExternalPkgs() {

@@ -112,9 +112,22 @@ struct DataMgr : Module, DmIoReqHandler {
       MAX
     } dmRunModes;
     dmRunModes    runMode;
-    bool isTestMode() {
-        return runMode == TEST_MODE;
-    }
+
+    struct Features {
+        bool fQosEnabled = true;
+        bool fCatSyncEnabled = true;
+        bool fTestMode = false;
+        bool isTestMode() {
+            return fTestMode;
+        }
+        bool isQosEnabled() {
+            return fQosEnabled;
+        }
+        bool isCatSyncEnabled() {
+            return fCatSyncEnabled;
+        }
+    } feature;
+
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
 
     /**
@@ -144,7 +157,8 @@ struct DataMgr : Module, DmIoReqHandler {
                   fds_log *log) :
                 FDS_QoSControl(_max_thrds, algo, log, "DM") {
             parentDm = _parent;
-            dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, _max_thrds, log);
+            dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
+                    parentDm->qosOutstandingTasks, log);
             // dispatcher = new QoSMinPrioDispatcher(this, log, parentDm->scheduleRate);
         }
 
@@ -322,6 +336,10 @@ struct DataMgr : Module, DmIoReqHandler {
     ~DataMgr();
     std::map<fds_io_op_t, dm::Handler*> handlers;
     dmQosCtrl   *qosCtrl;
+
+    fds_uint32_t qosThreadCount = 10;
+    fds_uint32_t qosOutstandingTasks = 20;
+
     // Test related members
     fds_bool_t testUturnAll;
     fds_bool_t testUturnUpdateCat;

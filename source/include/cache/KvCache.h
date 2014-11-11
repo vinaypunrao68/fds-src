@@ -32,7 +32,7 @@ class KvCache : public Module, boost::noncopyable {
     fds_uint32_t maxEntries;
 
     /// Current number of entries
-    fds_uint32_t numEntries;
+    size_t numEntries;
 
     /// Eviction algorithm being used
     EvictionType evictionType;
@@ -127,7 +127,7 @@ class KvCache : public Module, boost::noncopyable {
      *
      * @return number of entries
      */
-    fds_uint32_t getNumEntries() const {
+    size_t getNumEntries() const {
         return numEntries;
     }
 
@@ -195,7 +195,7 @@ template <class K, class V, class _Hash = std::hash<K>>
             // Remove from the evictionList
             evictionList->erase(cacheEntry);
             // Decrement the entry count
-            this->numEntries--;
+            --this->numEntries;
         }
     }
 
@@ -209,10 +209,9 @@ template <class K, class V, class _Hash = std::hash<K>>
         KvPair entry(key, value);
         evictionList->push_front(entry);
         (*cacheMap)[key] = evictionList->begin();
-        this->numEntries++;
 
         // Check if anything needs to be evicted
-        if (this->numEntries > this->maxEntries) {
+        if (++this->numEntries > this->maxEntries) {
             GLOGTRACE << "Evicting key " << evictionList->back().first;
             V* entryToEvict = evictionList->back().second;
             fds_verify(entryToEvict != NULL);
@@ -221,7 +220,7 @@ template <class K, class V, class _Hash = std::hash<K>>
             cacheMap->erase(evictionList->back().first);
             // Remove the entry from the eviction list
             evictionList->pop_back();
-            this->numEntries--;
+            --this->numEntries;
             // Make sure we're at over the limit
             fds_verify(this->numEntries == this->maxEntries);
             return std::unique_ptr<V>(entryToEvict);
@@ -274,18 +273,9 @@ template <class K, class V, class _Hash = std::hash<K>>
             return ERR_NOT_FOUND;
         }
 
-        KvMapEntry existingEntry = mapIt->second;
-        V* value  = existingEntry->second;
-        // Remove the existing map entry since the
-        // iterator into the eviction list is changing
-        cacheMap->erase(mapIt);
-
-        // Move the entry's position to the front
-        // in the eviction list
-        evictionList->erase(existingEntry);
-        KvPair updatedEntry(key, value);
-        evictionList->push_front(updatedEntry);
-        (*cacheMap)[key] = evictionList->begin();
+        evictionList->splice(evictionList->begin(),
+                             *evictionList,
+                             mapIt->second);
 
         return ERR_OK;
     }

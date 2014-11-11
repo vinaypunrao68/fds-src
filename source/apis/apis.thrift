@@ -11,7 +11,8 @@ enum VolumeType {
 struct VolumeSettings {
        1: required i32 maxObjectSizeInBytes,
        2: required VolumeType volumeType,
-       3: required i64 blockDeviceSizeInBytes
+       3: required i64 blockDeviceSizeInBytes,
+       4: required i64 contCommitlogRetention
 }
 
 struct VolumeDescriptor {
@@ -54,14 +55,14 @@ struct TxDescriptor {
        1: required i64 txId
 }
 
-service AmService {
+service AmService { 
 	void attachVolume(1: string domainName, 2:string volumeName)
              throws (1: ApiException e),
 
         list<BlobDescriptor> volumeContents(1:string domainName, 2:string volumeName, 3:i32 count, 4:i64 offset)
              throws (1: ApiException e),
 
-        BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)
+       BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)
              throws (1: ApiException e),
 
         TxDescriptor startBlobTx(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 blobMode)
@@ -97,6 +98,12 @@ struct RequestId {
 }
 
 service AsyncAmServiceRequest {
+	oneway void attachVolume(1:RequestId requestId, 2: string domainName, 
+	       3:string volumeName),
+
+        oneway void volumeContents(1:RequestId requestId, 2:string domainName, 
+	       3:string volumeName, 4:i32 count, 5:i64 offset),
+
 	oneway void statBlob(1:RequestId requestId, 2:string domainName, 
 	       3:string volumeName, 4:string blobName),
 
@@ -124,12 +131,16 @@ service AsyncAmServiceRequest {
 	       7:i32 length, 8:ObjectOffset objectOffset, 9:map<string, string> metadata),
 
         oneway void deleteBlob(1:RequestId requestId, 2:string domainName, 
-	       3:string volumeName, 4:string blobName),
+	       3:string volumeName, 4:string blobName, 5:TxDescriptor txDesc),
 
         oneway void volumeStatus(1:RequestId requestId, 2:string domainName, 3:string volumeName)
 }
 
 service AsyncAmServiceResponse {
+	oneway void attachVolumeResponse(1:RequestId requestId),
+
+        oneway void volumeContents(1:RequestId requestId, 2:list<BlobDescriptor> response),
+
         oneway void statBlobResponse(1:RequestId requestId, 2:BlobDescriptor response),
 
         oneway void startBlobTxResponse(1:RequestId requestId, 2:TxDescriptor response),
@@ -251,7 +262,7 @@ service ConfigurationService {
     list<i64> listVolumesForSnapshotPolicy(1:i64 policyId)
              throws (1: ApiException e),
 
-    void createSnapshot(1:i64 volumeId, 2:string snapshotName, 3:i64 retentionTime)
+    void createSnapshot(1:i64 volumeId, 2:string snapshotName, 3:i64 retentionTime, 4:i64 timelineTime)
              throws (1: ApiException e),
 
     list<snapshot.Snapshot> listSnapshots(1:i64 volumeId)

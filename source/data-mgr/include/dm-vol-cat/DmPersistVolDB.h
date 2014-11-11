@@ -58,7 +58,10 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolDir {
                    fds_bool_t snapshot, fds_bool_t readOnly,
                    fds_volid_t srcVolId = invalid_vol_id)
             : DmPersistVolDir(volId, objSize, snapshot, readOnly, fpi::FDSP_VOL_S3_TYPE,
-            srcVolId), catalog_(0), configHelper_(g_fdsprocess->get_conf_helper()) {}
+            srcVolId), catalog_(0), configHelper_(g_fdsprocess->get_conf_helper()) {
+        const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+        timelineDir_ = root->dir_timeline_dm() + getVolIdStr() + "/";
+    }
     virtual ~DmPersistVolDB();
 
     // methods
@@ -116,6 +119,8 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolDir {
 
     // as the configuration will not be refreshed frequently, we can read it without lock
     FdsConfigAccessor configHelper_;
+
+    std::string timelineDir_;
 };
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLDB_H_

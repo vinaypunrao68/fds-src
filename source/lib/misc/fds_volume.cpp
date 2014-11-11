@@ -42,6 +42,8 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeInfoType& volinfo,
     fSnapshot = volinfo.fSnapshot;
     srcVolumeId = volinfo.srcVolumeId;
     qosQueueId = volinfo.qosQueueId;
+    contCommitlogRetention = volinfo.contCommitlogRetention;
+    timelineTime = volinfo.timelineTime;
 }
 
 VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
@@ -70,6 +72,9 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     fSnapshot = vdesc.fSnapshot;
     srcVolumeId = vdesc.srcVolumeId;
     qosQueueId = vdesc.qosQueueId;
+    state = vdesc.state;
+    contCommitlogRetention = vdesc.contCommitlogRetention;
+    timelineTime = vdesc.timelineTime;
     if (volUUID == invalid_vol_id) {
         GLOGWARN << "volume id is invalid";
     }
@@ -101,6 +106,9 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     fSnapshot = voldesc.fSnapshot;
     srcVolumeId = voldesc.srcVolumeId;
     qosQueueId = voldesc.qosQueueId;
+    state = voldesc.state;
+    contCommitlogRetention = voldesc.contCommitlogRetention;
+    timelineTime = voldesc.timelineTime;
     if (volUUID == invalid_vol_id) {
         GLOGWARN << "volume id is invalid";
     }
@@ -139,6 +147,8 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     srcVolumeId = invalid_vol_id;
     qosQueueId = invalid_vol_id;
     relativePrio = 0;
+    contCommitlogRetention = 0;
+    timelineTime = 0;
     if (volUUID == invalid_vol_id) {
         GLOGWARN << "volume id is invalid";
     }
@@ -178,6 +188,8 @@ VolumeDesc::VolumeDesc(const std::string& _name,
     appWorkload = fpi::FDSP_APP_WKLD_TRANSACTION;
     mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
     backupVolume = 0;
+    contCommitlogRetention = 0;
+    timelineTime = 0;
 }
 
 VolumeDesc::~VolumeDesc() {
@@ -249,6 +261,8 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
     this->fSnapshot = volinfo.fSnapshot;
     this->srcVolumeId = volinfo.srcVolumeId;
     this->qosQueueId = volinfo.qosQueueId;
+    this->contCommitlogRetention = volinfo.contCommitlogRetention;
+    this->timelineTime = volinfo.timelineTime;
     return *this;
 }
 
@@ -274,7 +288,7 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " localdomain:" <<vol.localDomainId
               << " global.domain:" << vol.globDomainId
               << " type:" << vol.volType
-              << " max obj size in bytes " << vol.maxObjSizeInBytes
+              << " max.obj.size.bytes:" << vol.maxObjSizeInBytes
               << " capacity:" << vol.capacity
               << " quota:" << vol.maxQuota
               << " replica:" << vol.replicaCnt
@@ -293,6 +307,10 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " isSnapshot:" << vol.fSnapshot
               << " srcVolumeId:" << vol.srcVolumeId
               << " qosQueueId:" << vol.qosQueueId
+              << " state:" << vol.getState()
+              << " qosQueueId:" << vol.contCommitlogRetention
+              << " qosQueueId:" << vol.timelineTime
+              << " statename:" << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second
               << " ]";
 }
 

@@ -5,7 +5,8 @@
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
-import com.formationds.commons.model.exception.ParseException;
+
+import java.text.ParseException;
 
 /**
  * @author ptinius
@@ -18,6 +19,8 @@ public class SnapshotPolicy
   private String name;
   private RecurrenceRule recurrenceRule;
   private Long retention;         // time in seconds
+  private Long timelineTime;         // time in seconds
+
 
   /**
    * default constructor
@@ -68,14 +71,7 @@ public class SnapshotPolicy
    */
   public void setRecurrenceRule( final String recurrenceRule )
     throws ParseException {
-    this.recurrenceRule = RecurrenceRule.parser( recurrenceRule );
-  }
-
-  /**
-   * @param recurrenceRule the {@link RecurrenceRule}
-   */
-  public void setRecurrenceRule( final RecurrenceRule recurrenceRule ) {
-    this.recurrenceRule = recurrenceRule;
+    this.recurrenceRule = new RecurrenceRule().parser( recurrenceRule );
   }
 
   /**
@@ -86,10 +82,25 @@ public class SnapshotPolicy
   }
 
   /**
+   * @return Returns {@code long} representing the time line time 
+   */
+  public Long getTimelineTime() {
+    return timelineTime;
+  }
+
+  /**
    * @param retention the {@code long} representing the retention period in
    *                  seconds
    */
   public void setRetention( final Long retention ) {
     this.retention = retention;
+  }
+
+  /**
+   * @param retention the {@code long} representing the retention period in
+   *                  seconds
+   */
+  public void setTimelineTime( final Long timelineTime ) {
+    this.timelineTime = timelineTime;
   }
 }

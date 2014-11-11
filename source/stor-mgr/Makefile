@@ -2,7 +2,7 @@ topdir            := ..
 user_target       := exe
 user_std_libs     := true
 user_rtime_env    := user
-speedup           := -j 5
+speedup           = -j $(threads)
 user_build_dir    := smlib policy include migrations platform
 
 # TODO: avoid include across components, put in include dir instead.
@@ -12,7 +12,8 @@ user_incl_dir     := \
     include \
     migrations \
     $(topdir)/lib \
-    $(topdir)/persistent_layer/include
+    $(topdir)/persistent_layer/include \
+		/usr/include/cryptopp
 
 user_cpp_flags    :=
 user_fds_so_libs  :=

@@ -17,7 +17,7 @@ typedef struct meta_obj_id         meta_obj_id_t;
 struct __attribute__((__packed__)) meta_obj_id
 {
     // looks like  we have Obj Structure scattered  across. sizing the array is a issue??.
-    uint8_t metaDigest[20];
+    alignas(8) uint8_t metaDigest[20];
 };
 
 /*
@@ -31,6 +31,12 @@ obj_id_set_inval(meta_obj_id_t *oid)
     memset(oid->metaDigest, 0 , sizeof(oid));
 }
 
+/* TODO(sean)
+ * The size of the buffer is hard-coded.  This was there before. But there should be a common
+ * define that is used by all buffer that's sized as ObjectId.
+ */
+static uint8_t InvalidObjId[20];  // global is zero-filled.
+
 /*
  * obj_id_is_valid
  * ---------------
@@ -39,9 +45,10 @@ obj_id_set_inval(meta_obj_id_t *oid)
 static inline bool
 obj_id_is_valid(meta_obj_id_t const *const oid)
 {
-    uint8_t tmpObjId[20];
-    memset(tmpObjId, 0 , sizeof(tmpObjId));
-    return (!(memcmp((const char *)oid->metaDigest, tmpObjId, sizeof(oid)) == 0 ));
+    // size of the invalid object and metaDigest should match.
+    static_assert((sizeof(InvalidObjId) == sizeof(oid->metaDigest)),
+                  "size of ObjId doesn't match oid");
+    return (!(memcmp((const char *)oid->metaDigest, InvalidObjId, sizeof(oid)) == 0 ));
 }
 
 /*
@@ -112,6 +119,8 @@ cc_assert(vio1, fds_offset_of(meta_vol_adr_t, vol_uuid) ==
  */
 #define MAX_PHY_LOC_MAP 3
 #define MAX_ASSOC_ENTRY 64
+#define SYNCMETADATA_MASK    0x1
+#define OBJ_FLAG_CORRUPTED   0x40
 struct __attribute__((__packed__)) obj_phy_loc_v0 {
     fds_int8_t           obj_tier;            /* tier location               */
     fds_uint16_t         obj_stor_loc_id;     /* physical location in tier   */
@@ -139,10 +148,14 @@ struct __attribute__((__packed__)) meta_obj_map_v0
     fds_uint64_t         obj_del_time;        /* deletion time.         */
     fds_uint64_t         assoc_mod_time;      /* Modification time.         */
     fds_uint64_t         expire_time;         /* Object Expiration time */
+    fds_uint8_t          obj_flags;            /* flags / status */
 
     /* Object transition time to a archive tier */
     fds_uint64_t         transition_time;
     obj_phy_loc_t        loc_map[MAX_PHY_LOC_MAP];
+
+    /* add padding to the data structure */
+    char                 meta_obj_padding[32];
 };
 
 struct __attribute__((__packed__)) obj_assoc_entry_v0 {

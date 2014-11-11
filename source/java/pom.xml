@@ -1,4 +1,9 @@
-<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
+<!--
+  ~ Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+  -->
+
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>fds</groupId>
@@ -23,8 +28,8 @@
             <url>http://m2.objectdb.com</url>
         </repository>
     </repositories>
-
     <dependencies>
+        <!-- JPA providers -->
         <dependency>
             <groupId>com.objectdb</groupId>
             <artifactId>objectdb</artifactId>
@@ -45,7 +50,6 @@
             <artifactId>junit</artifactId>
             <version>4.11</version>
         </dependency>
-
         <!-- logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -57,7 +61,6 @@
             <artifactId>slf4j-log4j12</artifactId>
             <version>1.7.7</version>
         </dependency>
-
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-servlet</artifactId>
@@ -75,8 +78,8 @@
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
-            <artifactId>guava-gwt</artifactId>
-            <version>18.0</version>
+            <artifactId>guava</artifactId>
+            <version>16.0.1</version>
         </dependency>
         <dependency>
             <groupId>joda-time</groupId>
@@ -135,6 +138,11 @@
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpasyncclient</artifactId>
+            <version>4.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore</artifactId>
             <version>4.3.2</version>
         </dependency>
@@ -174,7 +182,12 @@
             <version>3.2</version>
         </dependency>
         <dependency>
-            <groupId>jfree</groupId>
+            <groupId>org.uncommons.maths</groupId>
+            <artifactId>uncommons-maths</artifactId>
+            <version>1.2.2</version>
+        </dependency>
+        <dependency>
+        <groupId>jfree</groupId>
             <artifactId>jfreechart</artifactId>
             <version>1.0.13</version>
         </dependency>
@@ -199,7 +212,17 @@
                 </exclusion>
             </exclusions>
         </dependency>
-
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-mapreduce-client-common</artifactId>
+            <version>2.5.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.servlet</groupId>
+                    <artifactId>servlet-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <!-- Togglz Dependencies -->
         <dependency>
             <groupId>org.togglz</groupId>
@@ -217,7 +240,6 @@
             <version>2.3</version>
         </dependency>
     </dependencies>
-
     <!--mvn -f distrib.xml -DskipTests clean assembly:directory-->
     <build>
         <directory>${project.build.dir}</directory>
@@ -239,7 +261,28 @@
                     <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
-
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.2</version>
+                <executions>
+                    <execution>
+                        <id>enhance</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>com.objectdb.Enhancer</mainClass>
+                            <arguments>
+                                <argument>
+                                    com.formationds.commons.model.entity.VolumeDatapoint
+                                </argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>build-helper-maven-plugin</artifactId>

@@ -1,6 +1,6 @@
 ---
 -   name: install needed packages for devsetup
-    hosts: 127.0.0.1
+    hosts: localhost
     sudo: yes
 
     tasks:
@@ -59,9 +59,12 @@
         - libical-dev
         - libical1
         - libleveldb-dev
+        - google-perftools
+        - libgoogle-perftools-dev
         - libconfig++-dev
         - oracle-java8-installer
         - npm
+        - nodejs-legacy
         - ruby
         - ruby-sass
         - python-paramiko
@@ -75,6 +78,8 @@
         - fds-pkgtools
         - fds-systemdir
         - fds-coredump
+        - libcryptopp-dev
+        - lintian
 
     - name: install pip packages
       pip: name={{item}} state=present 
@@ -83,6 +88,7 @@
         - PyYAML
         - tabulate
         - xmlrunner
+        - filechunkio
 
     - name: create java home script
       copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755

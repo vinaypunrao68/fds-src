@@ -3,6 +3,7 @@
  */
 #include <snapshot/scheduler.h>
 #include <util/timeutils.h>
+#include <vector>
 namespace atc = apache::thrift::concurrency;
 namespace fds { namespace snapshot {
 
@@ -21,6 +22,7 @@ Scheduler::~Scheduler() {
 
 // will also update / modify
 bool Scheduler::addPolicy(const fpi::SnapshotPolicy& policy) {
+    LOGDEBUG << "about to add policy : " << policy.id;
     atc::Synchronized s(monitor);
     // check if the policy is already here
     bool fModified = false;
@@ -80,10 +82,30 @@ void Scheduler::ping() {
     monitor.notifyAll();
 }
 
+void Scheduler::processPendingTasks() {
+    if (vecTasks.empty()) return;
+    LOGDEBUG << "time now:" << fds::util::getLocalTimeString(fds::util::getTimeStampSeconds());
+    LOGDEBUG << "processing [" << vecTasks.size() << "] policies";
+    taskProcessor->process(vecTasks);
+    // now check the next time & reschedule the task
+    for (auto task : vecTasks) {
+        if (task->setNextRecurrence()) {
+            LOGDEBUG << "rescheduling policy:" << task->policyId
+                     << " @ " << fds::util::getLocalTimeString(task->runAtTime);
+            handleMap[task->policyId] = pq.push(task);
+        } else {
+            LOGWARN << "no more recurrence of this policy: " << task->policyId;
+        }
+    }
+    vecTasks.clear();
+}
+
 void Scheduler::run() {
     atc::Synchronized s(monitor);
     LOGNORMAL << "snapshot scheduler started";
     while (!fShutdown) {
+        processPendingTasks();
+        dump();
         while (!fShutdown && pq.empty()) {
             LOGDEBUG << "q empty .. waiting.";
             monitor.waitForever();
@@ -93,33 +115,26 @@ void Scheduler::run() {
             Task* task;
             uint64_t currTime = fds::util::getTimeStampSeconds();
             task = pq.top();
-            LOGDEBUG << "curTime:" << fds::util::getLocalTimeString(currTime)
-                     << " next:" << fds::util::getLocalTimeString(task->runAtTime);
-            dump();
+            // we have no more items to pick up
+            // so process the tasks selected ..
+            if (task->runAtTime > currTime && !vecTasks.empty()) {
+                processPendingTasks();
+                task = pq.top();
+            }
             if (task->runAtTime > currTime) {
                 // there is no task to be executed at the time
+                dump();
                 LOGDEBUG << "going into wait ...";
                 monitor.waitForTimeRelative((task->runAtTime - currTime)*1000);  // ms
             } else {
                 // to be executed now ..
-                LOGDEBUG << "processing policyid:" << task->policyId;
-                taskProcessor->process(*task);
-
-                // now check the next time & reschedule the task
+                vecTasks.push_back(task);
+                pq.pop();
                 auto handleptr = handleMap.find(task->policyId);
                 if (handleptr == handleMap.end()) {
                     LOGERROR << "major error . policyid is missing from the map : "
                              << task->policyId;
-                }
-
-                if (task->setNextRecurrence()) {
-                    LOGDEBUG << "rescheduling policy:" << task->policyId
-                             << " @ " << fds::util::getLocalTimeString(task->runAtTime);
-                    pq.update(handleptr->second);
-                    // pq.update(*(handleptr->second), task);
                 } else {
-                    LOGWARN << "no more recurrence of this policy: " << task->policyId;
-                    pq.pop();
                     handleMap.erase(handleptr);
                 }
             }

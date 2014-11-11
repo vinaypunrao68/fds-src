@@ -20,6 +20,7 @@ needed_packages=(
 basedebs=(
     libpcre3
     "libconfig++9"
+    libev4
     libreadline5
     xfsprogs
     libjemalloc1
@@ -42,6 +43,7 @@ fdsbasedebs=(
     fds-python-scp
     fds-python-paramiko
     fds-jdk-default
+		libcryptopp-dev
 )
 
 python_packages=(

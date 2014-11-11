@@ -6,13 +6,16 @@ package com.formationds.commons.model.helper;
 
 import com.formationds.commons.model.type.Protocol;
 import com.google.gson.FieldNamingPolicy;
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.joda.time.format.ISODateTimeFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Reader;
+import java.lang.reflect.Field;
 import java.lang.reflect.Type;
+import java.text.DateFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
@@ -20,6 +23,16 @@ import java.util.List;
  * @author ptinius
  */
 public class ObjectModelHelper {
+
+  private static final Logger logger =
+      LoggerFactory.getLogger( ObjectModelHelper.class );
+
+  private static final ModelObjectExclusionStrategy exclusion =
+      new ModelObjectExclusionStrategy();
+
+  private static final DateFormat ISO_DATE =
+    new SimpleDateFormat( "yyyyMMdd'T'HHmmss" );
+
   /**
    * @param protocols the {@link List} of {@link com.formationds.commons.model.type.Protocol}
    *
@@ -48,11 +61,50 @@ public class ObjectModelHelper {
    */
   public static Date toiCalFormat( final String date )
     throws ParseException {
-    return ISODateTimeFormat.dateOptionalTimeParser()
-                            .parseDateTime( date )
-                            .toDate();
+    return fromISODateTime( date );
   }
 
+  /**
+   * @param date the {@link Date} representing the date
+   *
+   * @return Returns {@link String} representing the ISO Date format of
+   * "yyyyMMddTHHmmssZ"
+   */
+  public static String isoDateTimeUTC( final Date date ) {
+    return ISO_DATE.format( date );
+  }
+
+  /**
+   * @param date the {@link String} representing the ISO Date format of
+   *             "yyyyMMddThhmmss"
+   *
+   * @return Date Returns {@link Date} representing the {@code date}
+   */
+  public static Date fromISODateTime( final String date )
+    throws ParseException {
+    return ISO_DATE.parse( date );
+  }
+
+  /**
+   * @param field the {@link java.lang.reflect.Field} representing the field
+   *              to be excluded.
+   */
+  public static void excludeField( final Field field ) {
+      try {
+          exclusion.excludeField( field );
+      } catch( ClassNotFoundException e ) {
+          logger.warn( "could not find either the class {} or the field {}, skipping!",
+                       field.getDeclaringClass(),
+                       field.getName());
+      }
+  }
+
+  /**
+   * @param clazz the {@link Class} representing the class to exclude
+   */
+  public static void excludeClass( final Class<?> clazz ) {
+      exclusion.excludeClass( clazz );
+  }
   /**
    * @param json the {@link String} representing the JSON object
    * @param type the {@link Type} to parse the JSON into
@@ -60,7 +112,8 @@ public class ObjectModelHelper {
    * @return Returns the {@link Type} represented within the JSON
    */
   public static <T> T toObject( final String json, final Type type ) {
-    return new GsonBuilder().create()
+    return new GsonBuilder()//.setExclusionStrategies( exclusion )
+                            .create()
                             .fromJson( json, type );
   }
 
@@ -81,11 +134,10 @@ public class ObjectModelHelper {
    * @return Returns the {@link String} representing the JSON
    */
   public static String toJSON( final Object object ) {
-    Gson gson =
-      new GsonBuilder().setFieldNamingPolicy( FieldNamingPolicy.IDENTITY )
-                       .setPrettyPrinting()
-                       .create();
-    return gson.toJson( object );
+   return new GsonBuilder().setFieldNamingPolicy( FieldNamingPolicy.IDENTITY )
+                           .setPrettyPrinting()
+                           .create()
+                           .toJson( object );
   }
 
   /**

@@ -3,7 +3,10 @@ user_target       := lib
 user_rtime_env    := user
 user_build_dir    :=
 user_incl_dir     := \
-    ../include
+    ../include \
+    ../stor-hvisor \
+		$(topdir) \
+		/usr/include/cryptopp
 
 user_cpp_flags    :=
 user_cpp          := $(wildcard *.cpp)

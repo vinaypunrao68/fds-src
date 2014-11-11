@@ -11,7 +11,7 @@ public abstract class Calculated
   extends ModelBase {
   private static final long serialVersionUID = -3524304479018347948L;
 
-  /*
-   * use a calculated for the Statistics model object
+  /**
+   * used for generated calculations for the {@link Statistics} model object
    */
 }

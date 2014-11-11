@@ -155,7 +155,8 @@ fds_qid_t QoSMinPrioDispatcher::getNextQueueForDispatch()
     assert(qstate != NULL);
 
     /* before querying any state, update assured tokens */
-    fds_uint64_t exp_assured_toks = qstate->updateTokens();
+    fds_uint64_t now = util::getTimeStampMicros();
+    fds_uint64_t exp_assured_toks = qstate->updateTokens(now);
     /* we only getting expired assured tokens for debugging */
     if (exp_assured_toks > 0) {
       FDS_PLOG_SEV(qda_log, fds::fds_log::debug) 

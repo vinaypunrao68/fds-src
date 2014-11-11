@@ -20,7 +20,6 @@ user_cpp         :=      \
     fds_types.cpp        \
     ClusterCommMgr.cpp   \
     fds_volume.cpp       \
-    TransJournal.cpp     \
     dmt.cpp              \
     fds_error.cpp        \
     PerfHistory.cpp      \
@@ -35,7 +34,6 @@ user_no_style    := \
     qos_htb.cpp          \
     fds_obj_cache.cpp	 \
     qos_min_prio.cpp     \
-    TransJournal.cpp     \
     jsoncpp.cpp          \
     serialize.cpp        \
     fds_counters.cpp     \

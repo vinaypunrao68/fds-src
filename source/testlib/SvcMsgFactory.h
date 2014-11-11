@@ -26,6 +26,9 @@ class CommitBlobTxMsg;
 class AbortBlobTxMsg;
 class FDSP_BlobObjectInfo;
 class GetObjectMsg;
+class GetBucketMsg;
+class GetDmStatsMsg;
+class DeleteBlobMsg;
 typedef boost::shared_ptr<PutObjectMsg> PutObjectMsgPtr;
 typedef boost::shared_ptr<QueryCatalogMsg> QueryCatalogMsgPtr;
 typedef boost::shared_ptr<UpdateCatalogMsg> UpdateCatalogMsgPtr;
@@ -43,6 +46,9 @@ typedef boost::shared_ptr<CommitBlobTxMsg> CommitBlobTxMsgPtr;
 typedef boost::shared_ptr<AbortBlobTxMsg> AbortBlobTxMsgPtr;
 typedef boost::shared_ptr<FDSP_BlobObjectInfo> FDSP_BlobObjectInfoPtr;
 typedef boost::shared_ptr<GetObjectMsg> GetObjectMsgPtr;
+typedef boost::shared_ptr<GetBucketMsg> GetBucketMsgPtr;
+typedef boost::shared_ptr<GetDmStatsMsg> GetDmStatsMsgPtr;
+typedef boost::shared_ptr<DeleteBlobMsg> DeleteBlobMsgPtr;
 }
 
 namespace fds {
@@ -52,9 +58,15 @@ typedef boost::shared_ptr<DataGenIf> DataGenIfPtr;
 
 void UpdateBlobInfo(FDS_ProtocolInterface::UpdateCatalogMsgPtr  updateCatMsg,
                           DataGenIfPtr dataGen, size_t blobSize);
+
+template<typename T>
+void
+UpdateBlobInfoNoData(boost::shared_ptr<T> updateCatMsg, size_t objSize, size_t blobSize);
+/*
 void
 UpdateBlobInfoNoData(FDS_ProtocolInterface::UpdateCatalogMsgPtr  updateCatMsg,
                             size_t objSize, size_t blobSize);
+*/
 namespace apis {
 class VolumeSettings;
 }
@@ -85,9 +97,14 @@ struct SvcMsgFactory {
         newSetBlobMetaDataMsg(const uint64_t& volId, const std::string blobName);
     static FDS_ProtocolInterface::GetBlobMetaDataMsgPtr
         newGetBlobMetaDataMsg(const uint64_t& volId, const std::string blobName);
-
+    static FDS_ProtocolInterface::GetBucketMsgPtr
+        newGetBucketMsg(const uint64_t& volId, const uint64_t& startPos);
     static FDS_ProtocolInterface::GetObjectMsgPtr
         newGetObjectMsg(const uint64_t& volId, const ObjectID& objId);
+    static FDS_ProtocolInterface::GetDmStatsMsgPtr
+        newGetDmStatsMsg(const uint64_t& volId);
+    static FDS_ProtocolInterface::DeleteBlobMsgPtr
+        newDeleteBlobMsg(const uint64_t& volId, const std::string blobName);
 
     static apis::VolumeSettings defaultS3VolSettings();
 };

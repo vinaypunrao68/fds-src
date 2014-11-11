@@ -304,9 +304,14 @@ Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
         return rc;
     }
 
-    // TODO(umesh): do not panic here, return error
-    fds_verify(startOffset < blobSize);
-    fds_verify(endOffset < static_cast<fds_int64_t>(blobSize));
+    if (0 == blobSize) {
+        // empty blob
+        return rc;
+    } else if (startOffset >= blobSize) {
+        return ERR_CAT_ENTRY_NOT_FOUND;
+    } else if (endOffset >= static_cast<fds_int64_t>(blobSize)) {
+        endOffset = -1;
+    }
 
     GET_VOL_N_CHECK_DELETED(volId);
 
@@ -319,11 +324,13 @@ Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
 
     if (rc.ok()) {
         fpi::FDSP_BlobObjectList::reverse_iterator iter = objList->rbegin();
-        fds_verify(objList->rend() != iter);
-        // TODO(umesh): offset below is long wraps around at 4GB!
-        // fds_verify(static_cast<fds_uint64_t>(iter->offset) == endOffset);
-
-        iter->size = lastObjectSize;
+        if (objList->rend() != iter) {
+            const fds_uint64_t lastOffset =
+                    DmVolumeDirectory::getLastOffset(blobSize, vol->getObjSize());
+            if (static_cast<fds_int64_t>(lastOffset) == iter->offset) {
+                iter->size = lastObjectSize;
+            }
+        }
     }
 
     return rc;
@@ -352,12 +359,15 @@ Error DmVolumeDirectory::listBlobs(fds_volid_t volId, fpi::BlobInfoListType* bin
 Error DmVolumeDirectory::putBlobMeta(fds_volid_t volId, const std::string& blobName,
         const MetaDataList::const_ptr& metaList, const BlobTxId::const_ptr& txId) {
     LOGDEBUG << "Will commit metadata for volume '" << std::hex << volId << std::dec <<
-            "' blob '" << blobName << "' " << *metaList;
+            "' blob '" << blobName << "'";
 
     BlobMetaDesc blobMeta;
     Error rc = getBlobMetaDesc(volId, blobName, blobMeta);
     if (rc.ok() || rc == ERR_CAT_ENTRY_NOT_FOUND) {
-        mergeMetaList(blobMeta.meta_list, *metaList);
+        if (metaList) {
+            LOGDEBUG << "Adding metadata " << *metaList;
+            mergeMetaList(blobMeta.meta_list, *metaList);
+        }
         blobMeta.desc.version += 1;
         if (ERR_CAT_ENTRY_NOT_FOUND == rc) {
             blobMeta.desc.blob_name = blobName;
@@ -370,7 +380,7 @@ Error DmVolumeDirectory::putBlobMeta(fds_volid_t volId, const std::string& blobN
 
     if (!rc.ok()) {
         LOGERROR << "Failed to update blob metadata volume: '" << std::hex << volId
-                << std::dec << "' blob: '" << blobName << "' " << *metaList;
+                << std::dec << "' blob: '" << blobName << "'";
     }
 
     return rc;
@@ -570,7 +580,10 @@ Error DmVolumeDirectory::deleteBlob(fds_volid_t volId, const std::string& blobNa
 
     std::vector<ObjectID> expungeList;
     for (const auto & it : objList) {
-        expungeList.push_back(ObjectID(it.data_obj_id.digest));
+        const ObjectID obj(it.data_obj_id.digest);
+        if (NullObjectID != obj) {
+            expungeList.push_back(obj);
+        }
     }
 
     rc = vol->deleteObject(blobName, 0, endOffset);
@@ -600,7 +613,7 @@ Error DmVolumeDirectory::deleteBlob(fds_volid_t volId, const std::string& blobNa
 }
 
 Error DmVolumeDirectory::syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid) {
-    // TODO(umesh): implement this
-    return ERR_OK;
+    GET_VOL_N_CHECK_DELETED(volId);
+    return vol->syncCatalog(dmUuid);
 }
 }  // namespace fds

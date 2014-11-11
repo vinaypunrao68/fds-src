@@ -25,11 +25,10 @@ import java.io.InterruptedIOException;
 import java.net.InetSocketAddress;
 
 /**
- * HTTP/1.1 file server based on the non-blocking I/O model and capable of direct channel
- * (zero copy) data transfer.
+ * HTTP/1.1 file server based on the non-blocking I/O model and capable of
+ * direct channel (zero copy) data transfer.
  */
 public class NHttpServer {
-
     public static void main(String[] args) throws Exception {
         int port = 8080;
 
@@ -38,7 +37,8 @@ public class NHttpServer {
                 .add(new ResponseDate())
                 .add(new ResponseServer("Test/1.1"))
                 .add(new ResponseContent())
-                .add(new ResponseConnControl()).build();
+                .add(new ResponseConnControl())
+                .build();
         // Create request handler registry
         UriHttpAsyncRequestHandlerMapper reqistry = new UriHttpAsyncRequestHandlerMapper();
         // Register the default handler for all URIs
@@ -97,10 +97,8 @@ public class NHttpServer {
             return new BasicAsyncRequestConsumer();
         }
 
-        public void handle(
-                final HttpRequest request,
-                final HttpAsyncExchange httpexchange,
-                final HttpContext context) throws HttpException, IOException {
+        public void handle(final HttpRequest request, final HttpAsyncExchange httpexchange, final HttpContext context)
+                throws HttpException, IOException {
             HttpResponse response = httpexchange.getResponse();
             HttpCoreContext coreContext = HttpCoreContext.adapt(context);
             NHttpConnection conn = coreContext.getConnection(NHttpConnection.class);

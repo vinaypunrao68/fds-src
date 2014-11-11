@@ -1,6 +1,6 @@
 topdir         := ..
 user_target    := lib
-speedup        := -j 5
+speedup        = -j $(threads)
 user_rtime_env := user
 user_build_dir := \
     fdsp \
@@ -31,7 +31,6 @@ user_no_style  := \
 	odb.h                 \
 	PerfTrace.h           \
 	qos_ctrl.h            \
-	TransJournal.h        \
 	tvclib.h              \
 	vvclib.h              \
 	fds_timer.h           \

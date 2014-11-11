@@ -2,32 +2,41 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
 
     var service = {};
 
-    service.getFirebreakSummary = function( callback ){
-
-        return $http_fds.get( '/scripts/services/data/fakefirebreak.js',
+    service.getFirebreakSummary = function( filter, callback ){
+        
+        return $http_fds.put( '/api/stats/volumes', filter, 
             function( response ){
-                callback( eval( response )[0] );
+                if ( angular.isFunction( callback ) ){
+                    callback( response );
+                }
             });
+        
+//        return $http_fds.get( '/scripts/services/data/fakefirebreak.js', 
+//            function( response ){
+//                callback( eval( response )[0] );
+//                
+//
+//            });
     };
     
-    service.getPerformanceSummary = function( callback ){
+    service.getPerformanceSummary = function( filter, callback ){
         
         var data = {
             series: [
-                {
-                    context: {},
-                    datapoints: [
-                    {x:0, y: 10},
-                    {x:1, y: 40},
-                    {x:2, y: 31},
-                    {x:3, y: 16},
-                    {x:4, y: 19},
-                    {x:5, y: 2},
-                    {x:6, y: 8},
-                    {x:7, y: 52},
-                    {x:8, y: 12},
-                    {x:9, y: 34}]
-                },
+//                {
+//                    context: {},
+//                    datapoints: [
+//                    {x:0, y: 10},
+//                    {x:1, y: 40},
+//                    {x:2, y: 31},
+//                    {x:3, y: 16},
+//                    {x:4, y: 19},
+//                    {x:5, y: 2},
+//                    {x:6, y: 8},
+//                    {x:7, y: 52},
+//                    {x:8, y: 12},
+//                    {x:9, y: 34}]
+//                },
                 {
                     context: {},
                     datapoints: [
@@ -45,11 +54,18 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
             ]
         };
         
-        callback( data );
+//        callback( data );
+        
+        return $http_fds.put( '/api/stats/volumes', filter, 
+            function( response ){
+                if ( angular.isFunction( callback ) ){
+                    callback( response );
+                }
+            });
         
     };
     
-    service.getCapacitySummary = function( callback ){
+    service.getCapacitySummary = function( filter, callback ){
         
         var data = {
             series: [
@@ -83,7 +99,13 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
             ]
         };
         
-        callback( data );
+//        callback( data );
+        return $http_fds.put( '/api/stats/volumes', filter, 
+            function( response ){
+                if ( angular.isFunction( callback ) ){
+                    callback( response );
+                }
+            });        
         
     };    
 

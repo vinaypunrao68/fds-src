@@ -22,6 +22,9 @@
  * these values.
  */
 namespace fds {
+
+struct AmRequest;
+
 /**
  * FDS_NativeAPI  object class : One object per client Type so that the semantics of
  * the particular access protocols can be followed in returning the data
@@ -77,8 +80,8 @@ class FDS_NativeAPI {
      * Buckets do not need to be attached to this AM, retrieves stats directly from OM
      * Note: in the future, we can also have API to get stats for a particular bucket
      */
-    void GetBucketStats(void *req_ctxt,
-                        fdsnBucketStatsHandler resp_handler,
+    void GetVolumeStats(void *req_ctxt,
+                        fdsnVolumeStatsHandler resp_handler,
                         void *callback_data);
 
     /// After this call returns bucketctx, get_cond are no longer valid.
@@ -88,7 +91,6 @@ class FDS_NativeAPI {
                    fds_uint64_t startByte,
                    fds_uint64_t byteCount,
                    char *buffer,
-                   fds_uint64_t buflen,
                    CallbackPtr cb);
 
     void PutBlob(BucketContext *bucket_ctxt,
@@ -100,7 +102,6 @@ class FDS_NativeAPI {
                  fds_uint64_t buflen,
                  BlobTxId::ptr txDesc,
                  fds_bool_t lastBuf,
-                 fdsnPutObjectHandler putObjHandler,
                  void *callbackData);
 
     /**
@@ -116,7 +117,6 @@ class FDS_NativeAPI {
                      fds_uint64_t buflen,
                      fds_int32_t blobMode,
                      boost::shared_ptr< std::map<std::string, std::string> >& metadata,
-                     fdsnPutObjectHandler putObjHandler,
                      void *callbackData);
 
     void DeleteObject(BucketContext *bucket_ctxt,
@@ -125,7 +125,7 @@ class FDS_NativeAPI {
                       fdsnResponseHandler responseHandler,
                       void *callbackData);
 
-    static void DoCallback(FdsBlobReq* blob_req,
+    static void DoCallback(AmRequest* blob_req,
                            Error error,
                            fds_uint32_t ignore,
                            fds_int32_t  result);

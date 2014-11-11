@@ -3,7 +3,7 @@
     <div class="header">
         <span translate>volumes.l_snapshot_policy</span>
         <div class="pull-right" ng-click="editing = true" ng-show="editing == false">
-            <span class="icon icon-pencil edit-snapshot-policies"></span>
+            <span class="icon icon-edit edit-snapshot-policies"></span>
         </div>
     </div>
     
@@ -33,7 +33,7 @@
                     </div>
                     <div class="flex" ng-show="editing">
                         <span style="padding-right: 4px;">
-                            <fui-dropdown class="schedule-dropdown" skinny="true" items="startTimeChoices" selected="policies[0].startTime" background="none" color="black" border="gray" name-property="name" width="106px" enabled="policy.timeEnabled"></fui-dropdown>
+                            <fui-dropdown class="schedule-dropdown" skinny="true" items="startTimeChoices" selected="policy.startTime" background="none" color="black" border="gray" name-property="name" width="106px" enabled="policy.timeEnabled"></fui-dropdown>
                         </span>
                         <span>
                             <fui-dropdown class="recurrence-dropdown" skinny="true" items="policy.rules" selected="policy.startRule" background="none" color="black" border="gray" width="300px" name-property="displayName" enabled="policy.ruleEnabled"></fui-dropdown>

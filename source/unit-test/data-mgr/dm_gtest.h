@@ -25,6 +25,7 @@ static fds_uint32_t MAX_OBJECT_SIZE = 2097152;    // 2MB
 static fds_uint64_t BLOB_SIZE = 1 * 1024 * 1024 * 1024;   // 1GB
 static fds_uint32_t NUM_VOLUMES = 1;
 static fds_uint32_t NUM_BLOBS = 1;
+static bool  profile = false;
 
 static const fds_uint32_t NUM_TAGS = 10;
 

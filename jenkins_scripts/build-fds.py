@@ -8,10 +8,18 @@
 #
 import os
 import build_lib
+from optparse import OptionParser
+
+parser = OptionParser()
+parser.add_option("-r", "--release-build-enable", dest = "release_build_enable", action = "store_true", default = False, help = "Enable build release")
+(options, args) = parser.parse_args()
 
 os.environ["JAVA_HOME"] = "/usr/lib/jvm/java-8-oracle"
 os.environ["npm_config_loglevel"] = "error"
 os.environ["JENKINS_URL"] = "true"
 
 os.chdir('source')
-build_lib.shell_retry('make fastb=1')
+cmd = 'make fastb=1 threads=13'
+if options.release_build_enable:
+    cmd += ' BUILD=release'
+exit (build_lib.shell_retry(cmd))

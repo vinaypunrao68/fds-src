@@ -11,6 +11,7 @@
 #include <fds_uuid.h>
 
 #include <DmBlobTypes.h>
+#include <lib/Catalog.h>
 
 #define IS_OP_ALLOWED() \
     if (isSnapshot() || isReadOnly()) { \
@@ -32,6 +33,9 @@ struct BlobObjKey {
     BlobObjKey(fds_uint64_t blobId_, fds_uint32_t objIndex_ = BLOB_META_INDEX)
             : blobId(blobId_), objIndex(objIndex_) {}
 };
+
+extern const BlobObjKey OP_TIMESTAMP_KEY;
+extern const Record OP_TIMESTAMP_REC;
 
 class DmPersistVolDir {
   public:
@@ -139,6 +143,9 @@ class DmPersistVolDir {
             fds_uint64_t endOffset) = 0;
 
     virtual Error deleteBlobMetaDesc(const std::string & blobName) = 0;
+
+    // sync
+    virtual Error syncCatalog(const NodeUuid & dmUuid);
 
   protected:
     // methods

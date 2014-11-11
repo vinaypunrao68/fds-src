@@ -87,7 +87,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void listSnapshots(std::vector< ::FDS_ProtocolInterface::Snapshot> & _return, const int64_t volumeId) {} //NOLINT
     void restoreClone(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
     int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName) { return 0;} //NOLINT
-    void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime) {} //NOLINT
+    void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime, const int64_t timelineTime) {} //NOLINT
 
     // stubs to keep cpp compiler happy - END
 
@@ -148,6 +148,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
+        VolumeInfo::pointer vol = volContainer->get_volume(*volumeName);
         Error err = volContainer->getVolumeStatus(*volumeName);
         if (err == ERR_OK) apiException("volume already exists", RESOURCE_ALREADY_EXISTS);
 
@@ -330,10 +331,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         VolPolicyMgr      *volPolicyMgr = om->om_policy_mgr();
         VolumeInfo::pointer  parentVol, cloneVol;
-        fds_volid_t cloneVolId = fds::getUuidFromVolumeName(*clonedVolumeName);
 
-        cloneVol = VolumeInfo::vol_cast_ptr(
-            volContainer->rs_get_resource(clonedVolumeName->c_str()));
+        cloneVol = volContainer->get_volume(*clonedVolumeName);
         if (cloneVol != NULL) {
             LOGWARN << "volume with same name already exists : " << *clonedVolumeName;
             apiException("volume with same name already exists");
@@ -347,7 +346,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         VolumeDesc desc(*(parentVol->vol_get_properties()));
 
-        desc.volUUID = cloneVolId;
+        desc.volUUID = configDB->getNewVolumeId();
+        if (invalid_vol_id == desc.volUUID) {
+            LOGWARN << "unable to generate a new vol id";
+            apiException("unable to generate a new vol id");
+        }
         desc.name = *clonedVolumeName;
         if (*volPolicyId > 0) {
             desc.volPolicyId = *volPolicyId;
@@ -371,15 +374,21 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void createSnapshot(boost::shared_ptr<int64_t>& volumeId,
                         boost::shared_ptr<std::string>& snapshotName,
-                        boost::shared_ptr<int64_t>& retentionTime) {
+                        boost::shared_ptr<int64_t>& retentionTime,
+                        boost::shared_ptr<int64_t>& timelineTime) {
                     // create the structure
         fpi::Snapshot snapshot;
         snapshot.snapshotName = util::strlower(*snapshotName);
         snapshot.volumeId = *volumeId;
-        snapshot.snapshotId = getUuidFromVolumeName(snapshot.snapshotName);
+        snapshot.snapshotId = configDB->getNewVolumeId();
+        if (invalid_vol_id == snapshot.snapshotId) {
+            LOGWARN << "unable to generate a new snapshot id";
+            apiException("unable to generate a new snapshot id");
+        }
         snapshot.snapshotPolicyId = 0;
         snapshot.creationTimestamp = util::getTimeStampMillis();
         snapshot.retentionTimeSeconds = *retentionTime;
+        snapshot.timelineTime = *timelineTime;
 
         snapshot.state = fpi::ResourceState::Loading;
         LOGDEBUG << "snapshot request for volumeid:" << snapshot.volumeId
@@ -404,7 +413,7 @@ std::thread* runConfigService(OrchMgr* om) {
     boost::shared_ptr<ConfigurationServiceHandler> handler(new ConfigurationServiceHandler(om));  //NOLINT
     boost::shared_ptr<TProcessor> processor(new ConfigurationServiceProcessor(handler));  //NOLINT
     boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));  //NOLINT
-    boost::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());  //NOLINT
+    boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());  //NOLINT
 
     // TODO(Andrew): Use a single OM processing thread for now...
@@ -414,14 +423,14 @@ std::thread* runConfigService(OrchMgr* om) {
     threadManager->threadFactory(threadFactory);
     threadManager->start();
 
-    TNonblockingServer *server = new TNonblockingServer(processor,
-                                                        protocolFactory,
-                                                        port,
-                                                        threadManager);
-    // TThreadedServer* server = new TThreadedServer(processor,
-    //                                           serverTransport,
-    //                                            transportFactory,
-    //                                            protocolFactory);
+    // TNonblockingServer *server = new TNonblockingServer(processor,
+    //                                                 protocolFactory,
+    //                                                  port,
+    //                                                  threadManager);
+    TThreadedServer* server = new TThreadedServer(processor,
+                                                  serverTransport,
+                                                  transportFactory,
+                                                  protocolFactory);
     return new std::thread ( [server] {
             LOGNOTIFY << "starting config service";
             server->serve();

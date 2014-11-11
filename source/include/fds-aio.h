@@ -5,8 +5,11 @@
 #define SOURCE_INCLUDE_FDS_AIO_H_
 
 #include <sys/uio.h>
+#include <boost/thread/condition.hpp>
+
 #include <cpplist.h>
 #include <fds_assert.h>
+#include <concurrency/Mutex.h>
 
 namespace fds {
 
@@ -24,7 +27,8 @@ class FdsAIO
     inline void aio_set_fd(int fd) {
         io_fd = fd;
     }
-    inline void aio_reset() {
+    inline void aio_reset(bool w = true) {
+        io_wait    = w;
         io_cnt     = 0;
         io_cur_idx = 0;
     }
@@ -65,6 +69,12 @@ class FdsAIO
     virtual void aio_rearm_write() = 0;
     virtual void aio_write_complete() = 0;
 
+    /**
+     * Used in sync path if we have to wait.
+     */
+    void aio_wait(fds_mutex *mtx, boost::condition *waitq);
+    void aio_wakeup(fds_mutex *mtx, boost::condition *waitq);
+
   protected:
     ChainLink               io_link;
     int                     io_fd;
@@ -77,6 +87,7 @@ class FdsAIO
     virtual void aio_do_iov(bool rd);
 
   private:
+    bool                    io_wait;
     int                     io_retry;
     int                     io_cur_idx;
     ssize_t                 io_cur_len;

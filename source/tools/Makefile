@@ -3,7 +3,7 @@ user_target		  := tool
 user_std_libs     := true
 user_rtime_env	  := user
 
-user_incl_dir     := \
+user_incl_dir     := $(topdir) \
     $(topdir)/platform/include \
     $(topdir)/net-service/include \
     $(topdir)/data-mgr/include
@@ -11,7 +11,8 @@ user_incl_dir     := \
 user_cpp_flags    := -DLEVELDB_PLATFORM_POSIX
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
-    fds-dm-lib
+    fds-dm-lib \
+    fds-xdi
 
 user_non_fds_libs := \
     leveldb

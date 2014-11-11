@@ -5,6 +5,7 @@
 #include <dlt.h>
 #include <odb.h>
 #include <PerfTrace.h>
+#include <fds_process.h>
 #include <object-store/SmDiskMap.h>
 #include <object-store/ObjectMetaDb.h>
 
@@ -32,13 +33,28 @@ void ObjectMetadataDb::setNumBitsPerToken(fds_uint32_t nbits) {
 Error
 ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
     Error err(ERR_OK);
+    diskio::DataTier tier = diskio::diskTier;
+    // if we have SSDs, use SSDs; however, there is currently no way
+    // for SM to tell if discovered SSDs are real or simulated
+    // so we are using config for that (use SSDs at your own risk, because
+    // SSDs may be just one single HDD device ;) )
+    fds_bool_t useSsd = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta");
+    if (useSsd) {
+        // currently, we always have SSDs (simulated if no SSDs), so below check
+        // is redundant, but just in case platform changes
+        DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
+        if (ssdIds.size() > 0) {
+            tier = diskio::flashTier;
+        }
+    }
+
     // open object metadata DB for each token that this SM owns
     // if metadata DB already open, no error
     SmTokenSet smToks = diskMap->getSmTokens();
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
          ++cit) {
-        std::string diskPath = diskMap->getDiskPath(*cit, diskio::diskTier);
+        std::string diskPath = diskMap->getDiskPath(*cit, tier);
         err = openObjectDb(*cit, diskPath);
         if (!err.ok()) {
             LOGERROR << "Failed to open Object Meta DB for SM token " << *cit
@@ -62,11 +78,17 @@ ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
     if (iter != tokenTbl.end()) return ERR_OK;
 
     // create leveldb
-    objdb = new(std::nothrow) osm::ObjectDB(filename);
-    if (!objdb) {
-        LOGERROR << "Failed to create ObjectDB " << filename;
-        return ERR_OUT_OF_MEMORY;
+    try
+    {
+        objdb = new osm::ObjectDB(filename);
     }
+    catch(const osm::OsmException& e)
+    {
+        LOGERROR << "Failed to create ObjectDB " << filename;
+        LOGERROR << e.what();
+        return ERR_NOT_READY;
+    }
+
     tokenTbl[smTokId] = objdb;
     return ERR_OK;
 }

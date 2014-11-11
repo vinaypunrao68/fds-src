@@ -9,7 +9,9 @@ namespace fds {
 namespace dm {
 
 UpdateCatalogHandler::UpdateCatalogHandler() {
-    REGISTER_DM_MSG_HANDLER(fpi::UpdateCatalogMsg, handleRequest);
+    if (dataMgr->feature.isTestMode()) {
+        REGISTER_DM_MSG_HANDLER(fpi::UpdateCatalogMsg, handleRequest);
+    }
 }
 
 void UpdateCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
