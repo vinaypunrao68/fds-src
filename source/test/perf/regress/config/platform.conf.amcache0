@@ -289,7 +289,7 @@ fds: {
             toggleStandAlone = false
 
             /* Toggle to disable stats collection for metadata streaming */
-            toggleDisableStreamingStats = false
+            toggleDisableStreamingStats = true
 
             /* NBD module driver */
             nbd_vol_module = "sm"
