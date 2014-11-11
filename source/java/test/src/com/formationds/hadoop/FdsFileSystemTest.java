@@ -235,7 +235,7 @@ public class FdsFileSystemTest {
     public void setUpUnit() throws Exception {
         String volumeName = "volume";
         MemoryAmService am = new MemoryAmService();
-        am.createVolume(volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0));
+        am.createVolume(volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0));
         fileSystem = new FdsFileSystem(am, "fds://" + volumeName + "/", OBJECT_SIZE);
     }
 
@@ -254,7 +254,7 @@ public class FdsFileSystemTest {
         long userId = cs.createUser(userName, "x", "x", false);
         cs.assignUserToTenant(userId, tenantId);
 
-        cs.createVolume(FdsFileSystem.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0), userId);
+        cs.createVolume(FdsFileSystem.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0), userId);
         fileSystem = new FdsFileSystem(am, "fds://" + volumeName + "/", OBJECT_SIZE);
     }
 
