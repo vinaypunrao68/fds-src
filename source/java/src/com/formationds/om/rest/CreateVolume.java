@@ -8,23 +8,28 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
+import com.formationds.commons.model.ConnectorAttributes;
 import com.formationds.commons.model.Volume;
-import com.formationds.commons.model.builder.VolumeBuilder;
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.commons.model.type.ConnectorType;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.SizeUnit;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
-import org.apache.commons.io.IOUtils;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.servlet.http.HttpServletResponse;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +44,9 @@ public class CreateVolume
   private static final String METHOD = "POST";
   private static final Long DURATION = TimeUnit.MINUTES.toSeconds( 2 );
   private static final Long FREQUENCY = TimeUnit.MINUTES.toSeconds( 1 );
+
+  private static final Integer DEF_BLOCK_SIZE = ( 1024 * 4 );
+  private static final Integer DEF_OBJECT_SIZE = ( ( 1024 * 1024 ) * 2 );
 
   private final Xdi xdi;
   private final FDSP_ConfigPathReq.Iface legacyConfigPath;
@@ -58,90 +66,125 @@ public class CreateVolume
   @Override
   public Resource handle( Request request, Map<String, String> routeParameters )
     throws Exception {
-    long volumeId;
-    final String domainName = "";
+
+      Volume volume;
+      long volumeId = -1;
+      final String domainName = "";
       final int unused_argument = 0;
 
-      String source = IOUtils.toString( request.getInputStream() );
-      JSONObject o = new JSONObject( source );
-    String name = o.getString( "name" );
-    int priority = o.getInt( "priority" );
-    int sla = o.getInt( "sla" );
-    int limit = o.getInt( "limit" );
-    JSONObject connector = o.getJSONObject( "data_connector" );
-    String type = connector.getString( "type" );
-    if( "block".equals( type.toLowerCase() ) ) {
-      JSONObject attributes = connector.getJSONObject( "attributes" );
-      int sizeUnits = attributes.getInt( "size" );
-      long sizeInBytes = SizeUnit.valueOf( attributes.getString( "unit" ) )
-                                 .totalBytes( sizeUnits );
-      VolumeSettings volumeSettings = new VolumeSettings( 1024 * 4, VolumeType.BLOCK, sizeInBytes );
-      volumeId = xdi.createVolume( token, domainName, name, volumeSettings );
-    } else {
+      try( final Reader reader =
+               new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
+          volume =
+              ObjectModelHelper.toObject( reader, Volume.class );
+
+          // validate model object has all required fields.
+          if( ( volume == null ) ||
+              ( volume.getName() == null ) ||
+              ( volume.getData_connector() == null ) ||
+              ( volume.getData_connector().getType() == null ) ) {
+
+              return new JsonResource(
+                  new JSONObject().put( "message", "missing mandatory field" ),
+                  HttpServletResponse.SC_BAD_REQUEST );
+          }
+      }
+
+      VolumeSettings settings;
+      final ConnectorType type = volume.getData_connector()
+                                       .getType();
+      switch( type ) {
+          case BLOCK:
+              if( volume.getData_connector()
+                        .getAttributes() == null ) {
+
+                  return new JsonResource(
+                      new JSONObject().put(
+                          "message",
+                          "missing data connector attributes for BLOCK." ),
+                      HttpServletResponse.SC_BAD_REQUEST );
+              }
+
+              final ConnectorAttributes attrs =
+                  volume.getData_connector()
+                        .getAttributes();
+              settings = new VolumeSettings( DEF_BLOCK_SIZE,
+                                             VolumeType.BLOCK,
+                                             SizeUnit.valueOf(
+                                                 attrs.getUnit()
+                                                      .name() )
+                                                     .totalBytes(
+                                                         attrs.getSize() ), 0 );
+              break;
+          case OBJECT:
+              settings = new VolumeSettings( DEF_OBJECT_SIZE,
+                                             VolumeType.OBJECT,
+                                             0 , 0);
+              break;
+          default:
+              throw new IllegalArgumentException(
+                  String.format( "Unsupported data connector type '%s'",
+                                 type ) );
+      }
+
       volumeId = xdi.createVolume( token,
                                    domainName,
-                                   name,
-                                   new VolumeSettings( 1024 * 1024 * 2,
-                                                       VolumeType.OBJECT,
-                                                       0 ) );
-    }
+                                   volume.getName(),
+                                   settings );
+      if( volumeId > 0 ) {
+          volume.setId( String.valueOf( volumeId ) );
 
-    Thread.sleep( 200 );
-    SetVolumeQosParams.setVolumeQos( legacyConfigPath, name, sla, priority, limit );
+          Thread.sleep( 200 );
+          SetVolumeQosParams.setVolumeQos( legacyConfigPath,
+                                           volume.getName(),
+                                           ( int ) volume.getSla(),
+                                           volume.getPriority(),
+                                           ( int ) volume.getLimit() );
 
-    final Volume volume =
-      new VolumeBuilder().withId( String.valueOf( volumeId ) )
-                         .build();
+          if( FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
+              /**
+               * there has to be a better way!
+               */
+              final List<String> volumeNames = new ArrayList<>();
 
-    /**
-     * there has to be a better way!
-     */
-    final Map<Integer, List<String>> streamMap = new HashMap<>();
-    configApi.getStreamRegistrations( unused_argument )
-           .stream()
-           .forEach( ( stream ) -> {
-               if( stream.getVolume_names()
-                         .contains( name ) ) {
-                   final List<String> volumeNames = stream.getVolume_names();
+              configApi.getStreamRegistrations( unused_argument )
+                       .stream()
+                       .forEach( ( stream ) -> {
+                           volumeNames.addAll( stream.getVolume_names() );
+                           try {
+                               configApi.deregisterStream( stream.getId() );
+                           } catch( TException e ) {
+                               logger.error( "Failed to de-register volumes " +
+                                                 stream.getVolume_names() +
+                                                 " reason: " + e.getMessage() );
+                               logger.trace( "Failed to de-register volumes " +
+                                                 stream.getVolume_names(), e );
+                           }
+                       } );
+              // first volume will never be registered
+              if( !volumeNames.contains( volume.getName() ) ) {
+                  volumeNames.add( volume.getName() );
+              }
 
-                   streamMap.put( stream.getId(), volumeNames );
-                   try {
-                       configApi.deregisterStream( stream.getId() );
-                   } catch( TException e ) {
-                       logger.error( "Failed to de-register stream id " +
-                                         stream.getId() +
-                                         " reason: " + e.getMessage() );
-                       logger.trace( "Failed to de-register stream id " +
-                                         stream.getId(),
-                                     e );
-                   }
-               } else {
-                   // assume it did not already exists in the stream registration
-                   if( !streamMap.containsKey( 0 ) ) {
-                       streamMap.put( 0, new ArrayList<>( ) );
+              logger.trace( "registering {} for metadata streaming...",
+                            volumeNames );
+              try {
+                  configApi.registerStream( URL,
+                                            METHOD,
+                                            volumeNames,
+                                            FREQUENCY.intValue(),
+                                            DURATION.intValue() );
+              } catch( TException e ) {
+                  logger.error( "Failed to re-register volumes " +
+                                    volumeNames + " reason: " + e.getMessage() );
+                  logger.trace( "Failed to re-register volumes " +
+                                    volumeNames, e );
+              }
+          }
 
-                   }
-                   streamMap.get( 0 ).add( name );
-               }
-           } );
+          return new TextResource( volume.toJSON() );
+      }
 
-    streamMap.forEach( ( key, list ) -> {
-    logger.trace( "registering volume {} for metadata streaming...", name );
-        try {
-            configApi.registerStream( URL,
-                                      METHOD,
-                                      list,
-                                      FREQUENCY.intValue(),
-                                      DURATION.intValue() );
-        } catch( TException e ) {
-            logger.error( "Failed to re-register volumes " +
-                          list + " reason: " + e.getMessage() );
-            logger.trace( "Failed to re-register volumes " +
-                          list , e );
-        }
-    } );
-
-    return new JsonResource( new JSONObject( volume ) );
+      throw new Exception( "no volume id after createVolume call!" );
   }
 }
 

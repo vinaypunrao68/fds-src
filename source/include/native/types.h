@@ -13,6 +13,7 @@
 #include <fds_typedefs.h>
 #include <util/timeutils.h>
 #include "PerfTrace.h"
+#include <apis/apis_types.h>
 #define FDSN_QOS_PERF_NORMALIZER 20
 
 namespace fds {
@@ -397,6 +398,8 @@ struct GetBucketCallback : virtual Callback {
     const ListBucketContents *contents = NULL;
     int commonPrefixesCount = 0;
     const char **commonPrefixes = NULL;
+
+    std::vector<apis::BlobDescriptor> vecBlobs;
 };
 
 }  // namespace fds

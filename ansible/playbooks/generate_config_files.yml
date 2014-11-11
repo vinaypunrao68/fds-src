@@ -1,0 +1,22 @@
+---
+-   name: generate packageable FDS config files
+    hosts: localhost
+    vars_files:
+        - ../vars_files/config_files_dev.yml
+
+    tasks:
+    -   name: render fds-src/source/config/etc config files
+        template:
+            src: ../../source/config/etc/{{item}}.conf.j2
+            dest: ../../source/config/etc/{{item}}.conf
+        with_items:
+            - fds
+            - fds-features
+            - platform
+            - orch_mgr
+            - redis
+
+    -   name: render formation.conf
+        template:
+            src: ../../source/test/formation.conf.j2
+            dest: ../../source/test/formation.conf

@@ -199,10 +199,7 @@ StorHvCtrl::BlobRequestHelper::BlobRequestHelper(StorHvCtrl* storHvisor,
             }
 
 void StorHvCtrl::BlobRequestHelper::setupVolumeInfo() {
-    if (storHvisor->vol_table->volumeExists(volumeName)) {
-        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
-        fds_verify(volId != invalid_vol_id);
-    }
+    volId = storHvisor->vol_table->getVolumeUUID(volumeName);
 }
 
 fds::Error StorHvCtrl::BlobRequestHelper::processRequest() {
@@ -527,7 +524,7 @@ StorHvCtrl::processSmPutObj(PutBlobReq *putBlobReq,
         journEntry->sm_ack_cnt = numNodes;
         LOGWARN << "not sending put request to sm as obj is zero size - ["
                 << " id:" << objId
-                << " objkey:" << putBlobReq->ObjKey
+                << " objkey:" << putBlobReq->getBlobName()
                 << " name:" << putBlobReq->getBlobName()
                 << "]";
     }
@@ -571,7 +568,7 @@ StorHvCtrl::processDmUpdateBlob(PutBlobReq *putBlobReq,
     FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
     updBlobInfo.offset   = putBlobReq->blob_offset;
     updBlobInfo.size     = putBlobReq->data_len;
-    updBlobInfo.blob_end = putBlobReq->isLastBuf();
+    updBlobInfo.blob_end = putBlobReq->last_buf;
     updBlobInfo.data_obj_id.digest =
             std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
     // Add the offset info to the DM message
@@ -616,7 +613,7 @@ StorHvCtrl::resumePutBlob(StorHvJournalEntry *journEntry) {
     ObjectID objId;
     if (fZeroSize) {
         LOGWARN << "zero size object - "
-                << " [objkey:" << blobReq->ObjKey <<"]";
+                << " [objkey:" << blobReq->getBlobName() <<"]";
     } else {
         objId = ObjIdGen::genObjectId(blobReq->getDataBuf(),
                                       blobReq->data_len);
@@ -886,7 +883,7 @@ StorHvCtrl::startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg) {
     // Get request from transaction
     fds::StartBlobTxReq *blobReq = static_cast<fds::StartBlobTxReq*>(txn->io);
     fds_verify(blobReq != NULL);
-    fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
+    fds_verify(blobReq->io_type == FDS_START_BLOB_TX);
 
     // Return if err
     if (rxMsg->result != FDSP_ERR_OK) {
@@ -953,7 +950,7 @@ StorHvCtrl::statBlobResp(const FDSP_MsgHdrTypePtr rxMsg,
     // Get request from transaction
     fds::AmRequest *blobReq = static_cast<fds::StatBlobReq *>(txn->io);
     fds_verify(blobReq != NULL);
-    fds_verify(blobReq->getIoType() == FDS_STAT_BLOB);
+    fds_verify(blobReq->io_type == FDS_STAT_BLOB);
 
     qos_ctrl->markIODone(txn->io);
 
@@ -1152,7 +1149,7 @@ StorHvCtrl::attachVolume(AmRequest *amReq) {
     fds_verify(amReq != NULL);
     AttachVolBlobReq *blobReq = static_cast<AttachVolBlobReq *>(amReq);
     fds_verify(blobReq != NULL);
-    fds_verify(blobReq->getIoType() == FDS_ATTACH_VOL);
+    fds_verify(blobReq->io_type == FDS_ATTACH_VOL);
 
     LOGDEBUG << "Attach for volume " << blobReq->volume_name
              << " complete. Notifying waiters";
@@ -1478,7 +1475,7 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
      */
     fds::AmRequest *blobReq = static_cast<fds::AmRequest *>(txn->io);
     fds_verify(blobReq != NULL);
-    fds_verify(blobReq->getIoType() == FDS_VOLUME_CONTENTS);
+    fds_verify(blobReq->io_type == FDS_VOLUME_CONTENTS);
     LOGDEBUG << "Responding to getBucket trans " << transId
               <<" for bucket " << blobReq->getBlobName()
               << " num of blobs " << blobListResp->num_blobs_in_resp
@@ -1667,7 +1664,7 @@ void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
      */
     fds::AmRequest *blobReq = static_cast<fds::AmRequest *>(txn->io);
     fds_verify(blobReq != NULL);
-    fds_verify(blobReq->getIoType() == FDS_BUCKET_STATS);
+    fds_verify(blobReq->io_type == FDS_BUCKET_STATS);
     LOGDEBUG << "Responding to getBucketStats trans " << transId
               << " number of buckets " << (buck_stats->bucket_stats_list).size()
               << " with result " << rx_msg->result;

@@ -7,7 +7,6 @@ user_build_dir := \
     nginx \
     jansson-2.5 \
     hiredis \
-    cryptopp \
     gmock-1.7.0 \
     cmdconsole
 
@@ -16,3 +15,5 @@ ifndef JENKINS_URL
 endif
 
 include $(topdir)/Makefile.incl
+
+all: generate-config-files

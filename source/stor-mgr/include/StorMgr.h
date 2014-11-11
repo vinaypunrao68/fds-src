@@ -222,18 +222,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
 
      SmVolQueue *sysTaskQueue;
-
-     /*
-      * Flash write-back members.
-      * TODO: These should probably be in the persistent layer
-      * but is easier here for now since needs the index.
-      */
-     typedef boost::lockfree::queue<ObjectID*> ObjQueue;  /* Dirty list type */
-     static void writeBackFunc(ObjectStorMgr *parent);    /* Function for write-back */
      std::atomic_bool  shuttingDown;      /* SM shut down flag for write-back thread */
-     fds_uint32_t      maxDirtyObjs;      /* Max dirty list size */
-     ObjQueue         *dirtyFlashObjs;    /* Flash's dirty list */
-
      SysParams *sysParams;
 
      inline fds_uint32_t getSysTaskIopsMin() {
@@ -260,7 +249,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      ObjectStorMgr()
              : Module("sm"), totalRate(20000) {
          qosCtrl = nullptr;
-         dirtyFlashObjs = nullptr;
          volTbl = nullptr;
      }
      /* this is for standalone testing */
@@ -287,9 +275,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      fds_bool_t isShuttingDown() const {
          return shuttingDown;
-     }
-     fds_bool_t popDirtyFlash(ObjectID **objId) {
-         return dirtyFlashObjs->pop(*objId);
      }
 
      Error regVol(const VolumeDesc& vdb) {
@@ -357,6 +342,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void readObjectDataInternal(SmIoReq* ioReq);
      void readObjectMetadataInternal(SmIoReq* ioReq);
      void compactObjectsInternal(SmIoReq* ioReq);
+     void moveTierObjectsInternal(SmIoReq* ioReq);
 
      void handleDltUpdate();
 

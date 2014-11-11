@@ -6,27 +6,26 @@ package com.formationds.om.repository.helper;
 
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
-import com.formationds.commons.model.DateRange;
+import com.formationds.commons.model.Events;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
-import com.formationds.commons.model.builder.DateRangeBuilder;
-import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
 import com.formationds.commons.model.calculated.capacity.CapacityDeDupRatio;
 import com.formationds.commons.model.calculated.capacity.CapacityFull;
 import com.formationds.commons.model.calculated.capacity.CapacityToFull;
 import com.formationds.commons.model.calculated.firebreak.FirebreaksLast24Hours;
-import com.formationds.commons.model.calculated.performance.IOPsCapacity;
 import com.formationds.commons.model.calculated.performance.IOPsConsumed;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.DateTimeUtil;
+import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricsRepository;
-import com.formationds.om.repository.SingletonMetricsRepository;
+import com.formationds.om.repository.SingletonRepositoryManager;
+import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
 import com.formationds.util.SizeUnit;
@@ -34,13 +33,14 @@ import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author ptinius
  */
+@SuppressWarnings( "UnusedDeclaration" )
 public class QueryHelper {
     private static final Logger logger =
         LoggerFactory.getLogger( QueryHelper.class );
@@ -58,17 +58,12 @@ public class QueryHelper {
     public static List<Metrics> PERFORMANCE = new ArrayList<>();
     static {
         PERFORMANCE.add( Metrics.STP_WMA );
-        // Currently the UI does not request
-//        PERFORMANCE.add( Metrics.LTP_WMA );
     }
 
     public static final List<Metrics> CAPACITY = new ArrayList<>( );
     static {
         CAPACITY.add( Metrics.PBYTES );
         CAPACITY.add( Metrics.LBYTES );
-        // Currently the UI does not request
-//        CAPACITY.add( Metrics.STC_WMA );
-//        CAPACITY.add( Metrics.LTC_WMA );
     }
 
     /**
@@ -76,7 +71,7 @@ public class QueryHelper {
      */
     public QueryHelper() {
         this.repo =
-            SingletonMetricsRepository.instance()
+            SingletonRepositoryManager.instance()
                                       .getMetricsRepository();
     }
 
@@ -86,7 +81,7 @@ public class QueryHelper {
      * @return Return {@link Map} representing volumes as the keys and value
      * representing a {@link List} of {@link VolumeDatapoint}
      */
-    protected static Map<String, List<VolumeDatapoint>> organize(
+    protected static Map<String, List<VolumeDatapoint>> byVolumeNameTimestamp(
         final List<VolumeDatapoint> datapoints ) {
         final Map<String, List<VolumeDatapoint>> mapped = new HashMap<>();
 
@@ -109,109 +104,95 @@ public class QueryHelper {
     }
 
     /**
-     * @param query the {@link QueryCriteria} representing the query
+     * @param query the {@link com.formationds.om.repository.query.MetricQueryCriteria} representing the query
      *
      * @return Returns the {@link Statistics} representing the result of {@code
      * query}
      */
-    public Statistics execute( final QueryCriteria query )
+    @SuppressWarnings( "unchecked" )
+    public Statistics execute( final MetricQueryCriteria query )
         throws TException {
         final Statistics stats = new Statistics();
         if( query != null ) {
             final List<Series> series = new ArrayList<>();
+            final List<Calculated> calculatedList = new ArrayList<>();
 
             final List<VolumeDatapoint> queryResults =
                 new VolumeCriteriaQueryBuilder( repo.entity() ).searchFor( query )
                                                                .resultsList();
+            final Map<String, List<VolumeDatapoint>> originated =
+                byVolumeNameTimestamp( queryResults );
+
             if( isFirebreakQuery( query.getSeriesType() ) ) {
-                Map<String, Datapoint> firebreakPoints =
-                    new FirebreakHelper().findFirebreak( queryResults );
 
-                if( !firebreakPoints.isEmpty() ) {
-                    logger.trace( "Gathering firebreak details" );
+                series.addAll( new FirebreakHelper().processFirebreak( queryResults ) );
 
-                    final Set<String> keys = firebreakPoints.keySet();
+                calculatedList.add( new FirebreaksLast24Hours( last24Hours( series ) ) );
 
-                    for( final String key : keys ) {
-                        logger.trace( "Gathering firebreak for '{}'", key );
+            } else if( isPerformanceQuery( query.getSeriesType() ) ) {
 
-                        final Series s =
-                            new SeriesBuilder().withContext(
-                                // TODO fully populate the Volume object
-                                new VolumeBuilder().withName( key )
-                                                   .build() )
-                                               .withDatapoint( firebreakPoints.get( key ) )
-                                               .build();
-                        s.setType( "Firebreak" );
-                        logger.trace( "firebreak series: {}", s );
-                        series.add( s );
-                    }
-                } else {
-                    logger.trace( "no firebreak data available" );
-                }
-            } else {
-                for( final Metrics m : query.getSeriesType() ) {
-                    logger.trace( "Gathering statistics for '{}'", m.key() );
-                    switch( m ) {
-                        case PUTS:    // number of puts
-                            series.addAll( nonFireBreak( queryResults, m ) );
-                            break;
-                        case GETS:    // number of gets
-                            series.addAll( nonFireBreak( queryResults, m ) );
-                            break;
-                        case QFULL:   // queue full
-                            series.addAll( nonFireBreak( queryResults, m ) );
-                            break;
-                        case PSSDA:   // percent of SSD accesses
-                            series.addAll( nonFireBreak( queryResults, m ) );
-                            break;
-/*
- * logical and physical bytes are used to calculate de-duplication ratio.
- * so for now lets not allow the to be queried individually.
- *                      case LBYTES:  // logical bytes
- *                        break;
- *                      case PBYTES:  // physical bytes
- *                          break;
- */
-                        case BLOBS:   // number of blobs
-                            series.addAll( nonFireBreak( queryResults, m ) );
-                            break;
-                        case OBJECTS: // number of objects
-                            series.addAll( nonFireBreak( queryResults, m ) );
-                            break;
-                        case ABS:     // average object size
-                            series.addAll( nonFireBreak( queryResults, m ) );
-                            break;
-                        case AOPB:    // average objects per blob
-                            series.addAll( nonFireBreak( queryResults, m ) );
-                            break;
-                        // all other metrics are considered firebreak, so ignore them here
-                    }
-                }
+                series.addAll(
+                    new SeriesHelper().getPerformanceSeries( queryResults,
+                                                             query ) );
+                calculatedList.add( new IOPsConsumed( 0.0 ) );
+
+            } else if( isCapacityQuery( query.getSeriesType() ) ) {
+
+                series.addAll(
+                    new SeriesHelper().getCapacitySeries( queryResults,
+                                                          query ) );
+
+                calculatedList.add( deDupRatio() );
+
+                final CapacityConsumed consumed = bytesConsumed();
+                calculatedList.add( consumed );
+
+                // TODO finish implementing -- once the platform has total system capacity
+                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
+                                                  .doubleValue();
+                calculatedList.add( percentageFull( consumed, systemCapacity ) );
+
+                // TODO finish implementing  -- once Nate provides a library
+                calculatedList.add( toFull() );
+
+            } else { // individual stats
+                query.getSeriesType()
+                     .stream()
+                     .forEach( ( m ) -> series.addAll( otherQueries( originated,
+                                                                     m ) ) );
             }
 
             if( !series.isEmpty() ) {
                 stats.setSeries( series );
             }
 
-            final List<Calculated> calculatedList = new ArrayList<>( );
-            if( isFirebreakQuery( query.getSeriesType() ) ) {
-                // TODO query to populate
-                calculatedList.add( new FirebreaksLast24Hours( last24Hours() ) );
-            } else if( isPerformanceQuery( query.getSeriesType() ) ) {
-                // TODO query to populate
-                calculatedList.add( new IOPsCapacity( 0.0 ) );
-                calculatedList.add( new IOPsConsumed( 0.0 ) );
-            } else if( isCapacityQuery( query.getSeriesType() ) ) {
-                calculatedList.addAll( calculated() );
+            if( !calculatedList.isEmpty() ) {
+                stats.setCalculated( calculatedList );
             }
-
-            stats.setCalculated( calculatedList );
         }
 
         return stats;
     }
 
+    /**
+     *
+     * @param query the {@link com.formationds.om.repository.query.MetricQueryCriteria} representing the query
+     * @return the events matching the query criteria
+     * @throws TException
+     */
+    public Events executeEventQuery( final QueryCriteria query )
+            throws TException {
+        EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
+
+        return er.query(query);
+    }
+
+    /**
+     * @param metrics the [@link List} of {@link Metrics}
+     *
+     * @return Returns {@code true} if all {@link Metrics} within the
+     *         {@link List} are of performance type. Otherwise {@code false}
+     */
     protected boolean isPerformanceQuery( final List<Metrics> metrics ) {
         for( final Metrics m : metrics ) {
             if( !PERFORMANCE.contains( m ) ) {
@@ -222,6 +203,12 @@ public class QueryHelper {
         return true;
     }
 
+    /**
+     * @param metrics the [@link List} of {@link Metrics}
+     *
+     * @return Returns {@code true} if all {@link Metrics} within the
+     *         {@link List} are of capacity type. Otherwise {@code false}
+     */
     protected boolean isCapacityQuery( final List<Metrics> metrics ) {
         for( final Metrics m : metrics ) {
             if( !CAPACITY.contains( m ) ) {
@@ -235,8 +222,8 @@ public class QueryHelper {
     /**
      * @param metrics the [@link List} of {@link Metrics}
      *
-     * @return Returns {@code true} if all {@link Metrics} within the {@link
-     * List} are of firebreak type. Otherwise {@code false}
+     * @return Returns {@code true} if all {@link Metrics} within the
+     *         {@link List} are of firebreak type. Otherwise {@code false}
      */
     protected boolean isFirebreakQuery( final List<Metrics> metrics ) {
         for( final Metrics m : metrics ) {
@@ -249,55 +236,28 @@ public class QueryHelper {
     }
 
     /**
-     * @param datapoints the {@link List} of {!link VolumeDatapoint}
-     *
-     * @return Returns a {@link Map} of {@link VolumeDatapoint}
-     */
-    public Map<String, List<VolumeDatapoint>> byVolumeId(
-        final List<VolumeDatapoint> datapoints ) {
-
-        final Map<String, List<VolumeDatapoint>> byVolumeId = new HashMap<>( );
-
-        final Comparator<VolumeDatapoint> VolumeDatapointComparator =
-            Comparator.comparing( VolumeDatapoint::getVolumeId )
-                      .thenComparing( VolumeDatapoint::getTimestamp )
-                      .thenComparing( VolumeDatapoint::getKey );
-
-        Collections.sort( datapoints, VolumeDatapointComparator );
-        for( final VolumeDatapoint vdp : datapoints ) {
-            final String key = vdp.getVolumeId();
-            if( !byVolumeId.containsKey( key ) ) {
-                byVolumeId.put( key, new ArrayList<>( ) );
-            }
-
-            byVolumeId.get( key ).add( vdp );
-        }
-
-        return byVolumeId;
-    }
-
-    /**
-     * @param queryResults the {@link List} of {@link VolumeDatapoint}
-     * @param metrics      the {@link Metrics} representing the none firebreak
-     *                     metric
+     * @param organized the {@link Map} of volume containing a {@link List}
+     *                  of {@link VolumeDatapoint}
+     * @param metrics   the {@link Metrics} representing the none firebreak
+     *                  metric
      *
      * @return Returns q {@link List} of {@link Series}
      */
-    protected List<Series> nonFireBreak( final List<VolumeDatapoint> queryResults,
-                                         final Metrics metrics ) {
+    protected List<Series> otherQueries(
+        final Map<String, List<VolumeDatapoint>> organized,
+        final Metrics metrics ) {
         final List<Series> series = new ArrayList<>();
-        final Map<String, List<VolumeDatapoint>> mapped = organize( queryResults );
 
-        mapped.forEach( ( key, volumeDatapoints ) -> {
+        organized.forEach( ( key, volumeDatapoints ) -> {
             final Series s = new Series();
             s.setType( metrics.name() );
             volumeDatapoints.stream()
+                            .distinct()
                             .filter( ( p ) -> metrics.key()
                                                      .equalsIgnoreCase( p.getKey() ) )
                             .forEach( ( p ) -> {
                                 final Datapoint dp =
-                                    new DatapointBuilder().withX(
-                                        DateTimeUtil.epochToMilliseconds( p.getTimestamp() ) )
+                                    new DatapointBuilder().withX( p.getTimestamp() )
                                                           .withY( p.getValue()
                                                                    .longValue() )
                                                           .build();
@@ -314,25 +274,6 @@ public class QueryHelper {
     }
 
     /**
-     * @return Returns a {@link List} of {@link Calculated}
-     */
-    protected List<Calculated> calculated() {
-        final List<Calculated> calculated = new ArrayList<>();
-
-        calculated.add( deDupRatio() );
-        final CapacityConsumed consumed = bytesConsumed();
-        calculated.add( consumed );
-        // TODO finish implementing once the platform has total system capacity
-        final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
-                                          .doubleValue();
-        calculated.add( percentageFull( consumed, systemCapacity ) );
-        // TODO finish implementing once Nate provides a library
-        calculated.add( toFull() );
-
-        return calculated;
-    }
-
-    /**
      * @return Returns a {@link List} of {@link Metadata}
      */
     protected List<Metadata> metadata() {
@@ -344,12 +285,12 @@ public class QueryHelper {
      */
     protected CapacityDeDupRatio deDupRatio() {
         final Double lbytes =
-            SingletonMetricsRepository.instance()
+            SingletonRepositoryManager.instance()
                                       .getMetricsRepository()
                                       .sumLogicalBytes();
 
         final Double pbytes =
-            SingletonMetricsRepository.instance()
+            SingletonRepositoryManager.instance()
                                       .getMetricsRepository()
                                       .sumPhysicalBytes();
 
@@ -360,9 +301,9 @@ public class QueryHelper {
      * @return Returns {@link CapacityConsumed}
      */
     protected CapacityConsumed bytesConsumed() {
-        return new CapacityConsumed( SingletonMetricsRepository.instance()
+        return new CapacityConsumed( SingletonRepositoryManager.instance()
                                                                .getMetricsRepository()
-                                                               .sumLogicalBytes() );
+                                                               .sumPhysicalBytes() );
     }
 
     /**
@@ -392,32 +333,20 @@ public class QueryHelper {
      * @return Returns {@link Integer} representing the number of firebreaks
      *         that have occurred in the last 24 hours.
      */
-    protected Integer last24Hours() {
-        final VolumeCriteriaQueryBuilder builder =
-            new VolumeCriteriaQueryBuilder( repo.entity() );
-        FIREBREAKS.stream().forEach( builder::withSeries );
+    protected Integer last24Hours( final List<Series> series ) {
+        final AtomicInteger count = new AtomicInteger( 0 );
+        final long twentyFourHoursAgo =
+            DateTimeUtil.toUnixEpoch( LocalDateTime.now()
+                                                   .minusHours( 24 ) );
 
-        final LocalDateTime end = LocalDateTime.now();
-        final LocalDateTime start = end.withHour( 23 );
+        series.stream().forEach( ( s ) -> s.getDatapoints()
+         .stream()
+         .forEach( ( dp ) -> {
+             if( dp.getY() >= twentyFourHoursAgo ) {
+                 count.getAndIncrement();
+             }
+         } ) );
 
-        final DateRange last24hours =
-            new DateRangeBuilder( ).withStart( new Timestamp( DateTimeUtil.toUnixEpoch( start ) ) )
-                                   .withEnd( new Timestamp( DateTimeUtil.toUnixEpoch( end ) ) )
-                                   .build();
-        builder.withDateRange( last24hours );
-
-        final Map<String,List<VolumeDatapoint>> organized =
-            organize( builder.resultsList() );
-
-        final int count[ ] = { 0 };
-        organized.forEach( ( key, volumeDatapoints ) -> {
-            volumeDatapoints.stream().forEach( ( vdp ) -> {
-                if( Calculation.isFirebreak( 0.0, 0.0 ) ) {
-                    count[ 0 ]++;
-                }
-            } );
-        } );
-
-        return count[ 0 ];
+        return count.intValue();
     }
 }

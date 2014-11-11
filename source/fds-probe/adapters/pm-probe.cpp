@@ -80,9 +80,9 @@ PM_ProbeMod::pr_put(ProbeRequest *probe)
     vio.vol_rsvd    = 0;
     buf = new ObjectBuf;
     (buf->data)->assign(io->pr_wr_buf, io->pr_wr_size);
-
-    for (unsigned int i = 0; i < sizeof(oid); i++) {
-       oid.metaDigest[i] = (random() % 10) + 1;
+    const unsigned int oid_size = sizeof(oid);
+    for (unsigned int i = 0; i < oid_size; i++) {
+       oid.metaDigest[i % oid_size] = (random() % 10) + 1;
     }
     req = new DiskReqTest(vio, oid, buf, true, diskio::diskTier);
     pio.disk_write(req);

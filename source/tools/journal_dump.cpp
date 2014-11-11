@@ -73,7 +73,10 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
   virtual void Put(const Slice& key, const Slice& value) {
 #ifdef USE_NEW_LDB_STRUCTURES
     const fds::BlobObjKey * objKey = reinterpret_cast<const fds::BlobObjKey *>(key.data());
-    if (objKey->objIndex != fds::BLOB_META_INDEX) {
+    if (0 == objKey->blobId && 0 == objKey->objIndex) {
+        std::cout << "=>Timestamp: '" <<
+                *reinterpret_cast<const fds_uint64_t *>(value.data()) << "'\n";
+    } else if (objKey->objIndex != fds::BLOB_META_INDEX) {
       std::cout << "=>put Blob: '" << objKey->blobId << "' [Index: " << objKey->objIndex <<
           " -> " << fds::ObjectID(reinterpret_cast<const uint8_t *>(value.data()), value.size())
           << "]\n";

@@ -17,7 +17,8 @@ struct VolumeSettings {
        1: required i32 maxObjectSizeInBytes,
        2: required VolumeType volumeType,
        3: required i64 blockDeviceSizeInBytes,
-	   4: MediaPolicy mediaPolicy
+       4: required i64 contCommitlogRetention
+	   5: MediaPolicy mediaPolicy
 }
 
 struct VolumeDescriptor {
@@ -136,7 +137,7 @@ service AsyncAmServiceRequest {
 	       7:i32 length, 8:ObjectOffset objectOffset, 9:map<string, string> metadata),
 
         oneway void deleteBlob(1:RequestId requestId, 2:string domainName, 
-	       3:string volumeName, 4:string blobName),
+	       3:string volumeName, 4:string blobName, 5:TxDescriptor txDesc),
 
         oneway void volumeStatus(1:RequestId requestId, 2:string domainName, 3:string volumeName)
 }
@@ -267,7 +268,7 @@ service ConfigurationService {
     list<i64> listVolumesForSnapshotPolicy(1:i64 policyId)
              throws (1: ApiException e),
 
-    void createSnapshot(1:i64 volumeId, 2:string snapshotName, 3:i64 retentionTime)
+    void createSnapshot(1:i64 volumeId, 2:string snapshotName, 3:i64 retentionTime, 4:i64 timelineTime)
              throws (1: ApiException e),
 
     list<snapshot.Snapshot> listSnapshots(1:i64 volumeId)

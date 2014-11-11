@@ -21,7 +21,6 @@ public class Volume
   extends Context {
   private static final long serialVersionUID = 7961922641732546048L;
 
-  @SerializedName( "volumeName" )
   private String name;
   private Long limit;                    // maximum IOPS
   private Long sla;                      // minimum IOPS -- service level agreement
@@ -30,8 +29,6 @@ public class Volume
   private Integer priority;
   private Connector data_connector;
   private Usage current_usage;
-
-  // TODO volume uuid, shouldn't it be part of the volume model object?
 
   private static final Map<String, ModelFieldValidator> VALIDATORS =
     new HashMap<>();
