@@ -86,6 +86,70 @@ angular.module( 'qos' ).factory( '$snapshot_service', ['$http_fds', function( $h
 
         return $http_fds.post( '/api/snapshot/clone/' + snapshot.id + '/' + escape( volumeName ), snapshot, callback, failure );
     };
+    
+    service.saveSnapshotPolicies = function( volumeId, oldPolicies, newPolicies, callback, failure ){
+        
+        var deleteList = [];
+        
+        // figuring out what to delete, then deleting them
+        
+        for ( var o = 0; o < oldPolicies.length; o++ ){
+            
+            var found = false;
+            
+            for ( var n = 0; n < newPolicies.length; n++ ){
+                
+                if ( oldPolicies[o].id === newPolicies[n].id ){
+                    found = true;
+                    break;
+                }
+            }// new policies
+            
+            // not in the new list... delete it
+            if ( found === false ){
+                deleteList.push( oldPolicies[o] );
+            }
+            
+        }// old policies
+                                
+        for( var d = 0; d < deleteList.length; d++ ){
+            
+            var id = deleteList[d].id;
+            
+            service.detachPolicy( deleteList[d], volumeId, function( result ){
+                service.deleteSnapshotPolicy( id, function(){} );
+            });
+        }
+        
+        // creating / editing the new selections
+        for ( var i = 0; i < newPolicies.length; i++ ){
+
+            var sPolicy = newPolicies[i];
+            
+            // if it has an ID then it's already exists
+            if ( angular.isDefined( sPolicy.id ) ){
+                
+                // earlier the frequency was set to the policy name,
+                // but for edit that means it has a long too... get rid of it
+                // and reset the frequency to the displayname property - which matches the enum.
+                sPolicy.recurrenceRule.FREQ = sPolicy.displayName.toUpperCase();
+                service.editSnapshotPolicy( sPolicy, function(){} );
+            }
+            else {
+                
+                // if it's in use, create it.
+                if ( sPolicy.use === true ){
+                    
+                    sPolicy.name = sPolicy.name + '_' + volumeId;
+                    
+                    service.createSnapshotPolicy( sPolicy, function( policy ){
+                        service.attachPolicyToVolume( policy, volumeId, function(){} );
+                    } );
+                }
+            }
+        }
+        
+    };
 
     return service;
 }]);

@@ -5,7 +5,7 @@
             <span class="caret" ng-class="{ 'table-caret': td === true }" ng-style="{color: color, 'border-top-color': color}"></span>
         </button>
         <span class="dropdown-arrow dropdown-arrow-inverse"></span>
-        <ul class="dropdown-menu dropdown-inverse" ng-style="{ left: leftShift, width: width }" style="max-height: 200px;overflow: auto;padding-bottom: 30px;"
+        <ul class="dropdown-menu dropdown-inverse" ng-style="{ left: leftShift, width: width }" style="max-height: 200px;overflow: auto;padding-bottom: 10px;"
             ng-mouseleave="open = false">
             <li ng-repeat="item in items">
                 <a ng-click="selectItem( item );" ng-show="item[ nameProperty ] !== '-'">{{item[ nameProperty ]}}</a>

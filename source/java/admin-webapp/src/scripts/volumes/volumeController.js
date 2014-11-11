@@ -1,13 +1,5 @@
-angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$element', '$timeout', '$compile', '$snapshot_service', '$rootScope', '$filter', function( $scope, $location, $state, $volume_api, $element, $timeout, $compile, $snapshot_service, $rootScope, $filter ){
+angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$rootScope', '$filter', '$element', function( $scope, $location, $state, $volume_api, $rootScope, $filter, $element ){
     
-    $scope.date = new Date();
-    $scope.volumes = [];
-    $scope.capacity = 10;
-    $scope.iopLimit = 300;
-    $scope.priority = 10;
-    $scope.editing = false;
-    $scope.editingVolume = {};
-
     $scope.clicked = function( volume){
         $scope.volumeVars.selectedVolume = volume;
         $scope.volumeVars.viewing = true;
@@ -41,38 +33,9 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         $rootScope.$emit( 'fds::confirm', confirm );
     };
 
-    $scope.edit = function( $event, volume ) {
-
-        $event.stopPropagation();
-        
-        $scope.volumeVars.selectedVolume = volume;
-        $scope.volumeVars.editing = true;
-        $scope.volumeVars.next( 'createvolume' );
-    };
-
-    $scope.delete = function( volume ){
-        // TODO:  Create an FDS confirm dialog
-        var rtn = confirm( 'Are you sure you want to delete volume: ' + volume.name + '?' );
-
-        if ( rtn === true ){
-            $volume_api.delete( volume );
-        }
-    };
-
     $scope.createNewVolume = function(){
         $scope.volumeVars.creating = true;
         $scope.volumeVars.next( 'createvolume' );
-    };
-
-    $scope.save = function(){
-
-        var volume = $scope.editingVolume;
-        volume.priority = $scope.priority;
-        volume.sla = $scope.capacity;
-        volume.limit = $scope.iopLimit;
-        $volume_api.save( volume );
-        
-        $scope.volumeVars.creating = false;
     };
     
     $scope.$on( 'fds::authentication_logout', function(){
@@ -88,10 +51,13 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
     
     $scope.$watch( 'volumeVars.index', function( newVal ){
         
+        if ( newVal === 0 ){
+            $scope.volumeVars.viewing = false;
+            $scope.volumeVars.creating = false;
+        }
     });
     
     $scope.$watch( 'volumeVars.creating', function( newVal ){ if ( newVal === false ){ $volume_api.refresh(); }} );
-    $scope.$watch( 'volumeVars.editing', function( newVal ){ if ( newVal === false ){ $volume_api.refresh(); }} );
 
     $volume_api.refresh();
 
