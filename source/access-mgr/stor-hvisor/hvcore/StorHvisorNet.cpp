@@ -73,7 +73,8 @@ StorHvCtrl::StorHvCtrl(int argc,
                        fds_uint32_t sm_port_num,
                        fds_uint32_t dm_port_num)
     : mode(_mode),
-    counters_("AM", g_fdsprocess->get_cntrs_mgr().get())
+    counters_("AM", g_fdsprocess->get_cntrs_mgr().get()),
+    om_client(nullptr)
 {
     std::string  omIpStr;
     fds_uint32_t omConfigPort;
@@ -149,7 +150,6 @@ StorHvCtrl::StorHvCtrl(int argc,
     /* create OMgr client if in normal mode */
     if (!toggleStandAlone) {
         LOGNORMAL << "StorHvisorNet - Will create and initialize OMgrClient";
-        om_client = NULL;
 
         /*
          * Pass 0 as the data path port since the SH is not

@@ -1246,7 +1246,7 @@ DomainContainer::~DomainContainer() {}
 DomainContainer::DomainContainer(char const *const name)
     : dc_om_master(NULL), dc_om_nodes(NULL),
       dc_sm_nodes(NULL), dc_dm_nodes(NULL),
-      dc_am_nodes(NULL), dc_pm_nodes(NULL) {}
+      dc_am_nodes(NULL), dc_pm_nodes(NULL), rs_refcnt(0) {}
 
 DomainContainer::DomainContainer(char const *const       name,
                                  OmAgent::pointer        master,
@@ -1256,7 +1256,7 @@ DomainContainer::DomainContainer(char const *const       name,
                                  AgentContainer::pointer pm,
                                  AgentContainer::pointer om)
     : dc_om_master(master), dc_om_nodes(om),
-      dc_sm_nodes(sm), dc_dm_nodes(dm), dc_am_nodes(am), dc_pm_nodes(pm) {}
+      dc_sm_nodes(sm), dc_dm_nodes(dm), dc_am_nodes(am), dc_pm_nodes(pm), rs_refcnt(0) {}
 
 // dc_container_frm_msg
 // --------------------
