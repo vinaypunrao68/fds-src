@@ -30,6 +30,7 @@ private:
 
     std::string logDirName_;
     std::string logFilePrefix_;
+    std::string archivePrefix_;
 
     fds_uint32_t maxLogFiles_;
 
@@ -37,8 +38,8 @@ private:
 
 public:
     explicit CopyEnv(leveldb::Env* t) : leveldb::EnvWrapper(t), copying_(false),
-            logRotate_(false) {
-    }
+            logRotate_(false), logFilePrefix_("catalog.journal"),
+            archivePrefix_("catalog.archive") {}
 
     Status NewWritableFile(const std::string& fname, WritableFile** result);
 
@@ -74,6 +75,13 @@ public:
     }
     inline std::string & logFilePrefix() {
         return logFilePrefix_;
+    }
+
+    inline const std::string & archivePrefix() const {
+        return archivePrefix_;
+    }
+    inline std::string & archivePrefix() {
+        return archivePrefix_;
     }
 
     inline const fds_uint32_t & maxLogFiles() const {
