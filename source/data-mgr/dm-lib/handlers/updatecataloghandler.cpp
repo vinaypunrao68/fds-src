@@ -9,7 +9,7 @@ namespace fds {
 namespace dm {
 
 UpdateCatalogHandler::UpdateCatalogHandler() {
-    if (dataMgr->feature.isTestMode()) {
+    if (!dataMgr->feature.isTestMode()) {
         REGISTER_DM_MSG_HANDLER(fpi::UpdateCatalogMsg, handleRequest);
     }
 }
