@@ -113,12 +113,12 @@ public class CreateVolume
                                                  attrs.getUnit()
                                                       .name() )
                                                      .totalBytes(
-                                                         attrs.getSize() ) );
+                                                         attrs.getSize() ), 0 );
               break;
           case OBJECT:
               settings = new VolumeSettings( DEF_OBJECT_SIZE,
                                              VolumeType.OBJECT,
-                                             0 );
+                                             0 , 0);
               break;
           default:
               throw new IllegalArgumentException(
