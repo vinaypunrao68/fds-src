@@ -58,8 +58,17 @@ public class Main {
     }
 
     public void start(String[] args) throws Exception {
+
         configuration = new Configuration("om-xdi", args);
         SingletonConfiguration.instance().setConfig(configuration);
+
+        // TODO there needs to be a "global" configuration access point to replace this
+        System.setProperty( "fds-root", SingletonConfiguration.instance()
+                                                              .getConfig()
+                                                              .getFdsRoot() );
+
+        LOG.trace( "FDS-ROOT:: " + System.getProperty( "fds-root" ) );
+
         NativeOm.startOm(args);
 
         ParsedConfig platformConfig = configuration.getPlatformConfig();

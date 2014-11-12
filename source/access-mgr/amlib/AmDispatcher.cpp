@@ -364,6 +364,7 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     fiu_do_on("am.uturn.dispatcher",
               GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb); \
               cb->returnSize = amReq->data_len; \
+              cb->returnBuffer = new char[cb->returnSize]; \
               memset(cb->returnBuffer, 0x00, cb->returnSize); \
               amReq->proc_cb(ERR_OK); \
               return;);
@@ -432,6 +433,14 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
 
         // Only return UP-TO the amount of data requested, never more
         cb->returnSize = std::min(amReq->data_len, getObjRsp->data_obj.size());
+
+        // Make sure we have a buffer.
+        // TODO(Andrew): This should be a shared pointer
+        // as we pass it around a lot.
+        if (cb->returnBuffer == nullptr) {
+            cb->returnBuffer = new char[cb->returnSize];
+        }
+
         memcpy(cb->returnBuffer, getObjRsp->data_obj.c_str(), cb->returnSize);
     } else {
         LOGERROR << "blob name: " << amReq->getBlobName() << "offset: "

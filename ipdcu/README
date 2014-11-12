@@ -1,0 +1,6 @@
+This is a very raw setup for a dhcp/pxe/preseed environment.
+
+Please combine the files here with 
+https://formationds.atlassian.net/wiki/pages/viewpage.action?pageId=14844505
+
+Also note that this configuration is presently tailored to Boulder.

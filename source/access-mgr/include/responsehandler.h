@@ -30,6 +30,9 @@ struct ResponseHandler : virtual Callback {
 
     virtual void process() {}
 
+    // TODO(Greg): May be removed when sync interface is removed.
+    virtual bool isAsyncHandler() {return true;}
+
     virtual ~ResponseHandler();
   protected:
     concurrency::TaskStatus task;
@@ -225,6 +228,22 @@ struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
 
     virtual void process();
     virtual ~GetObjectResponseHandler();
+
+    virtual bool isAsyncHandler() {return false;}
+};
+
+struct AsyncGetObjectResponseHandler : ResponseHandler, GetObjectCallback {
+    AsyncGetObjectResponseHandler(AmAsyncResponseApi::shared_ptr _api,
+                                    boost::shared_ptr<apis::RequestId>& _reqId,
+                                    boost::shared_ptr<int32_t>& length,
+                                    char* buf = nullptr);
+    typedef boost::shared_ptr<AsyncGetObjectResponseHandler> ptr;
+
+    AmAsyncResponseApi::shared_ptr respApi;
+    boost::shared_ptr<apis::RequestId> requestId;
+
+    virtual void process();
+    virtual ~AsyncGetObjectResponseHandler();
 };
 
 struct ListBucketResponseHandler : ResponseHandler, GetBucketCallback {

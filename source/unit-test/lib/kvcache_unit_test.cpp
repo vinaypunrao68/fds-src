@@ -28,7 +28,6 @@ struct TestObject {
     TestObject() : volId(keyCounter % MAX_VOLUMES), key(keyCounter++),
             value(new std::string(tmpnam(NULL))) {}
     ~TestObject() {
-        delete value;
     }
 };
 
