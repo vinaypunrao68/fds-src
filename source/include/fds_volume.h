@@ -86,6 +86,8 @@ class VolumeDesc : public HasState {
     fds_volid_t            srcVolumeId = invalid_vol_id;
     fds_volid_t            lookupVolumeId = invalid_vol_id;
     fds_volid_t            qosQueueId = invalid_vol_id;
+    fds_uint64_t           contCommitlogRetention;
+    fds_uint64_t           timelineTime;
 
     fpi::ResourceState     state;
 
@@ -131,7 +133,7 @@ class VolumeDesc : public HasState {
     fds_volid_t getLookupVolumeId() const;
 
     friend std::ostream& operator<<(std::ostream& out, const VolumeDesc& vol_desc);
-    fpi::ResourceState getState() {
+    fpi::ResourceState getState() const {
         return state;
     }
 

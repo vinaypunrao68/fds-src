@@ -168,7 +168,7 @@ class DiskScavenger {
     // TODO(Anna) we are piggybacking data verification here
     // we should consider making it a more generic maintenance
     // taks, or abstract the generic part into a base class
-    fds_bool_t verifyData;
+    std::atomic<fds_bool_t> verifyData;
 
     /**
      * configurable disk scavenger policy
@@ -227,9 +227,18 @@ class ScavControl : public Module {
      * start scavenger process until enableScavenger() is called
      */
     void disableScavenger();
+
+    /**
+    * Set whether the scrubber will run with scavenger or not
+    */
     void setDataVerify(fds_bool_t verify) {
         verifyData = verify;
     }
+
+    /**
+    * Get status of scrubber (enabled=true, disabled=false)
+    */
+    void getDataVerify(const fpi::CtrlQueryScrubberStatusRespPtr& statusResp);
 
     /**
      * Start scavenging
@@ -295,7 +304,9 @@ class ScavControl : public Module {
   private:
     std::atomic<fds_bool_t> enabled;
     fds_bool_t noPersistScavStats;
-    fds_bool_t verifyData;
+    std::atomic<fds_bool_t> verifyData;
+
+    ScavPolicyType  scavPolicy;
 
     // disk idx -> DiskScavenger pointer
     // holds disk scavengers for both HDDs and SSDs

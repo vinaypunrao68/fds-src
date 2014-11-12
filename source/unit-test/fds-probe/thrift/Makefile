@@ -35,6 +35,7 @@ local_probe_clnt  := \
 
 user_cpp          := $(local_probe_clnt)
 user_bin_exe      := thrift-probe
+.NOTPARALLEL: thrift-probe
 thrift-probe      := $(local_probe_clnt)
 
 include $(probe_topdir)/Makefile.s3

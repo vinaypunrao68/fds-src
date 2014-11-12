@@ -31,7 +31,6 @@ user_no_style  := \
 	odb.h                 \
 	PerfTrace.h           \
 	qos_ctrl.h            \
-	TransJournal.h        \
 	tvclib.h              \
 	vvclib.h              \
 	fds_timer.h           \

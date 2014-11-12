@@ -22,13 +22,13 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $scope.performanceColors = [ '#A4D966' ];
     $scope.performanceLine = ['#66B22E'];
-    $scope.fakeCapColors = [ '#72AEEB', '#ABD3F5' ];
+    $scope.fakeCapColors = [ '#ABD3F5', '#72AEEB' ];
     $scope.fakeOpacities = [0.7,0.7];
     
-    $scope.capacityLineStipples = ['none', '2,2'];
-    $scope.capacityLineColors = ['#2486F8', '#78B5FA'];
+    $scope.capacityLineStipples = [ '2,2', 'none' ];
+    $scope.capacityLineColors = [ '#78B5FA', '#2486F8' ];
     
-    $scope.capacityLabels = [ $filter( 'translate' )( 'common.l_30_days' ), $filter( 'translate' )( 'common.l_15_days' ), $filter( 'translate' )( 'common.l_today' )];
+    $scope.capacityLabels = [ $filter( 'translate' )( 'common.l_yesterday' ), $filter( 'translate' )( 'common.l_today' )];
     $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
     
     $scope.activitiesReturned = function( list ){
@@ -48,7 +48,8 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.capacityReturned = function( data ){
         $scope.capacityStats = data;
         
-        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
+//        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
+        var parts = $byte_converter.convertBytesToString( data.series[1].datapoints[ data.series[1].datapoints.length - 1 ].y );
         parts = parts.split( ' ' );
         
         var num = parseFloat( parts[0] );
@@ -169,7 +170,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     var buildCapacityFilter = function(){
         var filter = StatQueryFilter.create( [],
             [ StatQueryFilter.PHYSICAL_CAPACITY, StatQueryFilter.LOGICAL_CAPACITY ],
-            Math.round( ((new Date()).getTime() - (1000*60*60*24*30))/1000 ),
+            Math.round( ((new Date()).getTime() - (1000*60*60*24))/1000 ),
             Math.round( (new Date()).getTime() / 1000 ) );
         
         return filter;

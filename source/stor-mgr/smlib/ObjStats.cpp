@@ -27,7 +27,6 @@ ObjStatsTracker::ObjStatsTracker()
 
 ObjStatsTracker::~ObjStatsTracker() {
     delete objStatsMapLock;
-    delete  objStats;
 }
 
 int

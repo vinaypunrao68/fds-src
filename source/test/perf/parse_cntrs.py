@@ -179,7 +179,7 @@ def plot_series_all_volumes(series, title = None, ylabel = None, xlabel = "Time 
 
 def plot_show_and_save(name):
     # plt.legend()
-    plt.savefig('%s.png' % (name))
+    # plt.savefig('%s.png' % (name))
     plt.show()
 
 # TODO: options
