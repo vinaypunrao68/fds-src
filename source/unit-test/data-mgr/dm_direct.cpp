@@ -41,9 +41,9 @@ void startTxn(fds_volid_t volId, std::string blobName, int txnNum = 1, int blobM
                                            startBlbTx->blob_mode,
                                            startBlbTx->dmt_version);
     dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
-    dmBlobTxReq->dmio_start_blob_tx_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+    dmBlobTxReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
     TIMEDBLOCK("start") {
-        dataMgr->startBlobTx(dmBlobTxReq);
+        dataMgr->handlers[FDS_START_BLOB_TX]->handleQueueItem(dmBlobTxReq);
         cb.wait();
     }
     EXPECT_EQ(ERR_OK, cb.e);
@@ -154,9 +154,9 @@ TEST_F(DmUnitTest, PutBlob) {
         updcatMsg->txId = txnId;
         startTxn(dmTester->TESTVOLID, dmTester->TESTBLOB, txnId);
         auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg);
-        dmUpdCatReq->dmio_updatecat_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+        dmUpdCatReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
         TIMEDBLOCK("process") {
-            dataMgr->updateCatalog(dmUpdCatReq);
+            dataMgr->handlers[FDS_CAT_UPD]->handleQueueItem(dmUpdCatReq);
             cb.wait();
         }
         EXPECT_EQ(ERR_OK, cb.e);

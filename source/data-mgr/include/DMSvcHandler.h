@@ -21,14 +21,6 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
                        const fpi::StartBlobTxMsg& startBlob) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
-    void queryCatalogObject(const fpi::AsyncHdr& asyncHdr,
-                            const fpi::QueryCatalogMsg& queryMsg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    void updateCatalog(const fpi::AsyncHdr& asyncHdr,
-                       const fpi::UpdateCatalogMsg& updcatMsg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
 
     void deleteCatalogObject(const fpi::AsyncHdr& asyncHdr,
                              const fpi::DeleteCatalogObjectMsg& delcatMsg) {
@@ -94,24 +86,9 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
                             boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg,
                             const Error &err, DmIoFwdCat *req);
 
-    void startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::StartBlobTxMsg>& startBlob);
-    void startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         const Error &e, DmIoStartBlobTx *req);
-
-    void queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                            boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg);
-    void queryCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                              boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg,
-                              const Error &e, dmCatReq *req);
-
-    void updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg);
     void updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                            boost::shared_ptr<
                            fpi::UpdateCatalogOnceMsg>& updcatMsg);
-    void updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         const Error &e, DmIoUpdateCat *req);
     void updateCatalogOnceCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                              const Error &e,
                              DmIoUpdateCatOnce *req);
@@ -133,11 +110,6 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
                        boost::shared_ptr<fpi::AbortBlobTxMsg>& abortBlbTx);
     void abortBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                          const Error &e, DmIoAbortBlobTx *req);
-    void getBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message);
-    void getBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                           boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message,
-                           const Error &e, DmIoGetBlobMetaData *req);
     void setBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                          boost::shared_ptr<fpi::SetBlobMetaDataMsg>& setBlobMD);
     void setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
