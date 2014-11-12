@@ -12,11 +12,12 @@ user_no_style     :=
 user_bin_exe      := \
     smapi_gtest \
     smperf_gtest \
-    svc_gtest
+    svc_gtest \
+    smperf_dmsm_gtest
 
 smapi_gtest       := smapi_gtest.cpp ngx_modules.c
 smperf_gtest     := smperf_gtest.cpp ngx_modules.c
 svc_gtest     := svc_gtest.cpp ngx_modules.c
-
+smperf_dmsm_gtest     := smperf_dmsm_gtest.cpp ngx_modules.c
 
 include $(test_topdir)/Makefile.svc
