@@ -40,7 +40,7 @@ public class FdsFeatureManagerProvider
   {
     // better be set, otherwise we will have issues
     if( System.getProperty( "fds-root" ) != null ) {
-      BUNDLE_PATHS.add( System.getProperty( "fds-root" ) );
+      BUNDLE_PATHS.add( Paths.get( System.getProperty( "fds-root" ), "etc" ).toString() );
     }
 
     // default single node production location
