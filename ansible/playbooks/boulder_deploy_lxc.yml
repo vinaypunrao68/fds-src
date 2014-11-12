@@ -1,0 +1,76 @@
+---
+
+-   name: stop FDS on all nodes
+    hosts: all
+    remote_user: root
+
+    tasks:
+
+    -   name: Test for existing FDS install
+        command: test -d /fds
+        register: fds_has_run
+        ignore_errors: yes
+
+    -   name: Stop FDS
+        command: /fds/sbin/tools/fds stop
+        when: fds_has_run|success
+
+    -   name: check process status
+        command: /fds/sbin/tools/fds status
+        when: fds_has_run|success
+        register: fdsadmin_output
+        tags:
+            -   dbg
+    -   debug: var=fdsadmin_output.stdout_lines
+        ignore_errors: yes
+
+-   name: install and configure fds on all  fds_nodes
+    hosts: all
+    remote_user: root
+
+    tasks:
+    -   name: copy fdsinstall tarball
+        action: copy src=resources/fdsinstall.tgz dest=/root/fdsinstall.tgz owner=root group=root mode=0644
+
+    -   name: extract fdsinstall tarball
+        action: unarchive creates=/root/fdsinstall src=/root/fdsinstall.tgz dest=/root copy=no
+
+    -   name: run fdsinstall step 2 - install external pkgs
+        shell: ./fdsinstall.py -o 5 -o 2  && touch /root/.fdsinstall_step2_ran chdir=/root/fdsinstall creates=/root/.fdsinstall_step2_ran
+
+    -   name: run fdsinstall step 3 - setup storage
+        shell: ./fdsinstall.py -o 5 -o 3  && touch /root/.fdsinstall_step3_ran chdir=/root/fdsinstall creates=/root/.fdsinstall_step3_ran
+
+    -   name: run fdsinstall step 4 - install FDS pkgs
+        shell: ./fdsinstall.py -o 5 -o 4  && touch /root/.fdsinstall_step4_ran chdir=/root/fdsinstall creates=/root/.fdsinstall_step4_ran
+
+    -   name: render formation.conf
+        action: template src=../templates/formation.conf.j2 dest=/fds/sbin/formation.conf owner=root group=root mode=0644
+
+    -   name: render platform.conf
+        action: template src=../templates/platform.conf.j2 dest=/fds/etc/platform.conf owner=root group=root mode=0644
+
+    -   name: render orch_mgr.conf
+        action: template src=../templates/orch_mgr.conf.j2 dest=/fds/etc/orch_mgr.conf owner=root group=root mode=0644
+
+    -   name: fix FdsSetup.py
+        command: sed -ie 's/return_stdin[)]:/return_stdin=False):/g' FdsSetup.py chdir=/usr/local/lib/python2.7/dist-packages/fdslib
+
+-   name: start FDS from first node
+    hosts: bld-deploynode-01.formationds.com
+    remote_user: root
+
+    tasks:
+    -   name: attempt to start FDS
+        shell: bash -lc "./x.py" chdir=/fds/sbin
+        register: fds-tool_output
+        tags:
+            -   dbg
+    -   debug: var=fds-tool_output
+
+    -   name: check process status
+        command: ./fdsadmin --process-status chdir=/fds/sbin
+        register: fdsadmin_output
+        tags:
+            -   dbg
+    -   debug: var=fdsadmin_output.stdout_lines
