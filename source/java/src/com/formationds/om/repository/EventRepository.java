@@ -7,6 +7,7 @@ package com.formationds.om.repository;
 import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.model.Events;
 import com.formationds.commons.model.entity.Event;
+import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.query.QueryCriteria;
@@ -18,7 +19,9 @@ import javax.persistence.criteria.Expression;
 import java.io.File;
 import java.util.List;
 
-// TODO: not implemented
+/**
+ *
+ */
 public class EventRepository extends JDORepository<Event, Long, Events, QueryCriteria> {
 
     private static final String DBNAME = "var/db/events.odb";
@@ -77,7 +80,6 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
         return new Events(results);
     }
 
-
     private static class EventCriteriaQueryBuilder extends CriteriaQueryBuilder<Event> {
 
         // TODO: how to support multiple contexts (category and severity)?
@@ -105,6 +107,40 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
             super.and(expression.in(in.toArray(new Long[in.size()])));
             return this;
         }
+    }
+
+    private static class FirebreakEventCriteriaQueryBuilder extends CriteriaQueryBuilder<FirebreakEvent> {
+
+        // TODO: how to support multiple contexts (category and severity)?
+        private static final String CONTEXT = "category";
+        private static final String TIMESTAMP = "initialTimestamp";
+        static final String VOLID = "volumeId";
+        static final String VOLNAME = "volumeName";
+        static final String FBTYPE = "firebreakType";
+
+        FirebreakEventCriteriaQueryBuilder(EntityManager em) {
+            super(em, TIMESTAMP, CONTEXT);
+        }
+
+        protected FirebreakEventCriteriaQueryBuilder volumesById(List<String> in) {
+            final Expression<String> expression = from.get( VOLID );
+            super.and(expression.in(in.toArray(new String[in.size()])));
+            return this;
+        }
+
+        protected FirebreakEventCriteriaQueryBuilder volumesByName(List<String> in) {
+            final Expression<String> expression = from.get( VOLNAME );
+            super.and(expression.in(in.toArray(new String[in.size()])));
+            return this;
+        }
+
+        protected FirebreakEventCriteriaQueryBuilder fbType(FirebreakEvent.FirebreakType type) {
+            final Expression<String> expression = from.get( FBTYPE );
+            super.and( cb.equal(expression, type) );
+            return this;
+        }
+
+
     }
 
 }

@@ -204,7 +204,8 @@ public abstract class JDORepository<T,
         } catch (RuntimeException re) {
             logger.warn("SAVE Failed.  Rolling back transaction.");
             logger.debug("SAVE Failed", re);
-            manager().currentTransaction().rollback();
+            if (manager().currentTransaction().isActive())
+                manager().currentTransaction().rollback();
             throw re;
         }
     }
@@ -235,7 +236,8 @@ public abstract class JDORepository<T,
         } catch (RuntimeException re) {
             logger.warn("SAVE Failed.  Rolling back transaction.");
             logger.debug("SAVE Failed", re);
-            manager().currentTransaction().rollback();
+            if (manager().currentTransaction().isActive())
+                manager().currentTransaction().rollback();
             throw re;
         }
     }

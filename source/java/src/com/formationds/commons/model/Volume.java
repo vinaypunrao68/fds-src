@@ -10,6 +10,7 @@ import com.google.gson.annotations.SerializedName;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.formationds.commons.model.util.ModelFieldValidator.KeyFields;
 import static com.formationds.commons.model.util.ModelFieldValidator.outOfRange;
@@ -53,6 +54,24 @@ public class Volume
    */
   public Volume() {
     super();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    Volume volume = (Volume) o;
+
+    if (!Objects.equals(id, volume.id)) return false;
+    if (!Objects.equals(name, volume.name)) return false;
+
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(name, id);
   }
 
   /**

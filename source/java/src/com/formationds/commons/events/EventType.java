@@ -8,5 +8,6 @@ import java.io.Serializable;
 
 public enum EventType implements Serializable {
     USER_ACTIVITY,
-    SYSTEM_EVENT;
+    SYSTEM_EVENT,
+    FIREBREAK_EVENT;
 }

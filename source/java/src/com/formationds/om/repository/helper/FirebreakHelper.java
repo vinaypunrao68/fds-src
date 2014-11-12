@@ -8,6 +8,7 @@ import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Series;
+import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.VolumeDatapoint;
@@ -112,21 +113,7 @@ public class FirebreakHelper {
         throws TException {
 
         final Map<String, Datapoint> results = new HashMap<>();
-        final List<VolumeDatapoint> firebreakDP = new ArrayList<>( );
-        final List<Pair> paired = new ArrayList<>( );
-
-        /*
-         * filter just the firebreak volume datapoints
-         */
-        datapoints.stream()
-                  .filter( this::isFirebreakType )
-                  .forEach( firebreakDP::add );
-        /*
-         * consecutive stream, create datapoint pairs
-         */
-        StreamHelper.consecutiveStream( firebreakDP.stream(), 2 )
-            .map( ( list ) -> new Pair( list.get( 0 ), list.get( 1 ) ) )
-            .forEach( paired::add );
+        final List<VolumeDatapointPair> paired = extractFirebreakPairs(datapoints);
 
         paired.stream().forEach( pair -> {
             final String key = pair.getSigma( 0 ).getVolumeId();
@@ -156,10 +143,7 @@ public class FirebreakHelper {
                 results.put( key, datapoint );
             }
 
-            if( Calculation.isFirebreak( pair.getSigma( 0 )
-                                                .getValue(),
-                                            pair.getSigma( 1 )
-                                                .getValue() ) ) {
+            if( isFirebreak(pair) ) {
                 results.get( key ).setY( pair.getSigma( 0 ).getTimestamp() );
             }
         } );
@@ -167,9 +151,85 @@ public class FirebreakHelper {
         return results;
     }
 
+    /**
+     * find any firebreak volume datapoints in the input and return a map of volume id to
+     * firebreak pair.
+     *
+     * @param datapoints
+     *
+     * @return
+     */
+    public Map<Volume, List<VolumeDatapointPair>> findFirebreakVolumeDatapoints(List<VolumeDatapoint> datapoints) {
+        final Map<Volume, List<VolumeDatapointPair>> results = new HashMap<>();
+        final List<VolumeDatapointPair> paired = extractFirebreakPairs(datapoints);
+        paired.stream().forEach( pair-> {
+            String volId = pair.getSigma1().getVolumeId();
+            String volName = pair.getSigma2().getVolumeName();
+            Volume v = new VolumeBuilder().withId( volId )
+                                          .withName( volName )
+                                          .build();
+            List<VolumeDatapointPair> p = results.get(v);
+            if (p == null) {
+                p = new ArrayList<>();
+                results.put(v, p);
+            }
+            p.add(pair);
+        } );
+
+        return results;
+    }
+
+    /**
+     * Extract VolumeDatapoint Pairs that represent Firebreak events.
+     *
+     * @param datapoints all datapoints to filter
+     *
+     * @return a list of firebreak VolumeDatapoint pairs
+     */
+    public List<VolumeDatapointPair> extractFirebreakPairs(List<VolumeDatapoint> datapoints) {
+        final List<VolumeDatapointPair> paired = new ArrayList<>( );
+        final List<VolumeDatapoint> firebreakDP = extractFirebreakDatapoints(datapoints);
+
+        /*
+         * consecutive stream, create datapoint pairs
+         */
+        StreamHelper.consecutiveStream(firebreakDP.stream(), 2)
+            .map( ( list ) -> new VolumeDatapointPair( list.get( 0 ), list.get( 1 ) ) )
+            .forEach(paired::add);
+        return paired;
+    }
+
+    /**
+     * Given a list of datapoints, extract all datapoints that are related to Firebreak.
+     *
+     * @param datapoints all datapoints to filter.
+     *
+     * @return the list of datapoints that are firebreak datapoints.
+     */
+    public List<VolumeDatapoint> extractFirebreakDatapoints(List<VolumeDatapoint> datapoints) {
+        final List<VolumeDatapoint> firebreakDP = new ArrayList<>( );
+
+        /*
+         * filter just the firebreak volume datapoints
+         */
+        datapoints.stream()
+                  .filter( this::isFirebreakType )
+                  .forEach( firebreakDP::add );
+        return firebreakDP;
+    }
+
+    private boolean isFirebreak(VolumeDatapointPair p) {
+        return isFirebreak(p.getSigma1(), p.getSigma2());
+    }
+
+    public boolean isFirebreak(VolumeDatapoint s1, VolumeDatapoint s2) {
+      return Calculation.isFirebreak(s1.getValue(),
+                                     s2.getValue());
+    }
+
     private boolean isFirebreakType( final VolumeDatapoint vdp ) {
         try {
-            return QueryHelper.FIREBREAKS.contains( Metrics.byMetadataKey( vdp.getKey() ) );
+            return Metrics.FIREBREAK.contains( Metrics.byMetadataKey( vdp.getKey() ) );
         } catch( UnsupportedMetricException e ) {
             logger.warn( e.getMessage() );
             logger.trace( ExceptionHelper.toString( e ) );
@@ -177,13 +237,15 @@ public class FirebreakHelper {
         }
     }
 
-    class Pair {
+    public static class VolumeDatapointPair {
         private final VolumeDatapoint sigma1;
         private final VolumeDatapoint sigma2;
 
-        Pair( VolumeDatapoint shortTerm, VolumeDatapoint longTerm ) {
+        VolumeDatapointPair(VolumeDatapoint shortTerm, VolumeDatapoint longTerm) {
             this.sigma1 = shortTerm;
             this.sigma2 = longTerm;
+
+            // todo: assert that they are for the same volume?
         }
 
         /**
@@ -202,6 +264,9 @@ public class FirebreakHelper {
                         String.format( INDEX_OUT_BOUNDS, index, 0, 1 ) );
             }
         }
+
+        public VolumeDatapoint getSigma1() { return sigma1; }
+        public VolumeDatapoint getSigma2() { return sigma2; }
 
         /**
          * @return Returns a {@link String} representing this object

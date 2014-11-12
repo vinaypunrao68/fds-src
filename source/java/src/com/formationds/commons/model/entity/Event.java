@@ -74,19 +74,35 @@ abstract public class Event extends ModelBase {
     /**
      * Create a new event.  The event state will be initialized to SOFT and the timestamp set to now.
      *
-     * @param type
-     * @param category
-     * @param severity
+     * @param type the event type
+     * @param category the event category
+     * @param severity the event severity
      * @param defaultMessageFmt the default (english) message format.
      * @param messageKey resource bundle message lookup key
      * @param messageArgs resource bundle message arguments
      */
     public Event(EventType type, EventCategory category, EventSeverity severity, String defaultMessageFmt,
                  String messageKey, Object... messageArgs) {
+        this(Instant.now().toEpochMilli(), type, category, severity, defaultMessageFmt, messageKey, messageArgs);
+    }
+
+    /**
+     * Create a new event.  The event state will be initialized to SOFT and the timestamp set to now.
+     *
+     * @param ts the event timestamp, overriding the default
+     * @param type the event type
+     * @param category the event category
+     * @param severity the event severity
+     * @param defaultMessageFmt the default (english) message format.
+     * @param messageKey resource bundle message lookup key
+     * @param messageArgs resource bundle message arguments
+     */
+    protected Event(Long ts, EventType type, EventCategory category, EventSeverity severity, String defaultMessageFmt,
+                 String messageKey, Object... messageArgs) {
         this.type = type;
         this.category = category;
         this.severity = severity;
-        this.initialTimestamp = Instant.now().toEpochMilli();
+        this.initialTimestamp = ts;
         this.modifiedTimestamp = this.initialTimestamp;
         this.messageFormat = defaultMessageFmt;
         this.messageKey = messageKey;

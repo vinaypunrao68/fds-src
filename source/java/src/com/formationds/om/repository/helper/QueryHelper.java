@@ -47,25 +47,6 @@ public class QueryHelper {
 
     private final MetricsRepository repo;
 
-    public static List<Metrics> FIREBREAKS = new ArrayList<>();
-    static {
-        FIREBREAKS.add( Metrics.STC_SIGMA );
-        FIREBREAKS.add( Metrics.LTC_SIGMA );
-        FIREBREAKS.add( Metrics.STP_SIGMA );
-        FIREBREAKS.add( Metrics.LTP_SIGMA );
-    }
-
-    public static List<Metrics> PERFORMANCE = new ArrayList<>();
-    static {
-        PERFORMANCE.add( Metrics.STP_WMA );
-    }
-
-    public static final List<Metrics> CAPACITY = new ArrayList<>( );
-    static {
-        CAPACITY.add( Metrics.PBYTES );
-        CAPACITY.add( Metrics.LBYTES );
-    }
-
     /**
      * default constructor
      */
@@ -195,7 +176,7 @@ public class QueryHelper {
      */
     protected boolean isPerformanceQuery( final List<Metrics> metrics ) {
         for( final Metrics m : metrics ) {
-            if( !PERFORMANCE.contains( m ) ) {
+            if( !Metrics.PERFORMANCE.contains( m ) ) {
                 return false;
             }
         }
@@ -211,7 +192,7 @@ public class QueryHelper {
      */
     protected boolean isCapacityQuery( final List<Metrics> metrics ) {
         for( final Metrics m : metrics ) {
-            if( !CAPACITY.contains( m ) ) {
+            if( !Metrics.CAPACITY.contains( m ) ) {
                 return false;
             }
         }
@@ -227,7 +208,7 @@ public class QueryHelper {
      */
     protected boolean isFirebreakQuery( final List<Metrics> metrics ) {
         for( final Metrics m : metrics ) {
-            if( !FIREBREAKS.contains( m ) ) {
+            if( !Metrics.FIREBREAK.contains( m ) ) {
                 return false;
             }
         }

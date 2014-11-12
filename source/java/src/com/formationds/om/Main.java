@@ -6,7 +6,7 @@ package com.formationds.om;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
-import com.formationds.commons.events.EventManager;
+import com.formationds.om.events.EventManager;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
