@@ -145,9 +145,9 @@ TEST_F(DmUnitTest, PutBlob) {
         updcatMsg->txId = txnId;
         startTxn(dmTester->TESTVOLID, dmTester->TESTBLOB, txnId);
         auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg);
-        dmUpdCatReq->dmio_updatecat_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+        dmUpdCatReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
         TIMEDBLOCK("process") {
-            dataMgr->updateCatalog(dmUpdCatReq);
+            dataMgr->handlers[FDS_CAT_UPD]->handleQueueItem(dmUpdCatReq);
             cb.wait();
         }
         EXPECT_EQ(ERR_OK, cb.e);
