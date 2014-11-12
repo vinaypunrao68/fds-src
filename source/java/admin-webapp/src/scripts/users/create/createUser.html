@@ -7,7 +7,7 @@
     <form name="createUserForm">
         <div class="settings-body">
             <div class="side-by-side" >
-                <fui-input type="text" style="width: 260px;" class="form-control create-user-name" size="32" placeholder="Username" ng-model="name" name="username" required ng-class="{required: createUserForm.username.$error.required && nameInit !== true}" ng-keyup="usernameTyped( $event )">
+                <fui-input type="text" style="width: 260px;" class="form-control create-user-name" size="32" placeholder="Username" ng-model="name" name="username" required ng-class="{required: createUserForm.username.$error.required && nameInit !== true}" ng-keyup="usernameTyped( $event )" disabled="editing">
                 </fui-input>
                 <div>
                     <span class="required" ng-show="createUserForm.username.$error.required && nameInit !== true" class="required">Required</span>
@@ -15,13 +15,13 @@
             </div>
             <div class="page-vertical-spacer"></div>
             <div class="side-by-side">
-                <fui-input style="width: 260px;" type="password" class="form-control create-user-password" size="32" placeholder="{{ 'common.password' | translate}}" ng-model="password" ng-keyup="passwordTyped( $event )" name="password" required ng-class="{required: createUserForm.password.$error.required && passInit !== true}">
+                <fui-input style="width: 260px;" type="password" class="form-control create-user-password" size="32" placeholder="{{ 'common.password' | translate}}" ng-model="password" ng-keyup="passwordTyped( $event )" name="password" required ng-class="{required: createUserForm.password.$error.required && passInit !== true}" disabled="editing">
                 </fui-input>
                 <div>
                     <span class="required" ng-show="createUserForm.password.$error.required && passInit !== true" class="required" translate>common.l_required</span>
                 </div>
             </div>
-            <div class="side-by-side">
+            <div class="side-by-side" ng-show="!editing">
                 <fui-input style="width: 260px;" type="password" class="form-control create-user-confirm" size="32" placeholder="{{ 'common.confirm_password' | translate }}" ng-model="confirm" ng-keyup="confirmTyped( $event )" name="confirm" required ng-class="{required: createUserForm.confirm.$error.required && confirmInit !== true}">
                 </fui-input>
                 <div>

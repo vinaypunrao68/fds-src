@@ -11,6 +11,11 @@ angular.module( 'user-page' ).controller( 'userController', ['$scope', '$user_se
     
     $scope.actionSelected = function( action ){
     };
+    
+    $scope.editUser = function( user ){
+        $scope.userVars.selectedUser = user;
+        $scope.userVars.next( 'createuser' );
+    };
 
     $scope.usersReturned = function( response ){
         $scope.users = eval( response );
@@ -26,6 +31,7 @@ angular.module( 'user-page' ).controller( 'userController', ['$scope', '$user_se
     
     $scope.$watch( 'userVars.index', function( newVal ){
         if ( newVal === 0 ){
+            $scope.userVars.selectedUser = undefined;
             $scope.refresh();
         }
     });
