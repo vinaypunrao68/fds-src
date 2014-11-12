@@ -78,6 +78,45 @@ struct DeleteBlobHandler : Handler {
                         const Error &e, dmCatReq *dmRequest);
 };
 
+struct UpdateCatalogHandler : Handler {
+    UpdateCatalogHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::UpdateCatalogMsg> & message);
+    void handleQueueItem(dmCatReq * dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::UpdateCatalogMsg> & message,
+                        const Error &e, dmCatReq *dmRequest);
+};
+
+struct GetBlobMetaDataHandler : Handler {
+    GetBlobMetaDataHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::GetBlobMetaDataMsg> & message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
+struct QueryCatalogHandler : Handler {
+    QueryCatalogHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::QueryCatalogMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::QueryCatalogMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
+struct StartBlobTxHandler : Handler {
+    StartBlobTxHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::StartBlobTxMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::StartBlobTxMsg>& message,
+                       Error const& e, dmCatReq* dmRequest);
+};
 
 }  // namespace dm
 }  // namespace fds
