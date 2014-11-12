@@ -5,6 +5,7 @@
 
 #include <unistd.h>
 #include <string>
+#include <vector>
 #include <iostream>
 #include <boost/make_shared.hpp>
 #include <platform/platform-lib.h>
@@ -30,9 +31,9 @@ using namespace apache::thrift; // NOLINT
 using namespace apache::thrift::concurrency; // NOLINT
 using namespace fds;  // NOLINT
 
-struct SMApi : SingleNodeTest
+struct DMPerfApi : SingleNodeTest
 {
-    SMApi() {
+    DMPerfApi() {
         outStanding_ = 0;
         concurrency_ = 0;
         waiting_ = false;
@@ -42,7 +43,6 @@ struct SMApi : SingleNodeTest
         getsIssued_ = 0;
         getsSuccessCnt_ = 0;
         getsFailedCnt_ = 0;
-
     }
     void putCb(uint64_t opStartTs, EPSvcRequest* svcReq,
                const Error& error,
@@ -118,7 +118,7 @@ struct SMApi : SingleNodeTest
 * @brief Tests dropping puts fault injection
 *
 */
-TEST_F(SMApi, putsPerf)
+TEST_F(DMPerfApi, putsPerf)
 {
     int nPuts =  this->getArg<int>("puts-cnt");
     int nGets =  this->getArg<int>("gets-cnt");
@@ -138,22 +138,24 @@ TEST_F(SMApi, putsPerf)
     }
     bool dropCaches = false;
 
-    std::string fname("sl_sm_perf_stats.csv");
+    std::string fname("sl_dm_perf_stats.csv");
     statfile_.open(fname.c_str(), std::ios::out | std::ios::app);
 
     fpi::SvcUuid svcUuid;
-    svcUuid.svc_uuid = this->getArg<uint64_t>("smuuid");
+    svcUuid.svc_uuid = this->getArg<uint64_t>("dmuuid");
     if (svcUuid.svc_uuid == 0) {
-        svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
+        svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
     }
     ASSERT_NE(svcUuid.svc_uuid, 0);;
-    DltTokenGroupPtr tokGroup = boost::make_shared<DltTokenGroup>(1);
-    tokGroup->set(0, NodeUuid(svcUuid));
-    auto epProvider = boost::make_shared<DltObjectIdEpProvider>(tokGroup);
 
     // create dataset of size nPuts
-    FdsObjectDataset dataset;
-    dataset.generateDataset(nPuts, 4096);
+    std::vector<std::string> blobs;
+    std::string sameData("Perf Test Data");
+    auto sameObjId = ObjIdGen::genObjectId(sameData.c_str(),
+                                           sameData.length());
+    for (int i = 0; i < nPuts; ++i) {
+      blobs.push_back("blob_" + std::to_string(i));
+    }
 
     /* Set fault to uturn all puts */
     if (failSendsbefore) {
@@ -178,7 +180,7 @@ TEST_F(SMApi, putsPerf)
 
     /* Start google profiler */
     if (profile) {
-        ProfilerStart("/tmp/output.prof");
+        ProfilerStart("/tmp/dm_put_output.prof");
     }
 
     /* Start timer */
@@ -187,18 +189,27 @@ TEST_F(SMApi, putsPerf)
     /* Issue puts */
     for (int i = 0; i < nPuts; i++) {
         auto opStartTs = util::getTimeStampNanos();
-	ObjectID oid = dataset.dataset_[i];
-        auto putObjMsg = SvcMsgFactory::newPutObjectToSmMsg(volId_, oid,
-                                                        dataset.dataset_map_[oid].getObjectData());
-        auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
-        asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
-        asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this, opStartTs,
-                                            std::placeholders::_1,
-                                            std::placeholders::_2, std::placeholders::_3));
-        asyncPutReq->setTimeoutMs(1000);
+        auto putBlobOnce = SvcMsgFactory::newUpdateCatalogOnceMsg(volId_,
+                                                                  blobs[i]);
+        auto asyncPutBlobTxReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+        FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
+        updBlobInfo.offset   = 0;
+        updBlobInfo.size     = 2097152;
+        updBlobInfo.blob_end = true;
+        updBlobInfo.data_obj_id.digest =
+            std::string((const char *)sameObjId.GetId(), (size_t)sameObjId.GetLen());
+        putBlobOnce->obj_list.push_back(updBlobInfo);
+        putBlobOnce->txId = i;
+        putBlobOnce->dmt_version = 1;
+        putBlobOnce->blob_mode = 1;
+        asyncPutBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), putBlobOnce);
+        asyncPutBlobTxReq->onResponseCb(std::bind(&DMPerfApi::putCb, this, opStartTs,
+                                        std::placeholders::_1,
+                                        std::placeholders::_2, std::placeholders::_3));
+        asyncPutBlobTxReq->setTimeoutMs(1000);
         putsIssued_++;
         outStanding_++;
-        asyncPutReq->invoke();
+        asyncPutBlobTxReq->invoke();
 
         {
             Synchronized s(monitor_);
@@ -248,12 +259,13 @@ TEST_F(SMApi, putsPerf)
             << "(ns) Avg put latency: " << avgPutLatency_.value() << std::endl
             << "svc sendLat: " << gSvcRequestCntrs->sendLat.value() << std::endl
             << "svc sendPayloadLat: " << gSvcRequestCntrs->sendPayloadLat.value() << std::endl
-            << "svc serialization latency: " << gSvcRequestCntrs->serializationLat.value() << std::endl
+            << "svc serializ. latency: " << gSvcRequestCntrs->serializationLat.value() << std::endl
             << "svc op latency: " << gSvcRequestCntrs->reqLat.value() << std::endl;
 
     std::cout << "putsIssued: " << putsIssued_
               << " putsSuccessCnt_: " << putsSuccessCnt_
               << " putsFailedCnt_: " << putsFailedCnt_ << std::endl;
+
 
     double latMs = static_cast<double>(avgPutLatency_.value()) / 1000000.0;
     statfile_ << "put," << putsIssued_ << "," << concurrency_ << ","
@@ -276,7 +288,7 @@ TEST_F(SMApi, putsPerf)
 
     /* Start google profiler */
     if (profile) {
-        ProfilerStart("/tmp/slsmget_output.prof");
+        ProfilerStart("/tmp/sldmget_output.prof");
     }
 
     /* Start timer */
@@ -285,19 +297,19 @@ TEST_F(SMApi, putsPerf)
     fds_uint32_t dataset_size = nPuts;
     for (int i = 0; i < nGets; i++) {
         auto opStartTs = util::getTimeStampNanos();
-	fds_uint32_t index = cur_ind % dataset_size;
+        fds_uint32_t index = cur_ind % dataset_size;
         cur_ind += 123;
-	ObjectID oid = dataset.dataset_[index];
-        auto getObjMsg = SvcMsgFactory::newGetObjectMsg(volId_, oid);
-        auto asyncGetReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
-        asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
-        asyncGetReq->onResponseCb(std::bind(&SMApi::getCb, this, opStartTs,
-                                            std::placeholders::_1,
-                                            std::placeholders::_2, std::placeholders::_3));
-        asyncGetReq->setTimeoutMs(1000);
+        std::string blobName = blobs[index];
+        auto qryCat = SvcMsgFactory::newQueryCatalogMsg(volId_, blobName, 0);
+        auto asyncQryCatReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+        asyncQryCatReq->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), qryCat);
+        asyncQryCatReq->onResponseCb(std::bind(&DMPerfApi::getCb, this, opStartTs,
+                                     std::placeholders::_1,
+                                     std::placeholders::_2, std::placeholders::_3));
+        asyncQryCatReq->setTimeoutMs(1000);
         getsIssued_++;
         outStanding_++;
-        asyncGetReq->invoke();
+        asyncQryCatReq->invoke();
 
         {
             Synchronized s(monitor_);
@@ -333,6 +345,10 @@ TEST_F(SMApi, putsPerf)
     latMs = static_cast<double>(avgGetLatency_.value()) / 1000000.0;
     statfile_ << "get," << putsIssued_ << "," << concurrency_ << ","
               << throughput << "," << latMs << std::endl;
+
+    if (statfile_.is_open()){
+      statfile_.close();
+    }
 }
 
 int main(int argc, char** argv) {
@@ -340,7 +356,7 @@ int main(int argc, char** argv) {
     po::options_description opts("Allowed options");
     opts.add_options()
         ("help", "produce help message")
-        ("smuuid", po::value<uint64_t>()->default_value(0), "smuuid")
+        ("dmuuid", po::value<uint64_t>()->default_value(0), "smuuid")
         ("puts-cnt", po::value<int>(), "puts count")
         ("gets-cnt", po::value<int>()->default_value(0), "gets count")
         ("profile", po::value<bool>()->default_value(false), "google profile")
@@ -352,6 +368,6 @@ int main(int argc, char** argv) {
         ("output", po::value<std::string>()->default_value("stats.txt"), "stats output")
         ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling")
         ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency");
-    SMApi::init(argc, argv, opts, "vol1");
+    DMPerfApi::init(argc, argv, opts, "vol2");
     return RUN_ALL_TESTS();
 }
