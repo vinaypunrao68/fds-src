@@ -228,6 +228,25 @@ AmAsyncDataApi::getBlob(boost::shared_ptr<apis::RequestId>& requestId,
                         boost::shared_ptr<std::string>& blobName,
                         boost::shared_ptr<int32_t>& length,
                         boost::shared_ptr<apis::ObjectOffset>& objectOffset) {
+    fds_verify(*length >= 0);
+    fds_verify(objectOffset->value >= 0);
+
+    // Create request context
+    // Set the pointer we want filled in the handler
+    // TODO(Andrew): Get the correctly sized pointer directly
+    // from the return string so we can avoid one extra copy.
+    AsyncGetObjectResponseHandler::ptr getHandler(
+            new AsyncGetObjectResponseHandler(responseApi,
+                                              requestId,
+                                              length));
+
+    AmRequest *blobReq= new GetBlobReq(invalid_vol_id,
+                                        *volumeName,
+                                        *blobName,
+                                        SHARED_DYN_CAST(Callback, getHandler),
+                                        static_cast<fds_uint64_t>(objectOffset->value),
+                                        *length);
+    storHvisor->enqueueBlobReq(blobReq);
 }
 
 void

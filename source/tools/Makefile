@@ -3,7 +3,7 @@ user_target		  := tool
 user_std_libs     := true
 user_rtime_env	  := user
 
-user_incl_dir     := \
+user_incl_dir     := $(topdir) \
     $(topdir)/platform/include \
     $(topdir)/net-service/include \
     $(topdir)/data-mgr/include

@@ -32,12 +32,9 @@ class VolumeSharedCacheManager : public Module, boost::noncopyable {
     typedef SharedKvCache<key_type, mapped_type, hash_type> cache_type;
     typedef typename cache_type::value_type value_type;
 
-    // Associated cache and synchronization structure
-    typedef std::pair<fds_rwlock*, cache_type*> cache_pair;
-
     // Structure for multiplexing many volumes with volume ID
     // based associativity.
-    std::unordered_map<fds_volid_t, cache_pair> vol_cache_map;
+    std::unordered_map<fds_volid_t, cache_type*> vol_cache_map;
 
     // Protects the cache map structure
     fds_rwlock cacheMapRwlock;
@@ -67,9 +64,7 @@ class VolumeSharedCacheManager : public Module, boost::noncopyable {
             return ERR_VOL_DUPLICATE;
         }
 
-        fds_rwlock *rwlock = new fds_rwlock();
-        cache_type *cache = new cache_type(cacheModName + std::to_string(volId), maxEntries);
-        vol_cache_map[volId] = std::make_pair(rwlock, cache);
+        vol_cache_map[volId] = new cache_type(cacheModName + std::to_string(volId), maxEntries);
 
         return ERR_OK;
     }
@@ -90,11 +85,7 @@ class VolumeSharedCacheManager : public Module, boost::noncopyable {
         }
 
         // Free the entire cache structure
-        cache_pair cacheEntry = mapIt->second;
-        fds_rwlock *rwlock = cacheEntry.first;
-        cache_type *cache = cacheEntry.second;
-        delete cache;
-        delete rwlock;
+        delete mapIt->second;
 
         // Remove the map entry
         vol_cache_map.erase(mapIt);
@@ -113,15 +104,7 @@ class VolumeSharedCacheManager : public Module, boost::noncopyable {
         // an error code
         fds_verify(mapIt != vol_cache_map.end());
 
-        // Write lock the cache for add
-        cache_pair cacheEntry = mapIt->second;
-        fds_rwlock *cacheRwlock = cacheEntry.first;
-        SCOPEDWRITE(*cacheRwlock);
-
-        // Update the cache structure and return
-        // whatever was evicted
-        cache_type *cache = cacheEntry.second;
-        return cache->add(key, value);
+        return mapIt->second->add(key, value);
     }
 
     Error clear(fds_volid_t volId) {
@@ -131,14 +114,8 @@ class VolumeSharedCacheManager : public Module, boost::noncopyable {
             return ERR_NOT_FOUND;
         }
 
-        // Write lock the cache for clearing
-        cache_pair cacheEntry = mapIt->second;
-        fds_rwlock *cacheRwlock = cacheEntry.first;
-        SCOPEDWRITE(*cacheRwlock);
-
         // Clear the entire cache structure
-        cache_type *cache = cacheEntry.second;
-        cache->clear();
+        mapIt->second->clear();
         return ERR_OK;
     }
 
@@ -149,15 +126,8 @@ class VolumeSharedCacheManager : public Module, boost::noncopyable {
             return ERR_NOT_FOUND;
         }
 
-        // Write lock the cache for get. We write lock
-        // for get since the get actually updates the
-        // eviction order structures
-        cache_pair cacheEntry = mapIt->second;
-        fds_rwlock *cacheRwlock = cacheEntry.first;
-        SCOPEDWRITE(*cacheRwlock);
-
         // Get from the cache
-        return cacheEntry.second->get(key, valueOut);
+        return mapIt->second->get(key, valueOut);
     }
 
     Error remove(fds_volid_t volId, const key_type &key) {
@@ -167,13 +137,8 @@ class VolumeSharedCacheManager : public Module, boost::noncopyable {
             return ERR_NOT_FOUND;
         }
 
-        // Write lock the cache for remove.
-        cache_pair cacheEntry = mapIt->second;
-        fds_rwlock *cacheRwlock = cacheEntry.first;
-        SCOPEDWRITE(*cacheRwlock);
-
         // Remove from the cache structure
-        cacheEntry.second->remove(key);
+        mapIt->second->remove(key);
         return ERR_OK;
     }
 

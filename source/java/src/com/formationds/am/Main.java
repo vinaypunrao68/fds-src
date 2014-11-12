@@ -4,10 +4,9 @@ package com.formationds.am;
  */
 
 import com.formationds.apis.AmService;
+import com.formationds.apis.AsyncAmServiceRequest;
 import com.formationds.apis.ConfigurationService;
-import com.formationds.commons.events.EventManager;
 import com.formationds.nbd.*;
-import com.formationds.om.repository.EventRepository;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
@@ -32,11 +31,9 @@ import java.util.function.Function;
 
 public class Main {
     private static Logger LOG = Logger.getLogger(Main.class);
-
-    private Configuration configuration;
-
     // key for managing the singleton EventManager.
     private final Object eventMgrKey = new Object();
+    private Configuration configuration;
 
     public static void main(String[] args) {
         try {
@@ -91,7 +88,11 @@ public class Main {
 
         Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
         ByteBufferPool bbp = new ArrayByteBufferPool();
-        AsyncAm asyncAm = new AsyncAm(clientFactory.makeAmAsyncPool("localhost", 9988), authorizer);
+        AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm("localhost", 8899);
+
+        AsyncAm asyncAm = new AsyncAm(clientFactory.makeAmAsyncPool("localhost", 9988), oneWayAm, authorizer);
+        asyncAm.start();
+
         Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm, bbp, token, configCache);
 
         int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port", 8000);

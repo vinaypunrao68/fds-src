@@ -242,6 +242,8 @@ typedef enum {
     FDS_SM_READ_OBJECTMETADATA,
     FDS_SM_COMPACT_OBJECTS,
     FDS_SM_ADD_OBJECT_REF,
+    FDS_SM_TIER_WRITEBACK_OBJECTS,
+    FDS_SM_TIER_PROMOTE_OBJECTS,
     FDS_DM_SNAP_VOLCAT,
     FDS_DM_SNAPDELTA_VOLCAT,
     FDS_DM_FWD_CAT_UPD,
@@ -301,15 +303,6 @@ typedef enum {
 }  // namespace blob
 
 }  // namespace fds
-
-namespace std {
-template <>
-struct hash<fds::ObjectID> {
-    std::size_t operator()(const fds::ObjectID oid) const {
-        return std::hash<std::string>()(oid.ToHex());
-    }
-};
-}  // namespace std
 
 /*
  * NOTE!!! include only std typedefs here. Dont use any fds objects !!!!
