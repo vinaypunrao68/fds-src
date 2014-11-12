@@ -77,6 +77,10 @@ class VolumeSettings;
 struct SvcMsgFactory {
     static FDS_ProtocolInterface::PutObjectMsgPtr
         newPutObjectMsg(const uint64_t& volId, DataGenIfPtr dataGen);
+    static FDS_ProtocolInterface::PutObjectMsgPtr
+        newPutObjectToSmMsg(const uint64_t& volId,
+                            const ObjectID& objId,
+                            boost::shared_ptr<std::string> objData);
     static FDS_ProtocolInterface::QueryCatalogMsgPtr
         newQueryCatalogMsg(const uint64_t& volId, DataGenIfPtr dataGen);
     static FDS_ProtocolInterface::QueryCatalogMsgPtr
