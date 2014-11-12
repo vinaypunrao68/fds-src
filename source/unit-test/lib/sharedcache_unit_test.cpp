@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <bitset>
+#include <random>
 #include "boost/smart_ptr/make_shared.hpp"
 
 #include <fds_types.h>
@@ -19,16 +20,14 @@ static const fds_uint32_t MAX_TEST_OBJ = 1000;
 static fds_uint32_t keyCounter = 0;
 
 static fds_threadpool* pool;
+static std::mt19937 twister_32;
 
 struct TestObject {
     fds_uint32_t key;
     std::string value;
 
-    TestObject() : key(keyCounter++)
-    {
-        char f_name[L_tmpnam] = { '\0' };
-        value = std::string(tmpnam(f_name));
-    }
+    TestObject() : key(keyCounter++),
+                   value(std::to_string(twister_32())) {}
 };
 
 typedef SharedKvCache<fds_uint32_t, TestObject> cache_manager_type;

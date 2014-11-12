@@ -32,15 +32,14 @@ class TieringParams {
      * for promotion to a flash tier
      */
     fds_uint32_t maxPromoteBatchSize;
-};
 
-std::ostream& operator<< (std::ostream &out,
-                          const TieringParams& params) {
-    out << "TieringParams flashFullThreshold = " << params.flashFullThreshold
-        << "%, maxWritebackBatchSize = " << params.maxWritebackBatchSize
-        << " objects, maxPromoteBatchSize = " << params.maxPromoteBatchSize;
-    return out;
-}
+    friend std::ostream& operator<< (std::ostream &out,
+                                     const TieringParams& params) {
+        return out << "TieringParams flashFullThreshold = " << params.flashFullThreshold
+                   << "%, maxWritebackBatchSize = " << params.maxWritebackBatchSize
+                   << " objects, maxPromoteBatchSize = " << params.maxPromoteBatchSize;
+    }
+};
 
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_TIERINGCONFIG_H_

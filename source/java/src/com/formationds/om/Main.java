@@ -63,8 +63,15 @@ public class Main {
     }
 
     public void start(String[] args) throws Exception {
+
+        // TODO there needs to be a "global" configuration access point to replace this
+        System.setProperty( "fds-root", SingletonConfiguration.instance()
+                                                              .getConfig()
+                                                              .getFdsRoot() );
+
+        LOG.trace( "FDS-ROOT:: " + System.getProperty( "fds-root" ) );
+
         LOG.trace("Starting native OM");
-        Configuration configuration = SingletonConfiguration.instance().getConfig();
         NativeOm.startOm(args);
 
         LOG.trace("Loading platform configuration.");

@@ -20,6 +20,7 @@ user_cpp          :=                   \
     SmIo.cpp			               \
     ObjRank.cpp                        \
     ObjStats.cpp                       \
+    TierMigration.cpp                  \
     TierEngine.cpp                     \
     ObjMeta.cpp                        \
     SmObjDb.cpp                        \

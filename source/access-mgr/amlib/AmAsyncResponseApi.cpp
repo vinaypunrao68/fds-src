@@ -46,8 +46,9 @@ void
 AmAsyncXdiResponse::initiateClientConnect() {
     // Setup the async response client
     boost::shared_ptr<xdi_att::TTransport> respSock(
-        boost::make_shared<xdi_att::TSocket>(serverIp,
-                                             serverPort));
+        boost::make_shared<xdi_att::TSocket>(
+            serverIp, serverPort));
+            // "/tmp/am-resp-sock"));
     boost::shared_ptr<xdi_att::TFramedTransport> respTrans(
         boost::make_shared<xdi_att::TFramedTransport>(respSock));
     boost::shared_ptr<xdi_atp::TProtocol> respProto(

@@ -81,6 +81,8 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->fSnapshot = pVol->fSnapshot;
     v_desc->srcVolumeId = pVol->srcVolumeId;
     v_desc->qosQueueId = pVol->qosQueueId;
+    v_desc->contCommitlogRetention = pVol->contCommitlogRetention;
+    v_desc->timelineTime = pVol->timelineTime;
 }
 
 }  // namespace fds

@@ -237,12 +237,19 @@ class CounterServer:
 
 
 class CounterServerPull:
-    def __init__(self, outdir, options):
+    def __init__(self, outdir, options, opt_outfile =  None):
         self.options = options
+        self.opt_outfile = opt_outfile
         self.outdir = outdir
         self.stop = threading.Event()
-        self.datafile, self.datafname = tempfile.mkstemp(prefix = "counters")
-        self.javafile, self.javafname = tempfile.mkstemp(prefix = "javacounters")
+        if opt_outfile != None:
+            self.datafname = opt_outfile + ".counters"
+            self.datafile = os.open(self.datafname, os.O_RDWR|os.O_CREAT)
+            self.javafname = opt_outfile + ".java_counters"
+            self.javafile = os.open(self.javafname, os.O_RDWR|os.O_CREAT)
+        else:
+            self.datafile, self.datafname = tempfile.mkstemp(prefix = "counters")
+            self.javafile, self.javafname = tempfile.mkstemp(prefix = "javacounters")
         task_args = ("counter_server", self.datafile, self.stop)
         # FIXME: move this in its own function
         self.thread = threading.Thread(target = self._task, args = task_args)
@@ -298,22 +305,24 @@ class CounterServerPull:
 
 
     def terminate(self):
+        self.stop.set()
+        time.sleep(self.options.counter_pull_rate + 1)
+        if self.opt_outfile != None:
+            return
         # terminate udp server
         #datafile, datafname = self.queue.get()
         directory = self.outdir
         if not os.path.exists(directory):
             os.makedirs(directory)
-        self.stop.set()
-        time.sleep(self.options.counter_pull_rate + 1)
         print "copying counter file", self.datafname
         os.close(self.datafile)
         shutil.move(self.datafname, directory + "/counters.dat")
-        os.chmod(directory + "/counters.dat", 755)
+        os.chmod(directory + "/counters.dat", 777)
         if self.options.java_counters == True:
             print "copying counter file", self.javafname
             os.close(self.javafile)
             shutil.move(self.javafname, directory + "/java_counters.dat")
-            os.chmod(directory + "/java_counters.dat", 755)
+            os.chmod(directory + "/java_counters.dat", 777)
 
 
 class AgentsPidMap:

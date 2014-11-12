@@ -12,8 +12,8 @@
 #include <thread>
 #include <google/profiler.h>
 
-static std::atomic<fds_uint32_t> taskCount;
 fds::DMTester* dmTester = NULL;
+fds::concurrency::TaskStatus taskCount(0);
 
 struct DmUnitTest : ::testing::Test {
     virtual void SetUp() override {
@@ -41,9 +41,9 @@ void startTxn(fds_volid_t volId, std::string blobName, int txnNum = 1, int blobM
                                            startBlbTx->blob_mode,
                                            startBlbTx->dmt_version);
     dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
-    dmBlobTxReq->dmio_start_blob_tx_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+    dmBlobTxReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
     TIMEDBLOCK("start") {
-        dataMgr->startBlobTx(dmBlobTxReq);
+        dataMgr->handlers[FDS_START_BLOB_TX]->handleQueueItem(dmBlobTxReq);
         cb.wait();
     }
     EXPECT_EQ(ERR_OK, cb.e);
@@ -79,6 +79,14 @@ TEST_F(DmUnitTest, AddVolume) {
     printStats();
 }
 
+static void testPutBlobOnce(boost::shared_ptr<DMCallback> & cb, DmIoUpdateCatOnce * dmUpdCatReq) {
+    TIMEDBLOCK("process") {
+        dataMgr->updateCatalogOnce(dmUpdCatReq);
+        cb->wait();
+    }
+    EXPECT_EQ(ERR_OK, cb->e);
+    taskCount.done();
+}
 
 TEST_F(DmUnitTest, PutBlobOnce) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
@@ -93,31 +101,32 @@ TEST_F(DmUnitTest, PutBlobOnce) {
     TIMEDBLOCK("fill") {
         fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
     }
-    uint64_t txnId;
-    for (uint i = 0; i < NUM_BLOBS; i++) {
-        DMCallback cb;
-        txnId = dmTester->getNextTxnId();
-        putBlobOnce->blob_name = dmTester->getBlobName(i);
-        putBlobOnce->txId = txnId;
+
+    TIMEDBLOCK("total putBlobOnce") {
+        taskCount.reset(NUM_BLOBS);
+        uint64_t txnId;
+        for (uint i = 0; i < NUM_BLOBS; i++) {
+            boost::shared_ptr<DMCallback> cb(new DMCallback());
+            txnId = dmTester->getNextTxnId();
+            putBlobOnce->blob_name = dmTester->getBlobName(i);
+            putBlobOnce->txId = txnId;
 
 
-        auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(putBlobOnce->volume_id,
-                                                          putBlobOnce->blob_name,
-                                                          putBlobOnce->blob_version,
-                                                          putBlobOnce->dmt_version);
-        dmCommitBlobOnceReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(putBlobOnce->txId));
-        dmCommitBlobOnceReq->dmio_commit_blob_tx_resp_cb =
-                BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+            auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(putBlobOnce->volume_id,
+                                                              putBlobOnce->blob_name,
+                                                              putBlobOnce->blob_version,
+                                                              putBlobOnce->dmt_version);
+            dmCommitBlobOnceReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(putBlobOnce->txId));
+            dmCommitBlobOnceReq->dmio_commit_blob_tx_resp_cb =
+                    BIND_OBJ_CALLBACK(*cb.get(), DMCallback::handler, asyncHdr);
 
 
-        auto dmUpdCatReq = new DmIoUpdateCatOnce(putBlobOnce, dmCommitBlobOnceReq);
-        dmCommitBlobOnceReq->parent = dmUpdCatReq;
+            auto dmUpdCatReq = new DmIoUpdateCatOnce(putBlobOnce, dmCommitBlobOnceReq);
+            dmCommitBlobOnceReq->parent = dmUpdCatReq;
 
-        TIMEDBLOCK("process") {
-            dataMgr->updateCatalogOnce(dmUpdCatReq);
-            cb.wait();
+            g_fdsprocess->proc_thrpool()->schedule(&testPutBlobOnce, cb, dmUpdCatReq);
         }
-        EXPECT_EQ(ERR_OK, cb.e);
+        taskCount.await();
     }
 
     if (profile)
@@ -145,9 +154,9 @@ TEST_F(DmUnitTest, PutBlob) {
         updcatMsg->txId = txnId;
         startTxn(dmTester->TESTVOLID, dmTester->TESTBLOB, txnId);
         auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg);
-        dmUpdCatReq->dmio_updatecat_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+        dmUpdCatReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
         TIMEDBLOCK("process") {
-            dataMgr->updateCatalog(dmUpdCatReq);
+            dataMgr->handlers[FDS_CAT_UPD]->handleQueueItem(dmUpdCatReq);
             cb.wait();
         }
         EXPECT_EQ(ERR_OK, cb.e);
@@ -156,22 +165,38 @@ TEST_F(DmUnitTest, PutBlob) {
     printStats();
 }
 
+static void testQueryCatalog(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
+    TIMEDBLOCK("process") {
+        dataMgr->queryCatalogBackendSvc(dmQryReq);
+        cb->wait();
+    }
+    EXPECT_EQ(ERR_OK, cb->e);
+    taskCount.done();
+}
+
 TEST_F(DmUnitTest, QueryCatalog) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
 
-    for (uint i = 0; i < NUM_BLOBS; i++) {
-        DMCallback cb;
-        auto qryCat = SvcMsgFactory::newQueryCatalogMsg(
-            dmTester->TESTVOLID, dmTester->getBlobName(i), 0);
+    if (profile)
+        ProfilerStart("/tmp/dm_direct.prof");
 
-        auto dmQryReq = new DmIoQueryCat(qryCat);
-        dmQryReq->dmio_querycat_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-        TIMEDBLOCK("process") {
-            dataMgr->queryCatalogBackendSvc(dmQryReq);
-            cb.wait();
+    TIMEDBLOCK("total QueryCatalog") {
+        taskCount.reset(NUM_BLOBS);
+        for (uint i = 0; i < NUM_BLOBS; i++) {
+            boost::shared_ptr<DMCallback> cb(new DMCallback());
+            auto qryCat = SvcMsgFactory::newQueryCatalogMsg(
+                dmTester->TESTVOLID, dmTester->getBlobName(i), 0);
+
+            auto dmQryReq = new DmIoQueryCat(qryCat);
+            dmQryReq->dmio_querycat_resp_cb = BIND_OBJ_CALLBACK(*cb.get(),
+                    DMCallback::handler, asyncHdr);
+            g_fdsprocess->proc_thrpool()->schedule(&testQueryCatalog, cb, dmQryReq);
         }
-        EXPECT_EQ(ERR_OK, cb.e);
+        taskCount.await();
     }
+
+    if (profile)
+        ProfilerStop();
     printStats();
 }
 

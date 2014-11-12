@@ -19,6 +19,10 @@ namespace fds {
 const fds_uint64_t INVALID_BLOB_ID = 0;
 const fds_uint32_t BLOB_META_INDEX = std::numeric_limits<fds_uint32_t>::max();
 
+const BlobObjKey OP_TIMESTAMP_KEY(INVALID_BLOB_ID, 0);
+const Record OP_TIMESTAMP_REC(reinterpret_cast<const char *>(&OP_TIMESTAMP_KEY),
+        sizeof(BlobObjKey));
+
 Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
     std::string destIP;
     if (NetMgr::ep_mgr_singleton()->ep_uuid_binding(dmUuid.toSvcUuid(), 0, 0, &destIP) < 0) {

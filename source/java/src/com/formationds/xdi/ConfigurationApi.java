@@ -91,13 +91,14 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
 
   }
 
-    public long createSnapshotPolicy(final String name, final String recurrence, final long retention)
+    public long createSnapshotPolicy(final String name, final String recurrence, final long retention, final long timelineTime)
             throws TException {
         final SnapshotPolicy apisPolicy = new SnapshotPolicy();
 
         apisPolicy.setPolicyName(name);
         apisPolicy.setRecurrenceRule(recurrence);
         apisPolicy.setRetentionTimeSeconds(retention);
+        apisPolicy.setTimelineTime(timelineTime);
 
         return createSnapshotPolicy(apisPolicy);
     }
@@ -292,9 +293,9 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
     }
 
     @Override
-    public void createSnapshot(long volumeId, String snapshotName, long retentionTime)
+    public void createSnapshot(long volumeId, String snapshotName, long retentionTime, long timelineTime)
             throws ApiException, TException {
-        config.createSnapshot(volumeId, snapshotName, retentionTime);
+        config.createSnapshot(volumeId, snapshotName, retentionTime, timelineTime);
         // TODO: is there a generated snapshot id?
         EventManager.notifyEvent(ConfigEvent.CREATE_SNAPSHOT, snapshotName, volumeId, retentionTime);
     }

@@ -11,7 +11,7 @@ then
 else
     options=""
 fi
-for dir in `ls $base` 
+for dir in `ls $base|grep results_` 
 do
     #name=`echo $dir| awk -F "[.:]" '{print "type, ",$6, ", nvols,",$2,", threads,",$4," , fsize,",$12}'`
     name=$dir
