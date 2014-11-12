@@ -1,4 +1,6 @@
 from svchelper import *
+import pyfdsp.snapshot
+import pyfdsp.snapshot.ttypes
 
 class SnapshotPolicyContext(Context):
     def __init__(self, *args):
@@ -12,7 +14,7 @@ class SnapshotPolicyContext(Context):
     @arg('retention-time', type=long, help= "-retension time for the snapshot")
     def create(self, policy_name, recurrence_rule, retention_time):
         try:
-            snap_policy = SnapshotPolicy(
+            snap_policy = pyfdsp.snapshot.ttypes.SnapshotPolicy(
                 id                    =   0,
                 recurrenceRule        =   recurrence_rule,
                 policyName            =   policy_name,
@@ -86,8 +88,8 @@ class SnapshotPolicyContext(Context):
     def volumes(self, policy_id):
         try:
             volume_list =  ServiceMap.omConfig().listVolumesForSnapshotPolicy(policy_id)
-            return tabulate([(item) for item in volume_list],
-                            headers=['Volume-Id'], tablefmt=self.config.getTableFormat())
+            return tabulate([(policy_id, item) for item in volume_list],
+                            headers=['Policy-Id','Volume-Id'], tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
             return ' list Volumes for snapshot policy failed: {}'.format(policy_id)
