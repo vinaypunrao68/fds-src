@@ -7,10 +7,15 @@ class SnapshotContext(Context):
     #--------------------------------------------------------------------------------------
     @clicmd    
     @arg('vol-name', help= "-list snapshot for Volume name")
-    def list(self, vol_name):
+    @arg('--sortby', help='sort by name*/time', type=str)
+    def list(self, vol_name,sortby='name'):
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
             snapshot = ServiceMap.omConfig().listSnapshots(volume_id)
+            if sortby == 'time':
+                snapshot.sort(key=operator.attrgetter('creationTimestamp'))
+            else:
+                snapshot.sort(key=operator.attrgetter('snapshotName'))
             return tabulate([(item.snapshotName, item.volumeId, item.snapshotId, item.snapshotPolicyId, time.ctime((item.creationTimestamp)/1000)) for item in snapshot],
                             headers=['Snapshot-name', 'volume-Id', 'Snapshot-Id', 'policy-Id', 'Creation-Time'], tablefmt=self.config.getTableFormat())
         except Exception, e:
