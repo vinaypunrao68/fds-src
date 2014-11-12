@@ -411,7 +411,7 @@ std::thread* runConfigService(OrchMgr* om) {
     boost::shared_ptr<ConfigurationServiceHandler> handler(new ConfigurationServiceHandler(om));  //NOLINT
     boost::shared_ptr<TProcessor> processor(new ConfigurationServiceProcessor(handler));  //NOLINT
     boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));  //NOLINT
-    boost::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());  //NOLINT
+    boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());  //NOLINT
 
     // TODO(Andrew): Use a single OM processing thread for now...
@@ -421,14 +421,14 @@ std::thread* runConfigService(OrchMgr* om) {
     threadManager->threadFactory(threadFactory);
     threadManager->start();
 
-    TNonblockingServer *server = new TNonblockingServer(processor,
-                                                        protocolFactory,
-                                                        port,
-                                                        threadManager);
-    // TThreadedServer* server = new TThreadedServer(processor,
-    //                                           serverTransport,
-    //                                            transportFactory,
-    //                                            protocolFactory);
+    // TNonblockingServer *server = new TNonblockingServer(processor,
+    //                                                 protocolFactory,
+    //                                                  port,
+    //                                                  threadManager);
+    TThreadedServer* server = new TThreadedServer(processor,
+                                                  serverTransport,
+                                                  transportFactory,
+                                                  protocolFactory);
     return new std::thread ( [server] {
             LOGNOTIFY << "starting config service";
             server->serve();
