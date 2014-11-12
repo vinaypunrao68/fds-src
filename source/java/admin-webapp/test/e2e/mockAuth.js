@@ -4,14 +4,14 @@ mockAuth = function() {
 
     var admin = {
         identifier: 'admin',
-        userId: 0,
+        id: 0,
         username: 'admin',
         features: ['SYS_MGMT','Volume Management','TENANT_MGMT','User Management']
     };
 
     var goldman = {
         identifier: 'goldman',
-        userId: '1',
+        id: '1',
         username: 'goldman',
         features: ['Volume Management','User Management']
     };
@@ -88,7 +88,7 @@ mockAuth = function() {
         // for specific information
         service.getUsername = function(){
 
-            return user.username;
+            return user.identifier;
         };
 
         // access control service that can be used to see
@@ -107,7 +107,7 @@ mockAuth = function() {
         service.validateUserToken = function( success, failure ){
 
             if ( angular.isFunction( success ) ){
-                success( user.userId );
+                success( user.id );
             }
         };
 
@@ -133,7 +133,7 @@ mockAuth = function() {
 
         service.createUser = function( username, password, success, failure ){
 
-            var user = { identifier: username, password: password, userId: (new Date()).getTime() };
+            var user = { identifier: username, password: password, id: (new Date()).getTime() };
             users.push( user );
 
             success( user );

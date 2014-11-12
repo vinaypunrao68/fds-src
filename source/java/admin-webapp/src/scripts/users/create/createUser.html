@@ -21,7 +21,7 @@
                     <span class="required" ng-show="createUserForm.password.$error.required && passInit !== true" class="required" translate>common.l_required</span>
                 </div>
             </div>
-            <div class="side-by-side" ng-show="!editing">
+            <div class="side-by-side password-confirmation-parent" ng-show="!editing">
                 <fui-input style="width: 260px;" type="password" class="form-control create-user-confirm" size="32" placeholder="{{ 'common.confirm_password' | translate }}" ng-model="confirm" ng-keyup="confirmTyped( $event )" name="confirm" required ng-class="{required: createUserForm.confirm.$error.required && confirmInit !== true}">
                 </fui-input>
                 <div>
@@ -30,7 +30,7 @@
             </div>
 
             <div class="side-by-side" ng-show="tenants.length && tenants.length > 0">
-                <fui-dropdown selected="tenant" default-label="tenantLabel" items="tenants"></fui-dropdown>
+                <fui-dropdown class="tenant-dropdown" selected="tenant" default-label="tenantLabel" items="tenants"></fui-dropdown>
 <!--
                 <div>
                     <span class="required" ng-show="createUserForm.confirm.$error.required && confirmInit !== true" class="required">Required</span>
