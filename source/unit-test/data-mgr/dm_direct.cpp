@@ -165,22 +165,38 @@ TEST_F(DmUnitTest, PutBlob) {
     printStats();
 }
 
+static void testQueryCatalog(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
+    TIMEDBLOCK("process") {
+        dataMgr->queryCatalogBackendSvc(dmQryReq);
+        cb->wait();
+    }
+    EXPECT_EQ(ERR_OK, cb->e);
+    taskCount.done();
+}
+
 TEST_F(DmUnitTest, QueryCatalog) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
 
-    for (uint i = 0; i < NUM_BLOBS; i++) {
-        DMCallback cb;
-        auto qryCat = SvcMsgFactory::newQueryCatalogMsg(
-            dmTester->TESTVOLID, dmTester->getBlobName(i), 0);
+    if (profile)
+        ProfilerStart("/tmp/dm_direct.prof");
 
-        auto dmQryReq = new DmIoQueryCat(qryCat);
-        dmQryReq->dmio_querycat_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-        TIMEDBLOCK("process") {
-            dataMgr->queryCatalogBackendSvc(dmQryReq);
-            cb.wait();
+    TIMEDBLOCK("total QueryCatalog") {
+        taskCount.reset(NUM_BLOBS);
+        for (uint i = 0; i < NUM_BLOBS; i++) {
+            boost::shared_ptr<DMCallback> cb(new DMCallback());
+            auto qryCat = SvcMsgFactory::newQueryCatalogMsg(
+                dmTester->TESTVOLID, dmTester->getBlobName(i), 0);
+
+            auto dmQryReq = new DmIoQueryCat(qryCat);
+            dmQryReq->dmio_querycat_resp_cb = BIND_OBJ_CALLBACK(*cb.get(),
+                    DMCallback::handler, asyncHdr);
+            g_fdsprocess->proc_thrpool()->schedule(&testQueryCatalog, cb, dmQryReq);
         }
-        EXPECT_EQ(ERR_OK, cb.e);
+        taskCount.await();
     }
+
+    if (profile)
+        ProfilerStop();
     printStats();
 }
 
