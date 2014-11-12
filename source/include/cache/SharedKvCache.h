@@ -91,9 +91,11 @@ class SharedKvCache : public Module, boost::noncopyable {
       */
      value_type add(const key_type& key, const value_type value) {
          SCOPEDWRITE(cache_lock);
-         GLOGTRACE << "Adding key " << key;
-         // Remove any exiting entry from cache
-         remove_(key);
+
+         // Touch any exiting entry from cache, if returns
+         // non-NULL then we already have this value, return
+         if (touch(key) != eviction_list.end())
+             return value_type(nullptr);
 
          // Add the entry to the front of the eviction list and into the map.
          eviction_list.emplace_front(key, value);
