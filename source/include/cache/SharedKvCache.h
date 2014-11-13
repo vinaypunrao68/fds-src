@@ -8,6 +8,7 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include "boost/smart_ptr/shared_ptr.hpp"
@@ -36,7 +37,7 @@ namespace fds {
  *
  * This class IS thread safe
  */
-template<class K, class V, class _Hash = std::hash<K>>
+template<class K, class V, class _Hash = std::hash<K>, typename StrongAssociation = std::false_type>
 class SharedKvCache : public Module, boost::noncopyable {
     public:
      typedef K key_type;
@@ -91,9 +92,16 @@ class SharedKvCache : public Module, boost::noncopyable {
       */
      value_type add(const key_type& key, const value_type value) {
          SCOPEDWRITE(cache_lock);
-         GLOGTRACE << "Adding key " << key;
-         // Remove any exiting entry from cache
-         remove_(key);
+
+         if (StrongAssociation::value) {
+             // Touch any exiting entry from cache, if returns
+             // non-NULL then we already have this value, return
+             if (touch(key) != eviction_list.end())
+                 return value_type(nullptr);
+         } else {
+             // Remove old value before adding current
+             remove_(key);
+         }
 
          // Add the entry to the front of the eviction list and into the map.
          eviction_list.emplace_front(key, value);

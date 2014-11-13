@@ -13,15 +13,11 @@ namespace fds {
 
 DMSvcHandler::DMSvcHandler()
 {
-    REGISTER_FDSP_MSG_HANDLER(fpi::QueryCatalogMsg, queryCatalogObject);
-    REGISTER_FDSP_MSG_HANDLER(fpi::UpdateCatalogMsg, updateCatalog);
     REGISTER_FDSP_MSG_HANDLER(fpi::UpdateCatalogOnceMsg, updateCatalogOnce);
-    REGISTER_FDSP_MSG_HANDLER(fpi::StartBlobTxMsg, startBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::CommitBlobTxMsg, commitBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::AbortBlobTxMsg, abortBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::SetBlobMetaDataMsg, setBlobMetaData);
-    REGISTER_FDSP_MSG_HANDLER(fpi::GetBlobMetaDataMsg, getBlobMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, getVolumeMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamMsg, handleStatStream);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
@@ -314,115 +310,6 @@ void DMSvcHandler::abortBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     delete req;
 }
 
-void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                               boost::shared_ptr<fpi::StartBlobTxMsg>& startBlbTx)
-{
-    if ((dataMgr->testUturnAll == true) ||
-        (dataMgr->testUturnStartTx == true)) {
-        LOGNOTIFY << "Uturn testing start blob tx "
-                  << logString(*asyncHdr) << logString(*startBlbTx);
-        startBlobTxCb(asyncHdr, ERR_OK, NULL);
-    }
-
-    LOGDEBUG << logString(*asyncHdr) << logString(*startBlbTx);
-
-    auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
-                                           startBlbTx->blob_name,
-                                           startBlbTx->blob_version,
-                                           startBlbTx->blob_mode,
-                                           startBlbTx->dmt_version);
-    dmBlobTxReq->dmio_start_blob_tx_resp_cb =
-            BIND_MSG_CALLBACK2(DMSvcHandler::startBlobTxCb, asyncHdr);
-
-    PerfTracer::tracePointBegin(dmBlobTxReq->opReqLatencyCtx);
-    /*
-     * allocate a new  Blob transaction  class and  queue  to per volume queue.
-     */
-    dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
-
-
-    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmBlobTxReq));
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue start blob tx  request "
-                << logString(*asyncHdr) << logString(*startBlbTx);
-        PerfTracer::incr(dmBlobTxReq->opReqFailedPerfEventType, dmBlobTxReq->getVolId(),
-                         dmBlobTxReq->perfNameStr);
-        PerfTracer::tracePointEnd(dmBlobTxReq->opReqLatencyCtx);
-        dmBlobTxReq->dmio_start_blob_tx_resp_cb(err, dmBlobTxReq);
-    }
-}
-
-void DMSvcHandler::startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                 const Error &e, DmIoStartBlobTx *req)
-{
-    /*
-     * we are not sending any response  message  in this call, instead we
-     * will send the status  on async header
-     * TODO(sanjay)- we will have to add  call to  send the response without payload
-     * static response
-     */
-    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    LOGDEBUG << "startBlobTx completed " << e << " " << logString(*asyncHdr);
-
-    // TODO(sanjay) - we will have to revisit  this call
-    fpi::StartBlobTxRspMsg stBlobTxRsp;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StartBlobTxRspMsg), stBlobTxRsp);
-
-    if ((dataMgr->testUturnAll == true) ||
-        (dataMgr->testUturnStartTx == true)) {
-        fds_verify(req == NULL);
-        return;
-    }
-
-    delete req;
-}
-
-void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                      boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg) {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*queryMsg));
-
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_queries > 0));
-    /*
-     * allocate a new query cat log  class and  queue  to per volume queue.
-     */
-    auto dmQryReq = new DmIoQueryCat(queryMsg);
-    dmQryReq->dmio_querycat_resp_cb =
-            BIND_MSG_CALLBACK2(DMSvcHandler::queryCatalogObjectCb, asyncHdr, queryMsg);
-
-    PerfTracer::tracePointBegin(dmQryReq->opReqLatencyCtx);
-
-    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmQryReq->getVolId());
-    Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
-                                            voldesc->qosQueueId : dmQryReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmQryReq));
-
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue Query Catalog request "
-                << logString(*asyncHdr) << logString(*queryMsg);
-        PerfTracer::tracePointEnd(dmQryReq->opReqLatencyCtx);
-        PerfTracer::incr(dmQryReq->opReqFailedPerfEventType, dmQryReq->getVolId(),
-                         dmQryReq->perfNameStr);
-        dmQryReq->dmio_querycat_resp_cb(err, dmQryReq);
-    }
-}
-
-void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                        boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg,
-                                        const Error &e,
-                                        dmCatReq *req) {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*queryMsg));
-
-    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-
-    // TODO(Rao): We should have a seperate response message for QueryCatalogMsg for
-    // consistency
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), *queryMsg);
-
-    delete req;
-}
-
 void
 DMSvcHandler::updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& updcatMsg)
@@ -460,59 +347,6 @@ DMSvcHandler::updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         dmUpdCatReq->getVolId(),
         static_cast<FDS_IOType*>(dmUpdCatReq));
     fds_verify(err == ERR_OK);
-}
-
-void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                 boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg)
-{
-    if ((dataMgr->testUturnAll == true) ||
-        (dataMgr->testUturnUpdateCat == true)) {
-        GLOGDEBUG << "Uturn testing update catalog "
-                  << logString(*asyncHdr) << logString(*updcatMsg);
-        updateCatalogCb(asyncHdr, ERR_OK, NULL);
-    }
-
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*updcatMsg));
-    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-    DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_updates > 0));
-
-    /*
-     * allocate a new query cat log  class and  queue  to per volume queue.
-     */
-    auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg);
-
-    dmUpdCatReq->dmio_updatecat_resp_cb =
-            BIND_MSG_CALLBACK2(DMSvcHandler::updateCatalogCb, asyncHdr);
-
-    PerfTracer::tracePointBegin(dmUpdCatReq->opReqLatencyCtx);
-
-    Error err = dataMgr->qosCtrl->enqueueIO(dmUpdCatReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmUpdCatReq));
-
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue Update Catalog request "
-                << logString(*asyncHdr) << logString(*updcatMsg);
-        PerfTracer::tracePointEnd(dmUpdCatReq->opReqLatencyCtx);
-        PerfTracer::incr(dmUpdCatReq->opReqFailedPerfEventType, dmUpdCatReq->getVolId(),
-                         dmUpdCatReq->perfNameStr);
-        dmUpdCatReq->dmio_updatecat_resp_cb(err, dmUpdCatReq);
-    }
-}
-
-void DMSvcHandler::updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                   const Error &e, DmIoUpdateCat *req)
-{
-    DBG(GLOGDEBUG << logString(*asyncHdr));
-    fpi::UpdateCatalogRspMsg updcatRspMsg;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::UpdateCatalogRspMsg), updcatRspMsg);
-
-    if ((dataMgr->testUturnAll == true) ||
-        (dataMgr->testUturnUpdateCat == true)) {
-        fds_verify(req == NULL);
-        return;
-    }
-
-    delete req;
 }
 
 void
@@ -575,48 +409,6 @@ void DMSvcHandler::deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& async
     // TODO(sanjay) - we will have to revisit  this call
     fpi::DeleteCatalogObjectRspMsg delcatRspMsg;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(DeleteCatalogObjectRspMsg), delcatRspMsg);
-
-    delete req;
-}
-
-void DMSvcHandler::getBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                   boost::shared_ptr<fpi::GetBlobMetaDataMsg>& getBlbMeta) {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*getBlbMeta));
-
-    auto dmReq = new DmIoGetBlobMetaData(getBlbMeta->volume_id,
-                                         getBlbMeta->blob_name,
-                                         getBlbMeta->blob_version,
-                                         getBlbMeta);
-    dmReq->dmio_getmd_resp_cb =
-            BIND_MSG_CALLBACK2(DMSvcHandler::getBlobMetaDataCb, asyncHdr, getBlbMeta);
-
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
-    const VolumeDesc * voldesc = dataMgr->getVolumeDesc(dmReq->getVolId());
-    Error err = dataMgr->qosCtrl->enqueueIO(voldesc && voldesc->isSnapshot() ?
-                                            voldesc->qosQueueId : dmReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmReq));
-
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue request "
-                << logString(*asyncHdr) << ":" << logString(*getBlbMeta);
-        PerfTracer::tracePointEnd(dmReq->opReqLatencyCtx);
-        PerfTracer::incr(dmReq->opReqFailedPerfEventType, dmReq->getVolId(),
-                         dmReq->perfNameStr);
-        dmReq->dmio_getmd_resp_cb(err, dmReq);
-    }
-}
-
-// TODO(Rao): Refactor dmCatReq to contain BlobNode information? Check with Andrew.
-void DMSvcHandler::getBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                     boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message,
-                                     const Error &e, DmIoGetBlobMetaData *req) {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
-
-    // TODO(Rao): We should have a seperate response message for QueryCatalogMsg for
-    // consistency
-    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    sendAsyncResp(asyncHdr, fpi::GetBlobMetaDataMsgTypeId, message);
 
     delete req;
 }

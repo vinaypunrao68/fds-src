@@ -59,6 +59,8 @@ angular.module( 'qos' ).factory( '$snapshot_service', ['$http_fds', function( $h
 
     service.createSnapshotPolicy = function( policy, callback, failure ){
 
+        policy.timelineTime = 0;
+        
         return $http_fds.post( '/api/config/snapshot/policies', policy, callback, failure );
     };
 

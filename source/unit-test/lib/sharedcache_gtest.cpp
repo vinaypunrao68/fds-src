@@ -22,7 +22,8 @@ using namespace fds;  // NOLINT
 
 TEST(SharedKvCache, add_get)
 {
-    SharedKvCache<fds_uint32_t, fds_uint32_t> cacheManager("Integer cache manager", 50);
+    SharedKvCache<fds_uint32_t, fds_uint32_t, std::hash<fds_uint32_t>>
+        cacheManager("Integer cache manager", 50);
 
     fds_uint32_t k1 = 1;
     fds_uint32_t k2 = 2;
@@ -45,6 +46,35 @@ TEST(SharedKvCache, add_get)
     err = cacheManager.get(k2, getV2);
     EXPECT_TRUE(err == fds::ERR_OK);
     EXPECT_TRUE(*getV2 == k3);
+}
+
+TEST(SharedKvCache, add_get_strong)
+{
+    SharedKvCache<fds_uint32_t, fds_uint32_t, std::hash<fds_uint32_t>, std::true_type>
+        cacheManager("Integer cache manager", 50);
+
+    fds_uint32_t k1 = 1;
+    fds_uint32_t k2 = 2;
+    fds_uint32_t k3 = 3;
+    fds_uint32_t k4 = 4;
+    boost::shared_ptr<fds_uint32_t> evictEntry1 = cacheManager.add(k1, k1);
+
+    cacheManager.add(k2, k2);
+    cacheManager.add(k3, k3);
+    boost::shared_ptr<fds_uint32_t> evictEntry4 = cacheManager.add(k4, k4);
+
+    // Test get works
+    decltype(cacheManager)::value_type getV2;
+    fds::Error err = cacheManager.get(k2, getV2);
+    EXPECT_TRUE(err == fds::ERR_OK);
+    EXPECT_TRUE(*getV2 == k2);
+
+    // Test overwrite
+    cacheManager.add(k2, k3);
+    err = cacheManager.get(k2, getV2);
+    EXPECT_TRUE(err == fds::ERR_OK);
+    EXPECT_FALSE(*getV2 == k3);
+    EXPECT_TRUE(*getV2 == k2);
 }
 
 TEST(SharedKvCache, eviction)
