@@ -13,9 +13,9 @@ class SnapshotContext(Context):
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
             snapshot = ServiceMap.omConfig().listSnapshots(volume_id)
             if sortby == 'time':
-                snapshot.sort(key=operator.attrgetter('creationTimestamp'))
+                snapshot.sort(key=attrgetter('creationTimestamp'))
             else:
-                snapshot.sort(key=operator.attrgetter('snapshotName'))
+                snapshot.sort(key=attrgetter('snapshotName'))
             return tabulate([(item.snapshotName, item.volumeId, item.snapshotId, item.snapshotPolicyId, time.ctime((item.creationTimestamp)/1000)) for item in snapshot],
                             headers=['Snapshot-name', 'volume-Id', 'Snapshot-Id', 'policy-Id', 'Creation-Time'], tablefmt=self.config.getTableFormat())
         except Exception, e:
