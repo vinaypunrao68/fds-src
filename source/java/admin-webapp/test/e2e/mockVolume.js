@@ -4,17 +4,21 @@ mockVolume = function(){
         var volService = {};
         volService.volumes = [];
 
-        volService.delete = function( volume ){
+        volService.delete = function( volume, callback ){
 
             var temp = [];
 
-            volService.volumes.forEach( function( v ){
-                if ( v.name != volume.name ){
-                    temp.push( v );
+            for ( var i = 0; i < volService.volumes.length; i++ ){
+                if( volService.volumes[i].name !== volume.name ){
+                    temp.push( volService.volumes[i] );
                 }
-            });
+            }
 
             volService.volumes = temp;
+            
+            if ( angular.isFunction( callback ) ){
+                callback();
+            }
         };
 
         volService.save = function( volume, callback, failure ){
