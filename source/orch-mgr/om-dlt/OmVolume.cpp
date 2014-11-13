@@ -834,6 +834,8 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->fSnapshot   = pVol->fSnapshot;
     pkt->srcVolumeId   = pVol->srcVolumeId;
     pkt->qosQueueId   = pVol->qosQueueId;
+    pkt->contCommitlogRetention = pkt->contCommitlogRetention;
+    pkt->timelineTime = pkt->timelineTime;
 }
 
 // vol_fmt_message

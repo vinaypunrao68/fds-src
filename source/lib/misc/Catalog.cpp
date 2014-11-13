@@ -76,7 +76,7 @@ Catalog::Catalog(const std::string& _file,
         cenv->logFilePrefix() = logFilePrefix;
         cenv->maxLogFiles() = maxLogFiles;
 
-        cenv->logRotate() = true;
+        cenv->logRotate() = !logFilePrefix.empty();
     }
 
     options.env = env;

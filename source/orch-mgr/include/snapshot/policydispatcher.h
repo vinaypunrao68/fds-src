@@ -9,6 +9,7 @@
 #include <util/Log.h>
 #include <queue>
 #include <thread>
+#include <vector>
 namespace fds {
 class OrchMgr;
 namespace snapshot {
@@ -17,6 +18,7 @@ class PolicyDispatcher : public TaskProcessor, HasLogger {
   public:
     explicit PolicyDispatcher(OrchMgr* om);
     bool process(const Task& task);
+    uint process(const std::vector<Task *>& vecTasks);
 
     void run();
   protected:

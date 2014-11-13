@@ -39,7 +39,8 @@ public class CreateSnapshot
 
       config.createSnapshot( Long.valueOf( snapshot.getVolumeId() ),
                              snapshot.getName(),
-                             snapshot.getRetention() );
+                             snapshot.getRetention(),
+                             snapshot.getTimelineTime() );
     }
 
     return new JsonResource( new JSONObject().put( "status", "OK" ) );

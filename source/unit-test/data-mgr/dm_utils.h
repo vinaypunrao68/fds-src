@@ -24,6 +24,8 @@
 using fds::util::Color;
 std::map<std::string, fds::util::Stats> statsMap;
 
+extern fds::concurrency::TaskStatus taskCount;
+
 void printStats() {
     for (auto& iter : statsMap) {
         auto& stats = iter.second;

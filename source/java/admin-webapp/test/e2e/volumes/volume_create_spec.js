@@ -7,9 +7,28 @@ describe( 'Testing volume creation permutations', function(){
     var mainEl;
     var createEl;
     var newText;
+    var viewEl;
+    
+    var deleteVolume = function( row ){
+        element.all( by.css( '.volume-row' ) ).get( row ).click();
+        
+        browser.sleep( 500 );
+        
+        viewEl.element( by.css( '.delete-volume' ) ).click();
+        
+        browser.sleep( 200 );
 
+        //accept the warning
+        element( by.css( '.fds-modal-ok' ) ).click();
 
-//    browser.addMockModule( 'qos', mockSnap );
+        browser.sleep( 200 );
+
+        element.all( by.css( 'volume-row' )).then( function( rows ){
+            expect( rows.length ).toBe( 0 );
+        });
+        
+        browser.sleep( 200 );
+    };
 
     it( 'should not find any volumes in the table', function(){
 
@@ -22,7 +41,9 @@ describe( 'Testing volume creation permutations', function(){
         createEl = $('.create-panel.volumes');
         createButton = element.all( by.buttonText( 'Create Volume' ) ).get(0);
         mainEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(0);
-        newText = element( by.model( 'name') );
+        viewEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(2);
+        
+        newText = element( by.model( 'volumeName') );
 
         var volumeTable = $('tr');
 
@@ -40,6 +61,7 @@ describe( 'Testing volume creation permutations', function(){
     it( 'should save with just a name', function(){
         newText.sendKeys( 'Test Volume' );
         browser.sleep( 100 );
+        
         createButton.click();
 
         expect( mainEl.getAttribute( 'style' ) ).not.toContain( '-100%' );
@@ -70,58 +92,51 @@ describe( 'Testing volume creation permutations', function(){
     
     it ( 'should go to the edit screen on press of the edit button', function(){
         
-        var edit = element( by.css( '.button-group span.icon-edit' ) );
-        edit.click();
+        var firstRow = element.all( by.css( '.volume-row' ) ).get( 0 );
+        firstRow.click();
 
         browser.sleep( 210 );
         
         // the screen should slide over
         expect( mainEl.getAttribute( 'style' ) ).toContain( '-100%' );
+        expect( viewEl.getAttribute( 'style' ) ).toContain( '0%' );
         
-        // title should say "edit"
-        var editTitle = element( by.css( '.create-volume-edit-title' ) );
-        expect( editTitle.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
-        
-        // name field shouldn't be editable
-        var input = element( by.css( 'input.volume-name' ));
-        expect( input.isEnabled() ).toBe( false );
-        
-        // make sure the clone section isn't present
-        var cloneBlock = element( by.css( '.clone-volume-selector' ));
-        expect( cloneBlock.getAttribute( 'class' )).toContain( 'ng-hide' );
+        // title should be the volume title
+        viewEl.element( by.css( '.volume-name' )).getText().then( function( txt ){
+            expect( txt ).toBe( 'Test Volume' );
+        });
         
     });
 
     it ( 'should be able to edit the priority of a volume', function(){
 
-        var editQosButton = element( by.css( '.qos-panel .icon-edit' ));
+        var editQosButton = viewEl.element( by.css( '.qos-panel .icon-edit' ));
         editQosButton.click();
         
         browser.sleep( 200 );
 
         // panel should now be editable
-        var slaDisplay = element( by.css( '.volume-sla-edit-display' ) );
+        var slaDisplay = viewEl.element( by.css( '.volume-sla-edit-display' ) );
         expect( slaDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
 
-        var prioritySliderSegments = element( by.css( '.volume-priority-slider' ) ).all( by.css( '.segment' ) );
+        var prioritySliderSegments = viewEl.element( by.css( '.volume-priority-slider' ) ).all( by.css( '.segment' ) );
         prioritySliderSegments.count().then( function( num ){
             expect( num ).toBe( 9 );
         });
         
         browser.actions().mouseMove( prioritySliderSegments.get( 7 ) ).click().perform();
         
-        var doneButton = element( by.css( '.save-qos-settings' ) );
+        var doneButton = viewEl.element( by.css( '.save-qos-settings' ) );
         doneButton.click();
         browser.sleep( 210 );
 
-        var priorityDisplay = element( by.css( '.volume-priority-display-only' ) );
+        var priorityDisplay = viewEl.element( by.css( '.volume-priority-display-only' ) );
         priorityDisplay.getText().then( function( txt ){
             expect( txt ).toContain( '8' );
         });
         
-        // save the change
-        var editButton = element.all( by.buttonText( 'Edit Volume' ) ).get( 0 );
-        editButton.click();
+        // done editing
+        element.all( by.css( '.slide-window-stack-breadcrumb' ) ).get( 0 ).click();
         
         browser.sleep( 210 );
         
@@ -135,21 +150,10 @@ describe( 'Testing volume creation permutations', function(){
 
     });
 
-//    it( 'should be able to delete a volume', function(){
-//
-//        var delButton = element( by.css( 'span.fui-cross' ) );
-//        delButton.click();
-//        browser.sleep( 100 );
-//
-//        var alert = browser.switchTo().alert();
-//        alert.accept();
-//
-//        browser.sleep( 200 );
-//
-//        element.all( by.css( 'volume-row' )).then( function( rows ){
-//            expect( rows.length ).toBe( 0 );
-//        });
-//    });
+    it( 'should be able to delete a volume', function(){
+
+        deleteVolume( 0 );
+    });
 
     it( 'should be able to cancel editing and show default values on next entry', function(){
 
@@ -180,28 +184,33 @@ describe( 'Testing volume creation permutations', function(){
         createLink.click();
         browser.sleep( 200 );
 
+        // no text should be there now.
+        newText.getText().then( function( txt ){
+            expect( txt ).toBe( '' );
+        });
+        
         newText.sendKeys( 'Complex Volume' );
 
         // messing with the chosen data connector
-        var dcDisplay = element( by.css( '.data-connector-display' ));
+        var dcDisplay = createEl.element( by.css( '.data-connector-display' ));
         expect( dcDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
         
-        var editDcButton = element( by.css( '.edit-data-connector-button' ) );
+        var editDcButton = createEl.element( by.css( '.edit-data-connector-button' ) );
         editDcButton.click();
         
         expect( dcDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
         
-        var typeMenu = element( by.css( '.data-connector-dropdown' ) );
+        var typeMenu = createEl.element( by.css( '.data-connector-dropdown' ) );
         var blockEl = typeMenu.all( by.tagName( 'li' ) ).first();
         
         typeMenu.click();
         blockEl.click();
         
-        var sizeSpinner = element( by.css( '.data-connector-size-spinner' )).element( by.tagName( 'input' ));
+        var sizeSpinner = createEl.element( by.css( '.data-connector-size-spinner' )).element( by.tagName( 'input' ));
         sizeSpinner.clear();
         sizeSpinner.sendKeys( '1' );
         
-        var doneName = element( by.css( '.save-name-type-data' ));
+        var doneName = createEl.element( by.css( '.save-name-type-data' ));
         doneName.click();
         
         dcDisplay.getText().then( function( txt ){
@@ -209,42 +218,33 @@ describe( 'Testing volume creation permutations', function(){
         });
 
         // changing the QoS
-        var editQosButton = element( by.css( '.qos-panel .icon-edit' ));
+        var editQosButton = createEl.element( by.css( '.qos-panel .icon-edit' ));
         editQosButton.click();
         
         browser.sleep( 200 );
 
         // panel should now be editable
-        var slaEditDisplay = element( by.css( '.volume-sla-edit-display' ) );
+        var slaEditDisplay = createEl.element( by.css( '.volume-sla-edit-display' ) );
         expect( slaEditDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
         
-        var slaTableDisplay = element( by.css( '.volume-display-only' ) );
+        var slaTableDisplay = createEl.element( by.css( '.volume-display-only' ) );
         expect( slaTableDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
         
-//        var prioritySpinner = element( by.css( '.volume-priority-spinner' ) ).element( by.tagName( 'input' ) );
-//        prioritySpinner.clear();
-//        prioritySpinner.sendKeys( '2' );
-        browser.actions().mouseMove( element( by.css( '.volume-priority-slider' ) ).all( by.css( '.segment' )).get( 1 ) ).click().perform();
+        browser.actions().mouseMove( createEl.element( by.css( '.volume-priority-slider' ) ).all( by.css( '.segment' )).get( 1 ) ).click().perform();
         
-//        var slaSpinner = element( by.css( '.volume-sla-spinner' )).element( by.tagName( 'input' ));
-//        slaSpinner.clear();
-//        slaSpinner.sendKeys( '90' );
-        browser.actions().mouseMove( element( by.css( '.volume-iops-slider' ) ).all( by.css( '.segment' )).get( 8 ) ).click().perform();
+        browser.actions().mouseMove( createEl.element( by.css( '.volume-iops-slider' ) ).all( by.css( '.segment' )).get( 8 ) ).click().perform();
         
-//        var limitSpinner = element( by.css( '.volume-limit-spinner' )).element( by.tagName( 'input' ));
-//        limitSpinner.clear();
-//        limitSpinner.sendKeys( '2000' );
-        browser.actions().mouseMove( element( by.css( '.volume-limit-slider' ) ).all( by.css( '.segment' )).get( 7 ) ).click().perform();
+        browser.actions().mouseMove( createEl.element( by.css( '.volume-limit-slider' ) ).all( by.css( '.segment' )).get( 7 ) ).click().perform();
         
-        var doneButton = element( by.css( '.save-qos-settings' ) );
+        var doneButton = createEl.element( by.css( '.save-qos-settings' ) );
         doneButton.click();
 
         expect( slaTableDisplay.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
         expect( slaEditDisplay.getAttribute( 'class' ) ).toContain( 'ng-hide' );
         
-        var priorityDisplay = element( by.css( '.volume-priority-display-only' ) );
-        var slaDisplay = element( by.css( '.volume-sla-display' ) );
-        var limitDisplay = element( by.css( '.volume-limit-display' ) );
+        var priorityDisplay = createEl.element( by.css( '.volume-priority-display-only' ) );
+        var slaDisplay = createEl.element( by.css( '.volume-sla-display' ) );
+        var limitDisplay = createEl.element( by.css( '.volume-limit-display' ) );
         
         priorityDisplay.getText().then( function( txt ){
             expect( txt ).toBe( '2' );
@@ -261,17 +261,15 @@ describe( 'Testing volume creation permutations', function(){
         element.all( by.buttonText( 'Create Volume' )).get( 0 ).click();
         browser.sleep( 300 );
 
-//        element.all( by.css( '.volume-row .priority' ) ).then( function( priorityCols ){
-//            priorityCols.forEach( function( td ){
-//                td.getText().then( function( txt ){
-//                    expect( txt ).toBe( '2' );
-//                });
-//            });
-//        });
+        element.all( by.css( '.volume-row .priority' ) ).then( function( priorityCols ){
+            priorityCols.forEach( function( td ){
+                td.getText().then( function( txt ){
+                    expect( txt ).toBe( '2' );
+                });
+            });
+        });
 
-//        element( by.css( 'span.fui-cross' )).click();
-//        browser.sleep( 200 );
-//        browser.switchTo().alert().accept();
+        deleteVolume( 0 );
     });
 
 });
