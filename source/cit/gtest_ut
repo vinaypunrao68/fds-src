@@ -1,5 +1,6 @@
 Build/linux-x86_64.debug/tests/sharedcache_gtest
 Build/linux-x86_64.debug/tests/dm_volume_catalog_gtest --fds-root=./config/
+Build/linux-x86_64.debug/tests/dm_direct
 Build/linux-x86_64.debug/tests/AmFunctionalTest --fds-root=./config/ --fds.am.testing.toggleStandAlone=true --fds.am.log_severity=crit --fds.am.testing.uturn_dispatcher_all=true
 Build/linux-x86_64.debug/tests/sm_tokenplace_gtest
 Build/linux-x86_64.debug/tests/sm_superblock_gtest
