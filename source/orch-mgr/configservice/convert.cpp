@@ -32,6 +32,7 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
     request->vol_info.maxQuota = 0;
     request->vol_info.maxObjSizeInBytes =
             volSettings.maxObjectSizeInBytes;
+    request->vol_info.contCommitlogRetention = volSettings.contCommitlogRetention;
 
     // Set connector
     // TODO(Andrew): Have the api service just replace the fdsp version

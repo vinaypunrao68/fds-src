@@ -798,6 +798,7 @@ void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapsho
 
     vol->vol_properties->volUUID = snapshot.snapshotId;
     vol->vol_properties->fSnapshot = true;
+    vol->vol_properties->timelineTime = snapshot.timelineTime;
 
     vol->volume_fsm->start();
 }
@@ -834,8 +835,8 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->fSnapshot   = pVol->fSnapshot;
     pkt->srcVolumeId   = pVol->srcVolumeId;
     pkt->qosQueueId   = pVol->qosQueueId;
-    pkt->contCommitlogRetention = pkt->contCommitlogRetention;
-    pkt->timelineTime = pkt->timelineTime;
+    pkt->contCommitlogRetention = pVol->contCommitlogRetention;
+    pkt->timelineTime = pVol->timelineTime;
 }
 
 // vol_fmt_message
