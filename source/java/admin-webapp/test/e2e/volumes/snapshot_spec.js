@@ -6,9 +6,8 @@ describe( 'Testing volume creation permutations', function(){
     var snapshotPolicyEdit;
     var saveButton;
     var snapVolume;
-    var spinners;
-    var checks;
-    var combos;
+    var createEl;
+    var viewEl;
     
     it ( 'should be able to create a volume with a snapshot policy', function(){
         
@@ -19,21 +18,24 @@ describe( 'Testing volume creation permutations', function(){
         element( by.css( '.new_volume' ) ).click();
         browser.sleep( 200 );
         
-        snapshotPolicyEdit = element( by.css( '.edit-snapshot-policies' ) );
+        createEl = $('.create-panel.volumes');
+        viewEl = element.all( by.css( '.slide-window-stack-slide' ) ).get(2);
+        
+        snapshotPolicyEdit = createEl.element( by.css( '.edit-snapshot-policies' ) );
         snapshotPolicyEdit.click();
         
         // make sure the displays have been toggled
-        element.all( by.css( '.policy-value-display' ) ).each( function( el ){
+        createEl.all( by.css( '.policy-value-display' ) ).each( function( el ){
             expect( el.getAttribute( 'class' ) ).toContain( 'ng-hide' );
         });
         
         // use daily for 2 days and monthly for 3 weeks
-        checks = element.all( by.css( '.tristatecheck' ));
+        var checks = createEl.all( by.css( '.tristatecheck' ));
         checks.get( 0 ).element( by.css( '.unchecked' )).click();
         checks.get( 2 ).element( by.css( '.unchecked' )).click();
         
-        spinners = element.all( by.css( '.retention-spinner' ) );
-        combos = element.all( by.css( '.retention-dropdown' ) );
+        var spinners = createEl.all( by.css( '.retention-spinner' ) );
+        var combos = createEl.all( by.css( '.retention-dropdown' ) );
         spinners.get( 0 ).element( by.tagName( 'input' )).clear().sendKeys( '2' );
         combos.get( 0 ).click();
         combos.get( 0 ).all( by.tagName( 'li' )).get( 1 ).click();
@@ -42,11 +44,11 @@ describe( 'Testing volume creation permutations', function(){
         combos.get( 2 ).click();
         combos.get( 2 ).all( by.tagName( 'li' )).get( 2 ).click();
         
-        saveButton = element( by.css( '.save-snapshot-policies' ));
+        saveButton = createEl.element( by.css( '.save-snapshot-policies' ));
         saveButton.click();
         
         // give it a name
-        element( by.css( '.volume-name' )).clear().sendKeys( 'SnapshotVolume' );
+        createEl.element( by.css( '.volume-name' )).clear().sendKeys( 'SnapshotVolume' );
         element.all( by.buttonText( 'Create Volume' )).get( 0 ).click();
         
     });
@@ -55,13 +57,17 @@ describe( 'Testing volume creation permutations', function(){
         
         // find our volume
         snapVolume = element( by.cssContainingText( '.volume-row', 'SnapshotVolume' ));
-        snapVolume.element( by.css( '.icon-edit' ) ).click();
+        snapVolume.click();
+        
+        var checks = viewEl.all( by.css( '.tristatecheck' ));
+        var spinners = viewEl.all( by.css( '.retention-spinner' ) );
+        var combos = viewEl.all( by.css( '.retention-dropdown' ) );
         
         // verify the snapshot policy is there
         expect( checks.get( 0 ).element( by.css( '.checked' )).getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
         expect( checks.get( 2 ).element( by.css( '.checked' )).getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
         
-        var texts = element.all( by.css( '.policy-value-display' ) );
+        var texts = viewEl.all( by.css( '.policy-value-display' ) );
         texts.get( 0 ).getText().then( function( txt ){
             expect( txt ).toContain( '2 days' );
         });
@@ -71,6 +77,7 @@ describe( 'Testing volume creation permutations', function(){
         });
         
         // edit it
+        snapshotPolicyEdit = viewEl.element( by.css( '.edit-snapshot-policies' ) );
         snapshotPolicyEdit.click();
         checks.get( 0 ).element( by.css( '.checked' ) ).click();
         checks.get( 2 ).element( by.css( '.checked' ) ).click();
@@ -79,15 +86,18 @@ describe( 'Testing volume creation permutations', function(){
         combos.get( 1 ).click();
         combos.get( 1 ).all( by.tagName( 'li' ) ).get( 0 ).click();
         
+        saveButton = viewEl.element( by.css( '.save-snapshot-policies' ));
         saveButton.click();
         
-        element.all( by.buttonText( 'Edit Volume' )).get( 0 ).click();
+        // done editing
+        element.all( by.css( '.slide-window-stack-breadcrumb' ) ).get( 0 ).click();
         
         browser.sleep( 200 );
         
         // click "new" and make sure the policy isn't there
         element( by.css( '.new_volume' ) ).click();
         
+        checks = createEl.all( by.css( '.tristatecheck' ));
         expect( checks.get( 0 ).element( by.css( '.checked' ) ).getAttribute( 'class' ) ).toContain( 'ng-hide' );
         expect( checks.get( 1 ).element( by.css( '.checked' ) ).getAttribute( 'class' ) ).toContain( 'ng-hide' );
         expect( checks.get( 2 ).element( by.css( '.checked' ) ).getAttribute( 'class' ) ).toContain( 'ng-hide' );
@@ -95,20 +105,6 @@ describe( 'Testing volume creation permutations', function(){
         element.all( by.buttonText( 'Cancel' ) ).get( 0 ).click();
         
         browser.sleep( 210 );
-        
-        snapVolume.element( by.css( '.icon-edit' ) ).click();
-        
-        browser.sleep( 210 );
-        
-        element.all( by.buttonText( 'Cancel' ) ).get( 0 ).click();
-
-// mock service isn't accepting edits yet        
-//        expect( checks.get( 1 ).element( by.css( '.checked' )).getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
-//        
-//        var texts = element.all( by.css( '.policy-value-display' ) );
-//        texts.get( 1 ).getText().then( function( txt ){
-//            expect( txt ).toContain( '1 days' );
-//        });
         
     });
     

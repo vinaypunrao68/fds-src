@@ -93,6 +93,7 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
                 }
 
                 $scope.$emit( 'change' );
+                $scope.$emit( 'fui::dropdown_change', newValue );
             });
         },
         link: function( $scope, $element, $attrs ){
