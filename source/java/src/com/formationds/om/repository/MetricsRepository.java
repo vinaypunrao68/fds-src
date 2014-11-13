@@ -220,7 +220,7 @@ public class MetricsRepository
      *
      * @return Returns the {@link VolumeDatapoint} representing the most recent
      */
-    public VolumeDatapoint leaseRecentOccurrenceBasedOnTimestamp(
+    public VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp(
         final Long volumeId,
         final Metrics metric ) {
 
@@ -256,7 +256,7 @@ public class MetricsRepository
      *
      * @return Returns the {@link VolumeDatapoint} representing the most recent
      */
-    public VolumeDatapoint leaseRecentOccurrenceBasedOnTimestamp(
+    public VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp(
         final String volumeName,
         final Metrics metric ) {
 
