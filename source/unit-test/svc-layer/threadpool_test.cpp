@@ -25,7 +25,7 @@
 #include <testlib/TestFixtures.h>
 #include "Threadpool.h"
 #include "Threadpool2.h"
-#include "IThreadpool.h"
+#include <concurrency/LFThreadpool.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -71,7 +71,7 @@ struct Producer {
         Producer *p_;
         util::TimeStamp dispTs_;
     };
-    static void ITpDispFunc(IThreadpool *tp, Producer *p, util::TimeStamp dispTs);
+    static void ITpDispFunc(LFMQThreadpool *tp, Producer *p, util::TimeStamp dispTs);
     static void LFSQDispFunc(LFSQThreadpool *tp, Producer *p, util::TimeStamp dispTs);
 
     int workType_;
@@ -177,7 +177,7 @@ void Producer::fdsTpDispFunc(fds_threadpool *tp, Producer *p, util::TimeStamp di
     tp->schedule(&Producer::work, p, dispTs);
 }
 
-void Producer::ITpDispFunc(IThreadpool *tp, Producer *p, util::TimeStamp dispTs) {
+void Producer::ITpDispFunc(LFMQThreadpool *tp, Producer *p, util::TimeStamp dispTs) {
     // tp->enqueue(new LockFreeTaskImpl(p, dispTs));
     // tp->enqueue(new LockFreeTask(std::bind(&Producer::work, p, dispTs)));
     tp->schedule(&Producer::work, p, dispTs);
@@ -266,7 +266,7 @@ TEST_F(ThreadPoolTest, fdsthreadpool)
 TEST_F(ThreadPoolTest, ithreadpool)
 {
     int tpSize = this->getArg<int>("tp-size");
-    std::unique_ptr<IThreadpool> tp(new IThreadpool(tpSize, true));
+    std::unique_ptr<LFMQThreadpool> tp(new LFMQThreadpool(tpSize, true));
     runWorkload(std::bind(&Producer::ITpDispFunc, tp.get(),
                 std::placeholders::_1, std::placeholders::_2));
 }

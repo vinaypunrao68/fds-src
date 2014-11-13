@@ -10,6 +10,7 @@
 #include <net/SvcRequest.h>
 #include <net/SvcRequestTracker.h>
 #include <platform/platform-lib.h>
+#include <concurrency/LFThreadpool.h>
 
 namespace fds {
 
@@ -49,12 +50,19 @@ class SvcRequestPool {
             const fpi::SvcUuid &srcUuid,
             const fpi::SvcUuid &dstUuid);
 
+    LFMQThreadpool* getSvcSendThreadpool();
+    LFMQThreadpool* getSvcWorkerThreadpool();
+
  protected:
     void asyncSvcRequestInitCommon_(SvcRequestIfPtr req);
 
     std::atomic<uint64_t> nextAsyncReqId_;
     /* Common completion callback for svc requests */
     SvcRequestCompletionCb finishTrackingCb_;
+    /* Lock free threadpool on which svc requests are sent */
+    std::unique_ptr<LFMQThreadpool> svcSendTp_;
+    /* Lock free threadpool on which work is done */
+    std::unique_ptr<LFMQThreadpool> svcWorkerTp_;
 };
 extern SvcRequestPool *gSvcRequestPool;
 }  // namespace fds

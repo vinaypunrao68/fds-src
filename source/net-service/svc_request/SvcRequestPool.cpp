@@ -30,6 +30,10 @@ SvcRequestPool::SvcRequestPool()
     nextAsyncReqId_ = 0;
     finishTrackingCb_ = std::bind(&SvcRequestTracker::removeFromTracking,
             gSvcRequestTracker, std::placeholders::_1);
+    /* For now we will just use two threads */
+    // TODO(Rao): Have it be based on config
+    svcSendTp_.reset(new LFMQThreadpool(2));
+    svcWorkerTp_.reset(new LFMQThreadpool(2));
 }
 
 /**
@@ -165,4 +169,13 @@ void SvcRequestPool::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
     Platform::platf_singleton()->getBaseAsyncSvcHandler()->asyncResp(header, payload);
 }
 
+LFMQThreadpool* SvcRequestPool::getSvcSendThreadpool()
+{
+    return svcSendTp_.get();
+}
+
+LFMQThreadpool* SvcRequestPool::getSvcWorkerThreadpool()
+{
+    return svcWorkerTp_.get();
+}
 }  // namespace fds

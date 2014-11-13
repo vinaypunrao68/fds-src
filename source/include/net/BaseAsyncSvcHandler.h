@@ -11,6 +11,8 @@
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
 #include <platform/node-inventory.h>
+#include <net/SvcRequestPool.h>
+#include <net/SvcRequest.h>
 
 /**
  * Use this macro for registering FDSP message handlers
@@ -128,6 +130,12 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
             GLOGERROR << "Null destination client: " << resp_hdr.msg_dst_uuid.svc_uuid;
             return;
         }
+        fiu_do_on("svc.use.lftp",
+                  gSvcRequestPool->getSvcSendThreadpool()->\
+                  scheduleWithAffinity(ep->getAffinity(), \
+                                       &SvcRequestIf::sendRespWork, \
+                                       ep, resp_hdr, buffer); \
+                  return;);
 
         // TODO(Rao): Enable this code instead of the try..catch.  I was getting
         // a compiler error when I enabled the following code.

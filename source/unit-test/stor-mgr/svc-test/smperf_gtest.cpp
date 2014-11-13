@@ -167,6 +167,7 @@ TEST_F(SMApi, putsPerf)
     bool uturnPuts = this->getArg<bool>("uturn");
     bool disableSchedule = this->getArg<bool>("disable-schedule");
     bool largeFrame = this->getArg<bool>("largeframe");
+    bool lftp = this->getArg<bool>("lftp");
     concurrency_ = this->getArg<uint32_t>("concurrency");
     if (concurrency_ == 0) {
         concurrency_  = nPuts;
@@ -211,6 +212,9 @@ TEST_F(SMApi, putsPerf)
     }
     if (largeFrame) {
         fiu_enable("svc.largebuffer", 1, NULL, 0);
+    }
+    if (lftp) {
+        fiu_enable("svc.use.lftp", 1, NULL, 0);
     }
 
     /* Start google profiler */
@@ -268,6 +272,9 @@ TEST_F(SMApi, putsPerf)
     if (largeFrame) {
         fiu_disable("svc.largebuffer");
     }
+    if (lftp) {
+        fiu_disable("svc.use.lftp");
+    }
 
     /* End profiler */
     if (profile) {
@@ -307,6 +314,7 @@ int main(int argc, char** argv) {
         ("largeframe", po::value<bool>()->default_value(false), "largeframe")
         ("output", po::value<std::string>()->default_value("stats.txt"), "stats output")
         ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling")
+        ("lftp", po::value<bool>()->default_value(false), "use lockfree threadpool")
         ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();

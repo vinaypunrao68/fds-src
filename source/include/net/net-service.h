@@ -358,6 +358,8 @@ class EpSvcHandle : public net::SocketEventHandler
     void ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id; }
 
     bo::shared_ptr<tt::TSocket> ep_get_socket() { return ep_sock; }
+    uint64_t getAffinity() { return ep_peer_id.svc_uuid; }
+
     friend class SvcRequestIf;
   protected:
     friend class NetMgr;

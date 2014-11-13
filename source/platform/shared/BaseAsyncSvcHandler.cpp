@@ -101,8 +101,7 @@ void BaseAsyncSvcHandler::asyncResp(
     SVCPERF(header->rspRcvdTs = util::getTimeStampNanos());
     fiu_do_on("svc.disable.schedule", asyncRespHandler(header, payload); return;);
 
-    static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
-        NetMgr::ep_mgr_singleton()->ep_get_task_executor();
+    auto workerTp = gSvcRequestPool->getSvcWorkerThreadpool();
 
     GLOGDEBUG << logString(*header);
 
@@ -111,10 +110,9 @@ void BaseAsyncSvcHandler::asyncResp(
     /* Execute on synchronized task exector so that handling for requests
      * with same id gets serialized
      */
-    taskExecutor->schedule(header->msg_src_id,
-        std::bind(&BaseAsyncSvcHandler::asyncRespHandler, header, payload));
+    workerTp->scheduleWithAffinity(header->msg_src_id,
+                       &BaseAsyncSvcHandler::asyncRespHandler, header, payload);
 }
-
 
 /**
 * @brief Static async response handler. Making this static so that this function
