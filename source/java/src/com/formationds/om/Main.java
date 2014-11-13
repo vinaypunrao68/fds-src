@@ -37,8 +37,6 @@ import java.util.function.Function;
 public class Main {
     private static final Logger LOG = Logger.getLogger(Main.class);
 
-//    private final Configuration configuration;
-
     // key for managing the singleton EventManager.
     private final Object eventMgrKey = new Object();
 
@@ -63,11 +61,10 @@ public class Main {
     }
 
     public void start(String[] args) throws Exception {
+        final Configuration configuration = SingletonConfiguration.instance().getConfig();
 
         // TODO there needs to be a "global" configuration access point to replace this
-        System.setProperty( "fds-root", SingletonConfiguration.instance()
-                                                              .getConfig()
-                                                              .getFdsRoot() );
+        System.setProperty( "fds-root", configuration.getFdsRoot() );
 
         LOG.trace( "FDS-ROOT:: " + System.getProperty( "fds-root" ) );
 
