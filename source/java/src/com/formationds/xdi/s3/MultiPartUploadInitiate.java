@@ -34,7 +34,7 @@ public class MultiPartUploadInitiate implements RequestHandler {
 
         if (!exists) {
             try {
-                xdi.createVolume(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0));
+                xdi.createVolume(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0, 0));
             } catch (ApiException ex) {
                 if (ex.getErrorCode() != ErrorCode.RESOURCE_ALREADY_EXISTS)
                     throw ex;

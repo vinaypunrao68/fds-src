@@ -390,6 +390,7 @@ struct DataMgr : Module, DmIoReqHandler {
     void snapVolCat(dmCatReq *io);
     void handleDMTClose(dmCatReq *io);
     void handleForwardComplete(dmCatReq *io);
+    void handleStatStream(dmCatReq *io);
 
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 

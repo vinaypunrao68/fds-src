@@ -87,7 +87,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void listSnapshots(std::vector< ::FDS_ProtocolInterface::Snapshot> & _return, const int64_t volumeId) {} //NOLINT
     void restoreClone(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
     int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName) { return 0;} //NOLINT
-    void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime) {} //NOLINT
+    void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime, const int64_t timelineTime) {} //NOLINT
 
     // stubs to keep cpp compiler happy - END
 
@@ -374,7 +374,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void createSnapshot(boost::shared_ptr<int64_t>& volumeId,
                         boost::shared_ptr<std::string>& snapshotName,
-                        boost::shared_ptr<int64_t>& retentionTime) {
+                        boost::shared_ptr<int64_t>& retentionTime,
+                        boost::shared_ptr<int64_t>& timelineTime) {
                     // create the structure
         fpi::Snapshot snapshot;
         snapshot.snapshotName = util::strlower(*snapshotName);
@@ -387,6 +388,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         snapshot.snapshotPolicyId = 0;
         snapshot.creationTimestamp = util::getTimeStampMillis();
         snapshot.retentionTimeSeconds = *retentionTime;
+        snapshot.timelineTime = *timelineTime;
 
         snapshot.state = fpi::ResourceState::Loading;
         LOGDEBUG << "snapshot request for volumeid:" << snapshot.volumeId

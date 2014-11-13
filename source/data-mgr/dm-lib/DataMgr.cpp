@@ -1054,22 +1054,6 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
     return (*mySvcUuid == nodes->get(0));
 }
 
-void DataMgr::updateCatalog(dmCatReq *io)
-{
-    DmIoUpdateCat *updCatReq= static_cast<DmIoUpdateCat*>(io);
-    Error err = timeVolCat_->updateBlobTx(updCatReq->volId,
-                                    updCatReq->ioBlobTxDesc,
-                                    updCatReq->obj_list);
-    if (!err.ok()) {
-        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
-                updCatReq->perfNameStr);
-    }
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
-    PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
-    updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
-}
-
 void
 DataMgr::updateCatalogOnce(dmCatReq *io) {
     DmIoUpdateCatOnce *updCatReq= static_cast<DmIoUpdateCatOnce*>(io);

@@ -19,7 +19,7 @@ DomainClusterMap::DomainClusterMap(char const *const    name,
 
 DomainResources::~DomainResources() {}
 DomainResources::DomainResources(char const *const name)
-    : drs_dlt(NULL)
+    : drs_dlt(NULL), rs_refcnt(0)
 {
     drs_cur_throttle_lvl = 0;
     drs_dmt_version      = 0;
