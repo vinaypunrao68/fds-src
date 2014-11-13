@@ -10,7 +10,11 @@ clean:
 	@sudo rm -f ../../../config/etc/*.conf ../../../test/formation.conf
 
 package: 
-	@sudo fdspkgcreate -r
+	@if [ "x${release-build}" = "xfalse" ]; then \
+		fdspkgcreate ; \
+	else \
+		sudo fdspkgcreate -r ; \
+	fi
 
 # -----------------------------------------------------------------------------
 # Keep track of where all relevant ansible files live
