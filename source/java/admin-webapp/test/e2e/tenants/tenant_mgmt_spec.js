@@ -2,41 +2,6 @@ require( '../utils' );
 
 describe( 'Tenant management', function(){
 
-//    var mockTenant = function(){
-//        angular.module( 'tenant-management' ).factory( '$tenant_service', function(){
-//
-//            var service = {};
-//
-//            service.tenants = [];
-//
-//            service.getTenants = function( callback, failure ){
-//
-//                if ( angular.isDefined( callback ) ){
-//                    callback( service.tenants );
-//                }
-//            };
-//
-//            service.createTenant = function( tenant, callback, failure ){
-//
-//                tenant.id = (new Date()).getTime();
-//                service.tenants.push( tenant );
-//
-//                if ( angular.isDefined( callback ) ){
-//                    callback( tenant );
-//                }
-//            };
-//
-//            service.attachUser = function( tenant, userId, callback, failure ){
-//
-//                return;
-//            };
-//
-//            return service;
-//
-//        });
-//    };
-//
-//    browser.addMockModule( 'tenant-management', mockTenant );
     browser.get( '#/' );
 
     login();
