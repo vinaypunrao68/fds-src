@@ -200,9 +200,8 @@ template <class K, class V, class _Hash = std::hash<K>>
     }
 
     std::unique_ptr<V> add(const K &key, V* value) override {
-        // Touch existing entry...
-        if (touch(key) == ERR_OK)
-            return std::unique_ptr<V>();
+        // Remove existing entry
+        remove(key);
 
         // otherwise add the entry to the front of the eviction
         // list and into the map

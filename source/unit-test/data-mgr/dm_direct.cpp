@@ -167,7 +167,7 @@ TEST_F(DmUnitTest, PutBlob) {
 
 static void testQueryCatalog(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
     TIMEDBLOCK("process") {
-        dataMgr->queryCatalogBackendSvc(dmQryReq);
+        dataMgr->handlers[FDS_CAT_QRY]->handleQueueItem(dmQryReq);
         cb->wait();
     }
     EXPECT_EQ(ERR_OK, cb->e);
@@ -188,7 +188,7 @@ TEST_F(DmUnitTest, QueryCatalog) {
                 dmTester->TESTVOLID, dmTester->getBlobName(i), 0);
 
             auto dmQryReq = new DmIoQueryCat(qryCat);
-            dmQryReq->dmio_querycat_resp_cb = BIND_OBJ_CALLBACK(*cb.get(),
+            dmQryReq->cb = BIND_OBJ_CALLBACK(*cb.get(),
                     DMCallback::handler, asyncHdr);
             g_fdsprocess->proc_thrpool()->schedule(&testQueryCatalog, cb, dmQryReq);
         }

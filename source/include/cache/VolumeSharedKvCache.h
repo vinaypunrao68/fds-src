@@ -24,12 +24,12 @@ namespace fds {
  * and deleting caches and provides thread safe interfaces
  * for per-volume cache access.
  */
-template <class K, class V, class _Hash = std::hash<K>>
+template <class K, class V, class _Hash = std::hash<K>, class StrongAssociation = std::false_type>
 class VolumeSharedCacheManager : public Module, boost::noncopyable {
     typedef K key_type;
     typedef V mapped_type;
     typedef _Hash hash_type;
-    typedef SharedKvCache<key_type, mapped_type, hash_type> cache_type;
+    typedef SharedKvCache<key_type, mapped_type, hash_type, StrongAssociation> cache_type;
     typedef typename cache_type::value_type value_type;
 
     // Structure for multiplexing many volumes with volume ID
