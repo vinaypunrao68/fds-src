@@ -41,7 +41,7 @@ class TestList():
         tests.append(test)
         test_types = ["randread"]
         for d in [4, 16, 32, 64, 128]:
-            for j in [1, 2, 10]:
+            for j in [1]:
                 for bs in [4096]:
                     for test_type in test_types:
                         test = dict(template)
