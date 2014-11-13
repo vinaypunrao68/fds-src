@@ -39,6 +39,17 @@ public class MetricQueryCriteria
     }
 
     /**
+     * @param seriesType the {@link com.formationds.commons.model.type.Metrics}
+     */
+    public void setSeriesType( final Metrics seriesType ) {
+        if( this.seriesType == null ) {
+            this.seriesType = new ArrayList<>();
+        }
+
+        this.seriesType.add( seriesType );
+    }
+
+    /**
      * @param seriesType the {@link List} of {@link com.formationds.commons.model.type.Metrics}
      */
     public void setSeriesType( final List<Metrics> seriesType ) {

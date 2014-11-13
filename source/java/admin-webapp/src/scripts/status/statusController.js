@@ -23,7 +23,6 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.performanceColors = [ '#A4D966' ];
     $scope.performanceLine = ['#66B22E'];
     $scope.fakeCapColors = [ '#ABD3F5', '#72AEEB' ];
-    $scope.fakeOpacities = [0.7,0.7];
     
     $scope.capacityLineStipples = [ '2,2', 'none' ];
     $scope.capacityLineColors = [ '#78B5FA', '#2486F8' ];

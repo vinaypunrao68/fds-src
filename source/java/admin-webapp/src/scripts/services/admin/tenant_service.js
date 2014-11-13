@@ -16,6 +16,11 @@ angular.module( 'tenant-management' ).factory( '$tenant_service', ['$http_fds', 
 
         return $http_fds.put( '/api/system/tenants/' + tenant.id + '/' + userId, {}, callback, failure );
     };
+    
+    service.revokeUser = function( tenant, userId, callback, failure ){
+        
+        return $http_fds.delete( '/api/system/tenants/' + tenant.id + '/' + userId, callback, failure );
+    };
 
     return service;
 

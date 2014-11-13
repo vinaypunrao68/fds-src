@@ -55,11 +55,11 @@ public class Calculation {
     */
    public static float percentage( final Double consumed,
                                    final Double systemCapacity ) {
-      if( consumed == 0 || systemCapacity == 0 )
+      if( systemCapacity == 0 )
       {
           logger.warn( "divide by zero -- {} divided by {}",
-                       consumed,
-                       systemCapacity );
+                       consumed.longValue(),
+                       systemCapacity.longValue() );
           return ( float ) 0.0;
       } else {
           return ( float ) ( ( consumed * 100 ) / systemCapacity );

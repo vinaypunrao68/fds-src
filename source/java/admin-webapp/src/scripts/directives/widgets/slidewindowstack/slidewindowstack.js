@@ -31,7 +31,7 @@ angular.module( 'display-widgets' ).directive( 'slideWindowStack', function(){
             };
             
             $scope.back = function( $index ){
-                
+
                 for ( var i = 0; i < $scope.currentStack.length; i++ ){
                     $scope.currentStack[i].left = $scope.currentStack[i].left + 100;
                 }
@@ -78,7 +78,7 @@ angular.module( 'display-widgets' ).directive( 'slideWindowSlide', function(){
         replace: true,
         templateUrl: 'scripts/directives/widgets/slidewindowstack/slidewindowslide.html',
         scope: { name: '@', breadcrumbName: '@', shownFunction: '=?' },
-        controller: function( $scope ){
+        controller: function( $scope, $element ){
             $scope.left = 100;
             $scope.visible = true;
             

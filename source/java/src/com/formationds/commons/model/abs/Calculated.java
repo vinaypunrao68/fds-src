@@ -7,7 +7,7 @@ package com.formationds.commons.model.abs;
 /**
  * @author ptinius
  */
-public abstract class Calculated
+public class Calculated
   extends ModelBase {
   private static final long serialVersionUID = -3524304479018347948L;
 
