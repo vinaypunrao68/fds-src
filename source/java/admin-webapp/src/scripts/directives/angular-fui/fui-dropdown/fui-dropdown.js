@@ -88,6 +88,11 @@ angular.module( 'angular-fui' ).directive( 'fuiDropdown', function(){
 
             $scope.$watch( 'selected', function( newValue, oldValue ){
 
+                if ( !angular.isDefined( newValue ) ){
+                    $scope.currentLabel = $scope.defaultLabel;
+                    return;
+                }
+                
                 if ( !angular.isDefined( $scope.currentLabel ) || (angular.isDefined( newValue ) && newValue !== oldValue) ){
                     $scope.selectItem( newValue );
                 }
