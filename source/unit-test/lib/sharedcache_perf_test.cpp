@@ -94,13 +94,13 @@ template<>
 sp<fds::BlobDescriptor> gen_nonrandom<fds::BlobDescriptor>()
 { return sp<fds::BlobDescriptor>(new fds::BlobDescriptor()); }
 
-template<typename K, typename V, typename _Hash>
+template<typename K, typename V, typename _Hash, typename StrongAssociation>
 struct CacheTest {
     typedef K key_type;
     typedef sp<V> value_type;
     typedef std::pair<key_type, value_type> entry_type;
     typedef std::list<entry_type> list_type;
-    typedef SharedKvCache<key_type, V, _Hash> cache_type;
+    typedef SharedKvCache<key_type, V, _Hash, StrongAssociation> cache_type;
     typedef std::chrono::high_resolution_clock clock_type;
 
     explicit CacheTest(size_t const number_elements) :
@@ -201,9 +201,9 @@ struct CacheTest {
     }
 };
 
-template<typename K, typename _Hash = std::hash<K>>
+template<typename K, typename _Hash = std::hash<K>, typename StrongAssociation = std::false_type>
 void run_test(size_t const entries) {
-    auto test = CacheTest<K, uint32_t, _Hash>(entries);
+    auto test = CacheTest<K, uint32_t, _Hash, StrongAssociation>(entries);
     test.fill_test();
     test.read_test(1.00);
     test.read_test(0.50);
@@ -220,7 +220,7 @@ int main(int argc, char** argv) {
 //    std::cout << "std::string ---" << std::endl;
 //    run_test<std::string>(entries_max);
     std::cout << "ObjectID ---" << std::endl;
-    run_test<fds::ObjectID, fds::ObjectHash>(entries_max);
+    run_test<fds::ObjectID, fds::ObjectHash, std::true_type>(entries_max);
 //    std::cout << "BlobOffsetPair ---" << std::endl;
 //    run_test<fds::BlobOffsetPair, fds::BlobOffsetPairHash>(entries_max);
     return 0;

@@ -10,93 +10,14 @@ nav.volume-nav {
   }
 }
 
-#data-connectors {
-
-    tr {
-        cursor: pointer;
+.create-panel {
+    
+    .settings-body {
+        
+        section {
+            margin-top: 12px;
+        }
     }
-}
-
-#settings-body {
-  width: 67%;
-  float: left;
-  min-height: $volume_create_min_height;
-
-  .fine-print {
-    padding: 0px 30px;
-    color: $text_light_color;
-  }
-
-  section {
-    padding: 10px 10px 5px 20px;
-
-    .nav-pills {
-      li {
-        a {
-          height: 25px;
-          padding-top: 2px;
-          background-color: #fff;
-          border: #0079ff 1px solid;
-          border-radius: 0px;
-
-          &.left-option {
-            border-right: none;
-            border-top-left-radius: 4px;
-            border-bottom-left-radius: 4px;
-          }
-
-          &.right-option {
-            border-left: none;
-            border-top-right-radius: 4px;
-            border-bottom-right-radius: 4px;
-          }
-        }
-      }
-
-      li.active {
-        a {
-          background-color: #0079ff;
-        }
-      }
-    }
-  }
-
-  input[type="number"] {
-    width: 50px;
-  }
-
-  .widget {
-    ol {
-      li {
-        width: 31px;
-        height: 31px;
-        font-size: .9em;
-        padding-top: 6px;
-
-        &.none {
-          font-size: .7em;
-          padding-top: 8px;
-          padding-left: 4px;
-        }
-
-        &.wide {
-          width: 64px;
-        }
-
-        &.limit-text {
-          font-size: .8em;
-          padding-top: 8px;
-          padding-left: 4px;
-        }
-
-        &.long-limit-text {
-          font-size: .8em;
-          padding-top: 8px;
-          padding-left: 2px;
-        }
-      }
-    }
-  }
 }
 
 .volume-settings-panel {
@@ -150,52 +71,5 @@ nav.volume-nav {
   .volume-option-edit {
     background: #444;
     text-align: center;
-  }
-}
-
-.confirm-volume {
-  height: 60em;
-  width: 60%;
-  margin-left: auto;
-  margin-right: auto;
-
-  .section-header {
-    padding: 1.75em 1.75em 1em;
-    font-size: 1.1em;
-  }
-
-  .volume-settings-panel {
-    padding: 2em;
-
-    section + section {
-      margin-top: 1.15em;
-    }
-
-    section {
-      .confirm-header {
-        font-weight: bold;
-      }
-
-      .confirm-details {
-        span, a {
-          display: inline-block;
-          width: 49%;
-          margin: 0;
-          position: relative;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        span.key:after {
-          content: '.............................................';
-          color: rgba(153, 153, 153, 0.29);
-          position: absolute;
-        }
-      }
-    }
-  }
-  .fine-print {
-    font-size: 1em;
-    color: $text_light_color;
   }
 }

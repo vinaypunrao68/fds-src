@@ -1,4 +1,4 @@
-<div ng-controller="qualityOfServiceController" class="qos-panel" ng-style="{ width: (editing === true )? '400px' : '290px' }">
+<div class="qos-panel" ng-style="{ width: (editing === true )? '400px' : '290px' }">
        
     <div class="header">
         <span translate>volumes.l_qos</span>
@@ -19,7 +19,7 @@
             <tr>
                 <td translate>volumes.th_priority</td>
                 <td class="pad">
-                    <span class="volume-priority-display-only">{{priority}}</span>
+                    <span class="volume-priority-display-only">{{qos.priority}}</span>
                     <span translate ng-show="priority === 1">volumes.l_l_highest</span>
                     <span translate ng-show="priority === 10">volumes.l_l_lowest</span>
                 </td>
@@ -27,14 +27,14 @@
             <tr>
                 <td translate>volumes.th_iops_guarantee</td>
                 <td class="pad">
-                    <span class="volume-sla-display">{{capacity}}%</span>
+                    <span class="volume-sla-display">{{qos.capacity}}%</span>
                 </td>
             </tr>
             <tr>
                 <td translate>volumes.th_iops_limit</td>
                 <td class="pad">
-                    <span class="volume-limit-display" ng-show="iopLimit > 0">{{iopLimit}} {{ 'volumes.l_iops' | translate }}</span>
-                    <span class="volume-limit-display-none" ng-show="iopLimit === 0" translate>common.l_none</span>
+                    <span class="volume-limit-display" ng-show="qos.limit > 0">{{qos.limit}} {{ 'volumes.l_iops' | translate }}</span>
+                    <span class="volume-limit-display-none" ng-show="qos.limit === 0" translate>common.l_none</span>
                 </td>
             </tr>
         </tbody>
@@ -43,15 +43,15 @@
     <div class="volume-sla-edit-display" ng-show="editing === true" style="width: 400px;" show-notify>
         <div>
             <div class="title-case" translate>volumes.l_priority</div>
-            <slider class="volume-priority-slider" min="1" max="10" step="1" ng-model="priority" max-label="{{ 'volumes.l_lowest' | translate }}" min-label="{{ 'volumes.l_highest' | translate }}"></slider>
+            <slider class="volume-priority-slider" min="1" max="10" step="1" ng-model="qos.priority" max-label="{{ 'volumes.l_lowest' | translate }}" min-label="{{ 'volumes.l_highest' | translate }}"></slider>
         </div>
         <div>
             <div class="title-case" translate>volumes.l_iops_guarantee</div>
-            <slider class="volume-iops-slider" min="0" max="100" step="10" ng-model="capacity" min-label="{{'volumes.l_number_of_iops' | translate }}"></slider>
+            <slider class="volume-iops-slider" min="0" max="100" step="10" ng-model="qos.capacity" min-label="{{'volumes.l_number_of_iops' | translate }}"></slider>
         </div>
         <div>
             <div class="title-case" translate>volumes.l_iops_limit</div>
-            <slider class="volume-limit-slider" values="limitChoices" ng-model="iopLimit" min-label="{{ 'volumes.l_max_iops' | translate }}" label-function="limitSliderLabel"></slider>
+            <slider class="volume-limit-slider" values="limitChoices" ng-model="qos.limit" min-label="{{ 'volumes.l_max_iops' | translate }}" label-function="limitSliderLabel"></slider>
         </div>
     </div>
     
