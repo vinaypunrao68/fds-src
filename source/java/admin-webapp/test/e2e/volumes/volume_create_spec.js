@@ -270,6 +270,8 @@ describe( 'Testing volume creation permutations', function(){
         });
 
         deleteVolume( 0 );
+        
+        logout();
     });
 
 });
