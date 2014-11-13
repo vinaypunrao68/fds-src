@@ -52,16 +52,16 @@ public class IngestVolumeStats
           String.valueOf(
             config.getVolumeId( datapoint.getVolumeName() ) ) );
 
-        if( timestamp <= 0L ) {
-          timestamp = datapoint.getTimestamp();
-        }
-
-        /*
-         * syncing all the times to the first record. This will allow for us
-         * to query for a time range and guarantee that all datapoints will
-         * be aligned
-         */
-        datapoint.setTimestamp( timestamp );
+//        if( timestamp <= 0L ) {
+//          timestamp = datapoint.getTimestamp();
+//        }
+//
+//        /*
+//         * syncing all the times to the first record. This will allow for us
+//         * to query for a time range and guarantee that all datapoints will
+//         * be aligned
+//         */
+//        datapoint.setTimestamp( timestamp );
 
         SingletonRepositoryManager.instance()
                                   .getMetricsRepository()

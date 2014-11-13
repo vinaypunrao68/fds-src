@@ -27,14 +27,18 @@ import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
-import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
+import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.util.SizeUnit;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -118,7 +122,7 @@ public class QueryHelper {
             final List<Calculated> calculatedList = new ArrayList<>();
 
             final List<VolumeDatapoint> queryResults =
-                new VolumeCriteriaQueryBuilder( repo.entity() ).searchFor( query )
+                new MetricCriteriaQueryBuilder( repo.entity() ).searchFor( query )
                                                                .resultsList();
             final Map<String, List<VolumeDatapoint>> originated =
                 byVolumeNameTimestamp( queryResults );
@@ -126,15 +130,18 @@ public class QueryHelper {
             if( isFirebreakQuery( query.getSeriesType() ) ) {
 
                 series.addAll( new FirebreakHelper().processFirebreak( queryResults ) );
-
-                calculatedList.add( new FirebreaksLast24Hours( last24Hours( series ) ) );
+                final FirebreaksLast24Hours firebreak = new FirebreaksLast24Hours();
+                firebreak.setCount( last24Hours( series ) );
+                calculatedList.add( firebreak );
 
             } else if( isPerformanceQuery( query.getSeriesType() ) ) {
 
                 series.addAll(
                     new SeriesHelper().getPerformanceSeries( queryResults,
                                                              query ) );
-                calculatedList.add( new IOPsConsumed( 0.0 ) );
+                final IOPsConsumed ioPsConsumed = new IOPsConsumed();
+                ioPsConsumed.setDailyAverage( 0.0 );
+                calculatedList.add( ioPsConsumed );
 
             } else if( isCapacityQuery( query.getSeriesType() ) ) {
 
@@ -155,14 +162,18 @@ public class QueryHelper {
                 // TODO finish implementing  -- once Nate provides a library
                 calculatedList.add( toFull() );
 
-            } else { // individual stats
+            } else {
+                // individual stats
                 query.getSeriesType()
                      .stream()
-                     .forEach( ( m ) -> series.addAll( otherQueries( originated,
-                                                                     m ) ) );
+                     .forEach( ( m ) ->
+                         series.addAll( otherQueries( originated,
+                                                      m ) ) );
             }
 
             if( !series.isEmpty() ) {
+                series.forEach( ( s ) ->
+                    new DatapointHelper().sortByX( s.getDatapoints() ) );
                 stats.setSeries( series );
             }
 
@@ -293,17 +304,20 @@ public class QueryHelper {
             SingletonRepositoryManager.instance()
                                       .getMetricsRepository()
                                       .sumPhysicalBytes();
-
-        return new CapacityDeDupRatio( Calculation.ratio( lbytes, pbytes ) );
+        final CapacityDeDupRatio dedup = new CapacityDeDupRatio();
+        dedup.setRatio( Calculation.ratio( lbytes, pbytes ) );
+        return dedup;
     }
 
     /**
      * @return Returns {@link CapacityConsumed}
      */
     protected CapacityConsumed bytesConsumed() {
-        return new CapacityConsumed( SingletonRepositoryManager.instance()
-                                                               .getMetricsRepository()
-                                                               .sumPhysicalBytes() );
+        final CapacityConsumed consumed = new CapacityConsumed();
+        consumed.setTotal( SingletonRepositoryManager.instance()
+                                                     .getMetricsRepository()
+                                                     .sumPhysicalBytes() );
+        return consumed;
     }
 
     /**
@@ -316,17 +330,24 @@ public class QueryHelper {
      */
     protected CapacityFull percentageFull( final CapacityConsumed consumed,
                                            final Double systemCapacity ) {
-        return new CapacityFull(
-            ( int ) Calculation.percentage( consumed.getTotal(),
-                                            systemCapacity ) );
+        final CapacityFull full = new CapacityFull();
+        full.setPercentage( ( int ) Calculation.percentage( consumed.getTotal(),
+                                                            systemCapacity ) );
+        return full;
     }
 
     /**
      * @return Returns {@link CapacityFull}
      */
     protected CapacityToFull toFull() {
-        // TODO finish implementation
-        return new CapacityToFull( 24 );
+        /*
+         * TODO finish implementation
+         *
+         * need support from Nate, our local math gure.
+         */
+        final CapacityToFull to = new CapacityToFull();
+        to.setToFull( 24 );
+        return to;
     }
 
     /**
