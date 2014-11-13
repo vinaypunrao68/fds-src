@@ -1,5 +1,5 @@
 package: fds-stormgr
-version: 0.2
+version: 0.6.0
 description: fds storage manager
 
 depends: 

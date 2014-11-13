@@ -421,16 +421,28 @@ class PkgCreate:
             return False
 
         if self.META_VERSION in self.metadata:
+            try: 
+                jenkinsURL = os.environ['JENKINS_URL']
+                jenkinsBuildNumber = int(os.environ['BUILD_NUMBER'])
+            except:
+                jenkinsBuildNumber = None
+
             p = re.compile('^[0-9][a-z0-9-\.]+$')
             log.debug('verifying version : %s' , self.metadata[self.META_VERSION])
+
             if None == p.match(self.metadata[self.META_VERSION]):
                 log.error( "invalid version [%s] : [^[0-9][a-z0-9-\.]+$] " % (self.metadata[self.META_VERSION]))
                 return False
             
             # check if this is a release/test package
             if not self.releasePackage:
-                self.metadata[self.META_VERSION] = '%s.T%d' % (self.metadata[self.META_VERSION], time.time()) 
+                if jenkinsBuildNumber:
+                    self.metadata[self.META_VERSION] = '%s-%d' % (self.metadata[self.META_VERSION], jenkinsBuildNumber) 
+                else:
+                    self.metadata[self.META_VERSION] = '%s.T%d' % (self.metadata[self.META_VERSION], time.time()) 
+
             log.debug('version set to [%s]' % ( self.metadata[self.META_VERSION]) )
+
         else:
             log.error("meta : %s : missing"  % (self.META_VERSION))
             return False
