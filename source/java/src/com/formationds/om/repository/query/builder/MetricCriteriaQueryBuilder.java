@@ -19,11 +19,11 @@ import java.util.ArrayList;
  * @author ptinius
  */
 @SuppressWarnings( "UnusedDeclaration" )
-public class VolumeCriteriaQueryBuilder
+public class MetricCriteriaQueryBuilder
     extends CriteriaQueryBuilder<VolumeDatapoint> {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( VolumeCriteriaQueryBuilder.class );
+        LoggerFactory.getLogger( MetricCriteriaQueryBuilder.class );
 
     private static final String TIMESTAMP = "timestamp";
     private static final String SERIES_TYPE = "key";
@@ -32,7 +32,7 @@ public class VolumeCriteriaQueryBuilder
     /**
      * @param entityManager the {@link javax.persistence.EntityManager}
      */
-    public VolumeCriteriaQueryBuilder( final EntityManager entityManager ) {
+    public MetricCriteriaQueryBuilder( final EntityManager entityManager ) {
         super(entityManager, TIMESTAMP, CONTEXT);
 
         this.andPredicates = new ArrayList<>();
@@ -42,11 +42,11 @@ public class VolumeCriteriaQueryBuilder
     /**
      * @param dateRange the {@link DateRange} representing the search date range window
      *
-     * @return Returns {@link VolumeCriteriaQueryBuilder}
+     * @return Returns {@link MetricCriteriaQueryBuilder}
      */
     @Override
     @SuppressWarnings( "unchecked" )
-    public VolumeCriteriaQueryBuilder withDateRange( final DateRange dateRange ) {
+    public MetricCriteriaQueryBuilder withDateRange( final DateRange dateRange ) {
         if( dateRange != null ) {
             final Path<Long> timestamp = from.get( TIMESTAMP );
 
@@ -74,9 +74,9 @@ public class VolumeCriteriaQueryBuilder
     /**
      * @param seriesType the {@link com.formationds.commons.model.type.Metrics}
      *
-     * @return Returns {@link VolumeCriteriaQueryBuilder}
+     * @return Returns {@link MetricCriteriaQueryBuilder}
      */
-    public VolumeCriteriaQueryBuilder withSeries( final Metrics seriesType ) {
+    public MetricCriteriaQueryBuilder withSeries( final Metrics seriesType ) {
         orPredicates.add( cb.equal( from.get( SERIES_TYPE ),
                                     seriesType.key() ) );
         return this;

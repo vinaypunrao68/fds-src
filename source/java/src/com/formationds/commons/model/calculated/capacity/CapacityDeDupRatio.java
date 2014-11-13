@@ -19,9 +19,15 @@ public class CapacityDeDupRatio
   private Double ratio;
 
   /**
+   * default construct
+   */
+  public CapacityDeDupRatio( ) {
+  }
+
+  /**
    * @param ratio the {@link Double} representing the de-duplication ratio
    */
-  public CapacityDeDupRatio( final Double ratio ) {
+  public void setRatio( final Double ratio ) {
     this.ratio = ratio;
   }
 
