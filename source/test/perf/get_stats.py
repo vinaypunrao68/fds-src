@@ -235,6 +235,38 @@ def get_cs(node):
     values = [float(x.rstrip("\n")) for x in os.popen(cmd)]
     return values
 
+def get_network_rx(node):
+    cmd = "cat %s/%s/col/stdout | head -2| tail -1" % (options.directory, node)
+    headers = os.popen(cmd).read().rstrip("\n").split()
+    field = "[NET]RxKBTot"
+    idx = headers.index(field)
+    assert idx > 0
+    cmd = "cat %s/%s/col/stdout | awk '{print $%d}' | tail -n +3" % (options.directory, node, idx)
+    values = [float(x.rstrip("\n")) for x in os.popen(cmd)]
+    return values
+
+def get_network_tx(node):
+    cmd = "cat %s/%s/col/stdout | head -2| tail -1" % (options.directory, node)
+    headers = os.popen(cmd).read().rstrip("\n").split()
+    field = "[NET]TxKBTot"
+    idx = headers.index(field)
+    assert idx > 0
+    cmd = "cat %s/%s/col/stdout | awk '{print $%d}' | tail -n +3" % (options.directory, node, idx)
+    values = [float(x.rstrip("\n")) for x in os.popen(cmd)]
+    return values
+
+def get_load1(node):
+    cmd = "cat %s/%s/col/stdout | head -2| tail -1" % (options.directory, node)
+    headers = os.popen(cmd).read().rstrip("\n").split()
+    field = "[CPU]L-Avg1"
+    idx = headers.index(field)
+    assert idx > 0
+    cmd = "cat %s/%s/col/stdout | awk '{print $%d}' | tail -n +3" % (options.directory, node, idx)
+    values = [float(x.rstrip("\n")) for x in os.popen(cmd)]
+    return values
+
+
+
 def get_await(node):
     await_map = {}
     await_series = []
@@ -382,6 +414,15 @@ def main():
             cs = getavg(get_cs(node))
             print "cs,",cs,", ",
             table["cs"] = cs
+            nrx = getavg(get_network_rx(node))
+            print "netrx,",nrx,", ",
+            table["netrx"] = nrx
+            ntx = getavg(get_network_tx(node))
+            print "nettx,",ntx,", ",
+            table["nettx"] = ntx
+            load1 = getavg(get_load1(node))
+            print "load1,",load1,", ",
+            table["load1"] = load1
     print_counter(counters, "am", "am_get_obj_req", "latency", table, options.node)
     print_counter(counters, "am", "am_get_obj_req", "count", table, options.node)
     # am:am_get_obj_req,am:am_get_sm,am:am_get_dm,am:am_get_qos

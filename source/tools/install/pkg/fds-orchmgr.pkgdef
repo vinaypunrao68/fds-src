@@ -1,5 +1,5 @@
 package: fds-orchmgr
-version: 0.2
+version: 0.6.0
 description: installs the core binaries
 
 depends: 

@@ -423,14 +423,24 @@ class PkgCreate:
         if self.META_VERSION in self.metadata:
             p = re.compile('^[0-9][a-z0-9-\.]+$')
             log.debug('verifying version : %s' , self.metadata[self.META_VERSION])
+
             if None == p.match(self.metadata[self.META_VERSION]):
                 log.error( "invalid version [%s] : [^[0-9][a-z0-9-\.]+$] " % (self.metadata[self.META_VERSION]))
                 return False
             
             # check if this is a release/test package
             if not self.releasePackage:
-                self.metadata[self.META_VERSION] = '%s.T%d' % (self.metadata[self.META_VERSION], time.time()) 
+                try: 
+                    # This conditional is only here to ensure that the BUILD_NUMBER being used in the version string is
+                    #  associated with a Jenkins server, and not some value set by another dev script or something
+                    if os.environ['JENKINS_URL']:
+                        self.metadata[self.META_VERSION] = '%s-%d' % (self.metadata[self.META_VERSION], int(os.environ['BUILD_NUMBER'])) 
+                except:
+                    # Looks like this isn't a Jenkins slave, so fall back to old behavior
+                    self.metadata[self.META_VERSION] = '%s.T%d' % (self.metadata[self.META_VERSION], time.time()) 
+
             log.debug('version set to [%s]' % ( self.metadata[self.META_VERSION]) )
+
         else:
             log.error("meta : %s : missing"  % (self.META_VERSION))
             return False

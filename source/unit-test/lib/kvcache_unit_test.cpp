@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <random>
 #include <bitset>
 
 #include <fds_types.h>
@@ -19,6 +20,7 @@ static const fds_uint32_t MAX_VOLUMES = 50;
 static fds_uint32_t keyCounter = 0;
 
 static fds_threadpool pool;
+static std::mt19937 twister_32;
 
 struct TestObject {
     fds_volid_t volId;
@@ -26,7 +28,7 @@ struct TestObject {
     std::string * value;
 
     TestObject() : volId(keyCounter % MAX_VOLUMES), key(keyCounter++),
-            value(new std::string(tmpnam(NULL))) {}
+            value(new std::string(std::to_string(twister_32()))) {}
     ~TestObject() {
     }
 };

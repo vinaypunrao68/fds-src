@@ -2,6 +2,7 @@
 127.0.0.1
 
 [localhost:vars]
+fds_default_nic=lo
 
 [fremont_node_cluster]
 node[0:2].formationds.com

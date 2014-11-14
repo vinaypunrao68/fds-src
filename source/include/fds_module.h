@@ -206,6 +206,7 @@ class FdsRootDir
     inline const std::string &dir_user_repo() const { return d_user_repo; }
     inline const std::string &dir_user_repo_objs() const { return d_user_repo_objs; }
     inline const std::string &dir_user_repo_dm() const { return d_user_repo_dm; }
+    inline const std::string &dir_timeline_dm() const { return d_timeline_dm; }
     inline const std::string &dir_user_repo_stats() const { return d_user_repo_stats; }
     inline const std::string &dir_user_repo_snap() const { return d_user_repo_snap; }
     inline const std::string &dir_sys_repo() const { return d_sys_repo; }
@@ -233,6 +234,7 @@ class FdsRootDir
     std::string              d_user_repo;
     std::string              d_user_repo_objs;
     std::string              d_user_repo_dm;
+    std::string              d_timeline_dm;
     std::string              d_user_repo_stats;
     std::string              d_user_repo_snap;
     std::string              d_sys_repo;

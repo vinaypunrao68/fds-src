@@ -5,7 +5,7 @@ angular.module( 'angular-fui' ).directive( 'fuiInput', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/angular-fui/fui-input/fui-input.html',
-        scope: { aliasedModel : '=ngModel', placeholder: '@', iconClass: '@', type: '@' },
+        scope: { aliasedModel : '=ngModel', placeholder: '@', iconClass: '@', type: '@', disabled: '=?' },
         controller: function( $scope ){
         },
         link: function( $scope, $element, $attrs ){
@@ -18,6 +18,10 @@ angular.module( 'angular-fui' ).directive( 'fuiInput', function(){
             }
             else{
                 $attrs.type = 'text';
+            }
+            
+            if ( !angular.isDefined( $attrs.disabled ) ){
+                $attrs.disabled = false;
             }
         }
     };
