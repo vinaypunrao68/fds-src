@@ -6,7 +6,6 @@ user_build_dir := \
     leveldb-1.15.0 \
     nginx \
     jansson-2.5 \
-    hiredis \
     gmock-1.7.0 \
     cmdconsole
 

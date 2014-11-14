@@ -1,5 +1,4 @@
 cmdconsole
-cryptopp
 examples/thrift/asyncio/gen-cpp
 examples/thrift/perf-tests/gen-cpp
 examples/thrift/rao-tests/gen-cpp
@@ -17,8 +16,6 @@ gmock-1.7.0/gtest/xcode/Samples/FrameworkSample
 gmock-1.7.0/include/gmock
 gmock-1.7.0/include/gmock/internal
 gmock-1.7.0/test
-hiredis
-hiredis/adapters
 jansson-2.5
 jansson-2.5/src
 jansson-2.5/test/suites/api
