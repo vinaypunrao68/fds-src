@@ -19,7 +19,8 @@ MetaDataList::MetaDataList() {
 //
 MetaDataList::MetaDataList(const fpi::FDSP_MetaDataList& mlist) {
     for (fds_uint32_t i = 0; i < mlist.size(); ++i) {
-        (*this)[mlist[i].key] = mlist[i].value;
+        insert(MetaDataList::value_type(std::move(mlist[i].key]),
+                     std::move(mlist[i].value)));
     }
 }
 
@@ -32,7 +33,7 @@ MetaDataList::~MetaDataList() {
 //
 void MetaDataList::updateMetaDataPair(const std::string& key,
                                       const std::string& value) {
-    (*this)[key] = value;
+    insert(value_type(key , value));
 }
 
 //
@@ -40,6 +41,7 @@ void MetaDataList::updateMetaDataPair(const std::string& key,
 //
 void MetaDataList::toFdspPayload(fpi::FDSP_MetaDataList& mlist) const {
     mlist.clear();
+    mlist.reserve(size());
     for (const_iter cit = (*this).cbegin();
          cit != (*this).cend();
          ++cit) {
@@ -81,7 +83,7 @@ uint32_t MetaDataList::read(serialize::Deserializer* d) {
         std::string value;
         bytes += d->readString(key);
         bytes += d->readString(value);
-        (*this)[key] = value;
+        insert(value_type(key , value));
     }
     return bytes;
 }
@@ -261,7 +263,7 @@ BlobObjList& BlobObjList::merge(const BlobObjList& newer_blist){
     for (const_iter cit = newer_blist.cbegin();
          cit != newer_blist.cend();
          ++cit) {
-        (*this)[cit->first] = cit->second;
+        insert(value_type(cit->first, cit->second));
     }
     return *this;
 }
