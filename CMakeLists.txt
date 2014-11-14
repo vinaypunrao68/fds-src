@@ -1212,7 +1212,6 @@ set(SOURCE_FILES
     source/include/net/SvcRequestTracker.h
     source/include/net-proxies/iomsg.h
     source/include/net-proxies/vol_policy.h
-    source/include/nginx-driver/am-engine.h
     source/include/nginx-driver/atmos-connector.h
     source/include/nginx-driver/http_utils.h
     source/include/nginx-driver/s3connector.h
@@ -1416,7 +1415,6 @@ set(SOURCE_FILES
     source/net-service/svc_request/SvcRequestTracker.cpp
     source/nginx-driver/misc/am-engine.cpp
     source/nginx-driver/misc/am-plugin.cpp
-    source/nginx-driver/misc/am-urls.cpp
     source/nginx-driver/misc/atmos-connector.cpp
     source/nginx-driver/misc/http_utils.cpp
     source/nginx-driver/misc/s3connector.cpp

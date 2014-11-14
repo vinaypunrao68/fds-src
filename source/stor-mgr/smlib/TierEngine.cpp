@@ -20,7 +20,7 @@ TierEngine::TierEngine(const std::string &modName,
         sm_volTbl(_sm_volTbl) {
     switch (_rank_type) {
         case FDS_RANDOM_RANK_POLICY:
-            rankEngine = boost::shared_ptr<RankEngine>(new RandomRankPolicy());
+            rankEngine = boost::shared_ptr<RankEngine>(new RandomRankPolicy(storMgr, 50));
             break;
         case FDS_COUNTING_BLOOM_RANK_POLICY:
             break;
@@ -31,10 +31,7 @@ TierEngine::TierEngine(const std::string &modName,
     migrator = new SmTierMigration(storMgr);
 }
 
-/*
- * Note caller is responsible for freeing
- * the algorithm structure at the moment
- */
+
 TierEngine::~TierEngine() {
     if (migrator != nullptr) {
         delete migrator;
@@ -44,6 +41,7 @@ TierEngine::~TierEngine() {
 int TierEngine::mod_init(SysParams const *const param) {
     Module::mod_init(param);
 
+    /*
     boost::shared_ptr<FdsConfig> conf = g_fdsprocess->get_fds_config();
 
     // config for rank engine
@@ -58,7 +56,9 @@ int TierEngine::mod_init(SysParams const *const param) {
         hot_threshold = conf->get<int>("fds.sm.testing.hot_threshold");
         cold_threshold = conf->get<int>("fds.sm.testing.cold_threshold");
     }
+
     std::string obj_stats_dir = g_fdsprocess->proc_fdsroot()->dir_fds_var_stats();
+    */
 
     return 0;
 }
@@ -78,6 +78,7 @@ diskio::DataTier TierEngine::selectTier(const ObjectID    &oid,
     diskio::DataTier ret_tier = diskio::diskTier;
     FDSP_MediaPolicy media_policy = voldesc.mediaPolicy;
 
+    // TODO(brian): Add check for whether or not this will exceed SSD capacity
     if (media_policy == FDSP_MEDIA_POLICY_SSD) {
         /* if 'all ssd', put to ssd */
         ret_tier = diskio::flashTier;
@@ -88,6 +89,7 @@ diskio::DataTier TierEngine::selectTier(const ObjectID    &oid,
         ret_tier = diskio::diskTier;
     } else if (media_policy == FDSP_MEDIA_POLICY_HYBRID) {
         /* hybrid tier policy */
+        // and return appropriate
         ret_tier = diskio::flashTier;
     } else {  // else ret_tier already set to disk
         LOGDEBUG << "RankTierPutAlgo: selectTier received unexpected media policy: "

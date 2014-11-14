@@ -54,7 +54,6 @@ class RankEngine {
     */
     virtual void notifyDataPath(fds_io_op_t opType, const ObjectID& oid,
             diskio::DataTier tier) = 0;
-
 };
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_RANKENGINE_H_

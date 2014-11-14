@@ -29,10 +29,13 @@ class TierEngine : public Module {
         FDS_COUNTING_BLOOM_RANK_POLICY
     } rankPolicyType;
 
+    // Full threshold of our SSDs
+    static constexpr float SSD_FULL_THRESHOLD = .9;
+
   private:
     fds_uint32_t  numMigThrds;
     boost::shared_ptr<RankEngine> rankEngine;
-    
+
     /*
      * Member references to external objects.
      * Stats: provides obj/vol usage stats
@@ -80,6 +83,7 @@ class TierEngine : public Module {
     * @param opType[in] type of operation that occurred
     * @param voldesc[in] Volume descriptor for the object that was acted on
     * @param tier[in] The tier that the IO occurred on
+    * @param ioSize[in] the size in bytes of the IO
     */
     void notifyIO(const ObjectID& objId,
             fds_io_op_t opType,
