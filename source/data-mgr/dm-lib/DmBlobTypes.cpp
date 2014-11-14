@@ -5,7 +5,7 @@
 #include <map>
 #include <limits>
 #include <DmBlobTypes.h>
-
+#include <utility>
 namespace fds {
 
 //
@@ -18,9 +18,8 @@ MetaDataList::MetaDataList() {
 // Constructs metadata list from fdsp metadata list
 //
 MetaDataList::MetaDataList(const fpi::FDSP_MetaDataList& mlist) {
-    for (fds_uint32_t i = 0; i < mlist.size(); ++i) {
-        insert(MetaDataList::value_type(std::move(mlist[i].key]),
-                     std::move(mlist[i].value)));
+    for (auto const& item : mlist) {
+        insert(value_type(std::move(item.key), std::move(item.value)));
     }
 }
 
@@ -42,12 +41,10 @@ void MetaDataList::updateMetaDataPair(const std::string& key,
 void MetaDataList::toFdspPayload(fpi::FDSP_MetaDataList& mlist) const {
     mlist.clear();
     mlist.reserve(size());
-    for (const_iter cit = (*this).cbegin();
-         cit != (*this).cend();
-         ++cit) {
+    for (const auto& cit : *this) {
         fpi::FDSP_MetaDataPair mpair;
-        mpair.key = cit->first;
-        mpair.value = cit->second;
+        mpair.key = cit.first;
+        mpair.value = cit.second;
         mlist.push_back(mpair);
     }
 }
@@ -64,11 +61,9 @@ uint32_t MetaDataList::write(serialize::Serializer* s) const {
     uint32_t bytes = 0;
     uint32_t size = (*this).size();
     bytes += s->writeI32(size);
-    for (const_iter cit = (*this).cbegin();
-         cit != (*this).cend();
-         ++cit) {
-        bytes += s->writeString(cit->first);
-        bytes += s->writeString(cit->second);
+    for (auto const & cit : *this) {
+        bytes += s->writeString(cit.first);
+        bytes += s->writeString(cit.second);
     }
     return bytes;
 }
@@ -90,7 +85,7 @@ uint32_t MetaDataList::read(serialize::Deserializer* d) {
 
 MetaDataList& MetaDataList::operator=(const MetaDataList &rhs) {
     // Base map assignment
-    std::unordered_map<std::string, std::string>::operator=(rhs);
+    std::map<std::string, std::string>::operator=(rhs);
     return *this;
 }
 
@@ -101,10 +96,8 @@ std::ostream& operator<<(std::ostream& out, const MetaDataList& metaList) {
         return out;
     }
 
-    for (MetaDataList::const_iter cit = metaList.cbegin();
-         cit != metaList.cend();
-         ++cit) {
-        out << "[" << cit->first << ":" << cit->second << "]";
+    for (auto const& cit : metaList) {
+        out << "[" << cit.first << ":" << cit.second << "]";
     }
     return out;
 }
@@ -260,10 +253,8 @@ BlobObjList::~BlobObjList() {
 BlobObjList& BlobObjList::merge(const BlobObjList& newer_blist){
     // once end_of_blob is set, do not allow merges
     fds_verify(end_of_blob == false);
-    for (const_iter cit = newer_blist.cbegin();
-         cit != newer_blist.cend();
-         ++cit) {
-        insert(value_type(cit->first, cit->second));
+    for (auto const & cit : newer_blist) {
+        insert(value_type(cit.first, cit.second));
     }
     return *this;
 }
@@ -316,14 +307,12 @@ void BlobObjList::verify(fds_uint32_t max_obj_size) const {
 //
 void BlobObjList::toFdspPayload(fpi::FDSP_BlobObjectList& blob_obj_list) const {
     blob_obj_list.clear();
-    for (const_iter cit = cbegin();
-         cit != cend();
-         ++cit) {
+    for (auto const& cit : *this) {
         fpi::FDSP_BlobObjectInfo obj_info;
-        obj_info.offset = cit->first;
-        obj_info.size = (cit->second).size;
-        obj_info.data_obj_id.digest = std::string((const char *)((cit->second).oid.GetId()),
-                                                  (size_t)(cit->second).oid.GetLen());
+        obj_info.offset = cit.first;
+        obj_info.size = (cit.second).size;
+        obj_info.data_obj_id.digest = std::string((const char *)((cit.second).oid.GetId()),
+                                                  (size_t)(cit.second).oid.GetLen());
         obj_info.blob_end = false;  // assume we are not using it in resp
         blob_obj_list.push_back(obj_info);
     }
@@ -333,11 +322,9 @@ uint32_t BlobObjList::write(serialize::Serializer* s) const {
     uint32_t bytes = 0;
     bytes += s->writeI32(end_of_blob);
     bytes += s->writeI32(size());
-    for (const_iter cit = cbegin();
-         cit != cend();
-         ++cit) {
-        bytes += s->writeI64(cit->first);
-        bytes += (cit->second).write(s);
+    for (auto const & cit : *this) {
+        bytes += s->writeI64(cit.first);
+        bytes += (cit.second).write(s);
     }
     return bytes;
 }
@@ -360,11 +347,9 @@ uint32_t BlobObjList::read(serialize::Deserializer* d) {
 
 std::ostream& operator<<(std::ostream& out, const BlobObjList& obj_list) {
     out << "Object list \n";
-    for (BlobObjList::const_iter cit = obj_list.cbegin();
-         cit != obj_list.cend();
-         ++cit) {
-        out << "[offset " << cit->first << " -> " << (cit->second).oid
-            << "," << (cit->second).size << "]\n";
+    for (auto const& cit : obj_list) {
+        out << "[offset " << cit.first << " -> " << (cit.second).oid
+            << "," << (cit.second).size << "]\n";
     }
     out << " End of blob? " << obj_list.endOfBlob() << "\n";
     return out;
