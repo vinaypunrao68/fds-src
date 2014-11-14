@@ -29,6 +29,9 @@ DOCKER_SLAVES = {
         "10.1.10.243": {
             "jenkins-slave03": "10043",
             "jenkins-slave04": "10044"
+            },
+        "10.2.10.22": {
+            "cody-nightly": "10045"
             }
         }
 IMAGE="registry.formationds.com:5000/fds_dev"
