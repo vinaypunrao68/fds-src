@@ -260,7 +260,7 @@ if __name__ == "__main__":
             experiments = [ x for x in experiments]
             print experiments
             experiments = filter(lambda x : x["fio_type"] == "randread", experiments)
-            experiments = sorted(experiments, key = lambda k : int(k["numjobs"]))
+            experiments = sorted(experiments, key = lambda k : int(k["iodepth"]))
             #iops = [x["th"] for x in experiments]    
             iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
             iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
@@ -277,7 +277,7 @@ if __name__ == "__main__":
             iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
             lat = [x["lat"] for x in experiments]    
             #print [x["nreqs"] for x in experiments]    
-            conns = [x["numjobs"] for x in experiments]    
+            conns = [x["iodepth"] for x in experiments]    
 
             #max_iops = max(iops)
             iops_50 = iops[-1]

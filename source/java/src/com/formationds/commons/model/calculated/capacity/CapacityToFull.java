@@ -24,15 +24,7 @@ public class CapacityToFull
   }
 
   /**
-   * @param toFull the {@link java.lang.Integer} representing the duration
-   *               until capacity is 100% (full).
-   */
-  public CapacityToFull( final Integer toFull ) {
-    this.toFull = toFull;
-  }
-
-  /**
-   * @return Returns the {@link java.lang.Integer}  representing the duration
+   * @return Returns the {@link java.lang.Integer} representing the duration
    * until capacity is 100% (full)
    */
   public Integer getToFull() {

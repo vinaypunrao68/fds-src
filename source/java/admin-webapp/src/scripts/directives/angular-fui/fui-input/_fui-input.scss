@@ -19,6 +19,10 @@
     input:focus {
         outline: 0;
     }
+    
+    input:disabled {
+        background-color: transparent;
+    }
 
     .input-icon {
         position: absolute;

@@ -20,10 +20,16 @@ public class FirebreaksLast24Hours
     private Integer count;
 
     /**
+     * default constructor
+     */
+    public FirebreaksLast24Hours( ) {
+    }
+
+    /**
      * @param count the {@link Integer} representing the number of firebreak
      *              occurrences in the last 24 hours
      */
-    public FirebreaksLast24Hours( final Integer count ) {
+    public void setCount( final Integer count ) {
         this.count = count;
     }
 

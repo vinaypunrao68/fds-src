@@ -110,16 +110,6 @@ source/test/.idea
 source/test/formation.conf
 source/config/etc/*.conf
 ansible/resources/*
-files_after_smoke_test
-files_after_starting_fds
-files_after_stopping_fds
-files_after_system_test
-files_after_unit_test
-files_before_smoke_test
-files_before_starting_fds
-files_before_stopping_fds
-files_before_system_test
-files_before_unit_test
 ansible/.devsetup-is-*
 source/cit/*.xml
 source/cit/PyUnit.log*

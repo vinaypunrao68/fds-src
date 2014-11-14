@@ -7,7 +7,7 @@ package com.formationds.commons.model.type;
 import org.junit.Test;
 
 public class CollectionIntervalTest {
-  private static final String FORMAT = "%5s %10d %10d\n";
+  private static final String FORMAT = "%5s %10d %10d %10d\n";
 
   @Test
   public void test()
@@ -16,8 +16,9 @@ public class CollectionIntervalTest {
     for( final CollectionInterval x : CollectionInterval.values() ) {
       System.out.printf( FORMAT,
                          x.name(),
-                         x.getInterval(),
-                         x.getFrequency() );
+                         x.getIntervalValue(),
+                         x.getFrequencyValue(),
+                         x.getAggregateValue() );
     }
   }
 }

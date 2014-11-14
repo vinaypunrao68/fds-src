@@ -58,6 +58,10 @@ class AsyncDataServer : public Module, public boost::noncopyable {
     explicit AsyncDataServer(const std::string &name,
                              AmAsyncDataApi::shared_ptr &_dataApi);
     virtual ~AsyncDataServer() {
+        threadManager->stop();
+        ttServer->stop();
+        listen_thread->join();
+        serverTransport->close();
     }
     typedef std::unique_ptr<AsyncDataServer> unique_ptr;
 
