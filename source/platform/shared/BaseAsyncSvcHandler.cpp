@@ -100,7 +100,26 @@ void BaseAsyncSvcHandler::asyncResp(
 {
     SVCPERF(header->rspRcvdTs = util::getTimeStampNanos());
     fiu_do_on("svc.disable.schedule", asyncRespHandler(header, payload); return;);
+    fiu_do_on("svc.use.lftp", asyncResp2(header, payload); return;);
 
+    static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
+        NetMgr::ep_mgr_singleton()->ep_get_task_executor();
+
+    GLOGDEBUG << logString(*header);
+
+    fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
+
+    /* Execute on synchronized task exector so that handling for requests
+     * with same id gets serialized
+     */
+    taskExecutor->schedule(header->msg_src_id,
+        std::bind(&BaseAsyncSvcHandler::asyncRespHandler, header, payload));
+}
+
+void BaseAsyncSvcHandler::asyncResp2(
+    boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+    boost::shared_ptr<std::string>& payload)
+{
     auto workerTp = gSvcRequestPool->getSvcWorkerThreadpool();
 
     GLOGDEBUG << logString(*header);

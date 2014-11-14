@@ -72,6 +72,8 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
     void asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                    boost::shared_ptr<std::string>& payload) override;
 
+    void asyncResp2(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+                    boost::shared_ptr<std::string>& payload);
     void asyncResp(const FDS_ProtocolInterface::AsyncHdr& header,
             const std::string& payload) override;
     void asyncResp(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,

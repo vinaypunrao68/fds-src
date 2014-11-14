@@ -150,7 +150,9 @@ void SvcRequestIf::invoke()
 {
     /* Disable to scheduling thread pool */
     fiu_do_on("svc.disable.schedule", invokeWork_(); return;);
-    fiu_do_on("svc.use.lftp", invoke2(); return;);
+    fiu_do_on("svc.use.lftp",
+              gSvcRequestPool->getSvcWorkerThreadpool()->\
+              scheduleWithAffinity(id_, &SvcRequestIf::invoke2, this); return;);
 
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
         NetMgr::ep_mgr_singleton()->ep_get_task_executor();
