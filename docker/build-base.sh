@@ -14,5 +14,8 @@ docker push $IMG_NAME
 export DOCKER_HOST=tcp://bld-dev-01.formationds.com:2375
 docker pull $IMG_NAME
 
+export DOCKER_HOST=tcp://bld-dev-02.formationds.com:2375
+docker pull $IMG_NAME
+
 export DOCKER_HOST=tcp://tie-fighter.formationds.com:2375
 docker pull $IMG_NAME

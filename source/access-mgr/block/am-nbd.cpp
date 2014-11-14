@@ -34,7 +34,7 @@ NbdBlockMod                  gl_NbdBlockMod;
 BlkVol::~BlkVol() {}
 BlkVol::BlkVol(const char *name, const char *dev,
                fds_uint64_t uuid, fds_uint64_t vol_sz, fds_uint32_t blk_sz)
-    : vol_uuid(uuid), vol_sz_blks(vol_sz), vol_blksz_byte(blk_sz)
+    : vol_uuid(uuid), vol_sz_blks(vol_sz), vol_blksz_byte(blk_sz), vol_refcnt(0)
 {
     vol_blksz_mask = vol_blksz_byte - 1;
     fds_assert((vol_blksz_byte & vol_blksz_mask) == 0);

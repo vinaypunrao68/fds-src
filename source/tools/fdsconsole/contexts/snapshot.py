@@ -23,11 +23,12 @@ class SnapshotContext(Context):
     @arg('vol-name', help= "volume name")
     @arg('snap-name', help= "name of the snapshot")
     @arg('retention', help= "retention time in seconds", nargs='?' , type=long, default=0)
-    def create(self, vol_name, snap_name, retention):
+    @arg('timeline-time', help= "timeline time  of parent volume", nargs='?' , type=long, default=0)
+    def create(self, vol_name, snap_name, retention, timeline_time):
         'create a snaphot of the given volume'
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
-            ServiceMap.omConfig().createSnapshot(volume_id, snap_name, retention)
+            ServiceMap.omConfig().createSnapshot(volume_id, snap_name, retention, timeline_time)
             return 'ok'
         except Exception, e:
             log.exception(e)

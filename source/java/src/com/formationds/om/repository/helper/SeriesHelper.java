@@ -17,9 +17,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * @author ptinius
@@ -28,10 +30,21 @@ public class SeriesHelper {
     private static final Logger logger =
         LoggerFactory.getLogger( SeriesHelper.class );
 
-    private static final Integer SECOND_IN_HOUR = 60 * 60;
-    private static final Integer SECONDS_IN_DAY = SECOND_IN_HOUR * 24;
-    private static final Integer SECONDS_IN_WEEK = SECONDS_IN_DAY * 7;
-    private static final Integer SECONDS_IN_30_DAYS = SECONDS_IN_DAY * 30;
+    private static final Long SECONDS_IN_HOUR = TimeUnit.HOURS.toSeconds( 1 );
+    private static final Long SECONDS_IN_DAY = TimeUnit.HOURS.toSeconds( 24 );
+    private static final Long SECONDS_IN_WEEK = TimeUnit.DAYS.toSeconds( 7 );
+    private static final Long SECONDS_IN_30_DAYS = TimeUnit.DAYS.toSeconds( 30 );
+
+    private final DatapointHelper dpHelper;
+    private final VolumeDatapointHelper vdpHelper;
+
+    /**
+     * default constructor
+     */
+    public SeriesHelper() {
+        this.dpHelper = new DatapointHelper();
+        this.vdpHelper = new VolumeDatapointHelper();
+    }
 
     /**
      * @param datapoints the {@link java.util.List} of {@link com.formationds.commons.model.entity.VolumeDatapoint}
@@ -64,37 +77,40 @@ public class SeriesHelper {
          * datapoint every 24 hours, i.e. 30 data points
          */
         long diff = 0L;
-        long epochStart = 0L;
+        long epoch = 0L;
         if( query.getRange() != null ) {
             final DateRange dateRange = query.getRange();
             if( dateRange.getStart() != null && dateRange.getEnd() != null ) {
 
                 diff = dateRange.getEnd() - dateRange.getStart();
-                epochStart = dateRange.getStart();
+                epoch = dateRange.getStart();
 
             } else if( dateRange.getStart() != null ) {
 
                 diff = DateTimeUtil.toUnixEpoch( LocalDateTime.now() ) -
                        dateRange.getStart();
-                epochStart = dateRange.getStart();
+                epoch = dateRange.getStart();
 
             } else if( dateRange.getEnd() != null ) {
 
-                epochStart = DateTimeUtil.toUnixEpoch( LocalDateTime.now() );
-                diff = dateRange.getEnd() -
-                       epochStart;
+                epoch = DateTimeUtil.toUnixEpoch( LocalDateTime.now() );
+                diff = dateRange.getEnd() - epoch;
             }
         }
 
         if( diff > 0L ) {
-            if( diff <= SECOND_IN_HOUR ) {
-                return hourCapacity( datapoints, epochStart );
+            if( diff <= SECONDS_IN_HOUR ) {
+                logger.trace( "HOUR::{}", diff );
+                return hourCapacity( datapoints, epoch );
             } else if( diff <= SECONDS_IN_DAY ) {
-                return dayCapacity( datapoints, epochStart );
+                logger.trace( "DAY::{}", diff );
+                return dayCapacity( datapoints, epoch );
             } else if( diff <= SECONDS_IN_WEEK ) {
-                return weekCapacity( datapoints, epochStart );
+                logger.trace( "WEEK::{}", diff );
+                return weekCapacity( datapoints, epoch );
             } else if( diff <= SECONDS_IN_30_DAYS ) {
-                return thirtyDaysCapacity( datapoints, epochStart );
+                logger.trace( "30 DAYS::{}", diff );
+                return thirtyDaysCapacity( datapoints, epoch );
             } else {
                 throw new IllegalArgumentException(
                     "start end timestamp delta is invalid" );
@@ -105,7 +121,7 @@ public class SeriesHelper {
     }
 
     private List<Series> hourCapacity( final List<VolumeDatapoint> datapoints,
-                                       final long epochStart ) {
+                                       final Long epoch ) {
 
         final List<Series> series = new ArrayList<>( );
         /*
@@ -115,32 +131,32 @@ public class SeriesHelper {
          *  data points
          */
 
-        series.add( capacity( datapoints, epochStart, Metrics.LBYTES, 2, 30 ) );
-        series.add( capacity( datapoints, epochStart, Metrics.PBYTES, 2, 30 ) );
+        series.add( generate( datapoints, epoch, Metrics.LBYTES, 2L, 30 ) );
+        series.add( generate( datapoints, epoch, Metrics.PBYTES, 2L, 30 ) );
 
         return series;
     }
 
     private List<Series> dayCapacity( final List<VolumeDatapoint> datapoints,
-                                      final long epochStart ) {
+                                      final Long epoch ) {
 
         final List<Series> series = new ArrayList<>( );
 
         /*
          * for each volume
-         *  sum all datapoints for each  hours to produce one datapoint,
+         *  sum all datapoints for each hours to produce one datapoint,
          *  per volume
          */
 
         // every six hours
-        series.add( capacity( datapoints, epochStart, Metrics.LBYTES, 60, 24 ) );
-        series.add( capacity( datapoints, epochStart, Metrics.PBYTES, 60, 24 ) );
+        series.add( generate( datapoints, epoch, Metrics.LBYTES, 60L, 24 ) );
+        series.add( generate( datapoints, epoch, Metrics.PBYTES, 60L, 24 ) );
 
         return series;
     }
 
     private List<Series> weekCapacity( final List<VolumeDatapoint> datapoints,
-                                       final long epochStart ) {
+                                       final Long epoch ) {
 
         final List<Series> series = new ArrayList<>( );
 
@@ -149,15 +165,15 @@ public class SeriesHelper {
          *  sum all datapoints for each 6 hours to produce one datapoint,
          *  per volume
          */
-        series.add( capacity( datapoints, epochStart, Metrics.LBYTES, 360, 28 ) );
-        series.add( capacity( datapoints, epochStart, Metrics.PBYTES, 360, 28 ) );
+        series.add( generate( datapoints, epoch, Metrics.LBYTES, 360L, 28 ) );
+        series.add( generate( datapoints, epoch, Metrics.PBYTES, 360L, 28 ) );
 
         return series;
     }
 
     private List<Series> thirtyDaysCapacity(
         final List<VolumeDatapoint> datapoints,
-        final long epochStart ) {
+        final Long epoch ) {
 
         final List<Series> series = new ArrayList<>( );
 
@@ -168,48 +184,10 @@ public class SeriesHelper {
          */
 
         // every 1 day
-        series.add( capacity( datapoints, epochStart, Metrics.LBYTES, 1440, 30 ) );
-        series.add( capacity( datapoints, epochStart, Metrics.PBYTES, 1440, 30 ) );
+        series.add( generate( datapoints, epoch, Metrics.LBYTES, 1440L, 30 ) );
+        series.add( generate( datapoints, epoch, Metrics.PBYTES, 1440L, 30 ) );
 
         return series;
-    }
-
-    private Series capacity(
-        final List<VolumeDatapoint> volumeDatapoints,
-        final long epoch,
-        final Metrics metrics,
-        final int interval,
-        final int maxResults ) {
-
-        final List<Datapoint> datapoints =
-            padWithEmptyDatapoints( epoch,
-                                    TimeUnit.MINUTES.toSeconds( interval ),
-                                    maxResults );
-
-        Map<Long, List<VolumeDatapoint>> groupByTimestamp =
-            groupByTimestamp( volumeDatapoints );
-        groupByTimestamp.forEach( ( pbytesTimestamp, pbytesValues ) -> {
-            final Double d = pbytesValues.stream()
-                                         .filter( ( value ) ->
-                                                      value.getKey()
-                                                           .equalsIgnoreCase(
-                                                               metrics.key() ) )
-                                         .mapToDouble( VolumeDatapoint::getValue )
-                                         .sum();
-
-            datapoints.add( new DatapointBuilder().withY( d.longValue() )
-                                                  .withX( pbytesTimestamp )
-                                                  .build() );
-        } );
-
-        final int to = datapoints.size();
-        final int from = to - maxResults;
-
-        final List<Datapoint> subList = datapoints.subList( from, to );
-        sortByTimestamp( subList );
-        return new SeriesBuilder().withType( metrics )
-                                  .withDatapoints( subList )
-                                  .build();
     }
 
     /**
@@ -243,37 +221,36 @@ public class SeriesHelper {
          * datapoint every 24 hours, i.e. 30 data points
          */
         long diff = 0L;
-        long epochStart = 0L;
+        long epoch = 0L;
         if( query.getRange() != null ) {
             final DateRange dateRange = query.getRange();
             if( dateRange.getStart() != null && dateRange.getEnd() != null ) {
 
                 diff = dateRange.getEnd() - dateRange.getStart();
-                epochStart = dateRange.getStart();
+                epoch = dateRange.getStart();
 
             } else if( dateRange.getStart() != null ) {
 
                 diff = DateTimeUtil.toUnixEpoch( LocalDateTime.now() ) -
                     dateRange.getStart();
-                epochStart = dateRange.getStart();
+                epoch = dateRange.getStart();
 
             } else if( dateRange.getEnd() != null ) {
 
-                epochStart = DateTimeUtil.toUnixEpoch( LocalDateTime.now() );
-                diff = dateRange.getEnd() -
-                    epochStart;
+                epoch = DateTimeUtil.toUnixEpoch( LocalDateTime.now() );
+                diff = dateRange.getEnd() - epoch;
             }
         }
 
         if( diff > 0L ) {
-            if( diff <= SECOND_IN_HOUR ) {
-                return hourPerformance( datapoints, epochStart );
+            if( diff <= SECONDS_IN_HOUR ) {
+                return hourPerformance( datapoints, epoch );
             } else if( diff <= SECONDS_IN_DAY ) {
-                return dayPerformance( datapoints, epochStart );
+                return dayPerformance( datapoints, epoch );
             } else if( diff <= SECONDS_IN_WEEK ) {
-                return weekPerformance( datapoints, epochStart );
+                return weekPerformance( datapoints, epoch );
             } else if( diff <= SECONDS_IN_30_DAYS ) {
-                return thirtyDaysPerformance( datapoints, epochStart );
+                return thirtyDaysPerformance( datapoints, epoch );
             } else {
                 throw new IllegalArgumentException(
                     "start end timestamp delta is invalid" );
@@ -285,7 +262,7 @@ public class SeriesHelper {
 
     private List<Series> hourPerformance(
         final List<VolumeDatapoint> datapoints,
-        final long epochStart ) {
+        final Long epoch ) {
 
         final List<Series> series = new ArrayList<>( );
 
@@ -295,14 +272,14 @@ public class SeriesHelper {
          *  datapoint, per volume
          */
 
-        series.add( capacity( datapoints, epochStart, Metrics.STP_WMA, 2, 30 ) );
+        series.add( generate( datapoints, epoch, Metrics.STP_WMA, 2L, 30 ) );
 
         return series;
     }
 
     private List<Series> dayPerformance(
         final List<VolumeDatapoint> datapoints,
-        final long epochStart ) {
+        final Long epoch ) {
 
         final List<Series> series = new ArrayList<>( );
 
@@ -311,14 +288,14 @@ public class SeriesHelper {
          *  sum all datapoints for each hours to produce one datapoint,
          *  per volume
          */
-        series.add( capacity( datapoints, epochStart, Metrics.STP_WMA, 60, 24 ) );
+        series.add( generate( datapoints, epoch, Metrics.STP_WMA, 60L, 24 ) );
 
         return series;
     }
 
     private List<Series> weekPerformance(
         final List<VolumeDatapoint> datapoints,
-        final long epochStart ) {
+        final Long epoch ) {
 
         final List<Series> series = new ArrayList<>( );
 
@@ -327,14 +304,14 @@ public class SeriesHelper {
          *  sum all datapoints for each 6 hours to produce one datapoint,
          *  per volume
          */
-        series.add( performance( datapoints, epochStart, Metrics.STP_WMA, 360, 28 ) );
+        series.add( generate( datapoints, epoch, Metrics.STP_WMA, 360L, 28 ) );
 
         return series;
     }
 
     private List<Series> thirtyDaysPerformance(
         final List<VolumeDatapoint> datapoints,
-        final long epochStart ) {
+        final Long epoch ) {
 
         final List<Series> series = new ArrayList<>( );
 
@@ -343,93 +320,69 @@ public class SeriesHelper {
          *  sum all datapoints for each day to produce one datapoint,
          *  per volume
          */
-        series.add( performance( datapoints, epochStart, Metrics.STP_WMA, 1440, 30 ) );
+        series.add( generate( datapoints, epoch, Metrics.STP_WMA, 1440L, 30 ) );
 
         return series;
     }
 
-    private Series performance(
+    private Series generate(
         final List<VolumeDatapoint> volumeDatapoints,
-        final long epoch,
+        final Long timestamp,
         final Metrics metrics,
-        final int interval,
+        final Long distribution,
         final int maxResults ) {
 
-        final List<Datapoint> datapoints =
-            padWithEmptyDatapoints( epoch,
-                                    TimeUnit.MINUTES.toSeconds( interval ),
-                                    maxResults );
+        Map<Long, Set<VolumeDatapoint>> groupByTimestamp =
+            vdpHelper.groupByTimestamp( volumeDatapoints );
 
-        Map<Long, List<VolumeDatapoint>> groupByTimestamp =
-            groupByTimestamp( volumeDatapoints );
-        groupByTimestamp.forEach( ( pbytesTimestamp, pbytesValues ) -> {
-            final Double d = pbytesValues.stream()
-                                         .filter( ( value ) ->
-                                                      value.getKey()
-                                                           .equalsIgnoreCase(
-                                                               metrics.key() ) )
-                                         .mapToDouble( VolumeDatapoint::getValue )
-                                         .sum();
+        final List<Datapoint> datapoints = new ArrayList<>( );
+        groupByTimestamp.forEach( ( bytesTimestamp, bytesValues ) -> {
+            final Double d = bytesValues.stream()
+                                        .filter( ( value ) ->
+                                                     value.getKey()
+                                                          .equalsIgnoreCase(
+                                                              metrics.key() ) )
+                                        .peek( ( l ) -> logger.trace( l.toString() ) )
+                                        .mapToDouble(
+                                            VolumeDatapoint::getValue )
+                                        .sum();
+            logger.trace( "DOUBLE::{} LONG::{} TIMESTAMP::{}",
+                          d, d.longValue(), bytesTimestamp );
 
             datapoints.add( new DatapointBuilder().withY( d.longValue() )
-                                                  .withX( pbytesTimestamp )
+                                                  .withX( bytesTimestamp )
                                                   .build() );
         } );
 
-        final int to = datapoints.size();
-        final int from = to - maxResults;
+        logger.trace( "START::{} INTERVAL::{} MAX::{} SIZE::{}",
+                      timestamp, distribution, maxResults, datapoints.size() );
 
-        final List<Datapoint> subList = datapoints.subList( from, to );
-        sortByTimestamp( subList );
+        final List<Datapoint> results = new ArrayList<>( );
+        if( datapoints.size() < maxResults ) {
+            // to few datapoints, need to pad with empty datapoints
+            final int needed = maxResults - datapoints.size();
+            dpHelper.padWithEmptyDatapoints( timestamp,
+                                             TimeUnit.MINUTES.toSeconds( distribution ),
+                                             needed,
+                                             datapoints );
 
-        return new SeriesBuilder().withType( metrics )
-                                  .withDatapoints( subList )
-                                  .build();
-    }
+            results.addAll( datapoints );
+        } else if( datapoints.size() > maxResults ) {
 
-    /**
-     * @param datapoints the {@link List} of {@link VolumeDatapoint}
-     *
-     * @return Returns a {@link Map} of {@code timestamp} and {@link List} of datapoint
-     */
-    private Map<Long, List<VolumeDatapoint>> groupByTimestamp(
-        final List<VolumeDatapoint> datapoints ) {
+            /*
+             * TODO finish implementation
+             *
+             * need to get a even distribution of datapoints with a maximum of maxResults
+             */
 
-        return datapoints.stream()
-                         .collect(
-                             Collectors.groupingBy(
-                                 VolumeDatapoint::getTimestamp ) );
-    }
-
-    /**
-     * @param start the {@code long} representing the starting date range
-     * @param interval the {@link long} representing the interval at which the
-     *                 datapoints are created
-     * @param count the {@code count} representing the number of datapoints
-     *
-     * @return Returns {@link List} of {@link com.formationds.commons.model.Datapoint}
-     */
-    private List<Datapoint> padWithEmptyDatapoints( final long start,
-                                                    final long interval,
-                                                    final int count ) {
-        final List<Datapoint> empty = new ArrayList<>( );
-
-        long epoch = start;
-        for( int i = 0; i < count; i++ ) {
-            empty.add( new DatapointBuilder().withX( epoch )
-                                             .withY( 0L )
-                                             .build() );
-            epoch = epoch + interval;
+            results.addAll( datapoints.subList( datapoints.size() - maxResults,
+                                                datapoints.size() ) );
+        } else {
+            results.addAll( datapoints );
         }
 
-        return empty;
+        return new SeriesBuilder().withType( metrics )
+                                  .withDatapoints( results )
+                                  .build();
     }
-
-    /**
-     * @param datapoints the {@link List} of {@link com.formationds.commons.model.Datapoint}
-     */
-    private void sortByTimestamp( final List<Datapoint> datapoints ) {
-        Collections.sort( datapoints, Comparator.comparing( Datapoint::getX ) );
-    }
-
 }

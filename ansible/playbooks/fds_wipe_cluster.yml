@@ -1,0 +1,21 @@
+---
+
+-   name: stop fds and reformat disks
+    hosts: all
+    remote_user: root
+
+    tasks:
+
+    -   name: Stop FDS
+        command: /fds/sbin/tools/fds stop
+
+    -   name: unmount FDS disks
+        shell: umount /fds/dev/*
+        ignore_errors: yes
+
+    -   name: purge disk-map
+        shell: rm /fds/dev/disk-map
+        ignore_errors: yes
+
+    -   name: run fdsinstall step 3 - setup storage
+        shell: ./fdsinstall.py -o 3 chdir=/root/fdsinstall

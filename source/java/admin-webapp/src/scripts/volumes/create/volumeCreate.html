@@ -1,34 +1,45 @@
-<!--<div class="create-panel volumes" ng-controller="volumeCreateController" ng-class="{shown: $parent.creating,hideit: !$parent.creating}">-->
 <div class="create-panel volumes" ng-controller="volumeCreateController">
     <div class="modal-header">
         <span translate class="create-volume-create-title" ng-show="volumeVars.creating === true">volumes.l_create_volume</span>
-        <span translate class="create-volume-edit-title" ng-show="volumeVars.editing === true">volumes.l_edit_volume</span>
         <div class="pull-right flex">
             <button class="btn btn-primary skinny" style="display: inline-block;margin-right: 8px;" ng-click="save()">
                 <span ng-show="volumeVars.creating === true" translate>volumes.l_create_volume</span>
-                <span ng-show="volumeVars.editing === true" translate>volumes.l_edit_volume</span>
             </button>
             <button class="btn btn-secondary cancel-creation skinny" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
         </div>
     </div>
 
     <div class="settings-body">
+        
         <div ng-include="'scripts/volumes/create/clone.html'" class="add-bottom-space"></div>
-        <div ng-include="'scripts/volumes/create/nameType.html'" class="add-bottom-space"></div>
-        <div ng-include="'scripts/volumes/create/qualityOfService.html'" class="add-bottom-space"></div>
-        <div ng-include="'scripts/volumes/create/snapshotPolicy.html'" class="add-bottom-space"></div>
+        
+        <section>
+            <div class="header">
+                <span class="light-print" translate>volumes.l_volume_name</span>
+            </div>
+            <div class="volume-settings-panel">
+                <div class="volume-option form-group">
+                    <input type="text" class="volume-name form-control" size="32" placeholder="Enter Volume Name" ng-model="volumeName">
+                </div>
+            </div>
+        </section>
+        
+        <section>
+            <connector-panel ng-model="dataConnector"></connector-panel>
+        </section>
+        <section>
+            <qos-panel ng-model="qos"></qos-panel>
+        </section>
+        <section>
+            <snapshot-policy-panel ng-model="snapshotPolicies"></snapshot-policy-panel>
+        </section>
+
     </div>
 
     <div style="padding-top: 12px;margin-bottom: 42px;">
         <button class="btn btn-primary" style="display: inline-block;" ng-click="save()">
             <span ng-show="volumeVars.creating === true" translate>volumes.l_create_volume</span>
-            <span ng-show="volumeVars.editing === true" translate>volumes.l_edit_volume</span>
         </button>
         <button class="btn btn-secondary cancel-creation" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
-    </div>
-    
-    <div class="flex" ng-show="volumeVars.editing === true">
-        <span class="icon-delete delete vertical-middle"></span>
-        <a class="delete" ng-click="deleteVolume()" translate>volumes.l_delete_volume</a>
     </div>
 </div>

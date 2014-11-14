@@ -7,7 +7,7 @@ package com.formationds.om.repository;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.Metrics;
-import com.formationds.om.repository.query.builder.VolumeDatapointBuilder;
+import com.formationds.commons.model.entity.builder.VolumeDatapointBuilder;
 import org.json.JSONArray;
 import org.junit.Assert;
 

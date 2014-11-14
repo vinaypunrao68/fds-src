@@ -29,6 +29,7 @@ basedebs=(
     java-common
     oracle-java8-jdk
     libical1
+		libhiredis0.10
 )
 
 fdsbasedebs=(
