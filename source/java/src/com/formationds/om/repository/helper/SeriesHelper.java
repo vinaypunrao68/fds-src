@@ -144,7 +144,7 @@ public class SeriesHelper {
 
         /*
          * for each volume
-         *  sum all datapoints for each  hours to produce one datapoint,
+         *  sum all datapoints for each hours to produce one datapoint,
          *  per volume
          */
 
@@ -166,7 +166,7 @@ public class SeriesHelper {
          *  per volume
          */
         series.add( generate( datapoints, epoch, Metrics.LBYTES, 360L, 28 ) );
-        series.add( generate( datapoints, epoch, Metrics.PBYTES, 260L, 28 ) );
+        series.add( generate( datapoints, epoch, Metrics.PBYTES, 360L, 28 ) );
 
         return series;
     }
