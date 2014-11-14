@@ -19,6 +19,7 @@ using namespace fds;
 
 namespace leveldb {
 
+const std::string DEFAULT_ARCHIVE_PREFIX("catalog.archive");
 const fds_uint32_t MAX_NUM_LOGFILES = 10;
 
 class CopyEnv : public leveldb::EnvWrapper {
@@ -39,7 +40,7 @@ private:
 public:
     explicit CopyEnv(leveldb::Env* t) : leveldb::EnvWrapper(t), copying_(false),
             logRotate_(false), logFilePrefix_("catalog.journal"),
-            archivePrefix_("catalog.archive") {}
+            archivePrefix_(DEFAULT_ARCHIVE_PREFIX) {}
 
     Status NewWritableFile(const std::string& fname, WritableFile** result);
 
