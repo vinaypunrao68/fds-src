@@ -58,6 +58,7 @@ void GetBlobMetaDataHandler::handleQueueItem(dmCatReq* dmRequest) {
 void GetBlobMetaDataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                             boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message,
                                             Error const& e, dmCatReq* dmRequest) {
+    asyncHdr->msg_code = e.GetErrno();
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     // TODO(Rao): We should have a seperate response message for QueryCatalogMsg for
