@@ -12,6 +12,8 @@
 #include <net/SvcRequestPool.h>
 #include <DmIoReq.h>
 #include <dm-platform.h>
+#include <DmBlobTypes.h>
+
 #define DMHANDLER(CLASS, IOTYPE) \
     static_cast<CLASS*>(dataMgr->handlers.at(IOTYPE))
 
@@ -33,10 +35,14 @@ struct RequestHelper {
 };
 
 struct QueueHelper {
+    fds_bool_t ioIsMarkedAsDone;
+    fds_bool_t cancelled;
     dmCatReq *dmRequest;
     Error err = ERR_OK;
     explicit QueueHelper(dmCatReq *dmRequest);
     ~QueueHelper();
+    void markIoDone();
+    void cancel();
 };
 
 
@@ -114,8 +120,8 @@ struct StartBlobTxHandler : Handler {
                        boost::shared_ptr<fpi::StartBlobTxMsg>& message);
     void handleQueueItem(dmCatReq* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::StartBlobTxMsg>& message,
-                       Error const& e, dmCatReq* dmRequest);
+                        boost::shared_ptr<fpi::StartBlobTxMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
 };
 
 struct StatStreamHandler : Handler {
@@ -125,6 +131,20 @@ struct StatStreamHandler : Handler {
     void handleQueueItem(dmCatReq* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::StatStreamMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
+struct CommitBlobTxHandler : Handler {
+    CommitBlobTxHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CommitBlobTxMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void volumeCatalogCb(Error const& e, blob_version_t blob_version,
+                         BlobObjList::const_ptr const& blob_obj_list,
+                         MetaDataList::const_ptr const& meta_list,
+                         DmIoCommitBlobTx* commitBlobReq);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
                         Error const& e, dmCatReq* dmRequest);
 };
 

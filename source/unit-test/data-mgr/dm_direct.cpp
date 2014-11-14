@@ -62,11 +62,11 @@ void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
                                              commitBlbTx->blob_version,
                                              commitBlbTx->dmt_version);
     dmBlobTxReq1->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(commitBlbTx->txId));
-    dmBlobTxReq1->dmio_commit_blob_tx_resp_cb =
+    dmBlobTxReq1->cb =
             BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
 
     TIMEDBLOCK("commit") {
-        dataMgr->commitBlobTx(dmBlobTxReq1);
+        dataMgr->handlers[FDS_COMMIT_BLOB_TX]->handleQueueItem(dmBlobTxReq1);
         cb.wait();
     }
     EXPECT_EQ(ERR_OK, cb.e);
@@ -117,7 +117,7 @@ TEST_F(DmUnitTest, PutBlobOnce) {
                                                               putBlobOnce->blob_version,
                                                               putBlobOnce->dmt_version);
             dmCommitBlobOnceReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(putBlobOnce->txId));
-            dmCommitBlobOnceReq->dmio_commit_blob_tx_resp_cb =
+            dmCommitBlobOnceReq->cb =
                     BIND_OBJ_CALLBACK(*cb.get(), DMCallback::handler, asyncHdr);
 
 

@@ -12,6 +12,7 @@
 #include <DataMgr.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
+#include <dmhandler.h>
 
 namespace fds {
 
@@ -250,6 +251,7 @@ DataMgr::deleteSnapshot(const fds_uint64_t snapshotId) {
 // handle finish forward for volume 'volid'
 //
 void DataMgr::finishForwarding(fds_volid_t volid) {
+    // FIXME(DAC): This local is only ever assigned.
     fds_bool_t all_finished = false;
 
     // set the state
@@ -771,6 +773,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_CAT_QRY] = new dm::QueryCatalogHandler();
     handlers[FDS_START_BLOB_TX] = new dm::StartBlobTxHandler();
     handlers[FDS_DM_STAT_STREAM] = new dm::StatStreamHandler();
+    handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1125,7 +1128,9 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
     err = timeVolCat_->commitBlobTx(updCatReq->volId,
                                     updCatReq->blob_name,
                                     updCatReq->ioBlobTxDesc,
-                                    std::bind(&DataMgr::commitBlobTxCb, this,
+                                    std::bind(&dm::CommitBlobTxHandler::volumeCatalogCb,
+                                              static_cast<dm::CommitBlobTxHandler*>(
+                                                      handlers[FDS_COMMIT_BLOB_TX]),
                                               std::placeholders::_1, std::placeholders::_2,
                                               std::placeholders::_3, std::placeholders::_4,
                                               updCatReq->commitBlobReq));
@@ -1145,126 +1150,6 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
         PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
         updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
         return;
-    }
-}
-
-void DataMgr::commitBlobTx(dmCatReq *io)
-{
-    Error err;
-    DmIoCommitBlobTx *commitBlobReq = static_cast<DmIoCommitBlobTx*>(io);
-
-    LOGTRACE << "Will commit blob " << commitBlobReq->blob_name << " to tvc";
-    err = timeVolCat_->commitBlobTx(commitBlobReq->volId,
-                                    commitBlobReq->blob_name,
-                                    commitBlobReq->ioBlobTxDesc,
-                                    // TODO(Rao): We should use a static commit callback
-                                    std::bind(&DataMgr::commitBlobTxCb, this,
-                                              std::placeholders::_1, std::placeholders::_2,
-                                              std::placeholders::_3, std::placeholders::_4,
-                                              commitBlobReq));
-    if (err != ERR_OK) {
-        PerfTracer::incr(commitBlobReq->opReqFailedPerfEventType, commitBlobReq->getVolId(),
-                commitBlobReq->perfNameStr);
-        if (feature.isQosEnabled()) qosCtrl->markIODone(*commitBlobReq);
-        PerfTracer::tracePointEnd(io->opLatencyCtx);
-        PerfTracer::tracePointEnd(io->opReqLatencyCtx);
-        commitBlobReq->dmio_commit_blob_tx_resp_cb(err, commitBlobReq);
-    }
-}
-
-/**
- * Callback from volume catalog when transaction is commited
- * @param[in] version of blob that was committed or in case of deletion,
- * a version that was deleted
- * @param[in] blob_obj_list list of offset to object mapping that
- * was committed or NULL
- * @param[in] meta_list list of metadata k-v pairs that was committed or NULL
- */
-void DataMgr::commitBlobTxCb(const Error &err,
-                             blob_version_t blob_version,
-                             const BlobObjList::const_ptr& blob_obj_list,
-                             const MetaDataList::const_ptr& meta_list,
-                             DmIoCommitBlobTx *commitBlobReq)
-{
-    Error error(err);
-    fds_bool_t forwarded_commit = false;
-    LOGDEBUG << "Dmt version: " << commitBlobReq->dmt_version << " blob "
-             << commitBlobReq->blob_name << " vol " << std::hex
-             << commitBlobReq->volId << std::dec << " ; current DMT version "
-             << omClient->getDMTVersion();
-
-    // 'finish this io' for qos accounting purposes, if we are
-    // forwarding, the main time goes to waiting for response
-    // from another DM, which is not really consuming local
-    // DM resources
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*commitBlobReq);
-
-    PerfTracer::tracePointEnd(commitBlobReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(commitBlobReq->opReqLatencyCtx);
-
-    if (!err.ok()) {
-        PerfTracer::incr(commitBlobReq->opReqFailedPerfEventType, commitBlobReq->getVolId(),
-                commitBlobReq->perfNameStr);
-    }
-
-    // do forwarding if needed and commit was successfull
-    if (error.ok() &&
-        (commitBlobReq->dmt_version != omClient->getDMTVersion())) {
-        VolumeMeta* vol_meta = NULL;
-        fds_bool_t is_forwarding = false;
-
-        // check if we need to forward this commit to receiving
-        // DM if we are in progress of migrating volume catalog
-        vol_map_mtx->lock();
-        fds_verify(vol_meta_map.count(commitBlobReq->volId) > 0);
-        vol_meta = vol_meta_map[commitBlobReq->volId];
-        is_forwarding = vol_meta->isForwarding();
-        vol_map_mtx->unlock();
-
-        // move the state, once we drain  planned queue contents
-        LOGTRACE << "is_forwarding ? " << is_forwarding << " req DMT ver "
-                 << commitBlobReq->dmt_version << " DMT ver " << omClient->getDMTVersion();
-
-        if (is_forwarding) {
-            // DMT version must not match in order to forward the update!!!
-            if (commitBlobReq->dmt_version != omClient->getDMTVersion()) {
-                if (feature.isCatSyncEnabled()) {
-                    error = catSyncMgr->forwardCatalogUpdate(commitBlobReq, blob_version,
-                                                             blob_obj_list, meta_list);
-                } else {
-                    LOGWARN << "catalog sync feature - NOT enabled";
-                }
-                if (error.ok()) {
-                    // we forwarded the request!!!
-                    forwarded_commit = true;
-                }
-            }
-        } else {
-            // DMT mismatch must not happen if volume is in 'not forwarding' state
-            fds_verify(commitBlobReq->dmt_version != omClient->getDMTVersion());
-        }
-    }
-
-    // check if we can finish forwarding if volume still forwards cat commits
-    if (feature.isCatSyncEnabled() && catSyncMgr->isSyncInProgress()) {
-        fds_bool_t is_finish_forward = false;
-        VolumeMeta* vol_meta = NULL;
-        vol_map_mtx->lock();
-        fds_verify(vol_meta_map.count(commitBlobReq->volId) > 0);
-        vol_meta = vol_meta_map[commitBlobReq->volId];
-        is_finish_forward = vol_meta->isForwardFinishing();
-        vol_map_mtx->unlock();
-        if (is_finish_forward) {
-            if (!timeVolCat_->isPendingTx(commitBlobReq->volId, catSyncMgr->dmtCloseTs())) {
-                finishForwarding(commitBlobReq->volId);
-            }
-        }
-    }
-
-    // if forwarding -- do not reply to AM yet, will reply when we receive response
-    // for fwd cat update from destination DM
-    if (!forwarded_commit) {
-        commitBlobReq->dmio_commit_blob_tx_resp_cb(error, commitBlobReq);
     }
 }
 

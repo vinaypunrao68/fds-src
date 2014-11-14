@@ -15,7 +15,6 @@ DMSvcHandler::DMSvcHandler()
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::UpdateCatalogOnceMsg, updateCatalogOnce);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CommitBlobTxMsg, commitBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::AbortBlobTxMsg, abortBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::SetBlobMetaDataMsg, setBlobMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, getVolumeMetaData);
@@ -200,67 +199,6 @@ void DMSvcHandler::createVolumeClone(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                   createVolumeCloneResp);
 }
 
-void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                boost::shared_ptr<fpi::CommitBlobTxMsg>& commitBlbTx)
-{
-    if (dataMgr->testUturnAll == true) {
-        LOGNOTIFY << "Uturn testing commit blob tx "
-                  << logString(*asyncHdr) << logString(*commitBlbTx);
-        commitBlobTxCb(asyncHdr, ERR_OK, NULL);
-    }
-
-    LOGDEBUG << logString(*asyncHdr) << logString(*commitBlbTx);
-
-    auto dmBlobTxReq = new DmIoCommitBlobTx(commitBlbTx->volume_id,
-                                            commitBlbTx->blob_name,
-                                            commitBlbTx->blob_version,
-                                            commitBlbTx->dmt_version);
-    dmBlobTxReq->dmio_commit_blob_tx_resp_cb =
-            BIND_MSG_CALLBACK2(DMSvcHandler::commitBlobTxCb, asyncHdr);
-
-    PerfTracer::tracePointBegin(dmBlobTxReq->opReqLatencyCtx);
-
-    /*
-     * allocate a new  Blob transaction  class and  queue  to per volume queue.
-     */
-    dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(commitBlbTx->txId));
-
-    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmBlobTxReq));
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue  commit blob tx  request "
-                << logString(*asyncHdr) << logString(*commitBlbTx);
-        PerfTracer::tracePointEnd(dmBlobTxReq->opReqLatencyCtx);
-        PerfTracer::incr(dmBlobTxReq->opReqFailedPerfEventType, dmBlobTxReq->getVolId(),
-                         dmBlobTxReq->perfNameStr);
-        dmBlobTxReq->dmio_commit_blob_tx_resp_cb(err, dmBlobTxReq);
-    }
-}
-
-void DMSvcHandler::commitBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                  const Error &e, DmIoCommitBlobTx *req)
-{
-    /*
-     * we are not sending any response  message  in this call, instead we
-     * will send the status  on async header
-     * TODO(sanjay)- we will have to add  call to  send the response without payload
-     * static response
-     */
-    LOGDEBUG << logString(*asyncHdr);
-    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    // TODO(sanjay) - we will have to revisit  this call
-    fpi::CommitBlobTxRspMsg stBlobTxRsp;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(CommitBlobTxRspMsg), stBlobTxRsp);
-
-    if (dataMgr->testUturnAll == true) {
-        fds_verify(req == NULL);
-        return;
-    }
-
-    delete req;
-}
-
-
 void DMSvcHandler::abortBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                boost::shared_ptr<fpi::AbortBlobTxMsg>& abortBlbTx)
 {
@@ -331,7 +269,7 @@ DMSvcHandler::updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                       updcatMsg->blob_name,
                                                       updcatMsg->blob_version,
                                                       updcatMsg->dmt_version);
-    dmCommitBlobOnceReq->dmio_commit_blob_tx_resp_cb =
+    dmCommitBlobOnceReq->cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::commitBlobOnceCb, asyncHdr);
     PerfTracer::tracePointBegin(dmCommitBlobOnceReq->opReqLatencyCtx);
 
@@ -351,7 +289,7 @@ DMSvcHandler::updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void
 DMSvcHandler::commitBlobOnceCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                const Error &e,
-                               DmIoCommitBlobTx *req) {
+                               dmCatReq *req) {
     DmIoCommitBlobOnce *commitOnceReq = static_cast<DmIoCommitBlobOnce*>(req);
     DmIoUpdateCatOnce *parent = commitOnceReq->parent;
     updateCatalogOnceCb(asyncHdr, e, parent);

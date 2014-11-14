@@ -178,9 +178,6 @@ struct DataMgr : Module, DmIoReqHandler {
                                          dataMgr,
                                          io);
                     break;
-                case FDS_COMMIT_BLOB_TX:
-                    threadPool->schedule(&DataMgr::commitBlobTx, dataMgr, io);
-                    break;
                 case FDS_DM_SNAP_VOLCAT:
                 case FDS_DM_SNAPDELTA_VOLCAT:
                     threadPool->schedule(&DataMgr::snapVolCat, dataMgr, io);
@@ -219,6 +216,7 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_CAT_QRY:
                 case FDS_START_BLOB_TX:
                 case FDS_DM_STAT_STREAM:
+                case FDS_COMMIT_BLOB_TX:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
@@ -360,20 +358,6 @@ struct DataMgr : Module, DmIoReqHandler {
     void updateCatalogOnce(dmCatReq *io);
     void updateCatalog(dmCatReq *io);
     void scheduleGetBlobMetaDataSvc(void *io);
-    void commitBlobTx(dmCatReq *io);
-    /**
-     * Callback from volume catalog when transaction is commited
-     * @param[in] version of blob that was committed
-     * @param[in] blob_obj_list list of offset to object mapping that
-     * was committed or NULL
-     * @param[in] meta_list list of metadata k-v pairs that was
-     * committed or NULL
-     */
-    void commitBlobTxCb(const Error &err,
-                        blob_version_t blob_version,
-                        const BlobObjList::const_ptr& blob_obj_list,
-                        const MetaDataList::const_ptr& meta_list,
-                        DmIoCommitBlobTx *commitBlobReq);
     void fwdUpdateCatalog(dmCatReq *io);
     /**
      * Callback from volume catalog when forwarded blob update is
