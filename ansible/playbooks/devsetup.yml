@@ -75,7 +75,7 @@
         - python-thrift
         - fds-pkghelper
         - fds-pkg
-        - fds-pkgtools
+        - fds-pkgtools=0.3.2
         - fds-systemdir
         - fds-coredump
         - libcryptopp-dev
