@@ -18,7 +18,7 @@ user_cpp          := \
         StatStreamAggregator.cpp
 
 user_ar_libs      := fds-dm-lib
-.NOTPARALLEL: fds-dm-lib
+#.NOTPARALLEL: fds-dm-lib
 fds-dm-lib        := $(user_cpp)
 
 include $(topdir)/Makefile.incl
