@@ -500,9 +500,14 @@ void DmTimeVolCatalog::monitorLogs() {
                         std::string srcFile = volPath + f;
                         std::string cpCmd = "cp -f " + srcFile + " " + volTLPath;
                         LOGDEBUG << "Running command: '" << cpCmd << "'";
-                        std::system(cpCmd.c_str());
-                        fds_verify(0 == unlink(srcFile.c_str()));
-                        processedEvent = true;
+                        fds_int32_t rc = std::system(cpCmd.c_str());
+                        if (!rc) {
+                            fds_verify(0 == unlink(srcFile.c_str()));
+                            processedEvent = true;
+                        } else {
+                            LOGWARN << "Failed to copy file '" << srcFile << "' to directory '"
+                                    << volTLPath;
+                        }
                     }
                 }
 
