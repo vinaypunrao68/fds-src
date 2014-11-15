@@ -1,6 +1,10 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <sys/types.h>
+#include <sys/inotify.h>
+#include <dirent.h>
+
 #include <string>
 #include <vector>
 #include <set>
@@ -12,6 +16,7 @@
 #include <dm-tvc/TimeVolumeCatalog.h>
 #include <fds_process.h>
 #include <ObjectLogger.h>
+#include <leveldb/copy_env.h>
 
 #define COMMITLOG_GET(_volId_, _commitLog_) \
     do { \
@@ -23,6 +28,10 @@
         } \
     } while (false)
 
+static const fds_uint32_t POLL_WAIT_TIME_MS = 120000;
+static const fds_uint32_t MAX_POLL_EVENTS = 1024;
+static const fds_uint32_t BUF_LEN = MAX_POLL_EVENTS * (sizeof(struct inotify_event) + NAME_MAX);
+
 namespace fds {
 
 void
@@ -31,9 +40,11 @@ DmTimeVolCatalog::notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList) {
 
 DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
         : Module(name.c_str()), opSynchronizer_(tp),
-        config_helper_(g_fdsprocess->get_conf_helper()), tp_(tp)
+        config_helper_(g_fdsprocess->get_conf_helper()), tp_(tp), stopLogMonitoring_(false),
+        logMonitorThread_(std::bind(&DmTimeVolCatalog::monitorLogs, this))
 {
     volcat = DM_VOLUME_CATALOG_TYPE::ptr(new DM_VOLUME_CATALOG_TYPE("DM Volume Catalog"));
+
     // TODO(Andrew): The module vector should be able to take smart pointers.
     // To get around this for now, we're extracting the raw pointer and
     // expecting that any reference to are done once this returns...
@@ -406,6 +417,149 @@ DmTimeVolCatalog::getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog) 
     Error rc(ERR_OK);
     COMMITLOG_GET(volId, commitLog);
     return rc;
+}
+
+void DmTimeVolCatalog::getDirChildren(const std::string & parent,
+        std::vector<std::string> & children, bool dirs /* = true */) {
+    fds_verify(!parent.empty());
+    DIR * dirp = opendir(parent.c_str());
+    if (!dirp) {
+        LOGCRITICAL << "Failed to open directory '" << parent << "', error='"
+                << errno << "'";
+        return;
+    }
+
+    struct dirent entry;
+    for (auto * dp = &entry; 0 == readdir_r(dirp, &entry, &dp) && dp; ) {
+        if ((dirs && DT_DIR != entry.d_type) || (!dirs && DT_DIR == entry.d_type)) {
+            continue;
+        } else if (0 != strncmp(entry.d_name, ".", 1) && 0 != strncmp(entry.d_name, "..", 2)) {
+            std::string tmpStr(entry.d_name);
+            children.push_back(tmpStr);
+        }
+    }
+    closedir(dirp);
+}
+
+void DmTimeVolCatalog::monitorLogs() {
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    const std::string dmDir = root->dir_user_repo_dm();
+    FdsRootDir::fds_mkdir(dmDir.c_str());
+    FdsRootDir::fds_mkdir(root->dir_timeline_dm().c_str());
+
+    // initialize inotify
+    int fd = inotify_init();
+    if (fd < 0) {
+        LOGCRITICAL << "Failed to initialize inotify, error='" << errno << "'";
+        return;
+    }
+
+    std::set<std::string> watched;
+    int wd = inotify_add_watch(fd, dmDir.c_str(), IN_CREATE);
+    if (wd < 0) {
+        LOGCRITICAL << "Failed to add watch for directory '" << dmDir << "'";
+        return;
+    }
+    watched.insert(dmDir);
+
+    // epoll related calls
+    int efd = epoll_create(sizeof(fd));
+    if (efd < 0) {
+        LOGCRITICAL << "Failed to create epoll file descriptor, error='" << errno << "'";
+        return;
+    }
+    struct epoll_event ev = {0};
+    ev.events = EPOLLIN | EPOLLET;
+    int ecfg = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
+    if (ecfg < 0) {
+        LOGCRITICAL << "Failed to configure epoll interface!";
+        return;
+    }
+
+    char buffer[BUF_LEN] = {0};
+    fds_bool_t processedEvent = false;
+    fds_bool_t eventReady = false;
+
+    while (!stopLogMonitoring_) {
+        do {
+            processedEvent = false;
+            std::vector<std::string> volDirs;
+            getDirChildren(dmDir, volDirs);
+
+            for (const auto & d : volDirs) {
+                std::string volPath = dmDir + d + "/";
+                std::vector<std::string> catFiles;
+                getDirChildren(volPath, catFiles, false);
+
+                for (const auto & f : catFiles) {
+                    if (0 == f.find(leveldb::DEFAULT_ARCHIVE_PREFIX)) {
+                        LOGDEBUG << "Found leveldb archive file '" << volPath << f << "'";
+                        std::string volTLPath = root->dir_timeline_dm() + d + "/";
+                        FdsRootDir::fds_mkdir(volTLPath.c_str());
+
+                        std::string srcFile = volPath + f;
+                        std::string cpCmd = "cp -f " + srcFile + " " + volTLPath;
+                        LOGDEBUG << "Running command: '" << cpCmd << "'";
+                        std::system(cpCmd.c_str());
+                        fds_verify(0 == unlink(srcFile.c_str()));
+                        processedEvent = true;
+                    }
+                }
+
+                std::set<std::string>::const_iterator iter = watched.find(volPath);
+                if (watched.end() == iter) {
+                    if ((wd = inotify_add_watch(fd, volPath.c_str(), IN_CREATE)) < 0) {
+                        LOGCRITICAL << "Failed to add watch for directory '" << volPath << "'";
+                        continue;
+                    } else {
+                        LOGDEBUG << "Watching directory '" << volPath << "'";
+                        processedEvent = true;
+                        watched.insert(volPath);
+                    }
+                }
+            }
+
+            if (stopLogMonitoring_) {
+                return;
+            }
+        } while (processedEvent);
+
+        do {
+            eventReady = false;
+            errno = 0;
+            fds_int32_t fdCount = epoll_wait(efd, &ev, MAX_POLL_EVENTS, POLL_WAIT_TIME_MS);
+            if (fdCount < 0) {
+                if (EINTR != errno) {
+                    LOGCRITICAL << "epoll_wait() failed, error='" << errno << "'";
+                    LOGCRITICAL << "Stopping commit log monitoring...";
+                    return;
+                }
+            } else if (0 == fdCount) {
+                // timeout, refresh
+                eventReady = true;
+            } else {
+                int len = read(fd, buffer, BUF_LEN);
+                if (len < 0) {
+                    LOGWARN << "Failed to read inotify event, error='" << errno << "'";
+                    continue;
+                }
+
+                for (char * p = buffer; p < buffer + len; ) {
+                    struct inotify_event * event = reinterpret_cast<struct inotify_event *>(p);
+                    if (event->mask | IN_ISDIR || 0 == strncmp(event->name,
+                            leveldb::DEFAULT_ARCHIVE_PREFIX.c_str(),
+                            strlen(leveldb::DEFAULT_ARCHIVE_PREFIX.c_str()))) {
+                        eventReady = true;
+                        break;
+                    }
+                    p += sizeof(struct inotify_event) + event->len;
+                }
+            }
+            if (stopLogMonitoring_) {
+                return;
+            }
+        } while (!eventReady);
+    }
 }
 
 }  // namespace fds
