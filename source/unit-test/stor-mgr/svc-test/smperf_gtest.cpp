@@ -43,7 +43,9 @@ struct SMApi : SingleNodeTest
                const Error& error,
                boost::shared_ptr<std::string> payload)
     {
-        opTs_[svcReq->getRequestId()] = svcReq->ts;
+        if (opTs_.size() > 0) {
+            opTs_[svcReq->getRequestId()] = svcReq->ts;
+        }
 
         auto opEndTs = util::getTimeStampNanos();
         avgLatency_.update(opEndTs - opStartTs);
@@ -90,7 +92,7 @@ struct SMApi : SingleNodeTest
             << "rsp-rcv-hndlr|"
             << "total||\n";
 
-        for (uint32_t i = 0; i < opTs_.size(); i+=100) {
+        for (uint64_t i = 0; i < opTs_.size(); i+=100) {
             auto &t = opTs_[i];
             std::cout << "|"
                 << t.rqSendStartTs - t.rqStartTs << "|"
@@ -139,13 +141,13 @@ struct SMApi : SingleNodeTest
             << "|" << std::endl;
     }
  protected:
-    std::atomic<uint32_t> putsIssued_;
-    std::atomic<uint32_t> outStanding_;
-    std::atomic<uint32_t> putsSuccessCnt_;
-    std::atomic<uint32_t> putsFailedCnt_;
+    std::atomic<uint64_t> putsIssued_;
+    std::atomic<uint64_t> outStanding_;
+    std::atomic<uint64_t> putsSuccessCnt_;
+    std::atomic<uint64_t> putsFailedCnt_;
     Monitor monitor_;
     bool waiting_;
-    uint32_t concurrency_;
+    uint64_t concurrency_;
     util::TimeStamp startTs_;
     util::TimeStamp endTs_;
     LatencyCounter avgLatency_;
@@ -159,7 +161,7 @@ struct SMApi : SingleNodeTest
 TEST_F(SMApi, putsPerf)
 {
     int dataCacheSz = 100;
-    int nPuts =  this->getArg<int>("puts-cnt");
+    uint64_t nPuts =  this->getArg<uint64_t>("puts-cnt");
     bool profile = this->getArg<bool>("profile");
     bool failSendsbefore = this->getArg<bool>("failsends-before");
     bool failSendsafter = this->getArg<bool>("failsends-after");
@@ -168,12 +170,14 @@ TEST_F(SMApi, putsPerf)
     bool disableSchedule = this->getArg<bool>("disable-schedule");
     bool largeFrame = this->getArg<bool>("largeframe");
     bool lftp = this->getArg<bool>("lftp");
-    concurrency_ = this->getArg<uint32_t>("concurrency");
+    concurrency_ = this->getArg<uint64_t>("concurrency");
     if (concurrency_ == 0) {
         concurrency_  = nPuts;
     }
 
-    opTs_.resize(nPuts);
+    if (nPuts <= 10000) {
+        opTs_.resize(nPuts);
+    }
 
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = this->getArg<uint64_t>("smuuid");
@@ -215,6 +219,7 @@ TEST_F(SMApi, putsPerf)
     }
     if (lftp) {
         fiu_enable("svc.use.lftp", 1, NULL, 0);
+        ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.use.lftp"));
     }
 
     /* Start google profiler */
@@ -226,7 +231,7 @@ TEST_F(SMApi, putsPerf)
     startTs_ = util::getTimeStampNanos();
 
     /* Issue puts */
-    for (int i = 0; i < nPuts; i++) {
+    for (uint64_t i = 0; i < nPuts; i++) {
         auto opStartTs = util::getTimeStampNanos();
         auto putObjMsg = putMsgGen->nextItem();
         auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
@@ -274,6 +279,7 @@ TEST_F(SMApi, putsPerf)
     }
     if (lftp) {
         fiu_disable("svc.use.lftp");
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.use.lftp"));
     }
 
     /* End profiler */
@@ -305,7 +311,7 @@ int main(int argc, char** argv) {
     opts.add_options()
         ("help", "produce help message")
         ("smuuid", po::value<uint64_t>()->default_value(0), "smuuid")
-        ("puts-cnt", po::value<int>(), "puts count")
+        ("puts-cnt", po::value<uint64_t>(), "puts count")
         ("profile", po::value<bool>()->default_value(false), "google profile")
         ("failsends-before", po::value<bool>()->default_value(false), "fail sends before")
         ("failsends-after", po::value<bool>()->default_value(false), "fail sends after")
@@ -315,7 +321,7 @@ int main(int argc, char** argv) {
         ("output", po::value<std::string>()->default_value("stats.txt"), "stats output")
         ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling")
         ("lftp", po::value<bool>()->default_value(false), "use lockfree threadpool")
-        ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency");
+        ("concurrency", po::value<uint64_t>()->default_value(0), "concurrency");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();
 }
