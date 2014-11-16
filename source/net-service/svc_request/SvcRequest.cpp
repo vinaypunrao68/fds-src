@@ -313,6 +313,12 @@ void SvcRequestIf::sendReqWork(EpSvcHandle::pointer eph,
                                boost::shared_ptr<fpi::AsyncHdr> header,
                                StringPtr payload)
 {
+    fiu_do_on("svc.fail.sendpayload_before", \
+        SVCPERF(req->ts.rqSendStartTs = req->ts.rqSendEndTs = util::getTimeStampNanos());
+        swapAsyncHdr(header); \
+        header->msg_code = ERR_SVC_REQUEST_INVOCATION; \
+        gSvcRequestPool->postError(header););
+
     try {
         // TODO(Rao): Do your own send here for better peformance
         SVCPERF(req->ts.rqSendStartTs = util::getTimeStampNanos());
