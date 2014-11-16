@@ -1,0 +1,4 @@
+We use part of the leveldb utils not packaged (so it would seem) by Ubuntu.
+
+Leveldb source needs to remain in the source tree, but is not compiled 
+by Formation.
