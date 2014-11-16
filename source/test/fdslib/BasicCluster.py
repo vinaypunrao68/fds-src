@@ -100,3 +100,46 @@ class basic_cluster:
             node.nd_agent.ssh_exec (cmd='cd fdsinstall && ./fdsinstall.py -o 4', return_stdin = True, wait_compl = True)
         return 0, "All Okay"
 
+    def shutdown_daemons (self, verbose = False):
+        '''
+        '''
+        for node in self.nodes:
+            if verbose:
+                print "Shuttding down FDS daemons on %s" % (node.nd_agent.get_host_name())
+
+            node.nd_agent.ssh_exec (cmd='pkill -9 -f com.formationds.am.Main', return_stdin = True, wait_compl = True)
+            node.nd_agent.ssh_exec (cmd='pkill -9 bare_am', return_stdin = True, wait_compl = True)
+            node.nd_agent.ssh_exec (cmd='pkill -9 AMAgent', return_stdin = True, wait_compl = True)
+            node.nd_agent.ssh_exec (cmd='pkill -9 StorMgr', return_stdin = True, wait_compl = True)
+            node.nd_agent.ssh_exec (cmd='pkill -9 DataMgr', return_stdin = True, wait_compl = True)
+            node.nd_agent.ssh_exec (cmd='pkill -9 orchMgr', return_stdin = True, wait_compl = True)
+            node.nd_agent.ssh_exec (cmd='pkill -9 platformd', return_stdin = True, wait_compl = True)
+            node.nd_agent.ssh_exec (cmd='pkill -9 0-f com.formationds.om.Main', return_stdin = True, wait_compl = True)
+        return 0, "All Okay"
+
+    def exec_cmd_all_nodes (self, exec_cmd, verbose = False):
+        '''
+        '''
+        for node in self.nodes:
+            if verbose:
+                print "Executing command", exec_cmd, " on %s" % (node.nd_agent.get_host_name())
+
+            (status, vals) = node.nd_agent.ssh_exec (cmd=exec_cmd, return_stdin = True, wait_compl = True)
+
+            if verbose:
+                print vals
+        return 0, "All Okay"
+
+    def exec_cmd_am_nodes (self, exec_cmd, verbose = False):
+        '''
+        '''
+        for am_node in self.am_nodes:
+            if verbose:
+                print "Executing command", exec_cmd, " on %s" % (am_node.nd_am_node.nd_agent.get_host_name())
+
+            (status, vals) = am_node.nd_am_node.nd_agent.ssh_exec (cmd=exec_cmd, return_stdin = True, wait_compl = True)
+
+            if verbose:
+                print vals
+        return 0, "All Okay"
+

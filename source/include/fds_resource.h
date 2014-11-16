@@ -253,16 +253,16 @@ class RsContainer
 };
 
 struct HasState {
-    virtual fpi::ResourceState getState() = 0;
+    virtual fpi::ResourceState getState() const = 0;
     virtual void setState(fpi::ResourceState state) = 0;
 
-    std::string getStateName();
-    bool isStateLoading();
-    bool isStateCreated();
-    bool isStateActive();
-    bool isStateOffline();
-    bool isStateMarkedForDeletion();
-    bool isStateDeleted();
+    std::string getStateName() const;
+    bool isStateLoading() const;
+    bool isStateCreated() const;
+    bool isStateActive() const;
+    bool isStateOffline() const;
+    bool isStateMarkedForDeletion() const;
+    bool isStateDeleted() const;
     virtual ~HasState() {}
 };
 

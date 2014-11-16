@@ -20,7 +20,8 @@ def add2dict(mydict, indexes, value):
         return mydict
 
 class Counters:
-    def __init__(self, graphite):
+    def __init__(self, graphite, volume_zero):
+        self.volume_zero = volume_zero
         self.use_graphite = graphite
         self.counters = {} # counter, node, volid
 
@@ -49,11 +50,24 @@ class Counters:
                     cntr_type =  m.group(5)
                     value =  int(m.group(6))
                     tstamp =  int(m.group(7))
-                    if volid != 0:
+                    if volid != 0 or self.volume_zero == True:
                         self._add(node, agent, name, volid, cntr_type, value, tstamp)
                     else:
-                        print "Warning: volid is zero for ",node, agent, name, volid, cntr_type, value, tstamp
+                        print >> sys.stderr, "Warning: volid is zero for ",node, agent, name, volid, cntr_type, value, tstamp
                         # self._add(node, agent, name, volid, cntr_type, value, tstamp)
+
+    def _remove_duplicates(self, series):
+        new_series = {}
+        for v in series.keys():
+            new_series[v] = []
+            for e in series[v]:
+                if len(new_series[v]) == 0:
+                    new_series[v].append(e)
+                elif new_series[v][-1][1] != e[1]:
+                    new_series[v].append(e)
+                else:
+                    print >> sys.stderr, "Warning: duplicate timestamp:", e    
+        return new_series
 
     def get_cntr(self, node, agent, name, cntr_type):
         series = {}
@@ -62,6 +76,7 @@ class Counters:
                     series[volid] = self.counters[name][node][agent][volid][cntr_type]
         except KeyError:
             return {}
+        series = self._remove_duplicates(series)    
         for k in series:
             series[k] = zip(*series[k])
         return series
@@ -164,7 +179,7 @@ def plot_series_all_volumes(series, title = None, ylabel = None, xlabel = "Time 
 
 def plot_show_and_save(name):
     # plt.legend()
-    plt.savefig('%s.png' % (name))
+    # plt.savefig('%s.png' % (name))
     plt.show()
 
 # TODO: options
@@ -265,6 +280,7 @@ def main():
     parser.add_option("-n", "--node", dest = "node", help = "Node")
     parser.add_option("-s", "--search-counter", dest = "search_counter", default = None, help = "Search counter regexp")
     parser.add_option("-g", "--use-graphite-streaming", dest = "use_graphite_streaming", default = False, action = "store_true", help = "Use graphite streaming as input")
+    parser.add_option("-z", "--enable-volume-zero", dest = "enable_volume_zero", default = False, action = "store_true", help = "Enable volume id equals to zero")
 
     #parser.add_option("-c", "--column", dest = "column", help = "Column")
     global options
@@ -275,7 +291,7 @@ def main():
     options.exclude_nodes = []
 
     # FIXME: revisit Counters interface
-    c = Counters(options.use_graphite_streaming)
+    c = Counters(options.use_graphite_streaming, options.enable_volume_zero)
     f = open(options.filein, "r")
     c.parse(f.read())
     f.close()

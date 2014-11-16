@@ -58,7 +58,7 @@ def consume_arg(args, arg, hasValue = False):
 
 def nbd_connections():
     for p in psutil.process_iter():
-        if p.name() == 'nbd-client':
+        if p.name == 'nbd-client':
             try:
                 args = p.cmdline()
 

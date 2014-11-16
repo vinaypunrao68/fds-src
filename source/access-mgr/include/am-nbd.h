@@ -20,6 +20,7 @@ namespace fds {
 
 class NbdBlkIO;
 class NbdSmVol;
+class NbdDmVol;
 class NbdBlkVol;
 class NbdBlockMod;
 class QuorumSvcRequest;
@@ -40,6 +41,7 @@ class EvBlkVol : public BlkVol
   protected:
     friend class NbdBlkIO;
     friend class NbdBlockMod;
+    friend class NbdDmVol;
 
     int                      vio_sk;
     ev_io                    vio_watch;
@@ -131,6 +133,7 @@ class NbdBlkIO : public FdsAIO
 
   protected:
     friend class NbdSmVol;
+    friend class NbdDmVol;
     friend class NbdBlkVol;
 
     NbdBlkVol::ptr           nbd_vol;

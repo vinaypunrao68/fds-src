@@ -171,10 +171,13 @@ StorHvCtrl::StorHvCtrl(int argc,
 
         StatsCollector::singleton()->registerOmClient(om_client);
         fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");
+        fds_bool_t disableStreamingStats = config.get_abs<bool>("fds.am.testing.toggleDisableStreamingStats");
         if (print_qos_stats) {
             StatsCollector::singleton()->enableQosStats("AM");
         }
-        StatsCollector::singleton()->startStreaming(NULL, NULL);
+        if (!disableStreamingStats) {
+            StatsCollector::singleton()->startStreaming(NULL, NULL);
+        }
     }
 
     DMTManagerPtr dmtMgr;
@@ -260,8 +263,6 @@ StorHvCtrl::~StorHvCtrl()
 void StorHvCtrl::initHandlers() {
     handlers[fds::FDS_STAT_BLOB]            = new StatBlobHandler(this);
     handlers[fds::FDS_GET_VOLUME_METADATA]  = new GetVolumeMetaDataHandler(this);
-    handlers[fds::FDS_VOLUME_CONTENTS]      = new GetBucketHandler(this);
-    handlers[fds::FDS_DELETE_BLOB]          = new DeleteBlobHandler(this);
 }
 
 SysParams* StorHvCtrl::getSysParams() {

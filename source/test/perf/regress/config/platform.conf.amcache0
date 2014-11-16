@@ -8,10 +8,10 @@ fds: {
     authentication=false
 
     ssl: {
-	/* path relative to fds_root */
-	keystore_path="etc/ssl/dev/keystore"
+        /* path relative to fds_root */
+        keystore_path="etc/ssl/dev/keystore"
         keystore_password="exotic sparrow"
-	keymanager_password="exotic sparrow"
+        keymanager_password="exotic sparrow"
     }
 
     disable_qos = false
@@ -53,8 +53,8 @@ fds: {
             min_thread  = 8
             max_thread  = 10
         }
-	/* Internal testing related info */
-	testing: {
+    /* Internal testing related info */
+    testing: {
             /* overwrite node capabilities from this config */
             manual_nodecap = true
             disk_iops_max  = 100000
@@ -64,6 +64,13 @@ fds: {
     dm: {
         perf: {
             enable=true
+        }
+
+        qos: {
+            /* Default qos threads */
+            default_qos_threads = 10
+            /* default max number of outstanding IO below qos control */
+            default_outstanding_io = 20
         }
 
         catalog_write_buffer_size = 52428800
@@ -82,10 +89,10 @@ fds: {
         /* Log severity */
         log_severity = "notification"
 
-	cache: {
-	    /* Default max entries in a volume's DM catalog cache */
-	    default_max_entries = 1200
-	}
+        cache: {
+           /* Default max entries in a volume's DM catalog cache */
+           default_max_entries = 1200
+        }
 
         /* Graphite is enabled or not */
         enable_graphite=false
@@ -97,6 +104,7 @@ fds: {
             port = 2003
             period = 5
         }
+
         threadpool: {
             max_task    = 10
             spawn_thres = 5
@@ -104,22 +112,23 @@ fds: {
             min_thread  = 8
             max_thread  = 10
         }
-	/* Internal testing related info */
-	testing: {
+
+        /* Internal testing related info */
+        testing: {
             /* General testing mode...should depricate */
             test_mode = false
 
-	    /* Forces all DM APIs to immediately return success */
-	    uturn_all = false
+            /* Forces all DM APIs to immediately return success */
+            uturn_all = false
 
-	    /* Forces catalog update calls to immediately return success */
-	    uturn_updatecat = false
+            /* Forces catalog update calls to immediately return success */
+            uturn_updatecat = false
 
-	    /* Forces start tx calls to immediately return success */
-	    uturn_starttx = false
+            /* Forces start tx calls to immediately return success */
+            uturn_starttx = false
 
-	    /* Forces set metadata calls to immediately return success */
-	    uturn_setmeta = false
+            /* Forces set metadata calls to immediately return success */
+            uturn_setmeta = false
 
             /* For testing firebreak on shorter timescale */
             test_firebreak = false
@@ -146,46 +155,50 @@ fds: {
         /* Log severity */
         log_severity = "notification"
 
-        /* verify data */
+        /* verify data on datapath */
         data_verify = false
+        /* verify data in background */
+        data_verify_background = false
 
-	objectstore: {
-	    /* Size of the hashed task synchronizer */
+        objectstore: {
+            /* Size of the hashed task synchronizer */
             synchronizer_size = 100
         }
-
-	cache: {
+        cache: {
             /* Default max number of data cache entries */
             default_data_entries = 1200
             /* Default max number of metadata entries */
             default_meta_entries = 1500;
-	}
+        }
 
-	qos: {
-	    /* Default qos threads */
-	    default_qos_threads = 10
+        qos: {
+            /* Default qos threads */
+            default_qos_threads = 10
             /* default max number of outstanding IO below qos control */
             default_outstanding_io = 20
-	}
+        }
 
         /* Running in test mode */
         test_mode=false
-	    /* Internal testing related info */
-	testing: {
+        /* Internal testing related info */
+        testing: {
             /* enable if testing SM standalone, no dependency on platform and OM */
             standalone = false
+
+            /* this is temporary until we fix platform, we don't want simulated SSDs */
+            useSsdForMeta = false
 
             /* General testing mode...should depricate */
             test_mode = false
 
-	    /* Number of volumes to create in test mode.  Valid when test_mode is true */
-	    test_volume_cnt=10
+            /* Number of volumes to create in test mode.  Valid when test_mode is true */
+            test_volume_cnt=10
 
-	    /* Forces all SM APIs to immediately return success */
-	    uturn_all = false
+            /* Forces all SM APIs to immediately return success */
+            uturn_all = false
 
-	    /* Forces put object calls to immediately return success */
-	    uturn_putobj = false
+            /* Forces put object calls to immediately return success */
+            uturn_putobj = false
 
             /* if test_tier is enable, rank engine will be configured from the config below */
             test_tier = false
@@ -232,8 +245,9 @@ fds: {
         logfile      = "am"
         om_ip        = "127.0.0.1"
         om_port      = 8904
-	/* TODO(Rao): Get this from platform */
-	om_config_port = 8903
+
+        /* TODO(Rao): Get this from platform */
+        om_config_port = 8903
         enable_graphite=false
         graphite: {
             /* Graphite server ip */
@@ -247,12 +261,13 @@ fds: {
         s3_http_port=8000
         s3_https_port=8443
         swift_port=9999
-	memory_backend=false
-	nbd_server_port = 10809
-	enable_nbd_log=false
-	enable_nbd_block_exclusion=false
-	fdsn_server_threads=100
-        qos_threads=50
+        memory_backend=false
+        nbd_server_port = 10809
+        enable_nbd_log=true
+        enable_nbd_block_exclusion=false
+        fdsn_server_threads=30
+        async_server_threads=4
+        qos_threads=4
 
         threadpool: {
             max_task    = 10
@@ -261,54 +276,60 @@ fds: {
             min_thread  = 10
             max_thread  = 15
         }
+        cache: {
+            /* Default max entries in a volume's AM cache */
+            default_max_entries = 0
+            /* Default max staged entries in a volume's tx descriptor */
+            tx_max_staged_entries = 10
+        }
 
-	cache: {
-	    /* Default max entries in a volume's AM cache */
-	    default_max_entries = 0
-	    /* Default max staged entries in a volume's tx descriptor */
-	    tx_max_staged_entries = 10
-	}
-
-	/* Internal testing related info */
-	testing: {
+        /* Internal testing related info */
+        testing: {
             /* Toggle stand alone mode */
             toggleStandAlone = false
+
+            /* Toggle to disable stats collection for metadata streaming */
+            toggleDisableStreamingStats = false
+
+            /* NBD module driver */
+            nbd_vol_module = "sm"
+
             /* Toggle old or new processing path */
-	    toggleNewPath = true
-	    /* Forces all AM processor APIs to immediately return success */
-	    uturn_processor_all = false
-	    /* Forces all AM dispatcher APIs to immediately return success */
-	    uturn_dispatcher_all = false
-	    /* Test mode to bypass local catalog cache */
-	    disable_vcc = true
-	    /* Forces all AM service APIs to immediately return success */
-	    uturn_amserv_all = false
-	    /* Forces AM service start transaction to immediately return success */
-	    uturn_amserv_starttx = false
-	    /* Forces AM service update blob to immediately return success */
-	    uturn_amserv_updateblob = false
-	    /* Forces AM service update metadata to immediately return success */
-	    uturn_amserv_updatemeta = false
-	    /* Forces AM service commit transaction to immediately return success */
-	    uturn_amserv_committx = false
-	    /* Forces AM service abort transaction to immediately return success */
-	    uturn_amserv_aborttx = false
-	    /* Forces AM service stat blob to immediately return success */
-	    uturn_amserv_statblob = false
-	    /* Forces AM service get blob to immediately return success */
-	    uturn_amserv_getblob = false
-	    /* Enables probe testing server */
-	    enable_probe = false
+            toggleNewPath = true
+            /* Forces all AM processor APIs to immediately return success */
+            uturn_processor_all = false
+            /* Forces all AM dispatcher APIs to immediately return success */
+            uturn_dispatcher_all = false
+            /* Test mode to bypass local catalog cache */
+            disable_vcc = true
+            /* Forces all AM service APIs to immediately return success */
+            uturn_amserv_all = false
+            /* Forces AM service start transaction to immediately return success */
+            uturn_amserv_starttx = false
+            /* Forces AM service update blob to immediately return success */
+            uturn_amserv_updateblob = false
+            /* Forces AM service update metadata to immediately return success */
+            uturn_amserv_updatemeta = false
+            /* Forces AM service commit transaction to immediately return success */
+            uturn_amserv_committx = false
+            /* Forces AM service abort transaction to immediately return success */
+            uturn_amserv_aborttx = false
+            /* Forces AM service stat blob to immediately return success */
+            uturn_amserv_statblob = false
+            /* Forces AM service get blob to immediately return success */
+            uturn_amserv_getblob = false
+            /* Enables probe testing server */
+            enable_probe = false
             /* Enable qos testing with probe, will use probe_outstanding_reqs per volume */
             probe_test_qos = false
-	    /* Number of threads for probe test */
-	    probe_num_threads = 10
-        /* Number of max outanding requests */
-	    probe_outstanding_reqs = 500
-        /* How long to sleep before checking the outstanding requests (periodically)*/
-	    probe_sleep_period = 500
-        /* Enable printing of fine-grained QoS stats to var/stats/stats-data dir */
-        print_qos_stats = true
+            /* Number of threads for probe test */
+            probe_num_threads = 10
+            /* Number of max outanding requests */
+            probe_outstanding_reqs = 500
+            /* How long to sleep before checking the outstanding requests (periodically)*/
+            probe_sleep_period = 500
+            /* Enable printing of fine-grained QoS stats to var/stats/stats-data dir */
+            print_qos_stats = false
         }
     }
     om:
@@ -327,7 +348,7 @@ fds: {
 
         web_dir="../lib/admin-webapp/"
         http_port=7777
-	https_port=7443
+        https_port=7443
         configdb : {
             port=6379
         }
@@ -365,5 +386,4 @@ fds: {
             max_thread  = 8
         }
     }
-
 }

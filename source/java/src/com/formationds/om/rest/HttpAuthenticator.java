@@ -3,6 +3,7 @@ package com.formationds.om.rest;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.JsonResource;
@@ -35,9 +36,10 @@ public class HttpAuthenticator implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-
         if (authenticator.allowAll()) {
-            return f.apply(AuthenticationToken.ANONYMOUS).handle(request, routeParameters);
+            AuthenticatedRequestContext.begin(AuthenticationToken.ANONYMOUS);
+            try { return f.apply(AuthenticationToken.ANONYMOUS).handle(request, routeParameters); }
+            finally { AuthenticatedRequestContext.complete(); }
         }
 
         Optional<AuthenticationToken> fromHeaders = parseHeaders(request);
@@ -56,10 +58,17 @@ public class HttpAuthenticator implements RequestHandler {
 
         try {
             AuthenticationToken token = authenticator.resolveToken(result.get().getValue());
+
+            // Set the authentication in the thread local storage to allow access by the event manager
+            AuthenticatedRequestContext.begin(token);
             return f.apply(token).handle(request, routeParameters);
         } catch (LoginException e) {
             LOG.error("Authentication error", e);
             return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
+        }
+        finally {
+            // remove the authentication token immediately upon completion of the request handling
+            AuthenticatedRequestContext.complete();
         }
     }
 
