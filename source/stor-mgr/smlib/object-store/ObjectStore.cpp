@@ -159,14 +159,11 @@ ObjectStore::putObject(fds_volid_t volId,
         useTier = tierEngine->selectTier(objId, *vol->voldesc);
 
         if (useTier == diskio::flashTier) {
-            // TODO(brian): Has this actually saved us any accesses?
-            // TODO(brian): Where do we get flashFullThreshold from still?
             fds_bool_t ssdSuccess = diskMap->ssdTrackCapacityAdd(objId,
                     objData->size(), tierEngine->getFlashFullThreshold());
 
             if (!ssdSuccess) {
                 useTier = diskio::diskTier;
-                diskMap->ssdTrackCapacityDelete(objId, objData->size());
             }
         }
 
@@ -176,6 +173,9 @@ ObjectStore::putObject(fds_volid_t volId,
         if (!err.ok()) {
             LOGERROR << "Failed to write " << objId << " to obj data store "
                      << err;
+            if (useTier == diskio::flashTier) {
+                diskMap->ssdTrackCapacityDelete(objId, objData->size());
+            }
             return err;
         }
 

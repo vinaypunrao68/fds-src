@@ -56,12 +56,13 @@ fds_bool_t SmDiskMap::ssdTrackCapacityAdd(ObjectID oid,
     fds_uint16_t diskId = getDiskId(oid, diskio::flashTier);
     // Get the capacity information for this disk
     std::pair<fds_uint64_t, fds_uint64_t>ssdCap = capacityMap->at(diskId);
-    // Add the writeSize
-    ssdCap.first += writeSize;
     // Check if we're over threshold now
-    if (ssdCap.first > (ssdCap.second * (fullThreshold / 100))) {
+    if ((ssdCap.first + writeSize) >
+            (ssdCap.second * (fullThreshold / 100))) {
         return false;
     }
+    // Add the writeSize
+    ssdCap.first += writeSize;
     return true;
 }
 
