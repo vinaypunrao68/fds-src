@@ -31,7 +31,7 @@ FilePersisDataIO::FilePersisDataIO(char const *const file,
         exit(1);
     }
     // Convert to block-size unit.
-    fi_cur_off = fi_cur_off >> DataIO::disk_io_blk_shift();
+    fi_cur_off = DataIO::disk_io_round_up_blk(fi_cur_off);
 }
 
 FilePersisDataIO::~FilePersisDataIO()
