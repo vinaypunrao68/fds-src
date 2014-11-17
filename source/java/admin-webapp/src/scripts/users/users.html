@@ -29,11 +29,19 @@
             <thead>
 <!--                <th><input type="checkbox" /></th>-->
                 <th translate>common.th_name</th>
+                <th translate>users.th_tenant</th>
+                <th></th>
             </thead>
             <tboday>
                 <tr class="user-row" ng-repeat="user in users | filter:userQuery">
 <!--                    <td><input type="checkbox" /></td>-->
                     <td class="user-identifier">{{user.identifier}}</td>
+                    <td class="tenant-name">{{ user.tenant.name }}</td>
+                    <td>
+                        <div class="flex">
+                            <span class="icon icon-edit" ng-click="editUser( user )"></span>
+                        </div>
+                    </td>
                 </tr>
             </tboday>
         </table>

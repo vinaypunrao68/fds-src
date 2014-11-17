@@ -25,6 +25,7 @@ AsyncDataServer::AsyncDataServer(const std::string &name,
           asyncDataApi(_dataApi),
           numServerThreads(10) {
     serverTransport.reset(new xdi_att::TServerSocket(port));
+    // serverTransport.reset(new xdi_att::TServerSocket("/tmp/am-req-sock"));
     transportFactory.reset(new xdi_att::TFramedTransportFactory());
     protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
 

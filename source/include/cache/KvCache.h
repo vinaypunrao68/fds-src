@@ -200,11 +200,10 @@ template <class K, class V, class _Hash = std::hash<K>>
     }
 
     std::unique_ptr<V> add(const K &key, V* value) override {
-        GLOGTRACE << "Adding key " << key;
-        // Remove any exiting entry from cache
+        // Remove existing entry
         remove(key);
 
-        // Add the entry to the front of the eviction
+        // otherwise add the entry to the front of the eviction
         // list and into the map
         KvPair entry(key, value);
         evictionList->push_front(entry);

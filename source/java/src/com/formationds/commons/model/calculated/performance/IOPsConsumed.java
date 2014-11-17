@@ -20,9 +20,15 @@ public class IOPsConsumed
     private Double dailyAverage;
 
     /**
-     * @param dailyAverage the {@link Double} representing the calculated daily average
+     * default constructor
      */
-    public IOPsConsumed( final Double dailyAverage ) {
+    public IOPsConsumed( ) {
+    }
+
+    /**
+     * @param dailyAverage the {@link Double} representing the daily average
+     */
+    public void setDailyAverage( final Double dailyAverage ) {
         this.dailyAverage = dailyAverage;
     }
 

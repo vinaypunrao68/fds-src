@@ -1,6 +1,7 @@
 require( './mockAuth' );
 require( './mockSnapshot' );
 require( './mockVolume' );
+require( './mockTenant' );
 
 addModule = function( moduleName, module ){
 
@@ -12,6 +13,7 @@ addModule = function( moduleName, module ){
 addModule( 'user-management', mockAuth );
 addModule( 'volume-management', mockVolume );
 addModule( 'qos', mockSnapshot );
+addModule( 'tenant-management', mockTenant );
 
 login = function(){
     browser.get( '#/' );
@@ -45,5 +47,18 @@ goto = function( tab ){
 
     var tab = element( by.id( 'main.' + tab ) );
     tab.click();
+    browser.sleep( 200 );
+};
+
+createTenant = function( name ){
+    
+    goto( 'tenants' );
+    var createLink = element( by.css( '.create-tenant-link' ) );
+    createLink.click();
+
+    var nameEl = element( by.css( '.tenant-name-input' )).element( by.tagName( 'input' ));
+    nameEl.sendKeys( name );
+
+    element( by.css( '.create-tenant-button' ) ).click();
     browser.sleep( 200 );
 };

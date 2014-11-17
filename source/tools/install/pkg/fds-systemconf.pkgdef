@@ -1,5 +1,5 @@
 package: fds-systemconf
-version: 0.2
+version: 0.6.0
 description: installs the core configuration
 
 depends: fds-systemdir

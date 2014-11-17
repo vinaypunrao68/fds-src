@@ -1,10 +1,11 @@
-angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$modal_data_service', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$interval', function( $scope, $volume_api, $modal_data_service, $snapshot_service, $stats_service, $byte_converter, $filter, $interval ){
+angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$interval', '$rootScope', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $interval, $rootScope ){
     
     var translate = function( key ){
         return $filter( 'translate' )( key );
     };
     
     $scope.snapshots = [];
+    $scope.snapshotPolicies = [];
     
     $scope.thisVolume = {};
     $scope.capacityStats = { series: [] };
@@ -16,11 +17,13 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.capacityColors = [ '#ABD3F5', '#72AEEB' ];
     $scope.performanceColors = [ '#A4D966' ];
     $scope.performanceLine = ['#66B22E'];   
-    $scope.opacities = [0.7,0.7];
     
     $scope.dedupLabel = '';
     $scope.physicalLabel = '';
     $scope.iopLabel = '';
+    
+    $scope.qos = {};
+    $scope.dataConnector = {};
     
     var capacityIntervalId = -1;
     var performanceIntervalId = -1;
@@ -47,7 +50,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     };
     
     $scope.capacityLabelFx = function( data ){
-        return $byte_converter.convertBytesToString( data, 0 );
+        return $byte_converter.convertBytesToString( data, 1 );
     };
     
     var getCapacityLegendText = function( series, key ){
@@ -74,16 +77,35 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             $filter( 'translate' )( key );
     };
     
-    $scope.clone = function( snapshot ){
-
-        var newName = prompt( 'Name for new volume:' );
-        
-        $snapshot_service.cloneSnapshotToNewVolume( snapshot, newName.trim(), function(){ alert( 'Clone successfully created.');} );
-    };
-    
     $scope.deleteSnapshot = function( snapshot ){
         
         $volume_api.deleteSnapshot( $scope.volumeVars.selectedVolume.id, snapshot.id, function(){ alert( 'Snapshot deleted successfully.' );} );
+    };
+    
+    $scope.deleteVolume = function(){
+        
+        var confirm = {
+            type: 'CONFIRM',
+            text: $filter( 'translate' )( 'volumes.desc_confirm_delete' ),
+            confirm: function( result ){
+                if ( result === false ){
+                    return;
+                }
+                
+                $volume_api.delete( $scope.volumeVars.selectedVolume,
+                    function(){ 
+                        var $event = {
+                            type: 'INFO',
+                            text: $filter( 'translate' )( 'volumes.desc_volume_deleted' )
+                        };
+
+                        $rootScope.$emit( 'fds::alert', $event );
+                        $scope.volumeVars.back();
+                });
+            }
+        };
+        
+        $rootScope.$emit( 'fds::confirm', confirm );
     };
 
     $scope.formatDate = function( ms ){
@@ -153,6 +175,16 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             
             $scope.thisVolume = $scope.volumeVars.selectedVolume;
             
+            $scope.dataConnector = $scope.thisVolume.data_connector;
+            
+            $scope.qos.capacity = $scope.thisVolume.sla;
+            $scope.qos.limit = $scope.thisVolume.limit;
+            $scope.qos.priority = $scope.thisVolume.priority;
+            
+            $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id, function( realPolicies ){
+                $scope.snapshotPolicies = realPolicies;
+            });
+            
             buildQueries();
             
             capacityIntervalId = $interval( pollCapacity, 60000 );
@@ -162,6 +194,37 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             $interval.cancel( capacityIntervalId );
             $interval.cancel( performanceIntervalId );
         }
+    });
+    
+    $scope.$on( 'fds::snapshot_policy_change', function(){
+        
+        $volume_api.getSnapshotPoliciesForVolume( $scope.thisVolume.id, function( oldPolicies ){
+            $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, oldPolicies, $scope.snapshotPolicies );
+        });
+    });
+    
+    $scope.$on( 'fds::qos_changed', function(){
+        
+        if ( !angular.isDefined( $scope.thisVolume.id ) ){
+            return;
+        }
+    
+        $scope.thisVolume.sla = $scope.qos.capacity;
+        $scope.thisVolume.priority = $scope.qos.priority;
+        $scope.thisVolume.limit = $scope.qos.limit;
+        
+        $volume_api.save( $scope.thisVolume );
+    });
+    
+    $scope.$on( 'fds::data_conenctor_changed', function( newVal, oldVal ){
+        
+        if ( !angular.isDefined( $scope.thisVolume.id ) || !angular.isDefined( oldVal ) ){
+            return;
+        }        
+
+        $scope.thisVolume.data_connector = $scope.dataConncetor;
+        
+        $volume_api.save( $scope.thisVolume );
     });
     
 }]);
