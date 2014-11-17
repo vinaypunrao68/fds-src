@@ -123,6 +123,11 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_gets > 0));
     fiu_do_on("svc.drop.getobject", return);
+    fiu_do_on("svc.uturn.getobject",
+              auto getReq = new SmIoGetObjectReq(getObjMsg); \
+              boost::shared_ptr<GetObjectResp> resp = boost::make_shared<GetObjectResp>(); \
+              getReq->getObjectNetResp = resp; \
+              getObjectCb(asyncHdr, ERR_OK, getReq); return;);
 
     Error err(ERR_OK);
     auto getReq = new SmIoGetObjectReq(getObjMsg);

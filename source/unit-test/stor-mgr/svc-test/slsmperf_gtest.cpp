@@ -129,7 +129,7 @@ TEST_F(SMApi, putsPerf)
     bool failSendsbefore = this->getArg<bool>("failsends-before");
     bool failSendsafter = this->getArg<bool>("failsends-after");
     bool uturnAsyncReq = this->getArg<bool>("uturn-asyncreqt");
-    bool uturnPuts = this->getArg<bool>("uturn");
+    bool uturn = this->getArg<bool>("uturn");
     bool disableSchedule = this->getArg<bool>("disable-schedule");
     bool largeFrame = this->getArg<bool>("largeframe");
     bool lftp = this->getArg<bool>("lftp");
@@ -169,6 +169,7 @@ TEST_F(SMApi, putsPerf)
     }
     if (uturnPuts) {
         ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
+        ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.getobject"));
     }
     if (disableSchedule) {
         fiu_enable("svc.disable.schedule", 1, NULL, 0);
@@ -302,8 +303,9 @@ TEST_F(SMApi, putsPerf)
     if (uturnAsyncReq) {
         ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.asyncreqt"));
     }
-    if (uturnPuts) {
+    if (uturn) {
         ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.putobject"));
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.getobject"));
     }
     if (disableSchedule) {
         fiu_disable("svc.disable.schedule");
