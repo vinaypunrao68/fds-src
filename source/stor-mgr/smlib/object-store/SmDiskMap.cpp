@@ -5,6 +5,8 @@
 #include <fds_process.h>
 #include <platform/platform-lib.h>
 #include <object-store/SmDiskMap.h>
+#include <sys/statvfs.h>
+#include <utility>
 
 namespace fds {
 
@@ -12,6 +14,7 @@ SmDiskMap::SmDiskMap(const std::string& modName)
         : Module(modName.c_str()),
           bitsPerToken_(0),
           superblock(new SmSuperblockMgr()),
+          capacityMap(nullptr),
           test_mode(false) {
 }
 
@@ -25,10 +28,48 @@ int SmDiskMap::mod_init(SysParams const *const param) {
     // get list of HDD and SSD devices
     getDiskMap();
 
+    // Create and populate the capcity map
+    // TODO(brian): See if we want to move this into getDiskMap for performance
+    capacityMap = new std::unordered_map<fds_uint16_t,
+            std::pair<fds_uint64_t, fds_uint64_t>>();
+
+    for (auto disk_id : ssd_ids) {
+        struct statvfs statbuf;
+        std::string diskPath = getDiskPath(disk_id);
+        if (statvfs(diskPath.c_str(), &statbuf) < 0) {
+            LOGERROR << "Could not read disk " << diskPath;
+        }
+        // Populate the capacityMap for this diskID
+        capacityMap->emplace(disk_id,
+                std::make_pair((statbuf.f_bfree * statbuf.f_bsize),
+                        (statbuf.f_blocks * statbuf.f_frsize)));
+    }
+
     // we are not going to read superblock
     // until we get our first DLT; when we get DLT
     // SM knows which tokens it owns
     return 0;
+}
+
+fds_bool_t SmDiskMap::ssdTrackCapacityAdd(ObjectID oid,
+        fds_uint64_t writeSize, fds_uint32_t fullThreshold) {
+    fds_uint16_t diskId = getDiskId(oid, diskio::flashTier);
+    // Get the capacity information for this disk
+    std::pair<fds_uint64_t, fds_uint64_t>ssdCap = capacityMap->at(diskId);
+    // Check if we're over threshold now
+    if ((ssdCap.first + writeSize) >
+            (ssdCap.second * (fullThreshold / 100))) {
+        return false;
+    }
+    // Add the writeSize
+    ssdCap.first += writeSize;
+    return true;
+}
+
+void SmDiskMap::ssdTrackCapacityDelete(ObjectID oid, fds_uint64_t writeSize) {
+    fds_uint16_t diskId = getDiskId(oid, diskio::flashTier);
+    // Get the capacity information for this disk
+    capacityMap->at(diskId).first -= writeSize;
 }
 
 void SmDiskMap::mod_startup() {
