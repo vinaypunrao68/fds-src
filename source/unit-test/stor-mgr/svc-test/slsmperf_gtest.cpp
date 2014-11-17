@@ -167,7 +167,7 @@ TEST_F(SMApi, putsPerf)
     if (uturnAsyncReq) {
         ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.asyncreqt"));
     }
-    if (uturnPuts) {
+    if (uturn) {
         ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
         ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.getobject"));
     }
