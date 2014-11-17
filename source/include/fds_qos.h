@@ -152,7 +152,7 @@ namespace fds {
                 err = Error(ERR_INVALID_ARG);
                 return err;
             }
-            / /FDS_VolumeQueue *que = queue_map[queue_id];
+            // FDS_VolumeQueue *que = queue_map[queue_id];
             // Assert here that queue is empty, when one such API is available.
             queue_map.erase(queue_id);
             return err;
