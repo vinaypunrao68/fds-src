@@ -59,6 +59,9 @@ fds_bool_t SmDiskMap::ssdTrackCapacityAdd(ObjectID oid,
     // Check if we're over threshold now
     if ((ssdCap.first + writeSize) >
             (ssdCap.second * (fullThreshold / 100))) {
+        LOGDEBUG << "SSD write would exceed full threshold: Threshold: " <<
+                    fullThreshold << " current usage: " << ssdCap.first << " of "
+                    << ssdCap.second << " Write size: " << writeSize;
         return false;
     }
     // Add the writeSize
