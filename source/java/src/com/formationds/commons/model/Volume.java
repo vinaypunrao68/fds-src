@@ -4,6 +4,7 @@
 
 package com.formationds.commons.model;
 
+import com.formationds.apis.MediaPolicy;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.util.ModelFieldValidator;
 
@@ -27,6 +28,7 @@ public class Volume
   private Integer priority;
   private Connector data_connector;
   private Usage current_usage;
+  private MediaPolicy mediaPolicy;
 
   private static final Map<String, ModelFieldValidator> VALIDATORS =
     new HashMap<>();
@@ -148,6 +150,18 @@ public class Volume
     }
 
     this.limit = limit;
+  }
+  
+  /**
+   * 
+   * @return return a {@link MediaPolicy} that dictates where/how data should be stored
+   */
+  public MediaPolicy getMediaPolicy(){
+	  return mediaPolicy;
+  }
+  
+  public void setMediaPolicy( MediaPolicy aPolicy ){
+	  mediaPolicy = aPolicy;
   }
 
   /**
