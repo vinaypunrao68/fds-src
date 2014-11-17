@@ -11,6 +11,7 @@
 #include <object-store/ObjectStore.h>
 #include <sys/statvfs.h>
 #include <utility>
+#include <object-store/TieringConfig.h>
 
 namespace fds {
 
@@ -21,7 +22,6 @@ ObjectStore::ObjectStore(const std::string &modName,
           volumeTbl(volTbl),
           conf_verify_data(true),
           numBitsPerToken(0),
-          capacityMap(nullptr),
           diskMap(new SmDiskMap("SM Disk Map Module")),
           dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
           metaStore(new ObjectMetadataStore(
@@ -32,9 +32,6 @@ ObjectStore::ObjectStore(const std::string &modName,
 }
 
 ObjectStore::~ObjectStore() {
-    if (capacityMap != nullptr) {
-        delete capacityMap;
-    }
 }
 
 void
@@ -161,21 +158,15 @@ ObjectStore::putObject(fds_volid_t volId,
         fds_verify(vol);
         useTier = tierEngine->selectTier(objId, *vol->voldesc);
 
-        // Disk ID for SSD writes; writeSize of SSD write
-        fds_uint16_t diskId;
-        fds_uint64_t writeSize;
         if (useTier == diskio::flashTier) {
-            /// Determine if we can make a write to SSD or not
-            // Calculate diskId for the write, calculate writeSize
-            diskId = diskMap->getDiskId(objId, diskio::flashTier);
-            writeSize = objData->size();
+            // TODO(brian): Has this actually saved us any accesses?
+            // TODO(brian): Where do we get flashFullThreshold from still?
+            fds_bool_t ssdSuccess = diskMap->ssdTrackCapacityAdd(objId,
+                    objData->size(), tierEngine->getFlashFullThreshold());
 
-            std::pair<fds_uint64_t, fds_uint64_t> ssdCap = capacityMap->at(diskId);
-
-            // If we're writing to flash, and the write would put us over "full capacity"
-            if ((ssdCap.first + writeSize) > (ssdCap.second * TierEngine::SSD_FULL_THRESHOLD)) {
-                // If we don't have the capacity set it to disk tier
+            if (!ssdSuccess) {
                 useTier = diskio::diskTier;
+                diskMap->ssdTrackCapacityDelete(objId, objData->size());
             }
         }
 
@@ -188,11 +179,6 @@ ObjectStore::putObject(fds_volid_t volId,
             return err;
         }
 
-        // Update capacity map for SSDs if SSD write succeeded
-        if (useTier == diskio::flashTier && err.ok()) {
-            capacityMap->at(diskId).first += writeSize;
-        }
-        
         // Notify tier engine of recent IO
         tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *vol->voldesc, useTier);
 
@@ -580,25 +566,6 @@ ObjectStore::mod_init(SysParams const *const p) {
                 "fds.sm.objectstore.synchronizer_size");
     taskSynchronizer = std::unique_ptr<HashedLocks<ObjectID, ObjectHash>>(
         new HashedLocks<ObjectID, ObjectHash>(taskSyncSize));
-
-    // Create and populate the capcity map
-    capacityMap = new std::unordered_map<fds_uint16_t,
-            std::pair<fds_uint64_t, fds_uint64_t>>();
-
-    DiskIdSet ssdIds;
-    ssdIds = diskMap->getDiskIds(diskio::flashTier);
-
-    for (auto disk_id : ssdIds) {
-        struct statvfs statbuf;
-        std::string diskPath = diskMap->getDiskPath(disk_id);
-        if (statvfs(diskPath.c_str(), &statbuf) < 0) {
-            LOGERROR << "Could not read disk " << diskPath;
-        }
-        // Populate the capacityMap for this diskID
-        capacityMap->emplace(disk_id,
-                std::make_pair((statbuf.f_bfree * statbuf.f_bsize),
-                        (statbuf.f_blocks * statbuf.f_frsize)));
-    }
 
     LOGDEBUG << "Done";
     return 0;

@@ -38,10 +38,6 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// Tiering engine
     TierEngine::unique_ptr tierEngine;
-    /// SSD capacity tracking for tiering
-    // Maps from DiskId -> <usedCapacity, totalCapcity>
-    std::unordered_map<fds_uint16_t,
-            std::pair<fds_uint64_t, fds_uint64_t>> * capacityMap;
 
     /// Volume table for accessing vol descriptors
     // Does not own, passed from SM processing layer

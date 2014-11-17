@@ -29,19 +29,10 @@ class TierEngine : public Module {
         FDS_COUNTING_BLOOM_RANK_POLICY
     } rankPolicyType;
 
-    // Full threshold of our SSDs
-    static constexpr float SSD_FULL_THRESHOLD = .9;
-
   private:
     fds_uint32_t  numMigThrds;
     boost::shared_ptr<RankEngine> rankEngine;
 
-    /*
-     * Member references to external objects.
-     * Stats: provides obj/vol usage stats
-     * Ranker: provides in flash obj ranks
-     * Volume meta: provides vol placement metadata
-     */
     StorMgrVolumeTable* sm_volTbl;
     SmTierMigration* migrator;
 
@@ -59,6 +50,16 @@ class TierEngine : public Module {
 
     typedef std::unique_ptr<TierEngine> unique_ptr;
 
+    /** Gets the threshold for considering SSDs full from
+    * the tier migration policy.
+    *
+    * @returns number between 0-100 that represents the % of
+    * SSD capacity that must be used before the SSD is considered 'full'.
+    */
+    inline fds_uint32_t getFlashFullThreshold() const {
+        return migrator->flashFullThreshold();
+    }
+
     /**
     * Determines the tier for an object that's
     * looking for a tier. Intended to be called
@@ -69,8 +70,6 @@ class TierEngine : public Module {
     *
     * @return the tier to place object
     */
-    // TODO(brian): If we have capacity put to SSD (in SSD case), otherwise right to HDD
-    // Remove all calls to RankEngine
     diskio::DataTier selectTier(const ObjectID &oid,
             const VolumeDesc& voldesc);
 
