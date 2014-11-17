@@ -45,7 +45,11 @@
     </form>
 
     <div class="pull-left"style="padding-top: 12px;margin-bottom: 42px;">
-        <button class="btn btn-primary create-user-button" style="display: inline-block;" ng-click="save()" translate>users.l_create_user</button>
+        <button class="btn btn-primary create-user-button" style="display: inline-block;" ng-click="save()">
+            <span ng-show="!editing" translate>users.l_create_user</span>
+            <span ng-show="editing" translate>users.l_edit_user</span>
+        </button>
+        
         <button class="btn btn-secondary create-user-cancel-button" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
     </div>
 </div>
