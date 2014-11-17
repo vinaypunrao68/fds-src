@@ -286,11 +286,11 @@ endif
 #
 $(comm_dir_objs)/%.o : %.c
 ifdef VERBOSE
-	$(cc) -MMD $(local_cc_flags) -c $< -o $@
+	$(cc) -MMD -MP $(local_cc_flags) -c $< -o $@
 else
 	@echo "    [CC]          $<"
 	@mkdir -p $(comm_dir_objs)
-	@$(cc) -MMD $(local_cc_flags) -c $< -o $@
+	@$(cc) -MMD -MP $(local_cc_flags) -c $< -o $@
 endif
 	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
 
@@ -299,21 +299,21 @@ endif
 #
 $(comm_dir_objs)/%.o : %.cpp
 ifdef VERBOSE
-	$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
+	$(cpp) -MMD -MP $(local_cpp_flags) -c $< -o $@
 else
 	@echo "    [CPP]         $<"
 	@mkdir -p $(comm_dir_objs)
-	@$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
+	@$(cpp) -MMD -MP $(local_cpp_flags) -c $< -o $@
 endif
 	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
 
 $(comm_dir_objs)/%.o : %.cc
 ifdef VERBOSE
-	$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
+	$(cpp) -MMD -MP $(local_cpp_flags) -c $< -o $@
 else
 	@echo "    [CPP]         $<"
 	@mkdir -p $(comm_dir_objs)
-	@$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
+	@$(cpp) -MMD -MP $(local_cpp_flags) -c $< -o $@
 endif
 	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
 
@@ -379,21 +379,14 @@ $(fdsrepofile) : $(reposetupscript)
 fdsrepo :  $(fdsrepofile)
 
 # -----------------------------------------------------------------------------
-# Setup Chef client for chef-zero convergence
+# Keep track of where all relevant ansible files live
 # -----------------------------------------------------------------------------
-#chef_client_binary := /opt/chef/bin/chef-client
-#chef_command := sudo chef-client --config chef/chef-client-config.rb -z -o fds_setup::dev_setup
-#$(chef_client_binary):
-#	@curl -L https://www.getchef.com/chef/install.sh | sudo bash
-#	@sudo touch ${chef_client_binary}
-
-#.PHONY : devsetup
-#devsetup: $(chef_client_binary)
-#	@cd $(incl_scripts)/../../../; $(chef_command)
-
-
 ansible_dir := $(incl_scripts)/../../../ansible
-ansible_devsetup_command := ansible-playbook -i $(ansible_dir)/ansible_hosts -c local $(ansible_dir)/playbooks/devsetup.yml 
+run_ansible_playbook_local := ansible-playbook -i $(ansible_dir)/ansible_hosts -c local $(ansible_dir)/playbooks
+
+# -----------------------------------------------------------------------------
+# Setup and run ansible for devsetup dependency install / config
+# -----------------------------------------------------------------------------
 devsetup_playbook := $(ansible_dir)/playbooks/devsetup.yml
 devsetup_is_up_to_date := $(ansible_dir)/.devsetup-is-up-to-date
 devsetup_is_running := $(ansible_dir)/.devsetup-is-running
@@ -405,6 +398,13 @@ $(devsetup_is_up_to_date): $(devsetup_playbook) $(ansible_dir)/devsetup_ansible.
 
 .PHONY: devsetup
 devsetup: $(devsetup_is_up_to_date)
+
+# -----------------------------------------------------------------------------
+# Run ansible to generate packageable config files
+# -----------------------------------------------------------------------------
+generate-config-files: $(devsetup_is_up_to_date)
+	@sudo rm -f $(ansible_dir)/../source/config/etc/*.conf $(ansible_dir)/../source/test/formation.conf
+	@$(run_ansible_playbook_local)/generate_config_files.yml
 
 # -----------------------------------------------------------------------------
 # List Targets

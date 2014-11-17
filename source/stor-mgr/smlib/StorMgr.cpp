@@ -151,15 +151,12 @@ ObjectStorMgr::~ObjectStorMgr() {
 
     delete qosCtrl;
 
-    delete dirtyFlashObjs;
-
     delete volTbl;
 }
 
 int
 ObjectStorMgr::mod_init(SysParams const *const param) {
     shuttingDown = false;
-    maxDirtyObjs = 10000;
 
     // Init  the log infra
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
@@ -184,12 +181,6 @@ void ObjectStorMgr::mod_startup()
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
 
-    /*
-     * Setup the tier related members
-     */
-    dirtyFlashObjs = new ObjQueue(maxDirtyObjs);
-    fds_verify(dirtyFlashObjs->is_lock_free() == true);
-
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
 
@@ -201,7 +192,8 @@ void ObjectStorMgr::mod_startup()
         tokenStateDb_->addToken(tok);
     }
 
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
+    testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
+    if (testStandalone == false) {
         /* Set up FDSP RPC endpoints */
         nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
         myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
@@ -363,13 +355,6 @@ void ObjectStorMgr::mod_enable_service()
             delete testVdb;
         }
     }
-
-    /*
-     * Kick off the writeback thread(s)
-     */
-    // TODO(Anna) move write back functionality to ObjectStore
-    // and do through QoS, not separate threadpool
-    // writeBackThreads->schedule(writeBackFunc, this);
 }
 
 void ObjectStorMgr::mod_shutdown()
@@ -474,7 +459,7 @@ const DLT* ObjectStorMgr::getDLT() {
 }
 
 fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == true) {
+    if (testStandalone == true) {
         return true;  // TODO(Anna) add test DLT and use my svc uuid = 1
     }
     DltTokenGroupPtr nodes = omClient->getDLTNodesForDoidKey(objId);
@@ -736,48 +721,6 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     }
 }
 
-void ObjectStorMgr::writeBackFunc(ObjectStorMgr *parent) {
-    ObjectID   *objId;
-    fds_bool_t  nonEmpty;
-    Error       err;
-
-    while (1) {
-        if (parent->isShuttingDown()) {
-            break;
-        }
-
-        /*
-         * Find an object to write back.
-         * TODO: Should add a bulk-object interface.
-         */
-        objId = NULL;
-        nonEmpty = parent->popDirtyFlash(&objId);
-        if (nonEmpty == false) {
-            /*
-             * If the queue is empty sleep for some
-             * period of time.
-             * Note I have no idea if this is the
-             * correct amount of time or not.
-             */
-            // GLOGDEBUG << "Nothing dirty in flash, going to sleep...";
-            sleep(5);
-            continue;
-        }
-        fds_verify(objId != NULL);
-
-        /*
-         * Blocking call to write back (mirror) this object
-         * to disk.
-         * TODO: Mark the object as being accessed to ensure
-         * it's not evicted by another thread in the meantime.
-         */
-        // err = parent->writeBackObj(*objId);
-        fds_verify(err == ERR_OK);
-
-        delete objId;
-    }
-}
-
 /*------------------------------------------------------------------------- ------------
  * FDSP Protocol internal processing 
  -------------------------------------------------------------------------------------*/
@@ -788,7 +731,6 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     Error err(ERR_OK);
     const ObjectID&  objId    = putReq->getObjId();
     fds_volid_t volId         = putReq->getVolId();
-    diskio::DataTier tierUsed = diskio::maxTier;
 
     fds_assert(volId != 0);
     fds_assert(objId != NullObjectID);
@@ -803,9 +745,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
                                  objId,
                                  boost::make_shared<std::string>(
                                      putReq->putObjectNetReq->data_obj));
-    qosCtrl->markIODone(*putReq,
-                        tierUsed,
-                        amIPrimary(objId));
+    qosCtrl->markIODone(*putReq);
 
     // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(putReq->opLatencyCtx);
@@ -832,7 +772,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 
     err = objectStore->deleteObject(volId, objId);
 
-    qosCtrl->markIODone(*delReq, diskio::diskTier);
+    qosCtrl->markIODone(*delReq);
 
     // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(delReq->opLatencyCtx);
@@ -867,7 +807,7 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq) {
         }
     }
 
-    qosCtrl->markIODone(*addObjRefReq, diskio::maxTier, true);
+    qosCtrl->markIODone(*addObjRefReq);
     // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(addObjRefReq->opLatencyCtx);
 
@@ -896,6 +836,7 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
     boost::shared_ptr<const std::string> objData =
             objectStore->getObject(volId,
                                    objId,
+                                   tierUsed,
                                    err);
     if (err.ok()) {
         // TODO(Andrew): Remove this copy. The network should allocated
@@ -973,6 +914,8 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
             break;
         }
         case FDS_SM_COMPACT_OBJECTS:
+        case FDS_SM_TIER_WRITEBACK_OBJECTS:
+        case FDS_SM_TIER_PROMOTE_OBJECTS:
         case FDS_SM_SNAPSHOT_TOKEN:
         {
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
@@ -1190,6 +1133,39 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
 }
 
 void
+ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq) {
+    Error err(ERR_OK);
+    SmIoMoveObjsToTier *moveReq = static_cast<SmIoMoveObjsToTier*>(ioReq);
+    fds_verify(moveReq != NULL);
+
+    LOGDEBUG << "Will move " << (moveReq->oidList).size() << " objs from tier "
+             << moveReq->fromTier << " to tier " << moveReq->fromTier
+             << " relocate? " << moveReq->relocate;
+
+    for (fds_uint32_t i = 0; i < (moveReq->oidList).size(); ++i) {
+        const ObjectID& objId = (moveReq->oidList)[i];
+        err = objectStore->moveObjectToTier(objId, moveReq->fromTier,
+                                            moveReq->toTier, moveReq->relocate);
+        if (!err.ok()) {
+            LOGERROR << "Failed to move " << objId << " from tier "
+                     << moveReq->fromTier << " to tier " << moveReq->fromTier
+                     << " relocate? " << moveReq->relocate << " " << err;
+            // we will just continue to move other objects; ok for promotions
+            // demotion should not assume that object was written back to HDD
+            // anyway, because writeback is eventual
+        }
+    }
+
+    /* Mark the request as complete */
+    qosCtrl->markIODone(*moveReq);
+
+    if (moveReq->moveObjsRespCb) {
+        moveReq->moveObjsRespCb(err, moveReq);
+    }
+    delete moveReq;
+}
+
+void
 ObjectStorMgr::resolveSyncEntryInternal(SmIoReq* ioReq)
 {
     fds_panic("need to be ported to new SM org");
@@ -1380,6 +1356,10 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             threadPool->schedule(&ObjectStorMgr::compactObjectsInternal, objStorMgr, io);
             break;
         }
+        case FDS_SM_TIER_WRITEBACK_OBJECTS:
+        case FDS_SM_TIER_PROMOTE_OBJECTS:
+            threadPool->schedule(&ObjectStorMgr::moveTierObjectsInternal, objStorMgr, io);
+            break;
         case FDS_SM_SYNC_APPLY_METADATA:
         {
             LOGDEBUG << "Processing sync apply metadata";

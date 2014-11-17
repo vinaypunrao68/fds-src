@@ -87,20 +87,28 @@ class TestDataset {
 /* Volume descriptor and behavior used for testing */
 class TestVolume {
   public:
-    TestVolume() : voldesc_("invalid", 0) {}
-    TestVolume(fds_volid_t volume_id,
-               std::string volname,
-               FdsConfigAccessor &conf);
-    ~TestVolume() {}
-
-    typedef boost::shared_ptr<TestVolume> ptr;
-
     typedef enum {
         STORE_OP_GET,
         STORE_OP_PUT,
         STORE_OP_DELETE,
         STORE_OP_DUPLICATE
     } StoreOpType;
+
+    TestVolume() : voldesc_("invalid", 0) {}
+    TestVolume(fds_volid_t volume_id,
+               std::string volname,
+               FdsConfigAccessor &conf);
+    TestVolume(fds_volid_t volume_id,
+               std::string volname,
+               fds_uint32_t concurrency,
+               fds_uint32_t numOps,
+               StoreOpType opType,
+               fds_uint32_t datasetSize,
+               fds_uint32_t objSize);
+    ~TestVolume() {}
+
+    typedef boost::shared_ptr<TestVolume> ptr;
+
     StoreOpType getOpTypeFromName(std::string& name);
 
     VolumeDesc voldesc_;
@@ -146,7 +154,7 @@ TestVolume::TestVolume(fds_volid_t volume_id,
     voldesc_.iops_min = conf.get<fds_uint32_t>("iops_min");
     voldesc_.iops_max = conf.get<fds_uint32_t>("iops_max");
     voldesc_.relativePrio = conf.get<fds_uint32_t>("priority");
-    voldesc_.mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
+    voldesc_.mediaPolicy = fpi::FDSP_MEDIA_POLICY_HYBRID_PREFCAP;
     concurrency_ = conf.get<fds_uint32_t>("concurrency");
     num_ops_ = conf.get<fds_uint32_t>("num_ops");
     fds_uint32_t dataset_size = conf.get<fds_uint32_t>("dataset_size");
@@ -165,6 +173,32 @@ TestVolume::TestVolume(fds_volid_t volume_id,
              << op_type_ << " with concurrency " << concurrency_
              << ", dataset size " << dataset_size << " objects, "
              << " object size " << obj_size << " bytes" << std::endl;
+
+    dispatched_count = ATOMIC_VAR_INIT(0);
+}
+
+TestVolume::TestVolume(fds_volid_t volume_id,
+                       std::string volname,
+                       fds_uint32_t concurrency,
+                       fds_uint32_t numOps,
+                       StoreOpType opType,
+                       fds_uint32_t datasetSize,
+                       fds_uint32_t objSize)
+        : voldesc_(volname, volume_id) {
+    voldesc_.iops_min = 0;
+    voldesc_.iops_max = 0;
+    voldesc_.relativePrio = 1;
+    voldesc_.mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
+    concurrency_ = concurrency;
+    num_ops_ = numOps;
+    testdata_.generateDataset(datasetSize, objSize);
+    op_type_ = opType;
+
+    LOGDEBUG << "Volume " << volname << " will execute " << num_ops_
+             << " operations of type "
+             << op_type_ << " with concurrency " << concurrency_
+             << ", dataset size " << datasetSize << " objects, "
+             << " object size " << objSize << " bytes" << std::endl;
 
     dispatched_count = ATOMIC_VAR_INIT(0);
 }

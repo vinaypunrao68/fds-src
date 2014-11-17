@@ -67,10 +67,11 @@ class VolumeContext(Context):
     @arg('--vol-type', help='-type of volume to create', choices=['block','object'])
     @arg('--blk-dev-size', help='-maximum size (in bytes) of block device', type=int)
     @arg('--tenant-id', help='-id of tenant to create volume under', type=int)
-    @arg('--media-policy', help='-media policy for volume', choices=['ssd', 'hdd'])
+    @arg('--commit-log-retention', help= " continuous commit log retention time in seconds", type=long)
+    # @arg('--media-policy', help='-media policy for volume', choices=['ssd', 'hdd'])
     def create(self, vol_name, domain='abc', max_obj_size=2097152,
-               vol_type='object', blk_dev_size=21474836480, tenant_id=1,
-               media_policy='hdd'):
+               vol_type='object', blk_dev_size=21474836480, tenant_id=1, commit_log_retention=86400 ):
+               # media_policy='hdd'):
         
         if vol_type == 'object':
             vol_type = ttypes.VolumeType.OBJECT
@@ -80,14 +81,14 @@ class VolumeContext(Context):
         elif vol_type not in (ttypes.VolumeType.OBJECT, ttypes.VolumeType.BLOCK):
             vol_type = ttypes.VolumeType.OBJECT
 
-        vol_set = ttypes.VolumeSettings(max_obj_size, vol_type, blk_dev_size)
+        vol_set = ttypes.VolumeSettings(max_obj_size, vol_type, blk_dev_size, commit_log_retention)
 
-        if media_policy == 'hdd':
-            media_policy = ttypes.FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HDD
-        elif media_policy == 'ssd':
-            media_policy = ttypes.FDSP_MediaPolicy.FDSP_MEDIA_POLICY_SSD
-        else:
-            media_policy = ttypes.FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HDD
+        # if media_policy == 'hdd':
+        #    media_policy = ttypes.FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HDD
+        # elif media_policy == 'ssd':
+        #    media_policy = ttypes.FDSP_MediaPolicy.FDSP_MEDIA_POLICY_SSD
+        # else:
+        #    media_policy = ttypes.FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HDD
 
         try:
             ServiceMap.omConfig().createVolume(domain, vol_name, vol_set, tenant_id)

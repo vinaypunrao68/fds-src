@@ -53,6 +53,11 @@ class AmAsyncResponseApi {
         const Error &error,
         boost::shared_ptr<apis::RequestId>& requestId,
         boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents) = 0;
+
+    virtual void getBlobResp(const Error &error,
+                             boost::shared_ptr<apis::RequestId>& requestId,
+                             char* buf,
+                             fds_uint32_t& length) = 0;
 };
 
 class AmAsyncXdiResponse : public AmAsyncResponseApi {
@@ -104,6 +109,11 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
         const Error &error,
         boost::shared_ptr<apis::RequestId>& requestId,
         boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents);
+
+    void getBlobResp(const Error &error,
+                     boost::shared_ptr<apis::RequestId>& requestId,
+                     char* buf,
+                     fds_uint32_t& length);
 };
 
 }  // namespace fds

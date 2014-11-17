@@ -16,10 +16,10 @@ struct GetBlobReq: public AmRequest {
     GetBlobReq(fds_volid_t _volid,
                const std::string& _volumeName,
                const std::string& _blob_name,
+               CallbackPtr cb,
                fds_uint64_t _blob_offset,
                fds_uint64_t _data_len,
-               char* _data_buf,
-               CallbackPtr cb);
+               char* _data_buf = nullptr);
 
     ~GetBlobReq();
 };

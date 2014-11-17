@@ -1,0 +1,24 @@
+---
+node_ips:
+    orch_mgr: 10.1.0.10
+    stor_mgr1: 10.1.0.10
+    stor_mgr2: 10.1.10.11
+    stor_mgr3: 10.1.10.12
+    stor_mgr4: 10.1.10.13
+
+fds_conf:
+    worker_connections: 4096
+    http_port: 8080
+
+fds_features_conf:
+    snapshot_endpoint_enabled: "true"
+    statistics_endpoint_enabled: "true"
+    firebreak_enabled: "true"
+
+stor_mgr_conf:
+    migration_ip: 10.1.10.30
+
+default_nic: eth0
+
+metrics_enabled: "false"
+metricsdb_ip: 127.0.0.1

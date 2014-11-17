@@ -25,6 +25,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             var $max;
             var $svg;
             var $xMin = 0;
+            var $xMax;
             
             if ( angular.isDefined( $scope.domainLabels ) ){
                 $bottom_labels = 20;
@@ -42,7 +43,22 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             
             $svg = el.append( 'svg' )
                 .attr( 'width', '100%' )
-                .attr( 'height', '100%' );
+                .attr( 'height', '100%' )
+                .on( 'click', function(){
+                    var lines = $svg.selectAll('.line')[0];
+                
+                    var results = [];
+                
+                    for ( var i = 0; i < lines.length; i++ ){
+                        var p = lines[i].getTotalLength();
+                        var x = d3.event.layerX;
+                        p = lines[i].getPointAtLength( x );
+                        
+                        var val = $byte_converter.convertBytesToString( $yScale.invert( p.y ) );
+                        
+                        results.push( val );
+                    }
+                });
             
             if ( angular.isDefined( $scope.backgroundColor ) ){
                 
@@ -78,11 +94,11 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                
                 buildMax();
                 
-                var xMax = 1;
+                $xMax = 1;
                 
                 if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
                     var lastXPos = $scope.data.series[0].datapoints.length - 1;
-                    xMax = $scope.data.series[0].datapoints[lastXPos].x;
+                    $xMax = $scope.data.series[0].datapoints[lastXPos].x;
                 }
                 
                 $xMin = 0;
@@ -93,7 +109,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 
                 $xScale = d3.scale.linear()
                     // all series must have the same number of points
-                    .domain( [$xMin,xMax] )
+                    .domain( [$xMin,$xMax] )
                     .range( [$left_label + $left_padding, $element.width() - $right_padding] );
                 
                 $yScale = d3.scale.linear()
@@ -118,29 +134,39 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
 
                 removeLabels();
                 
-                // the way ticks divides the domain you will never get
-                // the right most label so... we pretend there is one less
-                // and manually add the right most ourselves
-                var ticks = $xScale.ticks( $scope.domainLabels.length );
-
-                ticks = ticks.slice( 0, ticks.length-1 );
+                // not using the d3 ticks because they 
+                // force me to leave weird gaps at the min and max
+                // when it's just as easy to do the division.
+                var ticks = $scope.domainLabels.length;
                 
-                ticks[0] = $xMin;
+                // the division is one less than the length because we 
+                // only need to add the interval for the middle labels
+                var interval = Math.round( ($xMax - $xMin) / (ticks - 1) );
                 
                 var labelGroup = $svg.append( 'g' )
                     .attr( 'class', 'x-labels' );                    
                 
-                for ( var i = 0; i < ticks.length; i++ ){
+                for ( var i = 0; i < ticks; i++ ){
                     labelGroup.append( 'text' )
                         .attr( 'x', function(){
-                            var x = $xScale( ticks[i] );
-
-                            if ( i !== 0 ){
-                                var size = measureText( $scope.domainLabels[i] );
-                                x -= size.width/2;
+                            
+                            var pos = i*interval + $xMin;
+                            var labelWidth = measureText( $scope.domainLabels[i] ).width;
+                        
+                            if ( (i + 1) == ticks ){
+                                pos = $xMax;
+                            }
+                        
+                            pos = $xScale( pos );
+                        
+                            if ( (i+1) == ticks ){
+                                pos -= labelWidth;
+                            }
+                            else if ( i !== 0 ){
+                                pos -= labelWidth/2;
                             }
 
-                            return x;
+                            return pos;
                         })
                         // the 4 is just so the tails of y's can be seen
                         .attr( 'y', $element.height() - ($bottom_padding + 5) )
@@ -148,15 +174,6 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         .attr( 'fill', $scope.axisColor )
                         .attr( 'font-size', '11px' );
                 }
-
-                // adding the right most label.
-                var size = measureText( $scope.domainLabels[ $scope.domainLabels.length - 1 ] );
-                labelGroup.append( 'text' )
-                    .attr( 'x', $element.width() - size.width )
-                    .attr( 'y', $element.height() - ($bottom_padding + 5) )
-                    .text( $scope.domainLabels[ $scope.domainLabels.length - 1 ] )
-                    .attr( 'fill', $scope.axisColor )
-                    .attr( 'font-size', '11px' );
             };
             
             var update = function(){
@@ -182,8 +199,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .interpolate( 'monotone' );
                 
                 $svg.selectAll( '.line' )
-                    .transition()
-                    .duration( 500 )
+//                    .transition()
+//                    .duration( 500 )
                     .attr( 'd', function( d ){
                         
                         var vals = []
@@ -191,8 +208,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         if ( angular.isDefined( d.datapoints ) ){
                             vals = d.datapoints;
                         }
-                    
-                        return area( vals );
+                        vals = area( vals );
+                        return vals;
                     });
                 
                 $svg.selectAll( '.point' )
@@ -289,7 +306,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         return $yScale( 0 );
                     })
                     .y1( function( d ){
-                        return $yScale( 0 );
+                        return $yScale( d.y );
                     })
                     .interpolate( 'monotone' );
                 
@@ -325,7 +342,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                             return $scope.opacities[i];
                         }
                         
-                        return 0.8;
+                        return 1.0;
                     })
                     .attr( 'class', 'line' )
                     .attr( 'd', function( d ){
@@ -404,21 +421,22 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 };
                 
                 //sort
-                for ( var i = 0; angular.isDefined( newVal.series ) && i < newVal.series.length; i++ ){
-                    var dataset = newVal.series[i].datapoints;
-                    
-                    if ( !angular.isDefined( dataset ) ){
-                        continue;
-                    }
-                    
-                    dataset.sort( sorter );
-                }
+//                for ( var i = 0; angular.isDefined( newVal.series ) && i < newVal.series.length; i++ ){
+//                    var dataset = newVal.series[i].datapoints;
+//                    
+//                    if ( !angular.isDefined( dataset ) ){
+//                        continue;
+//                    }
+//                    
+//                    dataset.sort( sorter );
+//                }
                 
                 if ( newVal.series.length === oldVal.series.length &&
                    $svg.selectAll( '.series-group' )[0].length !== 0 ){
                     
                     if ( angular.isDefined( oldVal.series[0].datapoints ) && newVal.series[0].datapoints.length === oldVal.series[0].datapoints.length ){
-                        update();
+//                        update();
+                        create();
                     }
                     else {
                         create();

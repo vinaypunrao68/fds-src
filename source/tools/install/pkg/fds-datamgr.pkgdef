@@ -1,5 +1,5 @@
 package: fds-datamgr
-version: 0.2
+version: 0.6.0
 description: fds data manager
 
 depends: 
@@ -11,6 +11,7 @@ files:
     dest-is-dir: True
     src:
       - ../../../Build/linux-x86_64.debug/bin/DataMgr
+      - ../../../Build/linux-x86_64.debug/bin/dm_checker
 
 #services:
 #  name: fds-datamgr

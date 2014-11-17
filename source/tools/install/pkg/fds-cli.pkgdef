@@ -1,5 +1,5 @@
 package: fds-cli
-version: 0.2
+version: 0.6.0
 description: fds command line tool
 
 depends: 

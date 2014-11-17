@@ -27,7 +27,7 @@ public class CreateBucket implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
         long tenantId = xdi.getAuthorizer().tenantId(token);
-        xdi.createVolume(token, S3Endpoint.FDS_S3, bucketName, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, tenantId));
+        xdi.createVolume(token, S3Endpoint.FDS_S3, bucketName, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, tenantId, 0));
         return new TextResource("");
     }
 }

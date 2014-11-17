@@ -1,5 +1,5 @@
 package: fds-stormgr
-version: 0.2
+version: 0.6.0
 description: fds storage manager
 
 depends: 
@@ -11,6 +11,7 @@ files:
     dest-is-dir: True
     src:
       - ../../../Build/linux-x86_64.debug/bin/StorMgr
+      - ../../../Build/linux-x86_64.debug/bin/smchk
 
 #services:
 #  name: fds-stormgr

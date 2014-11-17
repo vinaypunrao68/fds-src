@@ -50,7 +50,8 @@ public class EditSnapshotPolicy
                                                    policy.getName(),
                                                    policy.getRecurrenceRule().toString(),
                                                    policy.getRetention(),
-                                                   ResourceState.Active );
+                                                   ResourceState.Active,
+                                                   policy.getTimelineTime() );
         logger.trace( ObjectModelHelper.toJSON( apisPolicy ) );
         policyId = config.createSnapshotPolicy( apisPolicy );
       }

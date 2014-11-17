@@ -1,6 +1,6 @@
 ---
 -   name: install needed packages for devsetup
-    hosts: 127.0.0.1
+    hosts: localhost
     sudo: yes
 
     tasks:
@@ -75,14 +75,16 @@
         - python-thrift
         - fds-pkghelper
         - fds-pkg
-        - fds-pkgtools
+        - fds-pkgtools=0.3.2
         - fds-systemdir
         - fds-coredump
         - libcryptopp-dev
         - lintian
+        - libhiredis0.10
+        - libhiredis-dev
 
     - name: install pip packages
-      pip: name={{item}} state=present 
+      pip: name={{item}} state=present
       with_items:
         - scp
         - PyYAML

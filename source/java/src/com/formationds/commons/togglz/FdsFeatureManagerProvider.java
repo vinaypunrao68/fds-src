@@ -13,6 +13,7 @@ import org.togglz.core.repository.file.FileBasedStateRepository;
 import org.togglz.core.user.NoOpUserProvider;
 import org.togglz.core.user.UserProvider;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -26,9 +27,7 @@ public class FdsFeatureManagerProvider
   private static final Logger logger =
     LoggerFactory.getLogger( FdsFeatureManagerProvider.class );
 
-  private static final String DIRNAME_PRODUCTION = "/fds/etc/";
-  private static final String DIRNAME_DEV =
-    "/Volumes/LaCie/Sandbox/playground/src/main/config/";
+  private static final String DEF_SINGLE_NODE = "/fds/etc";
 
   private static final String BASENAME_PRODUCTION = "fds-features.conf";
 
@@ -37,13 +36,16 @@ public class FdsFeatureManagerProvider
   private static FileBasedStateRepository stateRepository = null;
   private static NoOpUserProvider userProvider = null;
 
-  private static final List<String> BUNDLE_PATHS = new ArrayList<String>();
+  private static final List<String> BUNDLE_PATHS = new ArrayList<>();
   static
   {
-    // default production location
-    BUNDLE_PATHS.add( DIRNAME_PRODUCTION );
-    // development location
-    BUNDLE_PATHS.add( DIRNAME_DEV );
+    // better be set, otherwise we will have issues
+    if( System.getProperty( "fds-root" ) != null ) {
+      BUNDLE_PATHS.add( Paths.get( System.getProperty( "fds-root" ), "etc" ).toString() );
+    }
+
+    // default single node production location
+    BUNDLE_PATHS.add( DEF_SINGLE_NODE );
   }
 
   private static FeatureManager instance = null;
@@ -75,7 +77,7 @@ public class FdsFeatureManagerProvider
     {
       for ( String b : BUNDLE_PATHS )
       {
-        String feature_file = b + BASENAME_PRODUCTION;
+        String feature_file = b + File.separator + BASENAME_PRODUCTION;
         if( !LOG_ONCE )
         {
           LOG_ONCE = true;

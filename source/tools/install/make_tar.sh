@@ -15,6 +15,7 @@ fi
 if [[ ${#BUILD_NUMBER} -gt 0 ]]
 then
    package_path="./jenkins"
+   pkg_make_args="release-build=false"
 else
    package_path="/tmp"
 fi
@@ -29,7 +30,7 @@ fi
 
 echo "Making packages"
 cd pkg
-make
+make ${pkg_make_args}
 
 cd ..
 make DEST_PATH="${install_path}"

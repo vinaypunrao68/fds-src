@@ -1,12 +1,23 @@
 angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$rootScope', '$volume_api', '$snapshot_service', '$modal_data_service', '$http_fds', '$filter', function( $scope, $rootScope, $volume_api, $snapshot_service, $modal_data_service, $http_fds, $filter ){
 
+    $scope.qos = {
+        capacity: 0,
+        limit: 0,
+        priority: 10
+    };
+    
+    $scope.snapshotPolicies = [];
+    $scope.dataConnector = {};
+    $scope.volumeName = '';
+    $scope.fake = 'What?';
+    
     var creationCallback = function( volume, newVolume ){
 
         // for each time deliniation used we need to create a policy and attach
         // it using the volume id in the name so we can identify it easily
         for ( var i = 0; angular.isDefined( volume.snapshotPolicies ) && i < volume.snapshotPolicies.length; i++ ){
             volume.snapshotPolicies[i].name =
-                newVolume.id + '_' + volume.snapshotPolicies[i].name;
+                volume.snapshotPolicies[i].name + '_' + newVolume.id;
 
             $snapshot_service.createSnapshotPolicy( volume.snapshotPolicies[i], function( policy, code ){
                 // attach the policy to the volume
@@ -43,74 +54,6 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         }
     };
     
-    var editVolume = function( volume ){
-        
-        volume.id = $scope.volumeVars.selectedVolume.id;
-
-        var newPolicies = $modal_data_service.getData().snapshotPolicies;
-        var oldPolicies = $scope.volumeVars.selectedVolume.snapshotPolicies;
-        var deleteList = [];
-        
-        // figuring out what to delete, then deleting them
-        
-        for ( var o = 0; o < oldPolicies.length; o++ ){
-            
-            var found = false;
-            
-            for ( var n = 0; n < newPolicies.length; n++ ){
-                
-                if ( oldPolicies[o].id === newPolicies[n].id ){
-                    found = true;
-                    break;
-                }
-            }// new policies
-            
-            // not in the new list... delete it
-            if ( found === false ){
-                deleteList.push( oldPolicies[o] );
-            }
-            
-        }// old policies
-                                
-        for( var d = 0; d < deleteList.length; d++ ){
-            
-            var id = deleteList[d].id;
-            
-            $snapshot_service.detachPolicy( deleteList[d], $scope.volumeVars.selectedVolume.id, function( result ){
-                $snapshot_service.deleteSnapshotPolicy( id, function(){} );
-            });
-        }
-        
-        // creating / editing the new selections
-        for ( var i = 0; i < newPolicies.length; i++ ){
-
-            var sPolicy = newPolicies[i];
-            
-            // if it has an ID then it's already exists
-            if ( angular.isDefined( sPolicy.id ) ){
-                
-                // earlier the frequency was set to the policy name,
-                // but for edit that means it has a long too... get rid of it
-                // and reset the frequency to the displayname property - which matches the enum.
-                sPolicy.recurrenceRule.FREQ = sPolicy.displayName.toUpperCase();
-                $snapshot_service.editSnapshotPolicy( sPolicy, function(){} );
-            }
-            else {
-                
-                // if it's in use, create it.
-                if ( sPolicy.use === true ){
-                    $snapshot_service.createSnapshotPolicy( sPolicy, function( policy ){
-                        $snapshot_service.attachPolicyToVolume( policy, $scope.volumeVars.selectedVolume.id, function(){} );
-                    } );
-                }
-            }
-        }
-        
-        $volume_api.save( volume, function( savedVolume ){} );
-        
-        $scope.cancel();
-    };
-    
     $scope.deleteVolume = function(){
         
         var confirm = {
@@ -139,7 +82,14 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     
     $scope.save = function(){
 
-        var volume = $modal_data_service.getData();
+        var volume = {};
+        volume.sla = $scope.qos.capacity;
+        volume.limit = $scope.qos.limit;
+        volume.priority = $scope.qos.priority;
+        volume.snapshotPolicies = $scope.snapshotPolicies;
+        volume.data_connector = $scope.dataConnector;
+        volume.name = $scope.volumeName;
+        
         
         if ( !angular.isDefined( volume.name ) || volume.name === '' ){
             
@@ -152,30 +102,16 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             return;
         }
         
-        if ( volume.sla === 'None' ){
-            volume.sla = 0;
-        }
-
-        if ( volume.limit === 'None' ){
-            volume.limit = 0;
-        }
-        
-        if ( $scope.volumeVars.creating === true ){
-            
-            if ( $scope.volumeVars.toClone === 'clone' ){
-                cloneVolume( volume );
-            }
-            else{
-                createVolume( volume );
-            }
+        if ( $scope.volumeVars.toClone === 'clone' ){
+            cloneVolume( volume );
         }
         else{
-            editVolume( volume );
+            createVolume( volume );
         }
+
     };
 
     $scope.cancel = function(){
-        $scope.volumeVars.editing = false;
         $scope.volumeVars.creating = false;
         $scope.volumeVars.toClone = false;
         $scope.volumeVars.back();
@@ -183,13 +119,16 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
 
     $scope.$watch( 'volumeVars.creating', function( newVal ){
         if ( newVal === true ){
-            $modal_data_service.start();
-        }
-    });
-    
-    $scope.$watch( 'volumeVars.editing', function( newVal ){
-        if ( newVal === true ){
-            $modal_data_service.start();
+            
+            $scope.qos = {
+                capacity: 0,
+                limit: 0,
+                priority: 10
+            };
+            
+            $scope.volumeName = '';
+            
+            $scope.snapshotPolicies = [];
         }
     });
 

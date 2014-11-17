@@ -309,6 +309,7 @@ AmDispatcher::updateCatalogCb(AmRequest* amReq,
 
 void
 AmDispatcher::dispatchPutObject(AmRequest *amReq) {
+    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
     fds_verify(amReq->data_len > 0);
 
     fiu_do_on("am.uturn.dispatcher",
@@ -318,7 +319,7 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
     PutObjectMsgPtr putObjMsg(boost::make_shared<PutObjectMsg>());
     putObjMsg->volume_id        = amReq->io_vol_id;
     putObjMsg->origin_timestamp = util::getTimeStampMillis();
-    putObjMsg->data_obj.assign(amReq->getDataBuf(), amReq->data_len);
+    putObjMsg->data_obj.assign(blobReq->dataPtr->c_str(), amReq->data_len);
     putObjMsg->data_obj_len     = amReq->data_len;
     putObjMsg->data_obj_id.digest = std::string(
         reinterpret_cast<const char*>(amReq->obj_id.GetId()),
@@ -363,6 +364,7 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     fiu_do_on("am.uturn.dispatcher",
               GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb); \
               cb->returnSize = amReq->data_len; \
+              cb->returnBuffer = new char[cb->returnSize]; \
               memset(cb->returnBuffer, 0x00, cb->returnSize); \
               amReq->proc_cb(ERR_OK); \
               return;);
@@ -431,6 +433,14 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
 
         // Only return UP-TO the amount of data requested, never more
         cb->returnSize = std::min(amReq->data_len, getObjRsp->data_obj.size());
+
+        // Make sure we have a buffer.
+        // TODO(Andrew): This should be a shared pointer
+        // as we pass it around a lot.
+        if (cb->returnBuffer == nullptr) {
+            cb->returnBuffer = new char[cb->returnSize];
+        }
+
         memcpy(cb->returnBuffer, getObjRsp->data_obj.c_str(), cb->returnSize);
     } else {
         LOGERROR << "blob name: " << amReq->getBlobName() << "offset: "
@@ -559,7 +569,7 @@ AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
     setMDMsg->blob_name = amReq->getBlobName();
     setMDMsg->blob_version = blob_version_invalid;
     setMDMsg->volume_id = vol_id;
-    setMDMsg->txId = blobReq->dmt_version;
+    setMDMsg->txId = blobReq->tx_desc->getValue();
 
     setMDMsg->metaDataList = std::move(*blobReq->getMetaDataListPtr());
 

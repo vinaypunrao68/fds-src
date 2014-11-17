@@ -158,7 +158,7 @@ AmTxManager::updateStagedBlobOffset(const BlobTxId &txId,
 Error
 AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
                                     const ObjectID &objectId,
-                                    const char *objectData,
+                                    boost::shared_ptr<std::string> objectData,
                                     fds_uint32_t dataLen) {
     SCOPEDWRITE(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
@@ -174,7 +174,7 @@ AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
         // Copy the data into the tx manager. This allows the
         // tx manager to hand off the ptr to the cache later.
         txMapIt->second->stagedBlobObjects[objectId] =
-                new std::string(objectData, dataLen);
+                objectData;
     }
 
     return ERR_OK;

@@ -7,6 +7,7 @@
 #include <functional>
 #include <string>
 #include <ostream>
+#include <vector>
 namespace fds {
 namespace snapshot {
 
@@ -26,6 +27,13 @@ struct Task {
 
 struct TaskProcessor {
     virtual bool process(const Task& task) = 0;
+    virtual uint process(const std::vector<Task*>& vecTasks) {
+        uint count = 0;
+        for (const auto& task : vecTasks) {
+            if (process(*task)) ++count;
+        }
+        return count;
+    }
 };
 
 }  // namespace snapshot

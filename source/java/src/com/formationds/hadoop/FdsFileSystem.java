@@ -7,6 +7,7 @@ import com.formationds.xdi.XdiClientFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Progressable;
 import org.apache.thrift.TException;
 
@@ -51,12 +52,17 @@ public class FdsFileSystem extends FileSystem {
 
     }
 
+    public FdsFileSystem(URI uri, Configuration conf) throws IOException {
+        initialize(uri, conf);
+    }
+
     public FdsFileSystem(AmService.Iface am, String uri, int blockSize) throws URISyntaxException, IOException {
         this.am = am;
         this.blockSize = blockSize;
         this.uri = new URI(uri);
-        workingDirectory = new Path("/");
+        this.workingDirectory = new Path(uri);
         setConf(new Configuration());
+        createRootIfNeeded();
     }
 
     @Override
@@ -136,6 +142,8 @@ public class FdsFileSystem extends FileSystem {
 
     @Override
     public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress) throws IOException {
+        UserGroupInformation currentUser = UserGroupInformation.getCurrentUser();
+
         Path absolutePath = getAbsolutePath(path);
         if (!exists(absolutePath.getParent())) {
             mkdirs(absolutePath.getParent());
@@ -238,8 +246,8 @@ public class FdsFileSystem extends FileSystem {
     }
 
     @Override
-    public void setWorkingDirectory(Path new_dir) {
-        workingDirectory = new_dir;
+    public void setWorkingDirectory(Path newDir) {
+        workingDirectory = getAbsolutePath(newDir);
     }
 
     @Override
@@ -261,13 +269,22 @@ public class FdsFileSystem extends FileSystem {
     @Override
     public FileStatus getFileStatus(Path path) throws IOException {
         Path absolutePath = getAbsolutePath(path);
+        UserGroupInformation ugi = UserGroupInformation.getCurrentUser();
+        String currentUser = ugi.getShortUserName();
+        String groupName = ugi.getPrimaryGroupName();
+
         try {
             BlobDescriptor bd = am.statBlob(DOMAIN, getVolume(), absolutePath.toString());
-            return new FileStatus(bd.byteCount, isDirectory(bd), 1, getBlockSize(), getMtime(bd), absolutePath);
+            boolean isDirectory = isDirectory(bd);
+            FsPermission permission = isDirectory ? FsPermission.getDirDefault() : FsPermission.getFileDefault();
+            return new FileStatus(bd.byteCount, isDirectory, 1, getBlockSize(), getMtime(bd),
+                    getMtime(bd), permission, currentUser, groupName, absolutePath);
         } catch (ApiException ex) {
-            if (ex.getErrorCode() == ErrorCode.MISSING_RESOURCE)
-                throw new FileNotFoundException();
-            throw new IOException(ex);
+            if (ex.getErrorCode() == ErrorCode.MISSING_RESOURCE) {
+                throw new FileNotFoundException(path.toString());
+            } else {
+                throw new IOException(ex);
+            }
         } catch (Exception ex) {
             throw new IOException(ex);
         }
@@ -380,10 +397,24 @@ public class FdsFileSystem extends FileSystem {
         }
     }
 
-    private Path getAbsolutePath(Path path) {
-        if (!path.isAbsolute()) {
-            return new Path(workingDirectory.toString() + "/" + path.toString());
+    public Path getAbsolutePath(Path path) {
+        if (!path.toString().startsWith("fds://")) {
+            Path p = new Path(workingDirectory.toString(), path.toString());
+            return p;
         }
         return path;
+    }
+
+    public static class AFS extends DelegateToFileSystem {
+        public AFS(URI uri, Configuration configuration) throws IOException, URISyntaxException {
+            super(uri, new FdsFileSystem(uri, configuration), configuration, "fds", false);
+        }
+
+        @Override
+        public int getUriDefaultPort() {
+            return -1;
+        }
+
+
     }
 }

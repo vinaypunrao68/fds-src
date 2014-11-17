@@ -24,19 +24,34 @@ class TestList():
             "numjobs" : 1,
             "fio_jobname" : "seq_readwrite",
             "fio_type" : "readwrite",
+            "iodepth" : 32,
+            "runtime" : 120,
             "injector" : None
         }
 
         tests = []
         ############### Test definition ############
-        test_types = ["read", "write", "readwrite", "randwrite", "randread"]
-        for bs in [4096]:
-            for test_type in test_types:
-                test = dict(template)
-                test["bs"] = bs
-                test["fio_jobname"] = test_type
-                test["fio_type"] = test_type
-                tests.append(test)
+        #test_types = ["read", "write", "readwrite", "randwrite", "randread"]
+        test = dict(template)
+        test["bs"] = 4096
+        test["fio_jobname"] = "write"
+        test["fio_type"] = "write"
+        test["numjobs"] = 1
+        test["runtime"] = 0
+        tests.append(test)
+        test_types = ["randread"]
+        for d in [4, 16, 32, 64, 128]:
+            for j in [1]:
+                for bs in [4096]:
+                    for test_type in test_types:
+                        test = dict(template)
+                        test["bs"] = bs
+                        test["fio_jobname"] = test_type
+                        test["fio_type"] = test_type
+                        test["numjobs"] = j
+                        test["iodepth"] = d
+                        test["runtime"] = 60
+                        tests.append(test)
         self.tests = tests
 
     def create_tests_s3(self):
@@ -80,12 +95,13 @@ class TestList():
         for size in [4096]:
             for nvols in [1]:
                 # for th in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40]:
-                for th in range(10,15):
+                for th in range(1,51):
                     #for outs in [2, 4, 10, 20, 50]:
                     for outs in [2]:
                         #for th in [4]:
                         #for th in [21]:
                         # for th in [30]:
+                            total_reqs = max([th * 1000000 / 50, 100000])
                             test = dict(template)
                             test["type"] = "PUT"
                             test["nreqs"] = 100000
@@ -97,7 +113,7 @@ class TestList():
                             test = dict(template)
                             # test["test_type"] = "tgen_java"
                             test["type"] = "GET"
-                            test["nreqs"] = 100000
+                            test["nreqs"] = total_reqs
                             test["nfiles"] = 1000
                             test["nvols"] = nvols
                             test["threads"] = th
@@ -136,7 +152,7 @@ def main():
     (options, args) = parser.parse_args()
 
     tl = TestList()
-    #tl.create_tests_s3()
+    # tl.create_tests_s3()
     tl.create_tests_fio()
     print "Tests:"
     pp = pprint.PrettyPrinter(indent=4)

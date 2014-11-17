@@ -68,6 +68,7 @@ def transfer_file(node, local_f, remote_f, mode):
 
 # TODO: change all execute_simple in ssh_exec... should work the same!
 def ssh_exec(node, cmd):
+    print "ssh_exec on",node,"->",cmd
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(node, username='root', password='passwd')
@@ -236,12 +237,19 @@ class CounterServer:
 
 
 class CounterServerPull:
-    def __init__(self, outdir, options):
+    def __init__(self, outdir, options, opt_outfile =  None):
         self.options = options
+        self.opt_outfile = opt_outfile
         self.outdir = outdir
         self.stop = threading.Event()
-        self.datafile, self.datafname = tempfile.mkstemp(prefix = "counters")
-        self.javafile, self.javafname = tempfile.mkstemp(prefix = "javacounters")
+        if opt_outfile != None:
+            self.datafname = opt_outfile + ".counters"
+            self.datafile = os.open(self.datafname, os.O_RDWR|os.O_CREAT)
+            self.javafname = opt_outfile + ".java_counters"
+            self.javafile = os.open(self.javafname, os.O_RDWR|os.O_CREAT)
+        else:
+            self.datafile, self.datafname = tempfile.mkstemp(prefix = "counters")
+            self.javafile, self.javafname = tempfile.mkstemp(prefix = "javacounters")
         task_args = ("counter_server", self.datafile, self.stop)
         # FIXME: move this in its own function
         self.thread = threading.Thread(target = self._task, args = task_args)
@@ -297,22 +305,24 @@ class CounterServerPull:
 
 
     def terminate(self):
+        self.stop.set()
+        time.sleep(self.options.counter_pull_rate + 1)
+        if self.opt_outfile != None:
+            return
         # terminate udp server
         #datafile, datafname = self.queue.get()
         directory = self.outdir
         if not os.path.exists(directory):
             os.makedirs(directory)
-        self.stop.set()
-        time.sleep(self.options.counter_pull_rate + 1)
         print "copying counter file", self.datafname
         os.close(self.datafile)
         shutil.move(self.datafname, directory + "/counters.dat")
-        os.chmod(directory + "/counters.dat", 755)
+        os.chmod(directory + "/counters.dat", 777)
         if self.options.java_counters == True:
             print "copying counter file", self.javafname
             os.close(self.javafile)
             shutil.move(self.javafname, directory + "/java_counters.dat")
-            os.chmod(directory + "/java_counters.dat", 755)
+            os.chmod(directory + "/java_counters.dat", 777)
 
 
 class AgentsPidMap:
@@ -507,12 +517,12 @@ class FdsCluster():
 
     def _run_tgen_java(self, test_args):
         def task(node, outs, queue):
-            cmd = "pushd /home/monchier/linux-x86_64.debug/bin && ./trafficgen --n_reqs 100000 --n_files 1000 --outstanding_reqs %d --test_type GET --object_size 4096 --hostname 10.1.10.139 --n_conns %d && popd" % (outs, outs)
+            cmd = "pushd /home/monchier/linux-x86_64.debug/bin && ./trafficgen --n_reqs 100000 --n_files 1000 --outstanding_reqs %d --test_type GET --object_size 4096 --hostname 10.1.10.222 --n_conns %d && popd" % (outs, outs)
             output = ssh_exec(node, cmd)
             queue.put(output)
         
         # nodes = ["10.1.10.222", "10.1.10.221"]
-        nodes = ["10.1.10.222"]
+        nodes = ["10.1.10.139"]
         N = test_args["threads"]
         outs = test_args["outstanding"]
         threads = []
@@ -544,8 +554,13 @@ class FdsCluster():
         cmd = "/fds/bin/fdscli --volume-create volume0 -i 1 -s 10240 -p 50 -y blk"
         output = self._loc_exec(cmd)
         time.sleep(5)
-        cmd = self.options.local_fds_root + "/source/cinder/nbdadm.py attach localhost volume0"
-        output = self._loc_exec(cmd)
+        if self.local_test == True:
+            cmd = "python nbdadm.py attach %s volume0" + self.options.main_node
+            output = self._loc_exec(cmd)
+        else:
+            shutil.copyfile(self.local_fds_root + "/source/cinder/nbdadm.py", "/root/nbdadm.py")
+            cmd = "python nbdadm.py attach %s volume0" % self.options.main_node
+            output = ssh_exec(self.options.test_node, cmd)
         time.sleep(5)
         self.nbdvolume = output.rstrip("\n")
         print "nbd:", self.nbdvolume
@@ -561,14 +576,22 @@ class FdsCluster():
         numjobs = test_args["numjobs"]
         jobname = test_args["fio_jobname"]
         rw = test_args["fio_type"]
+        iodepth = test_args["iodepth"]
+        runtime = test_args["runtime"]
         options =   "--name=" + jobname + " " + \
                     "--rw=" + rw + " " + \
                     "--filename=" + disk + " " + \
                     "--bs=" + str(bs) + " " + \
                     "--numjobs=" + str(numjobs) + " " + \
-                    "--runtime=30 --ioengine=libaio --iodepth=16 --direct=1 --size=10g --minimal "
+                    "--iodepth=" + str(iodepth) + " " + \
+                    "--ioengine=libaio --direct=1 --size=10g --minimal "
+        if runtime > 0:            
+            options += " --runtime=" + str(runtime) + " "
         cmd = "fio " + options
-        output = self._loc_exec(cmd)
+        if self.local_test == True:
+            output = self._loc_exec(cmd)
+        else:
+            output = ssh_exec(self.options.test_node, cmd)
         return output
 
     # FIXME: move to global

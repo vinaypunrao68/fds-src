@@ -23,9 +23,9 @@ public abstract class ModelBase
   private static final long serialVersionUID = -7645839798777744738L;
 
   protected static final Long SLA_MIN = 0L;         // unlimited
-  protected static final Long SLA_MAX = 100L;
-  protected static final Long CAPACITY_MIN = 0L;
-  protected static final Long CAPACITY_MAX = 100L;
+  protected static final Long SLA_MAX = 100L;       // percentage
+  protected static final Long CAPACITY_MIN = 0L;    // percentage
+  protected static final Long CAPACITY_MAX = 100L;  // percentage
   protected static final Long PRIORITY_MIN = 1L;
   protected static final Long PRIORITY_MAX = 10L;
 

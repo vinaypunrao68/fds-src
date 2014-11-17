@@ -7,7 +7,7 @@ package com.formationds.commons.model.abs;
 /**
  * @author ptinius
  */
-public abstract class Metadata
+public class Metadata
   extends ModelBase {
   private static final long serialVersionUID = 75641197724371475L;
 

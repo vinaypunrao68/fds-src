@@ -49,7 +49,7 @@ class AsyncDataServer : public Module, public boost::noncopyable {
 
     boost::shared_ptr<xdi_atc::ThreadManager>      threadManager;
     boost::shared_ptr<xdi_atc::PosixThreadFactory> threadFactory;
-    boost::shared_ptr<xdi_ats::TThreadedServer>    ttTerver;
+    boost::shared_ptr<xdi_ats::TThreadedServer>    ttServer;
     boost::shared_ptr<xdi_ats::TNonblockingServer> nbServer;
 
     boost::shared_ptr<boost::thread> listen_thread;
@@ -58,6 +58,10 @@ class AsyncDataServer : public Module, public boost::noncopyable {
     explicit AsyncDataServer(const std::string &name,
                              AmAsyncDataApi::shared_ptr &_dataApi);
     virtual ~AsyncDataServer() {
+        threadManager->stop();
+        ttServer->stop();
+        listen_thread->join();
+        serverTransport->close();
     }
     typedef std::unique_ptr<AsyncDataServer> unique_ptr;
 

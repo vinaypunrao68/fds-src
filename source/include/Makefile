@@ -27,11 +27,9 @@ user_no_style  := \
 	fds_commons_rm.h      \
 	fds_config.hpp        \
 	fds_obj_cache.h       \
-	fds_qos.h             \
 	odb.h                 \
 	PerfTrace.h           \
 	qos_ctrl.h            \
-	TransJournal.h        \
 	tvclib.h              \
 	vvclib.h              \
 	fds_timer.h           \

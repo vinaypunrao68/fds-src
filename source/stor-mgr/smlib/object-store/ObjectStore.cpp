@@ -20,12 +20,12 @@ ObjectStore::ObjectStore(const std::string &modName,
           conf_verify_data(true),
           numBitsPerToken(0),
           diskMap(new SmDiskMap("SM Disk Map Module")),
-          tierEngine(new TierEngine("SM Tier Engine",
-                                    TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
-                                    volTbl)),
           dataStore(new ObjectDataStore("SM Object Data Storage", data_store)),
           metaStore(new ObjectMetadataStore(
-              "SM Object Metadata Storage Module")) {
+              "SM Object Metadata Storage Module")),
+          tierEngine(new TierEngine("SM Tier Engine",
+                                    TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
+                                    volTbl)) {
 }
 
 ObjectStore::~ObjectStore() {
@@ -194,6 +194,7 @@ ObjectStore::putObject(fds_volid_t volId,
 boost::shared_ptr<const std::string>
 ObjectStore::getObject(fds_volid_t volId,
                        const ObjectID &objId,
+                       diskio::DataTier& usedTier,
                        Error& err) {
     PerfContext objWaitCtx(SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
@@ -234,6 +235,12 @@ ObjectStore::getObject(fds_volid_t volId,
         LOGERROR << "Failed to get object data " << objId << " volume "
                  << std::hex << volId << std::dec << " " << err;
         return objData;
+    }
+
+    // return tier we read from
+    usedTier = diskio::diskTier;
+    if (objMeta->onFlashTier()) {
+        usedTier = diskio::flashTier;
     }
 
     // verify data
@@ -330,12 +337,67 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
                               diskio::DataTier toTier,
                               fds_bool_t relocateFlag) {
     Error err(ERR_OK);
-    fds_panic("Not implemented yet");
-    // TODO(Anna) read from 'fromTier' tier, write to 'toTier'
-    // and then update metadata
-    // if relocateFlag == true: remove 'fromTier' location --
-    // removePhyLocation(fromTier)
+    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
 
+    LOGDEBUG << "Moving object " << objId << " from tier " << fromTier
+             << " to tier " << toTier << " relocate?" << relocateFlag;
+
+    // since object can be associated with multiple volumes, we just
+    // set volume id to invalid. Here is it used only to collect perf
+    // stats and associate them with a volume; moving objects between
+    // tiers will be accounted against volume 0
+    fds_volid_t unknownVolId = invalid_vol_id;
+
+    // Get metadata from metadata store
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(unknownVolId, objId, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get metadata for object " << objId << " " << err;
+        return err;
+    }
+
+    // do not move if object is deleted
+    if (objMeta->getRefCnt() < 1) {
+        LOGWARN << "Object refcnt == 0";
+        return err;
+    }
+
+    // make sure the object is not on destination tier already
+    if (objMeta->onTier(toTier)) {
+        LOGERROR << "Object " << objId << " is already on tier " << toTier;
+        return ERR_DUPLICATE;
+    }
+
+    // read object from fromTier
+    boost::shared_ptr<const std::string> objData
+            = dataStore->getObjectData(unknownVolId, objId, objMeta, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get object data " << objId << " for copying "
+                 << "to tier " << toTier << " " << err;
+        return err;
+    }
+
+    // write to object data store to toTier
+    obj_phy_loc_t objPhyLoc;  // will be set by data store with new location
+    err = dataStore->putObjectData(unknownVolId, objId, toTier, objData, objPhyLoc);
+    if (!err.ok()) {
+        LOGERROR << "Failed to write " << objId << " to obj data store "
+                 << ", tier " << toTier << " " << err;
+        return err;
+    }
+
+    // update physical location that we got from data store
+    ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+    updatedMeta->updatePhysLocation(&objPhyLoc);
+    if (relocateFlag) {
+        // remove from fromTier
+        updatedMeta->removePhyLocation(fromTier);
+    }
+
+    // write metadata to metadata store
+    err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
+    if (!err.ok()) {
+        LOGERROR << "Failed to update metadata for obj " << objId;
+    }
     return err;
 }
 
@@ -479,8 +541,8 @@ ObjectStore::scavengerControlCmd(SmScavengerCmd* scavCmd) {
 int
 ObjectStore::mod_init(SysParams const *const p) {
     static Module *objStoreDepMods[] = {
-        diskMap.get(),
         dataStore.get(),
+        diskMap.get(),
         metaStore.get(),
         tierEngine.get(),
         NULL
@@ -504,6 +566,7 @@ ObjectStore::mod_init(SysParams const *const p) {
  */
 void
 ObjectStore::mod_startup() {
+    Module::mod_startup();
 }
 
 /**
@@ -511,6 +574,7 @@ ObjectStore::mod_startup() {
  */
 void
 ObjectStore::mod_shutdown() {
+    Module::mod_shutdown();
 }
 
 }  // namespace fds

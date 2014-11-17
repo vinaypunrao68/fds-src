@@ -42,9 +42,9 @@ class DefaultConfig:
     '''
     min_mem = 32 # Mem size in GB
     num_disks = 6 # 6 disks
-    disk_size = 500 # in GB
+    disk_size = 490 # in GB, 11/08/2014, disk_part.py is reporting 499 GB on certain supermicro units.
     net_connect = False
-    os_version = "Ubuntu 13.10"
+    os_version = "Ubuntu 14.04.1 LTS"
     wipe = False
 
 class InstallConfig:
