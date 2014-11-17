@@ -218,36 +218,6 @@ TEST_F(SMApi, putsPerf)
     /* Poll for completion */
     POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 2000, (nPuts * 10));
 
-    /* Disable fault injection */
-    if (failSendsbefore) {
-        fiu_disable("svc.fail.sendpayload_before");
-    }
-    if (failSendsafter) {
-        fiu_disable("svc.fail.sendpayload_after");
-        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.drop.putobject"));
-    }
-    if (uturnAsyncReq) {
-        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.asyncreqt"));
-    }
-    if (uturnPuts) {
-        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.putobject"));
-    }
-    if (disableSchedule) {
-        fiu_disable("svc.disable.schedule");
-    }
-    if (largeFrame) {
-        fiu_disable("svc.largebuffer");
-    }
-    if (lftp) {
-        fiu_disable("svc.use.lftp");
-        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.use.lftp"));
-    }
-
-    /* End profiler */
-    if (profile) {
-        ProfilerStop();
-    }
-
     double throughput = (static_cast<double>(1000000000) /
                            (endTs_ - startTs_)) * putsIssued_;
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
@@ -320,6 +290,31 @@ TEST_F(SMApi, putsPerf)
 
     /* Poll for completion */
     POLL_MS((getsIssued_ == getsSuccessCnt_ + getsFailedCnt_), 2000, nGets);
+
+    /* Disable fault injection */
+    if (failSendsbefore) {
+        fiu_disable("svc.fail.sendpayload_before");
+    }
+    if (failSendsafter) {
+        fiu_disable("svc.fail.sendpayload_after");
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.drop.putobject"));
+    }
+    if (uturnAsyncReq) {
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.asyncreqt"));
+    }
+    if (uturnPuts) {
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.putobject"));
+    }
+    if (disableSchedule) {
+        fiu_disable("svc.disable.schedule");
+    }
+    if (largeFrame) {
+        fiu_disable("svc.largebuffer");
+    }
+    if (lftp) {
+        fiu_disable("svc.use.lftp");
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.use.lftp"));
+    }
 
     /* End profiler */
     if (profile) {
