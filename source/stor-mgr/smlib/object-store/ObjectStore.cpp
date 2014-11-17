@@ -204,6 +204,7 @@ ObjectStore::putObject(fds_volid_t volId,
 boost::shared_ptr<const std::string>
 ObjectStore::getObject(fds_volid_t volId,
                        const ObjectID &objId,
+                       diskio::DataTier& usedTier,
                        Error& err) {
     PerfContext objWaitCtx(SM_GET_OBJ_TASK_SYNC_WAIT, volId, PerfTracer::perfNameStr(volId));
     PerfTracer::tracePointBegin(objWaitCtx);
@@ -244,6 +245,12 @@ ObjectStore::getObject(fds_volid_t volId,
         LOGERROR << "Failed to get object data " << objId << " volume "
                  << std::hex << volId << std::dec << " " << err;
         return objData;
+    }
+
+    // return tier we read from
+    usedTier = diskio::diskTier;
+    if (objMeta->onFlashTier()) {
+        usedTier = diskio::flashTier;
     }
 
     // verify data

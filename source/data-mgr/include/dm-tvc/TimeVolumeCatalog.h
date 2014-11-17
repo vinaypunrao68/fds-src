@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <thread>
 #include <fds_error.h>
 #include <fds_module.h>
 #include <fds_config.hpp>
@@ -69,6 +70,19 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      */
     void notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList);
 
+    /**
+     * This thread will monitor filesystem for archived files. Whenever catalog journal
+     * files are archived, the thread will wake up and copy the file to timeline directory.
+     * The timeline directory will hold all journal files for all volumes.
+     */
+    std::thread logMonitorThread_;
+    std::atomic<bool> stopLogMonitoring_;
+
+    void monitorLogs();
+
+    void getDirChildren(const std::string & parent, std::vector<std::string> & children,
+            fds_bool_t dirs = true);
+
   public:
     /**
      * Constructs the TVC object but does not init
@@ -86,6 +100,11 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
 
     /// Allow sync related interface to volume catalog
     friend class DM_VOLUME_CATALOG_TYPE;
+
+    inline void cancelLogMonitoring() {
+        stopLogMonitoring_ = true;
+        logMonitorThread_.join();
+    }
 
     /**
      * Notification about new volume managed by this DM.

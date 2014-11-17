@@ -1,0 +1,63 @@
+---
+
+-   name: stop FDS on all nodes
+    hosts: fds-cloud
+    remote_user: root
+
+    tasks:
+    -   name: Stop FDS
+        command: /fds/sbin/tools/fds stop
+
+    -   name: check process status
+        command: /fds/sbin/tools/fds status
+        register: fdsadmin_output
+        tags:
+            -   dbg
+    -   debug: var=fdsadmin_output.stdout_lines
+
+-   name: install and configure fds on all  fds_nodes
+    hosts: fds-cloud
+    remote_user: root
+
+    tasks:
+    -   name: copy fdsinstall tarball
+        action: copy src=resources/fdsinstall.tgz dest=/root/fdsinstall.tgz owner=root group=root mode=0644
+
+    -   name: purge old install directory
+        shell: rm -rf /root/fdsinstall
+
+    -   name: extract fdsinstall tarball
+        action: unarchive src=/root/fdsinstall.tgz dest=/root copy=no
+
+    -   name: run fdsinstall step 2 - install external pkgs
+        shell: ./fdsinstall.py -o 5 -o 2  chdir=/root/fdsinstall
+
+    -   name: run fdsinstall step 3 - setup storage
+        shell: ./fdsinstall.py -o 5 -o 3 chdir=/root/fdsinstall
+
+    -   name: run fdsinstall step 4 - install FDS pkgs
+        shell: ./fdsinstall.py -o 5 -o 4 chdir=/root/fdsinstall
+        register: install_step_four
+    -   debug: var=install_step_four.stdout_lines
+
+    -   name: render formation.conf
+        template:
+            src=../../source/test/formation.conf.j2
+            dest=/fds/sbin/formation.conf
+            owner=root
+            group=root
+            mode=0644
+
+    -   name: render /fds/etc config files
+        template:
+            src=../../source/config/etc/{{item}}.conf.j2
+            dest=/fds/etc/{{item}}.conf
+            owner=root
+            group=root
+            mode=0644
+        with_items:
+            - fds
+            - fds-features
+            - platform
+            - orch_mgr
+            - redis
