@@ -23,7 +23,7 @@ function deploy_to_artifactory () {
         return 1
     fi
 
-    curl_status_code=$(curl -s -o /dev/null --write-out "%{http_code}" -XPUT "http://jenkins:UP93STXWFy5c@artifacts.artifactoryonline.com/artifacts/formation-apt/pool/${pkg_filename};deb.distribution=platform;deb.component=nightly;deb.architecture=amd64")
+    curl_status_code=$(curl -s -o /dev/null --write-out "%{http_code}" -XPUT "http://jenkins:UP93STXWFy5c@artifacts.artifactoryonline.com/artifacts/formation-apt/pool/${pkg_filename};deb.distribution=platform;deb.component=nightly;deb.architecture=amd64" --data-binary @${pkg_filename})
 
     if [ ${curl_status_code} -ne 201 ]; then
         err "Upload failed, exiting"
