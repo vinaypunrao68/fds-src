@@ -22,4 +22,6 @@ build_lib.create_lockfiles()
 cmd = 'make fastb=1 threads=13'
 if options.release_build_enable:
     cmd += ' BUILD=release'
+else:
+    cmd += ' CCACHE=1'
 exit (build_lib.shell_retry(cmd))

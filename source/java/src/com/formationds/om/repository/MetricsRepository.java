@@ -10,7 +10,7 @@ import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.query.QueryCriteria;
-import com.formationds.om.repository.query.builder.VolumeCriteriaQueryBuilder;
+import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.om.repository.result.VolumeDatapointList;
 import com.formationds.xdi.ConfigurationApi;
 import org.apache.thrift.TException;
@@ -136,7 +136,7 @@ public class MetricsRepository
   @Override
   public VolumeDatapointList query( final QueryCriteria criteria ) {
     final List<VolumeDatapoint> results =
-      ( new VolumeCriteriaQueryBuilder( entity() ).searchFor( criteria )
+      ( new MetricCriteriaQueryBuilder( entity() ).searchFor( criteria )
                                                   .build() )
           .getResultList();
 
@@ -178,7 +178,8 @@ public class MetricsRepository
         final CriteriaQuery<String> cq = cb.createQuery( String.class );
         final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
 
-        cq.distinct( true ).select( from.get( "volumeId" ) );
+        cq.distinct( true )
+          .select( from.get( "volumeId" ) );
         cq.where( cb.equal( from.get( "key" ), Metrics.PBYTES.key() ) );
 
         final List<VolumeDatapoint> datapoints = new ArrayList<>( );
@@ -205,7 +206,8 @@ public class MetricsRepository
       final Metrics metric ) {
 
         final CriteriaBuilder cb = entity().getCriteriaBuilder();
-        final CriteriaQuery<VolumeDatapoint> cq = cb.createQuery( VolumeDatapoint.class );
+        final CriteriaQuery<VolumeDatapoint> cq =
+            cb.createQuery( VolumeDatapoint.class );
         final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
 
         cq.select( from );
@@ -239,7 +241,8 @@ public class MetricsRepository
       final Metrics metric ) {
 
         final CriteriaBuilder cb = entity().getCriteriaBuilder();
-        final CriteriaQuery<VolumeDatapoint> cq = cb.createQuery( VolumeDatapoint.class );
+        final CriteriaQuery<VolumeDatapoint> cq =
+            cb.createQuery( VolumeDatapoint.class );
         final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
 
         cq.select( from );
@@ -263,4 +266,74 @@ public class MetricsRepository
         return previous[ 0 ];
     }
 
+    /**
+     * @param volumeId the {@link Long} representing the volume id
+     * @param metric the {@link Metrics}
+     *
+     * @return Returns the {@link VolumeDatapoint} representing the most recent
+     */
+    public VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp(
+        final Long volumeId,
+        final Metrics metric ) {
+
+        final CriteriaBuilder cb = entity().getCriteriaBuilder();
+        final CriteriaQuery<VolumeDatapoint> cq =
+            cb.createQuery( VolumeDatapoint.class );
+        final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
+
+        cq.select( from );
+        cq.where( cb.equal( from.get( "key" ), metric.key() ),
+                  cb.and( cb.equal( from.get( "volumeId" ),
+                                    volumeId.toString() ) ) );
+        final List<VolumeDatapoint> datapoints = entity().createQuery( cq )
+                                                         .getResultList();
+        final VolumeDatapoint[] previous = { null };
+        datapoints.stream()
+                  .forEach( ( dp ) -> {
+                      if( previous[ 0 ] == null ) {
+                          previous[ 0 ] = dp;
+                      } else {
+                          if( previous[ 0 ].getTimestamp() > dp.getTimestamp() ) {
+                              previous[ 0 ] = dp;
+                          }
+                      }
+                  } );
+
+        return previous[ 0 ];
+    }
+
+    /**
+     * @param volumeName  the {@link String} representing the volume name
+     * @param metric the {@link Metrics}
+     *
+     * @return Returns the {@link VolumeDatapoint} representing the most recent
+     */
+    public VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp(
+        final String volumeName,
+        final Metrics metric ) {
+
+        final CriteriaBuilder cb = entity().getCriteriaBuilder();
+        final CriteriaQuery<VolumeDatapoint> cq =
+            cb.createQuery( VolumeDatapoint.class );
+        final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
+
+        cq.select( from );
+        cq.where( cb.equal( from.get( "key" ), metric.key() ),
+                  cb.and( cb.equal( from.get( "volumeName" ), volumeName ) ) );
+        final List<VolumeDatapoint> datapoints = entity().createQuery( cq )
+                                                         .getResultList();
+        final VolumeDatapoint[] previous = { null };
+        datapoints.stream()
+                  .forEach( ( dp ) -> {
+                      if( previous[ 0 ] == null ) {
+                          previous[ 0 ] = dp;
+                      } else {
+                          if( previous[ 0 ].getTimestamp() > dp.getTimestamp() ) {
+                              previous[ 0 ] = dp;
+                          }
+                      }
+                  } );
+
+        return previous[ 0 ];
+    }
 }

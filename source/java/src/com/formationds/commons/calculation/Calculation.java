@@ -58,8 +58,8 @@ public class Calculation {
       if( systemCapacity == 0 )
       {
           logger.warn( "divide by zero -- {} divided by {}",
-                       consumed,
-                       systemCapacity );
+                       consumed.longValue(),
+                       systemCapacity.longValue() );
           return ( float ) 0.0;
       } else {
           return ( float ) ( ( consumed * 100 ) / systemCapacity );

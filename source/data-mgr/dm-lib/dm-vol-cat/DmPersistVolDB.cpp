@@ -13,7 +13,7 @@
 #include <dm-vol-cat/DmPersistVolDB.h>
 
 #define TIMESTAMP_OP(WB) \
-    const fds_uint64_t ts__ = util::getTimeStampSeconds(); \
+    const fds_uint64_t ts__ = util::getTimeStampMicros(); \
     const Record tsval__(reinterpret_cast<const char *>(&ts__), sizeof(fds_uint64_t)); \
     WB.Put(OP_TIMESTAMP_REC, tsval__);
 
