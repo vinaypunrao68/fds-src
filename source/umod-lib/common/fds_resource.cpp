@@ -4,6 +4,7 @@
 #include <fds_assert.h>
 #include <fds_resource.h>
 #include <fdsp_utils.h>
+#include <util/stringutils.h>
 #include <string>
 namespace fds {
 
@@ -88,7 +89,8 @@ RsContainer::rs_register_mtx(Resource::pointer rs)
     rs->rs_name[RS_NAME_MAX - 1] = '\0';
 
     rs_uuid_map[rs->rs_uuid] = rs;
-    rs_name_map[rs->rs_name] = rs;
+    std::string lowername = util::strlower(rs->rs_name);
+    rs_name_map[lowername.c_str()] = rs;
 
     for (i = 0; i < rs_cur_idx; i++) {
         if (rs_array[i] == rs) {
@@ -130,7 +132,17 @@ RsContainer::rs_unregister_mtx(Resource::pointer rs)
     fds_verify(rs->rs_name[0] != '\0');
     fds_verify(rs_array[rs->rs_index] == rs);
 
-    rs_name_map.erase(rs->rs_name);
+    std::string lowername = util::strlower(rs->rs_name);
+    auto iter = rs_name_map.find(lowername.c_str());
+    if (iter != rs_name_map.end()) {
+        if (iter->second == rs) {
+            rs_name_map.erase(iter);
+        } else {
+            GLOGWARN << "resource [" << iter->second->rs_uuid.uuid_get_val()
+                     << "] exists with name : " << rs->rs_name
+                     << " which is diff from uuid : " << rs->rs_uuid.uuid_get_val();
+        }
+    }
     rs_uuid_map.erase(rs->rs_uuid);
 }
 
@@ -149,7 +161,8 @@ RsContainer::rs_get_resource(const ResourceUUID &uuid)
 Resource::pointer
 RsContainer::rs_get_resource(const char *name)
 {
-    auto iter = rs_name_map.find(name);
+    std::string lowername = util::strlower(name);
+    auto iter = rs_name_map.find(lowername.c_str());
     if (iter != rs_name_map.end()) {
         return iter->second;
     }
@@ -214,7 +227,7 @@ RsContainer::rs_foreach(ResourceIter *iter)
 }
 
 //  --- States
-std::string HasState::getStateName() {
+std::string HasState::getStateName() const {
     auto iter = fpi::_ResourceState_VALUES_TO_NAMES.find(getState());
     if (iter != fpi::_ResourceState_VALUES_TO_NAMES.end()) {
         return iter->second;
@@ -222,27 +235,27 @@ std::string HasState::getStateName() {
     return "Unknown";
 }
 
-bool HasState::isStateLoading() {
+bool HasState::isStateLoading() const {
     return getState() == fpi::ResourceState::Loading;
 }
 
-bool HasState::isStateCreated() {
+bool HasState::isStateCreated() const {
     return getState() == fpi::ResourceState::Created;
 }
 
-bool HasState::isStateActive() {
+bool HasState::isStateActive() const {
     return getState() == fpi::ResourceState::Active;
 }
 
-bool HasState::isStateOffline() {
+bool HasState::isStateOffline() const {
     return getState() == fpi::ResourceState::Offline;
 }
 
-bool HasState::isStateMarkedForDeletion() {
+bool HasState::isStateMarkedForDeletion() const {
     return getState() == fpi::ResourceState::MarkedForDeletion;
 }
 
-bool HasState::isStateDeleted() {
+bool HasState::isStateDeleted() const {
     return getState() == fpi::ResourceState::Deleted;
 }
 

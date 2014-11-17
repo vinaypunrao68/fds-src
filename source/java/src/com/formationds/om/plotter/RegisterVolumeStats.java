@@ -13,6 +13,13 @@ import org.json.JSONObject;
 
 import java.util.Map;
 
+/**
+ * @deprecated the POC functionality has been replaced by
+ *             {@link com.formationds.om.rest.metrics.IngestVolumeStats}
+ *
+ *             will be removed in the future
+ */
+@Deprecated
 public class RegisterVolumeStats implements RequestHandler {
     private VolumeStatistics volumeStatistics;
 

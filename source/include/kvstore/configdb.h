@@ -23,7 +23,7 @@ namespace kvstore {
 using PolicyInfo = fpi::FDSP_PolicyInfoType;
 
 struct ConfigException : std::runtime_error {
-	   explicit ConfigException (const std::string& what_arg) : std::runtime_error(what_arg) {}
+    explicit ConfigException(const std::string& what_arg) : std::runtime_error(what_arg) {}
 };
 
 struct ConfigDB : KVStore {
@@ -39,6 +39,8 @@ struct ConfigDB : KVStore {
     bool getLocalDomains(std::map<int, std::string>& mapDomains, int globalDomain = 0);
 
     // volumes
+    fds_uint64_t getNewVolumeId();
+    bool setVolumeState(fds_volid_t volumeId, fpi::ResourceState state);
     bool addVolume(const VolumeDesc& volumeDesc);
     bool updateVolume(const VolumeDesc& volumeDesc);
     bool deleteVolume(fds_volid_t volumeId, int localDomain = 0);

@@ -11,6 +11,6 @@ public class NativeOm {
     public static void startOm(String[] args) {
         String gluePath = new File("./liborchmgr.so").getAbsolutePath();
         System.load(gluePath);
-        new Thread(() -> init(args)).start();
+        new Thread(() -> init(args), "native-om").start();
     }
 }

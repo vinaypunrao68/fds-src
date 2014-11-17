@@ -1,7 +1,8 @@
-package com.formationds.xdi;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
+
+package com.formationds.xdi;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
@@ -9,23 +10,30 @@ import com.formationds.om.rest.SetVolumeQosParams;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
+import com.formationds.util.async.AsyncRequestStatistics;
+import com.formationds.util.async.AsyncResourcePool;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
 import java.io.InputStream;
 import java.util.HashMap;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class Xdi {
-    private final AmService.Iface am;
-    private ConfigurationService.Iface config;
 
     public static final String LAST_MODIFIED = "Last-Modified";
+
+    private final AmService.Iface am;
     private Authenticator authenticator;
     private Authorizer authorizer;
+    private ConfigurationService.Iface config;
     private FDSP_ConfigPathReq.Iface legacyConfig;
 
     public Xdi(AmService.Iface am, ConfigurationService.Iface config, Authenticator authenticator, Authorizer authorizer, FDSP_ConfigPathReq.Iface legacyConfig) {
@@ -41,14 +49,15 @@ public class Xdi {
             throw new SecurityException();
         }
     }
+
     public long createVolume(AuthenticationToken token, String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
         config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
         SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0);
-      /**
-       * allows the UI to assign a snapshot policy to a volume without having to make an
-       * extra call.
-       */
-      return config.getVolumeId( volumeName );
+        /**
+         * allows the UI to assign a snapshot policy to a volume without having to make an
+         * extra call.
+         */
+        return config.getVolumeId( volumeName );
     }
 
     public void deleteVolume(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {

@@ -41,7 +41,7 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
 
     // make local copy of catalog
     std::string rmCmd = "rm -rf " + snapDir;
-    std::system(rmCmd.c_str());
+    int ret = std::system(rmCmd.c_str());
 
     Error rc = copyVolDir(snapDir);
     if (!rc.ok()) {
@@ -52,7 +52,7 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
 
     // rsync
     LOGTRACE << "rsync command: " << rsyncCmd;
-    int ret = std::system(rsyncCmd.c_str());
+    ret = std::system(rsyncCmd.c_str());
     if (ret) {
         LOGERROR << "rsync command failed '" << rsyncCmd << "', code: '" << ret << "'";
         return ERR_DM_RSYNC_FAILED;

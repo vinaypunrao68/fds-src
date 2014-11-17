@@ -55,7 +55,7 @@ describe( 'Testing volume creation permutations', function(){
         
         // find our volume
         snapVolume = element( by.cssContainingText( '.volume-row', 'SnapshotVolume' ));
-        snapVolume.element( by.css( '.icon-pencil' ) ).click();
+        snapVolume.element( by.css( '.icon-edit' ) ).click();
         
         // verify the snapshot policy is there
         expect( checks.get( 0 ).element( by.css( '.checked' )).getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
@@ -96,7 +96,7 @@ describe( 'Testing volume creation permutations', function(){
         
         browser.sleep( 210 );
         
-        snapVolume.element( by.css( '.icon-pencil' ) ).click();
+        snapVolume.element( by.css( '.icon-edit' ) ).click();
         
         browser.sleep( 210 );
         
@@ -114,7 +114,7 @@ describe( 'Testing volume creation permutations', function(){
     
     it ( 'should be able to take a snapshot and see it in the list', function(){
         
-        snapVolume.element( by.css( '.icon-cake' ) ).click();
+        snapVolume.element( by.css( '.icon-snapshot' ) ).click();
         
         element( by.css( '.fds-modal-ok' ) ).click();
         

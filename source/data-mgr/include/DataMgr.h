@@ -339,8 +339,8 @@ struct DataMgr : Module, DmIoReqHandler {
     std::map<fds_io_op_t, dm::Handler*> handlers;
     dmQosCtrl   *qosCtrl;
 
-    fds_uint32_t qosThreadCount;
-    fds_uint32_t qosOutstandingTasks;
+    fds_uint32_t qosThreadCount = 10;
+    fds_uint32_t qosOutstandingTasks = 20;
 
     // Test related members
     fds_bool_t testUturnAll;

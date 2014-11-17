@@ -11,6 +11,13 @@ import org.json.JSONArray;
 
 import java.util.Map;
 
+/**
+ * @deprecated the POC functionality has been replaced.
+ *
+ *             will be removed in the future
+ */
+
+@Deprecated
 public class ListActiveVolumes implements RequestHandler {
     private VolumeStatistics volumeStatistics;
 
