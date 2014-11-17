@@ -6,8 +6,8 @@ package com.formationds.om;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
-import com.formationds.om.events.EventManager;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
@@ -64,9 +64,8 @@ public class Main {
         final Configuration configuration = SingletonConfiguration.instance().getConfig();
 
         // TODO there needs to be a "global" configuration access point to replace this
-        System.setProperty( "fds-root", configuration.getFdsRoot() );
-
-        LOG.trace( "FDS-ROOT:: " + System.getProperty( "fds-root" ) );
+        System.setProperty("fds-root", configuration.getFdsRoot());
+        LOG.trace( "FDS-ROOT: " + System.getProperty( "fds-root" ) );
 
         LOG.trace("Starting native OM");
         NativeOm.startOm(args);

@@ -207,4 +207,18 @@ public class Volume
   public <T> T getContext() {
     return ( T ) this.name;
   }
+
+  @Override
+  public String toString() {
+    final StringBuilder sb = new StringBuilder("Volume{");
+    sb.append("id='").append(id).append('\'');
+    sb.append(", name='").append(name).append('\'');
+    sb.append(", limit=").append(limit);
+    sb.append(", sla=").append(sla);
+    sb.append(", priority=").append(priority);
+    sb.append(", data_connector=").append(data_connector);
+    sb.append(", current_usage=").append(current_usage);
+    sb.append('}');
+    return sb.toString();
+  }
 }

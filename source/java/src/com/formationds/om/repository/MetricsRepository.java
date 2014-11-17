@@ -63,15 +63,16 @@ public class MetricsRepository
                   long volid = config.getVolumeId(dp.getVolumeName());
                   dp.setVolumeId(String.valueOf(volid));
 
-                  if (timestamp <= 0L)
-                      timestamp = dp.getTimestamp();
-
-                  /*
-                   * syncing all the times to the first record. This will allow for us
-                   * to query for a time range and guarantee that all datapoints will
-                   * be aligned
-                   */
-                  dp.setTimestamp(timestamp);
+// Note: commented out on master where this code was refactored from.
+//                  if (timestamp <= 0L)
+//                      timestamp = dp.getTimestamp();
+//
+//                  /*
+//                   * syncing all the times to the first record. This will allow for us
+//                   * to query for a time range and guarantee that all datapoints will
+//                   * be aligned
+//                   */
+//                  dp.setTimestamp(timestamp);
               }
           } catch (TException t) {
               throw new IllegalStateException("prePersist failed processing volume data points.", t);

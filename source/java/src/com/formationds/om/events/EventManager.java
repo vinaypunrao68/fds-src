@@ -10,7 +10,10 @@ import com.formationds.commons.events.EventDescriptor;
 import com.formationds.commons.events.EventSeverity;
 import com.formationds.commons.events.EventType;
 import com.formationds.commons.model.abs.ModelBase;
-import com.formationds.commons.model.entity.*;
+import com.formationds.commons.model.entity.Event;
+import com.formationds.commons.model.entity.SystemActivityEvent;
+import com.formationds.commons.model.entity.UserActivityEvent;
+import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.security.AuthenticatedRequestContext;
@@ -18,7 +21,8 @@ import com.formationds.security.AuthenticationToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * The event manager is responsible for receiving events and storing them in the event repository.
@@ -34,6 +38,8 @@ public enum EventManager {
      * The singleton instance
      */
     INSTANCE;
+
+    public static EventManager instance() { return INSTANCE; }
 
     static final Logger logger = LoggerFactory.getLogger(EventManager.class);
 
@@ -107,6 +113,9 @@ public enum EventManager {
                 long userId = (token != null ? token.getUserId() : -1);
                 return new UserActivityEvent(userId, c, s, dflt, key, eventArgStr);
 
+            case FIREBREAK_EVENT:
+                throw new IllegalArgumentException("Firebreak event is not a generic event handled here.");
+
             default:
                 // TODO: log warning or throw exception on unknown/unsupported type?  Fow now logging.
                 // throw new IllegalArgumentException("Unsupported event type (" + t + ")");
@@ -175,5 +184,4 @@ public enum EventManager {
     public List<Event> getEvents() {
         return SingletonRepositoryManager.instance().getEventRepository().findAll();
     }
-
 }

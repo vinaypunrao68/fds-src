@@ -5,13 +5,17 @@
 package com.formationds.om.events;
 
 import com.formationds.commons.crud.JDORepository;
+import com.formationds.commons.events.FirebreakType;
+import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Volume;
+import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.VolumeDatapoint;
-import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
+import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +24,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -33,8 +36,8 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
     MetricsRepository mr = SingletonRepositoryManager.instance()
                                                      .getMetricsRepository();
 
-    class FBInfo { private final Volume v; private final FirebreakEvent.FirebreakType type;
-        public FBInfo(Volume v, FirebreakEvent.FirebreakType type) {
+    class FBInfo { private final Volume v; private final FirebreakType type;
+        public FBInfo(Volume v, FirebreakType type) {
             this.v = v;
             this.type = type;
         }
@@ -61,29 +64,14 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
     final Map<FBInfo,FirebreakEvent> activeFirebreaks = new ConcurrentHashMap<>();
     Map<Volume, Boolean> isVolumeloaded = new ConcurrentHashMap<>();
 
-    // TODO: this occurs within the VolumeDatapoint persistence path and could potentially
+    // TODO: this occurs within the VolumeDatapoint persistence path and could potentially prevent saving metrics
+    // if errors are not handled here.  There could also be some impact on performance of that operation, though it
+    // is unlikely to be in the user data path and so impact should be minimal.
     @Override
     public void postPersist(List<VolumeDatapoint> vdp) {
         logger.trace( "postPersist handling of Volume data points {}", vdp);
         try {
-            Map<Volume, List<FirebreakHelper.VolumeDatapointPair>> fb =
-                    new FirebreakHelper().findFirebreakVolumeDatapoints(vdp);
-
-            for(final Map.Entry<Volume, List<FirebreakHelper.VolumeDatapointPair>> ve : fb.entrySet()) {
-                Volume v = ve.getKey();
-                List<FirebreakHelper.VolumeDatapointPair> volDp = ve.getValue();
-
-                logger.trace("Firebreak event for '{}' with datapoints '{}'", v, volDp);
-
-                FirebreakEvent.FirebreakType fbtype = FirebreakEvent.FirebreakType.metricFirebreakType(volDp.get(0).getSigma1().getKey()).get();
-                FirebreakHelper.VolumeDatapointPair p = volDp.get(0);
-
-                if (fbtype != null && !hasActiveFirebreak(v, fbtype, p)) {
-                    FirebreakEvent fbe = new FirebreakEvent(v, fbtype, p.getSigma1(), p.getSigma2());
-                    EventManager.INSTANCE.notifyEvent(fbe);
-                    activeFirebreaks.put(new FBInfo(v, FirebreakEvent.FirebreakType.CAPACITY), fbe);
-                }
-            }
+            doPostPersist(vdp);
         }
         catch (Throwable t) {
             logger.error("Failed to process datapoint postPersist event detection", t);
@@ -92,11 +80,52 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
     }
 
     /**
+     * Post-persist implementation.  Use the FirebreakHelper to detect any firebreak events occurring
+     * in the given set of volume datapoints.  If there are events, determine if there is already an
+     * active firebreak for the associated volume and if not, generate a FirebreakEvent.
+     *
+     * @param vdp
+     * @throws TException
+     */
+    protected void doPostPersist(List<VolumeDatapoint> vdp) throws TException {
+        Map<String, FirebreakHelper.VolumeDatapointPair> fb = new FirebreakHelper().findFirebreak(vdp);
+
+        for(final Map.Entry<String, FirebreakHelper.VolumeDatapointPair> ve : fb.entrySet()) {
+            String vid = ve.getKey();
+            FirebreakHelper.VolumeDatapointPair volDp = ve.getValue();
+
+            if (volDp.getDatapoint().getY().equals(FirebreakHelper.NEVER))
+                continue;
+
+            Volume v = new VolumeBuilder().withId(vid)
+                                          .withName(volDp.getShortTermSigma().getVolumeName())
+                                          .build();
+
+            FirebreakType fbtype = FirebreakType.metricFirebreakType(volDp.getShortTermSigma().getKey()).get();
+
+            if (fbtype != null && !hasActiveFirebreak(v, fbtype)) {
+                logger.trace("Firebreak event for '{}({})' with datapoints '{}'", v.getId(), v.getName(), volDp);
+
+                Datapoint dp = volDp.getDatapoint();
+                FirebreakEvent fbe = new FirebreakEvent(v, fbtype,
+                                                        Instant.ofEpochSecond(dp.getY()).toEpochMilli(), dp.getX(),
+                                                        (volDp.getShortTermSigma().getValue() != 0.0D ?
+                                                         volDp.getShortTermSigma().getValue() :
+                                                         volDp.getLongTermSigma().getValue()) );
+                EventManager.INSTANCE.notifyEvent(fbe);
+                activeFirebreaks.put(new FBInfo(v, FirebreakType.CAPACITY), fbe);
+            } else {
+                logger.trace("Firebreak event skipped - active firebreak for {}", v);
+                logger.trace("Active Firebreaks: {}", activeFirebreaks.toString());
+            }
+        }
+    }
+
+    /**
      * @param vol the volume
-     * @param p the volume datapoint pair
      * @return true if there is an active firebreak for the volume and metric
      */
-    private boolean hasActiveFirebreak(Volume vol, FirebreakEvent.FirebreakType fbtype, FirebreakHelper.VolumeDatapointPair p) {
+    protected boolean hasActiveFirebreak(Volume vol, FirebreakType fbtype) {
         Boolean isLoaded = isVolumeloaded.get(vol);
         if (isLoaded == null || !isLoaded) {
             loadActiveFirebreaks(vol);
@@ -114,34 +143,21 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
         Instant fbts = Instant.ofEpochMilli(fbe.getInitialTimestamp());
         if (fbts.isBefore(oneDayAgo)) {
             activeFirebreaks.remove(fbi);
+            isVolumeloaded.remove(vol);
             return false;
         }
 
         return true;
     }
 
-    private void loadActiveFirebreaks(Volume vol) {
+    protected void loadActiveFirebreaks(Volume vol) {
         // TODO: query events for the last firebreak event instead of fabricating an event
-        VolumeDatapoint vdp_ltc_sigma = mr.mostRecentOccurrenceBasedOnTimestamp(vol.getId(), Metrics.LTC_SIGMA);
-        VolumeDatapoint vdp_stc_sigma = mr.mostRecentOccurrenceBasedOnTimestamp(vol.getId(), Metrics.STC_SIGMA);
-        VolumeDatapoint vdp_ltp_sigma = mr.mostRecentOccurrenceBasedOnTimestamp(vol.getId(), Metrics.LTP_SIGMA);
-        VolumeDatapoint vdp_stp_sigma = mr.mostRecentOccurrenceBasedOnTimestamp(vol.getId(), Metrics.STP_SIGMA);
+        EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
+        FirebreakEvent fb = er.findLatestFirebreak(vol);
 
-        Instant oneDayAgo = Instant.now().minus(Duration.ofDays(1));
-        for (VolumeDatapoint[] vdp : new VolumeDatapoint[][] {{vdp_ltc_sigma, vdp_stc_sigma},
-                                                              {vdp_ltp_sigma, vdp_stp_sigma}} ) {
-            if (vdp[0] == null)
-                continue;
-
-            if (Instant.ofEpochMilli(vdp[0].getTimestamp()).isAfter(oneDayAgo)) {
-                Optional<FirebreakEvent.FirebreakType> fbto = FirebreakEvent.FirebreakType.metricFirebreakType(vdp[0].getKey());
-                if (fbto.isPresent()) {
-                    activeFirebreaks.put(new FBInfo(vol, fbto.get()),
-                                         new FirebreakEvent(vol, fbto.get(), vdp[0], vdp[1]));
-                }
-            }
-
-            isVolumeloaded.put(vol, true);
+        if (fb != null) {
+            activeFirebreaks.put(new FBInfo(vol, fb.getFirebreakType()), fb);
+            isVolumeloaded.put(vol, Boolean.TRUE);
         }
     }
 }
