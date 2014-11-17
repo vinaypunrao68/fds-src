@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/bin/bash -e
 if [ ! -x `which docker` ] ; then
-	echo "Cannot find the docker executable - please install following the docs here:"
-	echo "http://docs.docker.com/installation/"
+  echo "Cannot find the docker executable - please install following the docs here:"
+  echo "http://docs.docker.com/installation/"
 fi
 
 IMG_NAME="registry.formationds.com:5000/fds_dev"

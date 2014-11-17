@@ -94,3 +94,6 @@
 
     - name: create java home script
       copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755
+
+    - name: update_java_alternatives
+      alternatives: name=java path=/usr/lib/jvm/java-8-oracle/jre/bin/java
