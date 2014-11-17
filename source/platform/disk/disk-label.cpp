@@ -4,8 +4,8 @@
 #include <string>
 #include <fds_uuid.h>
 #include <disk-label.h>
-#include <shared/fds-magic.h>
 #include <platform/platform-lib.h>
+#include <fds-magic.h>
 
 namespace fds {
 
@@ -33,7 +33,7 @@ DiskLabel::dsk_label_init_header(dlabel_hdr_t *hdr)
         hdr = dl_label;
     }
     fds_verify(hdr != NULL);
-    hdr->dl_magic      = MAGIC_DSK_SUPPER_BLOCK;
+    hdr->dl_magic      = MAGIC_DSK_SUPER_BLOCK;
     hdr->dl_sector_beg = 64;
     hdr->dl_sector_end = hdr->dl_sector_beg + DL_PAGE_SECT_SZ;
     hdr->dl_major      = DL_MAJOR;
@@ -61,7 +61,7 @@ DiskLabel::dsk_label_valid(DiskLabelMgr *mgr)
     ResourceUUID disk_uuid, node_uuid;
 
     // TODO(Vy): checksum stuffs.
-    if ((dl_label == NULL) || (dl_label->dl_magic != MAGIC_DSK_SUPPER_BLOCK)) {
+    if ((dl_label == NULL) || (dl_label->dl_magic != MAGIC_DSK_SUPER_BLOCK)) {
         return false;
     }
     disk_uuid.uuid_set_from_raw(dl_label->dl_disk_uuid);
@@ -218,7 +218,7 @@ DiskLabel::dsk_label_fixup_header()
             return;
         }
     }
-    fds_panic("Corrupted supper block");
+    fds_panic("Corrupted super block");
 }
 
 // dsk_fill_disk_uuids
@@ -340,17 +340,17 @@ DiskLabelMgr::DiskLabelMgr() : dl_master(NULL), dl_mtx("label mtx"), dl_map(NULL
 // TODO(Vy): must guard this call so that we don't do the iteration twice, or alloc and
 // free this object instead of keeping it inside the module..
 //
-void
-DiskLabelMgr::dsk_read_label(PmDiskObj::pointer disk)
+void DiskLabelMgr::dsk_read_label(PmDiskObj::pointer disk)
 {
-    DiskLabel *label;
+    DiskLabel *label = disk->dsk_xfer_label();
 
-    label = disk->dsk_xfer_label();
-    if (label == NULL) {
+    if (label == NULL)
+    {
         disk->dsk_read_uuid();
         label = disk->dsk_xfer_label();
         fds_assert(label != NULL);
     }
+
     fds_verify(label->dl_owner == disk);
 
     dl_mtx.lock();
@@ -361,8 +361,7 @@ DiskLabelMgr::dsk_read_label(PmDiskObj::pointer disk)
 // dsk_master_label_mtx
 // --------------------
 //
-DiskLabel *
-DiskLabelMgr::dsk_master_label_mtx()
+DiskLabel *DiskLabelMgr::dsk_master_label_mtx()
 {
     if (dl_master != NULL) {
         return dl_master;
@@ -374,8 +373,7 @@ DiskLabelMgr::dsk_master_label_mtx()
 // -------------------
 // TODO(Vy): redo this code.
 //
-bool
-DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
+bool DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
 {
     bool       ret;
     int        valid_labels;
@@ -383,24 +381,33 @@ DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
     ChainList  upgrade;
     DiskLabel *label, *master, *curr, *chk;
 
-    if ((dl_map == NULL) && (creat == true)) {
+    // If we dont' have a dl_map and create is true, open the diskmap truncating
+    // any disk-map already present
+    if ((dl_map == NULL) && (creat == true))
+    {
         const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
         FdsRootDir::fds_mkdir(dir->dir_dev().c_str());
         dl_map = new std::ofstream(dir->dir_dev() + std::string("/disk-map"),
                                    std::ofstream::out | std::ofstream::trunc);
     }
-    dl_mtx.lock();
+
     dl_total_disks  = 0;
     dl_valid_labels = 0;
     master          = NULL;
-    chain_foreach(&dl_labels, iter) {
+
+    // Count the disks and disks with labels
+    dl_mtx.lock();
+    chain_foreach(&dl_labels, iter)
+    {
         dl_total_disks++;
         label = dl_labels.chain_iter_current<DiskLabel>(iter);
 
         // Simple, no quorum scheme for now.
-        if (label->dsk_label_valid(this)) {
+        if (label->dsk_label_valid(this))
+        {
             dl_valid_labels++;
-            if (master == NULL) {
+            if (master == NULL)
+            {
                 master = label;
             }
         } else {
@@ -410,11 +417,16 @@ DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
             upgrade.chain_add_back(&label->dl_link);
         }
     }
+
+    LOGNORMAL << "dl_total_disks = " << dl_total_disks << "   dl_valid_labels=" << dl_valid_labels;
     ret = false;
-    if (dl_valid_labels > 0) {
+    if (dl_valid_labels > 0)
+    {
         ret = (dl_valid_labels >= (dl_total_disks >> 1)) ? true : false;
     }
-    if (master == NULL) {
+
+    if (master == NULL)
+    {
         fds_verify(dl_valid_labels == 0);
         fds_verify(upgrade.chain_empty_list() == false);
         fds_verify(dl_labels.chain_empty_list() == true);
@@ -431,30 +443,39 @@ DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
     dl_mtx.unlock();
 
     valid_labels = 0;
-    if ((master == NULL) && (creat == true)) {
+    if ((master == NULL) && (creat == true))
+    {
         fds_verify(label != NULL);
         label->dsk_label_write(inv, this);
 
         valid_labels++;
         master = label;
     }
-    if (inv->dsk_need_simulation() == true) {
+
+    if (inv->dsk_need_simulation() == true)
+    {
         LOGNORMAL << "In simulation, found " << dl_valid_labels << " labels";
     } else {
         LOGNORMAL << "Scan HW inventory, found " << dl_valid_labels << " labels";
     }
-    for (; 1; valid_labels++) {
+
+    for (; 1; valid_labels++)
+    {
         curr = upgrade.chain_rm_front<DiskLabel>();
-        if (curr == NULL) {
+        if (curr == NULL)
+        {
             break;
         }
-        if (creat == true) {
+        if (creat == true)
+        {
             curr->dsk_label_clone(master);
             curr->dsk_label_write(inv, this);
         }
         delete curr;
     }
+
     dl_valid_labels += valid_labels;
+
 #if 0
     /* It's the bug here, master is still chained to the list. */
     if (master != NULL) {
@@ -462,7 +483,8 @@ DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
         delete master;
     }
 #endif
-    if ((dl_map != NULL) && (creat == true)) {
+    if ((dl_map != NULL) && (creat == true))
+    {
         // This isn't thread-safe but we won't need dl_map in post-alpha.
         dl_map->flush();
         dl_map->close();
@@ -477,8 +499,7 @@ DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
 // dsk_rec_label_map
 // -----------------
 //
-void
-DiskLabelMgr::dsk_rec_label_map(PmDiskObj::pointer disk, int idx)
+void DiskLabelMgr::dsk_rec_label_map(PmDiskObj::pointer disk, int idx)
 {
     if ((dl_map != NULL) && !disk->dsk_get_mount_point().empty())  {
         char const *const name = disk->rs_get_name();

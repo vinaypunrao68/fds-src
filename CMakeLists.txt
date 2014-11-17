@@ -1258,7 +1258,6 @@ set(SOURCE_FILES
     source/include/shared/bitutil.h
     source/include/shared/dlist.h
     source/include/shared/fds-constants.h
-    source/include/shared/fds-magic.h
     source/include/shared/fds_types.h
     source/include/util/counter.h
     source/include/util/fds_stat.h
@@ -1526,6 +1525,7 @@ set(SOURCE_FILES
     source/platform/include/disk-label.h
     source/platform/include/disk-partition.h
     source/platform/include/disk.h
+    source/platform/include/fds-magic.h
     source/platform/include/net-platform.h
     source/platform/include/platform.h
     source/platform/net-svc/ep-map.cpp

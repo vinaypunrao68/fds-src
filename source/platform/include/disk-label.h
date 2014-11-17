@@ -60,7 +60,7 @@ typedef enum
 } dlabel_type_e;
 
 /**
- * On-disk enum to specify supper block update recovery type.
+ * On-disk enum to specify super block update recovery type.
  */
 typedef enum
 {
