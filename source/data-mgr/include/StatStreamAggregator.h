@@ -160,7 +160,7 @@ class StatHelper {
     static fds_uint64_t getTotalMetadataBytes(const StatSlot& slot);
     static double getAverageBytesInBlob(const StatSlot& slot);
     static double getAverageObjectsInBlob(const StatSlot& slot);
-    static double getPercentSsdAccesses(const StatSlot& slot);
+    static fds_uint64_t getTotalSsdGets(const StatSlot& slot);
     static fds_uint64_t getTotalPhysicalBytes(const StatSlot& slot);
 };
 
