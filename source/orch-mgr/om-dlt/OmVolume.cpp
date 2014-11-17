@@ -1473,7 +1473,7 @@ VolumeContainer::om_test_bucket(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
         LOGNOTIFY << "OM does not know about node " << hdr->msg_src_uuid.svc_uuid;
     }
     vol = get_volume(req->bucket_name);
-    if (vol == NULL || vol->isDeletePending()) {
+    if (vol == NULL || vol->isDeletePending() || !vol->isStateActive()) {
         if (vol) {
             LOGNORMAL << "delete pending on bucket " << vname;
         } else {

@@ -232,8 +232,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                 if (vol->vol_get_properties()->isSnapshot()) {
                     LOGDEBUG << "snapshot: " << vol->vol_get_name();
                 }
-                convert::getVolumeDescriptor(volDescriptor, vol);
-                vec.push_back(volDescriptor);
+                if (vol->vol_get_properties()->isStateActive()) {
+                    convert::getVolumeDescriptor(volDescriptor, vol);
+                    vec.push_back(volDescriptor);
+                }
             });
     }
 
