@@ -5,17 +5,17 @@ OPTIND=1         # Reset in case getopts has been used previously in the shell.
 no_sudo=0
 
 function show_help {
-    echo "Usage: ./prog [-k] hostname"
-    echo "Use -k to disable request for sudo password (when passwordless sudo is enabled)"
+    echo "Usage: ./prog [-s] hostname"
+    echo "Use -s to disable request for sudo password (when passwordless sudo is enabled)"
 }
 
-while getopts "h?k" opt; do
+while getopts "h?s" opt; do
     case "$opt" in
     h|\?)
         show_help
         exit 0
         ;;
-    k)  no_sudo=1
+    s)  no_sudo=1
         ;;
     esac
 done
@@ -36,7 +36,6 @@ playbooks=${script_dir}/../playbooks
 
 ansible_args=" -i ${inventory} -e "target_hosts=${hosts}" ${playbooks}/deploy_config_files_only.yml"
 if [ $no_sudo -eq 0 ]; then 
-    echo sudo
     ansible_args="$ansible_args -K"
 fi
 
