@@ -51,6 +51,7 @@
         - flex
         - ragel
         - ccache
+        - libboost1.54-dev
         - libboost-log1.54-dev
         - libboost-program-options1.54-dev
         - libboost-timer1.54-dev
