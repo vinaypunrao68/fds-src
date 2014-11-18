@@ -749,9 +749,11 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
             do_activate_dm = false;
         }
         if (activate_am && service_exists(FDS_ProtocolInterface::FDSP_STOR_HVISOR)) {
-            LOGNOTIFY << "OM_PmAgent: AM service already running, "
-                      << "not going to restart...";
-            do_activate_am = false;
+            LOGNOTIFY << "OM_PmAgent: AM service already running. Allowing another "
+                      << "AM instance...";
+            // TODO(Andrew): Re-enable this if we want to prevent multiple AM
+            // instances per node.
+            // do_activate_am = false;
         }
 
         //  if all requested services already active, nothing to do

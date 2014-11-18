@@ -193,8 +193,8 @@ RandomRankPolicy::isObjectDemotable(const ObjectID& oid)
 */
 void
 RandomRankPolicy::notifyDataPath(fds_io_op_t opType,
-                                 const ObjectID& oid,
-                                 diskio::DataTier tier)
+        const ObjectID& oid,
+        diskio::DataTier tier)
 {
     // Intentionally does nothing.
     return;

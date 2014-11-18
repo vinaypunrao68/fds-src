@@ -28,6 +28,7 @@ namespace fds {
 
 static ObjectStorMgr* sm;
 
+
 /**
  * Load (performance) test for StorMgr
  *
@@ -75,7 +76,10 @@ class SmLoadProc : public FdsProcess {
     std::atomic<fds_bool_t> test_pass_;
 
     // config
-    fds_bool_t dropCaches;
+    bool dropCaches;
+
+    // enable google profiler
+    bool enableProfiler;
 
     // set of volumes, each volume has its own
     // policy, data set, concurrency
@@ -104,8 +108,39 @@ SmLoadProc::SmLoadProc(int argc, char * argv[], const std::string & config,
     FdsConfigAccessor conf(fdsconf, "fds.sm_load.");
     volumes_.init(fdsconf, "fds.sm_load.");
 
+    namespace progOpt = boost::program_options;
+    progOpt::options_description progDesc("SM Load Test Options");
+    progDesc.add_options()
+        ("help,h", "Help Message")
+        ("drop-cache",
+         progOpt::value<bool>(&dropCaches)->default_value(false),
+         "Drop filesystem cache")
+        ("enable-profiler",
+         progOpt::value<bool>(&enableProfiler)->default_value(false),
+         "Google profiler");
+
+    progOpt::variables_map varMap;
+    progOpt::parsed_options parsedOpt =
+        progOpt::command_line_parser(argc, argv).options(progDesc).allow_unregistered().run();
+    progOpt::store(parsedOpt, varMap);
+    progOpt::notify(varMap);
+
+    std::cout << "===== options list =====" << std::endl;
+    std::cout << "     dropCaches=" << dropCaches << std::endl;
+    std::cout << "     enableProfile=" << enableProfiler << std::endl;
+
+    if (varMap.count("help")) {
+        std::cout << progDesc << std::endl;
+        exit(0);
+    }
+
+    std::cout << "dropCaches=" << dropCaches << std::endl;
+    std::cout << "enableProfile=" << dropCaches << std::endl;
+
+
     // initialize dynamic counters
-    dropCaches = false;
+    // dropCaches = false;
+    // enableProfiler = false;
     validating_ = false;
     test_pass_ = ATOMIC_VAR_INIT(true);
     put_lat_micro = ATOMIC_VAR_INIT(0);
@@ -238,7 +273,10 @@ int SmLoadProc::run() {
       std::cout << "finished sleeping" << std::endl;
     }
 
-    ProfilerStart("/tmp/SM_output.prof");
+    if (enableProfiler) {
+        ProfilerStart("/tmp/SM_output.prof");
+    }
+
     fds_uint32_t num_volumes = volumes_.volmap.size();
     for (TestVolMap::iterator it = volumes_.volmap.begin();
          it != volumes_.volmap.end();
@@ -251,7 +289,10 @@ int SmLoadProc::run() {
     for (unsigned x = 0; x < num_volumes; ++x) {
         threads_[x]->join();
     }
-    ProfilerStop();
+
+    if (enableProfiler) {
+        ProfilerStop();
+    }
 
     for (unsigned x = 0; x < num_volumes; ++x) {
         std::thread* th = threads_[x];
@@ -606,7 +647,9 @@ SmLoadProc::regVolume(TestVolume::ptr& volume) {
 
 }  // namespace fds
 
-int main(int argc, char * argv[]) {
+int
+main(int argc, char * argv[])
+{
     sm = new fds::ObjectStorMgr(g_fdsprocess);
     objStorMgr  = sm;
     std::cout << "Will test SM" << std::endl;

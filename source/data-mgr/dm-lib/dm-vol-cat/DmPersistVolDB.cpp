@@ -162,6 +162,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
 
     Catalog::catalog_iterator_t * dbIt = catalog_->NewIterator();
     fds_assert(dbIt);
+    objList.reserve(endObjIndex - startObjIndex + 1);
     for (dbIt->Seek(startRec); dbIt->Valid() &&
             catalog_->GetOptions().comparator->Compare(dbIt->key(), endRec) <= 0;
             dbIt->Next()) {
@@ -171,9 +172,9 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
         blobInfo.offset = static_cast<fds_uint64_t>(key->objIndex) * objSize_;
         blobInfo.size = objSize_;
         blobInfo.blob_end = false;  // assume false
-        blobInfo.data_obj_id.digest = dbIt->value().ToString();
+        blobInfo.data_obj_id.digest = std::move(dbIt->value().ToString());
 
-        objList.push_back(blobInfo);
+        objList.push_back(std::move(blobInfo));
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
     delete dbIt;

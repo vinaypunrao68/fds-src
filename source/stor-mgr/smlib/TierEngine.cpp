@@ -5,32 +5,43 @@
 #include <string>
 #include <fds_process.h>
 #include <ObjStats.h>
+#include <object-store/RankEngine.h>
 #include <TierEngine.h>
+#include <object-store/RandomRankPolicy.h>
 
 namespace fds {
 
 TierEngine::TierEngine(const std::string &modName,
-                       tierPutAlgoType _algo_type,
-                       StorMgrVolumeTable* _sm_volTbl) :
+        rankPolicyType _rank_type,
+        StorMgrVolumeTable* _sm_volTbl,
+        SmIoReqHandler* storMgr) :
         Module(modName.c_str()),
-        algoType(_algo_type),
+        migrator(nullptr),
         sm_volTbl(_sm_volTbl) {
-    objStats = new ObjStatsTracker();
+    switch (_rank_type) {
+        case FDS_RANDOM_RANK_POLICY:
+            rankEngine = boost::shared_ptr<RankEngine>(new RandomRankPolicy(storMgr, 50));
+            break;
+        case FDS_COUNTING_BLOOM_RANK_POLICY:
+            break;
+        default:
+            fds_panic("No valid rank policy provided!");
+    }
+
+    migrator = new SmTierMigration(storMgr);
 }
 
-/*
- * Note caller is responsible for freeing
- * the algorithm structure at the moment
- */
+
 TierEngine::~TierEngine() {
-    delete objStats;
-    delete rankEng;
-    delete migrator;
+    if (migrator != nullptr) {
+        delete migrator;
+    }
 }
 
 int TierEngine::mod_init(SysParams const *const param) {
     Module::mod_init(param);
 
+    /*
     boost::shared_ptr<FdsConfig> conf = g_fdsprocess->get_fds_config();
 
     // config for rank engine
@@ -45,11 +56,10 @@ int TierEngine::mod_init(SysParams const *const param) {
         hot_threshold = conf->get<int>("fds.sm.testing.hot_threshold");
         cold_threshold = conf->get<int>("fds.sm.testing.cold_threshold");
     }
-    std::string obj_stats_dir = g_fdsprocess->proc_fdsroot()->dir_fds_var_stats();
-    rankEng = new ObjectRankEngine(obj_stats_dir, rank_tbl_size, rank_freq_sec,
-                                   hot_threshold, cold_threshold, sm_volTbl, objStats);
 
-    migrator = new TierMigration(max_migration_threads, this);
+    std::string obj_stats_dir = g_fdsprocess->proc_fdsroot()->dir_fds_var_stats();
+    */
+
     return 0;
 }
 
@@ -67,8 +77,8 @@ diskio::DataTier TierEngine::selectTier(const ObjectID    &oid,
                                         const VolumeDesc& voldesc) {
     diskio::DataTier ret_tier = diskio::diskTier;
     FDSP_MediaPolicy media_policy = voldesc.mediaPolicy;
-    fds_uint32_t rank;
 
+    // TODO(brian): Add check for whether or not this will exceed SSD capacity
     if (media_policy == FDSP_MEDIA_POLICY_SSD) {
         /* if 'all ssd', put to ssd */
         ret_tier = diskio::flashTier;
@@ -79,77 +89,25 @@ diskio::DataTier TierEngine::selectTier(const ObjectID    &oid,
         ret_tier = diskio::diskTier;
     } else if (media_policy == FDSP_MEDIA_POLICY_HYBRID) {
         /* hybrid tier policy */
-        fds_uint32_t rank = rankEng->getRank(oid, voldesc);
-        if (rank < rankEng->getTblTailRank()) {
-            /* lower value means higher rank */
-            ret_tier = diskio::flashTier;
-        }
+        // and return appropriate
+        ret_tier = diskio::flashTier;
     } else {  // else ret_tier already set to disk
         LOGDEBUG << "RankTierPutAlgo: selectTier received unexpected media policy: "
                 << media_policy;
     }
-
     return ret_tier;
 }
 
 void
-TierEngine::handleObjectPutToFlash(const ObjectID& objId,
-                                   const VolumeDesc& voldesc) {
-    rankEng->rankAndInsertObject(objId, voldesc);
-}
-
-TierMigration::TierMigration(fds_uint32_t _nthreads,
-                             TierEngine *te) :
-        tier_eng(te) {
-    threadPool = new fds_threadpool(_nthreads);
-    stopMigrationFlag = true;
-}
-
-TierMigration::~TierMigration() {
-    stopMigrationFlag = true;
-    delete threadPool;
-}
-
-void migrationJob(TierMigration *migrator, void *arg, fds_uint32_t count) {
-    fds_uint32_t len = 100;
-    std::pair<ObjectID, ObjectRankEngine::rankOperType> * chg_tbl = (
-        std::pair<ObjectID, ObjectRankEngine::rankOperType> *) arg;
-    ObjectID oid;
-    for (uint i = 0; i < count; ++i)
-    {
-        if (migrator->stopMigrationFlag) return;
-        oid = chg_tbl[i].first;
-        if (chg_tbl[i].second == ObjectRankEngine::OBJ_RANK_PROMOTION) {
-            LOGDEBUG << "rankMigrationJob: chg table obj "
-                     << oid << " will be promoted";
-            // objStorMgr->relocateObject(oid, diskio::diskTier, diskio::flashTier);
-        } else {
-            LOGDEBUG << "rankMigrationJob: chg table obj "
-                     << oid << " will be demoted";
-            // objStorMgr->relocateObject(oid, diskio::flashTier, diskio::diskTier);
-        }
+TierEngine::notifyIO(const ObjectID& objId, fds_io_op_t opType,
+        const VolumeDesc& volDesc, diskio::DataTier tier) {
+    // Only notifyDataPath on hybrid IOs
+    if (volDesc.mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID ||
+            volDesc.mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
+        rankEngine->notifyDataPath(opType, objId, tier);
     }
-    delete []  chg_tbl;
+    if ((opType == FDS_SM_PUT_OBJECT) && (tier == diskio::flashTier)) {
+        migrator->notifyHybridVolFlashPut(objId);
+    }
 }
-
-void TierMigration::startRankTierMigration(void) {
-    stopMigrationFlag = false;
-    fds_uint32_t len = 100;
-    fds_uint32_t count = 0;
-    do {
-        std::pair<ObjectID, ObjectRankEngine::rankOperType> *chg_tbl =
-                new std::pair<ObjectID, ObjectRankEngine::rankOperType> [len];
-        count = tier_eng->rankEng->getDeltaChangeTblSegment(len, chg_tbl);
-        if (count == 0)  {
-            delete [] chg_tbl;
-            break;
-        }
-        threadPool->schedule(migrationJob, this, static_cast<void *>(chg_tbl), count);
-    } while (count > 0 && !stopMigrationFlag);
-}
-
-void TierMigration::stopRankTierMigration(void) {
-    stopMigrationFlag = true;
-}
-
 }  // namespace fds

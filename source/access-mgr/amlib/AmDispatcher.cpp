@@ -569,7 +569,7 @@ AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
     setMDMsg->blob_name = amReq->getBlobName();
     setMDMsg->blob_version = blob_version_invalid;
     setMDMsg->volume_id = vol_id;
-    setMDMsg->txId = blobReq->dmt_version;
+    setMDMsg->txId = blobReq->tx_desc->getValue();
 
     setMDMsg->metaDataList = std::move(*blobReq->getMetaDataListPtr());
 

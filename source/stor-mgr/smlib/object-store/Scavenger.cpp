@@ -428,7 +428,7 @@ DiskScavenger::getDiskStats(diskio::DiskStat* retStat) {
     }
 
     fds_verify(retStat);
-    (*retStat).dsk_tot_size = statbuf.f_blocks * statbuf.f_bsize;
+    (*retStat).dsk_tot_size = statbuf.f_blocks * statbuf.f_frsize;
     (*retStat).dsk_avail_size = statbuf.f_bfree * statbuf.f_bsize;
     (*retStat).dsk_reclaim_size = totDeletedBytes;
     return err;

@@ -59,7 +59,7 @@ AMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 // -------------------------------------------------------------------------------------
 AmPlatform::~AmPlatform() {}
 AmPlatform::AmPlatform()
-    : Platform("DM-Platform",
+    : Platform("AM-Platform",
                fpi::FDSP_STOR_HVISOR,
                new DomainContainer("AM-Platform-NodeInv",
                                  NULL,
@@ -76,7 +76,8 @@ AmPlatform::AmPlatform()
                                  new PmContainer(fpi::FDSP_PLATFORM),
                                  new OmContainer(fpi::FDSP_ORCH_MGR)),
                new DomainResources("AM-Resources"),
-               NULL) {}
+               NULL),
+    instanceId(0) {}
 
 // mod_init
 // --------
@@ -107,6 +108,13 @@ AmPlatform::mod_startup()
     NetPlatform *net;
 
     Platform::mod_startup();
+
+    // Update base port with instance id to avoid clashes
+    // with other local am instances
+    // TODO(Andrew): Pick a more reliable port selection approach
+    Platform::platf_singleton()->plf_set_my_base_port(
+        Platform::platf_singleton()->plf_get_my_base_port() +
+        (20 * instanceId));
 
     am_recv   = bo::shared_ptr<AMSvcHandler>(new AMSvcHandler());
     am_plugin = new AMEpPlugin(this);

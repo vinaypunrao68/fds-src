@@ -13,6 +13,7 @@
 #include <TierEngine.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
+#include <utility>
 
 namespace fds {
 

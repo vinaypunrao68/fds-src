@@ -23,7 +23,7 @@ function deploy_to_artifactory () {
         return 1
     fi
 
-    curl_status_code=$(curl -s -o /dev/null --write-out "%{http_code}" -XPUT "http://jenkins:UP93STXWFy5c@artifacts.artifactoryonline.com/artifacts/formation-apt/pool/${pkg_filename};deb.distribution=platform;deb.component=nightly;deb.architecture=amd64")
+    curl_status_code=$(curl -s -o /dev/null --write-out "%{http_code}" -XPUT "http://jenkins:UP93STXWFy5c@artifacts.artifactoryonline.com/artifacts/formation-apt/pool/nightly/${pkg_filename};deb.distribution=platform;deb.component=nightly;deb.architecture=amd64" --data-binary @${pkg_filename})
 
     if [ ${curl_status_code} -ne 201 ]; then
         err "Upload failed, exiting"
@@ -36,17 +36,8 @@ script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 fds_platform_dir=${script_dir}/../source/tools/install/pkg
 
 pkgs_to_deploy=(
-    fds-accessmgr
-    fds-cli
     fds-coredump
-    fds-datamgr
-    fds-orchmgr
-    fds-platformmgr
-    fds-pythonlibs
-    fds-stormgr
-    fds-systemconf
-    fds-systemdir
-    fds-tools
+    fds-platform
 )
 
 

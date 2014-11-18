@@ -213,6 +213,10 @@ class Platform : public Module
     virtual void mod_shutdown() override;
     virtual void mod_enable_service() override;
 
+    inline void plf_set_my_base_port(fds_uint32_t port) {
+        plf_my_base_port = port;
+    }
+
     /**
      * Pull out common platform data.
      */
