@@ -13,13 +13,17 @@
 #include <fiu-local.h>
 #include <random>
 #include <chrono>
+#include <MockSvcHandler.h>
 
 namespace fds {
 
 extern ObjectStorMgr *objStorMgr;
+std::unique_ptr<MockSvcHandler> mockHandler;
 
 SMSvcHandler::SMSvcHandler()
 {
+    mockHandler.reset(new MockSvcHandler());
+
     REGISTER_FDSP_MSG_HANDLER(fpi::GetObjectMsg, getObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::PutObjectMsg, putObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteObjectMsg, deleteObject);
@@ -202,7 +206,12 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
     fiu_do_on("svc.drop.putobject", return);
-    fiu_do_on("svc.uturn.putobject", putObjectCb(asyncHdr, ERR_OK, NULL); return;);
+    // fiu_do_on("svc.uturn.putobject", putObjectCb(asyncHdr, ERR_OK, NULL); return;);
+    fiu_do_on("svc.uturn.putobject", \
+              mockHandler->schedule(200, \
+                                    std::bind(&SMSvcHandler::mockPutCb, \
+                                              this, asyncHdr)); \
+              return;);
 
     Error err(ERR_OK);
     auto putReq = new SmIoPutObjectReq(putObjMsg);
@@ -238,6 +247,13 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                  << err;
         putObjectCb(asyncHdr, err, putReq);
     }
+}
+
+void SMSvcHandler::mockPutCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr)
+{
+    auto resp = boost::make_shared<fpi::PutObjectRspMsg>();
+    asyncHdr->msg_code = ERR_OK;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::PutObjectRspMsg), *resp);
 }
 
 void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
