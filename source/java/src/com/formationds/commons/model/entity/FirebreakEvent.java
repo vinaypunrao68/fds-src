@@ -15,6 +15,10 @@ import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
 import javax.xml.bind.annotation.XmlRootElement;
 
+/**
+ * Represents an event with EventType#FIREBREAK_EVENT referencing the volume associated with the
+ * firebreak occurrence and usage/sigma data relevant to the firebreak.
+ */
 @XmlRootElement
 @Entity
 public class FirebreakEvent extends Event {
@@ -32,8 +36,19 @@ public class FirebreakEvent extends Event {
     private Long currentUsageBytes;
     private Double sigma;
 
+    /*
+     * non-javadoc - this constructor is not intended for use except by the persistence layer
+     */
     protected FirebreakEvent() {}
 
+    /**
+     *
+     * @param vol the volume that the firebreak occurred in
+     * @param t the firebreak type (capacity/performance)
+     * @param ts the firebreak timestamp in milliseconds since the epoch
+     * @param currentUsageInBytes the current volume usage in bytes
+     * @param sigma the short term sigma value causing the firebreak event.
+     */
     public FirebreakEvent(Volume vol, FirebreakType t,  Long ts, Long currentUsageInBytes, Double sigma) {
         super(ts, EventType.FIREBREAK_EVENT, EventCategory.FIREBREAK, EventSeverity.WARNING,
               DEFAULT_MESSAGE_FMT, MESSAGE_KEY, vol.getName(), t, currentUsageInBytes, sigma);
@@ -51,7 +66,8 @@ public class FirebreakEvent extends Event {
         return volumeId;
     }
 
-    /**
+    /*
+     * non-javadoc - this method is not intended for use except by the persistence layer
      *
      * @param volId
      */
@@ -67,7 +83,8 @@ public class FirebreakEvent extends Event {
         return volumeName;
     }
 
-    /**
+    /*
+     * non-javadoc - this method is not intended for use except by the persistence layer
      *
      * @param volName
      */
@@ -83,14 +100,26 @@ public class FirebreakEvent extends Event {
         return firebreakType;
     }
 
+    /*
+     * non-javadoc - this method is not intended for use except by the persistence layer
+     *
+     * @param firebreakType
+     */
     protected void setFirebreakType(FirebreakType firebreakType) {
         this.firebreakType = firebreakType;
     }
 
+    /**
+     *
+     * @return
+     */
     public Long getCurrentUsageBytes() {
         return currentUsageBytes;
     }
 
+    /*
+     * non-javadoc - this method is not intended for use except by the persistence layer
+     */
     protected void setCurrentUsageBytes(Long currentUsageBytes) {
         this.currentUsageBytes = currentUsageBytes;
     }
@@ -99,6 +128,9 @@ public class FirebreakEvent extends Event {
         return sigma;
     }
 
+    /*
+     * non-javadoc - this method is not intended for use except by the persistence layer
+     */
     protected void setSigma(Double sigma) {
         this.sigma = sigma;
     }

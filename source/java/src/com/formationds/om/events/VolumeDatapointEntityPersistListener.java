@@ -33,8 +33,8 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
 
     private static final Logger logger = LoggerFactory.getLogger(VolumeDatapointEntityPersistListener.class);
 
-    MetricsRepository mr = SingletonRepositoryManager.instance()
-                                                     .getMetricsRepository();
+    private MetricsRepository mr = SingletonRepositoryManager.instance()
+                                                             .getMetricsRepository();
 
     class FBInfo { private final Volume v; private final FirebreakType type;
         public FBInfo(Volume v, FirebreakType type) {

@@ -88,11 +88,12 @@ public abstract class JDORepository<T,
             entities.forEach((e) -> postPersist(e));
         }
     }
+
     private final List<EntityPersistListener<T>> listeners = new ArrayList<>();
 
     protected JDORepository() {
-      logger = LoggerFactory.getLogger(this.getClass());
-  }
+        logger = LoggerFactory.getLogger(this.getClass());
+    }
 
     /**
      * Add a Entity persist listener for pre/post persistence callbacks
@@ -110,24 +111,44 @@ public abstract class JDORepository<T,
         listeners.remove(l);
     }
 
+    /**
+     * Fire the prePersist handler on any defined listeners
+     *
+     * @param entity
+     */
     private void firePrePersist(T entity) {
         for (EntityPersistListener<T> l : listeners) {
             l.prePersist(entity);
         }
     }
 
+    /**
+     * Fire the prePersist handler on any defined listeners
+     *
+     * @param entities
+     */
     private void firePrePersist(List<T> entities) {
         for (EntityPersistListener<T> l : listeners) {
             l.prePersist(entities);
         }
     }
 
+    /**
+     * Fire the postPersist listener on any defined listeners
+     *
+     * @param entity
+     */
     private void firePostPersist(T entity) {
         for (EntityPersistListener<T> l : listeners) {
             l.postPersist(entity);
         }
     }
 
+    /**
+     * Fire the postPersist listener on any defined listeners
+     *
+     * @param entities
+     */
     private void firePostPersist(List<T> entities) {
         for (EntityPersistListener<T> l : listeners) {
             l.postPersist(entities);

@@ -10,6 +10,9 @@ import com.formationds.commons.model.type.Metrics;
 import java.util.EnumSet;
 import java.util.Optional;
 
+/**
+ * Represent the supported types of firebreak events
+ */
 public enum FirebreakType {
     // TODO: do these need to be split by short-term and long-term
 
