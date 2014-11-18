@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
  * Copyright (c) 2014 Formation Data Systems, Inc.
  */
 public class AsyncAm {
-    public static final int PORT = 9876;
+    public int port = 9876;
     private static final Logger LOG = Logger.getLogger(AsyncAm.class);
     private final AsyncAmResponseListener responseListener;
     private AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool;
@@ -37,24 +37,25 @@ public class AsyncAm {
     private Authorizer authorizer;
     private AsyncRequestStatistics statistics;
 
-    public AsyncAm(AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool, AsyncAmServiceRequest.Iface oneWayAm, Authorizer authorizer) throws Exception {
+    public AsyncAm(AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool, AsyncAmServiceRequest.Iface oneWayAm, Authorizer authorizer, int instanceId) throws Exception {
         this.amPool = amPool;
         this.oneWayAm = oneWayAm;
         this.authorizer = authorizer;
         statistics = new AsyncRequestStatistics();
         responseListener = new AsyncAmResponseListener(2, TimeUnit.SECONDS);
+        port += instanceId;
     }
 
     public void start() throws Exception {
         AsyncAmServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncAmServiceResponse.Processor<>(responseListener);
 
-        TSimpleServer server = new TSimpleServer(new TServer.Args(new TServerSocket(PORT))
+        TSimpleServer server = new TSimpleServer(new TServer.Args(new TServerSocket(port))
                 .protocolFactory(new TBinaryProtocol.Factory())
                 .transportFactory(new TFramedTransport.Factory())
                 .processor(processor));
 
         new Thread(() -> server.serve(), "AM async listener thread").start();
-        LOG.info("Started async AM listener on port " + PORT);
+        LOG.info("Started async AM listener on port " + port);
     }
 
     private <T, R> AsyncMethodCallback<T> makeThriftCallbacks(CompletableFuture<R> future, FunctionWithExceptions<T, R> extractor) {

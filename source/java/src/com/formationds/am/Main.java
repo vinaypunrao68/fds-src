@@ -24,6 +24,9 @@ import org.apache.thrift.transport.TTransportException;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.eclipse.jetty.io.ByteBufferPool;
 
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
+
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.concurrent.ForkJoinPool;
@@ -60,13 +63,23 @@ public class Main {
 
         XdiClientFactory clientFactory = new XdiClientFactory();
 
+        // Get the instance ID from either the config file or cmd line
+        int amInstanceId = platformConfig.lookup("fds.am.instanceId").intValue();
+        OptionParser parser = new OptionParser();
+        parser.allowsUnrecognizedOptions();
+        parser.accepts("fds.am.instanceId").withRequiredArg().ofType(Integer.class);
+        OptionSet options = parser.parse(args);
+        if (options.has("fds.am.instanceId")) {
+            amInstanceId = (int)options.valueOf("fds.am.instanceId");
+        }
+
         boolean useFakeAm = platformConfig.lookup("fds.am.memory_backend").booleanValue();
         String omHost = platformConfig.lookup("fds.am.om_ip").stringValue();
         int omConfigPort = 9090;
         int omLegacyConfigPort = platformConfig.lookup("fds.am.om_config_port").intValue();
 
         AmService.Iface am = useFakeAm ? new FakeAmService() :
-                                         clientFactory.remoteAmService("localhost", 9988);
+                                         clientFactory.remoteAmService("localhost", 9988 + amInstanceId);
 
         ConfigurationApi configCache = new ConfigurationApi(clientFactory.remoteOmService(omHost, omConfigPort));
         boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
@@ -74,12 +87,14 @@ public class Main {
         Authorizer authorizer = enforceAuth ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 
         int nbdPort = platformConfig.lookup("fds.am.nbd_server_port").intValue();
+        nbdPort += amInstanceId;
         boolean nbdLoggingEnabled = platformConfig.defaultBoolean("fds.am.enable_nbd_log", false);
         boolean nbdBlockExclusionEnabled = platformConfig.defaultBoolean("fds.am.enable_nbd_block_exclusion", true);
         ForkJoinPool fjp = new ForkJoinPool(50);
         NbdServerOperations ops = new FdsServerOperations(am, configCache, fjp);
         if (nbdLoggingEnabled)
-            ops = new LoggingOperationsWrapper(ops, "/fds/var/logs/nbd");
+            ops = new LoggingOperationsWrapper(ops,
+                                               "/fds/var/logs/nbd." + Integer.toString(amInstanceId));
         if (nbdBlockExclusionEnabled)
             ops = new BlockExclusionWrapper(ops, 4096);
         NbdHost nbdHost = new NbdHost(nbdPort, ops);
@@ -88,24 +103,32 @@ public class Main {
 
         Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
         ByteBufferPool bbp = new ArrayByteBufferPool();
-        AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm("localhost", 8899);
+        AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm("localhost", 8899 + amInstanceId);
 
-        AsyncAm asyncAm = new AsyncAm(clientFactory.makeAmAsyncPool("localhost", 9988), oneWayAm, authorizer);
+        System.out.println("My instance id " + amInstanceId);
+        AsyncAm asyncAm = new AsyncAm(clientFactory.makeAmAsyncPool("localhost",
+                                                                    9988 + amInstanceId),
+                                      oneWayAm,
+                                      authorizer,
+                                      amInstanceId);
         asyncAm.start();
 
         Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm, bbp, token, configCache);
 
         int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port", 8000);
         int s3SslPort = platformConfig.defaultInt("fds.am.s3_https_port", 8443);
+        s3HttpPort += amInstanceId;
+        s3SslPort += amInstanceId;
 
         HttpConfiguration httpConfiguration = new HttpConfiguration(s3HttpPort, "0.0.0.0");
         HttpsConfiguration httpsConfiguration = new HttpsConfiguration(s3SslPort, configuration);
 
         new Thread(() -> new S3Endpoint(xdi, factory, secretKey, httpsConfiguration, httpConfiguration).start(), "S3 service thread").start();
 
-        startStreamingServer(8999, configCache);
+        startStreamingServer(8999 + amInstanceId, configCache);
 
         int swiftPort = platformConfig.lookup("fds.am.swift_port").intValue();
+        swiftPort += amInstanceId;
         new SwiftEndpoint(xdi, secretKey).start(swiftPort);
     }
 
