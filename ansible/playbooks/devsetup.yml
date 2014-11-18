@@ -51,13 +51,15 @@
         - flex
         - ragel
         - ccache
-        - libboost-log1.54-dev
-        - libboost-program-options1.54-dev
-        - libboost-timer1.54-dev
-        - libboost-thread1.54-dev
-        - libboost-regex1.54-dev
+        - libboost1.55-dev
+        - libboost-log1.55-dev
+        - libboost-program-options1.55-dev
+        - libboost-timer1.55-dev
+        - libboost-thread1.55-dev
+        - libboost-regex1.55-dev
         - libical-dev
         - libical1
+        - libjemalloc-dev
         - libleveldb-dev
         - google-perftools
         - libgoogle-perftools-dev
