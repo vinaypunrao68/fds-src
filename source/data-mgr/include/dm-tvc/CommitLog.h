@@ -13,7 +13,7 @@
 #include <concurrency/RwLock.h>
 #include <concurrency/Mutex.h>
 #include <ObjectLogger.h>
-#include <lib/catalog.h>
+#include <lib/Catalog.h>
 #include <blob/BlobTypes.h>
 #include <DmBlobTypes.h>
 
