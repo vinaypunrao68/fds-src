@@ -44,7 +44,7 @@ public enum Metrics {
     /**
      * gets from SSD and cache
      */
-    SSD_GETS( "Gets from SSD" );
+    SSD_GETS( "SSD Gets" );
 
     public static EnumSet<Metrics> FIREBREAK = EnumSet.of(Metrics.STC_SIGMA,
                                                           Metrics.LTC_SIGMA,
