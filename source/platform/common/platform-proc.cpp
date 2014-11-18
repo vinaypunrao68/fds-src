@@ -16,7 +16,13 @@
 namespace fds {
 
 NodePlatformProc::NodePlatformProc(int argc, char **argv, Module **vec)
-    : PlatformProcess(argc, argv, "fds.plat.", "platform.log", &gl_NodePlatform, vec) {}
+        : PlatformProcess(argc,
+                          argv,
+                          "fds.plat.",
+                          "platform.log",
+                          &gl_NodePlatform,
+                          vec),
+          amInstanceCount(0) {}
 
 // plf_load_node_data
 // ------------------
@@ -117,6 +123,7 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
             std::string arg1;
             std::string arg2;
             std::string arg3;
+            std::string arg4;
             arg1stream << "--fds.plat.platform_port=" << conf.get<int>("platform_port");
             arg1 = arg1stream.str();
             extra_args.push_back(arg1.c_str());
@@ -124,12 +131,16 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
             extra_args.push_back(arg2.c_str());
             arg3 = std::string("--fds.am.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg3.c_str());
+            arg4 = std::string("--fds.am.instanceId=") +
+                    std::to_string(amInstanceCount);
+            extra_args.push_back(arg4.c_str());
             extra_args.push_back(NULL);
             pid = fds_spawn_service("AMAgent",
                                     proc_root->dir_fdsroot().c_str(),
                                     &extra_args[0],
                                     true);
             LOGNOTIFY << "Spawn AM as daemon";
+            ++amInstanceCount;
         }
     } else {
         LOGNOTIFY << "Auto start services is off, wait for manual start...";

@@ -9,111 +9,90 @@
 #include <fds_module.h>
 #include <StorMgrVolumes.h>
 #include <ObjRank.h>
+#include <TierMigration.h>
 #include <persistent-layer/dm_io.h>
 
 namespace fds {
 
-class ObjStatsTracker;
-class TierEngine;
+class RankEngine;
 
 const fds_uint32_t max_migration_threads = 30;
-
-/*
- * Class responsible for background migration
- * of data between tiers
- */
-class TierMigration {
-    private:
-     /*
-      * Members that manage the migration threads
-      * running
-      */
-     fds_uint32_t    numThrds;
-     fds_threadpool* threadPool;
-
-     /*
-      * Function to be run in a tier migration thread.
-      */
-
-    public:
-     void startRankTierMigration(void);
-     void stopRankTierMigration(void);
-     TierEngine *tier_eng;
-     fds_bool_t   stopMigrationFlag;
-
-     TierMigration(fds_uint32_t _nThreads, TierEngine *te);
-     ~TierMigration();
-};
 
 /*
  * Defines the main class that determines tier
  * placement for objects.
  */
 class TierEngine : public Module {
-    public:
-     typedef enum {
-         FDS_TIER_PUT_ALGO_RANDOM,
-         FDS_TIER_PUT_ALGO_BASIC_RANK,
-     } tierPutAlgoType;
+  public:
+    typedef enum {
+        FDS_RANDOM_RANK_POLICY,
+        FDS_COUNTING_BLOOM_RANK_POLICY
+    } rankPolicyType;
 
-    private:
-     fds_uint32_t  numMigThrds;
+  private:
+    fds_uint32_t  numMigThrds;
+    boost::shared_ptr<RankEngine> rankEngine;
 
-     /*
-      * Member algorithms.
-      */
-     tierPutAlgoType algoType;
+    StorMgrVolumeTable* sm_volTbl;
+    SmTierMigration* migrator;
 
-     /*
-      * Member references to external objects.
-      * Stats: provides obj/vol usage stats
-      * Ranker: provides in flash obj ranks
-      * Volume meta: provides vol placement metadata
-      */
-     StorMgrVolumeTable* sm_volTbl;
+  public:
+    /*
+     * Constructor for tier engine. This will take
+     * references to required external classes and
+     * start the tier migration threads.
+     */
+    TierEngine(const std::string &modName,
+            rankPolicyType _rank_type,
+            StorMgrVolumeTable* _sm_volTbl,
+            SmIoReqHandler* storMgr);
+    ~TierEngine();
 
-    public:
-     TierMigration *migrator;
+    typedef std::unique_ptr<TierEngine> unique_ptr;
 
-     /// Ranking engine
-     ObjectRankEngine* rankEng;
-     ObjStatsTracker *objStats;
+    /** Gets the threshold for considering SSDs full from
+    * the tier migration policy.
+    *
+    * @returns number between 0-100 that represents the % of
+    * SSD capacity that must be used before the SSD is considered 'full'.
+    */
+    inline fds_uint32_t getFlashFullThreshold() const {
+        return migrator->flashFullThreshold();
+    }
 
-     /*
-      * Constructor for tier engine. This will take
-      * references to required external classes and
-      * start the tier migration threads.
-      */
-     TierEngine(const std::string &modName,
-                tierPutAlgoType _algo_type,
-                StorMgrVolumeTable* _sm_volTbl);
-     ~TierEngine();
+    /**
+    * Determines the tier for an object that's
+    * looking for a tier. Intended to be called
+    * on a put path.
+    *
+    * @param[in] oid ID of object looking for tier
+    * @param[in] vol Object's volume
+    *
+    * @return the tier to place object
+    */
+    diskio::DataTier selectTier(const ObjectID &oid,
+            const VolumeDesc& voldesc);
 
-     typedef std::unique_ptr<TierEngine> unique_ptr;
+    /**
+    * Called on put/get/delete, and handles any tasks that should occur on IO.
+    * For example, will call RankEngine's updateDataPath method, enabling the
+    * RankEngine to update it's internal stats for rank calculations.
+    *
+    * @param objId[in] Object that was acted on
+    * @param opType[in] type of operation that occurred
+    * @param voldesc[in] Volume descriptor for the object that was acted on
+    * @param tier[in] The tier that the IO occurred on
+    * @param ioSize[in] the size in bytes of the IO
+    */
+    void notifyIO(const ObjectID& objId,
+            fds_io_op_t opType,
+            const VolumeDesc& volDesc,
+            diskio::DataTier tier);
 
-     /**
-      * Determines the tier for an object that's
-      * looking for a tier. Intended to be called
-      * on a put path.
-      *
-      * @param[in] oid ID of object looking for tier
-      * @param[ib] vol Object's volume
-      *
-      * @return the tier to place object
-      */
-     diskio::DataTier selectTier(const ObjectID &oid,
-                                 const VolumeDesc& voldesc);
-
-     /**
-      * Called when new object is inserted to flash tier
-      */
-     void handleObjectPutToFlash(const ObjectID& objId,
-                                 const VolumeDesc& voldesc);
-
-     // FDS module methods
-     int  mod_init(SysParams const *const param);
-     void mod_startup();
-     void mod_shutdown();
+    // FDS module methods
+    int  mod_init(SysParams const *const param);
+    void mod_startup();
+    void mod_shutdown();
 };
 
 }  // namespace fds

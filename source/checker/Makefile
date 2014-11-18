@@ -35,6 +35,9 @@ user_non_fds_libs := \
     cryptopp \
     leveldb
 
+user_ar_libs      := smchk
+smchk             := smchk.cpp
+
 user_cpp          := checker.cpp dm_checker.cpp smchk.cpp
 user_bin_exe      := checker dm_checker smchk
 checker		  := checker.cpp

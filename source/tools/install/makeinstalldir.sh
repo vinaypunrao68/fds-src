@@ -42,17 +42,8 @@ externalpkgs=(
 )
 
 fdscorepkgs=(
-    fds-accessmgr
-    fds-cli
     fds-coredump
-    fds-datamgr
-    fds-orchmgr
-    fds-platformmgr
-    fds-pythonlibs
-    fds-stormgr
-    fds-systemconf
-    fds-systemdir
-    fds-tools
+    fds-platform
 )
 
 fdsrepopkgs=(

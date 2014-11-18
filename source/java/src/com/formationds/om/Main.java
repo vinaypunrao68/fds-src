@@ -217,7 +217,7 @@ public class Main {
       fdsAdminOnly(HttpMethod.POST, "/api/system/tenants/:tenant", (t) -> new CreateTenant(configCache, secretKey), authorizer);
       fdsAdminOnly(HttpMethod.GET, "/api/system/tenants", (t) -> new ListTenants(configCache, secretKey), authorizer);
       fdsAdminOnly(HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid", (t) -> new AssignUserToTenant(configCache, secretKey), authorizer);
-      fdsAdminOnly(HttpMethod.PUT, "/api/system/tenants/revoke/:tenantid/:userid", (t) -> new RevokeUserFromTenant( configCache, secretKey ), authorizer );
+      fdsAdminOnly(HttpMethod.DELETE, "/api/system/tenants/:tenantid/:userid", (t) -> new RevokeUserFromTenant( configCache, secretKey ), authorizer );
   }
 
   private void metricsPost() {

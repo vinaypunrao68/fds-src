@@ -249,6 +249,9 @@ fds: {
         om_ip        = "{{ om_ip }}"
         om_port      = 8904
 
+        /* ID for local AM instance */
+        instanceId = 0
+
         /* TODO(Rao): Get this from platform */
         om_config_port = 8903
         enable_graphite = {{ metrics_enabled }}
