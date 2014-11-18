@@ -127,6 +127,8 @@ struct VolumeDescriptor {
             connector.put( "attributes", attributes );
             o.put( "data_connector", connector );
           }
+          
+          o.put( "mediaPolicy", v.getPolicy().getMediaPolicy().name() );
         }
       }
 
