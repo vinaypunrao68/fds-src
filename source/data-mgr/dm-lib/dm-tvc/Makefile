@@ -7,6 +7,7 @@ user_build_dir    :=
 #
 user_incl_dir     := $(topdir) ../../include
 user_cpp_flags    :=
+#user_cpp_flags    := -DACTIVE_TX_IN_WRITE_BATCH
 user_cpp          := \
 	CommitLog.cpp \
 	TimeVolumeCatalog.cpp

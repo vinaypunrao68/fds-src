@@ -542,6 +542,87 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
     return expungeCb_(volId, expungeList);
 }
 
+Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
+        fds_uint64_t blobSize, const MetaDataList::const_ptr& metaList,
+        CatWriteBatch & wb, bool truncate /* = true */) {
+    LOGDEBUG << "Will commit blob: '" << blobName << "' to volume: '" << std::hex << volId
+            << std::dec << "'";
+
+    bool newBlob = false;
+    // see if the blob exists and get details of it
+    BlobMetaDesc blobMeta;
+    Error rc = getBlobMetaDesc(volId, blobName, blobMeta);
+    if (!rc.ok()) {
+        if (rc == ERR_CAT_ENTRY_NOT_FOUND) {
+            newBlob = true;
+        } else {
+            LOGERROR << "Failed to retrieve blob details for volume: '" << std::hex << volId
+                    << std::dec << "' blob: '" << blobName << "'";
+            return rc;
+        }
+    }
+
+    GET_VOL_N_CHECK_DELETED(volId);
+
+    fds_uint64_t oldBlobSize = blobMeta.desc.blob_size;
+    fds_uint32_t oldObjCount = oldBlobSize / vol->getObjSize();
+    if (0 != oldBlobSize && oldBlobSize % vol->getObjSize()) {
+        oldObjCount += 1;
+    }
+
+    fds_uint64_t newBlobSize = (oldBlobSize < blobSize || truncate) ? blobSize : oldBlobSize;
+    fds_uint64_t newObjCount = newBlobSize / vol->getObjSize();
+    if (0 != newBlobSize && newBlobSize % vol->getObjSize()) {
+        newObjCount += 1;
+    }
+
+    DmVolumeSummaryMap_t::iterator volSummaryIter;
+    {
+        SCOPEDWRITE(lockVolSummaryMap_);
+        volSummaryIter = volSummaryMap_.find(volId);
+    }
+
+    mergeMetaList(blobMeta.meta_list, *metaList);
+    blobMeta.desc.version += 1;
+    blobMeta.desc.blob_size = newBlobSize;
+    if (newBlob) {
+        blobMeta.desc.blob_name = blobName;
+    }
+
+    rc = vol->putBatch(blobName, blobMeta, wb);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to put blob: '" << blobName << "' in volume: '" << std::hex
+                << volId << std::dec << "' error: '" << rc << "'";
+        return rc;
+    }
+
+    if (volSummaryMap_.end() != volSummaryIter) {
+        fds_uint64_t diff = 0;
+        if (newBlobSize >= oldBlobSize) {
+            diff = newBlobSize - oldBlobSize;
+            volSummaryIter->second->size.fetch_add(diff);
+        } else {
+            diff = oldBlobSize - newBlobSize;
+            volSummaryIter->second->size.fetch_sub(diff);
+        }
+
+        diff = 0;
+        if (newObjCount >= oldObjCount) {
+            diff = newObjCount - oldObjCount;
+            volSummaryIter->second->objectCount.fetch_add(diff);
+        } else {
+            diff = oldObjCount - newObjCount;
+            volSummaryIter->second->objectCount.fetch_sub(diff);
+        }
+
+        if (newBlob) {
+            volSummaryIter->second->blobCount.fetch_add(1);
+        }
+    }
+
+    return rc;
+}
+
 Error DmVolumeDirectory::flushBlob(fds_volid_t volId, const std::string& blobName) {
     // TODO(umesh): not sure if this is needed
     return ERR_OK;

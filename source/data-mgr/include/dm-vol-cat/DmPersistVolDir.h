@@ -10,8 +10,9 @@
 
 #include <fds_uuid.h>
 
-#include <DmBlobTypes.h>
 #include <lib/Catalog.h>
+#include <DmBlobTypes.h>
+#include <dm-tvc/CommitLog.h>
 
 #define IS_OP_ALLOWED() \
     if (isSnapshot() || isReadOnly()) { \
@@ -136,6 +137,9 @@ class DmPersistVolDir {
     virtual Error putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
             const BlobObjList & puts, const std::vector<fds_uint64_t> & deletes) = 0;
 
+    virtual Error putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
+            CatWriteBatch & wb) = 0;
+
     // deletes
     virtual Error deleteObject(const std::string & blobName, fds_uint64_t offset) = 0;
 
@@ -146,6 +150,8 @@ class DmPersistVolDir {
 
     // sync
     virtual Error syncCatalog(const NodeUuid & dmUuid);
+
+    friend DmCommitLog;
 
   protected:
     // methods

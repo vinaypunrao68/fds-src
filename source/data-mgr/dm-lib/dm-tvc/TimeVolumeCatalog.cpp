@@ -90,7 +90,8 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
         /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
          * on DmCommitLog so that initialization can happen outside the lock
          */
-        commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID);
+        commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID,
+                voldesc.maxObjSizeInBytes);
         commitLogs_[voldesc.volUUID]->mod_init(mod_params);
         commitLogs_[voldesc.volUUID]->mod_startup();
 
@@ -253,11 +254,14 @@ DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
                                const fpi::FDSP_BlobObjectList &objList) {
     LOGDEBUG << "Updating offsets for transaction " << *txDesc
              << " volume " << std::hex << volId << std::dec;
-    auto boList = boost::make_shared<const BlobObjList>(objList);
-
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
+#ifdef ACTIVE_TX_IN_WRITE_BATCH
+    return commitLog->updateTx(txDesc, objList);
+#else
+    auto boList = boost::make_shared<const BlobObjList>(objList);
     return commitLog->updateTx(txDesc, boList);
+#endif
 }
 
 Error
@@ -328,7 +332,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     blob_version_t blob_version = blob_version_invalid;
     LOGDEBUG << "Committing transaction " << *txDesc << " for volume "
              << std::hex << volid << std::dec;
-    CommitLogTx::const_ptr commit_data = commitLog->commitTx(txDesc, e);
+    CommitLogTx::ptr commit_data = commitLog->commitTx(txDesc, e);
     if (e.ok()) {
         e = doCommitBlob(volid, blob_version, commit_data);
     }
@@ -337,12 +341,17 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
 
 Error
 DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
-        CommitLogTx::const_ptr commit_data) {
+        CommitLogTx::ptr commit_data) {
     Error e;
     if (commit_data->blobDelete) {
         e = volcat->deleteBlob(volid, commit_data->name, commit_data->blobVersion);
         blob_version = commit_data->blobVersion;
     } else {
+#ifdef ACTIVE_TX_IN_WRITE_BATCH
+        e = volcat->putBlob(volid, commit_data->name, commit_data->blobSize,
+                commit_data->metaDataList, commit_data->wb,
+                0 != (commit_data->blobMode & blob::TRUNCATE));
+#else
         if (commit_data->blobObjList && !commit_data->blobObjList->empty()) {
             if (commit_data->blobMode & blob::TRUNCATE) {
                 commit_data->blobObjList->setEndOfBlob();
@@ -353,6 +362,7 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
             e = volcat->putBlobMeta(volid, commit_data->name,
                     commit_data->metaDataList, commit_data->txDesc);
         }
+#endif
     }
 
     return e;

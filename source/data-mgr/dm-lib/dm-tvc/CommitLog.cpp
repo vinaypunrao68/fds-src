@@ -8,7 +8,9 @@
 #include <map>
 
 #include <fds_process.h>
+#include <DataMgr.h>
 #include <dm-tvc/CommitLog.h>
+#include <dm-vol-cat/DmPersistVolDir.h>
 
 namespace fds {
 
@@ -16,6 +18,8 @@ template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,
                         boost::shared_ptr<const MetaDataList> & blobData);
 template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,
                         boost::shared_ptr<const BlobObjList> & blobData);
+template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,
+                        const fpi::FDSP_BlobObjectList & blobData);
 
 uint32_t CommitLogTx::write(serialize::Serializer * s) const {
     fds_assert(s);
@@ -67,8 +71,9 @@ uint32_t CommitLogTx::read(serialize::Deserializer * d) {
     return bytes;
 }
 
-DmCommitLog::DmCommitLog(const std::string &modName, const fds_volid_t volId)
-        : Module(modName.c_str()), volId_(volId), started_(false) {
+DmCommitLog::DmCommitLog(const std::string &modName, const fds_volid_t volId,
+        const fds_uint32_t objSize) : Module(modName.c_str()), volId_(volId), objSize_(objSize),
+        started_(false) {
     std::ostringstream oss;
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     oss << root->dir_user_repo_dm() << volId_;
@@ -131,6 +136,7 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
     ptx->name = blobName;
     ptx->blobMode = blobMode;
     ptx->started = util::getTimeStampNanos();
+    ptx->nameId = DmPersistVolDir::getBlobIdFromName(blobName);
 
     return ERR_OK;
 }
@@ -157,6 +163,46 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
     return rc;
 }
 
+// update blob data (T can be fpi::FDSP_BlobObjectList or fpi::FDSP_MetaDataList
+template<typename T>
+Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, const T & blobData) {
+    fds_assert(txDesc);
+    fds_verify(started_);
+
+    const BlobTxId & txId = *txDesc;
+
+    GLOGDEBUG << "Update blob for transaction (" << txId << ")";
+
+    Error rc = validateSubsequentTx(txId);
+    if (!rc.ok()) {
+        return rc;
+    }
+
+    SCOPEDWRITE(lockTxMap_);
+    upsertBlobData(*txMap_[txId], blobData);
+
+    return rc;
+}
+
+void DmCommitLog::upsertBlobData(CommitLogTx & tx, const fpi::FDSP_BlobObjectList & data) {
+    fds_uint64_t newSize = 0;
+    BlobObjKey objKey(tx.nameId, 0);
+    for (const auto & objInfo : data) {
+        fds_verify(0 == objInfo.offset % objSize_);
+        fds_verify(0 < objInfo.size);
+        fds_verify((tx.blobMode | blob::TRUNCATE) || (objSize_ == objInfo.size));
+
+        newSize = objInfo.offset + objInfo.size;
+        if (tx.blobSize < newSize || objInfo.blob_end) {
+            tx.blobSize = newSize;
+        }
+
+        objKey.objIndex = objInfo.offset / objSize_;
+        const Record keyRec(reinterpret_cast<const char *>(&objKey), sizeof(BlobObjKey));
+        tx.wb.Put(keyRec, objInfo.data_obj_id.digest);
+    }
+}
+
 // delete blob
 Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t blobVersion) {
     fds_assert(txDesc);
@@ -181,7 +227,7 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t
 }
 
 // commit transaction
-CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error & status) {
+CommitLogTx::ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error & status) {
     fds_assert(txDesc);
     fds_verify(started_);
 
