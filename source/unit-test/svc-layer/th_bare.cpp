@@ -27,11 +27,12 @@
 #include "TestAMSvc.h"
 #include "TestSMSvc.h"
 #include "TestDMSvc.h"
+#include <concurrency/LFThreadpool.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <google/profiler.h>
-#define RECORD_TS(statement) if (recordTs) { statement; }
+// #define RECORD_TS(statement) if (recordTs) { statement; }
 using ::testing::AtLeast;
 using ::testing::Return;
 
@@ -71,22 +72,108 @@ uint32_t mydeserialize(uint8_t *buf, uint32_t bufSz, PayloadT& payload) {
     return read;
 }
 
+struct SynchronizedTransport
+{
+    SynchronizedTransport(boost::shared_ptr<TTransport> client)
+    {
+        client_ = client;
+        buf_ = new uint8_t[BUFFER_SZ];
+        memBuffer_.reset(
+            new tt::TMemoryBuffer(buf_, BUFFER_SZ, TMemoryBuffer::TAKE_OWNERSHIP));
+    }
+
+    ~SynchronizedTransport() {
+        delete [] buf_;
+    }
+
+    template<class PayloadT>
+    void sendPayload(PayloadT& payload) {
+        int dataSz;
+        /* Serialize */
+        memBuffer_->resetBuffer();
+        boost::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memBuffer_));
+        dataSz = payload.write(binary_buf.get());
+
+        /* write data size */
+        client_->write(reinterpret_cast<uint8_t*>(&dataSz), sizeof(int));
+        /* write data */
+        client_->write(buf_, dataSz);
+        client_->flush();
+    }
+
+    uint8_t *buf_;
+    boost::shared_ptr<TTransport> client_;
+    boost::shared_ptr<tt::TMemoryBuffer> memBuffer_;
+};
+
+struct BaseServerHandler {
+    virtual void handle(uint8_t* data, uint32_t sz) = 0;
+};
+
+struct SMHandler : BaseServerHandler {
+    SMHandler()
+    : tp_(1)
+    {}
+
+    void setAmClient(boost::shared_ptr<TTransport> client) {
+        amClient_.reset(new SynchronizedTransport(client));
+    }
+
+    void respondToAm() {
+        fpi::PutObjectRspMsg resp;
+        amClient_->sendPayload(resp);
+    }
+
+    virtual void handle(uint8_t* data, uint32_t dataSz)
+    {
+        /* Hardcoding to deserialize PutObject */
+        // TODO(Rao):
+        fpi::PutObjectMsgPtr putObj(new fpi::PutObjectMsg());
+        auto read = mydeserialize(data, dataSz, *putObj);
+        // std::cout << "deser sz: " << read << std::endl;
+        fds_verify(read == dataSz);
+        tp_.schedule(&SMHandler::respondToAm, this);
+
+        delete [] data;
+    }
+
+
+    LFMQThreadpool tp_;
+    boost::shared_ptr<SynchronizedTransport> amClient_;
+};
+
+struct AMHandler : BaseServerHandler {
+    AMHandler()
+    {}
+    virtual void handle(uint8_t* data, uint32_t dataSz)
+    {
+        delete [] data;
+        // todo: set the cntr
+        recvCntr++;
+        if (sendCntr == recvCntr) {
+            endTs = util::getTimeStampNanos();
+        }
+    }
+};
+
 struct BaseServerTask {
-    BaseServerTask(boost::shared_ptr<TTransport> client);
+    BaseServerTask(boost::shared_ptr<TTransport> client,
+                   boost::shared_ptr<BaseServerHandler> handler);
     ~BaseServerTask();
     void start();
     void stop();
     void run();
     
-    void dispatch_(uint8_t *data, uint32_t dataSz);
-
     boost::shared_ptr<TTransport> client_;
+    boost::shared_ptr<BaseServerHandler> handler_;
     std::unique_ptr<std::thread> thread_;
     std::unique_ptr<uint8_t> buf_;
 };
 
-BaseServerTask::BaseServerTask(boost::shared_ptr<TTransport> client)
-    : client_(client)
+
+BaseServerTask::BaseServerTask(boost::shared_ptr<TTransport> client, boost::shared_ptr<BaseServerHandler> handler)
+    : client_(client),
+    handler_(handler)
 {
     buf_.reset(new uint8_t[BUFFER_SZ]);
 }
@@ -110,8 +197,10 @@ void BaseServerTask::stop()
 void BaseServerTask::run() {
     uint32_t cntr = 0;
     try {
+#if 0
         uint8_t* data = reinterpret_cast<uint8_t*>(
                 const_cast<uint8_t*>(buf_.get()));
+#endif
         for (;;) {
             uint32_t nbytes = 0;
             /* Reaad the frame size */
@@ -120,9 +209,13 @@ void BaseServerTask::run() {
             fds_verify(nbytes == sizeof(dataSz));
 
             /* Read the frame */
+            uint8_t* data = new uint8_t[dataSz];
             nbytes = client_->readAll(data, dataSz);
             fds_verify(static_cast<int>(nbytes) == dataSz);
 
+            handler_->handle(data, nbytes);
+
+#if 0
             RECORD_TS((*opTs)[cntr].rqRcvdTs = util::getTimeStampNanos())
             RECORD_TS((*opTs)[cntr].rqHndlrTs = (*opTs)[cntr].rqRcvdTs)
             RECORD_TS((*opTs)[cntr].rspSerStartTs = (*opTs)[cntr].rqRcvdTs)
@@ -135,6 +228,7 @@ void BaseServerTask::run() {
                 endTs = util::getTimeStampNanos();
             }
             dispatch_(data, dataSz); 
+#endif
         }
     } catch (const TTransportException& ttx) {
         if (ttx.getType() != TTransportException::END_OF_FILE) {
@@ -148,21 +242,14 @@ void BaseServerTask::run() {
     // TODO(Rao):
 }
 
-void BaseServerTask::dispatch_(uint8_t *data, uint32_t dataSz)
-{
-    /* Hardcoding to deserialize PutObject */
-    // TODO(Rao):
-    fpi::PutObjectMsgPtr putObj(new fpi::PutObjectMsg());
-    auto read = mydeserialize(data, dataSz, *putObj);
-    // std::cout << "deser sz: " << read << std::endl;
-    fds_verify(read == dataSz);
-}
 
 struct BaseServer : public TServer {
-    BaseServer(boost::shared_ptr<TServerTransport> serverTransport)
+    BaseServer(boost::shared_ptr<TServerTransport> serverTransport,
+               boost::shared_ptr<BaseServerHandler> handler)
     : TServer(boost::shared_ptr<TProcessorFactory>(nullptr), serverTransport),
     stop_(false)
     {
+        handler_ = handler;
     }
     virtual void serve()
     {
@@ -178,7 +265,7 @@ struct BaseServer : public TServer {
                 std::cout << "Received new connection request\n";
 
                 // Create task and insert into tasks
-                BaseServerTask* task = new BaseServerTask(client);
+                BaseServerTask* task = new BaseServerTask(client, handler_);
                 {
                     Synchronized s(tasksMonitor_);
                     tasks_.insert(task);
@@ -228,6 +315,7 @@ struct BaseServer : public TServer {
     bool stop_;
     Monitor tasksMonitor_;
     std::set<BaseServerTask*> tasks_;
+    boost::shared_ptr<BaseServerHandler> handler_;
 };
 
 struct AMTest : BaseTestFixture
@@ -245,8 +333,15 @@ struct AMTest : BaseTestFixture
     util::TimeStamp endTs_;
     std::vector<SvcRequestIf::SvcReqTs> opTs_;
 
-    std::thread *t_;
-    boost::shared_ptr<BaseServer> server_;
+    std::thread *smThread_;
+    boost::shared_ptr<BaseServer> smServer_;
+    boost::shared_ptr<SMHandler> smHandler_;
+    boost::shared_ptr<TTransport> smSock_;
+
+    std::thread *amThread_;
+    boost::shared_ptr<BaseServer> amServer_;
+    boost::shared_ptr<AMHandler> amHandler_;
+    boost::shared_ptr<TTransport> amSock_;
 };
 
 AMTest::AMTest()
@@ -255,21 +350,45 @@ AMTest::AMTest()
     putsSuccessCnt_ = 0;
     putsFailedCnt_ = 0;
 
+    int smPort = this->getArg<int>("sm-port");
+    boost::shared_ptr<TServerTransport> smServerTransport(new TServerSocket(smPort));
+    smHandler_.reset(new SMHandler());
+    smServer_.reset(new BaseServer(smServerTransport, smHandler_));
+    std::cout << "SM init at port: " << smPort << std::endl;
+
     int amPort = this->getArg<int>("am-port");
-    boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(amPort));
-    server_.reset(new BaseServer(serverTransport));
-    std::cout << "Server init at port: " << amPort << std::endl;
+    boost::shared_ptr<TServerTransport> amServerTransport(new TServerSocket(amPort));
+    amHandler_.reset(new AMHandler());
+    amServer_.reset(new BaseServer(amServerTransport, amHandler_));
+    std::cout << "AM init at port: " << amPort << std::endl;
 }
 
 void AMTest::serve()
 {
-    t_ = new std::thread(std::bind(&BaseServer::serve, server_.get()));
+    smThread_ = new std::thread(std::bind(&BaseServer::serve, smServer_.get()));
+    amThread_ = new std::thread(std::bind(&BaseServer::serve, amServer_.get()));
+    sleep(5);
+
+    /* Establish connection against sm and am */
+    smSock_.reset(new TSocket("127.0.0.1", this->getArg<int>("sm-port")));
+    smSock_->open();
+    std::cout << "started connection against sm\n";
+
+    amSock_.reset(new TSocket("127.0.0.1", this->getArg<int>("am-port")));
+    amSock_->open();
+    std::cout << "started connection against am\n";
+
+    smHandler_->setAmClient(amSock_);
+
+    sleep(2);
 }
 
 AMTest::~AMTest()
 {
-    server_->stop();
-    t_->join();
+    smServer_->stop();
+    smThread_->join();
+    amServer_->stop();
+    amThread_->join();
 }
 
 void AMTest::printOpTs(const std::string fileName) {
@@ -348,26 +467,13 @@ void AMTest::printOpTs(const std::string fileName) {
 
 TEST_F(AMTest, smtest)
 {
-    int nPuts =  this->getArg<int>("puts-cnt");
-    int amPort = this->getArg<int>("am-port");
+    uint32_t nPuts =  this->getArg<uint32_t>("puts-cnt");
     uint32_t dataCacheSz = 100;
     uint64_t volId = 1;
-    recordTs = this->getArg<bool>("record");
-    RECORD_TS(opTs_.resize(nPuts))
-    RECORD_TS(opTs = &opTs_)
 
     /* start server for responses */
     serve();
-
-    /* Wait a bit */
-    sleep(2);
-
-    /* Start a client connection */
-    boost::shared_ptr<TTransport> smSock(new TSocket("127.0.0.1", amPort));
-    smSock->open();
-    std::cout << "started connection against sm\n";
-
-    sleep(5);
+    SynchronizedTransport smTrans(smSock_);
 
     /* To generate random data */
     auto datagen = boost::make_shared<RandDataGenerator<>>(4096, 4096);
@@ -377,34 +483,18 @@ TEST_F(AMTest, smtest)
                     CachedMsgGenerator<fpi::PutObjectMsg>>(dataCacheSz,
                                                            true,
                                                            putMsgGenF);
-    uint8_t *buf = new uint8_t[BUFFER_SZ];
-    boost::shared_ptr<tt::TMemoryBuffer> memBuffer(
-        new tt::TMemoryBuffer(buf, BUFFER_SZ, TMemoryBuffer::TAKE_OWNERSHIP));
-    int dataSz;
     /* Start timer */
     startTs = util::getTimeStampNanos();
 
     /* Issue puts */
-    for (int i = 0; i < nPuts; i++) {
-        sendCntr++;
-        RECORD_TS(opTs_[i].rqStartTs = util::getTimeStampNanos())
+    sendCntr = nPuts;
+    for (uint32_t i = 0; i < nPuts; i++) {
         auto putObjMsg = putMsgGen->nextItem();
-        /* Serialize */
-        memBuffer->resetBuffer();
-        boost::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memBuffer));
-        dataSz = putObjMsg->write(binary_buf.get());
-
-        RECORD_TS(opTs_[i].rqSendStartTs = util::getTimeStampNanos())
-        /* write data size */
-        smSock->write(reinterpret_cast<uint8_t*>(&dataSz), sizeof(int));
-        /* write data */
-        smSock->write(buf, dataSz);
-        smSock->flush();
-        RECORD_TS(opTs_[i].rqSendEndTs = util::getTimeStampNanos())
+        smTrans.sendPayload(*putObjMsg);
     }
 
     sleep(5);
-    printOpTs("temp.txt");
+    fds_verify(recvCntr == nPuts);
     double throughput = (static_cast<double>(1000000000) / (endTs - startTs)) * nPuts;
     std::cout << "start: " << startTs << "end: " << endTs << std::endl;
     std::cout << "Avg time: " << (endTs - startTs) / nPuts;
@@ -416,17 +506,10 @@ int main(int argc, char** argv) {
     po::options_description opts("Allowed options");
     opts.add_options()
         ("help", "produce help message")
-        ("conn-cnt", po::value<int>()->default_value(1), "stream count")
-        ("puts-cnt", po::value<int>()->default_value(10), "puts count")
+        ("puts-cnt", po::value<uint32_t>()->default_value(10000), "puts count")
         ("sm-ip", po::value<std::string>()->default_value("127.0.0.1"), "sm-ip")
         ("sm-port", po::value<int>()->default_value(9092), "sm port")
-        ("dm-ip", po::value<std::string>()->default_value("127.0.0.1"), "dm-ip")
-        ("dm-port", po::value<int>()->default_value(9097), "dm port")
-        ("my-ip", po::value<std::string>()->default_value("127.0.0.1"), "my ip")
         ("am-port", po::value<int>()->default_value(9094), "am port")
-        ("server", po::value<std::string>()->default_value("threaded"), "Server type")
-        ("transport", po::value<std::string>()->default_value("framed"), "transport type")
-        ("record", po::value<bool>()->default_value(true), "record op ts")
         ("output", po::value<std::string>()->default_value("stats.txt"), "stats output");
     AMTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
