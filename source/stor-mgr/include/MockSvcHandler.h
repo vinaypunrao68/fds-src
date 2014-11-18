@@ -71,6 +71,10 @@ struct MockSvcHandler {
 
     void schedule(uint64_t latencyUs, std::function<void()> f)
     {
+        if (latencyUs == 0) {
+            f();
+            return;
+        }
         auto task = new MockSvcTimerTask(tp_, f);
         task->expTime_ = std::chrono::system_clock::now() +
             std::chrono::microseconds(latencyUs);
