@@ -69,7 +69,7 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
     // is unlikely to be in the user data path and so impact should be minimal.
     @Override
     public void postPersist(List<VolumeDatapoint> vdp) {
-        logger.trace( "postPersist handling of Volume data points {}", vdp);
+        logger.trace( "postPersist handling of {} Volume data points.", vdp.size());
         try {
             doPostPersist(vdp);
         }
@@ -115,7 +115,7 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
                 EventManager.INSTANCE.notifyEvent(fbe);
                 activeFirebreaks.put(new FBInfo(v, FirebreakType.CAPACITY), fbe);
             } else {
-                logger.trace("Firebreak event skipped - active firebreak for {}", v);
+                logger.trace("Firebreak event skipped - active firebreak for volume {}", v);
                 logger.trace("Active Firebreaks: {}", activeFirebreaks.toString());
             }
         }
@@ -151,7 +151,6 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
     }
 
     protected void loadActiveFirebreaks(Volume vol) {
-        // TODO: query events for the last firebreak event instead of fabricating an event
         EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
         FirebreakEvent fb = er.findLatestFirebreak(vol);
 
