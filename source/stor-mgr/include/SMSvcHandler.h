@@ -34,6 +34,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                      const Error &err,
                      SmIoGetObjectReq *read_data);
+    void mockGetCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
 
     void putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                    boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg);
