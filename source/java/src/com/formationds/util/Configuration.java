@@ -53,7 +53,7 @@ public class Configuration {
 
         String logLevel = getPlatformConfig().defaultString("fds.plat.log_severity", "normal").toLowerCase();
         // Get the instance ID from either the config file or cmd line
-        int amInstanceId = getPlatformConfig().lookup("fds.am.instanceId").intValue();
+        int amInstanceId = getPlatformConfig().defaultInt("fds.am.instanceId", 0);
         if (options.has("fds.am.instanceId")) {
             amInstanceId = (int)options.valueOf("fds.am.instanceId");
         }
