@@ -52,6 +52,8 @@ util::TimeStamp startTs = 0;
 util::TimeStamp endTs = 0;
 
 struct BaseServer;
+struct SMHandler;
+struct AMHandler;
 
 template<class PayloadT>
 uint32_t myserialize(const PayloadT &payload,
@@ -71,6 +73,37 @@ uint32_t mydeserialize(uint8_t *buf, uint32_t bufSz, PayloadT& payload) {
     uint32_t read = payload.read(binary_buf.get());
     return read;
 }
+
+struct AMTest : BaseTestFixture
+{
+    AMTest();
+    virtual ~AMTest();
+
+    void printOpTs(const std::string fileName);
+    void serve();
+
+    std::atomic<uint32_t> putsIssued_;
+    std::atomic<uint32_t> putsSuccessCnt_;
+    std::atomic<uint32_t> putsFailedCnt_;
+    util::TimeStamp startTs_;
+    util::TimeStamp endTs_;
+    LatencyCounter avgPutLatency_;
+    std::vector<SvcRequestIf::SvcReqTs> opTs_;
+    Monitor monitor_;
+    bool waiting_;
+    uint32_t concurrency_;
+    std::atomic<uint32_t> outStanding_;
+
+    std::thread *smThread_;
+    boost::shared_ptr<BaseServer> smServer_;
+    boost::shared_ptr<SMHandler> smHandler_;
+    boost::shared_ptr<TTransport> smSock_;
+
+    std::thread *amThread_;
+    boost::shared_ptr<BaseServer> amServer_;
+    boost::shared_ptr<AMHandler> amHandler_;
+    boost::shared_ptr<TTransport> amSock_;
+};
 
 struct SynchronizedTransport
 {
@@ -143,17 +176,32 @@ struct SMHandler : BaseServerHandler {
 };
 
 struct AMHandler : BaseServerHandler {
-    AMHandler()
-    {}
+    AMHandler(AMTest *amTest)
+    {
+        amTest_ = amTest;
+    }
     virtual void handle(uint8_t* data, uint32_t dataSz)
     {
         delete [] data;
-        // todo: set the cntr
+
+        amTest_->opTs_[recvCntr].rspHndlrTs = util::getTimeStampNanos();
+        amTest_->avgPutLatency_.update(
+            amTest_->opTs_[recvCntr].rspHndlrTs - amTest_->opTs_[recvCntr].rqStartTs);
+
+        amTest_->outStanding_--;
+        {
+            Synchronized s(amTest_->monitor_);
+            if (amTest_->waiting_ && amTest_->outStanding_ < amTest_->concurrency_) {
+                amTest_->monitor_.notify();
+            }
+        }
         recvCntr++;
         if (sendCntr == recvCntr) {
             endTs = util::getTimeStampNanos();
         }
     }
+
+    AMTest *amTest_;
 };
 
 struct BaseServerTask {
@@ -318,34 +366,12 @@ struct BaseServer : public TServer {
     boost::shared_ptr<BaseServerHandler> handler_;
 };
 
-struct AMTest : BaseTestFixture
-{
-    AMTest();
-    virtual ~AMTest();
-
-    void printOpTs(const std::string fileName);
-    void serve();
-
-    std::atomic<uint32_t> putsIssued_;
-    std::atomic<uint32_t> putsSuccessCnt_;
-    std::atomic<uint32_t> putsFailedCnt_;
-    util::TimeStamp startTs_;
-    util::TimeStamp endTs_;
-    std::vector<SvcRequestIf::SvcReqTs> opTs_;
-
-    std::thread *smThread_;
-    boost::shared_ptr<BaseServer> smServer_;
-    boost::shared_ptr<SMHandler> smHandler_;
-    boost::shared_ptr<TTransport> smSock_;
-
-    std::thread *amThread_;
-    boost::shared_ptr<BaseServer> amServer_;
-    boost::shared_ptr<AMHandler> amHandler_;
-    boost::shared_ptr<TTransport> amSock_;
-};
 
 AMTest::AMTest()
 {
+    outStanding_ = 0;
+    concurrency_ = 0;
+    waiting_ = false;
     putsIssued_ = 0;
     putsSuccessCnt_ = 0;
     putsFailedCnt_ = 0;
@@ -358,7 +384,7 @@ AMTest::AMTest()
 
     int amPort = this->getArg<int>("am-port");
     boost::shared_ptr<TServerTransport> amServerTransport(new TServerSocket(amPort));
-    amHandler_.reset(new AMHandler());
+    amHandler_.reset(new AMHandler(this));
     amServer_.reset(new BaseServer(amServerTransport, amHandler_));
     std::cout << "AM init at port: " << amPort << std::endl;
 }
@@ -470,6 +496,11 @@ TEST_F(AMTest, smtest)
     uint32_t nPuts =  this->getArg<uint32_t>("puts-cnt");
     uint32_t dataCacheSz = 100;
     uint64_t volId = 1;
+    concurrency_ = this->getArg<uint32_t>("concurrency");
+    if (concurrency_ == 0) {
+        concurrency_  = nPuts;
+    }
+    opTs_.resize(nPuts);
 
     /* start server for responses */
     serve();
@@ -490,7 +521,18 @@ TEST_F(AMTest, smtest)
     sendCntr = nPuts;
     for (uint32_t i = 0; i < nPuts; i++) {
         auto putObjMsg = putMsgGen->nextItem();
+        outStanding_++;
+        opTs_[i].rqStartTs = util::getTimeStampNanos();
         smTrans.sendPayload(*putObjMsg);
+
+        {
+            Synchronized s(monitor_);
+            while (outStanding_ >= concurrency_) {
+                waiting_ = true;
+                monitor_.wait();
+            }
+            waiting_ = false;
+        }
     }
 
     sleep(5);
@@ -499,6 +541,7 @@ TEST_F(AMTest, smtest)
     std::cout << "start: " << startTs << "end: " << endTs << std::endl;
     std::cout << "Avg time: " << (endTs - startTs) / nPuts;
     std::cout << "throuput: " << throughput << std::endl;
+    std::cout << "Avg put latency: " << avgPutLatency_.value() << std::endl;
 }
 
 int main(int argc, char** argv) {
@@ -510,7 +553,8 @@ int main(int argc, char** argv) {
         ("sm-ip", po::value<std::string>()->default_value("127.0.0.1"), "sm-ip")
         ("sm-port", po::value<int>()->default_value(9092), "sm port")
         ("am-port", po::value<int>()->default_value(9094), "am port")
-        ("output", po::value<std::string>()->default_value("stats.txt"), "stats output");
+        ("output", po::value<std::string>()->default_value("stats.txt"), "stats output")
+        ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency");
     AMTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }
