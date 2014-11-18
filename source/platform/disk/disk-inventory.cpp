@@ -666,18 +666,20 @@ void DiskPlatModule::mod_startup()
     dsk_rescan();
     dsk_discover_mount_pts();
 
-    if ((dsk_devices->disk_read_label(label_manager, true) == true) ||
+    if ((dsk_devices->disk_read_label(label_manager, false) == true) ||
         (dsk_devices->dsk_need_simulation() == false))
     {
+        label_manager->clear();
         /* Contains valid disk label or real HW inventory */
         dsk_inuse = dsk_devices;
     } else {
+        label_manager->clear();
         const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
         dsk_sim   = new FileDiskInventory(dir->dir_dev().c_str());
         dsk_inuse = dsk_sim;
     }
 
-    // dsk_inuse->dsk_admit_all();
+    dsk_inuse->dsk_admit_all();
     dsk_inuse->dsk_mount_all();
     dsk_devices->dsk_dump_all();
 

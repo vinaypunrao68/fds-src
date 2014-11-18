@@ -314,6 +314,40 @@ DiskLabelOp::dsk_iter_fn(DiskObj::pointer curr)
 }
 
 // ------------------------------------------------------------------------------------
+// Clear and reset
+// ------------------------------------------------------------------------------------
+void DiskLabelMgr::clear()
+{
+    dl_mtx.lock();
+    dl_master = NULL;
+
+    if (dl_map != NULL)
+    {
+        dl_map->close();
+        delete dl_map;
+        dl_map = NULL;
+    }
+
+    while (1)
+    {
+        DiskLabel *curr = dl_labels.chain_rm_front<DiskLabel>();
+
+        if (curr != NULL)
+        {
+            delete curr;
+            continue;
+        }
+        break;
+    }
+
+    dl_total_disks = 0;
+    dl_valid_labels = 0;
+
+    dl_mtx.unlock();
+}
+
+
+// ------------------------------------------------------------------------------------
 // Disk Label Coordinator
 // ------------------------------------------------------------------------------------
 DiskLabelMgr::~DiskLabelMgr()

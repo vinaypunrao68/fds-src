@@ -209,6 +209,9 @@ class DiskLabelMgr
      */
     bool dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat);
     void dsk_rec_label_map(PmDiskObj::pointer disk, int idx);
+
+    // Clear the list of disk labels
+    void clear();
 };
 
 }  // namespace fds
