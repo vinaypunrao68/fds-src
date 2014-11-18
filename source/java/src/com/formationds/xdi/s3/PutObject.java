@@ -33,6 +33,9 @@ public class PutObject implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
+        if(request.getQueryParameters().containsKey("acl"))
+            return new TextResource(200, "");
+
         String domain  = S3Endpoint.FDS_S3;
         String bucketName = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
@@ -114,7 +117,12 @@ public class PutObject implements RequestHandler {
         byte[] digest = null;
         if(copySourceBucket.equals(targetBucketName) && copySourceObject.equals(targetBlobName)) {
             if(metadataDirective != null && metadataDirective.equals("REPLACE")) {
-                xdi.setMetadata(token, targetDomain, targetBucketName, targetBlobName, metadataMap);
+                HashMap<String,String> md = new HashMap<>(copySourceStat.getMetadata());
+                for(Map.Entry<String, String> kv : S3UserMetadataUtility.extractUserMetadata(md).entrySet()) {
+                    md.remove(kv.getKey());
+                }
+                md.putAll(S3UserMetadataUtility.extractUserMetadata(metadataMap));
+                xdi.setMetadata(token, targetDomain, targetBucketName, targetBlobName, md);
             }
             digest = Hex.decodeHex(copySourceETag.toCharArray());
         } else {
