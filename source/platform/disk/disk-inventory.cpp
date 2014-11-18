@@ -598,15 +598,16 @@ void PmDiskInventory::dsk_admit_all()
 {
 }
 
-// dsk_read_label
+// disk_read_label
 // --------------
 //
-bool PmDiskInventory::dsk_read_label(DiskLabelMgr *mgr, bool creat)
+bool PmDiskInventory::disk_read_label(DiskLabelMgr *mgr, bool creat)
 {
     DiskLabelOp op(DISK_LABEL_READ, mgr);
 
 LOGNORMAL << "READING ";
     dsk_foreach(&op);
+
     return mgr->dsk_reconcile_label(this, creat);
 }
 
@@ -636,7 +637,7 @@ int DiskPlatModule::mod_init(SysParams const *const param)
     dsk_sim     = NULL;
     dsk_inuse   = NULL;
     dsk_ctrl    = udev_new();
-    dsk_label   = new DiskLabelMgr();
+    label_manager   = new DiskLabelMgr();
     dsk_enum    = udev_enumerate_new(dsk_ctrl);
     dsk_mon     = udev_monitor_new_from_netlink(dsk_ctrl, "udev");
     fds_assert((dsk_ctrl != NULL) && (dsk_enum != NULL));
@@ -665,7 +666,7 @@ void DiskPlatModule::mod_startup()
     dsk_rescan();
     dsk_discover_mount_pts();
 
-    if ((dsk_devices->dsk_read_label(dsk_label, false) == true) ||
+    if ((dsk_devices->disk_read_label(label_manager, true) == true) ||
         (dsk_devices->dsk_need_simulation() == false))
     {
         /* Contains valid disk label or real HW inventory */
@@ -676,17 +677,17 @@ void DiskPlatModule::mod_startup()
         dsk_inuse = dsk_sim;
     }
 
-    dsk_inuse->dsk_admit_all();
+    // dsk_inuse->dsk_admit_all();
     dsk_inuse->dsk_mount_all();
-
     dsk_devices->dsk_dump_all();
 
+    // If in sim mode
     if (dsk_sim != NULL)
     {
         dsk_sim->dsk_dump_all();
     }
 
-    dsk_inuse->dsk_read_label(dsk_label, true);
+    dsk_inuse->disk_read_label(label_manager, true);
 }
 
 // dsk_discover_mount_pts
@@ -738,7 +739,7 @@ void DiskPlatModule::mod_shutdown()
     {
         delete dsk_sim;
     }
-    delete dsk_label;
+    delete label_manager;
     dsk_devices = NULL;
     dsk_inuse   = NULL;
     udev_enumerate_unref(dsk_enum);
@@ -925,14 +926,16 @@ void FileDiskInventory::dsk_admit_all()
     dsk_file_create("ssd-", DISK_ALPHA_COUNT_SSD, &dsk_files);
 }
 
-// dsk_read_label
+// disk_read_label
 // --------------
 //
-bool FileDiskInventory::dsk_read_label(DiskLabelMgr *mgr, bool creat)
+bool FileDiskInventory::disk_read_label(DiskLabelMgr *mgr, bool creat)
 {
     DiskLabelOp op(DISK_LABEL_READ, mgr);
 
+LOGNORMAL << "READING sim mode";
     dsk_foreach(&op, &dsk_files, dsk_count);
+
     return mgr->dsk_reconcile_label(this, creat);
 }
 

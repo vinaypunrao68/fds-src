@@ -190,7 +190,7 @@ class PmDiskInventory : public DiskInventory
     virtual void dsk_do_partition();
     virtual void dsk_admit_all();
     virtual void dsk_mount_all();
-    virtual bool dsk_read_label(DiskLabelMgr *mgr, bool creat);
+    virtual bool disk_read_label(DiskLabelMgr *mgr, bool creat);
 };
 
 /**
@@ -205,7 +205,7 @@ class DiskPlatModule : public Module
     struct udev_enumerate    *dsk_enum;
     struct udev_monitor      *dsk_mon;
     FileDiskInventory        *dsk_sim;
-    DiskLabelMgr             *dsk_label;
+    DiskLabelMgr             *label_manager;
     struct pollfd            pollfds[1];
 
     void dsk_discover_mount_pts();
@@ -257,7 +257,7 @@ class FileDiskInventory : public PmDiskInventory
     virtual void dsk_do_partition();
     virtual void dsk_admit_all();
     virtual void dsk_mount_all();
-    virtual bool dsk_read_label(DiskLabelMgr *mgr, bool creat);
+    virtual bool disk_read_label(DiskLabelMgr *mgr, bool creat);
 
   private:
     void dsk_file_create(const char *type, int count, ChainList *list);

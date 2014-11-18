@@ -343,7 +343,7 @@ DiskLabelMgr::DiskLabelMgr() : dl_master(NULL), dl_mtx("label mtx"), dl_map(NULL
 void DiskLabelMgr::dsk_read_label(PmDiskObj::pointer disk)
 {
     DiskLabel *label = disk->dsk_xfer_label();
-
+LOGNORMAL << "aaaaaaaaaaaaaaa in here";
     if (label == NULL)
     {
         disk->dsk_read_uuid();
@@ -375,10 +375,16 @@ DiskLabel *DiskLabelMgr::dsk_master_label_mtx()
 //
 bool DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
 {
-    bool       ret;
-    int        valid_labels;
-    ChainIter  iter;
-    ChainList  upgrade;
+    bool  ret = false;                            // Local
+    int   valid_labels = 0;                       // Local
+    ChainIter  iter;                              // Local
+    ChainList  upgrade;                           // Local
+
+
+
+
+
+
     DiskLabel *label, *master, *curr, *chk;
 
     // If we dont' have a dl_map and create is true, open the diskmap truncating
@@ -397,7 +403,7 @@ bool DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
 
     // Count the disks and disks with labels
     dl_mtx.lock();
-    chain_foreach(&dl_labels, iter)
+    chain_foreach(&dl_labels, iter)                  // Local:iter
     {
         dl_total_disks++;
         label = dl_labels.chain_iter_current<DiskLabel>(iter);
@@ -419,7 +425,7 @@ bool DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
     }
 
     LOGNORMAL << "dl_total_disks = " << dl_total_disks << "   dl_valid_labels=" << dl_valid_labels;
-    ret = false;
+
     if (dl_valid_labels > 0)
     {
         ret = (dl_valid_labels >= (dl_total_disks >> 1)) ? true : false;
@@ -428,7 +434,7 @@ bool DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
     if (master == NULL)
     {
         fds_verify(dl_valid_labels == 0);
-        fds_verify(upgrade.chain_empty_list() == false);
+        fds_verify(upgrade.chain_empty_list() == false);                      // Local
         fds_verify(dl_labels.chain_empty_list() == true);
 
         label = upgrade.chain_peek_front<DiskLabel>();
@@ -442,13 +448,12 @@ bool DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
     }
     dl_mtx.unlock();
 
-    valid_labels = 0;
     if ((master == NULL) && (creat == true))
     {
         fds_verify(label != NULL);
         label->dsk_label_write(inv, this);
 
-        valid_labels++;
+        valid_labels++;                                 // local
         master = label;
     }
 
@@ -459,7 +464,7 @@ bool DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
         LOGNORMAL << "Scan HW inventory, found " << dl_valid_labels << " labels";
     }
 
-    for (; 1; valid_labels++)
+    for (; 1; valid_labels++)                          // local
     {
         curr = upgrade.chain_rm_front<DiskLabel>();
         if (curr == NULL)
@@ -474,7 +479,7 @@ bool DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
         delete curr;
     }
 
-    dl_valid_labels += valid_labels;
+    dl_valid_labels += valid_labels;                    // rhs:local
 
 #if 0
     /* It's the bug here, master is still chained to the list. */
@@ -483,6 +488,8 @@ bool DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
         delete master;
     }
 #endif
+
+// End of the function -- if dl_map and create, close what was opened previously
     if ((dl_map != NULL) && (creat == true))
     {
         // This isn't thread-safe but we won't need dl_map in post-alpha.
@@ -493,6 +500,7 @@ bool DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
 
         LOGNORMAL << "Wrote total " << dl_valid_labels << " labels";
     }
+
     return ret;
 }
 
