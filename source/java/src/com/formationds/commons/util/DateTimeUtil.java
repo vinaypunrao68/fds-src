@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * @author ptinius
@@ -21,7 +22,9 @@ public class DateTimeUtil {
      * {@code false} is returned
      */
     public static boolean isLeapYear( final Integer year ) {
-        return ( year % 4 == 0 ) && ( ( year % 100 != 0 ) || ( year % 400 == 0 ) );
+        return ( year % 4 == 0 ) &&
+               ( ( year % 100 != 0 ) ||
+                 ( year % 400 == 0 ) );
     }
 
     /**
@@ -52,5 +55,17 @@ public class DateTimeUtil {
     public static Long toUnixEpoch( final LocalDateTime ldt ) {
         return ZonedDateTime.of( ldt, ZoneId.systemDefault() )
                             .toEpochSecond();
+    }
+
+    /**
+     * @param date the {@link String} representing the date
+     * @param pattern the {!@link String} representing the pattern
+     *
+     * @return Returns the {@link java.time.LocalDateTime}
+     */
+    public static LocalDateTime parse( final String date,
+                                       final String pattern ) {
+        return LocalDateTime.parse( date,
+                                    DateTimeFormatter.ofPattern( pattern ) );
     }
 }

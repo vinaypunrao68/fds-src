@@ -98,9 +98,9 @@ class AmCache : public Module, public boost::noncopyable {
                      const std::string &blobName);
 
   private:
-    VolumeSharedCacheManager<std::string, BlobDescriptor>                     descriptor_cache;
-    VolumeSharedCacheManager<BlobOffsetPair, ObjectID, BlobOffsetPairHash>    offset_cache;
-    VolumeSharedCacheManager<ObjectID, std::string, ObjectHash>               object_cache;
+    VolumeSharedCacheManager<std::string, BlobDescriptor>                       descriptor_cache;
+    VolumeSharedCacheManager<BlobOffsetPair, ObjectID, BlobOffsetPairHash>      offset_cache;
+    VolumeSharedCacheManager<ObjectID, std::string, ObjectHash, std::true_type> object_cache;
 
     /// Max number of entries per volume cache
     size_t max_entries;

@@ -55,7 +55,7 @@ toolchain_jansson_incl    := -I$(toolchain_jansson)/src
 
 # Redis settings
 #
-toolchain_hiredis         := $(topdir)/../hiredis
+toolchain_hiredis         := /usr/include/hiredis
 toolchain_hiredis_incl    := -I$(toolchain_hiredis)/
 
 # Redis settings

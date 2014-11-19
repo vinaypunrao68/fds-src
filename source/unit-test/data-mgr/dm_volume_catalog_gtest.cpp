@@ -25,23 +25,7 @@ boost::shared_ptr<LatencyCounter> totalGetCounter(new LatencyCounter("end to end
 boost::shared_ptr<LatencyCounter> totalDeleteCounter(
         new LatencyCounter("end to end delete", 0, 0));
 
-static fds_condition tpCond;
-static fds_mutex tpCondMtx;
-static std::atomic<fds_uint32_t> taskCount;
-
-static void waitOnThreadPool() {
-    boost::unique_lock<fds_mutex> lock(tpCondMtx);
-    while (taskCount) {
-        tpCond.timed_wait(lock, boost::posix_time::milliseconds(100));
-    }
-}
-
-static void notifyThreadDone() {
-    if (!--taskCount) {
-        FDSGUARD(tpCondMtx);
-        tpCond.notify_one();
-    }
-}
+fds::concurrency::TaskStatus taskCount(0);
 
 class DmVolumeCatalogTest : public ::testing::Test {
   public:
@@ -83,7 +67,7 @@ void DmVolumeCatalogTest::testPutBlob(fds_volid_t volId,
     putCounter->update(endTs - startTs);
     boost::shared_ptr<PerfContext> pctx = PerfTracer::tracePointEnd(blob->name);
     tpPutCounter->update(pctx->end_cycle - pctx->start_cycle);
-    notifyThreadDone();
+    taskCount.done();
     EXPECT_TRUE(rc.ok());
 }
 
@@ -99,7 +83,7 @@ void DmVolumeCatalogTest::testGetBlob(fds_volid_t volId, const std::string blobN
     getCounter->update(endTs - startTs);
     boost::shared_ptr<PerfContext> pctx = PerfTracer::tracePointEnd(blobName);
     tpGetCounter->update(pctx->end_cycle - pctx->start_cycle);
-    notifyThreadDone();
+    taskCount.done();
     EXPECT_TRUE(rc.ok());
 }
 
@@ -120,7 +104,7 @@ void DmVolumeCatalogTest::testDeleteBlob(fds_volid_t volId, const std::string bl
     rc = volcat->getBlob(volId, blobName, 0, -1, &version, &metaList, &objList);
     EXPECT_FALSE(rc.ok());
 
-    notifyThreadDone();
+    taskCount.done();
 }
 
 void DmVolumeCatalogTest::TearDown() {
@@ -171,7 +155,7 @@ TEST_F(DmVolumeCatalogTest, copy_volume) {
 }
 
 TEST_F(DmVolumeCatalogTest, all_ops) {
-    taskCount = NUM_BLOBS;
+    taskCount.reset(NUM_BLOBS);
     fds_uint64_t e2eStatTs = util::getTimeStampNanos();
     for (fds_uint32_t i = 0; i < NUM_BLOBS; ++i) {
         fds_volid_t volId = volumes[i % volumes.size()]->volUUID;
@@ -182,7 +166,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
                 this, volId, blob);
     }
 
-    waitOnThreadPool();
+    taskCount.await();
     fds_uint64_t e2eEndTs = util::getTimeStampNanos();
     totalPutCounter->update(e2eEndTs - e2eStatTs);
 
@@ -206,18 +190,18 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
 //            EXPECT_EQ(rc.GetErrno(), ERR_VOL_NOT_EMPTY);
 //        }
 
-        taskCount += blobCount;
+        taskCount.reset(taskCount.getNumTasks() + blobCount);
         fds_uint64_t e2eStatTs = util::getTimeStampNanos();
         for (auto it : blobList) {
             PerfTracer::tracePointBegin(it.blob_name, DM_VOL_CAT_READ, vdesc->volUUID);
             g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testGetBlob,
                     this, vdesc->volUUID, it.blob_name);
         }
-        waitOnThreadPool();
+        taskCount.await();
         fds_uint64_t e2eEndTs = util::getTimeStampNanos();
         totalGetCounter->update(e2eEndTs - e2eStatTs);
 
-        taskCount += blobCount;
+        taskCount.reset(taskCount.getNumTasks() + blobCount);
         e2eStatTs = util::getTimeStampNanos();
         for (auto it : blobList) {
             blob_version_t version = 0;
@@ -229,7 +213,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
             EXPECT_EQ(metaList.size(), NUM_TAGS);
 
             if (NO_DELETE) {
-                taskCount--;
+                taskCount.done();
                 continue;
             }
 
@@ -237,7 +221,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
             g_fdsprocess->proc_thrpool()->schedule(&DmVolumeCatalogTest::testDeleteBlob,
                     this, vdesc->volUUID, it.blob_name, version);
         }
-        waitOnThreadPool();
+        taskCount.await();
         e2eEndTs = util::getTimeStampNanos();
         totalDeleteCounter->update(e2eEndTs - e2eStatTs);
 

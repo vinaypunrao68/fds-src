@@ -6,6 +6,8 @@
 #include <leveldb/copy_env.h>
 #include <db/filename.h>
 
+#include <util/timeutils.h>
+
 /**
  * XXX: This code is copied (with a few changes) from the leveldb forum post:
  * https://code.google.com/p/leveldb/issues/detail?id=184
@@ -53,6 +55,10 @@ Status CopyEnv::NewWritableFile(const std::string& fname, WritableFile** result)
         std::string newName = prefix + "." + std::to_string(0);
         s = target()->RenameFile(prefix, newName);
         fds_verify(s.ok());
+
+        std::string archiveFile = logDirName() + archivePrefix() + "." +
+                std::to_string(util::getTimeStampMicros());
+        fds_verify(0 == link(newName.c_str(), archiveFile.c_str()));
     }
 
     fds_verify(0 == link(fname.c_str(), prefix.c_str()));

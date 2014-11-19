@@ -21,14 +21,7 @@ public class CapacityFull
    * default constructor
    */
   public CapacityFull() {
-  }
 
-  /**
-   * @param percentage the {@link java.lang.Integer} representing the
-   *                   percentage full.
-   */
-  public CapacityFull( final Integer percentage ) {
-    this.percentage = percentage;
   }
 
   /**

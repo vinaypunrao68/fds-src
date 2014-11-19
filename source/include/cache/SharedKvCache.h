@@ -8,6 +8,7 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include "boost/smart_ptr/shared_ptr.hpp"
@@ -36,7 +37,7 @@ namespace fds {
  *
  * This class IS thread safe
  */
-template<class K, class V, class _Hash = std::hash<K>>
+template<class K, class V, class _Hash = std::hash<K>, typename StrongAssociation = std::false_type>
 class SharedKvCache : public Module, boost::noncopyable {
     public:
      typedef K key_type;
@@ -91,9 +92,16 @@ class SharedKvCache : public Module, boost::noncopyable {
       */
      value_type add(const key_type& key, const value_type value) {
          SCOPEDWRITE(cache_lock);
-         GLOGTRACE << "Adding key " << key;
-         // Remove any exiting entry from cache
-         remove_(key);
+
+         if (StrongAssociation::value) {
+             // Touch any exiting entry from cache, if returns
+             // non-NULL then we already have this value, return
+             if (touch(key) != eviction_list.end())
+                 return value_type(nullptr);
+         } else {
+             // Remove old value before adding current
+             remove_(key);
+         }
 
          // Add the entry to the front of the eviction list and into the map.
          eviction_list.emplace_front(key, value);
@@ -104,9 +112,7 @@ class SharedKvCache : public Module, boost::noncopyable {
              entry_type evicted = eviction_list.back();
              eviction_list.pop_back();
 
-             GLOGTRACE << "Evicting key " << evicted.first;
              value_type entryToEvict = evicted.second;
-             fds_verify(entryToEvict);
 
              // Remove the cache iterator entry from the map
              cache_map.erase(evicted.first);
@@ -275,20 +281,14 @@ class SharedKvCache : public Module, boost::noncopyable {
          if (mapIt == cache_map.end()) return eviction_list.end();
 
          iterator existingEntry = mapIt->second;
-         value_type value  = (*existingEntry).second;
 
          // Move the entry's position to the front
-         // in the eviction list
-         eviction_list.erase(existingEntry);
-         entry_type updatedEntry(key, value);
-         eviction_list.push_front(updatedEntry);
+         // of the eviction list.
+         eviction_list.splice(eviction_list.begin(),
+                              eviction_list,
+                              existingEntry);
 
-         // Remove the existing map entry since the
-         // iterator into the eviction list is changing
-         cache_map.erase(mapIt);
-         cache_map[key] = eviction_list.begin();
-
-         return eviction_list.begin();
+         return existingEntry;
      }
 };
 }  // namespace fds

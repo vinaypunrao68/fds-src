@@ -18,7 +18,7 @@ namespace fds {
 class ObjectDataCache : public Module, public boost::noncopyable {
   private:
     /// Backing cache structure
-    typedef SharedKvCache<ObjectID, const std::string, ObjectHash> ObjectCache;
+    typedef SharedKvCache<ObjectID, const std::string, ObjectHash, std::true_type> ObjectCache;
     std::unique_ptr<ObjectCache> dataCache;
 
     /// Max total number of entries

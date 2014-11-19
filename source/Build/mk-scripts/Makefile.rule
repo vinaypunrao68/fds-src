@@ -286,11 +286,11 @@ endif
 #
 $(comm_dir_objs)/%.o : %.c
 ifdef VERBOSE
-	$(cc) -MMD $(local_cc_flags) -c $< -o $@
+	$(cc) -MMD -MP $(local_cc_flags) -c $< -o $@
 else
 	@echo "    [CC]          $<"
 	@mkdir -p $(comm_dir_objs)
-	@$(cc) -MMD $(local_cc_flags) -c $< -o $@
+	@$(cc) -MMD -MP $(local_cc_flags) -c $< -o $@
 endif
 	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
 
@@ -299,21 +299,21 @@ endif
 #
 $(comm_dir_objs)/%.o : %.cpp
 ifdef VERBOSE
-	$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
+	$(cpp) -MMD -MP $(local_cpp_flags) -c $< -o $@
 else
 	@echo "    [CPP]         $<"
 	@mkdir -p $(comm_dir_objs)
-	@$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
+	@$(cpp) -MMD -MP $(local_cpp_flags) -c $< -o $@
 endif
 	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
 
 $(comm_dir_objs)/%.o : %.cc
 ifdef VERBOSE
-	$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
+	$(cpp) -MMD -MP $(local_cpp_flags) -c $< -o $@
 else
 	@echo "    [CPP]         $<"
 	@mkdir -p $(comm_dir_objs)
-	@$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
+	@$(cpp) -MMD -MP $(local_cpp_flags) -c $< -o $@
 endif
 	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
 

@@ -2,6 +2,7 @@
 127.0.0.1
 
 [localhost:vars]
+fds_default_nic=lo
 
 [fremont_node_cluster]
 node[0:2].formationds.com
@@ -15,9 +16,15 @@ fds_ssh_user=root
 fds_ssh_password=passwd
 
 [fds-cloud]
-servernode[0:3]
+servernode[0:3]    ansible_ssh_port=10022
 
 [fds-cloud:vars]
+fds_default_nic=em2
+fds_om_host=servernode0
+fds_metrics_enabled=false
+fds_metricsdb_ip=127.0.0.1
+fds_ssh_user=root
+fds_ssh_password=aQHMYu!Sq2xBeT*qaC5x6SOJ
 influxdb_ip=173.8.244.149
 influxdb_port=58086
 influxdb_db=fds_cloud
@@ -44,3 +51,18 @@ fds_metrics_enabled=false
 fds_metricsdb_ip=192.168.2.1
 fds_ssh_user=root
 fds_ssh_password=vagrant
+
+[perf-no_am_cache]
+
+[perf-no_am_cache:var]
+fds_default_nic=em1
+fds_authentication=false
+fds_log_severity=notification
+fds_sm_data_verify=false
+fds_sm_data_verify_background=false
+fds_am_cache_default_max_entries=0
+fds_sm_cache_default_data_entries=1500
+fds_dm_catalog_cache_size=16777216
+fds_dm_catalog_write_buffer_size=52428800
+fds_am_testing_am_testing_toggleDisableStreamingStats=true
+

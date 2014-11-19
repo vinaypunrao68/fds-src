@@ -547,6 +547,7 @@ FdsRootDir::FdsRootDir(const std::string &root)
       d_user_repo(root     + std::string("user-repo/")),
       d_user_repo_objs(d_user_repo + std::string("objects/")),
       d_user_repo_dm(d_user_repo   + std::string("dm-names/")),
+      d_timeline_dm(d_user_repo + std::string("timeline/")),
       d_user_repo_stats(d_user_repo   + std::string("vol-stats/")),
       d_user_repo_snap(d_user_repo   + std::string("snap/")),
 

@@ -124,7 +124,7 @@ void VolumeStats::processStats() {
                   << "Objects " << StatHelper::getTotalObjects(*cit) << ", "
                   << "Ave blob size " << StatHelper::getAverageBytesInBlob(*cit) << " bytes, "
                   << "Ave objects in blobs " << StatHelper::getAverageObjectsInBlob(*cit) << ", "
-                  << "% of ssd accesses " << StatHelper::getPercentSsdAccesses(*cit) << ", "
+                  << "Gets from SSD " << StatHelper::getTotalSsdGets(*cit) << ", "
                   << "Short term perf wma " << perf_recent_wma_ << ", "
                   << "Short term perf sigma " << perf_recent_stdev_ << ", "
                   << "Long term perf sigma " << perf_long_stdev_ << ", "
@@ -650,11 +650,13 @@ double StatHelper::getAverageObjectsInBlob(const StatSlot& slot) {
     return tot_objects / tot_blobs;
 }
 
-double StatHelper::getPercentSsdAccesses(const StatSlot& slot) {
-    double ssd_ops = slot.getCount(STAT_SM_OP_SSD);
-    double hdd_ops = slot.getCount(STAT_SM_OP_HDD);
-    if (hdd_ops == 0) return 0;
-    return (100.0 * ssd_ops / (ssd_ops + hdd_ops));
+/**
+ * We report gets from SSD as actual SSD gets and gets from cache
+ */
+fds_uint64_t StatHelper::getTotalSsdGets(const StatSlot& slot) {
+    fds_uint64_t ssdGets = slot.getCount(STAT_SM_GET_SSD);
+    fds_uint64_t amCacheGets = slot.getCount(STAT_AM_GET_CACHED_OBJ);
+    return (ssdGets + amCacheGets);
 }
 
 fds_bool_t StatHelper::getQueueFull(const StatSlot& slot) {
@@ -718,10 +720,10 @@ void StatStreamTimerTask::runTimerTask() {
             qfullDP.value = StatHelper::getQueueFull(slot);
             volDataPointsMap[timestamp].push_back(qfullDP);
 
-            fpi::DataPointPair percentSSDAccessDP;
-            percentSSDAccessDP.key = "Percent of SSD Accesses";
-            percentSSDAccessDP.value = StatHelper::getPercentSsdAccesses(slot);
-            volDataPointsMap[timestamp].push_back(percentSSDAccessDP);
+            fpi::DataPointPair ssdGetsDP;
+            ssdGetsDP.key = "SSD Gets";
+            ssdGetsDP.value = StatHelper::getTotalSsdGets(slot);
+            volDataPointsMap[timestamp].push_back(ssdGetsDP);
 
             fpi::DataPointPair logicalBytesDP;
             logicalBytesDP.key = "Logical Bytes";

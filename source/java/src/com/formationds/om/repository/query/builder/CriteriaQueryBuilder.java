@@ -47,10 +47,12 @@ public class CriteriaQueryBuilder<T> {
      * @param entityManager the {@link javax.persistence.EntityManager}
      * @param contextName the name of the context to use in queries
      */
-    public CriteriaQueryBuilder( final EntityManager entityManager, String timestampField, String contextName ) {
+    public CriteriaQueryBuilder( final EntityManager entityManager,
+                                 final String timestampField,
+                                 final String contextName ) {
         this.em = entityManager;
         this.cb = em.getCriteriaBuilder();
-        this.cq = cb.createQuery( getEntityClass());
+        this.cq = cb.createQuery( getEntityClass() );
         this.from = cq.from( getEntityClass() );
         this.andPredicates = new ArrayList<>();
         this.orPredicates = new ArrayList<>();
@@ -72,7 +74,7 @@ public class CriteriaQueryBuilder<T> {
     /**
      * @param dateRange the {@link com.formationds.commons.model.DateRange} representing the search date range window
      *
-     * @return Returns {@link VolumeCriteriaQueryBuilder}
+     * @return Returns {@link MetricCriteriaQueryBuilder}
      */
     @SuppressWarnings( "unchecked" )
     public <CQ extends CriteriaQueryBuilder> CQ withDateRange( final DateRange dateRange ) {
@@ -127,7 +129,7 @@ public class CriteriaQueryBuilder<T> {
     /**
      * @param searchCriteria the {@link com.formationds.om.repository.query.MetricQueryCriteria}
      *
-     * @return Returns {@link VolumeCriteriaQueryBuilder}
+     * @return Returns {@link MetricCriteriaQueryBuilder}
      */
     @SuppressWarnings( "unchecked" )
     public <CQ extends CriteriaQueryBuilder> CQ searchFor(final QueryCriteria searchCriteria ) {
@@ -153,7 +155,7 @@ public class CriteriaQueryBuilder<T> {
     /**
      * @param contexts the {@link List} of {@link com.formationds.commons.model.abs.Context}
      *
-     * @return Returns {@link VolumeCriteriaQueryBuilder}
+     * @return Returns {@link MetricCriteriaQueryBuilder}
      */
     @SuppressWarnings( "unchecked" )
     public <CQ extends CriteriaQueryBuilder> CQ withContexts( final List<Context> contexts ) {
@@ -215,7 +217,8 @@ public class CriteriaQueryBuilder<T> {
     @SuppressWarnings("unchecked")
     public Class<T> getEntityClass() {
         return ( Class<T> ) ( (ParameterizedType) getClass()
-                                                          .getGenericSuperclass() ).getActualTypeArguments()[ 0 ];
+            .getGenericSuperclass() )
+            .getActualTypeArguments()[ 0 ];
     }
 
     /**

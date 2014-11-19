@@ -6,7 +6,6 @@ package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.util.ModelFieldValidator;
-import com.google.gson.annotations.SerializedName;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,7 +23,6 @@ public class Volume
   private String name;
   private Long limit;                    // maximum IOPS
   private Long sla;                      // minimum IOPS -- service level agreement
-  @SerializedName( "volumeId" )
   private String id;                     // volume Id
   private Integer priority;
   private Connector data_connector;
