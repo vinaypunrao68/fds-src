@@ -53,9 +53,10 @@ fds_ssh_user=root
 fds_ssh_password=vagrant
 
 [perf-no_am_cache]
+ubuntu
 
-[perf-no_am_cache:var]
-fds_default_nic=em1
+[perf-no_am_cache:vars]
+fds_default_nic=eth0
 fds_authentication=false
 fds_log_severity=notification
 fds_sm_data_verify=false
