@@ -55,6 +55,9 @@ class AccessMgr : public Module, public boost::noncopyable {
 
     /// Unique ptr to the async server that communicates with XDI
     AsyncDataServer::unique_ptr asyncServer;
+
+    /// Unique instance ID of this AM
+    fds_uint32_t instanceId;
 };
 
 }  // namespace fds

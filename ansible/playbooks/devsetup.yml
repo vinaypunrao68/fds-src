@@ -51,6 +51,7 @@
         - flex
         - ragel
         - ccache
+        - libboost1.54-dev
         - libboost-log1.54-dev
         - libboost-program-options1.54-dev
         - libboost-timer1.54-dev
@@ -75,14 +76,16 @@
         - python-thrift
         - fds-pkghelper
         - fds-pkg
-        - fds-pkgtools
+        - fds-pkgtools=0.3.2
         - fds-systemdir
         - fds-coredump
         - libcryptopp-dev
         - lintian
+        - libhiredis0.10
+        - libhiredis-dev
 
     - name: install pip packages
-      pip: name={{item}} state=present 
+      pip: name={{item}} state=present
       with_items:
         - scp
         - PyYAML
@@ -92,3 +95,6 @@
 
     - name: create java home script
       copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755
+
+    - name: update_java_alternatives
+      alternatives: name=java path=/usr/lib/jvm/java-8-oracle/jre/bin/java

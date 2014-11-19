@@ -205,9 +205,11 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& node_name,
                        fds_log *parent_log,
                        boost::shared_ptr<netSessionTbl> nst,
-                       Platform *plf)
+                       Platform *plf,
+                       fds_uint32_t _instanceId)
         : dltMgr(new DLTManager()),
-          dmtMgr(new DMTManager(1)) {
+          dmtMgr(new DMTManager(1)),
+          instanceId(_instanceId) {
     fds_verify(_omPort != 0);
     my_node_type = node_type;
     omIpStr      = _omIpStr;
@@ -291,16 +293,17 @@ int OMgrClient::startAcceptingControlMessages() {
     // TODO(x): Ideally createServerSession should take a shared pointer
     // for omrpc_handler_.  Make sure that happens.  Otherwise you
     // end up with a pointer leak.
+    fds_uint32_t ctrlPort = plf_mgr->plf_get_my_ctrl_port() + instanceId;
     omrpc_handler_session_ =
             nst_->createServerSession<netControlPathServerSession>(myIpInt,
-                                                                   plf_mgr->plf_get_my_ctrl_port(),
+                                                                   ctrlPort,
                                                                    my_node_name,
                                                                    FDSP_ORCH_MGR,
                                                                    omrpc_handler_);
     omrpc_handler_thread_.reset(new boost::thread(&OMgrClient::start_omrpc_handler, this));
 
     LOGNOTIFY << "OMClient accepting control requests at port "
-              << plf_mgr->plf_get_my_ctrl_port();
+              << ctrlPort;
 
     return (0);
 }

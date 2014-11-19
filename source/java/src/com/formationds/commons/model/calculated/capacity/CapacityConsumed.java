@@ -24,13 +24,6 @@ public class CapacityConsumed
   }
 
   /**
-   * @param total the {@link java.lang.Double} representing the total capacity
-   */
-  public CapacityConsumed( final Double total ) {
-    this.total = total;
-  }
-
-  /**
    * @return Returns the {@link Double} representing the total capacity
    */
   public Double getTotal() {

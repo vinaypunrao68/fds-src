@@ -138,6 +138,9 @@ class OMgrClient {
 
     void initOMMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
+    /// Tracks local instances (only used for multi-AM at the moment)
+    fds_uint32_t instanceId;
+
   public:
     OMgrClient(fpi::FDSP_MgrIdType node_type,
                const std::string& _omIpStr,
@@ -145,7 +148,8 @@ class OMgrClient {
                const std::string& node_name,
                fds_log *parent_log,
                boost::shared_ptr<netSessionTbl> nst,
-               Platform *plf_mgr);
+               Platform *plf_mgr,
+               fds_uint32_t _instanceId = 0);
     void setNoNetwork(bool fNoNetwork) {
         this->fNoNetwork = fNoNetwork;
     }

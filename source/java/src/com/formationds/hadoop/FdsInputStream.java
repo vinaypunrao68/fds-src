@@ -83,7 +83,8 @@ public class FdsInputStream extends InputStream implements Seekable, PositionedR
         if(buf.remaining() == 0)
             return -1;
         position++;
-        return buf.get();
+
+        return Byte.toUnsignedInt(buf.get());
     }
 
     @Override

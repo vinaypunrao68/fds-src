@@ -138,6 +138,11 @@ public class Main {
          * provides metrics RESTful API endpoints
          */
         metrics();
+        
+        /*
+         * provides tenant RESTful API endpoints
+         */
+        tenants( secretKey, authorizer );
 
         authenticate(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(xdi, amService, legacyConfigClient, t));
         authenticate(HttpMethod.POST, "/api/config/volumes",
@@ -148,12 +153,9 @@ public class Main {
 
         fdsAdminOnly(HttpMethod.GET, "/api/system/token/:userid", (t) -> new ShowToken(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.POST, "/api/system/token/:userid", (t) -> new ReissueToken(configCache, secretKey), authorizer);
-        fdsAdminOnly(HttpMethod.POST, "/api/system/tenants/:tenant", (t) -> new CreateTenant(configCache, secretKey), authorizer);
-        fdsAdminOnly(HttpMethod.GET, "/api/system/tenants", (t) -> new ListTenants(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.POST, "/api/system/users/:login/:password", (t) -> new CreateUser(configCache, secretKey), authorizer);
         authenticate(HttpMethod.PUT, "/api/system/users/:userid/:password", (t) -> new UpdatePassword(t, configCache, secretKey, authorizer));
         fdsAdminOnly(HttpMethod.GET, "/api/system/users", (t) -> new ListUsers(configCache, secretKey), authorizer);
-        fdsAdminOnly(HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid", (t) -> new AssignUserToTenant(configCache, secretKey), authorizer);
 
         /*
          * provide events RESTful API endpoints
@@ -200,6 +202,15 @@ public class Main {
   private void metricsGets() {
     authenticate( HttpMethod.PUT, "/api/stats/volumes",
                   ( t ) -> new QueryMetrics() );
+  }
+  
+  private void tenants( SecretKey secretKey, Authorizer authorizer ) {
+	  //TODO: Add feature toggle
+	  
+      fdsAdminOnly(HttpMethod.POST, "/api/system/tenants/:tenant", (t) -> new CreateTenant(configCache, secretKey), authorizer);
+      fdsAdminOnly(HttpMethod.GET, "/api/system/tenants", (t) -> new ListTenants(configCache, secretKey), authorizer);
+      fdsAdminOnly(HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid", (t) -> new AssignUserToTenant(configCache, secretKey), authorizer);
+      fdsAdminOnly(HttpMethod.DELETE, "/api/system/tenants/:tenantid/:userid", (t) -> new RevokeUserFromTenant( configCache, secretKey ), authorizer );
   }
 
   private void metricsPost() {

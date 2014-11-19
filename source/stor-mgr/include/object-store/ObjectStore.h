@@ -13,6 +13,7 @@
 #include <TierEngine.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
+#include <utility>
 
 namespace fds {
 
@@ -90,9 +91,13 @@ class ObjectStore : public Module, public boost::noncopyable {
     /**
      * Gets an specific object for a volume. The object's data
      * is filled into the objData shared pointer parameter.
+     * @param[out] usedTier tier from which data was read, if data
+     * was read from cache, returns flash tier (this is for streaming
+     * metadata)
      */
     boost::shared_ptr<const std::string> getObject(fds_volid_t volId,
                                                    const ObjectID &objId,
+                                                   diskio::DataTier& usedTier,
                                                    Error& err);
 
     /**
