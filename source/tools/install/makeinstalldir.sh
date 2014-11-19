@@ -33,6 +33,7 @@ externalpkgs=(
     libjemalloc1_3.6.0.deb
     redis-server_2.8.8.deb
     redis-tools_2.8.8.deb
+		libhiredis0.10_0.11.0-3_amd64.deb
 
     libical1_1.0-0ubuntu1_amd64.deb
 
@@ -41,17 +42,8 @@ externalpkgs=(
 )
 
 fdscorepkgs=(
-    fds-accessmgr
-    fds-cli
     fds-coredump
-    fds-datamgr
-    fds-orchmgr
-    fds-platformmgr
-    fds-pythonlibs
-    fds-stormgr
-    fds-systemconf
-    fds-systemdir
-    fds-tools
+    fds-platform
 )
 
 fdsrepopkgs=(

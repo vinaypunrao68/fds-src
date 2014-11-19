@@ -308,7 +308,7 @@ class DataIOModule : public fds::Module
     /**
      * Use this API to get the object handler when we know the disk_id from physical
      * location.  The disk_id is 16-bit value mapping to 64-bit uuid retrieved from
-     * the supperblock.
+     * the super block.
      */
     virtual PersisDataIO *
     disk_hdd_disk(DataTier tier, fds_uint16_t disk_id, fds_uint32_t file_id,

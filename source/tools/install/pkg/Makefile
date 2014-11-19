@@ -10,7 +10,17 @@ clean:
 	@sudo rm -f ../../../config/etc/*.conf ../../../test/formation.conf
 
 package: 
-	@sudo fdspkgcreate -r
+	# If you don't want to build a "release" version of the packages, then run:
+	#  make release-build=false
+	#  to get Jenkins-versioned (x.y.z-buildnumber) or timestamped packages
+	#  depending on the context
+	#  Otherwise, defaults to old behavior of assuming you want
+	#  "release" package versioning (x.y.z)
+	@if [ "x${release-build}" = "xfalse" ]; then \
+		fdspkgcreate ; \
+	else \
+		sudo fdspkgcreate -r ; \
+	fi
 
 # -----------------------------------------------------------------------------
 # Keep track of where all relevant ansible files live

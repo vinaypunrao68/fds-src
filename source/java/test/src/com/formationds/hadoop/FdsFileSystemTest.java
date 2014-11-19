@@ -7,16 +7,15 @@ import com.formationds.apis.VolumeType;
 import com.formationds.xdi.MemoryAmService;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.FileSystem;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
+import java.io.*;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 import static org.junit.Assert.*;
 
@@ -62,7 +61,7 @@ public class FdsFileSystemTest {
         assertEquals(data1.length, status1.getLen());
         assertEquals(data2.length, status2.getLen());
         assertEquals(OBJECT_SIZE, status1.getBlockSize());
-        assertEquals(f1, status1.getPath());
+        assertEquals(fileSystem.getAbsolutePath(f1), status1.getPath());
     }
 
     @Test
@@ -134,6 +133,16 @@ public class FdsFileSystemTest {
     }
 
     @Test
+    public void testInputStream() throws Exception {
+        byte[] contents = new byte[]{-1, -2, -114, -65};
+        Path p = new Path("/panda");
+        createWithContent(p, contents);
+        DataInputStream dis = new DataInputStream(fileSystem.open(p));
+        int foo = dis.readInt();
+        assertEquals(-94529, foo);
+    }
+
+    @Test
     public void appendTest() throws Exception {
         Path f = new Path("/peanuts");
         byte[] data1 = new byte[]{1, 2, 3, 4};
@@ -154,7 +163,7 @@ public class FdsFileSystemTest {
     public void testBlockSpanIo() throws Exception {
         int objectSize = 4;
         MemoryAmService mas = new MemoryAmService();
-        mas.createVolume("volume", new VolumeSettings(objectSize, VolumeType.OBJECT, 4));
+        mas.createVolume("volume", new VolumeSettings(objectSize, VolumeType.OBJECT, 4, 0));
         FileSystem fs = new FdsFileSystem(mas, "fds://volume/", objectSize);
 
         Path f = new Path("/mr.meatloaf");
@@ -202,17 +211,6 @@ public class FdsFileSystemTest {
     }
 
     @Test
-    public void testPathNotExists() throws Exception {
-        Path f = new Path("/not_real/bar.txt");
-        try {
-            fileSystem.create(f);
-            fail("this create should not succeed");
-        } catch(FileNotFoundException ex) {
-            // do nothing
-        }
-    }
-
-    @Test
     public void testOpenNonexistentFile() throws Exception {
         try {
             Path f = new Path("/bar.txt");
@@ -230,18 +228,46 @@ public class FdsFileSystemTest {
         assertFalse(result);
     }
 
-    @Before
+    //@Before
     // TODO: ideally we could configure these test cases to run against a real AM as part of the smoke test as well
     public void setUpUnit() throws Exception {
         String volumeName = "volume";
         MemoryAmService am = new MemoryAmService();
-        am.createVolume(volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0));
+        am.createVolume(volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0));
         fileSystem = new FdsFileSystem(am, "fds://" + volumeName + "/", OBJECT_SIZE);
     }
 
-    //@Before
-    public void setUpIntegration() throws Exception {
 
+    @Test
+    public void testReadLong() throws Exception {
+        Path path = new Path("/" + UUID.randomUUID().toString());
+        FSDataOutputStream out = fileSystem.create(path, true);
+        DataOutputStream dos = new DataOutputStream(out);
+        out.writeLong(42);
+        out.writeLong(43);
+        out.writeLong(44);
+        dos.close();
+        IntStream.range(0, 100)
+                .parallel()
+                .forEach(i -> doSomeReads(path));
+        ;
+    }
+
+    private void doSomeReads(Path path) {
+        try {
+            FSDataInputStream in = fileSystem.open(path);
+            DataInputStream dis = new DataInputStream(in);
+            assertEquals(42, dis.readLong());
+            assertEquals(43, dis.readLong());
+            assertEquals(44, dis.readLong());
+            dis.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Before
+    public void setUpIntegration() throws Exception {
         XdiClientFactory xdiCf = new XdiClientFactory();
         ConfigurationService.Iface cs = xdiCf.remoteOmService("localhost", 9090);
         AmService.Iface am = xdiCf.remoteAmService("localhost", 9988);
@@ -254,7 +280,7 @@ public class FdsFileSystemTest {
         long userId = cs.createUser(userName, "x", "x", false);
         cs.assignUserToTenant(userId, tenantId);
 
-        cs.createVolume(FdsFileSystem.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0), userId);
+        cs.createVolume(FdsFileSystem.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0), userId);
         fileSystem = new FdsFileSystem(am, "fds://" + volumeName + "/", OBJECT_SIZE);
     }
 

@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
@@ -192,7 +193,8 @@ void ObjectStorMgr::mod_startup()
         tokenStateDb_->addToken(tok);
     }
 
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
+    testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
+    if (testStandalone == false) {
         /* Set up FDSP RPC endpoints */
         nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
         myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
@@ -458,7 +460,7 @@ const DLT* ObjectStorMgr::getDLT() {
 }
 
 fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
-    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == true) {
+    if (testStandalone == true) {
         return true;  // TODO(Anna) add test DLT and use my svc uuid = 1
     }
     DltTokenGroupPtr nodes = omClient->getDLTNodesForDoidKey(objId);
@@ -730,7 +732,6 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     Error err(ERR_OK);
     const ObjectID&  objId    = putReq->getObjId();
     fds_volid_t volId         = putReq->getVolId();
-    diskio::DataTier tierUsed = diskio::maxTier;
 
     fds_assert(volId != 0);
     fds_assert(objId != NullObjectID);
@@ -745,9 +746,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
                                  objId,
                                  boost::make_shared<std::string>(
                                      putReq->putObjectNetReq->data_obj));
-    qosCtrl->markIODone(*putReq,
-                        tierUsed,
-                        amIPrimary(objId));
+    qosCtrl->markIODone(*putReq);
 
     // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(putReq->opLatencyCtx);
@@ -774,7 +773,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoDeleteObjectReq* delReq)
 
     err = objectStore->deleteObject(volId, objId);
 
-    qosCtrl->markIODone(*delReq, diskio::diskTier);
+    qosCtrl->markIODone(*delReq);
 
     // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(delReq->opLatencyCtx);
@@ -809,7 +808,7 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq) {
         }
     }
 
-    qosCtrl->markIODone(*addObjRefReq, diskio::maxTier, true);
+    qosCtrl->markIODone(*addObjRefReq);
     // end of ObjectStore layer latency
     PerfTracer::tracePointEnd(addObjRefReq->opLatencyCtx);
 
@@ -838,6 +837,7 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
     boost::shared_ptr<const std::string> objData =
             objectStore->getObject(volId,
                                    objId,
+                                   tierUsed,
                                    err);
     if (err.ok()) {
         // TODO(Andrew): Remove this copy. The network should allocated

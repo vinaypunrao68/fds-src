@@ -228,7 +228,10 @@ var en_US = {
     },
     users: {
         title: 'Users',
-        l_create_user: 'Create User'
+        l_create_user: 'Create User',
+        l_edit_user: 'Edit User',
+        
+        th_tenant: 'Tenant'
     },
     admin: {
         title: 'Admin',

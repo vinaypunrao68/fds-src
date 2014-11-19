@@ -113,6 +113,7 @@ class AmLoadProc : public AmAsyncResponseApi,
         if (thrift) {
             // Setup the async response server
             serverTransport.reset(new xdi_att::TServerSocket(responsePort));
+            // serverTransport.reset(new xdi_att::TServerSocket("/tmp/am-resp-sock"));
             transportFactory.reset(new xdi_att::TFramedTransportFactory());
             protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
             processor.reset(new apis::AsyncAmServiceResponseProcessor(
@@ -126,8 +127,9 @@ class AmLoadProc : public AmAsyncResponseApi,
 
             // Setup the async response client
             boost::shared_ptr<xdi_att::TTransport> respSock(
-                boost::make_shared<xdi_att::TSocket>(serverIp,
-                                                     serverPort));
+                boost::make_shared<xdi_att::TSocket>(
+                    serverIp, serverPort));
+            // "/tmp/am-req-sock"));
             boost::shared_ptr<xdi_att::TFramedTransport> respTrans(
                 boost::make_shared<xdi_att::TFramedTransport>(respSock));
             boost::shared_ptr<xdi_atp::TProtocol> respProto(
@@ -180,7 +182,12 @@ class AmLoadProc : public AmAsyncResponseApi,
     void getBlobResponse(const apis::RequestId& requestId,
                          const std::string& response) {}
     void getBlobResponse(boost::shared_ptr<apis::RequestId>& requestId,
-                         boost::shared_ptr<std::string>& response) {}
+                         boost::shared_ptr<std::string>& response) {
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
     void updateMetadataResponse(const apis::RequestId& requestId) {}
     void updateMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
     void updateBlobResponse(const apis::RequestId& requestId) {}

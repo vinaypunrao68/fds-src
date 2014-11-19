@@ -10,7 +10,9 @@
 
 #include <fds_uuid.h>
 
+#include <lib/Catalog.h>
 #include <DmBlobTypes.h>
+#include <dm-tvc/CommitLog.h>
 
 #define IS_OP_ALLOWED() \
     if (isSnapshot() || isReadOnly()) { \
@@ -32,6 +34,9 @@ struct BlobObjKey {
     BlobObjKey(fds_uint64_t blobId_, fds_uint32_t objIndex_ = BLOB_META_INDEX)
             : blobId(blobId_), objIndex(objIndex_) {}
 };
+
+extern const BlobObjKey OP_TIMESTAMP_KEY;
+extern const Record OP_TIMESTAMP_REC;
 
 class DmPersistVolDir {
   public:
@@ -132,6 +137,9 @@ class DmPersistVolDir {
     virtual Error putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
             const BlobObjList & puts, const std::vector<fds_uint64_t> & deletes) = 0;
 
+    virtual Error putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
+            CatWriteBatch & wb) = 0;
+
     // deletes
     virtual Error deleteObject(const std::string & blobName, fds_uint64_t offset) = 0;
 
@@ -142,6 +150,8 @@ class DmPersistVolDir {
 
     // sync
     virtual Error syncCatalog(const NodeUuid & dmUuid);
+
+    friend DmCommitLog;
 
   protected:
     // methods

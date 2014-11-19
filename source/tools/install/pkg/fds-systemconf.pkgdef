@@ -1,9 +1,0 @@
-package: fds-systemconf
-version: 0.2
-description: installs the core configuration
-
-depends: fds-systemdir
-
-files:
-  - dest: /fds/etc
-    src: "../../../config/etc/*.conf"

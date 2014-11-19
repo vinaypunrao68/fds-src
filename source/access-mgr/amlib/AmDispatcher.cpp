@@ -470,7 +470,8 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
     fpi::QueryCatalogMsgPtr queryMsg(new fpi::QueryCatalogMsg());
     queryMsg->volume_id    = volId;
     queryMsg->blob_name    = blobName;
-    queryMsg->start_offset  = blobOffset;
+    queryMsg->start_offset = blobOffset;
+    queryMsg->end_offset   = blobOffset;
     // TODO(umesh): need to use valid end_offset; -1 for all starting from start_offset
     queryMsg->end_offset   = -1;
     // We don't currently specify a version
@@ -569,7 +570,7 @@ AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
     setMDMsg->blob_name = amReq->getBlobName();
     setMDMsg->blob_version = blob_version_invalid;
     setMDMsg->volume_id = vol_id;
-    setMDMsg->txId = blobReq->dmt_version;
+    setMDMsg->txId = blobReq->tx_desc->getValue();
 
     setMDMsg->metaDataList = std::move(*blobReq->getMetaDataListPtr());
 

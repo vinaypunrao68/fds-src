@@ -517,12 +517,12 @@ class FdsCluster():
 
     def _run_tgen_java(self, test_args):
         def task(node, outs, queue):
-            cmd = "pushd /home/monchier/linux-x86_64.debug/bin && ./trafficgen --n_reqs 100000 --n_files 1000 --outstanding_reqs %d --test_type GET --object_size 4096 --hostname 10.1.10.139 --n_conns %d && popd" % (outs, outs)
+            cmd = "pushd /home/monchier/linux-x86_64.debug/bin && ./trafficgen --n_reqs 100000 --n_files 1000 --outstanding_reqs %d --test_type GET --object_size 4096 --hostname 10.1.10.222 --n_conns %d && popd" % (outs, outs)
             output = ssh_exec(node, cmd)
             queue.put(output)
         
         # nodes = ["10.1.10.222", "10.1.10.221"]
-        nodes = ["10.1.10.222"]
+        nodes = ["10.1.10.139"]
         N = test_args["threads"]
         outs = test_args["outstanding"]
         threads = []
@@ -576,12 +576,17 @@ class FdsCluster():
         numjobs = test_args["numjobs"]
         jobname = test_args["fio_jobname"]
         rw = test_args["fio_type"]
+        iodepth = test_args["iodepth"]
+        runtime = test_args["runtime"]
         options =   "--name=" + jobname + " " + \
                     "--rw=" + rw + " " + \
                     "--filename=" + disk + " " + \
                     "--bs=" + str(bs) + " " + \
                     "--numjobs=" + str(numjobs) + " " + \
-                    "--runtime=120 --ioengine=libaio --iodepth=16 --direct=1 --size=10g --minimal "
+                    "--iodepth=" + str(iodepth) + " " + \
+                    "--ioengine=libaio --direct=1 --size=10g --minimal "
+        if runtime > 0:            
+            options += " --runtime=" + str(runtime) + " "
         cmd = "fio " + options
         if self.local_test == True:
             output = self._loc_exec(cmd)

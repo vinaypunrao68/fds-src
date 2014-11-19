@@ -29,7 +29,7 @@ public class CreateContainer implements RequestHandler {
         String containerName = requiredString(routeParameters, "container");
 
         long tenantId = xdi.getAuthorizer().tenantId(token);
-        xdi.createVolume(token, accountName, containerName, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, tenantId));
+        xdi.createVolume(token, accountName, containerName, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, tenantId, 0));
         return SwiftUtility.swiftResource(new TextResource(201, ""));
     }
 }

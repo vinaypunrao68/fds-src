@@ -90,7 +90,8 @@ ObjectStoreLoadProc::get(fds_volid_t volId,
     Error err(ERR_OK);
     fds_uint64_t start_nano = util::getTimeStampNanos();
     if (objectStore) {
-        objData = objectStore->getObject(volId, objId, err);
+        diskio::DataTier usedTier = diskio::maxTier;
+        objData = objectStore->getObject(volId, objId, usedTier, err);
     } else {
         fds_panic("no known modules are initialized for get operation!");
     }

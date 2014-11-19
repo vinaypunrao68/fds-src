@@ -1,0 +1,15 @@
+[perf-no_am_cache]
+HOST
+
+[perf-no_am_cache:vars]
+fds_default_nic=p7p1
+fds_authentication=false
+fds_log_severity=notification
+fds_sm_data_verify=false
+fds_sm_data_verify_background=false
+fds_am_cache_default_max_entries=1500
+fds_sm_cache_default_data_entries=1500
+fds_dm_catalog_cache_size=16777216
+fds_dm_catalog_write_buffer_size=52428800
+fds_am_testing_am_testing_toggleDisableStreamingStats=true
+

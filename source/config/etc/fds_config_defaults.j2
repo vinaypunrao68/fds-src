@@ -9,10 +9,25 @@
 ################################################################################
 
 {% set default_nic = fds_default_nic if fds_default_nic is defined else 'eth0' %}
+{% set authentication = fds_authentication if fds_authentication is defined else 'true' %}
 {% set om_host = fds_om_host if fds_om_host is defined else '127.0.0.1' %}
 {% set om_ip = hostvars[fds_om_host]['ansible_'+fds_default_nic]['ipv4']['address'] if fds_om_host is defined and fds_default_nic is defined else '127.0.0.1' %}
 {% set metrics_enabled = fds_metrics_enabled if fds_metrics_enabled is defined else 'false' %}
 {% set metricsdb_ip = fds_metricsdb_ip if fds_metricsdb_ip is defined else '127.0.0.1' %}
 {% set ssh_user = fds_ssh_user if fds_ssh_user is defined else 'root' %}
 {% set ssh_password = fds_ssh_password if fds_ssh_password is defined else 'passwd' %}
+{% set am_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
+{% set sm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
+{% set dm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
+{% set om_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
+{% set pm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
+{% set checker_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
+{% set sm_data_verify = fds_sm_data_verify if fds_sm_data_verify is defined else 'true' %}
+{% set sm_data_verify_background = fds_sm_data_verify_background if fds_sm_data_verify_background is defined else 'true' %}
+{% set am_cache_default_max_entries = fds_am_cache_default_max_entries if fds_am_cache_default_max_entries is defined else '200' %}
+{% set sm_cache_default_data_entries = fds_sm_cache_default_data_entries if fds_sm_cache_default_data_entries is defined else '0' %}
+{% set dm_catalog_cache_size = fds_dm_catalog_cache_size if fds_dm_catalog_cache_size is defined else '16777216' %}
+{% set dm_catalog_write_buffer_size = fds_dm_catalog_write_buffer_size if fds_dm_catalog_write_buffer_size is defined else '52428800' %}
+{% set am_testing_toggleDisableStreamingStats = fds_am_testing_toggleDisableStreamingStats if fds_am_testing_toggleDisableStreamingStats is defined else 'false' %}
 {% block content %}{% endblock %}
+

@@ -1,0 +1,50 @@
+<div class="name-type" style="width: 350px;">
+
+    <section>
+        <div class="header">
+            <span class="light-print" translate>volumes.l_data_connector</span>
+            <div class="pull-right" ng-show="editing !== true && editable !== 'false'">
+                <span class="icon icon-edit edit-data-connector-button" ng-click="startEditing()"></span>
+            </div>
+        </div>
+
+        <table class="default">
+            <thead>
+                <tr>
+                    <th class="no-top-padding"></th>
+                    <th class="no-top-padding"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <div class="data-connector-display" ng-show="editing === false">{{dataConnector.type}}</div>
+                        <div class="flex" ng-show="editing === true">
+                            <fui-dropdown class="data-connector-dropdown" selected="editingConnector" items="connectors" skinny="true" background="none" color="black" name-property="type"></fui-dropdown>
+                        </div>
+                    </td>
+                    <td>
+                        <div >
+                        
+                            <div class="flex" ng-show="editing === false">
+                                <span style="margin-right: 4px;">{{dataConnector.attributes.size}}</span>
+                                <span>{{dataConnector.attributes.unit}}</span>
+                            </div>
+                            
+                            <div class="flex" ng-show="editing === true && editingConnector.attributes.size">
+                                <spinner class="data-connector-size-spinner skinny" value="_selectedSize" min="1" max="999" step="1" class="skinny" style="margin-right: 4px;"></spinner>
+                                <fui-dropdown skinny="true" background-color="#2486F8" items="sizes" selected="_selectedUnit"></fui-dropdown>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="flex" ng-show="editing === true" style="justify-content: flex-end;">
+            <button class="btn btn-primary skinny save-name-type-data" ng-click="saveConnectorChanges()" translate style="margin-right: 4px;">common.l_save</button>
+            <button class="btn btn-secondary skinny" ng-click="stopEditing()" translate>common.l_cancel</button>            
+        </div>
+        
+    </section>
+</div>

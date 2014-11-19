@@ -221,13 +221,14 @@ public:
 
     StorHvCtrl(int argc, char *argv[], SysParams *params);
     StorHvCtrl(int argc, char *argv[], SysParams *params,
-               sh_comm_modes _mode);
+               sh_comm_modes _mode, fds_uint32_t instanceId = 0);
     StorHvCtrl(int argc,
                char *argv[],
                SysParams *params,
                sh_comm_modes _mode,
                fds_uint32_t sm_port_num,
-               fds_uint32_t dm_port_num);
+               fds_uint32_t dm_port_num,
+               fds_uint32_t instanceId = 0);
     ~StorHvCtrl();
     void initHandlers();
     std::map<fds_io_op_t, fds::Handler*> handlers;

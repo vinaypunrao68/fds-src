@@ -11,7 +11,8 @@ enum VolumeType {
 struct VolumeSettings {
        1: required i32 maxObjectSizeInBytes,
        2: required VolumeType volumeType,
-       3: required i64 blockDeviceSizeInBytes
+       3: required i64 blockDeviceSizeInBytes,
+       4: required i64 contCommitlogRetention
 }
 
 struct VolumeDescriptor {
@@ -261,7 +262,7 @@ service ConfigurationService {
     list<i64> listVolumesForSnapshotPolicy(1:i64 policyId)
              throws (1: ApiException e),
 
-    void createSnapshot(1:i64 volumeId, 2:string snapshotName, 3:i64 retentionTime)
+    void createSnapshot(1:i64 volumeId, 2:string snapshotName, 3:i64 retentionTime, 4:i64 timelineTime)
              throws (1: ApiException e),
 
     list<snapshot.Snapshot> listSnapshots(1:i64 volumeId)

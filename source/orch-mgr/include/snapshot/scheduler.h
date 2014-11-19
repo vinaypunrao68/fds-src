@@ -11,6 +11,7 @@
 #include <util/Log.h>
 #include <map>
 #include <thread>
+#include <vector>
 
 namespace fds {
 class OrchMgr;
@@ -40,7 +41,8 @@ class Scheduler : public HasLogger {
 
     // monitor to sleep & notify
     apache::thrift::concurrency::Monitor monitor;
-
+    std::vector<Task*> vecTasks;
+    void processPendingTasks();
     // to shutdown
     bool fShutdown = false;
     OrchMgr* om;

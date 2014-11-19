@@ -23,8 +23,12 @@
 
 using fds::util::Color;
 std::map<std::string, fds::util::Stats> statsMap;
+fds_mutex mtx;
+
+extern fds::concurrency::TaskStatus taskCount;
 
 void printStats() {
+    FDSGUARD(mtx);
     for (auto& iter : statsMap) {
         auto& stats = iter.second;
         stats.calculate();
@@ -68,6 +72,7 @@ struct TimePrinter {
     ~TimePrinter() {
         if (done) {
             // summary();
+            FDSGUARD(mtx);
             statsMap[name].add(stopwatch.getElapsedNanos()/(1000000.0));
         }
     }

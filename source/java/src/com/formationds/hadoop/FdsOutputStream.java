@@ -8,7 +8,6 @@ import com.formationds.util.blob.Mode;
 import com.formationds.xdi.FdsObjectFrame;
 import org.apache.thrift.TException;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -18,10 +17,10 @@ import java.util.Map;
 
 public class FdsOutputStream extends OutputStream {
     private final int objectSize;
-    private AmService.Iface am;
     private final String domain;
     private final String volume;
     private final String blobName;
+    private AmService.Iface am;
     private long currentOffset;
 
     private long currentObject;
@@ -42,7 +41,7 @@ public class FdsOutputStream extends OutputStream {
         try {
             am.updateBlobOnce(domain, volume, blobName, Mode.TRUNCATE.getValue(), ByteBuffer.allocate(0), 0, new ObjectOffset(0), makeMetadata());
             return fdsOutputStream;
-        } catch(Exception ex) {
+        } catch (Exception ex) {
             throw new IOException(ex);
         }
     }
@@ -53,9 +52,15 @@ public class FdsOutputStream extends OutputStream {
             BlobDescriptor bd = am.statBlob(domain, volume, blobName);
             fdsOutputStream.currentOffset = bd.getByteCount();
             return fdsOutputStream;
-        } catch(Exception ex) {
+        } catch (Exception ex) {
             throw new IOException(ex);
         }
+    }
+
+    private static Map<String, String> makeMetadata() {
+        HashMap<String, String> md = new HashMap<>();
+        md.put(FdsFileSystem.LAST_MODIFIED_KEY, Long.toString(Calendar.getInstance().getTimeInMillis()));
+        return md;
     }
 
     public void flush() throws IOException {
@@ -73,13 +78,13 @@ public class FdsOutputStream extends OutputStream {
                     ByteBuffer existing = null;
                     try {
                         existing = am.getBlob(domain, volume, blobName, objectSize, new ObjectOffset(currentObject));
-                    } catch(ApiException ex) {
-                        if(ex.getErrorCode() == ErrorCode.MISSING_RESOURCE)
+                    } catch (ApiException ex) {
+                        if (ex.getErrorCode() == ErrorCode.MISSING_RESOURCE)
                             existing = ByteBuffer.allocate(0);
                         else
                             throw ex;
                     }
-                    if(existing.limit() > currentBuffer.limit()) {
+                    if (existing.limit() > currentBuffer.limit()) {
                         existing.position(currentBuffer.limit());
                         currentBuffer.position(currentBuffer.limit());
                         currentBuffer.limit(existing.limit());
@@ -93,30 +98,24 @@ public class FdsOutputStream extends OutputStream {
                 currentBuffer.limit(currentBuffer.capacity());
                 isDirty = false;
             }
-        } catch(Exception e) {
+        } catch (Exception e) {
             throw new IOException(e);
         }
     }
 
-    private static Map<String, String> makeMetadata() {
-        HashMap<String, String> md = new HashMap<>();
-        md.put(FdsFileSystem.LAST_MODIFIED_KEY, Long.toString(Calendar.getInstance().getTimeInMillis()));
-        return md;
-    }
-
     private ByteBuffer getBuffer() throws IOException {
         FdsObjectFrame frame = FdsObjectFrame.firstFrame(currentOffset, 1, objectSize);
-        if(frame.objectOffset != currentObject || currentBuffer == null) {
+        if (frame.objectOffset != currentObject || currentBuffer == null) {
             flush();
 
             currentObject = frame.objectOffset;
             currentBuffer = ByteBuffer.allocate(objectSize);
-            if(frame.internalOffset > 0) {
+            if (frame.internalOffset > 0) {
                 try {
                     ByteBuffer buffer = am.getBlob(domain, volume, blobName, frame.internalOffset, new ObjectOffset(currentObject));
                     currentBuffer.put(buffer);
-                } catch(TException ex) {
-                    if(!(ex instanceof ApiException) || ((ApiException) ex).errorCode == ErrorCode.MISSING_RESOURCE) {
+                } catch (TException ex) {
+                    if (!(ex instanceof ApiException) || ((ApiException) ex).errorCode == ErrorCode.MISSING_RESOURCE) {
                         throw new IOException(ex);
                     }
                 }
@@ -130,7 +129,7 @@ public class FdsOutputStream extends OutputStream {
 
     @Override
     public void write(int b) throws IOException {
-        getBuffer().put((byte)(b % 256));
+        getBuffer().put((byte) (b % 256));
         isDirty = true;
         currentOffset++;
     }
@@ -138,7 +137,7 @@ public class FdsOutputStream extends OutputStream {
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
         int written = 0;
-        while(written < len) {
+        while (written < len) {
             ByteBuffer buffer = getBuffer();
             int writeSize = Math.min(buffer.remaining(), len - written);
             buffer.put(b, off + written, writeSize);
@@ -146,6 +145,7 @@ public class FdsOutputStream extends OutputStream {
             currentOffset += writeSize;
             isDirty = true;
         }
+        flush();
     }
 
     @Override
