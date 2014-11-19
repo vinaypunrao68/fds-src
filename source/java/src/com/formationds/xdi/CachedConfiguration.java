@@ -22,11 +22,11 @@ public class CachedConfiguration {
     private final Map<Long, Tenant> tenantsById;
     private final Multimap<Long, Long> usersByTenant;
     private final Map<Long, Long> tenantsByUser;
-    private List<VolumeDescriptor> volumeDescriptors;
     private final Map<String, VolumeDescriptor> volumesByName;
     private final Map<Long, User> usersById;
     private final Map<String, User> usersByName;
     private final long version;
+    private List<VolumeDescriptor> volumeDescriptors;
 
     public CachedConfiguration(ConfigurationService.Iface config) throws Exception {
         version = config.configurationVersion(0);
@@ -55,8 +55,8 @@ public class CachedConfiguration {
         } catch (TException e) {
             volumeDescriptors = Lists.newArrayList();
         }
-        volumesByName = volumeDescriptors.stream()
-                .collect(Collectors.toMap(v -> v.getName(), v -> v));
+        volumesByName = new HashMap<>();
+        volumeDescriptors.forEach(v -> volumesByName.put(v.getName(), v));
     }
 
     public Collection<User> users() {
