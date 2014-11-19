@@ -1,4 +1,7 @@
 <div ng-controller="volumeContainerController">
+    
+    <waterfall-slider sliders="sliders" range="range"></waterfall-slider>
+    
     <slide-window-stack global-vars="volumeVars">
         <slide-window-slide name="listvolumes" breadcrumb-name="View Volumes">
             <div ng-include="'scripts/volumes/volumes.html'"></div>

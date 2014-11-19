@@ -1,0 +1,38 @@
+.waterfall-slider {
+    
+    position: relative;
+    width: 100%;
+    
+    .slider {
+        
+        width: 100%;
+        position: relative;
+        height: 30px;
+        
+        .bar {
+            width: 100%;
+            height: 10px;
+            position: absolute;
+            top: 10px;
+            background-color: #A0A0A0;
+        }
+        
+        .handle {
+            height: 20px;
+            width: 11px;
+            border: 1px solid black;
+            background-color: white;
+            position: absolute;
+            top: 5px;
+            z-index: 3;
+        }
+        
+        .trackline {
+            top: 25px;
+            width: 1px;
+            border-left: 1px dotted black;
+            position: absolute;
+            z-index: 2;
+        }
+    };
+}

@@ -1,0 +1,7 @@
+<div class="waterfall-slider" ng-dragstart="$event.preventDefault()">
+    <div class="slider" ng-repeat="slider in sliders">
+        <div class="bar"></div>
+        <div class="handle" ng-style="{ left: slider.position + 'px', 'background-color': (grabbedSlider === slider ) ? 'blue' : 'white' }" ng-mousedown="handleClicked( slider, $index )"></div>
+        <div class="trackline" ng-style="{left: (slider.position+5) + 'px', height: (30*(sliders.length-$index-1) - 5) + 'px'}"></div>
+    </div>
+</div>

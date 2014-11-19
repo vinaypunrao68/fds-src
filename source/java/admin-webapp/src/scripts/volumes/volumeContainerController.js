@@ -16,4 +16,38 @@ angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope',
     
     $scope.volumeVars = {};
     
+    $scope.sliders = [
+        {
+            value: 0,
+            name: 'Continuous'
+        },
+        {
+            value: 0,
+            name: 'Days'
+        },
+        {
+            value: 0,
+            name: 'Weeks'
+        },
+        {
+            value: 0,
+            name: 'Months'
+        },
+        {
+            value: 0,
+            name: 'Years'
+        }
+    ];
+    
+    $scope.range = [
+        {
+            start: 0,
+            end: 23
+        },
+        {
+            start: 1,
+            end: 7
+        }
+    ];
+    
 }]);
