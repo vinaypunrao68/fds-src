@@ -102,8 +102,11 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
                                           .build();
 
             FirebreakType fbtype = FirebreakType.metricFirebreakType(volDp.getShortTermSigma().getKey()).get();
-
-            if (fbtype != null && !hasActiveFirebreak(v, fbtype)) {
+            if (fbtype == null) {
+                // TODO: illegal state?
+                logger.warn("Firebreak type could not be determined for metric key {}.  Skipping FirebreakEvent Datapoint {}",
+                            volDp.getShortTermSigma().getKey(), volDp);
+            } else if (!hasActiveFirebreak(v, fbtype)) {
                 logger.trace("Firebreak event for '{}({})' with datapoints '{}'", v.getId(), v.getName(), volDp);
 
                 Datapoint dp = volDp.getDatapoint();
@@ -113,9 +116,9 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
                                                          volDp.getShortTermSigma().getValue() :
                                                          volDp.getLongTermSigma().getValue()) );
                 EventManager.INSTANCE.notifyEvent(fbe);
-                activeFirebreaks.put(new FBInfo(v, FirebreakType.CAPACITY), fbe);
+                activeFirebreaks.put(new FBInfo(v, fbtype), fbe);
             } else {
-                logger.trace("Firebreak event skipped - active firebreak for volume {}", v);
+                logger.trace("Firebreak event skipped - active firebreak for volume {}({})", v.getId(), v.getName());
                 logger.trace("Active Firebreaks: {}", activeFirebreaks.toString());
             }
         }
