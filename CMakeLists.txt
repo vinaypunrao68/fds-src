@@ -949,7 +949,6 @@ set(SOURCE_FILES
     source/include/shared/bitutil.h
     source/include/shared/dlist.h
     source/include/shared/fds-constants.h
-    source/include/shared/fds-magic.h
     source/include/shared/fds_types.h
     source/include/util/color.h
     source/include/util/counter.h
@@ -1222,6 +1221,7 @@ set(SOURCE_FILES
     source/platform/include/disk-label.h
     source/platform/include/disk-partition.h
     source/platform/include/disk.h
+    source/platform/include/fds-magic.h
     source/platform/include/net-platform.h
     source/platform/include/plat-node-workflow.h
     source/platform/include/platform.h

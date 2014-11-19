@@ -1,5 +1,7 @@
 {% extends 'fds_config_defaults.j2' %}
 {% block content %}
+{% set node_counter = 1 %}
+{% set om_node = 1 %}
 #
 # Copyright 2014 Formation Data Systems, Inc.
 #
@@ -12,7 +14,11 @@ password        = {{ ssh_password }}
 #
 
 {% for host in groups[group_names[0]] %}
-[{{ host }}]
+[node{{ node_counter }}]
+{% if host == om_host %}
+{% set om_node = node_counter %}
+{% endif %}
+{% set node_counter = node_counter + 1 %}
 {{ 'om    ' if host == om_host else 'enable' }}          = true
 ip              = {{ hostvars[host]['ansible_'+fds_default_nic]['ipv4']['address'] if fds_default_nic is defined else om_ip }}
 fds_root        = /fds
@@ -22,5 +28,5 @@ fds_root        = /fds
 [sh1]
 # Client uses blk services
 blk             = false
-fds_node        = {{ om_host }}
+fds_node        = node{{ om_node }}
 {% endblock %}
