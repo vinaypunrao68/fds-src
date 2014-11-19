@@ -15,3 +15,4 @@ TEST_DIR=/regress/test-$RANDOM
 TEST_JSON=regress/config/get.json
 ./run_experiment.py -n $PYRO_IP -p $PYRO_PORT -m $HOSTNAME -M local-single -J $TEST_JSON -d $TEST_DIR -c 1 -j -t $TEST_IP -D $WORKSPACE --fds-nodes $HOSTNAME
 ./do_stats.sh $TEST_DIR $HOSTNAME test.db $HOSTNAME $TAG > $TEST_DIR/results.csv
+
