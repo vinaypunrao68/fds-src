@@ -1,34 +1,32 @@
+{% extends 'fds_config_defaults.j2' %}
+{% block content %}
+{% set node_counter = 1 %}
+{% set om_node = [1] %}
 #
 # Copyright 2014 Formation Data Systems, Inc.
 #
 [user]
-user_name       = root
-password        = vagrant
+user_name       = {{ ssh_user }}
+password        = {{ ssh_password }}
 
 # The 'node' section defines a nodes paramters. The section must be prefixed
 # with 'node' but is also used as a unique ID for the node.
 #
-[node1]
-om              = true
-ip              = {{ node_ips['node1'] }}
+
+{% for host in groups[group_names[0]] %}
+[{{ hostvars[host]['fds_node'] }}]
+{% if host == om_host %}
+{% set _ = om_node.append(shortname) %}
+{% endif %}
+{% set node_counter = node_counter + 1 %}
+{{ 'om    ' if host == om_host else 'enable' }}          = true
+ip              = {{ hostvars[host]['ansible_'+fds_default_nic]['ipv4']['address'] if fds_default_nic is defined else om_ip }}
 fds_root        = /fds
 
-[node2]
-enable          = true
-ip              = {{ node_ips['node2'] }}
-fds_root        = /fds
-
-[node3]
-enable          = true
-ip              = {{ node_ips['node3'] }}
-fds_root        = /fds
-
-[node4]
-enable          = true
-ip              = {{ node_ips['node4'] }}
-fds_root        = /fds
+{% endfor %}
 
 [sh1]
 # Client uses blk services
 blk             = false
-fds_node        = node1
+fds_node        = {{ hostvars[om_host]['fds_node'] }}
+{% endblock %}
