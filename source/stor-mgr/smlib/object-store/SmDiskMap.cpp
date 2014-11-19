@@ -40,9 +40,9 @@ int SmDiskMap::mod_init(SysParams const *const param) {
             LOGERROR << "Could not read disk " << diskPath;
         }
         // Populate the capacityMap for this diskID
-        capacityMap->emplace(disk_id,
-                std::make_pair((statbuf.f_bfree * statbuf.f_bsize),
-                        (statbuf.f_blocks * statbuf.f_frsize)));
+        fds_uint64_t totalSize = statbuf.f_blocks * statbuf.f_frsize;
+        fds_uint64_t consumedSize = totalSize - (statbuf.f_bfree * statbuf.f_bsize);
+        capacityMap->emplace(disk_id, std::make_pair(consumedSize, totalSize));
     }
 
     // we are not going to read superblock
@@ -57,11 +57,12 @@ fds_bool_t SmDiskMap::ssdTrackCapacityAdd(ObjectID oid,
     // Get the capacity information for this disk
     std::pair<fds_uint64_t, fds_uint64_t>ssdCap = capacityMap->at(diskId);
     // Check if we're over threshold now
-    if ((ssdCap.first + writeSize) >
-            (ssdCap.second * (fullThreshold / 100))) {
-        LOGDEBUG << "SSD write would exceed full threshold: Threshold: " <<
-                    fullThreshold << " current usage: " << ssdCap.first << " of "
-                    << ssdCap.second << " Write size: " << writeSize;
+    fds_uint64_t newConsumed = ssdCap.first + writeSize;
+    fds_uint64_t capThresh = ssdCap.second * (fullThreshold / 100.);
+    if (newConsumed > capThresh) {
+        LOGDEBUG << "SSD write would exceed full threshold: Threshold: "
+                    << capThresh << " current usage: " << ssdCap.first
+                    << " of " << ssdCap.second << " Write size: " << writeSize;
         return false;
     }
     // Add the writeSize

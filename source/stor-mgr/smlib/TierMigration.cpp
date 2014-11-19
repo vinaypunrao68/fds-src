@@ -10,7 +10,7 @@ SmTierMigration::SmTierMigration(SmIoReqHandler *data_store)
         : dataStoreReqHandler(data_store),
           writeBackReq(NULL) {
     // default tier config
-    tierConfig.flashFullThreshold = 90;
+    tierConfig.flashFullThreshold = 22;
     // TODO(Anna) implement the timer to write back if we don't get
     // enough SSD puts to batch in some time interval; for now
     // setting batch size to one; will fix this before end of sprint
