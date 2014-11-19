@@ -377,7 +377,7 @@ DiskLabelMgr::DiskLabelMgr() : dl_master(NULL), dl_mtx("label mtx"), dl_map(NULL
 void DiskLabelMgr::dsk_read_label(PmDiskObj::pointer disk)
 {
     DiskLabel *label = disk->dsk_xfer_label();
-LOGNORMAL << "aaaaaaaaaaaaaaa in here";
+
     if (label == NULL)
     {
         disk->dsk_read_uuid();

@@ -605,7 +605,6 @@ bool PmDiskInventory::disk_read_label(DiskLabelMgr *mgr, bool creat)
 {
     DiskLabelOp op(DISK_LABEL_READ, mgr);
 
-LOGNORMAL << "READING ";
     dsk_foreach(&op);
 
     return mgr->dsk_reconcile_label(this, creat);
@@ -761,7 +760,6 @@ void DiskPlatModule::dsk_rescan()
     PmDiskObj::pointer      disk, slice;
     struct udev_list_entry *devices, *ptr;
 
-LOGNORMAL << "Begin";
     udev_enumerate_scan_devices(dsk_enum);
 
     devices = udev_enumerate_get_list_entry(dsk_enum);
@@ -804,7 +802,6 @@ LOGNORMAL << "Begin";
     }
 
     dsk_devices->dsk_discovery_done();
-LOGNORMAL << "Done";
 }
 
 // dsk_monitor
@@ -935,7 +932,6 @@ bool FileDiskInventory::disk_read_label(DiskLabelMgr *mgr, bool creat)
 {
     DiskLabelOp op(DISK_LABEL_READ, mgr);
 
-LOGNORMAL << "READING sim mode";
     dsk_foreach(&op, &dsk_files, dsk_count);
 
     return mgr->dsk_reconcile_label(this, creat);
