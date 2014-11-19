@@ -10,9 +10,9 @@
 #include <fds_module.h>
 #include <fds_error.h>
 #include <util/timeutils.h>
-#include <concurrency/RwLock.h>
 #include <concurrency/Mutex.h>
 #include <ObjectLogger.h>
+#include <lib/Catalog.h>
 #include <blob/BlobTypes.h>
 #include <DmBlobTypes.h>
 
@@ -35,11 +35,15 @@ struct CommitLogTx : serialize::Serializable {
     BlobObjList::ptr blobObjList;
     MetaDataList::ptr metaDataList;
 
+    CatWriteBatch wb;
+
     blob_version_t blobVersion;
+    fds_uint64_t nameId;
+    fds_uint64_t blobSize;
 
     CommitLogTx() : txDesc(0), blobMode(0), started(0), committed(0), blobDelete(false),
             snapshot(false), blobObjList(new BlobObjList()), metaDataList(new MetaDataList()),
-            blobVersion(blob_version_invalid) {}
+            blobVersion(blob_version_invalid), nameId(0), blobSize(0) {}
 
     virtual uint32_t write(serialize::Serializer * s) const override;
     virtual uint32_t read(serialize::Deserializer * d) override;
@@ -58,7 +62,7 @@ class DmCommitLog : public Module {
     typedef boost::shared_ptr<const DmCommitLog> const_ptr;
 
     // ctor & dtor
-    DmCommitLog(const std::string &modName, const fds_volid_t volId);
+    DmCommitLog(const std::string &modName, const fds_volid_t volId, const fds_uint32_t objSize);
     ~DmCommitLog();
 
     // module overrides
@@ -77,11 +81,15 @@ class DmCommitLog : public Module {
     template<typename T>
     Error updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<const T> & blobData);
 
+    // update blob data (T can be fpi::FDSP_BlobObjectList)
+    template<typename T>
+    Error updateTx(BlobTxId::const_ptr & txDesc, const T & blobData);
+
     // delete blob
     Error deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t blobVersion);
 
     // commit transaction (time at which commit is ACKed)
-    CommitLogTx::const_ptr commitTx(BlobTxId::const_ptr & txDesc, Error & status);
+    CommitLogTx::ptr commitTx(BlobTxId::const_ptr & txDesc, Error & status);
 
     // rollback transaction
     Error rollbackTx(BlobTxId::const_ptr & txDesc);
@@ -98,15 +106,16 @@ class DmCommitLog : public Module {
     // get active transactions
     // fds_uint32_t getActiveTx() const {
     fds_uint32_t getActiveTx() {
-        SCOPEDREAD(lockTxMap_);
+        FDSGUARD(lockTxMap_);
         return txMap_.size();
     }
 
   private:
     TxMap txMap_;    // in-memory state
-    fds_rwlock lockTxMap_;
+    fds_mutex lockTxMap_;
 
     fds_uint64_t volId_;
+    fds_uint32_t objSize_;
     bool started_;
 
 
@@ -128,6 +137,8 @@ class DmCommitLog : public Module {
             tx.metaDataList.reset(new MetaDataList(*data));
         }
     }
+
+    void upsertBlobData(CommitLogTx & tx, const fpi::FDSP_BlobObjectList & data);
 
     Error snapshotInsert(BlobTxId::const_ptr & txDesc);
 };

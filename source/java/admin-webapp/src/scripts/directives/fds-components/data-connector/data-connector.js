@@ -59,6 +59,8 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             $scope.saveConnectorChanges = function(){
 
                 $scope.dataConnector = $scope.editingConnector;
+                $scope.dataConnector.attributes.size = $scope._selectedSize;
+                $scope.dataConnector.attributes.unit = $scope._selectedUnit.name;
                 $data_connector_api.editConnector( $scope.editingConnector );
                 $scope.stopEditing();
             };

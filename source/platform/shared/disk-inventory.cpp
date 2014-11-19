@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+
 #include <platform/disk-inventory.h>
 
 namespace fds {
@@ -83,6 +84,8 @@ DiskInventory::dsk_foreach(DiskObjIter *iter, ChainList *list, int count)
     DiskObjArray  disks(count << 1);
 
     cnt = dsk_array_snapshot(list, &disks);
+
+LOGNORMAL << "Here with cnt = " << cnt;
     for (int j = 0; j < cnt; j++) {
         if (iter->dsk_iter_fn(disks[j]) == false) {
             break;
