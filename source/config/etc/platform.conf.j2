@@ -8,7 +8,7 @@ fds: {
     /* Use genkey to generate a new one */
     aes_key="005ecbcf2a3ddf8fc634a43b8adb44cc"
 
-    authentication=true
+    authentication={{ authentication }}
 
     ssl: {
         /* path relative to fds_root */
@@ -248,6 +248,9 @@ fds: {
         logfile      = "am"
         om_ip        = "{{ om_ip }}"
         om_port      = 8904
+
+        /* ID for local AM instance */
+        instanceId = 0
 
         /* TODO(Rao): Get this from platform */
         om_config_port = 8903

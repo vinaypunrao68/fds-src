@@ -2,7 +2,6 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-#include <dm_gtest.h>
 #include <object-store/ObjectStore.h>
 
 #include "sm_util_lib.h"

@@ -35,10 +35,6 @@ basedebs=(
 fdsbasedebs=(
     fds-pkghelper
     fds-pkg
-    fds-systemdir
-    fds-systemconf
-    fds-pythonlibs
-    fds-tools
     fds-boost
     fds-leveldb
     fds-python-scp
@@ -166,12 +162,7 @@ function installFdsService() {
     loginfo "[fdssetup] : installing fds service [$service]"
     local pkg
     case $service in
-        "fds-om" ) pkg="fds-orchmgr" ;;
-        "fds-am" ) pkg="fds-accessmgr" ;;
-        "fds-sm" ) pkg="fds-stormgr" ;;
-        "fds-dm" ) pkg="fds-datamgr" ;;
-        "fds-pm" ) pkg="fds-platformmgr" ;;
-        "fds-cli" ) pkg="fds-cli" ;;
+        "fds-platform" ) pkg="fds-platform" ;;
         *)
             logerror "[fdssetup] : unknown fds service [$service]"
             return 1

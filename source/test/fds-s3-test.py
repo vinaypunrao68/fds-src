@@ -95,6 +95,8 @@ class TestS3Conn(unittest.TestCase):
         self.param = g_parameters
         self.param.bucket_name = get_new_name_helper(self.param.bucket_prefix)
         self.assertTrue(self.conn)
+        if self.conn.lookup(self.param.bucket_name) is None:
+            self.conn.create_bucket(self.param.bucket_name)
 
     def tearDown(self):
         self.assertTrue(self.conn)
@@ -671,6 +673,7 @@ def main():
                                   TEST_DEBUG)
 
     g_connection.s3_connect()
+
 
     test_classes = [TestS3Conn, TestS3Bucket, TestS3Key]
     loader       = unittest.TestLoader()

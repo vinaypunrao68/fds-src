@@ -3,7 +3,7 @@ user_build_dir    := svc-test
 user_incl_dir     := /usr/include/cryptopp
 user_cpp_flags    :=
 user_fds_so_libs  :=
-user_fds_ar_libs  :=
+user_fds_ar_libs  := smchk
 
 user_cpp          := \
     object_store_unit_test.cpp \
@@ -31,6 +31,7 @@ user_bin_exe      := \
     sm_tokcompactor_gtest \
     sm_token_state_gtest  \
     sm_tier_migration_gtest
+
 
 sm_objectstore_gtest   := object_store_unit_test.cpp
 ObjectStoreLoadTest := object_store_load_test.cpp

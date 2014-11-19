@@ -87,10 +87,16 @@ class AmPlatform : public Platform
     void NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,   // NOLINT
                          fpi::FDSP_DMT_TypePtr   &dmt_info);
 
+    inline void setInstanceId(fds_uint32_t id) {
+        instanceId = id;
+    }
+
   protected:
     AMEpPlugin::pointer           am_plugin;
     bo::shared_ptr<AMSvcHandler>  am_recv;
     bo::intrusive_ptr<EndPoint<fpi::AMSvcClient, fpi::AMSvcProcessor>> am_ep;
+    /// Instance ID of this AM
+    fds_uint32_t instanceId;
 };
 
 extern AmPlatform gl_AmPlatform;
