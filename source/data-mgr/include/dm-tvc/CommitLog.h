@@ -10,7 +10,6 @@
 #include <fds_module.h>
 #include <fds_error.h>
 #include <util/timeutils.h>
-#include <concurrency/RwLock.h>
 #include <concurrency/Mutex.h>
 #include <ObjectLogger.h>
 #include <lib/Catalog.h>
@@ -107,13 +106,13 @@ class DmCommitLog : public Module {
     // get active transactions
     // fds_uint32_t getActiveTx() const {
     fds_uint32_t getActiveTx() {
-        SCOPEDREAD(lockTxMap_);
+        FDSGUARD(lockTxMap_);
         return txMap_.size();
     }
 
   private:
     TxMap txMap_;    // in-memory state
-    fds_rwlock lockTxMap_;
+    fds_mutex lockTxMap_;
 
     fds_uint64_t volId_;
     fds_uint32_t objSize_;

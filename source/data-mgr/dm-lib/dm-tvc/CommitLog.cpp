@@ -121,7 +121,7 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
 
     GLOGDEBUG << "Starting blob transaction (" << txId << ") for (" << blobName << ")";
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
 
     TxMap::const_iterator iter = txMap_.find(txId);
     if (txMap_.end() != iter) {
@@ -156,7 +156,7 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
         return rc;
     }
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
     upsertBlobData(*txMap_[txId], blobData);
 
     return rc;
@@ -177,7 +177,7 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, const T & blobData) {
         return rc;
     }
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
     upsertBlobData(*txMap_[txId], blobData);
 
     return rc;
@@ -216,7 +216,7 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t
         return rc;
     }
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
 
     CommitLogTx::ptr & ptx = txMap_[txId];
     ptx->blobDelete = true;
@@ -239,7 +239,7 @@ CommitLogTx::ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error & sta
         return 0;
     }
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
     CommitLogTx::ptr ptx = txMap_[txId];
     ptx->committed = util::getTimeStampNanos();
     txMap_.erase(txId);
@@ -261,7 +261,7 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
         return rc;
     }
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
     txMap_.erase(txId);
 
     return rc;
@@ -301,7 +301,7 @@ CommitLogTx::const_ptr DmCommitLog::getTx(BlobTxId::const_ptr & txDesc) {
 
     GLOGDEBUG << "Get blob transaction " << txId;
 
-    SCOPEDREAD(lockTxMap_);
+    FDSGUARD(lockTxMap_);
 
     TxMap::const_iterator iter = txMap_.find(txId);
     if (txMap_.end() != iter) {
@@ -312,7 +312,7 @@ CommitLogTx::const_ptr DmCommitLog::getTx(BlobTxId::const_ptr & txDesc) {
 }
 
 Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
-    SCOPEDREAD(lockTxMap_);
+    FDSGUARD(lockTxMap_);
 
     TxMap::iterator iter = txMap_.find(txId);
     if (txMap_.end() == iter) {
@@ -331,7 +331,7 @@ Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
 
 fds_bool_t DmCommitLog::isPendingTx(const fds_uint64_t tsNano /* = util::getTimeStampNanos() */) {
     fds_bool_t ret = false;
-    SCOPEDREAD(lockTxMap_);
+    FDSGUARD(lockTxMap_);
     for (auto it : txMap_) {
         if (it.second->started && !it.second->committed) {
             if (it.second->started <= tsNano) {
@@ -356,7 +356,7 @@ Error DmCommitLog::snapshotInsert(BlobTxId::const_ptr & txDesc) {
         return rc;
     }
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
     txMap_[txId]->snapshot = true;
 
     return rc;
