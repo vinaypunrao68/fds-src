@@ -13,19 +13,22 @@
 #include <fiu-local.h>
 #include <random>
 #include <chrono>
+#include <MockSMCallbacks.h>
 #include <MockSvcHandler.h>
 
 namespace fds {
 
-extern ObjectStorMgr *objStorMgr;
-std::unique_ptr<MockSvcHandler> mockHandler;
-uint64_t mockTimeoutUs = 200;
+extern ObjectStorMgr    *objStorMgr;
 
 SMSvcHandler::SMSvcHandler()
 {
+    mockTimeoutEnabled = gModuleProvider->get_fds_config()->\
+                         get<bool>("fds.sm.testing.enable_mocking");
     mockTimeoutUs = gModuleProvider->get_fds_config()->\
                     get<uint32_t>("fds.sm.testing.mocktimeout");
-    mockHandler.reset(new MockSvcHandler());
+    if (true == mockTimeoutEnabled) {
+        mockHandler.reset(new MockSvcHandler());
+    }
 
     REGISTER_FDSP_MSG_HANDLER(fpi::GetObjectMsg, getObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::PutObjectMsg, putObject);
@@ -139,8 +142,8 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 #endif
     fiu_do_on("svc.uturn.getobject", \
               mockHandler->schedule(mockTimeoutUs, \
-                                    std::bind(&SMSvcHandler::mockGetCb, \
-                                              this, asyncHdr)); \
+                                    std::bind(MockSMCallbacks::mockGetCb, \
+                                              asyncHdr)); \
               return;);
 
     Error err(ERR_OK);
@@ -219,8 +222,8 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // fiu_do_on("svc.uturn.putobject", putObjectCb(asyncHdr, ERR_OK, NULL); return;);
     fiu_do_on("svc.uturn.putobject", \
               mockHandler->schedule(mockTimeoutUs, \
-                                    std::bind(&SMSvcHandler::mockPutCb, \
-                                              this, asyncHdr)); \
+                                    std::bind(MockSMCallbacks::mockPutCb, \
+                                              asyncHdr)); \
               return;);
 
     Error err(ERR_OK);
@@ -259,6 +262,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     }
 }
 
+#if 0
 void SMSvcHandler::mockPutCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr)
 {
     auto resp = boost::make_shared<fpi::PutObjectRspMsg>();
@@ -273,6 +277,7 @@ void SMSvcHandler::mockGetCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr)
     asyncHdr->msg_code = ERR_OK;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetObjectResp), *resp);
 }
+#endif
 
 void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                const Error &err,

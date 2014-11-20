@@ -194,6 +194,10 @@ fds: {
         test_mode=false
         /* Internal testing related info */
         testing: {
+
+            /* enable simulated latency with its timueout value */
+            enable_mocking = false
+            mocktimeout = 500   
             /* enable if testing SM standalone, no dependency on platform and OM */
             standalone = false
 
@@ -222,9 +226,6 @@ fds: {
             hot_threshold = 3
             /* approx number of times an obj has to be accessed to become cold */
             cold_threshold = 0
-	    /* Mock handler timeout */
-	    mocktimeout = 0 
-
         }
         threadpool: {
             max_task    = 10
