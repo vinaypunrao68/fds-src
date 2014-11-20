@@ -36,7 +36,6 @@ public class MetricsRepository
   private static final String DBNAME = "var/db/metrics.odb";
   private static final String VOLUME_NAME = "volumeName";
 
-
   /**
    * default constructor
    */
@@ -91,9 +90,10 @@ public class MetricsRepository
   public VolumeDatapointList query( final QueryCriteria criteria ) {
       EntityManager em = newEntityManager();
       try {
-          final List<VolumeDatapoint> results = new MetricCriteriaQueryBuilder(em).searchFor(criteria)
-                                                                                  .build()
-                                                                                  .getResultList();
+          final List<VolumeDatapoint> results = 
+        		  new MetricCriteriaQueryBuilder(em).searchFor(criteria)
+                                                    .build()
+                                                    .getResultList();
 
           final VolumeDatapointList list = new VolumeDatapointList();
           results.stream().forEach(list::add);

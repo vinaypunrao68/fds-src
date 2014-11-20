@@ -300,9 +300,9 @@ public abstract class JDORepository<T,
      */
     @Override
     public void close() {
-        newEntityManager().close();
-        manager().close();
-        factory().close();
+        entityManagerFactory.close();
+        manager.close();
+        factory.close();
     }
 
     /**
