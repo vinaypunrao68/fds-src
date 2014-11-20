@@ -201,7 +201,7 @@ TEST_F(SMApi, putsPerf)
         asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this, opStartTs,
                                             std::placeholders::_1,
                                             std::placeholders::_2, std::placeholders::_3));
-        asyncPutReq->setTimeoutMs(1000);
+        asyncPutReq->setTimeoutMs(5000);
         putsIssued_++;
         outStanding_++;
         asyncPutReq->invoke();
@@ -274,7 +274,7 @@ TEST_F(SMApi, putsPerf)
         asyncGetReq->onResponseCb(std::bind(&SMApi::getCb, this, opStartTs,
                                             std::placeholders::_1,
                                             std::placeholders::_2, std::placeholders::_3));
-        asyncGetReq->setTimeoutMs(1000);
+        asyncGetReq->setTimeoutMs(5000);
         getsIssued_++;
         outStanding_++;
         asyncGetReq->invoke();

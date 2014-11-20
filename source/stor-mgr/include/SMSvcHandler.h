@@ -15,9 +15,14 @@ class SmIoGetObjectReq;
 class SmIoPutObjectReq;
 class SmIoDeleteObjectReq;
 class SmIoAddObjRefReq;
+class MockSvcHandler;
 
 class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
  public:
+    boost::shared_ptr<MockSvcHandler> mockHandler;
+    uint64_t mockTimeoutUs  = 200;
+    bool mockTimeoutEnabled = false;
+
     SMSvcHandler();
 
     void getObject(const fpi::AsyncHdr& asyncHdr,

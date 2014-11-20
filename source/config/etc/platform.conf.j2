@@ -185,6 +185,10 @@ fds: {
         test_mode=false
         /* Internal testing related info */
         testing: {
+
+            /* enable simulated latency with its timueout value */
+            enable_mocking = false
+            mocktimeout = 500   
             /* enable if testing SM standalone, no dependency on platform and OM */
             standalone = false
 
