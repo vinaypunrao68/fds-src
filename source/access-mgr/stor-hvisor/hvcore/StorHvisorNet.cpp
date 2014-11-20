@@ -165,8 +165,6 @@ StorHvCtrl::StorHvCtrl(int argc,
                                    &gl_AmPlatform,
                                    instanceId);
         om_client->initialize();
-        // register handlers for receiving responses to admin requests
-        om_client->registerBucketStatsCmdHandler(bucketStatsRespHandler);
 
         qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
         om_client->startAcceptingControlMessages();

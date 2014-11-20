@@ -287,7 +287,6 @@ public:
     fds::Error resumeGetBlob(StorHvJournalEntry *journEntry);
     fds::Error resumeDeleteBlob(StorHvJournalEntry *journEntry);
 
-    fds::Error getBucketStats(AmRequest *amReq);
     fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                           const FDSP_PutObjTypePtr& putObjRsp);
     fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
@@ -298,15 +297,8 @@ public:
     void startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg);
     fds::Error deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
                              const FDSP_DeleteCatalogTypePtr& delCatRsp);
-    fds::Error deleteObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                             const FDSP_DeleteObjTypePtr& cat_obj_req);
     fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
                              const FDSP_GetVolumeBlobListRespTypePtr& blobListResp);
-
-    static void bucketStatsRespHandler(const FDSP_MsgHdrTypePtr& rx_msg,
-                                       const FDSP_BucketStatsRespTypePtr& buck_stats);
-    void getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
-                            const FDSP_BucketStatsRespTypePtr& buck_stats);
 
     void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
     void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
@@ -432,7 +424,6 @@ static void processBlobReq(AmRequest *amReq) {
     fds_verify(amReq->io_module == FDS_IOType::STOR_HV_IO);
     fds_verify(amReq->magicInUse() == true);
 
-    fds::Error err(ERR_OK);
     switch (amReq->io_type) {
         case fds::FDS_START_BLOB_TX:
             storHvisor->amProcessor->startBlobTx(amReq);
@@ -461,10 +452,6 @@ static void processBlobReq(AmRequest *amReq) {
             storHvisor->amProcessor->putBlob(amReq);
             break;
 
-        case fds::FDS_BUCKET_STATS:
-            err = storHvisor->getBucketStats(amReq);
-            break;
-
         case fds::FDS_SET_BLOB_METADATA:
             storHvisor->amProcessor->setBlobMetadata(amReq);
             break;
@@ -486,26 +473,10 @@ static void processBlobReq(AmRequest *amReq) {
             break;
 
         default :
+            LOGCRITICAL << "unimplemented request: " << amReq->io_type;
+            amReq->cb->call(ERR_NOT_IMPLEMENTED);
             break;
     }
-
-    bool fKnownError = false;
-
-    switch (err.GetErrno()) {
-        case ERR_OK:
-        case ERR_NOT_IMPLEMENTED:
-        case FDSN_StatusErrorAccessDenied:
-            fKnownError = true;
-            break;
-        default:
-            break;
-    }
-
-    if (!fKnownError) {
-        LOGCRITICAL << "un handled error : " << err;
-    }
-
-    fds_verify(fKnownError);
 }
 
 #endif  // SOURCE_STOR_HVISOR_STORHVISORNET_H_

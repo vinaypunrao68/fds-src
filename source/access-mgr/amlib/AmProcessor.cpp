@@ -42,7 +42,6 @@ AmProcessor::AmProcessor(const std::string &modName,
 
 void
 AmProcessor::getVolumeMetadata(AmRequest *amReq) {
-    fds_verify(amReq->magicInUse());
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getVolumeMetadataCb, amReq);
     amDispatcher->dispatchGetVolumeMetadata(amReq);
 }
@@ -58,15 +57,12 @@ AmProcessor::getVolumeMetadataCb(AmRequest *amReq, const Error &error) {
 
 void
 AmProcessor::abortBlobTx(AmRequest *amReq) {
-    fds_verify(amReq->magicInUse());
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::abortBlobTxCb, amReq);
     amDispatcher->dispatchAbortBlobTx(amReq);
 }
 
 void
 AmProcessor::startBlobTx(AmRequest *amReq) {
-    fds_verify(amReq->magicInUse());
-
     fiu_do_on("am.uturn.processor.startBlobTx",
               qosCtrl->markIODone(amReq); \
               amReq->cb->call(ERR_OK); \
@@ -116,7 +112,6 @@ AmProcessor::startBlobTxCb(AmRequest *amReq, const Error &error) {
 
 void
 AmProcessor::deleteBlob(AmRequest *amReq) {
-    fds_verify(amReq->magicInUse());
     fds_volid_t volId = amReq->io_vol_id;
     StorHvVolume* shVol = volTable->getLockedVolume(volId);
 
@@ -153,8 +148,6 @@ AmProcessor::deleteBlob(AmRequest *amReq) {
 
 void
 AmProcessor::putBlob(AmRequest *amReq) {
-    fds_verify(amReq->magicInUse());
-
     // check if this is a snapshot
     // TODO(Andrew): Why not just let DM reject the IO?
     StorHvVolume *shVol = volTable->getLockedVolume(amReq->io_vol_id);
@@ -270,7 +263,6 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
 
 void
 AmProcessor::getBlob(AmRequest *amReq) {
-    fds_verify(amReq->magicInUse());
     fiu_do_on("am.uturn.processor.getBlob",
               qosCtrl->markIODone(amReq); \
               amReq->cb->call(ERR_OK); \
@@ -348,7 +340,6 @@ AmProcessor::getBlob(AmRequest *amReq) {
 
 void
 AmProcessor::setBlobMetadata(AmRequest *amReq) {
-    fds_verify(amReq->magicInUse());
     SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(amReq);
 
     // Stage the transaction metadata changes
@@ -362,8 +353,6 @@ AmProcessor::setBlobMetadata(AmRequest *amReq) {
 
 void
 AmProcessor::statBlob(AmRequest *amReq) {
-    fds_verify(amReq->magicInUse());
-
     fds_volid_t volId = amReq->io_vol_id;
     LOGDEBUG << "volume:" << volId <<" blob:" << amReq->getBlobName();
 
@@ -408,7 +397,6 @@ AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
 
 void
 AmProcessor::volumeContents(AmRequest *amReq) {
-    fds_verify(amReq->magicInUse());
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::genericCb, amReq);
     amDispatcher->dispatchVolumeContents(amReq);
 }
@@ -462,7 +450,6 @@ AmProcessor::statBlobCb(AmRequest *amReq, const Error& error) {
 
 void
 AmProcessor::commitBlobTx(AmRequest *amReq) {
-    fds_verify(amReq->magicInUse());
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::commitBlobTxCb, amReq);
     amDispatcher->dispatchCommitBlobTx(amReq);
 }
