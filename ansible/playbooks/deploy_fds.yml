@@ -1,0 +1,349 @@
+# Formation Deployment playbook
+#
+# This playbook will deploy Formation from a tarball & start all services.
+# The playbook depends on fdsinstall (included in the tarball) but does not
+# utilize fds-tool.py to start services.
+#
+# KNOWN ISSUES
+#
+# There is currently an open bug against OM WIN-1348 which causes OM to crash
+# on startup using this process. It is not 100% consistent, sometimes this
+# process works for starting the cluster.
+#
+# USAGE
+#
+# - Define a multi-node cluster in your ansible_hosts inventory file that looks
+#   something like this:
+#
+#   [lxc-nodes]
+#   lxc-node-01 fds_node=node01
+#   lxc-node-02 fds_node=node02
+#   lxc-node-03 fds_node=node03
+#   lxc-node-04 fds_node=node04
+#
+#   [lxc-nodes:vars]
+#   fds_default_nic=eth0
+#   fds_om_host=lxc-node-01
+#   fds_metrics_enabled=false
+#   fds_metricsdb_ip=127.0.0.1
+#   fds_ssh_user=root
+#   fds_ssh_password=passwd
+#
+#   Note that the fds_node variable defined next to each host is used to
+#   define how that node will be presented in the FDS node inventory & MUST
+#   be "nodeNN" where NN can be any number. There must also be a node in the
+#   inventory (first stanza) that matches the hostname assigned to the
+#   "fds_om_host" variable.
+#
+#   NOTE: This playbook will NOT populate DNS or hosts files for the nodes
+#   in the inventory - they must exist in the hosts file or be populated in
+#   DNS.
+#
+# - If you have never run ansible on the destination host you may use the
+#   "pre_deploy_setup.yml" playbook. This will install python on the target
+#   host & set the password to our normal dev password. Do not use this on
+#   production / customer hosts
+#
+# - Place your tarball in ansible/playbooks/resources/fdsinstall.tgz - if the
+#   resources directory does not exist, you may need to create it.
+#
+# - Run this playbook with whatever options are appropriate - see PLAYBOOK
+#   OPTIONS below. Note that this playbook DOES NOT use sudo right now - it
+#   assumes it can ssh to nodes as root for deploy. We may adjust in the future
+#   to support sudo.
+#
+#   PLAYBOOK OPTIONS
+#
+#   This playbook supports a few modes of operation & tunables to change
+#   behavior. There are four tagged sections of the playbook:
+#   - shutdown
+#   - clean
+#   - deploy
+#   - startup
+#
+#   If the playbook is run with no tags specified, it runs all of these - if
+#   you want to run only one of these parts of the playbook you may do so by
+#   passing the -t argument to ansible with a comma separated list of tags you
+#   want run - only those sections will run.
+#
+#   force_install:
+#   This playbook supports one variable (more can be added) which controls
+#   the deploy behavior. By default the deploy steps will only be run when the
+#   tarball changes. This means extract/install steps are skipped if the
+#   tarball hasn't changed from the previous ansible run. Because this isn't
+#   always the desired behavior your can force the install steps to run by
+#   passing -e "force_install=yes" to ansible when calling this playbook.
+#
+---
+
+-   name: stop_all_nodes
+    hosts: all
+    gather_facts: no
+    remote_user: root
+    tags:
+    -   shutdown
+
+    tasks:
+
+    -   name: check_fds_install
+        shell: test -d /fds/sbin
+        ignore_errors: True
+        register: fds_installed
+
+    -   name: stop_platformd
+        service: name={{ item }} state=stopped
+        with_items:
+            - platformd
+            - orchmgr
+            - amagent
+            - fdsactivate
+        when: fds_installed|success
+
+    -   name: kill_all_procs
+        shell: pkill -9 -f {{item}} || true
+        ignore_errors: True
+        with_items:
+            - com.formationds.am.Main
+            - bare_am
+            - com.formationds.om.Main
+            - DataMgr
+            - StorMgr
+            - platformd
+            - fdscli
+        when: fds_installed|success
+
+    -   name: stop_redis
+        shell: ./redis.sh stop chdir=/fds/sbin
+        ignore_errors: True
+        when: fds_installed|success
+
+-   name: clean_all_nodes
+    hosts: all
+    tags:
+       -   clean
+    gather_facts: no
+    remote_user: root
+
+    tasks:
+
+    -   name: clean_node
+        shell: rm -rf {{item}}
+        with_items:
+            - /fds/bin/*.core
+            - /fds/bin/core
+            - /fds/var/logs
+            - /fds/var/stats
+            - /corefiles/*.core
+            - /fds/var/core/*.core
+            - /fds/dev/hdd-*/*
+            - /fds/dev/ssd-*/*
+            - /fds/sys-repo
+            - /fds/user-repo
+            - /dev/shm/0x*
+
+    -   name: clean_redis
+        shell: ./redis.sh clean chdir=/fds/sbin
+        when: fds_installed|success
+
+-   name: configure_os_reqs
+    hosts: all
+    remote_user: root
+    tags:
+      -   deploy
+
+    tasks:
+
+    -   name: sysctl_params
+        sysctl: name={{ item.key }} value={{ item.value }} state={{ item.state }}
+        when: ansible_virtualization_type != "lxc"
+        with_items:
+          - { key: 'fs.file_max', value: '400000', state: 'present' }
+          - { key: 'kernel.core_uses_pid', value: '1', state: 'present' }
+          - { key: 'kernel.suid_dumpable', value: '1', state: 'present' }
+          - { key: 'kernel.core_pattern', value: '/corefiles/%e.%p.%u.%t.core', state: 'present' }
+
+    -   name: install_limits_conf
+        template:
+            src=../templates/fds_limits.conf
+            dest=/etc/security/limits.conf
+            owner=root
+            group=root
+            mode=0644
+
+    -   name: ensure_corefiles_exists
+        file:
+            path=/corefiles
+            owner=root
+            group=root
+            mode=0755
+            state=directory
+
+    -   name: ensure_os_packages_installed
+        apt: name={{item}} state=present
+        with_items:
+          - libevent-dev
+          - parted
+          - gdb
+          - tar
+
+
+-   name: install and configure fds on all  fds_nodes
+    hosts: all
+    tags:
+      -   deploy
+    remote_user: root
+    vars:
+      force_install: no
+
+    tasks:
+    -   name: copy fdsinstall tarball
+        action: copy src=resources/fdsinstall.tgz dest=/root/fdsinstall.tgz owner=root group=root mode=0644
+        register: fdsinstall_pkg
+
+    -   name: purge old fdsinstall target
+        shell: rm -rf /root/fdsinstall
+        when: fdsinstall_pkg.changed or force_install == "yes"
+
+    -   name: extract fdsinstall tarball
+        action: unarchive src=/root/fdsinstall.tgz dest=/root copy=no
+        when: fdsinstall_pkg.changed or force_install == "yes"
+
+    -   name: run fdsinstall step 2 - install external pkgs
+        shell: ./fdsinstall.py -o 5 -o 2  chdir=/root/fdsinstall
+        when: fdsinstall_pkg.changed or force_install == "yes"
+
+    -   name: run fdsinstall step 3 - setup storage
+        shell: ./fdsinstall.py -o 5 -o 3  chdir=/root/fdsinstall
+        when: fdsinstall_pkg.changed or force_install == "yes"
+
+    -   name: run fdsinstall step 4 - install FDS pkgs
+        shell: ./fdsinstall.py -o 5 -o 4 chdir=/root/fdsinstall
+        when: fdsinstall_pkg.changed or force_install == "yes"
+
+    -   name: render formation.conf
+        template:
+            src=../templates/formation.conf.j2
+            dest=/fds/sbin/deploy_formation.conf
+            owner=root
+            group=root
+            mode=0644
+
+    -   name: render /fds/etc config files
+        tags:
+          -   fdsconfig
+        template:
+            src=../../source/config/etc/{{item}}.conf.j2
+            dest=/fds/etc/{{item}}.conf
+            owner=root
+            group=root
+            mode=0644
+        with_items:
+            - fds
+            - fds-features
+            - platform
+            - orch_mgr
+            - redis
+
+    -   name: render_init_scripts
+        tags:
+          -   init
+          -   fdsconfig
+        template:
+            src=../templates/{{item}}-init.conf.j2
+            dest=/etc/init/{{item}}.conf
+            owner=root
+            group=root
+            mode=0644
+        with_items:
+            - platformd
+            - orchmgr
+            - amagent
+            - fdsactivate
+
+    -   name: java_symlink
+        file:
+            src=/usr/lib/jvm/jdk-8-oracle-x64/
+            dest=/usr/lib/jvm/jdk-8-oracle
+            owner=root
+            group=root
+            state=link
+
+-   name: run_disk_type
+    hosts: all
+    tags:
+      - startup
+    gather_facts: no
+    remote_user: root
+
+    tasks:
+    -   name: disk_type
+        shell: python -m disk_type -m
+
+-   name: start_redis
+    hosts: all
+    tags:
+      - startup
+    gather_facts: no
+    remote_user: root
+
+    tasks:
+    -   name: start_redis
+        shell: ./redis.sh start chdir=/fds/sbin
+
+    # -   name: redis_wait
+    #     shell: sleep 8
+
+-   name: start_platformd
+    hosts: all
+    tags:
+      - startup
+    gather_facts: no
+    remote_user: root
+
+    tasks:
+    -   name: start_platformd
+        service: name=platformd state=started
+
+-   name: start_om
+    hosts: all
+    tags:
+      - startup
+    gather_facts: no
+    remote_user: root
+
+    tasks:
+    -   name: start_om
+        service: name=orchmgr state=started
+        when: fds_om_host is defined and fds_om_host == inventory_hostname
+
+    -   name: om_wait
+        shell: sleep 8
+        when: fds_om_host is defined and fds_om_host == inventory_hostname
+
+-   name: enable_sm_dm
+    hosts: all
+    tags:
+      - startup
+    gather_facts: no
+    remote_user: root
+
+    tasks:
+    -   name: fdsactivate
+        service: name=fdsactivate state=started
+        when: fds_om_host is defined and fds_om_host == inventory_hostname
+
+    -   name: fdsactivate_wait
+        shell: sleep 8
+        when: fds_om_host is defined and fds_om_host == inventory_hostname
+
+-   name: start_am
+    hosts: all
+    tags:
+      -   startup
+    gather_facts: no
+    remote_user: root
+
+    tasks:
+    -   name: start_am
+        service: name=amagent state=started
+        when: fds_om_host is defined and fds_om_host == inventory_hostname
