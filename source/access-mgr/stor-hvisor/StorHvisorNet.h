@@ -249,9 +249,6 @@ public:
     /// Toggle AM standalone mode for testing
     fds_bool_t toggleStandAlone;
 
-    /// Toggle to use new AM processing path
-    fds_bool_t toggleNewPath;
-
     /// Dispatcher layer module
     AmDispatcher::shared_ptr amDispatcher;
 
@@ -284,8 +281,6 @@ public:
     fds::Error processDmUpdateBlob(PutBlobReq *putBlobReq,
                                    StorHvJournalEntry *journEntry);
     fds::Error resumePutBlob(StorHvJournalEntry *journEntry);
-    fds::Error resumeGetBlob(StorHvJournalEntry *journEntry);
-    fds::Error resumeDeleteBlob(StorHvJournalEntry *journEntry);
 
     fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                           const FDSP_PutObjTypePtr& putObjRsp);
@@ -399,11 +394,6 @@ public:
         return counters_;
     }
 private:
-    void handleDltMismatch(StorHvVolume *vol,
-                           StorHvJournalEntry *journEntry);
-    void procNewDlt(fds_uint64_t newDltVer);
-
-
     SysParams *sysParams;
     sh_comm_modes mode;
 

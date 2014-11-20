@@ -200,8 +200,6 @@ StorHvCtrl::StorHvCtrl(int argc,
     // and make AM extend from platform process
     randNumGen = RandNumGenerator::ptr(new RandNumGenerator(RandNumGenerator::getRandSeed()));
 
-    // Check the AM processing path toggle
-    toggleNewPath = config.get_abs<bool>("fds.am.testing.toggleNewPath");
     // Init the AM transaction manager
     amTxMgr = AmTxManager::shared_ptr(new AmTxManager("AM Transaction Manager Module"));
     // Init the AM cache manager
