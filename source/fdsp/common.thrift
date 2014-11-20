@@ -2,7 +2,7 @@
 #define __FDSCOMMON_H__
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
-namespace java com.formationds.apis
+namespace java FDS_ProtocolInterface
 
 enum ResourceState {
   Unknown,
