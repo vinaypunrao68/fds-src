@@ -11,6 +11,7 @@
 #include <net/SvcRequestTracker.h>
 #include <net/SvcRequestPool.h>
 #include <platform/node-inventory.h>
+#include <fiu-control.h>
 
 namespace fds {
 
@@ -24,16 +25,21 @@ SvcRequestTracker* gSvcRequestTracker;
  */
 SvcRequestPool::SvcRequestPool()
 {
+    auto config = gModuleProvider->get_fds_config();
     gSvcRequestTracker = new SvcRequestTracker();
     gSvcRequestCntrs = new SvcRequestCounters("SvcReq", g_cntrs_mgr.get());
 
     nextAsyncReqId_ = 0;
     finishTrackingCb_ = std::bind(&SvcRequestTracker::removeFromTracking,
             gSvcRequestTracker, std::placeholders::_1);
-    /* For now we will just use two threads */
-    // TODO(Rao): Have it be based on config
-    svcSendTp_.reset(new LFMQThreadpool(2));
-    svcWorkerTp_.reset(new LFMQThreadpool(2));
+
+    svcSendTp_.reset(new LFMQThreadpool(
+            config->get<uint32_t>("fds.plat.svc.lftp.io_thread_cnt")));
+    svcWorkerTp_.reset(new LFMQThreadpool(config->get<uint32_t>(
+                "fds.plat.svc.lftp.worker_thread_cnt")));
+    if (true == config->get<bool>("fds.plat.svc.lftp.enable")) {
+        fiu_enable("svc.use.lftp", 1, NULL, 0);
+    }
 }
 
 /**

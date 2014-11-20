@@ -106,6 +106,7 @@ struct LockfreeWorker {
             }
             task->operator()();
             delete task;
+            completedCntr++;
         }
     }
     int id_;
@@ -119,6 +120,8 @@ struct LockfreeWorker {
     std::condition_variable condition;
     std::atomic<bool> stop;
     std::thread* worker;
+    /* Counters */
+    uint64_t completedCntr;
 };
 
 struct LFMQThreadpool {
