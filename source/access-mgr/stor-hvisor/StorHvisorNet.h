@@ -276,8 +276,6 @@ public:
                          CallbackPtr cb);
     fds::Error pushBlobReq(AmRequest *blobReq);
     void enqueueBlobReq(AmRequest *blobReq);
-    fds::Error putBlob(AmRequest *amReq);
-    fds::Error deleteBlob(AmRequest *amReq);
 
     // Stuff for pending offset operations
     // TODO(Andrew): Reconcile with dispatchSm...
@@ -289,7 +287,6 @@ public:
     fds::Error resumeGetBlob(StorHvJournalEntry *journEntry);
     fds::Error resumeDeleteBlob(StorHvJournalEntry *journEntry);
 
-    fds::Error listBucket(AmRequest *amReq);
     fds::Error getBucketStats(AmRequest *amReq);
     fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                           const FDSP_PutObjTypePtr& putObjRsp);
@@ -405,54 +402,6 @@ public:
         fds::Error processRequest();
     };
 
-    fds::Error putBlobSvc(fds::AmRequest *amReq);
-    fds::Error deleteBlobSvc(fds::AmRequest *amReq);
-
-    void issueDeleteCatalogObject(const fds_uint64_t& vol_id,
-                                  const std::string& blob_name,
-                                  QuorumSvcRequestRespCb respCb);
-    void issuePutObjectMsg(const ObjectID &objId,
-                           const char* dataBuf,
-                           const fds_uint64_t &len,
-                           const fds_volid_t& volId,
-                           QuorumSvcRequestRespCb respCb);
-    void issueUpdateCatalogMsg(const ObjectID &objId,
-                               const std::string& blobName,
-                               const fds_uint64_t& blobOffset,
-                               const fds_uint64_t &len,
-                               const fds_int32_t &blobMode,
-                               boost::shared_ptr< std::map<std::string, std::string> > metadata,
-                               const fds_volid_t& volId,
-                               const fds_uint64_t& txId,
-                               QuorumSvcRequestRespCb respCb);
-    void issueUpdateCatalogMsg(const ObjectID &objId,
-                               const std::string& blobName,
-                               const fds_uint64_t& blobOffset,
-                               const fds_uint64_t &len,
-                               const bool &lastBuf,
-                               const fds_volid_t& volId,
-                               const fds_uint64_t& txId,
-                               const fds_uint64_t& dmt_version,
-                               QuorumSvcRequestRespCb respCb);
-    void putBlobUpdateCatalogMsgResp(fds::AmRequest* amReq,
-                                     QuorumSvcRequest* svcReq,
-                                     const Error& error,
-                                     boost::shared_ptr<std::string> payload);
-    void putBlobUpdateCatalogOnceMsgResp(fds::AmRequest* amReq,
-                                         QuorumSvcRequest* svcReq,
-                                         const Error& error,
-                                         boost::shared_ptr<std::string> payload);
-    void putBlobPutObjectMsgResp(fds::AmRequest* amReq,
-                                 QuorumSvcRequest* svcReq,
-                                 const Error& error,
-                                 boost::shared_ptr<std::string> payload);
-    void deleteObjectMsgResp(fds::AmRequest* amReq,
-                             QuorumSvcRequest* svcReq,
-                             const Error& error,
-                             boost::shared_ptr<std::string> payload);
-
-    fds::Error updateCatalogCache(AmRequest *blobReq,
-                                  FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);
     inline AMCounters& getCounters()
     {
         return counters_;
