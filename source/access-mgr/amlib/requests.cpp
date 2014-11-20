@@ -161,29 +161,24 @@ void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl, const Error &e)
     DBG(LOGDEBUG << "cnt: " << cnt << e);
 
     if (cnt == 0) {
-        if (storHvisor->toggleNewPath) {
-            if ((io_type == FDS_PUT_BLOB_ONCE) && (e == ERR_OK)) {
-                // Push the commited update to the cache and remove from manager
-                // We push here because we ONCE messages don't have an explicit
-                // commit and here is where we know we've actually committed
-                // to SM and DM.
-                // TODO(Andrew): Inserting the entire tx transaction currently
-                // assumes that the tx descriptor has all of the contents needed
-                // for a blob descriptor (e.g., size, version, etc..). Today this
-                // is true for S3/Swift and doesn't get used anyways for block (so
-                // the actual cached descriptor for block will not be correct).
-                AmTxDescriptor::ptr txDescriptor;
-                fds_verify(storHvisor->amTxMgr->getTxDescriptor(*tx_desc,
-                                                                txDescriptor) == ERR_OK);
-                fds_verify(storHvisor->amCache->putTxDescriptor(txDescriptor) == ERR_OK);
-                fds_verify(storHvisor->amTxMgr->removeTx(*tx_desc) == ERR_OK);
-            }
-            cb->call(e);
-            qos_ctrl->markIODone(this);
-        } else {
-            // Call back to processing layer
-            proc_cb(e);
+        if ((io_type == FDS_PUT_BLOB_ONCE) && (e == ERR_OK)) {
+            // Push the commited update to the cache and remove from manager
+            // We push here because we ONCE messages don't have an explicit
+            // commit and here is where we know we've actually committed
+            // to SM and DM.
+            // TODO(Andrew): Inserting the entire tx transaction currently
+            // assumes that the tx descriptor has all of the contents needed
+            // for a blob descriptor (e.g., size, version, etc..). Today this
+            // is true for S3/Swift and doesn't get used anyways for block (so
+            // the actual cached descriptor for block will not be correct).
+            AmTxDescriptor::ptr txDescriptor;
+            fds_verify(storHvisor->amTxMgr->getTxDescriptor(*tx_desc,
+                                                            txDescriptor) == ERR_OK);
+            fds_verify(storHvisor->amCache->putTxDescriptor(txDescriptor) == ERR_OK);
+            fds_verify(storHvisor->amTxMgr->removeTx(*tx_desc) == ERR_OK);
         }
+        cb->call(e);
+        qos_ctrl->markIODone(this);
     }
 }
 
