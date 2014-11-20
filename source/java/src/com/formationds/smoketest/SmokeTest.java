@@ -18,10 +18,10 @@ import org.apache.log4j.PropertyConfigurator;
 import org.json.JSONObject;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.uncommons.maths.random.XORShiftRNG;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.security.SecureRandom;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -52,6 +52,7 @@ public class SmokeTest {
     private final String userToken;
     private final String host;
     private final ConfigurationService.Iface config;
+    private final Random rng;
 
     public SmokeTest()
             throws Exception {
@@ -84,7 +85,8 @@ public class SmokeTest {
         adminClient.createBucket(adminBucket);
         userClient.createBucket(userBucket);
         randomBytes = new byte[4096];
-        new SecureRandom().nextBytes(randomBytes);
+        rng = new XORShiftRNG();
+        rng.nextBytes(randomBytes);
         prefix = UUID.randomUUID()
                 .toString();
         count = 10;
@@ -99,10 +101,43 @@ public class SmokeTest {
     }
 
     @Test
+    public void testLargeMultipartUpload() {
+        String key = UUID.randomUUID()
+                .toString();
+        InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
+
+        int partCount = 10;
+
+        List<PartETag> etags = IntStream.range(0, partCount)
+                .map(new ConsoleProgress("Uploading parts", partCount))
+                .mapToObj(i -> {
+                    byte[] buf = new byte[(1 + i) * (1024 * 1024)];
+                    rng.nextBytes(buf);
+                    UploadPartRequest request = new UploadPartRequest()
+                            .withBucketName(userBucket)
+                            .withKey(key)
+                            .withInputStream(new ByteArrayInputStream(buf))
+                            .withPartNumber(i)
+                            .withUploadId(initiateResult.getUploadId())
+                            .withPartSize(buf.length);
+                    UploadPartResult uploadPartResult = userClient.uploadPart(request);
+                    return uploadPartResult.getPartETag();
+                })
+                .collect(Collectors.toList());
+
+        CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(userBucket, key, initiateResult.getUploadId(), etags);
+        userClient.completeMultipartUpload(completeRequest);
+
+        ObjectMetadata objectMetadata = userClient.getObjectMetadata(userBucket, key);
+        assertEquals(57671680, objectMetadata.getContentLength());
+    }
+
+    @Test
     public void testMultipartUpload() {
         String key = UUID.randomUUID()
                 .toString();
         InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
+
         int partCount = 5;
 
         List<PartETag> etags = IntStream.range(0, partCount)
@@ -188,16 +223,18 @@ public class SmokeTest {
     }
 
     @Test
-    public void testPutGetOneObject() throws Exception {
+    public void testPutGetLargeObject() throws Exception {
         String key = UUID.randomUUID().toString();
-        userClient.putObject(userBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        byte[] buf = new byte[1024 * 1024 * 7];
+        rng.nextBytes(buf);
+        userClient.putObject(userBucket, key, new ByteArrayInputStream(buf), new ObjectMetadata());
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpGet httpGet = new HttpGet("https://" + host + ":8443/" + userBucket + "/" + key);
         String hash = S3SignatureGenerator.hash(httpGet, new BasicAWSCredentials(userName, userToken));
         httpGet.addHeader("Authorization", hash);
         HttpResponse response = httpClient.execute(httpGet);
         byte[] bytes = IOUtils.toByteArray(response.getEntity().getContent());
-        assertArrayEquals(randomBytes, bytes);
+        assertArrayEquals(buf, bytes);
     }
 
     @Test

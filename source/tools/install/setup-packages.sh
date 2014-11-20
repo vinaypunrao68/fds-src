@@ -38,7 +38,6 @@ fdsbasedebs=(
     fds-boost
     fds-leveldb
     fds-python-scp
-    fds-python-paramiko
     fds-jdk-default
 		libcryptopp-dev
 )
@@ -72,6 +71,9 @@ function preinstall() {
         fds-jdk-default)
             ;;
     esac
+
+    # Need to forcibly remove fds-python-paramiko to avoid conflicts
+    dpkg -P fds-python-paramiko
 
     return 0
 }

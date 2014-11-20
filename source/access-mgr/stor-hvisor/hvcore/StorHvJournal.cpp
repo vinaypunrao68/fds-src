@@ -39,7 +39,7 @@ operator<<(ostream& os, const TxnState& state) {
     return os;
 }
 
-StorHvJournalEntry::StorHvJournalEntry() {
+StorHvJournalEntry::StorHvJournalEntry() : je_mutex("Journal Entry Mutex") {
     trans_state = FDS_TRANS_EMPTY;
     replc_cnt = 0;
     sm_msg = 0;
@@ -56,15 +56,10 @@ StorHvJournalEntry::StorHvJournalEntry() {
     blobOffset = 0;
     blobName.clear();
 
-    // Initialize lock to unlocked state here
-    je_mutex = new fds_mutex("Journal Entry Mutex");
-
     dmt_version = 0;
 }
 
-StorHvJournalEntry::~StorHvJournalEntry() {
-    delete je_mutex;
-}
+StorHvJournalEntry::~StorHvJournalEntry() {}
 
 void
 StorHvJournalEntry::init(unsigned int transid,
@@ -108,12 +103,12 @@ StorHvJournalEntry::isActive() {
 
 void
 StorHvJournalEntry::lock() {
-    je_mutex->lock();
+    je_mutex.lock();
 }
 
 void
 StorHvJournalEntry::unlock() {
-    je_mutex->unlock();
+    je_mutex.unlock();
 }
 
 // Caller should hold the lock on the transaction
@@ -219,19 +214,18 @@ StorHvJournalEntry::resumeTransaction(void) {
 }
 
 StorHvJournal::StorHvJournal(unsigned int max_jrnl_entries)
-        : ioTimer(new FdsTimer()) {
+        :   jrnl_tbl_mutex("Journal Table Mutex"),
+            rwlog_tbl(max_jrnl_entries),
+            ioTimer(new FdsTimer())
+{
     unsigned int i =0;
 
     max_journal_entries = max_jrnl_entries;
-
-    rwlog_tbl = new StorHvJournalEntry[max_journal_entries];
 
     for (i = 0; i < max_journal_entries; i++) {
         rwlog_tbl[i].init(i, this, ioTimer);
         free_trans_ids.push(i);
     }
-
-    jrnl_tbl_mutex = new fds_mutex("Journal Table Mutex");
 
     ctime = boost::posix_time::microsec_clock::universal_time();
 
@@ -243,16 +237,15 @@ StorHvJournal::StorHvJournal() {
 }
 
 StorHvJournal::~StorHvJournal() {
-    delete jrnl_tbl_mutex;
     ioTimer->destroy();
 }
 
 void StorHvJournal::lock() {
-    jrnl_tbl_mutex->lock();
+    jrnl_tbl_mutex.lock();
 }
 
 void StorHvJournal::unlock() {
-    jrnl_tbl_mutex->unlock();
+    jrnl_tbl_mutex.unlock();
 }
 
 // Caller must have acquired the Journal Table Write Lock before invoking this.
