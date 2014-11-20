@@ -64,6 +64,7 @@ AccessMgr::mod_startup() {
 
 void
 AccessMgr::mod_shutdown() {
+    delete storHvisor;
 }
 
 void

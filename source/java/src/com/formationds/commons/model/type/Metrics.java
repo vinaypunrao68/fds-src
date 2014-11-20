@@ -40,7 +40,7 @@ public enum Metrics {
     /**
      * gets from SSD and cache
      */
-    SSD_GETS( "Gets from SSD" );
+    SSD_GETS( "SSD Gets" );
 
     private static final String UNKNOWN_METRIC =
         ModelResource.getString( "model.metrics.unsupported" );
