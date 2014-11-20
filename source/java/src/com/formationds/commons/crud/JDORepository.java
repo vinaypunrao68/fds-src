@@ -4,8 +4,6 @@
 
 package com.formationds.commons.crud;
 
-import com.formationds.commons.model.entity.Event;
-import com.formationds.commons.model.entity.VolumeDatapoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,46 +29,130 @@ public abstract class JDORepository<T,
 
     private PersistenceManagerFactory factory;
     private PersistenceManager manager;
-    private EntityManager entity;
+
+    private EntityManagerFactory entityManagerFactory;
 
     // use non-static logger to tie it to the concrete subclass.
-    private final Logger logger;
+    protected final Logger logger;
 
-    // TODO: use standard JPA @PrePerist etc entity annotations?
+    /**
+     * Entity prePersist and postPersist listener callbacks.
+     * <p/>
+     * Each interface may throw a RuntimeException on error.
+     *
+     * @param <T>
+     */
+    // TODO: use standard JPA @PrePersist etc entity annotations?
     public static interface EntityPersistListener<T> {
+
         /**
          * Notification that the entity is about to be saved.
          * <p/>
          * Implementations should avoid blocking operations.
          *
          * @param entity
+         *
+         * @throws RuntimeException if an error occurs.
          */
         default void prePersist(T entity) {}
+
+        /**
+         * Notification that the entities are about to be saved.
+         * <p/>
+         * Implementations should avoid blocking operations.
+         *
+         * @param entities
+         *
+         * @throws RuntimeException if an error occurs.
+         */
+        default void prePersist(List<T> entities) {
+            entities.forEach((e) -> prePersist(e));
+        }
+
+        /**
+         * Notification that the entity was just persisted.
+         *
+         * @param entity
+         *
+         * @throws RuntimeException if an error occurs.
+         */
         default void postPersist(T entity) {}
+
+        /**
+         * Notification that the entity was just persisted.
+         *
+         * @param entities
+         *
+         * @throws RuntimeException if an error occurs.
+         */
+        default void postPersist(List<T> entities) {
+            entities.forEach((e) -> postPersist(e));
+        }
     }
+
     private final List<EntityPersistListener<T>> listeners = new ArrayList<>();
 
     protected JDORepository() {
-      logger = LoggerFactory.getLogger(this.getClass());
-  }
+        logger = LoggerFactory.getLogger(this.getClass());
+    }
 
+    /**
+     * Add a Entity persist listener for pre/post persistence callbacks
+     * @param l
+     */
     public void addEntityPersistListener(EntityPersistListener<T> l) {
         listeners.add(l);
     }
 
+    /**
+     * Remove the entity persist listener.
+     * @param l
+     */
     public void removeEntityPersistListener(EntityPersistListener<T> l) {
         listeners.remove(l);
     }
 
+    /**
+     * Fire the prePersist handler on any defined listeners
+     *
+     * @param entity
+     */
     private void firePrePersist(T entity) {
         for (EntityPersistListener<T> l : listeners) {
             l.prePersist(entity);
         }
     }
 
+    /**
+     * Fire the prePersist handler on any defined listeners
+     *
+     * @param entities
+     */
+    private void firePrePersist(List<T> entities) {
+        for (EntityPersistListener<T> l : listeners) {
+            l.prePersist(entities);
+        }
+    }
+
+    /**
+     * Fire the postPersist listener on any defined listeners
+     *
+     * @param entity
+     */
     private void firePostPersist(T entity) {
         for (EntityPersistListener<T> l : listeners) {
-            l.prePersist(entity);
+            l.postPersist(entity);
+        }
+    }
+
+    /**
+     * Fire the postPersist listener on any defined listeners
+     *
+     * @param entities
+     */
+    private void firePostPersist(List<T> entities) {
+        for (EntityPersistListener<T> l : listeners) {
+            l.postPersist(entities);
         }
     }
 
@@ -131,7 +213,7 @@ public abstract class JDORepository<T,
     @Override
     public T save( final T entity ) {
         try {
-            logger.trace("Saving entity {}", entity);
+            logger.trace("ENTITY_SAVE: {}", entity);
             manager().currentTransaction().begin();
 
             firePrePersist(entity);
@@ -144,7 +226,8 @@ public abstract class JDORepository<T,
         } catch (RuntimeException re) {
             logger.warn("SAVE Failed.  Rolling back transaction.");
             logger.debug("SAVE Failed", re);
-            manager().currentTransaction().rollback();
+            if (manager().currentTransaction().isActive())
+                manager().currentTransaction().rollback();
             throw re;
         }
     }
@@ -162,21 +245,23 @@ public abstract class JDORepository<T,
         int cnt = (entities != null ? entities.size() : 0);
         List<T> persisted = new ArrayList<>(cnt);
         try {
-            logger.trace("Saving entities {}", entities);
+            logger.trace("Saving {} entities", entities.size());
+            entities.forEach((e) -> logger.trace("ENTITY_SAVE: {}", e));
+
             manager().currentTransaction().begin();
 
-            for (T entity : entities) {
-                T pe = manager().makePersistent(entity);
-                persisted.add(pe);
-            }
+            firePrePersist((entities instanceof List<?> ? (List<T>)entities : new ArrayList<T>(entities)));
+            persisted.addAll(manager().makePersistentAll(entities));
+            firePostPersist(persisted);
 
             manager().currentTransaction().commit();
-            logger.trace("Saved entities {}", entities);
+            logger.trace("Saved {} entities.", entities.size());
             return persisted;
         } catch (RuntimeException re) {
             logger.warn("SAVE Failed.  Rolling back transaction.");
             logger.debug("SAVE Failed", re);
-            manager().currentTransaction().rollback();
+            if (manager().currentTransaction().isActive())
+                manager().currentTransaction().rollback();
             throw re;
         }
     }
@@ -215,7 +300,7 @@ public abstract class JDORepository<T,
      */
     @Override
     public void close() {
-        entity().close();
+        newEntityManager().close();
         manager().close();
         factory().close();
     }
@@ -234,7 +319,7 @@ public abstract class JDORepository<T,
 
         final EntityManagerFactory emf = Persistence.createEntityManagerFactory(dbName);
 
-        entity( emf.createEntityManager() );
+        entityManagerFactory(emf);
 
         initShutdownHook();
     }
@@ -281,15 +366,15 @@ public abstract class JDORepository<T,
   /**
    * @return Returns the {@link EntityManager}
    */
-  public EntityManager entity() {
-    return entity;
+  public EntityManager newEntityManager() {
+    return entityManagerFactory.createEntityManager();
   }
 
   /**
    * @param entity the {@link javax.persistence.EntityManager}
    */
-  protected void entity( final EntityManager entity ) {
-    this.entity = entity;
+  protected void entityManagerFactory(final EntityManagerFactory entity) {
+    this.entityManagerFactory   = entity;
   }
 
   /**

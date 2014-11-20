@@ -18,7 +18,9 @@ import javax.persistence.criteria.Expression;
 import java.io.File;
 import java.util.List;
 
-// TODO: not implemented
+/**
+ *
+ */
 public class EventRepository extends JDORepository<Event, Long, Events, QueryCriteria> {
 
     private static final String DBNAME = "var/db/events.odb";
@@ -60,23 +62,31 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
 
     @Override
     public Events query(QueryCriteria queryCriteria) {
-        final List<Event> results;
-
-        EventCriteriaQueryBuilder tq = new EventCriteriaQueryBuilder(entity()).searchFor(queryCriteria);
-        results = tq.resultsList();
-        return new Events(results);
+        EntityManager em = newEntityManager();
+        try {
+            final List<Event> results;
+            EventCriteriaQueryBuilder tq = new EventCriteriaQueryBuilder(em).searchFor(queryCriteria);
+            results = tq.resultsList();
+            return new Events(results);
+        } finally {
+            em.close();
+        }
     }
 
     public Events queryTenantUsers(QueryCriteria queryCriteria, List<Long> tenantUsers) {
-        final List<? extends Event> results;
+        EntityManager em = newEntityManager();
+        try {
+            final List<? extends Event> results;
 
-        UserEventCriteriaQueryBuilder tq =
-                new UserEventCriteriaQueryBuilder(entity()).usersIn(tenantUsers)
-                                                       .searchFor(queryCriteria);
-        results = tq.resultsList();
-        return new Events(results);
+            UserEventCriteriaQueryBuilder tq =
+            new UserEventCriteriaQueryBuilder(em).usersIn(tenantUsers)
+                                                 .searchFor(queryCriteria);
+            results = tq.resultsList();
+            return new Events(results);
+        } finally {
+            em.close();
+        }
     }
-
 
     private static class EventCriteriaQueryBuilder extends CriteriaQueryBuilder<Event> {
 
@@ -106,5 +116,4 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
             return this;
         }
     }
-
 }

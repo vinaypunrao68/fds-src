@@ -29,6 +29,7 @@ import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.util.SizeUnit;
+
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +41,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.persistence.EntityManager;
 
 /**
  * @author ptinius
@@ -121,64 +124,69 @@ public class QueryHelper {
             final List<Series> series = new ArrayList<>();
             final List<Calculated> calculatedList = new ArrayList<>();
 
-            final List<VolumeDatapoint> queryResults =
-                new MetricCriteriaQueryBuilder( repo.entity() ).searchFor( query )
-                                                               .resultsList();
-            final Map<String, List<VolumeDatapoint>> originated =
-                byVolumeNameTimestamp( queryResults );
-
-            if( isFirebreakQuery( query.getSeriesType() ) ) {
-
-                series.addAll( new FirebreakHelper().processFirebreak( queryResults ) );
-                final FirebreaksLast24Hours firebreak = new FirebreaksLast24Hours();
-                firebreak.setCount( last24Hours( series ) );
-                calculatedList.add( firebreak );
-
-            } else if( isPerformanceQuery( query.getSeriesType() ) ) {
-
-                series.addAll(
-                    new SeriesHelper().getPerformanceSeries( queryResults,
-                                                             query ) );
-                final IOPsConsumed ioPsConsumed = new IOPsConsumed();
-                ioPsConsumed.setDailyAverage( 0.0 );
-                calculatedList.add( ioPsConsumed );
-
-            } else if( isCapacityQuery( query.getSeriesType() ) ) {
-
-                series.addAll(
-                    new SeriesHelper().getCapacitySeries( queryResults,
-                                                          query ) );
-
-                calculatedList.add( deDupRatio() );
-
-                final CapacityConsumed consumed = bytesConsumed();
-                calculatedList.add( consumed );
-
-                // TODO finish implementing -- once the platform has total system capacity
-                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
-                                                  .doubleValue();
-                calculatedList.add( percentageFull( consumed, systemCapacity ) );
-
-                // TODO finish implementing  -- once Nate provides a library
-                calculatedList.add( toFull() );
-
-            } else {
-                // individual stats
-                query.getSeriesType()
-                     .stream()
-                     .forEach( ( m ) ->
-                         series.addAll( otherQueries( originated,
-                                                      m ) ) );
-            }
-
-            if( !series.isEmpty() ) {
-                series.forEach( ( s ) ->
-                    new DatapointHelper().sortByX( s.getDatapoints() ) );
-                stats.setSeries( series );
-            }
-
-            if( !calculatedList.isEmpty() ) {
-                stats.setCalculated( calculatedList );
+            EntityManager em = repo.newEntityManager();
+            try {
+	            final List<VolumeDatapoint> queryResults =
+	                new MetricCriteriaQueryBuilder( em ).searchFor( query )
+	                                                               .resultsList();
+	            final Map<String, List<VolumeDatapoint>> originated =
+	                byVolumeNameTimestamp( queryResults );
+	
+	            if( isFirebreakQuery( query.getSeriesType() ) ) {
+	
+	                series.addAll( new FirebreakHelper().processFirebreak( queryResults ) );
+	                final FirebreaksLast24Hours firebreak = new FirebreaksLast24Hours();
+	                firebreak.setCount( last24Hours( series ) );
+	                calculatedList.add( firebreak );
+	
+	            } else if( isPerformanceQuery( query.getSeriesType() ) ) {
+	
+	                series.addAll(
+	                    new SeriesHelper().getPerformanceSeries( queryResults,
+	                                                             query ) );
+	                final IOPsConsumed ioPsConsumed = new IOPsConsumed();
+	                ioPsConsumed.setDailyAverage( 0.0 );
+	                calculatedList.add( ioPsConsumed );
+	
+	            } else if( isCapacityQuery( query.getSeriesType() ) ) {
+	
+	                series.addAll(
+	                    new SeriesHelper().getCapacitySeries( queryResults,
+	                                                          query ) );
+	
+	                calculatedList.add( deDupRatio() );
+	
+	                final CapacityConsumed consumed = bytesConsumed();
+	                calculatedList.add( consumed );
+	
+	                // TODO finish implementing -- once the platform has total system capacity
+	                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
+	                                                  .doubleValue();
+	                calculatedList.add( percentageFull( consumed, systemCapacity ) );
+	
+	                // TODO finish implementing  -- once Nate provides a library
+	                calculatedList.add( toFull() );
+	
+	            } else {
+	                // individual stats
+	                query.getSeriesType()
+	                     .stream()
+	                     .forEach( ( m ) ->
+	                         series.addAll( otherQueries( originated,
+	                                                      m ) ) );
+	            }
+	
+	            if( !series.isEmpty() ) {
+	                series.forEach( ( s ) ->
+	                    new DatapointHelper().sortByX( s.getDatapoints() ) );
+	                stats.setSeries( series );
+	            }
+	
+	            if( !calculatedList.isEmpty() ) {
+	                stats.setCalculated( calculatedList );
+	            }
+            } finally {
+            	em.close();
             }
         }
 
