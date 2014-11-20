@@ -350,6 +350,12 @@ Error DmPersistVolFile::putBatch(const std::string & blobName, const BlobMetaDes
     return rc;
 }
 
+Error DmPersistVolFile::putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
+            CatWriteBatch & wb) {
+    // TODO(umesh): implement this
+    return ERR_OK;
+}
+
 Error DmPersistVolFile::deleteObject(const std::string & blobName, fds_uint64_t offset) {
     return putObject(blobName, offset, NullObjectID);
 }

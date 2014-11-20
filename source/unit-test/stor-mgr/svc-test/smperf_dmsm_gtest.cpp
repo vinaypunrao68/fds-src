@@ -16,6 +16,7 @@
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
+#include <testlib/Datasets.h>
 #include <apis/ConfigurationService.h>
 #include <thrift/concurrency/Monitor.h>
 
@@ -38,49 +39,25 @@ struct SMApi : SingleNodeTest
         putsIssued_ = 0;
         putsSuccessCnt_ = 0;
         putsFailedCnt_ = 0;
-        getsOutStanding_ = 0;
         getsIssued_ = 0;
         getsSuccessCnt_ = 0;
         getsFailedCnt_ = 0;
     }
-#if 0
-    void putCb(uint64_t opStartTs, EPSvcRequest* svcReq,
-               const Error& error,
-               boost::shared_ptr<std::string> payload)
-    {
-        opTs_[svcReq->getRequestId()] = svcReq->ts;
 
-        auto opEndTs = util::getTimeStampNanos();
-        avgLatency_.update(opEndTs - opStartTs);
-        outStanding_--;
-        {
-            Synchronized s(monitor_);
-            if (waiting_ && outStanding_ < concurrency_) {
-                monitor_.notify();
-            }
-        }
-
-        if (error != ERR_OK) {
-            GLOGWARN << "Req Id: " << svcReq->getRequestId() << " " << error;
-            putsFailedCnt_++;
-        } else {
-            putsSuccessCnt_++;
-        }
-        if (putsIssued_ == (putsSuccessCnt_ + putsFailedCnt_)) {
-           endTs_ = util::getTimeStampNanos();
-        }
-    }
-#endif
-
-    void dm_sm_put_cb(uint64_t opStartTs, std::shared_ptr<int> num_acks, EPSvcRequest* svcReq,
+    void dm_sm_put_cb(uint64_t opStartTs,
+                      std::shared_ptr<int> num_acks,
+                      EPSvcRequest* svcReq,
                       const Error& error,
                       boost::shared_ptr<std::string> payload)
     {
         fds_verify(num_acks > 0);
+ 	if (!error.ok()) {
+            std::cout << " Put error " << error;
+	}
         if(0 == --*num_acks) 
         {
             auto endTs = util::getTimeStampNanos();
-            avgLatency_.update(endTs - opStartTs);
+            avgPutLatency_.update(endTs - opStartTs);
             outStanding_--;
             {
                 Synchronized s(monitor_);
@@ -88,19 +65,22 @@ struct SMApi : SingleNodeTest
                 {
                     monitor_.notify();
                  }
-            }
-         
+            }         
 
              if(error != ERR_OK) {
                     putsFailedCnt_++;
              } else {
                 putsSuccessCnt_++;
              }
-
-            if(putsIssued_ == (putsSuccessCnt_ + putsFailedCnt_)) {
-                endTs_ = util::getTimeStampNanos();
-            }
+             if ((putsSuccessCnt_ % 100000) == 0) {
+                 std::cout << "PutsSuccessCnt_ " << putsSuccessCnt_ <<
+                 std::endl << "PutsFailedCnt_ " << putsFailedCnt_ << std::endl;
+             }
 	}
+        if (putsIssued_ == (putsSuccessCnt_ + putsFailedCnt_)) {
+            std::cout << "Finished puts" << std::endl;
+            endTs_ = util::getTimeStampNanos();
+        }
     }
 
 
@@ -108,31 +88,30 @@ struct SMApi : SingleNodeTest
                       const Error& error,
                       boost::shared_ptr<std::string> payload)
     {
-            getsOutStanding_--;
-            {
-                Synchronized s(monitor_);
-                if (waiting_ && getsOutStanding_ < concurrency_) 
+         if (error != ERR_OK) {
+                getsFailedCnt_++;
+                auto endTs = util::getTimeStampNanos();
+                avgGetLatency_.update(endTs - opStartTs);
+                outStanding_--;
                 {
-                    monitor_.notify();
-                }
-            }
-         
-             if(error != ERR_OK) {
-                    getsFailedCnt_++;
-                    std::cout << "GetBlob failed! " << error << std::endl;
-                    auto endTs = util::getTimeStampNanos();
-                    getAvgLatency_.update(endTs - opStartTs);
-                    // Request failed so the payload is null nothing to send request to SM
-                    return;
-             } else {
+                    Synchronized s(monitor_);
+                    if (waiting_ && outStanding_ < concurrency_) 
+                    {
+                        monitor_.notify();
+                    }
+                 }
+
+                // Request failed so the payload is null nothing to send request to SM
+                return;
+          } else {
                 getsSuccessCnt_++;
-             }
+          }
 
-
-            fpi::QueryCatalogMsgPtr qryCatRsp =
+           fpi::QueryCatalogMsgPtr qryCatRsp =
                     net::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
            fpi::FDS_ObjectIdType objIdType = qryCatRsp->obj_list.front().data_obj_id;
            ObjectID objId(objIdType.digest);
+           // std::cout << "Sending GetObjMsg to SM: " << objId << std::endl;
 
            auto getObjMsg = SvcMsgFactory::newGetObjectMsg(volId_, objId);
            auto asyncGetReq = gSvcRequestPool->newEPSvcRequest(sm_svcUuid);
@@ -141,11 +120,8 @@ struct SMApi : SingleNodeTest
            asyncGetReq->onResponseCb(std::bind(&SMApi::sm_cb, this, opStartTs,
                                                std::placeholders::_1,
                                                std::placeholders::_2, std::placeholders::_3));
-           asyncGetReq->setTimeoutMs(1000);
+           asyncGetReq->setTimeoutMs(5000);
            asyncGetReq->invoke();
-
-
-
     }
 
     void sm_cb(uint64_t opStartTs, EPSvcRequest* svcReq,
@@ -153,10 +129,17 @@ struct SMApi : SingleNodeTest
                           boost::shared_ptr<std::string> payload)
     {
         auto endTs = util::getTimeStampNanos();
-        getAvgLatency_.update(endTs - opStartTs);
-        
+        avgGetLatency_.update(endTs - opStartTs);        
 
-        if(getsIssued_ == (getsSuccessCnt_ + getsFailedCnt_)) {
+        outStanding_--;
+        {
+            Synchronized s(monitor_);
+            if (waiting_ && outStanding_ < concurrency_) 
+            {
+                monitor_.notify();
+            }
+        }
+        if (getsIssued_ == (getsSuccessCnt_ + getsFailedCnt_)) {
             getEndTs_ = util::getTimeStampNanos();
         }
     }
@@ -240,7 +223,6 @@ struct SMApi : SingleNodeTest
     std::atomic<uint32_t> putsSuccessCnt_;
     std::atomic<uint32_t> putsFailedCnt_;
     std::atomic<uint32_t> getsIssued_;
-    std::atomic<uint32_t> getsOutStanding_;
     std::atomic<uint32_t> getsSuccessCnt_;
     std::atomic<uint32_t> getsFailedCnt_;
 
@@ -249,35 +231,44 @@ struct SMApi : SingleNodeTest
     uint32_t concurrency_;
     util::TimeStamp startTs_;
     util::TimeStamp endTs_;
-    LatencyCounter avgLatency_;
-    LatencyCounter getAvgLatency_;
+    LatencyCounter avgPutLatency_;
+    LatencyCounter avgGetLatency_;
     std::vector<SvcRequestIf::SvcReqTs> opTs_;
-    std::vector<std::string> blobList_;
     util::TimeStamp getStartTs_;
     util::TimeStamp getEndTs_;
 
+    std::ofstream statfileGet_;
+    std::ofstream statfilePut_;
 };
 
 
 TEST_F(SMApi, dmsmPerf)
 {
     uint64_t nPuts =  this->getArg<uint64_t>("puts-cnt");
+    uint64_t  nGets =  this->getArg<int>("gets-cnt");
+    if (nGets == 0) {
+      nGets = 10*nPuts;
+    }
     bool profile = this->getArg<bool>("profile");
     bool failSendsbefore = this->getArg<bool>("failsends-before");
     bool failSendsafter = this->getArg<bool>("failsends-after");
     bool uturnAsyncReq = this->getArg<bool>("uturn-asyncreqt");
-    bool uturnPuts = this->getArg<bool>("uturn");
+    bool uturn = this->getArg<bool>("uturn");
     bool disableSchedule = this->getArg<bool>("disable-schedule");
     bool largeFrame = this->getArg<bool>("largeframe");
+    bool lftp = this->getArg<bool>("lftp");
     std::string blobPrefix("testBlobOnce");
     concurrency_ = this->getArg<uint32_t>("concurrency");
    
-   // blobList_.resize(nPuts);	
     if(concurrency_ == 0) {
     	concurrency_ = nPuts;	
     }
 
     std::cout << "Read all the command line args" << std::endl;
+    std::string fnameGet("sl_dm_sm_perf_stats_GET.csv");
+    statfileGet_.open(fnameGet.c_str(), std::ios::out | std::ios::app);
+    std::string fnamePut("sl_dm_sm_perf_stats_PUT.csv");
+    statfilePut_.open(fnamePut.c_str(), std::ios::out | std::ios::app);
 
     fpi::SvcUuid sm_svcUuid;
     fpi::SvcUuid dm_svcUuid;
@@ -288,56 +279,74 @@ TEST_F(SMApi, dmsmPerf)
     ASSERT_NE(sm_svcUuid.svc_uuid, 0);
     ASSERT_NE(dm_svcUuid.svc_uuid, 0);
 
+    // create object dataset
+    FdsObjectDataset dataset;
+    dataset.generateDataset(nPuts, 4096);
+
+    if (uturnAsyncReq) {
+        ASSERT_TRUE(TestUtils::enableFault(sm_svcUuid, "svc.uturn.asyncreqt"));
+        ASSERT_TRUE(TestUtils::enableFault(dm_svcUuid, "svc.uturn.asyncreqt"));
+    }
+    if (uturn) {
+        ASSERT_TRUE(TestUtils::enableFault(sm_svcUuid, "svc.uturn.putobject"));
+        ASSERT_TRUE(TestUtils::enableFault(sm_svcUuid, "svc.uturn.getobject"));
+        ASSERT_TRUE(TestUtils::enableFault(dm_svcUuid, "svc.uturn.putobject"));
+        ASSERT_TRUE(TestUtils::enableFault(dm_svcUuid, "svc.uturn.getobject"));
+    }
+    if (lftp) {
+      fiu_enable("svc.use.lftp", 1, NULL, 0);
+      ASSERT_TRUE(TestUtils::enableFault(sm_svcUuid, "svc.use.lftp"));
+      ASSERT_TRUE(TestUtils::enableFault(dm_svcUuid, "svc.use.lftp"));
+    }
+
     if(profile) {
         ProfilerStart("/tmp/svc_dmsm_gtest.prof");
     }
-    
-    auto datagen = boost::make_shared<RandDataGenerator<>>(4096,4096);
-    auto putMsgGenF = std::bind(&SvcMsgFactory::newPutObjectMsg, volId_, datagen);
-    auto putMsgGen = boost::make_shared<CachedMsgGenerator<fpi::PutObjectMsg>>(nPuts,
-                                                                            true, putMsgGenF);
 
     startTs_ = util::getTimeStampNanos();
-
-    std::cout << "starting the for loop" << std::endl;
-
+    std::cout << "Dataset size = " << nPuts << " blobs(objects)" << std::endl;
     for (uint64_t i = 0; i < nPuts; i++) {
+        // will include creating msg into the latency
+        auto opStartTs = util::getTimeStampNanos();
+	ObjectID oid = dataset.dataset_[i];
+
+	auto nAcks = std::make_shared<int>(2);
+
         /*  setup the putBlobOnce request*/
-        std::string blobName = blobPrefix + std::to_string(i);
-        blobList_.push_back(blobName);
-        auto putBlobOnce = SvcMsgFactory::newUpdateCatalogOnceMsg(volId_, blobName);
+	// we will use objectID::ToHex() str as blob name
+        auto putBlobOnce = SvcMsgFactory::newUpdateCatalogOnceMsg(volId_,
+                                                                  oid.ToHex());
         auto asyncPutBlobTxReq = gSvcRequestPool->newEPSvcRequest(dm_svcUuid);
-       // fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
-    //    fullSmDmTestWaiter waiter;
-  
+	FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
+	updBlobInfo.offset   = 0;
+        updBlobInfo.size     = 2097152;
+        updBlobInfo.blob_end = true;
+        updBlobInfo.data_obj_id.digest =
+	  std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
+        putBlobOnce->obj_list.push_back(updBlobInfo);
         putBlobOnce->txId = i;
         putBlobOnce->dmt_version = 1;
-        putBlobOnce->blob_mode = 0;
-
-       
-        /* setup the Dm request*/
-        auto putObjMsg = putMsgGen->nextItem();
-        uint64_t opStartTs = util::getTimeStampNanos();
-	auto nAcks = std::make_shared<int>(2);
-        asyncPutBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), putObjMsg);
+        putBlobOnce->blob_mode = 1;
+        asyncPutBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg),
+                                     putBlobOnce);
         asyncPutBlobTxReq->onResponseCb(std::bind(&SMApi::dm_sm_put_cb, this, opStartTs,
-                                                   nAcks, std::placeholders::_1,
-                                                   std::placeholders::_2, std::placeholders::_3));
-        std::cout << "setup of dm request done" << std::endl;
+						  nAcks, std::placeholders::_1,
+						  std::placeholders::_2, std::placeholders::_3));
+        asyncPutBlobTxReq->setTimeoutMs(5000);
 
+
+        /* setup the SM request*/
+        auto putObjMsg = SvcMsgFactory::newPutObjectToSmMsg(volId_, oid,
+                                     dataset.dataset_map_[oid].getObjectData());
         auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(sm_svcUuid);
         asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
         asyncPutReq->onResponseCb(std::bind(&SMApi::dm_sm_put_cb, this, opStartTs,
                                             nAcks, std::placeholders::_1,
                                             std::placeholders::_2, std::placeholders::_3));
-        
-        std::cout << "Setup of Sm request done" << std::endl;
-        asyncPutReq->setTimeoutMs(1000);
+        asyncPutReq->setTimeoutMs(5000);
+
         putsIssued_++;
         outStanding_++;
-
-       // waiter.startTs = startTs;
-
         asyncPutBlobTxReq->invoke();
         asyncPutReq->invoke();
 
@@ -345,7 +354,6 @@ TEST_F(SMApi, dmsmPerf)
             Synchronized s(monitor_);
             while(outStanding_ >= concurrency_) {
                 waiting_ = true;
-                std::cout << "Waiting concurrency effect!" << std::endl;
                 monitor_.wait();
             }
             waiting_ = false;
@@ -361,40 +369,59 @@ TEST_F(SMApi, dmsmPerf)
     
     std::cout << "PutsSuccessCnt_ " << putsSuccessCnt_ << 
                 std::endl << "PutsFailedCnt_" << putsFailedCnt_ << std::endl;
-    std::cout << "blobList_ size is " << blobList_.size() << std::endl;
-    std::cout << "difference is " << (endTs_ - startTs_) << std::endl;
-    uint64_t diff = (endTs_ - startTs_);
-    long double throughput = (1000000000 / diff);
-    std::cout << "Throughput: " << (throughput * putsIssued_) << std::endl;
-    std::cout << "Avg op Latency" << avgLatency_.value() << std::endl;
-    std::cout <<  "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_ << std::endl;
-    ASSERT_TRUE(putsIssued_ == (putsSuccessCnt_ + putsFailedCnt_)) << "putsFailedCnt_" << putsFailedCnt_ << "putsSuccessCnt_" << putsSuccessCnt_;
+    double throughput = (static_cast<double>(1000000000) /
+			 (endTs_ - startTs_)) * putsIssued_;
+    std::cout << "Throughput: " << throughput << std::endl;
+    std::cout << "Avg PUT Latency " << avgPutLatency_.value() << std::endl;
+
+     /*
+    ASSERT_TRUE(putsIssued_ == (putsSuccessCnt_ + putsFailedCnt_))
+                << "putsFailedCnt_" << putsFailedCnt_ << "putsSuccessCnt_" << putsSuccessCnt_;
+     */
+    double latMs = static_cast<double>(avgPutLatency_.value()) / 1000000.0;
+    statfilePut_ << "put," << putsIssued_ << "," << concurrency_ << ","
+                 << throughput << "," << latMs << std::endl;
 
     /* Start gets for the blob we have put*/
+    // reset counters                                                                     
+    outStanding_ = 0;
+    waiting_ = false;
 
-   getStartTs_ = util::getTimeStampNanos();
-   for(uint64_t i = 0 ; i < nPuts; i++) {
-       std::string blobName = blobPrefix + std::to_string(i);
+    getStartTs_ = util::getTimeStampNanos();
+    fds_uint32_t cur_ind = 0;
+    fds_uint32_t dataset_size = nPuts;
+    for(uint64_t i = 0 ; i < nGets; i++) {
+       auto opStartTs = util::getTimeStampNanos();
+       fds_uint32_t index = cur_ind % dataset_size;
+       cur_ind += 123;
+       ObjectID oid = dataset.dataset_[index];
+
+       // Get object ID from DM first
+       std::string blobName = oid.ToHex();
        uint64_t blobOffset = 0;
+       // std::cout << "Sending QryCat to SM: " << blobName << std::endl;
        auto qryCat = SvcMsgFactory::newQueryCatalogMsg(volId_, blobName, blobOffset);
        auto asyncQryCatReq = gSvcRequestPool->newEPSvcRequest(dm_svcUuid);
        asyncQryCatReq->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), qryCat);
-       uint64_t opStartTs = util::getTimeStampNanos();
        asyncQryCatReq->onResponseCb(std::bind(&SMApi::dm_sm_get_cb, this,
-				            sm_svcUuid,  opStartTs,
-                                            std::placeholders::_1,
-                                            std::placeholders::_2, std::placeholders::_3));
-   
-       
+				    sm_svcUuid,  opStartTs,
+                                    std::placeholders::_1,
+                                    std::placeholders::_2, std::placeholders::_3));
+
+       asyncQryCatReq->setTimeoutMs(5000);
        getsIssued_++;
-       getsOutStanding_++;
+       outStanding_++;
        asyncQryCatReq->invoke();
        
+       // if ((i == 1) || (i == 2) || (i == 3) || (i == 4)) {
+       //    std::chrono::microseconds dura(200);
+       //    std::this_thread::sleep_for(dura);
+       // }
+
        {
             Synchronized s(monitor_);
             while(outStanding_ >= concurrency_) {
                 waiting_ = true;
-                std::cout << "Waiting concurrency effect!" << std::endl;
                 monitor_.wait();
             }
             waiting_ = false;
@@ -403,17 +430,43 @@ TEST_F(SMApi, dmsmPerf)
    }
 
     /* Poll for completion */
-    POLL_MS((getsIssued_ == getsSuccessCnt_ + getsFailedCnt_), 2000, (nPuts * 10));
-    
+    POLL_MS((getsIssued_ == getsSuccessCnt_ + getsFailedCnt_), 2000, (nGets * 10));
+
+    if (uturnAsyncReq) {
+      ASSERT_TRUE(TestUtils::disableFault(sm_svcUuid, "svc.uturn.asyncreqt"));
+      ASSERT_TRUE(TestUtils::disableFault(dm_svcUuid, "svc.uturn.asyncreqt"));
+    }
+    if (uturn) {
+      ASSERT_TRUE(TestUtils::disableFault(sm_svcUuid, "svc.uturn.putobject"));
+      ASSERT_TRUE(TestUtils::disableFault(sm_svcUuid, "svc.uturn.getobject"));
+      ASSERT_TRUE(TestUtils::disableFault(dm_svcUuid, "svc.uturn.putobject"));
+      ASSERT_TRUE(TestUtils::disableFault(dm_svcUuid, "svc.uturn.getobject"));
+    }
+    if (lftp) {
+      fiu_disable("svc.use.lftp");
+      ASSERT_TRUE(TestUtils::disableFault(sm_svcUuid, "svc.use.lftp"));
+      ASSERT_TRUE(TestUtils::disableFault(dm_svcUuid, "svc.use.lftp"));
+    }
+
+    throughput = (static_cast<double>(1000000000) /
+		  (getEndTs_ - getStartTs_)) * getsIssued_;
+
+    std::cout << "GET experiment concurrency " << concurrency_ << std::endl;
     std::cout << "getsSuccessCnt_ " << getsSuccessCnt_ << 
                 std::endl << "getsFailedCnt_" << getsFailedCnt_ << std::endl;
-    std::cout << "blobList_ size is " << blobList_.size() << std::endl;
-    std::cout << "difference is " << (getEndTs_ - getStartTs_) << std::endl;
-    double diffG = (getEndTs_ - getStartTs_);
-    long double throughputG = (1000000000 / diffG);
-    std::cout << "Throughput: " << (throughputG * getsIssued_) << std::endl;
-    std::cout << "Avg op Latency" << getAvgLatency_.value() << std::endl;
+    std::cout << "Throughput: " << throughput << std::endl;
+    std::cout << "Avg GET Latency " << avgGetLatency_.value() << std::endl;
 
+    latMs = static_cast<double>(avgGetLatency_.value()) / 1000000.0;
+    statfileGet_ << "get," << putsIssued_ << "," << concurrency_ << ","
+                 << throughput << "," << latMs << std::endl;
+
+    if (statfileGet_.is_open()){
+        statfileGet_.close();
+    }
+    if (statfilePut_.is_open()){
+        statfilePut_.close();
+    }
 }
 
 
@@ -496,7 +549,7 @@ TEST_F(SMApi, putsPerf)
         asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this, opStartTs,
                                             std::placeholders::_1,
                                             std::placeholders::_2, std::placeholders::_3));
-        asyncPutReq->setTimeoutMs(1000);
+        asyncPutReq->setTimeoutMs(5000);
         putsIssued_++;
         outStanding_++;
         asyncPutReq->invoke();
@@ -565,6 +618,7 @@ int main(int argc, char** argv) {
         ("help", "produce help message")
         ("smuuid", po::value<uint64_t>()->default_value(0), "smuuid")
         ("puts-cnt", po::value<uint64_t>(), "puts count")
+        ("gets-cnt", po::value<int>()->default_value(0), "gets count")
         ("profile", po::value<bool>()->default_value(false), "google profile")
         ("failsends-before", po::value<bool>()->default_value(false), "fail sends before")
         ("failsends-after", po::value<bool>()->default_value(false), "fail sends after")
@@ -573,6 +627,7 @@ int main(int argc, char** argv) {
         ("largeframe", po::value<bool>()->default_value(false), "largeframe")
         ("output", po::value<std::string>()->default_value("stats.txt"), "stats output")
         ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling")
+        ("lftp", po::value<bool>()->default_value(false), "use lockfree threadpool")
         ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();

@@ -14,7 +14,6 @@
 #include <access-mgr/am-block.h>
 #include <concurrency/spinlock.h>
 #include <fdsp/fds_service_types.h>
-#include <fds_dmt.h>
 
 namespace fds {
 
@@ -89,7 +88,6 @@ class NbdBlkVol : public EvBlkVol
 
     virtual void nbd_vol_read(NbdBlkIO *io);
     virtual void nbd_vol_write(NbdBlkIO *io);
-    void nbd_vol_th_write(NbdBlkIO *io);
     virtual void nbd_vol_close();
     virtual void nbd_vol_flush();
     virtual void nbd_vol_trim();
@@ -103,7 +101,6 @@ class NbdBlkVol : public EvBlkVol
   protected:
     friend class NbdBlkIO;
     char                    *vio_buffer;
-    DmtColumnPtr                dmtGroup;
 
     /* Factory method. */
     virtual FdsAIO *ev_alloc_vio();

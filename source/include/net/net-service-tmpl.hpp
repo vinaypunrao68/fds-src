@@ -188,7 +188,6 @@ endpoint_connect_server(int                   port,
     NetMgr               *net;
     EpSvcHandle::pointer  ptr;
     uint32_t bufSz = 512;
-    fiu_do_on("svc.largebuffer", bufSz = 6144);
 
     net = NetMgr::ep_mgr_singleton();
     if (peer != NullSvcUuid) {
