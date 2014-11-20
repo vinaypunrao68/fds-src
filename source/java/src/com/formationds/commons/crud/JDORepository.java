@@ -29,7 +29,8 @@ public abstract class JDORepository<T,
 
     private PersistenceManagerFactory factory;
     private PersistenceManager manager;
-    private EntityManager entity;
+
+    private EntityManagerFactory entityManagerFactory;
 
     // use non-static logger to tie it to the concrete subclass.
     protected final Logger logger;
@@ -212,7 +213,7 @@ public abstract class JDORepository<T,
     @Override
     public T save( final T entity ) {
         try {
-            logger.trace("Saving entity {}", entity);
+            logger.trace("ENTITY_SAVE: {}", entity);
             manager().currentTransaction().begin();
 
             firePrePersist(entity);
@@ -244,7 +245,9 @@ public abstract class JDORepository<T,
         int cnt = (entities != null ? entities.size() : 0);
         List<T> persisted = new ArrayList<>(cnt);
         try {
-            logger.trace("Saving entities {}", entities);
+            logger.trace("Saving {} entities", entities.size());
+            entities.forEach((e) -> logger.trace("ENTITY_SAVE: {}", e));
+
             manager().currentTransaction().begin();
 
             firePrePersist((entities instanceof List<?> ? (List<T>)entities : new ArrayList<T>(entities)));
@@ -252,7 +255,7 @@ public abstract class JDORepository<T,
             firePostPersist(persisted);
 
             manager().currentTransaction().commit();
-            logger.trace("Saved entities {}", entities);
+            logger.trace("Saved {} entities.", entities.size());
             return persisted;
         } catch (RuntimeException re) {
             logger.warn("SAVE Failed.  Rolling back transaction.");
@@ -297,9 +300,9 @@ public abstract class JDORepository<T,
      */
     @Override
     public void close() {
-        entity().close();
-        manager().close();
-        factory().close();
+        entityManagerFactory.close();
+        manager.close();
+        factory.close();
     }
 
     /**
@@ -316,7 +319,7 @@ public abstract class JDORepository<T,
 
         final EntityManagerFactory emf = Persistence.createEntityManagerFactory(dbName);
 
-        entity( emf.createEntityManager() );
+        entityManagerFactory(emf);
 
         initShutdownHook();
     }
@@ -363,15 +366,15 @@ public abstract class JDORepository<T,
   /**
    * @return Returns the {@link EntityManager}
    */
-  public EntityManager entity() {
-    return entity;
+  public EntityManager newEntityManager() {
+    return entityManagerFactory.createEntityManager();
   }
 
   /**
    * @param entity the {@link javax.persistence.EntityManager}
    */
-  protected void entity( final EntityManager entity ) {
-    this.entity = entity;
+  protected void entityManagerFactory(final EntityManagerFactory entity) {
+    this.entityManagerFactory   = entity;
   }
 
   /**

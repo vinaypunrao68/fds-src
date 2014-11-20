@@ -71,21 +71,30 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
 
     @Override
     public Events query(QueryCriteria queryCriteria) {
-        final List<Event> results;
-
-        EventCriteriaQueryBuilder tq = new EventCriteriaQueryBuilder(entity()).searchFor(queryCriteria);
-        results = tq.resultsList();
-        return new Events(results);
+        EntityManager em = newEntityManager();
+        try {
+            final List<Event> results;
+            EventCriteriaQueryBuilder tq = new EventCriteriaQueryBuilder(em).searchFor(queryCriteria);
+            results = tq.resultsList();
+            return new Events(results);
+        } finally {
+            em.close();
+        }
     }
 
     public Events queryTenantUsers(QueryCriteria queryCriteria, List<Long> tenantUsers) {
-        final List<? extends Event> results;
+        EntityManager em = newEntityManager();
+        try {
+            final List<? extends Event> results;
 
-        UserEventCriteriaQueryBuilder tq =
-                new UserEventCriteriaQueryBuilder(entity()).usersIn(tenantUsers)
-                                                       .searchFor(queryCriteria);
-        results = tq.resultsList();
-        return new Events(results);
+            UserEventCriteriaQueryBuilder tq =
+            new UserEventCriteriaQueryBuilder(em).usersIn(tenantUsers)
+                                                 .searchFor(queryCriteria);
+            results = tq.resultsList();
+            return new Events(results);
+        } finally {
+            em.close();
+        }
     }
 
     /**
@@ -94,16 +103,21 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
      * @return
      */
     public FirebreakEvent findLatestFirebreak(Volume v) {
-        FirebreakEventCriteriaQueryBuilder cb = new FirebreakEventCriteriaQueryBuilder(entity());
+        EntityManager em = newEntityManager();
+        try {
+            FirebreakEventCriteriaQueryBuilder cb = new FirebreakEventCriteriaQueryBuilder(em);
 
-        Instant oneDayAgo = Instant.now().minus(Duration.ofDays(1));
-        Timestamp tsOneDayAgo = new Timestamp(oneDayAgo.toEpochMilli());
-        cb.volumesByName(v.getName()).withDateRange(new DateRangeBuilder(tsOneDayAgo, null).build());
-        List<FirebreakEvent> r = cb.build().getResultList();
-        if (r.isEmpty()) return null;
+            Instant oneDayAgo = Instant.now().minus(Duration.ofDays(1));
+            Timestamp tsOneDayAgo = new Timestamp(oneDayAgo.toEpochMilli());
+            cb.volumesByName(v.getName()).withDateRange(new DateRangeBuilder(tsOneDayAgo, null).build());
+            List<FirebreakEvent> r = cb.build().getResultList();
+            if (r.isEmpty()) return null;
 
-        r.sort((f, fp) -> f.getInitialTimestamp().compareTo(fp.getInitialTimestamp()));
-        return r.get(0);
+            r.sort((f, fp) -> f.getInitialTimestamp().compareTo(fp.getInitialTimestamp()));
+            return r.get(0);
+        } finally {
+            em.close();
+        }
     }
 
     private static class EventCriteriaQueryBuilder extends CriteriaQueryBuilder<Event> {
