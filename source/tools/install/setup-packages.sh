@@ -12,11 +12,6 @@
 ###########################################################################
 source ./loghelper.sh
 
-needed_packages=(
-    python-dev
-    python-pip
-)
-
 basedebs=(
     libpcre3
     "libconfig++9"
@@ -29,7 +24,12 @@ basedebs=(
     java-common
     oracle-java8-jdk
     libical1
-		libhiredis0.10
+    libhiredis0.10
+    python-setuptools
+    python-colorama
+    python-distlib
+    python-html5lib
+    python-pip
 )
 
 fdsbasedebs=(
@@ -40,23 +40,17 @@ fdsbasedebs=(
     fds-python-scp
     fds-python-paramiko
     fds-jdk-default
-		libcryptopp-dev
+    libcryptopp-dev
 )
 
 python_packages=(
-    Crypto
+    Naked
+    crypto
     boto
-    scp
+    ecdsa
     paramiko
+    scp
 )
-
-REPOUPDATED=0
-function updateFdsRepo() {
-    if [[ $REPOUPDATED == "0" ]]; then
-        sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/fds.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
-        REPOUPDATED=1
-    fi
-}
 
 ###########################################################################
 # Fill in the blanks if you need additional actions before installing 
@@ -108,7 +102,7 @@ function installPythonPkgs() {
         if  [[ -z $name ]] ; then 
             logwarn "[fdssetup] : $pkg is not installed, but needed .. installing."
             preinstall $pkg
-            sudo easy_install ${pkg}*
+            sudo pip install ./${pkg}*
             postinstall $pkg
             echo ""
         fi
@@ -131,16 +125,7 @@ function installBaseDebs() {
         fi
     done
 }
-
-function installNeededPkgs() {
-    loginfo "[fdssetup] : installing prereq packages"
-    for pkg in ${needed_packages[@]}
-    do
-        loginfo "[fdssetup] : installing $pkg"
-        sudo apt-get install ${pkg} --assume-yes
-    done
-
-}
+ 
 function installFdsBaseDebs() {
     loginfo "[fdssetup] : installing fds base debs"
 
@@ -190,7 +175,6 @@ function installFdsService() {
 usage() {
     echo $(yellow "usage: setup-packages.sh option [option ..]")
     echo "option :"
-    echo "  prereq - install prerequisite packages"
     echo "  base - install base debs"
     echo "  python  - install python pkgs"
     echo "  fds-base - install base fds pkgs"
@@ -204,7 +188,6 @@ fi
 
 for opt in "$@" ; do
     case $opt in
-        prereq*) installNeededPkgs ;;
         basedeb*) installBaseDebs ;;
         python*) installPythonPkgs ;;
         fds-base*) installFdsBaseDebs ;;
