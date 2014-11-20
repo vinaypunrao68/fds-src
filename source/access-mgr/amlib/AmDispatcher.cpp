@@ -72,7 +72,8 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
     GetVolumeMetaDataMsgPtr volMDMsg =
         net::ep_deserialize<fpi::GetVolumeMetaDataMsg>(const_cast<Error&>(error), payload);
 
-    volReq->volumeMetadata = volMDMsg->volume_meta_data;
+    if (ERR_OK == error)
+        volReq->volumeMetadata = volMDMsg->volume_meta_data;
     // Notify upper layers that the request is done. When this
     // completes, all upper layers should be notified and we
     // can safely delete the request
@@ -592,11 +593,11 @@ AmDispatcher::setBlobMetadataCb(AmRequest *amReq,
                                 const Error &error,
                                 boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
+    fpi::SetBlobMetaDataRspMsgPtr setMDRsp =
+        net::ep_deserialize<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
     if (error != ERR_OK) {
         LOGERROR << "Set metadata blob name: " << amReq->getBlobName() << " Error: " << error;
     } else {
-        fpi::SetBlobMetaDataRspMsgPtr setMDRsp =
-            net::ep_deserialize<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
         LOGDEBUG << svcReq->logString() << fds::logString(*setMDRsp);
     }
     amReq->proc_cb(error);

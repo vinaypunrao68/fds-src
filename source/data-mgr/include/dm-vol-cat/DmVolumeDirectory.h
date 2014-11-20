@@ -181,6 +181,9 @@ class DmVolumeDirectory : public Module, public HasLogger,
     Error putBlob(fds_volid_t volId, const std::string& blobName,
             const MetaDataList::const_ptr& metaList,
             const BlobObjList::const_ptr& blobObjList, const BlobTxId::const_ptr& txId);
+    Error putBlob(fds_volid_t volId, const std::string& blobName, fds_uint64_t blobSize,
+            const MetaDataList::const_ptr& metaList,
+            CatWriteBatch & wb, bool truncate = true);
 
     /**
      * Flushes given blob to the persistent storage. Blocking method, will
