@@ -17,6 +17,22 @@
     - name: automatically select the oracle license
       shell: echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
 
+    - name: purge libboost 1.54 packages
+      apt: name={{item}} force=yes state=absent update_cache=no
+      with_items:
+        - libboost1.54-dev
+        - libboost-log1.54-dev
+        - libboost-program-options1.54-dev
+        - libboost-timer1.54-dev
+        - libboost-thread1.54-dev
+        - libboost-regex1.54-dev
+        - libboost1.54
+        - libboost-log1.54
+        - libboost-program-options1.54
+        - libboost-timer1.54
+        - libboost-thread1.54
+        - libboost-regex1.54
+
     - name: install os packages
       apt: name={{item}} force=yes state=present update_cache=yes cache_valid_time=600
       with_items:
@@ -51,13 +67,15 @@
         - flex
         - ragel
         - ccache
-        - libboost-log1.54-dev
-        - libboost-program-options1.54-dev
-        - libboost-timer1.54-dev
-        - libboost-thread1.54-dev
-        - libboost-regex1.54-dev
+        - libboost1.55-dev
+        - libboost-log1.55-dev
+        - libboost-program-options1.55-dev
+        - libboost-timer1.55-dev
+        - libboost-thread1.55-dev
+        - libboost-regex1.55-dev
         - libical-dev
         - libical1
+        - libjemalloc-dev
         - libleveldb-dev
         - google-perftools
         - libgoogle-perftools-dev
@@ -80,9 +98,11 @@
         - fds-coredump
         - libcryptopp-dev
         - lintian
+        - libhiredis0.10
+        - libhiredis-dev
 
     - name: install pip packages
-      pip: name={{item}} state=present 
+      pip: name={{item}} state=present
       with_items:
         - scp
         - PyYAML
@@ -92,3 +112,6 @@
 
     - name: create java home script
       copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755
+
+    - name: update_java_alternatives
+      alternatives: name=java path=/usr/lib/jvm/java-8-oracle/jre/bin/java

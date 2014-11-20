@@ -14,6 +14,10 @@ public enum Metrics {
     PUTS( "Puts" ),
     GETS( "Gets" ),
     QFULL( "Queue Full" ),
+    /**
+     * @deprecated use {@link #SSD_GETS}
+     */
+    @Deprecated
     PSSDA( "Percent of SSD Accesses" ),
     MBYTES( "Metadata Bytes" ),
     BLOBS( "Blobs" ),
@@ -32,7 +36,11 @@ public enum Metrics {
     STC_WMA( "Short Term Capacity WMA" ),
     LTC_WMA( "Long Term Capacity WMA" ),
     STP_WMA( "Short Term Perf WMA" ),
-    LTP_WMA( "Long Term Perf WMA" );
+    LTP_WMA( "Long Term Perf WMA" ),
+    /**
+     * gets from SSD and cache
+     */
+    SSD_GETS( "SSD Gets" );
 
     private static final String UNKNOWN_METRIC =
         ModelResource.getString( "model.metrics.unsupported" );

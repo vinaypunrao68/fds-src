@@ -50,7 +50,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     };
     
     $scope.capacityLabelFx = function( data ){
-        return $byte_converter.convertBytesToString( data, 0 );
+        return $byte_converter.convertBytesToString( data, 1 );
     };
     
     var getCapacityLegendText = function( series, key ){

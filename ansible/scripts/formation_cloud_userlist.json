@@ -1,0 +1,113 @@
+{
+	"tenants": [
+    {
+        "id": "1", 
+        "name": "demo_tenant", 
+        "users": [
+            {
+                "id": "2", 
+                "identifier": "demo_user"
+            }
+        ]
+    }, 
+    {
+        "id": "2", 
+        "name": "goldman", 
+        "users": [
+            {
+                "id": "4", 
+                "identifier": "ileneeng"
+            }, 
+            {
+                "id": "5", 
+                "identifier": "craigschindler"
+            }, 
+            {
+                "id": "3", 
+                "identifier": "eddie_d"
+            }
+        ]
+    }, 
+    {
+        "id": "3", 
+        "name": "jive", 
+        "users": [
+            {
+                "id": "6", 
+                "identifier": "pannujat"
+            }
+        ]
+    }, 
+    {
+        "id": "4", 
+        "name": "anichols_tenant", 
+        "users": [
+            {
+                "id": "7", 
+                "identifier": "anichols"
+            }
+        ]
+    } 
+  ],
+  "users": [
+    {
+        "id": 2, 
+        "identifier": "demo_user", 
+        "isFdsAdmin": false, 
+        "tenant": {
+            "id": "1", 
+            "name": "demo_tenant"
+        }
+    }, 
+    {
+        "id": 6, 
+        "identifier": "pannujat", 
+        "isFdsAdmin": false, 
+        "tenant": {
+            "id": "3", 
+            "name": "jive"
+        }
+    }, 
+    {
+        "id": 1, 
+        "identifier": "admin", 
+        "isFdsAdmin": true
+    }, 
+    {
+        "id": 4, 
+        "identifier": "ileneeng", 
+        "isFdsAdmin": false, 
+        "tenant": {
+            "id": "2", 
+            "name": "goldman"
+        }
+    }, 
+    {
+        "id": 7, 
+        "identifier": "anichols", 
+        "isFdsAdmin": false, 
+        "tenant": {
+            "id": "4", 
+            "name": "anichols_tenant"
+        }
+    }, 
+    {
+        "id": 3, 
+        "identifier": "eddie_d", 
+        "isFdsAdmin": false, 
+        "tenant": {
+            "id": "2", 
+            "name": "goldman"
+        }
+    }, 
+    {
+        "id": 5, 
+        "identifier": "craigschindler", 
+        "isFdsAdmin": false, 
+        "tenant": {
+            "id": "2", 
+            "name": "goldman"
+        }
+    }
+  ]
+}

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-#
 # Keep this list sychronized with Makefile
 #
 dir_list="
@@ -22,11 +21,14 @@ dir_list="
     stor-mgr                            \
     tools                               \
     testlib                             \
-    java                                
+    unit-test                           \
+    checker                             \
+    java
     "
-# fdsp apis include osdep net-service umod-lib util lib fds-probe nginx-driver persistent_layer platform orch_mgr data-mgr access-mgr stor-mgr tools java"
 
-not_built="unit-test checker"
+echo "fastbuild.sh is deprecated, the preferred build method is:  'make fastb=1 threads=X CCACHE=1'"
+
+sleep 5
 
 # don't set to less than 2, this is the number of retries per directory
 RETRY_COUNT=3 

@@ -156,7 +156,8 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
             case TestVolume::STORE_OP_GET:
                 {
                     boost::shared_ptr<const std::string> data;
-                    data = objectStore->getObject(volId, oid, err);
+                    diskio::DataTier usedTier = diskio::maxTier;
+                    data = objectStore->getObject(volId, oid, usedTier, err);
                     EXPECT_TRUE(err.ok());
                     EXPECT_TRUE((volume->testdata_).dataset_map_[oid].isValid(data));
                 }
@@ -224,7 +225,8 @@ TEST_F(SmObjectStoreTest, one_thread_gets) {
     for (fds_uint32_t i = 0; i < (volume1->testdata_).dataset_.size(); ++i) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
         boost::shared_ptr<const std::string> objData;
-        objData = objectStore->getObject((volume1->voldesc_).volUUID, oid, err);
+        diskio::DataTier usedTier = diskio::maxTier;
+        objData = objectStore->getObject((volume1->voldesc_).volUUID, oid, usedTier, err);
         EXPECT_TRUE(err.ok());
         EXPECT_TRUE((volume1->testdata_).dataset_map_[oid].isValid(objData));
     }
@@ -255,8 +257,10 @@ TEST_F(SmObjectStoreTest, move_to_ssd) {
         EXPECT_TRUE(err.ok());
 
         // read again (should read from SSD tier)
-        retData = objectStore->getObject((volume1->voldesc_).volUUID, oid, err);
+        diskio::DataTier usedTier = diskio::maxTier;
+        retData = objectStore->getObject((volume1->voldesc_).volUUID, oid, usedTier, err);
         EXPECT_TRUE(err.ok());
+        EXPECT_TRUE(usedTier == diskio::flashTier);
         EXPECT_TRUE((volume1->testdata_).dataset_map_[oid].isValid(retData));
     }
 

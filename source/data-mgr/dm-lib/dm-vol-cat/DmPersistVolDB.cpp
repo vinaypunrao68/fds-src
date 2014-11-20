@@ -13,7 +13,7 @@
 #include <dm-vol-cat/DmPersistVolDB.h>
 
 #define TIMESTAMP_OP(WB) \
-    const fds_uint64_t ts__ = util::getTimeStampSeconds(); \
+    const fds_uint64_t ts__ = util::getTimeStampMicros(); \
     const Record tsval__(reinterpret_cast<const char *>(&ts__), sizeof(fds_uint64_t)); \
     WB.Put(OP_TIMESTAMP_REC, tsval__);
 
@@ -162,6 +162,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
 
     Catalog::catalog_iterator_t * dbIt = catalog_->NewIterator();
     fds_assert(dbIt);
+    objList.reserve(endObjIndex - startObjIndex + 1);
     for (dbIt->Seek(startRec); dbIt->Valid() &&
             catalog_->GetOptions().comparator->Compare(dbIt->key(), endRec) <= 0;
             dbIt->Next()) {
@@ -171,9 +172,9 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
         blobInfo.offset = static_cast<fds_uint64_t>(key->objIndex) * objSize_;
         blobInfo.size = objSize_;
         blobInfo.blob_end = false;  // assume false
-        blobInfo.data_obj_id.digest = dbIt->value().ToString();
+        blobInfo.data_obj_id.digest = std::move(dbIt->value().ToString());
 
-        objList.push_back(blobInfo);
+        objList.push_back(std::move(blobInfo));
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
     delete dbIt;
@@ -311,7 +312,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
         batch.Delete(keyRec);
     }
 
-    const BlobObjKey key(DmPersistVolDir::getBlobIdFromName(blobName), BLOB_META_INDEX);
+    const BlobObjKey key(blobId, BLOB_META_INDEX);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
@@ -324,6 +325,33 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
 
     batch.Put(keyRec, value);
     rc = catalog_->Update(&batch);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to put blob: '" << blobName << "' volume: '" << std::hex
+                << volId_ << std::dec << "'";
+    }
+
+    return rc;
+}
+
+Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
+            CatWriteBatch & wb) {
+    IS_OP_ALLOWED();
+
+    TIMESTAMP_OP(wb);
+
+    const BlobObjKey key(DmPersistVolDir::getBlobIdFromName(blobName), BLOB_META_INDEX);
+    const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
+
+    std::string value;
+    Error rc = blobMeta.getSerialized(value);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to update metadata for blob: '" << blobName << "' volume: '"
+                << std::hex << volId_ << std::dec << "'";
+        return rc;
+    }
+
+    wb.Put(keyRec, value);
+    rc = catalog_->Update(&wb);
     if (!rc.ok()) {
         LOGERROR << "Failed to put blob: '" << blobName << "' volume: '" << std::hex
                 << volId_ << std::dec << "'";

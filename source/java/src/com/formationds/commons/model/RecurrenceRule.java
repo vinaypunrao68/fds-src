@@ -16,6 +16,8 @@ import com.google.gson.annotations.SerializedName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
 import java.text.ParseException;
 import java.util.Date;
 import java.util.NoSuchElementException;
@@ -67,6 +69,7 @@ public class RecurrenceRule
     private String weekStartDay;
 
     @SerializedName( "BYDAY" )
+    @Enumerated( EnumType.ORDINAL )
     private WeekDays<iCalWeekDays> days = null;
 
     /**
@@ -400,12 +403,12 @@ public class RecurrenceRule
             b.append( weekNo );
         }
 // TODO fix serialization issue with enum iCalWeekDays
-//        if( days != null && !days.isEmpty() ) {
-//            b.append( ';' );
-//            b.append( iCalKeys.BYDAY );
-//            b.append( '=' );
-//            b.append( days );
-//        }
+        if( days != null && !days.isEmpty() ) {
+            b.append( ';' );
+            b.append( iCalKeys.BYDAY );
+            b.append( '=' );
+            b.append( days );
+        }
 
         if( yearDays != null && !yearDays.isEmpty() ) {
             b.append( ';' );

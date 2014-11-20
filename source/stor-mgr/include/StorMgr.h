@@ -161,8 +161,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      fds_uint32_t qosThrds;
      fds_uint32_t qosOutNum;
 
-     // Temporary to execute different stubs in processIO
-     fds_bool_t execNewStubs;
+     // true if running SM standalone (for testing)
+     fds_bool_t testStandalone;
 
      class SmQosCtrl : public FDS_QoSControl {
         private:
@@ -202,19 +202,12 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
              Error err(ERR_OK);
              dispatcher->markIODone(&_io);
              if (iam_primary &&
-                 ((_io.io_type == FDS_SM_PUT_OBJECT) ||
-                  (_io.io_type == FDS_SM_GET_OBJECT))) {
-                 if (tier == diskio::diskTier) {
+                 (_io.io_type == FDS_SM_GET_OBJECT) &&
+                 (tier == diskio::flashTier)) {
                      StatsCollector::singleton()->recordEvent(_io.io_vol_id,
                                                               _io.io_done_ts,
-                                                              STAT_SM_OP_HDD,
+                                                              STAT_SM_GET_SSD,
                                                               _io.io_total_time);
-                 } else if (tier == diskio::flashTier) {
-                     StatsCollector::singleton()->recordEvent(_io.io_vol_id,
-                                                              _io.io_done_ts,
-                                                              STAT_SM_OP_SSD,
-                                                              _io.io_total_time);
-                 }
              }
              return err;
          }

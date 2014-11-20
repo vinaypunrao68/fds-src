@@ -221,13 +221,14 @@ public:
 
     StorHvCtrl(int argc, char *argv[], SysParams *params);
     StorHvCtrl(int argc, char *argv[], SysParams *params,
-               sh_comm_modes _mode);
+               sh_comm_modes _mode, fds_uint32_t instanceId = 0);
     StorHvCtrl(int argc,
                char *argv[],
                SysParams *params,
                sh_comm_modes _mode,
                fds_uint32_t sm_port_num,
-               fds_uint32_t dm_port_num);
+               fds_uint32_t dm_port_num,
+               fds_uint32_t instanceId = 0);
     ~StorHvCtrl();
     void initHandlers();
     std::map<fds_io_op_t, fds::Handler*> handlers;
@@ -247,9 +248,6 @@ public:
 
     /// Toggle AM standalone mode for testing
     fds_bool_t toggleStandAlone;
-
-    /// Toggle to use new AM processing path
-    fds_bool_t toggleNewPath;
 
     /// Dispatcher layer module
     AmDispatcher::shared_ptr amDispatcher;
@@ -275,8 +273,6 @@ public:
                          CallbackPtr cb);
     fds::Error pushBlobReq(AmRequest *blobReq);
     void enqueueBlobReq(AmRequest *blobReq);
-    fds::Error putBlob(AmRequest *amReq);
-    fds::Error deleteBlob(AmRequest *amReq);
 
     // Stuff for pending offset operations
     // TODO(Andrew): Reconcile with dispatchSm...
@@ -285,11 +281,7 @@ public:
     fds::Error processDmUpdateBlob(PutBlobReq *putBlobReq,
                                    StorHvJournalEntry *journEntry);
     fds::Error resumePutBlob(StorHvJournalEntry *journEntry);
-    fds::Error resumeGetBlob(StorHvJournalEntry *journEntry);
-    fds::Error resumeDeleteBlob(StorHvJournalEntry *journEntry);
 
-    fds::Error listBucket(AmRequest *amReq);
-    fds::Error getBucketStats(AmRequest *amReq);
     fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                           const FDSP_PutObjTypePtr& putObjRsp);
     fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
@@ -300,15 +292,8 @@ public:
     void startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg);
     fds::Error deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
                              const FDSP_DeleteCatalogTypePtr& delCatRsp);
-    fds::Error deleteObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                             const FDSP_DeleteObjTypePtr& cat_obj_req);
     fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
                              const FDSP_GetVolumeBlobListRespTypePtr& blobListResp);
-
-    static void bucketStatsRespHandler(const FDSP_MsgHdrTypePtr& rx_msg,
-                                       const FDSP_BucketStatsRespTypePtr& buck_stats);
-    void getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
-                            const FDSP_BucketStatsRespTypePtr& buck_stats);
 
     void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
     void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
@@ -404,64 +389,11 @@ public:
         fds::Error processRequest();
     };
 
-    fds::Error putBlobSvc(fds::AmRequest *amReq);
-    fds::Error deleteBlobSvc(fds::AmRequest *amReq);
-
-    void issueDeleteCatalogObject(const fds_uint64_t& vol_id,
-                                  const std::string& blob_name,
-                                  QuorumSvcRequestRespCb respCb);
-    void issuePutObjectMsg(const ObjectID &objId,
-                           const char* dataBuf,
-                           const fds_uint64_t &len,
-                           const fds_volid_t& volId,
-                           QuorumSvcRequestRespCb respCb);
-    void issueUpdateCatalogMsg(const ObjectID &objId,
-                               const std::string& blobName,
-                               const fds_uint64_t& blobOffset,
-                               const fds_uint64_t &len,
-                               const fds_int32_t &blobMode,
-                               boost::shared_ptr< std::map<std::string, std::string> > metadata,
-                               const fds_volid_t& volId,
-                               const fds_uint64_t& txId,
-                               QuorumSvcRequestRespCb respCb);
-    void issueUpdateCatalogMsg(const ObjectID &objId,
-                               const std::string& blobName,
-                               const fds_uint64_t& blobOffset,
-                               const fds_uint64_t &len,
-                               const bool &lastBuf,
-                               const fds_volid_t& volId,
-                               const fds_uint64_t& txId,
-                               const fds_uint64_t& dmt_version,
-                               QuorumSvcRequestRespCb respCb);
-    void putBlobUpdateCatalogMsgResp(fds::AmRequest* amReq,
-                                     QuorumSvcRequest* svcReq,
-                                     const Error& error,
-                                     boost::shared_ptr<std::string> payload);
-    void putBlobUpdateCatalogOnceMsgResp(fds::AmRequest* amReq,
-                                         QuorumSvcRequest* svcReq,
-                                         const Error& error,
-                                         boost::shared_ptr<std::string> payload);
-    void putBlobPutObjectMsgResp(fds::AmRequest* amReq,
-                                 QuorumSvcRequest* svcReq,
-                                 const Error& error,
-                                 boost::shared_ptr<std::string> payload);
-    void deleteObjectMsgResp(fds::AmRequest* amReq,
-                             QuorumSvcRequest* svcReq,
-                             const Error& error,
-                             boost::shared_ptr<std::string> payload);
-
-    fds::Error updateCatalogCache(AmRequest *blobReq,
-                                  FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);
     inline AMCounters& getCounters()
     {
         return counters_;
     }
 private:
-    void handleDltMismatch(StorHvVolume *vol,
-                           StorHvJournalEntry *journEntry);
-    void procNewDlt(fds_uint64_t newDltVer);
-
-
     SysParams *sysParams;
     sh_comm_modes mode;
 
@@ -482,7 +414,6 @@ static void processBlobReq(AmRequest *amReq) {
     fds_verify(amReq->io_module == FDS_IOType::STOR_HV_IO);
     fds_verify(amReq->magicInUse() == true);
 
-    fds::Error err(ERR_OK);
     switch (amReq->io_type) {
         case fds::FDS_START_BLOB_TX:
             storHvisor->amProcessor->startBlobTx(amReq);
@@ -511,10 +442,6 @@ static void processBlobReq(AmRequest *amReq) {
             storHvisor->amProcessor->putBlob(amReq);
             break;
 
-        case fds::FDS_BUCKET_STATS:
-            err = storHvisor->getBucketStats(amReq);
-            break;
-
         case fds::FDS_SET_BLOB_METADATA:
             storHvisor->amProcessor->setBlobMetadata(amReq);
             break;
@@ -536,26 +463,10 @@ static void processBlobReq(AmRequest *amReq) {
             break;
 
         default :
+            LOGCRITICAL << "unimplemented request: " << amReq->io_type;
+            amReq->cb->call(ERR_NOT_IMPLEMENTED);
             break;
     }
-
-    bool fKnownError = false;
-
-    switch (err.GetErrno()) {
-        case ERR_OK:
-        case ERR_NOT_IMPLEMENTED:
-        case FDSN_StatusErrorAccessDenied:
-            fKnownError = true;
-            break;
-        default:
-            break;
-    }
-
-    if (!fKnownError) {
-        LOGCRITICAL << "un handled error : " << err;
-    }
-
-    fds_verify(fKnownError);
 }
 
 #endif  // SOURCE_STOR_HVISOR_STORHVISORNET_H_

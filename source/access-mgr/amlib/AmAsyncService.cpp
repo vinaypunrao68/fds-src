@@ -19,9 +19,10 @@
 namespace fds {
 
 AsyncDataServer::AsyncDataServer(const std::string &name,
-                                 AmAsyncDataApi::shared_ptr &_dataApi)
+                                 AmAsyncDataApi::shared_ptr &_dataApi,
+                                 fds_uint32_t instanceId)
         : Module(name.c_str()),
-          port(8899),
+          port(8899 + instanceId),
           asyncDataApi(_dataApi),
           numServerThreads(10) {
     serverTransport.reset(new xdi_att::TServerSocket(port));
@@ -67,7 +68,6 @@ AsyncDataServer::init_server() {
     threadManager = xdi_atc::ThreadManager::newSimpleThreadManager(numServerThreads);
     threadFactory.reset(new xdi_atc::PosixThreadFactory());
     threadManager->threadFactory(threadFactory);
-    threadManager->start();
 
     // Setup API processor
     processor.reset(new apis::AsyncAmServiceRequestProcessor(
@@ -83,7 +83,7 @@ AsyncDataServer::init_server() {
 
     try {
         LOGNORMAL << "Starting the async data server with " << numServerThreads
-                  << " server threads...";
+                  << " server threads at port " << port;
         // listen_thread.reset(new boost::thread(&xdi_ats::TNonblockingServer::serve,
         //                                   nbServer.get()));
         listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
@@ -97,6 +97,8 @@ AsyncDataServer::init_server() {
 void
 AsyncDataServer::deinit_server() {
     fds_verify(listen_thread != NULL);
+    ttServer->stop();
     listen_thread->join();
+    listen_thread.reset();
 }
 }  // namespace fds

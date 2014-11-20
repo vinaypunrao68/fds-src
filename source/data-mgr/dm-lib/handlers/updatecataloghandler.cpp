@@ -55,6 +55,7 @@ void UpdateCatalogHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyn
         boost::shared_ptr<fpi::UpdateCatalogMsg> & message, const Error &e,
         dmCatReq *dmRequest) {
     DBG(GLOGDEBUG << logString(*asyncHdr));
+    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::UpdateCatalogRspMsg),
             fpi::UpdateCatalogRspMsg());
     delete dmRequest;

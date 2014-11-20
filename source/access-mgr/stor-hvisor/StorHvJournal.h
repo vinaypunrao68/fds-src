@@ -71,10 +71,10 @@ class StorHvIoTimerTask : public fds::FdsTimerTask {
     StorHvIoTimerTask(StorHvJournalEntry *jrnl_entry,
                       StorHvJournal *jrnl_tbl,
                       FdsTimer *ioTimer)
-            : FdsTimerTask(*ioTimer) {
-        jrnlEntry = jrnl_entry;
-        jrnlTbl = jrnl_tbl;
-    }
+            :   FdsTimerTask(*ioTimer),
+                jrnlEntry(jrnl_entry),
+                jrnlTbl(jrnl_tbl)
+    { }
     typedef boost::shared_ptr<StorHvIoTimerTask> ptr;
 };
 
@@ -83,7 +83,7 @@ typedef boost::shared_ptr<StorHvIoTimerTask> StorHvIoTimerTaskPtr;
 /// Represents an outstanding operations to a blob
 class  StorHvJournalEntry {
   private:
-    fds_mutex *je_mutex;
+    fds_mutex je_mutex;
 
   public:
     StorHvJournalEntry();
@@ -164,8 +164,8 @@ typedef std::set<fds_uint32_t> PendingDltSet;
 
 class StorHvJournal {
   private:
-    fds_mutex *jrnl_tbl_mutex;
-    StorHvJournalEntry  *rwlog_tbl;
+    fds_mutex jrnl_tbl_mutex;
+    std::vector<StorHvJournalEntry> rwlog_tbl;
     std::unordered_map<fds_uint64_t, fds_uint32_t> block_to_jrnl_idx;
     /*
      * New jrnl index for blobs

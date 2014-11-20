@@ -18,5 +18,3 @@ RUN git remote set-url origin https://github.com/fds-dev/fds-src
 RUN rm -f ~/.ssh/*
 
 USER root
-
-RUN update-alternatives --set java /usr/lib/jvm/java-8-oracle-amd64/bin/java

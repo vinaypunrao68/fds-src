@@ -43,6 +43,7 @@ public class Configuration {
         parser.allowsUnrecognizedOptions();
         parser.accepts("fds-root").withRequiredArg();
         parser.accepts("console");
+        parser.accepts("fds.am.instanceId").withRequiredArg().ofType(Integer.class);
         OptionSet options = parser.parse(commandLineArgs);
         if (options.has("fds-root")) {
             fdsRoot = new File((String) options.valueOf("fds-root"));
@@ -51,12 +52,17 @@ public class Configuration {
         }
 
         String logLevel = getPlatformConfig().defaultString("fds.plat.log_severity", "normal").toLowerCase();
+        // Get the instance ID from either the config file or cmd line
+        int amInstanceId = getPlatformConfig().lookup("fds.am.instanceId").intValue();
+        if (options.has("fds.am.instanceId")) {
+            amInstanceId = (int)options.valueOf("fds.am.instanceId");
+        }
 
         if (options.has("console")) {
             //initConsoleLogging(LOGLEVELS.getOrDefault(logLevel, "INFO"));
             initConsoleLogging("INFO");
         } else {
-            initFileLogging(commandName, fdsRoot, LOGLEVELS.getOrDefault(logLevel, "INFO"));
+            initFileLogging(commandName + "." + Integer.toString(amInstanceId), fdsRoot, LOGLEVELS.getOrDefault(logLevel, "INFO"));
         }
 
         initJaas(fdsRoot);

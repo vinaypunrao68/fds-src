@@ -119,7 +119,6 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
         PerfContext tmp_pctx(SM_OBJ_DATA_DISK_READ,
                              volId, PerfTracer::perfNameStr(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
-        // err = diskMgr->disk_read(plReq);
         err = persistData->readObjectData(objId, plReq);
     }
     if (err.ok()) {

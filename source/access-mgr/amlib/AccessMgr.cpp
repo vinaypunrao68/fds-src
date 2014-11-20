@@ -5,8 +5,10 @@
 #include <string>
 #include <AccessMgr.h>
 #include <access-mgr/am-block.h>
+#include <am-platform.h>
 
 extern StorHvCtrl *storHvisor;
+extern AmPlatform gl_AmPlatform;
 
 namespace fds {
 
@@ -27,22 +29,31 @@ AccessMgr::mod_init(SysParams const *const param) {
     fds::Module *io_dm_vec[] = {
         nullptr
     };
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    instanceId = conf.get<fds_uint32_t>("instanceId");
+    LOGNOTIFY << "Initializing AM instance " << instanceId;
+
     int argc = 0;
     char **argv = NULL;
     fds::ModuleVector io_dm(argc, argv, io_dm_vec);
     storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
-                                StorHvCtrl::NORMAL);
+                                StorHvCtrl::NORMAL, instanceId);
     dataApi = boost::make_shared<AmDataApi>();
     asyncDataApi = boost::make_shared<AmAsyncDataApi>();
 
     // Init the FDSN server to serve XDI data requests
-    fdsnServer = FdsnServer::unique_ptr(new FdsnServer("AM FDSN Server", dataApi));
+    fdsnServer = FdsnServer::unique_ptr(
+        new FdsnServer("AM FDSN Server", dataApi, instanceId));
     fdsnServer->init_server();
 
     // Init the async server
     asyncServer = AsyncDataServer::unique_ptr(
-        new AsyncDataServer("AM Async Server", asyncDataApi));
+        new AsyncDataServer("AM Async Server", asyncDataApi, instanceId));
     asyncServer->init_server();
+
+    // Update the AM's platform with our instance ID so that
+    // common fields (e.g., ports) can be updated
+    gl_AmPlatform.setInstanceId(instanceId);
     return 0;
 }
 
@@ -53,6 +64,7 @@ AccessMgr::mod_startup() {
 
 void
 AccessMgr::mod_shutdown() {
+    delete storHvisor;
 }
 
 void

@@ -16,9 +16,15 @@ fds_ssh_user=root
 fds_ssh_password=passwd
 
 [fds-cloud]
-servernode[0:3]
+servernode[0:3]    ansible_ssh_port=10022
 
 [fds-cloud:vars]
+fds_default_nic=em2
+fds_om_host=servernode0
+fds_metrics_enabled=false
+fds_metricsdb_ip=127.0.0.1
+fds_ssh_user=root
+fds_ssh_password=aQHMYu!Sq2xBeT*qaC5x6SOJ
 influxdb_ip=173.8.244.149
 influxdb_port=58086
 influxdb_db=fds_cloud
@@ -47,9 +53,10 @@ fds_ssh_user=root
 fds_ssh_password=vagrant
 
 [perf-no_am_cache]
+ubuntu
 
-[perf-no_am_cache:var]
-fds_default_nic=em1
+[perf-no_am_cache:vars]
+fds_default_nic=eth0
 fds_authentication=false
 fds_log_severity=notification
 fds_sm_data_verify=false
@@ -60,3 +67,13 @@ fds_dm_catalog_cache_size=16777216
 fds_dm_catalog_write_buffer_size=52428800
 fds_am_testing_am_testing_toggleDisableStreamingStats=true
 
+[bld-deploy-nodes]
+bld-deploynode-0[1:4]
+
+[bld-deploy-nodes:vars]
+fds_default_nic=eth0
+fds_om_host=bld-deploynode-01
+fds_metrics_enabled=false
+fds_metricsdb_ip=127.0.0.1
+fds_ssh_user=root
+fds_ssh_password=passwd
