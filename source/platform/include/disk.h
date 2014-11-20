@@ -87,7 +87,7 @@ class PmDiskObj : public DiskObj
      * @param blk : /devices/pci00:00/0000:00:0d.0/ata3/host2/target2:0:0/2:0:0:0/block/
      * @param dev : /dev/sda
      */
-    static bool dsk_blk_dev_path(const char *raw, std::string *blk, std::string *dev);
+    static bool dsk_blk_dev_path(const char *raw, std::string &blk, std::string &dev);
     static inline PmDiskObj::pointer dsk_cast_ptr(DiskObj::pointer ptr) {
         return static_cast<PmDiskObj *>(get_pointer(ptr));
     }
@@ -112,10 +112,10 @@ class PmDiskObj : public DiskObj
     void dsk_read_uuid();
 
     /**
-     * Raw sector read/write to support supper block update.  Only done in parent disk.
+     * Raw sector read/write to support super block update.  Only done in parent disk.
      */
-    virtual int dsk_read(void *buf, fds_uint32_t sector, int sect_cnt);
-    virtual int dsk_write(bool sim, void *buf, fds_uint32_t sector, int sect_cnt);
+    virtual ssize_t dsk_read(void *buf, fds_uint32_t sector, int sect_cnt);
+    virtual ssize_t dsk_write(bool sim, void *buf, fds_uint32_t sector, int sect_cnt);
 
     /**
      * Return the slice device matching with the dev_path (e.g. /dev/sda, /dev/sda1...)
@@ -149,7 +149,7 @@ class PmDiskInventory : public DiskInventory
 {
   protected:
     DiskDevMap               dsk_dev_map;
-    int                      dsk_qualify_cnt;    /**< disks that can run FDS SW.   */
+    uint32_t                 dsk_qualify_cnt;    /**< disks that can run FDS SW.   */
     ChainList                dsk_discovery;
     ChainList                dsk_prev_inv;       /**< previous inventory list.     */
     ChainList                dsk_curr_inv;       /**< disks that were enumerated.  */
@@ -190,7 +190,7 @@ class PmDiskInventory : public DiskInventory
     virtual void dsk_do_partition();
     virtual void dsk_admit_all();
     virtual void dsk_mount_all();
-    virtual bool dsk_read_label(DiskLabelMgr *mgr, bool creat);
+    virtual bool disk_read_label(DiskLabelMgr *mgr, bool creat);
 };
 
 /**
@@ -205,7 +205,7 @@ class DiskPlatModule : public Module
     struct udev_enumerate    *dsk_enum;
     struct udev_monitor      *dsk_mon;
     FileDiskInventory        *dsk_sim;
-    DiskLabelMgr             *dsk_label;
+    DiskLabelMgr             *label_manager;
     struct pollfd            pollfds[1];
 
     void dsk_discover_mount_pts();
@@ -257,7 +257,7 @@ class FileDiskInventory : public PmDiskInventory
     virtual void dsk_do_partition();
     virtual void dsk_admit_all();
     virtual void dsk_mount_all();
-    virtual bool dsk_read_label(DiskLabelMgr *mgr, bool creat);
+    virtual bool disk_read_label(DiskLabelMgr *mgr, bool creat);
 
   private:
     void dsk_file_create(const char *type, int count, ChainList *list);
@@ -275,8 +275,8 @@ class FileDiskObj : public PmDiskObj
     explicit FileDiskObj(const char *dir);
     ~FileDiskObj();
 
-    virtual int dsk_read(void *buf, fds_uint32_t sector, int sect_cnt);
-    virtual int dsk_write(bool sim, void *buf, fds_uint32_t sector, int sect_cnt);
+    virtual ssize_t dsk_read(void *buf, fds_uint32_t sector, int sect_cnt);
+    virtual ssize_t dsk_write(bool sim, void *buf, fds_uint32_t sector, int sect_cnt);
 };
 
 }  // namespace fds

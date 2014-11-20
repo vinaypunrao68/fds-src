@@ -118,14 +118,16 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
 
                 if ( angular.isDefined( $scope.tenant ) ){
 
-                    $tenant_api.attachUser( $scope.tenant, item.id, function(){
-                    
-                        $scope.cancel();
+                        $tenant_api.attachUser( $scope.tenant, item.id, function(){
                     }, function(){} );
                 }
             },
             function( response ){
                 $scope.passwordError = response;
+            }).then( function(){
+                
+                $scope.cancel();
+            
             });
     };
 

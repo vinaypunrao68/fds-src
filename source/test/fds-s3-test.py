@@ -672,6 +672,7 @@ def main():
 
     g_connection.s3_connect()
 
+
     test_classes = [TestS3Conn, TestS3Bucket, TestS3Key]
     loader       = unittest.TestLoader()
     suites_list  = []
