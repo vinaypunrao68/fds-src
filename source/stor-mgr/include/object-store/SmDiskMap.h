@@ -7,6 +7,7 @@
 #include <string>
 #include <set>
 #include <utility>
+#include <atomic>
 
 #include <fds_module.h>
 #include <dlt.h>
@@ -126,10 +127,12 @@ class SmDiskMap : public Module, public boost::noncopyable {
     /// platform, and use SM service uuid = 1
     fds_bool_t test_mode;
 
-    /// SSD capacity tracking for tiering
-    // Maps from DiskId -> <usedCapacity, totalCapcity>
-    std::unordered_map<fds_uint16_t,
-            std::pair<fds_uint64_t, fds_uint64_t>> * capacityMap;
+    /// Map from disk idx to SSD capacity array idx
+    std::unordered_map<fds_uint16_t, fds_uint8_t> * ssdIdxMap;
+    // For now we'll assume no more than 60 SSDs.
+    std::atomic<fds_uint64_t> maxSSDCapacity[60];
+    std::atomic<fds_uint64_t> consumedSSDCapacity[60];
+
 
     friend class ObjectPersistData;
 };
