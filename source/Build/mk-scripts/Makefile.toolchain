@@ -69,6 +69,16 @@ toolchain_gmock        := $(topdir)/../gmock-1.7.0
 toolchain_gmock_incl   := -I$(toolchain_gmock)/gtest/include -I$(toolchain_gmock)/include
 toolchain_gmock_lib    := -L$(toolchain_gmock)
 
+## TC malloc settings
+#
+toolchain_tcmalloc     := /usr/lib/libtcmalloc.so
+toolchain_tcmalloc_lib := -L$(toolchain_tcmalloc)
+
+## JE malloc settings
+#
+toolchain_jemalloc     := /usr/lib/libjemalloc.so
+toolchain_jemalloc_lib := -L$(toolchain_jemalloc)
+
 ## Python binding settings
 #
 ifdef user_python
@@ -100,6 +110,7 @@ toolchain_ld_flags   := -L$(toolchain_boost_lib)
 toolchain_ld_flags   += -L$(toolchain_ldb_lib) -L$(toolchain_lib)
 toolchain_ld_flags   += $(toolchain_python_bind_lib)
 toolchain_ld_flags   += $(toolchain_gmock_lib)
+toolchain_ld_flags   += $(toolchain_tcmalloc_lib)
 
 toolchain_so_flags   :=
 toolchain_ar_flags   :=
