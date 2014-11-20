@@ -21,126 +21,10 @@
 #include <nbd-test-mod.h>
 #include <StorHvisorNet.h>
 
-#include <thrift/protocol/TBinaryProtocol.h>
-#include <thrift/server/TThreadedServer.h>
-#include <thrift/transport/TServerSocket.h>
-#include <thrift/transport/TBufferTransports.h>
-#include <thrift/transport/TTransportUtils.h>
-#include <fdsp/TestAMSvc.h>
-#include <fdsp/TestDMSvc.h>
-#include <util/fiu_util.h>
-#include <util/timeutils.h>
-
 namespace fds {
-
-using namespace ::apache::thrift;  // NOLINT
-using namespace ::apache::thrift::protocol;  // NOLINT
-using namespace ::apache::thrift::transport;  // NOLINT
-using namespace ::apache::thrift::server;  // NOLINT
-
 
 BlockMod                    *gl_BlockMod;
 NbdBlockMod                  gl_NbdBlockMod;
-
-class TestAMSvcHandler : virtual public TestAMSvcIf {
- public:
-    TestAMSvcHandler() {
-        reqId_ = 0;
-        // Your initialization goes here
-    }
-    int32_t associate(const std::string& myip, const int32_t port) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-        return 0;
-    }
-    int32_t associate(boost::shared_ptr<std::string>& myip, boost::shared_ptr<int32_t>& port) {  // NOLINT
-        // Your implementation goes here
-        printf("associate\n");
-        return 0;
-    }
-    void putObjectRsp(const  ::FDS_ProtocolInterface::AsyncHdr& asyncHdr,
-                      const  ::FDS_ProtocolInterface::PutObjectRspMsg& payload) {  // NOLINT
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    void putObjectRsp(boost::shared_ptr< ::FDS_ProtocolInterface::AsyncHdr>& asyncHdr,
-                      boost::shared_ptr< ::FDS_ProtocolInterface::PutObjectRspMsg>& payload) {  // NOLINT
-        // Your implementation goes here
-        printf("putObjectRsp\n");
-    }
-    void updateCatalogRsp(const  ::FDS_ProtocolInterface::AsyncHdr& asyncHdr,
-                          const  ::FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& payload) {  // NOLINT
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    void updateCatalogRsp(boost::shared_ptr< ::FDS_ProtocolInterface::AsyncHdr>& asyncHdr,
-                          boost::shared_ptr< ::FDS_ProtocolInterface::UpdateCatalogOnceRspMsg>& payload)  // NOLINT
-    {
-        lock_.lock();
-        NbdBlkIO* io = reqMap_[asyncHdr->msg_src_id];
-        reqMap_.erase(asyncHdr->msg_src_id);
-        lock_.unlock();
-        volPtr_->nbd_vol_write_cb(io, nullptr, ERR_OK, nullptr);
-    }
-
-    void setNbdVol(NbdBlkVol::ptr volPtr)
-    {
-        volPtr_ = volPtr;
-    }
-
-    int addRequest(NbdBlkIO* io) {
-        lock_.lock();
-        int reqId = reqId_++;
-        reqMap_[reqId] = io;
-        lock_.unlock();
-        return reqId;
-    }
-
-    fds_mutex lock_;
-    int reqId_;
-    std::unordered_map<int, NbdBlkIO*> reqMap_;
-
-    NbdBlkVol::ptr volPtr_;
-};
-
-struct TestAMServer {
-    explicit TestAMServer(int amPort) {
-        handler_.reset(new TestAMSvcHandler());
-        boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
-        boost::shared_ptr<TProcessor> processor(
-            new ::FDS_ProtocolInterface::TestAMSvcProcessor(handler_));
-        boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(amPort));
-        boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
-        server_.reset(new TThreadedServer(processor, serverTransport,
-                                          transportFactory, protocolFactory));
-    }
-    ~TestAMServer() {
-        server_->stop();
-    }
-
-    void serve()
-    {
-        t_ = new std::thread(std::bind(&TThreadedServer::serve, server_.get()));
-    }
-
-    std::thread *t_;
-    boost::shared_ptr<TestAMSvcHandler> handler_;
-    boost::shared_ptr<TThreadedServer> server_;
-};
-std::unique_ptr<TestAMServer> amServer;
-boost::shared_ptr<fpi::TestDMSvcClient> dmClient;
-
-int dmSessionId;
-int dmPort = 9097;
-int amPort = 9595;
-
-struct NbdCounters : FdsCounters {
-    NbdCounters()
-    : FdsCounters("Am.nbd.", g_cntrs_mgr.get()),
-    getDmNodegroup("getDmNodegroup", this)
-    {
-    }
-
-    LatencyCounter getDmNodegroup;
-};
-NbdCounters *gNbdCntrs;
 
 /**
  * -----------------------------------------------------------------------------------
@@ -394,14 +278,11 @@ NbdBlkVol::nbd_vol_read_cb(NbdBlkIO                    *vio,
 void
 NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
 {
-    fiu_do_on("nbd.usethrift", nbd_vol_th_write(vio); return;);
-
     ssize_t             len, off;
     NbdBlkVol::ptr      vol;
     std::stringstream   ss;
     fpi::FDSP_BlobObjectInfo     object;
     fpi::UpdateCatalogOnceMsgPtr upcat(bo::make_shared<fpi::UpdateCatalogOnceMsg>());
-    util::StopWatch sw;
 
     vol = vio->nbd_vol;
     upcat->blob_name.assign(vol->vol_name);
@@ -429,66 +310,19 @@ NbdBlkVol::nbd_vol_write(NbdBlkIO *vio)
         }
         upcat->obj_list.push_back(object);
     }
-    fiu_do_on("nbd.uturn.afterloop", return;);
-    sw.start();
-    if (dmtGroup.get() == nullptr) {
-        auto dmtMgr = BlockMod::blk_singleton()->blk_amc->om_client->getDmtManager();
-        dmtGroup = dmtMgr->getCommittedNodeGroup(vol->vol_uuid);
+
+    if (true == vol->vol_test_flag) {
+        return;
     }
 
+    auto dmtMgr = BlockMod::blk_singleton()->blk_amc->om_client->getDmtManager();
     auto upcat_req = gSvcRequestPool->newQuorumSvcRequest(
-            boost::make_shared<DmtVolumeIdEpProvider>(dmtGroup));
-    gNbdCntrs->getDmNodegroup.update(sw.getElapsedNanos());
-    fiu_do_on("nbd.uturn.afterquorumreq", return;);
+                boost::make_shared<DmtVolumeIdEpProvider>(
+                    dmtMgr->getCommittedNodeGroup(vol->vol_uuid)));
 
     upcat_req->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), upcat);
     upcat_req->onResponseCb(RESPONSE_MSG_HANDLER(NbdBlkVol::nbd_vol_write_cb, vio));
-    fiu_do_on("nbd.uturn.beforeinvoke", return;);
     upcat_req->invoke();
-
-    vio->aio_wait(&vol_mtx, &vol_waitq);
-}
-
-void
-NbdBlkVol::nbd_vol_th_write(NbdBlkIO *vio)
-{
-    ssize_t             len, off;
-    NbdBlkVol::ptr      vol;
-    std::stringstream   ss;
-    fpi::FDSP_BlobObjectInfo     object;
-    fpi::UpdateCatalogOnceMsgPtr upcat(bo::make_shared<fpi::UpdateCatalogOnceMsg>());
-
-    vol = vio->nbd_vol;
-    upcat->blob_name.assign(vol->vol_name);
-
-    upcat->blob_version = blob_version_invalid;
-    upcat->volume_id    = vol->vol_uuid;
-    upcat->txId         = vol->vio_txid++;
-    upcat->blob_mode    = false;
-
-    off = vio->nbd_cur_off & ~vol->vol_blksz_mask;
-    len = vio->nbd_cur_len + (vio->nbd_cur_len & vol->vol_blksz_mask);
-
-    while (len > 0) {
-        ss << (off + 1);
-        object.offset = off;
-        object.size   = vol->vol_blksz_byte;
-        object.data_obj_id.digest = ss.str();
-        object.blob_end = false;
-
-        if (len > vol->vol_blksz_byte) {
-            len -= vol->vol_blksz_byte;
-            off += vol->vol_blksz_byte;
-        } else {
-            len  = 0;
-        }
-        upcat->obj_list.push_back(object);
-    }
-
-    fpi::AsyncHdr hdr;
-    hdr.msg_src_uuid.svc_uuid = dmSessionId;
-    hdr.msg_src_id = amServer->handler_->addRequest(vio);
-    dmClient->updateCatalog(hdr, *upcat);
 
     vio->aio_wait(&vol_mtx, &vol_waitq);
 }
@@ -682,17 +516,11 @@ NbdBlockMod::NbdBlockMod() : EvBlockMod(), nbd_devno(0) {}
 BlkVol::ptr
 NbdBlockMod::blk_alloc_vol(const blk_vol_creat *r)
 {
-    NbdBlkVol::ptr volPtr;
     if (ev_prim_loop == NULL) {
         ev_prim_loop = EV_DEFAULT;
-         volPtr = new NbdBlkVol(r, ev_prim_loop);
-    } else {
-        volPtr = new NbdBlkVol(r, ev_loop_new(0));
+        return new NbdBlkVol(r, ev_prim_loop);
     }
-#if 0
-    amServer->handler_->setNbdVol(volPtr);
-#endif
-    return volPtr;
+    return new NbdBlkVol(r, ev_loop_new(0));
 }
 
 /**
@@ -702,23 +530,6 @@ NbdBlockMod::blk_alloc_vol(const blk_vol_creat *r)
 void
 NbdBlockMod::mod_startup()
 {
-    gNbdCntrs = new NbdCounters();
-
-#if 0
-    amServer.reset(new TestAMServer(amPort));;
-    amServer->serve();
-    sleep(5);
-
-    boost::shared_ptr<TTransport> dmSock(new TSocket("127.0.0.1", dmPort));
-    boost::shared_ptr<TFramedTransport> dmTrans(new TFramedTransport(dmSock));
-    boost::shared_ptr<TProtocol> dmProto(new TBinaryProtocol(dmTrans));
-    dmClient.reset(new fpi::TestDMSvcClient(dmProto));
-    /* Connect to DM by sending my ip port so dm can connect to me */
-    dmTrans->open();
-    dmSessionId = dmClient->associate("127.0.0.1", amPort);
-    sleep(1);
-#endif
-
     EvBlockMod::mod_startup();
 }
 
