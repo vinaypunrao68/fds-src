@@ -1,12 +1,15 @@
 topdir           := ../..
 user_target      := lib
 user_rtime_env   := user
-user_incl_dir    := .. $(topdir)
+user_incl_dir    := .. $(topdir) \
+    $(topdir)/data-mgr/include
+user_cpp_flags    := -DLEVELDB_PLATFORM_POSIX
 user_cpp         := \
-    copy_env.cpp
+    copy_env.cpp \
+    cat_journal_iterator.cpp
 
 user_no_style    := \
-    copy_env.cpp        \
+    copy_env.cpp
 
 # TODO: should change this directory and this lib to something more
 # specific.

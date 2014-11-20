@@ -6,6 +6,7 @@
 
 #include <string>
 #include <set>
+#include <vector>
 
 #include <fds_error.h>
 #include <fds_types.h>
@@ -207,6 +208,11 @@ class DmVolumeDirectory : public Module, public HasLogger,
      * Sync volume catalog to DM 'dmUuid'
      */
     Error syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid);
+
+    // volcat  replay
+    Error dmVolReplay(Catalog *replatCat, std::vector<std::string> &files,
+                                fds_uint64_t timelineTime);
+    Error dmVolGetLogTime(const std::string &logfile, fds_uint64_t *journal_time);
 
     /**
      * Get total matadata size for a volume

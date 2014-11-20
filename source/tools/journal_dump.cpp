@@ -27,6 +27,7 @@
 #include <dm-vol-cat/DmPersistVolDir.h>
 
 #define USE_NEW_LDB_STRUCTURES
+#include <leveldb/cat_journal_iterator.h>
 
 namespace leveldb {
 
@@ -188,6 +189,17 @@ int main(int argc, char** argv) {
     std::string command("dump");
     if (command == "dump") {
       ok = leveldb::HandleDumpCommand(env, argv+1, argc-1);
+      // ok = leveldb::HandleDumpCommand(env, argv+1, argc-1);
+      leveldb::CatJournalIterator iter(argv[1]);
+      leveldb::WriteBatchItemPrinter batch_item_printer;
+      for(iter.Next(); iter.isValid(); iter.Next()) {
+         const leveldb::WriteBatch &wb = iter.GetBatch();
+         leveldb::Status s = wb.Iterate(&batch_item_printer);
+         std::cout << std::endl;
+         if (!s.ok()) {
+            printf("  error: %s\n", s.ToString().c_str());
+          }
+      }
     } else {
       Usage();
       ok = false;
