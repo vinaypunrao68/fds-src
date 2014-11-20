@@ -95,13 +95,14 @@ class TestList():
         for size in [4096]:
             for nvols in [1]:
                 # for th in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40]:
-                for th in range(1,51):
+                # for th in range(1,51):
+                for th in [1, 2 ,3 ,4]:
                     #for outs in [2, 4, 10, 20, 50]:
-                    for outs in [2]:
+                    for outs in [1, 5, 10, 20, 30, 40, 50]:
                         #for th in [4]:
                         #for th in [21]:
                         # for th in [30]:
-                            total_reqs = max([th * 1000000 / 50, 100000])
+                            total_reqs = max([th * 300000 / 50, 100000])
                             test = dict(template)
                             test["type"] = "PUT"
                             test["nreqs"] = 100000
@@ -111,7 +112,7 @@ class TestList():
                             test["fsize"] = size
                             #tests.append(test)
                             test = dict(template)
-                            # test["test_type"] = "tgen_java"
+                            test["test_type"] = "tgen_java"
                             test["type"] = "GET"
                             test["nreqs"] = total_reqs
                             test["nfiles"] = 1000
@@ -152,8 +153,8 @@ def main():
     (options, args) = parser.parse_args()
 
     tl = TestList()
-    # tl.create_tests_s3()
-    tl.create_tests_fio()
+    tl.create_tests_s3()
+    # tl.create_tests_fio()
     print "Tests:"
     pp = pprint.PrettyPrinter(indent=4)
     for e in tl.get_tests():

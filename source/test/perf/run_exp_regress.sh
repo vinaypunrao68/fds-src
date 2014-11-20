@@ -22,6 +22,8 @@ TEST_DIR=/regress/test-$RANDOM
 ./run_experiment.py -n $PYRO_IP -p $PYRO_PORT -m $HOSTNAME -M local-single -J $TEST_JSON -d $TEST_DIR -c 1 -j -t $TEST_IP -D $WORKSPACE --fds-nodes $HOSTNAME
 if [ "$test_type" = "fio" ] ; then
     ./do_stats.sh $TEST_DIR $HOSTNAME test.db $HOSTNAME $TAG fio > $TEST_DIR/results.csv
+elif [ "$test_type" = "s3_java" ] ; then
+    ./do_stats.sh $TEST_DIR $HOSTNAME test.db $HOSTNAME $TAG s3_java > $TEST_DIR/results.csv
 else
     ./do_stats.sh $TEST_DIR $HOSTNAME test.db $HOSTNAME $TAG > $TEST_DIR/results.csv
 fi
