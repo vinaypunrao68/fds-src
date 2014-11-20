@@ -564,7 +564,7 @@ bool PmDiskInventory::dsk_need_simulation()
 
     /* Remove ssd disks */
     hdd_count = dsk_count - DISK_ALPHA_COUNT_SSD;
-std::cerr << "hdd_count = " << hdd_count << "  dsk_qualify_cnt = " << dsk_qualify_cnt << std::endl;
+
     if ((hdd_count <= dsk_qualify_cnt) && (hdd_count >= DISK_ALPHA_COUNT_HDD_MIN)) {
         // if (dsk_qualify_cnt >= DISK_ALPHA_COUNT_HDD_MIN) {
         return false;
