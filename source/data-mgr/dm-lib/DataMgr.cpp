@@ -774,6 +774,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_START_BLOB_TX] = new dm::StartBlobTxHandler();
     handlers[FDS_DM_STAT_STREAM] = new dm::StatStreamHandler();
     handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler();
+    handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1055,102 +1056,6 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
 
     const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
     return (*mySvcUuid == nodes->get(0));
-}
-
-void
-DataMgr::updateCatalogOnce(dmCatReq *io) {
-    DmIoUpdateCatOnce *updCatReq= static_cast<DmIoUpdateCatOnce*>(io);
-    // Start the transaction
-    Error err = timeVolCat_->startBlobTx(updCatReq->volId,
-                                         updCatReq->blob_name,
-                                         updCatReq->updcatMsg->blob_mode,
-                                         updCatReq->ioBlobTxDesc);
-    if (err != ERR_OK) {
-        LOGERROR << "Failed to start transaction "
-                 << *updCatReq->ioBlobTxDesc << ": " << err;
-        if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
-        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
-                         updCatReq->perfNameStr);
-        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
-        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
-        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
-        return;
-    }
-
-    // Apply the offset updates
-    err = timeVolCat_->updateBlobTx(updCatReq->volId,
-                                    updCatReq->ioBlobTxDesc,
-                                    updCatReq->updcatMsg->obj_list);
-    if (err != ERR_OK) {
-        LOGERROR << "Failed to update object offsets for transaction "
-                 << *updCatReq->ioBlobTxDesc << ": " << err;
-        err = timeVolCat_->abortBlobTx(updCatReq->volId,
-                                       updCatReq->ioBlobTxDesc);
-        if (!err.ok()) {
-            LOGERROR << "Failed to abort transaction "
-                     << *updCatReq->ioBlobTxDesc;
-        }
-        if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
-        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
-                         updCatReq->perfNameStr);
-        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
-        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
-        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
-        return;
-    }
-
-    // Apply the metadata updates
-    err = timeVolCat_->updateBlobTx(updCatReq->volId,
-                                    updCatReq->ioBlobTxDesc,
-                                    updCatReq->updcatMsg->meta_list);
-    if (err != ERR_OK) {
-        LOGERROR << "Failed to update metadata for transaction "
-                 << *updCatReq->ioBlobTxDesc << ": " << err;
-        err = timeVolCat_->abortBlobTx(updCatReq->volId,
-                                       updCatReq->ioBlobTxDesc);
-        if (!err.ok()) {
-            LOGERROR << "Failed to abort transaction "
-                     << *updCatReq->ioBlobTxDesc;
-        }
-        if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
-        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
-                         updCatReq->perfNameStr);
-        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
-        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
-        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
-        return;
-    }
-
-    // Commit the metadata updates
-    // The commit callback we pass in will actually call the
-    // final service callback
-    PerfTracer::tracePointBegin(updCatReq->commitBlobReq->opLatencyCtx);
-    err = timeVolCat_->commitBlobTx(updCatReq->volId,
-                                    updCatReq->blob_name,
-                                    updCatReq->ioBlobTxDesc,
-                                    std::bind(&dm::CommitBlobTxHandler::volumeCatalogCb,
-                                              static_cast<dm::CommitBlobTxHandler*>(
-                                                      handlers[FDS_COMMIT_BLOB_TX]),
-                                              std::placeholders::_1, std::placeholders::_2,
-                                              std::placeholders::_3, std::placeholders::_4,
-                                              updCatReq->commitBlobReq));
-    if (err != ERR_OK) {
-        LOGERROR << "Failed to commit transaction "
-                 << *updCatReq->ioBlobTxDesc << ": " << err;
-        err = timeVolCat_->abortBlobTx(updCatReq->volId,
-                                       updCatReq->ioBlobTxDesc);
-        if (!err.ok()) {
-            LOGERROR << "Failed to abort transaction "
-                     << *updCatReq->ioBlobTxDesc;
-        }
-        if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
-        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
-                         updCatReq->perfNameStr);
-        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
-        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
-        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
-        return;
-    }
 }
 
 //

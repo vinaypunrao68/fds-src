@@ -81,7 +81,7 @@ TEST_F(DmUnitTest, AddVolume) {
 
 static void testPutBlobOnce(boost::shared_ptr<DMCallback> & cb, DmIoUpdateCatOnce * dmUpdCatReq) {
     TIMEDBLOCK("process") {
-        dataMgr->updateCatalogOnce(dmUpdCatReq);
+        dataMgr->handlers[FDS_CAT_UPD_ONCE]->handleQueueItem(dmUpdCatReq);
         cb->wait();
     }
     EXPECT_EQ(ERR_OK, cb->e);

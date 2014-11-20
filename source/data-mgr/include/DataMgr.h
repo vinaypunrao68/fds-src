@@ -173,11 +173,6 @@ struct DataMgr : Module, DmIoReqHandler {
 
             switch (io->io_type){
                 /* TODO(Rao): Add the new refactored DM messages types here */
-                case FDS_CAT_UPD_ONCE:
-                    threadPool->schedule(&DataMgr::updateCatalogOnce,
-                                         dataMgr,
-                                         io);
-                    break;
                 case FDS_DM_SNAP_VOLCAT:
                 case FDS_DM_SNAPDELTA_VOLCAT:
                     threadPool->schedule(&DataMgr::snapVolCat, dataMgr, io);
@@ -217,6 +212,7 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_START_BLOB_TX:
                 case FDS_DM_STAT_STREAM:
                 case FDS_COMMIT_BLOB_TX:
+                case FDS_CAT_UPD_ONCE:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
@@ -355,9 +351,7 @@ struct DataMgr : Module, DmIoReqHandler {
     }
 
     /* TODO(Rao): Add the new refactored DM messages handlers here */
-    void updateCatalogOnce(dmCatReq *io);
     void updateCatalog(dmCatReq *io);
-    void scheduleGetBlobMetaDataSvc(void *io);
     void fwdUpdateCatalog(dmCatReq *io);
     /**
      * Callback from volume catalog when forwarded blob update is
