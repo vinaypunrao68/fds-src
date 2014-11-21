@@ -89,83 +89,6 @@ using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
 
-class FDSP_DataPathRespCbackI : public FDS_ProtocolInterface::FDSP_DataPathRespIf
-{
-public:
-    FDSP_DataPathRespCbackI() {
-    }
-    ~FDSP_DataPathRespCbackI() {
-    }
-
-    virtual void GetObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_GetObjType& get_obj_req) {
-    }
-    virtual void GetObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_GetObjType>& get_obj_req);
-    virtual void PutObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_PutObjType& put_obj_req) {
-    }
-    virtual void PutObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_PutObjType>& put_obj_req);
-    virtual void DeleteObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_DeleteObjType& del_obj_req) {
-    }
-    virtual void DeleteObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_DeleteObjType>& del_obj_req);
-    virtual void OffsetWriteObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_OffsetWriteObjType& offset_write_obj_req) {
-    }
-    virtual void OffsetWriteObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_OffsetWriteObjType>& offset_write_obj_req) {
-    }
-    virtual void RedirReadObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_RedirReadObjType& redir_write_obj_req) {
-    }
-    virtual void RedirReadObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_RedirReadObjType>& redir_write_obj_req){
-    }
-    virtual void GetObjectMetadataResp(
-            boost::shared_ptr<FDSP_GetObjMetadataResp>& metadata_resp) {
-    }
-    virtual void GetObjectMetadataResp(const FDSP_GetObjMetadataResp& metadata_resp) {
-    }
-
-};
-
-
-class FDSP_MetaDataPathRespCbackI : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf
-{
-public:
-    FDSP_MetaDataPathRespCbackI() {
-    }
-
-    ~FDSP_MetaDataPathRespCbackI() {
-    }
-
-    virtual void StartBlobTxResp(const FDSP_MsgHdrType &msgHdr) {
-    }
-    virtual void StartBlobTxResp(boost::shared_ptr<FDSP_MsgHdrType> &msgHdr);
-    virtual void UpdateCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_UpdateCatalogType& cat_obj_req) {
-    }
-    virtual void UpdateCatalogObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_UpdateCatalogType>& cat_obj_req);
-    virtual void QueryCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_QueryCatalogType& cat_obj_req) {
-    }
-    virtual void QueryCatalogObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_QueryCatalogType>& cat_obj_req);
-    virtual void DeleteCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_DeleteCatalogType& cat_obj_req) {
-    }
-    virtual void DeleteCatalogObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_DeleteCatalogType>& cat_obj_req);
-    virtual void GetVolumeBlobListResp(const FDSP_MsgHdrType& fds_msg, const FDSP_GetVolumeBlobListRespType& blob_list_rsp) {
-    }
-    virtual void GetVolumeBlobListResp(boost::shared_ptr<FDSP_MsgHdrType>& fds_msg, boost::shared_ptr<FDSP_GetVolumeBlobListRespType>& blob_list_rsp);
-
-    virtual void StatBlobResp(const FDSP_MsgHdrType &msgHdr,
-                              const FDS_ProtocolInterface::BlobDescriptor &blobDesc) {
-    }
-
-    virtual void StatBlobResp(boost::shared_ptr<FDSP_MsgHdrType> &msgHdr,
-                              boost::shared_ptr<FDS_ProtocolInterface::
-                              BlobDescriptor> &blobDesc);
-
-    virtual void SetBlobMetaDataResp(const FDSP_MsgHdrType& header, const std::string& blobName) {}
-    virtual void GetBlobMetaDataResp(const FDSP_MsgHdrType& header, const std::string& blobName, const FDSP_MetaDataList& metaDataList) {}
-    virtual void GetVolumeMetaDataResp(const FDSP_MsgHdrType& header, const FDSP_VolumeMetaData& volumeMeta) {}
-
-    virtual void SetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header, boost::shared_ptr<std::string>& blobName);
-    virtual void GetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header, boost::shared_ptr<std::string>& blobName, boost::shared_ptr<FDSP_MetaDataList>& metaDataList);
-    virtual void GetVolumeMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header, boost::shared_ptr<FDSP_VolumeMetaData>& volumeMeta);
-};
-
-
 typedef struct {
     double   hash_high;
     double   hash_low;
@@ -279,33 +202,20 @@ public:
                                    StorHvJournalEntry *journEntry);
     fds::Error resumePutBlob(StorHvJournalEntry *journEntry);
 
-    fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                          const FDSP_PutObjTypePtr& putObjRsp);
-    fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
-                         const FDSP_UpdateCatalogTypePtr& catObjRsp);
     void statBlobResp(const FDSP_MsgHdrTypePtr rxMsg, 
                       const FDS_ProtocolInterface::
                       BlobDescriptorPtr blobDesc);
-    void startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg);
-    fds::Error deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                             const FDSP_DeleteCatalogTypePtr& delCatRsp);
-
     void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
     void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
     void fbd_process_req_timeout(unsigned long arg);
 
-    int fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);  
-    int fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);
     SysParams* getSysParams();
     void StartOmClient();
     sh_comm_modes GetRunTimeMode() { return mode; }
-    boost::shared_ptr<FDSP_DataPathRespCbackI> dPathRespCback;
-    boost::shared_ptr<FDSP_MetaDataPathRespCbackI> mPathRespCback;
     Error dispatchSmPutMsg(StorHvJournalEntry *journEntry, const NodeUuid &send_uuid);
     Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
     Error dispatchDmUpdMsg(StorHvJournalEntry *journEntry,
                            const NodeUuid &send_uuid);
-    friend class FDSP_MetaDataPathRespCbackI;
 
     struct TxnResponseHelper {
         StorHvCtrl* storHvisor = NULL;

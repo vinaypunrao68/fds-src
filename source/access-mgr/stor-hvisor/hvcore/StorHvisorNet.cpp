@@ -132,9 +132,6 @@ StorHvCtrl::StorHvCtrl(int argc,
     assert(myIp.empty() == false);
     LOGNOTIFY << "StorHvisorNet - My IP: " << myIp;
 
-    dPathRespCback.reset(new FDSP_DataPathRespCbackI());
-    mPathRespCback.reset(new FDSP_MetaDataPathRespCbackI());
-
     /*  Create the QOS Controller object */
     fds_uint32_t qos_threads = config.get<int>("qos_threads");
     qos_ctrl = new StorHvQosCtrl(qos_threads,

@@ -55,21 +55,6 @@ void StorHvDataPlacement::nodeEventHandler(int node_id,
            return;
          }
          
-         if (node_type == FDS_ProtocolInterface::FDSP_STOR_MGR) {
-           FDS_PLOG(storHvisor->GetLog()) << "Adding SM RPC endpoint";
-           storHvisor->rpcSessionTbl->
-               startSession<netDataPathClientSession>(node_ip_addr,
-                                (fds_int32_t)node_port,
-                                FDS_ProtocolInterface::FDSP_STOR_MGR,0,
-                                storHvisor->dPathRespCback);
-         } else if (node_type == FDS_ProtocolInterface::FDSP_DATA_MGR) {
-           FDS_PLOG(storHvisor->GetLog()) << "Adding DM RPC endpoint";
-           storHvisor->rpcSessionTbl->
-             startSession<netMetaDataPathClientSession>(node_ip_addr,
-                              (fds_int32_t)node_port,
-                              FDS_ProtocolInterface::FDSP_DATA_MGR,0, 
-                              storHvisor->mPathRespCback); 
-         }
          FDS_PLOG(storHvisor->GetLog()) << "Added an endpoint";
 
          break;

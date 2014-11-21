@@ -20,7 +20,6 @@ StorHvisor_cpp    :=                   \
     StorHvisorSvc.cpp                  \
     StorHvisorTx.cpp                   \
     StorHvisorTbl.cpp                  \
-    StorHvisorRx.cpp                   \
     VolumeCatalogCache.cpp             \
     StorHvJournal.cpp                  \
     qos_ctrl.cpp	                   \
@@ -47,7 +46,6 @@ user_no_style     := $(user_cc) \
     StorHvisorSvc.cpp \
     StorHvisorTx.cpp \
     StorHvisorTbl.cpp \
-    StorHvisorRx.cpp \
     qos_ctrl.cpp \
     StorHvQosCtrl.cpp \
     StorHvVolumes.cpp \
