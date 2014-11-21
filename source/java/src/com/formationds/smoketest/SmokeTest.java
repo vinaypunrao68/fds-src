@@ -4,6 +4,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.model.Bucket;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.Snapshot;
 import com.formationds.util.s3.S3SignatureGenerator;
@@ -91,6 +92,30 @@ public class SmokeTest {
                 .toString();
         count = 10;
         config = new XdiClientFactory().remoteOmService(host, 9090);
+        
+        testBucketExists(userBucket);
+        testBucketExists(adminBucket);
+    }
+
+    public void testBucketExists(String bucketName) {
+        List<Bucket> buckets;
+        boolean fBucketExists = false;
+        int count = 0;
+        //System.out.println("checking bucket : " + bucketName);
+        do {
+            buckets = adminClient.listBuckets();
+            for (Bucket b : buckets) {
+                if (b.getName().equals(bucketName)) {
+                    fBucketExists = true;
+                    break;
+                }
+            }
+            count++;
+            if (!fBucketExists && count< 10) {
+                sleep(1000);
+            }
+        } while ( !fBucketExists && count < 10);
+        assertEquals("bucket [" + bucketName + "] NOT active", true, fBucketExists);
     }
 
     void sleep(long ms) {
