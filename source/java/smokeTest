@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 for i in ../lib/java/fds-1.0-bin/fds-1.0/* ; do {
     CLASSPATH=$CLASSPATH:$i ;
 } done
@@ -14,5 +13,6 @@ fi
 
 java -classpath $CLASSPATH \
      -Dfds.host=$1 \
+     -Dcom.formationds.smoketest.RNG_CLASS=java.util.Random \
      com.formationds.smoketest.SmokeTestRunner
 
