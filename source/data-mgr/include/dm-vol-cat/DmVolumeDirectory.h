@@ -12,6 +12,7 @@
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <util/Log.h>
+#include <concurrency/Mutex.h>
 #include <concurrency/RwLock.h>
 
 #include <VcQueryIface.h>
@@ -238,7 +239,7 @@ class DmVolumeDirectory : public Module, public HasLogger,
     expunge_objs_cb_t expungeCb_;
 
     DmVolumeSummaryMap_t volSummaryMap_;
-    fds_rwlock lockVolSummaryMap_;
+    fds_mutex lockVolSummaryMap_;
 };
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMEDIRECTORY_H_
