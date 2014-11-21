@@ -42,3 +42,11 @@
       - nodejs-legacy
       - ruby
       - ruby-sass
+      - daemon
+
+  - group: name=jenkins gid=119
+
+  - user: name=jenkins comment="Jenkins" uid=111 group=jenkins
+
+  - file: path=/var/run/jenkins owner=jenkins group=jenkins mode=0755 state=directory
+  - file: path=/var/log/jenkins owner=jenkins group=jenkins mode=0755 state=directory
