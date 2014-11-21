@@ -16,11 +16,9 @@ user_cpp_flags    :=
 
 StorHvisor_cpp    :=                   \
     StorHvisorNet.cpp                  \
-    StorHvisorS3.cpp                  \
     StorHvisorSvc.cpp                  \
     StorHvisorTbl.cpp                  \
     VolumeCatalogCache.cpp             \
-    StorHvJournal.cpp                  \
     qos_ctrl.cpp	                   \
     StorHvQosCtrl.cpp                  \
     StorHvVolumes.cpp		           \
@@ -35,13 +33,11 @@ user_no_style     := $(user_cc) \
     list.h \
     StorHvDataPlace.h \
     StorHvisorClient.h \
-    StorHvisorCPP.h \
     StorHvisorNet.h \
     StorHvQosCtrl.h \
     StorHvVolumes.h \
     StorHvisorNet.cpp \
     StorHvisorTest.cpp \
-    StorHvisorS3.cpp \
     StorHvisorSvc.cpp \
     StorHvisorTbl.cpp \
     qos_ctrl.cpp \

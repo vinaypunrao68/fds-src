@@ -194,97 +194,13 @@ public:
     fds::Error pushBlobReq(AmRequest *blobReq);
     void enqueueBlobReq(AmRequest *blobReq);
 
-    void statBlobResp(const FDSP_MsgHdrTypePtr rxMsg, 
-                      const FDS_ProtocolInterface::
-                      BlobDescriptorPtr blobDesc);
-
     SysParams* getSysParams();
     void StartOmClient();
     sh_comm_modes GetRunTimeMode() { return mode; }
-    Error dispatchSmPutMsg(StorHvJournalEntry *journEntry, const NodeUuid &send_uuid);
-    Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
-
-    struct TxnResponseHelper {
-        StorHvCtrl* storHvisor = NULL;
-        fds_uint32_t txnId = 0xFFFFFFFF;
-        fds_volid_t  volId = 0;
-        StorHvJournalEntry *txn = NULL;
-        StorHvVolumeLock *vol_lock = NULL;
-        StorHvJournalEntryLock *je_lock = NULL;
-        StorHvVolume* vol = NULL;
-        fds::AmRequest* blobReq = NULL;
-
-        TxnResponseHelper(StorHvCtrl* storHvisor, fds_volid_t  volId, fds_uint32_t txnId);
-        void setStatus(FDSN_Status  status);
-        ~TxnResponseHelper();
-    };
-
-    struct TxnRequestHelper {
-        StorHvCtrl* storHvisor = NULL;
-        fds_uint32_t txnId = 0;
-        fds_volid_t  volId = 0;
-        FDSN_Status  status = FDSN_StatusNOTSET;
-        StorHvVolume *shVol = NULL;
-        StorHvJournalEntry *txn = NULL;
-        StorHvJournalEntryLock *jeLock = NULL;
-        StorHvVolume* vol = NULL;
-        AmRequest *amReq;
-        fds::AmRequest* blobReq = NULL;
-
-        TxnRequestHelper(StorHvCtrl* storHvisor, AmRequest *amReq);
-
-        bool getPrimaryDM(fds_uint32_t& ip, fds_uint32_t& port);
-        bool isValidVolume();
-        bool setupTxn();
-        bool hasError();
-        void setStatus(FDSN_Status  status);
-        void scheduleTimer();
-        ~TxnRequestHelper();
-    };
-
-    struct ResponseHelper {
-        StorHvCtrl* storHvisor = NULL;
-        fds_volid_t  volId = 0;
-        StorHvVolumeLock *vol_lock = NULL;
-        StorHvVolume* vol = NULL;
-        fds::AmRequest* blobReq = NULL;
-        ResponseHelper(StorHvCtrl* storHvisor, AmRequest *amReq);
-        void setStatus(FDSN_Status  status);
-        ~ResponseHelper();
-    };
-
-    struct RequestHelper {
-        StorHvCtrl* storHvisor = NULL;
-        fds_volid_t  volId = 0;
-        FDSN_Status  status = FDSN_StatusNOTSET;
-        StorHvVolume *shVol = NULL;
-        StorHvVolume* vol = NULL;
-        AmRequest *amReq;
-        fds::AmRequest* blobReq = NULL;
-
-        RequestHelper(StorHvCtrl* storHvisor, AmRequest *amReq);
-
-        bool isValidVolume();
-        bool hasError();
-        void setStatus(FDSN_Status  status);
-        ~RequestHelper();
-    };
-
-    struct BlobRequestHelper {
-        StorHvCtrl* storHvisor = NULL;
-        fds_volid_t volId = invalid_vol_id;
-        AmRequest *blobReq = NULL;
-        const std::string& volumeName;
-
-        explicit BlobRequestHelper(StorHvCtrl* storHvisor, const std::string& volumeName);
-        void setupVolumeInfo();
-        fds::Error processRequest();
-    };
 
     inline AMCounters& getCounters()
-    {
-        return counters_;
-    }
+    { return counters_; }
+
 private:
     SysParams *sysParams;
     sh_comm_modes mode;

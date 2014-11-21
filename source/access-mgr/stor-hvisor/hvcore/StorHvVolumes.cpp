@@ -9,7 +9,6 @@
 #include "access-mgr/am-block.h"
 
 #include "StorHvisorNet.h"
-#include "StorHvJournal.h"
 #include "StorHvVolumes.h"
 #include "StorHvQosCtrl.h"
 
@@ -22,7 +21,6 @@ namespace fds {
 StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log *parent_log)
         : FDS_Volume(vdesc), parent_sh(sh_ctrl), volQueue(0)
 {
-    journal_tbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
     vol_catalog_cache = new VolumeCatalogCache(voldesc->volUUID, sh_ctrl, parent_log);
 
     if (vdesc.isSnapshot()) {
@@ -39,7 +37,6 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
 
 StorHvVolume::~StorHvVolume() {
     parent_sh->qos_ctrl->deregisterVolume(voldesc->volUUID);
-    delete journal_tbl; journal_tbl = nullptr;
     delete vol_catalog_cache; vol_catalog_cache = nullptr;
     delete volQueue; volQueue = nullptr;
 }
@@ -54,7 +51,6 @@ void StorHvVolume::destroy() {
     }
 
     /* destroy data */
-    delete journal_tbl; journal_tbl = nullptr;
     delete vol_catalog_cache; vol_catalog_cache = nullptr;
     delete volQueue; volQueue = nullptr;
     is_valid = false;

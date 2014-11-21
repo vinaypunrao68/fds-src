@@ -28,57 +28,10 @@
 
 extern StorHvCtrl *storHvisor;
 
-void StorHvDataPlacement::nodeEventHandler(int node_id,
-                                           unsigned int node_ip_addr,
-                                           int node_state,
-                                           fds_uint32_t node_port,
-                                           FDS_ProtocolInterface::FDSP_MgrIdType node_type) {
- int storMgrPortNum = 6901;
- int dataMgrPortNum = 6900;
- bool exists;
-
-    switch(node_state) { 
-       case FDS_ProtocolInterface::FDS_Node_Up : 
-         FDS_PLOG(storHvisor->GetLog()) << "StorHvisorTbl - Node UP event NodeId "
-                                        << node_id << " Node IP Address "
-                                        << node_ip_addr << " node port "
-                                        << node_port;
-
-         /*
-          * Check if we know about this node already
-          */
-
-         exists = storHvisor->rpcSessionTbl->\
-                 clientSessionExists(node_ip_addr, node_port);
-         if (exists) {
-           FDS_PLOG(storHvisor->GetLog()) << "Node already exists. No need to add.";
-           return;
-         }
-         
-         FDS_PLOG(storHvisor->GetLog()) << "Added an endpoint";
-
-         break;
-
-       case FDS_ProtocolInterface::FDS_Node_Down:
-       case FDS_ProtocolInterface::FDS_Node_Rmvd:
-         FDS_PLOG(storHvisor->GetLog()) << " StorHvisorTbl - Node Down event NodeId :"
-         << node_id << " node IP addr" << node_ip_addr << " port " << node_port ;
-         storHvisor->rpcSessionTbl->endClientSession(node_ip_addr, node_port);
-         break;
-       default:
-         fds_verify("Unkown node state");
-         break;
-    }
-}
-
 StorHvDataPlacement::StorHvDataPlacement(dp_mode _mode, 
                                          OMgrClient *omc)
     : test_ip_addr(0), test_sm_port(0), test_dm_port(0),
       mode(_mode), parent_omc(omc) {
-  if (parent_omc) {
-    parent_omc->registerEventHandlerForNodeEvents(nodeEventHandler);
-//    parent_omc->registerEventHandlerForMigrateEvents(nodeEventHandler);
-  }
 }
 
 StorHvDataPlacement::StorHvDataPlacement(dp_mode _mode,

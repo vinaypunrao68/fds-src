@@ -72,11 +72,7 @@ class AmRequest : public FDS_IOType {
     const char *getDataBuf() const
     { return data_buf; }
 
-    void setQueuedUsec(fds_uint64_t _usec)
-    { queued_usec = _usec; }
-
  protected:
-    fds_uint64_t       queued_usec;  /* Time spent in queue */
     char*              data_buf;
     std::string        blob_name;
     util::StopWatch    stopwatch;

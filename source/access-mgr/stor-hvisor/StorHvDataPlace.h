@@ -111,12 +111,6 @@ public:
 
     return err;
   }
-  
-  static void nodeEventHandler(int node_id,
-                               unsigned int node_ip_addr,
-                               int node_state,
-                               fds_uint32_t node_port,
-                               FDS_ProtocolInterface::FDSP_MgrIdType node_type);
 };
 
 #endif
