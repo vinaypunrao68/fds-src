@@ -243,49 +243,52 @@ public class Main {
                               final FDSP_ConfigPathReq.Iface legacyConfigPath,
                               final Authorizer authorizer ) {
     // POST methods
-    fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/policies",
-                  ( t ) -> new CreateSnapshotPolicy( config ), authorizer );
-    fdsAdminOnly( HttpMethod.POST, "/api/config/volumes/:volumeId/snapshot",
-                  ( t ) -> new CreateSnapshot( config ), authorizer );
-    fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/restore/:snapshotId/:volumeId",
-                  ( t ) -> new RestoreSnapshot( config ), authorizer );
-    fdsAdminOnly( HttpMethod.POST, "/api/config/snapshot/clone/:snapshotId/:cloneVolumeName",
-                  ( t ) -> new CloneSnapshot( config, legacyConfigPath ), authorizer );
+    authenticate( HttpMethod.POST, "/api/config/snapshot/policies",
+                  ( t ) -> new CreateSnapshotPolicy( config ) );
+    authenticate( HttpMethod.POST, "/api/config/volumes/:volumeId/snapshot",
+                  ( t ) -> new CreateSnapshot( config ) );
+    authenticate( HttpMethod.POST,
+                  "/api/config/snapshot/restore/:snapshotId/:volumeId",
+                  ( t ) -> new RestoreSnapshot( config ) );
+    authenticate( HttpMethod.POST,
+                  "/api/config/snapshot/clone/:snapshotId/:cloneVolumeName",
+                  ( t ) -> new CloneSnapshot( config, legacyConfigPath ) );
   }
 
   private void snapshotPuts( final ConfigurationApi config,
                              final Authorizer authorizer ) {
     //PUT methods
-    fdsAdminOnly( HttpMethod.PUT,
-                  "/api/config/snapshot/policies/:policyId/attach/:volumeId",
-                  ( t ) -> new AttachSnapshotPolicyIdToVolumeId( config ),
-                  authorizer );
-    fdsAdminOnly( HttpMethod.PUT,
-                  "/api/config/snapshot/policies/:policyId/detach/:volumeId",
-                  ( t ) -> new DetachSnapshotPolicyIdToVolumeId( config ),
-                  authorizer );
-    fdsAdminOnly( HttpMethod.PUT, "/api/config/snapshot/policies",
-                  ( t ) -> new EditSnapshotPolicy( config ), authorizer );
+      authenticate( HttpMethod.PUT,
+                    "/api/config/snapshot/policies/:policyId/attach/:volumeId",
+                    ( t ) -> new AttachSnapshotPolicyIdToVolumeId( config ) );
+      authenticate( HttpMethod.PUT,
+                    "/api/config/snapshot/policies/:policyId/detach/:volumeId",
+                    ( t ) -> new DetachSnapshotPolicyIdToVolumeId( config ) );
+      authenticate( HttpMethod.PUT, "/api/config/snapshot/policies",
+                    ( t ) -> new EditSnapshotPolicy( config ) );
     }
 
     private void snapshotGets(final ConfigurationApi config,
                               final Authorizer authorizer) {
     // GET methods
-    fdsAdminOnly( HttpMethod.GET, "/api/config/snapshot/policies",
-                  ( t ) -> new ListSnapshotPolicies( config ), authorizer );
-    fdsAdminOnly( HttpMethod.GET, "/api/config/volumes/:volumeId/snapshot/policies",
-                  ( t ) -> new ListSnapshotPoliciesForVolume( config ), authorizer );
-    fdsAdminOnly( HttpMethod.GET, "/api/config/snapshots/policies/:policyId/volumes",
-                  ( t ) -> new ListVolumeIdsForSnapshotId( config ), authorizer );
-    fdsAdminOnly( HttpMethod.GET, "/api/config/volumes/:volumeId/snapshots",
-                  ( t ) -> new ListSnapshotsByVolumeId( config ), authorizer );
+        authenticate( HttpMethod.GET, "/api/config/snapshot/policies",
+                      ( t ) -> new ListSnapshotPolicies( config ) );
+        authenticate( HttpMethod.GET,
+                      "/api/config/volumes/:volumeId/snapshot/policies",
+                      ( t ) -> new ListSnapshotPoliciesForVolume( config ) );
+        authenticate( HttpMethod.GET,
+                      "/api/config/snapshots/policies/:policyId/volumes",
+                      ( t ) -> new ListVolumeIdsForSnapshotId( config ) );
+        authenticate( HttpMethod.GET,
+                      "/api/config/volumes/:volumeId/snapshots",
+                      ( t ) -> new ListSnapshotsByVolumeId( config ) );
   }
 
   private void snapshotDeletes( final ConfigurationApi config,
                                 final Authorizer authorizer ) {
     // DELETE methods
-    fdsAdminOnly( HttpMethod.DELETE, "/api/config/snapshot/policies/:policyId",
-                  ( t ) -> new DeleteSnapshotPolicy( config ), authorizer );
+      authenticate( HttpMethod.DELETE, "/api/config/snapshot/policies/:policyId",
+                  ( t ) -> new DeleteSnapshotPolicy( config ) );
 
       /*
        * TODO this call does not currently exists, maybe it should for API completeness

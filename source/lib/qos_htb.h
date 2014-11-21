@@ -17,7 +17,7 @@
 
 #define HTB_QUEUE_RATE_MIN                20         /* protection from queues not going to absolute 0 rate, eg. when 
 						     * setting throttle levels, etc. */
-#define HTB_QUEUE_RATE_INFINITE_MAX       100000    /* a token bucket max rate when iops_max policy is set to 0 */
+#define HTB_QUEUE_RATE_INFINITE_MAX       500000    /* a token bucket max rate when iops_max policy is set to 0 */
 
 #define DEFAULT_ASSURED_WAIT_MICROSEC     1000000
 #define HTB_WMA_SLOT_SIZE_MICROSEC        250000   /* the length of stat slot for gathering recent iops performance */   
