@@ -78,8 +78,6 @@ class StorHvIoTimerTask : public fds::FdsTimerTask {
     typedef boost::shared_ptr<StorHvIoTimerTask> ptr;
 };
 
-typedef boost::shared_ptr<StorHvIoTimerTask> StorHvIoTimerTaskPtr;
-
 /// Represents an outstanding operations to a blob
 class  StorHvJournalEntry {
   private:
@@ -92,8 +90,6 @@ class  StorHvJournalEntry {
 
     /// List of operations waiting for others to finish
     std::list<StorHvJournalEntry*> pendingTransactions;
-    /// Resumes the next waiting operation
-    void  resumeTransaction();
 
     void init(unsigned int transid, StorHvJournal* jrnl_tbl, FdsTimer *ioTimer);
     void reset();
@@ -218,7 +214,6 @@ class StorHvJournal {
     // Handle existing offsets
     fds_uint32_t create_trans_id(const std::string& blobName,
                                  fds_uint64_t blobOffset);
-    void resumePendingTrans(unsigned int trans_id);
 
     template<typename Rep, typename Period>
     fds_bool_t schedule(FdsTimerTaskPtr& task,

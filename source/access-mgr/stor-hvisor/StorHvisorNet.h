@@ -194,28 +194,15 @@ public:
     fds::Error pushBlobReq(AmRequest *blobReq);
     void enqueueBlobReq(AmRequest *blobReq);
 
-    // Stuff for pending offset operations
-    // TODO(Andrew): Reconcile with dispatchSm...
-    fds::Error processSmPutObj(PutBlobReq *putBlobReq,
-                               StorHvJournalEntry *journEntry);
-    fds::Error processDmUpdateBlob(PutBlobReq *putBlobReq,
-                                   StorHvJournalEntry *journEntry);
-    fds::Error resumePutBlob(StorHvJournalEntry *journEntry);
-
     void statBlobResp(const FDSP_MsgHdrTypePtr rxMsg, 
                       const FDS_ProtocolInterface::
                       BlobDescriptorPtr blobDesc);
-    void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
-    void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
-    void fbd_process_req_timeout(unsigned long arg);
 
     SysParams* getSysParams();
     void StartOmClient();
     sh_comm_modes GetRunTimeMode() { return mode; }
     Error dispatchSmPutMsg(StorHvJournalEntry *journEntry, const NodeUuid &send_uuid);
     Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
-    Error dispatchDmUpdMsg(StorHvJournalEntry *journEntry,
-                           const NodeUuid &send_uuid);
 
     struct TxnResponseHelper {
         StorHvCtrl* storHvisor = NULL;

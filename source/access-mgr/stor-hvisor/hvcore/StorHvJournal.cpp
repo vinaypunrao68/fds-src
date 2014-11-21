@@ -189,30 +189,6 @@ StorHvJournalEntryLock::~StorHvJournalEntryLock() {
     jrnl_e->unlock();
 }
 
-void
-StorHvJournalEntry::resumeTransaction(void) {
-    Error err(ERR_OK);
-
-    switch (op) {
-        case FDS_PUT_BLOB:
-        case FDS_IO_WRITE:
-            LOGDEBUG << "Resuming putBlob op ID " << trans_id;
-            err = storHvisor->resumePutBlob(this);
-            break;
-            // case FDS_GET_BLOB:
-            // case FDS_IO_READ:
-            // storHvisor->resumeGetBlob(this);
-            // break;
-            // case FDS_DELETE_BLOB:
-            // storHvisor->resumeDeleteBlob(this);
-            // break;
-        default:
-            fds_panic("Attempting to resume unknown op!");
-    }
-
-    fds_verify(err == ERR_OK);
-}
-
 StorHvJournal::StorHvJournal(unsigned int max_jrnl_entries)
         :   jrnl_tbl_mutex("Journal Table Mutex"),
             rwlog_tbl(max_jrnl_entries),
@@ -293,35 +269,6 @@ StorHvJournal::popAllDltTrans() {
     transDltSet.clear();
     unlock();
     return poppedTrans;
-}
-
-/**
- * Resumes the first (if any) of the operations
- * pending completion of this journal op.
- */
-void
-StorHvJournal::resumePendingTrans(fds_uint32_t trans_id) {
-    // Get the journel entry ops may be waiting on
-    lock();
-    StorHvJournalEntry *journEntry = &rwlog_tbl[trans_id];
-    if (journEntry->pendingTransactions.size() == 0) {
-        // No ops are waiting
-        unlock();
-        return;
-    }
-
-    // Get the first waiting op
-    StorHvJournalEntry *firstJrnlEntry = journEntry->pendingTransactions.front();
-    journEntry->pendingTransactions.pop_front();
-    // Add the blob/offset op to the journal
-    std::string blobName = rwlog_tbl[trans_id].blobName;
-    fds_uint64_t blobOffset = rwlog_tbl[trans_id].blobOffset;
-    blob_to_jrnl_idx[blobName + ":" + std::to_string(blobOffset)] = firstJrnlEntry->trans_id;
-    // Copy over all ops pending to old entry to this entry
-    firstJrnlEntry->pendingTransactions = journEntry->pendingTransactions;
-    unlock();
-    // Start resuming the op in this thread context...
-    firstJrnlEntry->resumeTransaction();
 }
 
 /**
