@@ -193,7 +193,7 @@ TEST_F(SMApi, putsPerf)
     /* Issue puts */
     for (int i = 0; i < nPuts; i++) {
         auto opStartTs = util::getTimeStampNanos();
-	ObjectID oid = dataset.dataset_[i];
+        ObjectID oid = dataset.dataset_[i];
         auto putObjMsg = SvcMsgFactory::newPutObjectToSmMsg(volId_, oid,
                                                         dataset.dataset_map_[oid].getObjectData());
         auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
@@ -223,9 +223,9 @@ TEST_F(SMApi, putsPerf)
                            (endTs_ - startTs_)) * putsIssued_;
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
             << "putsCnt: " << putsIssued_ << "\n"
-            << "Throughput: " << throughput << "\n"
+            << "Puts throughput: " << throughput << "\n"
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
-            << "(ns) Avg put latency: " << avgPutLatency_.value() << std::endl
+            << "Puts avg latency: " << avgPutLatency_.value() << std::endl
             << "svc sendLat: " << gSvcRequestCntrs->sendLat.value() << std::endl
             << "svc sendPayloadLat: " << gSvcRequestCntrs->sendPayloadLat.value() << std::endl
             << "svc serialization latency: " << gSvcRequestCntrs->serializationLat.value() << std::endl
@@ -246,12 +246,12 @@ TEST_F(SMApi, putsPerf)
 
     // only makes sense on localhost
     if (dropCaches) {
-      const std::string cmd = "echo 3 > /proc/sys/vm/drop_caches";
-      int ret = std::system((const char *)cmd.c_str());
-      fds_verify(ret == 0);
-      std::cout << "sleeping after drop_caches" << std::endl;
-      sleep(5);
-      std::cout << "finished sleeping" << std::endl;
+        const std::string cmd = "echo 3 > /proc/sys/vm/drop_caches";
+        int ret = std::system((const char *)cmd.c_str());
+        fds_verify(ret == 0);
+        std::cout << "sleeping after drop_caches" << std::endl;
+        sleep(5);
+        std::cout << "finished sleeping" << std::endl;
     }
 
     /* Start google profiler */
@@ -265,9 +265,9 @@ TEST_F(SMApi, putsPerf)
     fds_uint32_t dataset_size = nPuts;
     for (int i = 0; i < nGets; i++) {
         auto opStartTs = util::getTimeStampNanos();
-	fds_uint32_t index = cur_ind % dataset_size;
+        fds_uint32_t index = cur_ind % dataset_size;
         cur_ind += 123;
-	ObjectID oid = dataset.dataset_[index];
+        ObjectID oid = dataset.dataset_[index];
         auto getObjMsg = SvcMsgFactory::newGetObjectMsg(volId_, oid);
         auto asyncGetReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
         asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
@@ -328,9 +328,9 @@ TEST_F(SMApi, putsPerf)
     std::cout << "GET experiment concurrency " << concurrency_ << std::endl;
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
             << "getsCnt: " << getsIssued_ << "\n"
-            << "Throughput: " << throughput << "\n"
+            << "Gets throughput: " << throughput << "\n"
             << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / getsIssued_
-            << "(ns) Avg op latency: " << avgGetLatency_.value() << std::endl;
+            << "Gets avg latency: " << avgGetLatency_.value() << std::endl;
 
     std::cout << "putsIssued: " << getsIssued_
               << " putsSuccessCnt_: " << getsSuccessCnt_
@@ -339,6 +339,7 @@ TEST_F(SMApi, putsPerf)
     latMs = static_cast<double>(avgGetLatency_.value()) / 1000000.0;
     statfile_ << "get," << putsIssued_ << "," << concurrency_ << ","
               << throughput << "," << latMs << std::endl;
+    gSvcRequestPool->dumpLFTPStats();
 }
 
 int main(int argc, char** argv) {

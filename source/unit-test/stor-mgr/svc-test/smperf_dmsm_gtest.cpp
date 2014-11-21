@@ -308,36 +308,36 @@ TEST_F(SMApi, dmsmPerf)
     for (uint64_t i = 0; i < nPuts; i++) {
         // will include creating msg into the latency
         auto opStartTs = util::getTimeStampNanos();
-	ObjectID oid = dataset.dataset_[i];
+        ObjectID oid = dataset.dataset_[i];
 
-	auto nAcks = std::make_shared<int>(2);
+        auto nAcks = std::make_shared<int>(2);
 
         /*  setup the putBlobOnce request*/
-	// we will use objectID::ToHex() str as blob name
+        // we will use objectID::ToHex() str as blob name
         auto putBlobOnce = SvcMsgFactory::newUpdateCatalogOnceMsg(volId_,
                                                                   oid.ToHex());
         auto asyncPutBlobTxReq = gSvcRequestPool->newEPSvcRequest(dm_svcUuid);
-	FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
-	updBlobInfo.offset   = 0;
+        FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
+        updBlobInfo.offset   = 0;
         updBlobInfo.size     = 2097152;
         updBlobInfo.blob_end = true;
         updBlobInfo.data_obj_id.digest =
-	  std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
+            std::string((const char *)oid.GetId(), (size_t)oid.GetLen());
         putBlobOnce->obj_list.push_back(updBlobInfo);
         putBlobOnce->txId = i;
         putBlobOnce->dmt_version = 1;
         putBlobOnce->blob_mode = 1;
         asyncPutBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg),
-                                     putBlobOnce);
+                                      putBlobOnce);
         asyncPutBlobTxReq->onResponseCb(std::bind(&SMApi::dm_sm_put_cb, this, opStartTs,
-						  nAcks, std::placeholders::_1,
-						  std::placeholders::_2, std::placeholders::_3));
+                                                  nAcks, std::placeholders::_1,
+                                                  std::placeholders::_2, std::placeholders::_3));
         asyncPutBlobTxReq->setTimeoutMs(5000);
 
 
         /* setup the SM request*/
         auto putObjMsg = SvcMsgFactory::newPutObjectToSmMsg(volId_, oid,
-                                     dataset.dataset_map_[oid].getObjectData());
+                                                            dataset.dataset_map_[oid].getObjectData());
         auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(sm_svcUuid);
         asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
         asyncPutReq->onResponseCb(std::bind(&SMApi::dm_sm_put_cb, this, opStartTs,
@@ -382,6 +382,9 @@ TEST_F(SMApi, dmsmPerf)
     statfilePut_ << "put," << putsIssued_ << "," << concurrency_ << ","
                  << throughput << "," << latMs << std::endl;
 
+
+    gSvcRequestPool->dumpLFTPStats();
+    return;
     /* Start gets for the blob we have put*/
     // reset counters                                                                     
     outStanding_ = 0;

@@ -25,7 +25,8 @@ struct LockfreeWorker {
     steal_(steal),
     peers_(peers),
     tasks(1500),
-    stop(false)
+    stop(false),
+    completedCntr(0)
     {
     }
 

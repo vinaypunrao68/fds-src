@@ -52,6 +52,7 @@ class SvcRequestPool {
 
     LFMQThreadpool* getSvcSendThreadpool();
     LFMQThreadpool* getSvcWorkerThreadpool();
+    void dumpLFTPStats();
 
  protected:
     void asyncSvcRequestInitCommon_(SvcRequestIfPtr req);

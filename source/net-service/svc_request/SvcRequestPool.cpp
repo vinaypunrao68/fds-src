@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <functional>
+#include <iostream>
 #include <net/net-service.h>
 #include <platform/platform-lib.h>
 #include <fdsp_utils.h>
@@ -184,4 +185,20 @@ LFMQThreadpool* SvcRequestPool::getSvcWorkerThreadpool()
 {
     return svcWorkerTp_.get();
 }
+
+void SvcRequestPool::dumpLFTPStats()
+{
+    std::cout << "IO threadpool stats:\n";
+    uint32_t i = 0;
+    for (auto &w : svcSendTp_->workers) {
+        std::cout << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
+    }
+
+    std::cout << "Worker threadpool stats:\n";
+    i = 0;
+    for (auto &w : svcWorkerTp_->workers) {
+        std::cout << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
+    }
+}
+
 }  // namespace fds
