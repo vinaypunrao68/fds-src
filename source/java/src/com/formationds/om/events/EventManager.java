@@ -2,22 +2,25 @@
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.events;
+package com.formationds.om.events;
 
 import com.formationds.commons.crud.JDORepository;
-import com.formationds.commons.model.Series;
+import com.formationds.commons.events.EventCategory;
+import com.formationds.commons.events.EventDescriptor;
+import com.formationds.commons.events.EventSeverity;
+import com.formationds.commons.events.EventType;
+import com.formationds.commons.model.abs.ModelBase;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.SystemActivityEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
 import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
-import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -35,6 +38,8 @@ public enum EventManager {
      * The singleton instance
      */
     INSTANCE;
+
+    public static EventManager instance() { return INSTANCE; }
 
     static final Logger logger = LoggerFactory.getLogger(EventManager.class);
 
@@ -97,15 +102,20 @@ public enum EventManager {
         for (Object arg : eventArgs)
         {
             // TODO: convert to JSON or some other format?
-            eventArgStr[i++] = arg.toString();
+            eventArgStr[i++] = (arg instanceof ModelBase ? ((ModelBase) arg).toJSON() : arg.toString());
         }
         switch (t) {
             case SYSTEM_EVENT:
-                return new SystemActivityEvent(c, s, dflt, key, eventArgs);
+                return new SystemActivityEvent(c, s, dflt, key, eventArgStr);
+
             case USER_ACTIVITY:
                 AuthenticationToken token = AuthenticatedRequestContext.getToken();
                 long userId = (token != null ? token.getUserId() : -1);
-                return new UserActivityEvent(userId, c, s, dflt, key, eventArgs);
+                return new UserActivityEvent(userId, c, s, dflt, key, eventArgStr);
+
+            case FIREBREAK_EVENT:
+                throw new IllegalArgumentException("Firebreak event is not a generic event handled here.");
+
             default:
                 // TODO: log warning or throw exception on unknown/unsupported type?  Fow now logging.
                 // throw new IllegalArgumentException("Unsupported event type (" + t + ")");
@@ -144,47 +154,15 @@ public enum EventManager {
         this.key = key;
     }
 
-    // TODO: this is probably not how we want to do this in the long run... trying to get something working for beta1
+    // TODO: this is probably not how we want to do this in the long run...
     public void initEventListeners() {
-        SingletonRepositoryManager.instance()
-                                  .getMetricsRepository()
-                                  .addEntityPersistListener(new JDORepository.EntityPersistListener<VolumeDatapoint>() {
-                                      EventDescriptor fbEvent = new EventDescriptor() {
-                                          public EventType type() { return EventType.SYSTEM_EVENT; }
-                                          public EventCategory category() { return EventCategory.FIREBREAK; }
-                                          public EventSeverity severity() { return EventSeverity.WARNING; }
-                                          public String defaultMessage() { return "Volume {0}; Series data {1}"; }
-                                          public List<String> argNames() { return Arrays.asList("volumeId", "series"); }
-                                          public String key() { return "VOLUME_FIREBREAK_EVENT"; }
-                                      };
-                                      @Override
-                                      public void postPersist(VolumeDatapoint entity) {
-                                          logger.trace( "postPersist handling of VolumeDatapoint {}", entity);
-                                          try {
-                                              List<VolumeDatapoint> vdp = Arrays.asList( new VolumeDatapoint[]{ entity } );
-                                              List<Series> fb =
-                                                      new FirebreakHelper().processFirebreak(vdp);
+        MetricsRepository mr = SingletonRepositoryManager.instance()
+                                                         .getMetricsRepository();
 
-                                              if( !fb.isEmpty() ) {
-                                                  logger.trace( "Gathering firebreak details" );
+        JDORepository.EntityPersistListener<VolumeDatapoint> l =
+                new VolumeDatapointEntityPersistListener();
 
-                                                  // only expect one here (the way this is currently designed...
-                                                  for( final Series s : fb ) {
-                                                      logger.trace( "Firebreak event for '{}' series '{}'", entity.getVolumeName(), s );
-
-                                                      // TODO: add series data?
-                                                      EventManager.notifyEvent(fbEvent, entity.getVolumeId(), s);
-                                                  }
-                                              } else {
-                                                  logger.trace( "no firebreak data available" );
-                                              }
-                                          }
-                                          catch (Throwable t) {
-                                              logger.error("Failed to process datapoint postPersist event detection", t);
-                                              // TODO: do we want to rethrow and cause the VolumeDatapoint commit to fail?
-                                          }
-                                      }
-                                  });
+        mr.addEntityPersistListener(l);
     }
 
     /**
@@ -206,5 +184,4 @@ public enum EventManager {
     public List<Event> getEvents() {
         return SingletonRepositoryManager.instance().getEventRepository().findAll();
     }
-
 }

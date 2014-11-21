@@ -2,6 +2,18 @@ package: fds-platform
 version: 0.6.0
 description: all fds components
 
+replaces:
+    - fds-systemdir
+    - fds-systemconf
+    - fds-accessmgr
+    - fds-cli
+    - fds-datamgr
+    - fds-orchmgr
+    - fds-platformmgr
+    - fds-pythonlibs
+    - fds-stormgr
+    - fds-tools
+
 files:
 
     ###########
@@ -15,11 +27,6 @@ files:
     - dest: /fds/var/logs/redis
     - dest: /fds/var/stats
     - dest: /fds/var/core
-
-    ############
-    # systemconf
-    - dest: /fds/etc
-      src: "../../../config/etc/*.conf"
 
     ############
     # access-mgr
@@ -98,9 +105,3 @@ files:
         - ../../../test/fds-tool.py
         - ../../../test/fdsadmin
       dest-is-dir: True
-
-    - dest: /fds/sbin
-      dest-is-dir: True
-      src:
-        - ../../../test/formation.conf
-      conf: True

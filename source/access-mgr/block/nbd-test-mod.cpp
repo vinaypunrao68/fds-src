@@ -16,6 +16,7 @@
 #include <util/Log.h>
 #include <StorHvisorNet.h>
 #include <fdsp/fds_service_types.h>
+#include "net/SvcRequestPool.h"
 
 namespace fds {
 

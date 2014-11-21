@@ -53,7 +53,7 @@ public class Configuration {
 
         String logLevel = getPlatformConfig().defaultString("fds.plat.log_severity", "normal").toLowerCase();
         // Get the instance ID from either the config file or cmd line
-        int amInstanceId = getPlatformConfig().lookup("fds.am.instanceId").intValue();
+        int amInstanceId = getPlatformConfig().defaultInt("fds.am.instanceId", 0);
         if (options.has("fds.am.instanceId")) {
             amInstanceId = (int)options.valueOf("fds.am.instanceId");
         }
@@ -83,7 +83,7 @@ public class Configuration {
         properties.put("log4j.rootLogger", "FATAL, rolling");
         properties.put("log4j.appender.rolling", "org.apache.log4j.RollingFileAppender");
         properties.put("log4j.appender.rolling.File", logPath.toString());
-        properties.put("log4j.appender.rolling.MaxFileSize", "5120KB");
+        properties.put("log4j.appender.rolling.MaxFileSize", "50MB");
         properties.put("log4j.appender.rolling.MaxBackupIndex", "10");
         properties.put("log4j.appender.rolling.layout", "org.apache.log4j.PatternLayout");
         properties.put("log4j.appender.rolling.layout.ConversionPattern", "[%t] %-5p %l - %m%n");

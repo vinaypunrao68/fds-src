@@ -190,8 +190,7 @@ Error DmVolumeDirectory::deleteEmptyCatalog(fds_volid_t volId) {
 Error DmVolumeDirectory::getVolumeMeta(fds_volid_t volId, fds_uint64_t* volSize,
         fds_uint64_t* blobCount, fds_uint64_t* objCount) {
     Error rc(ERR_OK);
-    {
-        SCOPEDREAD(lockVolSummaryMap_);
+    synchronized(lockVolSummaryMap_) {
         DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(volId);
         if (volSummaryMap_.end() != iter) {
             *volSize = iter->second->size;
@@ -202,10 +201,14 @@ Error DmVolumeDirectory::getVolumeMeta(fds_volid_t volId, fds_uint64_t* volSize,
     }
 
     rc = getVolumeMetaInternal(volId, volSize, blobCount, objCount);
+
     if (rc.ok()) {
-        SCOPEDWRITE(lockVolSummaryMap_);
-        volSummaryMap_[volId].reset(new DmVolumeSummary(volId, *volSize,
-                *blobCount, *objCount));
+        FDSGUARD(lockVolSummaryMap_);
+        DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(volId);
+        if (volSummaryMap_.end() == iter) {
+            volSummaryMap_[volId].reset(new DmVolumeSummary(volId, *volSize,
+                    *blobCount, *objCount));
+        }
     }
 
     return rc;
@@ -444,17 +447,14 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
         }
     }
 
-    DmVolumeSummaryMap_t::iterator volSummaryIter;
-    {
-        SCOPEDWRITE(lockVolSummaryMap_);
-        volSummaryIter = volSummaryMap_.find(volId);
-    }
-
     for (BlobObjList::const_iter cit = blobObjList->begin(); blobObjList->end() != cit; ++cit) {
         BlobObjList::iterator oldIter = oldBlobObjList.find(cit->first);
         if (oldBlobObjList.end() == oldIter) {
             // new offset, update blob size
             newBlobSize += cit->second.size;
+
+            FDSGUARD(lockVolSummaryMap_);
+            DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
             if (volSummaryMap_.end() != volSummaryIter) {
                 volSummaryIter->second->objectCount.fetch_add(1);
             }
@@ -503,6 +503,8 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
             }
         }
 
+        FDSGUARD(lockVolSummaryMap_);
+        DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
         if (volSummaryMap_.end() != volSummaryIter) {
             volSummaryIter->second->objectCount.fetch_sub(truncateObjList.size());
         }
@@ -522,17 +524,20 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
         return rc;
     }
 
-    if (volSummaryMap_.end() != volSummaryIter) {
-        fds_uint64_t diff = 0;
-        if (newBlobSize >= oldBlobSize) {
-            diff = newBlobSize - oldBlobSize;
-            volSummaryIter->second->size.fetch_add(diff);
-        } else {
-            diff = oldBlobSize - newBlobSize;
-            volSummaryIter->second->size.fetch_sub(diff);
-        }
-        if (newBlob) {
-            volSummaryIter->second->blobCount.fetch_add(1);
+    synchronized(lockVolSummaryMap_) {
+        DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
+        if (volSummaryMap_.end() != volSummaryIter) {
+            fds_uint64_t diff = 0;
+            if (newBlobSize >= oldBlobSize) {
+                diff = newBlobSize - oldBlobSize;
+                volSummaryIter->second->size.fetch_add(diff);
+            } else {
+                diff = oldBlobSize - newBlobSize;
+                volSummaryIter->second->size.fetch_sub(diff);
+            }
+            if (newBlob) {
+                volSummaryIter->second->blobCount.fetch_add(1);
+            }
         }
     }
 
@@ -576,12 +581,6 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
         newObjCount += 1;
     }
 
-    DmVolumeSummaryMap_t::iterator volSummaryIter;
-    {
-        SCOPEDREAD(lockVolSummaryMap_);
-        volSummaryIter = volSummaryMap_.find(volId);
-    }
-
     mergeMetaList(blobMeta.meta_list, *metaList);
     blobMeta.desc.version += 1;
     blobMeta.desc.blob_size = newBlobSize;
@@ -596,6 +595,8 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
         return rc;
     }
 
+    FDSGUARD(lockVolSummaryMap_);
+    DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
     if (volSummaryMap_.end() != volSummaryIter) {
         fds_uint64_t diff = 0;
         if (newBlobSize >= oldBlobSize) {
@@ -674,8 +675,7 @@ Error DmVolumeDirectory::deleteBlob(fds_volid_t volId, const std::string& blobNa
             LOGWARN << "Failed to delete metadata for blob: '" << blobName << "'";
         }
 
-        {
-            SCOPEDWRITE(lockVolSummaryMap_);
+        synchronized(lockVolSummaryMap_) {
             DmVolumeSummaryMap_t::iterator iter = volSummaryMap_.find(volId);
             if (volSummaryMap_.end() != iter) {
                 iter->second->blobCount.fetch_sub(1);

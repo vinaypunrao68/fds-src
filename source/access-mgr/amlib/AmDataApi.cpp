@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 #include <AmDataApi.h>
-#include <handlermappings.h>
 #include <responsehandler.h>
 #include <StorHvisorNet.h>
 

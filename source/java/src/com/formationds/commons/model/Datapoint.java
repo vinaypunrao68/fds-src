@@ -43,4 +43,9 @@ public class Datapoint
   public void setY( final Long y ) {
     this.y = y;
   }
+
+  /**
+   * @return a concise string representation of the datapoint
+   */
+  public String toString() { return String.format("Datapoint (%d, %d)", x, y); }
 }

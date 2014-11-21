@@ -12,7 +12,6 @@
 #include <concurrency/Mutex.h>
 #include <fds_process.h>
 #include <AmAsyncService.h>
-#include <handlermappings.h>
 #include <responsehandler.h>
 #include <StorHvisorNet.h>
 
@@ -68,7 +67,6 @@ AsyncDataServer::init_server() {
     threadManager = xdi_atc::ThreadManager::newSimpleThreadManager(numServerThreads);
     threadFactory.reset(new xdi_atc::PosixThreadFactory());
     threadManager->threadFactory(threadFactory);
-    threadManager->start();
 
     // Setup API processor
     processor.reset(new apis::AsyncAmServiceRequestProcessor(
@@ -98,6 +96,8 @@ AsyncDataServer::init_server() {
 void
 AsyncDataServer::deinit_server() {
     fds_verify(listen_thread != NULL);
+    ttServer->stop();
     listen_thread->join();
+    listen_thread.reset();
 }
 }  // namespace fds

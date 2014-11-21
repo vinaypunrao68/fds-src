@@ -59,7 +59,8 @@ user_non_fds_libs :=  \
 	rt \
     $(user_nginx_libs) \
     fiu \
-    dl
+    dl \
+    tcmalloc
 
 user_static_libs  := \
     ev

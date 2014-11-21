@@ -83,6 +83,12 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     void getDirChildren(const std::string & parent, std::vector<std::string> & children,
             fds_bool_t dirs = true);
 
+    // volcat  replay
+    Error dmReplayCatJournalOps(Catalog *replatCat, const std::vector<std::string> &files,
+                                fds_uint64_t timelineTime);
+    Error dmGetCatJournalStartTime(const std::string &logfile, fds_uint64_t *journal_time);
+
+
   public:
     /**
      * Constructs the TVC object but does not init

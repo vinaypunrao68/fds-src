@@ -7,7 +7,6 @@
 #include <string>
 #include <util/Log.h>
 #include <fds_module.h>
-#include <native_api.h>
 #include <apis/AsyncAmServiceResponse.h>
 #include <concurrency/Thread.h>
 #include <AmAsyncDataApi.h>
@@ -52,17 +51,17 @@ class AsyncDataServer : public Module, public boost::noncopyable {
     boost::shared_ptr<xdi_ats::TThreadedServer>    ttServer;
     boost::shared_ptr<xdi_ats::TNonblockingServer> nbServer;
 
-    boost::shared_ptr<boost::thread> listen_thread;
+    std::shared_ptr<boost::thread> listen_thread;
 
   public:
     AsyncDataServer(const std::string &name,
                     AmAsyncDataApi::shared_ptr &_dataApi,
                     fds_uint32_t instanceId = 0);
     virtual ~AsyncDataServer() {
-        threadManager->stop();
-        ttServer->stop();
-        listen_thread->join();
-        serverTransport->close();
+        if (listen_thread) {
+            ttServer->stop();
+            listen_thread->join();
+        }
     }
     typedef std::unique_ptr<AsyncDataServer> unique_ptr;
 
