@@ -18,7 +18,7 @@ function startup
 }
 
 function configure_cache
-{ 
+{
    message "CONFIGURING SHM and CCACHE"
 
    shm_size=$(df --human-readable --output=size /dev/shm/ | tail -1 | tr -d ' \.0')
@@ -26,12 +26,12 @@ function configure_cache
    # Fix shm size if needed
    if [[ "${shm_size}" != "${DESIRED_SHM_SIZE}" ]]
    then
-      mount -t tmpfs -o remount,rw,nosuid,nodev,noexec,relatime,size=${DESIRED_SHM_SIZE} tmpfs /dev/shm    
+      sudo mount -t tmpfs -o remount,rw,nosuid,nodev,noexec,relatime,size=${DESIRED_SHM_SIZE} tmpfs /dev/shm
    fi
 
    # Configure the CCACHE size (lives in ${CCACHE_DIR} on Jenkins boxes)
    # This needs to be a bit smaller than ${DESIRED_SHM_SIZE}
-   ccache -M 2.8G        
+   ccache -M 2.8G
    ccache -z
 }
 
@@ -42,7 +42,7 @@ function clean_up_environment
 
    # Stop redis
    message "STOPPING redis"
-   source/tools/redis.sh stop
+   sudo source/tools/redis.sh stop
 
    # Clean remove the old /fds
    message "CLEANUP EXISTING /fds and /dev/shm"
