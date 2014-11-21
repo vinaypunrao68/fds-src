@@ -8,6 +8,7 @@ import com.formationds.apis.*;
 import com.formationds.commons.events.*;
 import com.formationds.om.events.EventManager;
 import com.formationds.streaming.StreamingRegistrationMsg;
+import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
@@ -39,8 +40,12 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
         new Thread(new Updater()).start();
     }
 
+    public static String systemFolderName(long tenantId) {
+        return "SYSTEM_VOLUME_" + tenantId;
+    }
 
-  enum ConfigEvent implements EventDescriptor {
+
+    enum ConfigEvent implements EventDescriptor {
 
       CREATE_TENANT(EventCategory.VOLUMES, "Created tenant {0}", "identifier"),
       CREATE_USER(EventCategory.SYSTEM, "Created user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
@@ -107,6 +112,8 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
     public long createTenant(String identifier)
             throws ApiException, TException {
         long tenantId = config.createTenant(identifier);
+        VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0, 0);
+        config.createVolume(S3Endpoint.FDS_S3, systemFolderName(tenantId), volumeSettings, tenantId);
         dropCache();
         EventManager.notifyEvent(ConfigEvent.CREATE_TENANT, identifier);
         return tenantId;

@@ -63,9 +63,9 @@ angular.module( 'user-management' ).factory( '$authorization', [ '$rootScope', '
     service.validateUserToken = function( success, failure ){
         resetUserFromCookie();
 
-        if ( angular.isDefined( service.user ) && angular.isDefined( service.user.userId ) ){
-            return $http.get( '/api/system/token/' + service.user.userId );
-        }
+//        if ( angular.isDefined( service.user ) && angular.isDefined( service.user.userId ) ){
+//            return $http.get( '/api/system/token/' + service.user.userId );
+//        }
 
         return;
     };

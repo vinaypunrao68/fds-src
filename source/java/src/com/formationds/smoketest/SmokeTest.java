@@ -111,7 +111,7 @@ public class SmokeTest {
         List<PartETag> etags = IntStream.range(0, partCount)
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
-                    byte[] buf = new byte[(1 + partCount) * (1024 * 1024)];
+                    byte[] buf = new byte[(1 + i) * (1024 * 1024)];
                     rng.nextBytes(buf);
                     UploadPartRequest request = new UploadPartRequest()
                             .withBucketName(userBucket)
@@ -129,7 +129,7 @@ public class SmokeTest {
         userClient.completeMultipartUpload(completeRequest);
 
         ObjectMetadata objectMetadata = userClient.getObjectMetadata(userBucket, key);
-        assertEquals(115343360, objectMetadata.getContentLength());
+        assertEquals(57671680, objectMetadata.getContentLength());
     }
 
     @Test

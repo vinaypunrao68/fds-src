@@ -44,7 +44,8 @@ user_non_fds_libs :=  \
     rt \
     fiu \
     dl \
-    profiler
+    profiler \
+    tcmalloc
 
 user_cc           :=
 
