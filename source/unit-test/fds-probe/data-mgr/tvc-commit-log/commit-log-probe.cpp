@@ -22,7 +22,7 @@ probe_mod_param_t commit_log_probe_param =
 /// Global singleton probe module
 CommitLogProbe gl_CommitLogProbe("CommitLog Probe Adapter", &commit_log_probe_param, nullptr);
 
-DmCommitLog gl_DmCommitLogMod("Probe CommitLog", 1);
+DmCommitLog gl_DmCommitLogMod("Probe CommitLog", 1, 2 * 1024 * 1024);
 
 CommitLogProbe::CommitLogProbe(const std::string &name, probe_mod_param_t *param, Module *owner)
         : ProbeMod(name.c_str(), param, owner) {}

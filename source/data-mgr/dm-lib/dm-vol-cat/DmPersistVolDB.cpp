@@ -312,7 +312,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
         batch.Delete(keyRec);
     }
 
-    const BlobObjKey key(DmPersistVolDir::getBlobIdFromName(blobName), BLOB_META_INDEX);
+    const BlobObjKey key(blobId, BLOB_META_INDEX);
     const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
 
     std::string value;
@@ -325,6 +325,33 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
 
     batch.Put(keyRec, value);
     rc = catalog_->Update(&batch);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to put blob: '" << blobName << "' volume: '" << std::hex
+                << volId_ << std::dec << "'";
+    }
+
+    return rc;
+}
+
+Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
+            CatWriteBatch & wb) {
+    IS_OP_ALLOWED();
+
+    TIMESTAMP_OP(wb);
+
+    const BlobObjKey key(DmPersistVolDir::getBlobIdFromName(blobName), BLOB_META_INDEX);
+    const Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
+
+    std::string value;
+    Error rc = blobMeta.getSerialized(value);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to update metadata for blob: '" << blobName << "' volume: '"
+                << std::hex << volId_ << std::dec << "'";
+        return rc;
+    }
+
+    wb.Put(keyRec, value);
+    rc = catalog_->Update(&wb);
     if (!rc.ok()) {
         LOGERROR << "Failed to put blob: '" << blobName << "' volume: '" << std::hex
                 << volId_ << std::dec << "'";

@@ -46,7 +46,9 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
             link: 'homepage.users', 
             text: $filter( 'translate' )('users.title' ), 
             iconClass: 'icon-users', 
-            selected: false },
+            selected: false,
+            permission: SYS_MGMT
+        },
          { 
              id: 'tenants', 
              link: 'homepage.tenants', 
