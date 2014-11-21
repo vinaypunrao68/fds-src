@@ -1,0 +1,44 @@
+# vim: set tabstop=2 expandtabs
+---
+
+- name: Setup python
+  hosts: build
+  remote_user: ubuntu
+  sudo: True
+
+  handlers:
+  - name: restart ssh
+    service: name=ssh state=restarted
+
+  tasks:
+
+  - name: get some python on it
+    raw: apt-get -y install python
+
+  - name: set the root password
+    raw: echo "root:passwd" | chpasswd
+
+  - name: allow ssh root login
+    command: sed -ie 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config
+    notify: restart ssh
+
+- name: Setup any pre-requisities on host
+  hosts: build
+  remote_user: ubuntu
+  sudo: True
+
+  tasks:
+
+  - name: install os packages
+    apt: name={{item}} force=yes state=present update_cache=yes cache_valid_time=600
+    with_items:
+      - git
+      - build-essential
+      - python-software-properties
+      - software-properties-common
+      - maven
+      - openjdk-7-jdk
+      - npm
+      - nodejs-legacy
+      - ruby
+      - ruby-sass
