@@ -171,6 +171,9 @@ const char * eventTypeToStr[] = {
         "am_start_blob_obj_req",
         "am_commit_blob_obj_req",
         "am_abort_blob_obj_req",
+        "am_volume_attach_req",
+        "am_volume_contents_req",
+        "am_volume_stats_req",
 
         "am_qos_queue_size",
 

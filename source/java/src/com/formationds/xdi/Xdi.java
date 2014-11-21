@@ -10,20 +10,14 @@ import com.formationds.om.rest.SetVolumeQosParams;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
-import com.formationds.util.async.AsyncRequestStatistics;
-import com.formationds.util.async.AsyncResourcePool;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
 import java.io.InputStream;
 import java.util.HashMap;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class Xdi {
@@ -127,7 +121,7 @@ public class Xdi {
 
     public String getSystemVolumeName(AuthenticationToken token) throws SecurityException {
         long tenantId = authorizer.tenantId(token);
-        return "SYSTEM_VOLUME_" + tenantId;
+        return ConfigurationApi.systemFolderName(tenantId);
     }
 
     public void setMetadata(AuthenticationToken token, String domain, String volume, String blob, HashMap<String, String> metadataMap) throws TException {
