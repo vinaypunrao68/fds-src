@@ -219,11 +219,11 @@ class RsContainer
     virtual Resource::pointer rs_alloc_new(const ResourceUUID &uuid);
     virtual Resource::pointer rs_get_resource(const ResourceUUID &uuid);
     virtual Resource::pointer rs_get_resource(const char *name);
-    virtual void rs_register(Resource::pointer rs);
-    virtual void rs_register_mtx(Resource::pointer rs);
-    virtual void rs_unregister(Resource::pointer rs);
-    virtual void rs_unregister_mtx(Resource::pointer rs);
-    virtual void rs_free_resource(Resource::pointer rs);
+    virtual bool rs_register(Resource::pointer rs);
+    virtual bool rs_register_mtx(Resource::pointer rs);
+    virtual bool rs_unregister(Resource::pointer rs);
+    virtual bool rs_unregister_mtx(Resource::pointer rs);
+    virtual bool rs_free_resource(Resource::pointer rs);
 
   protected:
     RsUuidMap                rs_uuid_map;
