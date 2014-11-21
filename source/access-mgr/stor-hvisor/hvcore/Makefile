@@ -26,7 +26,6 @@ StorHvisor_cpp    :=                   \
     qos_ctrl.cpp	                   \
     StorHvQosCtrl.cpp                  \
     StorHvVolumes.cpp		           \
-    StorHvNative.cpp	               \
     FDSNStat.cpp
 
 user_cpp       := \
@@ -52,7 +51,6 @@ user_no_style     := $(user_cc) \
     qos_ctrl.cpp \
     StorHvQosCtrl.cpp \
     StorHvVolumes.cpp \
-    StorHvNative.cpp \
     FDSNStat.cpp
 
 #user_no_style     :=

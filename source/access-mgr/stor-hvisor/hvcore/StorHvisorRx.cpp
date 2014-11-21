@@ -500,14 +500,8 @@ void FDSP_MetaDataPathRespCbackI::GetVolumeBlobListResp(
     FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
     FDSP_GetVolumeBlobListRespTypePtr& blob_list_resp
                                                         ) {
-    LOGDEBUG << "Received GetVolumeBlobListResp for txn "
-             <<  fdsp_msg_hdr->req_cookie; 
-    fds::Error err = storHvisor->getBucketResp(fdsp_msg_hdr, blob_list_resp);
-    fds_verify(err == ERR_OK);
 }
 
 void FDSP_MetaDataPathRespCbackI::GetVolumeMetaDataResp(fpi::FDSP_MsgHdrTypePtr& header,
                                                         fpi::FDSP_VolumeMetaDataPtr& volumeMeta) {
-    STORHANDLER(GetVolumeMetaDataHandler,
-                fds::FDS_GET_VOLUME_METADATA)->handleResponse(header, volumeMeta);
 }

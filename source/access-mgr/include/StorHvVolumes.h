@@ -25,7 +25,6 @@
 #include <concurrency/RwLock.h>
 #include <VolumeCatalogCache.h>
 #include <StorHvJournal.h>
-#include <native_api.h>
 #include "PerfTrace.h"
 
 /*

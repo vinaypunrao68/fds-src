@@ -25,7 +25,6 @@
 #include <lib/StatsCollector.h>
 #include <hash/md5.h>
 #include <FdsRandom.h>
-#include "./handler/handler.h"
 #include <fdsp/FDSP_DataPathReq.h>
 #include <fdsp/FDSP_DataPathResp.h>
 #include <fdsp/FDSP_MetaDataPathReq.h>
@@ -230,8 +229,6 @@ public:
                fds_uint32_t dm_port_num,
                fds_uint32_t instanceId = 0);
     ~StorHvCtrl();
-    void initHandlers();
-    std::map<fds_io_op_t, fds::Handler*> handlers;
     //imcremental checksum  for header and payload 
     checksum_calc   *chksumPtr;
 
@@ -292,8 +289,6 @@ public:
     void startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg);
     fds::Error deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
                              const FDSP_DeleteCatalogTypePtr& delCatRsp);
-    fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                             const FDSP_GetVolumeBlobListRespTypePtr& blobListResp);
 
     void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
     void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);

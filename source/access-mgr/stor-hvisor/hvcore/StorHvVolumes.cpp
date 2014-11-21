@@ -524,11 +524,7 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
             LOGWARN << "Calling back with error since request is waiting"
                     << " for volume " << blobReq->io_vol_id
                     << " that doesn't exist";
-            if (blobReq->cb.get() != NULL) {
-                blobReq->cb->call(FDSN_StatusEntityDoesNotExist);
-            } else {
-                FDS_NativeAPI::DoCallback(blobReq, err, 0, 0);
-            }
+            blobReq->cb->call(FDSN_StatusEntityDoesNotExist);
             delete blobReq;
         }
         blobs.clear();

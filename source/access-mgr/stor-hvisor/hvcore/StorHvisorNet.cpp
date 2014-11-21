@@ -114,7 +114,6 @@ StorHvCtrl::StorHvCtrl(int argc,
          */
     }
 
-    initHandlers();
     my_node_name = node_name;
 
     sysParams = params;
@@ -257,11 +256,6 @@ StorHvCtrl::~StorHvCtrl()
     if (om_client)
         delete om_client;
     delete qos_ctrl;
-}
-
-void StorHvCtrl::initHandlers() {
-    handlers[fds::FDS_STAT_BLOB]            = new StatBlobHandler(this);
-    handlers[fds::FDS_GET_VOLUME_METADATA]  = new GetVolumeMetaDataHandler(this);
 }
 
 SysParams* StorHvCtrl::getSysParams() {
