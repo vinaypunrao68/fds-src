@@ -59,17 +59,18 @@ struct LockfreeWorker {
         pthread_setschedparam(pthread_self(), SCHED_RR, &param);
 #endif
 #if 0
-        int core_id = id_+1; 
+        int core_id = id_+1;
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
         CPU_SET(core_id, &cpuset);
         if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) < 0)
         {
             std::cerr << "Failed to set priority\n";
-            return; 
+            return;
         }
 #endif
 
+#ifdef OLD_WORK_LOOP
         for(;;)
         {
             LockFreeTask *task;
@@ -109,6 +110,46 @@ struct LockfreeWorker {
             delete task;
             completedCntr++;
         }
+#endif  // OLD_WORK_LOOP
+
+
+        for (;;)
+        {
+            LockFreeTask *task;
+            uint64_t empty_cnt = 0;
+            uint64_t wait_durations[3] = { 5, 10, 20};
+            uint32_t duration_idx = 0;
+            uint32_t task_miss_steps = 0;
+
+            while (true) {
+                if (stop) {
+                    return;
+                }
+                // not thread-safe, but no problem...
+                while (tasks.empty()) {
+                    ++empty_cnt;
+                    if (empty_cnt > 1000) {
+                        std::unique_lock<std::mutex> lock(this->queue_mutex);
+                        condition.wait_for(lock, std::chrono::milliseconds(wait_durations[duration_idx]));
+                        empty_cnt = 0;
+                        break;
+                    }
+                }  // tasks.empty()
+
+                if (tasks.pop(task)) {
+                    duration_idx = 0;
+                    break;
+                }
+                if (duration_idx < 2) {
+                    ++duration_idx;
+                }
+                fds_assert(duration_idx <= 2);
+            }  // while (true)
+
+            task->operator()();
+            delete task;
+
+        }  // for (;;)
     }
     int id_;
     bool steal_;
@@ -200,6 +241,7 @@ struct LFSQThreadpool {
     }
 
     void work() {
+#ifdef OLD_WORK_LOOP
         for(;;)
         {
             LockFreeTask *task;
@@ -219,7 +261,46 @@ struct LFSQThreadpool {
             }
             task->operator()();
             delete task;
-        }
+        }  // for (;;)
+#endif  // OLD_WORK_LOOP;
+
+        for (;;)
+        {
+            LockFreeTask *task;
+            uint64_t empty_cnt = 0;
+            uint64_t wait_durations[3] = { 5, 10, 20};
+            uint32_t duration_idx = 0;
+            uint32_t task_miss_steps = 0;
+
+            while (true) {
+                if (stop) {
+                    return;
+                }
+                // not thread-safe, but no problem...
+                while (tasks.empty()) {
+                    ++empty_cnt;
+                    if (empty_cnt > 1000) {
+                        std::unique_lock<std::mutex> lock(this->queue_mutex);
+                        condition.wait_for(lock, std::chrono::milliseconds(wait_durations[duration_idx]));
+                        empty_cnt = 0;
+                        break;
+                    }
+                }  // tasks.empty()
+
+                if (tasks.pop(task)) {
+                    duration_idx = 0;
+                    break;
+                }
+                if (duration_idx < 2) {
+                    ++duration_idx;
+                }
+                fds_assert(duration_idx <= 2);
+            }  // while (true)
+
+            task->operator()();
+            delete task;
+        }  // for (;;)
+
     }
 
     // workers
