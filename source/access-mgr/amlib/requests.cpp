@@ -13,9 +13,6 @@ extern StorHvCtrl *storHvisor;
 namespace fds
 {
 
-const fds_uint64_t VolumeContentsReq::fds_sh_volume_list_magic;
-const fds_uint64_t VolumeStatsReq::fds_sh_volume_stats_magic;
-
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        const std::string& _volumeName,
                        const std::string& _blob_name,  // same as objKey

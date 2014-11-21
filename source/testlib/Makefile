@@ -2,12 +2,15 @@ topdir           := ..
 user_target      := lib
 user_rtime_env   := user
 user_build_dir   :=
-user_incl_dir    := $(topdir) . /usr/include/cryptopp
+user_incl_dir    := $(topdir) . /usr/include/cryptopp \
+        $(topdir)/platform/include \
+	$(topdir)/net-service/include
 user_cpp         := \
 	Deployer.cpp \
 	SvcMsgFactory.cpp \
 	TestUtils.cpp \
-	TestFixtures.cpp
+	TestFixtures.cpp \
+	test-plat-proc.cpp
 
 user_ar_libs     := fds-test
 fds-test  	 := $(user_cpp)

@@ -4,6 +4,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.model.Bucket;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.Snapshot;
 import com.formationds.util.s3.S3SignatureGenerator;
@@ -91,6 +92,30 @@ public class SmokeTest {
                 .toString();
         count = 10;
         config = new XdiClientFactory().remoteOmService(host, 9090);
+        
+        testBucketExists(userBucket);
+        testBucketExists(adminBucket);
+    }
+
+    public void testBucketExists(String bucketName) {
+        List<Bucket> buckets;
+        boolean fBucketExists = false;
+        int count = 0;
+        //System.out.println("checking bucket : " + bucketName);
+        do {
+            buckets = adminClient.listBuckets();
+            for (Bucket b : buckets) {
+                if (b.getName().equals(bucketName)) {
+                    fBucketExists = true;
+                    break;
+                }
+            }
+            count++;
+            if (!fBucketExists && count< 10) {
+                sleep(1000);
+            }
+        } while ( !fBucketExists && count < 10);
+        assertEquals("bucket [" + bucketName + "] NOT active", true, fBucketExists);
     }
 
     void sleep(long ms) {
@@ -111,7 +136,7 @@ public class SmokeTest {
         List<PartETag> etags = IntStream.range(0, partCount)
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
-                    byte[] buf = new byte[(1 + partCount) * (1024 * 1024)];
+                    byte[] buf = new byte[(1 + i) * (1024 * 1024)];
                     rng.nextBytes(buf);
                     UploadPartRequest request = new UploadPartRequest()
                             .withBucketName(userBucket)
@@ -129,7 +154,7 @@ public class SmokeTest {
         userClient.completeMultipartUpload(completeRequest);
 
         ObjectMetadata objectMetadata = userClient.getObjectMetadata(userBucket, key);
-        assertEquals(115343360, objectMetadata.getContentLength());
+        assertEquals(57671680, objectMetadata.getContentLength());
     }
 
     @Test

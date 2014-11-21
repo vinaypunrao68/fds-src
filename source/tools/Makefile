@@ -11,6 +11,7 @@ user_incl_dir     := $(topdir) \
 user_cpp_flags    := -DLEVELDB_PLATFORM_POSIX
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
+    fds-lib \
     fds-dm-lib \
     fds-xdi
 

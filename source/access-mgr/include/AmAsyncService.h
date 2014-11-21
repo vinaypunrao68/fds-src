@@ -7,7 +7,6 @@
 #include <string>
 #include <util/Log.h>
 #include <fds_module.h>
-#include <native_api.h>
 #include <apis/AsyncAmServiceResponse.h>
 #include <concurrency/Thread.h>
 #include <AmAsyncDataApi.h>

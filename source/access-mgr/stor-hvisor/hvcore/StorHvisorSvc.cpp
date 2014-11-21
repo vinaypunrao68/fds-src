@@ -28,6 +28,25 @@ using namespace FDS_ProtocolInterface;
 
 std::atomic_uint nextIoReqId;
 
+/**
+ * Function called when volume waiting queue is drained.
+ * When it's called a volume has just been attached and
+ * we can call the callback to tell any waiters that the
+ * volume is now ready.
+ */
+void
+StorHvCtrl::attachVolume(AmRequest *amReq) {
+    // Get request from qos object
+    fds_verify(amReq != NULL);
+    AttachVolBlobReq *blobReq = static_cast<AttachVolBlobReq *>(amReq);
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->io_type == FDS_ATTACH_VOL);
+
+    LOGDEBUG << "Attach for volume " << blobReq->volume_name
+             << " complete. Notifying waiters";
+    blobReq->cb->call(ERR_OK);
+}
+
 void
 StorHvCtrl::enqueueAttachReq(const std::string& volumeName,
                              CallbackPtr cb) {

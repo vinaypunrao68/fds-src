@@ -120,9 +120,6 @@ AmProcessor::deleteBlob(AmRequest *amReq) {
                 << " blob:" << amReq->getBlobName()
                 << " txn:" << blobReq->tx_desc;
 
-    blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
-        boost::posix_time::microsec_clock::universal_time()));
-
     if ((shVol == NULL) || (!shVol->isValidLocked())) {
         LOGCRITICAL << "unable to get volume info for vol: " << volId;
         genericCb(amReq, FDSN_StatusErrorUnknown);
