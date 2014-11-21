@@ -19,11 +19,11 @@ import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
-import java.time.Instant;
+import java.time.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -61,7 +61,7 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
         }
     }
 
-    final Map<FBInfo,FirebreakEvent> activeFirebreaks = new ConcurrentHashMap<>();
+    final Map<FBInfo, FirebreakEvent> activeFirebreaks = new ConcurrentHashMap<>();
     Map<Volume, Boolean> isVolumeloaded = new ConcurrentHashMap<>();
 
     // TODO: this occurs within the VolumeDatapoint persistence path and could potentially prevent saving metrics
@@ -106,20 +106,23 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
                 // TODO: illegal state?
                 logger.warn("Firebreak type could not be determined for metric key {}.  Skipping FirebreakEvent Datapoint {}",
                             volDp.getShortTermSigma().getKey(), volDp);
-            } else if (!hasActiveFirebreak(v, fbtype)) {
-                logger.trace("Firebreak event for '{}({})' with datapoints '{}'", v.getId(), v.getName(), volDp);
-
-                Datapoint dp = volDp.getDatapoint();
-                FirebreakEvent fbe = new FirebreakEvent(v, fbtype,
-                                                        Instant.ofEpochSecond(dp.getY()).toEpochMilli(), dp.getX(),
-                                                        (volDp.getShortTermSigma().getValue() != 0.0D ?
-                                                         volDp.getShortTermSigma().getValue() :
-                                                         volDp.getLongTermSigma().getValue()) );
-                EventManager.INSTANCE.notifyEvent(fbe);
-                activeFirebreaks.put(new FBInfo(v, fbtype), fbe);
             } else {
-                logger.trace("Firebreak event skipped - active firebreak for volume {}({})", v.getId(), v.getName());
-                logger.trace("Active Firebreaks: {}", activeFirebreaks.toString());
+                Optional<FirebreakEvent> activeFbe = hasActiveFirebreak(v, fbtype);
+                if (!activeFbe.isPresent()) {
+                    logger.trace("Firebreak event for '{}({})' with datapoints '{}'", v.getId(), v.getName(), volDp);
+
+                    Datapoint dp = volDp.getDatapoint();
+                    FirebreakEvent fbe = new FirebreakEvent(v, fbtype,
+                                                            Instant.ofEpochSecond(dp.getY()).toEpochMilli(),
+                                                            dp.getX(),
+                                                            (volDp.getShortTermSigma().getValue() != 0.0D ?
+                                                             volDp.getShortTermSigma().getValue() :
+                                                             volDp.getLongTermSigma().getValue()) );
+                    EventManager.INSTANCE.notifyEvent(fbe);
+                    activeFirebreaks.put(new FBInfo(v, fbtype), fbe);
+                } else {
+                    logger.trace("Firebreak event skipped - active firebreak for volume {}({}): {}", v.getId(), v.getName(), activeFbe.get());
+                }
             }
         }
     }
@@ -128,38 +131,44 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
      * @param vol the volume
      * @return true if there is an active firebreak for the volume and metric
      */
-    protected boolean hasActiveFirebreak(Volume vol, FirebreakType fbtype) {
+    protected Optional<FirebreakEvent> hasActiveFirebreak(Volume vol, FirebreakType fbtype) {
         Boolean isLoaded = isVolumeloaded.get(vol);
         if (isLoaded == null || !isLoaded) {
             loadActiveFirebreaks(vol);
         }
 
         if (fbtype == null)
-            return false;
+            return Optional.empty();
 
         FBInfo fbi = new FBInfo(vol, fbtype);
         FirebreakEvent fbe = activeFirebreaks.get(fbi);
         if (fbe == null)
-            return false;
+            return Optional.empty();
 
         Instant oneDayAgo = Instant.now().minus(Duration.ofDays(1));
         Instant fbts = Instant.ofEpochMilli(fbe.getInitialTimestamp());
         if (fbts.isBefore(oneDayAgo)) {
             activeFirebreaks.remove(fbi);
             isVolumeloaded.remove(vol);
-            return false;
+            return Optional.empty();
         }
 
-        return true;
+        return Optional.of(fbe);
     }
 
     protected void loadActiveFirebreaks(Volume vol) {
-        EventRepository er = SingletonRepositoryManager.instance().getEventRepository();
-        FirebreakEvent fb = er.findLatestFirebreak(vol);
+        // TODO: it really shouldn't be necessary to create a new instance here, but without it i'm
+        // seeing duplicate results.  Need to revisit.
+        EventRepository er = new EventRepository();
+        try {
+            FirebreakEvent fb = er.findLatestFirebreak(vol);
 
-        if (fb != null) {
-            activeFirebreaks.put(new FBInfo(vol, fb.getFirebreakType()), fb);
-            isVolumeloaded.put(vol, Boolean.TRUE);
+            if (fb != null) {
+                activeFirebreaks.put(new FBInfo(vol, fb.getFirebreakType()), fb);
+                isVolumeloaded.put(vol, Boolean.TRUE);
+            }
+        } finally {
+            er.close();
         }
     }
 }

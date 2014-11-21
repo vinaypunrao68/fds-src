@@ -106,15 +106,14 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
         EntityManager em = newEntityManager();
         try {
             FirebreakEventCriteriaQueryBuilder cb = new FirebreakEventCriteriaQueryBuilder(em);
-
             Instant oneDayAgo = Instant.now().minus(Duration.ofDays(1));
             Timestamp tsOneDayAgo = new Timestamp(oneDayAgo.toEpochMilli());
             cb.volumesByName(v.getName()).withDateRange(new DateRangeBuilder(tsOneDayAgo, null).build());
             List<FirebreakEvent> r = cb.build().getResultList();
             if (r.isEmpty()) return null;
 
-            r.sort((f, fp) -> f.getInitialTimestamp().compareTo(fp.getInitialTimestamp()));
-            return r.get(0);
+            // TODO: reverse order in query and get(0)...
+            return r.get(r.size()-1);
         } finally {
             em.close();
         }

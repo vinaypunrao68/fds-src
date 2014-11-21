@@ -59,6 +59,30 @@ public class FirebreakEvent extends Event {
         this.sigma = sigma;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof FirebreakEvent)) return false;
+        if (!super.equals(o)) return false;
+
+        FirebreakEvent that = (FirebreakEvent) o;
+
+        if (!volumeId.equals(that.volumeId)) return false;
+        if (!volumeName.equals(that.volumeName)) return false;
+        if (firebreakType != that.firebreakType) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = super.hashCode();
+        result = 31 * result + volumeId.hashCode();
+        result = 31 * result + volumeName.hashCode();
+        result = 31 * result + firebreakType.hashCode();
+        return result;
+    }
+
     /**
      * @return the volume id
      */
@@ -139,6 +163,7 @@ public class FirebreakEvent extends Event {
     public String toString() {
         final StringBuilder sb = new StringBuilder("FirebreakEvent{");
         sb.append("volumeId='").append(volumeId).append('\'')
+          .append("ts=").append(getInitialTimestamp())
           .append(", volumeName='").append(volumeName).append('\'')
           .append(", firebreakType=").append(firebreakType)
           .append(", current usage (bytes)=").append(currentUsageBytes)

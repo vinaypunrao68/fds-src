@@ -156,6 +156,32 @@ abstract public class Event extends ModelBase {
         this.modifiedTimestamp = Instant.now().toEpochMilli();
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Event event = (Event) o;
+
+        if (category != event.category) return false;
+        if (!initialTimestamp.equals(event.initialTimestamp)) return false;
+        if (!messageKey.equals(event.messageKey)) return false;
+        if (severity != event.severity) return false;
+        if (type != event.type) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = type.hashCode();
+        result = 31 * result + category.hashCode();
+        result = 31 * result + severity.hashCode();
+        result = 31 * result + initialTimestamp.hashCode();
+        result = 31 * result + messageKey.hashCode();
+        return result;
+    }
+
     /**
      *
      * @return the generated event id.

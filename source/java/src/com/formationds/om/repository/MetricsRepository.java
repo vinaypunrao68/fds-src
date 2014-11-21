@@ -97,7 +97,6 @@ public class MetricsRepository
   public MetricsRepository( final String dbName ) {
     super();
     initialize( dbName );
-
     super.addEntityPersistListener(new MetricsEntityPersistListener());
   }
 
@@ -137,10 +136,9 @@ public class MetricsRepository
   public VolumeDatapointList query( final QueryCriteria criteria ) {
       EntityManager em = newEntityManager();
       try {
-          final List<VolumeDatapoint> results = 
-        		  new MetricCriteriaQueryBuilder(em).searchFor(criteria)
-                                                    .build()
-                                                    .getResultList();
+          final List<VolumeDatapoint> results = new MetricCriteriaQueryBuilder(em).searchFor(criteria)
+                                                                                  .build()
+                                                                                  .getResultList();
 
           final VolumeDatapointList list = new VolumeDatapointList();
           results.stream().forEach(list::add);

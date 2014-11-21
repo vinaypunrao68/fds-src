@@ -15,7 +15,10 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
 import java.io.Serializable;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Proxy;
 import java.util.*;
 
 /**
@@ -300,9 +303,12 @@ public abstract class JDORepository<T,
      */
     @Override
     public void close() {
-        entityManagerFactory.close();
-        manager.close();
-        factory.close();
+        // ignoring errors on close.  Although this is likely to indicate either
+        // a shutdown condition or a programming error such as calling close twice,
+        // there is no real impact or recovery actions to take
+        try { entityManagerFactory.close(); } catch (Throwable t) { /* ignore on close */ }
+        try { manager.close(); } catch (Throwable t) { /* ignore on close */ }
+        try { factory.close(); } catch (Throwable t) { /* ignore on close */ }
     }
 
     /**

@@ -122,30 +122,33 @@ public class FirebreakHelper {
             final String volumeName = pair.getShortTermSigma()
                                           .getVolumeName();
 
-            if( !results.containsKey( key ) ) {
-                final Datapoint datapoint = new Datapoint();
-                datapoint.setY( NEVER );    // firebreak last occurrence
+            try {
+                if (!results.containsKey(key)) {
+                    final Datapoint datapoint = new Datapoint();
+                    datapoint.setY(NEVER);    // firebreak last occurrence
 
-                try {
                     final VolumeStatus status = SingletonAmAPI.instance()
                                                               .api()
                                                               .volumeStatus("", volumeName);
-                    if( status != null ) {
+                    if (status != null) {
                         // use the usage, OBJECT volumes have no fixed capacity
-                        datapoint.setX( status.getCurrentUsageInBytes() );
+                        datapoint.setX(status.getCurrentUsageInBytes());
                     }
-                } catch( TException e ) {
-                    logger.warn( "Failed to get Volume status", e );
+
+                    pair.setDatapoint(datapoint);
+                    results.put(key, pair);
                 }
 
-                pair.setDatapoint(datapoint);
-                results.put( key, pair );
+                if (isFirebreak(pair)) {
+                    // if there is already a firebreak for the volume in the results use it
+                    // instead of the pair and set the timestamp using the current pair.
+                    // TODO: Does it really make sense to update the existing pair's Y (timestamp) but not the X (usage)?
+                    results.get(key).getDatapoint().setY(pair.getShortTermSigma().getTimestamp());
+                }
+            } catch( TException e ) {
+                logger.warn("Failed to get Volume status for firebreak event pair" + pair, e );
             }
-
-            if( isFirebreak(pair) ) {
-                results.get( key ).getDatapoint().setY(pair.getShortTermSigma().getTimestamp());
-            }
-        } );
+    } );
 
         return results;
     }
