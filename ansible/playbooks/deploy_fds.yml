@@ -92,16 +92,17 @@
 
     -   name: stop_platformd
         service: name={{ item }} state=stopped
+        when: fds_installed|success
         with_items:
             - platformd
             - orchmgr
             - amagent
             - fdsactivate
-        when: fds_installed|success
 
     -   name: kill_all_procs
         shell: pkill -9 -f {{item}} || true
         ignore_errors: True
+        when: fds_installed|success
         with_items:
             - com.formationds.am.Main
             - bare_am
@@ -110,7 +111,6 @@
             - StorMgr
             - platformd
             - fdscli
-        when: fds_installed|success
 
     -   name: stop_redis
         shell: ./redis.sh stop chdir=/fds/sbin
@@ -125,6 +125,11 @@
     remote_user: root
 
     tasks:
+
+    -   name: check_fds_install
+        shell: test -d /fds/sbin
+        ignore_errors: True
+        register: fds_installed
 
     -   name: clean_node
         shell: rm -rf {{item}}
@@ -157,9 +162,9 @@
         sysctl: name={{ item.key }} value={{ item.value }} state={{ item.state }}
         when: ansible_virtualization_type != "lxc"
         with_items:
-          - { key: 'fs.file_max', value: '400000', state: 'present' }
+          - { key: 'fs.file-max', value: '400000', state: 'present' }
           - { key: 'kernel.core_uses_pid', value: '1', state: 'present' }
-          - { key: 'kernel.suid_dumpable', value: '1', state: 'present' }
+          - { key: 'fs.suid_dumpable', value: '1', state: 'present' }
           - { key: 'kernel.core_pattern', value: '/corefiles/%e.%p.%u.%t.core', state: 'present' }
 
     -   name: install_limits_conf
@@ -179,12 +184,18 @@
             state=directory
 
     -   name: ensure_os_packages_installed
-        apt: name={{item}} state=present
+        apt: name={{item}} state=present update_cache=yes
         with_items:
           - libevent-dev
           - parted
           - gdb
           - tar
+          - libboost-log1.55.0
+          - libboost-program-options1.55.0
+          - libboost-timer1.55.0
+          - libboost-thread1.55.0
+          - libboost-regex1.55.0
+          - libboost-date-time1.55.0
 
 
 -   name: install and configure fds on all  fds_nodes

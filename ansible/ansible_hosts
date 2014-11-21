@@ -16,7 +16,10 @@ fds_ssh_user=root
 fds_ssh_password=passwd
 
 [fds-cloud]
-servernode[0:3]    ansible_ssh_port=10022
+servernode0 ansible_ssh_port=10022 fds_node=node0
+servernode1 ansible_ssh_port=10022 fds_node=node1
+servernode2 ansible_ssh_port=10022 fds_node=node2
+servernode3 ansible_ssh_port=10022 fds_node=node3
 
 [fds-cloud:vars]
 fds_default_nic=em2
@@ -68,7 +71,10 @@ fds_dm_catalog_write_buffer_size=52428800
 fds_am_testing_am_testing_toggleDisableStreamingStats=true
 
 [bld-deploy-nodes]
-bld-deploynode-0[1:4]
+bld-deploynode-01 fds_node=node01
+bld-deploynode-02 fds_node=node02
+bld-deploynode-03 fds_node=node03
+bld-deploynode-04 fds_node=node04
 
 [bld-deploy-nodes:vars]
 fds_default_nic=eth0
