@@ -46,21 +46,6 @@ public:
   DltTokenGroupPtr  getDLTNodesForDoidKey(const ObjectID &objId) {
       return parent_omc->getDLTNodesForDoidKey(objId);
   }
-#if 0
-  void  getDLTNodesForDoidKey( ObjectID *objId) {
-    if (mode == DP_NO_OM_MODE) {
-      /*
-       * TODO: Set up some stock response here.
-       * Returns 1 nodes with ID 0. The SM has
-       * stock node id 0.
-       */
-      (*n_nodes) = 1;
-      node_ids[(*n_nodes) - 1] = 0;
-    } else {
-      parent_omc->getDLTNodesForDoidKey(objId);
-    }
-  }
-#endif
 
   DmtColumnPtr getDMTNodesForVolume(fds_volid_t volid) {
       if (mode == DP_NO_OM_MODE) {

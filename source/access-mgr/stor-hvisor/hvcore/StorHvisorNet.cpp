@@ -128,9 +128,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
-    myIp = net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
-    assert(myIp.empty() == false);
-    LOGNOTIFY << "StorHvisorNet - My IP: " << myIp;
+    LOGNOTIFY << "StorHvisorNet - My IP: " << net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
 
     /*  Create the QOS Controller object */
     fds_uint32_t qos_threads = config.get<int>("qos_threads");
@@ -216,8 +214,6 @@ StorHvCtrl::StorHvCtrl(int argc,
                         vol_table,
                         amTxMgr,
                         amCache));
-
-    chksumPtr =  new checksum_calc();
 
     LOGNORMAL << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
 

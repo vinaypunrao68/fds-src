@@ -19,10 +19,9 @@ StorHvisor_cpp    :=                   \
     StorHvisorSvc.cpp                  \
     StorHvisorTbl.cpp                  \
     VolumeCatalogCache.cpp             \
-    qos_ctrl.cpp	                   \
+    qos_ctrl.cpp	               \
     StorHvQosCtrl.cpp                  \
-    StorHvVolumes.cpp		           \
-    FDSNStat.cpp
+    StorHvVolumes.cpp
 
 user_cpp       := \
     $(StorHvisor_cpp)
@@ -32,7 +31,6 @@ user_hpp       := $(wildcard *.h)
 user_no_style     := $(user_cc) \
     list.h \
     StorHvDataPlace.h \
-    StorHvisorClient.h \
     StorHvisorNet.h \
     StorHvQosCtrl.h \
     StorHvVolumes.h \
@@ -42,8 +40,7 @@ user_no_style     := $(user_cc) \
     StorHvisorTbl.cpp \
     qos_ctrl.cpp \
     StorHvQosCtrl.cpp \
-    StorHvVolumes.cpp \
-    FDSNStat.cpp
+    StorHvVolumes.cpp
 
 #user_no_style     :=
 user_ar_libs      := fds-am-engine

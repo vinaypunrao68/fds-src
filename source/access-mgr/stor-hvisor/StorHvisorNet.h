@@ -89,22 +89,6 @@ using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
 
-typedef struct {
-    double   hash_high;
-    double   hash_low;
-    char    conflict_id;
-} fds_object_id_t;
-
-
-typedef union {
-
-    fds_object_id_t obj_id; // object id fields
-    unsigned char bytes[20]; // byte array
-
-} fds_doid_t;
-
-typedef unsigned char doid_t[20];
-
 /**
  * @brief Storage manager counters
  */
@@ -152,8 +136,6 @@ public:
                fds_uint32_t dm_port_num,
                fds_uint32_t instanceId = 0);
     ~StorHvCtrl();
-    //imcremental checksum  for header and payload 
-    checksum_calc   *chksumPtr;
 
     // Data Members
     StorHvDataPlacement        *dataPlacementTbl;
@@ -163,7 +145,6 @@ public:
     OMgrClient                 *om_client;
     FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 
-    std::string                 myIp;
     std::string                 my_node_name;
 
     /// Toggle AM standalone mode for testing
