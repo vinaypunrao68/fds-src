@@ -17,6 +17,7 @@
 #include <fds_process.h>
 #include <ObjectLogger.h>
 #include <leveldb/copy_env.h>
+#include <leveldb/cat_journal.h>
 
 #define COMMITLOG_GET(_volId_, _commitLog_) \
     do { \
@@ -577,7 +578,7 @@ void DmTimeVolCatalog::monitorLogs() {
     }
 }
 
-Error DmVolumeDirectory::dmReplayCatJournalOps(Catalog *replatCat,
+Error DmTimeVolCatalog::dmReplayCatJournalOps(Catalog *destCat,
         const std::vector<std::string> &files, fds_uint64_t timelineTime) {
     Error rc(ERR_DM_REPLAY_JOURNAL);
 
@@ -590,14 +591,14 @@ Error DmVolumeDirectory::dmReplayCatJournalOps(Catalog *replatCat,
                 LOGDEBUG << "Error getting the write batch time stamp";
             }
             if ((ts / 1000 * 1000) <= timelineTime) {
-                rc = replayCat->Update(&wb);
+                rc = destCat->Update(&wb);
             }
         }
     }
 
     return rc;
 }
-Error DmVolumeDirectory::dmGetCatJournalStartTime(const std::string &logfile,
+Error DmTimeVolCatalog::dmGetCatJournalStartTime(const std::string &logfile,
         fds_uint64_t *journal_time) {
     Error err(ERR_DM_JOURNAL_TIME);
 

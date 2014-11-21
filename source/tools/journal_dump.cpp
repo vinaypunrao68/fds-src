@@ -27,7 +27,7 @@
 #include <dm-vol-cat/DmPersistVolDir.h>
 
 #define USE_NEW_LDB_STRUCTURES
-#include <leveldb/cat_journal_iterator.h>
+#include <leveldb/cat_journal.h>
 
 namespace leveldb {
 
