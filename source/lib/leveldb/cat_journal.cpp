@@ -20,7 +20,7 @@
 #include "leveldb/write_batch.h"
 #include "util/logging.h"
 
-#include <leveldb/cat_journal_iterator.h>
+#include <leveldb/cat_journal.h>
 #include <util/Log.h>
 
 using namespace fds;  // NOLINT
@@ -83,6 +83,8 @@ CatJournalIterator::CatJournalIterator(const std::string & file) : file_(file),
     reader_.reset(new log::Reader(sfile_, &reporter_, true, 0));
     batch_.Clear();
     valid_ = true;
+
+    Next();
 }
 
 CatJournalIterator::~CatJournalIterator() {

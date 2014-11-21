@@ -698,45 +698,4 @@ Error DmVolumeDirectory::syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid) 
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->syncCatalog(dmUuid);
 }
-
-Error DmVolumeDirectory::dmVolReplay(Catalog *replayCat,
-           std::vector<std::string> &files, fds_uint64_t timelineTime) {
-    Error rc(ERR_DM_REPLAY_JOURNAL);
-
-    fds_uint64_t ts = 0;
-    for (const auto &f : files) {
-        leveldb::CatJournalIterator iter(f);
-        if (!iter.isValid()) {
-            LOGWARN << "Failed to read catalog journal '" << f << "'";
-            break;
-        }
-
-        for (iter.Next(); iter.isValid(); iter.Next()) {
-            leveldb::WriteBatch & wb = iter.GetBatch();
-            ts = getWriteBatchTimestamp(wb);
-            if (!ts) {
-                LOGDEBUG << "Error getting the write batch time stamp";
-            }
-            if ((ts / 1000 * 1000) <= timelineTime) {
-                rc = replayCat->Update(&wb);
-            }
-        }
-    }
-    return rc;
-}
-Error  DmVolumeDirectory::dmVolGetLogTime(const std::string &logfile, fds_uint64_t *journal_time) {
-    Error rc(ERR_OK);
-
-    leveldb::CatJournalIterator iter(logfile);
-    if (!iter.isValid()) {
-        return ERR_DM_JOURNAL_TIME;
-    }
-
-    for (iter.Next(); iter.isValid(); ) {
-        *journal_time = getWriteBatchTimestamp(iter.GetBatch());
-        break;
-    }
-
-    return *journal_time ? ERR_OK : ERR_DM_JOURNAL_TIME;
-}
 }  // namespace fds

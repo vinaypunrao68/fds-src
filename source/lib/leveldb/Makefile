@@ -6,7 +6,7 @@ user_incl_dir    := .. $(topdir) \
 user_cpp_flags    := -DLEVELDB_PLATFORM_POSIX
 user_cpp         := \
     copy_env.cpp \
-    cat_journal_iterator.cpp
+    cat_journal.cpp
 
 user_no_style    := \
     copy_env.cpp

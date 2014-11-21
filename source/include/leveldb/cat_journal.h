@@ -2,8 +2,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_INCLUDE_LEVELDB_CAT_JOURNAL_ITERATOR_H_
-#define SOURCE_INCLUDE_LEVELDB_CAT_JOURNAL_ITERATOR_H_
+#ifndef SOURCE_INCLUDE_LEVELDB_CAT_JOURNAL_H_
+#define SOURCE_INCLUDE_LEVELDB_CAT_JOURNAL_H_
 
 /**
  * XXX: This code is copied (with a few changes) from the leveldb forum post:
@@ -59,4 +59,4 @@ class CatJournalIterator {
     leveldb::WriteBatch batch_;
 };
 }  // namespace leveldb
-#endif  // SOURCE_INCLUDE_LEVELDB_CAT_JOURNAL_ITERATOR_H_
+#endif  // SOURCE_INCLUDE_LEVELDB_CAT_JOURNAL_H_

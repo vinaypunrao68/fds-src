@@ -151,7 +151,6 @@ class DmPersistVolDir {
     // sync
     virtual Error syncCatalog(const NodeUuid & dmUuid);
 
-
     friend DmCommitLog;
 
   protected:
