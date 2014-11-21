@@ -25,7 +25,6 @@
 #include <lib/StatsCollector.h>
 #include <hash/md5.h>
 #include <FdsRandom.h>
-#include "./handler/handler.h"
 #include <fdsp/FDSP_DataPathReq.h>
 #include <fdsp/FDSP_DataPathResp.h>
 #include <fdsp/FDSP_MetaDataPathReq.h>
@@ -90,99 +89,6 @@ using namespace FDS_ProtocolInterface;
 using namespace std;
 using namespace fds;
 
-class FDSP_DataPathRespCbackI : public FDS_ProtocolInterface::FDSP_DataPathRespIf
-{
-public:
-    FDSP_DataPathRespCbackI() {
-    }
-    ~FDSP_DataPathRespCbackI() {
-    }
-
-    virtual void GetObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_GetObjType& get_obj_req) {
-    }
-    virtual void GetObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_GetObjType>& get_obj_req);
-    virtual void PutObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_PutObjType& put_obj_req) {
-    }
-    virtual void PutObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_PutObjType>& put_obj_req);
-    virtual void DeleteObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_DeleteObjType& del_obj_req) {
-    }
-    virtual void DeleteObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_DeleteObjType>& del_obj_req);
-    virtual void OffsetWriteObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_OffsetWriteObjType& offset_write_obj_req) {
-    }
-    virtual void OffsetWriteObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_OffsetWriteObjType>& offset_write_obj_req) {
-    }
-    virtual void RedirReadObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_RedirReadObjType& redir_write_obj_req) {
-    }
-    virtual void RedirReadObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_RedirReadObjType>& redir_write_obj_req){
-    }
-    virtual void GetObjectMetadataResp(
-            boost::shared_ptr<FDSP_GetObjMetadataResp>& metadata_resp) {
-    }
-    virtual void GetObjectMetadataResp(const FDSP_GetObjMetadataResp& metadata_resp) {
-    }
-
-};
-
-
-class FDSP_MetaDataPathRespCbackI : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf
-{
-public:
-    FDSP_MetaDataPathRespCbackI() {
-    }
-
-    ~FDSP_MetaDataPathRespCbackI() {
-    }
-
-    virtual void StartBlobTxResp(const FDSP_MsgHdrType &msgHdr) {
-    }
-    virtual void StartBlobTxResp(boost::shared_ptr<FDSP_MsgHdrType> &msgHdr);
-    virtual void UpdateCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_UpdateCatalogType& cat_obj_req) {
-    }
-    virtual void UpdateCatalogObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_UpdateCatalogType>& cat_obj_req);
-    virtual void QueryCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_QueryCatalogType& cat_obj_req) {
-    }
-    virtual void QueryCatalogObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_QueryCatalogType>& cat_obj_req);
-    virtual void DeleteCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg, const FDSP_DeleteCatalogType& cat_obj_req) {
-    }
-    virtual void DeleteCatalogObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg, boost::shared_ptr<FDSP_DeleteCatalogType>& cat_obj_req);
-    virtual void GetVolumeBlobListResp(const FDSP_MsgHdrType& fds_msg, const FDSP_GetVolumeBlobListRespType& blob_list_rsp) {
-    }
-    virtual void GetVolumeBlobListResp(boost::shared_ptr<FDSP_MsgHdrType>& fds_msg, boost::shared_ptr<FDSP_GetVolumeBlobListRespType>& blob_list_rsp);
-
-    virtual void StatBlobResp(const FDSP_MsgHdrType &msgHdr,
-                              const FDS_ProtocolInterface::BlobDescriptor &blobDesc) {
-    }
-
-    virtual void StatBlobResp(boost::shared_ptr<FDSP_MsgHdrType> &msgHdr,
-                              boost::shared_ptr<FDS_ProtocolInterface::
-                              BlobDescriptor> &blobDesc);
-
-    virtual void SetBlobMetaDataResp(const FDSP_MsgHdrType& header, const std::string& blobName) {}
-    virtual void GetBlobMetaDataResp(const FDSP_MsgHdrType& header, const std::string& blobName, const FDSP_MetaDataList& metaDataList) {}
-    virtual void GetVolumeMetaDataResp(const FDSP_MsgHdrType& header, const FDSP_VolumeMetaData& volumeMeta) {}
-
-    virtual void SetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header, boost::shared_ptr<std::string>& blobName);
-    virtual void GetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header, boost::shared_ptr<std::string>& blobName, boost::shared_ptr<FDSP_MetaDataList>& metaDataList);
-    virtual void GetVolumeMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header, boost::shared_ptr<FDSP_VolumeMetaData>& volumeMeta);
-};
-
-
-typedef struct {
-    double   hash_high;
-    double   hash_low;
-    char    conflict_id;
-} fds_object_id_t;
-
-
-typedef union {
-
-    fds_object_id_t obj_id; // object id fields
-    unsigned char bytes[20]; // byte array
-
-} fds_doid_t;
-
-typedef unsigned char doid_t[20];
-
 /**
  * @brief Storage manager counters
  */
@@ -230,10 +136,6 @@ public:
                fds_uint32_t dm_port_num,
                fds_uint32_t instanceId = 0);
     ~StorHvCtrl();
-    void initHandlers();
-    std::map<fds_io_op_t, fds::Handler*> handlers;
-    //imcremental checksum  for header and payload 
-    checksum_calc   *chksumPtr;
 
     // Data Members
     StorHvDataPlacement        *dataPlacementTbl;
@@ -243,7 +145,6 @@ public:
     OMgrClient                 *om_client;
     FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
 
-    std::string                 myIp;
     std::string                 my_node_name;
 
     /// Toggle AM standalone mode for testing
@@ -274,125 +175,13 @@ public:
     fds::Error pushBlobReq(AmRequest *blobReq);
     void enqueueBlobReq(AmRequest *blobReq);
 
-    // Stuff for pending offset operations
-    // TODO(Andrew): Reconcile with dispatchSm...
-    fds::Error processSmPutObj(PutBlobReq *putBlobReq,
-                               StorHvJournalEntry *journEntry);
-    fds::Error processDmUpdateBlob(PutBlobReq *putBlobReq,
-                                   StorHvJournalEntry *journEntry);
-    fds::Error resumePutBlob(StorHvJournalEntry *journEntry);
-
-    fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                          const FDSP_PutObjTypePtr& putObjRsp);
-    fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
-                         const FDSP_UpdateCatalogTypePtr& catObjRsp);
-    void statBlobResp(const FDSP_MsgHdrTypePtr rxMsg, 
-                      const FDS_ProtocolInterface::
-                      BlobDescriptorPtr blobDesc);
-    void startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg);
-    fds::Error deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                             const FDSP_DeleteCatalogTypePtr& delCatRsp);
-    fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                             const FDSP_GetVolumeBlobListRespTypePtr& blobListResp);
-
-    void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
-    void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
-    void fbd_process_req_timeout(unsigned long arg);
-
-    int fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);  
-    int fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);
     SysParams* getSysParams();
     void StartOmClient();
     sh_comm_modes GetRunTimeMode() { return mode; }
-    boost::shared_ptr<FDSP_DataPathRespCbackI> dPathRespCback;
-    boost::shared_ptr<FDSP_MetaDataPathRespCbackI> mPathRespCback;
-    Error dispatchSmPutMsg(StorHvJournalEntry *journEntry, const NodeUuid &send_uuid);
-    Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
-    Error dispatchDmUpdMsg(StorHvJournalEntry *journEntry,
-                           const NodeUuid &send_uuid);
-    friend class FDSP_MetaDataPathRespCbackI;
-
-    struct TxnResponseHelper {
-        StorHvCtrl* storHvisor = NULL;
-        fds_uint32_t txnId = 0xFFFFFFFF;
-        fds_volid_t  volId = 0;
-        StorHvJournalEntry *txn = NULL;
-        StorHvVolumeLock *vol_lock = NULL;
-        StorHvJournalEntryLock *je_lock = NULL;
-        StorHvVolume* vol = NULL;
-        fds::AmRequest* blobReq = NULL;
-
-        TxnResponseHelper(StorHvCtrl* storHvisor, fds_volid_t  volId, fds_uint32_t txnId);
-        void setStatus(FDSN_Status  status);
-        ~TxnResponseHelper();
-    };
-
-    struct TxnRequestHelper {
-        StorHvCtrl* storHvisor = NULL;
-        fds_uint32_t txnId = 0;
-        fds_volid_t  volId = 0;
-        FDSN_Status  status = FDSN_StatusNOTSET;
-        StorHvVolume *shVol = NULL;
-        StorHvJournalEntry *txn = NULL;
-        StorHvJournalEntryLock *jeLock = NULL;
-        StorHvVolume* vol = NULL;
-        AmRequest *amReq;
-        fds::AmRequest* blobReq = NULL;
-
-        TxnRequestHelper(StorHvCtrl* storHvisor, AmRequest *amReq);
-
-        bool getPrimaryDM(fds_uint32_t& ip, fds_uint32_t& port);
-        bool isValidVolume();
-        bool setupTxn();
-        bool hasError();
-        void setStatus(FDSN_Status  status);
-        void scheduleTimer();
-        ~TxnRequestHelper();
-    };
-
-    struct ResponseHelper {
-        StorHvCtrl* storHvisor = NULL;
-        fds_volid_t  volId = 0;
-        StorHvVolumeLock *vol_lock = NULL;
-        StorHvVolume* vol = NULL;
-        fds::AmRequest* blobReq = NULL;
-        ResponseHelper(StorHvCtrl* storHvisor, AmRequest *amReq);
-        void setStatus(FDSN_Status  status);
-        ~ResponseHelper();
-    };
-
-    struct RequestHelper {
-        StorHvCtrl* storHvisor = NULL;
-        fds_volid_t  volId = 0;
-        FDSN_Status  status = FDSN_StatusNOTSET;
-        StorHvVolume *shVol = NULL;
-        StorHvVolume* vol = NULL;
-        AmRequest *amReq;
-        fds::AmRequest* blobReq = NULL;
-
-        RequestHelper(StorHvCtrl* storHvisor, AmRequest *amReq);
-
-        bool isValidVolume();
-        bool hasError();
-        void setStatus(FDSN_Status  status);
-        ~RequestHelper();
-    };
-
-    struct BlobRequestHelper {
-        StorHvCtrl* storHvisor = NULL;
-        fds_volid_t volId = invalid_vol_id;
-        AmRequest *blobReq = NULL;
-        const std::string& volumeName;
-
-        explicit BlobRequestHelper(StorHvCtrl* storHvisor, const std::string& volumeName);
-        void setupVolumeInfo();
-        fds::Error processRequest();
-    };
 
     inline AMCounters& getCounters()
-    {
-        return counters_;
-    }
+    { return counters_; }
+
 private:
     SysParams *sysParams;
     sh_comm_modes mode;

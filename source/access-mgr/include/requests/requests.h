@@ -13,8 +13,3 @@
 #include "requests/StartBlobTxReq.h"
 #include "requests/StatBlobReq.h"
 #include "requests/VolumeContentsReq.h"
-#include "requests/VolumeStatsReq.h"
-
-/* This appears to be unused ATM
- * #include "requests/GetBlobMetaDataReq.h"
- */

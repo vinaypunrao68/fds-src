@@ -20,6 +20,7 @@
 #include <util/Log.h>
 #include <nbd-test-mod.h>
 #include <StorHvisorNet.h>
+#include "net/SvcRequestPool.h"
 
 namespace fds {
 

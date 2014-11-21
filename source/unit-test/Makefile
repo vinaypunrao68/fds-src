@@ -2,7 +2,6 @@ topdir         := ..
 speedup        = -j $(threads)
 user_build_dir :=      \
     lib                \
-    fds-probe          \
     orch-mgr           \
     persistent-layer   \
     umod-lib           \
