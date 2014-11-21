@@ -6,6 +6,7 @@
 
 #include <string>
 #include <set>
+#include <vector>
 
 #include <fds_error.h>
 #include <fds_types.h>

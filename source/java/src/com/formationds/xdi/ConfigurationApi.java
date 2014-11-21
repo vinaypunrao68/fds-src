@@ -6,6 +6,7 @@ package com.formationds.xdi;
 
 import com.formationds.apis.*;
 import com.formationds.commons.events.*;
+import com.formationds.om.events.EventManager;
 import com.formationds.streaming.StreamingRegistrationMsg;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;

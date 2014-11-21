@@ -29,6 +29,8 @@ public class VolumeDatapoint
   private String volumeName;
   @SerializedName( "volumeId" )
   private String volumeId;
+
+  // TODO: why aren't we using the Metrics enum with @Enumerated here?
   private String key;
   private Double value;
 
@@ -112,5 +114,18 @@ public class VolumeDatapoint
    */
   public void setKey( final String key ) {
     this.key = key;
+  }
+
+  @Override
+  public String toString() {
+    final StringBuilder sb = new StringBuilder("VolumeDatapoint{");
+    sb.append("id=").append(id)
+      .append(", timestamp=").append(timestamp)
+      .append(", volumeName='").append(volumeName).append('\'')
+      .append(", volumeId='").append(volumeId).append('\'')
+      .append(", key='").append(key).append('\'')
+      .append(", value=").append(value)
+      .append('}');
+    return sb.toString();
   }
 }

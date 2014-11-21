@@ -74,19 +74,35 @@ abstract public class Event extends ModelBase {
     /**
      * Create a new event.  The event state will be initialized to SOFT and the timestamp set to now.
      *
-     * @param type
-     * @param category
-     * @param severity
+     * @param type the event type
+     * @param category the event category
+     * @param severity the event severity
      * @param defaultMessageFmt the default (english) message format.
      * @param messageKey resource bundle message lookup key
      * @param messageArgs resource bundle message arguments
      */
     public Event(EventType type, EventCategory category, EventSeverity severity, String defaultMessageFmt,
                  String messageKey, Object... messageArgs) {
+        this(Instant.now().toEpochMilli(), type, category, severity, defaultMessageFmt, messageKey, messageArgs);
+    }
+
+    /**
+     * Create a new event.  The event state will be initialized to SOFT and the timestamp set to now.
+     *
+     * @param ts the event timestamp, overriding the default
+     * @param type the event type
+     * @param category the event category
+     * @param severity the event severity
+     * @param defaultMessageFmt the default (english) message format.
+     * @param messageKey resource bundle message lookup key
+     * @param messageArgs resource bundle message arguments
+     */
+    protected Event(Long ts, EventType type, EventCategory category, EventSeverity severity, String defaultMessageFmt,
+                 String messageKey, Object... messageArgs) {
         this.type = type;
         this.category = category;
         this.severity = severity;
-        this.initialTimestamp = Instant.now().toEpochMilli();
+        this.initialTimestamp = ts;
         this.modifiedTimestamp = this.initialTimestamp;
         this.messageFormat = defaultMessageFmt;
         this.messageKey = messageKey;
@@ -138,6 +154,32 @@ abstract public class Event extends ModelBase {
 
         this.state = newState;
         this.modifiedTimestamp = Instant.now().toEpochMilli();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Event event = (Event) o;
+
+        if (category != event.category) return false;
+        if (!initialTimestamp.equals(event.initialTimestamp)) return false;
+        if (!messageKey.equals(event.messageKey)) return false;
+        if (severity != event.severity) return false;
+        if (type != event.type) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = type.hashCode();
+        result = 31 * result + category.hashCode();
+        result = 31 * result + severity.hashCode();
+        result = 31 * result + initialTimestamp.hashCode();
+        result = 31 * result + messageKey.hashCode();
+        return result;
     }
 
     /**
