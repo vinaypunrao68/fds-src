@@ -63,9 +63,6 @@ class AmRequest : public FDS_IOType {
     bool magicInUse() const
     { return (io_magic == FDS_SH_IO_MAGIC_IN_USE); }
 
-    void cbWithResult(int result)
-    { }
-
     const std::string& getBlobName() const
     { return blob_name; }
 
