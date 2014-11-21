@@ -17,6 +17,7 @@
 #include <fds_process.h>
 #include <ObjectLogger.h>
 #include <leveldb/copy_env.h>
+#include <leveldb/cat_journal.h>
 
 #define COMMITLOG_GET(_volId_, _commitLog_) \
     do { \
@@ -577,4 +578,36 @@ void DmTimeVolCatalog::monitorLogs() {
     }
 }
 
+Error DmTimeVolCatalog::dmReplayCatJournalOps(Catalog *destCat,
+        const std::vector<std::string> &files, fds_uint64_t timelineTime) {
+    Error rc(ERR_DM_REPLAY_JOURNAL);
+
+    fds_uint64_t ts = 0;
+    for (const auto &f : files) {
+        for (leveldb::CatJournalIterator iter(f); iter.isValid(); iter.Next()) {
+            leveldb::WriteBatch & wb = iter.GetBatch();
+            ts = getWriteBatchTimestamp(wb);
+            if (!ts) {
+                LOGDEBUG << "Error getting the write batch time stamp";
+            }
+            if ((ts / 1000 * 1000) <= timelineTime) {
+                rc = destCat->Update(&wb);
+            }
+        }
+    }
+
+    return rc;
+}
+Error DmTimeVolCatalog::dmGetCatJournalStartTime(const std::string &logfile,
+        fds_uint64_t *journal_time) {
+    Error err(ERR_DM_JOURNAL_TIME);
+
+    *journal_time = 0;
+    for (leveldb::CatJournalIterator iter(logfile); iter.isValid(); ) {
+        *journal_time = getWriteBatchTimestamp(iter.GetBatch());
+        break;
+    }
+
+    return *journal_time ? ERR_OK : err;
+}
 }  // namespace fds

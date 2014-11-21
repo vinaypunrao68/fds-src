@@ -181,6 +181,8 @@ const char * eventTypeToStr[] = {
         "am_offset_cache_hit",
         "am_object_cache_hit",
 
+        "am_async_resp_wait",
+
         // Data Manager
         "dm_tx_op",
         "dm_tx_op_err",

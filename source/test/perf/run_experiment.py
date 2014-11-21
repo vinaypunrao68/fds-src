@@ -112,7 +112,7 @@ def main():
     fds = FdsCluster(options)
     fds.restart()
 
-    fds.init_test_once(tests[0]["test_type"], tests[0]["nvols"])  # FIXME: this is ugly... 
+    fds.init_test_once(tests[1]["test_type"], tests[0]["nvols"])  # FIXME: this is ugly... 
 
     # Execute tests
     for t in tests:
@@ -129,6 +129,8 @@ def main():
         if t["injector"] != None:
             injector = CommandInjector(options, t["injector"])
             injector.start()
+
+        time.sleep(10)
 
         # execute test
         # time.sleep(5)

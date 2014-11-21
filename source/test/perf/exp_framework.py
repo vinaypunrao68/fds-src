@@ -510,26 +510,40 @@ class FdsCluster():
         of.close()
 
     def _init_tgen_java_once(self):
-        pass
+        curr = os.getcwd()
+        os.chdir("%s/source/Build/linux-x86_64.release" % self.local_fds_root)
+        cmd = "tar czvf java_tools.tgz tools lib/java"
+        output = self._loc_exec(cmd)
+        shutil.copyfile(self.local_fds_root + "/source/Build/linux-x86_64.release/java_tools.tgz", "/root/java_tools.tgz")
+        transfer_file(self.options.test_node, self.local_fds_root + "/source/Build/linux-x86_64.release/java_tools.tgz" , "/root/java_tools.tgz", "put")
+        os.chdir(curr)
+        ssh_exec(self.options.test_node, "tar xzvf java_tools.tgz")
 
     def _init_tgen_java(self, args):
         pass
 
     def _run_tgen_java(self, test_args):
-        def task(node, outs, queue):
-            cmd = "pushd /home/monchier/linux-x86_64.debug/bin && ./trafficgen --n_reqs 100000 --n_files 1000 --outstanding_reqs %d --test_type GET --object_size 4096 --hostname 10.1.10.222 --n_conns %d && popd" % (outs, outs)
+        # good configurations seems 4 instances and 50 outs/conns
+        def task(node, queue):
+            cmd = "pushd /root/tools && ./trafficgen --n_reqs %d --n_files %d --outstanding_reqs %d --test_type %s --object_size %d --hostname %s --n_conns %d && popd" % ( test_args["nreqs"], 
+                                                        test_args["nfiles"], 
+                                                        test_args["outstanding"], 
+                                                        test_args["type"], 
+                                                        test_args["fsize"], 
+                                                        self.options.nodes[self.options.main_node],
+                                                        test_args["outstanding"] 
+                                                        )
             output = ssh_exec(node, cmd)
             queue.put(output)
         
         # nodes = ["10.1.10.222", "10.1.10.221"]
-        nodes = ["10.1.10.139"]
-        N = test_args["threads"]
+        nodes = [self.options.test_node]
         outs = test_args["outstanding"]
         threads = []
         queue = Queue.Queue()
         for n in nodes:
-            for i in  range(N):
-                t = threading.Thread(target=task, args=(n, outs, queue))
+            for i in  range(test_args["threads"]):
+                t = threading.Thread(target=task, args=(n, queue))
                 t.start()
                 threads.append(t)
         for t in threads:
