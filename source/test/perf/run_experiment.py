@@ -130,6 +130,8 @@ def main():
             injector = CommandInjector(options, t["injector"])
             injector.start()
 
+        time.sleep(10)
+
         # execute test
         # time.sleep(5)
         fds.run_test(t["test_type"], t)
