@@ -24,7 +24,8 @@ user_cpp          :=                   \
     TierEngine.cpp                     \
     ObjMeta.cpp                        \
     SmObjDb.cpp                        \
-    SMSvcHandler.cpp
+    SMSvcHandler.cpp                   \
+    MockSMCallbacks.cpp
 
 user_ar_libs      := fds-smlib
 fds-smlib         := $(user_cpp)

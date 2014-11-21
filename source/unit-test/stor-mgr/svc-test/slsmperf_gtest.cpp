@@ -16,6 +16,7 @@
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
+#include <testlib/Datasets.h>
 #include <apis/ConfigurationService.h>
 #include <thrift/concurrency/Monitor.h>
 
@@ -38,17 +39,17 @@ struct SMApi : SingleNodeTest
         putsIssued_ = 0;
         putsSuccessCnt_ = 0;
         putsFailedCnt_ = 0;
+        getsIssued_ = 0;
+        getsSuccessCnt_ = 0;
+        getsFailedCnt_ = 0;
+
     }
     void putCb(uint64_t opStartTs, EPSvcRequest* svcReq,
                const Error& error,
                boost::shared_ptr<std::string> payload)
     {
-        if (opTs_.size() > 0) {
-            opTs_[svcReq->getRequestId()] = svcReq->ts;
-        }
-
         auto opEndTs = util::getTimeStampNanos();
-        avgLatency_.update(opEndTs - opStartTs);
+        avgPutLatency_.update(opEndTs - opStartTs);
         outStanding_--;
         {
             Synchronized s(monitor_);
@@ -67,91 +68,50 @@ struct SMApi : SingleNodeTest
            endTs_ = util::getTimeStampNanos();
         }
     }
-    void printOpTs(const std::string fileName) {
-        std::ofstream o(fileName);
-        for (auto &t : opTs_) {
-            fds_verify(t.rqSendStartTs != 0 && t.rqSendEndTs != 0);
-            o << t.rqStartTs << "\t"
-                << t.rqSendStartTs << "\t"
-                << t.rqSendEndTs << "\t"
-                << t.rqRcvdTs << "\t"
-                << t.rqHndlrTs << "\t"
-                << t.rspSerStartTs << "\t"
-                << t.rspSendStartTs << "\t"
-                << t.rspRcvdTs << "\t"
-                << t.rspHndlrTs << "\n";
-        }
-        o.close();
-        std::cout << "||st-snd|"
-            << "rq-snd|"
-            << "rq-snd-rcv|"
-            << "rq-rcv-hndlr|"
-            << "rsp-hndlr-ser|"
-            << "rsp-ser|"
-            << "rsp-snd-rcv|"
-            << "rsp-rcv-hndlr|"
-            << "total||\n";
-
-        for (uint64_t i = 0; i < opTs_.size(); i+=100) {
-            auto &t = opTs_[i];
-            std::cout << "|"
-                << t.rqSendStartTs - t.rqStartTs << "|"
-                << t.rqSendEndTs - t.rqSendStartTs << "|"
-                << t.rqRcvdTs - t.rqSendEndTs << "|"
-                << t.rqHndlrTs - t.rqRcvdTs << "|"
-                << t.rspSerStartTs - t.rqHndlrTs << "|"
-                << t.rspSendStartTs - t.rspSerStartTs << "|"
-                << t.rspRcvdTs - t.rspSendStartTs << "|"
-                << t.rspHndlrTs - t.rspRcvdTs << "|"
-                << t.rspHndlrTs - t.rqStartTs
-                << "|\n";
+    void getCb(uint64_t opStartTs, EPSvcRequest* svcReq,
+               const Error& error,
+               boost::shared_ptr<std::string> payload)
+    {
+        auto opEndTs = util::getTimeStampNanos();
+        avgGetLatency_.update(opEndTs - opStartTs);
+        outStanding_--;
+        {
+            Synchronized s(monitor_);
+            if (waiting_ && outStanding_ < concurrency_) {
+                monitor_.notify();
+            }
         }
 
-        /* Compute averages */
-        uint64_t st_snd_avg = 0;
-        uint64_t rq_snd_avg = 0;
-        uint64_t rq_snd_rcv_avg = 0;
-        uint64_t rq_rcv_hndlr_avg = 0;
-        uint64_t rsp_hndlr_ser_avg = 0;
-        uint64_t rsp_ser_avg = 0;
-        uint64_t rsp_snd_rcv_avg = 0;
-        uint64_t rsp_rcv_hndlr_avg = 0;
-        uint64_t total_avg = 0;
-        for (auto &t : opTs_) {
-            st_snd_avg += (t.rqSendStartTs - t.rqStartTs);
-            rq_snd_avg += (t.rqSendEndTs - t.rqSendStartTs);
-            rq_snd_rcv_avg += (t.rqRcvdTs - t.rqSendEndTs);
-            rq_rcv_hndlr_avg += (t.rqHndlrTs - t.rqRcvdTs);
-            rsp_hndlr_ser_avg += (t.rspSerStartTs - t.rqHndlrTs);
-            rsp_ser_avg += (t.rspSendStartTs - t.rspSerStartTs);
-            rsp_snd_rcv_avg += (t.rspRcvdTs - t.rspSendStartTs);
-            rsp_rcv_hndlr_avg += (t.rspHndlrTs - t.rspRcvdTs);
-            total_avg += (t.rspHndlrTs - t.rqStartTs);
+        if (error != ERR_OK) {
+            GLOGWARN << "Req Id: " << svcReq->getRequestId() << " " << error;
+            getsFailedCnt_++;
+        } else {
+            getsSuccessCnt_++;
         }
-        std::cout << "|"
-            << st_snd_avg / opTs_.size() << "|"
-            << rq_snd_avg / opTs_.size() << "|"
-            << rq_snd_rcv_avg / opTs_.size() << "|"
-            << rq_rcv_hndlr_avg / opTs_.size() << "|"
-            << rsp_hndlr_ser_avg / opTs_.size() << "|"
-            << rsp_ser_avg / opTs_.size() << "|"
-            << rsp_snd_rcv_avg / opTs_.size() << "|"
-            << rsp_rcv_hndlr_avg / opTs_.size() << "|"
-            << total_avg / opTs_.size()
-            << "|" << std::endl;
+        if (getsIssued_ == (getsSuccessCnt_ + getsFailedCnt_)) {
+           endTs_ = util::getTimeStampNanos();
+        }
     }
+
  protected:
-    std::atomic<uint64_t> putsIssued_;
-    std::atomic<uint64_t> outStanding_;
-    std::atomic<uint64_t> putsSuccessCnt_;
-    std::atomic<uint64_t> putsFailedCnt_;
+    std::atomic<uint32_t> putsIssued_;
+    std::atomic<uint32_t> outStanding_;
+    std::atomic<uint32_t> putsSuccessCnt_;
+    std::atomic<uint32_t> putsFailedCnt_;
+    // gets
+    std::atomic<uint32_t> getsIssued_;
+    std::atomic<uint32_t> getsSuccessCnt_;
+    std::atomic<uint32_t> getsFailedCnt_;
+
     Monitor monitor_;
     bool waiting_;
-    uint64_t concurrency_;
+    uint32_t concurrency_;
     util::TimeStamp startTs_;
     util::TimeStamp endTs_;
-    LatencyCounter avgLatency_;
-    std::vector<SvcRequestIf::SvcReqTs> opTs_;
+    LatencyCounter avgPutLatency_;
+    LatencyCounter avgGetLatency_;
+
+    std::ofstream statfile_;
 };
 
 /**
@@ -160,24 +120,27 @@ struct SMApi : SingleNodeTest
 */
 TEST_F(SMApi, putsPerf)
 {
-    int dataCacheSz = 100;
-    uint64_t nPuts =  this->getArg<uint64_t>("puts-cnt");
+    int nPuts =  this->getArg<int>("puts-cnt");
+    int nGets =  this->getArg<int>("gets-cnt");
+    if (nGets == 0) {
+      nGets = 10*nPuts;
+    }
     bool profile = this->getArg<bool>("profile");
     bool failSendsbefore = this->getArg<bool>("failsends-before");
     bool failSendsafter = this->getArg<bool>("failsends-after");
     bool uturnAsyncReq = this->getArg<bool>("uturn-asyncreqt");
-    bool uturnPuts = this->getArg<bool>("uturn");
+    bool uturn = this->getArg<bool>("uturn");
     bool disableSchedule = this->getArg<bool>("disable-schedule");
     bool largeFrame = this->getArg<bool>("largeframe");
     bool lftp = this->getArg<bool>("lftp");
-    concurrency_ = this->getArg<uint64_t>("concurrency");
+    concurrency_ = this->getArg<uint32_t>("concurrency");
     if (concurrency_ == 0) {
         concurrency_  = nPuts;
     }
+    bool dropCaches = false;
 
-    if (nPuts <= 10000) {
-        opTs_.resize(nPuts);
-    }
+    std::string fname("sl_sm_perf_stats.csv");
+    statfile_.open(fname.c_str(), std::ios::out | std::ios::app);
 
     fpi::SvcUuid svcUuid;
     svcUuid.svc_uuid = this->getArg<uint64_t>("smuuid");
@@ -189,14 +152,10 @@ TEST_F(SMApi, putsPerf)
     tokGroup->set(0, NodeUuid(svcUuid));
     auto epProvider = boost::make_shared<DltObjectIdEpProvider>(tokGroup);
 
-    /* To generate random data between 10 to 100 bytes */
-    auto datagen = boost::make_shared<RandDataGenerator<>>(4096, 4096);
-    auto putMsgGenF = std::bind(&SvcMsgFactory::newPutObjectMsg, volId_, datagen);
-    /* To geenrate put messages and cache them.  Wraps datagen from above */
-    auto putMsgGen = boost::make_shared<
-                    CachedMsgGenerator<fpi::PutObjectMsg>>(dataCacheSz,
-                                                           true,
-                                                           putMsgGenF);
+    // create dataset of size nPuts
+    FdsObjectDataset dataset;
+    dataset.generateDataset(nPuts, 4096);
+
     /* Set fault to uturn all puts */
     if (failSendsbefore) {
         fiu_enable("svc.fail.sendpayload_before", 1, NULL, 0);
@@ -208,8 +167,9 @@ TEST_F(SMApi, putsPerf)
     if (uturnAsyncReq) {
         ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.asyncreqt"));
     }
-    if (uturnPuts) {
+    if (uturn) {
         ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.putobject"));
+        ASSERT_TRUE(TestUtils::enableFault(svcUuid, "svc.uturn.getobject"));
     }
     if (disableSchedule) {
         fiu_enable("svc.disable.schedule", 1, NULL, 0);
@@ -231,15 +191,17 @@ TEST_F(SMApi, putsPerf)
     startTs_ = util::getTimeStampNanos();
 
     /* Issue puts */
-    for (uint64_t i = 0; i < nPuts; i++) {
+    for (int i = 0; i < nPuts; i++) {
         auto opStartTs = util::getTimeStampNanos();
-        auto putObjMsg = putMsgGen->nextItem();
+        ObjectID oid = dataset.dataset_[i];
+        auto putObjMsg = SvcMsgFactory::newPutObjectToSmMsg(volId_, oid,
+                                                        dataset.dataset_map_[oid].getObjectData());
         auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
         asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
         asyncPutReq->onResponseCb(std::bind(&SMApi::putCb, this, opStartTs,
                                             std::placeholders::_1,
                                             std::placeholders::_2, std::placeholders::_3));
-        asyncPutReq->setTimeoutMs(1000);
+        asyncPutReq->setTimeoutMs(5000);
         putsIssued_++;
         outStanding_++;
         asyncPutReq->invoke();
@@ -257,6 +219,79 @@ TEST_F(SMApi, putsPerf)
     /* Poll for completion */
     POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 2000, (nPuts * 10));
 
+    double throughput = (static_cast<double>(1000000000) /
+                           (endTs_ - startTs_)) * putsIssued_;
+    std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
+            << "putsCnt: " << putsIssued_ << "\n"
+            << "Puts throughput: " << throughput << "\n"
+            << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
+            << "Puts avg latency: " << avgPutLatency_.value() << std::endl
+            << "svc sendLat: " << gSvcRequestCntrs->sendLat.value() << std::endl
+            << "svc sendPayloadLat: " << gSvcRequestCntrs->sendPayloadLat.value() << std::endl
+            << "svc serialization latency: " << gSvcRequestCntrs->serializationLat.value() << std::endl
+            << "svc op latency: " << gSvcRequestCntrs->reqLat.value() << std::endl;
+
+    std::cout << "putsIssued: " << putsIssued_
+              << " putsSuccessCnt_: " << putsSuccessCnt_
+              << " putsFailedCnt_: " << putsFailedCnt_ << std::endl;
+
+    double latMs = static_cast<double>(avgPutLatency_.value()) / 1000000.0;
+    statfile_ << "put," << putsIssued_ << "," << concurrency_ << ","
+              << throughput << "," << latMs << std::endl;
+
+    // do GETs (=10x number of PUTs)
+    // reset counters
+    outStanding_ = 0;
+    waiting_ = false;
+
+    // only makes sense on localhost
+    if (dropCaches) {
+        const std::string cmd = "echo 3 > /proc/sys/vm/drop_caches";
+        int ret = std::system((const char *)cmd.c_str());
+        fds_verify(ret == 0);
+        std::cout << "sleeping after drop_caches" << std::endl;
+        sleep(5);
+        std::cout << "finished sleeping" << std::endl;
+    }
+
+    /* Start google profiler */
+    if (profile) {
+        ProfilerStart("/tmp/slsmget_output.prof");
+    }
+
+    /* Start timer */
+    startTs_ = util::getTimeStampNanos();
+    fds_uint32_t cur_ind = 0;
+    fds_uint32_t dataset_size = nPuts;
+    for (int i = 0; i < nGets; i++) {
+        auto opStartTs = util::getTimeStampNanos();
+        fds_uint32_t index = cur_ind % dataset_size;
+        cur_ind += 123;
+        ObjectID oid = dataset.dataset_[index];
+        auto getObjMsg = SvcMsgFactory::newGetObjectMsg(volId_, oid);
+        auto asyncGetReq = gSvcRequestPool->newEPSvcRequest(svcUuid);
+        asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
+        asyncGetReq->onResponseCb(std::bind(&SMApi::getCb, this, opStartTs,
+                                            std::placeholders::_1,
+                                            std::placeholders::_2, std::placeholders::_3));
+        asyncGetReq->setTimeoutMs(5000);
+        getsIssued_++;
+        outStanding_++;
+        asyncGetReq->invoke();
+
+        {
+            Synchronized s(monitor_);
+            while (outStanding_ >= concurrency_) {
+                waiting_ = true;
+                monitor_.wait();
+            }
+            waiting_ = false;
+        }
+    }
+
+    /* Poll for completion */
+    POLL_MS((getsIssued_ == getsSuccessCnt_ + getsFailedCnt_), 2000, nGets);
+
     /* Disable fault injection */
     if (failSendsbefore) {
         fiu_disable("svc.fail.sendpayload_before");
@@ -268,8 +303,9 @@ TEST_F(SMApi, putsPerf)
     if (uturnAsyncReq) {
         ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.asyncreqt"));
     }
-    if (uturnPuts) {
+    if (uturn) {
         ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.putobject"));
+        ASSERT_TRUE(TestUtils::disableFault(svcUuid, "svc.uturn.getobject"));
     }
     if (disableSchedule) {
         fiu_disable("svc.disable.schedule");
@@ -287,22 +323,23 @@ TEST_F(SMApi, putsPerf)
         ProfilerStop();
     }
 
-    double throughput = (static_cast<double>(1000000000) /
-                           (endTs_ - startTs_)) * putsIssued_;
+    throughput = (static_cast<double>(1000000000) /
+                           (endTs_ - startTs_)) * getsIssued_;
+    std::cout << "GET experiment concurrency " << concurrency_ << std::endl;
     std::cout << "Total Time taken: " << endTs_ - startTs_ << "(ns)\n"
-            << "putsCnt: " << putsIssued_ << "\n"
-            << "Throughput: " << throughput << "\n"
-            << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / putsIssued_
-            << "(ns) Avg op latency: " << avgLatency_.value() << std::endl
-            << "svc sendLat: " << gSvcRequestCntrs->sendLat.value() << std::endl
-            << "svc sendPayloadLat: " << gSvcRequestCntrs->sendPayloadLat.value() << std::endl
-            << "svc serialization latency: " << gSvcRequestCntrs->serializationLat.value() << std::endl
-            << "svc op latency: " << gSvcRequestCntrs->reqLat.value() << std::endl;
-    printOpTs(this->getArg<std::string>("output"));
+            << "getsCnt: " << getsIssued_ << "\n"
+            << "Gets throughput: " << throughput << "\n"
+            << "Avg time taken: " << (static_cast<double>(endTs_ - startTs_)) / getsIssued_
+            << "Gets avg latency: " << avgGetLatency_.value() << std::endl;
 
-    ASSERT_TRUE(putsIssued_ == putsSuccessCnt_) << "putsIssued: " << putsIssued_
-        << " putsSuccessCnt_: " << putsSuccessCnt_
-        << " putsFailedCnt_: " << putsFailedCnt_;
+    std::cout << "putsIssued: " << getsIssued_
+              << " putsSuccessCnt_: " << getsSuccessCnt_
+              << " putsFailedCnt_: " << getsFailedCnt_ << std::endl;
+
+    latMs = static_cast<double>(avgGetLatency_.value()) / 1000000.0;
+    statfile_ << "get," << putsIssued_ << "," << concurrency_ << ","
+              << throughput << "," << latMs << std::endl;
+    gSvcRequestPool->dumpLFTPStats();
 }
 
 int main(int argc, char** argv) {
@@ -311,7 +348,8 @@ int main(int argc, char** argv) {
     opts.add_options()
         ("help", "produce help message")
         ("smuuid", po::value<uint64_t>()->default_value(0), "smuuid")
-        ("puts-cnt", po::value<uint64_t>(), "puts count")
+        ("puts-cnt", po::value<int>(), "puts count")
+        ("gets-cnt", po::value<int>()->default_value(0), "gets count")
         ("profile", po::value<bool>()->default_value(false), "google profile")
         ("failsends-before", po::value<bool>()->default_value(false), "fail sends before")
         ("failsends-after", po::value<bool>()->default_value(false), "fail sends after")
@@ -321,7 +359,7 @@ int main(int argc, char** argv) {
         ("output", po::value<std::string>()->default_value("stats.txt"), "stats output")
         ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling")
         ("lftp", po::value<bool>()->default_value(false), "use lockfree threadpool")
-        ("concurrency", po::value<uint64_t>()->default_value(0), "concurrency");
+        ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();
 }
