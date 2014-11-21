@@ -33,40 +33,49 @@ public class HttpAuthenticator implements RequestHandler {
         this.authenticator = authenticator;
     }
 
-
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        if (authenticator.allowAll()) {
-            AuthenticatedRequestContext.begin(AuthenticationToken.ANONYMOUS);
-            try { return f.apply(AuthenticationToken.ANONYMOUS).handle(request, routeParameters); }
-            finally { AuthenticatedRequestContext.complete(); }
-        }
+        AuthenticationToken token = null;
 
+        // authenticate the request.
         Optional<AuthenticationToken> fromHeaders = parseHeaders(request);
         if (fromHeaders.isPresent()) {
-            return f.apply(fromHeaders.get()).handle(request, routeParameters);
+            token = fromHeaders.get();
         }
+        else {
+            Cookie[] cookies = request.getCookies() == null ? new Cookie[0] : request.getCookies();
+            Optional<Cookie> result = Arrays.stream(cookies)
+                                            .filter(c -> FDS_TOKEN.equals(c.getName()))
+                                            .findFirst();
 
-        Cookie[] cookies = request.getCookies() == null ? new Cookie[0] : request.getCookies();
-        Optional<Cookie> result = Arrays.stream(cookies)
-                .filter(c -> FDS_TOKEN.equals(c.getName()))
-                .findFirst();
-
-        if (!result.isPresent()) {
-            return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
+            if (!result.isPresent()) {
+                if (authenticator.allowAll()) {
+                    token = AuthenticationToken.ANONYMOUS;
+                } else {
+                    return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
+                }
+            }  else {
+                try {
+                    token = authenticator.resolveToken(result.get().getValue());
+                } catch (LoginException e) {
+                    if (authenticator.allowAll()) {
+                        LOG.error("Authentication error ignored - auth is disabled");
+                        token = AuthenticationToken.ANONYMOUS;
+                    } else {
+                        LOG.error("Authentication error: " + e.getMessage());
+                        if (LOG.isDebugEnabled())
+                            LOG.debug("Authentication error: ", e);
+                        return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
+                    }
+                }
+            }
         }
 
         try {
-            AuthenticationToken token = authenticator.resolveToken(result.get().getValue());
-
             // Set the authentication in the thread local storage to allow access by the event manager
             AuthenticatedRequestContext.begin(token);
             return f.apply(token).handle(request, routeParameters);
-        } catch (LoginException e) {
-            LOG.error("Authentication error", e);
-            return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
-        }
-        finally {
+        } finally {
             // remove the authentication token immediately upon completion of the request handling
             AuthenticatedRequestContext.complete();
         }
