@@ -1,38 +1,144 @@
+$waterfall-slider-row-height: 38px;
+
 .waterfall-slider {
     
     position: relative;
     width: 100%;
+    @include no-select();
+    @include display-flex();
+    margin-top: 12px;
     
-    .slider {
-        
+    .labels{
+        padding-right: 8px;
+    }
+    
+    .slider-name {
+        color: black;
+        height: $waterfall-slider-row-height;
+    }
+    
+    .slider-pane {
+    
         width: 100%;
-        position: relative;
-        height: 30px;
         
-        .bar {
+        &:active {
+            cursor: ew-resize;
+        }
+        
+        .slider {
+
             width: 100%;
-            height: 10px;
-            position: absolute;
-            top: 10px;
-            background-color: #A0A0A0;
+            position: relative;
+            height: $waterfall-slider-row-height;
+            padding-left: 5px;
+
+            .bar {
+                width: 100%;
+                height: 10px;
+                position: absolute;
+                top: 8px;
+                background-color: #ECF6FD;
+            }
+            
+            .fill-bar {
+                position: absolute;
+                top: 10px;
+                height: 10px;
+                background-image: url('../images/Blue-dot.svg');
+                background-size: 10px 6px;
+                background-repeat: repeat-x;
+                pointer-events: none;
+            }
+
+            .handle {
+                color: black;
+                height: 20px;
+                width: 11px;
+                border: 1px solid black;
+                background-color: white;
+                position: absolute;
+                top: 4px;
+                z-index: 3;
+                cursor: pointer;
+                
+                &.grabbed {
+                    background-color: #4294DF;
+                }
+            }
+            
+            .value-container {
+                position: absolute;
+                top: -16px;
+                
+                &.edit-box {
+                    top: -64px;
+                }
+            }
+            
+            .value-display {
+                background-color: rgba( 0,0,0,0.6 );
+                color: white;
+                font-size: 10px;
+                padding-right: 4px;
+                padding-left: 4px;
+                border-radius: 3px;
+                cursor: default;
+                
+                @include property-transition( width, 2000ms, linear );
+                
+                .icon {
+                    height: 100%;
+                    margin: auto;
+                    padding-left: 4px;
+                    cursor: pointer;
+                }
+                
+                &.edit-box {
+                    padding: 4px;
+                    background-color: #F6F6F6;
+                    border: 1px solid $text_very_light_color;
+                    color: $text_very_light_color;
+                    font-size: 13px;
+                }
+            }
+            
+            .border-triangle {
+                border-bottom: 0px;
+                border-top: 6px solid $text_very_light_color;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                width: 0px;
+                margin-left: 7px;
+                position: absolute;
+                bottom: -5px;
+            }
+            
+            .triangle {
+                border-bottom: 0px;
+                border-top: 3px solid rgba( 0,0,0,0.6 );
+                border-left: 2px solid transparent;
+                border-right: 2px solid transparent;
+                width: 0px;
+                margin-left: 4px;
+                position: absolute;
+                
+                &.edit-box {
+                    border-top-width: 5px;
+                    border-left-width: 3px;
+                    border-right-width: 3px;
+                    margin-left: 8px;
+                    bottom: -4px;
+                    border-top-color: #F6F6F6;
+                }
+            }
+
+            .trackline {
+                top: 22px;
+                width: 1px;
+                border-left: 1px solid rgba(0,0,0,0.3);
+                position: absolute;
+                z-index: 2;
+            }
         }
-        
-        .handle {
-            height: 20px;
-            width: 11px;
-            border: 1px solid black;
-            background-color: white;
-            position: absolute;
-            top: 5px;
-            z-index: 3;
-        }
-        
-        .trackline {
-            top: 25px;
-            width: 1px;
-            border-left: 1px dotted black;
-            position: absolute;
-            z-index: 2;
-        }
-    };
+    }
 }

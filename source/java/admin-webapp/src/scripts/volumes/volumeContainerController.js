@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope', function( $scope ){
+angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope', '$filter', function( $scope, $filter ){
     
     /**
     volumeVars : {
@@ -18,35 +18,65 @@ angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope',
     
     $scope.sliders = [
         {
-            value: 0,
-            name: 'Continuous'
+            value: { range: 0, value: 24 },
+            name: $filter( 'translate' )( 'volumes.l_continuous' )
         },
         {
-            value: 0,
-            name: 'Days'
+            value: { range: 1, value: 2 },
+            name: $filter( 'translate' )( 'common.l_days' )
         },
         {
-            value: 0,
-            name: 'Weeks'
+            value: { range: 2, value: 2 },
+            name: $filter( 'translate' )( 'common.l_weeks' )
         },
         {
-            value: 0,
-            name: 'Months'
+            value: { range: 3, value: 60 },
+            name: $filter( 'translate' )( 'common.l_months' )
         },
         {
-            value: 0,
-            name: 'Years'
+            value: { range: 4, value: 10 },
+            name: $filter( 'translate' )( 'common.l_years' )
         }
     ];
     
     $scope.range = [
         {
+            name: $filter( 'translate' )( 'common.l_hours' ).toLowerCase(),
             start: 0,
-            end: 23
+            end: 24,
+            segments: 1,
+            width: 5
         },
         {
+            name: $filter( 'translate' )( 'common.l_days' ).toLowerCase(),
             start: 1,
-            end: 7
+            end: 7,
+            width: 20
+        },
+        {
+            name: $filter( 'translate' )( 'common.l_weeks' ).toLowerCase(),
+            start: 1,
+            end: 4,
+            width: 15
+        },
+        {
+            name: $filter( 'translate' )( 'common.l_months' ).toLowerCase(),
+            start: 30,
+            end: 360,
+            segments: 11,
+            width: 30
+        },
+        {
+            name: $filter( 'translate' )( 'common.l_years' ).toLowerCase(),
+            start: 1,
+            end: 15,
+            width: 25
+        },
+        {
+            name: 'j',
+            start: 15,
+            end: 16,
+            width: 5
         }
     ];
     

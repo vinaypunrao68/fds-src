@@ -104,7 +104,7 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
 
                 $scope.$emit( 'change' );
             };
-
+            
         },
         link: function( $scope, $element, $attrs ){
 

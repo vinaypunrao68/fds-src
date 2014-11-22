@@ -1,6 +1,6 @@
 <div>
     <div class="dropdown" ng-class="{open: open === true, 'dropdown-no-background' : background === 'none'}" ng-click="openList( $event )" ng-style="{ opacity: (enabled === true ) ? 1.0 : 0.5 }">
-        <button class="btn btn-primary dropdown-toggle" ng-class="{'dropdown-no-background' : background === 'none', skinny: skinny, 'dropdown-gray-border': border === 'gray' }" ng-style="{'background-color': backgroundColor, color: color, width: width }">
+        <button class="btn btn-primary dropdown-toggle" ng-class="{'dropdown-no-background' : background === 'none', skinny: skinny, 'dropdown-gray-border': border }" ng-style="{'background-color': backgroundColor, color: color, width: width, 'border-color' : border }">
             <span ng-class="{'pull-left': type === 'select'}" style="padding-right: 8px;">{{currentLabel}}</span>
             <span class="caret" ng-class="{ 'table-caret': td === true }" ng-style="{color: color, 'border-top-color': color}"></span>
         </button>
