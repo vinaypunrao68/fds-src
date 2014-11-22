@@ -192,7 +192,7 @@ if __name__ == "__main__":
     test_db = sys.argv[1]
     tags = sys.argv[2].split(",")
     recipients = sys.argv[3]
-    recipients2 = "matteo@formationds.com"
+    recipients2 = "matteo@formationds.com,andrew@formationds.com"
     # directory = sys.argv[1]
     # test_id = int(sys.argv[2])
     # mode = sys.argv[3]
