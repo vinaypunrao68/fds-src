@@ -81,7 +81,7 @@ def generate_cpus(conns, cpus):
     filename = "scaling_cpus.png"
     title = "CPU"
     xlabel = "Connections"
-    ylabel = "Latency [ms]"
+    ylabel = "CPU Load [%]"
     plt.figure()
     for k,v in cpus.iteritems():
         plt.plot(conns, v, label=k)
