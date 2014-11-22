@@ -27,6 +27,7 @@ function configure_cache
    if [[ "${shm_size}" != "${DESIRED_SHM_SIZE}" ]]
    then
       sudo mount -t tmpfs -o remount,rw,nosuid,nodev,noexec,relatime,size=${DESIRED_SHM_SIZE} tmpfs /dev/shm
+      echo "/dev/shm converted to ${DESIRED_SHM_SIZE}"
    fi
 
    # Configure the CCACHE size (lives in ${CCACHE_DIR} on Jenkins boxes)
@@ -37,31 +38,25 @@ function configure_cache
 
 function clean_up_environment
 {
-   # Make sure bare_am is stopped before we start
+   message "KILLING ANY RUNNING bare_am"
    killall -9 bare_am || true
 
-   # Stop redis
    message "STOPPING redis"
    sudo source/tools/redis.sh stop
 
    # Clean remove the old /fds
-   message "CLEANUP EXISTING /fds and /dev/shm"
+   message "CLEANUP EXISTING /fds AND /dev/shm"
    rm -rf /fds || true
    rm -rf /dev/shm/0x*
 }
 
-function build_it
+function build_fds
 {
     message "RUNNING DEVSETUP"
     make devsetup
 
-    message "BUILDING DEPENDENCIES"
-    jenkins_scripts/build-base-deps.py
-
-
     message "BUILDING FORMATION PLATFORM"
-    jenkins_scripts/build-fds.py
-
+    jenkins_scripts/build_fds.py
 }
 
 function cache_report
@@ -73,5 +68,5 @@ function cache_report
 startup
 configure_cache
 clean_up_environment
-build_it
+build_fds
 cache_report
