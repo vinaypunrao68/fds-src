@@ -17,6 +17,7 @@
 #include <fdsp/fds_service_types.h>
 #include <persistent-layer/dm_metadata.h>
 #include <boost/make_shared.hpp>
+#include <util/fiu_util.h>
 
 /**
  * Maps FDSPMsg type to FDSPMsgTypeId enum
@@ -74,6 +75,8 @@ FDS_ProtocolInterface::FDS_ObjectIdType strToObjectIdType(const std::string & rh
 FDS_ProtocolInterface::SvcUuid&
 assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs);
 
+void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header);
+
 std::string logString(const FDS_ProtocolInterface::AsyncHdr &header);
 std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj);
 std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj);
@@ -108,7 +111,8 @@ std::string logString(const FDS_ProtocolInterface::AddObjectRefRspMsg& msg);
 template<class PayloadT>
 void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payloadBuf)
 {
-    bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
+    uint32_t bufSz = 512;
+    bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer(bufSz));
     bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
     try {
         auto written = payload.write(binary_buf.get());

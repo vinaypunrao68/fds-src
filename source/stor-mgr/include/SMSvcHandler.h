@@ -15,9 +15,14 @@ class SmIoGetObjectReq;
 class SmIoPutObjectReq;
 class SmIoDeleteObjectReq;
 class SmIoAddObjRefReq;
+class MockSvcHandler;
 
 class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
  public:
+    boost::shared_ptr<MockSvcHandler> mockHandler;
+    uint64_t mockTimeoutUs  = 200;
+    bool mockTimeoutEnabled = false;
+
     SMSvcHandler();
 
     void getObject(const fpi::AsyncHdr& asyncHdr,
@@ -34,12 +39,14 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                      const Error &err,
                      SmIoGetObjectReq *read_data);
+    void mockGetCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
 
     void putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                    boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg);
     void putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                      const Error &err,
                      SmIoPutObjectReq *put_req);
+    void mockPutCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr);
 
     void deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                       boost::shared_ptr<fpi::DeleteObjectMsg>& expObjMsg);
