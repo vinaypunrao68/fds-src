@@ -39,7 +39,7 @@ function configure_cache
 function clean_up_environment
 {
    message "KILLING ANY RUNNING bare_am"
-   killall -9 bare_am || true
+   pkill -9 -f bare_am || true
 
    message "STOPPING redis"
    sudo source/tools/redis.sh stop
