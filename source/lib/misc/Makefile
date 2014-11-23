@@ -24,7 +24,8 @@ user_cpp         :=      \
     fds_error.cpp        \
     PerfHistory.cpp      \
     StatsCollector.cpp   \
-    ObjectLogger.cpp
+    ObjectLogger.cpp 	 \
+	Histogram.cpp
 
 user_incl_dir    := .. $(topdir)
 user_no_style    := \
