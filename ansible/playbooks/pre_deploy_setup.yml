@@ -14,16 +14,23 @@
 
 -   name: Setup any pre-requisities on host
     hosts: all
+    sudo: True
 
     handlers:
     -   name: restart ssh
-        service: name=ssh state=restarted
+        service: name=ssh 
+            state=restarted
 
     tasks:
 
     -   name: set the root password
-        raw: echo "root:passwd" | chpasswd
+        action: user name=root
+            password=passwd
 
     -   name: allow ssh root login
-        command: sed -ie 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config
+        lineinfile: dest=/etc/ssh/sshd_config 
+            regexp="PermitRootLogin without-password" 
+            line="PermitRootLogin yes" 
+            backrefs=yes
+            state=present
         notify: restart ssh
