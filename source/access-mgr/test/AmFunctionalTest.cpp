@@ -9,7 +9,6 @@
 #include <thread>
 #include <fdsn-server.h>
 #include <util/fds_stat.h>
-#include <native_api.h>
 #include <am-platform.h>
 #include <net/net-service.h>
 #include <AccessMgr.h>

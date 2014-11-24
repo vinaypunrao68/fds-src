@@ -82,7 +82,7 @@ def get_avglat():
         elif options.block_enable:
             return None
         elif options.java_tester:
-            cmd ="cat %s |grep Average| awk '{e+=$4; c+=1}END{print e/c*1e-6}'" % (of)
+            cmd ="cat %s |grep 'Average latency'| awk '{e+=$4; c+=1}END{if (c>0) {print e/c*1e-6} else {print -1}}'" % (of)
             lat = float(os.popen(cmd).read().rstrip('\n'))
         elif options.fio_enable:
             lat = (get_fio(of)["rclat"] + get_fio(of)["wclat"]) / 2
@@ -375,10 +375,16 @@ def main():
         _t = e.split(':')
         table[_t[0]] = _t[1]
     time.sleep(1)
-    th = get_avgth()
+    try:
+        th = get_avgth()
+    except ValueError:
+        th = -1
     print "th,", th,",",
     table["th"] = th
-    lat = get_avglat()
+    try:
+        lat = get_avglat()
+    except ValueError:
+        lat = -1
     table["lat"] = lat
     print "lat,", get_avglat(),",",
     for node in nodes.keys():

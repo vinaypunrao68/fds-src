@@ -11,9 +11,34 @@
 #include <fdsp_utils.h>
 #include <net/SvcRequest.h>
 #include <net/SvcRequestPool.h>
+#include <fds_module_provider.h>
 #include <util/fiu_util.h>
 
 namespace fds {
+
+/**
+* @brief Constructor
+*
+* @param id
+* @param mgr
+*/
+SvcRequestCounters::SvcRequestCounters(const std::string &id, FdsCountersMgr *mgr)
+    : FdsCounters(id, mgr),
+    timedout("timedout", this),
+    invokeerrors("invokeerrors", this),
+    appsuccess("appsuccess", this),
+    apperrors("apperrors", this),
+    serializationLat("serializationLat", this),
+    deserializationLat("deserializationLat", this),
+    sendPayloadLat("sendPayloadLat", this),
+    sendLat("sendLat", this),
+    reqLat("reqLat", this)
+{
+}
+
+SvcRequestCounters::~SvcRequestCounters()
+{
+}
 
 SvcRequestTimer::SvcRequestTimer(const SvcRequestId &id,
                                  const fpi::FDSPMsgTypeId &msgTypeId,
@@ -123,9 +148,11 @@ void SvcRequestIf::setCompletionCb(SvcRequestCompletionCb &completionCb)
  */
 void SvcRequestIf::invoke()
 {
-#if 1
     /* Disable to scheduling thread pool */
     fiu_do_on("svc.disable.schedule", invokeWork_(); return;);
+    fiu_do_on("svc.use.lftp",
+              gSvcRequestPool->getSvcWorkerThreadpool()->\
+              scheduleWithAffinity(id_, &SvcRequestIf::invoke2, this); return;);
 
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
         NetMgr::ep_mgr_singleton()->ep_get_task_executor();
@@ -133,9 +160,6 @@ void SvcRequestIf::invoke()
      * handling is synchronized.
      */
     taskExecutor->schedule(id_, std::bind(&SvcRequestIf::invokeWork_, this));
-#else
-    invokeWork_();
-#endif
 }
 
 
@@ -173,7 +197,11 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
             LOGNORMAL << " injected one socket connection losing error ";
             goto do_again;
         }
+        SVCPERF(util::StopWatch sw; sw.start());
+        SVCPERF(ts.rqSendStartTs = util::getTimeStampNanos());
         ep->svc_rpc<fpi::BaseAsyncSvcClient>()->asyncReqt(header, *payloadBuf_);
+        SVCPERF(ts.rqSendEndTs = util::getTimeStampNanos());
+        SVCPERF(gSvcRequestCntrs->sendLat.update(sw.getElapsedNanos()));
         GLOGDEBUG << fds::logString(header) << " sent payload size: " << payloadBuf_->size();
         fiu_do_on("svc.fail.sendpayload_after",
                   throw util::FiuException("svc.fail.sendpayload_after"));
@@ -234,6 +262,93 @@ EPSvcRequest::~EPSvcRequest()
 {
 }
 
+void EPSvcRequest::invoke2()
+{
+    auto ep = NetMgr::ep_mgr_singleton()->\
+            svc_get_handle<fpi::BaseAsyncSvcClient>(peerEpId_, 0 , minor_version);
+    auto header = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_,
+            myEpId_, peerEpId_);
+    gSvcRequestPool->getSvcSendThreadpool()->scheduleWithAffinity(
+            ep->getAffinity(),
+            &SvcRequestIf::sendReqWork, ep, this, header, payloadBuf_);
+    // TODO(Rao): Start a timer
+}
+
+void FailoverSvcRequest::invoke2()
+{
+    fds_verify(curEpIdx_ == 0);
+
+    auto ep = NetMgr::ep_mgr_singleton()->\
+            svc_get_handle<fpi::BaseAsyncSvcClient>(
+                    epReqs_[curEpIdx_]->peerEpId_, 0 , minor_version);
+    auto header = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_,
+            myEpId_, epReqs_[curEpIdx_]->peerEpId_);
+
+    gSvcRequestPool->getSvcSendThreadpool()->scheduleWithAffinity(
+        ep->getAffinity(),
+        &SvcRequestIf::sendReqWork, ep, this, header, payloadBuf_);
+    // TODO(Rao):
+    // 1. Start timer
+    // 2. Handle failover cases
+}
+
+void QuorumSvcRequest::invoke2()
+{
+    for (auto epReq : epReqs_) {
+        auto ep = NetMgr::ep_mgr_singleton()->\
+                svc_get_handle<fpi::BaseAsyncSvcClient>(epReq->peerEpId_, 0 , minor_version);
+        auto header = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_,
+                myEpId_, epReq->peerEpId_);
+        gSvcRequestPool->getSvcSendThreadpool()->scheduleWithAffinity(
+                ep->getAffinity(),
+                &SvcRequestIf::sendReqWork, ep, this, header, payloadBuf_);
+    }
+    // TODO(Rao):
+    // 1. Start timer
+}
+
+// TODO(Rao): This should move into svc handle class
+void SvcRequestIf::sendReqWork(EpSvcHandle::pointer eph,
+                               SvcRequestIf *req,
+                               boost::shared_ptr<fpi::AsyncHdr> header,
+                               StringPtr payload)
+{
+    fiu_do_on("svc.fail.sendpayload_before", \
+        SVCPERF(req->ts.rqSendStartTs = req->ts.rqSendEndTs = util::getTimeStampNanos());
+        swapAsyncHdr(header); \
+        header->msg_code = ERR_SVC_REQUEST_INVOCATION; \
+        gSvcRequestPool->postError(header););
+
+    try {
+        // TODO(Rao): Do your own send here for better peformance
+        SVCPERF(req->ts.rqSendStartTs = util::getTimeStampNanos());
+        eph->svc_rpc<fpi::BaseAsyncSvcClient>()->asyncReqt(*header, *payload);
+        SVCPERF(req->ts.rqSendEndTs = util::getTimeStampNanos());
+    } catch(std::exception &e) {
+        swapAsyncHdr(header);
+        header->msg_code = ERR_SVC_REQUEST_INVOCATION;
+        GLOGERROR << fds::logString(*header) << " exception: " << e.what();
+        gSvcRequestPool->postError(header);
+        fds_assert(!"Unknown exception");
+    }
+}
+// TODO(Rao): Consolidate this function with above function
+void SvcRequestIf::sendRespWork(EpSvcHandle::pointer eph,
+        fpi::AsyncHdr header,
+        bo::shared_ptr<tt::TMemoryBuffer> memBuffer)
+{
+    try {
+        // TODO(Rao): Do your own send here for better peformance
+        SVCPERF(header.rspSendStartTs = util::getTimeStampNanos());
+        eph->svc_rpc<fpi::BaseAsyncSvcClient>()->asyncResp(
+            header,
+            memBuffer->getBufferAsString());
+    } catch(std::exception &e) {
+        GLOGERROR << fds::logString(header) << " exception: " << e.what();
+        fds_assert(!"Unknown exception");
+    }
+}
+
 /**
 * @brief Worker function for doing the invocation work
 * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
@@ -247,7 +362,9 @@ void EPSvcRequest::invokeWork_()
     bool epHealthy = true;
     state_ = INVOCATION_PROGRESS;
     if (epHealthy) {
-       sendPayload_(peerEpId_);
+        SVCPERF(util::StopWatch sw; sw.start());
+        sendPayload_(peerEpId_);
+        SVCPERF(gSvcRequestCntrs->sendPayloadLat.update(sw.getElapsedNanos()));
     } else {
         GLOGERROR << logString() << " No healthy endpoints left";
         auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId_, myEpId_);
@@ -284,6 +401,7 @@ void EPSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 
     /* Invoke response callback */
     if (respCb_) {
+        SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
         respCb_(this, header->msg_code, payload);
     }
 
@@ -534,6 +652,7 @@ void FailoverSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
     /* Handle the case where response from this endpoint is considered success */
     if (bSuccess) {
         if (respCb_) {
+            SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
             respCb_(this, ERR_OK, payload);
         }
         complete(ERR_OK);
@@ -761,6 +880,7 @@ void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
     /* Take action based on the ack counts */
     if (successAckd_ == quorumCnt_) {
         if (respCb_) {
+            SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
             respCb_(this, ERR_OK, payload);
         }
         complete(ERR_OK);

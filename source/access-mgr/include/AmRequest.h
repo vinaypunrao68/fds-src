@@ -14,16 +14,7 @@ namespace fds
 
 class AmRequest : public FDS_IOType {
     // Callback members
-    typedef boost::function<void(fds_int32_t)> callbackBind;
     typedef std::function<void (const Error&)> ProcessorCallback;
-
-    void setupFdsIOType(fds_io_op_t _op, fds_volid_t _vol_id) {
-        io_magic  = FDS_SH_IO_MAGIC_IN_USE;
-        io_module = STOR_HV_IO;
-        io_req_id = 0;
-        io_type   = _op;
-        io_vol_id = _vol_id;
-    }
 
  public:
     // Performance
@@ -56,28 +47,11 @@ class AmRequest : public FDS_IOType {
         data_buf(_data_buf),
         cb(_cb)
     {
-        setupFdsIOType(_op, _vol_id);
-
-        e2e_req_perf_ctx.name = "volume:" + std::to_string(_vol_id);
-        e2e_req_perf_ctx.reset_volid(_vol_id);
-    }
-
-    template<typename F, typename A, typename B, typename C>
-    AmRequest(fds_io_op_t          _op,
-              fds_volid_t          _vol_id,
-              const std::string&   _vol_name,
-              const std::string&   _blob_name,
-              fds_uint64_t         _blob_offset,
-              fds_uint64_t         _data_len,
-              char*                _data_buf,
-              F f, A a, B b, C c)
-        : blob_name(_blob_name),
-        blob_offset(_blob_offset),
-        data_len(_data_len),
-        data_buf(_data_buf),
-        callback(boost::bind(f, a, b, c, _1))
-    {
-        setupFdsIOType(_op, _vol_id);
+        io_magic  = FDS_SH_IO_MAGIC_IN_USE;
+        io_module = STOR_HV_IO;
+        io_req_id = 0;
+        io_type   = _op;
+        io_vol_id = _vol_id;
 
         e2e_req_perf_ctx.name = "volume:" + std::to_string(_vol_id);
         e2e_req_perf_ctx.reset_volid(_vol_id);
@@ -89,23 +63,15 @@ class AmRequest : public FDS_IOType {
     bool magicInUse() const
     { return (io_magic == FDS_SH_IO_MAGIC_IN_USE); }
 
-    void cbWithResult(int result)
-    { return callback(result); }
-
     const std::string& getBlobName() const
     { return blob_name; }
 
     const char *getDataBuf() const
     { return data_buf; }
 
-    void setQueuedUsec(fds_uint64_t _usec)
-    { queued_usec = _usec; }
-
  protected:
-    fds_uint64_t       queued_usec;  /* Time spent in queue */
     char*              data_buf;
     std::string        blob_name;
-    callbackBind       callback;
     util::StopWatch    stopwatch;
 };
 

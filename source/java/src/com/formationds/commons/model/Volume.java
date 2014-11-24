@@ -9,6 +9,7 @@ import com.formationds.commons.model.util.ModelFieldValidator;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.formationds.commons.model.util.ModelFieldValidator.KeyFields;
 import static com.formationds.commons.model.util.ModelFieldValidator.outOfRange;
@@ -51,6 +52,24 @@ public class Volume
    */
   public Volume() {
     super();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    Volume volume = (Volume) o;
+
+    if (!Objects.equals(id, volume.id)) return false;
+    if (!Objects.equals(name, volume.name)) return false;
+
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(name, id);
   }
 
   /**
@@ -187,5 +206,19 @@ public class Volume
   @Override
   public <T> T getContext() {
     return ( T ) this.name;
+  }
+
+  @Override
+  public String toString() {
+    final StringBuilder sb = new StringBuilder("Volume{");
+    sb.append("id='").append(id).append('\'');
+    sb.append(", name='").append(name).append('\'');
+    sb.append(", limit=").append(limit);
+    sb.append(", sla=").append(sla);
+    sb.append(", priority=").append(priority);
+    sb.append(", data_connector=").append(data_connector);
+    sb.append(", current_usage=").append(current_usage);
+    sb.append('}');
+    return sb.toString();
   }
 }

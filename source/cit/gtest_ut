@@ -8,3 +8,4 @@ Build/linux-x86_64.debug/tests/sm_token_state_gtest
 Build/linux-x86_64.debug/tests/sm_diskmap_unit_test --fds-root=./config/ --fds.sm.testing.standalone=true
 Build/linux-x86_64.debug/tests/sm_objectstore_gtest --fds-root=./config/ --fds.sm.testing.standalone=true
 Build/linux-x86_64.debug/tests/sm_tier_migration_gtest
+Build/linux-x86_64.debug/tests/histogram_gtest

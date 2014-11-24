@@ -7,8 +7,7 @@ user_incl_dir    := \
 	$(topdir)/net-service/include
 
 user_cc          :=
-user_cpp         := \
-    test-plat-proc.cpp
+user_cpp         :=
 
 user_ar_libs     := fds-probe-ut
 fds-probe-ut     := $(user_cpp) $(user_cc)
