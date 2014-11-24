@@ -128,6 +128,12 @@ public class AsyncAm {
         });
     }
 
+    public CompletableFuture<BlobWithMetadata> getBlobWithMeta(AuthenticationToken token, String domainName, String volumeName, String blobName, int length, ObjectOffset offset) {
+        return scheduleAsync(token, domainName, volumeName, rid -> {
+            oneWayAm.getBlobWithMeta(rid, domainName, volumeName, blobName, length, offset);
+        });
+    }
+
     // This one
     public CompletableFuture<TxDescriptor> startBlobTx(AuthenticationToken token, String domainName, String volumeName, String blobName, int blobMode) {
         return scheduleAsync(token, domainName, volumeName, rid ->

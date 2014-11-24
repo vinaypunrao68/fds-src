@@ -23,10 +23,10 @@ user_build_dir :=                       \
     access-mgr                          \
     stor-mgr                            \
     tools                               \
+    java				\
     testlib                             \
     checker                             \
-    unit-test							\
-	java
+    unit-test							
 ifdef SKIP_JAVA_BUILD
 	user_build_dir := $(filter-out java, $(user_build_dir))
 endif
