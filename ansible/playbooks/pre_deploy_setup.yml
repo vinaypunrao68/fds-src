@@ -25,7 +25,7 @@
 
     -   name: set the root password
         action: user name=root
-            password=passwd
+            password=$1$M7e8qbJh$0nDQnqfGh5Ce80bbYKp5U/
 
     -   name: allow ssh root login
         lineinfile: dest=/etc/ssh/sshd_config 
