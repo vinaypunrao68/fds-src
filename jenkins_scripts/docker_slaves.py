@@ -22,7 +22,7 @@ parser.add_option("-c", "--connect", metavar="NAME" )
 
 DOCKER_PORT=2375
 DOCKER_SLAVES = {
-        "10.1.10.234": {
+        "10.1.10.43": {
             "jenkins-slave01": "10041",
             "jenkins-slave02": "10042"
             },
