@@ -8,6 +8,8 @@
 #include <AmAsyncDataApi.h>
 #include <responsehandler.h>
 #include <StorHvisorNet.h>
+#include <fiu-control.h>
+#include <util/fiu_util.h>
 
 #include "requests/requests.h"
 
@@ -15,9 +17,9 @@ namespace fds {
 
 AmAsyncDataApi::AmAsyncDataApi() {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
-    testUturnAll = conf.get_abs<bool>("fds.am.testing.uturn_amserv_all");
-    if (true == testUturnAll) {
-        LOGDEBUG << "Enabling uturn testing for all AM service APIs";
+    if (conf.get<fds_bool_t>("testing.uturn_amserv_all")) {
+        fiu_enable("am.uturn.api", 1, NULL, 0);
+        LOGNOTIFY << "Enabled AM API uturn";
     }
 
     responseApi = boost::make_shared<AmAsyncXdiResponse>();
@@ -245,6 +247,45 @@ AmAsyncDataApi::getBlob(boost::shared_ptr<apis::RequestId>& requestId,
                                         SHARED_DYN_CAST(Callback, getHandler),
                                         static_cast<fds_uint64_t>(objectOffset->value),
                                         *length);
+    storHvisor->enqueueBlobReq(blobReq);
+}
+
+void
+AmAsyncDataApi::getBlobWithMeta(const apis::RequestId& requestId,
+                                const std::string& domainName,
+                                const std::string& volumeName,
+                                const std::string& blobName,
+                                const int32_t length,
+                                const apis::ObjectOffset& offset) {
+    fds_panic("You shouldn't be here.");
+}
+
+void
+AmAsyncDataApi::getBlobWithMeta(boost::shared_ptr<apis::RequestId>& requestId,
+                                boost::shared_ptr<std::string>& domainName,
+                                boost::shared_ptr<std::string>& volumeName,
+                                boost::shared_ptr<std::string>& blobName,
+                                boost::shared_ptr<int32_t>& length,
+                                boost::shared_ptr<apis::ObjectOffset>& objectOffset) {
+    fds_verify(*length >= 0);
+    fds_verify(objectOffset->value >= 0);
+
+    // Create request context
+    // Set the pointer we want filled in the handler
+    // TODO(Andrew): Get the correctly sized pointer directly
+    // from the return string so we can avoid one extra copy.
+    AsyncGetWithMetaResponseHandler::ptr getHandler(
+        new AsyncGetWithMetaResponseHandler(responseApi,
+                                            requestId,
+                                            length));
+
+    GetBlobReq *blobReq= new GetBlobReq(invalid_vol_id,
+                                        *volumeName,
+                                        *blobName,
+                                        SHARED_DYN_CAST(Callback, getHandler),
+                                        static_cast<fds_uint64_t>(objectOffset->value),
+                                        *length);
+    blobReq->getMetadata = true;
     storHvisor->enqueueBlobReq(blobReq);
 }
 

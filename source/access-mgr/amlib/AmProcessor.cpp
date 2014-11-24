@@ -284,14 +284,40 @@ AmProcessor::getBlob(AmRequest *amReq) {
     fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
     amReq->blob_offset = (amReq->blob_offset * maxObjSize);
 
-    // Check cache for object ID
+    // If we need to return metadata, check the cache
     Error err = ERR_OK;
+    GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
+    fds_bool_t foundBlobDesc = false;
+    if (blobReq->getMetadata) {
+        BlobDescriptor::ptr cachedBlobDesc = amCache->getBlobDescriptor(volId,
+                                                                        amReq->getBlobName(),
+                                                                        err);
+        if (ERR_OK == err) {
+            LOGTRACE << "Found cached blob descriptor for " << std::hex
+                     << volId << std::dec << " blob " << amReq->getBlobName();
+            foundBlobDesc = true;
+            GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+            // Fill in the data here
+            cb->blobDesc.setBlobName(cachedBlobDesc->getBlobName());
+            cb->blobDesc.setBlobSize(cachedBlobDesc->getBlobSize());
+            for (const_kv_iterator meta = cachedBlobDesc->kvMetaBegin();
+                 meta != cachedBlobDesc->kvMetaEnd();
+                 ++meta) {
+                cb->blobDesc.addKvMeta(meta->first,  meta->second);
+            }
+        }
+    } else {
+        // If we don't need to return metadata just continue like we found it
+        foundBlobDesc = true;
+    }
+
+    // Check cache for object ID
     ObjectID::ptr objectId = amCache->getBlobOffsetObject(volId,
                                                           amReq->getBlobName(),
                                                           amReq->blob_offset,
                                                           err);
     // ObjectID was found in the cache
-    if (ERR_OK == err) {
+    if ((ERR_OK == err) && (true == foundBlobDesc)) {
         // TODO(Andrew): Consider adding this back when we revisit
         // zero length objects
         // fds_verify(*objectId != NullObjectID);

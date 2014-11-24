@@ -246,6 +246,22 @@ struct AsyncGetObjectResponseHandler : ResponseHandler, GetObjectCallback {
     virtual ~AsyncGetObjectResponseHandler();
 };
 
+struct AsyncGetWithMetaResponseHandler : ResponseHandler, GetObjectCallback {
+    AsyncGetWithMetaResponseHandler(AmAsyncResponseApi::shared_ptr _api,
+                                    boost::shared_ptr<apis::RequestId>& _reqId,
+                                    boost::shared_ptr<int32_t>& length,
+                                    char* buf = nullptr);
+    typedef boost::shared_ptr<AsyncGetWithMetaResponseHandler> ptr;
+
+    AmAsyncResponseApi::shared_ptr respApi;
+    boost::shared_ptr<apis::RequestId> requestId;
+
+    boost::shared_ptr<apis::BlobDescriptor> retBlobDesc;
+
+    virtual void process();
+    virtual ~AsyncGetWithMetaResponseHandler();
+};
+
 struct ListBucketResponseHandler : ResponseHandler, GetBucketCallback {
     explicit ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs);
     TYPE_SHAREDPTR(ListBucketResponseHandler);

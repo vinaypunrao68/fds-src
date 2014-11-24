@@ -512,6 +512,16 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
 
     LOGDEBUG << svcReq->logString() << logString(*qryCatRsp);
 
+    // Copy the metadata into the callback
+    // TODO(Andrew): Only need to do this when asked...can often avoid this copy
+    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    // Fill in the data here
+    cb->blobDesc.setBlobName(amReq->getBlobName());
+    cb->blobDesc.setBlobSize(qryCatRsp->byteCount);
+    for (const auto& meta : qryCatRsp->meta_list) {
+        cb->blobDesc.addKvMeta(meta.key,  meta.value);
+    }
+
     // TODO(Andrew): Update the AM's blob offset cache here
 
     // TODO(xxx) should be able to have multiple object id + implement range

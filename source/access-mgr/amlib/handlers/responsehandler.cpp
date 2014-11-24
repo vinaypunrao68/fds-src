@@ -354,6 +354,35 @@ AsyncGetObjectResponseHandler::process() {
 AsyncGetObjectResponseHandler::~AsyncGetObjectResponseHandler() {
 }
 
+AsyncGetWithMetaResponseHandler::AsyncGetWithMetaResponseHandler(
+    AmAsyncResponseApi::shared_ptr _api,
+    boost::shared_ptr<apis::RequestId>& _reqId,
+    boost::shared_ptr<int32_t>& length,
+    char* buf)
+        : respApi(_api),
+          requestId(_reqId) {
+    returnSize = *length;
+    returnBuffer = buf;
+    type = HandlerType::IMMEDIATE;
+}
+
+void
+AsyncGetWithMetaResponseHandler::process() {
+    retBlobDesc = boost::make_shared<apis::BlobDescriptor>();
+    retBlobDesc->name = blobDesc.getBlobName();
+    retBlobDesc->byteCount = blobDesc.getBlobSize();
+
+    for (const_kv_iterator it = blobDesc.kvMetaBegin();
+         it != blobDesc.kvMetaEnd();
+         it++) {
+        retBlobDesc->metadata[it->first] = it->second;
+    }
+    respApi->getBlobWithMetaResp(error, requestId, returnBuffer, returnSize, retBlobDesc);
+}
+
+AsyncGetWithMetaResponseHandler::~AsyncGetWithMetaResponseHandler() {
+}
+
 AttachVolumeResponseHandler::AttachVolumeResponseHandler() {
 }
 

@@ -119,6 +119,9 @@ service AsyncAmServiceRequest {
         oneway void getBlob(1:RequestId requestId, 2:string domainName, 
 	       3:string volumeName, 4:string blobName, 5:i32 length, 6:ObjectOffset offset),
 
+	oneway void getBlobWithMeta(1:RequestId requestId, 2:string domainName, 
+	       3:string volumeName, 4:string blobName, 5:i32 length, 6:ObjectOffset offset),
+
         oneway void updateMetadata(1:RequestId requestId, 2:string domainName, 
 	       3:string volumeName, 4:string blobName, 5:TxDescriptor txDesc, 6:map<string, string> metadata),
 

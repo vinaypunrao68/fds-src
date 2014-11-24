@@ -371,6 +371,9 @@ struct GetObjectCallback : virtual Callback {
     typedef boost::shared_ptr<GetObjectCallback> ptr;
     char *returnBuffer;
     fds_uint32_t returnSize;
+
+    /// Used in getWithMetadata cases
+    BlobDescriptor blobDesc;
 };
 
 struct CommitBlobTxCallback : virtual Callback {

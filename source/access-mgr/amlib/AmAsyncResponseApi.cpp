@@ -279,4 +279,13 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
         XDICLIENTCALL(asyncRespClient, getBlobResponse(requestId, response));
     }
 }
+
+void
+AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
+                                        boost::shared_ptr<apis::RequestId>& requestId,
+                                        char* buf,
+                                        fds_uint32_t& length,
+                                        boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+    fds_panic("Use JNI. This just keeps the compiler happy.");
+}
 }  // namespace fds
