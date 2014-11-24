@@ -17,12 +17,21 @@
 #include <net/net-service.h>
 #include <fdsp_utils.h>
 #include <concurrency/taskstatus.h>
+#include <fds_counters.h>
+
+#define SVCPERF(statement) statement
 
 namespace fds {
 /* Forward declarations */
 struct EPSvcRequest;
 struct FailoverSvcRequest;
 struct QuorumSvcRequest;
+typedef boost::shared_ptr<std::string> StringPtr;
+
+namespace net {
+template<class PayloadT> boost::shared_ptr<PayloadT>
+ep_deserialize(Error &e, boost::shared_ptr<std::string> payload);
+}
 
 /* Async svc request identifier */
 typedef uint64_t SvcRequestId;
@@ -51,10 +60,36 @@ enum SvcRequestState {
     SVC_REQUEST_COMPLETE
 };
 
-namespace net {
-template<class PayloadT> boost::shared_ptr<PayloadT>
-ep_deserialize(Error &e, boost::shared_ptr<std::string> payload);
-}
+/**
+ * @brief Svc request counters
+ */
+class SvcRequestCounters : public FdsCounters
+{
+ public:
+    SvcRequestCounters(const std::string &id, FdsCountersMgr *mgr);
+    ~SvcRequestCounters();
+
+    /* Number of requests that have timedout */
+    NumericCounter      timedout;
+    /* Number of requests that experienced transport error */
+    NumericCounter      invokeerrors;
+    /* Number of responses that resulted in app acceptance */
+    NumericCounter      appsuccess;
+    /* Number of responses that resulted in app rejections */
+    NumericCounter      apperrors;
+
+    /* Serialization latency */
+    LatencyCounter      serializationLat;
+    /* Deserialization latency */
+    LatencyCounter      deserializationLat;
+    /* Send latency */
+    LatencyCounter      sendLat;
+    LatencyCounter      sendPayloadLat;
+    /* Request latency */
+    LatencyCounter      reqLat;
+};
+extern SvcRequestCounters* gSvcRequestCntrs;
+
 template <class ReqT, class RespMsgT>
 struct SvcRequestCbTask : concurrency::TaskStatus {
     void respCb(ReqT* req, const Error &e, boost::shared_ptr<std::string> respPayload)
@@ -186,13 +221,17 @@ struct SvcRequestIf {
     {
         boost::shared_ptr<std::string>buf;
         /* NOTE: Doing the serialization on calling thread */
+        SVCPERF(util::StopWatch sw; sw.start());
         fds::serializeFdspMsg(*payload, buf);
+        SVCPERF(gSvcRequestCntrs->serializationLat.update(sw.getElapsedNanos()));
         setPayloadBuf(msgTypeId, buf);
     }
     void setPayloadBuf(const fpi::FDSPMsgTypeId &msgTypeId,
                        boost::shared_ptr<std::string> &buf);
 
     virtual void invoke();
+
+    virtual void invoke2() = 0;
 
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) = 0;
@@ -212,6 +251,28 @@ struct SvcRequestIf {
     void setRequestId(const SvcRequestId &id);
 
     void setCompletionCb(SvcRequestCompletionCb &completionCb);
+
+    static void sendReqWork(EpSvcHandle::pointer eph,
+                            SvcRequestIf *req,
+                            boost::shared_ptr<fpi::AsyncHdr> header,
+                            StringPtr payload);
+    static void sendRespWork(EpSvcHandle::pointer eph,
+                             fpi::AsyncHdr header,
+                             bo::shared_ptr<tt::TMemoryBuffer> memBuffer);
+
+ public:
+    struct SvcReqTs {
+        /* Request latency stop watch */
+        mutable uint64_t        rqStartTs;
+        mutable uint64_t        rqSendStartTs;
+        mutable uint64_t        rqSendEndTs;
+        mutable uint64_t        rqRcvdTs;
+        mutable uint64_t        rqHndlrTs;
+        mutable uint64_t        rspSerStartTs;
+        mutable uint64_t        rspSendStartTs;
+        mutable uint64_t        rspRcvdTs;
+        mutable uint64_t        rspHndlrTs;
+    } ts;
 
  protected:
     virtual void invokeWork_() = 0;
@@ -272,6 +333,8 @@ struct EPSvcRequest : SvcRequestIf {
                       const fpi::SvcUuid &peerEpId);
 
     ~EPSvcRequest();
+
+    virtual void invoke2() override;
 
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
@@ -337,6 +400,8 @@ struct FailoverSvcRequest : MultiEpSvcRequest {
 
     ~FailoverSvcRequest();
 
+    virtual void invoke2() override;
+
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
 
@@ -376,6 +441,8 @@ struct QuorumSvcRequest : MultiEpSvcRequest {
             const EpIdProviderPtr epProvider);
 
     ~QuorumSvcRequest();
+
+    virtual void invoke2() override;
 
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;

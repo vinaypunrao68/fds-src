@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <functional>
+#include <iostream>
 #include <net/net-service.h>
 #include <platform/platform-lib.h>
 #include <fdsp_utils.h>
@@ -11,44 +12,35 @@
 #include <net/SvcRequestTracker.h>
 #include <net/SvcRequestPool.h>
 #include <platform/node-inventory.h>
+#include <fiu-control.h>
 
 namespace fds {
 
 // TODO(Rao): Make SvcRequestPool and SvcRequestTracker a module
 SvcRequestPool *gSvcRequestPool;
-SvcRequestTracker* gSvcRequestTracker;
 SvcRequestCounters* gSvcRequestCntrs;
-
-/**
-* @brief Constructor
-*
-* @param id
-* @param mgr
-*/
-SvcRequestCounters::SvcRequestCounters(const std::string &id, FdsCountersMgr *mgr)
-    : FdsCounters(id, mgr),
-    timedout("timedout", this),
-    invokeerrors("invokeerrors", this),
-    appsuccess("appsuccess", this),
-    apperrors("apperrors", this)
-{
-}
-
-SvcRequestCounters::~SvcRequestCounters()
-{
-}
+SvcRequestTracker* gSvcRequestTracker;
 
 /**
  * Constructor
  */
 SvcRequestPool::SvcRequestPool()
 {
+    auto config = gModuleProvider->get_fds_config();
     gSvcRequestTracker = new SvcRequestTracker();
     gSvcRequestCntrs = new SvcRequestCounters("SvcReq", g_cntrs_mgr.get());
 
     nextAsyncReqId_ = 0;
     finishTrackingCb_ = std::bind(&SvcRequestTracker::removeFromTracking,
             gSvcRequestTracker, std::placeholders::_1);
+
+    svcSendTp_.reset(new LFMQThreadpool(
+            config->get<uint32_t>("fds.plat.svc.lftp.io_thread_cnt")));
+    svcWorkerTp_.reset(new LFMQThreadpool(config->get<uint32_t>(
+                "fds.plat.svc.lftp.worker_thread_cnt")));
+    if (true == config->get<bool>("fds.plat.svc.lftp.enable")) {
+        fiu_enable("svc.use.lftp", 1, NULL, 0);
+    }
 }
 
 /**
@@ -182,6 +174,31 @@ void SvcRequestPool::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
     /* Simulate an error for remote endpoint */
     boost::shared_ptr<std::string> payload;
     Platform::platf_singleton()->getBaseAsyncSvcHandler()->asyncResp(header, payload);
+}
+
+LFMQThreadpool* SvcRequestPool::getSvcSendThreadpool()
+{
+    return svcSendTp_.get();
+}
+
+LFMQThreadpool* SvcRequestPool::getSvcWorkerThreadpool()
+{
+    return svcWorkerTp_.get();
+}
+
+void SvcRequestPool::dumpLFTPStats()
+{
+    std::cout << "IO threadpool stats:\n";
+    uint32_t i = 0;
+    for (auto &w : svcSendTp_->workers) {
+        std::cout << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
+    }
+
+    std::cout << "Worker threadpool stats:\n";
+    i = 0;
+    for (auto &w : svcWorkerTp_->workers) {
+        std::cout << "Id: " << i << " completedCnt: " << w->completedCntr << std::endl;
+    }
 }
 
 }  // namespace fds

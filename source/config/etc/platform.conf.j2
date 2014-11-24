@@ -56,13 +56,22 @@ fds: {
             min_thread  = 8
             max_thread  = 10
         }
-    /* Internal testing related info */
-    testing: {
-            /* overwrite node capabilities from this config */
-            manual_nodecap = true
-            disk_iops_max  = 100000
-            disk_iops_min  = 60000
-        }
+        /* Internal testing related info */
+	testing: {
+	    /* overwrite node capabilities from this config */
+	    manual_nodecap = true
+	    disk_iops_max  = 100000
+	    disk_iops_min  = 60000
+	}
+	/* Service layer stanza */
+	svc: {
+	    lftp: {
+		/* Enable lockfree threadpool optimizations or not */
+	        enable = true 
+		io_thread_cnt = 2
+		worker_thread_cnt = 2
+	    }
+	}
     }
     dm: {
         perf: {
@@ -185,6 +194,10 @@ fds: {
         test_mode=false
         /* Internal testing related info */
         testing: {
+
+            /* enable simulated latency with its timueout value */
+            enable_mocking = false
+            mocktimeout = 500   
             /* enable if testing SM standalone, no dependency on platform and OM */
             standalone = false
 

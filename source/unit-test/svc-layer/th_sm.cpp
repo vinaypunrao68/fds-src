@@ -15,6 +15,7 @@
 #include <thrift/concurrency/PosixThreadFactory.h>
 #include <thrift/server/TThreadPoolServer.h>
 #include <thrift/server/TThreadedServer.h>
+#include <thrift/server/TNonblockingServer.h>
 #include <fdsp_utils.h>
 #include <ObjectId.h>
 #include <testlib/DataGen.hpp>
@@ -43,13 +44,14 @@ struct SMTest : BaseTestFixture
     SMTest();
     void serve();
  protected:
-    boost::shared_ptr<TThreadedServer> server_;
+    boost::shared_ptr<TServer> server_;
 };
 
 class TestSMSvcHandler : virtual public FDS_ProtocolInterface::TestSMSvcIf {
  public:
     explicit TestSMSvcHandler(SMTest* smTest) {
         smTest_ = smTest;
+        connCntr_ = 0;
     }    /* Connect to SM */
     int32_t associate(const std::string& ip, const int32_t port) {
         return 0;
@@ -63,8 +65,19 @@ class TestSMSvcHandler : virtual public FDS_ProtocolInterface::TestSMSvcIf {
                       boost::shared_ptr<int32_t>& port) {
         int cntr = connCntr_++;
         boost::shared_ptr<fpi::TestAMSvcClient> amClient;
-        boost::shared_ptr<TTransport> amSock(new TSocket(*ip, *port));
-        boost::shared_ptr<TFramedTransport> amTrans(new TFramedTransport(amSock));
+        boost::shared_ptr<TTransport> amSock;
+        boost::shared_ptr<TTransport> amTrans;
+
+        if (smTest_->getArg<bool>("use-pipe")) {
+            amSock.reset(new TSocket(*ip));
+        } else {
+            amSock.reset(new TSocket(*ip, *port));
+        }
+        if (smTest_->getArg<std::string>("transport") == "framed") {
+            amTrans.reset(new TFramedTransport(amSock));
+        } else {
+            amTrans.reset(new TBufferedTransport(amSock));
+        }
         boost::shared_ptr<TProtocol> amProto(new TBinaryProtocol(amTrans));
         amClient.reset(new fpi::TestAMSvcClient(amProto));
         amTrans->open();
@@ -77,9 +90,11 @@ class TestSMSvcHandler : virtual public FDS_ProtocolInterface::TestSMSvcIf {
     void putObject(boost::shared_ptr< ::FDS_ProtocolInterface::AsyncHdr>& asyncHdr,
                       boost::shared_ptr< ::FDS_ProtocolInterface::PutObjectMsg>& payload)
     {
+        asyncHdr->rqRcvdTs = asyncHdr->rqHndlrTs = asyncHdr->rspSerStartTs =
+            asyncHdr->rspSendStartTs = util::getTimeStampNanos();
         std::cout << "Received put object. Sending response " << std::endl;
         // TODO(Rao): Swap the src and dst id
-        clientTbl_[asyncHdr->msg_src_id]->\
+        clientTbl_[asyncHdr->msg_src_uuid.svc_uuid]->\
             putObjectRsp(*asyncHdr, ::FDS_ProtocolInterface::PutObjectRspMsg());
     }
 
@@ -97,11 +112,33 @@ SMTest::SMTest()
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
     boost::shared_ptr<TProcessor> processor(
         new ::FDS_ProtocolInterface::TestSMSvcProcessor(handler));
-    boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(smPort));
-    boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
-    server_.reset(new TThreadedServer(processor, serverTransport,
-                                      transportFactory, protocolFactory));
-    std::cout << "Server init at port: " << smPort << std::endl;
+    if (this->getArg<std::string>("server") == "threaded") {
+        boost::shared_ptr<TServerTransport> serverTransport;
+        if (this->getArg<bool>("use-pipe")) {
+            serverTransport.reset(new TServerSocket("/tmp/smtest"));
+        } else {
+            serverTransport.reset(new TServerSocket(smPort));
+        }
+        boost::shared_ptr<TTransportFactory> transportFactory;
+        if (this->getArg<std::string>("transport") == "framed") {
+            transportFactory.reset(new TFramedTransportFactory());
+        } else {
+            transportFactory.reset(new TBufferedTransportFactory());
+        }
+        server_.reset(new TThreadedServer(processor, serverTransport,
+                                          transportFactory, protocolFactory));
+        std::cout << "Threaded Server init at port: " << smPort << std::endl;
+    } else {
+        boost::shared_ptr<ThreadManager> threadManager =
+            ThreadManager::newSimpleThreadManager(5);
+        boost::shared_ptr<PosixThreadFactory> threadFactory =
+            boost::shared_ptr<PosixThreadFactory>(new PosixThreadFactory());
+        threadManager->threadFactory(threadFactory);
+        threadManager->start();
+        server_.reset(new TNonblockingServer(processor,
+                                             protocolFactory, smPort, threadManager));
+        std::cout << "Nonblocking Server init at port: " << smPort << std::endl;
+    }
 }
 
 void SMTest::serve()
@@ -120,6 +157,9 @@ int main(int argc, char** argv) {
     po::options_description opts("Allowed options");
     opts.add_options()
         ("help", "produce help message")
+        ("server", po::value<std::string>()->default_value("threaded"), "Server type")
+        ("transport", po::value<std::string>()->default_value("framed"), "transport type")
+        ("use-pipe", po::value<bool>()->default_value(false), "use pipe transport")
         ("sm-port", po::value<int>()->default_value(9092), "sm port");
     SMTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();

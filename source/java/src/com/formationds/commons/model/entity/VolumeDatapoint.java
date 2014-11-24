@@ -11,6 +11,7 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import java.util.Objects;
 
 /**
  * @author ptinius
@@ -34,7 +35,46 @@ public class VolumeDatapoint
   private String key;
   private Double value;
 
+  /**
+   *
+   */
   public VolumeDatapoint() {
+  }
+
+  /**
+   *
+   * @param timestamp the datapoint timestamp
+   * @param volumeId the volume id
+   * @param volumeName the volume name
+   * @param key the metric key
+   * @param value the metric value
+   */
+  public VolumeDatapoint(Long timestamp, String volumeId, String volumeName, String key, Double value) {
+    this.timestamp = timestamp;
+    this.volumeName = volumeName;
+    this.volumeId = volumeId;
+    this.key = key;
+    this.value = value;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof VolumeDatapoint)) return false;
+
+    VolumeDatapoint that = (VolumeDatapoint) o;
+
+    if (!timestamp.equals(that.timestamp)) return false;
+    if (!volumeId.equals(that.volumeId)) return false;
+    if (!volumeName.equals(that.volumeName)) return false;
+    if (!key.equals(that.key)) return false;
+
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(timestamp, volumeId, volumeName, key);
   }
 
   /**

@@ -293,6 +293,7 @@ class CounterServerPull:
         # reset counters
         # subprocess.call(shlex.split("python cli.py -c reset-counters"))
         # pull counters
+        time.sleep(2)
         while stop.isSet() == False:
             time.sleep(self.options.counter_pull_rate)
             counters = self._get_counters()

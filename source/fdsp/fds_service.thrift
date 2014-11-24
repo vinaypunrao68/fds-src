@@ -182,6 +182,13 @@ struct AsyncHdr {
     4: required SvcUuid       	msg_src_uuid;
     5: required SvcUuid       	msg_dst_uuid;
     6: required i32           	msg_code;
+    7: i64			rqSendStartTs;
+    8: i64			rqSendEndTs;
+    9: i64        		rqRcvdTs;
+    10: i64        		rqHndlrTs;
+    11: i64        		rspSerStartTs;	
+    12:i64        		rspSendStartTs;	
+    13:i64			rspRcvdTs;
 }
 
 /*
