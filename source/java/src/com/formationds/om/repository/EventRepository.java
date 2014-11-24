@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
-
 package com.formationds.om.repository;
 
 import com.formationds.commons.crud.JDORepository;
@@ -98,17 +97,23 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
     }
 
     /**
+     * Find the latest firebreak on the specified volume and type.
      *
-     * @param v
-     * @return
+     * @param v the volume
+     * @param type the firebreak type
+     *
+     * @return the latest (active) firebreak event for the volume and firebreak type
      */
-    public FirebreakEvent findLatestFirebreak(Volume v) {
+    public FirebreakEvent findLatestFirebreak(Volume v, FirebreakType type) {
         EntityManager em = newEntityManager();
         try {
             FirebreakEventCriteriaQueryBuilder cb = new FirebreakEventCriteriaQueryBuilder(em);
             Instant oneDayAgo = Instant.now().minus(Duration.ofDays(1));
             Timestamp tsOneDayAgo = new Timestamp(oneDayAgo.toEpochMilli());
-            cb.volumesByName(v.getName()).withDateRange(new DateRangeBuilder(tsOneDayAgo, null).build());
+            cb.volumeByName(v.getName())
+              .volumeByFBType(type)
+              .withDateRange(new DateRangeBuilder(tsOneDayAgo, null).build());
+
             List<FirebreakEvent> r = cb.build().getResultList();
             if (r.isEmpty()) return null;
 
@@ -159,6 +164,24 @@ public class EventRepository extends JDORepository<Event, Long, Events, QueryCri
 
         FirebreakEventCriteriaQueryBuilder(EntityManager em) {
             super(em, TIMESTAMP, CONTEXT);
+        }
+
+        protected FirebreakEventCriteriaQueryBuilder volumeById(String v) {
+            final Expression<?> expression = from.get( VOLID );
+            super.and( cb.equal(expression, v) );
+            return this;
+        }
+
+        protected FirebreakEventCriteriaQueryBuilder volumeByName(String v) {
+            final Expression<?> expression = from.get( VOLNAME );
+            super.and( cb.equal(expression, v) );
+            return this;
+        }
+
+        protected FirebreakEventCriteriaQueryBuilder volumeByFBType(FirebreakType t) {
+            final Expression<?> expression = from.get( FBTYPE );
+            super.and( cb.equal(expression, t) );
+            return this;
         }
 
         protected FirebreakEventCriteriaQueryBuilder volumesById(String... in) {
