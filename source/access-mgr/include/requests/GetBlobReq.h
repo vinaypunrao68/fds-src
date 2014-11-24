@@ -13,7 +13,7 @@ namespace fds
 {
 
 struct GetBlobReq: public AmRequest {
-    fds_bool_t getMetadata;
+    fds_bool_t get_metadata;
 
     GetBlobReq(fds_volid_t _volid,
                const std::string& _volumeName,

@@ -188,6 +188,17 @@ class AmLoadProc : public AmAsyncResponseApi,
             done_cond.notify_all();
         }
     }
+    void getBlobWithMetaResponse(const apis::RequestId& requestId,
+                                 const std::string& data,
+                                 const apis::BlobDescriptor& blobDesc) {}
+    void getBlobWithMetaResponse(boost::shared_ptr<apis::RequestId>& requestId,
+                                 boost::shared_ptr<std::string>& data,
+                                 boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
     void updateMetadataResponse(const apis::RequestId& requestId) {}
     void updateMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
     void updateBlobResponse(const apis::RequestId& requestId) {}

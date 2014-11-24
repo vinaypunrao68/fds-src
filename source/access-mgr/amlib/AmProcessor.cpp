@@ -288,7 +288,7 @@ AmProcessor::getBlob(AmRequest *amReq) {
     Error err = ERR_OK;
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
     fds_bool_t foundBlobDesc = false;
-    if (blobReq->getMetadata) {
+    if (blobReq->get_metadata) {
         BlobDescriptor::ptr cachedBlobDesc = amCache->getBlobDescriptor(volId,
                                                                         amReq->getBlobName(),
                                                                         err);

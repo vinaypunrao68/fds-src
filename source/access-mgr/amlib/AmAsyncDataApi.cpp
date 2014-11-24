@@ -285,7 +285,7 @@ AmAsyncDataApi::getBlobWithMeta(boost::shared_ptr<apis::RequestId>& requestId,
                                         SHARED_DYN_CAST(Callback, getHandler),
                                         static_cast<fds_uint64_t>(objectOffset->value),
                                         *length);
-    blobReq->getMetadata = true;
+    blobReq->get_metadata = true;
     storHvisor->enqueueBlobReq(blobReq);
 }
 

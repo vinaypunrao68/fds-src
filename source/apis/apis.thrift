@@ -154,6 +154,8 @@ service AsyncAmServiceResponse {
 
         oneway void getBlobResponse(1:RequestId requestId, 2:binary response),
 
+	oneway void getBlobWithMetaResponse(1:RequestId requestId, 2:binary data, 3:BlobDescriptor blobDesc),
+
         oneway void updateMetadataResponse(1:RequestId requestId),
 
         oneway void updateBlobResponse(1:RequestId requestId),

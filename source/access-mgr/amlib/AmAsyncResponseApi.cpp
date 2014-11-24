@@ -286,6 +286,19 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
                                         char* buf,
                                         fds_uint32_t& length,
                                         boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
-    fds_panic("Use JNI. This just keeps the compiler happy.");
+    checkClientConnect();
+    if (!error.ok()) {
+        boost::shared_ptr<apis::ErrorCode> errorCode(
+            boost::make_shared<apis::ErrorCode>());
+        boost::shared_ptr<std::string> message(
+            boost::make_shared<std::string>());
+        XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
+                                                             errorCode,
+                                                             message));
+    } else {
+        boost::shared_ptr<std::string> response =
+                boost::make_shared<std::string>(buf, length);
+        XDICLIENTCALL(asyncRespClient, getBlobWithMetaResponse(requestId, response, blobDesc));
+    }
 }
 }  // namespace fds
