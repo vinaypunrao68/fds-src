@@ -10,11 +10,13 @@
 #include <boost/thread/locks.hpp>
 
 #include <string>
-#define FDSGUARD(m) fds::fds_scoped_lock _fsl_(m)
+#define FDSGUARD(m) fds::sync_helper _fsl_(m)
 // synchronized macro is specified as lower case to 
 // be similar to Java synchronized
+
 #define synchronized(m)    for (sync_helper _sync_(m); _sync_.fSynchronized ; _sync_.fSynchronized=false)
 #define synchronizedptr(m) for (sync_helper _sync_(*m) ; _sync_.fSynchronized ; _sync_.fSynchronized=false)
+
 namespace fds {
 /*
  * Basic mutex class. It is based on the basic
@@ -91,10 +93,19 @@ typedef fds_mutex fds_spinlock;
 typedef fds_spinlock::scoped_lock fds_scoped_spinlock;
 
 struct sync_helper {
-    fds_scoped_lock fsl;
+    fds_mutex* m;
     bool fSynchronized = true;
-    sync_helper(fds_mutex& m)  : fsl(m) {}
-    sync_helper(fds_mutex* m)  : fsl(*m) {}
+    explicit sync_helper(fds_mutex& m_) : m(&m_) {
+        m->lock();
+    }
+
+    explicit sync_helper(fds_mutex* m) : m(m_) {
+        m->lock();
+    }
+
+    ~sync_helper() {
+        m->unlock();
+    }
 };
 
 }  // namespace fds
