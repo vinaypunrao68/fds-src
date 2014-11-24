@@ -21,7 +21,8 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        fds_uint64_t _data_len,
                        char* _data_buf)
     : AmRequest(FDS_GET_BLOB, _volid, _volumeName, _blob_name, cb, _blob_offset,
-                 _data_len, _data_buf) {
+                _data_len, _data_buf),
+      getMetadata(false) {
     stopwatch.start();
 
     std::string vol_str = std::string("volume: ") + std::to_string(io_vol_id);

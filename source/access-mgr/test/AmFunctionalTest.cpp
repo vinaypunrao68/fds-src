@@ -149,7 +149,8 @@ class AmLoadProc : public AmAsyncResponseApi,
         STARTTX,
         STAT,
         PUTMETA,
-        LISTVOL
+        LISTVOL,
+        GETWITHMETA
     };
 
     // **********
@@ -281,6 +282,18 @@ class AmLoadProc : public AmAsyncResponseApi,
         }
     }
 
+    void getBlobWithMetaResp(const Error &error,
+                             boost::shared_ptr<apis::RequestId>& requestId,
+                             char* buf,
+                             fds_uint32_t& length,
+                             boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
     void statBlobResp(const Error &error,
                       boost::shared_ptr<apis::RequestId>& requestId,
                       boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
@@ -360,6 +373,16 @@ class AmLoadProc : public AmAsyncResponseApi,
                                       blobGen.blobName,
                                       blobLength,
                                       off);
+            } else if (opType == GETWITHMETA) {
+                // Always use an empty request ID since we don't track
+                boost::shared_ptr<apis::RequestId> reqId(
+                    boost::make_shared<apis::RequestId>());
+                asyncDataApi->getBlobWithMeta(reqId,
+                                              domainName,
+                                              volumeName,
+                                              blobGen.blobName,
+                                              blobLength,
+                                              off);
             } else if (opType == STARTTX) {
                 // Always use an empty request ID since we don't track
                 boost::shared_ptr<apis::RequestId> reqId(
@@ -667,6 +690,12 @@ TEST(AccessMgr, wr) {
     GLOGDEBUG << "Testing async write-read";
     amLoad->runAsyncTask(AmLoadProc::PUT);
     amLoad->runAsyncTask(AmLoadProc::GET);
+}
+
+TEST(AccessMgr, getWithMeta) {
+    GLOGDEBUG << "Testing async write-read";
+    amLoad->runAsyncTask(AmLoadProc::PUT);
+    amLoad->runAsyncTask(AmLoadProc::GETWITHMETA);
 }
 
 }  // namespace fds
