@@ -40,13 +40,17 @@ void QueryCatalogHandler::handleQueueItem(dmCatReq* dmRequest) {
     QueueHelper helper(dmRequest);
     DmIoQueryCat* typedRequest = static_cast<DmIoQueryCat*>(dmRequest);
 
-    helper.err = dataMgr->timeVolCat_->queryIface()->getBlob(typedRequest->volId,
-                                                      typedRequest->blob_name,
-                                                      typedRequest->queryMsg->start_offset,
-                                                      typedRequest->queryMsg->end_offset,
-                                                      &typedRequest->blob_version,
-                                                      &typedRequest->queryMsg->meta_list,
-                                                      &typedRequest->queryMsg->obj_list);
+    // TODO(Andrew): Should add request flag so that we don't always
+    // pass the metadata and size over the network, unless it's needed
+    helper.err = dataMgr->timeVolCat_->queryIface()->getBlob(
+        typedRequest->volId,
+        typedRequest->blob_name,
+        typedRequest->queryMsg->start_offset,
+        typedRequest->queryMsg->end_offset,
+        &typedRequest->blob_version,
+        &typedRequest->queryMsg->meta_list,
+        &typedRequest->queryMsg->obj_list,
+        reinterpret_cast<fds_uint64_t *>(&typedRequest->queryMsg->byteCount));
     if (!helper.err.ok()) {
         PerfTracer::incr(typedRequest->opReqFailedPerfEventType, typedRequest->getVolId(),
                 typedRequest->perfNameStr);
