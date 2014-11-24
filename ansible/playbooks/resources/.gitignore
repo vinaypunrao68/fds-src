@@ -1,0 +1,6 @@
+# We ignore everything
+*
+
+# Except these things
+!.gitignore
+!README.md
