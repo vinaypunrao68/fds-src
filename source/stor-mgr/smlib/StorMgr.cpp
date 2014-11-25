@@ -546,6 +546,11 @@ void ObjectStorMgr::handleDltUpdate() {
     // to SM tokens
     const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
     objStorMgr->objectStore->handleNewDlt(curDlt);
+
+    if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+        // TODO(brian): Not sure if this is where we should kill scavenger or not
+
+    }
 }
 
 void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
@@ -571,6 +576,42 @@ void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
     if (objStorMgr->tok_migrated_for_dlt_ == false) {
         objStorMgr->migrationSvcResponseCb(ERR_OK, MIGRATION_OP_COMPLETE);
     }
+
+    // Check to see if we should be shutting down
+    const DLT * currentDlt = objStorMgr->getDLT();
+    if (currentDlt->getTokens(objStorMgr->getUuid()).empty()) {
+        objStorMgr->shuttingDown = true;
+        // Call the teardown init
+        objStorMgr->teardownInit(objStorMgr->volTbl->getVolList());
+    }
+}
+
+/**
+* Start the teardown process for a clean shutdown. This should
+* not be called by external entities.
+*
+* @param volList a list of volume IDs that this SM is responsible for
+*
+*/
+void ObjectStorMgr::teardownInit(std::list<fds_volid_t> volList) {
+    // TODO(brian): Start calling component shutdown methods
+
+    SmScavengerCmd * shutdownCmd = new SmScavengerCmd();
+    shutdownCmd->command = SmScavengerCmd::SCAV_STOP;
+    objectStore->scavengerControlCmd(shutdownCmd);
+
+    // - Finish processing QOS queues
+    for (auto volId : volList) {
+        // Do something? nothing? while we wait for QOS to finish
+        // Does it matter if we busy wait since we're shutting down?
+        while (qosCtrl->queueSize(volId) != 0) {}
+    }
+
+    // - Object Store -> Close all LevelDBs
+    objectStore->~ObjectStore();
+    // - Object MetaStore -> Close all LevelDBs
+
+
 }
 
 void ObjectStorMgr::migrationSvcResponseCb(const Error& err,

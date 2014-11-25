@@ -14,6 +14,7 @@ ObjectMetadataStore::ObjectMetadataStore(const std::string& modName)
 }
 
 ObjectMetadataStore::~ObjectMetadataStore() {
+    delete metaDb_;
 }
 
 int

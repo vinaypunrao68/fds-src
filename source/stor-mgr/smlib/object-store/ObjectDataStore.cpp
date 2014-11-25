@@ -17,6 +17,8 @@ ObjectDataStore::ObjectDataStore(const std::string &modName,
 }
 
 ObjectDataStore::~ObjectDataStore() {
+    // This will close any leveDBs
+    delete persistData;
 }
 
 Error
