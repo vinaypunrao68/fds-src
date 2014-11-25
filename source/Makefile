@@ -23,7 +23,6 @@ user_build_dir :=                       \
     access-mgr                          \
     stor-mgr                            \
     tools                               \
-    java				\
     testlib                             \
     checker                             \
     unit-test                           \
