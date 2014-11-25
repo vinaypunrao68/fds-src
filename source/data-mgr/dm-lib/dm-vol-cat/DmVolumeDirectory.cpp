@@ -17,7 +17,7 @@
 
 #define GET_VOL(volId) \
         DmPersistVolDir::ptr vol; \
-        read_synchronized(volMapLock_) { \
+        synchronized(volMapLock_) { \
             std::unordered_map<fds_volid_t, DmPersistVolDir::ptr>::iterator iter = \
                     volMap_.find(volId); \
             if (volMap_.end() != iter) { \
@@ -72,8 +72,8 @@ Error DmVolumeDirectory::addCatalog(const VolumeDesc & voldesc) {
     }
     */
 
-    SCOPEDWRITE(volMapLock_);
-    fds_verify(!volMap_.count(voldesc.volUUID));
+    FDSGUARD(volMapLock_);
+    fds_verify(volMap_.end() == volMap_.find(voldesc.volUUID));
     volMap_[voldesc.volUUID] = vol;
 
     return ERR_OK;
@@ -85,7 +85,7 @@ Error DmVolumeDirectory::copyVolume(const VolumeDesc & voldesc) {
 
     fds_uint32_t objSize = 0;
     fpi::FDSP_VolType volType = fpi::FDSP_VOL_S3_TYPE;
-    read_synchronized(volMapLock_) {
+    synchronized(volMapLock_) {
         std::unordered_map<fds_volid_t, DmPersistVolDir::ptr>::const_iterator iter =
                 volMap_.find(voldesc.srcVolumeId);
         fds_verify(volMap_.end() != iter);
@@ -113,7 +113,11 @@ Error DmVolumeDirectory::copyVolume(const VolumeDesc & voldesc) {
     oss << "/" << voldesc.volUUID << "_vcat.ldb";
     std::string copyDir =  oss.str();
 
-    Error rc = volMap_[voldesc.srcVolumeId]->copyVolDir(copyDir);
+    DmPersistVolDir::ptr voldir;
+    synchronized(volMapLock_) {
+        voldir = volMap_[voldesc.srcVolumeId];
+    }
+    Error rc = voldir->copyVolDir(copyDir);
 
     if (rc.ok()) {
         DmPersistVolDir::ptr vol;
@@ -130,8 +134,8 @@ Error DmVolumeDirectory::copyVolume(const VolumeDesc & voldesc) {
         }
         */
 
-        SCOPEDWRITE(volMapLock_);
-        fds_verify(0 == volMap_.count(voldesc.volUUID));
+        FDSGUARD(volMapLock_);
+        fds_verify(volMap_.end() == volMap_.find(voldesc.volUUID));
         volMap_[voldesc.volUUID] = vol;
     }
 
@@ -176,7 +180,7 @@ Error DmVolumeDirectory::markVolumeDeleted(fds_volid_t volId) {
 Error DmVolumeDirectory::deleteEmptyCatalog(fds_volid_t volId) {
     LOGDEBUG << "Will delete catalog for volume '" << std::hex << volId << std::dec << "'";
 
-    write_synchronized(volMapLock_) {
+    synchronized(volMapLock_) {
         std::unordered_map<fds_volid_t, DmPersistVolDir::ptr>::iterator iter =
                 volMap_.find(volId);
         if (volMap_.end() != iter && iter->second->isMarkedDeleted()) {
