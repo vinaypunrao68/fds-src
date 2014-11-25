@@ -9,6 +9,7 @@ import traceback
 import context
 import helpers
 import pipes
+import time
 from helpers import *
 from tabulate import tabulate
 
@@ -44,8 +45,8 @@ class FDSConsole(cmd.Cmd):
             pass
 
         self.config = ConfigData(self.data)
-
-        self.prompt = 'fds:> '
+        self.myprompt = 'fds'
+        self.setprompt('fds')
         self.context = None
         self.previouscontext = None
         self.config.init()
@@ -83,7 +84,18 @@ class FDSConsole(cmd.Cmd):
             ctx = ctx.parent
         
         promptlist.reverse()
-        self.prompt = ':'.join(promptlist) + ':> '
+        self.setprompt(':'.join(promptlist))
+
+    def setprompt(self, p=None):
+        if p == None:
+            p = self.myprompt
+        else:
+            self.myprompt = p
+        self.prompt = '[' + time.strftime('%H:%M:%S') + '] ' + p + ':> '
+
+    def postcmd(self, stop, line):
+        self.setprompt()
+
 
     def precmd(self, line):
         '''
