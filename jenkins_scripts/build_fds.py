@@ -35,14 +35,11 @@ if not os.path.isdir ("./" + SOURCE_DIR):
     base = os.path.dirname (os.path.abspath(__file__))
 
     while len(base) > 1:
-        new_base = os.path.dirname(base)
-        try_path = new_base + "/" + SOURCE_DIR
-        print try_path
-        if os.path.isdir (try_path):
+        new_base = os.path.dirname (base)
+        if os.path.isdir (new_base + "/" + SOURCE_DIR):
             os.chdir (new_base)
             can_build = True
             break
-
         base = new_base
 
     if not can_build:
