@@ -88,9 +88,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          TEST_MODE   = 1,
          MAX
      } SmRunModes;
-
-     void teardownInit(std::list<fds_volid_t> volumes);
-
+    
      CommonModuleProviderIf *modProvider_;
      /*
       * glocal dedupe  stats  counter 

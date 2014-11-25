@@ -126,7 +126,16 @@ void ObjectStorMgr::setModProvider(CommonModuleProviderIf *modProvider) {
 
 ObjectStorMgr::~ObjectStorMgr() {
     LOGDEBUG << " Destructing  the Storage  manager";
+
+    // TODO(brian): Remove this ?
+    // It should have already been set if we followed
+    // the proper path
     shuttingDown = true;
+
+    // Shutdown scavenger
+    SmScavengerCmd * shutdownCmd = new SmScavengerCmd();
+    shutdownCmd->command = SmScavengerCmd::SCAV_STOP;
+    objectStore->scavengerControlCmd(shutdownCmd);
 
     /*
      * Clean up the QoS system. Need to wait for I/Os to
@@ -151,8 +160,10 @@ ObjectStorMgr::~ObjectStorMgr() {
      */
 
     delete qosCtrl;
-
     delete volTbl;
+
+    // Now clean up the persistent layer
+    delete objectStore;
 }
 
 int
@@ -580,38 +591,8 @@ void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
     // Check to see if we should be shutting down
     const DLT * currentDlt = objStorMgr->getDLT();
     if (currentDlt->getTokens(objStorMgr->getUuid()).empty()) {
-        objStorMgr->shuttingDown = true;
-        // Call the teardown init
-        objStorMgr->teardownInit(objStorMgr->volTbl->getVolList());
+        delete objStorMgr;
     }
-}
-
-/**
-* Start the teardown process for a clean shutdown. This should
-* not be called by external entities.
-*
-* @param volList a list of volume IDs that this SM is responsible for
-*
-*/
-void ObjectStorMgr::teardownInit(std::list<fds_volid_t> volList) {
-    // TODO(brian): Start calling component shutdown methods
-
-    SmScavengerCmd * shutdownCmd = new SmScavengerCmd();
-    shutdownCmd->command = SmScavengerCmd::SCAV_STOP;
-    objectStore->scavengerControlCmd(shutdownCmd);
-
-    // - Finish processing QOS queues
-    for (auto volId : volList) {
-        // Do something? nothing? while we wait for QOS to finish
-        // Does it matter if we busy wait since we're shutting down?
-        while (qosCtrl->queueSize(volId) != 0) {}
-    }
-
-    // - Object Store -> Close all LevelDBs
-    objectStore->~ObjectStore();
-    // - Object MetaStore -> Close all LevelDBs
-
-
 }
 
 void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
