@@ -33,16 +33,6 @@ namespace leveldb {
 
 namespace {
 
-// Notified when log reader encounters corruption.
-class CorruptionReporter : public log::Reader::Reporter {
- public:
-  virtual void Corruption(size_t bytes, const Status& status) {
-    printf("corruption: %d bytes; %s\n",
-            static_cast<int>(bytes),
-            status.ToString().c_str());
-  }
-};
-
 // Print contents of a log file. (*func)() is called on every record.
 bool PrintLogContents(Env* env, const std::string& fname,
                       void (*func)(Slice)) {
