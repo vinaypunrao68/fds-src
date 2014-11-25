@@ -99,7 +99,7 @@ struct sync_helper {
         m->lock();
     }
 
-    explicit sync_helper(fds_mutex* m) : m(m_) {
+    explicit sync_helper(fds_mutex* m_) : m(m_) {
         m->lock();
     }
 
