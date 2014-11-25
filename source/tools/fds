@@ -158,6 +158,8 @@ function startApp() {
                 sleep 2s
 		if ! (waitForApp $name) ; then
                     logerror "oops!! something wrong.. [$(boldblue $name)] is $(red not) showing up."
+                    loginfo "here is the log file: ${BINDIR}/${name}.out"
+                    tail ${BINDIR}/${name}.out
                 fi
                 sleep 1s
             else
