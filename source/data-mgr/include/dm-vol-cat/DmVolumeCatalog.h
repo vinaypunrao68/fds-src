@@ -166,6 +166,7 @@ class DmVolumeCatalog : public Module,
      * blob_version is set to actual version that is retrieved
      * @param[out] meta_list list of metadata key-value pairs
      * @param[out] obj_list list of offset to object id mappings
+     * @param[out] blob_size ptr to blob size in bytes
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      * to volume catalog
      */
@@ -175,7 +176,8 @@ class DmVolumeCatalog : public Module,
                   fds_int64_t end_offset,
                   blob_version_t* blob_version,
                   fpi::FDSP_MetaDataList* meta_list,
-                  fpi::FDSP_BlobObjectList* obj_list);
+                  fpi::FDSP_BlobObjectList* obj_list,
+                  fds_uint64_t* blob_size);
 
     /**
      * Returns the list of blobs in the volume with basic blob info

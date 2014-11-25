@@ -73,12 +73,13 @@ void DmVolumeCatalogTest::testPutBlob(fds_volid_t volId,
 
 void DmVolumeCatalogTest::testGetBlob(fds_volid_t volId, const std::string blobName) {
     blob_version_t version;
+    fds_uint64_t blobSize;
     fpi::FDSP_MetaDataList metaList;
     fpi::FDSP_BlobObjectList objList;
     // Get
     fds_uint64_t startTs = util::getTimeStampNanos();
     // TODO(Andrew/Umesh): Get a meaningful offset
-    Error rc = volcat->getBlob(volId, blobName, 0, -1, &version, &metaList, &objList);
+    Error rc = volcat->getBlob(volId, blobName, 0, -1, &version, &metaList, &objList, &blobSize);
     fds_uint64_t endTs = util::getTimeStampNanos();
     getCounter->update(endTs - startTs);
     boost::shared_ptr<PerfContext> pctx = PerfTracer::tracePointEnd(blobName);
@@ -99,9 +100,10 @@ void DmVolumeCatalogTest::testDeleteBlob(fds_volid_t volId, const std::string bl
     EXPECT_TRUE(rc.ok());
 
     // Get
+    fds_uint64_t blobSize;
     fpi::FDSP_MetaDataList metaList;
     fpi::FDSP_BlobObjectList objList;
-    rc = volcat->getBlob(volId, blobName, 0, -1, &version, &metaList, &objList);
+    rc = volcat->getBlob(volId, blobName, 0, -1, &version, &metaList, &objList, &blobSize);
     EXPECT_FALSE(rc.ok());
 
     taskCount.done();

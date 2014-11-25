@@ -53,10 +53,10 @@ public class XdiAsync {
     }
 
     public CompletableFuture<BlobInfo> getBlobInfo(String domain, String volume, String blob) {
-        CompletableFuture<BlobDescriptor> blobDescriptorFuture = statBlob(domain, volume, blob);
         CompletableFuture<VolumeDescriptor> volumeDescriptorFuture = statVolume(domain, volume);
-        CompletableFuture<ByteBuffer> getObject0Future = volumeDescriptorFuture.thenCompose(vd -> getBlob(domain, volume, blob, 0, vd.getPolicy().maxObjectSizeInBytes));
-        return blobDescriptorFuture.thenCompose(bd -> volumeDescriptorFuture.thenCombine(getObject0Future, (vd, o0) -> new BlobInfo(domain, volume, blob, bd, vd, o0)));
+        CompletableFuture<BlobWithMetadata> getObject0Future = volumeDescriptorFuture.thenCompose(vd -> getBlobWithMetadata(domain, volume, blob, 0, vd.getPolicy().maxObjectSizeInBytes));
+        return getObject0Future.thenCompose(bwm ->
+                volumeDescriptorFuture.thenApply(vd -> new BlobInfo(domain, volume, blob, bwm.getBlobDescriptor(), vd, bwm.getBytes())));
     }
 
     public CompletableFuture<PutResult> putBlobFromStream(String domain, String volume, String blob, Map<String, String> metadata, InputStream stream) {
@@ -231,6 +231,10 @@ public class XdiAsync {
 
     public CompletableFuture<BlobDescriptor> statBlob(String domain, String volume, String blob) {
         return asyncAm.statBlob(token, domain, volume, blob);
+    }
+
+    public CompletableFuture<BlobWithMetadata> getBlobWithMetadata(String domain, String volume, String blob, long objectOffset, int length) {
+        return asyncAm.getBlobWithMeta(token, domain, volume, blob, length, new ObjectOffset(objectOffset));
     }
 
     public CompletableFuture<ByteBuffer> getBlob(String domain, String volume, String blob, long offset, int length) {
