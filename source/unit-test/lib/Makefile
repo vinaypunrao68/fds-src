@@ -11,7 +11,8 @@ user_fds_ar_libs  := \
     fds-xdi
 
 user_non_fds_libs := \
-    gmock
+    gmock \
+	pthread
 
 user_incl_dir     := \
     $(topdir)        \
@@ -37,7 +38,8 @@ user_cpp          :=  \
     sharedcache_unit_test.cpp \
     sharedcache_gtest.cpp \
     object_logger_test.cpp \
-    HashedLocks_ut.cpp
+    HashedLocks_ut.cpp \
+	histogram_gtest.cpp 
 
 
 user_cc           :=
@@ -67,7 +69,8 @@ user_bin_exe      := \
     kvcache_unit_test \
     object_logger_test \
     Tracebuffer_ut \
-    HashedLocks_ut
+    HashedLocks_ut \
+	histogram_gtest
 
 catalog_test                   := catalog_unit_test.cpp
 perfstat_unit_test             := perfstat_unit_test.cpp
@@ -79,10 +82,11 @@ SynchronizedTaskExecutor_ut    := SynchronizedTaskExecutor_ut.cpp
 perf_trace_unit_test           := perf_trace_unit_test.cpp
 sharedcache_perf_test          := sharedcache_perf_test.cpp
 sharedcache_unit_test          := sharedcache_unit_test.cpp
-sharedcache_gtest	       := sharedcache_gtest.cpp 
+sharedcache_gtest	           := sharedcache_gtest.cpp 
 kvcache_unit_test              := kvcache_unit_test.cpp
 object_logger_test             := object_logger_test.cpp
-Tracebuffer_ut		       := Tracebuffer_ut.cpp
-HashedLocks_ut		       := HashedLocks_ut.cpp
+Tracebuffer_ut		           := Tracebuffer_ut.cpp
+HashedLocks_ut		           := HashedLocks_ut.cpp
+histogram_gtest 			   := histogram_gtest.cpp 
 
 include $(topdir)/Makefile.incl

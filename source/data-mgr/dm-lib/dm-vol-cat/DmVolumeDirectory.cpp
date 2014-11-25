@@ -294,33 +294,34 @@ Error DmVolumeDirectory::getBlobMeta(fds_volid_t volId, const std::string & blob
 }
 
 Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
-        fds_uint64_t startOffset, fds_int64_t endOffset, blob_version_t* blobVersion,
-        fpi::FDSP_MetaDataList* metaList, fpi::FDSP_BlobObjectList* objList) {
+                                 fds_uint64_t startOffset, fds_int64_t endOffset,
+                                 blob_version_t* blobVersion, fpi::FDSP_MetaDataList* metaList,
+                                 fpi::FDSP_BlobObjectList* objList, fds_uint64_t* blobSize) {
     LOGDEBUG << "Will retrieve blob '" << blobName << "' offset '" << startOffset <<
             "' volume '" << std::hex << volId << std::dec << "'";
 
-    fds_uint64_t blobSize = 0;
-    Error rc = getBlobMeta(volId, blobName, blobVersion, &blobSize, metaList);
+    *blobSize = 0;
+    Error rc = getBlobMeta(volId, blobName, blobVersion, blobSize, metaList);
     if (!rc.ok()) {
         LOGNOTIFY << "Failed to retrieve blob '" << blobName << "' volume '" <<
                 std::hex << volId << std::dec << "'";
         return rc;
     }
 
-    if (0 == blobSize) {
+    if (0 == *blobSize) {
         // empty blob
         return rc;
-    } else if (startOffset >= blobSize) {
+    } else if (startOffset >= *blobSize) {
         return ERR_CAT_ENTRY_NOT_FOUND;
-    } else if (endOffset >= static_cast<fds_int64_t>(blobSize)) {
+    } else if (endOffset >= static_cast<fds_int64_t>(*blobSize)) {
         endOffset = -1;
     }
 
     GET_VOL_N_CHECK_DELETED(volId);
 
-    fds_uint64_t lastObjectSize = DmVolumeDirectory::getLastObjSize(blobSize, vol->getObjSize());
+    fds_uint64_t lastObjectSize = DmVolumeDirectory::getLastObjSize(*blobSize, vol->getObjSize());
     if (endOffset < 0) {
-        endOffset = blobSize ? blobSize - lastObjectSize : 0;
+        endOffset = *blobSize ? *blobSize - lastObjectSize : 0;
     }
 
     rc = vol->getObject(blobName, startOffset, endOffset, *objList);
@@ -329,7 +330,7 @@ Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
         fpi::FDSP_BlobObjectList::reverse_iterator iter = objList->rbegin();
         if (objList->rend() != iter) {
             const fds_uint64_t lastOffset =
-                    DmVolumeDirectory::getLastOffset(blobSize, vol->getObjSize());
+                    DmVolumeDirectory::getLastOffset(*blobSize, vol->getObjSize());
             if (static_cast<fds_int64_t>(lastOffset) == iter->offset) {
                 iter->size = lastObjectSize;
             }

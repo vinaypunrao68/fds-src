@@ -81,7 +81,7 @@ def generate_cpus(conns, cpus):
     filename = "scaling_cpus.png"
     title = "CPU"
     xlabel = "Connections"
-    ylabel = "Latency [ms]"
+    ylabel = "CPU Load [%]"
     plt.figure()
     for k,v in cpus.iteritems():
         plt.plot(conns, v, label=k)
@@ -93,7 +93,7 @@ def generate_cpus(conns, cpus):
     return filename
 
 
-def mail_success(recipients, images):
+def mail_success(recipients, images, label):
     # githead = get_githead(directory)
     # gitbranch = get_gitbranch(directory)
     # hostname = get_hostname()
@@ -110,7 +110,7 @@ def mail_success(recipients, images):
 #Confluence: https://formationds.atlassian.net/wiki/display/ENG/InfluxDB+for+Performance"
     preamble = "START"
     epilogue = "END"
-    text = "Performance Regressions"
+    text = "Performance Regressions - %s" % label
     with open(".mail", "w") as _f:
         _f.write(preamble + "\n")
         _f.write("\n")
@@ -122,7 +122,7 @@ def mail_success(recipients, images):
     attachments = ""
     for e in images:
         attachments += "-a %s " % e
-    cmd = "cat .mail | mail -s 'performance regression' %s %s" % (attachments, recipients)
+    cmd = "cat .mail | mail -s 'performance regression - %s' %s %s" % (label, attachments, recipients)
     print cmd
     os.system(cmd)
 
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     test_db = sys.argv[1]
     tags = sys.argv[2].split(",")
     recipients = sys.argv[3]
-    recipients2 = "matteo@formationds.com"
+    recipients2 = "matteo@formationds.com,andrew@formationds.com"
     # directory = sys.argv[1]
     # test_id = int(sys.argv[2])
     # mode = sys.argv[3]
@@ -201,6 +201,7 @@ if __name__ == "__main__":
     db = dataset.connect('sqlite:///%s' % test_db)
     summary = {}
     for t in tags:
+        label = t
         mode, mix, config = t.split(":")
         if mode == "s3" and mix == "get":
             experiments = db["experiments"].find(tag=t)
@@ -236,7 +237,8 @@ if __name__ == "__main__":
             images.append(generate_scaling_iops(conns, iops))
             images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
             images.append(generate_cpus(conns, cpus))
-            mail_success(recipients2, images)
+            images.append(generate_lat_bw(iops, lat))
+            mail_success(recipients2, images, label)
         if mode == "s3_java" and mix == "get":
             experiments = db["experiments"].find(tag=t)
             experiments = [ x for x in experiments]
@@ -273,7 +275,7 @@ if __name__ == "__main__":
             images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
             images.append(generate_cpus(conns, cpus))
             images.append(generate_lat_bw(iops, lat))
-            mail_success(recipients2, images)
+            mail_success(recipients2, images, label)
 
         if mode == "s3" and mix == "put":
             experiments = db["experiments"].find(tag=t)
@@ -313,7 +315,7 @@ if __name__ == "__main__":
             images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
             images.append(generate_cpus(conns, cpus))
             images.append(generate_lat_bw(iops, lat))
-            mail_success(recipients2, images)
+            mail_success(recipients2, images, label)
         elif mode == "fio":
             experiments = db["experiments"].find(tag=t)
 
@@ -348,13 +350,12 @@ if __name__ == "__main__":
 
             #print [x["type"] for x in experiments]    
             # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
-            
             images = [] 
             images.append(generate_scaling_iops(conns, iops))
             images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
             images.append(generate_cpus(conns, cpus))
             images.append(generate_lat_bw(iops, lat))
-            mail_success(recipients2, images)
+            mail_success(recipients2, images, label)
  
     mail_summary(summary)
     
