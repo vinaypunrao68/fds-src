@@ -26,9 +26,21 @@ user_build_dir :=                       \
     java				\
     testlib                             \
     checker                             \
-    unit-test							
+    unit-test                           \
+    java
+
+# Using DEFER_TESTS=1 on the command line will build the Java directory
+# before building the checker and unit-tests.
+ifdef DEFER_TESTS
+    user_build_dir := $(filter-out checker, $(user_build_dir))
+    user_build_dir := $(filter-out unit-test, $(user_build_dir))
+    user_build_dir := $(user_build_dir) \
+                      checker           \
+                      unit-test
+endif
+
 ifdef SKIP_JAVA_BUILD
-	user_build_dir := $(filter-out java, $(user_build_dir))
+    user_build_dir := $(filter-out java, $(user_build_dir))
 endif
 
 include $(topdir)/Makefile.incl
