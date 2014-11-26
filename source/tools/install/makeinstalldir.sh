@@ -31,14 +31,24 @@ externalpkgs=(
     libical1_1.0-0ubuntu1_amd64.deb
 
     libjemalloc1_3.6.0.deb
-    redis-server_2.8.8.deb
-    redis-tools_2.8.8.deb
-		libhiredis0.10_0.11.0-3_amd64.deb
+    redis-server_2.8.17.deb
+    redis-tools_2.8.17.deb
+    libhiredis0.10_0.11.0-3_amd64.deb
 
     libical1_1.0-0ubuntu1_amd64.deb
 
-    paramiko-1.10.1.tar.gz
-    scp-0.7.1.tar.gz
+    paramiko-1.15.1.tar.gz
+    scp-0.8.0.tar.gz
+    boto-2.34.0.tar.gz
+    crypto-1.0.1.tar.gz
+    Naked-0.1.30-py2.py3-none-any.whl
+    ecdsa-0.11.tar.gz
+
+    python-pip_1.5.4-1_all.deb
+    python-html5lib_0.999-2_all.deb
+    python-distlib_0.1.8-1_all.deb
+    python-colorama_0.2.5-0.1ubuntu1_all.deb
+    python-setuptools_3.3-1ubuntu1_all.deb
 )
 
 fdscorepkgs=(
@@ -53,7 +63,7 @@ fdsrepopkgs=(
     fds-jdk-default
     fds-python-scp
     fds-python-paramiko
-		libcryptopp-dev
+    libcryptopp-dev
 )
 
 function getExternalPkgs() {

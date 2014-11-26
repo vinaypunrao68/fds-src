@@ -98,6 +98,11 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
     }
 
     @Override
+    public void getBlobWithMetaResponse(RequestId requestId, ByteBuffer byteBuffer, BlobDescriptor blobDescriptor) throws TException {
+        complete(requestId, new BlobWithMetadata(byteBuffer, blobDescriptor));
+    }
+
+    @Override
     public void updateMetadataResponse(RequestId requestId) throws TException {
         complete(requestId, null);
     }

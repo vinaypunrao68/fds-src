@@ -3,9 +3,10 @@ user_std_libs    := true
 user_target      := exe
 user_rtime_env   := user
 speedup          = -j $(threads)
-user_build_dir   := include shared common disk net-svc python
+user_build_dir   := include source python
 
 user_incl_dir    := include ../net-service/include
+
 user_fds_ar_libs := \
     fds-plat-daemon \
     fds-plat-disk \

@@ -1,5 +1,6 @@
 Build/linux-x86_64.debug/tests/sharedcache_gtest
 Build/linux-x86_64.debug/tests/dm_volume_catalog_gtest --fds-root=./config/
+Build/linux-x86_64.debug/tests/dm_direct --fds-root=./config/
 Build/linux-x86_64.debug/tests/AmFunctionalTest --fds-root=./config/ --fds.am.testing.toggleStandAlone=true --fds.am.log_severity=crit --fds.am.testing.uturn_dispatcher_all=true
 Build/linux-x86_64.debug/tests/sm_tokenplace_gtest
 Build/linux-x86_64.debug/tests/sm_superblock_gtest
@@ -8,3 +9,4 @@ Build/linux-x86_64.debug/tests/sm_token_state_gtest
 Build/linux-x86_64.debug/tests/sm_diskmap_unit_test --fds-root=./config/ --fds.sm.testing.standalone=true
 Build/linux-x86_64.debug/tests/sm_objectstore_gtest --fds-root=./config/ --fds.sm.testing.standalone=true
 Build/linux-x86_64.debug/tests/sm_tier_migration_gtest
+Build/linux-x86_64.debug/tests/histogram_gtest
