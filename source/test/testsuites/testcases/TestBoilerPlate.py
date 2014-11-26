@@ -2,6 +2,7 @@
 #
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+# This file is a general boilerplate for new system test suites
 
 # FDS test-case pattern requirements.
 import unittest
@@ -12,25 +13,24 @@ import TestCase
 import sys
 import os
 import math
-from filechunkio import FileChunkIO
 import filecmp
 
 # This class contains the attributes and methods to test
 # the FDS Cinder interface to create a connection.
 #
-class TestCinderGetConn(TestCase.FDSTestCase):
+class TestDummyGetConn(TestCase.FDSTestCase):
     """
     This case tests that we can get a connection to Cinder
     Incomplete: True
     FeatureReady: True
     """
     def __init__(self, parameters=None):
-        super(TestCinderGetConn, self).__init__(parameters)
+        super(TestDummyGetConn, self).__init__(parameters)
 
     def runTest(self):
         return unittest.skip("This test is incomplete, skipped")
 
-class TestCinderVerifyDeleteVol(TestCase.FDSTestCase):
+class TestDummyVerifyDeleteVol(TestCase.FDSTestCase):
     """
     This case tests that we can delete a volume
     Incomplete: True
@@ -38,7 +38,7 @@ class TestCinderVerifyDeleteVol(TestCase.FDSTestCase):
     """
 
     def __init__(self, parameters=None):
-        super(TestCinderVerifyDeleteVol, self).__init__(parameters)
+        super(TestDummyVerifyDeleteVol, self).__init__(parameters)
 
     def runTest(self):
         return unittest.skip("This test is incomplete, skipped")
