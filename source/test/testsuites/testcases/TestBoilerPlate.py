@@ -27,8 +27,21 @@ class TestDummyGetConn(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestDummyGetConn, self).__init__(parameters)
 
+    # This method is called by the test framework and starts all other
+    # tests in the test case
     def runTest(self):
+        # Currently this test is skipped
         return unittest.skip("This test is incomplete, skipped")
+
+        # Wrap the result of the test to capture failures / exceptions
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
 
 class TestDummyVerifyDeleteVol(TestCase.FDSTestCase):
     """
@@ -44,8 +57,21 @@ class TestDummyVerifyDeleteVol(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestDummyVerifyDeleteVol, self).__init__(parameters)
 
+    # This method is called by the test framework and starts all other
+    # tests in the test case
     def runTest(self):
+        # Currently this test is skipped
         return unittest.skip("This test is incomplete, skipped")
+
+        # Wrap the result of the test to capture failures / exceptions
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
