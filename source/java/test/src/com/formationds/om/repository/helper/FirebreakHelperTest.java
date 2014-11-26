@@ -36,9 +36,6 @@ public class FirebreakHelperTest {
 
     @BeforeClass
     static public void setUpClass() throws Exception {
-        SingletonConfiguration.instance().setConfig(new Configuration("om-xdi-eventmgr-test", new String[] {"--fds-root=/Users/dave/projects/fds/master/test/fds"}));
-        System.setProperty("fds-root", SingletonConfiguration.instance().getConfig().getFdsRoot());
-
         SingletonConfigAPI.instance().api(mockedConfig);
         SingletonAmAPI.instance().api(mockedAMService);
         VolumeStatus vstat = new VolumeStatus();

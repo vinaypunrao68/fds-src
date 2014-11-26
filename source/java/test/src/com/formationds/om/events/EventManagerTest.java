@@ -28,6 +28,7 @@ import org.junit.*;
 
 import java.lang.reflect.Type;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,12 +44,18 @@ public class EventManagerTest {
     static Object key = new Object();
     static final Set<? super Event> events = new LinkedHashSet<>();
 
+    static final Configuration mockedConfiguration = mock(Configuration.class);
     static final ConfigurationApi mockedConfig = mock(ConfigurationApi.class);
     static final AmService.Iface mockedAMService = mock(AmService.Iface.class);
 
     @BeforeClass
     static public void setUpClass() throws Exception {
-        SingletonConfiguration.instance().setConfig(new Configuration("om-xdi-eventmgr-test", new String[] {"--fds-root=/Users/dave/projects/fds/master/test/fds"}));
+
+        Path fdsRoot = Files.createTempDirectory("fds");
+        Path vardb = Files.createDirectories(fdsRoot.resolve("var/db"));
+        when(mockedConfiguration.getFdsRoot()).thenReturn(fdsRoot.toString());
+
+        SingletonConfiguration.instance().setConfig(mockedConfiguration);
         System.setProperty("fds-root", SingletonConfiguration.instance().getConfig().getFdsRoot() );
 
         SingletonConfigAPI.instance().api(mockedConfig);
