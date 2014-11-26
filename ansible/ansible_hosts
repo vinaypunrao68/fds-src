@@ -101,6 +101,20 @@ fds_metricsdb_ip=127.0.0.1
 fds_ssh_user=root
 fds_ssh_password=F1505
 
+[bld-nightly-nodes]
+10.2.10.79 fds_node=node01
+10.2.10.80 fds_node=node02
+10.2.10.81 fds_node=node03
+10.2.10.82 fds_node=node04
+
+[bld-nightly-nodes:vars]
+fds_default_nic=eth0
+fds_om_host=10.2.10.79
+fds_metrics_enables=false
+fds_metricsdb_ip=127.0.0.1
+fds_ssh_user=root
+fds_ssh_password=passwd
+
 [build]
 10.1.10.56
 
