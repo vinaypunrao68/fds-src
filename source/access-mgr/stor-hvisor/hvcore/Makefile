@@ -29,7 +29,6 @@ user_hh        := $(wildcard *.h)
 user_hpp       := $(wildcard *.h)
 
 user_no_style     := $(user_cc) \
-    list.h \
     StorHvDataPlace.h \
     StorHvisorNet.h \
     StorHvQosCtrl.h \
