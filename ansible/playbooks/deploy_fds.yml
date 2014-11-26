@@ -196,6 +196,8 @@
           - libboost-thread1.55.0
           - libboost-regex1.55.0
           - libboost-date-time1.55.0
+          - gcc
+          - python-dev
 
 
 -   name: install and configure fds on all  fds_nodes
