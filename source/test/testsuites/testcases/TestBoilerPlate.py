@@ -33,6 +33,10 @@ class TestDummyGetConn(TestCase.FDSTestCase):
 class TestDummyVerifyDeleteVol(TestCase.FDSTestCase):
     """
     This case tests that we can delete a volume
+    - Create a volume
+    - Confirm volume was created successfully
+    - Delete the volume
+    - Confirm volume deletion
     Incomplete: True
     FeatureReady: True
     """
