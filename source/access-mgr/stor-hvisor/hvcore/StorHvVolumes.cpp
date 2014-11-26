@@ -21,8 +21,6 @@ namespace fds {
 StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log *parent_log)
         : FDS_Volume(vdesc), parent_sh(sh_ctrl), volQueue(0)
 {
-    vol_catalog_cache = new VolumeCatalogCache(voldesc->volUUID, sh_ctrl, parent_log);
-
     if (vdesc.isSnapshot()) {
         volQueue = parent_sh->qos_ctrl->getQueue(vdesc.qosQueueId);
     }
@@ -37,7 +35,6 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
 
 StorHvVolume::~StorHvVolume() {
     parent_sh->qos_ctrl->deregisterVolume(voldesc->volUUID);
-    delete vol_catalog_cache; vol_catalog_cache = nullptr;
     delete volQueue; volQueue = nullptr;
 }
 
@@ -51,7 +48,6 @@ void StorHvVolume::destroy() {
     }
 
     /* destroy data */
-    delete vol_catalog_cache; vol_catalog_cache = nullptr;
     delete volQueue; volQueue = nullptr;
     is_valid = false;
     rwlock.write_unlock();

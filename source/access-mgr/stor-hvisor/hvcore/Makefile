@@ -18,7 +18,6 @@ StorHvisor_cpp    :=                   \
     StorHvisorNet.cpp                  \
     StorHvisorSvc.cpp                  \
     StorHvisorTbl.cpp                  \
-    VolumeCatalogCache.cpp             \
     qos_ctrl.cpp	               \
     StorHvQosCtrl.cpp                  \
     StorHvVolumes.cpp
