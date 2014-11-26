@@ -1,2 +1,0 @@
-### THIS COOKBOOK IS DEPRECATED. REFER TO ANSIBLE DEVSETUP PLAYBOOK INSTEAD:
-# fds-src/ansible/playbooks/devsetup.yml
