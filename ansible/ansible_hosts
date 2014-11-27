@@ -86,6 +86,7 @@ fds_metrics_enabled=false
 fds_metricsdb_ip=127.0.0.1
 fds_ssh_user=root
 fds_ssh_password=passwd
+ansible_ssh_pass=passwd
 
 [bld-soak-nodes]
 bld-clus-01 fds_node=node01
@@ -114,6 +115,7 @@ fds_metrics_enables=false
 fds_metricsdb_ip=127.0.0.1
 fds_ssh_user=root
 fds_ssh_password=passwd
+ansible_ssh_pass=passwd
 
 [build]
 10.1.10.56
