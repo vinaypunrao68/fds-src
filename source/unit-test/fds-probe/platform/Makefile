@@ -8,9 +8,7 @@ user_json         := node-work.json
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
-    fds-am-engine \
-    fds-plat-daemon \
-    fds-plat-disk
+    fds-am-engine
 
 user_non_fds_libs := \
     udev \
