@@ -14,12 +14,10 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-test \
-    fds-plat-daemon \
     fds-am-engine \
     fds-am-plat \
     fds-dsk-io \
     fds-dsk-mgnt \
-    fds-plat-disk \
     fds-hash \
     fds-xdi \
     fds-smlib     \
@@ -28,7 +26,8 @@ user_fds_ar_libs  := \
     fds-migrations \
     fds-odb       \
     fds-sm-plat   \
-    fds-smlib
+    fds-smlib \
+    platform_core
 
 local_nginx_libs   :=  \
     ngx-http-module \
