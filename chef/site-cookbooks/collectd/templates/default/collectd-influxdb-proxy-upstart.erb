@@ -1,5 +1,0 @@
-start on startup
-expect fork
-setuid <%= @collectd_proxy_user %>
-setgid <%= @collectd_proxy_group %>
-exec /opt/collectd-proxy/bin/proxy --influxdb="<%= @influxdb_host %>:<%= @influxdb_port %>" --database="<%= @influxdb_db %>" --username="<%= @influxdb_user %>" --password="<%= @influxdb_password %>" --typesdb="/usr/share/collectd/types.db" &
