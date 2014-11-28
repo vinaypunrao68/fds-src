@@ -9,13 +9,16 @@
 extern "C" {
 #endif
 
+#define LIKELY(_expr) (__builtin_expect(!!(_expr), 1))
+#define UNLIKELY(_expr) (__builtin_expect(!!(_expr), 0))
+
 #define cc_assert(label, cond)  enum { ASSERT##label = 1/(cond) }
 #define panic_attr              __attribute__((noreturn, format(printf, 1, 2)))
 
 extern void fds_panic(const char *fmt, ...) panic_attr;
 
 #define fds_verify(expr)                                                     \
-    if (!(expr)) {                                                           \
+    if (UNLIKELY(!(expr))) {                                                           \
         fds_panic("Assertion \"%s\" fails at %s, line %d\n",                 \
                   #expr, __FILE__, __LINE__);                                \
     }

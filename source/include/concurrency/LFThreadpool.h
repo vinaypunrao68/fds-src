@@ -7,17 +7,33 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-#include <future>
-#include <functional>
 #include <stdexcept>
-#include <concurrency/spinlock.h>
-#include <chrono>
 #include <atomic>
 #include <boost/lockfree/queue.hpp>
 #include <pthread.h>
+#include <climits>
+
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <linux/futex.h>
+#include <sys/time.h>
 
 namespace fds {
 typedef std::function<void()> LockFreeTask;
+
+
+// futex provides a kernel facitility to wait for a value at a given address to
+// change.  This essentially manages the blocking queue in the kernel.
+#define my_futex(_addr, _op, _val, _to, _addr2, _val3) \
+        syscall(SYS_futex, _addr, _op, _val, _to, _addr2, _val3)
+
+// macro to pause the running logical processor.  On non-HT, this is a no-op.
+// On HT enabled systems, this will yield the processor resource to the
+// sibling logical processor.
+#define cpu_relax() asm volatile("pause\n": : :"memory")
+
+// How often we should pause the logical processor.
+#define CPU_RELAX_FREQ  0x100   // 256
 
 struct LockfreeWorker {
     LockfreeWorker(int id, bool steal, std::vector<LockfreeWorker*> &peers)
@@ -25,8 +41,9 @@ struct LockfreeWorker {
     steal_(steal),
     peers_(peers),
     tasks(1500),
-    stop(false),
-    completedCntr(0)
+    workLoopTerminate(false),
+    completedCntr(0),
+    queueCnt(0)
     {
     }
 
@@ -36,18 +53,31 @@ struct LockfreeWorker {
 
     void finish()
     {
-        stop = true;
-        condition.notify_one();
+        workLoopTerminate = true;
+        my_futex(&queueCnt, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
         worker->join();
         delete worker;
     }
 
     void enqueue(LockFreeTask *t)
     {
+        // enqueue a task.
+        // The order of operation is important.
+        // 1) enqueue
+        // 2) increment the queue count
+        // 3) signal a waiter.
         bool ret = tasks.push(t);
-        fds_verify(ret == true);
 
-        condition.notify_one();
+        // increment the queue count.
+        __sync_fetch_and_add(&queueCnt, 1);
+
+        // Wake up one.
+        //
+        // TODO(Sean)
+        // This is doing a supurious wakeup.  Will need a way to prevent sending
+        // signal if possible.  Will need some state/hand shake between
+        // enqueue and workLoop.  Not sure how to do it yet.
+        my_futex(&queueCnt, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
     }
 
     void workLoop() {
@@ -58,99 +88,122 @@ struct LockfreeWorker {
         param.sched_priority = sched_get_priority_max(policy); // 20;
         pthread_setschedparam(pthread_self(), SCHED_RR, &param);
 #endif
-#if 0
-        int core_id = id_+1;
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(core_id, &cpuset);
-        if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) < 0)
-        {
-            std::cerr << "Failed to set priority\n";
-            return;
-        }
-#endif
-
-#ifdef OLD_WORK_LOOP
-        for(;;)
-        {
-            LockFreeTask *task;
-            int spinCnt = 0;
-            while (true) {
-                if (stop) {
-                    return;
-                }
-                /* Pop work */
-                if (tasks.pop(task)) {
-                    break;
-                }
-                /* No work. Try and steal */
-                if (steal_) {
-                    bool found = false;
-                    for (uint32_t i = 0; i < peers_.size(); i++) {
-                        auto idx = (id_ + i + 1) % peers_.size();
-                        if (peers_[idx]->tasks.pop(task)) {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (found) {
-                        break;
-                    }
-                    spinCnt = 1000;
-                }
-
-                ++spinCnt;
-                if (spinCnt > 100000) {
-                    std::unique_lock<std::mutex> lock(this->queue_mutex);
-                    condition.wait_for(lock, std::chrono::milliseconds(5));
-                    // TODO(Rao): Implement backoff
-                }
-            }
-            task->operator()();
-            delete task;
-            completedCntr++;
-        }
-#endif  // OLD_WORK_LOOP
-
 
         for (;;)
         {
             LockFreeTask *task;
-            uint64_t empty_cnt = 0;
-            uint64_t wait_durations[3] = { 5, 10, 20};
-            uint32_t duration_idx = 0;
-            uint32_t task_miss_steps = 0;
+            int old_queueCnt, new_queueCnt;
 
+            // TODO (Sean)
+            // This block of code and a work() block of code is the same.  Need
+            // to refactor them.  But for now, leaving them as is.
+            //
+            // The block of code in work() is better commented, so refer
+            // to it for better explanation of the code.
             while (true) {
-                if (stop) {
-                    return;
-                }
-                // not thread-safe, but no problem...
-                while (tasks.empty()) {
-                    ++empty_cnt;
-                    if (empty_cnt > 1000) {
-                        std::unique_lock<std::mutex> lock(this->queue_mutex);
-                        condition.wait_for(lock, std::chrono::milliseconds(wait_durations[duration_idx]));
-                        empty_cnt = 0;
-                        break;
-                    }
-                }  // tasks.empty()
+                bool dequeued = false;
 
-                if (tasks.pop(task)) {
-                    duration_idx = 0;
-                    break;
+                task = NULL;
+                if (queueCnt == 0) {
+                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                        return;
+                    }
+
+                    // block if the queueCnt is 0.  The actual value of queueCnt and
+                    // expected value is atomically checked.
+                    // Although we intially entered this scope due to queueCnt == 0,
+                    // by the time we get here, the state can change where we don't
+                    // block here.
+                    my_futex(&queueCnt, FUTEX_WAIT_PRIVATE, 0, NULL, NULL, 0);
+
+                    // TODO(Sean)
+                    // This cmpxchg loop and the the one in the next block is the same.
+                    // For some reason, during the testing, when re-factored the code, it
+                    // wasn't working.  Could be a bug in  how I re-factored it, but for
+                    // now leave it and revisit re-factoring later.
+                    //
+                    // See if we  can dequeue.  The steps are (important to maintain the order):
+                    // 1) try to decrement atomically in cmpxchg loop.
+                    //      1.1) if successful, thene we can dequeue a task.
+                    //      1.2) if unsuccessful (i.e. queue is already empty), do nothing.
+                    dequeued = true;
+                    do {
+                        uint64_t cmpxchgMissed = 0;
+
+                        old_queueCnt = queueCnt;
+                        fds_assert(old_queueCnt >= 0);
+
+                        if (old_queueCnt == 0) {
+                            // If the count is 0, then there is nothing in the queue.
+                            // Do nothing and restart the outer loop.
+                            dequeued = false;
+                            break;
+                        }
+
+                        new_queueCnt = old_queueCnt - 1;
+
+                        // This is a minor optimization to pause/yield current running logical
+                        // processor to the other logical processor on the core.
+                        // This will kick in if cmpxchg fails too many times, which implies heavy
+                        // contention on the queueCnt.
+                        if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            cpu_relax();
+                        }
+                        ++cmpxchgMissed;
+
+                    } while (!__sync_bool_compare_and_swap(&queueCnt, old_queueCnt, new_queueCnt));
+
+                    // the count says we found something.  Now, grab a task.
+                    if (dequeued) {
+                        fds_verify(tasks.pop(task));
+                    }
+                } else {
+                    dequeued = true;
+                    do {
+
+                        uint64_t cmpxchgMissed = 0;
+                        old_queueCnt = queueCnt;
+                        fds_assert(old_queueCnt >= 0);
+
+                        if (old_queueCnt == 0) {
+                            dequeued = false;
+                            break;
+                        }
+
+                        new_queueCnt = old_queueCnt - 1;
+
+                        // This is a minor optimization to pause/yield current running logical
+                        // processor to the other logical processor on the core.
+                        // This will kick in if cmpxchg fails too many times, which implies heavy
+                        // contention on the queueCnt.
+                        if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            cpu_relax();
+                        }
+                        ++cmpxchgMissed;
+
+                    } while (!__sync_bool_compare_and_swap(&queueCnt, old_queueCnt, new_queueCnt));
+                    if (dequeued) {
+                        fds_verify(tasks.pop(task));
+                    }
                 }
-                if (duration_idx < 2) {
-                    ++duration_idx;
+
+                // If something is dequeued, then call the function.
+                if (dequeued) {
+                    fds_assert(NULL != task);
+                    task->operator()();
+                    delete task;
+                } else {
+                    fds_assert(NULL == task);
                 }
-                fds_assert(duration_idx <= 2);
+
             }  // while (true)
 
-            task->operator()();
-            delete task;
 
         }  // for (;;)
     }
+    // This should be cache line size aligned to avoid false sharing.
+    alignas(128) int queueCnt = 0;
+
     int id_;
     bool steal_;
     std::vector<LockfreeWorker*> &peers_;
@@ -158,9 +211,7 @@ struct LockfreeWorker {
     boost::lockfree::queue<LockFreeTask*> tasks;
 
     // synchronization
-    std::mutex queue_mutex;
-    std::condition_variable condition;
-    std::atomic<bool> stop;
+    std::atomic<bool> workLoopTerminate;
     std::thread* worker;
     /* Counters */
     uint64_t completedCntr;
@@ -183,9 +234,12 @@ struct LFMQThreadpool {
         for (auto &w : workers) {
             w->finish();
         }
+#if 0
         for (uint32_t i = 0; i < workers.size(); i++) {
+            workers[i]->join();
             delete workers[i];
         }
+#endif
     }
     template <class F, class... Args>
     void schedule(F&& f, Args&&... args)
@@ -213,7 +267,7 @@ struct LFSQThreadpool {
     LFSQThreadpool(uint32_t sz)
     : workers(sz),
     tasks(1500),
-    stop(false)
+    workLoopTerminate(false)
     {
         for (uint32_t i = 0; i < workers.size(); i++) {
             workers[i] = new LFSQWorker(std::bind(&LFSQThreadpool::work, this));
@@ -222,8 +276,13 @@ struct LFSQThreadpool {
 
     ~LFSQThreadpool()
     {
-        stop = true;
-        condition.notify_all();
+        // Set the termination state.
+        workLoopTerminate = true;
+
+        // Broadcast to all waiters.
+        my_futex(&queueCnt, FUTEX_WAKE_PRIVATE, INT_MAX, NULL, NULL, 0);
+
+        // Wait for all workers to exit.
         for (uint32_t i = 0; i < workers.size(); i++) {
             workers[i]->join();
             delete workers[i];
@@ -237,71 +296,127 @@ struct LFSQThreadpool {
                     std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
         fds_verify(ret == true);
 
-        condition.notify_one();
+        // After enqueueing to task queue, signal a single waiter.
+        __sync_fetch_and_add(&queueCnt, 1);
+        my_futex(&queueCnt, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
     }
 
     void work() {
-#ifdef OLD_WORK_LOOP
-        for(;;)
-        {
-            LockFreeTask *task;
-            int spinCnt = 0;
-            while (true) {
-                if (stop) {
-                    return;
-                }
-                if (tasks.pop(task)) {
-                    break;
-                }
-                ++spinCnt;
-                if (spinCnt > 100000) {
-                    std::unique_lock<std::mutex> lock(this->queue_mutex);
-                    condition.wait_for(lock, std::chrono::milliseconds(5));
-                }
-            }
-            task->operator()();
-            delete task;
-        }  // for (;;)
-#endif  // OLD_WORK_LOOP;
 
         for (;;)
         {
             LockFreeTask *task;
-            uint64_t empty_cnt = 0;
-            uint64_t wait_durations[3] = { 5, 10, 20};
-            uint32_t duration_idx = 0;
-            uint32_t task_miss_steps = 0;
+            int old_queueCnt, new_queueCnt;
 
             while (true) {
-                if (stop) {
-                    return;
-                }
-                // not thread-safe, but no problem...
-                while (tasks.empty()) {
-                    ++empty_cnt;
-                    if (empty_cnt > 1000) {
-                        std::unique_lock<std::mutex> lock(this->queue_mutex);
-                        condition.wait_for(lock, std::chrono::milliseconds(wait_durations[duration_idx]));
-                        empty_cnt = 0;
-                        break;
+                bool dequeued = false;
+                task = NULL;
+
+                if (queueCnt == 0) {
+                    if (workLoopTerminate.load(std::memory_order_relaxed)) {
+                        return;
                     }
-                }  // tasks.empty()
 
-                if (tasks.pop(task)) {
-                    duration_idx = 0;
-                    break;
+                    // block if the queueCnt is 0.  The actual value of queueCnt and
+                    // expected value is atomically checked.
+                    // Although we intially entered this scope due to queueCnt == 0,
+                    // by the time we get here, the state can change where we don't
+                    // block here.
+                    my_futex(&queueCnt, FUTEX_WAIT_PRIVATE, 0, NULL, NULL, 0);
+
+                    // TODO(Sean)
+                    // This cmpxchg loop and the the one in the next block is the same.
+                    // For some reason, during the testing, when re-factored the code, it
+                    // wasn't working.  Could be a bug in  how I re-factored it, but for
+                    // now leave it and revisit re-factoring later.
+                    //
+                    // See if we  can dequeue.  The steps are (important to maintain the order):
+                    // 1) try to decrement atomically in cmpxchg loop.
+                    //      1.1) if successful, thene we can dequeue a task.
+                    //      1.2) if unsuccessful (i.e. queue is already empty), do nothing.
+                    dequeued = true;
+                    do {
+                        uint64_t cmpxchgMissed = 0;
+
+                        old_queueCnt = queueCnt;
+                        fds_assert(old_queueCnt >= 0);
+
+                        if (old_queueCnt == 0) {
+                            // If the count is 0, then there is nothing in the queue.
+                            // Do nothing and restart the outer loop.
+                            dequeued = false;
+                            break;
+                        }
+
+                        // Decrement the count.
+                        new_queueCnt = old_queueCnt - 1;
+
+                        // This is a minor optimization to pause/yield current running logical
+                        // processor to the other logical processor on the core.
+                        // This will kick in if cmpxchg fails too many times, which implies heavy
+                        // contention on the queueCnt.
+                        if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            cpu_relax();
+                        }
+                        ++cmpxchgMissed;
+                    } while (!__sync_bool_compare_and_swap(&queueCnt, old_queueCnt, new_queueCnt));
+
+                    // the count says we found something.  Now, grab a task.
+                    if (dequeued) {
+                        fds_verify(tasks.pop(task));
+                    }
+                } else {
+                    // See if we  can dequeue.  The steps are
+                    // 1) try to decrement atomically in cmpxchg loop.
+                    //      1.1) if successful, thene we can dequeue a task.
+                    //      1.2) if unsuccessful (i.e. queue is already empty), do nothing.
+                    dequeued = true;
+                    do {
+                        uint64_t cmpxchgMissed = 0;
+
+                        old_queueCnt = queueCnt;
+                        fds_assert(old_queueCnt >= 0);
+
+                        if (old_queueCnt == 0) {
+                            // If the count is 0, then there is nothing in the queue.
+                            // Do nothing and restart the outer loop.
+                            dequeued = false;
+                            break;
+                        }
+
+                        // Decrement the count.
+                        new_queueCnt = old_queueCnt - 1;
+
+                        // This is a minor optimization to pause/yield current running logical
+                        // processor to the other logical processor on the core.
+                        // This will kick in if cmpxchg fails too many times, which implies heavy
+                        // contention on the queueCnt.
+                        if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            cpu_relax();
+                        }
+                        ++cmpxchgMissed;
+                    } while (!__sync_bool_compare_and_swap(&queueCnt, old_queueCnt, new_queueCnt));
+
+                    // the count says we found something.  Now, grab a task.
+                    if (dequeued) {
+                        fds_verify(tasks.pop(task));
+                    }
                 }
-                if (duration_idx < 2) {
-                    ++duration_idx;
+
+                // If something is dequeued, then call the function.
+                if (dequeued) {
+                    fds_assert(NULL != task);
+                    task->operator()();
+                    delete task;
+                } else {
+                    fds_assert(NULL == task);
                 }
-                fds_assert(duration_idx <= 2);
             }  // while (true)
-
-            task->operator()();
-            delete task;
         }  // for (;;)
-
     }
+
+    // This should be cache line size aligned to avoid false sharing.
+    alignas(128) int queueCnt = 0;
 
     // workers
     std::vector<LFSQWorker*> workers;
@@ -309,9 +424,7 @@ struct LFSQThreadpool {
     boost::lockfree::queue<LockFreeTask*> tasks;
 
     // synchronization
-    std::mutex queue_mutex;
-    std::condition_variable condition;
-    bool stop;
+    std::atomic<bool> workLoopTerminate;
 };
 }  // namespace fds
 

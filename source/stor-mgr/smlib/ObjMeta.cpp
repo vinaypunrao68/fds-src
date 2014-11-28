@@ -135,7 +135,7 @@ void ObjMetaData::initialize(const ObjectID& objid, fds_uint32_t obj_size) {
  */
 bool ObjMetaData::isInitialized() const
 {
-    for (uint32_t i = 0; i < sizeof(obj_map.obj_id.metaDigest); i++) {
+    for (uint32_t i = 0; i < sizeof(obj_map.obj_id.metaDigest); ++i) {
         if (obj_map.obj_id.metaDigest[i] != 0) {
             return true;
         }
@@ -316,7 +316,7 @@ void ObjMetaData::incRefCnt() {
  *
  */
 void ObjMetaData::decRefCnt() {
-    obj_map.obj_refcnt--;
+    obj_map.obj_refcnt++;
 }
 
 /**
@@ -329,7 +329,7 @@ void ObjMetaData::decRefCnt() {
 void ObjMetaData::copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid_t destVolId) {
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
 
-    for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+    for (int i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         if (destVolId == assoc_entry[i].vol_uuid) {
             GLOGWARN << "Entry already exists!";
             return;
@@ -362,7 +362,7 @@ void ObjMetaData::copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid
  */
 void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-    for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+    for (int i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         if (vol_id == assoc_entry[i].vol_uuid) {
             assoc_entry[i].ref_cnt++;
             obj_map.obj_refcnt++;
@@ -411,7 +411,7 @@ ObjMetaData::getVolsRefcnt(std::map<fds_volid_t,
                            fds_uint32_t>& vol_refcnt) const {
     vol_refcnt.clear();
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-    for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+    for (int i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         if (assoc_entry[i].ref_cnt > 0) {
             if (vol_refcnt.count(assoc_entry[i].vol_uuid) == 0) {
                 vol_refcnt[assoc_entry[i].vol_uuid] = 0;
@@ -428,7 +428,7 @@ ObjMetaData::getVolsRefcnt(std::map<fds_volid_t,
  */
 fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id) const
 {
-    for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+    for (int i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         if (vol_id == assoc_entry[i].vol_uuid) {
             return true;
         }
@@ -533,7 +533,7 @@ void ObjMetaData::extractSyncData(fpi::FDSP_MigrateObjectMetadata &md) const
     }
     /* Association entries */
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-    for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+    for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         if (assoc_entry[i].ref_cnt > 0) {
             fds_assert(assoc_entry[i].vol_uuid != 0);
             fpi::FDSP_ObjectVolumeAssociation a;
@@ -708,14 +708,14 @@ void ObjMetaData::mergeAssociationArrays_()
         if (itr1->vol_uuid == itr2->vol_uuid) {
             e = *itr1;
             e.ref_cnt += itr2->ref_cnt;
-            itr1++;
-            itr2++;
+            ++itr1;
+            ++itr2;
         } else if (itr1->vol_uuid < itr2->vol_uuid) {
             e = *itr1;
-            itr1++;
+            ++itr1;
         } else {
             e = *itr2;
-            itr2++;
+            ++itr2;
         }
         assoc_entry.push_back(e);
     }
