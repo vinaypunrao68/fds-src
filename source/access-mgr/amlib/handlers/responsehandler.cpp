@@ -173,7 +173,7 @@ void StatBlobResponseHandler::process() {
 
     for (const_kv_iterator it = blobDesc.kvMetaBegin();
          it != blobDesc.kvMetaEnd();
-         it++) {
+         ++it) {
         retBlobDesc.metadata[it->first] = it->second;
     }
 }
@@ -197,7 +197,7 @@ void AsyncStatBlobResponseHandler::process() {
 
     for (const_kv_iterator it = blobDesc.kvMetaBegin();
          it != blobDesc.kvMetaEnd();
-         it++) {
+         ++it) {
         retBlobDesc->metadata[it->first] = it->second;
     }
     respApi->statBlobResp(error, requestId, retBlobDesc);
@@ -374,7 +374,7 @@ AsyncGetWithMetaResponseHandler::process() {
 
     for (const_kv_iterator it = blobDesc.kvMetaBegin();
          it != blobDesc.kvMetaEnd();
-         it++) {
+         ++it) {
         retBlobDesc->metadata[it->first] = it->second;
     }
     respApi->getBlobWithMetaResp(error, requestId, returnBuffer, returnSize, retBlobDesc);
