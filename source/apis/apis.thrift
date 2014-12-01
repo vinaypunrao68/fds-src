@@ -119,6 +119,9 @@ service AsyncAmServiceRequest {
         oneway void getBlob(1:RequestId requestId, 2:string domainName, 
 	       3:string volumeName, 4:string blobName, 5:i32 length, 6:ObjectOffset offset),
 
+	oneway void getBlobWithMeta(1:RequestId requestId, 2:string domainName, 
+	       3:string volumeName, 4:string blobName, 5:i32 length, 6:ObjectOffset offset),
+
         oneway void updateMetadata(1:RequestId requestId, 2:string domainName, 
 	       3:string volumeName, 4:string blobName, 5:TxDescriptor txDesc, 6:map<string, string> metadata),
 
@@ -150,6 +153,8 @@ service AsyncAmServiceResponse {
 	oneway void abortBlobTxResponse(1:RequestId requestId),
 
         oneway void getBlobResponse(1:RequestId requestId, 2:binary response),
+
+	oneway void getBlobWithMetaResponse(1:RequestId requestId, 2:binary data, 3:BlobDescriptor blobDesc),
 
         oneway void updateMetadataResponse(1:RequestId requestId),
 

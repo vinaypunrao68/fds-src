@@ -119,7 +119,7 @@ class FormationAuth:
         print "Tenant Created -- Name: %s ID: %s" % (
                 tenant['name'],
                 tenant['id'])
-        return r.json()['id']
+        return tenant['id']
 
     def create_user(self, name, password):
         """Create a user by name & password"""
@@ -130,11 +130,11 @@ class FormationAuth:
         print "User Created -- Name: %s ID: %s" % (
                 user['identifier'],
                 user['id'])
-        return r.json()['id']
+        return user['id']
 
     def assign_user(self, user_id, tenant_id):
         """Assign a user to a tenant"""
-        req = '%s/api/system/tenants/%s/%s' % (self.url, user_id, tenant_id)
+        req = '%s/api/system/tenants/%s/%s' % (self.url, tenant_id, user_id)
         r = self.try_req('put', req)
         self.refresh_resources()
 

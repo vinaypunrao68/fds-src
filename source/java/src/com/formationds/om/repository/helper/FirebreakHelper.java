@@ -55,9 +55,7 @@ public class FirebreakHelper {
         throws TException {
         Map<String, VolumeDatapointPair> firebreakPointsVDP = findFirebreak( queryResults );
         Map<String, Datapoint> firebreakPoints = new HashMap<>();
-        firebreakPointsVDP.entrySet().stream().forEach((Map.Entry<String, VolumeDatapointPair> kv) -> {
-            firebreakPoints.put(kv.getKey(), kv.getValue().getDatapoint());
-        });
+        firebreakPointsVDP.entrySet().stream().forEach(kv -> firebreakPoints.put(kv.getKey(), kv.getValue().getDatapoint()));
 
         /*
          * TODO may not be a problem, but I need to think about.
@@ -107,12 +105,15 @@ public class FirebreakHelper {
     }
 
     /**
+     * Find firebreak related stats for display in the UI.  This is similar to {@link #findFirebreakEvents},
+     * except that it does not distinguish between performance and capacity events.
+     *
      * @param datapoints the {@link VolumeDatapoint} representing the volume datapoints
      *
      * @return Returns {@link java.util.Map} of volume id to
      *  {@link com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair}
      */
-    public Map<String, VolumeDatapointPair> findFirebreak(final List<VolumeDatapoint> datapoints) throws TException {
+    protected Map<String, VolumeDatapointPair> findFirebreak(final List<VolumeDatapoint> datapoints) throws TException {
         final Map<String, VolumeDatapointPair> results = new HashMap<>();
         final List<VolumeDatapointPair> paired = extractPairs(datapoints);
 
@@ -142,15 +143,85 @@ public class FirebreakHelper {
                 if (isFirebreak(pair)) {
                     // if there is already a firebreak for the volume in the results use it
                     // instead of the pair and set the timestamp using the current pair.
-                    // TODO: Does it really make sense to update the existing pair's Y (timestamp) but not the X (usage)?
                     results.get(key).getDatapoint().setY(pair.getShortTermSigma().getTimestamp());
                 }
             } catch( TException e ) {
                 logger.warn("Failed to get Volume status for firebreak event pair" + pair, e );
             }
-    } );
+        } );
 
         return results;
+    }
+
+    /**
+     * Given the list of volume datapoints, determine if any of them represent a
+     * firebreak event.  The results contain at most 2 events per volume, one for CAPACITY,
+     * and one for PERFORMANCE.
+     *
+     * @param datapoints the {@link VolumeDatapoint} representing the volume datapoints
+     *
+     * @return Returns {@link java.util.Map} of volume id to an enum map of the FirebreakType to
+     *  {@link com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair}
+     */
+    // NOTE: this is very similar to findFirebreak except that it distinguishes results by
+    // volume id AND FirebreakType.  It also caches volume status outside of the loop
+    public Map<String, EnumMap<FirebreakType, VolumeDatapointPair>> findFirebreakEvents(final List<VolumeDatapoint> datapoints)
+        throws TException {
+        final Map<String, EnumMap<FirebreakType,VolumeDatapointPair>> results = new HashMap<>();
+        final List<VolumeDatapointPair> paired = extractPairs(datapoints);
+
+        // TODO: use volume id once available
+        // cache volume status for each known volume for updating the datapoint
+        final Map<String, VolumeStatus> vols = loadCurrentVolumeStatus();
+
+        paired.stream().forEach( pair -> {
+            final String volId = pair.getShortTermSigma().getVolumeId();
+            final FirebreakType type = pair.getFirebreakType();
+            final String volumeName = pair.getShortTermSigma()
+                                          .getVolumeName();
+
+            if (isFirebreak(pair)) {
+                final Datapoint datapoint = new Datapoint();
+                datapoint.setY(pair.getShortTermSigma().getTimestamp());    // firebreak last occurrence
+
+                // TODO: use volid once available
+                final VolumeStatus status = vols.get(volumeName);
+                if (status != null) {
+                    // use the usage, OBJECT volumes have no fixed capacity
+                    // TODO: this makes sense for a capacity FB, but not for performance
+                    datapoint.setX(status.getCurrentUsageInBytes());
+                }
+                pair.setDatapoint(datapoint);
+
+                EnumMap<FirebreakType,VolumeDatapointPair> pt = results.get(volId);
+                if (pt == null) {
+                    pt = new EnumMap<>(FirebreakType.class);
+                    results.put(volId, pt);
+                }
+                pt.put(type, pair);
+            }
+        } );
+
+        return results;
+    }
+
+    /**
+     * Load the current volume status into a map indexed by volume name
+     *
+     * @return a map containing the current volume status for each known volume
+     * @throws TException
+     */
+    // TODO: replace volume name with id once available.
+    private Map<String, VolumeStatus> loadCurrentVolumeStatus() throws TException {
+        final Map<String,VolumeStatus> vols = new HashMap<>();
+        SingletonConfigAPI.instance().api().listVolumes("").forEach((vd) -> {
+            try {
+                vols.put(vd.getName(), SingletonAmAPI.instance().api().volumeStatus("", vd.getName()));
+            } catch (TException te) {
+                logger.warn("Failed to get Volume " + vd.getName() + " status for firebreak event.", te);
+            }
+        });
+        return vols;
     }
 
     /**
@@ -200,8 +271,7 @@ public class FirebreakHelper {
      * @return the optional first datapoint matching the metric if present in the specified list.
      */
     private Optional<VolumeDatapoint> findMetric(Metrics m, List<VolumeDatapoint> dps) {
-        return dps.stream().filter((v) -> {
-            return Metrics.byMetadataKey(v.getKey()).equals(m);}).findFirst();
+        return dps.stream().filter((v) -> Metrics.byMetadataKey(v.getKey()).equals(m)).findFirst();
     }
 
     /**
@@ -224,7 +294,7 @@ public class FirebreakHelper {
     }
 
     /**
-     * @param p
+     * @param p the datapoint pair
      * @return true if the datapoint pair represents a firebreak
      */
     protected boolean isFirebreak(VolumeDatapointPair p) {
@@ -242,7 +312,7 @@ public class FirebreakHelper {
     }
 
     /**
-     * @param vdp
+     * @param vdp the volume datapoint
      * @return true if the volume datapoint represents a metric associated with a firebreak event
      */
     private boolean isFirebreakType( final VolumeDatapoint vdp ) {
@@ -271,8 +341,15 @@ public class FirebreakHelper {
         /**
          * Create the Volume datapoint pair with the initial sigma values.
          *
-         * @param shortTerm
-         * @param longTerm
+         * @param shortTerm the short-term sigma datapoint
+         * @param longTerm the long-term sigma datapoint
+         *
+         * @throws java.lang.IllegalArgumentException if the datapoints are:
+         *   <ul>
+         *       <li>Not for the same volume</li>
+         *       <li>Not a short-term and long-term capacity or performance metric</li>
+         *       <li>Not the same firebreak data type</li>
+         *   </ul>
          */
         VolumeDatapointPair(VolumeDatapoint shortTerm, VolumeDatapoint longTerm) {
             // TODO: use ID once provided by backend
@@ -280,7 +357,15 @@ public class FirebreakHelper {
                 throw new IllegalArgumentException("Volume for short/long term datapoint pairs must match");
 
             Metrics sm = Metrics.byMetadataKey(shortTerm.getKey());
+            if (!(Metrics.STC_SIGMA.equals(sm) || Metrics.STP_SIGMA.equals(sm)))
+                throw new IllegalArgumentException("Short term sigma datapoint must be one of the valid short-term " +
+                                                "capacity or performance metric types.  Sigma=" + sm);
+
             Metrics lm = Metrics.byMetadataKey(longTerm.getKey());
+            if (!(Metrics.LTC_SIGMA.equals(lm) || Metrics.LTP_SIGMA.equals(lm)))
+                throw new IllegalArgumentException("Long term sigma datapoint must be one of the valid long-term " +
+                                                "capacity or performance metric types.  Sigma=" + sm);
+
             Optional<FirebreakType> smto = FirebreakType.metricFirebreakType(sm);
             Optional<FirebreakType> lmto = FirebreakType.metricFirebreakType(lm);
             if (!(smto.isPresent() && lmto.isPresent())) {
@@ -299,7 +384,7 @@ public class FirebreakHelper {
 
         /**
          * Set the datapoint
-         * @param dp
+         * @param dp the datapoint
          */
         protected void setDatapoint(Datapoint dp) { datapoint = dp; }
 

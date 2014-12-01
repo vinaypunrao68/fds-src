@@ -13,7 +13,6 @@
 #include <fds_volume.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
-#include <concurrency/RwLock.h>
 
 #include <VcQueryIface.h>
 #include <blob/BlobTypes.h>
@@ -162,11 +161,12 @@ class DmVolumeDirectory : public Module, public HasLogger,
      *                blobVersion is set to actual version that is retrieved
      * @param[out] metaList list of metadata key-value pairs
      * @param[out] objList list of offset to object id mappings
+     * @param[out] blobSize ptr to blob size in bytes
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      */
     Error getBlob(fds_volid_t volId, const std::string& blobName, fds_uint64_t startOffset,
             fds_int64_t endOffset, blob_version_t* blobVersion, fpi::FDSP_MetaDataList* metaList,
-            fpi::FDSP_BlobObjectList* objList);
+                  fpi::FDSP_BlobObjectList* objList, fds_uint64_t* blobSize);
 
     /**
      * Returns the list of blobs in the volume with basic blob info
@@ -234,7 +234,7 @@ class DmVolumeDirectory : public Module, public HasLogger,
 
     // vars
     std::unordered_map<fds_volid_t, DmPersistVolDir::ptr> volMap_;
-    fds_rwlock volMapLock_;
+    fds_mutex volMapLock_;
 
     expunge_objs_cb_t expungeCb_;
 

@@ -6,6 +6,39 @@
 #
 # This is run from Jenkins at the start of any build job
 #
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# THIS FILE IS DEPRECATED, please use build_fds.py (note the underscore)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import os
 import build_lib
 from optparse import OptionParser

@@ -173,7 +173,6 @@ bool RsContainer::rs_unregister_mtx(Resource::pointer rs) {
 Resource::pointer
 RsContainer::rs_get_resource(const ResourceUUID &uuid)
 {
-    FDSGUARD(rs_mtx);
     auto iter = rs_uuid_map.find(uuid);
     if (iter != rs_uuid_map.end()) {
         return iter->second;
@@ -184,7 +183,6 @@ RsContainer::rs_get_resource(const ResourceUUID &uuid)
 Resource::pointer
 RsContainer::rs_get_resource(const char *name)
 {
-    FDSGUARD(rs_mtx);
     std::string lowername = util::strlower(name);
     auto iter = rs_name_map.find(lowername.c_str());
     if (iter != rs_name_map.end()) {
@@ -219,7 +217,6 @@ RsContainer::rs_container_snapshot(RsArray *out)
 // ----------------
 //
 bool RsContainer::rs_free_resource(Resource::pointer rs) {
-    FDSGUARD(rs_mtx);
     if (rs->rs_index != INVALID_INDEX) {
         fds_verify(rs_array[rs->rs_index] == rs);
         rs_array[rs->rs_index] = NULL;

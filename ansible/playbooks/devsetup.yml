@@ -101,6 +101,7 @@
         - libhiredis0.10
         - libhiredis-dev
         - swig3.0
+        - sshpass
 
     - name: install pip packages
       pip: name={{item}} state=present

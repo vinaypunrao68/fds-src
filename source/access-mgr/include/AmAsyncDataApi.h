@@ -19,23 +19,6 @@ namespace fds {
  */
 class AmAsyncDataApi : public apis::AsyncAmServiceRequestIf {
   private:
-    /// Uturn test all AM service APIs
-    fds_bool_t testUturnAll;
-    /// Uturn test start tx API
-    fds_bool_t testUturnStartTx;
-    /// Uturn test update blob API
-    fds_bool_t testUturnUpdateBlob;
-    /// Uturn test update metadata API
-    fds_bool_t testUturnUpdateMeta;
-    /// Uturn test commit tx API
-    fds_bool_t testUturnCommitTx;
-    /// Uturn test abort tx API
-    fds_bool_t testUturnAbortTx;
-    /// Uturn test stat blob API
-    fds_bool_t testUturnStatBlob;
-    /// Uturn test get blob API
-    fds_bool_t testUturnGetBlob;
-
     /// Response client to use in response handler
     AmAsyncResponseApi::shared_ptr responseApi;
 
@@ -126,6 +109,19 @@ class AmAsyncDataApi : public apis::AsyncAmServiceRequestIf {
                  boost::shared_ptr<std::string>& blobName,
                  boost::shared_ptr<int32_t>& length,
                  boost::shared_ptr<apis::ObjectOffset>& objectOffset);
+
+    void getBlobWithMeta(const apis::RequestId& requestId,
+                         const std::string& domainName,
+                         const std::string& volumeName,
+                         const std::string& blobName,
+                         const int32_t length,
+                         const apis::ObjectOffset& offset);
+    void getBlobWithMeta(boost::shared_ptr<apis::RequestId>& requestId,
+                         boost::shared_ptr<std::string>& domainName,
+                         boost::shared_ptr<std::string>& volumeName,
+                         boost::shared_ptr<std::string>& blobName,
+                         boost::shared_ptr<int32_t>& length,
+                         boost::shared_ptr<apis::ObjectOffset>& objectOffset);
 
     void updateMetadata(const apis::RequestId& requestId,
                         const std::string& domainName,

@@ -1,15 +1,25 @@
 #!/bin/bash -l
 
+echo "================================================================================"
+echo "CONFIGURE ulimit AND COREFILE SETTINGS"
+echo "================================================================================"
+
 ulimit -c unlimited
+mkdir -p /corefiles
+sysctl -w "kernel.core_pattern=/corefiles/%e-%p.core"
 ulimit -n 400000
 
-#Report the current ulimits
-echo "Current ulimit settings:"
+echo "================================================================================"
+echo "CURRENT ulimit SETTINGS"
+echo "================================================================================"
+
 ulimit -a
 
 function unit_tests
 {
+   echo "================================================================================"
    echo "RUNNING UNIT TEST"
+   echo "================================================================================"
 
    # Run Unit Test
    cd ${root_dir}/jenkins_scripts
@@ -20,7 +30,9 @@ function unit_tests
 
 function system_tests
 {
+   echo "================================================================================"
    echo "RUNNING SYSTEM TEST"
+   echo "================================================================================"
 
    # Run Unit Test
    cd ${root_dir}/source/test/testsuites

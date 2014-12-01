@@ -122,16 +122,30 @@ public class SmokeTest {
         count = 10;
         config = new XdiClientFactory().remoteOmService(host, 9090);
         
-        testBucketExists(userBucket);
-        testBucketExists(adminBucket);
+        testBucketExists(userBucket, false);
+        testBucketExists(adminBucket, false);
+    }
+    
+    public void testBucketExists(String bucketName, boolean fProgress) {
+        if (fProgress) System.out.print("    Checking bucket exists [" + bucketName + "] ");
+        assertEquals("bucket [" + bucketName + "] NOT active", true, checkBucketState(bucketName, true, 10, fProgress));
+        if (fProgress) System.out.println("");
     }
 
-    public void testBucketExists(String bucketName) {
+    public void testBucketNotExists(String bucketName, boolean fProgress) {
+        if (fProgress) System.out.print("    Checking bucket does not exist [" + bucketName + "] ");
+        assertEquals("bucket [" + bucketName + "] IS active", true, checkBucketState(bucketName, false, 10, fProgress));
+        if (fProgress) System.out.println("");
+    }
+
+    /**
+     * wait for the bucket to appear or disappear
+     */
+    public boolean checkBucketState(String bucketName, boolean fAppear, int count, boolean fProgress) {
         List<Bucket> buckets;
         boolean fBucketExists = false;
-        int count = 0;
-        //System.out.println("checking bucket : " + bucketName);
         do {
+            fBucketExists = false;
             buckets = adminClient.listBuckets();
             for (Bucket b : buckets) {
                 if (b.getName().equals(bucketName)) {
@@ -139,12 +153,13 @@ public class SmokeTest {
                     break;
                 }
             }
-            count++;
-            if (!fBucketExists && count< 10) {
+            if (fProgress) System.out.print(".");
+            count--;
+            if ((fBucketExists != fAppear) && count > 0) {
                 sleep(1000);
             }
-        } while ( !fBucketExists && count < 10);
-        assertEquals("bucket [" + bucketName + "] NOT active", true, fBucketExists);
+        } while ( (fBucketExists != fAppear) && count > 0);
+        return fBucketExists == fAppear;
     }
 
     void sleep(long ms) {
@@ -152,6 +167,21 @@ public class SmokeTest {
             Thread.sleep(ms);
         } catch (java.lang.InterruptedException e) {
         }
+    }
+
+    @Test
+    public void testRecreateVolume() {
+        String bucketName = "test-recreate-bucket";
+        try {
+            userClient.createBucket(bucketName);
+        } catch (AmazonS3Exception e) {
+            assertEquals("unknown error : " + e , 409, e.getStatusCode());
+        }
+        testBucketExists(bucketName, true);
+        userClient.deleteBucket(bucketName);
+        testBucketNotExists(bucketName, true);
+        userClient.createBucket(bucketName);
+        testBucketExists(bucketName, true);
     }
 
     @Test
