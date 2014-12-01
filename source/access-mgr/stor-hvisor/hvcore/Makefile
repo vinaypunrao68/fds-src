@@ -15,7 +15,6 @@ user_incl_dir     := .. \
 user_cpp_flags    :=
 
 StorHvisor_cpp    :=                   \
-    StorHvisorNet.cpp                  \
     StorHvCtrl.cpp                     \
     qos_ctrl.cpp	               \
     StorHvQosCtrl.cpp                  \
@@ -28,11 +27,8 @@ user_hpp       := $(wildcard *.h)
 
 user_no_style     := $(user_cc) \
     StorHvDataPlace.h \
-    StorHvisorNet.h \
     StorHvQosCtrl.h \
     StorHvVolumes.h \
-    StorHvisorNet.cpp \
-    StorHvisorTest.cpp \
     StorHvCtrl.cpp    \
     qos_ctrl.cpp \
     StorHvQosCtrl.cpp \

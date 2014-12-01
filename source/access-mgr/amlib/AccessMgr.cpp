@@ -3,10 +3,17 @@
  */
 
 #include <string>
-#include <AccessMgr.h>
-#include <access-mgr/am-block.h>
-#include <am-platform.h>
+
+#include "fds_process.h"
+
+#include "access-mgr/am-block.h"
+#include "am-platform.h"
+
+#include "AmCache.h"
+#include "AccessMgr.h"
 #include "StorHvCtrl.h"
+#include "StorHvQosCtrl.h"
+#include "StorHvVolumes.h"
 
 extern AmPlatform gl_AmPlatform;
 

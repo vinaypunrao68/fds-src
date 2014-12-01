@@ -30,6 +30,7 @@
 using namespace std;
 using namespace FDS_ProtocolInterface;
 
+StorHvCtrl *storHvisor;
 std::atomic_uint nextIoReqId;
 
 StorHvCtrl::StorHvCtrl(int argc,
@@ -86,7 +87,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     disableVcc =  config.get_abs<bool>("fds.am.testing.disable_vcc");
 
-    LOGNORMAL << "StorHvisorNet - Constructing the Storage Hvisor";
+    LOGNORMAL << "StorHvCtrl - Constructing the Storage Hvisor";
 
     struct ifaddrs *ifAddrStruct = NULL;
     struct ifaddrs *ifa          = NULL;
@@ -94,7 +95,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
-    LOGNOTIFY << "StorHvisorNet - My IP: " << net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
+    LOGNOTIFY << "StorHvCtrl - My IP: " << net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
 
     /*  Create the QOS Controller object */
     fds_uint32_t qos_threads = config.get<int>("qos_threads");
@@ -110,7 +111,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     /* create OMgr client if in normal mode */
     if (!toggleStandAlone) {
-        LOGNORMAL << "StorHvisorNet - Will create and initialize OMgrClient";
+        LOGNORMAL << "StorHvCtrl - Will create and initialize OMgrClient";
 
         /*
          * Pass 0 as the data path port since the SH is not
@@ -181,13 +182,13 @@ StorHvCtrl::StorHvCtrl(int argc,
                         amTxMgr,
                         amCache));
 
-    LOGNORMAL << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
+    LOGNORMAL << "StorHvCtrl - StorHvCtrl basic infra init successfull ";
 
     if (toggleStandAlone) {
         dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
                                                          NULL);
     } else {
-        LOGNORMAL <<"StorHvisorNet -  Entring Normal Data placement mode";
+        LOGNORMAL <<"StorHvCtrl -  Entring Normal Data placement mode";
         dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
                                                          om_client);
     }
@@ -227,7 +228,7 @@ void StorHvCtrl::StartOmClient() {
      * Appropriate callbacks were setup by data placement and volume table objects
      */
     if (om_client) {
-        LOGNOTIFY << "StorHvisorNet - Started accepting control messages from OM";
+        LOGNOTIFY << "StorHvCtrl - Started accepting control messages from OM";
         om_client->registerNodeWithOM(&gl_AmPlatform);
     }
 }
@@ -373,4 +374,66 @@ StorHvCtrl::enqueueBlobReq(AmRequest *blobReq) {
     blobReq->io_req_id = atomic_fetch_add(&nextIoReqId, (fds_uint32_t)1);
 
     fds_verify(qos_ctrl->enqueueIO(blobReq->io_vol_id, blobReq) == ERR_OK);
+}
+
+void
+processBlobReq(AmRequest *amReq) {
+    fds::PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
+
+    fds_verify(amReq->io_module == FDS_IOType::STOR_HV_IO);
+    fds_verify(amReq->magicInUse() == true);
+
+    switch (amReq->io_type) {
+        case fds::FDS_START_BLOB_TX:
+            storHvisor->amProcessor->startBlobTx(amReq);
+            break;
+
+        case fds::FDS_COMMIT_BLOB_TX:
+            storHvisor->amProcessor->commitBlobTx(amReq);
+            break;
+
+        case fds::FDS_ABORT_BLOB_TX:
+            storHvisor->amProcessor->abortBlobTx(amReq);
+            break;
+
+        case fds::FDS_ATTACH_VOL:
+            storHvisor->attachVolume(amReq);
+            break;
+
+        case fds::FDS_IO_READ:
+        case fds::FDS_GET_BLOB:
+            storHvisor->amProcessor->getBlob(amReq);
+            break;
+
+        case fds::FDS_IO_WRITE:
+        case fds::FDS_PUT_BLOB_ONCE:
+        case fds::FDS_PUT_BLOB:
+            storHvisor->amProcessor->putBlob(amReq);
+            break;
+
+        case fds::FDS_SET_BLOB_METADATA:
+            storHvisor->amProcessor->setBlobMetadata(amReq);
+            break;
+
+        case fds::FDS_GET_VOLUME_METADATA:
+            storHvisor->amProcessor->getVolumeMetadata(amReq);
+            break;
+
+        case fds::FDS_DELETE_BLOB:
+            storHvisor->amProcessor->deleteBlob(amReq);
+            break;
+
+        case fds::FDS_STAT_BLOB:
+            storHvisor->amProcessor->statBlob(amReq);
+            break;
+
+        case fds::FDS_VOLUME_CONTENTS:
+            storHvisor->amProcessor->volumeContents(amReq);
+            break;
+
+        default :
+            LOGCRITICAL << "unimplemented request: " << amReq->io_type;
+            amReq->cb->call(ERR_NOT_IMPLEMENTED);
+            break;
+    }
 }

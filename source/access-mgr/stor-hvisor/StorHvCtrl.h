@@ -8,10 +8,13 @@
 #include <string>
 
 #include "fds_error.h"
+#include "fds_volume.h"
 #include "FdsRandom.h"
+#include "NetSession.h"
 #include "util/Log.h"
 
 #include "AmCounters.h"
+
 
 namespace fds
 {
@@ -122,5 +125,9 @@ private:
 };
 
 extern StorHvCtrl* storHvisor;
+
+// Static function for process IO via a threadpool
+extern void processBlobReq(fds::AmRequest *amReq);
+
 
 #endif  // SOURCE_ACCESS_MGR_STOR-HVISOR_STORHVCTRL_H_
