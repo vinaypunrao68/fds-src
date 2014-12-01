@@ -38,6 +38,14 @@ ifdef DEFER_TESTS
                       unit-test
 endif
 
+# Bail out early if we don't have a JAVA_HOME
+# This needs to go here, including it later causes make devsetup fail.
+ifeq ($(JAVA_HOME),)
+    $(error "JAVA_HOME needs to be configured.  If you have not run 'make \
+        devsetup', please do so now.  Otherwise you can 'source \
+        /etc/profile.d/jdk.sh' and try again.")
+endif
+
 ifdef SKIP_JAVA_BUILD
     user_build_dir := $(filter-out java, $(user_build_dir))
 endif

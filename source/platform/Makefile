@@ -7,16 +7,15 @@ user_build_dir   := include source python
 
 user_incl_dir    := include ../net-service/include
 
-user_fds_ar_libs := \
-    fds-plat-daemon \
-    fds-plat-disk \
-    fds-net-svc \
-    fds-xdi
+user_fds_ar_libs :=                  \
+                    platform_core    \
+                    fds-net-svc      \
+                    fds-xdi
 
-user_non_fds_libs := \
-	udev \
-	rt \
-	parted
+user_non_fds_libs :=           \
+                     udev      \
+                     rt        \
+                     parted
 
 user_cpp         := platform-main.cpp
 user_bin_exe     := platformd

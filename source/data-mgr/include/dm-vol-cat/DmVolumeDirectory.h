@@ -13,7 +13,6 @@
 #include <fds_volume.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
-#include <concurrency/RwLock.h>
 
 #include <VcQueryIface.h>
 #include <blob/BlobTypes.h>
@@ -235,7 +234,7 @@ class DmVolumeDirectory : public Module, public HasLogger,
 
     // vars
     std::unordered_map<fds_volid_t, DmPersistVolDir::ptr> volMap_;
-    fds_rwlock volMapLock_;
+    fds_mutex volMapLock_;
 
     expunge_objs_cb_t expungeCb_;
 
