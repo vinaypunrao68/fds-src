@@ -277,21 +277,14 @@
         register: fdsinstall_pkg
         tags: repo
 
-    -   name: purge old fdsinstall target
-        shell: rm -rf /root/fdsinstall
-        when: fdsinstall_pkg.changed or force_install == "yes"
-
-    -   name: copy fdsinstall tarball
-        action: copy src=resources/fdsinstall.tgz dest=/root/fdsinstall.tgz owner=root group=root mode=0644
-        register: fdsinstall_tarball
-
-    -   name: extract fdsinstall tarball
-        action: unarchive src=/root/fdsinstall.tgz dest=/root copy=no
-        when: fdsinstall_pkg.changed or fdsinstall_tarball.changed or force_install == "yes"
+    -   name: copy fdsinstall.py to /root/fdsinstally.py
+        copy: src=../../source/tools/install/fdsinstall.py
+            dest=/root/fdsinstall.py
+            mode=0755
 
     -   name: run fdsinstall step 3 - setup storage
-        shell: ./fdsinstall.py -o 5 -o 3  chdir=/root/fdsinstall
-        when: fdsinstall_pkg.changed or fdsinstall_tarball.changed or force_install == "yes"
+        shell: ./fdsinstall.py -o 5 -o 3  chdir=/root
+        when: fdsinstall_pkg.changed or force_install == "yes"
 
     -   name: render formation.conf
         template:
