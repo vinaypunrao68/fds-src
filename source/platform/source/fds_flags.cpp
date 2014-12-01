@@ -79,7 +79,7 @@ bool FlagsMap::getFlag(const std::string &id, int64_t &value)
 /**
 * @brief return flags map
 *
-* @return 
+* @return
 */
 std::map<std::string, int64_t> FlagsMap::toMap()
 {

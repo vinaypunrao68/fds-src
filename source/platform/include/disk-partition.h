@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+
 #ifndef SOURCE_PLATFORM_INCLUDE_DISK_PARTITION_H_
 #define SOURCE_PLATFORM_INCLUDE_DISK_PARTITION_H_
 
@@ -8,72 +9,73 @@
 #include <parted/parted.h>
 #include <disk.h>
 
-namespace fds {
-
-class DiskPartitionMgr;
-
-/**
- * Handle jobs related to partition of a disk.
- */
-class DiskPartition
+namespace fds
 {
-  protected:
-    friend class DiskPartitionMgr;
 
-    ChainLink                 dsk_link;
-    PmDiskObj::pointer        dsk_obj;
-    DiskPartitionMgr         *dsk_mgr;
-    PedDevice                *dsk_pdev;
-    PedDisk                  *dsk_pe;
+    class DiskPartitionMgr;
 
-  public:
-    DiskPartition();
-    virtual ~DiskPartition();
+    /**
+     * Handle jobs related to partition of a disk.
+     */
+    class DiskPartition
+    {
+        protected:
+            friend class DiskPartitionMgr;
 
-    virtual void dsk_partition_init(DiskPartitionMgr *mgr, PmDiskObj::pointer disk);
-    virtual void dsk_partition_check();
-};
+            ChainLink                 dsk_link;
+            PmDiskObj::pointer        dsk_obj;
+            DiskPartitionMgr         *dsk_mgr;
+            PedDevice                *dsk_pdev;
+            PedDisk                  *dsk_pe;
 
-typedef enum
-{
-    DISK_OP_NONE                    = 0,
-    DISK_OP_CHECK_PARTITION         = 1,
-    DISK_OP_DO_PARTITION            = 2,
-    DISK_OP_MAX
-} disk_op_e;
+        public:
+            DiskPartition();
+            virtual ~DiskPartition();
 
-/**
- * Switch board to route the main iterator function to the designated function.
- */
-class DiskOp : public DiskObjIter
-{
-  protected:
-    disk_op_e                dsk_op;
-    DiskPartitionMgr        *dsk_mgr;
+            virtual void dsk_partition_init(DiskPartitionMgr *mgr, PmDiskObj::pointer disk);
+            virtual void dsk_partition_check();
+    };
 
-  public:
-    explicit DiskOp(disk_op_e op, DiskPartitionMgr *mgr);
-    virtual ~DiskOp();
+    typedef enum
+    {
+        DISK_OP_NONE                    = 0,
+        DISK_OP_CHECK_PARTITION         = 1,
+        DISK_OP_DO_PARTITION            = 2,
+        DISK_OP_MAX
+    } disk_op_e;
 
-    virtual bool dsk_iter_fn(DiskObj::pointer curr);
-};
+    /**
+     * Switch board to route the main iterator function to the designated function.
+     */
+    class DiskOp : public DiskObjIter
+    {
+        protected:
+            disk_op_e                dsk_op;
+            DiskPartitionMgr        *dsk_mgr;
 
-/**
- * Handle jobs to classify new discovered disks and partition them.
- */
-class DiskPartitionMgr : public DiskObjIter
-{
-  protected:
-    ChainList                dsk_need_label;
-    fds_mutex                dsk_mtx;
+        public:
+            explicit DiskOp(disk_op_e op, DiskPartitionMgr *mgr);
+            virtual ~DiskOp();
 
-  public:
-    DiskPartitionMgr();
-    virtual ~DiskPartitionMgr();
+            virtual bool dsk_iter_fn(DiskObj::pointer curr);
+    };
 
-    virtual bool dsk_iter_fn(DiskObj::pointer curr);
-    virtual bool dsk_iter_fn(DiskObj::pointer curr, DiskObjIter *arg);
-};
+    /**
+     * Handle jobs to classify new discovered disks and partition them.
+     */
+    class DiskPartitionMgr : public DiskObjIter
+    {
+        protected:
+            ChainList                dsk_need_label;
+            fds_mutex                dsk_mtx;
 
+        public:
+            DiskPartitionMgr();
+            virtual ~DiskPartitionMgr();
+
+            virtual bool dsk_iter_fn(DiskObj::pointer curr);
+            virtual bool dsk_iter_fn(DiskObj::pointer curr, DiskObjIter *arg);
+    };
 }  // namespace fds
+
 #endif  // SOURCE_PLATFORM_INCLUDE_DISK_PARTITION_H_

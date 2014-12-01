@@ -1,9 +1,9 @@
 /*
  * Copyright 2014 by Formation Data Sysems, Inc.
  */
+
 #ifndef SOURCE_PLATFORM_INCLUDE_DISK_CONSTANTS_H_
 #define SOURCE_PLATFORM_INCLUDE_DISK_CONSTANTS_H_
-
 
 /**
  * -----------------------------------------------------------------------------------
@@ -24,11 +24,9 @@ static inline std::size_t fds_disk_sector_to_byte(std::size_t sector)
     return sector << DISK_SECTOR_SHIFT;
 }
 
-/* Unused
+/* Unused, fix return type if implemented
  * Convert disk block to bytes.
- * /
-static inline fds_uint32_t
-fds_disk_block_to_byte(fds_blk_t blk)
+static inline fds_uint32_t fds_disk_block_to_byte(fds_blk_t blk)
 {
     return blk << DISK_BLOCK_SHFT;
 }

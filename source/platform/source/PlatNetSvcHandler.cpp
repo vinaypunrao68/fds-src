@@ -213,11 +213,11 @@ void PlatNetSvcHandler::setFlag(boost::shared_ptr<std::string>& id,  // NOLINT
 
 
 /**
-* @brief 
+* @brief
 *
 * @param id
 *
-* @return 
+* @return
 */
 int64_t PlatNetSvcHandler::getFlag(boost::shared_ptr<std::string>& id)  // NOLINT
 {
@@ -241,7 +241,7 @@ void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,  // N
 }
 
 /**
-* @brief 
+* @brief
 *
 * @param command
 */

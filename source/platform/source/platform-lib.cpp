@@ -50,7 +50,7 @@ PlatformProcess::PlatformProcess()
 * @param platform
 * @param vec
 *
-* @return 
+* @return
 */
 PlatformProcess::PlatformProcess(int argc, char **argv,
                                  const std::string  &cfg,

@@ -25,7 +25,7 @@ BaseAsyncSvcHandler::~BaseAsyncSvcHandler() {
 }
 
 /**
-* @brief 
+* @brief
 *
 * @param _return
 * @param msg
@@ -35,7 +35,7 @@ void BaseAsyncSvcHandler::uuidBind(fpi::AsyncHdr &_return, const fpi::UuidBindMs
 }
 
 /**
-* @brief 
+* @brief
 *
 * @param _return
 * @param msg
