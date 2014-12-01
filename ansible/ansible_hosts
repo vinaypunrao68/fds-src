@@ -45,18 +45,19 @@ influxdb_collectd_proxy_verbose=false
 influxdb_collectd_proxy_user=influxdb_collectd_proxy
 
 [local-fds-nodes]
-node0 fds_node=node1
-node1 fds_node=node2
-node2 fds_node=node3
-node3 fds_node=node4
+node0 fds_node=node01
+node1 fds_node=node02
+node2 fds_node=node03
+node3 fds_node=node04
 
 [local-fds-nodes:vars]
+ansible_ssh_pass=passwd
 fds_default_nic=eth1
 fds_om_host=node0
 fds_metrics_enabled=false
 fds_metricsdb_ip=192.168.2.1
 fds_ssh_user=root
-fds_ssh_password=vagrant
+fds_ssh_password=passwd
 
 [perf-no_am_cache]
 ubuntu
@@ -121,3 +122,17 @@ ansible_ssh_pass=passwd
 10.1.10.56
 
 [build:vars]
+
+[bld-soak-nodes]
+bld-clus-02 fds_node=node01
+bld-clus-03 fds_node=node01
+bld-clus-04 fds_node=node01
+
+[bld-soak-nodes:vars]
+ansible_ssh_pass=F1505
+fds_default_nic=em1
+fds_om_host=bld-clus-02
+fds_metrics_enabled=false
+fds_metricsdb_ip=127.0.0.1
+fds_ssh_user=root
+fds_ssh_password=F1505

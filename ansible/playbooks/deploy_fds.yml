@@ -155,6 +155,7 @@
     remote_user: root
     tags:
       -   deploy
+    gather_facts: yes
 
     tasks:
 
@@ -166,6 +167,7 @@
           - { key: 'kernel.core_uses_pid', value: '1', state: 'present' }
           - { key: 'fs.suid_dumpable', value: '1', state: 'present' }
           - { key: 'kernel.core_pattern', value: '/corefiles/%e.%p.%u.%t.core', state: 'present' }
+        tags: sysctl
 
     -   name: install_limits_conf
         template:
@@ -196,6 +198,54 @@
           - libboost-thread1.55.0
           - libboost-regex1.55.0
           - libboost-date-time1.55.0
+          - gcc
+          - python-dev
+
+    -   name: add artifactory repo key
+        apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
+        tags: repo
+
+    -   name: add artifactory repo for third party packages
+        apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main"
+            state=present
+            update_cache=yes
+        tags: repo
+
+    -   name: install third party deps from artifactory repo
+        apt: name={{item}}
+            force=yes
+            state=present
+            update_cache=yes
+            default_release=fds
+        with_items:
+            - libpcre3
+            - "libconfig++9"
+            - libev4
+            - libreadline5
+            - xfsprogs
+            - libjemalloc1
+            - redis-tools
+            - redis-server
+            - java-common
+            - oracle-java8-jdk
+            - libical1
+            - libhiredis0.10
+            - python-setuptools
+            - python-colorama
+            - python-distlib
+            - python-html5lib
+            - python-pip
+        tags: repo
+
+    -   name: install needed pip modules
+        pip: name={{item.name}} version={{item.version}} extra_args='-I'
+        with_items:
+#            - { name: 'requests', version: '2.4.3' }
+            #- { name: 'ecdsa', version: '0.11' }
+            #- { name: 'Crypto', version: '1.0.1' }
+            - { name: 'paramiko', version: '1.15.1' }
+            - { name: 'scp', version: '0.8.0' }
+            - { name: 'boto', version: '2.34.0' }
 
 
 -   name: install and configure fds on all  fds_nodes
@@ -203,32 +253,37 @@
     tags:
       -   deploy
     remote_user: root
+    gather_facts: yes
     vars:
       force_install: no
 
     tasks:
-    -   name: copy fdsinstall tarball
-        action: copy src=resources/fdsinstall.tgz dest=/root/fdsinstall.tgz owner=root group=root mode=0644
+    -   name: add fds platform repo
+        apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
+            state=present
+            update_cache=yes
+        tags: repo
+
+    -   name: install fds platform
+        apt: name={{item}}
+            force=yes
+            state=present
+            update_cache=yes
+            default_release=platform
+        with_items:
+            - fds-platform
+            - fds-pkghelper
+            - fds-coredump
         register: fdsinstall_pkg
+        tags: repo
 
-    -   name: purge old fdsinstall target
-        shell: rm -rf /root/fdsinstall
-        when: fdsinstall_pkg.changed or force_install == "yes"
-
-    -   name: extract fdsinstall tarball
-        action: unarchive src=/root/fdsinstall.tgz dest=/root copy=no
-        when: fdsinstall_pkg.changed or force_install == "yes"
-
-    -   name: run fdsinstall step 2 - install external pkgs
-        shell: ./fdsinstall.py -o 5 -o 2  chdir=/root/fdsinstall
-        when: fdsinstall_pkg.changed or force_install == "yes"
+    -   name: copy fdsinstall.py to /root/fdsinstally.py
+        copy: src=../../source/tools/install/fdsinstall.py
+            dest=/root/fdsinstall.py
+            mode=0755
 
     -   name: run fdsinstall step 3 - setup storage
-        shell: ./fdsinstall.py -o 5 -o 3  chdir=/root/fdsinstall
-        when: fdsinstall_pkg.changed or force_install == "yes"
-
-    -   name: run fdsinstall step 4 - install FDS pkgs
-        shell: ./fdsinstall.py -o 5 -o 4 chdir=/root/fdsinstall
+        shell: ./fdsinstall.py -o 5 -o 3  chdir=/root
         when: fdsinstall_pkg.changed or force_install == "yes"
 
     -   name: render formation.conf
@@ -238,6 +293,8 @@
             owner=root
             group=root
             mode=0644
+        tags:
+          -   fdsconfig
 
     -   name: render /fds/etc config files
         tags:
@@ -358,3 +415,12 @@
     -   name: start_am
         service: name=amagent state=started
         when: fds_om_host is defined and fds_om_host == inventory_hostname
+
+    -   name: check process status
+        command: ./fdsadmin -f deploy_formation.conf --process-status
+            chdir=/fds/sbin
+        register: fdsadmin_output
+        tags:
+            -   dbg
+        when: fds_om_host is defined and fds_om_host == inventory_hostname
+    -   debug: var=fdsadmin_output.stdout_lines
