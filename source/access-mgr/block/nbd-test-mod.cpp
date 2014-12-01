@@ -18,6 +18,8 @@
 #include <fdsp/fds_service_types.h>
 #include "net/SvcRequestPool.h"
 
+#include "StorHvCtrl.h"
+
 namespace fds {
 
 NbdSmMod                     gl_NbdSmMod;

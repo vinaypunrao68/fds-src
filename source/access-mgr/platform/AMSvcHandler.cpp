@@ -5,6 +5,7 @@
 #include <platform/net-plat-shared.h>
 #include <AMSvcHandler.h>
 #include <StorHvisorNet.h>
+#include "StorHvCtrl.h"
 
 extern StorHvCtrl * storHvisor;
 

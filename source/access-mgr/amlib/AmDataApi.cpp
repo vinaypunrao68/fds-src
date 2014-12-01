@@ -8,6 +8,7 @@
 #include <AmDataApi.h>
 #include <responsehandler.h>
 #include <StorHvisorNet.h>
+#include "StorHvCtrl.h"
 
 #include "requests/requests.h"
 

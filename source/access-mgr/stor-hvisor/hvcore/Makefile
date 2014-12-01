@@ -16,8 +16,7 @@ user_cpp_flags    :=
 
 StorHvisor_cpp    :=                   \
     StorHvisorNet.cpp                  \
-    StorHvisorSvc.cpp                  \
-    StorHvisorTbl.cpp                  \
+    StorHvCtrl.cpp                     \
     qos_ctrl.cpp	               \
     StorHvQosCtrl.cpp                  \
     StorHvVolumes.cpp
@@ -34,8 +33,7 @@ user_no_style     := $(user_cc) \
     StorHvVolumes.h \
     StorHvisorNet.cpp \
     StorHvisorTest.cpp \
-    StorHvisorSvc.cpp \
-    StorHvisorTbl.cpp \
+    StorHvCtrl.cpp    \
     qos_ctrl.cpp \
     StorHvQosCtrl.cpp \
     StorHvVolumes.cpp

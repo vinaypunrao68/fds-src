@@ -6,8 +6,8 @@
 #include <AccessMgr.h>
 #include <access-mgr/am-block.h>
 #include <am-platform.h>
+#include "StorHvCtrl.h"
 
-extern StorHvCtrl *storHvisor;
 extern AmPlatform gl_AmPlatform;
 
 namespace fds {

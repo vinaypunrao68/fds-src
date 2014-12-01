@@ -15,12 +15,13 @@
 #include <linux/nbd.h>
 
 #include <string>
+#include <lib/OMgrClient.h>
 #include <am-nbd.h>
 #include <fds_process.h>
 #include <util/Log.h>
 #include <nbd-test-mod.h>
-#include <StorHvisorNet.h>
 #include "net/SvcRequestPool.h"
+#include "StorHvCtrl.h"
 
 namespace fds {
 

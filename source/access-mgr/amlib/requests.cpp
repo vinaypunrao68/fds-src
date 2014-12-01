@@ -6,9 +6,8 @@
 #include <string>
 
 #include "StorHvisorNet.h"
+#include "StorHvCtrl.h"
 #include "requests/requests.h"
-
-extern StorHvCtrl *storHvisor;
 
 namespace fds
 {

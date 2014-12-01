@@ -10,6 +10,7 @@
 #include <StorHvisorNet.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
+#include "StorHvCtrl.h"
 
 #include "requests/requests.h"
 

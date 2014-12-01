@@ -11,10 +11,9 @@
 #include "StorHvisorNet.h"
 #include "StorHvVolumes.h"
 #include "StorHvQosCtrl.h"
+#include "StorHvCtrl.h"
 
 #include "PerfTrace.h"
-
-extern StorHvCtrl *storHvisor;
 
 namespace fds {
 
