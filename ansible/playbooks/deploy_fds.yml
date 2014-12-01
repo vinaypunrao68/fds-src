@@ -79,7 +79,6 @@
 -   name: stop_all_nodes
     hosts: all
     gather_facts: no
-    remote_user: root
     tags:
     -   shutdown
 
@@ -117,12 +116,29 @@
         ignore_errors: True
         when: fds_installed|success
 
+-   name: clean_shm
+    hosts: all
+    tags:
+       -   clean
+       -   cleanshm
+
+    tasks:
+
+    -   name: check_fds_install
+        shell: test -d /fds/sbin
+        ignore_errors: True
+        register: fds_installed
+
+    -   name: clean_node
+        shell: rm -rf {{item}}
+        with_items:
+            - /dev/shm/0x*
+
 -   name: clean_all_nodes
     hosts: all
     tags:
        -   clean
     gather_facts: no
-    remote_user: root
 
     tasks:
 
@@ -144,7 +160,6 @@
             - /fds/dev/ssd-*/*
             - /fds/sys-repo
             - /fds/user-repo
-            - /dev/shm/0x*
 
     -   name: clean_redis
         shell: ./redis.sh clean chdir=/fds/sbin
@@ -152,7 +167,6 @@
 
 -   name: configure_os_reqs
     hosts: all
-    remote_user: root
     tags:
       -   deploy
 
@@ -202,7 +216,6 @@
     hosts: all
     tags:
       -   deploy
-    remote_user: root
     vars:
       force_install: no
 
@@ -284,7 +297,6 @@
     tags:
       - startup
     gather_facts: no
-    remote_user: root
 
     tasks:
     -   name: disk_type
@@ -295,7 +307,6 @@
     tags:
       - startup
     gather_facts: no
-    remote_user: root
 
     tasks:
     -   name: start_redis
@@ -309,7 +320,6 @@
     tags:
       - startup
     gather_facts: no
-    remote_user: root
 
     tasks:
     -   name: start_platformd
@@ -320,7 +330,6 @@
     tags:
       - startup
     gather_facts: no
-    remote_user: root
 
     tasks:
     -   name: start_om
@@ -336,7 +345,6 @@
     tags:
       - startup
     gather_facts: no
-    remote_user: root
 
     tasks:
     -   name: fdsactivate
@@ -352,7 +360,6 @@
     tags:
       -   startup
     gather_facts: no
-    remote_user: root
 
     tasks:
     -   name: start_am

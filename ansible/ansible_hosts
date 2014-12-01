@@ -33,6 +33,7 @@ influxdb_port=58086
 influxdb_db=fds_cloud
 influxdb_user=fds
 influxdb_password=Formation1234
+ansible_ssh_user=root
 
 [collectd-hosts:children]
 fds-cloud
@@ -86,7 +87,9 @@ fds_metrics_enabled=false
 fds_metricsdb_ip=127.0.0.1
 fds_ssh_user=root
 fds_ssh_password=passwd
+ansible_ssh_user=root
 ansible_ssh_pass=passwd
+fds_svc_plat_lftp_enable=false
 
 [bld-soak-nodes]
 bld-clus-01 fds_node=node01
@@ -101,6 +104,8 @@ fds_metrics_enabled=false
 fds_metricsdb_ip=127.0.0.1
 fds_ssh_user=root
 fds_ssh_password=F1505
+ansible_ssh_user=root
+ansible_ssh_pass=passwd
 
 [bld-nightly-nodes]
 10.2.10.79 fds_node=node01
@@ -115,6 +120,7 @@ fds_metrics_enables=false
 fds_metricsdb_ip=127.0.0.1
 fds_ssh_user=root
 fds_ssh_password=passwd
+ansible_ssh_user=root
 ansible_ssh_pass=passwd
 
 [build]
