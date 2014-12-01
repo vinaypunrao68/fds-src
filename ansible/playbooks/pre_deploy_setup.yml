@@ -9,7 +9,7 @@
 
     handlers:
     -   name: restart ssh
-        service: name=ssh 
+        service: name=ssh
             state=restarted
 
     tasks:
@@ -22,9 +22,16 @@
             password=$1$M7e8qbJh$0nDQnqfGh5Ce80bbYKp5U/
 
     -   name: allow ssh root login
+        lineinfile: dest=/etc/ssh/sshd_config
+            regexp="PermitRootLogin without-password"
+            line="PermitRootLogin yes"
+            backrefs=yes
+            state=present
+
+    -   name: allow ssh root login... again
         lineinfile: dest=/etc/ssh/sshd_config 
-            regexp="PermitRootLogin without-password" 
-            line="PermitRootLogin yes" 
+            regexp="PermitRootLogin without-password"
+            line="PermitRootLogin yes"
             backrefs=yes
             state=present
         notify: restart ssh
