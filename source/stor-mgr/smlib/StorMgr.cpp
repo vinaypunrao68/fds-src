@@ -125,17 +125,16 @@ void ObjectStorMgr::setModProvider(CommonModuleProviderIf *modProvider) {
 }
 
 ObjectStorMgr::~ObjectStorMgr() {
+    // Setting shuttingDown will cause any IO going to the QOS queue
+    // to return ERR_SM_SHUTTING_DOWN
     LOGDEBUG << " Destructing  the Storage  manager";
-
-    // TODO(brian): Remove this ?
-    // It should have already been set if we followed
-    // the proper path
     shuttingDown = true;
 
     // Shutdown scavenger
-    SmScavengerCmd * shutdownCmd = new SmScavengerCmd();
+    SmScavengerCmd *shutdownCmd = new SmScavengerCmd();
     shutdownCmd->command = SmScavengerCmd::SCAV_STOP;
     objectStore->scavengerControlCmd(shutdownCmd);
+    LOGDEBUG << "Scavenger is now shut down.";
 
     /*
      * Clean up the QoS system. Need to wait for I/Os to
@@ -153,17 +152,25 @@ ObjectStorMgr::~ObjectStorMgr() {
             qosCtrl->deregisterVolume((*vit));
         }
     }
-    // delete perfStats;
-
+        // delete perfStats;
+    LOGDEBUG << "Volumes deregistered...";
     /*
      * TODO: Assert that the waiting req map is empty.
      */
 
     delete qosCtrl;
+    LOGDEBUG << "qosCtrl destructed...";
     delete volTbl;
+    LOGDEBUG << "volTbl destructed...";
 
     // Now clean up the persistent layer
-    delete objectStore;
+    objectStore.reset();
+    LOGDEBUG << "Persistent layer has been destructed...";
+
+    // TODO(brian): Make this a cleaner exit
+    // Right now it will cause mod_shutdown to be called for each
+    // module. When we reach the SM module we bomb out
+    delete modProvider_;
 }
 
 int
@@ -371,6 +378,7 @@ void ObjectStorMgr::mod_enable_service()
 
 void ObjectStorMgr::mod_shutdown()
 {
+    LOGDEBUG << "Mod shutdown called on ObjectStorMgr";
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone")) {
         return;  // no migration or netsession
     }
@@ -559,8 +567,8 @@ void ObjectStorMgr::handleDltUpdate() {
     objStorMgr->objectStore->handleNewDlt(curDlt);
 
     if (curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+        LOGDEBUG << "Received DLT update that has removed this node.";
         // TODO(brian): Not sure if this is where we should kill scavenger or not
-
     }
 }
 
@@ -925,6 +933,13 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     Error err(ERR_OK);
     ObjectID objectId;
     ioReq->setVolId(volId);
+
+    // TODO(brian): Move this elsewhere ?
+    // Return ERR_SM_SHUTTING_DOWN here if SM is in shutdown state
+    if (isShuttingDown()) {
+        LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+        return ERR_SM_SHUTTING_DOWN;
+    }
 
     switch (ioReq->io_type) {
         case FDS_SM_WRITE_TOKEN_OBJECTS:

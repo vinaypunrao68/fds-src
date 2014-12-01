@@ -17,8 +17,11 @@ ObjectDataStore::ObjectDataStore(const std::string &modName,
 }
 
 ObjectDataStore::~ObjectDataStore() {
+    // Kill scavenger
+
     // This will close any leveDBs
-    delete persistData;
+    LOGDEBUG << "Destructing OBjectDataStore";
+    persistData.reset();
 }
 
 Error

@@ -231,6 +231,9 @@ namespace fds {
       next_priority_based_queue = 0;
   }
 
+  QoSWFQDispatcher::~QoSWFQDispatcher() {
+  }
+
   Error QoSWFQDispatcher::assignSpotsToQueue(WFQQueueDesc *qd) {
 
     Error err(ERR_OK);

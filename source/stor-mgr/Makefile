@@ -42,7 +42,8 @@ user_non_fds_libs := \
     ssl \
     cryptopp \
     crypto \
-    leveldb 
+    leveldb \
+    tcmalloc
 
 stor_mgr_cpp      := stormgr_main.cpp
 user_cpp          :=                   \
