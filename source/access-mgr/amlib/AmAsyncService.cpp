@@ -12,7 +12,6 @@
 #include <concurrency/Mutex.h>
 #include <fds_process.h>
 #include <AmAsyncService.h>
-#include <handlermappings.h>
 #include <responsehandler.h>
 #include <StorHvisorNet.h>
 

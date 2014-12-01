@@ -8,6 +8,7 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.Snapshot;
 import com.formationds.util.s3.S3SignatureGenerator;
 import com.formationds.xdi.XdiClientFactory;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -18,10 +19,10 @@ import org.apache.log4j.PropertyConfigurator;
 import org.json.JSONObject;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.uncommons.maths.random.XORShiftRNG;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -40,6 +41,36 @@ public class SmokeTest {
     private final static String ADMIN_USERNAME = "admin";
     private static final String CUSTOM_METADATA_HEADER = "custom-metadata";
 
+    public static final String RNG_CLASS = "com.formationds.smoketest.RNG_CLASS";
+
+    public static final Random loadRNG() {
+        final String rngClassName = System.getProperty(RNG_CLASS);
+        if (rngClassName == null) {
+            return new Random();
+        } else {
+            switch (rngClassName) {
+            case "java.util.Random":
+                return new Random();
+            case "java.security.SecureRandom":
+                return new SecureRandom();
+            case "java.util.concurrent.ThreadLocalRandom":
+                throw new IllegalArgumentException(
+                        "ThreadLocalRandom is not supported - can't instantiate (must use ThreadLocalRandom.current())");
+            default:
+                try {
+                    Class<?> rngClass = Class.forName(rngClassName);
+                    return (Random) rngClass.newInstance();
+                } catch (ClassNotFoundException | InstantiationException
+                        | IllegalAccessException cnfe) {
+                    throw new IllegalStateException(
+                            "Failed to instantiate Random implementation specified by \""
+                                    + RNG_CLASS + "\"system property: "
+                                    + rngClassName, cnfe);
+                }
+            }
+        }
+    }
+
     private final String adminBucket;
     private final String userBucket;
     private final String snapBucket;
@@ -52,7 +83,7 @@ public class SmokeTest {
     private final String userToken;
     private final String host;
     private final ConfigurationService.Iface config;
-    private final Random rng;
+    private final Random rng = loadRNG();
 
     public SmokeTest()
             throws Exception {
@@ -85,12 +116,50 @@ public class SmokeTest {
         adminClient.createBucket(adminBucket);
         userClient.createBucket(userBucket);
         randomBytes = new byte[4096];
-        rng = new XORShiftRNG();
         rng.nextBytes(randomBytes);
         prefix = UUID.randomUUID()
                 .toString();
         count = 10;
         config = new XdiClientFactory().remoteOmService(host, 9090);
+        
+        testBucketExists(userBucket, false);
+        testBucketExists(adminBucket, false);
+    }
+    
+    public void testBucketExists(String bucketName, boolean fProgress) {
+        if (fProgress) System.out.print("    Checking bucket exists [" + bucketName + "] ");
+        assertEquals("bucket [" + bucketName + "] NOT active", true, checkBucketState(bucketName, true, 10, fProgress));
+        if (fProgress) System.out.println("");
+    }
+
+    public void testBucketNotExists(String bucketName, boolean fProgress) {
+        if (fProgress) System.out.print("    Checking bucket does not exist [" + bucketName + "] ");
+        assertEquals("bucket [" + bucketName + "] IS active", true, checkBucketState(bucketName, false, 10, fProgress));
+        if (fProgress) System.out.println("");
+    }
+
+    /**
+     * wait for the bucket to appear or disappear
+     */
+    public boolean checkBucketState(String bucketName, boolean fAppear, int count, boolean fProgress) {
+        List<Bucket> buckets;
+        boolean fBucketExists = false;
+        do {
+            fBucketExists = false;
+            buckets = adminClient.listBuckets();
+            for (Bucket b : buckets) {
+                if (b.getName().equals(bucketName)) {
+                    fBucketExists = true;
+                    break;
+                }
+            }
+            if (fProgress) System.out.print(".");
+            count--;
+            if ((fBucketExists != fAppear) && count > 0) {
+                sleep(1000);
+            }
+        } while ( (fBucketExists != fAppear) && count > 0);
+        return fBucketExists == fAppear;
     }
 
     void sleep(long ms) {
@@ -98,6 +167,21 @@ public class SmokeTest {
             Thread.sleep(ms);
         } catch (java.lang.InterruptedException e) {
         }
+    }
+
+    @Test
+    public void testRecreateVolume() {
+        String bucketName = "test-recreate-bucket";
+        try {
+            userClient.createBucket(bucketName);
+        } catch (AmazonS3Exception e) {
+            assertEquals("unknown error : " + e , 409, e.getStatusCode());
+        }
+        testBucketExists(bucketName, true);
+        userClient.deleteBucket(bucketName);
+        testBucketNotExists(bucketName, true);
+        userClient.createBucket(bucketName);
+        testBucketExists(bucketName, true);
     }
 
     @Test

@@ -114,7 +114,6 @@ StorHvCtrl::StorHvCtrl(int argc,
          */
     }
 
-    initHandlers();
     my_node_name = node_name;
 
     sysParams = params;
@@ -129,12 +128,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
-    myIp = net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
-    assert(myIp.empty() == false);
-    LOGNOTIFY << "StorHvisorNet - My IP: " << myIp;
-
-    dPathRespCback.reset(new FDSP_DataPathRespCbackI());
-    mPathRespCback.reset(new FDSP_MetaDataPathRespCbackI());
+    LOGNOTIFY << "StorHvisorNet - My IP: " << net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
 
     /*  Create the QOS Controller object */
     fds_uint32_t qos_threads = config.get<int>("qos_threads");
@@ -221,8 +215,6 @@ StorHvCtrl::StorHvCtrl(int argc,
                         amTxMgr,
                         amCache));
 
-    chksumPtr =  new checksum_calc();
-
     LOGNORMAL << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
 
     if (toggleStandAlone) {
@@ -257,11 +249,6 @@ StorHvCtrl::~StorHvCtrl()
     if (om_client)
         delete om_client;
     delete qos_ctrl;
-}
-
-void StorHvCtrl::initHandlers() {
-    handlers[fds::FDS_STAT_BLOB]            = new StatBlobHandler(this);
-    handlers[fds::FDS_GET_VOLUME_METADATA]  = new GetVolumeMetaDataHandler(this);
 }
 
 SysParams* StorHvCtrl::getSysParams() {

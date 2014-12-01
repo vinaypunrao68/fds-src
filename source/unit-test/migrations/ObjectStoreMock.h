@@ -19,7 +19,6 @@
 #include <fdsp/FDSP_DataPathReq.h>
 #include <fdsp/FDSP_DataPathResp.h>
 #include <concurrency/Mutex.h>
-#include <fds-probe/fds_probe.h>
 #include <StorMgrVolumes.h>
 #include <dlt.h>
 #include <concurrency/ThreadPool.h>

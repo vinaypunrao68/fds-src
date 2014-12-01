@@ -8,6 +8,9 @@ mode=$6
 if [ "$mode" = "fio" ]
 then
     options="-F"
+elif [ "$mode" = "s3_java" ] 
+then
+    options="-j"
 else
     options=""
 fi

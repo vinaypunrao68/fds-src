@@ -29,7 +29,9 @@ public class Calculation {
     */
    public static boolean isFirebreak( final Double shortTerm,
                                       final Double longTerm ) {
-     return ( ( shortTerm / longTerm ) > THRESHOLD );
+       double r = shortTerm / longTerm;
+       if (Double.isInfinite(r) || Double.isNaN(r)) return false;
+       return ( r > THRESHOLD );
    }
 
    /**

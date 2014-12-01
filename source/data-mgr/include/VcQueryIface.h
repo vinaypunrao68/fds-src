@@ -73,6 +73,7 @@ class VolumeCatalogQueryIface {
      * blob_version is set to actual version that is retrieved
      * @param[out] meta_list list of metadata key-value pairs
      * @param[out] obj_list list of offset to object id mappings
+     * @param[out] blob_size size of blob in bytes
      * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
      * to volume catalog
      */
@@ -82,7 +83,8 @@ class VolumeCatalogQueryIface {
                           fds_int64_t end_offset,
                           blob_version_t* blob_version,
                           fpi::FDSP_MetaDataList* meta_list,
-                          fpi::FDSP_BlobObjectList* obj_list) = 0;
+                          fpi::FDSP_BlobObjectList* obj_list,
+                          fds_uint64_t* blob_size) = 0;
 
     /**
      * Returns the list of all blobs in the volume with basic blob info

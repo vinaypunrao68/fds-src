@@ -11,6 +11,8 @@
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
 #include <platform/node-inventory.h>
+#include <net/SvcRequestPool.h>
+#include <net/SvcRequest.h>
 
 /**
  * Use this macro for registering FDSP message handlers
@@ -24,6 +26,7 @@
     { \
         boost::shared_ptr<FDSPMsgT> payload; \
         fds::deserializeFdspMsg(payloadBuf, payload); \
+        SVCPERF(header->rqHndlrTs = util::getTimeStampNanos()); \
         func(header, payload); \
     }
 
@@ -34,6 +37,7 @@
     { \
         boost::shared_ptr<FDSPMsgT> payload; \
         fds::deserializeFdspMsg(payloadBuf, payload); \
+        SVCPERF(header->rqHndlrTs = util::getTimeStampNanos()); \
         func(header, payload); \
     }
 
@@ -68,6 +72,8 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
     void asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                    boost::shared_ptr<std::string>& payload) override;
 
+    void asyncResp2(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+                    boost::shared_ptr<std::string>& payload);
     void asyncResp(const FDS_ProtocolInterface::AsyncHdr& header,
             const std::string& payload) override;
     void asyncResp(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
@@ -106,6 +112,7 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
         int minor;
         auto resp_hdr = NetMgr::ep_swap_header(req_hdr);
         resp_hdr.msg_type_id = msgTypeId;
+        SVCPERF(resp_hdr.rspSerStartTs = util::getTimeStampNanos());
 
         bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
         bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
@@ -125,12 +132,19 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
             GLOGERROR << "Null destination client: " << resp_hdr.msg_dst_uuid.svc_uuid;
             return;
         }
+        fiu_do_on("svc.use.lftp",
+                  gSvcRequestPool->getSvcSendThreadpool()->\
+                  scheduleWithAffinity(ep->getAffinity(), \
+                                       &SvcRequestIf::sendRespWork, \
+                                       ep, resp_hdr, buffer); \
+                  return;);
 
         // TODO(Rao): Enable this code instead of the try..catch.  I was getting
         // a compiler error when I enabled the following code.
         // NET_SVC_RPC_CALL(ep, client, fpi::BaseAsyncSvcClient::asyncResp,
         // resp_hdr, buffer->getBufferAsString());
         try {
+            SVCPERF(resp_hdr.rspSendStartTs = util::getTimeStampNanos());
             ep->svc_rpc<fpi::BaseAsyncSvcClient>()->\
                 asyncResp(resp_hdr, buffer->getBufferAsString());
         } catch(std::exception &e) {

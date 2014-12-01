@@ -5,8 +5,6 @@ user_incl_dir    := .. ../include  $(topdir)/access-mgr/stor-hvisor $(topdir)
 user_ragel       := am-urls.rl
 user_clean       := am-urls.cpp
 user_cpp         :=               \
-    am-engine.cpp \
-    am-plugin.cpp \
     s3connector.cpp \
     atmos-connector.cpp \
     http_utils.cpp \

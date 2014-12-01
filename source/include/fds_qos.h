@@ -333,7 +333,12 @@ namespace fds {
                     // TODO(Sean):
                     // atomic read  in a tight look can potentially saturate the memory bus.
                     // May need to revisit this.
-                    n_pios = atomic_load(&num_pending_ios);
+                    //
+                    // n_pios = atomic_load(&num_pending_ios);
+                    //
+                    // Previous line was original.  Relaxing the memory order to relieve
+                    // stress on memory bus.
+                    n_pios = num_pending_ios.load(std::memory_order_relaxed);
 
                     if (shuttingDown == true) {
                         return err;
@@ -354,7 +359,12 @@ namespace fds {
                         // TODO(Sean):
                         // atomic read  in a tight look can potentially saturate the memory bus.
                         // May need to revisit this.
-                        n_oios = atomic_load(&num_outstanding_ios);
+                        //
+                        // n_oios = atomic_load(&num_outstanding_ios);
+                        //
+                        // Previous line was original.  Relaxing the memory order to relieve
+                        // stress on memory bus.
+                        n_oios = num_outstanding_ios.load(std::memory_order_relaxed);
                         if (n_oios < max_outstanding_ios) {
                             break;
                         }

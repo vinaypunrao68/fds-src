@@ -92,7 +92,14 @@ class FDSServices(object):
 
     def create_volume(self, domain, volume):
         try:
-            self.cs.createVolume(domain, volume['name'], VolumeSettings(4096, VolumeType.BLOCK, volume['size'] * (1024 ** 3)))
+            # FIXME: Hack for now
+            self.cs.createVolume(domain,
+                                 volume['name'],
+                                 VolumeSettings(4096,
+                                                VolumeType.BLOCK,
+                                                volume['size'] * (1024 ** 3),
+                                                0), # cont Commit Log Retention, wtf?
+                                 0) # Tenant ID, default to admin
         except ApiException as ex:
             if ex.errorCode != 3:
                 raise

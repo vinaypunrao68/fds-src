@@ -15,10 +15,36 @@ agents = ["am", "xdi", "sm", "dm", "sm", "om"]
 config_notes = {
     "s3:get:amcache" : "S3 100% GET (50 connections) - 100% AM cache hit",
     "s3:get:amcache0" : "S3 100% GET (50 connections) - 100% AM cache miss - 100% SM and DM cache hit",
+    "s3_java:get:amcache0" : "S3 100% GET Java Tester - 100% AM cache miss - 100% SM and DM cache hit",
+    "s3_java:get:amcache" : "S3 100% GET Java Tester - 100% AM cache hit",
     "s3:put:amcache0" : "S3 100% PUT (30 connections) - 100% AM cache miss - 100% SM and DM cache hit",
     "fio:randread:amcache" : "Block (FIO) 100% Random reads (50 connections) - 100% AM cache size is 1200 entries",
     "fio:randread:amcache0" : "Block (FIO) 100% Random reads (50 connections) - 100% AM cache miss - 100% SM and DM cache hit"
 }
+
+def compute_pareto_optimal(iops, lat):
+    assert len(iops) == len(lat)
+    n = len(iops)
+    vector = []
+    for i in range(n):
+        vector.append(lat[i]/iops[i])
+    m = min(vector)
+    m_i = vector.index(m)
+    return iops[m_i], lat[m_i]
+
+def generate_lat_bw(iops, lat):
+    filename = "latbw.png"
+    title = "Latency Bandwidth"
+    xlabel = "IOPs"
+    ylabel = "Latency [ms]"
+    plt.figure()
+    plt.scatter(iops, lat)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.savefig(filename)
+    return filename
+
 
 def generate_scaling_iops(conns, iops):
     filename = "scaling_iops.png"
@@ -55,7 +81,7 @@ def generate_cpus(conns, cpus):
     filename = "scaling_cpus.png"
     title = "CPU"
     xlabel = "Connections"
-    ylabel = "Latency [ms]"
+    ylabel = "CPU Load [%]"
     plt.figure()
     for k,v in cpus.iteritems():
         plt.plot(conns, v, label=k)
@@ -67,7 +93,7 @@ def generate_cpus(conns, cpus):
     return filename
 
 
-def mail_success(recipients, images):
+def mail_success(recipients, images, label):
     # githead = get_githead(directory)
     # gitbranch = get_gitbranch(directory)
     # hostname = get_hostname()
@@ -84,7 +110,7 @@ def mail_success(recipients, images):
 #Confluence: https://formationds.atlassian.net/wiki/display/ENG/InfluxDB+for+Performance"
     preamble = "START"
     epilogue = "END"
-    text = "Performance Regressions"
+    text = "Performance Regressions - %s" % label
     with open(".mail", "w") as _f:
         _f.write(preamble + "\n")
         _f.write("\n")
@@ -96,7 +122,7 @@ def mail_success(recipients, images):
     attachments = ""
     for e in images:
         attachments += "-a %s " % e
-    cmd = "cat .mail | mail -s 'performance regression' %s %s" % (attachments, recipients)
+    cmd = "cat .mail | mail -s 'performance regression - %s' %s %s" % (label, attachments, recipients)
     print cmd
     os.system(cmd)
 
@@ -166,7 +192,7 @@ if __name__ == "__main__":
     test_db = sys.argv[1]
     tags = sys.argv[2].split(",")
     recipients = sys.argv[3]
-    recipients2 = "matteo@formationds.com"
+    recipients2 = "matteo@formationds.com,andrew@formationds.com"
     # directory = sys.argv[1]
     # test_id = int(sys.argv[2])
     # mode = sys.argv[3]
@@ -175,12 +201,10 @@ if __name__ == "__main__":
     db = dataset.connect('sqlite:///%s' % test_db)
     summary = {}
     for t in tags:
+        label = t
         mode, mix, config = t.split(":")
         if mode == "s3" and mix == "get":
             experiments = db["experiments"].find(tag=t)
-
-            #for e in experiments:
-            #    print e
             experiments = [ x for x in experiments]
             experiments = filter(lambda x : x["type"] == "GET", experiments)
             experiments = sorted(experiments, key = lambda k : int(k["threads"]))
@@ -213,7 +237,46 @@ if __name__ == "__main__":
             images.append(generate_scaling_iops(conns, iops))
             images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
             images.append(generate_cpus(conns, cpus))
-            mail_success(recipients2, images)
+            images.append(generate_lat_bw(iops, lat))
+            mail_success(recipients2, images, label)
+        if mode == "s3_java" and mix == "get":
+            experiments = db["experiments"].find(tag=t)
+            experiments = [ x for x in experiments]
+            experiments = filter(lambda x : x["type"] == "GET", experiments)
+            experiments = sorted(experiments, key = lambda k : int(k["outstanding"]))
+            #iops = [x["th"] for x in experiments]    
+            iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
+            iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
+            am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
+            #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
+            sm_lat = []
+            #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
+            dm_lat = []
+            java_lat = [x["javalat"] for x in experiments]
+            cpus = {}
+            for a in agents:
+                cpus[a] = [x[a+":cpu"] for x in experiments]
+            iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
+            lat = [x["lat"] for x in experiments]    
+            #print [x["nreqs"] for x in experiments]    
+            conns = [x["outstanding"] for x in experiments]    
+
+            #max_iops = max(iops)
+            iops_50 = iops[-1]
+            lat_50 = lat[-1]
+            summary[t] = {"iops" : iops_50, "lat" : lat_50}
+
+            #print [x["type"] for x in experiments]    
+            # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
+            
+            # print "Pareto optimal:", compute_pareto_optimal(iops, lat)
+            images = [] 
+            images.append(generate_scaling_iops(conns, iops))
+            images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+            images.append(generate_cpus(conns, cpus))
+            images.append(generate_lat_bw(iops, lat))
+            mail_success(recipients2, images, label)
+
         if mode == "s3" and mix == "put":
             experiments = db["experiments"].find(tag=t)
 
@@ -251,7 +314,8 @@ if __name__ == "__main__":
             images.append(generate_scaling_iops(conns, iops))
             images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
             images.append(generate_cpus(conns, cpus))
-            mail_success(recipients2, images)
+            images.append(generate_lat_bw(iops, lat))
+            mail_success(recipients2, images, label)
         elif mode == "fio":
             experiments = db["experiments"].find(tag=t)
 
@@ -286,12 +350,12 @@ if __name__ == "__main__":
 
             #print [x["type"] for x in experiments]    
             # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
-            
             images = [] 
             images.append(generate_scaling_iops(conns, iops))
             images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
             images.append(generate_cpus(conns, cpus))
-            mail_success(recipients2, images)
+            images.append(generate_lat_bw(iops, lat))
+            mail_success(recipients2, images, label)
  
     mail_summary(summary)
     

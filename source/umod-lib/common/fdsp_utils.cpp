@@ -48,6 +48,13 @@ assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs)
     return lhs;
 }
 
+void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header)
+{
+    auto temp = header->msg_src_uuid;
+    header->msg_src_uuid = header->msg_dst_uuid;
+    header->msg_dst_uuid = temp;
+}
+
 std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
 {
     std::ostringstream oss;
