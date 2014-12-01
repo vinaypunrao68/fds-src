@@ -269,7 +269,7 @@ class CounterServerPull:
                 if svc != "om" and svc != "None" and re.match("10\.1\.10\.\d+", ip):
                     try:
                         cntrs = svc_map.client(nodeid, svc).getCounters('*')
-                    except TApplicationException:
+                    except:
                         print "Counters failed for", svc
                         cntr = {}
                     for c, v in cntrs.iteritems():

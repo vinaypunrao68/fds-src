@@ -3,7 +3,7 @@ version: 0.6.0
 description: sets up configs & limits for coredumps
 
 depends: 
-  - fds-systemdir
+  - fds-platform
   - fds-pkghelper (>= 0.4)
 
 install-control: fds-coredump.control

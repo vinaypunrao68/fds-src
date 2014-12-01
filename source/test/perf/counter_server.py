@@ -22,7 +22,7 @@ class FdsUDPHandler(SocketServer.BaseRequestHandler):
         os.close(self.server.datafile)
 
 if __name__ == "__main__":
-    HOST, PORT = "10.1.10.139", 2003
+    HOST, PORT = "10.1.10.222", 2003
     server = SocketServer.UDPServer((HOST, PORT), FdsUDPHandler)
     fo = open("counters.dat","w")
     fh = fo.fileno()
