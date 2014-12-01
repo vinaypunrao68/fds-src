@@ -25,7 +25,9 @@ namespace fds
     {
         public:
             NodePlatform();
-            virtual ~NodePlatform() {}
+            virtual ~NodePlatform()
+            {
+            }
 
             /**
              * Module methods
@@ -35,7 +37,7 @@ namespace fds
             virtual void mod_enable_service() override;
             virtual void mod_shutdown() override;
 
-            void        plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg);
+            void plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg);
             inline void plf_bind_process(NodePlatformProc *ptr)
             {
                 plf_process = ptr;
@@ -48,9 +50,9 @@ namespace fds
             virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler() override;
 
         protected:
-            NodePlatformProc    *plf_process;
-            DiskPlatModule      *disk_ctrl;
-            boost::shared_ptr<BaseAsyncSvcHandler> async_svc_handler;
+            NodePlatformProc                         *plf_process;
+            DiskPlatModule                           *disk_ctrl;
+            boost::shared_ptr<BaseAsyncSvcHandler>    async_svc_handler;
 
             virtual void plf_bind_om_node();
     };
@@ -58,12 +60,15 @@ namespace fds
     /**
      * Platform daemon module controls share memory segments.
      */
-    extern NodeShmRWCtrl         gl_NodeShmRWCtrl;
+    extern NodeShmRWCtrl    gl_NodeShmRWCtrl;
 
     class NodeShmRWCtrl : public NodeShmCtrl
     {
         public:
-            virtual ~NodeShmRWCtrl() {}
+            virtual ~NodeShmRWCtrl()
+            {
+            }
+
             explicit NodeShmRWCtrl(const char *name);
 
             static ShmObjRWKeyUint64 *shm_am_rw_inv()
@@ -109,11 +114,11 @@ namespace fds
             virtual void mod_shutdown() override;
 
         protected:
-            ShmObjRWKeyUint64       *shm_am_rw;
-            ShmObjRWKeyUint64       *shm_node_rw;
-            ShmObjRW                *shm_uuid_rw;
-            ShmObjRW                *shm_dlt_rw;
-            ShmObjRW                *shm_dmt_rw;
+            ShmObjRWKeyUint64   *shm_am_rw;
+            ShmObjRWKeyUint64   *shm_node_rw;
+            ShmObjRW            *shm_uuid_rw;
+            ShmObjRW            *shm_dlt_rw;
+            ShmObjRW            *shm_dmt_rw;
 
             void shm_init_queue(node_shm_queue_t *queue);
             void shm_init_header(node_shm_inventory_t *hdr);
@@ -121,7 +126,7 @@ namespace fds
             virtual void shm_setup_queue() override;
     };
 
-    extern NodePlatform gl_NodePlatform;
+    extern NodePlatform    gl_NodePlatform;
 
     class NodePlatformProc : public PlatformProcess
     {
@@ -143,7 +148,7 @@ namespace fds
         private:
             /// Count of domain AMs on this platform
             // TODO(Andrew): Should be persisted...
-            fds_uint32_t amInstanceCount;
+            fds_uint32_t    amInstanceCount;
     };
 }  // namespace fds
 

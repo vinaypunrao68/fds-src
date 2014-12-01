@@ -11,43 +11,43 @@
 
 namespace fds
 {
-    const int DL_UUID_BYTE_LEN             = 30;
-    const int DL_MAJOR                     = 1;
-    const int DL_MINOR                     = 0;
-    const int DL_SECTOR_SZ                 = 512;
-    const int DL_SECTOR_BEGIN              = 64;
-    const int DL_PAGE_SZ                   = (8 << 10);
-    const int DL_PAGE_SECT_SZ              = (DL_PAGE_SZ / DL_SECTOR_SZ);
-    const int DL_INVAL_DISK_INDEX          = 0xffff;
+    const int    DL_UUID_BYTE_LEN             = 30;
+    const int    DL_MAJOR                     = 1;
+    const int    DL_MINOR                     = 0;
+    const int    DL_SECTOR_SZ                 = 512;
+    const int    DL_SECTOR_BEGIN              = 64;
+    const int    DL_PAGE_SZ                   = (8 << 10);
+    const int    DL_PAGE_SECT_SZ              = (DL_PAGE_SZ / DL_SECTOR_SZ);
+    const int    DL_INVAL_DISK_INDEX          = 0xffff;
 
     /**
      * On-disk format.  Keep this structure size at 128-byte.
      */
     typedef struct __attribute__((__packed__))
     {
-        fds_uint32_t             dl_chksum;
-        fds_uint32_t             dl_magic;
-        fds_uint32_t             dl_sector_beg;
-        fds_uint32_t             dl_sector_end;
+        fds_uint32_t    dl_chksum;
+        fds_uint32_t    dl_magic;
+        fds_uint32_t    dl_sector_beg;
+        fds_uint32_t    dl_sector_end;
 
         /* 16-byte offset. */
-        fds_uint16_t             dl_major;
-        fds_uint16_t             dl_minor;
-        fds_uint16_t             dl_sect_sz;           /**< sector unit size in byte.     */
-        fds_uint16_t             dl_total_sect;        /**< total lenght in sector size.  */
+        fds_uint16_t    dl_major;
+        fds_uint16_t    dl_minor;
+        fds_uint16_t    dl_sect_sz;          /**< sector unit size in byte.     */
+        fds_uint16_t    dl_total_sect;       /**< total lenght in sector size.  */
 
-        fds_uint16_t             dl_used_sect;         /**< number sectors consumed.      */
-        fds_uint16_t             dl_recovery_mode;     /**< value is dlabel_recovery_e.   */
-        fds_uint16_t             dl_num_quorum;
-        fds_uint16_t             dl_my_disk_index;
+        fds_uint16_t    dl_used_sect;        /**< number sectors consumed.      */
+        fds_uint16_t    dl_recovery_mode;    /**< value is dlabel_recovery_e.   */
+        fds_uint16_t    dl_num_quorum;
+        fds_uint16_t    dl_my_disk_index;
 
         /*  32-byte offset. */
-        fds_uint32_t             dl_quorum_seq;
-        fds_uint8_t              dl_disk_uuid[DL_UUID_BYTE_LEN];
-        fds_uint8_t              dl_node_uuid[DL_UUID_BYTE_LEN];
+        fds_uint32_t    dl_quorum_seq;
+        fds_uint8_t     dl_disk_uuid[DL_UUID_BYTE_LEN];
+        fds_uint8_t     dl_node_uuid[DL_UUID_BYTE_LEN];
 
         /* 96-byte offset */
-        fds_uint8_t              dl_rsvd1[32];
+        fds_uint8_t     dl_rsvd1[32];
     } dlabel_hdr_t;
 
     /**
@@ -78,8 +78,8 @@ namespace fds
      */
     typedef struct __attribute__((__packed__))
     {
-        fds_uint16_t dl_idx;
-        fds_uint8_t  dl_uuid[DL_UUID_BYTE_LEN];
+        fds_uint16_t    dl_idx;
+        fds_uint8_t     dl_uuid[DL_UUID_BYTE_LEN];
     } dlabel_uuid_t;
 
     /**
@@ -87,18 +87,18 @@ namespace fds
      */
     typedef struct __attribute__((__packed__))
     {
-        fds_uint32_t   dl_chksum;
-        fds_uint32_t   dl_magic;
-        fds_uint16_t   dl_rec_type;           /**< value is dlabel_type_e.      */
-        fds_uint16_t   dl_rec_cnt;            /**< number of entries.           */
-        fds_uint16_t   dl_byte_len;           /**< size of this record in byte. */
-        fds_uint16_t   dl_rsvd;
+        fds_uint32_t    dl_chksum;
+        fds_uint32_t    dl_magic;
+        fds_uint16_t    dl_rec_type;          /**< value is dlabel_type_e.      */
+        fds_uint16_t    dl_rec_cnt;           /**< number of entries.           */
+        fds_uint16_t    dl_byte_len;          /**< size of this record in byte. */
+        fds_uint16_t    dl_rsvd;
     } dlabel_rec_t;
 
     typedef struct __attribute__((__packed__))
     {
-        dlabel_rec_t             dl_disk_rec;
-        dlabel_uuid_t            dl_disk_uuids[0];
+        dlabel_rec_t     dl_disk_rec;
+        dlabel_uuid_t    dl_disk_uuids[0];
     } dlabel_disk_uuid_t;
 
     cc_assert(DL0, sizeof(dlabel_hdr_t) == 128);
@@ -110,8 +110,8 @@ namespace fds
      */
     typedef struct
     {
-        fds_uint16_t             dl_disk_idx;
-        ResourceUUID             dl_disk_uuid;
+        fds_uint16_t dl_disk_idx;
+        ResourceUUID dl_disk_uuid;
     } dmem_disk_uuid_t;
 
     class DiskLabelMgr;
@@ -127,11 +127,11 @@ namespace fds
         protected:
             friend class DiskLabelMgr;
 
-            ChainLink          dl_link;
-            dlabel_hdr_t       *dl_label;
-            dlabel_disk_uuid_t *dl_disk_uuids;
-            DiskUuidArray      dl_uuids;
-            PmDiskObj::pointer dl_owner;
+            ChainLink             dl_link;
+            dlabel_hdr_t         *dl_label;
+            dlabel_disk_uuid_t   *dl_disk_uuids;
+            DiskUuidArray         dl_uuids;
+            PmDiskObj::pointer    dl_owner;
 
             void dsk_label_fixup_header();
 
@@ -178,8 +178,8 @@ namespace fds
     class DiskLabelOp : public DiskObjIter
     {
         protected:
-            dlabel_op_e  dl_op;
-            DiskLabelMgr *dl_mgr;
+            dlabel_op_e     dl_op;
+            DiskLabelMgr   *dl_mgr;
 
         public:
             explicit DiskLabelOp(dlabel_op_e op, DiskLabelMgr *mgr);
@@ -194,18 +194,18 @@ namespace fds
     class DiskLabelMgr
     {
         protected:
-            DiskLabel     *dl_master;
-            ChainList     dl_labels;
-            int           dl_total_disks;
-            int           dl_valid_labels;
-            fds_mutex     dl_mtx;
+            DiskLabel   *dl_master;
+            ChainList    dl_labels;
+            int          dl_total_disks;
+            int          dl_valid_labels;
+            fds_mutex    dl_mtx;
 
             /**
              * Temp construct to build a map file for PL to read the disk mapping.
              */
-            std::ofstream *dl_map;
+            std::ofstream   *dl_map;
 
-       public:
+        public:
             DiskLabelMgr();
             virtual ~DiskLabelMgr();
 

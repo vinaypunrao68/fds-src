@@ -40,9 +40,9 @@ namespace fds
             friend class PmDiskObj;
             friend class PmDiskInventory;
 
-            std::string               dsk_blk_path;
-            fds_disk_type_t           dsk_type;
-            fds_tier_type_e           dsk_tier;
+            std::string        dsk_blk_path;
+            fds_disk_type_t    dsk_type;
+            fds_tier_type_e    dsk_tier;
 
         public:
             explicit DiskCommon(const std::string &blk);
@@ -64,22 +64,22 @@ namespace fds
             friend class PmDiskInventory;
             friend std::ostream &operator<< (std::ostream &, fds::PmDiskObj::pointer obj);
 
-            ChainLink                 dsk_part_link;      /**< link to dsk_partition list. */
-            ChainLink                 dsk_disc_link;      /**< link to discovery list.     */
-            ChainList                 dsk_part_head;      /**< sda -> { sda1, sda2... }    */
-                                                      /**< /dev/sda is in rs_name.     */
-            std::string               dsk_mount_pt;       /**< PL's mount point.           */
-            const char               *dsk_raw_path;
-            int                       dsk_raw_plen;
-            int                       dsk_part_idx;
-            int                       dsk_part_cnt;
-            fds_uint64_t              dsk_cap_gb;
+            ChainLink             dsk_part_link;     /**< link to dsk_partition list. */
+            ChainLink             dsk_disc_link;     /**< link to discovery list.     */
+            ChainList             dsk_part_head;     /**< sda -> { sda1, sda2... }    */
+            /**< /dev/sda is in rs_name.     */
+            std::string           dsk_mount_pt;      /**< PL's mount point.           */
+            const char           *dsk_raw_path;
+            int                   dsk_raw_plen;
+            int                   dsk_part_idx;
+            int                   dsk_part_cnt;
+            fds_uint64_t          dsk_cap_gb;
 
-            dev_t                     dsk_my_devno;
-            PmDiskObj::pointer        dsk_parent;
-            struct udev_device       *dsk_my_dev;
-            DiskCommon               *dsk_common;
-            DiskLabel                *dsk_label;
+            dev_t                 dsk_my_devno;
+            PmDiskObj::pointer    dsk_parent;
+            struct udev_device   *dsk_my_dev;
+            DiskCommon           *dsk_common;
+            DiskLabel            *dsk_label;
 
         public:
             PmDiskObj();
@@ -109,7 +109,7 @@ namespace fds
 
             inline DiskLabel *dsk_xfer_label()
             {
-                DiskLabel *ret = dsk_label; dsk_label = NULL; return ret;
+                DiskLabel   *ret = dsk_label; dsk_label = NULL; return ret;
             }
 
             inline fds_uint64_t dsk_capacity_gb()
@@ -146,7 +146,7 @@ namespace fds
              * @param b_path (i) - common path to the block device (e.g /devices/pci...)
              * @param d_path (i) - the device path from dev (e.g. /dev/sda1...)
              */
-            virtual void dsk_update_device(struct udev_device *dev, PmDiskObj::pointer  ref,
+            virtual void dsk_update_device(struct udev_device *dev, PmDiskObj::pointer ref,
                                            const std::string  &b_path, const std::string  &d_path);
             /**
              * Iterate the parent object for all sub devices attached to it.
@@ -162,12 +162,12 @@ namespace fds
     class PmDiskInventory : public DiskInventory
     {
         protected:
-            DiskDevMap               dsk_dev_map;
-            uint32_t                 dsk_qualify_cnt;    /**< disks that can run FDS SW.   */
-            ChainList                dsk_discovery;
-            ChainList                dsk_prev_inv;       /**< previous inventory list.     */
-            ChainList                dsk_curr_inv;       /**< disks that were enumerated.  */
-            DiskPartitionMgr        *dsk_partition;
+            DiskDevMap          dsk_dev_map;
+            uint32_t            dsk_qualify_cnt;   /**< disks that can run FDS SW.   */
+            ChainList           dsk_discovery;
+            ChainList           dsk_prev_inv;      /**< previous inventory list.     */
+            ChainList           dsk_curr_inv;      /**< disks that were enumerated.  */
+            DiskPartitionMgr   *dsk_partition;
 
             Resource *rs_new(const ResourceUUID &uuid);
 
@@ -180,7 +180,7 @@ namespace fds
 
             /**
              * Return true if the discovered inventory needs disk simulation.
-            */
+             */
             bool dsk_need_simulation();
 
             virtual PmDiskObj::pointer dsk_get_info(const ResourceUUID &uuid)
@@ -217,14 +217,14 @@ namespace fds
     class DiskPlatModule : public Module
     {
         protected:
-            PmDiskInventory::pointer  dsk_devices;
-            PmDiskInventory::pointer  dsk_inuse;
-            struct udev              *dsk_ctrl;
-            struct udev_enumerate    *dsk_enum;
-            struct udev_monitor      *dsk_mon;
-            FileDiskInventory        *dsk_sim;
-            DiskLabelMgr             *label_manager;
-            struct pollfd            pollfds[1];
+            PmDiskInventory::pointer    dsk_devices;
+            PmDiskInventory::pointer    dsk_inuse;
+            struct udev                *dsk_ctrl;
+            struct udev_enumerate      *dsk_enum;
+            struct udev_monitor        *dsk_mon;
+            FileDiskInventory          *dsk_sim;
+            DiskLabelMgr               *label_manager;
+            struct pollfd               pollfds[1];
 
             void dsk_discover_mount_pts();
 
@@ -255,7 +255,7 @@ namespace fds
             virtual void mod_shutdown();
     };
 
-    extern DiskPlatModule gl_DiskPlatMod;
+    extern DiskPlatModule    gl_DiskPlatMod;
 
     // -------------------------------------------------------------------------------------
     // Development simulation
@@ -267,8 +267,8 @@ namespace fds
     class FileDiskInventory : public PmDiskInventory
     {
         protected:
-            ChainList                dsk_files;
-            const char              *dsk_devdir;
+            ChainList     dsk_files;
+            const char   *dsk_devdir;
 
         public:
             explicit FileDiskInventory(const char *dir);
@@ -289,8 +289,8 @@ namespace fds
         protected:
             friend class FileDiskInventory;
 
-            int                      dsk_fd;
-            const char              *dsk_dir;
+            int           dsk_fd;
+            const char   *dsk_dir;
 
         public:
             explicit FileDiskObj(const char *dir);

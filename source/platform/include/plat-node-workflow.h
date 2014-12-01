@@ -18,7 +18,9 @@ namespace fds
             PlatWorkItem(fpi::SvcUuid &peer, fpi::DomainID &did,
                          bo::intrusive_ptr<PmAgent> owner,
                          FsmTable::pointer tab, NodeWorkFlow *mod)
-                : NodeWorkItem(peer, did, owner, tab, mod) {}
+                : NodeWorkItem(peer, did, owner, tab, mod)
+            {
+            }
 
             /*
              * Generic action functions; provided by derrived class.
@@ -34,16 +36,16 @@ namespace fds
     };
 
     class PlatWorkFlow;
-    extern PlatWorkFlow          gl_PlatWorkFlow;
+    extern PlatWorkFlow    gl_PlatWorkFlow;
 
     class PlatWorkFlow : public NodeWorkFlow
     {
         public:
             /* Singleton access. */
             static PlatWorkFlow *nd_workflow_sgt()
-             {
-                 return &gl_PlatWorkFlow;
-             }
+            {
+                return &gl_PlatWorkFlow;
+            }
 
             /* Module methods. */
             int  mod_init(SysParams const *const param) override;
@@ -54,8 +56,8 @@ namespace fds
         protected:
             /* Factory method. */
             virtual NodeWorkItem::ptr wrk_item_alloc(fpi::SvcUuid               &peer,
-                           bo::intrusive_ptr<PmAgent>  owner,
-                           bo::intrusive_ptr<DomainContainer> domain);
+                                                     bo::intrusive_ptr<PmAgent>  owner,
+                                                     bo::intrusive_ptr<DomainContainer> domain);
     };
 }  // namespace fds
 

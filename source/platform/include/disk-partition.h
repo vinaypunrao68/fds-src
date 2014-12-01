@@ -22,11 +22,11 @@ namespace fds
         protected:
             friend class DiskPartitionMgr;
 
-            ChainLink                 dsk_link;
-            PmDiskObj::pointer        dsk_obj;
-            DiskPartitionMgr         *dsk_mgr;
-            PedDevice                *dsk_pdev;
-            PedDisk                  *dsk_pe;
+            ChainLink             dsk_link;
+            PmDiskObj::pointer    dsk_obj;
+            DiskPartitionMgr     *dsk_mgr;
+            PedDevice            *dsk_pdev;
+            PedDisk              *dsk_pe;
 
         public:
             DiskPartition();
@@ -50,8 +50,8 @@ namespace fds
     class DiskOp : public DiskObjIter
     {
         protected:
-            disk_op_e                dsk_op;
-            DiskPartitionMgr        *dsk_mgr;
+            disk_op_e           dsk_op;
+            DiskPartitionMgr   *dsk_mgr;
 
         public:
             explicit DiskOp(disk_op_e op, DiskPartitionMgr *mgr);
@@ -66,8 +66,8 @@ namespace fds
     class DiskPartitionMgr : public DiskObjIter
     {
         protected:
-            ChainList                dsk_need_label;
-            fds_mutex                dsk_mtx;
+            ChainList    dsk_need_label;
+            fds_mutex    dsk_mtx;
 
         public:
             DiskPartitionMgr();

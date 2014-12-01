@@ -42,7 +42,7 @@ namespace fds
             void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle);
 
         protected:
-            PlatformdNetSvc         *plat_svc;
+            PlatformdNetSvc   *plat_svc;
     };
 
     class PlatformdNetSvc : public NetPlatSvc
@@ -76,9 +76,9 @@ namespace fds
             bo::shared_ptr<PlatNetSvcHandler> getPlatNetSvcHandler();
 
         protected:
-            EpPlatformdMod                    *plat_shm;
-            PlatformdPlugin::pointer           plat_plugin;
-            bo::shared_ptr<PlatformEpHandler>  plat_recv;
+            EpPlatformdMod                      *plat_shm;
+            PlatformdPlugin::pointer             plat_plugin;
+            bo::shared_ptr<PlatformEpHandler>    plat_recv;
     };
 
     /**
@@ -90,7 +90,9 @@ namespace fds
             typedef boost::intrusive_ptr<PlatAgent> pointer;
             typedef boost::intrusive_ptr<const PlatAgent> const_ptr;
 
-            virtual ~PlatAgent() {}
+            virtual ~PlatAgent()
+            {
+            }
             explicit PlatAgent(const NodeUuid &uuid);
 
             virtual void pda_register();
@@ -107,8 +109,12 @@ namespace fds
             typedef boost::intrusive_ptr<PlatAgentPlugin> pointer;
             typedef boost::intrusive_ptr<const PlatAgentPlugin> const_ptr;
 
-            virtual ~PlatAgentPlugin() {}
-            explicit PlatAgentPlugin(NodeAgent::pointer agt) : NodeAgentEvt(agt) {}
+            virtual ~PlatAgentPlugin()
+            {
+            }
+            explicit PlatAgentPlugin(NodeAgent::pointer agt) : NodeAgentEvt(agt)
+            {
+            }
 
             void ep_connected() override;
             void ep_down() override;
@@ -121,10 +127,14 @@ namespace fds
         public:
             typedef boost::intrusive_ptr<PlatAgentContainer> pointer;
             typedef boost::intrusive_ptr<const PlatAgentContainer> const_ptr;
-            PlatAgentContainer() : PmContainer(fpi::FDSP_PLATFORM) {}
+            PlatAgentContainer() : PmContainer(fpi::FDSP_PLATFORM)
+            {
+            }
 
         protected:
-            virtual ~PlatAgentContainer() {}
+            virtual ~PlatAgentContainer()
+            {
+            }
             virtual Resource *rs_new(const ResourceUUID &uuid) override
             {
                 return new PlatAgent(uuid);
@@ -134,7 +144,7 @@ namespace fds
     /**
      * Module plugin platformd's control vector.
      */
-    extern PlatformdNetSvc       gl_PlatformdNetSvc;
+    extern PlatformdNetSvc    gl_PlatformdNetSvc;
 
     /**
      * This class provides handler for platform RPC daemon.
@@ -156,13 +166,13 @@ namespace fds
             void getDomainNodes(fpi::DomainNodes &ret, fpi::DomainNodesPtr &req);
 
             virtual void NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
-                            boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &msg);
+                                         boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &msg);
 
             virtual void NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
-                            boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg);
+                                         boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg);
 
         protected:
-            PlatformdNetSvc         *net_plat;
+            PlatformdNetSvc   *net_plat;
     };
 }  // namespace fds
 
