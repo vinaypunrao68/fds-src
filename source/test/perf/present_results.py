@@ -12,15 +12,35 @@ import matplotlib.pyplot as plt
 
 agents = ["am", "xdi", "sm", "dm", "sm", "om"]
 
-config_notes = {
-    "s3:get:amcache" : "S3 100% GET (50 connections) - 100% AM cache hit",
-    "s3:get:amcache0" : "S3 100% GET (50 connections) - 100% AM cache miss - 100% SM and DM cache hit",
-    "s3_java:get:amcache0" : "S3 100% GET Java Tester - 100% AM cache miss - 100% SM and DM cache hit",
-    "s3_java:get:amcache" : "S3 100% GET Java Tester - 100% AM cache hit",
-    "s3:put:amcache0" : "S3 100% PUT (30 connections) - 100% AM cache miss - 100% SM and DM cache hit",
-    "fio:randread:amcache" : "Block (FIO) 100% Random reads (50 connections) - 100% AM cache size is 1200 entries",
-    "fio:randread:amcache0" : "Block (FIO) 100% Random reads (50 connections) - 100% AM cache miss - 100% SM and DM cache hit"
+test_types = {"s3" : "S3 tester",
+                "s3_java" : "S3 java tester",
+                "fio" : "Block (FIO)"
+                }
+
+mixes = { "get" : "100% GET",
+          "put" : "100% PUT",
+          "read" : "100% seq read",
+          "write" : "100% seq write",
+          "randread" : "100% random read",
+          "randwrite" : "100% random write",
+    }
+
+configs = {
+            "amcache" : "AM cache 100% hit",
+            "amcache0" : "AM cache 0% hit  - 100% SM and DM cache hit",
+            "amcache750" : "AM cache 75% hit  - 100% SM and DM cache hit",
 }
+
+def compile_config_notes():
+    config_notes = {}
+    for t, d1 in test_types.iteritems():
+        for m, d2 in mixes.iteritems():
+            for c, d3 in configs.iteritems():
+                key = t + ":" + m + ":" + c
+                config_notes[key] = d1 + " - " + d2 + " - " + d3
+    return config_notes
+
+config_notes = compile_config_notes()
 
 def compute_pareto_optimal(iops, lat):
     assert len(iops) == len(lat)
