@@ -95,10 +95,6 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
                        boost::shared_ptr<fpi::AbortBlobTxMsg>& abortBlbTx);
     void abortBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                          const Error &e, DmIoAbortBlobTx *req);
-    void setBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         boost::shared_ptr<fpi::SetBlobMetaDataMsg>& setBlobMD);
-    void setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                           const Error &e, DmIoSetBlobMetaData *req);
 
     void getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                            boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message);

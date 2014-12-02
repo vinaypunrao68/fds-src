@@ -775,6 +775,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_STAT_STREAM] = new dm::StatStreamHandler();
     handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler();
     handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler();
+    handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1284,22 +1285,6 @@ DataMgr::expungeObjectCb(QuorumSvcRequest* svcReq,
                          const Error& error,
                          boost::shared_ptr<std::string> payload) {
     DBG(GLOGDEBUG << "Expunge cb called");
-}
-
-void DataMgr::setBlobMetaDataSvc(void *io) {
-    Error err;
-    DmIoSetBlobMetaData *setBlbMetaReq = static_cast<DmIoSetBlobMetaData*>(io);
-    err = timeVolCat_->updateBlobTx(setBlbMetaReq->volId,
-                                    setBlbMetaReq->ioBlobTxDesc,
-                                    setBlbMetaReq->md_list);
-    if (!err.ok()) {
-        PerfTracer::incr(setBlbMetaReq->opReqFailedPerfEventType, setBlbMetaReq->getVolId(),
-                setBlbMetaReq->perfNameStr);
-    }
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*setBlbMetaReq);
-    PerfTracer::tracePointEnd(setBlbMetaReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(setBlbMetaReq->opReqLatencyCtx);
-    setBlbMetaReq->dmio_setmd_resp_cb(err, setBlbMetaReq);
 }
 
 void DataMgr::getVolumeMetaData(dmCatReq *io) {

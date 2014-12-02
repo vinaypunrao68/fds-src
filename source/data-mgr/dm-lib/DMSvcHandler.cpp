@@ -15,7 +15,6 @@ DMSvcHandler::DMSvcHandler()
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::AbortBlobTxMsg, abortBlobTx);
-    REGISTER_FDSP_MSG_HANDLER(fpi::SetBlobMetaDataMsg, setBlobMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, getVolumeMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamDeregistrationMsg, deregisterStreaming);
@@ -277,50 +276,6 @@ void DMSvcHandler::deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& async
     fpi::DeleteCatalogObjectRspMsg delcatRspMsg;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(DeleteCatalogObjectRspMsg), delcatRspMsg);
 
-    delete req;
-}
-
-void
-DMSvcHandler::setBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                              boost::shared_ptr<fpi::SetBlobMetaDataMsg>& setMDMsg)
-{
-    DBG(GLOGDEBUG << logString(*asyncHdr));  // << logString(*setMDMsg));
-
-    // TODO(xxx) implement uturn
-    if ((dataMgr->testUturnAll == true) ||
-        (dataMgr->testUturnSetMeta == true)) {
-        GLOGNOTIFY << "Uturn testing set metadata";
-        fds_panic("not implemented");
-    }
-
-    auto dmSetMDReq = new DmIoSetBlobMetaData(setMDMsg);
-
-    dmSetMDReq->dmio_setmd_resp_cb =
-            BIND_MSG_CALLBACK2(DMSvcHandler::setBlobMetaDataCb, asyncHdr);
-
-    PerfTracer::tracePointBegin(dmSetMDReq->opReqLatencyCtx);
-
-    Error err = dataMgr->qosCtrl->enqueueIO(dmSetMDReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmSetMDReq));
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue set metadata request "
-                << logString(*asyncHdr);  // << logString(*setMDMsg);
-        PerfTracer::tracePointEnd(dmSetMDReq->opReqLatencyCtx);
-        PerfTracer::incr(dmSetMDReq->opReqFailedPerfEventType, dmSetMDReq->getVolId(),
-                         dmSetMDReq->perfNameStr);
-        dmSetMDReq->dmio_setmd_resp_cb(err, dmSetMDReq);
-    }
-}
-
-void
-DMSvcHandler::setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                const Error &e, DmIoSetBlobMetaData *req)
-{
-    DBG(GLOGDEBUG << logString(*asyncHdr));
-    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    fpi::SetBlobMetaDataRspMsg setBlobMetaRsp;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(SetBlobMetaDataRspMsg),
-                  setBlobMetaRsp);
     delete req;
 }
 

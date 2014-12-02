@@ -223,10 +223,10 @@ TEST_F(DmUnitTest, SetMeta) {
         setBlobMeta->txId  = txnId;
         setBlobMeta->metaDataList.push_back(metaData);
         auto dmSetMDReq = new DmIoSetBlobMetaData(setBlobMeta);
-        dmSetMDReq->dmio_setmd_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+        dmSetMDReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
 
         TIMEDBLOCK("process") {
-            dataMgr->setBlobMetaDataSvc(dmSetMDReq);
+            dataMgr->handlers[FDS_SET_BLOB_METADATA]->handleQueueItem(dmSetMDReq);
             cb.wait();
         }
         EXPECT_EQ(ERR_OK, cb.e);

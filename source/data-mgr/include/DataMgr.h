@@ -195,9 +195,6 @@ struct DataMgr : Module, DmIoReqHandler {
 
                 /* End of new refactored DM message types */
 
-                case FDS_SET_BLOB_METADATA:
-                    threadPool->schedule(&DataMgr::setBlobMetaDataSvc, dataMgr, io);
-                    break;
                 case FDS_ABORT_BLOB_TX:
                     threadPool->schedule(&DataMgr::scheduleAbortBlobTxSvc, dataMgr, io);
                     break;
@@ -213,6 +210,7 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_DM_STAT_STREAM:
                 case FDS_COMMIT_BLOB_TX:
                 case FDS_CAT_UPD_ONCE:
+                case FDS_SET_BLOB_METADATA:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
@@ -360,7 +358,6 @@ struct DataMgr : Module, DmIoReqHandler {
     void updateFwdBlobCb(const Error &err, DmIoFwdCat *fwdCatReq);
     /* End of new refactored DM message handlers */
 
-    void setBlobMetaDataSvc(void *io);
     void scheduleDeleteCatObjSvc(void * _io);
     void scheduleAbortBlobTxSvc(void * _io);
     void setBlobMetaDataBackend(const dmCatReq *request);
