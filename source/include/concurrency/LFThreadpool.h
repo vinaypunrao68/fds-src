@@ -24,6 +24,10 @@ typedef std::function<void()> LockFreeTask;
 
 // futex provides a kernel facitility to wait for a value at a given address to
 // change.  This essentially manages the blocking queue in the kernel.
+// For some reason c++11 doesn't allow calls to libc wrapper futex().  So, 
+// need to create this a macro wrapper.  
+// futex() has return value, but the return value is not applicable to the 
+// how it is used.
 #define my_futex(_addr, _op, _val, _to, _addr2, _val3) \
         syscall(SYS_futex, _addr, _op, _val, _to, _addr2, _val3)
 
@@ -234,12 +238,6 @@ struct LFMQThreadpool {
         for (auto &w : workers) {
             w->finish();
         }
-#if 0
-        for (uint32_t i = 0; i < workers.size(); i++) {
-            workers[i]->join();
-            delete workers[i];
-        }
-#endif
     }
     template <class F, class... Args>
     void schedule(F&& f, Args&&... args)
