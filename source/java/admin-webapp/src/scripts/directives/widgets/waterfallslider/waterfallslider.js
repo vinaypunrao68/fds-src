@@ -20,6 +20,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             $scope.spinnerMax = 99;
             $scope.spinnerStep = 1;
             $scope.spinnerValue = 1;
+            $scope.dropdownRange = {};
             $scope.validPositions = [];
             
             var labelPane = {};
@@ -320,13 +321,19 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             $scope.setSliderValue = function( slider ){
                 
                 for ( var i = 0; i < $scope.range.length; i++ ){
-                    if ( $scope.range[i] === slider.realRange ){
+                    if ( $scope.range[i] === $scope.dropdownRange ){
                         slider.value.range = i;
                         break;
                     }
                 }
                 
                 slider.value.value = $scope.spinnerValue;
+                
+                // if it's at the end of a range, bump it to the first of the next.
+                if ( slider.value.value === $scope.range[slider.value.range].end && slider.value.range !== $scope.range.length - 1 ){
+                    slider.value.range++;
+                    slider.value.value = $scope.range[slider.value.range].start;
+                }
                 
                 slider.position = findPositionForValue( slider.value ).position;
                 fixStartPositions();
@@ -366,6 +373,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 var range = $scope.range[ slider.value.range ];
                 
                 $scope.editing = $index;
+                $scope.dropdownRange = $scope.range[slider.value.range];
                 $scope.spinnerValue = slider.value.value;
                 $scope.spinnerMax = range.end;
                 $scope.spinnerMin = range.start;
@@ -379,9 +387,9 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 determinePanelWidths();
                 createDropdownChoices();
                 
-                for ( var i = 0; i < $scope.sliders.length; i++ ){
-                    $scope.sliders[i].realRange = $scope.range[ $scope.sliders[i].value.range ];
-                }
+//                for ( var i = 0; i < $scope.sliders.length; i++ ){
+//                    $scope.sliders[i].realRange = $scope.range[ $scope.sliders[i].value.range ];
+//                }
                 
                 // needs second for the rendering to complete so that width calculations work properly.  Otherwise we're a variant number
                 // of partial pixels off
