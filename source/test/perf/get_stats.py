@@ -366,6 +366,7 @@ def main():
     counters.parse(c_file.read())
     c_file.close()
     table = {}
+    table["test_directory"] = options.directory
     table["tag"] = options.config_descr_tag
     # counters.get_cntr()
     print options.name,",",

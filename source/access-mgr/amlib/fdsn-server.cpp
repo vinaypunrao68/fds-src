@@ -13,7 +13,6 @@
 #include <fds_process.h>
 #include <fdsn-server.h>
 #include <responsehandler.h>
-#include <StorHvisorNet.h>
 
 namespace fds {
 

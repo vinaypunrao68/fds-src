@@ -12,7 +12,7 @@
 namespace fds
 {
 
-struct StorHvQosCtrl;
+class StorHvQosCtrl;
 
 struct PutBlobReq
     :   public AmRequest,

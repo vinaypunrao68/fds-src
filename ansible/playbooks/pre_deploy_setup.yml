@@ -7,30 +7,31 @@
     remote_user: ubuntu
     sudo: True
 
+    handlers:
+    -   name: restart ssh
+        service: name=ssh
+            state=restarted
+
     tasks:
 
     -   name: get some python on it
         raw: apt-get -y install python
-
--   name: Setup any pre-requisities on host
-    hosts: all
-    sudo: True
-
-    handlers:
-    -   name: restart ssh
-        service: name=ssh 
-            state=restarted
-
-    tasks:
 
     -   name: set the root password
         action: user name=root
             password=$1$M7e8qbJh$0nDQnqfGh5Ce80bbYKp5U/
 
     -   name: allow ssh root login
+        lineinfile: dest=/etc/ssh/sshd_config
+            regexp="PermitRootLogin without-password"
+            line="PermitRootLogin yes"
+            backrefs=yes
+            state=present
+
+    -   name: allow ssh root login... again
         lineinfile: dest=/etc/ssh/sshd_config 
-            regexp="PermitRootLogin without-password" 
-            line="PermitRootLogin yes" 
+            regexp="PermitRootLogin without-password"
+            line="PermitRootLogin yes"
             backrefs=yes
             state=present
         notify: restart ssh
