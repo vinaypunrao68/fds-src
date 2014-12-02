@@ -3,8 +3,13 @@
  */
 #include <net/BaseAsyncSvcHandler.h>
 #include <platform/net-plat-shared.h>
+
 #include <AMSvcHandler.h>
-#include <StorHvisorNet.h>
+
+#include "AmCache.h"
+#include "StorHvCtrl.h"
+#include "StorHvQosCtrl.h"
+#include "StorHvVolumes.h"
 
 extern StorHvCtrl * storHvisor;
 

@@ -23,7 +23,6 @@
 #include <fds_qos.h>
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
-#include <VolumeCatalogCache.h>
 #include "PerfTrace.h"
 
 /*
@@ -55,7 +54,6 @@ class StorHvVolume : public FDS_Volume , public HasLogger
     void readUnlock();
 
   public:
-    VolumeCatalogCache *vol_catalog_cache;
     int blkdev_minor;
     /* Reference to parent SH instance */
     StorHvCtrl *parent_sh;

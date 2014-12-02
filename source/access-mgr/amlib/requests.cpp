@@ -5,13 +5,17 @@
 #include <map>
 #include <string>
 
-#include "StorHvisorNet.h"
 #include "requests/requests.h"
 
-extern StorHvCtrl *storHvisor;
+#include "am-tx-mgr.h"
+#include "AmCache.h"
+#include "StorHvCtrl.h"
+#include "StorHvQosCtrl.h"
 
 namespace fds
 {
+
+class AmTxDescriptor;
 
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        const std::string& _volumeName,
@@ -169,7 +173,7 @@ void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl, const Error &e)
             // for a blob descriptor (e.g., size, version, etc..). Today this
             // is true for S3/Swift and doesn't get used anyways for block (so
             // the actual cached descriptor for block will not be correct).
-            AmTxDescriptor::ptr txDescriptor;
+            boost::shared_ptr<AmTxDescriptor> txDescriptor;
             fds_verify(storHvisor->amTxMgr->getTxDescriptor(*tx_desc,
                                                             txDescriptor) == ERR_OK);
             fds_verify(storHvisor->amCache->putTxDescriptor(txDescriptor) == ERR_OK);

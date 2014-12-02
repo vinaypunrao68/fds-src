@@ -655,6 +655,9 @@ class AmLoadProc : public AmAsyncResponseApi,
     boost::shared_ptr<apis::AsyncAmServiceResponseProcessor> processor;
 };
 
+}  // namespace fds
+
+using fds::AmLoadProc;
 AmLoadProc::unique_ptr amLoad;
 
 TEST(AccessMgr, updateBlobOnce) {
@@ -708,8 +711,6 @@ TEST(AccessMgr, getWithMeta) {
     amLoad->runAsyncTask(AmLoadProc::PUT);
     amLoad->runAsyncTask(AmLoadProc::GETWITHMETA);
 }
-
-}  // namespace fds
 
 int
 main(int argc, char **argv) {

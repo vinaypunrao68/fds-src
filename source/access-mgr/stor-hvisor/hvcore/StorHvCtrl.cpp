@@ -1,70 +1,37 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#include <iostream>
-#include <chrono>
-#include <cstdarg>
-#include <fds_module.h>
-#include <fds_timer.h>
-#include "StorHvisorNet.h"
-#include <hash/MurmurHash3.h>
 #include <fds_config.hpp>
 #include <fds_process.h>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include "NetSession.h"
+#include <dlt.h>
+#include <ObjectId.h>
+#include <net/net-service.h>
+#include <net/net-service-tmpl.hpp>
+#include <net/SvcRequestPool.h>
 #include <net/net_utils.h>
+#include <fdsp/DMSvc.h>
+#include <fdsp/SMSvc.h>
 #include <am-platform.h>
+#include <fdsp_utils.h>
 
+#include "requests/requests.h"
 
-StorHvCtrl *storHvisor;
+#include "lib/StatsCollector.h"
+#include "AmCache.h"
+#include "AmDispatcher.h"
+#include "AmProcessor.h"
+#include "am-tx-mgr.h"
+#include "StorHvCtrl.h"
+#include "StorHvDataPlace.h"
+#include "StorHvQosCtrl.h" 
+#include "StorHvVolumes.h"
 
 using namespace std;
 using namespace FDS_ProtocolInterface;
 
-void CreateSHMode(int argc,
-                  char *argv[],
-                  fds_bool_t test_mode,
-                  fds_uint32_t sm_port,
-                  fds_uint32_t dm_port)
-{
-
-    fds::Module *io_dm_vec[] = {
-        nullptr
-    };
-
-    fds::ModuleVector  io_dm(argc, argv, io_dm_vec);
-
-    if (test_mode == true) {
-        storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
-                                    StorHvCtrl::TEST_BOTH, sm_port, dm_port);
-    } else {
-        storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
-                                    StorHvCtrl::NORMAL);
-    }
-
-    /*
-     * Start listening for OM control messages
-     * Appropriate callbacks were setup by data placement and volume table objects
-     */
-    storHvisor->StartOmClient();
-    storHvisor->qos_ctrl->runScheduler();
-
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvisorNet - Created storHvisor " << storHvisor;
-}
-
-void DeleteStorHvisor()
-{
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << " StorHvisorNet -  Deleting the StorHvisor";
-    delete storHvisor;
-}
-
-void ctrlCCallbackHandler(int signal)
-{
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification) << "StorHvisorNet -  Received Ctrl C " << signal;
-    // SAN   storHvisor->_communicator->shutdown();
-    DeleteStorHvisor();
-}
-
+StorHvCtrl *storHvisor;
+std::atomic_uint nextIoReqId;
 
 StorHvCtrl::StorHvCtrl(int argc,
                        char *argv[],
@@ -120,7 +87,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     disableVcc =  config.get_abs<bool>("fds.am.testing.disable_vcc");
 
-    LOGNORMAL << "StorHvisorNet - Constructing the Storage Hvisor";
+    LOGNORMAL << "StorHvCtrl - Constructing the Storage Hvisor";
 
     struct ifaddrs *ifAddrStruct = NULL;
     struct ifaddrs *ifa          = NULL;
@@ -128,7 +95,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
-    LOGNOTIFY << "StorHvisorNet - My IP: " << net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
+    LOGNOTIFY << "StorHvCtrl - My IP: " << net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
 
     /*  Create the QOS Controller object */
     fds_uint32_t qos_threads = config.get<int>("qos_threads");
@@ -144,7 +111,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     /* create OMgr client if in normal mode */
     if (!toggleStandAlone) {
-        LOGNORMAL << "StorHvisorNet - Will create and initialize OMgrClient";
+        LOGNORMAL << "StorHvCtrl - Will create and initialize OMgrClient";
 
         /*
          * Pass 0 as the data path port since the SH is not
@@ -195,9 +162,9 @@ StorHvCtrl::StorHvCtrl(int argc,
     randNumGen = RandNumGenerator::ptr(new RandNumGenerator(RandNumGenerator::getRandSeed()));
 
     // Init the AM transaction manager
-    amTxMgr = AmTxManager::shared_ptr(new AmTxManager("AM Transaction Manager Module"));
+    amTxMgr = std::make_shared<AmTxManager>("AM Transaction Manager Module");
     // Init the AM cache manager
-    amCache = AmCache::shared_ptr(new AmCache("AM Cache Manager Module"));
+    amCache = std::make_shared<AmCache>("AM Cache Manager Module");
 
     // Init the dispatcher layer
     // TODO(Andrew): Decide if AM or AmProcessor should own
@@ -215,15 +182,15 @@ StorHvCtrl::StorHvCtrl(int argc,
                         amTxMgr,
                         amCache));
 
-    LOGNORMAL << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
+    LOGNORMAL << "StorHvCtrl - StorHvCtrl basic infra init successfull ";
 
     if (toggleStandAlone) {
         dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
-                                                    NULL);
+                                                         NULL);
     } else {
-        LOGNORMAL <<"StorHvisorNet -  Entring Normal Data placement mode";
+        LOGNORMAL <<"StorHvCtrl -  Entring Normal Data placement mode";
         dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
-                                                    om_client);
+                                                         om_client);
     }
 }
 
@@ -261,7 +228,7 @@ void StorHvCtrl::StartOmClient() {
      * Appropriate callbacks were setup by data placement and volume table objects
      */
     if (om_client) {
-        LOGNOTIFY << "StorHvisorNet - Started accepting control messages from OM";
+        LOGNOTIFY << "StorHvCtrl - Started accepting control messages from OM";
         om_client->registerNodeWithOM(&gl_AmPlatform);
     }
 }
@@ -309,4 +276,164 @@ void StorHvCtrl::initVolInfo(FDSP_VolumeInfoTypePtr vol_info,
     vol_info->placementPolicy = 0;
     vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
     vol_info->mediaPolicy = FDSP_MEDIA_POLICY_HDD;
+}
+
+/**
+ * Function called when volume waiting queue is drained.
+ * When it's called a volume has just been attached and
+ * we can call the callback to tell any waiters that the
+ * volume is now ready.
+ */
+void
+StorHvCtrl::attachVolume(AmRequest *amReq) {
+    // Get request from qos object
+    fds_verify(amReq != NULL);
+    AttachVolBlobReq *blobReq = static_cast<AttachVolBlobReq *>(amReq);
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->io_type == FDS_ATTACH_VOL);
+
+    LOGDEBUG << "Attach for volume " << blobReq->volume_name
+             << " complete. Notifying waiters";
+    blobReq->cb->call(ERR_OK);
+}
+
+void
+StorHvCtrl::enqueueAttachReq(const std::string& volumeName,
+                             CallbackPtr cb) {
+    LOGDEBUG << "Attach request for volume " << volumeName;
+
+    // check if volume is already attached
+    fds_volid_t volId = invalid_vol_id;
+    if (invalid_vol_id != (volId = vol_table->getVolumeUUID(volumeName))) {
+        LOGDEBUG << "Volume " << volumeName
+                 << " with UUID " << volId
+                 << " already attached";
+        cb->call(ERR_OK);
+        return;
+    }
+
+    // Create a noop request to put into wait queue
+    AttachVolBlobReq *blobReq = new AttachVolBlobReq(volId, volumeName, cb);
+
+    // Enqueue this request to process the callback
+    // when the attach is complete
+    vol_table->addBlobToWaitQueue(volumeName, blobReq);
+
+    fds_verify(sendTestBucketToOM(volumeName,
+                                  "",  // The access key isn't used
+                                  "") == ERR_OK); // The secret key isn't used
+}
+
+Error
+StorHvCtrl::pushBlobReq(AmRequest *blobReq) {
+    fds_verify(blobReq->magicInUse() == true);
+    Error err(ERR_OK);
+
+    PerfTracer::tracePointBegin(blobReq->e2e_req_perf_ctx); 
+    PerfTracer::tracePointBegin(blobReq->qos_perf_ctx); 
+
+    blobReq->io_req_id = atomic_fetch_add(&nextIoReqId, (fds_uint32_t)1);
+    fds_volid_t volId = blobReq->io_vol_id;
+
+    StorHvVolume *shVol = vol_table->getLockedVolume(volId);
+    if ((shVol == NULL) || (shVol->volQueue == NULL)) {
+        if (shVol)
+            shVol->readUnlock();
+        LOGERROR << "Volume and queueus are NOT setup for volume " << volId;
+        err = ERR_INVALID_ARG;
+        PerfTracer::tracePointEnd(blobReq->qos_perf_ctx); 
+        delete blobReq;
+        return err;
+    }
+    /*
+     * TODO: We should handle some sort of success/failure here?
+     */
+    qos_ctrl->enqueueIO(volId, blobReq);
+    shVol->readUnlock();
+
+    LOGDEBUG << "Queued IO for vol " << volId;
+
+    return err;
+}
+
+void
+StorHvCtrl::enqueueBlobReq(AmRequest *blobReq) {
+    fds_verify(blobReq->magicInUse() == true);
+
+    // check if volume is attached to this AM
+    if (invalid_vol_id == (blobReq->io_vol_id = vol_table->getVolumeUUID(blobReq->volume_name))) {
+        vol_table->addBlobToWaitQueue(blobReq->volume_name, blobReq);
+        fds_verify(sendTestBucketToOM(blobReq->volume_name,
+                                      "",  // The access key isn't used
+                                      "") == ERR_OK); // The secret key isn't used
+        return;
+    }
+
+    PerfTracer::tracePointBegin(blobReq->qos_perf_ctx);
+
+    blobReq->io_req_id = atomic_fetch_add(&nextIoReqId, (fds_uint32_t)1);
+
+    fds_verify(qos_ctrl->enqueueIO(blobReq->io_vol_id, blobReq) == ERR_OK);
+}
+
+void
+processBlobReq(AmRequest *amReq) {
+    fds::PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
+
+    fds_verify(amReq->io_module == FDS_IOType::STOR_HV_IO);
+    fds_verify(amReq->magicInUse() == true);
+
+    switch (amReq->io_type) {
+        case fds::FDS_START_BLOB_TX:
+            storHvisor->amProcessor->startBlobTx(amReq);
+            break;
+
+        case fds::FDS_COMMIT_BLOB_TX:
+            storHvisor->amProcessor->commitBlobTx(amReq);
+            break;
+
+        case fds::FDS_ABORT_BLOB_TX:
+            storHvisor->amProcessor->abortBlobTx(amReq);
+            break;
+
+        case fds::FDS_ATTACH_VOL:
+            storHvisor->attachVolume(amReq);
+            break;
+
+        case fds::FDS_IO_READ:
+        case fds::FDS_GET_BLOB:
+            storHvisor->amProcessor->getBlob(amReq);
+            break;
+
+        case fds::FDS_IO_WRITE:
+        case fds::FDS_PUT_BLOB_ONCE:
+        case fds::FDS_PUT_BLOB:
+            storHvisor->amProcessor->putBlob(amReq);
+            break;
+
+        case fds::FDS_SET_BLOB_METADATA:
+            storHvisor->amProcessor->setBlobMetadata(amReq);
+            break;
+
+        case fds::FDS_GET_VOLUME_METADATA:
+            storHvisor->amProcessor->getVolumeMetadata(amReq);
+            break;
+
+        case fds::FDS_DELETE_BLOB:
+            storHvisor->amProcessor->deleteBlob(amReq);
+            break;
+
+        case fds::FDS_STAT_BLOB:
+            storHvisor->amProcessor->statBlob(amReq);
+            break;
+
+        case fds::FDS_VOLUME_CONTENTS:
+            storHvisor->amProcessor->volumeContents(amReq);
+            break;
+
+        default :
+            LOGCRITICAL << "unimplemented request: " << amReq->io_type;
+            amReq->cb->call(ERR_NOT_IMPLEMENTED);
+            break;
+    }
 }

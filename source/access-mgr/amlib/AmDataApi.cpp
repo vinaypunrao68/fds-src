@@ -7,7 +7,8 @@
 #include <vector>
 #include <AmDataApi.h>
 #include <responsehandler.h>
-#include <StorHvisorNet.h>
+#include "fds_process.h"
+#include "StorHvCtrl.h"
 
 #include "requests/requests.h"
 
