@@ -56,7 +56,7 @@ angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope',
         }
     ];
     
-    $scope.range = [
+    $scope.volumeVars.range = [
         {
             name: $filter( 'translate' )( 'common.l_hours' ).toLowerCase(),
             start: 0,

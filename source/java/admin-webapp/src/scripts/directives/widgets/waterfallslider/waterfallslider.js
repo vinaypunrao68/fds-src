@@ -22,16 +22,29 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             $scope.spinnerValue = 1;
             $scope.dropdownRange = {};
             $scope.validPositions = [];
+            $scope.sliderPaneWidth = 0;
             
             var labelPane = {};
             var sliderPane = {};
             var halfHandleWidth = 5;
+            
+            $scope.amITooWide = function( $index ){
+                var w = $($element.find( '.value-container')[$index]).width();
+                
+                if ( $scope.sliders[$index].position + w > $scope.sliderPaneWidth ){
+                    return true; 
+                }
+                
+                return false;
+            };
             
             /** get jQuery representations of our main objects so we can use their size to calculate valid stops **/
             var determinePanelWidths = function(){
                 
                 sliderPane = $($element.find( '.slider-pane' )[0]);
                 labelPane = $($element.find( '.labels' )[0]);
+                
+                $scope.sliderPaneWidth = sliderPane.width();
             };
             
             /**

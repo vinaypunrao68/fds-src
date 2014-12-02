@@ -6,7 +6,7 @@
         <div class="slider" ng-repeat="slider in sliders">
             <div class="bar" ng-click="sliderMoved( $event, slider )"></div>
             <div class="fill-bar" ng-style="{ left: slider.startPosition, width: slider.position - slider.startPosition }" ng-class="{'solid-fill': $index === 0}"></div>
-            <div class="value-container" ng-style="{ left: (editing !== $index ) ? slider.position + 'px' : (slider.position - 5) + 'px' }" ng-show="$index === 0 || sliders[$index-1].position !== slider.position" ng-class="{ 'std-transition' : showAnimation === true, 'edit-box': editing === $index }">
+            <div class="value-container" ng-style="{ left: (editing !== $index ) ? slider.position + 'px' : (slider.position - 5) + 'px' }" ng-show="$index === 0 || sliders[$index-1].position !== slider.position" ng-class="{ 'std-transition' : showAnimation === true, 'edit-box': editing === $index, 'stay-in-screen': amITooWide( $index ) }">
                 <div class="value-display flex" ng-mouseenter="hover = $index;" ng-mouseleave="hover = -1" ng-show="editing !== $index">
                     <div>{{ createLabel( slider.value ) }}</div>
                     <span class="icon icon-admin" ng-show="hover === $index" ng-click="sliderEdit( $index )"></span>
@@ -21,11 +21,12 @@
                         <button class="btn btn-primary skinny" ng-click="setSliderValue( slider );">Set</button>
                     </div>
                 </div>
-                <div style="relative">
-                    <div class="border-triangle" ng-show="editing === $index"></div>
-                    <div class="triangle" ng-class="{ 'edit-box' : editing === $index }"></div>
-                </div>
             </div>
+            <div style="position: absolute;" ng-style="{ left: slider.position + 'px' }">
+                <div class="border-triangle" ng-show="editing === $index"></div>
+                <div class="triangle" ng-class="{ 'edit-box' : editing === $index }"></div>
+            </div>
+            
             <div class="handle" ng-dragstart="$event.preventDefault()" ng-style="{ left: sliders[$index-1].position + 'px' }" ng-show="$index !== 0"></div>
             <div class="handle" ng-dragstart="$event.preventDefault()" ng-style="{ left: slider.position + 'px' }" ng-mousedown="handleClicked( slider, $index )" ng-class="{ 'std-transition' : showAnimation === true, 'grabbed' : grabbedSlider === slider }"></div>
             <div class="trackline" ng-style="{left: (slider.position+5) + 'px', height: (38*(sliders.length-$index-1) - 5) + 'px'}" ng-class="{ 'std-transition' : showAnimation === true }">
