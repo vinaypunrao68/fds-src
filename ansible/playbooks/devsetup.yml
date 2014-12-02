@@ -111,6 +111,7 @@
         - tabulate
         - xmlrunner
         - filechunkio
+        - httplib2
 
     - name: create java home script
       copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755
