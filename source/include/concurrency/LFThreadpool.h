@@ -37,7 +37,7 @@ typedef std::function<void()> LockFreeTask;
 #define cpu_relax() asm volatile("pause\n": : :"memory")
 
 // How often we should pause the logical processor.
-#define CPU_RELAX_FREQ  0x100   // 256
+#define CPU_RELAX_FREQ  0x10   // 16
 
 struct LockfreeWorker {
     LockfreeWorker(int id, bool steal, std::vector<LockfreeWorker*> &peers)
