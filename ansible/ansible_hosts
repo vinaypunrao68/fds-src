@@ -52,6 +52,7 @@ node2 fds_node=node03
 node3 fds_node=node04
 
 [local-fds-nodes:vars]
+ansible_ssh_user=root
 ansible_ssh_pass=passwd
 fds_default_nic=eth1
 fds_om_host=node0
