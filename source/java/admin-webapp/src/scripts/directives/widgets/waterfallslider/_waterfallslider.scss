@@ -1,12 +1,41 @@
 $waterfall-slider-row-height: 38px;
 
 .waterfall-slider {
-    
-    position: relative;
+
     width: 100%;
+    margin-top: 56px;
     @include no-select();
+    position: relative;
     @include display-flex();
-    margin-top: 12px;
+    
+    .waterfall-legend {
+        width: 100%;
+        height: 10px;
+        position: relative;
+        
+        .tick-mark {
+            position: absolute;
+            height: 10px;
+            margin-left: 5px;
+            border-left: 1px solid gray;
+        }
+        
+        .thick-tick-mark {
+            border-width: 3px;
+            margin-left: 3px;
+        }
+    }
+    
+    .waterfall-labels {
+        width: 100%;
+        position: relative;
+        
+        .waterfall-label {
+            font-size: 11px;
+            color: gray;
+            position: absolute;
+        }
+    }
     
     .labels{
         padding-right: 8px;
@@ -48,6 +77,11 @@ $waterfall-slider-row-height: 38px;
                 background-size: 10px 6px;
                 background-repeat: repeat-x;
                 pointer-events: none;
+                
+                &.solid-fill {
+                    background-color: #4294DF;
+                    top: 8px;
+                }
             }
 
             .handle {
@@ -58,8 +92,8 @@ $waterfall-slider-row-height: 38px;
                 background-color: white;
                 position: absolute;
                 top: 4px;
-                z-index: 3;
                 cursor: pointer;
+                z-index: 2;
                 
                 &.grabbed {
                     background-color: #4294DF;
@@ -137,7 +171,7 @@ $waterfall-slider-row-height: 38px;
                 width: 1px;
                 border-left: 1px solid rgba(0,0,0,0.3);
                 position: absolute;
-                z-index: 2;
+                z-index: 1;
             }
         }
     }

@@ -6,7 +6,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
         transclude: false,
         templateUrl: 'scripts/directives/widgets/waterfallslider/waterfallslider.html',
         // format:  sliders = [{value: { range: index, value: value }}, name: name},...]
-        // range: [{start: val, end: val (will not be displayed unless last range), values: [], width: <in percentage>, segments: <segments to draw>}..]
+        // range: [{start: val, end: val (will not be displayed unless last range), values: [], width: <in percentage>, segments: <segments to draw>, min: minimum value (only applies to first item), labelFunction: callback for label, selectable: if it can be in the drop down, selectName: name in the dropdown}..]
         scope: { sliders: '=', range: '=' },
         controller: function( $scope, $document, $element, $timeout, $resize_service ){
             
@@ -15,10 +15,59 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             $scope.showAnimation = false;
             $scope.hover = -1;
             $scope.editing = -1;
+            $scope.choices = [];
+            $scope.spinnerMin = 1;
+            $scope.spinnerMax = 99;
+            $scope.spinnerStep = 1;
+            $scope.spinnerValue = 1;
+            $scope.validPositions = [];
             
             var labelPane = {};
             var sliderPane = {};
             var halfHandleWidth = 5;
+            
+            /** get jQuery representations of our main objects so we can use their size to calculate valid stops **/
+            var determinePanelWidths = function(){
+                
+                sliderPane = $($element.find( '.slider-pane' )[0]);
+                labelPane = $($element.find( '.labels' )[0]);
+            };
+            
+            /**
+            * Sometimes there isn't a one to one relationship between the sliders and what needs to be 
+            * in the drop down so we need to manufacture that array here.
+            **/
+            var createDropdownChoices = function(){
+                
+                for ( var i = 0; i < $scope.range.length; i++ ){
+                    
+                    // do not add it if selectable is false
+                    if ( angular.isDefined( $scope.range[i].selectable &&
+                        $scope.range[i].selectable === false ) ){
+                        
+                        continue;
+                    }
+                    
+                    $scope.choices.push( $scope.range[i] );
+                }
+            };
+            
+            /** Helper to calculate how many pixels each segment in the range is worth **/
+            var findPixelsPerRangeSegment = function( range, segments ){
+                var rtn = Math.floor( ((range.width/100)*sliderPane.width())/segments );
+                return rtn;
+            };
+            
+            /** helper to determine the number of segments in a range **/
+            var getSegmentsForRange = function( range ){
+                var segments = range.end - range.start;
+                
+                if ( angular.isDefined( range.segments ) && angular.isNumber( range.segments ) ){
+                    segments = range.segments;
+                }
+                
+                return segments;
+            };
             
             /**
             * This method looks at all the widths specified in the range items and divides the
@@ -66,6 +115,85 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 }
             };
             
+            /**
+            * Need to catalogue all the valid positions so the maths are only calculated one time
+            */
+            var initializeValidPositions = function(){
+                
+                var xaxis = $($element.find('.waterfall-legend')[0]);
+                var zero = 0;
+                
+                for ( var rangeIt = 0; rangeIt < $scope.range.length; rangeIt++ ){
+                    
+                    var range = $scope.range[ rangeIt ];
+                    var rangeWidth = (range.width / 100.0 ) * sliderPane.width();
+                    
+                    var segments = getSegmentsForRange( range );
+                    var pxPer = findPixelsPerRangeSegment( range, segments );
+                    
+                    for ( var segIt = 0; segIt < segments; segIt++ ){
+                        var pos = (segIt*pxPer) + zero;
+                        
+                        var value = Math.floor( (segIt * (range.end - range.start)/ segments) ) + range.start;
+                        
+                        if ( rangeIt === 0 && angular.isDefined( range.min ) && value < range.min ){
+                            continue;
+                        }
+                        
+                        $scope.validPositions.push( { position: pos, range: rangeIt, value:  value } );
+                    }
+                    
+                    if ( rangeIt+1 !== $scope.range.length ){
+                        zero += rangeWidth;
+                    }
+                }
+                
+                // gotta add the very last tick mark
+                var range = $scope.range[ $scope.range.length-1 ];
+                var pxPer = findPixelsPerRangeSegment( range, getSegmentsForRange( range ) );
+                var pos = (getSegmentsForRange( range ) * pxPer) + zero;
+                var value = range.end;
+                
+                $scope.validPositions.push( { position: pos, range: $scope.range.length-1, value: value } );
+            };
+            
+            /**
+            * Create the tick mark labels.  Put one at every range start.
+            **/
+            var createDomainLabels = function(){
+                
+                var labelDiv = $($element.find( '.waterfall-labels')[0]);
+                
+                for ( var rangeIt = 0; rangeIt < $scope.range.length; rangeIt++ ){
+                    
+                    // don't label the first one
+                    if ( rangeIt === 0 ){
+                        continue;
+                    }
+                    
+                    var range = $scope.range[ rangeIt ];
+                    
+                    var pos = findPositionForValue( { value: range.start, range: rangeIt } ).position;
+                    
+                    var text = $scope.createLabel( {value: range.start, range: rangeIt} );
+//                    var textWidth = measureText( text, 11 ).width;
+//                    pos -= pos/2.0 - (2*halfHandleWidth);
+                    
+                    labelDiv.append( '<div class="waterfall-label" style="left: ' + pos + 'px">' + text + '</div>' );
+                }
+                
+                // adding the final label
+                var range = $scope.range[ $scope.range.length-1 ];
+                var myVal = { value: range.end, range: $scope.range.length-1 };
+                var pos = findPositionForValue( myVal ).position;
+                var label = $scope.createLabel( myVal );
+                labelDiv.append( '<div class="waterfall-label" style="left: ' + pos + 'px">' + label + '</div>' );
+            };
+            
+            /**
+            * Helper to determine whether the waterfall sliders are in an invalid state and correct them.
+            * This stops sliders from going off the track, and enforces the waterfall drag behavior
+            **/
             var fixStartPositions = function(){
                 
                 for ( var i = 0; i < $scope.sliders.length-1; i++ ){
@@ -84,11 +212,6 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 }
             };
             
-            var determinePanelWidths = function(){
-                
-                sliderPane = $($element.find( '.slider-pane' )[0]);
-                labelPane = $($element.find( '.labels' )[0]);
-            };
             
             // helper function to get the relative x value in the element from the mouse event
             var getEventX = function( $event ){
@@ -98,47 +221,41 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
         
             var rationalizePositionWithRange = function( pos ){
                 
-                var zero = 0;
-                var range;
-                
-                // find which range we're in
-                for ( var i = 0; i < $scope.range.length; i++ ){
-                    var width = ($scope.range[i].width / 100) * sliderPane.width();
+                for ( var i = 0; i < $scope.validPositions.length; i++ ){
+                    var testPos = $scope.validPositions[i];
                     
-                    if ( pos < (width + zero) || (i+1) === $scope.range.length ){
-                        range = $scope.range[i];
-                        break;
+                    var lastPos = -1;
+                    
+                    if ( i !== 0 ){
+                        lastPos = $scope.validPositions[i-1];
                     }
                     
-                    zero += width;
+                    if ( pos < testPos.position ){
+                        
+                        // I'm less than the first valid position so... I am that position.
+                        if ( i === 0 ){
+                            pos = testPos;
+                            break;
+                        }
+                        
+                        // I'm at least at index 1 so I am between these two positions.
+                        if ( (pos - lastPos.position) >= (testPos.position - pos ) ){
+                            pos = testPos;
+                        }
+                        else {
+                            pos = lastPos;
+                        }
+                        
+                        break;
+                    }
                 }
                 
-                // find which tick mark we're at.
-                var segments = range.end - range.start;
-                
-                if ( angular.isDefined( range.segments ) && angular.isNumber( range.segments ) ){
-                    segments = range.segments;
+                // must be off the screen
+                if ( !angular.isDefined( pos.position ) ){
+                    pos = $scope.validPositions[ $scope.validPositions.length - 1 ];
                 }
                 
-                var pxPer = Math.floor( ((range.width/100)*sliderPane.width())/segments );
-                
-                var step = Math.round( (pos-zero) / pxPer );
-                
-                // we don't want to show the last value, instead we show the first value of the next segment unless it's the last one
-                if ( step === segments && range !== $scope.range[ $scope.range.length-1 ] ){
-                    pos = zero + (range.width/100)*sliderPane.width();
-                    return rationalizePositionWithRange( pos );
-                }
-                
-                pos = step * pxPer + zero;
-                
-                if ( pos > sliderPane.width() - halfHandleWidth ){
-                    pos = sliderPane.width() - halfHandleWidth;
-                }
-                
-                var value = (((range.end - range.start) / segments) * step) + range.start;
-                
-                return { position: pos, value: { value: value, range: i } };
+                return { position: pos.position, value: { value: pos.value, range: pos.range } };
             };
             
             /**
@@ -147,37 +264,14 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             **/
             var findPositionForValue = function( value ){
                 
-                var zero = 0;
-                
-                // special boundary case on the for right
-                if ( value.value === $scope.range[ value.range ].end ){
+                for( var i= 0; i < $scope.validPositions.length; i++ ){
                     
-                    // if there's another range just set this to the first value in that range
-                    if ( value.range < $scope.range.length-1 ){
-                        value.range++;
-                        value.value = $scope.range[ value.range ].start;
+                    var testPos = $scope.validPositions[i];
+                    
+                    if ( value.range === testPos.range && value.value === testPos.value ){
+                        return { position: testPos.position, value: { value: testPos.value, range: testPos.range } };        
                     }
                 }
-                
-                for ( var i = 0; i < value.range; i++ ){
-                    zero += ($scope.range[i].width/100) * sliderPane.width();
-                }
-                
-                var myRange = $scope.range[ value.range ];
-                
-                // find which tick mark we're at.
-                var segments = myRange.end - myRange.start;
-                
-                if ( angular.isDefined( myRange.segments ) && angular.isNumber( myRange.segments ) ){
-                    segments = myRange.segments;
-                }
-                
-                var whichSegment = Math.round( value.value / ((myRange.end - myRange.start) / segments)) - 1;
-                var pxPerSegment = Math.floor( ((myRange.width/100)*sliderPane.width())/segments );
-                
-                var pos = pxPerSegment*whichSegment + zero;
-                
-                return rationalizePositionWithRange( pos );
             };
             
             $scope.sliderMoved = function( $event, slider ){
@@ -232,6 +326,8 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                     }
                 }
                 
+                slider.value.value = $scope.spinnerValue;
+                
                 slider.position = findPositionForValue( slider.value ).position;
                 fixStartPositions();
                 
@@ -249,8 +345,31 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 $timeout( function(){ $scope.$apply();});
             };
             
+            $scope.createLabel = function( value ){
+                
+                var str = undefined;
+                
+                if ( angular.isFunction( $scope.range[value.range].labelFunction ) ){
+                    str = $scope.range[value.range].labelFunction( value.value );
+                }
+                
+                if ( !angular.isDefined( str ) ) {
+                    str = value.value + ' ' + $scope.range[value.range].name;
+                }
+                
+                return str;
+            };
+            
             $scope.sliderEdit = function( $index ){
+                
+                var slider = $scope.sliders[$index];
+                var range = $scope.range[ slider.value.range ];
+                
                 $scope.editing = $index;
+                $scope.spinnerValue = slider.value.value;
+                $scope.spinnerMax = range.end;
+                $scope.spinnerMin = range.start;
+                $scope.spinnerStep = Math.floor( (range.end-range.start)/getSegmentsForRange( range ) );
             };
             
             // initialize the widet.
@@ -258,6 +377,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 
                 fixRangeWidths();  
                 determinePanelWidths();
+                createDropdownChoices();
                 
                 for ( var i = 0; i < $scope.sliders.length; i++ ){
                     $scope.sliders[i].realRange = $scope.range[ $scope.sliders[i].value.range ];
@@ -267,6 +387,10 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 // of partial pixels off
                 $timeout( 
                     function(){
+                        
+                        initializeValidPositions();
+                        createDomainLabels();
+                        
                         // set to the right values.
                         for( var i = 0; i < $scope.sliders.length; i++ ){
 
@@ -283,8 +407,23 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             
             $document.on( 'mousemove', null, $scope.sliderMoved );
             $document.on( 'mouseup', null, handleReleased );
+            
+            $scope.$on( 'fui::dropdown_change', function( $event, range ){
+                $scope.spinnerMin = range.start;
+                $scope.spinnerMax = range.end;
+                $scope.spinnerStep = Math.floor( (range.end - range.start) / getSegmentsForRange( range ));
+            });
+            
+            $scope.$on( 'fds::spinner_change', function( $event, value ){
+                
+                if ( value === $scope.spinnerValue ){
+                    return;
+                }
+                
+                $scope.spinnerValue = value;
+            });
 
-            $scope.$on( 'destroy', function(){
+            $scope.$on( '$destroy', function(){
                 $document.off( 'mousemove', null, $scope.sliderMoved );
                 $document.off( 'mouseup', null, handleReleased );
             });

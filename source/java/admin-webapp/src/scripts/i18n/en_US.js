@@ -55,6 +55,12 @@ var en_US = {
         l_hours: 'Hours',
         l_weeks: 'Weeks',
         l_years: 'Years',
+        l_months_by_days: 'Months by days',
+        
+        l_month: 'Month',
+        l_day: 'Day',
+        l_week: 'Week',
+        l_year: 'Year',
         
         bytes: 'bytes',
         kb: 'KB',

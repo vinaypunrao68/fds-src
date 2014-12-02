@@ -20,6 +20,11 @@
         &:active &:focus {
             outline: none;
         }
+        
+        &.no-buttons {
+            border-right: 1px solid $gray_border;
+            border-radius: 6px;
+        }
     }
 
     .button-parent {

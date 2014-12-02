@@ -16,9 +16,26 @@ angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope',
     
     $scope.volumeVars = {};
     
+    var pluralLabelFixer = function( plural, singular ){
+        
+        return function( value ){
+            
+            var str = value + ' ';
+            
+            if ( value === 1 ){
+                str += singular;
+            }
+            else {
+                str += plural;
+            }
+            
+            return str;
+        };
+    }
+    
     $scope.sliders = [
         {
-            value: { range: 0, value: 24 },
+            value: { range: 1, value: 1 },
             name: $filter( 'translate' )( 'volumes.l_continuous' )
         },
         {
@@ -45,38 +62,61 @@ angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope',
             start: 0,
             end: 24,
             segments: 1,
-            width: 5
+            width: 5,
+            min: 24,
+            selectable: false
         },
         {
             name: $filter( 'translate' )( 'common.l_days' ).toLowerCase(),
+            selectName: $filter( 'translate' )( 'common.l_days' ),
             start: 1,
             end: 7,
-            width: 20
+            width: 20,
+            labelFunction: pluralLabelFixer( $filter( 'translate' )( 'common.l_days' ).toLowerCase(),
+                $filter( 'translate' )( 'common.l_day' ).toLowerCase() )            
         },
         {
             name: $filter( 'translate' )( 'common.l_weeks' ).toLowerCase(),
+            selectName: $filter( 'translate' )( 'common.l_weeks' ),
             start: 1,
             end: 4,
-            width: 15
+            width: 15,
+            labelFunction: pluralLabelFixer( $filter( 'translate' )( 'common.l_weeks' ).toLowerCase(),
+                $filter( 'translate' )( 'common.l_week' ).toLowerCase() )            
         },
         {
-            name: $filter( 'translate' )( 'common.l_months' ).toLowerCase(),
+            name: $filter( 'translate' )( 'common.l_days' ),
+            selectName: $filter( 'translate' )( 'common.l_months_by_days' ),
             start: 30,
             end: 360,
             segments: 11,
-            width: 30
+            width: 30,
+            labelFunction: pluralLabelFixer( $filter( 'translate' )( 'common.l_days' ).toLowerCase(),
+                $filter( 'translate' )( 'common.l_day' ).toLowerCase() )
+        },
+        {
+            name: $filter( 'translate' )( 'common.l_years' ),
+            selectName: $filter( 'translate' )( 'common.l_years' ).toLowerCase(),
+            start: 1,
+            end: 16,
+            width: 25,
+            labelFunction: pluralLabelFixer( $filter( 'translate' )( 'common.l_years' ).toLowerCase(),
+                $filter( 'translate' )( 'common.l_year' ).toLowerCase() )
         },
         {
             name: $filter( 'translate' )( 'common.l_years' ).toLowerCase(),
-            start: 1,
-            end: 15,
-            width: 25
-        },
-        {
-            name: 'j',
+            selectName: $filter( 'translate' )( 'common.l_forever' ).toLowerCase(),
+            allowNumber: false,
             start: 15,
             end: 16,
-            width: 5
+            width: 5,
+            labelFunction: function( value ){
+                if ( value === 16 ){
+                    return '\u221E';
+                }
+                
+                return;
+            }
         }
     ];
     

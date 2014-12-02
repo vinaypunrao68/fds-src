@@ -4,7 +4,7 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
         restrict: 'E',
         replace: true,
         transclude: false,
-        scope: { value: '=', min: '@', max: '@', step: '@' },
+        scope: { value: '=', min: '=', max: '=', step: '=?', showButtons: '@' },
         templateUrl: 'scripts/directives/widgets/spinner/spinner.html',
         controller: function( $scope, $timeout, $interval ){
 
@@ -14,6 +14,13 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
 
             if ( !angular.isDefined( $scope.value ) || $scope.value < $scope.min ){
                 $scope.value = $scope.min;
+            }
+            
+            if ( !angular.isDefined( $scope.showButtons ) || $scope.showButtons === 'true' ){
+                $scope.buttons = true;
+            }
+            else {
+                $scope.buttons = false;
             }
 
             if ( $scope.value > $scope.max ){
@@ -74,6 +81,23 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
 
                 cancelAutoPress();
             };
+            
+            $scope.sendEvent = function(){
+                $scope.$emit( 'change' );
+                $scope.$emit( 'fds::spinner_change', $scope.value );
+            };
+            
+            $scope.fixValue = function(){
+                
+                if ( $scope.value > $scope.max ){
+                    $scope.value = $scope.max;
+                    $scope.sendEvent();
+                }
+                else if ( $scope.value < $scope.min ){
+                    $scope.value = $scope.min;
+                    $scope.sendEvent();
+                }
+            };
 
             $scope.increment = function(){
 
@@ -87,7 +111,7 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
                     $scope.value = val + step;
                 }
 
-                $scope.$emit( 'change' );
+                $scope.sendEvent();
             };
 
             $scope.decrement = function(){
@@ -102,8 +126,20 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
                     $scope.value = val - step;
                 }
 
-                $scope.$emit( 'change' );
+                $scope.sendEvent();
             };
+            
+            $scope.keyPressed = function( $event ){
+                if ( $event.keyCode === 38 ){
+                    $scope.increment();
+                }
+                else if ( $event.keyCode === 40 ){
+                    $scope.decrement();
+                }
+            };
+            
+            $scope.$watch( 'min', $scope.fixValue );
+            $scope.$watch( 'max', $scope.fixValue );
             
         },
         link: function( $scope, $element, $attrs ){
