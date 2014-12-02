@@ -212,6 +212,7 @@
           - libboost-thread1.55.0
           - libboost-regex1.55.0
           - libboost-date-time1.55.0
+          - google-perftools
           - gcc
           - python-dev
 
@@ -257,7 +258,6 @@
             - { name: 'paramiko', version: '1.15.1' }
             - { name: 'scp', version: '0.8.0' }
             - { name: 'boto', version: '2.34.0' }
-
 
 -   name: install and configure fds on all  fds_nodes
     hosts: all
