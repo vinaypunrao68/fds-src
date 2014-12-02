@@ -81,7 +81,7 @@ class InfluxDb:
             db.write_points(data)
 
 influx_db_config = {
-    "ip" : "10.1.10.222",
+    "ip" : "metrics.formationds.com",
     "port" : 8086,
     "user" : "root",
     "password" : "root",
