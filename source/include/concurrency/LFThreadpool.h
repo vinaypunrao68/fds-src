@@ -366,7 +366,7 @@ struct LFSQThreadpool {
                 } else {
                     // See if we  can dequeue.  The steps are
                     // 1) try to decrement atomically in cmpxchg loop.
-                    //      1.1) if successful, thene we can dequeue a task.
+                    //      1.1) if successful, then we can dequeue a task.
                     //      1.2) if unsuccessful (i.e. queue is already empty), do nothing.
                     dequeued = true;
                     do {
