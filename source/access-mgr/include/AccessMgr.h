@@ -7,10 +7,10 @@
 #include <string>
 #include <fds_types.h>
 #include <fds_module_provider.h>
+#include <fds_volume.h>
 #include <fdsn-server.h>
 #include <AmAsyncService.h>
 #include <AmDataApi.h>
-#include <StorHvisorNet.h>
 
 namespace fds {
 

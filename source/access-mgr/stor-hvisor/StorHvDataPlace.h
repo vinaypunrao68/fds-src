@@ -35,13 +35,28 @@ private:
 
 public:  
   StorHvDataPlacement(dp_mode _mode,
-                      OMgrClient *omc);
+                      OMgrClient *omc)
+      : test_ip_addr(0),
+        test_sm_port(0),
+        test_dm_port(0),
+        mode(_mode),
+        parent_omc(omc)
+  { }
+
   StorHvDataPlacement(dp_mode _mode,
                       fds_uint32_t test_ip,
                       fds_uint32_t test_sm,
                       fds_uint32_t test_dm,
-                      OMgrClient *omc);
-  ~StorHvDataPlacement();
+                      OMgrClient *omc)
+      : StorHvDataPlacement(_mode, omc)
+  {
+      test_ip_addr = test_ip;
+      test_sm_port = test_sm;
+      test_dm_port = test_dm;
+  }
+
+  ~StorHvDataPlacement()
+  { }
   
   DltTokenGroupPtr  getDLTNodesForDoidKey(const ObjectID &objId) {
       return parent_omc->getDLTNodesForDoidKey(objId);

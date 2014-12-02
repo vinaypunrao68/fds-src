@@ -160,8 +160,8 @@ System: Xeon 1S 6-core HT, 32GB DRAM, 1GigE, 12HDD, 2SSDs \n\
 #        text += "IOPs: %g\n\
 #Latency [ms]: %g\n" % (summary[t]["iops"], summary[t]["lat"])
 #        text += "---\n"
-        table.append([t, str(summary[t]["iops"]), str(summary[t]["lat"])])
-    headers = ["Config", "IOPs", "Latency [ms]"]
+        table.append([t, str(summary[t]["iops"]), str(summary[t]["lat"]), summary[t]["test_directory"]])
+    headers = ["Config", "IOPs", "Latency [ms]", "Test directory"]
     text += tabulate.tabulate(table,headers) + "\n"
 
     text += "\nConfig Explanation:\n"
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     test_db = sys.argv[1]
     tags = sys.argv[2].split(",")
     recipients = sys.argv[3]
-    recipients2 = "matteo@formationds.com,andrew@formationds.com"
+    recipients2 = sys.argv[4]
     # directory = sys.argv[1]
     # test_id = int(sys.argv[2])
     # mode = sys.argv[3]
@@ -228,7 +228,9 @@ if __name__ == "__main__":
             #max_iops = max(iops)
             iops_50 = iops[-1]
             lat_50 = lat[-1]
-            summary[t] = {"iops" : iops_50, "lat" : lat_50}
+
+            test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
+            summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
 
             #print [x["type"] for x in experiments]    
             # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
@@ -264,7 +266,8 @@ if __name__ == "__main__":
             #max_iops = max(iops)
             iops_50 = iops[-1]
             lat_50 = lat[-1]
-            summary[t] = {"iops" : iops_50, "lat" : lat_50}
+            test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
+            summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
 
             #print [x["type"] for x in experiments]    
             # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
@@ -305,7 +308,8 @@ if __name__ == "__main__":
             #max_iops = max(iops)
             iops_50 = iops[-1]
             lat_50 = lat[-1]
-            summary[t] = {"iops" : iops_50, "lat" : lat_50}
+            test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
+            summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
 
             #print [x["type"] for x in experiments]    
             # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
@@ -346,7 +350,8 @@ if __name__ == "__main__":
             #max_iops = max(iops)
             iops_50 = iops[-1]
             lat_50 = lat[-1]
-            summary[t] = {"iops" : iops_50, "lat" : lat_50}
+            test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
+            summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
 
             #print [x["type"] for x in experiments]    
             # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
