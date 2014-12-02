@@ -776,6 +776,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler();
     handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler();
     handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler();
+    handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1114,28 +1115,6 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
                                               &update_catalog) {
     Error err(ERR_OK);
     fds_panic("must not get here");
-}
-
-void
-DataMgr::scheduleAbortBlobTxSvc(void * _io)
-{
-    Error err(ERR_OK);
-    DmIoAbortBlobTx *abortBlobTx = static_cast<DmIoAbortBlobTx*>(_io);
-
-    BlobTxId::const_ptr blobTxId = abortBlobTx->ioBlobTxDesc;
-    fds_verify(*blobTxId != blobTxIdInvalid);
-
-    // Call TVC abortTx
-    timeVolCat_->abortBlobTx(abortBlobTx->volId, blobTxId);
-
-    if (!err.ok()) {
-        PerfTracer::incr(abortBlobTx->opReqFailedPerfEventType, abortBlobTx->getVolId(),
-                abortBlobTx->perfNameStr);
-    }
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*abortBlobTx);
-    PerfTracer::tracePointEnd(abortBlobTx->opLatencyCtx);
-    PerfTracer::tracePointEnd(abortBlobTx->opReqLatencyCtx);
-    abortBlobTx->dmio_abort_blob_tx_resp_cb(err, abortBlobTx);
 }
 
 void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::

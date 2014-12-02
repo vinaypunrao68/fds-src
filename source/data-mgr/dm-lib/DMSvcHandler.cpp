@@ -14,7 +14,6 @@ namespace fds {
 DMSvcHandler::DMSvcHandler()
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
-    REGISTER_FDSP_MSG_HANDLER(fpi::AbortBlobTxMsg, abortBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, getVolumeMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamDeregistrationMsg, deregisterStreaming);
@@ -195,54 +194,6 @@ void DMSvcHandler::createVolumeClone(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
      */
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CreateVolumeCloneRespMsg),
                   createVolumeCloneResp);
-}
-
-void DMSvcHandler::abortBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                               boost::shared_ptr<fpi::AbortBlobTxMsg>& abortBlbTx)
-{
-    LOGDEBUG << logString(*asyncHdr) << logString(*abortBlbTx);
-
-    auto dmBlobTxReq = new DmIoAbortBlobTx(abortBlbTx->volume_id,
-                                           abortBlbTx->blob_name,
-                                           abortBlbTx->blob_version);
-    dmBlobTxReq->dmio_abort_blob_tx_resp_cb =
-            BIND_MSG_CALLBACK2(DMSvcHandler::abortBlobTxCb, asyncHdr);
-
-    PerfTracer::tracePointBegin(dmBlobTxReq->opReqLatencyCtx);
-
-    /*
-     * allocate a new  Blob transaction  class and  queue  to per volume queue.
-     */
-    dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(abortBlbTx->txId));
-
-    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmBlobTxReq));
-    if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue  abort blob tx  request "
-                << logString(*asyncHdr) << logString(*abortBlbTx);
-        PerfTracer::tracePointEnd(dmBlobTxReq->opReqLatencyCtx);
-        PerfTracer::incr(dmBlobTxReq->opReqFailedPerfEventType, dmBlobTxReq->getVolId(),
-                         dmBlobTxReq->perfNameStr);
-        dmBlobTxReq->dmio_abort_blob_tx_resp_cb(err, dmBlobTxReq);
-    }
-}
-
-void DMSvcHandler::abortBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                 const Error &e, DmIoAbortBlobTx *req)
-{
-    /*
-     * we are not sending any response  message  in this call, instead we
-     * will send the status  on async header
-     * TODO(sanjay)- we will have to add  call to  send the response without payload
-     * static response
-     */
-    LOGDEBUG << logString(*asyncHdr);
-    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    // TODO(sanjay) - we will have to revisit  this call
-    fpi::AbortBlobTxRspMsg stBlobTxRsp;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(AbortBlobTxRspMsg), stBlobTxRsp);
-
-    delete req;
 }
 
 void DMSvcHandler::deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
