@@ -1,7 +1,7 @@
-[perf-no_am_cache]
+[perf]
 HOST
 
-[perf-no_am_cache:vars]
+[perf:vars]
 fds_default_nic=p7p1
 fds_authentication=false
 fds_log_severity=notification
