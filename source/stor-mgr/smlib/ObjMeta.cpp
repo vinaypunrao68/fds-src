@@ -316,7 +316,7 @@ void ObjMetaData::incRefCnt() {
  *
  */
 void ObjMetaData::decRefCnt() {
-    obj_map.obj_refcnt++;
+    obj_map.obj_refcnt--;
 }
 
 /**
