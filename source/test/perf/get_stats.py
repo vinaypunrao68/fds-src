@@ -348,7 +348,7 @@ def main():
     parser.add_option("-b", "--dump-to-db", dest = "dump_to_db", default = None, help = "Dump to database as specified")
     parser.add_option("", "--fds-nodes", dest = "fds_nodes", default = "han",
                       help = "List of FDS nodes (for monitoring)")
-    parser.add_option("-c", "--config-descr-tag", dest = "config_descr_tag", default = "amcache",
+    parser.add_option("-c", "--config-descr-tag", dest = "config_descr_tag", default = None,
                       help = "Config description tag")
     parser.add_option("-F", "--fio-enable", dest = "fio_enable", action = "store_true", default = False, help = "FIO mode")
     global options
@@ -366,6 +366,7 @@ def main():
     counters.parse(c_file.read())
     c_file.close()
     table = {}
+    table["test_directory"] = options.directory
     table["tag"] = options.config_descr_tag
     # counters.get_cntr()
     print options.name,",",

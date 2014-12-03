@@ -101,6 +101,7 @@
         - libhiredis0.10
         - libhiredis-dev
         - swig3.0
+        - sshpass
 
     - name: install pip packages
       pip: name={{item}} state=present
@@ -110,6 +111,7 @@
         - tabulate
         - xmlrunner
         - filechunkio
+        - httplib2
 
     - name: create java home script
       copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755
