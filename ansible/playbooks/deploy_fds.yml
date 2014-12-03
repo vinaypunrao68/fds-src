@@ -237,6 +237,7 @@
             - "libconfig++9"
             - libev4
             - libreadline5
+            - libcryptopp-dev
             - xfsprogs
             - libjemalloc1
             - redis-tools
