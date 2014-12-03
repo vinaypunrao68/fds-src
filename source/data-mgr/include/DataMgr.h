@@ -177,9 +177,6 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_DM_SNAPDELTA_VOLCAT:
                     threadPool->schedule(&DataMgr::snapVolCat, dataMgr, io);
                     break;
-                case FDS_DM_FWD_CAT_UPD:
-                    threadPool->schedule(&DataMgr::fwdUpdateCatalog, dataMgr, io);
-                    break;
                 case FDS_GET_VOLUME_METADATA:
                     threadPool->schedule(&DataMgr::getVolumeMetaData, dataMgr, io);
                     break;
@@ -208,6 +205,7 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_CAT_UPD_ONCE:
                 case FDS_SET_BLOB_METADATA:
                 case FDS_ABORT_BLOB_TX:
+                case FDS_DM_FWD_CAT_UPD:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
@@ -347,12 +345,6 @@ struct DataMgr : Module, DmIoReqHandler {
 
     /* TODO(Rao): Add the new refactored DM messages handlers here */
     void updateCatalog(dmCatReq *io);
-    void fwdUpdateCatalog(dmCatReq *io);
-    /**
-     * Callback from volume catalog when forwarded blob update is
-     * committed to volume catalog
-     */
-    void updateFwdBlobCb(const Error &err, DmIoFwdCat *fwdCatReq);
     /* End of new refactored DM message handlers */
 
     void scheduleDeleteCatObjSvc(void * _io);

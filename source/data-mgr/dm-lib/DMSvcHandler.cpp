@@ -19,7 +19,6 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamDeregistrationMsg, deregisterStreaming);
     /* DM to DM service messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::VolSyncStateMsg, volSyncState);
-    REGISTER_FDSP_MSG_HANDLER(fpi::ForwardCatalogMsg, fwdCatalogUpdateMsg);
     /* OM to DM snapshot messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CreateSnapshotMsg, createSnapshot);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteSnapshotMsg, deleteSnapshot);
@@ -250,62 +249,6 @@ void DMSvcHandler::volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     fpi::VolSyncStateRspMsg volSyncStateRspMsg;
     // TODO(Brian): send a response here, make sure we've set the cb properly in the caller first
     // sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(VolSyncStateRspMsg), VolSyncStateRspMsg);
-}
-
-/**
- * Destination handler for receiving a ForwardCatalogMsg.
- *
- * @param[in] asyncHdr shared pointer reference to the async header
- * sent with svc layer requests
- * @param[in] syncStateMsg shared pointer reference to the
- * ForwardCatalogMsg
- *
- */
-void DMSvcHandler::fwdCatalogUpdateMsg(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                       boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg)
-{
-    Error err(ERR_OK);
-
-    // Update catalog qos requeset but w/ different type
-    auto dmFwdReq = new DmIoFwdCat(fwdCatMsg);
-    // Bind CB
-    dmFwdReq->dmio_fwdcat_resp_cb = BIND_MSG_CALLBACK2(DMSvcHandler::fwdCatalogUpdateCb,
-                                                       asyncHdr, fwdCatMsg);
-    // Enqueue to shadow queue
-    err = dataMgr->catSyncRecv->enqueueFwdUpdate(dmFwdReq);
-    if (!err.ok()) {
-        LOGWARN << "Unable to enqueue Forward Update Catalog request "
-                << logString(*asyncHdr) << " " << *dmFwdReq;
-        dmFwdReq->dmio_fwdcat_resp_cb(err, dmFwdReq);
-    }
-}
-
-/**
- * Callback for DmIoFwdCat request in fwdCatalogUpdate.
- *
- * @param[in] asyncHdr shared pointer reference to the async header
- * sent with svc layer requests
- * @param[in] syncStateMsg shared pointer reference to the
- * ForwardCatalogMsg
- * @param[in] err Error code
- * @param[in] req The DmIoFwdCat request created by the caller
- *
- */
-void DMSvcHandler::fwdCatalogUpdateCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                      boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg,
-                                      const Error &err, DmIoFwdCat *req)
-{
-    DBG(GLOGDEBUG << logString(*asyncHdr) << " " << *req);
-    // Set error value
-    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-
-    // Send forwardCatalogUpdateRspMsg
-    fpi::ForwardCatalogRspMsg fwdCatRspMsg;
-    sendAsyncResp(asyncHdr,
-                  FDSP_MSG_TYPEID(fpi::ForwardCatalogRspMsg),
-                  fwdCatMsg);
-
-    delete req;
 }
 
 void

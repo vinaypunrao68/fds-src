@@ -777,6 +777,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler();
     handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler();
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
+    handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1058,35 +1059,6 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
 
     const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
     return (*mySvcUuid == nodes->get(0));
-}
-
-//
-// Handle forwarded (committed) catalog update from another DM
-//
-void DataMgr::fwdUpdateCatalog(dmCatReq *io)
-{
-    Error err(ERR_OK);
-    DmIoFwdCat *fwdCatReq = static_cast<DmIoFwdCat*>(io);
-
-    LOGTRACE << "Will commit fwd blob " << *fwdCatReq << " to tvc";
-    err = timeVolCat_->updateFwdCommittedBlob(fwdCatReq->volId,
-                                              fwdCatReq->blob_name,
-                                              fwdCatReq->blob_version,
-                                              fwdCatReq->fwdCatMsg->obj_list,
-                                              fwdCatReq->fwdCatMsg->meta_list,
-                                              std::bind(&DataMgr::updateFwdBlobCb, this,
-                                                        std::placeholders::_1, fwdCatReq));
-    if (!err.ok()) {
-        if (feature.isQosEnabled()) qosCtrl->markIODone(*fwdCatReq);
-        fwdCatReq->dmio_fwdcat_resp_cb(err, fwdCatReq);
-    }
-}
-
-void DataMgr::updateFwdBlobCb(const Error &err, DmIoFwdCat *fwdCatReq)
-{
-    LOGTRACE << "Committed fwd blob " << *fwdCatReq;
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*fwdCatReq);
-    fwdCatReq->dmio_fwdcat_resp_cb(err, fwdCatReq);
 }
 
 void

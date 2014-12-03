@@ -180,6 +180,17 @@ struct AbortBlobTxHandler : Handler {
                         Error const& e, dmCatReq* dmRequest);
 };
 
+struct ForwardCatalogUpdateHandler : Handler {
+    ForwardCatalogUpdateHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::ForwardCatalogMsg>& message);
+    void handleQueueItem(dmCatReq* dmRequest);
+    void handleUpdateFwdCommittedBlob(Error const& e, DmIoFwdCat* fwdCatReq);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
+                        Error const& e, dmCatReq* dmRequest);
+};
+
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_
