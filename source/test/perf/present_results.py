@@ -114,20 +114,6 @@ def generate_cpus(conns, cpus):
 
 
 def mail_success(recipients, images, label):
-    # githead = get_githead(directory)
-    # gitbranch = get_gitbranch(directory)
-    # hostname = get_hostname()
-#    preamble = "\
-#Performance regression\n\
-#Regression type: %s\n\
-#Number of nodes: 1\n\
-#Branch: %s\n\
-#hostname: %s\n\
-#git version: %s\
-#" % (regr_type, branch, hostname, githead)
-#    epilogue = "\
-#Data uploaded to Influxdb @ 10.1.10.222:8083 - login guest - guest - database: perf\n\
-#Confluence: https://formationds.atlassian.net/wiki/display/ENG/InfluxDB+for+Performance"
     preamble = "START"
     epilogue = "END"
     text = "Performance Regressions - %s" % label
@@ -213,16 +199,12 @@ if __name__ == "__main__":
     tags = sys.argv[2].split(",")
     recipients = sys.argv[3]
     recipients2 = sys.argv[4]
-    # directory = sys.argv[1]
-    # test_id = int(sys.argv[2])
-    # mode = sys.argv[3]
-    # branch = sys.argv[4]
  
     db = dataset.connect('sqlite:///%s' % test_db)
     summary = {}
     for t in tags:
         label = t
-        mode, mix, config = t.split(":")
+        mode, mix, config = t.split(":")[0:3]
         if mode == "s3" and mix == "get":
             experiments = db["experiments"].find(tag=t)
             experiments = [ x for x in experiments]
