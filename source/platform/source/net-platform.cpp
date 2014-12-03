@@ -9,11 +9,11 @@
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
-#include <plat-node-workflow.h>
 #include <net-platform.h>
 #include <net/PlatNetSvcHandler.h>
 
 #include "node_shared_memory_rw_ctrl.h"
+#include "plat_work_flow.h"
 
 namespace fds
 {
