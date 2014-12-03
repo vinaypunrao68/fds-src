@@ -5,7 +5,7 @@
 #
 #  This script provides a thread safe wrapper around the /usr/bin/ar command
 #
-#  We do this because compling with multiple threads (processes) and updating 
+#  We do this because compling with multiple threads (processes) and updating
 #  static libraries is not thread safe.  Using CCACHE exacerbates this issue by
 #  not having the system spending time compiling.
 
@@ -25,7 +25,7 @@ function remove_if_expired
       echo "Removing an expired ${AR_BINARY} lock semaphore (This message is informational)"
       rmdir ${AR_SEMAPHORE}
       return 0
-   fi 
+   fi
    return 1
 }
 
