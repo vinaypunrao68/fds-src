@@ -707,8 +707,7 @@ TEST(AccessMgr, wr) {
 }
 
 TEST(AccessMgr, getWithMeta) {
-    GLOGDEBUG << "Testing async write-read";
-    amLoad->runAsyncTask(AmLoadProc::PUT);
+    GLOGDEBUG << "Testing async getWithMeta";
     amLoad->runAsyncTask(AmLoadProc::GETWITHMETA);
 }
 
