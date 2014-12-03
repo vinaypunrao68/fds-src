@@ -6,18 +6,18 @@ user_incl_dir  :=                              \
                   ../../net-service/include
 
 # The sources for platform_lib, the private library of platform
-platform_core_src :=                           \
-                     platform.cpp              \
-                     platform-proc.cpp         \
-                     platform-shm-rw.cpp       \
-                     plat-node-workflow.cpp    \
-                     disk-capacity.cpp         \
-                     disk-label.cpp            \
-                     disk-partition.cpp        \
-                     disk-inventory.cpp        \
-                     ep-map.cpp                \
-                     net-service.cpp           \
-                     net-platform.cpp          \
+platform_core_src :=                                     \
+                     node_platform.cpp                   \
+                     node_platform_proc.cpp              \
+                     node_shared_memory_rw_ctrl.cpp      \
+                     plat-node-workflow.cpp              \
+                     disk-capacity.cpp                   \
+                     disk-label.cpp                      \
+                     disk-partition.cpp                  \
+                     disk-inventory.cpp                  \
+                     ep-map.cpp                          \
+                     net-service.cpp                     \
+                     net-platform.cpp                    \
                      net-registration.cpp
 
 # The sources for the public library of platform

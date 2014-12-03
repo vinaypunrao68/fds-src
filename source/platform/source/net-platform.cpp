@@ -6,13 +6,14 @@
 #include <vector>
 #include <disk.h>
 #include <ep-map.h>
-#include <platform.h>
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
 #include <plat-node-workflow.h>
 #include <net-platform.h>
 #include <net/PlatNetSvcHandler.h>
+
+#include "node_shared_memory_rw_ctrl.h"
 
 namespace fds
 {

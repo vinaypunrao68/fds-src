@@ -6,10 +6,12 @@
 #include <string>
 #include <iostream>  // NOLINT
 #include <disk.h>
-#include <platform.h>
 #include <platform/fds-osdep.h>
 #include <net-platform.h>
 #include <net/net-service.h>
+
+#include "node_platform.h"
+#include "node_platform_process.h"
 
 int main(int argc, char **argv)
 {
