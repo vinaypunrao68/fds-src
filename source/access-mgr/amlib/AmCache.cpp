@@ -13,23 +13,25 @@ AmCache::AmCache(const std::string &modName)
         descriptor_cache("AM blob descriptor cache manager"),
         offset_cache("AM blob offset cache manager"),
         object_cache("AM blob object cache manager"),
-        max_entries(500)
+        max_data_entries(500),
+        max_metadata_entries(500)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    max_entries = conf.get<fds_uint32_t>("cache.default_max_entries");
+    max_data_entries = conf.get<fds_uint32_t>("cache.max_data_entries");
+    max_metadata_entries = conf.get<fds_uint32_t>("cache.max_metadata_entries");
 }
 
 Error
 AmCache::createCache(const VolumeDesc& volDesc) {
-    Error err = descriptor_cache.createCache(volDesc.volUUID, max_entries);
+    Error err = descriptor_cache.createCache(volDesc.volUUID, max_metadata_entries);
     if (err != ERR_OK) {
         return err;
     }
-    err = offset_cache.createCache(volDesc.volUUID, max_entries);
+    err = offset_cache.createCache(volDesc.volUUID, max_metadata_entries);
     if (err != ERR_OK) {
         return err;
     }
-    err = object_cache.createCache(volDesc.volUUID, max_entries);
+    err = object_cache.createCache(volDesc.volUUID, max_data_entries);
     return err;
 }
 

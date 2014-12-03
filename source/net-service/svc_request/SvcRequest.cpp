@@ -167,7 +167,7 @@ void SvcRequestIf::invoke()
  * Common send handler across all async requests
  * Make sure access to this function is synchronized.  Sending and handling
  * of the response SHOULDN'T happen simultaneously.  Currently we ensure this by
- * using NetMgr::ep_task_executor 
+ * using NetMgr::ep_task_executor
  * @param epId
  */
 int injerr_socket_close = 0;  // gdb set this value to trigger remote connection down error
@@ -417,9 +417,9 @@ void EPSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 }
 
 /**
-* @brief 
+* @brief
 *
-* @return 
+* @return
 */
 std::string EPSvcRequest::logString()
 {
@@ -431,7 +431,7 @@ std::string EPSvcRequest::logString()
 }
 
 /**
-* @brief 
+* @brief
 *
 * @param cb
 */
@@ -441,9 +441,9 @@ void EPSvcRequest::onResponseCb(EPSvcRequestRespCb cb)
 }
 
 /**
-* @brief 
+* @brief
 *
-* @return 
+* @return
 */
 fpi::SvcUuid EPSvcRequest::getPeerEpId() const
 {
@@ -451,7 +451,7 @@ fpi::SvcUuid EPSvcRequest::getPeerEpId() const
 }
 
 /**
-* @brief 
+* @brief
 */
 MultiEpSvcRequest::MultiEpSvcRequest()
     : MultiEpSvcRequest(0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
@@ -459,7 +459,7 @@ MultiEpSvcRequest::MultiEpSvcRequest()
 }
 
 /**
-* @brief 
+* @brief
 *
 * @param id
 * @param myEpId
@@ -498,12 +498,12 @@ void MultiEpSvcRequest::onEPAppStatusCb(EPAppStatusCb cb)
 }
 
 /**
-* @brief Returns the endpoint request identified by epId 
+* @brief Returns the endpoint request identified by epId
 * NOTE: If we manage a lot of endpoints, we should consider using a map
 * here.
 * @param epId
 *
-* @return 
+* @return
 */
 EPSvcRequestPtr MultiEpSvcRequest::getEpReq_(fpi::SvcUuid &peerEpId)
 {
@@ -525,7 +525,7 @@ FailoverSvcRequest::FailoverSvcRequest()
 
 
 /**
-* @brief 
+* @brief
 *
 * @param id
 * @param myEpId
@@ -677,9 +677,9 @@ void FailoverSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
 }
 
 /**
-* @brief 
+* @brief
 *
-* @return 
+* @return
 */
 std::string FailoverSvcRequest::logString()
 {
@@ -698,10 +698,10 @@ bool FailoverSvcRequest::moveToNextHealthyEndpoint_()
     if (state_ == PRIOR_INVOCATION) {
         curEpIdx_ = 0;
     } else {
-        curEpIdx_++;
+        ++curEpIdx_;
     }
 
-    for (; curEpIdx_ < epReqs_.size(); curEpIdx_++) {
+    for (; curEpIdx_ < epReqs_.size(); ++curEpIdx_) {
         // TODO(Rao): Pass the right message version id
         auto ep = NetMgr::ep_mgr_singleton()->\
                     endpoint_lookup(epReqs_[curEpIdx_]->peerEpId_);
@@ -736,18 +736,18 @@ bool FailoverSvcRequest::moveToNextHealthyEndpoint_()
     }
 
     /* We've exhausted all the endpoints.  Decrement so that curEpIdx_ stays valid. Next
-     * we will post an error to simulated an error from last endpoint.  This will get 
+     * we will post an error to simulated an error from last endpoint.  This will get
      * handled in handleResponse().  We do this so that user registered callbacks are
      * invoked.
      */
     fds_assert(curEpIdx_ == epReqs_.size());
-    curEpIdx_--;
+    --curEpIdx_;
 
     return false;
 }
 
 /**
-* @brief 
+* @brief
 *
 * @param cb
 */
@@ -757,7 +757,7 @@ void FailoverSvcRequest::onResponseCb(FailoverSvcRequestRespCb cb)
 }
 
 /**
-* @brief 
+* @brief
 */
 QuorumSvcRequest::QuorumSvcRequest()
     : QuorumSvcRequest(0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
@@ -765,7 +765,7 @@ QuorumSvcRequest::QuorumSvcRequest()
 }
 
 /**
-* @brief 
+* @brief
 *
 * @param id
 * @param myEpId
@@ -798,14 +798,14 @@ QuorumSvcRequest::QuorumSvcRequest(const SvcRequestId& id,
 {
 }
 /**
-* @brief 
+* @brief
 */
 QuorumSvcRequest::~QuorumSvcRequest()
 {
 }
 
 /**
-* @brief 
+* @brief
 *
 * @param cnt
 */
@@ -828,7 +828,7 @@ void QuorumSvcRequest::invokeWork_()
 }
 
 /**
-* @brief 
+* @brief
 *
 * @param header
 * @param payload
@@ -872,9 +872,9 @@ void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 
     /* Update the endpoint ack counts */
     if (bSuccess) {
-        successAckd_++;
+        ++successAckd_;
     } else {
-        errorAckd_++;
+        ++errorAckd_;
     }
 
     /* Take action based on the ack counts */
@@ -897,9 +897,9 @@ void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 }
 
 /**
-* @brief 
+* @brief
 *
-* @return 
+* @return
 */
 std::string QuorumSvcRequest::logString()
 {

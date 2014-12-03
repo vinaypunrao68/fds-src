@@ -72,13 +72,13 @@ SvcRequestPool::newSvcRequestHeader(const SvcRequestId& reqId,
 }
 
 /**
-* @brief 
+* @brief
 *
 * @param reqId
 * @param srcUuid
 * @param dstUuid
 *
-* @return 
+* @return
 */
 boost::shared_ptr<fpi::AsyncHdr> SvcRequestPool::newSvcRequestHeaderPtr(
                                     const SvcRequestId& reqId,
@@ -106,7 +106,7 @@ void SvcRequestPool::asyncSvcRequestInitCommon_(SvcRequestIfPtr req)
 EPSvcRequestPtr
 SvcRequestPool::newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version)
 {
-    auto reqId = nextAsyncReqId_++;
+    auto reqId = ++nextAsyncReqId_;
     Platform *plat = Platform::platf_singleton();
 
     fpi::SvcUuid myEpId;
@@ -125,7 +125,7 @@ SvcRequestPool::newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version)
 FailoverSvcRequestPtr SvcRequestPool::newFailoverSvcRequest(
     const EpIdProviderPtr epProvider)
 {
-    auto reqId = nextAsyncReqId_++;
+    auto reqId = ++nextAsyncReqId_;
 
     fpi::SvcUuid myEpId;
     fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
@@ -138,7 +138,7 @@ FailoverSvcRequestPtr SvcRequestPool::newFailoverSvcRequest(
 
 QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr epProvider)
 {
-    auto reqId = nextAsyncReqId_++;
+    auto reqId = ++nextAsyncReqId_;
 
     fpi::SvcUuid myEpId;
     fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
@@ -152,7 +152,7 @@ QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr ep
 
 /**
 * @brief Common method for posting errors typically encountered in invocation code paths
-* for all service requests.  Here the we simulate as if the error is coming from 
+* for all service requests.  Here the we simulate as if the error is coming from
 * the endpoint.  Error is posted to a threadpool.
 *
 * @param header

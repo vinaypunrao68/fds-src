@@ -62,11 +62,11 @@ void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
                                              commitBlbTx->blob_version,
                                              commitBlbTx->dmt_version);
     dmBlobTxReq1->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(commitBlbTx->txId));
-    dmBlobTxReq1->dmio_commit_blob_tx_resp_cb =
+    dmBlobTxReq1->cb =
             BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
 
     TIMEDBLOCK("commit") {
-        dataMgr->commitBlobTx(dmBlobTxReq1);
+        dataMgr->handlers[FDS_COMMIT_BLOB_TX]->handleQueueItem(dmBlobTxReq1);
         cb.wait();
     }
     EXPECT_EQ(ERR_OK, cb.e);
@@ -81,7 +81,7 @@ TEST_F(DmUnitTest, AddVolume) {
 
 static void testPutBlobOnce(boost::shared_ptr<DMCallback> & cb, DmIoUpdateCatOnce * dmUpdCatReq) {
     TIMEDBLOCK("process") {
-        dataMgr->updateCatalogOnce(dmUpdCatReq);
+        dataMgr->handlers[FDS_CAT_UPD_ONCE]->handleQueueItem(dmUpdCatReq);
         cb->wait();
     }
     EXPECT_EQ(ERR_OK, cb->e);
@@ -117,7 +117,7 @@ TEST_F(DmUnitTest, PutBlobOnce) {
                                                               putBlobOnce->blob_version,
                                                               putBlobOnce->dmt_version);
             dmCommitBlobOnceReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(putBlobOnce->txId));
-            dmCommitBlobOnceReq->dmio_commit_blob_tx_resp_cb =
+            dmCommitBlobOnceReq->cb =
                     BIND_OBJ_CALLBACK(*cb.get(), DMCallback::handler, asyncHdr);
 
 
@@ -223,10 +223,10 @@ TEST_F(DmUnitTest, SetMeta) {
         setBlobMeta->txId  = txnId;
         setBlobMeta->metaDataList.push_back(metaData);
         auto dmSetMDReq = new DmIoSetBlobMetaData(setBlobMeta);
-        dmSetMDReq->dmio_setmd_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+        dmSetMDReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
 
         TIMEDBLOCK("process") {
-            dataMgr->setBlobMetaDataSvc(dmSetMDReq);
+            dataMgr->handlers[FDS_SET_BLOB_METADATA]->handleQueueItem(dmSetMDReq);
             cb.wait();
         }
         EXPECT_EQ(ERR_OK, cb.e);
@@ -250,9 +250,9 @@ TEST_F(DmUnitTest, GetMeta) {
                                              getBlobMeta->blob_name,
                                              getBlobMeta->blob_version,
                                              getBlobMeta);
-        dmReq->dmio_getmd_resp_cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+        dmReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
         TIMEDBLOCK("process") {
-            dataMgr->scheduleGetBlobMetaDataSvc(dmReq);
+            dataMgr->handlers[FDS_GET_BLOB_METADATA]->handleQueueItem(dmReq);
             cb.wait();
         }
         EXPECT_EQ(ERR_OK, cb.e);

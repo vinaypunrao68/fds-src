@@ -435,7 +435,7 @@ AmDataApi::updateBlobOnce(boost::shared_ptr<std::string>& domainName,
     // Wait for a signal from the callback thread
     putHandler->wait();
 
-    io_log_counter++;
+    ++io_log_counter;
     if ((io_log_counter % io_log_interval) == 0) {
         LOGNORMAL << "Finishing updateBlobOnce for blob " << *blobName
                   << " at object offset " << objectOffset->value
@@ -509,7 +509,7 @@ AmDataApi::updateBlob(boost::shared_ptr<std::string>& domainName,
     // Wait for a signal from the callback thread
     putHandler->wait();
 
-    io_log_counter++;
+    ++io_log_counter;
     if ((io_log_counter % io_log_interval) == 0) {
         LOGNORMAL << "Finishing updateBlob for blob " << *blobName
                   << " at object offset " << objectOffset->value

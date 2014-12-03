@@ -102,8 +102,10 @@ class AmCache : public Module, public boost::noncopyable {
     VolumeSharedCacheManager<BlobOffsetPair, ObjectID, BlobOffsetPairHash>      offset_cache;
     VolumeSharedCacheManager<ObjectID, std::string, ObjectHash, std::true_type> object_cache;
 
-    /// Max number of entries per volume cache
-    size_t max_entries;
+    /// Max number of object data entries per volume cache
+    size_t max_data_entries;
+    /// Max number of metadta entries per volume cache
+    size_t max_metadata_entries;
 };
 
 }  // namespace fds

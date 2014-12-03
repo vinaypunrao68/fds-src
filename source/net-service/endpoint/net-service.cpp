@@ -365,7 +365,7 @@ NetMgr::endpoint_lookup(const fpi::SvcUuid &mine, const fpi::SvcUuid &peer)
             ep_map.erase(peer.svc_uuid);
         } else {
             ep = NULL;
-            for (auto it = list.cbegin(); it != list.cend(); it++) {
+            for (auto it = list.cbegin(); it != list.cend(); ++it) {
                 if ((*it)->ep_my_uuid() == (fds_uint64_t)mine.svc_uuid) {
                     ep = *it;
                     break;
