@@ -778,6 +778,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler();
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
+    handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetaDataHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1236,23 +1237,6 @@ DataMgr::expungeObjectCb(QuorumSvcRequest* svcReq,
                          const Error& error,
                          boost::shared_ptr<std::string> payload) {
     DBG(GLOGDEBUG << "Expunge cb called");
-}
-
-void DataMgr::getVolumeMetaData(dmCatReq *io) {
-    Error err(ERR_OK);
-    DmIoGetVolumeMetaData * getVolMDReq = static_cast<DmIoGetVolumeMetaData *>(io);
-    err = timeVolCat_->queryIface()->getVolumeMeta(getVolMDReq->getVolId(),
-            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.size),
-            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.blobCount),
-            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.objectCount));
-    if (!err.ok()) {
-        PerfTracer::incr(getVolMDReq->opReqFailedPerfEventType, getVolMDReq->getVolId(),
-                getVolMDReq->perfNameStr);
-    }
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*getVolMDReq);
-    PerfTracer::tracePointEnd(getVolMDReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(getVolMDReq->opReqLatencyCtx);
-    getVolMDReq->dmio_get_volmd_resp_cb(err, getVolMDReq);
 }
 
 void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::

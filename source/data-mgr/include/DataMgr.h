@@ -177,9 +177,6 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_DM_SNAPDELTA_VOLCAT:
                     threadPool->schedule(&DataMgr::snapVolCat, dataMgr, io);
                     break;
-                case FDS_GET_VOLUME_METADATA:
-                    threadPool->schedule(&DataMgr::getVolumeMetaData, dataMgr, io);
-                    break;
                 case FDS_DM_PUSH_META_DONE:
                     threadPool->schedule(&DataMgr::handleDMTClose, dataMgr, io);
                     break;
@@ -206,6 +203,7 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_SET_BLOB_METADATA:
                 case FDS_ABORT_BLOB_TX:
                 case FDS_DM_FWD_CAT_UPD:
+                case FDS_GET_VOLUME_METADATA:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
@@ -349,7 +347,6 @@ struct DataMgr : Module, DmIoReqHandler {
 
     void scheduleDeleteCatObjSvc(void * _io);
     void setBlobMetaDataBackend(const dmCatReq *request);
-    void getVolumeMetaData(dmCatReq *io);
     void snapVolCat(dmCatReq *io);
     void handleDMTClose(dmCatReq *io);
     void handleForwardComplete(dmCatReq *io);
