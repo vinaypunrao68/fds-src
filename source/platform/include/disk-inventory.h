@@ -1,8 +1,11 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-#ifndef SOURCE_INCLUDE_PLATFORM_DISK_INVENTORY_H_
-#define SOURCE_INCLUDE_PLATFORM_DISK_INVENTORY_H_
+
+#ifndef SOURCE_PLATFORM_INCLUDE_DISK_INVENTORY_H_
+#define SOURCE_PLATFORM_INCLUDE_DISK_INVENTORY_H_
+
+#include <vector>
 
 #include <fds_resource.h>
 
@@ -75,4 +78,5 @@ class DiskInventory : public RsContainer
 };
 
 }  // namespace fds
-#endif  // SOURCE_INCLUDE_PLATFORM_DISK_INVENTORY_H_
+
+#endif  // SOURCE_PLATFORM_INCLUDE_DISK_INVENTORY_H_

@@ -7,7 +7,7 @@
 #include <fds-probe/s3-probe.h>
 #include <platform/platform-lib.h>
 #include <net/net-service.h>
-#include <platform.h>
+#include <node_platform.h>
 #include <net-platform.h>
 #include <util/fds_stat.h>
 

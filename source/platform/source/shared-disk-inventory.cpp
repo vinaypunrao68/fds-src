@@ -2,7 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include <platform/disk-inventory.h>
+#include "disk-inventory.h"
 
 namespace fds
 {
