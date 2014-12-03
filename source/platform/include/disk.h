@@ -17,7 +17,7 @@
 #include <cpplist.h>
 #include <fds_module.h>
 #include <shared/fds-constants.h>
-#include <platform/disk-inventory.h>
+#include "disk-inventory.h"
 
 namespace fds
 {
