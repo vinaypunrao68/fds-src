@@ -4,7 +4,7 @@
 
 #include <string>
 #include <disk.h>
-#include <platform.h>
+
 #include <fds_process.h>
 #include <net-platform.h>
 #include <net/net_utils.h>
@@ -12,6 +12,10 @@
 #include <ep-map.h>
 #include <util/timeutils.h>
 #include <net/SvcRequestPool.h>
+
+#include "node_platform.h"
+#include "node_shared_memory_rw_ctrl.h"
+#include "node_platform_process.h"
 
 namespace fds
 {

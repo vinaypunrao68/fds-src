@@ -4,9 +4,10 @@
 
 #include <vector>
 #include <ep-map.h>
-#include <platform.h>
 #include <platform/net-plat-shared.h>
 #include <net/RpcFunc.h>
+
+#include "node_shared_memory_rw_ctrl.h"
 
 namespace fds
 {
