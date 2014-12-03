@@ -14,6 +14,7 @@ user_fds_ar_libs  :=
 
 user_non_fds_libs := \
     tcmalloc \
+	pthread \
     event
 
 user_cc           := ngx_modules.c
@@ -29,7 +30,6 @@ user_bin_exe      := \
 	th_am \
 	th_sm \
     th_dm \
-    th_am_server \
     th_bare \
 	threadpool_test \
     serializer_gtest
