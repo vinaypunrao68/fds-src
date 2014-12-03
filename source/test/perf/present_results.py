@@ -205,164 +205,166 @@ if __name__ == "__main__":
     for t in tags:
         label = t
         mode, mix, config = t.split(":")[0:3]
-        if mode == "s3" and mix == "get":
-            experiments = db["experiments"].find(tag=t)
-            experiments = [ x for x in experiments]
-            experiments = filter(lambda x : x["type"] == "GET", experiments)
-            experiments = sorted(experiments, key = lambda k : int(k["threads"]))
-            #iops = [x["th"] for x in experiments]    
-            iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
-            iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
-            am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
-            #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
-            sm_lat = []
-            #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
-            dm_lat = []
-            java_lat = [x["javalat"] for x in experiments]
-            cpus = {}
-            for a in agents:
-                cpus[a] = [x[a+":cpu"] for x in experiments]
-            iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
-            lat = [x["lat"] for x in experiments]    
-            #print [x["nreqs"] for x in experiments]    
-            conns = [x["threads"] for x in experiments]    
+        try:
+            if mode == "s3" and mix == "get":
+                experiments = db["experiments"].find(tag=t)
+                experiments = [ x for x in experiments]
+                experiments = filter(lambda x : x["type"] == "GET", experiments)
+                experiments = sorted(experiments, key = lambda k : int(k["threads"]))
+                #iops = [x["th"] for x in experiments]    
+                iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
+                iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
+                am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
+                #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
+                sm_lat = []
+                #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
+                dm_lat = []
+                java_lat = [x["javalat"] for x in experiments]
+                cpus = {}
+                for a in agents:
+                    cpus[a] = [x[a+":cpu"] for x in experiments]
+                iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
+                lat = [x["lat"] for x in experiments]    
+                #print [x["nreqs"] for x in experiments]    
+                conns = [x["threads"] for x in experiments]    
 
-            #max_iops = max(iops)
-            iops_50 = iops[-1]
-            lat_50 = lat[-1]
+                #max_iops = max(iops)
+                iops_50 = iops[-1]
+                lat_50 = lat[-1]
 
-            test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
-            summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
+                test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
+                summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
 
-            #print [x["type"] for x in experiments]    
-            # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
-            
-            images = [] 
-            images.append(generate_scaling_iops(conns, iops))
-            images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
-            images.append(generate_cpus(conns, cpus))
-            images.append(generate_lat_bw(iops, lat))
-            mail_success(recipients2, images, label)
-        if mode == "s3_java" and mix == "get":
-            experiments = db["experiments"].find(tag=t)
-            experiments = [ x for x in experiments]
-            experiments = filter(lambda x : x["type"] == "GET", experiments)
-            experiments = sorted(experiments, key = lambda k : int(k["outstanding"]))
-            #iops = [x["th"] for x in experiments]    
-            iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
-            iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
-            am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
-            #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
-            sm_lat = []
-            #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
-            dm_lat = []
-            java_lat = [x["javalat"] for x in experiments]
-            cpus = {}
-            for a in agents:
-                cpus[a] = [x[a+":cpu"] for x in experiments]
-            iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
-            lat = [x["lat"] for x in experiments]    
-            #print [x["nreqs"] for x in experiments]    
-            conns = [x["outstanding"] for x in experiments]    
+                #print [x["type"] for x in experiments]    
+                # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
+                
+                images = [] 
+                images.append(generate_scaling_iops(conns, iops))
+                images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+                images.append(generate_cpus(conns, cpus))
+                images.append(generate_lat_bw(iops, lat))
+                mail_success(recipients2, images, label)
+            if mode == "s3_java" and mix == "get":
+                experiments = db["experiments"].find(tag=t)
+                experiments = [ x for x in experiments]
+                experiments = filter(lambda x : x["type"] == "GET", experiments)
+                experiments = sorted(experiments, key = lambda k : int(k["outstanding"]))
+                #iops = [x["th"] for x in experiments]    
+                iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
+                iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
+                am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
+                #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
+                sm_lat = []
+                #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
+                dm_lat = []
+                java_lat = [x["javalat"] for x in experiments]
+                cpus = {}
+                for a in agents:
+                    cpus[a] = [x[a+":cpu"] for x in experiments]
+                iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
+                lat = [x["lat"] for x in experiments]    
+                #print [x["nreqs"] for x in experiments]    
+                conns = [x["outstanding"] for x in experiments]    
 
-            #max_iops = max(iops)
-            iops_50 = iops[-1]
-            lat_50 = lat[-1]
-            test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
-            summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
+                #max_iops = max(iops)
+                iops_50 = iops[-1]
+                lat_50 = lat[-1]
+                test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
+                summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
 
-            #print [x["type"] for x in experiments]    
-            # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
-            
-            # print "Pareto optimal:", compute_pareto_optimal(iops, lat)
-            images = [] 
-            images.append(generate_scaling_iops(conns, iops))
-            images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
-            images.append(generate_cpus(conns, cpus))
-            images.append(generate_lat_bw(iops, lat))
-            mail_success(recipients2, images, label)
+                #print [x["type"] for x in experiments]    
+                # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
+                
+                # print "Pareto optimal:", compute_pareto_optimal(iops, lat)
+                images = [] 
+                images.append(generate_scaling_iops(conns, iops))
+                images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+                images.append(generate_cpus(conns, cpus))
+                images.append(generate_lat_bw(iops, lat))
+                mail_success(recipients2, images, label)
 
-        if mode == "s3" and mix == "put":
-            experiments = db["experiments"].find(tag=t)
+            if mode == "s3" and mix == "put":
+                experiments = db["experiments"].find(tag=t)
 
-            #for e in experiments:
-            #    print e
-            experiments = [ x for x in experiments]
-            experiments = filter(lambda x : x["type"] == "PUT", experiments)
-            experiments = sorted(experiments, key = lambda k : int(k["threads"]))
-            #iops = [x["th"] for x in experiments]    
-            #iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
-            iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
-            am_lat = [x["am:am_put_obj_req:latency"] for x in experiments]
-            #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
-            sm_lat = []
-            #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
-            dm_lat = []
-            java_lat = [x["javalat"] for x in experiments]
-            cpus = {}
-            for a in agents:
-                cpus[a] = [x[a+":cpu"] for x in experiments]
-            iops = iops_put
-            lat = [x["lat"] for x in experiments]
-            #print [x["nreqs"] for x in experiments]    
-            conns = [x["threads"] for x in experiments]    
+                #for e in experiments:
+                #    print e
+                experiments = [ x for x in experiments]
+                experiments = filter(lambda x : x["type"] == "PUT", experiments)
+                experiments = sorted(experiments, key = lambda k : int(k["threads"]))
+                #iops = [x["th"] for x in experiments]    
+                #iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
+                iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
+                am_lat = [x["am:am_put_obj_req:latency"] for x in experiments]
+                #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
+                sm_lat = []
+                #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
+                dm_lat = []
+                java_lat = [x["javalat"] for x in experiments]
+                cpus = {}
+                for a in agents:
+                    cpus[a] = [x[a+":cpu"] for x in experiments]
+                iops = iops_put
+                lat = [x["lat"] for x in experiments]
+                #print [x["nreqs"] for x in experiments]    
+                conns = [x["threads"] for x in experiments]    
 
-            #max_iops = max(iops)
-            iops_50 = iops[-1]
-            lat_50 = lat[-1]
-            test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
-            summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
+                #max_iops = max(iops)
+                iops_50 = iops[-1]
+                lat_50 = lat[-1]
+                test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
+                summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
 
-            #print [x["type"] for x in experiments]    
-            # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
-            
-            images = [] 
-            images.append(generate_scaling_iops(conns, iops))
-            images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
-            images.append(generate_cpus(conns, cpus))
-            images.append(generate_lat_bw(iops, lat))
-            mail_success(recipients2, images, label)
-        elif mode == "fio":
-            experiments = db["experiments"].find(tag=t)
+                #print [x["type"] for x in experiments]    
+                # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
+                
+                images = [] 
+                images.append(generate_scaling_iops(conns, iops))
+                images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+                images.append(generate_cpus(conns, cpus))
+                images.append(generate_lat_bw(iops, lat))
+                mail_success(recipients2, images, label)
+            elif mode == "fio":
+                experiments = db["experiments"].find(tag=t)
 
-            #for e in experiments:
-            #    print e
-            experiments = [ x for x in experiments]
-            print experiments
-            experiments = filter(lambda x : x["fio_type"] == "randread", experiments)
-            experiments = sorted(experiments, key = lambda k : int(k["iodepth"]))
-            #iops = [x["th"] for x in experiments]    
-            iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
-            iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
-            am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
-            #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
-            sm_lat = []
-            #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
-            dm_lat = []
-            java_lat = [x["javalat"] for x in experiments]
-            cpus = {}
-            for a in agents:
-                cpus[a] = [x[a+":cpu"] for x in experiments]
+                #for e in experiments:
+                #    print e
+                experiments = [ x for x in experiments]
+                experiments = filter(lambda x : x["fio_type"] == "randread", experiments)
+                experiments = sorted(experiments, key = lambda k : int(k["iodepth"]))
+                #iops = [x["th"] for x in experiments]    
+                iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
+                iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
+                am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
+                #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
+                sm_lat = []
+                #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
+                dm_lat = []
+                java_lat = [x["javalat"] for x in experiments]
+                cpus = {}
+                for a in agents:
+                    cpus[a] = [x[a+":cpu"] for x in experiments]
 
-            iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
-            lat = [x["lat"] for x in experiments]    
-            #print [x["nreqs"] for x in experiments]    
-            conns = [x["iodepth"] for x in experiments]    
+                iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
+                lat = [x["lat"] for x in experiments]    
+                #print [x["nreqs"] for x in experiments]    
+                conns = [x["iodepth"] for x in experiments]    
 
-            #max_iops = max(iops)
-            iops_50 = iops[-1]
-            lat_50 = lat[-1]
-            test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
-            summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
+                #max_iops = max(iops)
+                iops_50 = iops[-1]
+                lat_50 = lat[-1]
+                test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
+                summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
 
-            #print [x["type"] for x in experiments]    
-            # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
-            images = [] 
-            images.append(generate_scaling_iops(conns, iops))
-            images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
-            images.append(generate_cpus(conns, cpus))
-            images.append(generate_lat_bw(iops, lat))
-            mail_success(recipients2, images, label)
+                #print [x["type"] for x in experiments]    
+                # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
+                images = [] 
+                images.append(generate_scaling_iops(conns, iops))
+                images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+                images.append(generate_cpus(conns, cpus))
+                images.append(generate_lat_bw(iops, lat))
+                mail_success(recipients2, images, label)
+        except:
+            continue
  
     mail_summary(summary)
     
