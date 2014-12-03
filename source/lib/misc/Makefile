@@ -31,7 +31,6 @@ user_incl_dir    := .. $(topdir)
 user_no_style    := \
     VolumeCatalog.cpp    \
     OMgrClient.cpp       \
-    QoSWFQDispatcher.cpp \
     qos_htb.cpp          \
     fds_obj_cache.cpp	 \
     qos_min_prio.cpp     \

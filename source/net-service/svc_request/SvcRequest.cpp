@@ -741,7 +741,7 @@ bool FailoverSvcRequest::moveToNextHealthyEndpoint_()
      * invoked.
      */
     fds_assert(curEpIdx_ == epReqs_.size());
-    curEpIdx_--;
+    --curEpIdx_;
 
     return false;
 }
