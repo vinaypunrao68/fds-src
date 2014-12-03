@@ -1,0 +1,14 @@
+<div>
+    <div class="header bottom-border">
+        <span translate>volumes.l_timeline</span>
+        <div class="pull-right" ng-click="editing = true" ng-show="editing == false">
+            <span class="icon icon-edit"></span>
+        </div>
+    </div>
+    
+    <waterfall-slider sliders="sliders" range="range" enabled="editing"></waterfall-slider>
+    
+    <div class="protection-button-panel" ng-show="editing === true">
+        <button class="btn btn-primary" ng-click="save()" translate>common.l_done</button>
+    </div>
+</div>

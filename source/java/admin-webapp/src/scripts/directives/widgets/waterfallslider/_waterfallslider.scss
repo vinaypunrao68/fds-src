@@ -3,10 +3,20 @@ $waterfall-slider-row-height: 38px;
 .waterfall-slider {
 
     width: 100%;
-    margin-top: 56px;
+    padding-top: 38px;
     @include no-select();
     position: relative;
     @include display-flex();
+    
+    .waterfall-shade {
+        position: absolute;
+        width: 102%;
+        height: 100%;
+        margin: -8px;
+        margin-top: -20px;
+        background-color: rgba(255,255,255,0.4);
+        z-index: 4;
+    }
     
     .waterfall-legend {
         width: 100%;

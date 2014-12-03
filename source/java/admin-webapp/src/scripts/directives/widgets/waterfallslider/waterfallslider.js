@@ -7,7 +7,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
         templateUrl: 'scripts/directives/widgets/waterfallslider/waterfallslider.html',
         // format:  sliders = [{value: { range: index, value: value }}, name: name},...]
         // range: [{start: val, end: val (will not be displayed unless last range), values: [], width: <in percentage>, segments: <segments to draw>, min: minimum value (only applies to first item), labelFunction: callback for label, selectable: if it can be in the drop down, selectName: name in the dropdown}..]
-        scope: { sliders: '=', range: '=' },
+        scope: { sliders: '=', range: '=', enabled: '=' },
         controller: function( $scope, $document, $element, $timeout, $resize_service ){
             
             $scope.grabbedSlider = undefined;

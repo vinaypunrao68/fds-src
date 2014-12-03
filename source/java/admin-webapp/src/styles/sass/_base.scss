@@ -69,6 +69,10 @@ li:active, li:focus, a:active, a:focus {
     margin-bottom: 20px;
 }
 
+.bottom-border {
+    border-bottom: 1px solid $text_very_light_color;
+}
+
 .error-color {
     color: red;
 }

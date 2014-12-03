@@ -31,12 +31,17 @@
             <qos-panel ng-model="qos"></qos-panel>
         </section>
         <section>
+            <protection-policy-panel ng-model="protectionPolicies"></protection-policy-panel>
+        </section>
+<!--
+        <section>
             <snapshot-policy-panel ng-model="snapshotPolicies"></snapshot-policy-panel>
         </section>
+-->
 
     </div>
 
-    <div style="padding-top: 12px;margin-bottom: 42px;">
+    <div style="margin-top: 24px;margin-bottom: 42px;">
         <button class="btn btn-primary" style="display: inline-block;" ng-click="save()">
             <span ng-show="volumeVars.creating === true" translate>volumes.l_create_volume</span>
         </button>

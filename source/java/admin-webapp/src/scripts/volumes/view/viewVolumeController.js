@@ -6,6 +6,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.snapshots = [];
     $scope.snapshotPolicies = [];
+    $scope.protectionPolicies = [];
     
     $scope.thisVolume = {};
     $scope.capacityStats = { series: [] };
@@ -182,7 +183,24 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             $scope.qos.priority = $scope.thisVolume.priority;
             
             $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id, function( realPolicies ){
-                $scope.snapshotPolicies = realPolicies;
+                
+                var notTimelinePolicies = [];
+                var timelinePolicies = [];
+                
+                for ( var i = 0; i < realPolicies.length; i++ ){
+                    if ( realPolicies[i].name.indexOf( '_TIMELINE_' ) === -1 ){
+                        notTimelinePolicies.push( realPolicies[i] );
+                    }
+                    else {
+                        timelinePolicies.push( realPolicies[i] );
+                    }
+                }
+                
+                $scope.snapshotPolicies = notTimelinePolicies;
+                $scope.protectionPolicies = {
+                    continuous: 24*60*60*1000,
+                    policies: timelinePolicies
+                };
             });
             
             buildQueries();
@@ -199,7 +217,38 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.$on( 'fds::snapshot_policy_change', function(){
         
         $volume_api.getSnapshotPoliciesForVolume( $scope.thisVolume.id, function( oldPolicies ){
-            $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, oldPolicies, $scope.snapshotPolicies );
+            // do we need to delete some policies?
+            var deleteList = [];
+
+            for ( var o = 0; o < oldPolicies.length; o++ ){
+
+                var found = false;
+
+                for ( var n = 0; n < $scope.snapshotPolicies.length; n++ ){
+
+                    if ( oldPolicies[o].id === $scope.snapshotPolicies[n].id ){
+                        found = true;
+                        break;
+                    }
+                }// new policies
+
+                // not in the new list... delete it
+                if ( found === false ){
+                    deleteList.push( oldPolicies[o] );
+                }
+
+            }// old policies
+
+            for( var d = 0; d < deleteList.length; d++ ){
+
+                var id = deleteList[d].id;
+
+                service.detachPolicy( deleteList[d], volumeId, function( result ){
+                    service.deleteSnapshotPolicy( id, function(){} );
+                });
+            }
+        
+//            $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, oldPolicies, $scope.snapshotPolicies );
         });
     });
     
@@ -216,7 +265,11 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $volume_api.save( $scope.thisVolume );
     });
     
-    $scope.$on( 'fds::data_conenctor_changed', function( newVal, oldVal ){
+    $scope.$on( 'fds::protection_policy_changed', function( newVal, oldVal ){
+            $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.protectionPolicies.policies );
+    });
+    
+    $scope.$on( 'fds::data_connector_changed', function( newVal, oldVal ){
         
         if ( !angular.isDefined( $scope.thisVolume.id ) || !angular.isDefined( oldVal ) ){
             return;

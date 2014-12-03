@@ -148,6 +148,7 @@ var en_US = {
         l_snapshot_policy: 'Snapshot Policy',
         l_snapshot_policies: 'Snapshot Policies',
         l_starting_point: 'Starting Point',
+        l_timeline: 'Timeline',
         l_volume_name: 'Volume Name',
         f_iops_guarantee: 'IOPs Capacity Guarantee:',
         f_iops_limit: 'IOPs Limit:',
