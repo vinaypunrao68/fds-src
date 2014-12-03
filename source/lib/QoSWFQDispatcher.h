@@ -109,7 +109,7 @@ namespace fds {
 
     QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate,
 		     fds_uint32_t maximum_outstanding_ios, fds_log *parent_log);
-    ~QoSWFQDispatcher();
+    ~QoSWFQDispatcher() {}
     Error registerQueue(fds_qid_t queue_id, FDS_VolumeQueue *queue);
     Error deregisterQueue(fds_qid_t queue_id);
     Error modifyQueueQosParams(fds_qid_t queue_id,
