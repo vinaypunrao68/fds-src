@@ -26,7 +26,7 @@ JNIEXPORT void JNICALL Java_com_formationds_am_NativeAm_init
     int length = env->GetArrayLength(javaArgs);
     const char *args[length + 1];
     args[0] = "AMAgent";
-    for (int i = 0; i <length; i++) {
+    for (int i = 0; i <length; ++i) {
         jstring arg = (jstring)env->GetObjectArrayElement(javaArgs, i);
         const char *buf = env->GetStringUTFChars(arg, NULL);
         std::string *s = new std::string(buf);
