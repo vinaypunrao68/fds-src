@@ -15,7 +15,7 @@
 
 namespace fds
 {
-#if 0
+/*
     class ShmObjRWKeyUint64;
     class NodeShmRWCtrl;
     class DiskPlatModule;
@@ -30,9 +30,9 @@ namespace fds
             {
             }
 
-            /**
+            / **
              * Module methods
-             */
+             * /
             virtual int  mod_init(SysParams const *const param) override;
             virtual void mod_startup() override;
             virtual void mod_enable_service() override;
@@ -57,7 +57,7 @@ namespace fds
 
             virtual void plf_bind_om_node();
     };
-
+*/
     /**
      * Platform daemon module controls share memory segments.
      */
@@ -127,6 +127,7 @@ namespace fds
             virtual void shm_setup_queue() override;
     };
 
+/*
     extern NodePlatform    gl_NodePlatform;
 
     class NodePlatformProc : public PlatformProcess
@@ -151,8 +152,7 @@ namespace fds
             // TODO(Andrew): Should be persisted...
             fds_uint32_t    amInstanceCount;
     };
-#endif
-
+*/
 }  // namespace fds
 
 #endif  // SOURCE_PLATFORM_INCLUDE_PLATFORM_H_

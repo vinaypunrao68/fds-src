@@ -2,8 +2,8 @@
  * Copyright 2014 By Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_PLATFORM_INCLUDE_PLATFORM_H_
-#define SOURCE_PLATFORM_INCLUDE_PLATFORM_H_
+#ifndef SOURCE_PLATFORM_INCLUDE_PLATFORM_PROCESS_H_
+#define SOURCE_PLATFORM_INCLUDE_PLATFORM_PROCESS_H_
 
 #include <string>
 #include <fds-shmobj.h>
@@ -15,7 +15,7 @@
 
 namespace fds
 {
-#if 0
+/*
     class ShmObjRWKeyUint64;
     class NodeShmRWCtrl;
     class DiskPlatModule;
@@ -128,6 +128,7 @@ namespace fds
     };
 
     extern NodePlatform    gl_NodePlatform;
+*/
 
     class NodePlatformProc : public PlatformProcess
     {
@@ -151,8 +152,6 @@ namespace fds
             // TODO(Andrew): Should be persisted...
             fds_uint32_t    amInstanceCount;
     };
-#endif
-
 }  // namespace fds
 
-#endif  // SOURCE_PLATFORM_INCLUDE_PLATFORM_H_
+#endif  // SOURCE_PLATFORM_INCLUDE_PLATFORM__PROCESSH_
