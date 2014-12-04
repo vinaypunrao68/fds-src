@@ -269,6 +269,8 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                 translatePoliciesToScreen();
             };
             
+            $scope.$on( 'fds::cancel_editing', $scope.cancel );
+            
             initWatcher();
             
         }

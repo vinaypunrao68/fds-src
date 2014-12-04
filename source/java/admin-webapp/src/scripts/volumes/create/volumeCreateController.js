@@ -127,7 +127,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         volume.priority = $scope.qos.priority;
         volume.snapshotPolicies = $scope.snapshotPolicies;
         volume.protectionPolicies = $scope.protectionPolicies.policies;
-        volume.continuousRetention = $scope.protectionPolicies.continuous;
+        volume.commit_log_retention = $scope.protectionPolicies.continuous;
         volume.data_connector = $scope.dataConnector;
         volume.name = $scope.volumeName;
         

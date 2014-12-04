@@ -127,6 +127,8 @@ struct VolumeDescriptor {
             connector.put( "attributes", attributes );
             o.put( "data_connector", connector );
           }
+          
+          o.put( "commit_log_retention", v.getPolicy().getContCommitlogRetention() );
         }
       }
 

@@ -42,7 +42,8 @@ public class SetVolumeQosParams implements RequestHandler {
         int minIops = jsonObject.getInt("sla");
         int priority = jsonObject.getInt("priority");
         int maxIops = jsonObject.getInt("limit");
-
+        long commit_log_retention = jsonObject.getLong( "commit_log_retention" );
+        
         FDSP_VolumeDescType volumeDescType = client.ListVolumes(new FDSP_MsgHdrType())
                 .stream()
                 .filter(v -> v.getVolUUID() == uuid)
@@ -56,6 +57,10 @@ public class SetVolumeQosParams implements RequestHandler {
 
         FDSP_VolumeDescType volInfo = setVolumeQos(client, volumeName, minIops, priority, maxIops);
         VolumeDescriptor descriptor = configService.statVolume("", volumeName);
+        
+        // set the continuous time.
+        descriptor.getPolicy().setContCommitlogRetention( commit_log_retention );
+        
         JSONObject o = ListVolumes.toJsonObject(descriptor, volInfo, xdi.statVolume(token, "", volumeName));
         return new JsonResource(o);
     }

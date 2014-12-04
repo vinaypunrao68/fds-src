@@ -6,7 +6,7 @@ angular.module( 'form-directives' ).directive( 'slider', function(){
         transclude: false,
         scope: { min: '@', max: '@', value: '=ngModel', minLabel: '@', maxLabel: '@', labelFunction: '=?', step: '@', values: '=' },
         templateUrl: 'scripts/directives/widgets/slider/slider.html',
-        controller: function( $scope, $document, $element ){
+        controller: function( $scope, $document, $element, $timeout ){
 
             $scope.position = 0;
             $scope.grabbed = false;
@@ -165,10 +165,14 @@ angular.module( 'form-directives' ).directive( 'slider', function(){
                 $document.off( 'mouseup', null, function(){ $scope.grabbed = false; });
             });
 
-            $scope.$on( 'fds::page_shown', $scope.setValue );
-            $scope.$on( 'fds::fui-slider-refresh', $scope.setValue );
+            var asyncSetValue = function(){
+                $timeout( $scope.setValue, 100 );
+            };
+            
+            $scope.$on( 'fds::page_shown', asyncSetValue );
+            $scope.$on( 'fds::fui-slider-refresh', asyncSetValue );
 
-            $scope.setValue();
+            asyncSetValue();
         },
         link: function( $scope, $element, $attrs ){
 

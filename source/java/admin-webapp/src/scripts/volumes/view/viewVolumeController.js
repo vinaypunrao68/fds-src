@@ -184,7 +184,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
 
             $scope.snapshotPolicies = notTimelinePolicies;
             $scope.protectionPolicies = {
-                continuous: 24*60*60*1000,
+                continuous: $scope.thisVolume.commit_log_retention,
                 policies: timelinePolicies
             };
         });
@@ -219,6 +219,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         else {
             $interval.cancel( capacityIntervalId );
             $interval.cancel( performanceIntervalId );
+            $scope.$broadcast( 'fds::cancel_editing' );
         }
     });
     
@@ -274,7 +275,12 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     });
     
     $scope.$on( 'fds::protection_policy_changed', function( newVal, oldVal ){
-            $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.protectionPolicies.policies );
+        
+        $scope.thisVolume.commit_log_retention = $scope.protectionPolicies.continuous;
+        
+        $volume_api.save( $csope.thisVolume );
+        
+        $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.protectionPolicies.policies );
     });
     
     $scope.$on( 'fds::data_connector_changed', function( newVal, oldVal ){

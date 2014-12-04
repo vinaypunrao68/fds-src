@@ -47,11 +47,9 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
             };
 
             $scope.doneEditing = function(){
-                $scope.qos = {
-                    limit: $scope.copyLimit,
-                    priority: $scope.copyPriority,
-                    capacity: $scope.copyCapacity
-                };
+                $scope.qos.limit = $scope.copyLimit;
+                $scope.qos.priority = $scope.copyPriority;
+                $scope.qos.capacity = $scope.copyCapacity;
                 
                 $scope.$emit( 'fds::qos_changed' );
                 $scope.$emit( 'change' );
@@ -62,8 +60,11 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
                 init();
                 $scope.editing = false;
             };
+            
+            $scope.$on( 'fds::cancel_editing', $scope.cancel );
 
             $scope.$on( 'fds::page_shown', function(){
+                init();
                 $scope.$broadcast( 'fds::fui-slider-refresh' );
             });
          

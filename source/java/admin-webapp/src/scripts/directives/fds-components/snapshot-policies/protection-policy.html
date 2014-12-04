@@ -9,9 +9,9 @@
     <waterfall-slider sliders="sliders" range="range" enabled="editing"></waterfall-slider>
     
     <div class="protection-button-panel" ng-show="editing === true">
-        <button class="btn btn-primary skinny" ng-click="save()" translate>
-            <span ng-show="saveOnly === 'true' || saveOnly === true">common.l_done</span>
-            <span ng-show="saveOnly === 'false' || saveOnly === false">common.l_save</span>
+        <button class="btn btn-primary skinny" ng-click="save()">
+            <span ng-show="saveOnly === 'true' || saveOnly === true" translate>common.l_done</span>
+            <span ng-show="saveOnly === 'false' || saveOnly === false" translate>common.l_save</span>
         </button>
         <button class="btn btn-secondary skinny" ng-click="cancel()" ng-show="saveOnly === 'false' || saveOnly === false" translate>common.l_cancel</button>
     </div>
