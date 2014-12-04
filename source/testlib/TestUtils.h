@@ -35,8 +35,10 @@ class Platform;
 * @brief Utility functions for tests
 */
 struct TestUtils {
-    static FDS_ProtocolInterface::SvcUuid getAnyNonResidentSmSvcuuid(Platform* platform);
-    static FDS_ProtocolInterface::SvcUuid getAnyNonResidentDmSvcuuid(Platform* platform);
+    static FDS_ProtocolInterface::SvcUuid getAnyNonResidentSmSvcuuid(Platform* platform,
+                                                                     bool uuid_hack = false);
+    static FDS_ProtocolInterface::SvcUuid getAnyNonResidentDmSvcuuid(Platform* platform,
+                                                                     bool uuid_hack = false);
     static bool enableFault(const fpi::SvcUuid &svcUuid, const std::string &faultId);
     static bool disableFault(const fpi::SvcUuid &svcUuid, const std::string &faultId);
 };

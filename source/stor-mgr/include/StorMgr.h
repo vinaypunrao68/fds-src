@@ -186,6 +186,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                  // dispatcher = new QoSHTBDispatcher(this, log, 150);
              }
          virtual ~SmQosCtrl() {
+             delete dispatcher;
          }
 
          Error processIO(FDS_IOType* _io);

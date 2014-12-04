@@ -146,7 +146,7 @@ EpSvcHandle::ep_reconnect()
         ep_state |= EP_ST_CONNECTING;
         mtx->unlock();
 
-        for (int retry = 0; retry < 100; retry++) {
+        for (int retry = 0; retry < 100; ++retry) {
             try {
                 ep_trans->open();
                 ep_state &= ~EP_ST_CONNECTING;

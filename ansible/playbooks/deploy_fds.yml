@@ -213,9 +213,11 @@
           - libboost-thread1.55.0
           - libboost-regex1.55.0
           - libboost-date-time1.55.0
+          - libleveldb-dev
           - google-perftools
           - gcc
           - python-dev
+          - python-pycurl
 
     -   name: add artifactory repo key
         apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
@@ -238,6 +240,7 @@
             - "libconfig++9"
             - libev4
             - libreadline5
+            - libcryptopp-dev
             - xfsprogs
             - libjemalloc1
             - redis-tools
@@ -482,3 +485,5 @@
             -   dbg
         when: fds_om_host is defined and fds_om_host == inventory_hostname
     -   debug: var=fdsadmin_output.stdout_lines
+        tags:
+            -   dbg

@@ -12,8 +12,8 @@ import java.util.List;
  */
 public enum Protocol {
   S3,
-  SWIFT,
-  NBD;
+  NBD,
+  SWIFT;
 
   /**
    * @param apis the {@link String} representing the {@link com.formationds.commons.model.Volume#getApis()}
@@ -36,5 +36,16 @@ public enum Protocol {
     }
 
     return protocols;
+  }
+
+  public static Protocol findByValue( final int ordinal ) {
+    for( final Protocol protocol : Protocol.values() )
+    {
+      if( protocol.ordinal() == ordinal ) {
+        return protocol;
+      }
+    }
+
+    return null;
   }
 }

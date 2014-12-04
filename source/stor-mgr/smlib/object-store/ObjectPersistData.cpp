@@ -16,6 +16,10 @@ ObjectPersistData::ObjectPersistData(const std::string &modName,
 }
 
 ObjectPersistData::~ObjectPersistData() {
+    // First destruct scavenger
+    scavenger.reset();
+    // Now close levelDBs
+    LOGDEBUG << "Closing tokenfiles";
     diskio::FilePersisDataIO* delFdesc = NULL;
     for (TokFileMap::iterator it = tokFileTbl.begin();
          it != tokFileTbl.end();

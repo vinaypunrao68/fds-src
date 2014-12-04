@@ -589,10 +589,8 @@ set(SOURCE_FILES
     nginx/src/os/unix/ngx_user.c
     nginx/src/os/unix/ngx_user.h
     nginx/src/os/unix/ngx_writev_chain.c
-    source/access-mgr/amlib/handlers/handlermappings.cpp
     source/access-mgr/amlib/handlers/responsehandler.cpp
     source/access-mgr/amlib/AccessMgr.cpp
-    source/access-mgr/amlib/am-probe.cpp
     source/access-mgr/amlib/am-tx-mgr.cpp
     source/access-mgr/amlib/AmAsyncDataApi.cpp
     source/access-mgr/amlib/AmAsyncResponseApi.cpp
@@ -610,7 +608,6 @@ set(SOURCE_FILES
     source/access-mgr/include/requests/AttachVolBlobReq.h
     source/access-mgr/include/requests/CommitBlobTxReq.h
     source/access-mgr/include/requests/DeleteBlobReq.h
-    source/access-mgr/include/requests/GetBlobMetaDataReq.h
     source/access-mgr/include/requests/GetBlobReq.h
     source/access-mgr/include/requests/GetVolumeMetaDataReq.h
     source/access-mgr/include/requests/PutBlobReq.h
@@ -619,12 +616,10 @@ set(SOURCE_FILES
     source/access-mgr/include/requests/StartBlobTxReq.h
     source/access-mgr/include/requests/StatBlobReq.h
     source/access-mgr/include/requests/VolumeContentsReq.h
-    source/access-mgr/include/requests/VolumeStatsReq.h
     source/access-mgr/include/AccessMgr.h
     source/access-mgr/include/am-nbd.h
     source/access-mgr/include/am-node-workflow.h
     source/access-mgr/include/am-platform.h
-    source/access-mgr/include/am-probe.h
     source/access-mgr/include/am-tx-mgr.h
     source/access-mgr/include/AmAsyncDataApi.h
     source/access-mgr/include/AmAsyncResponseApi.h
@@ -637,35 +632,21 @@ set(SOURCE_FILES
     source/access-mgr/include/AmRequest.h
     source/access-mgr/include/AMSvcHandler.h
     source/access-mgr/include/fdsn-server.h
-    source/access-mgr/include/handlermappings.h
     source/access-mgr/include/responsehandler.h
     source/access-mgr/include/StorHvVolumes.h
     source/access-mgr/platform/am-node-workflow.cpp
     source/access-mgr/platform/am-platform.cpp
     source/access-mgr/platform/AMSvcHandler.cpp
-    source/access-mgr/stor-hvisor/handler/getvolumemetadatahandler.cpp
-    source/access-mgr/stor-hvisor/handler/handler.h
-    source/access-mgr/stor-hvisor/handler/statblobhandler.cpp
-    source/access-mgr/stor-hvisor/hvcore/FDSNStat.cpp
     source/access-mgr/stor-hvisor/hvcore/qos_ctrl.cpp
-    source/access-mgr/stor-hvisor/hvcore/StorHvisorClient.cpp
     source/access-mgr/stor-hvisor/hvcore/StorHvisorNet.cpp
-    source/access-mgr/stor-hvisor/hvcore/StorHvisorRx.cpp
-    source/access-mgr/stor-hvisor/hvcore/StorHvisorS3.cpp
     source/access-mgr/stor-hvisor/hvcore/StorHvisorSvc.cpp
     source/access-mgr/stor-hvisor/hvcore/StorHvisorTbl.cpp
-    source/access-mgr/stor-hvisor/hvcore/StorHvisorTx.cpp
-    source/access-mgr/stor-hvisor/hvcore/StorHvJournal.cpp
-    source/access-mgr/stor-hvisor/hvcore/StorHvNative.cpp
     source/access-mgr/stor-hvisor/hvcore/StorHvQosCtrl.cpp
     source/access-mgr/stor-hvisor/hvcore/StorHvVolumes.cpp
     source/access-mgr/stor-hvisor/hvcore/VolumeCatalogCache.cpp
-    source/access-mgr/stor-hvisor/FDSNStat.h
     source/access-mgr/stor-hvisor/list.h
     source/access-mgr/stor-hvisor/StorHvDataPlace.h
-    source/access-mgr/stor-hvisor/StorHvisorClient.h
     source/access-mgr/stor-hvisor/StorHvisorNet.h
-    source/access-mgr/stor-hvisor/StorHvJournal.h
     source/access-mgr/stor-hvisor/StorHvQosCtrl.h
     source/access-mgr/stor-hvisor/VolumeCatalogCache.h
     source/access-mgr/test/AmFunctionalTest.cpp
@@ -1121,8 +1102,6 @@ set(SOURCE_FILES
     source/net-service/svc_request/SvcRequest.cpp
     source/net-service/svc_request/SvcRequestPool.cpp
     source/net-service/svc_request/SvcRequestTracker.cpp
-    source/nginx-driver/misc/am-engine.cpp
-    source/nginx-driver/misc/am-plugin.cpp
     source/nginx-driver/misc/atmos-connector.cpp
     source/nginx-driver/misc/http_utils.cpp
     source/nginx-driver/misc/s3connector.cpp
@@ -1209,14 +1188,6 @@ set(SOURCE_FILES
     source/persistent-layer/io-lib/pdata_request.cpp
     source/persistent-layer/io-lib/tokFileMgr.cpp
     source/persistent-layer/mgnt-lib/dm_service.cpp
-    source/platform/common/plat-node-workflow.cpp
-    source/platform/common/platform-proc.cpp
-    source/platform/common/platform-shm-rw.cpp
-    source/platform/common/platform.cpp
-    source/platform/disk/disk-capacity.cpp
-    source/platform/disk/disk-inventory.cpp
-    source/platform/disk/disk-label.cpp
-    source/platform/disk/disk-partition.cpp
     source/platform/include/disk-capacity.h
     source/platform/include/disk-label.h
     source/platform/include/disk-partition.h
@@ -1225,22 +1196,6 @@ set(SOURCE_FILES
     source/platform/include/net-platform.h
     source/platform/include/plat-node-workflow.h
     source/platform/include/platform.h
-    source/platform/net-svc/ep-map.cpp
-    source/platform/net-svc/net-platform.cpp
-    source/platform/net-svc/net-registration.cpp
-    source/platform/net-svc/net-service.cpp
-    source/platform/shared/BaseAsyncSvcHandler.cpp
-    source/platform/shared/disk-inventory.cpp
-    source/platform/shared/fds-2phase.cpp
-    source/platform/shared/fds_flags.cpp
-    source/platform/shared/node-inv-shmem.cpp
-    source/platform/shared/node-inventory.cpp
-    source/platform/shared/node-workflow.cpp
-    source/platform/shared/platform-lib.cpp
-    source/platform/shared/platform-libmod.cpp
-    source/platform/shared/platform-rpc.cpp
-    source/platform/shared/PlatNetSvcHandler.cpp
-    source/platform/shared/service-ep-lib.cpp
     source/platform/platform-main.cpp
     source/stor-mgr/include/object-store/ObjectDataCache.h
     source/stor-mgr/include/object-store/ObjectDataStore.h
@@ -1563,7 +1518,6 @@ set(SOURCE_FILES
     source/unit-test/fds-probe/s3-template/probe-adapter.cpp
     source/unit-test/fds-probe/s3-template/probe-adapter.h
     source/unit-test/fds-probe/s3-template/test-main.cpp
-    source/unit-test/fds-probe/shared/test-plat-proc.cpp
     source/unit-test/fds-probe/shm-queue/ngx_modules.c
     source/unit-test/fds-probe/shm-queue/plat-probe-main.cpp
     source/unit-test/fds-probe/shm-queue/plat-probe.cpp

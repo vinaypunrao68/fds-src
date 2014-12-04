@@ -54,18 +54,18 @@ struct SMApi : SingleNodeTest
  	if (!error.ok()) {
             std::cout << " Put error " << error;
 	}
-        if(0 == --*num_acks) 
+        if(0 == --*num_acks)
         {
             auto endTs = util::getTimeStampNanos();
             avgPutLatency_.update(endTs - opStartTs);
             outStanding_--;
             {
                 Synchronized s(monitor_);
-                if (waiting_ && outStanding_ < concurrency_) 
+                if (waiting_ && outStanding_ < concurrency_)
                 {
                     monitor_.notify();
                  }
-            }         
+            }
 
              if(error != ERR_OK) {
                     putsFailedCnt_++;
@@ -95,7 +95,7 @@ struct SMApi : SingleNodeTest
                 outStanding_--;
                 {
                     Synchronized s(monitor_);
-                    if (waiting_ && outStanding_ < concurrency_) 
+                    if (waiting_ && outStanding_ < concurrency_)
                     {
                         monitor_.notify();
                     }
@@ -129,12 +129,12 @@ struct SMApi : SingleNodeTest
                           boost::shared_ptr<std::string> payload)
     {
         auto endTs = util::getTimeStampNanos();
-        avgGetLatency_.update(endTs - opStartTs);        
+        avgGetLatency_.update(endTs - opStartTs);
 
         outStanding_--;
         {
             Synchronized s(monitor_);
-            if (waiting_ && outStanding_ < concurrency_) 
+            if (waiting_ && outStanding_ < concurrency_)
             {
                 monitor_.notify();
             }
@@ -259,9 +259,10 @@ TEST_F(SMApi, dmsmPerf)
     bool lftp = this->getArg<bool>("lftp");
     std::string blobPrefix("testBlobOnce");
     concurrency_ = this->getArg<uint32_t>("concurrency");
-   
+    bool uuid_hack = this->getArg<bool>("uuid_hack");
+
     if(concurrency_ == 0) {
-    	concurrency_ = nPuts;	
+    	concurrency_ = nPuts;
     }
 
     std::cout << "Read all the command line args" << std::endl;
@@ -273,8 +274,10 @@ TEST_F(SMApi, dmsmPerf)
     fpi::SvcUuid sm_svcUuid;
     fpi::SvcUuid dm_svcUuid;
 
-    sm_svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
-    dm_svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
+    sm_svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager(), 
+                                                       uuid_hack);
+    dm_svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager(),
+                                                       uuid_hack);
 
     ASSERT_NE(sm_svcUuid.svc_uuid, 0);
     ASSERT_NE(dm_svcUuid.svc_uuid, 0);
@@ -309,7 +312,6 @@ TEST_F(SMApi, dmsmPerf)
         // will include creating msg into the latency
         auto opStartTs = util::getTimeStampNanos();
         ObjectID oid = dataset.dataset_[i];
-
         auto nAcks = std::make_shared<int>(2);
 
         /*  setup the putBlobOnce request*/
@@ -366,8 +368,8 @@ TEST_F(SMApi, dmsmPerf)
 
     /* Poll for completion */
     POLL_MS((putsIssued_ == putsSuccessCnt_ + putsFailedCnt_), 2000, (nPuts * 10));
-    
-    std::cout << "PutsSuccessCnt_ " << putsSuccessCnt_ << 
+
+    std::cout << "PutsSuccessCnt_ " << putsSuccessCnt_ <<
                 std::endl << "PutsFailedCnt_" << putsFailedCnt_ << std::endl;
     double throughput = (static_cast<double>(1000000000) /
 			 (endTs_ - startTs_)) * putsIssued_;
@@ -384,9 +386,9 @@ TEST_F(SMApi, dmsmPerf)
 
 
     gSvcRequestPool->dumpLFTPStats();
-    return;
+
     /* Start gets for the blob we have put*/
-    // reset counters                                                                     
+    // reset counters
     outStanding_ = 0;
     waiting_ = false;
 
@@ -415,7 +417,7 @@ TEST_F(SMApi, dmsmPerf)
        getsIssued_++;
        outStanding_++;
        asyncQryCatReq->invoke();
-       
+
        // if ((i == 1) || (i == 2) || (i == 3) || (i == 4)) {
        //    std::chrono::microseconds dura(200);
        //    std::this_thread::sleep_for(dura);
@@ -429,7 +431,7 @@ TEST_F(SMApi, dmsmPerf)
             }
             waiting_ = false;
        }
-       
+
    }
 
     /* Poll for completion */
@@ -455,7 +457,7 @@ TEST_F(SMApi, dmsmPerf)
 		  (getEndTs_ - getStartTs_)) * getsIssued_;
 
     std::cout << "GET experiment concurrency " << concurrency_ << std::endl;
-    std::cout << "getsSuccessCnt_ " << getsSuccessCnt_ << 
+    std::cout << "getsSuccessCnt_ " << getsSuccessCnt_ <<
                 std::endl << "getsFailedCnt_" << getsFailedCnt_ << std::endl;
     std::cout << "Throughput: " << throughput << std::endl;
     std::cout << "Avg GET Latency " << avgGetLatency_.value() << std::endl;
@@ -631,7 +633,8 @@ int main(int argc, char** argv) {
         ("output", po::value<std::string>()->default_value("stats.txt"), "stats output")
         ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling")
         ("lftp", po::value<bool>()->default_value(false), "use lockfree threadpool")
-        ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency");
+        ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency")
+        ("uuid_hack", po::value<bool>()->default_value(false), "pick last uuid from uuid list");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();
 }

@@ -365,9 +365,9 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     fiu_do_on("am.uturn.dispatcher",
               GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb); \
               cb->returnSize = amReq->data_len; \
-              cb->returnBuffer = new char[cb->returnSize]; \
+              cb->returnBuffer = new char[cb->returnSize];    \
               memset(cb->returnBuffer, 0x00, cb->returnSize); \
-              amReq->proc_cb(ERR_OK); \
+              amReq->proc_cb(ERR_OK);                         \
               return;);
 
     PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
@@ -454,6 +454,8 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
 void
 AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
     fiu_do_on("am.uturn.dispatcher",
+              GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb); \
+              cb->blobDesc.setBlobSize(cb->returnSize); \
               amReq->obj_id = ObjectID(); \
               amReq->proc_cb(ERR_OK); \
               return;);

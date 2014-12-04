@@ -72,7 +72,7 @@ namespace fds {
             LOGNOTIFY << "Will bypass QoS? " << bypass_dispatcher;
         }
 
-        ~FDS_QoSDispatcher() {
+        virtual ~FDS_QoSDispatcher() {
             shuttingDown = true;
         }
 
