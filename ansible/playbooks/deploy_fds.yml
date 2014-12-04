@@ -212,9 +212,11 @@
           - libboost-thread1.55.0
           - libboost-regex1.55.0
           - libboost-date-time1.55.0
+          - libleveldb-dev
           - google-perftools
           - gcc
           - python-dev
+          - python-pycurl
 
     -   name: add artifactory repo key
         apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
@@ -273,6 +275,18 @@
         apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
             state=present
             update_cache=yes
+        tags: repo
+
+    -   name: uninstall fds platform
+        apt: name={{item}}
+            force=yes
+            state=absent
+            update_cache=no
+            default_release=platform
+        with_items:
+            - fds-platform
+            - fds-pkghelper
+            - fds-coredump
         tags: repo
 
     -   name: install fds platform
@@ -426,3 +440,5 @@
             -   dbg
         when: fds_om_host is defined and fds_om_host == inventory_hostname
     -   debug: var=fdsadmin_output.stdout_lines
+        tags:
+            -   dbg

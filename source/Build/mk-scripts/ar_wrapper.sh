@@ -29,11 +29,10 @@ function remove_if_expired
    return 1
 }
 
-birth_time=$(/usr/bin/stat --printf %Z ${AR_SEMAPHORE} 2>/dev/null)
-
 # attempt to acquire the lock
 while ! mkdir ${AR_SEMAPHORE} 2> /dev/null
 do
+   birth_time=$(/usr/bin/stat --printf %Z ${AR_SEMAPHORE} 2>/dev/null)
    remove_if_expired && continue
    sleep 1
 done
