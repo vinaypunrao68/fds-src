@@ -48,7 +48,7 @@ public class Xdi {
         config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
         
         // the default log retention time is 24 hours
-        SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0, 24*60*60*1000 );
+        SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0, volumePolicy.getContCommitlogRetention() );
         /**
          * allows the UI to assign a snapshot policy to a volume without having to make an
          * extra call.
