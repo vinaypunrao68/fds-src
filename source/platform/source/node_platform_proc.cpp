@@ -7,7 +7,6 @@
 #include <vector>
 #include <sstream>
 #include <iostream>  // NOLINT
-#include <disk.h>
 #include <fds_uuid.h>
 #include <platform/fds-osdep.h>
 #include <net-platform.h>
@@ -16,10 +15,10 @@
 #include "node_platform.h"
 #include "node_shared_memory_rw_ctrl.h"
 #include "node_platform_process.h"
+#include "disk_plat_module.h"
 
 namespace fds
 {
-
     NodePlatformProc::NodePlatformProc(int argc, char **argv, Module **vec) : 
                                        PlatformProcess(argc, argv, "fds.plat.", "platform.log",
                                        &gl_NodePlatform, vec), amInstanceCount(0)

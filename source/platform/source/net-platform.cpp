@@ -4,7 +4,6 @@
 
 #include <string>
 #include <vector>
-#include <disk.h>
 #include <ep-map.h>
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
@@ -14,6 +13,8 @@
 
 #include "node_shared_memory_rw_ctrl.h"
 #include "plat_work_flow.h"
+
+#include "disk_plat_module.h"
 
 namespace fds
 {

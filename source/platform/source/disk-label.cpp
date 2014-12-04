@@ -4,9 +4,10 @@
 
 #include <string>
 #include <fds_uuid.h>
-#include <disk-label.h>
 #include <platform/platform-lib.h>
 #include <fds-magic.h>
+
+#include "disk_label.h"
 
 namespace fds
 {
