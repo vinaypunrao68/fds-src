@@ -280,6 +280,9 @@ struct FDSP_BlobInfoType{
 
 typedef list<FDSP_BlobInfoType> BlobInfoListType
 
+/* A detailed list of blob stats. */
+typedef list<BlobDescriptor> BlobDescriptorListType
+
 const i64 blob_list_iterator_begin = 0
 const i64 blob_list_iterator_end = 1
 
