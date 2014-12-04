@@ -32,6 +32,13 @@ ObjectStore::ObjectStore(const std::string &modName,
 }
 
 ObjectStore::~ObjectStore() {
+    // Call destructors of ObjectDataStore and ObjectMetadataStore,
+    // this will chain down the components closing levelDBs
+    // and cleaning memory
+    LOGDEBUG << "Destructing ObjectStore";
+
+    dataStore.reset();
+    metaStore.reset();
 }
 
 void
