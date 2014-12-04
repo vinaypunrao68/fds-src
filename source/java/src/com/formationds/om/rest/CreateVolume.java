@@ -126,6 +126,9 @@ public class CreateVolume
                                  type ) );
       }
 
+      // add the commit log retention value
+      settings.setContCommitlogRetention( volume.getCommit_log_retention() );
+      
       volumeId = xdi.createVolume( token,
                                    domainName,
                                    volume.getName(),
