@@ -84,6 +84,7 @@
 
     tasks:
 
+
     -   name: check_fds_install
         shell: test -d /fds/sbin
         ignore_errors: True
@@ -271,25 +272,25 @@
       force_install: no
 
     tasks:
-    -   name: add fds platform repo
+    -   name: uninstall fds
+        apt: name={{item}}
+            state=absent
+            purge=yes
+        with_items:
+          - fds-platform
+          - fds-pkghelper
+          - fds-coredump
+        tags: uninstall
+
+    -   name: add fds nightly platform repo
+        when: deploy_artifact == "nightly"
         apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
             state=present
             update_cache=yes
         tags: repo
 
-    -   name: uninstall fds platform
-        apt: name={{item}}
-            force=yes
-            state=absent
-            update_cache=no
-            default_release=platform
-        with_items:
-            - fds-platform
-            - fds-pkghelper
-            - fds-coredump
-        tags: repo
-
-    -   name: install fds platform
+    -   name: install fds platform from repo
+        when: deploy_artifact == "nightly"
         apt: name={{item}}
             force=yes
             state=present
@@ -301,6 +302,50 @@
             - fds-coredump
         register: fdsinstall_pkg
         tags: repo
+
+    -   name: copy local fds-coredump to host
+        when: deploy_artifact == "local"
+        copy: src={{ item }}
+          dest=/root/fds-coredump.deb
+        with_fileglob:
+          - '../../source/tools/install/pkg/fds-coredump*.deb'
+        tags:
+          - copy_pkg
+
+    -   name: copy local fds-pkghelper to host
+        when: deploy_artifact == "local"
+        copy: src={{ item }}
+          dest=/root/fds-pkghelper.deb
+        with_fileglob:
+          - '../../source/tools/package/fds-pkghelper/fds-pkghelper*.deb'
+        tags:
+          - copy_pkg
+
+    -   name: copy local fds-platform to host
+        when: deploy_artifact == "local"
+        copy: src={{ item }}
+          dest=/root/fds-platform.deb
+        with_fileglob:
+          - '../../source/tools/install/pkg/fds-platform*.deb'
+        tags:
+          - copy_pkg
+
+    -   name: install fds platfrom from local debs
+        when: deploy_artifact == "local"
+        apt: deb={{ item }}
+        with_items:
+          - /root/fds-coredump.deb
+          - /root/fds-pkghelper.deb
+          - /root/fds-platform.deb
+        tags:
+          - copy_pkg
+
+    -   name: delete local debs from /root/ to avoid conflicts
+        when: deploy_artifact == "local"
+        file: path=/root/{{ item }}
+            state=absent
+        with_fileglob:
+          - 'fds-*.deb'
 
     -   name: copy fdsinstall.py to /root/fdsinstally.py
         copy: src=../../source/tools/install/fdsinstall.py
