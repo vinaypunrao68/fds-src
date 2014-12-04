@@ -25,7 +25,7 @@ for record in content_json['children']:
 
 for deb_name in deb_dict.keys():
     if len(deb_dict[deb_name]) > artifacts_to_keep:
-        print "too many " + deb_name + " debs"
+        print "\nINFO: Expriring old artifacts from Artifactory (> 13 builds ago)"
         for artifact in deb_dict[deb_name][:-artifacts_to_keep]:
             print "Deleting: " + artifact
             try:
