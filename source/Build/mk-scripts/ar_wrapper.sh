@@ -20,6 +20,8 @@ function remove_if_expired
 {
    time_now=$(date +"%s")
 
+echo ${birth_time}
+
    if [[ $(( time_now - birth_time )) -gt ${LOCK_EXPIRE_TIME} ]]
    then
       echo "Removing an expired ${AR_BINARY} lock semaphore (This message is informational)"
@@ -29,11 +31,10 @@ function remove_if_expired
    return 1
 }
 
-birth_time=$(/usr/bin/stat --printf %Z ${AR_SEMAPHORE} 2>/dev/null)
-
 # attempt to acquire the lock
 while ! mkdir ${AR_SEMAPHORE} 2> /dev/null
 do
+   birth_time=$(/usr/bin/stat --printf %Z ${AR_SEMAPHORE} 2>/dev/null)
    remove_if_expired && continue
    sleep 1
 done
