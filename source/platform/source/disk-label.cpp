@@ -304,7 +304,7 @@ namespace fds
     {
     }
 
-    bool DiskLabelOp::dsk_iter_fn(DiskObj::pointer curr)
+    bool DiskLabelOp::dsk_iter_fn(DiskObject::pointer curr)
     {
         PmDiskObj::pointer    disk;
 

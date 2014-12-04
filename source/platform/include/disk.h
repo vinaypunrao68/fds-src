@@ -54,7 +54,7 @@ namespace fds
             }
     };
 
-    class PmDiskObj : public DiskObj
+    class PmDiskObj : public DiskObject
     {
         public:
             typedef boost::intrusive_ptr<PmDiskObj> pointer;
@@ -92,7 +92,7 @@ namespace fds
              * @param dev : /dev/sda
              */
             static bool dsk_blk_dev_path(const char *raw, std::string &blk, std::string &dev);
-            static inline PmDiskObj::pointer dsk_cast_ptr(DiskObj::pointer ptr)
+            static inline PmDiskObj::pointer dsk_cast_ptr(DiskObject::pointer ptr)
             {
                 return static_cast<PmDiskObj *>(get_pointer(ptr));
             }

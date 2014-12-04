@@ -57,7 +57,7 @@ namespace fds
             explicit DiskOp(disk_op_e op, DiskPartitionMgr *mgr);
             virtual ~DiskOp();
 
-            virtual bool dsk_iter_fn(DiskObj::pointer curr);
+            virtual bool dsk_iter_fn(DiskObject::pointer curr);
     };
 
     /**
@@ -73,8 +73,8 @@ namespace fds
             DiskPartitionMgr();
             virtual ~DiskPartitionMgr();
 
-            virtual bool dsk_iter_fn(DiskObj::pointer curr);
-            virtual bool dsk_iter_fn(DiskObj::pointer curr, DiskObjIter *arg);
+            virtual bool dsk_iter_fn(DiskObject::pointer curr);
+            virtual bool dsk_iter_fn(DiskObject::pointer curr, DiskObjIter *arg);
     };
 }  // namespace fds
 

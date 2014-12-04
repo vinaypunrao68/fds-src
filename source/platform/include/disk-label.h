@@ -185,7 +185,7 @@ namespace fds
             explicit DiskLabelOp(dlabel_op_e op, DiskLabelMgr *mgr);
             virtual ~DiskLabelOp();
 
-            virtual bool dsk_iter_fn(DiskObj::pointer curr);
+            virtual bool dsk_iter_fn(DiskObject::pointer curr);
     };
 
     /**

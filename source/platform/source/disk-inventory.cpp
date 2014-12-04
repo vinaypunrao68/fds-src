@@ -291,7 +291,7 @@ namespace fds
     class DiskPrintIter : public DiskObjIter
     {
         public:
-            bool dsk_iter_fn(DiskObj::pointer disk)
+            bool dsk_iter_fn(DiskObject::pointer disk)
             {
                 LOGNORMAL << PmDiskObj::dsk_cast_ptr(disk);
                 return true;

@@ -69,7 +69,7 @@ namespace fds
     // dsk_iter_fn
     // -----------
     //
-    bool DiskOp::dsk_iter_fn(DiskObj::pointer curr)
+    bool DiskOp::dsk_iter_fn(DiskObject::pointer curr)
     {
         DiskPartition        *part;
         PmDiskObj::pointer    disk;
@@ -105,7 +105,7 @@ namespace fds
     // dsk_iter_fn
     // -----------
     //
-    bool DiskPartitionMgr::dsk_iter_fn(DiskObj::pointer curr)
+    bool DiskPartitionMgr::dsk_iter_fn(DiskObject::pointer curr)
     {
         return false;
     }
@@ -113,7 +113,7 @@ namespace fds
     // dsk_iter_fn
     // -----------
     //
-    bool DiskPartitionMgr::dsk_iter_fn(DiskObj::pointer curr, DiskObjIter *arg)
+    bool DiskPartitionMgr::dsk_iter_fn(DiskObject::pointer curr, DiskObjIter *arg)
     {
         DiskOp   *op;
 
