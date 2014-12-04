@@ -14,7 +14,6 @@
 
 namespace fds
 {
-
     /**
      * Net service functions done by platform daemon.  This code produces the lib linked
      * with platform daemon.

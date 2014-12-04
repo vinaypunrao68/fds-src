@@ -14,9 +14,6 @@
 
 namespace fds
 {
-//    class DiskObjIter;
-//   class DiskInventory;
-
     typedef std::vector<DiskObject::pointer> DiskObjArray;
 
     class DiskInventory : public RsContainer
@@ -35,10 +32,12 @@ namespace fds
 
             virtual void dsk_foreach(DiskObjIter *iter, ChainList *list, int count);
             virtual void dsk_foreach(DiskObjIter *iter, DiskObjIter *arg, ChainList *list, int);
+
             inline void dsk_foreach(DiskObjIter *iter)
             {
                 dsk_foreach(iter, &dsk_hdd, dsk_count);
             }
+
             virtual void dsk_add_to_inventory_mtx(DiskObject::pointer disk, ChainList *list);
             virtual void dsk_remove_out_inventory_mtx(DiskObject::pointer disk);
     };
