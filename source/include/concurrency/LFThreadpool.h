@@ -24,9 +24,9 @@ typedef std::function<void()> LockFreeTask;
 
 // futex provides a kernel facitility to wait for a value at a given address to
 // change.  This essentially manages the blocking queue in the kernel.
-// For some reason c++11 doesn't allow calls to libc wrapper futex().  So, 
-// need to create this a macro wrapper.  
-// futex() has return value, but the return value is not applicable to the 
+// For some reason c++11 doesn't allow calls to libc wrapper futex().  So,
+// need to create this a macro wrapper.
+// futex() has return value, but the return value is not applicable to the
 // how it is used.
 #define my_futex(_addr, _op, _val, _to, _addr2, _val3) \
         syscall(SYS_futex, _addr, _op, _val, _to, _addr2, _val3)
@@ -151,6 +151,7 @@ struct LockfreeWorker {
                         // This will kick in if cmpxchg fails too many times, which implies heavy
                         // contention on the queueCnt.
                         if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            cmpxchgMissed = 0;
                             cpu_relax();
                         }
                         ++cmpxchgMissed;
@@ -181,6 +182,7 @@ struct LockfreeWorker {
                         // This will kick in if cmpxchg fails too many times, which implies heavy
                         // contention on the queueCnt.
                         if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            cmpxchgMissed = 0;
                             cpu_relax();
                         }
                         ++cmpxchgMissed;
@@ -193,7 +195,7 @@ struct LockfreeWorker {
 
                 // If something is dequeued, then call the function.
                 if (dequeued) {
-                    fds_assert(NULL != task);
+                    fds_verify(NULL != task);
                     task->operator()();
                     delete task;
                 } else {
@@ -354,6 +356,7 @@ struct LFSQThreadpool {
                         // This will kick in if cmpxchg fails too many times, which implies heavy
                         // contention on the queueCnt.
                         if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            cmpxchgMissed = 0;
                             cpu_relax();
                         }
                         ++cmpxchgMissed;
@@ -390,6 +393,7 @@ struct LFSQThreadpool {
                         // This will kick in if cmpxchg fails too many times, which implies heavy
                         // contention on the queueCnt.
                         if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            cmpxchgMissed = 0;
                             cpu_relax();
                         }
                         ++cmpxchgMissed;

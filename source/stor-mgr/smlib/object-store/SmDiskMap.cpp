@@ -14,8 +14,12 @@ SmDiskMap::SmDiskMap(const std::string& modName)
         : Module(modName.c_str()),
           bitsPerToken_(0),
           superblock(new SmSuperblockMgr()),
-          capacityMap(nullptr),
+          ssdIdxMap(nullptr),
           test_mode(false) {
+    for (int i = 0; i < 60; ++i) {
+        maxSSDCapacity[i] = ATOMIC_VAR_INIT(0ull);
+        consumedSSDCapacity[i] = ATOMIC_VAR_INIT(0ull);
+    }
 }
 
 SmDiskMap::~SmDiskMap() {
@@ -28,21 +32,25 @@ int SmDiskMap::mod_init(SysParams const *const param) {
     // get list of HDD and SSD devices
     getDiskMap();
 
-    // Create and populate the capcity map
-    // TODO(brian): See if we want to move this into getDiskMap for performance
-    capacityMap = new std::unordered_map<fds_uint16_t,
-            std::pair<fds_uint64_t, fds_uint64_t>>();
-
+    // Create mapping from ssd idx # to array idx #
+    ssdIdxMap = new std::unordered_map<fds_uint16_t, fds_uint8_t>();
+    fds_uint8_t arrIdx = 0;
     for (auto disk_id : ssd_ids) {
         struct statvfs statbuf;
         std::string diskPath = getDiskPath(disk_id);
         if (statvfs(diskPath.c_str(), &statbuf) < 0) {
             LOGERROR << "Could not read disk " << diskPath;
         }
+        // Add the mapping
+        ssdIdxMap->emplace(disk_id, arrIdx);
+
         // Populate the capacityMap for this diskID
-        capacityMap->emplace(disk_id,
-                std::make_pair((statbuf.f_bfree * statbuf.f_bsize),
-                        (statbuf.f_blocks * statbuf.f_frsize)));
+        fds_uint64_t totalSize = statbuf.f_blocks * statbuf.f_frsize;
+        fds_uint64_t consumedSize = totalSize - (statbuf.f_bfree * statbuf.f_bsize);
+        maxSSDCapacity[arrIdx] = totalSize;
+        consumedSSDCapacity[arrIdx] = consumedSize;
+        // Now increase arrIdx
+        ++arrIdx;
     }
 
     // we are not going to read superblock
@@ -55,24 +63,27 @@ fds_bool_t SmDiskMap::ssdTrackCapacityAdd(ObjectID oid,
         fds_uint64_t writeSize, fds_uint32_t fullThreshold) {
     fds_uint16_t diskId = getDiskId(oid, diskio::flashTier);
     // Get the capacity information for this disk
-    std::pair<fds_uint64_t, fds_uint64_t>ssdCap = capacityMap->at(diskId);
+    fds_uint8_t arrId = ssdIdxMap->at(diskId);
     // Check if we're over threshold now
-    if ((ssdCap.first + writeSize) >
-            (ssdCap.second * (fullThreshold / 100))) {
-        LOGDEBUG << "SSD write would exceed full threshold: Threshold: " <<
-                    fullThreshold << " current usage: " << ssdCap.first << " of "
-                    << ssdCap.second << " Write size: " << writeSize;
+    fds_uint64_t newConsumed = consumedSSDCapacity[arrId] + writeSize;
+    fds_uint64_t capThresh = maxSSDCapacity[arrId] * (fullThreshold / 100.);
+    if (newConsumed > capThresh) {
+        LOGDEBUG << "SSD write would exceed full threshold: Threshold: "
+                    << capThresh << " current usage: " << consumedSSDCapacity[arrId]
+                    << " of " << maxSSDCapacity[arrId] << " Write size: " << writeSize;
         return false;
     }
     // Add the writeSize
-    ssdCap.first += writeSize;
+    consumedSSDCapacity[arrId] += writeSize;
+    LOGDEBUG << "new SSD utilized cap for diskID[" << diskId << "]: " << consumedSSDCapacity[arrId];
     return true;
 }
 
 void SmDiskMap::ssdTrackCapacityDelete(ObjectID oid, fds_uint64_t writeSize) {
     fds_uint16_t diskId = getDiskId(oid, diskio::flashTier);
+    fds_uint8_t arrId = ssdIdxMap->at(diskId);
     // Get the capacity information for this disk
-    capacityMap->at(diskId).first -= writeSize;
+    consumedSSDCapacity[arrId] -= writeSize;
 }
 
 void SmDiskMap::mod_startup() {

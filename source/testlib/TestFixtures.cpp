@@ -129,14 +129,19 @@ void SingleNodeTest::SetUpTestCase()
      * gracefully
      */
     sleep(12);
-
+    std::ostringstream oss;
+    unsigned int seed = time(NULL);
+    oss << rand_r(&seed);
+    volName_ = volName_ + oss.str();
     /* Create a volume */
     auto omCfg = gModuleProvider->get_plf_manager()->plf_om_master()->get_om_config_svc();
     apis::VolumeSettings vs;
     ASSERT_NO_THROW(omCfg->createVolume("TestDomain", volName_,
                                         SvcMsgFactory::defaultS3VolSettings(), 0));
     ASSERT_NO_THROW(volId_ = omCfg->getVolumeId(volName_));
-
+    if (volId_ == 0) {
+        volId_ = 1;
+    }
     /* Induce a short sleep, till volume information is propaged.  Ideally this shouldn't be
      * needed if createVolume blocks until volume information is propagated
      */

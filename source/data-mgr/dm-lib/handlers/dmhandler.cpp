@@ -3,6 +3,7 @@
  */
 #include <DataMgr.h>
 #include <dmhandler.h>
+#include <util/Log.h>
 
 namespace fds { namespace dm {
 
@@ -19,22 +20,38 @@ RequestHelper::~RequestHelper() {
     }
 }
 
-QueueHelper::QueueHelper(dmCatReq *dmRequest) : dmRequest(dmRequest) {
+QueueHelper::QueueHelper(dmCatReq *dmRequest)
+    : dmRequest(dmRequest), ioIsMarkedAsDone(false), cancelled(false) {
 }
 
 QueueHelper::~QueueHelper() {
-    if (dataMgr->feature.isQosEnabled()) dataMgr->qosCtrl->markIODone(*dmRequest);
-    /*
-     * TODO(umesh): ignore this for now, uncomment it later
-    PerfTracer::tracePointEnd(dmRequest->opLatencyCtx);
-    PerfTracer::tracePointEnd(dmRequest->opReqLatencyCtx);
-    if (!err.ok()) {
-        PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId(),
-                dmRequest->perfNameStr);
+    if (!cancelled) {
+        markIoDone();
+        /*
+         * TODO(umesh): ignore this for now, uncomment it later
+        PerfTracer::tracePointEnd(dmRequest->opLatencyCtx);
+        PerfTracer::tracePointEnd(dmRequest->opReqLatencyCtx);
+        if (!err.ok()) {
+            PerfTracer::incr(dmRequest->opReqFailedPerfEventType, dmRequest->getVolId(),
+                    dmRequest->perfNameStr);
+        }
+         */
+        if (dmRequest->cb != NULL) {
+            LOGDEBUG << "calling cb for volid: " << dmRequest->volId;
+            dmRequest->cb(err, dmRequest);
+        }
     }
-     */
-    LOGDEBUG << "calling cb for volid: " << dmRequest->volId;
-    dmRequest->cb(err, dmRequest);
+}
+
+void QueueHelper::markIoDone() {
+    if (!ioIsMarkedAsDone) {
+        if (dataMgr->feature.isQosEnabled()) dataMgr->qosCtrl->markIODone(*dmRequest);
+        ioIsMarkedAsDone = true;
+    }
+}
+
+void QueueHelper::cancel() {
+    cancelled = true;
 }
 
 void Handler::handleQueueItem(dmCatReq *dmRequest) {

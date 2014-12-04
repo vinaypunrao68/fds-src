@@ -75,57 +75,10 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     void volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                       boost::shared_ptr<fpi::VolSyncStateMsg>& syncMsg);
 
-    void fwdCatalogUpdateMsg(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                             boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg);
-
-    void fwdCatalogUpdateMsg(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                             boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg,
-                             const Error &err, DmIoFwdCat* req);
-
-    void fwdCatalogUpdateCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                            boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg,
-                            const Error &err, DmIoFwdCat *req);
-
-    void updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                           boost::shared_ptr<
-                           fpi::UpdateCatalogOnceMsg>& updcatMsg);
-    void updateCatalogOnceCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                             const Error &e,
-                             DmIoUpdateCatOnce *req);
-    void commitBlobOnceCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                          const Error &e,
-                          DmIoCommitBlobTx *req);
-
     void deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::DeleteCatalogObjectMsg>& delcatMsg);
     void deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                          const Error &e, DmIoDeleteCat *req);
-
-    void commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::CommitBlobTxMsg>& commitBlbTx);
-    void commitBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         const Error &e, DmIoCommitBlobTx *req);
-
-    void abortBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::AbortBlobTxMsg>& abortBlbTx);
-    void abortBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         const Error &e, DmIoAbortBlobTx *req);
-    void setBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                         boost::shared_ptr<fpi::SetBlobMetaDataMsg>& setBlobMD);
-    void setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                           const Error &e, DmIoSetBlobMetaData *req);
-
-    void getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                           boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message);
-    void getVolumeMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                           boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
-                           const Error &e, DmIoGetVolumeMetaData *req);
-
-    void handleStatStream(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                          boost::shared_ptr<fpi::StatStreamMsg>& message);
-    void handleStatStreamCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                            boost::shared_ptr<fpi::StatStreamMsg>& message,
-                            const Error &e, DmIoStatStream *req);
 
     void registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                            boost::shared_ptr<fpi::StatStreamRegistrationMsg>& streamRegstrMsg);

@@ -3,8 +3,6 @@
  */
 #include <string>
 #include <fds_uuid.h>
-#include <fds-probe/fds_probe.h>
-#include <fds-probe/s3-probe.h>
 #include <platform/platform-lib.h>
 #include <net/net-service.h>
 #include <node_platform.h>

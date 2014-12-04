@@ -75,6 +75,7 @@ void StartBlobTxHandler::handleQueueItem(dmCatReq* dmRequest) {
                                                        typedRequest->blob_name,
                                                        typedRequest->blob_mode,
                                                        typedRequest->ioBlobTxDesc);
+        // FIXME(DAC): This is probably double-logging, see QueueHelper::~QueueHelper().
         if (!helper.err.ok()) {
             PerfTracer::incr(typedRequest->opReqFailedPerfEventType, typedRequest->getVolId(),
                     typedRequest->perfNameStr);
