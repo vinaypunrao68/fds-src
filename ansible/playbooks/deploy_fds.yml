@@ -76,9 +76,6 @@
 #
 ---
 
--   hosts: all
-
-
 -   name: stop_all_nodes
     hosts: all
     gather_facts: no
