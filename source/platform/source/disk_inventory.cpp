@@ -3,7 +3,7 @@
  */
 
 #include "disk_obj_iter.h"
-#include "disk-inventory.h"
+#include "disk_inventory.h"
 
 namespace fds
 {
@@ -35,6 +35,7 @@ namespace fds
         {
             (*arr)[cnt++] = list->chain_iter_current<DiskObject>(iter);
         }
+
         rs_mtx.unlock();
         return cnt;
     }
@@ -50,6 +51,7 @@ namespace fds
             dsk_count++;
             list->chain_add_back(&disk->dsk_type_link);
         }
+
         rs_register_mtx(disk);
     }
 
@@ -64,6 +66,7 @@ namespace fds
             dsk_count--;
             disk->dsk_type_link.chain_rm_init();
         }
+
         rs_unregister_mtx(disk);
     }
 
@@ -77,7 +80,6 @@ namespace fds
 
         cnt = dsk_array_snapshot(list, &disks);
 
-        LOGNORMAL << "Here with cnt = " << cnt;
         for (int j = 0; j < cnt; j++)
         {
             if (iter->dsk_iter_fn(disks[j]) == false)
@@ -94,6 +96,7 @@ namespace fds
         DiskObjArray    disks(count << 1);
 
         cnt = dsk_array_snapshot(list, &disks);
+
         for (int j = 0; j < cnt; j++)
         {
             if (iter->dsk_iter_fn(disks[j], arg) == false)

@@ -28,7 +28,7 @@ fds_plat_lib_cpp :=                              \
                     platform-lib.cpp             \
                     platform-rpc.cpp             \
                     platform-libmod.cpp          \
-                    platform_disk_inventory.cpp         \
+                    disk_inventory.cpp         \
                     node-inventory.cpp           \
                     node-inv-shmem.cpp           \
                     service-ep-lib.cpp           \

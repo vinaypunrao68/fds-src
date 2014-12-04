@@ -11,7 +11,6 @@
 
 namespace fds
 {
-
     class DiskPartitionMgr;
 
     /**
