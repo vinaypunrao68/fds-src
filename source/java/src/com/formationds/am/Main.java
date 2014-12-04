@@ -106,11 +106,8 @@ public class Main {
         AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm("localhost", 8899 + amInstanceId);
 
         System.out.println("My instance id " + amInstanceId);
-        AsyncAm asyncAm = new AsyncAm(clientFactory.makeAmAsyncPool("localhost",
-                                                                    9988 + amInstanceId),
-                                      oneWayAm,
-                                      authorizer,
-                                      amInstanceId);
+
+        AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm() : new RealAsyncAm(oneWayAm, authorizer, amInstanceId);
         asyncAm.start();
 
         Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm, bbp, token, configCache);
