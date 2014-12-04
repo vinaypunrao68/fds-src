@@ -10,7 +10,6 @@ user_build_dir := \
     nginx-driver \
     concurrency \
     kvstore \
-    fds-probe \
     hash \
     persistent-layer \
     shared \

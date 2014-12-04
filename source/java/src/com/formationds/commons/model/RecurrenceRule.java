@@ -222,10 +222,12 @@ public class RecurrenceRule
      *
      * @throws java.text.ParseException any parsing error
      */
+    @SuppressWarnings( "OverlyComplexMethod" )
     public RecurrenceRule parser( final String rrule )
         throws ParseException {
 
         final RecurrenceRule RRule = new RecurrenceRule();
+        @SuppressWarnings( "UseOfStringTokenizer" )
         final StringTokenizer t = new StringTokenizer( rrule, ";=" );
 
         while( t.hasMoreTokens() ) {
@@ -354,6 +356,7 @@ public class RecurrenceRule
     /**
      * @return Returns {@link String} representing the recurrence rule
      */
+    @SuppressWarnings( "OverlyComplexMethod" )
     @Override
     public final String toString() {
         final StringBuilder b = new StringBuilder();
@@ -402,7 +405,7 @@ public class RecurrenceRule
             b.append( '=' );
             b.append( weekNo );
         }
-// TODO fix serialization issue with enum iCalWeekDays
+
         if( days != null && !days.isEmpty() ) {
             b.append( ';' );
             b.append( iCalKeys.BYDAY );

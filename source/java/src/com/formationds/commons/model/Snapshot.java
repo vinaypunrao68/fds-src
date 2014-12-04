@@ -109,7 +109,7 @@ public class Snapshot
   }
 
   /**
-   * @param retention the {@link Long} representing the time line time 
+   * @param timelineTime the {@link Long} representing the time line time
    */
   public void setTimelineTime( Long timelineTime ) {
     this.timelineTime = timelineTime;

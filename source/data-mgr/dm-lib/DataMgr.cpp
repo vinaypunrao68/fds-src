@@ -759,8 +759,6 @@ int DataMgr::mod_init(SysParams const *const param)
      * Comm with OM will be setup during run()
      */
     omClient = NULL;
-
-    LOGNORMAL << "Completed";
     return 0;
 }
 
@@ -783,25 +781,6 @@ void DataMgr::initHandlers() {
 
 DataMgr::~DataMgr()
 {
-    // TODO(Rao): Move this code into mod_shutdown
-    LOGNORMAL << "Destructing the Data Manager";
-
-    closedmt_timer->destroy();
-
-    for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
-                 it = vol_meta_map.begin();
-         it != vol_meta_map.end();
-         it++) {
-        delete it->second;
-    }
-    vol_meta_map.clear();
-
-    qosCtrl->deregisterVolume(FdsDmSysTaskId);
-    delete sysTaskQueue;
-
-    delete omClient;
-    delete vol_map_mtx;
-    delete qosCtrl;
 }
 
 int DataMgr::run()
@@ -957,13 +936,32 @@ void DataMgr::mod_enable_service() {
 void DataMgr::mod_shutdown()
 {
     LOGNORMAL;
+    statStreamAggr_->mod_shutdown();
+    timeVolCat_->mod_shutdown();
     if (feature.isCatSyncEnabled()) {
         catSyncMgr->mod_shutdown();
     } else {
         LOGWARN << "catalog sync feature - NOT enabled";
     }
-    timeVolCat_->mod_shutdown();
-    statStreamAggr_->mod_shutdown();
+
+    LOGNORMAL << "Destructing the Data Manager";
+    closedmt_timer->destroy();
+
+    for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
+                 it = vol_meta_map.begin();
+         it != vol_meta_map.end();
+         it++) {
+        qosCtrl->quieseceIOs(it->first);
+        qosCtrl->deregisterVolume(it->first);
+        delete it->second;
+    }
+    vol_meta_map.clear();
+
+    qosCtrl->deregisterVolume(FdsDmSysTaskId);
+    delete sysTaskQueue;
+    delete omClient;
+    delete vol_map_mtx;
+    delete qosCtrl;
 }
 
 void DataMgr::setup_metadatapath_server(const std::string &ip)
