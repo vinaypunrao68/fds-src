@@ -46,7 +46,9 @@ public class Xdi {
 
     public long createVolume(AuthenticationToken token, String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
         config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
-        SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0);
+        
+        // the default log retention time is 24 hours
+        SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0, 24*60*60*1000 );
         /**
          * allows the UI to assign a snapshot policy to a volume without having to make an
          * extra call.
