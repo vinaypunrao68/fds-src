@@ -167,6 +167,35 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         pollPerformance();
     });
     
+    var initSnapshotSettings = function(){
+        $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id, function( realPolicies ){
+
+            var notTimelinePolicies = [];
+            var timelinePolicies = [];
+
+            for ( var i = 0; i < realPolicies.length; i++ ){
+                if ( realPolicies[i].name.indexOf( '_TIMELINE_' ) === -1 ){
+                    notTimelinePolicies.push( realPolicies[i] );
+                }
+                else {
+                    timelinePolicies.push( realPolicies[i] );
+                }
+            }
+
+            $scope.snapshotPolicies = notTimelinePolicies;
+            $scope.protectionPolicies = {
+                continuous: 24*60*60*1000,
+                policies: timelinePolicies
+            };
+        });
+    };
+    
+    var initQosSettings = function(){
+        $scope.qos.capacity = $scope.thisVolume.sla;
+        $scope.qos.limit = $scope.thisVolume.limit;
+        $scope.qos.priority = $scope.thisVolume.priority;
+    };
+    
     // when we get shown, get all the snapshots and policies.  THen do the chugging
     // to display the summary and set the hidden forms.
     $scope.$watch( 'volumeVars.viewing', function( newVal ){
@@ -178,30 +207,9 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             
             $scope.dataConnector = $scope.thisVolume.data_connector;
             
-            $scope.qos.capacity = $scope.thisVolume.sla;
-            $scope.qos.limit = $scope.thisVolume.limit;
-            $scope.qos.priority = $scope.thisVolume.priority;
+            initQosSettings();
             
-            $volume_api.getSnapshotPoliciesForVolume( $scope.volumeVars.selectedVolume.id, function( realPolicies ){
-                
-                var notTimelinePolicies = [];
-                var timelinePolicies = [];
-                
-                for ( var i = 0; i < realPolicies.length; i++ ){
-                    if ( realPolicies[i].name.indexOf( '_TIMELINE_' ) === -1 ){
-                        notTimelinePolicies.push( realPolicies[i] );
-                    }
-                    else {
-                        timelinePolicies.push( realPolicies[i] );
-                    }
-                }
-                
-                $scope.snapshotPolicies = notTimelinePolicies;
-                $scope.protectionPolicies = {
-                    continuous: 24*60*60*1000,
-                    policies: timelinePolicies
-                };
-            });
+            initSnapshotSettings();
             
             buildQueries();
             

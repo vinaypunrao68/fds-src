@@ -53,6 +53,8 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             **/
             var createDropdownChoices = function(){
                 
+                $scope.choices = [];
+                
                 for ( var i = 0; i < $scope.range.length; i++ ){
                     
                     // do not add it if selectable is false
@@ -136,6 +138,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 
                 var xaxis = $($element.find('.waterfall-legend')[0]);
                 var zero = 0;
+                $scope.validPositions = [];
                 
                 for ( var rangeIt = 0; rangeIt < $scope.range.length; rangeIt++ ){
                     
@@ -283,6 +286,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                     var testPos = $scope.validPositions[i];
                     
                     if ( value.range === testPos.range && value.value === testPos.value ){
+                        
                         return { position: testPos.position, value: { value: testPos.value, range: testPos.range } };        
                     }
                 }
@@ -400,14 +404,13 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 determinePanelWidths();
                 createDropdownChoices();
                 
-//                for ( var i = 0; i < $scope.sliders.length; i++ ){
-//                    $scope.sliders[i].realRange = $scope.range[ $scope.sliders[i].value.range ];
-//                }
-                
                 // needs second for the rendering to complete so that width calculations work properly.  Otherwise we're a variant number
                 // of partial pixels off
                 $timeout( 
                     function(){
+                        
+                        var labelDiv = $($element.find( '.waterfall-labels')[0]);
+                        labelDiv.empty();
                         
                         initializeValidPositions();
                         createDomainLabels();
@@ -419,7 +422,13 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                                 $scope.sliders[i].value = { range: 0, value: $scope.range[0].start };
                             }
 
-                            $scope.sliders[i].position = findPositionForValue( $scope.sliders[i].value ).position;
+                            var posObj = findPositionForValue( $scope.sliders[i].value );
+                            
+                            if ( !angular.isDefined( posObj ) ){
+                                continue;
+                            }
+                            
+                            $scope.sliders[i].position = posObj.position;
                         }
                         
                         fixStartPositions();
@@ -448,6 +457,42 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 $document.off( 'mousemove', null, $scope.sliderMoved );
                 $document.off( 'mouseup', null, handleReleased );
             });
+            
+            /**
+            * This is a crazy watch that looks at anything in the sliders array that may change.
+            * We are concerned if the value object in each slider changes because if it does,
+            * we need to move the slider appropriately
+            **/
+            $scope.$watch( 'sliders', function( newList, oldList ){
+                
+                // the lists need to be the same length and neither should be null.
+                // we only want this to happen on changes - not initializations.
+                if ( newList.length !== oldList.length || !angular.isDefined( newList ) || !angular.isDefined( oldList ) ){
+                    return;
+                }
+                
+                for ( var it = 0; it < newList.length; it++ ){
+                    
+                    var newSlider = newList[it];
+                    var oldSlider = oldList[it];
+                    
+                    if ( newSlider.value.value == oldSlider.value.value &&
+                        newSlider.value.range == oldSlider.value.range ){
+                        continue;
+                    }
+                    
+                    // the value changed - recalculate it
+                    var posObj = findPositionForValue( newSlider.value );
+                    
+                    if ( !angular.isDefined( posObj ) ){
+                        continue;
+                    }
+                    
+                    newSlider.position = posObj.position;
+                    fixStartPositions();
+                }
+                
+            }, true);
             
             init();
             $resize_service.register( $scope.$id, init );

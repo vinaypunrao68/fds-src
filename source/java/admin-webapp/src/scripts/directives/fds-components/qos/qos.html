@@ -43,21 +43,26 @@
     <div class="volume-sla-edit-display" ng-show="editing === true" style="width: 400px;" show-notify>
         <div>
             <div class="title-case" translate>volumes.l_priority</div>
-            <slider class="volume-priority-slider" min="1" max="10" step="1" ng-model="qos.priority" max-label="{{ 'volumes.l_lowest' | translate }}" min-label="{{ 'volumes.l_highest' | translate }}"></slider>
+            <slider class="volume-priority-slider" min="1" max="10" step="1" ng-model="copyPriority" max-label="{{ 'volumes.l_lowest' | translate }}" min-label="{{ 'volumes.l_highest' | translate }}"></slider>
         </div>
         <div>
             <div class="title-case" translate>volumes.l_iops_guarantee</div>
-            <slider class="volume-iops-slider" min="0" max="100" step="10" ng-model="qos.capacity" min-label="{{'volumes.l_number_of_iops' | translate }}"></slider>
+            <slider class="volume-iops-slider" min="0" max="100" step="10" ng-model="copyCapacity" min-label="{{'volumes.l_number_of_iops' | translate }}"></slider>
         </div>
         <div>
             <div class="title-case" translate>volumes.l_iops_limit</div>
-            <slider class="volume-limit-slider" values="limitChoices" ng-model="qos.limit" min-label="{{ 'volumes.l_max_iops' | translate }}" label-function="limitSliderLabel"></slider>
+            <slider class="volume-limit-slider" values="limitChoices" ng-model="copyLimit" min-label="{{ 'volumes.l_max_iops' | translate }}" label-function="limitSliderLabel"></slider>
         </div>
     </div>
     
-    <div>
-        <button class="btn btn-primary skinny save-qos-settings" translate ng-show="editing === true" ng-click="doneEditing()">
-            common.l_done
+    <div ng-show="editing === true" >
+        <button class="btn btn-primary skinny save-qos-settings" ng-click="doneEditing()">
+            <span ng-show="saveOnly === 'true' || saveOnly === true" translate>common.l_done</span>
+            <span ng-show="saveOnly === 'false' || saveOnly === false" translate>common.l_save</span>
         </button>
+        <button class="btn btn-secondary skinny save-qos-settings" translate ng-show="saveOnly === 'false' || saveOnly === false" ng-click="cancel()">
+            common.l_cancel
+        </button>
+        
     </div>
 </div>

@@ -1,46 +1,52 @@
-<div class="waterfall-slider" ng-dragstart="$event.preventDefault()">
-    
-    <div class="waterfall-shade" ng-show="enabled === false"></div>
-    <div class="labels">
-        <div class="slider-name" ng-repeat="slider in sliders">{{slider.name}}</div>
-    </div>
-    <div class="slider-pane">
-        <div class="slider" ng-repeat="slider in sliders">
-            <div class="bar" ng-click="sliderMoved( $event, slider )"></div>
-            <div class="fill-bar" ng-style="{ left: slider.startPosition, width: slider.position - slider.startPosition }" ng-class="{'solid-fill': $index === 0}"></div>
-            <div class="value-container" ng-style="{ left: (editing !== $index ) ? slider.position + 'px' : (slider.position - 5) + 'px' }" ng-class="{ 'std-transition' : showAnimation === true, 'edit-box': editing === $index, 'stay-in-screen': amITooWide( $index ) }">
-                <div class="value-display flex" ng-mouseenter="hover = $index;" ng-mouseleave="hover = -1" ng-show="editing !== $index">
-                    <div ng-show="$index === 0 || sliders[$index-1].position !== slider.position">{{ createLabel( slider.value ) }}</div>
-                    <span class="icon icon-admin" ng-show="hover === $index" ng-click="sliderEdit( $index )"></span>
-                </div>
-                <div class="value-display edit-box" ng-show="editing === $index">
-                    <div>{{ slider.name }} protection expires after</div>
-                    <div class="flex">
-                        <spinner class="skinny" value="spinnerValue" min="spinnerMin" max="spinnerMax" step="spinnerStep" show-buttons="false"></spinner>
-                        <div style="width: 4px"></div>
-                        <fui-dropdown skinny="true" items="choices" name-property="selectName" selected="dropdownRange" background-color="white" color="black" border="black"></fui-dropdown>
-                        <div style="width: 4px"></div>
-                        <button class="btn btn-primary skinny" ng-click="setSliderValue( slider );">Set</button>
+<div>
+
+    <div class="waterfall-slider" ng-dragstart="$event.preventDefault()">
+
+        <div class="waterfall-shade" ng-show="enabled === false"></div>
+        <div class="labels">
+            <div class="slider-name" ng-repeat="slider in sliders">{{slider.name}}</div>
+        </div>
+        <div class="slider-pane">
+            <div class="slider" ng-repeat="slider in sliders">
+                <div class="bar" ng-click="sliderMoved( $event, slider )"></div>
+                <div class="fill-bar" ng-style="{ left: slider.startPosition, width: slider.position - slider.startPosition }" ng-class="{'solid-fill': $index === 0}"></div>
+                <div class="value-container" ng-style="{ left: (editing !== $index ) ? slider.position + 'px' : (slider.position - 5) + 'px' }" ng-class="{ 'std-transition' : showAnimation === true, 'edit-box': editing === $index, 'stay-in-screen': amITooWide( $index ) }">
+                    <div class="value-display flex" ng-mouseenter="hover = $index;" ng-mouseleave="hover = -1" ng-show="editing !== $index">
+                        <div ng-show="$index === 0 || sliders[$index-1].position !== slider.position">{{ createLabel( slider.value ) }}</div>
+                        <span class="icon icon-admin" ng-show="hover === $index" ng-click="sliderEdit( $index )"></span>
+                    </div>
+                    <div class="value-display edit-box" ng-show="editing === $index">
+                        <div>{{ slider.name }} protection expires after</div>
+                        <div class="flex">
+                            <spinner class="skinny" value="spinnerValue" min="spinnerMin" max="spinnerMax" step="spinnerStep" show-buttons="false"></spinner>
+                            <div style="width: 4px"></div>
+                            <fui-dropdown skinny="true" items="choices" name-property="selectName" selected="dropdownRange" background-color="white" color="black" border="black"></fui-dropdown>
+                            <div style="width: 4px"></div>
+                            <button class="btn btn-primary skinny" ng-click="setSliderValue( slider );">Set</button>
+                        </div>
                     </div>
                 </div>
+                <div style="position: absolute;" ng-style="{ left: slider.position + 'px' }">
+                    <div class="border-triangle" ng-show="editing === $index"></div>
+                    <div class="triangle" ng-class="{ 'edit-box' : editing === $index }" ng-show="$index === 0 || sliders[$index-1].position !== slider.position"></div>
+                </div>
+
+                <div class="handle" ng-dragstart="$event.preventDefault()" ng-style="{ left: sliders[$index-1].position + 'px' }" ng-show="$index !== 0"></div>
+                <div class="handle" ng-dragstart="$event.preventDefault()" ng-style="{ left: slider.position + 'px' }" ng-mousedown="handleClicked( slider, $index )" ng-class="{ 'std-transition' : showAnimation === true, 'grabbed' : grabbedSlider === slider }"></div>
+                <div class="trackline" ng-style="{left: (slider.position+5) + 'px', height: (38*(sliders.length-$index-1) - 5) + 'px'}" ng-class="{ 'std-transition' : showAnimation === true }">
+                </div>
             </div>
-            <div style="position: absolute;" ng-style="{ left: slider.position + 'px' }">
-                <div class="border-triangle" ng-show="editing === $index"></div>
-                <div class="triangle" ng-class="{ 'edit-box' : editing === $index }" ng-show="$index === 0 || sliders[$index-1].position !== slider.position"></div>
+
+            <div class="waterfall-legend" ng-dragstart="$event.preventDefault()">
+                <div ng-repeat="pos in validPositions" class="tick-mark" ng-style="{ left: pos.position }" ng-class="{'thick-tick-mark': pos.value === range[pos.range].start || $last}"></div>
             </div>
-            
-            <div class="handle" ng-dragstart="$event.preventDefault()" ng-style="{ left: sliders[$index-1].position + 'px' }" ng-show="$index !== 0"></div>
-            <div class="handle" ng-dragstart="$event.preventDefault()" ng-style="{ left: slider.position + 'px' }" ng-mousedown="handleClicked( slider, $index )" ng-class="{ 'std-transition' : showAnimation === true, 'grabbed' : grabbedSlider === slider }"></div>
-            <div class="trackline" ng-style="{left: (slider.position+5) + 'px', height: (38*(sliders.length-$index-1) - 5) + 'px'}" ng-class="{ 'std-transition' : showAnimation === true }">
+            <div class="waterfall-labels" ng-dragstart="$event.preventDefault()">
+
             </div>
+
         </div>
-        
-        <div class="waterfall-legend" ng-dragstart="$event.preventDefault()">
-            <div ng-repeat="pos in validPositions" class="tick-mark" ng-style="{ left: pos.position }" ng-class="{'thick-tick-mark': pos.value === range[pos.range].start || $last}"></div>
-        </div>
-        <div class="waterfall-labels" ng-dragstart="$event.preventDefault()">
-            
-        </div>
-        
     </div>
+
+    <div style="height: 24px;"></div>
+    
 </div>

@@ -5,9 +5,13 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
         replace: true,
         transclude: false,
         // protectionPolicies = { continuous: <num>, snapshotPolicies: [] }
-        scope: { protectionPolicies: '=ngModel' },
+        scope: { protectionPolicies: '=ngModel', saveOnly: '@' },
         templateUrl: 'scripts/directives/fds-components/snapshot-policies/protection-policy.html',
         controller: function( $scope, $filter ){
+            
+            if ( !angular.isDefined( $scope.saveOnly ) ){
+                $scope.saveOnly = false;
+            }
             
             /**
             * This is all the range settings for our waterfall widget.
@@ -196,7 +200,7 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
             
                 // do continuous first... we expect it to always be at least 1 day and no partial days
                 var cDays = $scope.protectionPolicies.continuous / (1000*60*60*24);
-                setSliderValue( cDays, $scope.sliders[0] );
+                setSliderValue( $scope.sliders[0], cDays );
                 
                 for ( var i = 0; angular.isDefined( $scope.protectionPolicies.policies ) && i < $scope.protectionPolicies.policies.length; i++ ){
                     
@@ -257,6 +261,12 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                 $scope.editing = false;
                 
                 $scope.$emit( 'fds::protection_policy_changed' );
+            };
+            
+            $scope.cancel = function(){
+                
+                $scope.editing = false;
+                translatePoliciesToScreen();
             };
             
             initWatcher();
