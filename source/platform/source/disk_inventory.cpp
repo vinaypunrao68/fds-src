@@ -3,6 +3,7 @@
  */
 
 #include "disk_obj_iter.h"
+
 #include "disk_inventory.h"
 
 namespace fds

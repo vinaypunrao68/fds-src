@@ -13,9 +13,17 @@
 
 #include <fds_uuid.h>
 #include <fds_process.h>
-#include <disk-label.h>
-#include <disk-partition.h>
+#include <disk_partition.h>
 #include <disk-constants.h>
+
+#include "disk_inventory.h"
+#include "disk_label.h"
+#include "disk_part_mgr.h"
+#include "disk_op.h"
+
+#include "disk_plat_module.h"
+#include "file_disk_inventory.h"
+#include "file_disk_obj.h"
 
 namespace fds
 {
@@ -411,7 +419,7 @@ namespace fds
     // -------------------------------------------------------------------------------------
     PmDiskInventory::PmDiskInventory() : DiskInventory(), dsk_qualify_cnt(0)
     {
-        dsk_partition = new DiskPartitionMgr();
+        dsk_partition = new DiskPartMgr();
     }
 
     PmDiskInventory::~PmDiskInventory()

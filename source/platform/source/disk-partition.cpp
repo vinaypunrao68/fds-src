@@ -2,7 +2,11 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include <disk-partition.h>
+#include <disk_partition.h>
+
+#include "disk_op.h"
+#include "disk_part_mgr.h"
+#include "disk_partition.h"
 
 namespace fds
 {
@@ -23,7 +27,7 @@ namespace fds
     // dsk_partition_init
     // ------------------
     //
-    void DiskPartition::dsk_partition_init(DiskPartitionMgr *mgr, PmDiskObj::pointer disk)
+    void DiskPartition::dsk_partition_init(DiskPartMgr *mgr, PmDiskObj::pointer disk)
     {
         PedPartition   *part;
 
@@ -59,7 +63,7 @@ namespace fds
     // -------------------------------------------------------------------------------------
     // Disk Op
     // -------------------------------------------------------------------------------------
-    DiskOp::DiskOp(disk_op_e op, DiskPartitionMgr *mgr) : dsk_op(op), dsk_mgr(mgr)
+    DiskOp::DiskOp(disk_op_e op, DiskPartMgr *mgr) : dsk_op(op), dsk_mgr(mgr)
     {
     }
     DiskOp::~DiskOp()
@@ -95,17 +99,17 @@ namespace fds
     // -------------------------------------------------------------------------------------
     // Disk Partition Mgr
     // -------------------------------------------------------------------------------------
-    DiskPartitionMgr::DiskPartitionMgr() : DiskObjIter(), dsk_mtx("dsk_mtx")
+    DiskPartMgr::DiskPartMgr() : DiskObjIter(), dsk_mtx("dsk_mtx")
     {
     }
-    DiskPartitionMgr::~DiskPartitionMgr()
+    DiskPartMgr::~DiskPartMgr()
     {
     }
 
     // dsk_iter_fn
     // -----------
     //
-    bool DiskPartitionMgr::dsk_iter_fn(DiskObject::pointer curr)
+    bool DiskPartMgr::dsk_iter_fn(DiskObject::pointer curr)
     {
         return false;
     }
@@ -113,7 +117,7 @@ namespace fds
     // dsk_iter_fn
     // -----------
     //
-    bool DiskPartitionMgr::dsk_iter_fn(DiskObject::pointer curr, DiskObjIter *arg)
+    bool DiskPartMgr::dsk_iter_fn(DiskObject::pointer curr, DiskObjIter *arg)
     {
         DiskOp   *op;
 

@@ -3,7 +3,6 @@
  */
 
 #include <string>
-#include <disk.h>
 
 #include <fds_process.h>
 #include <net-platform.h>
@@ -13,9 +12,16 @@
 #include <util/timeutils.h>
 #include <net/SvcRequestPool.h>
 
+#include "disk_plat_module.h"
+#include "platform_disk_inventory.h"
+
+#include "disk_common.h"
+
 #include "node_platform.h"
 #include "node_shared_memory_rw_ctrl.h"
 #include "node_platform_process.h"
+
+#include "disk_plat_module.h"
 
 namespace fds
 {

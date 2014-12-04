@@ -7,7 +7,9 @@
 
 #include <vector>
 #include <fstream>
-#include <disk.h>
+
+#include "platform_disk_obj.h"
+#include "platform_disk_inventory.h"
 
 namespace fds
 {
