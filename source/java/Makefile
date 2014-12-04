@@ -34,7 +34,7 @@ ifeq (,$(wildcard *jenkins_built_semaphore))
 	@mkdir $(comm_dir_lib)/admin-webapp
 
 ifndef SKIP_UI_BUILD
-	@cd admin-webapp; npm install; CI=true node_modules/bower/bin/bower install; node_modules/grunt-cli/bin/grunt release
+	@cd admin-webapp; npm install; CI=true node_modules/bower/bin/bower --allow-root install; node_modules/grunt-cli/bin/grunt release
 	@cp -r admin-webapp/app/* $(comm_dir_lib)/admin-webapp
 endif
 
