@@ -14,6 +14,8 @@ platform_core_src :=                                     \
                      plat_work_item.cpp                  \
                      disk-capacity.cpp                   \
                      disk-label.cpp                      \
+                     disk_object.cpp                     \
+                     disk_obj_iter.cpp                   \
                      disk-partition.cpp                  \
                      disk-inventory.cpp                  \
                      ep-map.cpp                          \
@@ -26,8 +28,8 @@ fds_plat_lib_cpp :=                              \
                     platform-lib.cpp             \
                     platform-rpc.cpp             \
                     platform-libmod.cpp          \
+                    platform_disk_inventory.cpp         \
                     node-inventory.cpp           \
-                    shared-disk-inventory.cpp    \
                     node-inv-shmem.cpp           \
                     service-ep-lib.cpp           \
                     BaseAsyncSvcHandler.cpp      \

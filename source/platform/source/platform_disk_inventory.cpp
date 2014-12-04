@@ -2,18 +2,11 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
+#include "disk_obj_iter.h"
 #include "disk-inventory.h"
 
 namespace fds
 {
-    DiskObj::DiskObj() : Resource(ResourceUUID()), dsk_type_link(this)
-    {
-    }
-
-    DiskObj::~DiskObj()
-    {
-    }
-
     DiskInventory::DiskInventory() :    RsContainer(), dsk_count(0)
     {
     }
@@ -22,22 +15,9 @@ namespace fds
     {
     }
 
-    DiskObjIter::DiskObjIter()
-    {
-    }
-
-    DiskObjIter::~DiskObjIter()
-    {
-    }
-
-    bool DiskObjIter::dsk_iter_fn(DiskObj::pointer curr, DiskObjIter *cookie)
-    {
-        return dsk_iter_fn(curr);
-    }
-
     Resource *DiskInventory::rs_new(const ResourceUUID &uuid)
     {
-        return new DiskObj();
+        return new DiskObject();
     }
 
     // dsk_array_snapshot
@@ -53,7 +33,7 @@ namespace fds
         for (list->chain_iter_init(&iter); !list->chain_iter_term(iter);
              list->chain_iter_next(&iter))
         {
-            (*arr)[cnt++] = list->chain_iter_current<DiskObj>(iter);
+            (*arr)[cnt++] = list->chain_iter_current<DiskObject>(iter);
         }
         rs_mtx.unlock();
         return cnt;
@@ -63,7 +43,7 @@ namespace fds
     // ------------------------
     // Add the disk to the inventory.  The caller must hold the mutex.
     //
-    void DiskInventory::dsk_add_to_inventory_mtx(DiskObj::pointer disk, ChainList *list)
+    void DiskInventory::dsk_add_to_inventory_mtx(DiskObject::pointer disk, ChainList *list)
     {
         if (list != NULL)
         {
@@ -77,7 +57,7 @@ namespace fds
     // ----------------------------
     // Remove the disk out of the inventory.  The caller must hold the mutex.
     //
-    void DiskInventory::dsk_remove_out_inventory_mtx(DiskObj::pointer disk)
+    void DiskInventory::dsk_remove_out_inventory_mtx(DiskObject::pointer disk)
     {
         if (!disk->dsk_type_link.chain_empty())
         {
