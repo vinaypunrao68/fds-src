@@ -22,7 +22,7 @@ package:
 		cd ../../package/fds-pkghelper && fdspkgcreate ; \
 	else \
 		sudo fdspkgcreate -r ; \
-		sudo cd ../../package/fds-pkghelper && fdspkgcreate -r ; \
+		cd ../../package/fds-pkghelper && sudo fdspkgcreate -r ; \
 	fi
 
 # -----------------------------------------------------------------------------
