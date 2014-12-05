@@ -278,7 +278,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         $scope.thisVolume.commit_log_retention = $scope.protectionPolicies.continuous;
         
-        $volume_api.save( $csope.thisVolume );
+        $volume_api.save( $scope.thisVolume );
         
         $snapshot_service.saveSnapshotPolicies( $scope.thisVolume.id, $scope.protectionPolicies.policies );
     });
