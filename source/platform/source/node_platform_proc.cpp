@@ -9,7 +9,6 @@
 #include <iostream>  // NOLINT
 #include <fds_uuid.h>
 #include <platform/fds-osdep.h>
-#include <net-platform.h>
 #include <net/net-service.h>
 
 #include "node_platform.h"

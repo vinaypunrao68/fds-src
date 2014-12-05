@@ -5,13 +5,14 @@
 #include <vector>
 #include <fds-shmobj.h>
 #include <net/net-service-tmpl.hpp>
-#include <net-platform.h>
 #include <platform/node-inv-shmem.h>
 #include <net/RpcFunc.h>
 #include <string>
 
 #include "node_platform.h"
 #include "node_shared_memory_rw_ctrl.h"
+
+#include "platform_ep_handler.h"
 
 namespace fds
 {
