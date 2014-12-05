@@ -5,8 +5,7 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_DISK_PART_MGR_H_
 #define SOURCE_PLATFORM_INCLUDE_DISK_PART_MGR_H_
 
-#include <vector>
-#include <parted/parted.h>
+#include "disk_obj_iter.h"
 
 namespace fds
 {

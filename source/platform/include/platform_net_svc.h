@@ -5,17 +5,11 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLATFORM_NET_SVC_H_
 #define SOURCE_PLATFORM_INCLUDE_PLATFORM_NET_SVC_H_
 
-#include <string>
-#include <vector>
 #include <ep-map.h>
 
-#include <net/PlatNetSvcHandler.h>
 #include <platform/net-plat-shared.h>
-#include <platform/service-ep-lib.h>
 
 #include "platform_plugin.h"
-
-#include "platform_ep_handler.h"
 
 namespace fds
 {

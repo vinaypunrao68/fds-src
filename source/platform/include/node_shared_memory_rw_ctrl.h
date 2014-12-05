@@ -5,19 +5,13 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_NODE_SHARED_MEMORY_RW_CTRL_H_
 #define SOURCE_PLATFORM_INCLUDE_NODE_SHARED_MEMORY_RW_CTRL_H_
 
-#include <string>
-#include <fds-shmobj.h>
-#include <fds_process.h>
-#include <kvstore/platformdb.h>
-#include <shared/fds-constants.h>
-#include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
 
 namespace fds
 {
     class DiskPlatModule;
-    class NodeShmRWCtrl;
 
+    class NodeShmRWCtrl;
     extern NodeShmRWCtrl    gl_NodeShmRWCtrl;
 
     /**
@@ -87,7 +81,6 @@ namespace fds
 
             virtual void shm_setup_queue() override;
     };
-
 }  // namespace fds
 
 #endif  // SOURCE_PLATFORM_INCLUDE_NODE_SHARED_MEMORY_RW_CTRL_H_

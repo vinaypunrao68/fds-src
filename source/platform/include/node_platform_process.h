@@ -5,14 +5,6 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_NODE_PLATFORM_PROCESS_H_
 #define SOURCE_PLATFORM_INCLUDE_NODE_PLATFORM_PROCESS_H_
 
-#include <string>
-#include <fds-shmobj.h>
-#include <fds_process.h>
-#include <kvstore/platformdb.h>
-#include <shared/fds-constants.h>
-#include <platform/platform-lib.h>
-#include <platform/node-inv-shmem.h>
-
 namespace fds
 {
     class NodePlatformProc : public PlatformProcess

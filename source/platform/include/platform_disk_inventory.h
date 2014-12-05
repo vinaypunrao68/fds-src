@@ -5,36 +5,26 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLATFORM_DISK_INVENTORY_H_
 #define SOURCE_PLATFORM_INCLUDE_PLATFORM_DISK_INVENTORY_H_
 
-#include <libudev.h>
-#include <stdlib.h>
-#include <locale.h>
-#include <unistd.h>
-#include <sys/poll.h>
 #include <string>
-#include <vector>
-#include <unordered_map>
-#include <iostream>  // NOLINT
-#include <cpplist.h>
-#include <fds_module.h>
-#include <shared/fds-constants.h>
-
-#include "platform_disk_obj.h"
-#include "platform_disk_inventory.h"
 
 #include "disk_inventory.h"
+#include "platform_disk_obj.h"
 
 namespace fds
 {
+    class DiskPartMgr;
+    class DiskLabelMgr;
+
     typedef std::unordered_map<std::string, PmDiskObj::pointer> DiskDevMap;
 
     class PmDiskInventory : public DiskInventory
     {
         protected:
-            DiskDevMap          dsk_dev_map;
-            uint32_t            dsk_qualify_cnt;   /**< disks that can run FDS SW.   */
-            ChainList           dsk_discovery;
-            ChainList           dsk_prev_inv;      /**< previous inventory list.     */
-            ChainList           dsk_curr_inv;      /**< disks that were enumerated.  */
+            DiskDevMap    dsk_dev_map;
+            uint32_t      dsk_qualify_cnt;   /**< disks that can run FDS SW.   */
+            ChainList     dsk_discovery;
+            ChainList     dsk_prev_inv;      /**< previous inventory list.     */
+            ChainList     dsk_curr_inv;      /**< disks that were enumerated.  */
             DiskPartMgr   *dsk_partition;
 
             Resource *rs_new(const ResourceUUID &uuid);

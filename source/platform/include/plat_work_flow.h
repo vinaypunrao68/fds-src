@@ -33,7 +33,6 @@ namespace fds
                                                      bo::intrusive_ptr<PmAgent>  owner,
                                                      bo::intrusive_ptr<DomainContainer> domain);
     };
-
 }  // namespace fds
 
 #endif  // SOURCE_PLATFORM_INCLUDE_PLAT_WORK_FLOW_H_

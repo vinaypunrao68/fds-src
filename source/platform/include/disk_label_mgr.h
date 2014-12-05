@@ -5,9 +5,6 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_DISK_LABEL_MGR_H_
 #define SOURCE_PLATFORM_INCLUDE_DISK_LABEL_MGR_H_
 
-#include <vector>
-#include <fstream>
-
 namespace fds
 {
     /**

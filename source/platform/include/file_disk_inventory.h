@@ -5,32 +5,8 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_FILE_DISK_INVENTORY_H_
 #define SOURCE_PLATFORM_INCLUDE_FILE_DISK_INVENTORY_H_
 
-#include <libudev.h>
-#include <stdlib.h>
-#include <locale.h>
-#include <unistd.h>
-#include <sys/poll.h>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <iostream>  // NOLINT
-#include <cpplist.h>
-#include <fds_module.h>
-#include <shared/fds-constants.h>
-
-#include "disk_inventory.h"
-
 namespace fds
 {
-/*
-    class PmDiskObj;
-    class PmDiskInventory;
-    class DiskLabel;
-    class DiskLabelMgr;
-    class DiskPlatModule;
-    class DiskPartMgr;
-    class FileDiskInventory;
- */
     /**
      * Use file to simulate a disk.
      */
@@ -53,7 +29,6 @@ namespace fds
         private:
             void dsk_file_create(const char *type, int count, ChainList *list);
     };
-
 }  // namespace fds
 
 #endif  // SOURCE_PLATFORM_INCLUDE_FILE_DISK_INVENTORY_H_

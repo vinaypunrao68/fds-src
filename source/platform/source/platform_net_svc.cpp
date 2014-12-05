@@ -18,6 +18,7 @@
 #include "plat_agent.h"
 
 #include "platform_net_svc.h"
+#include "platform_ep_handler.h"
 
 
 namespace fds

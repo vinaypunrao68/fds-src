@@ -21,7 +21,6 @@ namespace fds
             virtual bool dsk_iter_fn(DiskObject::pointer curr) = 0;
             virtual bool dsk_iter_fn(DiskObject::pointer curr, DiskObjIter *cookie);
     };
-
 }  // namespace fds
 
 #endif  // SOURCE_PLATFORM_INCLUDE_DISK_OBJ_ITER_H_

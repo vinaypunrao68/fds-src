@@ -5,20 +5,7 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_DISK_COMMON_H_
 #define SOURCE_PLATFORM_INCLUDE_DISK_COMMON_H_
 
-#include <libudev.h>
-#include <stdlib.h>
-#include <locale.h>
-#include <unistd.h>
-#include <sys/poll.h>
 #include <string>
-#include <vector>
-#include <unordered_map>
-#include <iostream>  // NOLINT
-#include <cpplist.h>
-#include <fds_module.h>
-#include <shared/fds-constants.h>
-
-#include "disk_inventory.h"
 
 namespace fds
 {
