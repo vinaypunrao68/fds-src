@@ -864,7 +864,7 @@ struct ListBlobsByPatternMsg {
   4: string                    pattern;
 }
 
-struct ListBlobsByPattrnRspMsg {
+struct ListBlobsByPatternRspMsg {
   1: FDSP.BlobDescriptorListType  blobDescriptors;
 }
 
