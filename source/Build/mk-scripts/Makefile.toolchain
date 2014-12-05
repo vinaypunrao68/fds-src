@@ -69,11 +69,6 @@ toolchain_gmock        := $(topdir)/../gmock-1.7.0
 toolchain_gmock_incl   := -I$(toolchain_gmock)/gtest/include -I$(toolchain_gmock)/include
 toolchain_gmock_lib    := -L$(toolchain_gmock)
 
-## TC malloc settings
-#
-toolchain_tcmalloc     := /usr/lib/libtcmalloc.so
-toolchain_tcmalloc_lib := -L$(toolchain_tcmalloc)
-
 ## Python binding settings
 #
 ifdef user_python

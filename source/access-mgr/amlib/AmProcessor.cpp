@@ -433,14 +433,9 @@ AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
     }
 
     // Tell QoS the request is done
-    PerfTracer::tracePointEnd(amReq->e2e_req_perf_ctx);
     qosCtrl->markIODone(amReq);
-    {
-        PerfContext tmp_pctx(AM_ASYNC_RESP_WAIT, 0, PerfTracer::perfNameStr(0));
-        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+    amReq->cb->call(error);
 
-        amReq->cb->call(error);
-    }
     // TODO(Greg): This check may be removed when sync interface is removed.
     boost::shared_ptr<ResponseHandler> ah =
             SHARED_DYN_CAST(ResponseHandler, amReq->cb);
@@ -471,7 +466,6 @@ AmProcessor::statBlobCb(AmRequest *amReq, const Error& error) {
     }
 
     // Tell QoS the request is done
-    PerfTracer::tracePointEnd(amReq->e2e_req_perf_ctx);
     qosCtrl->markIODone(amReq);
     amReq->cb->call(error);
     delete amReq;

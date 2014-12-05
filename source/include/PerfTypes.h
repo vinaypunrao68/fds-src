@@ -97,8 +97,6 @@ typedef enum {
     AM_OFFSET_CACHE_HIT,
     AM_OBJECT_CACHE_HIT,
 
-    AM_ASYNC_RESP_WAIT,
-
     // Data Manager
     DM_TX_OP,
     DM_TX_OP_ERR,

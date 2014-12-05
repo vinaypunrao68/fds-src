@@ -396,16 +396,6 @@ class FdsCluster():
             print output
             self.pidmap.compute_pid_map()
             time.sleep(10)
-            cnt = 0
-            while is_fds_up.is_up() == False and cnt < 10:
-                is_fds_up.kill_all()
-                time.sleep(10)
-                if self.local == True:
-                    output = self._loc_exec(self.remote_fds_root + "/source/tools/fds cleanstart")
-                else:
-                    output = self._rem_exec(self.remote_fds_root + "/source/tools/fds cleanstart")
-                print output
-                cnt += 1
         else:
             cmd = self.local_fds_root + "/source/test/fds-tool.py -f " + self.local_fds_root + "/source/fdstool.cfg -c -d -u"
             output = self._loc_exec(cmd)

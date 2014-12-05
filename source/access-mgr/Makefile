@@ -73,8 +73,6 @@ user_cpp      := $(wildcard *.cpp)
 
 #user_ld_flags := -shared -Wl,--no-allow-shlib-undefined
 
-user_ld_flags := -lprofiler
-
 user_no_style     := $(user_cc) $(wildcard com_*.h)
 user_bin_exe      := bare_am
 bare_am           := $(user_cpp) $(user_cc)
