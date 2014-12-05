@@ -259,6 +259,7 @@ TEST_F(SMApi, dmsmPerf)
     bool lftp = this->getArg<bool>("lftp");
     std::string blobPrefix("testBlobOnce");
     concurrency_ = this->getArg<uint32_t>("concurrency");
+    bool uuid_hack = this->getArg<bool>("uuid_hack");
 
     if(concurrency_ == 0) {
     	concurrency_ = nPuts;
@@ -273,8 +274,10 @@ TEST_F(SMApi, dmsmPerf)
     fpi::SvcUuid sm_svcUuid;
     fpi::SvcUuid dm_svcUuid;
 
-    sm_svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager());
-    dm_svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager());
+    sm_svcUuid = TestUtils::getAnyNonResidentSmSvcuuid(gModuleProvider->get_plf_manager(), 
+                                                       uuid_hack);
+    dm_svcUuid = TestUtils::getAnyNonResidentDmSvcuuid(gModuleProvider->get_plf_manager(),
+                                                       uuid_hack);
 
     ASSERT_NE(sm_svcUuid.svc_uuid, 0);
     ASSERT_NE(dm_svcUuid.svc_uuid, 0);
@@ -309,7 +312,6 @@ TEST_F(SMApi, dmsmPerf)
         // will include creating msg into the latency
         auto opStartTs = util::getTimeStampNanos();
         ObjectID oid = dataset.dataset_[i];
-
         auto nAcks = std::make_shared<int>(2);
 
         /*  setup the putBlobOnce request*/
@@ -631,7 +633,8 @@ int main(int argc, char** argv) {
         ("output", po::value<std::string>()->default_value("stats.txt"), "stats output")
         ("disable-schedule", po::value<bool>()->default_value(false), "disable scheduling")
         ("lftp", po::value<bool>()->default_value(false), "use lockfree threadpool")
-        ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency");
+        ("concurrency", po::value<uint32_t>()->default_value(0), "concurrency")
+        ("uuid_hack", po::value<bool>()->default_value(false), "pick last uuid from uuid list");
     SMApi::init(argc, argv, opts, "vol1");
     return RUN_ALL_TESTS();
 }
