@@ -302,7 +302,7 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
             var translatePoliciesToScreen = function(){
             
                 // do continuous first... we expect it to always be at least 1 day and no partial days
-                var cDays = $scope.protectionPolicies.continuous / (1000*60*60*24);
+                var cDays = $scope.protectionPolicies.continuous / (60*60*24);
                 setSliderValue( $scope.sliders[0], cDays );
                 
                 for ( var i = 0; angular.isDefined( $scope.protectionPolicies.policies ) && i < $scope.protectionPolicies.policies.length; i++ ){
@@ -399,7 +399,7 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                     watcher();
                 }
                 
-                $scope.protectionPolicies.continuous = $scope.sliders[0].value.value * 1000 *60 *60 *24;
+                $scope.protectionPolicies.continuous = $scope.sliders[0].value.value * 60*60*24;
                 
                 $scope.protectionPolicies.policies = buildPolicies();
                 initWatcher();

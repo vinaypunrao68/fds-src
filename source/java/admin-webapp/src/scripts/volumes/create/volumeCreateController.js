@@ -12,7 +12,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     
     // default protection policies
     $scope.protectionPolicies = {
-        continuous: 24*60*60*1000,
+        continuous: 24*60*60,
         policies: [
             // daily
             {
