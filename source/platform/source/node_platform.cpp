@@ -5,7 +5,6 @@
 #include <string>
 
 #include <fds_process.h>
-#include <net-platform.h>
 #include <net/net_utils.h>
 #include <platform/node-inv-shmem.h>
 #include <ep-map.h>
@@ -22,6 +21,9 @@
 #include "node_platform_process.h"
 
 #include "disk_plat_module.h"
+
+#include "plat_agent_container.h"
+#include "plat_agent_plugin.h"
 
 namespace fds
 {

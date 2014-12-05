@@ -20,6 +20,7 @@ platform_core_src :=                                     \
                      disk-inventory.cpp                  \
                      ep-map.cpp                          \
                      net-service.cpp                     \
+                     platform_net_svc.cpp                \
                      net-platform.cpp                    \
                      net-registration.cpp
 
