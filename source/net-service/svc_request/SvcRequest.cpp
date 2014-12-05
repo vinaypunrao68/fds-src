@@ -355,8 +355,8 @@ void SvcRequestIf::sendRespWork(EpSvcHandle::pointer eph,
 */
 void EPSvcRequest::invokeWork_()
 {
-    fds_verify(error_ == ERR_OK);
-    fds_verify(state_ == PRIOR_INVOCATION);
+    // fds_verify(error_ == ERR_OK);
+    // fds_verify(state_ == PRIOR_INVOCATION);
 
     // TODO(Rao): Determine endpoint is healthy or not
     bool epHealthy = true;

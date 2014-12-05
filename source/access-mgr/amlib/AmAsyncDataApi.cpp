@@ -9,6 +9,7 @@
 #include "fds_process.h"
 #include <fiu-control.h>
 #include <util/fiu_util.h>
+#include <google/profiler.h>
 
 #include "AmAsyncDataApi.h"
 #include "StorHvCtrl.h"

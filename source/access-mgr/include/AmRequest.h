@@ -58,7 +58,9 @@ class AmRequest : public FDS_IOType {
     }
 
     virtual ~AmRequest()
-    { fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx); }
+    {
+        // fds::PerfTracer::tracePointEnd(e2e_req_perf_ctx);
+    }
 
     bool magicInUse() const
     { return (io_magic == FDS_SH_IO_MAGIC_IN_USE); }
