@@ -5,12 +5,8 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLATFORM_EP_HANDLER_H_
 #define SOURCE_PLATFORM_INCLUDE_PLATFORM_EP_HANDLER_H_
 
-#include <string>
 #include <vector>
-#include <ep-map.h>
 #include <net/PlatNetSvcHandler.h>
-#include <platform/net-plat-shared.h>
-#include <platform/service-ep-lib.h>
 
 #include "platform_net_svc.h"
 

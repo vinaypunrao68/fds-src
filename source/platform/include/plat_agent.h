@@ -5,12 +5,7 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLAT_AGENT_H_
 #define SOURCE_PLATFORM_INCLUDE_PLAT_AGENT_H_
 
-#include <string>
-#include <vector>
-#include <ep-map.h>
-#include <net/PlatNetSvcHandler.h>
 #include <platform/net-plat-shared.h>
-#include <platform/service-ep-lib.h>
 
 namespace fds
 {
@@ -36,7 +31,6 @@ namespace fds
             virtual void agent_publish_ep();
             virtual void agent_bind_svc(EpPlatformdMod *, node_data_t *, fpi::FDSP_MgrIdType);
     };
-
 }  // namespace fds
 
 #endif  // SOURCE_PLATFORM_INCLUDE_PLAT_AGENT_H_

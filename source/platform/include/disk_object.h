@@ -5,8 +5,6 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_DISK_OBJECT_H_
 #define SOURCE_PLATFORM_INCLUDE_DISK_OBJECT_H_
 
-#include <vector>
-
 #include <fds_resource.h>
 
 namespace fds
@@ -39,7 +37,6 @@ namespace fds
                 return static_cast<DiskObject *>(get_pointer(ptr));
             }
     };
-
 }  // namespace fds
 
 #endif  // SOURCE_PLATFORM_INCLUDE_DISK_OBJECT_H_

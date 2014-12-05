@@ -5,31 +5,14 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLATFORM_DISK_OBJ_H_
 #define SOURCE_PLATFORM_INCLUDE_PLATFORM_DISK_OBJ_H_
 
-#include <libudev.h>
-#include <stdlib.h>
-#include <locale.h>
-#include <unistd.h>
-#include <sys/poll.h>
 #include <string>
-#include <vector>
-#include <unordered_map>
-#include <iostream>  // NOLINT
-#include <cpplist.h>
-#include <fds_module.h>
-#include <shared/fds-constants.h>
 
-#include "disk_inventory.h"
-#include "disk_common.h"
+#include "disk_object.h"
 
 namespace fds
 {
-    class PmDiskObj;
-    class PmDiskInventory;
     class DiskLabel;
-    class DiskLabelMgr;
-    class DiskPlatModule;
-    class DiskPartMgr;
-    class FileDiskInventory;
+    class DiskCommon;
 
     class PmDiskObj : public DiskObject
     {

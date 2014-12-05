@@ -5,9 +5,9 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_DISK_PARTITION_H_
 #define SOURCE_PLATFORM_INCLUDE_DISK_PARTITION_H_
 
-#include <vector>
 #include <parted/parted.h>
 
+#include "cpplist.h"
 #include "platform_disk_obj.h"
 
 namespace fds

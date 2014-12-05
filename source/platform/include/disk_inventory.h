@@ -7,11 +7,7 @@
 
 #include <vector>
 
-#include <fds_resource.h>
-
 #include "disk_object.h"
-#include "disk_obj_iter.h"
-// #include "disk_plat_module.h"
 
 namespace fds
 {
@@ -42,7 +38,6 @@ namespace fds
             virtual void dsk_add_to_inventory_mtx(DiskObject::pointer disk, ChainList *list);
             virtual void dsk_remove_out_inventory_mtx(DiskObject::pointer disk);
     };
-
 }  // namespace fds
 
 #endif  // SOURCE_PLATFORM_INCLUDE_DISK_INVENTORY_H_

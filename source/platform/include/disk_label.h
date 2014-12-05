@@ -6,7 +6,6 @@
 #define SOURCE_PLATFORM_INCLUDE_DISK_LABEL_H_
 
 #include <vector>
-#include <fstream>
 
 #include "platform_disk_obj.h"
 #include "platform_disk_inventory.h"
@@ -37,7 +36,6 @@ namespace fds
         fds_uint16_t    dl_minor;
         fds_uint16_t    dl_sect_sz;          /**< sector unit size in byte.     */
         fds_uint16_t    dl_total_sect;       /**< total lenght in sector size.  */
-
         fds_uint16_t    dl_used_sect;        /**< number sectors consumed.      */
         fds_uint16_t    dl_recovery_mode;    /**< value is dlabel_recovery_e.   */
         fds_uint16_t    dl_num_quorum;
@@ -164,65 +162,6 @@ namespace fds
             virtual void dsk_label_clone(DiskLabel *master);
             virtual void dsk_label_read();
             virtual void dsk_label_write(PmDiskInventory::pointer inv, DiskLabelMgr *mgr);
-    };
-
-    typedef enum
-    {
-        DISK_LABEL_READ  = 0,
-        DISK_LABEL_WRITE = 1,
-        DISK_LABEL_MAX
-    } dlabel_op_e;
-
-    /**
-     * Switch board to route the main iterator function through disk inventory to the
-     * desginated function (e.g. read/write)
-     */
-    class DiskLabelOp : public DiskObjIter
-    {
-        protected:
-            dlabel_op_e     dl_op;
-            DiskLabelMgr   *dl_mgr;
-
-        public:
-            explicit DiskLabelOp(dlabel_op_e op, DiskLabelMgr *mgr);
-            virtual ~DiskLabelOp();
-
-            virtual bool dsk_iter_fn(DiskObject::pointer curr);
-    };
-
-    /**
-     * Disk label manager to coordinate label quorum.
-     */
-    class DiskLabelMgr
-    {
-        protected:
-            DiskLabel   *dl_master;
-            ChainList    dl_labels;
-            int          dl_total_disks;
-            int          dl_valid_labels;
-            fds_mutex    dl_mtx;
-
-            /**
-             * Temp construct to build a map file for PL to read the disk mapping.
-             */
-            std::ofstream   *dl_map;
-
-        public:
-            DiskLabelMgr();
-            virtual ~DiskLabelMgr();
-
-            DiskLabel *dsk_master_label_mtx();
-            void dsk_read_label(PmDiskObj::pointer disk);
-
-            /**
-             * @return true if the majority of labels read from the inventory have valid
-             * FDS labels.
-             */
-            bool dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat);
-            void dsk_rec_label_map(PmDiskObj::pointer disk, int idx);
-
-            // Clear the list of disk labels
-            void clear();
     };
 }  // namespace fds
 

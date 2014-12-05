@@ -5,8 +5,7 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_DISK_OP_H_
 #define SOURCE_PLATFORM_INCLUDE_DISK_OP_H_
 
-#include <vector>
-#include <fstream>
+#include "disk_obj_iter.h"
 
 namespace fds
 {
@@ -33,7 +32,6 @@ namespace fds
 
             virtual bool dsk_iter_fn(DiskObject::pointer curr);
     };
-
 }  // namespace fds
 
 #endif  // SOURCE_PLATFORM_INCLUDE_DISK_OP_H_

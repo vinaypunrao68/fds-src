@@ -15,9 +15,14 @@
 #include <fds_process.h>
 #include <disk_partition.h>
 #include <disk-constants.h>
+#include <shared/fds-constants.h>
+
+#include "disk_common.h"
 
 #include "disk_inventory.h"
 #include "disk_label.h"
+#include "disk_label_op.h"
+#include "disk_label_mgr.h"
 #include "disk_part_mgr.h"
 #include "disk_op.h"
 
