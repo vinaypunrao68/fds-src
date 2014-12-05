@@ -174,7 +174,7 @@ System: Xeon 1S 6-core HT, 32GB DRAM, 1GigE, 12HDD, 2SSDs \n\
     headers = ["Config","Notes"]
     table = []
     for t in summary:
-        table.append([t, config_notes[t]])
+        table.append([t, config_notes[reduce(lambda x,y : x+":"+y,t.split(":")[0:3])]])
     text += tabulate.tabulate(table,headers) + "\n"
 
     with open(".mail", "w") as _f:

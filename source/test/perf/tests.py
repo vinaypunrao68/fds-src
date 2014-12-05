@@ -82,7 +82,7 @@ class TestList():
         #     tests.append(test)
 
         tests = []
-        size = 4096   # 4096
+        size = 1024*1024   # 4096
         test = dict(template)
         test["type"] = "PUT"
         test["nreqs"] = 10000  # 100000
@@ -92,13 +92,14 @@ class TestList():
         test["fsize"] = size
         test["injector"] = None
         tests.append(test)
-        for size in [4096]:
+        for size in [1024*1024]:
             for nvols in [1]:
                 # for th in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40]:
                 # for th in range(1,51):
-                for th in [1, 2 ,3 ,4]:
+                for th in [1, 20, 40, 60, 80, 100, 120, 140, 160]:
                     #for outs in [2, 4, 10, 20, 50]:
-                    for outs in [1, 5, 10, 20, 30, 40, 50]:
+                    #for outs in [1, 5, 10, 20, 30, 40, 50]:
+                    for outs in [50]:
                         #for th in [4]:
                         #for th in [21]:
                         # for th in [30]:
@@ -112,7 +113,7 @@ class TestList():
                             test["fsize"] = size
                             #tests.append(test)
                             test = dict(template)
-                            test["test_type"] = "tgen_java"
+                            # test["test_type"] = "tgen_java"
                             test["type"] = "GET"
                             test["nreqs"] = total_reqs
                             test["nfiles"] = 1000
