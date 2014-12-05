@@ -48,6 +48,8 @@ endif
 
 else
 	@echo "Previous Build under Jenkins succeeded"
+	@echo "If you don't expect this message, please run find . -name \"jenkins_built_semaphore\""
+	@echo "and remove the file located by find."
 endif
 
 .PHONY: test

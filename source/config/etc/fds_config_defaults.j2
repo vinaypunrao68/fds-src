@@ -30,6 +30,6 @@
 {% set dm_catalog_cache_size = fds_dm_catalog_cache_size if fds_dm_catalog_cache_size is defined else '16777216' %}
 {% set dm_catalog_write_buffer_size = fds_dm_catalog_write_buffer_size if fds_dm_catalog_write_buffer_size is defined else '52428800' %}
 {% set am_testing_toggleDisableStreamingStats = fds_am_testing_toggleDisableStreamingStats if fds_am_testing_toggleDisableStreamingStats is defined else 'false' %}
-{% set svc_plat_lftp_enable = fds_svc_plat_lftp_enable if fds_svc_plat_lftp_enable is defined else 'true' %}
+{% set svc_plat_lftp_enable = fds_svc_plat_lftp_enable if fds_svc_plat_lftp_enable is defined else 'false' %}
 {% block content %}{% endblock %}
 
