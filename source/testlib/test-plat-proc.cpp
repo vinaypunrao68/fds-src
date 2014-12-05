@@ -6,8 +6,9 @@
 #include <platform/platform-lib.h>
 #include <net/net-service.h>
 #include <node_platform.h>
-#include <net-platform.h>
 #include <util/fds_stat.h>
+
+#include "platform_net_svc.h"
 
 namespace fds {
 
