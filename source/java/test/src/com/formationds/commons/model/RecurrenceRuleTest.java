@@ -123,7 +123,7 @@ public class RecurrenceRuleTest {
         try {
             final RecurrenceRule rrule =
                 new RecurrenceRule()
-                    .parser( "RRULE:FREQ=DAILY;BYHOUR=9,10,11,12,13,14,15,16;BYMINUTE=0,20,40" );
+                    .parser( "RRULE:FREQ=DAILY;BYHOUR=0;BYDAY=MO" );
             System.out.println( rrule );
         } catch( ParseException e ) {
             Assert.fail( e.getMessage() );
