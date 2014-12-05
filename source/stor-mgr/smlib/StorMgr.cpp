@@ -575,6 +575,7 @@ void ObjectStorMgr::handleDltUpdate() {
 void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
         const std::string& session_uuid)
 {
+    #if 0
     fds_verify(objStorMgr->cached_dlt_close_.second == nullptr);
     objStorMgr->cached_dlt_close_.first = session_uuid;
     objStorMgr->cached_dlt_close_.second = dlt_close;
@@ -601,6 +602,7 @@ void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
     if (currentDlt->getTokens(objStorMgr->getUuid()).empty()) {
         delete objStorMgr;
     }
+    #endif
 }
 
 void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
@@ -612,16 +614,6 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
         LOGNORMAL << "Token migration complete";
         LOGNORMAL << migrationSvc_->mig_cntrs.toString();
 
-        /* Notify OM */
-        // TODO(Rao): We are notifying OM that sync is complete by responding
-        // back to sync/io close.  This is bit of a hack.  In future we should
-        // have a proper way to notify OM
-        if (objStorMgr->cached_dlt_close_.second) {
-            omClient->sendDLTCloseAckToOM(objStorMgr->cached_dlt_close_.second,
-                    objStorMgr->cached_dlt_close_.first);
-            objStorMgr->cached_dlt_close_.first.clear();
-            objStorMgr->cached_dlt_close_.second.reset();
-        }
         objStorMgr->tok_migrated_for_dlt_ = false;
     }
 }

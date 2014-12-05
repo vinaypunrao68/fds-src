@@ -111,6 +111,11 @@ class OM_NodeAgent : public NodeAgent
                                const Error& error,
                                boost::shared_ptr<std::string> payload);
 
+    void om_send_dlt_close_resp(fpi::CtrlNotifyDLTClosePtr msg,
+            EPSvcRequest* req,
+            const Error& error,
+            boost::shared_ptr<std::string> payload);
+
     virtual Error om_send_dmt(const DMTPtr& curDmt);
     virtual Error om_send_dmt_x(const DMTPtr& curDmt);
     void om_send_dmt_x_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* req,

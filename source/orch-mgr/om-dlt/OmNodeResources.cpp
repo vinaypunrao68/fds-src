@@ -280,6 +280,38 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     return err;
 }
 
+Error
+OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
+    Error err(ERR_OK);
+
+    auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    fpi::CtrlNotifyDLTClosePtr msg(new fpi::CtrlNotifyDLTClose());
+    msg->dlt_close.DLT_version = cur_dlt_version;
+
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTClose), msg);
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dlt_close_resp, this, msg,
+            std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+    om_req->setTimeoutMs(5000);
+    om_req->invoke();
+
+    LOGNORMAL << "OM: send dlt close (version " << cur_dlt_version
+                << ") to " << get_node_name() << " uuid 0x"
+                << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
+}
+
+void
+OM_NodeAgent::om_send_dlt_close_resp(fpi::CtrlNotifyDLTClosePtr msg,
+        EPSvcRequest* req,
+        const Error& error,
+        boost::shared_ptr<std::string> payload)
+{
+    LOGDEBUG << "OM received response for NotifyDltClose from node "
+                << std::hex << req->getPeerEpId().svc_uuid << std::dec <<
+                " with version " << msg->dlt_close.DLT_version;
+}
+
 void
 OM_NodeAgent::om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* req,
                                const Error& error,
@@ -468,6 +500,7 @@ OM_NodeAgent::om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& re
     asyncStreamRegReq->invoke();
 }
 
+#if 0
 Error
 OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     Error err(ERR_OK);
@@ -497,6 +530,8 @@ OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
 
     return err;
 }
+#endif
+
 
 Error
 OM_NodeAgent::om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg)
