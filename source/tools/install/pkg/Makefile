@@ -7,6 +7,7 @@ all: clean generate-config-files package
 clean:
 	@sudo rm -f *.deb
 	@sudo rm -rf tmppkg-*
+	@sudo rm -f ../../package/fds-pkghelper/*.deb
 	@sudo rm -f ../../../config/etc/*.conf ../../../test/formation.conf
 
 package: 
@@ -18,8 +19,10 @@ package:
 	#  "release" package versioning (x.y.z)
 	@if [ "x${release-build}" = "xfalse" ]; then \
 		fdspkgcreate ; \
+		cd ../../package/fds-pkghelper && fdspkgcreate ; \
 	else \
 		sudo fdspkgcreate -r ; \
+		cd ../../package/fds-pkghelper && sudo fdspkgcreate -r ; \
 	fi
 
 # -----------------------------------------------------------------------------
