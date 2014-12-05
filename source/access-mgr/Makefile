@@ -7,7 +7,6 @@ user_build_dir    := \
     amlib \
     stor-hvisor \
     platform \
-    block \
     test
 
 user_incl_dir     := \
