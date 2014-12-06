@@ -13,6 +13,8 @@
 #include "responsehandler.h"
 
 #include "requests/requests.h"
+#include <net/MockSvcHandler.h>
+#include <AmDispatcherMocks.hpp>
 
 namespace fds {
 
@@ -25,6 +27,8 @@ AmDispatcher::AmDispatcher(const std::string &modName,
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     if (conf.get<fds_bool_t>("testing.uturn_dispatcher_all")) {
         fiu_enable("am.uturn.dispatcher", 1, NULL, 0);
+        mockTimeoutUs_ = conf.get<uint32_t>("testing.uturn_dispatcher_timeout");
+        mockHandler_.reset(new MockSvcHandler());
     }
 }
 
@@ -363,12 +367,9 @@ void
 AmDispatcher::dispatchGetObject(AmRequest *amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
-              GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb); \
-              cb->returnSize = amReq->data_len; \
-              cb->returnBuffer = new char[cb->returnSize];    \
-              memset(cb->returnBuffer, 0x00, cb->returnSize); \
-              amReq->proc_cb(ERR_OK);                         \
-              return;);
+              mockHandler_->schedule(mockTimeoutUs_,
+                                     std::bind(&AmDispatcherMockCbs::getObjectCb, amReq)); \
+                                     return;);
 
     PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
     fds_volid_t volId = amReq->io_vol_id;
@@ -454,11 +455,9 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
 void
 AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
     fiu_do_on("am.uturn.dispatcher",
-              GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb); \
-              cb->blobDesc.setBlobSize(cb->returnSize); \
-              amReq->obj_id = ObjectID(); \
-              amReq->proc_cb(ERR_OK); \
-              return;);
+              mockHandler_->schedule(mockTimeoutUs_,
+                                     std::bind(&AmDispatcherMockCbs::queryCatalogCb, amReq)); \
+                                     return;);
 
     PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
     std::string blobName = amReq->getBlobName();
@@ -726,5 +725,4 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
     }
     amReq->proc_cb(error);
 }
-
 }  // namespace fds
