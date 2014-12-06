@@ -94,6 +94,11 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                     boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt);
+
+
+    void NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+            boost::shared_ptr<fpi::CtrlNotifyDLTClose> &dlt);
+
     virtual void
     TierPolicy(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
                boost::shared_ptr<fpi::CtrlTierPolicy> &msg);

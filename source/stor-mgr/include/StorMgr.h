@@ -117,8 +117,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      /** Token state db */
      kvstore::TokenStateDBPtr tokenStateDb_;
 
-     /* For caching dlt close response information */
-     std::pair<std::string, FDSP_DltCloseTypePtr> cached_dlt_close_;
 
      /* To indicate whether tokens were migrated or not for the dlt. Based on this
       * flag we simulate sync/io close notification to OM.  We shouldn't need this

@@ -85,6 +85,7 @@
         - nodejs-legacy
         - ruby
         - ruby-sass
+        - python-concurrent.futures
         - python-paramiko
         - python-redis
         - python-requests

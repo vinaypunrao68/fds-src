@@ -14,10 +14,11 @@ import com.google.gson.annotations.SerializedName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
 import java.text.ParseException;
-import java.util.*;
+import java.util.Date;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.StringTokenizer;
 
 /**
  * @author ptinius
@@ -65,7 +66,6 @@ public class RecurrenceRule
     private String weekStartDay;
 
     @SerializedName( "BYDAY" )
-    @Enumerated( EnumType.ORDINAL )
     private WeekDays<iCalWeekDays> days = null;
 
     /**
@@ -261,10 +261,7 @@ public class RecurrenceRule
         final StringBuilder b = new StringBuilder();
 
         int i = 0;
-        for (iCalKeys k : Arrays.asList(iCalKeys.FREQ, iCalKeys.WKST, iCalKeys.UNTIL, iCalKeys.COUNT,
-                                        iCalKeys.INTERVAL, iCalKeys.BYMONTH, iCalKeys.BYWEEKNO, iCalKeys.BYDAY,
-                                        iCalKeys.BYYEARDAY, iCalKeys.BYMONTHDAY, iCalKeys.BYHOUR, iCalKeys.BYMINUTE,
-                                        iCalKeys.BYSECOND, iCalKeys.BYSETPOS) ) {
+        for (iCalKeys k : iCalKeys.values() ) {
 
             Optional<String> kv = k.formatKV(this);
             if (kv.isPresent()) {
