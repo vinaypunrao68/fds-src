@@ -86,7 +86,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return, const int64_t policyId) {} //NOLINT
     void listSnapshots(std::vector< ::FDS_ProtocolInterface::Snapshot> & _return, const int64_t volumeId) {} //NOLINT
     void restoreClone(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
-    int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName) { return 0;} //NOLINT
+    int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName, const int64_t timelineTime) { return 0;} //NOLINT
     void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime, const int64_t timelineTime) {} //NOLINT
 
     // stubs to keep cpp compiler happy - END
@@ -328,7 +328,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     int64_t cloneVolume(boost::shared_ptr<int64_t>& volumeId,
                         boost::shared_ptr<int64_t>& volPolicyId,
-                        boost::shared_ptr<std::string>& clonedVolumeName) {
+                        boost::shared_ptr<std::string>& clonedVolumeName,
+                        boost::shared_ptr<int64_t>& timelineTime) {
         checkDomainStatus();
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
@@ -361,6 +362,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         desc.backupVolume = invalid_vol_id;
         desc.fSnapshot = false;
         desc.srcVolumeId = *volumeId;
+        desc.timelineTime = *timelineTime;
 
         if (parentVol->vol_get_properties()->lookupVolumeId == invalid_vol_id) {
             desc.lookupVolumeId = *volumeId;
