@@ -12,6 +12,9 @@
 #include <fds_process.h>
 #include <OmDataPlacement.h>
 #include <net/net-service.h>
+#include <fdsp/fds_service_types.h>
+#include <net/SvcRequestPool.h>
+
 
 namespace fds {
 
@@ -124,10 +127,12 @@ Error
 DataPlacement::beginRebalance() {
     Error err(ERR_OK);
 
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
-            new FDS_ProtocolInterface::FDSP_MsgHdrType());
-    FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
-            new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
+    fpi::CtrlStartMigrationPtr msg(new fpi::CtrlStartMigration());
+
+    // FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
+    //        new FDS_ProtocolInterface::FDSP_MsgHdrType());
+    // FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
+    //        new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
 
     placementMutex->lock();
     // find all nodes which need to do migration (=have new tokens)
@@ -160,8 +165,8 @@ DataPlacement::beginRebalance() {
     }
 
     // pupulate dlt message -- same for all the nodes that need to migrate toks
-    dltMsg->dlt_type= true;
-    err = newDlt->getSerialized(dltMsg->dlt_data);
+    msg->dlt_data.dlt_type = true;
+    err = newDlt->getSerialized(msg->dlt_data.dlt_data);
     if (!err.ok()) {
         LOGERROR << "Failed to fill in dlt_data, not sending migration msgs";
         placementMutex->unlock();
@@ -173,22 +178,19 @@ DataPlacement::beginRebalance() {
          nit != rebalanceNodes.cend();
          ++nit) {
         NodeUuid  uuid = *nit;
-        OM_SmAgent::pointer na = OM_NodeDomainMod::om_local_domain()->om_sm_agent(uuid);
-        NodeAgentCpReqClientPtr naClient = na->getCpClient();
-        na->set_node_state(FDS_ProtocolInterface::FDS_Start_Migration);
-        na->init_msg_hdr(msgHdr);
-        msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_NOTIFY_MIGRATION;
+
+        auto om_req =  gSvcRequestPool->newEPSvcRequest(uuid.toSvcUuid());
+
+        om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlStartMigration), msg);
+        // om_req->onResponseCb(std::bind(&OM_NodeAgent::om_start_migration_resp, this, msg,
+        //        std::placeholders::_1, std::placeholders::_2,
+        //        std::placeholders::_3));
+        om_req->invoke();
+
 
         FDS_PLOG_SEV(g_fdslog, fds_log::notification)
                 << "Sending the DLT migration request to node 0x"
                 << std::hex << uuid.uuid_get_val() << std::dec;
-
-        // invoke the RPC
-        if (naClient == NULL) {
-            EpSvcHandle::pointer eph;
-            naClient = na->node_ctrl_rpc(&eph);
-        }
-        naClient->NotifyStartMigration(msgHdr, dltMsg);
     }
     placementMutex->unlock();
 

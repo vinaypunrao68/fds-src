@@ -114,6 +114,9 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
                         SmIoAddObjRefReq *addObjRefReq);
     void shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
             boost::shared_ptr<fpi::ShutdownSMMsg>& shutdownMsg);
+
+    void StartMigration(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+            boost::shared_ptr<fpi::CtrlStartMigration>& startMigration);
 };
 
 }  // namespace fds

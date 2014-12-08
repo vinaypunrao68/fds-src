@@ -89,6 +89,7 @@ enum  FDSPMsgTypeId {
 	CtrlQueryScrubberStatusRespTypeId  = 2051,
 	CtrlSetScrubberStatusTypeId		   = 2052,
 	CtrlSetScrubberStatusRespTypeId	   = 2053,
+	CtrlNotifyMigrationFinishedTypeId  = 2054,
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,
@@ -465,6 +466,11 @@ struct CtrlTierPolicyAudit {
 /* ----------------------  CtrlStartMigrationTypeId  --------------------------- */
 struct CtrlStartMigration {
      1: FDSP.FDSP_DLT_Data_Type   dlt_data;
+}
+
+/* ----------------------  CtrlNotifyMigrationStatusTypeId  --------------------------- */
+struct CtrlNotifyMigrationStatus {
+     1: FDSP.FDSP_MigrationStatusType   status;
 }
 
 /* ---------------------  CtrlNotifyScavengerTypeId  --------------------------- */

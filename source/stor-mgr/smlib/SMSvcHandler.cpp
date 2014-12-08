@@ -52,6 +52,7 @@ SMSvcHandler::SMSvcHandler()
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTClose, NotifyDLTClose);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlStartMigration, StartMigration);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
 
@@ -62,6 +63,14 @@ void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::ShutdownSMMsg>& shutdownMsg) {
     LOGDEBUG << "Received shutdown message... shuttting down...";
     objStorMgr->~ObjectStorMgr();
+}
+
+void SMSvcHandler::StartMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+        boost::shared_ptr<fpi::CtrlStartMigration>& startMigration) {
+    LOGDEBUG << "Start migration handler called";
+    objStorMgr->tok_migrated_for_dlt_ = false;
+    LOGNORMAL << "Token copy complete";
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
 
 void SMSvcHandler::queryScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
@@ -638,6 +647,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     if (objStorMgr->tok_migrated_for_dlt_ == false) {
         objStorMgr->migrationSvcResponseCb(ERR_OK, MIGRATION_OP_COMPLETE);
     }
+    // sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
 
 }  // namespace fds
