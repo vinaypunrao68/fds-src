@@ -463,7 +463,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             * We are concerned if the value object in each slider changes because if it does,
             * we need to move the slider appropriately
             **/
-            $scope.$watch( 'sliders', function( newList, oldList ){
+            var unwatch = $scope.$watch( 'sliders', function( newList, oldList ){
                 
                 // the lists need to be the same length and neither should be null.
                 // we only want this to happen on changes - not initializations.
@@ -491,7 +491,6 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                     newSlider.position = posObj.position;
                     fixStartPositions();
                 }
-                
             }, true);
             
             init();

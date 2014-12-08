@@ -366,12 +366,7 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                                 break;
                             }
                             
-                            for ( var yIt = 0; yIt < $scope.years.length; yIt++ ){
-                                if ( policy.recurrenceRule.BYMONTH[0] === $scope.years[yIt].value ){
-                                    $scope.yearChoice = $scope.years[yIt];
-                                    break;
-                                }
-                            }
+                            $scope.yearChoice = $scope.years[ parseInt( policy.recurrenceRule.BYMONTH[0] ) ];
                             
                             break;
                         default:
