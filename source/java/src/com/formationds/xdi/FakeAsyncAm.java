@@ -34,67 +34,67 @@ public class FakeAsyncAm implements AsyncAm {
     }
 
     @Override
-    public CompletableFuture<Void> attachVolume(AuthenticationToken token, String domainName, String volumeName) throws TException {
+    public CompletableFuture<Void> attachVolume(String domainName, String volumeName) throws TException {
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<List<BlobDescriptor>> volumeContents(AuthenticationToken token, String domainName, String volumeName, int count, long offset) {
+    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset) {
         return CompletableFuture.completedFuture(new ArrayList<BlobDescriptor>());
     }
 
     @Override
-    public CompletableFuture<BlobDescriptor> statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) {
+    public CompletableFuture<BlobDescriptor> statBlob(String domainName, String volumeName, String blobName) {
         return CompletableFuture.completedFuture(BLOB_DESCRIPTOR);
     }
 
     @Override
-    public CompletableFuture<BlobWithMetadata> getBlobWithMeta(AuthenticationToken token, String domainName, String volumeName, String blobName, int length, ObjectOffset offset) {
+    public CompletableFuture<BlobWithMetadata> getBlobWithMeta(String domainName, String volumeName, String blobName, int length, ObjectOffset offset) {
         return CompletableFuture.completedFuture(new BlobWithMetadata(ByteBuffer.wrap(BYTES), BLOB_DESCRIPTOR));
     }
 
     @Override
-    public CompletableFuture<TxDescriptor> startBlobTx(AuthenticationToken token, String domainName, String volumeName, String blobName, int blobMode) {
+    public CompletableFuture<TxDescriptor> startBlobTx(String domainName, String volumeName, String blobName, int blobMode) {
         return CompletableFuture.completedFuture(new TxDescriptor(0));
     }
 
     @Override
-    public CompletableFuture<Void> commitBlobTx(AuthenticationToken token, String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
+    public CompletableFuture<Void> commitBlobTx(String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<Void> abortBlobTx(AuthenticationToken token, String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
+    public CompletableFuture<Void> abortBlobTx(String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<ByteBuffer> getBlob(AuthenticationToken token, String domainName, String volumeName, String blobName, int length, ObjectOffset offset) {
+    public CompletableFuture<ByteBuffer> getBlob(String domainName, String volumeName, String blobName, int length, ObjectOffset offset) {
         return CompletableFuture.completedFuture(ByteBuffer.wrap(BYTES));
     }
 
     @Override
-    public CompletableFuture<Void> updateMetadata(AuthenticationToken token, String domainName, String volumeName, String blobName, TxDescriptor txDescriptor, Map<String, String> metadata) {
+    public CompletableFuture<Void> updateMetadata(String domainName, String volumeName, String blobName, TxDescriptor txDescriptor, Map<String, String> metadata) {
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<Void> updateBlob(AuthenticationToken token, String domainName, String volumeName, String blobName, TxDescriptor txDescriptor, ByteBuffer bytes, int length, ObjectOffset objectOffset, boolean isLast) {
+    public CompletableFuture<Void> updateBlob(String domainName, String volumeName, String blobName, TxDescriptor txDescriptor, ByteBuffer bytes, int length, ObjectOffset objectOffset, boolean isLast) {
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<Void> updateBlobOnce(AuthenticationToken token, String domainName, String volumeName, String blobName, int blobMode, ByteBuffer bytes, int length, ObjectOffset offset, Map<String, String> metadata) {
+    public CompletableFuture<Void> updateBlobOnce(String domainName, String volumeName, String blobName, int blobMode, ByteBuffer bytes, int length, ObjectOffset offset, Map<String, String> metadata) {
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<Void> deleteBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) {
+    public CompletableFuture<Void> deleteBlob(String domainName, String volumeName, String blobName) {
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<VolumeStatus> volumeStatus(AuthenticationToken token, String domainName, String volumeName) {
+    public CompletableFuture<VolumeStatus> volumeStatus(String domainName, String volumeName) {
         return CompletableFuture.completedFuture(new VolumeStatus(0, 0));
     }
 }
