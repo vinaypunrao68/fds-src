@@ -38,6 +38,8 @@ class NbdConnection {
   private:
     int clientSocket;
     static int totalConns;
+    static constexpr fds_int64_t nbdMagic = 0x49484156454F5054l;
+    static constexpr char nbdMagicPwd[] {'N', 'B', 'D', 'M', 'A', 'G', 'I', 'C'};  // NOLINT
 
     std::unique_ptr<ev::io> ioWatcher;
 
