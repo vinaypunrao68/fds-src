@@ -62,7 +62,7 @@ public class CloneSnapshot
       clonedSnapshotId = config.cloneVolume(
         snapshotId,
         0L,       // optional parameter so setting it to zero!
-        name );
+        name, 0L);
 
       Thread.sleep( 200 );
       SetVolumeQosParams.setVolumeQos( legacyConfigPath,

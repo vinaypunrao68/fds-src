@@ -50,7 +50,7 @@ public class CloneVolume
       clonedVolumeId = config.cloneVolume(
         requiredLong( routeParameters, REQ_PARAM_VOLUME_ID ),
         0L,                 // optional parameter so setting it to zero!
-        name );
+        name, 0L);
 
       Thread.sleep( 200 );
       SetVolumeQosParams.setVolumeQos( legacyConfigPath,
