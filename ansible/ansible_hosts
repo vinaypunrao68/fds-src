@@ -54,6 +54,8 @@ node3 fds_node=node04
 [local-fds-nodes:vars]
 ansible_ssh_user=root
 ansible_ssh_pass=passwd
+cluster_location=bld
+deploy_artifact=nightly
 fds_default_nic=eth1
 fds_om_host=node0
 fds_metrics_enabled=false
