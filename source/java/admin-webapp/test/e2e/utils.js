@@ -63,6 +63,7 @@ createTenant = function( name ){
     browser.sleep( 200 );
 };
 
+// timeline: [{ slider: #, value: #, unit: #index }... ]
 createVolume = function( name, data_type, qos, timeline ){
     
     goto( 'volumes' );
@@ -163,6 +164,38 @@ createVolume = function( name, data_type, qos, timeline ){
         
         var doneButton = createEl.element( by.css( '.save-qos-settings' ) );
         doneButton.click();
+    }
+    
+    // set the timeline numbers
+    if ( timeline ){
+        
+        var timelinePanel = createEl.element( by.css( '.protection-policy' ));
+        timelinePanel.element( by.css( '.icon-edit' )).click();
+        
+        var sliderWidget = createEl.element( by.css( '.waterfall-slider' ));
+        
+        for ( var i = 0; i < timeline.length; i++ ){
+            
+            var settings = timeline[i];
+            
+            // need to hover to show the edit button
+            browser.actions().mouseMove( sliderWidget.all( by.css( '.display-only' )).get( settings.slider )).perform();
+                        
+            sliderWidget.all( by.css( '.icon-admin' )).get( settings.slider ).click();
+            
+            var dropdown = sliderWidget.all( by.css( '.dropdown' )).get( settings.slider );
+            dropdown.element( by.tagName( 'button' )).click();
+            dropdown.all( by.tagName( 'li' )).get( settings.unit ).click();
+            
+            var spinner = sliderWidget.all( by.css( '.spinner-parent' )).get( settings.slider );
+            var spinnerInput = spinner.element( by.tagName( 'input' ));
+            spinnerInput.clear();
+            spinnerInput.sendKeys( settings.value );
+            
+            sliderWidget.all( by.css( '.set-value-button' )).get( settings.slider ).click();
+        }
+        
+        createEl.element( by.css( '.save-timeline' )).click();
     }
     
     element.all( by.buttonText( 'Create Volume' )).get( 0 ).click();

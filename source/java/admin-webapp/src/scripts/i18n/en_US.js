@@ -56,6 +56,7 @@ var en_US = {
         l_weeks: 'Weeks',
         l_years: 'Years',
         l_months_by_days: 'Months by days',
+        l_forever: 'Forever',
         
         l_month: 'Month',
         l_day: 'Day',
