@@ -223,6 +223,7 @@ struct DataMgr : Module, DmIoReqHandler {
         }
 
         virtual ~dmQosCtrl() {
+             delete dispatcher;
         }
     };
 

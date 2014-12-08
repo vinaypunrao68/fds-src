@@ -31,11 +31,12 @@ class VolumeContext(Context):
     @arg('vol-name', help= "-Volume name  of the clone")
     @arg('clone-name', help= "-name of  the  volume clone")
     @arg('policy-id', help= "-volume policy id" , default=0, type=int, nargs='?')
-    def clone(self, vol_name, clone_name, policy_id):
+    @arg('timeline-time', help= "timeline time  of parent volume", nargs='?' , type=long, default=0)
+    def clone(self, vol_name, clone_name, policy_id, timeline_time):
         'clone a given volume'
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name)
-            ServiceMap.omConfig().cloneVolume(volume_id, policy_id, clone_name )
+            ServiceMap.omConfig().cloneVolume(volume_id, policy_id, clone_name, timeline_time)
             return
         except ApiException, e:
             print e
