@@ -159,9 +159,9 @@ class ServiceContext(Context):
     @clicmd
     @arg('volname', help='-volume name')
     @arg('pattern', help='-blob name pattern for search')
-    @arg('maxkeys', help= "-max number for keys", nargs='?' , type=long, default=1000)
+    @arg('maxkeys', help= "-max number for results", nargs='?' , type=long, default=1000)
     @arg('startpos', help= "-starting  position of the blob list", nargs='?' , type=long, default=0)
-    def listhdfsblob(self, volname, pattern, maxkeys, startpos):
+    def listblobsbypattern(self, volname, pattern, maxkeys, startpos):
         try:
             
             #process.setup_logger()
