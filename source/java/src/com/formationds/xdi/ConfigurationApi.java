@@ -321,9 +321,9 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
     }
 
     @Override
-    public long cloneVolume(long volumeId, long fdsp_PolicyInfoId, String clonedVolumeName)
+    public long cloneVolume(long volumeId, long fdsp_PolicyInfoId, String clonedVolumeName, long timelineTime)
             throws org.apache.thrift.TException {
-        long clonedVolumeId = config.cloneVolume(volumeId, fdsp_PolicyInfoId, clonedVolumeName);
+        long clonedVolumeId = config.cloneVolume(volumeId, fdsp_PolicyInfoId, clonedVolumeName, timelineTime);
         if (clonedVolumeId <= 0) {
             clonedVolumeId = config.getVolumeId(clonedVolumeName);
         }

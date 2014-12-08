@@ -9,6 +9,7 @@ import numpy
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import traceback
 
 agents = ["am", "xdi", "sm", "dm", "sm", "om"]
 
@@ -174,7 +175,8 @@ System: Xeon 1S 6-core HT, 32GB DRAM, 1GigE, 12HDD, 2SSDs \n\
     headers = ["Config","Notes"]
     table = []
     for t in summary:
-        table.append([t, config_notes[t]])
+        _tag = reduce(lambda x,y : x+":"+y,t.split(":")[0:3])
+        table.append([t, config_notes[_tag]])
     text += tabulate.tabulate(table,headers) + "\n"
 
     with open(".mail", "w") as _f:
@@ -213,7 +215,7 @@ if __name__ == "__main__":
                 experiments = sorted(experiments, key = lambda k : int(k["threads"]))
                 #iops = [x["th"] for x in experiments]    
                 iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
-                iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
+                #iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
                 am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
                 #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
                 sm_lat = []
@@ -223,7 +225,8 @@ if __name__ == "__main__":
                 cpus = {}
                 for a in agents:
                     cpus[a] = [x[a+":cpu"] for x in experiments]
-                iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
+                #iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
+                iops = iops_get
                 lat = [x["lat"] for x in experiments]    
                 #print [x["nreqs"] for x in experiments]    
                 conns = [x["threads"] for x in experiments]    
@@ -363,7 +366,9 @@ if __name__ == "__main__":
                 images.append(generate_cpus(conns, cpus))
                 images.append(generate_lat_bw(iops, lat))
                 mail_success(recipients2, images, label)
-        except:
+        except Exception, e:
+            print "Exception:", e
+            traceback.print_exc()
             continue
  
     mail_summary(summary)
