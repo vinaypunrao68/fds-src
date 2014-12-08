@@ -117,10 +117,10 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                 },
                 //5
                 {
-                    name: translate( 'common.l_years' ).toLowerCase(),
+                    name: translate( 'common.l_forever' ).toLowerCase(),
                     selectName: translate( 'common.l_forever' ).toLowerCase(),
                     allowNumber: false,
-                    start: 15,
+                    start: 16,
                     end: 16,
                     width: 5,
                     labelFunction: function( value ){

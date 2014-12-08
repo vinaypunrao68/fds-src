@@ -169,6 +169,12 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 var range = $scope.range[ $scope.range.length-1 ];
                 var pxPer = findPixelsPerRangeSegment( range, getSegmentsForRange( range ) );
                 var pos = (getSegmentsForRange( range ) * pxPer) + zero;
+                
+                // this means there was only one value in the last range
+                if ( isNaN( pos ) ){
+                    pos = zero + rangeWidth - halfHandleWidth;
+                }
+                
                 var value = range.end;
                 
                 $scope.validPositions.push( { position: pos, range: $scope.range.length-1, value: value } );
@@ -356,6 +362,8 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 fixStartPositions();
                 
                 $scope.editing = -1;
+                
+                $timeout( function(){ $scope.$apply();});
             };
             
             $scope.handleClicked = function( slider, $index ){
@@ -450,12 +458,16 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                     return;
                 }
                 
-                $scope.spinnerValue = value;
+                $scope.spinnerValue = parseInt( value ); 
             });
 
             $scope.$on( '$destroy', function(){
                 $document.off( 'mousemove', null, $scope.sliderMoved );
                 $document.off( 'mouseup', null, handleReleased );
+            });
+            
+            $scope.$on( 'fui::dropdown_change', function( $event, newVal ){
+                $scope.dropdownRange = newVal;
             });
             
             /**

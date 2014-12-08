@@ -170,6 +170,11 @@ createVolume = function( name, data_type, qos, timeline ){
     if ( timeline ){
         
         var timelinePanel = createEl.element( by.css( '.protection-policy' ));
+        
+        // sneaky way to scroll down
+        var hourChoice = timelinePanel.element( by.css( '.hour-choice' ));
+        hourChoice.click();
+        
         timelinePanel.element( by.css( '.icon-edit' )).click();
         
         var sliderWidget = createEl.element( by.css( '.waterfall-slider' ));
@@ -193,6 +198,8 @@ createVolume = function( name, data_type, qos, timeline ){
             spinnerInput.sendKeys( settings.value );
             
             sliderWidget.all( by.css( '.set-value-button' )).get( settings.slider ).click();
+            
+            browser.sleep( 500 );
         }
         
         createEl.element( by.css( '.save-timeline' )).click();

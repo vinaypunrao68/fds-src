@@ -138,9 +138,9 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
                 }
             };
             
+            $scope.$watch( 'value', $scope.sendEvent );
             $scope.$watch( 'min', $scope.fixValue );
             $scope.$watch( 'max', $scope.fixValue );
-            
         },
         link: function( $scope, $element, $attrs ){
 
