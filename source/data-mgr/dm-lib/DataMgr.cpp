@@ -591,6 +591,7 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
     fpi::BlobInfoListType blobList;
     VolumeCatalogQueryIface::ptr volCatIf = timeVolCat_->queryIface();
     blob_version_t version = 0;
+    // FIXME(DAC): This needs to happen within the context of a transaction.
     err = volCatIf->listBlobs(volId, &blobList);
     LOGWARN << "deleting all [" << blobList.size() << "]"
             << " blobs from vol:" << volId;
@@ -599,6 +600,8 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
     for (const auto& blob : blobList) {
         metaList.clear();
         version = 0;
+        // FIXME(DAC): Error is ignored, and only the last error from deleteBlob will be returned
+        //             to the caller.
         err = volCatIf->getBlobMeta(volId,
                                     blob.blob_name,
                                     &version, &blobSize, &metaList);
@@ -779,6 +782,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetaDataHandler();
+    handlers[FDS_DM_LIST_BLOBS_BY_PATTERN] = new dm::ListBlobsByPatternHandler();
 }
 
 DataMgr::~DataMgr()

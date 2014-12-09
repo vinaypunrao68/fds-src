@@ -5,7 +5,7 @@ user_incl_dir     := /usr/include/cryptopp
 user_hh           := $(wildcard *.h)
 user_fds_so_libs  :=
 user_fds_ar_libs  :=
-user_non_fds_libs :=
+user_non_fds_libs := pcrecpp
 user_cpp_flags    :=
 user_cpp          :=  $(wildcard *.cpp)
 
