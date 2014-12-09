@@ -93,7 +93,8 @@ NbdConnector::runNbdLoop() {
 }
 
 NbdConnection::NbdConnection(int clientsd)
-        : clientSocket(clientsd) {
+        : clientSocket(clientsd),
+          hsState(PREINIT) {
     fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
 
     totalConns++;
@@ -102,18 +103,133 @@ NbdConnection::NbdConnection(int clientsd)
     ioWatcher->set<NbdConnection, &NbdConnection::callback>(this);
     ioWatcher->start(clientSocket, ev::READ | ev::WRITE);
 
-    // char buffer[1024];
-    // ssize_t  nread = recv(ioWatcher->fd, buffer, sizeof(buffer), 0);
-    // LOGNORMAL << "Read from ioWatcher " << nread;
-
     LOGNORMAL << "New NBD client connection for " << clientSocket;
 }
 
 NbdConnection::~NbdConnection() {
 }
 
-constexpr char NbdConnection::nbdMagicPwd[];
-constexpr fds_int64_t NbdConnection::nbdMagic;
+constexpr fds_int64_t NbdConnection::NBD_MAGIC;
+constexpr char NbdConnection::NBD_MAGIC_PWD[];
+constexpr fds_uint16_t NbdConnection::NBD_PROTO_VERSION;
+constexpr fds_uint32_t NbdConnection::NBD_ACK;
+constexpr fds_int32_t NbdConnection::NBD_OPT_EXPORT;
+constexpr fds_int32_t NbdConnection::NBD_FLAG_HAS_FLAGS;
+constexpr fds_int32_t NbdConnection::NBD_FLAG_READ_ONLY;
+constexpr fds_int32_t NbdConnection::NBD_FLAG_SEND_FLUSH;
+constexpr fds_int32_t NbdConnection::NBD_FLAG_SEND_FUA;
+constexpr fds_int32_t NbdConnection::NBD_FLAG_ROTATIONAL;
+constexpr fds_int32_t NbdConnection::NBD_FLAG_SEND_TRIM;
+constexpr char NbdConnection::NBD_PAD_ZERO[];
+
+constexpr fds_uint64_t NbdConnection::volumeSizeInBytes;
+constexpr fds_uint32_t NbdConnection::maxObjectSizeInBytes;
+
+void
+NbdConnection::hsPreInit(ev::io &watcher) {
+    // Send initial message to client with NBD magic and proto version
+    ssize_t nwritten = write(watcher.fd, NBD_MAGIC_PWD, sizeof(NBD_MAGIC_PWD));
+    if (nwritten < 0) {
+        LOGERROR << "Socket write error";
+        return;
+    }
+    nwritten = write(watcher.fd, &NBD_MAGIC, sizeof(NBD_MAGIC));
+    if (nwritten < 0) {
+        LOGERROR << "Socket write error";
+        return;
+    }
+    nwritten = write(watcher.fd, &NBD_PROTO_VERSION, sizeof(NBD_PROTO_VERSION));
+    if (nwritten < 0) {
+        LOGERROR << "Socket write error";
+        return;
+    }
+}
+
+void
+NbdConnection::hsPostInit(ev::io &watcher) {
+    // Accept client ack
+    fds_uint32_t ack;
+    ssize_t nread = recv(watcher.fd, &ack, sizeof(ack), 0);
+    if (nread < 0) {
+        LOGERROR << "Socket read error";
+    } else {
+        ack = ntohl(ack);
+        fds_verify(NBD_ACK == ack);
+        LOGDEBUG << "Received " << nread << " byte ack " << ack;
+    }
+}
+
+void
+NbdConnection::hsAwaitOpts(ev::io &watcher) {
+    // Read magic number
+    fds_int64_t magic;
+    ssize_t nread = recv(watcher.fd, &magic, sizeof(magic), 0);
+    if (nread < 0) {
+        LOGERROR << "Socket read error";
+        return;
+    } else {
+        magic = __builtin_bswap64(magic);
+        fds_verify(NBD_MAGIC == magic);
+        LOGDEBUG << "Read " << nread << " bytes, magic 0x"
+                 << std::hex << magic << std::dec;
+    }
+
+    fds_int32_t optSpec;
+    nread = recv(watcher.fd, &optSpec, sizeof(optSpec), 0);
+    if (nread < 0) {
+        LOGERROR << "Socket read error";
+        return;
+    } else {
+        optSpec = ntohl(optSpec);
+        fds_verify(NBD_OPT_EXPORT == optSpec);
+        LOGDEBUG << "Read " << nread << " bytes, optSpec " << optSpec;
+    }
+
+    fds_int32_t length;
+    nread = recv(watcher.fd, &length, sizeof(length), 0);
+    if (nread < 0) {
+        LOGERROR << "Socket read error";
+        return;
+    } else {
+        length = ntohl(length);
+        LOGDEBUG << "Read " << nread << " bytes, length " << length;
+    }
+
+    char exportName[length];  // NOLINT
+    nread = recv(watcher.fd, exportName, length, 0);
+    if (nread < 0) {
+        LOGERROR << "Socket read error";
+        return;
+    } else {
+        volumeName = exportName;
+        LOGDEBUG << "Read " << nread << " bytes, name " << volumeName;
+    }
+}
+
+void
+NbdConnection::hsSendOpts(ev::io &watcher) {
+    ssize_t nwritten = write(watcher.fd, &volumeSizeInBytes, sizeof(volumeSizeInBytes));
+    if (nwritten < 0) {
+        LOGERROR << "Socket write error";
+        return;
+    }
+    fds_int32_t optFlags = NBD_FLAG_HAS_FLAGS | NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_FUA;
+    nwritten = write(watcher.fd, &optFlags, sizeof(optFlags));
+    if (nwritten < 0) {
+        LOGERROR << "Socket write error";
+        return;
+    }
+    nwritten = write(watcher.fd, NBD_PAD_ZERO, sizeof(NBD_PAD_ZERO));
+    if (nwritten < 0) {
+        LOGERROR << "Socket write error";
+        return;
+    }
+}
+
+void
+NbdConnection::doOps(ev::io &watcher) {
+    LOGWARN << "READY TO DO SOME OPS!";
+}
 
 void
 NbdConnection::callback(ev::io &watcher, int revents) {
@@ -125,96 +241,43 @@ NbdConnection::callback(ev::io &watcher, int revents) {
     }
 
     if (revents & EV_READ) {
-        LOGNORMAL << "Read event";
-        fds_uint32_t ack;
-        ssize_t nread = recv(watcher.fd, &ack, sizeof(ack), 0);
-        if (nread < 0) {
-            LOGERROR << "Socket read error";
-        } else {
-            LOGDEBUG << " read " << nread << " bytes, ack " << ack;
+        LOGTRACE << "Read event";
+        switch (hsState) {
+            case POSTINIT:
+                hsPostInit(watcher);
+                hsState = AWAITOPTS;
+                break;
+            case AWAITOPTS:
+                hsAwaitOpts(watcher);
+                hsState = SENDOPTS;
+                ioWatcher->set(ev::READ | ev::WRITE);
+                break;
+            case DOOPS:
+                doOps(watcher);
+                break;
+            default:
+                fds_panic("Unknown NBD connection state");
         }
-
-        fds_int64_t magic;
-        nread = recv(watcher.fd, &magic, sizeof(magic), 0);
-        if (nread < 0) {
-            LOGERROR << "Socket read error";
-        } else {
-            LOGDEBUG << " read " << nread << " bytes, magic " << magic;
-        }
-
-        fds_int32_t optSpec;
-        nread = recv(watcher.fd, &optSpec, sizeof(optSpec), 0);
-        if (nread < 0) {
-            LOGERROR << "Socket read error";
-        } else {
-            LOGDEBUG << "read " << nread << " bytes, optSpec " << optSpec;
-        }
-
-        fds_int32_t netLength;
-        fds_int32_t length = 0;
-        nread = recv(watcher.fd, &netLength, sizeof(netLength), 0);
-        if (nread < 0) {
-            LOGERROR << "Socket read error";
-        } else {
-            length = htonl(netLength);
-            LOGDEBUG << "read " << nread << " bytes, length " << length;
-        }
-
-        char buffer[1024];
-        nread = recv(watcher.fd, buffer, sizeof(buffer), 0);
-        if (nread < 0) {
-            LOGERROR << "Socket read error";
-            return;
-        }
-        if (nread > 0) {
-            LOGDEBUG << "Read " << nread << " bytes ";
-            for (fds_uint32_t i = 0; i < nread; ++i) {
-                LOGDEBUG << static_cast<uint8_t>(buffer[i]);
-            }
-        } else if (nread == 0) {
-            LOGWARN << "Received 0 buffer";
-        }
-
-        // write back
-        std::string exportName(buffer, length);
-        LOGDEBUG << "exportName " << exportName;
-        ssize_t nwritten = write(watcher.fd, exportName.length());
-        if (nwritten < 0) {
-            LOGERROR << "Socket write error";
-            return;
-        }
-        nwritten = write(watcher.fd,
-                         NBD_FLAG_HAS_FLAGS | NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_FUA,
-                         sizeof(short));
-
-
-        // TODO(xxx) implement states
     }
 
     if (revents & EV_WRITE) {
         LOGNORMAL << "Write event";
-
-        // Check handshake state
-        ssize_t nwritten = write(watcher.fd, nbdMagicPwd, sizeof(nbdMagicPwd));
-        if (nwritten < 0) {
-            LOGERROR << "Socket write error";
-            return;
+        switch (hsState) {
+            case PREINIT:
+                hsPreInit(watcher);
+                hsState = POSTINIT;
+                // Wait for read event from client
+                ioWatcher->set(ev::READ);
+                break;
+            case SENDOPTS:
+                hsSendOpts(watcher);
+                hsState = DOOPS;
+                // Wait for read events from client
+                ioWatcher->set(ev::READ);
+                break;
+            default:
+                fds_panic("Unknown NBD connection state!");
         }
-        nwritten = write(watcher.fd, &nbdMagic, sizeof(nbdMagic));
-        if (nwritten < 0) {
-            LOGERROR << "Socket write error";
-            return;
-        }
-
-        fds_uint16_t protoVer = 1;
-        nwritten = write(watcher.fd, &protoVer, sizeof(protoVer));
-        if (nwritten < 0) {
-            LOGERROR << "Socket write error";
-            return;
-        }
-
-        // Done writing, watch only for read
-        ioWatcher->set(ev::READ);
     }
 }
 
