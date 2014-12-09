@@ -106,14 +106,11 @@ public class Main {
         AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm("localhost", 8899 + amInstanceId);
 
         System.out.println("My instance id " + amInstanceId);
-        AsyncAm asyncAm = new AsyncAm(clientFactory.makeAmAsyncPool("localhost",
-                                                                    9988 + amInstanceId),
-                                      oneWayAm,
-                                      authorizer,
-                                      amInstanceId);
+
+        AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm() : new RealAsyncAm(oneWayAm, amInstanceId);
         asyncAm.start();
 
-        Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm, bbp, token, configCache);
+        Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm, bbp, token, authorizer, configCache);
 
         int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port", 8000);
         int s3SslPort = platformConfig.defaultInt("fds.am.s3_https_port", 8443);

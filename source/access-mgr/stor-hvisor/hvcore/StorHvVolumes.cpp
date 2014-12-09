@@ -8,7 +8,6 @@
 
 #include "StorHvVolumes.h"
 
-#include "access-mgr/am-block.h"
 #include "AmRequest.h"
 #include "PerfTrace.h"
 #include "StorHvQosCtrl.h"
@@ -185,25 +184,6 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
      * move them to appropriate qos queue  */
     if (err.ok()) {
         moveWaitBlobsToQosQueue(vol_uuid, vdesc.name, err);
-        if (vdesc.volType == fpi::FDSP_VOL_BLKDEV_TYPE) {
-            blk_vol_creat_t vreq;
-
-            vreq.v_name  = vdesc.name.c_str();
-            vreq.v_dev   = NULL;
-            vreq.v_uuid  = vdesc.volUUID;
-            vreq.v_blksz = 4 << 10; /* TODO(Vy): 4K for now. */
-
-            /* The volume capacity is in MB. */
-            vreq.v_blkdev[0] = '\0';
-            vreq.v_vol_blksz =
-                static_cast<fds_uint64_t>(vdesc.capacity / vreq.v_blksz) << 10;
-
-            BlockMod *mod = BlockMod::blk_singleton();
-            if (mod->blk_attach_vol(&vreq) == 0) {
-                fds_assert(vreq.v_blkdev[0] != '\0');
-            }
-            LOGNOTIFY << "Create block vol " << vdesc.name << ", dev " << vreq.v_blkdev;
-        }
     }
     return err;
 }

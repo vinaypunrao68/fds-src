@@ -55,8 +55,9 @@ def suiteConstruction():
     return suite
 
 if __name__ == '__main__':
-
+	
     # Handle FDS specific commandline arguments.
+    print sys.argv
     log_dir, failfast = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
 
     # If a test log directory was not supplied on the command line (with option "-l"),
@@ -74,6 +75,6 @@ if __name__ == '__main__':
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
     test_suite = suiteConstruction()
-
+    print test_suite
     runner.run(test_suite)
 

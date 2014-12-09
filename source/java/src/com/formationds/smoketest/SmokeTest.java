@@ -169,7 +169,7 @@ public class SmokeTest {
         }
     }
 
-    @Test
+    // @Test
     public void testRecreateVolume() {
         String bucketName = "test-recreate-bucket";
         try {

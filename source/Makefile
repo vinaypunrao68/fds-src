@@ -15,7 +15,6 @@ user_build_dir :=                       \
     util                                \
     lib                                 \
     nginx-driver                        \
-    fds-probe                           \
     persistent-layer                    \
     platform                            \
     orch-mgr                            \

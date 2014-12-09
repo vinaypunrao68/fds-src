@@ -505,8 +505,10 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
 
     if (error != ERR_OK) {
-        LOGERROR << "blob name: " << amReq->getBlobName() << "offset: "
-            << amReq->blob_offset << " Error: " << error;
+        // TODO(Andrew): We should consider logging this error at a
+        // higher level when the volume is not block
+        LOGDEBUG << "blob name: " << amReq->getBlobName() << "offset: "
+                 << amReq->blob_offset << " Error: " << error;
         // TODO(Andrew): We should change XDI to not expect OFFSET_INVALID, rather NOT_FOUND
         amReq->proc_cb(error == ERR_CAT_ENTRY_NOT_FOUND ? ERR_BLOB_OFFSET_INVALID : error);
         return;

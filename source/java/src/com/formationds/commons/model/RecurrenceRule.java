@@ -5,22 +5,19 @@
 package com.formationds.commons.model;
 
 import com.formationds.commons.model.abs.ModelBase;
-import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.iCalFrequency;
 import com.formationds.commons.model.type.iCalKeys;
 import com.formationds.commons.model.type.iCalWeekDays;
-import com.formationds.commons.model.util.RRIntegerValidator;
 import com.formationds.commons.util.Numbers;
 import com.formationds.commons.util.WeekDays;
 import com.google.gson.annotations.SerializedName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
 import java.text.ParseException;
 import java.util.Date;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.StringTokenizer;
 
 /**
@@ -69,7 +66,6 @@ public class RecurrenceRule
     private String weekStartDay;
 
     @SerializedName( "BYDAY" )
-    @Enumerated( EnumType.ORDINAL )
     private WeekDays<iCalWeekDays> days = null;
 
     /**
@@ -226,6 +222,7 @@ public class RecurrenceRule
         throws ParseException {
 
         final RecurrenceRule RRule = new RecurrenceRule();
+        @SuppressWarnings( "UseOfStringTokenizer" )
         final StringTokenizer t = new StringTokenizer( rrule, ";=" );
 
         while( t.hasMoreTokens() ) {
@@ -236,104 +233,9 @@ public class RecurrenceRule
             }
 
             final iCalKeys key = iCalKeys.valueOf( token );
-            if( iCalKeys.FREQ.equals( key ) ) {
-                RRule.setFrequency( nextToken( t, token ) );
-            } else {
-                switch( key ) {
-                    case UNTIL:
-                        final String untilString = nextToken( t, token );
-                        RRule.setUntil( ObjectModelHelper.toiCalFormat( untilString ) );
-                        break;
-                    case COUNT:
-                        RRule.setCount( Integer.parseInt( nextToken( t, token ) ) );
-                        break;
-                    case INTERVAL:
-                        RRule.setInterval( Integer.parseInt( nextToken( t, token ) ) );
-                        break;
-                    case WKST:
-                        weekStartDay = nextToken( t, token );
-                        RRule.setWeekStartDay( weekStartDay );
-                        break;
-                    case BYSECOND:
-                        if( seconds == null ) {
-                            seconds = new Numbers<>( );
-                            seconds.validator( new RRIntegerValidator( 0, 59, false ) );
-                        }
-                        seconds.add( nextToken( t, token ), "," );
-                        RRule.setSeconds( seconds );
-                        break;
-                    case BYMINUTE:
-                        if( minutes == null ) {
-                            minutes = new Numbers<>( );
-                            minutes.validator( new RRIntegerValidator( 0, 59, false ) );
-                        }
-                        minutes.add( nextToken( t, token ), "," );
-                        RRule.setMinutes( minutes );
-                        break;
-                    case BYHOUR:
-                        if( hours == null ) {
-                            hours = new Numbers<>( );
-                            hours.validator( new RRIntegerValidator( 0, 23, false ) );
-                        }
-                        hours.add( nextToken( t, token ), "," );
-                        RRule.setHours( hours );
-                        break;
-                    case BYDAY:
-                        if( days == null ) {
-                            days = new WeekDays<>( );
-                        }
-                        days.add( nextToken( t, token ), "," );
-                        RRule.setDays( days );
-                        break;
-                    case BYWEEKNO:
-                        if( weekNo == null ) {
-                            weekNo = new Numbers<>( );
-                            weekNo.validator( new RRIntegerValidator( 1, 53, true ) );
-                        }
-                        weekNo.add( nextToken( t, token ), "," );
-                        RRule.setWeekNo( weekNo );
-                        break;
-                    case BYMONTHDAY:
-                        if( monthDays == null ) {
-                            monthDays = new Numbers<>( );
-                            monthDays.validator( new RRIntegerValidator( 1, 31, true ) );
-                        }
-                        monthDays.add( nextToken( t, token ), "," );
-                        RRule.setMonthDays( monthDays );
-                        break;
-                    case BYMONTH:
-                        if( months == null ) {
-                            months = new Numbers<>( );
-                            months.validator( new RRIntegerValidator( 1, 12, false ) );
-                        }
-                        months.add( nextToken( t, token ), "," );
-                        RRule.setMonths( months );
-                        break;
-                    case BYYEARDAY:
-                        if( yearDays == null ) {
-                            yearDays = new Numbers<>( );
-                            yearDays.validator( new RRIntegerValidator( 1, 366, true ) );
-                        }
-                        yearDays.add( nextToken( t, token ), "," );
-                        RRule.setYearDays( yearDays );
-                        break;
-                    case BYSETPOS:
-                        if( position == null ) {
-                            position = new Numbers<>( );
-                        }
-                        position.add( nextToken( t, token ), "," );
-                        RRule.setPosition( position );
-                        break;
-                    default:
-                        logger.warn(
-                            String.format( "%s -- assuming its a experimental value, skipping.",
-                                           key.name() ) );
-                        break;
-                    // SKIP -- assuming its a experimental value.
-                }
-            }
+            String next = nextToken(t, token);
+            key.setRecurrenceRule(RRule, next);
         }
-
 
         return RRule;
     }
@@ -358,98 +260,14 @@ public class RecurrenceRule
     public final String toString() {
         final StringBuilder b = new StringBuilder();
 
-        b.append( iCalKeys.FREQ );
-        b.append( '=' );
-        b.append( frequency );
+        int i = 0;
+        for (iCalKeys k : iCalKeys.values() ) {
 
-        if( weekStartDay != null ) {
-            b.append( ';' );
-            b.append( iCalKeys.WKST );
-            b.append( '=' );
-            b.append( weekStartDay );
-        }
-
-        if( until != null ) {
-            b.append( ';' );
-            b.append( iCalKeys.UNTIL );
-            b.append( '=' );
-            b.append( ObjectModelHelper.isoDateTimeUTC( until ) );
-        }
-
-        if( count != null && count >= 1 ) {
-            b.append( ';' );
-            b.append( iCalKeys.COUNT );
-            b.append( '=' );
-            b.append( count );
-        }
-
-        if( interval != null && interval >= 1 ) {
-            b.append( ';' );
-            b.append( iCalKeys.INTERVAL );
-            b.append( '=' );
-            b.append( interval );
-        }
-
-        if( months != null && !months.isEmpty() ) {
-            b.append( ';' );
-            b.append( iCalKeys.BYMONTH );
-            b.append( '=' );
-            b.append( months );
-        }
-        if( weekNo != null && !weekNo.isEmpty() ) {
-            b.append( ';' );
-            b.append( iCalKeys.BYWEEKNO );
-            b.append( '=' );
-            b.append( weekNo );
-        }
-// TODO fix serialization issue with enum iCalWeekDays
-        if( days != null && !days.isEmpty() ) {
-            b.append( ';' );
-            b.append( iCalKeys.BYDAY );
-            b.append( '=' );
-            b.append( days );
-        }
-
-        if( yearDays != null && !yearDays.isEmpty() ) {
-            b.append( ';' );
-            b.append( iCalKeys.BYYEARDAY );
-            b.append( '=' );
-            b.append( yearDays );
-        }
-
-        if( monthDays != null && !monthDays.isEmpty() ) {
-            b.append( ';' );
-            b.append( iCalKeys.BYMONTHDAY );
-            b.append( '=' );
-            b.append( monthDays );
-        }
-
-        if( hours != null && !hours.isEmpty() ) {
-            b.append( ';' );
-            b.append( iCalKeys.BYHOUR );
-            b.append( '=' );
-            b.append( hours );
-        }
-
-        if( minutes != null && !minutes.isEmpty() ) {
-            b.append( ';' );
-            b.append( iCalKeys.BYMINUTE );
-            b.append( '=' );
-            b.append( minutes );
-        }
-
-        if( seconds != null && !seconds.isEmpty() ) {
-            b.append( ';' );
-            b.append( iCalKeys.BYSECOND );
-            b.append( '=' );
-            b.append( seconds );
-        }
-
-        if( position != null && !position.isEmpty() ) {
-            b.append( ';' );
-            b.append( iCalKeys.BYSETPOS );
-            b.append( '=' );
-            b.append( position );
+            Optional<String> kv = k.formatKV(this);
+            if (kv.isPresent()) {
+                if (i++ > 0) b.append(';');
+                b.append(kv.get());
+            }
         }
 
         return b.toString();

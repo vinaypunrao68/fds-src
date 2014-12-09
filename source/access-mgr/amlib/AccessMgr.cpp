@@ -6,7 +6,6 @@
 
 #include "fds_process.h"
 
-#include "access-mgr/am-block.h"
 #include "am-platform.h"
 
 #include "AmCache.h"
@@ -66,7 +65,6 @@ AccessMgr::mod_init(SysParams const *const param) {
 
 void
 AccessMgr::mod_startup() {
-    BlockMod::blk_bind_to_am(storHvisor);
 }
 
 void

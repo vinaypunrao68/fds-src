@@ -8,10 +8,20 @@ import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class FakeAmService implements AmService.Iface {
+
+    public static final byte[] ARRAY = new byte[4096];
+
+    static {
+        for (int i = 0; i < 4096; i++) {
+            ARRAY[i] = 42;
+        }
+    }
+
     @Override
     public void attachVolume(String domainName, String volumeName) throws ApiException, TException {
 
@@ -24,7 +34,7 @@ public class FakeAmService implements AmService.Iface {
 
     @Override
     public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws ApiException, TException {
-        throw new ApiException("not implemented", ErrorCode.MISSING_RESOURCE);
+        return new BlobDescriptor("foo", 4096, new HashMap<>());
     }
 
     @Override
@@ -42,7 +52,7 @@ public class FakeAmService implements AmService.Iface {
 
     @Override
     public ByteBuffer getBlob(String domainName, String volumeName, String blobName, int length, ObjectOffset offset) throws ApiException, TException {
-        return ByteBuffer.wrap(new byte[0]);
+        return ByteBuffer.wrap(ARRAY);
     }
 
     @Override
@@ -67,6 +77,6 @@ public class FakeAmService implements AmService.Iface {
 
     @Override
     public VolumeStatus volumeStatus(String domainName, String volumeName) throws ApiException, TException {
-        return new VolumeStatus();
+        return new VolumeStatus(0, 0);
     }
 }

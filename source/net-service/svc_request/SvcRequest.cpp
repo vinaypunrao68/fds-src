@@ -276,6 +276,29 @@ void EPSvcRequest::invoke2()
 
 void FailoverSvcRequest::invoke2()
 {
+    bool healthyEpExists = moveToNextHealthyEndpoint_();
+    state_ = INVOCATION_PROGRESS;
+
+    if (healthyEpExists) {
+        epReqs_[curEpIdx_]->invoke2();
+    } else {
+        DBG(GLOGDEBUG << logString() << " No healthy endpoints left");
+        fds_assert(curEpIdx_ == epReqs_.size() - 1);
+        /* No healthy endpoints left.  Lets post an error.  This error
+         * We will simulate as if the error is from last endpoint
+         */
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_,
+                                                              msgTypeId_,
+                                                              epReqs_[curEpIdx_]->peerEpId_,
+                                                              myEpId_);
+        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
+        gSvcRequestPool->postError(respHdr);
+    }
+}
+
+#if 0
+void FailoverSvcRequest::invoke2()
+{
     fds_verify(curEpIdx_ == 0);
 
     auto ep = NetMgr::ep_mgr_singleton()->\
@@ -291,6 +314,7 @@ void FailoverSvcRequest::invoke2()
     // 1. Start timer
     // 2. Handle failover cases
 }
+#endif
 
 void QuorumSvcRequest::invoke2()
 {
@@ -672,7 +696,7 @@ void FailoverSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
         return;
     }
 
-    /* NOTE: We may consider moving this outside the lockscope */
+    fiu_do_on("svc.use.lftp", epReqs_[curEpIdx_]->invoke2(); return;);
     epReqs_[curEpIdx_]->invokeWork_();
 }
 

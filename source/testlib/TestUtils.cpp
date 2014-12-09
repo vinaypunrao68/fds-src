@@ -18,7 +18,7 @@ namespace fds {
 * @return 
 */
 
-fpi::SvcUuid TestUtils::getAnyNonResidentDmSvcuuid(Platform* platform)
+fpi::SvcUuid TestUtils::getAnyNonResidentDmSvcuuid(Platform* platform, bool uuid_hack)
 {
     fpi::SvcUuid svcUuid;
     fpi::SvcUuid myDmUuid;
@@ -30,19 +30,25 @@ fpi::SvcUuid TestUtils::getAnyNonResidentDmSvcuuid(Platform* platform)
         auto uuid = (int64_t)(n->rs_get_uuid().uuid_get_val());
         // Hack to ignore OM SM svc uuid
         /* TODO(Rao/Vy): Fix this */
+        if (uuid == 51904 || uuid == 66) {
+            std::cout << "Localhost uuid igonre it" << std::endl;
+            continue;
+        }
         if (uuid == 0xcac1) {
             continue;
         }
         if (myDmUuid.svc_uuid != (int64_t)(n->rs_get_uuid().uuid_get_val())) {
             svcUuid.svc_uuid = n->rs_get_uuid().uuid_get_val();
-            break;
+            if (false == uuid_hack) {
+                break;
+            }
         }
     }
     return svcUuid;
 }
 
 
-fpi::SvcUuid TestUtils::getAnyNonResidentSmSvcuuid(Platform* platform)
+fpi::SvcUuid TestUtils::getAnyNonResidentSmSvcuuid(Platform* platform, bool uuid_hack)
 {
     fpi::SvcUuid svcUuid;
     fpi::SvcUuid mySmUuid;
@@ -54,12 +60,18 @@ fpi::SvcUuid TestUtils::getAnyNonResidentSmSvcuuid(Platform* platform)
         auto uuid = (int64_t)(n->rs_get_uuid().uuid_get_val());
         // Hack to ignore OM SM svc uuid
         /* TODO(Rao/Vy): Fix this */
+        if (uuid == 51904 || uuid == 65) {
+            std::cout << "Localhost uuid igonre it" << std::endl;
+            continue;
+        }
         if (uuid == 0xcac1) {
             continue;
         }
         if (mySmUuid.svc_uuid != (int64_t)(n->rs_get_uuid().uuid_get_val())) {
             svcUuid.svc_uuid = n->rs_get_uuid().uuid_get_val();
-            break;
+            if (false == uuid_hack) {
+                break;
+            }
         }
     }
     return svcUuid;

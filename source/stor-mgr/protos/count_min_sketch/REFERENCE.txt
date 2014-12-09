@@ -1,0 +1,14 @@
+Finding Hierarchical heavy Hitters in Data Streams
+http://vldb.org/archives/website/2003/papers/S15P01.pdf
+
+==============================================================
+
+An Improved Data Stream Summary: The Count-Min Sketch and its Applications
+http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf
+
+==============================================================
+
+Finding Hierarchical Heavy Hitters with the Count Min Sketch
+http://www.researchgate.net/profile/Fabrice_Clerot/publication/265412810_Finding_Hierarchical_Heavy_Hitters_with_the_Count_Min_Sketch/links/540e0a720cf2d8daaacd3c5a
+
+==============================================================

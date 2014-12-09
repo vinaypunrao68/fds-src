@@ -159,7 +159,6 @@ struct DataMgr : Module, DmIoReqHandler {
             parentDm = _parent;
             dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
                     parentDm->qosOutstandingTasks, log);
-            // dispatcher = new QoSMinPrioDispatcher(this, log, parentDm->scheduleRate);
         }
 
         Error processIO(FDS_IOType* _io) {
@@ -225,6 +224,7 @@ struct DataMgr : Module, DmIoReqHandler {
         }
 
         virtual ~dmQosCtrl() {
+             delete dispatcher;
         }
     };
 

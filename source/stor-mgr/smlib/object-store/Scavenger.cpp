@@ -37,7 +37,9 @@ ScavControl::ScavControl(const std::string &modName,
 }
 
 ScavControl::~ScavControl() {
+    LOGDEBUG << "Destroying scav timer";
     scav_timer->destroy();
+    LOGDEBUG << "Destroying individual disk scavengers";
     for (DiskScavTblType::iterator it = diskScavTbl.begin();
          it != diskScavTbl.end();
          ++it) {

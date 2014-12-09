@@ -94,6 +94,11 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     virtual void
     NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                     boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt);
+
+
+    void NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+            boost::shared_ptr<fpi::CtrlNotifyDLTClose> &dlt);
+
     virtual void
     TierPolicy(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
                boost::shared_ptr<fpi::CtrlTierPolicy> &msg);
@@ -107,6 +112,8 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void addObjectRefCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         const Error &err,
                         SmIoAddObjRefReq *addObjRefReq);
+    void shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+            boost::shared_ptr<fpi::ShutdownSMMsg>& shutdownMsg);
 };
 
 }  // namespace fds

@@ -102,6 +102,7 @@ typedef enum {
     ERR_SM_GC_ENABLED,
     ERR_SM_AUTO_GC_FAILED,
     ERR_SM_DUP_OBJECT_CORRUPT,
+    ERR_SM_SHUTTING_DOWN,
 
     /* Network errors */
     ERR_NETWORK_TRANSPORT = 3000,

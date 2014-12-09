@@ -15,6 +15,7 @@
 #include <chrono>
 #include <MockSMCallbacks.h>
 #include <MockSvcHandler.h>
+#include <fds_timestamp.h>
 
 namespace fds {
 
@@ -50,8 +51,17 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicyAudit, TierPolicyAudit);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTClose, NotifyDLTClose);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
+
+    REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownSMMsg, shutdownSM);
+}
+
+void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+        boost::shared_ptr<fpi::ShutdownSMMsg>& shutdownMsg) {
+    LOGDEBUG << "Received shutdown message... shuttting down...";
+    objStorMgr->~ObjectStorMgr();
 }
 
 void SMSvcHandler::queryScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
@@ -603,6 +613,31 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     LOGNOTIFY << "Sending DLT commit response to OM";
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+}
+
+// NotifyDLTClose
+// ---------------
+//
+void
+SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+        boost::shared_ptr<fpi::CtrlNotifyDLTClose> &dlt)
+{
+    MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
+    close_req->sync_close_ts = get_fds_timestamp_ms();
+
+    FdsActorRequestPtr close_far(new FdsActorRequest(
+            FAR_ID(MigSvcSyncCloseReq), close_req));
+
+    objStorMgr->migrationSvc_->send_actor_request(close_far);
+
+    GLOGNORMAL << "Received ioclose. Time: " << close_req->sync_close_ts;
+
+    /* It's possible no tokens were migrated.  In this we case we simulate
+     * MIGRATION_OP_COMPLETE.
+     */
+    if (objStorMgr->tok_migrated_for_dlt_ == false) {
+        objStorMgr->migrationSvcResponseCb(ERR_OK, MIGRATION_OP_COMPLETE);
+    }
 }
 
 }  // namespace fds
