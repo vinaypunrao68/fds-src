@@ -29,6 +29,7 @@ mixes = { "get" : "100% GET",
 configs = {
             "amcache" : "AM cache 100% hit",
             "amcache0" : "AM cache 0% hit  - 100% SM and DM cache hit",
+            "amcache0-block" : "AM cache 0% hit  - 100% SM and DM cache hit - New SVC layer off for block",
             "amcache750" : "AM cache 75% hit  - 100% SM and DM cache hit",
 }
 
@@ -336,7 +337,7 @@ if __name__ == "__main__":
                 experiments = sorted(experiments, key = lambda k : int(k["iodepth"]))
                 #iops = [x["th"] for x in experiments]    
                 iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
-                iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
+                # iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
                 am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
                 #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
                 sm_lat = []
@@ -347,7 +348,8 @@ if __name__ == "__main__":
                 for a in agents:
                     cpus[a] = [x[a+":cpu"] for x in experiments]
 
-                iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
+                # iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
+                iops = iops_get
                 lat = [x["lat"] for x in experiments]    
                 #print [x["nreqs"] for x in experiments]    
                 conns = [x["iodepth"] for x in experiments]    

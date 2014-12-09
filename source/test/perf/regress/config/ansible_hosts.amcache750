@@ -13,4 +13,4 @@ fds_sm_cache_default_data_entries=1500
 fds_dm_catalog_cache_size=16777216
 fds_dm_catalog_write_buffer_size=52428800
 fds_am_testing_am_testing_toggleDisableStreamingStats=true
-
+svc_plat_lftp_enable=true
