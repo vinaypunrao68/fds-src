@@ -9,6 +9,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.snapshotPolicies = [];
     $scope.dataConnector = {};
     $scope.volumeName = '';
+    $scope.tieringPolicy = 0;
     
     // default protection policies
     $scope.protectionPolicies = {
