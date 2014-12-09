@@ -22,10 +22,10 @@ TierEngine::TierEngine(const std::string &modName,
         case FDS_RANDOM_RANK_POLICY:
             rankEngine = boost::shared_ptr<RankEngine>(new RandomRankPolicy(storMgr, 50));
             break;
-        case FDS_COUNTING_BLOOM_RANK_POLICY:
-            break;
+        case FDS_BLOOM_FILTER_TIME_DECAY_RANK_POLICY:
+        case FDS_COUNT_MIN_SKETCH_RANK_POLICY:
         default:
-            fds_panic("No valid rank policy provided!");
+            fds_panic("Invalid or unsupported rank policy provided!");
     }
 
     migrator = new SmTierMigration(storMgr);

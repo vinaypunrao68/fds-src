@@ -26,17 +26,10 @@ class TierEngine : public Module {
   public:
     typedef enum {
         FDS_RANDOM_RANK_POLICY,
-        FDS_COUNTING_BLOOM_RANK_POLICY
+        FDS_BLOOM_FILTER_TIME_DECAY_RANK_POLICY,
+        FDS_COUNT_MIN_SKETCH_RANK_POLICY
     } rankPolicyType;
 
-  private:
-    fds_uint32_t  numMigThrds;
-    boost::shared_ptr<RankEngine> rankEngine;
-
-    StorMgrVolumeTable* sm_volTbl;
-    SmTierMigration* migrator;
-
-  public:
     /*
      * Constructor for tier engine. This will take
      * references to required external classes and
@@ -93,6 +86,13 @@ class TierEngine : public Module {
     int  mod_init(SysParams const *const param);
     void mod_startup();
     void mod_shutdown();
+
+  private:
+    uint32_t  numMigThrds;
+    boost::shared_ptr<RankEngine> rankEngine;
+
+    StorMgrVolumeTable* sm_volTbl;
+    SmTierMigration* migrator;
 };
 
 }  // namespace fds
