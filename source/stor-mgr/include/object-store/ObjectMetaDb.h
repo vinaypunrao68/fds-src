@@ -92,7 +92,8 @@ class ObjectMetadataDb {
      * Open object metadata DB for a given SM token
      */
     Error openObjectDb(fds_token_id smTokId,
-                       const std::string& diskPath);
+                       const std::string& diskPath,
+                       fds_bool_t syncWrite);
     osm::ObjectDB *getObjectDB(const ObjectID& objId);
     /**
      * Closes object metadata DB for a given SM token

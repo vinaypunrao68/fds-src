@@ -27,12 +27,13 @@ struct OsmException : std::runtime_error {
 	   explicit OsmException (const std::string& what_arg) : std::runtime_error(what_arg) {}
 };
 
-  class ObjectDB {
- public:
+class ObjectDB {
+  public:
     /*
      * Constructors
      */
-    explicit ObjectDB(const std::string& filename);
+    ObjectDB(const std::string& filename,
+             fds_bool_t sync_write);
 
     /*
      * Destructors
