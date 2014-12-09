@@ -66,7 +66,7 @@ class TestReqHandler: public SmIoReqHandler {
 
         try
         {
-            odb = new osm::ObjectDB(filename);
+            odb = new osm::ObjectDB(filename, true);
         }
         catch(const osm::OsmException& e)
         {
