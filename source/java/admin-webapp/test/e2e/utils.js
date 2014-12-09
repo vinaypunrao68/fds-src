@@ -192,10 +192,13 @@ createVolume = function( name, data_type, qos, timeline ){
             dropdown.element( by.tagName( 'button' )).click();
             dropdown.all( by.tagName( 'li' )).get( settings.unit ).click();
             
-            var spinner = sliderWidget.all( by.css( '.spinner-parent' )).get( settings.slider );
-            var spinnerInput = spinner.element( by.tagName( 'input' ));
-            spinnerInput.clear();
-            spinnerInput.sendKeys( settings.value );
+            // 4 = Forever and no number is allowed for forever
+            if ( settings.unit !== 4 ){
+                var spinner = sliderWidget.all( by.css( '.spinner-parent' )).get( settings.slider );
+                var spinnerInput = spinner.element( by.tagName( 'input' ));
+                spinnerInput.clear();
+                spinnerInput.sendKeys( settings.value );
+            }
             
             sliderWidget.all( by.css( '.set-value-button' )).get( settings.slider ).click();
             

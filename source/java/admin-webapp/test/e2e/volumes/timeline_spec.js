@@ -41,7 +41,13 @@ describe( 'Testing the timeline settings', function(){
             elem.getText().then( function( txt ){
                 expect( txt ).toBe( values[3] );
             });
-        });        
+        });    
+        
+        labels.get(4).then( function( elem ){
+            elem.getText().then( function( txt ){
+                expect( txt ).toBe( values[4] );
+            });
+        });          
 
     };
     
@@ -50,6 +56,7 @@ describe( 'Testing the timeline settings', function(){
         
         createVolume( 'timelineVol', { type: 'object' }, { priority: 3, limit: 500, capacity: 90 },
             [
+                {slider: 4, value: 16, unit: 4 },
                 {slider: 3, value: 1, unit: 3},
                 {slider: 2, value: 30, unit: 2},
                 {slider: 1, value: 1, unit: 1},
@@ -60,7 +67,7 @@ describe( 'Testing the timeline settings', function(){
         
         expect( row ).not.toBe( undefined );
         
-        checkValues( 'timelineVol', ['1 day', '1 week', '30 days', '1 year'] );
+        checkValues( 'timelineVol', ['1 day', '1 week', '30 days', '1 year', '\u221E'] );
         
     });
     
@@ -68,6 +75,7 @@ describe( 'Testing the timeline settings', function(){
         
         createVolume( 'pluralTimelineVol', { type: 'object' }, undefined,
             [
+                {slider: 4, value: 3, unit: 3 },
                 {slider: 3, value: 2, unit: 3},
                 {slider: 2, value: 120, unit: 2},
                 {slider: 1, value: 2, unit: 1},           
@@ -78,7 +86,7 @@ describe( 'Testing the timeline settings', function(){
         
         expect( row ).not.toBe( undefined );
         
-        checkValues( 'pluralTimelineVol', ['2 days', '2 weeks', '120 days', '2 years'] );        
+        checkValues( 'pluralTimelineVol', ['2 days', '2 weeks', '120 days', '2 years', '3 years'] );        
 
     });
 });

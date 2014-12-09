@@ -12,34 +12,44 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
             $scope.downPressed = false;
             $scope.autoPress = {};
 
-            if ( !angular.isDefined( $scope.value ) || $scope.value < $scope.min ){
-                $scope.value = $scope.min;
-            }
-            
-            if ( !angular.isDefined( $scope.showButtons ) || $scope.showButtons === 'true' ){
-                $scope.buttons = true;
-            }
-            else {
-                $scope.buttons = false;
-            }
-
-            if ( $scope.value > $scope.max ){
-                $scope.value = $scope.max;
-            }
-
-            //determine maxlength
-            $scope.maxlength = 1;
-
-            var dividend = $scope.max;
-
-            while( (dividend = (dividend / 10)) >= 1 ){
-                $scope.maxlength++;
-            }
-
             var cancelAutoPress = function(){
                 if ( angular.isDefined( $scope.autoPress ) ){
                     $interval.cancel( $scope.autoPress );
                 }
+            };
+            
+            var correctMaxLength = function(){
+                //determine maxlength
+                $scope.maxlength = 1;
+
+                var dividend = $scope.max;
+
+                while( (dividend = (dividend / 10)) >= 1 ){
+                    $scope.maxlength++;
+                }
+            };
+            
+            var init = function(){
+                $scope.upPressed = false;
+                $scope.downPressed = false;
+                $scope.autoPress = {};
+
+                if ( !angular.isDefined( $scope.value ) || $scope.value < $scope.min ){
+                    $scope.value = $scope.min;
+                }
+
+                if ( !angular.isDefined( $scope.showButtons ) || $scope.showButtons === 'true' ){
+                    $scope.buttons = true;
+                }
+                else {
+                    $scope.buttons = false;
+                }
+
+                if ( $scope.value > $scope.max ){
+                    $scope.value = $scope.max;
+                }
+                
+                correctMaxLength();
             };
 
             $scope.incrementDown = function(){
@@ -139,8 +149,16 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
             };
             
             $scope.$watch( 'value', $scope.sendEvent );
-            $scope.$watch( 'min', $scope.fixValue );
-            $scope.$watch( 'max', $scope.fixValue );
+            $scope.$watch( 'min', function(){
+                correctMaxLength();
+                $scope.fixValue();
+            });
+            $scope.$watch( 'max', function(){
+                correctMaxLength();
+                $scope.fixValue();
+            });
+            
+            init();
         },
         link: function( $scope, $element, $attrs ){
 

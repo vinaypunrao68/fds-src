@@ -18,7 +18,7 @@
                     <div class="value-display edit-box" ng-show="editing === $index">
                         <div>{{ slider.name }} protection expires after</div>
                         <div class="flex">
-                            <spinner class="skinny" value="spinnerValue" min="spinnerMin" max="spinnerMax" step="spinnerStep" show-buttons="false"></spinner>
+                            <spinner class="skinny" value="spinnerValue" min="spinnerMin" max="spinnerMax" step="spinnerStep" show-buttons="false" ng-show="allowNumber !== false"></spinner>
                             <div style="width: 4px"></div>
                             <fui-dropdown skinny="true" items="choices" name-property="selectName" selected="dropdownRange" background-color="white" color="black" border="black"></fui-dropdown>
                             <div style="width: 4px"></div>

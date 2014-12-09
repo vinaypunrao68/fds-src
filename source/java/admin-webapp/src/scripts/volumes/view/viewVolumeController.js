@@ -201,7 +201,9 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.$watch( 'volumeVars.viewing', function( newVal ){
 
         if ( newVal === true ){
-            $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.id, function( data ){ $scope.snapshots = data; } );
+            $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.id, function( data ){ 
+                $scope.snapshots = data;
+            });
             
             $scope.thisVolume = $scope.volumeVars.selectedVolume;
             

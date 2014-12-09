@@ -76,7 +76,7 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                 },
                 //1
                 {
-                    name: translate( 'common.l_days' ).toLowerCase(),
+                    name: translate( 'common.l_days' ),
                     selectName: translate( 'common.l_days' ),
                     start: 1,
                     end: 7,
@@ -86,7 +86,7 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                 },
                 //2
                 {
-                    name: translate( 'common.l_weeks' ).toLowerCase(),
+                    name: translate( 'common.l_weeks' ),
                     selectName: translate( 'common.l_weeks' ),
                     start: 1,
                     end: 4,
@@ -108,7 +108,7 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                 //4
                 {
                     name: translate( 'common.l_years' ),
-                    selectName: translate( 'common.l_years' ).toLowerCase(),
+                    selectName: translate( 'common.l_years' ),
                     start: 1,
                     end: 16,
                     width: 25,
@@ -118,7 +118,7 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                 //5
                 {
                     name: translate( 'common.l_forever' ).toLowerCase(),
-                    selectName: translate( 'common.l_forever' ).toLowerCase(),
+                    selectName: translate( 'common.l_forever' ),
                     allowNumber: false,
                     start: 16,
                     end: 16,
