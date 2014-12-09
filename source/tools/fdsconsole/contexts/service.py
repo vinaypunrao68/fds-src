@@ -179,10 +179,10 @@ class ServiceContext(Context):
 		print 'async listblob request failed'
 
 	    #import pdb; pdb.set_trace()
-            blobs = listcb.payload.blobDescriptors;
-            blobs.sort(key=attrgetter('blob_name'))
-            return tabulate([(x.blob_name, x.blob_size, x.mime_type) for x in blobs],headers=
-                 ['blobname', 'blobsize', 'blobtype'], tablefmt=self.config.getTableFormat())
+            blobs = cb.payload.blobDescriptors;
+            blobs.sort(key=attrgetter('name'))
+            return tabulate([(x.name, x.byteCount) for x in blobs],headers=
+                 ['name', 'size'], tablefmt=self.config.getTableFormat())
 
         except Exception, e:
             log.exception(e)
