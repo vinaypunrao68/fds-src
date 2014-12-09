@@ -7,6 +7,7 @@
 #include <string>
 #include <fds_types.h>
 #include <concurrency/Thread.h>
+#include <AmAsyncDataApi.h>
 
 // Forward declare so we can hide the ev++.h include
 // in the cpp file so that it doesn't conflict with
@@ -24,13 +25,14 @@ class NbdConnector {
 
     std::unique_ptr<ev::io> evIoWatcher;
     std::shared_ptr<boost::thread> runThread;
+    AmAsyncDataApi::shared_ptr asyncDataApi;
 
     int createNbdSocket();
     void runNbdLoop();
     void nbdAcceptCb(ev::io &watcher, int revents);
 
   public:
-    NbdConnector();
+    explicit NbdConnector(AmAsyncDataApi::shared_ptr api);
     ~NbdConnector();
     typedef boost::shared_ptr<NbdConnector> shared_ptr;
 };
@@ -40,6 +42,7 @@ class NbdConnection {
     int clientSocket;
     static int totalConns;
     std::string volumeName;
+    AmAsyncDataApi::shared_ptr asyncDataApi;
 
     static constexpr fds_int64_t NBD_MAGIC = 0x49484156454F5054l;
     static constexpr char NBD_MAGIC_PWD[] {'N', 'B', 'D', 'M', 'A', 'G', 'I', 'C'};  // NOLINT
@@ -53,10 +56,18 @@ class NbdConnection {
     static constexpr fds_int32_t NBD_FLAG_ROTATIONAL = 0x1 << 4;
     static constexpr fds_int32_t NBD_FLAG_SEND_TRIM  = 0x1 << 5;
     static constexpr char NBD_PAD_ZERO[124] {0};  // NOLINT
+    static constexpr fds_int32_t NBD_REQUEST_MAGIC = 0x25609513;
+    static constexpr fds_int32_t NBD_RESPONSE_MAGIC = 0x67446698;
+    static constexpr fds_int32_t NBD_CMD_READ = 0;
+    static constexpr fds_int32_t NBD_CMD_WRITE = 1;
+    static constexpr fds_int32_t NBD_CMD_DISC = 2;
+    static constexpr fds_int32_t NBD_CMD_FLUSH = 3;
+    static constexpr fds_int32_t NBD_CMD_TRIM = 4;
 
     // TODO(Andrew): This is a total hack. Go ask OM you lazy...
     static constexpr fds_uint64_t volumeSizeInBytes = 10737418240;
     static constexpr fds_uint32_t maxObjectSizeInBytes = 4096;
+    static constexpr char fourKayZeros[4096]{0};  // NOLINT
 
     std::unique_ptr<ev::io> ioWatcher;
 
@@ -68,7 +79,7 @@ class NbdConnection {
         POSTINIT  = 2,
         AWAITOPTS = 3,
         SENDOPTS  = 4,
-        DOOPS     = 5
+        DOREQS    = 5
     };
     NbdHandshakeState hsState;
 
@@ -76,10 +87,16 @@ class NbdConnection {
     void hsPostInit(ev::io &watcher);
     void hsAwaitOpts(ev::io &watcher);
     void hsSendOpts(ev::io &watcher);
-    void doOps(ev::io &watcher);
+    void hsReq(ev::io &watcher);
+    void hsReply(ev::io &watcher, fds_uint32_t opType, fds_int64_t handle);
+    Error dispatchOp(fds_uint32_t opType,
+                     fds_int64_t handle,
+                     fds_uint64_t offset,
+                     fds_uint32_t length);
 
   public:
-    explicit NbdConnection(int clientsd);
+    explicit NbdConnection(AmAsyncDataApi::shared_ptr api,
+                           int clientsd);
     ~NbdConnection();
 };
 

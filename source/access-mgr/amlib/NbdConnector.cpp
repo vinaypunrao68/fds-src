@@ -11,8 +11,9 @@
 
 namespace fds {
 
-NbdConnector::NbdConnector()
-        : nbdPort(4444) {
+NbdConnector::NbdConnector(AmAsyncDataApi::shared_ptr api)
+        : asyncDataApi(api),
+          nbdPort(4444) {
     // Bind to NBD listen port
     nbdSocket = createNbdSocket();
     fds_verify(nbdSocket > 0);
@@ -55,7 +56,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
     // Create a handler for this NBD connection
     // Will delete itself when connection dies
     LOGNORMAL << "Creating client connection...";
-    NbdConnection *client = new NbdConnection(clientsd);
+    NbdConnection *client = new NbdConnection(asyncDataApi, clientsd);
     LOGNORMAL << "Created client connection...";
 }
 
@@ -92,8 +93,10 @@ NbdConnector::runNbdLoop() {
     LOGNOTIFY << "Stopping NBD loop...";
 }
 
-NbdConnection::NbdConnection(int clientsd)
-        : clientSocket(clientsd),
+NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
+                             int clientsd)
+        : asyncDataApi(api),
+          clientSocket(clientsd),
           hsState(PREINIT) {
     fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
 
@@ -121,9 +124,17 @@ constexpr fds_int32_t NbdConnection::NBD_FLAG_SEND_FUA;
 constexpr fds_int32_t NbdConnection::NBD_FLAG_ROTATIONAL;
 constexpr fds_int32_t NbdConnection::NBD_FLAG_SEND_TRIM;
 constexpr char NbdConnection::NBD_PAD_ZERO[];
+constexpr fds_int32_t NbdConnection::NBD_REQUEST_MAGIC;
+constexpr fds_int32_t NbdConnection::NBD_RESPONSE_MAGIC;
+constexpr fds_int32_t NbdConnection::NBD_CMD_READ;
+constexpr fds_int32_t NbdConnection::NBD_CMD_WRITE;
+constexpr fds_int32_t NbdConnection::NBD_CMD_DISC;
+constexpr fds_int32_t NbdConnection::NBD_CMD_FLUSH;
+constexpr fds_int32_t NbdConnection::NBD_CMD_TRIM;
 
 constexpr fds_uint64_t NbdConnection::volumeSizeInBytes;
 constexpr fds_uint32_t NbdConnection::maxObjectSizeInBytes;
+constexpr char NbdConnection::fourKayZeros[];
 
 void
 NbdConnection::hsPreInit(ev::io &watcher) {
@@ -227,8 +238,113 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
 }
 
 void
-NbdConnection::doOps(ev::io &watcher) {
-    LOGWARN << "READY TO DO SOME OPS!";
+NbdConnection::hsReq(ev::io &watcher) {
+    fds_int32_t magic;
+    ssize_t nread = recv(watcher.fd, &magic, sizeof(magic), 0);
+    if (nread < 0) {
+        LOGERROR << "Socket read error";
+    } else {
+        magic = ntohl(magic);
+        fds_verify(NBD_REQUEST_MAGIC == magic);
+        LOGDEBUG << "Read " << nread << " bytes, magic 0x"
+                 << std::hex << magic << std::dec;
+    }
+
+    fds_int32_t opType;
+    nread = recv(watcher.fd, &opType, sizeof(opType), 0);
+    if (nread < 0) {
+        LOGERROR << "Socket read error";
+    } else {
+        opType = ntohl(opType);
+        // TODO(Andrew): Need to verify this magic #...
+        LOGDEBUG << "Read " << nread << " bytes, op " << opType;
+    }
+
+    fds_int64_t handle;
+    nread = recv(watcher.fd, &handle, sizeof(handle), 0);
+    if (nread < 0) {
+        LOGERROR << "Socket read error";
+    } else {
+        handle = __builtin_bswap64(handle);
+        // TODO(Andrew): Need to verify this magic #...
+        LOGDEBUG << "Read " << nread << " bytes, handle 0x"
+                 << std::hex << handle << std::dec;
+    }
+
+    fds_uint64_t offset;
+    nread = recv(watcher.fd, &offset, sizeof(offset), 0);
+    if (nread < 0) {
+        LOGERROR << "Socket read error";
+    } else {
+        offset = __builtin_bswap64(offset);
+        // TODO(Andrew): Need to verify this magic #...
+        LOGDEBUG << "Read " << nread << " bytes, offset " << offset;
+    }
+
+    fds_uint32_t length;
+    nread = recv(watcher.fd, &length, sizeof(length), 0);
+    if (nread < 0) {
+        LOGERROR << "Socket read error";
+    } else {
+        length = ntohl(length);
+        // TODO(Andrew): Need to verify this magic #...
+        LOGDEBUG << "Read " << nread << " bytes, length " << length;
+    }
+
+    // ioWatcher->set(ev::READ | ev::WRITE);
+    Error err = dispatchOp(watcher, opType, handle, offset, length);
+    fds_verify(ERR_OK == err);
+}
+
+void
+NbdConnection::hsReply(ev::io &watcher,
+                       fds_uint32_t opType,
+                       fds_int64_t handle) {
+    ssize_t nwritten = write(watcher.fd, &NBD_RESPONSE_MAGIC, sizeof(NBD_RESPONSE_MAGIC));
+    if (nwritten < 0) {
+        LOGERROR << "Socket write error";
+        return;
+    }
+    fds_int32_t error = 0;
+    nwritten = write(watcher.fd, &error, sizeof(error));
+    if (nwritten < 0) {
+        LOGERROR << "Socket write error";
+        return;
+    }
+    nwritten = write(watcher.fd, &handle, sizeof(handle));
+    if (nwritten < 0) {
+        LOGERROR << "Socket write error";
+        return;
+    }
+    nwritten = write(watcher.fd, fourKayZeros, sizeof(fourKayZeros));
+    if (nwritten < 0) {
+        LOGERROR << "Socket write error";
+        return;
+    }
+    LOGDEBUG << "Sent data";
+}
+
+Error
+NbdConnection::dispatchOp(fds_uint32_t opType,
+                          fds_int64_t handle,
+                          fds_uint64_t offset,
+                          fds_uint32_t length) {
+    switch (opType) {
+        case NBD_CMD_READ:
+            LOGNORMAL << "Got a read";
+            // TODO(Andrew): Hack for uturn tests
+            hsReply(opType, handle);
+            break;
+        case NBD_CMD_WRITE:
+            LOGNORMAL << "Got a write";
+            break;
+        case NBD_CMD_FLUSH:
+            LOGNORMAL << "Got a flush";
+            break;
+        default:
+            fds_panic("Unknown NBD op %d", opType);
+    }
+    return ERR_OK;
 }
 
 void
@@ -252,8 +368,8 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 hsState = SENDOPTS;
                 ioWatcher->set(ev::READ | ev::WRITE);
                 break;
-            case DOOPS:
-                doOps(watcher);
+            case DOREQS:
+                hsReq(watcher);
                 break;
             default:
                 fds_panic("Unknown NBD connection state");
@@ -271,7 +387,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 break;
             case SENDOPTS:
                 hsSendOpts(watcher);
-                hsState = DOOPS;
+                hsState = DOREQS;
                 // Wait for read events from client
                 ioWatcher->set(ev::READ);
                 break;

@@ -58,7 +58,7 @@ AccessMgr::mod_init(SysParams const *const param) {
     asyncServer->init_server();
 
     blkConnector = boost::shared_ptr<NbdConnector>(
-        boost::make_shared<NbdConnector>());
+        boost::make_shared<NbdConnector>(asyncDataApi));
 
     // Update the AM's platform with our instance ID so that
     // common fields (e.g., ports) can be updated
