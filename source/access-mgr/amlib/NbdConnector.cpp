@@ -325,7 +325,8 @@ NbdConnection::hsReply(ev::io &watcher,
 }
 
 Error
-NbdConnection::dispatchOp(fds_uint32_t opType,
+NbdConnection::dispatchOp(ev::io &watcher,
+                          fds_uint32_t opType,
                           fds_int64_t handle,
                           fds_uint64_t offset,
                           fds_uint32_t length) {
@@ -333,7 +334,7 @@ NbdConnection::dispatchOp(fds_uint32_t opType,
         case NBD_CMD_READ:
             LOGNORMAL << "Got a read";
             // TODO(Andrew): Hack for uturn tests
-            hsReply(opType, handle);
+            hsReply(watcher, opType, handle);
             break;
         case NBD_CMD_WRITE:
             LOGNORMAL << "Got a write";
