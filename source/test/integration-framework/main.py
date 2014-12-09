@@ -2,7 +2,9 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 # Written by Philippe Ribeiro
 # philippe@formationds.com
+import ast
 import argparse
+import ConfigParser
 import json
 import logging
 import os
@@ -14,8 +16,8 @@ import xmlrunner
 # Import the configuration file helper
 import config
 import testsets.test_set as test_set
-
-from pprint import pprint
+import s3
+import testsets.testcases.fdslib.BringUpCfg as bringup
 
 
 class Operation(object):
@@ -58,13 +60,32 @@ class Operation(object):
                 os.makedirs(testset_path)
             else:
                 self.logger.info("%s already exists. Skipping." % testset_path)
-
+                
             self.test_sets.append(current_ts)
-
+        
+    def __load_params(self):
+        params = {}
+        parser = ConfigParser.ConfigParser()
+        parser.read(config.setup)
+        sections = parser.sections()
+        for section in sections:
+            options = parser.options(section)
+            for option in options:
+                try:
+                    params[option] = parser.get(section, option)
+                    if params[option] == -1:
+                        self.logger.info("skipping: %s" % option)
+                except:
+                    self.logger.info("Exception on %s!" % option)
+                    params[option] = None
+        #params['fdscfg'] = bringup.FdsConfigRun(None, None, None)
+        #params['s3'] = s3.S3(None)
+        return params
+        
     def do_run(self):
         for ts in self.test_sets:
             self.logger.info("Executing Test Set: %s" % ts.name)
-            # runner.run(ts)
+            self.runner.run(ts.suite)
 
     def do_work(self, target, args):
         '''
@@ -75,13 +96,12 @@ class Operation(object):
         ----------
         '''
         pass
-
+    
     def test_progress(self):
         pass
         # @TODO: Philippe
         # I need to add a way to track test progress
         # and show those who passed, and those who failed
-
 
 def main(args):
     '''
@@ -118,16 +138,16 @@ if __name__ == '__main__':
                         default=False,
                         help='Define if output must be verbose.')
     parser.add_argument('-r', '--dryrun', action='store_true',
-                        default=False,
-                        help='Define if test must be run without'
-                        ' initial setup')
+                         default=False,
+                         help='Define if test must be run without' \
+                         ' initial setup')
     parser.add_argument('-d', '--sudo-password', action='store_true',
-                        default='passwd',
-                        help='Define the root password, if not'
-                        ' specified defaults to "passwd"')
+                         default='passwd',
+                         help='Define the root password, if not' \
+                         ' specified defaults to "passwd"')
     parser.add_argument('-i', '--install', action='store_true',
-                        default=False,
-                        help='Specify if a fresh install must be'
-                        ' performed')
+                         default=False,
+                         help='Specify if a fresh install must be' \
+                         ' performed')
     args = parser.parse_args()
     main(args)
