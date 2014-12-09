@@ -42,6 +42,7 @@ class NbdConnection {
     int clientSocket;
     static int totalConns;
     std::string volumeName;
+    fds_int64_t curHandle;
     AmAsyncDataApi::shared_ptr asyncDataApi;
 
     static constexpr fds_int64_t NBD_MAGIC = 0x49484156454F5054l;
@@ -88,7 +89,7 @@ class NbdConnection {
     void hsAwaitOpts(ev::io &watcher);
     void hsSendOpts(ev::io &watcher);
     void hsReq(ev::io &watcher);
-    void hsReply(ev::io &watcher, fds_uint32_t opType, fds_int64_t handle);
+    void hsReply(ev::io &watcher, fds_int64_t handle);
     Error dispatchOp(ev::io &watcher,
                      fds_uint32_t opType,
                      fds_int64_t handle,
