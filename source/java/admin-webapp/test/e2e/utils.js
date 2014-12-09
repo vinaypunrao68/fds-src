@@ -63,8 +63,70 @@ createTenant = function( name ){
     browser.sleep( 200 );
 };
 
+setTimelineTimes = function( pageEl, timeline ){
+    
+    var timelinePanel = pageEl.element( by.css( '.protection-policy' ));
+    timelinePanel.element( by.css( '.icon-edit' )).click();
+    
+    var sliderWidget = pageEl.element( by.css( '.waterfall-slider' ));
+
+    for ( var i = 0; i < timeline.length; i++ ){
+
+        var settings = timeline[i];
+
+        // need to hover to show the edit button
+        browser.actions().mouseMove( sliderWidget.all( by.css( '.display-only' )).get( settings.slider )).perform();
+
+        sliderWidget.all( by.css( '.icon-admin' )).get( settings.slider ).click();
+
+        var dropdown = sliderWidget.all( by.css( '.dropdown' )).get( settings.slider );
+        dropdown.element( by.tagName( 'button' )).click();
+        dropdown.all( by.tagName( 'li' )).get( settings.unit ).click();
+
+        // 4 = Forever and no number is allowed for forever
+        if ( settings.unit !== 4 ){
+            var spinner = sliderWidget.all( by.css( '.spinner-parent' )).get( settings.slider );
+            var spinnerInput = spinner.element( by.tagName( 'input' ));
+            spinnerInput.clear();
+            spinnerInput.sendKeys( settings.value );
+        }
+
+        sliderWidget.all( by.css( '.set-value-button' )).get( settings.slider ).click();
+
+        browser.sleep( 500 );
+    }
+
+    pageEl.element( by.css( '.save-timeline' )).click();
+    
+};
+
+setTimelineStartTimes = function( pageEl, timelineStartTimes ){
+    var timelinePanel = pageEl.element( by.css( '.protection-policy' ));
+    timelinePanel.element( by.css( '.icon-edit' )).click();
+    
+    pageEl.element( by.css( '.create-volume-button-panel' )).click();
+        
+    var hourChoice = timelinePanel.element( by.css( '.hour-choice' ));
+    hourChoice.click();
+    hourChoice.all( by.tagName( 'li' )).get( timelineStartTimes.hours ).click();
+    
+    var dayChoice = timelinePanel.element( by.css( '.day-choice' ));
+    dayChoice.click();
+    dayChoice.all( by.tagName( 'li' )).get( timelineStartTimes.days ).click();
+    
+    var monthChoice = timelinePanel.element( by.css( '.month-choice' ));
+    monthChoice.click();
+    monthChoice.all( by.tagName( 'li' )).get( timelineStartTimes.months ).click();
+    
+    var yearChoice = timelinePanel.element( by.css( '.year-choice' ));
+    yearChoice.click();
+    yearChoice.all( by.tagName( 'li' )).get( timelineStartTimes.years ).click();
+    
+    pageEl.element( by.css( '.save-timeline' )).click();
+};
+
 // timeline: [{ slider: #, value: #, unit: #index }... ]
-createVolume = function( name, data_type, qos, timeline ){
+createVolume = function( name, data_type, qos, timeline, timelineStartTimes ){
     
     goto( 'volumes' );
     browser.sleep( 200 );
@@ -168,44 +230,11 @@ createVolume = function( name, data_type, qos, timeline ){
     
     // set the timeline numbers
     if ( timeline ){
-        
-        var timelinePanel = createEl.element( by.css( '.protection-policy' ));
-        
-        // sneaky way to scroll down
-        var hourChoice = timelinePanel.element( by.css( '.hour-choice' ));
-        hourChoice.click();
-        
-        timelinePanel.element( by.css( '.icon-edit' )).click();
-        
-        var sliderWidget = createEl.element( by.css( '.waterfall-slider' ));
-        
-        for ( var i = 0; i < timeline.length; i++ ){
-            
-            var settings = timeline[i];
-            
-            // need to hover to show the edit button
-            browser.actions().mouseMove( sliderWidget.all( by.css( '.display-only' )).get( settings.slider )).perform();
-                        
-            sliderWidget.all( by.css( '.icon-admin' )).get( settings.slider ).click();
-            
-            var dropdown = sliderWidget.all( by.css( '.dropdown' )).get( settings.slider );
-            dropdown.element( by.tagName( 'button' )).click();
-            dropdown.all( by.tagName( 'li' )).get( settings.unit ).click();
-            
-            // 4 = Forever and no number is allowed for forever
-            if ( settings.unit !== 4 ){
-                var spinner = sliderWidget.all( by.css( '.spinner-parent' )).get( settings.slider );
-                var spinnerInput = spinner.element( by.tagName( 'input' ));
-                spinnerInput.clear();
-                spinnerInput.sendKeys( settings.value );
-            }
-            
-            sliderWidget.all( by.css( '.set-value-button' )).get( settings.slider ).click();
-            
-            browser.sleep( 500 );
-        }
-        
-        createEl.element( by.css( '.save-timeline' )).click();
+        setTimelineTimes( createEl, timeline );
+    }
+    
+    if ( timelineStartTimes ){
+        setTimelineStartTimes( createEl, timelineStartTimes );
     }
     
     element.all( by.buttonText( 'Create Volume' )).get( 0 ).click();
