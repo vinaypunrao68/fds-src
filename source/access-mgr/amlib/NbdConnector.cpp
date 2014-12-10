@@ -224,7 +224,7 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
         LOGERROR << "Socket write error";
         return;
     }
-    fds_int32_t optFlags = NBD_FLAG_HAS_FLAGS | NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_FUA;
+    fds_int16_t optFlags = NBD_FLAG_HAS_FLAGS | NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_FUA;
     nwritten = write(watcher.fd, &optFlags, sizeof(optFlags));
     if (nwritten < 0) {
         LOGERROR << "Socket write error";
@@ -301,7 +301,6 @@ void
 NbdConnection::hsReply(ev::io &watcher,
                        fds_int64_t handle) {
     fds_int32_t magic = htonl(NBD_RESPONSE_MAGIC);
-    // ssize_t nwritten = write(watcher.fd, &NBD_RESPONSE_MAGIC, sizeof(NBD_RESPONSE_MAGIC));
     ssize_t nwritten = write(watcher.fd, &magic, sizeof(magic));
     if (nwritten < 0) {
         LOGERROR << "Socket write error";
@@ -315,12 +314,13 @@ NbdConnection::hsReply(ev::io &watcher,
         return;
     }
     LOGDEBUG << "Sent " << nwritten << " bytes";
-    // handle = htonl(handle);
+    handle = __builtin_bswap64(handle);
     nwritten = write(watcher.fd, &handle, sizeof(handle));
     if (nwritten < 0) {
         LOGERROR << "Socket write error";
         return;
     }
+    LOGDEBUG << "Sent " << nwritten << " bytes, handle 0x" << std::hex << handle << std::dec;
     LOGDEBUG << "Sent " << nwritten << " bytes";
     nwritten = write(watcher.fd, fourKayZeros, sizeof(fourKayZeros));
     if (nwritten < 0) {
