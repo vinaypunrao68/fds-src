@@ -102,7 +102,7 @@ Error ObjectRankEngine::initialize()
     Error err(ERR_OK);
     rank_order_objects_it_t mm_it;
     /* we don't lock lowrank table here because none of the methods accessing lowrank
-     * table or chg table will access these (they check if we are still in init state 
+     * table or chg table will access these (they check if we are still in init state
      * and return right away), except for inser/delete cache which we don't access here */
 
     Catalog::catalog_iterator_t *db_it = rankDB->NewIterator();
@@ -149,7 +149,7 @@ fds_uint32_t ObjectRankEngine::rankAndInsertObject(const ObjectID& objId, const 
     fds_bool_t start_ranking_process = false;
 
     /* is it possible that object may already exist? if so, what is the expected behavior? */
-    /* current implementation works as if insert of existing object is an update, eg. of 
+    /* current implementation works as if insert of existing object is an update, eg. of
      * existing object has 'all disk' policy but we insert same object with 'all ssd' policy,
      * the object rank will reflect 'all ssd' policy */
     LOGTRACE << "ObjectRankEngine: rankAndInsertObject: vol " << voldesc.volUUID
@@ -179,7 +179,7 @@ void ObjectRankEngine::deleteObject(const ObjectID& objId)
 
     tbl_mutex->lock();
     {
-        /* First see if the obj is in delta change table and delete from there -- 
+        /* First see if the obj is in delta change table and delete from there --
          * so we don't require migrator again check obj for validity */
         obj_rank_cache_it_t it = rankDeltaChgTbl.find(objId);
         if (it != rankDeltaChgTbl.end()) {
@@ -195,7 +195,7 @@ void ObjectRankEngine::deleteObject(const ObjectID& objId)
 
     if (!do_cache_obj) return;
 
-    /* we need to cache this deletion to erase it (if it's there) from 
+    /* we need to cache this deletion to erase it (if it's there) from
      * the ranking table during the next ranking process */
     map_mutex->lock();
     {
@@ -223,18 +223,18 @@ fds_uint32_t ObjectRankEngine::getRank(const ObjectID& objId, const VolumeDesc& 
     return rank;
 }
 
-/* 
+/*
  * Called periodically (on timer) to get list of 'hot' objects from stat tracker
  * If an object in that list is not in the rank table and its rank is higher than
- * the lowest-ranked object in the rank table, we will insert this hot object to 
+ * the lowest-ranked object in the rank table, we will insert this hot object to
  * the rank table and kick out the lowest ranked object from the rank table (if
- * the rank table is full). 
- * 
+ * the rank table is full).
+ *
  * We do the analysis based on the cached list of lowest ranked objects. It will
- * be slightly outdated -- e.g. higher ranked objects in the rank table may 
- * become cold and should be moved down, but we don't want to run the whole 
+ * be slightly outdated -- e.g. higher ranked objects in the rank table may
+ * become cold and should be moved down, but we don't want to run the whole
  * rankin process here. We will do the best guess based on the cached list, and
- * ranking process running less often than stat analyzis will make sure that 
+ * ranking process running less often than stat analyzis will make sure that
  * out cached list is not too much out-of-date.
  *
  */
@@ -249,7 +249,7 @@ void ObjectRankEngine::analyzeStats()
     /* default volume desc we will use if we don't get voldesc, e.g. if using unit test */
     VolumeDesc voldesc(std::string("novol"), 1, 0, 0, 10);
 
-    /* ignore the hot objects if we are already in the ranking process, for now... 
+    /* ignore the hot objects if we are already in the ranking process, for now...
      * need some extra care since lowrank objs and change table are temporarily unavail that time */
     if (rankingInProgress())
         return;
@@ -314,10 +314,10 @@ void ObjectRankEngine::analyzeStats()
         if ((rank < lowest_rank) &&
             !inRankDB(*list_it))
         {
-            /* since this obj is ranked higher than at least on object 
+            /* since this obj is ranked higher than at least on object
              * in our cached rank table tail (plus we just re-computed
              * those ranks, so they are up-to-date), this obj definitely
-             * can be promoted 
+             * can be promoted
              * Note that we may have false negatives -- once we kick out all
              * objects from cached tail of rank table, we cannot kick out anymore
              * since we need to recompute rank table in db. Maybe that would
@@ -365,7 +365,7 @@ void ObjectRankEngine::analyzeStats()
 
             /* we will add directly to rankDB without putting it to the cached rankDB tail.
              * if we put to the cached rankDB tail, it is likely that migrator will get those
-             * objects and remove from flash -- while those objects are most likely relatively 
+             * objects and remove from flash -- while those objects are most likely relatively
              * high ranked */
             putToRankDB(*list_it, rank, true, false);
             tbl_mutex->lock();
@@ -381,7 +381,7 @@ void ObjectRankEngine::analyzeStats()
 
 /*
  * This method is called either during ranking process or on timer when
- * we get list of hot objects from the stat tracker. Since we only 
+ * we get list of hot objects from the stat tracker. Since we only
  * process hot list when ranking process not in progress, updating
  * cur_rank_tbl_size or updating db is safe
  */
@@ -398,10 +398,10 @@ Error ObjectRankEngine::deleteFromRankDB(const ObjectID& oid)
 
 /*
  * Assumes that the caller already checked whether the object in rankDB
- * and pass b_addition true if does not exist and need to add object, or 
- * false if this is an update 
+ * and pass b_addition true if does not exist and need to add object, or
+ * false if this is an update
  * This method is called either during ranking process or on timer when
- * we get list of hot objects from the stat tracker. Since we only 
+ * we get list of hot objects from the stat tracker. Since we only
  * process hot list when ranking process not in progress, updating
  * cur_rank_tbl_size or updating db is safe
  */
@@ -421,7 +421,7 @@ Error ObjectRankEngine::putToRankDB(const ObjectID& oid, fds_uint32_t rank,
     }
     err = rankDB->Update(put_key, put_val);
 
-    /* if we add to rankdb something we demoted (e.g. deletions happend after hot objs 
+    /* if we add to rankdb something we demoted (e.g. deletions happend after hot objs
      * demoted objs in rank db), this obj is not demoted anymore */
     if (isRankDemotion(rank)) {
         fds_verify(b_addition);  // we delete from db when demoting
@@ -448,9 +448,9 @@ fds_bool_t ObjectRankEngine::inRankDB(const ObjectID& oid)
     return (err.ok());
 }
 
-/* remove all objects in 'cached_objects' that are marked for deletion from rankDB 
- * and if we see insertions for objs we wanted to promote, remove those promote ops 
- * rank delta change table (those objs already in flash, no need to promote) 
+/* remove all objects in 'cached_objects' that are marked for deletion from rankDB
+ * and if we see insertions for objs we wanted to promote, remove those promote ops
+ * rank delta change table (those objs already in flash, no need to promote)
  * Caller must swap rankDeltaChgTbl to tmp_chgTbl before calling this method */
 Error ObjectRankEngine::applyCachedOps(obj_rank_cache_t* cached_objects)
 {
@@ -491,14 +491,14 @@ Error ObjectRankEngine::applyCachedOps(obj_rank_cache_t* cached_objects)
 }
 
 /*
- * Does complete re-ranking of all the objects in caches + rank database and 
+ * Does complete re-ranking of all the objects in caches + rank database and
  * re-builds the rank table + delta change table + cached tail of rank table
  *
  * State when the ranking process starts:
  *  - delta change table may contain:
  *       1) promotions of hot objects we got from stats tracker since last
  *          ranking process;
- *       2) demotions of objects that were kicked out by the hot objects we got 
+ *       2) demotions of objects that were kicked out by the hot objects we got
  *          from the stats tracker since last ranking process
  *       3) (possibly) delta change table from a previous ranking process(es)
  *  - cached insertions/deletions (not applied to rankDB or any other caches)
@@ -506,9 +506,9 @@ Error ObjectRankEngine::applyCachedOps(obj_rank_cache_t* cached_objects)
  *    ranking process; those objects are in db so we just clear the list and build new
  *
  * While ranking is in progress, delta change table and cached tail of the rank table
- * is unavailable (temporarily empty), so all functions that need access to them 
+ * is unavailable (temporarily empty), so all functions that need access to them
  * check if ranking is in progress and don't return anything if ranking is in progress.
- * The insertion/deletion cache 'cached_obj_map' is always available and this is the 
+ * The insertion/deletion cache 'cached_obj_map' is always available and this is the
  * only cache that is accessed on datapath (via rankAndIsertObject and deleteObject)
  *
  * State after ranking process completes:
@@ -538,9 +538,9 @@ Error ObjectRankEngine::doRanking()
 
     LOGNORMAL << "ObjectRankEngine: start ranking process";
 
-    /* first swap cached_obj_map with local map, so next insert/delete object 
+    /* first swap cached_obj_map with local map, so next insert/delete object
      * method calls will work with a clear map.
-     * cached_objects map will hold all cached objects since 
+     * cached_objects map will hold all cached objects since
      * the last ranking process */
     map_mutex->lock();
     cached_objects->swap(cached_obj_map);
@@ -615,11 +615,11 @@ Error ObjectRankEngine::doRanking()
               << "starting part 3; cur_rank_tbl_size = "
               << cur_rank_tbl_size;
 
-    /* Step 3 -- if we are here, ordered_objects contain candidate objects that may or may not replace 
+    /* Step 3 -- if we are here, ordered_objects contain candidate objects that may or may not replace
      * objects currently in the ranking table. So we walk rank table and compare which objects
      * will actually 'fall out' from it. We will do it in chunks:
      * If ordered_objects are empty (we could fit everything to the rank table), we still need to
-     * cache the rank table tail.  
+     * cache the rank table tail.
      *
      * Read N objects from rank table, update rank, insert to ordered_objects map. Take N
      * highest ranked objects from ordered_objects map and put to db. Continue until we walked
@@ -627,11 +627,11 @@ Error ObjectRankEngine::doRanking()
      * it again) its rank should be the same, so we just read/update it again -- not super efficient
      * but still correct. We will need to revisit efficiency later.
      *
-     * Because we also want to keep lowrank_objs, we will first read 'max_lowrank_objs' to 
+     * Because we also want to keep lowrank_objs, we will first read 'max_lowrank_objs' to
      * ordered_objects, and then start the process in above para. So after we load our last chunk
      * from db, 'max_lowrank_objs' + initial 'ordered_objects.size()' objects in the ordered_objects
      * map will be the lowest ranked objects. We will put the higher ranked 'max_lowrank_objs' to
-     * db and also keep them in lowrank_objs map and move the others to delta change table.  
+     * db and also keep them in lowrank_objs map and move the others to delta change table.
      **/
     fds_uint32_t max_count = max_lowrank_objs;
     fds_uint32_t it_count = 0;
@@ -643,7 +643,7 @@ Error ObjectRankEngine::doRanking()
     fds_bool_t stopped = false;
     for (db_it->SeekToFirst(); db_it->Valid(); db_it->Next())
     {
-        /* if we need to exit or we are asked to disable ranking process, exit this loop 
+        /* if we need to exit or we are asked to disable ranking process, exit this loop
          * TODO: not sure yet if exit will leave us in good state, need to revisit */
         if ((rankeng_state == RANK_ENG_EXITING) || (atomic_load(&rankingEnabled) == false)) {
             stopped = true;
@@ -684,7 +684,7 @@ Error ObjectRankEngine::doRanking()
          */
         mm_it = ordered_objects->begin();
         if (objs_count == cur_rank_tbl_size) {
-            /* we will need to write additional 'lowrank_count' objects to db since we initially 
+            /* we will need to write additional 'lowrank_count' objects to db since we initially
              * added that many objects to ordered_objects */
             it_count += addt_count;
             max_count += addt_count;
@@ -714,7 +714,7 @@ Error ObjectRankEngine::doRanking()
         /* since we can add obj and then iterate over them again, we may continue loop even
          * when we iterated over cur_rank_tbl_size number of objects; we should version our objects
          * but for now, finish the loop once we iterated cur_rank_tbk_size # obj -- the consequence
-         * is that the rank table may contain few lower ranked objs than we got in ordered_objs, but 
+         * is that the rank table may contain few lower ranked objs than we got in ordered_objs, but
          * should be small amount -- so ok for now, adding versioning will make it a bit more accurate  */
         if (objs_count == 0) break;
     }
@@ -733,7 +733,7 @@ Error ObjectRankEngine::doRanking()
             deleteFromRankDB(mm_it->second);
         }
         /* if tmp_chgTbl has this obj for promotion, we just delete from
-         * chg tbl because this obj never 
+         * chg tbl because this obj never
          * really made it to flash
          */
         it = tmp_chgTbl.find(mm_it->second);
@@ -812,9 +812,16 @@ void ObjectRankEngine::runRankingThreadInternal()
             break;
         }
 
+        /**
+         * TODO (Sean)
+         * There is not reason why this is polling.  We really need to get rid of all
+         * polling to determine action.  This just waste cpu cycles.
+         */
         /* wait until we are notified to start ranking process */
         while ( !rank_notify->timed_wait_for_notification(3000) ) {
-            if (atomic_load(&rankingEnabled)) break;
+            if (atomic_load(&rankingEnabled)) {
+                break;
+            }
             if (rankeng_state == RANK_ENG_EXITING) {
                 return;
             }
@@ -854,8 +861,8 @@ void ObjectRankEngine::stopObjRanking()
     {
         LOGNORMAL << "ObjectRankEngine: Stopping ranking process before it finished";
 
-        /* should we keep the state if we stop in the middle so we start from 
-         * where we left off or we will start from the beginning? */ 
+        /* should we keep the state if we stop in the middle so we start from
+         * where we left off or we will start from the beginning? */
     }
 }
 
@@ -867,7 +874,7 @@ ObjectRankEngine::getDeltaChangeTblSegment(fds_uint32_t num_objs,
     /* TODO(???): we don't handle power failures yet. Assumes that once we return objects
      * from delta change table, we remove them right awau from delta change table.
      * So if those objects do not get actually promoted/demoted, ranking engine
-     * loses info about them 
+     * loses info about them
      */
     if (rankingInProgress())
         return 0;
