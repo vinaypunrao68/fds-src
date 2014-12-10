@@ -18,6 +18,7 @@ namespace fds
             virtual ~PlatAgentPlugin()
             {
             }
+
             explicit PlatAgentPlugin(NodeAgent::pointer agt) : NodeAgentEvt(agt)
             {
             }
