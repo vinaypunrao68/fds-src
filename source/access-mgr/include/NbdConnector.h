@@ -4,10 +4,13 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTOR_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTOR_H_
 
+#include <utility>
 #include <string>
 #include <fds_types.h>
 #include <concurrency/Thread.h>
 #include <AmAsyncDataApi.h>
+#include <queue>
+#include <boost/lockfree/queue.hpp>
 
 // Forward declare so we can hide the ev++.h include
 // in the cpp file so that it doesn't conflict with
@@ -42,8 +45,9 @@ class NbdConnection {
     int clientSocket;
     static int totalConns;
     std::string volumeName;
-    fds_int64_t curHandle;
     AmAsyncDataApi::shared_ptr asyncDataApi;
+    typedef std::pair<fds_int64_t, fds_uint32_t> UturnPair;
+    boost::lockfree::queue<UturnPair> readyHandles;
 
     static constexpr fds_int64_t NBD_MAGIC = 0x49484156454F5054l;
     static constexpr char NBD_MAGIC_PWD[] {'N', 'B', 'D', 'M', 'A', 'G', 'I', 'C'};  // NOLINT
@@ -89,7 +93,7 @@ class NbdConnection {
     void hsAwaitOpts(ev::io &watcher);
     void hsSendOpts(ev::io &watcher);
     void hsReq(ev::io &watcher);
-    void hsReply(ev::io &watcher, fds_int64_t handle);
+    void hsReply(ev::io &watcher);
     Error dispatchOp(ev::io &watcher,
                      fds_uint32_t opType,
                      fds_int64_t handle,
