@@ -46,7 +46,10 @@ class NbdConnection {
     static int totalConns;
     std::string volumeName;
     AmAsyncDataApi::shared_ptr asyncDataApi;
-    typedef std::pair<fds_int64_t, fds_uint32_t> UturnPair;
+    struct UturnPair {
+        fds_int64_t handle;
+        fds_uint32_t length;
+    };
     boost::lockfree::queue<UturnPair> readyHandles;
 
     static constexpr fds_int64_t NBD_MAGIC = 0x49484156454F5054l;

@@ -321,9 +321,9 @@ NbdConnection::hsReply(ev::io &watcher) {
         UturnPair rep;
         fds_verify(readyHandles.pop(rep));
 
-        fds_int64_t handle, ho_handle;
-        handle = rep.first;
-        ho_handle = handle;
+        fds_int64_t handle, hostorder_handle;
+        handle = rep.handle;
+        hostorder_handle = handle;
         handle = __builtin_bswap64(handle);
         nwritten = write(watcher.fd, &handle, sizeof(handle));
         if (nwritten < 0) {
@@ -331,9 +331,9 @@ NbdConnection::hsReply(ev::io &watcher) {
             return;
         }
         LOGDEBUG << "Wrote " << nwritten << " bytes, handle 0x"
-                 << std::hex << ho_handle << std::dec;
+                 << std::hex << hostorder_handle << std::dec;
 
-        fds_uint32_t length = rep.second;
+        fds_uint32_t length = rep.length;
         fds_verify((length % 4096) == 0);
         fds_uint32_t chunks = length / 4096;
 
@@ -358,7 +358,11 @@ NbdConnection::dispatchOp(ev::io &watcher,
     switch (opType) {
         case NBD_CMD_READ:
             LOGNORMAL << "Got a read";
-            readyHandles.push(UturnPair(handle, length));
+            UturnPair utPair;
+            utPair.handle = handle;
+            utPair.length = length;
+            // readyHandles.push(UturnPair(handle, length));
+            readyHandles.push(utPair);
             // We have something to write, so ask for events
             ioWatcher->set(ev::READ | ev::WRITE);
             break;
