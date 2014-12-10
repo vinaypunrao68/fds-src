@@ -93,7 +93,7 @@ check_auth() {
     ansible -i ${inventory} ${hosts} -m ping > /dev/null 2>&1
 
     if [ $? -eq 3 ]; then
-        echo "Problem connecting with inventory-defined credentials. Please provide credentials I can use to get your nodes deployment-ready:"
+        W "Problem connecting with inventory-defined credentials. Please provide credentials I can use to get your nodes deployment-ready:"
         echo -n "SSH username: "
         read ssh_username
         echo -n "SSH password: "
@@ -112,7 +112,7 @@ check_sudo() {
 
     if [ $? -eq 2 ]; then
         echo
-        echo "It looks like user '${ssh_username}' doesn't have password-less sudo privileges on all hosts. Please provide the sudo password:"
+        W "It looks like user '${ssh_username}' doesn't have password-less sudo privileges on all hosts. Please provide the sudo password:"
         echo -n "sudo password: "
         read -s sudo_password
         echo
