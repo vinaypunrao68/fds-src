@@ -207,7 +207,7 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
 
     if (error.ok()) {
-        // Add the Tx to the manager is this an updateOnce
+        // Add the Tx to the manager if this an updateOnce
         if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
             fds_verify(txMgr->addTx(amReq->io_vol_id,
                                     *(blobReq->tx_desc),
@@ -225,7 +225,7 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
                                                  amReq->getBlobName(),
                                                  amReq->blob_offset,
                                                  amReq->obj_id) == ERR_OK);
-        // Update the transaction manager with the stage object data
+        // Update the transaction manager with the staged object data
         if (amReq->data_len > 0) {
             fds_verify(txMgr->updateStagedBlobObject(*(blobReq->tx_desc),
                                                      amReq->obj_id,
@@ -236,7 +236,7 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
 
         if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
             // Push the commited update to the cache and remove from manager
-            // We push here because we ONCE messages don't have an explicit
+            // We push here because the ONCE messages don't have an explicit
             // commit and here is where we know we've actually committed
             // to SM and DM.
             // TODO(Andrew): Inserting the entire tx transaction currently
