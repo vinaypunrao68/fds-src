@@ -208,7 +208,7 @@ struct LockfreeWorker {
         }  // for (;;)
     }
     // This should be cache line size aligned to avoid false sharing.
-    alignas(128) int queueCnt = 0;
+    alignas(64) int queueCnt = 0;
 
     int id_;
     bool steal_;
@@ -418,7 +418,7 @@ struct LFSQThreadpool {
     }
 
     // This should be cache line size aligned to avoid false sharing.
-    alignas(128) int queueCnt = 0;
+    alignas(64) int queueCnt = 0;
 
     // workers
     std::vector<LFSQWorker*> workers;
