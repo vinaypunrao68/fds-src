@@ -12,7 +12,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     
     // default protection policies
     $scope.protectionPolicies = {
-        continuous: 24*60*60*1000,
+        continuous: 24*60*60,
         policies: [
             // daily
             {
@@ -170,6 +170,30 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             $scope.volumeName = '';
             
             $scope.snapshotPolicies = [];
+            
+            // default protection policies
+            $scope.protectionPolicies = {
+                continuous: 24*60*60,
+                policies: [
+                    // daily
+                    {
+                        retention: 7*24*60*60,
+                        recurrenceRule: {FREQ: 'DAILY'}
+                    },
+                    {
+                        retention: 14*24*60*60,
+                        recurrenceRule: {FREQ: 'WEEKLY'}
+                    },
+                    {
+                        retention: 60*24*60*60,
+                        recurrenceRule: {FREQ: 'MONTHLY'}
+                    },
+                    {
+                        retention: 366*24*60*60,
+                        recurrenceRule: {FREQ: 'YEARLY'}
+                    }
+                ]
+            };
         }
     });
 

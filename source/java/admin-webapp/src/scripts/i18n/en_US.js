@@ -56,6 +56,7 @@ var en_US = {
         l_weeks: 'Weeks',
         l_years: 'Years',
         l_months_by_days: 'Months by days',
+        l_forever: 'Forever',
         
         l_month: 'Month',
         l_day: 'Day',
@@ -174,8 +175,32 @@ var en_US = {
         },
         
         snapshot: {
+            l_time_of_retained_snapshots: 'Time of Retained Snapshots',
             l_no_snapshots: 'There are no snapshots for this volume.',
             l_retention_summary: 'Keep for',
+            
+            l_daily: 'Daily',
+            l_weekly: 'Weekly',
+            l_monthly: 'Monthly',
+            l_yearly: 'Yearly',
+            
+            l_first_weekly: 'First week of the month',
+            l_last_weekly: 'Last week of the month',
+            l_first_day_of_the_month: 'First day of the month',
+            l_last_day_of_the_month: 'Last day of the month',
+            
+            l_january: 'January',
+            l_february: 'Febraury',
+            l_march: 'March',
+            l_april: 'April',
+            l_may: 'May',
+            l_june: 'June',
+            l_july: 'July',
+            l_august: 'August',
+            l_september: 'September',
+            l_october: 'October',
+            l_november: 'November',
+            l_december: 'December',
             
             l_on_monday: 'on Mondays',
             l_on_tuesday: 'on Tuesdays',

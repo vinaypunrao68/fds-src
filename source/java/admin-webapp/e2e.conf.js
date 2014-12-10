@@ -69,7 +69,8 @@ exports.config = {
     volumes: ['test/e2e/volumes/volume_create_spec.js'],
     tenants: ['test/e2e/tenants/tenant_mgmt_spec.js'],
     snapshots: ['test/e2e/volumes/snapshot_spec.js'],
-    users: ['test/e2e/users/*']
+    users: ['test/e2e/users/*'],
+    timeline: ['test/e2e/volumes/timeline_spec.js']
 
   },
 

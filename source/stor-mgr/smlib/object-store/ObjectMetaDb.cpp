@@ -48,6 +48,10 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
         }
     }
 
+    // check in platform if we should do sync writes
+    fds_bool_t syncW = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.syncMetaWrite");
+    LOGDEBUG << "Will do sync? " << syncW << " (metadata) writes to object DB";
+
     // open object metadata DB for each token that this SM owns
     // if metadata DB already open, no error
     SmTokenSet smToks = diskMap->getSmTokens();
@@ -55,7 +59,7 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
          cit != smToks.cend();
          ++cit) {
         std::string diskPath = diskMap->getDiskPath(*cit, tier);
-        err = openObjectDb(*cit, diskPath);
+        err = openObjectDb(*cit, diskPath, syncW);
         if (!err.ok()) {
             LOGERROR << "Failed to open Object Meta DB for SM token " << *cit
                      << ", disk path " << diskPath << " " << err;
@@ -67,7 +71,8 @@ ObjectMetadataDb::openMetadataDb(const SmDiskMap::const_ptr& diskMap) {
 
 Error
 ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
-                               const std::string& diskPath) {
+                               const std::string& diskPath,
+                               fds_bool_t syncWrite) {
     osm::ObjectDB *objdb = NULL;
     std::string filename = diskPath + "//SNodeObjIndex_" + std::to_string(smTokId);
     // LOGDEBUG << "SM Token " << smTokId << " MetaDB: " << filename;
@@ -80,7 +85,7 @@ ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
     // create leveldb
     try
     {
-        objdb = new osm::ObjectDB(filename);
+        objdb = new osm::ObjectDB(filename, syncWrite);
     }
     catch(const osm::OsmException& e)
     {

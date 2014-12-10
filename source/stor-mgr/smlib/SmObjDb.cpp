@@ -57,7 +57,8 @@ ObjectDB *SmObjDb::openObjectDB(fds_token_id tokId) {
     // std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
     try
     {
-        objdb = new osm::ObjectDB(filename);
+        // not reading from config, because SmObjDb is deprecated
+        objdb = new osm::ObjectDB(filename, true);
     }
     catch(const osm::OsmException& e)
     {
@@ -106,7 +107,8 @@ ObjectDB *SmObjDb::getObjectDB(fds_token_id tokId) {
     // std::string filename= stor_prefix + "SNodeObjIndex_" + std::to_string(dbId);
     try
     {
-        objdb = new osm::ObjectDB(filename);
+        // not using config because SmObjDb is deprecated
+        objdb = new osm::ObjectDB(filename, true);
     }
     catch(const osm::OsmException& e)
     {

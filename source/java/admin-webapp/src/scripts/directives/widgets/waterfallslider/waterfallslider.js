@@ -6,7 +6,8 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
         transclude: false,
         templateUrl: 'scripts/directives/widgets/waterfallslider/waterfallslider.html',
         // format:  sliders = [{value: { range: index, value: value }}, name: name},...]
-        // range: [{start: val, end: val (will not be displayed unless last range), values: [], width: <in percentage>, segments: <segments to draw>, min: minimum value (only applies to first item), labelFunction: callback for label, selectable: if it can be in the drop down, selectName: name in the dropdown}..]
+        // range: [{start: val, end: val (will not be displayed unless last range), values: [], width: <in percentage>, segments: <segments to draw>, min: minimum value (only applies to first item), labelFunction: callback for label, selectable: if it can be in the drop down, selectName: name in the dropdown,
+        // allowNumber: hides or shows the spinner}..]
         scope: { sliders: '=', range: '=', enabled: '=' },
         controller: function( $scope, $document, $element, $timeout, $resize_service ){
             
@@ -23,6 +24,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             $scope.dropdownRange = {};
             $scope.validPositions = [];
             $scope.sliderPaneWidth = 0;
+            $scope.allowNumber = true;
             
             var labelPane = {};
             var sliderPane = {};
@@ -169,6 +171,12 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 var range = $scope.range[ $scope.range.length-1 ];
                 var pxPer = findPixelsPerRangeSegment( range, getSegmentsForRange( range ) );
                 var pos = (getSegmentsForRange( range ) * pxPer) + zero;
+                
+                // this means there was only one value in the last range
+                if ( isNaN( pos ) ){
+                    pos = zero + rangeWidth - halfHandleWidth;
+                }
+                
                 var value = range.end;
                 
                 $scope.validPositions.push( { position: pos, range: $scope.range.length-1, value: value } );
@@ -356,6 +364,8 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 fixStartPositions();
                 
                 $scope.editing = -1;
+                
+                $timeout( function(){ $scope.$apply();});
             };
             
             $scope.handleClicked = function( slider, $index ){
@@ -393,6 +403,15 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 $scope.dropdownRange = $scope.range[slider.value.range];
                 $scope.spinnerValue = slider.value.value;
                 $scope.spinnerMax = range.end;
+                
+                if ( slider.value.range !== $scope.range.length-1 ){
+                    $scope.spinnerMax = range.end - 1;
+                    
+                    if ( angular.isDefined( range.step ) ){
+                        $scope.spinnerMax = range.end - range.step;
+                    }
+                }
+                
                 $scope.spinnerMin = range.start;
                 $scope.spinnerStep = Math.floor( (range.end-range.start)/getSegmentsForRange( range ) );
             };
@@ -441,7 +460,25 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             $scope.$on( 'fui::dropdown_change', function( $event, range ){
                 $scope.spinnerMin = range.start;
                 $scope.spinnerMax = range.end;
+                
+                if ( range !== $scope.range.length-1 ){
+                    $scope.spinnerMax = range.end - 1;
+                    
+                    if ( angular.isDefined( range.step ) ){
+                        $scope.spinnerMax = range.end - range.step;
+                    }
+                }
+                
                 $scope.spinnerStep = Math.floor( (range.end - range.start) / getSegmentsForRange( range ));
+                
+                if ( angular.isDefined( range.allowNumber ) ){
+                    $scope.allowNumber = range.allowNumber;
+                }
+                else {
+                    $scope.allowNumber = true;
+                }
+                
+                $scope.dropdownRange = range;
             });
             
             $scope.$on( 'fds::spinner_change', function( $event, value ){
@@ -450,20 +487,20 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                     return;
                 }
                 
-                $scope.spinnerValue = value;
+                $scope.spinnerValue = parseInt( value ); 
             });
 
             $scope.$on( '$destroy', function(){
                 $document.off( 'mousemove', null, $scope.sliderMoved );
                 $document.off( 'mouseup', null, handleReleased );
             });
-            
+
             /**
             * This is a crazy watch that looks at anything in the sliders array that may change.
             * We are concerned if the value object in each slider changes because if it does,
             * we need to move the slider appropriately
             **/
-            $scope.$watch( 'sliders', function( newList, oldList ){
+            var unwatch = $scope.$watch( 'sliders', function( newList, oldList ){
                 
                 // the lists need to be the same length and neither should be null.
                 // we only want this to happen on changes - not initializations.
@@ -489,8 +526,9 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                     }
                     
                     newSlider.position = posObj.position;
-                    fixStartPositions();
                 }
+                
+                fixStartPositions();
                 
             }, true);
             
