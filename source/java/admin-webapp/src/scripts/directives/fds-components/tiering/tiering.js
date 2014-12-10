@@ -19,9 +19,24 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
                 if ( angular.isNumber( $scope.policy )){
                     $scope.policy = $scope.tieringChoices[ $scope.policy ];
                 }
+                else if ( angular.isString( $scope.policy ) ){
+                    for ( var i = 0; i < $scope.tieringChoices.length; i++ ){
+                        if ( $scope.tieringChoices[i].value === $scope.policy ){
+                            $scope.policy = $scope.tieringChoices[i];
+                            break;
+                        }
+                    }
+                }
+                
+                if ( !angular.isDefined( $scope.policy ) || $scope.policy === {} ){
+                    $scope.policy = $scope.tieringChoices[0];
+                }
             };
             
-            $scope.$watch( 'policy', fixPolicySetting );
+            $scope.$watch( 'policy', function(){
+                fixPolicySetting();
+                 $scope.$emit( 'fds::media_policy_changed' );
+            });
         }
     };
 });

@@ -25,6 +25,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.qos = {};
     $scope.dataConnector = {};
+    $scope.mediaPolicy = {};
     
     var capacityIntervalId = -1;
     var performanceIntervalId = -1;
@@ -194,6 +195,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $scope.qos.capacity = $scope.thisVolume.sla;
         $scope.qos.limit = $scope.thisVolume.limit;
         $scope.qos.priority = $scope.thisVolume.priority;
+//        $scope.mediaPolicy = $scope.thisVolume.mediaPolicy;
     };
     
     // when we get shown, get all the snapshots and policies.  THen do the chugging
@@ -274,6 +276,12 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $scope.thisVolume.limit = $scope.qos.limit;
         
         $volume_api.save( $scope.thisVolume );
+    });
+    
+    $scope.$on( 'fds::media_policy_changed', function(){
+        
+//        $scope.thisVolume.mediaPolicy = $scope.mediaPolicy;
+//        $volume_api.save( $scope.thisVolume );
     });
     
     $scope.$on( 'fds::protection_policy_changed', function( newVal, oldVal ){
