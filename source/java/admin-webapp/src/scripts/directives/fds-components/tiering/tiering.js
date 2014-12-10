@@ -11,11 +11,12 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
             $scope.tieringChoices = [
                 { label: $filter( 'translate' )( 'volumes.tiering.l_ssd_only' ), value: 'SSD_ONLY' },
                 { label: $filter( 'translate' )( 'volumes.tiering.l_ssd_preferred' ), value: 'SSD_PREFERRED' },
-                { label: $filter( 'translate' )( 'volumes.tiering.l_disk_only' ), value: 'DISK_ONLY' },
-                { label: $filter( 'translate' )( 'volumes.tiering.l_disk_preferred' ), value: 'DISK_PREFERRED' }
+                { label: $filter( 'translate' )( 'volumes.tiering.l_disk_only' ), value: 'HDD_ONLY' },
+                { label: $filter( 'translate' )( 'volumes.tiering.l_disk_preferred' ), value: 'HDD_PREFERRED' }
             ];
             
             var fixPolicySetting = function(){
+                
                 if ( angular.isNumber( $scope.policy )){
                     $scope.policy = $scope.tieringChoices[ $scope.policy ];
                 }
@@ -28,7 +29,7 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
                     }
                 }
                 
-                if ( !angular.isDefined( $scope.policy ) || $scope.policy === {} ){
+                if ( !angular.isDefined( $scope.policy ) || Object.keys( $scope.policy ).length === 0){
                     $scope.policy = $scope.tieringChoices[0];
                 }
             };
