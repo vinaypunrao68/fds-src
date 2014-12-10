@@ -231,6 +231,11 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .append( 'line' )
                     .attr( 'x1', $xScale( $xMin ) )
                     .attr( 'y1', function( d ){ 
+                    
+                        if ( isNaN( d ) ){
+                            d = 0;
+                        }
+                    
                         return $yScale( d ); 
                     })
                     .attr( 'x2', function( d ){
@@ -249,7 +254,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     })
                     .attr( 'y2', function( d ){ 
                         
-                        if ( !angular.isNumber( d ) ){
+                        if ( !angular.isNumber( d ) || isNaN( d ) ){
                             d = 0;
                         }
                     

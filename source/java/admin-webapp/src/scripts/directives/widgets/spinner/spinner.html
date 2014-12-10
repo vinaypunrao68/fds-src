@@ -1,8 +1,8 @@
 <div class="spinner-parent">
     <div class="flex">
-        <input type="text" ng-model="value" maxlength="{{maxlength}}" size="{{maxlength}}"/>
+        <input type="text" ng-model="value" maxlength="{{maxlength}}" size="{{maxlength}}" ng-class="{'no-buttons': !buttons}" ng-keydown="keyPressed( $event )"/>
     </div>
-    <div class="button-parent">
+    <div class="button-parent" ng-show="buttons">
         <div class="button-base increment" draggable="false" ng-class="{pressed: upPressed}" ng-mousedown="incrementDown()" ng-mouseup="incrementUp()" ng-mouseleave="incrementUp()" ng-mousemove="incrementUp()" ng-click="increment()">
             <span class="caret"></span>
         </div>

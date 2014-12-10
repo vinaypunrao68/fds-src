@@ -9,10 +9,35 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.snapshotPolicies = [];
     $scope.dataConnector = {};
     $scope.volumeName = '';
-    $scope.fake = 'What?';
+    
+    // default protection policies
+    $scope.protectionPolicies = {
+        continuous: 24*60*60,
+        policies: [
+            // daily
+            {
+                retention: 7*24*60*60,
+                recurrenceRule: {FREQ: 'DAILY'}
+            },
+            {
+                retention: 14*24*60*60,
+                recurrenceRule: {FREQ: 'WEEKLY'}
+            },
+            {
+                retention: 60*24*60*60,
+                recurrenceRule: {FREQ: 'MONTHLY'}
+            },
+            {
+                retention: 366*24*60*60,
+                recurrenceRule: {FREQ: 'YEARLY'}
+            }
+        ]
+    };
     
     var creationCallback = function( volume, newVolume ){
 
+        //SNAPSHOT SCHEDULES
+        
         // for each time deliniation used we need to create a policy and attach
         // it using the volume id in the name so we can identify it easily
         for ( var i = 0; angular.isDefined( volume.snapshotPolicies ) && i < volume.snapshotPolicies.length; i++ ){
@@ -25,6 +50,20 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             });
         }
 
+        // TIMELINE PROTECTION SCHEDULES
+        
+        for ( var j = 0; angular.isDefined( volume.protectionPolicies ) && j < volume.protectionPolicies.length; j++ ){
+            
+            var policy = volume.protectionPolicies[j];
+            
+            policy.name = newVolume.id + '_TIMELINE_' + policy.recurrenceRule.FREQ;
+            
+            // create the policy
+            $snapshot_service.createSnapshotPolicy( policy, function( policy, rtnCode ){
+                // attach the policy
+                $snapshot_service.attachPolicyToVolume( policy, newVolume.id, function(){} );
+            });
+        }
         
         $scope.cancel();
     };
@@ -87,6 +126,8 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         volume.limit = $scope.qos.limit;
         volume.priority = $scope.qos.priority;
         volume.snapshotPolicies = $scope.snapshotPolicies;
+        volume.protectionPolicies = $scope.protectionPolicies.policies;
+        volume.commit_log_retention = $scope.protectionPolicies.continuous;
         volume.data_connector = $scope.dataConnector;
         volume.name = $scope.volumeName;
         
@@ -129,6 +170,30 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             $scope.volumeName = '';
             
             $scope.snapshotPolicies = [];
+            
+            // default protection policies
+            $scope.protectionPolicies = {
+                continuous: 24*60*60,
+                policies: [
+                    // daily
+                    {
+                        retention: 7*24*60*60,
+                        recurrenceRule: {FREQ: 'DAILY'}
+                    },
+                    {
+                        retention: 14*24*60*60,
+                        recurrenceRule: {FREQ: 'WEEKLY'}
+                    },
+                    {
+                        retention: 60*24*60*60,
+                        recurrenceRule: {FREQ: 'MONTHLY'}
+                    },
+                    {
+                        retention: 366*24*60*60,
+                        recurrenceRule: {FREQ: 'YEARLY'}
+                    }
+                ]
+            };
         }
     });
 

@@ -115,7 +115,7 @@ mockAuth = function() {
 
     });
 
-    angular.module( 'user-management' ).factory( '$user_service', function(){
+    angular.module( 'user-management' ).factory( '$user_service', [ '$q', function( $q ){
 
         var service = {};
 
@@ -136,7 +136,12 @@ mockAuth = function() {
             var user = { identifier: username, password: password, id: (new Date()).getTime() };
             users.push( user );
 
+            var deferred = $q.defer();
+            
             success( user );
+            deferred.resolve();
+
+            return deferred.promise;
         };
 
         service.getUsers = function( callback ){
@@ -145,5 +150,5 @@ mockAuth = function() {
 
         return service;
 
-    });
+    }]);
 };

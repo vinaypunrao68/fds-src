@@ -40,6 +40,7 @@
 @import '../../scripts/directives/charts/linechart/linechart';
 
 @import '../../scripts/directives/widgets/summarynumberdisplay/summaryNumberDisplay';
+@import '../../scripts/directives/widgets/waterfallslider/waterfallslider';
 @import '../../scripts/directives/widgets/statustile/statusTile';
 @import '../../scripts/directives/widgets/slidewindowstack/slidewindowstack';
 @import '../../scripts/directives/widgets/tooltip/tooltip';
@@ -59,3 +60,4 @@
 @import '../../scripts/directives/widgets/priorityslider/priority_slider';
 @import '../../scripts/directives/widgets/variableslider/variable_slider';
 @import '../../scripts/directives/widgets/linkbuttons/linkbuttons';
+@import '../../scripts/directives/fds-components/snapshot-policies/protection-policy';

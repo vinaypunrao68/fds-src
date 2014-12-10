@@ -108,6 +108,7 @@ struct VolumeDescriptor {
           o.put( "priority", volInfo.getRel_prio() );
           o.put( "sla", volInfo.getIops_min() );
           o.put( "limit", volInfo.getIops_max() );
+          o.put( "commit_log_retention", volInfo.getContCommitlogRetention() );
         }
 
         if( v.getPolicy() != null && v.getPolicy().getVolumeType() != null ) {
