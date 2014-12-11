@@ -9,15 +9,15 @@ namespace fds
 {
     /**
      * --------------------------------------------------------------------------------------
-     * PM Service EndPoint.
+     * SM Service EndPoint.
      * --------------------------------------------------------------------------------------
      */
-    PmSvcEp::~PmSvcEp()
+    SmSvcEp::~SmSvcEp()
     {
     }
 
-    PmSvcEp::PmSvcEp(NodeAgent::pointer agent, fds_uint32_t maj, fds_uint32_t min,
-                     NodeAgentEvt::pointer plugin) : EpSvc(agent->get_uuid(), fpi::FDSP_PLATFORM)
+    SmSvcEp::SmSvcEp(NodeAgent::pointer agent, fds_uint32_t maj, fds_uint32_t min,
+                     NodeAgentEvt::pointer plugin) : EpSvc(agent->get_uuid(), fpi::FDSP_STOR_MGR)
     {
         ep_set_plugin(plugin);
     }
@@ -25,7 +25,7 @@ namespace fds
     // svc_receive_msg
     // ---------------
     //
-    void PmSvcEp::svc_receive_msg(const fpi::AsyncHdr &msg)
+    void SmSvcEp::svc_receive_msg(const fpi::AsyncHdr &msg)
     {
     }
 }  // namespace fds
