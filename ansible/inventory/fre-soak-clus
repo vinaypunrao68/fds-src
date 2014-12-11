@@ -1,0 +1,18 @@
+[fre-soak-clus]
+fre-clus-01 fds_node=node01
+fre-clus-02 fds_node=node02
+fre-clus-03 fds_node=node03
+fre-clus-04 fds_node=node04
+
+[fre-soak-clus:vars]
+cluster_location=fre
+deploy_artifact=nightly
+fds_default_nic=em1
+fds_om_host=fre-clus-01
+fds_metrics_enables=false
+fds_metricsdb_ip=127.0.0.1
+fds_ssh_user=root
+fds_ssh_password=passwd
+ansible_ssh_user=root
+ansible_ssh_pass=passwd
+#ansible_sudo_pass=ubuntu
