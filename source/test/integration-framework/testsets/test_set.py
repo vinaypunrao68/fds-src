@@ -41,7 +41,7 @@ class TestSet(object):
             fmodule = self.__process_module(test_cases[tc])
             module = importlib.import_module("testsets.testcases.%s" % fmodule)
             my_class = getattr(module, tc)
-            instance = my_class(parameters=config.params)
+            instance = my_class(parameters=None)
             self.log.info("Adding test case: %s" % tc)
             self.log.info("Adding file name: %s" % test_cases[tc])
             self.suite.addTest(instance)

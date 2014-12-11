@@ -18,6 +18,7 @@ from filechunkio import FileChunkIO
 from boto.s3 import connection
 from boto.s3.key import Key
 
+import config
 import testsets.testcase as testcase
 
 # Class to contain S3 objects used by these test cases.
@@ -37,7 +38,6 @@ class TestS3GetConn(testcase.FDSTestCase):
     
     def __init__(self, parameters=None):
         super(TestS3GetConn, self).__init__(parameters)
-
 
     def runTest(self):
         test_passed = True
@@ -73,32 +73,7 @@ class TestS3GetConn(testcase.FDSTestCase):
         Test Case:
         Attempt to get an S3 connection.
         """
-
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
-        om_node = fdscfg.rt_om_node
-
-        if not hasattr(om_node, "auth_token"):
-            self.log.error("No authorization token from OM. This is needed for an S3 connection.")
-            return False
-        else:
-            self.log.info("Get an S3 connection on %s." %
-                          om_node.nd_conf_dict['node-name'])
-
-            s3conn = boto.connect_s3(aws_access_key_id='admin',
-                                            aws_secret_access_key=om_node.auth_token,
-                                            host=om_node.nd_conf_dict['ip'],
-                                            port=8443,
-                                            # port=8000,
-                                            calling_format=boto.s3.connection.OrdinaryCallingFormat())
-
-            if not s3conn:
-                self.log.error("boto.connect_s3() on %s did not return an S3 connection." %
-                               om_node.nd_conf_dict['node-name'])
-                return False
-
-            self.parameters["s3"] = S3(s3conn)
-
+        assert(self.parameters["s3"].conn)
         return True
 
 
@@ -146,7 +121,6 @@ class TestS3CrtBucket(testcase.FDSTestCase):
         Test Case:
         Attempt to create an S3 Bucket.
         """
-
         if not "s3" in self.parameters:
             self.log.error("No S3 interface object with which to create a bucket.")
             return False
@@ -158,7 +132,7 @@ class TestS3CrtBucket(testcase.FDSTestCase):
             s3 = self.parameters["s3"]
 
             s3.bucket1 = s3.conn.create_bucket('bucket1')
-
+            self.log.info(s3.bucket1)
             if not s3.bucket1:
                 self.log.error("s3.conn.create_bucket() failed to create bucket bucket1.")
                 return False
@@ -227,19 +201,20 @@ class TestS3LoadSBLOB(testcase.FDSTestCase):
             s3 = self.parameters["s3"]
 
             # Get file info
-            source_path = bin_dir + "/AMAgent"
+            source_path = config.pyUnitConfig
             source_size = os.stat(source_path).st_size
-
+            self.log.info(s3.bucket1.name)
             # Get a Key/Value object for th bucket.
             k = Key(s3.bucket1)
-
+            self.log.info(k)
             # Set the key.
             s3.keys.append("small")
             k.key = "small"
 
             self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_string() interface." %
                           (source_path, source_size))
-
+            self.log.info(source_path)
+            self.log.info(source_size)
             # Set the value, write it to the bucket, and, while the file containing the value is still
             # open, read it back to verify.
             with open(source_path, 'r')  as f:
@@ -746,7 +721,7 @@ class TestS3DelBucket(testcase.FDSTestCase):
         Test Case:
         Attempt to delete an S3 Bucket.
         """
-
+        self.log.info(self.parameters["s3"].bucket1)
         if not ("s3" in self.parameters) or (self.parameters["s3"].conn) is None:
             self.log.error("No S3 connection with which to load a BLOB.")
             return False

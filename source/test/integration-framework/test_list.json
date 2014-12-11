@@ -1,7 +1,8 @@
 {
 	"test_sets" : {
 		"test_basic_op" : {
-			"TestS3GetConn"   : "TestS3IntFace.py"
+			"TestCreateMultipleBuckets" : "test_create_multiple_buckets.py",
+			"TestS3GetConn" : "TestS3IntFace.py"
 		}
 	}
 }

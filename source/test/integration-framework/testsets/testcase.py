@@ -7,11 +7,27 @@ import sys
 import traceback
 import unittest
 
+import config
+import s3
+import testsets.testcases.fdslib.TestUtils as TestUtils 
+
 class FDSTestCase(unittest.TestCase):
 
     logging.basicConfig(level=logging.INFO)
     log = logging.getLogger(__name__)
-    
+    s3conn = s3.S3Connection(
+                        config.FDS_DEFAULT_KEY_ID,
+                        config.FDS_DEFAULT_SECRET_ACCESS_KEY,
+                        config.FDS_DEFAULT_HOST,
+                        config.FDS_AUTH_DEFAULT_PORT,       
+                      )
+    param = s3.TestParameters(config.FDS_DEFAULT_BUCKET_NAME,
+                              config.FDS_DEFAULT_BUCKET_PREFIX,
+                              config.FDS_DEFAULT_KEY_NAME,
+                              config.FDS_DEFAULT_KEYS_COUNT,
+                              config.FDS_DEFAULT_FILE_PATH,
+                              config.TEST_DEBUG)
+        
     def __init__(self, parameters=None, test_failure=False):
         """
         When run by a qaautotest module test runner,
@@ -24,10 +40,18 @@ class FDSTestCase(unittest.TestCase):
         """
         super(FDSTestCase, self).__init__()
         self.name = self.__class__.__name__
-        self.parameters = parameters
         self.result = None
         self.test_passed = True
         self.test_failure = test_failure
+        
+        if parameters:
+            self.parameters = parameters
+        else:
+            self.parameters = TestUtils.get_config(True, config.pyUnitConfig, 
+                                                   False, False,
+                                                   False, "passwd")
+            self.parameters['s3'] = self.s3conn
+            self.parameters['s3'].conn = self.s3conn.get_s3_connection()
         
     def tearDown(self):
         """
