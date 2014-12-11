@@ -9,6 +9,7 @@
 #include <fds_types.h>
 #include <concurrency/Thread.h>
 #include <AmAsyncDataApi.h>
+#include <NbdOperations.h>
 #include <queue>
 #include <boost/lockfree/queue.hpp>
 
@@ -40,11 +41,13 @@ class NbdConnector {
     typedef boost::shared_ptr<NbdConnector> shared_ptr;
 };
 
-class NbdConnection {
+class NbdConnection : public NbdOperationsResponseIface {
   private:
     int clientSocket;
-    std::string volumeName;
+    boost::shared_ptr<std::string> volumeName;
     AmAsyncDataApi::shared_ptr asyncDataApi;
+    NbdOperations::shared_ptr nbdOps;
+    fds_bool_t doUturn;
 
     // Uturn stuff. Remove me.
     struct UturnPair {
@@ -108,6 +111,11 @@ class NbdConnection {
     explicit NbdConnection(AmAsyncDataApi::shared_ptr api,
                            int clientsd);
     ~NbdConnection();
+
+    // implementation of NbdOperationsResponseIface
+    void readResp(const Error& error,
+                  fds_int64_t handle,
+                  ReadRespVector::shared_ptr response);
 };
 
 }  // namespace fds

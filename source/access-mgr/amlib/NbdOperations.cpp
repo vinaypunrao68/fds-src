@@ -19,13 +19,13 @@ NbdOperations::~NbdOperations() {
 }
 
 void
-NbdOperations::read(boost::shared_ptr<std::string>& devName,
-                    boost::shared_ptr<std::string>& volumeName,
+NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
                     fds_uint32_t length,
                     fds_uint64_t offset,
                     fds_int64_t handle) {
     // hardcoding domain name
     boost::shared_ptr<std::string> domainName(new std::string("TestDomain"));
+    boost::shared_ptr<std::string> blobName(new std::string("BlockBlob"));
     fds_uint32_t objectSize = 4096;  // hardcoding 4K max obj size
 
     // calculate how many object we will get from AM
@@ -71,7 +71,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& devName,
             amAsyncDataApi->getBlob(reqId,
                                     domainName,
                                     volumeName,
-                                    devName,
+                                    blobName,
                                     blobLength,
                                     off);
             amBytesRead += curLength;
@@ -87,8 +87,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& devName,
 
 /*
 void
-NbdOperations::write(boost::shared_ptr<std::string>& devName,
-                     boost::shared_ptr<std::string>& volumeName,
+NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
                      boost::shared_ptr<std::string>& bytes,
                      fds_uint32_t length,
                      fds_uint64_t offset,

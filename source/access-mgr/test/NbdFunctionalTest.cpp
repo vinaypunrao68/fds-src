@@ -12,6 +12,7 @@
 #include <am-platform.h>
 #include <net/net-service.h>
 #include <NbdOperations.h>
+#include <AccessMgr.h>
 
 #include "boost/program_options.hpp"
 #include <google/profiler.h>
@@ -127,7 +128,6 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     void task(int id, TaskOps opType) {
         fds_uint32_t ops = atomic_fetch_add(&opCount, (fds_uint32_t)1);
         GLOGDEBUG << "Starting thread " << id;
-        boost::shared_ptr<std::string> devName(new std::string("/dev/sda"));
         fds_int64_t handle = id*totalOps;
 
         SequentialBlobDataGen blobGen(blobSize, id);
@@ -145,7 +145,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
             } else if (opType == GET) {
                 try {
                     std::string data;
-                    nbdOps->read(devName, volumeName, blobSize, 0, ++handle);
+                    nbdOps->read(volumeName, blobSize, 0, ++handle);
                 } catch(apis::ApiException fdsE) {
                     fds_panic("read failed");
                 }

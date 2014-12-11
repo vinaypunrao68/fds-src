@@ -7,7 +7,10 @@
 #include <vector>
 #include <string>
 #include <map>
-#include <AccessMgr.h>
+#include <fds_types.h>
+#include <apis/apis_types.h>
+#include <AmAsyncResponseApi.h>
+#include <AmAsyncDataApi.h>
 
 namespace fds {
 
@@ -82,8 +85,7 @@ class NbdOperations : public AmAsyncResponseApi {
     ~NbdOperations();
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
 
-    void read(boost::shared_ptr<std::string>& devName,
-              boost::shared_ptr<std::string>& volumeName,
+    void read(boost::shared_ptr<std::string>& volumeName,
               fds_uint32_t length,
               fds_uint64_t offset,
               fds_int64_t handle);

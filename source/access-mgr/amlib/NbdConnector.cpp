@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <ev++.h>
 #include <arpa/inet.h>
+#include <AccessMgr.h>
 
 namespace fds {
 
@@ -96,8 +97,10 @@ NbdConnector::runNbdLoop() {
 NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
                              int clientsd)
         : asyncDataApi(api),
+          nbdOps(new NbdOperations(asyncDataApi, this)),
           clientSocket(clientsd),
           hsState(PREINIT),
+          doUturn(true),
           readyHandles(2000) {
     fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
 
@@ -207,7 +210,8 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
         LOGERROR << "Socket read error";
         return;
     } else {
-        volumeName = exportName;
+        volumeName = boost::shared_ptr<std::string>(new std::string(exportName));
+        LOGNORMAL << "Volume name " << *volumeName;
     }
 }
 
@@ -356,6 +360,9 @@ NbdConnection::dispatchOp(ev::io &watcher,
             utPair.length = length;
             readyHandles.push(utPair);
 
+            // do read from AM
+            // nbdOps->read(volumeName, length, offset, handle);
+
             // We have something to write, so ask for events
             ioWatcher->set(ev::READ | ev::WRITE);
             break;
@@ -424,6 +431,14 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 fds_panic("Unknown NBD connection state!");
         }
     }
+}
+
+void
+NbdConnection::readResp(const Error& error,
+                        fds_int64_t handle,
+                        ReadRespVector::shared_ptr response) {
+    LOGNORMAL << "Read response from NbdOperations handle " << handle
+              << " " << error;
 }
 
 }  // namespace fds
