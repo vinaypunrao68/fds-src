@@ -101,8 +101,6 @@ NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
           readyHandles(2000) {
     fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
 
-    totalConns++;
-
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
     ioWatcher->set<NbdConnection, &NbdConnection::callback>(this);
     ioWatcher->start(clientSocket, ev::READ | ev::WRITE);
@@ -182,8 +180,6 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
     } else {
         magic = __builtin_bswap64(magic);
         fds_verify(NBD_MAGIC == magic);
-        LOGDEBUG << "Read " << nread << " bytes, magic 0x"
-                 << std::hex << magic << std::dec;
     }
 
     fds_int32_t optSpec;
@@ -194,7 +190,6 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
     } else {
         optSpec = ntohl(optSpec);
         fds_verify(NBD_OPT_EXPORT == optSpec);
-        LOGDEBUG << "Read " << nread << " bytes, optSpec " << optSpec;
     }
 
     fds_int32_t length;
@@ -204,7 +199,6 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
         return;
     } else {
         length = ntohl(length);
-        LOGDEBUG << "Read " << nread << " bytes, length " << length;
     }
 
     char exportName[length];  // NOLINT
@@ -214,7 +208,6 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
         return;
     } else {
         volumeName = exportName;
-        LOGDEBUG << "Read " << nread << " bytes, name " << volumeName;
     }
 }
 
@@ -247,7 +240,7 @@ NbdConnection::hsReq(ev::io &watcher) {
     } else {
         magic = ntohl(magic);
         fds_verify(NBD_REQUEST_MAGIC == magic);
-        LOGDEBUG << "Read " << nread << " bytes, magic 0x"
+        LOGTRACE << "Read " << nread << " bytes, magic 0x"
                  << std::hex << magic << std::dec;
     }
 
@@ -258,7 +251,7 @@ NbdConnection::hsReq(ev::io &watcher) {
     } else {
         opType = ntohl(opType);
         // TODO(Andrew): Need to verify this magic #...
-        LOGDEBUG << "Read " << nread << " bytes, op " << opType;
+        LOGTRACE << "Read " << nread << " bytes, op " << opType;
     }
 
     fds_int64_t handle;
@@ -268,7 +261,7 @@ NbdConnection::hsReq(ev::io &watcher) {
     } else {
         handle = __builtin_bswap64(handle);
         // TODO(Andrew): Need to verify this magic #...
-        LOGDEBUG << "Read " << nread << " bytes, handle 0x"
+        LOGTRACE << "Read " << nread << " bytes, handle 0x"
                  << std::hex << handle << std::dec;
     }
 
@@ -279,7 +272,7 @@ NbdConnection::hsReq(ev::io &watcher) {
     } else {
         offset = __builtin_bswap64(offset);
         // TODO(Andrew): Need to verify this magic #...
-        LOGDEBUG << "Read " << nread << " bytes, offset " << offset;
+        LOGTRACE << "Read " << nread << " bytes, offset " << offset;
     }
 
     fds_uint32_t length;
@@ -289,7 +282,7 @@ NbdConnection::hsReq(ev::io &watcher) {
     } else {
         length = ntohl(length);
         // TODO(Andrew): Need to verify this magic #...
-        LOGDEBUG << "Read " << nread << " bytes, length " << length;
+        LOGTRACE << "Read " << nread << " bytes, length " << length;
     }
 
     Error err = dispatchOp(watcher, opType, handle, offset, length);
@@ -309,14 +302,14 @@ NbdConnection::hsReply(ev::io &watcher) {
             LOGERROR << "Socket write error";
             return;
         }
-        LOGDEBUG << "Wrote " << nwritten << " bytes, magic 0x" << std::hex << magic << std::dec;
+        LOGTRACE << "Wrote " << nwritten << " bytes, magic 0x" << std::hex << magic << std::dec;
 
         nwritten = write(watcher.fd, &error, sizeof(error));
         if (nwritten < 0) {
             LOGERROR << "Socket write error";
             return;
         }
-        LOGDEBUG << "Wrote " << nwritten << " bytes, error " << error;
+        LOGTRACE << "Wrote " << nwritten << " bytes, error " << error;
 
         UturnPair rep;
         fds_verify(readyHandles.pop(rep));
@@ -330,7 +323,7 @@ NbdConnection::hsReply(ev::io &watcher) {
             LOGERROR << "Socket write error";
             return;
         }
-        LOGDEBUG << "Wrote " << nwritten << " bytes, handle 0x"
+        LOGTRACE << "Wrote " << nwritten << " bytes, handle 0x"
                  << std::hex << hostorder_handle << std::dec;
 
         fds_uint32_t length = rep.length;
@@ -343,10 +336,10 @@ NbdConnection::hsReply(ev::io &watcher) {
                 LOGERROR << "Socket write error";
                 return;
             }
-            LOGDEBUG << "Wrote " << nwritten << " bytes of zeros";
+            LOGTRACE << "Wrote " << nwritten << " bytes of zeros";
         }
     }
-    LOGDEBUG << "No more handles to respond to";
+    LOGTRACE << "No more handles to respond to";
 }
 
 Error
@@ -357,20 +350,18 @@ NbdConnection::dispatchOp(ev::io &watcher,
                           fds_uint32_t length) {
     switch (opType) {
         case NBD_CMD_READ:
-            LOGNORMAL << "Got a read";
+            // TODO(Andrew): Hackey uturn code. Remove.
             UturnPair utPair;
             utPair.handle = handle;
             utPair.length = length;
-            // readyHandles.push(UturnPair(handle, length));
             readyHandles.push(utPair);
+
             // We have something to write, so ask for events
             ioWatcher->set(ev::READ | ev::WRITE);
             break;
         case NBD_CMD_WRITE:
-            LOGNORMAL << "Got a write";
             break;
         case NBD_CMD_FLUSH:
-            LOGNORMAL << "Got a flush";
             break;
         case NBD_CMD_DISC:
             LOGNORMAL << "Got a disconnect";
@@ -386,15 +377,12 @@ NbdConnection::dispatchOp(ev::io &watcher,
 
 void
 NbdConnection::callback(ev::io &watcher, int revents) {
-    LOGNORMAL << "NBD connection callback";
-
     if (EV_ERROR & revents) {
         LOGERROR << "Got invalid libev event";
         return;
     }
 
     if (revents & EV_READ) {
-        LOGTRACE << "Read event";
         switch (hsState) {
             case POSTINIT:
                 hsPostInit(watcher);
@@ -414,7 +402,6 @@ NbdConnection::callback(ev::io &watcher, int revents) {
     }
 
     if (revents & EV_WRITE) {
-        LOGNORMAL << "Write event";
         switch (hsState) {
             case PREINIT:
                 hsPreInit(watcher);
@@ -425,11 +412,11 @@ NbdConnection::callback(ev::io &watcher, int revents) {
             case SENDOPTS:
                 hsSendOpts(watcher);
                 hsState = DOREQS;
+                LOGNORMAL << "Done with NBD handshake";
                 // Wait for read events from client
                 ioWatcher->set(ev::READ);
                 break;
             case DOREQS:
-                LOGWARN << "Got a write event in DOREQS";
                 hsReply(watcher);
                 ioWatcher->set(ev::READ);
                 break;
@@ -438,7 +425,5 @@ NbdConnection::callback(ev::io &watcher, int revents) {
         }
     }
 }
-
-int NbdConnection::totalConns = 0;
 
 }  // namespace fds

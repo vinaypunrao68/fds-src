@@ -43,9 +43,10 @@ class NbdConnector {
 class NbdConnection {
   private:
     int clientSocket;
-    static int totalConns;
     std::string volumeName;
     AmAsyncDataApi::shared_ptr asyncDataApi;
+
+    // Uturn stuff. Remove me.
     struct UturnPair {
         fds_int64_t handle;
         fds_uint32_t length;
