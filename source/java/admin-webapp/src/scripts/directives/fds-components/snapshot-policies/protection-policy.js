@@ -342,7 +342,7 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                             }
                             
                             if ( angular.isDefined( policy.recurrenceRule.BYMONTHDAY ) ){
-                                if ( policy.recurrenceRule.BYMONTHDAY[0] === 1 ){
+                                if ( policy.recurrenceRule.BYMONTHDAY[0] == 1 ){
                                     $scope.monthChoice = $scope.months[0];
                                 }
                                 else {
@@ -350,7 +350,7 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                                 }
                             }
                             else {
-                                if ( policy.recurrenceRule.BYWEEKNO[0] === 1 ){
+                                if ( policy.recurrenceRule.BYWEEKNO[0] == 1 ){
                                     $scope.monthChoice = $scope.months[2];
                                 }
                                 else {
