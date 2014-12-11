@@ -5,7 +5,6 @@
 10.2.10.82 fds_node=node04
 
 [bld-nightly-nodes:vars]
-cluster_location=bld
 deploy_artifact=nightly
 fds_default_nic=eth0
 fds_om_host=10.2.10.79
