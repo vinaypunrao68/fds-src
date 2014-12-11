@@ -57,7 +57,7 @@ def compute_pareto_optimal(iops, lat):
 def generate_lat_bw(iops, lat):
     filename = "latbw.png"
     title = "Latency Bandwidth"
-    xlabel = "IOPs"
+    xlabel = "Req/s"
     ylabel = "Latency [ms]"
     plt.figure()
     plt.scatter(iops, lat)
@@ -70,9 +70,9 @@ def generate_lat_bw(iops, lat):
 
 def generate_scaling_iops(conns, iops):
     filename = "scaling_iops.png"
-    title = "IOPs"
+    title = "Req/s"
     xlabel = "Connections"
-    ylabel = "IOPs"
+    ylabel = "Req/s"
     plt.figure()
     plt.plot(conns, iops)
     plt.xlabel(xlabel)
@@ -165,11 +165,11 @@ System: Xeon 1S 6-core HT, 32GB DRAM, 1GigE, 12HDD, 2SSDs \n\
     for t in summary:
 #        text += "Config: %s\n" % t
 #        text += "Notes: %s\n" % config_notes[t]
-#        text += "IOPs: %g\n\
+#        text += "Req/s: %g\n\
 #Latency [ms]: %g\n" % (summary[t]["iops"], summary[t]["lat"])
 #        text += "---\n"
         table.append([t, str(summary[t]["iops"]), str(summary[t]["lat"]), summary[t]["test_directory"]])
-    headers = ["Config", "IOPs", "Latency [ms]", "Test directory"]
+    headers = ["Config", "Req/s", "Latency [ms]", "Test directory"]
     text += tabulate.tabulate(table,headers) + "\n"
 
     text += "\nConfig Explanation:\n"
