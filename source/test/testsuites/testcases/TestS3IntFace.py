@@ -709,6 +709,7 @@ class TestS3DelBucket(TestCase.FDSTestCase):
 
 
     def runTest(self):
+        print self.parameters
         test_passed = True
 
         if TestCase.pyUnitTCFailure:

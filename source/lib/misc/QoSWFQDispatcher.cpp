@@ -175,7 +175,7 @@ QoSWFQDispatcher::getNextQueueForDispatch()
         n_pios = next_qd->pendingActiveCount();  // pending IOs if queue is active, otherwise 0
     }
 
-    while ((!next_qd) || (n_pios == 0)){
+    while ((!next_qd) || (n_pios == 0)) {
         if (next_qd) {
             next_qd->num_priority_based_ios_dispatched = 0;
         }
