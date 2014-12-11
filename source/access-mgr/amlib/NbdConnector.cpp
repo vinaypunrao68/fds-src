@@ -288,6 +288,12 @@ NbdConnection::hsReq(ev::io &watcher) {
         LOGTRACE << "Read " << nread << " bytes, length " << length;
     }
 
+    if (NBD_CMD_WRITE == opType) {
+        char data[length];  // NOLINT
+        nread = recv(watcher.fd, data, length, 0);
+        LOGTRACE << "Read " << nread << " bytes of data";
+    }
+
     Error err = dispatchOp(watcher, opType, handle, offset, length);
     fds_verify(ERR_OK == err);
 }
@@ -330,16 +336,19 @@ NbdConnection::hsReply(ev::io &watcher) {
                  << std::hex << hostorder_handle << std::dec;
 
         fds_uint32_t length = rep.length;
+        fds_int32_t opType = rep.opType;
         fds_verify((length % 4096) == 0);
         fds_uint32_t chunks = length / 4096;
 
-        for (fds_uint32_t i = 0; i < chunks; ++i) {
-            nwritten = write(watcher.fd, fourKayZeros, sizeof(fourKayZeros));
-            if (nwritten < 0) {
-                LOGERROR << "Socket write error";
-                return;
+        if (NBD_CMD_READ == opType) {
+            for (fds_uint32_t i = 0; i < chunks; ++i) {
+                nwritten = write(watcher.fd, fourKayZeros, sizeof(fourKayZeros));
+                if (nwritten < 0) {
+                    LOGERROR << "Socket write error";
+                    return;
+                }
+                LOGTRACE << "Wrote " << nwritten << " bytes of zeros";
             }
-            LOGTRACE << "Wrote " << nwritten << " bytes of zeros";
         }
     }
     LOGTRACE << "No more handles to respond to";
@@ -352,11 +361,12 @@ NbdConnection::dispatchOp(ev::io &watcher,
                           fds_uint64_t offset,
                           fds_uint32_t length) {
     switch (opType) {
+        UturnPair utPair;
         case NBD_CMD_READ:
             // TODO(Andrew): Hackey uturn code. Remove.
-            UturnPair utPair;
             utPair.handle = handle;
             utPair.length = length;
+            utPair.opType = opType;
             readyHandles.push(utPair);
 
             // do read from AM
@@ -366,6 +376,14 @@ NbdConnection::dispatchOp(ev::io &watcher,
             ioWatcher->set(ev::READ | ev::WRITE);
             break;
         case NBD_CMD_WRITE:
+            // TODO(Andrew): Hackey uturn code. Remove.
+            utPair.handle = handle;
+            utPair.length = length;
+            utPair.opType = opType;
+            readyHandles.push(utPair);
+
+            // We have something to write, so ask for events
+            ioWatcher->set(ev::READ | ev::WRITE);
             break;
         case NBD_CMD_FLUSH:
             break;
@@ -403,7 +421,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 hsReq(watcher);
                 break;
             default:
-                fds_panic("Unknown NBD connection state");
+                fds_panic("Unknown NBD connection state %d", hsState);
         }
     }
 
@@ -427,7 +445,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 ioWatcher->set(ev::READ);
                 break;
             default:
-                fds_panic("Unknown NBD connection state!");
+                fds_panic("Unknown NBD connection state %d", hsState);
         }
     }
 }
