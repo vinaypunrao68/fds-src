@@ -124,7 +124,7 @@ angular.module( 'user-page' ).controller( 'createUserController', ['$scope', '$t
             },
             function( response ){
                 $scope.passwordError = response;
-            }).then( function(){
+            }).finally( function(){
                 
                 $scope.cancel();
             

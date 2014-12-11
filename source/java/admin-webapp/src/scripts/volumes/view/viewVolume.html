@@ -71,12 +71,17 @@
         <connector-panel ng-model="dataConnector" editable="false"></connector-panel>
     </section>
     
+<!--
     <section class="block-section">
         <snapshot-policy-panel ng-model="snapshotPolicies"></snapshot-policy-panel>
     </section>
+-->
+    <section class="block-section">
+        <qos-panel ng-model="qos" save-only="false"></qos-panel>
+    </section>
     
     <section class="block-section">
-        <qos-panel ng-model="qos"></qos-panel>
+        <protection-policy-panel ng-model="protectionPolicies" save-only="false"></protection-policy-panel>
     </section>
     
     <section>
@@ -122,6 +127,6 @@
         </div>
     </section>
 
-    <div class="page-vertical-spacer"></div>
+    <div class="page-vertical-spacer view-volume-bottom-element"></div>
     
 </div>

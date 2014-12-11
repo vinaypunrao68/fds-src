@@ -50,6 +50,7 @@ public class ListSnapshotsByVolumeId
       mSnapshot.setName( snapshot.getSnapshotName() );
       mSnapshot.setVolumeId( String.valueOf( snapshot.getVolumeId() ) );
       mSnapshot.setCreation( new Date( snapshot.getCreationTimestamp() ) );
+      mSnapshot.setTimelineTime( snapshot.getTimelineTime() );
 
       snapshots.add( mSnapshot );
     }
