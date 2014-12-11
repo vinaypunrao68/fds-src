@@ -37,9 +37,12 @@ class ReadRespVector {
                               fds_uint32_t length,
                               fds_uint32_t seqId) {
         fds_verify(seqId < bufVec.size());
-        // copy buf to shared pointer
-        boost::shared_ptr<std::string> buf(new std::string(retBuf, length));
-        bufVec[seqId] = buf;
+        // copy buf to shared pointer if it's valid, leave
+        // empty in case of error
+        if (NULL != retBuf) {
+            boost::shared_ptr<std::string> buf(new std::string(retBuf, length));
+            bufVec[seqId] = buf;
+        }
         ++doneCount;
         return (doneCount == objCount);
     }

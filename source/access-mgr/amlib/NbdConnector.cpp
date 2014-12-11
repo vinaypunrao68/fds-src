@@ -4,7 +4,6 @@
 #include <set>
 #include <string>
 #include <NbdConnector.h>
-#include <ev.h>
 #include <fcntl.h>
 #include <ev++.h>
 #include <arpa/inet.h>
