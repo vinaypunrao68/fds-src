@@ -53,6 +53,7 @@ class NbdConnection : public NbdOperationsResponseIface {
     struct UturnPair {
         fds_int64_t handle;
         fds_uint32_t length;
+        fds_int32_t opType;
     };
     boost::lockfree::queue<UturnPair> readyHandles;
 

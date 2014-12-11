@@ -3,17 +3,15 @@
  */
 #include <set>
 #include <string>
+#include <NbdConnector.h>
 
 extern "C" {
-#include <ev.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
 #include <sys/uio.h>
 }
 
 #include <ev++.h>
-#include <AccessMgr.h>
-#include <NbdConnector.h>
 
 namespace fds {
 
@@ -292,6 +290,12 @@ NbdConnection::hsReq(ev::io &watcher) {
         LOGTRACE << "Read " << nread << " bytes, length " << length;
     }
 
+    if (NBD_CMD_WRITE == opType) {
+        char data[length];  // NOLINT
+        nread = recv(watcher.fd, data, length, 0);
+        LOGTRACE << "Read " << nread << " bytes of data";
+    }
+
     Error err = dispatchOp(watcher, opType, handle, offset, length);
     fds_verify(ERR_OK == err);
 }
@@ -309,26 +313,29 @@ NbdConnection::hsReply(ev::io &watcher) {
         fds_int64_t handle = __builtin_bswap64(rep.handle);
 
         fds_uint32_t length = rep.length;
+        fds_int32_t opType = rep.opType;
         fds_verify((length % 4096) == 0);
         fds_uint32_t chunks = length / 4096;
 
-        // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
-        iovec vectors[kMaxChunks + 3];
-        vectors[0] = { reinterpret_cast<void*>(&magic), sizeof(magic) };
-        vectors[1] = { const_cast<void*>(reinterpret_cast<void const*>(&error)), sizeof(error) };
-        vectors[2] = { reinterpret_cast<void*>(&handle), sizeof(handle) };
+        if (NBD_CMD_READ == opType) {
+            // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
+            iovec vectors[kMaxChunks + 3];
+            vectors[0] = { reinterpret_cast<void*>(&magic), sizeof(magic) };
+            vectors[1] = { const_cast<void*>(reinterpret_cast<void const*>(&error)), sizeof(error) };
+            vectors[2] = { reinterpret_cast<void*>(&handle), sizeof(handle) };
 
-        for (size_t i = 0; i < chunks; ++i) {
-            vectors[3+i].iov_base = const_cast<void*>(reinterpret_cast<void const*>(fourKayZeros));
-            vectors[3+i].iov_len = sizeof(fourKayZeros);
-        }
+            for (size_t i = 0; i < chunks; ++i) {
+                vectors[3+i].iov_base = const_cast<void*>(reinterpret_cast<void const*>(fourKayZeros));
+                vectors[3+i].iov_len = sizeof(fourKayZeros);
+            }
 
-        ssize_t nwritten = writev(watcher.fd, vectors, chunks + 3);
-        if (nwritten < 0) {
-            LOGERROR << "Socket write error";
-            return;
+            ssize_t nwritten = writev(watcher.fd, vectors, chunks + 3);
+            if (nwritten < 0) {
+                LOGERROR << "Socket write error";
+                return;
+            }
+            LOGTRACE << "Wrote " << nwritten << " bytes of zeros";
         }
-        LOGTRACE << "Wrote " << nwritten << " bytes of zeros";
     }
     LOGTRACE << "No more handles to respond to";
 }
@@ -340,11 +347,12 @@ NbdConnection::dispatchOp(ev::io &watcher,
                           fds_uint64_t offset,
                           fds_uint32_t length) {
     switch (opType) {
+        UturnPair utPair;
         case NBD_CMD_READ:
             // TODO(Andrew): Hackey uturn code. Remove.
-            UturnPair utPair;
             utPair.handle = handle;
             utPair.length = length;
+            utPair.opType = opType;
             readyHandles.push(utPair);
 
             // do read from AM
@@ -354,6 +362,14 @@ NbdConnection::dispatchOp(ev::io &watcher,
             ioWatcher->set(ev::READ | ev::WRITE);
             break;
         case NBD_CMD_WRITE:
+            // TODO(Andrew): Hackey uturn code. Remove.
+            utPair.handle = handle;
+            utPair.length = length;
+            utPair.opType = opType;
+            readyHandles.push(utPair);
+
+            // We have something to write, so ask for events
+            ioWatcher->set(ev::READ | ev::WRITE);
             break;
         case NBD_CMD_FLUSH:
             break;
@@ -391,7 +407,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 hsReq(watcher);
                 break;
             default:
-                fds_panic("Unknown NBD connection state");
+                fds_panic("Unknown NBD connection state %d", hsState);
         }
     }
 
@@ -415,7 +431,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 ioWatcher->set(ev::READ);
                 break;
             default:
-                fds_panic("Unknown NBD connection state!");
+                fds_panic("Unknown NBD connection state %d", hsState);
         }
     }
 }
