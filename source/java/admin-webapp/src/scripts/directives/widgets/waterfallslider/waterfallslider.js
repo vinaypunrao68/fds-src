@@ -23,7 +23,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             $scope.spinnerValue = 1;
             $scope.dropdownRange = {};
             $scope.validPositions = [];
-            $scope.sliderPaneWidth = 0;
+//            $scope.sliderPaneWidth = 0;
             $scope.allowNumber = true;
             
             var labelPane = {};
@@ -33,7 +33,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             $scope.amITooWide = function( $index ){
                 var w = $($element.find( '.value-container')[$index]).width();
                 
-                if ( $scope.sliders[$index].position + w > $scope.sliderPaneWidth ){
+                if ( $scope.sliders[$index].position + w > sliderPane.width() /*$scope.sliderPaneWidth*/ ){
                     return true; 
                 }
                 
@@ -46,7 +46,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 sliderPane = $($element.find( '.slider-pane' )[0]);
                 labelPane = $($element.find( '.labels' )[0]);
                 
-                $scope.sliderPaneWidth = sliderPane.width();
+//                $scope.sliderPaneWidth = sliderPane.width();
             };
             
             /**
@@ -427,7 +427,6 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 // of partial pixels off
                 $timeout( 
                     function(){
-                        
                         var labelDiv = $($element.find( '.waterfall-labels')[0]);
                         labelDiv.empty();
                         
