@@ -16,3 +16,5 @@ fds_ssh_password=passwd
 ansible_ssh_user=ubuntu
 ansible_ssh_pass=ubuntu
 ansible_sudo_pass=ubuntu
+#ansible_su_pass=passwd
+need_to_install_python=true
