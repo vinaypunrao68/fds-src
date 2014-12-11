@@ -3,12 +3,17 @@
  */
 #include <set>
 #include <string>
-#include <NbdConnector.h>
+
+extern "C" {
 #include <ev.h>
 #include <fcntl.h>
-#include <ev++.h>
 #include <arpa/inet.h>
+#include <sys/uio.h>
+}
+
+#include <ev++.h>
 #include <AccessMgr.h>
+#include <NbdConnector.h>
 
 namespace fds {
 
@@ -141,17 +146,16 @@ constexpr char NbdConnection::fourKayZeros[];
 void
 NbdConnection::hsPreInit(ev::io &watcher) {
     // Send initial message to client with NBD magic and proto version
-    ssize_t nwritten = write(watcher.fd, NBD_MAGIC_PWD, sizeof(NBD_MAGIC_PWD));
-    if (nwritten < 0) {
-        LOGERROR << "Socket write error";
-        return;
-    }
-    nwritten = write(watcher.fd, &NBD_MAGIC, sizeof(NBD_MAGIC));
-    if (nwritten < 0) {
-        LOGERROR << "Socket write error";
-        return;
-    }
-    nwritten = write(watcher.fd, &NBD_PROTO_VERSION, sizeof(NBD_PROTO_VERSION));
+    static iovec const vectors[] = {
+        { const_cast<void*>(reinterpret_cast<void const*>(NBD_MAGIC_PWD)),
+            sizeof(NBD_MAGIC_PWD) },
+        { const_cast<void*>(reinterpret_cast<void const*>(&NBD_MAGIC)),
+            sizeof(NBD_MAGIC) },
+        { const_cast<void*>(reinterpret_cast<void const*>(&NBD_PROTO_VERSION)),
+            sizeof(NBD_PROTO_VERSION) },
+    };
+
+    ssize_t nwritten = writev(watcher.fd, vectors, sizeof(vectors) / sizeof(iovec));
     if (nwritten < 0) {
         LOGERROR << "Socket write error";
         return;
@@ -217,18 +221,17 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
 
 void
 NbdConnection::hsSendOpts(ev::io &watcher) {
-    ssize_t nwritten = write(watcher.fd, &volumeSizeInBytes, sizeof(volumeSizeInBytes));
-    if (nwritten < 0) {
-        LOGERROR << "Socket write error";
-        return;
-    }
-    fds_int16_t optFlags = NBD_FLAG_HAS_FLAGS | NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_FUA;
-    nwritten = write(watcher.fd, &optFlags, sizeof(optFlags));
-    if (nwritten < 0) {
-        LOGERROR << "Socket write error";
-        return;
-    }
-    nwritten = write(watcher.fd, NBD_PAD_ZERO, sizeof(NBD_PAD_ZERO));
+    static fds_int16_t const optFlags = NBD_FLAG_HAS_FLAGS|NBD_FLAG_SEND_FLUSH|NBD_FLAG_SEND_FUA;
+    static iovec const vectors[] = {
+        { const_cast<void*>(reinterpret_cast<void const*>(&volumeSizeInBytes)),
+            sizeof(volumeSizeInBytes) },
+        { const_cast<void*>(reinterpret_cast<void const*>(&optFlags)),
+            sizeof(NBD_MAGIC) },
+        { const_cast<void*>(reinterpret_cast<void const*>(&NBD_PROTO_VERSION)),
+            sizeof(NBD_PROTO_VERSION) },
+    };
+
+    ssize_t nwritten = writev(watcher.fd, vectors, sizeof(vectors) / sizeof(iovec));
     if (nwritten < 0) {
         LOGERROR << "Socket write error";
         return;
@@ -295,53 +298,37 @@ NbdConnection::hsReq(ev::io &watcher) {
 
 void
 NbdConnection::hsReply(ev::io &watcher) {
-    fds_int32_t magic = htonl(NBD_RESPONSE_MAGIC);
+    static fds_int32_t magic = htonl(NBD_RESPONSE_MAGIC);
     fds_int32_t error = htonl(0);
 
     // Iterate and send each ready response
     while (!readyHandles.empty()) {
-        // Write the response magic
-        ssize_t nwritten = write(watcher.fd, &magic, sizeof(magic));
-        if (nwritten < 0) {
-            LOGERROR << "Socket write error";
-            return;
-        }
-        LOGTRACE << "Wrote " << nwritten << " bytes, magic 0x" << std::hex << magic << std::dec;
-
-        nwritten = write(watcher.fd, &error, sizeof(error));
-        if (nwritten < 0) {
-            LOGERROR << "Socket write error";
-            return;
-        }
-        LOGTRACE << "Wrote " << nwritten << " bytes, error " << error;
-
         UturnPair rep;
         fds_verify(readyHandles.pop(rep));
 
-        fds_int64_t handle, hostorder_handle;
-        handle = rep.handle;
-        hostorder_handle = handle;
-        handle = __builtin_bswap64(handle);
-        nwritten = write(watcher.fd, &handle, sizeof(handle));
-        if (nwritten < 0) {
-            LOGERROR << "Socket write error";
-            return;
-        }
-        LOGTRACE << "Wrote " << nwritten << " bytes, handle 0x"
-                 << std::hex << hostorder_handle << std::dec;
+        fds_int64_t handle = __builtin_bswap64(rep.handle);
 
         fds_uint32_t length = rep.length;
         fds_verify((length % 4096) == 0);
         fds_uint32_t chunks = length / 4096;
 
-        for (fds_uint32_t i = 0; i < chunks; ++i) {
-            nwritten = write(watcher.fd, fourKayZeros, sizeof(fourKayZeros));
-            if (nwritten < 0) {
-                LOGERROR << "Socket write error";
-                return;
-            }
-            LOGTRACE << "Wrote " << nwritten << " bytes of zeros";
+        // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
+        iovec vectors[kMaxChunks + 3];
+        vectors[0] = { reinterpret_cast<void*>(&magic), sizeof(magic) };
+        vectors[1] = { const_cast<void*>(reinterpret_cast<void const*>(&error)), sizeof(error) };
+        vectors[2] = { reinterpret_cast<void*>(&handle), sizeof(handle) };
+
+        for (size_t i = 0; i < chunks; ++i) {
+            vectors[3+i].iov_base = const_cast<void*>(reinterpret_cast<void const*>(fourKayZeros));
+            vectors[3+i].iov_len = sizeof(fourKayZeros);
         }
+
+        ssize_t nwritten = writev(watcher.fd, vectors, sizeof(vectors) / sizeof(iovec));
+        if (nwritten < 0) {
+            LOGERROR << "Socket write error";
+            return;
+        }
+        LOGTRACE << "Wrote " << nwritten << " bytes of zeros";
     }
     LOGTRACE << "No more handles to respond to";
 }

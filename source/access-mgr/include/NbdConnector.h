@@ -80,6 +80,7 @@ class NbdConnection : public NbdOperationsResponseIface {
     static constexpr fds_uint64_t volumeSizeInBytes = 10737418240;
     static constexpr fds_uint32_t maxObjectSizeInBytes = 4096;
     static constexpr char fourKayZeros[4096]{0};  // NOLINT
+    static constexpr size_t kMaxChunks = (2 * 1024 * 1024) / maxObjectSizeInBytes;
 
     std::unique_ptr<ev::io> ioWatcher;
 
