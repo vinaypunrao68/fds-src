@@ -11,6 +11,10 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
             $scope.upPressed = false;
             $scope.downPressed = false;
             $scope.autoPress = {};
+            
+            if ( !angular.isDefined( $scope.step ) ){
+                $scope.step = 1;
+            }
 
             var cancelAutoPress = function(){
                 if ( angular.isDefined( $scope.autoPress ) ){
@@ -148,7 +152,10 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
                 }
             };
             
-            $scope.$watch( 'value', $scope.sendEvent );
+            $scope.$watch( 'value', function(){
+                $scope.fixValue();
+                $scope.sendEvent();
+            });
             $scope.$watch( 'min', function(){
                 correctMaxLength();
                 $scope.fixValue();
