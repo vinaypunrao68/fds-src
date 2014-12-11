@@ -2,24 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-/*
-#include <vector>
-#include <string>
-#include <stdlib.h>
-#include <dlt.h>
-#include <fds-shmobj.h>
-#include <fdsp/PlatNetSvc.h>
-#include <apis/ConfigurationService.h>
-#include <net/net-service-tmpl.hpp>
-#include <net/SvcRequestPool.h>
-#include <platform/platform-lib.h>
-#include <platform/node-inv-shmem.h>
-#include <platform/service-ep-lib.h>
-#include <platform/plat-serialize.h>
-#include <platform/node-workflow.h>
-#include <NetSession.h>
-*/
-
 #include <net/net-service-tmpl.hpp>
 #include "platform/service-ep-lib.h"
 #include "platform/node-inventory.h"

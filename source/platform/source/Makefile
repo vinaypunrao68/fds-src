@@ -30,7 +30,7 @@ fds_plat_lib_cpp :=                              \
                     platform-rpc.cpp             \
                     platform-libmod.cpp          \
                     disk_inventory.cpp           \
-                    node-inventory.cpp           \
+                    node_inventory.cpp           \
                     domain_container.cpp         \
                     agent_container.cpp          \
                     node-inv-shmem.cpp           \
