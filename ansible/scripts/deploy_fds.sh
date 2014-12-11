@@ -128,6 +128,10 @@ check_sudo() {
 }
 
 run_deploy_playbook() {
+    for hostname in $(ansible all --list-hosts -i inventory/bld-nightly-nodes) ; 
+        do ssh-keygen -R ${hostname}
+    done
+
     ansible-playbook ${ansible_args} --skip-tags check_sudo
 }
 
