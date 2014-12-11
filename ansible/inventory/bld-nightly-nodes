@@ -1,0 +1,17 @@
+[bld-nightly-nodes]
+10.2.10.79 fds_node=node01
+10.2.10.80 fds_node=node02
+10.2.10.81 fds_node=node03
+10.2.10.82 fds_node=node04
+
+[bld-nightly-nodes:vars]
+cluster_location=bld
+deploy_artifact=nightly
+fds_default_nic=eth0
+fds_om_host=10.2.10.79
+fds_metrics_enables=false
+fds_metricsdb_ip=127.0.0.1
+fds_ssh_user=root
+fds_ssh_password=passwd
+ansible_ssh_user=root
+ansible_ssh_pass=passwd

@@ -26,8 +26,8 @@ namespace fds {
     fds_uint32_t max_rate_based_credits;
 
     FDS_VolumeQueue *queue;
-    std::atomic<unsigned int> num_pending_ios;
-    std::atomic<unsigned int> num_outstanding_ios;
+    alignas(64) std::atomic<unsigned int> num_pending_ios;
+    alignas(64) std::atomic<unsigned int> num_outstanding_ios;
 
     WFQQueueDesc(fds_qid_t q_id,
 		 FDS_VolumeQueue *que,

@@ -252,7 +252,7 @@ if __name__ == "__main__":
                 experiments = db["experiments"].find(tag=t)
                 experiments = [ x for x in experiments]
                 experiments = filter(lambda x : x["type"] == "GET", experiments)
-                experiments = sorted(experiments, key = lambda k : int(k["outstanding"]))
+                experiments = sorted(experiments, key = lambda k : int(k["outstanding"]) * int(k["threads"]))
                 #iops = [x["th"] for x in experiments]    
                 iops_get = [x["am:am_get_obj_req:count"] for x in experiments]    
                 iops_put = [x["am:am_put_obj_req:count"] for x in experiments]
@@ -268,7 +268,7 @@ if __name__ == "__main__":
                 iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
                 lat = [x["lat"] for x in experiments]    
                 #print [x["nreqs"] for x in experiments]    
-                conns = [x["outstanding"] for x in experiments]    
+                conns = [int(x["outstanding"]) * int(x["threads"]) for x in experiments]    
 
                 #max_iops = max(iops)
                 iops_50 = iops[-1]
