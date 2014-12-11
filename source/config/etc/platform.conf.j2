@@ -204,6 +204,9 @@ fds: {
             /* this is temporary until we fix platform, we don't want simulated SSDs */
             useSsdForMeta = false
 
+           /* Use sync metadata write if true */
+            syncMetaWrite = {{ sm_sync_meta_write }}
+
             /* General testing mode...should depricate */
             test_mode = false
 
@@ -312,6 +315,8 @@ fds: {
             uturn_processor_all = false
             /* Forces all AM dispatcher APIs to immediately return success */
             uturn_dispatcher_all = false
+            /* dipatchers timeout in us */
+            uturn_dispatcher_timeout = 200 
             /* Test mode to bypass local catalog cache */
             disable_vcc = true
             /* Forces all AM service APIs to immediately return success */

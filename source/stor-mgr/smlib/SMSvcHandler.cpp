@@ -14,7 +14,7 @@
 #include <random>
 #include <chrono>
 #include <MockSMCallbacks.h>
-#include <MockSvcHandler.h>
+#include <net/MockSvcHandler.h>
 #include <fds_timestamp.h>
 #include <OMgrClient.h>
 

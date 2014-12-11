@@ -1,0 +1,7 @@
+---
+-   name: run `sudo -n true`
+    raw: sudo -n true
+    register: sudo_result
+    failed_when: "'a password is required' in sudo_result.stderr or 'a password is required' in sudo_result.stdout"
+
+#-   debug: var=sudo_result

@@ -41,9 +41,10 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
                 voldesc->getPriority()));
     }
 
+    fds_bool_t syncW = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.syncMetaWrite");
     try
     {
-        volumeIndexDB  = new osm::ObjectDB(filename);
+        volumeIndexDB  = new osm::ObjectDB(filename, syncW);
     }
     catch(const osm::OsmException& e)
     {

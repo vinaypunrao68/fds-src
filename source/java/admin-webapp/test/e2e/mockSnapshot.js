@@ -86,6 +86,39 @@ mockSnapshot = function(){
         };
 
         service.editSnapshotPolicy = function( policy, callback, failure ){
+            console.log( 'saving policy: ' + policy.id );
+            for( i = 0; i < policies.length; i++ ){
+                if ( policy.id === policies[i].id ){
+                    policies[i] = policy;
+                    break;
+                }
+            }
+            
+            callback();
+        };
+        
+        service.saveSnapshotPolicies = function( volumeId, policies, callback, failure ){
+            
+            // creating / editing the new selections
+            for ( var i = 0; i < policies.length; i++ ){
+
+                var sPolicy = policies[i];
+
+                // currently there is a field called timelineTime that we don't use but it must be present
+                sPolicy.timelineTime = 0;
+
+                // if it has an ID then it's already exists
+                if ( angular.isDefined( sPolicy.id ) ){
+
+                    service.editSnapshotPolicy( sPolicy, function(){} );
+                }
+                else {
+
+                    service.createSnapshotPolicy( sPolicy, function( policy ){
+                        service.attachPolicyToVolume( policy, volumeId, function(){} );
+                    });
+                }
+            }
             callback();
         };
 

@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope', function( $scope ){
+angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope', '$filter', function( $scope, $filter ){
     
     /**
     volumeVars : {
@@ -15,5 +15,7 @@ angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope',
     **/
     
     $scope.volumeVars = {};
+    
+    
     
 }]);

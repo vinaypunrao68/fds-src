@@ -1,0 +1,28 @@
+$buttonbar_border_radius: 2px;
+
+.button-bar {
+    
+
+    @include display-flex();
+
+    .button {
+    
+        &:hover {
+            background-color: $button_primary_hover;
+        }
+
+        &.left-end {
+            border-top-left-radius: $buttonbar_border_radius;
+            border-bottom-left-radius: $buttonbar_border_radius;
+        }
+
+        &.right-end {
+            border-top-right-radius: $buttonbar_border_radius;
+            border-bottom-right-radius: $buttonbar_border_radius;
+        }
+
+        &.selected {
+            background-color: $button_primary;
+        }
+    }
+}
