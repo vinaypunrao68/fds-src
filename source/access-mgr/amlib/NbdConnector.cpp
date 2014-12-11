@@ -323,7 +323,7 @@ NbdConnection::hsReply(ev::io &watcher) {
             vectors[3+i].iov_len = sizeof(fourKayZeros);
         }
 
-        ssize_t nwritten = writev(watcher.fd, vectors, sizeof(vectors) / sizeof(iovec));
+        ssize_t nwritten = writev(watcher.fd, vectors, chunks + 3);
         if (nwritten < 0) {
             LOGERROR << "Socket write error";
             return;
