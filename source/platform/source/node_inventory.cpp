@@ -2,27 +2,30 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include <vector>
 #include <string>
+
+/*
+#include <vector>
 #include <stdlib.h>
 #include <dlt.h>
 #include <fds-shmobj.h>
 #include <fdsp/PlatNetSvc.h>
 #include <apis/ConfigurationService.h>
-#include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
 #include <platform/platform-lib.h>
-#include <platform/node-inv-shmem.h>
 #include <platform/service-ep-lib.h>
-#include <platform/plat-serialize.h>
 #include <platform/node-workflow.h>
+*/
+
+#include <platform/plat-serialize.h>
+#include <platform/node-inv-shmem.h>
+#include "platform/node-inventory.h"
+#include "platform/platform-lib.h"
+#include <net/net-service-tmpl.hpp>
 #include <NetSession.h>
 
 namespace fds
 {
-    const NodeUuid    gl_OmPmUuid(0xcac0);
-    const NodeUuid    gl_OmUuid(0xcac0 | fpi::FDSP_ORCH_MGR);
-
     std::ostream& operator<< (std::ostream &os, const NodeServices& node)
     {
         os << "["
@@ -528,4 +531,8 @@ namespace fds
         pkt->control_port  = plat->plf_get_my_ctrl_port();
         pkt->node_root     = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
     }
+
+    const NodeUuid    gl_OmPmUuid(0xcac0);
+    const NodeUuid    gl_OmUuid(0xcac0 | fpi::FDSP_ORCH_MGR);
+
 }  // namespace fds

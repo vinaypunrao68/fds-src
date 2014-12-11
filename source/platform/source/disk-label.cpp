@@ -7,9 +7,6 @@
 #include <platform/platform-lib.h>
 #include <fds-magic.h>
 
-/*
-*/
-
 #include "disk_label.h"
 #include "disk_label_op.h"
 #include "disk_label_mgr.h"
