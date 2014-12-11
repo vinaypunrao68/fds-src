@@ -179,12 +179,13 @@ DataPlacement::beginRebalance() {
          ++nit) {
         NodeUuid  uuid = *nit;
 
+        auto svc_uuid = uuid.toSvcUuid();
         auto om_req =  gSvcRequestPool->newEPSvcRequest(uuid.toSvcUuid());
 
         om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlStartMigration), msg);
-        // om_req->onResponseCb(std::bind(&OM_NodeAgent::om_start_migration_resp, this, msg,
-        //        std::placeholders::_1, std::placeholders::_2,
-        //        std::placeholders::_3));
+        om_req->onResponseCb(std::bind(&DataPlacement::startMigrationResp, this, uuid,
+                std::placeholders::_1, std::placeholders::_2,
+                std::placeholders::_3));
         om_req->invoke();
 
 
@@ -198,6 +199,36 @@ DataPlacement::beginRebalance() {
             << "Sent DLT migration event to " << rebalanceNodes.size() << " nodes";
     newDlt->dump();
     return err;
+}
+
+/**
+* Response handler for startMigration message.
+*/
+void DataPlacement::startMigrationResp(NodeUuid uuid,
+        EPSvcRequest* svcReq,
+        const Error& error,
+        boost::shared_ptr<std::string> payload) {
+    LOGDEBUG << "Received cb response for startMigration";
+    try {
+        LOGNOTIFY << "Received migration done notification from node "
+                    << std::hex << uuid << std::dec;
+
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        LOGDEBUG << "Domain set";
+        // TODO(Anna) Should we use node names or node uuids directly in
+        // fdsp messages? for now getting uuid from hashing the name
+        fpi::CtrlNotifyMigrationStatusPtr status =
+                net::ep_deserialize<fpi::CtrlNotifyMigrationStatus>(
+                const_cast<Error&>(error), payload);
+        LOGDEBUG << "Deserialize complete";
+        Error err = domain->om_recv_migration_done(uuid, status->status.DLT_version);
+    }
+    catch(...) {
+        LOGERROR << "Orch Mgr encountered exception while "
+                    << "processing migration done request";
+    }
+
+    LOGDEBUG << "Sent om_recv_migration_done msg";
 }
 
 /**

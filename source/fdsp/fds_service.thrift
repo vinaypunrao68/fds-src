@@ -90,6 +90,7 @@ enum  FDSPMsgTypeId {
 	CtrlSetScrubberStatusTypeId		   = 2052,
 	CtrlSetScrubberStatusRespTypeId	   = 2053,
 	CtrlNotifyMigrationFinishedTypeId  = 2054,
+	CtrlNotifyMigrationStatusTypeId	   = 2055,
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,

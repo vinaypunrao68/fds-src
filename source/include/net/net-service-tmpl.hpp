@@ -507,15 +507,19 @@ ep_deserialize(Error &e, boost::shared_ptr<std::string> payload)
 {
     DBG(GLOGDEBUG);
 
+    LOGDEBUG << "Hit this";
     if (e != ERR_OK) {
+        LOGDEBUG << "SUCCESS 1";
         return nullptr;
     }
     try {
+        LOGDEBUG << "IN TRY";
         bo::shared_ptr<tt::TMemoryBuffer> memory_buf(
                 new tt::TMemoryBuffer(reinterpret_cast<uint8_t*>(
                         const_cast<char*>(payload->c_str())), payload->size()));
         bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memory_buf));
 
+        LOGDEBUG << "22222";
         boost::shared_ptr<PayloadT> result(boost::make_shared<PayloadT>());
         auto read = result->read(binary_buf.get());
         fds_verify(read > 0);

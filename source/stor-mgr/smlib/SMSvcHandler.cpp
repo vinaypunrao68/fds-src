@@ -16,6 +16,7 @@
 #include <MockSMCallbacks.h>
 #include <MockSvcHandler.h>
 #include <fds_timestamp.h>
+#include <OMgrClient.h>
 
 namespace fds {
 
@@ -70,7 +71,18 @@ void SMSvcHandler::StartMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     LOGDEBUG << "Start migration handler called";
     objStorMgr->tok_migrated_for_dlt_ = false;
     LOGNORMAL << "Token copy complete";
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+
+    // TODO(brian): Do we need a write lock here?
+    DLTManagerPtr dlt_mgr = objStorMgr->omClient->getDltManager();
+    dlt_mgr->addSerializedDLT(startMigration->dlt_data.dlt_data,
+            startMigration->dlt_data.dlt_type);
+
+    LOGDEBUG << "Added serialized dlt to dlt mgr; sending async response";
+    fpi::CtrlNotifyMigrationStatusPtr msg(new fpi::CtrlNotifyMigrationStatus());
+    msg->status.DLT_version = objStorMgr->omClient->getDltVersion();
+    msg->status.context = 0;
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyMigrationStatus), *msg);
+    LOGDEBUG << "Async response sent";
 }
 
 void SMSvcHandler::queryScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
