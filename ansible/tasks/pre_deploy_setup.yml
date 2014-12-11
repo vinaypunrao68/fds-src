@@ -1,12 +1,4 @@
 ---
--   name: get some python on it
-    raw: apt-get -y install python
-    register: python_install_results
-    changed_when: "'python is already the newest version' not in python_install_results.stdout"
-    tags:
-        - setup
-        - pythoninstall
-
 -   name: set the root password
     action: user name=root
         password=$1$M7e8qbJh$0nDQnqfGh5Ce80bbYKp5U/
