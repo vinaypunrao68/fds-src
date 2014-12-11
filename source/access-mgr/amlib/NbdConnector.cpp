@@ -320,12 +320,13 @@ NbdConnection::hsReply(ev::io &watcher) {
         if (NBD_CMD_READ == opType) {
             // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
             iovec vectors[kMaxChunks + 3];
-            vectors[0] = { reinterpret_cast<void*>(&magic), sizeof(magic) };
-            vectors[1] = { const_cast<void*>(reinterpret_cast<void const*>(&error)), sizeof(error) };
-            vectors[2] = { reinterpret_cast<void*>(&handle), sizeof(handle) };
+            vectors[0] = {reinterpret_cast<void*>(&magic), sizeof(magic)};
+            vectors[1] = {const_cast<void*>(reinterpret_cast<void const*>(&error)), sizeof(error)};
+            vectors[2] = {reinterpret_cast<void*>(&handle), sizeof(handle)};
 
             for (size_t i = 0; i < chunks; ++i) {
-                vectors[3+i].iov_base = const_cast<void*>(reinterpret_cast<void const*>(fourKayZeros));
+                vectors[3+i].iov_base = const_cast<void*>(
+                    reinterpret_cast<void const*>(fourKayZeros));
                 vectors[3+i].iov_len = sizeof(fourKayZeros);
             }
 
