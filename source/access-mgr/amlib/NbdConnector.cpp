@@ -8,7 +8,6 @@
 #include <fcntl.h>
 #include <ev++.h>
 #include <arpa/inet.h>
-#include <AccessMgr.h>
 
 namespace fds {
 
