@@ -29,19 +29,35 @@ fds_plat_lib_cpp :=                              \
                     platform-lib.cpp             \
                     platform-rpc.cpp             \
                     platform-libmod.cpp          \
-                    disk_inventory.cpp         \
+                    disk_inventory.cpp           \
                     node-inventory.cpp           \
+                    domain_container.cpp         \
+                    agent_container.cpp          \
                     node-inv-shmem.cpp           \
-                    service-ep-lib.cpp           \
+                    pm_svc_ep.cpp                \
+                    sm_svc_ep.cpp                \
+                    am_svc_ep.cpp                \
+                    dm_svc_ep.cpp                \
+                    om_svc_ep.cpp                \
+                    om_agent.cpp                 \
+                    am_agent.cpp                 \
+                    sm_agent.cpp                 \
+                    dm_agent.cpp                 \
+                    pm_agent.cpp                 \
+                    node_agent.cpp               \
+                    node_services.cpp            \
+                    node_agent_evt.cpp           \
                     BaseAsyncSvcHandler.cpp      \
                     PlatNetSvcHandler.cpp        \
                     node-workflow.cpp            \
                     fds-2phase.cpp               \
                     fds_flags.cpp
 
+# # service-ep-lib.cpp           \
+
 user_cpp :=                        \
             $(platform_cpp)        \
-            $(platform_core)        \
+            $(platform_core)       \
             $(fds_plat_lib_cpp)
 
 user_ar_libs :=                  \
