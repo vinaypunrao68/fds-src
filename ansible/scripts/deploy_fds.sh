@@ -1,5 +1,4 @@
-#! /bin/bash
-
+#! /bin/bash 
 usage() {
     echo "Usage:"
     echo "$0 target-cluster local|nightly|alpha"
@@ -90,7 +89,7 @@ check_inventory() {
 
 check_auth() {
     # Test auth to target hosts
-    ansible -i ${inventory} ${hosts} -m ping > /dev/null 2>&1
+    ansible-playbook ${ansible_args} --tags check_sudo > /dev/null 2>&1
 
     if [ $? -eq 3 ]; then
         W "Problem connecting with inventory-defined credentials. Please provide credentials I can use to get your nodes deployment-ready:"
@@ -101,6 +100,8 @@ check_auth() {
         echo
 
         ansible_args="${ansible_args} -e "ansible_ssh_user=${ssh_username}" -e "ansible_ssh_pass=${ssh_password}""
+    else
+        D "Inventory credentials are good, continuing"
     fi
 
     D "ansible_args         ${ansible_args}"
@@ -119,12 +120,18 @@ check_sudo() {
         echo
 
         ansible_args="${ansible_args} -e "ansible_sudo_pass=${sudo_password}""
+    else
+        D "passwordless sudo is setup, continuing"
     fi
 
     D "ansible_args         ${ansible_args}"
 }
 
 run_deploy_playbook() {
+    for hostname in $(ansible all --list-hosts -i inventory/bld-nightly-nodes) ; 
+        do ssh-keygen -R ${hostname}
+    done
+
     ansible-playbook ${ansible_args} --skip-tags check_sudo
 }
 

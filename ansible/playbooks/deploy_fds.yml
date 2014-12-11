@@ -264,6 +264,16 @@
         apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/third-party-deps/ fds main"
             state=present
             update_cache=yes
+        when: cluster_location is defined
+        tags:
+          - deploy
+          - repo
+
+    -   name: add LOCAL mirror for third party packages
+        apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main"
+            state=present
+            update_cache=yes
+        when: cluster_location is not defined
         tags:
           - deploy
           - repo
