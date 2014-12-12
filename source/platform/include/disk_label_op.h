@@ -5,6 +5,7 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_DISK_LABEL_OP_H_
 #define SOURCE_PLATFORM_INCLUDE_DISK_LABEL_OP_H_
 
+#include "disk_label_mgr.h"
 #include "disk_obj_iter.h"
 
 namespace fds
