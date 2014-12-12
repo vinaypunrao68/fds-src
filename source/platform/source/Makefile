@@ -13,7 +13,9 @@ platform_core_src :=                                     \
                      plat_work_flow.cpp                  \
                      plat_work_item.cpp                  \
                      disk-capacity.cpp                   \
-                     disk-label.cpp                      \
+                     disk_label.cpp                      \
+                     disk_label_mgr.cpp                  \
+                     disk_label_op.cpp                   \
                      disk_object.cpp                     \
                      disk_obj_iter.cpp                   \
                      disk-partition.cpp                  \
