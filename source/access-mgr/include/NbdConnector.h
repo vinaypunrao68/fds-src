@@ -19,6 +19,7 @@
 // the libevent headers in Thrift.
 namespace ev {
 class io;
+class async;
 }  // namespace ev
 
 namespace fds {
@@ -89,7 +90,9 @@ class NbdConnection : public NbdOperationsResponseIface {
     static constexpr size_t kMaxChunks = (2 * 1024 * 1024) / maxObjectSizeInBytes;
 
     std::unique_ptr<ev::io> ioWatcher;
+    std::unique_ptr<ev::async> asyncWatcher;
 
+    void wakeupCb(ev::async &watcher, int revents);
     void callback(ev::io &watcher, int revents);
 
     enum NbdHandshakeState {

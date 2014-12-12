@@ -121,6 +121,10 @@ NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
     ioWatcher->set<NbdConnection, &NbdConnection::callback>(this);
     ioWatcher->start(clientSocket, ev::READ | ev::WRITE);
 
+    asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
+    asyncWatcher->set<NbdConnection, &NbdConnection::wakeupCb>(this);
+    asyncWatcher->start();
+
     LOGNORMAL << "New NBD client connection for " << clientSocket;
 }
 
@@ -382,12 +386,13 @@ NbdConnection::dispatchOp(ev::io &watcher,
                 utPair.length = length;
                 utPair.opType = opType;
                 readyHandles.push(utPair);
+
+                // We have something to write, so ask for events
+                ioWatcher->set(ev::READ | ev::WRITE);
             } else {
                 // do read from AM
                 nbdOps->read(volumeName, length, offset, handle);
             }
-                            // We have something to write, so ask for events
-            ioWatcher->set(ev::READ | ev::WRITE);
             break;
         case NBD_CMD_WRITE:
             // TODO(Andrew): Hackey uturn code. Remove.
@@ -411,6 +416,12 @@ NbdConnection::dispatchOp(ev::io &watcher,
             fds_panic("Unknown NBD op %d", opType);
     }
     return ERR_OK;
+}
+
+void
+NbdConnection::wakeupCb(ev::async &watcher, int revents) {
+    ioWatcher->set(ev::READ | ev::WRITE);
+    ioWatcher->feed_event(EV_WRITE);
 }
 
 void
@@ -474,9 +485,8 @@ NbdConnection::readResp(const Error& error,
     // add to quueue
     readyResponses.push(response);
 
-    // We have something to write, so ask for events
-    ioWatcher->set(ev::READ | ev::WRITE);
-    // ioWatcher->feed_event(EV_WRITE);
+    // We have something to write, so poke the loop
+    asyncWatcher->send();
 }
 
 }  // namespace fds
