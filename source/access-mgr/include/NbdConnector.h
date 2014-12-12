@@ -54,6 +54,7 @@ class NbdConnection : public NbdOperationsResponseIface {
     OmConfigApi::shared_ptr omConfigApi;
     NbdOperations::shared_ptr nbdOps;
     size_t maxChunks;
+    fds_bool_t toggleStandAlone;
     fds_bool_t doUturn;
 
     // Uturn stuff. Remove me.
