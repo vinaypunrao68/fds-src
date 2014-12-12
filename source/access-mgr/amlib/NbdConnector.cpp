@@ -5,6 +5,7 @@
 #include <string>
 #include <type_traits>
 #include <NbdConnector.h>
+#include <fds_process.h>
 
 extern "C" {
 #include <fcntl.h>
@@ -116,6 +117,8 @@ NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
           readyHandles(2000),
           readyResponses(4000) {
     fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
+    FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
+    toggleStandAlone = config.get_abs<bool>("fds.am.testing.toggleStandAlone");
 
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
     ioWatcher->set<NbdConnection, &NbdConnection::callback>(this);
@@ -218,9 +221,14 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
 
     exportName[length] = '\0';  // In case volume name is not NULL terminated.
     volumeName = boost::make_shared<std::string>(&exportName[0]);
-    Error err = omConfigApi->statVolume(volumeName, volDesc);
-    fds_verify(ERR_OK == err);
-    fds_verify(apis::BLOCK == volDesc.policy.volumeType);
+
+    if (toggleStandAlone) {
+        volDesc.policy.blockDeviceSizeInBytes = 10737418240;
+    } else {
+        Error err = omConfigApi->statVolume(volumeName, volDesc);
+        fds_verify(ERR_OK == err);
+        fds_verify(apis::BLOCK == volDesc.policy.volumeType);
+    }
     LOGNORMAL << "Attaching volume name " << *volumeName << " of size "
               << volDesc.policy.blockDeviceSizeInBytes;
 }

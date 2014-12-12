@@ -53,6 +53,7 @@ class NbdConnection : public NbdOperationsResponseIface {
     AmAsyncDataApi::shared_ptr asyncDataApi;
     OmConfigApi::shared_ptr omConfigApi;
     NbdOperations::shared_ptr nbdOps;
+    fds_bool_t toggleStandAlone;
     fds_bool_t doUturn;
 
     // Uturn stuff. Remove me.
