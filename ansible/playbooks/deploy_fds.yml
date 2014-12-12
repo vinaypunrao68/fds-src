@@ -461,7 +461,7 @@
           - startup
 
     -   name: check process status
-        command: ./fdsadmin -f deploy_formation.conf --process-status
+        command: ./fdsadmin -f deploy_formation.conf --monitor --quiet
             chdir=/fds/sbin
         register: fdsadmin_output
         when: fds_om_host is defined and fds_om_host == inventory_hostname
