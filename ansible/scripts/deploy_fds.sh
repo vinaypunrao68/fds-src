@@ -68,7 +68,7 @@ check_environment() {
 check_inventory() {
     # Check that the inventory specified actually exists
 
-    if [[ ! ${inventory} =~ .*/.* ]]; then
+    if [[ ! ${inventory} =~ / ]]; then
         inventory=${ansible_base_dir}/inventory/${inventory}
     fi    
 
