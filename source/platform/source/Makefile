@@ -12,13 +12,15 @@ platform_core_src :=                                     \
                      node_shared_memory_rw_ctrl.cpp      \
                      plat_work_flow.cpp                  \
                      plat_work_item.cpp                  \
-                     disk-capacity.cpp                   \
+                     disk_capacity.cpp                   \
                      disk_label.cpp                      \
                      disk_label_mgr.cpp                  \
                      disk_label_op.cpp                   \
                      disk_object.cpp                     \
                      disk_obj_iter.cpp                   \
-                     disk-partition.cpp                  \
+                     disk_partition.cpp                  \
+                     disk_op.cpp                         \
+                     disk_part_mgr.cpp                   \
                      disk_plat_module.cpp                \
                      pm_disk_inventory.cpp               \
                      disk_common.cpp                     \
@@ -26,7 +28,7 @@ platform_core_src :=                                     \
                      pm_disk_obj.cpp                     \
                      file_disk_inventory.cpp             \
                      ep-map.cpp                          \
-                     net-service.cpp                     \
+                     net_service.cpp                     \
                      platform_net_svc.cpp                \
                      net-platform.cpp                    \
                      net-registration.cpp

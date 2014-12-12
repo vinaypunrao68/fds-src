@@ -6,6 +6,7 @@
 #define SOURCE_PLATFORM_INCLUDE_DISK_OP_H_
 
 #include "disk_obj_iter.h"
+#include "disk_part_mgr.h"
 
 namespace fds
 {
