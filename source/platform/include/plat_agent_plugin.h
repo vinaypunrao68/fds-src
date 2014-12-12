@@ -7,6 +7,8 @@
 
 #include <platform/service-ep-lib.h>
 
+#include "platform/node-inventory.h"
+
 namespace fds
 {
     class PlatAgentPlugin : public NodeAgentEvt

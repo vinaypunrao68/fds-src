@@ -30,7 +30,10 @@ platform_core_src :=                                     \
                      ep-map.cpp                          \
                      net_service.cpp                     \
                      platform_net_svc.cpp                \
-                     net-platform.cpp                    \
+                     ep_platformd_mod.cpp                \
+                     platformd_plugin.cpp                \
+                     plat_agent_plugin.cpp               \
+                     plat_agent.cpp                      \
                      net-registration.cpp
 
 

@@ -5,6 +5,8 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLATFORM_PLUGIN_H_
 #define SOURCE_PLATFORM_INCLUDE_PLATFORM_PLUGIN_H_
 
+#include "net/net-service.h"
+
 namespace fds
 {
     class PlatformdNetSvc;
