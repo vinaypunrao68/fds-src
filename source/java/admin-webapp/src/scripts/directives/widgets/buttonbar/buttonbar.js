@@ -10,7 +10,7 @@ angular.module( 'form-directives' ).directive( 'buttonBar', function(){
         controller: function( $scope ){
             
             $scope.selectButton = function( button ){
-                selected = button;
+                $scope.selected = button;
             };
         }
     };
