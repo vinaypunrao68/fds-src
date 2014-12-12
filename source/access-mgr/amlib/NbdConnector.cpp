@@ -314,29 +314,31 @@ NbdConnection::hsReply(ev::io &watcher) {
 
         fds_uint32_t length = rep.length;
         fds_int32_t opType = rep.opType;
-        fds_verify((length % 4096) == 0);
-        fds_uint32_t chunks = length / 4096;
-
+        fds_uint32_t chunks = 0;
         if (NBD_CMD_READ == opType) {
-            // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
-            iovec vectors[kMaxChunks + 3];
-            vectors[0] = {reinterpret_cast<void*>(&magic), sizeof(magic)};
-            vectors[1] = {const_cast<void*>(reinterpret_cast<void const*>(&error)), sizeof(error)};
-            vectors[2] = {reinterpret_cast<void*>(&handle), sizeof(handle)};
-
-            for (size_t i = 0; i < chunks; ++i) {
-                vectors[3+i].iov_base = const_cast<void*>(
-                    reinterpret_cast<void const*>(fourKayZeros));
-                vectors[3+i].iov_len = sizeof(fourKayZeros);
-            }
-
-            ssize_t nwritten = writev(watcher.fd, vectors, chunks + 3);
-            if (nwritten < 0) {
-                LOGERROR << "Socket write error";
-                return;
-            }
-            LOGTRACE << "Wrote " << nwritten << " bytes of zeros";
+            // TODO(Andrew): Remove this verify and handle sub-4K
+            fds_verify((length % 4096) == 0);
+            chunks = length / 4096;
         }
+
+        // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
+        iovec vectors[kMaxChunks + 3];
+        vectors[0] = {reinterpret_cast<void*>(&magic), sizeof(magic)};
+        vectors[1] = {const_cast<void*>(reinterpret_cast<void const*>(&error)), sizeof(error)};
+        vectors[2] = {reinterpret_cast<void*>(&handle), sizeof(handle)};
+
+        for (size_t i = 0; i < chunks; ++i) {
+            vectors[3+i].iov_base = const_cast<void*>(
+                reinterpret_cast<void const*>(fourKayZeros));
+            vectors[3+i].iov_len = sizeof(fourKayZeros);
+        }
+
+        ssize_t nwritten = writev(watcher.fd, vectors, chunks + 3);
+        if (nwritten < 0) {
+            LOGERROR << "Socket write error";
+            return;
+        }
+        LOGTRACE << "Wrote " << nwritten << " bytes of zeros";
     }
     LOGTRACE << "No more handles to respond to";
 }
