@@ -113,6 +113,7 @@ NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
           clientSocket(clientsd),
           hsState(PREINIT),
           doUturn(false),
+          maxChunks(0),
           readyHandles(2000),
           readyResponses(4000) {
     fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
@@ -151,7 +152,6 @@ constexpr fds_int32_t NbdConnection::NBD_CMD_DISC;
 constexpr fds_int32_t NbdConnection::NBD_CMD_FLUSH;
 constexpr fds_int32_t NbdConnection::NBD_CMD_TRIM;
 
-constexpr fds_uint32_t NbdConnection::maxObjectSizeInBytes;
 constexpr char NbdConnection::fourKayZeros[];
 
 void
@@ -221,8 +221,11 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
     Error err = omConfigApi->statVolume(volumeName, volDesc);
     fds_verify(ERR_OK == err);
     fds_verify(apis::BLOCK == volDesc.policy.volumeType);
+    maxChunks = (2 * 1024 * 1024) / volDesc.policy.maxObjectSizeInBytes;
     LOGNORMAL << "Attaching volume name " << *volumeName << " of size "
-              << volDesc.policy.blockDeviceSizeInBytes;
+              << volDesc.policy.blockDeviceSizeInBytes
+              << " max object size " << volDesc.policy.maxObjectSizeInBytes
+              << " max number of chunks " << maxChunks;
 }
 
 void
@@ -391,7 +394,8 @@ NbdConnection::dispatchOp(ev::io &watcher,
                 ioWatcher->set(ev::READ | ev::WRITE);
             } else {
                 // do read from AM
-                nbdOps->read(volumeName, length, offset, handle);
+                nbdOps->read(volumeName, volDesc.policy.maxObjectSizeInBytes,
+                             length, offset, handle);
             }
             break;
         case NBD_CMD_WRITE:

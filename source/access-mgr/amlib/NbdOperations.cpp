@@ -11,7 +11,9 @@ NbdOperations::NbdOperations(AmAsyncDataApi::shared_ptr& amApi,
                              NbdOperationsResponseIface* respIface)
         : amAsyncDataApi(amApi),
           responseApi(this),
-          nbdResp(respIface) {
+          nbdResp(respIface),
+          domainName(new std::string("TestDomain")),
+          blobName(new std::string("BlockBlob")) {
     amApi->setResponseApi(responseApi);
 }
 
@@ -20,24 +22,21 @@ NbdOperations::~NbdOperations() {
 
 void
 NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
+                    fds_uint32_t maxObjectSizeInBytes,
                     fds_uint32_t length,
                     fds_uint64_t offset,
                     fds_int64_t handle) {
-    // hardcoding domain name
-    boost::shared_ptr<std::string> domainName(new std::string("TestDomain"));
-    boost::shared_ptr<std::string> blobName(new std::string("BlockBlob"));
-    fds_uint32_t objectSize = 4096;  // hardcoding 4K max obj size
-
     // calculate how many object we will get from AM
-    fds_uint32_t objCount = length / objectSize;
-    if ((length % objectSize) != 0) {
+    fds_uint32_t objCount = length / maxObjectSizeInBytes;
+    if ((length % maxObjectSizeInBytes) != 0) {
         ++objCount;
     }
 
     LOGDEBUG << "Will read " << length << " bytes " << offset
              << " offset for volume " << *volumeName
              << " object count " << objCount
-             << " handle " << handle;
+             << " handle " << handle
+             << " max object size " << maxObjectSizeInBytes << " bytes";
 
     // we will wait for responses
     NbdResponseVector* resp = new NbdResponseVector(handle,
@@ -55,10 +54,10 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
     fds_int32_t seqId = 0;
     while (amBytesRead < length) {
         fds_uint64_t curOffset = offset + amBytesRead;
-        fds_uint64_t objectOff = curOffset / objectSize;
+        fds_uint64_t objectOff = curOffset / maxObjectSizeInBytes;
         fds_uint32_t curLength = length - amBytesRead;
-        if (curLength > objectSize) {
-            curLength = objectSize;
+        if (curLength > maxObjectSizeInBytes) {
+            curLength = maxObjectSizeInBytes;
         }
         boost::shared_ptr<int32_t> blobLength = boost::make_shared<int32_t>(curLength);
         boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());

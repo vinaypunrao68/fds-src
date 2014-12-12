@@ -148,7 +148,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
             } else if (opType == GET) {
                 try {
                     std::string data;
-                    nbdOps->read(volumeName, blobSize, 0, ++handle);
+                    nbdOps->read(volumeName, 4096, blobSize, 0, ++handle);
                 } catch(apis::ApiException fdsE) {
                     fds_panic("read failed");
                 }

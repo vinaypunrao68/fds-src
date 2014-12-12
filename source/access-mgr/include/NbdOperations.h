@@ -107,6 +107,7 @@ class NbdOperations : public AmAsyncResponseApi {
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
 
     void read(boost::shared_ptr<std::string>& volumeName,
+              fds_uint32_t maxObjectSizeInBytes,
               fds_uint32_t length,
               fds_uint64_t offset,
               fds_int64_t handle);
@@ -166,6 +167,10 @@ class NbdOperations : public AmAsyncResponseApi {
 
     // interface to respond to nbd passed down in constructor
     NbdOperationsResponseIface* nbdResp;
+
+    // for all reads/writes to AM
+    boost::shared_ptr<std::string> blobName;
+    boost::shared_ptr<std::string> domainName;
 
     // for now we are supporting <=4K requests
     // so keep current handles for which we are waiting responses

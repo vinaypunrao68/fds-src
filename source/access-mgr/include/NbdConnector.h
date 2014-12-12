@@ -53,6 +53,7 @@ class NbdConnection : public NbdOperationsResponseIface {
     AmAsyncDataApi::shared_ptr asyncDataApi;
     OmConfigApi::shared_ptr omConfigApi;
     NbdOperations::shared_ptr nbdOps;
+    size_t maxChunks;
     fds_bool_t doUturn;
 
     // Uturn stuff. Remove me.
@@ -85,9 +86,9 @@ class NbdConnection : public NbdOperationsResponseIface {
     static constexpr fds_int32_t NBD_CMD_TRIM = 4;
 
     // TODO(Andrew): This is a total hack. Go ask OM you lazy...
-    static constexpr fds_uint32_t maxObjectSizeInBytes = 4096;
+    static constexpr fds_uint32_t minMaxObjectSizeInBytes = 4096;
     static constexpr char fourKayZeros[4096]{0};  // NOLINT
-    static constexpr size_t kMaxChunks = (2 * 1024 * 1024) / maxObjectSizeInBytes;
+    static constexpr size_t kMaxChunks = (2 * 1024 * 1024) / minMaxObjectSizeInBytes;
 
     std::unique_ptr<ev::io> ioWatcher;
     std::unique_ptr<ev::async> asyncWatcher;
