@@ -11,6 +11,7 @@
 #include <fdsn-server.h>
 #include <AmAsyncService.h>
 #include <AmDataApi.h>
+#include <OmConfigService.h>
 #include <NbdConnector.h>
 
 namespace fds {
@@ -59,6 +60,9 @@ class AccessMgr : public Module, public boost::noncopyable {
 
     /// Unique instance ID of this AM
     fds_uint32_t instanceId;
+
+    /// OM config service API
+    OmConfigApi::shared_ptr omConfigApi;
 
     /// Block connector
     NbdConnector::shared_ptr blkConnector;

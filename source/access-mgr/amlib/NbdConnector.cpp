@@ -13,10 +13,14 @@ extern "C" {
 
 #include <ev++.h>
 
+#define IOVEC_LENGTH(x) (sizeof(x) / sizeof(iovec))
+
 namespace fds {
 
-NbdConnector::NbdConnector(AmAsyncDataApi::shared_ptr api)
+NbdConnector::NbdConnector(AmAsyncDataApi::shared_ptr api,
+                           OmConfigApi::shared_ptr omApi)
         : asyncDataApi(api),
+          omConfigApi(omApi),
           nbdPort(4444) {
     // Bind to NBD listen port
     nbdSocket = createNbdSocket();
@@ -60,7 +64,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
     // Create a handler for this NBD connection
     // Will delete itself when connection dies
     LOGNORMAL << "Creating client connection...";
-    NbdConnection *client = new NbdConnection(asyncDataApi, clientsd);
+    NbdConnection *client = new NbdConnection(asyncDataApi, omConfigApi, clientsd);
     LOGNORMAL << "Created client connection...";
 }
 
@@ -98,8 +102,10 @@ NbdConnector::runNbdLoop() {
 }
 
 NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
+                             OmConfigApi::shared_ptr omApi,
                              int clientsd)
         : asyncDataApi(api),
+          omConfigApi(omApi),
           nbdOps(new NbdOperations(asyncDataApi, this)),
           clientSocket(clientsd),
           hsState(PREINIT),
@@ -138,7 +144,6 @@ constexpr fds_int32_t NbdConnection::NBD_CMD_DISC;
 constexpr fds_int32_t NbdConnection::NBD_CMD_FLUSH;
 constexpr fds_int32_t NbdConnection::NBD_CMD_TRIM;
 
-constexpr fds_uint64_t NbdConnection::volumeSizeInBytes;
 constexpr fds_uint32_t NbdConnection::maxObjectSizeInBytes;
 constexpr char NbdConnection::fourKayZeros[];
 
@@ -154,7 +159,7 @@ NbdConnection::hsPreInit(ev::io &watcher) {
             sizeof(NBD_PROTO_VERSION) },
     };
 
-    ssize_t nwritten = writev(watcher.fd, vectors, sizeof(vectors) / sizeof(iovec));
+    ssize_t nwritten = writev(watcher.fd, vectors, IOVEC_LENGTH(vectors));
     if (nwritten < 0) {
         LOGERROR << "Socket write error";
         return;
@@ -165,7 +170,7 @@ void
 NbdConnection::hsPostInit(ev::io &watcher) {
     // Accept client ack
     fds_uint32_t ack;
-    ssize_t nread = recv(watcher.fd, &ack, sizeof(ack), 0);
+    ssize_t nread = read(watcher.fd, &ack, sizeof(ack));
     if (nread < 0) {
         LOGERROR << "Socket read error";
     } else {
@@ -177,60 +182,58 @@ NbdConnection::hsPostInit(ev::io &watcher) {
 
 void
 NbdConnection::hsAwaitOpts(ev::io &watcher) {
-    // Read magic number
-    fds_int64_t magic;
-    ssize_t nread = recv(watcher.fd, &magic, sizeof(magic), 0);
+    thread_local fds_int64_t magic;
+    thread_local fds_int32_t optSpec, length;
+
+    thread_local iovec const vectors[] = {
+        { &magic, sizeof(magic) },
+        { &optSpec, sizeof(optSpec) },
+        { &length, sizeof(length) },
+    };
+
+    // Read
+    ssize_t nread = readv(watcher.fd, vectors, IOVEC_LENGTH(vectors));
     if (nread < 0) {
         LOGERROR << "Socket read error";
         return;
-    } else {
-        magic = __builtin_bswap64(magic);
-        fds_verify(NBD_MAGIC == magic);
     }
 
-    fds_int32_t optSpec;
-    nread = recv(watcher.fd, &optSpec, sizeof(optSpec), 0);
+    magic = __builtin_bswap64(magic);
+    optSpec = ntohl(optSpec);
+    fds_verify(NBD_MAGIC == magic);
+    fds_verify(NBD_OPT_EXPORT == optSpec);
+    length = ntohl(length);
+    fds_verify(length < 4096);  // Just for sanities sake and protect against bad data
+
+    char exportName[length+1];  // NOLINT
+    nread = read(watcher.fd, exportName, length);
     if (nread < 0) {
         LOGERROR << "Socket read error";
         return;
-    } else {
-        optSpec = ntohl(optSpec);
-        fds_verify(NBD_OPT_EXPORT == optSpec);
     }
 
-    fds_int32_t length;
-    nread = recv(watcher.fd, &length, sizeof(length), 0);
-    if (nread < 0) {
-        LOGERROR << "Socket read error";
-        return;
-    } else {
-        length = ntohl(length);
-    }
-
-    char exportName[length];  // NOLINT
-    nread = recv(watcher.fd, exportName, length, 0);
-    if (nread < 0) {
-        LOGERROR << "Socket read error";
-        return;
-    } else {
-        volumeName = boost::shared_ptr<std::string>(new std::string(exportName));
-        LOGNORMAL << "Volume name " << *volumeName;
-    }
+    exportName[length] = '\0';  // In case volume name is not NULL terminated.
+    volumeName = boost::make_shared<std::string>(&exportName[0]);
+    Error err = omConfigApi->statVolume(volumeName, volDesc);
+    fds_verify(ERR_OK == err);
+    fds_verify(apis::BLOCK == volDesc.policy.volumeType);
+    LOGNORMAL << "Attaching volume name " << *volumeName << " of size "
+              << volDesc.policy.blockDeviceSizeInBytes;
 }
 
 void
 NbdConnection::hsSendOpts(ev::io &watcher) {
     static fds_int16_t const optFlags = NBD_FLAG_HAS_FLAGS|NBD_FLAG_SEND_FLUSH|NBD_FLAG_SEND_FUA;
     static iovec const vectors[] = {
-        { const_cast<void*>(reinterpret_cast<void const*>(&volumeSizeInBytes)),
-            sizeof(volumeSizeInBytes) },
+        { const_cast<void*>(reinterpret_cast<void const*>(&volDesc.policy.blockDeviceSizeInBytes)),
+            sizeof(volDesc.policy.blockDeviceSizeInBytes) },
         { const_cast<void*>(reinterpret_cast<void const*>(&optFlags)),
             sizeof(NBD_MAGIC) },
         { const_cast<void*>(reinterpret_cast<void const*>(&NBD_PROTO_VERSION)),
             sizeof(NBD_PROTO_VERSION) },
     };
 
-    ssize_t nwritten = writev(watcher.fd, vectors, sizeof(vectors) / sizeof(iovec));
+    ssize_t nwritten = writev(watcher.fd, vectors, IOVEC_LENGTH(vectors));
     if (nwritten < 0) {
         LOGERROR << "Socket write error";
         return;
@@ -239,61 +242,41 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
 
 void
 NbdConnection::hsReq(ev::io &watcher) {
-    fds_int32_t magic;
-    ssize_t nread = recv(watcher.fd, &magic, sizeof(magic), 0);
+    thread_local fds_int32_t magic, opType, length;
+    thread_local fds_int64_t handle, offset;
+
+    thread_local iovec const vectors[] = {
+        { &magic, sizeof(magic) },
+        { &opType, sizeof(opType) },
+        { &handle, sizeof(handle) },
+        { &offset, sizeof(offset) },
+        { &length, sizeof(length) },
+    };
+
+    // Read
+    ssize_t nread = readv(watcher.fd, vectors, IOVEC_LENGTH(vectors));
     if (nread < 0) {
         LOGERROR << "Socket read error";
-    } else {
-        magic = ntohl(magic);
-        fds_verify(NBD_REQUEST_MAGIC == magic);
-        LOGTRACE << "Read " << nread << " bytes, magic 0x"
-                 << std::hex << magic << std::dec;
+        return;
     }
 
-    fds_int32_t opType;
-    nread = recv(watcher.fd, &opType, sizeof(opType), 0);
-    if (nread < 0) {
-        LOGERROR << "Socket read error";
-    } else {
-        opType = ntohl(opType);
-        // TODO(Andrew): Need to verify this magic #...
-        LOGTRACE << "Read " << nread << " bytes, op " << opType;
-    }
+    magic = ntohl(magic);
+    fds_verify(NBD_REQUEST_MAGIC == magic);
+    opType = ntohl(opType);
+    handle = __builtin_bswap64(handle);
+    offset = __builtin_bswap64(offset);
+    length = ntohl(length);
 
-    fds_int64_t handle;
-    nread = recv(watcher.fd, &handle, sizeof(handle), 0);
-    if (nread < 0) {
-        LOGERROR << "Socket read error";
-    } else {
-        handle = __builtin_bswap64(handle);
-        // TODO(Andrew): Need to verify this magic #...
-        LOGTRACE << "Read " << nread << " bytes, handle 0x"
-                 << std::hex << handle << std::dec;
-    }
-
-    fds_uint64_t offset;
-    nread = recv(watcher.fd, &offset, sizeof(offset), 0);
-    if (nread < 0) {
-        LOGERROR << "Socket read error";
-    } else {
-        offset = __builtin_bswap64(offset);
-        // TODO(Andrew): Need to verify this magic #...
-        LOGTRACE << "Read " << nread << " bytes, offset " << offset;
-    }
-
-    fds_uint32_t length;
-    nread = recv(watcher.fd, &length, sizeof(length), 0);
-    if (nread < 0) {
-        LOGERROR << "Socket read error";
-    } else {
-        length = ntohl(length);
-        // TODO(Andrew): Need to verify this magic #...
-        LOGTRACE << "Read " << nread << " bytes, length " << length;
-    }
+    LOGTRACE << "Read " << nread << " bytes," << std::endl
+             << " magic 0x" << std::hex << magic << std::dec << std::endl
+             << " op " << opType << std::endl
+             << " handle 0x" << std::hex << handle << std::dec << std::endl
+             << " offset " << offset << std::endl
+             << " length " << length;
 
     if (NBD_CMD_WRITE == opType) {
         char data[length];  // NOLINT
-        nread = recv(watcher.fd, data, length, 0);
+        nread = read(watcher.fd, data, length);
         LOGTRACE << "Read " << nread << " bytes of data";
     }
 
@@ -399,13 +382,12 @@ NbdConnection::dispatchOp(ev::io &watcher,
                 utPair.length = length;
                 utPair.opType = opType;
                 readyHandles.push(utPair);
-
-                // We have something to write, so ask for events
-                ioWatcher->set(ev::READ | ev::WRITE);
             } else {
                 // do read from AM
                 nbdOps->read(volumeName, length, offset, handle);
             }
+                            // We have something to write, so ask for events
+            ioWatcher->set(ev::READ | ev::WRITE);
             break;
         case NBD_CMD_WRITE:
             // TODO(Andrew): Hackey uturn code. Remove.
