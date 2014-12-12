@@ -56,7 +56,16 @@ fds_plat_lib_cpp :=                              \
                     node_agent_evt.cpp           \
                     BaseAsyncSvcHandler.cpp      \
                     PlatNetSvcHandler.cpp        \
-                    node-workflow.cpp            \
+                    node_work_flow.cpp           \
+                    node_down.cpp                \
+                    node_started.cpp             \
+                    node_qualify.cpp             \
+                    node_upgrade.cpp             \
+                    node_work_item.cpp           \
+                    node_rollback.cpp            \
+                    node_integrate.cpp           \
+                    node_deploy.cpp              \
+                    node_functional.cpp          \
                     fds-2phase.cpp               \
                     fds_flags.cpp
 
