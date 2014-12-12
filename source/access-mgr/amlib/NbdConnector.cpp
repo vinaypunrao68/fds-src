@@ -14,6 +14,10 @@ extern "C" {
 
 #include <ev++.h>
 
+template<typename T>
+constexpr auto to_iovec(T* t) -> typename std::remove_cv<T>::type*
+{ return const_cast<typename std::remove_cv<T>::type*>(t); }
+
 namespace fds {
 
 NbdConnector::NbdConnector(AmAsyncDataApi::shared_ptr api,
@@ -150,12 +154,9 @@ void
 NbdConnection::hsPreInit(ev::io &watcher) {
     // Send initial message to client with NBD magic and proto version
     static iovec const vectors[] = {
-        { const_cast<void*>(reinterpret_cast<void const*>(NBD_MAGIC_PWD)),
-            sizeof(NBD_MAGIC_PWD) },
-        { const_cast<void*>(reinterpret_cast<void const*>(&NBD_MAGIC)),
-            sizeof(NBD_MAGIC) },
-        { const_cast<void*>(reinterpret_cast<void const*>(&NBD_PROTO_VERSION)),
-            sizeof(NBD_PROTO_VERSION) },
+        { to_iovec(NBD_MAGIC_PWD),       sizeof(NBD_MAGIC_PWD) },
+        { to_iovec(&NBD_MAGIC),          sizeof(NBD_MAGIC) },
+        { to_iovec(&NBD_PROTO_VERSION),  sizeof(NBD_PROTO_VERSION) },
     };
 
     ssize_t nwritten = writev(watcher.fd, vectors, std::extent<decltype(vectors)>::value);
@@ -185,9 +186,9 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
     thread_local fds_int32_t optSpec, length;
 
     thread_local iovec const vectors[] = {
-        { &magic, sizeof(magic) },
+        { &magic,   sizeof(magic) },
         { &optSpec, sizeof(optSpec) },
-        { &length, sizeof(length) },
+        { &length,  sizeof(length) },
     };
 
     // Read
@@ -224,12 +225,10 @@ void
 NbdConnection::hsSendOpts(ev::io &watcher) {
     static fds_int16_t const optFlags = NBD_FLAG_HAS_FLAGS|NBD_FLAG_SEND_FLUSH|NBD_FLAG_SEND_FUA;
     static iovec const vectors[] = {
-        { const_cast<void*>(reinterpret_cast<void const*>(&volDesc.policy.blockDeviceSizeInBytes)),
-            sizeof(volDesc.policy.blockDeviceSizeInBytes) },
-        { const_cast<void*>(reinterpret_cast<void const*>(&optFlags)),
-            sizeof(NBD_MAGIC) },
-        { const_cast<void*>(reinterpret_cast<void const*>(&NBD_PROTO_VERSION)),
-            sizeof(NBD_PROTO_VERSION) },
+        { to_iovec(&volDesc.policy.blockDeviceSizeInBytes),
+                                         sizeof(volDesc.policy.blockDeviceSizeInBytes) },
+        { to_iovec(&optFlags),           sizeof(NBD_MAGIC) },
+        { to_iovec(&NBD_PROTO_VERSION),  sizeof(NBD_PROTO_VERSION) },
     };
 
     ssize_t nwritten = writev(watcher.fd, vectors, std::extent<decltype(vectors)>::value);
@@ -307,13 +306,12 @@ NbdConnection::hsReply(ev::io &watcher) {
 
             // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
             iovec vectors[kMaxChunks + 3];
-            vectors[0] = {reinterpret_cast<void*>(&magic), sizeof(magic)};
-            vectors[1] = {const_cast<void*>(reinterpret_cast<void const*>(&error)), sizeof(error)};
-            vectors[2] = {reinterpret_cast<void*>(&handle), sizeof(handle)};
+            vectors[0] = { &magic,           sizeof(magic) };
+            vectors[1] = { to_iovec(&error), sizeof(error) };
+            vectors[2] = { &handle,          sizeof(handle) };
 
             for (size_t i = 0; i < chunks; ++i) {
-                vectors[3+i].iov_base = const_cast<void*>(
-                    reinterpret_cast<void const*>(fourKayZeros));
+                vectors[3+i].iov_base = to_iovec(fourKayZeros);
                 vectors[3+i].iov_len = sizeof(fourKayZeros);
             }
 
@@ -337,17 +335,16 @@ NbdConnection::hsReply(ev::io &watcher) {
 
         // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
         iovec vectors[kMaxChunks + 3];
-        vectors[0] = {reinterpret_cast<void*>(&magic), sizeof(magic)};
-        vectors[1] = {const_cast<void*>(reinterpret_cast<void const*>(&error)), sizeof(error)};
-        vectors[2] = {reinterpret_cast<void*>(&handle), sizeof(handle)};
+        vectors[0] = { &magic,              sizeof(magic) };
+        vectors[1] = { to_iovec(&error),    sizeof(error) };
+        vectors[2] = { &handle,             sizeof(handle) };
 
         fds_uint32_t context = 0;
         size_t cnt = 0;
         boost::shared_ptr<std::string> buf = resp->getNextReadBuffer(context);
         while (buf != NULL) {
             GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
-            vectors[3+cnt].iov_base = const_cast<void*>(
-                reinterpret_cast<void const*>(buf->c_str()));
+            vectors[3+cnt].iov_base = to_iovec(buf->c_str());
             vectors[3+cnt].iov_len = buf->length();
             ++cnt;
             // get next buffer
