@@ -326,8 +326,11 @@ AmDataApi::getBlob(std::string& _return,
         }
         throw fdsE;
     }
-    _return.assign(getHandler->returnBuffer->c_str(),
-                   getHandler->returnSize);
+
+    boost::shared_ptr<std::string> buf = getHandler->returnBuffer;
+    _return = buf->size() > getHandler->returnSize ?
+        std::string(*buf, 0, getHandler->returnSize)
+        : *buf;
 }
 
 void

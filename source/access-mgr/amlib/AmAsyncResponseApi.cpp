@@ -274,6 +274,8 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
                                                              errorCode,
                                                              message));
     } else {
+        buf = buf->size() > length ? boost::make_shared<std::string>(*buf, 0, length)
+            : buf;
         XDICLIENTCALL(asyncRespClient, getBlobResponse(requestId, buf));
     }
 }
@@ -294,6 +296,8 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
                                                              errorCode,
                                                              message));
     } else {
+        buf = buf->size() > length ? boost::make_shared<std::string>(*buf, 0, length)
+            : buf;
         XDICLIENTCALL(asyncRespClient, getBlobWithMetaResponse(requestId, buf, blobDesc));
     }
 }

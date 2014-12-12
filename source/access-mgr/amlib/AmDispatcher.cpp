@@ -433,7 +433,6 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
             fds_verify(getObjRsp->data_obj.size() <= amReq->data_len);
         }
 
-        // Only return UP-TO the amount of data requested, never more
         cb->returnSize = std::min(amReq->data_len, getObjRsp->data_obj.size());
         cb->returnBuffer = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
     } else {

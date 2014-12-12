@@ -329,8 +329,6 @@ AmProcessor::getBlob(AmRequest *amReq) {
             GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
 
             cb->returnSize = std::min(amReq->data_len, objectData->size());
-
-            // Make sure we have a buffer.
             cb->returnBuffer = objectData;
 
             // Report results of GET request to requestor.
