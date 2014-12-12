@@ -228,8 +228,8 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
         Error err = omConfigApi->statVolume(volumeName, volDesc);
         fds_verify(ERR_OK == err);
         fds_verify(apis::BLOCK == volDesc.policy.volumeType);
-        maxChunks = (2 * 1024 * 1024) / volDesc.policy.maxObjectSizeInBytes;
     }
+    maxChunks = (2 * 1024 * 1024) / volDesc.policy.maxObjectSizeInBytes;
     LOGNORMAL << "Attaching volume name " << *volumeName << " of size "
               << volDesc.policy.blockDeviceSizeInBytes
               << " max object size " << volDesc.policy.maxObjectSizeInBytes
