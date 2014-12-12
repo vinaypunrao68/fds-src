@@ -182,10 +182,10 @@ NbdConnection::hsPostInit(ev::io &watcher) {
 
 void
 NbdConnection::hsAwaitOpts(ev::io &watcher) {
-    thread_local fds_int64_t magic;
-    thread_local fds_int32_t optSpec, length;
+    fds_int64_t magic;
+    fds_int32_t optSpec, length;
 
-    thread_local iovec const vectors[] = {
+    iovec const vectors[] = {
         { &magic,   sizeof(magic) },
         { &optSpec, sizeof(optSpec) },
         { &length,  sizeof(length) },
@@ -240,10 +240,10 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
 
 void
 NbdConnection::hsReq(ev::io &watcher) {
-    thread_local fds_int32_t magic, opType, length;
-    thread_local fds_int64_t handle, offset;
+    fds_int32_t magic, opType, length;
+    fds_int64_t handle, offset;
 
-    thread_local iovec const vectors[] = {
+    iovec const vectors[] = {
         { &magic, sizeof(magic) },
         { &opType, sizeof(opType) },
         { &handle, sizeof(handle) },
