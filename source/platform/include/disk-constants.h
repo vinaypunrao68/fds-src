@@ -5,6 +5,9 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_DISK_CONSTANTS_H_
 #define SOURCE_PLATFORM_INCLUDE_DISK_CONSTANTS_H_
 
+#include <stdint.h>
+#include <cstddef>
+
 /**
  * -----------------------------------------------------------------------------------
  * Disk sector and block units.

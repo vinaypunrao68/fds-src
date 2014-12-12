@@ -4,7 +4,7 @@
 
 #ifndef SOURCE_PLATFORM_INCLUDE_DISK_PLAT_MODULE_H_
 #define SOURCE_PLATFORM_INCLUDE_DISK_PLAT_MODULE_H_
-
+#include <fds_process.h>
 #include "platform_disk_inventory.h"
 
 namespace fds

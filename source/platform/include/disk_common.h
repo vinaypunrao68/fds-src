@@ -6,6 +6,7 @@
 #define SOURCE_PLATFORM_INCLUDE_DISK_COMMON_H_
 
 #include <string>
+#include "shared/fds_types.h"
 
 namespace fds
 {
