@@ -154,9 +154,9 @@ void
 NbdConnection::hsPreInit(ev::io &watcher) {
     // Send initial message to client with NBD magic and proto version
     static iovec const vectors[] = {
-        { to_iovec(NBD_MAGIC_PWD),       sizeof(NBD_MAGIC_PWD) },
-        { to_iovec(&NBD_MAGIC),          sizeof(NBD_MAGIC) },
-        { to_iovec(&NBD_PROTO_VERSION),  sizeof(NBD_PROTO_VERSION) },
+        { to_iovec(NBD_MAGIC_PWD),       sizeof(NBD_MAGIC_PWD)      },
+        { to_iovec(&NBD_MAGIC),          sizeof(NBD_MAGIC)          },
+        { to_iovec(&NBD_PROTO_VERSION),  sizeof(NBD_PROTO_VERSION)  },
     };
 
     ssize_t nwritten = writev(watcher.fd, vectors, std::extent<decltype(vectors)>::value);
@@ -186,9 +186,9 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
     fds_int32_t optSpec, length;
 
     iovec const vectors[] = {
-        { &magic,   sizeof(magic) },
+        { &magic,   sizeof(magic)   },
         { &optSpec, sizeof(optSpec) },
-        { &length,  sizeof(length) },
+        { &length,  sizeof(length)  },
     };
 
     // Read
@@ -244,7 +244,7 @@ NbdConnection::hsReq(ev::io &watcher) {
     fds_int64_t handle, offset;
 
     iovec const vectors[] = {
-        { &magic, sizeof(magic) },
+        { &magic,  sizeof(magic)  },
         { &opType, sizeof(opType) },
         { &handle, sizeof(handle) },
         { &offset, sizeof(offset) },
@@ -305,10 +305,12 @@ NbdConnection::hsReply(ev::io &watcher) {
             }
 
             // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
-            iovec vectors[kMaxChunks + 3];
-            vectors[0] = { &magic,           sizeof(magic) };
-            vectors[1] = { to_iovec(&error), sizeof(error) };
-            vectors[2] = { &handle,          sizeof(handle) };
+            iovec vectors[kMaxChunks + 3] = {
+                { &magic,  sizeof(magic)  },
+                { &error,  sizeof(error)  },
+                { &handle, sizeof(handle) },
+                { nullptr,              0 },
+            };
 
             for (size_t i = 0; i < chunks; ++i) {
                 vectors[3+i].iov_base = to_iovec(fourKayZeros);
@@ -334,10 +336,12 @@ NbdConnection::hsReply(ev::io &watcher) {
         fds_int64_t handle = __builtin_bswap64(resp->getHandle());
 
         // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
-        iovec vectors[kMaxChunks + 3];
-        vectors[0] = { &magic,              sizeof(magic) };
-        vectors[1] = { to_iovec(&error),    sizeof(error) };
-        vectors[2] = { &handle,             sizeof(handle) };
+        iovec vectors[kMaxChunks + 3] = {
+            { &magic,  sizeof(magic)  },
+            { &error,  sizeof(error)  },
+            { &handle, sizeof(handle) },
+            { nullptr,              0 },
+        };
 
         fds_uint32_t context = 0;
         size_t cnt = 0;
