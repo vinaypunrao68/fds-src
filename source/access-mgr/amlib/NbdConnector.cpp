@@ -433,7 +433,7 @@ NbdConnection::dispatchOp(ev::io &watcher,
 void
 NbdConnection::wakeupCb(ev::async &watcher, int revents) {
     ioWatcher->set(ev::READ | ev::WRITE);
-    // ioWatcher->feed_event(EV_WRITE);
+    ioWatcher->feed_event(EV_WRITE);
 }
 
 void
