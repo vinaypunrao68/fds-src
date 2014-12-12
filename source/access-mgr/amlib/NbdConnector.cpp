@@ -103,7 +103,7 @@ NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
           nbdOps(new NbdOperations(asyncDataApi, this)),
           clientSocket(clientsd),
           hsState(PREINIT),
-          doUturn(true),
+          doUturn(false),
           readyHandles(2000),
           readyResponses(4000) {
     fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
@@ -494,6 +494,7 @@ NbdConnection::readResp(const Error& error,
 
     // We have something to write, so ask for events
     ioWatcher->set(ev::READ | ev::WRITE);
+    // ioWatcher->feed_event(EV_WRITE);
 }
 
 }  // namespace fds

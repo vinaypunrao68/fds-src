@@ -40,11 +40,15 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
              << " handle " << handle;
 
     // we will wait for responses
-    fds_verify(responses.count(handle) == 0);
     NbdResponseVector* resp = new NbdResponseVector(handle,
                                                     NbdResponseVector::READ,
                                                     objCount);
-    responses[handle] = resp;
+
+    {   // add response that we will fill in with data
+        fds_mutex::scoped_lock l(respLock);
+        fds_verify(responses.count(handle) == 0);
+        responses[handle] = resp;
+    }
 
     // break down request into max obj size chunks and send to AM
     fds_uint32_t amBytesRead = 0;
@@ -81,6 +85,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
         } catch(apis::ApiException fdsE) {
             // return error
             nbdResp->readResp(ERR_DISK_READ_FAILED, handle, NULL);
+            fds_mutex::scoped_lock l(respLock);
             if (responses.count(handle) > 0) {
                 NbdResponseVector* delResp = responses[handle];
                 responses[handle] = NULL;
@@ -136,6 +141,7 @@ NbdOperations::getBlobResp(const Error &error,
                            boost::shared_ptr<apis::RequestId>& requestId,
                            char* buf,
                            fds_uint32_t& length) {
+    NbdResponseVector* resp = NULL;
     fds_int64_t handle = 0;
     fds_int32_t seqId = 0;
     parseRequestId(requestId, &handle, &seqId);
@@ -145,16 +151,20 @@ NbdOperations::getBlobResp(const Error &error,
              << " seqId " << seqId << " ( "
              << requestId->id << " )";
 
-    // if we are not waiting for this response, we probably already
-    // returned an error
-    if (responses.count(handle) == 0) {
-        LOGWARN << "Not waiting for response for handle " << handle
-                << ", check if we returned an error";
-        return;
+    {
+        fds_mutex::scoped_lock l(respLock);
+        // if we are not waiting for this response, we probably already
+        // returned an error
+        if (responses.count(handle) == 0) {
+            LOGWARN << "Not waiting for response for handle " << handle
+                    << ", check if we returned an error";
+            return;
+        }
+        // get response
+        resp = responses[handle];
     }
 
     // add buffer to the response list
-    NbdResponseVector* resp = responses[handle];
     fds_verify(resp);
     fds_bool_t done = resp->handleReadResponse(buf, length, seqId);
     if (done) {
@@ -162,6 +172,7 @@ NbdOperations::getBlobResp(const Error &error,
         nbdResp->readResp(error, handle, resp);
         // nbd connector will free resp
         // remove from the wait list
+        fds_mutex::scoped_lock l(respLock);
         responses.erase(handle);
     }
 }

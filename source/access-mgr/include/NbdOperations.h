@@ -9,6 +9,7 @@
 #include <map>
 #include <fds_types.h>
 #include <apis/apis_types.h>
+#include <concurrency/Mutex.h>
 #include <AmAsyncResponseApi.h>
 #include <AmAsyncDataApi.h>
 
@@ -22,7 +23,8 @@ class NbdResponseVector {
     };
 
     explicit NbdResponseVector(fds_int64_t hdl, NbdOperation op, fds_uint32_t objCnt)
-            : handle(hdl), operation(op), doneCount(0), objCount(objCnt) {
+            : handle(hdl), operation(op), objCount(objCnt) {
+        doneCount = ATOMIC_VAR_INIT(0);
         if (op == READ) {
             bufVec.resize(objCnt, NULL);
         }
@@ -30,7 +32,10 @@ class NbdResponseVector {
     ~NbdResponseVector() {}
     typedef boost::shared_ptr<NbdResponseVector> shared_ptr;
 
-    fds_bool_t isReady() const { return (doneCount == objCount); }
+    fds_bool_t isReady() const {
+        fds_uint32_t doneCnt = atomic_load(&doneCount);
+        return (doneCnt == objCount);
+    }
     fds_bool_t isRead() const { return (operation == READ); }
     inline fds_int64_t getHandle() const { return handle; }
     boost::shared_ptr<std::string> getNextReadBuffer(fds_uint32_t& context) {
@@ -54,14 +59,14 @@ class NbdResponseVector {
             boost::shared_ptr<std::string> buf(new std::string(retBuf, length));
             bufVec[seqId] = buf;
         }
-        ++doneCount;
-        return (doneCount == objCount);
+        fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
+        return ((doneCnt + 1) == objCount);
     }
 
   private:
     fds_int64_t handle;
     NbdOperation operation;
-    fds_uint32_t doneCount;
+    std::atomic<fds_uint32_t> doneCount;
     fds_uint32_t objCount;
     std::vector<boost::shared_ptr<std::string>> bufVec;
 };
@@ -165,6 +170,7 @@ class NbdOperations : public AmAsyncResponseApi {
     // for now we are supporting <=4K requests
     // so keep current handles for which we are waiting responses
     std::map<fds_int64_t, NbdResponseVector*> responses;
+    fds_mutex respLock;
 };
 
 }  // namespace fds
