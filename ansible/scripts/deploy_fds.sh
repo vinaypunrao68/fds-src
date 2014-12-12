@@ -1,11 +1,14 @@
 #! /bin/bash 
 usage() {
-    echo "Usage:"
-    echo "$0 target-cluster local|nightly|alpha"
-    echo "-------------------------------------"
-    echo "Examples:"
-    echo "$0 cody-local-nodes local"
-    echo "$0 bld-nightly-nodes nightly"
+cat << EOF
+Usage:
+${0##/*} inventory-file local|nightly [debug]
+Deploy FDS to a group of hosts defined in an Ansible inventory file. Can deploy from local Debs or Artifactory release channels.
+inventory-file can be a filename (assumed to exist in {fds-src}/ansible/inventory} or a path to your inventory file
+Examples:
+${0##/*} bld-nightly-nodes nightly
+${0##/*} ../foo/bar/inventories/cody-local-nodes local
+EOF
 }
 
 if [ $# -lt 2 ]; then 
@@ -38,19 +41,16 @@ E() {
     exit 1
 }
 
-
-hosts="$1"
-deploy_artifact="$2"
+inventory="${1}"
+deploy_source="$2"
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 ansible_base_dir="$( cd "${script_dir}/.." && pwd -P)"
-inventory="${ansible_base_dir}/inventory/${hosts}"
 playbooks="${ansible_base_dir}/playbooks"
-ansible_args=" -i $inventory ${playbooks}/deploy_fds.yml"
+ansible_args="${playbooks}/deploy_fds.yml"
 
-D "Hosts:               ${hosts}"
-D "Deploy Artifact:     ${deploy_artifact}"
-D "Ansible Base:        ${ansible_base_dir}"
 D "Inventory:           ${inventory}"
+D "Deploy Artifact:     ${deploy_source}"
+D "Ansible Base:        ${ansible_base_dir}"
 D "ansible_args         ${ansible_args}"
 
 check_environment() {
@@ -66,25 +66,20 @@ check_environment() {
 }
 
 check_inventory() {
-    # Check a couple of things:
-    # 1. That the inventory specified actually exists
-    # 2. If the inventory does exist, that the group in the inventory matches the inventory's filename
+    # Check that the inventory specified actually exists
 
-    $(ls ${inventory} >/dev/null 2>&1)
+    if [[ ! ${inventory} =~ / ]]; then
+        inventory=${ansible_base_dir}/inventory/${inventory}
+    fi    
 
-    if [ $? -ne 0 ]; then
+    [ -f ${inventory} ] || inventory_is_missing=1
+
+    if [ ${inventory_is_missing} ]; then
         E "Inventory file ${inventory} does not exist."
     fi
 
-    D "Inventory File ${inventory} exists, continuing"
-
-    $(grep \\[${hosts}\\] ${inventory} >/dev/null 2>&1)
-
-    if [ $? -ne 0 ]; then
-        E "Inventory filename and host group name must match.\nFor example, inventory file 'cody-lxc-nodes' must contain [cody-lxc-nodes] as its sole host group.\n\nThis is a very annoying requirement that is, unfortunately, very necessary."
-    fi
-
-    D "Inventory filename and target host group name match, continuing"
+    D "Inventory File ${inventory} exists, continuing" 
+    ansible_args="${ansible_args} -i $inventory"
 }
 
 check_auth() {
@@ -132,7 +127,7 @@ run_deploy_playbook() {
         do ssh-keygen -R ${hostname}
     done
 
-    ansible-playbook ${ansible_args} --skip-tags check_sudo
+    ansible-playbook ${ansible_args} -e "deploy_artifact=${deploy_source}" --skip-tags check_sudo
 }
 
 check_environment

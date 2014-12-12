@@ -116,8 +116,8 @@ class StatsCollector : public boost::noncopyable {
     void openQosFile(const std::string& name);
 
   private:
-    std::atomic<bool> qos_enabled_;
-    std::atomic<bool> stream_enabled_;
+    alignas(64) std::atomic<bool> qos_enabled_;
+    alignas(64) std::atomic<bool> stream_enabled_;
 
     fds_uint32_t push_interval_;  // push meta interval in seconds
     fds_uint32_t slotsec_qos_;   // length of slot in seconds for qos history

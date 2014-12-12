@@ -24,6 +24,7 @@ mixes = { "get" : "100% GET",
           "write" : "100% seq write",
           "randread" : "100% random read",
           "randwrite" : "100% random write",
+          "get-object-size" : "",
     }
 
 configs = {
@@ -57,7 +58,7 @@ def compute_pareto_optimal(iops, lat):
 def generate_lat_bw(iops, lat):
     filename = "latbw.png"
     title = "Latency Bandwidth"
-    xlabel = "IOPs"
+    xlabel = "Req/s"
     ylabel = "Latency [ms]"
     plt.figure()
     plt.scatter(iops, lat)
@@ -67,12 +68,25 @@ def generate_lat_bw(iops, lat):
     plt.savefig(filename)
     return filename
 
+def generate_scaling_object_size(objs, bw):
+    filename = "scaling_obj_size.png"
+    title = "Object size scaling"
+    xlabel = "Object size [kB]"
+    ylabel = "Bandwidth [MB/s]"
+    plt.figure()
+    plt.plot(objs, bw)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.savefig(filename)
+    return filename
+
 
 def generate_scaling_iops(conns, iops):
     filename = "scaling_iops.png"
-    title = "IOPs"
+    title = "Req/s"
     xlabel = "Connections"
-    ylabel = "IOPs"
+    ylabel = "Req/s"
     plt.figure()
     plt.plot(conns, iops)
     plt.xlabel(xlabel)
@@ -165,11 +179,11 @@ System: Xeon 1S 6-core HT, 32GB DRAM, 1GigE, 12HDD, 2SSDs \n\
     for t in summary:
 #        text += "Config: %s\n" % t
 #        text += "Notes: %s\n" % config_notes[t]
-#        text += "IOPs: %g\n\
+#        text += "Req/s: %g\n\
 #Latency [ms]: %g\n" % (summary[t]["iops"], summary[t]["lat"])
 #        text += "---\n"
         table.append([t, str(summary[t]["iops"]), str(summary[t]["lat"]), summary[t]["test_directory"]])
-    headers = ["Config", "IOPs", "Latency [ms]", "Test directory"]
+    headers = ["Config", "Req/s", "Latency [ms]", "Test directory"]
     text += tabulate.tabulate(table,headers) + "\n"
 
     text += "\nConfig Explanation:\n"
@@ -233,8 +247,12 @@ if __name__ == "__main__":
                 conns = [x["threads"] for x in experiments]    
 
                 #max_iops = max(iops)
-                iops_50 = iops[-1]
-                lat_50 = lat[-1]
+                if 100 in conns:
+                    iops_50 = iops[conns.index(100)]
+                    lat_50 = lat[conns.index(100)]
+                else:
+                    iops_50 = iops[-1]
+                    lat_50 = lat[-1]
 
                 test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
                 summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
@@ -248,6 +266,46 @@ if __name__ == "__main__":
                 images.append(generate_cpus(conns, cpus))
                 images.append(generate_lat_bw(iops, lat))
                 mail_success(recipients2, images, label)
+            if mode == "s3" and mix == "get-object-size":
+                experiments = db["experiments"].find(tag=t)
+                experiments = [ x for x in experiments]
+                experiments = filter(lambda x : x["type"] == "GET", experiments)
+                experiments = sorted(experiments, key = lambda k : int(k["fsize"]))
+                #iops = [x["th"] for x in experiments]    
+                iops = [int(x["am:am_get_obj_req:count"]) for x in experiments]    
+                bw = [int(x["am:am_get_obj_req:count"])*int(x["fsize"])/1024/1024 for x in experiments]    
+                am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
+                #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
+                sm_lat = []
+                #dm_lat = [x["am:am_get_dm:latency"] for x in experiments]
+                dm_lat = []
+                java_lat = [x["javalat"] for x in experiments]
+                cpus = {}
+                for a in agents:
+                    cpus[a] = [x[a+":cpu"] for x in experiments]
+                #iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
+                lat = [x["lat"] for x in experiments]    
+                #print [x["nreqs"] for x in experiments]    
+                objs = [int(x["fsize"])/1024 for x in experiments]    
+                conns = [x["threads"] for x in experiments]    
+
+                #max_iops = max(iops)
+                iops_50 = iops[-1]
+                lat_50 = lat[-1]
+
+                test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
+                summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
+
+                #print [x["type"] for x in experiments]    
+                # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
+                
+                images = [] 
+                images.append(generate_scaling_object_size(objs, bw))
+                images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
+                images.append(generate_cpus(conns, cpus))
+                images.append(generate_lat_bw(iops, lat))
+                mail_success(recipients2, images, label)
+
             if mode == "s3_java" and mix == "get":
                 experiments = db["experiments"].find(tag=t)
                 experiments = [ x for x in experiments]
@@ -271,15 +329,11 @@ if __name__ == "__main__":
                 conns = [int(x["outstanding"]) * int(x["threads"]) for x in experiments]    
 
                 #max_iops = max(iops)
-                iops_50 = iops[-1]
-                lat_50 = lat[-1]
+                iops_50 = iops[conns.index(100)]
+                lat_50 = lat[conns.index(100)]
                 test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
                 summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
 
-                #print [x["type"] for x in experiments]    
-                # iops = [x["am:am_get_obj_req:count"] for x in experiments]    
-                
-                # print "Pareto optimal:", compute_pareto_optimal(iops, lat)
                 images = [] 
                 images.append(generate_scaling_iops(conns, iops))
                 images.append(generate_scaling_lat(conns, lat, java_lat, am_lat))
@@ -313,8 +367,13 @@ if __name__ == "__main__":
                 conns = [x["threads"] for x in experiments]    
 
                 #max_iops = max(iops)
-                iops_50 = iops[-1]
-                lat_50 = lat[-1]
+                if 50 in conns:
+                    iops_50 = iops[conns.index(100)]
+                    lat_50 = lat[conns.index(100)]
+                else:
+                    iops_50 = iops[-1]
+                    lat_50 = lat[-1]
+
                 test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
                 summary[t] = {"iops" : iops_50, "lat" : lat_50, "test_directory" : test_dir}
 
