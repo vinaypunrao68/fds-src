@@ -313,4 +313,60 @@ describe( 'Waterfall slider widget', function(){
         }, 500 );
     });
     
+    it( 'should move sliders to the right if a lower ranked one is moved right', function(){
+        
+        waitsFor( function(){
+
+            if ( $scope.sliders[0].position === undefined ){
+                return false;
+            }
+            
+            $scope.sliders[0].value = { range: 4, value: 12 };
+            
+            $scope.$apply();
+            
+            expect( $scope.sliders[1].value.value ).toBe( 12 );
+            expect( $scope.sliders[1].value.range ).toBe( 4 );
+            expect( $scope.sliders[2].value.value ).toBe( 12 );
+            expect( $scope.sliders[2].value.range ).toBe( 4 );
+            expect( $scope.sliders[3].value.value ).toBe( 12 );
+            expect( $scope.sliders[3].value.range ).toBe( 4 );
+            expect( $scope.sliders[4].value.value ).toBe( 12 );
+            expect( $scope.sliders[4].value.range ).toBe( 4 );
+            
+            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBe( '813.2' );
+            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBe( '813.2' );
+            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBe( '813.2' );
+            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBe( '813.2' );
+            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBe( '813.2' );
+            
+            return true;
+        }, 500 );
+    });
+    
+    it( 'should not be able to push higher ranked sliders to the left when a low ranked on is moved', function(){
+        
+        waitsFor( function(){
+
+            if ( $scope.sliders[0].position === undefined ){
+                return false;
+            }
+            
+            $scope.sliders[4].value = { range: 1, value: 1 };
+            
+            $scope.$apply();
+            
+            expect( $scope.sliders[4].value.range ).toBe( 3 );
+            expect( $scope.sliders[4].value.value ).toBe( 60 );
+            
+            // expect the value slider to be at...
+            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBe( '46.3' );
+            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBe( '231.5' );
+            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBe( '277.5' );
+            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBe( '395.4' );
+            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBe( '395.4' );
+            
+            return true;
+        }, 500 );
+    });
 });
