@@ -100,15 +100,18 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     // implementation of NbdOperationsResponseIface
     void readResp(const Error& error,
                   fds_int64_t handle,
-                  ReadRespVector::shared_ptr response) {
+                  ReadRespVector* response) {
         GLOGDEBUG << "Read response for handle " << handle;
         fds_verify(response->isReady());
         fds_uint32_t context = 0;
-        boost::shared_ptr<std::string> buf = response->getNextBuffer(context);
+        boost::shared_ptr<std::string> buf = response->getNextReadBuffer(context);
         while (buf != NULL) {
             GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
-            buf = response->getNextBuffer(context);
+            buf = response->getNextReadBuffer(context);
         }
+        // free response
+        delete response;
+
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();

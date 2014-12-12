@@ -40,9 +40,10 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
              << " handle " << handle;
 
     // we will wait for responses
-    fds_verify(readResponses.count(handle) == 0);
-    ReadRespVector::shared_ptr resp(new ReadRespVector(objCount));
-    readResponses[handle] = resp;
+    fds_verify(responses.count(handle) == 0);
+    ReadRespVector* resp = new ReadRespVector(ReadRespVector::READ,
+                                              objCount);
+    responses[handle] = resp;
 
     // break down request into max obj size chunks and send to AM
     fds_uint32_t amBytesRead = 0;
@@ -79,7 +80,12 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
         } catch(apis::ApiException fdsE) {
             // return error
             nbdResp->readResp(ERR_DISK_READ_FAILED, handle, NULL);
-            readResponses.erase(handle);
+            if (responses.count(handle) > 0) {
+                ReadRespVector* delResp = responses[handle];
+                responses[handle] = NULL;
+                delete delResp;
+                responses.erase(handle);
+            }
             return;
         }
     }
@@ -140,21 +146,22 @@ NbdOperations::getBlobResp(const Error &error,
 
     // if we are not waiting for this response, we probably already
     // returned an error
-    if (readResponses.count(handle) == 0) {
+    if (responses.count(handle) == 0) {
         LOGWARN << "Not waiting for response for handle " << handle
                 << ", check if we returned an error";
         return;
     }
 
     // add buffer to the response list
-    ReadRespVector::shared_ptr resp = readResponses[handle];
+    ReadRespVector* resp = responses[handle];
     fds_verify(resp);
-    fds_bool_t done = resp->handleResponse(buf, length, seqId);
+    fds_bool_t done = resp->handleReadResponse(buf, length, seqId);
     if (done) {
         // we are done collecting responses for this handle, notify nbd connector
         nbdResp->readResp(error, handle, resp);
+        // nbd connector will free resp
         // remove from the wait list
-        readResponses.erase(handle);
+        responses.erase(handle);
     }
 }
 

@@ -357,7 +357,7 @@ NbdConnection::dispatchOp(ev::io &watcher,
             readyHandles.push(utPair);
 
             // do read from AM
-            // nbdOps->read(volumeName, length, offset, handle);
+            nbdOps->read(volumeName, length, offset, handle);
 
             // We have something to write, so ask for events
             ioWatcher->set(ev::READ | ev::WRITE);
@@ -440,9 +440,12 @@ NbdConnection::callback(ev::io &watcher, int revents) {
 void
 NbdConnection::readResp(const Error& error,
                         fds_int64_t handle,
-                        ReadRespVector::shared_ptr response) {
+                        ReadRespVector* response) {
     LOGNORMAL << "Read response from NbdOperations handle " << handle
               << " " << error;
+
+    // add to quueue
+    delete response;
 }
 
 }  // namespace fds
