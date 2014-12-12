@@ -100,7 +100,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     // implementation of NbdOperationsResponseIface
     void readResp(const Error& error,
                   fds_int64_t handle,
-                  ReadRespVector* response) {
+                  NbdResponseVector* response) {
         GLOGDEBUG << "Read response for handle " << handle;
         fds_verify(response->isReady());
         fds_uint32_t context = 0;

@@ -14,24 +14,25 @@
 
 namespace fds {
 
-class ReadRespVector {
+class NbdResponseVector {
   public:
     enum NbdOperation {
         READ = 0,
         WRITE = 1
     };
 
-    explicit ReadRespVector(NbdOperation op, fds_uint32_t objCnt)
-            : operation(op), doneCount(0), objCount(objCnt) {
+    explicit NbdResponseVector(fds_int64_t hdl, NbdOperation op, fds_uint32_t objCnt)
+            : handle(hdl), operation(op), doneCount(0), objCount(objCnt) {
         if (op == READ) {
             bufVec.resize(objCnt, NULL);
         }
     }
-    ~ReadRespVector() {}
-    typedef boost::shared_ptr<ReadRespVector> shared_ptr;
+    ~NbdResponseVector() {}
+    typedef boost::shared_ptr<NbdResponseVector> shared_ptr;
 
     fds_bool_t isReady() const { return (doneCount == objCount); }
     fds_bool_t isRead() const { return (operation == READ); }
+    inline fds_int64_t getHandle() const { return handle; }
     boost::shared_ptr<std::string> getNextReadBuffer(fds_uint32_t& context) {
         if (context >= objCount) {
             return NULL;
@@ -58,6 +59,7 @@ class ReadRespVector {
     }
 
   private:
+    fds_int64_t handle;
     NbdOperation operation;
     fds_uint32_t doneCount;
     fds_uint32_t objCount;
@@ -89,7 +91,7 @@ class NbdOperationsResponseIface {
 
     virtual void readResp(const Error& error,
                           fds_int64_t handle,
-                          ReadRespVector* response) = 0;
+                          NbdResponseVector* response) = 0;
 };
 
 class NbdOperations : public AmAsyncResponseApi {
@@ -162,7 +164,7 @@ class NbdOperations : public AmAsyncResponseApi {
 
     // for now we are supporting <=4K requests
     // so keep current handles for which we are waiting responses
-    std::map<fds_int64_t, ReadRespVector*> responses;
+    std::map<fds_int64_t, NbdResponseVector*> responses;
 };
 
 }  // namespace fds

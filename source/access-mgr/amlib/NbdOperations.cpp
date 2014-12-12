@@ -41,8 +41,9 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
 
     // we will wait for responses
     fds_verify(responses.count(handle) == 0);
-    ReadRespVector* resp = new ReadRespVector(ReadRespVector::READ,
-                                              objCount);
+    NbdResponseVector* resp = new NbdResponseVector(handle,
+                                                    NbdResponseVector::READ,
+                                                    objCount);
     responses[handle] = resp;
 
     // break down request into max obj size chunks and send to AM
@@ -81,7 +82,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
             // return error
             nbdResp->readResp(ERR_DISK_READ_FAILED, handle, NULL);
             if (responses.count(handle) > 0) {
-                ReadRespVector* delResp = responses[handle];
+                NbdResponseVector* delResp = responses[handle];
                 responses[handle] = NULL;
                 delete delResp;
                 responses.erase(handle);
@@ -153,7 +154,7 @@ NbdOperations::getBlobResp(const Error &error,
     }
 
     // add buffer to the response list
-    ReadRespVector* resp = responses[handle];
+    NbdResponseVector* resp = responses[handle];
     fds_verify(resp);
     fds_bool_t done = resp->handleReadResponse(buf, length, seqId);
     if (done) {

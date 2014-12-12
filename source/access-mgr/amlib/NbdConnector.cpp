@@ -104,7 +104,8 @@ NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
           clientSocket(clientsd),
           hsState(PREINIT),
           doUturn(true),
-          readyHandles(2000) {
+          readyHandles(2000),
+          readyResponses(4000) {
     fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
 
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
@@ -305,21 +306,52 @@ NbdConnection::hsReply(ev::io &watcher) {
     static fds_int32_t magic = htonl(NBD_RESPONSE_MAGIC);
     fds_int32_t error = htonl(0);
 
-    // Iterate and send each ready response
-    while (!readyHandles.empty()) {
-        UturnPair rep;
-        fds_verify(readyHandles.pop(rep));
+    if (doUturn) {
+        // Iterate and send each ready response
+        while (!readyHandles.empty()) {
+            UturnPair rep;
+            fds_verify(readyHandles.pop(rep));
 
-        fds_int64_t handle = __builtin_bswap64(rep.handle);
+            fds_int64_t handle = __builtin_bswap64(rep.handle);
 
-        fds_uint32_t length = rep.length;
-        fds_int32_t opType = rep.opType;
-        fds_uint32_t chunks = 0;
-        if (NBD_CMD_READ == opType) {
-            // TODO(Andrew): Remove this verify and handle sub-4K
-            fds_verify((length % 4096) == 0);
-            chunks = length / 4096;
+            fds_uint32_t length = rep.length;
+            fds_int32_t opType = rep.opType;
+            fds_uint32_t chunks = 0;
+            if (NBD_CMD_READ == opType) {
+                // TODO(Andrew): Remove this verify and handle sub-4K
+                fds_verify((length % 4096) == 0);
+                chunks = length / 4096;
+            }
+
+            // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
+            iovec vectors[kMaxChunks + 3];
+            vectors[0] = {reinterpret_cast<void*>(&magic), sizeof(magic)};
+            vectors[1] = {const_cast<void*>(reinterpret_cast<void const*>(&error)), sizeof(error)};
+            vectors[2] = {reinterpret_cast<void*>(&handle), sizeof(handle)};
+
+            for (size_t i = 0; i < chunks; ++i) {
+                vectors[3+i].iov_base = const_cast<void*>(
+                    reinterpret_cast<void const*>(fourKayZeros));
+                vectors[3+i].iov_len = sizeof(fourKayZeros);
+            }
+
+            ssize_t nwritten = writev(watcher.fd, vectors, chunks + 3);
+            if (nwritten < 0) {
+                LOGERROR << "Socket write error";
+                return;
+            }
+            LOGTRACE << "Wrote " << nwritten << " bytes of zeros";
         }
+        LOGTRACE << "No more handles to respond to";
+        return;
+    }
+
+    // no uturn
+    while (!readyResponses.empty()) {
+        NbdResponseVector* resp = NULL;
+        fds_verify(readyResponses.pop(resp));
+
+        fds_int64_t handle = __builtin_bswap64(resp->getHandle());
 
         // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
         iovec vectors[kMaxChunks + 3];
@@ -327,20 +359,29 @@ NbdConnection::hsReply(ev::io &watcher) {
         vectors[1] = {const_cast<void*>(reinterpret_cast<void const*>(&error)), sizeof(error)};
         vectors[2] = {reinterpret_cast<void*>(&handle), sizeof(handle)};
 
-        for (size_t i = 0; i < chunks; ++i) {
-            vectors[3+i].iov_base = const_cast<void*>(
-                reinterpret_cast<void const*>(fourKayZeros));
-            vectors[3+i].iov_len = sizeof(fourKayZeros);
+        fds_uint32_t context = 0;
+        size_t cnt = 0;
+        boost::shared_ptr<std::string> buf = resp->getNextReadBuffer(context);
+        while (buf != NULL) {
+            GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
+            vectors[3+cnt].iov_base = const_cast<void*>(
+                reinterpret_cast<void const*>(buf->c_str()));
+            vectors[3+cnt].iov_len = buf->length();
+            ++cnt;
+            // get next buffer
+            buf = resp->getNextReadBuffer(context);
         }
-
-        ssize_t nwritten = writev(watcher.fd, vectors, chunks + 3);
+        ssize_t nwritten = writev(watcher.fd, vectors, cnt + 3);
         if (nwritten < 0) {
             LOGERROR << "Socket write error";
             return;
         }
-        LOGTRACE << "Wrote " << nwritten << " bytes of zeros";
+        LOGTRACE << "Wrote " << nwritten << " bytes of response";
+
+        // cleanup
+        delete resp;
     }
-    LOGTRACE << "No more handles to respond to";
+    LOGTRACE << "No more reponses to send";
 }
 
 Error
@@ -352,17 +393,19 @@ NbdConnection::dispatchOp(ev::io &watcher,
     switch (opType) {
         UturnPair utPair;
         case NBD_CMD_READ:
-            // TODO(Andrew): Hackey uturn code. Remove.
-            utPair.handle = handle;
-            utPair.length = length;
-            utPair.opType = opType;
-            readyHandles.push(utPair);
+            if (doUturn) {
+                // TODO(Andrew): Hackey uturn code. Remove.
+                utPair.handle = handle;
+                utPair.length = length;
+                utPair.opType = opType;
+                readyHandles.push(utPair);
 
-            // do read from AM
-            nbdOps->read(volumeName, length, offset, handle);
-
-            // We have something to write, so ask for events
-            ioWatcher->set(ev::READ | ev::WRITE);
+                // We have something to write, so ask for events
+                ioWatcher->set(ev::READ | ev::WRITE);
+            } else {
+                // do read from AM
+                nbdOps->read(volumeName, length, offset, handle);
+            }
             break;
         case NBD_CMD_WRITE:
             // TODO(Andrew): Hackey uturn code. Remove.
@@ -442,12 +485,15 @@ NbdConnection::callback(ev::io &watcher, int revents) {
 void
 NbdConnection::readResp(const Error& error,
                         fds_int64_t handle,
-                        ReadRespVector* response) {
+                        NbdResponseVector* response) {
     LOGNORMAL << "Read response from NbdOperations handle " << handle
               << " " << error;
 
     // add to quueue
-    delete response;
+    readyResponses.push(response);
+
+    // We have something to write, so ask for events
+    ioWatcher->set(ev::READ | ev::WRITE);
 }
 
 }  // namespace fds
