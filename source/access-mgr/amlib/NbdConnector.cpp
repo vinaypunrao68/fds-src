@@ -222,6 +222,7 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
     exportName[length] = '\0';  // In case volume name is not NULL terminated.
     volumeName = boost::make_shared<std::string>(&exportName[0]);
     if (toggleStandAlone) {
+        volDesc.policy.maxObjectSizeInBytes = 4096;
         volDesc.policy.blockDeviceSizeInBytes = 10737418240;
     } else {
         Error err = omConfigApi->statVolume(volumeName, volDesc);
