@@ -3,6 +3,7 @@
  */
 #include <set>
 #include <string>
+#include <type_traits>
 #include <NbdConnector.h>
 
 extern "C" {
@@ -12,8 +13,6 @@ extern "C" {
 }
 
 #include <ev++.h>
-
-#define IOVEC_LENGTH(x) (sizeof(x) / sizeof(iovec))
 
 namespace fds {
 
@@ -159,7 +158,7 @@ NbdConnection::hsPreInit(ev::io &watcher) {
             sizeof(NBD_PROTO_VERSION) },
     };
 
-    ssize_t nwritten = writev(watcher.fd, vectors, IOVEC_LENGTH(vectors));
+    ssize_t nwritten = writev(watcher.fd, vectors, std::extent<decltype(vectors)>::value);
     if (nwritten < 0) {
         LOGERROR << "Socket write error";
         return;
@@ -192,7 +191,7 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
     };
 
     // Read
-    ssize_t nread = readv(watcher.fd, vectors, IOVEC_LENGTH(vectors));
+    ssize_t nread = readv(watcher.fd, vectors, std::extent<decltype(vectors)>::value);
     if (nread < 0) {
         LOGERROR << "Socket read error";
         return;
@@ -233,7 +232,7 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
             sizeof(NBD_PROTO_VERSION) },
     };
 
-    ssize_t nwritten = writev(watcher.fd, vectors, IOVEC_LENGTH(vectors));
+    ssize_t nwritten = writev(watcher.fd, vectors, std::extent<decltype(vectors)>::value);
     if (nwritten < 0) {
         LOGERROR << "Socket write error";
         return;
@@ -254,7 +253,7 @@ NbdConnection::hsReq(ev::io &watcher) {
     };
 
     // Read
-    ssize_t nread = readv(watcher.fd, vectors, IOVEC_LENGTH(vectors));
+    ssize_t nread = readv(watcher.fd, vectors, std::extent<decltype(vectors)>::value);
     if (nread < 0) {
         LOGERROR << "Socket read error";
         return;
