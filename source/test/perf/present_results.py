@@ -28,10 +28,10 @@ mixes = { "get" : "100% GET",
     }
 
 configs = {
-            "amcache" : "AM cache 100% hit",
-            "amcache0" : "AM cache 0% hit  - 100% SM and DM cache hit",
-            "amcache0-block" : "AM cache 0% hit  - 100% SM and DM cache hit - New SVC layer off for block",
-            "amcache750" : "AM cache 75% hit  - 100% SM and DM cache hit",
+            "amcache" : "AM cache 100% hit for data 100% hit for metadata",
+            "amcache0" : "AM cache 0% hit for data 100% hit for metadata  - 100% SM and DM cache hit",
+            "amcache0-block" : "AM cache 0% hit for data 100% hit for metadata - 100% SM and DM cache hit - New SVC layer off for block",
+            "amcache750" : "AM cache 75% hit for data 100% hit for metadata - 100% SM and DM cache hit",
 }
 
 def compile_config_notes():
