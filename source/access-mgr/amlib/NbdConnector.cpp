@@ -214,13 +214,16 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
 
     exportName[length] = '\0';  // In case volume name is not NULL terminated.
     volumeName = boost::make_shared<std::string>(&exportName[0]);
-    LOGNORMAL << "Volume name " << *volumeName;
+    Error err = omConfigApi->statVolume(volumeName, volDesc);
+    fds_verify(ERR_OK == err);
+    fds_verify(apis::BLOCK == volDesc.policy.volumeType);
+    LOGNORMAL << "Attaching volume name " << *volumeName << " of size "
+              << volDesc.policy.blockDeviceSizeInBytes;
 }
 
 void
 NbdConnection::hsSendOpts(ev::io &watcher) {
     static fds_int16_t const optFlags = NBD_FLAG_HAS_FLAGS|NBD_FLAG_SEND_FLUSH|NBD_FLAG_SEND_FUA;
-    LOGDEBUG << "Replying with device size " << volDesc.policy.blockDeviceSizeInBytes;
     static iovec const vectors[] = {
         { const_cast<void*>(reinterpret_cast<void const*>(&volDesc.policy.blockDeviceSizeInBytes)),
             sizeof(volDesc.policy.blockDeviceSizeInBytes) },
@@ -259,13 +262,9 @@ NbdConnection::hsReq(ev::io &watcher) {
 
     magic = ntohl(magic);
     fds_verify(NBD_REQUEST_MAGIC == magic);
-    // TODO(Andrew): Need to verify this magic #...
     opType = ntohl(opType);
-    // TODO(Andrew): Need to verify this magic #...
     handle = __builtin_bswap64(handle);
-    // TODO(Andrew): Need to verify this magic #...
     offset = __builtin_bswap64(offset);
-    // TODO(Andrew): Need to verify this magic #...
     length = ntohl(length);
 
     LOGTRACE << "Read " << nread << " bytes," << std::endl
@@ -383,13 +382,12 @@ NbdConnection::dispatchOp(ev::io &watcher,
                 utPair.length = length;
                 utPair.opType = opType;
                 readyHandles.push(utPair);
-
-                // We have something to write, so ask for events
-                ioWatcher->set(ev::READ | ev::WRITE);
             } else {
                 // do read from AM
                 nbdOps->read(volumeName, length, offset, handle);
             }
+                            // We have something to write, so ask for events
+            ioWatcher->set(ev::READ | ev::WRITE);
             break;
         case NBD_CMD_WRITE:
             // TODO(Andrew): Hackey uturn code. Remove.
