@@ -3,6 +3,7 @@
  */
 
 #include <string>
+#include <map>
 #include <NbdOperations.h>
 
 namespace fds {
@@ -14,6 +15,7 @@ NbdOperations::NbdOperations(AmAsyncDataApi::shared_ptr& amApi,
           nbdResp(respIface),
           domainName(new std::string("TestDomain")),
           blobName(new std::string("BlockBlob")),
+          emptyMeta(new std::map<std::string, std::string>()),
           blobMode(new fds_int32_t(0)) {
     amApi->setResponseApi(responseApi);
 }

@@ -254,7 +254,7 @@ TEST(NbdOperations, read) {
 
 TEST(NbdOperations, write) {
     GLOGDEBUG << "TBD: Testing write";
-    //  amLoad->runTask(AmLoadProc::PUT);
+    nbdOpsProc->runAsyncTask(NbdOpsProc::PUT);
 }
 
 int
