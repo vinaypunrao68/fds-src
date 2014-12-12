@@ -17,12 +17,19 @@ platform_core_src :=                                     \
                      disk_object.cpp                     \
                      disk_obj_iter.cpp                   \
                      disk-partition.cpp                  \
-                     disk-inventory.cpp                  \
+                     disk_plat_module.cpp                \
+                     pm_disk_inventory.cpp               \
+                     disk_common.cpp                     \
+                     file_disk_obj.cpp                   \
+                     pm_disk_obj.cpp                     \
+                     file_disk_inventory.cpp             \
                      ep-map.cpp                          \
                      net-service.cpp                     \
                      platform_net_svc.cpp                \
                      net-platform.cpp                    \
                      net-registration.cpp
+
+
 
 # The sources for the public library of platform
 fds_plat_lib_cpp :=                              \
