@@ -56,11 +56,11 @@ class AmAsyncResponseApi {
 
     virtual void getBlobResp(const Error &error,
                              boost::shared_ptr<apis::RequestId>& requestId,
-                             char* buf,
+                             boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length) = 0;
     virtual void getBlobWithMetaResp(const Error &error,
                                      boost::shared_ptr<apis::RequestId>& requestId,
-                                     char* buf,
+                                     boost::shared_ptr<std::string> buf,
                                      fds_uint32_t& length,
                                      boost::shared_ptr<apis::BlobDescriptor>& blobDesc) = 0;
 };
@@ -117,11 +117,11 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
 
     void getBlobResp(const Error &error,
                      boost::shared_ptr<apis::RequestId>& requestId,
-                     char* buf,
+                     boost::shared_ptr<std::string> buf,
                      fds_uint32_t& length);
     void getBlobWithMetaResp(const Error &error,
                              boost::shared_ptr<apis::RequestId>& requestId,
-                             char* buf,
+                             boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length,
                              boost::shared_ptr<apis::BlobDescriptor>& blobDesc);
 };

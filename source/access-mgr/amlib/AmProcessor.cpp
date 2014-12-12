@@ -298,13 +298,7 @@ AmProcessor::getBlob(AmRequest *amReq) {
             foundBlobDesc = true;
             GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
             // Fill in the data here
-            cb->blobDesc.setBlobName(cachedBlobDesc->getBlobName());
-            cb->blobDesc.setBlobSize(cachedBlobDesc->getBlobSize());
-            for (const_kv_iterator meta = cachedBlobDesc->kvMetaBegin();
-                 meta != cachedBlobDesc->kvMetaEnd();
-                 ++meta) {
-                cb->blobDesc.addKvMeta(meta->first,  meta->second);
-            }
+            cb->blobDesc = cachedBlobDesc;
         }
     } else {
         // If we don't need to return metadata just continue like we found it
@@ -337,14 +331,7 @@ AmProcessor::getBlob(AmRequest *amReq) {
             cb->returnSize = std::min(amReq->data_len, objectData->size());
 
             // Make sure we have a buffer.
-            // TODO(Andrew): This should be a shared pointer
-            // as we pass it around a lot.
-            if (cb->returnBuffer == nullptr) {
-                cb->returnBuffer = new char[cb->returnSize];
-            }
-
-            // Only return UP-TO the amount of data requested, never more
-            memcpy(cb->returnBuffer, objectData->c_str(), cb->returnSize);
+            cb->returnBuffer = objectData;
 
             // Report results of GET request to requestor.
             getBlobCb(amReq, err);
@@ -390,13 +377,7 @@ AmProcessor::statBlob(AmRequest *amReq) {
 
         StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, amReq->cb);
         // Fill in the data here
-        cb->blobDesc.setBlobName(cachedBlobDesc->getBlobName());
-        cb->blobDesc.setBlobSize(cachedBlobDesc->getBlobSize());
-        for (const_kv_iterator meta = cachedBlobDesc->kvMetaBegin();
-             meta != cachedBlobDesc->kvMetaEnd();
-             ++meta) {
-            cb->blobDesc.addKvMeta(meta->first,  meta->second);
-        }
+        cb->blobDesc = cachedBlobDesc;
         statBlobCb(amReq, ERR_OK);
         return;
     }
@@ -426,23 +407,24 @@ AmProcessor::volumeContents(AmRequest *amReq) {
 
 void
 AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
-    if (ERR_OK == error) {
-        // TODO(bszmyd): Thu 09 Oct 2014 04:30:52 PM MDT
-        // We have successfully retrieved the BLOB, let's stick it in the cache
-        // if it didn't already exist there (call is idempotent).
-    }
+    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
 
     // Tell QoS the request is done
     qosCtrl->markIODone(amReq);
-    amReq->cb->call(error);
+    cb->call(error);
 
-    // TODO(Greg): This check may be removed when sync interface is removed.
-    boost::shared_ptr<ResponseHandler> ah =
-            SHARED_DYN_CAST(ResponseHandler, amReq->cb);
-    if (ah->isAsyncHandler()) {
-        // We're finished with our buffer used to return the object.
-        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-        delete[] cb->returnBuffer;
+    // Insert original Object into cache. Do not insert the truncated version
+    // since we really do have all the data. This is done after response to
+    // reduce latency.
+    if (ERR_OK == error && cb->returnBuffer) {
+        amCache->putOffset(amReq->io_vol_id,
+                           BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
+                           boost::make_shared<ObjectID>(amReq->obj_id));
+        amCache->putObject(amReq->io_vol_id,
+                           amReq->obj_id,
+                           cb->returnBuffer);
+        if (static_cast<GetBlobReq*>(amReq)->get_metadata && cb->blobDesc)
+            amCache->putBlobDescriptor(amReq->io_vol_id, amReq->getBlobName(), cb->blobDesc);
     }
 
     delete amReq;
@@ -460,14 +442,17 @@ AmProcessor::queryCatalogCb(AmRequest *amReq, const Error& error) {
 
 void
 AmProcessor::statBlobCb(AmRequest *amReq, const Error& error) {
-    if (ERR_OK == error) {
-        // TODO(bszmyd): Tuesday 14 Oct 2014 12:21:41 PM MDT
-        // Update the descriptor cache here
-    }
-
     // Tell QoS the request is done
     qosCtrl->markIODone(amReq);
     amReq->cb->call(error);
+
+    // Insert metadata into cache.
+    if (ERR_OK == error) {
+        amCache->putBlobDescriptor(amReq->io_vol_id,
+                                   amReq->getBlobName(),
+                                   SHARED_DYN_CAST(StatBlobCallback, amReq->cb)->blobDesc);
+    }
+
     delete amReq;
 }
 

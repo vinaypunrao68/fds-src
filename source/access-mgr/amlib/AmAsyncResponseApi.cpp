@@ -262,7 +262,7 @@ AmAsyncXdiResponse::volumeContentsResp(const Error &error,
 void
 AmAsyncXdiResponse::getBlobResp(const Error &error,
                                 boost::shared_ptr<apis::RequestId>& requestId,
-                                char* buf,
+                                boost::shared_ptr<std::string> buf,
                                 fds_uint32_t& length) {
     checkClientConnect();
     if (!error.ok()) {
@@ -274,16 +274,14 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
                                                              errorCode,
                                                              message));
     } else {
-         boost::shared_ptr<std::string> response =
-                 boost::make_shared<std::string>(buf, length);
-        XDICLIENTCALL(asyncRespClient, getBlobResponse(requestId, response));
+        XDICLIENTCALL(asyncRespClient, getBlobResponse(requestId, buf));
     }
 }
 
 void
 AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
                                         boost::shared_ptr<apis::RequestId>& requestId,
-                                        char* buf,
+                                        boost::shared_ptr<std::string> buf,
                                         fds_uint32_t& length,
                                         boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
     checkClientConnect();
@@ -296,9 +294,7 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
                                                              errorCode,
                                                              message));
     } else {
-        boost::shared_ptr<std::string> response =
-                boost::make_shared<std::string>(buf, length);
-        XDICLIENTCALL(asyncRespClient, getBlobWithMetaResponse(requestId, response, blobDesc));
+        XDICLIENTCALL(asyncRespClient, getBlobWithMetaResponse(requestId, buf, blobDesc));
     }
 }
 }  // namespace fds

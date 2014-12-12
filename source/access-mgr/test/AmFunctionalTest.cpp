@@ -284,7 +284,7 @@ class AmLoadProc : public AmAsyncResponseApi,
 
     void getBlobResp(const Error &error,
                      boost::shared_ptr<apis::RequestId>& requestId,
-                     char* buf,
+                     boost::shared_ptr<std::string> buf,
                      fds_uint32_t& length) {
         fds_verify(ERR_OK == error);
         if (totalOps == ++opsDone) {
@@ -295,7 +295,7 @@ class AmLoadProc : public AmAsyncResponseApi,
 
     void getBlobWithMetaResp(const Error &error,
                              boost::shared_ptr<apis::RequestId>& requestId,
-                             char* buf,
+                             boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length,
                              boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
         fds_verify(ERR_OK == error);
