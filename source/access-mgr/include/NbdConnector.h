@@ -126,9 +126,9 @@ class NbdConnection : public NbdOperationsResponseIface {
     ~NbdConnection();
 
     // implementation of NbdOperationsResponseIface
-    void readResp(const Error& error,
-                  fds_int64_t handle,
-                  NbdResponseVector* response);
+    void readWriteResp(const Error& error,
+                       fds_int64_t handle,
+                       NbdResponseVector* response);
 };
 
 }  // namespace fds

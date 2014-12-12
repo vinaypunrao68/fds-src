@@ -98,16 +98,19 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     typedef std::unique_ptr<NbdOpsProc> unique_ptr;
 
     // implementation of NbdOperationsResponseIface
-    void readResp(const Error& error,
-                  fds_int64_t handle,
-                  NbdResponseVector* response) {
-        GLOGDEBUG << "Read response for handle " << handle;
+    void readWriteResp(const Error& error,
+                       fds_int64_t handle,
+                       NbdResponseVector* response) {
+        GLOGDEBUG << "Read? " << response->isRead()
+                  << " response for handle " << handle;
         fds_verify(response->isReady());
-        fds_uint32_t context = 0;
-        boost::shared_ptr<std::string> buf = response->getNextReadBuffer(context);
-        while (buf != NULL) {
-            GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
-            buf = response->getNextReadBuffer(context);
+        if (response->isRead()) {
+            fds_uint32_t context = 0;
+            boost::shared_ptr<std::string> buf = response->getNextReadBuffer(context);
+            while (buf != NULL) {
+                GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
+                buf = response->getNextReadBuffer(context);
+            }
         }
         // free response
         delete response;
@@ -140,14 +143,12 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                     // Make copy of data since function "takes" the shared_ptr
                     boost::shared_ptr<std::string> localData(
                         boost::make_shared<std::string>(*blobGen.blobData));
-
-                    // TODO(Anna) call nbd ops
+                    nbdOps->write(volumeName, 4096, localData, localData->length(), 0, ++handle);
                 } catch(apis::ApiException fdsE) {
                     fds_panic("write failed");
                 }
             } else if (opType == GET) {
                 try {
-                    std::string data;
                     nbdOps->read(volumeName, 4096, blobSize, 0, ++handle);
                 } catch(apis::ApiException fdsE) {
                     fds_panic("read failed");

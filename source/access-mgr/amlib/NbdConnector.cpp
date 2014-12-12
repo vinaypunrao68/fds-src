@@ -433,7 +433,7 @@ NbdConnection::dispatchOp(ev::io &watcher,
 void
 NbdConnection::wakeupCb(ev::async &watcher, int revents) {
     ioWatcher->set(ev::READ | ev::WRITE);
-    ioWatcher->feed_event(EV_WRITE);
+    // ioWatcher->feed_event(EV_WRITE);
 }
 
 void
@@ -488,10 +488,11 @@ NbdConnection::callback(ev::io &watcher, int revents) {
 }
 
 void
-NbdConnection::readResp(const Error& error,
-                        fds_int64_t handle,
-                        NbdResponseVector* response) {
-    LOGNORMAL << "Read response from NbdOperations handle " << handle
+NbdConnection::readWriteResp(const Error& error,
+                             fds_int64_t handle,
+                             NbdResponseVector* response) {
+    LOGNORMAL << "Read? " << response->isRead() << " (false is write)"
+              << " response from NbdOperations handle " << handle
               << " " << error;
 
     // add to quueue

@@ -63,30 +63,30 @@ class NbdResponseVector {
         return ((doneCnt + 1) == objCount);
     }
 
+    /**
+     * \return true if all responses were received
+     */
+    fds_bool_t handleWriteResponse(fds_uint32_t seqId) {
+        fds_verify(operation == WRITE);
+        fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
+        return ((doneCnt + 1) == objCount);
+    }
+
   private:
     fds_int64_t handle;
     NbdOperation operation;
     std::atomic<fds_uint32_t> doneCount;
     fds_uint32_t objCount;
+
+    // to collect read responses
     std::vector<boost::shared_ptr<std::string>> bufVec;
-};
 
-class WriteResponseVector {
-  public:
-    explicit WriteResponseVector(fds_uint32_t objCnt) : remainCount(objCnt) {
-    }
-    ~WriteResponseVector() {}
-
-  private:
-    fds_uint32_t remainCount;
-
-    boost::shared_ptr<std::string> devName;
-    boost::shared_ptr<std::string> volumeName;
+    // write op info
     boost::shared_ptr<std::string> bytes;
-
-    // map of sequence id to object offset
-    // for the objects that we read-modify-write
-    std::map<fds_int32_t, boost::shared_ptr<apis::ObjectOffset>> readOff;
+    // seqId is 0
+    boost::shared_ptr<apis::ObjectOffset> firstOff;
+    // seqId is objCount - 1
+    boost::shared_ptr<apis::ObjectOffset> lastOff;
 };
 
 // Response interface for NbdOperations
@@ -94,9 +94,9 @@ class NbdOperationsResponseIface {
   public:
     virtual ~NbdOperationsResponseIface() {}
 
-    virtual void readResp(const Error& error,
-                          fds_int64_t handle,
-                          NbdResponseVector* response) = 0;
+    virtual void readWriteResp(const Error& error,
+                               fds_int64_t handle,
+                               NbdResponseVector* response) = 0;
 };
 
 class NbdOperations : public AmAsyncResponseApi {
@@ -111,6 +111,13 @@ class NbdOperations : public AmAsyncResponseApi {
               fds_uint32_t length,
               fds_uint64_t offset,
               fds_int64_t handle);
+
+    void write(boost::shared_ptr<std::string>& volumeName,
+               fds_uint32_t maxObjectSizeInBytes,
+               boost::shared_ptr<std::string>& bytes,
+               fds_uint32_t length,
+               fds_uint64_t offset,
+               fds_int64_t handle);
 
     // AmAsyncResponseApi implementation
     void attachVolumeResp(const Error &error,
@@ -127,7 +134,7 @@ class NbdOperations : public AmAsyncResponseApi {
     void updateBlobResp(const Error &error,
                         boost::shared_ptr<apis::RequestId>& requestId) {}
     void updateBlobOnceResp(const Error &error,
-                            boost::shared_ptr<apis::RequestId>& requestId) {}
+                            boost::shared_ptr<apis::RequestId>& requestId);
     void updateMetadataResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId) {}
     void deleteBlobResp(const Error &error,
@@ -171,6 +178,8 @@ class NbdOperations : public AmAsyncResponseApi {
     // for all reads/writes to AM
     boost::shared_ptr<std::string> blobName;
     boost::shared_ptr<std::string> domainName;
+    boost::shared_ptr<fds_int32_t> blobMode;
+    boost::shared_ptr< std::map<std::string, std::string> > emptyMeta;
 
     // for now we are supporting <=4K requests
     // so keep current handles for which we are waiting responses

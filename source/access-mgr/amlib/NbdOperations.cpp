@@ -13,7 +13,8 @@ NbdOperations::NbdOperations(AmAsyncDataApi::shared_ptr& amApi,
           responseApi(this),
           nbdResp(respIface),
           domainName(new std::string("TestDomain")),
-          blobName(new std::string("BlockBlob")) {
+          blobName(new std::string("BlockBlob")),
+          blobMode(new fds_int32_t(0)) {
     amApi->setResponseApi(responseApi);
 }
 
@@ -83,7 +84,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
             ++seqId;
         } catch(apis::ApiException fdsE) {
             // return error
-            nbdResp->readResp(ERR_DISK_READ_FAILED, handle, NULL);
+            nbdResp->readWriteResp(ERR_DISK_READ_FAILED, handle, NULL);
             fds_mutex::scoped_lock l(respLock);
             if (responses.count(handle) > 0) {
                 NbdResponseVector* delResp = responses[handle];
@@ -96,44 +97,99 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
     }
 }
 
-/*
+
 void
 NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
+                     fds_uint32_t maxObjectSizeInBytes,
                      boost::shared_ptr<std::string>& bytes,
                      fds_uint32_t length,
                      fds_uint64_t offset,
                      fds_int64_t handle) {
-    // hardcoding domain name
-    boost::shared_ptr<std::string> domainName(new std::string("TestDomain"));
-    fds_uint32_t objectSize = 4096;  // hardcoding 4K max obj size
-
     // calculate how many object we will put
-    fds_uint32_t objCount = length / objectSize;
-    if ((length % objectSize) != 0) {
+    fds_uint32_t objCount = length / maxObjectSizeInBytes;
+    if ((length % maxObjectSizeInBytes) != 0) {
         ++objCount;
     }
 
     LOGDEBUG << "Will write " << length << " bytes " << offset
              << " offset for volume " << *volumeName
              << " object count " << objCount
-             << " handle " << handle;
+             << " handle " << handle
+             << " max object size " << maxObjectSizeInBytes << " bytes";
+
+    // we will wait for responses
+    NbdResponseVector* resp = new NbdResponseVector(handle,
+                                                    NbdResponseVector::WRITE,
+                                                    objCount);
+
+    {   // add response that we will fill in with data
+        fds_mutex::scoped_lock l(respLock);
+        fds_verify(responses.count(handle) == 0);
+        responses[handle] = resp;
+    }
 
     fds_uint32_t amBytesWritten = 0;
-    while (amBytesWritten < len) {
+    fds_int32_t seqId = 0;
+    while (amBytesWritten < length) {
         fds_uint64_t curOffset = offset + amBytesWritten;
-        fds_uint64_t objectOff = curOffset / objectSize;
-        fds_uint32_t curLength = length - amBytesRead;
-        if (curLength > objectSize) {
-            curLength = objectSize;
+        fds_uint64_t objectOff = curOffset / maxObjectSizeInBytes;
+        fds_uint32_t iOff = curOffset % maxObjectSizeInBytes;
+        fds_uint32_t iLength = length - amBytesWritten;
+        if (iLength > maxObjectSizeInBytes) {
+            iLength = maxObjectSizeInBytes - iOff;
         }
-        boost::shared_ptr<int32_t> blobLength = boost::make_shared<int32_t>(curLength);
+
+        // see if we need to read-modify-write
+        if ((iOff != 0) || (iLength != maxObjectSizeInBytes)) {
+            // we need to read the whole object first
+            LOGNORMAL << "Will do read-modify-write for object size " << iLength;
+            fds_verify(false);  // implement this
+            ++seqId;
+            continue;
+        }
+
+        // write an object
+        boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(iLength);
         boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
         off->value = objectOff;
 
-        // see if we need to read-modify-write this object
+        boost::shared_ptr<apis::RequestId> reqId(
+            boost::make_shared<apis::RequestId>());
+        // request id is 64 bit of handle + 32 bit of sequence Id
+        reqId->id = std::to_string(handle) + ":" + std::to_string(seqId);
+
+        // blob name for block?
+        LOGDEBUG << "putBlob length " << iLength << " offset " << curOffset
+                 << " object offset " << objectOff
+                 << " volume " << volumeName << " reqId " << reqId->id;
+
+        // write to AM
+        try {
+            amAsyncDataApi->updateBlobOnce(reqId,
+                                           domainName,
+                                           volumeName,
+                                           blobName,
+                                           blobMode,
+                                           bytes,
+                                           objLength,
+                                           off,
+                                           emptyMeta);
+            amBytesWritten += iLength;
+            ++seqId;
+        } catch(apis::ApiException fdsE) {
+            // return error
+            nbdResp->readWriteResp(ERR_DISK_READ_FAILED, handle, NULL);
+            fds_mutex::scoped_lock l(respLock);
+            if (responses.count(handle) > 0) {
+                NbdResponseVector* delResp = responses[handle];
+                responses[handle] = NULL;
+                delete delResp;
+                responses.erase(handle);
+            }
+            return;
+        }
     }
 }
-*/
 
 void
 NbdOperations::getBlobResp(const Error &error,
@@ -168,7 +224,46 @@ NbdOperations::getBlobResp(const Error &error,
     fds_bool_t done = resp->handleReadResponse(buf, length, seqId);
     if (done) {
         // we are done collecting responses for this handle, notify nbd connector
-        nbdResp->readResp(error, handle, resp);
+        nbdResp->readWriteResp(error, handle, resp);
+        // nbd connector will free resp
+        // remove from the wait list
+        fds_mutex::scoped_lock l(respLock);
+        responses.erase(handle);
+    }
+}
+
+void
+NbdOperations::updateBlobOnceResp(const Error &error,
+                                  boost::shared_ptr<apis::RequestId>& requestId) {
+    NbdResponseVector* resp = NULL;
+    fds_int64_t handle = 0;
+    fds_int32_t seqId = 0;
+    parseRequestId(requestId, &handle, &seqId);
+
+    LOGDEBUG << "Reponse for updateBlobOnce, "
+             << error << ", handle " << handle
+             << " seqId " << seqId << " ( "
+             << requestId->id << " )";
+
+    {
+        fds_mutex::scoped_lock l(respLock);
+        // if we are not waiting for this response, we probably already
+        // returned an error
+        if (responses.count(handle) == 0) {
+            LOGWARN << "Not waiting for response for handle " << handle
+                    << ", check if we returned an error";
+            return;
+        }
+        // get response
+        resp = responses[handle];
+    }
+
+    // update response vector
+    fds_verify(resp);
+    fds_bool_t done = resp->handleWriteResponse(seqId);
+    if (done) {
+        // we are done collecting responses for this handle, notify nbd connector
+        nbdResp->readWriteResp(error, handle, resp);
         // nbd connector will free resp
         // remove from the wait list
         fds_mutex::scoped_lock l(respLock);
