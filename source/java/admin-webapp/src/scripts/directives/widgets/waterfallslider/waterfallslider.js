@@ -240,7 +240,6 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             
             // helper function to get the relative x value in the element from the mouse event
             var getEventX = function( $event ){
-                console.log( $event.clientX );
                 var relativeX = ($event.clientX - sliderPane.offset().left) - halfHandleWidth;
                 return relativeX;
             };
