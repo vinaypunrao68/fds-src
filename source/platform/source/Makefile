@@ -41,6 +41,9 @@ platform_core_src :=                                     \
 # The sources for the public library of platform
 fds_plat_lib_cpp :=                              \
                     platform-lib.cpp             \
+                    domain_cluster_map.cpp       \
+                    domain_resources.cpp         \
+                    platform_process.cpp         \
                     platform-rpc.cpp             \
                     platform-libmod.cpp          \
                     disk_inventory.cpp           \

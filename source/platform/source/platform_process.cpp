@@ -3,38 +3,11 @@
  */
 
 #include <string>
+
 #include <platform/platform-lib.h>
 
 namespace fds
 {
-
-    DomainClusterMap::~DomainClusterMap()
-    {
-    }
-
-    DomainClusterMap::DomainClusterMap(char const *const name) : DomainContainer(name)
-    {
-    }
-
-    DomainClusterMap::DomainClusterMap(char const *const name, OmAgent::pointer master,
-                                       SmContainer::pointer sm, DmContainer::pointer dm,
-                                       AmContainer::pointer am,
-                                       PmContainer::pointer pm,
-                                       OmContainer::pointer om) : DomainContainer(name, master, sm,
-                                                                                  dm, am, pm, om)
-    {
-    }
-
-    DomainResources::~DomainResources()
-    {
-    }
-
-    DomainResources::DomainResources(char const *const name) : drs_dlt(NULL), rs_refcnt(0)
-    {
-        drs_cur_throttle_lvl = 0;
-        drs_dmt_version      = 0;
-    }
-
     // -------------------------------------------------------------------------------------
     // FDS Platform Process
     // -------------------------------------------------------------------------------------
@@ -142,20 +115,5 @@ namespace fds
         plf_db = new kvstore::PlatformDB();
         plf_load_node_data();
         plf_apply_node_data();
-    }
-
-    // -------------------------------------------------------------------------------------
-    // Platform Utility Functions.
-    // -------------------------------------------------------------------------------------
-    /* static */ int Platform::plf_get_my_node_svc_uuid(fpi::SvcUuid *uuid,
-                                                        fpi::FDSP_MgrIdType type)
-    {
-        NodeUuid    svc_uuid;
-        Platform   *plat = Platform::platf_singleton();
-
-        Platform::plf_svc_uuid_from_node(plat->plf_my_uuid, &svc_uuid, type);
-        svc_uuid.uuid_assign(uuid);
-
-        return Platform::plf_svc_port_from_node(plat->plf_my_node_port, type);
     }
 }  // namespace fds
