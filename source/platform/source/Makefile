@@ -40,7 +40,7 @@ platform_core_src :=                                     \
 
 # The sources for the public library of platform
 fds_plat_lib_cpp :=                              \
-                    platform-lib.cpp             \
+                    platform.cpp                 \
                     domain_cluster_map.cpp       \
                     domain_resources.cpp         \
                     platform_process.cpp         \
@@ -50,7 +50,7 @@ fds_plat_lib_cpp :=                              \
                     node_inventory.cpp           \
                     domain_container.cpp         \
                     agent_container.cpp          \
-                    node-inv-shmem.cpp           \
+                    node_inv_shmem.cpp           \
                     pm_svc_ep.cpp                \
                     sm_svc_ep.cpp                \
                     am_svc_ep.cpp                \
@@ -79,7 +79,6 @@ fds_plat_lib_cpp :=                              \
                     fds-2phase.cpp               \
                     fds_flags.cpp
 
-# # service-ep-lib.cpp           \
 
 user_cpp :=                        \
             $(platform_cpp)        \

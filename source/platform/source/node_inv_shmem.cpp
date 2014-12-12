@@ -2,13 +2,10 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include <dlt.h>
-#include <fds_assert.h>
-#include <platform/fds-shmem.h>
 #include <platform/platform-lib.h>
-#include <platform/node-inv-shmem.h>
-#include <fds-shmobj.h>
+#include <platform/fds-shmem.h>
 #include <ep-map.h>
+#include <platform/node-inv-shmem.h>
 
 namespace fds
 {
