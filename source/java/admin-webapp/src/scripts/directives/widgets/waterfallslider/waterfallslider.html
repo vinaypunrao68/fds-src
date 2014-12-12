@@ -9,7 +9,7 @@
         <div class="slider-pane">
             <div class="slider" ng-repeat="slider in sliders">
                 <div class="bar" ng-click="sliderMoved( $event, slider )"></div>
-                <div class="fill-bar" ng-style="{ left: slider.startPosition, width: slider.position - slider.startPosition }" ng-class="{'solid-fill': $index === 0}"></div>
+                <div class="fill-bar" ng-style="{ left: slider.startPosition, width: slider.position - slider.startPosition }" ng-class="{'solid-fill': $first}"></div>
                 <div class="value-container" ng-style="{ left: (editing !== $index ) ? slider.position + 'px' : (slider.position - 5) + 'px' }" ng-class="{ 'std-transition' : showAnimation === true, 'edit-box': editing === $index, 'stay-in-screen': amITooWide( $index ) }">
                     <div class="value-display flex display-only" ng-mouseenter="hover = $index;" ng-mouseleave="hover = -1" ng-show="editing !== $index">
                         <div class="value-label" ng-show="$index === 0 || sliders[$index-1].position !== slider.position">{{ createLabel( slider.value ) }}</div>

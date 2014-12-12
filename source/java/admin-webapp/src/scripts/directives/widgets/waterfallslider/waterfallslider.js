@@ -240,6 +240,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             
             // helper function to get the relative x value in the element from the mouse event
             var getEventX = function( $event ){
+                console.log( $event.clientX );
                 var relativeX = ($event.clientX - sliderPane.offset().left) - halfHandleWidth;
                 return relativeX;
             };
@@ -360,6 +361,14 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                     slider.value.value = $scope.range[slider.value.range].start;
                 }
                 
+                if ( slider.value.value < $scope.range[slider.value.range].start ){
+                    slider.value.value = $scope.range[slider.value.range].start;
+                }
+                
+                if ( slider.value.value > $scope.range[slider.value.range].end ){
+                    slider.value.value = $scope.range[slider.value.range].end;
+                }
+                
                 slider.position = findPositionForValue( slider.value ).position;
                 fixStartPositions();
                 
@@ -457,24 +466,28 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             $document.on( 'mouseup', null, handleReleased );
             
             $scope.$on( 'fui::dropdown_change', function( $event, range ){
-                $scope.spinnerMin = range.start;
-                $scope.spinnerMax = range.end;
-                
-                if ( range !== $scope.range.length-1 ){
-                    $scope.spinnerMax = range.end - 1;
-                    
-                    if ( angular.isDefined( range.step ) ){
-                        $scope.spinnerMax = range.end - range.step;
-                    }
-                }
-                
-                $scope.spinnerStep = Math.floor( (range.end - range.start) / getSegmentsForRange( range ));
                 
                 if ( angular.isDefined( range.allowNumber ) ){
                     $scope.allowNumber = range.allowNumber;
                 }
                 else {
                     $scope.allowNumber = true;
+                }
+                
+                if ( $scope.allowNumber === true ){
+                    
+                    $scope.spinnerMin = range.start;
+                    $scope.spinnerMax = range.end;
+
+                    if ( range !== $scope.range.length-1 ){
+                        $scope.spinnerMax = range.end - 1;
+
+                        if ( angular.isDefined( range.step ) ){
+                            $scope.spinnerMax = range.end - range.step;
+                        }
+                    }
+                    
+                    $scope.spinnerStep = Math.floor( (range.end - range.start) / getSegmentsForRange( range ));
                 }
                 
                 $scope.dropdownRange = range;

@@ -27,6 +27,7 @@ module.exports = function(config) {
       'src/scripts/main.js',
       'src/scripts/module-manifest.js',
       'src/**/!(main|module-manifest).js',
+//        'test/karma/widgets/waterfall_slider_spec.js'
       'test/karma/**/*.js'
     ],
 
