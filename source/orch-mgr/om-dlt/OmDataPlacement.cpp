@@ -6,7 +6,9 @@
 #include <utility>
 #include <vector>
 #include <string>
-
+#include <net/net-service-tmpl.hpp>
+#include <fiu-control.h>
+#include <util/fiu_util.h>
 #include <NetSession.h>
 #include <orch-mgr/om-service.h>
 #include <fds_process.h>
