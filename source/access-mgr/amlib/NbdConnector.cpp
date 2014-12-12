@@ -17,8 +17,10 @@ extern "C" {
 
 namespace fds {
 
-NbdConnector::NbdConnector(AmAsyncDataApi::shared_ptr api)
+NbdConnector::NbdConnector(AmAsyncDataApi::shared_ptr api,
+                           OmConfigApi::shared_ptr omApi)
         : asyncDataApi(api),
+          omConfigApi(omApi),
           nbdPort(4444) {
     // Bind to NBD listen port
     nbdSocket = createNbdSocket();
@@ -62,7 +64,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
     // Create a handler for this NBD connection
     // Will delete itself when connection dies
     LOGNORMAL << "Creating client connection...";
-    NbdConnection *client = new NbdConnection(asyncDataApi, clientsd);
+    NbdConnection *client = new NbdConnection(asyncDataApi, omConfigApi, clientsd);
     LOGNORMAL << "Created client connection...";
 }
 
@@ -100,8 +102,10 @@ NbdConnector::runNbdLoop() {
 }
 
 NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
+                             OmConfigApi::shared_ptr omApi,
                              int clientsd)
         : asyncDataApi(api),
+          omConfigApi(omApi),
           nbdOps(new NbdOperations(asyncDataApi, this)),
           clientSocket(clientsd),
           hsState(PREINIT),
@@ -140,7 +144,6 @@ constexpr fds_int32_t NbdConnection::NBD_CMD_DISC;
 constexpr fds_int32_t NbdConnection::NBD_CMD_FLUSH;
 constexpr fds_int32_t NbdConnection::NBD_CMD_TRIM;
 
-constexpr fds_uint64_t NbdConnection::volumeSizeInBytes;
 constexpr fds_uint32_t NbdConnection::maxObjectSizeInBytes;
 constexpr char NbdConnection::fourKayZeros[];
 
@@ -217,9 +220,10 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
 void
 NbdConnection::hsSendOpts(ev::io &watcher) {
     static fds_int16_t const optFlags = NBD_FLAG_HAS_FLAGS|NBD_FLAG_SEND_FLUSH|NBD_FLAG_SEND_FUA;
+    LOGDEBUG << "Replying with device size " << volDesc.policy.blockDeviceSizeInBytes;
     static iovec const vectors[] = {
-        { const_cast<void*>(reinterpret_cast<void const*>(&volumeSizeInBytes)),
-            sizeof(volumeSizeInBytes) },
+        { const_cast<void*>(reinterpret_cast<void const*>(&volDesc.policy.blockDeviceSizeInBytes)),
+            sizeof(volDesc.policy.blockDeviceSizeInBytes) },
         { const_cast<void*>(reinterpret_cast<void const*>(&optFlags)),
             sizeof(NBD_MAGIC) },
         { const_cast<void*>(reinterpret_cast<void const*>(&NBD_PROTO_VERSION)),

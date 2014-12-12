@@ -9,6 +9,7 @@
 #include <fds_types.h>
 #include <concurrency/Thread.h>
 #include <AmAsyncDataApi.h>
+#include <OmConfigService.h>
 #include <NbdOperations.h>
 #include <queue>
 #include <boost/lockfree/queue.hpp>
@@ -30,13 +31,15 @@ class NbdConnector {
     std::unique_ptr<ev::io> evIoWatcher;
     std::shared_ptr<boost::thread> runThread;
     AmAsyncDataApi::shared_ptr asyncDataApi;
+    OmConfigApi::shared_ptr omConfigApi;
 
     int createNbdSocket();
     void runNbdLoop();
     void nbdAcceptCb(ev::io &watcher, int revents);
 
   public:
-    explicit NbdConnector(AmAsyncDataApi::shared_ptr api);
+    NbdConnector(AmAsyncDataApi::shared_ptr api,
+                 OmConfigApi::shared_ptr omApi);
     ~NbdConnector();
     typedef boost::shared_ptr<NbdConnector> shared_ptr;
 };
@@ -45,7 +48,9 @@ class NbdConnection : public NbdOperationsResponseIface {
   private:
     int clientSocket;
     boost::shared_ptr<std::string> volumeName;
+    apis::VolumeDescriptor volDesc;
     AmAsyncDataApi::shared_ptr asyncDataApi;
+    OmConfigApi::shared_ptr omConfigApi;
     NbdOperations::shared_ptr nbdOps;
     fds_bool_t doUturn;
 
@@ -79,7 +84,6 @@ class NbdConnection : public NbdOperationsResponseIface {
     static constexpr fds_int32_t NBD_CMD_TRIM = 4;
 
     // TODO(Andrew): This is a total hack. Go ask OM you lazy...
-    static constexpr fds_uint64_t volumeSizeInBytes = 10737418240;
     static constexpr fds_uint32_t maxObjectSizeInBytes = 4096;
     static constexpr char fourKayZeros[4096]{0};  // NOLINT
     static constexpr size_t kMaxChunks = (2 * 1024 * 1024) / maxObjectSizeInBytes;
@@ -111,8 +115,9 @@ class NbdConnection : public NbdOperationsResponseIface {
                      fds_uint32_t length);
 
   public:
-    explicit NbdConnection(AmAsyncDataApi::shared_ptr api,
-                           int clientsd);
+    NbdConnection(AmAsyncDataApi::shared_ptr api,
+                  OmConfigApi::shared_ptr omApi,
+                  int clientsd);
     ~NbdConnection();
 
     // implementation of NbdOperationsResponseIface
