@@ -4,6 +4,7 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTOR_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTOR_H_
 
+#include <array>
 #include <utility>
 #include <string>
 #include <fds_types.h>
@@ -23,6 +24,30 @@ class async;
 }  // namespace ev
 
 namespace fds {
+
+#pragma pack(push)
+#pragma pack(1)
+struct attach_header {
+    fds_int64_t magic;
+    fds_int32_t optSpec, length;
+};
+
+struct request_header {
+    fds_int32_t magic;
+    fds_int32_t opType;
+    fds_int64_t handle;
+    fds_int64_t offset;
+    fds_int32_t length;
+};
+#pragma pack(pop)
+
+template<typename H, size_t S>
+struct message {
+    typedef H header_type;
+    header_type header;
+    ssize_t header_off, data_off;
+    std::array<char, S> data;
+};
 
 class NbdConnector {
   private:
@@ -56,6 +81,9 @@ class NbdConnection : public NbdOperationsResponseIface {
     size_t maxChunks;
     fds_bool_t toggleStandAlone;
     fds_bool_t doUturn;
+
+    message<attach_header, 1024> attach;
+    message<request_header, 4096> request;
 
     // Uturn stuff. Remove me.
     struct UturnPair {
@@ -109,7 +137,7 @@ class NbdConnection : public NbdOperationsResponseIface {
 
     void hsPreInit(ev::io &watcher);
     void hsPostInit(ev::io &watcher);
-    void hsAwaitOpts(ev::io &watcher);
+    bool hsAwaitOpts(ev::io &watcher);
     void hsSendOpts(ev::io &watcher);
     void hsReq(ev::io &watcher);
     void hsReply(ev::io &watcher);

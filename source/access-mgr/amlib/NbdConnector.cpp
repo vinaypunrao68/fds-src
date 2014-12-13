@@ -21,6 +21,12 @@ constexpr auto to_iovec(T* t) -> typename std::remove_cv<T>::type*
 
 namespace fds {
 
+template<typename M>
+bool get_message_header(int fd, M& message);
+
+template<typename M>
+bool get_message_payload(int fd, M& message);
+
 NbdConnector::NbdConnector(AmAsyncDataApi::shared_ptr api,
                            OmConfigApi::shared_ptr omApi)
         : asyncDataApi(api),
@@ -114,6 +120,8 @@ NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
           clientSocket(clientsd),
           hsState(PREINIT),
           doUturn(false),
+          attach({ { 0x00ull, 0x00u, 0x00u }, 0x00ull, 0x00ull, { 0x00 } }),
+          request({ { 0x00u, 0x00u, 0x00ull, 0x00ull, 0x00u }, 0x00ull, 0x00ull, { 0x00 } }),
           maxChunks(0),
           readyHandles(2000),
           readyResponses(4000) {
@@ -187,46 +195,31 @@ NbdConnection::hsPostInit(ev::io &watcher) {
     }
 }
 
-void
+bool
 NbdConnection::hsAwaitOpts(ev::io &watcher) {
-    fds_int64_t magic;
-    fds_int32_t optSpec, length;
+    if (attach.header_off >= 0) {
+        if (!get_message_header(watcher.fd, attach))
+            return false;
+        attach.header.magic = __builtin_bswap64(attach.header.magic);
+        fds_verify(NBD_MAGIC == attach.header.magic);
+        attach.header.optSpec = ntohl(attach.header.optSpec);
+        fds_verify(NBD_OPT_EXPORT == attach.header.optSpec);
+        attach.header.length = ntohl(attach.header.length);
 
-    iovec const vectors[] = {
-        { &magic,   sizeof(magic)   },
-        { &optSpec, sizeof(optSpec) },
-        { &length,  sizeof(length)  },
-    };
-
-    // Read
-    ssize_t nread = readv(watcher.fd, vectors, std::extent<decltype(vectors)>::value);
-    if (nread < 0) {
-        LOGERROR << "Socket read error";
-        return;
+        // Just for sanities sake and protect against bad data
+        fds_verify(attach.data.size() >= static_cast<size_t>(attach.header.length));
     }
+    if (!get_message_payload(watcher.fd, attach))
+        return false;
 
-    magic = __builtin_bswap64(magic);
-    optSpec = ntohl(optSpec);
-    fds_verify(NBD_MAGIC == magic);
-    fds_verify(NBD_OPT_EXPORT == optSpec);
-    length = ntohl(length);
-    fds_verify(length < 4096);  // Just for sanities sake and protect against bad data
-
-    char exportName[length+1];  // NOLINT
-    nread = read(watcher.fd, exportName, length);
-    if (nread < 0) {
-        LOGERROR << "Socket read error";
-        return;
-    }
-
-    exportName[length] = '\0';  // In case volume name is not NULL terminated.
-    volumeName = boost::make_shared<std::string>(&exportName[0]);
+    // In case volume name is not NULL terminated.
+    volumeName = boost::make_shared<std::string>(attach.data.begin(),
+                                                 attach.data.begin() + attach.header.length);
     if (toggleStandAlone) {
         volDesc.policy.maxObjectSizeInBytes = 4096;
         volDesc.policy.blockDeviceSizeInBytes = 10737418240;
     } else {
-        LOGCRITICAL << "Will stat volume " << *volumeName
-                    << " exportName " << exportName;
+        LOGCRITICAL << "Will stat volume " << *volumeName;
         Error err = omConfigApi->statVolume(volumeName, volDesc);
         fds_verify(ERR_OK == err);
         fds_verify(apis::BLOCK == volDesc.policy.volumeType);
@@ -236,6 +229,7 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
               << volDesc.policy.blockDeviceSizeInBytes
               << " max object size " << volDesc.policy.maxObjectSizeInBytes
               << " max number of chunks " << maxChunks;
+    return true;
 }
 
 void
@@ -257,50 +251,36 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
 
 void
 NbdConnection::hsReq(ev::io &watcher) {
-    fds_int32_t magic, opType, length;
-    fds_int64_t handle, offset;
+    if (request.header_off >= 0) {
+        if (!get_message_header(watcher.fd, request))
+            return;
+        request.header.magic = ntohl(request.header.magic);
+        fds_verify(NBD_REQUEST_MAGIC == request.header.magic);
+        request.header.opType = ntohl(request.header.opType);
+        request.header.handle = __builtin_bswap64(request.header.handle);
+        request.header.offset = __builtin_bswap64(request.header.offset);
+        request.header.length = ntohl(request.header.length);
 
-    iovec const vectors[] = {
-        { &magic,  sizeof(magic)  },
-        { &opType, sizeof(opType) },
-        { &handle, sizeof(handle) },
-        { &offset, sizeof(offset) },
-        { &length, sizeof(length) },
-    };
-
-    // Read
-    ssize_t nread = readv(watcher.fd, vectors, std::extent<decltype(vectors)>::value);
-    if (nread < 0) {
-        LOGERROR << "Socket read error";
-        return;
+        LOGTRACE << " magic 0x" << std::hex << request.header.magic << std::dec << std::endl
+                 << " op " << request.header.opType << std::endl
+                 << " handle 0x" << std::hex << request.header.handle << std::dec << std::endl
+                 << " offset " << request.header.offset << std::endl
+                 << " length " << request.header.length;
     }
 
-    magic = ntohl(magic);
-    fds_verify(NBD_REQUEST_MAGIC == magic);
-    opType = ntohl(opType);
-    handle = __builtin_bswap64(handle);
-    offset = __builtin_bswap64(offset);
-    length = ntohl(length);
-
-    LOGTRACE << "Read " << nread << " bytes," << std::endl
-             << " magic 0x" << std::hex << magic << std::dec << std::endl
-             << " op " << opType << std::endl
-             << " handle 0x" << std::hex << handle << std::dec << std::endl
-             << " offset " << offset << std::endl
-             << " length " << length;
-
-    if (NBD_CMD_WRITE == opType) {
-        char data[length];  // NOLINT
-        nread = read(watcher.fd, data, length);
-        LOGTRACE << "Read " << nread << " bytes of data";
-        Error err = dispatchOp(watcher, opType, handle, offset, length, data);
-        fds_verify(ERR_OK == err);
-        return;
+    if (NBD_CMD_WRITE == request.header.opType) {
+        if (!get_message_payload(watcher.fd, request))
+            return;
     }
 
-    // not a write
-    Error err = dispatchOp(watcher, opType, handle, offset, length, NULL);
+    Error err = dispatchOp(watcher,
+                           request.header.opType,
+                           request.header.handle,
+                           request.header.offset,
+                           request.header.length,
+                           request.data.data());
     fds_verify(ERR_OK == err);
+    return;
 }
 
 void
@@ -466,9 +446,10 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 hsState = AWAITOPTS;
                 break;
             case AWAITOPTS:
-                hsAwaitOpts(watcher);
-                hsState = SENDOPTS;
-                ioWatcher->set(ev::READ | ev::WRITE);
+                if (hsAwaitOpts(watcher)) {
+                    hsState = SENDOPTS;
+                    ioWatcher->set(ev::READ | ev::WRITE);
+                }
                 break;
             case DOREQS:
                 hsReq(watcher);
@@ -516,6 +497,50 @@ NbdConnection::readWriteResp(const Error& error,
 
     // We have something to write, so poke the loop
     asyncWatcher->send();
+}
+
+template<typename M>
+bool get_message_header(int fd, M& message) {
+    fds_assert(message.header_off >= 0);
+    ssize_t to_read = sizeof(typename M::header_type) - message.header_off;
+    ssize_t nread = read(fd,
+                         reinterpret_cast<uint8_t*>(&message.header) + message.header_off,
+                         to_read);
+    if (nread < 0) {
+        LOGWARN << "Socket read error";
+        return false;
+    } else if (nread < to_read) {
+        LOGDEBUG << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
+        message.header_off += nread;
+        return false;
+    }
+    LOGTRACE << "Read " << nread << " bytes of header";
+    message.header_off = -1;
+    message.data_off = 0;
+    return true;
+}
+
+template<typename M>
+bool get_message_payload(int fd, M& message) {
+    fds_assert(message.data_off >= 0);
+    ssize_t to_read = message.header.length - message.data_off;
+    ssize_t nread = read(fd,
+                         message.data.data() + message.data_off,
+                         to_read);
+    if (nread < 0) {
+        LOGERROR << "Socket read error";
+        return false;
+    } else if (nread < to_read) {
+        LOGDEBUG << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
+        message.data_off += nread;
+        return false;
+    }
+    LOGTRACE << "Read " << nread << " bytes of data";
+
+    // Cleanup
+    message.header_off = 0;
+    message.data_off = -1;
+    return true;
 }
 
 }  // namespace fds
