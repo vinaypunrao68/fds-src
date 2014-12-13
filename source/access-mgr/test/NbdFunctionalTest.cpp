@@ -101,8 +101,11 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     void readWriteResp(const Error& error,
                        fds_int64_t handle,
                        NbdResponseVector* response) {
+        fds_uint32_t cdone = atomic_fetch_add(&opsDone, (fds_uint32_t)1);
         GLOGDEBUG << "Read? " << response->isRead()
-                  << " response for handle " << handle;
+                  << " response for handle " << handle
+                  << " totalOps " << totalOps
+                  << " opsDone " << cdone;
         fds_verify(response->isReady());
         if (response->isRead()) {
             fds_uint32_t context = 0;
@@ -115,7 +118,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
         // free response
         delete response;
 
-        if (totalOps == ++opsDone) {
+        if (totalOps == (cdone + 1)) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
         }
@@ -124,6 +127,12 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     void init() {
         // pass data API to Ndb Operations
         nbdOps.reset(new NbdOperations(am->asyncDataApi, this));
+    }
+
+    void resetCounters() {
+      fds_uint32_t zeroCount = 0;
+      atomic_store(&opCount, zeroCount);
+      atomic_store(&opsDone, zeroCount);
     }
 
     enum TaskOps {
@@ -179,7 +188,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
         // Wait for responses
         std::unique_lock<std::mutex> lk(done_mutex);
         done_cond.wait_for(lk,
-                           std::chrono::milliseconds(10000),
+                           std::chrono::milliseconds(100000),
                            [this](){return totalOps == opsDone;});
 
         fds_uint64_t duration_nano = asyncStopNano - asyncStartNano;
@@ -254,6 +263,7 @@ TEST(NbdOperations, read) {
 
 TEST(NbdOperations, write) {
     GLOGDEBUG << "TBD: Testing write";
+    nbdOpsProc->resetCounters();
     nbdOpsProc->runAsyncTask(NbdOpsProc::PUT);
 }
 
