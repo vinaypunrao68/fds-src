@@ -360,6 +360,8 @@ AmDispatcher::putObjectCb(AmRequest* amReq,
 void
 AmDispatcher::dispatchGetObject(AmRequest *amReq)
 {
+    // The connectors expect some underlying string even for empty buffers
+    static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     fiu_do_on("am.uturn.dispatcher",
               mockHandler_->schedule(mockTimeoutUs_,
                                      std::bind(&AmDispatcherMockCbs::getObjectCb, amReq)); \
@@ -376,6 +378,7 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     // actually go (the entire read API and path should be improved).
     if (objId == NullObjectID) {
         GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+        cb->returnBuffer = empty_buffer;
         cb->returnSize = 0;
 
         amReq->proc_cb(ERR_OK);
