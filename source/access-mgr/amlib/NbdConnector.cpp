@@ -272,6 +272,8 @@ NbdConnection::hsReq(ev::io &watcher) {
         if (!get_message_payload(watcher.fd, request))
             return;
     }
+    request.header_off = 0;
+    request.data_off = -1;
 
     Error err = dispatchOp(watcher,
                            request.header.opType,
@@ -536,10 +538,6 @@ bool get_message_payload(int fd, M& message) {
         return false;
     }
     LOGTRACE << "Read " << nread << " bytes of data";
-
-    // Cleanup
-    message.header_off = 0;
-    message.data_off = -1;
     return true;
 }
 
