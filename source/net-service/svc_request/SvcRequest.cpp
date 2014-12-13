@@ -727,12 +727,12 @@ bool FailoverSvcRequest::moveToNextHealthyEndpoint_()
 
     for (; curEpIdx_ < epReqs_.size(); ++curEpIdx_) {
         // TODO(Rao): Pass the right message version id
-        auto ep = NetMgr::ep_mgr_singleton()->\
-                    endpoint_lookup(epReqs_[curEpIdx_]->peerEpId_);
         Error epStatus = ERR_OK;
-
         // TODO(Rao): Uncomment once endpoint_lookup is implemented
         #if 0
+        auto ep = NetMgr::ep_mgr_singleton()->\
+                    endpoint_lookup(epReqs_[curEpIdx_]->peerEpId_);
+
         if (ep == nullptr) {
             epStatus = ERR_EP_NON_EXISTANT;
         } else {

@@ -35,7 +35,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             $scope.startEditing = function(){
                               
                 if ( angular.isDefined( $scope.editingConnector ) && 
-                    angular.isDefined( $scope.editingConnector.attributes.size ) ){
+                    angular.isDefined( $scope.editingConnector.attributes ) ){
                     
                     $scope._selectedUnit = findUnit( $scope.editingConnector.attributes.unit );
                     $scope._selectedSize = parseInt( $scope.editingConnector.attributes.size );
@@ -59,8 +59,14 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             $scope.saveConnectorChanges = function(){
 
                 $scope.dataConnector = $scope.editingConnector;
-                $scope.dataConnector.attributes.size = $scope._selectedSize;
-                $scope.dataConnector.attributes.unit = $scope._selectedUnit.name;
+                
+                if ( $scope.dataConnector.type.toLowerCase() === 'block' ){
+                    $scope.dataConnector.attributes = {
+                        size: $scope._selectedSize,
+                        unit: $scope._selectedUnit.name
+                    };
+                }
+                
                 $data_connector_api.editConnector( $scope.editingConnector );
                 $scope.stopEditing();
             };

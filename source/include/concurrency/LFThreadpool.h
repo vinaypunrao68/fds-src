@@ -131,8 +131,17 @@ struct LockfreeWorker {
                     //      1.1) if successful, thene we can dequeue a task.
                     //      1.2) if unsuccessful (i.e. queue is already empty), do nothing.
                     dequeued = true;
+                    uint64_t cmpxchgMissed = 0;
                     do {
-                        uint64_t cmpxchgMissed = 0;
+                        // This is a minor optimization to pause/yield current running logical
+                        // processor to the other logical processor on the core.
+                        // This will kick in if cmpxchg fails too many times, which implies heavy
+                        // contention on the queueCnt.
+                        if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            cpu_relax();
+                        } else {
+                            ++cmpxchgMissed;
+                        }
 
                         old_queueCnt = queueCnt;
                         fds_assert(old_queueCnt >= 0);
@@ -146,15 +155,6 @@ struct LockfreeWorker {
 
                         new_queueCnt = old_queueCnt - 1;
 
-                        // This is a minor optimization to pause/yield current running logical
-                        // processor to the other logical processor on the core.
-                        // This will kick in if cmpxchg fails too many times, which implies heavy
-                        // contention on the queueCnt.
-                        if (cmpxchgMissed & CPU_RELAX_FREQ) {
-                            cmpxchgMissed = 0;
-                            cpu_relax();
-                        }
-                        ++cmpxchgMissed;
 
                     } while (!__sync_bool_compare_and_swap(&queueCnt, old_queueCnt, new_queueCnt));
 
@@ -164,9 +164,19 @@ struct LockfreeWorker {
                     }
                 } else {
                     dequeued = true;
+                    uint64_t cmpxchgMissed = 0;
                     do {
 
-                        uint64_t cmpxchgMissed = 0;
+                        // This is a minor optimization to pause/yield current running logical
+                        // processor to the other logical processor on the core.
+                        // This will kick in if cmpxchg fails too many times, which implies heavy
+                        // contention on the queueCnt.
+                        if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            cpu_relax();
+                        } else {
+                            ++cmpxchgMissed;
+                        }
+
                         old_queueCnt = queueCnt;
                         fds_assert(old_queueCnt >= 0);
 
@@ -176,16 +186,6 @@ struct LockfreeWorker {
                         }
 
                         new_queueCnt = old_queueCnt - 1;
-
-                        // This is a minor optimization to pause/yield current running logical
-                        // processor to the other logical processor on the core.
-                        // This will kick in if cmpxchg fails too many times, which implies heavy
-                        // contention on the queueCnt.
-                        if (cmpxchgMissed & CPU_RELAX_FREQ) {
-                            cmpxchgMissed = 0;
-                            cpu_relax();
-                        }
-                        ++cmpxchgMissed;
 
                     } while (!__sync_bool_compare_and_swap(&queueCnt, old_queueCnt, new_queueCnt));
                     if (dequeued) {
@@ -208,7 +208,7 @@ struct LockfreeWorker {
         }  // for (;;)
     }
     // This should be cache line size aligned to avoid false sharing.
-    alignas(128) int queueCnt = 0;
+    alignas(64) int queueCnt = 0;
 
     int id_;
     bool steal_;
@@ -335,8 +335,18 @@ struct LFSQThreadpool {
                     //      1.1) if successful, thene we can dequeue a task.
                     //      1.2) if unsuccessful (i.e. queue is already empty), do nothing.
                     dequeued = true;
+                    uint64_t cmpxchgMissed = 0;
                     do {
-                        uint64_t cmpxchgMissed = 0;
+
+                        // This is a minor optimization to pause/yield current running logical
+                        // processor to the other logical processor on the core.
+                        // This will kick in if cmpxchg fails too many times, which implies heavy
+                        // contention on the queueCnt.
+                        if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            cpu_relax();
+                        } else {
+                            ++cmpxchgMissed;
+                        }
 
                         old_queueCnt = queueCnt;
                         fds_assert(old_queueCnt >= 0);
@@ -351,15 +361,6 @@ struct LFSQThreadpool {
                         // Decrement the count.
                         new_queueCnt = old_queueCnt - 1;
 
-                        // This is a minor optimization to pause/yield current running logical
-                        // processor to the other logical processor on the core.
-                        // This will kick in if cmpxchg fails too many times, which implies heavy
-                        // contention on the queueCnt.
-                        if (cmpxchgMissed & CPU_RELAX_FREQ) {
-                            cmpxchgMissed = 0;
-                            cpu_relax();
-                        }
-                        ++cmpxchgMissed;
                     } while (!__sync_bool_compare_and_swap(&queueCnt, old_queueCnt, new_queueCnt));
 
                     // the count says we found something.  Now, grab a task.
@@ -372,8 +373,18 @@ struct LFSQThreadpool {
                     //      1.1) if successful, then we can dequeue a task.
                     //      1.2) if unsuccessful (i.e. queue is already empty), do nothing.
                     dequeued = true;
+                    uint64_t cmpxchgMissed = 0;
                     do {
-                        uint64_t cmpxchgMissed = 0;
+
+                        // This is a minor optimization to pause/yield current running logical
+                        // processor to the other logical processor on the core.
+                        // This will kick in if cmpxchg fails too many times, which implies heavy
+                        // contention on the queueCnt.
+                        if (cmpxchgMissed & CPU_RELAX_FREQ) {
+                            cpu_relax();
+                        } else {
+                            ++cmpxchgMissed;
+                        }
 
                         old_queueCnt = queueCnt;
                         fds_assert(old_queueCnt >= 0);
@@ -388,15 +399,6 @@ struct LFSQThreadpool {
                         // Decrement the count.
                         new_queueCnt = old_queueCnt - 1;
 
-                        // This is a minor optimization to pause/yield current running logical
-                        // processor to the other logical processor on the core.
-                        // This will kick in if cmpxchg fails too many times, which implies heavy
-                        // contention on the queueCnt.
-                        if (cmpxchgMissed & CPU_RELAX_FREQ) {
-                            cmpxchgMissed = 0;
-                            cpu_relax();
-                        }
-                        ++cmpxchgMissed;
                     } while (!__sync_bool_compare_and_swap(&queueCnt, old_queueCnt, new_queueCnt));
 
                     // the count says we found something.  Now, grab a task.
@@ -418,7 +420,7 @@ struct LFSQThreadpool {
     }
 
     // This should be cache line size aligned to avoid false sharing.
-    alignas(128) int queueCnt = 0;
+    alignas(64) int queueCnt = 0;
 
     // workers
     std::vector<LFSQWorker*> workers;

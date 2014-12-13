@@ -42,7 +42,8 @@ public class SetVolumeQosParams implements RequestHandler {
         int minIops = jsonObject.getInt("sla");
         int priority = jsonObject.getInt("priority");
         int maxIops = jsonObject.getInt("limit");
-
+        long commit_log_retention = jsonObject.getLong( "commit_log_retention" );
+        
         FDSP_VolumeDescType volumeDescType = client.ListVolumes(new FDSP_MsgHdrType())
                 .stream()
                 .filter(v -> v.getVolUUID() == uuid)
@@ -54,18 +55,20 @@ public class SetVolumeQosParams implements RequestHandler {
             return new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
         }
 
-        FDSP_VolumeDescType volInfo = setVolumeQos(client, volumeName, minIops, priority, maxIops);
+        FDSP_VolumeDescType volInfo = setVolumeQos(client, volumeName, minIops, priority, maxIops, commit_log_retention );
         VolumeDescriptor descriptor = configService.statVolume("", volumeName);
+        
         JSONObject o = ListVolumes.toJsonObject(descriptor, volInfo, xdi.statVolume(token, "", volumeName));
         return new JsonResource(o);
     }
 
-    public static FDSP_VolumeDescType setVolumeQos(FDSP_ConfigPathReq.Iface client, String volumeName, int minIops, int priority, int maxIops) throws org.apache.thrift.TException {
+    public static FDSP_VolumeDescType setVolumeQos(FDSP_ConfigPathReq.Iface client, String volumeName, int minIops, int priority, int maxIops, long logRetention ) throws org.apache.thrift.TException {
         FDSP_VolumeDescType volInfo = client.GetVolInfo(new FDSP_MsgHdrType(), new FDSP_GetVolInfoReqType(volumeName, 0));
         volInfo.setIops_min(minIops);
         volInfo.setRel_prio(priority);
         volInfo.setIops_max(maxIops);
         volInfo.setVolPolicyId(0);
+        volInfo.setContCommitlogRetention( logRetention );
         client.ModifyVol(new FDSP_MsgHdrType(), new FDSP_ModifyVolType(volInfo.getVol_name(),
                 volInfo.getVolUUID(),
                 volInfo));

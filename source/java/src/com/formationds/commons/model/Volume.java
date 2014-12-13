@@ -28,6 +28,7 @@ public class Volume
   private Integer priority;
   private Connector data_connector;
   private Usage current_usage;
+  private Long commit_log_retention;
 
   private static final Map<String, ModelFieldValidator> VALIDATORS =
     new HashMap<>();
@@ -167,6 +168,22 @@ public class Volume
     }
 
     this.limit = limit;
+  }
+  
+  /**
+   * Get the number of ? that the volume journal will be retained.
+   * @return
+   */
+  public long getCommit_log_retention(){
+	  return commit_log_retention;
+  }
+  
+  /**
+   * @param retention a {@code long} representing the number of ? that the volume 
+   * commit journal will be retained.
+   */
+  public void setCommit_log_retention( Long retention ) {
+	  this.commit_log_retention = retention;
   }
 
   /**

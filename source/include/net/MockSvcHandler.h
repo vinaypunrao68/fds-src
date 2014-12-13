@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_STOR_MGR_INCLUDE_MOCKSVCHANDLER_H_
-#define SOURCE_STOR_MGR_INCLUDE_MOCKSVCHANDLER_H_
+#ifndef SOURCE_INCLUDE_NET_MOCKSVCHANDLER_H_
+#define SOURCE_INCLUDE_NET_MOCKSVCHANDLER_H_
 
 #include <thrift/concurrency/TimerManager.h>
 #include <thrift/concurrency/PlatformThreadFactory.h>
@@ -115,4 +115,4 @@ void MockSvcHandler::run()
 
 }  // namespace fds
 
-#endif  // SOURCE_STOR_MGR_INCLUDE_MOCKSVCHANDLER_H_
+#endif  // SOURCE_INCLUDE_NET_MOCKSVCHANDLER_H_

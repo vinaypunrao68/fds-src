@@ -4,19 +4,22 @@
 #
 
 # FDS test-case pattern requirements.
-import unittest
-import traceback
-import TestCase
+import __init__
 
-# Module-specific requirements
-import sys
-import os
-import math
-from filechunkio import FileChunkIO
 import boto
+import filecmp
+import math
+import os
+import sys
+import traceback
+import unittest
+
+from filechunkio import FileChunkIO
 from boto.s3 import connection
 from boto.s3.key import Key
-import filecmp
+
+import config
+import testsets.testcase as testcase
 
 # Class to contain S3 objects used by these test cases.
 class S3(object):
@@ -31,15 +34,15 @@ class S3(object):
 #
 # You must have successfully retrieved an authorization token from
 # OM and stored it in fdscfg.rt_om_node.auth_token. See TestOMIntFace.TestGetAuthToken.
-class TestS3GetConn(TestCase.FDSTestCase):
+class TestS3GetConn(testcase.FDSTestCase):
+    
     def __init__(self, parameters=None):
         super(TestS3GetConn, self).__init__(parameters)
-
 
     def runTest(self):
         test_passed = True
 
-        if TestCase.pyUnitTCFailure:
+        if self.test_failure:
             self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
                              self.__class__.__name__)
             return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
@@ -70,32 +73,7 @@ class TestS3GetConn(TestCase.FDSTestCase):
         Test Case:
         Attempt to get an S3 connection.
         """
-
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
-        om_node = fdscfg.rt_om_node
-
-        if not hasattr(om_node, "auth_token"):
-            self.log.error("No authorization token from OM. This is needed for an S3 connection.")
-            return False
-        else:
-            self.log.info("Get an S3 connection on %s." %
-                               om_node.nd_conf_dict['node-name'])
-
-            s3conn = boto.connect_s3(aws_access_key_id='admin',
-                                            aws_secret_access_key=om_node.auth_token,
-                                            host=om_node.nd_conf_dict['ip'],
-                                            port=8443,
-                                            # port=8000,
-                                            calling_format=boto.s3.connection.OrdinaryCallingFormat())
-
-            if not s3conn:
-                self.log.error("boto.connect_s3() on %s did not return an S3 connection." %
-                               om_node.nd_conf_dict['node-name'])
-                return False
-
-            self.parameters["s3"] = S3(s3conn)
-
+        assert(self.parameters["s3"].conn)
         return True
 
 
@@ -104,7 +82,7 @@ class TestS3GetConn(TestCase.FDSTestCase):
 #
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn. See TestS3IntFace.TestS3GetConn.
-class TestS3CrtBucket(TestCase.FDSTestCase):
+class TestS3CrtBucket(testcase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestS3CrtBucket, self).__init__(parameters)
 
@@ -112,7 +90,7 @@ class TestS3CrtBucket(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        if TestCase.pyUnitTCFailure:
+        if self.test_failure:
             self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
                              self.__class__.__name__)
             return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
@@ -143,7 +121,6 @@ class TestS3CrtBucket(TestCase.FDSTestCase):
         Test Case:
         Attempt to create an S3 Bucket.
         """
-
         if not "s3" in self.parameters:
             self.log.error("No S3 interface object with which to create a bucket.")
             return False
@@ -155,7 +132,7 @@ class TestS3CrtBucket(TestCase.FDSTestCase):
             s3 = self.parameters["s3"]
 
             s3.bucket1 = s3.conn.create_bucket('bucket1')
-
+            self.log.info(s3.bucket1)
             if not s3.bucket1:
                 self.log.error("s3.conn.create_bucket() failed to create bucket bucket1.")
                 return False
@@ -169,7 +146,7 @@ class TestS3CrtBucket(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
-class TestS3LoadSBLOB(TestCase.FDSTestCase):
+class TestS3LoadSBLOB(testcase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestS3LoadSBLOB, self).__init__(parameters)
 
@@ -177,7 +154,7 @@ class TestS3LoadSBLOB(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        if TestCase.pyUnitTCFailure:
+        if self.test_failure:
             self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
                              self.__class__.__name__)
             return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
@@ -224,19 +201,20 @@ class TestS3LoadSBLOB(TestCase.FDSTestCase):
             s3 = self.parameters["s3"]
 
             # Get file info
-            source_path = bin_dir + "/AMAgent"
+            source_path = config.pyUnitConfig
             source_size = os.stat(source_path).st_size
-
+            self.log.info(s3.bucket1.name)
             # Get a Key/Value object for th bucket.
             k = Key(s3.bucket1)
-
+            self.log.info(k)
             # Set the key.
             s3.keys.append("small")
             k.key = "small"
 
             self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_string() interface." %
                           (source_path, source_size))
-
+            self.log.info(source_path)
+            self.log.info(source_size)
             # Set the value, write it to the bucket, and, while the file containing the value is still
             # open, read it back to verify.
             with open(source_path, 'r')  as f:
@@ -260,7 +238,7 @@ class TestS3LoadSBLOB(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
-class TestS3LoadFBLOB(TestCase.FDSTestCase):
+class TestS3LoadFBLOB(testcase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestS3LoadFBLOB, self).__init__(parameters)
 
@@ -268,7 +246,7 @@ class TestS3LoadFBLOB(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        if TestCase.pyUnitTCFailure:
+        if self.test_failure:
             self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
                              self.__class__.__name__)
             return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
@@ -350,7 +328,7 @@ class TestS3LoadFBLOB(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
-class TestS3LoadMBLOB(TestCase.FDSTestCase):
+class TestS3LoadMBLOB(testcase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestS3LoadMBLOB, self).__init__(parameters)
 
@@ -358,7 +336,7 @@ class TestS3LoadMBLOB(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        if TestCase.pyUnitTCFailure:
+        if self.test_failure:
             self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
                              self.__class__.__name__)
             return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
@@ -457,7 +435,7 @@ class TestS3LoadMBLOB(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
-class TestS3LoadLBLOB(TestCase.FDSTestCase):
+class TestS3LoadLBLOB(testcase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestS3LoadLBLOB, self).__init__(parameters)
 
@@ -465,7 +443,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        if TestCase.pyUnitTCFailure:
+        if self.test_failure:
             self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
                              self.__class__.__name__)
             return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
@@ -564,7 +542,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
-class TestS3ListBucketKeys(TestCase.FDSTestCase):
+class TestS3ListBucketKeys(testcase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestS3ListBucketKeys, self).__init__(parameters)
 
@@ -572,7 +550,7 @@ class TestS3ListBucketKeys(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        if TestCase.pyUnitTCFailure:
+        if self.test_failure:
             self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
                              self.__class__.__name__)
             return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
@@ -637,7 +615,7 @@ class TestS3ListBucketKeys(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
-class TestS3DelBucketKeys(TestCase.FDSTestCase):
+class TestS3DelBucketKeys(testcase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestS3DelBucketKeys, self).__init__(parameters)
 
@@ -645,7 +623,7 @@ class TestS3DelBucketKeys(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        if TestCase.pyUnitTCFailure:
+        if self.test_failure:
             self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
                              self.__class__.__name__)
             return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
@@ -703,7 +681,7 @@ class TestS3DelBucketKeys(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
-class TestS3DelBucket(TestCase.FDSTestCase):
+class TestS3DelBucket(testcase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestS3DelBucket, self).__init__(parameters)
 
@@ -711,12 +689,14 @@ class TestS3DelBucket(TestCase.FDSTestCase):
     def runTest(self):
         test_passed = True
 
-        if TestCase.pyUnitTCFailure:
-            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
-                             self.__class__.__name__)
-            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        if self.test_failure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set" \
+                             " and a previous test case has failed." %
+                             self.name)
+            return unittest.skip("stop-on-fail/failfast set and a previous" \
+                                 " test case has failed.")
         else:
-            self.log.info("Running Case %s." % self.__class__.__name__)
+            self.log.info("Running Case %s." % self.name)
 
         try:
             if not self.test_S3DelBucket():
@@ -730,7 +710,6 @@ class TestS3DelBucket(TestCase.FDSTestCase):
         super(self.__class__, self).reportTestCaseResult(test_passed)
 
         # If there is any test fixture teardown to be done, do it here.
-
         if self.parameters["pyUnit"]:
             self.assertTrue(test_passed)
         else:
@@ -742,7 +721,7 @@ class TestS3DelBucket(TestCase.FDSTestCase):
         Test Case:
         Attempt to delete an S3 Bucket.
         """
-
+        self.log.info(self.parameters["s3"].bucket1)
         if not ("s3" in self.parameters) or (self.parameters["s3"].conn) is None:
             self.log.error("No S3 connection with which to load a BLOB.")
             return False
@@ -752,18 +731,10 @@ class TestS3DelBucket(TestCase.FDSTestCase):
         else:
             self.log.info("Delete an S3 bucket.")
             s3 = self.parameters["s3"]
-
             s3.conn.delete_bucket('bucket1')
-
-
             if s3.conn.lookup('bucket1') != None:
                 self.log.error("Unexpected bucket: bucket1")
                 return False
 
             s3.bucket1 = None
             return True
-
-
-if __name__ == '__main__':
-    TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
-    unittest.main()
