@@ -121,7 +121,7 @@ NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
           hsState(PREINIT),
           doUturn(false),
           attach({ { 0x00ull, 0x00u, 0x00u }, 0x00ull, 0x00ull, { 0x00 } }),
-          request({ { 0x00u, 0x00u, 0x00ull, 0x00ull, 0x00u }, 0x00ull, 0x00ull, { 0x00 } }),
+          request({ { 0x00u, 0x00u, 0x00ull, 0x00ull, 0x00u }, 0x00ull, 0x00ull, nullptr }),
           maxChunks(0),
           readyHandles(2000),
           readyResponses(4000) {
@@ -266,6 +266,8 @@ NbdConnection::hsReq(ev::io &watcher) {
                  << " handle 0x" << std::hex << request.header.handle << std::dec << std::endl
                  << " offset " << request.header.offset << std::endl
                  << " length " << request.header.length;
+        // Construct Buffer for Payload
+        request.data = boost::make_shared<std::string>(request.header.length, '\0');
     }
 
     if (NBD_CMD_WRITE == request.header.opType) {
@@ -280,7 +282,7 @@ NbdConnection::hsReq(ev::io &watcher) {
                            request.header.handle,
                            request.header.offset,
                            request.header.length,
-                           request.data.data());
+                           request.data);
     fds_verify(ERR_OK == err);
     return;
 }
@@ -378,7 +380,7 @@ NbdConnection::dispatchOp(ev::io &watcher,
                           fds_int64_t handle,
                           fds_uint64_t offset,
                           fds_uint32_t length,
-                          char* data) {
+                          boost::shared_ptr<std::string> data) {
     switch (opType) {
         UturnPair utPair;
         case NBD_CMD_READ:
@@ -409,9 +411,8 @@ NbdConnection::dispatchOp(ev::io &watcher,
                 ioWatcher->set(ev::READ | ev::WRITE);
             } else {
                  fds_verify(data != NULL);
-                 boost::shared_ptr<std::string> buf(new std::string(data, length));
                  nbdOps->write(volumeName, volDesc.policy.maxObjectSizeInBytes,
-                               buf, length, offset, handle);
+                               data, length, offset, handle);
             }
             break;
         case NBD_CMD_FLUSH:
@@ -523,12 +524,24 @@ bool get_message_header(int fd, M& message) {
 }
 
 template<typename M>
+ssize_t read_from_socket(int fd, M& buffer, ssize_t off, ssize_t len);
+
+template<>
+ssize_t read_from_socket(int fd, std::array<char, 1024>& buffer, ssize_t off, ssize_t len)
+{ return read(fd, buffer.data() + off, len); }
+
+template<>
+ssize_t read_from_socket(int fd, boost::shared_ptr<std::string>& buffer, ssize_t off, ssize_t len)
+{ return read(fd, &(*buffer)[0] + off, len); }
+
+template<typename M>
 bool get_message_payload(int fd, M& message) {
     fds_assert(message.data_off >= 0);
     ssize_t to_read = message.header.length - message.data_off;
-    ssize_t nread = read(fd,
-                         message.data.data() + message.data_off,
-                         to_read);
+    ssize_t nread = read_from_socket(fd,
+                                     message.data,
+                                     message.data_off,
+                                     to_read);
     if (nread < 0) {
         LOGERROR << "Socket read error";
         return false;

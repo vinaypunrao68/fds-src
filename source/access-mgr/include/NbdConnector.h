@@ -41,12 +41,13 @@ struct request_header {
 };
 #pragma pack(pop)
 
-template<typename H, size_t S>
+template<typename H, typename D>
 struct message {
+    typedef D data_type;
     typedef H header_type;
     header_type header;
     ssize_t header_off, data_off;
-    std::array<char, S> data;
+    data_type data;
 };
 
 class NbdConnector {
@@ -82,8 +83,8 @@ class NbdConnection : public NbdOperationsResponseIface {
     fds_bool_t toggleStandAlone;
     fds_bool_t doUturn;
 
-    message<attach_header, 1024> attach;
-    message<request_header, 4096> request;
+    message<attach_header, std::array<char, 1024>> attach;
+    message<request_header, boost::shared_ptr<std::string>> request;
 
     // Uturn stuff. Remove me.
     struct UturnPair {
@@ -146,7 +147,7 @@ class NbdConnection : public NbdOperationsResponseIface {
                      fds_int64_t handle,
                      fds_uint64_t offset,
                      fds_uint32_t length,
-                     char* data);
+                     boost::shared_ptr<std::string> data);
 
   public:
     NbdConnection(AmAsyncDataApi::shared_ptr api,
