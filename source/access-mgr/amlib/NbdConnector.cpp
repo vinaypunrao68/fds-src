@@ -225,6 +225,8 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
         volDesc.policy.maxObjectSizeInBytes = 4096;
         volDesc.policy.blockDeviceSizeInBytes = 10737418240;
     } else {
+        LOGCRITICAL << "Will stat volume " << *volumeName
+                    << " exportName " << exportName;
         Error err = omConfigApi->statVolume(volumeName, volDesc);
         fds_verify(ERR_OK == err);
         fds_verify(apis::BLOCK == volDesc.policy.volumeType);
@@ -291,9 +293,13 @@ NbdConnection::hsReq(ev::io &watcher) {
         char data[length];  // NOLINT
         nread = read(watcher.fd, data, length);
         LOGTRACE << "Read " << nread << " bytes of data";
+        Error err = dispatchOp(watcher, opType, handle, offset, length, data);
+        fds_verify(ERR_OK == err);
+        return;
     }
 
-    Error err = dispatchOp(watcher, opType, handle, offset, length);
+    // not a write
+    Error err = dispatchOp(watcher, opType, handle, offset, length, NULL);
     fds_verify(ERR_OK == err);
 }
 
@@ -360,14 +366,16 @@ NbdConnection::hsReply(ev::io &watcher) {
 
         fds_uint32_t context = 0;
         size_t cnt = 0;
-        boost::shared_ptr<std::string> buf = resp->getNextReadBuffer(context);
-        while (buf != NULL) {
-            GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
-            vectors[3+cnt].iov_base = to_iovec(buf->c_str());
-            vectors[3+cnt].iov_len = buf->length();
-            ++cnt;
-            // get next buffer
-            buf = resp->getNextReadBuffer(context);
+        if (resp->isRead()) {
+            boost::shared_ptr<std::string> buf = resp->getNextReadBuffer(context);
+            while (buf != NULL) {
+                GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
+                vectors[3+cnt].iov_base = to_iovec(buf->c_str());
+                vectors[3+cnt].iov_len = buf->length();
+                ++cnt;
+                // get next buffer
+                buf = resp->getNextReadBuffer(context);
+            }
         }
         ssize_t nwritten = writev(watcher.fd, vectors, cnt + 3);
         if (nwritten < 0) {
@@ -387,7 +395,8 @@ NbdConnection::dispatchOp(ev::io &watcher,
                           fds_uint32_t opType,
                           fds_int64_t handle,
                           fds_uint64_t offset,
-                          fds_uint32_t length) {
+                          fds_uint32_t length,
+                          char* data) {
     switch (opType) {
         UturnPair utPair;
         case NBD_CMD_READ:
@@ -407,14 +416,21 @@ NbdConnection::dispatchOp(ev::io &watcher,
             }
             break;
         case NBD_CMD_WRITE:
-            // TODO(Andrew): Hackey uturn code. Remove.
-            utPair.handle = handle;
-            utPair.length = length;
-            utPair.opType = opType;
-            readyHandles.push(utPair);
+            if (doUturn) {
+                // TODO(Andrew): Hackey uturn code. Remove.
+                utPair.handle = handle;
+                utPair.length = length;
+                utPair.opType = opType;
+                readyHandles.push(utPair);
 
-            // We have something to write, so ask for events
-            ioWatcher->set(ev::READ | ev::WRITE);
+                // We have something to write, so ask for events
+                ioWatcher->set(ev::READ | ev::WRITE);
+            } else {
+                 fds_verify(data != NULL);
+                 boost::shared_ptr<std::string> buf(new std::string(data, length));
+                 nbdOps->write(volumeName, volDesc.policy.maxObjectSizeInBytes,
+                               buf, length, offset, handle);
+            }
             break;
         case NBD_CMD_FLUSH:
             break;

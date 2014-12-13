@@ -117,7 +117,8 @@ class NbdConnection : public NbdOperationsResponseIface {
                      fds_uint32_t opType,
                      fds_int64_t handle,
                      fds_uint64_t offset,
-                     fds_uint32_t length);
+                     fds_uint32_t length,
+                     char* data);
 
   public:
     NbdConnection(AmAsyncDataApi::shared_ptr api,
