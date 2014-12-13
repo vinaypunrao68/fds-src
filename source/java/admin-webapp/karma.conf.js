@@ -17,13 +17,15 @@ module.exports = function(config) {
 
     // list of files / patterns to load in the browser
     files: [
+      distDir + '/libs/jquery/dist/jquery.min.js',
+      distDir + '/styles/main.min.css',
+      distDir + '/libs/angular-translate.js',
       distDir + '/libs/angular/angular.js',
       distDir + '/libs/angular-ui-router/release/angular-ui-router.js',
-      distDir + '/libs/angular-translate.js',
+      distDir + '/templates.js',
       'node_modules/angular-mocks/angular-mocks.js',
       'src/scripts/main.js',
       'src/scripts/module-manifest.js',
-      'src/scripts/main/mainController.js',
       'src/**/!(main|module-manifest).js',
       'test/karma/**/*.js'
     ],

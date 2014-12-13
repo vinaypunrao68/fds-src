@@ -57,6 +57,13 @@ AccessMgr::mod_init(SysParams const *const param) {
         new AsyncDataServer("AM Async Server", asyncDataApi, instanceId));
     asyncServer->init_server();
 
+    if (!conf.get<bool>("testing.toggleStandAlone")) {
+        omConfigApi = boost::make_shared<OmConfigApi>();
+    }
+
+    blkConnector = boost::shared_ptr<NbdConnector>(
+        boost::make_shared<NbdConnector>(asyncDataApi, omConfigApi));
+
     // Update the AM's platform with our instance ID so that
     // common fields (e.g., ports) can be updated
     gl_AmPlatform.setInstanceId(instanceId);

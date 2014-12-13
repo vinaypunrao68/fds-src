@@ -1,14 +1,26 @@
-$buttonbar_border_radius: 2px;
+$buttonbar_border_radius: 5px;
 
 .button-bar {
     
-
     @include display-flex();
 
     .button {
     
+        @include transition( linear, 200ms );
+        cursor: pointer;
+        background-color: white;
+        color: black;
+
+        padding: 4px;
+        padding-right: 8px;
+        padding-left: 8px;     
+        
+        border: 1px solid $text_very_light_color;
+        border-right-width: 0px;
+        
         &:hover {
             background-color: $button_primary_hover;
+            color: white;
         }
 
         &.left-end {
@@ -19,10 +31,12 @@ $buttonbar_border_radius: 2px;
         &.right-end {
             border-top-right-radius: $buttonbar_border_radius;
             border-bottom-right-radius: $buttonbar_border_radius;
+            border-right-width: 1px;
         }
 
         &.selected {
             background-color: $button_primary;
+            color: white;
         }
     }
 }

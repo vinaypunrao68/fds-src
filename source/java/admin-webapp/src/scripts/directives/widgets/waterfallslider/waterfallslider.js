@@ -23,7 +23,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             $scope.spinnerValue = 1;
             $scope.dropdownRange = {};
             $scope.validPositions = [];
-            $scope.sliderPaneWidth = 0;
+//            $scope.sliderPaneWidth = 0;
             $scope.allowNumber = true;
             
             var labelPane = {};
@@ -33,7 +33,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             $scope.amITooWide = function( $index ){
                 var w = $($element.find( '.value-container')[$index]).width();
                 
-                if ( $scope.sliders[$index].position + w > $scope.sliderPaneWidth ){
+                if ( $scope.sliders[$index].position + w > sliderPane.width() /*$scope.sliderPaneWidth*/ ){
                     return true; 
                 }
                 
@@ -46,7 +46,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 sliderPane = $($element.find( '.slider-pane' )[0]);
                 labelPane = $($element.find( '.labels' )[0]);
                 
-                $scope.sliderPaneWidth = sliderPane.width();
+//                $scope.sliderPaneWidth = sliderPane.width();
             };
             
             /**
@@ -360,6 +360,14 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                     slider.value.value = $scope.range[slider.value.range].start;
                 }
                 
+                if ( slider.value.value < $scope.range[slider.value.range].start ){
+                    slider.value.value = $scope.range[slider.value.range].start;
+                }
+                
+                if ( slider.value.value > $scope.range[slider.value.range].end ){
+                    slider.value.value = $scope.range[slider.value.range].end;
+                }
+                
                 slider.position = findPositionForValue( slider.value ).position;
                 fixStartPositions();
                 
@@ -427,7 +435,6 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
                 // of partial pixels off
                 $timeout( 
                     function(){
-                        
                         var labelDiv = $($element.find( '.waterfall-labels')[0]);
                         labelDiv.empty();
                         
@@ -458,24 +465,28 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             $document.on( 'mouseup', null, handleReleased );
             
             $scope.$on( 'fui::dropdown_change', function( $event, range ){
-                $scope.spinnerMin = range.start;
-                $scope.spinnerMax = range.end;
-                
-                if ( range !== $scope.range.length-1 ){
-                    $scope.spinnerMax = range.end - 1;
-                    
-                    if ( angular.isDefined( range.step ) ){
-                        $scope.spinnerMax = range.end - range.step;
-                    }
-                }
-                
-                $scope.spinnerStep = Math.floor( (range.end - range.start) / getSegmentsForRange( range ));
                 
                 if ( angular.isDefined( range.allowNumber ) ){
                     $scope.allowNumber = range.allowNumber;
                 }
                 else {
                     $scope.allowNumber = true;
+                }
+                
+                if ( $scope.allowNumber === true ){
+                    
+                    $scope.spinnerMin = range.start;
+                    $scope.spinnerMax = range.end;
+
+                    if ( range !== $scope.range.length-1 ){
+                        $scope.spinnerMax = range.end - 1;
+
+                        if ( angular.isDefined( range.step ) ){
+                            $scope.spinnerMax = range.end - range.step;
+                        }
+                    }
+                    
+                    $scope.spinnerStep = Math.floor( (range.end - range.start) / getSegmentsForRange( range ));
                 }
                 
                 $scope.dropdownRange = range;
