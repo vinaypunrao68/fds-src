@@ -78,16 +78,13 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
 
     if (ERR_OK == error)
         volReq->volumeMetadata = volMDMsg->volume_meta_data;
-    // Notify upper layers that the request is done. When this
-    // completes, all upper layers should be notified and we
-    // can safely delete the request
+    // Notify upper layers that the request is done.
     amReq->proc_cb(error);
-    delete amReq;
 }
 
 void
 AmDispatcher::dispatchAbortBlobTx(AmRequest *amReq) {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); delete amReq; return;);
+    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
     fds_volid_t volId = amReq->io_vol_id;
 
@@ -125,7 +122,7 @@ AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
     // actually dispatch on below. Make the update/dispatch consistent.
     blobReq->dmt_version = dmtMgr->getCommittedVersion();
 
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); delete amReq; return;);
+    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
     // Create callback
     QuorumSvcRequestRespCb respCb(
@@ -159,17 +156,14 @@ AmDispatcher::startBlobTxCb(AmRequest *amReq,
                             boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
 
-    // Notify upper layers that the request is done. When this
-    // completes, all upper layers should be notified and we
-    // can safely delete the request
+    // Notify upper layers that the request is done.
     amReq->proc_cb(error);
-    delete amReq;
 }
 
 void
 AmDispatcher::dispatchDeleteBlob(AmRequest *amReq)
 {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); delete amReq; return;);
+    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
     DeleteBlobMsgPtr message = boost::make_shared<DeleteBlobMsg>();
     message->volume_id = amReq->io_vol_id;
@@ -635,7 +629,7 @@ AmDispatcher::statBlobCb(AmRequest* amReq,
 
 void
 AmDispatcher::dispatchCommitBlobTx(AmRequest *amReq) {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); delete amReq; return;);
+    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
     // Create callback
     QuorumSvcRequestRespCb respCb(
@@ -667,9 +661,7 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
                             const Error &error,
                             boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
-    // Notify upper layers that the request is done. When this
-    // completes, all upper layers should be notified and we
-    // can safely delete the request
+    // Notify upper layers that the request is done.
     amReq->proc_cb(error);
 }
 

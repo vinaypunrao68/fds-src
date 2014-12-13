@@ -51,8 +51,7 @@ AmProcessor::getVolumeMetadataCb(AmRequest *amReq, const Error &error) {
     GetVolumeMetaDataCallback::ptr cb =
             SHARED_DYN_CAST(GetVolumeMetaDataCallback, amReq->cb);
     cb->volumeMetaData = static_cast<GetVolumeMetaDataReq *>(amReq)->volumeMetadata;
-    qosCtrl->markIODone(amReq);
-    cb->call(error);
+    respond_and_delete(amReq, error);
 }
 
 void
@@ -64,9 +63,7 @@ AmProcessor::abortBlobTx(AmRequest *amReq) {
 void
 AmProcessor::startBlobTx(AmRequest *amReq) {
     fiu_do_on("am.uturn.processor.startBlobTx",
-              qosCtrl->markIODone(amReq); \
-              amReq->cb->call(ERR_OK); \
-              delete amReq; \
+              respond_and_delete(amReq, ERR_OK); \
               return;);
 
     // check if this is a snapshot
@@ -75,9 +72,7 @@ AmProcessor::startBlobTx(AmRequest *amReq) {
     if (shVol->voldesc->isSnapshot()) {
         LOGWARN << "txn on a snapshot is not allowed.";
         shVol->readUnlock();
-        qosCtrl->markIODone(amReq);
-        amReq->cb->call(FDSN_StatusErrorAccessDenied);
-        delete amReq;
+        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
         return;
     }
     shVol->readUnlock();
@@ -105,9 +100,7 @@ AmProcessor::startBlobTxCb(AmRequest *amReq, const Error &error) {
                                 amReq->getBlobName()) == ERR_OK);
     }
 
-    // Tell QoS the request is done
-    qosCtrl->markIODone(amReq);
-    cb->call(error.GetErrno());
+    respond_and_delete(amReq, error);
 }
 
 void
@@ -122,7 +115,7 @@ AmProcessor::deleteBlob(AmRequest *amReq) {
 
     if ((shVol == NULL) || (!shVol->isValidLocked())) {
         LOGCRITICAL << "unable to get volume info for vol: " << volId;
-        genericCb(amReq, FDSN_StatusErrorUnknown);
+        respond_and_delete(amReq, FDSN_StatusErrorUnknown);
         shVol->readUnlock();
         return;
     }
@@ -130,7 +123,7 @@ AmProcessor::deleteBlob(AmRequest *amReq) {
     // check if this is a snapshot
     if (shVol->voldesc->isSnapshot()) {
         LOGWARN << "delete blob on a snapshot is not allowed.";
-        genericCb(amReq, FDSN_StatusErrorAccessDenied);
+        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
         shVol->readUnlock();
         return;
     }
@@ -139,7 +132,7 @@ AmProcessor::deleteBlob(AmRequest *amReq) {
     // Update the tx manager with the delete op
     txMgr->updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
 
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::genericCb, amReq);
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
     amDispatcher->dispatchDeleteBlob(amReq);
 }
 
@@ -153,9 +146,7 @@ AmProcessor::putBlob(AmRequest *amReq) {
         shVol->readUnlock();
         StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                       amReq->cb);
-        qosCtrl->markIODone(amReq);
-        cb->call(FDSN_StatusErrorAccessDenied);
-        delete amReq;
+        respond_and_delete(amReq, FDSN_StatusErrorAccessDenied);
         return;
     }
     shVol->readUnlock();
@@ -180,9 +171,7 @@ AmProcessor::putBlob(AmRequest *amReq) {
     }
 
     fiu_do_on("am.uturn.processor.putBlob",
-              qosCtrl->markIODone(amReq);       \
-              amReq->cb->call(ERR_OK);        \
-              delete amReq;                   \
+              respond_and_delete(amReq, ERR_OK); \
               return;);
 
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::putBlobCb, amReq);
@@ -252,18 +241,13 @@ AmProcessor::putBlobCb(AmRequest *amReq, const Error& error) {
         }
     }
 
-    // Tell QoS the request is done
-    qosCtrl->markIODone(amReq);
-    amReq->cb->call(error);
-    delete amReq;
+    respond_and_delete(amReq, error);
 }
 
 void
 AmProcessor::getBlob(AmRequest *amReq) {
     fiu_do_on("am.uturn.processor.getBlob",
-              qosCtrl->markIODone(amReq); \
-              amReq->cb->call(ERR_OK); \
-              delete amReq; \
+              respond_and_delete(amReq, ERR_OK); \
               return;);
 
     fds_volid_t volId = amReq->io_vol_id;
@@ -315,6 +299,7 @@ AmProcessor::getBlob(AmRequest *amReq) {
         // TODO(Andrew): Consider adding this back when we revisit
         // zero length objects
         // fds_verify(*objectId != NullObjectID);
+        amReq->obj_id = *objectId;
 
         // Check cache for object data
         boost::shared_ptr<std::string> objectData = amCache->getBlobObject(volId,
@@ -332,11 +317,10 @@ AmProcessor::getBlob(AmRequest *amReq) {
             cb->returnBuffer = objectData;
 
             // Report results of GET request to requestor.
-            getBlobCb(amReq, err);
+            respond_and_delete(amReq, err);
         } else {
             // We couldn't find the data in the cache even though the id was
             // obtained there. Fallback to retrieving the data from the SM.
-            amReq->obj_id = *objectId;
             amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
             amDispatcher->dispatchGetObject(amReq);
         }
@@ -354,7 +338,7 @@ AmProcessor::setBlobMetadata(AmRequest *amReq) {
     fds_verify(txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->getMetaDataListPtr()))
 
     fds_verify(txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version)));
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::genericCb, amReq);
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
 
     amDispatcher->dispatchSetBlobMetadata(amReq);
 }
@@ -388,8 +372,7 @@ AmProcessor::statBlob(AmRequest *amReq) {
 
 void
 AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
-    qosCtrl->markIODone(amReq);
-    amReq->cb->call(error);
+    respond(amReq, error);
 
     AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(amReq);
     fds_verify(ERR_OK == txMgr->removeTx(*(blobReq->tx_desc)));
@@ -399,30 +382,22 @@ AmProcessor::abortBlobTxCb(AmRequest *amReq, const Error &error) {
 
 void
 AmProcessor::volumeContents(AmRequest *amReq) {
-    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::genericCb, amReq);
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::respond_and_delete, amReq);
     amDispatcher->dispatchVolumeContents(amReq);
 }
 
 void
 AmProcessor::getBlobCb(AmRequest *amReq, const Error& error) {
+    respond(amReq, error);
+
     GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-
-    // Tell QoS the request is done
-    qosCtrl->markIODone(amReq);
-    cb->call(error);
-
     // Insert original Object into cache. Do not insert the truncated version
     // since we really do have all the data. This is done after response to
     // reduce latency.
     if (ERR_OK == error && cb->returnBuffer) {
-        amCache->putOffset(amReq->io_vol_id,
-                           BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
-                           boost::make_shared<ObjectID>(amReq->obj_id));
         amCache->putObject(amReq->io_vol_id,
                            amReq->obj_id,
                            cb->returnBuffer);
-        if (static_cast<GetBlobReq*>(amReq)->get_metadata && cb->blobDesc)
-            amCache->putBlobDescriptor(amReq->io_vol_id, amReq->getBlobName(), cb->blobDesc);
     }
 
     delete amReq;
@@ -433,16 +408,24 @@ AmProcessor::queryCatalogCb(AmRequest *amReq, const Error& error) {
     if (error == ERR_OK) {
         amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getBlobCb, amReq);
         amDispatcher->dispatchGetObject(amReq);
+
+        amCache->putOffset(amReq->io_vol_id,
+                           BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
+                           boost::make_shared<ObjectID>(amReq->obj_id));
+
+        auto cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+        if (static_cast<GetBlobReq*>(amReq)->get_metadata && cb->blobDesc)
+            amCache->putBlobDescriptor(amReq->io_vol_id,
+                                       amReq->getBlobName(),
+                                       cb->blobDesc);
     } else {
-        getBlobCb(amReq, error);
+        respond_and_delete(amReq, error);
     }
 }
 
 void
 AmProcessor::statBlobCb(AmRequest *amReq, const Error& error) {
-    // Tell QoS the request is done
-    qosCtrl->markIODone(amReq);
-    amReq->cb->call(error);
+    respond(amReq, error);
 
     // Insert metadata into cache.
     if (ERR_OK == error) {
@@ -474,16 +457,6 @@ AmProcessor::commitBlobTxCb(AmRequest *amReq, const Error &error) {
     fds_verify(amCache->putTxDescriptor(txDesc) == ERR_OK);
     fds_verify(txMgr->removeTx(*(blobReq->tx_desc)) == ERR_OK);
 
-    qosCtrl->markIODone(amReq);
-    amReq->cb->call(error);
-
-    delete amReq;
-}
-
-void
-AmProcessor::genericCb(AmRequest *amReq, const Error& error) {
-    qosCtrl->markIODone(amReq);
-    amReq->cb->call(error);
-    delete amReq;
+    respond_and_delete(amReq, error);
 }
 }  // namespace fds
