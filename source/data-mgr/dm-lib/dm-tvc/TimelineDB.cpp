@@ -19,28 +19,28 @@ std::ostream& operator<<(std::ostream& os, const fds::JournalFileInfo& fileinfo)
 
 #define CHECK_SQL_CODE(msg)                                      \
     if (rc != SQLITE_OK) {                                       \
-        LOGERROR << "sql: " << sql;                              \
+        LOGERROR << "rc:" << rc <<" sql: " << sql;               \
         LOGERROR << msg << ":" << zErrMsg;                       \
         sqlite3_free(zErrMsg);                                   \
         return ERR_INVALID;                                      \
     }
 
-#define CHECK_DB_CODE(msg)                      \
-    if (rc != SQLITE_OK) {                      \
-        LOGERROR << msg << sqlite3_errmsg(db);  \
-        return ERR_INVALID;                     \
+#define CHECK_DB_CODE(msg)                                              \
+    if (rc != SQLITE_OK) {                                              \
+        LOGERROR << "rc:" << rc << " " << msg << sqlite3_errmsg(db);    \
+        return ERR_INVALID;                                             \
     }
 
 namespace fds {
 
 TimelineDB::TimelineDB() {
-    Error err = open();
 }
 
 Error TimelineDB::open() {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     const std::string dmDir = root->dir_user_repo_dm();
-    std::string dbFile = util::strformat("%s/journal.db", dmDir.c_str());
+    root->fds_mkdir(dmDir.c_str());
+    std::string dbFile = util::strformat("%s/timeline.db", dmDir.c_str());
     DECLARE_DB_VARS();
 
     // open the db
@@ -75,6 +75,8 @@ Error TimelineDB::open() {
     sql = "create index if not exists volid_createtime on snapshottbl (volid, createtime)";
     rc = sqlite3_exec(db, sql.c_str(), NULL, NULL,  &zErrMsg);
     CHECK_SQL_CODE("unable to create index on snaphot table");
+
+    LOGDEBUG << "timeline db setup successfully";
     return ERR_OK;
 }
 
@@ -171,17 +173,23 @@ Error TimelineDB::getLatestSnapshotAt(fds_volid_t volId,
                                       TimeStamp uptoTime,
                                       fds_volid_t& snapshotId) {
     DECLARE_DB_VARS();
-    Error err(ERR_OK);
-    sqlite3_stmt * stmt;
-    const char * pzTail;
     snapshotId = 0;
     sql = util::strformat(
         "select snapshotid from snapshottbl "
         "where volid=%ld and createtime <= %ld order by createtime desc LIMIT 1",
         volId, uptoTime);
-    err = getInt(sql, *(reinterpret_cast<fds_uint64_t*>(&snapshotId) ));
-    rc = sqlite3_prepare(db, sql.c_str(), -1, &stmt, &pzTail);
-    return err;
+    return getInt(sql, *(reinterpret_cast<fds_uint64_t*>(&snapshotId) ));
+}
+
+Error TimelineDB::getSnapshotTime(fds_volid_t volId,
+                                  fds_volid_t snapshotId, TimeStamp& createTime) {
+    DECLARE_DB_VARS();
+    createTime = 0;
+    sql = util::strformat(
+        "select createtime from snapshottbl "
+        "where volid=%ld and snapshotid = %ld  LIMIT 1",
+        volId, snapshotId);
+    return getInt(sql, createTime);
 }
 
 Error TimelineDB::getInt(const std::string& sql, fds_uint64_t& data) {
