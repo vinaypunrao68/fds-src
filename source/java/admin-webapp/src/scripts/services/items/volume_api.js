@@ -6,7 +6,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     var errCount = 0;
 
     var startPoller = function(){
-        pollerId = $interval( getVolumes, 10000 );
+        pollerId = $interval( getVolumes, 30000 );
     };
     
     var getVolumes = function( callback ){

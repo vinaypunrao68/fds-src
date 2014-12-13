@@ -39,8 +39,8 @@ namespace fds {
         // If atomic vars are placed in the same cache line, it creates a false-sharing
         // where the cache line can pin-ping between processors.  It's better to isolate
         // them to different cache line.  The current cacheline size in x86_64 is 128 bytes.
-        alignas(128) std::atomic<unsigned int> num_pending_ios;
-        alignas(128) std::atomic<unsigned int> num_outstanding_ios;
+        alignas(64) std::atomic<unsigned int> num_pending_ios;
+        alignas(64) std::atomic<unsigned int> num_outstanding_ios;
 
         fds_uint64_t num_ios_completed = 0;
         fds_uint64_t num_ios_dispatched = 0;

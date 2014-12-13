@@ -22,6 +22,10 @@
 #   lxc-node-04 fds_node=node04
 #
 #   [lxc-nodes:vars]
+#   ansible_ssh_user=root
+#   ansible_ssh_pass=passwd
+#   cluster_location=bld
+#   deploy_artifact=local
 #   fds_default_nic=eth0
 #   fds_om_host=lxc-node-01
 #   fds_metrics_enabled=false
@@ -34,6 +38,10 @@
 #   be "nodeNN" where NN can be any number. There must also be a node in the
 #   inventory (first stanza) that matches the hostname assigned to the
 #   "fds_om_host" variable.
+#
+#   cluster_location is optional. Determines which FDS-held apt mirror to use for large FDS package downloads. Valid values are bld and fre. Omission causes packages to be downloaded from Artifactory (potentially VERY slow)
+#
+#   deploy_artifact is optional. Determines where the fds-*.deb pacakges should be found. nightly will download latest nightly build from appropriate apt repo. local will attempt to copy locally-built debs to the target hosts. Testing changes and performance will likely benefit most from local 
 #
 #   NOTE: This playbook will NOT populate DNS or hosts files for the nodes
 #   in the inventory - they must exist in the hosts file or be populated in
@@ -76,19 +84,45 @@
 #
 ---
 
--   name: stop_all_nodes
+-   name: Pre-Deploy - check sudo privileges
     hosts: all
     gather_facts: no
+    sudo: no
     tags:
-    -   shutdown
+        - check_sudo
 
     tasks:
+    -   include: ../tasks/check_sudo.yml
+        when: ansible_sudo_pass is not defined
+
+-   name: Pre-Deploy - setup environment
+    hosts: all
+    gather_facts: no
+    sudo: yes
+    tags:
+        - pre_deploy
+
+    handlers:
+    -   name: restart ssh
+        service: name=ssh
+            state=restarted
+
+    tasks:
+    -   include: ../tasks/pre_deploy_setup.yml
 
 
+-   name: DESTRUCTIVE Deployment of FDS
+    hosts: all
+    gather_facts: yes
+    sudo: yes
+
+    tasks:
     -   name: check_fds_install
-        shell: test -d /fds/sbin
+        shell: dpkg -l fds-platform
         ignore_errors: True
         register: fds_installed
+        tags:
+            - shutdown
 
     -   name: stop_platformd
         service: name={{ item }} state=stopped
@@ -98,6 +132,8 @@
             - orchmgr
             - amagent
             - fdsactivate
+        tags:
+            - shutdown
 
     -   name: kill_all_procs
         shell: pkill -9 -f {{item}} || true
@@ -111,42 +147,23 @@
             - StorMgr
             - platformd
             - fdscli
+        tags:
+            - shutdown
 
     -   name: stop_redis
         shell: ./redis.sh stop chdir=/fds/sbin
         ignore_errors: True
         when: fds_installed|success
-
--   name: clean_shm
-    hosts: all
-    tags:
-       -   clean
-       -   cleanshm
-
-    tasks:
-
-    -   name: check_fds_install
-        shell: test -d /fds/sbin
-        ignore_errors: True
-        register: fds_installed
+        tags:
+            - shutdown
 
     -   name: clean_node
         shell: rm -rf {{item}}
         with_items:
             - /dev/shm/0x*
-
--   name: clean_all_nodes
-    hosts: all
-    tags:
-       -   clean
-    gather_facts: no
-
-    tasks:
-
-    -   name: check_fds_install
-        shell: test -d /fds/sbin
-        ignore_errors: True
-        register: fds_installed
+        tags:
+           - clean
+           - cleanshm
 
     -   name: clean_node
         shell: rm -rf {{item}}
@@ -161,18 +178,14 @@
             - /fds/dev/ssd-*/*
             - /fds/sys-repo
             - /fds/user-repo
+        tags:
+           - clean
 
     -   name: clean_redis
         shell: ./redis.sh clean chdir=/fds/sbin
         when: fds_installed|success
-
--   name: configure_os_reqs
-    hosts: all
-    tags:
-      -   deploy
-    gather_facts: yes
-
-    tasks:
+        tags:
+           - clean
 
     -   name: sysctl_params
         sysctl: name={{ item.key }} value={{ item.value }} state={{ item.state }}
@@ -182,7 +195,8 @@
           - { key: 'kernel.core_uses_pid', value: '1', state: 'present' }
           - { key: 'fs.suid_dumpable', value: '1', state: 'present' }
           - { key: 'kernel.core_pattern', value: '/corefiles/%e.%p.%u.%t.core', state: 'present' }
-        tags: sysctl
+        tags:
+          - deploy
 
     -   name: install_limits_conf
         template:
@@ -191,6 +205,8 @@
             owner=root
             group=root
             mode=0644
+        tags:
+          - deploy
 
     -   name: ensure_corefiles_exists
         file:
@@ -199,6 +215,8 @@
             group=root
             mode=0755
             state=directory
+        tags:
+          - deploy
 
     -   name: ensure_os_packages_installed
         apt: name={{item}} state=present update_cache=yes
@@ -218,16 +236,32 @@
           - gcc
           - python-dev
           - python-pycurl
+        tags:
+          - deploy
 
     -   name: add artifactory repo key
         apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
-        tags: repo
+        tags:
+          - deploy
+          - repo
 
-    -   name: add artifactory repo for third party packages
+    -   name: add LOCAL mirror for third party packages
+        apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/third-party-deps/ fds main"
+            state=present
+            update_cache=yes
+        when: cluster_location is defined
+        tags:
+          - deploy
+          - repo
+
+    -   name: add LOCAL mirror for third party packages
         apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main"
             state=present
             update_cache=yes
-        tags: repo
+        when: cluster_location is not defined
+        tags:
+          - deploy
+          - repo
 
     -   name: install third party deps from artifactory repo
         apt: name={{item}}
@@ -254,7 +288,9 @@
             - python-distlib
             - python-html5lib
             - python-pip
-        tags: repo
+        tags:
+          - deploy
+          - repo
 
     -   name: install needed pip modules
         pip: name={{item.name}} version={{item.version}} extra_args='-I'
@@ -262,16 +298,9 @@
             - { name: 'paramiko', version: '1.15.1' }
             - { name: 'scp', version: '0.8.0' }
             - { name: 'boto', version: '2.34.0' }
+        tags:
+          - deploy
 
--   name: install and configure fds on all  fds_nodes
-    hosts: all
-    tags:
-      -   deploy
-    gather_facts: yes
-    vars:
-      force_install: no
-
-    tasks:
     -   name: uninstall fds
         apt: name={{item}}
             state=absent
@@ -280,81 +309,28 @@
           - fds-platform
           - fds-pkghelper
           - fds-coredump
-        tags: uninstall
-
-    -   name: add fds nightly platform repo
-        when: deploy_artifact == "nightly"
-        apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
-            state=present
-            update_cache=yes
-        tags: repo
-
-    -   name: install fds platform from repo
-        when: deploy_artifact == "nightly"
-        apt: name={{item}}
-            force=yes
-            state=present
-            update_cache=yes
-            default_release=platform
-        with_items:
-            - fds-platform
-            - fds-pkghelper
-            - fds-coredump
-        register: fdsinstall_pkg
-        tags: repo
-
-    -   name: copy local fds-coredump to host
-        when: deploy_artifact == "local"
-        copy: src={{ item }}
-          dest=/root/fds-coredump.deb
-        with_fileglob:
-          - '../../source/tools/install/pkg/fds-coredump*.deb'
         tags:
-          - copy_pkg
+          - deploy
+          - uninstall
 
-    -   name: copy local fds-pkghelper to host
-        when: deploy_artifact == "local"
-        copy: src={{ item }}
-          dest=/root/fds-pkghelper.deb
-        with_fileglob:
-          - '../../source/tools/package/fds-pkghelper/fds-pkghelper*.deb'
-        tags:
-          - copy_pkg
+    -   include: ../tasks/add_fds_repos.yml
+        when: deploy_artifact is defined and deploy_artifact != "local"
 
-    -   name: copy local fds-platform to host
-        when: deploy_artifact == "local"
-        copy: src={{ item }}
-          dest=/root/fds-platform.deb
-        with_fileglob:
-          - '../../source/tools/install/pkg/fds-platform*.deb'
-        tags:
-          - copy_pkg
-
-    -   name: install fds platfrom from local debs
-        when: deploy_artifact == "local"
-        apt: deb={{ item }}
-        with_items:
-          - /root/fds-coredump.deb
-          - /root/fds-pkghelper.deb
-          - /root/fds-platform.deb
-        tags:
-          - copy_pkg
-
-    -   name: delete local debs from /root/ to avoid conflicts
-        when: deploy_artifact == "local"
-        file: path=/root/{{ item }}
-            state=absent
-        with_fileglob:
-          - 'fds-*.deb'
+    -   include: ../tasks/deploy_local_fds_packages.yml
+        when: deploy_artifact is defined and deploy_artifact == "local"
 
     -   name: copy fdsinstall.py to /root/fdsinstally.py
         copy: src=../../source/tools/install/fdsinstall.py
             dest=/root/fdsinstall.py
             mode=0755
+        tags:
+          - deploy
 
     -   name: run fdsinstall step 3 - setup storage
         shell: ./fdsinstall.py -o 5 -o 3  chdir=/root
         when: fdsinstall_pkg.changed or force_install == "yes"
+        tags:
+          - deploy
 
     -   name: render formation.conf
         template:
@@ -364,11 +340,10 @@
             group=root
             mode=0644
         tags:
-          -   fdsconfig
+          - deploy
+          - fdsconfig
 
     -   name: render /fds/etc config files
-        tags:
-          -   fdsconfig
         template:
             src=../../source/config/etc/{{item}}.conf.j2
             dest=/fds/etc/{{item}}.conf
@@ -381,11 +356,11 @@
             - platform
             - orch_mgr
             - redis
+        tags:
+          - deploy
+          - fdsconfig
 
     -   name: render_init_scripts
-        tags:
-          -   init
-          -   fdsconfig
         template:
             src=../templates/{{item}}-init.conf.j2
             dest=/etc/init/{{item}}.conf
@@ -397,6 +372,10 @@
             - orchmgr
             - amagent
             - fdsactivate
+        tags:
+          - deploy
+          - init
+          - fdsconfig
 
     -   name: java_symlink
         file:
@@ -405,85 +384,78 @@
             owner=root
             group=root
             state=link
+        tags:
+          - deploy
 
--   name: run_disk_type
-    hosts: all
-    tags:
-      - startup
-    gather_facts: no
+#######
+#    When WIN-1348 is resolved, we can reinstate these tasks
+#    -   name: disk_type
+#        shell: python -m disk_type -m
+#        tags:
+#          - startup
+#
+#    -   name: start_redis
+#        shell: ./redis.sh start chdir=/fds/sbin
+#        tags:
+#          - startup
+#
+#    -   name: start_platformd
+#        service: name=platformd state=started
+#        tags:
+#          - startup
+#
+#    -   name: start_om
+#        service: name=orchmgr state=started
+#        when: fds_om_host is defined and fds_om_host == inventory_hostname
+#        tags:
+#          - startup
+#
+#    -   name: om_wait
+#        shell: sleep 8
+#        when: fds_om_host is defined and fds_om_host == inventory_hostname
+#        tags:
+#          - startup
+#
+#    -   name: fdsactivate
+#        service: name=fdsactivate state=started
+#        when: fds_om_host is defined and fds_om_host == inventory_hostname
+#        tags:
+#          - startup
+#
+#    -   name: fdsactivate_wait
+#        shell: sleep 8
+#        when: fds_om_host is defined and fds_om_host == inventory_hostname
+#        tags:
+#          - startup
+#
+#    -   name: start_am
+#        service: name=amagent state=started
+#        when: fds_om_host is defined and fds_om_host == inventory_hostname
+#        tags:
+#          - startup
+#######
 
-    tasks:
-    -   name: disk_type
-        shell: python -m disk_type -m
 
--   name: start_redis
-    hosts: all
-    tags:
-      - startup
-    gather_facts: no
-
-    tasks:
-    -   name: start_redis
-        shell: ./redis.sh start chdir=/fds/sbin
-
--   name: start_platformd
-    hosts: all
-    tags:
-      - startup
-    gather_facts: no
-
-    tasks:
-    -   name: start_platformd
-        service: name=platformd state=started
-
--   name: start_om
-    hosts: all
-    tags:
-      - startup
-    gather_facts: no
-
-    tasks:
-    -   name: start_om
-        service: name=orchmgr state=started
+#######
+#   When WIN-1348 is resolved, we can remove this call to fds-tool 
+    -   name: run fds-tool.py on OM host to bring up cluster
+        shell: ./fds-tool.py -f deploy_formation.conf -u
+            chdir=/fds/sbin
         when: fds_om_host is defined and fds_om_host == inventory_hostname
-
-    -   name: om_wait
-        shell: sleep 8
-        when: fds_om_host is defined and fds_om_host == inventory_hostname
-
--   name: enable_sm_dm
-    hosts: all
-    tags:
-      - startup
-    gather_facts: no
-
-    tasks:
-    -   name: fdsactivate
-        service: name=fdsactivate state=started
-        when: fds_om_host is defined and fds_om_host == inventory_hostname
-
-    -   name: fdsactivate_wait
-        shell: sleep 8
-        when: fds_om_host is defined and fds_om_host == inventory_hostname
-
--   name: start_am
-    hosts: all
-    tags:
-      -   startup
-    gather_facts: no
-
-    tasks:
-    -   name: start_am
-        service: name=amagent state=started
-        when: fds_om_host is defined and fds_om_host == inventory_hostname
+        tags:
+          - startup
 
     -   name: check process status
-        command: ./fdsadmin -f deploy_formation.conf --process-status
+        command: ./fdsadmin -f deploy_formation.conf --monitor --quiet
             chdir=/fds/sbin
         register: fdsadmin_output
-        tags:
-            -   dbg
         when: fds_om_host is defined and fds_om_host == inventory_hostname
+        tags:
+            - startup
+            - status
+
+
     -   debug: var=fdsadmin_output.stdout_lines
         tags:
-            -   dbg
+            - startup
+            - status

@@ -1,0 +1,36 @@
+---
+-   name: set the root password
+    action: user name=root
+        password=$1$M7e8qbJh$0nDQnqfGh5Ce80bbYKp5U/
+    tags:
+        - setup
+
+-   name: disable ssh with PAM, bogs things down
+    lineinfile: dest=/etc/ssh/sshd_config
+        regexp="UsePAM yes"
+        line="UsePAM no"
+        backrefs=yes
+        state=present
+    notify: restart ssh
+    tags:
+        - setup
+
+-   name: allow ssh root login
+    lineinfile: dest=/etc/ssh/sshd_config
+        regexp="PermitRootLogin without-password"
+        line="PermitRootLogin yes"
+        backrefs=yes
+        state=present
+    notify: restart ssh
+    tags:
+        - setup
+
+-   name: allow ssh root login... again
+    lineinfile: dest=/etc/ssh/sshd_config 
+        regexp="PermitRootLogin without-password"
+        line="PermitRootLogin yes"
+        backrefs=yes
+        state=present
+    notify: restart ssh
+    tags:
+        - setup

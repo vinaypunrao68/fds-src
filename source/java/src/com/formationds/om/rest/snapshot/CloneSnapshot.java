@@ -69,7 +69,8 @@ public class CloneSnapshot
                                        name,
                                        ( int ) volume.getSla(),
                                        volume.getPriority(),
-                                       ( int ) volume.getLimit() );
+                                       ( int ) volume.getLimit(),
+                                       volume.getCommit_log_retention() );
     }
 
     // TODO audit and/or alert/event

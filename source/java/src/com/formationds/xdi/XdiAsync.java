@@ -8,6 +8,7 @@ import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authorizer;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.async.AsyncMessageDigest;
 import com.formationds.util.async.AsyncRequestStatistics;
@@ -33,16 +34,19 @@ public class XdiAsync {
     private final AuthenticationToken token;
     private AsyncAm asyncAm;
     private ByteBufferPool bufferPool;
+    private Authorizer authorizer;
     private ConfigurationApi configurationApi;
     private AsyncRequestStatistics statistics;
 
     public XdiAsync(AsyncAm asyncAm,
                     ByteBufferPool bufferPool,
                     AuthenticationToken token,
+                    Authorizer authorizer,
                     ConfigurationApi configurationApi) {
-        this.asyncAm = asyncAm;
+        this.asyncAm = new AuthorizedAsyncAm(token, authorizer, asyncAm);
         this.bufferPool = bufferPool;
         this.token = token;
+        this.authorizer = authorizer;
         this.configurationApi = configurationApi;
         statistics = new AsyncRequestStatistics();
     }
@@ -53,6 +57,7 @@ public class XdiAsync {
     }
 
     public CompletableFuture<BlobInfo> getBlobInfo(String domain, String volume, String blob) {
+
         CompletableFuture<VolumeDescriptor> volumeDescriptorFuture = statVolume(domain, volume);
         CompletableFuture<BlobWithMetadata> getObject0Future = volumeDescriptorFuture.thenCompose(vd -> getBlobWithMetadata(domain, volume, blob, 0, vd.getPolicy().maxObjectSizeInBytes));
         return getObject0Future.thenCompose(bwm ->
@@ -230,23 +235,23 @@ public class XdiAsync {
     }
 
     public CompletableFuture<BlobDescriptor> statBlob(String domain, String volume, String blob) {
-        return asyncAm.statBlob(token, domain, volume, blob);
+        return asyncAm.statBlob(domain, volume, blob);
     }
 
     public CompletableFuture<BlobWithMetadata> getBlobWithMetadata(String domain, String volume, String blob, long objectOffset, int length) {
-        return asyncAm.getBlobWithMeta(token, domain, volume, blob, length, new ObjectOffset(objectOffset));
+        return asyncAm.getBlobWithMeta(domain, volume, blob, length, new ObjectOffset(objectOffset));
     }
 
     public CompletableFuture<ByteBuffer> getBlob(String domain, String volume, String blob, long offset, int length) {
-        return asyncAm.getBlob(token, domain, volume, blob, length, new ObjectOffset(offset));
+        return asyncAm.getBlob(domain, volume, blob, length, new ObjectOffset(offset));
     }
 
     public CompletableFuture<Void> updateBlobOnce(String domain, String volume, String blob, int blobMode, ByteBuffer data, int length, long offset, Map<String, String> metadata) {
-        return asyncAm.updateBlobOnce(token, domain, volume, blob, blobMode, data, length, new ObjectOffset(offset), metadata);
+        return asyncAm.updateBlobOnce(domain, volume, blob, blobMode, data, length, new ObjectOffset(offset), metadata);
     }
 
     public CompletableFuture<TransactionHandle> createTx(String domain, String volume, String blob, int mode) {
-        return asyncAm.startBlobTx(token, domain, volume, blob, mode)
+        return asyncAm.startBlobTx(domain, volume, blob, mode)
                 .thenApply(tx -> new TransactionHandle(domain, volume, blob, tx));
     }
 
@@ -315,19 +320,19 @@ public class XdiAsync {
         }
 
         public CompletableFuture<Void> commit() {
-            return asyncAm.commitBlobTx(token, domain, volume, blob, descriptor);
+            return asyncAm.commitBlobTx(domain, volume, blob, descriptor);
         }
 
         public CompletableFuture<Void> abort() {
-            return asyncAm.abortBlobTx(token, domain, volume, blob, descriptor);
+            return asyncAm.abortBlobTx(domain, volume, blob, descriptor);
         }
 
         public CompletableFuture<Void> update(ByteBuffer buffer, long objectOffset, int length) {
-            return asyncAm.updateBlob(token, domain, volume, blob, descriptor, buffer, length, new ObjectOffset(objectOffset), false);
+            return asyncAm.updateBlob(domain, volume, blob, descriptor, buffer, length, new ObjectOffset(objectOffset), false);
         }
 
         public CompletableFuture<Void> updateMetadata(Map<String, String> meta) {
-            return asyncAm.updateMetadata(token, domain, volume, blob, descriptor, meta);
+            return asyncAm.updateMetadata(domain, volume, blob, descriptor, meta);
         }
     }
 

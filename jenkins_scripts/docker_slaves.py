@@ -26,7 +26,7 @@ DOCKER_SLAVES = {
             "jenkins-slave01": "10041",
             "jenkins-slave02": "10042"
             },
-        "10.1.10.243": {
+        "10.1.10.42": {
             "jenkins-slave03": "10043",
             "jenkins-slave04": "10044"
             },
