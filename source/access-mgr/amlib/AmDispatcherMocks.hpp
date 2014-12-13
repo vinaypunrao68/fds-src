@@ -10,7 +10,7 @@ struct AmDispatcherMockCbs
     {
         GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
         cb->returnSize = amReq->data_len;
-        cb->returnBuffer = boost::make_shared<std::string>(0x00, cb->returnSize);
+        cb->returnBuffer = boost::make_shared<std::string>(cb->returnSize, 0x00);
         amReq->proc_cb(ERR_OK);                        
     }
     static void queryCatalogCb(AmRequest *amReq)
