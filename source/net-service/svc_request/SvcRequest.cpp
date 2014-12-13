@@ -13,6 +13,7 @@
 #include <net/SvcRequestPool.h>
 #include <fds_module_provider.h>
 #include <util/fiu_util.h>
+#include <thrift/transport/TTransportUtils.h>  // For TException.
 
 namespace fds {
 
@@ -218,6 +219,12 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code
             << " exception: " << e.what();
+        gSvcRequestPool->postError(respHdr);
+    } catch(apache::thrift::TException &tx) {
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
+        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
+        GLOGWARN << logString() << " Warning: " << respHdr->msg_code
+            << " exception: " << tx.what();
         gSvcRequestPool->postError(respHdr);
     } catch(std::exception &e) {
         auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
