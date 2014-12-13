@@ -231,13 +231,8 @@ NbdOperations::getBlobResp(const Error &error,
             fds_mutex::scoped_lock l(respLock);
             responses.erase(handle);
         }
-
         // we are done collecting responses for this handle, notify nbd connector
         nbdResp->readWriteResp(error, handle, resp);
-        // nbd connector will free resp
-        // remove from the wait list
-        fds_mutex::scoped_lock l(respLock);
-        responses.erase(handle);
     }
 }
 
@@ -271,12 +266,14 @@ NbdOperations::updateBlobOnceResp(const Error &error,
     fds_verify(resp);
     fds_bool_t done = resp->handleWriteResponse(seqId);
     if (done) {
+        {
+            // nbd connector will free resp
+            // remove from the wait list
+            fds_mutex::scoped_lock l(respLock);
+            responses.erase(handle);
+        }
         // we are done collecting responses for this handle, notify nbd connector
         nbdResp->readWriteResp(error, handle, resp);
-        // nbd connector will free resp
-        // remove from the wait list
-        fds_mutex::scoped_lock l(respLock);
-        responses.erase(handle);
     }
 }
 
