@@ -45,15 +45,13 @@ AsyncAmServiceRequestIfCloneFactory::releaseHandler(request_if* handler) {
 
 AsyncDataServer::AsyncDataServer(const std::string &name, fds_uint32_t instanceId)
 : Module(name.c_str()),
-    port(8899 + instanceId),
-    numServerThreads(10)
+    port(8899 + instanceId)
 {
     serverTransport.reset(new xdi_att::TServerSocket(port));
     transportFactory.reset(new xdi_att::TFramedTransportFactory());
     protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
 
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    numServerThreads = conf.get<fds_uint32_t>("async_server_threads");
 }
 
 /**
@@ -84,11 +82,6 @@ AsyncDataServer::mod_shutdown() {
  */
 void
 AsyncDataServer::init_server() {
-    // Setup thrift threads
-    threadManager = xdi_atc::ThreadManager::newSimpleThreadManager(numServerThreads);
-    threadFactory.reset(new xdi_atc::PosixThreadFactory());
-    threadManager->threadFactory(threadFactory);
-
     // Setup API processor
     processorFactory.reset(new apis::AsyncAmServiceRequestProcessorFactory(
             boost::make_shared<AsyncAmServiceRequestIfCloneFactory>() ));
@@ -100,8 +93,7 @@ AsyncDataServer::init_server() {
                                                 protocolFactory));
 
     try {
-        LOGNORMAL << "Starting the async data server with " << numServerThreads
-                  << " server threads at port " << port;
+        LOGNORMAL << "Starting the async data server at port " << port;
         listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
                                               ttServer.get()));
     } catch(const xdi_att::TTransportException& e) {
