@@ -30,7 +30,7 @@ class AsyncAmServiceRequestIfCloneFactory
 
 AsyncAmServiceRequestIfCloneFactory::request_if*
 AsyncAmServiceRequestIfCloneFactory::getHandler(const xdi_at::TConnectionInfo& connInfo) {  // NOLINT
-    return new AmAsyncDataApi();
+    return new AmAsyncDataApi(boost::make_shared<AmAsyncXdiResponse>());
 }
 
 void

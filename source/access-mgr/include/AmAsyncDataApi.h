@@ -23,11 +23,11 @@ class AmAsyncDataApi : public apis::AsyncAmServiceRequestIf {
     AmAsyncResponseApi::shared_ptr responseApi;
 
   public:
-    AmAsyncDataApi();
+    explicit AmAsyncDataApi(AmAsyncResponseApi::shared_ptr response_api);
+    explicit AmAsyncDataApi(AmAsyncResponseApi* response_api);
+
     ~AmAsyncDataApi();
     typedef std::shared_ptr<AmAsyncDataApi> shared_ptr;
-
-    void setResponseApi(AmAsyncResponseApi::shared_ptr respApi);
 
     void attachVolume(const apis::RequestId& requestId,
                       const std::string& domainName,
