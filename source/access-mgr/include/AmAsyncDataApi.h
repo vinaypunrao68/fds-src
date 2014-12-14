@@ -30,9 +30,9 @@ class AmAsyncDataApi : public apis::AsyncAmServiceRequestIf {
     typedef std::shared_ptr<AmAsyncDataApi> shared_ptr;
 
     void handshakeStart(const apis::RequestId& requestId,
-                        const int32_t length);
+                        const int32_t port);
     void handshakeStart(boost::shared_ptr<apis::RequestId>& requestId,
-                        boost::shared_ptr<int32_t>& length);
+                        boost::shared_ptr<int32_t>& port);
 
     void attachVolume(const apis::RequestId& requestId,
                       const std::string& domainName,
