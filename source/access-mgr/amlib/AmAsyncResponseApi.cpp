@@ -33,10 +33,9 @@ namespace xdi_atp = apache::thrift::protocol;
                  << "Dropping response and uninitializing the connection!"; \
     }
 
-AmAsyncXdiResponse::AmAsyncXdiResponse(std::string const& server_ip,
-                                       fds_uint32_t const server_port )
+AmAsyncXdiResponse::AmAsyncXdiResponse(std::string const& server_ip)
         : serverIp(server_ip),
-          serverPort(server_port) {
+          serverPort(9876) {
     // Set client to unitialized
     asyncRespClient.reset();
 }
@@ -60,9 +59,16 @@ AmAsyncXdiResponse::initiateClientConnect() {
 }
 
 void
+AmAsyncXdiResponse::handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId,
+                       boost::shared_ptr<int32_t>& port) {
+    serverPort = *port;
+    checkClientConnect();
+    XDICLIENTCALL(asyncRespClient, handshakeComplete(requestId));
+}
+
+void
 AmAsyncXdiResponse::attachVolumeResp(const Error &error,
                                      boost::shared_ptr<apis::RequestId>& requestId) {
-    checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
             boost::make_shared<apis::ErrorCode>());

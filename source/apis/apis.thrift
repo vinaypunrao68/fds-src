@@ -98,6 +98,8 @@ struct RequestId {
 }
 
 service AsyncAmServiceRequest {
+	oneway void handshakeStart(1:RequestId requestId 2:i32 portNumber),
+
 	oneway void attachVolume(1:RequestId requestId, 2: string domainName, 
 	       3:string volumeName),
 
@@ -140,6 +142,8 @@ service AsyncAmServiceRequest {
 }
 
 service AsyncAmServiceResponse {
+	oneway void handshakeComplete(1:RequestId requestId),
+
 	oneway void attachVolumeResponse(1:RequestId requestId),
 
         oneway void volumeContents(1:RequestId requestId, 2:list<BlobDescriptor> response),

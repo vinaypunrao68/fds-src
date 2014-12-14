@@ -35,6 +35,20 @@ AmAsyncDataApi::~AmAsyncDataApi() {
 }
 
 void
+AmAsyncDataApi::handshakeStart(const apis::RequestId& requestId,
+                               const int32_t length) {
+    fds_panic("You shouldn't be here.");
+}
+
+void
+AmAsyncDataApi::handshakeStart(boost::shared_ptr<apis::RequestId>& requestId,
+                               boost::shared_ptr<int32_t>& length) {
+    auto api = boost::dynamic_pointer_cast<AmAsyncXdiResponse>(responseApi);
+    if (api)
+        api->handshakeComplete(requestId, length);
+}
+
+void
 AmAsyncDataApi::attachVolume(const apis::RequestId& requestId,
                              const std::string& domainName,
                              const std::string& volumeName) {

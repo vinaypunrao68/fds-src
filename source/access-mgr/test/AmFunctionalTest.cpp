@@ -198,6 +198,8 @@ class AmLoadProc : public AmAsyncResponseApi,
             done_cond.notify_all();
         }
     }
+    void handshakeComplete(const apis::RequestId& requestId) {}
+    void handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId) {}
     void updateMetadataResponse(const apis::RequestId& requestId) {}
     void updateMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
     void updateBlobResponse(const apis::RequestId& requestId) {}
