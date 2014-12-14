@@ -163,9 +163,6 @@ class NbdOperations : public AmAsyncResponseApi {
     // api we've built
     AmAsyncDataApi::shared_ptr amAsyncDataApi;
 
-    // async response handler
-    boost::shared_ptr<NbdOperations> responseApi;
-
     // interface to respond to nbd passed down in constructor
     NbdOperationsResponseIface* nbdResp;
 

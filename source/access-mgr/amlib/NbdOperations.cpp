@@ -9,14 +9,12 @@
 namespace fds {
 
 NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
-        : amAsyncDataApi(std::make_shared<AmAsyncDataApi>()),
-          responseApi(this),
+        : amAsyncDataApi(std::make_shared<AmAsyncDataApi>(this)),
           nbdResp(respIface),
           domainName(new std::string("TestDomain")),
           blobName(new std::string("BlockBlob")),
           emptyMeta(new std::map<std::string, std::string>()),
           blobMode(new fds_int32_t(0)) {
-    amAsyncDataApi->setResponseApi(responseApi);
 }
 
 NbdOperations::~NbdOperations() {
