@@ -196,7 +196,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
 void
 NbdOperations::getBlobResp(const Error &error,
                            boost::shared_ptr<apis::RequestId>& requestId,
-                           char* buf,
+                           boost::shared_ptr<std::string> buf,
                            fds_uint32_t& length) {
     NbdResponseVector* resp = NULL;
     fds_int64_t handle = 0;
