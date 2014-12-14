@@ -43,12 +43,11 @@ class AsyncDataServer : public Module, public boost::noncopyable {
     boost::shared_ptr<xdi_att::TServerTransport>  serverTransport;
     boost::shared_ptr<xdi_att::TTransportFactory> transportFactory;
     boost::shared_ptr<xdi_atp::TProtocolFactory>  protocolFactory;
-    boost::shared_ptr<apis::AsyncAmServiceRequestProcessor> processor;
+    boost::shared_ptr<xdi_at::TProcessorFactory>  processorFactory;
 
     boost::shared_ptr<xdi_atc::ThreadManager>      threadManager;
     boost::shared_ptr<xdi_atc::PosixThreadFactory> threadFactory;
     boost::shared_ptr<xdi_ats::TThreadedServer>    ttServer;
-    boost::shared_ptr<xdi_ats::TNonblockingServer> nbServer;
 
     std::shared_ptr<boost::thread> listen_thread;
 

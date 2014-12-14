@@ -16,11 +16,33 @@
 
 namespace fds {
 
-AsyncDataServer::AsyncDataServer(const std::string &name,
-                                 fds_uint32_t instanceId)
-        : Module(name.c_str()),
-          port(8899 + instanceId),
-          numServerThreads(10) {
+class AsyncAmServiceRequestIfCloneFactory
+    : virtual public apis::AsyncAmServiceRequestIfFactory
+{
+    using request_if = apis::AsyncAmServiceRequestIf;
+ public:
+    AsyncAmServiceRequestIfCloneFactory() {}
+    ~AsyncAmServiceRequestIfCloneFactory() {}
+
+    request_if* getHandler(const xdi_at::TConnectionInfo& connInfo);
+    void releaseHandler(request_if* handler);
+};
+
+AsyncAmServiceRequestIfCloneFactory::request_if*
+AsyncAmServiceRequestIfCloneFactory::getHandler(const xdi_at::TConnectionInfo& connInfo) {  // NOLINT
+    return new AmAsyncDataApi();
+}
+
+void
+AsyncAmServiceRequestIfCloneFactory::releaseHandler(request_if* handler) {
+    delete handler;
+}
+
+AsyncDataServer::AsyncDataServer(const std::string &name, fds_uint32_t instanceId)
+: Module(name.c_str()),
+    port(8899 + instanceId),
+    numServerThreads(10)
+{
     serverTransport.reset(new xdi_att::TServerSocket(port));
     transportFactory.reset(new xdi_att::TFramedTransportFactory());
     protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
@@ -63,13 +85,11 @@ AsyncDataServer::init_server() {
     threadManager->threadFactory(threadFactory);
 
     // Setup API processor
-    processor.reset(new apis::AsyncAmServiceRequestProcessor(
-        boost::make_shared<AmAsyncDataApi>()));
-    // event_handler_.reset(new ServerEventHandler(*this));
+    processorFactory.reset(new apis::AsyncAmServiceRequestProcessorFactory(
+            boost::make_shared<AsyncAmServiceRequestIfCloneFactory>() ));
 
-    // nbServer.reset(new xdi_ats::TNonblockingServer(
     // processor, protocolFactory, port, threadManager));
-    ttServer.reset(new xdi_ats::TThreadedServer(processor,
+    ttServer.reset(new xdi_ats::TThreadedServer(processorFactory,
                                                 serverTransport,
                                                 transportFactory,
                                                 protocolFactory));
