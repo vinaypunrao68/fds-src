@@ -30,7 +30,12 @@ class AsyncAmServiceRequestIfCloneFactory
 
 AsyncAmServiceRequestIfCloneFactory::request_if*
 AsyncAmServiceRequestIfCloneFactory::getHandler(const xdi_at::TConnectionInfo& connInfo) {  // NOLINT
-    return new AmAsyncDataApi(boost::make_shared<AmAsyncXdiResponse>());
+    // Get the underlying transport's socket so we can see what the host IP
+    // address was of the incoming client.
+    boost::shared_ptr<xdi_att::TSocket> sock =
+        boost::dynamic_pointer_cast<xdi_att::TSocket>(connInfo.transport);
+    fds_assert(sock.get());
+    return new AmAsyncDataApi(boost::make_shared<AmAsyncXdiResponse>(sock->getPeerAddress(), 9876));
 }
 
 void

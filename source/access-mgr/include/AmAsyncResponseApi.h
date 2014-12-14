@@ -69,8 +69,8 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
   private:
     /// Thrift client to response to XDI
     boost::shared_ptr<apis::AsyncAmServiceResponseClient> asyncRespClient;
-    std::string serverIp;
-    fds_uint32_t serverPort;
+    std::string const serverIp;
+    fds_uint32_t const serverPort;
 
     void initiateClientConnect();
     inline void checkClientConnect() {
@@ -80,7 +80,7 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
     }
 
   public:
-    AmAsyncXdiResponse();
+    AmAsyncXdiResponse(std::string const& server_ip, fds_uint32_t const server_port);
     ~AmAsyncXdiResponse();
     typedef boost::shared_ptr<AmAsyncXdiResponse> shared_ptr;
 

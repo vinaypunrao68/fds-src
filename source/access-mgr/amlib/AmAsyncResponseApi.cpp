@@ -16,6 +16,7 @@
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TTransportUtils.h>
 #include <thrift/transport/TServerSocket.h>
+#include <thrift/transport/TSocket.h>
 #include <thrift/transport/TBufferTransports.h>
 
 namespace fds {
@@ -32,9 +33,10 @@ namespace xdi_atp = apache::thrift::protocol;
                  << "Dropping response and uninitializing the connection!"; \
     }
 
-AmAsyncXdiResponse::AmAsyncXdiResponse()
-        : serverIp("127.0.0.1"),
-          serverPort(9876) {
+AmAsyncXdiResponse::AmAsyncXdiResponse(std::string const& server_ip,
+                                       fds_uint32_t const server_port )
+        : serverIp(server_ip),
+          serverPort(server_port) {
     // Set client to unitialized
     asyncRespClient.reset();
 }
