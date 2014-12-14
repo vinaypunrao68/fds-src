@@ -78,16 +78,13 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
 
     if (ERR_OK == error)
         volReq->volumeMetadata = volMDMsg->volume_meta_data;
-    // Notify upper layers that the request is done. When this
-    // completes, all upper layers should be notified and we
-    // can safely delete the request
+    // Notify upper layers that the request is done.
     amReq->proc_cb(error);
-    delete amReq;
 }
 
 void
 AmDispatcher::dispatchAbortBlobTx(AmRequest *amReq) {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); delete amReq; return;);
+    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
     fds_volid_t volId = amReq->io_vol_id;
 
@@ -125,7 +122,7 @@ AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
     // actually dispatch on below. Make the update/dispatch consistent.
     blobReq->dmt_version = dmtMgr->getCommittedVersion();
 
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); delete amReq; return;);
+    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
     // Create callback
     QuorumSvcRequestRespCb respCb(
@@ -159,17 +156,14 @@ AmDispatcher::startBlobTxCb(AmRequest *amReq,
                             boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
 
-    // Notify upper layers that the request is done. When this
-    // completes, all upper layers should be notified and we
-    // can safely delete the request
+    // Notify upper layers that the request is done.
     amReq->proc_cb(error);
-    delete amReq;
 }
 
 void
 AmDispatcher::dispatchDeleteBlob(AmRequest *amReq)
 {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); delete amReq; return;);
+    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
     DeleteBlobMsgPtr message = boost::make_shared<DeleteBlobMsg>();
     message->volume_id = amReq->io_vol_id;
@@ -366,6 +360,8 @@ AmDispatcher::putObjectCb(AmRequest* amReq,
 void
 AmDispatcher::dispatchGetObject(AmRequest *amReq)
 {
+    // The connectors expect some underlying string even for empty buffers
+    static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
     fiu_do_on("am.uturn.dispatcher",
               mockHandler_->schedule(mockTimeoutUs_,
                                      std::bind(&AmDispatcherMockCbs::getObjectCb, amReq)); \
@@ -382,6 +378,7 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     // actually go (the entire read API and path should be improved).
     if (objId == NullObjectID) {
         GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+        cb->returnBuffer = empty_buffer;
         cb->returnSize = 0;
 
         amReq->proc_cb(ERR_OK);
@@ -433,17 +430,8 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
             fds_verify(getObjRsp->data_obj.size() <= amReq->data_len);
         }
 
-        // Only return UP-TO the amount of data requested, never more
         cb->returnSize = std::min(amReq->data_len, getObjRsp->data_obj.size());
-
-        // Make sure we have a buffer.
-        // TODO(Andrew): This should be a shared pointer
-        // as we pass it around a lot.
-        if (cb->returnBuffer == nullptr) {
-            cb->returnBuffer = new char[cb->returnSize];
-        }
-
-        memcpy(cb->returnBuffer, getObjRsp->data_obj.c_str(), cb->returnSize);
+        cb->returnBuffer = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
     } else {
         LOGERROR << "blob name: " << amReq->getBlobName() << "offset: "
             << amReq->blob_offset << " Error: " << error;
@@ -518,14 +506,13 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
     if (true == blobReq->get_metadata) {
         GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
         // Fill in the data here
-        cb->blobDesc.setBlobName(amReq->getBlobName());
-        cb->blobDesc.setBlobSize(qryCatRsp->byteCount);
+        cb->blobDesc = boost::make_shared<BlobDescriptor>();
+        cb->blobDesc->setBlobName(amReq->getBlobName());
+        cb->blobDesc->setBlobSize(qryCatRsp->byteCount);
         for (const auto& meta : qryCatRsp->meta_list) {
-            cb->blobDesc.addKvMeta(meta.key,  meta.value);
+            cb->blobDesc->addKvMeta(meta.key,  meta.value);
         }
     }
-
-    // TODO(Andrew): Update the AM's blob offset cache here
 
     // TODO(xxx) should be able to have multiple object id + implement range
     // queries in DM
@@ -556,8 +543,9 @@ AmDispatcher::dispatchStatBlob(AmRequest *amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
               StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, amReq->cb); \
-              cb->blobDesc.setBlobName(amReq->getBlobName()); \
-              cb->blobDesc.setBlobSize(0); \
+              cb->blobDesc = boost::make_shared<BlobDescriptor>(); \
+              cb->blobDesc->setBlobName(amReq->getBlobName()); \
+              cb->blobDesc->setBlobSize(0); \
               amReq->proc_cb(ERR_OK); \
               return;);
 
@@ -630,10 +618,11 @@ AmDispatcher::statBlobCb(AmRequest* amReq,
 
         StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, amReq->cb);
         // Fill in the data here
-        cb->blobDesc.setBlobName(amReq->getBlobName());
-        cb->blobDesc.setBlobSize(response->byteCount);
+        cb->blobDesc = boost::make_shared<BlobDescriptor>();
+        cb->blobDesc->setBlobName(amReq->getBlobName());
+        cb->blobDesc->setBlobSize(response->byteCount);
         for (const auto& meta : response->metaDataList) {
-            cb->blobDesc.addKvMeta(meta.key,  meta.value);
+            cb->blobDesc->addKvMeta(meta.key,  meta.value);
         }
     }
     amReq->proc_cb(error);
@@ -641,7 +630,7 @@ AmDispatcher::statBlobCb(AmRequest* amReq,
 
 void
 AmDispatcher::dispatchCommitBlobTx(AmRequest *amReq) {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); delete amReq; return;);
+    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
     // Create callback
     QuorumSvcRequestRespCb respCb(
@@ -673,9 +662,7 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
                             const Error &error,
                             boost::shared_ptr<std::string> payload) {
     fds_verify(amReq->magicInUse());
-    // Notify upper layers that the request is done. When this
-    // completes, all upper layers should be notified and we
-    // can safely delete the request
+    // Notify upper layers that the request is done.
     amReq->proc_cb(error);
 }
 

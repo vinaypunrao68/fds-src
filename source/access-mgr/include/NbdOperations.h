@@ -48,17 +48,12 @@ class NbdResponseVector {
     /**
      * \return true if all responses were received
      */
-    fds_bool_t handleReadResponse(char* retBuf,
+    fds_bool_t handleReadResponse(boost::shared_ptr<std::string> retBuf,
                                   fds_uint32_t length,
                                   fds_uint32_t seqId) {
         fds_verify(operation == READ);
         fds_verify(seqId < bufVec.size());
-        // copy buf to shared pointer if it's valid, leave
-        // empty in case of error
-        if (NULL != retBuf) {
-            boost::shared_ptr<std::string> buf(new std::string(retBuf, length));
-            bufVec[seqId] = buf;
-        }
+        bufVec[seqId] = retBuf;
         fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
         return ((doneCnt + 1) == objCount);
     }
@@ -153,11 +148,11 @@ class NbdOperations : public AmAsyncResponseApi {
 
     void getBlobResp(const Error &error,
                      boost::shared_ptr<apis::RequestId>& requestId,
-                     char* buf,
+                     boost::shared_ptr<std::string> buf,
                      fds_uint32_t& length);
     void getBlobWithMetaResp(const Error &error,
                              boost::shared_ptr<apis::RequestId>& requestId,
-                             char* buf,
+                             boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length,
                              boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {}
 
