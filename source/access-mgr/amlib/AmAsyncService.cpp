@@ -17,21 +17,16 @@
 namespace fds {
 
 AsyncDataServer::AsyncDataServer(const std::string &name,
-                                 AmAsyncDataApi::shared_ptr &_dataApi,
                                  fds_uint32_t instanceId)
         : Module(name.c_str()),
           port(8899 + instanceId),
-          asyncDataApi(_dataApi),
           numServerThreads(10) {
     serverTransport.reset(new xdi_att::TServerSocket(port));
-    // serverTransport.reset(new xdi_att::TServerSocket("/tmp/am-req-sock"));
     transportFactory.reset(new xdi_att::TFramedTransportFactory());
     protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
 
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     numServerThreads = conf.get<fds_uint32_t>("async_server_threads");
-
-    // server_->setServerEventHandler(event_handler_);
 }
 
 /**
@@ -69,7 +64,7 @@ AsyncDataServer::init_server() {
 
     // Setup API processor
     processor.reset(new apis::AsyncAmServiceRequestProcessor(
-        asyncDataApi));
+        boost::make_shared<AmAsyncDataApi>()));
     // event_handler_.reset(new ServerEventHandler(*this));
 
     // nbServer.reset(new xdi_ats::TNonblockingServer(
@@ -82,8 +77,6 @@ AsyncDataServer::init_server() {
     try {
         LOGNORMAL << "Starting the async data server with " << numServerThreads
                   << " server threads at port " << port;
-        // listen_thread.reset(new boost::thread(&xdi_ats::TNonblockingServer::serve,
-        //                                   nbServer.get()));
         listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
                                               ttServer.get()));
     } catch(const xdi_att::TTransportException& e) {

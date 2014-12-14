@@ -96,8 +96,7 @@ class NbdOperationsResponseIface {
 
 class NbdOperations : public AmAsyncResponseApi {
   public:
-    explicit NbdOperations(AmAsyncDataApi::shared_ptr& amApi,
-                           NbdOperationsResponseIface* respIface);
+    explicit NbdOperations(NbdOperationsResponseIface* respIface);
     ~NbdOperations();
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
 
@@ -161,7 +160,7 @@ class NbdOperations : public AmAsyncResponseApi {
                         fds_int64_t* handle,
                         fds_int32_t* seqId);
 
-    // api passed down
+    // api we've built
     AmAsyncDataApi::shared_ptr amAsyncDataApi;
 
     // async response handler

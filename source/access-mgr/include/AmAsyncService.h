@@ -37,7 +37,6 @@ namespace xdi_ats = apache::thrift::server;
 class AsyncDataServer : public Module, public boost::noncopyable {
   private:
     fds_uint32_t               port;
-    AmAsyncDataApi::shared_ptr asyncDataApi;
     fds_uint32_t               numServerThreads;
 
     // Thrift endpoint related
@@ -55,7 +54,6 @@ class AsyncDataServer : public Module, public boost::noncopyable {
 
   public:
     AsyncDataServer(const std::string &name,
-                    AmAsyncDataApi::shared_ptr &_dataApi,
                     fds_uint32_t instanceId = 0);
     virtual ~AsyncDataServer() {
         if (listen_thread) {
