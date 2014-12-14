@@ -138,8 +138,8 @@ class AmLoadProc : public AmAsyncResponseApi,
             asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncAmServiceRequestIf>(
                 asyncThriftClient);
         } else {
-            am->asyncDataApi->setResponseApi(responseApi);
-            asyncDataApi = am->asyncDataApi;
+            asyncDataApi = boost::make_shared<AmAsyncDataApi>();
+            boost::dynamic_pointer_cast<AmAsyncDataApi>(asyncDataApi)->setResponseApi(responseApi);
         }
     }
 

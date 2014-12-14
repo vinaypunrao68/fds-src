@@ -27,10 +27,8 @@ bool get_message_header(int fd, M& message);
 template<typename M>
 bool get_message_payload(int fd, M& message);
 
-NbdConnector::NbdConnector(AmAsyncDataApi::shared_ptr api,
-                           OmConfigApi::shared_ptr omApi)
-        : asyncDataApi(api),
-          omConfigApi(omApi),
+NbdConnector::NbdConnector(OmConfigApi::shared_ptr omApi)
+        : omConfigApi(omApi),
           nbdPort(4444) {
     // Bind to NBD listen port
     nbdSocket = createNbdSocket();
@@ -74,7 +72,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
     // Create a handler for this NBD connection
     // Will delete itself when connection dies
     LOGNORMAL << "Creating client connection...";
-    NbdConnection *client = new NbdConnection(asyncDataApi, omConfigApi, clientsd);
+    NbdConnection *client = new NbdConnection(omConfigApi, clientsd);
     LOGNORMAL << "Created client connection...";
 }
 
@@ -111,12 +109,10 @@ NbdConnector::runNbdLoop() {
     LOGNOTIFY << "Stopping NBD loop...";
 }
 
-NbdConnection::NbdConnection(AmAsyncDataApi::shared_ptr api,
-                             OmConfigApi::shared_ptr omApi,
+NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
                              int clientsd)
-        : asyncDataApi(api),
-          omConfigApi(omApi),
-          nbdOps(new NbdOperations(asyncDataApi, this)),
+        : omConfigApi(omApi),
+          nbdOps(new NbdOperations(this)),
           clientSocket(clientsd),
           hsState(PREINIT),
           doUturn(false),

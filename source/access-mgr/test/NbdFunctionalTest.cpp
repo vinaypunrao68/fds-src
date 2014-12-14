@@ -126,7 +126,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
 
     void init() {
         // pass data API to Ndb Operations
-        nbdOps.reset(new NbdOperations(am->asyncDataApi, this));
+        nbdOps.reset(new NbdOperations(this));
     }
 
     void resetCounters() {

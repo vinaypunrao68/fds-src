@@ -9,7 +9,6 @@
 #include <string>
 #include <fds_types.h>
 #include <concurrency/Thread.h>
-#include <AmAsyncDataApi.h>
 #include <OmConfigService.h>
 #include <NbdOperations.h>
 #include <queue>
@@ -57,7 +56,6 @@ class NbdConnector {
 
     std::unique_ptr<ev::io> evIoWatcher;
     std::shared_ptr<boost::thread> runThread;
-    AmAsyncDataApi::shared_ptr asyncDataApi;
     OmConfigApi::shared_ptr omConfigApi;
 
     int createNbdSocket();
@@ -65,8 +63,7 @@ class NbdConnector {
     void nbdAcceptCb(ev::io &watcher, int revents);
 
   public:
-    NbdConnector(AmAsyncDataApi::shared_ptr api,
-                 OmConfigApi::shared_ptr omApi);
+    explicit NbdConnector(OmConfigApi::shared_ptr omApi);
     ~NbdConnector();
     typedef boost::shared_ptr<NbdConnector> shared_ptr;
 };
@@ -76,7 +73,6 @@ class NbdConnection : public NbdOperationsResponseIface {
     int clientSocket;
     boost::shared_ptr<std::string> volumeName;
     apis::VolumeDescriptor volDesc;
-    AmAsyncDataApi::shared_ptr asyncDataApi;
     OmConfigApi::shared_ptr omConfigApi;
     NbdOperations::shared_ptr nbdOps;
     size_t maxChunks;
@@ -150,9 +146,7 @@ class NbdConnection : public NbdOperationsResponseIface {
                      boost::shared_ptr<std::string> data);
 
   public:
-    NbdConnection(AmAsyncDataApi::shared_ptr api,
-                  OmConfigApi::shared_ptr omApi,
-                  int clientsd);
+    NbdConnection(OmConfigApi::shared_ptr omApi, int clientsd);
     ~NbdConnection();
 
     // implementation of NbdOperationsResponseIface

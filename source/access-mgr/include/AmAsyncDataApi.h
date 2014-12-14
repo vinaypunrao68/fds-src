@@ -25,7 +25,7 @@ class AmAsyncDataApi : public apis::AsyncAmServiceRequestIf {
   public:
     AmAsyncDataApi();
     ~AmAsyncDataApi();
-    typedef boost::shared_ptr<AmAsyncDataApi> shared_ptr;
+    typedef std::shared_ptr<AmAsyncDataApi> shared_ptr;
 
     void setResponseApi(AmAsyncResponseApi::shared_ptr respApi);
 

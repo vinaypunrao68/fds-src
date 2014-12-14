@@ -45,9 +45,6 @@ class AccessMgr : public Module, public boost::noncopyable {
     /// fdsn server.
     AmDataApi::shared_ptr dataApi;
 
-    /// Shared ptr to AM's async data API
-    AmAsyncDataApi::shared_ptr asyncDataApi;
-
   private:
     /// Raw pointer to an external dependancy manager
     CommonModuleProviderIf *modProvider_;
