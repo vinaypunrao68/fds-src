@@ -13,12 +13,12 @@ QoSWFQDispatcher::ioProcessForEnqueue(fds_qid_t queue_id, FDS_IOType *io)
     FDS_QoSDispatcher::ioProcessForEnqueue(queue_id, io);
     WFQQueueDesc *qd = queue_desc_map[queue_id];
     fds_uint32_t n_pios;
-    n_pios = atomic_load(&qd->num_pending_ios);
+    n_pios = qd->num_pending_ios.load(std::memory_order_relaxed);
     while (n_pios >= MAX_PENDING_IOS_PER_VOLUME) {
         qda_lock.read_unlock();
         boost::this_thread::sleep(boost::posix_time::microseconds(1000000/qd->queue_rate));
         qda_lock.read_lock();
-        n_pios = atomic_load(&qd->num_pending_ios);
+        n_pios = qd->num_pending_ios.load(std::memory_order_relaxed);
     }
 
     n_pios = atomic_fetch_add(&(qd->num_pending_ios), (unsigned int)1);
@@ -175,7 +175,7 @@ QoSWFQDispatcher::getNextQueueForDispatch()
         n_pios = next_qd->pendingActiveCount();  // pending IOs if queue is active, otherwise 0
     }
 
-    while ((!next_qd) || (n_pios == 0)){
+    while ((!next_qd) || (n_pios == 0)) {
         if (next_qd) {
             next_qd->num_priority_based_ios_dispatched = 0;
         }

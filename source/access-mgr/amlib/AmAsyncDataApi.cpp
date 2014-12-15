@@ -17,22 +17,35 @@
 
 namespace fds {
 
-AmAsyncDataApi::AmAsyncDataApi() {
+AmAsyncDataApi::AmAsyncDataApi(AmAsyncResponseApi::shared_ptr response_api)
+    : responseApi(response_api)
+{
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
     if (conf.get<fds_bool_t>("testing.uturn_amserv_all")) {
         fiu_enable("am.uturn.api", 1, NULL, 0);
         LOGNOTIFY << "Enabled AM API uturn";
     }
-
-    responseApi = boost::make_shared<AmAsyncXdiResponse>();
 }
+
+AmAsyncDataApi::AmAsyncDataApi(AmAsyncResponseApi* response_api)
+    : AmAsyncDataApi(AmAsyncResponseApi::shared_ptr(response_api))
+{ }
 
 AmAsyncDataApi::~AmAsyncDataApi() {
 }
 
 void
-AmAsyncDataApi::setResponseApi(AmAsyncResponseApi::shared_ptr respApi) {
-    responseApi = respApi;
+AmAsyncDataApi::handshakeStart(const apis::RequestId& requestId,
+                               const int32_t port) {
+    fds_panic("You shouldn't be here.");
+}
+
+void
+AmAsyncDataApi::handshakeStart(boost::shared_ptr<apis::RequestId>& requestId,
+                               boost::shared_ptr<int32_t>& port) {
+    auto api = boost::dynamic_pointer_cast<AmAsyncXdiResponse>(responseApi);
+    if (api)
+        api->handshakeComplete(requestId, port);
 }
 
 void

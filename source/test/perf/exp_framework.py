@@ -610,7 +610,7 @@ class FdsCluster():
                     "--bs=" + str(bs) + " " + \
                     "--numjobs=" + str(numjobs) + " " + \
                     "--iodepth=" + str(iodepth) + " " + \
-                    "--ioengine=libaio --direct=1 --size=10g --minimal "
+                    "--ioengine=libaio --direct=1 --size=16m --time_based --minimal "
         if runtime > 0:            
             options += " --runtime=" + str(runtime) + " "
         cmd = "fio " + options

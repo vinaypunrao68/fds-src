@@ -1,0 +1,25 @@
+{
+	"test_sets" : {
+		"test_basic_op" : {
+			"TestDMBringUp" : "TestFDSModMgt.py",
+			"TestDMShutDown" : "TestFDSModMgt.py",
+			"TestSMBringUp" : "TestFDSModMgt.py",
+			"TestSMShutDown" : "TestFDSModMgt.py",
+			"TestPMBringUp" : "TestFDSModMgt.py",
+			"TestPMShutDown" : "TestFDSModMgt.py",
+			"TestOMBringUp" : "TestFDSModMgt.py",
+			"TestOMShutDown" : "TestFDSModMgt.py",
+			"TestFDSCreateInstDir" : "TestFDSEnvMgt.py",
+			"TestFDSPkgInst" : "TestFDSEnvMgt.py",
+			"TestFDSDeleteInstDir" : "TestFDSEnvMgt.py",
+			"TestNodeActive" : "TestFDSSysMgt.py",
+			"TestS3GetConn"   : "TestS3IntFace.py",
+			"TestS3CrtBucket" : "TestS3IntFace.py",
+			"TestS3LoadSBLOB" : "TestS3IntFace.py",
+			"TestS3LoadMBLOB" : "TestS3IntFace.py",
+			"TestS3LoadLBLOB" : "TestS3IntFace.py",
+			"TestS3ListBucketKeys" : "TestS3IntFace.py",
+			"TestS3DelBucket" : "TestS3IntFace.py",
+		}
+	}
+}

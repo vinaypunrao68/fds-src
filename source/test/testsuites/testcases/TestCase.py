@@ -237,4 +237,5 @@ class FDSTestCase(unittest.TestCase):
         if failfast:
             _parameters["stop_on_fail"] = True
 
+        print _parameters
         return log_dir, failfast

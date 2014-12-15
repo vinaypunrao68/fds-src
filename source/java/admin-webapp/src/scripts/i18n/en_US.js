@@ -150,6 +150,7 @@ var en_US = {
         l_snapshot_policies: 'Snapshot Policies',
         l_starting_point: 'Starting Point',
         l_timeline: 'Timeline',
+        l_tiering: 'Tiering',
         l_volume_name: 'Volume Name',
         f_iops_guarantee: 'IOPs Capacity Guarantee:',
         f_iops_limit: 'IOPs Limit:',
@@ -172,6 +173,13 @@ var en_US = {
             l_data_connector_settings: 'Data Connector Settings',
             l_performance_settings: 'Performance Settings',
             l_volume_details: 'Volume Details'
+        },
+        
+        tiering: {
+            l_ssd_only: 'Flash Only',
+            l_disk_only: 'Disk Only',
+            l_ssd_preferred: 'Flash Preferred',
+            l_disk_preferred: 'Disk Preferred'
         },
         
         snapshot: {

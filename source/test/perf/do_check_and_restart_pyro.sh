@@ -14,4 +14,3 @@ if [ $check -eq 0 ]; then
      done 
 fi
 
-python -m Pyro4.nsc list

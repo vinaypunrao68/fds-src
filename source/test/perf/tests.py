@@ -91,28 +91,29 @@ class TestList():
         test["threads"] = 20
         test["fsize"] = size
         test["injector"] = None
-        tests.append(test)
-        for size in [4096]:
+        #tests.append(test)
+        for size in [8*1024, 16*1024, 32*1024, 64*1024, 256*1024, 512*1024, 1024*1024, 2*1024*1024]:
             for nvols in [1]:
                 # for th in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40]:
                 # for th in range(1,51):
-                for th in [1, 2 ,3 ,4]:
+                for th in [50]:
                     #for outs in [2, 4, 10, 20, 50]:
-                    for outs in [1, 5, 10, 20, 30, 40, 50]:
+                    #for outs in [1, 5, 10, 20, 30, 40, 50]:
+                    for outs in [1]:
                         #for th in [4]:
                         #for th in [21]:
                         # for th in [30]:
                             total_reqs = max([th * 300000 / 50, 100000])
                             test = dict(template)
                             test["type"] = "PUT"
-                            test["nreqs"] = 100000
+                            test["nreqs"] = 10000
                             test["nfiles"] = 1000
                             test["nvols"] = nvols
                             test["threads"] = th
                             test["fsize"] = size
-                            #tests.append(test)
+                            tests.append(test)
                             test = dict(template)
-                            test["test_type"] = "tgen_java"
+                            # test["test_type"] = "tgen_java"
                             test["type"] = "GET"
                             test["nreqs"] = total_reqs
                             test["nfiles"] = 1000

@@ -26,12 +26,14 @@ namespace fds {
  */
 template <class K, class V, class _Hash = std::hash<K>, class StrongAssociation = std::false_type>
 class VolumeSharedCacheManager : public Module, boost::noncopyable {
+ public:
     typedef K key_type;
     typedef V mapped_type;
     typedef _Hash hash_type;
     typedef SharedKvCache<key_type, mapped_type, hash_type, StrongAssociation> cache_type;
     typedef typename cache_type::value_type value_type;
 
+ private:
     // Structure for multiplexing many volumes with volume ID
     // based associativity.
     std::unordered_map<fds_volid_t, cache_type*> vol_cache_map;
