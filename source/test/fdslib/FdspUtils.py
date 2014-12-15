@@ -274,6 +274,7 @@ def newListBlobsByPatternMsg(volId, startPos, maxKeys, pattern):
     msg.startPos = startPos
     msg.maxKeys = maxKeys
     msg.pattern = pattern
+    return msg
 
 def newShutdownSMMsg():
     msg = ShutdownSMMsg()
