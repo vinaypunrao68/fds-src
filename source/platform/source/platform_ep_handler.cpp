@@ -2,85 +2,14 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include <vector>
-#include <fds-shmobj.h>
-#include <net/net-service-tmpl.hpp>
-#include <platform/node-inv-shmem.h>
-#include <net/RpcFunc.h>
-#include <string>
-
-#include "node_platform.h"
-#include "node_shared_memory_rw_ctrl.h"
-
 #include "platform_ep_handler.h"
+#include "node_shared_memory_rw_ctrl.h"
+#include "node_platform.h"
+#include "node_info_iter.h"
+#include "node_update_iter.h"
 
 namespace fds
 {
-    class NodeInfoIter : public ResourceIter
-    {
-        public:
-            virtual ~NodeInfoIter()
-            {
-            }
-
-            explicit NodeInfoIter(std::vector<fpi::NodeInfoMsg> &res) : nd_iter_ret(res)
-            {
-            }
-
-            virtual bool rs_iter_fn(Resource::pointer curr)
-            {
-                fpi::NodeInfoMsg      msg;
-                NodeAgent::pointer    node;
-
-                if (curr->rs_get_uuid() == gl_OmPmUuid)
-                {
-                    return true;
-                }
-                node = agt_cast_ptr<NodeAgent>(curr);
-                node->init_node_info_msg(&msg);
-                nd_iter_ret.push_back(msg);
-                return true;
-            }
-
-        protected:
-            std::vector<fpi::NodeInfoMsg>    &nd_iter_ret;
-    };
-
-    class NodeUpdateIter : public NodeAgentIter
-    {
-        public:
-            typedef bo::intrusive_ptr<NodeUpdateIter> pointer;
-
-            bool rs_iter_fn(Resource::pointer curr)
-            {
-                DomainAgent::pointer             agent;
-                EpSvcHandle::pointer             eph;
-                std::vector<fpi::NodeInfoMsg>    ret;
-
-                agent = agt_cast_ptr<DomainAgent>(curr);
-                auto                             rpc = agent->node_svc_rpc(&eph);
-
-                if (rpc != NULL)
-                {
-                    NET_SVC_RPC_CALL(eph, rpc, notifyNodeInfo, ret, *(nd_reg_msg.get()), false);
-                }
-
-                return true;
-            }
-            /**
-             * Update to platform nodes in a worker thread.
-             */
-            static void node_reg_update(NodeUpdateIter::pointer itr,
-                                        bo::shared_ptr<fpi::NodeInfoMsg> &info)
-            {
-                itr->nd_reg_msg = info;
-                itr->foreach_pm();
-            }
-
-        protected:
-            bo::shared_ptr<fpi::NodeInfoMsg>    nd_reg_msg;
-    };
-
     /*
      * -----------------------------------------------------------------------------------
      * RPC Handlers
