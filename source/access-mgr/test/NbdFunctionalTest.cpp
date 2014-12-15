@@ -75,6 +75,12 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                 ("bsize,b",
                  po::value<fds_uint32_t>(&blobSize)->default_value(4096),
                  "Blob size in bytes")
+                ("verify,v",
+                 po::value<fds_bool_t>(&verifyData)->default_value(false),
+                 "True to verify data")
+                ("offset,o",
+                 po::value<fds_uint64_t>(&firstOffset)->default_value(0),
+                 "First offset on bytes")
                 ("num-ops,n",
                  po::value<fds_uint32_t>(&totalOps)->default_value(5000),
                  "Number of operations");
@@ -109,9 +115,20 @@ class NbdOpsProc : public NbdOperationsResponseIface {
         fds_verify(response->isReady());
         if (response->isRead()) {
             fds_uint32_t context = 0;
+            boost::shared_ptr<std::string> dataWritten;
+            if (verifyData) {
+                fds_uint64_t off = response->getOffset();
+                fds_mutex::scoped_lock l(verifyMutex);
+                fds_verify(offData.count(off) > 0);
+                dataWritten = offData[off];
+            }
+            size_t pos = 0;
             boost::shared_ptr<std::string> buf = response->getNextReadBuffer(context);
             while (buf != NULL) {
                 GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
+                if (verifyData) {
+                    dataWritten->compare(pos, 4096, buf->c_str(), 4096);
+                }
                 buf = response->getNextReadBuffer(context);
             }
         }
@@ -144,21 +161,29 @@ class NbdOpsProc : public NbdOperationsResponseIface {
         fds_uint32_t ops = atomic_fetch_add(&opCount, (fds_uint32_t)1);
         GLOGDEBUG << "Starting thread " << id;
         fds_int64_t handle = id*totalOps;
+        fds_uint64_t offset = firstOffset;
 
         SequentialBlobDataGen blobGen(blobSize, id);
         while ((ops + 1) <= totalOps) {
+            offset = ops * blobSize + firstOffset;
             if (opType == PUT) {
                 try {
                     // Make copy of data since function "takes" the shared_ptr
                     boost::shared_ptr<std::string> localData(
                         boost::make_shared<std::string>(*blobGen.blobData));
-                    nbdOps->write(volumeName, 4096, localData, localData->length(), 0, ++handle);
+                    nbdOps->write(volumeName, 4096, localData,
+                                  localData->length(), offset, ++handle);
+                    if (verifyData) {
+                        fds_mutex::scoped_lock l(verifyMutex);
+                        fds_verify(offData.count(offset) == 0);
+                        offData[offset] = localData;
+                    }
                 } catch(apis::ApiException fdsE) {
                     fds_panic("write failed");
                 }
             } else if (opType == GET) {
                 try {
-                    nbdOps->read(volumeName, 4096, blobSize, 0, ++handle);
+                    nbdOps->read(volumeName, 4096, blobSize, offset, ++handle);
                 } catch(apis::ApiException fdsE) {
                     fds_panic("read failed");
                 }
@@ -226,6 +251,9 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     fds_uint32_t totalOps;
     /// blob size in bytes
     fds_uint32_t blobSize;
+    /// verify that data we wrote is correct
+    fds_bool_t verifyData;
+    fds_uint64_t firstOffset;
 
     /// threads for blocking AM
     std::vector<std::thread*> threads_;
@@ -249,6 +277,10 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     /// Cond vars to sync responses
     std::condition_variable done_cond;
     std::mutex done_mutex;
+
+    /// to verify data
+    std::map<fds_uint64_t, boost::shared_ptr<std::string>> offData;
+    fds_mutex verifyMutex;
 };
 
 }  // namespace fds
@@ -256,15 +288,15 @@ class NbdOpsProc : public NbdOperationsResponseIface {
 using fds::NbdOpsProc;
 NbdOpsProc::unique_ptr nbdOpsProc;
 
-TEST(NbdOperations, read) {
-    GLOGDEBUG << "TBD: Testing read";
-    nbdOpsProc->runAsyncTask(NbdOpsProc::GET);
-}
-
 TEST(NbdOperations, write) {
     GLOGDEBUG << "TBD: Testing write";
     nbdOpsProc->resetCounters();
     nbdOpsProc->runAsyncTask(NbdOpsProc::PUT);
+}
+
+TEST(NbdOperations, read) {
+    GLOGDEBUG << "TBD: Testing read";
+    nbdOpsProc->runAsyncTask(NbdOpsProc::GET);
 }
 
 int

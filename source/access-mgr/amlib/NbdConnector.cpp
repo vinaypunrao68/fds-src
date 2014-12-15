@@ -335,6 +335,10 @@ NbdConnection::hsReply(ev::io &watcher) {
         fds_verify(readyResponses.pop(resp));
 
         fds_int64_t handle = __builtin_bswap64(resp->getHandle());
+        Error opError = resp->getError();
+        if (!opError.ok() && (opError != ERR_BLOB_OFFSET_INVALID)) {
+            fds_int32_t error = htonl(-1);
+        }
 
         // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
         iovec vectors[kMaxChunks + 3] = {
@@ -346,7 +350,17 @@ NbdConnection::hsReply(ev::io &watcher) {
 
         fds_uint32_t context = 0;
         size_t cnt = 0;
-        if (resp->isRead()) {
+        if (resp->isRead() && (opError == ERR_BLOB_OFFSET_INVALID)) {
+            // ok to read unwritten block, return zeros
+            fds_uint32_t length = resp->getLength();
+            fds_verify((length % resp->maxObjectSize()) == 0);
+            fds_uint32_t chunks = length / resp->maxObjectSize();
+            for (size_t i = 0; i < chunks; ++i) {
+                vectors[3+i].iov_base = to_iovec(fourKayZeros);
+                vectors[3+i].iov_len = sizeof(fourKayZeros);
+                ++cnt;
+            }
+        } else if (resp->isRead()) {
             boost::shared_ptr<std::string> buf = resp->getNextReadBuffer(context);
             while (buf != NULL) {
                 GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;

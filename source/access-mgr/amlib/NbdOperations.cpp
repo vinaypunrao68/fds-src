@@ -43,6 +43,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
     // we will wait for responses
     NbdResponseVector* resp = new NbdResponseVector(handle,
                                                     NbdResponseVector::READ,
+                                                    offset, length, maxObjectSizeInBytes,
                                                     objCount);
 
     {   // add response that we will fill in with data
@@ -57,11 +58,20 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
     while (amBytesRead < length) {
         fds_uint64_t curOffset = offset + amBytesRead;
         fds_uint64_t objectOff = curOffset / maxObjectSizeInBytes;
-        fds_uint32_t curLength = length - amBytesRead;
-        if (curLength > maxObjectSizeInBytes) {
-            curLength = maxObjectSizeInBytes;
+        fds_uint32_t iOff = curOffset % maxObjectSizeInBytes;
+        fds_uint32_t iLength = length - amBytesRead;
+        if (iLength > maxObjectSizeInBytes) {
+            iLength = maxObjectSizeInBytes - iOff;
         }
-        boost::shared_ptr<int32_t> blobLength = boost::make_shared<int32_t>(curLength);
+        fds_uint32_t actualLength = iLength;
+        if ((seqId == 0) && (iOff != 0)) {
+             LOGNORMAL << "Un-aligned read, starts at offset " << offset
+                       << " iOff " << iOff << " length " << length;
+             // we cannot read from AM the part of the object not from start
+             iLength = maxObjectSizeInBytes;
+        }
+
+        boost::shared_ptr<int32_t> blobLength = boost::make_shared<int32_t>(iLength);
         boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
         off->value = objectOff;
 
@@ -71,8 +81,8 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
         reqId->id = std::to_string(handle) + ":" + std::to_string(seqId);
 
         // blob name for block?
-        LOGDEBUG << "getBlob length " << curLength << " offset " << curOffset
-                 << " object offset " << off
+        LOGDEBUG << "getBlob length " << iLength << " offset " << curOffset
+                 << " object offset " << objectOff
                  << " volume " << volumeName << " reqId " << reqId->id;
         try {
             amAsyncDataApi->getBlob(reqId,
@@ -81,18 +91,19 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
                                     blobName,
                                     blobLength,
                                     off);
-            amBytesRead += curLength;
+            amBytesRead += actualLength;
             ++seqId;
         } catch(apis::ApiException fdsE) {
-            // return error
-            nbdResp->readWriteResp(ERR_DISK_READ_FAILED, handle, NULL);
-            fds_mutex::scoped_lock l(respLock);
-            if (responses.count(handle) > 0) {
-                NbdResponseVector* delResp = responses[handle];
-                responses[handle] = NULL;
-                delete delResp;
-                responses.erase(handle);
+           // return error
+           resp->setError(ERR_DISK_READ_FAILED);
+           {
+               // nbd connector will free resp
+               // remove from the wait list
+               fds_mutex::scoped_lock l(respLock);
+               responses.erase(handle);
             }
+            // we are done collecting responses for this handle, notify nbd connector
+            nbdResp->readWriteResp(ERR_DISK_READ_FAILED, handle, resp);
             return;
         }
     }
@@ -121,7 +132,8 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
     // we will wait for responses
     NbdResponseVector* resp = new NbdResponseVector(handle,
                                                     NbdResponseVector::WRITE,
-                                                    objCount);
+                                                    offset, length,
+                                                    maxObjectSizeInBytes, objCount);
 
     {   // add response that we will fill in with data
         fds_mutex::scoped_lock l(respLock);
@@ -179,15 +191,16 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
             ++seqId;
         } catch(apis::ApiException fdsE) {
             // return error
-            nbdResp->readWriteResp(ERR_DISK_READ_FAILED, handle, NULL);
-            fds_mutex::scoped_lock l(respLock);
-            if (responses.count(handle) > 0) {
-                NbdResponseVector* delResp = responses[handle];
-                responses[handle] = NULL;
-                delete delResp;
-                responses.erase(handle);
-            }
-            return;
+            resp->setError(ERR_DISK_WRITE_FAILED);
+            {
+                 // nbd connector will free resp
+                 // remove from the wait list
+                 fds_mutex::scoped_lock l(respLock);
+                 responses.erase(handle);
+             }
+             // we are done collecting responses for this handle, notify nbd connector
+             nbdResp->readWriteResp(ERR_DISK_WRITE_FAILED, handle, resp);
+             return;
         }
     }
 }
@@ -222,7 +235,7 @@ NbdOperations::getBlobResp(const Error &error,
 
     // add buffer to the response list
     fds_verify(resp);
-    fds_bool_t done = resp->handleReadResponse(buf, length, seqId);
+    fds_bool_t done = resp->handleReadResponse(buf, length, seqId, error);
     if (done) {
         {
             // nbd connector will free resp
@@ -263,7 +276,7 @@ NbdOperations::updateBlobOnceResp(const Error &error,
 
     // update response vector
     fds_verify(resp);
-    fds_bool_t done = resp->handleWriteResponse(seqId);
+    fds_bool_t done = resp->handleWriteResponse(seqId, error);
     if (done) {
         {
             // nbd connector will free resp
