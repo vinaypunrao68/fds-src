@@ -337,7 +337,7 @@ NbdConnection::hsReply(ev::io &watcher) {
         fds_int64_t handle = __builtin_bswap64(resp->getHandle());
         Error opError = resp->getError();
         if (!opError.ok() && (opError != ERR_BLOB_OFFSET_INVALID)) {
-            fds_int32_t error = htonl(-1);
+            error = htonl(-1);
         }
 
         // Build iovec for writev call, max size is 3 + 2MiB / 4096 == 515
