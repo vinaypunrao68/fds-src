@@ -360,7 +360,7 @@ NbdConnection::hsReply(ev::io &watcher) {
                 vectors[3+i].iov_len = sizeof(fourKayZeros);
                 ++cnt;
             }
-        } else if (resp->isRead()) {
+        } else if (resp->isRead() && (opError.ok())) {
             boost::shared_ptr<std::string> buf = resp->getNextReadBuffer(context);
             while (buf != NULL) {
                 GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
