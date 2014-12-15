@@ -27,7 +27,7 @@ platform_core_src :=                                     \
                      file_disk_obj.cpp                   \
                      pm_disk_obj.cpp                     \
                      file_disk_inventory.cpp             \
-                     ep-map.cpp                          \
+                     plat_uuid_bind.cpp                  \
                      net_service.cpp                     \
                      platform_net_svc.cpp                \
                      ep_platformd_mod.cpp                \

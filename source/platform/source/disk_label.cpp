@@ -292,5 +292,4 @@ namespace fds
         dl_owner->dsk_write(inv->dsk_need_simulation(),
                             reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz);
     }
-
 }  // namespace fds
