@@ -55,7 +55,8 @@ user_incl_dir     += $(topdir) \
 user_cpp      := $(wildcard *.cpp)
 
 user_no_style     := $(user_cc) $(wildcard com_*.h)
-user_bin_exe      := AmFunctionalTest
-AmFunctionalTest  := $(user_cpp) $(user_cc)
+user_bin_exe      := AmFunctionalTest NbdFunctionalTest
+AmFunctionalTest  := AmFunctionalTest.cpp
+NbdFunctionalTest  := NbdFunctionalTest.cpp
 
 include $(topdir)/Makefile.incl

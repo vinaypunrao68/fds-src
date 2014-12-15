@@ -9,6 +9,9 @@ user_incl_dir     := $(topdir) ../include ../stor-hvisor /usr/include/cryptopp
 user_cpp_flags    :=
 user_cpp          := $(wildcard *.cpp)
 
+user_static_libs  := \
+    ev
+
 user_ar_libs      := fds-am-engine
 fds-am-engine     := $(user_cpp)
 

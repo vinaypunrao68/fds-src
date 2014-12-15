@@ -354,7 +354,7 @@ struct ScopedCallBack {
 struct StatBlobCallback : virtual Callback {
     typedef boost::shared_ptr<StatBlobCallback> ptr;
     /// The blob descriptor to fill in
-    BlobDescriptor      blobDesc;
+    boost::shared_ptr<BlobDescriptor> blobDesc;
 };
 
 struct StartBlobTxCallback : virtual Callback {
@@ -369,11 +369,11 @@ struct UpdateBlobCallback : virtual Callback {
 
 struct GetObjectCallback : virtual Callback {
     typedef boost::shared_ptr<GetObjectCallback> ptr;
-    char *returnBuffer;
+    boost::shared_ptr<std::string> returnBuffer;
     fds_uint32_t returnSize;
 
     /// Used in getWithMetadata cases
-    BlobDescriptor blobDesc;
+    boost::shared_ptr<BlobDescriptor> blobDesc;
 };
 
 struct CommitBlobTxCallback : virtual Callback {
