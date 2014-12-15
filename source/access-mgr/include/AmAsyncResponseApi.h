@@ -74,15 +74,18 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
 
     void initiateClientConnect();
     inline void checkClientConnect() {
-        if (asyncRespClient == NULL) {
+        if (asyncRespClient == NULL && serverPort > 0) {
             initiateClientConnect();
         }
     }
 
   public:
-    AmAsyncXdiResponse();
+    explicit AmAsyncXdiResponse(std::string const& server_ip);
     ~AmAsyncXdiResponse();
     typedef boost::shared_ptr<AmAsyncXdiResponse> shared_ptr;
+
+    void handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId,
+                           boost::shared_ptr<int32_t>& port);
 
     void attachVolumeResp(const Error &error,
                           boost::shared_ptr<apis::RequestId>& requestId);

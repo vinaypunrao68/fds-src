@@ -138,8 +138,7 @@ class AmLoadProc : public AmAsyncResponseApi,
             asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncAmServiceRequestIf>(
                 asyncThriftClient);
         } else {
-            asyncDataApi = boost::make_shared<AmAsyncDataApi>();
-            boost::dynamic_pointer_cast<AmAsyncDataApi>(asyncDataApi)->setResponseApi(responseApi);
+            asyncDataApi = boost::make_shared<AmAsyncDataApi>(responseApi);
         }
     }
 
@@ -199,6 +198,8 @@ class AmLoadProc : public AmAsyncResponseApi,
             done_cond.notify_all();
         }
     }
+    void handshakeComplete(const apis::RequestId& requestId) {}
+    void handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId) {}
     void updateMetadataResponse(const apis::RequestId& requestId) {}
     void updateMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
     void updateBlobResponse(const apis::RequestId& requestId) {}

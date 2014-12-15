@@ -16,6 +16,7 @@
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TTransportUtils.h>
 #include <thrift/transport/TServerSocket.h>
+#include <thrift/transport/TSocket.h>
 #include <thrift/transport/TBufferTransports.h>
 
 namespace fds {
@@ -32,8 +33,8 @@ namespace xdi_atp = apache::thrift::protocol;
                  << "Dropping response and uninitializing the connection!"; \
     }
 
-AmAsyncXdiResponse::AmAsyncXdiResponse()
-        : serverIp("127.0.0.1"),
+AmAsyncXdiResponse::AmAsyncXdiResponse(std::string const& server_ip)
+        : serverIp(server_ip),
           serverPort(9876) {
     // Set client to unitialized
     asyncRespClient.reset();
@@ -58,9 +59,16 @@ AmAsyncXdiResponse::initiateClientConnect() {
 }
 
 void
+AmAsyncXdiResponse::handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId,
+                       boost::shared_ptr<int32_t>& port) {
+    serverPort = *port;
+    checkClientConnect();
+    XDICLIENTCALL(asyncRespClient, handshakeComplete(requestId));
+}
+
+void
 AmAsyncXdiResponse::attachVolumeResp(const Error &error,
                                      boost::shared_ptr<apis::RequestId>& requestId) {
-    checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
             boost::make_shared<apis::ErrorCode>());
