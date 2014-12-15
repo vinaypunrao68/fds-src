@@ -262,7 +262,11 @@ class CounterServerPull:
         for node in self.options.nodes:
             ip = self.options.nodes[node]
             port=7020
-            svc_map = SvcMap(ip, port)
+            try:
+                svc_map = SvcMap(ip, port)
+            except:
+                print "Failed to get svc_map"
+                return {}
             svclist = svc_map.list()
             for e in svclist:
                 nodeid, svc, ip = e[0], e[1], e[2]
@@ -577,20 +581,20 @@ class FdsCluster():
         return output
 
     def _init_fio_once(self):
-        cmd = "/fds/bin/fdscli --volume-create volume0 -i 1 -s 10240 -p 50 -y blk"
+        cmd = "/fds/bin/fdscli --volume-create volume1 -i 1 -s 10240 -p 50 -y blk"
         output = self._loc_exec(cmd)
         time.sleep(5)
         if self.local_test == True:
-            cmd = "python nbdadm.py attach %s volume0" + self.options.main_node
+            cmd = "python nbdadm.py attach:4444 %s volume1" + self.options.main_node
             output = self._loc_exec(cmd)
         else:
             shutil.copyfile(self.local_fds_root + "/source/cinder/nbdadm.py", "/root/nbdadm.py")
-            cmd = "python nbdadm.py attach %s volume0" % self.options.main_node
+            cmd = "python nbdadm.py attach %s:4444 volume1" % self.options.main_node
             output = ssh_exec(self.options.test_node, cmd)
         time.sleep(5)
         self.nbdvolume = output.rstrip("\n")
         print "nbd:", self.nbdvolume
-        cmd = "/fds/bin/fdscli --volume-modify \"volume0\" -s 10240 -g 0 -m 0 -r 10"
+        cmd = "/fds/bin/fdscli --volume-modify \"volume1\" -s 10240 -g 0 -m 0 -r 10"
         output = self._loc_exec(cmd)
         time.sleep(5)
 
