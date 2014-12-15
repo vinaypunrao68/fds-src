@@ -390,6 +390,7 @@ class FdsCluster():
 
     def restart(self):
         print "starting FDS"
+        time.sleep(60)
         if self.options.no_fds_start:
             self.pidmap.compute_pid_map()
             time.sleep(1)
