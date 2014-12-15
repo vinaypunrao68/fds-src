@@ -1,5 +1,4 @@
 import os
-import re
 import subprocess
 import sys
 
@@ -12,6 +11,14 @@ class FDS(object):
         pass
     
     def check_status(self):
+        '''
+        Run the FDS tool with 'status' argument to check if all the
+        fds related processes are running.
+        
+        Returns:
+        --------
+        bool : if all the processes are running or not.
+        '''
         cmd = config.FDS_CMD % (config.FDS_TOOLS, "status")
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
         # skip [WARN]
@@ -33,6 +40,10 @@ class FDS(object):
         return True
 
     def stop_single_node(self):
+        '''
+        Run the FDS tool with 'stop' argument to stop all the fds related
+        processes.
+        '''
         cmd = config.FDS_CMD % (config.FDS_TOOLS, "stop")
         try:
             subprocess.call([cmd], shell=True)
@@ -43,6 +54,10 @@ class FDS(object):
             sys.exit(1)
     
     def start_single_node(self):
+        '''
+        Run the FDS tool with 'cleanstart' argument to start all the fds
+        related processes.
+        '''
         cmd = config.FDS_CMD % (config.FDS_TOOLS, "cleanstart")
         try:
             subprocess.call([cmd], shell=True)
@@ -51,8 +66,3 @@ class FDS(object):
         except Exception, e:
             utils.log.exception(e)
             sys.exit(1)
-
-if __name__ == "__main__":
-    fds = FDS()
-    print fds.check_status()
-    fds.start_single_node()
