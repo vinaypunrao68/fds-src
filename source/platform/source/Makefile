@@ -34,7 +34,7 @@ platform_core_src :=                                     \
                      platformd_plugin.cpp                \
                      plat_agent_plugin.cpp               \
                      plat_agent.cpp                      \
-                     net-registration.cpp
+                     platform_ep_handler.cpp
 
 
 
@@ -46,6 +46,8 @@ fds_plat_lib_cpp :=                              \
                     platform_process.cpp         \
                     platform-rpc.cpp             \
                     platform-libmod.cpp          \
+                    om_node_agent_evt.cpp        \
+                    om_node_agent_evt.cpp        \
                     disk_inventory.cpp           \
                     node_inventory.cpp           \
                     domain_container.cpp         \
