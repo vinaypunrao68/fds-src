@@ -3,7 +3,7 @@
     <div class="waterfall-slider" ng-dragstart="$event.preventDefault()">
 
         <div class="waterfall-shade" ng-show="enabled === false"></div>
-        <div class="labels">
+        <div class="labels" ng-style="{ width: labelWidth }">
             <div class="slider-name" ng-repeat="slider in sliders">{{slider.name}}</div>
         </div>
         <div class="slider-pane">

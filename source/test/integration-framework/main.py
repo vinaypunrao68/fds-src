@@ -15,6 +15,7 @@ import xmlrunner
 
 # Import the configuration file helper
 import config
+import fds
 import testsets.test_set as test_set
 import s3
 import testsets.testcases.fdslib.BringUpCfg as bringup
@@ -39,6 +40,7 @@ class Operation(object):
 
     def __init__(self, test_sets_list):
         self.test_sets = []
+        self.fds_cluster = fds.FDS()
         self.current_dir = os.path.dirname(os.path.realpath(__file__))
         self.log_dir = os.path.join(self.current_dir, config.log_dir)
         self.logger.info("Checking if the log directory")
@@ -83,6 +85,11 @@ class Operation(object):
         return params
         
     def do_run(self):
+        # check if the fds processes are running for a single cluster.
+        # if they are not, then start them.
+        if not self.fds_cluster.check_status():
+            self.fds_cluster.start_single_node()
+            
         for ts in self.test_sets:
             self.logger.info("Executing Test Set: %s" % ts.name)
             self.runner.run(ts.suite)

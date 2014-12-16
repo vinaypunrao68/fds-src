@@ -3,6 +3,26 @@ describe( 'Waterfall slider widget', function(){
     var $scope, $wf;
     
     beforeEach( function(){
+        this.addMatchers({
+            toBeNear: function( value, variation ){
+                
+                value = parseFloat( value );
+                
+                var min = value - variation;
+                var max = value + variation;
+                
+                if ( this.actual < min || this.actual > max ){
+                    this.message = function(){
+                        return 'Expected ' + this.actual + ' to be between ' + min + ' and  ' + max;
+                    };
+                }
+                
+                return ( this.actual >= min && this.actual <= max );
+            }
+        });
+    });
+    
+    beforeEach( function(){
         
         module( function( $provide ){
             $provide.value( '$interval', function( call, time ){
@@ -28,7 +48,7 @@ describe( 'Waterfall slider widget', function(){
         inject( function( $compile, $rootScope ){
             
             $scope = $rootScope.$new();
-            var html = '<waterfall-slider style="width: 1000px;font-size: 15.5px;font-family: Lato;" sliders="sliders" range="ranges" enabled="enabled"></waterfall-slider>';
+            var html = '<waterfall-slider style="width: 1000px;font-size: 15.5px;font-family: Lato;" sliders="sliders" range="ranges" enabled="enabled" labe-width="74px"></waterfall-slider>';
             $wf = angular.element( html );
             $compile( $wf )( $scope );
 
@@ -131,11 +151,11 @@ describe( 'Waterfall slider widget', function(){
             $scope.$apply();
             
             // expect the value slider to be at...
-            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBe( '46.3' );
-            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBe( '231.5' );
-            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBe( '277.5' );
-            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBe( '395.4' );
-            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBe( '783.2' );
+            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBeNear( 46.3, 1 );
+            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBeNear( 231.5, 1.5 );
+            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBeNear( 277.5, 2 );
+            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBeNear( 395.4, 3 );
+            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBeNear( 783.2, 4 );
             
             // expect the box that shows the starting position of the slider to be...
             expect( $(startHandles[0]).css( 'display' ) ).toBe( 'none' );
@@ -147,10 +167,10 @@ describe( 'Waterfall slider widget', function(){
                 return parseFloat( px ).toFixed( 1 );
             };
             
-            expect( stripAndRound( startHandles[1] ) ).toBe( '46.3' );
-            expect( stripAndRound( startHandles[2] ) ).toBe( '231.5' );
-            expect( stripAndRound( startHandles[3] ) ).toBe( '277.5' );
-            expect( stripAndRound( startHandles[4] ) ).toBe( '395.4' );
+            expect( stripAndRound( startHandles[1] ) ).toBeNear( 46.3, 1 );
+            expect( stripAndRound( startHandles[2] ) ).toBeNear( 231.5, 1.5 );
+            expect( stripAndRound( startHandles[3] ) ).toBeNear( 277.5, 2 );
+            expect( stripAndRound( startHandles[4] ) ).toBeNear( 395.4, 3 );
             
             // expect the tick marks all exist
             var tickMarks = $wf.find( '.tick-mark' );
@@ -195,11 +215,11 @@ describe( 'Waterfall slider widget', function(){
             $scope.$apply();
             
             // expect the value slider to be at...
-            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBe( '136.3' );
-            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBe( '323.5' );
-            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBe( '520.4' );
-            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBe( '678.2' );
-            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBe( '921.0' );
+            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBeNear( 136.3, 1 );
+            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBeNear( 323.5, 2);
+            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBeNear( 520.4, 2 );
+            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBeNear( 678.2, 4 );
+            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBeNear( 921.0, 5 );
             
             return true;
         }, 500 );
@@ -222,19 +242,19 @@ describe( 'Waterfall slider widget', function(){
             
             $scope.$apply();
             
-            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBe( '921.0' );
+            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBeNear( 921.0, 5 );
             expect( $scope.sliders[4].value.range ).toBe( 5 );
             expect( $scope.sliders[4].value.value ).toBe( 16 );
-            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBe( '678.2' );
+            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBeNear( 678.2, 4 );
             expect( $scope.sliders[3].value.range ).toBe( 4 );
             expect( $scope.sliders[3].value.value ).toBe( 3 );
-            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBe( '520.4' );
+            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBeNear( 520.4, 2 );
             expect( $scope.sliders[2].value.range ).toBe( 3 );
             expect( $scope.sliders[2].value.value ).toBe( 210 );        
-            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBe( '323.5' );
+            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBeNear( 323.5, 2 );
             expect( $scope.sliders[1].value.range ).toBe( 2 );
             expect( $scope.sliders[1].value.value ).toBe( 3 ); 
-            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBe( '136.3' );
+            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBeNear( 136.3, 1 );
             expect( $scope.sliders[0].value.range ).toBe( 1 );
             expect( $scope.sliders[0].value.value ).toBe( 4 );             
             
@@ -293,19 +313,19 @@ describe( 'Waterfall slider widget', function(){
             
             $scope.$apply();
             
-            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBe( '921.0' );
+            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBeNear( 921.0, 5 );
             expect( $scope.sliders[4].value.range ).toBe( 5 );
             expect( $scope.sliders[4].value.value ).toBe( 16 );
-            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBe( '678.2' );
+            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBeNear( 678.2, 4 );
             expect( $scope.sliders[3].value.range ).toBe( 4 );
             expect( $scope.sliders[3].value.value ).toBe( 3 );
-            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBe( '520.4' );
+            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBeNear( 520.4, 2 );
             expect( $scope.sliders[2].value.range ).toBe( 3 );
             expect( $scope.sliders[2].value.value ).toBe( 210 );        
-            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBe( '323.5' );
+            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBeNear( 323.5, 2 );
             expect( $scope.sliders[1].value.range ).toBe( 2 );
             expect( $scope.sliders[1].value.value ).toBe( 3 ); 
-            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBe( '136.3' );
+            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBeNear( 136.3, 1 );
             expect( $scope.sliders[0].value.range ).toBe( 1 );
             expect( $scope.sliders[0].value.value ).toBe( 4 );             
             
@@ -334,11 +354,13 @@ describe( 'Waterfall slider widget', function(){
             expect( $scope.sliders[4].value.value ).toBe( 12 );
             expect( $scope.sliders[4].value.range ).toBe( 4 );
             
-            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBe( '813.2' );
-            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBe( '813.2' );
-            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBe( '813.2' );
-            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBe( '813.2' );
-            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBe( '813.2' );
+            var value = $scope.sliders[0].position;
+            
+//            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBe( '813.2' );
+            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBe( ''+value );
+            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBe( ''+value );
+            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBe( ''+value );
+            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBe( ''+value );
             
             return true;
         }, 500 );
@@ -360,11 +382,8 @@ describe( 'Waterfall slider widget', function(){
             expect( $scope.sliders[4].value.value ).toBe( 60 );
             
             // expect the value slider to be at...
-            expect( $scope.sliders[0].position.toFixed( 1 ) ).toBe( '46.3' );
-            expect( $scope.sliders[1].position.toFixed( 1 ) ).toBe( '231.5' );
-            expect( $scope.sliders[2].position.toFixed( 1 ) ).toBe( '277.5' );
-            expect( $scope.sliders[3].position.toFixed( 1 ) ).toBe( '395.4' );
-            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBe( '395.4' );
+            expect( parseFloat( $scope.sliders[2].position ) < parseFloat( $scope.sliders[3].position ) ).toBeTruthy();
+            expect( $scope.sliders[4].position.toFixed( 1 ) ).toBe( $scope.sliders[3].position.toFixed( 1 ) );
             
             return true;
         }, 500 );

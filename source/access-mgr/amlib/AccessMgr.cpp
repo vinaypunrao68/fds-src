@@ -45,7 +45,6 @@ AccessMgr::mod_init(SysParams const *const param) {
     storHvisor = new StorHvCtrl(argc, argv, io_dm.get_sys_params(),
                                 StorHvCtrl::NORMAL, instanceId);
     dataApi = boost::make_shared<AmDataApi>();
-    asyncDataApi = boost::make_shared<AmAsyncDataApi>();
 
     // Init the FDSN server to serve XDI data requests
     fdsnServer = FdsnServer::unique_ptr(
@@ -54,8 +53,15 @@ AccessMgr::mod_init(SysParams const *const param) {
 
     // Init the async server
     asyncServer = AsyncDataServer::unique_ptr(
-        new AsyncDataServer("AM Async Server", asyncDataApi, instanceId));
+        new AsyncDataServer("AM Async Server", instanceId));
     asyncServer->init_server();
+
+    if (!conf.get<bool>("testing.toggleStandAlone")) {
+        omConfigApi = boost::make_shared<OmConfigApi>();
+    }
+
+    blkConnector = boost::shared_ptr<NbdConnector>(
+        boost::make_shared<NbdConnector>(omConfigApi));
 
     // Update the AM's platform with our instance ID so that
     // common fields (e.g., ports) can be updated

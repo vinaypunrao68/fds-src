@@ -63,6 +63,11 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
     }
 
     @Override
+    public void handshakeComplete(RequestId requestId) throws TException {
+        complete(requestId, null);
+    }
+
+    @Override
     public void attachVolumeResponse(RequestId requestId) throws TException {
         complete(requestId, null);
     }
