@@ -1,0 +1,12 @@
+---
+-   name: Try out accessing an EC2 private subnet instance via EC2 bastion host
+    hosts: all
+    gather_facts: True
+    remote_user: deploy
+
+    tasks:
+    
+    -   name: wait for SSH to come up on all instances
+        wait_for: host={{ inventory_hostname }}  port=22 delay=1 timeout=10 state=started
+
+    -   debug: msg={{ ansible_eth0['ipv4']['address'] }}

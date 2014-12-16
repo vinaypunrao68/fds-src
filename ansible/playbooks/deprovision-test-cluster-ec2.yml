@@ -1,0 +1,36 @@
+---
+-   name: Deprovision 4-node FDS cluster in EC2
+    connection: local
+    hosts: localhost
+    gather_facts: False
+
+    tasks:
+
+    -   debug: msg={{ lookup('env','AWS_ACCESS_KEY') }}
+        tags: debug
+
+    -   debug: msg={{ lookup('env','AWS_SECRET_KEY') }}
+        tags: debug
+    
+    -   name: tear down instances matching tags
+        ec2:
+            instance_tags:
+                Name: codytest
+                fds_purpose: testing
+            exact_count: 0
+            count_tag:
+                Name: codytest
+                fds_purpose: testing
+            key_name: fds-ie
+            group_id: sg-43b9c126
+            instance_type: t2.micro
+            image: ami-13e3b223
+            volumes:
+                -   device_name: /dev/sda1
+                    volume_size: 20
+                    delete_on_termination: true
+            vpc_subnet_id: subnet-195bac40
+            monitoring: no
+            region: us-west-2
+            zone: us-west-2c
+            wait: yes
