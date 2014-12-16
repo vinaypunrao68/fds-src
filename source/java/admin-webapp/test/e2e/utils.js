@@ -88,7 +88,7 @@ setTimelineTimes = function( pageEl, timeline ){
             var spinner = sliderWidget.all( by.css( '.spinner-parent' )).get( settings.slider );
             var spinnerInput = spinner.element( by.tagName( 'input' ));
             spinnerInput.clear();
-            spinnerInput.sendKeys( settings.value );
+            spinnerInput.sendKeys( '\u0008' + '\u0008' + '\u0008' + settings.value );
         }
 
         sliderWidget.all( by.css( '.set-value-button' )).get( settings.slider ).click();
