@@ -18,7 +18,6 @@ bool    gdb_plat = false;
 
 namespace fds
 {
-
     Platform    *gl_PlatformSvc;
 
     const int    Platform::plat_svc_types[] = {
@@ -267,48 +266,6 @@ namespace fds
         Module::mod_shutdown();
     }
 
-    /**
-     * ---------------------------------------------------------------------------------
-     * OM Agent Event Handlers
-     * ---------------------------------------------------------------------------------
-     */
-    OmNodeAgentEvt::~OmNodeAgentEvt()
-    {
-    }
-
-    OmNodeAgentEvt::OmNodeAgentEvt(NodeAgent::pointer agent) : NodeAgentEvt(agent)
-    {
-    }
-
-    // ep_connected
-    // ------------
-    //
-    void OmNodeAgentEvt::ep_connected()
-    {
-        LOGDEBUG << "[Plat] OM agent is connected";
-    }
-
-    // ep_down
-    // -------
-    //
-    void OmNodeAgentEvt::ep_down()
-    {
-    }
-
-    // svc_up
-    // ------
-    //
-    void OmNodeAgentEvt::svc_up(EpSvcHandle::pointer eph)
-    {
-    }
-
-    // svc_down
-    // --------
-    //
-    void OmNodeAgentEvt::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer eph)
-    {
-    }
-
     /* *
      * ---------------------------------------------------------------------------------
      * Common factory methods.
@@ -358,5 +315,20 @@ namespace fds
                                                fds_uint32_t min)
     {
         return new AmSvcEp(agt, maj, min, new NodeAgentEvt(agt));
+    }
+
+    // -------------------------------------------------------------------------------------
+    // Platform Utility Functions.
+    // -------------------------------------------------------------------------------------
+    /* static */ int Platform::plf_get_my_node_svc_uuid(fpi::SvcUuid *uuid,
+                                                        fpi::FDSP_MgrIdType type)
+    {
+        NodeUuid    svc_uuid;
+        Platform   *plat = Platform::platf_singleton();
+
+        Platform::plf_svc_uuid_from_node(plat->plf_my_uuid, &svc_uuid, type);
+        svc_uuid.uuid_assign(uuid);
+
+        return Platform::plf_svc_port_from_node(plat->plf_my_node_port, type);
     }
 }  // namespace fds
