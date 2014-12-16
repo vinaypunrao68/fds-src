@@ -402,7 +402,7 @@ struct GetBucketCallback : virtual Callback {
     int commonPrefixesCount = 0;
     const char **commonPrefixes = NULL;
 
-    std::vector<apis::BlobDescriptor> vecBlobs;
+    boost::shared_ptr<std::vector<apis::BlobDescriptor>> vecBlobs;
 };
 
 }  // namespace fds
