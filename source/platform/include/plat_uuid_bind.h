@@ -14,6 +14,7 @@ namespace fds
      * Platform deamon shared memory queue handlers
      * -------------------------------------------------------------------------------------
      */
+
     class PlatUuidBind : public ShmqReqIn
     {
         public:

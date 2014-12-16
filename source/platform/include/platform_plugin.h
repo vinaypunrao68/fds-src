@@ -15,6 +15,7 @@ namespace fds
      * This class provides plugin for the endpoint run by platform daemon to represent a
      * node.
      */
+
     class PlatformdPlugin : public EpEvtPlugin
     {
         public:

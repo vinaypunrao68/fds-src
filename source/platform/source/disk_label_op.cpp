@@ -1,13 +1,6 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-/*
-#include <string>
-#include <fds_uuid.h>
-#include <platform/platform-lib.h>
-#include <fds-magic.h>
-
-*/
 
 #include "disk_label.h"
 #include "disk_label_op.h"

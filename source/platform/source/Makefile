@@ -9,7 +9,7 @@ user_incl_dir  :=                              \
 platform_core_src :=                                     \
                      node_platform.cpp                   \
                      node_platform_proc.cpp              \
-                     node_shared_memory_rw_ctrl.cpp      \
+                     node_shm_rw_ctrl.cpp                \
                      plat_work_flow.cpp                  \
                      plat_work_item.cpp                  \
                      disk_capacity.cpp                   \
@@ -45,7 +45,6 @@ fds_plat_lib_cpp :=                              \
                     domain_resources.cpp         \
                     platform_process.cpp         \
                     platform-rpc.cpp             \
-                    platform-libmod.cpp          \
                     om_node_agent_evt.cpp        \
                     om_node_agent_evt.cpp        \
                     disk_inventory.cpp           \
@@ -67,7 +66,7 @@ fds_plat_lib_cpp :=                              \
                     node_services.cpp            \
                     node_agent_evt.cpp           \
                     BaseAsyncSvcHandler.cpp      \
-                    PlatNetSvcHandler.cpp        \
+                    plat_net_svc_handler.cpp     \
                     node_work_flow.cpp           \
                     node_down.cpp                \
                     node_started.cpp             \

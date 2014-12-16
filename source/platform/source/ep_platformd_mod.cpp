@@ -6,7 +6,7 @@
 
 #include <plat_uuid_bind.h>
 #include <platform/net-plat-shared.h>
-#include "node_shared_memory_rw_ctrl.h"
+#include "node_shm_rw_ctrl.h"
 
 namespace fds
 {

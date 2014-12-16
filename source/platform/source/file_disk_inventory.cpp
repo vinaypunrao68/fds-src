@@ -9,7 +9,7 @@
 #include "disk_label_mgr.h"
 #include "disk_print_iter.h"
 
-#include <disk-constants.h>
+#include "disk_constants.h"
 
 #include <shared/fds-constants.h>         // TODO(donavan) these need to be evaluated for
                                           // removal from global shared space to PM only space

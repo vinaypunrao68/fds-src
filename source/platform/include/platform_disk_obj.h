@@ -20,28 +20,6 @@ namespace fds
             typedef boost::intrusive_ptr<PmDiskObj> pointer;
             typedef boost::intrusive_ptr<const PmDiskObj> const_ptr;
 
-        protected:
-            friend class PmDiskInventory;
-            friend std::ostream &operator<< (std::ostream &, fds::PmDiskObj::pointer obj);
-
-            ChainLink             dsk_part_link;     /**< link to dsk_partition list. */
-            ChainLink             dsk_disc_link;     /**< link to discovery list.     */
-            ChainList             dsk_part_head;     /**< sda -> { sda1, sda2... }    */
-            /**< /dev/sda is in rs_name.     */
-            std::string           dsk_mount_pt;      /**< PL's mount point.           */
-            const char           *dsk_raw_path;
-            int                   dsk_raw_plen;
-            int                   dsk_part_idx;
-            int                   dsk_part_cnt;
-            fds_uint64_t          dsk_cap_gb;
-
-            dev_t                 dsk_my_devno;
-            PmDiskObj::pointer    dsk_parent;
-            struct udev_device   *dsk_my_dev;
-            DiskCommon           *dsk_common;
-            DiskLabel            *dsk_label;
-
-        public:
             PmDiskObj();
             virtual ~PmDiskObj();
 
@@ -52,6 +30,7 @@ namespace fds
              * @param dev : /dev/sda
              */
             static bool dsk_blk_dev_path(const char *raw, std::string &blk, std::string &dev);
+
             static inline PmDiskObj::pointer dsk_cast_ptr(DiskObject::pointer ptr)
             {
                 return static_cast<PmDiskObj *>(get_pointer(ptr));
@@ -81,6 +60,7 @@ namespace fds
              * Setup the mount point where the device is mounted as the result of the discovery.
              */
             void dsk_set_mount_point(const char *mnt);
+
             const std::string &dsk_get_mount_point();
 
             /**
@@ -112,6 +92,27 @@ namespace fds
              * Iterate the parent object for all sub devices attached to it.
              */
             virtual void dsk_dev_foreach(DiskObjIter *iter, bool parent_only = false);
+
+        protected:
+            friend class PmDiskInventory;
+            friend std::ostream &operator<< (std::ostream &, fds::PmDiskObj::pointer obj);
+
+            ChainLink             dsk_part_link;     /**< link to dsk_partition list. */
+            ChainLink             dsk_disc_link;     /**< link to discovery list.     */
+            ChainList             dsk_part_head;     /**< sda -> { sda1, sda2... }    */
+                                                     /**< /dev/sda is in rs_name.     */
+            std::string           dsk_mount_pt;      /**< PL's mount point.           */
+            const char           *dsk_raw_path;
+            int                   dsk_raw_plen;
+            int                   dsk_part_idx;
+            int                   dsk_part_cnt;
+            fds_uint64_t          dsk_cap_gb;
+
+            dev_t                 dsk_my_devno;
+            PmDiskObj::pointer    dsk_parent;
+            struct udev_device   *dsk_my_dev;
+            DiskCommon           *dsk_common;
+            DiskLabel            *dsk_label;
 
         private:
             void dsk_fixup_family_links(PmDiskObj::pointer ref);

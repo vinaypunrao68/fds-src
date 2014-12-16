@@ -12,12 +12,12 @@
 #include <net/SvcRequestPool.h>
 
 #include "disk_plat_module.h"
-#include "platform_disk_inventory.h"
+#include "pm_disk_inventory.h"
 
 #include "disk_common.h"
 
 #include "node_platform.h"
-#include "node_shared_memory_rw_ctrl.h"
+#include "node_shm_rw_ctrl.h"
 #include "node_platform_process.h"
 
 #include "disk_plat_module.h"

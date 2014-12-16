@@ -3,7 +3,7 @@
  */
 
 #include "platform_ep_handler.h"
-#include "node_shared_memory_rw_ctrl.h"
+#include "node_shm_rw_ctrl.h"
 #include "node_platform.h"
 #include "node_info_iter.h"
 #include "node_update_iter.h"

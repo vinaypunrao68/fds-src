@@ -17,6 +17,7 @@ namespace fds
     /**
      * Handle jobs related to partition of a disk.
      */
+
     class DiskPartition
     {
         protected:
@@ -24,7 +25,7 @@ namespace fds
 
             ChainLink             dsk_link;
             PmDiskObj::pointer    dsk_obj;
-            DiskPartMgr     *dsk_mgr;
+            DiskPartMgr          *dsk_mgr;
             PedDevice            *dsk_pdev;
             PedDisk              *dsk_pe;
 

@@ -2,7 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include "node_shared_memory_rw_ctrl.h"
+#include "node_shm_rw_ctrl.h"
 #include "disk_plat_module.h"
 
 #include "plat_agent.h"

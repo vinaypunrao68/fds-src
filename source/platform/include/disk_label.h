@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "platform_disk_obj.h"
-#include "platform_disk_inventory.h"
+#include "pm_disk_inventory.h"
 
 namespace fds
 {
@@ -122,6 +122,7 @@ namespace fds
      * Base disk label obj to perform read/write label to a disk.
      * -------------------------------------------------------------------------------------
      */
+
     class DiskLabel
     {
         protected:

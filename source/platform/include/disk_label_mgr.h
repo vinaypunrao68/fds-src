@@ -10,6 +10,7 @@ namespace fds
     /**
      * Disk label manager to coordinate label quorum.
      */
+
     class DiskLabelMgr
     {
         protected:

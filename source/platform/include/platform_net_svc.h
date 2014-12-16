@@ -18,9 +18,7 @@ namespace fds
      * with platform daemon.
      */
 
-//    class PlatformdNetSvc;
     class PlatformEpHandler;
-
 
     class PlatformdNetSvc : public NetPlatSvc
     {

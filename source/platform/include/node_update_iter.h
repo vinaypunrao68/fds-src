@@ -30,6 +30,7 @@ namespace fds
 
                 return true;
             }
+
             /**
              * Update to platform nodes in a worker thread.
              */

@@ -15,6 +15,7 @@ namespace fds
     /**
      * This class provides handler for platform RPC daemon.
      */
+
     class PlatformEpHandler : public PlatNetSvcHandler
     {
         public:

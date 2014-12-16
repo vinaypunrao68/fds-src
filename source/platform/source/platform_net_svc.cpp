@@ -10,7 +10,7 @@
 #include <platform/node-inv-shmem.h>
 #include <net/PlatNetSvcHandler.h>
 
-#include "node_shared_memory_rw_ctrl.h"
+#include "node_shm_rw_ctrl.h"
 #include "plat_work_flow.h"
 
 #include "disk_plat_module.h"

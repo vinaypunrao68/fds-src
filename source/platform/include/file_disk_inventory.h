@@ -10,6 +10,7 @@ namespace fds
     /**
      * Use file to simulate a disk.
      */
+
     class FileDiskInventory : public PmDiskInventory
     {
         protected:

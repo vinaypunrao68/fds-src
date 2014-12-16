@@ -15,6 +15,7 @@ namespace fds
     /**
      * Generic disk obj shared by PM and other daemons such as OM.
      */
+
     class DiskObject : public Resource
     {
         public:

@@ -2,16 +2,16 @@
  * Copyright 2014 By Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_PLATFORM_INCLUDE_NODE_SHARED_MEMORY_RW_CTRL_H_
-#define SOURCE_PLATFORM_INCLUDE_NODE_SHARED_MEMORY_RW_CTRL_H_
+#ifndef SOURCE_PLATFORM_INCLUDE_NODE_SHM_RW_CTRL_H_
+#define SOURCE_PLATFORM_INCLUDE_NODE_SHM_RW_CTRL_H_
 
 #include <platform/node-inv-shmem.h>
 
 namespace fds
 {
     class DiskPlatModule;
-
     class NodeShmRWCtrl;
+
     extern NodeShmRWCtrl    gl_NodeShmRWCtrl;
 
     /**
@@ -83,4 +83,4 @@ namespace fds
     };
 }  // namespace fds
 
-#endif  // SOURCE_PLATFORM_INCLUDE_NODE_SHARED_MEMORY_RW_CTRL_H_
+#endif  // SOURCE_PLATFORM_INCLUDE_NODE_SHM_RW_CTRL_H_

@@ -6,7 +6,7 @@
 #include <fds-shmobj.h>
 #include <platform/fds-shmem.h>
 
-#include "node_shared_memory_rw_ctrl.h"
+#include "node_shm_rw_ctrl.h"
 
 namespace fds
 {

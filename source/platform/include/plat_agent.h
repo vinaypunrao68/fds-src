@@ -14,6 +14,7 @@ namespace fds
     /**
      * Platform specific node agent and its container.
      */
+
     class PlatAgent : public DomainAgent
     {
         public:

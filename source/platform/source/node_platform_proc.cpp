@@ -12,7 +12,7 @@
 #include <net/net-service.h>
 
 #include "node_platform.h"
-#include "node_shared_memory_rw_ctrl.h"
+#include "node_shm_rw_ctrl.h"
 #include "node_platform_process.h"
 #include "disk_plat_module.h"
 
