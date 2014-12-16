@@ -308,8 +308,17 @@ public class SmokeTest {
 
     @Test
     public void testPutGetLargeObject() throws Exception {
+        putGetOneObject(1024 * 1024 * 7);
+    }
+
+    @Test
+    public void testPutGetSmallObject() throws Exception {
+        putGetOneObject(1024 * 4);
+    }
+
+    private void putGetOneObject(int byteCount) throws Exception {
         String key = UUID.randomUUID().toString();
-        byte[] buf = new byte[1024 * 1024 * 7];
+        byte[] buf = new byte[byteCount];
         rng.nextBytes(buf);
         userClient.putObject(userBucket, key, new ByteArrayInputStream(buf), new ObjectMetadata());
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
@@ -413,7 +422,7 @@ public class SmokeTest {
     private AmazonS3Client s3Client(String hostName, String userName, String token) {
         AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials(userName, token));
         client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
-        client.setEndpoint("https://" + hostName + ":8443");
+        client.setEndpoint("https://" + hostName + ":8445");
         return client;
     }
 
