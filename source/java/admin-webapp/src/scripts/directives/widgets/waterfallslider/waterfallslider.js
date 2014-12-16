@@ -8,7 +8,7 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
         // format:  sliders = [{value: { range: index, value: value }}, name: name},...]
         // range: [{start: val, end: val (will not be displayed unless last range), values: [], width: <in percentage>, segments: <segments to draw>, min: minimum value (only applies to first item), labelFunction: callback for label, selectable: if it can be in the drop down, selectName: name in the dropdown,
         // allowNumber: hides or shows the spinner}..]
-        scope: { sliders: '=', range: '=', enabled: '=' },
+        scope: { sliders: '=', range: '=', enabled: '=', labelWidth: '@' },
         controller: function( $scope, $document, $element, $timeout, $resize_service ){
             
             $scope.grabbedSlider = undefined;
@@ -29,6 +29,10 @@ angular.module( 'form-directives' ).directive( 'waterfallSlider', function(){
             var labelPane = {};
             var sliderPane = {};
             var halfHandleWidth = 5;
+            
+            if ( !angular.isDefined( $scope.labelWidth ) ){
+                $scope.labelWidth = 'auto';
+            }
             
             $scope.amITooWide = function( $index ){
                 var w = $($element.find( '.value-container')[$index]).width();
