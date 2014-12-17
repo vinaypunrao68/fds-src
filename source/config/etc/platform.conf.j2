@@ -280,7 +280,6 @@ fds: {
         enable_nbd_log=true
         enable_nbd_block_exclusion=false
         fdsn_server_threads=30
-        async_server_threads=4
         qos_threads=4
 
         threadpool: {
@@ -303,7 +302,6 @@ fds: {
         testing: {
             /* Toggle stand alone mode */
             toggleStandAlone = false
-						toggleNewPath = false
 
             /* Toggle to disable stats collection for metadata streaming */
             toggleDisableStreamingStats = {{ am_testing_toggleDisableStreamingStats }} 

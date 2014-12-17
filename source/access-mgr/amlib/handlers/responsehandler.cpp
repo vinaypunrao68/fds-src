@@ -87,8 +87,7 @@ UpdateBlobResponseHandler::~UpdateBlobResponseHandler() {
 }
 //================================================================================
 
-GetObjectResponseHandler::GetObjectResponseHandler(char *buf) {
-    returnBuffer = buf;
+GetObjectResponseHandler::GetObjectResponseHandler() {
 }
 
 void GetObjectResponseHandler::process() {
@@ -104,10 +103,7 @@ ListBucketResponseHandler::ListBucketResponseHandler(std::vector<apis::BlobDescr
 
 void ListBucketResponseHandler::process() {
     XCHECKSTATUS(status);
-
-    for (auto const & blobDesc : vecBlobs) {
-        retVecBlobs.push_back(blobDesc);
-    }
+    retVecBlobs.swap(*vecBlobs);
 }
 
 ListBucketResponseHandler::~ListBucketResponseHandler() {
@@ -168,11 +164,11 @@ void StatBlobResponseHandler::process() {
     }
     XCHECKSTATUS(status);
 
-    retBlobDesc.name      = blobDesc.getBlobName();
-    retBlobDesc.byteCount = blobDesc.getBlobSize();
+    retBlobDesc.name      = blobDesc->getBlobName();
+    retBlobDesc.byteCount = blobDesc->getBlobSize();
 
-    for (const_kv_iterator it = blobDesc.kvMetaBegin();
-         it != blobDesc.kvMetaEnd();
+    for (const_kv_iterator it = blobDesc->kvMetaBegin();
+         it != blobDesc->kvMetaEnd();
          ++it) {
         retBlobDesc.metadata[it->first] = it->second;
     }
@@ -192,11 +188,11 @@ AsyncStatBlobResponseHandler::AsyncStatBlobResponseHandler(
 
 void AsyncStatBlobResponseHandler::process() {
     retBlobDesc = boost::make_shared<apis::BlobDescriptor>();
-    retBlobDesc->name = blobDesc.getBlobName();
-    retBlobDesc->byteCount = blobDesc.getBlobSize();
+    retBlobDesc->name = blobDesc->getBlobName();
+    retBlobDesc->byteCount = blobDesc->getBlobSize();
 
-    for (const_kv_iterator it = blobDesc.kvMetaBegin();
-         it != blobDesc.kvMetaEnd();
+    for (const_kv_iterator it = blobDesc->kvMetaBegin();
+         it != blobDesc->kvMetaEnd();
          ++it) {
         retBlobDesc->metadata[it->first] = it->second;
     }
@@ -337,12 +333,10 @@ AsyncDeleteBlobResponseHandler::~AsyncDeleteBlobResponseHandler() {
 AsyncGetObjectResponseHandler::AsyncGetObjectResponseHandler(
     AmAsyncResponseApi::shared_ptr _api,
     boost::shared_ptr<apis::RequestId>& _reqId,
-    boost::shared_ptr<int32_t>& length,
-    char* buf)
+    boost::shared_ptr<int32_t>& length)
         : respApi(_api),
           requestId(_reqId) {
     returnSize = *length;
-    returnBuffer = buf;
     type = HandlerType::IMMEDIATE;
 }
 
@@ -357,23 +351,21 @@ AsyncGetObjectResponseHandler::~AsyncGetObjectResponseHandler() {
 AsyncGetWithMetaResponseHandler::AsyncGetWithMetaResponseHandler(
     AmAsyncResponseApi::shared_ptr _api,
     boost::shared_ptr<apis::RequestId>& _reqId,
-    boost::shared_ptr<int32_t>& length,
-    char* buf)
+    boost::shared_ptr<int32_t>& length)
         : respApi(_api),
           requestId(_reqId) {
     returnSize = *length;
-    returnBuffer = buf;
     type = HandlerType::IMMEDIATE;
 }
 
 void
 AsyncGetWithMetaResponseHandler::process() {
     retBlobDesc = boost::make_shared<apis::BlobDescriptor>();
-    retBlobDesc->name = blobDesc.getBlobName();
-    retBlobDesc->byteCount = blobDesc.getBlobSize();
+    retBlobDesc->name = blobDesc->getBlobName();
+    retBlobDesc->byteCount = blobDesc->getBlobSize();
 
-    for (const_kv_iterator it = blobDesc.kvMetaBegin();
-         it != blobDesc.kvMetaEnd();
+    for (const_kv_iterator it = blobDesc->kvMetaBegin();
+         it != blobDesc->kvMetaEnd();
          ++it) {
         retBlobDesc->metadata[it->first] = it->second;
     }

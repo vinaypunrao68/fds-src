@@ -19,6 +19,13 @@ namespace fds {
  * policy management for each volume.
  */
 class AmCache : public Module, public boost::noncopyable {
+    typedef VolumeSharedCacheManager<std::string, BlobDescriptor>
+        descriptor_cache_type;
+    typedef VolumeSharedCacheManager<BlobOffsetPair, ObjectID, BlobOffsetPairHash>
+        offset_cache_type;
+    typedef VolumeSharedCacheManager<ObjectID, std::string, ObjectHash, std::true_type>
+        object_cache_type;
+
   public:
     explicit AmCache(const std::string &modName);
 
@@ -87,9 +94,23 @@ class AmCache : public Module, public boost::noncopyable {
      * and blob name. Any previously existing descriptor will be
      * overwritten.
      */
-    Error putBlobDescriptor(fds_volid_t volId,
-                            const std::string &blobName,
-                            const BlobDescriptor::ptr blobDesc);
+    Error putBlobDescriptor(fds_volid_t const volId,
+                            typename descriptor_cache_type::key_type const& blobName,
+                            typename descriptor_cache_type::value_type const blobDesc)
+    { descriptor_cache.add(volId, blobName, blobDesc); return ERR_OK; }
+
+    Error putOffset(fds_volid_t const volId,
+                    typename offset_cache_type::key_type const& blobOff,
+                    typename offset_cache_type::value_type const objId)
+    { offset_cache.add(volId, blobOff, objId); return ERR_OK; }
+
+    /**
+     * Inserts new object into the object cache.
+     */
+    Error putObject(fds_volid_t const volId,
+                    typename object_cache_type::key_type const& objId,
+                    typename object_cache_type::value_type const obj)
+    { object_cache.add(volId, objId, obj); return ERR_OK; }
 
     /**
      * Removes cache entries for a specific blob in a volume.
@@ -98,9 +119,9 @@ class AmCache : public Module, public boost::noncopyable {
                      const std::string &blobName);
 
   private:
-    VolumeSharedCacheManager<std::string, BlobDescriptor>                       descriptor_cache;
-    VolumeSharedCacheManager<BlobOffsetPair, ObjectID, BlobOffsetPairHash>      offset_cache;
-    VolumeSharedCacheManager<ObjectID, std::string, ObjectHash, std::true_type> object_cache;
+    descriptor_cache_type descriptor_cache;
+    offset_cache_type offset_cache;
+    object_cache_type object_cache;
 
     /// Max number of object data entries per volume cache
     size_t max_data_entries;

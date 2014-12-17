@@ -222,7 +222,7 @@ struct AsyncDeleteBlobResponseHandler : ResponseHandler {
 };
 
 struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
-    explicit GetObjectResponseHandler(char *buf);
+    explicit GetObjectResponseHandler();
 
     typedef boost::shared_ptr<GetObjectResponseHandler> ptr;
 
@@ -235,8 +235,7 @@ struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
 struct AsyncGetObjectResponseHandler : ResponseHandler, GetObjectCallback {
     AsyncGetObjectResponseHandler(AmAsyncResponseApi::shared_ptr _api,
                                     boost::shared_ptr<apis::RequestId>& _reqId,
-                                    boost::shared_ptr<int32_t>& length,
-                                    char* buf = nullptr);
+                                    boost::shared_ptr<int32_t>& length);
     typedef boost::shared_ptr<AsyncGetObjectResponseHandler> ptr;
 
     AmAsyncResponseApi::shared_ptr respApi;
@@ -249,8 +248,7 @@ struct AsyncGetObjectResponseHandler : ResponseHandler, GetObjectCallback {
 struct AsyncGetWithMetaResponseHandler : ResponseHandler, GetObjectCallback {
     AsyncGetWithMetaResponseHandler(AmAsyncResponseApi::shared_ptr _api,
                                     boost::shared_ptr<apis::RequestId>& _reqId,
-                                    boost::shared_ptr<int32_t>& length,
-                                    char* buf = nullptr);
+                                    boost::shared_ptr<int32_t>& length);
     typedef boost::shared_ptr<AsyncGetWithMetaResponseHandler> ptr;
 
     AmAsyncResponseApi::shared_ptr respApi;
@@ -277,7 +275,6 @@ struct AsyncListBucketResponseHandler : ResponseHandler, GetBucketCallback {
 
     AmAsyncResponseApi::shared_ptr respApi;
     boost::shared_ptr<apis::RequestId> requestId;
-    boost::shared_ptr<std::vector<apis::BlobDescriptor>> vecBlobs;
 
     virtual void process();
     virtual ~AsyncListBucketResponseHandler();

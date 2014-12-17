@@ -20,6 +20,9 @@
 			"TestS3LoadLBLOB" : "TestS3IntFace.py",
 			"TestS3ListBucketKeys" : "TestS3IntFace.py",
 			"TestS3DelBucket" : "TestS3IntFace.py",
+			"TestS3Conn"   : "test_s3_conn.py",
+			"TestS3Bucket" : "test_s3_conn.py",
+			"TestS3Key" : "test_s3_conn.py"
 		}
 	}
 }

@@ -9,7 +9,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.snapshotPolicies = [];
     $scope.dataConnector = {};
     $scope.volumeName = '';
-    $scope.tieringPolicy = 0;
+    $scope.mediaPolicy = 0;
     
     // default protection policies
     $scope.protectionPolicies = {
@@ -131,7 +131,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         volume.commit_log_retention = $scope.protectionPolicies.continuous;
         volume.data_connector = $scope.dataConnector;
         volume.name = $scope.volumeName;
-        
+//        volume.mediaPolicy = $scope.mediaPolicy.value;
         
         if ( !angular.isDefined( volume.name ) || volume.name === '' ){
             

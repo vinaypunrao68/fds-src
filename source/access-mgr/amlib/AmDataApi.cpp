@@ -108,13 +108,12 @@ AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
                           boost::shared_ptr<std::string>& volumeName,
                           boost::shared_ptr<int32_t>& count,
                           boost::shared_ptr<int64_t>& offset) {
-    BucketContext *bucket_ctxt = new BucketContext("host",
-                                                   *volumeName,
-                                                   "accessid",
-                                                   "secretkey");
     ListBucketResponseHandler::ptr handler(new ListBucketResponseHandler(_return));
     AmRequest *blobReq = new VolumeContentsReq(invalid_vol_id,
-                                               bucket_ctxt,
+                                               std::make_shared<BucketContext>("host",
+                                                                               *volumeName,
+                                                                               "accessid",
+                                                                               "secretkey"),
                                                *count,
                                                SHARED_DYN_CAST(Callback, handler));
     storHvisor->enqueueBlobReq(blobReq);
@@ -300,26 +299,18 @@ AmDataApi::getBlob(std::string& _return,
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
 
-    // Get a buffer of the requested size
-    // TODO(Andrew): This should be a shared pointer
-    // as we pass it around a lot
-    // TODO(Andrew): We should just resize the return string
-    // rather than doing a reassign at the end
-    char *buf = new char[*length];
-
     // Create request context
     // Set the pointer we want filled in the handler
     // TODO(Andrew): Get the correctly sized pointer directly
     // from the return string so we can avoid one extra copy.
-    GetObjectResponseHandler::ptr getHandler(new GetObjectResponseHandler(buf));
+    GetObjectResponseHandler::ptr getHandler(new GetObjectResponseHandler());
 
     AmRequest *blobReq= new GetBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
                                         SHARED_DYN_CAST(Callback, getHandler),
                                         static_cast<fds_uint64_t>(objectOffset->value),
-                                        *length,
-                                        buf);
+                                        *length);
     storHvisor->enqueueBlobReq(blobReq);
 
     // Wait for a signal from the callback thread
@@ -332,12 +323,13 @@ AmDataApi::getBlob(std::string& _return,
         } else {
             fdsE.errorCode = apis::BAD_REQUEST;
         }
-        delete[] buf;
         throw fdsE;
     }
-    _return.assign(getHandler->returnBuffer,
-                   getHandler->returnSize);
-    delete[] buf;
+
+    boost::shared_ptr<std::string> buf = getHandler->returnBuffer;
+    _return = buf->size() > getHandler->returnSize ?
+        std::string(*buf, 0, getHandler->returnSize)
+        : *buf;
 }
 
 void
