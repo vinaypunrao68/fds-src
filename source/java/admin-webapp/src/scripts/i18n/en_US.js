@@ -142,6 +142,7 @@ var en_US = {
         l_max_iops: 'Max number of IOPs',
         l_number_of_iops: 'Number of IOPs',
         l_priority: 'Priority',
+        l_point_timeline: 'Point from timeline:',
         l_qos: 'Performance',
         l_select_to_clone: 'Select a Volume to Clone',
         l_settings: 'Settings',
