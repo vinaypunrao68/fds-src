@@ -76,9 +76,7 @@ fds_plat_lib_cpp :=                              \
                     node_integrate.cpp           \
                     node_deploy.cpp              \
                     node_functional.cpp          \
-                    fds-2phase.cpp               \
                     fds_flags.cpp
-
 
 user_cpp :=                        \
             $(platform_cpp)        \
