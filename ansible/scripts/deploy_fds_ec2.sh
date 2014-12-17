@@ -55,3 +55,20 @@ D "ansible_args :: ${ansible_args}"
 I "Deploying FDS to EC2 with tag: ${inventory}"
 
 ansible-playbook ${ansible_args}
+
+if [ $? -ne 0 ]; then
+cat << EOF
+
+*****************************************
+*** NOTE: It looks like Ansible failed to provision your nodes in EC2.
+***
+*** If Ansible is complaining about SSH connection failures, please
+***  run this script again with the same args - sometimes it tries to
+***  connect prematurely, and I haven't figured out how to fix it yet.
+***
+*** If, however, it failed on the first task of actually creating one
+***  or more instances in EC2, you'll need to MANUALLY TERMINATE the
+***  instances that did get created. They remain untagged, and thus
+***  Ansible will end up creating more instances than you want (\$\$\$)
+EOF
+fi
