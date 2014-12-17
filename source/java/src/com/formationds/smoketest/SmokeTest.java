@@ -422,7 +422,7 @@ public class SmokeTest {
     private AmazonS3Client s3Client(String hostName, String userName, String token) {
         AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials(userName, token));
         client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
-        client.setEndpoint("https://" + hostName + ":8445");
+        client.setEndpoint("https://" + hostName + ":8443");
         return client;
     }
 

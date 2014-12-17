@@ -276,6 +276,8 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
             boost::make_shared<apis::ErrorCode>());
+        *errorCode = (error == ERR_BLOB_NOT_FOUND ? apis::MISSING_RESOURCE :
+                                                    apis::BAD_REQUEST);
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
@@ -298,6 +300,8 @@ AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
             boost::make_shared<apis::ErrorCode>());
+        *errorCode = (error == ERR_BLOB_NOT_FOUND ? apis::MISSING_RESOURCE :
+                                                    apis::BAD_REQUEST);
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,

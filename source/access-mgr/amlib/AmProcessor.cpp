@@ -11,9 +11,7 @@
 #include <util/fiu_util.h>
 
 #include "requests/requests.h"
-
-// TODO(Greg): May be removed when sync interface is removed.
-#include <responsehandler.h>
+#include "AsyncResponseHandlers.h"
 
 namespace fds {
 
@@ -280,7 +278,7 @@ AmProcessor::getBlob(AmRequest *amReq) {
             LOGTRACE << "Found cached blob descriptor for " << std::hex
                      << volId << std::dec << " blob " << amReq->getBlobName();
             foundBlobDesc = true;
-            GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
             // Fill in the data here
             cb->blobDesc = cachedBlobDesc;
         }
@@ -413,11 +411,13 @@ AmProcessor::queryCatalogCb(AmRequest *amReq, const Error& error) {
                            BlobOffsetPair(amReq->getBlobName(), amReq->blob_offset),
                            boost::make_shared<ObjectID>(amReq->obj_id));
 
-        auto cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-        if (static_cast<GetBlobReq*>(amReq)->get_metadata && cb->blobDesc)
-            amCache->putBlobDescriptor(amReq->io_vol_id,
-                                       amReq->getBlobName(),
-                                       cb->blobDesc);
+        if (static_cast<GetBlobReq*>(amReq)->get_metadata) {
+            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
+            if (cb->blobDesc)
+                amCache->putBlobDescriptor(amReq->io_vol_id,
+                                           amReq->getBlobName(),
+                                           cb->blobDesc);
+        }
     } else {
         respond_and_delete(amReq, error);
     }

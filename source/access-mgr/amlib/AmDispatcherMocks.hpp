@@ -15,9 +15,11 @@ struct AmDispatcherMockCbs
     }
     static void queryCatalogCb(AmRequest *amReq)
     {
-        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-        cb->blobDesc = boost::make_shared<BlobDescriptor>();
-        cb->blobDesc->setBlobSize(cb->returnSize);
+        if (static_cast<GetBlobReq*>(amReq)->get_metadata) {
+            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
+            cb->blobDesc = boost::make_shared<BlobDescriptor>();
+            cb->blobDesc->setBlobSize(cb->returnSize);
+        }
         amReq->obj_id = ObjectID();
         amReq->proc_cb(ERR_OK);
     }
