@@ -177,7 +177,7 @@
             - /fds/dev/hdd-*/*
             - /fds/dev/ssd-*/*
             - /fds/sys-repo
-            - /fds/user-repo
+            - /fds/user-repo/*
         tags:
            - clean
 

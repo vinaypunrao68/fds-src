@@ -1,0 +1,17 @@
+[bld-soak-clus]
+10.2.10.40 fds_node=node01
+10.2.10.42 fds_node=node02
+10.2.10.44 fds_node=node03
+10.2.10.46 fds_node=node04
+
+[bld-soak-clus:vars]
+cluster_location=bld
+deploy_artifact=nightly
+fds_default_nic=em1
+fds_om_host=10.2.10.40
+fds_metrics_enables=false
+fds_metricsdb_ip=127.0.0.1
+fds_ssh_user=root
+fds_ssh_password=passwd
+ansible_ssh_user=root
+ansible_ssh_pass=passwd
