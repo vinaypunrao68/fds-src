@@ -18,7 +18,9 @@ user_fds_ar_libs  := \
 user_non_fds_libs := \
     jemalloc \
     leveldb \
-    ssl crypto
+    ssl \
+    crypto \
+    pcrecpp
 
 user_cpp          := dm-main.cpp
 user_bin_exe      := DataMgr

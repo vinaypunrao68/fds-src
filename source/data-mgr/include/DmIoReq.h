@@ -647,6 +647,20 @@ struct DmIoDeleteBlob: dmCatReq {
                                           FDS_DELETE_BLOB) {
     }
 };
+
+struct DmIoListBlobsByPattern : dmCatReq {
+    boost::shared_ptr<fpi::ListBlobsByPatternMsg> message;
+    boost::shared_ptr<fpi::ListBlobsByPatternRspMsg> response;
+    explicit DmIoListBlobsByPattern(boost::shared_ptr<fpi::ListBlobsByPatternMsg> message)
+            : message(message),
+              response(new fpi::ListBlobsByPatternRspMsg()),
+              dmCatReq(message->volume_id,
+                       "",
+                       "",
+                       0,
+                       FDS_DM_LIST_BLOBS_BY_PATTERN) {}
+};
+
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMIOREQ_H_

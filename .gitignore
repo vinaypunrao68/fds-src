@@ -116,3 +116,4 @@ source/cit/PyUnit.log*
 source/cit/classes
 source/cit/surefire-reports
 source/sm*log
+.classpath
