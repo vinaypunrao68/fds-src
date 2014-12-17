@@ -6,7 +6,6 @@
 #include <string>
 #include <ep-map.h>
 #include <net/net-service.h>
-#include <platform.h>
 #include <platform/fds-shmem.h>
 #include <platform/node-inv-shmem.h>
 #include "boost/program_options.hpp"
