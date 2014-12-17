@@ -6,14 +6,22 @@
 
     tasks:
 
+    -   name: check for instance_name_tag
+        fail: msg="You must supply a value for instance_name_tag"
+        when: instance_name_tag is not defined
+
+    -   name: check for instance_count
+        fail: msg="You must supply a value for instance_count"
+        when: instance_count is not defined
+
     -   name: spin up a node in the private subnet with an auto-assigned IP
         ec2:
             instance_tags:
-                Name: codytest
+                Name: "{{ instance_name_tag }}"
                 fds_purpose: testing
-            exact_count: 4
+            exact_count: "{{ instance_count }}"
             count_tag:
-                Name: codytest
+                Name: "{{ instance_name_tag }}"
                 fds_purpose: testing
             key_name: fds-ie
             group_id: sg-43b9c126
