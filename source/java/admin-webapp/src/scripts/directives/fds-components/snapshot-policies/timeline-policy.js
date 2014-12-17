@@ -1,12 +1,12 @@
-angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
+angular.module( 'volumes' ).directive( 'timelinePolicyPanel', function(){
     
     return {
         restrict: 'E',
         replace: true,
         transclude: false,
-        // protectionPolicies = { continuous: <num>, snapshotPolicies: [] }
-        scope: { protectionPolicies: '=ngModel', saveOnly: '@' },
-        templateUrl: 'scripts/directives/fds-components/snapshot-policies/protection-policy.html',
+        // timelinePolicies = { continuous: <num>, snapshotPolicies: [] }
+        scope: { timelinePolicies: '=ngModel', saveOnly: '@' },
+        templateUrl: 'scripts/directives/fds-components/snapshot-policies/timeline-policy.html',
         controller: function( $scope, $filter ){
             
             if ( !angular.isDefined( $scope.saveOnly ) ){
@@ -302,12 +302,12 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
             var translatePoliciesToScreen = function(){
             
                 // do continuous first... we expect it to always be at least 1 day and no partial days
-                var cDays = $scope.protectionPolicies.continuous / (60*60*24);
+                var cDays = $scope.timelinePolicies.continuous / (60*60*24);
                 setSliderValue( $scope.sliders[0], cDays );
                 
-                for ( var i = 0; angular.isDefined( $scope.protectionPolicies.policies ) && i < $scope.protectionPolicies.policies.length; i++ ){
+                for ( var i = 0; angular.isDefined( $scope.timelinePolicies.policies ) && i < $scope.timelinePolicies.policies.length; i++ ){
                     
-                    var policy = $scope.protectionPolicies.policies[i];
+                    var policy = $scope.timelinePolicies.policies[i];
                     var slider = {};
                     
                     switch( policy.recurrenceRule.FREQ ){
@@ -383,7 +383,7 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
             };
             
             var initWatcher = function(){
-                watcher = $scope.$watch( 'protectionPolicies', function(){
+                watcher = $scope.$watch( 'timelinePolicies', function(){
                     translatePoliciesToScreen();
                 });
             };
@@ -394,9 +394,9 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                     watcher();
                 }
                 
-                $scope.protectionPolicies.continuous = $scope.sliders[0].value.value * 60*60*24;
+                $scope.timelinePolicies.continuous = $scope.sliders[0].value.value * 60*60*24;
                 
-                $scope.protectionPolicies.policies = buildPolicies();
+                $scope.timelinePolicies.policies = buildPolicies();
                 initWatcher();
             };
             
@@ -404,7 +404,7 @@ angular.module( 'volumes' ).directive( 'protectionPolicyPanel', function(){
                 translateScreenToPolicies();
                 $scope.editing = false;
                 
-                $scope.$emit( 'fds::protection_policy_changed' );
+                $scope.$emit( 'fds::timeline_policy_changed' );
             };
             
             $scope.cancel = function(){
