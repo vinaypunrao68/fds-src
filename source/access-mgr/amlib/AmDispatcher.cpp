@@ -11,7 +11,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
-#include "responsehandler.h"
+#include "AsyncResponseHandlers.h"
 
 #include "requests/requests.h"
 #include <net/MockSvcHandler.h>
@@ -495,8 +495,7 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
         // higher level when the volume is not block
         LOGDEBUG << "blob name: " << amReq->getBlobName() << "offset: "
                  << amReq->blob_offset << " Error: " << error;
-        // TODO(Andrew): We should change XDI to not expect OFFSET_INVALID, rather NOT_FOUND
-        amReq->proc_cb(error == ERR_CAT_ENTRY_NOT_FOUND ? ERR_BLOB_OFFSET_INVALID : error);
+        amReq->proc_cb(error == ERR_CAT_ENTRY_NOT_FOUND ? ERR_BLOB_NOT_FOUND : error);
         return;
     }
 
@@ -505,7 +504,7 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
     // Copy the metadata into the callback, if needed
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
     if (true == blobReq->get_metadata) {
-        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+        auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
         // Fill in the data here
         cb->blobDesc = boost::make_shared<BlobDescriptor>();
         cb->blobDesc->setBlobName(amReq->getBlobName());

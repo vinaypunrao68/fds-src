@@ -54,7 +54,7 @@ void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
     DEFINE_SHARED_PTR(CommitBlobTxMsg, commitBlbTx);
     commitBlbTx->volume_id = dmTester->TESTVOLID;
-    commitBlbTx->blob_name = dmTester->TESTBLOB;
+    commitBlbTx->blob_name = blobName;
     commitBlbTx->txId = txnNum;
 
     auto dmBlobTxReq1 = new DmIoCommitBlobTx(commitBlbTx->volume_id,
@@ -134,6 +134,96 @@ TEST_F(DmUnitTest, PutBlobOnce) {
     printStats();
 }
 
+TEST_F(DmUnitTest, ListBlobsByPattern) {
+    DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
+
+    struct BlobNameTest {
+        string regex;
+        unsigned expectedMatches;
+    };
+
+    unsigned blobNameVariations = 7;  // Match filling below.
+    unsigned blobCount = NUM_BLOBS * blobNameVariations;
+    std::vector<std::string> blobNames(blobCount);
+    for (unsigned i = 0; i != blobCount; i += blobNameVariations) {
+        auto cycle = std::to_string(i / blobNameVariations);
+        blobNames[i] = "normalFilename" + cycle;
+        blobNames[i + 1] = "path/to/file" + cycle + "name";
+        blobNames[i + 2] = "fileNameWithExtens" + cycle + ".ion";
+        blobNames[i + 3] = "path/and/" + cycle + "/filename/with/extens.ion";
+        blobNames[i + 4] = ".hiddenFile" + cycle;
+        blobNames[i + 5] = cycle + "emptyExtension.";
+        blobNames[i + 6] = "path.with/extension" + cycle;
+    }
+
+    std::vector<BlobNameTest> blobNameTests {
+        { "^normalFilename[0-9]+$", NUM_BLOBS },
+        { "path", NUM_BLOBS * 3 },
+        { "\\.", NUM_BLOBS * 5 }
+    };
+
+    DMCallback cb;
+    std::vector<boost::shared_ptr<UpdateCatalogMsg>> blobs(blobCount);
+    TIMEDBLOCK("fill") {
+        taskCount.reset(blobNames.size());
+        for (auto& blobName : blobNames) {
+            // Generate blob and fake data.
+            blobs.emplace_back(new UpdateCatalogMsg());
+            auto& blob = blobs.back();
+            blob->blob_name = blobName;
+            blob->volume_id = dmTester->TESTVOLID;
+            fds::UpdateBlobInfoNoData(blob, MAX_OBJECT_SIZE, BLOB_SIZE);
+
+            // Start transaction for blob commit.
+            blob->txId = dmTester->getNextTxnId();
+            startTxn(dmTester->TESTVOLID, blob->blob_name, blob->txId);
+
+            // Put the new blob.
+            DmIoUpdateCat dmReq(blob);
+            dmReq.cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+            dataMgr->handlers[FDS_CAT_UPD]->handleQueueItem(&dmReq);
+            cb.wait();
+            EXPECT_EQ(ERR_OK, cb.e);
+            cb.reset();
+
+            // Commit transaction.
+            commitTxn(dmTester->TESTVOLID, blob->blob_name, blob->txId);
+            taskCount.done();
+        }
+    }
+
+    TIMEDBLOCK("process") {
+        taskCount.reset(blobNameTests.size());
+        for (auto& blobNameTest : blobNameTests) {
+            auto listBlobsMessage = boost::make_shared<ListBlobsByPatternMsg>();
+            listBlobsMessage->volume_id = dmTester->TESTVOLID;
+            listBlobsMessage->startPos = 0;
+            listBlobsMessage->maxKeys = 1000 * blobNameVariations;
+            listBlobsMessage->pattern = blobNameTest.regex;
+
+            DmIoListBlobsByPattern dmReq(listBlobsMessage);
+            dmReq.cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
+            dataMgr->handlers[FDS_DM_LIST_BLOBS_BY_PATTERN]->handleQueueItem(&dmReq);
+            cb.wait();
+            EXPECT_EQ(ERR_OK, cb.e);
+            cb.reset();
+
+            // Make sure we got the expected number of matches.
+            EXPECT_EQ(blobNameTest.expectedMatches, dmReq.response->blobDescriptors.size());
+
+            // O(n^2). Making sure we don't have any bogus results.
+            for (auto& blobDescriptor : dmReq.response->blobDescriptors) {
+                EXPECT_FALSE(std::find(blobNames.begin(),
+                                       blobNames.end(),
+                                       blobDescriptor.name) == blobNames.end());
+            }
+            taskCount.done();
+        }
+    }
+
+    printStats();
+}
+
 TEST_F(DmUnitTest, PutBlob) {
     uint64_t txnId;
     std::string blobName;
@@ -153,6 +243,7 @@ TEST_F(DmUnitTest, PutBlob) {
         updcatMsg->blob_name = blobName;
         updcatMsg->txId = txnId;
         startTxn(dmTester->TESTVOLID, dmTester->TESTBLOB, txnId);
+        // FIXME(DAC): Memory leak.
         auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg);
         dmUpdCatReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
         TIMEDBLOCK("process") {

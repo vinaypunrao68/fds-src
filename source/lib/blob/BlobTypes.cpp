@@ -8,6 +8,7 @@
 
 namespace fds {
 
+// FIXME(DAC): We really shouldn't have a constructor that leaves most fields uninitialized.
 BlobDescriptor::BlobDescriptor()
         : blobSize(0) {
 }
@@ -15,20 +16,28 @@ BlobDescriptor::BlobDescriptor()
 BlobDescriptor::~BlobDescriptor() {
 }
 
+BlobDescriptor::BlobDescriptor(std::string const& blobName,
+                               blob_version_t const blobVersion,
+                               fds_volid_t const volumeUuid,
+                               fds_uint64_t const blobSize,
+                               BlobKeyValue const& blobKvMeta)
+        : blobName(blobName),
+          blobVersion(blobVersion),
+          volumeUuid(volumeUuid),
+          blobSize(blobSize),
+          blobKvMeta(blobKvMeta) {
+}
+
 BlobDescriptor::BlobDescriptor(const BlobDescriptor::ptr &blobDesc)
-        : blobName(blobDesc->blobName),
-          blobVersion(blobDesc->blobVersion),
-          volumeUuid(blobDesc->volumeUuid),
-          blobSize(blobDesc->blobSize),
-          blobKvMeta(blobDesc->blobKvMeta) {
+        : BlobDescriptor(*blobDesc) {
 }
 
 BlobDescriptor::BlobDescriptor(const BlobDescriptor &blobDesc)
-        : blobName(blobDesc.blobName),
-          blobVersion(blobDesc.blobVersion),
-          volumeUuid(blobDesc.volumeUuid),
-          blobSize(blobDesc.blobSize),
-          blobKvMeta(blobDesc.blobKvMeta) {
+        : BlobDescriptor(blobDesc.blobName,
+                         blobDesc.blobVersion,
+                         blobDesc.volumeUuid,
+                         blobDesc.blobSize,
+                         blobDesc.blobKvMeta) {
 }
 
 const_kv_iterator
