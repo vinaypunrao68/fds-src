@@ -34,9 +34,8 @@ platform_core_src :=                                     \
                      platformd_plugin.cpp                \
                      plat_agent_plugin.cpp               \
                      plat_agent.cpp                      \
-                     platform_ep_handler.cpp
-
-
+                     platform_ep_handler.cpp             \
+                     process.cpp
 
 # The sources for the public library of platform
 fds_plat_lib_cpp :=                              \

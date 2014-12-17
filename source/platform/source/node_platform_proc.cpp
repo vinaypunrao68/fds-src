@@ -8,13 +8,13 @@
 #include <sstream>
 #include <iostream>  // NOLINT
 #include <fds_uuid.h>
-#include <platform/fds-osdep.h>
 #include <net/net-service.h>
 
 #include "node_platform.h"
 #include "node_shm_rw_ctrl.h"
 #include "node_platform_process.h"
 #include "disk_plat_module.h"
+#include "process.h"
 
 namespace fds
 {
