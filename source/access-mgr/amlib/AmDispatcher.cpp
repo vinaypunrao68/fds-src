@@ -505,7 +505,7 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
     // Copy the metadata into the callback, if needed
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
     if (true == blobReq->get_metadata) {
-        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+        auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
         // Fill in the data here
         cb->blobDesc = boost::make_shared<BlobDescriptor>();
         cb->blobDesc->setBlobName(amReq->getBlobName());
