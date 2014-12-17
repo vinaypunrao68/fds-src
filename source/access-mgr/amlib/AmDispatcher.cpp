@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <string>
+#include <vector>
 #include <fds_process.h>
 #include <AmDispatcher.h>
 #include <net/SvcRequestPool.h>
@@ -669,7 +670,11 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
 void
 AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
 {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
+    fiu_do_on("am.uturn.dispatcher",
+              GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb); \
+              cb->vecBlobs = boost::make_shared<std::vector<apis::BlobDescriptor>>(); \
+              amReq->proc_cb(ERR_OK); \
+              return;);
 
     GetBucketMsgPtr message = boost::make_shared<GetBucketMsg>();
     message->volume_id = amReq->io_vol_id;
@@ -701,11 +706,13 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
         GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
         size_t count = response->blob_info_list.size();
         LOGDEBUG << " volid: " << response->volume_id << " numBlobs: " << count;
+        cb->vecBlobs = boost::make_shared<std::vector<apis::BlobDescriptor>>();
+        cb->vecBlobs->reserve(count);
         for (size_t i = 0; i < count; ++i) {
             apis::BlobDescriptor bd;
             bd.name = response->blob_info_list[i].blob_name;
             bd.byteCount = response->blob_info_list[i].blob_size;
-            cb->vecBlobs.push_back(bd);
+            cb->vecBlobs->push_back(bd);
         }
     }
     amReq->proc_cb(error);

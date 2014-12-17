@@ -275,7 +275,6 @@ struct AsyncListBucketResponseHandler : ResponseHandler, GetBucketCallback {
 
     AmAsyncResponseApi::shared_ptr respApi;
     boost::shared_ptr<apis::RequestId> requestId;
-    boost::shared_ptr<std::vector<apis::BlobDescriptor>> vecBlobs;
 
     virtual void process();
     virtual ~AsyncListBucketResponseHandler();

@@ -103,10 +103,7 @@ ListBucketResponseHandler::ListBucketResponseHandler(std::vector<apis::BlobDescr
 
 void ListBucketResponseHandler::process() {
     XCHECKSTATUS(status);
-
-    for (auto const & blobDesc : vecBlobs) {
-        retVecBlobs.push_back(blobDesc);
-    }
+    retVecBlobs.swap(*vecBlobs);
 }
 
 ListBucketResponseHandler::~ListBucketResponseHandler() {
