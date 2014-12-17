@@ -108,13 +108,12 @@ AmDataApi::volumeContents(std::vector<apis::BlobDescriptor> & _return,
                           boost::shared_ptr<std::string>& volumeName,
                           boost::shared_ptr<int32_t>& count,
                           boost::shared_ptr<int64_t>& offset) {
-    BucketContext *bucket_ctxt = new BucketContext("host",
-                                                   *volumeName,
-                                                   "accessid",
-                                                   "secretkey");
     ListBucketResponseHandler::ptr handler(new ListBucketResponseHandler(_return));
     AmRequest *blobReq = new VolumeContentsReq(invalid_vol_id,
-                                               bucket_ctxt,
+                                               std::make_shared<BucketContext>("host",
+                                                                               *volumeName,
+                                                                               "accessid",
+                                                                               "secretkey"),
                                                *count,
                                                SHARED_DYN_CAST(Callback, handler));
     storHvisor->enqueueBlobReq(blobReq);
