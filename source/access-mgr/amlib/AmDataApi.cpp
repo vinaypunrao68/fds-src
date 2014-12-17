@@ -315,7 +315,7 @@ AmDataApi::getBlob(std::string& _return,
 
     if (getHandler->error != ERR_OK) {
         apis::ApiException fdsE;
-        if (getHandler->error == ERR_BLOB_OFFSET_INVALID) {
+        if (getHandler->error == ERR_BLOB_NOT_FOUND) {
             fdsE.errorCode = apis::MISSING_RESOURCE;
         } else {
             fdsE.errorCode = apis::BAD_REQUEST;

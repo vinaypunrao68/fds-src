@@ -377,8 +377,9 @@ struct GetObjectCallback {
     fds_uint32_t returnSize;
 };
 
-struct GetObjectWithMetadataCallback : public GetObjectCallback {
-    boost::shared_ptr<BlobDescriptor> blobDesc;
+struct GetObjectWithMetadataCallback :  public GetObjectCallback,
+                                        public StatBlobCallback
+{
 };
 
 struct CommitBlobTxCallback {

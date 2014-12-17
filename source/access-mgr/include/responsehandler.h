@@ -72,16 +72,6 @@ struct StartBlobTxResponseHandler : ResponseHandler, StartBlobTxCallback {
     virtual ~StartBlobTxResponseHandler();
 };
 
-struct CommitBlobTxResponseHandler : ResponseHandler, CommitBlobTxCallback {
-    explicit CommitBlobTxResponseHandler(apis::TxDescriptor &retVal);
-    typedef boost::shared_ptr<CommitBlobTxResponseHandler> ptr;
-
-    apis::TxDescriptor &retTxDesc;
-
-    virtual void process();
-    virtual ~CommitBlobTxResponseHandler();
-};
-
 struct AbortBlobTxResponseHandler : ResponseHandler, AbortBlobTxCallback {
     explicit AbortBlobTxResponseHandler(apis::TxDescriptor &retVal);
     typedef boost::shared_ptr<AbortBlobTxResponseHandler> ptr;
