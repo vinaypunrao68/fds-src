@@ -11,9 +11,7 @@
 #include <util/fiu_util.h>
 
 #include "requests/requests.h"
-
-// TODO(Greg): May be removed when sync interface is removed.
-#include <responsehandler.h>
+#include "AsyncResponseHandlers.h"
 
 namespace fds {
 

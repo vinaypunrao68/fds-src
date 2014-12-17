@@ -11,7 +11,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
-#include "responsehandler.h"
+#include "AsyncResponseHandlers.h"
 
 #include "requests/requests.h"
 #include <net/MockSvcHandler.h>
