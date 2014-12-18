@@ -21,17 +21,13 @@ namespace fds {
  */
 enum class HandlerType { WAITEDFOR, IMMEDIATE, QUEUED };
 
-struct ResponseHandler : virtual Callback {
+struct ResponseHandler : public Callback {
     HandlerType type = HandlerType::WAITEDFOR;
     void call();
     void ready();
     void wait();
     bool waitFor(ulong timeout);
-
-    virtual void process() {}
-
-    // TODO(Greg): May be removed when sync interface is removed.
-    virtual bool isAsyncHandler() {return true;}
+    virtual void process() = 0;
 
     virtual ~ResponseHandler();
   protected:
@@ -58,38 +54,12 @@ struct StatBlobResponseHandler : ResponseHandler , StatBlobCallback {
     virtual ~StatBlobResponseHandler();
 };
 
-struct AsyncStatBlobResponseHandler : ResponseHandler , StatBlobCallback {
-    AsyncStatBlobResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                 boost::shared_ptr<apis::RequestId>& _reqId);
-    typedef boost::shared_ptr<AsyncStatBlobResponseHandler> ptr;
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-
-    boost::shared_ptr<apis::BlobDescriptor> retBlobDesc;
-
-    virtual void process();
-    virtual ~AsyncStatBlobResponseHandler();
-};
-
 struct AttachVolumeResponseHandler : ResponseHandler {
     AttachVolumeResponseHandler();
     typedef boost::shared_ptr<AttachVolumeResponseHandler> ptr;
 
     virtual void process();
     virtual ~AttachVolumeResponseHandler();
-};
-
-struct AsyncAttachVolumeResponseHandler : ResponseHandler {
-    AsyncAttachVolumeResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                     boost::shared_ptr<apis::RequestId>& _reqId);
-    typedef boost::shared_ptr<AsyncAttachVolumeResponseHandler> ptr;
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-
-    virtual void process();
-    virtual ~AsyncAttachVolumeResponseHandler();
 };
 
 struct StartBlobTxResponseHandler : ResponseHandler, StartBlobTxCallback {
@@ -100,48 +70,6 @@ struct StartBlobTxResponseHandler : ResponseHandler, StartBlobTxCallback {
 
     virtual void process();
     virtual ~StartBlobTxResponseHandler();
-};
-
-struct AsyncStartBlobTxResponseHandler
-        : ResponseHandler, StartBlobTxCallback {
-    AsyncStartBlobTxResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                    boost::shared_ptr<apis::RequestId>& _reqId);
-    typedef boost::shared_ptr<AsyncStartBlobTxResponseHandler> ptr;
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-
-    /// Trans descriptor to be filled in on success
-    boost::shared_ptr<apis::TxDescriptor> txDesc;
-
-    virtual void process();
-    virtual ~AsyncStartBlobTxResponseHandler();
-};
-
-struct CommitBlobTxResponseHandler : ResponseHandler, CommitBlobTxCallback {
-    explicit CommitBlobTxResponseHandler(apis::TxDescriptor &retVal);
-    typedef boost::shared_ptr<CommitBlobTxResponseHandler> ptr;
-
-    apis::TxDescriptor &retTxDesc;
-
-    virtual void process();
-    virtual ~CommitBlobTxResponseHandler();
-};
-
-struct AsyncCommitBlobTxResponseHandler
-        : ResponseHandler, CommitBlobTxCallback {
-    AsyncCommitBlobTxResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                    boost::shared_ptr<apis::RequestId>& _reqId);
-    typedef boost::shared_ptr<AsyncCommitBlobTxResponseHandler> ptr;
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-
-    /// Trans descriptor to be filled in on success
-    boost::shared_ptr<apis::TxDescriptor> txDesc;
-
-    virtual void process();
-    virtual ~AsyncCommitBlobTxResponseHandler();
 };
 
 struct AbortBlobTxResponseHandler : ResponseHandler, AbortBlobTxCallback {
@@ -161,66 +89,6 @@ struct UpdateBlobResponseHandler : ResponseHandler, UpdateBlobCallback {
     virtual ~UpdateBlobResponseHandler();
 };
 
-struct AsyncUpdateBlobResponseHandler : ResponseHandler, UpdateBlobCallback {
-    AsyncUpdateBlobResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                   boost::shared_ptr<apis::RequestId>& _reqId);
-    typedef boost::shared_ptr<AsyncUpdateBlobResponseHandler> ptr;
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-
-    virtual void process();
-    virtual ~AsyncUpdateBlobResponseHandler();
-};
-
-struct AsyncUpdateBlobOnceResponseHandler : ResponseHandler, UpdateBlobCallback {
-    AsyncUpdateBlobOnceResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                   boost::shared_ptr<apis::RequestId>& _reqId);
-    typedef boost::shared_ptr<AsyncUpdateBlobOnceResponseHandler> ptr;
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-
-    virtual void process();
-    virtual ~AsyncUpdateBlobOnceResponseHandler();
-};
-
-struct AsyncUpdateMetadataResponseHandler : ResponseHandler {
-    AsyncUpdateMetadataResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                       boost::shared_ptr<apis::RequestId>& _reqId);
-    typedef boost::shared_ptr<AsyncUpdateMetadataResponseHandler> ptr;
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-
-    virtual void process();
-    virtual ~AsyncUpdateMetadataResponseHandler();
-};
-
-struct AsyncAbortBlobTxResponseHandler : ResponseHandler {
-    AsyncAbortBlobTxResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                    boost::shared_ptr<apis::RequestId>& _reqId);
-    typedef boost::shared_ptr<AsyncAbortBlobTxResponseHandler> ptr;
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-
-    virtual void process();
-    virtual ~AsyncAbortBlobTxResponseHandler();
-};
-
-struct AsyncDeleteBlobResponseHandler : ResponseHandler {
-    AsyncDeleteBlobResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                   boost::shared_ptr<apis::RequestId>& _reqId);
-    typedef boost::shared_ptr<AsyncDeleteBlobResponseHandler> ptr;
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-
-    virtual void process();
-    virtual ~AsyncDeleteBlobResponseHandler();
-};
-
 struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
     explicit GetObjectResponseHandler();
 
@@ -228,36 +96,6 @@ struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
 
     virtual void process();
     virtual ~GetObjectResponseHandler();
-
-    virtual bool isAsyncHandler() {return false;}
-};
-
-struct AsyncGetObjectResponseHandler : ResponseHandler, GetObjectCallback {
-    AsyncGetObjectResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                    boost::shared_ptr<apis::RequestId>& _reqId,
-                                    boost::shared_ptr<int32_t>& length);
-    typedef boost::shared_ptr<AsyncGetObjectResponseHandler> ptr;
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-
-    virtual void process();
-    virtual ~AsyncGetObjectResponseHandler();
-};
-
-struct AsyncGetWithMetaResponseHandler : ResponseHandler, GetObjectCallback {
-    AsyncGetWithMetaResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                    boost::shared_ptr<apis::RequestId>& _reqId,
-                                    boost::shared_ptr<int32_t>& length);
-    typedef boost::shared_ptr<AsyncGetWithMetaResponseHandler> ptr;
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-
-    boost::shared_ptr<apis::BlobDescriptor> retBlobDesc;
-
-    virtual void process();
-    virtual ~AsyncGetWithMetaResponseHandler();
 };
 
 struct ListBucketResponseHandler : ResponseHandler, GetBucketCallback {
@@ -266,19 +104,6 @@ struct ListBucketResponseHandler : ResponseHandler, GetBucketCallback {
     std::vector<apis::BlobDescriptor> & retVecBlobs;
     virtual void process();
     virtual ~ListBucketResponseHandler();
-};
-
-struct AsyncListBucketResponseHandler : ResponseHandler, GetBucketCallback {
-    AsyncListBucketResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                   boost::shared_ptr<apis::RequestId>& _reqId);
-    TYPE_SHAREDPTR(AsyncListBucketResponseHandler);
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-    boost::shared_ptr<std::vector<apis::BlobDescriptor>> vecBlobs;
-
-    virtual void process();
-    virtual ~AsyncListBucketResponseHandler();
 };
 
 struct BucketStatsResponseHandler : ResponseHandler {
@@ -298,17 +123,6 @@ struct StatVolumeResponseHandler : ResponseHandler, GetVolumeMetaDataCallback {
     TYPE_SHAREDPTR(StatVolumeResponseHandler);
     apis::VolumeStatus& volumeStatus;
     explicit StatVolumeResponseHandler(apis::VolumeStatus& volumeStatus);
-    virtual void process();
-};
-
-struct AsyncStatVolumeResponseHandler : ResponseHandler, GetVolumeMetaDataCallback {
-    AsyncStatVolumeResponseHandler(AmAsyncResponseApi::shared_ptr _api,
-                                   boost::shared_ptr<apis::RequestId>& _reqId);
-    TYPE_SHAREDPTR(AsyncStatVolumeResponseHandler);
-
-    AmAsyncResponseApi::shared_ptr respApi;
-    boost::shared_ptr<apis::RequestId> requestId;
-    boost::shared_ptr<apis::VolumeStatus> volumeStatus;
     virtual void process();
 };
 

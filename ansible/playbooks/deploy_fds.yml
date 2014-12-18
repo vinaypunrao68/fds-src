@@ -177,7 +177,7 @@
             - /fds/dev/hdd-*/*
             - /fds/dev/ssd-*/*
             - /fds/sys-repo
-            - /fds/user-repo
+            - /fds/user-repo/*
         tags:
            - clean
 
@@ -322,6 +322,13 @@
     -   name: copy fdsinstall.py to /root/fdsinstally.py
         copy: src=../../source/tools/install/fdsinstall.py
             dest=/root/fdsinstall.py
+            mode=0755
+        tags:
+          - deploy
+
+    -   name: copy disk_type.py to /root/disk_type.py
+        copy: src=../../source/platform/python/disk_type.py
+            dest=/root/disk_type.py
             mode=0755
         tags:
           - deploy

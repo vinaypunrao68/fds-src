@@ -6,32 +6,32 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         $scope.volumeVars.next( 'viewvolume' );
     };
     
-    $scope.takeSnapshot = function( $event, volume ){
-        
-        $event.stopPropagation();
-        
-        var confirm = {
-            type: 'CONFIRM',
-            text: $filter( 'translate' )( 'volumes.desc_confirm_snapshot' ),
-            confirm: function( result ){
-                if ( result === false ){
-                    return;
-                }
-                
-                $volume_api.createSnapshot( volume.id, volume.name + '.' + (new Date()).getTime(), 
-                    function(){ 
-                        var $event = {
-                            type: 'INFO',
-                            text: $filter( 'translate' )( 'volumes.desc_snapshot_created' )
-                        };
-
-                        $rootScope.$emit( 'fds::alert', $event );
-                });
-            }
-        };
-        
-        $rootScope.$emit( 'fds::confirm', confirm );
-    };
+//    $scope.takeSnapshot = function( $event, volume ){
+//        
+//        $event.stopPropagation();
+//        
+//        var confirm = {
+//            type: 'CONFIRM',
+//            text: $filter( 'translate' )( 'volumes.desc_confirm_snapshot' ),
+//            confirm: function( result ){
+//                if ( result === false ){
+//                    return;
+//                }
+//                
+//                $volume_api.createSnapshot( volume.id, volume.name + '.' + (new Date()).getTime(), 
+//                    function(){ 
+//                        var $event = {
+//                            type: 'INFO',
+//                            text: $filter( 'translate' )( 'volumes.desc_snapshot_created' )
+//                        };
+//
+//                        $rootScope.$emit( 'fds::alert', $event );
+//                });
+//            }
+//        };
+//        
+//        $rootScope.$emit( 'fds::confirm', confirm );
+//    };
 
     $scope.createNewVolume = function(){
         $scope.volumeVars.creating = true;
