@@ -124,41 +124,15 @@ AmCache::putTxDescriptor(const AmTxDescriptor::ptr txDesc) {
             // We should change this to just take a pointer from the
             // transaction manager
             ObjectID::ptr cacheObjId = boost::make_shared<ObjectID>(offsetPair.second);
-            ObjectID::ptr evictedObjId =
-                    offset_cache.add(txDesc->volId,
-                                         offsetPair.first,
-                                         cacheObjId);
-            if (evictedObjId != NULL) {
-                LOGTRACE << "Evicted cached object id " << *evictedObjId;
-            }
+            putOffset(txDesc->volId, offsetPair.first, cacheObjId);
         }
 
         // Add blob objects from tx to object cache
         for (const auto &object : txDesc->stagedBlobObjects) {
-            boost::shared_ptr<std::string> evictedObject =
-                    object_cache.add(txDesc->volId, object.first, object.second);
-            if (evictedObject) {
-                LOGTRACE << "Evicted cached object data of size " << evictedObject->size();
-            }
+            putObject(txDesc->volId, object.first, object.second);
         }
     }
     return err;
-}
-
-Error
-AmCache::putBlobDescriptor(fds_volid_t volId,
-                           const std::string &blobName,
-                           const BlobDescriptor::ptr blobDesc) {
-    // Copy desc contents in structure owned by cache
-    // TODO(Andrew): We copy now because the data given to cache
-    // isn't actually shared. It needs its own copy.
-    BlobDescriptor::ptr cacheDesc = boost::make_shared<BlobDescriptor>(blobDesc);
-    BlobDescriptor::ptr evictedDesc = descriptor_cache.add(volId, blobName, cacheDesc);
-
-    if (evictedDesc != NULL) {
-        LOGTRACE << "Evicted cached descriptor " << *evictedDesc;
-    }
-    return ERR_OK;
 }
 
 Error

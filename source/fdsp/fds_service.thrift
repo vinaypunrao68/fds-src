@@ -165,7 +165,9 @@ enum  FDSPMsgTypeId {
     CreateVolumeCloneMsgTypeId,
     CreateVolumeCloneRespMsgTypeId,
     GetDmStatsMsgTypeId,
-    GetDmStatsMsgRespTypeId
+    GetDmStatsMsgRespTypeId,
+    ListBlobsByPatternMsgTypeId,
+    ListBlobsByPatternRspMsgTypeId
 }
 
 /*
@@ -857,6 +859,17 @@ struct GetBucketMsg {
   3: i64                       maxKeys;
   //response
   4: FDSP.BlobInfoListType     blob_info_list;
+}
+
+struct ListBlobsByPatternMsg {
+  1: i64                       volume_id;
+  2: i64                       startPos;
+  3: i64                       maxKeys;
+  4: string                    pattern;
+}
+
+struct ListBlobsByPatternRspMsg {
+  1: FDSP.BlobDescriptorListType  blobDescriptors;
 }
 
 struct GetDmStatsMsg {

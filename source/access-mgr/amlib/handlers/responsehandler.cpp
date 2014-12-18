@@ -87,8 +87,7 @@ UpdateBlobResponseHandler::~UpdateBlobResponseHandler() {
 }
 //================================================================================
 
-GetObjectResponseHandler::GetObjectResponseHandler(char *buf) {
-    returnBuffer = buf;
+GetObjectResponseHandler::GetObjectResponseHandler() {
 }
 
 void GetObjectResponseHandler::process() {
@@ -104,28 +103,10 @@ ListBucketResponseHandler::ListBucketResponseHandler(std::vector<apis::BlobDescr
 
 void ListBucketResponseHandler::process() {
     XCHECKSTATUS(status);
-
-    for (auto const & blobDesc : vecBlobs) {
-        retVecBlobs.push_back(blobDesc);
-    }
+    retVecBlobs.swap(*vecBlobs);
 }
 
 ListBucketResponseHandler::~ListBucketResponseHandler() {
-}
-
-AsyncListBucketResponseHandler::AsyncListBucketResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId)
-        : respApi(_api),
-          requestId(_reqId) {
-    type = HandlerType::IMMEDIATE;
-}
-
-void AsyncListBucketResponseHandler::process() {
-    respApi->volumeContentsResp(error, requestId, vecBlobs);
-}
-
-AsyncListBucketResponseHandler::~AsyncListBucketResponseHandler() {
 }
 
 //================================================================================
@@ -168,42 +149,17 @@ void StatBlobResponseHandler::process() {
     }
     XCHECKSTATUS(status);
 
-    retBlobDesc.name      = blobDesc.getBlobName();
-    retBlobDesc.byteCount = blobDesc.getBlobSize();
+    retBlobDesc.name      = blobDesc->getBlobName();
+    retBlobDesc.byteCount = blobDesc->getBlobSize();
 
-    for (const_kv_iterator it = blobDesc.kvMetaBegin();
-         it != blobDesc.kvMetaEnd();
+    for (const_kv_iterator it = blobDesc->kvMetaBegin();
+         it != blobDesc->kvMetaEnd();
          ++it) {
         retBlobDesc.metadata[it->first] = it->second;
     }
 }
 
 StatBlobResponseHandler::~StatBlobResponseHandler() {
-}
-
-AsyncStatBlobResponseHandler::AsyncStatBlobResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId)
-        : respApi(_api),
-          requestId(_reqId) {
-    type = HandlerType::IMMEDIATE;
-}
-
-
-void AsyncStatBlobResponseHandler::process() {
-    retBlobDesc = boost::make_shared<apis::BlobDescriptor>();
-    retBlobDesc->name = blobDesc.getBlobName();
-    retBlobDesc->byteCount = blobDesc.getBlobSize();
-
-    for (const_kv_iterator it = blobDesc.kvMetaBegin();
-         it != blobDesc.kvMetaEnd();
-         ++it) {
-        retBlobDesc->metadata[it->first] = it->second;
-    }
-    respApi->statBlobResp(error, requestId, retBlobDesc);
-}
-
-AsyncStatBlobResponseHandler::~AsyncStatBlobResponseHandler() {
 }
 
 StartBlobTxResponseHandler::StartBlobTxResponseHandler(
@@ -220,169 +176,6 @@ StartBlobTxResponseHandler::process() {
 StartBlobTxResponseHandler::~StartBlobTxResponseHandler() {
 }
 
-AsyncStartBlobTxResponseHandler::AsyncStartBlobTxResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId)
-        : respApi(_api),
-          requestId(_reqId) {
-    type = HandlerType::IMMEDIATE;
-}
-
-void
-AsyncStartBlobTxResponseHandler::process() {
-    txDesc = boost::make_shared<apis::TxDescriptor>();
-    txDesc->txId = blobTxId.getValue();
-    respApi->startBlobTxResp(error, requestId, txDesc);
-}
-
-AsyncStartBlobTxResponseHandler::~AsyncStartBlobTxResponseHandler() {
-}
-
-AsyncAbortBlobTxResponseHandler::AsyncAbortBlobTxResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId)
-        : respApi(_api),
-          requestId(_reqId) {
-    type = HandlerType::IMMEDIATE;
-}
-
-void
-AsyncAbortBlobTxResponseHandler::process() {
-    respApi->abortBlobTxResp(error, requestId);
-}
-
-AsyncAbortBlobTxResponseHandler::~AsyncAbortBlobTxResponseHandler() {
-}
-
-AsyncCommitBlobTxResponseHandler::AsyncCommitBlobTxResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId)
-        : respApi(_api),
-          requestId(_reqId) {
-    type = HandlerType::IMMEDIATE;
-}
-
-void
-AsyncCommitBlobTxResponseHandler::process() {
-    respApi->commitBlobTxResp(error, requestId);
-}
-
-AsyncCommitBlobTxResponseHandler::~AsyncCommitBlobTxResponseHandler() {
-}
-
-AsyncUpdateBlobResponseHandler::AsyncUpdateBlobResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId)
-        : respApi(_api),
-          requestId(_reqId) {
-    type = HandlerType::IMMEDIATE;
-}
-
-void
-AsyncUpdateBlobResponseHandler::process() {
-    respApi->updateBlobResp(error, requestId);
-}
-
-AsyncUpdateBlobResponseHandler::~AsyncUpdateBlobResponseHandler() {
-}
-
-AsyncUpdateBlobOnceResponseHandler::AsyncUpdateBlobOnceResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId)
-        : respApi(_api),
-          requestId(_reqId) {
-    type = HandlerType::IMMEDIATE;
-}
-
-void
-AsyncUpdateBlobOnceResponseHandler::process() {
-    respApi->updateBlobOnceResp(error, requestId);
-}
-
-AsyncUpdateBlobOnceResponseHandler::~AsyncUpdateBlobOnceResponseHandler() {
-}
-
-AsyncUpdateMetadataResponseHandler::AsyncUpdateMetadataResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId)
-        : respApi(_api),
-          requestId(_reqId) {
-    type = HandlerType::IMMEDIATE;
-}
-
-void
-AsyncUpdateMetadataResponseHandler::process() {
-    respApi->updateMetadataResp(error, requestId);
-}
-
-AsyncUpdateMetadataResponseHandler::~AsyncUpdateMetadataResponseHandler() {
-}
-
-AsyncDeleteBlobResponseHandler::AsyncDeleteBlobResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId)
-        : respApi(_api),
-          requestId(_reqId) {
-    type = HandlerType::IMMEDIATE;
-}
-
-void
-AsyncDeleteBlobResponseHandler::process() {
-    respApi->deleteBlobResp(error, requestId);
-}
-
-AsyncDeleteBlobResponseHandler::~AsyncDeleteBlobResponseHandler() {
-}
-
-AsyncGetObjectResponseHandler::AsyncGetObjectResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId,
-    boost::shared_ptr<int32_t>& length,
-    char* buf)
-        : respApi(_api),
-          requestId(_reqId) {
-    returnSize = *length;
-    returnBuffer = buf;
-    type = HandlerType::IMMEDIATE;
-}
-
-void
-AsyncGetObjectResponseHandler::process() {
-    respApi->getBlobResp(error, requestId, returnBuffer, returnSize);
-}
-
-AsyncGetObjectResponseHandler::~AsyncGetObjectResponseHandler() {
-}
-
-AsyncGetWithMetaResponseHandler::AsyncGetWithMetaResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId,
-    boost::shared_ptr<int32_t>& length,
-    char* buf)
-        : respApi(_api),
-          requestId(_reqId) {
-    returnSize = *length;
-    returnBuffer = buf;
-    type = HandlerType::IMMEDIATE;
-}
-
-void
-AsyncGetWithMetaResponseHandler::process() {
-    retBlobDesc = boost::make_shared<apis::BlobDescriptor>();
-    retBlobDesc->name = blobDesc.getBlobName();
-    retBlobDesc->byteCount = blobDesc.getBlobSize();
-
-    for (const_kv_iterator it = blobDesc.kvMetaBegin();
-         it != blobDesc.kvMetaEnd();
-         ++it) {
-        retBlobDesc->metadata[it->first] = it->second;
-    }
-    respApi->getBlobWithMetaResp(error, requestId, returnBuffer, returnSize, retBlobDesc);
-}
-
-AsyncGetWithMetaResponseHandler::~AsyncGetWithMetaResponseHandler() {
-}
-
 AttachVolumeResponseHandler::AttachVolumeResponseHandler() {
 }
 
@@ -392,22 +185,6 @@ AttachVolumeResponseHandler::process() {
 }
 
 AttachVolumeResponseHandler::~AttachVolumeResponseHandler() {
-}
-
-AsyncAttachVolumeResponseHandler::AsyncAttachVolumeResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId)
-        : respApi(_api),
-          requestId(_reqId) {
-    type = HandlerType::IMMEDIATE;
-}
-
-void
-AsyncAttachVolumeResponseHandler::process() {
-    respApi->attachVolumeResp(error, requestId);
-}
-
-AsyncAttachVolumeResponseHandler::~AsyncAttachVolumeResponseHandler() {
 }
 
 StatVolumeResponseHandler::StatVolumeResponseHandler(apis::VolumeStatus& volumeStatus)
@@ -420,18 +197,4 @@ void StatVolumeResponseHandler::process() {
     volumeStatus.currentUsageInBytes = volumeMetaData.size;
 }
 
-AsyncStatVolumeResponseHandler::AsyncStatVolumeResponseHandler(
-    AmAsyncResponseApi::shared_ptr _api,
-    boost::shared_ptr<apis::RequestId>& _reqId)
-        : respApi(_api),
-          requestId(_reqId) {
-    type = HandlerType::IMMEDIATE;
-}
-
-void AsyncStatVolumeResponseHandler::process() {
-    volumeStatus = boost::make_shared<apis::VolumeStatus>();
-    volumeStatus->blobCount = volumeMetaData.blobCount;
-    volumeStatus->currentUsageInBytes = volumeMetaData.size;
-    respApi->volumeStatusResp(error, requestId, volumeStatus);
-}
 }  // namespace fds

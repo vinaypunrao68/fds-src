@@ -1,0 +1,9 @@
+#!/bin/bash
+
+CLASSPATH=$CLASSPATH:../lib/java/fds-1.0-bin/fds-1.0/\*:../lib/java/classes
+
+instance=$( echo `expr match "$*" '.*Id=*\([0-9]\)'` )
+port=$(($instance + 4000))
+java -classpath $CLASSPATH \
+     -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=$port \
+     com.formationds.am.Main $*

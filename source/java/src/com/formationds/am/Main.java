@@ -79,7 +79,7 @@ public class Main {
         int omLegacyConfigPort = platformConfig.lookup("fds.am.om_config_port").intValue();
 
         AmService.Iface am = useFakeAm ? new FakeAmService() :
-                                         clientFactory.remoteAmService("localhost", 9988 + amInstanceId);
+                                         clientFactory.remoteAmService("localhost", 9988);
 
         ConfigurationApi configCache = new ConfigurationApi(clientFactory.remoteOmService(omHost, omConfigPort));
         boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
@@ -103,11 +103,11 @@ public class Main {
 
         Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
         ByteBufferPool bbp = new ArrayByteBufferPool();
-        AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm("localhost", 8899 + amInstanceId);
+        AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm("localhost", 8899);
 
         System.out.println("My instance id " + amInstanceId);
 
-        AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm() : new RealAsyncAm(oneWayAm, amInstanceId);
+        AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm() : new RealAsyncAm(oneWayAm, 9876 + amInstanceId);
         asyncAm.start();
 
         Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm, bbp, token, authorizer, configCache);

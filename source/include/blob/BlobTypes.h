@@ -34,6 +34,11 @@ class BlobDescriptor {
     BlobKeyValue   blobKvMeta;
 
   public:
+    BlobDescriptor(std::string const& blobName,
+                   blob_version_t const blobVersion,
+                   fds_volid_t const volumeUuid,
+                   fds_uint64_t const blobSize,
+                   BlobKeyValue const& blobKvMeta);
     BlobDescriptor();
     ~BlobDescriptor();
     typedef boost::shared_ptr<BlobDescriptor> ptr;
@@ -66,6 +71,7 @@ class BlobDescriptor {
     // func to set everything from FDSP?
     void setBlobName(const std::string &name);
     void setBlobSize(fds_uint64_t size);
+    // FIXME(DAC): This is not updating, this is adding.
     void updateBlobSize(fds_uint64_t size);
     void setVolId(fds_volid_t volId);
     /// Adds key-value metadata, overwrite any old key
