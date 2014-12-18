@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+
 #ifndef SOURCE_INCLUDE_PLATFORM_SERVICE_EP_LIB_H_
 #define SOURCE_INCLUDE_PLATFORM_SERVICE_EP_LIB_H_
 
@@ -11,166 +12,156 @@
  * Common shared library to provide SM/DM/AM endpoint services.  These services are
  * embeded in NodeAgent::pointerobjects.
  */
-namespace fds {
 
-class NodeAgent;
-class SmAgent;
-class DmAgent;
-class AmAgent;
-class OmAgent;
-
-class NodeAgentEvt : public EpEvtPlugin
+namespace fds
 {
-  public:
-    typedef boost::intrusive_ptr<NodeAgentEvt> pointer;
 
-    virtual ~NodeAgentEvt();
-    explicit NodeAgentEvt(boost::intrusive_ptr<NodeAgent>);
+    class NodeAgent;
+    class SmAgent;
+    class DmAgent;
+    class AmAgent;
+    class OmAgent;
 
-    virtual void ep_connected();
-    virtual void ep_down();
+    class NodeAgentEvt : public EpEvtPlugin
+    {
+        public:
+            typedef boost::intrusive_ptr<NodeAgentEvt> pointer;
 
-    virtual void svc_up(EpSvcHandle::pointer eph);
-    virtual void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer eph);
+            virtual ~NodeAgentEvt();
+            explicit NodeAgentEvt(boost::intrusive_ptr<NodeAgent>);
 
-  protected:
-    boost::intrusive_ptr<NodeAgent>    na_owner;
-};
+            virtual void ep_connected();
+            virtual void ep_down();
 
-/**
- * SM Service EndPoint
- */
-class SmSvcEp : public EpSvc
-{
-  public:
-    typedef bo::intrusive_ptr<SmSvcEp> pointer;
+            virtual void svc_up(EpSvcHandle::pointer eph);
+            virtual void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer eph);
 
-    virtual ~SmSvcEp();
-    SmSvcEp(boost::intrusive_ptr<NodeAgent> agent,
-            fds_uint32_t                    maj,
-            fds_uint32_t                    min,
-            NodeAgentEvt::pointer           plugin);
+        protected:
+            boost::intrusive_ptr<NodeAgent>    na_owner;
+    };
 
-    void svc_receive_msg(const fpi::AsyncHdr &msg);
+    /**
+     * SM Service EndPoint
+     */
+    class SmSvcEp : public EpSvc
+    {
+        public:
+            typedef bo::intrusive_ptr<SmSvcEp> pointer;
 
-  protected:
-    boost::intrusive_ptr<SmAgent>  na_owner;
-};
+            virtual ~SmSvcEp();
+            SmSvcEp(boost::intrusive_ptr<NodeAgent> agent, fds_uint32_t maj, fds_uint32_t min,
+                    NodeAgentEvt::pointer plugin);
 
-/**
- * DM Service EndPoint
- */
-class DmSvcEp : public EpSvc
-{
-  public:
-    typedef bo::intrusive_ptr<DmSvcEp> pointer;
+            void svc_receive_msg(const fpi::AsyncHdr &msg);
 
-    virtual ~DmSvcEp();
-    DmSvcEp(boost::intrusive_ptr<NodeAgent> agent,
-            fds_uint32_t                    maj,
-            fds_uint32_t                    min,
-            NodeAgentEvt::pointer           plugin);
+        protected:
+            boost::intrusive_ptr<SmAgent>    na_owner;
+    };
 
-    void svc_receive_msg(const fpi::AsyncHdr &msg);
+    /**
+     * DM Service EndPoint
+     */
+    class DmSvcEp : public EpSvc
+    {
+        public:
+            typedef bo::intrusive_ptr<DmSvcEp> pointer;
 
-  protected:
-    boost::intrusive_ptr<DmAgent>  na_owner;
-};
+            virtual ~DmSvcEp();
+            DmSvcEp(boost::intrusive_ptr<NodeAgent> agent, fds_uint32_t maj, fds_uint32_t min,
+                    NodeAgentEvt::pointer plugin);
 
-/**
- * AM Service EndPoint
- */
-class AmSvcEp : public EpSvc
-{
-  public:
-    typedef bo::intrusive_ptr<AmSvcEp> pointer;
+            void svc_receive_msg(const fpi::AsyncHdr &msg);
 
-    virtual ~AmSvcEp();
-    AmSvcEp(boost::intrusive_ptr<NodeAgent> agent,
-            fds_uint32_t                    maj,
-            fds_uint32_t                    min,
-            NodeAgentEvt::pointer           plugin);
+        protected:
+            boost::intrusive_ptr<DmAgent>    na_owner;
+    };
 
-    void svc_receive_msg(const fpi::AsyncHdr &msg);
+    /**
+     * AM Service EndPoint
+     */
+    class AmSvcEp : public EpSvc
+    {
+        public:
+            typedef bo::intrusive_ptr<AmSvcEp> pointer;
 
-  protected:
-    boost::intrusive_ptr<AmAgent>  na_owner;
-};
+            virtual ~AmSvcEp();
+            AmSvcEp(boost::intrusive_ptr<NodeAgent> agent, fds_uint32_t maj, fds_uint32_t min,
+                    NodeAgentEvt::pointer plugin);
 
-/**
- * OM Service EndPoint.
- */
-class OmNodeAgentEvt : public NodeAgentEvt
-{
-  public:
-    typedef boost::intrusive_ptr<OmNodeAgentEvt::pointer> pointer;
+            void svc_receive_msg(const fpi::AsyncHdr &msg);
 
-    virtual ~OmNodeAgentEvt();
-    explicit OmNodeAgentEvt(boost::intrusive_ptr<NodeAgent>);
+        protected:
+            boost::intrusive_ptr<AmAgent>    na_owner;
+    };
 
-    virtual void ep_connected();
-    virtual void ep_down();
+    /**
+     * OM Service EndPoint.
+     */
+    class OmNodeAgentEvt : public NodeAgentEvt
+    {
+        public:
+            typedef boost::intrusive_ptr<OmNodeAgentEvt::pointer> pointer;
 
-    virtual void svc_up(EpSvcHandle::pointer eph);
-    virtual void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer eph);
-};
+            virtual ~OmNodeAgentEvt();
+            explicit OmNodeAgentEvt(boost::intrusive_ptr<NodeAgent>);
 
-class OmSvcEp : public EpSvc
-{
-  public:
-    typedef bo::intrusive_ptr<OmSvcEp> pointer;
+            virtual void ep_connected();
+            virtual void ep_down();
 
-    virtual ~OmSvcEp();
-    OmSvcEp(boost::intrusive_ptr<NodeAgent> agent,
-            fds_uint32_t                    maj,
-            fds_uint32_t                    min,
-            NodeAgentEvt::pointer           plugin);
+            virtual void svc_up(EpSvcHandle::pointer eph);
+            virtual void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer eph);
+    };
 
-    virtual void svc_chg_uuid(const NodeUuid &uuid);
-    virtual void svc_receive_msg(const fpi::AsyncHdr &msg);
+    class OmSvcEp : public EpSvc
+    {
+        public:
+            typedef bo::intrusive_ptr<OmSvcEp> pointer;
 
-    virtual void ep_om_connected();
-    virtual void ep_domain_connected();
-    virtual void ep_first_om_message();
+            virtual ~OmSvcEp();
+            OmSvcEp(boost::intrusive_ptr<NodeAgent> agent, fds_uint32_t maj, fds_uint32_t min,
+                    NodeAgentEvt::pointer plugin);
 
-  protected:
-    bool                           ep_conn_om;
-    bool                           ep_conn_domain;
-    boost::intrusive_ptr<OmAgent>  na_owner;
-};
+            virtual void svc_chg_uuid(const NodeUuid &uuid);
+            virtual void svc_receive_msg(const fpi::AsyncHdr &msg);
 
-class PM_OmSvcEp : public OmSvcEp
-{
-  public:
-    typedef bo::intrusive_ptr<PM_OmSvcEp> pointer;
+            virtual void ep_om_connected();
+            virtual void ep_domain_connected();
+            virtual void ep_first_om_message();
 
-    virtual ~PM_OmSvcEp();
-    PM_OmSvcEp(boost::intrusive_ptr<NodeAgent> agent,
-               fds_uint32_t                    maj,
-               fds_uint32_t                    min,
-               NodeAgentEvt::pointer           plugin);
+        protected:
+            bool                             ep_conn_om;
+            bool                             ep_conn_domain;
+            boost::intrusive_ptr<OmAgent>    na_owner;
+    };
 
-    virtual void svc_chg_uuid(const NodeUuid &uuid);
-    virtual void svc_receive_msg(const fpi::AsyncHdr &msg);
-    virtual void ep_first_om_message() override;
-};
+    class PM_OmSvcEp : public OmSvcEp
+    {
+        public:
+            typedef bo::intrusive_ptr<PM_OmSvcEp> pointer;
 
-/**
- * PM Service EndPoint
- */
-class PmSvcEp : public EpSvc
-{
-  public:
-    typedef bo::intrusive_ptr<PmSvcEp> pointer;
+            virtual ~PM_OmSvcEp();
+            PM_OmSvcEp(boost::intrusive_ptr<NodeAgent> agent, fds_uint32_t maj, fds_uint32_t min,
+                       NodeAgentEvt::pointer plugin);
 
-    virtual ~PmSvcEp();
-    PmSvcEp(boost::intrusive_ptr<NodeAgent> agent,
-            fds_uint32_t                    maj,
-            fds_uint32_t                    min,
-            NodeAgentEvt::pointer           plugin);
+            virtual void svc_chg_uuid(const NodeUuid &uuid);
+            virtual void svc_receive_msg(const fpi::AsyncHdr &msg);
+            virtual void ep_first_om_message() override;
+    };
 
-    void svc_receive_msg(const fpi::AsyncHdr &msg);
-};
+    /**
+     * PM Service EndPoint
+     */
+    class PmSvcEp : public EpSvc
+    {
+        public:
+            typedef bo::intrusive_ptr<PmSvcEp> pointer;
 
+            virtual ~PmSvcEp();
+            PmSvcEp(boost::intrusive_ptr<NodeAgent> agent, fds_uint32_t maj, fds_uint32_t min,
+                    NodeAgentEvt::pointer plugin);
+
+            void svc_receive_msg(const fpi::AsyncHdr &msg);
+    };
 }  // namespace fds
+
 #endif  // SOURCE_INCLUDE_PLATFORM_SERVICE_EP_LIB_H_
