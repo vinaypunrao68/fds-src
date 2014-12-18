@@ -61,10 +61,12 @@ class NbdResponseVector {
                                   const Error& err) {
         fds_verify(operation == READ);
         fds_verify(seqId < bufVec.size());
-        if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID)) {
+        if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
+                         (err != ERR_BLOB_NOT_FOUND)) {
             opError = err;
             return true;
-        } else if (err == ERR_BLOB_OFFSET_INVALID) {
+        } else if ((err == ERR_BLOB_OFFSET_INVALID) ||
+                   (err == ERR_BLOB_NOT_FOUND)) {
             // we tried to read unwritten block, fill in zeros
             fds_uint32_t iOff = offset % maxObjectSizeInBytes;
             fds_uint32_t firstObjectLength = length;
