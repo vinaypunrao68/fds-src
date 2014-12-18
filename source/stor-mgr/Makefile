@@ -22,7 +22,7 @@ user_fds_ar_libs  :=                   \
     fds-migrations \
     fds-svc-request \
     fds-net-svc \
-    fds-am-engine \
+    fds-qos-lib \
     fds-odb \
     fds-dsk-mgnt \
     fds-sm-plat \
