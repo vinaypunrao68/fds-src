@@ -15,7 +15,6 @@
 
 namespace fds
 {
-
     class NodeAgent;
     class SmAgent;
     class DmAgent;

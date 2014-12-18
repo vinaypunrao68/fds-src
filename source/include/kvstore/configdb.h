@@ -9,7 +9,7 @@
 #include <vector>
 
 #include <kvstore/kvstore.h>
-#include <platform/plat-serialize.h>
+#include <platform/node_services.h>
 #include <fds_volume.h>
 #include <dlt.h>
 #include <fds_dmt.h>
