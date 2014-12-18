@@ -2,8 +2,8 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_INCLUDE_ORCH_MGR_NODE_WORKFLOW_H_
-#define SOURCE_INCLUDE_ORCH_MGR_NODE_WORKFLOW_H_
+#ifndef SOURCE_INCLUDE_PLATFORM_NODE_WORKFLOW_H_
+#define SOURCE_INCLUDE_PLATFORM_NODE_WORKFLOW_H_
 
 #include <ostream>
 #include <vector>
@@ -463,4 +463,4 @@ namespace fds
     };
 }  // namespace fds
 
-#endif  // SOURCE_INCLUDE_ORCH_MGR_NODE_WORKFLOW_H_
+#endif  // SOURCE_INCLUDE_PLATFORM_NODE_WORKFLOW_H_

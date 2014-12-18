@@ -13,7 +13,7 @@
 #include <fds_typedefs.h>
 #include <kvstore/platformdb.h>
 #include <platform/node-inventory.h>
-#include <platform/fds_flags.h>
+#include <platform/flags_map.h>
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -53,8 +53,8 @@ namespace fds
             typedef boost::intrusive_ptr<DomainClusterMap> pointer;
 
             virtual ~DomainClusterMap();
-            DomainClusterMap(char const *const name);
-            DomainClusterMap(char const *const name, OmAgent::pointer master, 
+            explicit DomainClusterMap(char const *const name);
+            DomainClusterMap(char const *const name, OmAgent::pointer master,
                              SmContainer::pointer sm, DmContainer::pointer dm,
                              AmContainer::pointer am, PmContainer::pointer pm,
                              OmContainer::pointer om);
@@ -70,7 +70,7 @@ namespace fds
             typedef boost::intrusive_ptr<const DomainResources> const_ptr;
 
             virtual ~DomainResources();
-            DomainResources(char const *const name);
+            explicit DomainResources(char const *const name);
 
         protected:
             ResourceUUID            drs_tent_id;
@@ -112,7 +112,7 @@ namespace fds
             typedef Platform const *const ptr;
 
             virtual ~Platform();
-            Platform(char const *const name, fpi::FDSP_MgrIdType node_type, 
+            Platform(char const *const name, fpi::FDSP_MgrIdType node_type,
                      DomainContainer::pointer node_inv, DomainClusterMap::pointer cluster,
                      DomainResources::pointer resources, OmAgent::pointer master);
 
@@ -366,20 +366,20 @@ namespace fds
             /**
              * Common public factory methods.
              */
-            virtual boost::intrusive_ptr<PmSvcEp> plat_new_pm_svc(NodeAgent::pointer, 
-                                                                  fds_uint32_t maj, 
+            virtual boost::intrusive_ptr<PmSvcEp> plat_new_pm_svc(NodeAgent::pointer,
+                                                                  fds_uint32_t maj,
                                                                   fds_uint32_t min);
 
-            virtual boost::intrusive_ptr<OmSvcEp> plat_new_om_svc(NodeAgent::pointer, 
-                                                                  fds_uint32_t maj, 
+            virtual boost::intrusive_ptr<OmSvcEp> plat_new_om_svc(NodeAgent::pointer,
+                                                                  fds_uint32_t maj,
                                                                   fds_uint32_t min);
 
-            virtual boost::intrusive_ptr<SmSvcEp> plat_new_sm_svc(NodeAgent::pointer, 
-                                                                  fds_uint32_t maj, 
+            virtual boost::intrusive_ptr<SmSvcEp> plat_new_sm_svc(NodeAgent::pointer,
+                                                                  fds_uint32_t maj,
                                                                   fds_uint32_t min);
 
-            virtual boost::intrusive_ptr<DmSvcEp> plat_new_dm_svc(NodeAgent::pointer, 
-                                                                  fds_uint32_t maj, 
+            virtual boost::intrusive_ptr<DmSvcEp> plat_new_dm_svc(NodeAgent::pointer,
+                                                                  fds_uint32_t maj,
                                                                   fds_uint32_t min);
 
             virtual boost::intrusive_ptr<AmSvcEp> plat_new_am_svc(NodeAgent::pointer,
@@ -395,12 +395,13 @@ namespace fds
             friend class PlatRpcReqt;
             friend class PlatRpcResp;
 
-            fpi::FDSP_MgrIdType                 plf_node_type;
-            NodeUuid                            plf_my_uuid;           /**< this node HW uuid.         */
-            NodeUuid                            plf_my_svc_uuid;       /**< SM/DM/AM... svc uuid.      */
-            NodeUuid                            plf_my_plf_svc_uuid;   /**< platform service.          */
-            std::string                         plf_my_node_name;      /**< user assigned node name.   */
-            std::string                         plf_my_auto_name;      /**< domain assigned auto node. */
+            fpi::FDSP_MgrIdType         plf_node_type;
+            NodeUuid                    plf_my_uuid;           /**< this node HW uuid.         */
+            NodeUuid                    plf_my_svc_uuid;       /**< SM/DM/AM... svc uuid.      */
+            NodeUuid                    plf_my_plf_svc_uuid;   /**< platform service.          */
+            std::string                 plf_my_node_name;      /**< user assigned node name.   */
+            std::string                 plf_my_auto_name;      /**< domain assigned auto node. */
+
             std::string                         plf_my_ip;
             std::string                         plf_om_ip_str;
             std::string                         pIf_node_fdsroot;
@@ -430,7 +431,7 @@ namespace fds
         public:
             virtual ~PlatformProcess();
             PlatformProcess();
-            PlatformProcess(int argc, char *argv[], const std::string &cfg_path, 
+            PlatformProcess(int argc, char *argv[], const std::string &cfg_path,
                             const std::string &log_file, Platform *platform, Module **vec);
             void init(int argc, char **argv, const std::string  &cfg, const std::string  &log,
                       Platform *platform, Module **vec);
@@ -513,7 +514,7 @@ namespace fds
     {
         public:
             virtual ~ProbeProcess();
-            ProbeProcess(int argc, char *argv[], const std::string &log, ProbeMod *probe, 
+            ProbeProcess(int argc, char *argv[], const std::string &log, ProbeMod *probe,
                          Module **vec, const std::string &cfg = "fds.plat.");
     };
 

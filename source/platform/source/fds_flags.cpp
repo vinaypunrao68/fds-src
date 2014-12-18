@@ -5,7 +5,7 @@
 #include <map>
 #include <unordered_map>
 #include <fds_assert.h>
-#include <platform/fds_flags.h>
+#include <platform/flags_map.h>
 
 namespace fds
 {

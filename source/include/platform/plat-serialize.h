@@ -13,10 +13,9 @@
 
 namespace fds
 {
-
     struct NodeServices :    serialize::Serializable
     {
-        ResourceUUID sm,dm,am;
+        ResourceUUID sm, dm, am;
 
         inline void reset()
         {
