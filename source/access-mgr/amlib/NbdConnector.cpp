@@ -118,7 +118,9 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
           doUturn(false),
           attach({ { 0x00ull, 0x00u, 0x00u }, 0x00ull, 0x00ull, { 0x00 } }),
           request({ { 0x00u, 0x00u, 0x00ull, 0x00ull, 0x00u }, 0x00ull, 0x00ull, nullptr }),
-          maxChunks(0),
+          response(nullptr),
+          write_offset(0ull),
+          maxChunks(0ull),
           readyHandles(2000),
           readyResponses(4000) {
     fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
@@ -161,20 +163,59 @@ constexpr fds_int32_t NbdConnection::NBD_CMD_TRIM;
 
 constexpr char NbdConnection::fourKayZeros[];
 
-void
+// Send initial message to client with NBD magic and proto version
+bool
 NbdConnection::hsPreInit(ev::io &watcher) {
-    // Send initial message to client with NBD magic and proto version
+    // Vector always starts from this state
     static iovec const vectors[] = {
         { to_iovec(NBD_MAGIC_PWD),       sizeof(NBD_MAGIC_PWD)      },
         { to_iovec(&NBD_MAGIC),          sizeof(NBD_MAGIC)          },
         { to_iovec(&NBD_PROTO_VERSION),  sizeof(NBD_PROTO_VERSION)  },
     };
+    static size_t const total_blocks = std::extent<decltype(vectors)>::value;
 
-    ssize_t nwritten = writev(watcher.fd, vectors, std::extent<decltype(vectors)>::value);
+    size_t current_block = 0ull;
+    if (!response) {
+        // First pass (fingers crossed, the only), std::default_deleter
+        // is good enough for a unique_ptr (no custom deleter needed).
+        response = decltype(response)(new iovec[total_blocks]);
+        memcpy(response.get(), vectors, sizeof(vectors));
+    } else {
+        // We've started this transfer already
+        size_t written = write_offset;
+        // Find where we left off and adjust the vector
+        while (written >= response[current_block].iov_len)
+            written -= response[current_block++].iov_len;
+
+        // Adjust the io vector so we don't re-write the same data
+        response[current_block].iov_base = reinterpret_cast<uint8_t*>(
+                                                response[current_block].iov_base) + written;
+        response[current_block].iov_len -= written;
+    }
+
+    ssize_t nwritten = writev(watcher.fd,
+                              response.get() + current_block,
+                              total_blocks - current_block);
     if (nwritten < 0) {
         LOGERROR << "Socket write error";
-        return;
+        return false;
+    } else if (nwritten == 0) {
+        return false;
     }
+    write_offset += nwritten;
+
+    ssize_t to_write = 0;
+    for (; current_block < total_blocks; ++current_block)
+        to_write += response[current_block].iov_len;
+
+    if (to_write != nwritten) {
+        LOGTRACE << "Wrote [" << nwritten << "] of [" << to_write << " bytes";
+        return false;
+    }
+
+    write_offset = 0;
+    response.reset();
+    return true;
 }
 
 void
@@ -468,17 +509,20 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 hsReq(watcher);
                 break;
             default:
-                fds_panic("Unknown NBD connection state %d", hsState);
+                // We could have read and writes waiting and are not in the
+                // correct state to handle more requests...yet
+                break;
         }
     }
 
     if (revents & EV_WRITE) {
         switch (hsState) {
             case PREINIT:
-                hsPreInit(watcher);
-                hsState = POSTINIT;
-                // Wait for read event from client
-                ioWatcher->set(ev::READ);
+                if (hsPreInit(watcher)) {
+                    hsState = POSTINIT;
+                    // Wait for read event from client
+                    ioWatcher->set(ev::READ);
+                }
                 break;
             case SENDOPTS:
                 hsSendOpts(watcher);

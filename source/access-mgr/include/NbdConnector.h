@@ -82,6 +82,9 @@ class NbdConnection : public NbdOperationsResponseIface {
     message<attach_header, std::array<char, 1024>> attach;
     message<request_header, boost::shared_ptr<std::string>> request;
 
+    std::unique_ptr<iovec[]> response;
+    ssize_t write_offset;
+
     // Uturn stuff. Remove me.
     struct UturnPair {
         fds_int64_t handle;
@@ -132,7 +135,7 @@ class NbdConnection : public NbdOperationsResponseIface {
     };
     NbdHandshakeState hsState;
 
-    void hsPreInit(ev::io &watcher);
+    bool hsPreInit(ev::io &watcher);
     void hsPostInit(ev::io &watcher);
     bool hsAwaitOpts(ev::io &watcher);
     void hsSendOpts(ev::io &watcher);
