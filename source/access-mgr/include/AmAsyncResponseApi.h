@@ -6,8 +6,10 @@
 
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <fds_module.h>
+#include "concurrency/RwLock.h"
 #include <apis/AsyncAmServiceResponse.h>
 
 namespace fds {
@@ -66,9 +68,18 @@ class AmAsyncResponseApi {
 };
 
 class AmAsyncXdiResponse : public AmAsyncResponseApi {
-  private:
+ public:
+    using client_ptr = std::shared_ptr<apis::AsyncAmServiceResponseClient>;
+    using client_map = std::unordered_map<std::string, client_ptr>;
+
+ private:
+    // We use a std rw lock here and vector or client pointers because
+    // this lookup only happens once when the handshake is performed
+    static fds_rwlock client_lock;
+    static client_map clients;
+
     /// Thrift client to response to XDI
-    boost::shared_ptr<apis::AsyncAmServiceResponseClient> asyncRespClient;
+    client_ptr asyncRespClient;
     std::string serverIp;
     fds_uint32_t serverPort;
 
@@ -77,6 +88,7 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
         if (asyncRespClient == NULL && serverPort > 0) {
             initiateClientConnect();
         }
+        fds_assert(asyncRespClient);
     }
 
   public:

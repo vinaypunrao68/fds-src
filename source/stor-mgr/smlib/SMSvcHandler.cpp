@@ -636,7 +636,10 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
      * MIGRATION_OP_COMPLETE.
      */
     if (objStorMgr->tok_migrated_for_dlt_ == false) {
-        objStorMgr->migrationSvcResponseCb(ERR_OK, MIGRATION_OP_COMPLETE);
+        LOGNORMAL << "Token migration complete";
+        LOGNORMAL << objStorMgr->migrationSvc_->mig_cntrs.toString();
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        objStorMgr->tok_migrated_for_dlt_ = false;
     }
 }
 

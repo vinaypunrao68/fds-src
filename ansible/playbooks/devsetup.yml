@@ -73,6 +73,7 @@
         - libboost-timer1.55-dev
         - libboost-thread1.55-dev
         - libboost-regex1.55-dev
+        - libboost-filesystem1.55-dev
         - libical-dev
         - libical1
         - libjemalloc-dev
@@ -101,6 +102,7 @@
         - lintian
         - libhiredis0.10
         - libhiredis-dev
+        - libsqlite3-dev
         - swig3.0
         - sshpass
 

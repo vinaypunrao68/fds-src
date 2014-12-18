@@ -310,6 +310,11 @@ OM_NodeAgent::om_send_dlt_close_resp(fpi::CtrlNotifyDLTClosePtr msg,
     LOGDEBUG << "OM received response for NotifyDltClose from node "
                 << std::hex << req->getPeerEpId().svc_uuid << std::dec <<
                 " with version " << msg->dlt_close.DLT_version;
+
+    // notify DLT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
+    domain->om_recv_dlt_close_resp(node_uuid, msg->dlt_close.DLT_version);
 }
 
 void

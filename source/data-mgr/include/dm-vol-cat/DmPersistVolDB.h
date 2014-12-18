@@ -107,6 +107,10 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolDir {
 
     virtual Error deleteBlobMetaDesc(const std::string & blobName);
 
+    Catalog* getCatalog() {
+        return catalog_;
+    }
+
   private:
     // methods
     inline Catalog::catalog_iterator_t * getSnapshotIter(Catalog::catalog_roptions_t& opts) {
