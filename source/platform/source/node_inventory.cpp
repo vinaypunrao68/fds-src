@@ -17,7 +17,7 @@
 #include <platform/node-workflow.h>
 */
 
-#include <platform/plat-serialize.h>
+#include <platform/node_services.h>
 #include <platform/node-inv-shmem.h>
 #include "platform/node-inventory.h"
 #include "platform/platform-lib.h"

@@ -3,7 +3,7 @@
  */
 
 #include <platform/platform-lib.h>
-#include <platform/fds-shmem.h>
+#include <platform/fds_shmem.h>
 #include <ep-map.h>
 #include <platform/node-inv-shmem.h>
 
