@@ -256,8 +256,8 @@ NbdOperations::getBlobResp(const Error &error,
 }
 
 void
-NbdOperations::updateBlobOnceResp(const Error &error,
-                                  boost::shared_ptr<apis::RequestId>& requestId) {
+NbdOperations::updateBlobResp(const Error &error,
+                              boost::shared_ptr<apis::RequestId>& requestId) {
     NbdResponseVector* resp = NULL;
     fds_int64_t handle = 0;
     fds_int32_t seqId = 0;

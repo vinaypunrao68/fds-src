@@ -81,7 +81,59 @@ class TestNodeActivate(TestCase.FDSTestCase):
                 self.log.error("Node activation on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
                 return False
 
-            time.sleep(2)
+        return True
+
+
+# This class contains the attributes and methods to give
+# a node some time to initialize. Once proper boot-up
+# coordination has been implemented, this can be removed.
+class TestNodeWait(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(TestNodeWait, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_NodeWait():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Node wait caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_NodeWait(self):
+        """
+        Test Case:
+        Give a node some time to initialize.
+        """
+
+        # Currently, 10/13/2014, we require a bit of a delay after all components are
+        # up so that they can initialize themselves among each other before proceeding,
+        # confident that we have a workable system.
+        delay = 20
+        self.log.warning("Waiting an obligatory %d seconds to allow FDS components to initialize among themselves before "
+                         "starting test load." %
+                         delay)
+        time.sleep(delay)
 
         return True
 
@@ -145,8 +197,6 @@ class TestNodeShutdown(TestCase.FDSTestCase):
             #if status != 0:
             #    self.log.error("Node shutdown on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             #    return False
-
-            time.sleep(2)
 
         return True
 
