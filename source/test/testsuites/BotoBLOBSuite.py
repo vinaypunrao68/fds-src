@@ -34,6 +34,9 @@ def suiteConstruction():
     # Create an S3 bucket.
     suite.addTest(testcases.TestS3IntFace.TestS3CrtBucket())
 
+    # Load a zero-length BLOB into the bucket.
+    suite.addTest(testcases.TestS3IntFace.TestS3LoadZBLOB())
+
     # Load a 'small' BLOB (<= 2MiB) into the bucket.
     suite.addTest(testcases.TestS3IntFace.TestS3LoadSBLOB())
 
@@ -44,9 +47,7 @@ def suiteConstruction():
     suite.addTest(testcases.TestS3IntFace.TestS3LoadMBLOB())
 
     # Load a 'large' BLOB (> 2MiB) into the bucket.
-    # TODO(GREG): Currently fails, apparently due to product bugs, but takes
-    # a long time to fail. So commented out for now.
-    # suite.addTest(testcases.TestS3IntFace.TestS3LoadLBLOB())
+    suite.addTest(testcases.TestS3IntFace.TestS3LoadLBLOB())
 
     # List the keys of the bucket.
     suite.addTest(testcases.TestS3IntFace.TestS3ListBucketKeys())
