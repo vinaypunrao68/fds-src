@@ -11,6 +11,7 @@ import TestCase
 # Module-specific requirements
 import sys
 import os
+import time
 
 
 # This class contains attributes and methods to test
@@ -335,15 +336,24 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
             self.log.info("Restart Redis clean on %s." %n.nd_conf_dict['node-name'])
 
             status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
+            time.sleep(2)
 
             if status != 0:
-                self.log.error("Restart Redis on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+                self.log.error("Restart Redis before clean on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
                 return False
 
             status = n.nd_agent.exec_wait("%s/redis.sh clean" % sbin_dir)
+            time.sleep(2)
 
             if status != 0:
                 self.log.error("Clean Redis on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+                return False
+
+            status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
+            time.sleep(2)
+
+            if status != 0:
+                self.log.error("Restart Redis after clean on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
                 return False
 
         return True
