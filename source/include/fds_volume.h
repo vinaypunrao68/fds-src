@@ -25,7 +25,6 @@
 #include <serialize.h>
 #include <fds_resource.h>
 #include <shared/fds-constants.h>
-
 #define FdsSysTaskQueueId 0xefffffff
 #define FdsSysTaskPri 5
 
@@ -78,16 +77,18 @@ class VolumeDesc : public HasState {
     int                    relativePrio;
     ptime                  tier_start_time;
     fds_uint32_t           tier_duration_sec;
-
-    ptime ctime; /* Create time */
+    fds_uint64_t           createTime;
 
     /* Snapshot */
     bool                   fSnapshot = false;
     fds_volid_t            srcVolumeId = invalid_vol_id;
     fds_volid_t            lookupVolumeId = invalid_vol_id;
     fds_volid_t            qosQueueId = invalid_vol_id;
+    // in seconds
     fds_uint64_t           contCommitlogRetention;
+    // in seconds
     fds_uint64_t           timelineTime;
+    // in millis
 
     fpi::ResourceState     state;
 

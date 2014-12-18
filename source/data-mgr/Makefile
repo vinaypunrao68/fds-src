@@ -20,7 +20,8 @@ user_non_fds_libs := \
     leveldb \
     ssl \
     crypto \
-    pcrecpp
+    pcrecpp \
+    sqlite3
 
 user_cpp          := dm-main.cpp
 user_bin_exe      := DataMgr

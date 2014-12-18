@@ -45,6 +45,7 @@
 #include <functional>
 
 #include <dm-tvc/TimeVolumeCatalog.h>
+#include <dm-tvc/TimelineDB.h>
 #include <StatStreamAggregator.h>
 
 /* if defined, puts complete as soon as they
@@ -80,7 +81,7 @@ struct DataMgr : Module, DmIoReqHandler {
     CatalogSyncMgrPtr catSyncMgr;  // sending vol meta
     CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
     void initHandlers();
-
+    VolumeMeta* getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked = false);
     /**
      * DmIoReqHandler method implementation
      */
@@ -92,12 +93,12 @@ struct DataMgr : Module, DmIoReqHandler {
     }
 
     inline const std::string & volumeName(fds_volid_t volId) {
-        FDSGUARD(*vol_map_mtx);
+        FDSGUARD(vol_map_mtx);
         return vol_meta_map[volId]->vol_desc->name;
     }
 
     inline const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
-        FDSGUARD(*vol_map_mtx);
+        FDSGUARD(vol_map_mtx);
         std::unordered_map<fds_uint64_t, VolumeMeta*>::const_iterator iter =
                 vol_meta_map.find(volId);
         return (vol_meta_map.end() != iter && iter->second ?
@@ -129,6 +130,7 @@ struct DataMgr : Module, DmIoReqHandler {
     } feature;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
+    TimelineDB timeline;
 
     /**
      * For timing out request forwarding in DM (to send DMT close ack)

@@ -218,6 +218,8 @@ class DmVolumeDirectory : public Module, public HasLogger,
          return 0;
      }
 
+    DmPersistVolDir::ptr getVolume(fds_volid_t volId);
+
   private:
     // methods
     Error getBlobMetaDesc(fds_volid_t volId, const std::string & blobName,
