@@ -84,7 +84,7 @@ namespace fds
     extern const NodeUuid    gl_OmUuid;
     extern const NodeUuid    gl_OmPmUuid;
 
-    const fds_uint32_t       NODE_DO_PROXY_ALL_SVCS = 
+    const fds_uint32_t       NODE_DO_PROXY_ALL_SVCS =
                              (fpi::NODE_SVC_SM | fpi::NODE_SVC_DM | fpi::NODE_SVC_AM);
     /**
      * Basic info about a peer node.
@@ -280,7 +280,7 @@ namespace fds
             virtual void agent_bind_ep();
             virtual void agent_svc_info(fpi::NodeSvcInfo *out) const;
 
-            PmAgent(const NodeUuid &uuid);
+            explicit PmAgent(const NodeUuid &uuid);
             boost::intrusive_ptr<PmSvcEp> agent_ep_svc();
 
         protected:
@@ -302,7 +302,7 @@ namespace fds
             virtual void agent_bind_ep();
             virtual void sm_handshake(boost::shared_ptr<netSessionTbl> net);
 
-            SmAgent(const NodeUuid &uuid);
+            explicit SmAgent(const NodeUuid &uuid);
             boost::intrusive_ptr<SmSvcEp> agent_ep_svc();
 
             NodeAgentDpClientPtr get_sm_client();
@@ -326,7 +326,7 @@ namespace fds
             virtual ~DmAgent();
             virtual void agent_bind_ep();
 
-            DmAgent(const NodeUuid &uuid);
+            explicit DmAgent(const NodeUuid &uuid);
             boost::intrusive_ptr<DmSvcEp> agent_ep_svc();
 
         protected:
@@ -344,7 +344,7 @@ namespace fds
             virtual ~AmAgent();
             virtual void agent_bind_ep();
 
-            AmAgent(const NodeUuid &uuid);
+            explicit AmAgent(const NodeUuid &uuid);
             boost::intrusive_ptr<AmSvcEp> agent_ep_svc();
 
         protected:
@@ -362,7 +362,7 @@ namespace fds
             virtual ~OmAgent();
             virtual void agent_bind_ep();
 
-            OmAgent(const NodeUuid &uuid);
+            explicit OmAgent(const NodeUuid &uuid);
             boost::intrusive_ptr<OmSvcEp> agent_ep_svc();
 
             /**
@@ -376,14 +376,15 @@ namespace fds
              * TODO(Vy): remove this API and use the net service one.
              */
             virtual void
-            om_handshake(boost::shared_ptr<netSessionTbl> net, std::string om_ip, 
+            om_handshake(boost::shared_ptr<netSessionTbl> net, std::string om_ip,
                          fds_uint32_t om_port);
 
             boost::shared_ptr<apis::ConfigurationServiceClient> get_om_config_svc();
 
         protected:
-            netOMControlPathClientSession                         *om_sess;        /** the rpc session to OM.  */
-            NodeAgentCpOmClientPtr                                 om_reqt;        /**< handle to send reqt to OM.  */
+            netOMControlPathClientSession           *om_sess;    /** the rpc session to OM.  */
+            NodeAgentCpOmClientPtr                  om_reqt;     /**< handle to send reqt to OM.  */
+
             std::string                                            om_sess_id;
             boost::intrusive_ptr<OmSvcEp>                          om_ep_svc;
             boost::shared_ptr<apis::ConfigurationServiceClient>    om_cfg_svc;
@@ -402,7 +403,8 @@ namespace fds
             /**
              * Iter loop to extract NodeAgent ptr:
              */
-            template <typename T> void agent_foreach(T arg, void (*fn)(T arg, NodeAgent::pointer elm))
+            template <typename T> void agent_foreach(T arg, void (*fn)(T arg, NodeAgent::pointer
+                                                                       elm))
             {
                 for (fds_uint32_t i = 0; i < rs_cur_idx; i++)
                 {
@@ -415,7 +417,7 @@ namespace fds
                 }
             }
 
-            template <typename T1, typename T2> 
+            template <typename T1, typename T2>
             void agent_foreach(T1 a1, T2 a2, void (*fn)(T1, T2, NodeAgent::pointer elm))
             {
                 for (fds_uint32_t i = 0; i < rs_cur_idx; i++)
@@ -463,7 +465,7 @@ namespace fds
              * Only iterates through active agents (for which we called agent_activate, and
              * did not call agent_deactivate).
              */
-            template <typename T> 
+            template <typename T>
             fds_uint32_t agent_ret_foreach(T arg, Error (*fn)(T arg, NodeAgent::pointer elm))
             {
                 fds_uint32_t    count = 0;
@@ -552,12 +554,12 @@ namespace fds
              * @param ro, rw (i) - indices to get the node inventory data RO or RW (-1 invalid).
              * @param bool (i) - true if want to register, publish the node/service endpoint.
              */
-            virtual bool agent_register(const ShmObjRO *shm, NodeAgent::pointer *out, int ro, 
+            virtual bool agent_register(const ShmObjRO *shm, NodeAgent::pointer *out, int ro,
                                         int rw);
             /**
              * Establish RPC connection with the remte agent.
              */
-            virtual void agent_handshake(boost::shared_ptr<netSessionTbl> net, 
+            virtual void agent_handshake(boost::shared_ptr<netSessionTbl> net,
                                          NodeAgent::pointer agent);
 
         protected:
@@ -567,7 +569,7 @@ namespace fds
             boost::shared_ptr<netSessionTbl>    ac_cpSessTbl;
 
             virtual ~AgentContainer();
-            AgentContainer(FdspNodeType id);
+            explicit AgentContainer(FdspNodeType id);
     };
 
     /**
@@ -588,7 +590,7 @@ namespace fds
         public:
             typedef boost::intrusive_ptr<PmContainer> pointer;
 
-            PmContainer(FdspNodeType id) : AgentContainer(id)
+            explicit PmContainer(FdspNodeType id) : AgentContainer(id)
             {
                 ac_id = fpi::FDSP_PLATFORM;
             }
@@ -609,9 +611,9 @@ namespace fds
         public:
             typedef boost::intrusive_ptr<SmContainer> pointer;
 
-            SmContainer(FdspNodeType id);
+            explicit SmContainer(FdspNodeType id);
 
-            virtual void agent_handshake(boost::shared_ptr<netSessionTbl> net, 
+            virtual void agent_handshake(boost::shared_ptr<netSessionTbl> net,
                                          NodeAgent::pointer agent);
 
         protected:
@@ -630,7 +632,7 @@ namespace fds
         public:
             typedef boost::intrusive_ptr<DmContainer> pointer;
 
-            DmContainer(FdspNodeType id) : AgentContainer(id)
+            explicit DmContainer(FdspNodeType id) : AgentContainer(id)
             {
                 ac_id = fpi::FDSP_DATA_MGR;
             }
@@ -651,7 +653,7 @@ namespace fds
         public:
             typedef boost::intrusive_ptr<AmContainer> pointer;
 
-            AmContainer(FdspNodeType id) : AgentContainer(id)
+            explicit AmContainer(FdspNodeType id) : AgentContainer(id)
             {
                 ac_id = fpi::FDSP_STOR_HVISOR;
             }
@@ -672,7 +674,7 @@ namespace fds
         public:
             typedef boost::intrusive_ptr<OmContainer> pointer;
 
-            OmContainer(FdspNodeType id) : AgentContainer(id)
+            explicit OmContainer(FdspNodeType id) : AgentContainer(id)
             {
                 ac_id = fpi::FDSP_ORCH_MGR;
             }
@@ -700,7 +702,7 @@ namespace fds
             virtual ~DomainContainer();
             explicit DomainContainer(char const *const name);
 
-            DomainContainer(char const *const name, OmAgent::pointer master, 
+            DomainContainer(char const *const name, OmAgent::pointer master,
                             AgentContainer::pointer sm, AgentContainer::pointer dm,
                             AgentContainer::pointer am, AgentContainer::pointer pm,
                             AgentContainer::pointer om);
@@ -711,7 +713,7 @@ namespace fds
             virtual Error dc_register_node(const NodeUuid &uuid, const FdspNodeRegPtr msg,
                                            NodeAgent::pointer *agent);
 
-            virtual void dc_register_node(const ShmObjRO *shm, NodeAgent::pointer *agent, int ro, 
+            virtual void dc_register_node(const ShmObjRO *shm, NodeAgent::pointer *agent, int ro,
                                           int rw, fds_uint32_t mask = 0);
 
             virtual Error dc_unregister_node(const NodeUuid &uuid, const std::string &name);

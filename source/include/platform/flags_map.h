@@ -1,12 +1,15 @@
-/* Copyright 2013 Formation Data Systems, Inc.
+/*
+ * Copyright 2013-2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_INCLUDE_FDS_FLAGS_H_
-#define SOURCE_INCLUDE_FDS_FLAGS_H_
+#ifndef SOURCE_INCLUDE_PLATFORM_FLAGS_MAP_H_
+#define SOURCE_INCLUDE_PLATFORM_FLAGS_MAP_H_
 
 #include <string>
+#include <map>
 #include <unordered_map>
-#include <fds_assert.h>
+
+#include "fds_assert.h"
 
 /* Use this macro for declaring a flag */
 #define DECLARE_FLAG(id)                    extern int64_t id
@@ -54,4 +57,4 @@ namespace fds
     };
 }  // namespace fds
 
-#endif  // SOURCE_INCLUDE_FDS_FLAGS_H_
+#endif  // SOURCE_INCLUDE_PLATFORM_FLAGS_MAP_H_

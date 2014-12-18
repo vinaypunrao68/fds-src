@@ -2,8 +2,8 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_NET_SERVICE_INCLUDE_NET_PLAT_SHARED_H_
-#define SOURCE_NET_SERVICE_INCLUDE_NET_PLAT_SHARED_H_
+#ifndef SOURCE_INCLUDE_PLATFORM_NET_PLAT_SHARED_H_
+#define SOURCE_INCLUDE_PLATFORM_NET_PLAT_SHARED_H_
 
 #include <string>
 #include <vector>
@@ -163,4 +163,4 @@ namespace fds
     extern NetPlatSvc    gl_NetPlatform;
 
 }  // namespace fds
-#endif  // SOURCE_NET_SERVICE_INCLUDE_NET_PLAT_SHARED_H_
+#endif  // SOURCE_INCLUDE_PLATFORM_NET_PLAT_SHARED_H_
