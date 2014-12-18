@@ -83,6 +83,7 @@ class NbdConnection : public NbdOperationsResponseIface {
     message<request_header, boost::shared_ptr<std::string>> request;
 
     std::unique_ptr<iovec[]> response;
+    size_t total_blocks;
     ssize_t write_offset;
 
     // Uturn stuff. Remove me.
@@ -138,15 +139,17 @@ class NbdConnection : public NbdOperationsResponseIface {
     bool hsPreInit(ev::io &watcher);
     void hsPostInit(ev::io &watcher);
     bool hsAwaitOpts(ev::io &watcher);
-    void hsSendOpts(ev::io &watcher);
+    bool hsSendOpts(ev::io &watcher);
     void hsReq(ev::io &watcher);
-    void hsReply(ev::io &watcher);
+    bool hsReply(ev::io &watcher);
     Error dispatchOp(ev::io &watcher,
                      fds_uint32_t opType,
                      fds_int64_t handle,
                      fds_uint64_t offset,
                      fds_uint32_t length,
                      boost::shared_ptr<std::string> data);
+
+    bool write_response();
 
   public:
     NbdConnection(OmConfigApi::shared_ptr omApi, int clientsd);
