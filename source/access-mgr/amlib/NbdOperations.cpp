@@ -58,8 +58,17 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
         fds_uint64_t objectOff = curOffset / maxObjectSizeInBytes;
         fds_uint32_t iOff = curOffset % maxObjectSizeInBytes;
         fds_uint32_t iLength = length - amBytesRead;
-        if (iLength > maxObjectSizeInBytes) {
+        // three cases here for the length of the first object
+        // 1) Aligned: min(length, maxObjectSizeInBytes)
+        // 2) Un-aligned and data spills over the next object
+        //    maxObjectSizeInBytes - iOff
+        // 3) Un-aligned otherwise: length
+        if (iLength >= maxObjectSizeInBytes) {
             iLength = maxObjectSizeInBytes - iOff;
+        } else if ((seqId == 0) && (iOff != 0)) {
+            if (length > (maxObjectSizeInBytes - iOff)) {
+                iLength = maxObjectSizeInBytes - iOff;
+            }
         }
         fds_uint32_t actualLength = iLength;
         if ((seqId == 0) && (iOff != 0)) {

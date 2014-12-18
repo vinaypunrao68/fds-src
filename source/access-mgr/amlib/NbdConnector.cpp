@@ -350,17 +350,7 @@ NbdConnection::hsReply(ev::io &watcher) {
 
         fds_uint32_t context = 0;
         size_t cnt = 0;
-        if (resp->isRead() && (opError == ERR_BLOB_OFFSET_INVALID)) {
-            // ok to read unwritten block, return zeros
-            fds_uint32_t length = resp->getLength();
-            fds_verify((length % resp->maxObjectSize()) == 0);
-            fds_uint32_t chunks = length / resp->maxObjectSize();
-            for (size_t i = 0; i < chunks; ++i) {
-                vectors[3+i].iov_base = to_iovec(fourKayZeros);
-                vectors[3+i].iov_len = sizeof(fourKayZeros);
-                ++cnt;
-            }
-        } else if (resp->isRead() && (opError.ok())) {
+        if (resp->isRead() && (opError.ok())) {
             boost::shared_ptr<std::string> buf = resp->getNextReadBuffer(context);
             while (buf != NULL) {
                 GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;

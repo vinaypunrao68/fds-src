@@ -61,21 +61,37 @@ class NbdResponseVector {
                                   const Error& err) {
         fds_verify(operation == READ);
         fds_verify(seqId < bufVec.size());
-        if (!err.ok()) {
+        if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID)) {
             opError = err;
             return true;
-        }
-        // check if that was the first un-aligned read
-        if ((seqId == 0) && ((offset % maxObjectSizeInBytes) != 0)) {
+        } else if (err == ERR_BLOB_OFFSET_INVALID) {
+            // we tried to read unwritten block, fill in zeros
             fds_uint32_t iOff = offset % maxObjectSizeInBytes;
-            fds_uint32_t iLength = length;
-            if (iLength > maxObjectSizeInBytes) {
-                iLength = maxObjectSizeInBytes - iOff;
+            fds_uint32_t firstObjectLength = length;
+            if (length >= maxObjectSizeInBytes) {
+                firstObjectLength -= iOff;
+            } else if ((seqId == 0) && (iOff != 0)) {
+                if (length > (maxObjectSizeInBytes - iOff)){
+                    firstObjectLength = maxObjectSizeInBytes - iOff;
+                }
             }
-            boost::shared_ptr<std::string> buf(new std::string(retBuf->c_str(), iOff));
+            fds_uint32_t iLength = maxObjectSizeInBytes;
+            if (seqId == 0) {
+                iLength = firstObjectLength;
+            } else if (seqId == (objCount - 1)) {
+                iLength = length - firstObjectLength - (objCount-2) * maxObjectSizeInBytes;
+            }
+            boost::shared_ptr<std::string> buf(new std::string(iLength, 0));
             bufVec[seqId] = buf;
         } else {
-            bufVec[seqId] = retBuf;
+            // check if that was the first un-aligned read
+            if ((seqId == 0) && ((offset % maxObjectSizeInBytes) != 0)) {
+                fds_uint32_t iOff = offset % maxObjectSizeInBytes;
+                boost::shared_ptr<std::string> buf(new std::string(retBuf->c_str(), iOff));
+                bufVec[seqId] = buf;
+            } else {
+                bufVec[seqId] = retBuf;
+            }
         }
         fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
         return ((doneCnt + 1) == objCount);
