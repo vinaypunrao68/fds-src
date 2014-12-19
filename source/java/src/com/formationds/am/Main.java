@@ -32,6 +32,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 
 public class Main {
+    public static final int AM_BASE_RESPONSE_PORT = 9876;
     private static Logger LOG = Logger.getLogger(Main.class);
     // key for managing the singleton EventManager.
     private final Object eventMgrKey = new Object();
@@ -60,8 +61,6 @@ public class Main {
 //        EventRepository eventRepository = new EventRepository();
 //        EventManager.INSTANCE.initEventNotifier(eventMgrKey, (e) -> { return eventRepository.save(e) != null; });
 
-        XdiClientFactory clientFactory = new XdiClientFactory();
-
         // Get the instance ID from either the config file or cmd line
         int amInstanceId = platformConfig.lookup("fds.am.instanceId").intValue();
         OptionParser parser = new OptionParser();
@@ -71,6 +70,11 @@ public class Main {
         if (options.has("fds.am.instanceId")) {
             amInstanceId = (int)options.valueOf("fds.am.instanceId");
         }
+
+        int amResponsePort = AM_BASE_RESPONSE_PORT + amInstanceId;
+        System.out.println("My instance id " + amInstanceId);
+
+        XdiClientFactory clientFactory = new XdiClientFactory(amResponsePort);
 
         boolean useFakeAm = platformConfig.lookup("fds.am.memory_backend").booleanValue();
         String omHost = platformConfig.lookup("fds.am.om_ip").stringValue();
@@ -86,28 +90,13 @@ public class Main {
         Authenticator authenticator = enforceAuth ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
         Authorizer authorizer = enforceAuth ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 
-        int nbdPort = platformConfig.lookup("fds.am.nbd_server_port").intValue();
-        nbdPort += amInstanceId;
-        boolean nbdLoggingEnabled = platformConfig.defaultBoolean("fds.am.enable_nbd_log", false);
-        boolean nbdBlockExclusionEnabled = platformConfig.defaultBoolean("fds.am.enable_nbd_block_exclusion", true);
-        ForkJoinPool fjp = new ForkJoinPool(50);
-        NbdServerOperations ops = new FdsServerOperations(am, configCache, fjp);
-        if (nbdLoggingEnabled)
-            ops = new LoggingOperationsWrapper(ops,
-                                               "/fds/var/logs/nbd." + Integer.toString(amInstanceId));
-        if (nbdBlockExclusionEnabled)
-            ops = new BlockExclusionWrapper(ops, 4096);
-        NbdHost nbdHost = new NbdHost(nbdPort, ops);
-
-        new Thread(() -> nbdHost.run(), "NBD thread").start();
-
         Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
         ByteBufferPool bbp = new ArrayByteBufferPool();
-        AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
 
         System.out.println("My instance id " + amInstanceId);
 
-        AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm() : new RealAsyncAm(oneWayAm, 9876 + amInstanceId);
+        AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
+        AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm() : new RealAsyncAm(oneWayAm, amResponsePort);
         asyncAm.start();
 
         Function<AuthenticationToken, XdiAsync> factory = (token) -> new XdiAsync(asyncAm, bbp, token, authorizer, configCache);
