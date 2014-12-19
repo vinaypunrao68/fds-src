@@ -16,6 +16,8 @@ import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.xdi.*;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 import org.apache.thrift.server.TNonblockingServer;
@@ -23,9 +25,6 @@ import org.apache.thrift.transport.TNonblockingServerSocket;
 import org.apache.thrift.transport.TTransportException;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.eclipse.jetty.io.ByteBufferPool;
-
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -77,9 +76,10 @@ public class Main {
         String omHost = platformConfig.lookup("fds.am.om_ip").stringValue();
         int omConfigPort = 9090;
         int omLegacyConfigPort = platformConfig.lookup("fds.am.om_config_port").intValue();
+        String amHost = platformConfig.lookup("fds.xdi.am_host").stringValue();
 
         AmService.Iface am = useFakeAm ? new FakeAmService() :
-                                         clientFactory.remoteAmService("localhost", 9988);
+                clientFactory.remoteAmService(amHost, 9988);
 
         ConfigurationApi configCache = new ConfigurationApi(clientFactory.remoteOmService(omHost, omConfigPort));
         boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
@@ -103,7 +103,7 @@ public class Main {
 
         Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
         ByteBufferPool bbp = new ArrayByteBufferPool();
-        AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm("localhost", 8899);
+        AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
 
         System.out.println("My instance id " + amInstanceId);
 
