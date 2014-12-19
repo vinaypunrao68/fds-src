@@ -13,6 +13,7 @@
 
 // New includes
 #include "node_work_type.h"
+#include "node_work_event.h"
 
 namespace fds
 {
@@ -182,8 +183,6 @@ namespace fds
         NWL_MAX_OPS
     } node_work_type_e;
 
-#endif
-
     /**
      * Common events to work item.
      */
@@ -200,6 +199,8 @@ namespace fds
         {
         }
     };
+
+#endif
 
     /**
      * Base work item.
