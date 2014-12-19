@@ -11,7 +11,7 @@ localhost
 
 [ec2hosts:vars]
 ansible_ssh_user=deploy
-cluster_location=bld
+cluster_location=awo
 deploy_artifact=nightly
 fds_default_nic=eth0
 fds_om_host="{{ groups[group_names[0]][0] }}"
