@@ -95,7 +95,7 @@ public class Main {
 
         System.out.println("My instance id " + amInstanceId);
 
-        AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
+        AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm("localhost", 8899);
         AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm() : new RealAsyncAm(oneWayAm, amResponsePort);
         asyncAm.start();
 
