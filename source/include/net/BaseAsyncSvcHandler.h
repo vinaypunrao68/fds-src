@@ -139,23 +139,9 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
                                        ep, resp_hdr, buffer); \
                   return;);
 
-        // TODO(Rao): Enable this code instead of the try..catch.  I was getting
-        // a compiler error when I enabled the following code.
-        // NET_SVC_RPC_CALL(ep, client, fpi::BaseAsyncSvcClient::asyncResp,
-        // resp_hdr, buffer->getBufferAsString());
-        try {
-            SVCPERF(resp_hdr.rspSendStartTs = util::getTimeStampNanos());
-            ep->svc_rpc<fpi::BaseAsyncSvcClient>()->\
-                asyncResp(resp_hdr, buffer->getBufferAsString());
-        } catch(std::exception &e) {
-            GLOGERROR << logString(resp_hdr) << " exception: " << e.what();
-            ep->ep_handle_net_error();
-            fds_panic("uh oh");
-        } catch(...) {
-            ep->ep_handle_net_error();
-            DBG(std::exception_ptr eptr = std::current_exception());
-            fds_panic("uh oh");
-        }
+        NET_SVC_RPC_CALL(ep, ep->svc_rpc<fpi::BaseAsyncSvcClient>(),
+                        fpi::BaseAsyncSvcClient::asyncResp,
+                        resp_hdr, buffer->getBufferAsString());
     }
 
     // protected:
