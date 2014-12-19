@@ -92,7 +92,7 @@ enum  FDSPMsgTypeId {
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,
-    CtrlNotiftySMStartMigrationTypeId  = 2062,
+    CtrlNotifySMStartMigrationTypeId   = 2062,
 
     /* DM messages. */
     CtrlNotifyPushDMTTypeId            = 2080,
