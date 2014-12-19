@@ -178,6 +178,21 @@ class VolumeContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
+    def keys(self, vol_name):
+        'get an object from the volume'
+        try:
+            b = self.s3api.get_bucket(vol_name)
+            data = [[key.name.encode('ascii','ignore')] for key in b.list()]
+            data.sort()
+            return tabulate(data, tablefmt=self.config.getTableFormat(), headers=['name'])
+            
+        except Exception, e:
+            log.exception(e)
+            return 'get objects failed on volume: {}'.format(vol_name)
+
+    #--------------------------------------------------------------------------------------
+
+    @clidebugcmd
     def deleteobject(self, vol_name, key):
         'delete an object from the volume'
         try:

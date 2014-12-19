@@ -11,6 +11,7 @@
 #include <StorHvQosCtrl.h>
 #include <am-tx-mgr.h>
 #include <AmDispatcher.h>
+#include "AmRequest.h"
 
 namespace fds {
 
@@ -136,7 +137,11 @@ class AmProcessor : public Module, public boost::noncopyable {
     /**
      * Generic callback for a few responses
      */
-    void genericCb(AmRequest *amReq, const Error& error);
+    void respond_and_delete(AmRequest *amReq, const Error& error)
+    { respond(amReq, error); delete amReq; }
+
+    void respond(AmRequest *amReq, const Error& error)
+    { qosCtrl->markIODone(amReq); amReq->cb->call(error); }
 
   private:
     /// Raw pointer to QoS controller

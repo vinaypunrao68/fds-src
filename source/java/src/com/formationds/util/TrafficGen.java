@@ -83,6 +83,7 @@ import java.util.function.Function;
  */
 public class TrafficGen {
 
+    private static int HTTP_PORT = 8000;
     static AtomicInteger successes = new AtomicInteger(0);
     static AtomicInteger failures = new AtomicInteger(0);
     static AtomicInteger keepalive = new AtomicInteger(0);
@@ -165,6 +166,11 @@ public class TrafficGen {
                 .withDescription("S3 Authentication token")
                 .create("token"));
 
+        options.addOption(OptionBuilder.withArgName("port")
+                .isRequired(false)
+                .hasArg()
+                .withDescription("S3 HTTP port")
+                .create("port"));
 
 
         CommandLineParser parser = new BasicParser();
@@ -208,6 +214,10 @@ public class TrafficGen {
             if (line.hasOption("token")) {
                 token = line.getOptionValue("token");
             }
+            if (line.hasOption("port")) {
+                HTTP_PORT = Integer.parseInt(line.getOptionValue("port"));
+            }
+
         } catch (ParseException exp) {
             // oops, something went wrong
             System.err.println("Parsing failed.  Reason: " + exp.getMessage());
@@ -275,7 +285,7 @@ public class TrafficGen {
         assert connectionReuseStrategy != null;
         HttpAsyncRequester requester = new HttpAsyncRequester(httpproc, connectionReuseStrategy);
         // Execute HTTP GETs to the following hosts and
-        HttpHost target = new HttpHost(hostname, 8000, "http");
+        HttpHost target = new HttpHost(hostname, HTTP_PORT, "http");
 
         List<HttpRequest> requests = new ArrayList<>();
         for (int i = 0; i < n_reqs; i++) {

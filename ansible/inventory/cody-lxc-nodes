@@ -5,8 +5,8 @@
 10.2.10.193 fds_node=node04
 
 [cody-lxc-nodes:vars]
-ansible_ssh_user=root
-ansible_ssh_pass=passwd
+ansible_ssh_user=ubuntu
+ansible_ssh_pass=ubuntu
 cluster_location=bld
 deploy_artifact=nightly
 fds_default_nic=eth0

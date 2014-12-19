@@ -40,8 +40,8 @@ class TestList():
         test["runtime"] = 0
         tests.append(test)
         test_types = ["randread"]
-        for d in [4, 16, 32, 64, 128]:
-            for j in [1]:
+        for d in [25, 50, 100, 150]:
+            for j in [1, 4, 8]:
                 for bs in [4096]:
                     for test_type in test_types:
                         test = dict(template)
@@ -51,7 +51,8 @@ class TestList():
                         test["numjobs"] = j
                         test["iodepth"] = d
                         test["runtime"] = 60
-                        tests.append(test)
+                        for i in range(5):
+                            tests.append(test)
         self.tests = tests
 
     def create_tests_s3(self):
@@ -92,35 +93,41 @@ class TestList():
         test["fsize"] = size
         test["injector"] = None
         tests.append(test)
-        for size in [4096]:
+        #for size in [8*1024, 16*1024, 32*1024, 64*1024, 256*1024, 512*1024, 1024*1024, 2*1024*1024]:
+        for size in [4*1024]:
             for nvols in [1]:
                 # for th in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40]:
                 # for th in range(1,51):
-                for th in [1, 2 ,3 ,4]:
-                    #for outs in [2, 4, 10, 20, 50]:
-                    for outs in [1, 5, 10, 20, 30, 40, 50]:
+                for th in [1, 2, 3, 4]:
+                    for outs in [2, 4, 10, 20, 50]:
+                    #for outs in [1, 5, 10, 20, 30, 40, 50]:
+                    #for outs in [1]:
                         #for th in [4]:
                         #for th in [21]:
                         # for th in [30]:
-                            total_reqs = max([th * 300000 / 50, 100000])
                             test = dict(template)
                             test["type"] = "PUT"
-                            test["nreqs"] = 100000
+                            test["nreqs"] = 10000
                             test["nfiles"] = 1000
                             test["nvols"] = nvols
                             test["threads"] = th
                             test["fsize"] = size
-                            #tests.append(test)
+                            # tests.append(test)
                             test = dict(template)
                             test["test_type"] = "tgen_java"
                             test["type"] = "GET"
+                            if test["test_type"] == "tgen_java":
+                                total_reqs = max([th * 300000 / 50, 100000])*10
+                            else:
+                                total_reqs = max([th * 300000 / 50, 100000])
                             test["nreqs"] = total_reqs
                             test["nfiles"] = 1000
                             test["nvols"] = nvols
                             test["threads"] = th
                             test["fsize"] = size
                             test["outstanding"] = outs
-                            tests.append(test)
+                            for i in range(5):
+                                tests.append(test)
 
 #            for nvols in [1]:#[1, 2]: # [1, 2, 3, 4]:
 #                # for th in [5, 10, 15, 20, 25, 30, 35]:
@@ -153,8 +160,8 @@ def main():
     (options, args) = parser.parse_args()
 
     tl = TestList()
-    tl.create_tests_s3()
-    # tl.create_tests_fio()
+    # tl.create_tests_s3()
+    tl.create_tests_fio()
     print "Tests:"
     pp = pprint.PrettyPrinter(indent=4)
     for e in tl.get_tests():

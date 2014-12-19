@@ -108,6 +108,7 @@ chef/vagrant/*/.vagrant/*
 source/java/${project.build.dir}
 source/test/.idea
 source/test/formation.conf
+source/test/integration-framework/test-reports/
 source/config/etc/*.conf
 ansible/resources/*
 ansible/.devsetup-is-*
@@ -116,3 +117,4 @@ source/cit/PyUnit.log*
 source/cit/classes
 source/cit/surefire-reports
 source/sm*log
+.classpath

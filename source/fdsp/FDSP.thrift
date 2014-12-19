@@ -280,6 +280,9 @@ struct FDSP_BlobInfoType{
 
 typedef list<FDSP_BlobInfoType> BlobInfoListType
 
+/* A detailed list of blob stats. */
+typedef list<BlobDescriptor> BlobDescriptorListType
+
 const i64 blob_list_iterator_begin = 0
 const i64 blob_list_iterator_end = 1
 
@@ -424,7 +427,8 @@ struct FDSP_VolumeInfoType {
   20: i64                        srcVolumeId,
   21: i64                        qosQueueId,
   22: i64                        contCommitlogRetention,
-  23: i64                        timelineTime
+  23: i64                        timelineTime,
+  24: i64                        createTime
 }
 
 struct FDSP_VolumeDescType {
@@ -468,7 +472,8 @@ struct FDSP_VolumeDescType {
   25: i64                        qosQueueId,
   26: common.ResourceState              state,
   27: i64                        contCommitlogRetention,
-  28: i64                        timelineTime
+  28: i64                        timelineTime,
+  29: i64                        createTime
 }
 
 struct FDSP_CreateDomainType {

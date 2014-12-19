@@ -9,10 +9,10 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.snapshotPolicies = [];
     $scope.dataConnector = {};
     $scope.volumeName = '';
-    $scope.tieringPolicy = 0;
+    $scope.mediaPolicy = 0;
     
-    // default protection policies
-    $scope.protectionPolicies = {
+    // default timeline policies
+    $scope.timelinePolicies = {
         continuous: 24*60*60,
         policies: [
             // daily
@@ -51,11 +51,11 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             });
         }
 
-        // TIMELINE PROTECTION SCHEDULES
+        // TIMELINE SCHEDULES
         
-        for ( var j = 0; angular.isDefined( volume.protectionPolicies ) && j < volume.protectionPolicies.length; j++ ){
+        for ( var j = 0; angular.isDefined( volume.timelinePolicies ) && j < volume.timelinePolicies.length; j++ ){
             
-            var policy = volume.protectionPolicies[j];
+            var policy = volume.timelinePolicies[j];
             
             policy.name = newVolume.id + '_TIMELINE_' + policy.recurrenceRule.FREQ;
             
@@ -127,11 +127,11 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         volume.limit = $scope.qos.limit;
         volume.priority = $scope.qos.priority;
         volume.snapshotPolicies = $scope.snapshotPolicies;
-        volume.protectionPolicies = $scope.protectionPolicies.policies;
-        volume.commit_log_retention = $scope.protectionPolicies.continuous;
+        volume.timelinePolicies = $scope.timelinePolicies.policies;
+        volume.commit_log_retention = $scope.timelinePolicies.continuous;
         volume.data_connector = $scope.dataConnector;
         volume.name = $scope.volumeName;
-        
+//        volume.mediaPolicy = $scope.mediaPolicy.value;
         
         if ( !angular.isDefined( volume.name ) || volume.name === '' ){
             
@@ -172,8 +172,8 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             
             $scope.snapshotPolicies = [];
             
-            // default protection policies
-            $scope.protectionPolicies = {
+            // default timeline policies
+            $scope.timelinePolicies = {
                 continuous: 24*60*60,
                 policies: [
                     // daily

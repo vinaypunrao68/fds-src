@@ -149,7 +149,6 @@ def attach(args):
     sys.stderr.write('no eligible nbd devices found\n')
     return 4
 
-@staticmethod
 def safekill(process):
     try:
         process.kill()

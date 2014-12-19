@@ -51,7 +51,7 @@ namespace fds {
     inline fds_uint32_t pendingActiveCount() const {
         if ((queue->volQState == FDS_VOL_Q_ACTIVE) ||
             (queue->volQState == FDS_VOL_Q_QUIESCING)) {
-            return atomic_load(&num_pending_ios);
+            return num_pending_ios.load(std::memory_order_relaxed);
         }
         return 0;
     }

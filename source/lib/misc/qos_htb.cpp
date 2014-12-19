@@ -587,7 +587,7 @@ fds_uint64_t TBQueueState::updateTokens(fds_uint64_t nowMicrosec)
  * return one of the states */
 TBQueueState::tbStateType TBQueueState::tryToConsumeAssuredTokens(fds_uint32_t io_cost)
 {
-    unsigned int queued_ios = std::atomic_load(&queued_io_counter);
+    unsigned int queued_ios = queued_io_counter.load(std::memory_order_relaxed);
     if (queued_ios == 0) {
         return TBQUEUE_STATE_QUEUE_EMPTY;
     }

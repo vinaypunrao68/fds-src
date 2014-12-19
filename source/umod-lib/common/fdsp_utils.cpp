@@ -7,6 +7,10 @@
 #include <fdsp/fds_service_types.h>
 #include <fds_resource.h>
 
+#include <boost/algorithm/string/replace.hpp>
+
+using boost::replace_all;
+
 namespace fds {
 
 FDS_ProtocolInterface::FDS_ObjectIdType&
@@ -203,6 +207,7 @@ std::string logString(const FDS_ProtocolInterface::AddObjectRefRspMsg& copyRspMs
 std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlbTx)
 {
     std::ostringstream oss;
+    // FIXME(DAC): This does nothing.
     oss < " AbortBlobTxMs";
     return oss.str();
 }
@@ -214,6 +219,30 @@ std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message)
 
 std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg) {
     return "GetVolumeMetaDataMsg";
+}
+
+std::string logString(const FDS_ProtocolInterface::ListBlobsByPatternMsg& msg) {
+    std::ostringstream oss;
+    oss << " ListBlobsByPatternMsg(volume_id: " << msg.volume_id
+            << ", maxKeys: " << msg.maxKeys
+            << ", startPos: " << msg.startPos
+            << ", pattern: " << msg.pattern << ")";
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::ListBlobsByPatternRspMsg& msg) {
+    std::ostringstream oss;
+    oss << " ListBlobsByPatternRspMsg(count: " << msg.blobDescriptors.size() << ")";
+    return oss.str();
+}
+
+std::string quoteString(std::string const& text,
+                        std::string const& delimiter,
+                        std::string const& escape) {
+    std::string retval(text);
+    replace_all(retval, escape, escape + escape);
+    replace_all(retval, delimiter, escape + delimiter);
+    return delimiter + retval + delimiter;
 }
 
 }  // namespace fds

@@ -615,6 +615,8 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
         LOGNORMAL << "Token migration complete";
         LOGNORMAL << migrationSvc_->mig_cntrs.toString();
 
+        // omClient->sendDLTCloseAckToOM();
+
         objStorMgr->tok_migrated_for_dlt_ = false;
     }
 }

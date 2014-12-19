@@ -16,6 +16,7 @@
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TTransportUtils.h>
 #include <thrift/transport/TServerSocket.h>
+#include <thrift/transport/TSocket.h>
 #include <thrift/transport/TBufferTransports.h>
 
 namespace fds {
@@ -32,35 +33,66 @@ namespace xdi_atp = apache::thrift::protocol;
                  << "Dropping response and uninitializing the connection!"; \
     }
 
-AmAsyncXdiResponse::AmAsyncXdiResponse()
-        : serverIp("127.0.0.1"),
+fds_rwlock AmAsyncXdiResponse::client_lock;
+AmAsyncXdiResponse::client_map AmAsyncXdiResponse::clients;
+
+AmAsyncXdiResponse::AmAsyncXdiResponse(std::string const& server_ip)
+        : serverIp(server_ip),
           serverPort(9876) {
     // Set client to unitialized
     asyncRespClient.reset();
 }
 
 AmAsyncXdiResponse::~AmAsyncXdiResponse() {
+    // See if we're the last connected to this client
+    // if so we need to remove it from the client vector
+    SCOPEDWRITE(client_lock);
+    if (asyncRespClient.use_count() <= 2) {
+        std::string tcp_nexus(serverIp + ":" + std::to_string(serverPort));
+        auto client_it = clients.find(tcp_nexus);
+        if (client_it != clients.end())
+            clients.erase(client_it);
+        asyncRespClient.reset();
+    }
 }
 
 void
 AmAsyncXdiResponse::initiateClientConnect() {
-    // Setup the async response client
-    boost::shared_ptr<xdi_att::TTransport> respSock(
-        boost::make_shared<xdi_att::TSocket>(
-            serverIp, serverPort));
-            // "/tmp/am-resp-sock"));
-    boost::shared_ptr<xdi_att::TFramedTransport> respTrans(
-        boost::make_shared<xdi_att::TFramedTransport>(respSock));
-    boost::shared_ptr<xdi_atp::TProtocol> respProto(
-        boost::make_shared<xdi_atp::TBinaryProtocol>(respTrans));
-    asyncRespClient = boost::make_shared<apis::AsyncAmServiceResponseClient>(respProto);
-    respSock->open();
+    std::string tcp_nexus(serverIp + ":" + std::to_string(serverPort));
+    // First see if we're already connected to this client
+    // if so, reuse response path
+    SCOPEDWRITE(client_lock);
+    auto client_it = clients.find(tcp_nexus);
+
+    if (client_it != clients.end())
+    {
+        asyncRespClient = client_it->second;
+    } else {
+        // Setup the async response client
+        boost::shared_ptr<xdi_att::TTransport> respSock(
+            boost::make_shared<xdi_att::TSocket>(
+                serverIp, serverPort));
+        boost::shared_ptr<xdi_att::TFramedTransport> respTrans(
+            boost::make_shared<xdi_att::TFramedTransport>(respSock));
+        boost::shared_ptr<xdi_atp::TProtocol> respProto(
+            boost::make_shared<xdi_atp::TBinaryProtocol>(respTrans));
+        asyncRespClient = std::make_shared<apis::AsyncAmServiceResponseClient>(respProto);
+        clients[tcp_nexus] = asyncRespClient;
+        respSock->open();
+    }
+}
+
+void
+AmAsyncXdiResponse::handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId,
+                       boost::shared_ptr<int32_t>& port) {
+    serverPort = *port;
+    checkClientConnect();
+    XDICLIENTCALL(asyncRespClient, handshakeComplete(requestId));
 }
 
 void
 AmAsyncXdiResponse::attachVolumeResp(const Error &error,
                                      boost::shared_ptr<apis::RequestId>& requestId) {
-    checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
             boost::make_shared<apis::ErrorCode>());
@@ -262,43 +294,47 @@ AmAsyncXdiResponse::volumeContentsResp(const Error &error,
 void
 AmAsyncXdiResponse::getBlobResp(const Error &error,
                                 boost::shared_ptr<apis::RequestId>& requestId,
-                                char* buf,
+                                boost::shared_ptr<std::string> buf,
                                 fds_uint32_t& length) {
     checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
             boost::make_shared<apis::ErrorCode>());
+        *errorCode = (error == ERR_BLOB_NOT_FOUND ? apis::MISSING_RESOURCE :
+                                                    apis::BAD_REQUEST);
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
                                                              errorCode,
                                                              message));
     } else {
-         boost::shared_ptr<std::string> response =
-                 boost::make_shared<std::string>(buf, length);
-        XDICLIENTCALL(asyncRespClient, getBlobResponse(requestId, response));
+        buf = buf->size() > length ? boost::make_shared<std::string>(*buf, 0, length)
+            : buf;
+        XDICLIENTCALL(asyncRespClient, getBlobResponse(requestId, buf));
     }
 }
 
 void
 AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
                                         boost::shared_ptr<apis::RequestId>& requestId,
-                                        char* buf,
+                                        boost::shared_ptr<std::string> buf,
                                         fds_uint32_t& length,
                                         boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
     checkClientConnect();
     if (!error.ok()) {
         boost::shared_ptr<apis::ErrorCode> errorCode(
             boost::make_shared<apis::ErrorCode>());
+        *errorCode = (error == ERR_BLOB_NOT_FOUND ? apis::MISSING_RESOURCE :
+                                                    apis::BAD_REQUEST);
         boost::shared_ptr<std::string> message(
             boost::make_shared<std::string>());
         XDICLIENTCALL(asyncRespClient, completeExceptionally(requestId,
                                                              errorCode,
                                                              message));
     } else {
-        boost::shared_ptr<std::string> response =
-                boost::make_shared<std::string>(buf, length);
-        XDICLIENTCALL(asyncRespClient, getBlobWithMetaResponse(requestId, response, blobDesc));
+        buf = buf->size() > length ? boost::make_shared<std::string>(*buf, 0, length)
+            : buf;
+        XDICLIENTCALL(asyncRespClient, getBlobWithMetaResponse(requestId, buf, blobDesc));
     }
 }
 }  // namespace fds
