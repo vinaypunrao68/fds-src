@@ -13,7 +13,7 @@ import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
 import NodeWaitSuite
 import BotoBLOBSuite
-
+import BlockBlobSuite
 
 def suiteConstruction():
     """
@@ -43,6 +43,13 @@ def suiteConstruction():
     # Small/Large BLOB test using Boto.
     blobSuite = BotoBLOBSuite.suiteConstruction()
     suite.addTest(blobSuite)
+
+    # Everyone should still be up.
+    suite.addTest(nodeUpSuite)
+
+    # Block Blob test.
+    blockSuite = BlockBlobSuite.suiteConstruction()
+    suite.addTest(blockSuite)
 
     # Everyone should still be up.
     suite.addTest(nodeUpSuite)
