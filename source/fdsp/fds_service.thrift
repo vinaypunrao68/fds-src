@@ -90,8 +90,8 @@ enum  FDSPMsgTypeId {
 	CtrlSetScrubberStatusTypeId		   = 2052,
 	CtrlSetScrubberStatusRespTypeId	   = 2053,
 
-    CtrlNotifyObjectRebalance          = 2054,
-    CtrlSendObjectMetaData             = 2055,
+    CtrlNotifyObjectRebalanceTypeId    = 2054,
+    CtrlSendObjectMetaDataTypeId       = 2055,
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,
@@ -949,7 +949,7 @@ service AMSvc extends PlatNetSvc {
 /* Object + subset of MetaData to determine if either the object or
  * associated MetaData (subset) needs sync'ing.
  */
-struct FDSP_ObjectMetaDataSync 
+struct CtrlObjectMetaDataSync 
 {
     /* Object ID */
     1: FDSP.FDS_ObjectIdType objectID
@@ -968,17 +968,23 @@ struct FDSP_ObjectMetaDataSync
  * SM.  The set is filtered against the existing objects on SM, only
  * the "diff'ed" objects and meta data is sync'ed.
  */
-struct FDSP_ObjectRebalanceInitialSet
+struct CtrlObjectRebalanceInitialSet
 {
     /* Token to be rebalance */
     1: FDSP.FDSP_Token                    objectToken
     
     /* Set of objects to be sync'ed */
-    2: list<FDSP_ObjectMetaDataSync> objectsToSync
+    2: list<CtrlObjectMetaDataSync> objectsToSync
+}
+
+struct CtrlObjectRebalanceInitialSetResp
+{
+    /* Response status */
+    1: i64      objRebalanceStatus
 }
 
 /* Object + Data + MetaData to be propogated to the destination SM */
-struct FDSP_ObjectMetaDataPropagate
+struct CtrlObjectMetaDataPropagate
 {
     /* Object ID */
     1: FDSP.FDS_ObjectIdType objectID
@@ -1009,24 +1015,29 @@ struct FDSP_ObjectMetaDataPropagate
     8: i32              objectExpireTime    
 }
 
-struct FDSP_ObjectRebalanceDeltaSet
+struct CtrlObjectRebalanceDeltaSet
 {
-    1: list<FDSP_ObjectMetaDataPropagate> objectToPropogate
+    1: list<CtrlObjectMetaDataPropagate> objectToPropogate
 }
 
+struct CtrlObjectRebalanceDeltaSetResp
+{
+    /* Response status */
+    1: i64      objRebalanceDeltaStatus
+}
 
 service FDSP_ObjectRebalanceReq {
     oneway void NotifyObjectRebalance(1: FDSP.FDSP_MsgHdrType fdspMsg, 
-                                      2: FDSP_ObjectRebalanceInitialSet fdspInitialObjSet)
+                                      2: CtrlObjectRebalanceInitialSet fdspInitialObjSet)
     oneway void SendObjectMetaData(1: FDSP.FDSP_MsgHdrType fdspMsg, 
-                                   2: FDSP_ObjectRebalanceDeltaSet fdspDeltaObjSet) 
+                                   2: CtrlObjectRebalanceInitialSetResp fdspDeltaObjSet) 
 }
 
 service FDSP_ObjectRebalanceResp {
     oneway void NotifyObjectRebalanceResp(1: FDSP.FDSP_MsgHdrType fdspMsg, 
-                                          2: FDSP_ObjectRebalanceInitialSet fdspInitialObjSet)
+                                          2: CtrlObjectRebalanceInitialSet fdspInitialObjSet)
     oneway void SendObjectMetaDataResp(1: FDSP.FDSP_MsgHdrType fdspMsg, 
-                                       2: FDSP_ObjectRebalanceDeltaSet fdspDeltaObjSet) 
+                                       2: CtrlObjectRebalanceDeltaSetResp fdspDeltaObjSet) 
 }
 
 #endif
