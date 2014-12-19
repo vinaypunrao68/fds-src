@@ -117,6 +117,11 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
 
     void StartMigration(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
             boost::shared_ptr<fpi::CtrlStartMigration>& startMigration);
+    /**
+    * Handler for the new SM token migration messages
+    */
+    void migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+            boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg);
 };
 
 }  // namespace fds
