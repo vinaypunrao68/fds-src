@@ -98,8 +98,8 @@ class TestList():
             for nvols in [1]:
                 # for th in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40]:
                 # for th in range(1,51):
-                for th in [1, 2, 3, 4]:
-                    for outs in [2, 4, 10, 20, 50]:
+                for th in [1, 2, 4]:
+                    for outs in [2, 25, 50]:
                     #for outs in [1, 5, 10, 20, 30, 40, 50]:
                     #for outs in [1]:
                         #for th in [4]:
@@ -117,7 +117,7 @@ class TestList():
                             test["test_type"] = "tgen_java"
                             test["type"] = "GET"
                             if test["test_type"] == "tgen_java":
-                                total_reqs = max([th * 300000 / 50, 100000])*10
+                                total_reqs = max([int(th * outs * 1000000 / 50 / 4 * 1.5), 100000])
                             else:
                                 total_reqs = max([th * 300000 / 50, 100000])
                             test["nreqs"] = total_reqs
@@ -126,7 +126,7 @@ class TestList():
                             test["threads"] = th
                             test["fsize"] = size
                             test["outstanding"] = outs
-                            for i in range(5):
+                            for i in range(3):
                                 tests.append(test)
 
 #            for nvols in [1]:#[1, 2]: # [1, 2, 3, 4]:
@@ -160,8 +160,8 @@ def main():
     (options, args) = parser.parse_args()
 
     tl = TestList()
-    # tl.create_tests_s3()
-    tl.create_tests_fio()
+    tl.create_tests_s3()
+    # tl.create_tests_fio()
     print "Tests:"
     pp = pprint.PrettyPrinter(indent=4)
     for e in tl.get_tests():
