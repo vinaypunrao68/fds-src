@@ -158,9 +158,9 @@ class NbdOperations : public AmAsyncResponseApi {
                           boost::shared_ptr<apis::RequestId>& requestId) {}
 
     void updateBlobResp(const Error &error,
-                        boost::shared_ptr<apis::RequestId>& requestId) {}
+                        boost::shared_ptr<apis::RequestId>& requestId);
     void updateBlobOnceResp(const Error &error,
-                            boost::shared_ptr<apis::RequestId>& requestId);
+                            boost::shared_ptr<apis::RequestId>& requestId) {}
     void updateMetadataResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId) {}
     void deleteBlobResp(const Error &error,

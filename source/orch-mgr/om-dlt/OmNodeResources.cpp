@@ -1340,6 +1340,15 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
 static void
 om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer vol)
 {
+    /*
+     * Only send if not deleted or marked to be deleted.
+     */
+    if (vol->isDeletePending() || vol->isStateDeleted()) {
+        LOGDEBUG << "Dmt not sending Volume to Node :" << vol->vol_get_name()
+                 << "; state " << vol->getStateName();
+        return;
+    }
+
     (*cnt)++;
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
