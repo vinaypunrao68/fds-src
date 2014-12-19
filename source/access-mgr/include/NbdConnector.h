@@ -69,6 +69,11 @@ class NbdConnector {
 };
 
 class NbdConnection : public NbdOperationsResponseIface {
+ public:
+    enum Errors {
+        connection_closed
+    };
+
   private:
     int clientSocket;
     boost::shared_ptr<std::string> volumeName;

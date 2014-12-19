@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <cerrno>
 #include <set>
 #include <string>
 #include <type_traits>
@@ -185,7 +186,14 @@ NbdConnection::write_response() {
                               response.get() + current_block,
                               total_blocks - current_block);
     if (nwritten < 0) {
-        LOGERROR << "Socket write error";
+        LOGERROR << "Socket write error: " << errno;
+        switch (errno) {
+            case EINVAL: fds_assert(false);  // Indicates logic bug
+                         break;
+            case EBADF:
+            case EPIPE: throw connection_closed;
+                        break;
+        }
         return false;
     } else if (nwritten == 0) {
         return false;
@@ -485,9 +493,7 @@ NbdConnection::dispatchOp(ev::io &watcher,
             break;
         case NBD_CMD_DISC:
             LOGNORMAL << "Got a disconnect";
-            ioWatcher->stop();
-            close(clientSocket);
-            // TODO(Andrew): Who's gonna delete me?
+            throw connection_closed;
             break;
         default:
             fds_panic("Unknown NBD op %d", opType);
@@ -508,6 +514,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
         return;
     }
 
+    try {
     if (revents & EV_READ) {
         switch (hsState) {
             case POSTINIT:
@@ -557,6 +564,12 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 fds_panic("Unknown NBD connection state %d", hsState);
         }
     }
+    } catch(Errors e) {
+        ioWatcher->stop();
+        close(clientSocket);
+        LOGTRACE << "NbdConnection going adios!";
+        delete this;
+    }
 }
 
 void
@@ -582,7 +595,14 @@ bool get_message_header(int fd, M& message) {
                          reinterpret_cast<uint8_t*>(&message.header) + message.header_off,
                          to_read);
     if (nread < 0) {
-        LOGWARN << "Socket read error";
+        LOGERROR << "Socket read error" << errno;
+        switch (errno) {
+            case EINVAL: fds_assert(false);  // Indicates logic bug
+                         break;
+            case EBADF:
+            case EPIPE: throw NbdConnection::connection_closed;
+                        break;
+        }
         return false;
     } else if (nread < to_read) {
         LOGDEBUG << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
@@ -615,7 +635,14 @@ bool get_message_payload(int fd, M& message) {
                                      message.data_off,
                                      to_read);
     if (nread < 0) {
-        LOGERROR << "Socket read error";
+        LOGERROR << "Socket read error" << errno;
+        switch (errno) {
+            case EINVAL: fds_assert(false);  // Indicates logic bug
+                         break;
+            case EBADF:
+            case EPIPE: throw NbdConnection::connection_closed;
+                        break;
+        }
         return false;
     } else if (nread < to_read) {
         LOGDEBUG << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
