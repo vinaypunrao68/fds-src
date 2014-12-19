@@ -17,10 +17,10 @@ class VolumeContext(Context):
         try:
             volumes = ServiceMap.omConfig().listVolumes("")
             volumes.sort(key=lambda vol: ResourceState._VALUES_TO_NAMES[vol.state] + ':' + vol.name)
-            return tabulate([(item.name, item.tenantId, item.dateCreated, ResourceState._VALUES_TO_NAMES[item.state],
+            return tabulate([(item.volId, item.name, item.tenantId, item.dateCreated, ResourceState._VALUES_TO_NAMES[item.state],
                               'OBJECT' if item.policy.volumeType == 0 else 'BLOCK',
                               item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in volumes],
-                            headers=['Name', 'TenantId', 'Create Date','State','Type', 'Max-Obj-Size', 'Blk-Size'], tablefmt=self.config.getTableFormat())
+                            headers=['Id','Name', 'TenantId', 'Create Date','State','Type', 'Max-Obj-Size', 'Blk-Size'], tablefmt=self.config.getTableFormat())
             return volumes
         except ApiException, e:
             print e
