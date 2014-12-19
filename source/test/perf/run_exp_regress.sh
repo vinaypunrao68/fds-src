@@ -19,7 +19,13 @@ echo "test_type: $test_type, mix: $mix, config: $config"
 ./deploy_confs.sh $config $HOSTNAME
 ./is_fds_up.py -K
 TEST_DIR=/regress/test-$RANDOM
-./run_experiment.py -n $PYRO_IP -p $PYRO_PORT -m $HOSTNAME -M local-single -J $TEST_JSON -d $TEST_DIR -c 1 -j -t $TEST_IP -D $WORKSPACE --fds-nodes $HOSTNAME
+
+if [ "$TEST_IP" = "local" ] ; then
+    ./run_experiment.py -n $PYRO_IP -p $PYRO_PORT -m $HOSTNAME -M local-single -J $TEST_JSON -d $TEST_DIR -c 1 -j -D $WORKSPACE --fds-nodes $HOSTNAME
+else
+    ./run_experiment.py -n $PYRO_IP -p $PYRO_PORT -m $HOSTNAME -M local-single -J $TEST_JSON -d $TEST_DIR -c 1 -j -t $TEST_IP -D $WORKSPACE --fds-nodes $HOSTNAME
+fi
+
 if [ "$test_type" = "fio" ] ; then
     ./do_stats.sh $TEST_DIR $HOSTNAME test.db $HOSTNAME $TAG fio > $TEST_DIR/results.csv
 elif [ "$test_type" = "s3_java" ] ; then
