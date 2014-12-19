@@ -430,7 +430,7 @@ if __name__ == "__main__":
                 #    print e
                 experiments = [ x for x in experiments]
                 experiments = filter(lambda x : x["fio_type"] == "randread", experiments)
-                experiments = sorted(experiments, key = lambda k : int(k["iodepth"]))
+                experiments = sorted(experiments, key = lambda k : int(k["iodepth"]) * int(k["numjobs"]))
                 iops_tester = [x["th"] for x in experiments]    
                 iops_mean = [x["am:am_get_obj_req:count_mean"] for x in experiments]    
                 iops_max = [x["am:am_get_obj_req:count_max"] for x in experiments]    
@@ -449,7 +449,7 @@ if __name__ == "__main__":
                 # iops = [x + y for x,y in zip(*[iops_put, iops_get])]   
                 lat = [x["lat"] for x in experiments]    
                 #print [x["nreqs"] for x in experiments]    
-                conns = [x["iodepth"] for x in experiments]    
+                conns = [int(x["iodepth"]) * int(x["numjobs"]) for x in experiments]    
 
                 test_dir = os.path.dirname([x["test_directory"] for x in experiments][0])
                 # print conns
@@ -459,10 +459,11 @@ if __name__ == "__main__":
                 # print iops_max
                 # print iops_stdev
                 # print lat
-                indices = [i for i, x in enumerate(conns) if x == '128']
+                indices = [i for i, x in enumerate(conns) if x == 400]
                 reported_iops = max([iops_tester[i] for i in indices])
                 # i_max = iops_tester.index(reported_iops)
                 reported_latency = mean([lat[i] for i in indices])
+                print [iops_tester[i] for i in indices]
                 reported_stdev = stdev([iops_tester[i] for i in indices])
                 print reported_stdev
 
