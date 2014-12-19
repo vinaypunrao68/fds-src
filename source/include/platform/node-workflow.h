@@ -11,6 +11,9 @@
 #include <fdsp/fds_service_types.h>
 #include <platform/node-inventory.h>
 
+// New includes
+#include "node_work_type.h"
+
 namespace fds
 {
     class PmAgent;
@@ -167,6 +170,8 @@ namespace fds
             virtual int st_handle(EventObj::pointer evt, StateObj::pointer cur) const override;
     };
 
+#if 0
+
     typedef enum
     {
         NWL_NO_OP                = 0,
@@ -176,6 +181,8 @@ namespace fds
         NWL_SYNC_CLOSE           = 4,
         NWL_MAX_OPS
     } node_work_type_e;
+
+#endif
 
     /**
      * Common events to work item.
