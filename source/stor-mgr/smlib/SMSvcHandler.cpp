@@ -65,6 +65,12 @@ SMSvcHandler::SMSvcHandler()
 void SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg) {
     LOGDEBUG << "Received new migration init message";
+
+    // TODO(xxx): We need to be sure to unpack the source -> token list
+    // pairs correctly.
+    // Source will be an i64, and tokenids within each list will be i32s
+    // because Thrift has no notion of unsigned ints. These will need to
+    // be cast back to the unsigned equivalents
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

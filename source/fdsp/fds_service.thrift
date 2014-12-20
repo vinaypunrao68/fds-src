@@ -563,7 +563,7 @@ struct CtrlNotifyDLTUpdate {
 
 /* ---------------------- CtrlNotifySMStartMigration --------------------------- */
 struct SMTokenMigrationGroup {
-     1: SvcUuid                   source;
+     1: i64                       source;
      2: list<i32>                 tokens;
 }
 

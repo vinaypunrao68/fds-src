@@ -16,7 +16,7 @@
 #include <net/net-service.h>
 #include <fdsp/fds_service_types.h>
 #include <net/SvcRequestPool.h>
-
+#include <set>
 
 namespace fds {
 
@@ -129,7 +129,7 @@ Error
 DataPlacement::beginRebalance() {
     Error err(ERR_OK);
 
-    fpi::CtrlStartMigrationPtr msg(new fpi::CtrlStartMigration());
+    fpi::CtrlNotifySMStartMigrationPtr msg(new fpi::CtrlNotifySMStartMigration());
 
     // FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
     //        new FDS_ProtocolInterface::FDSP_MsgHdrType());
@@ -166,9 +166,6 @@ DataPlacement::beginRebalance() {
         }
     }
 
-    // pupulate dlt message -- same for all the nodes that need to migrate toks
-    msg->dlt_data.dlt_type = true;
-    err = newDlt->getSerialized(msg->dlt_data.dlt_data);
     if (!err.ok()) {
         LOGERROR << "Failed to fill in dlt_data, not sending migration msgs";
         placementMutex->unlock();
@@ -181,10 +178,51 @@ DataPlacement::beginRebalance() {
          ++nit) {
         NodeUuid  uuid = *nit;
 
+        std::map<NodeUuid, std::vector<fds_int32_t>> newTokenMap;
+        std::set<fds_uint32_t> diff = newDlt->token_diff(uuid, newDlt, commitedDlt);
+
+        // Build the newTokenMap
+        for (auto token : diff) {
+            // Determine an appropriate SM to use as a source
+            // This should not be ourselves and should be in the
+            // intersection of old/new DLTs
+            DltTokenGroupPtr sources = newDlt->getNodes(token);
+            std::set<NodeUuid> sourcesSet;
+            for (fds_uint32_t i = 0; i < sources->getLength(); ++i) {
+                sourcesSet.insert(sources->get(i));
+            }
+            // Reuse sources for commitedDLt
+            sources.reset();
+            sources = commitedDlt->getNodes(token);
+            for (fds_uint32_t i = 0; i < sources->getLength(); ++i) {
+                sourcesSet.insert(sources->get(i));
+            }
+            // Remove ourselves from the list
+            sourcesSet.erase(uuid);
+            // Now push to newTokenMap
+            NodeUuid sourceId = *sourcesSet.begin();  // Take the first source
+            // If we have that source in the list already, append
+            auto got = newTokenMap.find(sourceId);
+            if (got != newTokenMap.end()) {
+                newTokenMap[sourceId].push_back(token);
+            } else {
+                // Otherwise create a new vector and append
+                newTokenMap[sourceId] = std::vector<fds_int32_t>();
+                newTokenMap[sourceId].push_back(token);
+            }
+        }
+        // At this point we should have a complete map
+        for (auto entry : newTokenMap) {
+            fpi::SMTokenMigrationGroup grp;
+            grp.source = entry.first.uuid_get_val();
+            grp.tokens = entry.second;
+            msg->migrations.push_back(grp);
+        }
+
         auto svc_uuid = uuid.toSvcUuid();
         auto om_req =  gSvcRequestPool->newEPSvcRequest(uuid.toSvcUuid());
 
-        om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlStartMigration), msg);
+        om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifySMStartMigration), msg);
         om_req->onResponseCb(std::bind(&DataPlacement::startMigrationResp, this, uuid,
                 std::placeholders::_1, std::placeholders::_2,
                 std::placeholders::_3));
@@ -475,5 +513,4 @@ Error DataPlacement::checkDltValid(const DLT* dlt,
 
     return err;
 }
-
 }  // namespace fds
