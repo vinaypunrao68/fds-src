@@ -15,6 +15,16 @@
 #include <fdsp/FDSP_types.h>
 #include <fdsp/fds_service_types.h>
 
+
+
+
+// New includes
+#include "node_inventory_x.h"
+
+#include "typedefs.h"
+
+#if 0
+
 // Forward declarations
 namespace FDS_ProtocolInterface
 {
@@ -27,6 +37,8 @@ namespace FDS_ProtocolInterface
     class FDSP_OMControlPathRespProcessor;
     class FDSP_OMControlPathRespIf;
 }  // namespace FDS_ProtocolInterface
+
+#endif
 
 namespace bo  = boost;
 namespace fpi = FDS_ProtocolInterface;
@@ -70,6 +82,7 @@ namespace fds
     class NodeWorkItem;
     class NodeWorkFlow;
 
+#if 0
     typedef fpi::FDSP_RegisterNodeType FdspNodeReg;
     typedef fpi::FDSP_RegisterNodeTypePtr FdspNodeRegPtr;
     typedef fpi::FDSP_NodeState FdspNodeState;
@@ -79,6 +92,7 @@ namespace fds
     typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient>     NodeAgentCpReqtSessPtr;
     typedef boost::shared_ptr<fpi::FDSP_OMControlPathReqClient>   NodeAgentCpOmClientPtr;
     typedef boost::shared_ptr<fpi::FDSP_DataPathReqClient>        NodeAgentDpClientPtr;
+#endif
 
     /* OM has a known UUID. */
     extern const NodeUuid    gl_OmUuid;
@@ -89,6 +103,8 @@ namespace fds
     /**
      * Basic info about a peer node.
      */
+
+#if 0
     class NodeInventory : public Resource
     {
         public:
@@ -185,6 +201,7 @@ namespace fds
 
             const ShmObjRO *node_shm_ctrl() const;
     };
+#endif
 
     /**
      * --------------------------------------------------------------------------------------
