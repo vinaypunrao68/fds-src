@@ -77,6 +77,19 @@ namespace fds
             agent_svc_fillin(fpi::NodeSvcInfo *,
                              const struct node_data *, fpi::FDSP_MgrIdType) const;
     };
+
+    /**
+     * Down cast a node agent intrusive pointer.
+     */
+    template <class T> static inline T *agt_cast_ptr(NodeAgent::pointer agt)
+    {
+        return static_cast<T *>(get_pointer(agt));
+    }
+
+    template <class T> static inline T *agt_cast_ptr(Resource::pointer rs)
+    {
+        return static_cast<T *>(get_pointer(rs));
+    }
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_PLATFORM_NODE_AGENT_H_
