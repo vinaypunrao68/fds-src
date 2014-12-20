@@ -5,6 +5,8 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_OM_AGENT_H_
 #define SOURCE_INCLUDE_PLATFORM_OM_AGENT_H_
 
+#include <string>
+
 #include "node_agent.h"
 
 // Forward declarations

@@ -30,7 +30,7 @@
 #include "om_agent.h"
 #include "am_agent.h"
 
-
+#include "agent_container.h"
 
 
 
@@ -82,6 +82,7 @@ namespace fds
     struct node_data;
     struct node_stor_cap;
     class ShmObjRO;
+
 #if 0
     class SmSvcEp;
     class DmSvcEp;
@@ -89,6 +90,7 @@ namespace fds
     class OmSvcEp;
     class PmSvcEp;
 #endif
+
     class EpSvc;
     class EpSvcImpl;
     class EpSvcHandle;
@@ -220,9 +222,7 @@ namespace fds
 
             const ShmObjRO *node_shm_ctrl() const;
     };
-#endif
 
-#if 0
     /**
      * --------------------------------------------------------------------------------------
      * Agent interface to communicate with the remote node.  This is the communication
@@ -288,7 +288,6 @@ namespace fds
             agent_svc_fillin(fpi::NodeSvcInfo *,
                              const struct node_data *, fpi::FDSP_MgrIdType) const;
     };
-#endif
 
     /**
      * Down cast a node agent intrusive pointer.
@@ -302,7 +301,7 @@ namespace fds
     {
         return static_cast<T *>(get_pointer(rs));
     }
-//DJN
+#endif
 
 #if 0
     /*
@@ -434,6 +433,7 @@ namespace fds
 
 #endif
 
+#if 0
     // -------------------------------------------------------------------------------------
     // Common Agent Containers
     // -------------------------------------------------------------------------------------
@@ -614,6 +614,7 @@ namespace fds
             explicit AgentContainer(FdspNodeType id);
     };
 
+#endif
     /**
      * Down cast a node container intrusive pointer.
      */
