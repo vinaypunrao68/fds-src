@@ -31,13 +31,6 @@ public class Xdi {
     private ConfigurationService.Iface config;
     private FDSP_ConfigPathReq.Iface legacyConfig;
 
-    void sleep(long ms) {
-        try {
-            Thread.sleep(ms);
-        } catch (java.lang.InterruptedException e) {
-        }
-    }
-
     public Xdi(AmService.Iface am, ConfigurationService.Iface config, Authenticator authenticator, Authorizer authorizer, FDSP_ConfigPathReq.Iface legacyConfig) {
         this.am = am;
         this.config = config;
