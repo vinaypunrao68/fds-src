@@ -58,11 +58,29 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownSMMsg, shutdownSM);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceInitialSet, initiateObjectSync);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
 }
 
-void SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg) {
+void
+SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg)
+{
     LOGDEBUG << "Received new migration init message";
+}
+
+void
+SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlObjectRebalanceInitialSet>& initialObjSet)
+{
+    LOGDEBUG << "Initiate Object Sync";
+}
+
+void
+SMSvcHandler::syncObjectSet(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlObjectRebalanceDeltaSet>& deltaObjSet)
+{
+    LOGDEBUG << "Sync Object Set";
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
