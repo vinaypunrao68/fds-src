@@ -19,9 +19,19 @@
 
 
 // New includes
-#include "node_inventory_x.h"
-
 #include "typedefs.h"
+
+#include "node_inventory_x.h"
+#include "node_agent.h"
+
+
+
+
+
+
+
+
+
 
 #if 0
 
@@ -79,7 +89,7 @@ namespace fds
     class AgentContainer;
     class DomainContainer;
     class EPSvcRequest;
-    class NodeWorkItem;
+//    class NodeWorkItem;
     class NodeWorkFlow;
 
 #if 0
@@ -203,6 +213,7 @@ namespace fds
     };
 #endif
 
+#if 0
     /**
      * --------------------------------------------------------------------------------------
      * Agent interface to communicate with the remote node.  This is the communication
@@ -268,6 +279,7 @@ namespace fds
             agent_svc_fillin(fpi::NodeSvcInfo *,
                              const struct node_data *, fpi::FDSP_MgrIdType) const;
     };
+#endif
 
     /**
      * Down cast a node agent intrusive pointer.
