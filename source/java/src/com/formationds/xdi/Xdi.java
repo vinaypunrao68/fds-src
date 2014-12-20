@@ -54,31 +54,14 @@ public class Xdi {
 
     public long createVolume(AuthenticationToken token, String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
         config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
-        VolumeDescriptor volDesc;
-        long volId = 0;
-        int count = 0;
-        do {
-            sleep(1000);
-            volDesc = config.statVolume(domainName, volumeName);
-            if ((volDesc != null) && (volDesc.getState() == ResourceState.Active)) {
-                volId = config.getVolumeId( volumeName );
-            }
-            count++;
-        } while ((count < 15) && (volId != 0));
-
-        // set the qos params only when the volume is active
-        if (volId > 0) {
-            // the default log retention time is 24 hours
-            SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0, volumePolicy.getContCommitlogRetention() );
-        } else {
-            throw new ApiException("Volume creation timing out", ErrorCode.SERVICE_NOT_READY);
-        }
-
+        
+        // the default log retention time is 24 hours
+        SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0, volumePolicy.getContCommitlogRetention() );
         /**
          * allows the UI to assign a snapshot policy to a volume without having to make an
          * extra call.
          */
-        return volId;
+        return config.getVolumeId( volumeName );
     }
 
     public void deleteVolume(AuthenticationToken token, String domainName, String volumeName) throws ApiException, TException {
