@@ -94,8 +94,6 @@ public class Main {
         Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
         ByteBufferPool bbp = new ArrayByteBufferPool();
 
-        System.out.println("My instance id " + amInstanceId);
-
         AsyncAmServiceRequest.Iface oneWayAm = clientFactory.remoteOnewayAm(amHost, 8899);
         AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm() : new RealAsyncAm(oneWayAm, amResponsePort);
         asyncAm.start();
