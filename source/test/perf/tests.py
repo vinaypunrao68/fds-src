@@ -51,8 +51,25 @@ class TestList():
                         test["numjobs"] = j
                         test["iodepth"] = d
                         test["runtime"] = 60
+                        #for i in range(5):
+                            #tests.append(test)
+        # randwrite
+        test_types = ["randwrite"]
+        for d in [25, 50, 100, 150]:
+            for j in [1, 4, 8]:
+                for bs in [4096]:
+                    for test_type in test_types:
+                        test = dict(template)
+                        test["bs"] = bs
+                        test["fio_jobname"] = test_type
+                        test["fio_type"] = test_type
+                        test["numjobs"] = j
+                        test["iodepth"] = d
+                        test["runtime"] = 60
                         for i in range(5):
                             tests.append(test)
+
+
         self.tests = tests
 
     def create_tests_s3(self):
@@ -160,8 +177,8 @@ def main():
     (options, args) = parser.parse_args()
 
     tl = TestList()
-    tl.create_tests_s3()
-    # tl.create_tests_fio()
+    # tl.create_tests_s3()
+    tl.create_tests_fio()
     print "Tests:"
     pp = pprint.PrettyPrinter(indent=4)
     for e in tl.get_tests():
