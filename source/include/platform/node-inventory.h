@@ -24,7 +24,11 @@
 #include "node_inventory_x.h"
 #include "node_agent.h"
 
-
+#include "pm_agent.h"
+#include "dm_agent.h"
+#include "sm_agent.h"
+#include "om_agent.h"
+#include "am_agent.h"
 
 
 
@@ -58,6 +62,7 @@ class netSessionTbl;
 
 template <class A, class B, class C> class netClientSessionEx;
 
+#if 0
 typedef netClientSessionEx<fpi::FDSP_DataPathReqClient,
                            fpi::FDSP_DataPathRespProcessor,
                            fpi::FDSP_DataPathRespIf>      netDataPathClientSession;
@@ -65,6 +70,8 @@ typedef netClientSessionEx<fpi::FDSP_DataPathReqClient,
 typedef netClientSessionEx<fpi::FDSP_OMControlPathReqClient,
                            fpi::FDSP_OMControlPathRespProcessor,
                            fpi::FDSP_OMControlPathRespIf> netOMControlPathClientSession;
+#endif
+
 namespace fds
 {
     namespace apis
@@ -75,11 +82,13 @@ namespace fds
     struct node_data;
     struct node_stor_cap;
     class ShmObjRO;
+#if 0
     class SmSvcEp;
     class DmSvcEp;
     class AmSvcEp;
     class OmSvcEp;
     class PmSvcEp;
+#endif
     class EpSvc;
     class EpSvcImpl;
     class EpSvcHandle;
@@ -293,7 +302,9 @@ namespace fds
     {
         return static_cast<T *>(get_pointer(rs));
     }
+//DJN
 
+#if 0
     /*
      * -------------------------------------------------------------------------------------
      * Specific node agent type setup for peer to peer communication.
@@ -420,6 +431,8 @@ namespace fds
 
             virtual bo::intrusive_ptr<EpEvtPlugin> agent_ep_plugin();
     };
+
+#endif
 
     // -------------------------------------------------------------------------------------
     // Common Agent Containers

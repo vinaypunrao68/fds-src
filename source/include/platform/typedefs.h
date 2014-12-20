@@ -12,10 +12,10 @@ namespace FDS_ProtocolInterface
     class FDSP_ControlPathReqClient;
     class FDSP_OMControlPathReqClient;
     class FDSP_DataPathReqClient;
-    class FDSP_DataPathRespProcessor;
-    class FDSP_DataPathRespIf;
-    class FDSP_OMControlPathRespProcessor;
-    class FDSP_OMControlPathRespIf;
+//    class FDSP_DataPathRespProcessor;
+//    class FDSP_DataPathRespIf;
+//    class FDSP_OMControlPathRespProcessor;
+//    class FDSP_OMControlPathRespIf;
 }  // namespace FDS_ProtocolInterface
 
 namespace fds
