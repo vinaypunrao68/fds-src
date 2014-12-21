@@ -13,7 +13,6 @@
 #include <fds_process.h>
 #include <net/PlatNetSvcHandler.h>
 #include <platform/platform-lib.h>
-#include <platform/node-workflow.h>
 
 #include "platform/node_work_flow.h"
 

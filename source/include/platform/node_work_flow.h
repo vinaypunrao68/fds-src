@@ -5,8 +5,14 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_NODE_WORK_FLOW_H_
 #define SOURCE_INCLUDE_PLATFORM_NODE_WORK_FLOW_H_
 
+#include "fds_module.h"
+
+#include "pm_agent.h"
+#include "node_work_item.h"
+
 namespace fds
 {
+    class NodeWorkFlow;
     extern NodeWorkFlow   *gl_NodeWorkFlow;
 
     class NodeWorkFlow : public Module
@@ -20,7 +26,7 @@ namespace fds
             {
                 return gl_NodeWorkFlow;
             }
-            static void wrk_item_assign(bo::intrusive_ptr<PmAgent> owner, NodeWorkItem::ptr wrk);
+            static void wrk_item_assign(boost::intrusive_ptr<PmAgent> owner, NodeWorkItem::ptr wrk);
 
             /* Module methods. */
             int  mod_init(SysParams const *const param) override;
@@ -30,9 +36,8 @@ namespace fds
 
             /* Factory method. */
             virtual void
-            wrk_item_create(fpi::SvcUuid               &peer,
-                            bo::intrusive_ptr<PmAgent>  owner,
-                            bo::intrusive_ptr<DomainContainer> domain);
+            wrk_item_create(fpi::SvcUuid &peer, boost::intrusive_ptr<PmAgent>  owner,
+                            boost::intrusive_ptr<DomainContainer> domain);
 
             /* Entry to process network messages. */
             virtual void wrk_recv_node_info(fpi::AsyncHdrPtr &, fpi::NodeInfoMsgPtr &);
@@ -58,18 +63,18 @@ namespace fds
             }
 
         protected:
-            FsmTable                              *wrk_fsm;
-            fpi::SvcUuid                           wrk_om_dest;
-            bo::intrusive_ptr<DomainClusterMap>    wrk_clus;
-            bo::intrusive_ptr<DomainContainer>     wrk_inv;
+            FsmTable                                 *wrk_fsm;
+            fpi::SvcUuid                              wrk_om_dest;
+            boost::intrusive_ptr<DomainClusterMap>    wrk_clus;
+            boost::intrusive_ptr<DomainContainer>     wrk_inv;
 
             NodeWorkItem::ptr wrk_item_frm_uuid(fpi::DomainID &did, fpi::SvcUuid &svc, bool inv);
             void wrk_item_submit(fpi::DomainID &, fpi::AsyncHdrPtr &, EventObj::pointer);
 
             virtual NodeWorkItem::ptr
             wrk_item_alloc(fpi::SvcUuid                &peer,
-                           bo::intrusive_ptr<PmAgent>  owner,
-                           bo::intrusive_ptr<DomainContainer> domain);
+                           boost::intrusive_ptr<PmAgent>  owner,
+                           boost::intrusive_ptr<DomainContainer> domain);
     };
 }  // namespace fds
 

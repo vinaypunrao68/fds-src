@@ -5,6 +5,8 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_NODE_DOWN_EVT_H_
 #define SOURCE_INCLUDE_PLATFORM_NODE_DOWN_EVT_H_
 
+#include "node_work_event.h"
+
 namespace fds
 {
     struct NodeDownEvt : public    NodeWrkEvent

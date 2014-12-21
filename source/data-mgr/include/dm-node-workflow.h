@@ -4,8 +4,6 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_NODE_WORKFLOW_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_NODE_WORKFLOW_H_
 
-#include <platform/node-workflow.h>
-
 #include "platform/node_work_flow.h"
 
 namespace fds {

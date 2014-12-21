@@ -5,7 +5,6 @@
 #include <vector>
 #include <platform/platform-lib.h>
 #include <platform/node-inventory.h>
-#include <platform/node-workflow.h>
 #include <net/SvcRequestPool.h>
 
 #include "state_switch.h"

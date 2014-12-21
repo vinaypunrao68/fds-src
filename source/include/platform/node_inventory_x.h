@@ -8,6 +8,7 @@
 #include <string>
 
 #include "fds-shmobj.h"
+#include "fds_resource.h"
 
 #include "typedefs.h"
 

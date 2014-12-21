@@ -5,7 +5,6 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OM_NODE_WORKFLOW_H_
 
 #include <vector>
-#include <platform/node-workflow.h>
 
 #include "platform/node_work_flow.h"
 

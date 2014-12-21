@@ -5,12 +5,10 @@
 #include <vector>
 #include <platform/platform-lib.h>
 #include <platform/node-inventory.h>
-#include <platform/node-workflow.h>
 #include <net/SvcRequestPool.h>
 
 #include "state_switch.h"
 #include "platform/node_work_flow.h"
-
 #include "platform/node_deploy_evt.h"
 #include "platform/node_down_evt.h"
 #include "platform/node_functional_evt.h"

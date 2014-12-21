@@ -5,6 +5,8 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_NODE_DOWN_H_
 #define SOURCE_INCLUDE_PLATFORM_NODE_DOWN_H_
 
+#include "fds-fsm.h"
+
 namespace fds
 {
     class NodeDown : public StateEntry
