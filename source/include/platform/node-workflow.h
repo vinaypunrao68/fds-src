@@ -14,6 +14,7 @@
 // New includes
 #include "node_work_type.h"
 #include "node_work_event.h"
+#include "node_work_item.h"
 
 namespace fds
 {
@@ -204,6 +205,7 @@ namespace fds
 
 #endif
 
+#if 0
     /**
      * Base work item.
      */
@@ -275,7 +277,7 @@ namespace fds
             void wrk_assign_pkt_uuid(fpi::SvcUuid *uuid);
             friend std::ostream &operator << (std::ostream &os, const NodeWorkItem::ptr);
     };
-
+#endif
     extern NodeWorkFlow   *gl_NodeWorkFlow;
 
     class NodeWorkFlow : public Module
