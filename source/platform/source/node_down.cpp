@@ -9,6 +9,7 @@
 #include <net/SvcRequestPool.h>
 
 #include "platform/node_down.h"
+#include "platform/node_down_evt.h"
 
 namespace fds
 {

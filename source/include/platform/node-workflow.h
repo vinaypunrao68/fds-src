@@ -345,6 +345,7 @@ DJN
     };
 
 #endif
+#if 0
     /**
      * Events to change workflow items.
      */
@@ -475,6 +476,7 @@ DJN
             os << " NodeDown " << evt_msg;
         }
     };
+#endif
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_PLATFORM_NODE_WORKFLOW_H_

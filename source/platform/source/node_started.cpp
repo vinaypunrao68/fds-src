@@ -9,9 +9,12 @@
 #include <net/SvcRequestPool.h>
 
 #include "platform/node_started.h"
+#include "platform/node_info_evt.h"
 
 namespace fds
 {
+    class NodeWorkItem;
+
     int NodeStarted::st_handle(EventObj::pointer evt, StateObj::pointer cur) const
     {
         NodeWorkItem::ptr                 wrk;

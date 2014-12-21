@@ -9,6 +9,7 @@
 #include <net/SvcRequestPool.h>
 
 #include "platform/node_upgrade.h"
+#include "platform/node_upgrade_evt.h"
 
 namespace fds
 {

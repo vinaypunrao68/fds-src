@@ -11,6 +11,12 @@
 #include "state_switch.h"
 #include "platform/node_work_flow.h"
 #include "platform/node_work_item.h"
+#include "platform/node_info_evt.h"
+#include "platform/node_qualify_evt.h"
+#include "platform/node_upgrade_evt.h"
+#include "platform/node_integrate_evt.h"
+#include "platform/node_deploy_evt.h"
+#include "platform/node_functional_evt.h"
 
 namespace fds
 {
