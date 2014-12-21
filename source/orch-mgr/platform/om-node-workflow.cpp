@@ -7,6 +7,8 @@
 #include <platform/node-inv-shmem.h>
 #include <orchMgr.h>
 
+#include "platform/node_data.h"
+
 namespace fds {
 
 OmWorkFlow                 gl_OmWorkFlow;

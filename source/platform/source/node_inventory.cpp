@@ -22,6 +22,8 @@
 #include <net/net-service-tmpl.hpp>
 #include <NetSession.h>
 
+#include "platform/node_data.h"
+
 namespace fds
 {
     std::ostream& operator<< (std::ostream &os, const NodeServices& node)

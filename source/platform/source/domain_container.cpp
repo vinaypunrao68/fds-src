@@ -7,7 +7,10 @@
 #include "platform/node-inventory.h"
 #include "platform/node-inv-shmem.h"
 
+#include "platform/node_data.h"
+
 #include "node_svc_iter.h"
+
 
 namespace fds
 {

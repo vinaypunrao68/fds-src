@@ -7,6 +7,9 @@
 #include <ep-map.h>
 #include <platform/node-inv-shmem.h>
 
+#include "platform/node_shm_inventory.h"
+#include "platform/node_shm_queue.h"
+
 namespace fds
 {
 
