@@ -6,6 +6,7 @@
 #define SOURCE_INCLUDE_PLATFORM_DM_CONTAINER_H_
 
 #include "agent_container.h"
+#include "dm_agent.h"
 
 namespace fds
 {

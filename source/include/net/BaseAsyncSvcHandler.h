@@ -10,7 +10,6 @@
 #include <fdsp_utils.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
-#include <platform/node-inventory.h>
 #include <net/SvcRequestPool.h>
 #include <net/SvcRequest.h>
 

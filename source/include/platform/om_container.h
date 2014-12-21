@@ -6,6 +6,7 @@
 #define SOURCE_INCLUDE_PLATFORM_OM_CONTAINER_H_
 
 #include "agent_container.h"
+#include "om_agent.h"
 
 namespace fds
 {

@@ -11,6 +11,11 @@ namespace fds
 {
     // Forward Declarations
     class NodeWorkItem;
+    class EpSvcHandle;
+    class EPSvcRequest;
+    class EpSvcImpl;
+    class EpSvc;
+    class EpEvtPlugin;
 
     /**
      * --------------------------------------------------------------------------------------
