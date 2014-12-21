@@ -9,7 +9,6 @@
 #include <net/net-service.h>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
-#include <platform/net-plat-shared.h>
 #include <platform/service-ep-lib.h>
 
 // New includes

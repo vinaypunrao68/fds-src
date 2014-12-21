@@ -7,7 +7,6 @@
 
 #include <ep-map.h>
 
-#include <platform/net-plat-shared.h>
 #include "platform/net_plat_svc.h"
 
 #include "platform_plugin.h"

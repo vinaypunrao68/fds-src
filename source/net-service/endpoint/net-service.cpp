@@ -7,7 +7,6 @@
 #include <net/net-service-tmpl.hpp>
 #include <fdsp/PlatNetSvc.h>
 #include <ep-map.h>
-#include <platform/net-plat-shared.h>
 #include <fdsp/SMSvc.h>
 #include <fdsp/DMSvc.h>
 #include <fdsp/AMSvc.h>

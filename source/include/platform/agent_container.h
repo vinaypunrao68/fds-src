@@ -7,6 +7,12 @@
 
 #include <string>
 
+#include "fds_resource.h"
+
+#include "node_agent.h"
+
+class netSessionTbl;
+
 namespace fds
 {
     // -------------------------------------------------------------------------------------
