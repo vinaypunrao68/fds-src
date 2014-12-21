@@ -9,6 +9,7 @@
 #include <net/SvcRequestPool.h>
 
 #include "platform/node_deploy.h"
+#include "platform/node_deploy_evt.h"
 
 namespace fds
 {

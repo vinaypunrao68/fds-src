@@ -9,6 +9,8 @@
 #include <net/SvcRequestPool.h>
 
 #include "platform/node_qualify.h"
+#include "platform/node_qualify_evt.h"
+
 
 namespace fds
 {
