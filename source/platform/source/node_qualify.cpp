@@ -8,6 +8,8 @@
 #include <platform/node-workflow.h>
 #include <net/SvcRequestPool.h>
 
+#include "platform/node_qualify.h"
+
 namespace fds
 {
     int NodeQualify::st_handle(EventObj::pointer evt, StateObj::pointer cur) const

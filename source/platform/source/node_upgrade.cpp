@@ -8,6 +8,8 @@
 #include <platform/node-workflow.h>
 #include <net/SvcRequestPool.h>
 
+#include "platform/node_upgrade.h"
+
 namespace fds
 {
     int NodeUpgrade::st_handle(EventObj::pointer evt, StateObj::pointer cur) const

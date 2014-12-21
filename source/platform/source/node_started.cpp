@@ -8,6 +8,8 @@
 #include <platform/node-workflow.h>
 #include <net/SvcRequestPool.h>
 
+#include "platform/node_started.h"
+
 namespace fds
 {
     int NodeStarted::st_handle(EventObj::pointer evt, StateObj::pointer cur) const
