@@ -9,6 +9,7 @@
 #include <net/SvcRequestPool.h>
 
 #include "state_switch.h"
+#include "platform/node_work_flow.h"
 
 namespace fds
 {

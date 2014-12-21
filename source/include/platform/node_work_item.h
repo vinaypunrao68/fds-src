@@ -19,12 +19,11 @@ namespace fds
             typedef bo::intrusive_ptr<const NodeWorkItem> const_ptr;
 
             virtual ~NodeWorkItem();
-            NodeWorkItem(fpi::SvcUuid &peer, fpi::DomainID &did,
-                         bo::intrusive_ptr<PmAgent> owner,
-                         FsmTable::pointer tab, 
-                         NodeWorkFlow *mod);
+            NodeWorkItem(fpi::SvcUuid &peer, fpi::DomainID &did, bo::intrusive_ptr<PmAgent> owner,
+                         FsmTable::pointer tab, NodeWorkFlow *mod);
 
             bool wrk_is_in_om();
+
             inline static bool wrk_is_om_uuid(fpi::SvcUuid &svc)
             {
                 return gl_OmUuid == svc;
@@ -49,6 +48,7 @@ namespace fds
             {
                 wrk_owner->init_plat_info_msg(pkt.get());
             }
+
             virtual void wrk_fmt_node_qualify(fpi::NodeQualifyPtr &);
             virtual void wrk_fmt_node_upgrade(fpi::NodeUpgradePtr &);
             virtual void wrk_fmt_node_integrate(fpi::NodeIntegratePtr &);

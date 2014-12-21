@@ -7,6 +7,8 @@
 #include <vector>
 #include <platform/node-workflow.h>
 
+#include "platform/node_work_flow.h"
+
 namespace fds {
 
 class OmWorkItem : public NodeWorkItem

@@ -7,6 +7,8 @@
 
 #include <platform/node-workflow.h>
 
+#include "platform/node_work_flow.h"
+
 namespace fds
 {
     class PlatWorkFlow;

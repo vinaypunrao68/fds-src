@@ -277,7 +277,8 @@ namespace fds
             void wrk_assign_pkt_uuid(fpi::SvcUuid *uuid);
             friend std::ostream &operator << (std::ostream &os, const NodeWorkItem::ptr);
     };
-#endif
+
+DJN
     extern NodeWorkFlow   *gl_NodeWorkFlow;
 
     class NodeWorkFlow : public Module
@@ -343,6 +344,7 @@ namespace fds
                            bo::intrusive_ptr<DomainContainer> domain);
     };
 
+#endif
     /**
      * Events to change workflow items.
      */
