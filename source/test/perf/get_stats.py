@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import time
 from parse_cntrs import Counters
 import dataset
+import math
 
 g_pidmap = {}
 
@@ -122,7 +123,7 @@ def get_avgth():
             cmd = "cat %s | grep IOPs | awk '{e+=$2}END{print e}'" % (of)    
             th = float(os.popen(cmd).read().rstrip('\n'))
         elif options.fio_enable:
-            th = (get_fio(of)["riops"] + get_fio(of)["wiops"]) / 2
+            th = get_fio(of)["riops"] + get_fio(of)["wiops"]
         else:         
             # cmd = "cat %s | grep Summary |awk '{print $15}'" % (of)
             cmd = "cat %s | grep Summary |awk '{e+=$15}END{print e}'" % (of)
@@ -183,7 +184,7 @@ def ma(v, w):
         _ma.append(1.0*sum(v[i-w:i])/w)
     return _ma
 
-def getmax(series, window = 5, skipbeg = 1, skipend = 1):
+def getmax(series, window = 5, skipbeg = 15, skipend = 10):
     _s = series[skipbeg:len(series)-skipend]
     if len(_s) == 0:
         return 0
@@ -192,7 +193,16 @@ def getmax(series, window = 5, skipbeg = 1, skipend = 1):
         return 0
     return max(_ma)
 
-def getavg(series, window = 5, skipbeg = 2, skipend = 2):
+def getmin(series, window = 5, skipbeg = 15, skipend = 10):
+    _s = series[skipbeg:len(series)-skipend]
+    if len(_s) == 0:
+        return 0
+    _ma = ma(_s, window)
+    if len(_ma) == 0:
+        return 0
+    return min(_ma)
+
+def getavg(series, window = 5, skipbeg = 15, skipend = 10):
     _s = series[skipbeg:len(series)-skipend]
     if len(_s) == 0:
         return 0
@@ -200,6 +210,21 @@ def getavg(series, window = 5, skipbeg = 2, skipend = 2):
     if len(_ma) == 0:
         return 0
     return sum(_ma)/len(_ma)
+
+def getstdev(series, mean, window = 5, skipbeg = 15, skipend = 10):
+    _s = series[skipbeg:len(series)-skipend]
+    if len(_s) == 0:
+        return 0
+    _ma = ma(_s, window)
+    if len(_ma) == 0:
+        return 0
+    stdev = 0
+    for e in _ma:
+        stdev += e*e
+    stdev /= len(_ma)
+    stdev -= mean*mean
+    stdev = math.sqrt(stdev) 
+    return stdev
 
 #g_drives
 def get_iops(node):
@@ -305,9 +330,18 @@ def print_counter(counters, agent, counter, ctype, table, node):
                 time = np.asarray(series[v][1])
                 time -= time[0]
                 rate = np.diff(values) / np.diff(time)
-                value = getmax(rate)
-                print agent + "-" + counter + ", ", value, ", ",
-                table[agent+":"+counter+":count"] = value 
+                max_val = getmax(rate)
+                mean_val = getavg(rate)
+                min_val = getmin(rate)
+                stdev_val = getstdev(rate, mean_val)
+                # value = getmax(rate)
+                
+                print agent + "-" + counter + ", ", max_val, ", ",
+                table[agent+":"+counter+":count_mean"] = mean_val
+                table[agent+":"+counter+":count_max"] = max_val
+                table[agent+":"+counter+":count_min"] = min_val 
+                table[agent+":"+counter+":count_len"] = len(rate)
+                table[agent+":"+counter+":count_stdev"] = stdev_val
         else:
             print agent + "-" + counter + ", ", -1, ", ",
             table[agent+":"+counter+":count"] = -1 
@@ -374,7 +408,12 @@ def main():
     tokens = tokenize_name(options.name)
     for e in tokens:
         _t = e.split(':')
-        table[_t[0]] = _t[1]
+        if len(_t) > 1:
+            table[_t[0]] = _t[1]
+        else:
+            m = re.match("test_(\d+)", e)
+            if m != None:
+                table["test_replica"] = m.group(1)
     time.sleep(1)
     try:
         th = get_avgth()

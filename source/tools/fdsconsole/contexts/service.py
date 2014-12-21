@@ -154,3 +154,37 @@ class ServiceContext(Context):
             print e
             log.exception(e)
             return 'unable to get dm stats '
+
+    #--------------------------------------------------------------------------------------
+    @clicmd
+    @arg('volname', help='-volume name')
+    @arg('pattern', help='-blob name pattern for search')
+    @arg('maxkeys', help= "-max number for results", nargs='?' , type=long, default=1000)
+    @arg('startpos', help= "-starting  position of the blob list", nargs='?' , type=long, default=0)
+    def listblobsbypattern(self, volname, pattern, maxkeys, startpos):
+        try:
+            
+            #process.setup_logger()
+	    # import pdb; pdb.set_trace()
+            dmClient = self.config.platform;
+
+            dmUuids = dmClient.svcMap.svcUuids('dm')
+            volId = dmClient.svcMap.omConfig().getVolumeId(volname)
+
+            getbloblist = FdspUtils.newListBlobsByPatternMsg(volId, startpos, maxkeys, pattern);
+            cb = WaitedCallback();
+            dmClient.sendAsyncSvcReq(dmUuids[0], getbloblist, cb)
+
+            if not cb.wait():
+		print 'async listblob request failed'
+
+	    #import pdb; pdb.set_trace()
+            blobs = cb.payload.blobDescriptors;
+            blobs.sort(key=attrgetter('name'))
+            return tabulate([(x.name, x.byteCount) for x in blobs],headers=
+                 ['name', 'size'], tablefmt=self.config.getTableFormat())
+
+        except Exception, e:
+            log.exception(e)
+            return 'unable to get blob list based on pattern '
+

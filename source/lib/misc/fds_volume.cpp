@@ -44,6 +44,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeInfoType& volinfo,
     qosQueueId = volinfo.qosQueueId;
     contCommitlogRetention = volinfo.contCommitlogRetention;
     timelineTime = volinfo.timelineTime;
+    createTime   = volinfo.createTime;
 }
 
 VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
@@ -109,6 +110,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     state = voldesc.state;
     contCommitlogRetention = voldesc.contCommitlogRetention;
     timelineTime = voldesc.timelineTime;
+    createTime  = voldesc.createTime;
     if (volUUID == invalid_vol_id) {
         GLOGWARN << "volume id is invalid";
     }
@@ -190,6 +192,7 @@ VolumeDesc::VolumeDesc(const std::string& _name,
     backupVolume = 0;
     contCommitlogRetention = 0;
     timelineTime = 0;
+    createTime = 0;
 }
 
 VolumeDesc::~VolumeDesc() {
@@ -263,6 +266,7 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
     this->qosQueueId = volinfo.qosQueueId;
     this->contCommitlogRetention = volinfo.contCommitlogRetention;
     this->timelineTime = volinfo.timelineTime;
+    this->createTime = volinfo.createTime;
     return *this;
 }
 
@@ -309,7 +313,8 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " qosQueueId:" << vol.qosQueueId
               << " state:" << vol.getState()
               << " qosQueueId:" << vol.contCommitlogRetention
-              << " qosQueueId:" << vol.timelineTime
+              << " timelineTime:" << vol.timelineTime
+              << " createTime:" << vol.createTime
               << " statename:" << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second
               << " ]";
 }
