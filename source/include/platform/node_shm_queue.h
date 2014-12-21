@@ -5,6 +5,8 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_NODE_SHM_QUEUE_H_
 #define SOURCE_INCLUDE_PLATFORM_NODE_SHM_QUEUE_H_
 
+#include "platform/node_shm_ctrl.h"
+
 namespace fds
 {
     /**

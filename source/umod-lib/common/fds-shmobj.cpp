@@ -8,6 +8,8 @@
 #include <platform/node-inv-shmem.h>
 #include <platform/fds_shmem.h>
 
+#include "platform/node_shm_ctrl.h"
+
 namespace fds {
 
 /*

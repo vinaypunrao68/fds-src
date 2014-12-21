@@ -8,6 +8,7 @@
 #include <orchMgr.h>
 
 #include "platform/node_data.h"
+#include "platform/node_shm_ctrl.h"
 
 namespace fds {
 

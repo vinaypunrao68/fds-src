@@ -14,6 +14,8 @@
 #include <platform/service-ep-lib.h>
 #include <NetSession.h>
 
+#include "platform/node_shm_ctrl.h"
+
 bool    gdb_plat = false;
 
 namespace fds

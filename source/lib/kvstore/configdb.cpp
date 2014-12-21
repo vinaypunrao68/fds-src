@@ -9,10 +9,10 @@
 #include <util/Log.h>
 #include <util/stringutils.h>
 #include <stdlib.h>
-#include <platform/node-inv-shmem.h>
 #include <fdsp_utils.h>
 #include <util/timeutils.h>
 
+#include "platform/platform_shm_typedefs.h"
 #include "platform/node_data.h"
 
 auto format = fds::util::strformat;

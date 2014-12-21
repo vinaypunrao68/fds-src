@@ -1,33 +1,14 @@
 /*
- * Copyright 2013 by Formation Data Systems, Inc.
+ * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_INCLUDE_PLATFORM_NODE_INV_SHMEM_H_
-#define SOURCE_INCLUDE_PLATFORM_NODE_INV_SHMEM_H_
+#ifndef SOURCE_INCLUDE_PLATFORM_NODE_SHM_CTRL_H_
+#define SOURCE_INCLUDE_PLATFORM_NODE_SHM_CTRL_H_
 
-#include <string>
-#include <thread>
-#include <ostream>
-#include <fds-shmobj.h>
-#include <fds_module.h>
-#include <fds_typedefs.h>
-#include <concurrency/Mutex.h>
-#include <shared/fds-constants.h>
-
-#include "platform_shm_typedefs.h"
-
-/**
- * Platform POD structures in shared memory.
- */
+#include "platform/platform_shm_typedefs.h"
 
 namespace fds
 {
-#if 0
-    class FdsShmem;
-    struct node_shm_queue;
-#endif
-
-#if 0
     class NodeShmCtrl;
     extern NodeShmCtrl    gl_NodeShmROCtrl;
     extern NodeShmCtrl   *gl_NodeShmCtrl;
@@ -152,7 +133,6 @@ namespace fds
 
             FdsShmem *shm_create_mgr(const char *fmt, char *name, int size);
     };
-#endif
 }  // namespace fds
 
-#endif  // SOURCE_INCLUDE_PLATFORM_NODE_INV_SHMEM_H_
+#endif  // SOURCE_INCLUDE_PLATFORM_NODE_SHM_CTRL_H_
