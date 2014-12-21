@@ -57,7 +57,7 @@ Sizes: N/A
 
 #### s3-0006.xml.j2
 
-This job performs an 80/20 read:write for 30 minutes across 2 buckets
+This job performs an 80/20 read:write for 30 seconds across 2 buckets
 and 20 objects @ 64k only
 
 Containers: range 2
