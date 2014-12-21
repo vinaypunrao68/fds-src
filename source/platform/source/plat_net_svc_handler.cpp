@@ -15,6 +15,8 @@
 #include <platform/platform-lib.h>
 #include <platform/node-workflow.h>
 
+#include "platform/node_work_flow.h"
+
 namespace fds
 {
     PlatNetSvcHandler::PlatNetSvcHandler()
