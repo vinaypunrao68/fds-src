@@ -5,7 +5,14 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLAT_UUID_BIND_UPDATE_H_
 #define SOURCE_PLATFORM_INCLUDE_PLAT_UUID_BIND_UPDATE_H_
 
-#include <platform/net-plat-shared.h>
+#include "net/RpcFunc.h"
+#include "fdsp/PlatNetSvc.h"
+
+#include "platform/platform-lib.h"
+
+// #include "platform/node_agent_iter.h"
+
+#include "platform/domain_agent.h"
 
 namespace fds
 {
@@ -23,7 +30,7 @@ namespace fds
                 DomainAgent::pointer    agent;
 
                 agent = agt_cast_ptr<DomainAgent>(curr);
-                auto                    rpc = agent->node_svc_rpc(&eph);
+                auto    rpc = agent->node_svc_rpc(&eph);
 
                 if (rpc != NULL)
                 {

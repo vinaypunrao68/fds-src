@@ -7,6 +7,12 @@
 
 #include <string>
 
+#include "net/PlatNetSvcHandler.h"
+
+#include "domain_agent.h"
+#include "plat_net_ep_ptr.h"
+#include "plat_net_plugin.h"
+
 namespace fds
 {
     class NetPlatSvc : public NetPlatform
