@@ -24,6 +24,7 @@ namespace fds
     class DomainContainer;
     class DomainClusterMap;
 
+#if 0
     class NodeDown : public StateEntry
     {
         public:
@@ -170,6 +171,7 @@ namespace fds
             }
             virtual int st_handle(EventObj::pointer evt, StateObj::pointer cur) const override;
     };
+#endif
 
 #if 0
 

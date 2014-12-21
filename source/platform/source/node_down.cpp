@@ -8,6 +8,8 @@
 #include <platform/node-workflow.h>
 #include <net/SvcRequestPool.h>
 
+#include "platform/node_down.h"
+
 namespace fds
 {
     int NodeDown::st_handle(EventObj::pointer evt, StateObj::pointer cur) const
