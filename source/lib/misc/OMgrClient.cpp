@@ -228,6 +228,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
 
     clustMap = new LocalClusterMap();
     plf_mgr  = plf;
+    fNoNetwork = false;
 }
 
 OMgrClient::~OMgrClient()
