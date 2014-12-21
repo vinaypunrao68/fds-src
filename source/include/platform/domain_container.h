@@ -5,61 +5,16 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_DOMAIN_CONTAINER_H_
 #define SOURCE_INCLUDE_PLATFORM_DOMAIN_CONTAINER_H_
 
-#if 0
-#include <vector>
-#include <string>
-#include <fds_ptr.h>
-#include <fds_error.h>
-#include <fds_resource.h>
-#include <fds_module.h>
-#include <net/SvcRequest.h>
-#include <fdsp/FDSP_types.h>
-#include <fdsp/fds_service_types.h>
-
-
-
-
-// New includes
-#include "typedefs.h"
-
-#include "node_inventory_x.h"
-#include "node_agent.h"
-
-#include "pm_agent.h"
-#include "dm_agent.h"
-#include "sm_agent.h"
-#include "om_agent.h"
-#include "am_agent.h"
-
-#include "agent_container.h"
-
-
 #include "am_container.h"
 #include "dm_container.h"
 #include "om_container.h"
 #include "pm_container.h"
 #include "sm_container.h"
 
-#endif
+#include "om_agent.h"
 
 namespace fds
 {
-
-#if 0
-    class ShmObjRO;
-    class EpSvc;
-    class EpSvcImpl;
-    class EpSvcHandle;
-    class EpEvtPlugin;
-    class DomainContainer;
-    class EPSvcRequest;
-    class AgentContainer;
-    class DomainContainer;
-    class EPSvcRequest;
-    class NodeWorkFlow;
-
-#endif
-
     // -------------------------------------------------------------------------------------
     // Common Domain Container
     // -------------------------------------------------------------------------------------
