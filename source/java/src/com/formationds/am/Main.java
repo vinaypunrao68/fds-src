@@ -6,7 +6,6 @@ package com.formationds.am;
 import com.formationds.apis.AmService;
 import com.formationds.apis.AsyncAmServiceRequest;
 import com.formationds.apis.ConfigurationService;
-import com.formationds.nbd.*;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
@@ -28,7 +27,6 @@ import org.eclipse.jetty.io.ByteBufferPool;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 
 public class Main {
@@ -84,7 +82,7 @@ public class Main {
         String amHost = platformConfig.lookup("fds.xdi.am_host").stringValue();
 
         AmService.Iface am = useFakeAm ? new FakeAmService() :
-                clientFactory.remoteAmService(amHost, 9988);
+                clientFactory.remoteAmService(amHost, 9988 + amInstanceId);
 
         ConfigurationApi configCache = new ConfigurationApi(clientFactory.remoteOmService(omHost, omConfigPort));
         boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
