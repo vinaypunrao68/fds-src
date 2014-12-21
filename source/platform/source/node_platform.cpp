@@ -25,6 +25,8 @@
 #include "plat_agent_container.h"
 #include "plat_agent_plugin.h"
 
+// #include "platform/node_shm_queue.h"
+
 namespace fds
 {
     NodePlatform    gl_NodePlatform;

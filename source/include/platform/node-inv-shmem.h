@@ -29,6 +29,7 @@ namespace fds
     typedef fpi::FDSP_MgrIdType FdspNodeType;
     typedef fpi::FDSP_RegisterNodeTypePtr FdspNodeRegPtr;
 
+#if 0
     typedef struct node_stor_cap
     {
         fds_uint64_t disk_capacity;
@@ -59,6 +60,7 @@ namespace fds
         fds_uint32_t nd_disk_type;
         node_stor_cap_t nd_capability;
     } node_data_t;
+#endif
 
     typedef enum
     {
@@ -66,6 +68,7 @@ namespace fds
         NODE_SHM_ACTIVE         = 0xfeedcafe
     } node_shm_state_e;
 
+#if 0
     /**
      * Node inventory shared memory segment layout
      */
@@ -100,6 +103,7 @@ namespace fds
         fds_uint32_t shm_dmt_key_size;
         fds_uint32_t shm_dmt_size;
     } node_shm_inventory_t;
+#endif
 
 #define SHM_INV_FMT         "/0x%llx-%d"
 #define SHM_QUEUE_FMT       "/0x%llx-rw-%d"
@@ -227,7 +231,7 @@ namespace fds
 
             FdsShmem *shm_create_mgr(const char *fmt, char *name, int size);
     };
-
+#if 0
     /**
      * Producer/consumer queue in shared memory of a node.
      */
@@ -245,14 +249,15 @@ namespace fds
         int smq_plat_pad[NodeShmCtrl::shm_svc_consumers];
     } node_shm_queue_t;
 
+    cc_assert(node_inv_shm0, sizeof(node_shm_queue_t) <= NodeShmCtrl::shm_queue_hdr);
+
     typedef struct node_shm_queue_item
     {
         char smq_item[NodeShmCtrl::shm_q_item_size];
     } node_shm_queue_item_t;
 
-    cc_assert(node_inv_shm0, sizeof(node_shm_queue_t) <= NodeShmCtrl::shm_queue_hdr);
     cc_assert(node_inv_shm1, sizeof(node_shm_queue_item_t) <= NodeShmCtrl::shm_q_item_size);
-
+#endif
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_PLATFORM_NODE_INV_SHMEM_H_

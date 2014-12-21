@@ -5,6 +5,8 @@
 #include <OmAdminCtrl.h>
 #include <platform/node-inv-shmem.h>
 
+#include "platform/node_stor_cap.h"
+
 #define REPLICATION_FACTOR     (4)
 #define LOAD_FACTOR            (0.9)
 #define BURST_FACTOR           (0.3)

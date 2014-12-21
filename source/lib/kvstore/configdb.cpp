@@ -13,6 +13,8 @@
 #include <fdsp_utils.h>
 #include <util/timeutils.h>
 
+#include "platform/node_data.h"
+
 auto format = fds::util::strformat;
 auto lower  = fds::util::strlower;
 

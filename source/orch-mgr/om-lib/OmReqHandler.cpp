@@ -9,6 +9,8 @@
 #include <OmResources.h>
 #include <platform/node-inv-shmem.h>
 
+#include "platform/node_data.h"
+
 #undef LOGGERPTR
 #define LOGGERPTR orchMgr->GetLog()
 namespace fds {

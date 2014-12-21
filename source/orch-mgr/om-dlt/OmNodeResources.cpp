@@ -20,6 +20,8 @@
 #include <net/SvcRequestPool.h>
 #include <platform/node-inv-shmem.h>
 
+#include "platform/node_data.h"
+
 namespace fds {
 
 // ---------------------------------------------------------------------------------
