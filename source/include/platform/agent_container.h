@@ -188,6 +188,19 @@ namespace fds
             virtual ~AgentContainer();
             explicit AgentContainer(FdspNodeType id);
     };
+
+    /**
+     * Down cast a node container intrusive pointer.
+     */
+    template <class T> static inline T *agt_cast_ptr(AgentContainer::pointer ptr)
+    {
+        return static_cast<T *>(get_pointer(ptr));
+    }
+
+    template <class T> static inline T *agt_cast_ptr(RsContainer::pointer ptr)
+    {
+        return static_cast<T *>(get_pointer(ptr));
+    }
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_PLATFORM_AGENT_CONTAINER_H_
