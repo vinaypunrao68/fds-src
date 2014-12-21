@@ -9,11 +9,16 @@
 #include <vector>
 #include <map>
 #include <fds-shmobj.h>
-#include <net/net-service.h>
+// #include <net/net-service.h>
 #include <fdsp/PlatNetSvc.h>
 #include <platform/platform-lib.h>
 #include <platform/node-inventory.h>
 #include <net/PlatNetSvcHandler.h>
+
+// new includes
+
+#include "plat_net_plugin.h"
+#include "domain_agent.h"
 
 namespace fds
 {
@@ -27,6 +32,7 @@ namespace fds
     typedef EndPoint<fpi::PlatNetSvcClient, fpi::PlatNetSvcProcessor> PlatNetEp;
     typedef bo::intrusive_ptr<PlatNetEp> PlatNetEpPtr;
 
+#if 0
     class PlatNetPlugin : public EpEvtPlugin
     {
         public:
@@ -47,7 +53,6 @@ namespace fds
         protected:
             NetPlatSvc   *plat_svc;
     };
-
     /**
      * Node domain master agent.  This is the main interface to the master domain
      * service.
@@ -161,6 +166,8 @@ namespace fds
      * Internal module vector providing network platform services.
      */
     extern NetPlatSvc    gl_NetPlatform;
+
+#endif
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_PLATFORM_NET_PLAT_SHARED_H_

@@ -12,6 +12,10 @@
 #include <platform/net-plat-shared.h>
 #include <platform/service-ep-lib.h>
 
+// New includes
+#include "platform/node_info_shm_iter.h"
+#include "platform/net_plat_svc.h"
+
 namespace fds {
 
 NetPlatSvc                   gl_NetPlatform("NetPlatform");

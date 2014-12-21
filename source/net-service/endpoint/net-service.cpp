@@ -15,6 +15,10 @@
 #include <fdsp/Streaming.h>
 #include <net/BaseAsyncSvcHandler.h>
 
+
+// New includes
+#include "platform/net_plat_svc.h"
+
 namespace fds {
 
 NetMgr              gl_NetService("EndPoint Mgr");

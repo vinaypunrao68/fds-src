@@ -5,6 +5,8 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_DOMAIN_CONTAINER_H_
 #define SOURCE_INCLUDE_PLATFORM_DOMAIN_CONTAINER_H_
 
+#include <string>
+
 #include "am_container.h"
 #include "dm_container.h"
 #include "om_container.h"
