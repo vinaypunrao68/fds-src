@@ -4,8 +4,6 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AM_NODE_WORKFLOW_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AM_NODE_WORKFLOW_H_
 
-#include <platform/node-workflow.h>
-
 #include "platform/node_work_flow.h"
 
 namespace fds {

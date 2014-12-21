@@ -6,12 +6,13 @@
 
 #include <platform/node-inv-shmem.h>
 #include "platform/node-inventory.h"
-#include <platform/node-workflow.h>
 
 #include "net/SvcRequestPool.h"
 
 #include <net/net-service-tmpl.hpp>
 #include "platform/platform-lib.h"
+
+#include "platform/node_work_item.h"
 
 namespace fds
 {
@@ -23,9 +24,9 @@ namespace fds
     {
     }
 
-    NodeAgent::NodeAgent(const NodeUuid &uuid)
-        : NodeInventory(uuid), nd_eph(NULL),
-        nd_ctrl_eph(NULL), nd_svc_rpc(NULL), nd_ctrl_rpc(NULL), pm_wrk_item(NULL)
+    NodeAgent::NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid), nd_eph(NULL),
+                                                 nd_ctrl_eph(NULL), nd_svc_rpc(NULL),
+                                                 nd_ctrl_rpc(NULL), pm_wrk_item(NULL)
     {
     }
 

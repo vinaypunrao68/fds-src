@@ -5,8 +5,6 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLAT_WORK_FLOW_H_
 #define SOURCE_PLATFORM_INCLUDE_PLAT_WORK_FLOW_H_
 
-#include <platform/node-workflow.h>
-
 #include "platform/node_work_flow.h"
 
 namespace fds
