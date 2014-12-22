@@ -15,6 +15,7 @@ user_incl_dir     := \
 	/usr/include/cryptopp
 
 user_fds_ar_libs  :=  \
+    fds-qos-lib \
     fds-am-engine \
     fds-am-engine \
     fds-am-plat \

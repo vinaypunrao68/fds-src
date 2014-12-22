@@ -76,6 +76,8 @@ class NbdConnection : public NbdOperationsResponseIface {
     int clientSocket;
     boost::shared_ptr<std::string> volumeName;
     apis::VolumeDescriptor volDesc;
+    size_t volume_size;
+
     OmConfigApi::shared_ptr omConfigApi;
     NbdOperations::shared_ptr nbdOps;
     size_t maxChunks;

@@ -285,11 +285,16 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
         fds_verify(ERR_OK == err);
         fds_verify(apis::BLOCK == volDesc.policy.volumeType);
     }
+
+    // Fix endianness
+    volume_size = __builtin_bswap64(volDesc.policy.blockDeviceSizeInBytes);
     maxChunks = (2 * 1024 * 1024) / volDesc.policy.maxObjectSizeInBytes;
+
     LOGNORMAL << "Attaching volume name " << *volumeName << " of size "
               << volDesc.policy.blockDeviceSizeInBytes
               << " max object size " << volDesc.policy.maxObjectSizeInBytes
               << " max number of chunks " << maxChunks;
+
     return true;
 }
 
@@ -298,7 +303,7 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
     static fds_int16_t const optFlags = NBD_FLAG_HAS_FLAGS|NBD_FLAG_SEND_FLUSH|NBD_FLAG_SEND_FUA;
     static iovec const vectors[] = {
         { nullptr,
-                                         sizeof(volDesc.policy.blockDeviceSizeInBytes) },
+                                         sizeof(volume_size) },
         { to_iovec(&optFlags),           sizeof(NBD_MAGIC) },
         { to_iovec(&NBD_PROTO_VERSION),  sizeof(NBD_PROTO_VERSION) },
     };
@@ -308,7 +313,7 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
         total_blocks = std::extent<decltype(vectors)>::value;
         response = decltype(response)(new iovec[total_blocks]);
         memcpy(response.get(), vectors, sizeof(vectors));
-        response[0].iov_base = &volDesc.policy.maxObjectSizeInBytes;
+        response[0].iov_base = &volume_size;
     }
 
     // Try and write the response, if it fails to write ALL
