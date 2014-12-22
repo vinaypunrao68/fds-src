@@ -310,6 +310,11 @@ OM_NodeAgent::om_send_dlt_close_resp(fpi::CtrlNotifyDLTClosePtr msg,
     LOGDEBUG << "OM received response for NotifyDltClose from node "
                 << std::hex << req->getPeerEpId().svc_uuid << std::dec <<
                 " with version " << msg->dlt_close.DLT_version;
+
+    // notify DLT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
+    domain->om_recv_dlt_close_resp(node_uuid, msg->dlt_close.DLT_version);
 }
 
 void
@@ -1335,6 +1340,15 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
 static void
 om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer vol)
 {
+    /*
+     * Only send if not deleted or marked to be deleted.
+     */
+    if (vol->isDeletePending() || vol->isStateDeleted()) {
+        LOGDEBUG << "Dmt not sending Volume to Node :" << vol->vol_get_name()
+                 << "; state " << vol->getStateName();
+        return;
+    }
+
     (*cnt)++;
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
