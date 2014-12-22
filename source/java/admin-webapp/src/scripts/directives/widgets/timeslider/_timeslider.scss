@@ -18,6 +18,7 @@
     
     .slider-parent {
         position: relative;
+        height: 20px;
     }
     
     .value-container {
@@ -35,7 +36,7 @@
     }
     
     .arrow-parent {
-        bottom: -4px;
+        bottom: 16px;
         position: absolute;
         
         .arrow {
@@ -78,6 +79,27 @@
         &.grabbed {
             background-color: #4294DF;
             cursor: ew-resize;
+        }
+    }
+    
+    .domain-labels {
+        
+        position: relative;
+        height: 30px;
+        color: black;
+        
+        .label-parent {
+            position: absolute;
+        }
+        
+        .tick {
+            width: 2px;
+            height: 10px;
+            background-color: $text_very_light_color;
+        }
+        
+        .text {
+            font-size: 11px;
         }
     }
 }

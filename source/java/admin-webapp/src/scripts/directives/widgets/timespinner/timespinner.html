@@ -1,0 +1,8 @@
+<div class="time-spinner">
+    <input ng-model="hours" maxlength="2" size="2" class="no-border" ng-keyup="keyPressed( $event, HOURS )" ng-blur="focusChanged()">
+    <span class="colon">:</span>
+    <input ng-model="minutes" maxlength="2" size="2" class="no-border" ng-keyup="keyPressed( $event, MINUTES )" ng-blur="focusChanged()">
+    <span class="colon" ng-show="showSeconds === 'true'">:</span>
+    <input ng-model="seconds" maxlength="2" size="2" class="no-border" ng-show="showSeconds === 'true'" ng-keyup="keyPressed( $event, SECONDS )" ng-blur="focusChanged()">
+    <input ng-model="ampm" maxlength="4" size="4" class="no-border" ng-show="mode == 12" ng-keyup="keyPressed( $event, AMPM )" ng-blur="focusChanged()">
+</div>

@@ -43,6 +43,13 @@ angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope',
         { min: 30, max: 200 }
     ];
     
+    $scope.domainLabels = [
+        { text: '1 day', value: 105 },
+        { text: 'Another label', value: 1265 },
+        { text: 'dont show', value: 1 },
+        { text: 'too big', value: 1000000 }
+    ];
+    
     $scope.time = 1000;
     
     $scope.labelFunc = function( value ){

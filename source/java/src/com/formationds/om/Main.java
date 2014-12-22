@@ -154,7 +154,7 @@ public class Main {
         authenticate(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(xdi, amService, legacyConfigClient, t));
         authenticate(HttpMethod.POST, "/api/config/volumes",
                 (t) -> new CreateVolume(xdi, legacyConfigClient, configCache, t));
-        authenticate(HttpMethod.POST, "/api/config/volumes/clone/:volumeId/:cloneVolumeName", (t) -> new CloneVolume(configCache, legacyConfigClient));
+        authenticate(HttpMethod.POST, "/api/config/volumes/clone/:volumeId/:cloneVolumeName/:timelineTime", (t) -> new CloneVolume(configCache, legacyConfigClient));
         authenticate(HttpMethod.DELETE, "/api/config/volumes/:name", (t) -> new DeleteVolume(xdi, t));
         authenticate(HttpMethod.PUT, "/api/config/volumes/:uuid", (t) -> new SetVolumeQosParams(xdi, legacyConfigClient, configCache, authorizer, t));
 

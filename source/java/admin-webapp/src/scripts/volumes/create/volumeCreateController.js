@@ -84,14 +84,14 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     };
     
     var cloneVolume = function( volume ){
-        volume.id = $scope.volumeVars.clone.id;
+        volume.id = $scope.volumeVars.cloneFromVolume.id;
         
-        if ( angular.isDefined( $scope.volumeVars.clone.cloneType ) ){
-            $volume_api.cloneSnapshot( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
-        }
-        else {
+//        if ( angular.isDefined( $scope.volumeVars.clone.cloneType ) ){
+//            $volume_api.cloneSnapshot( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
+//        }
+//        else {
             $volume_api.clone( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
-        }
+//        }
     };
     
     $scope.deleteVolume = function(){
@@ -145,6 +145,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         }
         
         if ( $scope.volumeVars.toClone === 'clone' ){
+            volume.timelineTime = $scope.volumeVars.cloneFromVolume.timelineTime;
             cloneVolume( volume );
         }
         else{
@@ -158,6 +159,27 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         $scope.volumeVars.toClone = false;
         $scope.volumeVars.back();
     };
+    
+    $scope.$watch( 'volumeVars.cloneFromVolume', function( newVal, oldVal ){
+        
+        if ( newVal === oldVal || $scope.volumeVars.toClone === 'new' ){
+            return;
+        }
+        
+        if ( !angular.isDefined( newVal ) ){
+            return;
+        }
+        
+        var volume = newVal;
+        
+        $scope.qos = {
+            capacity: volume.sla,
+            limit: volume.limit,
+            priority: volume.priority
+        };
+        
+        $scope.data_connector = volume.data_connector;
+    });
 
     $scope.$watch( 'volumeVars.creating', function( newVal ){
         if ( newVal === true ){

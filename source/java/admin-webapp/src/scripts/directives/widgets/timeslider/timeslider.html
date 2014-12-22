@@ -18,4 +18,10 @@
         </div>
         <div class="handle" ng-dragstart="$event.preventDefault()" ng-style="{ left: sliderPosition + 'px' }" ng-mousedown="handleClicked()" ng-class="{ 'grabbed' : grabbedSlider === true }"></div>
     </div>
+    <div class="domain-labels" ng-show="domainLabels && domainLabels.length > 0">
+        <div class="label-parent" ng-repeat="label in domainLabels" ng-show="label.show === true" ng-style="{ left: label.position }">
+            <div class="tick"></div>
+            <div class="text">{{label.text}}</div>
+        </div>
+    </div>
 </div>
