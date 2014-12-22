@@ -213,8 +213,8 @@ class FdsNodeConfig(FdsConfig):
         if test_harness:
             cur_dir = os.getcwd()
             os.chdir(bin_dir)
-            status = self.nd_agent.exec_wait('bash -c \"(nohup ./platformd %s > %s/pm.%s.out 2>&1 &) \"' %
-                                            (port_arg, log_dir if self.nd_agent.env_install else ".",
+            status = self.nd_agent.exec_wait('bash -c \"(nohup ./platformd --fds-root=%s > %s/pm.%s.out 2>&1 &) \"' %
+                                            (fds_dir, log_dir if self.nd_agent.env_install else ".",
                                              port))
             os.chdir(cur_dir)
         else:

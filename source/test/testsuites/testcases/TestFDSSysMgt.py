@@ -88,11 +88,11 @@ class TestNodeActivate(TestCase.FDSTestCase):
                                               '%s/cli.out 2>&1 &) \"' %
                                               (fds_dir, log_dir if n.nd_agent.env_install else "."))
 
+            os.chdir(cur_dir)
+
             if status != 0:
                 self.log.error("Node activation on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
                 return False
-
-            os.chdir(cur_dir)
 
         return True
 

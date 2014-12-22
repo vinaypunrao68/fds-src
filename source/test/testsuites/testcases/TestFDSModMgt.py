@@ -175,14 +175,15 @@ class TestDMBringUp(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
+            port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
             bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
             log_dir = fdscfg.rt_env.get_log_dir()
 
             self.log.info("Start DM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/DataMgr --fds-root=%s > %s/dm.out 2>&1 &) \"' %
-                                          (bin_dir, fds_dir, log_dir))
+            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/DataMgr --fds-root=%s > %s/dm.%s.out 2>&1 &) \"' %
+                                          (bin_dir, fds_dir, log_dir, port))
 
             if status != 0:
                 self.log.error("DM bringup on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -447,14 +448,15 @@ class TestSMBringUp(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
+            port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
             bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
             log_dir = fdscfg.rt_env.get_log_dir()
 
             self.log.info("Start SM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/StorMgr --fds-root=%s > %s/sm.out 2>&1 &) \"' %
-                                          (bin_dir, fds_dir, log_dir))
+            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/StorMgr --fds-root=%s > %s/sm.%s.out 2>&1 &) \"' %
+                                          (bin_dir, fds_dir, log_dir, port))
 
             if status != 0:
                 self.log.error("SM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -1221,13 +1223,14 @@ class TestAMBringup(TestCase.FDSTestCase):
         for n in nodes:
             self.log.info("Start AM on %s." % n.nd_conf_dict['fds_node'])
 
+            port = n.nd_am_node.nd_conf_dict['fds_port']
             fds_dir = n.nd_am_node.nd_conf_dict['fds_root']
 
             # The AMAgent script expected to be invoked from the bin directory in which resides.
             cur_dir = os.getcwd()
             os.chdir(bin_dir)
-            status = n.nd_am_node.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s 0<&- &> ./am.out &) \"' %
-                                                     fds_dir)
+            status = n.nd_am_node.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s 0<&- &> ./am.%s.out &) \"' %
+                                                     (fds_dir, port))
             os.chdir(cur_dir)
 
             if status != 0:
