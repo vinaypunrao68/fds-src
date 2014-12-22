@@ -116,6 +116,22 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
                     self.log.error("FDS configuration directory population on node %s returned status %d." %
                                    (n.nd_conf_dict['node-name'], status))
                     return False
+
+                # Make sure the platform config file specifies the correct port configuration.
+                if 'fds_port' in n.nd_conf_dict:
+                    port = n.nd_conf_dict['fds_port']
+                else:
+                    self.log.error("FDS platform configuration file is missing 'platform_port = ' config")
+                    return False
+
+                status = n.nd_agent.exec_wait('rm %s/platform.conf ' % dest_config_dir)
+                status = n.nd_agent.exec_wait('sed -e "s/platform_port = 7000/platform_port = %s/g" '
+                                              '-e "1,$w %s/platform.conf" '
+                                              '%s/platform.conf ' %
+                                              (port, dest_config_dir, src_config_dir))
+                if status != 0:
+                    self.log.error("FDS platform configuration file modification failed.")
+                    return False
             else:
                 self.log.error("Test method %s is meant to be called when testing "
                                "from a development environment. Instead, try class TestFDSPkgInst." %

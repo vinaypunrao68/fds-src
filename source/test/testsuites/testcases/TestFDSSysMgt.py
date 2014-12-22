@@ -59,6 +59,7 @@ class TestNodeActivate(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
 
         nodes = fdscfg.rt_obj.cfg_nodes
+        ams = fdscfg.rt_get_obj('cfg_am')
         for n in nodes:
             fds_dir = n.nd_conf_dict['fds_root']
             bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
@@ -72,14 +73,26 @@ class TestNodeActivate(TestCase.FDSTestCase):
 
             cur_dir = os.getcwd()
             os.chdir(bin_dir)
-            status = n.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s --activate-nodes abc -k 1 -e am,dm,sm > '
-                                          '%s/cli.out 2>&1 &) \"' %
-                                          (fds_dir, log_dir if n.nd_agent.env_install else "."))
-            os.chdir(cur_dir)
+
+            am_node = False
+            for am in ams:
+                if n.nd_conf_dict['node-name'] == am.nd_am_node.nd_conf_dict['node-name']:
+                    am_node = True
+
+            if am_node:
+                status = n.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s --activate-nodes abc -k 1 -e am,dm,sm > '
+                                              '%s/cli.out 2>&1 &) \"' %
+                                              (fds_dir, log_dir if n.nd_agent.env_install else "."))
+            else:
+                status = n.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s --activate-nodes abc -k 1 -e dm,sm > '
+                                              '%s/cli.out 2>&1 &) \"' %
+                                              (fds_dir, log_dir if n.nd_agent.env_install else "."))
 
             if status != 0:
                 self.log.error("Node activation on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
                 return False
+
+            os.chdir(cur_dir)
 
         return True
 

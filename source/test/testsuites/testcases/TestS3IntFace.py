@@ -715,7 +715,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
             chunk_count = int(math.ceil(source_size / chunk_size))
 
             self.log.info("Loading %s of size %d using %d chunks of max size %d. using "
-                          "Bobo's 'multi-part' upload interface" %
+                          "Boto's 'multi-part' upload interface" %
                           (source_path, source_size, chunk_count + 1, chunk_size))
 
             # Send the file parts, using FileChunkIO to create a file-like object
