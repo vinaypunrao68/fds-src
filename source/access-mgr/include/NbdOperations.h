@@ -22,14 +22,17 @@ class NbdResponseVector {
         WRITE = 1
     };
 
-    explicit NbdResponseVector(fds_int64_t hdl, NbdOperation op,
+    explicit NbdResponseVector(boost::shared_ptr<std::string> volName,
+                               fds_int64_t hdl, NbdOperation op,
                                fds_uint64_t off, fds_uint32_t len, fds_uint32_t maxOSize,
                                fds_uint32_t objCnt)
-      : handle(hdl), operation(op), offset(off), length(len),
+      : volumeName(volName), handle(hdl), operation(op), offset(off), length(len),
         maxObjectSizeInBytes(maxOSize), objCount(objCnt), opError(ERR_OK) {
         doneCount = ATOMIC_VAR_INIT(0);
         if (op == READ) {
             bufVec.resize(objCnt, NULL);
+        } else {
+            bufVec.resize(2, NULL);
         }
     }
     ~NbdResponseVector() {}
@@ -40,6 +43,7 @@ class NbdResponseVector {
         return (doneCnt == objCount);
     }
     fds_bool_t isRead() const { return (operation == READ); }
+    inline boost::shared_ptr<std::string>& getVolumeName() { return volumeName; }
     inline fds_int64_t getHandle() const { return handle; }
     inline Error getError() const { return opError; }
     inline fds_uint64_t getOffset() const { return offset; }
@@ -51,6 +55,17 @@ class NbdResponseVector {
         }
         return bufVec[context++];
     }
+
+    void keepBufferForWrite(fds_uint32_t seqId, boost::shared_ptr<std::string> buf) {
+        fds_verify(operation == WRITE);
+        fds_verify((seqId == 0) || (seqId == (objCount - 1)));
+        if (seqId == 0) {
+            bufVec[0] = buf;
+        } else {
+            bufVec[1] = buf;
+        }
+    }
+
 
     /**
      * \return true if all responses were received or operation error
@@ -111,6 +126,41 @@ class NbdResponseVector {
         fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
         return ((doneCnt + 1) == objCount);
     }
+
+    /**
+     * Handle read response for read-modify-write
+     * \return true if all responses were received or operation error
+     */
+    boost::shared_ptr<std::string> handleRMWResponse(
+                                          boost::shared_ptr<std::string> retBuf,
+                                          fds_uint32_t len,
+                                          fds_uint32_t seqId,
+                                          const Error& err) {
+        fds_verify(operation == WRITE);
+        if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
+                         (err != ERR_BLOB_NOT_FOUND)) {
+            opError = err;
+            return boost::shared_ptr<std::string>();
+        } else {
+            fds_uint32_t iOff = (seqId == 0) ? offset % maxObjectSizeInBytes : 0;
+            fds_uint32_t index = (seqId == 0) ? 0 : 1;
+            boost::shared_ptr<std::string> writeBytes = bufVec[index];
+
+            if ((err == ERR_BLOB_OFFSET_INVALID) ||
+                (err == ERR_BLOB_NOT_FOUND)) {
+                // we tried to read unwritten block, ok
+                writeBytes->assign(writeBytes->length(), 0);
+            } else {
+                fds_verify(len == maxObjectSizeInBytes);
+                writeBytes->replace(0, writeBytes->length(),
+                                    *retBuf, iOff, writeBytes->length());
+            }
+            return writeBytes;
+        }
+        return boost::shared_ptr<std::string>();
+    }
+
+
     void setError(const Error& err) { opError = err; }
 
   private:
@@ -119,19 +169,19 @@ class NbdResponseVector {
     std::atomic<fds_uint32_t> doneCount;
     fds_uint32_t objCount;
 
+    // for write in read response callback
+    boost::shared_ptr<std::string> volumeName;
+
     // error of the operation
     Error opError;
 
-    // to collect read responses
+    // to collect read responses or first and last buffer for write op
     std::vector<boost::shared_ptr<std::string>> bufVec;
 
     // offset
     fds_uint64_t offset;
     fds_uint32_t length;
     fds_uint32_t maxObjectSizeInBytes;
-
-    // write op info
-    boost::shared_ptr<std::string> bytes;
 };
 
 // Response interface for NbdOperations

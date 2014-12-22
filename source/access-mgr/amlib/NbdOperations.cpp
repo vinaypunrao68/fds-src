@@ -39,7 +39,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
              << " max object size " << maxObjectSizeInBytes << " bytes";
 
     // we will wait for responses
-    NbdResponseVector* resp = new NbdResponseVector(handle,
+    NbdResponseVector* resp = new NbdResponseVector(volumeName, handle,
                                                     NbdResponseVector::READ,
                                                     offset, length, maxObjectSizeInBytes,
                                                     objCount);
@@ -137,7 +137,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
              << " max object size " << maxObjectSizeInBytes << " bytes";
 
     // we will wait for responses
-    NbdResponseVector* resp = new NbdResponseVector(handle,
+    NbdResponseVector* resp = new NbdResponseVector(volumeName, handle,
                                                     NbdResponseVector::WRITE,
                                                     offset, length,
                                                     maxObjectSizeInBytes, objCount);
@@ -155,18 +155,23 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
         fds_uint64_t objectOff = curOffset / maxObjectSizeInBytes;
         fds_uint32_t iOff = curOffset % maxObjectSizeInBytes;
         fds_uint32_t iLength = length - amBytesWritten;
-        if (iLength > maxObjectSizeInBytes) {
+        if (iLength >= maxObjectSizeInBytes) {
             iLength = maxObjectSizeInBytes - iOff;
+        } else if ((seqId == 0) && (iOff != 0)) {
+            if (length > (maxObjectSizeInBytes - iOff)) {
+                iLength = maxObjectSizeInBytes - iOff;
+            }
         }
-
-        // see if we need to read-modify-write
-        if ((iOff != 0) || (iLength != maxObjectSizeInBytes)) {
-            // we need to read the whole object first
-            LOGNORMAL << "Will do read-modify-write for object size " << iLength;
-            fds_verify(false);  // implement this
-            ++seqId;
-            continue;
+        fds_uint32_t actualLength = iLength;
+        if ((iOff != 0) || (iLength < maxObjectSizeInBytes)) {
+            // we will do read (whole object), modify, write
+            iLength = maxObjectSizeInBytes;
         }
+        LOGDEBUG << "actualLen " << actualLength << " bytesW " << amBytesWritten
+                 << " length " << bytes->length();
+        boost::shared_ptr<std::string> objBuf(new std::string(*bytes,
+                                                              amBytesWritten,
+                                                              actualLength));
 
         // write an object
         boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(iLength);
@@ -178,6 +183,41 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
         // request id is 64 bit of handle + 32 bit of sequence Id
         reqId->id = std::to_string(handle) + ":" + std::to_string(seqId);
 
+        // see if we need to read-modify-write
+        if ((iOff != 0) || (actualLength != maxObjectSizeInBytes)) {
+            // we need to read the whole object first
+            LOGNORMAL << "Will do read-modify-write for object size " << iLength;
+            // keep track of first and last buffer we will write
+            resp->keepBufferForWrite(seqId, objBuf);
+            try {
+                amAsyncDataApi->getBlob(reqId,
+                                        domainName,
+                                        volumeName,
+                                        blobName,
+                                        objLength,
+                                        off);
+            } catch(apis::ApiException fdsE) {
+                 // return error
+                 resp->setError(ERR_DISK_READ_FAILED);
+                 {
+                     // nbd connector will free resp
+                     // remove from the wait list
+                     fds_mutex::scoped_lock l(respLock);
+                     responses.erase(handle);
+                  }
+                  // we are done collecting responses for this handle, notify nbd connector
+                  nbdResp->readWriteResp(ERR_DISK_READ_FAILED, handle, resp);
+                  return;
+             }
+
+            ++seqId;
+            // we did not write the bytes yet, but we update bytes written so this loop
+            // continues correctly
+            amBytesWritten += actualLength;
+            continue;
+        }
+
+        // write an object
         // blob name for block?
         LOGDEBUG << "putBlob length " << iLength << " offset " << curOffset
                  << " object offset " << objectOff
@@ -190,11 +230,11 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
                                            volumeName,
                                            blobName,
                                            blobMode,
-                                           bytes,
+                                           objBuf,
                                            objLength,
                                            off,
                                            emptyMeta);
-            amBytesWritten += iLength;
+            amBytesWritten += actualLength;
             ++seqId;
         } catch(apis::ApiException fdsE) {
             // return error
@@ -220,6 +260,7 @@ NbdOperations::getBlobResp(const Error &error,
     NbdResponseVector* resp = NULL;
     fds_int64_t handle = 0;
     fds_int32_t seqId = 0;
+    fds_bool_t done = false;
     parseRequestId(requestId, &handle, &seqId);
 
     LOGDEBUG << "Reponse for getBlob, " << length << " bytes "
@@ -240,9 +281,38 @@ NbdOperations::getBlobResp(const Error &error,
         resp = responses[handle];
     }
 
-    // add buffer to the response list
     fds_verify(resp);
-    fds_bool_t done = resp->handleReadResponse(buf, length, seqId, error);
+    if (!resp->isRead()) {
+        LOGDEBUG << "Write after read, handle " << handle << " seqId " << seqId;
+        boost::shared_ptr<std::string> wBuf = resp->handleRMWResponse(buf, length,
+                                                                      seqId, error);
+        if (wBuf) {
+            try {
+                boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(wBuf->length());
+                boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
+                off->value = 0;
+                amAsyncDataApi->updateBlobOnce(requestId,
+                                               domainName,
+                                               resp->getVolumeName(),
+                                               blobName,
+                                               blobMode,
+                                               wBuf,
+                                               objLength,
+                                               off,
+                                               emptyMeta);
+            } catch(apis::ApiException fdsE) {
+                // return error
+                resp->setError(ERR_DISK_WRITE_FAILED);
+                done = true;
+            }
+        } else {
+            done = true;
+        }
+    } else {
+        // this is response for read operation, add buf to the response list
+        done = resp->handleReadResponse(buf, length, seqId, error);
+    }
+
     if (done) {
         {
             // nbd connector will free resp
