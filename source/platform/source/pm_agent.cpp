@@ -7,8 +7,6 @@
 #include "platform/service-ep-lib.h"
 #include "platform/platform-lib.h"
 
-#include <platform/node-inv-shmem.h>
-
 #include "platform/node_data.h"
 
 namespace fds

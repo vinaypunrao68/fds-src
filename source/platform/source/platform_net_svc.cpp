@@ -7,7 +7,6 @@
 #include <ep-map.h>
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
-#include <platform/node-inv-shmem.h>
 #include <net/PlatNetSvcHandler.h>
 
 #include "node_shm_rw_ctrl.h"

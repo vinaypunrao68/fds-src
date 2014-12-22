@@ -3,7 +3,6 @@
  */
 #include <string>
 #include <OmAdminCtrl.h>
-#include <platform/node-inv-shmem.h>
 
 #include "platform/node_stor_cap.h"
 

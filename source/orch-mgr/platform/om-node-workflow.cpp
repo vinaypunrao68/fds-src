@@ -4,7 +4,6 @@
 #include <vector>
 #include <kvstore/configdb.h>
 #include <om-node-workflow.h>
-#include <platform/node-inv-shmem.h>
 #include <orchMgr.h>
 
 #include "platform/node_data.h"
