@@ -972,6 +972,7 @@ struct FDSP_ObjectVolumeAssociation
 typedef list<FDSP_ObjectVolumeAssociation> FDSP_ObjectVolumeAssociationList
 
 /* Meta data for migration object */
+/* DEPRECATED */
 struct FDSP_MigrateObjectMetadata
 {
     1: FDSP_Token              token_id
@@ -983,6 +984,7 @@ struct FDSP_MigrateObjectMetadata
 }
 
 /* Complete data (metadata included) for migration object */
+/* DEPRECATED */
 struct FDSP_MigrateObjectData
 {
     /* Object Metadata */
@@ -993,12 +995,15 @@ struct FDSP_MigrateObjectData
 }
 
 /* Collection of FDSP_MigrateObjectMetadata*/
+/* DEPRECATED */
 typedef list<FDSP_MigrateObjectMetadata> FDSP_MigrateObjectMetadataList
 
 /* Collection of FDSP_MigrateObjectData */
+/* DEPRECATED */
 typedef list<FDSP_MigrateObjectData> FDSP_MigrateObjectList
 
 /* Pay load for PushTokenObjects RPC */
+/* DEPRECATED */
 struct FDSP_PushTokenObjectsReq
 {
 	/* Header */
@@ -1015,9 +1020,11 @@ struct FDSP_PushTokenObjectsReq
 }
 
 /* Payload for PushTokenObjects response path */
+/* DEPRECATED */
 typedef FDSP_MigMsgHdrType FDSP_PushTokenObjectsResp
 
 /* Pay load for PushTokenMetadata RPC */
+/* DEPRECATED */
 struct FDSP_PushTokenMetadataReq
 {
 	/* Header */
@@ -1028,6 +1035,7 @@ struct FDSP_PushTokenMetadataReq
 }
 
 /* Payload for PushTokenMetadata response path */
+/* DEPRECATED */
 struct FDSP_PushTokenMetadataResp
 {
 	/* Header */
@@ -1035,6 +1043,7 @@ struct FDSP_PushTokenMetadataResp
 } 
 
 /* Payload for NotifyTokenSyncComplete */
+/* DEPRECATED */
 struct FDSP_NotifyTokenSyncComplete
 {
 	/* Header */
@@ -1046,6 +1055,7 @@ struct FDSP_NotifyTokenSyncComplete
 
 
 /* Payload for NotifyTokenPullComplete */
+/* DEPRECATED */
 struct FDSP_NotifyTokenPullComplete
 {
 	/* Header */
@@ -1258,6 +1268,10 @@ service FDSP_ControlPathResp {
   oneway void PushMetaDMTResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_resp)
 }
 
+/**
+ * FDSP_MigrationPathReq is deprecated.
+ */ 
+/* DEPRECATED */
 service FDSP_MigrationPathReq {
     oneway void CopyToken(1:FDSP_CopyTokenReq migrate_req)
     oneway void SyncToken(1:FDSP_SyncTokenReq sync_req)
@@ -1270,6 +1284,10 @@ service FDSP_MigrationPathReq {
     oneway void PushObjects(1:FDSP_PushObjectsReq push_req)
 }
 
+/**
+ * FDSP_MigrationPathResp is deprecated.
+ */ 
+/* DEPRECATED */
 service FDSP_MigrationPathResp {
     oneway void CopyTokenResp(1:FDSP_CopyTokenResp copytok_resp)
     oneway void SyncTokenResp(1:FDSP_SyncTokenResp synctok_resp)
@@ -1277,6 +1295,7 @@ service FDSP_MigrationPathResp {
     oneway void PushTokenObjectsResp(1:FDSP_PushTokenObjectsResp pushtok_resp)
     oneway void PushTokenMetadataResp(1:FDSP_PushTokenMetadataResp push_md_resp)
 }
+
 
 service FDSP_MetaSyncReq {
     oneway void PushMetaSyncReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_req)
