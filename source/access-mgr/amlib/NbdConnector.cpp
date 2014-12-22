@@ -113,7 +113,7 @@ NbdConnector::runNbdLoop() {
 NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
                              int clientsd)
         : omConfigApi(omApi),
-          nbdOps(new NbdOperations(this)),
+          nbdOps(boost::make_shared<NbdOperations>(this)),
           clientSocket(clientsd),
           hsState(PREINIT),
           doUturn(false),
@@ -137,6 +137,7 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
     asyncWatcher->set<NbdConnection, &NbdConnection::wakeupCb>(this);
     asyncWatcher->start();
 
+    nbdOps->init();
     LOGNORMAL << "New NBD client connection for " << clientSocket;
 }
 
