@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<workload name="s3-sample" description="sample benchmark for s3">
+
+  <auth type="none" config=""/>
+	<storage type="s3" config="path_style_access=true;accesskey={{ username }} ;secretkey={{ secretkey }};endpoint={{ s3_url }}" />
+
+  <workflow>
+
+    <workstage name="init">
+      <work type="init" workers="1" config="cprefix=s3testqwer;containers=r(1,1026)" />
+    </workstage>
+
+    <workstage name="dispose">
+      <work type="dispose" workers="1" config="cprefix=s3testqwer;containers=r(1,1026)" />
+    </workstage>
+
+  </workflow>
+
+</workload>

@@ -265,7 +265,8 @@ class CounterServerPull:
             try:
                 svc_map = SvcMap(ip, port)
             except:
-                print "Failed to get svc_map"
+                print "Failed to get svc_map, sleeping"
+                time.sleep(60)
                 return {}
             svclist = svc_map.list()
             for e in svclist:
@@ -390,14 +391,17 @@ class FdsCluster():
 
     def restart(self):
         print "starting FDS"
-        time.sleep(60)
         if self.options.no_fds_start:
             self.pidmap.compute_pid_map()
             time.sleep(1)
         elif self.options.single_node == True:
             if self.local == True:
+                output = self._loc_exec(self.remote_fds_root + "/source/tools/fds stop")
+                time.sleep(60)
                 output = self._loc_exec(self.remote_fds_root + "/source/tools/fds cleanstart")
             else:
+                output = self._loc_exec(self.remote_fds_root + "/source/tools/fds stop")
+                time.sleep(60)
                 output = self._rem_exec(self.remote_fds_root + "/source/tools/fds cleanstart")
             print output
             self.pidmap.compute_pid_map()
@@ -586,7 +590,7 @@ class FdsCluster():
         output = self._loc_exec(cmd)
         time.sleep(5)
         if self.local_test == True:
-            cmd = "python nbdadm.py attach:4444 %s volume1" + self.options.main_node
+            cmd = "python %s/source/cinder/nbdadm.py attach localhost:4444 volume1" % self.options.local_fds_root
             output = self._loc_exec(cmd)
         else:
             shutil.copyfile(self.local_fds_root + "/source/cinder/nbdadm.py", "/root/nbdadm.py")

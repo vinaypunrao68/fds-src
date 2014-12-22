@@ -41,22 +41,9 @@ function system_tests
    cd -
 }
 
-function integration_tests
-{
-   echo "================================================================================"
-   echo "RUNNING INTEGRATION TEST"
-   echo "================================================================================"
-
-   # Run Unit Test
-   cd ${root_dir}/source/test/integration-framework
-   python main.py
-   [[ $? -ne 0 ]] && echo "INTEGRATION TEST:  FAILED" && exit 97
-   cd -
-}
-
 root_dir=$(pwd)
 
 unit_tests
 system_tests
-integration_tests
+
 exit 0
