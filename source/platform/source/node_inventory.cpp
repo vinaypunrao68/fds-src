@@ -12,7 +12,6 @@
 #include <fdsp/PlatNetSvc.h>
 #include <apis/ConfigurationService.h>
 #include <net/SvcRequestPool.h>
-#include <platform/service-ep-lib.h>
 */
 
 #include <platform/node_services.h>

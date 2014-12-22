@@ -3,7 +3,6 @@
  */
 
 #include <net/net-service-tmpl.hpp>
-#include "platform/service-ep-lib.h"
 #include "platform/node-inventory.h"
 #include "platform/platform-lib.h"
 

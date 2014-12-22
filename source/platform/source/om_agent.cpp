@@ -6,7 +6,6 @@
 
 #include <NetSession.h>
 
-#include <platform/service-ep-lib.h>
 #include <net/net-service-tmpl.hpp>
 #include <apis/ConfigurationService.h>
 

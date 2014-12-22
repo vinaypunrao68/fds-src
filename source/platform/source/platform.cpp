@@ -10,7 +10,6 @@
 #include <string>
 #include <net/SvcRequestPool.h>
 #include <platform/platform-lib.h>
-#include <platform/service-ep-lib.h>
 #include <NetSession.h>
 
 #include "platform/node_shm_ctrl.h"
