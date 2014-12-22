@@ -2,8 +2,9 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include <platform/service-ep-lib.h>
-#include <platform/node-inventory.h>
+#include "platform/sm_svc_ep.h"
+#include "platform/sm_agent.h"
+#include "platform/node_agent.h"
 
 namespace fds
 {

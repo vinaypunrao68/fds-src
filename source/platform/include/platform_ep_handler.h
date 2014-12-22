@@ -6,8 +6,8 @@
 #define SOURCE_PLATFORM_INCLUDE_PLATFORM_EP_HANDLER_H_
 
 #include <vector>
-#include <net/PlatNetSvcHandler.h>
 
+#include <net/PlatNetSvcHandler.h>
 #include "platform_net_svc.h"
 
 namespace fds

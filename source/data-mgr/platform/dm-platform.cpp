@@ -14,7 +14,7 @@
 #include <net/net_utils.h>
 #include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
-#include <platform/platform-lib.h>
+#include <platform/platform_process.h>
 
 namespace fds {
 

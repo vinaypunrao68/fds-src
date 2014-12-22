@@ -113,7 +113,7 @@ NbdConnector::runNbdLoop() {
 NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
                              int clientsd)
         : omConfigApi(omApi),
-          nbdOps(new NbdOperations(this)),
+          nbdOps(boost::make_shared<NbdOperations>(this)),
           clientSocket(clientsd),
           hsState(PREINIT),
           doUturn(false),
@@ -123,8 +123,9 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
           total_blocks(0ull),
           write_offset(-1ll),
           maxChunks(0ull),
-          ready_handle({ 0x00ll, 0x00u, 0x00l }),
-          ready_response(nullptr) {
+          readyHandles(2000),
+          readyResponses(4000),
+          current_response(nullptr) {
     fcntl(clientSocket, F_SETFL, fcntl(clientSocket, F_GETFL, 0) | O_NONBLOCK);
     FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
     toggleStandAlone = config.get_abs<bool>("fds.am.testing.toggleStandAlone");
@@ -137,6 +138,7 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
     asyncWatcher->set<NbdConnection, &NbdConnection::wakeupCb>(this);
     asyncWatcher->start();
 
+    nbdOps->init();
     LOGNORMAL << "New NBD client connection for " << clientSocket;
 }
 
@@ -382,42 +384,51 @@ NbdConnection::hsReply(ev::io &watcher) {
         total_blocks = 3;
         if (doUturn) {
             // Iterate and send each ready response
-            fds_int64_t handle = __builtin_bswap64(ready_handle.handle);
-            response[2].iov_base = &handle; response[2].iov_len = sizeof(handle);
+            if (!readyHandles.empty()) {
+                UturnPair rep;
+                fds_verify(readyHandles.pop(rep));
 
-            fds_uint32_t length = ready_handle.length;
-            fds_int32_t opType = ready_handle.opType;
-            if (NBD_CMD_READ == opType) {
-                // TODO(Andrew): Remove this verify and handle sub-4K
-                fds_verify((length % 4096) == 0);
-                total_blocks += length / 4096;
-            }
+                fds_int64_t handle = __builtin_bswap64(rep.handle);
+                response[2].iov_base = &handle; response[2].iov_len = sizeof(handle);
 
-            for (size_t i = 3; i < total_blocks; ++i) {
-                response[i].iov_base = to_iovec(fourKayZeros);
-                response[i].iov_len = sizeof(fourKayZeros);
+                fds_uint32_t length = rep.length;
+                fds_int32_t opType = rep.opType;
+                if (NBD_CMD_READ == opType) {
+                    // TODO(Andrew): Remove this verify and handle sub-4K
+                    fds_verify((length % 4096) == 0);
+                    total_blocks += length / 4096;
+                }
+
+                for (size_t i = 3; i < total_blocks; ++i) {
+                    response[i].iov_base = to_iovec(fourKayZeros);
+                    response[i].iov_len = sizeof(fourKayZeros);
+                }
             }
         }
 
         // no uturn
-        if (ready_response) {
-            fds_int64_t handle = __builtin_bswap64(ready_response->getHandle());
+        if (!readyResponses.empty()) {
+            NbdResponseVector* resp = NULL;
+            fds_verify(readyResponses.pop(resp));
+            current_response.reset(resp);
+
+            fds_int64_t handle = __builtin_bswap64(current_response->getHandle());
             response[2].iov_base = &handle; response[2].iov_len = sizeof(handle);
-            Error opError = ready_response->getError();
+            Error opError = current_response->getError();
             if (!opError.ok()) {
                 error = htonl(-1);
             }
 
             fds_uint32_t context = 0;
             if (ready_response->isRead() && (opError.ok())) {
-                boost::shared_ptr<std::string> buf = ready_response->getNextReadBuffer(context);
+                boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
                 while (buf != NULL) {
                     GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
                     response[total_blocks].iov_base = to_iovec(buf->c_str());
                     response[total_blocks].iov_len = buf->length();
                     ++total_blocks;
                     // get next buffer
-                    buf = ready_response->getNextReadBuffer(context);
+                    buf = current_response->getNextReadBuffer(context);
                 }
             }
         }
@@ -429,7 +440,7 @@ NbdConnection::hsReply(ev::io &watcher) {
     }
 
     response.reset();
-    ready_response.reset();
+    current_response.reset();
 
     LOGTRACE << "No more reponses to send";
     return true;
@@ -443,12 +454,14 @@ NbdConnection::dispatchOp(ev::io &watcher,
                           fds_uint32_t length,
                           boost::shared_ptr<std::string> data) {
     switch (opType) {
+        UturnPair utPair;
         case NBD_CMD_READ:
             if (doUturn) {
                 // TODO(Andrew): Hackey uturn code. Remove.
-                ready_handle.handle = handle;
-                ready_handle.length = length;
-                ready_handle.opType = opType;
+                utPair.handle = handle;
+                utPair.length = length;
+                utPair.opType = opType;
+                readyHandles.push(utPair);
 
                 // We have something to write, so ask for events
                 ioWatcher->set(ev::READ | ev::WRITE);
@@ -461,9 +474,10 @@ NbdConnection::dispatchOp(ev::io &watcher,
         case NBD_CMD_WRITE:
             if (doUturn) {
                 // TODO(Andrew): Hackey uturn code. Remove.
-                ready_handle.handle = handle;
-                ready_handle.length = length;
-                ready_handle.opType = opType;
+                utPair.handle = handle;
+                utPair.length = length;
+                utPair.opType = opType;
+                readyHandles.push(utPair);
 
                 // We have something to write, so ask for events
                 ioWatcher->set(ev::READ | ev::WRITE);
@@ -487,7 +501,7 @@ NbdConnection::dispatchOp(ev::io &watcher,
 
 void
 NbdConnection::wakeupCb(ev::async &watcher, int revents) {
-    ioWatcher->set(ev::WRITE);
+    ioWatcher->set(ev::READ | ev::WRITE);
     ioWatcher->feed_event(EV_WRITE);
 }
 
@@ -541,7 +555,10 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 break;
             case DOREQS:
                 if (hsReply(watcher)) {
-                    ioWatcher->set(ev::READ);
+                    bool more_to_write = doUturn ? readyHandles.empty()
+                                                 : readyResponses.empty();
+                    ioWatcher->set(more_to_write ? ev::READ
+                                                 : ev::READ | ev::WRITE);
                 }
                 break;
             default:
@@ -565,8 +582,7 @@ NbdConnection::readWriteResp(const Error& error,
               << " " << error;
 
     // add to quueue
-    fds_assert(!ready_response);
-    ready_response.reset(response);
+    readyResponses.push(response);
 
     // We have something to write, so poke the loop
     asyncWatcher->send();

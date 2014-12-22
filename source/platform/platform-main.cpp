@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string>
 #include <iostream>  // NOLINT
-#include <platform/fds-osdep.h>
 #include <net/net-service.h>
 
 #include "node_platform.h"

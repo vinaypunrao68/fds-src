@@ -2,17 +2,15 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
+#include <shared/fds-constants.h>         // TODO(donavan) these need to be evaluated for
+                                          // removal from global shared space to PM only space
 #include "disk_plat_module.h"
 #include "file_disk_inventory.h"
 #include "file_disk_obj.h"
 #include "disk_label_op.h"
 #include "disk_label_mgr.h"
 #include "disk_print_iter.h"
-
 #include "disk_constants.h"
-
-#include <shared/fds-constants.h>         // TODO(donavan) these need to be evaluated for
-                                          // removal from global shared space to PM only space
 
 namespace fds
 {

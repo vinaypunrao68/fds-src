@@ -4,9 +4,10 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AM_PLATFORM_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AM_PLATFORM_H_
 
-#include <platform/platform-lib.h>
 #include <net/net-service.h>
 #include <AMSvcHandler.h>
+
+#include "platform/platform.h"
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {

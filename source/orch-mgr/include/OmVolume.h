@@ -8,7 +8,7 @@
 #include <vector>
 #include <boost/msm/back/state_machine.hpp>
 #include <fds_volume.h>
-#include <platform/node-inventory.h>
+#include "platform/node_agent.h"
 #include <fdsp/snapshot_types.h>
 namespace fds {
 
