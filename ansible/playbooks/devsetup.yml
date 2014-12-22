@@ -106,6 +106,7 @@
         - swig3.0
         - sshpass
         - nbd-client
+        - fio
 
     - name: install pip packages
       pip: name={{item}} state=present
