@@ -3,7 +3,10 @@ user_build_dir    := svc-test
 user_incl_dir     := /usr/include/cryptopp
 user_cpp_flags    :=
 user_fds_so_libs  :=
-user_fds_ar_libs  := smchk
+user_fds_ar_libs  := \
+    fds-qos-lib \
+    fds-am-engine \
+    smchk
 
 user_cpp          := \
     object_store_unit_test.cpp \
