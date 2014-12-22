@@ -63,7 +63,6 @@
     apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
     tags:
       - install-deps
-      - repo
 
 -   name: add LOCAL mirror for third party packages
     apt_repository: repo="deb http://{{cluster_location}}-apt.formationds.com/third-party-deps/ fds main"
@@ -72,7 +71,6 @@
     when: cluster_location is defined
     tags:
       - install-deps
-      - repo
 
 -   name: add Artifactory repo for third party packages
     apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main"
@@ -81,7 +79,6 @@
     when: cluster_location is not defined
     tags:
       - install-deps
-      - repo
 
 -   name: install third party deps from artifactory repo
     apt: name={{item}}
@@ -110,7 +107,6 @@
         - python-pip
     tags:
       - install-deps
-      - repo
 
 -   name: install needed pip modules
     pip: name={{item.name}} version={{item.version}} extra_args='-I'
