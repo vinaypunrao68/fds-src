@@ -285,6 +285,10 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
         fds_verify(ERR_OK == err);
         fds_verify(apis::BLOCK == volDesc.policy.volumeType);
     }
+
+    // Fix endianess
+    volDesc.policy.blockDeviceSizeInBytes =
+        __builtin_bswap64(volDesc.policy.blockDeviceSizeInBytes);
     maxChunks = (2 * 1024 * 1024) / volDesc.policy.maxObjectSizeInBytes;
     LOGNORMAL << "Attaching volume name " << *volumeName << " of size "
               << volDesc.policy.blockDeviceSizeInBytes
@@ -308,7 +312,7 @@ NbdConnection::hsSendOpts(ev::io &watcher) {
         total_blocks = std::extent<decltype(vectors)>::value;
         response = decltype(response)(new iovec[total_blocks]);
         memcpy(response.get(), vectors, sizeof(vectors));
-        response[0].iov_base = &volDesc.policy.maxObjectSizeInBytes;
+        response[0].iov_base = &volDesc.policy.blockDeviceSizeInBytes;
     }
 
     // Try and write the response, if it fails to write ALL
