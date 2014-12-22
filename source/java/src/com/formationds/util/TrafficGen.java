@@ -29,7 +29,6 @@ package com.formationds.util;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.formationds.commons.util.SystemUtility;
 import com.formationds.util.s3.S3SignatureGenerator;
 import org.apache.commons.cli.*;
 import org.apache.http.ConnectionReuseStrategy;
@@ -62,11 +61,13 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 
 
 /**
@@ -83,7 +84,7 @@ import java.util.function.Function;
  */
 public class TrafficGen {
 
-    private static int HTTP_PORT = 8000;
+    static AtomicInteger issued = new AtomicInteger(0);
     static AtomicInteger successes = new AtomicInteger(0);
     static AtomicInteger failures = new AtomicInteger(0);
     static AtomicInteger keepalive = new AtomicInteger(0);
@@ -99,10 +100,22 @@ public class TrafficGen {
     static int n_conns = 2;
     static boolean no_reuse = false;
     static boolean verify = false;
+    static int port = 8000;
+    static long runtime = 0;
+    static long timeout = Long.MAX_VALUE;
 
     static RandomFile rf = null;
     private static String username;
     private static String token;
+
+    static boolean test_timeout = false;
+
+    static class TimeoutTimerTask extends TimerTask {
+        @Override
+        public void run() {
+            test_timeout = true;
+        }
+    }
 
     static public BasicHttpEntityEnclosingRequest createPutRequest(int size, String vol, String obj, int n_objs) throws FileNotFoundException, IOException {
         if (rf == null) {
@@ -149,6 +162,10 @@ public class TrafficGen {
                 .hasArg()
                 .withDescription("Host name")
                 .create("hostname"));
+        options.addOption(OptionBuilder.withArgName("port")
+                .hasArg()
+                .withDescription("Port")
+                .create("port"));
         options.addOption(OptionBuilder.withArgName("n_conns")
                 .hasArg()
                 .withDescription("Number of NIO connections")
@@ -165,13 +182,20 @@ public class TrafficGen {
                 .hasArg()
                 .withDescription("S3 Authentication token")
                 .create("token"));
-
-        options.addOption(OptionBuilder.withArgName("port")
-                .isRequired(false)
+        options.addOption(OptionBuilder.withArgName("runtime")
                 .hasArg()
-                .withDescription("S3 HTTP port")
-                .create("port"));
+                .withDescription("Runtime")
+                .create("runtime"));
+        options.addOption(OptionBuilder.withArgName("timeout")
+                .hasArg()
+                .withDescription("Timeout")
+                .create("timeout"));
+        HelpFormatter formatter = new HelpFormatter();
 
+        if (args.length == 0) {
+            formatter.printHelp( "trafficgen", options );
+            System.exit(0);
+        }
 
         CommandLineParser parser = new BasicParser();
 
@@ -199,6 +223,9 @@ public class TrafficGen {
             if (line.hasOption("hostname")) {
                 hostname = line.getOptionValue("hostname");
             }
+            if (line.hasOption("port")) {
+                port = Integer.parseInt(line.getOptionValue("port"));
+            }
             if (line.hasOption("n_conns")) {
                 n_conns = Integer.parseInt(line.getOptionValue("n_conns"));
             }
@@ -214,14 +241,18 @@ public class TrafficGen {
             if (line.hasOption("token")) {
                 token = line.getOptionValue("token");
             }
-            if (line.hasOption("port")) {
-                HTTP_PORT = Integer.parseInt(line.getOptionValue("port"));
+            if (line.hasOption("runtime")) {
+                runtime = Integer.parseInt(line.getOptionValue("runtime"));
             }
-
+            if (line.hasOption("timeout")) {
+                runtime = Integer.parseInt(line.getOptionValue("timeout"));
+            }
         } catch (ParseException exp) {
             // oops, something went wrong
-            System.err.println("Parsing failed.  Reason: " + exp.getMessage());
+            formatter.printHelp("trafficgen", options );
+            System.exit(0);
         }
+
         System.out.println("n_reqs: " + n_reqs);
         System.out.println("object_size: " + osize);
         System.out.println("outstanding: " + slots);
@@ -230,9 +261,11 @@ public class TrafficGen {
         System.out.println("test_type: " + test_type);
         System.out.println("n_conns: " + n_conns);
         System.out.println("hostname: " + hostname);
+        System.out.println("port: " + port);
         System.out.println("no_reuse: " + no_reuse);
         System.out.println("verify: " + verify);
-
+        System.out.println("runtime: " + runtime);
+        System.out.println("timeout: " + timeout);
 
         // Create HTTP protocol processing chain
         HttpProcessor httpproc = HttpProcessorBuilder.create()
@@ -285,7 +318,7 @@ public class TrafficGen {
         assert connectionReuseStrategy != null;
         HttpAsyncRequester requester = new HttpAsyncRequester(httpproc, connectionReuseStrategy);
         // Execute HTTP GETs to the following hosts and
-        HttpHost target = new HttpHost(hostname, HTTP_PORT, "http");
+        HttpHost target = new HttpHost(hostname, port, "http");
 
         List<HttpRequest> requests = new ArrayList<>();
         for (int i = 0; i < n_reqs; i++) {
@@ -303,16 +336,28 @@ public class TrafficGen {
             }
         }
 
+        Timer timer = new Timer();
+        if (runtime > 0) {
+            timer.schedule(new TimeoutTimerTask(), runtime * 1000);
+        }
 
         final CountDownLatch latch = new CountDownLatch(requests.size());
         long startTime = System.nanoTime();
+        System.out.println("Start test - timestamp: " + startTime);
         Semaphore semaphore = new Semaphore(slots);
 
         for (final HttpRequest request : requests) {
+            if (runtime > 0 && test_timeout) {
+                for (int i = 0; i < requests.size() - issued.get(); i++) {
+                    latch.countDown();
+                }
+                break;
+            }
             HttpCoreContext coreContext = HttpCoreContext.create();
             // System.out.println("Request: " + request.toString());
             // Thread.sleep(100);
             final long[] reqStartTime = new long[1];
+            issued.incrementAndGet();
             requester.execute(
                     new BasicAsyncRequestProducer(target, request) {
                         @Override
@@ -380,9 +425,13 @@ public class TrafficGen {
                         }
                     });
         }
-        latch.await();
+        latch.await(timeout, TimeUnit.SECONDS);
+
         long endTime = System.nanoTime();
+        System.out.println("End test - timestamp: " + endTime);
+
         long total_time = endTime - startTime;
+
         System.out.println("Total time [ms]: " + total_time / 1e6);
         System.out.println("IOPs: " + (double) n_reqs / total_time * 1e9);
         System.out.println("successes: " + successes);
@@ -391,7 +440,7 @@ public class TrafficGen {
         System.out.println("Average latency [ns]: " + total_latency.doubleValue() / successes.doubleValue());
 
         //rf.close();
-
+        timer.cancel();
         System.out.println("Shutting down I/O reactor");
         ioReactor.shutdown();
         System.out.println("Done");
