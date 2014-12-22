@@ -22,7 +22,7 @@
             key_name: fds-ie
             group_id: sg-43b9c126
             instance_type: t2.micro
-            image: ami-13e3b223
+            image: ami-338ada03
             volumes:
                 -   device_name: /dev/sda1
                     volume_size: 20

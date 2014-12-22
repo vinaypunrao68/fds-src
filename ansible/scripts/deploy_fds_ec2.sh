@@ -54,6 +54,10 @@ D "ansible_args :: ${ansible_args}"
 
 I "Deploying FDS to EC2 with tag: ${inventory}"
 
+if [ ${debug} -eq 1 ]; then
+    ansible_args="${ansible_args} -vvvv"
+fi
+
 ansible-playbook ${ansible_args}
 
 if [ $? -ne 0 ]; then
