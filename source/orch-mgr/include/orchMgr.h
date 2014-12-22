@@ -25,6 +25,7 @@
 #include <OmAdminCtrl.h>
 #include <kvstore/configdb.h>
 #include <platform/platform-lib.h>
+#include "platform/platform_process.h"
 #include <snapshot/manager.h>
 #include <deletescheduler.h>
 

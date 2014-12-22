@@ -9,6 +9,7 @@
 #include <OmResources.h>
 
 #include "platform/node_data.h"
+#include "platform/platform.h"
 
 #undef LOGGERPTR
 #define LOGGERPTR orchMgr->GetLog()

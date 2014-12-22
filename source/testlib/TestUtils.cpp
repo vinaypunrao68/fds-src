@@ -3,6 +3,7 @@
  */
 #include <string>
 #include <platform/platform-lib.h>
+#include <platform/platform.h>
 #include <fdsp/fds_service_types.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/net-service-tmpl.hpp>

@@ -6,6 +6,7 @@
 #include <net/net-service-tmpl.hpp>
 #include "platform/platform-lib.h"
 
+#include "platform/platform.h"
 #include "platform/node_data.h"
 
 #include "platform/pm_svc_ep.h"

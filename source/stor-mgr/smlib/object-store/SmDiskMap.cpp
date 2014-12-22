@@ -8,6 +8,8 @@
 #include <sys/statvfs.h>
 #include <utility>
 
+#include "platform/platform.h"
+
 namespace fds {
 
 SmDiskMap::SmDiskMap(const std::string& modName)

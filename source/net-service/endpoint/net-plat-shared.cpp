@@ -10,10 +10,10 @@
 #include <platform/platform-lib.h>
 
 // New includes
+#include "platform/platform.h"
 #include "platform/node_info_shm_iter.h"
 #include "platform/net_plat_svc.h"
 #include "platform/pm_svc_ep.h"
-// #include "node_agent_evt.h"
 
 namespace fds {
 

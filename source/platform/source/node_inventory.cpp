@@ -17,6 +17,7 @@
 #include <platform/node_services.h>
 #include "platform/node-inventory.h"
 #include "platform/platform-lib.h"
+#include "platform/platform.h"
 #include <net/net-service-tmpl.hpp>
 #include <NetSession.h>
 

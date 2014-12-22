@@ -22,6 +22,8 @@
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
 
+#include "platform/platform.h"
+
 using diskio::DataTier;
 
 namespace fds {

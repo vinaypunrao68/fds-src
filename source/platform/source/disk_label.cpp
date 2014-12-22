@@ -5,6 +5,7 @@
 #include <platform/platform-lib.h>
 
 #include <fds_magic.h>
+#include "platform/platform.h"
 #include "disk_label.h"
 #include "disk_label_mgr.h"
 

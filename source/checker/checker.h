@@ -12,6 +12,9 @@
 #include <concurrency/taskstatus.h>
 #include <fdsp/FDSP_types.h>
 
+#include "platform/platform.h"
+#include "platform/platform_process.h"
+
 namespace fds {
 
 class DatapathRespImpl;

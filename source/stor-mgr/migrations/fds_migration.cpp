@@ -12,6 +12,9 @@
 #include <TokenSyncBaseEvents.h>
 #include <platform/platform-lib.h>
 
+#include "platform/platform.h"
+#include "platform/platform_process.h"
+
 namespace fds {
 
 FDSP_MigrationPathRpc::

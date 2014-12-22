@@ -12,6 +12,7 @@
 #include <platform/platform-lib.h>
 #include <NetSession.h>
 
+#include "platform/platform.h"
 #include "platform/node_shm_ctrl.h"
 #include "platform/pm_svc_ep.h"
 #include "platform/om_svc_ep.h"

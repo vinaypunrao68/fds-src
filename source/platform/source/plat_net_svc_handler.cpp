@@ -14,6 +14,8 @@
 #include <net/PlatNetSvcHandler.h>
 #include <platform/platform-lib.h>
 
+#include "platform/platform.h"
+#include "platform/platform_process.h"
 #include "platform/node_work_flow.h"
 
 namespace fds

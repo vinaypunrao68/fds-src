@@ -4,6 +4,8 @@
 #include <ep-map.h>
 #include <platform/platform-lib.h>
 
+#include "platform/platform.h"
+
 namespace fds {
 
 static EpPlatLibMod          gl_EpShmSharedLib("Ep PlatShm Lib");
