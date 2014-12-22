@@ -11,9 +11,27 @@
 #include "platform/domain_container.h"
 #include "platform/domain_resources.h"
 #include "platform/domain_cluster_map.h"
+#include "platform/flags_map.h"
+
+namespace fpi = FDS_ProtocolInterface;
 
 namespace fds
 {
+    class BaseAsyncSvcHandler;
+    class Platform;
+
+    extern Platform         *gl_PlatformSvc;
+    extern const NodeUuid    gl_OmUuid;
+
+    /**
+     * Enums of different services sharing the same UUID EP.
+     */
+    const int    NET_SVC_CTRL        = 1;
+    const int    NET_SVC_CONFIG      = 2;
+    const int    NET_SVC_DATA        = 3;
+    const int    NET_SVC_MIGRATION   = 4;
+    const int    NET_SVC_META_SYNC   = 5;
+
     class Platform : public Module
     {
         public:

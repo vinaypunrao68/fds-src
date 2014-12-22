@@ -5,6 +5,8 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_PLAT_NODE_DATA_H_
 #define SOURCE_INCLUDE_PLATFORM_PLAT_NODE_DATA_H_
 
+#include "shared/fds_types.h"
+
 namespace fds
 {
     /**

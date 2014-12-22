@@ -6,9 +6,7 @@
 #define SOURCE_INCLUDE_PLATFORM_NODE_WORK_ITEM_H_
 
 #include "fds-fsm.h"
-
-#include "platform/platform-lib.h"
-
+#include "platform/fpi_namespace.h"
 #include "node_work_event.h"
 #include "domain_container.h"
 

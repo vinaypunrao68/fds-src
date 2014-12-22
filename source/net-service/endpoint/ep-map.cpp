@@ -2,7 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <ep-map.h>
-#include <platform/platform-lib.h>
+#include <platform/node-inventory.h>
 
 #include "platform/platform.h"
 

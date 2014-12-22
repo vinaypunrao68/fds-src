@@ -10,7 +10,7 @@
 #include <apis/ConfigurationService.h>
 
 #include "platform/node-inventory.h"
-#include "platform/platform-lib.h"
+#include "fds_module_provider.h"
 
 #include "platform/platform.h"
 #include "platform/om_svc_ep.h"

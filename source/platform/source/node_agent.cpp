@@ -9,7 +9,6 @@
 #include "net/SvcRequestPool.h"
 
 #include <net/net-service-tmpl.hpp>
-#include "platform/platform-lib.h"
 
 #include "platform/node_work_item.h"
 #include "platform/node_data.h"

@@ -4,7 +4,6 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_SM_PLATFORM_H_
 #define SOURCE_STOR_MGR_INCLUDE_SM_PLATFORM_H_
 
-#include <platform/platform-lib.h>
 #include <net/net-service.h>
 #include <fds_typedefs.h>
 

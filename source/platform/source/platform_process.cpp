@@ -4,7 +4,6 @@
 
 #include <string>
 
-#include <platform/platform-lib.h>
 #include <platform/platform_process.h>
 #include <platform/platform.h>
 

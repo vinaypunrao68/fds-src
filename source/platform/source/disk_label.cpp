@@ -2,8 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include <platform/platform-lib.h>
-
 #include <fds_magic.h>
 #include "platform/platform.h"
 #include "disk_label.h"

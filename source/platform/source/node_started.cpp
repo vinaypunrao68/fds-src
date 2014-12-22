@@ -3,7 +3,6 @@
  */
 
 #include <vector>
-#include <platform/platform-lib.h>
 #include <platform/node-inventory.h>
 #include <net/SvcRequestPool.h>
 

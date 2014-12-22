@@ -8,7 +8,6 @@
 #include <list>
 #include <iostream>
 #include <boost/make_shared.hpp>
-#include <platform/platform-lib.h>
 #include <net/SvcRequestPool.h>
 #include <fdsp_utils.h>
 #include <ObjectId.h>

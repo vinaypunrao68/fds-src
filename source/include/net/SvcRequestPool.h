@@ -9,8 +9,9 @@
 #include <concurrency/Mutex.h>
 #include <net/SvcRequest.h>
 #include <net/SvcRequestTracker.h>
-#include <platform/platform-lib.h>
 #include <concurrency/LFThreadpool.h>
+
+#include <platform/platform.h>
 
 namespace fds {
 

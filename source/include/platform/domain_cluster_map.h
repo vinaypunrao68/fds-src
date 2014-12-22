@@ -5,6 +5,8 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_DOMAIN_CLUSTER_MAP_H_
 #define SOURCE_INCLUDE_PLATFORM_DOMAIN_CLUSTER_MAP_H_
 
+#include "platform/domain_container.h"
+
 namespace fds
 {
     // -------------------------------------------------------------------------------------

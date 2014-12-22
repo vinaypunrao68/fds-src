@@ -3,7 +3,6 @@
  */
 #include <string>
 #include <fds_process.h>
-#include <platform/platform-lib.h>
 #include <object-store/SmDiskMap.h>
 #include <sys/statvfs.h>
 #include <utility>
