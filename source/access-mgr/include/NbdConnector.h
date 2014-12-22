@@ -11,8 +11,6 @@
 #include <concurrency/Thread.h>
 #include <OmConfigService.h>
 #include <NbdOperations.h>
-#include <queue>
-#include <boost/lockfree/queue.hpp>
 
 // Forward declare so we can hide the ev++.h include
 // in the cpp file so that it doesn't conflict with
@@ -97,8 +95,8 @@ class NbdConnection : public NbdOperationsResponseIface {
         fds_uint32_t length;
         fds_int32_t opType;
     };
-    boost::lockfree::queue<UturnPair> readyHandles;
-    boost::lockfree::queue<NbdResponseVector*> readyResponses;
+    UturnPair ready_handle;
+    std::unique_ptr<NbdResponseVector> ready_response;
 
     static constexpr fds_int64_t NBD_MAGIC = 0x49484156454F5054l;
     static constexpr char NBD_MAGIC_PWD[] {'N', 'B', 'D', 'M', 'A', 'G', 'I', 'C'};  // NOLINT
