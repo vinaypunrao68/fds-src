@@ -5,7 +5,7 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_NODE_AGENT_H_
 #define SOURCE_INCLUDE_PLATFORM_NODE_AGENT_H_
 
-#include "node_inventory_x.h"
+#include "node_inventory.h"
 
 namespace fds
 {

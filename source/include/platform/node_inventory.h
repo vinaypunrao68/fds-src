@@ -2,8 +2,8 @@
  * Copyright 2013 by Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_INCLUDE_PLATFORM_NODE_INVENTORY_X_H_
-#define SOURCE_INCLUDE_PLATFORM_NODE_INVENTORY_X_H_
+#ifndef SOURCE_INCLUDE_PLATFORM_NODE_INVENTORY_H_
+#define SOURCE_INCLUDE_PLATFORM_NODE_INVENTORY_H_
 
 #include <string>
 
@@ -119,4 +119,4 @@ namespace fds
     };
 }  // namespace fds
 
-#endif  // SOURCE_INCLUDE_PLATFORM_NODE_INVENTORY_X_H_
+#endif  // SOURCE_INCLUDE_PLATFORM_NODE_INVENTORY_H_
