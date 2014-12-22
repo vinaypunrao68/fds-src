@@ -6,6 +6,8 @@
 #include "platform/service-ep-lib.h"
 #include "platform/platform-lib.h"
 
+#include "platform/dm_svc_ep.h"
+
 namespace fds
 {
     // --------------------------------------------------------------------------------------

@@ -8,6 +8,7 @@
 #include <platform/service-ep-lib.h>
 
 #include "platform/node-inventory.h"
+#include "platform/node_agent_evt.h"
 
 namespace fds
 {

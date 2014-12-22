@@ -5,6 +5,8 @@
 #include <platform/service-ep-lib.h>
 #include <platform/node-inventory.h>
 
+#include "platform/sm_svc_ep.h"
+
 namespace fds
 {
     /**

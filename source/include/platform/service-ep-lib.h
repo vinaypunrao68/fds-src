@@ -21,6 +21,7 @@ namespace fds
     class AmAgent;
     class OmAgent;
 
+#if 0
     class NodeAgentEvt : public EpEvtPlugin
     {
         public:
@@ -38,7 +39,9 @@ namespace fds
         protected:
             boost::intrusive_ptr<NodeAgent>    na_owner;
     };
+#endif
 
+#if 0
     /**
      * SM Service EndPoint
      */
@@ -56,7 +59,9 @@ namespace fds
         protected:
             boost::intrusive_ptr<SmAgent>    na_owner;
     };
+#endif
 
+#if 0
     /**
      * DM Service EndPoint
      */
@@ -74,7 +79,9 @@ namespace fds
         protected:
             boost::intrusive_ptr<DmAgent>    na_owner;
     };
+#endif
 
+#if 0
     /**
      * AM Service EndPoint
      */
@@ -92,7 +99,9 @@ namespace fds
         protected:
             boost::intrusive_ptr<AmAgent>    na_owner;
     };
+#endif
 
+#if 0
     /**
      * OM Service EndPoint.
      */
@@ -110,7 +119,9 @@ namespace fds
             virtual void svc_up(EpSvcHandle::pointer eph);
             virtual void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer eph);
     };
+#endif
 
+#if 0
     class OmSvcEp : public EpSvc
     {
         public:
@@ -132,7 +143,9 @@ namespace fds
             bool                             ep_conn_domain;
             boost::intrusive_ptr<OmAgent>    na_owner;
     };
+#endif
 
+#if 0
     class PM_OmSvcEp : public OmSvcEp
     {
         public:
@@ -146,7 +159,9 @@ namespace fds
             virtual void svc_receive_msg(const fpi::AsyncHdr &msg);
             virtual void ep_first_om_message() override;
     };
+#endif
 
+#if 0
     /**
      * PM Service EndPoint
      */
@@ -161,6 +176,7 @@ namespace fds
 
             void svc_receive_msg(const fpi::AsyncHdr &msg);
     };
+#endif
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_PLATFORM_SERVICE_EP_LIB_H_

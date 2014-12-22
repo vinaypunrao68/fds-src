@@ -9,6 +9,8 @@
 
 #include "platform/node_data.h"
 
+#include "platform/pm_svc_ep.h"
+
 namespace fds
 {
     // --------------------------------------------------------------------------------------
