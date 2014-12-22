@@ -13,6 +13,8 @@
 #include "platform/node-inventory.h"
 #include "platform/platform-lib.h"
 
+#include "platform/om_svc_ep.h"
+
 namespace fds
 {
     // --------------------------------------------------------------------------------------

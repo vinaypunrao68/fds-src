@@ -26,6 +26,8 @@
 
 // #include "platform/node_shm_queue.h"
 
+#include "platform/pm_svc_ep.h"
+
 namespace fds
 {
     NodePlatform    gl_NodePlatform;

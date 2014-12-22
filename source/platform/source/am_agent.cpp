@@ -7,6 +7,8 @@
 #include "platform/node-inventory.h"
 #include "platform/platform-lib.h"
 
+#include "platform/am_svc_ep.h"
+
 namespace fds
 {
     // --------------------------------------------------------------------------------------

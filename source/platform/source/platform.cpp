@@ -14,6 +14,12 @@
 #include <NetSession.h>
 
 #include "platform/node_shm_ctrl.h"
+#include "platform/pm_svc_ep.h"
+#include "platform/om_svc_ep.h"
+#include "platform/am_svc_ep.h"
+#include "platform/sm_svc_ep.h"
+#include "platform/dm_svc_ep.h"
+#include "platform/om_node_agent_evt.h"
 
 bool    gdb_plat = false;
 

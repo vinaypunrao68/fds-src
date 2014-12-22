@@ -5,6 +5,8 @@
 #include <platform/service-ep-lib.h>
 #include <platform/node-inventory.h>
 
+#include "platform/om_node_agent_evt.h"
+
 namespace fds
 {
     /**
