@@ -9,6 +9,8 @@
 
 namespace fds
 {
+    class AmAgent;
+
     /**
      * AM Service EndPoint
      */

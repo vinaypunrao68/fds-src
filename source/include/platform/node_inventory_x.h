@@ -12,12 +12,12 @@
 
 #include "typedefs.h"
 
-
-
-
-
 namespace fds
 {
+    /* OM has a known UUID. */
+    extern const NodeUuid    gl_OmUuid;
+    extern const NodeUuid    gl_OmPmUuid;
+
     /**
      * Basic info about a peer node.
      */

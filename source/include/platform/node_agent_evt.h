@@ -5,8 +5,12 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_NODE_AGENT_EVT_H_
 #define SOURCE_INCLUDE_PLATFORM_NODE_AGENT_EVT_H_
 
+#include "net/net-service.h"
+
 namespace fds
 {
+    class NodeAgent;
+
     class NodeAgentEvt : public EpEvtPlugin
     {
         public:

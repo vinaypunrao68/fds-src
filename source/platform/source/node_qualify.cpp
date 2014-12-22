@@ -3,7 +3,6 @@
  */
 
 #include <vector>
-#include <platform/node-inventory.h>
 #include <net/SvcRequestPool.h>
 
 #include "platform/node_qualify.h"

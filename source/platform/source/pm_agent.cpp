@@ -4,7 +4,6 @@
 
 #include <NetSession.h>
 #include <net/net-service-tmpl.hpp>
-#include "platform/node-inventory.h"
 
 #include "platform/platform.h"
 #include "platform/node_data.h"

@@ -6,6 +6,7 @@
 #define SOURCE_INCLUDE_PLATFORM_OM_NODE_AGENT_EVT_H_
 
 #include "platform/node_agent_evt.h"
+#include "platform/node_agent.h"
 
 namespace fds
 {

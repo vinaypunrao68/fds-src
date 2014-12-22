@@ -4,8 +4,6 @@
 
 #include <string>
 
-#include "platform/node-inventory.h"
-
 #include "net/SvcRequestPool.h"
 
 #include <net/net-service-tmpl.hpp>

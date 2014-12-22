@@ -5,7 +5,6 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLAT_AGENT_PLUGIN_H_
 #define SOURCE_PLATFORM_INCLUDE_PLAT_AGENT_PLUGIN_H_
 
-#include "platform/node-inventory.h"
 #include "platform/node_agent_evt.h"
 
 namespace fds

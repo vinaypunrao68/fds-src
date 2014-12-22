@@ -4,12 +4,9 @@
 
 #include <string>
 
-#include "platform/node-inventory.h"
-
 #include "platform/node_data.h"
-
+#include "platform/domain_container.h"
 #include "node_svc_iter.h"
-
 
 namespace fds
 {

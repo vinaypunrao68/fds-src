@@ -4,8 +4,6 @@
 
 #include <ep-map.h>
 
-#include "platform/node-inventory.h"
-
 #include "platform/platform.h"
 #include "platform/node_agent.h"
 #include "platform/domain_container.h"
