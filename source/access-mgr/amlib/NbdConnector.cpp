@@ -404,7 +404,7 @@ NbdConnection::hsReply(ev::io &watcher) {
             fds_int64_t handle = __builtin_bswap64(ready_response->getHandle());
             response[2].iov_base = &handle; response[2].iov_len = sizeof(handle);
             Error opError = ready_response->getError();
-            if (!opError.ok() && (opError != ERR_BLOB_OFFSET_INVALID)) {
+            if (!opError.ok()) {
                 error = htonl(-1);
             }
 

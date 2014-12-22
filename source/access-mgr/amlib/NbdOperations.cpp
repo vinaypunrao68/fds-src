@@ -27,10 +27,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
                     fds_uint64_t offset,
                     fds_int64_t handle) {
     // calculate how many object we will get from AM
-    fds_uint32_t objCount = length / maxObjectSizeInBytes;
-    if ((length % maxObjectSizeInBytes) != 0) {
-        ++objCount;
-    }
+    fds_uint32_t objCount = getObjectCount(length, offset, maxObjectSizeInBytes);
 
     LOGDEBUG << "Will read " << length << " bytes " << offset
              << " offset for volume " << *volumeName
@@ -125,10 +122,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
                      fds_uint64_t offset,
                      fds_int64_t handle) {
     // calculate how many object we will put
-    fds_uint32_t objCount = length / maxObjectSizeInBytes;
-    if ((length % maxObjectSizeInBytes) != 0) {
-        ++objCount;
-    }
+    fds_uint32_t objCount = getObjectCount(length, offset, maxObjectSizeInBytes);
 
     LOGDEBUG << "Will write " << length << " bytes " << offset
              << " offset for volume " << *volumeName
@@ -364,6 +358,21 @@ NbdOperations::updateBlobResp(const Error &error,
         // we are done collecting responses for this handle, notify nbd connector
         nbdResp->readWriteResp(error, handle, resp);
     }
+}
+
+fds_uint32_t
+NbdOperations::getObjectCount(fds_uint32_t length,
+                              fds_uint64_t offset,
+                              fds_uint32_t maxObjectSizeInBytes) {
+    fds_uint32_t objCount = length / maxObjectSizeInBytes;
+    fds_uint32_t firstObjLen = maxObjectSizeInBytes - (offset % maxObjectSizeInBytes);
+    if ((length % maxObjectSizeInBytes) != 0) {
+        ++objCount;
+    }
+    if ((firstObjLen + (objCount - 1) * maxObjectSizeInBytes) < length) {
+        ++objCount;
+    }
+    return objCount;
 }
 
 void

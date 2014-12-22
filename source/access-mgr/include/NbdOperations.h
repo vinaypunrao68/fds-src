@@ -259,6 +259,9 @@ class NbdOperations : public AmAsyncResponseApi {
     void parseRequestId(boost::shared_ptr<apis::RequestId>& requestId,
                         fds_int64_t* handle,
                         fds_int32_t* seqId);
+    fds_uint32_t getObjectCount(fds_uint32_t length,
+                                fds_uint64_t offset,
+                                fds_uint32_t maxObjectSizeInBytes);
 
     // api we've built
     AmAsyncDataApi::shared_ptr amAsyncDataApi;
