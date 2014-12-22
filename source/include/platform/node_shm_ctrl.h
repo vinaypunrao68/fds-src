@@ -5,6 +5,9 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_NODE_SHM_CTRL_H_
 #define SOURCE_INCLUDE_PLATFORM_NODE_SHM_CTRL_H_
 
+#include <thread>
+
+#include "shared/fds-constants.h"
 #include "platform/platform_shm_typedefs.h"
 
 namespace fds

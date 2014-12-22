@@ -6,7 +6,6 @@
 
 #include <fds_process.h>
 #include <net/net_utils.h>
-#include <platform/node-inv-shmem.h>
 #include <ep-map.h>
 #include <util/timeutils.h>
 #include <net/SvcRequestPool.h>

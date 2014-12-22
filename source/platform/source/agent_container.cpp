@@ -7,7 +7,6 @@
 #include <NetSession.h>
 
 #include "platform/node-inventory.h"
-#include "platform/node-inv-shmem.h"
 
 #include "platform/node_data.h"
 

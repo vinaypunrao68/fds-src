@@ -16,7 +16,6 @@
 */
 
 #include <platform/node_services.h>
-#include <platform/node-inv-shmem.h>
 #include "platform/node-inventory.h"
 #include "platform/platform-lib.h"
 #include <net/net-service-tmpl.hpp>

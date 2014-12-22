@@ -5,7 +5,6 @@
 #include <vector>
 #include <util/Log.h>
 #include <fds-shmobj.h>
-#include <platform/node-inv-shmem.h>
 #include <platform/fds_shmem.h>
 
 #include "platform/node_shm_ctrl.h"
