@@ -14,6 +14,8 @@ import os
 import subprocess
 import time
 
+nbd_device = "/dev/nbd15"
+
 # This class contains the attributes and methods to test
 # the FDS interface to create a block volume.
 #
@@ -127,11 +129,15 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): We shouldn't hard code the path, volume name, port, ip
-        blkAttCmd = "sudo ../../../cinder/nbdadm.py attach localhost:4444 blockVolume"
-        result = subprocess.call(blkAttCmd, shell=True)
-        if result != 0:
+        blkAttCmd = ['sudo', '../../../cinder/nbdadm.py', 'attach', 'localhost:4444', 'blockVolume']
+        nbdadm = subprocess.Popen(blkAttCmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        (stdout, stderr) = nbdadm.communicate()
+        if nbdadm.returncode != 0:
             self.log.error("Failed to attach block volume")
             return False
+        else:
+            ndb_device = stdout.rstrip()
+        self.log.info("Attached block device %s" % (nbd_device))
         time.sleep(5)
 
         return True
@@ -233,7 +239,7 @@ class TestBlockFioW(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bs=4k --iodepth=128 --numjobs=4 --size=10485760 --filename=/dev/nbd15 --verify=md5 --verify_fatal=1"
+        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bs=4k --iodepth=128 --numjobs=4 --size=10485760 --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
         result = subprocess.call(fioCmd, shell=True)
         if result != 0:
             self.log.error("Failed to run write workload")
@@ -286,7 +292,7 @@ class TestBlockFioRW(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=rand-readers --readwrite=readwrite --ioengine=libaio --direct=1 --bs=4k --iodepth=128 --numjobs=4 --size=10485760 --filename=/dev/nbd15"
+        fioCmd = "sudo fio --name=rand-readers --readwrite=readwrite --ioengine=libaio --direct=1 --bs=4k --iodepth=128 --numjobs=4 --size=10485760 --filename=%s" % (nbd_device)
         result = subprocess.call(fioCmd, shell=True)
         if result != 0:
             self.log.error("Failed to run read/write workload")
