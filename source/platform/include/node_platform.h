@@ -5,7 +5,7 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_NODE_PLATFORM_H_
 #define SOURCE_PLATFORM_INCLUDE_NODE_PLATFORM_H_
 
-#include <platform/platform-lib.h>
+#include <platform/platform.h>
 
 namespace fds
 {

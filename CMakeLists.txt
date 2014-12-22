@@ -918,7 +918,7 @@ set(SOURCE_FILES
     source/include/platform/fds-shm-queue.h
     source/include/platform/fds-shmem.h
     source/include/platform/fds-shmtx.h
-    source/include/platform/fds_flags.h
+    source/include/platform/flags_map.h
     source/include/platform/net-plat-shared.h
     source/include/platform/node-inv-shmem.h
     source/include/platform/node-inventory.h

@@ -5,9 +5,10 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OM_PLATFORM_H_
 
 #include <orchMgr.h>
-#include <platform/platform-lib.h>
 #include <fds_typedefs.h>
 #include <net/net-service.h>
+
+#include "platform/platform.h"
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {

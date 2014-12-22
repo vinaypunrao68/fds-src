@@ -2,10 +2,11 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include <platform/platform-lib.h>
-#include <platform/fds-shmem.h>
+#include <platform/fds_shmem.h>
 #include <ep-map.h>
-#include <platform/node-inv-shmem.h>
+#include "platform/platform.h"
+#include "platform/node_shm_inventory.h"
+#include "platform/node_shm_queue.h"
 
 namespace fds
 {
