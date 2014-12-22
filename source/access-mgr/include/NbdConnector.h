@@ -11,8 +11,6 @@
 #include <concurrency/Thread.h>
 #include <OmConfigService.h>
 #include <NbdOperations.h>
-#include <queue>
-#include <boost/lockfree/queue.hpp>
 
 // Forward declare so we can hide the ev++.h include
 // in the cpp file so that it doesn't conflict with
@@ -69,10 +67,17 @@ class NbdConnector {
 };
 
 class NbdConnection : public NbdOperationsResponseIface {
+ public:
+    enum Errors {
+        connection_closed
+    };
+
   private:
     int clientSocket;
     boost::shared_ptr<std::string> volumeName;
     apis::VolumeDescriptor volDesc;
+    size_t volume_size;
+
     OmConfigApi::shared_ptr omConfigApi;
     NbdOperations::shared_ptr nbdOps;
     size_t maxChunks;
@@ -82,14 +87,18 @@ class NbdConnection : public NbdOperationsResponseIface {
     message<attach_header, std::array<char, 1024>> attach;
     message<request_header, boost::shared_ptr<std::string>> request;
 
+    std::unique_ptr<iovec[]> response;
+    size_t total_blocks;
+    ssize_t write_offset;
+
     // Uturn stuff. Remove me.
     struct UturnPair {
         fds_int64_t handle;
         fds_uint32_t length;
         fds_int32_t opType;
     };
-    boost::lockfree::queue<UturnPair> readyHandles;
-    boost::lockfree::queue<NbdResponseVector*> readyResponses;
+    UturnPair ready_handle;
+    std::unique_ptr<NbdResponseVector> ready_response;
 
     static constexpr fds_int64_t NBD_MAGIC = 0x49484156454F5054l;
     static constexpr char NBD_MAGIC_PWD[] {'N', 'B', 'D', 'M', 'A', 'G', 'I', 'C'};  // NOLINT
@@ -132,18 +141,20 @@ class NbdConnection : public NbdOperationsResponseIface {
     };
     NbdHandshakeState hsState;
 
-    void hsPreInit(ev::io &watcher);
+    bool hsPreInit(ev::io &watcher);
     void hsPostInit(ev::io &watcher);
     bool hsAwaitOpts(ev::io &watcher);
-    void hsSendOpts(ev::io &watcher);
+    bool hsSendOpts(ev::io &watcher);
     void hsReq(ev::io &watcher);
-    void hsReply(ev::io &watcher);
+    bool hsReply(ev::io &watcher);
     Error dispatchOp(ev::io &watcher,
                      fds_uint32_t opType,
                      fds_int64_t handle,
                      fds_uint64_t offset,
                      fds_uint32_t length,
                      boost::shared_ptr<std::string> data);
+
+    bool write_response();
 
   public:
     NbdConnection(OmConfigApi::shared_ptr omApi, int clientsd);
