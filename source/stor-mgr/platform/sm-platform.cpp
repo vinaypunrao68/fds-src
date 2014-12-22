@@ -16,6 +16,8 @@
 #include <net/SvcRequestPool.h>
 #include <platform/platform-lib.h>
 
+#include "platform/platform_process.h"
+
 namespace fds {
 
 SmPlatform gl_SmPlatform;

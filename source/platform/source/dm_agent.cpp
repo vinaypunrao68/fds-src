@@ -5,6 +5,7 @@
 #include <net/net-service-tmpl.hpp>
 #include "platform/platform-lib.h"
 
+#include "platform/platform.h"
 #include "platform/dm_svc_ep.h"
 
 namespace fds

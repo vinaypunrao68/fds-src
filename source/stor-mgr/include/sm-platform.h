@@ -8,6 +8,8 @@
 #include <net/net-service.h>
 #include <fds_typedefs.h>
 
+#include "platform/platform.h"
+
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
 class SMSvcClient;

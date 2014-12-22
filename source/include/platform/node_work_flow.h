@@ -9,6 +9,7 @@
 
 #include "pm_agent.h"
 #include "node_work_item.h"
+#include "platform/domain_cluster_map.h"
 
 namespace fds
 {

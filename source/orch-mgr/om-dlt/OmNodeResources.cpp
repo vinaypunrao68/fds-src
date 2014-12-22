@@ -20,6 +20,7 @@
 #include <net/SvcRequestPool.h>
 
 #include "platform/node_data.h"
+#include "platform/platform.h"
 
 namespace fds {
 

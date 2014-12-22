@@ -8,6 +8,7 @@
 #include <net/SvcRequestPool.h>
 
 #include "state_switch.h"
+#include "platform/platform.h"
 #include "platform/node_work_flow.h"
 #include "platform/node_work_item.h"
 #include "platform/node_info_evt.h"

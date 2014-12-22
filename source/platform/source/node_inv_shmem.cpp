@@ -6,6 +6,7 @@
 #include <platform/fds_shmem.h>
 #include <ep-map.h>
 
+#include "platform/platform.h"
 #include "platform/node_shm_inventory.h"
 #include "platform/node_shm_queue.h"
 

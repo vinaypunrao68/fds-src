@@ -16,6 +16,8 @@
 #include <net/net_utils.h>
 #include <net/SvcRequestPool.h>
 #include <platform/platform-lib.h>
+#include "platform/platform_process.h"
+#include "platform/platform.h"
 #include <fds_typedefs.h>
 #include <thread>
 #include <string>

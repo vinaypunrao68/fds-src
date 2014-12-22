@@ -5,6 +5,7 @@
 #include <net/PlatNetSvcHandler.h>
 #include "platform/platform-lib.h"
 
+#include "platform/platform.h"
 #include "plat_agent_plugin.h"
 
 namespace fds

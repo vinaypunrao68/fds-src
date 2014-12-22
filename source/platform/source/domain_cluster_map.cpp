@@ -7,6 +7,7 @@
 */
 
 #include <platform/platform-lib.h>
+#include "platform/domain_cluster_map.h"
 
 namespace fds
 {
