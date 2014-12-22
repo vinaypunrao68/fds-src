@@ -2,7 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include <platform/service-ep-lib.h>
 #include <platform/node-inventory.h>
 
 #include "platform/dm_svc_ep.h"
