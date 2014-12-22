@@ -6,7 +6,6 @@
 
 #include <fds_module.h>
 #include <fds_process.h>
-#include <platform/platform-lib.h>
 #include <ClusterCommMgr.h>
 #include <NetSession.h>
 #include <concurrency/taskstatus.h>
@@ -19,6 +18,7 @@ namespace fds {
 
 class DatapathRespImpl;
 class MetaDatapathRespImpl;
+class BaseAsyncSvcHandler;
 
 /**
  * @brief Storage manager counters

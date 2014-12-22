@@ -3,7 +3,6 @@
  */
 #include <string>
 #include <fds_process.h>
-#include <platform/platform-lib.h>
 #include <net/net-service-tmpl.hpp>
 #include <fdsp/PlatNetSvc.h>
 #include <ep-map.h>

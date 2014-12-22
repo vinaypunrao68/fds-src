@@ -5,7 +5,6 @@
 #include <functional>
 #include <iostream>
 #include <net/net-service.h>
-#include <platform/platform-lib.h>
 #include "platform/platform.h"
 #include <fdsp_utils.h>
 #include <fds_process.h>

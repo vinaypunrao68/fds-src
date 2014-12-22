@@ -6,7 +6,7 @@
 
 #include <NetSession.h>
 #include <net/net-service-tmpl.hpp>
-#include "platform/platform-lib.h"
+#include "platform/node-inventory.h"
 
 #include "platform/platform.h"
 #include "platform/sm_svc_ep.h"

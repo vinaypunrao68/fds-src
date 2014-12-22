@@ -2,7 +2,6 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <string>
-#include <platform/platform-lib.h>
 #include <platform/platform.h>
 #include <fdsp/fds_service_types.h>
 #include <fdsp/PlatNetSvc.h>

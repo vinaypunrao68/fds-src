@@ -12,7 +12,6 @@
 #include <boost/algorithm/string.hpp>
 #include <fds_process.h>
 #include <net/PlatNetSvcHandler.h>
-#include <platform/platform-lib.h>
 
 #include "platform/platform.h"
 #include "platform/platform_process.h"

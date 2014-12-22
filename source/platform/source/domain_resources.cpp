@@ -2,7 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include <platform/platform-lib.h>
 #include <platform/domain_resources.h>
 
 namespace fds

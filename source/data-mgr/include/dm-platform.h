@@ -4,8 +4,6 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_PLATFORM_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_PLATFORM_H_
 
-#include <platform/platform-lib.h>
-
 #include <net/net-service.h>
 #include <fds_typedefs.h>
 

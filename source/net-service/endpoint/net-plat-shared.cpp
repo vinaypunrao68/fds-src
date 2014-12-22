@@ -7,7 +7,9 @@
 #include <ep-map.h>
 #include <fds_process.h>
 #include <net/net-service.h>
-#include <platform/platform-lib.h>
+
+#include <platform/node-inventory.h>
+
 
 // New includes
 #include "platform/platform.h"

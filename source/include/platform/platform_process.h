@@ -7,10 +7,15 @@
 
 #include <string>
 
+#include <kvstore/platformdb.h>
+#include "fds_process.h"
+
 #include "platform/plat_node_data.h"
 
 namespace fds
 {
+    class PlatformDB;
+
     /**
      * FDS Platform daemon process.
      */

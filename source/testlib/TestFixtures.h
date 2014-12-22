@@ -7,7 +7,6 @@
 #include <memory>
 #include <string>
 #include <testlib/Deployer.h>
-#include <platform/platform-lib.h>
 #include <gtest/gtest.h>
 
 #include "platform/fds_service.h"

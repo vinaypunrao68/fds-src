@@ -5,6 +5,8 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_DOMAIN_RESOURCES_H_
 #define SOURCE_INCLUDE_PLATFORM_DOMAIN_RESOURCES_H_
 
+#include "dlt.h"
+
 namespace fds
 {
     // -------------------------------------------------------------------------------------

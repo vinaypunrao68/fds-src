@@ -6,7 +6,6 @@
 
 #include <fds_module.h>
 #include <fds_process.h>
-#include <platform/platform-lib.h>
 #include <ClusterCommMgr.h>
 #include <NetSession.h>
 #include <concurrency/taskstatus.h>

@@ -10,7 +10,6 @@
 #include <fds_uuid.h>
 #include <NetSession.h>
 #include <TokenSyncBaseEvents.h>
-#include <platform/platform-lib.h>
 
 #include "platform/platform.h"
 #include "platform/platform_process.h"
