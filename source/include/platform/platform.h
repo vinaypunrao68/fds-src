@@ -7,13 +7,15 @@
 
 #include <string>
 
-#include "plat_node_data.h"
+#include "platform/plat_node_data.h"
 #include "platform/domain_container.h"
 #include "platform/domain_resources.h"
 #include "platform/domain_cluster_map.h"
 #include "platform/flags_map.h"
 
 namespace fpi = FDS_ProtocolInterface;
+
+class netSessionTbl;
 
 namespace fds
 {

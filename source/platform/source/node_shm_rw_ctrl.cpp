@@ -5,7 +5,6 @@
 #include <ep-map.h>
 #include <fds-shmobj.h>
 #include <platform/fds_shmem.h>
-
 #include "node_shm_rw_ctrl.h"
 
 namespace fds

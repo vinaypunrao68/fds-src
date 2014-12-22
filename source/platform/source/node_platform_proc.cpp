@@ -7,9 +7,9 @@
 #include <vector>
 #include <sstream>
 #include <iostream>  // NOLINT
+
 #include <fds_uuid.h>
 #include <net/net-service.h>
-
 #include "node_platform.h"
 #include "node_shm_rw_ctrl.h"
 #include "node_platform_process.h"

@@ -4,23 +4,11 @@
 
 #include <string>
 
-/*
-#include <vector>
-#include <stdlib.h>
-#include <dlt.h>
-#include <fds-shmobj.h>
-#include <fdsp/PlatNetSvc.h>
-#include <apis/ConfigurationService.h>
-#include <net/SvcRequestPool.h>
-*/
-
 #include "fds_process.h"
-
 #include <platform/node_services.h>
 #include "platform/platform.h"
 #include <net/net-service-tmpl.hpp>
 #include <NetSession.h>
-
 #include "platform/node_data.h"
 #include "platform/node_shm_ctrl.h"
 

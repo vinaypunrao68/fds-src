@@ -3,11 +3,10 @@
  */
 
 #include <vector>
-#include <net/SvcRequestPool.h>
 
+#include <net/SvcRequestPool.h>
 #include "platform/node_integrate.h"
 #include "platform/node_integrate_evt.h"
-
 #include "platform/node_work_item.h"
 
 namespace fds

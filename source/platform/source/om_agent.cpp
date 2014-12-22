@@ -5,12 +5,9 @@
 #include <string>
 
 #include <NetSession.h>
-
 #include <net/net-service-tmpl.hpp>
 #include <apis/ConfigurationService.h>
-
 #include "fds_module_provider.h"
-
 #include "platform/platform.h"
 #include "platform/om_svc_ep.h"
 

@@ -3,7 +3,6 @@
  */
 
 #include "platform/domain_container.h"
-
 #include "platform/platform.h"
 #include "plat_agent.h"
 #include "node_shm_rw_ctrl.h"

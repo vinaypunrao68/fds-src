@@ -8,6 +8,8 @@
 #include "agent_container.h"
 #include "sm_agent.h"
 
+class netSessionTbl;
+
 namespace fds
 {
     class SmContainer : public AgentContainer

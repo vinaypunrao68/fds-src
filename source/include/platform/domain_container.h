@@ -12,7 +12,6 @@
 #include "om_container.h"
 #include "pm_container.h"
 #include "sm_container.h"
-
 #include "om_agent.h"
 
 namespace fds

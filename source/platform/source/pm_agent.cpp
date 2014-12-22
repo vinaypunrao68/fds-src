@@ -4,10 +4,8 @@
 
 #include <NetSession.h>
 #include <net/net-service-tmpl.hpp>
-
 #include "platform/platform.h"
 #include "platform/node_data.h"
-
 #include "platform/pm_svc_ep.h"
 
 namespace fds

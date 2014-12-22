@@ -6,7 +6,6 @@
 #define SOURCE_INCLUDE_PLATFORM_NODE_WORK_FLOW_H_
 
 #include "fds_module.h"
-
 #include "pm_agent.h"
 #include "node_work_item.h"
 #include "platform/domain_cluster_map.h"

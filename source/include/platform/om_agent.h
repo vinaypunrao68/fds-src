@@ -12,7 +12,6 @@
 // Forward declarations
 namespace FDS_ProtocolInterface
 {
-    // class FDSP_ControlPathReqClient;
     class FDSP_OMControlPathReqClient;
     class FDSP_OMControlPathRespProcessor;
     class FDSP_OMControlPathRespIf;
@@ -20,9 +19,10 @@ namespace FDS_ProtocolInterface
 
 template <class A, class B, class C> class netClientSessionEx;
 
-typedef netClientSessionEx<fpi::FDSP_OMControlPathReqClient,
-                           fpi::FDSP_OMControlPathRespProcessor,
+typedef netClientSessionEx<fpi::FDSP_OMControlPathReqClient, fpi::FDSP_OMControlPathRespProcessor,
                            fpi::FDSP_OMControlPathRespIf> netOMControlPathClientSession;
+
+class netSessionTbl;
 
 namespace fds
 {

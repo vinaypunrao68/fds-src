@@ -2,7 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-#include "NetSession.h"
 #include "platform/om_svc_ep.h"
 #include "platform/om_agent.h"
 #include "platform/node_agent.h"

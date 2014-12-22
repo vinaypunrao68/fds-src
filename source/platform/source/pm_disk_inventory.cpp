@@ -5,9 +5,7 @@
 #include <disk_constants.h>
 #include "disk_part_mgr.h"
 #include "disk_common.h"
-
 #include "pm_disk_inventory.h"
-
 #include "disk_print_iter.h"
 #include "disk_op.h"
 #include "disk_label_op.h"

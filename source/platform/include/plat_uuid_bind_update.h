@@ -7,9 +7,7 @@
 
 #include "net/RpcFunc.h"
 #include "fdsp/PlatNetSvc.h"
-
 #include "platform/node_agent_iter.h"
-
 #include "platform/domain_agent.h"
 
 namespace fds

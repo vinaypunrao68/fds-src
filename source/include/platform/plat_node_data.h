@@ -26,7 +26,6 @@ namespace fds
         fds_uint32_t nd_flag_run_am;
         fds_uint32_t nd_flag_run_om;
     } plat_node_data_t;
-
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_PLATFORM_PLAT_NODE_DATA_H_

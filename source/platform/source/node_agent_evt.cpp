@@ -3,7 +3,6 @@
  */
 
 #include "platform/node_agent_evt.h"
-// #include "platform/dm_agent.h"
 #include "platform/node_agent.h"
 
 namespace fds

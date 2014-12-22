@@ -29,7 +29,6 @@ namespace fds
         protected:
             NetPlatSvc   *plat_svc;
     };
-
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_PLATFORM_PLAT_NET_PLUGIN_H_

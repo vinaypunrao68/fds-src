@@ -7,12 +7,13 @@
 #include <vector>
 #include <csignal>
 #include <unordered_map>
-#include <fiu-control.h>
+
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string.hpp>
+
+#include <fiu-control.h>
 #include <fds_process.h>
 #include <net/PlatNetSvcHandler.h>
-
 #include "platform/platform.h"
 #include "platform/platform_process.h"
 #include "platform/node_work_flow.h"

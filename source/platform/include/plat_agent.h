@@ -6,7 +6,6 @@
 #define SOURCE_PLATFORM_INCLUDE_PLAT_AGENT_H_
 
 #include "ep-map.h"
-
 #include "platform/domain_agent.h"
 
 namespace fds

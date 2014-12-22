@@ -3,7 +3,6 @@
  */
 
 #include <disk_partition.h>
-
 #include "disk_op.h"
 #include "disk_part_mgr.h"
 #include "disk_partition.h"

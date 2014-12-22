@@ -8,12 +8,11 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <string>
+
 #include <net/SvcRequestPool.h>
 #include <NetSession.h>
-
 #include "fds_config.hpp"
 #include "fds_process.h"
-
 #include "platform/platform.h"
 #include "platform/node_shm_ctrl.h"
 #include "platform/pm_svc_ep.h"

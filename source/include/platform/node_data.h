@@ -6,7 +6,6 @@
 #define SOURCE_INCLUDE_PLATFORM_NODE_DATA_H_
 
 #include "shared/fds-constants.h"
-
 #include "platform/typedefs.h"
 #include "platform/node_stor_cap.h"
 

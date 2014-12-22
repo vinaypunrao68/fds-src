@@ -6,7 +6,6 @@
 #define SOURCE_PLATFORM_INCLUDE_NODE_SVC_ITER_H_
 
 #include "fds_resource.h"
-
 #include "platform/pm_agent.h"
 
 namespace fds
