@@ -50,7 +50,7 @@ def pidWaitParent(pid, child_count, node):
 
     return True
 
-def modWait(mod, node):
+def modWait(mod, node, forShutdown = False):
     """
     Wait for the named module to become active.
     """
@@ -61,10 +61,18 @@ def modWait(mod, node):
     orchMgrPID = ''
     AMAgentPID = ''
     count = 0
-    found = False
+
+    # When we don't want to see the process, assume
+    # that it's there, otherwise, assume that it's
+    # not there.
+    if forShutdown:
+        found = True
+    else:
+        found = False
+
     status = 0
     cmd = "pgrep %s" % mod
-    while (count < maxcount) and not found:
+    while (count < maxcount) and ((forShutdown and found) or (not forShutdown and not found)):
         time.sleep(1)
 
         status, stdout = node.nd_agent.exec_wait(cmd, return_stdin=True)
@@ -79,15 +87,26 @@ def modWait(mod, node):
                 AMAgentPID = stdout
 
             found = True
+        else:
+            found = False
 
         count += 1
 
     if status != 0:
-        log.error("Wait for %s on %s returned status %d." % (mod, node.nd_conf_dict['node-name'], status))
-        return False
+        if not forShutdown:
+            log.error("Wait for %s on %s returned status %d." % (mod, node.nd_conf_dict['node-name'], status))
+            return False
+    else:
+        return True
 
     if not found:
-        return False
+        if forShutdown:
+            return True
+        else:
+            return False
+    else:
+        if forShutdown:
+            return False
 
     if orchMgrPID != '':
         return pidWaitParent(int(orchMgrPID), 1, node)
@@ -305,6 +324,72 @@ class TestDMShutDown(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
+# whether a Data Manager (DM) module is shutdown.
+class TestDMVerifyShutdown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestDMVerifyShutdown, self).__init__(parameters)
+
+
+    def runTest(self):
+        """
+        Used by qaautotest module's test runner to run the test case
+        and clean up the fixture as necessary.
+
+        With PyUnit, the same method is run although PyUnit will also
+        call any defined tearDown method to do test fixture cleanup as well.
+        """
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_DMVerifyShutdown():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Verify a DM module is shutdown caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_DMVerifyShutdown(self):
+        """
+        Test Case:
+        Wait for the DM module(s) to start
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            self.log.info("Verify the DM on %s is shutdon." %n.nd_conf_dict['node-name'])
+
+            if not modWait("DataMgr", n, forShutdown=True):
+                return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
 # bringing up a Storage Manager (SM) module.
 class TestSMBringUp(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
@@ -511,6 +596,72 @@ class TestSMShutDown(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
+# whether a Storage Manager (SM) module is shutdown.
+class TestSMVerifyShutdown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestSMVerifyShutdown, self).__init__(parameters)
+
+
+    def runTest(self):
+        """
+        Used by qaautotest module's test runner to run the test case
+        and clean up the fixture as necessary.
+
+        With PyUnit, the same method is run although PyUnit will also
+        call any defined tearDown method to do test fixture cleanup as well.
+        """
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_SMVerifyShutdown():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Verify the SM module is shutdown caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_SMVerifyShutdown(self):
+        """
+        Test Case:
+        Wait for the SM module(s) to start
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            self.log.info("Verify the SM on %s is shutdown." %n.nd_conf_dict['node-name'])
+
+            if not modWait("StorMgr", n, forShutdown=True):
+                return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
 # bringing up a Platform Manager (SM) module.
 class TestPMBringUp(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
@@ -708,6 +859,72 @@ class TestPMShutDown(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
+# whether a Platform Manager (PM) module has shutdown .
+class TestPMVerifyShutdown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestPMVerifyShutdown, self).__init__(parameters)
+
+
+    def runTest(self):
+        """
+        Used by qaautotest module's test runner to run the test case
+        and clean up the fixture as necessary.
+
+        With PyUnit, the same method is run although PyUnit will also
+        call any defined tearDown method to do test fixture cleanup as well.
+        """
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_PMVerifyShutdown():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Verify a PM module is shutdown caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_PMVerifyShutdown(self):
+        """
+        Test Case:
+        Verify the PM module(s) are shutdown
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            self.log.info("Verify the PM on %s is shutdown." %n.nd_conf_dict['node-name'])
+
+            if not modWait("platformd", n, forShutdown=True):
+                return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
 # bringing up an Orchestration Manager (OM) module.
 class TestOMBringUp(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
@@ -878,22 +1095,75 @@ class TestOMShutDown(TestCase.FDSTestCase):
 
         self.log.info("Shutdown OM on %s." % om_node.nd_conf_dict['node-name'])
 
-        status = om_node.nd_agent.exec_wait("pkill -9 orchMgr")
-
-        if status != 0:
-            self.log.error("OM (orchMgr) shutdown on %s returned status %d." %(om_node.nd_conf_dict['node-name'], status))
-            return False
-
         status = om_node.nd_agent.exec_wait('pkill -9 -f com.formationds.om.Main')
 
-        if status != 0:
+        if status != -9:
             self.log.error("OM (com.formationds.om.Main) shutdown on %s returned status %d." %(om_node.nd_conf_dict['node-name'], status))
+            return False
+
+        status = om_node.nd_agent.exec_wait("pkill -9 orchMgr")
+
+        if status != 1:
+            self.log.error("OM (orchMgr) shutdown on %s returned status %d." %(om_node.nd_conf_dict['node-name'], status))
             return False
 
         time.sleep(2)
 
         return True
 
+
+# This class contains the attributes and methods to
+# verify that the the Orchestration Manager (OM) module is inactive.
+class TestOMVerifyShutdown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestOMVerifyShutdown, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_OMVerifyShutdown():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("OM module verify shutdown caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_OMVerifyShutdown(self):
+        """
+        Test Case:
+        Wait for the named module to become active.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        self.log.info("Verify the OM on %s is down." % fdscfg.rt_om_node.nd_conf_dict['node-name'])
+
+        return modWait("orchMgr", fdscfg.rt_om_node, forShutdown=True)
 
 # This class contains the attributes and methods to test
 # bringing up an Access Manager (AM) module.
@@ -956,7 +1226,7 @@ class TestAMBringup(TestCase.FDSTestCase):
             # The AMAgent script expected to be invoked from the bin directory in which resides.
             cur_dir = os.getcwd()
             os.chdir(bin_dir)
-            status = n.nd_am_node.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s > ./am.out 2>&1 &) \"' %
+            status = n.nd_am_node.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s 0<&- &> ./am.out &) \"' %
                                                      fds_dir)
             os.chdir(cur_dir)
 
@@ -1083,33 +1353,92 @@ class TestAMShutDown(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_get_obj('cfg_am')
         for n in nodes:
-            self.log.info("Shutdown AM on %s." % n.nd_conf_dict['node-name'])
+            self.log.info("Shutdown AM on %s." % n.nd_conf_dict['fds_node'])
 
-            status = n.nd_agent.exec_wait("pkill -9 -f com.formationds.am.Main;")
+            status = n.nd_am_node.nd_agent.exec_wait("pkill -9 -f com.formationds.am.Main")
 
-            if status != 0:
-                self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+            if status != -9:
+                self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %(n.nd_conf_dict['fds_node'], status))
                 return False
 
-            status = n.nd_agent.exec_wait('pkill -9 bare_am')
+            status = n.nd_am_node.nd_agent.exec_wait('pkill -9 bare_am')
 
             if status != 0:
-                self.log.error("AM (bare_am) shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+                self.log.error("AM (bare_am) shutdown on %s returned status %d." %(n.nd_conf_dict['fds_node'], status))
                 return False
 
-            status = n.nd_agent.exec_wait('pkill -9 AMAgent')
+            status = n.nd_am_node.nd_agent.exec_wait('pkill -9 AMAgent')
 
-            if status != 0:
-                self.log.error("AM (AMAgent) shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
-                return False
-
-            status = n.nd_agent.exec_wait("pkill -9 -f com.formationds.om.Main;")
-
-            if status != 0:
-                self.log.error("AM (com.formationds.om.Main) shutdown on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+            if status != 1:
+                self.log.error("AM (AMAgent) shutdown on %s returned status %d." %(n.nd_conf_dict['fds_node'], status))
                 return False
 
             time.sleep(2)
+
+        return True
+
+# This class contains the attributes and methods to test
+# whether an Access Manager (AM) component is shutdown.
+class TestAMVerifyShutdown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestAMVerifyShutdown, self).__init__(parameters)
+
+
+    def runTest(self):
+        """
+        Used by qaautotest module's test runner to run the test case
+        and clean up the fixture as necessary.
+
+        With PyUnit, the same method is run although PyUnit will also
+        call any defined tearDown method to do test fixture cleanup as well.
+        """
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_AMVerifyShutdown():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Verify the AM module is shutdown:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_AMVerifyShutdown(self):
+        """
+        Test Case:
+        Verify the AM module(s) are shutdown
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_get_obj('cfg_am')
+        for n in nodes:
+            self.log.info("Verify AM on %s. is shutdown" % n.nd_conf_dict['fds_node'])
+
+            if not modWait("AMAgent", n.nd_am_node, forShutdown=True):
+                return False
 
         return True
 

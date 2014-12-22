@@ -13,6 +13,7 @@ import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
 import NodeWaitSuite
 import BotoBLOBSuite
+import NodeResilienceSuite
 import BlockBlobSuite
 
 def suiteConstruction():
@@ -37,6 +38,9 @@ def suiteConstruction():
     nodeUpSuite = NodeWaitSuite.suiteConstruction()
     suite.addTest(nodeUpSuite)
 
+    # Given the nodes some time to initialize.
+    suite.addTest(testcases.TestFDSSysMgt.TestNodeWait())
+
     # Load test.
     suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
 
@@ -53,6 +57,10 @@ def suiteConstruction():
 
     # Everyone should still be up.
     suite.addTest(nodeUpSuite)
+
+    # Node Resiliency suite.
+    nodeResilienceSuite = NodeResilienceSuite.suiteConstruction()
+    suite.addTest(nodeResilienceSuite)
 
     suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
 
