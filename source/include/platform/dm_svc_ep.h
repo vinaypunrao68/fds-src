@@ -9,6 +9,9 @@
 
 namespace fds
 {
+    class DmAgent;
+    class NodeAgent;
+
     /**
      * DM Service EndPoint
      */

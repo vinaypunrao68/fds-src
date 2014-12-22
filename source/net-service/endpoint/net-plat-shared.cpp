@@ -8,9 +8,6 @@
 #include <fds_process.h>
 #include <net/net-service.h>
 
-#include <platform/node-inventory.h>
-
-
 // New includes
 #include "platform/platform.h"
 #include "platform/node_info_shm_iter.h"

@@ -6,7 +6,6 @@
 #include <om-node-workflow.h>
 #include <orchMgr.h>
 
-#include "platform/node-inventory.h"
 #include "platform/node_data.h"
 #include "platform/node_shm_ctrl.h"
 

@@ -9,6 +9,8 @@
 
 namespace fds
 {
+    class SmAgent;
+
     /**
      * SM Service EndPoint
      */

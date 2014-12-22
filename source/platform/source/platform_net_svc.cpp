@@ -6,7 +6,6 @@
 #include <vector>
 #include <ep-map.h>
 #include <net/net-service-tmpl.hpp>
-#include <platform/node-inventory.h>
 #include <net/PlatNetSvcHandler.h>
 
 #include "node_shm_rw_ctrl.h"

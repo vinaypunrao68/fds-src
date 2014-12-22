@@ -9,6 +9,8 @@
 
 namespace fds
 {
+    class OmAgent;
+
     class OmSvcEp : public EpSvc
     {
         public:
