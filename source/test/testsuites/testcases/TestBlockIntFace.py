@@ -136,7 +136,7 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
         nbdadm = subprocess.Popen(blkAttCmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         (stdout, stderr) = nbdadm.communicate()
         if nbdadm.returncode != 0:
-            self.log.error("Failed to attach block volume")
+            self.log.error("Failed to attach block volume %s %s" % (stdout, stderr))
             return False
         else:
             global nbd_device
