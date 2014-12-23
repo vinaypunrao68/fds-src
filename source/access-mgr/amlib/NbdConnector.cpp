@@ -415,21 +415,12 @@ NbdConnection::hsReply(ev::io &watcher) {
             fds_int64_t handle = __builtin_bswap64(current_response->getHandle());
             response[2].iov_base = &handle; response[2].iov_len = sizeof(handle);
             Error opError = current_response->getError();
-            if (!opError.ok() && (opError != ERR_BLOB_OFFSET_INVALID)) {
+            if (!opError.ok()) {
                 error = htonl(-1);
             }
 
             fds_uint32_t context = 0;
-            if (current_response->isRead() && (opError == ERR_BLOB_OFFSET_INVALID)) {
-                // ok to read unwritten block, return zeros
-                fds_uint32_t length = current_response->getLength();
-                fds_verify((length % current_response->maxObjectSize()) == 0);
-                total_blocks += length / current_response->maxObjectSize();
-                for (size_t i = 3; i < total_blocks; ++i) {
-                    response[i].iov_base = to_iovec(fourKayZeros);
-                    response[i].iov_len = sizeof(fourKayZeros);
-                }
-            } else if (current_response->isRead() && (opError.ok())) {
+            if (current_response->isRead() && (opError.ok())) {
                 boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
                 while (buf != NULL) {
                     GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
