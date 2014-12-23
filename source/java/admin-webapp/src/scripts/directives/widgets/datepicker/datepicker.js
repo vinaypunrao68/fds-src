@@ -5,6 +5,7 @@ angular.module( 'form-directives' ).directive( "datePicker", function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/widgets/datepicker/datepicker.html',
+        // valid dates can be a long or an object to represent a range:  { min: #, max: # }
         scope: { dayLabels: '=?', validDates: '=?', date: '=ngModel', monthLabelFunction: '=?', selectedItems: '=?' },
         controller: function( $scope ){
             
@@ -15,7 +16,19 @@ angular.module( 'form-directives' ).directive( "datePicker", function(){
                 $scope.date = new Date();
             }
             
+            if ( !angular.isDefined( $scope.dayLabels ) || $scope.dayLabels.length !== 7 ){
+                $scope.dayLabels = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+            }
+            
             $scope.matchDay = function( day, otherDay ){
+                
+                if( !angular.isDefined( day ) ){
+                    return false;
+                }
+                
+                if ( !angular.isDate( day ) ){
+                    day = new Date( day );
+                }
                 
                 if ( !angular.isDefined( otherDay ) ){
                     otherDay = new Date();
@@ -76,13 +89,13 @@ angular.module( 'form-directives' ).directive( "datePicker", function(){
             
                 if( !angular.isDefined( $scope.refDate )){
                     $scope.refDate = new Date();
-                    $scope.refDate.setMonth( 1 );
                 }
                 
                 $scope.days = [];
                 
                 var month = $scope.refDate.getMonth();
                 var year = $scope.refDate.getFullYear();
+                $scope.refDate.setDate( 1 );
                 
                 var refDate = new Date( $scope.refDate.getTime() );
                 
@@ -95,6 +108,10 @@ angular.module( 'form-directives' ).directive( "datePicker", function(){
                     refDate.setFullYear( year );
                     refDate.setMonth( month );
                     refDate.setDate( startVal );
+                    refDate.setHours( 0 );
+                    refDate.setMinutes( 0 );
+                    refDate.setSeconds( 0 );
+                    refDate.setMilliseconds( 0 );
                     
                     var enabled = true;
                     var items = [];
@@ -106,10 +123,24 @@ angular.module( 'form-directives' ).directive( "datePicker", function(){
                     var dayDate = new Date( refDate.getTime() );
                     
                     for ( var k = 0; angular.isDefined( $scope.validDates ) && k < $scope.validDates.length; k++ ){
-                        var tDate = new Date( $scope.validDates[k] );
                         
-                        if ( $scope.matchDay( dayDate, tDate ) === true ){
-                            items.push( $scope.validDates[k] );
+                        // must have both...
+                        if ( angular.isDefined( $scope.validDates[k].min ) && !angular.isDefined( $scope.validDates[k].max ) ){
+                            $scope.validDates[k] = $scope.validDates[k].min;
+                        }
+                        
+                        // is it a range...
+                        if ( angular.isDefined( $scope.validDates[k].min ) ){
+                            if ( $scope.validDates[k].min.getTime() <= refDate.getTime() && $scope.validDates[k].max.getTime() >= refDate.getTime() ){
+                                items.push( $scope.validDates[k] );
+                            }
+                        }
+                        else {
+                            var tDate = new Date( $scope.validDates[k] );
+
+                            if ( $scope.matchDay( dayDate, tDate ) === true ){
+                                items.push( $scope.validDates[k] );
+                            }
                         }
                     }
                     
@@ -138,6 +169,25 @@ angular.module( 'form-directives' ).directive( "datePicker", function(){
             };
             
             buildCalendarDays();
+            
+            $scope.$watch( 'date', function( newVal, oldVal ){
+                
+                if ( newVal === oldVal ){
+                    return;
+                }
+                
+                if ( angular.isDefined( newVal ) ){
+                    
+                    if ( angular.isDate( newVal ) ){
+                        $scope.refDate = new Date( newVal.getTime() );
+                    }
+                    else if ( angular.isNumber( newVal ) ){
+                        $scope.refDate = new Date( newVal );
+                    }
+                    
+                    buildCalendarDays();
+                }
+            });
         }
     };
     

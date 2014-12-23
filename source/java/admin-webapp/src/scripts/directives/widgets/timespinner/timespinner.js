@@ -6,17 +6,23 @@ angular.module( 'form-directives' ).directive( 'timeSpinner', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/widgets/timespinner/timespinner.html',
-        scope: { time: '=ngModel', showSeconds: '@', mode: '@' },
-        controller: function( $scope ){
+        scope: { time: '=ngModel', showSeconds: '@', mode: '@', min: '=?', max: '=?', showDate: '@', separator: '@' },
+        controller: function( $scope, $timeout ){
             
             $scope.hours = 0;
             $scope.minutes = 0;
             $scope.seconds = 0;
+            $scope.months = 1;
+            $scope.days = 1;
+            $scope.years = 2000;
             
             $scope.HOURS = 0;
             $scope.MINUTES = 1;
             $scope.SECONDS = 2;
             $scope.AMPM = 3;
+            $scope.MONTHS = 4;
+            $scope.YEARS = 5;
+            $scope.DAYS = 6;
             
             var AM = 'a.m.';
             var PM = 'p.m.';
@@ -25,6 +31,14 @@ angular.module( 'form-directives' ).directive( 'timeSpinner', function(){
             
             if ( !angular.isDefined( $scope.mode ) || $scope.mode != 24 ){
                 $scope.mode = 12;
+            }
+            
+            if ( !angular.isDefined( $scope.showDate ) ){
+                $scope.showDate = false;
+            }
+            
+            if ( !angular.isDefined( $scope.separator ) ){
+                $scope.separator = 'at';
             }
             
             var convertHours = function( hour ){
@@ -46,132 +60,153 @@ angular.module( 'form-directives' ).directive( 'timeSpinner', function(){
                 return digit;
             };
             
-            var fix = function( value, min, max ){
-                
-                if ( value < min ){
-                    return min;
-                }
-                
-                if ( value > max ){
-                    return max;
-                }
-                
-                return value;
-            };
+            // rationalize the pieces into an actual date.
+            var fixDate = function( months, days, years, hours, minutes, seconds, ampm ){
             
-            var createDate = function( newVal ){
-                
-                if ( angular.isDefined( newVal ) ){
-                    $scope.hours = newVal.getHours();
-                    $scope.minutes = newVal.getMinutes();
-                    $scope.seconds = newVal.getSeconds();
+                var unblank = function( val ){
+                    if ( val === '' || !angular.isNumber( val ) ){
+                        return 0;
+                    }
                     
-                    if ( $scope.hours > 11 ){
-                        $scope.ampm = PM;
+                    return val;
+                };
+                
+                months = unblank( months );
+                days = unblank( days );
+                years = unblank( years );
+                hours = unblank( hours );
+                minutes = unblank( minutes );
+                seconds = unblank( seconds );
+                
+                var hourLimits = { min: 0, max: 23 };
+                var minuteLimits = { min: 0, max: 59 };
+                var secondLimits = { min: 0, max: 59 };
+                var monthLimits = { min: 0, max: 11 };
+                var dayLimits = { min: 1, max: 31 };
+                var yearLimits = { min: 1969, max: 9999 };
+                
+                if ( angular.isDefined( $scope.min ) ){
+                    hourLimits.min = $scope.min.getHours();
+                    minuteLimits.min = $scope.min.getMinutes();
+                    secondLimits.min = $scope.min.getSeconds();
+                    monthLimits.min = $scope.min.getMonth();
+                    dayLimits.min = $scope.min.getDate();
+                    yearLimits.min = $scope.min.getFullYear();
+                }
+                
+                if ( angular.isDefined( $scope.max ) ){
+                    hourLimits.max = $scope.max.getHours();
+                    minuteLimits.max = $scope.max.getMinutes();
+                    secondLimits.max = $scope.max.getSeconds();
+                    monthLimits.max = $scope.max.getMonth();
+                    dayLimits.max = $scope.max.getDate();
+                    yearLimits.max = $scope.max.getFullYear(); 
+                }
+                
+                // make hours 24
+                if ( $scope.mode == 12 && ampm === PM ){
+                    
+                    if ( hours === 12 ){
+                        hours = 0;
+                    } 
+                    
+                    if ( ampm === PM ){
+                        
+                        hours += 12;
+                    }
+                }
+                
+                var fixRange = function( value, limits ){
+                    if ( value < limits.min ){
+                        value = limits.min;
+                    }
+                    else if ( value > limits.max ){
+                        value = limits.max;
+                    }
+                    
+                    return value;
+                };
+                
+                hours = fixRange( hours, hourLimits );
+                minutes = fixRange( minutes, minuteLimits );
+                seconds = fixRange( seconds, secondLimits );
+                months = fixRange( months, monthLimits );
+                
+                var tDate = new Date();
+                tDate.setFullYear( years );
+                tDate.setMonth( months + 1 );
+                tDate.setDate( 0 );
+                dayLimits.max = tDate.getDate();
+                
+                days = fixRange( days, dayLimits );
+                years = fixRange( years, yearLimits );
+                
+                var viewHours = hours;
+                
+                // fix for 12 hour mode
+                if ( $scope.mode == 12 ){
+                    if ( viewHours > 11 ){
+                        ampm = PM;
+                        
+                        viewHours = viewHours % 12;
+                        
+                        if ( viewHours === 0 ){
+                            viewHours = 12;
+                        }
                     }
                     else {
-                        $scope.ampm = AM;
+                        ampm = AM;
+                        
+                        if ( viewHours === 0 ){
+                            viewHours = 12;
+                        }
                     }
                 }
                 
-                if ( $scope.mode == 12 ){
-                    $scope.hours = convertHours ( $scope.hours );
-                }
+                var date = new Date();
+                date.setHours( hours );
+                date.setMinutes( minutes );
+                date.setSeconds( seconds );
+                date.setFullYear( years );
+                date.setMonth( months );
+                date.setDate( days );
                 
-                if ( $scope.showSeconds == 'true' ){
-                    $scope.seconds = newVal.getSeconds();
-                    $scope.seconds = pad( $scope.seconds );
-                }
+                $scope.hours = pad( viewHours );
+                $scope.minutes = pad( minutes );
+                $scope.seconds = pad( seconds );
+                $scope.months = pad( months+1 );
+                $scope.days = pad( days );
+                $scope.years = years;
+                $scope.ampm = ampm;
                 
-                $scope.hours = pad( $scope.hours );
-                $scope.minutes = pad( $scope.minutes );
+                if ( $scope.time.toString() !== date.toString() ){
+                    $scope.time = date;
+                }
             };
             
             $scope.focusChanged = function(){
                 
-                // validate the numbers
-                var h = parseInt( $scope.hours );
-                
-                // fix hours
-                if ( $scope.mode == 12 ){
-                    
-                    if ( $scope.ampm === PM ){
-                        h += 12;
-                        if ( h === 24 ){
-                            h = 0;
-                        }
-                    }
-                    else {
-                        if ( h === 12 ){
-                            h = 0;
-                        }
-                    }
-                }
-                
-                //fix minutes
-                var m = parseInt( $scope.minutes );
-                m = fix( m, 0, 59 );
-                
-                var s = parseInt( $scope.seconds );
-                s = fix( s, 0, 59 );
-                
-                var date = new Date();
-                date.setHours( h );
-                date.setMinutes( m );
-                date.setSeconds( s );
-                
-                $scope.time = date;
+               fixDate( parseInt( $scope.months ), parseInt( $scope.days ), parseInt( $scope.years ), parseInt( $scope.hours ), parseInt( $scope.minutes ), parseInt( $scope.seconds ), $scope.ampm );
             };
             
             $scope.up = function( BOX ){
                 
+                var mon = $scope.months;
+                var day = $scope.days;
+                var year = $scope.years;
+                var h = $scope.hours;
+                var m = $scope.minutes;
+                var s = $scope.seconds;
+                
                 switch( BOX ){
                     case $scope.HOURS:
-                        var h = parseInt( $scope.hours ) + 1;
-                        
-                        if ( $scope.mode == 12 ){
-                            
-                            if ( h == 12 ){
-                                if ( $scope.ampm === AM ){
-                                    $scope.ampm = PM;
-                                }
-                                else {
-                                    $scope.ampm = AM;
-                                }
-                            }
-                            
-                            if ( h >= 13 ){
-                                h = 1;
-                            }
-                        }
-                        else {
-                            if ( h > 23 ){
-                                h = 0;
-                            }
-                        }
-                        
-                        $scope.hours = h;
-                        
+                        h = parseInt( $scope.hours ) + 1;
                         break;
                     case $scope.MINUTES:
-                        var m = parseInt( $scope.minutes ) + 1;
-                        
-                        if ( m > 59 ){
-                            m = 0;
-                        }
-                        
-                        $scope.minutes = m;
-                        
+                        m = parseInt( $scope.minutes ) + 1;
                         break;
                     case $scope.SECONDS:
-                        var s = parseInt( $scope.seconds ) + 1;
-                        
-                        if ( s > 59 ){
-                            s = 0;
-                        }
-                        
-                        $scope.seconds = s;
-                        
+                        s = parseInt( $scope.seconds ) + 1;
                         break;
                     case $scope.AMPM: 
                         if ( $scope.ampm === AM ){
@@ -180,59 +215,42 @@ angular.module( 'form-directives' ).directive( 'timeSpinner', function(){
                         else {
                             $scope.ampm = AM;
                         }
+                        break;
+                    case $scope.MONTHS:
+                        mon = parseInt( $scope.months );
+                        break;
+                    case $scope.YEARS:
+                        year = parseInt( $scope.years ) + 1;
+                        break;
+                    case $scope.DAYS:
+                        day = parseInt( $scope.days ) + 1;
+                        break;
                     default:
                         break;
                         
                 }
                 
-                createDate();
+                fixDate( mon, day, year, h, m, s, $scope.ampm );
             };
             
             $scope.down = function( BOX ){
+
+                var mon = $scope.months;
+                var day = $scope.days;
+                var year = $scope.years;
+                var h = $scope.hours;
+                var m = $scope.minutes;
+                var s = $scope.seconds;
                 
                 switch( BOX ){
                     case $scope.HOURS: 
                         var h = parseInt( $scope.hours ) - 1;
-                        
-                        if ( $scope.mode == 12 ){
-                            
-                            if ( h <= 0 ){
-                                h = 12;
-                                
-                                if ( $scope.ampm === AM ){
-                                    $scope.ampm = PM;
-                                }
-                                else {
-                                    $scope.ampm = AM;
-                                }
-                            }
-                        }
-                        else {
-                            if ( h < 0 ){
-                                h = 23;
-                            }
-                        }
-                        
-                        $scope.hours = h;
-                        
                         break;
                     case $scope.MINUTES:
                         var m = parseInt( $scope.minutes ) - 1;
-                        if ( m < 0 ){
-                            m = 59;
-                        }
-                        
-                        $scope.minutes = m;
-                        
                         break;
                     case $scope.SECONDS:
                         var s = parseInt( $scope.seconds ) - 1;
-                        if ( s < 0 ){
-                            s = 59;
-                        }
-                        
-                        $scope.seconds = s;
-                        
                         break;
                     case $scope.AMPM:
                         if ( $scope.ampm === AM ){
@@ -242,11 +260,20 @@ angular.module( 'form-directives' ).directive( 'timeSpinner', function(){
                             $scope.ampm = AM;
                         }
                         break;
+                    case $scope.MONTHS:
+                        mon = parseInt( $scope.months ) - 2;
+                        break;
+                    case $scope.YEARS:
+                        year = parseInt( $scope.years ) - 1;
+                        break;
+                    case $scope.DAYS:
+                        day = parseInt( $scope.days ) - 1;
+                        break;                        
                     default:
                         break;
                 }
                 
-                createDate();
+                fixDate( mon, day, year, h, m, s, $scope.ampm );
             };
             
             $scope.keyPressed = function( $event, BOX ){
@@ -265,14 +292,22 @@ angular.module( 'form-directives' ).directive( 'timeSpinner', function(){
                     return;
                 }
                 
+                if ( angular.isNumber( newVal ) ){
+                    newVal = new Date( newVal );
+                }
+                
                 if ( !angular.isDate( newVal ) ){
                     $scope.hours = 0;
                     $scope.minutes = 0;
                     $scope.seconds = 0;
+                    $scope.months = 1;
+                    $scope.days = 1;
+                    $scope.years = 2000;
                     return;
                 }
                 
-                createDate( newVal );
+                var ampm = (newVal.getHours() >= 12) ? PM : AM;
+                fixDate( newVal.getMonth(), newVal.getDate(), newVal.getFullYear(), newVal.getHours(), newVal.getMinutes(), newVal.getSeconds(), ampm );
             });
         }
     };

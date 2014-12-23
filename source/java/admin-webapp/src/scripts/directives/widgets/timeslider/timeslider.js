@@ -17,6 +17,7 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
             var max;
             var halfHandleWidth = 5;
             
+            $scope.editing = false;
             $scope.ratio = 1;
             $scope.sliderPosition = 0;
             $scope.grabbedSlider = false;

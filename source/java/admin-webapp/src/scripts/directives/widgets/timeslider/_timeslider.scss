@@ -23,7 +23,7 @@
     
     .value-container {
         position: absolute;
-        top: -64px;
+        top: -68px;
         
         .edit-box {
             position: absolute;
@@ -101,5 +101,12 @@
         .text {
             font-size: 11px;
         }
+    }
+    
+    .form-control {
+        height: auto;
+        width: 150px;
+        padding-bottom: 4px;
+        padding-top: 4px;
     }
 }
