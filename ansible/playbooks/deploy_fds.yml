@@ -126,6 +126,8 @@
 
     -   include: ../tasks/deploy_fds/install_fds.yml
 
+    -   include: ../tasks/deploy_fds/set_node_num.yml
+
     -   include: ../tasks/deploy_fds/post_install_setup.yml
 
     -   include: ../tasks/deploy_fds/start_fds.yml

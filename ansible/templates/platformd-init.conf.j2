@@ -9,4 +9,4 @@ env LD_LIBRARY_PATH=/fds/lib:/usr/local/lib:/usr/lib/jvm/java-8-oracle/jre/lib/a
 env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/jvm/jdk-8-oracle-x64/bin:/usr/lib/jvm/jdk-8-oracle-x64/db/bin:/usr/lib/jvm/jdk-8-oracle-x64/jre/bin:/fds/bin:/fds/bin
 chdir /fds/bin
 
-exec platformd --fds-root=/fds --fds.plat.id={{ fds_node }} --fds.plat.om_ip={{ hostvars[fds_om_host]['ansible_'+fds_default_nic]['ipv4']['address'] }} 2>&1 /fds/bin/pm.out
+exec platformd --fds-root=/fds --fds.plat.id={{ node_num }} --fds.plat.om_ip={{ hostvars[fds_om_host]['ansible_'+fds_default_nic]['ipv4']['address'] }} 2>&1 /fds/bin/pm.out
