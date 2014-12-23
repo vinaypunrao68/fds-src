@@ -92,7 +92,7 @@
         - check_sudo
 
     tasks:
-    -   include: ../tasks/check_sudo.yml
+    -   include: ../tasks/common/check_sudo.yml
         when: ansible_sudo_pass is not defined
 
 -   name: Pre-Deploy - setup environment
@@ -108,7 +108,7 @@
             state=restarted
 
     tasks:
-    -   include: ../tasks/pre_deploy_setup.yml
+    -   include: ../tasks/deploy_fds/pre_deploy_setup.yml
 
 
 -   name: DESTRUCTIVE Deployment of FDS
@@ -314,10 +314,10 @@
           - deploy
           - uninstall
 
-    -   include: ../tasks/add_fds_repos.yml
+    -   include: ../tasks/deploy_fds/add_fds_repos.yml
         when: deploy_artifact is defined and deploy_artifact != "local"
 
-    -   include: ../tasks/deploy_local_fds_packages.yml
+    -   include: ../tasks/deploy_fds/deploy_local_fds_packages.yml
         when: deploy_artifact is defined and deploy_artifact == "local"
 
     -   name: copy fdsinstall.py to /root/fdsinstally.py

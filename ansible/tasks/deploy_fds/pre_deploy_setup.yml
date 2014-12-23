@@ -12,6 +12,17 @@
         backrefs=yes
         state=present
     notify: restart ssh
+    when: this_is_an_ec2_node is not defined
+    tags:
+        - setup
+
+-   name: allow ssh password login
+    lineinfile: dest=/etc/ssh/sshd_config
+        regexp="PasswordAuthentication no"
+        line="PasswordAuthentication yes"
+        backrefs=yes
+        state=present
+    notify: restart ssh
     tags:
         - setup
 
