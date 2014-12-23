@@ -10,7 +10,6 @@ user_cpp_flags    := -DDMGR_LIVE_DEBUG
 user_cpp          := \
 	DataMgr.cpp \
 	VolumeMeta.cpp \
-        qos_ctrl.cpp \
 	DmBlobTypes.cpp \
 	DMSvcHandler.cpp \
 	CatalogSync.cpp \

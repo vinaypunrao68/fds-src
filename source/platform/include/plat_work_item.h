@@ -5,19 +5,19 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_PLAT_WORK_ITEM_H_
 #define SOURCE_PLATFORM_INCLUDE_PLAT_WORK_ITEM_H_
 
-#include <platform/node-workflow.h>
+#include "platform/node_work_item.h"
 
 namespace fds
 {
     class PlatWorkItem : public NodeWorkItem
     {
         public:
-            typedef bo::intrusive_ptr<PlatWorkItem> ptr;
-            typedef bo::intrusive_ptr<const PlatWorkItem> const_ptr;
+            typedef boost::intrusive_ptr<PlatWorkItem> ptr;
+            typedef boost::intrusive_ptr<const PlatWorkItem> const_ptr;
 
-            PlatWorkItem(fpi::SvcUuid &peer, fpi::DomainID &did, bo::intrusive_ptr<PmAgent> owner,
-                         FsmTable::pointer tab, NodeWorkFlow *mod)
-                         : NodeWorkItem(peer, did, owner, tab, mod)
+            PlatWorkItem(fpi::SvcUuid &peer, fpi::DomainID &did,
+                         boost::intrusive_ptr<PmAgent> owner, FsmTable::pointer tab,
+                         NodeWorkFlow *mod) : NodeWorkItem(peer, did, owner, tab, mod)
             {
             }
 

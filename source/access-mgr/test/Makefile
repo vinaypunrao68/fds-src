@@ -9,6 +9,7 @@ user_incl_dir     := $(topdir) ../include ../stor-hvisor
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
+    fds-qos-lib \
     fds-am-engine \
     fds-am-engine \
     fds-am-plat \

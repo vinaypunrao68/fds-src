@@ -2,12 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-/*
-#include <disk_partition.h>
-
-#include "disk_partition.h"
-*/
-
 #include "disk_op.h"
 #include "disk_part_mgr.h"
 

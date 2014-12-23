@@ -5,6 +5,8 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_NODE_PLATFORM_PROCESS_H_
 #define SOURCE_PLATFORM_INCLUDE_NODE_PLATFORM_PROCESS_H_
 
+#include "platform/platform_process.h"
+
 namespace fds
 {
     class NodePlatformProc : public PlatformProcess

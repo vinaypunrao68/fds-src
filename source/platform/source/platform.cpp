@@ -8,11 +8,19 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <string>
+
 #include <net/SvcRequestPool.h>
-#include <platform/platform-lib.h>
-#include <platform/node-inv-shmem.h>
-#include <platform/service-ep-lib.h>
 #include <NetSession.h>
+#include "fds_config.hpp"
+#include "fds_process.h"
+#include "platform/platform.h"
+#include "platform/node_shm_ctrl.h"
+#include "platform/pm_svc_ep.h"
+#include "platform/om_svc_ep.h"
+#include "platform/am_svc_ep.h"
+#include "platform/sm_svc_ep.h"
+#include "platform/dm_svc_ep.h"
+#include "platform/om_node_agent_evt.h"
 
 bool    gdb_plat = false;
 

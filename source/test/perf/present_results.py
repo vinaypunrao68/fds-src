@@ -332,6 +332,7 @@ if __name__ == "__main__":
                 iops_get_min = [x["am:am_get_obj_req:count_min"] for x in experiments]    
                 iops_get_stdev = [x["am:am_get_obj_req:count_stdev"] for x in experiments]    
 
+
                 am_lat = [x["am:am_get_obj_req:latency"] for x in experiments]
                 #sm_lat = [x["am:am_get_sm:latency"] for x in experiments]
                 sm_lat = []
@@ -344,6 +345,8 @@ if __name__ == "__main__":
                 lat = [x["lat"] for x in experiments]    
                 #print [x["nreqs"] for x in experiments]    
                 conns = [int(x["outstanding"]) * int(x["threads"]) for x in experiments]    
+                threads = [int(x["threads"]) for x in experiments]    
+                outstanding = [int(x["outstanding"]) for x in experiments]    
 
                 # print indices, [iops_get_mean[i] for i in indices]
                 # print indices, [iops_get_max[i] for i in indices]
@@ -352,6 +355,10 @@ if __name__ == "__main__":
                 # print indices, [iops[i] for i in indices]
                 indices = [i for i, x in enumerate(conns) if x == 100]
                 iops_100 = max([iops_get_mean[i] for i in indices])
+                print indices
+                print [conns[i] for i in indices]
+                print [threads[i] for i in indices]
+                print [outstanding[i] for i in indices]
                 index = iops_get_mean.index(iops_100)
                 assert index in indices
                 lat_100 = lat[index]
