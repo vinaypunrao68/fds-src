@@ -77,7 +77,7 @@ namespace fds
         }
    
         // There is probably a better way, but for now, create a dummy variable to capture the
-        // return value from dup().  This prevent a compiler warning whem compiling with -O2 
+        // return value from dup().  This prevents a compiler warning when compiling with -O2 
         fd = open("/dev/null", O_RDWR);  // will be 0
         int unused_discard = dup(fd); // will be 1
         unused_discard = dup(fd);     // will be 2
