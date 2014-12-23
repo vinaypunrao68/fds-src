@@ -15,6 +15,7 @@ import subprocess
 import time
 
 nbd_device = "/dev/nbd15"
+pwd = ""
 
 # This class contains the attributes and methods to test
 # the FDS interface to create a block volume.
@@ -65,6 +66,8 @@ class TestBlockCrtVolume(TestCase.FDSTestCase):
         nodes = fdscfg.rt_obj.cfg_nodes
         fds_root = nodes[0].nd_conf_dict['fds_root']
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        global pwd
+        pwd = os.getcwd()
         os.chdir(bin_dir)
 
         # Block volume create command
@@ -136,7 +139,8 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
             self.log.error("Failed to attach block volume")
             return False
         else:
-            ndb_device = stdout.rstrip()
+            global nbd_device
+            nbd_device = stdout.rstrip()
         self.log.info("Attached block device %s" % (nbd_device))
         time.sleep(5)
 
@@ -193,6 +197,7 @@ class TestBlockDetachVolume(TestCase.FDSTestCase):
             return False
         time.sleep(5)
 
+        os.chdir(pwd)
         return True
 
 # This class contains the attributes and methods to test
