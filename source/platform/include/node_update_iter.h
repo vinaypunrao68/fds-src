@@ -7,6 +7,8 @@
 
 #include <vector>
 
+#include "platform/node_agent_iter.h"
+
 namespace fds
 {
     class NodeUpdateIter : public NodeAgentIter

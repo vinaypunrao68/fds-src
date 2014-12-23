@@ -7,6 +7,9 @@
 #include <vector>
 #include <string>
 #include <map>
+
+#include <boost/enable_shared_from_this.hpp>
+
 #include <fds_types.h>
 #include <apis/apis_types.h>
 #include <concurrency/Mutex.h>
@@ -126,11 +129,15 @@ class NbdOperationsResponseIface {
                                NbdResponseVector* response) = 0;
 };
 
-class NbdOperations : public AmAsyncResponseApi {
+class NbdOperations
+    :   public boost::enable_shared_from_this<NbdOperations>,
+        public AmAsyncResponseApi
+{
   public:
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
     ~NbdOperations();
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
+    void init();
 
     void read(boost::shared_ptr<std::string>& volumeName,
               fds_uint32_t maxObjectSizeInBytes,

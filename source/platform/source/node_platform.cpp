@@ -6,24 +6,19 @@
 
 #include <fds_process.h>
 #include <net/net_utils.h>
-#include <platform/node-inv-shmem.h>
 #include <ep-map.h>
 #include <util/timeutils.h>
 #include <net/SvcRequestPool.h>
-
 #include "disk_plat_module.h"
 #include "pm_disk_inventory.h"
-
 #include "disk_common.h"
-
 #include "node_platform.h"
 #include "node_shm_rw_ctrl.h"
 #include "node_platform_process.h"
-
 #include "disk_plat_module.h"
-
 #include "plat_agent_container.h"
 #include "plat_agent_plugin.h"
+#include "platform/pm_svc_ep.h"
 
 namespace fds
 {

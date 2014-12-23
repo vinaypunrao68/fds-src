@@ -9,12 +9,19 @@
 namespace fds {
 
 NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
-        : amAsyncDataApi(std::make_shared<AmAsyncDataApi>(this)),
+        : amAsyncDataApi(nullptr),
           nbdResp(respIface),
           domainName(new std::string("TestDomain")),
           blobName(new std::string("BlockBlob")),
           emptyMeta(new std::map<std::string, std::string>()),
           blobMode(new fds_int32_t(0)) {
+}
+
+// We can't initialize this in the constructor since we want to pass
+// a shared pointer to ourselves (and NbdConnection already started one).
+void
+NbdOperations::init() {
+    amAsyncDataApi = std::make_shared<AmAsyncDataApi>(shared_from_this());
 }
 
 NbdOperations::~NbdOperations() {
@@ -26,6 +33,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
                     fds_uint32_t length,
                     fds_uint64_t offset,
                     fds_int64_t handle) {
+    fds_assert(amAsyncDataApi);
     // calculate how many object we will get from AM
     fds_uint32_t objCount = length / maxObjectSizeInBytes;
     if ((length % maxObjectSizeInBytes) != 0) {
@@ -115,6 +123,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
                      fds_uint32_t length,
                      fds_uint64_t offset,
                      fds_int64_t handle) {
+    fds_assert(amAsyncDataApi);
     // calculate how many object we will put
     fds_uint32_t objCount = length / maxObjectSizeInBytes;
     if ((length % maxObjectSizeInBytes) != 0) {

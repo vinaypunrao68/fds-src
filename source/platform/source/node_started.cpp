@@ -3,13 +3,16 @@
  */
 
 #include <vector>
-#include <platform/platform-lib.h>
-#include <platform/node-inventory.h>
-#include <platform/node-workflow.h>
+
 #include <net/SvcRequestPool.h>
+#include "platform/node_started.h"
+#include "platform/node_info_evt.h"
+#include "platform/node_work_item.h"
 
 namespace fds
 {
+    class NodeWorkItem;
+
     int NodeStarted::st_handle(EventObj::pointer evt, StateObj::pointer cur) const
     {
         NodeWorkItem::ptr                 wrk;

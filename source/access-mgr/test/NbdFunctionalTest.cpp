@@ -18,6 +18,7 @@
 #include <google/profiler.h>
 #include <gtest/gtest.h>
 #include <testlib/DataGen.hpp>
+#include "fds_process.h"
 
 namespace fds {
 
