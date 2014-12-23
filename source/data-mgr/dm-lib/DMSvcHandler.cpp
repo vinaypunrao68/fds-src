@@ -5,7 +5,6 @@
 #include <net/net-service-tmpl.hpp>
 #include <fdsp_utils.h>
 #include <DMSvcHandler.h>
-#include <platform/fds_flags.h>
 #include <dm-platform.h>
 #include <StatStreamAggregator.h>
 

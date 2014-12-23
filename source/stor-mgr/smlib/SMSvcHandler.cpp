@@ -6,7 +6,7 @@
 #include <fdsp_utils.h>
 #include <fds_assert.h>
 #include <SMSvcHandler.h>
-#include <platform/fds_flags.h>
+// #include <platform/flags_map.h>
 #include <sm-platform.h>
 #include <string>
 #include <net/SvcRequest.h>

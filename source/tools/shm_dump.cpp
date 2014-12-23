@@ -6,10 +6,12 @@
 #include <string>
 #include <ep-map.h>
 #include <net/net-service.h>
-#include <platform/fds-shmem.h>
-#include <platform/node-inv-shmem.h>
+#include <platform/fds_shmem.h>
 #include "boost/program_options.hpp"
 #include "./shm_dump.h"
+
+#include "platform/node_shm_inventory.h"
+#include "platform/node_shm_queue.h"
 
 namespace fds {
 

@@ -13,7 +13,6 @@
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
-#include <platform/net-plat-shared.h>
 #include <util/Log.h>
 #include <orchMgr.h>
 
