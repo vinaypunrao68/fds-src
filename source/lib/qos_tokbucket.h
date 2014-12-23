@@ -77,14 +77,21 @@ public:
     ///
     /// Change the ::rate and ::burst parameters at the same time.
     ///
-    /// Tokens since the last update will be accumulated at the new rate, but will not be clamped to
+    /// Tokens since the last update will be accumulated at the old rate, but will not be clamped to
     /// either the new or old ::burst.
     ///
-    /// @param  rate   The new number of tokens to be accumulated per second.
-    /// @param  burst  The new maximum number of tokens that may be accumulated.
+    /// @param  rate         The new number of tokens to be accumulated per second.
+    /// @param  burst        The new maximum number of tokens that may be accumulated.
+    /// @param  nowMicrosec  The current number of microseconds since epoch.
     ///
-    inline void modifyParams(fds_uint64_t rate, fds_uint64_t burst) {
-        fds_uint64_t nowMicrosec = util::getTimeStampMicros();
+    inline void modifyParams(fds_uint64_t rate, fds_uint64_t burst, fds_uint64_t nowMicrosec = 0) {
+        if (nowMicrosec == 0) {
+            fds_uint64_t nowMicrosec = util::getTimeStampMicros();
+        }
+        // FIXME(DAC): Tokens are accumulated with the old rate, but will be clamped with the new
+        //             burst. This could be problematic when, for example, lowering the rate and
+        //             raising the burst, many more tokens than what is probably expected will be
+        //             present in the bucket.
         updateTokensOnly(nowMicrosec);
 
         TokenBucket::rate = rate;
