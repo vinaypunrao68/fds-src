@@ -95,6 +95,7 @@ enum  FDSPMsgTypeId {
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,
+    CtrlNotifySMStartMigrationTypeId   = 2062,
 
     /* DM messages. */
     CtrlNotifyPushDMTTypeId            = 2080,
@@ -554,6 +555,16 @@ struct CtrlSetScrubberStatusResp {
 struct CtrlNotifyDLTUpdate {
      1: FDSP.FDSP_DLT_Data_Type   dlt_data;
      2: i32                       dlt_version;
+}
+
+/* ---------------------- CtrlNotifySMStartMigration --------------------------- */
+struct SMTokenMigrationGroup {
+     1: SvcUuid                   source;
+     2: list<i32>                 tokens;
+}
+
+struct CtrlNotifySMStartMigration {
+     1: list<SMTokenMigrationGroup> migrations;
 }
 
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
