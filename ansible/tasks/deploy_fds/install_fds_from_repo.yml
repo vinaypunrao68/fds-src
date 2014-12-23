@@ -2,6 +2,8 @@
 -   name: remove Artifactory repo in favor of local mirror
     file: path=/etc/apt/sources.list.d/artifacts_artifactoryonline_com_artifacts_third_party_deps.list
         state=absent
+    tags:
+      - install-repo
 
 -   name: add LOCAL fds nightly platform repo
     when: deploy_artifact == "nightly" and cluster_location is defined
@@ -9,7 +11,7 @@
         state=present
         update_cache=yes
     tags:
-      - deploy
+      - install-repo
 
 -   name: add Artifactory fds nightly platform repo
     when: deploy_artifact == "nightly" and cluster_location is not defined
@@ -17,7 +19,7 @@
         state=present
         update_cache=yes
     tags:
-      - deploy
+      - install-repo
 
 -   name: install fds platform from repo
     when: deploy_artifact == "nightly"
@@ -32,4 +34,4 @@
         - fds-coredump
     register: fdsinstall_pkg
     tags:
-      - deploy
+      - install-repo
