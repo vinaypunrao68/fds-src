@@ -420,7 +420,7 @@ NbdConnection::hsReply(ev::io &watcher) {
             }
 
             fds_uint32_t context = 0;
-            if (ready_response->isRead() && (opError.ok())) {
+            if (current_response->isRead() && (opError.ok())) {
                 boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
                 while (buf != NULL) {
                     GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
