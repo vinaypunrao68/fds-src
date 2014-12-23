@@ -1,15 +1,15 @@
 <div class="time-spinner">
-    <input ng-model="months" maxlength="2" size="2" class="no-border" ng-keyup="keyPressed( $event, MONTHS )" bg-blur="focusChanged()" ng-show="showDate === 'true'">
+    <input ng-model="months" maxlength="2" size="2" class="no-border two-digit" ng-keyup="keyPressed( $event, MONTHS )" bg-blur="focusChanged()" ng-show="showDate === 'true'">
     <span class="colon" ng-show="showDate === 'true'"> </span>
-    <input ng-model="days" maxlength="2" size="2" class="no-border" ng-keyup="keyPressed( $event, DAYS )" ng-blur="focusChanged()" ng-show="showDate === 'true'">
+    <input ng-model="days" maxlength="2" size="2" class="no-border two-digit" ng-keyup="keyPressed( $event, DAYS )" ng-blur="focusChanged()" ng-show="showDate === 'true'">
     <span class="colon" ng-show="showDate === 'true'">, </span>
-    <input ng-model="years" maxlength="4" size="4" class="no-border" ng-keyup="keyPressed( $event, YEARS )" ng-blur="focusChanged()" ng-show="showDate === 'true'">
+    <input ng-model="years" maxlength="4" size="4" class="no-border four-digit" ng-keyup="keyPressed( $event, YEARS )" ng-blur="focusChanged()" ng-show="showDate === 'true'">
     <span class="colon" ng-show="showDate === 'true'">{{ separator }}</span>
-    <input ng-model="hours" maxlength="2" size="2" class="no-border" ng-keyup="keyPressed( $event, HOURS )" ng-blur="focusChanged()" >
+    <input ng-model="hours" maxlength="2" size="2" class="no-border two-digit" ng-keyup="keyPressed( $event, HOURS )" ng-blur="focusChanged()" >
     <span class="colon">:</span>
-    <input ng-model="minutes" maxlength="2" size="2" class="no-border" ng-keyup="keyPressed( $event, MINUTES )" ng-blur="focusChanged()">
+    <input ng-model="minutes" maxlength="2" size="2" class="no-border two-digit" ng-keyup="keyPressed( $event, MINUTES )" ng-blur="focusChanged()">
     <span class="colon" ng-show="showSeconds === 'true'">:</span>
-    <input ng-model="seconds" maxlength="2" size="2" class="no-border" ng-show="showSeconds === 'true'" ng-keyup="keyPressed( $event, SECONDS )" ng-blur="focusChanged()">
+    <input ng-model="seconds" maxlength="2" size="2" class="no-border two-digit" ng-show="showSeconds === 'true'" ng-keyup="keyPressed( $event, SECONDS )" ng-blur="focusChanged()">
     <span></span>
     <input ng-model="ampm" maxlength="4" size="4" class="no-border" ng-show="mode == 12" ng-keyup="keyPressed( $event, AMPM )" ng-blur="focusChanged()">
 </div>

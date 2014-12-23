@@ -9,9 +9,19 @@
     
     .no-border {
         border-width: 0px;
+        border-radius: 0px;
+        padding-right: 0px;
+        padding-left: 3px;
+    }
+    
+    .two-digit {
+        width: 23px;
+    }
+    
+    .four-digit {
+        width: 40px;
     }
     
     .colon {
-        padding-right: 4px;
     }
 }
