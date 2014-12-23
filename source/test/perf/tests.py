@@ -51,8 +51,25 @@ class TestList():
                         test["numjobs"] = j
                         test["iodepth"] = d
                         test["runtime"] = 60
+                        #for i in range(5):
+                            #tests.append(test)
+        # randwrite
+        test_types = ["randwrite"]
+        for d in [25, 50, 100, 150]:
+            for j in [1, 4, 8]:
+                for bs in [4096]:
+                    for test_type in test_types:
+                        test = dict(template)
+                        test["bs"] = bs
+                        test["fio_jobname"] = test_type
+                        test["fio_type"] = test_type
+                        test["numjobs"] = j
+                        test["iodepth"] = d
+                        test["runtime"] = 60
                         for i in range(5):
                             tests.append(test)
+
+
         self.tests = tests
 
     def create_tests_s3(self):
@@ -98,8 +115,8 @@ class TestList():
             for nvols in [1]:
                 # for th in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40]:
                 # for th in range(1,51):
-                for th in [1, 2, 3, 4]:
-                    for outs in [2, 4, 10, 20, 50]:
+                for th in [1, 2, 4]:
+                    for outs in [2, 25, 50]:
                     #for outs in [1, 5, 10, 20, 30, 40, 50]:
                     #for outs in [1]:
                         #for th in [4]:
@@ -117,7 +134,7 @@ class TestList():
                             test["test_type"] = "tgen_java"
                             test["type"] = "GET"
                             if test["test_type"] == "tgen_java":
-                                total_reqs = max([th * 300000 / 50, 100000])*10
+                                total_reqs = max([int(th * outs * 1000000 / 50 / 4 * 1.5), 100000])
                             else:
                                 total_reqs = max([th * 300000 / 50, 100000])
                             test["nreqs"] = total_reqs
@@ -126,7 +143,7 @@ class TestList():
                             test["threads"] = th
                             test["fsize"] = size
                             test["outstanding"] = outs
-                            for i in range(5):
+                            for i in range(3):
                                 tests.append(test)
 
 #            for nvols in [1]:#[1, 2]: # [1, 2, 3, 4]:

@@ -69,10 +69,17 @@ class NbdConnector {
 };
 
 class NbdConnection : public NbdOperationsResponseIface {
+ public:
+    enum Errors {
+        connection_closed
+    };
+
   private:
     int clientSocket;
     boost::shared_ptr<std::string> volumeName;
     apis::VolumeDescriptor volDesc;
+    size_t volume_size;
+
     OmConfigApi::shared_ptr omConfigApi;
     NbdOperations::shared_ptr nbdOps;
     size_t maxChunks;
@@ -82,6 +89,10 @@ class NbdConnection : public NbdOperationsResponseIface {
     message<attach_header, std::array<char, 1024>> attach;
     message<request_header, boost::shared_ptr<std::string>> request;
 
+    std::unique_ptr<iovec[]> response;
+    size_t total_blocks;
+    ssize_t write_offset;
+
     // Uturn stuff. Remove me.
     struct UturnPair {
         fds_int64_t handle;
@@ -90,6 +101,7 @@ class NbdConnection : public NbdOperationsResponseIface {
     };
     boost::lockfree::queue<UturnPair> readyHandles;
     boost::lockfree::queue<NbdResponseVector*> readyResponses;
+    std::unique_ptr<NbdResponseVector> current_response;
 
     static constexpr fds_int64_t NBD_MAGIC = 0x49484156454F5054l;
     static constexpr char NBD_MAGIC_PWD[] {'N', 'B', 'D', 'M', 'A', 'G', 'I', 'C'};  // NOLINT
@@ -132,18 +144,20 @@ class NbdConnection : public NbdOperationsResponseIface {
     };
     NbdHandshakeState hsState;
 
-    void hsPreInit(ev::io &watcher);
+    bool hsPreInit(ev::io &watcher);
     void hsPostInit(ev::io &watcher);
     bool hsAwaitOpts(ev::io &watcher);
-    void hsSendOpts(ev::io &watcher);
+    bool hsSendOpts(ev::io &watcher);
     void hsReq(ev::io &watcher);
-    void hsReply(ev::io &watcher);
+    bool hsReply(ev::io &watcher);
     Error dispatchOp(ev::io &watcher,
                      fds_uint32_t opType,
                      fds_int64_t handle,
                      fds_uint64_t offset,
                      fds_uint32_t length,
                      boost::shared_ptr<std::string> data);
+
+    bool write_response();
 
   public:
     NbdConnection(OmConfigApi::shared_ptr omApi, int clientsd);

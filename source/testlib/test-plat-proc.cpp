@@ -3,11 +3,11 @@
  */
 #include <string>
 #include <fds_uuid.h>
-#include <platform/platform-lib.h>
 #include <net/net-service.h>
 #include <node_platform.h>
 #include <util/fds_stat.h>
 
+#include "platform/fds_service.h"
 #include "platform_net_svc.h"
 
 namespace fds {

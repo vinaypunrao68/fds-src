@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<workload name="s3-0001" description="Acceptance 0001">
+
+  <auth type="none" config=""/>
+	<storage type="s3" config="path_style_access=true;accesskey={{ username }};secretkey={{ secretkey }};endpoint={{ s3_url }}" />
+
+  <workflow>
+    <workstage name="init">
+      <work type="init" workers="8" config="cprefix=s3testqwer;containers=r(1,1023)" />
+    </workstage>
+
+    <workstage name="prepare">
+      <work type="prepare" workers="8" config="cprefix=s3testqwer;containers=r(1,10);objects=r(1,512);sizes=u(64,1024)KB" />
+      <work type="prepare" workers="8" config="cprefix=s3testqwer;containers=r(1,10);objects=r(513,1023);sizes=u(1024,4096)KB" />
+    </workstage>
+
+    <workstage name="smoke_1hour">
+      <work name="main" workers="8" runtime="3600">
+        <operation type="read" ratio="40" config="cprefix=s3testqwer;containers=u(1,1023);objects=u(1,30)" />
+        <operation type="write" ratio="60" config="cprefix=s3testqwer;containers=u(1,1023);objects=u(31,60);sizes=u(64,1024)KB" />
+      </work>
+    </workstage>
+
+    <workstage name="smoke_6hour_small">
+      <work name="main" workers="8" runtime="21600">
+        <operation type="read" ratio="40" config="cprefix=s3testqwer;containers=u(1,1023);objects=u(1,100)" />
+        <operation type="write" ratio="60" config="cprefix=s3testqwer;containers=u(1,1023);objects=u(101,200);sizes=u(64,1024)KB" />
+      </work>
+    </workstage>
+
+    <!-- <workstage name="smoke_6hour_big"> -->
+    <!--   <work name="main" workers="8" runtime="3600"> -->
+    <!--     <operation type="read" ratio="40" config="cprefix=s3testqwer;containers=u(1,1023);objects=u(1,512)" /> -->
+    <!--     <operation type="write" ratio="60" config="cprefix=s3testqwer;containers=u(1,1023);objects=u(513,1023);sizes=u(64,4096)KB" /> -->
+    <!--   </work> -->
+    <!-- </workstage> -->
+
+    <workstage name="cleanup">
+      <work type="cleanup" workers="1" config="cprefix=s3testqwer;containers=r(1,1023);objects=r(1,1023)" />
+    </workstage>
+
+    <workstage name="dispose">
+      <work type="dispose" workers="1" config="cprefix=s3testqwer;containers=r(1,1023)" />
+    </workstage>
+
+  </workflow>
+
+</workload>

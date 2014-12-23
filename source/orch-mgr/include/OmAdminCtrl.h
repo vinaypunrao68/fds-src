@@ -16,7 +16,6 @@
 #include <fds_volume.h>
 #include <fds_typedefs.h>
 #include <util/Log.h>
-#include <platform/node-inventory.h>
 
 namespace fds {
 

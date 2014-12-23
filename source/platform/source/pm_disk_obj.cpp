@@ -5,13 +5,10 @@
 #include <libudev.h>
 
 #include "fds_uuid.h"
-
 #include "disk_common.h"
-
 #include "disk_label.h"
 #include "disk_obj_iter.h"
 #include "disk_plat_module.h"
-
 #include "platform_disk_obj.h"               // TODO(donavan) the .h file is named wrong
 #include "disk_print_iter.h"
 #include "disk_constants.h"

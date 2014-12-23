@@ -6,7 +6,6 @@
 #include <vector>
 #include <utility>
 #include <map>
-#include <platform/node-inv-shmem.h>
 #define LINE std::cout << "  "
 #define ERRORLINE LINE << Color::Red    << "[error] : " << Color::End
 #define WARNLINE  LINE << Color::Yellow << "[warn ] : " << Color::End

@@ -7,6 +7,8 @@
 #include <sm-platform.h>
 #include <net/net-service.h>
 
+#include "platform/platform_process.h"
+
 class SMMain : public PlatformProcess
 {
  public:

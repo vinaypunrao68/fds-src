@@ -2,7 +2,9 @@ test_topdir       := ../..
 user_incl_dir     := /usr/include/cryptopp
 user_cpp_flags    :=
 user_fds_so_libs  :=
-user_fds_ar_libs  :=
+user_fds_ar_libs  := \
+    fds-qos-lib \
+    fds-am-engine \
 
 user_cc           := ngx_modules.c
 user_cpp          := \

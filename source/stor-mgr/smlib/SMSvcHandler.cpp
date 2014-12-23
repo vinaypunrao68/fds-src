@@ -6,7 +6,7 @@
 #include <fdsp_utils.h>
 #include <fds_assert.h>
 #include <SMSvcHandler.h>
-#include <platform/fds_flags.h>
+// #include <platform/flags_map.h>
 #include <sm-platform.h>
 #include <string>
 #include <net/SvcRequest.h>
@@ -56,6 +56,13 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownSMMsg, shutdownSM);
+
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
+}
+
+void SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg) {
+    LOGDEBUG << "Received new migration init message";
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

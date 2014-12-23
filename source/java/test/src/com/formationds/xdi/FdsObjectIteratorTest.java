@@ -13,7 +13,7 @@ import java.util.Iterator;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-
+import FDS_ProtocolInterface.ResourceState;
 public class FdsObjectIteratorTest {
     @Test
     public void testIterator() throws Exception {
@@ -28,7 +28,7 @@ public class FdsObjectIteratorTest {
                 ByteBuffer.wrap(new byte[] {4, 5, 6}),
         };
 
-        VolumeDescriptor volumeDescriptor = new VolumeDescriptor("foo", 0, new VolumeSettings(blockSize, VolumeType.OBJECT, 0, 0), 0);
+        VolumeDescriptor volumeDescriptor = new VolumeDescriptor("foo", 0, new VolumeSettings(blockSize, VolumeType.OBJECT, 0, 0), 0, 0, ResourceState.Unknown);
         BlobDescriptor blobDescriptor = new BlobDescriptor(blobName, 7, Maps.newHashMap());
 
         when(config.statVolume(domainName, volumeName)).thenReturn(volumeDescriptor);
