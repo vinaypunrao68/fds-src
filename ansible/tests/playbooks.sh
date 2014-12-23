@@ -23,4 +23,4 @@ echo "################################"
 
 echo "### Starting tests"
 
-find ${playbook_dir} -maxdepth 1 -name '*.yml'| xargs -n1  ansible-playbook --syntax-check --list-tasks -i localhost
+find ${playbook_dir} -maxdepth 1 -name '*.yml'| xargs -n1  ansible-playbook --syntax-check --list-tasks -i ${script_dir}/localhost
