@@ -2,7 +2,6 @@ from svchelper import *
 import  fdslib.pyfdsp.apis as apis
 from apis import ttypes
 from apis.ttypes import ApiException
-from common.ttypes import ResourceState
 
 import md5
 import os
@@ -16,11 +15,10 @@ class VolumeContext(Context):
         'show the list of volumes in the system'
         try:
             volumes = ServiceMap.omConfig().listVolumes("")
-            volumes.sort(key=lambda vol: ResourceState._VALUES_TO_NAMES[vol.state] + ':' + vol.name)
-            return tabulate([(item.volId, item.name, item.tenantId, item.dateCreated, ResourceState._VALUES_TO_NAMES[item.state],
+            return tabulate([(item.name, item.tenantId, item.dateCreated,
                               'OBJECT' if item.policy.volumeType == 0 else 'BLOCK',
-                              item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in volumes],
-                            headers=['Id','Name', 'TenantId', 'Create Date','State','Type', 'Max-Obj-Size', 'Blk-Size'], tablefmt=self.config.getTableFormat())
+                              item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in sorted(volumes, key=attrgetter('name'))  ],
+                            headers=['Name', 'TenantId', 'Create Date','Type', 'Max-Obj-Size', 'Blk-Size'], tablefmt=self.config.getTableFormat())
             return volumes
         except ApiException, e:
             print e

@@ -93,8 +93,6 @@ void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::poin
     volDescriptor.policy.maxObjectSizeInBytes =
             volDesc->maxObjSizeInBytes;
     volDescriptor.tenantId = volDesc->tennantId;
-    volDescriptor.state    = volDesc->getState();
-    volDescriptor.volId    = volDesc->volUUID;
 }
 
 }  // namespace convert
