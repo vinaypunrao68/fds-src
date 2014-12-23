@@ -1,0 +1,6 @@
+---
+-   set_fact:
+        node_num: "{{item[0]}}"
+    with_indexed_items:
+        -  "{{ groups[group_names[0]] }}"
+    when: inventory_hostname == "{{item[1]}}"
