@@ -28,7 +28,11 @@ const unsigned MAX_PENDING_PERF_CONTEXTS = 25000;
 
 void createLatencyCounter(fds::PerfContext & ctx) {
     fds_assert(ctx.start_cycle);
-    fds_assert(ctx.start_cycle <= ctx.end_cycle);
+    // fds_assert(ctx.start_cycle <= ctx.end_cycle);
+    // TODO(Anna) we should use monotonic clock
+    if (ctx.start_cycle > ctx.end_cycle) {
+        ctx.start_cycle = ctx.end_cycle;
+    }
 
     fds::LatencyCounter * plc = new fds::LatencyCounter(ctx.name, ctx.volid, 0);
     plc->update(ctx.end_cycle - ctx.start_cycle);
