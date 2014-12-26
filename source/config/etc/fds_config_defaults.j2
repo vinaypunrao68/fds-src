@@ -12,6 +12,7 @@
 {% set authentication = fds_authentication if fds_authentication is defined else 'true' %}
 {% set om_host = fds_om_host if fds_om_host is defined else '127.0.0.1' %}
 {% set om_ip = hostvars[fds_om_host]['ansible_'+fds_default_nic]['ipv4']['address'] if fds_om_host is defined and fds_default_nic is defined else '127.0.0.1' %}
+{% set perf_tracing = fds_perf_tracing if fds_perf_tracing is defined else 'true' %}
 {% set metrics_enabled = fds_metrics_enabled if fds_metrics_enabled is defined else 'false' %}
 {% set metricsdb_ip = fds_metricsdb_ip if fds_metricsdb_ip is defined else '127.0.0.1' %}
 {% set ssh_user = fds_ssh_user if fds_ssh_user is defined else 'root' %}
