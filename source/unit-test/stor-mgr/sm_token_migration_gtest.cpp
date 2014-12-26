@@ -113,7 +113,7 @@ TEST_F(SmTokenMigrationTest, destination) {
     fpi::CtrlNotifySMStartMigrationPtr msg(new fpi::CtrlNotifySMStartMigration());
     err = tokenMigrationMgr->startMigration(dataStore, msg);
 
-    // wait until write-back is finished
+    // wait until migration is finished
     // TODO(anna) we do not set migration_done to true anywhere
     // so will always timeout until we implement this
     std::unique_lock<std::mutex> lk(cond_mutex);
