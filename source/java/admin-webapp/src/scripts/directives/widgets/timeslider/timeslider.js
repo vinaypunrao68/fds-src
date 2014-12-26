@@ -282,6 +282,7 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
                 
                 var details = $scope.snapToValidPointByValue( newVal );
                 $scope.sliderPosition = details.position;
+                $scope.selectedValue = details.value;
             });
             
             init();

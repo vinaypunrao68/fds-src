@@ -86,6 +86,10 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     var cloneVolume = function( volume ){
         volume.id = $scope.volumeVars.cloneFromVolume.id;
         
+        if ( angular.isDate( volume.timelineTime )){
+            volume.timelineTime = volume.timelineTime.getTime();
+        }
+        
 //        if ( angular.isDefined( $scope.volumeVars.clone.cloneType ) ){
 //            $volume_api.cloneSnapshot( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
 //        }

@@ -21,7 +21,7 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
         for ( var i = 0; i < snapshots.length; i++ ){
             
             var range = {
-                min: snapshots[i].creation
+                min: new Date( snapshots[i].creation )
             };
             
             $scope.ranges.push( range );
