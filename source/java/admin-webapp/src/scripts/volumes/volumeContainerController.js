@@ -16,44 +16,4 @@ angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope',
     
     $scope.volumeVars = {};
     
-    $scope.ranges = [
-        { min: 1000 },
-        { min: 200 },
-        { min: 4328 },
-        { min: 12 },
-        { min: 2945 },
-        { min: 9232 },
-        { min: 311 },
-        { min: 105 },
-        { min: 1265 },
-        { min: 22 },
-        { min: 811 },
-        { min: 3220 },
-        { min: 640 },
-        { min: 2001 },
-        { min: 1190 },
-        { min: 8324 },
-        { min: 5000 },
-        { min: 611 },
-        { min: 7129 },
-        { min: 823 },
-        { min: 71 },
-        { min: 10001 },
-        { min: 10002 },
-        { min: 30, max: 200 }
-    ];
-    
-    $scope.domainLabels = [
-        { text: '1 day', value: 105 },
-        { text: 'Another label', value: 1265 },
-        { text: 'dont show', value: 1 },
-        { text: 'too big', value: 1000000 }
-    ];
-    
-    $scope.time = 1000;
-    
-    $scope.labelFunc = function( value ){
-        return parseFloat( value ).toFixed( 1 );
-    };
-    
 }]);
