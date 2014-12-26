@@ -143,20 +143,22 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
 }
 
 NbdConnection::~NbdConnection() {
+    LOGTRACE << "NbdConnection going adios!";
+    ioWatcher->stop();
+    shutdown(clientSocket, SHUT_RDWR);
+    close(clientSocket);
 }
 
-constexpr fds_int64_t NbdConnection::NBD_MAGIC;
+constexpr uint8_t NbdConnection::NBD_MAGIC[];
 constexpr char NbdConnection::NBD_MAGIC_PWD[];
-constexpr fds_uint16_t NbdConnection::NBD_PROTO_VERSION;
-constexpr fds_uint32_t NbdConnection::NBD_ACK;
+constexpr uint8_t NbdConnection::NBD_PROTO_VERSION[];
 constexpr fds_int32_t NbdConnection::NBD_OPT_EXPORT;
-constexpr fds_int32_t NbdConnection::NBD_FLAG_HAS_FLAGS;
-constexpr fds_int32_t NbdConnection::NBD_FLAG_READ_ONLY;
-constexpr fds_int32_t NbdConnection::NBD_FLAG_SEND_FLUSH;
-constexpr fds_int32_t NbdConnection::NBD_FLAG_SEND_FUA;
-constexpr fds_int32_t NbdConnection::NBD_FLAG_ROTATIONAL;
-constexpr fds_int32_t NbdConnection::NBD_FLAG_SEND_TRIM;
-constexpr char NbdConnection::NBD_PAD_ZERO[];
+constexpr fds_int16_t NbdConnection::NBD_FLAG_HAS_FLAGS;
+constexpr fds_int16_t NbdConnection::NBD_FLAG_READ_ONLY;
+constexpr fds_int16_t NbdConnection::NBD_FLAG_SEND_FLUSH;
+constexpr fds_int16_t NbdConnection::NBD_FLAG_SEND_FUA;
+constexpr fds_int16_t NbdConnection::NBD_FLAG_ROTATIONAL;
+constexpr fds_int16_t NbdConnection::NBD_FLAG_SEND_TRIM;
 constexpr fds_int32_t NbdConnection::NBD_REQUEST_MAGIC;
 constexpr fds_int32_t NbdConnection::NBD_RESPONSE_MAGIC;
 constexpr fds_int32_t NbdConnection::NBD_CMD_READ;
@@ -221,8 +223,8 @@ NbdConnection::hsPreInit(ev::io &watcher) {
     // Vector always starts from this state
     static iovec const vectors[] = {
         { to_iovec(NBD_MAGIC_PWD),       sizeof(NBD_MAGIC_PWD)      },
-        { to_iovec(&NBD_MAGIC),          sizeof(NBD_MAGIC)          },
-        { to_iovec(&NBD_PROTO_VERSION),  sizeof(NBD_PROTO_VERSION)  },
+        { to_iovec(NBD_MAGIC),           sizeof(NBD_MAGIC)          },
+        { to_iovec(NBD_PROTO_VERSION),   sizeof(NBD_PROTO_VERSION)  },
     };
 
     if (!response) {
@@ -252,8 +254,7 @@ NbdConnection::hsPostInit(ev::io &watcher) {
     if (nread < 0) {
         LOGERROR << "Socket read error";
     } else {
-        ack = ntohl(ack);
-        fds_verify(NBD_ACK == ack);
+        fds_verify(0 == ack);
         LOGDEBUG << "Received " << nread << " byte ack " << ack;
     }
 }
@@ -263,8 +264,7 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
     if (attach.header_off >= 0) {
         if (!get_message_header(watcher.fd, attach))
             return false;
-        attach.header.magic = __builtin_bswap64(attach.header.magic);
-        fds_verify(NBD_MAGIC == attach.header.magic);
+        fds_verify(0 == memcmp(NBD_MAGIC, attach.header.magic, sizeof(NBD_MAGIC)));
         attach.header.optSpec = ntohl(attach.header.optSpec);
         fds_verify(NBD_OPT_EXPORT == attach.header.optSpec);
         attach.header.length = ntohl(attach.header.length);
@@ -302,12 +302,12 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
 
 bool
 NbdConnection::hsSendOpts(ev::io &watcher) {
-    static fds_int16_t const optFlags = NBD_FLAG_HAS_FLAGS|NBD_FLAG_SEND_FLUSH|NBD_FLAG_SEND_FUA;
+    static fds_int16_t const optFlags =
+        ntohs(NBD_FLAG_HAS_FLAGS|NBD_FLAG_SEND_FUA);
     static iovec const vectors[] = {
-        { nullptr,
-                                         sizeof(volume_size) },
-        { to_iovec(&optFlags),           sizeof(NBD_MAGIC) },
-        { to_iovec(&NBD_PROTO_VERSION),  sizeof(NBD_PROTO_VERSION) },
+        { nullptr,                  sizeof(volume_size) },
+        { to_iovec(&optFlags),      sizeof(optFlags)    },
+        { to_iovec(fourKayZeros),   124                 },
     };
 
     if (!response) {
@@ -566,9 +566,6 @@ NbdConnection::callback(ev::io &watcher, int revents) {
         }
     }
     } catch(Errors e) {
-        ioWatcher->stop();
-        close(clientSocket);
-        LOGTRACE << "NbdConnection going adios!";
         delete this;
     }
 }
