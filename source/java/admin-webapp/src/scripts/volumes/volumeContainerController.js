@@ -16,6 +16,4 @@ angular.module( 'volumes' ).controller( 'volumeContainerController', [ '$scope',
     
     $scope.volumeVars = {};
     
-    
-    
 }]);
