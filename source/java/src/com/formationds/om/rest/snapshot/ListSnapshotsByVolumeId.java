@@ -37,36 +37,22 @@ public class ListSnapshotsByVolumeId
 
     final long volumeId = requiredLong( routeParameters,
                                         REQ_PARAM_VOLUME_ID );
-//    final List<com.formationds.apis.Snapshot> _snapshots =
-//      config.listSnapshots( volumeId );
-//    if( _snapshots == null || _snapshots.isEmpty() ) {
-//      return new JsonResource( new JSONArray( snapshots ) );
-//    }
-//
-//    for( final com.formationds.apis.Snapshot snapshot : _snapshots ) {
-//      final Snapshot mSnapshot = new Snapshot();
-//
-//      mSnapshot.setId( String.valueOf( snapshot.getSnapshotId() ) );
-//      mSnapshot.setName( snapshot.getSnapshotName() );
-//      mSnapshot.setVolumeId( String.valueOf( snapshot.getVolumeId() ) );
-//      mSnapshot.setCreation( new Date( snapshot.getCreationTimestamp() ) );
-//      mSnapshot.setTimelineTime( snapshot.getTimelineTime() );
-//
-//      snapshots.add( mSnapshot );
-//    }
-    
-    int numSnaps = (int)((Math.random() * 100)+2);
-    
-    for ( int i = 0; i < numSnaps; i++ ){
-    	final Snapshot snapshot = new Snapshot();
-    	
-    	snapshot.setId( i + "snap" );
-    	snapshot.setName( i + "snap" );
-    	snapshot.setVolumeId( String.valueOf( volumeId ) );
-    	snapshot.setCreation( new Date( (long)((Math.random() * 472348800000d) + 946710000000d) ) );
-    	snapshot.setTimelineTime( 0L );
-    	
-    	snapshots.add( snapshot );
+    final List<com.formationds.apis.Snapshot> _snapshots =
+      config.listSnapshots( volumeId );
+    if( _snapshots == null || _snapshots.isEmpty() ) {
+      return new JsonResource( new JSONArray( snapshots ) );
+    }
+
+    for( final com.formationds.apis.Snapshot snapshot : _snapshots ) {
+      final Snapshot mSnapshot = new Snapshot();
+
+      mSnapshot.setId( String.valueOf( snapshot.getSnapshotId() ) );
+      mSnapshot.setName( snapshot.getSnapshotName() );
+      mSnapshot.setVolumeId( String.valueOf( snapshot.getVolumeId() ) );
+      mSnapshot.setCreation( new Date( snapshot.getCreationTimestamp() ) );
+      mSnapshot.setTimelineTime( snapshot.getTimelineTime() );
+
+      snapshots.add( mSnapshot );
     }
 
     return new JsonResource( new JSONArray( mapper.writeValueAsString( snapshots ) ) );
