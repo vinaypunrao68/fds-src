@@ -1,5 +1,5 @@
 angular.module( 'main' ).controller( 'mainController', ['$scope', '$authentication', '$authorization', '$state', '$domain_service', '$filter', function( $scope, $authentication, $authorization, $state, $domain_service, $filter ){
-
+    
     $scope.priority = 10;
     $scope.menuWidth = 38;
     $scope.rememberChecked = false;
