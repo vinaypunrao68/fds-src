@@ -31,6 +31,7 @@ void createLatencyCounter(fds::PerfContext & ctx) {
     // fds_assert(ctx.start_cycle <= ctx.end_cycle);
     // TODO(Anna) we should use monotonic clock
     if (ctx.start_cycle > ctx.end_cycle) {
+        GLOGDEBUG << "Observed time drift, will report latency 0";
         ctx.start_cycle = ctx.end_cycle;
     }
 
