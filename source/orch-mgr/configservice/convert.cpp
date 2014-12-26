@@ -4,6 +4,7 @@
 
 #include <convert.h>
 #include <string>
+#include <util/timeutils.h>
 namespace fds {
 namespace convert {
 
@@ -59,6 +60,7 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
     request->vol_info.placementPolicy = 0;
     request->vol_info.appWorkload = fpi::FDSP_APP_WKLD_TRANSACTION;
     request->vol_info.mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
+    request->vol_info.createTime = util::getTimeStampMillis();
 }
 
 void getFDSPDeleteVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
@@ -91,6 +93,8 @@ void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::poin
     volDescriptor.policy.maxObjectSizeInBytes =
             volDesc->maxObjSizeInBytes;
     volDescriptor.tenantId = volDesc->tennantId;
+    volDescriptor.state    = volDesc->getState();
+    volDescriptor.volId    = volDesc->volUUID;
 }
 
 }  // namespace convert

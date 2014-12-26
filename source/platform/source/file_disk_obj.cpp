@@ -4,14 +4,12 @@
 
 #include <libudev.h>
 
-#include "platform_disk_obj.h"
-
-#include "disk_print_iter.h"
 #include <shared/fds-constants.h>         // TODO(donavan) these need to be evaluated for
                                           // removal from global shared space to PM only space
+#include "platform_disk_obj.h"
+#include "disk_print_iter.h"
 #include "disk_plat_module.h"
 #include "disk_label.h"
-
 #include "file_disk_obj.h"
 
 namespace fds

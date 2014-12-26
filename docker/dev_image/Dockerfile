@@ -3,9 +3,9 @@ MAINTAINER Aaron Nichols <aaron@formationds.com>
 #
 # Download cosbench
 WORKDIR /opt
-RUN wget https://github.com/intel-cloud/cosbench/releases/download/v0.4.1.b1/0.4.1.b1.zip
-RUN unzip 0.4.1.b1.zip
-RUN rm 0.4.1.b1.zip
+RUN wget https://github.com/intel-cloud/cosbench/releases/download/v0.4.0.1/0.4.0.1.zip
+RUN unzip 0.4.0.1.zip
+RUN rm 0.4.0.1.zip
 
 ENV JAVA_HOME /usr/lib/jvm/java-8-oracle
 # Setup pairing ssh & repo
@@ -26,3 +26,4 @@ RUN git remote set-url origin https://github.com/fds-dev/fds-src
 RUN rm -f ~/.ssh/*
 
 USER root
+RUN rm -rf /home/pairing/.ansible

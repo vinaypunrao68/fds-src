@@ -161,6 +161,20 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         request->vol_info.tennantId = *tenantId;
         err = volContainer->om_create_vol(header, request, nullptr);
         if (err != ERR_OK) apiException("error creating volume");
+
+        // wait for the volume to be active upto 30 seconds
+        int count = 60;
+
+        do {
+            usleep(500000);  // 0.5s
+            vol = volContainer->get_volume(*volumeName);
+            count--;
+        } while (count > 0 && vol && !vol->isStateActive());
+
+        if (!vol || !vol->isStateActive()) {
+            LOGERROR << "some issue in volume creation";
+            apiException("error creating volume");
+        }
     }
 
     int64_t getVolumeId(boost::shared_ptr<std::string>& volumeName) {
@@ -363,6 +377,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         desc.fSnapshot = false;
         desc.srcVolumeId = *volumeId;
         desc.timelineTime = *timelineTime;
+        desc.createTime = util::getTimeStampMillis();
 
         if (parentVol->vol_get_properties()->lookupVolumeId == invalid_vol_id) {
             desc.lookupVolumeId = *volumeId;

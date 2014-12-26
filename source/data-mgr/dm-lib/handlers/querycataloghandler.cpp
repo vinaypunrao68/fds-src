@@ -6,7 +6,6 @@
 #include <fds_assert.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
-#include <platform/fds_flags.h>
 #include <DmIoReq.h>
 #include <PerfTrace.h>
 #include <fds_error.h>

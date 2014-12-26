@@ -22,6 +22,8 @@
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
 
+#include "platform/platform.h"
+
 using diskio::DataTier;
 
 namespace fds {
@@ -613,6 +615,8 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
     } else if (status == MIGRATION_OP_COMPLETE) {
         LOGNORMAL << "Token migration complete";
         LOGNORMAL << migrationSvc_->mig_cntrs.toString();
+
+        // omClient->sendDLTCloseAckToOM();
 
         objStorMgr->tok_migrated_for_dlt_ = false;
     }

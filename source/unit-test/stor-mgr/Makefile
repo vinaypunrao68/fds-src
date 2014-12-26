@@ -3,7 +3,10 @@ user_build_dir    := svc-test
 user_incl_dir     := /usr/include/cryptopp
 user_cpp_flags    :=
 user_fds_so_libs  :=
-user_fds_ar_libs  := smchk
+user_fds_ar_libs  := \
+    fds-qos-lib \
+    fds-am-engine \
+    smchk
 
 user_cpp          := \
     object_store_unit_test.cpp \
@@ -15,7 +18,8 @@ user_cpp          := \
     object_persist_data_gtest.cpp \
     sm_token_compactor_gtest.cpp \
     sm_token_state_gtest.cpp     \
-    sm_tier_migration_gtest.cpp
+    sm_tier_migration_gtest.cpp  \
+    sm_token_migration_gtest.cpp
 
 user_no_style     :=
 
@@ -30,7 +34,8 @@ user_bin_exe      := \
     obj_persist_gtest \
     sm_tokcompactor_gtest \
     sm_token_state_gtest  \
-    sm_tier_migration_gtest
+    sm_tier_migration_gtest \
+    sm_token_migration_gtest
 
 
 sm_objectstore_gtest   := object_store_unit_test.cpp
@@ -44,5 +49,6 @@ obj_persist_gtest   := object_persist_data_gtest.cpp
 sm_tokcompactor_gtest := sm_token_compactor_gtest.cpp
 sm_token_state_gtest  := sm_token_state_gtest.cpp
 sm_tier_migration_gtest := sm_tier_migration_gtest.cpp
+sm_token_migration_gtest := sm_token_migration_gtest.cpp
 
 include $(test_topdir)/Makefile.sm

@@ -2,6 +2,7 @@ from svchelper import *
 import  fdslib.pyfdsp.apis as apis
 from apis import ttypes
 from apis.ttypes import ApiException
+from common.ttypes import ResourceState
 
 import md5
 import os
@@ -15,10 +16,11 @@ class VolumeContext(Context):
         'show the list of volumes in the system'
         try:
             volumes = ServiceMap.omConfig().listVolumes("")
-            return tabulate([(item.name, item.tenantId, item.dateCreated,
+            volumes.sort(key=lambda vol: ResourceState._VALUES_TO_NAMES[vol.state] + ':' + vol.name)
+            return tabulate([(item.volId, item.name, item.tenantId, item.dateCreated, ResourceState._VALUES_TO_NAMES[item.state],
                               'OBJECT' if item.policy.volumeType == 0 else 'BLOCK',
-                              item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in sorted(volumes, key=attrgetter('name'))  ],
-                            headers=['Name', 'TenantId', 'Create Date','Type', 'Max-Obj-Size', 'Blk-Size'], tablefmt=self.config.getTableFormat())
+                              item.policy.maxObjectSizeInBytes, item.policy.blockDeviceSizeInBytes) for item in volumes],
+                            headers=['Id','Name', 'TenantId', 'Create Date','State','Type', 'Max-Obj-Size', 'Blk-Size'], tablefmt=self.config.getTableFormat())
             return volumes
         except ApiException, e:
             print e
@@ -177,6 +179,21 @@ class VolumeContext(Context):
             return 'get {} failed on volume: {}'.format(key, vol_name)
 
     #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    def keys(self, vol_name):
+        'get an object from the volume'
+        try:
+            b = self.s3api.get_bucket(vol_name)
+            data = [[key.name.encode('ascii','ignore')] for key in b.list()]
+            data.sort()
+            return tabulate(data, tablefmt=self.config.getTableFormat(), headers=['name'])
+            
+        except Exception, e:
+            log.exception(e)
+            return 'get objects failed on volume: {}'.format(vol_name)
+
+    #--------------------------------------------------------------------------------------
+
     @clidebugcmd
     def deleteobject(self, vol_name, key):
         'delete an object from the volume'

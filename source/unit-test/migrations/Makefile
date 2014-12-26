@@ -15,9 +15,10 @@ user_incl_dir     := \
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
-    fds-migrations\
-    fds-smlib\
-    fds-am-engine\
+    fds-migrations \
+    fds-smlib \
+    fds-qos-lib \
+    fds-am-engine \
     fds-sm-plat \
     fds-dsk-mgnt \
     fds-dsk-io \

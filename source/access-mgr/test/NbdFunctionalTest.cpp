@@ -18,6 +18,7 @@
 #include <google/profiler.h>
 #include <gtest/gtest.h>
 #include <testlib/DataGen.hpp>
+#include "fds_process.h"
 
 namespace fds {
 
@@ -144,6 +145,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     void init() {
         // pass data API to Ndb Operations
         nbdOps.reset(new NbdOperations(this));
+        nbdOps->init();
     }
 
     void resetCounters() {

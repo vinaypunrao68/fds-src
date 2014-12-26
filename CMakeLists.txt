@@ -638,17 +638,10 @@ set(SOURCE_FILES
     source/access-mgr/platform/am-platform.cpp
     source/access-mgr/platform/AMSvcHandler.cpp
     source/access-mgr/stor-hvisor/hvcore/qos_ctrl.cpp
-    source/access-mgr/stor-hvisor/hvcore/StorHvisorNet.cpp
-    source/access-mgr/stor-hvisor/hvcore/StorHvisorSvc.cpp
-    source/access-mgr/stor-hvisor/hvcore/StorHvisorTbl.cpp
     source/access-mgr/stor-hvisor/hvcore/StorHvQosCtrl.cpp
     source/access-mgr/stor-hvisor/hvcore/StorHvVolumes.cpp
-    source/access-mgr/stor-hvisor/hvcore/VolumeCatalogCache.cpp
-    source/access-mgr/stor-hvisor/list.h
     source/access-mgr/stor-hvisor/StorHvDataPlace.h
-    source/access-mgr/stor-hvisor/StorHvisorNet.h
     source/access-mgr/stor-hvisor/StorHvQosCtrl.h
-    source/access-mgr/stor-hvisor/VolumeCatalogCache.h
     source/access-mgr/test/AmFunctionalTest.cpp
     source/access-mgr/am-main.cpp
     source/access-mgr/AmBindings.cpp
@@ -715,17 +708,6 @@ set(SOURCE_FILES
     source/data-mgr/platform/dm-node-workflow.cpp
     source/data-mgr/platform/dm-platform.cpp
     source/data-mgr/dm-main.cpp
-    source/fds-probe/adapters/pm-probe.cpp
-    source/fds-probe/adapters/sm-probe.cpp
-    source/fds-probe/block/cuse_probe.cpp
-    source/fds-probe/common/fds-probe.cpp
-    source/fds-probe/common/js-object.cpp
-    source/fds-probe/common/utest-types.cpp
-    source/fds-probe/dataset/js-parse.cpp
-    source/fds-probe/include/pm_probe.h
-    source/fds-probe/include/sm_probe.h
-    source/fds-probe/include/utest-types.h
-    source/fds-probe/s3/s3-probe.cpp
     source/fds_client/blk_dev/fbd.mod.c
     source/include/access-mgr/am-block.h
     source/include/apis/AmService.cpp
@@ -776,10 +758,6 @@ set(SOURCE_FILES
     source/include/concurrency/taskstatus.h
     source/include/concurrency/Thread.h
     source/include/concurrency/ThreadPool.h
-    source/include/fds-probe/fds_err_inj.h
-    source/include/fds-probe/fds_probe.h
-    source/include/fds-probe/js-object.h
-    source/include/fds-probe/s3-probe.h
     source/include/fdsp/AMSvc.cpp
     source/include/fdsp/AMSvc.h
     source/include/fdsp/AMSvc_server.skeleton.cpp
@@ -912,13 +890,12 @@ set(SOURCE_FILES
     source/include/persistent-layer/persistentdata.h
     source/include/persistent-layer/pm_unit_test.h
     source/include/persistent-layer/tokFileMgr.h
-    source/include/platform/disk-inventory.h
     source/include/platform/fds-2phase.h
     source/include/platform/fds-osdep.h
     source/include/platform/fds-shm-queue.h
     source/include/platform/fds-shmem.h
     source/include/platform/fds-shmtx.h
-    source/include/platform/fds_flags.h
+    source/include/platform/flags_map.h
     source/include/platform/net-plat-shared.h
     source/include/platform/node-inv-shmem.h
     source/include/platform/node-inventory.h
@@ -1188,14 +1165,6 @@ set(SOURCE_FILES
     source/persistent-layer/io-lib/pdata_request.cpp
     source/persistent-layer/io-lib/tokFileMgr.cpp
     source/persistent-layer/mgnt-lib/dm_service.cpp
-    source/platform/include/disk-capacity.h
-    source/platform/include/disk-label.h
-    source/platform/include/disk-partition.h
-    source/platform/include/disk.h
-    source/platform/include/fds-magic.h
-    source/platform/include/net-platform.h
-    source/platform/include/plat-node-workflow.h
-    source/platform/include/platform.h
     source/platform/platform-main.cpp
     source/stor-mgr/include/object-store/ObjectDataCache.h
     source/stor-mgr/include/object-store/ObjectDataStore.h
@@ -1435,124 +1404,7 @@ set(SOURCE_FILES
     source/unit-test/data-mgr/dm_utils.h
     source/unit-test/data-mgr/dm_volume_catalog_gtest.cpp
     source/unit-test/data-mgr/ngx_modules.c
-    source/unit-test/deprecated/blobnode/blobnode_unit_test.cpp
-    source/unit-test/deprecated/configdb/configdb_unit_test.cpp
-    source/unit-test/deprecated/data-mgr/unit_test.cpp
-    source/unit-test/deprecated/lib/fds_boostbased_timer_test.cpp
-    source/unit-test/deprecated/lib/qos_dispatcher_unit_test.cpp
-    source/unit-test/deprecated/redis/redis_unit_test.cpp
-    source/unit-test/deprecated/shmem/queue_popper.cpp
-    source/unit-test/deprecated/shmem/queue_pusher.cpp
-    source/unit-test/deprecated/shmem/shm_unit_test.cpp
-    source/unit-test/deprecated/stor-hvisor/vcc_unit_test.cpp
-    source/unit-test/deprecated/stor-mgr/ObjMeta_ut.cpp
-    source/unit-test/deprecated/stor-mgr/rankeng_unit_test.cpp
-    source/unit-test/deprecated/stor-mgr/sm_unit_test.cpp
-    source/unit-test/deprecated/stor-mgr/SmObjDb_ut.cpp
-    source/unit-test/deprecated/stor_mgr/s3-sm-probe.cpp
-    source/unit-test/deprecated/stor_mgr/stormgr_probe_main.cpp
-    source/unit-test/deprecated/util/crypto_test.cpp
     source/unit-test/examples/goog-pprof.cpp
-    source/unit-test/fds-probe/am/adapter.cpp
-    source/unit-test/fds-probe/am/am-probe.cpp
-    source/unit-test/fds-probe/am/in.h
-    source/unit-test/fds-probe/am/ngx_modules.c
-    source/unit-test/fds-probe/am/probe-adapter.cpp
-    source/unit-test/fds-probe/am/probe-adapter.h
-    source/unit-test/fds-probe/blk-template/mod-main.cpp
-    source/unit-test/fds-probe/blk-template/template_probe.cpp
-    source/unit-test/fds-probe/blk-template/template_probe.h
-    source/unit-test/fds-probe/data-mgr/tvc/mod-main.cpp
-    source/unit-test/fds-probe/data-mgr/tvc/ngx_modules.c
-    source/unit-test/fds-probe/data-mgr/tvc/tvc-probe.cpp
-    source/unit-test/fds-probe/data-mgr/tvc/tvc-probe.h
-    source/unit-test/fds-probe/data-mgr/tvc-commit-log/commit-log-probe.cpp
-    source/unit-test/fds-probe/data-mgr/tvc-commit-log/commit-log-probe.h
-    source/unit-test/fds-probe/data-mgr/tvc-commit-log/mod-main.cpp
-    source/unit-test/fds-probe/data-mgr/tvc-commit-log/ngx_modules.c
-    source/unit-test/fds-probe/data-mgr/vol-cat/mod-main.cpp
-    source/unit-test/fds-probe/data-mgr/vol-cat/ngx_modules.c
-    source/unit-test/fds-probe/data-mgr/vol-cat/vol-cat-probe.cpp
-    source/unit-test/fds-probe/data-mgr/vol-cat/vol-cat-probe.h
-    source/unit-test/fds-probe/data-mgr/vol-cat-pl/mod-main.cpp
-    source/unit-test/fds-probe/data-mgr/vol-cat-pl/ngx_modules.c
-    source/unit-test/fds-probe/data-mgr/vol-cat-pl/volcat-pl-probe.cpp
-    source/unit-test/fds-probe/data-mgr/vol-cat-pl/volcat-pl-probe.h
-    source/unit-test/fds-probe/data-mgr/dm-probe.cpp
-    source/unit-test/fds-probe/data-mgr/dm-probe.h
-    source/unit-test/fds-probe/data-mgr/mod-main.cpp
-    source/unit-test/fds-probe/data-mgr/ngx_modules.c
-    source/unit-test/fds-probe/example/ngx_modules.c
-    source/unit-test/fds-probe/example/test-app.cpp
-    source/unit-test/fds-probe/fds-net/fds-net-probe.cpp
-    source/unit-test/fds-probe/fds-net/fds-net-probe.h
-    source/unit-test/fds-probe/fds-net/fds-net-server.cpp
-    source/unit-test/fds-probe/fds-net/fds-net.cpp
-    source/unit-test/fds-probe/fds-net/ngx_modules.c
-    source/unit-test/fds-probe/mock-server/mock-server.cpp
-    source/unit-test/fds-probe/mock-server/mock-server.h
-    source/unit-test/fds-probe/mock-server/mod-main.cpp
-    source/unit-test/fds-probe/mock-server/ngx_modules.c
-    source/unit-test/fds-probe/orch-mgr/mod-main.cpp
-    source/unit-test/fds-probe/orch-mgr/ngx_modules.c
-    source/unit-test/fds-probe/orch-mgr/orch-mgr-probe.cpp
-    source/unit-test/fds-probe/orch-mgr/orch-mgr-probe.h
-    source/unit-test/fds-probe/platform/adapter.cpp
-    source/unit-test/fds-probe/platform/fds-probe-queue.cpp
-    source/unit-test/fds-probe/platform/fds-probe-queue.h
-    source/unit-test/fds-probe/platform/mod-main.cpp
-    source/unit-test/fds-probe/platform/ngx_modules.c
-    source/unit-test/fds-probe/platform/node-work.h
-    source/unit-test/fds-probe/platform/plat-probe-main.cpp
-    source/unit-test/fds-probe/platform/plat-probe.cpp
-    source/unit-test/fds-probe/platform/plat-probe.h
-    source/unit-test/fds-probe/platform/queue-probe-main.cpp
-    source/unit-test/fds-probe/platform/queue-probe.cpp
-    source/unit-test/fds-probe/platform/queue-probe.h
-    source/unit-test/fds-probe/pm/pm_probe_test.cpp
-    source/unit-test/fds-probe/s3/ngx_modules.c
-    source/unit-test/fds-probe/s3/s3-pm-probe.cpp
-    source/unit-test/fds-probe/s3-template/adapter.cpp
-    source/unit-test/fds-probe/s3-template/ngx_modules.c
-    source/unit-test/fds-probe/s3-template/o.h
-    source/unit-test/fds-probe/s3-template/probe-adapter.cpp
-    source/unit-test/fds-probe/s3-template/probe-adapter.h
-    source/unit-test/fds-probe/s3-template/test-main.cpp
-    source/unit-test/fds-probe/shm-queue/ngx_modules.c
-    source/unit-test/fds-probe/shm-queue/plat-probe-main.cpp
-    source/unit-test/fds-probe/shm-queue/plat-probe.cpp
-    source/unit-test/fds-probe/shm-queue/plat-probe.h
-    source/unit-test/fds-probe/shm-queue/queue-probe-main.cpp
-    source/unit-test/fds-probe/shm-queue/queue-probe-main2.cpp
-    source/unit-test/fds-probe/shm-queue/queue-probe.cpp
-    source/unit-test/fds-probe/shm-queue/queue-probe.h
-    source/unit-test/fds-probe/sm/sm_probe_test.cpp
-    source/unit-test/fds-probe/sm-embed/adapter.cpp
-    source/unit-test/fds-probe/sm-embed/adapter.h
-    source/unit-test/fds-probe/sm-embed/in.h
-    source/unit-test/fds-probe/sm-embed/ngx_modules.c
-    source/unit-test/fds-probe/sm-embed/test-main.cpp
-    source/unit-test/fds-probe/stor-mgr/mod-main.cpp
-    source/unit-test/fds-probe/stor-mgr/ngx_modules.c
-    source/unit-test/fds-probe/stor-mgr/sm-probe-client.cpp
-    source/unit-test/fds-probe/stor-mgr/sm-probe-client.h
-    source/unit-test/fds-probe/stor-mgr-full/mod-main.cpp
-    source/unit-test/fds-probe/stor-mgr-full/ngx_modules.c
-    source/unit-test/fds-probe/stor-mgr-full/sm-probe.cpp
-    source/unit-test/fds-probe/stor-mgr-full/sm-probe.h
-    source/unit-test/fds-probe/threadpool/mod-main.cpp
-    source/unit-test/fds-probe/threadpool/ngx_modules.c
-    source/unit-test/fds-probe/threadpool/thrpool-api.cpp
-    source/unit-test/fds-probe/threadpool/thrpool-api.h
-    source/unit-test/fds-probe/thrift/server/sm-endpoint.cpp
-    source/unit-test/fds-probe/thrift/server/thrf-server.cpp
-    source/unit-test/fds-probe/thrift/am-endpoint.cpp
-    source/unit-test/fds-probe/thrift/endpoint-test.cpp
-    source/unit-test/fds-probe/thrift/endpoint-test.h
-    source/unit-test/fds-probe/thrift/ngx_modules.c
-    source/unit-test/fds-probe/thrift/s3-thrift-probe.cpp
-    source/unit-test/fds-probe/thrift/s3-thrift-probe.h
-    source/unit-test/fds-probe/thrift/s3-thrift.cpp
     source/unit-test/include/catch.hpp
     source/unit-test/lib/dlt/dlt_helper_funcs.h
     source/unit-test/lib/dlt/dlt_unit_test.cpp
@@ -1992,7 +1844,6 @@ set(SOURCE_FILES
 include_directories(leveldb-1.15.0/include)
 include_directories(source/access-mgr/include)
 include_directories(source/checker)
-include_directories(source/fds-probe/include)
 include_directories(source/include)
 include_directories(source/lib)
 include_directories(source/orch-mgr/include)

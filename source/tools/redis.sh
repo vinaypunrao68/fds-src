@@ -128,6 +128,12 @@ function isRunning() {
 }
 
 function startRedis() {
+    local status=$(checkRedisState)
+    if [[ $status == "ERROR" ]]; then
+        logerror "redis running @ [port:${REDISPORT}] -- INVALID STATE"
+        loginfo "restarting redis"
+        stopRedis
+    fi
     if (isRunning) ; then
         local pid=$(getRedisPid)
         logwarn "redis [pid=$pid] is already running @ [port:${REDISPORT}]"
@@ -135,13 +141,26 @@ function startRedis() {
         loginfo "starting redis @ [port:${REDISPORT}]"
         redis-server $(getRedisConfigFile)
     fi
-    
+}
+
+function checkRedisState() {
+    if (isRunning) ; then
+        if (redis-cli -p $REDISPORT set check-rand-key check-value 2>&1 | grep -q MISCONF); then
+            echo -n ERROR
+        fi
+        redis-cli -p $REDISPORT set check-rand-key 2>&1 >/dev/null 
+    fi
 }
 
 function statusRedis() {
     if (isRunning) ; then
         local pid=$(getRedisPid)
-        loginfo "redis [pid=$pid] running @ [port:${REDISPORT}]"
+        local status=$(checkRedisState)
+        if [[ $status == "ERROR" ]]; then 
+            logerror "redis [pid=$pid] running @ [port:${REDISPORT}] -- INVALID STATE"
+        else
+            loginfo "redis [pid=$pid] running @ [port:${REDISPORT}]"
+        fi
     else
         logwarn "redis is NOT running @ [port:${REDISPORT}]"
     fi
@@ -150,8 +169,14 @@ function statusRedis() {
 function stopRedis() {
     if (isRunning) ; then            
         local pid=$(getRedisPid)
-        loginfo "shutting down redis [pid=$pid] @ [port:${REDISPORT}]"
-        echo "shutdown" | redis-cli -p ${REDISPORT}
+        local status=$(checkRedisState)
+        if [[ $status == "ERROR" ]]; then
+            logwarn "redis in invalid state - force killing [pid=$pid] @ [port:${REDISPORT}]"
+            kill -9 $pid
+        else
+            loginfo "shutting down redis [pid=$pid] @ [port:${REDISPORT}]"
+            echo "shutdown" | redis-cli -p ${REDISPORT}
+        fi
     else
         logwarn "redis is NOT running @ [port:${REDISPORT}]"
     fi
@@ -159,6 +184,7 @@ function stopRedis() {
 
 function cleanRedis() {
     if (isRunning) ; then
+        startRedis # This is to check for errors
         logwarn "cleaning redis @ [port:${REDISPORT}]"
         echo "FLUSHALL" | redis-cli -p $REDISPORT >/dev/null
         echo "BGREWRITEAOF" | redis-cli -p $REDISPORT >/dev/null

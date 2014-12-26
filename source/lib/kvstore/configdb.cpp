@@ -9,9 +9,11 @@
 #include <util/Log.h>
 #include <util/stringutils.h>
 #include <stdlib.h>
-#include <platform/node-inv-shmem.h>
 #include <fdsp_utils.h>
 #include <util/timeutils.h>
+
+#include "platform/platform_shm_typedefs.h"
+#include "platform/node_data.h"
 
 auto format = fds::util::strformat;
 auto lower  = fds::util::strlower;
@@ -161,7 +163,8 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " relative.priority %d"
                               " fsnapshot %d"
                               " parentvolumeid %ld"
-                              " state %d",
+                              " state %d"
+                              " create.time %ld",
                               vol.volUUID, vol.volUUID,
                               vol.name.c_str(),
                               vol.tennantId,
@@ -186,7 +189,8 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.relativePrio,
                               vol.fSnapshot,
                               vol.srcVolumeId,
-                              vol.getState());
+                              vol.getState(),
+                              vol.createTime);
         if (reply.isOk()) return true;
         LOGWARN << "msg: " << reply.getString();
     } catch(RedisException& e) {
@@ -334,6 +338,7 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "fsnapshot") {vol.fSnapshot = atoi(value.c_str());}
             else if (key == "state") {vol.setState((fpi::ResourceState) atoi(value.c_str()));}
             else if (key == "parentvolumeid") {vol.srcVolumeId = strtoull(value.c_str(), NULL, 10);} //NOLINT
+            else if (key == "create.time") {vol.createTime = strtoull(value.c_str(), NULL, 10);} //NOLINT
             else { //NOLINT
                 LOGWARN << "unknown key for volume [" << volumeId <<"] - " << key;
                 fds_assert(!"unknown key");

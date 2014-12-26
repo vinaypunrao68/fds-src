@@ -6,6 +6,8 @@
 #include <net/net-service.h>
 #include <util/fds_stat.h>
 
+#include "platform/platform_process.h"
+
 namespace fds {
 // TODO(Rao): Get rid of this singleton
 DataMgr *dataMgr;

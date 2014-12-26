@@ -5,7 +5,8 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_NODE_SHM_RW_CTRL_H_
 #define SOURCE_PLATFORM_INCLUDE_NODE_SHM_RW_CTRL_H_
 
-#include <platform/node-inv-shmem.h>
+#include "platform/node_shm_queue.h"
+#include "platform/node_shm_inventory.h"
 
 namespace fds
 {

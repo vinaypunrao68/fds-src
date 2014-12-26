@@ -1,0 +1,70 @@
+---
+-   name: check_fds_install
+    shell: dpkg -l fds-platform
+    ignore_errors: True
+    register: fds_installed
+    tags:
+        - shutdown
+
+-   name: stop_platformd
+    service: name={{ item }} state=stopped
+    when: fds_installed|success
+    with_items:
+        - platformd
+        - orchmgr
+        - amagent
+        - fdsactivate
+    tags:
+        - shutdown
+
+-   name: kill_all_procs
+    shell: pkill -9 -f {{item}} || true
+    ignore_errors: True
+    when: fds_installed|success
+    with_items:
+        - com.formationds.am.Main
+        - bare_am
+        - com.formationds.om.Main
+        - DataMgr
+        - StorMgr
+        - platformd
+        - fdscli
+    tags:
+        - shutdown
+
+-   name: stop_redis
+    shell: ./redis.sh stop chdir=/fds/sbin
+    ignore_errors: True
+    when: fds_installed|success
+    tags:
+        - shutdown
+
+-   name: clean_node
+    shell: rm -rf {{item}}
+    with_items:
+        - /dev/shm/0x*
+    tags:
+        - clean
+        - cleanshm
+
+-   name: clean_node
+    shell: rm -rf {{item}}
+    with_items:
+        - /fds/bin/*.core
+        - /fds/bin/core
+        - /fds/var/logs
+        - /fds/var/stats
+        - /corefiles/*.core
+        - /fds/var/core/*.core
+        - /fds/dev/hdd-*/*
+        - /fds/dev/ssd-*/*
+        - /fds/sys-repo
+        - /fds/user-repo/*
+    tags:
+        - clean
+
+-   name: clean_redis
+    shell: ./redis.sh clean chdir=/fds/sbin
+    when: fds_installed|success
+    tags:
+        - clean

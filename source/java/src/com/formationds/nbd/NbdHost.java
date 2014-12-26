@@ -54,26 +54,4 @@ public class NbdHost {
         }
     }
 
-    public static void main(String[] args) throws Exception {
-        XdiClientFactory clientFactory = new XdiClientFactory();
-        AmService.Iface am = clientFactory.remoteAmService("localhost", 9988);
-        ConfigurationService.Iface config = clientFactory.remoteOmService("localhost", 9090);
-
-        //NbdServerOperations ops;
-        ForkJoinPool fjp = new ForkJoinPool(10);
-        NbdServerOperations ops = new FdsServerOperations(am, config, fjp);
-        //NbdServerOperations ops = new SparseRamOperations(1024L * 1024L * 1024L * 10);
-        //SparseRamOperations srops = new SparseRamOperations(1024L * 1024L * 1024L * 10);
-        //srops.setReadDelay(10);
-        //srops.setWriteDelay(20);
-
-        //ops = new WriteVerifyOperationsWrapper(ops);
-        // ops = new OracleVerifyOperationsWrapper(srops, new SparseRamOperations(1024L * 1024L * 1024L * 10));////
-
-        new NbdHost(10810, ops).run();
-        //config.createVolume("fds", "hello", new VolumeSettings(4 * 1024, VolumeType.BLOCK, 1024 * 1024 * 1024));
-        //TxDescriptor desc = am.startBlobTx("fds", "hello", "block_dev_0");
-        //am.updateBlob("fds", "hello", "block_dev_0", desc, ByteBuffer.allocate(4096), 4096, new ObjectOffset(0), ByteBuffer.allocate(0), false);
-        //am.commitBlobTx(desc);
-    }
 }

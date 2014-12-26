@@ -252,7 +252,8 @@ typedef enum {
     FDS_DM_PURGE_COMMIT_LOG,
     FDS_DM_STAT_STREAM,
     FDS_DM_SYS_STATS,
-    FDS_OP_INVALID
+    FDS_OP_INVALID,
+    FDS_DM_LIST_BLOBS_BY_PATTERN
 } fds_io_op_t;
 
 std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType);

@@ -329,6 +329,22 @@ Error DataMgr::_add_if_no_vol(const std::string& vol_name,
     return err;
 }
 
+VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
+    if (!fMapAlreadyLocked) {
+        FDSGUARD(*vol_map_mtx);
+        auto iter = vol_meta_map.find(volId);
+        if (iter != vol_meta_map.end()) {
+            return iter->second;
+        }
+    } else {
+        auto iter = vol_meta_map.find(volId);
+        if (iter != vol_meta_map.end()) {
+            return iter->second;
+        }
+    }
+    return NULL;
+}
+
 /*
  * Meant to be called holding the vol_map_mtx.
  * @param vol_will_sync true if this volume's meta will be synced from
@@ -339,40 +355,104 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                                VolumeDesc *vdesc,
                                fds_bool_t vol_will_sync) {
     Error err(ERR_OK);
-
-    LOGDEBUG << "Creating a snapshot '" << vdesc->name << "' of a volume '"
-          << vdesc->volUUID << "'"  << " srcVolume: "<< vdesc->srcVolumeId;
+    bool fActivated = false;
     // create vol catalogs, etc first
 
     if (vdesc->isSnapshot() || vdesc->isClone()) {
-        VolumeMeta * volmeta = 0;
-        {
-            FDSGUARD(*vol_map_mtx);
-            volmeta = vol_meta_map[vdesc->srcVolumeId];
-
-            if (!volmeta) {
-                GLOGWARN << "Volume '" << std::hex << vdesc->srcVolumeId << std::dec <<
-                        "' not found!";
-                return ERR_NOT_FOUND;
-            }
+        VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
+        if (!volmeta) {
+            GLOGWARN << "Volume '" << std::hex << vdesc->srcVolumeId << std::dec <<
+                    "' not found!";
+            return ERR_NOT_FOUND;
         }
 
-        // create commit log entry and enbale buffering in case of snapshot
-        err = timeVolCat_->copyVolume(*vdesc);
+        LOGDEBUG << "Creating a " << (vdesc->isClone()?"clone":"snapshot")
+                 << " name:" << vdesc->name << " vol:" << vdesc->volUUID
+                 << " srcVolume:"<< vdesc->srcVolumeId;
+
+        // create commit log entry and enable buffering in case of snapshot
+        if (vdesc->isSnapshot()) {
+            // snapshot
+            util::TimeStamp createTime = util::getTimeStampMicros();
+            err = timeVolCat_->copyVolume(*vdesc);
+            if (err.ok()) {
+                // add it to timeline
+                timeline.addSnapshot(vdesc->srcVolumeId, vdesc->volUUID, createTime);
+            }
+        } else {
+            // clone
+            // find the closest snapshot to clone the base from
+            fds_volid_t srcVolumeId = vdesc->srcVolumeId;
+
+            // timelineTime is in seconds
+            util::TimeStamp createTime = vdesc->timelineTime * (1000*1000);
+
+            if (createTime == 0) {
+                LOGDEBUG << "clone vol:" << vdesc->volUUID
+                         << " of srcvol:" << vdesc->srcVolumeId
+                         << " will be a clone at current time";
+                err = timeVolCat_->copyVolume(*vdesc);
+            } else {
+                fds_volid_t latestSnapshotId = 0;
+                timeline.getLatestSnapshotAt(srcVolumeId, createTime, latestSnapshotId);
+                util::TimeStamp snapshotTime = 0;
+                if (latestSnapshotId > 0) {
+                    LOGDEBUG << "clone vol:" << vdesc->volUUID
+                             << " of srcvol:" << vdesc->srcVolumeId
+                             << " will be based of snapshot:" << latestSnapshotId;
+                    // set the src volume to be the snapshot
+                    vdesc->srcVolumeId = latestSnapshotId;
+                    timeline.getSnapshotTime(srcVolumeId, latestSnapshotId, snapshotTime);
+                    LOGDEBUG << "about to copy :" << vdesc->srcVolumeId;
+                    err = timeVolCat_->copyVolume(*vdesc, srcVolumeId);
+                    // recopy the original srcVolumeId
+                    vdesc->srcVolumeId = srcVolumeId;
+                } else {
+                    LOGDEBUG << "clone vol:" << vdesc->volUUID
+                             << " of srcvol:" << vdesc->srcVolumeId
+                             << " will be created from scratch as no nearest snapshot found";
+                    // vol create time is in millis
+                    snapshotTime = volmeta->vol_desc->createTime * 1000;
+                    err = timeVolCat_->addVolume(*vdesc);
+                }
+
+                // now replay neccessary commit logs as needed
+                // TODO(dm-team): check for validity of TxnLogs
+                bool fHasValidTxnLogs = (util::getTimeStampMicros() - snapshotTime) <=
+                        volmeta->vol_desc->contCommitlogRetention * 1000*1000;
+                if (!fHasValidTxnLogs) {
+                    LOGWARN << "time diff does not fall within logretention time "
+                            << " srcvol:" << srcVolumeId << " onto vol:" << vdesc->volUUID
+                            << " logretention time:" << volmeta->vol_desc->contCommitlogRetention;
+                }
+
+                if (err.ok()) {
+                    LOGDEBUG << "will attempt to activate vol:" << vdesc->volUUID;
+                    err = timeVolCat_->activateVolume(vdesc->volUUID);
+                    fActivated = true;
+                }
+
+                err = timeVolCat_->replayTransactions(srcVolumeId, vdesc->volUUID,
+                                                      snapshotTime, createTime);
+            }
+        }
     } else {
+        LOGDEBUG << "Adding volume" << " name:" << vdesc->name << " vol:" << vdesc->volUUID;
         err = timeVolCat_->addVolume(*vdesc);
     }
+
     if (!err.ok()) {
         LOGERROR << "Failed to " << (vdesc->isSnapshot() ? "create snapshot"
-                : (vdesc->isClone() ? "create clone" : "add volume")) << " "
-                << std::hex << vol_uuid << std::dec;
+                                     : (vdesc->isClone() ? "create clone" : "add volume")) << " "
+                 << std::hex << vol_uuid << std::dec;
         return err;
     }
 
-    if (err.ok() && !vol_will_sync) {
+    if (err.ok() && !vol_will_sync && !fActivated) {
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
         err = timeVolCat_->activateVolume(vol_uuid);
+        fActivated = true;
     }
 
     VolumeMeta *volmeta = new(std::nothrow) VolumeMeta(vol_name,
@@ -401,14 +481,14 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
 
     LOGDEBUG << "Added vol meta for vol uuid and per Volume queue" << std::hex
-              << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
+             << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
 
     vol_map_mtx->lock();
     if (needReg) {
         err = dataMgr->qosCtrl->registerVolume(vdesc->isSnapshot() ?
                                                vdesc->qosQueueId : vol_uuid,
                                                static_cast<FDS_VolumeQueue*>(
-                                               volmeta->dmVolQueue.get()));
+                                                   volmeta->dmVolQueue.get()));
     }
     if (!err.ok()) {
         delete volmeta;
@@ -554,7 +634,7 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
                   << vol_uuid << std::dec;
         // if notify delete asked to only check if deleting volume
         // was ok; so we return here; DM will get
-        // another notify volume delete with check_only ==false to
+        // another notify volume delete with check_only == false to
         // actually cleanup all other datastructures for this volume
         return err;
     }
@@ -591,6 +671,7 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
     fpi::BlobInfoListType blobList;
     VolumeCatalogQueryIface::ptr volCatIf = timeVolCat_->queryIface();
     blob_version_t version = 0;
+    // FIXME(DAC): This needs to happen within the context of a transaction.
     err = volCatIf->listBlobs(volId, &blobList);
     LOGWARN << "deleting all [" << blobList.size() << "]"
             << " blobs from vol:" << volId;
@@ -599,6 +680,8 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
     for (const auto& blob : blobList) {
         metaList.clear();
         version = 0;
+        // FIXME(DAC): Error is ignored, and only the last error from deleteBlob will be returned
+        //             to the caller.
         err = volCatIf->getBlobMeta(volId,
                                     blob.blob_name,
                                     &version, &blobSize, &metaList);
@@ -688,7 +771,7 @@ void DataMgr::handleDMTClose(dmCatReq *io) {
     delete pushMetaDoneReq;
 }
 
- /*
+/*
  * Returns the maxObjSize in the volume.
  * TODO(Andrew): This should be refactored into a
  * common library since everyone needs it, not just DM
@@ -711,8 +794,8 @@ Error DataMgr::getVolObjSize(fds_volid_t volId,
 }
 
 DataMgr::DataMgr(CommonModuleProviderIf *modProvider)
-    : Module("dm"),
-    modProvider_(modProvider)
+        : Module("dm"),
+          modProvider_(modProvider)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -745,13 +828,13 @@ int DataMgr::mod_init(SysParams const *const param)
 
     // Set testing related members
     testUturnAll = modProvider_->get_fds_config()->\
-                   get<bool>("fds.dm.testing.uturn_all", false);
+            get<bool>("fds.dm.testing.uturn_all", false);
     testUturnStartTx = modProvider_->get_fds_config()->\
-                       get<bool>("fds.dm.testing.uturn_starttx", false);
+            get<bool>("fds.dm.testing.uturn_starttx", false);
     testUturnUpdateCat = modProvider_->get_fds_config()->\
-                         get<bool>("fds.dm.testing.uturn_updatecat", false);
+            get<bool>("fds.dm.testing.uturn_updatecat", false);
     testUturnSetMeta   = modProvider_->get_fds_config()->\
-                         get<bool>("fds.dm.testing.uturn_setmeta", false);
+            get<bool>("fds.dm.testing.uturn_setmeta", false);
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -777,6 +860,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetaDataHandler();
+    handlers[FDS_DM_LIST_BLOBS_BY_PATTERN] = new dm::ListBlobsByPatternHandler();
 }
 
 DataMgr::~DataMgr()
@@ -817,7 +901,7 @@ void DataMgr::mod_startup()
         runMode = TEST_MODE;
     }
     LOGNORMAL << "Data Manager using control port "
-        << modProvider_->get_plf_manager()->plf_get_my_ctrl_port();
+              << modProvider_->get_plf_manager()->plf_get_my_ctrl_port();
 
     /* Set up FDSP RPC endpoints */
     nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
@@ -826,7 +910,7 @@ void DataMgr::mod_startup()
     std::string node_name = "_DM_" + myIp;
 
     LOGNORMAL << "Data Manager using IP:"
-        << myIp << " and node name " << node_name;
+              << myIp << " and node name " << node_name;
 
     setup_metadatapath_server(myIp);
 
@@ -907,18 +991,18 @@ void DataMgr::mod_enable_service() {
 
     // create stats aggregator that aggregates stats for vols for which
     // this DM is primary
-        statStreamAggr_ = StatStreamAggregator::ptr(
-            new StatStreamAggregator("DM Stat Stream Aggregator", modProvider_->get_fds_config()));
+    statStreamAggr_ = StatStreamAggregator::ptr(
+        new StatStreamAggregator("DM Stat Stream Aggregator", modProvider_->get_fds_config()));
 
-        // enable collection of local stats in DM
-        StatsCollector::singleton()->registerOmClient(omClient);
+    // enable collection of local stats in DM
+    StatsCollector::singleton()->registerOmClient(omClient);
     if (!feature.isTestMode()) {
         // since aggregator is in the same module, for stats that need to go to
-    // local aggregator, we just directly stream to aggregator (not over network)
+        // local aggregator, we just directly stream to aggregator (not over network)
         StatsCollector::singleton()->startStreaming(
             std::bind(&DataMgr::sampleDMStats, this, std::placeholders::_1),
             std::bind(&DataMgr::handleLocalStatStream, this,
-                  std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+                      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         statStreamAggr_->mod_startup();
     }
     // finish setting up time volume catalog
@@ -928,9 +1012,10 @@ void DataMgr::mod_enable_service() {
     // TODO(Andrew): Move the expunge work down to the volume
     // catalog so this callback isn't needed
     timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
-            &DataMgr::expungeObjectsIfPrimary, this,
-            std::placeholders::_1, std::placeholders::_2));
+        &DataMgr::expungeObjectsIfPrimary, this,
+        std::placeholders::_1, std::placeholders::_2));
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
+    timeline.open();
 }
 
 void DataMgr::mod_shutdown()
@@ -1259,7 +1344,7 @@ void DataMgr::ReqHandler::GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
                                           boost::shared_ptr<std::string>& volumeName,
                                           boost::shared_ptr<std::string>& blobName) {
     GLOGDEBUG << " volume:" << *volumeName
-             << " blob:" << *blobName;
+              << " blob:" << *blobName;
     fds_panic("must not get here");
 }
 

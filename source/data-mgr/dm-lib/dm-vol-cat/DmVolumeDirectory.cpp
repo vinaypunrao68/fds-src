@@ -702,4 +702,9 @@ Error DmVolumeDirectory::syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid) 
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->syncCatalog(dmUuid);
 }
+
+DmPersistVolDir::ptr DmVolumeDirectory::getVolume(fds_volid_t volId) {
+    GET_VOL(volId);
+    return vol;
+}
 }  // namespace fds
