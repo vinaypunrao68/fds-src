@@ -102,6 +102,8 @@ angular.module( 'form-directives' ).directive( "datePicker", function(){
                 // find when the first is... our calendar starts at Sunday
                 var startVal = 0-refDate.getDay();
                 
+                // 42 because that's 6 7day weeks which is the amount you need
+                // to be sure to show all variations on months
                 for ( var i = 0; i < 42; i++ ){
                     startVal++;
                     refDate = new Date();

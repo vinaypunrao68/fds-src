@@ -33,6 +33,12 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
                 return $element.width() - endRangeWidth;
             };
             
+            // takes a value and maps it to a particular px
+            // This equation is not a straight linear ratio type equation,
+            // in order to change the distribution to have more "room" for recent
+            // items it's currently executing a 4 degree polynomial function.
+            // In the future we could choose to expose the curvature control and this
+            // could become an nth degree function
             var valueToPosition = function( value ){
                 
                 if ( angular.isDefined( endRange ) && value > endRange.min ){
@@ -43,11 +49,12 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
                 
                 value = value / divisor;
                 
-                var pos = a * Math.pow( value - min, power ) + 0;
+                var pos = a * Math.pow( value - min, power );
                 
                 return pos;
             };
             
+            // takes a position in px and turns it into a value from our value range.
             var positionToValue = function( position ){
                 
                 if ( angular.isDefined( endRange ) && position > getWidth() ){
@@ -189,6 +196,8 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
                 return ( value > max || value < min );
             };
             
+            // this will find the actual placement for the slider, then determine which existing point is closer
+            // and snap to that position instead.
             $scope.snapToValidPoint = function( coordinate ){
                 
                 var vals = { position: undefined, value: undefined };
