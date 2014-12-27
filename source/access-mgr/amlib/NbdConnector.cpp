@@ -303,7 +303,7 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
 bool
 NbdConnection::hsSendOpts(ev::io &watcher) {
     static fds_int16_t const optFlags =
-        ntohs(NBD_FLAG_HAS_FLAGS|NBD_FLAG_SEND_FUA);
+        ntohs(NBD_FLAG_HAS_FLAGS);
     static iovec const vectors[] = {
         { nullptr,                  sizeof(volume_size) },
         { to_iovec(&optFlags),      sizeof(optFlags)    },
