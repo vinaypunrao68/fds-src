@@ -10,7 +10,9 @@
 
 extern "C" {
 #include <fcntl.h>
+#include <signal.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 #include <sys/uio.h>
 }
 
@@ -79,19 +81,23 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
 
 int
 NbdConnector::createNbdSocket() {
-    int listenfd;
     struct sockaddr_in serv_addr;
+    memset(&serv_addr, '0', sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serv_addr.sin_port = htons(nbdPort);
 
-    listenfd = socket(AF_INET, SOCK_STREAM, 0);
+    int listenfd = socket(AF_INET, SOCK_STREAM, 0);
     if (listenfd < 0) {
         LOGERROR << "Failed to create NBD socket";
         return listenfd;
     }
-    memset(&serv_addr, '0', sizeof(serv_addr));
 
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serv_addr.sin_port = htons(nbdPort);
+    // If we crash this allows us to reuse the socket before it's fully closed
+    int optval = 1;
+    if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+        LOGWARN << "Failed to set REUSEADDR on NBD socket";
+    }
 
     fds_verify(bind(listenfd,
                     (struct sockaddr*)&serv_addr,
@@ -105,6 +111,13 @@ NbdConnector::createNbdSocket() {
 void
 NbdConnector::runNbdLoop() {
     LOGNOTIFY << "Accepting NBD connections on port " << nbdPort;
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGPIPE);
+    if (0 != pthread_sigmask(SIG_BLOCK, &set, nullptr)) {
+        LOGWARN << "Failed to enable SIGPIPE mask on NBD server.";
+    }
+
     ev::default_loop loop;
     loop.run(0);
     LOGNOTIFY << "Stopping NBD loop...";
@@ -284,8 +297,8 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
     } else {
         LOGCRITICAL << "Will stat volume " << *volumeName;
         Error err = omConfigApi->statVolume(volumeName, volDesc);
-        fds_verify(ERR_OK == err);
-        fds_verify(apis::BLOCK == volDesc.policy.volumeType);
+        if (ERR_OK != err || apis::BLOCK != volDesc.policy.volumeType)
+            throw connection_closed;
     }
 
     // Fix endianness
