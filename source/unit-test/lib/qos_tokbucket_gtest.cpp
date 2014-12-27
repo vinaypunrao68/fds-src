@@ -3,23 +3,30 @@
  */
 
 #include <limits>
+#include <string>
 
 #include "gtest/gtest.h"
 
 #include "util/timeutils.h"
 
-#include "qos_tokbucket.h"
+#include "lib/qos_tokbucket.h"
 
-using fds::TokenBucket;
+using std::string;
+using std::to_string;
+
+using ::testing::InitGoogleTest;
+using ::testing::TestWithParam;
+using ::testing::Values;
+
 using fds::util::getTimeStampMicros;
 
-class TestingTokenBucket : public TokenBucket {
+class TestingTokenBucket : public fds::TokenBucket {
     public:
-        using TokenBucket::rate;
-        using TokenBucket::burst;
+        using fds::TokenBucket::rate;
+        using fds::TokenBucket::burst;
 
-        using TokenBucket::t_last_update;
-        using TokenBucket::token_count;
+        using fds::TokenBucket::t_last_update;
+        using fds::TokenBucket::token_count;
 
         TestingTokenBucket(fds_uint64_t rate, fds_uint64_t burst, fds_uint64_t max_burst_us = 0)
                 : TokenBucket(rate, burst, max_burst_us) {}
@@ -90,6 +97,111 @@ TEST(TokenBucket, modifyParams) {
     EXPECT_EQ(testObject.rate, updatedRate) << "rate was not updated properly.";
     EXPECT_EQ(testObject.burst, updatedBurst) << "burst was not updated properly.";
 }
+
+TEST(TokenBucket, modifyRateWithBurstInMicroseconds) {
+    fds_uint64_t const initialRate = 1;
+    fds_uint64_t const initialBurst = 1;
+    fds_uint64_t const updatedRate = initialRate * 17;
+    fds_uint64_t const updatedBurstDuration = 2 * 1000000;  // 2 seconds.
+    fds_uint64_t const updatedBurst = updatedRate * updatedBurstDuration / 1000000;
+
+    TestingTokenBucket testObject(initialRate, initialBurst);
+
+    testObject.modifyRate(updatedRate, updatedBurstDuration);
+
+    EXPECT_EQ(testObject.rate, updatedRate) << "rate was not updated properly.";
+    EXPECT_EQ(testObject.burst, updatedBurst) << "burst was not updated properly.";
+}
+
+TEST(TokenBucket, modifyRate) {
+    fds_uint64_t const initialRate = 1;
+    fds_uint64_t const burst = 1;
+    fds_uint64_t const updatedRate = initialRate * 23;
+
+    TestingTokenBucket testObject(initialRate, burst);
+
+    testObject.modifyRate(updatedRate);
+
+    EXPECT_EQ(testObject.rate, updatedRate) << "rate was not updated properly.";
+    EXPECT_EQ(testObject.burst, burst) << "burst was modified inappropriately.";
+}
+
+#if GTEST_HAS_PARAM_TEST
+struct TokenBucketState {
+    fds_uint64_t rate;
+    fds_uint64_t burst;
+    fds_uint64_t t_last_update;
+    double token_count;
+};
+
+struct TokenBucketTestParams {
+    TokenBucketState oldState;
+    TokenBucketState newState;
+    TokenBucketTestParams(TokenBucketState oldState, TokenBucketState newState)
+            : oldState(oldState), newState(newState) { }
+};
+
+struct TokenBucketConsumeParams : public TokenBucketTestParams {
+    bool expectSuccess;
+    fds_uint32_t consume;
+    TokenBucketConsumeParams(TokenBucketState oldState,
+                             TokenBucketState newState,
+                             bool expectSuccess,
+                             fds_uint32_t consume)
+            : TokenBucketTestParams(oldState, newState),
+              expectSuccess(expectSuccess),
+              consume(consume) { }
+};
+
+class TokenBucketConsume : public TestWithParam<TokenBucketConsumeParams> {
+};
+
+template <class T> string pluralize(T value, string singular, string plural) {
+    return to_string(value) + " " + (value == 1 ? singular : plural);
+}
+
+TEST_P(TokenBucketConsume, tryToConsumeTokens) {
+    auto param = GetParam();
+    fds_uint64_t const rate = 1;
+    fds_uint64_t const burst = 1;
+    double testTokens;
+    fds_uint32_t consumeTokens;
+
+    TestingTokenBucket testObject(param.oldState.rate, param.oldState.burst);
+    testObject.token_count = param.oldState.token_count;
+
+    if (param.expectSuccess) {
+        EXPECT_TRUE(testObject.tryToConsumeTokens(param.consume))
+                << "Unable to consume " << pluralize(param.consume, "token", "tokens")
+                << " from " << testObject.token_count;
+        EXPECT_EQ(testObject.token_count, param.newState.token_count)
+                << "Incorrect number of tokens remaining after "
+                << pluralize(param.consume, "token", "tokens") << " was removed from "
+                << param.oldState.token_count << ".";
+    } else {
+        EXPECT_FALSE(testObject.tryToConsumeTokens(param.consume))
+                << pluralize(param.consume, "token", "tokens") << " was allowed to be consumed "
+                << "from " << param.oldState.token_count;
+        EXPECT_EQ(testObject.token_count, param.oldState.token_count)
+                << "Token count should not be modified when the full count cannot be consumed.";
+    }
+}
+#endif  // GTEST_HAS_PARAM_TEST
+
+#if GTEST_HAS_PARAM_TEST
+INSTANTIATE_TEST_CASE_P(ManualEdges, TokenBucketConsume, ::testing::Values(
+        TokenBucketConsumeParams {
+            TokenBucketState { 1, 1, 0, 0.0 },
+            TokenBucketState { 1, 1, 0, 0.0 },
+            false, 1
+        },
+        TokenBucketConsumeParams {
+            TokenBucketState { 1, 1, 0, 1.0 },
+            TokenBucketState { 1, 1, 0, 0.0 },
+            true, 1
+        }
+));
+#endif
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
