@@ -32,7 +32,10 @@ bool get_message_payload(int fd, M& message);
 
 NbdConnector::NbdConnector(OmConfigApi::shared_ptr omApi)
         : omConfigApi(omApi),
-          nbdPort(4444) {
+          nbdPort(10809) {
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    nbdPort = conf.get<fds_uint32_t>("nbd_server_port");
+
     // Bind to NBD listen port
     nbdSocket = createNbdSocket();
     fds_verify(nbdSocket > 0);
