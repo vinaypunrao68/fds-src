@@ -96,14 +96,15 @@ class NbdResponseVector {
             } else if (seqId == (objCount - 1)) {
                 iLength = length - firstObjectLength - (objCount-2) * maxObjectSizeInBytes;
             }
-            boost::shared_ptr<std::string> buf(new std::string(iLength, 0));
-            bufVec[seqId] = buf;
+            bufVec[seqId] = boost::make_shared<std::string>(iLength, 0);
         } else {
             // check if that was the first un-aligned read
             if ((seqId == 0) && ((offset % maxObjectSizeInBytes) != 0)) {
                 fds_uint32_t iOff = offset % maxObjectSizeInBytes;
-                boost::shared_ptr<std::string> buf(new std::string(retBuf->c_str(), iOff));
-                bufVec[seqId] = buf;
+                fds_uint32_t firstObjectLength = std::min(length,
+                                                          maxObjectSizeInBytes - iOff);
+                bufVec[seqId] = boost::make_shared<std::string>(retBuf->data() + iOff,
+                                                                firstObjectLength);
             } else {
                 bufVec[seqId] = retBuf;
             }
