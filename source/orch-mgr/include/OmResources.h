@@ -749,7 +749,7 @@ class OM_NodeDomainMod : public Module
  */
 class OM_ControlRespHandler : public fpi::FDSP_ControlPathRespIf {
   public:
-    explicit OM_ControlRespHandler();
+    OM_ControlRespHandler();
 
     void NotifyAddVolResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

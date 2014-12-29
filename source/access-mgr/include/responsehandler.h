@@ -90,7 +90,7 @@ struct UpdateBlobResponseHandler : ResponseHandler, UpdateBlobCallback {
 };
 
 struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
-    explicit GetObjectResponseHandler();
+    GetObjectResponseHandler();
 
     typedef boost::shared_ptr<GetObjectResponseHandler> ptr;
 

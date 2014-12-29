@@ -147,7 +147,7 @@ ragel           := $(main_tool_dir)/ragel
 #ar              := $(main_tool_dir)/ar
 ar              := $(incl_scripts)/ar_wrapper.sh
 cc_style        := $(incl_scripts)/cstyle.pl
-cpp_style       := $(incl_scripts)/cpplint.py --linelength=100
+cpp_style       := $(incl_scripts)/cpplint.py --linelength=100 --filter=-build/c++11 --verbose=5
 
 # Common library that most modules need to link.
 #
