@@ -12,7 +12,10 @@ user_fds_ar_libs  := \
 
 user_non_fds_libs := \
     gmock \
-	pthread
+    curl \
+    pthread \
+    jansson \
+    s3
 
 user_incl_dir     := \
     $(topdir)        \
@@ -39,7 +42,8 @@ user_cpp          :=  \
     sharedcache_gtest.cpp \
     object_logger_test.cpp \
     HashedLocks_ut.cpp \
-	histogram_gtest.cpp 
+    histogram_gtest.cpp \
+    s3utils_gtest.cpp
 
 
 user_cc           :=
@@ -70,7 +74,8 @@ user_bin_exe      := \
     object_logger_test \
     Tracebuffer_ut \
     HashedLocks_ut \
-	histogram_gtest
+	histogram_gtest \
+    s3utils_gtest
 
 catalog_test                   := catalog_unit_test.cpp
 perfstat_unit_test             := perfstat_unit_test.cpp
@@ -88,5 +93,6 @@ object_logger_test             := object_logger_test.cpp
 Tracebuffer_ut		           := Tracebuffer_ut.cpp
 HashedLocks_ut		           := HashedLocks_ut.cpp
 histogram_gtest 			   := histogram_gtest.cpp 
+s3utils_gtest			:= s3utils_gtest.cpp
 
 include $(topdir)/Makefile.incl
