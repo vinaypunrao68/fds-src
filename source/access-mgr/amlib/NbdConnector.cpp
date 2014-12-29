@@ -349,7 +349,6 @@ NbdConnection::hsReq(ev::io &watcher) {
         request.header.magic = ntohl(request.header.magic);
         fds_verify(NBD_REQUEST_MAGIC == request.header.magic);
         request.header.opType = ntohl(request.header.opType);
-        request.header.handle = __builtin_bswap64(request.header.handle);
         request.header.offset = __builtin_bswap64(request.header.offset);
         request.header.length = ntohl(request.header.length);
 
@@ -389,11 +388,11 @@ NbdConnection::hsReply(ev::io &watcher) {
         response = decltype(response)(new iovec[kMaxChunks + 3]);
         response[0].iov_base = &magic; response[0].iov_len = sizeof(magic);
         response[1].iov_base = &error; response[1].iov_len = sizeof(error);
+        response[2].iov_base = nullptr; response[2].iov_len = 0;
         response[3].iov_base = nullptr; response[3].iov_len = 0ull;
     }
 
     if (write_offset == -1) {
-        write_offset = 0;
         total_blocks = 3;
         if (doUturn) {
             // Iterate and send each ready response
@@ -401,8 +400,7 @@ NbdConnection::hsReply(ev::io &watcher) {
                 UturnPair rep;
                 fds_verify(readyHandles.pop(rep));
 
-                fds_int64_t handle = __builtin_bswap64(rep.handle);
-                response[2].iov_base = &handle; response[2].iov_len = sizeof(handle);
+                response[2].iov_base = &rep.handle; response[2].iov_len = sizeof(rep.handle);
 
                 fds_uint32_t length = rep.length;
                 fds_int32_t opType = rep.opType;
@@ -425,8 +423,8 @@ NbdConnection::hsReply(ev::io &watcher) {
             fds_verify(readyResponses.pop(resp));
             current_response.reset(resp);
 
-            fds_int64_t handle = __builtin_bswap64(current_response->getHandle());
-            response[2].iov_base = &handle; response[2].iov_len = sizeof(handle);
+            response[2].iov_base = &current_response->handle;
+            response[2].iov_len = sizeof(current_response->handle);
             Error opError = current_response->getError();
             if (!opError.ok()) {
                 error = htonl(-1);
@@ -436,7 +434,7 @@ NbdConnection::hsReply(ev::io &watcher) {
             if (current_response->isRead() && (opError.ok())) {
                 boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
                 while (buf != NULL) {
-                    GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
+                    GLOGDEBUG << "Handle " << current_response->handle << "...Buffer # " << context;
                     response[total_blocks].iov_base = to_iovec(buf->c_str());
                     response[total_blocks].iov_len = buf->length();
                     ++total_blocks;
@@ -444,15 +442,19 @@ NbdConnection::hsReply(ev::io &watcher) {
                     buf = current_response->getNextReadBuffer(context);
                 }
             }
+        } else {
+            return true;
         }
+        write_offset = 0;
     }
+    fds_assert(response[2].iov_base != nullptr);
     // Try and write the response, if it fails to write ALL
     // the data we'll continue later
     if (!write_response()) {
         return false;
     }
 
-    response.reset();
+    response[2].iov_base = nullptr;
     current_response.reset();
 
     LOGTRACE << "No more reponses to send";

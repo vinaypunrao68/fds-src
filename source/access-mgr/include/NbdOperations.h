@@ -165,9 +165,9 @@ class NbdResponseVector {
 
 
     void setError(const Error& err) { opError = err; }
+    fds_int64_t handle;
 
   private:
-    fds_int64_t handle;
     NbdOperation operation;
     std::atomic<fds_uint32_t> doneCount;
     fds_uint32_t objCount;
