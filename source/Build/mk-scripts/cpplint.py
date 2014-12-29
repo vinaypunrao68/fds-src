@@ -3811,6 +3811,52 @@ def ProcessLine(filename, file_extension, clean_lines, line,
   for check_fn in extra_check_functions:
     check_fn(filename, clean_lines, line, error)
 
+def FlagCxx11Features(filename, clean_lines, linenum, error):
+  """Flag those c++11 features that we only allow in certain places.
+
+  Args:
+    filename: The name of the current file.
+    clean_lines: A CleansedLines instance containing the file.
+    linenum: The number of the line to check.
+    error: The function to call with any errors found.
+  """
+  line = clean_lines.elided[linenum]
+
+  # Flag unapproved C++11 headers.
+  include = Match(r'\s*#\s*include\s+[<"]([^<"]+)[">]', line)
+  if include and include.group(1) in ('cfenv',
+                                      'condition_variable',
+                                      'fenv.h',
+                                      'future',
+                                      'mutex',
+                                      'thread',
+                                      'chrono',
+                                      'ratio',
+                                      'regex',
+                                      'system_error',
+                                     ):
+    error(filename, linenum, 'build/c++11', 1,
+          ('<%s> is an unapproved C++11 header.') % include.group(1))
+
+  # The only place where we need to worry about C++11 keywords and library
+  # features in preprocessor directives is in macro definitions.
+  if Match(r'\s*#', line) and not Match(r'\s*#\s*define\b', line): return
+
+  # These are classes and free functions.  The classes are always
+  # mentioned as std::*, but we only catch the free functions if
+  # they're not found by ADL.  They're alphabetical by header.
+  for top_name in (
+      # type_traits
+      'alignment_of',
+      'aligned_union',
+      ):
+    if Search(r'\bstd::%s\b' % top_name, line):
+      error(filename, linenum, 'build/c++11', 5,
+            ('std::%s is an unapproved C++11 class or function.  Send c-style '
+             'an example of where it would make your code more readable, and '
+             'they may let you use it.') % top_name)
+
+
 def ProcessFileData(filename, file_extension, lines, error,
                     extra_check_functions=[]):
   """Performs lint checks and reports any errors to the given error function.
