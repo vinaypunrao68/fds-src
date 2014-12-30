@@ -19,10 +19,21 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
 //            });
     };
     
+    service.getPerformanceBreakdownSummary = function( filter, callback ){
+        
+        $http_fds.put( '/api/stats/volumes', filter, 
+            function( response ){
+            
+                if ( angular.isFunction( callback ) ){
+                    callback( response );
+                }
+            });
+    };
+    
     service.getPerformanceSummary = function( filter, callback ){
         
-        var data = {
-            series: [
+//        var data = {
+//            series: [
 //                {
 //                    context: {},
 //                    datapoints: [
@@ -37,23 +48,23 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
 //                    {x:8, y: 12},
 //                    {x:9, y: 34}]
 //                },
-                {
-                    context: {},
-                    datapoints: [
-                    {x:0, y: 15},
-                    {x:1, y: 46},
-                    {x:2, y: 36},
-                    {x:3, y: 21},
-                    {x:4, y: 30},
-                    {x:5, y: 12},
-                    {x:6, y: 10},
-                    {x:7, y: 53},
-                    {x:8, y: 17},
-                    {x:9, y: 39}]
-                }
-            ]
-        };
-        
+//                {
+//                    context: {},
+//                    datapoints: [
+//                    {x:0, y: 15},
+//                    {x:1, y: 46},
+//                    {x:2, y: 36},
+//                    {x:3, y: 21},
+//                    {x:4, y: 30},
+//                    {x:5, y: 12},
+//                    {x:6, y: 10},
+//                    {x:7, y: 53},
+//                    {x:8, y: 17},
+//                    {x:9, y: 39}]
+//                }
+//            ]
+//        };
+//        
 //        callback( data );
         
         return $http_fds.put( '/api/stats/volumes', filter, 
@@ -67,38 +78,38 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
     
     service.getCapacitySummary = function( filter, callback ){
         
-        var data = {
-            series: [
-                {
-                    context:{},
-                    datapoints: [
-                    {x:0, y: 10},
-                    {x:1, y: 18},
-                    {x:2, y: 31},
-                    {x:3, y: 27},
-                    {x:4, y: 41},
-                    {x:5, y: 55},
-                    {x:6, y: 22},
-                    {x:7, y: 31},
-                    {x:8, y: 47},
-                    {x:9, y: 58}]
-                },
-                {
-                    context: {},
-                    datapoints: [{x:0, y: 15},
-                    {x:1, y: 24},
-                    {x:2, y: 36},
-                    {x:3, y: 33},
-                    {x:4, y: 48},
-                    {x:5, y: 60},
-                    {x:6, y: 31},
-                    {x:7, y: 48},
-                    {x:8, y: 54},
-                    {x:9, y: 65}]
-                }
-            ]
-        };
-        
+//        var data = {
+//            series: [
+//                {
+//                    context:{},
+//                    datapoints: [
+//                    {x:0, y: 10},
+//                    {x:1, y: 18},
+//                    {x:2, y: 31},
+//                    {x:3, y: 27},
+//                    {x:4, y: 41},
+//                    {x:5, y: 55},
+//                    {x:6, y: 22},
+//                    {x:7, y: 31},
+//                    {x:8, y: 47},
+//                    {x:9, y: 58}]
+//                },
+//                {
+//                    context: {},
+//                    datapoints: [{x:0, y: 15},
+//                    {x:1, y: 24},
+//                    {x:2, y: 36},
+//                    {x:3, y: 33},
+//                    {x:4, y: 48},
+//                    {x:5, y: 60},
+//                    {x:6, y: 31},
+//                    {x:7, y: 48},
+//                    {x:8, y: 54},
+//                    {x:9, y: 65}]
+//                }
+//            ]
+//        };
+//        
 //        callback( data );
         return $http_fds.put( '/api/stats/volumes', filter, 
             function( response ){

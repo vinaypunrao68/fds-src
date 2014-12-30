@@ -148,7 +148,14 @@ public class QueryHelper {
 	                // TODO finish implementing  -- once Nate provides a library
 	                calculatedList.add( toFull() );
 	
+	            } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
+	            	
+	            	series.addAll(
+	            		new SeriesHelper().getSummedSeries( queryResults, 
+	            										 	query ) );
+	            	
 	            } else {
+	            	
 	                // individual stats
 	                query.getSeriesType()
 	                     .stream()
@@ -233,6 +240,22 @@ public class QueryHelper {
         }
 
         return true;
+    }
+    
+    /**
+     * 
+     * @param determine if the {@link List} of {@link Metrics} matches the performance breakdown definition
+     * 
+     * @return returns true if all {@link Metrics} are included in both sets
+     */
+    protected boolean isPerformanceBreakdownQuery( final List<Metrics> metrics ) {
+    	for ( final Metrics m : metrics ) {
+    		if ( !Metrics.PERFORMANCE_BREAKDOWN.contains( m ) ){
+    			return false;
+    		}
+    	}
+    	
+    	return true;
     }
 
     /**

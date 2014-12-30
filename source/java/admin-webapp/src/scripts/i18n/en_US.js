@@ -261,7 +261,7 @@ var en_US = {
         th_node_name: 'Node Name',
         th_om: 'OM',
         th_site: 'Site',
-        th_SM: 'SM'
+        th_sm: 'SM'
     },
     tenants: {
         title: 'Tenants',
