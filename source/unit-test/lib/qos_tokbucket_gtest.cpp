@@ -4,6 +4,7 @@
 
 #include <limits>
 #include <string>
+#include <ostream>
 
 #include "gtest/gtest.h"
 
@@ -11,6 +12,7 @@
 
 #include "lib/qos_tokbucket.h"
 
+using std::ostream;
 using std::string;
 using std::to_string;
 
@@ -133,6 +135,14 @@ struct TokenBucketState {
     fds_uint64_t t_last_update;
     double token_count;
 };
+ostream& operator <<(ostream& os, TokenBucketState const& rhs) {
+    return os << "TokenBucketState("
+              << "rate: " << rhs.rate
+              << ", burst: " << rhs.burst
+              << ", t_last_update: " << rhs.t_last_update
+              << ", token_count: " << rhs.token_count
+              << ")";
+}
 
 struct TokenBucketTestParams {
     TokenBucketState oldState;
@@ -140,6 +150,12 @@ struct TokenBucketTestParams {
     TokenBucketTestParams(TokenBucketState oldState, TokenBucketState newState)
             : oldState(oldState), newState(newState) { }
 };
+ostream& operator <<(ostream& os, TokenBucketTestParams const& rhs) {
+    return os << "TokenBucketTestParams("
+              << "oldState: " << rhs.oldState
+              << ", newState: " << rhs.newState
+              << ")";
+}
 
 struct TokenBucketConsumeParams : public TokenBucketTestParams {
     bool expectSuccess;
@@ -152,6 +168,14 @@ struct TokenBucketConsumeParams : public TokenBucketTestParams {
               expectSuccess(expectSuccess),
               consume(consume) { }
 };
+ostream& operator <<(ostream& os, TokenBucketConsumeParams const& rhs) {
+    return os << "TokenBucketConsumeParams("
+              << "oldState: " << rhs.oldState
+              << ", newState: " << rhs.newState
+              << ", expectSuccess: " << rhs.expectSuccess
+              << ", consume: " << rhs.consume
+              << ")";
+}
 
 class TokenBucketConsume : public TestWithParam<TokenBucketConsumeParams> {
 };
@@ -174,7 +198,7 @@ TEST_P(TokenBucketConsume, tryToConsumeTokens) {
         EXPECT_TRUE(testObject.tryToConsumeTokens(param.consume))
                 << "Unable to consume " << pluralize(param.consume, "token", "tokens")
                 << " from " << testObject.token_count;
-        EXPECT_EQ(testObject.token_count, param.newState.token_count)
+        EXPECT_DOUBLE_EQ(testObject.token_count, param.newState.token_count)
                 << "Incorrect number of tokens remaining after "
                 << pluralize(param.consume, "token", "tokens") << " was removed from "
                 << param.oldState.token_count << ".";
@@ -182,13 +206,11 @@ TEST_P(TokenBucketConsume, tryToConsumeTokens) {
         EXPECT_FALSE(testObject.tryToConsumeTokens(param.consume))
                 << pluralize(param.consume, "token", "tokens") << " was allowed to be consumed "
                 << "from " << param.oldState.token_count;
-        EXPECT_EQ(testObject.token_count, param.oldState.token_count)
+        EXPECT_DOUBLE_EQ(testObject.token_count, param.oldState.token_count)
                 << "Token count should not be modified when the full count cannot be consumed.";
     }
 }
-#endif  // GTEST_HAS_PARAM_TEST
 
-#if GTEST_HAS_PARAM_TEST
 INSTANTIATE_TEST_CASE_P(ManualEdges, TokenBucketConsume, ::testing::Values(
         TokenBucketConsumeParams {
             TokenBucketState { 1, 1, 0, 0.0 },
@@ -198,6 +220,16 @@ INSTANTIATE_TEST_CASE_P(ManualEdges, TokenBucketConsume, ::testing::Values(
         TokenBucketConsumeParams {
             TokenBucketState { 1, 1, 0, 1.0 },
             TokenBucketState { 1, 1, 0, 0.0 },
+            true, 1
+        },
+        TokenBucketConsumeParams {
+            TokenBucketState { 1, 1, 0, 0.9 },
+            TokenBucketState { 1, 1, 0, 0.9 },
+            false, 1
+        },
+        TokenBucketConsumeParams {
+            TokenBucketState { 1, 1, 0, 1.1 },
+            TokenBucketState { 1, 1, 0, 0.1 },
             true, 1
         }
 ));
