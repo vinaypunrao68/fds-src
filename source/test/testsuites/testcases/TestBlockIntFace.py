@@ -132,7 +132,7 @@ class TestBlockAttachVolume(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): We shouldn't hard code the path, volume name, port, ip
-        blkAttCmd = ['sudo', '../../../cinder/nbdadm.py', 'attach', 'localhost:4444', 'blockVolume']
+        blkAttCmd = ['sudo', '../../../cinder/nbdadm.py', 'attach', 'localhost', 'blockVolume']
         nbdadm = subprocess.Popen(blkAttCmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         (stdout, stderr) = nbdadm.communicate()
         if nbdadm.returncode != 0:
