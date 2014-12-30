@@ -163,12 +163,15 @@ public class QueryHelper {
 	            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS  ) )
 	            		.findFirst().get();
 	            	
-	            	for ( int i = 0; gets.getDatapoints().size() == ssdGets.getDatapoints().size() && 
-	            		i < gets.getDatapoints().size(); i++ ){
-	            		
-	            		Datapoint point = gets.getDatapoints().get( i );
-	            		point.setY( point.getY() - ssdGets.getDatapoints().get( i ).getY() );
-	            	}
+	            	gets.getDatapoints().forEach( 
+	            		gPoint -> {
+	            			ssdGets.getDatapoints().forEach(
+	            				sPoint -> {
+	            					if ( gPoint.getX().equals( sPoint.getX() ) ){
+	            						gPoint.setY( gPoint.getY() - sPoint.getY());
+	            					}
+	            				});
+	            		});
 	            	
 	            } else {
 	            	
