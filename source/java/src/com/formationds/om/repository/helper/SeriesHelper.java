@@ -13,7 +13,7 @@ import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.DateTimeUtil;
 import com.formationds.om.repository.query.MetricQueryCriteria;
-import com.formationds.om.repository.query.QueryCriteria;
+//import com.formationds.om.repository.query.QueryCriteria;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -192,284 +192,284 @@ public class SeriesHelper {
 		return series;
 	}  
     
-    /**
-     * @param datapoints the {@link java.util.List} of {@link com.formationds.commons.model.entity.VolumeDatapoint}
-     * @param query the {@link com.formationds.om.repository.query.QueryCriteria}
-     *
-     * @return Returns the {@link java.util.List} of {@link com.formationds.commons.model.Series}
-     */
-    public final List<Series> getCapacitySeries(
-        final List<VolumeDatapoint> datapoints,
-        final QueryCriteria query ) {
-
-        /*
-         * So the idea is that we need to sum up all the volume datapoints
-         * for a timestamp. Then determine if there enough datapoints to cover
-         * what is being asked for.
-         *
-         * Maximum number of points is 30. Any timestamp that we don't
-         * datapoints for will be set with a datapoint(x=0,y=timestamp).
-         *
-         * date range diff less than or equal to 'one hours' will provide a
-         * datapoint every two minutes, i.e. 30 datapoints.
-         *
-         * date range diff less than or equal to 'one day' will provide a
-         * datapoint every hours, i.e. 24 datapoints
-         *
-         * date range diff less than or equal to 'one week' will provide a
-         * datapoint every 6 hours, i.e. 28 datapoints
-         *
-         * data range diff less then or equal to '30 days ' will provide a
-         * datapoint every 24 hours, i.e. 30 data points
-         */
-        long diff = 0L;
-        long epoch = 0L;
-        if( query.getRange() != null ) {
-            final DateRange dateRange = query.getRange();
-            if( dateRange.getStart() != null && dateRange.getEnd() != null ) {
-
-                diff = dateRange.getEnd() - dateRange.getStart();
-                epoch = dateRange.getStart();
-
-            } else if( dateRange.getStart() != null ) {
-
-                diff = DateTimeUtil.toUnixEpoch( LocalDateTime.now() ) -
-                       dateRange.getStart();
-                epoch = dateRange.getStart();
-
-            } else if( dateRange.getEnd() != null ) {
-
-                epoch = DateTimeUtil.toUnixEpoch( LocalDateTime.now() );
-                diff = dateRange.getEnd() - epoch;
-            }
-        }
-
-        if( diff > 0L ) {
-            if( diff <= SECONDS_IN_HOUR ) {
-                logger.trace( "HOUR::{}", diff );
-                return hourCapacity( datapoints, epoch );
-            } else if( diff <= SECONDS_IN_DAY ) {
-                logger.trace( "DAY::{}", diff );
-                return dayCapacity( datapoints, epoch );
-            } else if( diff <= SECONDS_IN_WEEK ) {
-                logger.trace( "WEEK::{}", diff );
-                return weekCapacity( datapoints, epoch );
-            } else if( diff <= SECONDS_IN_30_DAYS ) {
-                logger.trace( "30 DAYS::{}", diff );
-                return thirtyDaysCapacity( datapoints, epoch );
-            } else {
-                throw new IllegalArgumentException(
-                    "start end timestamp delta is invalid" );
-            }
-        }
-
-        throw new IllegalArgumentException( "Date Range is invalid" );
-    }
-
-    private List<Series> hourCapacity( final List<VolumeDatapoint> datapoints,
-                                       final Long epoch ) {
-
-        final List<Series> series = new ArrayList<>( );
-        /*
-         * for each volume
-         *  sum all datapoints for each 2 minute interval to produce one
-         *  datapoint, per volume per 2 minute interval should be 30
-         *  data points
-         */
-
-        series.add( generate( datapoints, epoch, Metrics.LBYTES, 2L, 30 ) );
-        series.add( generate( datapoints, epoch, Metrics.PBYTES, 2L, 30 ) );
-
-        return series;
-    }
-
-    private List<Series> dayCapacity( final List<VolumeDatapoint> datapoints,
-                                      final Long epoch ) {
-
-        final List<Series> series = new ArrayList<>( );
-
-        /*
-         * for each volume
-         *  sum all datapoints for each hours to produce one datapoint,
-         *  per volume
-         */
-
-        // every six hours
-        series.add( generate( datapoints, epoch, Metrics.LBYTES, 60L, 24 ) );
-        series.add( generate( datapoints, epoch, Metrics.PBYTES, 60L, 24 ) );
-
-        return series;
-    }
-
-    private List<Series> weekCapacity( final List<VolumeDatapoint> datapoints,
-                                       final Long epoch ) {
-
-        final List<Series> series = new ArrayList<>( );
-
-        /*
-         * for each volume
-         *  sum all datapoints for each 6 hours to produce one datapoint,
-         *  per volume
-         */
-        series.add( generate( datapoints, epoch, Metrics.LBYTES, 360L, 28 ) );
-        series.add( generate( datapoints, epoch, Metrics.PBYTES, 360L, 28 ) );
-
-        return series;
-    }
-
-    private List<Series> thirtyDaysCapacity(
-        final List<VolumeDatapoint> datapoints,
-        final Long epoch ) {
-
-        final List<Series> series = new ArrayList<>( );
-
-        /*
-         * for each volume
-         *  sum all datapoints for each day to produce one datapoint,
-         *  per volume
-         */
-
-        // every 1 day
-        series.add( generate( datapoints, epoch, Metrics.LBYTES, 1440L, 30 ) );
-        series.add( generate( datapoints, epoch, Metrics.PBYTES, 1440L, 30 ) );
-
-        return series;
-    }
-
-    /**
-     * @param datapoints the {@link java.util.List} of {@link com.formationds.commons.model.entity.VolumeDatapoint}
-     * @param query the {@link com.formationds.om.repository.query.QueryCriteria}
-     *
-     * @return Returns the {@link java.util.List} of {@link com.formationds.commons.model.Series}
-     */
-    public final List<Series> getPerformanceSeries(
-        final List<VolumeDatapoint> datapoints,
-        final QueryCriteria query ) {
-
-        /*
-         * So the idea is that we need to sum up all the volume datapoints
-         * for a timestamp. Then determine if there enough datapoints to cover
-         * what is being asked for.
-         *
-         * Maximum number of points is 30. Any timestamp that we don't
-         * datapoints for will be set with a datapoint(x=0,y=timestamp).
-         *
-         * date range diff less than or equal to 'one hours' will provide a
-         * datapoint every two minutes, i.e. 30 datapoints.
-         *
-         * date range diff less than or equal to 'one day' will provide a
-         * datapoint every hours, i.e. 24 datapoints
-         *
-         * date range diff less than or equal to 'one week' will provide a
-         * datapoint every 6 hours, i.e. 28 datapoints
-         *
-         * data range diff less then or equal to '30 days ' will provide a
-         * datapoint every 24 hours, i.e. 30 data points
-         */
-        long diff = 0L;
-        long epoch = 0L;
-        if( query.getRange() != null ) {
-            final DateRange dateRange = query.getRange();
-            if( dateRange.getStart() != null && dateRange.getEnd() != null ) {
-
-                diff = dateRange.getEnd() - dateRange.getStart();
-                epoch = dateRange.getStart();
-
-            } else if( dateRange.getStart() != null ) {
-
-                diff = DateTimeUtil.toUnixEpoch( LocalDateTime.now() ) -
-                    dateRange.getStart();
-                epoch = dateRange.getStart();
-
-            } else if( dateRange.getEnd() != null ) {
-
-                epoch = DateTimeUtil.toUnixEpoch( LocalDateTime.now() );
-                diff = dateRange.getEnd() - epoch;
-            }
-        }
-
-        if( diff > 0L ) {
-            if( diff <= SECONDS_IN_HOUR ) {
-                return hourPerformance( datapoints, epoch );
-            } else if( diff <= SECONDS_IN_DAY ) {
-                return dayPerformance( datapoints, epoch );
-            } else if( diff <= SECONDS_IN_WEEK ) {
-                return weekPerformance( datapoints, epoch );
-            } else if( diff <= SECONDS_IN_30_DAYS ) {
-                return thirtyDaysPerformance( datapoints, epoch );
-            } else {
-                throw new IllegalArgumentException(
-                    "start end timestamp delta is invalid" );
-            }
-        }
-
-        throw new IllegalArgumentException( "Date Range is invalid" );
-    }
-
-    private List<Series> hourPerformance(
-        final List<VolumeDatapoint> datapoints,
-        final Long epoch ) {
-
-        final List<Series> series = new ArrayList<>( );
-
-        /*
-         * for each volume
-         *  sum all datapoints for each 2 minute interval to produce one
-         *  datapoint, per volume
-         */
-
-        series.add( generate( datapoints, epoch, Metrics.STP_WMA, 2L, 30 ) );
-
-        return series;
-    }
-
-    private List<Series> dayPerformance(
-        final List<VolumeDatapoint> datapoints,
-        final Long epoch ) {
-
-        final List<Series> series = new ArrayList<>( );
-
-        /*
-         * for each volume
-         *  sum all datapoints for each hours to produce one datapoint,
-         *  per volume
-         */
-        series.add( generate( datapoints, epoch, Metrics.STP_WMA, 60L, 24 ) );
-
-        return series;
-    }
-
-    private List<Series> weekPerformance(
-        final List<VolumeDatapoint> datapoints,
-        final Long epoch ) {
-
-        final List<Series> series = new ArrayList<>( );
-
-        /*
-         * for each volume
-         *  sum all datapoints for each 6 hours to produce one datapoint,
-         *  per volume
-         */
-        series.add( generate( datapoints, epoch, Metrics.STP_WMA, 360L, 28 ) );
-
-        return series;
-    }
-
-    private List<Series> thirtyDaysPerformance(
-        final List<VolumeDatapoint> datapoints,
-        final Long epoch ) {
-
-        final List<Series> series = new ArrayList<>( );
-
-        /*
-         * for each volume
-         *  sum all datapoints for each day to produce one datapoint,
-         *  per volume
-         */
-        series.add( generate( datapoints, epoch, Metrics.STP_WMA, 1440L, 30 ) );
-
-        return series;
-    }
+//    /**
+//     * @param datapoints the {@link java.util.List} of {@link com.formationds.commons.model.entity.VolumeDatapoint}
+//     * @param query the {@link com.formationds.om.repository.query.QueryCriteria}
+//     *
+//     * @return Returns the {@link java.util.List} of {@link com.formationds.commons.model.Series}
+//     */
+//    public final List<Series> getCapacitySeries(
+//        final List<VolumeDatapoint> datapoints,
+//        final QueryCriteria query ) {
+//
+//        /*
+//         * So the idea is that we need to sum up all the volume datapoints
+//         * for a timestamp. Then determine if there enough datapoints to cover
+//         * what is being asked for.
+//         *
+//         * Maximum number of points is 30. Any timestamp that we don't
+//         * datapoints for will be set with a datapoint(x=0,y=timestamp).
+//         *
+//         * date range diff less than or equal to 'one hours' will provide a
+//         * datapoint every two minutes, i.e. 30 datapoints.
+//         *
+//         * date range diff less than or equal to 'one day' will provide a
+//         * datapoint every hours, i.e. 24 datapoints
+//         *
+//         * date range diff less than or equal to 'one week' will provide a
+//         * datapoint every 6 hours, i.e. 28 datapoints
+//         *
+//         * data range diff less then or equal to '30 days ' will provide a
+//         * datapoint every 24 hours, i.e. 30 data points
+//         */
+//        long diff = 0L;
+//        long epoch = 0L;
+//        if( query.getRange() != null ) {
+//            final DateRange dateRange = query.getRange();
+//            if( dateRange.getStart() != null && dateRange.getEnd() != null ) {
+//
+//                diff = dateRange.getEnd() - dateRange.getStart();
+//                epoch = dateRange.getStart();
+//
+//            } else if( dateRange.getStart() != null ) {
+//
+//                diff = DateTimeUtil.toUnixEpoch( LocalDateTime.now() ) -
+//                       dateRange.getStart();
+//                epoch = dateRange.getStart();
+//
+//            } else if( dateRange.getEnd() != null ) {
+//
+//                epoch = DateTimeUtil.toUnixEpoch( LocalDateTime.now() );
+//                diff = dateRange.getEnd() - epoch;
+//            }
+//        }
+//
+//        if( diff > 0L ) {
+//            if( diff <= SECONDS_IN_HOUR ) {
+//                logger.trace( "HOUR::{}", diff );
+//                return hourCapacity( datapoints, epoch );
+//            } else if( diff <= SECONDS_IN_DAY ) {
+//                logger.trace( "DAY::{}", diff );
+//                return dayCapacity( datapoints, epoch );
+//            } else if( diff <= SECONDS_IN_WEEK ) {
+//                logger.trace( "WEEK::{}", diff );
+//                return weekCapacity( datapoints, epoch );
+//            } else if( diff <= SECONDS_IN_30_DAYS ) {
+//                logger.trace( "30 DAYS::{}", diff );
+//                return thirtyDaysCapacity( datapoints, epoch );
+//            } else {
+//                throw new IllegalArgumentException(
+//                    "start end timestamp delta is invalid" );
+//            }
+//        }
+//
+//        throw new IllegalArgumentException( "Date Range is invalid" );
+//    }
+//
+//    private List<Series> hourCapacity( final List<VolumeDatapoint> datapoints,
+//                                       final Long epoch ) {
+//
+//        final List<Series> series = new ArrayList<>( );
+//        /*
+//         * for each volume
+//         *  sum all datapoints for each 2 minute interval to produce one
+//         *  datapoint, per volume per 2 minute interval should be 30
+//         *  data points
+//         */
+//
+//        series.add( generate( datapoints, epoch, Metrics.LBYTES, 2L, 30 ) );
+//        series.add( generate( datapoints, epoch, Metrics.PBYTES, 2L, 30 ) );
+//
+//        return series;
+//    }
+//
+//    private List<Series> dayCapacity( final List<VolumeDatapoint> datapoints,
+//                                      final Long epoch ) {
+//
+//        final List<Series> series = new ArrayList<>( );
+//
+//        /*
+//         * for each volume
+//         *  sum all datapoints for each hours to produce one datapoint,
+//         *  per volume
+//         */
+//
+//        // every six hours
+//        series.add( generate( datapoints, epoch, Metrics.LBYTES, 60L, 24 ) );
+//        series.add( generate( datapoints, epoch, Metrics.PBYTES, 60L, 24 ) );
+//
+//        return series;
+//    }
+//
+//    private List<Series> weekCapacity( final List<VolumeDatapoint> datapoints,
+//                                       final Long epoch ) {
+//
+//        final List<Series> series = new ArrayList<>( );
+//
+//        /*
+//         * for each volume
+//         *  sum all datapoints for each 6 hours to produce one datapoint,
+//         *  per volume
+//         */
+//        series.add( generate( datapoints, epoch, Metrics.LBYTES, 360L, 28 ) );
+//        series.add( generate( datapoints, epoch, Metrics.PBYTES, 360L, 28 ) );
+//
+//        return series;
+//    }
+//
+//    private List<Series> thirtyDaysCapacity(
+//        final List<VolumeDatapoint> datapoints,
+//        final Long epoch ) {
+//
+//        final List<Series> series = new ArrayList<>( );
+//
+//        /*
+//         * for each volume
+//         *  sum all datapoints for each day to produce one datapoint,
+//         *  per volume
+//         */
+//
+//        // every 1 day
+//        series.add( generate( datapoints, epoch, Metrics.LBYTES, 1440L, 30 ) );
+//        series.add( generate( datapoints, epoch, Metrics.PBYTES, 1440L, 30 ) );
+//
+//        return series;
+//    }
+//
+//    /**
+//     * @param datapoints the {@link java.util.List} of {@link com.formationds.commons.model.entity.VolumeDatapoint}
+//     * @param query the {@link com.formationds.om.repository.query.QueryCriteria}
+//     *
+//     * @return Returns the {@link java.util.List} of {@link com.formationds.commons.model.Series}
+//     */
+//    public final List<Series> getPerformanceSeries(
+//        final List<VolumeDatapoint> datapoints,
+//        final QueryCriteria query ) {
+//
+//        /*
+//         * So the idea is that we need to sum up all the volume datapoints
+//         * for a timestamp. Then determine if there enough datapoints to cover
+//         * what is being asked for.
+//         *
+//         * Maximum number of points is 30. Any timestamp that we don't
+//         * datapoints for will be set with a datapoint(x=0,y=timestamp).
+//         *
+//         * date range diff less than or equal to 'one hours' will provide a
+//         * datapoint every two minutes, i.e. 30 datapoints.
+//         *
+//         * date range diff less than or equal to 'one day' will provide a
+//         * datapoint every hours, i.e. 24 datapoints
+//         *
+//         * date range diff less than or equal to 'one week' will provide a
+//         * datapoint every 6 hours, i.e. 28 datapoints
+//         *
+//         * data range diff less then or equal to '30 days ' will provide a
+//         * datapoint every 24 hours, i.e. 30 data points
+//         */
+//        long diff = 0L;
+//        long epoch = 0L;
+//        if( query.getRange() != null ) {
+//            final DateRange dateRange = query.getRange();
+//            if( dateRange.getStart() != null && dateRange.getEnd() != null ) {
+//
+//                diff = dateRange.getEnd() - dateRange.getStart();
+//                epoch = dateRange.getStart();
+//
+//            } else if( dateRange.getStart() != null ) {
+//
+//                diff = DateTimeUtil.toUnixEpoch( LocalDateTime.now() ) -
+//                    dateRange.getStart();
+//                epoch = dateRange.getStart();
+//
+//            } else if( dateRange.getEnd() != null ) {
+//
+//                epoch = DateTimeUtil.toUnixEpoch( LocalDateTime.now() );
+//                diff = dateRange.getEnd() - epoch;
+//            }
+//        }
+//
+//        if( diff > 0L ) {
+//            if( diff <= SECONDS_IN_HOUR ) {
+//                return hourPerformance( datapoints, epoch );
+//            } else if( diff <= SECONDS_IN_DAY ) {
+//                return dayPerformance( datapoints, epoch );
+//            } else if( diff <= SECONDS_IN_WEEK ) {
+//                return weekPerformance( datapoints, epoch );
+//            } else if( diff <= SECONDS_IN_30_DAYS ) {
+//                return thirtyDaysPerformance( datapoints, epoch );
+//            } else {
+//                throw new IllegalArgumentException(
+//                    "start end timestamp delta is invalid" );
+//            }
+//        }
+//
+//        throw new IllegalArgumentException( "Date Range is invalid" );
+//    }
+//
+//    private List<Series> hourPerformance(
+//        final List<VolumeDatapoint> datapoints,
+//        final Long epoch ) {
+//
+//        final List<Series> series = new ArrayList<>( );
+//
+//        /*
+//         * for each volume
+//         *  sum all datapoints for each 2 minute interval to produce one
+//         *  datapoint, per volume
+//         */
+//
+//        series.add( generate( datapoints, epoch, Metrics.STP_WMA, 2L, 30 ) );
+//
+//        return series;
+//    }
+//
+//    private List<Series> dayPerformance(
+//        final List<VolumeDatapoint> datapoints,
+//        final Long epoch ) {
+//
+//        final List<Series> series = new ArrayList<>( );
+//
+//        /*
+//         * for each volume
+//         *  sum all datapoints for each hours to produce one datapoint,
+//         *  per volume
+//         */
+//        series.add( generate( datapoints, epoch, Metrics.STP_WMA, 60L, 24 ) );
+//
+//        return series;
+//    }
+//
+//    private List<Series> weekPerformance(
+//        final List<VolumeDatapoint> datapoints,
+//        final Long epoch ) {
+//
+//        final List<Series> series = new ArrayList<>( );
+//
+//        /*
+//         * for each volume
+//         *  sum all datapoints for each 6 hours to produce one datapoint,
+//         *  per volume
+//         */
+//        series.add( generate( datapoints, epoch, Metrics.STP_WMA, 360L, 28 ) );
+//
+//        return series;
+//    }
+//
+//    private List<Series> thirtyDaysPerformance(
+//        final List<VolumeDatapoint> datapoints,
+//        final Long epoch ) {
+//
+//        final List<Series> series = new ArrayList<>( );
+//
+//        /*
+//         * for each volume
+//         *  sum all datapoints for each day to produce one datapoint,
+//         *  per volume
+//         */
+//        series.add( generate( datapoints, epoch, Metrics.STP_WMA, 1440L, 30 ) );
+//
+//        return series;
+//    }
 
     private Series generate(
         final List<VolumeDatapoint> volumeDatapoints,

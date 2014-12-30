@@ -123,8 +123,8 @@ public class QueryHelper {
 	            } else if( isPerformanceQuery( query.getSeriesType() ) ) {
 	
 	                series.addAll(
-	                    new SeriesHelper().getPerformanceSeries( queryResults,
-	                                                             query ) );
+	                    new SeriesHelper().getSummedSeries( queryResults,
+	                                                        query ) );
 	                final IOPsConsumed ioPsConsumed = new IOPsConsumed();
 	                ioPsConsumed.setDailyAverage( 0.0 );
 	                calculatedList.add( ioPsConsumed );
@@ -132,8 +132,8 @@ public class QueryHelper {
 	            } else if( isCapacityQuery( query.getSeriesType() ) ) {
 	
 	                series.addAll(
-	                    new SeriesHelper().getCapacitySeries( queryResults,
-	                                                          query ) );
+	                    new SeriesHelper().getSummedSeries( queryResults,
+	                                                        query ) );
 	
 	                calculatedList.add( deDupRatio() );
 	
@@ -153,6 +153,22 @@ public class QueryHelper {
 	            	series.addAll(
 	            		new SeriesHelper().getSummedSeries( queryResults, 
 	            										 	query ) );
+	            	
+	            	// GETS has the total # of gets and SSD is a subset of those.
+	            	// This query wants GETS for HDD access and SSD access so we mutate the
+	            	// GETS series with a quick subtraction of the corresponding SSD field
+	            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS ) )
+	            		.findFirst().get();
+	            	
+	            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS  ) )
+	            		.findFirst().get();
+	            	
+	            	for ( int i = 0; gets.getDatapoints().size() == ssdGets.getDatapoints().size() && 
+	            		i < gets.getDatapoints().size(); i++ ){
+	            		
+	            		Datapoint point = gets.getDatapoints().get( i );
+	            		point.setY( point.getY() - ssdGets.getDatapoints().get( i ).getY() );
+	            	}
 	            	
 	            } else {
 	            	

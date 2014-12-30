@@ -15,14 +15,15 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.firebreakStats = { series: [[]], summaryData: { hoursSinceLastEvent: 0 }};
     $scope.firebreakItems = [];
     $scope.performanceStats = { series: [[]] };
+    $scope.performanceBreakdownStats = { series: [[]] };
     $scope.performanceItems = [];
     $scope.capacityStats = { series: [[]] };
     
     $scope.firebreakDomain = [ 'max', 3600*12, 3600*6, 3600*3, 3600, 0 ];
     $scope.firebreakRange = ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'];
     
-    $scope.performanceColors = [ '#A4D966' ];
-    $scope.performanceLine = ['#66B22E'];
+    $scope.performanceColors = [ '#A4D966', '#e9b3e8', '#ffcc8e' ];
+    $scope.performanceLine = ['#66B22E', '#da7cd8', '#fe8b00'];
     $scope.fakeCapColors = [ '#ABD3F5', '#72AEEB' ];
     
     $scope.capacityLineStipples = [ '2,2', 'none' ];
@@ -46,7 +47,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     };
     
     $scope.perfBreakdownReturned = function( data ){
-        var i = 0;
+        $scope.performanceBreakdownStats = data;
     };
     
     $scope.capacityReturned = function( data ){
