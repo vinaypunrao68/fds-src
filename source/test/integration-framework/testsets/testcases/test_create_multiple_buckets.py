@@ -43,7 +43,7 @@ class TestCreateMultipleBuckets(testcase.FDSTestCase):
         test_passed = False
         try:
             self.test_create_multiple_buckets()     
-            self.log.info(table)           
+            self.log.info(self.table)           
             for k, v in self.table.iteritems():
                 if k:
                     # test also if the file is there in the bucket.
@@ -58,9 +58,13 @@ class TestCreateMultipleBuckets(testcase.FDSTestCase):
         '''
         Remove all the buckets which were created by this test.
         '''
-        for k, v in self.table.iteritems():
-            if k:
-                self.conn.delete_bucket(k.name)
+        for bucket, v in self.table.iteritems():
+            if bucket:
+                for key in bucket.list():
+                    bucket.delete_key(key)
+
+                self.log.info("----- Name: %s --------" % bucket.name)
+                self.conn.delete_bucket(bucket.name)
         self.table = {}
         
     def test_create_multiple_buckets(self):
@@ -80,7 +84,7 @@ class TestCreateMultipleBuckets(testcase.FDSTestCase):
                 if bucket == None:
                     raise Exception("Invalid bucket.")
                     sys.exit(1)
-                table[bucket] = user
+                self.table[bucket] = user
                 k = Key(bucket)
                 k.key = config.SAMPLE_FILE
                 k.set_contents_from_filename(full_file_name,

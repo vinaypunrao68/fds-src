@@ -14,4 +14,6 @@ conn = boto.s3.connect_to_region('us-east-1',
        calling_format = boto.s3.connection.OrdinaryCallingFormat(),
 )
 
-bucket = conn.create_bucket('phil-bucket01-test')
+for i in xrange(1, 31):
+    name = "hello_" + str(i)
+    conn.delete_bucket(name)
