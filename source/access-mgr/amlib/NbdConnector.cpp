@@ -437,7 +437,9 @@ NbdConnection::hsReply(ev::io &watcher) {
             if (current_response->isRead() && (opError.ok())) {
                 boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
                 while (buf != NULL) {
-                    GLOGDEBUG << "Handle " << current_response->handle << "...Buffer # " << context;
+                    GLOGDEBUG <<    "Handle 0x" << std::hex << current_response->handle <<
+                                    "...Buffer # " << context <<
+                                    "...Size " << std::dec << buf->length() << "B";
                     response[total_blocks].iov_base = to_iovec(buf->c_str());
                     response[total_blocks].iov_len = buf->length();
                     ++total_blocks;

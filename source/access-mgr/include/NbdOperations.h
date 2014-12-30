@@ -4,6 +4,7 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_NBDOPERATIONS_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_NBDOPERATIONS_H_
 
+#include <algorithm>
 #include <vector>
 #include <string>
 #include <map>
@@ -87,14 +88,8 @@ class NbdResponseVector {
                    (err == ERR_BLOB_NOT_FOUND)) {
             // we tried to read unwritten block, fill in zeros
             fds_uint32_t iOff = offset % maxObjectSizeInBytes;
-            fds_uint32_t firstObjectLength = length;
-            if (length >= maxObjectSizeInBytes) {
-                firstObjectLength -= iOff;
-            } else if ((seqId == 0) && (iOff != 0)) {
-                if (length > (maxObjectSizeInBytes - iOff)){
-                    firstObjectLength = maxObjectSizeInBytes - iOff;
-                }
-            }
+            fds_uint32_t firstObjectLength = std::min(length,
+                                                      maxObjectSizeInBytes - iOff);
             fds_uint32_t iLength = maxObjectSizeInBytes;
             if (seqId == 0) {
                 iLength = firstObjectLength;
