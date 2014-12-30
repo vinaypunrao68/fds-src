@@ -1,0 +1,135 @@
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
+#include <sys/stat.h>
+#include <cstring>
+#include <string>
+#include <memory>
+#include <iostream>
+#include <fds_assert.h>
+#include <libs3.h>
+#include <S3Client.h>
+
+namespace fds {
+
+S3TaskStatus::S3TaskStatus()
+    : status(S3StatusOK)
+{
+    memset(&cbData, 0, sizeof(cbData));
+}
+
+S3Client::S3Client(const std::string &host,
+                   const std::string &accessKey,
+                   const std::string &secretKey)
+{
+    host_ = host;
+    accessKey_ = accessKey;
+    secretKey_ = secretKey;
+
+    responseHandler_.propertiesCallback =
+        &S3Client::responsePropertiesCallback_;
+    responseHandler_.completeCallback =
+        &S3Client::responseCompleteCallback_;
+
+    auto status = S3_initialize("s3", S3_INIT_ALL, host.c_str());
+    fds_verify(status == S3StatusOK);
+}
+
+S3Client::~S3Client()
+{
+    S3_deinitialize();
+}
+
+S3Status S3Client::createBucket(const std::string &bucketName)
+{
+    std::unique_ptr<S3TaskStatus> taskStatus(new S3TaskStatus);
+    S3_create_bucket(S3ProtocolHTTP, accessKey_.c_str(), secretKey_.c_str(),
+                     host_.c_str(), bucketName.c_str(), S3CannedAclPrivate,
+                     NULL, NULL, &responseHandler_, taskStatus.get());
+    taskStatus->await();
+    return taskStatus->status;
+}
+
+S3Status S3Client::putFile(const std::string &bucketName,
+                           const std::string objName,
+                           const std::string &filePath)
+{
+    S3BucketContext bucketContext;
+    initBucketContext_(bucketName, bucketContext);
+
+    std::unique_ptr<S3TaskStatus> taskStatus(new S3TaskStatus);
+
+    S3PutObjectCbData *data = &(taskStatus->cbData.putCbData);
+    struct stat statbuf;
+    if (stat(filePath.c_str(), &statbuf) == -1) {
+        std::cerr << "Failed to stat file " << filePath << std::endl;
+        return S3StatusErrorUnknown;
+    }
+    if (!(data->infile = fopen(filePath.c_str(), "r"))) {
+        std::cerr << "Failed to open file " << filePath << std::endl;
+        return S3StatusErrorUnknown;
+    }
+    data->contentLength = statbuf.st_size;
+
+    S3PutObjectHandler putObjectHandler =
+    {
+        responseHandler_,
+        &S3Client::putObjectDataCallback_
+    };
+    S3_put_object(&bucketContext, objName.c_str(), data->contentLength,
+                  NULL, NULL, &putObjectHandler, taskStatus.get());
+
+    taskStatus->await();
+    return taskStatus->status;
+}
+
+void S3Client::initBucketContext_(const std::string &bucketName,
+                                S3BucketContext& bucketContext)
+{
+    bucketContext = {
+        host_.c_str(),
+        bucketName.c_str(),
+        S3ProtocolHTTP,
+        S3UriStylePath,
+        accessKey_.c_str(),
+        secretKey_.c_str()
+    };
+}
+
+S3Status S3Client::responsePropertiesCallback_(const S3ResponseProperties *properties,
+                                               void *callbackData)
+{
+    std::cout << __FUNCTION__ << std::endl;
+    return S3StatusOK;
+}
+
+void S3Client::responseCompleteCallback_(S3Status status,
+                                         const S3ErrorDetails *error,
+                                         void *callbackData)
+{
+    std::cout << __FUNCTION__ << " Status: " << status << std::endl;
+    S3TaskStatus* taskStatus = reinterpret_cast<S3TaskStatus*>(callbackData);
+    taskStatus->status = status;
+    taskStatus->done();
+    return;
+}
+
+int S3Client::putObjectDataCallback_(int bufferSize, char *buffer, void *callbackData)
+{
+    S3TaskStatus* taskStatus = reinterpret_cast<S3TaskStatus*>(callbackData);
+    S3PutObjectCbData *data = &(taskStatus->cbData.putCbData);
+    int ret = 0;
+    if (data->contentLength) {
+        int toRead = ((data->contentLength > (unsigned) bufferSize) ?
+                      (unsigned) bufferSize : data->contentLength);
+        ret = fread(buffer, 1, toRead, data->infile);
+    }
+    data->contentLength -= ret;
+    if (data->contentLength == 0) {
+        fclose(data->infile);
+    }
+    std::cout << __FUNCTION__ << " read: " << ret << " left: " << data->contentLength
+        << std::endl;
+    return ret;
+}
+}  // namespace fds

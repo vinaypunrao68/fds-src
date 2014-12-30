@@ -25,7 +25,8 @@ user_cpp         :=      \
     PerfHistory.cpp      \
     StatsCollector.cpp   \
     ObjectLogger.cpp 	 \
-	Histogram.cpp
+	Histogram.cpp 	\
+    S3Client.cpp
 
 user_incl_dir    := .. $(topdir)
 user_no_style    := \

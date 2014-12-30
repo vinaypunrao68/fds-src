@@ -8,14 +8,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include <iostream>
 #include <memory>
 #include <cstring>
 #include <curl/curl.h>
 #include <jansson.h>
 #include <fds_assert.h>
-#include <libs3.h>
-#include <concurrency/taskstatus.h>
-
+#include <S3Client.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -117,99 +116,127 @@ std::string getFormationS3Key(const std::string &endpoint)
     return s3key;
 }
 
-struct S3TaskStatus : concurrency::TaskStatus
-{
-    S3TaskStatus()
-        : status(S3StatusOK)
-    {
-    }
+}  // namespace fds
 
-    S3Status status;
+S3Status responsePropertiesCallback(
+                const S3ResponseProperties *properties,
+                void *callbackData);
+static void responseCompleteCallback(
+                S3Status status,
+                const S3ErrorDetails *error,
+                void *callbackData);
+
+const char access_key[] = "ACCESS_KEY";
+const char secret_key[] = "SECRET_KEY";
+const char host[] = "localhost:8000";
+const char sample_bucket[] = "sample_bucket";
+const char sample_key[] = "hello.txt";
+const char sample_file[] = "/home/nbayyana/playground/cpp/curl/curlget.cpp";
+S3ResponseHandler responseHandler =
+{
+        &responsePropertiesCallback,
+        &responseCompleteCallback
 };
-
-struct S3Client
+typedef struct put_object_callback_data
 {
-    S3Client(const std::string &host,
-             const std::string &accessKey,
-             const std::string &secretKey);
-    ~S3Client();
-    S3Status createBucket(const std::string &bucketName);
-    S3Status putFile();
-    static S3Status responsePropertiesCallback_(const S3ResponseProperties *properties,
-                                            void *callbackData);
-    static void responseCompleteCallback_(S3Status status,
-                                          const S3ErrorDetails *error,
-                                          void *callbackData);
+    FILE *infile;
+    uint64_t contentLength;
+} put_object_callback_data;
 
- protected:
-    std::string host_;
-    std::string accessKey_;
-    std::string secretKey_;
-    S3ResponseHandler responseHandler_;
-};
-
-S3Client::S3Client(const std::string &host,
-                   const std::string &accessKey,
-                   const std::string &secretKey)
+S3Status responsePropertiesCallback(
+                const S3ResponseProperties *properties,
+                void *callbackData)
 {
-    host_ = host;
-    accessKey_ = accessKey;
-    secretKey_ = secretKey;
-
-    responseHandler_.propertiesCallback =
-        &S3Client::responsePropertiesCallback_;
-    responseHandler_.completeCallback =
-        &S3Client::responseCompleteCallback_;
-
-    auto status = S3_initialize("s3", S3_INIT_ALL, host.c_str());
-    fds_verify(status == S3StatusOK);
-}
-
-S3Client::~S3Client()
-{
-    S3_deinitialize();
-}
-
-S3Status S3Client::createBucket(const std::string &bucketName)
-{
-    std::unique_ptr<S3TaskStatus> taskStatus(new S3TaskStatus);
-    S3_create_bucket(S3ProtocolHTTP, accessKey_.c_str(), secretKey_.c_str(),
-                     host_.c_str(), bucketName.c_str(), S3CannedAclPrivate,
-                     NULL, NULL, &responseHandler_, taskStatus.get());
-    taskStatus->await();
-    return taskStatus->status;
-}
-
-S3Status S3Client::putFile() {
+    std::cout << __FUNCTION__ << std::endl;
     return S3StatusOK;
 }
 
-S3Status S3Client::responsePropertiesCallback_(const S3ResponseProperties *properties,
-                                               void *callbackData)
-{
-    std::cout << __FUNCTION__ << " " << __LINE__ << std::endl;
-    return S3StatusOK;
-}
-
-void S3Client::responseCompleteCallback_(S3Status status,
-                                         const S3ErrorDetails *error,
-                                         void *callbackData)
+static void responseCompleteCallback(
+                S3Status status,
+                const S3ErrorDetails *error,
+                void *callbackData)
 {
     std::cout << __FUNCTION__ << " Status: " << status << std::endl;
-    S3TaskStatus* taskStatus = reinterpret_cast<S3TaskStatus*>(callbackData);
-    taskStatus->status = status;
-    taskStatus->done();
     return;
 }
 
-}  // namespace fds
+static int putObjectDataCallback(int bufferSize,
+                                 char *buffer, void *callbackData)
+{
+    put_object_callback_data *data =
+        reinterpret_cast<put_object_callback_data *>(callbackData);
+    int ret = 0;
+    if (data->contentLength) {
+        int toRead = ((data->contentLength > (unsigned) bufferSize) ?
+                      (unsigned) bufferSize : data->contentLength);
+        ret = fread(buffer, 1, toRead, data->infile);
+    }
+    data->contentLength -= ret;
+
+    std::cout << __FUNCTION__ << " ret: " << ret << std::endl;
+    return ret;
+}
+
+TEST(s3, test) {
+    S3_initialize("s3", S3_INIT_ALL, host);
+    S3_create_bucket(S3ProtocolHTTP, access_key,
+                     secret_key, host, sample_bucket,
+                     S3CannedAclPrivate, NULL, NULL, &responseHandler, NULL);
+    S3_deinitialize();
+}
+
+TEST(s3, putTest)
+{
+    S3BucketContext bucketContext =
+    {
+        host,
+        sample_bucket,
+        S3ProtocolHTTP,
+        S3UriStylePath,
+        access_key,
+        secret_key
+    };
+    S3_initialize("s3", S3_INIT_ALL, host);
+    S3PutObjectHandler putObjectHandler =
+    {
+        responseHandler,
+        &putObjectDataCallback
+    };
+    put_object_callback_data data;
+    struct stat statbuf;
+    if (stat(sample_file, &statbuf) == -1) {
+        fprintf(stderr, "\nERROR: Failed to stat file %s: ", sample_file);
+        perror(0);
+        exit(-1);
+    }
+
+    int contentLength = statbuf.st_size;
+    data.contentLength = contentLength;
+
+    if (!(data.infile = fopen(sample_file, "r"))) {
+        fprintf(stderr, "\nERROR: Failed to open input file %s: ", sample_file);
+        perror(0);
+        exit(-1);
+    }
+
+
+    S3_put_object(&bucketContext, sample_key, contentLength,
+                  NULL, NULL, &putObjectHandler, &data);
+    S3_deinitialize();
+}
 
 TEST(s3, getFormationS3Key) {
-    std::string key = fds::getFormationS3Key("https://localhost:7443");
+    // std::string key = fds::getFormationS3Key("https://localhost:7443");
+    std::string key = "my-accesss-key";
     std::cout << "key is : " << key << std::endl;
-    fds::S3Client cl("localhost:8050", "admin", key);
-    auto status = cl.createBucket("b1");
+    fds::S3Client cl("localhost:8000", "admin", key);
+    auto status = cl.createBucket("sample_bucket");
+    ASSERT_TRUE(status == 0 || status == 52);
+    status = cl.putFile("sample_bucket", "f1",
+                        "/home/nbayyana/playground/cpp/curl/curlget.cpp");
+    ASSERT_EQ(status, 0);
 }
+
 
 int main(int argc, char** argv) {
     // The following line must be executed to initialize Google Mock
