@@ -1,0 +1,112 @@
+.time-slider {
+    
+    @include no-select();
+    
+    position: relative;
+    width: 100%;
+    
+    &:active {
+        cursor: ew-resize;
+    }
+    
+    input {
+        border-radius: 6px;
+        padding-left: 5px;
+        padding-right: 5px;
+        border: 1px solid #cccccc;
+    }
+    
+    .slider-parent {
+        position: relative;
+        height: 20px;
+    }
+    
+    .value-container {
+        position: absolute;
+        top: -68px;
+        
+        .edit-box {
+            position: absolute;
+            color: black;
+            border: 1px solid $text_very_light_color;
+            background-color: #F6F6F6;
+            padding: 4px;
+            border-radius: 5px;
+        }
+    }
+    
+    .arrow-parent {
+        bottom: 16px;
+        position: absolute;
+        
+        .arrow {
+            fill: #F6F6F6;
+            stroke: $text_very_light_color;
+            stroke-width: 1px;
+        }
+    }    
+    
+    .bar {
+        width: 100%;
+        height: 10px;
+        position: absolute;
+        top: 8px;
+        background-color: #ECF6FD;
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+    
+    .select-range {
+        position: absolute;
+        top: 10px;
+        height: 10px;
+        pointer-events: none;
+        background-color: #4294DF;
+        top: 8px;
+    }
+    
+    .handle {
+        color: black;
+        height: 20px;
+        width: 11px;
+        border: 1px solid black;
+        background-color: white;
+        position: absolute;
+        top: 4px;
+        cursor: pointer;
+        z-index: 2;
+
+        &.grabbed {
+            background-color: #4294DF;
+            cursor: ew-resize;
+        }
+    }
+    
+    .domain-labels {
+        
+        position: relative;
+        height: 30px;
+        color: black;
+        
+        .label-parent {
+            position: absolute;
+        }
+        
+        .tick {
+            width: 2px;
+            height: 10px;
+            background-color: $text_very_light_color;
+        }
+        
+        .text {
+            font-size: 11px;
+        }
+    }
+    
+    .form-control {
+        height: auto;
+        width: 150px;
+        padding-bottom: 4px;
+        padding-top: 4px;
+    }
+}

@@ -13,7 +13,11 @@
 #include <fds_typedefs.h>
 #include <fds_error.h>
 #include <OmVolume.h>
-#include <platform/node-inventory.h>
+
+#include "NetSession.h"
+#include "platform/agent_container.h"
+#include "platform/domain_container.h"
+
 #include <fdsp/FDSP_ControlPathResp.h>
 #include <dlt.h>
 #include <fds_dmt.h>

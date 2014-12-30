@@ -5,10 +5,7 @@
 #include <string>
 
 #include <NetSession.h>
-
-#include "platform/node-inventory.h"
-#include "platform/node-inv-shmem.h"
-
+#include "platform/node_data.h"
 #include "node_platform.h"
 
 namespace fds

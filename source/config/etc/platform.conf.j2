@@ -74,9 +74,7 @@ fds: {
 	}
     }
     dm: {
-        perf: {
-            enable=true
-        }
+        perf: { enable = {{ perf_tracing }} }
 
         qos: {
             /* Default qos threads */
@@ -151,9 +149,7 @@ fds: {
         }
     }
     sm: {
-        perf: {
-            enable=true
-        }
+        perf: { enable = {{ perf_tracing }} }
 
         /* process id */
         id      = "sm"
@@ -257,9 +253,8 @@ fds: {
         }
     }
     am: {
-        perf: {
-            enable=true
-        }
+        perf: { enable = {{ perf_tracing }} }
+
         log_severity = "{{ am_log_severity }}"
         logfile      = "am"
         om_ip        = "{{ om_ip }}"
@@ -400,6 +395,10 @@ fds: {
             min_thread  = 3
             max_thread  = 8
         }
+    }
+    
+    xdi: {
+	am_host = "{{ am_host }}"
     }
 }
 {% endblock %}

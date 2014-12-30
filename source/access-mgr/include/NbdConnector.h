@@ -11,6 +11,8 @@
 #include <concurrency/Thread.h>
 #include <OmConfigService.h>
 #include <NbdOperations.h>
+#include <queue>
+#include <boost/lockfree/queue.hpp>
 
 // Forward declare so we can hide the ev++.h include
 // in the cpp file so that it doesn't conflict with
@@ -25,7 +27,7 @@ namespace fds {
 #pragma pack(push)
 #pragma pack(1)
 struct attach_header {
-    fds_int64_t magic;
+    uint8_t magic[8];
     fds_int32_t optSpec, length;
 };
 
@@ -76,6 +78,8 @@ class NbdConnection : public NbdOperationsResponseIface {
     int clientSocket;
     boost::shared_ptr<std::string> volumeName;
     apis::VolumeDescriptor volDesc;
+    size_t volume_size;
+
     OmConfigApi::shared_ptr omConfigApi;
     NbdOperations::shared_ptr nbdOps;
     size_t maxChunks;
@@ -95,21 +99,20 @@ class NbdConnection : public NbdOperationsResponseIface {
         fds_uint32_t length;
         fds_int32_t opType;
     };
-    UturnPair ready_handle;
-    std::unique_ptr<NbdResponseVector> ready_response;
+    boost::lockfree::queue<UturnPair> readyHandles;
+    boost::lockfree::queue<NbdResponseVector*> readyResponses;
+    std::unique_ptr<NbdResponseVector> current_response;
 
-    static constexpr fds_int64_t NBD_MAGIC = 0x49484156454F5054l;
+    static constexpr uint8_t NBD_MAGIC[] = { 0x49, 0x48, 0x41, 0x56, 0x45, 0x4F, 0x50, 0x54 };
     static constexpr char NBD_MAGIC_PWD[] {'N', 'B', 'D', 'M', 'A', 'G', 'I', 'C'};  // NOLINT
-    static constexpr fds_uint16_t NBD_PROTO_VERSION = 1;
-    static constexpr fds_uint32_t NBD_ACK = 0;
+    static constexpr uint8_t NBD_PROTO_VERSION[] = { 0x00, 0x01 };
     static constexpr fds_int32_t NBD_OPT_EXPORT = 1;
-    static constexpr fds_int32_t NBD_FLAG_HAS_FLAGS  = 0x1 << 0;
-    static constexpr fds_int32_t NBD_FLAG_READ_ONLY  = 0x1 << 1;
-    static constexpr fds_int32_t NBD_FLAG_SEND_FLUSH = 0x1 << 2;
-    static constexpr fds_int32_t NBD_FLAG_SEND_FUA   = 0x1 << 3;
-    static constexpr fds_int32_t NBD_FLAG_ROTATIONAL = 0x1 << 4;
-    static constexpr fds_int32_t NBD_FLAG_SEND_TRIM  = 0x1 << 5;
-    static constexpr char NBD_PAD_ZERO[124] {0};  // NOLINT
+    static constexpr fds_int16_t NBD_FLAG_HAS_FLAGS  = 0x1 << 0;
+    static constexpr fds_int16_t NBD_FLAG_READ_ONLY  = 0x1 << 1;
+    static constexpr fds_int16_t NBD_FLAG_SEND_FLUSH = 0x1 << 2;
+    static constexpr fds_int16_t NBD_FLAG_SEND_FUA   = 0x1 << 3;
+    static constexpr fds_int16_t NBD_FLAG_ROTATIONAL = 0x1 << 4;
+    static constexpr fds_int16_t NBD_FLAG_SEND_TRIM  = 0x1 << 5;
     static constexpr fds_int32_t NBD_REQUEST_MAGIC = 0x25609513;
     static constexpr fds_int32_t NBD_RESPONSE_MAGIC = 0x67446698;
     static constexpr fds_int32_t NBD_CMD_READ = 0;

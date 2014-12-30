@@ -8,7 +8,7 @@
 
 #include <concurrency/Mutex.h>
 #include <kvstore/kvstore.h>
-#include <platform/node-inventory.h>
+#include "fds_resource.h"
 #include <fds_typedefs.h>
 #include <string>
 #include <vector>

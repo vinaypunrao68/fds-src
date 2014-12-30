@@ -7,21 +7,16 @@
     <div class="to-clone-or-not">
         <fds-radio ng-model="volumeVars.toClone" value="new" name="clone" icon-class="icon-presets" label="{{ 'volumes.l_create_blank_volume' | translate }}"></fds-radio>
         <fds-radio ng-model="volumeVars.toClone" value="clone" name="clone" icon-class="icon-clone" label="{{ 'volumes.l_clone_existing' | translate }}" ng-show="cloneOptions.length > 0"></fds-radio>
-
     </div>
     
-    <div class="flex" ng-show="choosing === false && volumeVars.toClone === 'clone'">
-        <div>Clone from {{getSelectedName()}}</div>
-        <span class="icon icon-edit" ng-click="choosing = true" style="margin-left: 8px;color: #A0A0A0"></span>
+    <div class="cloning-options" ng-show="volumeVars.toClone === 'clone'">
+    
+        <div class="flex" style="padding-bottom: 4px;">
+            <div style="padding-right: 4px;" translate>volumes.l_volume_to_clone_from</div>
+            <fui-dropdown class="volume-dropdown" selected="volumeVars.cloneFromVolume" items="volumes" skinny="true" background="none" color="black" name-property="name" border="black"></fui-dropdown>
+        </div>
+        
+        <time-slider valid-ranges="ranges" ng-model="volumeVars.cloneFromVolume.timelineTime" label="{{ 'volumes.l_point_timeline' | translate }}" label-function="dateLabelFunction" domain-labels="domainLabels"></time-slider>
     </div>
     
-    <div ng-show="volumeVars.toClone === 'clone' && choosing === true">
-<!--        <tree-grid data="cloneOptions" columns="cloneColumns" ng-model="selectedItem" children-function="getSnapshots"></tree-grid>-->
-        <mac-browser data="cloneOptions" ng-model="selectedItem" children-function="getSnapshots" columns="cloneColumns" height="350" browser-title="{{ 'volumes.l_select_to_clone' | translate }}" cancel-function="cancel" choose-function="choose">
-            <div class="clone-details-div" ng-if="selectedItem.parent.data_connector">{{selectedItem.parent.data_connector.type}}</div>
-            <div class="clone-details-div">{{selectedItem.data_connector.size}}</div>
-            <div class="clone-details-div" translate>volumes.desc_cloning</div>
-        </mac-browser>
-
-    </div>
 </div>

@@ -87,7 +87,7 @@ class OMgrClient {
     int domain_id;
     FDSP_MgrIdType my_node_type;
     NodeUuid myUuid;
-    bool fNoNetwork = false;
+    bool fNoNetwork;
     std::string my_node_name;
     std::string omIpStr;
     fds_uint32_t omConfigPort;

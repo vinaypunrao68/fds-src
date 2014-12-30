@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 
-#include <platform/plat-serialize.h>
+#include <platform/node_services.h>
 
 namespace fds
 {
