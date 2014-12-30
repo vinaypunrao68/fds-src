@@ -25,7 +25,7 @@ namespace fds {
     bool copy_is_dirty;
     void *plcy_data;
     // Some additional fields here to track it's eviction candidacy status
-    // If we use calendar queues for example, 
+    // If we use calendar queues for example,
     // we may store here the ptr to the calendar
     // item to which this object belongs.
     ObjectCacheBuf()
@@ -74,7 +74,7 @@ namespace fds {
   public:
     fds_volid_t vol_id;
     vol_obj_map_t object_map;
-    std::atomic<fds_uint64_t> total_mem_used;
+    alignas(64) std::atomic<fds_uint64_t> total_mem_used;
     fds_uint64_t num_cache_hits;
     fds_uint64_t num_cache_queries;
     fds_uint64_t num_objects_added;
@@ -91,7 +91,7 @@ namespace fds {
   };
 
   class FdsObjectCache {
-    
+
   public:
 
     FdsObjectCache(fds_uint64_t cache_size, // Max size of the cache, across all volumes
@@ -100,8 +100,8 @@ namespace fds {
 		   fds_log *parent_log);
     ~FdsObjectCache();
 
-    int vol_cache_create (fds_volid_t vol_id, 
-			  fds_uint64_t min_cache_size, // Will never take away cache space beyond this size 
+    int vol_cache_create (fds_volid_t vol_id,
+			  fds_uint64_t min_cache_size, // Will never take away cache space beyond this size
 			  fds_uint64_t max_cache_size);// Will never let the cache grow beyond this size
 
     int vol_cache_delete(fds_volid_t vol_id);
@@ -115,14 +115,14 @@ namespace fds {
     // Simply allocate buffer, object will not be in any cache lookup until object add is done.
     // If the cache can grow, new buf space will be allocated.
     // Otherwise, a buffer from an existing object in the cache will be reallocated, using the eviction policy.
-    ObjBufPtrType object_alloc(fds_volid_t vol_id, 
-			       ObjectID objId, 
-			       fds_uint64_t obj_size); 
-    
+    ObjBufPtrType object_alloc(fds_volid_t vol_id,
+			       ObjectID objId,
+			       fds_uint64_t obj_size);
+
     // Add it to the cache map so it is available for future lookups.
     int object_add(fds_volid_t vol_id, ObjectID objId, ObjBufPtrType& obj_data, bool is_dirty);
 
-    // Was the object previously added as dirty? Call this after 
+    // Was the object previously added as dirty? Call this after
     // the object is synced to persistent storage.
     int mark_object_clean(fds_volid_t vol_id,
 			  ObjectID objId,
@@ -131,7 +131,7 @@ namespace fds {
     // Delete this object from the cache map and use the buffer for reallocation for future alloc requests
     // Primarily to be used to by an external garbage collection thread
     int object_delete(fds_volid_t vol_id, ObjectID objId);
-    
+
     // A version of delete for the plcy manager to call when it wants to evict an object.
     // Main difference between this and delete is this assumes plcy manager already knows
     // about this object going away.
@@ -165,7 +165,7 @@ namespace fds {
     std::atomic<fds_uint64_t> total_mem_used;
     fds_rwlock volmap_rwlock; // protects the volume map
                               // against volume create/delete events.
-    
+
     void *lru_data; // TBD, a calendar queue probably. Priority queues are very space-intensive for large number of objects.
     ObjCacheBufPtrType object_remove(fds_volid_t vol_id, ObjectID objId, bool ignore_in_progress);
 
@@ -182,7 +182,7 @@ namespace fds {
 
 daemon_init() {
 //...
-obj_cache = new FDSObjectCache(1*10^30, slab_type_default, eviction_plcy_default); 
+obj_cache = new FDSObjectCache(1*10^30, slab_type_default, eviction_plcy_default);
 //...
 }
 
@@ -208,10 +208,10 @@ object_read(vol_id, oid) {
  // ... retrieve object from disk using persistence layer API
  persistent_layer_object_get(objBufPtr->data.c_str(), obj_locn, obj_size);
 
- // If persistence layer is invoked asynchronously, 
- // then the folllwing steps need to be happen in the completion callback. 
+ // If persistence layer is invoked asynchronously,
+ // then the folllwing steps need to be happen in the completion callback.
  copy_data_and_respond_to_RPC(objBufPtr);
- object_cache->object_release(vol_id, obj_id, objBufPtr);  
+ object_cache->object_release(vol_id, obj_id, objBufPtr);
 }
 
 object_write(vol_id, oid, msg) {
@@ -221,21 +221,21 @@ object_write(vol_id, oid, msg) {
  if (rc == ERR_OK) {
    // ... get the object from cache if present and check for dedup.
    // otherwise, retrieve from persistence layer and check.
- } 
- objBufPtr = obj_cache->object_alloc(vol_id, obj_id, msg->obj_size); 
- memcpy(objBufPtr->data.c_str(), msg->obj_data, msg->obj_size); 
- // Note, if cache is a non-volatile cache, we can add to cache and 
- // respond to write req right here and 
+ }
+ objBufPtr = obj_cache->object_alloc(vol_id, obj_id, msg->obj_size);
+ memcpy(objBufPtr->data.c_str(), msg->obj_data, msg->obj_size);
+ // Note, if cache is a non-volatile cache, we can add to cache and
+ // respond to write req right here and
  // proceed with persisting in the background.
 
  persistent_layer_object_put(obj_id, objBufPtr->data.c_str(), obj_tier, &obj_locn);
- indexdb_update_obj_locn(vol_id, msg->obj_size, obj_locn); 
- 
- // If persistence layer is invoked asynchronously, 
- // then the folllwing steps need to be happen in the completion callback. 
+ indexdb_update_obj_locn(vol_id, msg->obj_size, obj_locn);
+
+ // If persistence layer is invoked asynchronously,
+ // then the folllwing steps need to be happen in the completion callback.
  object_cache->object_add(vol_id, obj_id, objBufPtr);
  respond_to_RPC();
- object_cache->object_release(vol_id, obj_id, objBufPtr);  
+ object_cache->object_release(vol_id, obj_id, objBufPtr);
 
 }
 

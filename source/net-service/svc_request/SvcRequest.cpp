@@ -13,6 +13,7 @@
 #include <net/SvcRequestPool.h>
 #include <fds_module_provider.h>
 #include <util/fiu_util.h>
+#include <thrift/transport/TTransportUtils.h>  // For TException.
 
 namespace fds {
 
@@ -219,6 +220,19 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
         GLOGERROR << logString() << " Error: " << respHdr->msg_code
             << " exception: " << e.what();
         gSvcRequestPool->postError(respHdr);
+    } catch(apache::thrift::TException &tx) {
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
+        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
+        GLOGWARN << logString() << " Warning: " << respHdr->msg_code
+            << " exception: " << tx.what();
+        gSvcRequestPool->postError(respHdr);
+    } catch(std::runtime_error &e) {
+        GLOGERROR << logString() << " No healthy endpoints left";
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
+        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
+        GLOGERROR << logString() << " Error: " << respHdr->msg_code
+            << " exception: " << e.what();
+        gSvcRequestPool->postError(respHdr);
     } catch(std::exception &e) {
         auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
@@ -375,7 +389,7 @@ void SvcRequestIf::sendRespWork(EpSvcHandle::pointer eph,
 
 /**
 * @brief Worker function for doing the invocation work
-* NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
+* NOTE this function is executed on NetMgr::ep_task_executor for synchronization
 */
 void EPSvcRequest::invokeWork_()
 {
@@ -588,7 +602,7 @@ FailoverSvcRequest::~FailoverSvcRequest()
 
 /**
  * Invocation work function
- * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
+ * NOTE this function is executed on NetMgr::ep_task_executor for synchronization
  */
 void FailoverSvcRequest::invokeWork_()
 {
@@ -601,7 +615,7 @@ void FailoverSvcRequest::invokeWork_()
         DBG(GLOGDEBUG << logString() << " No healthy endpoints left");
         fds_assert(curEpIdx_ == epReqs_.size() - 1);
         /* No healthy endpoints left.  Lets post an error.  This error
-         * We will simulate as if the error is from last endpoint
+         * we will simulate as if the error is from last endpoint.
          */
         auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_,
                                                               msgTypeId_,
@@ -714,7 +728,7 @@ std::string FailoverSvcRequest::logString()
 }
 
 /**
- * Moves to the next healyth endpoint in the sequence start from curEpIdx_
+ * Moves to the next healthy endpoint in the sequence start from curEpIdx_
  * @return True if healthy endpoint is found in the sequence.  False otherwise
  */
 bool FailoverSvcRequest::moveToNextHealthyEndpoint_()

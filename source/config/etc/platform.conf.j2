@@ -74,9 +74,7 @@ fds: {
 	}
     }
     dm: {
-        perf: {
-            enable=true
-        }
+        perf: { enable = {{ perf_tracing }} }
 
         qos: {
             /* Default qos threads */
@@ -151,9 +149,7 @@ fds: {
         }
     }
     sm: {
-        perf: {
-            enable=true
-        }
+        perf: { enable = {{ perf_tracing }} }
 
         /* process id */
         id      = "sm"
@@ -257,9 +253,8 @@ fds: {
         }
     }
     am: {
-        perf: {
-            enable=true
-        }
+        perf: { enable = {{ perf_tracing }} }
+
         log_severity = "{{ am_log_severity }}"
         logfile      = "am"
         om_ip        = "{{ om_ip }}"
@@ -280,7 +275,6 @@ fds: {
         enable_nbd_log=true
         enable_nbd_block_exclusion=false
         fdsn_server_threads=30
-        async_server_threads=4
         qos_threads=4
 
         threadpool: {
@@ -303,7 +297,6 @@ fds: {
         testing: {
             /* Toggle stand alone mode */
             toggleStandAlone = false
-						toggleNewPath = false
 
             /* Toggle to disable stats collection for metadata streaming */
             toggleDisableStreamingStats = {{ am_testing_toggleDisableStreamingStats }} 
@@ -402,6 +395,10 @@ fds: {
             min_thread  = 3
             max_thread  = 8
         }
+    }
+    
+    xdi: {
+	am_host = "{{ am_host }}"
     }
 }
 {% endblock %}

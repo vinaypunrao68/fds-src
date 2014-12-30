@@ -11,6 +11,12 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
             $scope.upPressed = false;
             $scope.downPressed = false;
             $scope.autoPress = {};
+            
+            var typing = false;
+            
+            if ( !angular.isDefined( $scope.step ) ){
+                $scope.step = 1;
+            }
 
             var cancelAutoPress = function(){
                 if ( angular.isDefined( $scope.autoPress ) ){
@@ -146,9 +152,26 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
                 else if ( $event.keyCode === 40 ){
                     $scope.decrement();
                 }
+                else {
+                    typing = true;
+                }
             };
             
-            $scope.$watch( 'value', $scope.sendEvent );
+            $scope.focusLost = function(){
+                typing = false;
+                $scope.fixValue();
+                $scope.sendEvent();
+            };
+            
+            $scope.$watch( 'value', function(){
+                
+                if( typing === true ){
+                    return;
+                }
+                
+                $scope.fixValue();
+                $scope.sendEvent();
+            });
             $scope.$watch( 'min', function(){
                 correctMaxLength();
                 $scope.fixValue();

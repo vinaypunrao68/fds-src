@@ -19,8 +19,11 @@ user_build_dir := \
     leveldb \
     cache
 
+#    platform \
+
 user_hh        := $(wildcard *.h)
 user_hpp       := $(wildcard *.h)
+
 user_no_style  := \
 	data_mgr.h            \
 	fds_commons_rm.h      \
@@ -33,13 +36,13 @@ user_no_style  := \
 	vvclib.h              \
 	fds_timer.h           \
 	NetSessRespSvr.h      \
-	NetSessRespClient.h  \
-	NetSession.h        \
-    fds_counters.h	    \
-	fds_stopwatch.h     \
-	graphite_client.h   \
-	debughelpers.h      \
-	net/socket.h        \
+	NetSessRespClient.h   \
+	NetSession.h          \
+	fds_counters.h        \
+	fds_stopwatch.h       \
+	graphite_client.h     \
+	debughelpers.h        \
+	net/socket.h          \
 	serialize.h
 
 include $(topdir)/Makefile.incl

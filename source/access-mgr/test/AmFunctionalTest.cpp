@@ -17,6 +17,7 @@
 #include <google/profiler.h>
 #include <gtest/gtest.h>
 #include <testlib/DataGen.hpp>
+#include "fds_process.h"
 
 namespace fds {
 
@@ -138,8 +139,7 @@ class AmLoadProc : public AmAsyncResponseApi,
             asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncAmServiceRequestIf>(
                 asyncThriftClient);
         } else {
-            am->asyncDataApi->setResponseApi(responseApi);
-            asyncDataApi = am->asyncDataApi;
+            asyncDataApi = boost::make_shared<AmAsyncDataApi>(responseApi);
         }
     }
 
@@ -199,6 +199,8 @@ class AmLoadProc : public AmAsyncResponseApi,
             done_cond.notify_all();
         }
     }
+    void handshakeComplete(const apis::RequestId& requestId) {}
+    void handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId) {}
     void updateMetadataResponse(const apis::RequestId& requestId) {}
     void updateMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
     void updateBlobResponse(const apis::RequestId& requestId) {}
@@ -284,7 +286,7 @@ class AmLoadProc : public AmAsyncResponseApi,
 
     void getBlobResp(const Error &error,
                      boost::shared_ptr<apis::RequestId>& requestId,
-                     char* buf,
+                     boost::shared_ptr<std::string> buf,
                      fds_uint32_t& length) {
         fds_verify(ERR_OK == error);
         if (totalOps == ++opsDone) {
@@ -295,7 +297,7 @@ class AmLoadProc : public AmAsyncResponseApi,
 
     void getBlobWithMetaResp(const Error &error,
                              boost::shared_ptr<apis::RequestId>& requestId,
-                             char* buf,
+                             boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length,
                              boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
         fds_verify(ERR_OK == error);

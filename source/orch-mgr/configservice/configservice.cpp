@@ -161,6 +161,20 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         request->vol_info.tennantId = *tenantId;
         err = volContainer->om_create_vol(header, request, nullptr);
         if (err != ERR_OK) apiException("error creating volume");
+
+        // wait for the volume to be active upto 30 seconds
+        int count = 60;
+
+        do {
+            usleep(500000);  // 0.5s
+            vol = volContainer->get_volume(*volumeName);
+            count--;
+        } while (count > 0 && vol && !vol->isStateActive());
+
+        if (!vol || !vol->isStateActive()) {
+            LOGERROR << "some issue in volume creation";
+            apiException("error creating volume");
+        }
     }
 
     int64_t getVolumeId(boost::shared_ptr<std::string>& volumeName) {
@@ -334,10 +348,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         VolPolicyMgr      *volPolicyMgr = om->om_policy_mgr();
-        VolumeInfo::pointer  parentVol, cloneVol;
+        VolumeInfo::pointer  parentVol, vol;
 
-        cloneVol = volContainer->get_volume(*clonedVolumeName);
-        if (cloneVol != NULL) {
+        vol = volContainer->get_volume(*clonedVolumeName);
+        if (vol != NULL) {
             LOGWARN << "volume with same name already exists : " << *clonedVolumeName;
             apiException("volume with same name already exists");
         }
@@ -363,6 +377,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         desc.fSnapshot = false;
         desc.srcVolumeId = *volumeId;
         desc.timelineTime = *timelineTime;
+        desc.createTime = util::getTimeStampMillis();
 
         if (parentVol->vol_get_properties()->lookupVolumeId == invalid_vol_id) {
             desc.lookupVolumeId = *volumeId;
@@ -374,6 +389,32 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         volPolicyMgr->fillVolumeDescPolicy(&desc);
         LOGDEBUG << "adding a clone request..";
         volContainer->addVolume(desc);
+
+        // wait for the volume to be active upto 30 seconds
+        int count = 60;
+        do {
+            usleep(500000);  // 0.5s
+            vol = volContainer->get_volume(*clonedVolumeName);
+            count--;
+        } while (count > 0 && vol && !vol->isStateActive());
+
+        if (!vol || !vol->isStateActive()) {
+            LOGERROR << "some issue in volume cloning";
+            apiException("error creating volume");
+        } else {
+            // volume created successfully ,
+            // no create a base snapshot. [FS-471]
+            // we have to do this here because only OM can create a new
+            // volume id
+            boost::shared_ptr<int64_t> sp_volId(new int64_t(vol->rs_get_uuid().uuid_get_val()));
+            boost::shared_ptr<std::string> sp_snapName(new std::string(
+                util::strformat("snap0_%s_%d", clonedVolumeName->c_str(),
+                                util::getTimeStampNanos())));
+            boost::shared_ptr<int64_t> sp_retentionTime(new int64_t(0));
+            boost::shared_ptr<int64_t> sp_timelineTime(new int64_t(0));
+            createSnapshot(sp_volId, sp_snapName, sp_retentionTime, sp_timelineTime);
+        }
+
         return 0;
     }
 

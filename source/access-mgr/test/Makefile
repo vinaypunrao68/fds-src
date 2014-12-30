@@ -9,6 +9,7 @@ user_incl_dir     := $(topdir) ../include ../stor-hvisor
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
+    fds-qos-lib \
     fds-am-engine \
     fds-am-engine \
     fds-am-plat \
@@ -55,7 +56,8 @@ user_incl_dir     += $(topdir) \
 user_cpp      := $(wildcard *.cpp)
 
 user_no_style     := $(user_cc) $(wildcard com_*.h)
-user_bin_exe      := AmFunctionalTest
-AmFunctionalTest  := $(user_cpp) $(user_cc)
+user_bin_exe      := AmFunctionalTest NbdFunctionalTest
+AmFunctionalTest  := AmFunctionalTest.cpp
+NbdFunctionalTest  := NbdFunctionalTest.cpp
 
 include $(topdir)/Makefile.incl

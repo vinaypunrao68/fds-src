@@ -1,6 +1,14 @@
 FROM registry.formationds.com:5000/fds_base
 MAINTAINER Aaron Nichols <aaron@formationds.com>
 #
+# Download cosbench
+WORKDIR /opt
+RUN wget https://github.com/intel-cloud/cosbench/releases/download/v0.4.0.1/0.4.0.1.zip
+RUN unzip 0.4.0.1.zip
+RUN rm 0.4.0.1.zip
+
+ENV JAVA_HOME /usr/lib/jvm/java-8-oracle
+# Setup pairing ssh & repo
 USER pairing
 RUN mkdir -p /home/pairing/.ssh /home/pairing/projects
 ADD resources/ssh/id_rsa-fds-src /home/pairing/.ssh/id_rsa-fds-src
@@ -11,10 +19,11 @@ RUN chmod 600 /home/pairing/.ssh/id_rsa-fds-src
 USER pairing
 RUN git clone git@fds-src.github.com:FDS-Dev/fds-src.git /home/pairing/projects/fds-src
 
+# Run devsetup
 WORKDIR /home/pairing/projects/fds-src/source
-RUN touch ~/.ihaveaswapfile
 RUN make devsetup
 RUN git remote set-url origin https://github.com/fds-dev/fds-src
 RUN rm -f ~/.ssh/*
 
 USER root
+RUN rm -rf /home/pairing/.ansible

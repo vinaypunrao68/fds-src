@@ -68,7 +68,7 @@ public class AsyncResourcePoolTest {
         for (int i = 0; i < 1000; i++) {
             final int clsi = i;
             CompletableFuture<Integer> result = pool.use(resource ->
-                    barrier.thenCompose(_null ->
+                    barrier.thenComposeAsync(_null ->
                         CompletableFuture.supplyAsync(() -> resource.square(clsi))));
 
             results.put(i, result);

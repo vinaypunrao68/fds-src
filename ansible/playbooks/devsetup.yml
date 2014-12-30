@@ -73,6 +73,7 @@
         - libboost-timer1.55-dev
         - libboost-thread1.55-dev
         - libboost-regex1.55-dev
+        - libboost-filesystem1.55-dev
         - libical-dev
         - libical1
         - libjemalloc-dev
@@ -101,8 +102,11 @@
         - lintian
         - libhiredis0.10
         - libhiredis-dev
+        - libsqlite3-dev
         - swig3.0
         - sshpass
+        - nbd-client
+        - fio
 
     - name: install pip packages
       pip: name={{item}} state=present
@@ -113,6 +117,8 @@
         - xmlrunner
         - filechunkio
         - httplib2
+        - docker-py
+        - psutil
 
     - name: create java home script
       copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755

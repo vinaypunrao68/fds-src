@@ -6,7 +6,7 @@
 #include <fdsp_utils.h>
 #include <fds_assert.h>
 #include <SMSvcHandler.h>
-#include <platform/fds_flags.h>
+// #include <platform/flags_map.h>
 #include <sm-platform.h>
 #include <string>
 #include <net/SvcRequest.h>
@@ -56,6 +56,31 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownSMMsg, shutdownSM);
+
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceInitialSet, initiateObjectSync);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
+}
+
+void
+SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg)
+{
+    LOGDEBUG << "Received new migration init message";
+}
+
+void
+SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlObjectRebalanceInitialSet>& initialObjSet)
+{
+    LOGDEBUG << "Initiate Object Sync";
+}
+
+void
+SMSvcHandler::syncObjectSet(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlObjectRebalanceDeltaSet>& deltaObjSet)
+{
+    LOGDEBUG << "Sync Object Set";
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -636,7 +661,10 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
      * MIGRATION_OP_COMPLETE.
      */
     if (objStorMgr->tok_migrated_for_dlt_ == false) {
-        objStorMgr->migrationSvcResponseCb(ERR_OK, MIGRATION_OP_COMPLETE);
+        LOGNORMAL << "Token migration complete";
+        LOGNORMAL << objStorMgr->migrationSvc_->mig_cntrs.toString();
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        objStorMgr->tok_migrated_for_dlt_ = false;
     }
 }
 

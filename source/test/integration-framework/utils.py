@@ -44,8 +44,10 @@ def create_buckets_helper(conn, param, bucket_name=None, count=1):
     return buckets_list
 
 
-def create_keys_helper(conn, bucket_name, key_name_prefix, count, src_file_name, metadata=None):
-    # TODO: Take in a list of src_file_name, iterate through that list as source data.
+def create_keys_helper(conn, bucket_name, key_name_prefix, count,
+                       src_file_name, metadata=None):
+    # TODO: Take in a list of src_file_name, iterate through that list as 
+    # source data.
     assert(count > 0)
     key_names = []
     res_keys  = []
@@ -74,7 +76,8 @@ def get_user_token(user, password, host, port, secure, validate):
     else:
         proto = 'http'
 
-    url = '%s://%s:%d/api/auth/token?login=%s&password=%s' % (proto, host, port, user, password)
+    url = '%s://%s:%d/api/auth/token?login=%s&password=%s' % (proto, host,port,
+                                                              user, password)
     log.info("Getting credentials from: ", url)
     r = requests.get(url, verify=validate)
     rjson = r.json()

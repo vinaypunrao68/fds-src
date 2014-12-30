@@ -43,7 +43,7 @@ angular.module( 'form-directives' ).directive( 'slider', function(){
             };
 
             $scope.adjustSlider = function( clickX ){
-
+                
                 initBounds();
 
                 var eWidth = $element[0].clientWidth;
@@ -97,9 +97,7 @@ angular.module( 'form-directives' ).directive( 'slider', function(){
             };
 
             $scope.setValue = function(){
-
                 var pxPerStep = getPxPerStep();
-
                 if ( isNaN( pxPerStep ) || pxPerStep === 0 ){
                     return;
                 }
@@ -114,7 +112,7 @@ angular.module( 'form-directives' ).directive( 'slider', function(){
                         }
                     }
                 }
-                else {
+                else {                  
                     steps = Math.round( ($scope.value - $scope.min) / $scope.step );
                     $scope.value = $scope.min + ( steps * $scope.step );
                 }

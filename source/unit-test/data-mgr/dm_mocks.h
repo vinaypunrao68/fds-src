@@ -7,12 +7,15 @@
 #include <DataMgr.h>
 #include <net/net-service.h>
 #include <util/fds_stat.h>
-
+#include <iostream>
 #include <fds_module.h>
 #include <fds_process.h>
 #include <concurrency/Mutex.h>
 #include <string>
 #include <vector>
+
+#include "platform/platform_process.h"
+
 namespace fds {
 // TODO(Rao): Get rid of this singleton
 DataMgr *dataMgr = 0;

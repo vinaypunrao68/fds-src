@@ -8,6 +8,8 @@
 #include <SvcMsgFactory.h>
 #include <TestFixtures.h>
 
+#include "platform/platform.h"
+
 // using ::testing::AtLeast;
 // using ::testing::Return;
 

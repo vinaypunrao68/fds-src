@@ -1,3 +1,4 @@
+include "../fdsp/common.thrift"
 include "../fdsp/snapshot.thrift"
 include "../fdsp/fds_stream.thrift"
 namespace cpp fds.apis
@@ -19,7 +20,9 @@ struct VolumeDescriptor {
        1: required string name,
        2: required i64 dateCreated,
        3: required VolumeSettings policy,
-       4: required i64 tenantId    // Added for multi-tenancy
+       4: required i64 tenantId,
+       5: i64 volId,
+       6: common.ResourceState state
 }
 
 struct VolumeStatus {
@@ -98,6 +101,8 @@ struct RequestId {
 }
 
 service AsyncAmServiceRequest {
+	oneway void handshakeStart(1:RequestId requestId 2:i32 portNumber),
+
 	oneway void attachVolume(1:RequestId requestId, 2: string domainName, 
 	       3:string volumeName),
 
@@ -140,6 +145,8 @@ service AsyncAmServiceRequest {
 }
 
 service AsyncAmServiceResponse {
+	oneway void handshakeComplete(1:RequestId requestId),
+
 	oneway void attachVolumeResponse(1:RequestId requestId),
 
         oneway void volumeContents(1:RequestId requestId, 2:list<BlobDescriptor> response),

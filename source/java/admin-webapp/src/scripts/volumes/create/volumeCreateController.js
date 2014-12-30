@@ -9,10 +9,10 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.snapshotPolicies = [];
     $scope.dataConnector = {};
     $scope.volumeName = '';
-    $scope.tieringPolicy = 0;
+    $scope.mediaPolicy = 0;
     
-    // default protection policies
-    $scope.protectionPolicies = {
+    // default timeline policies
+    $scope.timelinePolicies = {
         continuous: 24*60*60,
         policies: [
             // daily
@@ -51,11 +51,11 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             });
         }
 
-        // TIMELINE PROTECTION SCHEDULES
+        // TIMELINE SCHEDULES
         
-        for ( var j = 0; angular.isDefined( volume.protectionPolicies ) && j < volume.protectionPolicies.length; j++ ){
+        for ( var j = 0; angular.isDefined( volume.timelinePolicies ) && j < volume.timelinePolicies.length; j++ ){
             
-            var policy = volume.protectionPolicies[j];
+            var policy = volume.timelinePolicies[j];
             
             policy.name = newVolume.id + '_TIMELINE_' + policy.recurrenceRule.FREQ;
             
@@ -84,14 +84,18 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     };
     
     var cloneVolume = function( volume ){
-        volume.id = $scope.volumeVars.clone.id;
+        volume.id = $scope.volumeVars.cloneFromVolume.id;
         
-        if ( angular.isDefined( $scope.volumeVars.clone.cloneType ) ){
-            $volume_api.cloneSnapshot( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
+        if ( angular.isDate( volume.timelineTime )){
+            volume.timelineTime = volume.timelineTime.getTime();
         }
-        else {
+        
+//        if ( angular.isDefined( $scope.volumeVars.clone.cloneType ) ){
+//            $volume_api.cloneSnapshot( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
+//        }
+//        else {
             $volume_api.clone( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
-        }
+//        }
     };
     
     $scope.deleteVolume = function(){
@@ -127,11 +131,11 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         volume.limit = $scope.qos.limit;
         volume.priority = $scope.qos.priority;
         volume.snapshotPolicies = $scope.snapshotPolicies;
-        volume.protectionPolicies = $scope.protectionPolicies.policies;
-        volume.commit_log_retention = $scope.protectionPolicies.continuous;
+        volume.timelinePolicies = $scope.timelinePolicies.policies;
+        volume.commit_log_retention = $scope.timelinePolicies.continuous;
         volume.data_connector = $scope.dataConnector;
         volume.name = $scope.volumeName;
-        
+//        volume.mediaPolicy = $scope.mediaPolicy.value;
         
         if ( !angular.isDefined( volume.name ) || volume.name === '' ){
             
@@ -145,6 +149,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         }
         
         if ( $scope.volumeVars.toClone === 'clone' ){
+            volume.timelineTime = $scope.volumeVars.cloneFromVolume.timelineTime;
             cloneVolume( volume );
         }
         else{
@@ -158,6 +163,27 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         $scope.volumeVars.toClone = false;
         $scope.volumeVars.back();
     };
+    
+    $scope.$watch( 'volumeVars.cloneFromVolume', function( newVal, oldVal ){
+        
+        if ( newVal === oldVal || $scope.volumeVars.toClone === 'new' ){
+            return;
+        }
+        
+        if ( !angular.isDefined( newVal ) ){
+            return;
+        }
+        
+        var volume = newVal;
+        
+        $scope.qos = {
+            capacity: volume.sla,
+            limit: volume.limit,
+            priority: volume.priority
+        };
+        
+        $scope.data_connector = volume.data_connector;
+    });
 
     $scope.$watch( 'volumeVars.creating', function( newVal ){
         if ( newVal === true ){
@@ -172,8 +198,8 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             
             $scope.snapshotPolicies = [];
             
-            // default protection policies
-            $scope.protectionPolicies = {
+            // default timeline policies
+            $scope.timelinePolicies = {
                 continuous: 24*60*60,
                 policies: [
                     // daily
