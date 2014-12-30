@@ -18,7 +18,8 @@ user_cpp          := \
     object_persist_data_gtest.cpp \
     sm_token_compactor_gtest.cpp \
     sm_token_state_gtest.cpp     \
-    sm_tier_migration_gtest.cpp
+    sm_tier_migration_gtest.cpp  \
+    sm_token_migration_gtest.cpp
 
 user_no_style     :=
 
@@ -33,7 +34,8 @@ user_bin_exe      := \
     obj_persist_gtest \
     sm_tokcompactor_gtest \
     sm_token_state_gtest  \
-    sm_tier_migration_gtest
+    sm_tier_migration_gtest \
+    sm_token_migration_gtest
 
 
 sm_objectstore_gtest   := object_store_unit_test.cpp
@@ -47,5 +49,6 @@ obj_persist_gtest   := object_persist_data_gtest.cpp
 sm_tokcompactor_gtest := sm_token_compactor_gtest.cpp
 sm_token_state_gtest  := sm_token_state_gtest.cpp
 sm_tier_migration_gtest := sm_tier_migration_gtest.cpp
+sm_token_migration_gtest := sm_token_migration_gtest.cpp
 
 include $(test_topdir)/Makefile.sm

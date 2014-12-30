@@ -24,7 +24,7 @@
 #include "am-tx-mgr.h"
 #include "StorHvCtrl.h"
 #include "StorHvDataPlace.h"
-#include "StorHvQosCtrl.h" 
+#include "StorHvQosCtrl.h"
 #include "StorHvVolumes.h"
 
 using namespace std;
@@ -110,35 +110,38 @@ StorHvCtrl::StorHvCtrl(int argc,
     }
 
     /* create OMgr client if in normal mode */
-    if (!toggleStandAlone) {
-        LOGNORMAL << "StorHvCtrl - Will create and initialize OMgrClient";
 
-        /*
-         * Pass 0 as the data path port since the SH is not
-         * listening on that port.
-         */
-        om_client = new OMgrClient(FDSP_STOR_HVISOR,
-                                   omIpStr,
-                                   omConfigPort,
-                                   node_name,
-                                   GetLog(),
-                                   rpcSessionTbl,
-                                   &gl_AmPlatform,
-                                   instanceId);
-        om_client->initialize();
+    LOGNORMAL << "StorHvCtrl - Will create and initialize OMgrClient";
 
-        qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
-        om_client->startAcceptingControlMessages();
+    /*
+     * Pass 0 as the data path port since the SH is not
+     * listening on that port.
+     */
+    om_client = new OMgrClient(FDSP_STOR_HVISOR,
+			       omIpStr,
+			       omConfigPort,
+			       node_name,
+			       GetLog(),
+			       rpcSessionTbl,
+			       &gl_AmPlatform,
+			       instanceId);
+    if (toggleStandAlone) {
+	om_client->setNoNetwork(true);
+    } else {
+	om_client->initialize();
 
-        StatsCollector::singleton()->registerOmClient(om_client);
-        fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");
-        fds_bool_t disableStreamingStats = config.get_abs<bool>("fds.am.testing.toggleDisableStreamingStats");
-        if (print_qos_stats) {
-            StatsCollector::singleton()->enableQosStats("AM");
-        }
-        if (!disableStreamingStats) {
-            StatsCollector::singleton()->startStreaming(NULL, NULL);
-        }
+	qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
+	om_client->startAcceptingControlMessages();
+
+	StatsCollector::singleton()->registerOmClient(om_client);
+	fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");
+	fds_bool_t disableStreamingStats = config.get_abs<bool>("fds.am.testing.toggleDisableStreamingStats");
+	if (print_qos_stats) {
+	    StatsCollector::singleton()->enableQosStats("AM");
+	}
+	if (!disableStreamingStats) {
+	    StatsCollector::singleton()->startStreaming(NULL, NULL);
+	}
     }
 
     DMTManagerPtr dmtMgr;
@@ -329,8 +332,8 @@ StorHvCtrl::pushBlobReq(AmRequest *blobReq) {
     fds_verify(blobReq->magicInUse() == true);
     Error err(ERR_OK);
 
-    PerfTracer::tracePointBegin(blobReq->e2e_req_perf_ctx); 
-    PerfTracer::tracePointBegin(blobReq->qos_perf_ctx); 
+    PerfTracer::tracePointBegin(blobReq->e2e_req_perf_ctx);
+    PerfTracer::tracePointBegin(blobReq->qos_perf_ctx);
 
     blobReq->io_req_id = atomic_fetch_add(&nextIoReqId, (fds_uint32_t)1);
     fds_volid_t volId = blobReq->io_vol_id;
@@ -341,7 +344,7 @@ StorHvCtrl::pushBlobReq(AmRequest *blobReq) {
             shVol->readUnlock();
         LOGERROR << "Volume and queueus are NOT setup for volume " << volId;
         err = ERR_INVALID_ARG;
-        PerfTracer::tracePointEnd(blobReq->qos_perf_ctx); 
+        PerfTracer::tracePointEnd(blobReq->qos_perf_ctx);
         delete blobReq;
         return err;
     }

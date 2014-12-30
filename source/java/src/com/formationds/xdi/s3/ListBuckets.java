@@ -13,6 +13,8 @@ import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 
+import FDS_ProtocolInterface.ResourceState;
+
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,7 @@ public class ListBuckets implements RequestHandler {
                 .withValueElt("DisplayName", S3Endpoint.FDS_S3);
 
         volumeDescriptors.stream()
+                .filter(v -> v.getState() == ResourceState.Active)
                 .forEach(v -> frame.withElt(
                         new XmlElement("Bucket")
                                 .withValueElt("Name", v.getName())

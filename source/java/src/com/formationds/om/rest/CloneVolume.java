@@ -24,6 +24,7 @@ public class CloneVolume
 
   private static final String REQ_PARAM_VOLUME_ID = "volumeId";
   private static final String REQ_PARAM_CLONE_VOLUME_NAME = "cloneVolumeName";
+  private static final String REQ_PARAM_CLONE_VOLUME_TIMELINE_TIME = "timelineTime";
 
   private ConfigurationApi config;
   private FDSP_ConfigPathReq.Iface legacyConfigPath;
@@ -47,10 +48,14 @@ public class CloneVolume
                                                         Volume.class );
       final String name = requiredString( routeParameters,
                                           REQ_PARAM_CLONE_VOLUME_NAME );
+      
+      final String timelineTime = requiredString( routeParameters,
+    		  							REQ_PARAM_CLONE_VOLUME_TIMELINE_TIME );
+      
       clonedVolumeId = config.cloneVolume(
         requiredLong( routeParameters, REQ_PARAM_VOLUME_ID ),
         0L,                 // optional parameter so setting it to zero!
-        name, 0L);
+        name, Long.parseLong( timelineTime ));
 
       Thread.sleep( 200 );
       SetVolumeQosParams.setVolumeQos( legacyConfigPath,

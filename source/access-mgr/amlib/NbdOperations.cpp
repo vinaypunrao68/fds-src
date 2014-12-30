@@ -35,10 +35,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
                     fds_int64_t handle) {
     fds_assert(amAsyncDataApi);
     // calculate how many object we will get from AM
-    fds_uint32_t objCount = length / maxObjectSizeInBytes;
-    if ((length % maxObjectSizeInBytes) != 0) {
-        ++objCount;
-    }
+    fds_uint32_t objCount = getObjectCount(length, offset, maxObjectSizeInBytes);
 
     LOGDEBUG << "Will read " << length << " bytes " << offset
              << " offset for volume " << *volumeName
@@ -47,7 +44,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
              << " max object size " << maxObjectSizeInBytes << " bytes";
 
     // we will wait for responses
-    NbdResponseVector* resp = new NbdResponseVector(handle,
+    NbdResponseVector* resp = new NbdResponseVector(volumeName, handle,
                                                     NbdResponseVector::READ,
                                                     offset, length, maxObjectSizeInBytes,
                                                     objCount);
@@ -65,11 +62,24 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
         fds_uint64_t curOffset = offset + amBytesRead;
         fds_uint64_t objectOff = curOffset / maxObjectSizeInBytes;
         fds_uint32_t iOff = curOffset % maxObjectSizeInBytes;
+        // iLength is length of object we will read from AM
         fds_uint32_t iLength = length - amBytesRead;
-        if (iLength > maxObjectSizeInBytes) {
+        // three cases here for the length of the first object
+        // 1) Aligned: min(length, maxObjectSizeInBytes)
+        // 2) Un-aligned and data spills over the next object
+        //    maxObjectSizeInBytes - iOff
+        // 3) Un-aligned otherwise: length
+        if (iLength >= maxObjectSizeInBytes) {
             iLength = maxObjectSizeInBytes - iOff;
+        } else if ((seqId == 0) && (iOff != 0)) {
+            if (length > (maxObjectSizeInBytes - iOff)) {
+                iLength = maxObjectSizeInBytes - iOff;
+            }
         }
         fds_uint32_t actualLength = iLength;
+        // if the first read does not start at the beginning of object
+        // (un-aligned), then we will read the whole first object from AM
+        // and then return requested part for it to NBD connector
         if ((seqId == 0) && (iOff != 0)) {
              LOGNORMAL << "Un-aligned read, starts at offset " << offset
                        << " iOff " << iOff << " length " << length;
@@ -77,10 +87,14 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
              iLength = maxObjectSizeInBytes;
         }
 
+        // we will read object of length iLength from AM
         boost::shared_ptr<int32_t> blobLength = boost::make_shared<int32_t>(iLength);
         boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
         off->value = objectOff;
 
+        // we encode handle and sequence ID into request ID; handle is needed
+        // to reply back to NBD connector and sequence ID is needed to assemble
+        // all object we read back into read request from NBD connector
         boost::shared_ptr<apis::RequestId> reqId(
             boost::make_shared<apis::RequestId>());
         // request id is 64 bit of handle + 32 bit of sequence Id
@@ -90,28 +104,14 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
         LOGDEBUG << "getBlob length " << iLength << " offset " << curOffset
                  << " object offset " << objectOff
                  << " volume " << volumeName << " reqId " << reqId->id;
-        try {
-            amAsyncDataApi->getBlob(reqId,
-                                    domainName,
-                                    volumeName,
-                                    blobName,
-                                    blobLength,
-                                    off);
-            amBytesRead += actualLength;
-            ++seqId;
-        } catch(apis::ApiException fdsE) {
-           // return error
-           resp->setError(ERR_DISK_READ_FAILED);
-           {
-               // nbd connector will free resp
-               // remove from the wait list
-               fds_mutex::scoped_lock l(respLock);
-               responses.erase(handle);
-            }
-            // we are done collecting responses for this handle, notify nbd connector
-            nbdResp->readWriteResp(ERR_DISK_READ_FAILED, handle, resp);
-            return;
-        }
+        amAsyncDataApi->getBlob(reqId,
+                                domainName,
+                                volumeName,
+                                blobName,
+                                blobLength,
+                                off);
+        amBytesRead += actualLength;
+        ++seqId;
     }
 }
 
@@ -124,11 +124,8 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
                      fds_uint64_t offset,
                      fds_int64_t handle) {
     fds_assert(amAsyncDataApi);
-    // calculate how many object we will put
-    fds_uint32_t objCount = length / maxObjectSizeInBytes;
-    if ((length % maxObjectSizeInBytes) != 0) {
-        ++objCount;
-    }
+    // calculate how many FDS objects we will write
+    fds_uint32_t objCount = getObjectCount(length, offset, maxObjectSizeInBytes);
 
     LOGDEBUG << "Will write " << length << " bytes " << offset
              << " offset for volume " << *volumeName
@@ -136,8 +133,8 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
              << " handle " << handle
              << " max object size " << maxObjectSizeInBytes << " bytes";
 
-    // we will wait for responses
-    NbdResponseVector* resp = new NbdResponseVector(handle,
+    // we will wait for write response for all objects we chunk this request into
+    NbdResponseVector* resp = new NbdResponseVector(volumeName, handle,
                                                     NbdResponseVector::WRITE,
                                                     offset, length,
                                                     maxObjectSizeInBytes, objCount);
@@ -155,18 +152,23 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
         fds_uint64_t objectOff = curOffset / maxObjectSizeInBytes;
         fds_uint32_t iOff = curOffset % maxObjectSizeInBytes;
         fds_uint32_t iLength = length - amBytesWritten;
-        if (iLength > maxObjectSizeInBytes) {
+        if (iLength >= maxObjectSizeInBytes) {
             iLength = maxObjectSizeInBytes - iOff;
+        } else if ((seqId == 0) && (iOff != 0)) {
+            if (length > (maxObjectSizeInBytes - iOff)) {
+                iLength = maxObjectSizeInBytes - iOff;
+            }
         }
-
-        // see if we need to read-modify-write
-        if ((iOff != 0) || (iLength != maxObjectSizeInBytes)) {
-            // we need to read the whole object first
-            LOGNORMAL << "Will do read-modify-write for object size " << iLength;
-            fds_verify(false);  // implement this
-            ++seqId;
-            continue;
+        fds_uint32_t actualLength = iLength;
+        if ((iOff != 0) || (iLength < maxObjectSizeInBytes)) {
+            // we will do read (whole object), modify, write
+            iLength = maxObjectSizeInBytes;
         }
+        LOGDEBUG << "actualLen " << actualLength << " bytesW " << amBytesWritten
+                 << " length " << bytes->length();
+        boost::shared_ptr<std::string> objBuf(new std::string(*bytes,
+                                                              amBytesWritten,
+                                                              actualLength));
 
         // write an object
         boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(iLength);
@@ -178,37 +180,43 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
         // request id is 64 bit of handle + 32 bit of sequence Id
         reqId->id = std::to_string(handle) + ":" + std::to_string(seqId);
 
-        // blob name for block?
+        // if the first object is not aligned or not max object size
+        // and if the last object is not max object size, we read the whole
+        // object from FDS first and will apply the update to that object
+        // and then write the whole updated object back to FDS
+        if ((iOff != 0) || (actualLength != maxObjectSizeInBytes)) {
+            LOGNORMAL << "Will do read-modify-write for object size " << iLength;
+            // keep the data for the update to the first and last object in the response
+            // so that we can apply the update to the object on read response
+            resp->keepBufferForWrite(seqId, objBuf);
+            amAsyncDataApi->getBlob(reqId,
+                                    domainName,
+                                    volumeName,
+                                    blobName,
+                                    objLength,
+                                    off);
+            ++seqId;
+            // we did not write the bytes yet, but we update bytes written so this loop
+            // continues correctly
+            amBytesWritten += actualLength;
+            continue;
+        }
+
+        // if we are here, we don't need to read this object first; will do write
         LOGDEBUG << "putBlob length " << iLength << " offset " << curOffset
                  << " object offset " << objectOff
                  << " volume " << volumeName << " reqId " << reqId->id;
-
-        // write to AM
-        try {
-            amAsyncDataApi->updateBlobOnce(reqId,
-                                           domainName,
-                                           volumeName,
-                                           blobName,
-                                           blobMode,
-                                           bytes,
-                                           objLength,
-                                           off,
-                                           emptyMeta);
-            amBytesWritten += iLength;
-            ++seqId;
-        } catch(apis::ApiException fdsE) {
-            // return error
-            resp->setError(ERR_DISK_WRITE_FAILED);
-            {
-                 // nbd connector will free resp
-                 // remove from the wait list
-                 fds_mutex::scoped_lock l(respLock);
-                 responses.erase(handle);
-             }
-             // we are done collecting responses for this handle, notify nbd connector
-             nbdResp->readWriteResp(ERR_DISK_WRITE_FAILED, handle, resp);
-             return;
-        }
+        amAsyncDataApi->updateBlobOnce(reqId,
+                                       domainName,
+                                       volumeName,
+                                       blobName,
+                                       blobMode,
+                                       objBuf,
+                                       objLength,
+                                       off,
+                                       emptyMeta);
+        amBytesWritten += actualLength;
+        ++seqId;
     }
 }
 
@@ -220,6 +228,7 @@ NbdOperations::getBlobResp(const Error &error,
     NbdResponseVector* resp = NULL;
     fds_int64_t handle = 0;
     fds_int32_t seqId = 0;
+    fds_bool_t done = false;
     parseRequestId(requestId, &handle, &seqId);
 
     LOGDEBUG << "Reponse for getBlob, " << length << " bytes "
@@ -240,9 +249,35 @@ NbdOperations::getBlobResp(const Error &error,
         resp = responses[handle];
     }
 
-    // add buffer to the response list
     fds_verify(resp);
-    fds_bool_t done = resp->handleReadResponse(buf, length, seqId, error);
+    if (!resp->isRead()) {
+        // this is a response for read during a write operation from NBD connector
+        LOGDEBUG << "Write after read, handle " << handle << " seqId " << seqId;
+        // apply the update from NBD connector to this object
+        boost::shared_ptr<std::string> wBuf = resp->handleRMWResponse(buf, length,
+                                                                      seqId, error);
+        if (wBuf) {
+           // wBuf contains object updated with data from NBD connector
+            boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(wBuf->length());
+            boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
+            off->value = 0;
+            amAsyncDataApi->updateBlobOnce(requestId,
+                                           domainName,
+                                           resp->getVolumeName(),
+                                           blobName,
+                                           blobMode,
+                                           wBuf,
+                                           objLength,
+                                           off,
+                                           emptyMeta);
+        } else {
+            done = true;
+        }
+    } else {
+        // this is response for read operation, add buf to the response list
+        done = resp->handleReadResponse(buf, length, seqId, error);
+    }
+
     if (done) {
         {
             // nbd connector will free resp
@@ -294,6 +329,25 @@ NbdOperations::updateBlobResp(const Error &error,
         // we are done collecting responses for this handle, notify nbd connector
         nbdResp->readWriteResp(error, handle, resp);
     }
+}
+
+/**
+ * Calculate number of objects that are contained in a request with length
+ * 'length' at offset 'offset'
+ */
+fds_uint32_t
+NbdOperations::getObjectCount(fds_uint32_t length,
+                              fds_uint64_t offset,
+                              fds_uint32_t maxObjectSizeInBytes) {
+    fds_uint32_t objCount = length / maxObjectSizeInBytes;
+    fds_uint32_t firstObjLen = maxObjectSizeInBytes - (offset % maxObjectSizeInBytes);
+    if ((length % maxObjectSizeInBytes) != 0) {
+        ++objCount;
+    }
+    if ((firstObjLen + (objCount - 1) * maxObjectSizeInBytes) < length) {
+        ++objCount;
+    }
+    return objCount;
 }
 
 void

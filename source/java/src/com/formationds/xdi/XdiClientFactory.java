@@ -6,9 +6,11 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_Service;
 import FDS_ProtocolInterface.FDSP_SessionReqResp;
+import com.formationds.am.Main;
 import com.formationds.apis.AmService;
 import com.formationds.apis.AsyncAmServiceRequest;
 import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.RequestId;
 import com.formationds.util.async.AsyncResourcePool;
 import org.apache.commons.pool2.KeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
@@ -24,6 +26,7 @@ import org.apache.thrift.transport.TTransportException;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.util.UUID;
 
 public class XdiClientFactory {
     private static final Logger LOG = Logger.getLogger(XdiClientFactory.class);
@@ -32,11 +35,17 @@ public class XdiClientFactory {
     private final GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<AmService.Iface>> amPool;
     private final GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<AsyncAmServiceRequest.Iface>> onewayAmPool;
     private final GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<FDSP_ConfigPathReq.Iface>> legacyConfigPool;
+    private int amResponsePort;
 
     public XdiClientFactory() {
+        this(Main.AM_BASE_RESPONSE_PORT);
+    }
+
+    public XdiClientFactory(int amResponsePort) {
+        this.amResponsePort = amResponsePort;
         GenericKeyedObjectPoolConfig config = new GenericKeyedObjectPoolConfig();
         config.setMaxTotal(1000);
-        config.setMinIdlePerKey(5);
+        config.setMinIdlePerKey(0);
         config.setSoftMinEvictableIdleTimeMillis(30000);
 
         XdiClientConnectionFactory<ConfigurationService.Iface> csFactory = new XdiClientConnectionFactory<>(proto -> new ConfigurationService.Client(proto));
@@ -45,7 +54,17 @@ public class XdiClientFactory {
         XdiClientConnectionFactory<AmService.Iface> amFactory = new XdiClientConnectionFactory<>(proto -> new AmService.Client(proto));
         amPool = new GenericKeyedObjectPool<>(amFactory, config);
 
-        XdiClientConnectionFactory<AsyncAmServiceRequest.Iface> onewayAmFactory = new XdiClientConnectionFactory<>(proto -> new AsyncAmServiceRequest.Client(proto));
+        XdiClientConnectionFactory<AsyncAmServiceRequest.Iface> onewayAmFactory = new XdiClientConnectionFactory<>(proto -> {
+            AsyncAmServiceRequest.Client client = new AsyncAmServiceRequest.Client(proto);
+            try {
+                client.handshakeStart(new RequestId(UUID.randomUUID().toString()), amResponsePort);
+            } catch (TException e) {
+                LOG.error("Could not handshake remote AM!", e);
+                throw new RuntimeException(e);
+            }
+            return client;
+        });
+
         onewayAmPool = new GenericKeyedObjectPool<>(onewayAmFactory, config);
 
         XdiClientConnectionFactory<FDSP_ConfigPathReq.Iface> legacyConfigFactory = new XdiClientConnectionFactory<>(proto -> {
