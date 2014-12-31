@@ -167,7 +167,13 @@ public class QueryHelper {
 	            		gPoint -> {
 	            			ssdGets.getDatapoints().stream().filter( sPoint -> sPoint.getX().equals( gPoint.getX() ) )
 	            				.forEach(
-		            				sPoint -> gPoint.setY( gPoint.getY() - sPoint.getY() )
+		            				sPoint -> {
+		            					if ( sPoint.getY() == 0 ){
+		            						sPoint.setY( gPoint.getY() / 3 );
+		            					}
+		            					
+		            					gPoint.setY( gPoint.getY() - sPoint.getY() );
+		            				}
 		            			);
 	            		});
 	            	
@@ -190,6 +196,7 @@ public class QueryHelper {
 	            if( !calculatedList.isEmpty() ) {
 	                stats.setCalculated( calculatedList );
 	            }
+
             } finally {
             	em.close();
             }

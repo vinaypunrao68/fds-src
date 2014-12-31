@@ -25,7 +25,7 @@
     <div class="domain-labels" ng-show="domainLabels && domainLabels.length > 0">
         <div class="label-parent" ng-repeat="label in domainLabels" ng-show="label.show === true" ng-style="{ left: label.position }">
             <div class="tick"></div>
-            <div class="text">{{label.text}}</div>
+            <div class="text" ng-style="{'right': label.right + 'px'}">{{label.text}}</div>
         </div>
     </div>
 </div>
