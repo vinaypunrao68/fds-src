@@ -48,6 +48,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $scope.perfBreakdownReturned = function( data ){
         $scope.performanceBreakdownStats = data;
+        $scope.performanceBreakdownItems = [{number: data.calculated[0].averageIOPs, description: $filter( 'translate' )( 'status.desc_performance' )}];
     };
     
     $scope.capacityReturned = function( data ){
@@ -193,7 +194,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     // cleanup the pollers
     $scope.$on( '$destroy', function(){
         $interval.cancel( firebreakInterval );
-        $interval.cancel( performanceInterval );
+//        $interval.cancel( performanceInterval );
         $interval.cancel( perfBreakdownInterval );
         $interval.cancel( capacityInterval );
         $interval.cancel( activityInterval );
@@ -206,14 +207,14 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         }
         
         firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
-        performanceInterval = $interval( function(){ $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );}, 60000 );
+//        performanceInterval = $interval( function(){ $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );}, 60000 );
         capacityInterval = $interval( function(){ $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );}, 60000 );
         activityInterval = $interval( function(){ $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );}, 60000 );
         perfBreakdownInterval = $interval( function(){ $stats_service.getPerformanceBreakdownSummary( buildPerformanceBreakdownFilter(), $scope.perfBreakdownReturned );}, 60000 );
 
         
         $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
-        $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );
+//        $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );
         $stats_service.getPerformanceBreakdownSummary( buildPerformanceBreakdownFilter(), $scope.perfBreakdownReturned );
         $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );
         $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );
