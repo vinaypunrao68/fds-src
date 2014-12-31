@@ -166,6 +166,8 @@ NbdConnection::~NbdConnection() {
 }
 
 constexpr uint8_t NbdConnection::NBD_MAGIC[];
+constexpr uint8_t NbdConnection::NBD_REQUEST_MAGIC[];
+constexpr uint8_t NbdConnection::NBD_RESPONSE_MAGIC[];
 constexpr char NbdConnection::NBD_MAGIC_PWD[];
 constexpr uint8_t NbdConnection::NBD_PROTO_VERSION[];
 constexpr fds_int32_t NbdConnection::NBD_OPT_EXPORT;
@@ -175,8 +177,6 @@ constexpr fds_int16_t NbdConnection::NBD_FLAG_SEND_FLUSH;
 constexpr fds_int16_t NbdConnection::NBD_FLAG_SEND_FUA;
 constexpr fds_int16_t NbdConnection::NBD_FLAG_ROTATIONAL;
 constexpr fds_int16_t NbdConnection::NBD_FLAG_SEND_TRIM;
-constexpr fds_int32_t NbdConnection::NBD_REQUEST_MAGIC;
-constexpr fds_int32_t NbdConnection::NBD_RESPONSE_MAGIC;
 constexpr fds_int32_t NbdConnection::NBD_CMD_READ;
 constexpr fds_int32_t NbdConnection::NBD_CMD_WRITE;
 constexpr fds_int32_t NbdConnection::NBD_CMD_DISC;
@@ -207,7 +207,8 @@ NbdConnection::write_response() {
                               response.get() + current_block,
                               total_blocks - current_block);
     if (nwritten < 0) {
-        LOGERROR << "Socket write error: [" << errno << "]";
+        if (errno != EAGAIN && errno != EWOULDBLOCK)
+            LOGERROR << "Socket write error: [" << strerror(errno) << "]";
         switch (errno) {
             case EINVAL: fds_verify(false);  // Indicates logic bug
                          break;
@@ -350,14 +351,12 @@ NbdConnection::hsReq(ev::io &watcher) {
     if (request.header_off >= 0) {
         if (!get_message_header(watcher.fd, request))
             return;
-        request.header.magic = ntohl(request.header.magic);
-        fds_verify(NBD_REQUEST_MAGIC == request.header.magic);
+        fds_verify(0 == memcmp(NBD_REQUEST_MAGIC, request.header.magic, sizeof(NBD_REQUEST_MAGIC)));
         request.header.opType = ntohl(request.header.opType);
         request.header.offset = __builtin_bswap64(request.header.offset);
         request.header.length = ntohl(request.header.length);
 
-        LOGTRACE << " magic 0x" << std::hex << request.header.magic << std::dec << std::endl
-                 << " op " << request.header.opType << std::endl
+        LOGTRACE << " op " << request.header.opType << std::endl
                  << " handle 0x" << std::hex << request.header.handle << std::dec << std::endl
                  << " offset " << request.header.offset << std::endl
                  << " length " << request.header.length;
@@ -384,13 +383,13 @@ NbdConnection::hsReq(ev::io &watcher) {
 
 bool
 NbdConnection::hsReply(ev::io &watcher) {
-    static fds_int32_t magic = htonl(NBD_RESPONSE_MAGIC);
-    fds_int32_t error = htonl(0);
+    static fds_int32_t error = htonl(0);
 
     // We can reuse this from now on since we don't go to any state from here
     if (!response) {
         response = decltype(response)(new iovec[kMaxChunks + 3]);
-        response[0].iov_base = &magic; response[0].iov_len = sizeof(magic);
+        response[0].iov_base = to_iovec(NBD_RESPONSE_MAGIC);
+        response[0].iov_len = sizeof(NBD_RESPONSE_MAGIC);
         response[1].iov_base = &error; response[1].iov_len = sizeof(error);
         response[2].iov_base = nullptr; response[2].iov_len = 0;
         response[3].iov_base = nullptr; response[3].iov_len = 0ull;
@@ -511,7 +510,7 @@ NbdConnection::dispatchOp(ev::io &watcher,
             break;
         case NBD_CMD_DISC:
             LOGNORMAL << "Got a disconnect";
-            throw connection_closed;
+            throw shutdown_requested;
             break;
         default:
             fds_panic("Unknown NBD op %d", opType);
@@ -521,7 +520,9 @@ NbdConnection::dispatchOp(ev::io &watcher,
 
 void
 NbdConnection::wakeupCb(ev::async &watcher, int revents) {
-    ioWatcher->set(ev::READ | ev::WRITE);
+    // It's ok to keep writing responses if we've been shutdown
+    // but don't start watching for requests if we do
+    ioWatcher->set(ev::WRITE | (nbdOps ? ev::READ : 0l));
     ioWatcher->feed_event(EV_WRITE);
 }
 
@@ -575,10 +576,11 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 break;
             case DOREQS:
                 if (hsReply(watcher)) {
+                    auto still_reading = nbdOps ? ev::READ : 0l;
                     bool more_to_write = doUturn ? readyHandles.empty()
                                                  : readyResponses.empty();
-                    ioWatcher->set(more_to_write ? ev::READ
-                                                 : ev::READ | ev::WRITE);
+                    ioWatcher->set(more_to_write ? still_reading
+                                                 : still_reading | ev::WRITE);
                 }
                 break;
             default:
@@ -586,17 +588,27 @@ NbdConnection::callback(ev::io &watcher, int revents) {
         }
     }
     } catch(Errors e) {
-        delete this;
+        if (nbdOps) {
+            // Tell NbdOperations to delete us once it's handled all outstanding
+            // requests. Going to ignore the incoming requests now.
+            ioWatcher->set(ev::WRITE);
+            nbdOps->shutdown(e != shutdown_requested);
+            nbdOps.reset();
+        }
+
+        // If we had an error, stop the event loop too
+        if (e == connection_closed) {
+            asyncWatcher->stop();
+            ioWatcher->stop();
+        }
     }
 }
 
 void
-NbdConnection::readWriteResp(const Error& error,
-                             fds_int64_t handle,
-                             NbdResponseVector* response) {
+NbdConnection::readWriteResp(NbdResponseVector* response) {
     LOGNORMAL << "Read? " << response->isRead() << " (false is write)"
-              << " response from NbdOperations handle " << handle
-              << " " << error;
+              << " response from NbdOperations handle " << response->handle
+              << " " << response->getError();
 
     // add to quueue
     readyResponses.push(response);
@@ -613,7 +625,8 @@ bool get_message_header(int fd, M& message) {
                          reinterpret_cast<uint8_t*>(&message.header) + message.header_off,
                          to_read);
     if (nread < 0) {
-        LOGERROR << "Socket read error: [" << errno << "]";
+        if (errno != EAGAIN && errno != EWOULDBLOCK)
+            LOGERROR << "Socket read error: [" << strerror(errno) << "]";
         switch (errno) {
             case EINVAL: fds_verify(false);  // Indicates logic bug
                          break;
@@ -653,7 +666,8 @@ bool get_message_payload(int fd, M& message) {
                                      message.data_off,
                                      to_read);
     if (nread < 0) {
-        LOGERROR << "Socket read error: [" << errno << "]";
+        if (errno != EAGAIN && errno != EWOULDBLOCK)
+            LOGERROR << "Socket read error: [" << strerror(errno) << "]";
         switch (errno) {
             case EINVAL: fds_assert(false);  // Indicates logic bug
                          break;

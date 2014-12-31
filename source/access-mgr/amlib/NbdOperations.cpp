@@ -9,7 +9,8 @@
 namespace fds {
 
 NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
-        : amAsyncDataApi(nullptr),
+        : in_shutdown(false),
+          amAsyncDataApi(nullptr),
           nbdResp(respIface),
           domainName(new std::string("TestDomain")),
           blobName(new std::string("BlockBlob")),
@@ -21,10 +22,20 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
 // a shared pointer to ourselves (and NbdConnection already started one).
 void
 NbdOperations::init() {
-    amAsyncDataApi = std::make_shared<AmAsyncDataApi>(shared_from_this());
+    amAsyncDataApi.reset(new AmAsyncDataApi(shared_from_this()));
+}
+
+// There's been an error (immediate) or an explicit disconnect. In the later
+// case we're still expected to respond to all out outgoing requests.
+void
+NbdOperations::shutdown(bool immediate) {
+    fds_mutex::scoped_lock l(respLock);
+    amAsyncDataApi.reset();
+    in_shutdown = immediate;
 }
 
 NbdOperations::~NbdOperations() {
+    delete nbdResp;
 }
 
 void
@@ -279,14 +290,16 @@ NbdOperations::getBlobResp(const Error &error,
     }
 
     if (done) {
-        {
-            // nbd connector will free resp
-            // remove from the wait list
-            fds_mutex::scoped_lock l(respLock);
-            responses.erase(handle);
-        }
+        // nbd connector will free resp
+        // remove from the wait list
+        fds_mutex::scoped_lock l(respLock);
+        responses.erase(handle);
+
         // we are done collecting responses for this handle, notify nbd connector
-        nbdResp->readWriteResp(error, handle, resp);
+        if (!in_shutdown)
+            nbdResp->readWriteResp(resp);
+        else
+            delete resp;
     }
 }
 
@@ -320,14 +333,16 @@ NbdOperations::updateBlobResp(const Error &error,
     fds_verify(resp);
     fds_bool_t done = resp->handleWriteResponse(seqId, error);
     if (done) {
-        {
-            // nbd connector will free resp
-            // remove from the wait list
-            fds_mutex::scoped_lock l(respLock);
-            responses.erase(handle);
-        }
+        // nbd connector will free resp
+        // remove from the wait list
+        fds_mutex::scoped_lock l(respLock);
+        responses.erase(handle);
+
         // we are done collecting responses for this handle, notify nbd connector
-        nbdResp->readWriteResp(error, handle, resp);
+        if (!in_shutdown)
+            nbdResp->readWriteResp(resp);
+        else
+            delete resp;
     }
 }
 

@@ -196,20 +196,20 @@ class NbdOperationsResponseIface {
   public:
     virtual ~NbdOperationsResponseIface() {}
 
-    virtual void readWriteResp(const Error& error,
-                               fds_int64_t handle,
-                               NbdResponseVector* response) = 0;
+    virtual void readWriteResp(NbdResponseVector* response) = 0;
 };
 
 class NbdOperations
     :   public boost::enable_shared_from_this<NbdOperations>,
         public AmAsyncResponseApi
 {
+    bool in_shutdown;
   public:
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
     ~NbdOperations();
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
     void init();
+    void shutdown(bool immediate);
 
     void read(boost::shared_ptr<std::string>& volumeName,
               fds_uint32_t maxObjectSizeInBytes,
@@ -275,7 +275,7 @@ class NbdOperations
                                 fds_uint32_t maxObjectSizeInBytes);
 
     // api we've built
-    AmAsyncDataApi::shared_ptr amAsyncDataApi;
+    std::unique_ptr<AmAsyncDataApi> amAsyncDataApi;
 
     // interface to respond to nbd passed down in constructor
     NbdOperationsResponseIface* nbdResp;
