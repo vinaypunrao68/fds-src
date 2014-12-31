@@ -71,7 +71,8 @@ class NbdConnector {
 class NbdConnection : public NbdOperationsResponseIface {
  public:
     enum Errors {
-        connection_closed
+        connection_closed,
+        shutdown_requested,
     };
 
   private:
@@ -104,8 +105,8 @@ class NbdConnection : public NbdOperationsResponseIface {
     std::unique_ptr<NbdResponseVector> current_response;
 
     static constexpr uint8_t NBD_MAGIC[] = { 0x49, 0x48, 0x41, 0x56, 0x45, 0x4F, 0x50, 0x54 };
-    static constexpr uint8_t NBD_REQUEST_MAGIC[] = { 0x13, 0x95, 0x60, 0x25 };
-    static constexpr uint8_t NBD_RESPONSE_MAGIC[] = { 0x98, 0x66, 0x44, 0x67 };
+    static constexpr uint8_t NBD_REQUEST_MAGIC[] = { 0x25, 0x60, 0x95, 0x13 };
+    static constexpr uint8_t NBD_RESPONSE_MAGIC[] = { 0x67, 0x44, 0x66, 0x98 };
     static constexpr char NBD_MAGIC_PWD[] {'N', 'B', 'D', 'M', 'A', 'G', 'I', 'C'};  // NOLINT
     static constexpr uint8_t NBD_PROTO_VERSION[] = { 0x00, 0x01 };
     static constexpr fds_int32_t NBD_OPT_EXPORT = 1;
@@ -162,9 +163,7 @@ class NbdConnection : public NbdOperationsResponseIface {
     ~NbdConnection();
 
     // implementation of NbdOperationsResponseIface
-    void readWriteResp(const Error& error,
-                       fds_int64_t handle,
-                       NbdResponseVector* response);
+    void readWriteResp(NbdResponseVector* response);
 };
 
 }  // namespace fds
