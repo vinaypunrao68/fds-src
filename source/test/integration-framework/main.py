@@ -4,6 +4,7 @@
 # philippe@formationds.com
 import ast
 import argparse
+import concurrent.futures as concurrent
 import ConfigParser
 import json
 import logging
@@ -64,7 +65,7 @@ class Operation(object):
                 self.logger.info("%s already exists. Skipping." % testset_path)
                 
             self.test_sets.append(current_ts)
-        
+    
     def __load_params(self):
         params = {}
         parser = ConfigParser.ConfigParser()
@@ -80,10 +81,40 @@ class Operation(object):
                 except:
                     self.logger.info("Exception on %s!" % option)
                     params[option] = None
-        #params['fdscfg'] = bringup.FdsConfigRun(None, None, None)
-        #params['s3'] = s3.S3(None)
         return params
-        
+    
+    def do_work(self, max_workers=5):
+        '''
+        Execute the test cases for this test set in a multithreaded fashion.
+        User can specify the number of threads in max_workers, however the
+        default is set to 5.
+    
+        Attributes:
+        -----------
+        max_workers : int
+            specify the number of threads this program can run. The number of
+            threads has to be between 1 and 20.
+    
+        Returns:
+        -------
+        None
+        '''
+        for ts in self.test_sets:
+                    self.logger.info("Executing Test Set: %s" % ts.name)
+                    self.runner.run(ts.suite)
+        assert max_workers >= 1 and max_workers <= 20
+        with concurrent.ThreadPoolExecutor(max_workers) as executor:
+            ts_tests = {executor.submit(self.runner.run(ts.suite)):
+                        ts for ts in self.test_sets}
+            for ts in concurrent.as_completed(ts_tests):
+                result = ts_tests[ts]
+                try:
+                    data = True
+                except Exception as exc:
+                    self.logger.exception('An error occurrent for %s' % ts)
+                else:
+                    self.logger.info('Test %s completed successfully' % ts)
+                
     def do_run(self):
         '''
         Run all the test suits presented in this framework, but first check if
@@ -91,20 +122,11 @@ class Operation(object):
         '''
         if not self.fds_node.check_status():
             self.fds_node.start_single_node()
+        #self.do_work()
         for ts in self.test_sets:
-            self.logger.info("Executing Test Set: %s" % ts.name)
-            self.runner.run(ts.suite)
-
-    def do_work(self, target, args):
-        '''
-        The method do_work is used to execute test cases in parallel, in order
-        to make them run faster.
-
-        Arguments:
-        ----------
-        '''
-        pass
-    
+                self.logger.info("Executing Test Set: %s" % ts.name)
+                self.runner.run(ts.suite)
+        
     def test_progress(self):
         pass
         # @TODO: Philippe
