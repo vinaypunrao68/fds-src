@@ -166,6 +166,8 @@ NbdConnection::~NbdConnection() {
 }
 
 constexpr uint8_t NbdConnection::NBD_MAGIC[];
+constexpr uint8_t NbdConnection::NBD_REQUEST_MAGIC[];
+constexpr uint8_t NbdConnection::NBD_RESPONSE_MAGIC[];
 constexpr char NbdConnection::NBD_MAGIC_PWD[];
 constexpr uint8_t NbdConnection::NBD_PROTO_VERSION[];
 constexpr fds_int32_t NbdConnection::NBD_OPT_EXPORT;
@@ -175,8 +177,6 @@ constexpr fds_int16_t NbdConnection::NBD_FLAG_SEND_FLUSH;
 constexpr fds_int16_t NbdConnection::NBD_FLAG_SEND_FUA;
 constexpr fds_int16_t NbdConnection::NBD_FLAG_ROTATIONAL;
 constexpr fds_int16_t NbdConnection::NBD_FLAG_SEND_TRIM;
-constexpr fds_int32_t NbdConnection::NBD_REQUEST_MAGIC;
-constexpr fds_int32_t NbdConnection::NBD_RESPONSE_MAGIC;
 constexpr fds_int32_t NbdConnection::NBD_CMD_READ;
 constexpr fds_int32_t NbdConnection::NBD_CMD_WRITE;
 constexpr fds_int32_t NbdConnection::NBD_CMD_DISC;
@@ -350,8 +350,7 @@ NbdConnection::hsReq(ev::io &watcher) {
     if (request.header_off >= 0) {
         if (!get_message_header(watcher.fd, request))
             return;
-        request.header.magic = ntohl(request.header.magic);
-        fds_verify(NBD_REQUEST_MAGIC == request.header.magic);
+        fds_verify(0 == memcmp(NBD_REQUEST_MAGIC, request.header.magic, sizeof(NBD_REQUEST_MAGIC)));
         request.header.opType = ntohl(request.header.opType);
         request.header.offset = __builtin_bswap64(request.header.offset);
         request.header.length = ntohl(request.header.length);
@@ -384,13 +383,13 @@ NbdConnection::hsReq(ev::io &watcher) {
 
 bool
 NbdConnection::hsReply(ev::io &watcher) {
-    static fds_int32_t magic = htonl(NBD_RESPONSE_MAGIC);
     fds_int32_t error = htonl(0);
 
     // We can reuse this from now on since we don't go to any state from here
     if (!response) {
         response = decltype(response)(new iovec[kMaxChunks + 3]);
-        response[0].iov_base = &magic; response[0].iov_len = sizeof(magic);
+        response[0].iov_base = to_iovec(NBD_RESPONSE_MAGIC);
+        response[0].iov_len = sizeof(NBD_RESPONSE_MAGIC);
         response[1].iov_base = &error; response[1].iov_len = sizeof(error);
         response[2].iov_base = nullptr; response[2].iov_len = 0;
         response[3].iov_base = nullptr; response[3].iov_len = 0ull;

@@ -32,7 +32,7 @@ struct attach_header {
 };
 
 struct request_header {
-    fds_int32_t magic;
+    uint8_t magic[4];
     fds_int32_t opType;
     fds_int64_t handle;
     fds_int64_t offset;
@@ -104,6 +104,8 @@ class NbdConnection : public NbdOperationsResponseIface {
     std::unique_ptr<NbdResponseVector> current_response;
 
     static constexpr uint8_t NBD_MAGIC[] = { 0x49, 0x48, 0x41, 0x56, 0x45, 0x4F, 0x50, 0x54 };
+    static constexpr uint8_t NBD_REQUEST_MAGIC[] = { 0x13, 0x95, 0x60, 0x25 };
+    static constexpr uint8_t NBD_RESPONSE_MAGIC[] = { 0x98, 0x66, 0x44, 0x67 };
     static constexpr char NBD_MAGIC_PWD[] {'N', 'B', 'D', 'M', 'A', 'G', 'I', 'C'};  // NOLINT
     static constexpr uint8_t NBD_PROTO_VERSION[] = { 0x00, 0x01 };
     static constexpr fds_int32_t NBD_OPT_EXPORT = 1;
@@ -113,8 +115,6 @@ class NbdConnection : public NbdOperationsResponseIface {
     static constexpr fds_int16_t NBD_FLAG_SEND_FUA   = 0x1 << 3;
     static constexpr fds_int16_t NBD_FLAG_ROTATIONAL = 0x1 << 4;
     static constexpr fds_int16_t NBD_FLAG_SEND_TRIM  = 0x1 << 5;
-    static constexpr fds_int32_t NBD_REQUEST_MAGIC = 0x25609513;
-    static constexpr fds_int32_t NBD_RESPONSE_MAGIC = 0x67446698;
     static constexpr fds_int32_t NBD_CMD_READ = 0;
     static constexpr fds_int32_t NBD_CMD_WRITE = 1;
     static constexpr fds_int32_t NBD_CMD_DISC = 2;
