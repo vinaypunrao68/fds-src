@@ -157,20 +157,18 @@ public class QueryHelper {
 	            	// GETS has the total # of gets and SSD is a subset of those.
 	            	// This query wants GETS for HDD access and SSD access so we mutate the
 	            	// GETS series with a quick subtraction of the corresponding SSD field
-	            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS ) )
+	            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
 	            		.findFirst().get();
 	            	
-	            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS  ) )
+	            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
 	            		.findFirst().get();
 	            	
 	            	gets.getDatapoints().forEach( 
 	            		gPoint -> {
-	            			ssdGets.getDatapoints().forEach(
-	            				sPoint -> {
-	            					if ( gPoint.getX().equals( sPoint.getX() ) ){
-	            						gPoint.setY( gPoint.getY() - sPoint.getY());
-	            					}
-	            				});
+	            			ssdGets.getDatapoints().stream().filter( sPoint -> sPoint.getX().equals( gPoint.getX() ) )
+	            				.forEach(
+		            				sPoint -> gPoint.setY( gPoint.getY() - sPoint.getY() )
+		            			);
 	            		});
 	            	
 	            } else {
