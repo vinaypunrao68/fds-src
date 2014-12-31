@@ -383,7 +383,7 @@ NbdConnection::hsReq(ev::io &watcher) {
 
 bool
 NbdConnection::hsReply(ev::io &watcher) {
-    fds_int32_t error = htonl(0);
+    static fds_int32_t error = htonl(0);
 
     // We can reuse this from now on since we don't go to any state from here
     if (!response) {
