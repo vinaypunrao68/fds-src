@@ -66,32 +66,3 @@ class TestSet(object):
         else:
             raise ValueError("Only .py modules are supported.")
             sys.exit(1)
-
-    def do_work(self, max_workers=5):
-        '''
-        Execute the test cases for this test set in a multithreaded fashion.
-        User can specify the number of threads in max_workers, however the
-        default is set to 5.
-
-        Attributes:
-        -----------
-        max_workers : int
-            specify the number of threads this program can run. The number of
-            threads has to be between 1 and 20.
-
-        Returns:
-        -------
-        None
-        '''
-        assert max_workers >= 1 and max_workers <= 20
-        with concurrent.ThreadPoolExecutor(max_workers) as executor:
-            tc_tests = {executor.submit(tc.runTest()):
-                        tc for tc in self.test_cases}
-            for tc in concurrent.as_completed(tc_tests):
-                result = tc_tests[tc]
-                try:
-                    data = tc.result()
-                except Exception as exc:
-                    self.log.exception('An error occurrent for %s' % tc)
-                else:
-                    self.log.info('Test %s completed successfully' % tc)
