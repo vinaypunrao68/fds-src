@@ -327,6 +327,23 @@ angular.module( 'charts' ).directive( 'stackedLineChart', function(){
                 
                 var stacks = stackF( $scope.data.series );
                 
+                stacks = stacks.sort( function( a, b ){
+                    
+                    var val = 0;
+                    
+                    while ( angular.isDefined( a.datapoints[val] ) ){
+                        diff = ( b.datapoints[val].y0 - a.datapoints[val].y0 );
+                        
+                        if ( diff != 0 ){
+                            return diff;
+                        }
+                        
+                        val++;
+                    }
+                    
+                    return 0;
+                });
+                
                 var groups = $svg.selectAll( '.series-group' ).data( stacks ).enter()
                     .insert( 'g', '.guide-lines' )
                     .attr( 'class', 'series-group' );

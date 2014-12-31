@@ -13,6 +13,7 @@ import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
+import com.formationds.commons.model.calculated.capacity.AverageIOPs;
 import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
 import com.formationds.commons.model.calculated.capacity.CapacityDeDupRatio;
 import com.formationds.commons.model.calculated.capacity.CapacityFull;
@@ -29,6 +30,7 @@ import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.util.SizeUnit;
+import com.google.common.util.concurrent.AtomicDouble;
 
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -41,6 +43,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.DoubleStream;
+import java.util.stream.LongStream;
 
 import javax.persistence.EntityManager;
 
@@ -168,14 +172,12 @@ public class QueryHelper {
 	            			ssdGets.getDatapoints().stream().filter( sPoint -> sPoint.getX().equals( gPoint.getX() ) )
 	            				.forEach(
 		            				sPoint -> {
-		            					if ( sPoint.getY() == 0 ){
-		            						sPoint.setY( gPoint.getY() / 3 );
-		            					}
-		            					
 		            					gPoint.setY( gPoint.getY() - sPoint.getY() );
 		            				}
 		            			);
 	            		});
+	            	
+	            	calculatedList.add( getAverageIOPs( series ) );
 	            	
 	            } else {
 	            	
@@ -325,6 +327,27 @@ public class QueryHelper {
      */
     protected List<Metadata> metadata() {
         return new ArrayList<>();
+    }
+    
+    /**
+     * 
+     * @param series
+     * @return Returns the average IOPs for the collection of series passed in
+     */
+    protected AverageIOPs getAverageIOPs( List<Series> series ){
+    	
+    	Double iopCount = series.stream().flatMapToDouble( s -> {
+    		return DoubleStream.of( s.getDatapoints().stream().flatMapToDouble( dp -> DoubleStream.of( dp.getY() ) ).sum() );
+    	}).sum();
+    	
+    	Long maxTime = series.get( 0 ).getDatapoints().stream().max( (point1, point2 ) -> Long.compare( point1.getX(), point2.getX() ) ).get().getX();
+    	Long minTime = series.get( 0 ).getDatapoints().stream().min( (point1, point2 ) -> Long.compare( point1.getX(), point2.getX() ) ).get().getX();
+    	
+    	final AverageIOPs avgIops = new AverageIOPs();
+    	Double seconds = (maxTime.doubleValue() - minTime.doubleValue()) / 1000.0;
+    	avgIops.setAverage( iopCount / seconds );
+    	
+    	return avgIops;
     }
 
     /**
