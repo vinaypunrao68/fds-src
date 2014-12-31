@@ -344,7 +344,7 @@ public class QueryHelper {
     	Long minTime = series.get( 0 ).getDatapoints().stream().min( (point1, point2 ) -> Long.compare( point1.getX(), point2.getX() ) ).get().getX();
     	
     	final AverageIOPs avgIops = new AverageIOPs();
-    	Double seconds = (maxTime.doubleValue() - minTime.doubleValue()) / 1000.0;
+    	Double seconds = (maxTime.doubleValue() - minTime.doubleValue());
     	avgIops.setAverage( iopCount / seconds );
     	
     	return avgIops;

@@ -7,7 +7,7 @@ public class AverageIOPs extends Calculated {
 
 	private static final long serialVersionUID = 7937123375009213316L;
 	
-	@SerializedName( "averageIops" )
+	@SerializedName( "averageIOPs" )
 	private Double average;
 	
 	/**
