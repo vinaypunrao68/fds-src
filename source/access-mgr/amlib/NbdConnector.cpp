@@ -188,6 +188,7 @@ constexpr char NbdConnection::fourKayZeros[];
 bool
 NbdConnection::write_response() {
     fds_verify(response);
+    fds_verify(total_blocks <= IOV_MAX);
     size_t current_block = 0ull;
     if (write_offset > 0)
     {  // Figure out which block we left off on
@@ -206,9 +207,9 @@ NbdConnection::write_response() {
                               response.get() + current_block,
                               total_blocks - current_block);
     if (nwritten < 0) {
-        LOGERROR << "Socket write error: " << errno;
+        LOGERROR << "Socket write error: [" << errno << "]";
         switch (errno) {
-            case EINVAL: fds_assert(false);  // Indicates logic bug
+            case EINVAL: fds_verify(false);  // Indicates logic bug
                          break;
             case EBADF:
             case EPIPE: throw connection_closed;
@@ -612,9 +613,9 @@ bool get_message_header(int fd, M& message) {
                          reinterpret_cast<uint8_t*>(&message.header) + message.header_off,
                          to_read);
     if (nread < 0) {
-        LOGERROR << "Socket read error" << errno;
+        LOGERROR << "Socket read error: [" << errno << "]";
         switch (errno) {
-            case EINVAL: fds_assert(false);  // Indicates logic bug
+            case EINVAL: fds_verify(false);  // Indicates logic bug
                          break;
             case EBADF:
             case EPIPE: throw NbdConnection::connection_closed;
@@ -652,7 +653,7 @@ bool get_message_payload(int fd, M& message) {
                                      message.data_off,
                                      to_read);
     if (nread < 0) {
-        LOGERROR << "Socket read error" << errno;
+        LOGERROR << "Socket read error: [" << errno << "]";
         switch (errno) {
             case EINVAL: fds_assert(false);  // Indicates logic bug
                          break;
