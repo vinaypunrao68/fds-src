@@ -48,7 +48,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $scope.perfBreakdownReturned = function( data ){
         $scope.performanceBreakdownStats = data;
-        $scope.performanceBreakdownItems = [{number: data.calculated[0].averageIOPs, description: $filter( 'translate' )( 'status.desc_performance' )}];
+        $scope.performanceBreakdownItems = [{number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )}];
     };
     
     $scope.capacityReturned = function( data ){
