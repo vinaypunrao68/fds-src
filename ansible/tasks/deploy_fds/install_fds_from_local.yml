@@ -4,7 +4,7 @@
     copy: src={{ item }}
       dest=/root/fds-coredump.deb
     with_fileglob:
-      - '../../source/tools/install/pkg/fds-coredump*.deb'
+      - '../../../source/tools/install/pkg/fds-coredump*.deb'
     tags:
       - install-local
 
@@ -13,7 +13,7 @@
     copy: src={{ item }}
       dest=/root/fds-pkghelper.deb
     with_fileglob:
-      - '../../source/tools/package/fds-pkghelper/fds-pkghelper*.deb'
+      - '../../../source/tools/package/fds-pkghelper/fds-pkghelper*.deb'
     tags:
       - install-local
 
@@ -22,7 +22,7 @@
     copy: src={{ item }}
       dest=/root/fds-platform.deb
     with_fileglob:
-      - '../../source/tools/install/pkg/fds-platform*.deb'
+      - '../../../source/tools/install/pkg/fds-platform*.deb'
     tags:
       - install-local
 
