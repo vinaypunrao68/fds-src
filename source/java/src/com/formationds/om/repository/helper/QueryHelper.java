@@ -459,8 +459,6 @@ public class QueryHelper {
     		sSum += ( dpSum / seri.getDatapoints().size() );
     	}
     	
-    	sSum /= series.size();
-    	
     	final AverageIOPs avgIops = new AverageIOPs();
     	avgIops.setAverage( sSum );
     	
