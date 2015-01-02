@@ -443,11 +443,26 @@ public class QueryHelper {
     protected AverageIOPs getAverageIOPs( List<Series> series ){
     	
     	Double rawAvg = series.stream().flatMapToDouble( s -> {
-    		return DoubleStream.of( s.getDatapoints().stream().flatMapToDouble( dp -> DoubleStream.of( dp.getY() ) ).sum() / s.getDatapoints().size() );
+    		return DoubleStream.of( s.getDatapoints().stream()
+    				.flatMapToDouble( dp -> DoubleStream.of( dp.getY() ) ).sum() / s.getDatapoints().size() );
     	}).average().getAsDouble();
     	
+    	Double sSum = 0.0;
+    	
+    	for ( Series seri : series ){
+    		Double dpSum = 0.0;
+    		
+    		for ( Datapoint dp : seri.getDatapoints() ){
+    			dpSum += dp.getY();
+    		}
+    		
+    		sSum += ( dpSum / seri.getDatapoints().size() );
+    	}
+    	
+    	sSum /= series.size();
+    	
     	final AverageIOPs avgIops = new AverageIOPs();
-    	avgIops.setAverage( rawAvg );
+    	avgIops.setAverage( sSum );
     	
     	return avgIops;
     }
