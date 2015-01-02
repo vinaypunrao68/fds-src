@@ -589,17 +589,18 @@ NbdConnection::callback(ev::io &watcher, int revents) {
         }
     }
     } catch(Errors e) {
-        if (nbdOps) {
-            // Tell NbdOperations to delete us once it's handled all outstanding
-            // requests. Going to ignore the incoming requests now.
-            ioWatcher->set(ev::WRITE);
-            nbdOps.reset();
-        }
-
         // If we had an error, stop the event loop too
         if (e == connection_closed) {
             asyncWatcher->stop();
             ioWatcher->stop();
+        }
+
+        if (nbdOps) {
+            // Tell NbdOperations to delete us once it's handled all outstanding
+            // requests. Going to ignore the incoming requests now.
+            ioWatcher->set(ev::WRITE);
+            nbdOps->shutdown();
+            nbdOps.reset();
         }
     }
 }

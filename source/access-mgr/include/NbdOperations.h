@@ -264,6 +264,9 @@ class NbdOperations
                              fds_uint32_t& length,
                              boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {}
 
+    void shutdown()
+    { amAsyncDataApi.reset(); }
+
   private:
     void parseRequestId(boost::shared_ptr<apis::RequestId>& requestId,
                         fds_int64_t* handle,
