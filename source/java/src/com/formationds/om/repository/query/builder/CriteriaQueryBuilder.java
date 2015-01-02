@@ -134,20 +134,23 @@ public class CriteriaQueryBuilder<T> {
     @SuppressWarnings( "unchecked" )
     public <CQ extends CriteriaQueryBuilder> CQ searchFor(final QueryCriteria searchCriteria ) {
 
-        if ( searchCriteria.getRange() != null )
+        if ( searchCriteria.getRange() != null ) {
             this.withDateRange( searchCriteria.getRange() );
-
-        if( searchCriteria.getContexts() != null &&
-                    !searchCriteria.getContexts()
-                                   .isEmpty() ) {
-            this.withContexts( searchCriteria.getContexts() );
         }
 
-        if ( searchCriteria.getFirstPoint() != null )
-            this.firstResult( searchCriteria.getFirstPoint().intValue() );
+//        if( searchCriteria.getContexts() != null &&
+//                    !searchCriteria.getContexts()
+//                                   .isEmpty() ) {
+            this.withContexts( searchCriteria.getContexts() );
+//        }
 
-        if ( searchCriteria.getPoints() != null )
+        if ( searchCriteria.getFirstPoint() != null ) {
+            this.firstResult( searchCriteria.getFirstPoint().intValue() );
+        }
+
+        if ( searchCriteria.getPoints() != null ) {
             this.maxResults( searchCriteria.getPoints() );
+        }
 
         return (CQ)this;
     }

@@ -9,7 +9,9 @@ import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Events;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Statistics;
+import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.abs.Calculated;
+import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
@@ -24,13 +26,17 @@ import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.util.DateTimeUtil;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
+import com.formationds.xdi.ConfigurationApi;
 
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -43,6 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 
 import javax.persistence.EntityManager;
@@ -101,7 +108,7 @@ public class QueryHelper {
      * query}
      */
     @SuppressWarnings( "unchecked" )
-    public Statistics execute( final MetricQueryCriteria query )
+    public Statistics execute( final MetricQueryCriteria query, final Authorizer authorizer, final AuthenticationToken token )
         throws TException {
         final Statistics stats = new Statistics();
         if( query != null ) {
@@ -110,6 +117,9 @@ public class QueryHelper {
 
             EntityManager em = repo.newEntityManager();
             try {
+            	
+            	query.setContexts( validateContextList( query, authorizer, token ) );
+            	
 	            final List<VolumeDatapoint> queryResults =
 	                new MetricCriteriaQueryBuilder( em ).searchFor( query )
 	                                                               .resultsList();
@@ -331,7 +341,7 @@ public class QueryHelper {
      * values so that the are reduced to values per second.
      * @param points
      */
-    protected void normalizeDatapoints( List<VolumeDatapoint> points ){
+    protected void normalizeDatapoints( final List<VolumeDatapoint> points ){
     	
     	points.stream().forEach( point -> {
     		
@@ -347,6 +357,75 @@ public class QueryHelper {
     		
     		point.setValue( point.getValue() / intervalInSeconds );
     	});
+    }
+    
+    /**
+     * This will look at the {@link Context} of the query and make sure the user has access
+     * to them before allowing them to query for its information.  If there are no contexts,
+     * it will fill them in with the {@link Volume}s the user can access.  
+     * 
+     * ** THIS ASSUMES CONTEXT IS A VOLUME **
+     * If this assumption becomes false at some point then this method will need to change
+     * in order to take that into consideration
+     * 
+     * @param query
+     * @param token
+     */
+    protected List<Context> validateContextList( final MetricQueryCriteria query, final Authorizer authorizer, final AuthenticationToken token ){
+    	
+    	List<Context> contexts = query.getContexts();
+    	
+    	ConfigurationApi api = SingletonConfigAPI.instance().api();
+    	
+    	// fill it with all the volumes they have access to
+    	if ( contexts.isEmpty() ){
+
+    		try {
+    		
+	    		contexts = api.listVolumes("")
+	    			.stream()
+	    			.filter( vd -> authorizer.hasAccess( token, vd.getName() ) )
+	    			.map( vd -> {
+	    				
+	    				String volumeId = "";
+	    				
+	    				try{
+	    					volumeId = String.valueOf( api.getVolumeId( vd.getName() ) );
+	    				}
+	    				catch( TException e ){
+	    					
+	    				}
+	    				
+	    				Volume volume = new VolumeBuilder().withId( volumeId ).withName( vd.getName() )
+	    					.build();
+	    				
+	    				return volume;
+	    			})
+	    			.collect( Collectors.toList() );
+    		
+    		} catch ( Exception e ){
+    			logger.error( "Could not gather the volumes this user has access to.", e) ;
+    		}
+    	}
+    	// validate the request matches the authorization
+    	else {
+    		
+    		contexts = contexts.stream().filter( c -> {
+    			boolean hasAccess = authorizer.hasAccess( token, ((Volume)c).getName() );
+    			
+    			if ( hasAccess == false ){
+    				// TODO: Add an audit event here because someone may be trying an attack
+    				logger.warn( "User does not have access to query for volume: " + ((Volume)c).getName() +
+    					".  It will be removed from the query context." );
+    			}
+    			
+    			return hasAccess;
+    		})
+    		.collect( Collectors.toList()); 
+    		
+    	}
+    	
+    	return contexts;
     }
     
     /**

@@ -144,7 +144,7 @@ public class Main {
         /*
          * provides metrics RESTful API endpoints
          */
-        metrics();
+        metrics( authorizer );
         
         /*
          * provides tenant RESTful API endpoints
@@ -195,20 +195,20 @@ public class Main {
     webApp.route( method, route, () -> eh );
   }
 
-  private void metrics() {
+  private void metrics( final Authorizer authorizer ) {
     if( !FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
       return;
     }
 
     LOG.trace( "registering metrics endpoints" );
-    metricsGets();
-    metricsPost();
+    metricsGets( authorizer);
+    metricsPost( authorizer );
     LOG.trace( "registered metrics endpoints" );
   }
 
-  private void metricsGets() {
+  private void metricsGets( final Authorizer authorizer ) {
     authenticate( HttpMethod.PUT, "/api/stats/volumes",
-                  ( t ) -> new QueryMetrics() );
+                  ( t ) -> new QueryMetrics( authorizer, t ) );
   }
   
   private void tenants( SecretKey secretKey, Authorizer authorizer ) {
@@ -220,7 +220,7 @@ public class Main {
       fdsAdminOnly(HttpMethod.DELETE, "/api/system/tenants/:tenantid/:userid", (t) -> new RevokeUserFromTenant( configCache, secretKey ), authorizer );
   }
 
-  private void metricsPost() {
+  private void metricsPost( final Authorizer authorizer ) {
     webApp.route( HttpMethod.POST, "/api/stats", ( ) -> new IngestVolumeStats( configCache ) );
   }
 
