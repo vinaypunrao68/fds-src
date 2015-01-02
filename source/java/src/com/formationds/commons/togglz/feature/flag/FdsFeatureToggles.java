@@ -14,6 +14,7 @@ import org.togglz.core.annotation.Label;
  */
 public enum FdsFeatureToggles
   implements Feature {
+
   @Label("Snapshot Feature")
   @Snapshot
   SNAPSHOT_ENDPOINT,
@@ -32,14 +33,24 @@ public enum FdsFeatureToggles
 
   @Label("Firebreak Feature")
   @Firebreak
-  FIREBREAK;
+  FIREBREAK,
+
+  @Label( "Webkit Feature" )
+  @Webkit
+  WEB_KIT,
+
+  @Label( "SNMP Feature" )
+  @Snmp
+  SNMP;
 
   /**
    * @return Returns {@code true} if the feature associated with {@code this}
    * is enabled
    */
   public boolean isActive() {
+
     return FdsFeatureManagerProvider.getFeatureManager()
                                     .isActive( this );
+
   }
 }

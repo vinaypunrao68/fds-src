@@ -7,21 +7,44 @@ package com.formationds.om;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
+import com.formationds.om.helper.SingletonLegacyConfig;
+import com.formationds.om.helper.SingletonXdi;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.rest.*;
 import com.formationds.om.rest.events.IngestEvents;
 import com.formationds.om.rest.events.QueryEvents;
 import com.formationds.om.rest.metrics.IngestVolumeStats;
 import com.formationds.om.rest.metrics.QueryMetrics;
-import com.formationds.om.rest.snapshot.*;
-import com.formationds.security.*;
+import com.formationds.om.rest.snapshot.AttachSnapshotPolicyIdToVolumeId;
+import com.formationds.om.rest.snapshot.CloneSnapshot;
+import com.formationds.om.rest.snapshot.CreateSnapshot;
+import com.formationds.om.rest.snapshot.CreateSnapshotPolicy;
+import com.formationds.om.rest.snapshot.DeleteSnapshotPolicy;
+import com.formationds.om.rest.snapshot.DetachSnapshotPolicyIdToVolumeId;
+import com.formationds.om.rest.snapshot.EditSnapshotPolicy;
+import com.formationds.om.rest.snapshot.ListSnapshotPolicies;
+import com.formationds.om.rest.snapshot.ListSnapshotPoliciesForVolume;
+import com.formationds.om.rest.snapshot.ListSnapshotsByVolumeId;
+import com.formationds.om.rest.snapshot.ListVolumeIdsForSnapshotId;
+import com.formationds.om.rest.snapshot.RestoreSnapshot;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authenticator;
+import com.formationds.security.Authorizer;
+import com.formationds.security.DumbAuthorizer;
+import com.formationds.security.FdsAuthenticator;
+import com.formationds.security.FdsAuthorizer;
+import com.formationds.security.NullAuthenticator;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
-import com.formationds.web.toolkit.*;
+import com.formationds.web.toolkit.HttpConfiguration;
+import com.formationds.web.toolkit.HttpMethod;
+import com.formationds.web.toolkit.HttpsConfiguration;
+import com.formationds.web.toolkit.JsonResource;
+import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.ConfigurationApi;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
@@ -34,6 +57,8 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.HttpServletResponse;
 import java.util.function.Function;
 
+import static com.formationds.om.events.EventManager.INSTANCE;
+
 public class Main {
     private static final Logger LOG = Logger.getLogger(Main.class);
 
@@ -41,18 +66,22 @@ public class Main {
     private final Object eventMgrKey = new Object();
 
     private WebApp webApp;
-    private Xdi xdi;
     private ConfigurationApi configCache;
 
     public static void main(String[] args) {
+
         try {
-            Configuration cfg = new Configuration("om-xdi", args);
+
+            Configuration cfg = new Configuration( "om-xdi", args );
             new Main(cfg).start(args);
+
         } catch (Throwable t) {
+
             LOG.fatal("Error starting OM", t);
             System.out.println(t.getMessage());
             System.out.flush();
             System.exit(-1);
+
         }
     }
 
@@ -60,139 +89,271 @@ public class Main {
         SingletonConfiguration.instance().setConfig(cfg);
     }
 
-    public void start(String[] args) throws Exception {
-        final Configuration configuration = SingletonConfiguration.instance().getConfig();
+    public void start( String[] args )
+        throws Exception {
 
-        // TODO there needs to be a "global" configuration access point to replace this
+        final Configuration configuration =
+            SingletonConfiguration.instance()
+                                  .getConfig();
+
         System.setProperty("fds-root", configuration.getFdsRoot());
         LOG.trace( "FDS-ROOT: " + System.getProperty( "fds-root" ) );
 
         LOG.trace("Starting native OM");
         NativeOm.startOm(args);
 
-        LOG.trace("Loading platform configuration.");
+        LOG.trace( "Loading platform configuration." );
         ParsedConfig platformConfig = configuration.getPlatformConfig();
-        byte[] keyBytes = Hex.decodeHex(platformConfig.lookup("fds.aes_key")
-                                                      .stringValue()
-                                                      .toCharArray());
-        SecretKey secretKey = new SecretKeySpec(keyBytes, "AES");
 
         // TODO: this is needed before bootstrapping the admin user but not sure if there is config required first.
         // alternatively, we could initialize it with an empty event notifier or disabled flag and not log the
         // initial first-time bootstrap of the admin user as an event.
         LOG.trace("Initializing repository event notifier.");
-        EventManager.INSTANCE.initEventNotifier(eventMgrKey, (e) -> {
-            return SingletonRepositoryManager.instance().getEventRepository().save(e) != null;
-        });
+        INSTANCE.initEventNotifier(
+            eventMgrKey,
+            ( e ) -> SingletonRepositoryManager.instance()
+                                               .getEventRepository()
+                                               .save( e ) != null );
+
         if(FdsFeatureToggles.FIREBREAK_EVENT.isActive()) {
+
             LOG.trace("Firebreak events feature is enabled.  Initializing repository firebreak callback.");
             // initialize the firebreak event listener (callback from repository persist)
-            EventManager.INSTANCE.initEventListeners();
-        }
-        else {
+            INSTANCE.initEventListeners();
+
+        } else {
+
             LOG.info("Firebreak events feature is disabled.");
+
         }
 
         XdiClientFactory clientFactory = new XdiClientFactory();
-        configCache = new ConfigurationApi(clientFactory.remoteOmService("localhost", 9090));
-        EnsureAdminUser.bootstrapAdminUser(configCache);
-
+        configCache =
+            new ConfigurationApi(
+                clientFactory.remoteOmService( "localhost", 9090 ) );
         SingletonConfigAPI.instance().api( configCache );
 
-        AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
+        EnsureAdminUser.bootstrapAdminUser( configCache );
 
-        String omHost = "localhost";
-        int omPort = platformConfig.defaultInt("fds.om.config_port", 8903);
-        String webDir = platformConfig.defaultString("fds.om.web_dir", "../lib/admin-webapp");
-
+        AmService.Iface amService =
+            clientFactory.remoteAmService( "localhost", 9988 );
         SingletonAmAPI.instance().api( amService );
 
-        FDSP_ConfigPathReq.Iface legacyConfigClient = clientFactory.legacyConfig(omHost, omPort);
-//    Deprecated part of the old stats
-//    VolumeStatistics volumeStatistics = new VolumeStatistics( Duration.standardMinutes( 20 ) );
+        String omHost = "localhost";
+        int omPort = platformConfig.defaultInt( "fds.om.config_port", 8903 );
+        String webDir =
+            platformConfig.defaultString( "fds.om.web_dir",
+                                          "../lib/admin-webapp" );
 
-        boolean enforceAuthentication = platformConfig.defaultBoolean("fds.authentication", true);
-        Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
-        Authorizer authorizer = enforceAuthentication ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
+        FDSP_ConfigPathReq.Iface legacyConfigClient =
+            clientFactory.legacyConfig( omHost, omPort );
+        SingletonLegacyConfig.instance()
+                             .api( legacyConfigClient );
 
-        xdi = new Xdi(amService, configCache, authenticator, authorizer, legacyConfigClient);
+        byte[] keyBytes = Hex.decodeHex( platformConfig.lookup( "fds.aes_key" )
+                                                       .stringValue()
+                                                       .toCharArray() );
+        SecretKey secretKey = new SecretKeySpec( keyBytes, "AES" );
 
-        webApp = new WebApp(webDir);
+        final boolean enforceAuthentication =
+            platformConfig.defaultBoolean( "fds.authentication", true );
+        Authenticator authenticator =
+            enforceAuthentication ? new FdsAuthenticator( configCache,
+                                                          secretKey )
+                                  : new NullAuthenticator();
 
-        webApp.route(HttpMethod.GET, "", () -> new LandingPage(webDir));
+        Authorizer authorizer = enforceAuthentication
+            ? new FdsAuthorizer( configCache )
+            : new DumbAuthorizer();
 
-        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new GrantToken(xdi, secretKey));
-        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new GrantToken(xdi, secretKey));
-        authenticate(HttpMethod.GET, "/api/auth/currentUser", (t) -> new CurrentUser(xdi, t));
+        final Xdi xdi = new Xdi( amService,
+                                 configCache,
+                                 authenticator,
+                                 authorizer,
+                                 legacyConfigClient );
+        SingletonXdi.instance()
+                    .api( xdi );
+        int httpPort = platformConfig.defaultInt( "fds.om.http_port", 7777 );
+        int httpsPort = platformConfig.defaultInt( "fds.om.https_port", 7443 );
 
-        fdsAdminOnly(HttpMethod.GET, "/api/config/services", (t) -> new ListServices(legacyConfigClient), authorizer);
-        fdsAdminOnly(HttpMethod.POST, "/api/config/services/:node_uuid", (t) -> new ActivatePlatform(legacyConfigClient), authorizer);
 
-        fdsAdminOnly(HttpMethod.GET, "/api/config/globaldomain", (t) -> new ShowGlobalDomain(), authorizer);
-        fdsAdminOnly(HttpMethod.GET, "/api/config/domains", (t) -> new ListDomains(), authorizer);
+        if( FdsFeatureToggles.WEB_KIT.isActive() ) {
+
+            webkit( webDir, httpPort, httpsPort, authorizer, secretKey );
+
+        } else {
+
+            dropwizard();
+
+        }
+    }
+
+    private void dropwizard() {
+
+    }
+
+    private void webkit( final String webDir,
+                         final int httpPort,
+                         final int httpsPort,
+                         final Authorizer authorizer,
+                         final SecretKey secretKey ) {
+
+        webApp = new WebApp( webDir );
+
+        webApp.route( HttpMethod.GET, "", ( ) -> new LandingPage( webDir ) );
+
+        webApp.route( HttpMethod.POST, "/api/auth/token",
+                      ( ) -> new GrantToken( SingletonXdi.instance()
+                                                         .api(),
+                                             secretKey ) );
+        webApp.route( HttpMethod.GET, "/api/auth/token",
+                      ( ) -> new GrantToken( SingletonXdi.instance()
+                                                         .api(),
+                                             secretKey ) );
+        authenticate( HttpMethod.GET, "/api/auth/currentUser",
+                      ( t ) -> new CurrentUser( SingletonXdi.instance()
+                                                            .api(),
+                                                t ) );
+
+        fdsAdminOnly( HttpMethod.GET, "/api/config/services",
+                      ( t ) -> new ListServices(
+                          SingletonLegacyConfig.instance()
+                                               .api() ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.POST, "/api/config/services/:node_uuid",
+                      ( t ) -> new ActivatePlatform(
+                          SingletonLegacyConfig.instance()
+                                               .api() ),
+                      authorizer );
+
+        fdsAdminOnly( HttpMethod.GET, "/api/config/globaldomain",
+                      ( t ) -> new ShowGlobalDomain(), authorizer );
+        fdsAdminOnly( HttpMethod.GET, "/api/config/domains",
+                      ( t ) -> new ListDomains(), authorizer );
 
         // TODO: security model for statistics streams
-        authenticate(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configCache));
-        authenticate(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configCache));
-        authenticate(HttpMethod.PUT, "/api/config/streams", (t) -> new DeregisterStream(configCache));
+        authenticate( HttpMethod.POST, "/api/config/streams",
+                      ( t ) -> new RegisterStream( configCache ) );
+        authenticate( HttpMethod.GET, "/api/config/streams",
+                      ( t ) -> new ListStreams( configCache ) );
+        authenticate( HttpMethod.PUT, "/api/config/streams",
+                      ( t ) -> new DeregisterStream( configCache ) );
 
         /*
          * provides snapshot RESTful API endpoints
          */
-        snapshot(configCache, legacyConfigClient, authorizer);
+        snapshot( SingletonConfigAPI.instance()
+                                    .api(),
+                  SingletonLegacyConfig.instance()
+                                       .api(),
+                  authorizer );
 
         /*
          * provides metrics RESTful API endpoints
          */
         metrics();
-        
+
         /*
          * provides tenant RESTful API endpoints
          */
         tenants( secretKey, authorizer );
 
-        authenticate(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(xdi, amService, legacyConfigClient, t));
-        authenticate(HttpMethod.POST, "/api/config/volumes",
-                (t) -> new CreateVolume(xdi, legacyConfigClient, configCache, t));
-        authenticate(HttpMethod.POST, "/api/config/volumes/clone/:volumeId/:cloneVolumeName/:timelineTime", (t) -> new CloneVolume(configCache, legacyConfigClient));
-        authenticate(HttpMethod.DELETE, "/api/config/volumes/:name", (t) -> new DeleteVolume(xdi, t));
-        authenticate(HttpMethod.PUT, "/api/config/volumes/:uuid", (t) -> new SetVolumeQosParams(xdi, legacyConfigClient, configCache, authorizer, t));
+        authenticate( HttpMethod.GET, "/api/config/volumes",
+                      ( t ) -> new ListVolumes( SingletonXdi.instance()
+                                                            .api(),
+                                                SingletonAmAPI.instance()
+                                                              .api(),
+                                                SingletonLegacyConfig.instance()
+                                                                     .api(),
+                                                t ) );
+        authenticate( HttpMethod.POST, "/api/config/volumes",
+                      ( t ) -> new CreateVolume( SingletonXdi.instance()
+                                                             .api(),
+                                                 SingletonLegacyConfig.instance()
+                                                                      .api(),
+                                                 configCache, t ) );
+        authenticate( HttpMethod.POST,
+                      "/api/config/volumes/clone/:volumeId/:cloneVolumeName/:timelineTime",
+                      ( t ) -> new CloneVolume( configCache,
+                                                SingletonLegacyConfig.instance()
+                                                                     .api() ) );
+        authenticate( HttpMethod.DELETE, "/api/config/volumes/:name",
+                      ( t ) -> new DeleteVolume( SingletonXdi.instance()
+                                                             .api(),
+                                                 t ) );
+        authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid",
+                      ( t ) -> new SetVolumeQosParams( SingletonXdi.instance()
+                                                                   .api(),
+                                                       SingletonLegacyConfig.instance()
+                                                                            .api(),
+                                                       configCache, authorizer,
+                                                       t ) );
 
-        fdsAdminOnly(HttpMethod.GET, "/api/system/token/:userid", (t) -> new ShowToken(configCache, secretKey), authorizer);
-        fdsAdminOnly(HttpMethod.POST, "/api/system/token/:userid", (t) -> new ReissueToken(configCache, secretKey), authorizer);
-        fdsAdminOnly(HttpMethod.POST, "/api/system/users/:login/:password", (t) -> new CreateUser(configCache, secretKey), authorizer);
-        authenticate(HttpMethod.PUT, "/api/system/users/:userid/:password", (t) -> new UpdatePassword(t, configCache, secretKey, authorizer));
-        fdsAdminOnly(HttpMethod.GET, "/api/system/users", (t) -> new ListUsers(configCache, secretKey), authorizer);
+        fdsAdminOnly( HttpMethod.GET, "/api/system/token/:userid",
+                      ( t ) -> new ShowToken( configCache, secretKey ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.POST, "/api/system/token/:userid",
+                      ( t ) -> new ReissueToken( configCache, secretKey ),
+                      authorizer );
+        fdsAdminOnly( HttpMethod.POST, "/api/system/users/:login/:password",
+                      ( t ) -> new CreateUser( configCache, secretKey ),
+                      authorizer );
+        authenticate( HttpMethod.PUT, "/api/system/users/:userid/:password",
+                      ( t ) -> new UpdatePassword( t, configCache, secretKey,
+                                                   authorizer ) );
+        fdsAdminOnly( HttpMethod.GET, "/api/system/users",
+                      ( t ) -> new ListUsers( configCache, secretKey ),
+                      authorizer );
 
         /*
          * provide events RESTful API endpoints
          */
         events();
 
-        int httpPort = platformConfig.defaultInt("fds.om.http_port", 7777);
-        int httpsPort = platformConfig.defaultInt("fds.om.https_port", 7443);
-        webApp.start(new HttpConfiguration(httpPort), new HttpsConfiguration(httpsPort, configuration));
-  }
+        webApp.start(
+            new HttpConfiguration( httpPort ),
+            new HttpsConfiguration( httpsPort,
+                                    SingletonConfiguration.instance()
+                                                          .getConfig() ) );
 
-  private void fdsAdminOnly( HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f, Authorizer authorizer ) {
+    }
+
+  private void fdsAdminOnly( HttpMethod method,
+                             String route,
+                             Function<AuthenticationToken, RequestHandler> f,
+                             Authorizer authorizer ) {
     authenticate( method, route, ( t ) -> {
       try {
         if( authorizer.userFor( t )
                       .isIsFdsAdmin() ) {
           return f.apply( t );
         } else {
-          return ( r, p ) -> new JsonResource( new JSONObject().put( "message", "Invalid permissions" ), HttpServletResponse.SC_UNAUTHORIZED );
+            return ( r, p ) ->
+                new JsonResource( new JSONObject().put( "message",
+                                                        "Invalid permissions" ),
+                                  HttpServletResponse.SC_UNAUTHORIZED );
         }
       } catch( SecurityException e ) {
         LOG.error( "Error authorizing request, userId = " + t.getUserId(), e );
-        return ( r, p ) -> new JsonResource( new JSONObject().put( "message", "Invalid permissions" ), HttpServletResponse.SC_UNAUTHORIZED );
+          return ( r, p ) ->
+              new JsonResource( new JSONObject().put( "message",
+                                                      "Invalid permissions" ),
+                                HttpServletResponse.SC_UNAUTHORIZED );
       }
     } );
   }
 
-  private void authenticate( HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f ) {
-    HttpErrorHandler eh = new HttpErrorHandler( new HttpAuthenticator( f, xdi.getAuthenticator() ) );
-    webApp.route( method, route, () -> eh );
+    private void authenticate( HttpMethod method,
+                               String route,
+                               Function<AuthenticationToken,
+                                   RequestHandler> f ) {
+        HttpErrorHandler eh =
+            new HttpErrorHandler(
+                new HttpAuthenticator( f,
+                                       SingletonXdi.instance()
+                                                   .api()
+                                                   .getAuthenticator() ) );
+        webApp.route( method, route, ( ) -> eh );
   }
 
   private void metrics() {
@@ -221,7 +382,9 @@ public class Main {
   }
 
   private void metricsPost() {
-    webApp.route( HttpMethod.POST, "/api/stats", ( ) -> new IngestVolumeStats( configCache ) );
+      webApp.route( HttpMethod.POST, "/api/stats",
+                    ( ) -> new IngestVolumeStats(
+                        configCache ) );
   }
 
   private void snapshot( final ConfigurationApi config,
@@ -297,14 +460,10 @@ public class Main {
       authenticate( HttpMethod.DELETE, "/api/config/snapshot/policies/:policyId",
                   ( t ) -> new DeleteSnapshotPolicy( config ) );
 
-      /*
-       * TODO this call does not currently exists, maybe it should for API completeness
-       */
-//    fdsAdminOnly( HttpMethod.DELETE, "/api/config/snapshot/:volumeId/:snapshotId",
-//                  ( t ) -> new DeleteSnapshotForVolume(), authorizer );
     }
 
     private void events() {
+
         if( !FdsFeatureToggles.ACTIVITIES_ENDPOINT.isActive() ) {
             return;
         }
@@ -312,18 +471,11 @@ public class Main {
         LOG.trace( "registering activities endpoints" );
 
         // TODO: only the AM should be sending this event to us.  How can we validate that?
-        webApp.route(HttpMethod.PUT, "/api/events/log/:event", () -> new IngestEvents());
+        webApp.route( HttpMethod.PUT, "/api/events/log/:event",
+                      ( ) -> new IngestEvents() );
 
         authenticate(HttpMethod.PUT, "/api/config/events", (t) -> new QueryEvents());
 
-//        authenticate(HttpMethod.GET, "/api/events/range/:start/:end", (t) -> new QueryEvents());
-//        authenticate(HttpMethod.GET, "/api/events/paged/:start/:end", (t) -> new QueryEvents());
-//        authenticate(HttpMethod.GET, "/api/events/tenants/:tenantId/range/:start/:end", (t) -> new QueryEvents());
-//        authenticate(HttpMethod.GET, "/api/events/tenants/:tenantId/paged/:start/:end", (t) -> new QueryEvents());
-//        authenticate(HttpMethod.GET, "/api/events/volumes/:volumeId/range/:start/:end", (t) -> new QueryEvents());
-//        authenticate(HttpMethod.GET, "/api/events/volumes/:volumeId/paged/:start/:end", (t) -> new QueryEvents());
-//        authenticate(HttpMethod.GET, "/api/events/users/:userId/range/:start/:end", (t) -> new QueryEvents());
-//        authenticate(HttpMethod.GET, "/api/events/users/:userId/paged/:start/:end", (t) -> new QueryEvents());
         LOG.trace( "registered activities endpoints" );
     }
 
