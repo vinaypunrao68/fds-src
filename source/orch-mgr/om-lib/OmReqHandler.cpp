@@ -8,13 +8,14 @@
 #include <net/net-service-tmpl.hpp>
 #include <NetSession.h>
 #include <OmResources.h>
-#include <platform/node-inv-shmem.h>
 #include <net/SvcRequest.h>
 #include <fdsp_utils.h>
 #include <fiu-local.h>
 #include <fdsp/fds_service_types.h>
 #include <net/BaseAsyncSvcHandler.h>
 #include <net/PlatNetSvcHandler.h>
+#include "platform/node_data.h"
+#include "platform/platform.h"
 
 #undef LOGGERPTR
 #define LOGGERPTR orchMgr->GetLog()

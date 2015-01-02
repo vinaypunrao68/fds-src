@@ -1,0 +1,6 @@
+[aws-billing-handler]
+bld-dev-02
+
+[aws-billing-handler:vars]
+aws_billing_dir="/home/aws"
+elasticsearch_host="10.2.10.22:59200"

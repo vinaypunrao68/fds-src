@@ -6,7 +6,7 @@
 #include <fdsp_utils.h>
 #include <fds_assert.h>
 #include <SMSvcHandler.h>
-#include <platform/fds_flags.h>
+// #include <platform/flags_map.h>
 #include <sm-platform.h>
 #include <string>
 #include <net/SvcRequest.h>
@@ -60,10 +60,14 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownSMMsg, shutdownSM);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceInitialSet, initiateObjectSync);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
 }
 
-void SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg) {
+void
+SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg)
+{
     LOGDEBUG << "Received new migration init message";
 
     // TODO(xxx): We need to be sure to unpack the source -> token list
@@ -71,6 +75,20 @@ boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg) {
     // Source will be an i64, and tokenids within each list will be i32s
     // because Thrift has no notion of unsigned ints. These will need to
     // be cast back to the unsigned equivalents
+}
+
+void
+SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlObjectRebalanceInitialSet>& initialObjSet)
+{
+    LOGDEBUG << "Initiate Object Sync";
+}
+
+void
+SMSvcHandler::syncObjectSet(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlObjectRebalanceDeltaSet>& deltaObjSet)
+{
+    LOGDEBUG << "Sync Object Set";
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

@@ -3,10 +3,11 @@
  */
 
 #include <vector>
-#include <platform/platform-lib.h>
-#include <platform/node-inventory.h>
-#include <platform/node-workflow.h>
+
 #include <net/SvcRequestPool.h>
+#include "platform/node_upgrade.h"
+#include "platform/node_upgrade_evt.h"
+#include "platform/node_work_item.h"
 
 namespace fds
 {

@@ -27,12 +27,12 @@ namespace fds {
 #pragma pack(push)
 #pragma pack(1)
 struct attach_header {
-    fds_int64_t magic;
+    uint8_t magic[8];
     fds_int32_t optSpec, length;
 };
 
 struct request_header {
-    fds_int32_t magic;
+    uint8_t magic[4];
     fds_int32_t opType;
     fds_int64_t handle;
     fds_int64_t offset;
@@ -69,10 +69,18 @@ class NbdConnector {
 };
 
 class NbdConnection : public NbdOperationsResponseIface {
+ public:
+    enum Errors {
+        connection_closed,
+        shutdown_requested,
+    };
+
   private:
     int clientSocket;
     boost::shared_ptr<std::string> volumeName;
     apis::VolumeDescriptor volDesc;
+    size_t volume_size;
+
     OmConfigApi::shared_ptr omConfigApi;
     NbdOperations::shared_ptr nbdOps;
     size_t maxChunks;
@@ -82,6 +90,10 @@ class NbdConnection : public NbdOperationsResponseIface {
     message<attach_header, std::array<char, 1024>> attach;
     message<request_header, boost::shared_ptr<std::string>> request;
 
+    std::unique_ptr<iovec[]> response;
+    size_t total_blocks;
+    ssize_t write_offset;
+
     // Uturn stuff. Remove me.
     struct UturnPair {
         fds_int64_t handle;
@@ -90,21 +102,20 @@ class NbdConnection : public NbdOperationsResponseIface {
     };
     boost::lockfree::queue<UturnPair> readyHandles;
     boost::lockfree::queue<NbdResponseVector*> readyResponses;
+    std::unique_ptr<NbdResponseVector> current_response;
 
-    static constexpr fds_int64_t NBD_MAGIC = 0x49484156454F5054l;
+    static constexpr uint8_t NBD_MAGIC[] = { 0x49, 0x48, 0x41, 0x56, 0x45, 0x4F, 0x50, 0x54 };
+    static constexpr uint8_t NBD_REQUEST_MAGIC[] = { 0x25, 0x60, 0x95, 0x13 };
+    static constexpr uint8_t NBD_RESPONSE_MAGIC[] = { 0x67, 0x44, 0x66, 0x98 };
     static constexpr char NBD_MAGIC_PWD[] {'N', 'B', 'D', 'M', 'A', 'G', 'I', 'C'};  // NOLINT
-    static constexpr fds_uint16_t NBD_PROTO_VERSION = 1;
-    static constexpr fds_uint32_t NBD_ACK = 0;
+    static constexpr uint8_t NBD_PROTO_VERSION[] = { 0x00, 0x01 };
     static constexpr fds_int32_t NBD_OPT_EXPORT = 1;
-    static constexpr fds_int32_t NBD_FLAG_HAS_FLAGS  = 0x1 << 0;
-    static constexpr fds_int32_t NBD_FLAG_READ_ONLY  = 0x1 << 1;
-    static constexpr fds_int32_t NBD_FLAG_SEND_FLUSH = 0x1 << 2;
-    static constexpr fds_int32_t NBD_FLAG_SEND_FUA   = 0x1 << 3;
-    static constexpr fds_int32_t NBD_FLAG_ROTATIONAL = 0x1 << 4;
-    static constexpr fds_int32_t NBD_FLAG_SEND_TRIM  = 0x1 << 5;
-    static constexpr char NBD_PAD_ZERO[124] {0};  // NOLINT
-    static constexpr fds_int32_t NBD_REQUEST_MAGIC = 0x25609513;
-    static constexpr fds_int32_t NBD_RESPONSE_MAGIC = 0x67446698;
+    static constexpr fds_int16_t NBD_FLAG_HAS_FLAGS  = 0x1 << 0;
+    static constexpr fds_int16_t NBD_FLAG_READ_ONLY  = 0x1 << 1;
+    static constexpr fds_int16_t NBD_FLAG_SEND_FLUSH = 0x1 << 2;
+    static constexpr fds_int16_t NBD_FLAG_SEND_FUA   = 0x1 << 3;
+    static constexpr fds_int16_t NBD_FLAG_ROTATIONAL = 0x1 << 4;
+    static constexpr fds_int16_t NBD_FLAG_SEND_TRIM  = 0x1 << 5;
     static constexpr fds_int32_t NBD_CMD_READ = 0;
     static constexpr fds_int32_t NBD_CMD_WRITE = 1;
     static constexpr fds_int32_t NBD_CMD_DISC = 2;
@@ -132,12 +143,12 @@ class NbdConnection : public NbdOperationsResponseIface {
     };
     NbdHandshakeState hsState;
 
-    void hsPreInit(ev::io &watcher);
+    bool hsPreInit(ev::io &watcher);
     void hsPostInit(ev::io &watcher);
     bool hsAwaitOpts(ev::io &watcher);
-    void hsSendOpts(ev::io &watcher);
+    bool hsSendOpts(ev::io &watcher);
     void hsReq(ev::io &watcher);
-    void hsReply(ev::io &watcher);
+    bool hsReply(ev::io &watcher);
     Error dispatchOp(ev::io &watcher,
                      fds_uint32_t opType,
                      fds_int64_t handle,
@@ -145,14 +156,14 @@ class NbdConnection : public NbdOperationsResponseIface {
                      fds_uint32_t length,
                      boost::shared_ptr<std::string> data);
 
+    bool write_response();
+
   public:
     NbdConnection(OmConfigApi::shared_ptr omApi, int clientsd);
     ~NbdConnection();
 
     // implementation of NbdOperationsResponseIface
-    void readWriteResp(const Error& error,
-                       fds_int64_t handle,
-                       NbdResponseVector* response);
+    void readWriteResp(NbdResponseVector* response);
 };
 
 }  // namespace fds

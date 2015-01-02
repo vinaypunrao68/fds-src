@@ -5,6 +5,7 @@
 package com.formationds.xdi;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
+import FDS_ProtocolInterface.ResourceState;
 import com.formationds.apis.*;
 import com.formationds.om.rest.SetVolumeQosParams;
 import com.formationds.security.AuthenticationToken;

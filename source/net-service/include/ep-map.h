@@ -9,7 +9,9 @@
 #include <fds-shmobj.h>
 #include <net/net-service.h>
 #include <shared/fds-constants.h>
-#include <platform/node-inv-shmem.h>
+
+#include "platform/node_shm_queue_item.h"
+#include "platform/node_data.h"
 
 namespace fds {
 

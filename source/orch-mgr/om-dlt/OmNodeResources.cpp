@@ -18,7 +18,9 @@
 #include <orch-mgr/om-service.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
-#include <platform/node-inv-shmem.h>
+
+#include "platform/node_data.h"
+#include "platform/platform.h"
 
 namespace fds {
 

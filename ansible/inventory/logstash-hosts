@@ -1,9 +1,7 @@
 [logstash-nodes:children]
-local-test-nodes
+boulder-lab-2
 
-[local-test-nodes]
-tester
+[boulder-lab-2]
+bld-dev-02
 
-[local-test-nodes:vars]
-ansible_ssh_user=vagrant
-ansible_ssh_pass=vagrant
+[boulder-lab-2:vars]

@@ -119,9 +119,16 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
             boost::shared_ptr<fpi::CtrlStartMigration>& startMigration);
     /**
     * Handler for the new SM token migration messages
+    * This is a message handler that receives a new DLT message from OM
     */
     void migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
             boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg);
+
+    void initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+            boost::shared_ptr<fpi::CtrlObjectRebalanceInitialSet>& initialObjSet);
+
+    void syncObjectSet(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+            boost::shared_ptr<fpi::CtrlObjectRebalanceDeltaSet>& deltaObjSet);
 };
 
 }  // namespace fds

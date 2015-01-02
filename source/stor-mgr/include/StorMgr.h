@@ -40,7 +40,7 @@
 #include "lib/OMgrClient.h"
 
 #include "fds_module.h"
-#include "platform/platform-lib.h"
+#include "platform/typedefs.h"
 
 // #include "NetSession.h"
 #include "kvstore/tokenstatedb.h"
