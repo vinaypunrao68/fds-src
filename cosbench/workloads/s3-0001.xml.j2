@@ -15,21 +15,21 @@
     </workstage>
 
     <workstage name="smoke_1hour">
-      <work name="main" workers="8" runtime="3600">
+      <work name="main" workers="8" runtime="3600" afr="10000">
         <operation type="read" ratio="40" config="cprefix=s3testqwer;containers=u(1,1023);objects=u(1,30)" />
         <operation type="write" ratio="60" config="cprefix=s3testqwer;containers=u(1,1023);objects=u(31,60);sizes=u(64,1024)KB" />
       </work>
     </workstage>
 
     <workstage name="smoke_6hour_small">
-      <work name="main" workers="8" runtime="21600">
+      <work name="main" workers="8" runtime="21600" afr="10000">
         <operation type="read" ratio="40" config="cprefix=s3testqwer;containers=u(1,1023);objects=u(1,100)" />
         <operation type="write" ratio="60" config="cprefix=s3testqwer;containers=u(1,1023);objects=u(101,200);sizes=u(64,1024)KB" />
       </work>
     </workstage>
 
     <!-- <workstage name="smoke_6hour_big"> -->
-    <!--   <work name="main" workers="8" runtime="3600"> -->
+    <!--   <work name="main" workers="8" runtime="3600" afr="10000"> -->
     <!--     <operation type="read" ratio="40" config="cprefix=s3testqwer;containers=u(1,1023);objects=u(1,512)" /> -->
     <!--     <operation type="write" ratio="60" config="cprefix=s3testqwer;containers=u(1,1023);objects=u(513,1023);sizes=u(64,4096)KB" /> -->
     <!--   </work> -->
