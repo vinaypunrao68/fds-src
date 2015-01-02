@@ -58,7 +58,7 @@ if [ ${debug} -eq 1 ]; then
     ansible_args="${ansible_args} -vvvv"
 fi
 
-ansible-playbook ${ansible_args}
+ansible-playbook ${ansible_args} --vault-password-file ~/.vault_pass.txt
 
 if [ $? -ne 0 ]; then
 cat << EOF
