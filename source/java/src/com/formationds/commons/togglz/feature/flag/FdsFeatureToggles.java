@@ -15,6 +15,12 @@ import org.togglz.core.annotation.Label;
 public enum FdsFeatureToggles
   implements Feature {
 
+  /*
+   * feature togglz annotation
+   *
+   * Togglz annotation are used to group features together in "feature groups".
+   */
+
   @Label("Snapshot Feature")
   @Snapshot
   SNAPSHOT_ENDPOINT,
@@ -28,7 +34,7 @@ public enum FdsFeatureToggles
   ACTIVITIES_ENDPOINT,
 
   @Label( "Firebreak Event Feature" )
-  @FirebreakEvent
+  @Firebreak
   FIREBREAK_EVENT,
 
   @Label("Firebreak Feature")
