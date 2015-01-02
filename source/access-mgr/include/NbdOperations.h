@@ -203,13 +203,11 @@ class NbdOperations
     :   public boost::enable_shared_from_this<NbdOperations>,
         public AmAsyncResponseApi
 {
-    bool in_shutdown;
   public:
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
     ~NbdOperations();
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
     void init();
-    void shutdown(bool immediate);
 
     void read(boost::shared_ptr<std::string>& volumeName,
               fds_uint32_t maxObjectSizeInBytes,
@@ -265,6 +263,9 @@ class NbdOperations
                              boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length,
                              boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {}
+
+    void shutdown()
+    { amAsyncDataApi.reset(); }
 
   private:
     void parseRequestId(boost::shared_ptr<apis::RequestId>& requestId,
