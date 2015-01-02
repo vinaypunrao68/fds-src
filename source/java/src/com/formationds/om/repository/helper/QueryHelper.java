@@ -446,18 +446,7 @@ public class QueryHelper {
     		return DoubleStream.of( s.getDatapoints().stream()
     				.flatMapToDouble( dp -> DoubleStream.of( dp.getY() ) ).sum() / s.getDatapoints().size() );
     	}).sum();
-    	
-    	Double sSum = 0.0;
-    	
-    	for ( Series seri : series ){
-    		Double dpSum = 0.0;
-    		
-    		for ( Datapoint dp : seri.getDatapoints() ){
-    			dpSum += dp.getY();
-    		}
-    		
-    		sSum += ( dpSum / seri.getDatapoints().size() );
-    	}
+ 
     	
     	final AverageIOPs avgIops = new AverageIOPs();
     	avgIops.setAverage( rawAvg );
