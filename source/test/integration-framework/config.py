@@ -50,5 +50,5 @@ params = {
     'verbose' : False,
 }
 
-NUMBER_USERS = 1024
+NUMBER_USERS = 30
 SAMPLE_FILE = "test.txt"

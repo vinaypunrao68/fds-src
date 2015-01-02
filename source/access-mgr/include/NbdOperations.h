@@ -145,16 +145,24 @@ class NbdResponseVector {
             fds_uint32_t index = (seqId == 0) ? 0 : 1;
             boost::shared_ptr<std::string> writeBytes = bufVec[index];
 
+            boost::shared_ptr<std::string> fauxBytes;
             if ((err == ERR_BLOB_OFFSET_INVALID) ||
                 (err == ERR_BLOB_NOT_FOUND)) {
-                // we tried to read unwritten block, ok
-                writeBytes->assign(writeBytes->length(), 0);
+                // we tried to read unwritten block, so create
+                // an empty block buffer to place the data
+                fauxBytes = boost::make_shared<std::string>(maxObjectSizeInBytes, 0);
+                fauxBytes->replace(iOff, writeBytes->length(),
+                                   writeBytes->c_str(), writeBytes->length());
             } else {
                 fds_verify(len == maxObjectSizeInBytes);
-                writeBytes->replace(0, writeBytes->length(),
-                                    *retBuf, iOff, writeBytes->length());
+                // Need to copy retBut into a modifiable buffer since retBuf is owned
+                // by AM and should not be modified here.
+                // TODO(Andrew): Make retBuf a const
+                fauxBytes = boost::make_shared<std::string>(retBuf->c_str(), retBuf->length());
+                fauxBytes->replace(iOff, writeBytes->length(),
+                                   writeBytes->c_str(), writeBytes->length());
             }
-            return writeBytes;
+            return fauxBytes;
         }
         return boost::shared_ptr<std::string>();
     }
@@ -188,20 +196,20 @@ class NbdOperationsResponseIface {
   public:
     virtual ~NbdOperationsResponseIface() {}
 
-    virtual void readWriteResp(const Error& error,
-                               fds_int64_t handle,
-                               NbdResponseVector* response) = 0;
+    virtual void readWriteResp(NbdResponseVector* response) = 0;
 };
 
 class NbdOperations
     :   public boost::enable_shared_from_this<NbdOperations>,
         public AmAsyncResponseApi
 {
+    bool in_shutdown;
   public:
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
     ~NbdOperations();
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
     void init();
+    void shutdown(bool immediate);
 
     void read(boost::shared_ptr<std::string>& volumeName,
               fds_uint32_t maxObjectSizeInBytes,
@@ -267,7 +275,7 @@ class NbdOperations
                                 fds_uint32_t maxObjectSizeInBytes);
 
     // api we've built
-    AmAsyncDataApi::shared_ptr amAsyncDataApi;
+    std::unique_ptr<AmAsyncDataApi> amAsyncDataApi;
 
     // interface to respond to nbd passed down in constructor
     NbdOperationsResponseIface* nbdResp;
