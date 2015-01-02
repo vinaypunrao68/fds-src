@@ -22,6 +22,7 @@ import com.formationds.commons.model.calculated.firebreak.FirebreaksLast24Hours;
 import com.formationds.commons.model.calculated.performance.IOPsConsumed;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.util.DateTimeUtil;
 import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricsRepository;
@@ -127,17 +128,21 @@ public class QueryHelper {
 	            } else if( isPerformanceQuery( query.getSeriesType() ) ) {
 	
 	                series.addAll(
-	                    new SeriesHelper().getSummedSeries( queryResults,
-	                                                        query ) );
+	                    new SeriesHelper().getRollupSeries( queryResults,
+	                                                        query,
+	                                                        StatOperation.AVERAGE ) );
 	                final IOPsConsumed ioPsConsumed = new IOPsConsumed();
 	                ioPsConsumed.setDailyAverage( 0.0 );
 	                calculatedList.add( ioPsConsumed );
 	
 	            } else if( isCapacityQuery( query.getSeriesType() ) ) {
 	
+	            	normalizeDatapoints( queryResults );
+	            	
 	                series.addAll(
-	                    new SeriesHelper().getSummedSeries( queryResults,
-	                                                        query ) );
+	                    new SeriesHelper().getRollupSeries( queryResults,
+	                                                        query,
+	                                                        StatOperation.SUM) );
 	
 	                calculatedList.add( deDupRatio() );
 	
@@ -155,8 +160,9 @@ public class QueryHelper {
 	            } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
 	            	
 	            	series.addAll(
-	            		new SeriesHelper().getSummedSeries( queryResults, 
-	            										 	query ) );
+	            		new SeriesHelper().getRollupSeries( queryResults, 
+	            										 	query,
+	            										 	StatOperation.AVERAGE) );
 	            	
 	            	// GETS has the total # of gets and SSD is a subset of those.
 	            	// This query wants GETS for HDD access and SSD access so we mutate the
@@ -323,6 +329,29 @@ public class QueryHelper {
     }
 
     /**
+     * This method will run through all the results and normailze the
+     * values so that the are reduced to values per second.
+     * @param points
+     */
+    protected void normalizeDatapoints( List<VolumeDatapoint> points ){
+    	
+    	points.stream().forEach( point -> {
+    		
+    		/**
+    		 * In the future we'll have a calculation interval per datapoint
+    		 * that is tied in to the data rollup strategy
+    		 * and we can use that to normalize the data into per seconds.
+    		 * 
+    		 * For now we always do 2 minute intervals
+    		 */
+//    		long intervalInSeconds = point.getCalculationInterval();
+    		final Double intervalInSeconds = new Double(2*60);
+    		
+    		point.setValue( point.getValue() / intervalInSeconds );
+    	});
+    }
+    
+    /**
      * @return Returns a {@link List} of {@link Metadata}
      */
     protected List<Metadata> metadata() {
@@ -336,16 +365,12 @@ public class QueryHelper {
      */
     protected AverageIOPs getAverageIOPs( List<Series> series ){
     	
-    	Double iopCount = series.stream().flatMapToDouble( s -> {
+    	Double rawAvg = series.stream().flatMapToDouble( s -> {
     		return DoubleStream.of( s.getDatapoints().stream().flatMapToDouble( dp -> DoubleStream.of( dp.getY() ) ).sum() );
-    	}).sum();
-    	
-    	Long maxTime = series.get( 0 ).getDatapoints().stream().max( (point1, point2 ) -> Long.compare( point1.getX(), point2.getX() ) ).get().getX();
-    	Long minTime = series.get( 0 ).getDatapoints().stream().min( (point1, point2 ) -> Long.compare( point1.getX(), point2.getX() ) ).get().getX();
+    	}).average().getAsDouble();
     	
     	final AverageIOPs avgIops = new AverageIOPs();
-    	Double seconds = (maxTime.doubleValue() - minTime.doubleValue());
-    	avgIops.setAverage( iopCount / seconds );
+    	avgIops.setAverage( rawAvg );
     	
     	return avgIops;
     }

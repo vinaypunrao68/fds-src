@@ -11,9 +11,12 @@ import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.util.DateTimeUtil;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 //import com.formationds.om.repository.query.QueryCriteria;
+
+
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.DoubleStream;
 
 /**
  * @author ptinius
@@ -48,9 +52,10 @@ public class SeriesHelper {
         this.vdpHelper = new VolumeDatapointHelper();
     }
 
-    public final List<Series> getSummedSeries(
+    public final List<Series> getRollupSeries(
     	final List<VolumeDatapoint> datapoints,
-    	final MetricQueryCriteria query ) {
+    	final MetricQueryCriteria query,
+    	final StatOperation operation ) {
     	
     	/*
          * So the idea is that we need to sum up all the volume datapoints
@@ -97,16 +102,16 @@ public class SeriesHelper {
         if( diff > 0L ) {
             if( diff <= SECONDS_IN_HOUR ) {
                 logger.trace( "HOUR::{}", diff );
-                return hourRollup( datapoints, epoch, query.getSeriesType() );
+                return hourRollup( datapoints, epoch, query.getSeriesType(), operation );
             } else if( diff <= SECONDS_IN_DAY ) {
                 logger.trace( "DAY::{}", diff );
-                return dayRollup( datapoints, epoch, query.getSeriesType() );
+                return dayRollup( datapoints, epoch, query.getSeriesType(), operation );
             } else if( diff <= SECONDS_IN_WEEK ) {
                 logger.trace( "WEEK::{}", diff );
-                return weekRollup( datapoints, epoch, query.getSeriesType() );
+                return weekRollup( datapoints, epoch, query.getSeriesType(), operation );
             } else if( diff <= SECONDS_IN_30_DAYS ) {
                 logger.trace( "30 DAYS::{}", diff );
-                return thirtyDaysRollup( datapoints, epoch, query.getSeriesType() );
+                return thirtyDaysRollup( datapoints, epoch, query.getSeriesType(), operation );
             } else {
                 throw new IllegalArgumentException(
                     "start end timestamp delta is invalid" );
@@ -118,7 +123,8 @@ public class SeriesHelper {
     
     private List<Series> hourRollup( final List<VolumeDatapoint> datapoints, 
     								 final Long epoch,
-    								 final List<Metrics> metrics ) {
+    								 final List<Metrics> metrics,
+    								 final StatOperation operation ) {
     	
     	final List<Series> series = new ArrayList<Series>();
     	
@@ -130,15 +136,16 @@ public class SeriesHelper {
          */
     	for ( Metrics metric : metrics ) {
     		
-    		series.add( generate( datapoints, epoch, metric, 2L, 30 ) );
+    		series.add( generate( datapoints, epoch, metric, 2L, 30, operation ) );
     	}
     	
     	return series;
     }
     
-    private List<Series> dayRollup(final List<VolumeDatapoint> datapoints, 
+    private List<Series> dayRollup(	final List<VolumeDatapoint> datapoints, 
 			 						final Long epoch,
-			 							final List<Metrics> metrics ) {
+			 						final List<Metrics> metrics,
+			 						final StatOperation operation	) {
 
     	final List<Series> series = new ArrayList<Series>();
 	
@@ -149,7 +156,7 @@ public class SeriesHelper {
          *  data points
          */
 		for ( Metrics metric : metrics ) {
-			series.add( generate( datapoints, epoch, metric, 60L, 30 ) );
+			series.add( generate( datapoints, epoch, metric, 60L, 30, operation ) );
 		}
 	
 		return series;
@@ -157,7 +164,8 @@ public class SeriesHelper {
     
     private List<Series> weekRollup(final List<VolumeDatapoint> datapoints, 
 									final Long epoch,
-									final List<Metrics> metrics ) {
+									final List<Metrics> metrics,
+									final StatOperation operation ) {
 
 		final List<Series> series = new ArrayList<Series>();
 		
@@ -168,7 +176,7 @@ public class SeriesHelper {
          *  data points
          */
 		for ( Metrics metric : metrics ) {
-			series.add( generate( datapoints, epoch, metric, 360L, 28 ) );
+			series.add( generate( datapoints, epoch, metric, 360L, 28, operation ) );
 		}
 		
 		return series;
@@ -176,7 +184,8 @@ public class SeriesHelper {
     
     private List<Series> thirtyDaysRollup(	final List<VolumeDatapoint> datapoints, 
 											final Long epoch,
-											final List<Metrics> metrics ) {
+											final List<Metrics> metrics,
+											final StatOperation operation ) {
 
 		final List<Series> series = new ArrayList<Series>();
 		
@@ -186,7 +195,7 @@ public class SeriesHelper {
          *  per volume
          */
 		for ( Metrics metric : metrics ) {
-			series.add( generate( datapoints, epoch, metric, 1440L, 30 ) );
+			series.add( generate( datapoints, epoch, metric, 1440L, 30, operation ) );
 		}
 		
 		return series;
@@ -476,22 +485,44 @@ public class SeriesHelper {
         final Long timestamp,
         final Metrics metrics,
         final Long distribution,
-        final int maxResults ) {
-
+        final int maxResults,
+        final StatOperation operation ) {
+    	
         Map<Long, Set<VolumeDatapoint>> groupByTimestamp =
             vdpHelper.groupByTimestamp( volumeDatapoints );
 
         final List<Datapoint> datapoints = new ArrayList<>( );
         groupByTimestamp.forEach( ( bytesTimestamp, bytesValues ) -> {
-            final Double d = bytesValues.stream()
+            DoubleStream dStream = bytesValues.stream()
                                         .filter( ( value ) ->
                                                      value.getKey()
                                                           .equalsIgnoreCase(
                                                               metrics.key() ) )
                                         .peek( ( l ) -> logger.trace( l.toString() ) )
                                         .mapToDouble(
-                                            VolumeDatapoint::getValue )
-                                        .sum();
+                                            VolumeDatapoint::getValue );
+            
+            Double d = 0.0;
+            
+            switch( operation ){
+            	case SUM: 
+            		d = dStream.sum();
+            		break;
+            	case AVERAGE:
+            		d = dStream.average().getAsDouble();
+            		break;
+            	case MAX:
+            		d = dStream.max().getAsDouble();
+            		break;
+            	case MIN:
+            		d = dStream.min().getAsDouble();
+            	case COUNT:
+            		d =	new Double( dStream.count() );
+            		break;
+            	default:
+            		break;
+            }
+             
             logger.trace( "DOUBLE::{} LONG::{} TIMESTAMP::{}",
                           d, d.longValue(), bytesTimestamp );
 
