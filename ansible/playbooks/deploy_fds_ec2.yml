@@ -4,6 +4,7 @@
     hosts: localhost
     gather_facts: False
     vars_files:
+    -   ../vars_files/credentials/aws_fds_testing.yml
     -   ../vars_files/credentials/fds-deploy_rsa.yml
 
     tasks:
@@ -21,6 +22,8 @@
 
     -   name: spin up a node in the private subnet with an auto-assigned IP
         ec2:
+            aws_access_key: "{{ aws_access_key }}"
+            aws_secret_key: "{{ aws_secret_key }}"
             instance_tags:
                 Name: "{{ instance_name_tag }}"
                 fds_purpose: testing
