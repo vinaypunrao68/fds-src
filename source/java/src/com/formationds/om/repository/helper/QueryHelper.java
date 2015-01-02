@@ -31,7 +31,6 @@ import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.util.SizeUnit;
-import com.google.common.util.concurrent.AtomicDouble;
 
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -45,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.DoubleStream;
-import java.util.stream.LongStream;
 
 import javax.persistence.EntityManager;
 
@@ -136,8 +134,6 @@ public class QueryHelper {
 	                calculatedList.add( ioPsConsumed );
 	
 	            } else if( isCapacityQuery( query.getSeriesType() ) ) {
-	
-	            	normalizeDatapoints( queryResults );
 	            	
 	                series.addAll(
 	                    new SeriesHelper().getRollupSeries( queryResults,
@@ -158,6 +154,8 @@ public class QueryHelper {
 	                calculatedList.add( toFull() );
 	
 	            } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
+	            	
+	            	normalizeDatapoints( queryResults );
 	            	
 	            	series.addAll(
 	            		new SeriesHelper().getRollupSeries( queryResults, 
