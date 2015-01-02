@@ -70,6 +70,9 @@ typedef enum {
     ERR_INVALID_VOL_ID        = 47,
     ERR_DM_JOURNAL_TIME       = 48,
     ERR_DM_REPLAY_JOURNAL     = 49,
+    ERR_ARCHIVE_SNAP_CREATE_FAILED = 50,
+    ERR_ARCHIVE_SNAP_PUT_FAILED = 51,
+    ERR_ARCHIVE_SNAP_GET_FAILED = 51,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,

@@ -4,35 +4,81 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_ARCHIVE_CLIENT_H_
 #define SOURCE_DATA_MGR_INCLUDE_ARCHIVE_CLIENT_H_
 
+#include <boost/shared_ptr.hpp>
 #include <fds_types.h>
+#include <fds_actor.h>
+#include <S3Client.h>
 
 namespace fds {
 
+typedef std::function<void (const Error &err)> ArchivePutCb;
+typedef std::function<void (const Error &err)> ArchiveGetCb;
+
 /**
-* @brief
+* @brief Get request message
 */
-struct ArchiveClReq {
-    fds_volid_t volId;
-};
-
 struct ArchiveClPutReq {
-    std::string snapLoc;
+    ArchiveClPutReq(fds_volid_t volId,
+                    int64_t snapId,
+                    ArchivePutCb cb)
+    {
+        this->volId = volId;
+        this->snapId = snapId;
+        this->cb = cb;
+    }
+    fds_volid_t volId;
+    int64_t snapId;
+    ArchivePutCb cb;
 };
+typedef boost::shared_ptr<ArchiveClPutReq> ArchiveClPutReqPtr;
 
+/**
+* @brief Put request message
+*/
 struct ArchiveClGetReq {
-    std::string snapName;
+    ArchiveClGetReq(fds_volid_t volId,
+                    int64_t snapId,
+                    ArchiveGetCb cb)
+    {
+        this->volId = volId;
+        this->snapId = snapId;
+        this->cb = cb;
+    }
+    fds_volid_t volId;
+    int64_t snapId;
+    ArchiveGetCb cb;
 };
+typedef boost::shared_ptr<ArchiveClGetReq> ArchiveClGetReqPtr;
 
 /**
 * @brief 
 */
-struct ArchiveClient {
-    typedef std::function<void ()> ArchivePutCb;
-    typedef std::function<void ()> ArchiveGetCb;
+struct ArchiveClient : FdsRequestQueueActor
+{
+    ArchiveClient(fds_threadpoolPtr threadpool);
+    void connect(const std::string &host,
+                 const std::string &accessKey,
+                 const std::string &secretKey);
+    void putSnap(const fds_volid_t &volId,
+                 const int64_t &snapId,
+                 ArchivePutCb cb);
+    void getSnap(const fds_volid_t &volId,
+                 const int64_t &snapId,
+                 ArchiveGetCb cb);
 
-    void putSnap(const fds_volid_t &volId, const std::string &snapLoc, ArchivePutCb cb);
-    void getSnap(const fds_volid_t &volId, const std::string &snapName, ArchiveGetCb cb);
+    virtual Error handle_actor_request(FdsActorRequestPtr req) override;
+
+ protected:
+    void handlePutSnap_(ArchiveClPutReqPtr &putPayload);
+    void handleGetSnap_(ArchiveClGetReqPtr &getPayload);
+
+    std::string getSysVolumeName_(const fds_volid_t &volId);
+    std::string getSnapDirName_(const fds_volid_t &volId, const int64_t snapId);
+
+    std::unique_ptr<S3Client> s3client_;
+    std::string snapDirBase_;
 };
+typedef boost::shared_ptr<ArchiveClient> ArchiveClientPtr;
 
 }  // namespace fds
 #endif

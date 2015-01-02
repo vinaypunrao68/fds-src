@@ -119,6 +119,11 @@ enum FdsActorRequestType {
 
     /* RPC from receiver->sender that pull is complete */
     FAR_ENUM(FDSP_NotifyTokenPullComplete),
+
+    /*----------------- Archive client requests -----------------------------------------*/
+    FAR_ENUM(ArchiveClPutReq),
+    FAR_ENUM(ArchiveClGetReq),
+
     /*----------------- Last Request ------------------------------------------*/
     FAR_ENUM(Max)
 };
