@@ -235,6 +235,9 @@ TEST(s3, getFormationS3Key) {
     status = cl.putFile("sample_bucket", "f1",
                         "/home/nbayyana/playground/cpp/curl/curlget.cpp");
     ASSERT_EQ(status, 0);
+    status = cl.getFile("sample_bucket", "f1",
+                        "/home/nbayyana/playground/cpp/curl/curlget.cpp_ret");
+    ASSERT_EQ(status, 0);
 }
 
 

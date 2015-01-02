@@ -15,12 +15,18 @@ struct S3PutObjectCbData
     uint64_t contentLength;
 };
 
+struct S3GetObjectCbData
+{
+    FILE *outfile;
+};
+
 struct S3TaskStatus : concurrency::TaskStatus
 {
     S3TaskStatus();
 
     union {
         S3PutObjectCbData putCbData;
+        S3GetObjectCbData getCbData;
     } cbData;
     S3Status status;
 };
@@ -34,7 +40,10 @@ struct S3Client
     ~S3Client();
     S3Status createBucket(const std::string &bucketName);
     S3Status putFile(const std::string &bucketName,
-                     const std::string objName,
+                     const std::string &objName,
+                     const std::string &filePath);
+    S3Status getFile(const std::string &bucketName,
+                     const std::string &objName,
                      const std::string &filePath);
 
     static S3Status responsePropertiesCallback_(const S3ResponseProperties *properties,
@@ -43,6 +52,8 @@ struct S3Client
                                           const S3ErrorDetails *error,
                                           void *callbackData);
     static int putObjectDataCallback_(int bufferSize, char *buffer, void *callbackData);
+    static S3Status getObjectDataCallback_(int bufferSize, const char *buffer,
+                                           void *callbackData);
 
  protected:
     void initBucketContext_(const std::string &bucketName, S3BucketContext& bucketContext);

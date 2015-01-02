@@ -51,7 +51,7 @@ S3Status S3Client::createBucket(const std::string &bucketName)
 }
 
 S3Status S3Client::putFile(const std::string &bucketName,
-                           const std::string objName,
+                           const std::string &objName,
                            const std::string &filePath)
 {
     S3BucketContext bucketContext;
@@ -80,6 +80,34 @@ S3Status S3Client::putFile(const std::string &bucketName,
                   NULL, NULL, &putObjectHandler, taskStatus.get());
 
     taskStatus->await();
+    return taskStatus->status;
+}
+
+S3Status S3Client::getFile(const std::string &bucketName,
+                           const std::string &objName,
+                           const std::string &filePath)
+{
+    S3BucketContext bucketContext;
+    initBucketContext_(bucketName, bucketContext);
+
+    std::unique_ptr<S3TaskStatus> taskStatus(new S3TaskStatus);
+
+    S3GetObjectCbData *data = &(taskStatus->cbData.getCbData);
+    if (!(data->outfile = fopen(filePath.c_str(), "w"))) {
+        std::cerr << "Failed to open file " << filePath << std::endl;
+        return S3StatusErrorUnknown;
+    }
+
+    S3GetObjectHandler getObjectHandler =
+    {
+        responseHandler_,
+        &S3Client::getObjectDataCallback_
+    };
+    S3_get_object(&bucketContext, objName.c_str(), NULL,
+                  0, 0, NULL, &getObjectHandler, taskStatus.get());
+
+    taskStatus->await();
+    fclose(data->outfile);
     return taskStatus->status;
 }
 
@@ -132,4 +160,14 @@ int S3Client::putObjectDataCallback_(int bufferSize, char *buffer, void *callbac
         << std::endl;
     return ret;
 }
+
+S3Status S3Client::getObjectDataCallback_(int bufferSize, const char *buffer,
+                                          void *callbackData)
+{
+    S3TaskStatus* taskStatus = reinterpret_cast<S3TaskStatus*>(callbackData);
+    S3GetObjectCbData *data = &(taskStatus->cbData.getCbData);
+    size_t wrote = fwrite(buffer, 1, bufferSize, data->outfile);
+    return ((wrote < (size_t) bufferSize) ? S3StatusAbortedByCallback : S3StatusOK);
+}
+
 }  // namespace fds
