@@ -160,6 +160,7 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
 
 NbdConnection::~NbdConnection() {
     LOGTRACE << "NbdConnection going adios!";
+    asyncWatcher->stop();
     ioWatcher->stop();
     shutdown(clientSocket, SHUT_RDWR);
     close(clientSocket);
@@ -592,7 +593,6 @@ NbdConnection::callback(ev::io &watcher, int revents) {
             // Tell NbdOperations to delete us once it's handled all outstanding
             // requests. Going to ignore the incoming requests now.
             ioWatcher->set(ev::WRITE);
-            nbdOps->shutdown(e != shutdown_requested);
             nbdOps.reset();
         }
 
