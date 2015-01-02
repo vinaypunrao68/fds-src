@@ -23,7 +23,7 @@ access_key = '{{ AWS_ACCESS_KEY }}'
 secret_key = '{{ AWS_SECRET_KEY }}'
 now = datetime.datetime.now()
 current_year = now.year
-current_month = now.month
+current_month = '{:02d}'.format(now.month)
 
 current_month_pattern = re.compile("\d+-aws-(billing-detailed-line-items-with-resources-and-tags|cost-allocation)-{0}-{1}.csv(.zip)?".format(current_year, current_month))
 generic_report_pattern = re.compile("\d+-aws-(billing-detailed-line-items-with-resources-and-tags|cost-allocation)-\d{4}-\d{2}.csv(.zip)?")
