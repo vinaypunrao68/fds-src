@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.commons.togglz.feature.annotation;
@@ -12,9 +12,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * @author ptinius
+ */
 @FeatureGroup
-@Label( "Firebreak Event Feature Group" )
+@Label( "Webkit Feature Group" )
 @Target( ElementType.FIELD )
 @Retention( RetentionPolicy.RUNTIME )
-public @interface FirebreakEvent {
+public @interface Webkit {
+    // no content, this is the snapshot feature annotation
 }

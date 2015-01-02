@@ -66,7 +66,7 @@ public class CloneVolume
                                        volume.getCommit_log_retention() );
     }
 
-    // TODO register to receive metadata, i.e. statistics
+    // TODO register to get metadata, i.e. statistics
     // TODO audit and/or alert/event
 
     return new JsonResource(
