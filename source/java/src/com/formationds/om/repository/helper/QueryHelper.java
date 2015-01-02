@@ -353,7 +353,7 @@ public class QueryHelper {
     		 * For now we always do 2 minute intervals
     		 */
 //    		long intervalInSeconds = point.getCalculationInterval();
-    		final Double intervalInSeconds = new Double(2*60);
+    		final Double intervalInSeconds = new Double(1);
     		
     		point.setValue( point.getValue() / intervalInSeconds );
     	});
@@ -443,7 +443,7 @@ public class QueryHelper {
     protected AverageIOPs getAverageIOPs( List<Series> series ){
     	
     	Double rawAvg = series.stream().flatMapToDouble( s -> {
-    		return DoubleStream.of( s.getDatapoints().stream().flatMapToDouble( dp -> DoubleStream.of( dp.getY() ) ).sum() );
+    		return DoubleStream.of( s.getDatapoints().stream().flatMapToDouble( dp -> DoubleStream.of( dp.getY() ) ).sum() / s.getDatapoints().size() );
     	}).average().getAsDouble();
     	
     	final AverageIOPs avgIops = new AverageIOPs();
