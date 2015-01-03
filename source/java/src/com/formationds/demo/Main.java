@@ -4,7 +4,7 @@ package com.formationds.demo;
  */
 
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.formationds.om.rest.LandingPage;
+import com.formationds.om.webkit.rest.LandingPage;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.HttpConfiguration;
