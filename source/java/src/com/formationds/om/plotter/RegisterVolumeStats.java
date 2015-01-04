@@ -15,7 +15,7 @@ import java.util.Map;
 
 /**
  * @deprecated the POC functionality has been replaced by
- *             {@link com.formationds.om.rest.metrics.IngestVolumeStats}
+ *             {@link com.formationds.om.webkit.rest.metrics.IngestVolumeStats}
  *
  *             will be removed in the future
  */
