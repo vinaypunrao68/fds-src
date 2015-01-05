@@ -78,34 +78,34 @@ class NbdResponseVector {
                                   const Error& err) {
         fds_verify(operation == READ);
         fds_verify(seqId < bufVec.size());
+
         if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
                          (err != ERR_BLOB_NOT_FOUND)) {
             opError = err;
             return true;
-        } else if ((err == ERR_BLOB_OFFSET_INVALID) ||
-                   (err == ERR_BLOB_NOT_FOUND)) {
+        }
+
+        fds_uint32_t iOff = offset % maxObjectSizeInBytes;
+        fds_uint32_t firstObjectLength = std::min(length,
+                                                  maxObjectSizeInBytes - iOff);
+        fds_uint32_t iLength = maxObjectSizeInBytes;
+
+        // The first and last buffers may not be an entire block
+        if (seqId == 0) {
+            iLength = firstObjectLength;
+        } else if (seqId == (objCount - 1)) {
+            iLength = length - firstObjectLength - (objCount-2) * maxObjectSizeInBytes;
+        }
+
+        if ((err == ERR_BLOB_OFFSET_INVALID) || (err == ERR_BLOB_NOT_FOUND)) {
             // we tried to read unwritten block, fill in zeros
-            fds_uint32_t iOff = offset % maxObjectSizeInBytes;
-            fds_uint32_t firstObjectLength = std::min(length,
-                                                      maxObjectSizeInBytes - iOff);
-            fds_uint32_t iLength = maxObjectSizeInBytes;
-            if (seqId == 0) {
-                iLength = firstObjectLength;
-            } else if (seqId == (objCount - 1)) {
-                iLength = length - firstObjectLength - (objCount-2) * maxObjectSizeInBytes;
-            }
             bufVec[seqId] = boost::make_shared<std::string>(iLength, 0);
         } else {
-            // check if that was the first un-aligned read
-            if ((seqId == 0) && ((offset % maxObjectSizeInBytes) != 0)) {
-                fds_uint32_t iOff = offset % maxObjectSizeInBytes;
-                fds_uint32_t firstObjectLength = std::min(length,
-                                                          maxObjectSizeInBytes - iOff);
-                bufVec[seqId] = boost::make_shared<std::string>(retBuf->data() + iOff,
-                                                                firstObjectLength);
-            } else {
-                bufVec[seqId] = retBuf;
-            }
+            // Else grab the portion of the string that we need, or the entire
+            // thing
+            bufVec[seqId] = (iLength == maxObjectSizeInBytes) ?
+                retBuf
+                : boost::make_shared<std::string>(retBuf->data() + iOff, iLength);
         }
         fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
         return ((doneCnt + 1) == objCount);
