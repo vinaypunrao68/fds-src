@@ -1,0 +1,30 @@
+---
+-   name: clean_node
+    shell: rm -rf {{item}}
+    with_items:
+        - /dev/shm/0x*
+    tags:
+        - clean
+        - cleanshm
+
+-   name: clean_node
+    shell: rm -rf {{item}}
+    with_items:
+        - /fds/bin/*.core
+        - /fds/bin/core
+        - /fds/var/logs
+        - /fds/var/stats
+        - /corefiles/*.core
+        - /fds/var/core/*.core
+        - /fds/dev/hdd-*/*
+        - /fds/dev/ssd-*/*
+        - /fds/sys-repo
+        - /fds/user-repo/*
+    tags:
+        - clean
+
+-   name: clean_redis
+    shell: ./redis.sh clean chdir=/fds/sbin
+    when: fds_installed|success
+    tags:
+        - clean
