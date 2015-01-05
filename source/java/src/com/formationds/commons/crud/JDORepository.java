@@ -317,17 +317,27 @@ public abstract class JDORepository<T,
 
     @Override
     public void delete(T entity) {
-        try {
-            logger.trace("Deleting entity {}", entity);
-//            manager().currentTransaction().begin();
-            manager().deletePersistent(entity);
-//            manager().currentTransaction().commit();
-            logger.trace("Deleted entity {}", entity);
-        } catch (RuntimeException re) {
-//            logger.warn("DELETE Failed.  Rolling back transaction.");
-            logger.debug("DELETE Failed", re);
-//            manager().currentTransaction().rollback();
-            throw re;
+        synchronized( this ) {
+            try {
+                logger.trace( "Deleting entity {}", entity );
+                manager().currentTransaction()
+                         .begin();
+                manager().deletePersistent( entity );
+                manager().currentTransaction()
+                         .commit();
+                logger.trace( "Deleted entity {}", entity );
+            } catch( RuntimeException re ) {
+                logger.debug( "DELETE Failed", re );
+
+                if( manager().currentTransaction()
+                             .isActive() ) {
+                    logger.warn( "DELETE Failed.  Rolling back transaction." );
+                    manager().currentTransaction()
+                             .rollback();
+                }
+
+                throw re;
+            }
         }
     }
 
