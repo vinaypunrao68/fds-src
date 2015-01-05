@@ -384,14 +384,15 @@ NbdConnection::hsReq(ev::io &watcher) {
 
 bool
 NbdConnection::hsReply(ev::io &watcher) {
-    static fds_int32_t error = htonl(0);
+    static int32_t const error_ok = htonl(0);
+    static int32_t const error_bad = htonl(-1);
 
     // We can reuse this from now on since we don't go to any state from here
     if (!response) {
         response = decltype(response)(new iovec[kMaxChunks + 3]);
         response[0].iov_base = to_iovec(NBD_RESPONSE_MAGIC);
         response[0].iov_len = sizeof(NBD_RESPONSE_MAGIC);
-        response[1].iov_base = &error; response[1].iov_len = sizeof(error);
+        response[1].iov_base = to_iovec(&error_ok); response[1].iov_len = sizeof(error_ok);
         response[2].iov_base = nullptr; response[2].iov_len = 0;
         response[3].iov_base = nullptr; response[3].iov_len = 0ull;
     }
@@ -429,13 +430,10 @@ NbdConnection::hsReply(ev::io &watcher) {
 
             response[2].iov_base = &current_response->handle;
             response[2].iov_len = sizeof(current_response->handle);
-            Error opError = current_response->getError();
-            if (!opError.ok()) {
-                error = htonl(-1);
-            }
-
-            fds_uint32_t context = 0;
-            if (current_response->isRead() && (opError.ok())) {
+            if (!current_response->getError().ok()) {
+                response[1].iov_base = to_iovec(&error_bad);
+            } else if (current_response->isRead()) {
+                fds_uint32_t context = 0;
                 boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
                 while (buf != NULL) {
                     GLOGDEBUG <<    "Handle 0x" << std::hex << current_response->handle <<
