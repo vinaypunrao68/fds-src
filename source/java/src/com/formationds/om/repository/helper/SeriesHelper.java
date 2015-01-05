@@ -565,35 +565,35 @@ public class SeriesHelper {
         	
         	Double rolledupValue = bucketMap.get( key ).stream().mapToDouble( Datapoint::getX ).average().getAsDouble();
         	
-        	datapoints.add( new DatapointBuilder().withX( key ).withY( rolledupValue.longValue() ).build() );
+        	results.add( new DatapointBuilder().withX( key ).withY( rolledupValue.longValue() ).build() );
         }
         
-        datapoints.sort( ( dp1, dp2 ) -> dp1.getX().compareTo( dp2.getX() ) );
+        results.sort( ( dp1, dp2 ) -> dp1.getX().compareTo( dp2.getX() ) );
         
-        if ( datapoints.isEmpty() ){
+        if ( results.isEmpty() ){
         	
         	// at start time
-        	datapoints.add( new DatapointBuilder()
+        	results.add( new DatapointBuilder()
         		.withX( timestamp )
         		.withY( 0L ).build() );
         	
         	// at end time
-        	datapoints.add( new DatapointBuilder()
+        	results.add( new DatapointBuilder()
         		.withX( timestamp + (maxResults * TimeUnit.MINUTES.toSeconds( distribution ) ) )
         		.withY( 0L ).build() );
         }
         
         // if our earliest timestamp is after the requested start time we will add a zero "distribution" 
         // before the earliest, and a zero at the requested start time.
-        else if ( datapoints.get( 0 ).getX() > timestamp ){
+        else if ( results.get( 0 ).getX() > timestamp ){
         	
         	// next earliest should be here
-        	datapoints.add( 0, new DatapointBuilder()
-        		.withX( datapoints.get( 0 ).getX() - TimeUnit.MINUTES.toSeconds( distribution ) )
+        	results.add( 0, new DatapointBuilder()
+        		.withX( results.get( 0 ).getX() - TimeUnit.MINUTES.toSeconds( distribution ) )
         		.withY( 0L ).build() );
         	
         	// at start time
-        	datapoints.add( 0, new DatapointBuilder()
+        	results.add( 0, new DatapointBuilder()
         		.withX( timestamp )
         		.withY( 0L ).build() );
         }
