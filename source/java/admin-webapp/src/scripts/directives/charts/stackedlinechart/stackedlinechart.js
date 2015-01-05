@@ -73,6 +73,16 @@ angular.module( 'charts' ).directive( 'stackedLineChart', function(){
                     .attr( 'class', 'background' );
             }
             
+            // translate labels
+            $scope.getLabelText = function( series ){
+                
+                if ( angular.isFunction( $scope.tooltip ) ){
+                    return $scope.tooltip( series );
+                }
+                
+                return series.type;
+            };
+            
             // calculate this off of real data.
             var buildMax = function(){
                 $max = d3.max( $scope.data.series, function( d ){

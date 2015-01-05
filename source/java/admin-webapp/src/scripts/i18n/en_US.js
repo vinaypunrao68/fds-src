@@ -85,6 +85,10 @@ var en_US = {
         l_performance: 'Performance',
         l_health: 'System Health',
         
+        l_gets: 'GET requests',
+        l_ssd_gets: 'GET request from SSD',
+        l_puts: 'PUT requests',
+        
         th_type: 'Type',
         th_message: 'Message',
         th_received: 'Received',
