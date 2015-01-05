@@ -195,7 +195,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     var buildPerformanceBreakdownFilter = function(){
         var filter = StatQueryFilter.create( [],
             [ StatQueryFilter.PUTS, StatQueryFilter.GETS, StatQueryFilter.SSD_GETS ],
-            Math.round( ((new Date()).getTime() - (1000*60*60*24))/1000 ),
+            Math.round( ((new Date()).getTime() - (1000*60*60*1))/1000 ),
             Math.round( (new Date()).getTime() / 1000 ) );
         
         return filter;
