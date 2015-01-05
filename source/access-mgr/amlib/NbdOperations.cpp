@@ -154,40 +154,32 @@ NbdOperations::write(fds_uint32_t maxObjectSizeInBytes,
         fds_uint64_t objectOff = curOffset / maxObjectSizeInBytes;
         fds_uint32_t iOff = curOffset % maxObjectSizeInBytes;
         fds_uint32_t iLength = length - amBytesWritten;
-        if (iLength >= maxObjectSizeInBytes) {
+
+        if ((iLength + iOff) >= maxObjectSizeInBytes) {
             iLength = maxObjectSizeInBytes - iOff;
-        } else if ((seqId == 0) && (iOff != 0)) {
-            if (length > (maxObjectSizeInBytes - iOff)) {
-                iLength = maxObjectSizeInBytes - iOff;
-            }
         }
-        fds_uint32_t actualLength = iLength;
-        if ((iOff != 0) || (iLength < maxObjectSizeInBytes)) {
-            // we will do read (whole object), modify, write
-            iLength = maxObjectSizeInBytes;
-        }
-        LOGDEBUG << "actualLen " << actualLength << " bytesW " << amBytesWritten
+
+        LOGDEBUG << "actualLen " << iLength << " bytesW " << amBytesWritten
                  << " length " << bytes->length();
         boost::shared_ptr<std::string> objBuf(new std::string(*bytes,
                                                               amBytesWritten,
-                                                              actualLength));
+                                                              iLength));
 
         // write an object
-        boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(iLength);
+        boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(maxObjectSizeInBytes);
         boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
         off->value = objectOff;
 
-        boost::shared_ptr<apis::RequestId> reqId(
-            boost::make_shared<apis::RequestId>());
         // request id is 64 bit of handle + 32 bit of sequence Id
+        boost::shared_ptr<apis::RequestId> reqId(boost::make_shared<apis::RequestId>());
         reqId->id = std::to_string(handle) + ":" + std::to_string(seqId);
 
         // if the first object is not aligned or not max object size
         // and if the last object is not max object size, we read the whole
         // object from FDS first and will apply the update to that object
         // and then write the whole updated object back to FDS
-        if ((iOff != 0) || (actualLength != maxObjectSizeInBytes)) {
-            LOGNORMAL << "Will do read-modify-write for object size " << iLength;
+        if (iLength != maxObjectSizeInBytes) {
+            LOGNORMAL << "Will do read-modify-write for object size " << maxObjectSizeInBytes;
             // keep the data for the update to the first and last object in the response
             // so that we can apply the update to the object on read response
             resp->keepBufferForWrite(seqId, objBuf);
@@ -197,27 +189,22 @@ NbdOperations::write(fds_uint32_t maxObjectSizeInBytes,
                                     blobName,
                                     objLength,
                                     off);
-            ++seqId;
-            // we did not write the bytes yet, but we update bytes written so this loop
-            // continues correctly
-            amBytesWritten += actualLength;
-            continue;
+        } else {
+            // if we are here, we don't need to read this object first; will do write
+            LOGDEBUG << "putBlob length " << maxObjectSizeInBytes << " offset " << curOffset
+                     << " object offset " << objectOff
+                     << " volume " << volumeName << " reqId " << reqId->id;
+            amAsyncDataApi->updateBlobOnce(reqId,
+                                           domainName,
+                                           volumeName,
+                                           blobName,
+                                           blobMode,
+                                           objBuf,
+                                           objLength,
+                                           off,
+                                           emptyMeta);
         }
-
-        // if we are here, we don't need to read this object first; will do write
-        LOGDEBUG << "putBlob length " << iLength << " offset " << curOffset
-                 << " object offset " << objectOff
-                 << " volume " << volumeName << " reqId " << reqId->id;
-        amAsyncDataApi->updateBlobOnce(reqId,
-                                       domainName,
-                                       volumeName,
-                                       blobName,
-                                       blobMode,
-                                       objBuf,
-                                       objLength,
-                                       off,
-                                       emptyMeta);
-        amBytesWritten += actualLength;
+        amBytesWritten += iLength;
         ++seqId;
     }
 }
