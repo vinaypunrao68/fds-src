@@ -192,10 +192,12 @@ DataPlacement::beginRebalance() {
                 sourcesSet.insert(sources->get(i));
             }
             // Reuse sources for commitedDLt
-            sources.reset();
-            sources = commitedDlt->getNodes(token);
-            for (fds_uint32_t i = 0; i < sources->getLength(); ++i) {
-                sourcesSet.insert(sources->get(i));
+            if (commitedDlt) {
+                sources.reset();
+                sources = commitedDlt->getNodes(token);
+                for (fds_uint32_t i = 0; i < sources->getLength(); ++i) {
+                    sourcesSet.insert(sources->get(i));
+                }
             }
             // Remove ourselves from the list
             sourcesSet.erase(uuid);
@@ -221,6 +223,8 @@ DataPlacement::beginRebalance() {
 
         auto svc_uuid = uuid.toSvcUuid();
         auto om_req =  gSvcRequestPool->newEPSvcRequest(uuid.toSvcUuid());
+
+        msg->DLT_version = newDlt->getVersion();
 
         om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifySMStartMigration), msg);
         om_req->onResponseCb(std::bind(&DataPlacement::startMigrationResp, this, uuid,

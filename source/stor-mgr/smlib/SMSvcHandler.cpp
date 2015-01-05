@@ -70,6 +70,11 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     LOGDEBUG << "Received new migration init message";
 
+    fpi::CtrlNotifyMigrationStatusPtr msg(new fpi::CtrlNotifyMigrationStatus());
+    msg->status.DLT_version = migrationMsg->DLT_version;
+    msg->status.context = 0;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyMigrationStatus), *msg);
+
     // TODO(xxx): We need to be sure to unpack the source -> token list
     // pairs correctly.
     // Source will be an i64, and tokenids within each list will be i32s

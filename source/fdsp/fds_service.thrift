@@ -572,6 +572,7 @@ struct SMTokenMigrationGroup {
 
 struct CtrlNotifySMStartMigration {
      1: list<SMTokenMigrationGroup> migrations;
+	 2: i64							DLT_version;
 }
 
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
