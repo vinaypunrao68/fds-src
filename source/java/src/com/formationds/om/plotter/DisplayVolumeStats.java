@@ -15,7 +15,7 @@ import java.util.Map;
 
 /**
  * @deprecated the POC functionality has been replaced by
- *             {@link com.formationds.om.rest.metrics.QueryMetrics}
+ *             {@link com.formationds.om.webkit.rest.metrics.QueryMetrics}
  *
  *             will be removed in the future
  */

@@ -123,7 +123,7 @@ namespace fds {
         virtual ~DMTManager();
 
         Error add(DMT* dmt, DMTType dmt_type);
-        Error addSerialized(std::string& data, DMTType dmt_type);
+        Error addSerializedDMT(std::string& data, DMTType dmt_type);
 
         /**
          * Sets given version of DMT as commited

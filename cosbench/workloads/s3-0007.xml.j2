@@ -20,37 +20,37 @@
     </workstage>
 
     <workstage name="64main">
-      <work name="64KB_60_40" workers="8" runtime="600">
+      <work name="64KB_60_40" workers="8" runtime="600" afr="10000">
         <operation type="read" ratio="60" config="cprefix=s3testqwer;containers=u(1,2);objects=u(1,10)" />
         <operation type="write" ratio="40" config="cprefix=s3testqwer;containers=u(1,2);objects=u(11,20);sizes=u(1,64)KB" />
       </work>
 		</workstage>
 		<workstage name="128main">
-      <work name="128KB_60_40" workers="8" runtime="600">
+      <work name="128KB_60_40" workers="8" runtime="600" afr="10000">
         <operation type="read" ratio="60" config="cprefix=s3testqwer;containers=u(1,2);objects=u(21,30)" />
         <operation type="write" ratio="40" config="cprefix=s3testqwer;containers=u(1,2);objects=u(31,40);sizes=u(64,128)KB" />
       </work>
 		</workstage>
 		<workstage name="512main">
-      <work name="512KB_60_40" workers="8" runtime="600">
+      <work name="512KB_60_40" workers="8" runtime="600" afr="10000">
         <operation type="read" ratio="60" config="cprefix=s3testqwer;containers=u(1,2);objects=u(41,50)" />
         <operation type="write" ratio="40" config="cprefix=s3testqwer;containers=u(1,2);objects=u(51,60);sizes=u(128,512)KB" />
       </work>
     </workstage>
 		<workstage name="1024main">
-      <work name="1024KB_60_40" workers="8" runtime="600">
+      <work name="1024KB_60_40" workers="8" runtime="600" afr="10000">
         <operation type="read" ratio="60" config="cprefix=s3testqwer;containers=u(1,2);objects=u(61,70)" />
         <operation type="write" ratio="40" config="cprefix=s3testqwer;containers=u(1,2);objects=u(71,80);sizes=u(512,1024)KB" />
       </work>
     </workstage>
 		<workstage name="2048main">
-      <work name="2048KB_60_40" workers="8" runtime="600">
+      <work name="2048KB_60_40" workers="8" runtime="600" afr="10000">
         <operation type="read" ratio="60" config="cprefix=s3testqwer;containers=u(1,2);objects=u(81,90)" />
         <operation type="write" ratio="40" config="cprefix=s3testqwer;containers=u(1,2);objects=u(91,100);sizes=u(1024,2048)KB" />
       </work>
     </workstage>
 		<workstage name="4096main">
-      <work name="4096KB_60_40" workers="8" runtime="600">
+      <work name="4096KB_60_40" workers="8" runtime="600" afr="10000">
         <operation type="read" ratio="60" config="cprefix=s3testqwer;containers=u(1,2);objects=u(101,110)" />
         <operation type="write" ratio="40" config="cprefix=s3testqwer;containers=u(1,2);objects=u(111,120);sizes=u(2048,4096)KB" />
       </work>
