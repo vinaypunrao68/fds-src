@@ -26,7 +26,7 @@ public class RouteFinder {
     }
 
     public Optional<Route> resolve(Request request) {
-        String path = request.getMethod().toString() + request.getRequestURI()
+        String path = request.getMethod() + request.getRequestURI()
                 .replaceAll("^" + request.getServletPath() + "/", "")
                 .replaceAll("^/", "")
                 .replaceAll("/$", "")

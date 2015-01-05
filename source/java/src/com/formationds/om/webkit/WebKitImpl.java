@@ -146,8 +146,7 @@ public class WebKitImpl {
                                                                      .api(),
                                                 t ) );
         authenticate( HttpMethod.POST, "/api/config/volumes",
-                      ( t ) -> new CreateVolume( SingletonXdi.instance()
-                                                             .api(),
+                      ( t ) -> new CreateVolume( authorizer,
                                                  SingletonLegacyConfig.instance()
                                                                       .api(),
                                                  SingletonConfigAPI.instance().api(), t ) );
@@ -161,11 +160,11 @@ public class WebKitImpl {
                                                              .api(),
                                                  t ) );
         authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid",
-                      ( t ) -> new SetVolumeQosParams( SingletonXdi.instance()
-                                                                   .api(),
-                                                       SingletonLegacyConfig.instance()
+                      ( t ) -> new SetVolumeQosParams( SingletonLegacyConfig.instance()
                                                                             .api(),
-                                                       SingletonConfigAPI.instance().api(), authorizer,
+                                                       SingletonConfigAPI.instance()
+                                                                         .api(),
+                                                       authorizer,
                                                        t ) );
 
         fdsAdminOnly( HttpMethod.GET, "/api/system/token/:userid",
