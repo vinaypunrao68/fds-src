@@ -281,7 +281,7 @@ Error DMTManager::add(DMT* dmt, DMTType dmt_type) {
     return err;
 }
 
-Error DMTManager::addSerialized(std::string& data, DMTType dmt_type) {
+Error DMTManager::addSerializedDMT(std::string& data, DMTType dmt_type) {
     Error err(ERR_OK);
     DMT *dmt = new DMT(0, 0, 0, false);
     err = dmt->loadSerialized(data);

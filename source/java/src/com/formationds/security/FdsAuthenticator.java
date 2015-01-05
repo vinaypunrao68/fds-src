@@ -71,30 +71,38 @@ public class FdsAuthenticator implements Authenticator {
 
     @Override
     public AuthenticationToken reissueToken(long userId) throws LoginException {
-        User user = null;
+        User user;
         try {
+
             user = cache.allUsers(0).stream()
                     .filter(u -> u.getId() == userId)
                     .findFirst()
-                    .orElseThrow(() -> new LoginException());
+                    .orElseThrow( LoginException::new );
+
         } catch (TException e) {
+
             LOG.error("Error loading configuration", e);
             throw new LoginException();
+
         }
 
         String newSecret = UUID.randomUUID().toString();
         try {
+
             cache.updateUser(user.getId(), user.getIdentifier(), user.getPasswordHash(), newSecret, user.isFdsAdmin);
+
         } catch (TException e) {
+
             LOG.error("Error updating config", e);
             throw new RuntimeException(e);
+
         }
         return new AuthenticationToken(user.getId(), newSecret);
     }
 
     @Override
     public AuthenticationToken resolveToken(String signature) throws LoginException {
-        AuthenticationToken token = null;
+        AuthenticationToken token;
         try {
             token = new TokenEncrypter().tryParse(secretKey, signature);
         } catch (SecurityException e) {

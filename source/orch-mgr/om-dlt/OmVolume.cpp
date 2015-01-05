@@ -1128,10 +1128,11 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
     // register before b-casting vol crt, in case we start recevings acks
     // before vol_event for create vol returns
     vol->setState(fpi::ResourceState::Loading);
-    if (!rs_register(vol)) {
+    err = rs_register(vol);
+    if (!err.ok()) {
         LOGERROR << "unable to register vol as resource : " << vname;
         rs_free_resource(vol);
-        return ERR_DUPLICATE;
+        return err;
     }
 
 

@@ -17,6 +17,7 @@ import os.path
 import re
 import requests
 import shutil
+import subprocess
 import zipfile
 
 access_key = '{{ AWS_ACCESS_KEY }}'
@@ -79,6 +80,7 @@ def prepForDownload():
             print "ERR :: Failed to remove sincedb '{0}', exiting.".format(sincedb)
             exit(1)
 
+    subprocess.call(['service', 'logstash', 'restart'], shell=False)
 
 def cleanElasticSearch():
     # Ignoring errors here, as the index may not exist (on the first of each month). Could be robustified if needed.

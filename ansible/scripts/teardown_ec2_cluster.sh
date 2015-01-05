@@ -24,4 +24,4 @@ ansible_args="${playbooks}/teardown_ec2_cluster.yml -i ${ansible_base_dir}/inven
 
 echo "INFO :: Tearing down instances tagged '${name_tag}'"
 
-ansible-playbook ${ansible_args}
+ansible-playbook ${ansible_args} --vault-password-file ~/.vault_pass.txt
