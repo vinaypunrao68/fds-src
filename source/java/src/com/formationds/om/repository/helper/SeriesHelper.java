@@ -18,12 +18,16 @@ import com.formationds.om.repository.query.MetricQueryCriteria;
 
 
 
+
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -536,28 +540,73 @@ public class SeriesHelper {
                       timestamp, distribution, maxResults, datapoints.size() );
 
         final List<Datapoint> results = new ArrayList<>( );
-        if( datapoints.size() < maxResults ) {
-            // to few datapoints, need to pad with empty datapoints
-            final int needed = maxResults - datapoints.size();
-            dpHelper.padWithEmptyDatapoints( timestamp,
-                                             TimeUnit.MINUTES.toSeconds( distribution ),
-                                             needed,
-                                             datapoints );
+        
+        // we need to create a bucket for each "distribution" size counting back from
+        // the start time maxResults number of times.
+        Map<Long, List<Datapoint>> bucketMap = new HashMap<Long, List<Datapoint>>();
+        
+        for ( Datapoint dp : datapoints ){
+        	
+        	// normalize the key so it's the value of one of our buckets
+        	// which are separated by "distribution" and start at "timestamp"
+        	Long bucket = (long) (Math.ceil( dp.getX().doubleValue() / new Double(distribution*60L*1000L) ) * distribution);
+        	
+        	List<Datapoint> bucketList = bucketMap.get( bucket );
+        	
+        	if ( bucketList == null ){
+        		bucketList = new ArrayList<Datapoint>();
+        	}
 
-            results.addAll( datapoints );
-        } else if( datapoints.size() > maxResults ) {
-
-            /*
-             * TODO finish implementation
-             *
-             * need to get a even distribution of datapoints with a maximum of maxResults
-             */
-
-            results.addAll( datapoints.subList( datapoints.size() - maxResults,
-                                                datapoints.size() ) );
-        } else {
-            results.addAll( datapoints );
+    		bucketList.add( dp );
+    		bucketMap.put( bucket,  bucketList );
         }
+        
+        for ( Long key : bucketMap.keySet() ){
+        	
+        	Double rolledupValue = bucketMap.get( key ).stream().mapToDouble( Datapoint::getX ).average().getAsDouble();
+        	
+        	datapoints.add( new DatapointBuilder().withX( key ).withY( rolledupValue.longValue() ).build() );
+        }
+        
+        datapoints.sort( ( dp1, dp2 ) -> dp1.getX().compareTo( dp2.getX() ) );
+        
+        // if our earliest timestamp is after the requested start time we will add a zero "distribution" 
+        // before the earliest, and a zero at the requested start time.
+        if ( datapoints.get( 0 ).getX() > timestamp ){
+        	
+        	// next earliest should be here
+        	datapoints.add( 0, new DatapointBuilder()
+        		.withX( datapoints.get( 0 ).getX() - (distribution*60*1000) )
+        		.withY( 0L ).build() );
+        	
+        	// at start time
+        	datapoints.add( 0, new DatapointBuilder()
+        		.withX( timestamp )
+        		.withY( 0L ).build() );
+        }
+        
+//        if( datapoints.size() < maxResults ) {
+//            // to few datapoints, need to pad with empty datapoints
+//            final int needed = maxResults - datapoints.size();
+//            dpHelper.padWithEmptyDatapoints( timestamp,
+//                                             TimeUnit.MINUTES.toSeconds( distribution ),
+//                                             needed,
+//                                             datapoints );
+//
+//            results.addAll( datapoints );
+//        } else if( datapoints.size() > maxResults ) {
+//
+//            /*
+//             * TODO finish implementation
+//             *
+//             * need to get a even distribution of datapoints with a maximum of maxResults
+//             */
+//
+//            results.addAll( datapoints.subList( datapoints.size() - maxResults,
+//                                                datapoints.size() ) );
+//        } else {
+//            results.addAll( datapoints );
+//        }
 
         return new SeriesBuilder().withType( metrics )
                                   .withDatapoints( results )
