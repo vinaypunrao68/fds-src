@@ -513,8 +513,8 @@ public class SeriesHelper {
             		d = dStream.sum();
             		break;
             	case AVERAGE:
-            		Double sum = dStream.sum();
-            		d = sum / bytesValues.size();
+            		Double sum = dStream.average().getAsDouble();
+//            		d = sum / bytesValues.size();
             		break;
             	case MAX:
             		d = dStream.max().getAsDouble();
