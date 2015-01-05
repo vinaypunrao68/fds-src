@@ -14,12 +14,12 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.ConnectorType;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.xdi.Xdi;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -39,7 +39,7 @@ public class CreateVolume
   private static final Logger logger =
     LoggerFactory.getLogger( CreateVolume.class );
 
-  // TODO pull these values form the platform.conf file.
+  // TODO pull these values from the platform.conf file.
   private static final String URL = "http://localhost:7777/api/stats";
   private static final String METHOD = "POST";
   private static final Long DURATION = TimeUnit.MINUTES.toSeconds( 2 );
@@ -48,16 +48,16 @@ public class CreateVolume
   private static final Integer DEF_BLOCK_SIZE = ( 1024 * 4 );
   private static final Integer DEF_OBJECT_SIZE = ( ( 1024 * 1024 ) * 2 );
 
-  private final Xdi xdi;
+  private final Authorizer authorizer;
   private final FDSP_ConfigPathReq.Iface legacyConfigPath;
   private final ConfigurationService.Iface configApi;
   private final AuthenticationToken token;
 
-  public CreateVolume( final Xdi xdi,
+  public CreateVolume( final Authorizer authorizer,
                        final FDSP_ConfigPathReq.Iface legacyConfigPath,
                        final ConfigurationService.Iface configApi,
                        final AuthenticationToken token ) {
-    this.xdi = xdi;
+    this.authorizer = authorizer;
     this.legacyConfigPath = legacyConfigPath;
     this.configApi = configApi;
     this.token = token;
@@ -129,10 +129,11 @@ public class CreateVolume
       // add the commit log retention value
       settings.setContCommitlogRetention( volume.getCommit_log_retention() );
       
-      volumeId = xdi.createVolume( token,
-                                   domainName,
-                                   volume.getName(),
-                                   settings );
+      configApi.createVolume( domainName,
+                              volume.getName(),
+                              settings,
+                              authorizer.tenantId( token ) );
+      volumeId = configApi.getVolumeId( volume.getName() );
       if( volumeId > 0 ) {
           volume.setId( String.valueOf( volumeId ) );
 
