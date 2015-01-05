@@ -203,6 +203,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
 bool ConfigDB::setVolumeState(fds_volid_t volumeId, fpi::ResourceState state) {
     TRACKMOD();
     try {
+        LOGNORMAL << "updating volume id " << volumeId << " to state " << state;
         return r.sendCommand("hset vol:%ld state %d", volumeId, static_cast<int>(state)).isOk();
     } catch(const RedisException& e) {
         LOGERROR << e.what();
