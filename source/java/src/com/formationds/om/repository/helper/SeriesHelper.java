@@ -549,10 +549,10 @@ public class SeriesHelper {
         	
         	// normalize the key so it's the value of one of our buckets
         	// which are separated by "distribution" and start at "timestamp"
-        	Long start = dp.getX() - timestamp;
+        	Long diff = dp.getX() - timestamp;
         	
-        	Long bucket = (long) (Math.floor( start.doubleValue() / new Double( TimeUnit.MINUTES.toSeconds( distribution ) ) ) );
-        	bucket = start + (bucket * TimeUnit.MINUTES.toSeconds( distribution ) );
+        	Long bucket = (long) (Math.floor( diff.doubleValue() / new Double( TimeUnit.MINUTES.toSeconds( distribution ) ) ) );
+        	bucket = timestamp + (bucket * TimeUnit.MINUTES.toSeconds( distribution ) );
         	
         	List<Datapoint> bucketList = bucketMap.get( bucket );
         	
