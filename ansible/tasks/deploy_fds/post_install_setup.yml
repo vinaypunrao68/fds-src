@@ -15,7 +15,7 @@
 
 -   name: run fdsinstall step 3 - setup storage
     shell: ./fdsinstall.py -o 5 -o 3  chdir=/root
-    when: fdsinstall_pkg.changed or (force_install is defined and force_install == "yes")
+    when: fdsinstall_pkg.changed or (force is defined and force == "yes")
     tags:
         - post-install
 

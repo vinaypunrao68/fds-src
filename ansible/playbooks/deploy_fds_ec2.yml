@@ -59,7 +59,7 @@
 ################################################################################
 
 
--   name: DESTRUCTIVE Deployment of FDS
+-   name: Deploy FDS
     hosts: ec2hosts
     remote_user: deploy
     gather_facts: true
@@ -74,18 +74,4 @@
 
     tasks:
 
-    -   include: ../tasks/deploy_fds/pre_deploy_setup.yml
-
-    -   include: ../tasks/deploy_fds/stop_and_clean_fds.yml
-
-    -   include: ../tasks/deploy_fds/install_deps.yml
-
-    -   include: ../tasks/deploy_fds/uninstall_fds.yml
-
-    -   include: ../tasks/deploy_fds/install_fds.yml
-
-    -   include: ../tasks/deploy_fds/set_node_num.yml
-
-    -   include: ../tasks/deploy_fds/post_install_setup.yml
-
-    -   include: ../tasks/deploy_fds/start_fds.yml
+    -   include: ../tasks/deploy_fds/deploy_fds.yml
