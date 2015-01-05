@@ -347,30 +347,31 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
         else:
             sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
 
-        nodes = fdscfg.rt_obj.cfg_nodes
-        for n in nodes:
-            self.log.info("Restart Redis clean on %s." %n.nd_conf_dict['node-name'])
+        #nodes = fdscfg.rt_obj.cfg_nodes
+        #for n in nodes:
+        n = fdscfg.rt_om_node
+        self.log.info("Restart Redis clean on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
-            time.sleep(2)
+        status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
+        time.sleep(2)
 
-            if status != 0:
-                self.log.error("Restart Redis before clean on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
-                return False
+        if status != 0:
+            self.log.error("Restart Redis before clean on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+            return False
 
-            status = n.nd_agent.exec_wait("%s/redis.sh clean" % sbin_dir)
-            time.sleep(2)
+        status = n.nd_agent.exec_wait("%s/redis.sh clean" % sbin_dir)
+        time.sleep(2)
 
-            if status != 0:
-                self.log.error("Clean Redis on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
-                return False
+        if status != 0:
+            self.log.error("Clean Redis on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+            return False
 
-            status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
-            time.sleep(2)
+        status = n.nd_agent.exec_wait("%s/redis.sh restart" % sbin_dir)
+        time.sleep(2)
 
-            if status != 0:
-                self.log.error("Restart Redis after clean on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
-                return False
+        if status != 0:
+            self.log.error("Restart Redis after clean on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+            return False
 
         return True
 

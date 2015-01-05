@@ -120,6 +120,7 @@ fds_spawn(char *const argv[], int daemonize)
     /* Child process, close all file descriptors. */
     flim = fds_get_fd_limit();
     printf("Close fd up to %d\n", flim);
+    fflush(stdout);
 
     for (fd = 0; fd < flim; fd++) {
         close(fd);
@@ -132,13 +133,13 @@ fds_spawn(char *const argv[], int daemonize)
     if (daemonize) {
         res = daemon(1, 1);
         if (res != 0) {
-            printf("Fatal error, can't daemonize %s\n", argv[0]);
+            fprintf(stderr, "Fatal error, can't daemonize %s\n", argv[0]);
             abort();
         }
     }
     /* actual child process */
     execvp(argv[0], argv);
-    printf("Fatal error, can't spawn %s\n", argv[0]);
+    fprintf(stderr, "Fatal error, can't spawn %s\n", argv[0]);
     abort();
 }
 

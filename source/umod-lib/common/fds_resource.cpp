@@ -120,6 +120,9 @@ bool RsContainer::rs_register_mtx(Resource::pointer rs) {
         }
         if (rs_array[i] == NULL) {
             // Found an empty slot, use it.
+            GLOGDEBUG << "RsContainer::rs_register_mtx: Found an empty slot for  "
+                      << " name:" << iter->second->rs_get_name()
+                      << " uuid:" << iter->second->rs_get_uuid();
             rs_array[i] = rs;
             rs->rs_index = i;
             return true;
@@ -127,6 +130,9 @@ bool RsContainer::rs_register_mtx(Resource::pointer rs) {
         fds_verify(rs_array[i] != rs);
     }
     fds_verify(rs_array[rs_cur_idx] == NULL);
+    GLOGDEBUG << "RsContainer::rs_register_mtx: Pushing onto resource array  "
+              << " name:" << rs->rs_get_name()
+              << " uuid:" << std::hex << rs->rs_get_uuid();
     rs_array[rs_cur_idx] = rs;
     rs->rs_index = rs_cur_idx;
     rs_cur_idx++;
@@ -174,9 +180,12 @@ Resource::pointer
 RsContainer::rs_get_resource(const ResourceUUID &uuid)
 {
     auto iter = rs_uuid_map.find(uuid);
+    LOGDEBUG << "RsContainer::rs_get_resource: UUID: " << std::hex << uuid <<  ".";
     if (iter != rs_uuid_map.end()) {
+        LOGDEBUG << "RsContainer::rs_get_resource: resource: " << iter->second <<  ".";
         return iter->second;
     }
+    LOGDEBUG << "RsContainer::rs_get_resource: resource not found. ";
     return NULL;
 }
 

@@ -864,6 +864,17 @@ OM_AgentContainer::agent_register(const NodeUuid       &uuid,
     OM_NodeAgent::pointer agent = OM_NodeAgent::agt_cast_ptr(*out);
 
     if (agent->node_get_svc_type() == fpi::FDSP_PLATFORM) {
+        // TODO(GREG) Add agent UUID to cache.
+#ifdef CACHE_NEW_PM_EP
+        {
+            node_data_t    rec;
+
+            // Notify all services about this node through shared memory queue.
+            NodeInventory::node_info_msg_to_shm(msg, &rec);
+            EpPlatformdMod::ep_shm_singleton()->node_reg_notify(&rec);
+        }
+#endif
+
         agent->node_agent_up();
         agent_activate(agent);
         return err;

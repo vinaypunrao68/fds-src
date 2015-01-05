@@ -28,11 +28,12 @@ def suiteConstruction():
     suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
 
     # Start the node(s) according to configuration supplied with the -q cli option.
-    suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestPMWait())
     suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
     suite.addTest(testcases.TestFDSModMgt.TestOMWait())
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate())
+    suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
+    suite.addTest(testcases.TestFDSModMgt.TestPMWait())
+    suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
+    suite.addTest(testcases.TestFDSModMgt.TestAMBringup())
 
     # Check that all nodes are up.
     nodeUpSuite = NodeWaitSuite.suiteConstruction()

@@ -467,7 +467,12 @@ class AgentContainer : public RsContainer
      * Activate the agent obj so that it can be looked up by name or uuid.
      */
     virtual void agent_activate(NodeAgent::pointer agent) {
-        rs_register(agent);
+        if (!rs_register(agent)) {
+            LOGDEBUG << "AgentContainer::agent_activate: Registration failed for"
+                      << " name:" << agent->get_node_name()
+                      << " uuid:" << agent->get_uuid()
+                      << " ipad:" << agent->get_ip_str() << ":" << agent->node_base_port();
+        }
     }
     virtual void agent_deactivate(NodeAgent::pointer agent) {
         rs_unregister(agent);
@@ -528,6 +533,7 @@ class PmContainer : public AgentContainer
   protected:
     virtual ~PmContainer() {}
     virtual Resource *rs_new(const ResourceUUID &uuid) {
+        LOGDEBUG << "PmContainer::rs_new: Create new PM Agent for UUID: " << std::hex << uuid <<  ".";
         return new PmAgent(uuid);
     }
 };

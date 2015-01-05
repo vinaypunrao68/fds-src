@@ -32,7 +32,7 @@ def suiteConstruction():
     suite.addTest(testcases.TestFDSModMgt.TestPMWait())
     suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
     suite.addTest(testcases.TestFDSModMgt.TestOMWait())
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate())
+    suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
 
     # Check that all nodes are up.
     nodeUpSuite = NodeWaitSuite.suiteConstruction()

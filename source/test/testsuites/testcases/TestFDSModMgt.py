@@ -983,6 +983,9 @@ class TestOMBringUp(TestCase.FDSTestCase):
 
         status = om_node.nd_start_om(test_harness=True, _bin_dir=bin_dir, _log_dir=log_dir)
 
+        # Give OM time to come up to speed.
+        time.sleep(20)
+
         if status != 0:
             self.log.error("OM on %s returned status %d." % (om_node.nd_conf_dict['node-name'], status))
             return False
