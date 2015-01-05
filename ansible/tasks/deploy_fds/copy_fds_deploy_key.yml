@@ -1,0 +1,7 @@
+---
+-   name: copy the bits
+    local_action: shell echo "{{ fds_deploy_private_key }}" > ~/.ssh/fds-deploy_rsa
+
+-   name: ensure correct permissions on private key
+    local_action: file path="~/.ssh/fds-deploy_rsa"
+        mode=0600

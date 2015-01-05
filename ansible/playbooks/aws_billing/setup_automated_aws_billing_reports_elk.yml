@@ -4,7 +4,7 @@
     sudo: True
     gather_facts: false
     vars_files:
-        -   ../../vars_files/billing-read-only_creds.yml
+        -   ../../vars_files/credentials/aws_billing_read_only.yml
 
     handlers:
         -   name: restart logstash
