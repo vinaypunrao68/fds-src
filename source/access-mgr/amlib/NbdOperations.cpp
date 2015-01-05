@@ -21,10 +21,12 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
 // a shared pointer to ourselves (and NbdConnection already started one).
 void
 NbdOperations::init() {
-    amAsyncDataApi = std::make_shared<AmAsyncDataApi>(shared_from_this());
+    amAsyncDataApi.reset(new AmAsyncDataApi(shared_from_this()));
 }
 
 NbdOperations::~NbdOperations() {
+    delete nbdResp;
+    nbdResp = nullptr;
 }
 
 void
@@ -285,8 +287,9 @@ NbdOperations::getBlobResp(const Error &error,
             fds_mutex::scoped_lock l(respLock);
             responses.erase(handle);
         }
+
         // we are done collecting responses for this handle, notify nbd connector
-        nbdResp->readWriteResp(error, handle, resp);
+        nbdResp->readWriteResp(resp);
     }
 }
 
@@ -326,8 +329,9 @@ NbdOperations::updateBlobResp(const Error &error,
             fds_mutex::scoped_lock l(respLock);
             responses.erase(handle);
         }
+
         // we are done collecting responses for this handle, notify nbd connector
-        nbdResp->readWriteResp(error, handle, resp);
+        nbdResp->readWriteResp(resp);
     }
 }
 

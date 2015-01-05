@@ -16,6 +16,7 @@ random.seed(time.time())
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
+                    
 def percent_cb(complete, total):
     sys.stdout.write('.')
     sys.stdout.flush()

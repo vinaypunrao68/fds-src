@@ -15,7 +15,7 @@
     </workstage>
 
     <workstage name="main">
-      <work name="main" workers="8" runtime="43200">
+      <work name="main" workers="8" runtime="43200" afr="10000">
         <operation type="read" ratio="20" config="cprefix=s3testqwer;containers=u(1,10);objects=u(1,100)" />
         <operation type="write" ratio="80" config="cprefix=s3testqwer;containers=u(1,10);objects=u(100,200);sizes=u(64,4096)KB" />
       </work>

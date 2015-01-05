@@ -585,6 +585,7 @@ struct CtrlNotifyDMTClose {
 /* --------------------  CtrlNotifyDMTUpdateTypeId  ---------------------------- */
 struct CtrlNotifyDMTUpdate {
      1: FDSP.FDSP_DMT_Type        dmt_data;
+     2: i32                       dmt_version;
 }
 
 /* --------------------  CtrlNotifyBucketStatTypeId  --------------------------- */

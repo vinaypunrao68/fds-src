@@ -866,6 +866,20 @@ Error OMgrClient::recvDMTPushMeta(FDSP_PushMetaPtr& push_meta,
     return this->catalog_evt_hdlr(fds_catalog_push_meta, push_meta, session_uuid);
 }
 
+Error OMgrClient::updateDmt(bool dmt_type, std::string& dmt_data) {
+    Error err(ERR_OK);
+    LOGNOTIFY << "OMClient received new DMT version  " << dmt_type;
+
+    omc_lock.write_lock();
+    err = dmtMgr->addSerializedDMT(dmt_data, DMT_COMMITTED);
+    if (!err.ok()) {
+        LOGERROR << "Failed to update DMT! check dmt_data was set";
+    }
+    omc_lock.write_unlock();
+
+    return err;
+}
+
 Error OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
                                 const std::string& session_uuid) {
     Error err(ERR_OK);
@@ -873,7 +887,7 @@ Error OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
 
     // before we implement DM sync, any DMT we receive from OM is committed DMT
     // dmtMgr is thread-safe, uses it's internal lock
-    err = dmtMgr->addSerialized(dmt_info->dmt_data, DMT_COMMITTED);
+    err = dmtMgr->addSerializedDMT(dmt_info->dmt_data, DMT_COMMITTED);
     if (!err.ok()) {
         LOGERROR << "Failed to add DMT to DMTManager " << err;
         return err;

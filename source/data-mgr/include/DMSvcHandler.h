@@ -110,7 +110,6 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     virtual void
     NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                  boost::shared_ptr<fpi::CtrlNotifyVolMod> &vol_msg);
-#if 0
     virtual void
     NotifyDMTClose(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
                    boost::shared_ptr<fpi::CtrlNotifyDMTClose> &msg);
@@ -119,6 +118,7 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                     boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg);
 
+#if 0
     virtual void
     NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                     boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &msg, const Error err);
