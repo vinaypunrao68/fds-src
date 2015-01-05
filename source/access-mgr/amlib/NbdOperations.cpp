@@ -147,13 +147,13 @@ NbdOperations::write(fds_uint32_t maxObjectSizeInBytes,
         responses[handle] = resp;
     }
 
-    fds_uint32_t amBytesWritten = 0;
+    size_t amBytesWritten = 0;
     fds_int32_t seqId = 0;
     while (amBytesWritten < length) {
         fds_uint64_t curOffset = offset + amBytesWritten;
         fds_uint64_t objectOff = curOffset / maxObjectSizeInBytes;
         fds_uint32_t iOff = curOffset % maxObjectSizeInBytes;
-        fds_uint32_t iLength = length - amBytesWritten;
+        size_t iLength = length - amBytesWritten;
 
         if ((iLength + iOff) >= maxObjectSizeInBytes) {
             iLength = maxObjectSizeInBytes - iOff;
@@ -161,9 +161,8 @@ NbdOperations::write(fds_uint32_t maxObjectSizeInBytes,
 
         LOGDEBUG << "actualLen " << iLength << " bytesW " << amBytesWritten
                  << " length " << bytes->length();
-        boost::shared_ptr<std::string> objBuf(new std::string(*bytes,
-                                                              amBytesWritten,
-                                                              iLength));
+        auto objBuf = (iLength == bytes->length()) ?
+            bytes : boost::make_shared<std::string>(*bytes, amBytesWritten, iLength);
 
         // write an object
         boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(maxObjectSizeInBytes);
