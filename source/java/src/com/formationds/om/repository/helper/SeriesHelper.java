@@ -566,7 +566,17 @@ public class SeriesHelper {
         
         for ( Long key : bucketMap.keySet() ){
         	
-        	Double rolledupValue = bucketMap.get( key ).stream().mapToDouble( Datapoint::getY ).average().getAsDouble();
+        	Double rolledupValue = 0.0;
+        	DoubleStream ds = bucketMap.get( key ).stream().mapToDouble( Datapoint::getY );
+        	
+        	switch( operation ) {
+        		case AVERAGE:
+        			rolledupValue = ds.average().getAsDouble() / TimeUnit.MINUTES.toSeconds( distribution );
+        			break;
+        		default:
+        			rolledupValue = ds.sum();
+        			break;
+        	}
         	
         	results.add( new DatapointBuilder().withX( key ).withY( rolledupValue.longValue() ).build() );
         }
