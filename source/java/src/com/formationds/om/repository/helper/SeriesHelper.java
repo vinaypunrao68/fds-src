@@ -513,7 +513,11 @@ public class SeriesHelper {
             		d = dStream.sum();
             		break;
             	case AVERAGE:
+            		// this is merely an average over the distribution size.
+            		// We will make an assumption here that we want the average
+            		// based on seconds
             		d = dStream.average().getAsDouble();
+            		d = d / TimeUnit.MINUTES.toSeconds( distribution );
 //            		d = sum / bytesValues.size();
             		break;
             	case MAX:
