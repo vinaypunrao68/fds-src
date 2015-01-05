@@ -245,7 +245,7 @@ public class TrafficGen {
                 runtime = Integer.parseInt(line.getOptionValue("runtime"));
             }
             if (line.hasOption("timeout")) {
-                runtime = Integer.parseInt(line.getOptionValue("timeout"));
+                timeout = Integer.parseInt(line.getOptionValue("timeout"));
             }
         } catch (ParseException exp) {
             // oops, something went wrong
