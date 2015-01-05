@@ -320,9 +320,8 @@ public class QueryHelper {
                                                      .equalsIgnoreCase( p.getKey() ) )
                             .forEach( ( p ) -> {
                                 final Datapoint dp =
-                                    new DatapointBuilder().withX( p.getTimestamp() )
-                                                          .withY( p.getValue()
-                                                                   .longValue() )
+                                    new DatapointBuilder().withX( (double)p.getTimestamp() )
+                                                          .withY( p.getValue() )
                                                           .build();
                                 s.setDatapoint( dp );
                                 s.setContext(

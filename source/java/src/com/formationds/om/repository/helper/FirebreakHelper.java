@@ -35,7 +35,7 @@ public class FirebreakHelper {
         "index is out-of-bounds %d, must between %d and %d.";
 
     // zero is not a value last occurred time
-    public static final Long NEVER = 0L;
+    public static final Double NEVER = 0.0;
 
     /**
      * default constructor
@@ -133,7 +133,7 @@ public class FirebreakHelper {
                                                               .volumeStatus("", volumeName);
                     if (status != null) {
                         // use the usage, OBJECT volumes have no fixed capacity
-                        datapoint.setX(status.getCurrentUsageInBytes());
+                        datapoint.setX((double)status.getCurrentUsageInBytes());
                     }
 
                     pair.setDatapoint(datapoint);
@@ -143,7 +143,7 @@ public class FirebreakHelper {
                 if (isFirebreak(pair)) {
                     // if there is already a firebreak for the volume in the results use it
                     // instead of the pair and set the timestamp using the current pair.
-                    results.get(key).getDatapoint().setY(pair.getShortTermSigma().getTimestamp());
+                    results.get(key).getDatapoint().setY((double)pair.getShortTermSigma().getTimestamp());
                 }
             } catch( TException e ) {
                 logger.warn("Failed to get Volume status for firebreak event pair" + pair, e );
@@ -182,14 +182,14 @@ public class FirebreakHelper {
 
             if (isFirebreak(pair)) {
                 final Datapoint datapoint = new Datapoint();
-                datapoint.setY(pair.getShortTermSigma().getTimestamp());    // firebreak last occurrence
+                datapoint.setY((double)pair.getShortTermSigma().getTimestamp());    // firebreak last occurrence
 
                 // TODO: use volid once available
                 final VolumeStatus status = vols.get(volumeName);
                 if (status != null) {
                     // use the usage, OBJECT volumes have no fixed capacity
                     // TODO: this makes sense for a capacity FB, but not for performance
-                    datapoint.setX(status.getCurrentUsageInBytes());
+                    datapoint.setX((double)status.getCurrentUsageInBytes());
                 }
                 pair.setDatapoint(datapoint);
 

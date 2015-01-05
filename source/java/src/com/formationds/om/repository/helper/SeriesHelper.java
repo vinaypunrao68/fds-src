@@ -531,8 +531,8 @@ public class SeriesHelper {
             logger.trace( "DOUBLE::{} LONG::{} TIMESTAMP::{}",
                           d, d.longValue(), bytesTimestamp );
 
-            datapoints.add( new DatapointBuilder().withY( d.longValue() )
-                                                  .withX( bytesTimestamp )
+            datapoints.add( new DatapointBuilder().withY( d )
+                                                  .withX( (double)bytesTimestamp )
                                                   .build() );
         } );
 
@@ -543,15 +543,15 @@ public class SeriesHelper {
         
         // we need to create a bucket for each "distribution" size counting back from
         // the start time maxResults number of times.
-        Map<Long, List<Datapoint>> bucketMap = new HashMap<Long, List<Datapoint>>();
+        Map<Double, List<Datapoint>> bucketMap = new HashMap<Double, List<Datapoint>>();
         
         for ( Datapoint dp : datapoints ){
         	
         	// normalize the key so it's the value of one of our buckets
         	// which are separated by "distribution" and start at "timestamp"
-        	Long diff = dp.getX() - timestamp;
+        	Double diff = dp.getX() - timestamp;
         	
-        	Long bucket = (long) (Math.floor( diff.doubleValue() / new Double( TimeUnit.MINUTES.toSeconds( distribution ) ) ) );
+        	Double bucket = Math.floor( diff.doubleValue() / new Double( TimeUnit.MINUTES.toSeconds( distribution ) ) );
         	bucket = timestamp + (bucket * TimeUnit.MINUTES.toSeconds( distribution ) );
         	
         	List<Datapoint> bucketList = bucketMap.get( bucket );
@@ -564,7 +564,7 @@ public class SeriesHelper {
     		bucketMap.put( bucket,  bucketList );
         }
         
-        for ( Long key : bucketMap.keySet() ){
+        for ( Double key : bucketMap.keySet() ){
         	
         	Double rolledupValue = 0.0;
         	DoubleStream ds = bucketMap.get( key ).stream().mapToDouble( Datapoint::getY );
@@ -578,7 +578,7 @@ public class SeriesHelper {
         			break;
         	}
         	
-        	results.add( new DatapointBuilder().withX( key ).withY( rolledupValue.longValue() ).build() );
+        	results.add( new DatapointBuilder().withX( key ).withY( rolledupValue ).build() );
         }
         
         results.sort( ( dp1, dp2 ) -> dp1.getX().compareTo( dp2.getX() ) );
@@ -587,13 +587,13 @@ public class SeriesHelper {
         	
         	// at start time
         	results.add( new DatapointBuilder()
-        		.withX( timestamp )
-        		.withY( 0L ).build() );
+        		.withX( (double)timestamp )
+        		.withY( 0.0 ).build() );
         	
         	// at end time
         	results.add( new DatapointBuilder()
-        		.withX( timestamp + (maxResults * TimeUnit.MINUTES.toSeconds( distribution ) ) )
-        		.withY( 0L ).build() );
+        		.withX( (double)timestamp + (maxResults * TimeUnit.MINUTES.toSeconds( distribution ) ) )
+        		.withY( 0.0 ).build() );
         }
         
         // if our earliest timestamp is after the requested start time we will add a zero "distribution" 
@@ -603,12 +603,12 @@ public class SeriesHelper {
         	// next earliest should be here
         	results.add( 0, new DatapointBuilder()
         		.withX( results.get( 0 ).getX() - TimeUnit.MINUTES.toSeconds( distribution ) )
-        		.withY( 0L ).build() );
+        		.withY( 0.0 ).build() );
         	
         	// at start time
         	results.add( 0, new DatapointBuilder()
-        		.withX( timestamp )
-        		.withY( 0L ).build() );
+        		.withX( (double)timestamp )
+        		.withY( 0.0 ).build() );
         }
         
 //        if( datapoints.size() < maxResults ) {

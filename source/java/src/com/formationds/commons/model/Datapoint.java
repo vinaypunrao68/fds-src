@@ -13,34 +13,34 @@ public class Datapoint
   extends ModelBase {
   private static final long serialVersionUID = 7313793869030172350L;
 
-  private Long x;         // x-axis data point
-  private Long y;         // y-axis time point
+  private Double x;         // x-axis data point
+  private Double y;         // y-axis time point
 
   /**
    * @return Returns the {@link Long} representing the x-axis
    */
-  public Long getX() {
+  public Double getX() {
     return x;
   }
 
   /**
    * @param x the {@link Long} representing the x-axis
    */
-  public void setX( final Long x ) {
+  public void setX( final Double x ) {
     this.x = x;
   }
 
   /**
    * @return Returns the {@link Long} representing the y-axis
    */
-  public Long getY() {
+  public Double getY() {
     return y;
   }
 
   /**
    * @param y the {@link Long} representing the y-axis
    */
-  public void setY( final Long y ) {
+  public void setY( final Double y ) {
     this.y = y;
   }
 
