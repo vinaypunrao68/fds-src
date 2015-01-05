@@ -196,7 +196,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .y1( function( d ){
                         return $yScale( d.y );
                     })
-                    .interpolate( 'monotone' );
+                    .interpolate( 'linear' );
                 
                 $svg.selectAll( '.line' )
 //                    .transition()

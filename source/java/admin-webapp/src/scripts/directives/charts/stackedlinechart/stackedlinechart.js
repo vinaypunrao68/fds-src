@@ -206,7 +206,7 @@ angular.module( 'charts' ).directive( 'stackedLineChart', function(){
                     .y1( function( d ){
                         return $yScale( d.y + d.y0 );
                     })
-                    .interpolate( 'monotone' );
+                    .interpolate( 'linear' );
                 
                 $svg.selectAll( '.line' )
 //                    .transition()
