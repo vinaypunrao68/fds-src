@@ -154,7 +154,6 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
     asyncWatcher->set<NbdConnection, &NbdConnection::wakeupCb>(this);
     asyncWatcher->start();
 
-    nbdOps->init();
     LOGNORMAL << "New NBD client connection for " << clientSocket;
 }
 
@@ -295,7 +294,7 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
         return false;
 
     // In case volume name is not NULL terminated.
-    volumeName = boost::make_shared<std::string>(attach.data.begin(),
+    auto volumeName = boost::make_shared<std::string>(attach.data.begin(),
                                                  attach.data.begin() + attach.header.length);
     if (toggleStandAlone) {
         volDesc.policy.maxObjectSizeInBytes = 4096;
@@ -315,6 +314,7 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
               << volDesc.policy.blockDeviceSizeInBytes
               << " max object size " << volDesc.policy.maxObjectSizeInBytes
               << " max number of chunks " << maxChunks;
+    nbdOps->init(volumeName);
 
     return true;
 }
@@ -487,8 +487,7 @@ NbdConnection::dispatchOp(ev::io &watcher,
                 ioWatcher->set(ev::READ | ev::WRITE);
             } else {
                 // do read from AM
-                nbdOps->read(volumeName, volDesc.policy.maxObjectSizeInBytes,
-                             length, offset, handle);
+                nbdOps->read(volDesc.policy.maxObjectSizeInBytes, length, offset, handle);
             }
             break;
         case NBD_CMD_WRITE:
@@ -502,9 +501,8 @@ NbdConnection::dispatchOp(ev::io &watcher,
                 // We have something to write, so ask for events
                 ioWatcher->set(ev::READ | ev::WRITE);
             } else {
-                 fds_verify(data != NULL);
-                 nbdOps->write(volumeName, volDesc.policy.maxObjectSizeInBytes,
-                               data, length, offset, handle);
+                 fds_assert(data);
+                 nbdOps->write(volDesc.policy.maxObjectSizeInBytes, data, length, offset, handle);
             }
             break;
         case NBD_CMD_FLUSH:

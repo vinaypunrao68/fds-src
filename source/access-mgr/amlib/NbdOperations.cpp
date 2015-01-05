@@ -10,6 +10,7 @@ namespace fds {
 
 NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
         : amAsyncDataApi(nullptr),
+          volumeName(nullptr),
           nbdResp(respIface),
           domainName(new std::string("TestDomain")),
           blobName(new std::string("BlockBlob")),
@@ -20,8 +21,9 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
 // We can't initialize this in the constructor since we want to pass
 // a shared pointer to ourselves (and NbdConnection already started one).
 void
-NbdOperations::init() {
+NbdOperations::init(boost::shared_ptr<std::string> vol_name) {
     amAsyncDataApi.reset(new AmAsyncDataApi(shared_from_this()));
+    volumeName = vol_name;
 }
 
 NbdOperations::~NbdOperations() {
@@ -30,8 +32,7 @@ NbdOperations::~NbdOperations() {
 }
 
 void
-NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
-                    fds_uint32_t maxObjectSizeInBytes,
+NbdOperations::read(fds_uint32_t maxObjectSizeInBytes,
                     fds_uint32_t length,
                     fds_uint64_t offset,
                     fds_int64_t handle) {
@@ -46,7 +47,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
              << " max object size " << maxObjectSizeInBytes << " bytes";
 
     // we will wait for responses
-    NbdResponseVector* resp = new NbdResponseVector(volumeName, handle,
+    NbdResponseVector* resp = new NbdResponseVector(handle,
                                                     NbdResponseVector::READ,
                                                     offset, length, maxObjectSizeInBytes,
                                                     objCount);
@@ -119,8 +120,7 @@ NbdOperations::read(boost::shared_ptr<std::string>& volumeName,
 
 
 void
-NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
-                     fds_uint32_t maxObjectSizeInBytes,
+NbdOperations::write(fds_uint32_t maxObjectSizeInBytes,
                      boost::shared_ptr<std::string>& bytes,
                      fds_uint32_t length,
                      fds_uint64_t offset,
@@ -136,7 +136,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& volumeName,
              << " max object size " << maxObjectSizeInBytes << " bytes";
 
     // we will wait for write response for all objects we chunk this request into
-    NbdResponseVector* resp = new NbdResponseVector(volumeName, handle,
+    NbdResponseVector* resp = new NbdResponseVector(handle,
                                                     NbdResponseVector::WRITE,
                                                     offset, length,
                                                     maxObjectSizeInBytes, objCount);
@@ -265,7 +265,7 @@ NbdOperations::getBlobResp(const Error &error,
             off->value = 0;
             amAsyncDataApi->updateBlobOnce(requestId,
                                            domainName,
-                                           resp->getVolumeName(),
+                                           volumeName,
                                            blobName,
                                            blobMode,
                                            wBuf,
