@@ -35,7 +35,7 @@ class Disk:
 ## Public member functions
 ## -----------------------
     # Parse the disk information
-    def __init__(self, path):
+    def __init__(self, path, virtualized):
         assert path != None
         assert re.match(Disk.dsk_prefix, path)
 
@@ -45,7 +45,7 @@ class Disk:
         self.dsk_formatted = 'Unknown'
 
         # parse disk information
-        self.__parse_with_lshw(path)
+        self.__parse_with_lshw(path, virtualized)
 
     # drive type: HDD|SSD
     def get_type(self):
@@ -76,19 +76,19 @@ class Disk:
 
     # get all Disk objects in the system, including the boot device(s)
     @staticmethod
-    def sys_disks():
+    def sys_disks(virtualized):
         dev_list  = []
         path_list = Disk.__get_sys_disks_path()
     
         for path in path_list:
-            disk = Disk(path)
+            disk = Disk(path, virtualized)
             dev_list.append(disk)
 
         return dev_list
 
     ###
     # parse using lshw and xml
-    def __parse_with_lshw(self, path):
+    def __parse_with_lshw(self, path, virtualized):
         # Parse for Disk type, capacity
         if Disk.dsk_lshw_xml == None:
             dev_stdout = subprocess.Popen(['lshw', '-xml', '-class', 'disk', '-quiet'], stdout=subprocess.PIPE).stdout
@@ -128,6 +128,8 @@ class Disk:
         if rotation == '0':                    # SSD
             self.dsk_typ = Disk.dsk_typ_ssd
         elif rotation > '6000':                # HDD
+            self.dsk_typ = Disk.dsk_typ_hdd
+        elif virtualized != False:             # Virtualized treated as HDD's
             self.dsk_typ = Disk.dsk_typ_hdd
                                                # else this device is on a hardware controller, 
                                                # so leave the dsk_typ set to the default UKN (unknown)
@@ -214,11 +216,6 @@ def disk_type_with_stor_cli (stor_client):
 
 if __name__ == "__main__":
 
-    # verify UID=0
-    if os.getuid() != 0:
-        print ( "Error:  must be run as root.  Can not continue.")
-        sys.exit(1)
-
     # Parse command line options
     parser = optparse.OptionParser("usage: %prog [options]")
 
@@ -226,15 +223,22 @@ if __name__ == "__main__":
     parser.add_option('-s', '--stor', dest = 'stor_cli', default='/usr/local/MegaRAID Storage Manager/StorCLI/storcli64', help = 'Full path and file name of the StorCli binary')
     parser.add_option('-p', '--print', dest = 'print_disk', action = 'store_true', help = 'Display the disk information on screen and do not write to the config file')
     parser.add_option('-D', '--debug', dest = 'debug', action = 'store_true', help = 'Turn on debugging')
+    parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment (Treats all detected drives as HDD), also disables the check for storcli64')
 
     (options, args) = parser.parse_args()
     debug_on     = options.debug
     print_disk   = options.print_disk
 
-    # verify stor_cli setting is good
-    if not os.access (options.stor_cli, os.X_OK):
-        print ( "Error:  Can not access '" + options.stor_cli + "', please use or verify the -s command line option.  Can not continue.")
+    # verify UID=0
+    if os.getuid() != 0:
+        print ( "Error:  must be run as root.  Can not continue.")
         sys.exit(1)
+
+    # verify stor_cli setting is good
+    if not options.virtual:
+        if not os.access (options.stor_cli, os.X_OK):
+            print ( "Error:  Can not access '" + options.stor_cli + "', please use or verify the -s command line option.  Can not continue.")
+            sys.exit(1)
 
     destination_dir = options.fds_root + "/dev"
 
@@ -247,7 +251,7 @@ if __name__ == "__main__":
     sys.stdout.flush()
     dbg_print ('')
 
-    dev_list = Disk.sys_disks()
+    dev_list = Disk.sys_disks(options.virtual)
 
     sys.stdout.write ("Complete")
     sys.stdout.flush()
@@ -271,6 +275,7 @@ if __name__ == "__main__":
     dbg_print ("controller_disk_list = " + ', '.join(controller_disk_list))
 
     for disk in dev_list:
+        print "disk.get_type() = ", disk.get_type()
         if disk.get_type() == Disk.dsk_typ_unknown:
             if len(controller_disk_list) > 0:
                 disk.dsk_typ = controller_disk_list.pop(0)
