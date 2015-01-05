@@ -88,7 +88,7 @@ struct VolumeDescriptor {
             }
 
             try {
-                status = amApi.volumeStatus("", v.getName());
+                status = amApi.volumeStatus( "", v.getName() );
             } catch (TException e) {
                 LOG.warn("Getting Volume Status Failed", e);
             }
@@ -97,7 +97,9 @@ struct VolumeDescriptor {
         return toJsonObject( v, volInfo, status );
     }
 
-    public static JSONObject toJsonObject(VolumeDescriptor v, FDSP_VolumeDescType volInfo, VolumeStatus status) {
+    public static JSONObject toJsonObject(VolumeDescriptor v,
+                                          FDSP_VolumeDescType volInfo,
+                                          VolumeStatus status) {
       JSONObject o = new JSONObject();
 
       if( v != null ) {

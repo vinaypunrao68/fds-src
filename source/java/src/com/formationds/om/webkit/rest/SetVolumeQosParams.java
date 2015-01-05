@@ -3,15 +3,19 @@ package com.formationds.om.webkit.rest;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import FDS_ProtocolInterface.*;
+import FDS_ProtocolInterface.FDSP_ConfigPathReq;
+import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
+import FDS_ProtocolInterface.FDSP_ModifyVolType;
+import FDS_ProtocolInterface.FDSP_MsgHdrType;
+import FDS_ProtocolInterface.FDSP_VolumeDescType;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.om.helper.SingletonXdi;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.Xdi;
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -22,16 +26,19 @@ import java.util.Map;
 public class SetVolumeQosParams implements RequestHandler {
     private FDSP_ConfigPathReq.Iface client;
     private ConfigurationService.Iface configService;
-    private Xdi xdi;
     private Authorizer authorizer;
     private AuthenticationToken token;
 
-    public SetVolumeQosParams(Xdi xdi, FDSP_ConfigPathReq.Iface legacyClient, ConfigurationService.Iface configService, Authorizer authorizer, AuthenticationToken token) {
+    public SetVolumeQosParams(FDSP_ConfigPathReq.Iface legacyClient,
+                              ConfigurationService.Iface configService,
+                              Authorizer authorizer,
+                              AuthenticationToken token) {
+
         this.client = legacyClient;
         this.configService = configService;
-        this.xdi = xdi;
         this.authorizer = authorizer;
         this.token = token;
+
     }
 
     @Override
@@ -50,14 +57,21 @@ public class SetVolumeQosParams implements RequestHandler {
                 .orElseThrow(() -> new RuntimeException("No such volume"));
 
         String volumeName = volumeDescType.getVol_name();
-        if (! authorizer.hasAccess(token, volumeName)) {
+        if ( !authorizer.hasAccess(token, volumeName)) {
             return new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
         }
 
         FDSP_VolumeDescType volInfo = setVolumeQos(client, volumeName, minIops, priority, maxIops, commit_log_retention );
         VolumeDescriptor descriptor = configService.statVolume("", volumeName);
         
-        JSONObject o = ListVolumes.toJsonObject(descriptor, volInfo, xdi.statVolume(token, "", volumeName));
+        JSONObject o =
+            ListVolumes.toJsonObject(descriptor,
+                                     volInfo,
+                             // TODO figure out how to get the current usages!
+                                     SingletonXdi.instance().api().statVolume( token,
+//                                     configService.statVolume(
+                                         "",
+                                         volumeName) );
         return new JsonResource(o);
     }
 
