@@ -66,7 +66,8 @@ public class Dispatcher extends HttpServlet {
 
             Optional<Route> route = routeFinder.resolve(request);
             if (!route.isPresent()) {
-                route = Optional.of(new Route(request, new HashMap<>(), () -> new FourOhFour()));
+                route = Optional.of(new Route(request, new HashMap<>(),
+                                              FourOhFour::new ));
             }
             requestHandler = route.get().getHandler().get();
             request = route.get().getRequest();
@@ -83,7 +84,7 @@ public class Dispatcher extends HttpServlet {
             resource = new ErrorPage(t.getMessage(), t);
         }
 
-        Arrays.stream(resource.cookies()).forEach(c -> response.addCookie(c));
+        Arrays.stream(resource.cookies()).forEach( response::addCookie );
         response.addHeader("Access-Control-Allow-Origin", "*");
         response.setContentType(resource.getContentType());
         response.setStatus(resource.getHttpStatus());
