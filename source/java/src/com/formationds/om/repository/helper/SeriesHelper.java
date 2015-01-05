@@ -549,7 +549,7 @@ public class SeriesHelper {
         	
         	// normalize the key so it's the value of one of our buckets
         	// which are separated by "distribution" and start at "timestamp"
-        	Long bucket = (long) (Math.ceil( dp.getX().doubleValue() / new Double(distribution*60L*1000L) ) * distribution);
+        	Long bucket = (long) (Math.ceil( dp.getX().doubleValue() / new Double( TimeUnit.MINUTES.toSeconds( distribution ) ) ) * distribution);
         	
         	List<Datapoint> bucketList = bucketMap.get( bucket );
         	
@@ -570,13 +570,20 @@ public class SeriesHelper {
         
         datapoints.sort( ( dp1, dp2 ) -> dp1.getX().compareTo( dp2.getX() ) );
         
+        // if there are no points we add one at the end of the requested range
+        if ( datapoints.isEmpty() ){
+        	datapoints.add( new DatapointBuilder()
+        		.withX( timestamp + (maxResults * TimeUnit.MINUTES.toSeconds( distribution ) ) )
+        		.withY( 0L ).build() );
+        }
+        
         // if our earliest timestamp is after the requested start time we will add a zero "distribution" 
         // before the earliest, and a zero at the requested start time.
         if ( datapoints.get( 0 ).getX() > timestamp ){
         	
         	// next earliest should be here
         	datapoints.add( 0, new DatapointBuilder()
-        		.withX( datapoints.get( 0 ).getX() - (distribution*60*1000) )
+        		.withX( datapoints.get( 0 ).getX() - TimeUnit.MINUTES.toSeconds( distribution ) )
         		.withY( 0L ).build() );
         	
         	// at start time
