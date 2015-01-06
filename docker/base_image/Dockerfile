@@ -59,6 +59,9 @@ RUN mkdir -p /etc/service
 ADD runit-ssh /etc/service/ssh
 ADD runit /etc/runit
 
+# fix /home/pairing/.zshrc ownership
+RUN chown pairing /home/pairing/.zshrc
+
 RUN mkdir -p /var/run/sshd
 RUN mkdir /root/.ssh
 RUN chmod 700 /root/.ssh
