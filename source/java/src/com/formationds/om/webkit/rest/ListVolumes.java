@@ -89,12 +89,6 @@ struct VolumeDescriptor {
                 LOG.warn("Getting Volume Info Failed", e);
             }
 
-//            try {
-//                status = amApi.volumeStatus( "", v.getName() );
-//            } catch (TException e) {
-//                LOG.warn("Getting Volume Status Failed", e);
-//            }
-
             final Optional<VolumeStatus> optionalStatus =
                 SingletonRepositoryManager.instance()
                                           .getMetricsRepository()
