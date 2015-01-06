@@ -59,8 +59,8 @@ RUN mkdir -p /etc/service
 ADD runit-ssh /etc/service/ssh
 ADD runit /etc/runit
 
-# fix /home/pairing/.zshrc ownership
-RUN chown pairing /home/pairing/.zshrc
+# fix /home/pairing ownership
+RUN chown -R pairing /home/pairing
 
 RUN mkdir -p /var/run/sshd
 RUN mkdir /root/.ssh
