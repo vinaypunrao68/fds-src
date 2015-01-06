@@ -285,6 +285,11 @@ angular.module( 'charts' ).directive( 'stackedLineChart', function(){
                     })
                     .attr( 'x', $xScale( $xMin ) )
                     .attr( 'y', function( d ){
+                        
+                        if ( isNaN( d ) ){
+                            d = 0;
+                        }
+                        
                         return $yScale( d ) - 4;
                     })
                     .attr( 'fill', $scope.axisColor )
