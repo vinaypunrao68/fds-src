@@ -275,7 +275,6 @@ if __name__ == "__main__":
     dbg_print ("controller_disk_list = " + ', '.join(controller_disk_list))
 
     for disk in dev_list:
-        print "disk.get_type() = ", disk.get_type()
         if disk.get_type() == Disk.dsk_typ_unknown:
             if len(controller_disk_list) > 0:
                 disk.dsk_typ = controller_disk_list.pop(0)
