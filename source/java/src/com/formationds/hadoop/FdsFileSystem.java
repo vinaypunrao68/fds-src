@@ -271,7 +271,7 @@ public class FdsFileSystem extends FileSystem {
         Path absolutePath = getAbsolutePath(path);
         UserGroupInformation ugi = UserGroupInformation.getCurrentUser();
         String currentUser = ugi.getShortUserName();
-        String groupName = ugi.getPrimaryGroupName();
+        String groupName = ugi.getShortUserName(); //ugi.getPrimaryGroupName();
 
         try {
             BlobDescriptor bd = am.statBlob(DOMAIN, getVolume(), absolutePath.toString());
