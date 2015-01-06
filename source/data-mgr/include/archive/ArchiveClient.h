@@ -6,7 +6,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include <fds_types.h>
-#include <fds_actor.h>
+#include <concurrency/fds_actor.h>
 #include <S3Client.h>
 
 namespace fds {
@@ -55,16 +55,21 @@ typedef boost::shared_ptr<ArchiveClGetReq> ArchiveClGetReqPtr;
 */
 struct ArchiveClient : FdsRequestQueueActor
 {
-    ArchiveClient(fds_threadpoolPtr threadpool);
+    ArchiveClient(const std::string &snapDirBase,
+                  fds_threadpoolPtr threadpool);
     void connect(const std::string &host,
                  const std::string &accessKey,
                  const std::string &secretKey);
     void putSnap(const fds_volid_t &volId,
                  const int64_t &snapId,
                  ArchivePutCb cb);
+    Error putSnapSync(const fds_volid_t &volId,
+                 const int64_t &snapId);
     void getSnap(const fds_volid_t &volId,
                  const int64_t &snapId,
                  ArchiveGetCb cb);
+    Error getSnapSync(const fds_volid_t &volId,
+                 const int64_t &snapId);
 
     virtual Error handle_actor_request(FdsActorRequestPtr req) override;
 
