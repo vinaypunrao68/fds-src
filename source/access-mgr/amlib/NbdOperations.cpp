@@ -2,11 +2,53 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
+#include <algorithm>
 #include <string>
 #include <map>
 #include <NbdOperations.h>
 
 namespace fds {
+
+fds_bool_t
+NbdResponseVector::handleReadResponse(boost::shared_ptr<std::string> retBuf,
+                                      fds_uint32_t len,
+                                      fds_uint32_t seqId,
+                                      const Error& err) {
+    fds_verify(operation == READ);
+    fds_verify(seqId < bufVec.size());
+
+    if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
+                     (err != ERR_BLOB_NOT_FOUND)) {
+        opError = err;
+        return true;
+    }
+
+    fds_uint32_t iOff = offset % maxObjectSizeInBytes;
+    fds_uint32_t firstObjectLength = std::min(length,
+                                              maxObjectSizeInBytes - iOff);
+    fds_uint32_t iLength = maxObjectSizeInBytes;
+
+    // The first and last buffers may not be an entire block
+    if (seqId == 0) {
+        iLength = firstObjectLength;
+    } else if (seqId == (objCount - 1)) {
+        iLength = length - firstObjectLength - (objCount-2) * maxObjectSizeInBytes;
+    }
+
+    if ((err == ERR_BLOB_OFFSET_INVALID) || (err == ERR_BLOB_NOT_FOUND)) {
+        // we tried to read unwritten block, fill in zeros
+        bufVec[seqId] = boost::make_shared<std::string>(iLength, 0);
+    } else {
+        // Else grab the portion of the string that we need, or the entire
+        // thing
+        bufVec[seqId] = (iLength == maxObjectSizeInBytes) ?
+            retBuf :
+            boost::make_shared<std::string>(retBuf->data() + (seqId == 0 ? iOff : 0), iLength);
+    }
+    fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
+    return ((doneCnt + 1) == objCount);
+}
+
 
 NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
         : amAsyncDataApi(nullptr),
