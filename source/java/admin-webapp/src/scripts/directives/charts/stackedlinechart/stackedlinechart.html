@@ -1,0 +1,15 @@
+<div class="stacked-line-chart-parent">
+<!--
+    <div class="legend" ng-show="showTooltip === true">
+        <div class="legend-item" ng-repeat="line in data.series">
+            <div class="color-box" ng-style="{ 'background-color': colors[$index] }"></div>
+            <div class="legend-label">{{ getLabelText( line ) }}</div>
+        </div>
+    </div>
+-->
+    <div style="width: 100%;height: 100%;" class="stacked-line-chart" ng-mouseover="setHoverEvent( $event ); showTooltip = true" ng-mouseleave="hoverEvent = $event; showTooltip = false">
+    </div>
+    <tooltip event="hoverEvent">
+        <div class="tooltip-placeholder"></div>
+    </tooltip>
+</div>

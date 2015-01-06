@@ -8,10 +8,13 @@ import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.repository.query.MetricQueryCriteria;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.google.gson.reflect.TypeToken;
+
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -31,9 +34,14 @@ public class QueryMetrics
     LoggerFactory.getLogger( QueryMetrics.class );
 
   private static final Type TYPE = new TypeToken<MetricQueryCriteria>() { }.getType();
-
-  public QueryMetrics() {
+  private final AuthenticationToken token;
+  private final Authorizer authorizer;
+  
+  public QueryMetrics( final Authorizer authorizer, AuthenticationToken token ) {
     super();
+    
+    this.token = token;
+    this.authorizer = authorizer;
   }
 
   @Override
@@ -44,7 +52,7 @@ public class QueryMetrics
            new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
 
       final Statistics stats = new QueryHelper().execute(
-        ObjectModelHelper.toObject( reader, TYPE ) );
+        ObjectModelHelper.toObject( reader, TYPE ), authorizer, token );
 
       return new JsonResource( new JSONObject( stats ) );
     }

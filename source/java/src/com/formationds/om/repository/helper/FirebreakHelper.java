@@ -41,7 +41,7 @@ public class FirebreakHelper {
         "index is out-of-bounds %d, must between %d and %d.";
 
     // zero is not a value last occurred time
-    public static final Long NEVER = 0L;
+    public static final Double NEVER = 0.0;
 
     /**
      * default constructor
@@ -139,7 +139,7 @@ public class FirebreakHelper {
                                               .getLatestVolumeStatus( volumeName );
                 if( status.isPresent() ) {
                     // use the usage, OBJECT volumes have no fixed capacity
-                    datapoint.setX(status.get().getCurrentUsageInBytes());
+                    datapoint.setX((double)status.get().getCurrentUsageInBytes());
                 }
 
                 pair.setDatapoint(datapoint);
@@ -152,7 +152,7 @@ public class FirebreakHelper {
                  * results use it instead of the pair and set the timestamp
                  * using the current pair.
                  */
-                results.get(key).getDatapoint().setY(pair.getShortTermSigma().getTimestamp());
+                results.get(key).getDatapoint().setY((double)pair.getShortTermSigma().getTimestamp());
             }
         } );
 
@@ -187,19 +187,17 @@ public class FirebreakHelper {
                                           .getVolumeName();
 
             if (isFirebreak(pair)) {
-                final Datapoint datapoint = new Datapoint();
-                datapoint.setY(pair.getShortTermSigma().getTimestamp());    // firebreak last occurrence
 
                 // TODO: use volid once available
                 final VolumeStatus status = vols.get(volumeName);
-                if (status != null) {
-                    /*
-                     * this is include for both capacity and performance so the
-                     * GUI know the size to draw the firebreak box that represents
-                     * this volume.
-                     */
-                    datapoint.setX(status.getCurrentUsageInBytes());
+                if ( status == null ){
+                	return;
                 }
+            	
+            	final Datapoint datapoint = new Datapoint();
+                datapoint.setY((double)pair.getShortTermSigma().getTimestamp());    // firebreak last occurrence
+                datapoint.setX((double)status.getCurrentUsageInBytes());
+                
                 pair.setDatapoint(datapoint);
 
                 EnumMap<FirebreakType,VolumeDatapointPair> pt = results.get(volId);

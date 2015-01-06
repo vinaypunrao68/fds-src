@@ -56,8 +56,8 @@ public class DatapointHelper {
         long epoch = start;
         for( int i = 0; i < count; i++ ) {
 
-            datapoints.add( i, new DatapointBuilder().withX( epoch )
-                                                     .withY( 0L )
+            datapoints.add( i, new DatapointBuilder().withX( new Double( epoch ) )
+                                                     .withY( 0.0 )
                                                      .build() );
             epoch += interval;
         }

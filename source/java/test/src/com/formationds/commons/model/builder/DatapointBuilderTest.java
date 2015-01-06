@@ -9,8 +9,8 @@ import org.junit.Assert;
 import org.junit.Test;
 
 public class DatapointBuilderTest {
-  private static final Long x = 567890L;
-  private static final Long y = 1412126335L;
+  private static final Double x = 567890.0;
+  private static final Double y = 1412126335.0;
   @Test
   public void testWithX()
     throws Exception {
