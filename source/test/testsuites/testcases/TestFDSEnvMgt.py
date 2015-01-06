@@ -72,6 +72,9 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
 
         nodes = fdscfg.rt_obj.cfg_nodes
+        amnodes = fdscfg.rt_get_obj('cfg_am')
+        instanceId = 0
+        amn = amnodes[instanceId]
         for n in nodes:
             if not n.nd_agent.env_install:
                 fds_dir = n.nd_conf_dict['fds_root']
@@ -117,7 +120,8 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
                                    (n.nd_conf_dict['node-name'], status))
                     return False
 
-                # Make sure the platform config file specifies the correct port configuration.
+                # Make sure the platform config file specifies the correct PM port and
+                # AM instance ID and port configurations.
                 if 'fds_port' in n.nd_conf_dict:
                     port = n.nd_conf_dict['fds_port']
                 else:
@@ -125,13 +129,34 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
                     return False
 
                 status = n.nd_agent.exec_wait('rm %s/platform.conf ' % dest_config_dir)
-                status = n.nd_agent.exec_wait('sed -e "s/platform_port = 7000/platform_port = %s/g" '
+
+                # Obtain these defaults from platform.conf.
+                s3_http_port = 8000 + instanceId
+                s3_https_port = 8443 + instanceId
+                swift_port = 9999 - instanceId
+                nbd_server_port = 10809 + instanceId
+                status = n.nd_agent.exec_wait('sed -e "s/ platform_port = 7000/ platform_port = %s/g" '
+                                              '-e "s/ instanceId = 0/ instanceId = %s/g" '
+                                              '-e "s/ s3_http_port=8000/ s3_http_port=%s/g" '
+                                              '-e "s/ s3_https_port=8443/ s3_https_port=%s/g" '
+                                              '-e "s/ swift_port=9999/ swift_port=%s/g" '
+                                              '-e "s/ nbd_server_port = 10809/ nbd_server_port = %s/g" '
                                               '-e "1,$w %s/platform.conf" '
                                               '%s/platform.conf ' %
-                                              (port, dest_config_dir, src_config_dir))
+                                              (port, instanceId, s3_http_port, s3_https_port,
+                                               swift_port, nbd_server_port,
+                                               dest_config_dir, src_config_dir))
+
                 if status != 0:
                     self.log.error("FDS platform configuration file modification failed.")
                     return False
+
+                # Bump instanceID if necessary.
+                if amn.nd_conf_dict['fds_node'] == n.nd_conf_dict['node-name']:
+                    instanceId = instanceId + 1
+                    if len(amnodes) < instanceId:
+                        amn = amnodes[instanceId]
+
             else:
                 self.log.error("Test method %s is meant to be called when testing "
                                "from a development environment. Instead, try class TestFDSPkgInst." %

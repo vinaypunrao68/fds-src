@@ -72,5 +72,3 @@ fds_panic(const char *fmt, ...)
      */
     fds_panic_abort(panic_str_buf);
 }
-
-    fflush(stdout);

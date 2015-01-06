@@ -11,6 +11,7 @@ import testcases.TestFDSEnvMgt
 import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
+import ClusterBootSuite
 import NodeWaitSuite
 import BotoBLOBSuite
 import NodeResilienceSuite
@@ -23,23 +24,10 @@ def suiteConstruction():
     """
     suite = unittest.TestSuite()
 
-    # Build the necessary FDS infrastructure.
-    suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
-    suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
-
-    # Start the node(s) according to configuration supplied with the -q cli option.
-    suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestPMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestOMWait())
-    suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
-
-    # Check that all nodes are up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction()
-    suite.addTest(nodeUpSuite)
-
-    # Given the nodes some time to initialize.
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeWait())
+    # Build the necessary FDS infrastructure and boot the cluster
+    # according to configuration.
+    clusterBootSuite = ClusterBootSuite.suiteConstruction()
+    suite.addTest(clusterBootSuite)
 
     # Load test.
     suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
@@ -49,6 +37,7 @@ def suiteConstruction():
     suite.addTest(blobSuite)
 
     # Everyone should still be up.
+    nodeUpSuite = NodeWaitSuite.suiteConstruction()
     suite.addTest(nodeUpSuite)
 
     # Block Blob test.

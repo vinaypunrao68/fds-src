@@ -2,6 +2,15 @@
 #
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+# From the .../source/test/testsuite directory run
+# ./ClusterBootSuite.py -q ./<QAAutotestConfig.ini> -d <sudo_pwd> --verbose
+#
+# where
+#  - <QAAutotestConfig.ini> - One of TwoNodeCluster.ini or FourNodeCluster.ini found in the
+#  testsuite directory, or one of your own.
+#  - <sudo_pwd> - The password you use for executing sudo on your machine. Even
+#  if your machine does not require a password for sudo, you must provide something, e.g. "dummy".
+#
 
 import sys
 import unittest
@@ -27,12 +36,22 @@ def suiteConstruction():
     suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
     suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
 
-    # Start the node(s) according to configuration supplied with the -q cli option.
+    # Start the the OM's PM.
+    suite.addTest(testcases.TestFDSModMgt.TestPMForOMBringUp())
+    suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
+
+    # Now start OM.
     suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
     suite.addTest(testcases.TestFDSModMgt.TestOMWait())
+
+    # Start the remaining PMs
     suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
     suite.addTest(testcases.TestFDSModMgt.TestPMWait())
+
+    # Activate the cluster.
     suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
+
+    # Bring up any AMs.
     suite.addTest(testcases.TestFDSModMgt.TestAMBringup())
 
     # Check that all nodes are up.
@@ -41,15 +60,6 @@ def suiteConstruction():
 
     # Given the nodes some time to initialize.
     suite.addTest(testcases.TestFDSSysMgt.TestNodeWait())
-
-    # Put your load test cases/suites here.
-
-    # Let's not cleanup for now since we may want to play with
-    # this cluster a bit following its construction.
-    #suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
-
-    # Cleanup FDS installation directory.
-    #suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
 
     return suite
 
