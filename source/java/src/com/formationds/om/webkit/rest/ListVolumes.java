@@ -12,6 +12,7 @@ import com.formationds.apis.AmService;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.apis.VolumeType;
+import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.JsonArrayCollector;
 import com.formationds.util.Size;
@@ -27,6 +28,7 @@ import org.json.JSONObject;
 
 import java.text.DecimalFormat;
 import java.util.Map;
+import java.util.Optional;
 
 public class ListVolumes implements RequestHandler {
     private static final Logger LOG = Logger.getLogger(ListVolumes.class);
@@ -87,10 +89,20 @@ struct VolumeDescriptor {
                 LOG.warn("Getting Volume Info Failed", e);
             }
 
-            try {
-                status = amApi.volumeStatus( "", v.getName() );
-            } catch (TException e) {
-                LOG.warn("Getting Volume Status Failed", e);
+//            try {
+//                status = amApi.volumeStatus( "", v.getName() );
+//            } catch (TException e) {
+//                LOG.warn("Getting Volume Status Failed", e);
+//            }
+
+            final Optional<VolumeStatus> optionalStatus =
+                SingletonRepositoryManager.instance()
+                                          .getMetricsRepository()
+                                          .getLatestVolumeStatus( v.getName() );
+            if( optionalStatus.isPresent() ) {
+
+                status = optionalStatus.get();
+
             }
         }
 

@@ -17,6 +17,7 @@ import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.repository.SingletonRepositoryManager;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -187,8 +188,11 @@ public class FirebreakHelper {
                 // TODO: use volid once available
                 final VolumeStatus status = vols.get(volumeName);
                 if (status != null) {
-                    // use the usage, OBJECT volumes have no fixed capacity
-                    // TODO: this makes sense for a capacity FB, but not for performance
+                    /*
+                     * this is include for both capacity and performance so the
+                     * GUI know the size to draw the firebreak box that represents
+                     * this volume.
+                     */
                     datapoint.setX(status.getCurrentUsageInBytes());
                 }
                 pair.setDatapoint(datapoint);
@@ -213,14 +217,24 @@ public class FirebreakHelper {
      */
     // TODO: replace volume name with id once available.
     private Map<String, VolumeStatus> loadCurrentVolumeStatus() throws TException {
+
         final Map<String,VolumeStatus> vols = new HashMap<>();
         SingletonConfigAPI.instance().api().listVolumes("").forEach((vd) -> {
-            try {
-                vols.put(vd.getName(), SingletonAmAPI.instance().api().volumeStatus("", vd.getName()));
-            } catch (TException te) {
-                logger.warn("Failed to get Volume " + vd.getName() + " status for firebreak event.", te);
+
+            final Optional<VolumeStatus> optionalStatus =
+                SingletonRepositoryManager.instance()
+                                          .getMetricsRepository()
+                                          .getLatestVolumeStatus(
+                                              vd.getName() );
+            if( optionalStatus.isPresent() ) {
+                vols.put( vd.getName(),
+//                          SingletonAmAPI.instance()
+//                                        .api()
+//                                        .volumeStatus( "", vd.getName() ) );
+                          optionalStatus.get() );
             }
         });
+
         return vols;
     }
 
