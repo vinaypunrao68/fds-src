@@ -134,9 +134,6 @@ public class FirebreakHelper {
                 datapoint.setY(NEVER);    // firebreak last occurrence
 
                 final Optional<VolumeStatus> status =
-//                        SingletonAmAPI.instance()
-//                                      .api()
-//                                      .volumeStatus("", volumeName);
                     SingletonRepositoryManager.instance()
                                               .getMetricsRepository()
                                               .getLatestVolumeStatus( volumeName );
@@ -236,9 +233,6 @@ public class FirebreakHelper {
                                               vd.getName() );
             if( optionalStatus.isPresent() ) {
                 vols.put( vd.getName(),
-//                          SingletonAmAPI.instance()
-//                                        .api()
-//                                        .volumeStatus( "", vd.getName() ) );
                           optionalStatus.get() );
             }
         });
