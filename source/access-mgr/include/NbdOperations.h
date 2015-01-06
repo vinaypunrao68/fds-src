@@ -109,8 +109,8 @@ class NbdResponseVector {
             // Else grab the portion of the string that we need, or the entire
             // thing
             bufVec[seqId] = (iLength == maxObjectSizeInBytes) ?
-                retBuf
-                : boost::make_shared<std::string>(retBuf->data() + iOff, iLength);
+                retBuf :
+                boost::make_shared<std::string>(retBuf->data() + (seqId == 0 ? iOff : 0), iLength);
         }
         fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
         return ((doneCnt + 1) == objCount);
