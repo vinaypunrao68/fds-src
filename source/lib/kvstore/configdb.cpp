@@ -9,9 +9,11 @@
 #include <util/Log.h>
 #include <util/stringutils.h>
 #include <stdlib.h>
-#include <platform/node-inv-shmem.h>
 #include <fdsp_utils.h>
 #include <util/timeutils.h>
+
+#include "platform/platform_shm_typedefs.h"
+#include "platform/node_data.h"
 
 auto format = fds::util::strformat;
 auto lower  = fds::util::strlower;
@@ -201,6 +203,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
 bool ConfigDB::setVolumeState(fds_volid_t volumeId, fpi::ResourceState state) {
     TRACKMOD();
     try {
+        LOGNORMAL << "updating volume id " << volumeId << " to state " << state;
         return r.sendCommand("hset vol:%ld state %d", volumeId, static_cast<int>(state)).isOk();
     } catch(const RedisException& e) {
         LOGERROR << e.what();

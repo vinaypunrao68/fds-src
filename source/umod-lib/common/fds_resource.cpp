@@ -4,6 +4,7 @@
 #include <fds_assert.h>
 #include <fds_resource.h>
 #include <fdsp_utils.h>
+#include <fds_error.h>
 #include <util/stringutils.h>
 #include <string>
 namespace fds {
@@ -65,9 +66,9 @@ Resource::pointer RsContainer::rs_alloc_new(const ResourceUUID &uuid) {
 // rs_register
 // -----------
 //
-bool RsContainer::rs_register(Resource::pointer rs) {
+Error RsContainer::rs_register(Resource::pointer rs) {
     FDSGUARD(rs_mtx);
-    bool ret = rs_register_mtx(rs);
+    Error ret = rs_register_mtx(rs);
     return ret;
 }
 
@@ -75,7 +76,7 @@ bool RsContainer::rs_register(Resource::pointer rs) {
 // ---------------
 // Same as the call above except the caller must hold the mutex.
 //
-bool RsContainer::rs_register_mtx(Resource::pointer rs) {
+Error RsContainer::rs_register_mtx(Resource::pointer rs) {
     fds_uint32_t i;
 
     fds_verify(rs->rs_uuid.uuid_get_val() != 0);
@@ -101,7 +102,7 @@ bool RsContainer::rs_register_mtx(Resource::pointer rs) {
                          << " name:" << iter->second->rs_get_name()
                          << " uuid:" << iter->second->rs_get_uuid()
                          << " state:" << state->getStateName();
-                return false;
+                return ERR_DUPLICATE;
             } else {
                 GLOGDEBUG << "will overide another resource with the same name.. "
                           << " name:" << iter->second->rs_get_name()
@@ -116,7 +117,7 @@ bool RsContainer::rs_register_mtx(Resource::pointer rs) {
     for (i = 0; i < rs_cur_idx; i++) {
         if (rs_array[i] == rs) {
             GLOGWARN << "resource already exists... ";
-            return false;
+            return ERR_DUPLICATE;
         }
         if (rs_array[i] == NULL) {
             // Found an empty slot, use it.
@@ -125,18 +126,18 @@ bool RsContainer::rs_register_mtx(Resource::pointer rs) {
                       << " uuid:" << iter->second->rs_get_uuid();
             rs_array[i] = rs;
             rs->rs_index = i;
-            return true;
+            return ERR_OK;
         }
         fds_verify(rs_array[i] != rs);
     }
-    fds_verify(rs_array[rs_cur_idx] == NULL);
+
     GLOGDEBUG << "RsContainer::rs_register_mtx: Pushing onto resource array  "
               << " name:" << rs->rs_get_name()
               << " uuid:" << std::hex << rs->rs_get_uuid();
     rs_array[rs_cur_idx] = rs;
     rs->rs_index = rs_cur_idx;
     rs_cur_idx++;
-    return true;
+    return ERR_OK;
 }
 
 // rs_unregister

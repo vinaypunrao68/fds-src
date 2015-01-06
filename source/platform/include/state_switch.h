@@ -5,6 +5,15 @@
 #ifndef SOURCE_PLATFORM_INCLUDE_STATE_SWITCH_H_
 #define SOURCE_PLATFORM_INCLUDE_STATE_SWITCH_H_
 
+#include "platform/node_down.h"
+#include "platform/node_started.h"
+#include "platform/node_qualify.h"
+#include "platform/node_upgrade.h"
+#include "platform/node_integrate.h"
+#include "platform/node_rollback.h"
+#include "platform/node_deploy.h"
+#include "platform/node_functional.h"
+
 namespace fds
 {
     static const state_switch_t    sgl_node_wrk_flow[] =

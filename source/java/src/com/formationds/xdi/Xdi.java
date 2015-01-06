@@ -6,7 +6,7 @@ package com.formationds.xdi;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
-import com.formationds.om.rest.SetVolumeQosParams;
+import com.formationds.om.webkit.rest.SetVolumeQosParams;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;

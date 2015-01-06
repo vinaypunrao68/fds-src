@@ -10,6 +10,9 @@
 #include <net/BaseAsyncSvcHandler.h>
 #include <AMSvcHandler.h>
 
+#include "fds_config.hpp"
+#include "fds_process.h"
+
 namespace fds {
 
 AmPlatform gl_AmPlatform;

@@ -1,0 +1,40 @@
+---
+-   name: check_fds_install
+    shell: dpkg -l fds-platform
+    ignore_errors: True
+    register: fds_installed
+    tags:
+        - shutdown
+
+-   name: stop_platformd
+    service: name={{ item }} state=stopped
+    when: fds_installed|success
+    with_items:
+        - platformd
+        - orchmgr
+        - amagent
+        - fdsactivate
+    tags:
+        - shutdown
+
+-   name: kill_all_procs
+    shell: pkill -9 -f {{item}} || true
+    ignore_errors: True
+    when: fds_installed|success
+    with_items:
+        - com.formationds.am.Main
+        - bare_am
+        - com.formationds.om.Main
+        - DataMgr
+        - StorMgr
+        - platformd
+        - fdscli
+    tags:
+        - shutdown
+
+-   name: stop_redis
+    shell: ./redis.sh stop chdir=/fds/sbin
+    ignore_errors: True
+    when: fds_installed|success
+    tags:
+        - shutdown

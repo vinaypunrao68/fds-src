@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "fds_resource.h"
-#include "platform/node-inventory.h"
 
 namespace fds
 {

@@ -2,7 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <net/BaseAsyncSvcHandler.h>
-#include <platform/net-plat-shared.h>
 
 #include <AMSvcHandler.h>
 

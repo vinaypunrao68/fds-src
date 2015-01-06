@@ -590,11 +590,11 @@ class FdsCluster():
         output = self._loc_exec(cmd)
         time.sleep(5)
         if self.local_test == True:
-            cmd = "python %s/source/cinder/nbdadm.py attach localhost:4444 volume1" % self.options.local_fds_root
+            cmd = "python %s/source/cinder/nbdadm.py attach localhost volume1" % self.options.local_fds_root
             output = self._loc_exec(cmd)
         else:
             shutil.copyfile(self.local_fds_root + "/source/cinder/nbdadm.py", "/root/nbdadm.py")
-            cmd = "python nbdadm.py attach %s:4444 volume1" % self.options.main_node
+            cmd = "python nbdadm.py attach %s volume1" % self.options.main_node
             output = ssh_exec(self.options.test_node, cmd)
         time.sleep(5)
         self.nbdvolume = output.rstrip("\n")

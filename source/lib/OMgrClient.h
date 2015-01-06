@@ -87,7 +87,7 @@ class OMgrClient {
     int domain_id;
     FDSP_MgrIdType my_node_type;
     NodeUuid myUuid;
-    bool fNoNetwork = false;
+    bool fNoNetwork;
     std::string my_node_name;
     std::string omIpStr;
     fds_uint32_t omConfigPort;
@@ -239,6 +239,7 @@ class OMgrClient {
     Error sendDMTCommitAck(const Error& op_err, const std::string& session_uuid);
 
     void recvDMTClose(fds_uint64_t dmt_version, const std::string& session_uuid);
+    Error updateDmt(bool dmt_type, std::string& dmt_data);
     int sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
                             const std::string& session_uuid);
 

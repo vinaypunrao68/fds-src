@@ -26,3 +26,4 @@ RUN git remote set-url origin https://github.com/fds-dev/fds-src
 RUN rm -f ~/.ssh/*
 
 USER root
+RUN rm -rf /home/pairing/.ansible

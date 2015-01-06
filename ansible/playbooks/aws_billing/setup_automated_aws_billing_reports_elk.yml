@@ -1,0 +1,50 @@
+---
+-   name: Setup for automated billing reports in ELK
+    hosts: aws-billing-handler
+    sudo: True
+    gather_facts: false
+    vars_files:
+        -   ../../vars_files/credentials/aws_billing_read_only.yml
+
+    handlers:
+        -   name: restart logstash
+            service: name=logstash state=restarted
+
+    tasks:
+        -   name: kill logstash-web, nobody likes that stuff
+            service: name=logstash-web state=stopped
+
+        -   name: make sure logstash is starrted
+            service: name=logstash state=started
+
+        -   name: install OS package deps
+            apt: name=python-pip
+                state=present
+
+        -   name: install pip deps
+            pip: name=boto
+                state=present
+
+        -   name: create billing directory
+            file: 
+                path: "{{ aws_billing_dir }}"
+                state: directory
+
+        -   name: render billing report update script
+            template:
+                src: ../../templates/aws_billing/update_aws_billing_report.py.j2
+                dest: "{{ aws_billing_dir }}/update_aws_billing_report.py"
+                mode: 700
+
+        -   name: render logstash config
+            template:
+                src: ../../templates/logstash/config/aws-billing.conf
+                dest: /etc/logstash/conf.d/aws-billing.conf
+            notify: restart logstash
+
+        -   name: setup cron job to run update script nightly
+            cron:
+                name: update-aws-billing-reports-nightly
+                minute: "5"
+                hour: "0"
+                job: "/home/aws/update_aws_billing_report.py >> /home/aws/update.log"

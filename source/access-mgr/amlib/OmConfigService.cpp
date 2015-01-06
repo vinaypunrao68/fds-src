@@ -3,6 +3,7 @@
  */
 #include <string>
 #include <OmConfigService.h>
+#include <fds_process.h>
 
 #include <arpa/inet.h>
 #include <thrift/concurrency/ThreadManager.h>
@@ -24,8 +25,10 @@ namespace xdi_ats = apache::thrift::server;
 namespace fds {
 
 OmConfigApi::OmConfigApi()
-        : omConfigIp("127.0.0.1"),
-          omConfigPort(9090) {
+        : omConfigPort(9090) {  // The port is hard coded in OM, not platform toggle
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    omConfigIp = conf.get<std::string>("om_ip");
+
     // Setup the client
     boost::shared_ptr<xdi_att::TTransport> respSock(
         boost::make_shared<xdi_att::TSocket>(

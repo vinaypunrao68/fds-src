@@ -18,6 +18,7 @@
 #include <google/profiler.h>
 #include <gtest/gtest.h>
 #include <testlib/DataGen.hpp>
+#include "fds_process.h"
 
 namespace fds {
 
@@ -104,12 +105,10 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     typedef std::unique_ptr<NbdOpsProc> unique_ptr;
 
     // implementation of NbdOperationsResponseIface
-    void readWriteResp(const Error& error,
-                       fds_int64_t handle,
-                       NbdResponseVector* response) {
+    void readWriteResp(NbdResponseVector* response) {
         fds_uint32_t cdone = atomic_fetch_add(&opsDone, (fds_uint32_t)1);
         GLOGDEBUG << "Read? " << response->isRead()
-                  << " response for handle " << handle
+                  << " response for handle " << response->handle
                   << " totalOps " << totalOps
                   << " opsDone " << cdone;
         fds_verify(response->isReady());
@@ -125,7 +124,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
             size_t pos = 0;
             boost::shared_ptr<std::string> buf = response->getNextReadBuffer(context);
             while (buf != NULL) {
-                GLOGDEBUG << "Handle " << handle << "....Buffer # " << context;
+                GLOGDEBUG << "Handle " << response->handle << "....Buffer # " << context;
                 if (verifyData) {
                     dataWritten->compare(pos, 4096, buf->c_str(), 4096);
                 }
@@ -144,6 +143,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     void init() {
         // pass data API to Ndb Operations
         nbdOps.reset(new NbdOperations(this));
+        nbdOps->init(volumeName);
     }
 
     void resetCounters() {
@@ -171,8 +171,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                     // Make copy of data since function "takes" the shared_ptr
                     boost::shared_ptr<std::string> localData(
                         boost::make_shared<std::string>(*blobGen.blobData));
-                    nbdOps->write(volumeName, 4096, localData,
-                                  localData->length(), offset, ++handle);
+                    nbdOps->write(4096, localData, localData->length(), offset, ++handle);
                     if (verifyData) {
                         fds_mutex::scoped_lock l(verifyMutex);
                         fds_verify(offData.count(offset) == 0);
@@ -183,7 +182,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                 }
             } else if (opType == GET) {
                 try {
-                    nbdOps->read(volumeName, 4096, blobSize, offset, ++handle);
+                    nbdOps->read(4096, blobSize, offset, ++handle);
                 } catch(apis::ApiException fdsE) {
                     fds_panic("read failed");
                 }

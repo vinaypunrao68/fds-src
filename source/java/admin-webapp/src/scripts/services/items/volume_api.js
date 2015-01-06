@@ -69,7 +69,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
         // the original one
         var id = volume.id;
         volume.id = '';
-        return $http_fds.post( '/api/config/volumes/clone/' + id + '/' + volume.name, volume,
+        return $http_fds.post( '/api/config/volumes/clone/' + id + '/' + volume.name + '/' + volume.timelineTime, volume,
             function( response ){
 
                 getVolumes();

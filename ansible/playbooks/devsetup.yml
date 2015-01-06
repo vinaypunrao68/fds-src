@@ -105,6 +105,8 @@
         - libsqlite3-dev
         - swig3.0
         - sshpass
+        - nbd-client
+        - fio
 
     - name: install pip packages
       pip: name={{item}} state=present
@@ -116,6 +118,7 @@
         - filechunkio
         - httplib2
         - docker-py
+        - psutil
 
     - name: create java home script
       copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755

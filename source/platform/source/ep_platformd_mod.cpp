@@ -3,9 +3,10 @@
  */
 
 #include <ep-map.h>
-
-#include <plat_uuid_bind.h>
-#include <platform/net-plat-shared.h>
+#include "platform/platform.h"
+#include "platform/node_agent.h"
+#include "platform/domain_container.h"
+#include "plat_uuid_bind.h"
 #include "node_shm_rw_ctrl.h"
 
 namespace fds

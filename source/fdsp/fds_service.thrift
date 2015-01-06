@@ -90,11 +90,12 @@ enum  FDSPMsgTypeId {
 	CtrlSetScrubberStatusTypeId		   = 2052,
 	CtrlSetScrubberStatusRespTypeId	   = 2053,
 
-    CtrlNotifyObjectRebalanceTypeId    = 2054,
-    CtrlSendObjectMetaDataTypeId       = 2055,
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,
+    CtrlNotifySMStartMigrationTypeId   = 2062,
+    CtrlObjectRebalanceInitialSetTypeId = 2063,
+    CtrlObjectRebalanceDeltaSetTypeId  = 2064,
 
     /* DM messages. */
     CtrlNotifyPushDMTTypeId            = 2080,
@@ -556,6 +557,16 @@ struct CtrlNotifyDLTUpdate {
      2: i32                       dlt_version;
 }
 
+/* ---------------------- CtrlNotifySMStartMigration --------------------------- */
+struct SMTokenMigrationGroup {
+     1: SvcUuid                   source;
+     2: list<i32>                 tokens;
+}
+
+struct CtrlNotifySMStartMigration {
+     1: list<SMTokenMigrationGroup> migrations;
+}
+
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
 struct CtrlNotifyDLTClose {
      1: FDSP.FDSP_DltCloseType    dlt_close;
@@ -574,6 +585,7 @@ struct CtrlNotifyDMTClose {
 /* --------------------  CtrlNotifyDMTUpdateTypeId  ---------------------------- */
 struct CtrlNotifyDMTUpdate {
      1: FDSP.FDSP_DMT_Type        dmt_data;
+     2: i32                       dmt_version;
 }
 
 /* --------------------  CtrlNotifyBucketStatTypeId  --------------------------- */
@@ -977,13 +989,21 @@ struct CtrlObjectRebalanceInitialSet
     2: list<CtrlObjectMetaDataSync> objectsToSync
 }
 
+/* Response from the source SM to destination SM.  
+ * Notify the destination SM of the status and number objects to be sync'ed
+ * This is an ack from source SM to destination SM after a set of delta set
+ * of objects are computed (i.e. after source SM snapshot and filter).
+ */
 struct CtrlObjectRebalanceInitialSetResp
 {
     /* Response status */
     1: i64      objRebalanceStatus
+
+    /* Number of objects to be sent from source SM to destination SM */
+    2: i64      objNum
 }
 
-/* Object + Data + MetaData to be propogated to the destination SM */
+/* Object + Data + MetaData to be propogated to the destination SM from source SM*/
 struct CtrlObjectMetaDataPropagate
 {
     /* Object ID */
@@ -1024,20 +1044,9 @@ struct CtrlObjectRebalanceDeltaSetResp
 {
     /* Response status */
     1: i64      objRebalanceDeltaStatus
-}
 
-service FDSP_ObjectRebalanceReq {
-    oneway void NotifyObjectRebalance(1: FDSP.FDSP_MsgHdrType fdspMsg, 
-                                      2: CtrlObjectRebalanceInitialSet fdspInitialObjSet)
-    oneway void SendObjectMetaData(1: FDSP.FDSP_MsgHdrType fdspMsg, 
-                                   2: CtrlObjectRebalanceInitialSetResp fdspDeltaObjSet) 
-}
-
-service FDSP_ObjectRebalanceResp {
-    oneway void NotifyObjectRebalanceResp(1: FDSP.FDSP_MsgHdrType fdspMsg, 
-                                          2: CtrlObjectRebalanceInitialSet fdspInitialObjSet)
-    oneway void SendObjectMetaDataResp(1: FDSP.FDSP_MsgHdrType fdspMsg, 
-                                       2: CtrlObjectRebalanceDeltaSetResp fdspDeltaObjSet) 
+    /* Number of object synced from source SM to destination SM */
+    2: i64      objNumSynced
 }
 
 #endif

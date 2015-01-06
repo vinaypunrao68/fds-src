@@ -13,7 +13,11 @@
 #include <fds_typedefs.h>
 #include <fds_error.h>
 #include <OmVolume.h>
-#include <platform/node-inventory.h>
+
+#include "NetSession.h"
+#include "platform/agent_container.h"
+#include "platform/domain_container.h"
+
 #include <fdsp/FDSP_ControlPathResp.h>
 #include <dlt.h>
 #include <fds_dmt.h>
@@ -117,10 +121,14 @@ class OM_NodeAgent : public NodeAgent
             boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dmt(const DMTPtr& curDmt);
-    virtual Error om_send_dmt_x(const DMTPtr& curDmt);
-    void om_send_dmt_x_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* req,
+    void    om_send_dmt_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* rpcReq,
                                const Error& error,
                                boost::shared_ptr<std::string> payload);
+
+    void om_send_dmt_close_resp(fpi::CtrlNotifyDMTClosePtr msg,
+            EPSvcRequest* req,
+            const Error& error,
+            boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dmt_close(fds_uint64_t dmt_version);
     virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);

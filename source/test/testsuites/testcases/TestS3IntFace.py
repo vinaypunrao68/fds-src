@@ -12,6 +12,7 @@ import TestCase
 import sys
 import os
 import math
+import hashlib
 from filechunkio import FileChunkIO
 import boto
 from boto.s3 import connection
@@ -681,6 +682,8 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
         else:
             return test_passed
 
+    def test_S3LoadLBLOBCb(self, so_far, total):
+        self.log.info(str(so_far) + "B Downloaded");
 
     def test_S3LoadLBLOB(self):
         """
@@ -712,16 +715,17 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
 
             # Use a chunk size of 50 MiB (feel free to change this)
             chunk_size = 52428800
-            chunk_count = int(math.ceil(source_size / chunk_size))
+            chunk_count = int(math.ceil(float(source_size) / chunk_size))
+            md5sum = str(hashlib.md5(open(source_path, 'rb').read()).hexdigest())
 
-            self.log.info("Loading %s of size %d using %d chunks of max size %d. using "
+            self.log.info("Loading %s of size %d [md5: %s] using %d chunks of max size %d. using "
                           "Boto's 'multi-part' upload interface" %
-                          (source_path, source_size, chunk_count + 1, chunk_size))
+                          (source_path, source_size, md5sum, chunk_count, chunk_size))
 
             # Send the file parts, using FileChunkIO to create a file-like object
             # that points to a certain byte range within the original file. We
             # set bytes to never exceed the original file size.
-            for i in range(chunk_count + 1):
+            for i in range(chunk_count):
                 self.log.info("Sending chunk %d." % (i + 1))
                 offset = chunk_size * i
                 bytes = min(chunk_size, source_size - offset)
@@ -730,7 +734,12 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
                     mp.upload_part_from_file(fp, part_num=i + 1)
 
             # Finish the upload
-            mp.complete_upload()
+            completed_upload = mp.complete_upload()
+            if not md5sum != completed_upload.etag:
+                self.log.info("Etag does not match md5 sum of file: [ " + md5sum + " ] != [ " + completed_upload.etag + "]")
+                return False
+            else:
+                self.log.info("Etag matched: [" + completed_upload.etag + "]")
 
             # Read it back to a file and then compare.
             dest_path = bin_dir + "/bare_am.boto"
@@ -738,11 +747,12 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
             k = Key(s3.bucket1)
             k.key = 'large'
 
-            k.get_contents_to_filename(dest_path)
+            k.get_contents_to_filename(filename=dest_path, cb=self.test_S3LoadLBLOBCb)
 
             test_passed = filecmp.cmp(source_path, dest_path, shallow=False)
             if not test_passed:
-                self.log.error("File mis-match.")
+                md5sum = str(hashlib.md5(open(source_path, 'rb').read()).hexdigest())
+                self.log.error("File mis-match. [" + md5sum + "]")
 
             os.remove(dest_path)
 

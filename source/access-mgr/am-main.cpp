@@ -8,6 +8,8 @@
 #include <net/net-service.h>
 #include <AccessMgr.h>
 
+#include "platform/platform_process.h"
+
 namespace fds {
 
 class AMMain : public PlatformProcess

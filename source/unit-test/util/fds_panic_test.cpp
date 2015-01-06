@@ -1,7 +1,5 @@
 #include <unistd.h>
 #include <fds_assert.h>
-#include <platform/fds-osdep.h>
-
 
 /*
  * This is a simple test to demonstrate that an unformatted string,
