@@ -590,9 +590,9 @@ public class SeriesHelper {
         // before the earliest, and a zero at the requested start time.
         else if ( results.get( 0 ).getX() > timestamp ){
         	
-        	// next earliest should be here
+        	// a point just earlier than the first real point. ... let's do one second
         	results.add( 0, new DatapointBuilder()
-        		.withX( results.get( 0 ).getX() - TimeUnit.MINUTES.toSeconds( distribution ) )
+        		.withX( results.get( 0 ).getX() - 1 )
         		.withY( 0.0 ).build() );
         	
         	// at start time
