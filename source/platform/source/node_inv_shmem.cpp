@@ -99,6 +99,15 @@ namespace fds
             shm_ctrl     = shm_create_mgr(SHM_INV_FMT, shm_name, shm_total_siz);
             void   *shm    = shm_ctrl->shm_attach(PROT_READ);
             shm_node_hdr = static_cast<node_shm_inventory_t *>(shm);
+
+            if (shm_node_hdr == NULL) {
+                /*
+                 * We rely upon PM to create the shared memory segment used by
+                 * other components on this node.
+                 */
+                LOGCRITICAL << "Platform Manager must be started on this node first.";
+                exit(EXIT_FAILURE);
+            }
         }
 
         fds_verify(shm_node_hdr != NULL);
