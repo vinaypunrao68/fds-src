@@ -32,6 +32,18 @@ static const fds_uint32_t qosThreads = 10;
 static const fds_uint16_t activeFileId = 2;
 static const fds_uint16_t shadowFileId = 0xfff2;
 
+class SmTokenCompactorUtProc : public FdsProcess {
+  public:
+    SmTokenCompactorUtProc(int argc, char * argv[], const std::string & config,
+                           const std::string & basePath, Module * vec[]) {
+        init(argc, argv, config, basePath, logname, vec);
+    }
+
+    virtual int run() override {
+        return 0;
+    }
+};
+
 // Test implementation of SmIoReqHandler
 class TestReqHandler: public SmIoReqHandler {
   public:
@@ -48,7 +60,8 @@ class TestReqHandler: public SmIoReqHandler {
 
     void createObjectDB() {
         // lets create in some temp dir
-        std::string odbDir = "/tmpdir";
+        const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+        const std::string odbDir = dir->dir_fds_var_tests();
         std::string filename = odbDir + "/TestObjectIndex";
         boost::filesystem::path odbPath(odbDir.c_str());
         if (boost::filesystem::exists(odbPath)) {
@@ -378,7 +391,8 @@ TEST_F(SmTokenCompactorTest, second_start) {
 }  // namespace fds
 
 int main(int argc, char * argv[]) {
-    fds::init_process_globals(fds::logname);
+    fds::SmTokenCompactorUtProc diskMapProc(argc, argv, "platform.conf",
+                                     "fds.sm.", NULL);
     ::testing::InitGoogleMock(&argc, argv);
     return RUN_ALL_TESTS();
 }
