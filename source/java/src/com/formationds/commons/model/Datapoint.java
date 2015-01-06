@@ -47,5 +47,5 @@ public class Datapoint
   /**
    * @return a concise string representation of the datapoint
    */
-  public String toString() { return String.format("Datapoint (%d, %d)", x, y); }
+  public String toString() { return String.format("Datapoint (%f, %f)", x, y); }
 }
