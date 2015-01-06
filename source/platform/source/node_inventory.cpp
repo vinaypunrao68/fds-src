@@ -428,10 +428,6 @@ namespace fds
 
         ip = netSession::ipAddr2String(msg->ip_lo_addr);
         strncpy(rs_name, ip.c_str(), RS_NAME_MAX - 1);
-
-        GLOGDEBUG << "NodeInventory::node_fill_inventory: Captured inventory for"
-                << " agent with UUID "
-                << std::hex << msg->node_uuid.uuid;
     }
 
     // set_node_state
