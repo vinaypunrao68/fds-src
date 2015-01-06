@@ -8,6 +8,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <utility>
 
 #include <boost/enable_shared_from_this.hpp>
 
@@ -58,13 +59,17 @@ class NbdResponseVector {
         return bufVec[context++];
     }
 
-    void keepBufferForWrite(fds_uint32_t seqId, boost::shared_ptr<std::string> buf) {
+    void keepBufferForWrite(fds_uint32_t seqId,
+                            fds_uint32_t objectOff,
+                            boost::shared_ptr<std::string> buf) {
         fds_verify(operation == WRITE);
         fds_verify((seqId == 0) || (seqId == (objCount - 1)));
         if (seqId == 0) {
             bufVec[0] = buf;
+            offVec[0] = objectOff;
         } else {
             bufVec[1] = buf;
+            offVec[1] = objectOff;
         }
     }
 
@@ -128,16 +133,15 @@ class NbdResponseVector {
      * Handle read response for read-modify-write
      * \return true if all responses were received or operation error
      */
-    boost::shared_ptr<std::string> handleRMWResponse(
-                                          boost::shared_ptr<std::string> retBuf,
-                                          fds_uint32_t len,
-                                          fds_uint32_t seqId,
-                                          const Error& err) {
+    std::pair<fds_uint32_t, boost::shared_ptr<std::string>>
+        handleRMWResponse(boost::shared_ptr<std::string> retBuf,
+                          fds_uint32_t len,
+                          fds_uint32_t seqId,
+                          const Error& err) {
         fds_verify(operation == WRITE);
         if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
                          (err != ERR_BLOB_NOT_FOUND)) {
             opError = err;
-            return boost::shared_ptr<std::string>();
         } else {
             fds_uint32_t iOff = (seqId == 0) ? offset % maxObjectSizeInBytes : 0;
             fds_uint32_t index = (seqId == 0) ? 0 : 1;
@@ -160,9 +164,9 @@ class NbdResponseVector {
                 fauxBytes->replace(iOff, writeBytes->length(),
                                    writeBytes->c_str(), writeBytes->length());
             }
-            return fauxBytes;
+            return std::make_pair(offVec[index], fauxBytes);
         }
-        return boost::shared_ptr<std::string>();
+        return std::make_pair(0, boost::shared_ptr<std::string>());
     }
 
 
@@ -179,6 +183,8 @@ class NbdResponseVector {
 
     // to collect read responses or first and last buffer for write op
     std::vector<boost::shared_ptr<std::string>> bufVec;
+    // when writing, we need to remember the object offsets for rwm buffers
+    std::array<fds_uint32_t, 2> offVec;
 
     // offset
     fds_uint64_t offset;

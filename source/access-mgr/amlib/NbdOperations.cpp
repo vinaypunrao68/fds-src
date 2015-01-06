@@ -180,7 +180,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
             LOGNORMAL << "Will do read-modify-write for object size " << maxObjectSizeInBytes;
             // keep the data for the update to the first and last object in the response
             // so that we can apply the update to the object on read response
-            resp->keepBufferForWrite(seqId, objBuf);
+            resp->keepBufferForWrite(seqId, objectOff, objBuf);
             amAsyncDataApi->getBlob(reqId,
                                     domainName,
                                     volumeName,
@@ -240,20 +240,22 @@ NbdOperations::getBlobResp(const Error &error,
     if (!resp->isRead()) {
         // this is a response for read during a write operation from NBD connector
         LOGDEBUG << "Write after read, handle " << handle << " seqId " << seqId;
+
         // apply the update from NBD connector to this object
-        boost::shared_ptr<std::string> wBuf = resp->handleRMWResponse(buf, length,
-                                                                      seqId, error);
-        if (wBuf) {
-           // wBuf contains object updated with data from NBD connector
-            boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(wBuf->length());
+        auto rwm_pair = resp->handleRMWResponse(buf, length, seqId, error);
+        if (rwm_pair.second) {
+           // rwm_pair.second contains object updated with data from NBD connector
+           // rwm_pair.first is the object offset for this buffer
+            boost::shared_ptr<int32_t> objLength =
+                boost::make_shared<int32_t>(rwm_pair.second->length());
             boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
-            off->value = 0;
+            off->value = rwm_pair.first;
             amAsyncDataApi->updateBlobOnce(requestId,
                                            domainName,
                                            volumeName,
                                            blobName,
                                            blobMode,
-                                           wBuf,
+                                           rwm_pair.second,
                                            objLength,
                                            off,
                                            emptyMeta);
