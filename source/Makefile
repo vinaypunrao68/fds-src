@@ -40,9 +40,9 @@ endif
 # Bail out early if we don't have a JAVA_HOME
 # This needs to go here, including it later causes make devsetup fail.
 ifeq ($(JAVA_HOME),)
-    $(error "JAVA_HOME needs to be configured.  If you have not run 'make \
-        devsetup', please do so now.  Otherwise you can 'source \
-        /etc/profile.d/jdk.sh' and try again.")
+    $(error "JAVA_HOME needs to be configured.  If you have just installed Java, please \
+      'source /etc/profile.d/jdk.sh' and try your build again.  You can also terminate  \
+      your shell and login again.")
 endif
 
 ifdef SKIP_JAVA_BUILD
