@@ -202,15 +202,13 @@ class NbdOperations
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
     ~NbdOperations();
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
-    void init(boost::shared_ptr<std::string> vol_name);
+    void init(boost::shared_ptr<std::string> vol_name, fds_uint32_t _maxObjectSizeInBytes);
 
-    void read(fds_uint32_t maxObjectSizeInBytes,
-              fds_uint32_t length,
+    void read(fds_uint32_t length,
               fds_uint64_t offset,
               fds_int64_t handle);
 
-    void write(fds_uint32_t maxObjectSizeInBytes,
-               boost::shared_ptr<std::string>& bytes,
+    void write(boost::shared_ptr<std::string>& bytes,
                fds_uint32_t length,
                fds_uint64_t offset,
                fds_int64_t handle);
@@ -265,12 +263,12 @@ class NbdOperations
                         fds_int64_t* handle,
                         fds_int32_t* seqId);
     fds_uint32_t getObjectCount(fds_uint32_t length,
-                                fds_uint64_t offset,
-                                fds_uint32_t maxObjectSizeInBytes);
+                                fds_uint64_t offset);
 
     // api we've built
     std::unique_ptr<AmAsyncDataApi> amAsyncDataApi;
     boost::shared_ptr<std::string> volumeName;
+    fds_uint32_t maxObjectSizeInBytes;
 
     // interface to respond to nbd passed down in constructor
     NbdOperationsResponseIface* nbdResp;

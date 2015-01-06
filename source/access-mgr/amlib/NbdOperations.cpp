@@ -21,9 +21,10 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
 // We can't initialize this in the constructor since we want to pass
 // a shared pointer to ourselves (and NbdConnection already started one).
 void
-NbdOperations::init(boost::shared_ptr<std::string> vol_name) {
+NbdOperations::init(boost::shared_ptr<std::string> vol_name, fds_uint32_t _maxObjectSizeInBytes) {
     amAsyncDataApi.reset(new AmAsyncDataApi(shared_from_this()));
     volumeName = vol_name;
+    maxObjectSizeInBytes = _maxObjectSizeInBytes;
 }
 
 NbdOperations::~NbdOperations() {
@@ -32,13 +33,12 @@ NbdOperations::~NbdOperations() {
 }
 
 void
-NbdOperations::read(fds_uint32_t maxObjectSizeInBytes,
-                    fds_uint32_t length,
+NbdOperations::read(fds_uint32_t length,
                     fds_uint64_t offset,
                     fds_int64_t handle) {
     fds_assert(amAsyncDataApi);
     // calculate how many object we will get from AM
-    fds_uint32_t objCount = getObjectCount(length, offset, maxObjectSizeInBytes);
+    fds_uint32_t objCount = getObjectCount(length, offset);
 
     LOGDEBUG << "Will read " << length << " bytes " << offset
              << " offset for volume " << *volumeName
@@ -120,14 +120,13 @@ NbdOperations::read(fds_uint32_t maxObjectSizeInBytes,
 
 
 void
-NbdOperations::write(fds_uint32_t maxObjectSizeInBytes,
-                     boost::shared_ptr<std::string>& bytes,
+NbdOperations::write(boost::shared_ptr<std::string>& bytes,
                      fds_uint32_t length,
                      fds_uint64_t offset,
                      fds_int64_t handle) {
     fds_assert(amAsyncDataApi);
     // calculate how many FDS objects we will write
-    fds_uint32_t objCount = getObjectCount(length, offset, maxObjectSizeInBytes);
+    fds_uint32_t objCount = getObjectCount(length, offset);
 
     LOGDEBUG << "Will write " << length << " bytes " << offset
              << " offset for volume " << *volumeName
@@ -327,8 +326,7 @@ NbdOperations::updateBlobResp(const Error &error,
  */
 fds_uint32_t
 NbdOperations::getObjectCount(fds_uint32_t length,
-                              fds_uint64_t offset,
-                              fds_uint32_t maxObjectSizeInBytes) {
+                              fds_uint64_t offset) {
     fds_uint32_t objCount = length / maxObjectSizeInBytes;
     fds_uint32_t firstObjLen = maxObjectSizeInBytes - (offset % maxObjectSizeInBytes);
     if ((length % maxObjectSizeInBytes) != 0) {
