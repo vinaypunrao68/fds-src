@@ -6,15 +6,17 @@ package com.formationds.om.webkit.rest;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 
 public class HttpErrorHandler implements RequestHandler {
-    private static final Logger LOG = Logger.getLogger(HttpErrorHandler.class);
+    private static final Logger logger =
+        LoggerFactory.getLogger( HttpErrorHandler.class );
 
     private RequestHandler rh;
 
@@ -27,7 +29,12 @@ public class HttpErrorHandler implements RequestHandler {
         try {
             return rh.handle(request, routeParameters);
         } catch (Exception e) {
-            LOG.error("Error executing " + request.getRequestURI(), e);
+
+            logger.error( "Error executing " +
+                          request.getRequestURI() +
+                          " -- " +
+                          e.getMessage() );
+            logger.trace( "Stack Trace::", e );
             if( e.getMessage() != null && e.getMessage().length() > 1 ) {
                 return new JsonResource(
                     new JSONObject().put( "message",

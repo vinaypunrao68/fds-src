@@ -27,7 +27,8 @@ import com.formationds.xdi.ConfigurationApi;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -35,7 +36,7 @@ import javax.crypto.spec.SecretKeySpec;
 import static com.formationds.om.events.EventManager.INSTANCE;
 
 public class Main {
-    private static final Logger LOG = Logger.getLogger(Main.class);
+    private static final Logger logger = LoggerFactory.getLogger( Main.class );
 
     // key for managing the singleton EventManager.
     private final Object eventMgrKey = new Object();
@@ -52,7 +53,7 @@ public class Main {
 
         } catch (Throwable t) {
 
-            LOG.fatal("Error starting OM", t);
+            logger.error( "Error starting OM", t );
             System.out.println(t.getMessage());
             System.out.flush();
             System.exit(-1);
@@ -72,18 +73,18 @@ public class Main {
                                   .getConfig();
 
         System.setProperty("fds-root", configuration.getFdsRoot());
-        LOG.trace( "FDS-ROOT: " + System.getProperty( "fds-root" ) );
+        logger.trace( "FDS-ROOT: " + System.getProperty( "fds-root" ) );
 
-        LOG.trace("Starting native OM");
+        logger.trace("Starting native OM");
         NativeOm.startOm(args);
 
-        LOG.trace( "Loading platform configuration." );
+        logger.trace( "Loading platform configuration." );
         ParsedConfig platformConfig = configuration.getPlatformConfig();
 
         // TODO: this is needed before bootstrapping the admin user but not sure if there is config required first.
         // alternatively, we could initialize it with an empty event notifier or disabled flag and not log the
         // initial first-time bootstrap of the admin user as an event.
-        LOG.trace("Initializing repository event notifier.");
+        logger.trace("Initializing repository event notifier.");
         INSTANCE.initEventNotifier(
             eventMgrKey,
             ( e ) -> SingletonRepositoryManager.instance()
@@ -92,13 +93,13 @@ public class Main {
 
         if(FdsFeatureToggles.FIREBREAK_EVENT.isActive()) {
 
-            LOG.trace("Firebreak events feature is enabled.  Initializing repository firebreak callback.");
+            logger.trace("Firebreak events feature is enabled.  Initializing repository firebreak callback.");
             // initialize the firebreak event listener (callback from repository persist)
             INSTANCE.initEventListeners();
 
         } else {
 
-            LOG.info("Firebreak events feature is disabled.");
+            logger.info("Firebreak events feature is disabled.");
 
         }
 
@@ -151,9 +152,9 @@ public class Main {
         int httpPort = platformConfig.defaultInt( "fds.om.http_port", 7777 );
         int httpsPort = platformConfig.defaultInt( "fds.om.https_port", 7443 );
 
-
         if( FdsFeatureToggles.WEB_KIT.isActive() ) {
 
+            logger.info( "Web toolkit enabled" );
             new WebKitImpl( authorizer,
                             webDir,
                             httpPort,
@@ -162,13 +163,9 @@ public class Main {
 
         } else {
 
-            dropwizard();
+            logger.info( "Web toolkit disabled" );
 
         }
-    }
-
-    private void dropwizard() {
-
     }
 }
 
