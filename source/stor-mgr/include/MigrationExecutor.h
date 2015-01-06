@@ -54,10 +54,8 @@ class MigrationExecutor {
 
     /**
      * Source SM id
-     * TODO(Sean): Are we going to use NodeUuid or just uint64_t.  For now,
-     *             just use uint64_t.
      */
-    uint64_t sourceSMNodeID;
+    NodeUuid sourceSMNodeID;
 
     /**
      * Token to migration from the source SM node.
