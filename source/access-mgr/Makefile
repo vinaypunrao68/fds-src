@@ -7,7 +7,6 @@ user_build_dir    := \
     amlib \
     stor-hvisor \
     platform \
-    block \
     test
 
 user_incl_dir     := \
@@ -16,7 +15,7 @@ user_incl_dir     := \
 	/usr/include/cryptopp
 
 user_fds_ar_libs  :=  \
-    fds-probe \
+    fds-qos-lib \
     fds-am-engine \
     fds-am-engine \
     fds-am-plat \
@@ -59,7 +58,8 @@ user_non_fds_libs :=  \
 	rt \
     $(user_nginx_libs) \
     fiu \
-    dl
+    dl \
+    tcmalloc
 
 user_static_libs  := \
     ev

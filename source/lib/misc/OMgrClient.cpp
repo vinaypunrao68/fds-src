@@ -15,7 +15,8 @@
 
 #include <net/net_utils.h>
 #include <net/SvcRequestPool.h>
-#include <platform/platform-lib.h>
+#include "platform/platform_process.h"
+#include "platform/platform.h"
 #include <fds_typedefs.h>
 #include <thread>
 #include <string>
@@ -205,9 +206,11 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& node_name,
                        fds_log *parent_log,
                        boost::shared_ptr<netSessionTbl> nst,
-                       Platform *plf)
+                       Platform *plf,
+                       fds_uint32_t _instanceId)
         : dltMgr(new DLTManager()),
-          dmtMgr(new DMTManager(1)) {
+          dmtMgr(new DMTManager(1)),
+          instanceId(_instanceId) {
     fds_verify(_omPort != 0);
     my_node_type = node_type;
     omIpStr      = _omIpStr;
@@ -226,6 +229,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
 
     clustMap = new LocalClusterMap();
     plf_mgr  = plf;
+    fNoNetwork = false;
 }
 
 OMgrClient::~OMgrClient()
@@ -291,16 +295,17 @@ int OMgrClient::startAcceptingControlMessages() {
     // TODO(x): Ideally createServerSession should take a shared pointer
     // for omrpc_handler_.  Make sure that happens.  Otherwise you
     // end up with a pointer leak.
+    fds_uint32_t ctrlPort = plf_mgr->plf_get_my_ctrl_port() + instanceId;
     omrpc_handler_session_ =
             nst_->createServerSession<netControlPathServerSession>(myIpInt,
-                                                                   plf_mgr->plf_get_my_ctrl_port(),
+                                                                   ctrlPort,
                                                                    my_node_name,
                                                                    FDSP_ORCH_MGR,
                                                                    omrpc_handler_);
     omrpc_handler_thread_.reset(new boost::thread(&OMgrClient::start_omrpc_handler, this));
 
     LOGNOTIFY << "OMClient accepting control requests at port "
-              << plf_mgr->plf_get_my_ctrl_port();
+              << ctrlPort;
 
     return (0);
 }
@@ -861,6 +866,20 @@ Error OMgrClient::recvDMTPushMeta(FDSP_PushMetaPtr& push_meta,
     return this->catalog_evt_hdlr(fds_catalog_push_meta, push_meta, session_uuid);
 }
 
+Error OMgrClient::updateDmt(bool dmt_type, std::string& dmt_data) {
+    Error err(ERR_OK);
+    LOGNOTIFY << "OMClient received new DMT version  " << dmt_type;
+
+    omc_lock.write_lock();
+    err = dmtMgr->addSerializedDMT(dmt_data, DMT_COMMITTED);
+    if (!err.ok()) {
+        LOGERROR << "Failed to update DMT! check dmt_data was set";
+    }
+    omc_lock.write_unlock();
+
+    return err;
+}
+
 Error OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
                                 const std::string& session_uuid) {
     Error err(ERR_OK);
@@ -868,7 +887,7 @@ Error OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
 
     // before we implement DM sync, any DMT we receive from OM is committed DMT
     // dmtMgr is thread-safe, uses it's internal lock
-    err = dmtMgr->addSerialized(dmt_info->dmt_data, DMT_COMMITTED);
+    err = dmtMgr->addSerializedDMT(dmt_info->dmt_data, DMT_COMMITTED);
     if (!err.ok()) {
         LOGERROR << "Failed to add DMT to DMTManager " << err;
         return err;

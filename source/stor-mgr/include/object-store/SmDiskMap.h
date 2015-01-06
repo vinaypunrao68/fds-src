@@ -6,6 +6,8 @@
 
 #include <string>
 #include <set>
+#include <utility>
+#include <atomic>
 
 #include <fds_module.h>
 #include <dlt.h>
@@ -71,6 +73,29 @@ class SmDiskMap : public Module, public boost::noncopyable {
     DiskIdSet getDiskIds(diskio::DataTier tier) const;
 
     /**
+    * Determines if a write to SSD will cause SSD usage to go beyond capacity threshold.
+    * When called it will add writeSize to the map, and if the new value exceeds
+    * the threshold will return false.
+    *
+    * @param oid objectID of the object being written
+    * @param writeSize size in bytes of the write
+    * @param thresholdPct percentage of total capacity that is considered full
+    *
+    * @returns true if write will not exceed full threshold, false otherwise
+    */
+    fds_bool_t ssdTrackCapacityAdd(ObjectID oid, fds_uint64_t writeSize,
+            fds_uint32_t fullThreshold);
+
+    /**
+    * Subtracts writeSize from consumed capacity. Use this when an SSD write
+    * failed to 'fix' the (now) incorrect accounting.
+    *
+    * @param writeSize size in bytes of the write
+    *
+    */
+    void ssdTrackCapacityDelete(ObjectID oid, fds_uint64_t writeSize);
+
+    /**
      * Module methods
      */
     virtual int mod_init(SysParams const *const param);
@@ -101,6 +126,13 @@ class SmDiskMap : public Module, public boost::noncopyable {
     /// if true, test mode where we assume no contact with
     /// platform, and use SM service uuid = 1
     fds_bool_t test_mode;
+
+    /// Map from disk idx to SSD capacity array idx
+    std::unordered_map<fds_uint16_t, fds_uint8_t> * ssdIdxMap;
+    // For now we'll assume no more than 60 SSDs.
+    std::atomic<fds_uint64_t> maxSSDCapacity[60];
+    std::atomic<fds_uint64_t> consumedSSDCapacity[60];
+
 
     friend class ObjectPersistData;
 };

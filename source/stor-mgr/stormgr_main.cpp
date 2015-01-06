@@ -7,6 +7,8 @@
 #include <sm-platform.h>
 #include <net/net-service.h>
 
+#include "platform/platform_process.h"
+
 class SMMain : public PlatformProcess
 {
  public:
@@ -38,7 +40,10 @@ class SMMain : public PlatformProcess
 
     virtual ~SMMain() {
         /* Destruct created module objects */
-        delete sm;
+        // TODO(brian): Revisit this; currently sm will be deleting itself
+        // when this gets called... the following line will cause a double delete
+        // delete sm;
+        LOGDEBUG << "ENDING SM PROCESS";
     }
 
     virtual int run() {

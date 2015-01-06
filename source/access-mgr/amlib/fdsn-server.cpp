@@ -12,16 +12,15 @@
 #include <concurrency/Mutex.h>
 #include <fds_process.h>
 #include <fdsn-server.h>
-#include <handlermappings.h>
 #include <responsehandler.h>
-#include <StorHvisorNet.h>
 
 namespace fds {
 
 FdsnServer::FdsnServer(const std::string &name,
-                       AmDataApi::shared_ptr &_dataApi)
+                       AmDataApi::shared_ptr &_dataApi,
+                       fds_uint32_t instanceId)
         : Module(name.c_str()),
-          port(9988),
+          port(9988 + instanceId),
           dataApi(_dataApi),
           numFdsnThreads(10) {
     serverTransport.reset(new xdi_att::TServerSocket(port));
@@ -82,7 +81,7 @@ FdsnServer::init_server() {
 
     try {
         LOGNORMAL << "Starting the FDSN server with " << numFdsnThreads
-                  << " threads...";
+                  << " threads at port " << port;
         listen_thread.reset(new boost::thread(&xdi_ats::TNonblockingServer::serve,
                                               nbServer.get()));
         // listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,

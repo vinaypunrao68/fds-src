@@ -15,7 +15,6 @@ user_build_dir :=                       \
     util                                \
     lib                                 \
     nginx-driver                        \
-    fds-probe                           \
     persistent-layer                    \
     platform                            \
     orch-mgr                            \
@@ -24,12 +23,30 @@ user_build_dir :=                       \
     stor-mgr                            \
     tools                               \
     testlib                             \
-    unit-test                           \
     checker                             \
+    unit-test                           \
     java
 
+# Using DEFER_TESTS=1 on the command line will build the Java directory
+# before building the checker and unit-tests.
+ifdef DEFER_TESTS
+    user_build_dir := $(filter-out checker, $(user_build_dir))
+    user_build_dir := $(filter-out unit-test, $(user_build_dir))
+    user_build_dir := $(user_build_dir) \
+                      checker           \
+                      unit-test
+endif
+
+# Bail out early if we don't have a JAVA_HOME
+# This needs to go here, including it later causes make devsetup fail.
+ifeq ($(JAVA_HOME),)
+    $(error "JAVA_HOME needs to be configured.  If you have not run 'make \
+        devsetup', please do so now.  Otherwise you can 'source \
+        /etc/profile.d/jdk.sh' and try again.")
+endif
+
 ifdef SKIP_JAVA_BUILD
-	user_build_dir := $(filter-out java, $(user_build_dir))
+    user_build_dir := $(filter-out java, $(user_build_dir))
 endif
 
 include $(topdir)/Makefile.incl

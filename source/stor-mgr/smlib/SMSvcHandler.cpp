@@ -6,20 +6,31 @@
 #include <fdsp_utils.h>
 #include <fds_assert.h>
 #include <SMSvcHandler.h>
-#include <platform/fds_flags.h>
+// #include <platform/flags_map.h>
 #include <sm-platform.h>
 #include <string>
 #include <net/SvcRequest.h>
 #include <fiu-local.h>
 #include <random>
 #include <chrono>
+#include <MockSMCallbacks.h>
+#include <net/MockSvcHandler.h>
+#include <fds_timestamp.h>
 
 namespace fds {
 
-extern ObjectStorMgr *objStorMgr;
+extern ObjectStorMgr    *objStorMgr;
 
 SMSvcHandler::SMSvcHandler()
 {
+    mockTimeoutEnabled = gModuleProvider->get_fds_config()->\
+                         get<bool>("fds.sm.testing.enable_mocking");
+    mockTimeoutUs = gModuleProvider->get_fds_config()->\
+                    get<uint32_t>("fds.sm.testing.mocktimeout");
+    if (true == mockTimeoutEnabled) {
+        mockHandler.reset(new MockSvcHandler());
+    }
+
     REGISTER_FDSP_MSG_HANDLER(fpi::GetObjectMsg, getObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::PutObjectMsg, putObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteObjectMsg, deleteObject);
@@ -40,8 +51,42 @@ SMSvcHandler::SMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTierPolicyAudit, TierPolicyAudit);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTClose, NotifyDLTClose);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
+
+    REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownSMMsg, shutdownSM);
+
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceInitialSet, initiateObjectSync);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
+}
+
+void
+SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg)
+{
+    LOGDEBUG << "Received new migration init message";
+}
+
+void
+SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlObjectRebalanceInitialSet>& initialObjSet)
+{
+    LOGDEBUG << "Initiate Object Sync";
+}
+
+void
+SMSvcHandler::syncObjectSet(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlObjectRebalanceDeltaSet>& deltaObjSet)
+{
+    LOGDEBUG << "Sync Object Set";
+}
+
+void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+        boost::shared_ptr<fpi::ShutdownSMMsg>& shutdownMsg) {
+    LOGDEBUG << "Received shutdown message... shuttting down...";
+    objStorMgr->~ObjectStorMgr();
 }
 
 void SMSvcHandler::queryScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
@@ -123,6 +168,18 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_gets > 0));
     fiu_do_on("svc.drop.getobject", return);
+#if 0
+    fiu_do_on("svc.uturn.getobject",
+              auto getReq = new SmIoGetObjectReq(getObjMsg); \
+              boost::shared_ptr<GetObjectResp> resp = boost::make_shared<GetObjectResp>(); \
+              getReq->getObjectNetResp = resp; \
+              getObjectCb(asyncHdr, ERR_OK, getReq); return;);
+#endif
+    fiu_do_on("svc.uturn.getobject", \
+              mockHandler->schedule(mockTimeoutUs, \
+                                    std::bind(MockSMCallbacks::mockGetCb, \
+                                              asyncHdr)); \
+              return;);
 
     Error err(ERR_OK);
     auto getReq = new SmIoGetObjectReq(getObjMsg);
@@ -197,7 +254,12 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
     fiu_do_on("svc.drop.putobject", return);
-    fiu_do_on("svc.uturn.putobject", putObjectCb(asyncHdr, ERR_OK, NULL); return;);
+    // fiu_do_on("svc.uturn.putobject", putObjectCb(asyncHdr, ERR_OK, NULL); return;);
+    fiu_do_on("svc.uturn.putobject", \
+              mockHandler->schedule(mockTimeoutUs, \
+                                    std::bind(MockSMCallbacks::mockPutCb, \
+                                              asyncHdr)); \
+              return;);
 
     Error err(ERR_OK);
     auto putReq = new SmIoPutObjectReq(putObjMsg);
@@ -234,6 +296,23 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         putObjectCb(asyncHdr, err, putReq);
     }
 }
+
+#if 0
+void SMSvcHandler::mockPutCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr)
+{
+    auto resp = boost::make_shared<fpi::PutObjectRspMsg>();
+    asyncHdr->msg_code = ERR_OK;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::PutObjectRspMsg), *resp);
+}
+
+void SMSvcHandler::mockGetCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr)
+{
+    auto resp = boost::make_shared<fpi::GetObjectResp>();
+    resp->data_obj = std::move(std::string(4096, 'a'));
+    asyncHdr->msg_code = ERR_OK;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetObjectResp), *resp);
+}
+#endif
 
 void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                const Error &err,
@@ -559,6 +638,34 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     LOGNOTIFY << "Sending DLT commit response to OM";
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+}
+
+// NotifyDLTClose
+// ---------------
+//
+void
+SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+        boost::shared_ptr<fpi::CtrlNotifyDLTClose> &dlt)
+{
+    MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
+    close_req->sync_close_ts = get_fds_timestamp_ms();
+
+    FdsActorRequestPtr close_far(new FdsActorRequest(
+            FAR_ID(MigSvcSyncCloseReq), close_req));
+
+    objStorMgr->migrationSvc_->send_actor_request(close_far);
+
+    GLOGNORMAL << "Received ioclose. Time: " << close_req->sync_close_ts;
+
+    /* It's possible no tokens were migrated.  In this we case we simulate
+     * MIGRATION_OP_COMPLETE.
+     */
+    if (objStorMgr->tok_migrated_for_dlt_ == false) {
+        LOGNORMAL << "Token migration complete";
+        LOGNORMAL << objStorMgr->migrationSvc_->mig_cntrs.toString();
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        objStorMgr->tok_migrated_for_dlt_ = false;
+    }
 }
 
 }  // namespace fds

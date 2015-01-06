@@ -1,0 +1,11 @@
+---
+-   name: uninstall fds
+    apt: name={{item}}
+        state=absent
+        purge=yes
+    with_items:
+      - fds-platform
+      - fds-pkghelper
+      - fds-coredump
+    tags:
+        - uninstall

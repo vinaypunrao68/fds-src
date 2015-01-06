@@ -1,4 +1,4 @@
-angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$stats_service', '$filter', '$interval', '$byte_converter', '$time_converter', '$rootScope', function( $scope, $activity_service, $interval, $authorization, $stats_service, $filter, $interval, $byte_converter, $time_converter, $rootScope ){
+angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$authentication', '$stats_service', '$filter', '$interval', '$byte_converter', '$time_converter', '$rootScope', function( $scope, $activity_service, $interval, $authorization, $authentication, $stats_service, $filter, $interval, $byte_converter, $time_converter, $rootScope ){
 
     $scope.healthStatus = [{number: 'Excellent'}];
     
@@ -184,6 +184,10 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     });
     
     var init = function(){
+        
+        if ( !$authentication.isAuthenticated ){
+            return;
+        }
         
         firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
         performanceInterval = $interval( function(){ $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );}, 60000 );

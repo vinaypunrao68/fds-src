@@ -9,28 +9,11 @@
 #include <concurrency/Mutex.h>
 #include <net/SvcRequest.h>
 #include <net/SvcRequestTracker.h>
-#include <platform/platform-lib.h>
+#include <concurrency/LFThreadpool.h>
+
+#include <platform/platform.h>
 
 namespace fds {
-
-/**
- * @brief Svc request counters
- */
-class SvcRequestCounters : public FdsCounters
-{
- public:
-    SvcRequestCounters(const std::string &id, FdsCountersMgr *mgr);
-    ~SvcRequestCounters();
-
-    /* Number of requests that have timedout */
-    NumericCounter timedout;
-    /* Number of requests that experienced transport error */
-    NumericCounter invokeerrors;
-    /* Number of responses that resulted in app acceptance */
-    NumericCounter appsuccess;
-    /* Number of responses that resulted in app rejections */
-    NumericCounter apperrors;
-};
 
 /**
  * Svc request factory. Use this class for constructing various Svc request objects
@@ -68,15 +51,24 @@ class SvcRequestPool {
             const fpi::SvcUuid &srcUuid,
             const fpi::SvcUuid &dstUuid);
 
+    LFMQThreadpool* getSvcSendThreadpool();
+    LFMQThreadpool* getSvcWorkerThreadpool();
+    void dumpLFTPStats();
+
  protected:
     void asyncSvcRequestInitCommon_(SvcRequestIfPtr req);
 
-    std::atomic<uint64_t> nextAsyncReqId_;
+    /* align it to 64, so atomic doesn't share with cacheline with other
+     * vars.  This is to prevent false-sharing and cache ping-pong.
+     */
+    alignas(64) std::atomic<uint64_t> nextAsyncReqId_;
     /* Common completion callback for svc requests */
     SvcRequestCompletionCb finishTrackingCb_;
+    /* Lock free threadpool on which svc requests are sent */
+    std::unique_ptr<LFMQThreadpool> svcSendTp_;
+    /* Lock free threadpool on which work is done */
+    std::unique_ptr<LFMQThreadpool> svcWorkerTp_;
 };
-
-extern SvcRequestCounters* gSvcRequestCntrs;
 extern SvcRequestPool *gSvcRequestPool;
 }  // namespace fds
 

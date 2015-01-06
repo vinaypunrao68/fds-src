@@ -1,3 +1,4 @@
+include "../fdsp/common.thrift"
 include "../fdsp/snapshot.thrift"
 include "../fdsp/fds_stream.thrift"
 namespace cpp fds.apis
@@ -25,7 +26,9 @@ struct VolumeDescriptor {
        1: required string name,
        2: required i64 dateCreated,
        3: required VolumeSettings policy,
-       4: required i64 tenantId    // Added for multi-tenancy
+       4: required i64 tenantId,
+       5: i64 volId,
+       6: common.ResourceState state
 }
 
 struct VolumeStatus {
@@ -104,6 +107,8 @@ struct RequestId {
 }
 
 service AsyncAmServiceRequest {
+	oneway void handshakeStart(1:RequestId requestId 2:i32 portNumber),
+
 	oneway void attachVolume(1:RequestId requestId, 2: string domainName, 
 	       3:string volumeName),
 
@@ -125,6 +130,9 @@ service AsyncAmServiceRequest {
         oneway void getBlob(1:RequestId requestId, 2:string domainName, 
 	       3:string volumeName, 4:string blobName, 5:i32 length, 6:ObjectOffset offset),
 
+	oneway void getBlobWithMeta(1:RequestId requestId, 2:string domainName, 
+	       3:string volumeName, 4:string blobName, 5:i32 length, 6:ObjectOffset offset),
+
         oneway void updateMetadata(1:RequestId requestId, 2:string domainName, 
 	       3:string volumeName, 4:string blobName, 5:TxDescriptor txDesc, 6:map<string, string> metadata),
 
@@ -143,6 +151,8 @@ service AsyncAmServiceRequest {
 }
 
 service AsyncAmServiceResponse {
+	oneway void handshakeComplete(1:RequestId requestId),
+
 	oneway void attachVolumeResponse(1:RequestId requestId),
 
         oneway void volumeContents(1:RequestId requestId, 2:list<BlobDescriptor> response),
@@ -156,6 +166,8 @@ service AsyncAmServiceResponse {
 	oneway void abortBlobTxResponse(1:RequestId requestId),
 
         oneway void getBlobResponse(1:RequestId requestId, 2:binary response),
+
+	oneway void getBlobWithMetaResponse(1:RequestId requestId, 2:binary data, 3:BlobDescriptor blobDesc),
 
         oneway void updateMetadataResponse(1:RequestId requestId),
 
@@ -278,6 +290,6 @@ service ConfigurationService {
              throws (1: ApiException e),
 
     // Returns VolumeID of clone 
-    i64 cloneVolume(1:i64 volumeId, 2:i64 fdsp_PolicyInfoId, 3:string cloneVolumeName)
+    i64 cloneVolume(1:i64 volumeId, 2:i64 fdsp_PolicyInfoId, 3:string cloneVolumeName, 4:i64 timelineTime)
 
 }

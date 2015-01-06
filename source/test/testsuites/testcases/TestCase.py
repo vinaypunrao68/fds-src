@@ -59,6 +59,11 @@ def setUpModule():
                 pyUnitConfig = sys.argv[qaautotestini+1]
                 print("Teased out qaautotest.ini as %s." % pyUnitConfig)
 
+        print "pyUnitConfig: ", pyUnitConfig
+        print "pyUnitVerbose: ", pyUnitVerbose
+        print "pyUnitDrynrun: ", pyUnitDryrun
+        print "pyUnitInstall: ", pyUnitInstall
+        print "pyUnitSudoPw: ", pyUnitSudoPw
         _parameters = TestUtils.get_config(True, pyUnitConfig, pyUnitVerbose, pyUnitDryrun, pyUnitInstall, pyUnitSudoPw)
 
         # Set up logging. We wait to do it here after we've parsed
@@ -175,7 +180,6 @@ class FDSTestCase(unittest.TestCase):
         Retrieve any command line arguments/options that are
         specific to FDS as opposed to PyUnit.
         """
-
         global pyUnitConfig
         global pyUnitVerbose
         global pyUnitDryrun
@@ -237,4 +241,5 @@ class FDSTestCase(unittest.TestCase):
         if failfast:
             _parameters["stop_on_fail"] = True
 
+        #print "Parameters: ", _parameters
         return log_dir, failfast

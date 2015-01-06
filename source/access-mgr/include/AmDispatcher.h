@@ -12,6 +12,9 @@
 
 namespace fds {
 
+/* Forward declaarations */
+class MockSvcHandler;
+
 /**
  * AM FDSP request dispatcher and reciever. The dispatcher
  * does the work to send and receive AM network messages over
@@ -207,6 +210,12 @@ class AmDispatcher : public Module, public boost::noncopyable {
                           FailoverSvcRequest* svcReq,
                           const Error& error,
                           boost::shared_ptr<std::string> payload);
+
+
+
+    boost::shared_ptr<MockSvcHandler> mockHandler_;
+    uint64_t mockTimeoutUs_  = 200;
+    bool mockTimeoutEnabled_ = false;
 };
 
 }  // namespace fds

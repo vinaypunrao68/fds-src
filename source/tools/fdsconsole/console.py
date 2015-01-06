@@ -9,6 +9,7 @@ import traceback
 import context
 import helpers
 import pipes
+import time
 from helpers import *
 from tabulate import tabulate
 
@@ -22,6 +23,7 @@ from contexts import user
 from contexts import tenant
 from contexts import scavenger
 from contexts import ScavengerPolicy
+from contexts import SMDebug
 
 """
 Console exit exception. This is needed to exit cleanly as 
@@ -44,8 +46,8 @@ class FDSConsole(cmd.Cmd):
             pass
 
         self.config = ConfigData(self.data)
-
-        self.prompt = 'fds:> '
+        self.myprompt = 'fds'
+        self.setprompt('fds')
         self.context = None
         self.previouscontext = None
         self.config.init()
@@ -83,7 +85,18 @@ class FDSConsole(cmd.Cmd):
             ctx = ctx.parent
         
         promptlist.reverse()
-        self.prompt = ':'.join(promptlist) + ':> '
+        self.setprompt(':'.join(promptlist))
+
+    def setprompt(self, p=None):
+        if p == None:
+            p = self.myprompt
+        else:
+            self.myprompt = p
+        self.prompt = '[' + time.strftime('%H:%M:%S') + '] ' + p + ':> '
+
+    def postcmd(self, stop, line):
+        self.setprompt()
+
 
     def precmd(self, line):
         '''
@@ -460,6 +473,7 @@ class FDSConsole(cmd.Cmd):
         self.root.add_sub_context(service.ServiceContext(self.config,'service'))
         self.root.add_sub_context(tenant.TenantContext(self.config,'tenant'))
         self.root.add_sub_context(user.UserContext(self.config,'user'))
+        self.root.add_sub_context(SMDebug.SMDebugContext(self.config, 'smdebug'))
         scav = self.root.add_sub_context(scavenger.ScavengerContext(self.config,'scavenger'))
         scav.add_sub_context(ScavengerPolicy.ScavengerPolicyContext(self.config, 'policy'))
         scav.add_sub_context(scavenger.ScrubberContext(self.config, 'scrubber'))

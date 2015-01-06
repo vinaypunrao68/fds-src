@@ -13,7 +13,8 @@ import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
 import NodeWaitSuite
 import BotoBLOBSuite
-
+import NodeResilienceSuite
+import BlockBlobSuite
 
 def suiteConstruction():
     """
@@ -37,6 +38,9 @@ def suiteConstruction():
     nodeUpSuite = NodeWaitSuite.suiteConstruction()
     suite.addTest(nodeUpSuite)
 
+    # Given the nodes some time to initialize.
+    suite.addTest(testcases.TestFDSSysMgt.TestNodeWait())
+
     # Load test.
     suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
 
@@ -47,6 +51,17 @@ def suiteConstruction():
     # Everyone should still be up.
     suite.addTest(nodeUpSuite)
 
+    # Block Blob test.
+    blockSuite = BlockBlobSuite.suiteConstruction()
+    suite.addTest(blockSuite)
+
+    # Everyone should still be up.
+    suite.addTest(nodeUpSuite)
+
+    # Node Resiliency suite.
+    nodeResilienceSuite = NodeResilienceSuite.suiteConstruction()
+    suite.addTest(nodeResilienceSuite)
+
     suite.addTest(testcases.TestFDSSysMgt.TestNodeShutdown())
 
     # Cleanup FDS installation directory.
@@ -55,8 +70,9 @@ def suiteConstruction():
     return suite
 
 if __name__ == '__main__':
-
+	
     # Handle FDS specific commandline arguments.
+    print sys.argv
     log_dir, failfast = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
 
     # If a test log directory was not supplied on the command line (with option "-l"),
@@ -74,6 +90,6 @@ if __name__ == '__main__':
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
     test_suite = suiteConstruction()
-
+    print test_suite
     runner.run(test_suite)
 

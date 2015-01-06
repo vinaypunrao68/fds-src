@@ -16,6 +16,7 @@
 #include <dm-vol-cat/DmVolumeCatalog.h>
 #include <dm-vol-cat/DmVolumeDirectory.h>
 #include <util/Log.h>
+#include <util/timeutils.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 
 // #define DM_VOLUME_CATALOG_TYPE DmVolumeCatalog
@@ -83,6 +84,14 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     void getDirChildren(const std::string & parent, std::vector<std::string> & children,
             fds_bool_t dirs = true);
 
+    // volcat  replay
+    Error dmReplayCatJournalOps(Catalog *destCat,
+                                const std::vector<std::string> &files,
+                                util::TimeStamp fromTime,
+                                util::TimeStamp toTime);
+    Error dmGetCatJournalStartTime(const std::string &logfile, fds_uint64_t *journal_time);
+
+
   public:
     /**
      * Constructs the TVC object but does not init
@@ -121,7 +130,13 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /**
      * Create copy of the volmume  for snapshot/clone
      */
-    Error copyVolume(VolumeDesc & voldesc);
+    Error copyVolume(VolumeDesc & voldesc,  fds_volid_t origSrcVolume = 0);
+
+    /**
+     *
+     */
+    Error replayTransactions(fds_volid_t srcVolId, fds_volid_t destVolId,
+                             util::TimeStamp fromTime, util::TimeStamp toTime);
 
     /**
      * Increment object reference counts for all objects refered by source
@@ -266,7 +281,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                           const DmTimeVolCatalog::CommitCb &cb);
 
     Error doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
-            CommitLogTx::const_ptr commit_data);
+            CommitLogTx::ptr commit_data);
 
     void updateFwdBlobWork(fds_volid_t volId,
                            const std::string &blobName,

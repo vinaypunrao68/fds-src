@@ -9,6 +9,7 @@
 
 #include <fds_process.h>
 #include <dm-tvc/CommitLog.h>
+#include <dm-vol-cat/DmPersistVolDir.h>
 
 namespace fds {
 
@@ -16,6 +17,8 @@ template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,
                         boost::shared_ptr<const MetaDataList> & blobData);
 template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,
                         boost::shared_ptr<const BlobObjList> & blobData);
+template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,
+                        const fpi::FDSP_BlobObjectList & blobData);
 
 uint32_t CommitLogTx::write(serialize::Serializer * s) const {
     fds_assert(s);
@@ -67,8 +70,9 @@ uint32_t CommitLogTx::read(serialize::Deserializer * d) {
     return bytes;
 }
 
-DmCommitLog::DmCommitLog(const std::string &modName, const fds_volid_t volId)
-        : Module(modName.c_str()), volId_(volId), started_(false) {
+DmCommitLog::DmCommitLog(const std::string &modName, const fds_volid_t volId,
+        const fds_uint32_t objSize) : Module(modName.c_str()), volId_(volId), objSize_(objSize),
+        started_(false) {
     std::ostringstream oss;
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     oss << root->dir_user_repo_dm() << volId_;
@@ -117,7 +121,7 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
 
     GLOGDEBUG << "Starting blob transaction (" << txId << ") for (" << blobName << ")";
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
 
     TxMap::const_iterator iter = txMap_.find(txId);
     if (txMap_.end() != iter) {
@@ -131,6 +135,7 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
     ptx->name = blobName;
     ptx->blobMode = blobMode;
     ptx->started = util::getTimeStampNanos();
+    ptx->nameId = DmPersistVolDir::getBlobIdFromName(blobName);
 
     return ERR_OK;
 }
@@ -151,10 +156,50 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
         return rc;
     }
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
     upsertBlobData(*txMap_[txId], blobData);
 
     return rc;
+}
+
+// update blob data (T can be fpi::FDSP_BlobObjectList or fpi::FDSP_MetaDataList
+template<typename T>
+Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, const T & blobData) {
+    fds_assert(txDesc);
+    fds_verify(started_);
+
+    const BlobTxId & txId = *txDesc;
+
+    GLOGDEBUG << "Update blob for transaction (" << txId << ")";
+
+    Error rc = validateSubsequentTx(txId);
+    if (!rc.ok()) {
+        return rc;
+    }
+
+    FDSGUARD(lockTxMap_);
+    upsertBlobData(*txMap_[txId], blobData);
+
+    return rc;
+}
+
+void DmCommitLog::upsertBlobData(CommitLogTx & tx, const fpi::FDSP_BlobObjectList & data) {
+    fds_uint64_t newSize = 0;
+    BlobObjKey objKey(tx.nameId, 0);
+    for (const auto & objInfo : data) {
+        fds_verify(0 == objInfo.offset % objSize_);
+        fds_verify(0 < objInfo.size);
+        fds_verify((tx.blobMode | blob::TRUNCATE) || (objSize_ == objInfo.size));
+
+        newSize = objInfo.offset + objInfo.size;
+        if (tx.blobSize < newSize || objInfo.blob_end) {
+            tx.blobSize = newSize;
+        }
+
+        objKey.objIndex = objInfo.offset / objSize_;
+        const Record keyRec(reinterpret_cast<const char *>(&objKey), sizeof(BlobObjKey));
+        tx.wb.Put(keyRec, objInfo.data_obj_id.digest);
+    }
 }
 
 // delete blob
@@ -171,7 +216,7 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t
         return rc;
     }
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
 
     CommitLogTx::ptr & ptx = txMap_[txId];
     ptx->blobDelete = true;
@@ -181,7 +226,7 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t
 }
 
 // commit transaction
-CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error & status) {
+CommitLogTx::ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error & status) {
     fds_assert(txDesc);
     fds_verify(started_);
 
@@ -194,7 +239,7 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
         return 0;
     }
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
     CommitLogTx::ptr ptx = txMap_[txId];
     ptx->committed = util::getTimeStampNanos();
     txMap_.erase(txId);
@@ -216,7 +261,7 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
         return rc;
     }
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
     txMap_.erase(txId);
 
     return rc;
@@ -256,7 +301,7 @@ CommitLogTx::const_ptr DmCommitLog::getTx(BlobTxId::const_ptr & txDesc) {
 
     GLOGDEBUG << "Get blob transaction " << txId;
 
-    SCOPEDREAD(lockTxMap_);
+    FDSGUARD(lockTxMap_);
 
     TxMap::const_iterator iter = txMap_.find(txId);
     if (txMap_.end() != iter) {
@@ -267,7 +312,7 @@ CommitLogTx::const_ptr DmCommitLog::getTx(BlobTxId::const_ptr & txDesc) {
 }
 
 Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
-    SCOPEDREAD(lockTxMap_);
+    FDSGUARD(lockTxMap_);
 
     TxMap::iterator iter = txMap_.find(txId);
     if (txMap_.end() == iter) {
@@ -286,7 +331,7 @@ Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
 
 fds_bool_t DmCommitLog::isPendingTx(const fds_uint64_t tsNano /* = util::getTimeStampNanos() */) {
     fds_bool_t ret = false;
-    SCOPEDREAD(lockTxMap_);
+    FDSGUARD(lockTxMap_);
     for (auto it : txMap_) {
         if (it.second->started && !it.second->committed) {
             if (it.second->started <= tsNano) {
@@ -311,7 +356,7 @@ Error DmCommitLog::snapshotInsert(BlobTxId::const_ptr & txDesc) {
         return rc;
     }
 
-    SCOPEDWRITE(lockTxMap_);
+    FDSGUARD(lockTxMap_);
     txMap_[txId]->snapshot = true;
 
     return rc;

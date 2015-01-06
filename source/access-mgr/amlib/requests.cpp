@@ -5,16 +5,17 @@
 #include <map>
 #include <string>
 
-#include "StorHvisorNet.h"
 #include "requests/requests.h"
 
-extern StorHvCtrl *storHvisor;
+#include "am-tx-mgr.h"
+#include "AmCache.h"
+#include "StorHvCtrl.h"
+#include "StorHvQosCtrl.h"
 
 namespace fds
 {
 
-const fds_uint64_t VolumeContentsReq::fds_sh_volume_list_magic;
-const fds_uint64_t VolumeStatsReq::fds_sh_volume_stats_magic;
+class AmTxDescriptor;
 
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        const std::string& _volumeName,
@@ -24,7 +25,8 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        fds_uint64_t _data_len,
                        char* _data_buf)
     : AmRequest(FDS_GET_BLOB, _volid, _volumeName, _blob_name, cb, _blob_offset,
-                 _data_len, _data_buf) {
+                _data_len, _data_buf),
+      get_metadata(false) {
     stopwatch.start();
 
     std::string vol_str = std::string("volume: ") + std::to_string(io_vol_id);
@@ -161,29 +163,24 @@ void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl, const Error &e)
     DBG(LOGDEBUG << "cnt: " << cnt << e);
 
     if (cnt == 0) {
-        if (storHvisor->toggleNewPath) {
-            if ((io_type == FDS_PUT_BLOB_ONCE) && (e == ERR_OK)) {
-                // Push the commited update to the cache and remove from manager
-                // We push here because we ONCE messages don't have an explicit
-                // commit and here is where we know we've actually committed
-                // to SM and DM.
-                // TODO(Andrew): Inserting the entire tx transaction currently
-                // assumes that the tx descriptor has all of the contents needed
-                // for a blob descriptor (e.g., size, version, etc..). Today this
-                // is true for S3/Swift and doesn't get used anyways for block (so
-                // the actual cached descriptor for block will not be correct).
-                AmTxDescriptor::ptr txDescriptor;
-                fds_verify(storHvisor->amTxMgr->getTxDescriptor(*tx_desc,
-                                                                txDescriptor) == ERR_OK);
-                fds_verify(storHvisor->amCache->putTxDescriptor(txDescriptor) == ERR_OK);
-                fds_verify(storHvisor->amTxMgr->removeTx(*tx_desc) == ERR_OK);
-            }
-            cb->call(e);
-            qos_ctrl->markIODone(this);
-        } else {
-            // Call back to processing layer
-            proc_cb(e);
+        if ((io_type == FDS_PUT_BLOB_ONCE) && (e == ERR_OK)) {
+            // Push the commited update to the cache and remove from manager
+            // We push here because we ONCE messages don't have an explicit
+            // commit and here is where we know we've actually committed
+            // to SM and DM.
+            // TODO(Andrew): Inserting the entire tx transaction currently
+            // assumes that the tx descriptor has all of the contents needed
+            // for a blob descriptor (e.g., size, version, etc..). Today this
+            // is true for S3/Swift and doesn't get used anyways for block (so
+            // the actual cached descriptor for block will not be correct).
+            boost::shared_ptr<AmTxDescriptor> txDescriptor;
+            fds_verify(storHvisor->amTxMgr->getTxDescriptor(*tx_desc,
+                                                            txDescriptor) == ERR_OK);
+            fds_verify(storHvisor->amCache->putTxDescriptor(txDescriptor) == ERR_OK);
+            fds_verify(storHvisor->amTxMgr->removeTx(*tx_desc) == ERR_OK);
         }
+        cb->call(e);
+        qos_ctrl->markIODone(this);
     }
 }
 

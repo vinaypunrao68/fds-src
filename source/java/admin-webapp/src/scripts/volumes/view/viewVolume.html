@@ -71,12 +71,23 @@
         <connector-panel ng-model="dataConnector" editable="false"></connector-panel>
     </section>
     
+<!--
     <section class="block-section">
         <snapshot-policy-panel ng-model="snapshotPolicies"></snapshot-policy-panel>
     </section>
+-->
+<!--
+    <section class="block-section">
+        <tiering-panel ng-model="mediaPolicy"></tiering-policy-panel>
+    </section>
+-->
     
     <section class="block-section">
-        <qos-panel ng-model="qos"></qos-panel>
+        <qos-panel ng-model="qos" save-only="false"></qos-panel>
+    </section>
+    
+    <section class="block-section">
+        <timeline-policy-panel ng-model="timelinePolicies" save-only="false"></timeline-policy-panel>
     </section>
     
     <section>
@@ -86,6 +97,7 @@
         </div>
     </section>
     
+<!--
     <section class="block-section">
         <div class="section-header">
             <span class="header" translate>volumes.l_snapshots</span>
@@ -121,7 +133,8 @@
             <div class="gutter"></div>
         </div>
     </section>
+-->
 
-    <div class="page-vertical-spacer"></div>
+    <div class="page-vertical-spacer view-volume-bottom-element"></div>
     
 </div>

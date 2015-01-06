@@ -14,8 +14,11 @@
 
 #include <nbd-test-mod.h>
 #include <util/Log.h>
-#include <StorHvisorNet.h>
 #include <fdsp/fds_service_types.h>
+#include "net/SvcRequestPool.h"
+
+#include "StorHvCtrl.h"
+#include "lib/OMgrClient.h"
 
 namespace fds {
 

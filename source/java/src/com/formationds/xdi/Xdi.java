@@ -6,23 +6,18 @@ package com.formationds.xdi;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
-import com.formationds.om.rest.SetVolumeQosParams;
+import com.formationds.om.webkit.rest.SetVolumeQosParams;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
-import com.formationds.util.async.AsyncRequestStatistics;
-import com.formationds.util.async.AsyncResourcePool;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class Xdi {
@@ -51,7 +46,9 @@ public class Xdi {
 
     public long createVolume(AuthenticationToken token, String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
         config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
-        SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0);
+        
+        // the default log retention time is 24 hours
+        SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0, volumePolicy.getContCommitlogRetention() );
         /**
          * allows the UI to assign a snapshot policy to a volume without having to make an
          * extra call.
@@ -126,6 +123,14 @@ public class Xdi {
 
     public String getSystemVolumeName(AuthenticationToken token) throws SecurityException {
         long tenantId = authorizer.tenantId(token);
-        return "SYSTEM_VOLUME_" + tenantId;
+        return ConfigurationApi.systemFolderName(tenantId);
+    }
+
+    public void setMetadata(AuthenticationToken token, String domain, String volume, String blob, HashMap<String, String> metadataMap) throws TException {
+        attemptVolumeAccess(token, volume);
+        TxDescriptor tx = am.startBlobTx(domain, volume, blob, 0);
+        am.updateMetadata(domain, volume, blob, tx, metadataMap);
+        am.commitBlobTx(domain, volume, blob, tx);
+
     }
 }

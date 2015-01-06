@@ -12,6 +12,7 @@
 #include <DataMgr.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
+#include <dmhandler.h>
 
 namespace fds {
 
@@ -111,15 +112,6 @@ void DataMgr::handleForwardComplete(dmCatReq *io) {
 
     if (feature.isQosEnabled()) qosCtrl->markIODone(*io);
     delete io;
-}
-
-void DataMgr::handleStatStream(dmCatReq *io) {
-    DmIoStatStream *statStreamReq = static_cast<DmIoStatStream*>(io);
-
-    Error err = statStreamAggr_->handleModuleStatStream(statStreamReq->statStreamMsg);
-
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*io);
-    statStreamReq->dmio_statstream_resp_cb(err, statStreamReq);
 }
 
 //
@@ -259,6 +251,7 @@ DataMgr::deleteSnapshot(const fds_uint64_t snapshotId) {
 // handle finish forward for volume 'volid'
 //
 void DataMgr::finishForwarding(fds_volid_t volid) {
+    // FIXME(DAC): This local is only ever assigned.
     fds_bool_t all_finished = false;
 
     // set the state
@@ -336,6 +329,22 @@ Error DataMgr::_add_if_no_vol(const std::string& vol_name,
     return err;
 }
 
+VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
+    if (!fMapAlreadyLocked) {
+        FDSGUARD(*vol_map_mtx);
+        auto iter = vol_meta_map.find(volId);
+        if (iter != vol_meta_map.end()) {
+            return iter->second;
+        }
+    } else {
+        auto iter = vol_meta_map.find(volId);
+        if (iter != vol_meta_map.end()) {
+            return iter->second;
+        }
+    }
+    return NULL;
+}
+
 /*
  * Meant to be called holding the vol_map_mtx.
  * @param vol_will_sync true if this volume's meta will be synced from
@@ -346,40 +355,104 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                                VolumeDesc *vdesc,
                                fds_bool_t vol_will_sync) {
     Error err(ERR_OK);
-
-    LOGDEBUG << "Creating a snapshot '" << vdesc->name << "' of a volume '"
-          << vdesc->volUUID << "'"  << " srcVolume: "<< vdesc->srcVolumeId;
+    bool fActivated = false;
     // create vol catalogs, etc first
 
     if (vdesc->isSnapshot() || vdesc->isClone()) {
-        VolumeMeta * volmeta = 0;
-        {
-            FDSGUARD(*vol_map_mtx);
-            volmeta = vol_meta_map[vdesc->srcVolumeId];
-
-            if (!volmeta) {
-                GLOGWARN << "Volume '" << std::hex << vdesc->srcVolumeId << std::dec <<
-                        "' not found!";
-                return ERR_NOT_FOUND;
-            }
+        VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
+        if (!volmeta) {
+            GLOGWARN << "Volume '" << std::hex << vdesc->srcVolumeId << std::dec <<
+                    "' not found!";
+            return ERR_NOT_FOUND;
         }
 
-        // create commit log entry and enbale buffering in case of snapshot
-        err = timeVolCat_->copyVolume(*vdesc);
+        LOGDEBUG << "Creating a " << (vdesc->isClone()?"clone":"snapshot")
+                 << " name:" << vdesc->name << " vol:" << vdesc->volUUID
+                 << " srcVolume:"<< vdesc->srcVolumeId;
+
+        // create commit log entry and enable buffering in case of snapshot
+        if (vdesc->isSnapshot()) {
+            // snapshot
+            util::TimeStamp createTime = util::getTimeStampMicros();
+            err = timeVolCat_->copyVolume(*vdesc);
+            if (err.ok()) {
+                // add it to timeline
+                timeline.addSnapshot(vdesc->srcVolumeId, vdesc->volUUID, createTime);
+            }
+        } else {
+            // clone
+            // find the closest snapshot to clone the base from
+            fds_volid_t srcVolumeId = vdesc->srcVolumeId;
+
+            // timelineTime is in seconds
+            util::TimeStamp createTime = vdesc->timelineTime * (1000*1000);
+
+            if (createTime == 0) {
+                LOGDEBUG << "clone vol:" << vdesc->volUUID
+                         << " of srcvol:" << vdesc->srcVolumeId
+                         << " will be a clone at current time";
+                err = timeVolCat_->copyVolume(*vdesc);
+            } else {
+                fds_volid_t latestSnapshotId = 0;
+                timeline.getLatestSnapshotAt(srcVolumeId, createTime, latestSnapshotId);
+                util::TimeStamp snapshotTime = 0;
+                if (latestSnapshotId > 0) {
+                    LOGDEBUG << "clone vol:" << vdesc->volUUID
+                             << " of srcvol:" << vdesc->srcVolumeId
+                             << " will be based of snapshot:" << latestSnapshotId;
+                    // set the src volume to be the snapshot
+                    vdesc->srcVolumeId = latestSnapshotId;
+                    timeline.getSnapshotTime(srcVolumeId, latestSnapshotId, snapshotTime);
+                    LOGDEBUG << "about to copy :" << vdesc->srcVolumeId;
+                    err = timeVolCat_->copyVolume(*vdesc, srcVolumeId);
+                    // recopy the original srcVolumeId
+                    vdesc->srcVolumeId = srcVolumeId;
+                } else {
+                    LOGDEBUG << "clone vol:" << vdesc->volUUID
+                             << " of srcvol:" << vdesc->srcVolumeId
+                             << " will be created from scratch as no nearest snapshot found";
+                    // vol create time is in millis
+                    snapshotTime = volmeta->vol_desc->createTime * 1000;
+                    err = timeVolCat_->addVolume(*vdesc);
+                }
+
+                // now replay neccessary commit logs as needed
+                // TODO(dm-team): check for validity of TxnLogs
+                bool fHasValidTxnLogs = (util::getTimeStampMicros() - snapshotTime) <=
+                        volmeta->vol_desc->contCommitlogRetention * 1000*1000;
+                if (!fHasValidTxnLogs) {
+                    LOGWARN << "time diff does not fall within logretention time "
+                            << " srcvol:" << srcVolumeId << " onto vol:" << vdesc->volUUID
+                            << " logretention time:" << volmeta->vol_desc->contCommitlogRetention;
+                }
+
+                if (err.ok()) {
+                    LOGDEBUG << "will attempt to activate vol:" << vdesc->volUUID;
+                    err = timeVolCat_->activateVolume(vdesc->volUUID);
+                    fActivated = true;
+                }
+
+                err = timeVolCat_->replayTransactions(srcVolumeId, vdesc->volUUID,
+                                                      snapshotTime, createTime);
+            }
+        }
     } else {
+        LOGDEBUG << "Adding volume" << " name:" << vdesc->name << " vol:" << vdesc->volUUID;
         err = timeVolCat_->addVolume(*vdesc);
     }
+
     if (!err.ok()) {
         LOGERROR << "Failed to " << (vdesc->isSnapshot() ? "create snapshot"
-                : (vdesc->isClone() ? "create clone" : "add volume")) << " "
-                << std::hex << vol_uuid << std::dec;
+                                     : (vdesc->isClone() ? "create clone" : "add volume")) << " "
+                 << std::hex << vol_uuid << std::dec;
         return err;
     }
 
-    if (err.ok() && !vol_will_sync) {
+    if (err.ok() && !vol_will_sync && !fActivated) {
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
         err = timeVolCat_->activateVolume(vol_uuid);
+        fActivated = true;
     }
 
     VolumeMeta *volmeta = new(std::nothrow) VolumeMeta(vol_name,
@@ -408,14 +481,14 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 
 
     LOGDEBUG << "Added vol meta for vol uuid and per Volume queue" << std::hex
-              << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
+             << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
 
     vol_map_mtx->lock();
     if (needReg) {
         err = dataMgr->qosCtrl->registerVolume(vdesc->isSnapshot() ?
                                                vdesc->qosQueueId : vol_uuid,
                                                static_cast<FDS_VolumeQueue*>(
-                                               volmeta->dmVolQueue.get()));
+                                                   volmeta->dmVolQueue.get()));
     }
     if (!err.ok()) {
         delete volmeta;
@@ -561,7 +634,7 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
                   << vol_uuid << std::dec;
         // if notify delete asked to only check if deleting volume
         // was ok; so we return here; DM will get
-        // another notify volume delete with check_only ==false to
+        // another notify volume delete with check_only == false to
         // actually cleanup all other datastructures for this volume
         return err;
     }
@@ -598,6 +671,7 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
     fpi::BlobInfoListType blobList;
     VolumeCatalogQueryIface::ptr volCatIf = timeVolCat_->queryIface();
     blob_version_t version = 0;
+    // FIXME(DAC): This needs to happen within the context of a transaction.
     err = volCatIf->listBlobs(volId, &blobList);
     LOGWARN << "deleting all [" << blobList.size() << "]"
             << " blobs from vol:" << volId;
@@ -606,6 +680,8 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
     for (const auto& blob : blobList) {
         metaList.clear();
         version = 0;
+        // FIXME(DAC): Error is ignored, and only the last error from deleteBlob will be returned
+        //             to the caller.
         err = volCatIf->getBlobMeta(volId,
                                     blob.blob_name,
                                     &version, &blobSize, &metaList);
@@ -695,7 +771,7 @@ void DataMgr::handleDMTClose(dmCatReq *io) {
     delete pushMetaDoneReq;
 }
 
- /*
+/*
  * Returns the maxObjSize in the volume.
  * TODO(Andrew): This should be refactored into a
  * common library since everyone needs it, not just DM
@@ -718,8 +794,8 @@ Error DataMgr::getVolObjSize(fds_volid_t volId,
 }
 
 DataMgr::DataMgr(CommonModuleProviderIf *modProvider)
-    : Module("dm"),
-    modProvider_(modProvider)
+        : Module("dm"),
+          modProvider_(modProvider)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -752,13 +828,13 @@ int DataMgr::mod_init(SysParams const *const param)
 
     // Set testing related members
     testUturnAll = modProvider_->get_fds_config()->\
-                   get<bool>("fds.dm.testing.uturn_all", false);
+            get<bool>("fds.dm.testing.uturn_all", false);
     testUturnStartTx = modProvider_->get_fds_config()->\
-                       get<bool>("fds.dm.testing.uturn_starttx", false);
+            get<bool>("fds.dm.testing.uturn_starttx", false);
     testUturnUpdateCat = modProvider_->get_fds_config()->\
-                         get<bool>("fds.dm.testing.uturn_updatecat", false);
+            get<bool>("fds.dm.testing.uturn_updatecat", false);
     testUturnSetMeta   = modProvider_->get_fds_config()->\
-                         get<bool>("fds.dm.testing.uturn_setmeta", false);
+            get<bool>("fds.dm.testing.uturn_setmeta", false);
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -766,8 +842,6 @@ int DataMgr::mod_init(SysParams const *const param)
      * Comm with OM will be setup during run()
      */
     omClient = NULL;
-
-    LOGNORMAL << "Completed";
     return 0;
 }
 
@@ -779,29 +853,18 @@ void DataMgr::initHandlers() {
     handlers[FDS_GET_BLOB_METADATA] = new dm::GetBlobMetaDataHandler();
     handlers[FDS_CAT_QRY] = new dm::QueryCatalogHandler();
     handlers[FDS_START_BLOB_TX] = new dm::StartBlobTxHandler();
+    handlers[FDS_DM_STAT_STREAM] = new dm::StatStreamHandler();
+    handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler();
+    handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler();
+    handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler();
+    handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler();
+    handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler();
+    handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetaDataHandler();
+    handlers[FDS_DM_LIST_BLOBS_BY_PATTERN] = new dm::ListBlobsByPatternHandler();
 }
 
 DataMgr::~DataMgr()
 {
-    // TODO(Rao): Move this code into mod_shutdown
-    LOGNORMAL << "Destructing the Data Manager";
-
-    closedmt_timer->destroy();
-
-    for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
-                 it = vol_meta_map.begin();
-         it != vol_meta_map.end();
-         it++) {
-        delete it->second;
-    }
-    vol_meta_map.clear();
-
-    qosCtrl->deregisterVolume(FdsDmSysTaskId);
-    delete sysTaskQueue;
-
-    delete omClient;
-    delete vol_map_mtx;
-    delete qosCtrl;
 }
 
 int DataMgr::run()
@@ -838,7 +901,7 @@ void DataMgr::mod_startup()
         runMode = TEST_MODE;
     }
     LOGNORMAL << "Data Manager using control port "
-        << modProvider_->get_plf_manager()->plf_get_my_ctrl_port();
+              << modProvider_->get_plf_manager()->plf_get_my_ctrl_port();
 
     /* Set up FDSP RPC endpoints */
     nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
@@ -847,7 +910,7 @@ void DataMgr::mod_startup()
     std::string node_name = "_DM_" + myIp;
 
     LOGNORMAL << "Data Manager using IP:"
-        << myIp << " and node name " << node_name;
+              << myIp << " and node name " << node_name;
 
     setup_metadatapath_server(myIp);
 
@@ -928,18 +991,18 @@ void DataMgr::mod_enable_service() {
 
     // create stats aggregator that aggregates stats for vols for which
     // this DM is primary
-        statStreamAggr_ = StatStreamAggregator::ptr(
-            new StatStreamAggregator("DM Stat Stream Aggregator", modProvider_->get_fds_config()));
+    statStreamAggr_ = StatStreamAggregator::ptr(
+        new StatStreamAggregator("DM Stat Stream Aggregator", modProvider_->get_fds_config()));
 
-        // enable collection of local stats in DM
-        StatsCollector::singleton()->registerOmClient(omClient);
+    // enable collection of local stats in DM
+    StatsCollector::singleton()->registerOmClient(omClient);
     if (!feature.isTestMode()) {
         // since aggregator is in the same module, for stats that need to go to
-    // local aggregator, we just directly stream to aggregator (not over network)
+        // local aggregator, we just directly stream to aggregator (not over network)
         StatsCollector::singleton()->startStreaming(
             std::bind(&DataMgr::sampleDMStats, this, std::placeholders::_1),
             std::bind(&DataMgr::handleLocalStatStream, this,
-                  std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+                      std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
         statStreamAggr_->mod_startup();
     }
     // finish setting up time volume catalog
@@ -949,21 +1012,41 @@ void DataMgr::mod_enable_service() {
     // TODO(Andrew): Move the expunge work down to the volume
     // catalog so this callback isn't needed
     timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
-            &DataMgr::expungeObjectsIfPrimary, this,
-            std::placeholders::_1, std::placeholders::_2));
+        &DataMgr::expungeObjectsIfPrimary, this,
+        std::placeholders::_1, std::placeholders::_2));
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
+    timeline.open();
 }
 
 void DataMgr::mod_shutdown()
 {
     LOGNORMAL;
+    statStreamAggr_->mod_shutdown();
+    timeVolCat_->mod_shutdown();
     if (feature.isCatSyncEnabled()) {
         catSyncMgr->mod_shutdown();
     } else {
         LOGWARN << "catalog sync feature - NOT enabled";
     }
-    timeVolCat_->mod_shutdown();
-    statStreamAggr_->mod_shutdown();
+
+    LOGNORMAL << "Destructing the Data Manager";
+    closedmt_timer->destroy();
+
+    for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
+                 it = vol_meta_map.begin();
+         it != vol_meta_map.end();
+         it++) {
+        qosCtrl->quieseceIOs(it->first);
+        qosCtrl->deregisterVolume(it->first);
+        delete it->second;
+    }
+    vol_meta_map.clear();
+
+    qosCtrl->deregisterVolume(FdsDmSysTaskId);
+    delete sysTaskQueue;
+    delete omClient;
+    delete vol_map_mtx;
+    delete qosCtrl;
 }
 
 void DataMgr::setup_metadatapath_server(const std::string &ip)
@@ -1063,249 +1146,6 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
 }
 
 void
-DataMgr::updateCatalogOnce(dmCatReq *io) {
-    DmIoUpdateCatOnce *updCatReq= static_cast<DmIoUpdateCatOnce*>(io);
-    // Start the transaction
-    Error err = timeVolCat_->startBlobTx(updCatReq->volId,
-                                         updCatReq->blob_name,
-                                         updCatReq->updcatMsg->blob_mode,
-                                         updCatReq->ioBlobTxDesc);
-    if (err != ERR_OK) {
-        LOGERROR << "Failed to start transaction "
-                 << *updCatReq->ioBlobTxDesc << ": " << err;
-        if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
-        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
-                         updCatReq->perfNameStr);
-        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
-        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
-        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
-        return;
-    }
-
-    // Apply the offset updates
-    err = timeVolCat_->updateBlobTx(updCatReq->volId,
-                                    updCatReq->ioBlobTxDesc,
-                                    updCatReq->updcatMsg->obj_list);
-    if (err != ERR_OK) {
-        LOGERROR << "Failed to update object offsets for transaction "
-                 << *updCatReq->ioBlobTxDesc << ": " << err;
-        err = timeVolCat_->abortBlobTx(updCatReq->volId,
-                                       updCatReq->ioBlobTxDesc);
-        if (!err.ok()) {
-            LOGERROR << "Failed to abort transaction "
-                     << *updCatReq->ioBlobTxDesc;
-        }
-        if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
-        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
-                         updCatReq->perfNameStr);
-        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
-        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
-        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
-        return;
-    }
-
-    // Apply the metadata updates
-    err = timeVolCat_->updateBlobTx(updCatReq->volId,
-                                    updCatReq->ioBlobTxDesc,
-                                    updCatReq->updcatMsg->meta_list);
-    if (err != ERR_OK) {
-        LOGERROR << "Failed to update metadata for transaction "
-                 << *updCatReq->ioBlobTxDesc << ": " << err;
-        err = timeVolCat_->abortBlobTx(updCatReq->volId,
-                                       updCatReq->ioBlobTxDesc);
-        if (!err.ok()) {
-            LOGERROR << "Failed to abort transaction "
-                     << *updCatReq->ioBlobTxDesc;
-        }
-        if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
-        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
-                         updCatReq->perfNameStr);
-        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
-        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
-        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
-        return;
-    }
-
-    // Commit the metadata updates
-    // The commit callback we pass in will actually call the
-    // final service callback
-    PerfTracer::tracePointBegin(updCatReq->commitBlobReq->opLatencyCtx);
-    err = timeVolCat_->commitBlobTx(updCatReq->volId,
-                                    updCatReq->blob_name,
-                                    updCatReq->ioBlobTxDesc,
-                                    std::bind(&DataMgr::commitBlobTxCb, this,
-                                              std::placeholders::_1, std::placeholders::_2,
-                                              std::placeholders::_3, std::placeholders::_4,
-                                              updCatReq->commitBlobReq));
-    if (err != ERR_OK) {
-        LOGERROR << "Failed to commit transaction "
-                 << *updCatReq->ioBlobTxDesc << ": " << err;
-        err = timeVolCat_->abortBlobTx(updCatReq->volId,
-                                       updCatReq->ioBlobTxDesc);
-        if (!err.ok()) {
-            LOGERROR << "Failed to abort transaction "
-                     << *updCatReq->ioBlobTxDesc;
-        }
-        if (feature.isQosEnabled()) qosCtrl->markIODone(*updCatReq);
-        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
-                         updCatReq->perfNameStr);
-        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
-        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
-        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
-        return;
-    }
-}
-
-void DataMgr::commitBlobTx(dmCatReq *io)
-{
-    Error err;
-    DmIoCommitBlobTx *commitBlobReq = static_cast<DmIoCommitBlobTx*>(io);
-
-    LOGTRACE << "Will commit blob " << commitBlobReq->blob_name << " to tvc";
-    err = timeVolCat_->commitBlobTx(commitBlobReq->volId,
-                                    commitBlobReq->blob_name,
-                                    commitBlobReq->ioBlobTxDesc,
-                                    // TODO(Rao): We should use a static commit callback
-                                    std::bind(&DataMgr::commitBlobTxCb, this,
-                                              std::placeholders::_1, std::placeholders::_2,
-                                              std::placeholders::_3, std::placeholders::_4,
-                                              commitBlobReq));
-    if (err != ERR_OK) {
-        PerfTracer::incr(commitBlobReq->opReqFailedPerfEventType, commitBlobReq->getVolId(),
-                commitBlobReq->perfNameStr);
-        if (feature.isQosEnabled()) qosCtrl->markIODone(*commitBlobReq);
-        PerfTracer::tracePointEnd(io->opLatencyCtx);
-        PerfTracer::tracePointEnd(io->opReqLatencyCtx);
-        commitBlobReq->dmio_commit_blob_tx_resp_cb(err, commitBlobReq);
-    }
-}
-
-/**
- * Callback from volume catalog when transaction is commited
- * @param[in] version of blob that was committed or in case of deletion,
- * a version that was deleted
- * @param[in] blob_obj_list list of offset to object mapping that
- * was committed or NULL
- * @param[in] meta_list list of metadata k-v pairs that was committed or NULL
- */
-void DataMgr::commitBlobTxCb(const Error &err,
-                             blob_version_t blob_version,
-                             const BlobObjList::const_ptr& blob_obj_list,
-                             const MetaDataList::const_ptr& meta_list,
-                             DmIoCommitBlobTx *commitBlobReq)
-{
-    Error error(err);
-    fds_bool_t forwarded_commit = false;
-    LOGDEBUG << "Dmt version: " << commitBlobReq->dmt_version << " blob "
-             << commitBlobReq->blob_name << " vol " << std::hex
-             << commitBlobReq->volId << std::dec << " ; current DMT version "
-             << omClient->getDMTVersion();
-
-    // 'finish this io' for qos accounting purposes, if we are
-    // forwarding, the main time goes to waiting for response
-    // from another DM, which is not really consuming local
-    // DM resources
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*commitBlobReq);
-
-    PerfTracer::tracePointEnd(commitBlobReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(commitBlobReq->opReqLatencyCtx);
-
-    if (!err.ok()) {
-        PerfTracer::incr(commitBlobReq->opReqFailedPerfEventType, commitBlobReq->getVolId(),
-                commitBlobReq->perfNameStr);
-    }
-
-    // do forwarding if needed and commit was successfull
-    if (error.ok() &&
-        (commitBlobReq->dmt_version != omClient->getDMTVersion())) {
-        VolumeMeta* vol_meta = NULL;
-        fds_bool_t is_forwarding = false;
-
-        // check if we need to forward this commit to receiving
-        // DM if we are in progress of migrating volume catalog
-        vol_map_mtx->lock();
-        fds_verify(vol_meta_map.count(commitBlobReq->volId) > 0);
-        vol_meta = vol_meta_map[commitBlobReq->volId];
-        is_forwarding = vol_meta->isForwarding();
-        vol_map_mtx->unlock();
-
-        // move the state, once we drain  planned queue contents
-        LOGTRACE << "is_forwarding ? " << is_forwarding << " req DMT ver "
-                 << commitBlobReq->dmt_version << " DMT ver " << omClient->getDMTVersion();
-
-        if (is_forwarding) {
-            // DMT version must not match in order to forward the update!!!
-            if (commitBlobReq->dmt_version != omClient->getDMTVersion()) {
-                if (feature.isCatSyncEnabled()) {
-                    error = catSyncMgr->forwardCatalogUpdate(commitBlobReq, blob_version,
-                                                             blob_obj_list, meta_list);
-                } else {
-                    LOGWARN << "catalog sync feature - NOT enabled";
-                }
-                if (error.ok()) {
-                    // we forwarded the request!!!
-                    forwarded_commit = true;
-                }
-            }
-        } else {
-            // DMT mismatch must not happen if volume is in 'not forwarding' state
-            fds_verify(commitBlobReq->dmt_version != omClient->getDMTVersion());
-        }
-    }
-
-    // check if we can finish forwarding if volume still forwards cat commits
-    if (feature.isCatSyncEnabled() && catSyncMgr->isSyncInProgress()) {
-        fds_bool_t is_finish_forward = false;
-        VolumeMeta* vol_meta = NULL;
-        vol_map_mtx->lock();
-        fds_verify(vol_meta_map.count(commitBlobReq->volId) > 0);
-        vol_meta = vol_meta_map[commitBlobReq->volId];
-        is_finish_forward = vol_meta->isForwardFinishing();
-        vol_map_mtx->unlock();
-        if (is_finish_forward) {
-            if (!timeVolCat_->isPendingTx(commitBlobReq->volId, catSyncMgr->dmtCloseTs())) {
-                finishForwarding(commitBlobReq->volId);
-            }
-        }
-    }
-
-    // if forwarding -- do not reply to AM yet, will reply when we receive response
-    // for fwd cat update from destination DM
-    if (!forwarded_commit) {
-        commitBlobReq->dmio_commit_blob_tx_resp_cb(error, commitBlobReq);
-    }
-}
-
-//
-// Handle forwarded (committed) catalog update from another DM
-//
-void DataMgr::fwdUpdateCatalog(dmCatReq *io)
-{
-    Error err(ERR_OK);
-    DmIoFwdCat *fwdCatReq = static_cast<DmIoFwdCat*>(io);
-
-    LOGTRACE << "Will commit fwd blob " << *fwdCatReq << " to tvc";
-    err = timeVolCat_->updateFwdCommittedBlob(fwdCatReq->volId,
-                                              fwdCatReq->blob_name,
-                                              fwdCatReq->blob_version,
-                                              fwdCatReq->fwdCatMsg->obj_list,
-                                              fwdCatReq->fwdCatMsg->meta_list,
-                                              std::bind(&DataMgr::updateFwdBlobCb, this,
-                                                        std::placeholders::_1, fwdCatReq));
-    if (!err.ok()) {
-        if (feature.isQosEnabled()) qosCtrl->markIODone(*fwdCatReq);
-        fwdCatReq->dmio_fwdcat_resp_cb(err, fwdCatReq);
-    }
-}
-
-void DataMgr::updateFwdBlobCb(const Error &err, DmIoFwdCat *fwdCatReq)
-{
-    LOGTRACE << "Committed fwd blob " << *fwdCatReq;
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*fwdCatReq);
-    fwdCatReq->dmio_fwdcat_resp_cb(err, fwdCatReq);
-}
-
-void
 DataMgr::ReqHandler::StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgHdr,
                                  boost::shared_ptr<std::string> &volumeName,
                                  boost::shared_ptr<std::string> &blobName,
@@ -1331,28 +1171,6 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
                                               &update_catalog) {
     Error err(ERR_OK);
     fds_panic("must not get here");
-}
-
-void
-DataMgr::scheduleAbortBlobTxSvc(void * _io)
-{
-    Error err(ERR_OK);
-    DmIoAbortBlobTx *abortBlobTx = static_cast<DmIoAbortBlobTx*>(_io);
-
-    BlobTxId::const_ptr blobTxId = abortBlobTx->ioBlobTxDesc;
-    fds_verify(*blobTxId != blobTxIdInvalid);
-
-    // Call TVC abortTx
-    timeVolCat_->abortBlobTx(abortBlobTx->volId, blobTxId);
-
-    if (!err.ok()) {
-        PerfTracer::incr(abortBlobTx->opReqFailedPerfEventType, abortBlobTx->getVolId(),
-                abortBlobTx->perfNameStr);
-    }
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*abortBlobTx);
-    PerfTracer::tracePointEnd(abortBlobTx->opLatencyCtx);
-    PerfTracer::tracePointEnd(abortBlobTx->opReqLatencyCtx);
-    abortBlobTx->dmio_abort_blob_tx_resp_cb(err, abortBlobTx);
 }
 
 void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
@@ -1504,64 +1322,6 @@ DataMgr::expungeObjectCb(QuorumSvcRequest* svcReq,
     DBG(GLOGDEBUG << "Expunge cb called");
 }
 
-void DataMgr::scheduleGetBlobMetaDataSvc(void *_io) {
-    Error err(ERR_OK);
-    DmIoGetBlobMetaData *getBlbMeta = static_cast<DmIoGetBlobMetaData*>(_io);
-
-    // TODO(Andrew): We're not using the size...we can remove it
-    fds_uint64_t blobSize;
-    err = timeVolCat_->queryIface()->getBlobMeta(getBlbMeta->volId,
-                                             getBlbMeta->blob_name,
-                                             &(getBlbMeta->blob_version),
-                                             &(blobSize),
-                                             &(getBlbMeta->message->metaDataList));
-    if (!err.ok()) {
-        PerfTracer::incr(getBlbMeta->opReqFailedPerfEventType, getBlbMeta->getVolId(),
-                getBlbMeta->perfNameStr);
-    }
-    getBlbMeta->message->byteCount = blobSize;
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*getBlbMeta);
-    PerfTracer::tracePointEnd(getBlbMeta->opLatencyCtx);
-    PerfTracer::tracePointEnd(getBlbMeta->opReqLatencyCtx);
-    // TODO(Andrew): Note the cat request gets freed
-    // by the callback
-    getBlbMeta->dmio_getmd_resp_cb(err, getBlbMeta);
-}
-
-
-void DataMgr::setBlobMetaDataSvc(void *io) {
-    Error err;
-    DmIoSetBlobMetaData *setBlbMetaReq = static_cast<DmIoSetBlobMetaData*>(io);
-    err = timeVolCat_->updateBlobTx(setBlbMetaReq->volId,
-                                    setBlbMetaReq->ioBlobTxDesc,
-                                    setBlbMetaReq->md_list);
-    if (!err.ok()) {
-        PerfTracer::incr(setBlbMetaReq->opReqFailedPerfEventType, setBlbMetaReq->getVolId(),
-                setBlbMetaReq->perfNameStr);
-    }
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*setBlbMetaReq);
-    PerfTracer::tracePointEnd(setBlbMetaReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(setBlbMetaReq->opReqLatencyCtx);
-    setBlbMetaReq->dmio_setmd_resp_cb(err, setBlbMetaReq);
-}
-
-void DataMgr::getVolumeMetaData(dmCatReq *io) {
-    Error err(ERR_OK);
-    DmIoGetVolumeMetaData * getVolMDReq = static_cast<DmIoGetVolumeMetaData *>(io);
-    err = timeVolCat_->queryIface()->getVolumeMeta(getVolMDReq->getVolId(),
-            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.size),
-            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.blobCount),
-            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.objectCount));
-    if (!err.ok()) {
-        PerfTracer::incr(getVolMDReq->opReqFailedPerfEventType, getVolMDReq->getVolId(),
-                getVolMDReq->perfNameStr);
-    }
-    if (feature.isQosEnabled()) qosCtrl->markIODone(*getVolMDReq);
-    PerfTracer::tracePointEnd(getVolMDReq->opLatencyCtx);
-    PerfTracer::tracePointEnd(getVolMDReq->opReqLatencyCtx);
-    getVolMDReq->dmio_get_volmd_resp_cb(err, getVolMDReq);
-}
-
 void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
                                               FDSP_MsgHdrTypePtr &msg_hdr,
                                               FDS_ProtocolInterface::
@@ -1584,7 +1344,7 @@ void DataMgr::ReqHandler::GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
                                           boost::shared_ptr<std::string>& volumeName,
                                           boost::shared_ptr<std::string>& blobName) {
     GLOGDEBUG << " volume:" << *volumeName
-             << " blob:" << *blobName;
+              << " blob:" << *blobName;
     fds_panic("must not get here");
 }
 

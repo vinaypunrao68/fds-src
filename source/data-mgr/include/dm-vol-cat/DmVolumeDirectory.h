@@ -6,12 +6,13 @@
 
 #include <string>
 #include <set>
+#include <vector>
 
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <util/Log.h>
-#include <concurrency/RwLock.h>
+#include <concurrency/Mutex.h>
 
 #include <VcQueryIface.h>
 #include <blob/BlobTypes.h>
@@ -160,11 +161,12 @@ class DmVolumeDirectory : public Module, public HasLogger,
      *                blobVersion is set to actual version that is retrieved
      * @param[out] metaList list of metadata key-value pairs
      * @param[out] objList list of offset to object id mappings
+     * @param[out] blobSize ptr to blob size in bytes
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      */
     Error getBlob(fds_volid_t volId, const std::string& blobName, fds_uint64_t startOffset,
             fds_int64_t endOffset, blob_version_t* blobVersion, fpi::FDSP_MetaDataList* metaList,
-            fpi::FDSP_BlobObjectList* objList);
+                  fpi::FDSP_BlobObjectList* objList, fds_uint64_t* blobSize);
 
     /**
      * Returns the list of blobs in the volume with basic blob info
@@ -181,6 +183,9 @@ class DmVolumeDirectory : public Module, public HasLogger,
     Error putBlob(fds_volid_t volId, const std::string& blobName,
             const MetaDataList::const_ptr& metaList,
             const BlobObjList::const_ptr& blobObjList, const BlobTxId::const_ptr& txId);
+    Error putBlob(fds_volid_t volId, const std::string& blobName, fds_uint64_t blobSize,
+            const MetaDataList::const_ptr& metaList,
+            CatWriteBatch & wb, bool truncate = true);
 
     /**
      * Flushes given blob to the persistent storage. Blocking method, will
@@ -213,6 +218,8 @@ class DmVolumeDirectory : public Module, public HasLogger,
          return 0;
      }
 
+    DmPersistVolDir::ptr getVolume(fds_volid_t volId);
+
   private:
     // methods
     Error getBlobMetaDesc(fds_volid_t volId, const std::string & blobName,
@@ -229,12 +236,12 @@ class DmVolumeDirectory : public Module, public HasLogger,
 
     // vars
     std::unordered_map<fds_volid_t, DmPersistVolDir::ptr> volMap_;
-    fds_rwlock volMapLock_;
+    fds_mutex volMapLock_;
 
     expunge_objs_cb_t expungeCb_;
 
     DmVolumeSummaryMap_t volSummaryMap_;
-    fds_rwlock lockVolSummaryMap_;
+    fds_mutex lockVolSummaryMap_;
 };
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMEDIRECTORY_H_

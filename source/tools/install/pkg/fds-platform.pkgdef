@@ -1,0 +1,107 @@
+package: fds-platform
+version: 0.6.0
+description: all fds components
+
+replaces:
+    - fds-systemdir
+    - fds-systemconf
+    - fds-accessmgr
+    - fds-cli
+    - fds-datamgr
+    - fds-orchmgr
+    - fds-platformmgr
+    - fds-pythonlibs
+    - fds-stormgr
+    - fds-tools
+
+files:
+
+    ###########
+    # systemdir
+    - dest: /fds
+    - dest: /fds/bin
+    - dest: /fds/sbin
+    - dest: /fds/lib
+    - dest: /fds/var/redis
+    - dest: /fds/var/logs
+    - dest: /fds/var/logs/redis
+    - dest: /fds/var/stats
+    - dest: /fds/var/core
+
+    ############
+    # access-mgr
+    - dest: /fds/bin
+      dest-is-dir: True
+      src:
+        - ../../../Build/linux-x86_64.debug/bin/libaccessmgr.so
+        - ../../../Build/linux-x86_64.debug/bin/AMAgent
+        - ../../../Build/linux-x86_64.debug/bin/bare_am
+
+    #########
+    # fds-cli
+    - dest: /fds/bin/fdscli
+      src: ../../../Build/linux-x86_64.debug/bin/fdscli
+
+    ##########
+    # data-mgr
+    - dest: /fds/bin
+      dest-is-dir: True
+      src:
+        - ../../../Build/linux-x86_64.debug/bin/DataMgr
+        - ../../../Build/linux-x86_64.debug/bin/dm_checker
+
+    ##########
+    # orch-mgr
+    - dest: /fds/bin
+      dest-is-dir: True
+      src:
+        - ../../../Build/linux-x86_64.debug/bin/liborchmgr.so
+        - ../../../Build/linux-x86_64.debug/bin/orchMgr
+
+    - dest: /fds/lib/java
+      src: "`find ../../../Build/linux-x86_64.debug/lib/java`"
+      tree-base: ../../../Build/linux-x86_64.debug/lib/java
+
+    - dest: /fds/lib/admin-webapp
+      src: "`find ../../../Build/linux-x86_64.debug/lib/admin-webapp`"
+      tree-base: ../../../Build/linux-x86_64.debug/lib/admin-webapp
+
+    - dest: /fds/etc/ssl/dev
+      src:
+        - ../../../config/etc/ssl/dev/jetty.pkcs12
+        - ../../../config/etc/ssl/dev/jetty.crt
+        - ../../../config/etc/ssl/dev/keystore
+        - ../../../config/etc/ssl/dev/jetty.key
+
+    ##############
+    # platform-mgr
+    - dest: /fds/bin
+      dest-is-dir: True
+      src: ../../../Build/linux-x86_64.debug/bin/platformd
+
+    #############
+    # python-libs
+    - dest: /usr/local/lib/python2.7/dist-packages/disk_type.py
+      src : ../../../platform/python/disk_type.py
+
+    - dest: /usr/local/lib/python2.7/dist-packages
+      src : ../../../test/fdslib/*.py
+      tree-base: ../../../test
+
+    ########## 
+    # stor-mgr
+    - dest: /fds/bin
+      dest-is-dir: True
+      src:
+        - ../../../Build/linux-x86_64.debug/bin/StorMgr
+        - ../../../Build/linux-x86_64.debug/bin/smchk
+
+    ###########
+    # fds-tools
+    - dest: /fds/sbin
+      src:
+        - ../../../Build/linux-x86_64.debug/bin/configdbtool
+        - ../../redis.sh
+        - ../../../test/fds-tool.py
+        - ../../../test/fdsadmin
+      dest-is-dir: True

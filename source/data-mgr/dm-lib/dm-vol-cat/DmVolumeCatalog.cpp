@@ -714,7 +714,8 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volume_id,
                                fds_int64_t end_offset,
                                blob_version_t* blob_version,
                                fpi::FDSP_MetaDataList* meta_list,
-                               fpi::FDSP_BlobObjectList* obj_list)
+                               fpi::FDSP_BlobObjectList* obj_list,
+                               fds_uint64_t* blob_size)
 {
     Error err(ERR_OK);
     LOGDEBUG << "Will retrieve blob " << blob_name << " offset " << start_offset
@@ -733,6 +734,7 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volume_id,
 
     // we got blob meta, fill in version, size, and meta list
     *blob_version = extent0->blobVersion();
+    *blob_size     = extent0->blobSize();
     extent0->toMetaFdspPayload(*meta_list);
 
     // find out which extend id to read

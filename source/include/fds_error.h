@@ -68,6 +68,8 @@ typedef enum {
     ERR_DM_OP_NOT_ALLOWED     = 45,
     ERR_DM_SNAPSHOT_FAILED    = 46,
     ERR_INVALID_VOL_ID        = 47,
+    ERR_DM_JOURNAL_TIME       = 48,
+    ERR_DM_REPLAY_JOURNAL     = 49,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
@@ -100,6 +102,7 @@ typedef enum {
     ERR_SM_GC_ENABLED,
     ERR_SM_AUTO_GC_FAILED,
     ERR_SM_DUP_OBJECT_CORRUPT,
+    ERR_SM_SHUTTING_DOWN,
 
     /* Network errors */
     ERR_NETWORK_TRANSPORT = 3000,

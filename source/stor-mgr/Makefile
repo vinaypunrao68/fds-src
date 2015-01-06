@@ -22,7 +22,7 @@ user_fds_ar_libs  :=                   \
     fds-migrations \
     fds-svc-request \
     fds-net-svc \
-    fds-am-engine \
+    fds-qos-lib \
     fds-odb \
     fds-dsk-mgnt \
     fds-sm-plat \
@@ -42,7 +42,8 @@ user_non_fds_libs := \
     ssl \
     cryptopp \
     crypto \
-    leveldb 
+    tcmalloc \
+    leveldb
 
 stor_mgr_cpp      := stormgr_main.cpp
 user_cpp          :=                   \

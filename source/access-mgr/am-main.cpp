@@ -2,13 +2,13 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <string>
-#include <am-nbd.h>
 #include <fdsn-server.h>
 #include <util/fds_stat.h>
-#include <native_api.h>
 #include <am-platform.h>
 #include <net/net-service.h>
 #include <AccessMgr.h>
+
+#include "platform/platform_process.h"
 
 namespace fds {
 
@@ -51,7 +51,6 @@ int main(int argc, char **argv)
         &fds::gl_fds_stat,
         &fds::gl_AmPlatform,
         &fds::gl_NetService,
-        &fds::gl_NbdBlockMod,
         nullptr
     };
 

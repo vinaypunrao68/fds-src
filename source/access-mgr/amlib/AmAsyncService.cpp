@@ -12,27 +12,46 @@
 #include <concurrency/Mutex.h>
 #include <fds_process.h>
 #include <AmAsyncService.h>
-#include <handlermappings.h>
 #include <responsehandler.h>
-#include <StorHvisorNet.h>
 
 namespace fds {
 
-AsyncDataServer::AsyncDataServer(const std::string &name,
-                                 AmAsyncDataApi::shared_ptr &_dataApi)
-        : Module(name.c_str()),
-          port(8899),
-          asyncDataApi(_dataApi),
-          numServerThreads(10) {
+class AsyncAmServiceRequestIfCloneFactory
+    : virtual public apis::AsyncAmServiceRequestIfFactory
+{
+    using request_if = apis::AsyncAmServiceRequestIf;
+ public:
+    AsyncAmServiceRequestIfCloneFactory() {}
+    ~AsyncAmServiceRequestIfCloneFactory() {}
+
+    request_if* getHandler(const xdi_at::TConnectionInfo& connInfo);
+    void releaseHandler(request_if* handler);
+};
+
+AsyncAmServiceRequestIfCloneFactory::request_if*
+AsyncAmServiceRequestIfCloneFactory::getHandler(const xdi_at::TConnectionInfo& connInfo) {  // NOLINT
+    // Get the underlying transport's socket so we can see what the host IP
+    // address was of the incoming client.
+    boost::shared_ptr<xdi_att::TSocket> sock =
+        boost::dynamic_pointer_cast<xdi_att::TSocket>(connInfo.transport);
+    fds_assert(sock.get());
+    return new AmAsyncDataApi(boost::make_shared<AmAsyncXdiResponse>(sock->getPeerAddress()));
+}
+
+void
+AsyncAmServiceRequestIfCloneFactory::releaseHandler(request_if* handler) {
+    delete handler;
+}
+
+AsyncDataServer::AsyncDataServer(const std::string &name, fds_uint32_t instanceId)
+: Module(name.c_str()),
+    port(8899 + instanceId)
+{
     serverTransport.reset(new xdi_att::TServerSocket(port));
-    // serverTransport.reset(new xdi_att::TServerSocket("/tmp/am-req-sock"));
     transportFactory.reset(new xdi_att::TFramedTransportFactory());
     protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
 
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    numServerThreads = conf.get<fds_uint32_t>("async_server_threads");
-
-    // server_->setServerEventHandler(event_handler_);
 }
 
 /**
@@ -63,29 +82,18 @@ AsyncDataServer::mod_shutdown() {
  */
 void
 AsyncDataServer::init_server() {
-    // Setup thrift threads
-    threadManager = xdi_atc::ThreadManager::newSimpleThreadManager(numServerThreads);
-    threadFactory.reset(new xdi_atc::PosixThreadFactory());
-    threadManager->threadFactory(threadFactory);
-    threadManager->start();
-
     // Setup API processor
-    processor.reset(new apis::AsyncAmServiceRequestProcessor(
-        asyncDataApi));
-    // event_handler_.reset(new ServerEventHandler(*this));
+    processorFactory.reset(new apis::AsyncAmServiceRequestProcessorFactory(
+            boost::make_shared<AsyncAmServiceRequestIfCloneFactory>() ));
 
-    // nbServer.reset(new xdi_ats::TNonblockingServer(
     // processor, protocolFactory, port, threadManager));
-    ttServer.reset(new xdi_ats::TThreadedServer(processor,
+    ttServer.reset(new xdi_ats::TThreadedServer(processorFactory,
                                                 serverTransport,
                                                 transportFactory,
                                                 protocolFactory));
 
     try {
-        LOGNORMAL << "Starting the async data server with " << numServerThreads
-                  << " server threads...";
-        // listen_thread.reset(new boost::thread(&xdi_ats::TNonblockingServer::serve,
-        //                                   nbServer.get()));
+        LOGNORMAL << "Starting the async data server at port " << port;
         listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
                                               ttServer.get()));
     } catch(const xdi_att::TTransportException& e) {
@@ -97,6 +105,8 @@ AsyncDataServer::init_server() {
 void
 AsyncDataServer::deinit_server() {
     fds_verify(listen_thread != NULL);
+    ttServer->stop();
     listen_thread->join();
+    listen_thread.reset();
 }
 }  // namespace fds

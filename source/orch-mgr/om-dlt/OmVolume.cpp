@@ -1125,6 +1125,17 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
         return err;
     }
 
+    // register before b-casting vol crt, in case we start recevings acks
+    // before vol_event for create vol returns
+    vol->setState(fpi::ResourceState::Loading);
+    err = rs_register(vol);
+    if (!err.ok()) {
+        LOGERROR << "unable to register vol as resource : " << vname;
+        rs_free_resource(vol);
+        return err;
+    }
+
+
     const VolumeDesc& volumeDesc=*(vol->vol_get_properties());
     // store it in config db..
     if (!gl_orch_mgr->getConfigDB()->addVolume(volumeDesc)) {
@@ -1132,9 +1143,6 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
                 << "[" << volumeDesc.name << ":" <<volumeDesc.volUUID << "]";
     }
 
-    // register before b-casting vol crt, in case we start recevings acks
-    // before vol_event for create vol returns
-    rs_register(vol);
 
     // this event will broadcast vol create msg to other nodes and wait for acks
     vol->vol_event(VolCreateEvt(vol.get()));
@@ -1714,15 +1722,21 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
         return false;
     }
 
+    // register before b-casting vol crt, in case we start recevings acks
+    // before vol_event for create vol returns
+    if (!rs_register(vol)) {
+        LOGERROR << "unable to register vol as resource : " << volumeDesc.name;
+        rs_free_resource(vol);
+        return false;
+    }
+
+
     // store it in config db..
     if (!gl_orch_mgr->getConfigDB()->addVolume(volumeDesc)) {
         LOGWARN << "unable to store volume info in to config db "
                 << "[" << volumeDesc.name << ":" <<volumeDesc.volUUID << "]";
     }
 
-    // register before b-casting vol crt, in case we start recevings acks
-    // before vol_event for create vol returns
-    rs_register(vol);
 
     // this event will broadcast vol create msg to other nodes and wait for acks
     vol->vol_event(VolCreateEvt(vol.get()));
@@ -1781,7 +1795,11 @@ Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
     // store it in the configDB
     gl_orch_mgr->getConfigDB()->createSnapshot(const_cast<fpi::Snapshot&>(snapshot));
 
-    rs_register(vol);
+    if (!rs_register(vol)) {
+        LOGERROR << "unable to register snapshot as resource : " << snapshot.snapshotName;
+        rs_free_resource(vol);
+        return ERR_DUPLICATE;
+    }
 
     vol->vol_event(VolCreateEvt(vol.get()));
 

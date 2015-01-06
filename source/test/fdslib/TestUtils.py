@@ -322,7 +322,8 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     setattr(options, "config_file", params["fds_config_file"])
 
     if not os.path.isfile(options.config_file):
-        print("The fds_config_file item, %s, in your qaautotest test suite .ini file does not exist." % options.config)
+        print("The fds_config_file item, %s, in your qaautotest test suite .ini file does not exist." %
+              options.config_file)
         sys.exit(1)
 
     # FDS: This one is not required, particularly if we want to run from

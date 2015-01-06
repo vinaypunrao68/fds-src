@@ -35,32 +35,32 @@ private:
 
 public:  
   StorHvDataPlacement(dp_mode _mode,
-                      OMgrClient *omc);
+                      OMgrClient *omc)
+      : test_ip_addr(0),
+        test_sm_port(0),
+        test_dm_port(0),
+        mode(_mode),
+        parent_omc(omc)
+  { }
+
   StorHvDataPlacement(dp_mode _mode,
                       fds_uint32_t test_ip,
                       fds_uint32_t test_sm,
                       fds_uint32_t test_dm,
-                      OMgrClient *omc);
-  ~StorHvDataPlacement();
+                      OMgrClient *omc)
+      : StorHvDataPlacement(_mode, omc)
+  {
+      test_ip_addr = test_ip;
+      test_sm_port = test_sm;
+      test_dm_port = test_dm;
+  }
+
+  ~StorHvDataPlacement()
+  { }
   
   DltTokenGroupPtr  getDLTNodesForDoidKey(const ObjectID &objId) {
       return parent_omc->getDLTNodesForDoidKey(objId);
   }
-#if 0
-  void  getDLTNodesForDoidKey( ObjectID *objId) {
-    if (mode == DP_NO_OM_MODE) {
-      /*
-       * TODO: Set up some stock response here.
-       * Returns 1 nodes with ID 0. The SM has
-       * stock node id 0.
-       */
-      (*n_nodes) = 1;
-      node_ids[(*n_nodes) - 1] = 0;
-    } else {
-      parent_omc->getDLTNodesForDoidKey(objId);
-    }
-  }
-#endif
 
   DmtColumnPtr getDMTNodesForVolume(fds_volid_t volid) {
       if (mode == DP_NO_OM_MODE) {
@@ -111,12 +111,6 @@ public:
 
     return err;
   }
-  
-  static void nodeEventHandler(int node_id,
-                               unsigned int node_ip_addr,
-                               int node_state,
-                               fds_uint32_t node_port,
-                               FDS_ProtocolInterface::FDSP_MgrIdType node_type);
 };
 
 #endif

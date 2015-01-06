@@ -8,7 +8,7 @@
 #include <vector>
 #include <boost/msm/back/state_machine.hpp>
 #include <fds_volume.h>
-#include <platform/node-inventory.h>
+#include "platform/node_agent.h"
 #include <fdsp/snapshot_types.h>
 namespace fds {
 
@@ -308,18 +308,20 @@ class VolumeContainer : public RsContainer
     }
     template <typename T>
     void vol_foreach(T arg, void (*fn)(T arg, VolumeInfo::pointer elm)) {
+        VolumeInfo::pointer vol;
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
-            if (rs_array[i] != NULL) {
+            vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
+            if (vol != NULL) {
                 (*fn)(arg, vol);
             }
         }
     }
     template <typename T1, typename T2>
     void vol_foreach(T1 a1, T2 a2, void (*fn)(T1, T2, VolumeInfo::pointer elm)) {
+        VolumeInfo::pointer vol;
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
-            if (rs_array[i] != NULL) {
+            vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
+            if (vol != NULL) {
                 (*fn)(a1, a2, vol);
             }
         }
@@ -327,9 +329,10 @@ class VolumeContainer : public RsContainer
     template <typename T1, typename T2, typename T3>
     void vol_foreach(T1 a1, T2 a2, T3 a3,
                      void (*fn)(T1, T2, T3, VolumeInfo::pointer elm)) {
+        VolumeInfo::pointer vol;
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
-            if (rs_array[i] != NULL) {
+            vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
+            if (vol != NULL) {
                 (*fn)(a1, a2, a3, vol);
             }
         }
@@ -337,9 +340,10 @@ class VolumeContainer : public RsContainer
     template <typename T1, typename T2, typename T3, typename T4>
     void vol_foreach(T1 a1, T2 a2, T3 a3, T4 a4,
                      void (*fn)(T1, T2, T3, T4, VolumeInfo::pointer elm)) {
+        VolumeInfo::pointer vol;
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
-            if (rs_array[i] != NULL) {
+            vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
+            if (vol != NULL) {
                 (*fn)(a1, a2, a3, a4, vol);
             }
         }
@@ -350,9 +354,10 @@ class VolumeContainer : public RsContainer
      */
     template <typename T>
     void vol_up_foreach (T arg, void (*fn)(T arg, VolumeInfo::pointer elm)) {
+        VolumeInfo::pointer vol;
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
-            if (rs_array[i] != NULL) {
+            vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
+            if (vol != NULL) {
                 if (!vol->isDeletePending()) {
                     (*fn)(arg, vol);
                 }

@@ -3,315 +3,11 @@ project(dev)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-include_directories(source/include
-                    source/include/util/
-                    source/include/platform/
-                    source/include/shared/
-                    source/include/apis/
-                    source/include/blob/
-                    source/include/cache/
-                    source/include/concurrency/
-                    source/include/fds-probe/
-                    source/include/fdsp/
-                    source/include/hash/
-                    source/include/json/
-                    source/include/kvstore/
-                    source/include/leveldb/
-                    source/include/native/
-                    source/include/net/
-                    source/include/net-proxies/
-                    source/include/orch-mgr/
-                    source/include/persistent_layer/
-                    source/include/platform/
-                    source/include/shared/xdi/
-                    source/stor-mgr/include/
-                    source/stor-mgr/include/object-store/
-                    source/data-mgr/include/
-                    source/data-mgr/include/dm-tvc/
-                    source/data-mgr/include/dm-vol-cat/
-                    source/platform/include/
-                    source/persistent_layer/include/
-                    source/lib/
-                    source/orch-mgr/
-                    source/orch-mgr/include/
-                    source/orch-mgr/include/snapshot/
-                    /usr/local/include/boost/
-                    source/unit-test/stor-mgr/
-                    )
 set(SOURCE_FILES
     cmdconsole/cmdconsole.cpp
     cmdconsole/cmdconsole.h
     cmdconsole/linenoise.c
     cmdconsole/linenoise.h
-    cryptopp/3way.cpp
-    cryptopp/3way.h
-    cryptopp/adhoc.cpp
-    cryptopp/adler32.cpp
-    cryptopp/adler32.h
-    cryptopp/aes.h
-    cryptopp/algebra.cpp
-    cryptopp/algebra.h
-    cryptopp/algparam.cpp
-    cryptopp/algparam.h
-    cryptopp/arc4.cpp
-    cryptopp/arc4.h
-    cryptopp/argnames.h
-    cryptopp/asn.cpp
-    cryptopp/asn.h
-    cryptopp/authenc.cpp
-    cryptopp/authenc.h
-    cryptopp/base32.cpp
-    cryptopp/base32.h
-    cryptopp/base64.cpp
-    cryptopp/base64.h
-    cryptopp/basecode.cpp
-    cryptopp/basecode.h
-    cryptopp/bench.cpp
-    cryptopp/bench.h
-    cryptopp/bench2.cpp
-    cryptopp/bfinit.cpp
-    cryptopp/blowfish.cpp
-    cryptopp/blowfish.h
-    cryptopp/blumshub.cpp
-    cryptopp/blumshub.h
-    cryptopp/camellia.cpp
-    cryptopp/camellia.h
-    cryptopp/cast.cpp
-    cryptopp/cast.h
-    cryptopp/casts.cpp
-    cryptopp/cbcmac.cpp
-    cryptopp/cbcmac.h
-    cryptopp/ccm.cpp
-    cryptopp/ccm.h
-    cryptopp/channels.cpp
-    cryptopp/channels.h
-    cryptopp/cmac.cpp
-    cryptopp/cmac.h
-    cryptopp/config.h
-    cryptopp/cpu.cpp
-    cryptopp/cpu.h
-    cryptopp/crc.cpp
-    cryptopp/crc.h
-    cryptopp/cryptlib.cpp
-    cryptopp/cryptlib.h
-    cryptopp/cryptlib_bds.cpp
-    cryptopp/datatest.cpp
-    cryptopp/default.cpp
-    cryptopp/default.h
-    cryptopp/des.cpp
-    cryptopp/des.h
-    cryptopp/dessp.cpp
-    cryptopp/dh.cpp
-    cryptopp/dh.h
-    cryptopp/dh2.cpp
-    cryptopp/dh2.h
-    cryptopp/dll.cpp
-    cryptopp/dll.h
-    cryptopp/dlltest.cpp
-    cryptopp/dmac.h
-    cryptopp/dsa.cpp
-    cryptopp/dsa.h
-    cryptopp/eax.cpp
-    cryptopp/eax.h
-    cryptopp/ec2n.cpp
-    cryptopp/ec2n.h
-    cryptopp/eccrypto.cpp
-    cryptopp/eccrypto.h
-    cryptopp/ecp.cpp
-    cryptopp/ecp.h
-    cryptopp/elgamal.cpp
-    cryptopp/elgamal.h
-    cryptopp/emsa2.cpp
-    cryptopp/emsa2.h
-    cryptopp/eprecomp.cpp
-    cryptopp/eprecomp.h
-    cryptopp/esign.cpp
-    cryptopp/esign.h
-    cryptopp/factory.h
-    cryptopp/files.cpp
-    cryptopp/files.h
-    cryptopp/filters.cpp
-    cryptopp/filters.h
-    cryptopp/fips140.cpp
-    cryptopp/fips140.h
-    cryptopp/fipsalgt.cpp
-    cryptopp/fipstest.cpp
-    cryptopp/fltrimpl.h
-    cryptopp/gcm.cpp
-    cryptopp/gcm.h
-    cryptopp/gf256.cpp
-    cryptopp/gf256.h
-    cryptopp/gf2_32.cpp
-    cryptopp/gf2_32.h
-    cryptopp/gf2n.cpp
-    cryptopp/gf2n.h
-    cryptopp/gfpcrypt.cpp
-    cryptopp/gfpcrypt.h
-    cryptopp/gost.cpp
-    cryptopp/gost.h
-    cryptopp/gzip.cpp
-    cryptopp/gzip.h
-    cryptopp/hex.cpp
-    cryptopp/hex.h
-    cryptopp/hmac.cpp
-    cryptopp/hmac.h
-    cryptopp/hrtimer.cpp
-    cryptopp/hrtimer.h
-    cryptopp/ida.cpp
-    cryptopp/ida.h
-    cryptopp/idea.cpp
-    cryptopp/idea.h
-    cryptopp/integer.cpp
-    cryptopp/integer.h
-    cryptopp/iterhash.cpp
-    cryptopp/iterhash.h
-    cryptopp/lubyrack.h
-    cryptopp/luc.cpp
-    cryptopp/luc.h
-    cryptopp/mars.cpp
-    cryptopp/mars.h
-    cryptopp/marss.cpp
-    cryptopp/md2.cpp
-    cryptopp/md2.h
-    cryptopp/md4.cpp
-    cryptopp/md4.h
-    cryptopp/md5.cpp
-    cryptopp/md5.h
-    cryptopp/mdc.h
-    cryptopp/misc.cpp
-    cryptopp/misc.h
-    cryptopp/modarith.h
-    cryptopp/modes.cpp
-    cryptopp/modes.h
-    cryptopp/modexppc.h
-    cryptopp/mqueue.cpp
-    cryptopp/mqueue.h
-    cryptopp/mqv.cpp
-    cryptopp/mqv.h
-    cryptopp/nbtheory.cpp
-    cryptopp/nbtheory.h
-    cryptopp/network.cpp
-    cryptopp/network.h
-    cryptopp/nr.h
-    cryptopp/oaep.cpp
-    cryptopp/oaep.h
-    cryptopp/oids.h
-    cryptopp/osrng.cpp
-    cryptopp/osrng.h
-    cryptopp/panama.cpp
-    cryptopp/panama.h
-    cryptopp/pch.cpp
-    cryptopp/pch.h
-    cryptopp/pkcspad.cpp
-    cryptopp/pkcspad.h
-    cryptopp/polynomi.cpp
-    cryptopp/polynomi.h
-    cryptopp/pssr.cpp
-    cryptopp/pssr.h
-    cryptopp/pubkey.cpp
-    cryptopp/pubkey.h
-    cryptopp/pwdbased.h
-    cryptopp/queue.cpp
-    cryptopp/queue.h
-    cryptopp/rabin.cpp
-    cryptopp/rabin.h
-    cryptopp/randpool.cpp
-    cryptopp/randpool.h
-    cryptopp/rc2.cpp
-    cryptopp/rc2.h
-    cryptopp/rc5.cpp
-    cryptopp/rc5.h
-    cryptopp/rc6.cpp
-    cryptopp/rc6.h
-    cryptopp/rdtables.cpp
-    cryptopp/regtest.cpp
-    cryptopp/resource.h
-    cryptopp/rijndael.cpp
-    cryptopp/rijndael.h
-    cryptopp/ripemd.cpp
-    cryptopp/ripemd.h
-    cryptopp/rng.cpp
-    cryptopp/rng.h
-    cryptopp/rsa.cpp
-    cryptopp/rsa.h
-    cryptopp/rw.cpp
-    cryptopp/rw.h
-    cryptopp/safer.cpp
-    cryptopp/safer.h
-    cryptopp/salsa.cpp
-    cryptopp/salsa.h
-    cryptopp/seal.cpp
-    cryptopp/seal.h
-    cryptopp/secblock.h
-    cryptopp/seckey.h
-    cryptopp/seed.cpp
-    cryptopp/seed.h
-    cryptopp/serpent.cpp
-    cryptopp/serpent.h
-    cryptopp/serpentp.h
-    cryptopp/sha.cpp
-    cryptopp/sha.h
-    cryptopp/sha3.cpp
-    cryptopp/sha3.h
-    cryptopp/shacal2.cpp
-    cryptopp/shacal2.h
-    cryptopp/shark.cpp
-    cryptopp/shark.h
-    cryptopp/sharkbox.cpp
-    cryptopp/simple.cpp
-    cryptopp/simple.h
-    cryptopp/skipjack.cpp
-    cryptopp/skipjack.h
-    cryptopp/smartptr.h
-    cryptopp/socketft.cpp
-    cryptopp/socketft.h
-    cryptopp/sosemanuk.cpp
-    cryptopp/sosemanuk.h
-    cryptopp/square.cpp
-    cryptopp/square.h
-    cryptopp/squaretb.cpp
-    cryptopp/stdcpp.h
-    cryptopp/strciphr.cpp
-    cryptopp/strciphr.h
-    cryptopp/tea.cpp
-    cryptopp/tea.h
-    cryptopp/test.cpp
-    cryptopp/tftables.cpp
-    cryptopp/tiger.cpp
-    cryptopp/tiger.h
-    cryptopp/tigertab.cpp
-    cryptopp/trdlocal.cpp
-    cryptopp/trdlocal.h
-    cryptopp/trunhash.h
-    cryptopp/ttmac.cpp
-    cryptopp/ttmac.h
-    cryptopp/twofish.cpp
-    cryptopp/twofish.h
-    cryptopp/validat1.cpp
-    cryptopp/validat2.cpp
-    cryptopp/validat3.cpp
-    cryptopp/validate.h
-    cryptopp/vmac.cpp
-    cryptopp/vmac.h
-    cryptopp/wait.cpp
-    cryptopp/wait.h
-    cryptopp/wake.cpp
-    cryptopp/wake.h
-    cryptopp/whrlpool.cpp
-    cryptopp/whrlpool.h
-    cryptopp/winpipes.cpp
-    cryptopp/winpipes.h
-    cryptopp/words.h
-    cryptopp/xtr.cpp
-    cryptopp/xtr.h
-    cryptopp/xtrcrypt.cpp
-    cryptopp/xtrcrypt.h
-    cryptopp/zdeflate.cpp
-    cryptopp/zdeflate.h
-    cryptopp/zinflate.cpp
-    cryptopp/zinflate.h
-    cryptopp/zlib.cpp
-    cryptopp/zlib.h
     examples/libconfig/main.cc
     examples/thrift/anna-tests/am_example.cpp
     examples/thrift/anna-tests/sm_example.cpp
@@ -478,28 +174,6 @@ set(SOURCE_FILES
     gmock-1.7.0/test/gmock_output_test_.cc
     gmock-1.7.0/test/gmock_stress_test.cc
     gmock-1.7.0/test/gmock_test.cc
-    hiredis/adapters/ae.h
-    hiredis/adapters/libev.h
-    hiredis/adapters/libevent.h
-    hiredis/adapters/libuv.h
-    hiredis/examples/async_example.cpp
-    hiredis/examples/example-ae.c
-    hiredis/examples/example-libev.c
-    hiredis/examples/example-libevent.c
-    hiredis/examples/example-libuv.c
-    hiredis/examples/example.c
-    hiredis/async.c
-    hiredis/async.h
-    hiredis/dict.c
-    hiredis/dict.h
-    hiredis/fmacros.h
-    hiredis/hiredis.c
-    hiredis/hiredis.h
-    hiredis/net.c
-    hiredis/net.h
-    hiredis/sds.c
-    hiredis/sds.h
-    hiredis/test.c
     jansson-2.5/doc/github_commits.c
     jansson-2.5/src/dump.c
     jansson-2.5/src/error.c
@@ -534,155 +208,126 @@ set(SOURCE_FILES
     jansson-2.5/test/suites/api/test_unpack.c
     jansson-2.5/test/suites/api/util.h
     jansson-2.5/config.h
-    leveldb-1.12.0/db/builder.cc
-    leveldb-1.12.0/db/builder.h
-    leveldb-1.12.0/db/c.cc
-    leveldb-1.12.0/db/c_test.c
-    leveldb-1.12.0/db/corruption_test.cc
-    leveldb-1.12.0/db/db_bench.cc
-    leveldb-1.12.0/db/db_impl.cc
-    leveldb-1.12.0/db/db_impl.h
-    leveldb-1.12.0/db/db_iter.cc
-    leveldb-1.12.0/db/db_iter.h
-    leveldb-1.12.0/db/db_test.cc
-    leveldb-1.12.0/db/dbformat.cc
-    leveldb-1.12.0/db/dbformat.h
-    leveldb-1.12.0/db/dbformat_test.cc
-    leveldb-1.12.0/db/filename.cc
-    leveldb-1.12.0/db/filename.h
-    leveldb-1.12.0/db/filename_test.cc
-    leveldb-1.12.0/db/leveldb_main.cc
-    leveldb-1.12.0/db/log_format.h
-    leveldb-1.12.0/db/log_reader.cc
-    leveldb-1.12.0/db/log_reader.h
-    leveldb-1.12.0/db/log_test.cc
-    leveldb-1.12.0/db/log_writer.cc
-    leveldb-1.12.0/db/log_writer.h
-    leveldb-1.12.0/db/memtable.cc
-    leveldb-1.12.0/db/memtable.h
-    leveldb-1.12.0/db/repair.cc
-    leveldb-1.12.0/db/skiplist.h
-    leveldb-1.12.0/db/skiplist_test.cc
-    leveldb-1.12.0/db/snapshot.h
-    leveldb-1.12.0/db/table_cache.cc
-    leveldb-1.12.0/db/table_cache.h
-    leveldb-1.12.0/db/version_edit.cc
-    leveldb-1.12.0/db/version_edit.h
-    leveldb-1.12.0/db/version_edit_test.cc
-    leveldb-1.12.0/db/version_set.cc
-    leveldb-1.12.0/db/version_set.h
-    leveldb-1.12.0/db/version_set_test.cc
-    leveldb-1.12.0/db/write_batch.cc
-    leveldb-1.12.0/db/write_batch_internal.h
-    leveldb-1.12.0/db/write_batch_test.cc
-    leveldb-1.12.0/doc/bench/db_bench_sqlite3.cc
-    leveldb-1.12.0/doc/bench/db_bench_tree_db.cc
-    leveldb-1.12.0/helpers/memenv/memenv.cc
-    leveldb-1.12.0/helpers/memenv/memenv.h
-    leveldb-1.12.0/helpers/memenv/memenv_test.cc
-    leveldb-1.12.0/include/leveldb/c.h
-    leveldb-1.12.0/include/leveldb/cache.h
-    leveldb-1.12.0/include/leveldb/comparator.h
-    leveldb-1.12.0/include/leveldb/db.h
-    leveldb-1.12.0/include/leveldb/env.h
-    leveldb-1.12.0/include/leveldb/filter_policy.h
-    leveldb-1.12.0/include/leveldb/iterator.h
-    leveldb-1.12.0/include/leveldb/options.h
-    leveldb-1.12.0/include/leveldb/slice.h
-    leveldb-1.12.0/include/leveldb/status.h
-    leveldb-1.12.0/include/leveldb/table.h
-    leveldb-1.12.0/include/leveldb/table_builder.h
-    leveldb-1.12.0/include/leveldb/write_batch.h
-    leveldb-1.12.0/issues/issue178_test.cc
-    leveldb-1.12.0/port/win/stdint.h
-    leveldb-1.12.0/port/atomic_pointer.h
-    leveldb-1.12.0/port/port.h
-    leveldb-1.12.0/port/port_example.h
-    leveldb-1.12.0/port/port_posix.cc
-    leveldb-1.12.0/port/port_posix.h
-    leveldb-1.12.0/port/thread_annotations.h
-    leveldb-1.12.0/table/block.cc
-    leveldb-1.12.0/table/block.h
-    leveldb-1.12.0/table/block_builder.cc
-    leveldb-1.12.0/table/block_builder.h
-    leveldb-1.12.0/table/filter_block.cc
-    leveldb-1.12.0/table/filter_block.h
-    leveldb-1.12.0/table/filter_block_test.cc
-    leveldb-1.12.0/table/format.cc
-    leveldb-1.12.0/table/format.h
-    leveldb-1.12.0/table/iterator.cc
-    leveldb-1.12.0/table/iterator_wrapper.h
-    leveldb-1.12.0/table/merger.cc
-    leveldb-1.12.0/table/merger.h
-    leveldb-1.12.0/table/table.cc
-    leveldb-1.12.0/table/table_builder.cc
-    leveldb-1.12.0/table/table_test.cc
-    leveldb-1.12.0/table/two_level_iterator.cc
-    leveldb-1.12.0/table/two_level_iterator.h
-    leveldb-1.12.0/util/arena.cc
-    leveldb-1.12.0/util/arena.h
-    leveldb-1.12.0/util/arena_test.cc
-    leveldb-1.12.0/util/bloom.cc
-    leveldb-1.12.0/util/bloom_test.cc
-    leveldb-1.12.0/util/cache.cc
-    leveldb-1.12.0/util/cache_test.cc
-    leveldb-1.12.0/util/coding.cc
-    leveldb-1.12.0/util/coding.h
-    leveldb-1.12.0/util/coding_test.cc
-    leveldb-1.12.0/util/comparator.cc
-    leveldb-1.12.0/util/crc32c.cc
-    leveldb-1.12.0/util/crc32c.h
-    leveldb-1.12.0/util/crc32c_test.cc
-    leveldb-1.12.0/util/env.cc
-    leveldb-1.12.0/util/env_posix.cc
-    leveldb-1.12.0/util/env_test.cc
-    leveldb-1.12.0/util/filter_policy.cc
-    leveldb-1.12.0/util/hash.cc
-    leveldb-1.12.0/util/hash.h
-    leveldb-1.12.0/util/histogram.cc
-    leveldb-1.12.0/util/histogram.h
-    leveldb-1.12.0/util/logging.cc
-    leveldb-1.12.0/util/logging.h
-    leveldb-1.12.0/util/mutexlock.h
-    leveldb-1.12.0/util/options.cc
-    leveldb-1.12.0/util/posix_logger.h
-    leveldb-1.12.0/util/random.h
-    leveldb-1.12.0/util/status.cc
-    leveldb-1.12.0/util/testharness.cc
-    leveldb-1.12.0/util/testharness.h
-    leveldb-1.12.0/util/testutil.cc
-    leveldb-1.12.0/util/testutil.h
-    libconfig-1.4.9/contrib/cmake/CMakeFiles/CompilerIdCXX/CMakeCXXCompilerId.cpp
-    libconfig-1.4.9/contrib/cmake/src/main.cpp
-    libconfig-1.4.9/contrib/libconfig-ruby/ext/rconfig.c
-    libconfig-1.4.9/contrib/copy_setting.c
-    libconfig-1.4.9/examples/c/example1.c
-    libconfig-1.4.9/examples/c/example2.c
-    libconfig-1.4.9/examples/c/example3.c
-    libconfig-1.4.9/examples/c++/example1.cpp
-    libconfig-1.4.9/examples/c++/example2.cpp
-    libconfig-1.4.9/examples/c++/example3.cpp
-    libconfig-1.4.9/examples/c++/example4.cpp
-    libconfig-1.4.9/lib/grammar.c
-    libconfig-1.4.9/lib/grammar.h
-    libconfig-1.4.9/lib/libconfig.c
-    libconfig-1.4.9/lib/libconfig.h
-    libconfig-1.4.9/lib/libconfig.h++
-    libconfig-1.4.9/lib/libconfig.hh
-    libconfig-1.4.9/lib/libconfigcpp.c++
-    libconfig-1.4.9/lib/libconfigcpp.cc
-    libconfig-1.4.9/lib/parsectx.h
-    libconfig-1.4.9/lib/scanctx.c
-    libconfig-1.4.9/lib/scanctx.h
-    libconfig-1.4.9/lib/scanner.c
-    libconfig-1.4.9/lib/scanner.h
-    libconfig-1.4.9/lib/strbuf.c
-    libconfig-1.4.9/lib/strbuf.h
-    libconfig-1.4.9/lib/wincompat.h
-    libconfig-1.4.9/tests/tests.c
-    libconfig-1.4.9/tinytest/tinytest.c
-    libconfig-1.4.9/tinytest/tinytest.h
-    libconfig-1.4.9/ac_config.h
+    leveldb-1.15.0/db/autocompact_test.cc
+    leveldb-1.15.0/db/builder.cc
+    leveldb-1.15.0/db/builder.h
+    leveldb-1.15.0/db/c.cc
+    leveldb-1.15.0/db/c_test.c
+    leveldb-1.15.0/db/corruption_test.cc
+    leveldb-1.15.0/db/db_bench.cc
+    leveldb-1.15.0/db/db_impl.cc
+    leveldb-1.15.0/db/db_impl.h
+    leveldb-1.15.0/db/db_iter.cc
+    leveldb-1.15.0/db/db_iter.h
+    leveldb-1.15.0/db/db_test.cc
+    leveldb-1.15.0/db/dbformat.cc
+    leveldb-1.15.0/db/dbformat.h
+    leveldb-1.15.0/db/dbformat_test.cc
+    leveldb-1.15.0/db/filename.cc
+    leveldb-1.15.0/db/filename.h
+    leveldb-1.15.0/db/filename_test.cc
+    leveldb-1.15.0/db/leveldb_main.cc
+    leveldb-1.15.0/db/log_format.h
+    leveldb-1.15.0/db/log_reader.cc
+    leveldb-1.15.0/db/log_reader.h
+    leveldb-1.15.0/db/log_test.cc
+    leveldb-1.15.0/db/log_writer.cc
+    leveldb-1.15.0/db/log_writer.h
+    leveldb-1.15.0/db/memtable.cc
+    leveldb-1.15.0/db/memtable.h
+    leveldb-1.15.0/db/repair.cc
+    leveldb-1.15.0/db/skiplist.h
+    leveldb-1.15.0/db/skiplist_test.cc
+    leveldb-1.15.0/db/snapshot.h
+    leveldb-1.15.0/db/table_cache.cc
+    leveldb-1.15.0/db/table_cache.h
+    leveldb-1.15.0/db/version_edit.cc
+    leveldb-1.15.0/db/version_edit.h
+    leveldb-1.15.0/db/version_edit_test.cc
+    leveldb-1.15.0/db/version_set.cc
+    leveldb-1.15.0/db/version_set.h
+    leveldb-1.15.0/db/version_set_test.cc
+    leveldb-1.15.0/db/write_batch.cc
+    leveldb-1.15.0/db/write_batch_internal.h
+    leveldb-1.15.0/db/write_batch_test.cc
+    leveldb-1.15.0/doc/bench/db_bench_sqlite3.cc
+    leveldb-1.15.0/doc/bench/db_bench_tree_db.cc
+    leveldb-1.15.0/helpers/memenv/memenv.cc
+    leveldb-1.15.0/helpers/memenv/memenv.h
+    leveldb-1.15.0/helpers/memenv/memenv_test.cc
+    leveldb-1.15.0/include/leveldb/c.h
+    leveldb-1.15.0/include/leveldb/cache.h
+    leveldb-1.15.0/include/leveldb/comparator.h
+    leveldb-1.15.0/include/leveldb/db.h
+    leveldb-1.15.0/include/leveldb/env.h
+    leveldb-1.15.0/include/leveldb/filter_policy.h
+    leveldb-1.15.0/include/leveldb/iterator.h
+    leveldb-1.15.0/include/leveldb/options.h
+    leveldb-1.15.0/include/leveldb/slice.h
+    leveldb-1.15.0/include/leveldb/status.h
+    leveldb-1.15.0/include/leveldb/table.h
+    leveldb-1.15.0/include/leveldb/table_builder.h
+    leveldb-1.15.0/include/leveldb/write_batch.h
+    leveldb-1.15.0/issues/issue178_test.cc
+    leveldb-1.15.0/issues/issue200_test.cc
+    leveldb-1.15.0/port/win/stdint.h
+    leveldb-1.15.0/port/atomic_pointer.h
+    leveldb-1.15.0/port/port.h
+    leveldb-1.15.0/port/port_example.h
+    leveldb-1.15.0/port/port_posix.cc
+    leveldb-1.15.0/port/port_posix.h
+    leveldb-1.15.0/port/thread_annotations.h
+    leveldb-1.15.0/table/block.cc
+    leveldb-1.15.0/table/block.h
+    leveldb-1.15.0/table/block_builder.cc
+    leveldb-1.15.0/table/block_builder.h
+    leveldb-1.15.0/table/filter_block.cc
+    leveldb-1.15.0/table/filter_block.h
+    leveldb-1.15.0/table/filter_block_test.cc
+    leveldb-1.15.0/table/format.cc
+    leveldb-1.15.0/table/format.h
+    leveldb-1.15.0/table/iterator.cc
+    leveldb-1.15.0/table/iterator_wrapper.h
+    leveldb-1.15.0/table/merger.cc
+    leveldb-1.15.0/table/merger.h
+    leveldb-1.15.0/table/table.cc
+    leveldb-1.15.0/table/table_builder.cc
+    leveldb-1.15.0/table/table_test.cc
+    leveldb-1.15.0/table/two_level_iterator.cc
+    leveldb-1.15.0/table/two_level_iterator.h
+    leveldb-1.15.0/util/arena.cc
+    leveldb-1.15.0/util/arena.h
+    leveldb-1.15.0/util/arena_test.cc
+    leveldb-1.15.0/util/bloom.cc
+    leveldb-1.15.0/util/bloom_test.cc
+    leveldb-1.15.0/util/cache.cc
+    leveldb-1.15.0/util/cache_test.cc
+    leveldb-1.15.0/util/coding.cc
+    leveldb-1.15.0/util/coding.h
+    leveldb-1.15.0/util/coding_test.cc
+    leveldb-1.15.0/util/comparator.cc
+    leveldb-1.15.0/util/crc32c.cc
+    leveldb-1.15.0/util/crc32c.h
+    leveldb-1.15.0/util/crc32c_test.cc
+    leveldb-1.15.0/util/env.cc
+    leveldb-1.15.0/util/env_posix.cc
+    leveldb-1.15.0/util/env_test.cc
+    leveldb-1.15.0/util/filter_policy.cc
+    leveldb-1.15.0/util/hash.cc
+    leveldb-1.15.0/util/hash.h
+    leveldb-1.15.0/util/histogram.cc
+    leveldb-1.15.0/util/histogram.h
+    leveldb-1.15.0/util/logging.cc
+    leveldb-1.15.0/util/logging.h
+    leveldb-1.15.0/util/mutexlock.h
+    leveldb-1.15.0/util/options.cc
+    leveldb-1.15.0/util/posix_logger.h
+    leveldb-1.15.0/util/random.h
+    leveldb-1.15.0/util/status.cc
+    leveldb-1.15.0/util/testharness.cc
+    leveldb-1.15.0/util/testharness.h
+    leveldb-1.15.0/util/testutil.cc
+    leveldb-1.15.0/util/testutil.h
     nginx/auto/lib/zlib/patch.zlib.h
     nginx/objs/ngx_auto_config.h
     nginx/objs/ngx_auto_headers.h
@@ -944,44 +589,91 @@ set(SOURCE_FILES
     nginx/src/os/unix/ngx_user.c
     nginx/src/os/unix/ngx_user.h
     nginx/src/os/unix/ngx_writev_chain.c
-    source/am-app/include/AMSvcHandler.h
-    source/am-app/platform/am-platform.cpp
-    source/am-app/platform/AMSvcHandler.cpp
-    source/am-app/am-main.cpp
-    source/am-app/AmBindings.cpp
-    source/am-app/com_formationds_am_NativeAm.h
-    source/am-app/ngx_modules.c
-    source/am-engine/amlib/am-tx-mgr.cpp
-    source/am-engine/amlib/AmCache.cpp
-    source/am-engine/handlers/handlermappings.cpp
-    source/am-engine/handlers/responsehandler.cpp
-    source/am-engine/include/am-tx-mgr.h
-    source/am-engine/include/AmCache.h
-    source/am-engine/misc/am-engine.cpp
-    source/am-engine/misc/am-plugin.cpp
-    source/am-engine/misc/am-probe.cpp
+    source/access-mgr/amlib/handlers/responsehandler.cpp
+    source/access-mgr/amlib/AccessMgr.cpp
+    source/access-mgr/amlib/am-tx-mgr.cpp
+    source/access-mgr/amlib/AmAsyncDataApi.cpp
+    source/access-mgr/amlib/AmAsyncResponseApi.cpp
+    source/access-mgr/amlib/AmAsyncService.cpp
+    source/access-mgr/amlib/AmCache.cpp
+    source/access-mgr/amlib/AmDataApi.cpp
+    source/access-mgr/amlib/AmDispatcher.cpp
+    source/access-mgr/amlib/AmProcessor.cpp
+    source/access-mgr/amlib/fdsn-server.cpp
+    source/access-mgr/amlib/requests.cpp
+    source/access-mgr/block/am-nbd.cpp
+    source/access-mgr/block/nbd-test-mod.cpp
+    source/access-mgr/block/nbd-test-mod.h
+    source/access-mgr/include/requests/AbortBlobTxReq.h
+    source/access-mgr/include/requests/AttachVolBlobReq.h
+    source/access-mgr/include/requests/CommitBlobTxReq.h
+    source/access-mgr/include/requests/DeleteBlobReq.h
+    source/access-mgr/include/requests/GetBlobReq.h
+    source/access-mgr/include/requests/GetVolumeMetaDataReq.h
+    source/access-mgr/include/requests/PutBlobReq.h
+    source/access-mgr/include/requests/requests.h
+    source/access-mgr/include/requests/SetBlobMetaDataReq.h
+    source/access-mgr/include/requests/StartBlobTxReq.h
+    source/access-mgr/include/requests/StatBlobReq.h
+    source/access-mgr/include/requests/VolumeContentsReq.h
+    source/access-mgr/include/AccessMgr.h
+    source/access-mgr/include/am-nbd.h
+    source/access-mgr/include/am-node-workflow.h
+    source/access-mgr/include/am-platform.h
+    source/access-mgr/include/am-tx-mgr.h
+    source/access-mgr/include/AmAsyncDataApi.h
+    source/access-mgr/include/AmAsyncResponseApi.h
+    source/access-mgr/include/AmAsyncService.h
+    source/access-mgr/include/AmCache.h
+    source/access-mgr/include/AmDataApi.h
+    source/access-mgr/include/AmDispatcher.h
+    source/access-mgr/include/AmProcessor.h
+    source/access-mgr/include/AmReqHandlers.h
+    source/access-mgr/include/AmRequest.h
+    source/access-mgr/include/AMSvcHandler.h
+    source/access-mgr/include/fdsn-server.h
+    source/access-mgr/include/responsehandler.h
+    source/access-mgr/include/StorHvVolumes.h
+    source/access-mgr/platform/am-node-workflow.cpp
+    source/access-mgr/platform/am-platform.cpp
+    source/access-mgr/platform/AMSvcHandler.cpp
+    source/access-mgr/stor-hvisor/hvcore/qos_ctrl.cpp
+    source/access-mgr/stor-hvisor/hvcore/StorHvQosCtrl.cpp
+    source/access-mgr/stor-hvisor/hvcore/StorHvVolumes.cpp
+    source/access-mgr/stor-hvisor/StorHvDataPlace.h
+    source/access-mgr/stor-hvisor/StorHvQosCtrl.h
+    source/access-mgr/test/AmFunctionalTest.cpp
+    source/access-mgr/am-main.cpp
+    source/access-mgr/AmBindings.cpp
+    source/access-mgr/com_formationds_am_NativeAm.h
     source/am-engine/misc/am-urls.cpp
-    source/am-engine/misc/atmos-connector.cpp
-    source/am-engine/misc/fdsn-server.cpp
-    source/am-engine/misc/http_utils.cpp
-    source/am-engine/misc/s3connector.cpp
-    source/am-engine/am-plugin.h
     source/am-engine/am-urls.cpp
+    source/apis/apis.thrift
+    source/apis/Makefile
+    source/apis/ycm.flags
     source/checker/checker.cpp
     source/checker/checker.h
     source/checker/dm_checker.cpp
     source/checker/dm_checker.h
     source/checker/smchk.cpp
     source/checker/smchk.h
+    source/checker/smchk_driver.cpp
+    source/checker/smchk_driver.h
     source/data-mgr/dm-lib/dm-tvc/CommitLog.cpp
     source/data-mgr/dm-lib/dm-tvc/TimeVolumeCatalog.cpp
     source/data-mgr/dm-lib/dm-vol-cat/DmExtentTypes.cpp
+    source/data-mgr/dm-lib/dm-vol-cat/DmOIDArrayMmap.cpp
     source/data-mgr/dm-lib/dm-vol-cat/DmPersistVc.cpp
+    source/data-mgr/dm-lib/dm-vol-cat/DmPersistVolDB.cpp
+    source/data-mgr/dm-lib/dm-vol-cat/DmPersistVolDir.cpp
+    source/data-mgr/dm-lib/dm-vol-cat/DmPersistVolFile.cpp
     source/data-mgr/dm-lib/dm-vol-cat/DmVcCache.cpp
     source/data-mgr/dm-lib/dm-vol-cat/DmVolumeCatalog.cpp
+    source/data-mgr/dm-lib/dm-vol-cat/DmVolumeDirectory.cpp
     source/data-mgr/dm-lib/handlers/deleteblobhandler.cpp
     source/data-mgr/dm-lib/handlers/dmhandler.cpp
     source/data-mgr/dm-lib/handlers/getbuckethandler.cpp
+    source/data-mgr/dm-lib/handlers/getdmstatshandler.cpp
     source/data-mgr/dm-lib/CatalogSync.cpp
     source/data-mgr/dm-lib/CatalogSyncRecv.cpp
     source/data-mgr/dm-lib/DataMgr.cpp
@@ -993,12 +685,18 @@ set(SOURCE_FILES
     source/data-mgr/include/dm-tvc/CommitLog.h
     source/data-mgr/include/dm-tvc/TimeVolumeCatalog.h
     source/data-mgr/include/dm-vol-cat/DmExtentTypes.h
+    source/data-mgr/include/dm-vol-cat/DmOIDArrayMmap.h
     source/data-mgr/include/dm-vol-cat/DmPersistVc.h
+    source/data-mgr/include/dm-vol-cat/DmPersistVolDB.h
+    source/data-mgr/include/dm-vol-cat/DmPersistVolDir.h
+    source/data-mgr/include/dm-vol-cat/DmPersistVolFile.h
     source/data-mgr/include/dm-vol-cat/DmVcCache.h
     source/data-mgr/include/dm-vol-cat/DmVolumeCatalog.h
+    source/data-mgr/include/dm-vol-cat/DmVolumeDirectory.h
     source/data-mgr/include/CatalogSync.h
     source/data-mgr/include/CatalogSyncRecv.h
     source/data-mgr/include/DataMgr.h
+    source/data-mgr/include/dm-node-workflow.h
     source/data-mgr/include/dm-platform.h
     source/data-mgr/include/DmBlobTypes.h
     source/data-mgr/include/dmhandler.h
@@ -1007,68 +705,11 @@ set(SOURCE_FILES
     source/data-mgr/include/StatStreamAggregator.h
     source/data-mgr/include/VcQueryIface.h
     source/data-mgr/include/VolumeMeta.h
+    source/data-mgr/platform/dm-node-workflow.cpp
     source/data-mgr/platform/dm-platform.cpp
     source/data-mgr/dm-main.cpp
-    source/fds-probe/adapters/pm-probe.cpp
-    source/fds-probe/adapters/sm-probe.cpp
-    source/fds-probe/block/cuse_probe.cpp
-    source/fds-probe/common/fds-probe.cpp
-    source/fds-probe/common/js-object.cpp
-    source/fds-probe/common/utest-types.cpp
-    source/fds-probe/dataset/js-parse.cpp
-    source/fds-probe/include/pm_probe.h
-    source/fds-probe/include/sm_probe.h
-    source/fds-probe/include/utest-types.h
-    source/fds-probe/s3/s3-probe.cpp
-    source/fds_client/blk_dev/tool/fbd.h
-    source/fds_client/blk_dev/tool/fds-cfg.c
-    source/fds_client/blk_dev/blktap.h
-    source/fds_client/blk_dev/control.c
-    source/fds_client/blk_dev/dev_ctrl.c
-    source/fds_client/blk_dev/fbd.h
     source/fds_client/blk_dev/fbd.mod.c
-    source/fds_client/blk_dev/fbd_init.c
-    source/fds_client/blk_dev/fds.h
-    source/fds_client/blk_dev/linux-blktap.h
-    source/fds_client/blk_dev/request.c
-    source/fds_client/blk_dev/ring.c
-    source/fds_client/include/arch-x86/xen-x86_32.h
-    source/fds_client/include/arch-x86/xen-x86_64.h
-    source/fds_client/include/arch-x86/xen.h
-    source/fds_client/include/blkif.h
-    source/fds_client/include/blktap2.h
-    source/fds_client/include/blktaplib.h
-    source/fds_client/include/grant_table.h
-    source/fds_client/include/hvisor_lib.h
-    source/fds_client/include/list.h
-    source/fds_client/include/ring.h
-    source/fds_client/include/stdio.h
-    source/fds_client/include/tapdisk-ring.h
-    source/fds_client/include/tapdisk-vbd.h
-    source/fds_client/include/tapdisk.h
-    source/fds_client/include/ubd.h
-    source/fds_client/include/xen-compat.h
-    source/fds_client/include/xen.h
-    source/fds_client/lib/fbd.h
-    source/fds_client/lib/fbd_hash.c
-    source/fds_client/lib/fbd_hash.h
-    source/fds_client/lib/fds.h
-    source/fds_client/lib/hvisor_lib.c
-    source/fds_client/lib/hvisor_lib_rx.c
-    source/fds_client/lib/hvisor_tbl.c
-    source/fds_client/unit-test/ubd_test.c
-    source/fds_client/ubd.c
-    source/fds_examples/fds_net_example_client.cpp
-    source/fds_examples/fds_net_example_server.cpp
-    source/fds_examples/state_machine_example.cpp
-    source/include/am-engine/handlers/handlermappings.h
-    source/include/am-engine/handlers/responsehandler.h
-    source/include/am-engine/am-engine.h
-    source/include/am-engine/am-probe.h
-    source/include/am-engine/atmos-connector.h
-    source/include/am-engine/fdsn-server.h
-    source/include/am-engine/http_utils.h
-    source/include/am-engine/s3connector.h
+    source/include/access-mgr/am-block.h
     source/include/apis/AmService.cpp
     source/include/apis/AmService.h
     source/include/apis/AmService_server.skeleton.cpp
@@ -1076,6 +717,12 @@ set(SOURCE_FILES
     source/include/apis/apis_constants.h
     source/include/apis/apis_types.cpp
     source/include/apis/apis_types.h
+    source/include/apis/AsyncAmServiceRequest.cpp
+    source/include/apis/AsyncAmServiceRequest.h
+    source/include/apis/AsyncAmServiceRequest_server.skeleton.cpp
+    source/include/apis/AsyncAmServiceResponse.cpp
+    source/include/apis/AsyncAmServiceResponse.h
+    source/include/apis/AsyncAmServiceResponse_server.skeleton.cpp
     source/include/apis/common_constants.cpp
     source/include/apis/common_constants.h
     source/include/apis/common_types.cpp
@@ -1098,6 +745,7 @@ set(SOURCE_FILES
     source/include/cache/KvCache.h
     source/include/cache/SharedKvCache.h
     source/include/cache/VolumeKvCache.h
+    source/include/cache/VolumeSharedKvCache.h
     source/include/concurrency/eventtracker.h
     source/include/concurrency/fds_actor.h
     source/include/concurrency/fds_actor_request.h
@@ -1110,10 +758,6 @@ set(SOURCE_FILES
     source/include/concurrency/taskstatus.h
     source/include/concurrency/Thread.h
     source/include/concurrency/ThreadPool.h
-    source/include/fds-probe/fds_err_inj.h
-    source/include/fds-probe/fds_probe.h
-    source/include/fds-probe/js-object.h
-    source/include/fds-probe/s3-probe.h
     source/include/fdsp/AMSvc.cpp
     source/include/fdsp/AMSvc.h
     source/include/fdsp/AMSvc_server.skeleton.cpp
@@ -1236,17 +880,22 @@ set(SOURCE_FILES
     source/include/net/SvcRequestTracker.h
     source/include/net-proxies/iomsg.h
     source/include/net-proxies/vol_policy.h
+    source/include/nginx-driver/atmos-connector.h
+    source/include/nginx-driver/http_utils.h
+    source/include/nginx-driver/s3connector.h
     source/include/orch-mgr/om-service.h
-    source/include/persistent_layer/dm_io.h
-    source/include/persistent_layer/dm_metadata.h
-    source/include/persistent_layer/dm_service.h
-    source/include/persistent_layer/pm_unit_test.h
-    source/include/platform/disk-inventory.h
+    source/include/persistent-layer/dm_io.h
+    source/include/persistent-layer/dm_metadata.h
+    source/include/persistent-layer/dm_service.h
+    source/include/persistent-layer/persistentdata.h
+    source/include/persistent-layer/pm_unit_test.h
+    source/include/persistent-layer/tokFileMgr.h
+    source/include/platform/fds-2phase.h
     source/include/platform/fds-osdep.h
     source/include/platform/fds-shm-queue.h
     source/include/platform/fds-shmem.h
     source/include/platform/fds-shmtx.h
-    source/include/platform/fds_flags.h
+    source/include/platform/flags_map.h
     source/include/platform/net-plat-shared.h
     source/include/platform/node-inv-shmem.h
     source/include/platform/node-inventory.h
@@ -1258,16 +907,19 @@ set(SOURCE_FILES
     source/include/shared/bitutil.h
     source/include/shared/dlist.h
     source/include/shared/fds-constants.h
-    source/include/shared/fds-magic.h
     source/include/shared/fds_types.h
+    source/include/util/color.h
     source/include/util/counter.h
     source/include/util/fds_stat.h
+    source/include/util/fiu_util.h
     source/include/util/hash-util.h
     source/include/util/Log.h
     source/include/util/math-util.h
+    source/include/util/stats.h
     source/include/util/stringutils.h
     source/include/util/timeutils.h
     source/include/util/TraceBuffer.h
+    source/include/util/type.h
     source/include/xdi/am_shim_constants.cpp
     source/include/xdi/am_shim_constants.h
     source/include/xdi/am_shim_types.cpp
@@ -1280,6 +932,7 @@ set(SOURCE_FILES
     source/include/data_mgr.h
     source/include/debughelpers.h
     source/include/dlt.h
+    source/include/fds-aio.h
     source/include/fds-fsm.h
     source/include/fds-shmobj.h
     source/include/fds_assert.h
@@ -1327,7 +980,6 @@ set(SOURCE_FILES
     source/include/state_machine.hpp
     source/include/StatTypes.h
     source/include/Tracebuffer.h
-    source/include/TransJournal.h
     source/java/admin-webapp/node_modules/bower/node_modules/bower-registry-client/node_modules/request/node_modules/node-uuid/benchmark/benchmark-native.c
     source/java/admin-webapp/node_modules/bower/node_modules/insight/node_modules/configstore/node_modules/uuid/benchmark/benchmark-native.c
     source/java/admin-webapp/node_modules/bower/node_modules/request/node_modules/node-uuid/benchmark/benchmark-native.c
@@ -1383,7 +1035,6 @@ set(SOURCE_FILES
     source/lib/misc/fds_counters.cpp
     source/lib/misc/fds_error.cpp
     source/lib/misc/fds_obj_cache.cpp
-    source/lib/misc/fds_process.cpp
     source/lib/misc/fds_timer.cpp
     source/lib/misc/fds_types.cpp
     source/lib/misc/fds_volume.cpp
@@ -1395,13 +1046,11 @@ set(SOURCE_FILES
     source/lib/misc/ObjectLogger.cpp
     source/lib/misc/OMgrClient.cpp
     source/lib/misc/PerfHistory.cpp
-    source/lib/misc/PerfTrace.cpp
     source/lib/misc/qos_htb.cpp
     source/lib/misc/qos_min_prio.cpp
     source/lib/misc/QoSWFQDispatcher.cpp
     source/lib/misc/serialize.cpp
     source/lib/misc/StatsCollector.cpp
-    source/lib/misc/TransJournal.cpp
     source/lib/misc/VolumeCatalog.cpp
     source/lib/native/types.cpp
     source/lib/net/fdssocket.cpp
@@ -1430,178 +1079,129 @@ set(SOURCE_FILES
     source/net-service/svc_request/SvcRequest.cpp
     source/net-service/svc_request/SvcRequestPool.cpp
     source/net-service/svc_request/SvcRequestTracker.cpp
-    source/orch_mgr/configservice/configservice.cpp
-    source/orch_mgr/configservice/convert.cpp
-    source/orch_mgr/include/snapshot/deletedispatcher.h
-    source/orch_mgr/include/snapshot/deletescheduler.h
-    source/orch_mgr/include/snapshot/deleteschedulertask.h
-    source/orch_mgr/include/snapshot/manager.h
-    source/orch_mgr/include/snapshot/policydispatcher.h
-    source/orch_mgr/include/snapshot/scheduler.h
-    source/orch_mgr/include/snapshot/schedulertask.h
-    source/orch_mgr/include/snapshot/svchandler.h
-    source/orch_mgr/include/convert.h
-    source/orch_mgr/include/om-discovery.h
-    source/orch_mgr/include/om-domain.h
-    source/orch_mgr/include/om-platform.h
-    source/orch_mgr/include/om-svc-handler.h
-    source/orch_mgr/include/OmAdminCtrl.h
-    source/orch_mgr/include/OmClusterMap.h
-    source/orch_mgr/include/OmConstants.h
-    source/orch_mgr/include/OmDataPlacement.h
-    source/orch_mgr/include/OmDeploy.h
-    source/orch_mgr/include/OmDmtDeploy.h
-    source/orch_mgr/include/OmResources.h
-    source/orch_mgr/include/OmTier.h
-    source/orch_mgr/include/omutils.h
-    source/orch_mgr/include/OmVolPolicy.hpp
-    source/orch_mgr/include/OmVolume.h
-    source/orch_mgr/include/OmVolumePlacement.h
-    source/orch_mgr/include/orchMgr.h
-    source/orch_mgr/om-common/om-service.cpp
-    source/orch_mgr/om-discovery/om-discovery.cpp
-    source/orch_mgr/om-discovery/om-vol-discovery.cpp
-    source/orch_mgr/om-dlt/OmClusMap.cpp
-    source/orch_mgr/om-dlt/OmDataPlacement.cpp
-    source/orch_mgr/om-dlt/OmDeploy.cpp
-    source/orch_mgr/om-dlt/OmDmtDeploy.cpp
-    source/orch_mgr/om-dlt/OmNodeResources.cpp
-    source/orch_mgr/om-dlt/OmPlacementAlgorithms.cpp
-    source/orch_mgr/om-dlt/OmResources.cpp
-    source/orch_mgr/om-dlt/OmVolPlacementAlgo.cpp
-    source/orch_mgr/om-dlt/OmVolume.cpp
-    source/orch_mgr/om-dlt/OmVolumePlacement.cpp
-    source/orch_mgr/om-domain/domain.cpp
-    source/orch_mgr/om-lib/OmAdminCtrl.cpp
-    source/orch_mgr/om-lib/OmLocDomain.cpp
-    source/orch_mgr/om-lib/OmReqHandler.cpp
-    source/orch_mgr/om-lib/OmRespHandler.cpp
-    source/orch_mgr/om-lib/OmTier.cpp
-    source/orch_mgr/om-lib/omutils.cpp
-    source/orch_mgr/om-lib/OmVolPolicy.cpp
-    source/orch_mgr/om-lib/orchMgr.cpp
-    source/orch_mgr/orch-cli/cli-policy.cpp
-    source/orch_mgr/orch-cli/cli-policy.h
-    source/orch_mgr/orch-cli/fdscli.cpp
-    source/orch_mgr/orch-cli/fdsCli.h
-    source/orch_mgr/platform/om-platform.cpp
-    source/orch_mgr/platform/om-svc-handler.cpp
-    source/orch_mgr/snapshot/deletedispatcher.cpp
-    source/orch_mgr/snapshot/deletescheduler.cpp
-    source/orch_mgr/snapshot/deleteschedulertask.cpp
-    source/orch_mgr/snapshot/manager.cpp
-    source/orch_mgr/snapshot/policydispatcher.cpp
-    source/orch_mgr/snapshot/scheduler.cpp
-    source/orch_mgr/snapshot/schedulertask.cpp
-    source/orch_mgr/snapshot/svchandler.cpp
-    source/orch_mgr/com_formationds_om_NativeOm.h
-    source/orch_mgr/OmBindings.cpp
-    source/orch_mgr/orch-mgr-main.cpp
+    source/nginx-driver/misc/atmos-connector.cpp
+    source/nginx-driver/misc/http_utils.cpp
+    source/nginx-driver/misc/s3connector.cpp
+    source/nginx-driver/am-plugin.h
+    source/orch-mgr/configservice/configservice.cpp
+    source/orch-mgr/configservice/convert.cpp
+    source/orch-mgr/include/snapshot/deletedispatcher.h
+    source/orch-mgr/include/snapshot/deletescheduler.h
+    source/orch-mgr/include/snapshot/deleteschedulertask.h
+    source/orch-mgr/include/snapshot/manager.h
+    source/orch-mgr/include/snapshot/policydispatcher.h
+    source/orch-mgr/include/snapshot/scheduler.h
+    source/orch-mgr/include/snapshot/schedulertask.h
+    source/orch-mgr/include/snapshot/svchandler.h
+    source/orch-mgr/include/convert.h
+    source/orch-mgr/include/deletescheduler.h
+    source/orch-mgr/include/om-discovery.h
+    source/orch-mgr/include/om-domain.h
+    source/orch-mgr/include/om-node-workflow.h
+    source/orch-mgr/include/om-platform.h
+    source/orch-mgr/include/om-svc-handler.h
+    source/orch-mgr/include/OmAdminCtrl.h
+    source/orch-mgr/include/OmClusterMap.h
+    source/orch-mgr/include/OmConstants.h
+    source/orch-mgr/include/OmDataPlacement.h
+    source/orch-mgr/include/OmDeploy.h
+    source/orch-mgr/include/OmDmtDeploy.h
+    source/orch-mgr/include/OmResources.h
+    source/orch-mgr/include/OmTier.h
+    source/orch-mgr/include/omutils.h
+    source/orch-mgr/include/OmVolPolicy.hpp
+    source/orch-mgr/include/OmVolume.h
+    source/orch-mgr/include/OmVolumePlacement.h
+    source/orch-mgr/include/orchMgr.h
+    source/orch-mgr/om-common/om-service.cpp
+    source/orch-mgr/om-discovery/om-discovery.cpp
+    source/orch-mgr/om-discovery/om-vol-discovery.cpp
+    source/orch-mgr/om-dlt/deletescheduler.cpp
+    source/orch-mgr/om-dlt/OmClusMap.cpp
+    source/orch-mgr/om-dlt/OmDataPlacement.cpp
+    source/orch-mgr/om-dlt/OmDeploy.cpp
+    source/orch-mgr/om-dlt/OmDmtDeploy.cpp
+    source/orch-mgr/om-dlt/OmNodeResources.cpp
+    source/orch-mgr/om-dlt/OmPlacementAlgorithms.cpp
+    source/orch-mgr/om-dlt/OmResources.cpp
+    source/orch-mgr/om-dlt/OmVolPlacementAlgo.cpp
+    source/orch-mgr/om-dlt/OmVolume.cpp
+    source/orch-mgr/om-dlt/OmVolumePlacement.cpp
+    source/orch-mgr/om-domain/domain.cpp
+    source/orch-mgr/om-lib/OmAdminCtrl.cpp
+    source/orch-mgr/om-lib/OmLocDomain.cpp
+    source/orch-mgr/om-lib/OmReqHandler.cpp
+    source/orch-mgr/om-lib/OmRespHandler.cpp
+    source/orch-mgr/om-lib/OmTier.cpp
+    source/orch-mgr/om-lib/omutils.cpp
+    source/orch-mgr/om-lib/OmVolPolicy.cpp
+    source/orch-mgr/om-lib/orchMgr.cpp
+    source/orch-mgr/orch-cli/cli-policy.cpp
+    source/orch-mgr/orch-cli/cli-policy.h
+    source/orch-mgr/orch-cli/fdscli.cpp
+    source/orch-mgr/orch-cli/fdsCli.h
+    source/orch-mgr/platform/om-node-workflow.cpp
+    source/orch-mgr/platform/om-platform.cpp
+    source/orch-mgr/platform/om-svc-handler.cpp
+    source/orch-mgr/snapshot/deletedispatcher.cpp
+    source/orch-mgr/snapshot/deletescheduler.cpp
+    source/orch-mgr/snapshot/deleteschedulertask.cpp
+    source/orch-mgr/snapshot/manager.cpp
+    source/orch-mgr/snapshot/policydispatcher.cpp
+    source/orch-mgr/snapshot/scheduler.cpp
+    source/orch-mgr/snapshot/schedulertask.cpp
+    source/orch-mgr/snapshot/svchandler.cpp
+    source/orch-mgr/com_formationds_om_NativeOm.h
+    source/orch-mgr/OmBindings.cpp
+    source/orch-mgr/orch-mgr-main.cpp
     source/osdep/umod-linux/fds-shm-queue.cpp
     source/osdep/umod-linux/fds-shmem.cpp
     source/osdep/umod-linux/fds-shmtx.cpp
     source/osdep/umod-linux/fds_osdep.c
-    source/persistent_layer/include/dm_io.h
-    source/persistent_layer/include/disk.h
-    source/persistent_layer/include/disk-label.h
-    source/persistent_layer/include/net-platform.h
-    source/persistent_layer/include/disk-capacity.h
-    source/persistent_layer/include/persistentdata.h
-    source/persistent_layer/include/tokFileMgr.h
-    source/persistent_layer/io-lib/dm_index.cpp
-    source/persistent_layer/io-lib/dm_io_lib.cpp
-    source/persistent_layer/io-lib/dm_read.cpp
-    source/persistent_layer/io-lib/dm_write.cpp
-    source/persistent_layer/io-lib/pdata_request.cpp
-    source/persistent_layer/io-lib/tokFileMgr.cpp
-    source/persistent_layer/mgnt-lib/dm_service.cpp
-    source/platform/common/platform-proc.cpp
-    source/platform/common/platform-shm-rw.cpp
-    source/platform/common/platform.cpp
-    source/platform/disk/disk-capacity.cpp
-    source/platform/disk/disk-inventory.cpp
-    source/platform/disk/disk-label.cpp
-    source/platform/disk/disk-partition.cpp
-    source/platform/include/disk-capacity.h
-    source/platform/include/disk-label.h
-    source/platform/include/disk-partition.h
-    source/platform/include/disk.h
-    source/platform/include/net-platform.h
-    source/platform/include/platform.h
-    source/platform/net-svc/ep-map.cpp
-    source/platform/net-svc/net-platform.cpp
-    source/platform/net-svc/net-registration.cpp
-    source/platform/net-svc/net-service.cpp
-    source/platform/shared/BaseAsyncSvcHandler.cpp
-    source/platform/shared/disk-inventory.cpp
-    source/platform/shared/fds_flags.cpp
-    source/platform/shared/node-inv-shmem.cpp
-    source/platform/shared/node-inventory.cpp
-    source/platform/shared/node-workflow.cpp
-    source/platform/shared/platform-lib.cpp
-    source/platform/shared/platform-libmod.cpp
-    source/platform/shared/platform-rpc.cpp
-    source/platform/shared/PlatNetSvcHandler.cpp
-    source/platform/shared/service-ep-lib.cpp
+    source/persistent-layer/io-lib/dm_index.cpp
+    source/persistent-layer/io-lib/dm_io_lib.cpp
+    source/persistent-layer/io-lib/dm_read.cpp
+    source/persistent-layer/io-lib/dm_write.cpp
+    source/persistent-layer/io-lib/pdata_request.cpp
+    source/persistent-layer/io-lib/tokFileMgr.cpp
+    source/persistent-layer/mgnt-lib/dm_service.cpp
     source/platform/platform-main.cpp
-    source/stor-hvisor/handler/deleteblobhandler.cpp
-    source/stor-hvisor/handler/getbuckethandler.cpp
-    source/stor-hvisor/handler/getvolumemetadatahandler.cpp
-    source/stor-hvisor/handler/handler.h
-    source/stor-hvisor/handler/statblobhandler.cpp
-    source/stor-hvisor/hvcore/FDSNStat.cpp
-    source/stor-hvisor/hvcore/qos_ctrl.cpp
-    source/stor-hvisor/hvcore/StorHvisorClient.cpp
-    source/stor-hvisor/hvcore/StorHvisorNet.cpp
-    source/stor-hvisor/hvcore/StorHvisorRx.cpp
-    source/stor-hvisor/hvcore/StorHvisorS3.cpp
-    source/stor-hvisor/hvcore/StorHvisorSvc.cpp
-    source/stor-hvisor/hvcore/StorHvisorTbl.cpp
-    source/stor-hvisor/hvcore/StorHvisorTest.cpp
-    source/stor-hvisor/hvcore/StorHvisorTx.cpp
-    source/stor-hvisor/hvcore/StorHvJournal.cpp
-    source/stor-hvisor/hvcore/StorHvNative.cpp
-    source/stor-hvisor/hvcore/StorHvQosCtrl.cpp
-    source/stor-hvisor/hvcore/StorHvVolumes.cpp
-    source/stor-hvisor/hvcore/VolumeCatalogCache.cpp
-    source/stor-hvisor/FDSNStat.h
-    source/stor-hvisor/list.h
-    source/stor-hvisor/StorHvDataPlace.h
-    source/stor-hvisor/StorHvisorClient.h
-    source/stor-hvisor/StorHvisorCPP.h
-    source/stor-hvisor/StorHvisorNet.h
-    source/stor-hvisor/StorHvJournal.h
-    source/stor-hvisor/StorHvQosCtrl.h
-    source/stor-hvisor/StorHvVolumes.h
-    source/stor-hvisor/VolumeCatalogCache.h
     source/stor-mgr/include/object-store/ObjectDataCache.h
     source/stor-mgr/include/object-store/ObjectDataStore.h
     source/stor-mgr/include/object-store/ObjectMetaCache.h
     source/stor-mgr/include/object-store/ObjectMetadataStore.h
     source/stor-mgr/include/object-store/ObjectMetaDb.h
+    source/stor-mgr/include/object-store/ObjectPersistData.h
     source/stor-mgr/include/object-store/ObjectStore.h
+    source/stor-mgr/include/object-store/RandomRankPolicy.h
+    source/stor-mgr/include/object-store/RankEngine.h
+    source/stor-mgr/include/object-store/Scavenger.h
     source/stor-mgr/include/object-store/SmDiskMap.h
     source/stor-mgr/include/object-store/SmSuperblock.h
     source/stor-mgr/include/object-store/SmTokenPlacement.h
+    source/stor-mgr/include/object-store/SmTokenState.h
+    source/stor-mgr/include/object-store/TieringConfig.h
+    source/stor-mgr/include/object-store/TokenCompactor.h
     source/stor-mgr/include/data_obj.h
     source/stor-mgr/include/ObjMeta.h
     source/stor-mgr/include/ObjRank.h
     source/stor-mgr/include/ObjStats.h
     source/stor-mgr/include/policy_rpc.h
     source/stor-mgr/include/policy_tier.h
-    source/stor-mgr/include/Scavenger.h
+    source/stor-mgr/include/sm-node-workflow.h
     source/stor-mgr/include/sm-platform.h
+    source/stor-mgr/include/SmCtrl.h
     source/stor-mgr/include/SmDiskTypes.h
     source/stor-mgr/include/SmIo.h
     source/stor-mgr/include/SmObjDb.h
     source/stor-mgr/include/SMSvcHandler.h
+    source/stor-mgr/include/SmTypes.h
     source/stor-mgr/include/stor_mgr.h
     source/stor-mgr/include/StorMgr.h
     source/stor-mgr/include/StorMgrVolumes.h
     source/stor-mgr/include/TierEngine.h
+    source/stor-mgr/include/TierMigration.h
     source/stor-mgr/include/TierPutAlgorithms.h
-    source/stor-mgr/include/TokenCompactor.h
-    source/stor-mgr/include/SmCtrl.h
     source/stor-mgr/migrations/fds_base_migrators.h
     source/stor-mgr/migrations/fds_migration.cpp
     source/stor-mgr/migrations/fds_migration.h
@@ -1618,6 +1218,7 @@ set(SOURCE_FILES
     source/stor-mgr/migrations/TokenSyncReceiver.h
     source/stor-mgr/migrations/TokenSyncSender.cpp
     source/stor-mgr/migrations/TokenSyncSender.h
+    source/stor-mgr/platform/sm-node-workflow.cpp
     source/stor-mgr/platform/sm-platform.cpp
     source/stor-mgr/policy/policy_rpc.cpp
     source/stor-mgr/policy/policy_tier.cpp
@@ -1626,22 +1227,26 @@ set(SOURCE_FILES
     source/stor-mgr/smlib/object-store/ObjectMetaCache.cpp
     source/stor-mgr/smlib/object-store/ObjectMetadataStore.cpp
     source/stor-mgr/smlib/object-store/ObjectMetaDb.cpp
+    source/stor-mgr/smlib/object-store/ObjectPersistData.cpp
     source/stor-mgr/smlib/object-store/ObjectStore.cpp
+    source/stor-mgr/smlib/object-store/RandomRankPolicy.cpp
+    source/stor-mgr/smlib/object-store/Scavenger.cpp
     source/stor-mgr/smlib/object-store/SmDiskMap.cpp
     source/stor-mgr/smlib/object-store/SmSuperblock.cpp
     source/stor-mgr/smlib/object-store/SmTokenPlacement.cpp
+    source/stor-mgr/smlib/object-store/SmTokenState.cpp
+    source/stor-mgr/smlib/object-store/TokenCompactor.cpp
     source/stor-mgr/smlib/ObjMeta.cpp
     source/stor-mgr/smlib/ObjRank.cpp
     source/stor-mgr/smlib/ObjStats.cpp
-    source/stor-mgr/smlib/Scavenger.cpp
     source/stor-mgr/smlib/SmIo.cpp
     source/stor-mgr/smlib/SmObjDb.cpp
     source/stor-mgr/smlib/SMSvcHandler.cpp
     source/stor-mgr/smlib/StorMgr.cpp
     source/stor-mgr/smlib/StorMgrVolumes.cpp
     source/stor-mgr/smlib/TierEngine.cpp
+    source/stor-mgr/smlib/TierMigration.cpp
     source/stor-mgr/smlib/TierPutAlgorithms.cpp
-    source/stor-mgr/smlib/TokenCompactor.cpp
     source/stor-mgr/stormgr_main.cpp
     source/testlib/DataGen.hpp
     source/testlib/Deployer.cpp
@@ -1768,16 +1373,21 @@ set(SOURCE_FILES
     source/tools/pharos/Timer.C
     source/tools/pharos/Timer.H
     source/tools/pharos/Types.H
+    source/tools/journal_dump.cpp
+    source/tools/ldb-tool.cpp
     source/tools/shm_dump.cpp
     source/tools/shm_dump.h
+    source/umod-lib/common/fds-aio.cpp
     source/umod-lib/common/fds-fsm.cpp
     source/umod-lib/common/fds-shmobj.cpp
     source/umod-lib/common/fds_module.cpp
+    source/umod-lib/common/fds_process.cpp
     source/umod-lib/common/fds_python_bind.cpp
     source/umod-lib/common/fds_request.cpp
     source/umod-lib/common/fds_resource.cpp
     source/umod-lib/common/fds_stat.cpp
     source/umod-lib/common/fdsp_utils.cpp
+    source/umod-lib/common/PerfTrace.cpp
     source/umod-lib/common/Tracebuffer.cpp
     source/umod-lib/concurrency/fds_actor.cpp
     source/umod-lib/concurrency/fds_actor_request.cpp
@@ -1785,128 +1395,16 @@ set(SOURCE_FILES
     source/umod-lib/concurrency/Synchronization.cpp
     source/umod-lib/concurrency/ThreadPool.cpp
     source/umod-lib/odb/odb.cpp
+    source/unit-test/data-mgr/svc-test/dm_mod_gtest.cpp
+    source/unit-test/data-mgr/svc-test/dm_mod_gtest.h
+    source/unit-test/data-mgr/svc-test/ngx_modules.c
+    source/unit-test/data-mgr/dm_direct.cpp
+    source/unit-test/data-mgr/dm_gtest.h
+    source/unit-test/data-mgr/dm_mocks.h
+    source/unit-test/data-mgr/dm_utils.h
     source/unit-test/data-mgr/dm_volume_catalog_gtest.cpp
-    source/unit-test/deprecated/blobnode/blobnode_unit_test.cpp
-    source/unit-test/deprecated/configdb/configdb_unit_test.cpp
-    source/unit-test/deprecated/data-mgr/unit_test.cpp
-    source/unit-test/deprecated/lib/fds_boostbased_timer_test.cpp
-    source/unit-test/deprecated/lib/qos_dispatcher_unit_test.cpp
-    source/unit-test/deprecated/redis/redis_unit_test.cpp
-    source/unit-test/deprecated/shmem/queue_popper.cpp
-    source/unit-test/deprecated/shmem/queue_pusher.cpp
-    source/unit-test/deprecated/shmem/shm_unit_test.cpp
-    source/unit-test/deprecated/stor-hvisor/vcc_unit_test.cpp
-    source/unit-test/deprecated/stor-mgr/ObjMeta_ut.cpp
-    source/unit-test/deprecated/stor-mgr/rankeng_unit_test.cpp
-    source/unit-test/deprecated/stor-mgr/sm_unit_test.cpp
-    source/unit-test/deprecated/stor-mgr/SmObjDb_ut.cpp
-    source/unit-test/deprecated/stor_mgr/s3-sm-probe.cpp
-    source/unit-test/deprecated/stor_mgr/stormgr_probe_main.cpp
-    source/unit-test/deprecated/util/crypto_test.cpp
-    source/unit-test/fds-probe/blk-template/mod-main.cpp
-    source/unit-test/fds-probe/blk-template/template_probe.cpp
-    source/unit-test/fds-probe/blk-template/template_probe.h
-    source/unit-test/fds-probe/data-mgr/tvc/mod-main.cpp
-    source/unit-test/fds-probe/data-mgr/tvc/ngx_modules.c
-    source/unit-test/fds-probe/data-mgr/tvc/tvc-probe.cpp
-    source/unit-test/fds-probe/data-mgr/tvc/tvc-probe.h
-    source/unit-test/fds-probe/data-mgr/tvc-commit-log/commit-log-probe.cpp
-    source/unit-test/fds-probe/data-mgr/tvc-commit-log/commit-log-probe.h
-    source/unit-test/fds-probe/data-mgr/tvc-commit-log/mod-main.cpp
-    source/unit-test/fds-probe/data-mgr/tvc-commit-log/ngx_modules.c
-    source/unit-test/fds-probe/data-mgr/vol-cat/mod-main.cpp
-    source/unit-test/fds-probe/data-mgr/vol-cat/ngx_modules.c
-    source/unit-test/fds-probe/data-mgr/vol-cat/vol-cat-probe.cpp
-    source/unit-test/fds-probe/data-mgr/vol-cat/vol-cat-probe.h
-    source/unit-test/fds-probe/data-mgr/vol-cat-pl/mod-main.cpp
-    source/unit-test/fds-probe/data-mgr/vol-cat-pl/ngx_modules.c
-    source/unit-test/fds-probe/data-mgr/vol-cat-pl/volcat-pl-probe.cpp
-    source/unit-test/fds-probe/data-mgr/vol-cat-pl/volcat-pl-probe.h
-    source/unit-test/fds-probe/data-mgr/dm-probe.cpp
-    source/unit-test/fds-probe/data-mgr/dm-probe.h
-    source/unit-test/fds-probe/data-mgr/mod-main.cpp
-    source/unit-test/fds-probe/data-mgr/ngx_modules.c
-    source/unit-test/fds-probe/example/ngx_modules.c
-    source/unit-test/fds-probe/example/test-app.cpp
-    source/unit-test/fds-probe/fds-net/fds-net-probe.cpp
-    source/unit-test/fds-probe/fds-net/fds-net-probe.h
-    source/unit-test/fds-probe/fds-net/fds-net-server.cpp
-    source/unit-test/fds-probe/fds-net/fds-net.cpp
-    source/unit-test/fds-probe/fds-net/ngx_modules.c
-    source/unit-test/fds-probe/mock-server/mock-server.cpp
-    source/unit-test/fds-probe/mock-server/mock-server.h
-    source/unit-test/fds-probe/mock-server/mod-main.cpp
-    source/unit-test/fds-probe/mock-server/ngx_modules.c
-    source/unit-test/fds-probe/orch-mgr/mod-main.cpp
-    source/unit-test/fds-probe/orch-mgr/ngx_modules.c
-    source/unit-test/fds-probe/orch-mgr/orch-mgr-probe.cpp
-    source/unit-test/fds-probe/orch-mgr/orch-mgr-probe.h
-    source/unit-test/fds-probe/platform/adapter.cpp
-    source/unit-test/fds-probe/platform/fds-probe-queue.cpp
-    source/unit-test/fds-probe/platform/fds-probe-queue.h
-    source/unit-test/fds-probe/platform/mod-main.cpp
-    source/unit-test/fds-probe/platform/ngx_modules.c
-    source/unit-test/fds-probe/platform/node-work.h
-    source/unit-test/fds-probe/platform/plat-probe-main.cpp
-    source/unit-test/fds-probe/platform/plat-probe.cpp
-    source/unit-test/fds-probe/platform/plat-probe.h
-    source/unit-test/fds-probe/platform/queue-probe-main.cpp
-    source/unit-test/fds-probe/platform/queue-probe.cpp
-    source/unit-test/fds-probe/platform/queue-probe.h
-    source/unit-test/fds-probe/pm/pm_probe_test.cpp
-    source/unit-test/fds-probe/s3/ngx_modules.c
-    source/unit-test/fds-probe/s3/s3-pm-probe.cpp
-    source/unit-test/fds-probe/s3-template/adapter.cpp
-    source/unit-test/fds-probe/s3-template/adapter.h
-    source/unit-test/fds-probe/s3-template/ngx_modules.c
-    source/unit-test/fds-probe/s3-template/o.h
-    source/unit-test/fds-probe/s3-template/test-main.cpp
-    source/unit-test/fds-probe/shared/test-plat-proc.cpp
-    source/unit-test/fds-probe/shm-queue/ngx_modules.c
-    source/unit-test/fds-probe/shm-queue/plat-probe-main.cpp
-    source/unit-test/fds-probe/shm-queue/plat-probe.cpp
-    source/unit-test/fds-probe/shm-queue/plat-probe.h
-    source/unit-test/fds-probe/shm-queue/queue-probe-main.cpp
-    source/unit-test/fds-probe/shm-queue/queue-probe-main2.cpp
-    source/unit-test/fds-probe/shm-queue/queue-probe.cpp
-    source/unit-test/fds-probe/shm-queue/queue-probe.h
-    source/unit-test/fds-probe/sm/sm_probe_test.cpp
-    source/unit-test/fds-probe/sm-embed/adapter.cpp
-    source/unit-test/fds-probe/sm-embed/adapter.h
-    source/unit-test/fds-probe/sm-embed/in.h
-    source/unit-test/fds-probe/sm-embed/ngx_modules.c
-    source/unit-test/fds-probe/sm-embed/test-main.cpp
-    source/unit-test/fds-probe/stor-mgr/mod-main.cpp
-    source/unit-test/fds-probe/stor-mgr/ngx_modules.c
-    source/unit-test/fds-probe/stor-mgr/sm-probe-client.cpp
-    source/unit-test/fds-probe/stor-mgr/sm-probe-client.h
-    source/unit-test/fds-probe/stor-mgr-full/mod-main.cpp
-    source/unit-test/fds-probe/stor-mgr-full/ngx_modules.c
-    source/unit-test/fds-probe/stor-mgr-full/sm-probe.cpp
-    source/unit-test/fds-probe/stor-mgr-full/sm-probe.h
-    source/unit-test/fds-probe/threadpool/mod-main.cpp
-    source/unit-test/fds-probe/threadpool/ngx_modules.c
-    source/unit-test/fds-probe/threadpool/thrpool-api.cpp
-    source/unit-test/fds-probe/threadpool/thrpool-api.h
-    source/unit-test/fds-probe/thrift/server/sm-endpoint.cpp
-    source/unit-test/fds-probe/thrift/server/thrf-server.cpp
-    source/unit-test/fds-probe/thrift/thrift-gen/mesg_constants.cpp
-    source/unit-test/fds-probe/thrift/thrift-gen/mesg_constants.h
-    source/unit-test/fds-probe/thrift/thrift-gen/mesg_types.cpp
-    source/unit-test/fds-probe/thrift/thrift-gen/mesg_types.h
-    source/unit-test/fds-probe/thrift/thrift-gen/ProbeServiceAM.cpp
-    source/unit-test/fds-probe/thrift/thrift-gen/ProbeServiceAM.h
-    source/unit-test/fds-probe/thrift/thrift-gen/ProbeServiceAM_server.skeleton.cpp
-    source/unit-test/fds-probe/thrift/thrift-gen/ProbeServiceSM.cpp
-    source/unit-test/fds-probe/thrift/thrift-gen/ProbeServiceSM.h
-    source/unit-test/fds-probe/thrift/thrift-gen/ProbeServiceSM_server.skeleton.cpp
-    source/unit-test/fds-probe/thrift/am-endpoint.cpp
-    source/unit-test/fds-probe/thrift/endpoint-test.cpp
-    source/unit-test/fds-probe/thrift/endpoint-test.h
-    source/unit-test/fds-probe/thrift/ngx_modules.c
-    source/unit-test/fds-probe/thrift/s3-thrift-probe.cpp
-    source/unit-test/fds-probe/thrift/s3-thrift-probe.h
-    source/unit-test/fds-probe/thrift/s3-thrift.cpp
+    source/unit-test/data-mgr/ngx_modules.c
+    source/unit-test/examples/goog-pprof.cpp
     source/unit-test/include/catch.hpp
     source/unit-test/lib/dlt/dlt_helper_funcs.h
     source/unit-test/lib/dlt/dlt_unit_test.cpp
@@ -1920,11 +1418,11 @@ set(SOURCE_FILES
     source/unit-test/lib/object_logger_test.cpp
     source/unit-test/lib/perf_trace_unit_test.cpp
     source/unit-test/lib/perfstat_unit_test.cpp
+    source/unit-test/lib/serializer_gtest.cpp
     source/unit-test/lib/sharedcache_gtest.cpp
     source/unit-test/lib/sharedcache_unit_test.cpp
     source/unit-test/lib/SynchronizedTaskExecutor_ut.cpp
     source/unit-test/lib/Tracebuffer_ut.cpp
-    source/unit-test/lib/trans_journal_ut.cpp
     source/unit-test/migrations/migration_ut.cpp
     source/unit-test/migrations/ObjectStoreMock.h
     source/unit-test/migrations/SyncLog_ut.cpp
@@ -1933,21 +1431,40 @@ set(SOURCE_FILES
     source/unit-test/persistent-layer/dm_service_test.cpp
     source/unit-test/shmem/basic_shm.cpp
     source/unit-test/shmem/sPrd_nCns.cpp
+    source/unit-test/stor-mgr/svc-test/checker_gtest.cpp
+    source/unit-test/stor-mgr/svc-test/ngx_modules.c
+    source/unit-test/stor-mgr/svc-test/smapi_gtest.cpp
+    source/unit-test/stor-mgr/svc-test/smperf_gtest.cpp
     source/unit-test/stor-mgr/metastore_unit_test.cpp
-    source/unit-test/stor-mgr/ngx_modules.c
+    source/unit-test/stor-mgr/object_persist_data_gtest.cpp
     source/unit-test/stor-mgr/object_store_load_test.cpp
     source/unit-test/stor-mgr/object_store_unit_test.cpp
     source/unit-test/stor-mgr/sm_dataset.h
     source/unit-test/stor-mgr/sm_disk_map_test.cpp
     source/unit-test/stor-mgr/sm_load_test.cpp
+    source/unit-test/stor-mgr/sm_superblock_gtest.cpp
+    source/unit-test/stor-mgr/sm_tier_migration_gtest.cpp
+    source/unit-test/stor-mgr/sm_token_compactor_gtest.cpp
     source/unit-test/stor-mgr/sm_token_place_gtest.cpp
+    source/unit-test/stor-mgr/sm_token_state_gtest.cpp
     source/unit-test/stor-mgr/sm_ut_utils.h
-    source/unit-test/stor-mgr/smapi_gtest.cpp
+    source/unit-test/stor-mgr/sm_util_lib.cpp
+    source/unit-test/stor-mgr/sm_util_lib.h
+    source/unit-test/stor-mgr/smchk_gtest.cpp
+    source/unit-test/svc-layer/ngx_modules.c
+    source/unit-test/svc-layer/serializer_gtest.cpp
+    source/unit-test/svc-layer/th_am.cpp
+    source/unit-test/svc-layer/th_am_server.cpp
+    source/unit-test/svc-layer/th_sm.cpp
+    source/unit-test/svc-layer/Threadpool.h
+    source/unit-test/svc-layer/Threadpool2.h
+    source/unit-test/svc-layer/threadpool_test.cpp
     source/unit-test/umod-lib/conc_unit_test.cpp
     source/unit-test/umod-lib/fds_actor_ut.cpp
     source/unit-test/umod-lib/python_bind_ut.cpp
     source/unit-test/umod-lib/shm-queue.cpp
     source/unit-test/umod-lib/ThreadPoolTest.cpp
+    source/unit-test/util/fds_panic_test.cpp
     source/unit-test/util/log_unit_test.cpp
     source/util/hash/AvalancheTest.cpp
     source/util/hash/AvalancheTest.h
@@ -1980,10 +1497,13 @@ set(SOURCE_FILES
     source/util/hash/Stats.h
     source/util/hash/SuperFastHash.cpp
     source/util/hash/Types.cpp
+    source/util/misc/color.cpp
     source/util/misc/Log.cpp
     source/util/misc/math-util.cpp
+    source/util/misc/stats.cpp
     source/util/misc/stringutils.cpp
     source/util/misc/timeutils.cpp
+    source/util/misc/type.cpp
     thrift-0.9.0/compiler/cpp/src/generate/t_as3_generator.cc
     thrift-0.9.0/compiler/cpp/src/generate/t_c_glib_generator.cc
     thrift-0.9.0/compiler/cpp/src/generate/t_cocoa_generator.cc
@@ -2320,5 +1840,14 @@ set(SOURCE_FILES
     thrift-0.9.0/test/threads/ThreadsServer.cpp
     thrift-0.9.0/tutorial/cpp/CppClient.cpp
     thrift-0.9.0/tutorial/cpp/CppServer.cpp)
+
+include_directories(leveldb-1.15.0/include)
+include_directories(source/access-mgr/include)
+include_directories(source/checker)
+include_directories(source/include)
+include_directories(source/lib)
+include_directories(source/orch-mgr/include)
+include_directories(source/platform/include)
+include_directories(source/stor-mgr/include)
 
 add_executable(dev ${SOURCE_FILES})

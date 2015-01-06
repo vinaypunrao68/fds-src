@@ -6,7 +6,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
     var errCount = 0;
 
     var startPoller = function(){
-        pollerId = $interval( getVolumes, 10000 );
+        pollerId = $interval( getVolumes, 30000 );
     };
     
     var getVolumes = function( callback ){
@@ -69,7 +69,7 @@ angular.module( 'volume-management' ).factory( '$volume_api', [ '$http_fds', '$r
         // the original one
         var id = volume.id;
         volume.id = '';
-        return $http_fds.post( '/api/config/volumes/clone/' + id + '/' + volume.name, volume,
+        return $http_fds.post( '/api/config/volumes/clone/' + id + '/' + volume.name + '/' + volume.timelineTime, volume,
             function( response ){
 
                 getVolumes();

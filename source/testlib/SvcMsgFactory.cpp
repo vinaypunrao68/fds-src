@@ -17,6 +17,20 @@ template void UpdateBlobInfoNoData(fpi::UpdateCatalogOnceMsgPtr updateCat, size_
         size_t blobSize);
 
 fpi::PutObjectMsgPtr
+SvcMsgFactory::newPutObjectToSmMsg(const uint64_t& volId,
+                                   const ObjectID& objId,
+                                   boost::shared_ptr<std::string> objData)
+{
+    fpi::PutObjectMsgPtr putObjMsg(new fpi::PutObjectMsg);
+    putObjMsg->volume_id = volId;
+    putObjMsg->origin_timestamp = fds::util::getTimeStampMillis();
+    putObjMsg->data_obj = *objData;
+    putObjMsg->data_obj_len = objData->length();
+    fds::assign(putObjMsg->data_obj_id, objId);
+    return putObjMsg;
+}
+
+fpi::PutObjectMsgPtr
 SvcMsgFactory::newPutObjectMsg(const uint64_t& volId, DataGenIfPtr dataGen)
 {
     auto data = dataGen->nextItem();

@@ -18,7 +18,9 @@
 #include <orch-mgr/om-service.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/SvcRequestPool.h>
-#include <platform/node-inv-shmem.h>
+
+#include "platform/node_data.h"
+#include "platform/platform.h"
 
 namespace fds {
 
@@ -280,6 +282,43 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     return err;
 }
 
+Error
+OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
+    Error err(ERR_OK);
+
+    auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    fpi::CtrlNotifyDLTClosePtr msg(new fpi::CtrlNotifyDLTClose());
+    msg->dlt_close.DLT_version = cur_dlt_version;
+
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTClose), msg);
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dlt_close_resp, this, msg,
+            std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+    om_req->setTimeoutMs(5000);
+    om_req->invoke();
+
+    LOGNORMAL << "OM: send dlt close (version " << cur_dlt_version
+                << ") to " << get_node_name() << " uuid 0x"
+                << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
+}
+
+void
+OM_NodeAgent::om_send_dlt_close_resp(fpi::CtrlNotifyDLTClosePtr msg,
+        EPSvcRequest* req,
+        const Error& error,
+        boost::shared_ptr<std::string> payload)
+{
+    LOGDEBUG << "OM received response for NotifyDltClose from node "
+                << std::hex << req->getPeerEpId().svc_uuid << std::dec <<
+                " with version " << msg->dlt_close.DLT_version;
+
+    // notify DLT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
+    domain->om_recv_dlt_close_resp(node_uuid, msg->dlt_close.DLT_version);
+}
+
 void
 OM_NodeAgent::om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* req,
                                const Error& error,
@@ -297,23 +336,28 @@ OM_NodeAgent::om_send_dlt_resp(fpi::CtrlNotifyDLTUpdatePtr msg, EPSvcRequest* re
     domain->om_recv_dlt_commit_resp(node_type, node_uuid, msg->dlt_version);
 }
 
+    //  PAUL to enable this code
+#if 0
 Error
-OM_NodeAgent::om_send_dmt_x(const DMTPtr& curDmt) {
+OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     Error err(ERR_OK);
+
     fds_verify(curDmt->getVersion() != DMT_VER_INVALID);
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     fpi::CtrlNotifyDMTUpdatePtr msg(new fpi::CtrlNotifyDMTUpdate());
     auto dmt_msg = &msg->dmt_data;
     dmt_msg->dmt_version = curDmt->getVersion();
     err = curDmt->getSerialized(dmt_msg->dmt_data);
+    msg->dmt_version = curDmt->getVersion();
     if (!err.ok()) {
         LOGERROR << "Failed to fill in dmt_data, not sending DMT";
         return err;
     }
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), msg);
-    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dmt_x_resp, this, msg,
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dmt_resp, this, msg,
                                    std::placeholders::_1, std::placeholders::_2,
                                    std::placeholders::_3));
+    om_req->setTimeoutMs(20000);
     om_req->invoke();
     LOGNORMAL << "OM: Send dmt info (version " << curDmt->getVersion()
               << ") to " << get_node_name() << " uuid 0x"
@@ -322,12 +366,22 @@ OM_NodeAgent::om_send_dmt_x(const DMTPtr& curDmt) {
 }
 
 void
-OM_NodeAgent::om_send_dmt_x_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* req,
+OM_NodeAgent::om_send_dmt_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* req,
                                const Error& error,
                                boost::shared_ptr<std::string> payload)
 {
-}
+FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "OM received response for NotifyDltUpdate from node "
+            << std::hex << req->getPeerEpId().svc_uuid << std::dec <<
+            " with version " << msg->dmt_version;
 
+    // notify DLT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid(rs_get_uuid());
+    FdspNodeType node_type = rs_get_uuid().uuid_get_type();
+    domain->om_recv_dmt_commit_resp(node_type, node_uuid, msg->dmt_version);
+}
+#endif
 
 Error
 OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
@@ -468,6 +522,7 @@ OM_NodeAgent::om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& re
     asyncStreamRegReq->invoke();
 }
 
+#if 0
 Error
 OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     Error err(ERR_OK);
@@ -497,6 +552,8 @@ OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
 
     return err;
 }
+#endif
+
 
 Error
 OM_NodeAgent::om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg)
@@ -525,6 +582,46 @@ OM_NodeAgent::om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg)
 
     return err;
 }
+
+    //   PAUL to  enable this code
+#if 0
+Error
+OM_NodeAgent::om_send_dmt_close(fds_uint64_t cur_dmt_version) {
+    Error err(ERR_OK);
+
+    auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    fpi::CtrlNotifyDMTClosePtr msg(new fpi::CtrlNotifyDMTClose());
+    msg->dmt_close.DMT_version = cur_dmt_version;
+
+    om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), msg);
+    om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_dmt_close_resp, this, msg,
+            std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+    om_req->setTimeoutMs(5000);
+    om_req->invoke();
+
+    LOGNORMAL << "OM: send dmt close (version " << cur_dmt_version
+                << ") to " << get_node_name() << " uuid 0x"
+                << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
+}
+
+void
+OM_NodeAgent::om_send_dmt_close_resp(fpi::CtrlNotifyDMTClosePtr msg,
+        EPSvcRequest* req,
+        const Error& error,
+        boost::shared_ptr<std::string> payload)
+{
+    LOGDEBUG << "OM received response for NotifyDmtClose from node "
+                << std::hex << req->getPeerEpId().svc_uuid << std::dec <<
+                " with version " << msg->dmt_close.DMT_version;
+
+    // notify DMT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
+    domain->om_recv_dmt_close_resp(node_uuid, msg->dmt_close.DMT_version);
+}
+#endif
 
 Error
 OM_NodeAgent::om_send_dmt_close(fds_uint64_t dmt_version) {
@@ -749,9 +846,11 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
             do_activate_dm = false;
         }
         if (activate_am && service_exists(FDS_ProtocolInterface::FDSP_STOR_HVISOR)) {
-            LOGNOTIFY << "OM_PmAgent: AM service already running, "
-                      << "not going to restart...";
-            do_activate_am = false;
+            LOGNOTIFY << "OM_PmAgent: AM service already running. Allowing another "
+                      << "AM instance...";
+            // TODO(Andrew): Re-enable this if we want to prevent multiple AM
+            // instances per node.
+            // do_activate_am = false;
         }
 
         //  if all requested services already active, nothing to do
@@ -1298,6 +1397,15 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
 static void
 om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer vol)
 {
+    /*
+     * Only send if not deleted or marked to be deleted.
+     */
+    if (vol->isDeletePending() || vol->isStateDeleted()) {
+        LOGDEBUG << "Dmt not sending Volume to Node :" << vol->vol_get_name()
+                 << "; state " << vol->getStateName();
+        return;
+    }
+
     (*cnt)++;
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
@@ -1551,12 +1659,6 @@ static Error
 om_send_dmt(const DMTPtr& curDmt, NodeAgent::pointer agent)
 {
     return OM_NodeAgent::agt_cast_ptr(agent)->om_send_dmt(curDmt);
-}
-
-static Error
-om_send_dmt_x(const DMTPtr& curDmt, NodeAgent::pointer agent)
-{
-    return OM_NodeAgent::agt_cast_ptr(agent)->om_send_dmt_x(curDmt);
 }
 
 // om_bcast_dmt

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<workload name="s3-sample" description="sample benchmark for s3">
+
+  <auth type="none" config=""/>
+	<storage type="s3" config="path_style_access=true;accesskey={{ username }};secretkey={{ secretkey }};endpoint={{ s3_url }}" />
+
+  <workflow>
+
+    <workstage name="init">
+      <work type="init" workers="1" config="cprefix=s3testqwer;containers=r(1,2)" />
+    </workstage>
+
+    <workstage name="prepare">
+      <work type="prepare" workers="1" config="cprefix=s3testqwer;containers=r(1,2);objects=r(1,20);sizes=u(1,64)KB" />
+      <work type="prepare" workers="1" config="cprefix=s3testqwer;containers=r(1,2);objects=r(21,40);sizes=u(64,128)KB" />
+      <work type="prepare" workers="1" config="cprefix=s3testqwer;containers=r(1,2);objects=r(41,60);sizes=u(128,512)KB" />
+      <work type="prepare" workers="1" config="cprefix=s3testqwer;containers=r(1,2);objects=r(61,80);sizes=u(512,1024)KB" />
+      <work type="prepare" workers="1" config="cprefix=s3testqwer;containers=r(1,2);objects=r(81,100);sizes=u(1024,2048)KB" />
+      <work type="prepare" workers="1" config="cprefix=s3testqwer;containers=r(1,2);objects=r(101,120);sizes=u(2048,4096)KB" />
+    </workstage>
+
+    <workstage name="64main">
+      <work name="64KB_60_40" workers="8" runtime="600" afr="10000">
+        <operation type="read" ratio="60" config="cprefix=s3testqwer;containers=u(1,2);objects=u(1,10)" />
+        <operation type="write" ratio="40" config="cprefix=s3testqwer;containers=u(1,2);objects=u(11,20);sizes=u(1,64)KB" />
+      </work>
+		</workstage>
+		<workstage name="128main">
+      <work name="128KB_60_40" workers="8" runtime="600" afr="10000">
+        <operation type="read" ratio="60" config="cprefix=s3testqwer;containers=u(1,2);objects=u(21,30)" />
+        <operation type="write" ratio="40" config="cprefix=s3testqwer;containers=u(1,2);objects=u(31,40);sizes=u(64,128)KB" />
+      </work>
+		</workstage>
+		<workstage name="512main">
+      <work name="512KB_60_40" workers="8" runtime="600" afr="10000">
+        <operation type="read" ratio="60" config="cprefix=s3testqwer;containers=u(1,2);objects=u(41,50)" />
+        <operation type="write" ratio="40" config="cprefix=s3testqwer;containers=u(1,2);objects=u(51,60);sizes=u(128,512)KB" />
+      </work>
+    </workstage>
+		<workstage name="1024main">
+      <work name="1024KB_60_40" workers="8" runtime="600" afr="10000">
+        <operation type="read" ratio="60" config="cprefix=s3testqwer;containers=u(1,2);objects=u(61,70)" />
+        <operation type="write" ratio="40" config="cprefix=s3testqwer;containers=u(1,2);objects=u(71,80);sizes=u(512,1024)KB" />
+      </work>
+    </workstage>
+		<workstage name="2048main">
+      <work name="2048KB_60_40" workers="8" runtime="600" afr="10000">
+        <operation type="read" ratio="60" config="cprefix=s3testqwer;containers=u(1,2);objects=u(81,90)" />
+        <operation type="write" ratio="40" config="cprefix=s3testqwer;containers=u(1,2);objects=u(91,100);sizes=u(1024,2048)KB" />
+      </work>
+    </workstage>
+		<workstage name="4096main">
+      <work name="4096KB_60_40" workers="8" runtime="600" afr="10000">
+        <operation type="read" ratio="60" config="cprefix=s3testqwer;containers=u(1,2);objects=u(101,110)" />
+        <operation type="write" ratio="40" config="cprefix=s3testqwer;containers=u(1,2);objects=u(111,120);sizes=u(2048,4096)KB" />
+      </work>
+    </workstage>
+
+    <workstage name="cleanup">
+      <work type="cleanup" workers="1" config="cprefix=s3testqwer;containers=r(1,2);objects=r(1,120)" />
+    </workstage>
+
+    <workstage name="dispose">
+      <work type="dispose" workers="1" config="cprefix=s3testqwer;containers=r(1,2)" />
+    </workstage>
+
+  </workflow>
+
+</workload>

@@ -124,11 +124,18 @@ function setupFdsDirs() {
 }
 
 function activate() {
-    # Bao: wait for platformd before activate
-    sleep 5
-    logwarn "asking OM to accept all discovered nodes..."
-    (cd ${BINDIR}; ./fdscli --fds-root ${FDSROOT} --activate-nodes abc -k 1 -e am,dm,sm > cli.out) 2>/dev/null
-    loginfo "$(boldblue fdscli) : console out : ${BINDIR}/cli.out"
+    local actapps
+    if [[ -z $(getAppPid am) ]]; then actapps="${actapps}am,"; fi
+    if [[ -z $(getAppPid dm) ]]; then actapps="${actapps}dm,"; fi
+    if [[ -z $(getAppPid sm) ]]; then actapps="${actapps}sm,"; fi
+    if [[ -n $actapps ]]; then
+        # Bao: wait for platformd before activate
+        sleep 5
+        
+        logwarn "asking OM to accept all discovered nodes..."
+        (cd ${BINDIR}; ./fdscli --fds-root ${FDSROOT} --activate-nodes abc -k 1 -e "$actapps" > cli.out) 2>/dev/null
+        loginfo "$(boldblue fdscli) : console out : ${BINDIR}/cli.out"
+    fi
 }
 
 function startApp() {
@@ -158,6 +165,8 @@ function startApp() {
                 sleep 2s
 		if ! (waitForApp $name) ; then
                     logerror "oops!! something wrong.. [$(boldblue $name)] is $(red not) showing up."
+                    loginfo "here is the log file: ${BINDIR}/${name}.out"
+                    tail ${BINDIR}/${name}.out
                 fi
                 sleep 1s
             else
@@ -182,17 +191,14 @@ function stopApp() {
 
     for name in $applist ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
-            pid=$(getAppPid $name)
+            pid="$(getAppPid $name)"
             if [[ -z $pid ]] ; then
                 loginfo "$(boldblue ${name}) : Not running"
             else
                 logwarn "$(yellow stopping ${name}..)"
-                kill -9 ${pid}
-                
-                if [[ ${name} == "am" ]]; then
-                    pkill -9 -f com.formationds.am.Main
-                    pkill -9 bare_am
-                fi
+                for procid in $pid; do
+                    kill -9 ${procid}
+                done
             fi
         fi
     done
@@ -212,11 +218,19 @@ function statusApp() {
 
     for name in $applist ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
-            pid=$(getAppPid $name)
+            pid="$(getAppPid $name)"
             if [[ -z $pid ]] ; then
                 echo "$(boldblue ${name}) : $(yellow Not running)"
             else
-                echo "$(boldblue ${name}) : $(green $(ps u --pid $pid| tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                local num=1
+                for procid in $pid ; do
+                    if [[ $num == 1 ]]; then
+                        echo "$(boldblue ${name}) : $(green $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                    else
+                        echo "$(yellow ${name}) : $(red $(ps u --pid $procid | tail -n1 | awk '{for(i=1;i<13;i++) printf("\t%s",$i) }'))"
+                    fi
+                    num=$((num+1))
+                done
             fi
         fi
     done
@@ -232,17 +246,13 @@ function getAppPid() {
     local pid
 
     if [[ $name == "om" ]]; then
-        pid=$(pgrep orchMgr)
-        if [[ -n $pid ]] ; then
-            pid=$(pgrep -P $pid 2>/dev/null)
-        fi
-    elif [[ $name == "am" ]] || [[  $name == "xdi"  ]]; then
-        pid=$(pgrep AMAgent)
-        if [[ -n $pid ]] ; then
-            pid=$(pgrep -P $pid ${proc[${name}]} 2>/dev/null)
-        fi
+        pid="$(pgrep -f com.formationds.om.Main)"
+    elif [[ $name == "am" ]]; then
+        pid="$(pgrep bare_am)"
+    elif [[  $name == "xdi"  ]]; then
+        pid="$(pgrep -f com.formationds.am.Main)"
     else
-        pid=$(pgrep ${apps[$name]})
+        pid="$(pgrep ${apps[$name]})"
     fi
     echo -n $pid
 }
@@ -318,10 +328,21 @@ function attachgdb() {
 
 function taillog() {
     local app=$1
+    local logfiles
     case "${app}" in
-        om|am|dm|sm|pm)
+        om|am|dm|sm)
             ls -1 ${FDSROOT}/var/logs/${app}.log*.log
-            tail -F ${FDSROOT}/var/logs/${app}.log*.log
+            for n in $(seq 0 20); do
+                logfiles="$logfiles ${FDSROOT}/var/logs/${app}.log_${n}.log"
+            done
+            tail -qF ${logfiles} 2>/dev/null
+            ;;
+        pm)
+            ls -1 ${FDSROOT}/var/logs/platform.log*.log
+            for n in $(seq 0 20); do
+                logfiles="$logfiles ${FDSROOT}/var/logs/platform.log_${n}.log"
+            done
+            tail -qF ${logfiles} 2>/dev/null
             ;;
         redis)
             tail -F /fds/logs/redis/*.log

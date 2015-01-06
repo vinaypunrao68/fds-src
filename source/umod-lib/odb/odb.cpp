@@ -21,7 +21,8 @@ namespace osm {
  *
  * @return ObjectDB object.
  */
-ObjectDB::ObjectDB(const std::string& filename)
+ObjectDB::ObjectDB(const std::string& filename,
+                   fds_bool_t sync_write)
         : file(filename) {
     /*
      * Setup DB options
@@ -31,7 +32,7 @@ ObjectDB::ObjectDB(const std::string& filename)
             leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
     options.write_buffer_size = WRITE_BUFFER_SIZE;
 
-    write_options.sync = true;
+    write_options.sync = sync_write;
 
     leveldb::Status status = leveldb::DB::Open(options, file, &db);
 

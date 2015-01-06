@@ -1,0 +1,121 @@
+# Formation Deployment playbook
+#
+# This playbook will deploy Formation from a tarball & start all services.
+# The playbook depends on fdsinstall (included in the tarball) but does not
+# utilize fds-tool.py to start services.
+#
+# KNOWN ISSUES
+#
+# There is currently an open bug against OM WIN-1348 which causes OM to crash
+# on startup using this process. It is not 100% consistent, sometimes this
+# process works for starting the cluster.
+#
+# USAGE
+#
+# - Define a multi-node cluster in your ansible_hosts inventory file that looks
+#   something like this:
+#
+#   [lxc-nodes]
+#   lxc-node-01 fds_node=node01
+#   lxc-node-02 fds_node=node02
+#   lxc-node-03 fds_node=node03
+#   lxc-node-04 fds_node=node04
+#
+#   [lxc-nodes:vars]
+#   ansible_ssh_user=root
+#   ansible_ssh_pass=passwd
+#   cluster_location=bld
+#   deploy_artifact=local
+#   fds_default_nic=eth0
+#   fds_om_host=lxc-node-01
+#   fds_metrics_enabled=false
+#   fds_metricsdb_ip=127.0.0.1
+#   fds_ssh_user=root
+#   fds_ssh_password=passwd
+#
+#   Note that the fds_node variable defined next to each host is used to
+#   define how that node will be presented in the FDS node inventory & MUST
+#   be "nodeNN" where NN can be any number. There must also be a node in the
+#   inventory (first stanza) that matches the hostname assigned to the
+#   "fds_om_host" variable.
+#
+#   cluster_location is optional. Determines which FDS-held apt mirror to use for large FDS package downloads. Valid values are bld and fre. Omission causes packages to be downloaded from Artifactory (potentially VERY slow)
+#
+#   deploy_artifact is optional. Determines where the fds-*.deb pacakges should be found. nightly will download latest nightly build from appropriate apt repo. local will attempt to copy locally-built debs to the target hosts. Testing changes and performance will likely benefit most from local 
+#
+#   NOTE: This playbook will NOT populate DNS or hosts files for the nodes
+#   in the inventory - they must exist in the hosts file or be populated in
+#   DNS.
+#
+# - If you have never run ansible on the destination host you may use the
+#   "pre_deploy_setup.yml" playbook. This will install python on the target
+#   host & set the password to our normal dev password. Do not use this on
+#   production / customer hosts
+#
+# - Place your tarball in ansible/playbooks/resources/fdsinstall.tgz - if the
+#   resources directory does not exist, you may need to create it.
+#
+# - Run this playbook with whatever options are appropriate - see PLAYBOOK
+#   OPTIONS below. Note that this playbook DOES NOT use sudo right now - it
+#   assumes it can ssh to nodes as root for deploy. We may adjust in the future
+#   to support sudo.
+#
+#   PLAYBOOK OPTIONS
+#
+#   This playbook supports a few modes of operation & tunables to change
+#   behavior. There are four tagged sections of the playbook:
+#   - shutdown
+#   - clean
+#   - deploy
+#   - startup
+#
+#   If the playbook is run with no tags specified, it runs all of these - if
+#   you want to run only one of these parts of the playbook you may do so by
+#   passing the -t argument to ansible with a comma separated list of tags you
+#   want run - only those sections will run.
+#
+#   force:
+#   This playbook supports one variable (more can be added) which controls
+#   the deploy behavior. By default the deploy steps will only be run when the
+#   tarball changes. This means extract/install steps are skipped if the
+#   tarball hasn't changed from the previous ansible run. Because this isn't
+#   always the desired behavior your can force the install steps to run by
+#   passing -e "force=yes" to ansible when calling this playbook.
+#
+---
+
+-   name: Pre-Deploy - check sudo privileges
+    hosts: all
+    gather_facts: no
+    sudo: no
+    tags:
+        - check_sudo
+
+    tasks:
+    -   include: ../tasks/common/check_sudo.yml
+        when: ansible_sudo_pass is not defined
+
+-   name: Pre-Deploy - setup environment
+    hosts: all
+    gather_facts: no
+    sudo: yes
+    tags:
+        - pre_deploy
+
+    handlers:
+    -   name: restart ssh
+        service: name=ssh
+            state=restarted
+
+    tasks:
+    -   include: ../tasks/deploy_fds/pre_deploy_setup.yml
+
+
+-   name: Deploy FDS
+    hosts: all
+    gather_facts: yes
+    sudo: yes
+
+    tasks:
+
+    -   include: ../tasks/deploy_fds/deploy_fds.yml

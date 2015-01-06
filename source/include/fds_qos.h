@@ -39,8 +39,8 @@ namespace fds {
         // If atomic vars are placed in the same cache line, it creates a false-sharing
         // where the cache line can pin-ping between processors.  It's better to isolate
         // them to different cache line.  The current cacheline size in x86_64 is 128 bytes.
-        alignas(128) std::atomic<unsigned int> num_pending_ios;
-        alignas(128) std::atomic<unsigned int> num_outstanding_ios;
+        alignas(64) std::atomic<unsigned int> num_pending_ios;
+        alignas(64) std::atomic<unsigned int> num_outstanding_ios;
 
         fds_uint64_t num_ios_completed = 0;
         fds_uint64_t num_ios_dispatched = 0;
@@ -72,7 +72,7 @@ namespace fds {
             LOGNOTIFY << "Will bypass QoS? " << bypass_dispatcher;
         }
 
-        ~FDS_QoSDispatcher() {
+        virtual ~FDS_QoSDispatcher() {
             shuttingDown = true;
         }
 
@@ -333,7 +333,12 @@ namespace fds {
                     // TODO(Sean):
                     // atomic read  in a tight look can potentially saturate the memory bus.
                     // May need to revisit this.
-                    n_pios = atomic_load(&num_pending_ios);
+                    //
+                    // n_pios = atomic_load(&num_pending_ios);
+                    //
+                    // Previous line was original.  Relaxing the memory order to relieve
+                    // stress on memory bus.
+                    n_pios = num_pending_ios.load(std::memory_order_relaxed);
 
                     if (shuttingDown == true) {
                         return err;
@@ -354,7 +359,12 @@ namespace fds {
                         // TODO(Sean):
                         // atomic read  in a tight look can potentially saturate the memory bus.
                         // May need to revisit this.
-                        n_oios = atomic_load(&num_outstanding_ios);
+                        //
+                        // n_oios = atomic_load(&num_outstanding_ios);
+                        //
+                        // Previous line was original.  Relaxing the memory order to relieve
+                        // stress on memory bus.
+                        n_oios = num_outstanding_ios.load(std::memory_order_relaxed);
                         if (n_oios < max_outstanding_ios) {
                             break;
                         }

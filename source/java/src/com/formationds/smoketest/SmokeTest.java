@@ -8,6 +8,7 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.Snapshot;
 import com.formationds.util.s3.S3SignatureGenerator;
 import com.formationds.xdi.XdiClientFactory;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -40,6 +41,36 @@ public class SmokeTest {
     private final static String ADMIN_USERNAME = "admin";
     private static final String CUSTOM_METADATA_HEADER = "custom-metadata";
 
+    public static final String RNG_CLASS = "com.formationds.smoketest.RNG_CLASS";
+
+    public static final Random loadRNG() {
+        final String rngClassName = System.getProperty(RNG_CLASS);
+        if (rngClassName == null) {
+            return new Random();
+        } else {
+            switch (rngClassName) {
+            case "java.util.Random":
+                return new Random();
+            case "java.security.SecureRandom":
+                return new SecureRandom();
+            case "java.util.concurrent.ThreadLocalRandom":
+                throw new IllegalArgumentException(
+                        "ThreadLocalRandom is not supported - can't instantiate (must use ThreadLocalRandom.current())");
+            default:
+                try {
+                    Class<?> rngClass = Class.forName(rngClassName);
+                    return (Random) rngClass.newInstance();
+                } catch (ClassNotFoundException | InstantiationException
+                        | IllegalAccessException cnfe) {
+                    throw new IllegalStateException(
+                            "Failed to instantiate Random implementation specified by \""
+                                    + RNG_CLASS + "\"system property: "
+                                    + rngClassName, cnfe);
+                }
+            }
+        }
+    }
+
     private final String adminBucket;
     private final String userBucket;
     private final String snapBucket;
@@ -52,6 +83,7 @@ public class SmokeTest {
     private final String userToken;
     private final String host;
     private final ConfigurationService.Iface config;
+    private final Random rng = loadRNG();
 
     public SmokeTest()
             throws Exception {
@@ -84,11 +116,50 @@ public class SmokeTest {
         adminClient.createBucket(adminBucket);
         userClient.createBucket(userBucket);
         randomBytes = new byte[4096];
-        new SecureRandom().nextBytes(randomBytes);
+        rng.nextBytes(randomBytes);
         prefix = UUID.randomUUID()
                 .toString();
         count = 10;
         config = new XdiClientFactory().remoteOmService(host, 9090);
+        
+        testBucketExists(userBucket, false);
+        testBucketExists(adminBucket, false);
+    }
+    
+    public void testBucketExists(String bucketName, boolean fProgress) {
+        if (fProgress) System.out.print("    Checking bucket exists [" + bucketName + "] ");
+        assertEquals("bucket [" + bucketName + "] NOT active", true, checkBucketState(bucketName, true, 10, fProgress));
+        if (fProgress) System.out.println("");
+    }
+
+    public void testBucketNotExists(String bucketName, boolean fProgress) {
+        if (fProgress) System.out.print("    Checking bucket does not exist [" + bucketName + "] ");
+        assertEquals("bucket [" + bucketName + "] IS active", true, checkBucketState(bucketName, false, 10, fProgress));
+        if (fProgress) System.out.println("");
+    }
+
+    /**
+     * wait for the bucket to appear or disappear
+     */
+    public boolean checkBucketState(String bucketName, boolean fAppear, int count, boolean fProgress) {
+        List<Bucket> buckets;
+        boolean fBucketExists = false;
+        do {
+            fBucketExists = false;
+            buckets = adminClient.listBuckets();
+            for (Bucket b : buckets) {
+                if (b.getName().equals(bucketName)) {
+                    fBucketExists = true;
+                    break;
+                }
+            }
+            if (fProgress) System.out.print(".");
+            count--;
+            if ((fBucketExists != fAppear) && count > 0) {
+                sleep(1000);
+            }
+        } while ( (fBucketExists != fAppear) && count > 0);
+        return fBucketExists == fAppear;
     }
 
     void sleep(long ms) {
@@ -98,11 +169,59 @@ public class SmokeTest {
         }
     }
 
+    // @Test
+    public void testRecreateVolume() {
+        String bucketName = "test-recreate-bucket";
+        try {
+            userClient.createBucket(bucketName);
+        } catch (AmazonS3Exception e) {
+            assertEquals("unknown error : " + e , 409, e.getStatusCode());
+        }
+        testBucketExists(bucketName, true);
+        userClient.deleteBucket(bucketName);
+        testBucketNotExists(bucketName, true);
+        userClient.createBucket(bucketName);
+        testBucketExists(bucketName, true);
+    }
+
+    @Test
+    public void testLargeMultipartUpload() {
+        String key = UUID.randomUUID()
+                .toString();
+        InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
+
+        int partCount = 10;
+
+        List<PartETag> etags = IntStream.range(0, partCount)
+                .map(new ConsoleProgress("Uploading parts", partCount))
+                .mapToObj(i -> {
+                    byte[] buf = new byte[(1 + i) * (1024 * 1024)];
+                    rng.nextBytes(buf);
+                    UploadPartRequest request = new UploadPartRequest()
+                            .withBucketName(userBucket)
+                            .withKey(key)
+                            .withInputStream(new ByteArrayInputStream(buf))
+                            .withPartNumber(i)
+                            .withUploadId(initiateResult.getUploadId())
+                            .withPartSize(buf.length);
+                    UploadPartResult uploadPartResult = userClient.uploadPart(request);
+                    return uploadPartResult.getPartETag();
+                })
+                .collect(Collectors.toList());
+
+        CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(userBucket, key, initiateResult.getUploadId(), etags);
+        userClient.completeMultipartUpload(completeRequest);
+
+        ObjectMetadata objectMetadata = userClient.getObjectMetadata(userBucket, key);
+        assertEquals(57671680, objectMetadata.getContentLength());
+    }
+
     @Test
     public void testMultipartUpload() {
         String key = UUID.randomUUID()
                 .toString();
         InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
+
         int partCount = 5;
 
         List<PartETag> etags = IntStream.range(0, partCount)
@@ -188,16 +307,27 @@ public class SmokeTest {
     }
 
     @Test
-    public void testPutGetOneObject() throws Exception {
+    public void testPutGetLargeObject() throws Exception {
+        putGetOneObject(1024 * 1024 * 7);
+    }
+
+    @Test
+    public void testPutGetSmallObject() throws Exception {
+        putGetOneObject(1024 * 4);
+    }
+
+    private void putGetOneObject(int byteCount) throws Exception {
         String key = UUID.randomUUID().toString();
-        userClient.putObject(userBucket, key, new ByteArrayInputStream(randomBytes), new ObjectMetadata());
+        byte[] buf = new byte[byteCount];
+        rng.nextBytes(buf);
+        userClient.putObject(userBucket, key, new ByteArrayInputStream(buf), new ObjectMetadata());
         HttpClient httpClient = new HttpClientFactory().makeHttpClient();
         HttpGet httpGet = new HttpGet("https://" + host + ":8443/" + userBucket + "/" + key);
         String hash = S3SignatureGenerator.hash(httpGet, new BasicAWSCredentials(userName, userToken));
         httpGet.addHeader("Authorization", hash);
         HttpResponse response = httpClient.execute(httpGet);
         byte[] bytes = IOUtils.toByteArray(response.getEntity().getContent());
-        assertArrayEquals(randomBytes, bytes);
+        assertArrayEquals(buf, bytes);
     }
 
     @Test

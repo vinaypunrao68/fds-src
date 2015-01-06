@@ -9,7 +9,6 @@
 #include <thread>
 #include <fdsn-server.h>
 #include <util/fds_stat.h>
-#include <native_api.h>
 #include <am-platform.h>
 #include <net/net-service.h>
 #include <AccessMgr.h>
@@ -18,6 +17,7 @@
 #include <google/profiler.h>
 #include <gtest/gtest.h>
 #include <testlib/DataGen.hpp>
+#include "fds_process.h"
 
 namespace fds {
 
@@ -139,8 +139,7 @@ class AmLoadProc : public AmAsyncResponseApi,
             asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncAmServiceRequestIf>(
                 asyncThriftClient);
         } else {
-            am->asyncDataApi->setResponseApi(responseApi);
-            asyncDataApi = am->asyncDataApi;
+            asyncDataApi = boost::make_shared<AmAsyncDataApi>(responseApi);
         }
     }
 
@@ -150,7 +149,8 @@ class AmLoadProc : public AmAsyncResponseApi,
         STARTTX,
         STAT,
         PUTMETA,
-        LISTVOL
+        LISTVOL,
+        GETWITHMETA
     };
 
     // **********
@@ -182,7 +182,25 @@ class AmLoadProc : public AmAsyncResponseApi,
     void getBlobResponse(const apis::RequestId& requestId,
                          const std::string& response) {}
     void getBlobResponse(boost::shared_ptr<apis::RequestId>& requestId,
-                         boost::shared_ptr<std::string>& response) {}
+                         boost::shared_ptr<std::string>& response) {
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+    void getBlobWithMetaResponse(const apis::RequestId& requestId,
+                                 const std::string& data,
+                                 const apis::BlobDescriptor& blobDesc) {}
+    void getBlobWithMetaResponse(boost::shared_ptr<apis::RequestId>& requestId,
+                                 boost::shared_ptr<std::string>& data,
+                                 boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+    void handshakeComplete(const apis::RequestId& requestId) {}
+    void handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId) {}
     void updateMetadataResponse(const apis::RequestId& requestId) {}
     void updateMetadataResponse(boost::shared_ptr<apis::RequestId>& requestId) {}
     void updateBlobResponse(const apis::RequestId& requestId) {}
@@ -268,8 +286,20 @@ class AmLoadProc : public AmAsyncResponseApi,
 
     void getBlobResp(const Error &error,
                      boost::shared_ptr<apis::RequestId>& requestId,
-                     char* buf,
+                     boost::shared_ptr<std::string> buf,
                      fds_uint32_t& length) {
+        fds_verify(ERR_OK == error);
+        if (totalOps == ++opsDone) {
+            asyncStopNano = util::getTimeStampNanos();
+            done_cond.notify_all();
+        }
+    }
+
+    void getBlobWithMetaResp(const Error &error,
+                             boost::shared_ptr<apis::RequestId>& requestId,
+                             boost::shared_ptr<std::string> buf,
+                             fds_uint32_t& length,
+                             boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {
         fds_verify(ERR_OK == error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
@@ -356,6 +386,16 @@ class AmLoadProc : public AmAsyncResponseApi,
                                       blobGen.blobName,
                                       blobLength,
                                       off);
+            } else if (opType == GETWITHMETA) {
+                // Always use an empty request ID since we don't track
+                boost::shared_ptr<apis::RequestId> reqId(
+                    boost::make_shared<apis::RequestId>());
+                asyncDataApi->getBlobWithMeta(reqId,
+                                              domainName,
+                                              volumeName,
+                                              blobGen.blobName,
+                                              blobLength,
+                                              off);
             } else if (opType == STARTTX) {
                 // Always use an empty request ID since we don't track
                 boost::shared_ptr<apis::RequestId> reqId(
@@ -617,6 +657,9 @@ class AmLoadProc : public AmAsyncResponseApi,
     boost::shared_ptr<apis::AsyncAmServiceResponseProcessor> processor;
 };
 
+}  // namespace fds
+
+using fds::AmLoadProc;
 AmLoadProc::unique_ptr amLoad;
 
 TEST(AccessMgr, updateBlobOnce) {
@@ -665,7 +708,10 @@ TEST(AccessMgr, wr) {
     amLoad->runAsyncTask(AmLoadProc::GET);
 }
 
-}  // namespace fds
+TEST(AccessMgr, getWithMeta) {
+    GLOGDEBUG << "Testing async getWithMeta";
+    amLoad->runAsyncTask(AmLoadProc::GETWITHMETA);
+}
 
 int
 main(int argc, char **argv) {

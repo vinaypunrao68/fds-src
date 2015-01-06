@@ -17,7 +17,7 @@
 
 #define GET_VOL(volId) \
         DmPersistVolDir::ptr vol; \
-        read_synchronized(volMapLock_) { \
+        synchronized(volMapLock_) { \
             std::unordered_map<fds_volid_t, DmPersistVolDir::ptr>::iterator iter = \
                     volMap_.find(volId); \
             if (volMap_.end() != iter) { \
@@ -72,8 +72,8 @@ Error DmVolumeDirectory::addCatalog(const VolumeDesc & voldesc) {
     }
     */
 
-    SCOPEDWRITE(volMapLock_);
-    fds_verify(!volMap_.count(voldesc.volUUID));
+    FDSGUARD(volMapLock_);
+    fds_verify(volMap_.end() == volMap_.find(voldesc.volUUID));
     volMap_[voldesc.volUUID] = vol;
 
     return ERR_OK;
@@ -85,7 +85,7 @@ Error DmVolumeDirectory::copyVolume(const VolumeDesc & voldesc) {
 
     fds_uint32_t objSize = 0;
     fpi::FDSP_VolType volType = fpi::FDSP_VOL_S3_TYPE;
-    read_synchronized(volMapLock_) {
+    synchronized(volMapLock_) {
         std::unordered_map<fds_volid_t, DmPersistVolDir::ptr>::const_iterator iter =
                 volMap_.find(voldesc.srcVolumeId);
         fds_verify(volMap_.end() != iter);
@@ -113,7 +113,11 @@ Error DmVolumeDirectory::copyVolume(const VolumeDesc & voldesc) {
     oss << "/" << voldesc.volUUID << "_vcat.ldb";
     std::string copyDir =  oss.str();
 
-    Error rc = volMap_[voldesc.srcVolumeId]->copyVolDir(copyDir);
+    DmPersistVolDir::ptr voldir;
+    synchronized(volMapLock_) {
+        voldir = volMap_[voldesc.srcVolumeId];
+    }
+    Error rc = voldir->copyVolDir(copyDir);
 
     if (rc.ok()) {
         DmPersistVolDir::ptr vol;
@@ -130,8 +134,8 @@ Error DmVolumeDirectory::copyVolume(const VolumeDesc & voldesc) {
         }
         */
 
-        SCOPEDWRITE(volMapLock_);
-        fds_verify(0 == volMap_.count(voldesc.volUUID));
+        FDSGUARD(volMapLock_);
+        fds_verify(volMap_.end() == volMap_.find(voldesc.volUUID));
         volMap_[voldesc.volUUID] = vol;
     }
 
@@ -176,7 +180,7 @@ Error DmVolumeDirectory::markVolumeDeleted(fds_volid_t volId) {
 Error DmVolumeDirectory::deleteEmptyCatalog(fds_volid_t volId) {
     LOGDEBUG << "Will delete catalog for volume '" << std::hex << volId << std::dec << "'";
 
-    write_synchronized(volMapLock_) {
+    synchronized(volMapLock_) {
         std::unordered_map<fds_volid_t, DmPersistVolDir::ptr>::iterator iter =
                 volMap_.find(volId);
         if (volMap_.end() != iter && iter->second->isMarkedDeleted()) {
@@ -190,8 +194,7 @@ Error DmVolumeDirectory::deleteEmptyCatalog(fds_volid_t volId) {
 Error DmVolumeDirectory::getVolumeMeta(fds_volid_t volId, fds_uint64_t* volSize,
         fds_uint64_t* blobCount, fds_uint64_t* objCount) {
     Error rc(ERR_OK);
-    {
-        SCOPEDREAD(lockVolSummaryMap_);
+    synchronized(lockVolSummaryMap_) {
         DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(volId);
         if (volSummaryMap_.end() != iter) {
             *volSize = iter->second->size;
@@ -202,10 +205,14 @@ Error DmVolumeDirectory::getVolumeMeta(fds_volid_t volId, fds_uint64_t* volSize,
     }
 
     rc = getVolumeMetaInternal(volId, volSize, blobCount, objCount);
+
     if (rc.ok()) {
-        SCOPEDWRITE(lockVolSummaryMap_);
-        volSummaryMap_[volId].reset(new DmVolumeSummary(volId, *volSize,
-                *blobCount, *objCount));
+        FDSGUARD(lockVolSummaryMap_);
+        DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(volId);
+        if (volSummaryMap_.end() == iter) {
+            volSummaryMap_[volId].reset(new DmVolumeSummary(volId, *volSize,
+                    *blobCount, *objCount));
+        }
     }
 
     return rc;
@@ -291,33 +298,34 @@ Error DmVolumeDirectory::getBlobMeta(fds_volid_t volId, const std::string & blob
 }
 
 Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
-        fds_uint64_t startOffset, fds_int64_t endOffset, blob_version_t* blobVersion,
-        fpi::FDSP_MetaDataList* metaList, fpi::FDSP_BlobObjectList* objList) {
+                                 fds_uint64_t startOffset, fds_int64_t endOffset,
+                                 blob_version_t* blobVersion, fpi::FDSP_MetaDataList* metaList,
+                                 fpi::FDSP_BlobObjectList* objList, fds_uint64_t* blobSize) {
     LOGDEBUG << "Will retrieve blob '" << blobName << "' offset '" << startOffset <<
             "' volume '" << std::hex << volId << std::dec << "'";
 
-    fds_uint64_t blobSize = 0;
-    Error rc = getBlobMeta(volId, blobName, blobVersion, &blobSize, metaList);
+    *blobSize = 0;
+    Error rc = getBlobMeta(volId, blobName, blobVersion, blobSize, metaList);
     if (!rc.ok()) {
         LOGNOTIFY << "Failed to retrieve blob '" << blobName << "' volume '" <<
                 std::hex << volId << std::dec << "'";
         return rc;
     }
 
-    if (0 == blobSize) {
+    if (0 == *blobSize) {
         // empty blob
         return rc;
-    } else if (startOffset >= blobSize) {
+    } else if (startOffset >= *blobSize) {
         return ERR_CAT_ENTRY_NOT_FOUND;
-    } else if (endOffset >= static_cast<fds_int64_t>(blobSize)) {
+    } else if (endOffset >= static_cast<fds_int64_t>(*blobSize)) {
         endOffset = -1;
     }
 
     GET_VOL_N_CHECK_DELETED(volId);
 
-    fds_uint64_t lastObjectSize = DmVolumeDirectory::getLastObjSize(blobSize, vol->getObjSize());
+    fds_uint64_t lastObjectSize = DmVolumeDirectory::getLastObjSize(*blobSize, vol->getObjSize());
     if (endOffset < 0) {
-        endOffset = blobSize ? blobSize - lastObjectSize : 0;
+        endOffset = *blobSize ? *blobSize - lastObjectSize : 0;
     }
 
     rc = vol->getObject(blobName, startOffset, endOffset, *objList);
@@ -326,7 +334,7 @@ Error DmVolumeDirectory::getBlob(fds_volid_t volId, const std::string& blobName,
         fpi::FDSP_BlobObjectList::reverse_iterator iter = objList->rbegin();
         if (objList->rend() != iter) {
             const fds_uint64_t lastOffset =
-                    DmVolumeDirectory::getLastOffset(blobSize, vol->getObjSize());
+                    DmVolumeDirectory::getLastOffset(*blobSize, vol->getObjSize());
             if (static_cast<fds_int64_t>(lastOffset) == iter->offset) {
                 iter->size = lastObjectSize;
             }
@@ -444,17 +452,14 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
         }
     }
 
-    DmVolumeSummaryMap_t::iterator volSummaryIter;
-    {
-        SCOPEDWRITE(lockVolSummaryMap_);
-        volSummaryIter = volSummaryMap_.find(volId);
-    }
-
     for (BlobObjList::const_iter cit = blobObjList->begin(); blobObjList->end() != cit; ++cit) {
         BlobObjList::iterator oldIter = oldBlobObjList.find(cit->first);
         if (oldBlobObjList.end() == oldIter) {
             // new offset, update blob size
             newBlobSize += cit->second.size;
+
+            FDSGUARD(lockVolSummaryMap_);
+            DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
             if (volSummaryMap_.end() != volSummaryIter) {
                 volSummaryIter->second->objectCount.fetch_add(1);
             }
@@ -503,6 +508,8 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
             }
         }
 
+        FDSGUARD(lockVolSummaryMap_);
+        DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
         if (volSummaryMap_.end() != volSummaryIter) {
             volSummaryIter->second->objectCount.fetch_sub(truncateObjList.size());
         }
@@ -522,6 +529,79 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
         return rc;
     }
 
+    synchronized(lockVolSummaryMap_) {
+        DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
+        if (volSummaryMap_.end() != volSummaryIter) {
+            fds_uint64_t diff = 0;
+            if (newBlobSize >= oldBlobSize) {
+                diff = newBlobSize - oldBlobSize;
+                volSummaryIter->second->size.fetch_add(diff);
+            } else {
+                diff = oldBlobSize - newBlobSize;
+                volSummaryIter->second->size.fetch_sub(diff);
+            }
+            if (newBlob) {
+                volSummaryIter->second->blobCount.fetch_add(1);
+            }
+        }
+    }
+
+    // actually expunge objects that were dereferenced by the blob
+    // TODO(xxx): later that should become part of GC and done in background
+    fds_verify(expungeCb_);
+    return expungeCb_(volId, expungeList);
+}
+
+Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
+        fds_uint64_t blobSize, const MetaDataList::const_ptr& metaList,
+        CatWriteBatch & wb, bool truncate /* = true */) {
+    LOGDEBUG << "Will commit blob: '" << blobName << "' to volume: '" << std::hex << volId
+            << std::dec << "'";
+
+    bool newBlob = false;
+    // see if the blob exists and get details of it
+    BlobMetaDesc blobMeta;
+    Error rc = getBlobMetaDesc(volId, blobName, blobMeta);
+    if (!rc.ok()) {
+        if (rc == ERR_CAT_ENTRY_NOT_FOUND) {
+            newBlob = true;
+        } else {
+            LOGERROR << "Failed to retrieve blob details for volume: '" << std::hex << volId
+                    << std::dec << "' blob: '" << blobName << "'";
+            return rc;
+        }
+    }
+
+    GET_VOL_N_CHECK_DELETED(volId);
+
+    fds_uint64_t oldBlobSize = blobMeta.desc.blob_size;
+    fds_uint32_t oldObjCount = oldBlobSize / vol->getObjSize();
+    if (0 != oldBlobSize && oldBlobSize % vol->getObjSize()) {
+        oldObjCount += 1;
+    }
+
+    fds_uint64_t newBlobSize = (oldBlobSize < blobSize || truncate) ? blobSize : oldBlobSize;
+    fds_uint64_t newObjCount = newBlobSize / vol->getObjSize();
+    if (0 != newBlobSize && newBlobSize % vol->getObjSize()) {
+        newObjCount += 1;
+    }
+
+    mergeMetaList(blobMeta.meta_list, *metaList);
+    blobMeta.desc.version += 1;
+    blobMeta.desc.blob_size = newBlobSize;
+    if (newBlob) {
+        blobMeta.desc.blob_name = blobName;
+    }
+
+    rc = vol->putBatch(blobName, blobMeta, wb);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to put blob: '" << blobName << "' in volume: '" << std::hex
+                << volId << std::dec << "' error: '" << rc << "'";
+        return rc;
+    }
+
+    FDSGUARD(lockVolSummaryMap_);
+    DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
     if (volSummaryMap_.end() != volSummaryIter) {
         fds_uint64_t diff = 0;
         if (newBlobSize >= oldBlobSize) {
@@ -531,15 +611,22 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
             diff = oldBlobSize - newBlobSize;
             volSummaryIter->second->size.fetch_sub(diff);
         }
+
+        diff = 0;
+        if (newObjCount >= oldObjCount) {
+            diff = newObjCount - oldObjCount;
+            volSummaryIter->second->objectCount.fetch_add(diff);
+        } else {
+            diff = oldObjCount - newObjCount;
+            volSummaryIter->second->objectCount.fetch_sub(diff);
+        }
+
         if (newBlob) {
             volSummaryIter->second->blobCount.fetch_add(1);
         }
     }
 
-    // actually expunge objects that were dereferenced by the blob
-    // TODO(xxx): later that should become part of GC and done in background
-    fds_verify(expungeCb_);
-    return expungeCb_(volId, expungeList);
+    return rc;
 }
 
 Error DmVolumeDirectory::flushBlob(fds_volid_t volId, const std::string& blobName) {
@@ -593,8 +680,7 @@ Error DmVolumeDirectory::deleteBlob(fds_volid_t volId, const std::string& blobNa
             LOGWARN << "Failed to delete metadata for blob: '" << blobName << "'";
         }
 
-        {
-            SCOPEDWRITE(lockVolSummaryMap_);
+        synchronized(lockVolSummaryMap_) {
             DmVolumeSummaryMap_t::iterator iter = volSummaryMap_.find(volId);
             if (volSummaryMap_.end() != iter) {
                 iter->second->blobCount.fetch_sub(1);
@@ -615,5 +701,10 @@ Error DmVolumeDirectory::deleteBlob(fds_volid_t volId, const std::string& blobNa
 Error DmVolumeDirectory::syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid) {
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->syncCatalog(dmUuid);
+}
+
+DmPersistVolDir::ptr DmVolumeDirectory::getVolume(fds_volid_t volId) {
+    GET_VOL(volId);
+    return vol;
 }
 }  // namespace fds

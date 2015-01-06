@@ -27,7 +27,7 @@ namespace fds {
      * Implemented as a map so we can easily search for particular key
      */
     struct MetaDataList :
-            std::unordered_map<std::string, std::string>,
+            std::map<std::string, std::string>,
             serialize::Serializable {
         typedef boost::shared_ptr<MetaDataList> ptr;
         typedef boost::shared_ptr<const MetaDataList> const_ptr;

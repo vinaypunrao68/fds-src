@@ -27,16 +27,26 @@
         <section>
             <connector-panel ng-model="dataConnector"></connector-panel>
         </section>
+<!--
         <section>
-            <qos-panel ng-model="qos"></qos-panel>
+            <tiering-panel ng-model="mediaPolicy"></tiering-policy-panel>
+        </section>        
+-->
+        <section>
+            <qos-panel ng-model="qos" save-only="true"></qos-panel>
         </section>
+        <section>
+            <timeline-policy-panel ng-model="timelinePolicies" save-only="true"></timeline-policy-panel>
+        </section>
+<!--
         <section>
             <snapshot-policy-panel ng-model="snapshotPolicies"></snapshot-policy-panel>
         </section>
+-->
 
     </div>
 
-    <div style="padding-top: 12px;margin-bottom: 42px;">
+    <div class="create-volume-button-panel" style="margin-top: 24px;margin-bottom: 42px;">
         <button class="btn btn-primary" style="display: inline-block;" ng-click="save()">
             <span ng-show="volumeVars.creating === true" translate>volumes.l_create_volume</span>
         </button>

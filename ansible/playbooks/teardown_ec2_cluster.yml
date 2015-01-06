@@ -1,0 +1,38 @@
+---
+-   name: Deprovision 4-node FDS cluster in EC2
+    connection: local
+    hosts: localhost
+    gather_facts: False
+    vars_files:
+      -   ../vars_files/credentials/aws_fds_testing.yml
+      -   ../vars_files/credentials/fds-deploy_rsa.yml
+    tasks:
+
+    -   name: check for instance_name_tag
+        fail: msg="You must supply a value for instance_name_tag"
+        when: instance_name_tag is not defined
+
+    -   name: tear down tag-matched instances
+        ec2:
+            aws_access_key: "{{ aws_access_key }}"
+            aws_secret_key: "{{ aws_secret_key }}"
+            instance_tags:
+                Name: "{{ instance_name_tag }}"
+                fds_purpose: testing
+            exact_count: 0
+            count_tag:
+                Name: "{{ instance_name_tag }}"
+                fds_purpose: testing
+            key_name: fds-ie
+            group_id: sg-43b9c126
+            instance_type: t2.micro
+            image: ami-fb5506cb
+            volumes:
+                -   device_name: /dev/sda1
+                    volume_size: 20
+                    delete_on_termination: true
+            vpc_subnet_id: subnet-195bac40
+            monitoring: no
+            region: us-west-2
+            zone: us-west-2c
+            wait: yes

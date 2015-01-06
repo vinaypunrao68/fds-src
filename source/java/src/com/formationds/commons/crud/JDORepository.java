@@ -4,8 +4,6 @@
 
 package com.formationds.commons.crud;
 
-import com.formationds.commons.model.entity.Event;
-import com.formationds.commons.model.entity.VolumeDatapoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +16,11 @@ import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
 import java.io.Serializable;
 import java.lang.reflect.ParameterizedType;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Properties;
 
 /**
  * @author ptinius
@@ -31,46 +33,130 @@ public abstract class JDORepository<T,
 
     private PersistenceManagerFactory factory;
     private PersistenceManager manager;
-    private EntityManager entity;
+
+    private EntityManagerFactory entityManagerFactory;
 
     // use non-static logger to tie it to the concrete subclass.
-    private final Logger logger;
+    protected final Logger logger;
 
-    // TODO: use standard JPA @PrePerist etc entity annotations?
+    /**
+     * Entity prePersist and postPersist listener callbacks.
+     * <p/>
+     * Each interface may throw a RuntimeException on error.
+     *
+     * @param <T>
+     */
+    // TODO: use standard JPA @PrePersist etc entity annotations?
     public static interface EntityPersistListener<T> {
+
         /**
          * Notification that the entity is about to be saved.
          * <p/>
          * Implementations should avoid blocking operations.
          *
          * @param entity
+         *
+         * @throws RuntimeException if an error occurs.
          */
         default void prePersist(T entity) {}
+
+        /**
+         * Notification that the entities are about to be saved.
+         * <p/>
+         * Implementations should avoid blocking operations.
+         *
+         * @param entities
+         *
+         * @throws RuntimeException if an error occurs.
+         */
+        default void prePersist(List<T> entities) {
+            entities.forEach((e) -> prePersist(e));
+        }
+
+        /**
+         * Notification that the entity was just persisted.
+         *
+         * @param entity
+         *
+         * @throws RuntimeException if an error occurs.
+         */
         default void postPersist(T entity) {}
+
+        /**
+         * Notification that the entity was just persisted.
+         *
+         * @param entities
+         *
+         * @throws RuntimeException if an error occurs.
+         */
+        default void postPersist(List<T> entities) {
+            entities.forEach((e) -> postPersist(e));
+        }
     }
+
     private final List<EntityPersistListener<T>> listeners = new ArrayList<>();
 
     protected JDORepository() {
-      logger = LoggerFactory.getLogger(this.getClass());
-  }
+        logger = LoggerFactory.getLogger(this.getClass());
+    }
 
+    /**
+     * Add a Entity persist listener for pre/post persistence callbacks
+     * @param l
+     */
     public void addEntityPersistListener(EntityPersistListener<T> l) {
         listeners.add(l);
     }
 
+    /**
+     * Remove the entity persist listener.
+     * @param l
+     */
     public void removeEntityPersistListener(EntityPersistListener<T> l) {
         listeners.remove(l);
     }
 
+    /**
+     * Fire the prePersist handler on any defined listeners
+     *
+     * @param entity
+     */
     private void firePrePersist(T entity) {
         for (EntityPersistListener<T> l : listeners) {
             l.prePersist(entity);
         }
     }
 
+    /**
+     * Fire the prePersist handler on any defined listeners
+     *
+     * @param entities
+     */
+    private void firePrePersist(List<T> entities) {
+        for (EntityPersistListener<T> l : listeners) {
+            l.prePersist(entities);
+        }
+    }
+
+    /**
+     * Fire the postPersist listener on any defined listeners
+     *
+     * @param entity
+     */
     private void firePostPersist(T entity) {
         for (EntityPersistListener<T> l : listeners) {
-            l.prePersist(entity);
+            l.postPersist(entity);
+        }
+    }
+
+    /**
+     * Fire the postPersist listener on any defined listeners
+     *
+     * @param entities
+     */
+    private void firePostPersist(List<T> entities) {
+        for (EntityPersistListener<T> l : listeners) {
+            l.postPersist(entities);
         }
     }
 
@@ -130,22 +216,33 @@ public abstract class JDORepository<T,
      */
     @Override
     public T save( final T entity ) {
+
+        synchronized( this ) {
         try {
-            logger.trace("Saving entity {}", entity);
-            manager().currentTransaction().begin();
+            logger.trace("ENTITY_SAVE: {}", entity);
+
+            if( !manager().currentTransaction().isActive() ) {
+                manager().currentTransaction().begin();
+            }
 
             firePrePersist(entity);
             manager().makePersistent( entity );
-            firePostPersist(entity);
+            firePostPersist( entity );
 
-            manager().currentTransaction().commit();
+            if( manager().currentTransaction().isActive() ) {
+                manager().currentTransaction().commit();
+            }
+
             logger.trace("Saved entity {}", entity);
             return entity;
         } catch (RuntimeException re) {
-            logger.warn("SAVE Failed.  Rolling back transaction.");
-            logger.debug("SAVE Failed", re);
-            manager().currentTransaction().rollback();
+            logger.debug( "SAVE Failed", re );
+//            if (manager().currentTransaction().isActive() {
+//                logger.warn("SAVE Failed.  Rolling back transaction.");
+//                manager().currentTransaction().rollback();
+//        }
             throw re;
+        }
         }
     }
 
@@ -159,26 +256,50 @@ public abstract class JDORepository<T,
      * @throws RuntimeException if the save for any entity fails
      */
     public List<T> save(Collection<T> entities) {
-        int cnt = (entities != null ? entities.size() : 0);
-        List<T> persisted = new ArrayList<>(cnt);
-        try {
-            logger.trace("Saving entities {}", entities);
-            manager().currentTransaction().begin();
+        List<T> persisted = new ArrayList<>( );
+        synchronized( this ) {
+            try {
+                logger.trace( "Saving {} entities",
+                              entities != null ? entities.size() : 0 );
+                if( entities != null ) {
+                    entities.forEach( ( e ) -> logger.trace( "ENTITY_SAVE: {}",
+                                                             e ) );
 
-            for (T entity : entities) {
-                T pe = manager().makePersistent(entity);
-                persisted.add(pe);
+                    if( !manager().currentTransaction()
+                                  .isActive() ) {
+                        manager().currentTransaction()
+                                 .begin();
+                    }
+
+                    firePrePersist(
+                        ( entities instanceof List<?> ? ( List<T> ) entities : new ArrayList<T>(
+                            entities ) ) );
+                    persisted.addAll( manager().makePersistentAll(
+                        entities ) );
+                    firePostPersist( persisted );
+
+                    if( manager().currentTransaction()
+                                 .isActive() ) {
+                        manager().currentTransaction()
+                                 .commit();
+                    }
+
+                    logger.trace( "Saved {} entities.", entities.size() );
+                    return persisted;
+                }
+            } catch( RuntimeException re ) {
+
+
+                logger.debug( "SAVE Failed", re );
+//            if (manager().currentTransaction().isActive()) {
+//                  logger.warn("SAVE Failed.  Rolling back transaction.");
+//                manager().currentTransaction().rollback();
+//        }
+                throw re;
             }
-
-            manager().currentTransaction().commit();
-            logger.trace("Saved entities {}", entities);
-            return persisted;
-        } catch (RuntimeException re) {
-            logger.warn("SAVE Failed.  Rolling back transaction.");
-            logger.debug("SAVE Failed", re);
-            manager().currentTransaction().rollback();
-            throw re;
         }
+
+        return persisted;
     }
 
     /**
@@ -196,17 +317,27 @@ public abstract class JDORepository<T,
 
     @Override
     public void delete(T entity) {
-        try {
-            logger.trace("Deleting entity {}", entity);
-            manager().currentTransaction().begin();
-            manager().deletePersistent(entity);
-            manager().currentTransaction().commit();
-            logger.trace("Deleted entity {}", entity);
-        } catch (RuntimeException re) {
-            logger.warn("DELETE Failed.  Rolling back transaction.");
-            logger.debug("DELETE Failed", re);
-            manager().currentTransaction().rollback();
-            throw re;
+        synchronized( this ) {
+            try {
+                logger.trace( "Deleting entity {}", entity );
+                manager().currentTransaction()
+                         .begin();
+                manager().deletePersistent( entity );
+                manager().currentTransaction()
+                         .commit();
+                logger.trace( "Deleted entity {}", entity );
+            } catch( RuntimeException re ) {
+                logger.debug( "DELETE Failed", re );
+
+                if( manager().currentTransaction()
+                             .isActive() ) {
+                    logger.warn( "DELETE Failed.  Rolling back transaction." );
+                    manager().currentTransaction()
+                             .rollback();
+                }
+
+                throw re;
+            }
         }
     }
 
@@ -215,9 +346,12 @@ public abstract class JDORepository<T,
      */
     @Override
     public void close() {
-        entity().close();
-        manager().close();
-        factory().close();
+        // ignoring errors on close.  Although this is likely to indicate either
+        // a shutdown condition or a programming error such as calling close twice,
+        // there is no real impact or recovery actions to take
+        try { entityManagerFactory.close(); } catch (Throwable t) { /* ignore on close */ }
+        try { manager.close(); } catch (Throwable t) { /* ignore on close */ }
+        try { factory.close(); } catch (Throwable t) { /* ignore on close */ }
     }
 
     /**
@@ -234,7 +368,7 @@ public abstract class JDORepository<T,
 
         final EntityManagerFactory emf = Persistence.createEntityManagerFactory(dbName);
 
-        entity( emf.createEntityManager() );
+        entityManagerFactory(emf);
 
         initShutdownHook();
     }
@@ -281,15 +415,15 @@ public abstract class JDORepository<T,
   /**
    * @return Returns the {@link EntityManager}
    */
-  public EntityManager entity() {
-    return entity;
+  public EntityManager newEntityManager() {
+    return entityManagerFactory.createEntityManager();
   }
 
   /**
    * @param entity the {@link javax.persistence.EntityManager}
    */
-  protected void entity( final EntityManager entity ) {
-    this.entity = entity;
+  protected void entityManagerFactory(final EntityManagerFactory entity) {
+    this.entityManagerFactory   = entity;
   }
 
   /**

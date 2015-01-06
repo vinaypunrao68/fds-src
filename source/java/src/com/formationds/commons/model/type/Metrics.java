@@ -7,6 +7,10 @@ package com.formationds.commons.model.type;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.i18n.ModelResource;
 
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
+
 /**
  * @author ptinius
  */
@@ -40,7 +44,23 @@ public enum Metrics {
     /**
      * gets from SSD and cache
      */
-    SSD_GETS( "Gets from SSD" );
+    SSD_GETS( "SSD Gets" );
+
+    public static EnumSet<Metrics> FIREBREAK = EnumSet.of(Metrics.STC_SIGMA,
+                                                          Metrics.LTC_SIGMA,
+                                                          Metrics.STP_SIGMA,
+                                                          Metrics.LTP_SIGMA);
+
+    public static EnumSet<Metrics> FIREBREAK_CAPACITY = EnumSet.of(Metrics.STC_SIGMA,
+                                                                   Metrics.LTC_SIGMA);
+
+    public static EnumSet<Metrics> FIREBREAK_PERFORMANCE = EnumSet.of(Metrics.STP_SIGMA,
+                                                                      Metrics.LTP_SIGMA);
+
+    public static EnumSet<Metrics> PERFORMANCE = EnumSet.of(Metrics.STP_WMA);
+
+    public static final EnumSet<Metrics> CAPACITY = EnumSet.of(Metrics.PBYTES,
+                                                               Metrics.LBYTES);
 
     private static final String UNKNOWN_METRIC =
         ModelResource.getString( "model.metrics.unsupported" );

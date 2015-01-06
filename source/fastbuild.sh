@@ -12,7 +12,6 @@ dir_list="
     util                                \
     lib                                 \
     nginx-driver                        \
-    fds-probe                           \
     persistent-layer                    \
     platform                            \
     orch-mgr                            \

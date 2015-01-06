@@ -7,7 +7,6 @@
 #include <string>
 #include <util/Log.h>
 #include <fds_module.h>
-#include <native_api.h>
 #include <apis/AsyncAmServiceResponse.h>
 #include <concurrency/Thread.h>
 #include <AmAsyncDataApi.h>
@@ -38,30 +37,25 @@ namespace xdi_ats = apache::thrift::server;
 class AsyncDataServer : public Module, public boost::noncopyable {
   private:
     fds_uint32_t               port;
-    AmAsyncDataApi::shared_ptr asyncDataApi;
-    fds_uint32_t               numServerThreads;
 
     // Thrift endpoint related
     boost::shared_ptr<xdi_att::TServerTransport>  serverTransport;
     boost::shared_ptr<xdi_att::TTransportFactory> transportFactory;
     boost::shared_ptr<xdi_atp::TProtocolFactory>  protocolFactory;
-    boost::shared_ptr<apis::AsyncAmServiceRequestProcessor> processor;
+    boost::shared_ptr<xdi_at::TProcessorFactory>  processorFactory;
 
-    boost::shared_ptr<xdi_atc::ThreadManager>      threadManager;
-    boost::shared_ptr<xdi_atc::PosixThreadFactory> threadFactory;
     boost::shared_ptr<xdi_ats::TThreadedServer>    ttServer;
-    boost::shared_ptr<xdi_ats::TNonblockingServer> nbServer;
 
-    boost::shared_ptr<boost::thread> listen_thread;
+    std::shared_ptr<boost::thread> listen_thread;
 
   public:
-    explicit AsyncDataServer(const std::string &name,
-                             AmAsyncDataApi::shared_ptr &_dataApi);
+    AsyncDataServer(const std::string &name,
+                    fds_uint32_t instanceId = 0);
     virtual ~AsyncDataServer() {
-        threadManager->stop();
-        ttServer->stop();
-        listen_thread->join();
-        serverTransport->close();
+        if (listen_thread) {
+            ttServer->stop();
+            listen_thread->join();
+        }
     }
     typedef std::unique_ptr<AsyncDataServer> unique_ptr;
 

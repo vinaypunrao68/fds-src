@@ -45,6 +45,7 @@
 #include <functional>
 
 #include <dm-tvc/TimeVolumeCatalog.h>
+#include <dm-tvc/TimelineDB.h>
 #include <StatStreamAggregator.h>
 
 /* if defined, puts complete as soon as they
@@ -80,7 +81,7 @@ struct DataMgr : Module, DmIoReqHandler {
     CatalogSyncMgrPtr catSyncMgr;  // sending vol meta
     CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
     void initHandlers();
-
+    VolumeMeta* getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked = false);
     /**
      * DmIoReqHandler method implementation
      */
@@ -92,12 +93,12 @@ struct DataMgr : Module, DmIoReqHandler {
     }
 
     inline const std::string & volumeName(fds_volid_t volId) {
-        FDSGUARD(*vol_map_mtx);
+        FDSGUARD(vol_map_mtx);
         return vol_meta_map[volId]->vol_desc->name;
     }
 
     inline const VolumeDesc * getVolumeDesc(fds_volid_t volId) const {
-        FDSGUARD(*vol_map_mtx);
+        FDSGUARD(vol_map_mtx);
         std::unordered_map<fds_uint64_t, VolumeMeta*>::const_iterator iter =
                 vol_meta_map.find(volId);
         return (vol_meta_map.end() != iter && iter->second ?
@@ -129,6 +130,7 @@ struct DataMgr : Module, DmIoReqHandler {
     } feature;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
+    TimelineDB timeline;
 
     /**
      * For timing out request forwarding in DM (to send DMT close ack)
@@ -159,7 +161,6 @@ struct DataMgr : Module, DmIoReqHandler {
             parentDm = _parent;
             dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
                     parentDm->qosOutstandingTasks, log);
-            // dispatcher = new QoSMinPrioDispatcher(this, log, parentDm->scheduleRate);
         }
 
         Error processIO(FDS_IOType* _io) {
@@ -173,23 +174,9 @@ struct DataMgr : Module, DmIoReqHandler {
 
             switch (io->io_type){
                 /* TODO(Rao): Add the new refactored DM messages types here */
-                case FDS_CAT_UPD_ONCE:
-                    threadPool->schedule(&DataMgr::updateCatalogOnce,
-                                         dataMgr,
-                                         io);
-                    break;
-                case FDS_COMMIT_BLOB_TX:
-                    threadPool->schedule(&DataMgr::commitBlobTx, dataMgr, io);
-                    break;
                 case FDS_DM_SNAP_VOLCAT:
                 case FDS_DM_SNAPDELTA_VOLCAT:
                     threadPool->schedule(&DataMgr::snapVolCat, dataMgr, io);
-                    break;
-                case FDS_DM_FWD_CAT_UPD:
-                    threadPool->schedule(&DataMgr::fwdUpdateCatalog, dataMgr, io);
-                    break;
-                case FDS_GET_VOLUME_METADATA:
-                    threadPool->schedule(&DataMgr::getVolumeMetaData, dataMgr, io);
                     break;
                 case FDS_DM_PUSH_META_DONE:
                     threadPool->schedule(&DataMgr::handleDMTClose, dataMgr, io);
@@ -200,18 +187,8 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_DM_META_RECVD:
                     threadPool->schedule(&DataMgr::handleForwardComplete, dataMgr, io);
                     break;
-                case FDS_DM_STAT_STREAM:
-                    threadPool->schedule(&DataMgr::handleStatStream, dataMgr, io);
-                    break;
 
                 /* End of new refactored DM message types */
-
-                case FDS_SET_BLOB_METADATA:
-                    threadPool->schedule(&DataMgr::setBlobMetaDataSvc, dataMgr, io);
-                    break;
-                case FDS_ABORT_BLOB_TX:
-                    threadPool->schedule(&DataMgr::scheduleAbortBlobTxSvc, dataMgr, io);
-                    break;
 
                     // new handlers
                 case FDS_DM_SYS_STATS:
@@ -221,6 +198,14 @@ struct DataMgr : Module, DmIoReqHandler {
                 case FDS_CAT_UPD:
                 case FDS_CAT_QRY:
                 case FDS_START_BLOB_TX:
+                case FDS_DM_STAT_STREAM:
+                case FDS_COMMIT_BLOB_TX:
+                case FDS_CAT_UPD_ONCE:
+                case FDS_SET_BLOB_METADATA:
+                case FDS_ABORT_BLOB_TX:
+                case FDS_DM_FWD_CAT_UPD:
+                case FDS_GET_VOLUME_METADATA:
+                case FDS_DM_LIST_BLOBS_BY_PATTERN:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
@@ -241,6 +226,7 @@ struct DataMgr : Module, DmIoReqHandler {
         }
 
         virtual ~dmQosCtrl() {
+             delete dispatcher;
         }
     };
 
@@ -359,36 +345,11 @@ struct DataMgr : Module, DmIoReqHandler {
     }
 
     /* TODO(Rao): Add the new refactored DM messages handlers here */
-    void updateCatalogOnce(dmCatReq *io);
     void updateCatalog(dmCatReq *io);
-    void scheduleGetBlobMetaDataSvc(void *io);
-    void commitBlobTx(dmCatReq *io);
-    /**
-     * Callback from volume catalog when transaction is commited
-     * @param[in] version of blob that was committed
-     * @param[in] blob_obj_list list of offset to object mapping that
-     * was committed or NULL
-     * @param[in] meta_list list of metadata k-v pairs that was
-     * committed or NULL
-     */
-    void commitBlobTxCb(const Error &err,
-                        blob_version_t blob_version,
-                        const BlobObjList::const_ptr& blob_obj_list,
-                        const MetaDataList::const_ptr& meta_list,
-                        DmIoCommitBlobTx *commitBlobReq);
-    void fwdUpdateCatalog(dmCatReq *io);
-    /**
-     * Callback from volume catalog when forwarded blob update is
-     * committed to volume catalog
-     */
-    void updateFwdBlobCb(const Error &err, DmIoFwdCat *fwdCatReq);
     /* End of new refactored DM message handlers */
 
-    void setBlobMetaDataSvc(void *io);
     void scheduleDeleteCatObjSvc(void * _io);
-    void scheduleAbortBlobTxSvc(void * _io);
     void setBlobMetaDataBackend(const dmCatReq *request);
-    void getVolumeMetaData(dmCatReq *io);
     void snapVolCat(dmCatReq *io);
     void handleDMTClose(dmCatReq *io);
     void handleForwardComplete(dmCatReq *io);

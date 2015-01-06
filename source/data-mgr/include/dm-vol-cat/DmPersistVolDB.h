@@ -96,6 +96,9 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolDir {
     virtual Error putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
             const BlobObjList & puts, const std::vector<fds_uint64_t> & deletes) override;
 
+    virtual Error putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
+            CatWriteBatch & wb) override;
+
     // deletes
     virtual Error deleteObject(const std::string & blobName, fds_uint64_t offset) override;
 
@@ -103,6 +106,10 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolDir {
             fds_uint64_t endOffset) override;
 
     virtual Error deleteBlobMetaDesc(const std::string & blobName);
+
+    Catalog* getCatalog() {
+        return catalog_;
+    }
 
   private:
     // methods

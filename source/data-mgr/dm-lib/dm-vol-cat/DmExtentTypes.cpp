@@ -270,10 +270,8 @@ fds_bool_t BlobExtent0::isDeleted() const {
 }
 
 void BlobExtent0::updateMetaData(const MetaDataList::const_ptr& meta_list) {
-    for (MetaDataList::const_iter cit = meta_list->cbegin();
-         cit != meta_list->cend();
-         ++cit) {
-        blob_meta.meta_list.updateMetaDataPair(cit->first, cit->second);
+    for (auto const& cit : *meta_list) {
+        blob_meta.meta_list.updateMetaDataPair(cit.first, cit.second);
     }
 }
 

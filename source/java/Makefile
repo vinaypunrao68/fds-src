@@ -7,7 +7,7 @@ user_thrift       := $(topdir)/fdsp/FDSP.thrift $(topdir)/apis/apis.thrift $(top
 user_thrift_flag  := -r --gen java
 
 user_postdep      := compile
-user_install      := orchMgr AMAgent genkey
+user_install      := orchMgr AMAgent genkey xdi
 user_install_loc  := exe
 user_clean        := \
 	target \
@@ -26,6 +26,7 @@ compile:
 ifeq (,$(wildcard *jenkins_built_semaphore))
 	@echo "Building Java components"
 	@rm -f $(comm_dir_bin)/AMAgent
+	@rm -f $(comm_dir_bin)/xdi
 	@rm -rf $(comm_dir_lib)/java
 	@rm -rf $(comm_dir_lib)/admin-webapp
 	@mkdir -p $(comm_dir_lib)/java/
@@ -34,7 +35,7 @@ ifeq (,$(wildcard *jenkins_built_semaphore))
 	@mkdir $(comm_dir_lib)/admin-webapp
 
 ifndef SKIP_UI_BUILD
-	@cd admin-webapp; npm install; CI=true node_modules/bower/bin/bower install; node_modules/grunt-cli/bin/grunt release
+	@cd admin-webapp; npm install; CI=true node_modules/bower/bin/bower --allow-root install; node_modules/grunt-cli/bin/grunt release
 	@cp -r admin-webapp/app/* $(comm_dir_lib)/admin-webapp
 endif
 
@@ -48,6 +49,8 @@ endif
 
 else
 	@echo "Previous Build under Jenkins succeeded"
+	@echo "If you don't expect this message, please run find . -name \"jenkins_built_semaphore\""
+	@echo "and remove the file located by find."
 endif
 
 .PHONY: test

@@ -2,10 +2,13 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <stdio.h>
-#include <platform/fds-shmem.h>
+#include <platform/fds_shmem.h>
 #include <utility>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <system_error>
+
+#include <util/Log.h>
 
 namespace fds {
 
@@ -14,8 +17,7 @@ FdsShmem::FdsShmem(const char *name, size_t size)
 
 FdsShmem::~FdsShmem() {}
 
-void *
-FdsShmem::shm_alloc()
+void * FdsShmem::shm_alloc()
 {
     int fd = shm_open(sh_name, O_RDWR|O_CREAT| O_EXCL, S_IRWXU);
 
@@ -46,14 +48,19 @@ FdsShmem::shm_alloc()
     return sh_addr;
 }
 
-void *
-FdsShmem::shm_attach(int flags)
+void * FdsShmem::shm_attach(int flags)
 {
     int fd;
     // If sh_addr is NULL then we need to try to open the shm segment
     if (sh_addr == NULL) {
         fd = shm_open(sh_name, O_RDWR, S_IRUSR);
         if (fd == -1) {
+            std::error_condition econd =
+                    std::system_category().default_error_condition(errno);
+            GLOGWARN << "Failed to open shared memory segment " << sh_name << "."
+                    << " Category: " << econd.category().name() << "."
+                    << " errno: " << errno << "."
+                    << " Message: " << econd.message() << ".";
             return NULL;
         } else {
             sh_addr = mmap(NULL, sh_size, flags, MAP_SHARED, fd, 0);
@@ -66,8 +73,7 @@ FdsShmem::shm_attach(int flags)
     return sh_addr;
 }
 
-int
-FdsShmem::shm_detach()
+int FdsShmem::shm_detach()
 {
     // Verify that the shm is mapped first
     if (sh_addr == NULL) {
@@ -76,8 +82,7 @@ FdsShmem::shm_detach()
     return munmap(sh_addr, sh_size);
 }
 
-int
-FdsShmem::shm_remove()
+int FdsShmem::shm_remove()
 {
     return shm_unlink(sh_name);
 }

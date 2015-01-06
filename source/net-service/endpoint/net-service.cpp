@@ -3,17 +3,19 @@
  */
 #include <string>
 #include <fds_process.h>
-#include <platform/platform-lib.h>
 #include <net/net-service-tmpl.hpp>
 #include <fdsp/PlatNetSvc.h>
 #include <ep-map.h>
-#include <platform/net-plat-shared.h>
 #include <fdsp/SMSvc.h>
 #include <fdsp/DMSvc.h>
 #include <fdsp/AMSvc.h>
 #include <fdsp/FDSP_ControlPathReq.h>
 #include <fdsp/Streaming.h>
 #include <net/BaseAsyncSvcHandler.h>
+
+
+// New includes
+#include "platform/net_plat_svc.h"
 
 namespace fds {
 
@@ -365,7 +367,7 @@ NetMgr::endpoint_lookup(const fpi::SvcUuid &mine, const fpi::SvcUuid &peer)
             ep_map.erase(peer.svc_uuid);
         } else {
             ep = NULL;
-            for (auto it = list.cbegin(); it != list.cend(); it++) {
+            for (auto it = list.cbegin(); it != list.cend(); ++it) {
                 if ((*it)->ep_my_uuid() == (fds_uint64_t)mine.svc_uuid) {
                     ep = *it;
                     break;

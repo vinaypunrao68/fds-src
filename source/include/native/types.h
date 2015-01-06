@@ -351,46 +351,55 @@ struct ScopedCallBack {
     ~ScopedCallBack();
 };
 
-struct StatBlobCallback : virtual Callback {
+struct AttachCallback {};
+struct DeleteBlobCallback {};
+struct UpdateMetadataCallback {};
+
+struct StatBlobCallback {
     typedef boost::shared_ptr<StatBlobCallback> ptr;
     /// The blob descriptor to fill in
-    BlobDescriptor      blobDesc;
+    boost::shared_ptr<BlobDescriptor> blobDesc;
 };
 
-struct StartBlobTxCallback : virtual Callback {
+struct StartBlobTxCallback {
     typedef boost::shared_ptr<StartBlobTxCallback> ptr;
     /// The blob trans ID to fill in
     BlobTxId      blobTxId;
 };
 
-struct UpdateBlobCallback : virtual Callback {
+struct UpdateBlobCallback {
     typedef boost::shared_ptr<UpdateBlobCallback> ptr;
 };
 
-struct GetObjectCallback : virtual Callback {
+struct GetObjectCallback {
     typedef boost::shared_ptr<GetObjectCallback> ptr;
-    char *returnBuffer;
+    boost::shared_ptr<std::string> returnBuffer;
     fds_uint32_t returnSize;
 };
 
-struct CommitBlobTxCallback : virtual Callback {
+struct GetObjectWithMetadataCallback :  public GetObjectCallback,
+                                        public StatBlobCallback
+{
+};
+
+struct CommitBlobTxCallback {
     typedef boost::shared_ptr<CommitBlobTxCallback> ptr;
     /// The blob trans ID to fill in
     BlobTxId      blobTxId;
 };
 
-struct AbortBlobTxCallback : virtual Callback {
+struct AbortBlobTxCallback {
     typedef boost::shared_ptr<AbortBlobTxCallback> ptr;
     /// The blob trans ID to fill in
     BlobTxId      blobTxId;
 };
 
-struct GetVolumeMetaDataCallback : virtual Callback {
+struct GetVolumeMetaDataCallback {
     TYPE_SHAREDPTR(GetVolumeMetaDataCallback);
     fpi::FDSP_VolumeMetaData volumeMetaData;
 };
 
-struct GetBucketCallback : virtual Callback {
+struct GetBucketCallback {
     TYPE_SHAREDPTR(GetBucketCallback);
     int isTruncated = 0;
     const char *nextMarker = NULL;
@@ -399,7 +408,7 @@ struct GetBucketCallback : virtual Callback {
     int commonPrefixesCount = 0;
     const char **commonPrefixes = NULL;
 
-    std::vector<apis::BlobDescriptor> vecBlobs;
+    boost::shared_ptr<std::vector<apis::BlobDescriptor>> vecBlobs;
 };
 
 }  // namespace fds

@@ -26,8 +26,8 @@ namespace fds {
     fds_uint32_t max_rate_based_credits;
 
     FDS_VolumeQueue *queue;
-    std::atomic<unsigned int> num_pending_ios;
-    std::atomic<unsigned int> num_outstanding_ios;
+    alignas(64) std::atomic<unsigned int> num_pending_ios;
+    alignas(64) std::atomic<unsigned int> num_outstanding_ios;
 
     WFQQueueDesc(fds_qid_t q_id,
 		 FDS_VolumeQueue *que,
@@ -51,7 +51,7 @@ namespace fds {
     inline fds_uint32_t pendingActiveCount() const {
         if ((queue->volQState == FDS_VOL_Q_ACTIVE) ||
             (queue->volQState == FDS_VOL_Q_QUIESCING)) {
-            return atomic_load(&num_pending_ios);
+            return num_pending_ios.load(std::memory_order_relaxed);
         }
         return 0;
     }
@@ -67,7 +67,7 @@ namespace fds {
     std::map<fds_qid_t, WFQQueueDesc *> queue_desc_map;
     std::vector<fds_qid_t> rate_based_qlist;
     fds_uint64_t next_rate_based_spot;
-    fds_uint64_t total_rate_based_spots; 
+    fds_uint64_t total_rate_based_spots;
     fds_qid_t next_priority_based_queue;
 
     fds_uint64_t num_ios_dispatched;
@@ -80,7 +80,7 @@ namespace fds {
 
       weight = (11-priority);
       return weight;
-      
+
     }
 
     fds_qid_t getNextQueueInPriorityWFQList(fds_qid_t queue_id) {
@@ -89,7 +89,7 @@ namespace fds {
       }
 	auto it = queue_desc_map.find(queue_id);
 	if (it != queue_desc_map.end())
-	  it++;
+	  ++it;
 	if (it == queue_desc_map.end()) {
 	  it = queue_desc_map.begin();
 	}
@@ -109,6 +109,7 @@ namespace fds {
 
     QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_uint64_t total_server_rate,
 		     fds_uint32_t maximum_outstanding_ios, fds_log *parent_log);
+    ~QoSWFQDispatcher() {}
     Error registerQueue(fds_qid_t queue_id, FDS_VolumeQueue *queue);
     Error deregisterQueue(fds_qid_t queue_id);
     Error modifyQueueQosParams(fds_qid_t queue_id,

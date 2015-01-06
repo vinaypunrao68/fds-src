@@ -37,7 +37,9 @@ ScavControl::ScavControl(const std::string &modName,
 }
 
 ScavControl::~ScavControl() {
+    LOGDEBUG << "Destroying scav timer";
     scav_timer->destroy();
+    LOGDEBUG << "Destroying individual disk scavengers";
     for (DiskScavTblType::iterator it = diskScavTbl.begin();
          it != diskScavTbl.end();
          ++it) {
@@ -428,7 +430,7 @@ DiskScavenger::getDiskStats(diskio::DiskStat* retStat) {
     }
 
     fds_verify(retStat);
-    (*retStat).dsk_tot_size = statbuf.f_blocks * statbuf.f_bsize;
+    (*retStat).dsk_tot_size = statbuf.f_blocks * statbuf.f_frsize;
     (*retStat).dsk_avail_size = statbuf.f_bfree * statbuf.f_bsize;
     (*retStat).dsk_reclaim_size = totDeletedBytes;
     return err;

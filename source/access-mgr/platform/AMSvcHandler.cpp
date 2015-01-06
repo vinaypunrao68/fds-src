@@ -2,9 +2,13 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <net/BaseAsyncSvcHandler.h>
-#include <platform/net-plat-shared.h>
+
 #include <AMSvcHandler.h>
-#include <StorHvisorNet.h>
+
+#include "AmCache.h"
+#include "StorHvCtrl.h"
+#include "StorHvQosCtrl.h"
+#include "StorHvVolumes.h"
 
 extern StorHvCtrl * storHvisor;
 
@@ -40,7 +44,7 @@ AMSvcHandler::notifySvcChange(boost::shared_ptr<fpi::AsyncHdr>    &hdr,
     fds_verify(self != NULL);
 
     auto list = msg->node_svc_list;
-    for (auto it = list.cbegin(); it != list.cend(); it++) {
+    for (auto it = list.cbegin(); it != list.cend(); ++it) {
         auto rec = *it;
         if (rec.svc_type == fpi::FDSP_DATA_MGR) {
             self->agent_fsm_input(msg, rec.svc_type,

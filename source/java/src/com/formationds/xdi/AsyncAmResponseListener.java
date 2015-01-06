@@ -63,6 +63,11 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
     }
 
     @Override
+    public void handshakeComplete(RequestId requestId) throws TException {
+        complete(requestId, null);
+    }
+
+    @Override
     public void attachVolumeResponse(RequestId requestId) throws TException {
         complete(requestId, null);
     }
@@ -95,6 +100,11 @@ public class AsyncAmResponseListener implements AsyncAmServiceResponse.Iface {
     @Override
     public void getBlobResponse(RequestId requestId, ByteBuffer byteBuffer) throws TException {
         complete(requestId, byteBuffer);
+    }
+
+    @Override
+    public void getBlobWithMetaResponse(RequestId requestId, ByteBuffer byteBuffer, BlobDescriptor blobDescriptor) throws TException {
+        complete(requestId, new BlobWithMetadata(byteBuffer, blobDescriptor));
     }
 
     @Override

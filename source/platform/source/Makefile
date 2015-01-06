@@ -1,0 +1,93 @@
+topdir         := ../..
+user_target    := lib
+user_rtime_env := user
+user_incl_dir  :=                              \
+                  ../include                   \
+                  ../../net-service/include
+
+# The sources for platform_lib, the private library of platform
+platform_core_src :=                                     \
+                     node_platform.cpp                   \
+                     node_platform_proc.cpp              \
+                     node_shm_rw_ctrl.cpp                \
+                     plat_work_flow.cpp                  \
+                     plat_work_item.cpp                  \
+                     disk_capacity.cpp                   \
+                     disk_label.cpp                      \
+                     disk_label_mgr.cpp                  \
+                     disk_label_op.cpp                   \
+                     disk_object.cpp                     \
+                     disk_obj_iter.cpp                   \
+                     disk_partition.cpp                  \
+                     disk_op.cpp                         \
+                     disk_part_mgr.cpp                   \
+                     disk_plat_module.cpp                \
+                     pm_disk_inventory.cpp               \
+                     disk_common.cpp                     \
+                     file_disk_obj.cpp                   \
+                     pm_disk_obj.cpp                     \
+                     file_disk_inventory.cpp             \
+                     plat_uuid_bind.cpp                  \
+                     net_service.cpp                     \
+                     platform_net_svc.cpp                \
+                     ep_platformd_mod.cpp                \
+                     platformd_plugin.cpp                \
+                     plat_agent_plugin.cpp               \
+                     plat_agent.cpp                      \
+                     platform_ep_handler.cpp             \
+                     process.cpp
+
+# The sources for the public library of platform
+fds_plat_lib_cpp :=                              \
+                    platform.cpp                 \
+                    domain_cluster_map.cpp       \
+                    domain_resources.cpp         \
+                    platform_process.cpp         \
+                    platform-rpc.cpp             \
+                    om_node_agent_evt.cpp        \
+                    om_node_agent_evt.cpp        \
+                    disk_inventory.cpp           \
+                    node_inventory.cpp           \
+                    domain_container.cpp         \
+                    agent_container.cpp          \
+                    node_inv_shmem.cpp           \
+                    pm_svc_ep.cpp                \
+                    sm_svc_ep.cpp                \
+                    am_svc_ep.cpp                \
+                    dm_svc_ep.cpp                \
+                    om_svc_ep.cpp                \
+                    om_agent.cpp                 \
+                    am_agent.cpp                 \
+                    sm_agent.cpp                 \
+                    dm_agent.cpp                 \
+                    pm_agent.cpp                 \
+                    node_agent.cpp               \
+                    node_services.cpp            \
+                    node_agent_evt.cpp           \
+                    BaseAsyncSvcHandler.cpp      \
+                    plat_net_svc_handler.cpp     \
+                    node_work_flow.cpp           \
+                    node_down.cpp                \
+                    node_started.cpp             \
+                    node_qualify.cpp             \
+                    node_upgrade.cpp             \
+                    node_work_item.cpp           \
+                    node_rollback.cpp            \
+                    node_integrate.cpp           \
+                    node_deploy.cpp              \
+                    node_functional.cpp          \
+                    fds_flags.cpp
+
+user_cpp :=                        \
+            $(platform_cpp)        \
+            $(platform_core)       \
+            $(fds_plat_lib_cpp)
+
+user_ar_libs :=                  \
+                platform_core    \
+                fds-plat-lib
+
+platform_core := $(platform_core_src)
+fds-plat-lib  := $(fds_plat_lib_cpp)
+
+include $(topdir)/Makefile.incl

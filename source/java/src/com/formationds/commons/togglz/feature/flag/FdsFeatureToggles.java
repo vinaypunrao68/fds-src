@@ -5,10 +5,7 @@
 package com.formationds.commons.togglz.feature.flag;
 
 import com.formationds.commons.togglz.FdsFeatureManagerProvider;
-import com.formationds.commons.togglz.feature.annotation.Activities;
-import com.formationds.commons.togglz.feature.annotation.Firebreak;
-import com.formationds.commons.togglz.feature.annotation.Snapshot;
-import com.formationds.commons.togglz.feature.annotation.Statistics;
+import com.formationds.commons.togglz.feature.annotation.*;
 import org.togglz.core.Feature;
 import org.togglz.core.annotation.Label;
 
@@ -17,6 +14,13 @@ import org.togglz.core.annotation.Label;
  */
 public enum FdsFeatureToggles
   implements Feature {
+
+  /*
+   * feature togglz annotation
+   *
+   * Togglz annotation are used to group features together in "feature groups".
+   */
+
   @Label("Snapshot Feature")
   @Snapshot
   SNAPSHOT_ENDPOINT,
@@ -29,16 +33,30 @@ public enum FdsFeatureToggles
   @Activities
   ACTIVITIES_ENDPOINT,
 
+  @Label( "Firebreak Event Feature" )
+  @Firebreak
+  FIREBREAK_EVENT,
+
   @Label("Firebreak Feature")
   @Firebreak
-  FIREBREAK;
+  FIREBREAK,
+
+  @Label( "Webkit Feature" )
+  @Webkit
+  WEB_KIT,
+
+  @Label( "SNMP Feature" )
+  @Snmp
+  SNMP;
 
   /**
    * @return Returns {@code true} if the feature associated with {@code this}
    * is enabled
    */
   public boolean isActive() {
+
     return FdsFeatureManagerProvider.getFeatureManager()
                                     .isActive( this );
+
   }
 }

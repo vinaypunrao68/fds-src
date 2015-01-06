@@ -4,21 +4,29 @@
 
 package com.formationds.om.repository;
 
+import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.om.repository.result.VolumeDatapointList;
+import com.formationds.xdi.ConfigurationApi;
+import org.apache.thrift.TException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jdo.Query;
+import javax.persistence.EntityManager;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * @author ptinius
@@ -29,6 +37,53 @@ public class MetricsRepository
 
   private static final String DBNAME = "var/db/metrics.odb";
   private static final String VOLUME_NAME = "volumeName";
+
+  /**
+   * Listener implementing prePersist to ensure that the volume id is set on each datapoint before
+   * saving it.  When processing multiple datapoints, also aligns the timestamp to the first datapoint.
+   */
+  private static class MetricsEntityPersistListener implements EntityPersistListener<VolumeDatapoint> {
+      private static final Logger logger =
+          LoggerFactory.getLogger( MetricsEntityPersistListener.class );
+
+      public void prePersist(VolumeDatapoint dp) {
+          try {
+              long volid = SingletonConfigAPI.instance().api().getVolumeId(dp.getVolumeName());
+              dp.setVolumeId(String.valueOf(volid));
+          } catch (TException t) {
+              throw new IllegalStateException("prePersist failed processing entity " + dp, t);
+          }
+      }
+
+      public void prePersist(List<VolumeDatapoint> dps) {
+          ConfigurationApi config = SingletonConfigAPI.instance().api();
+          long timestamp = 0L;
+          try {
+              if (dps.isEmpty())
+                  return;
+
+              logger.trace("Setting volume id and timestamp for {} datapoints", dps.size());
+              // set the volume id for each datapoint and align the timestamps
+              for (VolumeDatapoint dp : dps) {
+                  long volid = config.getVolumeId(dp.getVolumeName());
+                  dp.setVolumeId(String.valueOf(volid));
+
+// Note: commented out on master where this code was refactored from.
+//                  if (timestamp <= 0L)
+//                      timestamp = dp.getTimestamp();
+//
+//                  /*
+//                   * syncing all the times to the first record. This will allow for us
+//                   * to query for a time range and guarantee that all datapoints will
+//                   * be aligned
+//                   */
+//                  dp.setTimestamp(timestamp);
+              }
+          } catch (TException t) {
+              throw new IllegalStateException("prePersist failed processing volume data points.", t);
+          }
+      }
+  }
 
   /**
    * default constructor
@@ -45,8 +100,8 @@ public class MetricsRepository
    */
   public MetricsRepository( final String dbName ) {
     super();
-
     initialize( dbName );
+    super.addEntityPersistListener(new MetricsEntityPersistListener());
   }
 
   /**
@@ -83,64 +138,81 @@ public class MetricsRepository
   @SuppressWarnings( "unchecked" )
   @Override
   public VolumeDatapointList query( final QueryCriteria criteria ) {
-    final List<VolumeDatapoint> results =
-      ( new MetricCriteriaQueryBuilder( entity() ).searchFor( criteria )
-                                                  .build() )
-          .getResultList();
+      EntityManager em = newEntityManager();
+      try {
+          final List<VolumeDatapoint> results =
+              new MetricCriteriaQueryBuilder(em).searchFor(criteria)
+                                                .build()
+                                                .getResultList();
 
-    final VolumeDatapointList list = new VolumeDatapointList();
-    results.stream()
-           .forEach( new VolumeDatapointList()::add );
-      return list;
+          final VolumeDatapointList list = new VolumeDatapointList();
+          results.stream().forEach(list::add);
+          return list;
+
+      } finally {
+          em.close();
+      }
   }
 
     /**
      * @return Returns the {@link Double} representing the calculated sum of logical bytes
      */
     public Double sumLogicalBytes() {
-        final CriteriaBuilder cb = entity().getCriteriaBuilder();
-        final CriteriaQuery<String> cq = cb.createQuery( String.class );
-        final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
 
-        cq.distinct( true ).select( from.get( "volumeId" ) );
-        cq.where( cb.equal( from.get( "key" ), Metrics.LBYTES.key() ) );
+        EntityManager em = newEntityManager();
+        try {
+            final CriteriaBuilder cb = em.getCriteriaBuilder();
+            final CriteriaQuery<String> cq = cb.createQuery( String.class );
+            final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
 
-        final List<VolumeDatapoint> datapoints = new ArrayList<>( );
-        final List<String> volumeIds = entity().createQuery( cq )
-                                               .getResultList();
-        volumeIds.stream().forEach( ( vId ) -> datapoints.add(
-          mostRecentOccurrenceBasedOnTimestamp( Long.valueOf( vId ),
-                                                Metrics.LBYTES ) ) );
+            cq.distinct( true ).select( from.get( "volumeId" ) );
+            cq.where( cb.equal( from.get( "key" ), Metrics.LBYTES.key() ) );
 
-        return datapoints.stream()
-                         .mapToDouble( VolumeDatapoint::getValue )
-                         .summaryStatistics()
-                         .getSum();
+            final List<VolumeDatapoint> datapoints = new ArrayList<>( );
+            final List<String> volumeIds = em.createQuery( cq )
+                                                   .getResultList();
+            volumeIds.stream().forEach( ( vId ) -> datapoints.add(
+              mostRecentOccurrenceBasedOnTimestamp( Long.valueOf( vId ),
+                                                    Metrics.LBYTES ) ) );
+
+            return datapoints.stream()
+                             .mapToDouble( VolumeDatapoint::getValue )
+                             .summaryStatistics()
+                             .getSum();
+
+        } finally {
+            em.close();
+        }
     }
 
     /**
      * @return Returns the {@link Double} representing the calculated sum of physical bytes
      */
     public Double sumPhysicalBytes() {
-        final CriteriaBuilder cb = entity().getCriteriaBuilder();
-        final CriteriaQuery<String> cq = cb.createQuery( String.class );
-        final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
+        EntityManager em = newEntityManager();
+        try {
+            final CriteriaBuilder cb = em.getCriteriaBuilder();
+            final CriteriaQuery<String> cq = cb.createQuery( String.class );
+            final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
 
-        cq.distinct( true )
-          .select( from.get( "volumeId" ) );
-        cq.where( cb.equal( from.get( "key" ), Metrics.PBYTES.key() ) );
+            cq.distinct(true )
+              .select( from.get( "volumeId" ) );
+            cq.where( cb.equal( from.get( "key" ), Metrics.PBYTES.key() ) );
 
-        final List<VolumeDatapoint> datapoints = new ArrayList<>( );
-        final List<String> volumeIds = entity().createQuery( cq )
-                                               .getResultList();
-        volumeIds.stream().forEach( ( vId ) -> datapoints.add(
-          mostRecentOccurrenceBasedOnTimestamp( Long.valueOf( vId ),
-                                                Metrics.PBYTES ) ) );
+            final List<VolumeDatapoint> datapoints = new ArrayList<>( );
+            final List<String> volumeIds = em.createQuery( cq )
+                                             .getResultList();
+            volumeIds.stream().forEach( ( vId ) -> datapoints.add(
+              mostRecentOccurrenceBasedOnTimestamp( Long.valueOf( vId ),
+                                                    Metrics.PBYTES ) ) );
 
-        return datapoints.stream()
-                         .mapToDouble( VolumeDatapoint::getValue )
-                         .summaryStatistics()
-                         .getSum();
+            return datapoints.stream()
+                             .mapToDouble( VolumeDatapoint::getValue )
+                             .summaryStatistics()
+                             .getSum();
+        } finally {
+            em.close();
+        }
     }
 
     /**
@@ -153,29 +225,34 @@ public class MetricsRepository
       final String volumeName,
       final Metrics metric ) {
 
-        final CriteriaBuilder cb = entity().getCriteriaBuilder();
-        final CriteriaQuery<VolumeDatapoint> cq =
-            cb.createQuery( VolumeDatapoint.class );
-        final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
+        EntityManager em = newEntityManager();
+        try {
+            final CriteriaBuilder cb = em.getCriteriaBuilder();
+            final CriteriaQuery<VolumeDatapoint> cq =
+                cb.createQuery( VolumeDatapoint.class );
+            final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
 
-        cq.select( from );
-        cq.where( cb.equal( from.get( "key" ), metric.key() ),
-                  cb.and( cb.equal( from.get( "volumeName" ), volumeName ) ) );
-        final List<VolumeDatapoint> datapoints = entity().createQuery( cq )
-                                                         .getResultList();
-        final VolumeDatapoint[] previous = { null };
-        datapoints.stream()
-                  .forEach( ( dp ) -> {
-                      if( previous[ 0 ] == null ) {
-                          previous[ 0 ] = dp;
-                      } else {
-                          if( previous[ 0 ].getTimestamp() < dp.getTimestamp() ) {
-                              previous[ 0 ] = dp;
+            cq.select( from );
+            cq.where( cb.equal( from.get( "key" ), metric.key() ),
+                      cb.and( cb.equal( from.get( "volumeName" ), volumeName ) ) );
+            final List<VolumeDatapoint> datapoints = em.createQuery( cq )
+                                                       .getResultList();
+            final VolumeDatapoint[] previous = { null };
+            datapoints.stream()
+                      .forEach((dp) -> {
+                          if (previous[0] == null) {
+                              previous[0] = dp;
+                          } else {
+                              if (previous[0].getTimestamp() < dp.getTimestamp()) {
+                                  previous[0] = dp;
+                              }
                           }
-                      }
-                  } );
+                      });
 
-        return previous[ 0 ];
+            return previous[ 0 ];
+        } finally {
+            em.close();
+        }
     }
 
     /**
@@ -188,100 +265,160 @@ public class MetricsRepository
       final Long volumeId,
       final Metrics metric ) {
 
-        final CriteriaBuilder cb = entity().getCriteriaBuilder();
-        final CriteriaQuery<VolumeDatapoint> cq =
-            cb.createQuery( VolumeDatapoint.class );
-        final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
+        EntityManager em = newEntityManager();
+        try {
+            final CriteriaBuilder cb = em.getCriteriaBuilder();
+            final CriteriaQuery<VolumeDatapoint> cq =
+            cb.createQuery(VolumeDatapoint.class);
+            final Root<VolumeDatapoint> from = cq.from(VolumeDatapoint.class);
 
-        cq.select( from );
-        cq.where( cb.equal( from.get( "key" ), metric.key() ),
-                  cb.and( cb.equal( from.get( "volumeId" ),
-                                    volumeId.toString() ) ) );
-        final List<VolumeDatapoint> datapoints = entity().createQuery( cq )
-                                                         .getResultList();
-        final VolumeDatapoint[] previous = { null };
-        datapoints.stream()
-                  .forEach( ( dp ) -> {
-                      if( previous[ 0 ] == null ) {
-                          previous[ 0 ] = dp;
-                      } else {
-                          if( previous[ 0 ].getTimestamp() < dp.getTimestamp() ) {
-                              previous[ 0 ] = dp;
+            cq.select(from);
+            cq.where(cb.equal(from.get("key"), metric.key()),
+                     cb.and(cb.equal(from.get("volumeId"),
+                                     volumeId.toString())));
+            final List<VolumeDatapoint> datapoints = em.createQuery(cq)
+                                                       .getResultList();
+            final VolumeDatapoint[] previous = {null};
+            datapoints.stream()
+                      .forEach((dp) -> {
+                          if (previous[0] == null) {
+                              previous[0] = dp;
+                          } else {
+                              if (previous[0].getTimestamp() < dp.getTimestamp()) {
+                                  previous[0] = dp;
+                              }
                           }
-                      }
-                  } );
+                      });
 
-        return previous[ 0 ];
+            return previous[0];
+        } finally {
+            em.close();
+        }
     }
 
     /**
      * @param volumeId the {@link Long} representing the volume id
      * @param metric the {@link Metrics}
      *
-     * @return Returns the {@link VolumeDatapoint} representing the most recent
+     * @return Returns the {@link VolumeDatapoint} representing the least recent
      */
     public VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp(
         final Long volumeId,
         final Metrics metric ) {
 
-        final CriteriaBuilder cb = entity().getCriteriaBuilder();
-        final CriteriaQuery<VolumeDatapoint> cq =
-            cb.createQuery( VolumeDatapoint.class );
-        final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
+        EntityManager em = newEntityManager();
+        try {
+            final CriteriaBuilder cb = em.getCriteriaBuilder();
+            final CriteriaQuery<VolumeDatapoint> cq =
+                cb.createQuery( VolumeDatapoint.class );
+            final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
 
-        cq.select( from );
-        cq.where( cb.equal( from.get( "key" ), metric.key() ),
-                  cb.and( cb.equal( from.get( "volumeId" ),
-                                    volumeId.toString() ) ) );
-        final List<VolumeDatapoint> datapoints = entity().createQuery( cq )
-                                                         .getResultList();
-        final VolumeDatapoint[] previous = { null };
-        datapoints.stream()
-                  .forEach( ( dp ) -> {
-                      if( previous[ 0 ] == null ) {
-                          previous[ 0 ] = dp;
-                      } else {
-                          if( previous[ 0 ].getTimestamp() > dp.getTimestamp() ) {
-                              previous[ 0 ] = dp;
+            cq.select( from );
+            cq.where( cb.equal( from.get( "key" ), metric.key() ),
+                      cb.and( cb.equal( from.get( "volumeId" ),
+                                        volumeId.toString() ) ) );
+            final List<VolumeDatapoint> datapoints = em.createQuery( cq )
+                                                       .getResultList();
+            final VolumeDatapoint[] previous = { null };
+            datapoints.stream()
+                      .forEach((dp) -> {
+                          if (previous[0] == null) {
+                              previous[0] = dp;
+                          } else {
+                              if (previous[0].getTimestamp() > dp.getTimestamp()) {
+                                  previous[0] = dp;
+                              }
                           }
-                      }
-                  } );
+                      });
 
-        return previous[ 0 ];
+            return previous[ 0 ];
+        } finally {
+            em.close();
+        }
     }
 
     /**
      * @param volumeName  the {@link String} representing the volume name
      * @param metric the {@link Metrics}
      *
-     * @return Returns the {@link VolumeDatapoint} representing the most recent
+     * @return Returns the {@link VolumeDatapoint} representing the least recent
      */
     public VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp(
         final String volumeName,
         final Metrics metric ) {
 
-        final CriteriaBuilder cb = entity().getCriteriaBuilder();
-        final CriteriaQuery<VolumeDatapoint> cq =
-            cb.createQuery( VolumeDatapoint.class );
-        final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
+        EntityManager em = newEntityManager();
+        try {
+            final CriteriaBuilder cb = em.getCriteriaBuilder();
+            final CriteriaQuery<VolumeDatapoint> cq =
+                cb.createQuery( VolumeDatapoint.class );
+            final Root<VolumeDatapoint> from = cq.from( VolumeDatapoint.class );
 
-        cq.select( from );
-        cq.where( cb.equal( from.get( "key" ), metric.key() ),
-                  cb.and( cb.equal( from.get( "volumeName" ), volumeName ) ) );
-        final List<VolumeDatapoint> datapoints = entity().createQuery( cq )
-                                                         .getResultList();
-        final VolumeDatapoint[] previous = { null };
-        datapoints.stream()
-                  .forEach( ( dp ) -> {
-                      if( previous[ 0 ] == null ) {
-                          previous[ 0 ] = dp;
-                      } else {
-                          if( previous[ 0 ].getTimestamp() > dp.getTimestamp() ) {
-                              previous[ 0 ] = dp;
+            cq.select( from );
+            cq.where( cb.equal( from.get( "key" ), metric.key() ),
+                      cb.and( cb.equal( from.get( "volumeName" ), volumeName ) ) );
+            final List<VolumeDatapoint> datapoints = em.createQuery( cq )
+                                                             .getResultList();
+            final VolumeDatapoint[] previous = { null };
+            datapoints.stream()
+                      .forEach((dp) -> {
+                          if (previous[0] == null) {
+                              previous[0] = dp;
+                          } else {
+                              if (previous[0].getTimestamp() > dp.getTimestamp()) {
+                                  previous[0] = dp;
+                              }
                           }
-                      }
-                  } );
+                      });
 
-        return previous[ 0 ];
+            return previous[ 0 ];
+        } finally {
+            em.close();
+        }
+    }
+
+    public Optional<VolumeStatus> getLatestVolumeStatus(
+        final Long volumeId ) {
+
+        final VolumeDatapoint blobs =
+            mostRecentOccurrenceBasedOnTimestamp( volumeId, Metrics.BLOBS );
+        final VolumeDatapoint usage =
+            mostRecentOccurrenceBasedOnTimestamp( volumeId, Metrics.PBYTES );
+
+        return volumeStatus( blobs, usage );
+    }
+
+    public Optional<VolumeStatus> getLatestVolumeStatus(
+        final String volumeName ) {
+
+        final VolumeDatapoint blobs =
+            mostRecentOccurrenceBasedOnTimestamp( volumeName, Metrics.BLOBS );
+        final VolumeDatapoint usage =
+            mostRecentOccurrenceBasedOnTimestamp( volumeName, Metrics.PBYTES );
+
+        return volumeStatus( blobs, usage );
+
+    }
+
+    protected Optional<VolumeStatus> volumeStatus(
+        final VolumeDatapoint blobs,
+        final VolumeDatapoint usage ) {
+        if( ( blobs != null ) && ( usage != null ) ) {
+
+            return Optional.of( new VolumeStatus( blobs.getValue().longValue(),
+                                                  usage.getValue().longValue() ) );
+
+        } else if( ( blobs == null ) && ( usage != null ) ) {
+
+            return Optional.of( new VolumeStatus( 0L,
+                                                  usage.getValue().longValue() ) );
+
+        } else if( blobs != null ) {
+
+            return Optional.of( new VolumeStatus( blobs.getValue().longValue(),
+                                                  0L ) );
+        }
+
+        return Optional.empty();
     }
 }

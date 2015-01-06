@@ -7,7 +7,6 @@
 #include <string>
 #include <util/Log.h>
 #include <fds_module.h>
-#include <native_api.h>
 #include <apis/AmService.h>
 #include <concurrency/Thread.h>
 #include <AmDataApi.h>
@@ -59,8 +58,9 @@ class FdsnServer : public Module {
     boost::shared_ptr<boost::thread> listen_thread;
 
   public:
-    explicit FdsnServer(const std::string &name,
-                        AmDataApi::shared_ptr &_dataApi);
+    FdsnServer(const std::string &name,
+               AmDataApi::shared_ptr &_dataApi,
+               fds_uint32_t instanceId = 0);
     virtual ~FdsnServer() {
     }
     typedef std::unique_ptr<FdsnServer> unique_ptr;

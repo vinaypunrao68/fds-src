@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<workload name="s3-1002" description="Soak: 10 buckets ; 200 objects ; 12 hours ; 20r/80w ; u(64,4096)KB">
+
+  <auth type="none" config=""/>
+	<storage type="s3" config="path_style_access=true;accesskey={{ username }};secretkey={{ secretkey }};endpoint={{ s3_url }}" />
+
+  <workflow>
+
+    <workstage name="init">
+      <work type="init" workers="1" config="cprefix=s3testqwer;containers=r(1,10)" />
+    </workstage>
+
+    <workstage name="prepare">
+      <work type="prepare" workers="1" config="cprefix=s3testqwer;containers=r(1,10);objects=r(1,100);sizes=u(64,4096)KB" />
+    </workstage>
+
+    <workstage name="main">
+      <work name="main" workers="8" runtime="43200" afr="10000">
+        <operation type="read" ratio="20" config="cprefix=s3testqwer;containers=u(1,10);objects=u(1,100)" />
+        <operation type="write" ratio="80" config="cprefix=s3testqwer;containers=u(1,10);objects=u(100,200);sizes=u(64,4096)KB" />
+      </work>
+    </workstage>
+
+    <workstage name="cleanup">
+      <work type="cleanup" workers="1" config="cprefix=s3testqwer;containers=r(1,10);objects=r(1,200)" />
+    </workstage>
+
+    <workstage name="dispose">
+      <work type="dispose" workers="1" config="cprefix=s3testqwer;containers=r(1,10)" />
+    </workstage>
+
+  </workflow>
+
+</workload>

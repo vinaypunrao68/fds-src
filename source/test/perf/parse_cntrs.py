@@ -38,10 +38,11 @@ class Counters:
 #             elif tstamp is not None:
                 if self.use_graphite == True:
                     #am_put_dm.volume:6944500478244898626:volume=6944500478244898626
-                    m = re.match("([\w-]+)\.(\w+)\.perf\.(\w+)\.volume:\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
+                    #ubuntu../AmFunctionalTest.perf.am_stat_blob_obj_req.volume:0:volume=0.count 1396009 1416520373
+                    m = re.match("([\w-]+)\..*(\w+)\.perf\.(\w+)\.volume:\s*\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
                 else:
                     # tiefighter am am_put_dm.volume:3125441350624440090:volume=3125441350624440090.latency 2720579 1408730115
-                    m = re.match("([\w-]+)\s+(\w+)\s+(\w+)\.volume:\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
+                    m = re.match("([\w-]+)\s+(\w+)\s+(\w+)\.volume:\s*\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
                 if m is not None:
                     node = m.group(1)
                     agent = m.group(2)

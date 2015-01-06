@@ -1,0 +1,7 @@
+[logstash-nodes:children]
+boulder-lab-2
+
+[boulder-lab-2]
+bld-dev-02
+
+[boulder-lab-2:vars]

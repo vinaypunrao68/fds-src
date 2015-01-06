@@ -280,6 +280,9 @@ struct FDSP_BlobInfoType{
 
 typedef list<FDSP_BlobInfoType> BlobInfoListType
 
+/* A detailed list of blob stats. */
+typedef list<BlobDescriptor> BlobDescriptorListType
+
 const i64 blob_list_iterator_begin = 0
 const i64 blob_list_iterator_end = 1
 
@@ -361,6 +364,7 @@ struct FDSP_DLT_Type {
 struct FDSP_DMT_Type {
       1: i64 dmt_version,       /* DMT version */
       2: binary dmt_data        /* DMT table + meta in binary format */
+      3: bool dmt_type,
 }
 
 struct FDSP_DLT_Data_Type {
@@ -424,7 +428,8 @@ struct FDSP_VolumeInfoType {
   20: i64                        srcVolumeId,
   21: i64                        qosQueueId,
   22: i64                        contCommitlogRetention,
-  23: i64                        timelineTime
+  23: i64                        timelineTime,
+  24: i64                        createTime
 }
 
 struct FDSP_VolumeDescType {
@@ -468,7 +473,8 @@ struct FDSP_VolumeDescType {
   25: i64                        qosQueueId,
   26: common.ResourceState              state,
   27: i64                        contCommitlogRetention,
-  28: i64                        timelineTime
+  28: i64                        timelineTime,
+  29: i64                        createTime
 }
 
 struct FDSP_CreateDomainType {
@@ -967,6 +973,7 @@ struct FDSP_ObjectVolumeAssociation
 typedef list<FDSP_ObjectVolumeAssociation> FDSP_ObjectVolumeAssociationList
 
 /* Meta data for migration object */
+/* DEPRECATED */
 struct FDSP_MigrateObjectMetadata
 {
     1: FDSP_Token              token_id
@@ -978,6 +985,7 @@ struct FDSP_MigrateObjectMetadata
 }
 
 /* Complete data (metadata included) for migration object */
+/* DEPRECATED */
 struct FDSP_MigrateObjectData
 {
     /* Object Metadata */
@@ -988,12 +996,15 @@ struct FDSP_MigrateObjectData
 }
 
 /* Collection of FDSP_MigrateObjectMetadata*/
+/* DEPRECATED */
 typedef list<FDSP_MigrateObjectMetadata> FDSP_MigrateObjectMetadataList
 
 /* Collection of FDSP_MigrateObjectData */
+/* DEPRECATED */
 typedef list<FDSP_MigrateObjectData> FDSP_MigrateObjectList
 
 /* Pay load for PushTokenObjects RPC */
+/* DEPRECATED */
 struct FDSP_PushTokenObjectsReq
 {
 	/* Header */
@@ -1010,9 +1021,11 @@ struct FDSP_PushTokenObjectsReq
 }
 
 /* Payload for PushTokenObjects response path */
+/* DEPRECATED */
 typedef FDSP_MigMsgHdrType FDSP_PushTokenObjectsResp
 
 /* Pay load for PushTokenMetadata RPC */
+/* DEPRECATED */
 struct FDSP_PushTokenMetadataReq
 {
 	/* Header */
@@ -1023,6 +1036,7 @@ struct FDSP_PushTokenMetadataReq
 }
 
 /* Payload for PushTokenMetadata response path */
+/* DEPRECATED */
 struct FDSP_PushTokenMetadataResp
 {
 	/* Header */
@@ -1030,6 +1044,7 @@ struct FDSP_PushTokenMetadataResp
 } 
 
 /* Payload for NotifyTokenSyncComplete */
+/* DEPRECATED */
 struct FDSP_NotifyTokenSyncComplete
 {
 	/* Header */
@@ -1041,6 +1056,7 @@ struct FDSP_NotifyTokenSyncComplete
 
 
 /* Payload for NotifyTokenPullComplete */
+/* DEPRECATED */
 struct FDSP_NotifyTokenPullComplete
 {
 	/* Header */
@@ -1253,6 +1269,10 @@ service FDSP_ControlPathResp {
   oneway void PushMetaDMTResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_resp)
 }
 
+/**
+ * FDSP_MigrationPathReq is deprecated.
+ */ 
+/* DEPRECATED */
 service FDSP_MigrationPathReq {
     oneway void CopyToken(1:FDSP_CopyTokenReq migrate_req)
     oneway void SyncToken(1:FDSP_SyncTokenReq sync_req)
@@ -1265,6 +1285,10 @@ service FDSP_MigrationPathReq {
     oneway void PushObjects(1:FDSP_PushObjectsReq push_req)
 }
 
+/**
+ * FDSP_MigrationPathResp is deprecated.
+ */ 
+/* DEPRECATED */
 service FDSP_MigrationPathResp {
     oneway void CopyTokenResp(1:FDSP_CopyTokenResp copytok_resp)
     oneway void SyncTokenResp(1:FDSP_SyncTokenResp synctok_resp)
@@ -1272,6 +1296,7 @@ service FDSP_MigrationPathResp {
     oneway void PushTokenObjectsResp(1:FDSP_PushTokenObjectsResp pushtok_resp)
     oneway void PushTokenMetadataResp(1:FDSP_PushTokenMetadataResp push_md_resp)
 }
+
 
 service FDSP_MetaSyncReq {
     oneway void PushMetaSyncReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_req)

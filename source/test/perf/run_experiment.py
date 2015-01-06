@@ -112,7 +112,9 @@ def main():
     fds = FdsCluster(options)
     fds.restart()
 
-    fds.init_test_once(tests[0]["test_type"], tests[0]["nvols"])  # FIXME: this is ugly... 
+    fds.init_test_once(tests[1]["test_type"], tests[0]["nvols"])  # FIXME: this is ugly... 
+
+    time.sleep(10)
 
     # Execute tests
     for t in tests:
@@ -121,6 +123,9 @@ def main():
         fds.init_test(t["test_type"], results_dir, t)
         # FIXME: need to reset counters!
         # start stats collection
+
+        time.sleep(10)
+
         counter_server = CounterServerPull(results_dir, options)
         monitors = Monitors(results_dir, options)
         monitors.compute_monitors_cmds(fds.get_pidmap())
@@ -129,6 +134,8 @@ def main():
         if t["injector"] != None:
             injector = CommandInjector(options, t["injector"])
             injector.start()
+
+        time.sleep(10)
 
         # execute test
         # time.sleep(5)

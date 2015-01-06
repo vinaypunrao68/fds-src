@@ -7,10 +7,12 @@
 #include <ep-map.h>
 #include <fds_process.h>
 #include <net/net-service.h>
-#include <platform/platform-lib.h>
-#include <platform/node-inv-shmem.h>
-#include <platform/net-plat-shared.h>
-#include <platform/service-ep-lib.h>
+
+// New includes
+#include "platform/platform.h"
+#include "platform/node_info_shm_iter.h"
+#include "platform/net_plat_svc.h"
+#include "platform/pm_svc_ep.h"
 
 namespace fds {
 

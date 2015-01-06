@@ -7,7 +7,9 @@
 #include <atomic>
 #include <thread>
 #include <string>
+#include <vector>
 #include <unistd.h>
+#include <algorithm>
 #include <arpa/inet.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TSocket.h>
@@ -21,10 +23,9 @@
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
 #include <testlib/TestFixtures.h>
-#include "TestAMSvc.h"
-#include "TestSMSvc.h"
 #include "Threadpool.h"
 #include "Threadpool2.h"
+#include <concurrency/LFThreadpool.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -40,194 +41,242 @@ using namespace apache::thrift::transport; // NOLINT
 using namespace apache::thrift::server; // NOLINT
 using namespace apache::thrift::concurrency; // NOLINT
 
-struct ThreadPoolTest: BaseTestFixture
-{
-    ThreadPoolTest()
-    {
-        issued_ = 0;
-        completed_ = 0;
-    }
-    void work(uint64_t iterCnt)
-    {
-        util::StopWatch s;
-        s.start();
-        std::unordered_map<int, std::string> map;
-#if 0
-        auto datagen = boost::make_shared<RandDataGenerator<>>(20, 20);
-        for (int i = 0; i < 10; i++) {
-            map[i] = *datagen->nextItem();
-        }
-#endif
-#if 0
-        for (int i = 0; i < 1000; i++) {
-            map[i] = std::string("hello");
-        }
-#endif
-        int sum = 0;
-        for (uint64_t i = 0; i < iterCnt; i++) {
-            sum += i * i * i;
-        }
-        auto elapsed = s.getElapsedNanos();
-        // std::cout << "elapsed: " << elapsed << std::endl;
-        latency_.update(elapsed);
-    }
-    void doWork(fds_threadpool *tp, uint64_t iterCnt) {
-        work(iterCnt);
-        // tp->schedule(&ThreadPoolTest::workDoneCb, this);
-        workDoneCb();
-    }
-    void workDoneCb() {
-        completed_++;
-        if (issued_ == completed_) {
-           endTs_ = util::getTimeStampNanos();
-        }
-    }
+enum WorkType {
+    CPUBOUND,
+    HASHTABLE
+};
 
-    void doWork2(ThreadPool *tp, uint64_t iterCnt) {
-        work(iterCnt);
-        // tp->enqueue(&ThreadPoolTest::workDoneCb, this);
-        workDoneCb();
-    }
+struct Producer {
+    Producer(std::function<void (Producer*, util::TimeStamp)> dispFunc,  // NOLINT
+            int workType, int dispCnt, uint64_t workIterCnt);
+    virtual ~Producer() {}
+    void produce();
+    void workDoneCb();
+    void hashTableWork();
+    void work(util::TimeStamp dispTs);
+    void join();
+    void printStats();
 
-    void doWorkTp2(TP *tp, uint64_t iterCnt) {
-        work(iterCnt);
-        // tp->enqueue(std::bind(&ThreadPoolTest::workDoneCb, this));
-        workDoneCb();
-    }
-    void printStats() {
-        std::cout << "Total time: " << endTs_ - startTs_ << " (ns)\n"
-            << "Avg time: " << (static_cast<double>(endTs_ - startTs_)) / issued_
-            << " (ns)\n";
-        std::cout << "Avg latency : " << latency_.latency() << " (ns)\n";
-    }
-    void test() {
-        int cnt = this->getArg<int>("cnt");
-        uint64_t iterCnt = this->getArg<uint64_t>("iter-cnt");
-        bool profile = this->getArg<bool>("profile");
-        if (profile) {
-            ProfilerStart("/tmp/singlethread2.prof");
-        }
-        startTs_ = util::getTimeStampNanos();
-        for (int i = 0; i < cnt; i++) {
-            issued_++;
-            work(iterCnt);
-            workDoneCb();
-        }
-        /* Poll for completion */
-        POLL_MS((issued_ == completed_), 2000, (issued_* 20));
-        if (profile) {
-            ProfilerStop();
-        }
-        printStats();
-        ASSERT_TRUE(issued_ == completed_) << "Issued: " << issued_
-            << " completed_: " << completed_;
-    }
+    static void singleThreadDispFunc(Producer *p, util::TimeStamp dispTs);
+    static void fdsTpDispFunc(fds_threadpool *tp, Producer *p, util::TimeStamp dispTs);
 
+    struct LockFreeTaskImpl : LockFreeTask {
+        explicit LockFreeTaskImpl(Producer *p, util::TimeStamp dispTs) {
+            p_ = p;
+            dispTs_ = dispTs;
+        }
+        virtual void operator()() {
+            p_->work(dispTs_);
+        }
+        Producer *p_;
+        util::TimeStamp dispTs_;
+    };
+    static void ITpDispFunc(LFMQThreadpool *tp, Producer *p, util::TimeStamp dispTs);
+    static void LFSQDispFunc(LFSQThreadpool *tp, Producer *p, util::TimeStamp dispTs);
+
+    int workType_;
     std::atomic<int> issued_;
     std::atomic<int> completed_;
     util::TimeStamp startTs_;
     util::TimeStamp endTs_;
-    LatencyCounter latency_;
+    uint64_t workTime_;
+    uint64_t opTime_;
+    std::function<void (Producer*, util::TimeStamp)> dispFunc_;  // NOLINT
+    int dispCnt_;
+    uint64_t workIterCnt_;
+
+    RandDataGenerator<> dataGen_;
+
+    std::thread t_;
 };
 
-TEST_F(ThreadPoolTest, fdsthreadpool)
+Producer::Producer(std::function<void (Producer*, util::TimeStamp)> dispFunc,  // NOLINT
+        int workType, int dispCnt, uint64_t workIterCnt)
+: issued_(0),
+    completed_(0),
+    workTime_(0),
+    opTime_(0),
+    dispFunc_(dispFunc),
+    workType_(workType),
+    dispCnt_(dispCnt),
+    workIterCnt_(workIterCnt),
+    dataGen_(1024, 1024),
+    t_(std::bind(&Producer::produce, this))
 {
-    int cnt = this->getArg<int>("cnt");
-    uint64_t iterCnt = this->getArg<uint64_t>("iter-cnt");
-    int tpSize = this->getArg<int>("tp-size");
-    bool profile = this->getArg<bool>("profile");
-    std::unique_ptr<fds_threadpool> tp(new fds_threadpool(tpSize));
-    sleep(4);
-    if (profile) {
-        ProfilerStart("/tmp/fdsthreadpool.prof");
-    }
-    startTs_ = util::getTimeStampNanos();
-    for (int i = 0; i < cnt; i++) {
-        issued_++;
-        tp->schedule(&ThreadPoolTest::doWork, this, tp.get(), iterCnt);
-        // sleep(2);
-    }
-    auto dispLatency = latency_.total_latency();
-    auto dispCount = latency_.count();
-
-    /* Poll for completion */
-    POLL_MS((issued_ == completed_), 2000, (issued_* 20));
-    if (profile) {
-        ProfilerStop();
-    }
-    printStats();
-    std::cout << "disp latency: " << dispLatency << " cnt: " << dispCount << std::endl;
-    std::cout << "Avg dispatch latency : "
-        << static_cast<double>(dispLatency) / dispCount << " (ns)\n";
-    std::cout << "Avg w.o dispatch latency : "
-        << static_cast<double>(latency_.total_latency() - dispLatency) / (latency_.count()-dispCount) << " (ns)\n";  // NOLINT
-    ASSERT_TRUE(issued_ == completed_) << "Issued: " << issued_
-        << " completed_: " << completed_;
 }
+
+void Producer::produce() {
+    startTs_ = util::getTimeStampNanos();
+    /* Do bunch dispatches onto threadpool */
+    for (int j = 0; j < dispCnt_; j++) {
+        auto dispTs = util::getTimeStampNanos();
+        issued_++;
+        dispFunc_(this, dispTs);
+    }
+    /* Wait for work to complete */
+    POLL_MS((issued_ == completed_), 2000, (issued_* 2000));
+}
+
+void Producer::workDoneCb() {
+    completed_++;
+    if (issued_ == completed_) {
+        endTs_ = util::getTimeStampNanos();
+    }
+}
+
+void Producer::hashTableWork()
+{
+    std::unordered_map<uint64_t, StringPtr> ht;
+    for (uint64_t i = 0; i < workIterCnt_; i++) {
+        ht[i] = boost::make_shared<std::string>(
+                "lsjlsjldsjlkdjsljsdsjfdslfjldkfjslsdjllfjdslfjdskljfsljldsjsl");
+    }
+}
+
+void Producer::work(util::TimeStamp dispTs)
+{
+    util::TimeStamp workStartTs = util::getTimeStampNanos();
+    util::TimeStamp workEndTs;
+    std::unordered_map<int, std::string> map;
+    if (workType_ == CPUBOUND) {
+        uint64_t sum = 0;
+        for (uint64_t i = 0; i < workIterCnt_; i++) {
+            sum += i * i * i;
+        }
+    } else if (workType_ == HASHTABLE) {
+        hashTableWork();
+    }
+    workEndTs = util::getTimeStampNanos();
+    workTime_ += (workEndTs - workStartTs);
+    opTime_ += (workEndTs - dispTs);
+    workDoneCb();
+}
+
+void Producer::join()
+{
+    t_.join();
+}
+
+
+void Producer::printStats() {
+    std::cout << "Producer stats: \n";
+    std::cout << "Issued: " << issued_ << " completed: " << completed_ << std::endl;
+    std::cout << "Total time: " << endTs_ - startTs_ << " (ns)\n"
+        << "Avg latency: " << static_cast<double>(opTime_) / issued_
+        << " (ns)\n";
+    std::cout << "Avg worktime: " << static_cast<double>(workTime_) / issued_ << " (ns)\n";
+}
+
+void Producer::singleThreadDispFunc(Producer *p, util::TimeStamp dispTs)
+{
+    p->work(dispTs);
+}
+
+void Producer::fdsTpDispFunc(fds_threadpool *tp, Producer *p, util::TimeStamp dispTs)
+{
+    tp->schedule(&Producer::work, p, dispTs);
+}
+
+void Producer::ITpDispFunc(LFMQThreadpool *tp, Producer *p, util::TimeStamp dispTs) {
+    // tp->enqueue(new LockFreeTaskImpl(p, dispTs));
+    // tp->enqueue(new LockFreeTask(std::bind(&Producer::work, p, dispTs)));
+    tp->schedule(&Producer::work, p, dispTs);
+}
+
+void Producer::LFSQDispFunc(LFSQThreadpool *tp, Producer *p, util::TimeStamp dispTs) {
+    // tp->enqueue(new LockFreeTaskImpl(p, dispTs));
+    // tp->enqueue(new LockFreeTask(std::bind(&Producer::work, p, dispTs)));
+    tp->schedule(&Producer::work, p, dispTs);
+}
+
+struct ThreadPoolTest: BaseTestFixture
+{
+    ThreadPoolTest()
+    {
+    }
+
+    uint64_t computeThroughput() {
+        auto minItr = std::min_element(producers_.begin(), producers_.end(),
+                [](const Producer* a1, const Producer* a2) {
+                    return a1->startTs_ < a2->startTs_;
+                });
+        auto maxItr = std::max_element(producers_.begin(), producers_.end(),
+                [](const Producer* a1, const Producer* a2) {
+                    return a1->endTs_ < a2->endTs_;
+                });
+        uint64_t totalOps = producers_.size() * producers_[0]->issued_;
+        uint64_t totalLatencyNs = (**maxItr).endTs_ - (**minItr).startTs_;
+        uint64_t throughput = (totalOps * 1000 * 1000 * 1000) / totalLatencyNs;
+        return throughput;
+    }
+
+    void runWorkload(std::function<void (Producer*, util::TimeStamp)> dispFunc)  // NOLINT
+    {
+        auto workType = this->getArg<int>("type");
+        auto nProducers = this->getArg<int>("producers");
+        auto dispCnt = this->getArg<int>("cnt");
+        uint64_t workIterCnt = this->getArg<uint64_t>("iter-cnt");
+        producers_.resize(nProducers);
+
+        /* Start producers */
+        for (uint32_t i = 0; i < producers_.size(); i++) {
+            producers_[i] = new Producer(dispFunc, workType, dispCnt, workIterCnt);
+        }
+
+        /* Join all producer threads */
+        double avgLatency = 0;
+        double avgWorkTime = 0;
+        uint64_t totalWkCnt = 0;
+        for (uint32_t i = 0; i < producers_.size(); i++) {
+            producers_[i]->join();
+            avgLatency += producers_[i]->opTime_;
+            avgWorkTime += producers_[i]->workTime_;
+            totalWkCnt += producers_[i]->issued_;
+            EXPECT_TRUE(producers_[i]->issued_ == producers_[i]->completed_) << "Issued: "
+                << producers_[i]->issued_ << " completed_: " << producers_[i]->completed_;
+        }
+        avgLatency /= totalWkCnt;
+        avgWorkTime /= totalWkCnt;
+        uint64_t throughput = computeThroughput();
+        for (auto &e : producers_) {
+            delete e;
+        }
+        std::cout << "Avg latency: " << avgLatency << " (ns)\n";
+        std::cout << "Avg worktime: " << avgWorkTime << " (ns)\n";
+        std::cout << "Throughput: " << throughput << "\n";
+    }
+
+    std::vector<Producer*> producers_;
+};
 
 TEST_F(ThreadPoolTest, singlethread)
 {
-    ASSERT_EQ(completed_, 0);
-    int cnt = this->getArg<int>("cnt");
-    bool profile = this->getArg<bool>("profile");
-    uint64_t iterCnt = this->getArg<uint64_t>("iter-cnt");
-    if (profile) {
-        ProfilerStart("/tmp/singlethread.prof");
-    }
-    startTs_ = util::getTimeStampNanos();
-    for (int i = 0; i < cnt; i++) {
-        issued_++;
-        work(iterCnt);
-        workDoneCb();
-    }
-    /* Poll for completion */
-    POLL_MS((issued_ == completed_), 2000, (issued_* 20));
-    if (profile) {
-        ProfilerStop();
-    }
-    printStats();
-    ASSERT_TRUE(issued_ == completed_) << "Issued: " << issued_
-        << " completed_: " << completed_;
+    runWorkload(std::bind(&Producer::singleThreadDispFunc,
+                std::placeholders::_1, std::placeholders::_2));
 }
 
-TEST_F(ThreadPoolTest, singlethread2)
+TEST_F(ThreadPoolTest, fdsthreadpool)
 {
-    std::thread t(std::bind(&ThreadPoolTest::test, this));
-    t.join();
+    int tpSize = this->getArg<int>("tp-size");
+    std::unique_ptr<fds_threadpool> tp(new fds_threadpool(tpSize));
+    runWorkload(std::bind(&Producer::fdsTpDispFunc, tp.get(),
+                std::placeholders::_1, std::placeholders::_2));
 }
 
-TEST_F(ThreadPoolTest, DISABLED_threadpool)
+TEST_F(ThreadPoolTest, ithreadpool)
 {
-    int cnt = this->getArg<int>("cnt");
-    uint64_t iterCnt = this->getArg<uint64_t>("iter-cnt");
-    std::unique_ptr<ThreadPool> tp(new ThreadPool(10));
-    startTs_ = util::getTimeStampNanos();
-    for (int i = 0; i < cnt; i++) {
-        issued_++;
-        tp->enqueue(&ThreadPoolTest::doWork2, this, tp.get(), iterCnt);
-    }
-    /* Poll for completion */
-    POLL_MS((issued_ == completed_), 2000, (issued_* 20));
-    printStats();
-    ASSERT_TRUE(issued_ == completed_) << "Issued: " << issued_
-        << " completed_: " << completed_;
+    int tpSize = this->getArg<int>("tp-size");
+    std::unique_ptr<LFMQThreadpool> tp(new LFMQThreadpool(tpSize, true));
+    runWorkload(std::bind(&Producer::ITpDispFunc, tp.get(),
+                std::placeholders::_1, std::placeholders::_2));
 }
 
-TEST_F(ThreadPoolTest, threadpool2)
+TEST_F(ThreadPoolTest, lfsqthreadpool)
 {
-    int cnt = this->getArg<int>("cnt");
-    uint64_t iterCnt = this->getArg<uint64_t>("iter-cnt");
-    std::unique_ptr<TP> tp(new TP(10));
-    startTs_ = util::getTimeStampNanos();
-    for (int i = 0; i < cnt; i++) {
-        issued_++;
-        tp->enqueue(std::bind(&ThreadPoolTest::doWorkTp2, this, tp.get(), iterCnt));
-    }
-    /* Poll for completion */
-    POLL_MS((issued_ == completed_), 2000, (issued_* 20));
-    printStats();
-    ASSERT_TRUE(issued_ == completed_) << "Issued: " << issued_
-        << " completed_: " << completed_;
+    int tpSize = this->getArg<int>("tp-size");
+    std::unique_ptr<LFSQThreadpool> tp(new LFSQThreadpool(tpSize));
+    runWorkload(std::bind(&Producer::LFSQDispFunc, tp.get(),
+                std::placeholders::_1, std::placeholders::_2));
 }
 
 int main(int argc, char** argv) {
@@ -236,6 +285,8 @@ int main(int argc, char** argv) {
     opts.add_options()
         ("help", "produce help message")
         ("tp-size", po::value<int>()->default_value(10), "threadpool size")
+        ("producers", po::value<int>()->default_value(1), "# of producers")
+        ("type", po::value<int>()->default_value(0), "work type [0=cpuboudn, 1=hashtable]")
         ("cnt", po::value<int>()->default_value(10000), "cnt")
         ("profile", po::value<bool>()->default_value(false), "profile")
         ("iter-cnt", po::value<uint64_t>()->default_value(10000), "iter-cnt");

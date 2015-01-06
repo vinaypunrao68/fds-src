@@ -7,10 +7,12 @@
 #include <string>
 #include <fds_types.h>
 #include <fds_module_provider.h>
+#include <fds_volume.h>
 #include <fdsn-server.h>
 #include <AmAsyncService.h>
 #include <AmDataApi.h>
-#include <StorHvisorNet.h>
+#include <OmConfigService.h>
+#include <NbdConnector.h>
 
 namespace fds {
 
@@ -43,9 +45,6 @@ class AccessMgr : public Module, public boost::noncopyable {
     /// fdsn server.
     AmDataApi::shared_ptr dataApi;
 
-    /// Shared ptr to AM's async data API
-    AmAsyncDataApi::shared_ptr asyncDataApi;
-
   private:
     /// Raw pointer to an external dependancy manager
     CommonModuleProviderIf *modProvider_;
@@ -55,6 +54,15 @@ class AccessMgr : public Module, public boost::noncopyable {
 
     /// Unique ptr to the async server that communicates with XDI
     AsyncDataServer::unique_ptr asyncServer;
+
+    /// Unique instance ID of this AM
+    fds_uint32_t instanceId;
+
+    /// OM config service API
+    OmConfigApi::shared_ptr omConfigApi;
+
+    /// Block connector
+    NbdConnector::shared_ptr blkConnector;
 };
 
 }  // namespace fds

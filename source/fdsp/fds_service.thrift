@@ -90,8 +90,12 @@ enum  FDSPMsgTypeId {
 	CtrlSetScrubberStatusTypeId		   = 2052,
 	CtrlSetScrubberStatusRespTypeId	   = 2053,
 
+
     CtrlNotifyDLTUpdateTypeId          = 2060,
     CtrlNotifyDLTCloseTypeId           = 2061,
+    CtrlNotifySMStartMigrationTypeId   = 2062,
+    CtrlObjectRebalanceInitialSetTypeId = 2063,
+    CtrlObjectRebalanceDeltaSetTypeId  = 2064,
 
     /* DM messages. */
     CtrlNotifyPushDMTTypeId            = 2080,
@@ -120,6 +124,7 @@ enum  FDSPMsgTypeId {
 	DeleteObjectRspMsgTypeId,
     AddObjectRefMsgTypeId,
     AddObjectRefRspMsgTypeId,
+    ShutdownSMMsgTypeId,
 	
 
     /* DM Type Ids */
@@ -164,7 +169,9 @@ enum  FDSPMsgTypeId {
     CreateVolumeCloneMsgTypeId,
     CreateVolumeCloneRespMsgTypeId,
     GetDmStatsMsgTypeId,
-    GetDmStatsMsgRespTypeId
+    GetDmStatsMsgRespTypeId,
+    ListBlobsByPatternMsgTypeId,
+    ListBlobsByPatternRspMsgTypeId
 }
 
 /*
@@ -182,6 +189,13 @@ struct AsyncHdr {
     4: required SvcUuid       	msg_src_uuid;
     5: required SvcUuid       	msg_dst_uuid;
     6: required i32           	msg_code;
+    7: i64			rqSendStartTs;
+    8: i64			rqSendEndTs;
+    9: i64        		rqRcvdTs;
+    10: i64        		rqHndlrTs;
+    11: i64        		rspSerStartTs;	
+    12:i64        		rspSendStartTs;	
+    13:i64			rspRcvdTs;
 }
 
 /*
@@ -482,6 +496,9 @@ struct CtrlQueryScavengerStatus {
 struct CtrlQueryScavengerStatusResp {
 	   1: FDSP_ScavengerStatusType 	status;
 }
+/* ---------------------  ShutdownSMMsgTypeId  --------------------------- */
+struct ShutdownSMMsg {
+}
 
 /* ---------------------  CtrlScavengerProgressTypeId  --------------------------- */
 struct CtrlQueryScavengerProgress {
@@ -540,6 +557,16 @@ struct CtrlNotifyDLTUpdate {
      2: i32                       dlt_version;
 }
 
+/* ---------------------- CtrlNotifySMStartMigration --------------------------- */
+struct SMTokenMigrationGroup {
+     1: SvcUuid                   source;
+     2: list<i32>                 tokens;
+}
+
+struct CtrlNotifySMStartMigration {
+     1: list<SMTokenMigrationGroup> migrations;
+}
+
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
 struct CtrlNotifyDLTClose {
      1: FDSP.FDSP_DltCloseType    dlt_close;
@@ -558,6 +585,7 @@ struct CtrlNotifyDMTClose {
 /* --------------------  CtrlNotifyDMTUpdateTypeId  ---------------------------- */
 struct CtrlNotifyDMTUpdate {
      1: FDSP.FDSP_DMT_Type        dmt_data;
+     2: i32                       dmt_version;
 }
 
 /* --------------------  CtrlNotifyBucketStatTypeId  --------------------------- */
@@ -711,9 +739,10 @@ struct QueryCatalogMsg {
    2: string   			blob_name;		/* User visible name of the blob*/
    3: i64               start_offset;   /* Starting offset into the blob */
    4: i64               end_offset;     /* End offset into the blob */
-   5: i64 			    blob_version;   /* Version of the blob to query */
+   5: i64 		blob_version;   /* Version of the blob to query */
    6: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
    7: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
+   8: i64                       byteCount;  /* Blob size */
 }
 
 // TODO(Rao): Use QueryCatalogRspMsg.  In current implementation we are using QueryCatalogMsg
@@ -847,6 +876,17 @@ struct GetBucketMsg {
   4: FDSP.BlobInfoListType     blob_info_list;
 }
 
+struct ListBlobsByPatternMsg {
+  1: i64                       volume_id;
+  2: i64                       startPos;
+  3: i64                       maxKeys;
+  4: string                    pattern;
+}
+
+struct ListBlobsByPatternRspMsg {
+  1: FDSP.BlobDescriptorListType  blobDescriptors;
+}
+
 struct GetDmStatsMsg {
   1: i64                       volume_id;
   // response
@@ -916,4 +956,98 @@ service DMSvc extends PlatNetSvc {
  */
 service AMSvc extends PlatNetSvc {
 }
+
+
+/* Object + subset of MetaData to determine if either the object or
+ * associated MetaData (subset) needs sync'ing.
+ */
+struct CtrlObjectMetaDataSync 
+{
+    /* Object ID */
+    1: FDSP.FDS_ObjectIdType objectID
+
+    /* RefCount of the object */
+    2: i32              objRefCnt
+
+    /* TODO(Sean):
+     * There can be more fields in the MetaData that should be sync'ed,
+     * but for now, RefCnt is only one we've identified.
+     */
+}
+
+/* Message body to initiate the object rebalance between two
+ * SMs.  The set of objects is sent from the destination SM to source
+ * SM.  The set is filtered against the existing objects on SM, only
+ * the "diff'ed" objects and meta data is sync'ed.
+ */
+struct CtrlObjectRebalanceInitialSet
+{
+    /* Token to be rebalance */
+    1: FDSP.FDSP_Token                    objectToken
+    
+    /* Set of objects to be sync'ed */
+    2: list<CtrlObjectMetaDataSync> objectsToSync
+}
+
+/* Response from the source SM to destination SM.  
+ * Notify the destination SM of the status and number objects to be sync'ed
+ * This is an ack from source SM to destination SM after a set of delta set
+ * of objects are computed (i.e. after source SM snapshot and filter).
+ */
+struct CtrlObjectRebalanceInitialSetResp
+{
+    /* Response status */
+    1: i64      objRebalanceStatus
+
+    /* Number of objects to be sent from source SM to destination SM */
+    2: i64      objNum
+}
+
+/* Object + Data + MetaData to be propogated to the destination SM from source SM*/
+struct CtrlObjectMetaDataPropagate
+{
+    /* Object ID */
+    1: FDSP.FDS_ObjectIdType objectID
+    
+    /* user data */
+    2: FDSP.FDSP_ObjectData  objectData
+
+    /* TODO(Sean):
+     * Is it possible that the compression type of the source and destination
+     * object is different, if we ever support this feature?
+     */
+    /* Compression type for this object */
+    3: i32              objectCompressType
+
+    /* Size of data after compression */
+    4: i32              objectCompressLen
+
+    /* Object block size */
+    5: i32              objectBlkLen
+
+    /* object size */
+    6: i32              objectSize
+
+    /* object flag */
+    7: i32              objectFlags
+    
+    /* object expieration time */
+    8: i32              objectExpireTime    
+}
+
+struct CtrlObjectRebalanceDeltaSet
+{
+    1: list<CtrlObjectMetaDataPropagate> objectToPropogate
+}
+
+struct CtrlObjectRebalanceDeltaSetResp
+{
+    /* Response status */
+    1: i64      objRebalanceDeltaStatus
+
+    /* Number of object synced from source SM to destination SM */
+    2: i64      objNumSynced
+}
+
+#endif
 

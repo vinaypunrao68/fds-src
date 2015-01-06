@@ -6,8 +6,10 @@
 
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <fds_module.h>
+#include "concurrency/RwLock.h"
 #include <apis/AsyncAmServiceResponse.h>
 
 namespace fds {
@@ -56,28 +58,46 @@ class AmAsyncResponseApi {
 
     virtual void getBlobResp(const Error &error,
                              boost::shared_ptr<apis::RequestId>& requestId,
-                             char* buf,
+                             boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length) = 0;
+    virtual void getBlobWithMetaResp(const Error &error,
+                                     boost::shared_ptr<apis::RequestId>& requestId,
+                                     boost::shared_ptr<std::string> buf,
+                                     fds_uint32_t& length,
+                                     boost::shared_ptr<apis::BlobDescriptor>& blobDesc) = 0;
 };
 
 class AmAsyncXdiResponse : public AmAsyncResponseApi {
-  private:
+ public:
+    using client_ptr = std::shared_ptr<apis::AsyncAmServiceResponseClient>;
+    using client_map = std::unordered_map<std::string, client_ptr>;
+
+ private:
+    // We use a std rw lock here and vector or client pointers because
+    // this lookup only happens once when the handshake is performed
+    static fds_rwlock client_lock;
+    static client_map clients;
+
     /// Thrift client to response to XDI
-    boost::shared_ptr<apis::AsyncAmServiceResponseClient> asyncRespClient;
+    client_ptr asyncRespClient;
     std::string serverIp;
     fds_uint32_t serverPort;
 
     void initiateClientConnect();
     inline void checkClientConnect() {
-        if (asyncRespClient == NULL) {
+        if (asyncRespClient == NULL && serverPort > 0) {
             initiateClientConnect();
         }
+        fds_assert(asyncRespClient);
     }
 
   public:
-    AmAsyncXdiResponse();
+    explicit AmAsyncXdiResponse(std::string const& server_ip);
     ~AmAsyncXdiResponse();
     typedef boost::shared_ptr<AmAsyncXdiResponse> shared_ptr;
+
+    void handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId,
+                           boost::shared_ptr<int32_t>& port);
 
     void attachVolumeResp(const Error &error,
                           boost::shared_ptr<apis::RequestId>& requestId);
@@ -112,8 +132,13 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
 
     void getBlobResp(const Error &error,
                      boost::shared_ptr<apis::RequestId>& requestId,
-                     char* buf,
+                     boost::shared_ptr<std::string> buf,
                      fds_uint32_t& length);
+    void getBlobWithMetaResp(const Error &error,
+                             boost::shared_ptr<apis::RequestId>& requestId,
+                             boost::shared_ptr<std::string> buf,
+                             fds_uint32_t& length,
+                             boost::shared_ptr<apis::BlobDescriptor>& blobDesc);
 };
 
 }  // namespace fds

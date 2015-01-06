@@ -14,6 +14,7 @@ import requests
 import counter_server
 import subprocess
 import shlex
+import is_fds_up
 sys.path.append('../fdslib')
 sys.path.append('../fdslib/pyfdsp')
 sys.path.append('../fdslib/pyfdsp/fds_service')
@@ -261,7 +262,12 @@ class CounterServerPull:
         for node in self.options.nodes:
             ip = self.options.nodes[node]
             port=7020
-            svc_map = SvcMap(ip, port)
+            try:
+                svc_map = SvcMap(ip, port)
+            except:
+                print "Failed to get svc_map, sleeping"
+                time.sleep(60)
+                return {}
             svclist = svc_map.list()
             for e in svclist:
                 nodeid, svc, ip = e[0], e[1], e[2]
@@ -269,7 +275,7 @@ class CounterServerPull:
                 if svc != "om" and svc != "None" and re.match("10\.1\.10\.\d+", ip):
                     try:
                         cntrs = svc_map.client(nodeid, svc).getCounters('*')
-                    except TApplicationException:
+                    except:
                         print "Counters failed for", svc
                         cntr = {}
                     for c, v in cntrs.iteritems():
@@ -293,6 +299,7 @@ class CounterServerPull:
         # reset counters
         # subprocess.call(shlex.split("python cli.py -c reset-counters"))
         # pull counters
+        time.sleep(2)
         while stop.isSet() == False:
             time.sleep(self.options.counter_pull_rate)
             counters = self._get_counters()
@@ -389,12 +396,26 @@ class FdsCluster():
             time.sleep(1)
         elif self.options.single_node == True:
             if self.local == True:
+                output = self._loc_exec(self.remote_fds_root + "/source/tools/fds stop")
+                time.sleep(60)
                 output = self._loc_exec(self.remote_fds_root + "/source/tools/fds cleanstart")
             else:
+                output = self._loc_exec(self.remote_fds_root + "/source/tools/fds stop")
+                time.sleep(60)
                 output = self._rem_exec(self.remote_fds_root + "/source/tools/fds cleanstart")
             print output
             self.pidmap.compute_pid_map()
             time.sleep(10)
+            cnt = 0
+            while is_fds_up.is_up() == False and cnt < 10:
+                is_fds_up.kill_all()
+                time.sleep(10)
+                if self.local == True:
+                    output = self._loc_exec(self.remote_fds_root + "/source/tools/fds cleanstart")
+                else:
+                    output = self._rem_exec(self.remote_fds_root + "/source/tools/fds cleanstart")
+                print output
+                cnt += 1
         else:
             cmd = self.local_fds_root + "/source/test/fds-tool.py -f " + self.local_fds_root + "/source/fdstool.cfg -c -d -u"
             output = self._loc_exec(cmd)
@@ -510,26 +531,40 @@ class FdsCluster():
         of.close()
 
     def _init_tgen_java_once(self):
-        pass
+        curr = os.getcwd()
+        os.chdir("%s/source/Build/linux-x86_64.release" % self.local_fds_root)
+        cmd = "tar czvf java_tools.tgz tools lib/java"
+        output = self._loc_exec(cmd)
+        shutil.copyfile(self.local_fds_root + "/source/Build/linux-x86_64.release/java_tools.tgz", "/root/java_tools.tgz")
+        transfer_file(self.options.test_node, self.local_fds_root + "/source/Build/linux-x86_64.release/java_tools.tgz" , "/root/java_tools.tgz", "put")
+        os.chdir(curr)
+        ssh_exec(self.options.test_node, "tar xzvf java_tools.tgz")
 
     def _init_tgen_java(self, args):
         pass
 
     def _run_tgen_java(self, test_args):
-        def task(node, outs, queue):
-            cmd = "pushd /home/monchier/linux-x86_64.debug/bin && ./trafficgen --n_reqs 100000 --n_files 1000 --outstanding_reqs %d --test_type GET --object_size 4096 --hostname 10.1.10.222 --n_conns %d && popd" % (outs, outs)
+        # good configurations seems 4 instances and 50 outs/conns
+        def task(node, queue):
+            cmd = "pushd /root/tools && ./trafficgen --n_reqs %d --n_files %d --outstanding_reqs %d --test_type %s --object_size %d --hostname %s --n_conns %d && popd" % ( test_args["nreqs"], 
+                                                        test_args["nfiles"], 
+                                                        test_args["outstanding"], 
+                                                        test_args["type"], 
+                                                        test_args["fsize"], 
+                                                        self.options.nodes[self.options.main_node],
+                                                        test_args["outstanding"] 
+                                                        )
             output = ssh_exec(node, cmd)
             queue.put(output)
         
         # nodes = ["10.1.10.222", "10.1.10.221"]
-        nodes = ["10.1.10.139"]
-        N = test_args["threads"]
+        nodes = [self.options.test_node]
         outs = test_args["outstanding"]
         threads = []
         queue = Queue.Queue()
         for n in nodes:
-            for i in  range(N):
-                t = threading.Thread(target=task, args=(n, outs, queue))
+            for i in  range(test_args["threads"]):
+                t = threading.Thread(target=task, args=(n, queue))
                 t.start()
                 threads.append(t)
         for t in threads:
@@ -551,20 +586,20 @@ class FdsCluster():
         return output
 
     def _init_fio_once(self):
-        cmd = "/fds/bin/fdscli --volume-create volume0 -i 1 -s 10240 -p 50 -y blk"
+        cmd = "/fds/bin/fdscli --volume-create volume1 -i 1 -s 10240 -p 50 -y blk"
         output = self._loc_exec(cmd)
         time.sleep(5)
         if self.local_test == True:
-            cmd = "python nbdadm.py attach %s volume0" + self.options.main_node
+            cmd = "python %s/source/cinder/nbdadm.py attach localhost volume1" % self.options.local_fds_root
             output = self._loc_exec(cmd)
         else:
             shutil.copyfile(self.local_fds_root + "/source/cinder/nbdadm.py", "/root/nbdadm.py")
-            cmd = "python nbdadm.py attach %s volume0" % self.options.main_node
+            cmd = "python nbdadm.py attach %s volume1" % self.options.main_node
             output = ssh_exec(self.options.test_node, cmd)
         time.sleep(5)
         self.nbdvolume = output.rstrip("\n")
         print "nbd:", self.nbdvolume
-        cmd = "/fds/bin/fdscli --volume-modify \"volume0\" -s 10240 -g 0 -m 0 -r 10"
+        cmd = "/fds/bin/fdscli --volume-modify \"volume1\" -s 10240 -g 0 -m 0 -r 10"
         output = self._loc_exec(cmd)
         time.sleep(5)
 
@@ -584,7 +619,7 @@ class FdsCluster():
                     "--bs=" + str(bs) + " " + \
                     "--numjobs=" + str(numjobs) + " " + \
                     "--iodepth=" + str(iodepth) + " " + \
-                    "--ioengine=libaio --direct=1 --size=10g --minimal "
+                    "--ioengine=libaio --direct=1 --size=16m --time_based --minimal "
         if runtime > 0:            
             options += " --runtime=" + str(runtime) + " "
         cmd = "fio " + options

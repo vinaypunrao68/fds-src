@@ -6,11 +6,13 @@
 
 #include <fds_module.h>
 #include <fds_process.h>
-#include <platform/platform-lib.h>
 #include <ClusterCommMgr.h>
 #include <NetSession.h>
 #include <concurrency/taskstatus.h>
 #include <fdsp/FDSP_types.h>
+
+#include "platform/platform.h"
+#include "platform/platform_process.h"
 
 namespace fds {
 

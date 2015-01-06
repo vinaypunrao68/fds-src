@@ -172,7 +172,7 @@ class Installer:
             self.dependsOnSteps('stepSystemCheck')
             log.debug('running %s', menuitem[2])
             success=True
-            for option in ['prereq', 'basedebs','pythonpkgs'] :
+            for option in ['basedebs','pythonpkgs'] :
                 ret = os.system("./setup-packages.sh %s" % (option))
                 if 0 != ret :
                     success=False
@@ -191,7 +191,7 @@ class Installer:
                 log.info("NOTE: This step has been completed previously")
             log.debug('running %s', menuitem[2])
             success=True
-            for option in ['fds-base','fds-om','fds-pm','fds-am','fds-sm','fds-cli','fds-dm'] :
+            for option in ['fds-base','fds-platform'] :
                 ret = os.system("./setup-packages.sh %s" % (option))
                 if 0 != ret :
                     success=False

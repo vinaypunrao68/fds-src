@@ -276,7 +276,7 @@ class Disk:
 ## ----------------------------------------------------------------
 
     # get all Disk objects in the system, including the boot device
-    # 
+    #
     @staticmethod
     def sys_disks(fake, df_output, mount_output):
         dev_list  = []
@@ -445,7 +445,7 @@ class Disk:
                 "2:100MB:32.0GB:31.9GB:xfs:primary:;\n",
                 "3:32.0GB:2199GB:2167GB:xfs:primary:;\n"]
         return res
-        
+
     def __fake_hdparm(self, path):
         res = ["\n" + path + ":\n\n",
             "ATA device, with non-removable media\n",
@@ -617,6 +617,21 @@ if __name__ == "__main__":
         dev_list = [ disk ]
     else:
         dev_list = Disk.sys_disks(options.fake, df_output, mount_output)
+
+    ssd_found_count = 0
+    hdd_found_count = 0
+    for disk in dev_list:
+        if disk.dsk_typ == disk.dsk_typ_hdd:
+            hdd_found_count += 1
+        if disk.dsk_typ == disk.dsk_typ_ssd:
+            ssd_found_count += 1
+
+    # if we don't detect any SSDs and we have at least 6 disks,
+    # presume tha last two drives are SSDs
+    # Anything else we just ignore this and process as usual.
+    if 0 == ssd_found_count and hdd_found_count >= 6:
+        dev_list[hdd_found_count - 2].dsk_typ = dev_list[hdd_found_count - 2].dsk_typ_ssd
+        dev_list[hdd_found_count - 1].dsk_typ = dev_list[hdd_found_count - 1].dsk_typ_ssd
 
     if print_disk:
         for disk in dev_list:

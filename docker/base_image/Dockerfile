@@ -10,6 +10,7 @@ MAINTAINER Aaron Nichols <aaron@formationds.com>
 # a long time to rebuild.
 
 RUN locale-gen en_US.UTF-8
+RUN echo "US/Pacific" > /etc/timezone && dpkg-reconfigure --frontend noninteractive tzdata
 
 # If you run into 404's during package installs, update the date here to todays date
 RUN apt-get update #20140926
@@ -74,5 +75,7 @@ EXPOSE 7443
 EXPOSE 7777
 EXPOSE 4000
 EXPOSE 4004
+EXPOSE 18088
+EXPOSE 19088
 
 CMD /usr/sbin/sshd -D -o UsePAM=no

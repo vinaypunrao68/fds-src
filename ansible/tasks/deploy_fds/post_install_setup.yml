@@ -1,0 +1,74 @@
+---
+-   name: copy fdsinstall.py to /root/fdsinstally.py
+    copy: src=../../source/tools/install/fdsinstall.py
+        dest=/root/fdsinstall.py
+        mode=0755
+    tags:
+        - post-install
+
+-   name: copy disk_type.py to /root/disk_type.py
+    copy: src=../../source/platform/python/disk_type.py
+        dest=/root/disk_type.py
+        mode=0755
+    tags:
+        - post-install
+
+-   name: run fdsinstall step 3 - setup storage
+    shell: ./fdsinstall.py -o 5 -o 3  chdir=/root
+    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes")
+    tags:
+        - post-install
+
+-   name: render formation.conf
+    template:
+        src=../templates/formation.conf.j2
+        dest=/fds/sbin/deploy_formation.conf
+        owner=root
+        group=root
+        mode=0644
+    tags:
+        - post-install
+        - fdsconfig
+
+-   name: render /fds/etc config files
+    template:
+        src=../../source/config/etc/{{item}}.conf.j2
+        dest=/fds/etc/{{item}}.conf
+        owner=root
+        group=root
+        mode=0644
+    with_items:
+        - fds
+        - fds-features
+        - platform
+        - orch_mgr
+        - redis
+    tags:
+        - post-install
+        - fdsconfig
+
+-   name: render_init_scripts
+    template:
+        src=../templates/{{item}}-init.conf.j2
+        dest=/etc/init/{{item}}.conf
+        owner=root
+        group=root
+        mode=0644
+    with_items:
+        - platformd
+        - orchmgr
+        - amagent
+        - fdsactivate
+    tags:
+        - post-install
+        - init
+
+-   name: java_symlink
+    file:
+        src=/usr/lib/jvm/jdk-8-oracle-x64/
+        dest=/usr/lib/jvm/jdk-8-oracle
+        owner=root
+        group=root
+        state=link
+    tags:
+        - post-install
