@@ -15,13 +15,19 @@ import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.util.ExceptionHelper;
-import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.repository.SingletonRepositoryManager;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -123,30 +129,30 @@ public class FirebreakHelper {
             final String volumeName = pair.getShortTermSigma()
                                           .getVolumeName();
 
-            try {
-                if (!results.containsKey(key)) {
-                    final Datapoint datapoint = new Datapoint();
-                    datapoint.setY(NEVER);    // firebreak last occurrence
+            if (!results.containsKey(key)) {
+                final Datapoint datapoint = new Datapoint();
+                datapoint.setY(NEVER);    // firebreak last occurrence
 
-                    final VolumeStatus status = SingletonAmAPI.instance()
-                                                              .api()
-                                                              .volumeStatus("", volumeName);
-                    if (status != null) {
-                        // use the usage, OBJECT volumes have no fixed capacity
-                        datapoint.setX(status.getCurrentUsageInBytes());
-                    }
-
-                    pair.setDatapoint(datapoint);
-                    results.put(key, pair);
+                final Optional<VolumeStatus> status =
+                    SingletonRepositoryManager.instance()
+                                              .getMetricsRepository()
+                                              .getLatestVolumeStatus( volumeName );
+                if( status.isPresent() ) {
+                    // use the usage, OBJECT volumes have no fixed capacity
+                    datapoint.setX(status.get().getCurrentUsageInBytes());
                 }
 
-                if (isFirebreak(pair)) {
-                    // if there is already a firebreak for the volume in the results use it
-                    // instead of the pair and set the timestamp using the current pair.
-                    results.get(key).getDatapoint().setY(pair.getShortTermSigma().getTimestamp());
-                }
-            } catch( TException e ) {
-                logger.warn("Failed to get Volume status for firebreak event pair" + pair, e );
+                pair.setDatapoint(datapoint);
+                results.put(key, pair);
+            }
+
+            if (isFirebreak(pair)) {
+                /*
+                 * if there is already a firebreak for the volume in the
+                 * results use it instead of the pair and set the timestamp
+                 * using the current pair.
+                 */
+                results.get(key).getDatapoint().setY(pair.getShortTermSigma().getTimestamp());
             }
         } );
 
@@ -187,8 +193,11 @@ public class FirebreakHelper {
                 // TODO: use volid once available
                 final VolumeStatus status = vols.get(volumeName);
                 if (status != null) {
-                    // use the usage, OBJECT volumes have no fixed capacity
-                    // TODO: this makes sense for a capacity FB, but not for performance
+                    /*
+                     * this is include for both capacity and performance so the
+                     * GUI know the size to draw the firebreak box that represents
+                     * this volume.
+                     */
                     datapoint.setX(status.getCurrentUsageInBytes());
                 }
                 pair.setDatapoint(datapoint);
@@ -213,14 +222,21 @@ public class FirebreakHelper {
      */
     // TODO: replace volume name with id once available.
     private Map<String, VolumeStatus> loadCurrentVolumeStatus() throws TException {
+
         final Map<String,VolumeStatus> vols = new HashMap<>();
         SingletonConfigAPI.instance().api().listVolumes("").forEach((vd) -> {
-            try {
-                vols.put(vd.getName(), SingletonAmAPI.instance().api().volumeStatus("", vd.getName()));
-            } catch (TException te) {
-                logger.warn("Failed to get Volume " + vd.getName() + " status for firebreak event.", te);
+
+            final Optional<VolumeStatus> optionalStatus =
+                SingletonRepositoryManager.instance()
+                                          .getMetricsRepository()
+                                          .getLatestVolumeStatus(
+                                              vd.getName() );
+            if( optionalStatus.isPresent() ) {
+                vols.put( vd.getName(),
+                          optionalStatus.get() );
             }
         });
+
         return vols;
     }
 

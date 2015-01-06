@@ -15,11 +15,12 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
 import java.io.Serializable;
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Proxy;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Properties;
 
 /**
  * @author ptinius
@@ -215,23 +216,33 @@ public abstract class JDORepository<T,
      */
     @Override
     public T save( final T entity ) {
+
+        synchronized( this ) {
         try {
             logger.trace("ENTITY_SAVE: {}", entity);
-            manager().currentTransaction().begin();
+
+            if( !manager().currentTransaction().isActive() ) {
+                manager().currentTransaction().begin();
+            }
 
             firePrePersist(entity);
             manager().makePersistent( entity );
-            firePostPersist(entity);
+            firePostPersist( entity );
 
-            manager().currentTransaction().commit();
+            if( manager().currentTransaction().isActive() ) {
+                manager().currentTransaction().commit();
+            }
+
             logger.trace("Saved entity {}", entity);
             return entity;
         } catch (RuntimeException re) {
-            logger.warn("SAVE Failed.  Rolling back transaction.");
-            logger.debug("SAVE Failed", re);
-            if (manager().currentTransaction().isActive())
-                manager().currentTransaction().rollback();
+            logger.debug( "SAVE Failed", re );
+//            if (manager().currentTransaction().isActive() {
+//                logger.warn("SAVE Failed.  Rolling back transaction.");
+//                manager().currentTransaction().rollback();
+//        }
             throw re;
+        }
         }
     }
 
@@ -245,28 +256,50 @@ public abstract class JDORepository<T,
      * @throws RuntimeException if the save for any entity fails
      */
     public List<T> save(Collection<T> entities) {
-        int cnt = (entities != null ? entities.size() : 0);
-        List<T> persisted = new ArrayList<>(cnt);
-        try {
-            logger.trace("Saving {} entities", entities.size());
-            entities.forEach((e) -> logger.trace("ENTITY_SAVE: {}", e));
+        List<T> persisted = new ArrayList<>( );
+        synchronized( this ) {
+            try {
+                logger.trace( "Saving {} entities",
+                              entities != null ? entities.size() : 0 );
+                if( entities != null ) {
+                    entities.forEach( ( e ) -> logger.trace( "ENTITY_SAVE: {}",
+                                                             e ) );
 
-            manager().currentTransaction().begin();
+                    if( !manager().currentTransaction()
+                                  .isActive() ) {
+                        manager().currentTransaction()
+                                 .begin();
+                    }
 
-            firePrePersist((entities instanceof List<?> ? (List<T>)entities : new ArrayList<T>(entities)));
-            persisted.addAll(manager().makePersistentAll(entities));
-            firePostPersist(persisted);
+                    firePrePersist(
+                        ( entities instanceof List<?> ? ( List<T> ) entities : new ArrayList<T>(
+                            entities ) ) );
+                    persisted.addAll( manager().makePersistentAll(
+                        entities ) );
+                    firePostPersist( persisted );
 
-            manager().currentTransaction().commit();
-            logger.trace("Saved {} entities.", entities.size());
-            return persisted;
-        } catch (RuntimeException re) {
-            logger.warn("SAVE Failed.  Rolling back transaction.");
-            logger.debug("SAVE Failed", re);
-            if (manager().currentTransaction().isActive())
-                manager().currentTransaction().rollback();
-            throw re;
+                    if( manager().currentTransaction()
+                                 .isActive() ) {
+                        manager().currentTransaction()
+                                 .commit();
+                    }
+
+                    logger.trace( "Saved {} entities.", entities.size() );
+                    return persisted;
+                }
+            } catch( RuntimeException re ) {
+
+
+                logger.debug( "SAVE Failed", re );
+//            if (manager().currentTransaction().isActive()) {
+//                  logger.warn("SAVE Failed.  Rolling back transaction.");
+//                manager().currentTransaction().rollback();
+//        }
+                throw re;
+            }
         }
+
+        return persisted;
     }
 
     /**
@@ -284,17 +317,27 @@ public abstract class JDORepository<T,
 
     @Override
     public void delete(T entity) {
-        try {
-            logger.trace("Deleting entity {}", entity);
-            manager().currentTransaction().begin();
-            manager().deletePersistent(entity);
-            manager().currentTransaction().commit();
-            logger.trace("Deleted entity {}", entity);
-        } catch (RuntimeException re) {
-            logger.warn("DELETE Failed.  Rolling back transaction.");
-            logger.debug("DELETE Failed", re);
-            manager().currentTransaction().rollback();
-            throw re;
+        synchronized( this ) {
+            try {
+                logger.trace( "Deleting entity {}", entity );
+                manager().currentTransaction()
+                         .begin();
+                manager().deletePersistent( entity );
+                manager().currentTransaction()
+                         .commit();
+                logger.trace( "Deleted entity {}", entity );
+            } catch( RuntimeException re ) {
+                logger.debug( "DELETE Failed", re );
+
+                if( manager().currentTransaction()
+                             .isActive() ) {
+                    logger.warn( "DELETE Failed.  Rolling back transaction." );
+                    manager().currentTransaction()
+                             .rollback();
+                }
+
+                throw re;
+            }
         }
     }
 
