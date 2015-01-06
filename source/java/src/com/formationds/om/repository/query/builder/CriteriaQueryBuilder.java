@@ -138,11 +138,7 @@ public class CriteriaQueryBuilder<T> {
             this.withDateRange( searchCriteria.getRange() );
         }
 
-//        if( searchCriteria.getContexts() != null &&
-//                    !searchCriteria.getContexts()
-//                                   .isEmpty() ) {
-            this.withContexts( searchCriteria.getContexts() );
-//        }
+        this.withContexts( searchCriteria.getContexts() );
 
         if ( searchCriteria.getFirstPoint() != null ) {
             this.firstResult( searchCriteria.getFirstPoint().intValue() );

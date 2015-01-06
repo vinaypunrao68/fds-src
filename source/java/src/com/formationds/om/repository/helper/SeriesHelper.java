@@ -239,13 +239,12 @@ public class SeriesHelper {
         	// be averaging an average which will be significantly lower than
         	// the value you desire.
         	Double d = bytesValues.stream()
-                                        .filter( ( value ) ->
-                                                     value.getKey()
-                                                          .equalsIgnoreCase(
-                                                              metrics.key() ) )
+                                        .filter( ( value ) -> {
+                                        	return value.getKey().equalsIgnoreCase( metrics.key() );
+                                        })
                                         .peek( ( l ) -> logger.trace( l.toString() ) )
-                                        .mapToDouble(
-                                            VolumeDatapoint::getValue ).sum();
+                                        .mapToDouble( VolumeDatapoint::getValue )
+                                        .sum();
              
             logger.trace( "DOUBLE::{} LONG::{} TIMESTAMP::{}",
                           d, d.longValue(), bytesTimestamp );
