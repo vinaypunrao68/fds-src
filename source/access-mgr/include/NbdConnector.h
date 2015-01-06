@@ -77,7 +77,6 @@ class NbdConnection : public NbdOperationsResponseIface {
 
   private:
     int clientSocket;
-    boost::shared_ptr<std::string> volumeName;
     apis::VolumeDescriptor volDesc;
     size_t volume_size;
 

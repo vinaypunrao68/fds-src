@@ -67,8 +67,8 @@ public class SeriesBuilderTest {
   public void testWithDatapoints()
     throws Exception {
     final List<Datapoint> points = new ArrayList<>();
-    points.add( new DatapointBuilder().withX( 12345L )
-                                      .withY( 67890L )
+    points.add( new DatapointBuilder().withX( 12345.0 )
+                                      .withY( 67890.0 )
                                       .build() );
 
     Assert.assertTrue( new SeriesBuilder().withDatapoints( points )
@@ -84,17 +84,17 @@ public class SeriesBuilderTest {
     final long timestamp = ( System.currentTimeMillis() / 1000 );
     final Series series1 =
       new SeriesBuilder().withContext( VOLUME )
-                         .withDatapoint( new DatapointBuilder().withX( 25L )
-                                                               .withY( timestamp )
+                         .withDatapoint( new DatapointBuilder().withX( 25.0 )
+                                                               .withY( (double)timestamp )
                                                                .build() )
                          .build();
     final Series series2 =
       new SeriesBuilder().withContext( VOLUME1 )
-                         .withDatapoint( new DatapointBuilder().withX( 55L )
-                                                               .withY( timestamp )
+                         .withDatapoint( new DatapointBuilder().withX( 55.0 )
+                                                               .withY( (double)timestamp )
                                                                .build() )
-                         .withDatapoint( new DatapointBuilder().withX( 15L )
-                                                               .withY( timestamp )
+                         .withDatapoint( new DatapointBuilder().withX( 15.0 )
+                                                               .withY( (double)timestamp )
                                                                .build() )
                          .build();
     System.out.println( series1 );
