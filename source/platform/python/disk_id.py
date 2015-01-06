@@ -129,7 +129,7 @@ class Disk:
             self.dsk_typ = Disk.dsk_typ_ssd
         elif rotation > '6000':                # HDD
             self.dsk_typ = Disk.dsk_typ_hdd
-        elif virtualized != False:             # Virtualized treated as HDD's
+        elif virtualized:                      # Virtualized treated as HDD's
             self.dsk_typ = Disk.dsk_typ_hdd
                                                # else this device is on a hardware controller, 
                                                # so leave the dsk_typ set to the default UKN (unknown)
@@ -243,9 +243,10 @@ if __name__ == "__main__":
     destination_dir = options.fds_root + "/dev"
 
     # verify destination directory exists
-    if not os.path.isdir (destination_dir):
-        print ( "Error:  Directory '" + destination_dir + "', does not exist.  Can not continue.")
-        sys.exit(1)
+    if not options.print_disk:
+        if not os.path.isdir (destination_dir):
+            print ( "Error:  Directory '" + destination_dir + "', does not exist.  Can not continue.")
+            sys.exit(1)
 
     sys.stdout.write ('Scanning hardware:  Phase 1:  ')
     sys.stdout.flush()
