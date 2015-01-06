@@ -497,36 +497,22 @@ public class SeriesHelper {
 
         final List<Datapoint> datapoints = new ArrayList<>( );
         groupByTimestamp.forEach( ( bytesTimestamp, bytesValues ) -> {
-            DoubleStream dStream = bytesValues.stream()
+            
+        	// this is always a sum because it represents collapsing
+        	// a set of points that are cumulative numbers by nature
+        	// i.e. if you are wanting the average number of PUTS over a time frame
+        	// you still need to sum them here, and divide that number by the 
+        	// distribution in order to get a real average.  Otherwise you'll
+        	// be averaging an average which will be significantly lower than
+        	// the value you desire.
+        	Double d = bytesValues.stream()
                                         .filter( ( value ) ->
                                                      value.getKey()
                                                           .equalsIgnoreCase(
                                                               metrics.key() ) )
                                         .peek( ( l ) -> logger.trace( l.toString() ) )
                                         .mapToDouble(
-                                            VolumeDatapoint::getValue );
-            
-            Double d = 0.0;
-            
-            switch( operation ){
-            	case SUM: 
-            		d = dStream.sum();
-            		break;
-            	case AVERAGE:
-            		d = dStream.average().getAsDouble();
-//            		d = sum / bytesValues.size();
-            		break;
-            	case MAX:
-            		d = dStream.max().getAsDouble();
-            		break;
-            	case MIN:
-            		d = dStream.min().getAsDouble();
-            	case COUNT:
-            		d =	new Double( dStream.count() );
-            		break;
-            	default:
-            		break;
-            }
+                                            VolumeDatapoint::getValue ).sum();
              
             logger.trace( "DOUBLE::{} LONG::{} TIMESTAMP::{}",
                           d, d.longValue(), bytesTimestamp );
@@ -570,7 +556,7 @@ public class SeriesHelper {
         	DoubleStream ds = bucketMap.get( key ).stream().mapToDouble( Datapoint::getY );
         	
         	switch( operation ) {
-        		case AVERAGE:
+        		case RATE:
         			rolledupValue = ds.average().getAsDouble() / TimeUnit.MINUTES.toSeconds( distribution );
         			break;
         		default:

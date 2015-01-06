@@ -138,7 +138,7 @@ public class QueryHelper {
 	                series.addAll(
 	                    new SeriesHelper().getRollupSeries( queryResults,
 	                                                        query,
-	                                                        StatOperation.AVERAGE ) );
+	                                                        StatOperation.RATE ) );
 	                final IOPsConsumed ioPsConsumed = new IOPsConsumed();
 	                ioPsConsumed.setDailyAverage( 0.0 );
 	                calculatedList.add( ioPsConsumed );
@@ -170,7 +170,7 @@ public class QueryHelper {
 	            	series.addAll(
 	            		new SeriesHelper().getRollupSeries( queryResults, 
 	            										 	query,
-	            										 	StatOperation.AVERAGE) );
+	            										 	StatOperation.RATE) );
 	            	
 	            	// GETS has the total # of gets and SSD is a subset of those.
 	            	// This query wants GETS for HDD access and SSD access so we mutate the

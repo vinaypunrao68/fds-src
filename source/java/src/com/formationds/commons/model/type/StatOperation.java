@@ -3,7 +3,7 @@ package com.formationds.commons.model.type;
 public enum StatOperation {
 
 	SUM, 
-	AVERAGE,
+	RATE,
 	MIN,
 	MAX,
 	COUNT
