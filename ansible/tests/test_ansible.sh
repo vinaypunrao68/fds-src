@@ -28,9 +28,21 @@ echo "Operating System: $(lsb_release -d | awk -F: '{ print $2 }' | tr -d '\t')"
 echo "Kernel: $(uname -a)"
 echo "################################"
 echo
-echo "### Starting tests"
-echo
 
+get_vault_pw_file() {
+    echo "Retrieving vault credentials..."
+    wget_results=$(wget -O .vault_pass.txt http://bld-dev-02/cda.dat >/dev/null 2>&1)
+
+    if [ $? -ne 0 ]; then
+        echo "FAILED to retrieve vault credentials, bailing out"
+        cleanup_and_exit 2
+    fi
+
+    echo "Succesfully retrieved vault credentials "
+    echo
+    echo "### Starting tests"
+    echo
+}
 
 test_cleartext_credentials() {
     failing_files=()
@@ -75,7 +87,7 @@ test_playbook_sanity() {
 
     for filename in $(find ${playbook_dir} -maxdepth 1 -name '*.yml'); do
         echo
-        ansible_results=$(ansible-playbook -i ${script_dir}/localhost --syntax-check --list-tasks --vault-password-file ~/.vault_pass.txt "${filename}" 2>&1)
+        ansible_results=$(ansible-playbook -i ${script_dir}/localhost --syntax-check --list-tasks --vault-password-file ./.vault_pass.txt "${filename}" 2>&1)
 
         if [ $? -ne 0 ]; then
             echo -e "${red}(FAIL) :: ${filename}"
@@ -99,7 +111,16 @@ test_playbook_sanity() {
     fi
 }
 
+cleanup_and_exit() {
+    echo
+    echo "Cleaning up and exiting with return code ${1}"
+    echo
+    rm -f ./.vault_pass.txt
+    exit ${1}
+}
+
+get_vault_pw_file
 test_cleartext_credentials
 test_playbook_sanity
 
-exit ${exit_code}
+cleanup_and_exit ${exit_code}
