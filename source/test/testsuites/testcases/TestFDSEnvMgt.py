@@ -133,7 +133,7 @@ class TestFDSCreateInstDir(TestCase.FDSTestCase):
                 # Obtain these defaults from platform.conf.
                 s3_http_port = 8000 + instanceId
                 s3_https_port = 8443 + instanceId
-                swift_port = 9999 - instanceId
+                swift_port = 9999 + instanceId
                 nbd_server_port = 10809 + instanceId
                 status = n.nd_agent.exec_wait('sed -e "s/ platform_port = 7000/ platform_port = %s/g" '
                                               '-e "s/ instanceId = 0/ instanceId = %s/g" '

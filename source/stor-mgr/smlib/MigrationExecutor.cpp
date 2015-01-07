@@ -11,8 +11,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      fds_token_id _sm_tokenID)
     : dataStore(_dataStore),
       tokenID(_sm_tokenID),
-      sourceSMNodeID(_sourceNodeID),
-      metadataSnapshotCompleted(false)
+      sourceSMNodeID(_sourceNodeID)
 {
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
     snapshotRequest.token_id = tokenID;
@@ -43,21 +42,6 @@ MigrationExecutor::startObjectRebalance()
         LOGERROR << "Failed to snapshot. err=" << err;
         return err;
     }
-
-    /**
-     * If successfully enqueue to snapshot, then wait until the request is complete,
-     * since it's done in another thread's context.
-     */
-    LOGDEBUG << "Waiting for snapshot to complete for token "
-             << tokenID;
-    std::unique_lock<std::mutex> myLock(metadataSnapshotMutex);
-    metadataSnapshotCondVar.wait(myLock,
-                                 [this]{ return this->metadataSnapshotCompleted; });
-
-    /**
-     * Reset metadata snapshot status.
-     */
-    metadataSnapshotCompleted = false;
 
     return err;
 }
@@ -92,18 +76,11 @@ MigrationExecutor::getObjectRebalanceSet(const Error& error,
      */
     db->ReleaseSnapshot(options.snapshot);
 
-    LOGDEBUG << "Generated destination SM rebalance set of objects.";
-
     /**
-     * Now signal the water after the set of objects owned by the destination
-     * SM is generated.
+     * TODO(Sean): Send the set to the source SM.
      */
-    {
-        std::lock_guard<std::mutex> myLock(metadataSnapshotMutex);
-        metadataSnapshotCompleted = true;
-        metadataSnapshotCondVar.notify_all();
-    }
-}
 
+    LOGDEBUG << "Generated destination SM rebalance set of objects.";
+}
 
 }  // namespace fds
