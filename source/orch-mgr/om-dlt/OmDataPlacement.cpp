@@ -178,7 +178,7 @@ DataPlacement::beginRebalance() {
          ++nit) {
         NodeUuid  uuid = *nit;
 
-        std::map<NodeUuid, std::vector<fds_int32_t>> newTokenMap;
+        std::map<SvcUuid, std::vector<fds_int32_t>> newTokenMap;
         std::set<fds_uint32_t> diff = newDlt->token_diff(uuid, newDlt, commitedDlt);
 
         // Build the newTokenMap
@@ -202,21 +202,22 @@ DataPlacement::beginRebalance() {
             // Remove ourselves from the list
             sourcesSet.erase(uuid);
             // Now push to newTokenMap
+            if (sourcesSet.size() == 0) { continue; }
             NodeUuid sourceId = *sourcesSet.begin();  // Take the first source
             // If we have that source in the list already, append
-            auto got = newTokenMap.find(sourceId);
+            auto got = newTokenMap.find(sourceId.toSvcUuid());
             if (got != newTokenMap.end()) {
-                newTokenMap[sourceId].push_back(token);
+                newTokenMap[sourceId.toSvcUuid()].push_back(token);
             } else {
                 // Otherwise create a new vector and append
-                newTokenMap[sourceId] = std::vector<fds_int32_t>();
-                newTokenMap[sourceId].push_back(token);
+                newTokenMap[sourceId.toSvcUuid()] = std::vector<fds_int32_t>();
+                newTokenMap[sourceId.toSvcUuid()].push_back(token);
             }
         }
         // At this point we should have a complete map
         for (auto entry : newTokenMap) {
             fpi::SMTokenMigrationGroup grp;
-            grp.source = entry.first.uuid_get_val();
+            grp.source = entry.first;
             grp.tokens = entry.second;
             msg->migrations.push_back(grp);
         }
