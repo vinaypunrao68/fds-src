@@ -81,6 +81,7 @@ test_cleartext_credentials() {
 test_playbook_sanity() {
     failing_files=()
 
+    echo
     echo "--------------------------"
     echo "PLAYBOOK SANITY TEST START"
     echo "--------------------------"
@@ -112,6 +113,17 @@ test_playbook_sanity() {
 }
 
 cleanup_and_exit() {
+    echo 
+    echo "-----------------"
+    echo "FINAL TEST RESULT"
+    echo "-----------------"
+
+    if [ ${exit_code} -ne 0 ]; then
+        echo -e "${red}(FAIL) :: See results above for failures${nocolor}"
+    else
+        echo -e "${green}(PASS) :: No failed tests${nocolor}"
+    fi
+
     echo
     echo "Cleaning up and exiting with return code ${1}"
     echo
