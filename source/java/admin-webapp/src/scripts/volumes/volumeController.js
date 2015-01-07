@@ -1,6 +1,8 @@
 angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$rootScope', '$filter', '$element', function( $scope, $location, $state, $volume_api, $rootScope, $filter, $element ){
     
     $scope.searchText = '';
+    $scope.sortPredicate = '';
+    $scope.reverse = true;
     
     $scope.clicked = function( volume){
         $scope.volumeVars.selectedVolume = volume;
@@ -38,6 +40,53 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
     $scope.createNewVolume = function(){
         $scope.volumeVars.creating = true;
         $scope.volumeVars.next( 'createvolume' );
+    };
+    
+    $scope.customSorter = function( volume ){
+        
+        var rtnValue = '';
+        var alteredPredicate = $scope.sortPredicate;
+        
+        if ( $scope.sortPredicate.indexOf( '-' ) === 0 ){
+            $scope.reverse = true;
+            alteredPredicate = $scope.sortPredicate.substr( 1 );
+        }
+        else {
+            $scope.reverse = false;
+        }
+        
+        switch( $scope.sortPredicate ){
+            case 'size':
+                var num = parseInt( volume.current_usage.size );
+                var unit = volume.current_usage.unit;
+                
+                if ( unit === 'KB' ){
+                    num *= 1024;
+                }
+                else if ( unit === 'MB' ){
+                    num *= Math.pow( 1024, 2 );
+                }
+                else if ( unit === 'GB' ){
+                    num *= Math.pow( 1024, 3 );
+                }
+                else if ( unit === 'TB' ){
+                    num *= Math.pow( 1024, 4 );
+                }
+                else if ( unit === 'PB' ){
+                    num *= Math.pow( 1024, 5 );
+                }
+                else if ( unit === 'EB' ){
+                    num *= Math.pow( 1024, 6 );
+                }
+                
+                rtnValue = num;
+            case 'firebreak':
+                break;
+            default:
+                rtnValue = volume[ alteredPredicate ];
+        }
+        
+        return rtnValue;
     };
     
     $scope.$on( 'fds::authentication_logout', function(){

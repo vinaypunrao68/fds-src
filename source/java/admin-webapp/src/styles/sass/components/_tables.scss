@@ -45,6 +45,13 @@ table.default {
             &.no-top-padding {
                 padding-top: 2px;
             }
+            
+            &.selected {
+                div {
+                    background-color: #657D95;
+                    color: #ffffff;
+                }
+            }
         }
     }
 
