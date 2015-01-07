@@ -7,7 +7,7 @@
 namespace fds {
 
 MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
-                                     uint64_t _sourceNodeID,
+                                     NodeUuid _sourceNodeID,
                                      fds_token_id _sm_tokenID)
     : dataStore(_dataStore),
       tokenID(_sm_tokenID),

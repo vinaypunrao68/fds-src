@@ -21,7 +21,7 @@ namespace fds {
 class MigrationExecutor {
   public:
     explicit MigrationExecutor(SmIoReqHandler *_dataStore,
-                               uint64_t _sourceNodeID,
+                               NodeUuid _sourceNodeID,
                                fds_token_id _smTokenId);
     ~MigrationExecutor();
 
