@@ -11,8 +11,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      fds_token_id _sm_tokenID)
     : dataStore(_dataStore),
       tokenID(_sm_tokenID),
-      sourceSMNodeID(_sourceNodeID),
-      metadataSnapshotCompleted(false)
+      sourceSMNodeID(_sourceNodeID)
 {
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
     snapshotRequest.token_id = tokenID;
