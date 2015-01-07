@@ -30,8 +30,6 @@
         default_release=platform
     with_items:
         - fds-platform
-        - fds-pkghelper
-        - fds-coredump
     register: fdsinstall_pkg
     tags:
       - install-repo

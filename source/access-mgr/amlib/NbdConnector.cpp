@@ -314,7 +314,7 @@ NbdConnection::hsAwaitOpts(ev::io &watcher) {
               << volDesc.policy.blockDeviceSizeInBytes
               << " max object size " << volDesc.policy.maxObjectSizeInBytes
               << " max number of chunks " << maxChunks;
-    nbdOps->init(volumeName);
+    nbdOps->init(volumeName, volDesc.policy.maxObjectSizeInBytes);
 
     return true;
 }
@@ -485,7 +485,7 @@ NbdConnection::dispatchOp(ev::io &watcher,
                 ioWatcher->set(ev::READ | ev::WRITE);
             } else {
                 // do read from AM
-                nbdOps->read(volDesc.policy.maxObjectSizeInBytes, length, offset, handle);
+                nbdOps->read(length, offset, handle);
             }
             break;
         case NBD_CMD_WRITE:
@@ -500,7 +500,7 @@ NbdConnection::dispatchOp(ev::io &watcher,
                 ioWatcher->set(ev::READ | ev::WRITE);
             } else {
                  fds_assert(data);
-                 nbdOps->write(volDesc.policy.maxObjectSizeInBytes, data, length, offset, handle);
+                 nbdOps->write(data, length, offset, handle);
             }
             break;
         case NBD_CMD_FLUSH:

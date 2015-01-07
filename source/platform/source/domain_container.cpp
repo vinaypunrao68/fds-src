@@ -203,8 +203,10 @@ namespace fds
 
         if (nodes != NULL)
         {
+            LOGDEBUG << "DomainContainer::dc_find_node_agent: UUID type " << type <<  ".";
             return nodes->agent_info(uuid);
         }
+        LOGDEBUG << "DomainContainer::dc_find_node_agent: No nodes for type " << type <<  ".";
         return NULL;
     }
 

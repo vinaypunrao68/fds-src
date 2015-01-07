@@ -719,7 +719,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
             md5sum = str(hashlib.md5(open(source_path, 'rb').read()).hexdigest())
 
             self.log.info("Loading %s of size %d [md5: %s] using %d chunks of max size %d. using "
-                          "Bobo's 'multi-part' upload interface" %
+                          "Boto's 'multi-part' upload interface" %
                           (source_path, source_size, md5sum, chunk_count, chunk_size))
 
             # Send the file parts, using FileChunkIO to create a file-like object
