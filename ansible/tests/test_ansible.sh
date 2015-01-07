@@ -31,7 +31,7 @@ echo
 
 get_vault_pw_file() {
     echo "Retrieving vault credentials..."
-    wget_results=$(wget -O .vault_pass.txt http://bld-dev-02/cda.dat >/dev/null 2>&1)
+    $(wget -O .vault_pass.txt http://bld-dev-02/cda.dat >/dev/null 2>&1)
 
     if [ $? -ne 0 ]; then
         echo "FAILED to retrieve vault credentials, bailing out"
