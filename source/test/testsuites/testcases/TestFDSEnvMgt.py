@@ -372,8 +372,6 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
         else:
             sbin_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'tools')
 
-        #nodes = fdscfg.rt_obj.cfg_nodes
-        #for n in nodes:
         n = fdscfg.rt_om_node
         self.log.info("Restart Redis clean on %s." %n.nd_conf_dict['node-name'])
 
