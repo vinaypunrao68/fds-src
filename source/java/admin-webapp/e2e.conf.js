@@ -128,7 +128,7 @@ exports.config = {
     // will be available. For example, you can add a Jasmine reporter with:
     //     jasmine.getEnv().addReporter(new jasmine.JUnitXmlReporter(
     //         'outputdir/', true, true));
-      browser.driver.manage().window().setSize(1200, 1000);
+      browser.driver.manage().window().setSize(1200, 2000);
   },
 
   // The params object will be passed directly to the protractor instance,
