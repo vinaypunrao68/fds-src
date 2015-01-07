@@ -259,8 +259,7 @@ void DataPlacement::startMigrationResp(NodeUuid uuid,
 
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         LOGDEBUG << "Domain set";
-        // TODO(Anna) Should we use node names or node uuids directly in
-        // fdsp messages? for now getting uuid from hashing the name
+
         fpi::CtrlNotifyMigrationStatusPtr status =
                 net::ep_deserialize<fpi::CtrlNotifyMigrationStatus>(
                 const_cast<Error&>(error), payload);

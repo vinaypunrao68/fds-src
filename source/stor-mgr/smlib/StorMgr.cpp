@@ -423,8 +423,7 @@ void ObjectStorMgr::setup_migration_svc(const std::string& obj_dir)
 
 int ObjectStorMgr::run()
 {
-    // TODO(brian): Remove this in favor of something else...
-    while (true) {}
+    nst_->listenServer(datapath_session_);
     return 0;
 }
 
