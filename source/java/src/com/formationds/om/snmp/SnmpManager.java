@@ -2,11 +2,10 @@
  * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.om.helper;
+package com.formationds.om.snmp;
 
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import com.formationds.om.snmp.TrapSend;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -12,7 +12,7 @@ import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.helper.SingletonLegacyConfig;
 import com.formationds.om.helper.SingletonXdi;
-import com.formationds.om.helper.SnmpManager;
+import com.formationds.om.snmp.SnmpManager;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.snmp.TrapSend;
 import com.formationds.om.webkit.WebKitImpl;
