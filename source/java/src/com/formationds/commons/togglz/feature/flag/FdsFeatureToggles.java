@@ -14,6 +14,7 @@ import com.formationds.commons.togglz.feature.annotation.Webkit;
 import org.togglz.core.Feature;
 import org.togglz.core.annotation.EnabledByDefault;
 import org.togglz.core.annotation.Label;
+import org.togglz.core.repository.FeatureState;
 
 /**
  * @author ptinius
@@ -70,5 +71,14 @@ public enum FdsFeatureToggles
     return FdsFeatureManagerProvider.getFeatureManager()
                                     .isActive( this );
 
+  }
+
+  /**
+   * @param featureState the {@code boolean} flag used to set the feature availability.
+   */
+  public void state( final boolean featureState ) {
+    FdsFeatureManagerProvider.getFeatureManager()
+                             .setFeatureState( new FeatureState( this )
+                                                   .setEnabled( featureState ) );
   }
 }

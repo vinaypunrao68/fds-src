@@ -12,7 +12,9 @@ import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.helper.SingletonLegacyConfig;
 import com.formationds.om.helper.SingletonXdi;
+import com.formationds.om.helper.SnmpManager;
 import com.formationds.om.repository.SingletonRepositoryManager;
+import com.formationds.om.snmp.TrapSend;
 import com.formationds.om.webkit.WebKitImpl;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
@@ -21,8 +23,8 @@ import com.formationds.security.FdsAuthenticator;
 import com.formationds.security.FdsAuthorizer;
 import com.formationds.security.NullAuthenticator;
 import com.formationds.util.Configuration;
+import com.formationds.util.libconfig.Assignment;
 import com.formationds.util.libconfig.ParsedConfig;
-import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.ConfigurationApi;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
@@ -40,9 +42,6 @@ public class Main {
 
     // key for managing the singleton EventManager.
     private final Object eventMgrKey = new Object();
-
-    private WebApp webApp;
-    private ConfigurationApi configCache;
 
     public static void main(String[] args) {
 
@@ -81,15 +80,34 @@ public class Main {
         logger.trace( "Loading platform configuration." );
         ParsedConfig platformConfig = configuration.getPlatformConfig();
 
+        Assignment snmpTarget;
+        try {
+
+            snmpTarget = platformConfig.lookup( TrapSend.SNMP_TARGET_KEY );
+            System.setProperty( TrapSend.SNMP_TARGET_KEY,
+                                snmpTarget.stringValue() );
+
+        } catch( RuntimeException e ) {
+
+            logger.error( e.getMessage() );
+
+        }
+
         // TODO: this is needed before bootstrapping the admin user but not sure if there is config required first.
         // alternatively, we could initialize it with an empty event notifier or disabled flag and not log the
         // initial first-time bootstrap of the admin user as an event.
         logger.trace("Initializing repository event notifier.");
         INSTANCE.initEventNotifier(
             eventMgrKey,
-            ( e ) -> SingletonRepositoryManager.instance()
-                                               .getEventRepository()
-                                               .save( e ) != null );
+            ( e ) -> {
+
+                SnmpManager.instance().notify( e );
+
+                return ( SingletonRepositoryManager.instance()
+                                                   .getEventRepository()
+                                                   .save( e ) != null );
+            } );
+
 
         if(FdsFeatureToggles.FIREBREAK_EVENT.isActive()) {
 
@@ -104,9 +122,8 @@ public class Main {
         }
 
         XdiClientFactory clientFactory = new XdiClientFactory();
-        configCache =
-            new ConfigurationApi(
-                clientFactory.remoteOmService( "localhost", 9090 ) );
+        final ConfigurationApi configCache = new ConfigurationApi(
+            clientFactory.remoteOmService( "localhost", 9090 ) );
         SingletonConfigAPI.instance().api( configCache );
 
         EnsureAdminUser.bootstrapAdminUser( configCache );
