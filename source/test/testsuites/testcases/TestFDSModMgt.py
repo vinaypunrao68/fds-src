@@ -175,14 +175,15 @@ class TestDMBringUp(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
+            port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
             bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
             log_dir = fdscfg.rt_env.get_log_dir()
 
             self.log.info("Start DM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/DataMgr --fds-root=%s > %s/dm.out 2>&1 &) \"' %
-                                          (bin_dir, fds_dir, log_dir))
+            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/DataMgr --fds-root=%s > %s/dm.%s.out 2>&1 &) \"' %
+                                          (bin_dir, fds_dir, log_dir, port))
 
             if status != 0:
                 self.log.error("DM bringup on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -447,14 +448,15 @@ class TestSMBringUp(TestCase.FDSTestCase):
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
+            port = n.nd_conf_dict['fds_port']
             fds_dir = n.nd_conf_dict['fds_root']
             bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
             log_dir = fdscfg.rt_env.get_log_dir()
 
             self.log.info("Start SM on %s." %n.nd_conf_dict['node-name'])
 
-            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/StorMgr --fds-root=%s > %s/sm.out 2>&1 &) \"' %
-                                          (bin_dir, fds_dir, log_dir))
+            status = n.nd_agent.exec_wait('bash -c \"(nohup %s/StorMgr --fds-root=%s > %s/sm.%s.out 2>&1 &) \"' %
+                                          (bin_dir, fds_dir, log_dir, port))
 
             if status != 0:
                 self.log.error("SM on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
@@ -710,12 +712,17 @@ class TestPMBringUp(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        log_dir = fdscfg.rt_env.get_log_dir()
+        om_node = fdscfg.rt_om_node
+        om_ip = om_node.nd_conf_dict['ip']
+
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
-            bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-            log_dir = fdscfg.rt_env.get_log_dir()
-            om_node = fdscfg.rt_om_node
-            om_ip = om_node.nd_conf_dict['ip']
+            # Skip the PM for the OM's node. That one is handled by TestPMForOMBringUp()
+            if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
+                self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
+                continue
 
             self.log.info("Start PM on %s." %n.nd_conf_dict['node-name'])
 
@@ -783,9 +790,15 @@ class TestPMWait(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
+            # Skip the PM for the OM's node. That one is handled by TestPMForOMWait()
+            if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
+                self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
+                continue
+
             self.log.info("Wait for PM on %s." %n.nd_conf_dict['node-name'])
 
             if not modWait("platformd", n):
@@ -842,9 +855,15 @@ class TestPMShutDown(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
+            # Skip the PM for the OM's node. That one is handled by TestPMForOMShutDown()
+            if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
+                self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
+                continue
+
             self.log.info("Shutdown PM on %s." %n.nd_conf_dict['node-name'])
 
             status = n.nd_agent.exec_wait("pkill -9 platformd")
@@ -913,13 +932,280 @@ class TestPMVerifyShutdown(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
 
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
+            # Skip the PM for the OM's node. That one is handled by TestPMForOMVerifyShutDown()
+            if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
+                self.log.info("Skipping OM's PM on %s." %n.nd_conf_dict['node-name'])
+                continue
+
             self.log.info("Verify the PM on %s is shutdown." %n.nd_conf_dict['node-name'])
 
             if not modWait("platformd", n, forShutdown=True):
                 return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# bringing up a Platform Manager (PM) for the Orchestration Manager (OM) node.
+class TestPMForOMBringUp(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestPMForOMBringUp, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_PMForOMBringUp():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("PM for OM module bringup caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_PMForOMBringUp(self):
+        """
+        Test Case:
+        Attempt to start the PM component for an OM node
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        log_dir = fdscfg.rt_env.get_log_dir()
+        om_node = fdscfg.rt_om_node
+
+        # Start the PM for this OM.
+        om_ip = om_node.nd_conf_dict['ip']
+
+        self.log.info("Start PM for OM on node %s." % om_node.nd_conf_dict['node-name'])
+
+        status = om_node.nd_start_platform(om_ip, test_harness=True, _bin_dir=bin_dir, _log_dir=log_dir)
+
+        if status != 0:
+            self.log.error("PM for OM on node %s returned status %d." % (om_node.nd_conf_dict['node-name'], status))
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# waiting for the Platform Manager (PM) module for the OM node to start.
+class TestPMForOMWait(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestPMForOMWait, self).__init__(parameters)
+
+
+    def runTest(self):
+        """
+        Used by qaautotest module's test runner to run the test case
+        and clean up the fixture as necessary.
+
+        With PyUnit, the same method is run although PyUnit will also
+        call any defined tearDown method to do test fixture cleanup as well.
+        """
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_PMForOMWait():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Wait for PM module on POM node to start caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_PMForOMWait(self):
+        """
+        Test Case:
+        Wait for the PM module on the OM node to start
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        self.log.info("Wait for PM on OM's node, %s." % om_node.nd_conf_dict['node-name'])
+
+        if not modWait("platformd", om_node):
+            return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# shutting down the Platform Manager (PM) module on the OM node.
+class TestPMForOMShutDown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestPMForOMShutDown, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_PMForOMShutDown():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("PM module for OM node shutdown caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_PMForOMShutDown(self):
+        """
+        Test Case:
+        Attempt to shutdown the PM module for the OM node
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        self.log.info("Shutdown PM on OM's node, %s." % om_node.nd_conf_dict['node-name'])
+
+        status = om_node.nd_agent.exec_wait("pkill -9 platformd")
+
+        if status != 0:
+            self.log.error("PM shutdown on OM's node, %s, returned status %d." %
+                           (om_node.nd_conf_dict['node-name'], status))
+            return False
+
+        time.sleep(2)
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# whether the Platform Manager (PM) component for the OM's node has shutdown .
+class TestPMForOMVerifyShutdown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(TestPMForOMVerifyShutdown, self).__init__(parameters)
+
+
+    def runTest(self):
+        """
+        Used by qaautotest module's test runner to run the test case
+        and clean up the fixture as necessary.
+
+        With PyUnit, the same method is run although PyUnit will also
+        call any defined tearDown method to do test fixture cleanup as well.
+        """
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_PMForOMVerifyShutdown():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Verify a PM component for the OM's node is shutdown caused exception:")
+            self.log.error(traceback.format_exc())
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_PMForOMVerifyShutdown(self):
+        """
+        Test Case:
+        Verify the PM component for the OM's node is shutdown
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        self.log.info("Verify the PM on OM's node, %s, is shutdown." % om_node.nd_conf_dict['node-name'])
+
+        if not modWait("platformd", om_node, forShutdown=True):
+            return False
 
         return True
 
@@ -1218,21 +1504,25 @@ class TestAMBringup(TestCase.FDSTestCase):
         log_dir = fdscfg.rt_env.get_log_dir()
         nodes = fdscfg.rt_get_obj('cfg_am')
 
+        instanceId = 0
         for n in nodes:
             self.log.info("Start AM on %s." % n.nd_conf_dict['fds_node'])
 
+            port = n.nd_am_node.nd_conf_dict['fds_port']
             fds_dir = n.nd_am_node.nd_conf_dict['fds_root']
 
             # The AMAgent script expected to be invoked from the bin directory in which resides.
             cur_dir = os.getcwd()
             os.chdir(bin_dir)
-            status = n.nd_am_node.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s 0<&- &> ./am.out &) \"' %
-                                                     fds_dir)
+            status = n.nd_am_node.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s -fds.am.instanceId=%s 0<&- &> ./am.%s.out &) \"' %
+                                                     (fds_dir, instanceId, port))
             os.chdir(cur_dir)
 
             if status != 0:
                 self.log.error("AM on %s returned status %d." % (n.nd_conf_dict['fds_node'], status))
                 return False
+
+            instanceId = instanceId + 1
 
         return True
 

@@ -50,6 +50,8 @@ namespace fds
 
         if (agent == NULL)
         {
+            LOGDEBUG << "AgentContainer::agent_register: Agent not found for UUID: "
+                    << std::hex << uuid <<  ". Allocating as new.";
             add   = activate;
             agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(uuid));
         }
@@ -58,6 +60,8 @@ namespace fds
 
         if (add == true)
         {
+            LOGDEBUG << "AgentContainer::agent_register: Activating agent for UUID: "
+                    << std::hex << uuid <<  ".";
             agent_activate(agent);
         }
         return Error(ERR_OK);
