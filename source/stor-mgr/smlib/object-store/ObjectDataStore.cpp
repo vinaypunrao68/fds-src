@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc. 
+ * Copyright 2014 Formation Data Systems, Inc.
  */
 
 #include <string>
@@ -20,7 +20,6 @@ ObjectDataStore::~ObjectDataStore() {
     // Kill scavenger
 
     // This will close any leveDBs
-    LOGDEBUG << "Destructing OBjectDataStore";
     persistData.reset();
 }
 
