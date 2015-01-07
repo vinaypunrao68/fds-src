@@ -358,7 +358,22 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     bool fActivated = false;
     // create vol catalogs, etc first
 
+    bool fPrimary = false;
+
     if (vdesc->isSnapshot() || vdesc->isClone()) {
+        fPrimary = amIPrimary(vdesc->srcVolumeId);
+    } else {
+        fPrimary = amIPrimary(vdesc->volUUID);
+    }
+
+    if (vdesc->isSnapshot() && fPrimary) {
+        LOGWARN << "not primary - nothing to do for snapshot "
+                << "for vol:" << vdesc->srcVolumeId;
+        return err;
+    }
+
+    // do this processing only in the case of primary ..
+    if ((vdesc->isSnapshot() || vdesc->isClone()) && fPrimary) {
         VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
             GLOGWARN << "Volume '" << std::hex << vdesc->srcVolumeId << std::dec <<
@@ -453,6 +468,23 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // so that we can do get/put/del cat ops to this volume
         err = timeVolCat_->activateVolume(vol_uuid);
         fActivated = true;
+    }
+
+    if (err.ok() && vdesc->isClone() && fPrimary) {
+        // all actions were successfull now rsync it to other DMs
+        DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vdesc->srcVolumeId);
+        Error err1;
+        for (uint i = 1; i < nodes->getLength(); i++) {
+            LOGDEBUG << "rsyncing vol:" << vdesc->volUUID
+                     << "to node:" << nodes->get(i);
+            auto volDir = timeVolCat_->queryIface()->getVolume(vdesc->volUUID);
+            err = volDir->syncCatalog(nodes->get(i));
+            if (!err.ok()) {
+                LOGWARN << "catalog sync failed on clone, vol:" << vdesc->volUUID;
+            } else {
+                // send message to reload DB
+            }
+        }
     }
 
     VolumeMeta *volmeta = new(std::nothrow) VolumeMeta(vol_name,
