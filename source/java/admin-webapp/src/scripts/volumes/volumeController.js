@@ -1,5 +1,7 @@
 angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$location', '$state', '$volume_api', '$rootScope', '$filter', '$element', function( $scope, $location, $state, $volume_api, $rootScope, $filter, $element ){
     
+    $scope.searchText = '';
+    
     $scope.clicked = function( volume){
         $scope.volumeVars.selectedVolume = volume;
         $scope.volumeVars.viewing = true;

@@ -3,10 +3,12 @@
     <!-- Real stuff -->
     <div class="volumecontainer">
 
-        <div class="header volumes">
+        <div class="volumes">
             <span>{{name}}</span>
-            <span translate>volumes.title</span>
-            <a ng-click="createNewVolume()" class="pull-right new_volume" translate>volumes.l_create_volume</a>
+            <span class="header pull-left" style="margin-right: 24px;" translate>volumes.title</span>
+            <fui-input style="width: 350px;" class="form-control pull-left" ng-model="searchText" placeholder="{{ 'common.l_search' | translate }}" icon-class="fui-search"></fui-input>
+
+            <a ng-click="createNewVolume()" class="new_volume pull-right btn btn-primary" translate>volumes.l_create_volume</a>
         </div>
 
         <div class="">
@@ -15,19 +17,17 @@
                 <table class="default volumes clickable" style="margin-bottom: 48px;">
                     <thead>
 <!--                        <th translate>volumes.th_performance</th>-->
-                        <th translate>common.th_name</th>
-                        <th translate>common.th_data_type</th>
-                        <th>
-                            <div translate>volumes.th_capacity</div>
-                            <div translate>volumes.th_used_limit</div>
-                        </th>
-                        <th translate>volumes.th_iops_guarantee</th>
-                        <th class="priority" translate>volumes.th_priority</th>
-                        <th></th>
+                        <th><div translate>common.th_name</div></th>
+                        <th><div translate>common.th_application</div></th>
+                        <th><div translate>common.th_data_type</div></th>
+                        <th><div translate>volumes.th_capacity</div></th>
+                        <th style="width: 30px;"><div><span style="line-height: 19px;" class="icon icon-firebreak"></span></div></th>
+                        <th><div class="priority" translate>volumes.th_priority</div></th>
+<!--                        <th></th>-->
                     </thead>
                     <tbody>
                         <!-- row per volume -->
-                        <tr class="volume-row" ng-repeat="volume in volumes" ng-click="clicked( volume )">
+                        <tr class="volume-row" ng-repeat="volume in volumes | filter:searchText" ng-click="clicked( volume )" ng-class="{ 'odd-row': $odd }">
 <!--
                             <td class="volume_time">
                                 <div></div>
@@ -37,34 +37,36 @@
                             <td class="name primary-color">
                                 {{volume.name}}
                             </td>
+                            
+                            <td class="application"></td>
+                            
                             <td>
                                 {{volume.data_connector.type}}
                             </td>
 
                             <td class="consume">
                                 {{volume.current_usage.size}}{{volume.current_usage.unit}}
+<!--
                                 <span ng-show="volume.data_connector.attributes.size">/</span>
                                 {{volume.data_connector.attributes.size}}{{volume.data_connector.attributes.unit}}
+-->
                             </td>
-
-                            <td class="iopLimit">
-                                <span ng-show="volume.sla != 0">{{ volume.sla }}%</span>
-                                <span ng-show="volume.sla == 0" translate>common.l_none</span>
-                            </td>
+                            
+                            <td class="firebreak"></td>
 
                             <td class="priority">
                                 <em>
                                     {{volume.priority}}
                                 </em>
                             </td>
+<!--
                             <td class="button-group">
                                 <div class="inline" style="position: relative;">
-<!--
                                     <span class="icon-snapshot" ng-click="takeSnapshot( $event, volume )" title="Take a snapshot">
                                     </span>
--->
                                 </div>
                             </td>
+-->
                         </tr>
                         <tr class="disabled" ng-show="!volumes.length || volumes.length === 0">
                             <td colspan="100%" translate>

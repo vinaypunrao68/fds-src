@@ -3,35 +3,20 @@
     <div class="front-page">
         <div>
             <div>
-                <div class="header">
-                    <span translate>tenants.title</span>
-                    <a ng-click="createNewTenant()" class="pull-right create-tenant-link" translate>tenants.l_create_tenant</a>
+                <div>
+                    <span class="pull-left header" translate>tenants.title</span>
+                    <a ng-click="createNewTenant()" class="pull-right create-tenant-link btn btn-primary" translate>tenants.l_create_tenant</a>
                 </div>
             </div>
         </div>
 
-
-<!--
-         <div style="display: flex;padding-top: 12px;">
-            <div style="padding-right: 8px;">
-                <fui-dropdown skinny="true" type="action" items="actions" default-label="actionLabel" callback="actionSelected" background="none" color="black" border="gray"></fui-dropdown>
-            </div>
-            <div style="font-size: 0.6em;">
-                <div>for 0</div>
-                <div>selected users</div>
-            </div>
-        </div>
--->
-
         <table class="default tenant-table">
             <thead>
-<!--                <th><tri-state-check check-state="checkall"/></th>-->
-                <th translate>tenants.l_tenant_name</th>
+                <th><div translate>tenants.l_tenant_name</div></th>
                 <th></th>
             </thead>
             <tboday>
                 <tr class="tenant-row" ng-repeat="tenant in tenants | filter:tenantQuery">
-<!--                    <td><tri-state-check check-state="tenant.checked" ng-click="tenantCheckChanged()"/></td>-->
                     <td class="tenant-name">{{tenant.name}}</td>
                     <td></td>
                 </tr>

@@ -15,12 +15,12 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
             text: $filter( 'translate' )('status.title' ), 
             iconClass: 'icon-system', 
             selected: false },
-        { 
-            id: 'inbox', 
-            link: 'homepage.inbox', 
-            text: $filter( 'translate' )('inbox.title' ), 
-            iconClass: 'icon-inbox', 
-            selected: false },
+//        { 
+//            id: 'inbox', 
+//            link: 'homepage.inbox', 
+//            text: $filter( 'translate' )('inbox.title' ), 
+//            iconClass: 'icon-inbox', 
+//            selected: false },
         { 
             id: 'activity', 
             link: 'homepage.activity', 

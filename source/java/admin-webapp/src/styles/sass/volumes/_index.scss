@@ -14,6 +14,10 @@
 //    position: absolute;
     left: 0px;
     top: 0px;
+    
+    .new_volume {
+        margin-right: 18px;
+    }
 }
 
 .create-panel.volumes {
@@ -90,15 +94,11 @@
 }
 
 table.volumes {
-  thead th {
-    padding: 10px 5px;
-    color: $text_very_light_color;
-  }
 
   .priority {
     text-align: center;
   }
-
+    
   td.volume_time {
       width: 88px;
 
@@ -112,7 +112,8 @@ table.volumes {
 
   td.name {
     font-weight: bold;
-    padding-left: 5px;
+    color: $button_primary;
+//    padding-left: 5px;
   }
   td.consume {
     span {
@@ -138,12 +139,12 @@ table.volumes {
   td.priority {
     em {
       display: inline-block;
-      border: 1px solid $fds_dark_green;
-      background-color: $fds_dark_green;
+      border: 1px solid $text_light_color;
+      background-color: #ffffff;
       border-radius: 20px;
       width: 30px; height: 30px;
       padding-top: 6px;
-      color: #ffffff;
+      color: $text_light_color;
       font-style: normal;
       font-weight: bold;
     }
