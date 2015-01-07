@@ -438,12 +438,15 @@ void SMSvcHandler::deleteObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
             PerfTracer::incr(del_req->opReqFailedPerfEventType,
                              del_req->getVolId(), del_req->perfNameStr);
         }
-        delete del_req;
     }
 
     auto resp = boost::make_shared<fpi::DeleteObjectRspMsg>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::DeleteObjectRspMsg), *resp);
+
+    if (del_req) {
+        delete del_req;
+    }
 }
 // NotifySvcChange
 // ---------------
