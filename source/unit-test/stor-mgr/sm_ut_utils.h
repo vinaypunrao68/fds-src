@@ -13,6 +13,7 @@
 
 #include <ObjectId.h>
 #include <dlt.h>
+#include <odb.h>
 #include <FdsRandom.h>
 
 namespace fds {
@@ -40,6 +41,38 @@ class SmUtUtils {
             dlt->setNodes(i, tg);
         }
         dlt->generateNodeTokenMap();
+    }
+
+    // will create objectDB in odbDir, odbName is full path/filename
+    static osm::ObjectDB *createObjectDB(const std::string& odbDir,
+                                         const std::string& odbName) {
+        osm::ObjectDB *odb = NULL;
+        boost::filesystem::path odbPath(odbDir.c_str());
+        if (boost::filesystem::exists(odbPath)) {
+            // remove everything in this dir
+            GLOGNOTIFY << "Directory " << odbDir << " exists, cleaning up";
+            for (boost::filesystem::directory_iterator itEndDir, it(odbPath);
+                 it != itEndDir;
+                 ++it) {
+                boost::filesystem::remove_all(it->path());
+            }
+        } else {
+            GLOGNOTIFY << "Creating " << odbDir << " directory";
+            boost::filesystem::create_directory(odbPath);
+        }
+
+        try
+        {
+            odb = new osm::ObjectDB(odbName, true);
+        }
+        catch(const osm::OsmException& e)
+        {
+            LOGERROR << "Failed to create ObjectDB " << odbName;
+            LOGERROR << e.what();
+            return NULL;
+        }
+        GLOGNOTIFY << "Opened ObjectDB " << odbName;
+        return odb;
     }
     /**
      * Create a set of unique object IDs
