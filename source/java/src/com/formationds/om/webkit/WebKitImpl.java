@@ -248,7 +248,7 @@ public class WebKitImpl {
 
     private void metricsGets() {
         authenticate( HttpMethod.PUT, "/api/stats/volumes",
-                      ( t ) -> new QueryMetrics() );
+                      ( t ) -> new QueryMetrics( authorizer, t ) );
     }
 
     private void tenants( SecretKey secretKey, Authorizer authorizer ) {

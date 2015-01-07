@@ -504,7 +504,7 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
             if (NullObjectID != i.second.oid) {
                 delOffsetList.push_back(i.first);
                 expungeList.push_back(i.second.oid);
-                newBlobSize -= i.second.size;
+                newBlobSize -= i.first == oldLastOffset ? oldLastObjSize : i.second.size;
             }
         }
 

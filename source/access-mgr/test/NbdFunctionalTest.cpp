@@ -143,7 +143,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     void init() {
         // pass data API to Ndb Operations
         nbdOps.reset(new NbdOperations(this));
-        nbdOps->init(volumeName);
+        nbdOps->init(volumeName, 4096);
     }
 
     void resetCounters() {
@@ -171,7 +171,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                     // Make copy of data since function "takes" the shared_ptr
                     boost::shared_ptr<std::string> localData(
                         boost::make_shared<std::string>(*blobGen.blobData));
-                    nbdOps->write(4096, localData, localData->length(), offset, ++handle);
+                    nbdOps->write(localData, localData->length(), offset, ++handle);
                     if (verifyData) {
                         fds_mutex::scoped_lock l(verifyMutex);
                         fds_verify(offData.count(offset) == 0);
@@ -182,7 +182,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                 }
             } else if (opType == GET) {
                 try {
-                    nbdOps->read(4096, blobSize, offset, ++handle);
+                    nbdOps->read(blobSize, offset, ++handle);
                 } catch(apis::ApiException fdsE) {
                     fds_panic("read failed");
                 }

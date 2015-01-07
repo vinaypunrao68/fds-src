@@ -34,6 +34,20 @@
                         <td><span class="{{getStatus( node.dm )}}"></span></td>
                         <td><span class="{{getStatus( node.am )}}"></span></td>
                     </tr>
+                                        <tr ng-repeat="node in nodes" class="node-item" >
+                        <td>
+                            <span class="{{getOverallStatus( node )}}"></span>
+                        </td>
+                        <td>{{node.node_name}}</td>
+                        <td>{{node.site}}</td>
+                        <td>{{node.domain}}</td>
+
+                        <td><span class="{{getStatus( node.hw )}}"></span></td>
+                        <td><span class="{{getStatus( node.om )}}"></span></td>
+                        <td><span class="{{getStatus( node.sm )}}"></span></td>
+                        <td><span class="{{getStatus( node.dm )}}"></span></td>
+                        <td><span class="{{getStatus( node.am )}}"></span></td>
+                    </tr>
                 </tbody>
             </table>
         </div>

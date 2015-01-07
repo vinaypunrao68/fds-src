@@ -396,7 +396,6 @@ set(SOURCE_FILES
 ./include/platform/domain_cluster_map.h
 ./include/platform/domain_container.h
 ./include/platform/domain_resources.h
-./include/platform/fds_probe_process.h
 ./include/platform/fds_service.h
 ./include/platform/fds_shmem.h
 ./include/platform/flags_map.h
@@ -448,7 +447,6 @@ set(SOURCE_FILES
 ./include/platform/pm_container.h
 ./include/platform/pm_om_svc_ep.h
 ./include/platform/pm_svc_ep.h
-./include/platform/probe_process.h
 ./include/platform/sm_agent.h
 ./include/platform/sm_container.h
 ./include/platform/sm_svc_ep.h

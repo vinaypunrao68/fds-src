@@ -885,8 +885,10 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     fds_assert(pmNodes != NULL);
 
     LOGNORMAL << "OM recv reg node uuid " << std::hex
-        << msg->node_uuid.uuid << ", svc uuid " << uuid.uuid_get_val()
-        << std::dec << ", type " << msg->node_type;
+        << msg->node_uuid.uuid << ", svc uuid " << msg->service_uuid.uuid
+        << std::dec << ", type " << msg->node_type << ", ip "
+        << netSession::ipAddr2String(msg->ip_lo_addr) << ", ctrl port "
+        << msg->control_port;
 
     if ((msg->node_type == fpi::FDSP_STOR_MGR) ||
         (msg->node_type == fpi::FDSP_DATA_MGR)) {

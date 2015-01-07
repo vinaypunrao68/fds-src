@@ -15,10 +15,10 @@ import os
 
 
 # This class contains the attributes and methods to test
-# activation of an FDS node where PM and OM have been started.
-class TestNodeActivate(TestCase.FDSTestCase):
+# activation of an FDS cluster.
+class TestClusterActivate(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestNodeActivate, self).__init__(parameters)
+        super(TestClusterActivate, self).__init__(parameters)
 
 
     def runTest(self):
@@ -32,10 +32,10 @@ class TestNodeActivate(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_NodeActivate():
+            if not self.test_ClusterActivate():
                 test_passed = False
         except Exception as inst:
-            self.log.error("Node activation caused exception:")
+            self.log.error("Cluster activation caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -49,37 +49,34 @@ class TestNodeActivate(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_NodeActivate(self):
+    def test_ClusterActivate(self):
         """
         Test Case:
-        Attempt to activate a node where OM and PM have been started.
+        Attempt to activate a cluster.
         """
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        nodes = fdscfg.rt_obj.cfg_nodes
-        for n in nodes:
-            fds_dir = n.nd_conf_dict['fds_root']
-            bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-            log_dir = fdscfg.rt_env.get_log_dir()
+        n = fdscfg.rt_om_node
+        fds_dir = n.nd_conf_dict['fds_root']
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        log_dir = fdscfg.rt_env.get_log_dir()
 
-            self.log.info("Activate node %s." % n.nd_conf_dict['node-name'])
+        self.log.info("Activate cluster from OM node %s." % n.nd_conf_dict['node-name'])
 
-            # We need a better way to ensure that the PM has registered with OM before doing this ...
-            # a new test case that talks to OM or PM perhaps.
-            time.sleep(5)
+        cur_dir = os.getcwd()
+        os.chdir(bin_dir)
 
-            cur_dir = os.getcwd()
-            os.chdir(bin_dir)
-            status = n.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s --activate-nodes abc -k 1 -e am,dm,sm > '
-                                          '%s/cli.out 2>&1 &) \"' %
-                                          (fds_dir, log_dir if n.nd_agent.env_install else "."))
-            os.chdir(cur_dir)
+        status = n.nd_agent.exec_wait('bash -c \"(nohup ./fdscli --fds-root %s --activate-nodes abc -k 1 -e dm,sm > '
+                                      '%s/cli.out 2>&1 &) \"' %
+                                      (fds_dir, log_dir if n.nd_agent.env_install else "."))
 
-            if status != 0:
-                self.log.error("Node activation on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
-                return False
+        os.chdir(cur_dir)
+
+        if status != 0:
+            self.log.error("Cluster activation on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
+            return False
 
         return True
 

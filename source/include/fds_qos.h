@@ -321,17 +321,13 @@ namespace fds {
             * if want to set both scheduler and ice threads (that repond to incoming packets) high prio */
             // setSchedThreadPriority();
 
-            while (1) {
-                if (shuttingDown == true) {
-                    break;
-                }
-
+            while (!shuttingDown) {
                 parent_ctrlr->waitForWorkers();
 
                 fds_uint32_t n_pios = 0;
                 while (1) {
                     // TODO(Sean):
-                    // atomic read  in a tight look can potentially saturate the memory bus.
+                    // atomic read  in a tight loop can potentially saturate the memory bus.
                     // May need to revisit this.
                     //
                     // n_pios = atomic_load(&num_pending_ios);
@@ -357,7 +353,7 @@ namespace fds {
                 if (max_outstanding_ios > 0) {
                     while (1) {
                         // TODO(Sean):
-                        // atomic read  in a tight look can potentially saturate the memory bus.
+                        // atomic read  in a tight loop can potentially saturate the memory bus.
                         // May need to revisit this.
                         //
                         // n_oios = atomic_load(&num_outstanding_ios);

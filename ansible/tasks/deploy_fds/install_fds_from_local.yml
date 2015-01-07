@@ -1,22 +1,4 @@
 ---
--   name: copy local fds-coredump to host
-    when: deploy_artifact == "local"
-    copy: src={{ item }}
-      dest=/root/fds-coredump.deb
-    with_fileglob:
-      - '../../../source/tools/install/pkg/fds-coredump*.deb'
-    tags:
-      - install-local
-
--   name: copy local fds-pkghelper to host
-    when: deploy_artifact == "local"
-    copy: src={{ item }}
-      dest=/root/fds-pkghelper.deb
-    with_fileglob:
-      - '../../../source/tools/package/fds-pkghelper/fds-pkghelper*.deb'
-    tags:
-      - install-local
-
 -   name: copy local fds-platform to host
     when: deploy_artifact == "local"
     copy: src={{ item }}
@@ -28,11 +10,7 @@
 
 -   name: install fds platfrom from local debs
     when: deploy_artifact == "local"
-    apt: deb={{ item }}
-    with_items:
-      - /root/fds-platform.deb
-      - /root/fds-pkghelper.deb
-      - /root/fds-coredump.deb
+    apt: deb="/root/fds-platform.deb"
     tags:
       - install-local
 
