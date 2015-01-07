@@ -1,12 +1,92 @@
 /**
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include "NbdOperations.h"
 
-#include <string>
+#include <algorithm>
 #include <map>
-#include <NbdOperations.h>
+#include <string>
+#include <utility>
 
 namespace fds {
+
+fds_bool_t
+NbdResponseVector::handleReadResponse(boost::shared_ptr<std::string> retBuf,
+                                      fds_uint32_t len,
+                                      fds_uint32_t seqId,
+                                      const Error& err) {
+    fds_verify(operation == READ);
+    fds_verify(seqId < bufVec.size());
+
+    if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
+                     (err != ERR_BLOB_NOT_FOUND)) {
+        opError = err;
+        return true;
+    }
+
+    fds_uint32_t iOff = offset % maxObjectSizeInBytes;
+    fds_uint32_t firstObjectLength = std::min(length,
+                                              maxObjectSizeInBytes - iOff);
+    fds_uint32_t iLength = maxObjectSizeInBytes;
+
+    // The first and last buffers may not be an entire block
+    if (seqId == 0) {
+        iLength = firstObjectLength;
+    } else if (seqId == (objCount - 1)) {
+        iLength = length - firstObjectLength - (objCount-2) * maxObjectSizeInBytes;
+    }
+
+    if ((err == ERR_BLOB_OFFSET_INVALID) || (err == ERR_BLOB_NOT_FOUND)) {
+        // we tried to read unwritten block, fill in zeros
+        bufVec[seqId] = boost::make_shared<std::string>(iLength, 0);
+    } else {
+        // Else grab the portion of the string that we need, or the entire
+        // thing
+        bufVec[seqId] = (iLength == maxObjectSizeInBytes) ?
+            retBuf :
+            boost::make_shared<std::string>(retBuf->data() + (seqId == 0 ? iOff : 0), iLength);
+    }
+    fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
+    return ((doneCnt + 1) == objCount);
+}
+
+std::pair<fds_uint32_t, boost::shared_ptr<std::string>>
+NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> retBuf,
+                                 fds_uint32_t len,
+                                 fds_uint32_t seqId,
+                                 const Error& err) {
+    fds_verify(operation == WRITE);
+    if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
+                     (err != ERR_BLOB_NOT_FOUND)) {
+        opError = err;
+    } else {
+        fds_uint32_t iOff = (seqId == 0) ? offset % maxObjectSizeInBytes : 0;
+        fds_uint32_t index = (seqId == 0) ? 0 : 1;
+        boost::shared_ptr<std::string> writeBytes = bufVec[index];
+
+        boost::shared_ptr<std::string> fauxBytes;
+        if ((err == ERR_BLOB_OFFSET_INVALID) ||
+            (err == ERR_BLOB_NOT_FOUND)) {
+            // we tried to read unwritten block, so create
+            // an empty block buffer to place the data
+            LOGTRACE << "Creating new object and writing at offset: " << iOff << " for length: " << writeBytes->length();  // NOLINT
+            fauxBytes = boost::make_shared<std::string>(maxObjectSizeInBytes, 0);
+            fauxBytes->replace(iOff, writeBytes->length(),
+                               writeBytes->c_str(), writeBytes->length());
+        } else {
+            fds_verify(len == maxObjectSizeInBytes);
+            // Need to copy retBut into a modifiable buffer since retBuf is owned
+            // by AM and should not be modified here.
+            // TODO(Andrew): Make retBuf a const
+            LOGTRACE << "Updating object at offset: " << iOff << " for length: " << writeBytes->length();  // NOLINT
+            fauxBytes = boost::make_shared<std::string>(retBuf->c_str(), retBuf->length());
+            fauxBytes->replace(iOff, writeBytes->length(),
+                               writeBytes->c_str(), writeBytes->length());
+        }
+        return std::make_pair(offVec[index], fauxBytes);
+    }
+    return std::make_pair(0, boost::shared_ptr<std::string>());
+}
 
 NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
         : amAsyncDataApi(nullptr),
@@ -21,9 +101,10 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
 // We can't initialize this in the constructor since we want to pass
 // a shared pointer to ourselves (and NbdConnection already started one).
 void
-NbdOperations::init(boost::shared_ptr<std::string> vol_name) {
+NbdOperations::init(boost::shared_ptr<std::string> vol_name, fds_uint32_t _maxObjectSizeInBytes) {
     amAsyncDataApi.reset(new AmAsyncDataApi(shared_from_this()));
     volumeName = vol_name;
+    maxObjectSizeInBytes = _maxObjectSizeInBytes;
 }
 
 NbdOperations::~NbdOperations() {
@@ -32,13 +113,12 @@ NbdOperations::~NbdOperations() {
 }
 
 void
-NbdOperations::read(fds_uint32_t maxObjectSizeInBytes,
-                    fds_uint32_t length,
+NbdOperations::read(fds_uint32_t length,
                     fds_uint64_t offset,
                     fds_int64_t handle) {
     fds_assert(amAsyncDataApi);
     // calculate how many object we will get from AM
-    fds_uint32_t objCount = getObjectCount(length, offset, maxObjectSizeInBytes);
+    fds_uint32_t objCount = getObjectCount(length, offset);
 
     LOGDEBUG << "Will read " << length << " bytes " << offset
              << " offset for volume " << *volumeName
@@ -120,14 +200,13 @@ NbdOperations::read(fds_uint32_t maxObjectSizeInBytes,
 
 
 void
-NbdOperations::write(fds_uint32_t maxObjectSizeInBytes,
-                     boost::shared_ptr<std::string>& bytes,
+NbdOperations::write(boost::shared_ptr<std::string>& bytes,
                      fds_uint32_t length,
                      fds_uint64_t offset,
                      fds_int64_t handle) {
     fds_assert(amAsyncDataApi);
     // calculate how many FDS objects we will write
-    fds_uint32_t objCount = getObjectCount(length, offset, maxObjectSizeInBytes);
+    fds_uint32_t objCount = getObjectCount(length, offset);
 
     LOGDEBUG << "Will write " << length << " bytes " << offset
              << " offset for volume " << *volumeName
@@ -181,7 +260,7 @@ NbdOperations::write(fds_uint32_t maxObjectSizeInBytes,
             LOGNORMAL << "Will do read-modify-write for object size " << maxObjectSizeInBytes;
             // keep the data for the update to the first and last object in the response
             // so that we can apply the update to the object on read response
-            resp->keepBufferForWrite(seqId, objBuf);
+            resp->keepBufferForWrite(seqId, objectOff, objBuf);
             amAsyncDataApi->getBlob(reqId,
                                     domainName,
                                     volumeName,
@@ -241,20 +320,22 @@ NbdOperations::getBlobResp(const Error &error,
     if (!resp->isRead()) {
         // this is a response for read during a write operation from NBD connector
         LOGDEBUG << "Write after read, handle " << handle << " seqId " << seqId;
+
         // apply the update from NBD connector to this object
-        boost::shared_ptr<std::string> wBuf = resp->handleRMWResponse(buf, length,
-                                                                      seqId, error);
-        if (wBuf) {
-           // wBuf contains object updated with data from NBD connector
-            boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(wBuf->length());
+        auto rwm_pair = resp->handleRMWResponse(buf, length, seqId, error);
+        if (rwm_pair.second) {
+           // rwm_pair.second contains object updated with data from NBD connector
+           // rwm_pair.first is the object offset for this buffer
+            boost::shared_ptr<int32_t> objLength =
+                boost::make_shared<int32_t>(rwm_pair.second->length());
             boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
-            off->value = 0;
+            off->value = rwm_pair.first;
             amAsyncDataApi->updateBlobOnce(requestId,
                                            domainName,
                                            volumeName,
                                            blobName,
                                            blobMode,
-                                           wBuf,
+                                           rwm_pair.second,
                                            objLength,
                                            off,
                                            emptyMeta);
@@ -327,8 +408,7 @@ NbdOperations::updateBlobResp(const Error &error,
  */
 fds_uint32_t
 NbdOperations::getObjectCount(fds_uint32_t length,
-                              fds_uint64_t offset,
-                              fds_uint32_t maxObjectSizeInBytes) {
+                              fds_uint64_t offset) {
     fds_uint32_t objCount = length / maxObjectSizeInBytes;
     fds_uint32_t firstObjLen = maxObjectSizeInBytes - (offset % maxObjectSizeInBytes);
     if ((length % maxObjectSizeInBytes) != 0) {

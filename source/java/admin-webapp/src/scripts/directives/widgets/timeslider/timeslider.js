@@ -30,6 +30,7 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
             var endRange;
             
             var getWidth = function(){
+                // the 2 is for the border
                 return $element.width() - endRangeWidth;
             };
             
@@ -82,6 +83,12 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
                     label.position = pos;
                     label.width = textWidth;
                     label.show = true;
+                    label.right = 0;
+                    
+                    if ( label.position + 2 > $element.width() && label.position < 10000){
+                        label.position = $element.width() - 2;
+                        label.right = label.width - 2;
+                    }
                     
                     for ( var j = 0; j < i; j++ ){
                         var otherLabel = $scope.domainLabels[j];

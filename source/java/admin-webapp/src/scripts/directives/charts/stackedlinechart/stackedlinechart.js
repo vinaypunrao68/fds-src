@@ -1,13 +1,13 @@
-angular.module( 'charts' ).directive( 'lineChart', function(){
+angular.module( 'charts' ).directive( 'stackedLineChart', function(){
 
     return {
         restrict: 'E',
         replace: true,
         transclude: false,
-        templateUrl: 'scripts/directives/charts/linechart/linechart.html',
+        templateUrl: 'scripts/directives/charts/stackedlinechart/stackedlinechart.html',
         scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@', yAxisLabelFunction: '=?', axisColor: '@', 
             tooltip: '=?', lineColors: '=?', lineStipples: '=?', backgroundColor: '@', domainLabels: '=?' },
-        controller: function( $scope, $element, $resize_service ){
+        controller: function( $scope, $element, $resize_service, $byte_converter){
             
             $scope.hoverEvent = false;
             
@@ -39,7 +39,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 $scope.axisColor = 'black';
             }
             
-            var el = d3.select( $element[0] ).select( '.line-chart' );
+            var el = d3.select( $element[0] ).select( '.stacked-line-chart' );
             
             $svg = el.append( 'svg' )
                 .attr( 'width', '100%' )
@@ -73,6 +73,16 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .attr( 'class', 'background' );
             }
             
+            // translate labels
+            $scope.getLabelText = function( series ){
+                
+                if ( angular.isFunction( $scope.tooltip ) ){
+                    return $scope.tooltip( series );
+                }
+                
+                return series.type;
+            };
+            
             // calculate this off of real data.
             var buildMax = function(){
                 $max = d3.max( $scope.data.series, function( d ){
@@ -82,7 +92,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     }
                     
                     return d3.max( d.datapoints, function( s ){
-                        return s.y;
+                        return s.y + s.y0;
                     });
                 });
                 
@@ -191,10 +201,10 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         return $xScale( d.x );
                     })
                     .y0( function( d ){
-                        return $yScale( 0 );
+                        return $yScale( d.y0 );
                     })
                     .y1( function( d ){
-                        return $yScale( d.y );
+                        return $yScale( d.y + d.y0 );
                     })
                     .interpolate( 'basis' );
                 
@@ -279,7 +289,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         if ( isNaN( d ) ){
                             d = 0;
                         }
-                    
+                        
                         return $yScale( d ) - 4;
                     })
                     .attr( 'fill', $scope.axisColor )
@@ -313,14 +323,43 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         return $xScale( d.x );
                     })
                     .y0( function( d ){
-                        return $yScale( 0 );
+                        return $yScale( d.y0 );
                     })
                     .y1( function( d ){
-                        return $yScale( d.y );
+                        return $yScale( d.y + d.y0 );
                     })
                     .interpolate( 'monotone' );
                 
-                var groups = $svg.selectAll( '.series-group' ).data( $scope.data.series ).enter()
+                var stackF = d3.layout.stack()
+                    .values( function( d ){
+                        
+                        if ( !angular.isDefined( d.datapoints ) ){
+                            return [];
+                        }
+                        
+                        return d.datapoints;
+                    });
+                
+                var stacks = stackF( $scope.data.series );
+                
+                stacks = stacks.sort( function( a, b ){
+                    
+                    var val = 0;
+                    
+                    while ( angular.isDefined( a.datapoints[val] ) ){
+                        diff = ( b.datapoints[val].y0 - a.datapoints[val].y0 );
+                        
+                        if ( diff != 0 ){
+                            return diff;
+                        }
+                        
+                        val++;
+                    }
+                    
+                    return 0;
+                });
+                
+                var groups = $svg.selectAll( '.series-group' ).data( stacks ).enter()
                     .insert( 'g', '.guide-lines' )
                     .attr( 'class', 'series-group' );
                 
@@ -417,29 +456,6 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 if ( !angular.isDefined( newVal ) || newVal.series.length === 0 ){
                     return;
                 }
-                
-                
-                var sorter = function( a, b ){
-                    if ( a.x > b.x ){
-                        return 1;
-                    }
-                    else if ( a.x < b.x ){
-                        return -1;
-                    }
-
-                    return 0;
-                };
-                
-                //sort
-//                for ( var i = 0; angular.isDefined( newVal.series ) && i < newVal.series.length; i++ ){
-//                    var dataset = newVal.series[i].datapoints;
-//                    
-//                    if ( !angular.isDefined( dataset ) ){
-//                        continue;
-//                    }
-//                    
-//                    dataset.sort( sorter );
-//                }
                 
                 if ( newVal.series.length === oldVal.series.length &&
                    $svg.selectAll( '.series-group' )[0].length !== 0 ){

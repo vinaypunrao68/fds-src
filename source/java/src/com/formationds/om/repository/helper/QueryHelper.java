@@ -9,10 +9,13 @@ import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Events;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Statistics;
+import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.abs.Calculated;
+import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
+import com.formationds.commons.model.calculated.capacity.AverageIOPs;
 import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
 import com.formationds.commons.model.calculated.capacity.CapacityDeDupRatio;
 import com.formationds.commons.model.calculated.capacity.CapacityFull;
@@ -21,14 +24,19 @@ import com.formationds.commons.model.calculated.firebreak.FirebreaksLast24Hours;
 import com.formationds.commons.model.calculated.performance.IOPsConsumed;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.util.DateTimeUtil;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
+import com.formationds.xdi.ConfigurationApi;
 
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -41,6 +49,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
 
 import javax.persistence.EntityManager;
 
@@ -98,7 +108,7 @@ public class QueryHelper {
      * query}
      */
     @SuppressWarnings( "unchecked" )
-    public Statistics execute( final MetricQueryCriteria query )
+    public Statistics execute( final MetricQueryCriteria query, final Authorizer authorizer, final AuthenticationToken token )
         throws TException {
         final Statistics stats = new Statistics();
         if( query != null ) {
@@ -107,6 +117,9 @@ public class QueryHelper {
 
             EntityManager em = repo.newEntityManager();
             try {
+            	
+            	query.setContexts( validateContextList( query, authorizer, token ) );
+            	
 	            final List<VolumeDatapoint> queryResults =
 	                new MetricCriteriaQueryBuilder( em ).searchFor( query )
 	                                                               .resultsList();
@@ -123,17 +136,19 @@ public class QueryHelper {
 	            } else if( isPerformanceQuery( query.getSeriesType() ) ) {
 	
 	                series.addAll(
-	                    new SeriesHelper().getPerformanceSeries( queryResults,
-	                                                             query ) );
+	                    new SeriesHelper().getRollupSeries( queryResults,
+	                                                        query,
+	                                                        StatOperation.RATE ) );
 	                final IOPsConsumed ioPsConsumed = new IOPsConsumed();
 	                ioPsConsumed.setDailyAverage( 0.0 );
 	                calculatedList.add( ioPsConsumed );
 	
 	            } else if( isCapacityQuery( query.getSeriesType() ) ) {
-	
+	            	
 	                series.addAll(
-	                    new SeriesHelper().getCapacitySeries( queryResults,
-	                                                          query ) );
+	                    new SeriesHelper().getRollupSeries( queryResults,
+	                                                        query,
+	                                                        StatOperation.SUM) );
 	
 	                calculatedList.add( deDupRatio() );
 	
@@ -148,7 +163,38 @@ public class QueryHelper {
 	                // TODO finish implementing  -- once Nate provides a library
 	                calculatedList.add( toFull() );
 	
+	            } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
+	            	
+	            	normalizeDatapoints( queryResults );
+	            	
+	            	series.addAll(
+	            		new SeriesHelper().getRollupSeries( queryResults, 
+	            										 	query,
+	            										 	StatOperation.RATE) );
+	            	
+	            	// GETS has the total # of gets and SSD is a subset of those.
+	            	// This query wants GETS for HDD access and SSD access so we mutate the
+	            	// GETS series with a quick subtraction of the corresponding SSD field
+	            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
+	            		.findFirst().get();
+	            	
+	            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
+	            		.findFirst().get();
+	            	
+	            	gets.getDatapoints().forEach( 
+	            		gPoint -> {
+	            			ssdGets.getDatapoints().stream().filter( sPoint -> sPoint.getX().equals( gPoint.getX() ) )
+	            				.forEach(
+		            				sPoint -> {
+		            					gPoint.setY( gPoint.getY() - sPoint.getY() );
+		            				}
+		            			);
+	            		});
+	            	
+	            	calculatedList.add( getAverageIOPs( series ) );
+	            	
 	            } else {
+	            	
 	                // individual stats
 	                query.getSeriesType()
 	                     .stream()
@@ -166,6 +212,7 @@ public class QueryHelper {
 	            if( !calculatedList.isEmpty() ) {
 	                stats.setCalculated( calculatedList );
 	            }
+
             } finally {
             	em.close();
             }
@@ -234,6 +281,22 @@ public class QueryHelper {
 
         return true;
     }
+    
+    /**
+     * 
+     * @param determine if the {@link List} of {@link Metrics} matches the performance breakdown definition
+     * 
+     * @return returns true if all {@link Metrics} are included in both sets
+     */
+    protected boolean isPerformanceBreakdownQuery( final List<Metrics> metrics ) {
+    	for ( final Metrics m : metrics ) {
+    		if ( !Metrics.PERFORMANCE_BREAKDOWN.contains( m ) ){
+    			return false;
+    		}
+    	}
+    	
+    	return true;
+    }
 
     /**
      * @param organized the {@link Map} of volume containing a {@link List}
@@ -257,9 +320,8 @@ public class QueryHelper {
                                                      .equalsIgnoreCase( p.getKey() ) )
                             .forEach( ( p ) -> {
                                 final Datapoint dp =
-                                    new DatapointBuilder().withX( p.getTimestamp() )
-                                                          .withY( p.getValue()
-                                                                   .longValue() )
+                                    new DatapointBuilder().withX( (double)p.getTimestamp() )
+                                                          .withY( p.getValue() )
                                                           .build();
                                 s.setDatapoint( dp );
                                 s.setContext(
@@ -274,10 +336,121 @@ public class QueryHelper {
     }
 
     /**
+     * This method will run through all the results and normailze the
+     * values so that the are reduced to values per second.
+     * @param points
+     */
+    protected void normalizeDatapoints( final List<VolumeDatapoint> points ){
+    	
+    	points.stream().forEach( point -> {
+    		
+    		/**
+    		 * In the future we'll have a calculation interval per datapoint
+    		 * that is tied in to the data rollup strategy
+    		 * and we can use that to normalize the data into per seconds.
+    		 * 
+    		 * For now we always do 2 minute intervals
+    		 */
+//    		long intervalInSeconds = point.getCalculationInterval();
+    		final Double intervalInSeconds = new Double(1);
+    		
+    		point.setValue( point.getValue() / intervalInSeconds );
+    	});
+    }
+    
+    /**
+     * This will look at the {@link Context} of the query and make sure the user has access
+     * to them before allowing them to query for its information.  If there are no contexts,
+     * it will fill them in with the {@link Volume}s the user can access.  
+     * 
+     * ** THIS ASSUMES CONTEXT IS A VOLUME **
+     * If this assumption becomes false at some point then this method will need to change
+     * in order to take that into consideration
+     * 
+     * @param query
+     * @param token
+     */
+    protected List<Context> validateContextList( final MetricQueryCriteria query, final Authorizer authorizer, final AuthenticationToken token ){
+    	
+    	List<Context> contexts = query.getContexts();
+    	
+    	ConfigurationApi api = SingletonConfigAPI.instance().api();
+    	
+    	// fill it with all the volumes they have access to
+    	if ( contexts.isEmpty() ){
+
+    		try {
+    		
+	    		contexts = api.listVolumes("")
+	    			.stream()
+	    			.filter( vd -> authorizer.hasAccess( token, vd.getName() ) )
+	    			.map( vd -> {
+	    				
+	    				String volumeId = "";
+	    				
+	    				try{
+	    					volumeId = String.valueOf( api.getVolumeId( vd.getName() ) );
+	    				}
+	    				catch( TException e ){
+	    					
+	    				}
+	    				
+	    				Volume volume = new VolumeBuilder().withId( volumeId ).withName( vd.getName() )
+	    					.build();
+	    				
+	    				return volume;
+	    			})
+	    			.collect( Collectors.toList() );
+    		
+    		} catch ( Exception e ){
+    			logger.error( "Could not gather the volumes this user has access to.", e) ;
+    		}
+    	}
+    	// validate the request matches the authorization
+    	else {
+    		
+    		contexts = contexts.stream().filter( c -> {
+    			boolean hasAccess = authorizer.hasAccess( token, ((Volume)c).getName() );
+    			
+    			if ( hasAccess == false ){
+    				// TODO: Add an audit event here because someone may be trying an attack
+    				logger.warn( "User does not have access to query for volume: " + ((Volume)c).getName() +
+    					".  It will be removed from the query context." );
+    			}
+    			
+    			return hasAccess;
+    		})
+    		.collect( Collectors.toList()); 
+    		
+    	}
+    	
+    	return contexts;
+    }
+    
+    /**
      * @return Returns a {@link List} of {@link Metadata}
      */
     protected List<Metadata> metadata() {
         return new ArrayList<>();
+    }
+    
+    /**
+     * 
+     * @param series
+     * @return Returns the average IOPs for the collection of series passed in
+     */
+    protected AverageIOPs getAverageIOPs( List<Series> series ){
+    	
+    	Double rawAvg = series.stream().flatMapToDouble( s -> {
+    		return DoubleStream.of( s.getDatapoints().stream()
+    				.flatMapToDouble( dp -> DoubleStream.of( dp.getY() ) ).sum() / s.getDatapoints().size() );
+    	}).sum();
+ 
+    	
+    	final AverageIOPs avgIops = new AverageIOPs();
+    	avgIops.setAverage( rawAvg );
+    	
+    	return avgIops;
     }
 
     /**
