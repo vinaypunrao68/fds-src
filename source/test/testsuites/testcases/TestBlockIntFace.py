@@ -244,7 +244,7 @@ class TestBlockFioW(TestCase.FDSTestCase):
         """
 
         # TODO(Andrew): Don't hard code all of this stuff...
-        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bs=4k --iodepth=128 --numjobs=4 --size=10485760 --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
+        fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=1 --numjobs=1 --size=8m --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
         result = subprocess.call(fioCmd, shell=True)
         if result != 0:
             self.log.error("Failed to run write workload")

@@ -40,6 +40,10 @@ AmProcessor::AmProcessor(const std::string &modName,
 
 void
 AmProcessor::getVolumeMetadata(AmRequest *amReq) {
+    fiu_do_on("am.uturn.processor.getVolMeta",
+              respond_and_delete(amReq, ERR_OK); \
+              return;);
+
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor::getVolumeMetadataCb, amReq);
     amDispatcher->dispatchGetVolumeMetadata(amReq);
 }
