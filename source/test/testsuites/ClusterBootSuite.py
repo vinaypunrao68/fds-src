@@ -46,6 +46,9 @@ def suiteConstruction():
     suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
     suite.addTest(testcases.TestFDSModMgt.TestPMWait())
 
+    # Given the nodes some time to initialize.
+    suite.addTest(testcases.TestFDSSysMgt.TestNodeWait())
+
     # Activate the cluster.
     suite.addTest(testcases.TestFDSSysMgt.TestClusterActivate())
 
