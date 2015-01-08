@@ -128,7 +128,7 @@ class SvcMap(object):
         based on the ip,port from domain nodes map
         """
         # TODO(Rao): Fix it
-        return SvcHandle('127.0.0.1', 9090, ConfigurationService).client
+        return SvcHandle(self.ip, 9090, ConfigurationService).client
         #return self.svcHandle(None, 'om').client
 
     def omPlat(self):
@@ -136,7 +136,7 @@ class SvcMap(object):
         Returns OM platform service handle
         """
         # TODO(Rao): Impl
-        return SvcHandle('127.0.0.1', 7000, PlatNetSvc).client
+        return SvcHandle(self.ip, 7000, PlatNetSvc).client
 
     def refresh(self):
         """
