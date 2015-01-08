@@ -1,6 +1,7 @@
-package com.formationds.xdi;/*
- * Copyright 2014 Formation Data Systems, Inc.
+/*
+ * Copyright 2015 Formation Data Systems, Inc.
  */
+package com.formationds.xdi;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
@@ -8,33 +9,36 @@ import FDS_ProtocolInterface.FDSP_Service;
 import FDS_ProtocolInterface.FDSP_SessionReqResp;
 import com.formationds.am.Main;
 import com.formationds.apis.AmService;
+import com.formationds.apis.AmService.AsyncIface;
 import com.formationds.apis.AsyncAmServiceRequest;
 import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.apis.RequestId;
 import com.formationds.util.async.AsyncResourcePool;
-import org.apache.commons.pool2.KeyedObjectPool;
+import com.formationds.util.thrift.ConfigServiceClientFactory;
+import com.formationds.util.thrift.ConnectionSpecification;
+import com.formationds.util.thrift.ThriftAsyncResourceImpl;
+import com.formationds.util.thrift.ThriftClientConnection;
+import com.formationds.util.thrift.ThriftClientConnectionFactory;
+import com.formationds.util.thrift.ThriftClientFactory;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
-import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.apache.thrift.async.TAsyncClientManager;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.apache.thrift.protocol.TProtocolException;
 import org.apache.thrift.protocol.TProtocolFactory;
-import org.apache.thrift.transport.TTransportException;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Proxy;
 import java.util.UUID;
 
 public class XdiClientFactory {
-    private static final Logger LOG = Logger.getLogger(XdiClientFactory.class);
+    protected static final Logger LOG = Logger.getLogger(XdiClientFactory.class);
 
-    private final GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<ConfigurationService.Iface>> configPool;
-    private final GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<AmService.Iface>> amPool;
-    private final GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<AsyncAmServiceRequest.Iface>> onewayAmPool;
-    private final GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<FDSP_ConfigPathReq.Iface>> legacyConfigPool;
+    private final ThriftClientFactory<Iface>                       configService;
+    private final ThriftClientFactory<AmService.Iface>             amService;
+    private final ThriftClientFactory<AsyncAmServiceRequest.Iface> onewayAmService;
+    private final ThriftClientFactory<FDSP_ConfigPathReq.Iface>    legacyConfigService;
+
     private int amResponsePort;
 
     public XdiClientFactory() {
@@ -43,98 +47,89 @@ public class XdiClientFactory {
 
     public XdiClientFactory(int amResponsePort) {
         this.amResponsePort = amResponsePort;
-        GenericKeyedObjectPoolConfig config = new GenericKeyedObjectPoolConfig();
-        config.setMaxTotal(1000);
-        config.setMinIdlePerKey(0);
-        config.setSoftMinEvictableIdleTimeMillis(30000);
 
-        XdiClientConnectionFactory<ConfigurationService.Iface> csFactory = new XdiClientConnectionFactory<>(proto -> new ConfigurationService.Client(proto));
-        configPool = new GenericKeyedObjectPool<>(csFactory, config);
-
-        XdiClientConnectionFactory<AmService.Iface> amFactory = new XdiClientConnectionFactory<>(proto -> new AmService.Client(proto));
-        amPool = new GenericKeyedObjectPool<>(amFactory, config);
-
-        XdiClientConnectionFactory<AsyncAmServiceRequest.Iface> onewayAmFactory = new XdiClientConnectionFactory<>(proto -> {
-            AsyncAmServiceRequest.Client client = new AsyncAmServiceRequest.Client(proto);
-            try {
-                client.handshakeStart(new RequestId(UUID.randomUUID().toString()), amResponsePort);
-            } catch (TException e) {
-                LOG.error("Could not handshake remote AM!", e);
-                throw new RuntimeException(e);
+        configService = new ConfigServiceClientFactory(1000, 0, 30000);
+        amService = new ThriftClientFactory<AmService.Iface>(1000, 0, 30000) {
+            @Override
+            protected GenericKeyedObjectPool<ConnectionSpecification, ThriftClientConnection<AmService.Iface>> createClientPool() {
+                ThriftClientConnectionFactory<AmService.Iface> amFactory =
+                    new ThriftClientConnectionFactory<>(proto -> new AmService.Client(proto));
+                return new GenericKeyedObjectPool<>(amFactory, getConfig());
             }
-            return client;
-        });
+        };
 
-        onewayAmPool = new GenericKeyedObjectPool<>(onewayAmFactory, config);
+        ThriftClientConnectionFactory<AsyncAmServiceRequest.Iface> onewayAmFactory =
+            new ThriftClientConnectionFactory<>(proto -> {
+                AsyncAmServiceRequest.Client client = new AsyncAmServiceRequest.Client(proto);
+                try {
+                    client.handshakeStart(new RequestId(UUID.randomUUID().toString()), amResponsePort);
+                } catch (TException e) {
+                    LOG.error("Could not handshake remote AM!", e);
+                    throw new RuntimeException(e);
+                }
+                return client;
+            });
 
-        XdiClientConnectionFactory<FDSP_ConfigPathReq.Iface> legacyConfigFactory = new XdiClientConnectionFactory<>(proto -> {
-            FDSP_Service.Client client = new FDSP_Service.Client(proto);
-            FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
-            try {
-                FDSP_SessionReqResp response = client.EstablishSession(msg);
-            } catch (TException e) {
-                LOG.error("Error establishing legacy FDSP_ConfigPathReq handshake", e);
-                throw new RuntimeException();
+        onewayAmService = new ThriftClientFactory<AsyncAmServiceRequest.Iface>(1000, 0, 30000) {
+            @Override
+            protected GenericKeyedObjectPool<ConnectionSpecification, ThriftClientConnection<AsyncAmServiceRequest.Iface>> createClientPool() {
+                ThriftClientConnectionFactory<AsyncAmServiceRequest.Iface> amFactory =
+                    new ThriftClientConnectionFactory<>(proto -> new AsyncAmServiceRequest.Client(proto));
+                return new GenericKeyedObjectPool<>(amFactory, getConfig());
             }
-            return new FDSP_ConfigPathReq.Client(proto);
-        });
-        legacyConfigPool = new GenericKeyedObjectPool<>(legacyConfigFactory, config);
-    }
+        };
 
-    private <T> T buildRemoteProxy(Class<T> klass, KeyedObjectPool<ConnectionSpecification, XdiClientConnection<T>> pool, String host, int port) {
-        @SuppressWarnings("unchecked")
-        T result = (T) Proxy.newProxyInstance(this.getClass().getClassLoader(), new Class[]{klass},
-                (proxy, method, args) -> {
-                    ConnectionSpecification spec = new ConnectionSpecification(host, port);
-                    XdiClientConnection<T> cnx = pool.borrowObject(spec);
-                    T client = cnx.getClient();
-                    try {
-                        return method.invoke(client, args);
-                    } catch (InvocationTargetException e) {
-                        if (e.getCause() instanceof TTransportException || e.getCause() instanceof TProtocolException) {
-                            pool.invalidateObject(spec, cnx);
-                            cnx = null;
+        legacyConfigService = new ThriftClientFactory<FDSP_ConfigPathReq.Iface>(1000, 0, 30000) {
+            @Override
+            protected GenericKeyedObjectPool<ConnectionSpecification, ThriftClientConnection<FDSP_ConfigPathReq.Iface>> createClientPool() {
+                ThriftClientConnectionFactory<FDSP_ConfigPathReq.Iface> legacyConfigFactory =
+                    new ThriftClientConnectionFactory<>(proto -> {
+                        FDSP_Service.Client client = new FDSP_Service.Client(proto);
+                        FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
+                        try {
+                            FDSP_SessionReqResp response = client.EstablishSession(msg);
+                        } catch (TException e) {
+                            LOG.error("Error establishing legacy FDSP_ConfigPathReq handshake", e);
+                            throw new RuntimeException();
                         }
-                        throw e.getCause();
-                    } finally {
-                        if (cnx != null)
-                            pool.returnObject(spec, cnx);
-                    }
-                });
-        return result;
+                        return new FDSP_ConfigPathReq.Client(proto);
+                    });
+                return new GenericKeyedObjectPool<>(legacyConfigFactory, getConfig());
+            }
+        };
     }
 
     public ConfigurationService.Iface remoteOmService(String host, int port) {
-        return buildRemoteProxy(ConfigurationService.Iface.class, configPool, host, port);
+        return configService.connect(host, port);
     }
 
     public AmService.Iface remoteAmService(String host, int port) {
-        return buildRemoteProxy(AmService.Iface.class, amPool, host, port);
+        return amService.connect(host, port);
     }
 
     public AsyncAmServiceRequest.Iface remoteOnewayAm(String host, int port) {
-        return buildRemoteProxy(AsyncAmServiceRequest.Iface.class, onewayAmPool, host, port);
+        return onewayAmService.connect(host, port);
     }
-
 
     public FDSP_ConfigPathReq.Iface legacyConfig(String host, int port) {
-        return buildRemoteProxy(FDSP_ConfigPathReq.Iface.class, legacyConfigPool, host, port);
+        return legacyConfigService.connect(host, port);
     }
 
-    public AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> makeAmAsyncPool(String host, int port) throws IOException {
+    public AsyncResourcePool<ThriftClientConnection<AmService.AsyncIface>> makeAmAsyncPool(String host, int port) throws
+                                                                                                               IOException {
         TAsyncClientManager manager = new TAsyncClientManager();
         TProtocolFactory factory = new TBinaryProtocol.Factory();
         ConnectionSpecification cs = new ConnectionSpecification(host, port);
-        XdiAsyncResourceImpl<AmService.AsyncIface> amImpl = new XdiAsyncResourceImpl<>(cs, transport -> new AmService.AsyncClient(factory, manager, transport));
+        ThriftAsyncResourceImpl<AsyncIface> amImpl = new ThriftAsyncResourceImpl<>(cs, transport -> new AmService.AsyncClient(factory, manager, transport));
 
         return new AsyncResourcePool<>(amImpl, 500);
     }
 
-    public AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> makeCsAsyncPool(String host, int port) throws IOException {
+    public AsyncResourcePool<ThriftClientConnection<ConfigurationService.AsyncIface>> makeCsAsyncPool(String host, int port) throws IOException {
         TAsyncClientManager manager = new TAsyncClientManager();
         TProtocolFactory factory = new TBinaryProtocol.Factory();
         ConnectionSpecification cs = new ConnectionSpecification(host, port);
-        XdiAsyncResourceImpl<ConfigurationService.AsyncIface> csImpl = new XdiAsyncResourceImpl<>(cs, transport -> new ConfigurationService.AsyncClient(factory, manager, transport));
+        ThriftAsyncResourceImpl<ConfigurationService.AsyncIface> csImpl = new ThriftAsyncResourceImpl<>(cs, transport -> new ConfigurationService.AsyncClient(factory, manager, transport));
 
         return new AsyncResourcePool<>(csImpl, 500);
     }
