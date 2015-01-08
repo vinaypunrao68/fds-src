@@ -10,6 +10,7 @@ import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_VolumeDescType;
 
 import com.formationds.apis.AmService;
+import com.formationds.apis.Tenant;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.apis.VolumeType;
@@ -32,6 +33,7 @@ import com.formationds.util.Size;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.xdi.ConfigurationApi;
 import com.formationds.xdi.Xdi;
 
 import org.apache.log4j.Logger;
@@ -58,14 +60,16 @@ public class ListVolumes implements RequestHandler {
 	private AmService.Iface amApi;
 	private FDSP_ConfigPathReq.Iface legacyConfig;
 	private AuthenticationToken token;
+	private ConfigurationApi configCache;
 
 	private static DecimalFormat df = new DecimalFormat("#.00");
 
-	public ListVolumes( Xdi xdi, AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
+	public ListVolumes( Xdi xdi, AmService.Iface amApi, ConfigurationApi configCache, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
 		this.xdi = xdi;
 		this.amApi = amApi;
 		this.legacyConfig = legacyConfig;
 		this.token = token;
+		this.configCache = configCache;
 	}
 
 	@Override
@@ -74,7 +78,25 @@ public class ListVolumes implements RequestHandler {
 				.stream()
 				.map(v -> {
 					try {
-						return toJsonObject(v);
+						JSONObject volResponse = toJsonObject(v);
+						
+						// putting the tenant information here because the static call
+						// below won't always have access to the api.  It should be injected
+						// so that it's always acceptable
+						List<Tenant> tenants = configCache.listTenants(0).stream().filter( ( t ) -> {
+							
+							if ( t.getId() == v.getTenantId() ){
+								return true;
+							}
+							
+							return false;
+						})
+						.collect( Collectors.toList() );
+						
+						volResponse.put( "tenant_name", tenants.get( 0 ).getIdentifier() );
+						
+						return volResponse;
+						
 					} catch (TException e) {
 						LOG.error("Error fetching configuration data for volume", e);
 						throw new RuntimeException(e);
@@ -135,6 +157,9 @@ struct VolumeDescriptor {
 		
 		final EnumMap<FirebreakType, VolumeDatapointPair> fbResults = getFirebreakEvents( volume );
 
+		// get the tenant
+		
+		
 		if( v != null ) {
 			o.put( "name", v.getName() );
 
