@@ -18,6 +18,8 @@ user_build_dir    := \
 
 user_fds_ar_libs  := \
     fds-util \
+	fds-net-svc \
+	fds-svc-request \
     fds-om-common \
     fds-om-lib \
     fds-om-dlt \
