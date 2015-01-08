@@ -20,6 +20,7 @@ import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
@@ -60,16 +61,14 @@ public class ListVolumes implements RequestHandler {
 	private AmService.Iface amApi;
 	private FDSP_ConfigPathReq.Iface legacyConfig;
 	private AuthenticationToken token;
-	private ConfigurationApi configCache;
 
 	private static DecimalFormat df = new DecimalFormat("#.00");
 
-	public ListVolumes( Xdi xdi, AmService.Iface amApi, ConfigurationApi configCache, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
+	public ListVolumes( Xdi xdi, AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
 		this.xdi = xdi;
 		this.amApi = amApi;
 		this.legacyConfig = legacyConfig;
 		this.token = token;
-		this.configCache = configCache;
 	}
 
 	@Override
@@ -83,7 +82,7 @@ public class ListVolumes implements RequestHandler {
 						// putting the tenant information here because the static call
 						// below won't always have access to the api.  It should be injected
 						// so that it's always acceptable
-						List<Tenant> tenants = configCache.listTenants(0).stream().filter( ( t ) -> {
+						List<Tenant> tenants = SingletonConfigAPI.instance().api().listTenants(0).stream().filter( ( t ) -> {
 							
 							if ( t.getId() == v.getTenantId() ){
 								return true;
