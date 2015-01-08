@@ -27,6 +27,7 @@
 #include "platform/platform_process.h"
 #include <snapshot/manager.h>
 #include <deletescheduler.h>
+#include <net/PlatNetSvcHandler.h>
 
 #define MAX_OM_NODES            (512)
 #define DEFAULT_LOC_DOMAIN_ID   (1)
@@ -299,7 +300,8 @@ class FDSP_ConfigPathReqHandler : virtual public fpi::FDSP_ConfigPathReqIf {
 };
 
 /* OM control path: SH/SM/DM to OM */
-class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf {
+class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf,
+        virtual public PlatNetSvcHandler {
   public:
         explicit FDSP_OMControlPathReqHandler(OrchMgr *oMgr);
 
@@ -372,6 +374,10 @@ class FDSP_OMControlPathReqHandler : virtual public fpi::FDSP_OMControlPathReqIf
         void NotifyMigrationDone(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr& status_msg);
+
+        void migrationDone(
+                boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                boost::shared_ptr<fpi::CtrlNotifyMigrationStatus>& status);
 
   private:
         OrchMgr* orchMgr;
