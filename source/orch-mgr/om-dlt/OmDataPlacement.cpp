@@ -202,6 +202,7 @@ DataPlacement::beginRebalance() {
             // Remove ourselves from the list
             sourcesSet.erase(uuid);
             // Now push to newTokenMap
+            if (sourcesSet.size() == 0) { continue; }
             NodeUuid sourceId = *sourcesSet.begin();  // Take the first source
             // If we have that source in the list already, append
             auto got = newTokenMap.find(sourceId.toSvcUuid());
