@@ -1,12 +1,92 @@
 /**
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include "NbdOperations.h"
 
-#include <string>
+#include <algorithm>
 #include <map>
-#include <NbdOperations.h>
+#include <string>
+#include <utility>
 
 namespace fds {
+
+fds_bool_t
+NbdResponseVector::handleReadResponse(boost::shared_ptr<std::string> retBuf,
+                                      fds_uint32_t len,
+                                      fds_uint32_t seqId,
+                                      const Error& err) {
+    fds_verify(operation == READ);
+    fds_verify(seqId < bufVec.size());
+
+    if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
+                     (err != ERR_BLOB_NOT_FOUND)) {
+        opError = err;
+        return true;
+    }
+
+    fds_uint32_t iOff = offset % maxObjectSizeInBytes;
+    fds_uint32_t firstObjectLength = std::min(length,
+                                              maxObjectSizeInBytes - iOff);
+    fds_uint32_t iLength = maxObjectSizeInBytes;
+
+    // The first and last buffers may not be an entire block
+    if (seqId == 0) {
+        iLength = firstObjectLength;
+    } else if (seqId == (objCount - 1)) {
+        iLength = length - firstObjectLength - (objCount-2) * maxObjectSizeInBytes;
+    }
+
+    if ((err == ERR_BLOB_OFFSET_INVALID) || (err == ERR_BLOB_NOT_FOUND)) {
+        // we tried to read unwritten block, fill in zeros
+        bufVec[seqId] = boost::make_shared<std::string>(iLength, 0);
+    } else {
+        // Else grab the portion of the string that we need, or the entire
+        // thing
+        bufVec[seqId] = (iLength == maxObjectSizeInBytes) ?
+            retBuf :
+            boost::make_shared<std::string>(retBuf->data() + (seqId == 0 ? iOff : 0), iLength);
+    }
+    fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
+    return ((doneCnt + 1) == objCount);
+}
+
+std::pair<fds_uint32_t, boost::shared_ptr<std::string>>
+NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> retBuf,
+                                 fds_uint32_t len,
+                                 fds_uint32_t seqId,
+                                 const Error& err) {
+    fds_verify(operation == WRITE);
+    if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
+                     (err != ERR_BLOB_NOT_FOUND)) {
+        opError = err;
+    } else {
+        fds_uint32_t iOff = (seqId == 0) ? offset % maxObjectSizeInBytes : 0;
+        fds_uint32_t index = (seqId == 0) ? 0 : 1;
+        boost::shared_ptr<std::string> writeBytes = bufVec[index];
+
+        boost::shared_ptr<std::string> fauxBytes;
+        if ((err == ERR_BLOB_OFFSET_INVALID) ||
+            (err == ERR_BLOB_NOT_FOUND)) {
+            // we tried to read unwritten block, so create
+            // an empty block buffer to place the data
+            LOGTRACE << "Creating new object and writing at offset: " << iOff << " for length: " << writeBytes->length();  // NOLINT
+            fauxBytes = boost::make_shared<std::string>(maxObjectSizeInBytes, 0);
+            fauxBytes->replace(iOff, writeBytes->length(),
+                               writeBytes->c_str(), writeBytes->length());
+        } else {
+            fds_verify(len == maxObjectSizeInBytes);
+            // Need to copy retBut into a modifiable buffer since retBuf is owned
+            // by AM and should not be modified here.
+            // TODO(Andrew): Make retBuf a const
+            LOGTRACE << "Updating object at offset: " << iOff << " for length: " << writeBytes->length();  // NOLINT
+            fauxBytes = boost::make_shared<std::string>(retBuf->c_str(), retBuf->length());
+            fauxBytes->replace(iOff, writeBytes->length(),
+                               writeBytes->c_str(), writeBytes->length());
+        }
+        return std::make_pair(offVec[index], fauxBytes);
+    }
+    return std::make_pair(0, boost::shared_ptr<std::string>());
+}
 
 NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
         : amAsyncDataApi(nullptr),

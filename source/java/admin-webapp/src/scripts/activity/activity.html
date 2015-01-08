@@ -1,13 +1,16 @@
 <div ng-controller="activityController">
 
-    <div class="header top-label">
-        <span translate>activities.header</span>
+    <!-- this spacer is to align the top of this page with all the pages that are decks -->
+    <div style="height: 30px;"></div>
+    
+    <div class="top-label" style="clear: both;height: 42px;">
+        <span class="header pull-left" style="margin-right: 24px;" translate>activities.header</span>
+        <fui-input style="width: 350px;" class="form-control pull-left" placeholder="{{ 'common.l_search' | translate }}" ng-model="searchQuery" icon-class="icon-search tall-icon-fix">
     </div>
 
     <div class="page-vertical-spacer"></div>
 
     <div class="header top-label">
-        <input type="text" class="form-control skinny" placeholder="Search..." ng-model="searchQuery" style="width: 300px;">
         <div>
             <table class="default" style="margin-top: 8px;">
                 <tbody>

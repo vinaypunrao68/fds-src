@@ -2,87 +2,71 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
+#include <ObjMeta.h>
+#include <dlt.h>
 #include <MigrationExecutor.h>
 
 namespace fds {
 
 MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
-                                     uint64_t _sourceNodeID,
-                                     fds_token_id _sm_tokenID)
+                                     fds_uint32_t bitsPerToken,
+                                     const NodeUuid& srcSmId,
+                                     fds_token_id smTokId)
     : dataStore(_dataStore),
-      tokenID(_sm_tokenID),
-      sourceSMNodeID(_sourceNodeID),
-      metadataSnapshotCompleted(false)
+      bitsPerDltToken(bitsPerToken),
+      smTokenId(smTokId),
+      sourceSmUuid(srcSmId)
 {
-    snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
-    snapshotRequest.token_id = tokenID;
-    snapshotRequest.smio_snap_resp_cb = std::bind(&MigrationExecutor::getObjectRebalanceSet,
-                                                  this,
-                                                  std::placeholders::_1,
-                                                  std::placeholders::_2,
-                                                  std::placeholders::_3,
-                                                  std::placeholders::_4);
 }
 
 MigrationExecutor::~MigrationExecutor()
 {
 }
 
-Error
-MigrationExecutor::startObjectRebalance()
-{
-    Error err(ERR_OK);
-
-    LOGDEBUG << "Request to get set of objects to rebalance token "
-             << tokenID
-             << " from "
-             << sourceSMNodeID;
-
-    err = dataStore->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
-    if (!err.ok()) {
-        LOGERROR << "Failed to snapshot. err=" << err;
-        return err;
-    }
-
-    /**
-     * If successfully enqueue to snapshot, then wait until the request is complete,
-     * since it's done in another thread's context.
-     */
-    LOGDEBUG << "Waiting for snapshot to complete for token "
-             << tokenID;
-    std::unique_lock<std::mutex> myLock(metadataSnapshotMutex);
-    metadataSnapshotCondVar.wait(myLock,
-                                 [this]{ return this->metadataSnapshotCompleted; });
-
-    /**
-     * Reset metadata snapshot status.
-     */
-    metadataSnapshotCompleted = false;
-
-    return err;
+void
+MigrationExecutor::addDltToken(fds_token_id dltTok) {
+    fds_verify(dltTokens.count(dltTok) == 0);
+    dltTokens.insert(dltTok);
 }
 
-void
-MigrationExecutor::getObjectRebalanceSet(const Error& error,
-                                         SmIoSnapshotObjectDB* snapRequest,
-                                         leveldb::ReadOptions& options,
-                                         leveldb::DB *db)
+// DO NOT release snapshot here, becuase it maybe passed to other
+// migration executors
+Error
+MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
+                                        leveldb::DB *db)
 {
+    Error err(ERR_OK);
+    ObjMetaData omd;
+    LOGNORMAL << "Will send obj ids to source SM " << std::hex
+              << sourceSmUuid.uuid_get_val() << std::dec << " for SM token "
+              << smTokenId << " (appropriate set of DLT tokens)";
+
     /**
      * Iterate through the level db and add to set of objects to rebalance.
      */
     leveldb::Iterator* it = db->NewIterator(options);
+    fpi::CtrlObjectRebalanceInitialSetPtr msg(new fpi::CtrlObjectRebalanceInitialSet());
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         ObjectID id(it->key().ToString());
+        // send objects that belong to DLT tokens that need to be migrated from src SM
+        fds_token_id dltTokId = DLT::getToken(id, bitsPerDltToken);
+        if (dltTokens.count(dltTokId) == 0) {
+            // ignore this object
+            continue;
+        }
 
-        /**
-         * TODO(Sean): add object id to the thrift paired set of object ids and ref count.
-         */
+        // add object id to the thrift paired set of object ids and ref count
+        omd.deserializeFrom(it->value());
+        fpi::CtrlObjectMetaDataSync omdSync;
+        omdSync.objectID.digest = it->key().ToString();
+        omdSync.objRefCnt = omd.getRefCnt();
+        LOGDEBUG << "Will add object " << id << ", dltToken " << dltTokId
+                 << " refcnt " << omdSync.objRefCnt << " to thrift msg to source SM "
+                 << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+        msg->objectsToSync.push_back(omdSync);
     }
+    delete it;
 
-    /**
-     * After generating a set of objects with the SM token ID, release the snapshot.
-     */
     /**
      * TODO(Sean):  To support active IO on both the source and destination SMs,
      *              we need to keep this snapshot until initial set of objects
@@ -90,20 +74,13 @@ MigrationExecutor::getObjectRebalanceSet(const Error& error,
      *              to determine if active IOs have changed the state of the existing
      *              objects (i.e. ref cnt) or additional object are written.
      */
-    db->ReleaseSnapshot(options.snapshot);
-
-    LOGDEBUG << "Generated destination SM rebalance set of objects.";
 
     /**
-     * Now signal the water after the set of objects owned by the destination
-     * SM is generated.
+     * TODO(Sean): Send the set to the source SM.
      */
-    {
-        std::lock_guard<std::mutex> myLock(metadataSnapshotMutex);
-        metadataSnapshotCompleted = true;
-        metadataSnapshotCondVar.notify_all();
-    }
-}
 
+    LOGDEBUG << "Generated destination SM rebalance set of objects.";
+    return err;
+}
 
 }  // namespace fds

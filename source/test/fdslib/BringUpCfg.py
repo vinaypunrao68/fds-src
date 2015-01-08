@@ -188,6 +188,8 @@ class FdsNodeConfig(FdsConfig):
         if 'fds_port' in self.nd_conf_dict:
             port = self.nd_conf_dict['fds_port']
             port_arg = port_arg + (' --fds.plat.platform_port=%s' % port)
+        else:
+            port = 7000  # PM default.
 
         if om_ip is not None:
             port_arg = port_arg + (' --fds.plat.om_ip=%s' % om_ip)
@@ -211,8 +213,9 @@ class FdsNodeConfig(FdsConfig):
         if test_harness:
             cur_dir = os.getcwd()
             os.chdir(bin_dir)
-            status = self.nd_agent.exec_wait('bash -c \"(nohup ./platformd --fds-root=%s > %s/pm.out 2>&1 &) \"' %
-                                                 (fds_dir, log_dir if self.nd_agent.env_install else "."))
+            status = self.nd_agent.exec_wait('bash -c \"(nohup ./platformd --fds-root=%s > %s/pm.%s.out 2>&1 &) \"' %
+                                            (fds_dir, log_dir if self.nd_agent.env_install else ".",
+                                             port))
             os.chdir(cur_dir)
         else:
             status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +

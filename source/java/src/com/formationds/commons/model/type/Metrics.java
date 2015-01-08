@@ -61,6 +61,10 @@ public enum Metrics {
 
     public static final EnumSet<Metrics> CAPACITY = EnumSet.of(Metrics.PBYTES,
                                                                Metrics.LBYTES);
+    
+    public static final EnumSet<Metrics> PERFORMANCE_BREAKDOWN = EnumSet.of( Metrics.PUTS,
+    																		 Metrics.GETS,
+    																		 Metrics.SSD_GETS);
 
     private static final String UNKNOWN_METRIC =
         ModelResource.getString( "model.metrics.unsupported" );

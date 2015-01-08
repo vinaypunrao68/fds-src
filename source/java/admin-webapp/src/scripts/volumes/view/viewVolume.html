@@ -8,7 +8,7 @@
 
     <section class="block-section">
         <div class="section-header">
-            <span class="header" translate>volumes.l_volume_name</span>
+            <span class="sub-header" translate>volumes.l_volume_name</span>
         </div>
         
         <div class="main-value volume-name">{{thisVolume.name}}</div>
@@ -50,7 +50,7 @@
         <div class="flex" style="width: 100%;height: 200px;">
             <div style="flex-grow: 5;">
                 <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="performanceItems">
-                    <line-chart data="performanceStats" colors="performanceColors" suffix="IOPs" axis-color="#A0A0A0" background-color="#f7f7f7" domain-labels="performanceTimeChoice.labels" line-colors="performanceLine"></line-chart>
+                    <stacked-line-chart data="performanceStats" colors="performanceColors" suffix="IOPs" axis-color="#A0A0A0" background-color="#f7f7f7" domain-labels="performanceTimeChoice.labels" line-colors="performanceLine" tooltip="setPerformanceTooltip"></stacked-line-chart>
                 </status-tile>
             </div>
             <div class="gutter" style="position: relative;">
@@ -60,7 +60,15 @@
                 <div class="bottom-stack">
                     <div class="flex">
                         <div class="legend-box" ng-style="{ 'border-color': gray, 'background-color': performanceColors[0] }"></div>
-                        <div class="legend-data">{{ iopLabel }}</div>
+                        <div class="legend-data">{{ ssdGetLabel }}</div>
+                    </div>
+                    <div class="flex">
+                        <div class="legend-box" ng-style="{ 'border-color': gray, 'background-color': performanceColors[1] }"></div>
+                        <div class="legend-data">{{ getLabel }}</div>
+                    </div>
+                    <div class="flex">
+                        <div class="legend-box" ng-style="{ 'border-color': gray, 'background-color': performanceColors[2] }"></div>
+                        <div class="legend-data">{{ putLabel }}</div>
                     </div>
                 </div>
             </div>

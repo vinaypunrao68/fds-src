@@ -26,11 +26,13 @@ var en_US = {
         l_ok: 'OK',
         l_required: 'Required',
         l_save: 'Save',
+        l_search: 'Search',
         l_warning: 'Warning',
         l_yes: 'Yes',
         th_date: 'Date',
         th_data_type: 'Data Type',
         th_name: 'Name',
+        th_application: 'Application',
         
         //time labels
         l_30_days: '30 Days',
@@ -84,6 +86,10 @@ var en_US = {
         l_firebreak: 'Firebreak',
         l_performance: 'Performance',
         l_health: 'System Health',
+        
+        l_gets: 'GET requests',
+        l_ssd_gets: 'GET request from SSD',
+        l_puts: 'PUT requests',
         
         th_type: 'Type',
         th_message: 'Message',
@@ -261,7 +267,7 @@ var en_US = {
         th_node_name: 'Node Name',
         th_om: 'OM',
         th_site: 'Site',
-        th_SM: 'SM'
+        th_sm: 'SM'
     },
     tenants: {
         title: 'Tenants',

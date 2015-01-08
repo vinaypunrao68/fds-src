@@ -10,8 +10,8 @@ import com.formationds.commons.model.Datapoint;
  * @author ptinius
  */
 public class DatapointBuilder {
-  private Long x;         // x-axis data point
-  private Long y;         // y-axis time point
+  private Double x;         // x-axis data point
+  private Double y;         // y-axis time point
 
   /**
    * default constructor
@@ -24,7 +24,7 @@ public class DatapointBuilder {
    *
    * @return Returns {@link com.formationds.commons.model.builder.DatapointBuilder}
    */
-  public DatapointBuilder withX( Long x ) {
+  public DatapointBuilder withX( Double x ) {
     this.x = x;
     return this;
   }
@@ -34,7 +34,7 @@ public class DatapointBuilder {
    *
    * @return Returns {@link com.formationds.commons.model.builder.DatapointBuilder}
    */
-  public DatapointBuilder withY( Long y ) {
+  public DatapointBuilder withY( Double y ) {
     this.y = y;
     return this;
   }

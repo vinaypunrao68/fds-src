@@ -7,6 +7,9 @@ var StatQueryFilter = {
     PHYSICAL_CAPACITY: 'LBYTES',
     SHORT_TERM_PERFORMANCE: 'STP_WMA',
     LONG_TERM_PERFORMANCE: 'LTP_WMA',
+    PUTS: 'PUTS',
+    GETS: 'GETS',
+    SSD_GETS: 'SSD_GETS',
     
     create: function( contextList, seriesTypes, startTime, endTime ){
         

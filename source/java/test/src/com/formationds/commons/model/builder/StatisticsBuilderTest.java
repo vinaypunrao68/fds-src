@@ -44,11 +44,11 @@ public class StatisticsBuilderTest {
 
   static {
     series.add( new SeriesBuilder().withContext( volume )
-                                   .withDatapoint( new DatapointBuilder().withX( 55L )
-                                                                         .withY( 123456789L )
+                                   .withDatapoint( new DatapointBuilder().withX( 55.0 )
+                                                                         .withY( 123456789.0 )
                                                                          .build() )
-                                   .withDatapoint( new DatapointBuilder().withX( 15L )
-                                                                         .withY( 23456789L )
+                                   .withDatapoint( new DatapointBuilder().withX( 15.0 )
+                                                                         .withY( 23456789.0 )
                                                                          .build() )
                                    .build() );
   }
@@ -67,13 +67,13 @@ public class StatisticsBuilderTest {
     throws Exception {
     final Statistics stat =
       new StatisticsBuilder().addSeries( new SeriesBuilder().withContext( volume )
-                                                            .withDatapoint( new DatapointBuilder().withX( 55L )
-                                                                                                  .withY( 123456789L )
+                                                            .withDatapoint( new DatapointBuilder().withX( 55.0 )
+                                                                                                  .withY( 123456789.0 )
                                                                                                   .build() )
                                                             .build() )
                              .addSeries( new SeriesBuilder().withContext( volume )
-                                                            .withDatapoint( new DatapointBuilder().withX( 15L )
-                                                                                                  .withY( 23456789L )
+                                                            .withDatapoint( new DatapointBuilder().withX( 15.0 )
+                                                                                                  .withY( 23456789.0 )
                                                                                                   .build() )
                                                             .build() )
                              .build();

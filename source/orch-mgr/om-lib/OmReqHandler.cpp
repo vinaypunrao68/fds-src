@@ -5,9 +5,15 @@
 #include <vector>
 #include <string>
 #include <orchMgr.h>
+#include <net/net-service-tmpl.hpp>
 #include <NetSession.h>
 #include <OmResources.h>
-
+#include <net/SvcRequest.h>
+#include <fdsp_utils.h>
+#include <fiu-local.h>
+#include <fdsp/fds_service_types.h>
+#include <net/BaseAsyncSvcHandler.h>
+#include <net/PlatNetSvcHandler.h>
 #include "platform/node_data.h"
 #include "platform/platform.h"
 
@@ -718,6 +724,8 @@ int32_t FDSP_ConfigPathReqHandler::auditTierPolicy(
 FDSP_OMControlPathReqHandler::FDSP_OMControlPathReqHandler(
     OrchMgr *oMgr) {
     orchMgr = oMgr;
+
+    // REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyMigrationStatus, migrationDone);
 }
 
 void FDSP_OMControlPathReqHandler::CreateBucket(
@@ -903,6 +911,10 @@ void FDSP_OMControlPathReqHandler::NotifyMigrationDone(
         LOGERROR << "Orch Mgr encountered exception while "
                  << "processing migration done request";
     }
+}
+
+void FDSP_OMControlPathReqHandler::migrationDone(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+        boost::shared_ptr<fpi::CtrlNotifyMigrationStatus>& status) {
 }
 
 }  // namespace fds
