@@ -418,7 +418,7 @@ AmProcessor::queryCatalogCb(AmRequest *amReq, const Error& error) {
         if (static_cast<GetBlobReq*>(amReq)->get_metadata) {
             auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
             if (cb->blobDesc)
-                amCache->putBlobDescriptor(amReq->io_vol_id,
+                 amCache->putBlobDescriptor(amReq->io_vol_id,
                                            amReq->getBlobName(),
                                            cb->blobDesc);
         }
