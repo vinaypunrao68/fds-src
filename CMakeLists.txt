@@ -637,7 +637,6 @@ set(SOURCE_FILES
     source/access-mgr/platform/am-node-workflow.cpp
     source/access-mgr/platform/am-platform.cpp
     source/access-mgr/platform/AMSvcHandler.cpp
-    source/access-mgr/stor-hvisor/hvcore/qos_ctrl.cpp
     source/access-mgr/stor-hvisor/hvcore/StorHvQosCtrl.cpp
     source/access-mgr/stor-hvisor/hvcore/StorHvVolumes.cpp
     source/access-mgr/stor-hvisor/StorHvDataPlace.h
@@ -679,7 +678,6 @@ set(SOURCE_FILES
     source/data-mgr/dm-lib/DataMgr.cpp
     source/data-mgr/dm-lib/DmBlobTypes.cpp
     source/data-mgr/dm-lib/DMSvcHandler.cpp
-    source/data-mgr/dm-lib/qos_ctrl.cpp
     source/data-mgr/dm-lib/StatStreamAggregator.cpp
     source/data-mgr/dm-lib/VolumeMeta.cpp
     source/data-mgr/include/dm-tvc/CommitLog.h
@@ -890,20 +888,7 @@ set(SOURCE_FILES
     source/include/persistent-layer/persistentdata.h
     source/include/persistent-layer/pm_unit_test.h
     source/include/persistent-layer/tokFileMgr.h
-    source/include/platform/fds-2phase.h
-    source/include/platform/fds-osdep.h
-    source/include/platform/fds-shm-queue.h
-    source/include/platform/fds-shmem.h
-    source/include/platform/fds-shmtx.h
     source/include/platform/flags_map.h
-    source/include/platform/net-plat-shared.h
-    source/include/platform/node-inv-shmem.h
-    source/include/platform/node-inventory.h
-    source/include/platform/node-workflow.h
-    source/include/platform/plat-serialize.h
-    source/include/platform/platform-lib.h
-    source/include/platform/platform-rpc.h
-    source/include/platform/service-ep-lib.h
     source/include/shared/bitutil.h
     source/include/shared/dlist.h
     source/include/shared/fds-constants.h
@@ -1156,7 +1141,6 @@ set(SOURCE_FILES
     source/orch-mgr/orch-mgr-main.cpp
     source/osdep/umod-linux/fds-shm-queue.cpp
     source/osdep/umod-linux/fds-shmem.cpp
-    source/osdep/umod-linux/fds-shmtx.cpp
     source/osdep/umod-linux/fds_osdep.c
     source/persistent-layer/io-lib/dm_index.cpp
     source/persistent-layer/io-lib/dm_io_lib.cpp
