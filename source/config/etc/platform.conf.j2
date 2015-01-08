@@ -372,8 +372,8 @@ fds: {
         }
 
         snmp: {
-            targetip = "127.0.0.1"
-            community = "public"
+            targetip = "{{ snmp_targetip }}"
+            community = "{{ snmp_community }}"
         }
     }
     checker: {
