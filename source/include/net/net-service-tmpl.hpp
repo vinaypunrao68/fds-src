@@ -392,11 +392,17 @@ EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
         }
     } catch(const std::out_of_range &e) {
         /* Create the endpoint client
-         * NOTE: We let go off lock here because socket connection
+         * NOTE: We let go of lock here because socket connection
          * is expensive.  We reaquire the lock when adding to map below
          */
         std::string ip;
         auto port = ep_uuid_binding(peer, maj, min, &ip);
+
+        if (port < 0) {
+            LOGWARN <<  "Endpoint address not found for peer: " << peer.svc_uuid;
+            return nullptr;
+        }
+
         LOGDEBUG <<  "New svc client.  peer: " << peer.svc_uuid
             << " ip:port: " << ip << ":" << port;
 

@@ -196,7 +196,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .y1( function( d ){
                         return $yScale( d.y );
                     })
-                    .interpolate( 'monotone' );
+                    .interpolate( 'basis' );
                 
                 $svg.selectAll( '.line' )
 //                    .transition()
@@ -275,6 +275,11 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     })
                     .attr( 'x', $xScale( $xMin ) )
                     .attr( 'y', function( d ){
+                        
+                        if ( isNaN( d ) ){
+                            d = 0;
+                        }
+                    
                         return $yScale( d ) - 4;
                     })
                     .attr( 'fill', $scope.axisColor )

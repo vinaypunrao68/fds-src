@@ -24,6 +24,7 @@ WORKDIR /home/pairing/projects/fds-src/source
 RUN make devsetup
 RUN git remote set-url origin https://github.com/fds-dev/fds-src
 RUN rm -f ~/.ssh/*
+RUN ccache -M 2G
 
 USER root
 RUN rm -rf /home/pairing/.ansible

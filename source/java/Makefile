@@ -22,8 +22,6 @@ include $(topdir)/Makefile.incl
 #	@rm -rf $(comm_dir_lib)/java
 
 compile:
-
-ifeq (,$(wildcard *jenkins_built_semaphore))
 	@echo "Building Java components"
 	@rm -f $(comm_dir_bin)/AMAgent
 	@rm -f $(comm_dir_bin)/xdi
@@ -42,16 +40,6 @@ endif
 	@cp -r demo $(comm_dir_lib)
 	@cp smokeTest $(main_dir_tools)
 	@cp trafficgen $(main_dir_tools)
-
-ifdef JENKINS_URL
-	@touch ./jenkins_built_semaphore
-endif
-
-else
-	@echo "Previous Build under Jenkins succeeded"
-	@echo "If you don't expect this message, please run find . -name \"jenkins_built_semaphore\""
-	@echo "and remove the file located by find."
-endif
 
 .PHONY: test
 

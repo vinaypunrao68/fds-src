@@ -346,6 +346,13 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::DeleteObjectMsg>& expObjMsg)
 {
+    if (objStorMgr->testUturnAll == true) {
+        LOGDEBUG << "Uturn testing delete object "
+                 << fds::logString(*asyncHdr) << fds::logString(*expObjMsg);
+        deleteObjectCb(asyncHdr, ERR_OK, NULL);
+        return;
+    }
+
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*expObjMsg));
     Error err(ERR_OK);
 
@@ -391,17 +398,18 @@ void SMSvcHandler::deleteObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
 
     // E2E latency end
-    PerfTracer::tracePointEnd(del_req->opReqLatencyCtx);
-    if (!err.ok()) {
-        PerfTracer::incr(del_req->opReqFailedPerfEventType,
-                         del_req->getVolId(), del_req->perfNameStr);
+    if (del_req) {
+        PerfTracer::tracePointEnd(del_req->opReqLatencyCtx);
+        if (!err.ok()) {
+            PerfTracer::incr(del_req->opReqFailedPerfEventType,
+                             del_req->getVolId(), del_req->perfNameStr);
+        }
+        delete del_req;
     }
 
     auto resp = boost::make_shared<fpi::DeleteObjectRspMsg>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::DeleteObjectRspMsg), *resp);
-
-    delete del_req;
 }
 // NotifySvcChange
 // ---------------

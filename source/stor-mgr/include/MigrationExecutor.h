@@ -61,14 +61,6 @@ class MigrationExecutor {
      * Token to migration from the source SM node.
      */
     fds_token_id tokenID;
-
-    /**
-     * metadata snapshot is done by another thread's context, so requires
-     * a set of synchronization to wait until the snapshot is complete.
-     */
-    std::mutex metadataSnapshotMutex;
-    std::condition_variable metadataSnapshotCondVar;
-    bool metadataSnapshotCompleted;
 };
 
 }  // namespace fds

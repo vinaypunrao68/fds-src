@@ -36,7 +36,6 @@ script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 fds_platform_dir=${script_dir}/../source/tools/install/pkg
 
 pkgs_to_deploy=(
-    fds-coredump
     fds-platform
 )
 

@@ -136,7 +136,7 @@ EpAttr::netaddr_my_ip(struct sockaddr *adr,
         net = const_cast<char *>(conf.get_abs<std::string>("fds.nic_if").c_str());
     }
     for (cur = ifa; cur != NULL; cur = cur->ifa_next) {
-        if (cur->ifa_addr->sa_family != AF_INET) {
+        if (cur->ifa_addr == nullptr || cur->ifa_addr->sa_family != AF_INET) {
             continue;
         }
         if (net == NULL) {
