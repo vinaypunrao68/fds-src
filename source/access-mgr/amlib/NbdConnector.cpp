@@ -404,6 +404,7 @@ NbdConnection::hsReply(ev::io &watcher) {
         response[3].iov_base = nullptr; response[3].iov_len = 0ull;
     }
 
+    Error err = ERR_OK;
     if (write_offset == -1) {
         total_blocks = 3;
         if (doUturn) {
@@ -438,6 +439,7 @@ NbdConnection::hsReply(ev::io &watcher) {
             response[2].iov_base = &current_response->handle;
             response[2].iov_len = sizeof(current_response->handle);
             if (!current_response->getError().ok()) {
+                err = current_response->getError();
                 response[1].iov_base = to_iovec(&error_bad);
             } else if (current_response->isRead()) {
                 fds_uint32_t context = 0;
@@ -464,7 +466,8 @@ NbdConnection::hsReply(ev::io &watcher) {
     if (!write_response()) {
         return false;
     }
-    LOGIO << " handle 0x" << std::hex << current_response->handle << " done: " << std::dec
+    LOGIO << " handle 0x" << std::hex << current_response->handle << std::dec
+          << " done (" << err << ") "
           << resp_needed.fetch_sub(1, std::memory_order_relaxed) - 1 << " requests behind you";
 
     response[2].iov_base = nullptr;
