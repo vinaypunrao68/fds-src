@@ -92,9 +92,13 @@ public class ListVolumes implements RequestHandler {
 						})
 						.collect( Collectors.toList() );
 						
+						String tenantName = "";
+						
 						if ( tenants.size() > 0 ) {
-							volResponse.put( "tenant_name", tenants.get( 0 ).getIdentifier() );
+							tenantName = tenants.get( 0 ).getIdentifier();
 						}
+						
+						volResponse.put( "tenant_name", tenantName );
 						
 						return volResponse;
 						
