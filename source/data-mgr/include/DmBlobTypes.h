@@ -185,6 +185,11 @@ namespace fds {
     struct BasicBlobMeta: serialize::Serializable {
         std::string blob_name;
         blob_version_t version;
+
+        // NOTE(bszmyd): Wed 07 Jan 2015 04:31:44 PM PST
+        // This should be interpreted as the size of the blob
+        // including any missing (i.e. sparse) objects. Not the
+        // actual data-on-disk size.
         fds_uint64_t blob_size;
 
         BasicBlobMeta();

@@ -203,9 +203,9 @@ class TestBlockDetachVolume(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # writing block data
 #
-class TestBlockFioW(TestCase.FDSTestCase):
+class TestBlockFioSeqW(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
-        super(TestBlockFioW, self).__init__(parameters)
+        super(TestBlockFioSeqW, self).__init__(parameters)
 
 
     def runTest(self):
@@ -245,6 +245,59 @@ class TestBlockFioW(TestCase.FDSTestCase):
 
         # TODO(Andrew): Don't hard code all of this stuff...
         fioCmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=1 --numjobs=1 --size=8m --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
+        result = subprocess.call(fioCmd, shell=True)
+        if result != 0:
+            self.log.error("Failed to run write workload")
+            return False
+        time.sleep(5)
+
+        return True
+
+# This class contains the attributes and methods to test
+# writing block data randomly
+#
+class TestBlockFioRandW(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        super(TestBlockFioRandW, self).__init__(parameters)
+
+
+    def runTest(self):
+        test_passed = True
+
+        if TestCase.pyUnitTCFailure:
+            self.log.warning("Skipping Case %s. stop-on-fail/failfast set and a previous test case has failed." %
+                             self.__class__.__name__)
+            return unittest.skip("stop-on-fail/failfast set and a previous test case has failed.")
+        else:
+            self.log.info("Running Case %s." % self.__class__.__name__)
+
+        try:
+            if not self.test_BlockFioWrite():
+                test_passed = False
+        except Exception as inst:
+            self.log.error("Writing a block volume caused exception:")
+            self.log.error(traceback.format_exc())
+            self.log.error(inst.message)
+            test_passed = False
+
+        super(self.__class__, self).reportTestCaseResult(test_passed)
+
+        # If there is any test fixture teardown to be done, do it here.
+
+        if self.parameters["pyUnit"]:
+            self.assertTrue(test_passed)
+        else:
+            return test_passed
+
+
+    def test_BlockFioWrite(self):
+        """
+        Test Case:
+        Attempt to write to a block volume.
+        """
+
+        # TODO(Andrew): Don't hard code all of this stuff...
+        fioCmd = "sudo fio --name=rand-writers --readwrite=randwrite --ioengine=libaio --direct=1 --bsrange=512-128k --iodepth=1 --numjobs=1 --size=8m --filename=%s --verify=md5 --verify_fatal=1" % (nbd_device)
         result = subprocess.call(fioCmd, shell=True)
         if result != 0:
             self.log.error("Failed to run write workload")
