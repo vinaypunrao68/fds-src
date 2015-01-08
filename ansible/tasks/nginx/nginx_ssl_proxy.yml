@@ -7,6 +7,16 @@
     - nginx
   when: fds_om_host is defined and fds_om_host == inventory_hostname
 
+# Remove old nginx configs
+- file:
+    path=/etc/nginx/conf.d/{{ item }}.conf
+    state=absent
+  tags:
+    - nginx
+  with_items:
+    - api
+    - web
+
 - template:
     src=../templates/nginx/fds_nginx.conf.j2
     dest=/etc/nginx/conf.d/fds.conf
