@@ -30,8 +30,11 @@ def suiteConstruction():
     # Attach a block device
     suite.addTest(testcases.TestBlockIntFace.TestBlockAttachVolume())
 
-    # Run an fio write workload
-    suite.addTest(testcases.TestBlockIntFace.TestBlockFioW())
+    # Run an fio sequential write workload
+    suite.addTest(testcases.TestBlockIntFace.TestBlockFioSeqW())
+
+    # Run an fio random write workload
+    suite.addTest(testcases.TestBlockIntFace.TestBlockFioRandW())
 
     # Run an fio read/write workload
     suite.addTest(testcases.TestBlockIntFace.TestBlockFioRW())
