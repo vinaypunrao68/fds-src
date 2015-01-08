@@ -615,7 +615,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
 
 void
 NbdConnection::readWriteResp(NbdResponseVector* response) {
-    LOGDEBUG << "Read? " << response->isRead() << " (false is write)"
+    LOGDEBUG << (response->isRead() ? "READ" : "WRITE")
               << " response from NbdOperations handle " << response->handle
               << " " << response->getError();
 
