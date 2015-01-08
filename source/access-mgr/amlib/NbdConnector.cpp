@@ -138,6 +138,7 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
           clientSocket(clientsd),
           hsState(PREINIT),
           doUturn(false),
+          resp_needed(0u),
           attach({ { 0x00ull, 0x00u, 0x00u }, 0x00ull, 0x00ull, { 0x00 } }),
           request({ { 0x00u, 0x00u, 0x00ull, 0x00ull, 0x00u }, 0x00ull, 0x00ull, nullptr }),
           response(nullptr),
@@ -365,7 +366,8 @@ NbdConnection::hsReq(ev::io &watcher) {
         LOGIO << " op " << io_to_string[request.header.opType]
               << " handle 0x" << std::hex << request.header.handle
               << " offset 0x" << request.header.offset << std::dec
-              << " length " << request.header.length;
+              << " length " << request.header.length
+              << " ahead of you: " <<  resp_needed.fetch_add(1, std::memory_order_relaxed);
         // Construct Buffer for Payload
         request.data = boost::make_shared<std::string>(request.header.length, '\0');
     }
@@ -441,9 +443,9 @@ NbdConnection::hsReply(ev::io &watcher) {
                 fds_uint32_t context = 0;
                 boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
                 while (buf != NULL) {
-                    LOGIO <<    "Handle 0x" << std::hex << current_response->handle <<
-                                "...Buffer # " << context <<
-                                "...Size " << std::dec << buf->length() << "B";
+                    LOGDEBUG << "Handle 0x" << std::hex << current_response->handle
+                             << "...Buffer # " << context
+                             << "...Size " << std::dec << buf->length() << "B";
                     response[total_blocks].iov_base = to_iovec(buf->c_str());
                     response[total_blocks].iov_len = buf->length();
                     ++total_blocks;
@@ -462,6 +464,8 @@ NbdConnection::hsReply(ev::io &watcher) {
     if (!write_response()) {
         return false;
     }
+    LOGIO << " handle 0x" << std::hex << current_response->handle << " done: " << std::dec
+          << resp_needed.fetch_sub(1, std::memory_order_relaxed) - 1 << " requests behind you";
 
     response[2].iov_base = nullptr;
     current_response.reset();
