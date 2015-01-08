@@ -145,7 +145,8 @@ public class CreateVolume
                                            ( int ) volume.getSla(),
                                            volume.getPriority(),
                                            ( int ) volume.getLimit(),
-                                           volume.getCommit_log_retention() );
+                                           volume.getCommit_log_retention(),
+                                           volume.getMediaPolicy() );
 
           if( FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
               /**
