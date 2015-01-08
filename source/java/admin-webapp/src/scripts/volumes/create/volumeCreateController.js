@@ -172,17 +172,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         $scope.volumeVars.back();
     };
     
-    $scope.$watch( 'volumeVars.cloneFromVolume', function( newVal, oldVal ){
-        
-        if ( newVal === oldVal || $scope.volumeVars.toClone === 'new' ){
-            return;
-        }
-        
-        if ( !angular.isDefined( newVal ) ){
-            return;
-        }
-        
-        var volume = newVal;
+    var syncWithClone = function( volume ){
         
         $scope.qos = {
             capacity: volume.sla,
@@ -191,6 +181,32 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         };
         
         $scope.data_connector = volume.data_connector;
+    };
+    
+    $scope.$watch( 'volumeVars.cloneFromVolume', function( newVal, oldVal ){
+        
+        if ( $scope.volumeVars.toClone === 'new' ){
+            return;
+        }
+        
+        if ( !angular.isDefined( newVal ) ){
+            return;
+        }
+        
+        syncWithClone( newVal );
+    });
+    
+    $scope.$watch( 'volumeVars.toClone', function( newVal ){
+        
+        if ( newVal === 'new' ){
+            return;
+        }
+        
+        if ( !angular.isDefined( $scope.volumeVars.cloneFromVolume ) ){
+            return;
+        }
+        
+        syncWithClone( $scope.volumeVars.cloneFromVolume );
     });
 
     $scope.$watch( 'volumeVars.creating', function( newVal ){
