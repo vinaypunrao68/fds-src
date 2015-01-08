@@ -30,7 +30,8 @@ SmTokenMigrationMgr::~SmTokenMigrationMgr() {
  * which initiate token migration
  */
 Error
-SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg) {
+SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+                                    fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
     // it's strange to receive empty message from OM, but ok we just ignore that
     if (migrationMsg->migrations.size() == 0) {
@@ -61,7 +62,7 @@ SmTokenMigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migratio
                 (migrExecutors.count(smTok) > 0 && migrExecutors[smTok].count(srcSmUuid) == 0)) {
                 LOGNORMAL << "Will create migration executor class";
                 migrExecutors[smTok][srcSmUuid] = MigrationExecutor::unique_ptr(
-                    new MigrationExecutor(smReqHandler, srcSmUuid, smTok));
+                    new MigrationExecutor(smReqHandler, bitsPerDltToken, srcSmUuid, smTok));
             }
             // tell migration executor that it is responsible for this DLT token
             migrExecutors[smTok][srcSmUuid]->addDltToken(dltTok);

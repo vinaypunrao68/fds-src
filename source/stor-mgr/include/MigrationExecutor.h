@@ -17,6 +17,7 @@ namespace fds {
 class MigrationExecutor {
   public:
     MigrationExecutor(SmIoReqHandler *_dataStore,
+                      fds_uint32_t bitsPerToken,
                       const NodeUuid& srcSmId,
                       fds_token_id smTokId);
     ~MigrationExecutor();
@@ -57,6 +58,7 @@ class MigrationExecutor {
      * SM token contains one or more DLT tokens
      */
     std::set<fds_token_id> dltTokens;
+    fds_uint32_t bitsPerDltToken;
 };
 
 }  // namespace fds

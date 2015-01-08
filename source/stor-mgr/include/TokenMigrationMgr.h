@@ -60,7 +60,8 @@ class SmTokenMigrationMgr {
      * Creates MigrationExecutor object for each SM token, source SM
      * which initiate token migration
      */
-    Error startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg);
+    Error startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+                         fds_uint32_t bitsPerDltToken);
 
     /**
      * Handle start object rebalance from destination SM

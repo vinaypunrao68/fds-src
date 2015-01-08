@@ -30,6 +30,7 @@ using ::testing::Return;
 namespace fds {
 
 static std::string logname = "sm_token_migration";
+static fds_uint32_t bitsPerDltToken = 16;
 
 class SmTokenMigrationUtProc : public FdsProcess {
   public:
@@ -164,7 +165,7 @@ TEST_F(SmTokenMigrationTest, destination) {
         dataStore->createObjectDBIfNeeded(SmDiskMap::smTokenId(i+100));
         msg->migrations.push_back(grp);
     }
-    err = tokenMigrationMgr->startMigration(msg);
+    err = tokenMigrationMgr->startMigration(msg, bitsPerDltToken);
 
     // wait until migration is finished
     // TODO(anna) we do not set migration_done to true anywhere

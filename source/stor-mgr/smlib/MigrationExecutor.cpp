@@ -3,14 +3,17 @@
  */
 
 #include <ObjMeta.h>
+#include <dlt.h>
 #include <MigrationExecutor.h>
 
 namespace fds {
 
 MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
+                                     fds_uint32_t bitsPerToken,
                                      const NodeUuid& srcSmId,
                                      fds_token_id smTokId)
     : dataStore(_dataStore),
+      bitsPerDltToken(bitsPerToken),
       smTokenId(smTokId),
       sourceSmUuid(srcSmId)
 {
@@ -33,6 +36,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                                         leveldb::DB *db)
 {
     Error err(ERR_OK);
+    ObjMetaData omd;
     LOGNORMAL << "Will send obj ids to source SM " << std::hex
               << sourceSmUuid.uuid_get_val() << std::dec << " for SM token "
               << smTokenId << " (appropriate set of DLT tokens)";
@@ -41,12 +45,25 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
      * Iterate through the level db and add to set of objects to rebalance.
      */
     leveldb::Iterator* it = db->NewIterator(options);
+    fpi::CtrlObjectRebalanceInitialSetPtr msg(new fpi::CtrlObjectRebalanceInitialSet());
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         ObjectID id(it->key().ToString());
+        // send objects that belong to DLT tokens that need to be migrated from src SM
+        fds_token_id dltTokId = DLT::getToken(id, bitsPerDltToken);
+        if (dltTokens.count(dltTokId) == 0) {
+            // ignore this object
+            continue;
+        }
 
-        /**
-         * TODO(Sean): add object id to the thrift paired set of object ids and ref count.
-         */
+        // add object id to the thrift paired set of object ids and ref count
+        omd.deserializeFrom(it->value());
+        fpi::CtrlObjectMetaDataSync omdSync;
+        omdSync.objectID.digest = it->key().ToString();
+        omdSync.objRefCnt = omd.getRefCnt();
+        LOGDEBUG << "Will add object " << id << ", dltToken " << dltTokId
+                 << " refcnt " << omdSync.objRefCnt << " to thrift msg to source SM "
+                 << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+        msg->objectsToSync.push_back(omdSync);
     }
     delete it;
 
