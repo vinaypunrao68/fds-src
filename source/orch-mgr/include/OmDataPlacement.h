@@ -517,6 +517,15 @@ namespace fds {
          * algorithm.
          */
         Error checkDltValid(const DLT* dlt, const NodeUuidSet& sm_services);
+
+        /**
+        * Response callback for StartMigration messages sent
+        * in rebalance method.
+        */
+        void startMigrationResp(NodeUuid uuid,
+                EPSvcRequest* svcReq,
+                const Error& error,
+                boost::shared_ptr<std::string> payload);
     };
 }  // namespace fds
 
