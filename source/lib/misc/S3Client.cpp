@@ -7,6 +7,7 @@
 #include <memory>
 #include <iostream>
 #include <fds_assert.h>
+#include <util/Log.h>
 #include <libs3.h>
 #include <S3Client.h>
 
@@ -62,11 +63,11 @@ S3Status S3Client::putFile(const std::string &bucketName,
     S3PutObjectCbData *data = &(taskStatus->cbData.putCbData);
     struct stat statbuf;
     if (stat(filePath.c_str(), &statbuf) == -1) {
-        std::cerr << "Failed to stat file " << filePath << std::endl;
+        GLOGERROR << "Failed to stat file " << filePath;
         return S3StatusErrorUnknown;
     }
     if (!(data->infile = fopen(filePath.c_str(), "r"))) {
-        std::cerr << "Failed to open file " << filePath << std::endl;
+        GLOGERROR << "Failed to open file " << filePath;
         return S3StatusErrorUnknown;
     }
     data->contentLength = statbuf.st_size;
@@ -94,7 +95,7 @@ S3Status S3Client::getFile(const std::string &bucketName,
 
     S3GetObjectCbData *data = &(taskStatus->cbData.getCbData);
     if (!(data->outfile = fopen(filePath.c_str(), "w"))) {
-        std::cerr << "Failed to open file " << filePath << std::endl;
+        GLOGDEBUG << "Failed to open file " << filePath;
         return S3StatusErrorUnknown;
     }
 
@@ -127,7 +128,6 @@ void S3Client::initBucketContext_(const std::string &bucketName,
 S3Status S3Client::responsePropertiesCallback_(const S3ResponseProperties *properties,
                                                void *callbackData)
 {
-    std::cout << __FUNCTION__ << std::endl;
     return S3StatusOK;
 }
 
@@ -135,7 +135,7 @@ void S3Client::responseCompleteCallback_(S3Status status,
                                          const S3ErrorDetails *error,
                                          void *callbackData)
 {
-    std::cout << __FUNCTION__ << " Status: " << status << std::endl;
+    GLOGDEBUG << " Status: " << status;
     S3TaskStatus* taskStatus = reinterpret_cast<S3TaskStatus*>(callbackData);
     taskStatus->status = status;
     taskStatus->done();
@@ -156,8 +156,7 @@ int S3Client::putObjectDataCallback_(int bufferSize, char *buffer, void *callbac
     if (data->contentLength == 0) {
         fclose(data->infile);
     }
-    std::cout << __FUNCTION__ << " read: " << ret << " left: " << data->contentLength
-        << std::endl;
+    GLOGDEBUG << " read: " << ret << " left: " << data->contentLength;
     return ret;
 }
 

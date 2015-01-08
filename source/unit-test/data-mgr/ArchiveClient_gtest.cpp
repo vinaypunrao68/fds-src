@@ -48,9 +48,9 @@ TEST_F(ArchiveClientTest, put_get)
     archiveCl->connect("localhost:8000", "admin", "secret-key");
 
     /* put the file */
-    archiveCl->putSnapSync(volId, snapId);
+    // EXPECT_EQ(archiveCl->putSnapSync(volId, snapId), ERR_OK);
     /* get the file */
-    archiveCl->getSnapSync(volId, snapId);
+    EXPECT_EQ(archiveCl->getSnapSync(volId, snapId), ERR_OK);
     /* Optional: make sure the contents match */
 #if 0
     int nPuts =  this->getArg<int>("puts-cnt");
