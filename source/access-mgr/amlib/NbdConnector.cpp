@@ -22,6 +22,11 @@ template<typename T>
 constexpr auto to_iovec(T* t) -> typename std::remove_cv<T>::type*
 { return const_cast<typename std::remove_cv<T>::type*>(t); }
 
+static std::array<std::string, 5> const io_to_string = {
+    { "READ", "WRITE", "DISCONNECT", "FLUSH", "TRIM" }
+};
+
+
 namespace fds {
 
 template<typename M>
@@ -71,7 +76,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
                           &client_len);
 
     if (clientsd < 0) {
-        GLOGERROR << "Accept error";
+        LOGERROR << "Accept error";
         return;
     }
 
@@ -79,7 +84,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
     // Will delete itself when connection dies
     LOGNORMAL << "Creating client connection...";
     NbdConnection *client = new NbdConnection(omConfigApi, clientsd);
-    LOGNORMAL << "Created client connection...";
+    LOGDEBUG << "Created client connection...";
 }
 
 int
@@ -113,7 +118,7 @@ NbdConnector::createNbdSocket() {
 
 void
 NbdConnector::runNbdLoop() {
-    LOGNOTIFY << "Accepting NBD connections on port " << nbdPort;
+    LOGNORMAL << "Accepting NBD connections on port " << nbdPort;
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, SIGPIPE);
@@ -123,7 +128,7 @@ NbdConnector::runNbdLoop() {
 
     ev::default_loop loop;
     loop.run(0);
-    LOGNOTIFY << "Stopping NBD loop...";
+    LOGNORMAL << "Stopping NBD loop...";
 }
 
 NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
@@ -158,7 +163,7 @@ NbdConnection::NbdConnection(OmConfigApi::shared_ptr omApi,
 }
 
 NbdConnection::~NbdConnection() {
-    LOGTRACE << "NbdConnection going adios!";
+    LOGDEBUG << "NbdConnection going adios!";
     asyncWatcher->stop();
     ioWatcher->stop();
     shutdown(clientSocket, SHUT_RDWR);
@@ -273,7 +278,7 @@ NbdConnection::hsPostInit(ev::io &watcher) {
         LOGERROR << "Socket read error";
     } else {
         fds_verify(0 == ack);
-        LOGDEBUG << "Received " << nread << " byte ack " << ack;
+        LOGTRACE << "Received " << nread << " byte ack " << ack;
     }
 }
 
@@ -357,10 +362,10 @@ NbdConnection::hsReq(ev::io &watcher) {
         request.header.offset = __builtin_bswap64(request.header.offset);
         request.header.length = ntohl(request.header.length);
 
-        LOGTRACE << " op " << request.header.opType << std::endl
-                 << " handle 0x" << std::hex << request.header.handle << std::dec << std::endl
-                 << " offset " << request.header.offset << std::endl
-                 << " length " << request.header.length;
+        LOGIO << " op " << io_to_string[request.header.opType]
+              << " handle 0x" << std::hex << request.header.handle
+              << " offset 0x" << request.header.offset << std::dec
+              << " length " << request.header.length;
         // Construct Buffer for Payload
         request.data = boost::make_shared<std::string>(request.header.length, '\0');
     }
@@ -436,9 +441,9 @@ NbdConnection::hsReply(ev::io &watcher) {
                 fds_uint32_t context = 0;
                 boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
                 while (buf != NULL) {
-                    GLOGDEBUG <<    "Handle 0x" << std::hex << current_response->handle <<
-                                    "...Buffer # " << context <<
-                                    "...Size " << std::dec << buf->length() << "B";
+                    LOGIO <<    "Handle 0x" << std::hex << current_response->handle <<
+                                "...Buffer # " << context <<
+                                "...Size " << std::dec << buf->length() << "B";
                     response[total_blocks].iov_base = to_iovec(buf->c_str());
                     response[total_blocks].iov_len = buf->length();
                     ++total_blocks;
@@ -547,7 +552,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
                 hsReq(watcher);
                 break;
             default:
-                LOGTRACE << "Asked to read in state: " << hsState;
+                LOGDEBUG << "Asked to read in state: " << hsState;
                 // We could have read and writes waiting and are not in the
                 // correct state to handle more requests...yet
                 break;
@@ -566,7 +571,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
             case SENDOPTS:
                 if (hsSendOpts(watcher)) {
                     hsState = DOREQS;
-                    LOGNORMAL << "Done with NBD handshake";
+                    LOGDEBUG << "Done with NBD handshake";
                     // Wait for read events from client
                     ioWatcher->set(ev::READ);
                 }
@@ -603,7 +608,7 @@ NbdConnection::callback(ev::io &watcher, int revents) {
 
 void
 NbdConnection::readWriteResp(NbdResponseVector* response) {
-    LOGNORMAL << "Read? " << response->isRead() << " (false is write)"
+    LOGDEBUG << "Read? " << response->isRead() << " (false is write)"
               << " response from NbdOperations handle " << response->handle
               << " " << response->getError();
 
@@ -633,11 +638,11 @@ bool get_message_header(int fd, M& message) {
         }
         return false;
     } else if (nread < to_read) {
-        LOGDEBUG << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
+        LOGTRACE << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
         message.header_off += nread;
         return false;
     }
-    LOGTRACE << "Read " << nread << " bytes of header";
+    LOGDEBUG << "Read " << nread << " bytes of header";
     message.header_off = -1;
     message.data_off = 0;
     return true;
@@ -674,11 +679,11 @@ bool get_message_payload(int fd, M& message) {
         }
         return false;
     } else if (nread < to_read) {
-        LOGDEBUG << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
+        LOGTRACE << "Short read : [ " << std::dec << nread << " of " << to_read << "]";
         message.data_off += nread;
         return false;
     }
-    LOGTRACE << "Read " << nread << " bytes of data";
+    LOGDEBUG << "Read " << nread << " bytes of data";
     return true;
 }
 
