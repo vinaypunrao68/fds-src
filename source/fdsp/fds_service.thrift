@@ -1006,6 +1006,16 @@ struct CtrlObjectRebalanceInitialSet
     5: list<CtrlObjectMetaDataSync> objectsToSync
 }
 
+/* Object volume association */
+struct MetaDataVolumeAssoc
+{
+    /* object volume association */
+    1: i64 volumeAssoc  
+
+    /* reference count for volume association */
+    2: i32 volumeRefCnt
+}
+
 /* Object + Data + MetaData to be propogated to the destination SM from source SM*/
 struct CtrlObjectMetaDataPropagate
 {
@@ -1021,26 +1031,25 @@ struct CtrlObjectMetaDataPropagate
      */
     
     /* volume information */
-    4: i64              objectVolumeAssoc
-    5: i32              objectVolumeRefCnt
+    4: list<MetaDataVolumeAssoc> objectVolumeAssoc
     
     /* Compression type for this object */
-    6: i32              objectCompressType
+    5: i32              objectCompressType
 
     /* Size of data after compression */
-    7: i32              objectCompressLen
+    6: i32              objectCompressLen
 
     /* Object block size */
-    8: i32              objectBlkLen
+    7: i32              objectBlkLen
 
     /* object size */
-    9: i32              objectSize
+    8: i32              objectSize
 
     /* object flag */
-    10: i32              objectFlags
+    9: i32              objectFlags
     
     /* object expieration time */
-    11: i32              objectExpireTime    
+    10: i32              objectExpireTime    
 }
 
 struct CtrlObjectRebalanceDeltaSet
