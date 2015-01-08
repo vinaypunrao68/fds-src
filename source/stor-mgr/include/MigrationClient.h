@@ -5,9 +5,13 @@
 #ifndef SOURCE_STOR_MGR_INCLUDE_MIGRATIONCLIENT_H_
 #define SOURCE_STOR_MGR_INCLUDE_MIGRATIONCLIENT_H_
 
+#include <list>
+#include <map>
+
+#include <fds_types.h>
+#include <SmIo.h>
 
 namespace fds {
-
 
 /**
  * This is the client class for token migration.  This class is instantiated by the
@@ -51,7 +55,7 @@ class MigrationClient {
     void migClientAddDltTokens(fds_token_id dltToken);
 
     /**
-     * Add set of Object IDs and refcnt to the client map;
+     * Add set of Object IDs and refcnt to the client map
      */
     void migClientAddDestSet(fpi::CtrlObjectRebalanceInitialSetPtr &initialSet);
 
@@ -62,7 +66,7 @@ class MigrationClient {
 
   private:
     /**
-     * SM token to filter and send back
+     * SM token which is derived from the set of DLT tokens.
      */
     fds_token_id SMTokenID;
 
@@ -80,7 +84,7 @@ class MigrationClient {
      *              a list (or set) of object to filter against the source SM's
      *              token snapshot.
      */
-    std::map filterObjectsList;
+    std::map<ObjectID, uint64_t> filterObjectsList;
 
     /**
      * Current sequence number.  The number is increased sequently to determine
@@ -96,7 +100,7 @@ class MigrationClient {
      * destination SM node ID.  This is the SM Node ID that's requesting the
      * the set of objects associated with the
      */
-    NodeUuid destinationSMNodeID;
+    NodeUuid destSMNodeID;
 
     /**
      * Object data store handler.  Set during the initialization.
