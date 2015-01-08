@@ -13,8 +13,8 @@ describe( 'Testing the timeline settings', function(){
         var timelinePanel = viewPage.element( by.css( '.protection-policy' ));
         
         // sneaky way to scroll down
-        var editIcon = timelinePanel.element( by.css( '.icon-edit' ));
-        editIcon.click();
+//        var editIcon = timelinePanel.element( by.css( '.icon-edit' ));
+//        editIcon.click();
         
         // verify the value strings match what was passed in as the expected
         var labels = timelinePanel.all( by.css( '.value-label' ));

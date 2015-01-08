@@ -26,11 +26,13 @@ var en_US = {
         l_ok: 'OK',
         l_required: 'Required',
         l_save: 'Save',
+        l_search: 'Search',
         l_warning: 'Warning',
         l_yes: 'Yes',
         th_date: 'Date',
         th_data_type: 'Data Type',
         th_name: 'Name',
+        th_application: 'Application',
         
         //time labels
         l_30_days: '30 Days',

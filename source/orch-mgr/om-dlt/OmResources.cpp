@@ -1116,6 +1116,7 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
 Error
 OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
                                          fds_uint64_t dlt_version) {
+    LOGDEBUG << "Receiving migration done...";
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();

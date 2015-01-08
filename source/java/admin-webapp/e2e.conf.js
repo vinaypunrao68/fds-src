@@ -70,7 +70,8 @@ exports.config = {
     tenants: ['test/e2e/tenants/tenant_mgmt_spec.js'],
     snapshots: ['test/e2e/volumes/snapshot_spec.js'],
     users: ['test/e2e/users/*'],
-    timeline: ['test/e2e/volumes/timeline_spec.js']
+    timeline: ['test/e2e/volumes/timeline_spec.js'],
+    scale: ['test/e2e/volumes/sorting_searching_spec.js']
 
   },
 
@@ -128,7 +129,7 @@ exports.config = {
     // will be available. For example, you can add a Jasmine reporter with:
     //     jasmine.getEnv().addReporter(new jasmine.JUnitXmlReporter(
     //         'outputdir/', true, true));
-      browser.driver.manage().window().setSize(1200, 1000);
+      browser.driver.manage().window().setSize(1200, 2000);
   },
 
   // The params object will be passed directly to the protractor instance,
