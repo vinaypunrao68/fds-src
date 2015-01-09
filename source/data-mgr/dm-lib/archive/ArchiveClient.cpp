@@ -98,19 +98,43 @@ Error ArchiveClient::handle_actor_request(FdsActorRequestPtr req)
     return err;
 }
 
-void ArchiveClient::handlePutSnap_(ArchiveClPutReqPtr &putPayload)
+void ArchiveClient::populateSnapInfo_(const fds_volid_t &volId, const int64_t &snapId,
+                                     std::string &snapName,
+                                     std::string &snapDirPath,
+                                     std::string &snapPath)
 {
     std::stringstream ss;
+    /* Construct snap name */
+    ss << volId << "_" << snapId << ".tgz";
+    snapName = ss.str();
+    ss.str(std::string());
+
+    /* Construct snap dir path */
+    ss << snapDirBase_ << "/" << volId;
+    snapDirPath = ss.str();
+    ss.str(std::string());
+
+    /* Construct snap path */
+    ss << snapDirPath << "/" << snapName;
+    snapPath = ss.str();
+    ss.str(std::string());
+}
+
+void ArchiveClient::handlePutSnap_(ArchiveClPutReqPtr &putPayload)
+{
     // TODO(Rao:)
     // 1. Clean up the tar file and snap after upload is done
+    std::stringstream ss;
+    std::string snapName;
+    std::string snapDirPath;
+    std::string snapPath;
+    populateSnapInfo_(putPayload->volId, putPayload->snapId,
+                      snapName, snapDirPath, snapPath);
 
-    /* tar+zip the snapshot */
-    std::string snapDirName = dataMgrIf_->getSnapDirName(putPayload->volId, putPayload->snapId);
-    std::string snapDirPath = snapDirBase_ + "/" + snapDirName;
-    std::string snapName = snapDirName + ".tgz";
-    std::string snapPath = snapDirBase_ + "/" + snapName;
 
-    ss << "cd " << snapDirBase_ << "; tar czf " << snapName << " " << snapDirName;
+    /* Construct command to tar the file */
+    ss << "cd " << snapDirPath << "; ";
+    ss << "tar czf " << snapName << " " << putPayload->snapId;
     GLOGDEBUG << "cmd: " << ss.str();
     int retCode = std::system(ss.str().c_str());
     if (retCode != 0) {
@@ -136,15 +160,16 @@ void ArchiveClient::handlePutSnap_(ArchiveClPutReqPtr &putPayload)
 
 void ArchiveClient::handleGetSnap_(ArchiveClGetReqPtr &getPayload)
 {
-    std::stringstream ss;
-    std::string snapDirName = dataMgrIf_->getSnapDirName(getPayload->volId, getPayload->snapId);
-    std::string snapDirPath = snapDirBase_ + "/" + snapDirName;
-    std::string snapName = snapDirName + ".tgz";
-    std::string snapPath = snapDirBase_ + "/" + snapName;
-
     // TODO(Rao:)
     // 1. Clean up the tar file after untar is complete
     // 2. Make sure the snapshot doesn't exist as a dir or as a tar
+
+    std::stringstream ss;
+    std::string snapName;
+    std::string snapDirPath;
+    std::string snapPath;
+    populateSnapInfo_(getPayload->volId, getPayload->snapId,
+                      snapName, snapDirPath, snapPath);
 
     /* Download from s3 */
     std::string sysVolName = dataMgrIf_->getSysVolumeName(getPayload->volId);
@@ -158,7 +183,7 @@ void ArchiveClient::handleGetSnap_(ArchiveClGetReqPtr &getPayload)
     GLOGDEBUG << "download commpleted. snapName: " << snapName;
 
     /* untar snap */
-    ss << "cd " << snapDirBase_ << "; " << "tar xzf " << snapName;
+    ss << "cd " << snapDirPath << "; " << "tar xzf " << snapName;
     int retCode = std::system(ss.str().c_str());
     if (retCode != 0) {
         GLOGERROR << "Failed to untar snap.  volid: " << getPayload->volId << " snapid: "

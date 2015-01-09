@@ -75,6 +75,10 @@ struct ArchiveClient : FdsRequestQueueActor
     virtual Error handle_actor_request(FdsActorRequestPtr req) override;
 
  protected:
+    void populateSnapInfo_(const fds_volid_t &volId, const int64_t &snapId,
+                           std::string &snapName,
+                           std::string &snapDirPath,
+                           std::string &snapPath);
     void handlePutSnap_(ArchiveClPutReqPtr &putPayload);
     void handleGetSnap_(ArchiveClGetReqPtr &getPayload);
 

@@ -374,7 +374,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      */
     Error deleteSnapshot(const fds_uint64_t snapshotId);
 
-    virtual std::string getSnapDirBase() const;
+    virtual std::string getSnapDirBase() const override;
 
     Error deleteVolumeContents(fds_volid_t volId);
 

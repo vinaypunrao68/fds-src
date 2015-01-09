@@ -42,6 +42,9 @@ struct ArchiveClientTest : public ::testing::Test, DataMgrIf
         }
         /* Set snapshot base directory */
         snapDirBase_ = homeDir + "/snapdir";
+        boost::filesystem::remove_all(boost::filesystem::path(snapDirBase_));
+
+        /* remove any existing snapdir */
         /* Prepare a snapshot under snap base directory */
         boost::filesystem::path snapdir(getSnapDirName(volId, snapId));
         if (!boost::filesystem::create_directories(snapdir)) {
@@ -58,6 +61,10 @@ struct ArchiveClientTest : public ::testing::Test, DataMgrIf
     virtual std::string getSysVolumeName(const fds_volid_t &volId) const override
     {
         return "sysvol1";
+    }
+    virtual std::string getSnapDirBase() const override
+    {
+        return snapDirBase_;
     }
     virtual std::string getSnapDirName(const fds_volid_t &volId,
                                        const int64_t snapId) const override
@@ -89,7 +96,7 @@ TEST_F(ArchiveClientTest, put_get)
     archiveCl->connect("localhost:8000", "admin", "secret-key");
 
     /* put the file */
-    // EXPECT_EQ(archiveCl->putSnapSync(volId, snapId), ERR_OK);
+    EXPECT_EQ(archiveCl->putSnapSync(volId, snapId), ERR_OK);
     /* get the file */
     EXPECT_EQ(archiveCl->getSnapSync(volId, snapId), ERR_OK);
     /* Optional: make sure the contents match */
