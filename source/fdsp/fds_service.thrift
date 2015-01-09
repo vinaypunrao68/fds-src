@@ -566,7 +566,7 @@ struct CtrlNotifyDLTUpdate {
 
 /* ---------------------- CtrlNotifySMStartMigration --------------------------- */
 struct SMTokenMigrationGroup {
-     1: i64                       source;
+     1: SvcUuid                   source;
      2: list<i32>                 tokens;
 }
 
@@ -990,11 +990,17 @@ struct CtrlObjectMetaDataSync
  */
 struct CtrlObjectRebalanceInitialSet
 {
-    /* Token to be rebalance */
-    1: FDSP.FDSP_Token                    objectToken
+    /* DLT token to be rebalance */
+    1: FDSP.FDSP_Token              tokenId
     
     /* Set of objects to be sync'ed */
     2: list<CtrlObjectMetaDataSync> objectsToSync
+
+    /* sequence number */
+    3: i64 seqNum
+
+    /* true if this is the last message */
+    4: bool last
 }
 
 /* Response from the source SM to destination SM.  

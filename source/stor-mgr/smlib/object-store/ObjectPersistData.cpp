@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc. 
+ * Copyright 2014 Formation Data Systems, Inc.
  */
 
 #include <string>
@@ -19,7 +19,6 @@ ObjectPersistData::~ObjectPersistData() {
     // First destruct scavenger
     scavenger.reset();
     // Now close levelDBs
-    LOGDEBUG << "Closing tokenfiles";
     diskio::FilePersisDataIO* delFdesc = NULL;
     for (TokFileMap::iterator it = tokFileTbl.begin();
          it != tokFileTbl.end();
