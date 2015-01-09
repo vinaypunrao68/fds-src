@@ -523,7 +523,7 @@ public class QueryHelper {
     		linearRegression.addData( point.getX(), point.getY() );
     	});
     	
-    	Double secondsToFull = linearRegression.predict( systemCapacity );
+    	Double secondsToFull = systemCapacity / linearRegression.getSlope();
     	long days = TimeUnit.SECONDS.toDays( secondsToFull.longValue() );
     	
         final CapacityToFull to = new CapacityToFull();
