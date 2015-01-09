@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc. 
+ * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <string>
 #include <PerfTrace.h>
@@ -14,7 +14,6 @@ ObjectMetadataStore::ObjectMetadataStore(const std::string& modName)
 }
 
 ObjectMetadataStore::~ObjectMetadataStore() {
-    LOGDEBUG << "Destructing ObjectMetadataStore";
     metaDb_.reset();
 }
 

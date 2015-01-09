@@ -25,16 +25,17 @@ shift $((OPTIND-1))
 echo "no_sudo=$no_sudo, Leftovers: $@"
 
 if [ $# -eq 0 ]; then 
-    echo "Need to provide a hostname or groupname that is present in the ansible_hosts"
+    echo "Need to provide a valid inventory name" 
     exit 1
 fi
 
-hosts="$1"
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
-inventory=${script_dir}/../ansible_hosts
+inventory=${script_dir}/../inventory/${1}
 playbooks=${script_dir}/../playbooks
 
-ansible_args=" -i ${inventory} -e "target_hosts=${hosts}" ${playbooks}/deploy_config_files_only.yml"
+echo "INVENTORY: ${inventory}"
+
+ansible_args=" -i ${inventory} ${playbooks}/deploy_config_files_only.yml"
 if [ $no_sudo -eq 0 ]; then 
     ansible_args="$ansible_args -K"
 fi

@@ -89,7 +89,8 @@ $waterfall-slider-row-height: 38px;
                 pointer-events: none;
                 
                 &.solid-fill {
-                    background-color: #4294DF;
+                    background-image: none;
+                    background-color: $button_primary;
                     top: 8px;
                 }
             }
@@ -106,7 +107,7 @@ $waterfall-slider-row-height: 38px;
                 z-index: 2;
                 
                 &.grabbed {
-                    background-color: #4294DF;
+                    background-color: $button_primary;
                 }
             }
             

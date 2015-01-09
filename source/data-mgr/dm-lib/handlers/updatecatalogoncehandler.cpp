@@ -143,7 +143,7 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::UpdateCatalogOnceRspMsgTypeId, updcatRspMsg);
 
     if (dataMgr->testUturnAll || dataMgr->testUturnUpdateCat) {
-        fds_verify(dmRequest = nullptr);
+        fds_verify(dmRequest == nullptr);
     } else {
         // FIXME(DAC): Looks like a memory leak here.
         delete dmRequest;

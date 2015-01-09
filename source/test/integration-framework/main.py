@@ -17,6 +17,7 @@ import xmlrunner
 # Import the configuration file helper
 import config
 import fds
+import multinode
 import testsets.test_set as test_set
 import s3
 import testsets.testcases.fdslib.BringUpCfg as bringup
@@ -39,12 +40,13 @@ class Operation(object):
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    def __init__(self, test_sets_list):
+    def __init__(self, test_sets_list, args):
         self.test_sets = []
+        self.args = args
         self.fds_node = fds.FDS()
         self.current_dir = os.path.dirname(os.path.realpath(__file__))
         self.log_dir = os.path.join(self.current_dir, config.log_dir)
-        self.logger.info("Checking if the log directory")
+        self.logger.info("Checking if the log directory exists...")
         if not os.path.exists(self.log_dir):
             self.logger.info("Creating %s" % self.log_dir)
             os.makedirs(self.log_dir)
@@ -120,12 +122,23 @@ class Operation(object):
         Run all the test suits presented in this framework, but first check if
         all the fds processes are running.
         '''
-        if not self.fds_node.check_status():
-            self.fds_node.start_single_node()
-        #self.do_work()
+        if self.args.test == 'single':
+            if not self.fds_node.check_status():
+                self.fds_node.start_single_node()
+        elif self.args.test == 'multi':
+            if self.args.type == "aws":
+                if self.args.name == None:
+                    raise ValueError, "A name tag must be given to the AWS" \
+                                      "cluster"
+                cluster = multinode.Multinode(name=self.args.name, 
+                                              instance_count=self.args.count,
+                                              type=self.args.type)
+            elif self.args.type == "baremetal":
+                cluster = multinode.Multinode(type=self.args.type,
+                                              inventory=self.args.inventory)
         for ts in self.test_sets:
-                self.logger.info("Executing Test Set: %s" % ts.name)
-                self.runner.run(ts.suite)
+            self.logger.info("Executing Test Set: %s" % ts.name)
+            self.runner.run(ts.suite)
         
     def test_progress(self):
         pass
@@ -154,8 +167,7 @@ def main(args):
         raise ValueError("test_sets are required in the %s file" %
                          config.test_list)
         sys.exit(2)
-    print args
-    operation = Operation(data['test_sets'])
+    operation = Operation(data['test_sets'], args)
     operation.do_run()
 
 if __name__ == '__main__':
@@ -179,5 +191,28 @@ if __name__ == '__main__':
                          default=False,
                          help='Specify if a fresh install must be' \
                          ' performed')
+    parser.add_argument('-b', '--build', action='store_true',
+                        default='nightly',
+                        help='Specify if the build is local or nightly')
+    parser.add_argument('-c', '--count',
+                        default=1,
+                        help='Specify how many nodes will go to a multi node' \
+                        ' cluster.')
+    parser.add_argument('-t', '--type',
+                        default='baremetal',
+                        help='Specify if the cluster will be created using' \
+                        ' AWS or baremetal instances.')
+    parser.add_argument('-u', '--inventory',
+                        default=None,
+                        help='Define if user wants to use a different' \
+                        ' inventory than default.')
+    parser.add_argument('-x', '--test',
+                        default='single',
+                        help='Define if framework should run for single' \
+                        ' or multi node cluster')
+    parser.add_argument('-n', '--name',
+                        default=None,
+                        help='Specify a name of the cluster, if AWS a tag ' \
+                        'name must be given.')
     args = parser.parse_args()
     main(args)

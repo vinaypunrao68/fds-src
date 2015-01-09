@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <SmIo.h>
+#include <MigrationExecutor.h>
 
 namespace fds {
 
@@ -17,28 +18,57 @@ namespace fds {
  * on source and destination; SmTokenMigrationMgr mainly forwards
  * service layer messages to appropriate migrationExecutor or
  * migrationSource objects.
+ *
+ * Current protocol:
+ * On start migration message from OM, this migration manager (remember
+ * that this is a destination SM for given DLT tokens) will:
+ *    1) create a set of per-<SM token, source SM> migration executor objects
+ *    2) Picks the first SM token (for now we are doing one SM token at a time),
+ *       and submits qos request to create snapshot of SM token metadata
+ *    3) SmTokenMigrationMgr receives a callback when SM token metadata snapshot
+ *       is done with actual snapshot.
+ *    4) For each source SM that will migrate this SM token (one SM token may
+ *       contain multiple DLT tokens, for which different SMs are resposible to
+ *       migrate data to this SM), SmTokenMigrationMgr calls appropriate migration
+ *       executor's startObjectRebalance()
+ *    5) TBD
+ *    6) When set of migration executors responsible for current SM token finish
+ *       migration, SmTokenMigration picks another SM token and repeats steps 2-5
  */
 class SmTokenMigrationMgr {
   public:
-    SmTokenMigrationMgr();
+    explicit SmTokenMigrationMgr(SmIoReqHandler *dataStore);
     ~SmTokenMigrationMgr();
 
     typedef std::unique_ptr<SmTokenMigrationMgr> unique_ptr;
+    /// source SM -> MigrationExecutor object map
+    typedef std::unordered_map<NodeUuid, MigrationExecutor::unique_ptr, UuidHash> SrcSmExecutorMap;
+    /// SM token id -> [ source SM -> MigrationExecutor ]
+    typedef std::unordered_map<fds_token_id, SrcSmExecutorMap> MigrExecutorMap;
+
+    /**
+     * Matches OM state, just for sanity checks that we are getting
+     * messages from OM/SMs in the correct state...
+     */
+    enum MigrationState {
+        MIGR_IDLE,
+        MIGR_IN_PROGRESS
+    };
 
     /**
      * Handles start migration message from OM.
      * Creates MigrationExecutor object for each SM token, source SM
      * which initiate token migration
      */
-    Error startMigration(SmIoReqHandler *data_store,
-                         fpi::CtrlNotifySMStartMigrationPtr& migrationMsg);
+    Error startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+                         fds_uint32_t bitsPerDltToken);
 
     /**
      * Handle start object rebalance from destination SM
      */
-    Error startObjectRebalance(fds_token_id tokenId,
-                               std::vector<fpi::CtrlObjectMetaDataSync>& objToSync);
-
+    Error startObjectRebalance(fpi::CtrlObjectRebalanceInitialSetPtr& rebalSetMsg,
+                               const fpi::SvcUuid &executorSmUuid,
+                               fds_uint32_t bitsPerDltToken);
 
     /**
      * Ack from source SM when it receives the whole initial set of
@@ -65,7 +95,42 @@ class SmTokenMigrationMgr {
     Error handleDltClose();
 
   private:
-    /// <source SM uuid, SM token> map
+    /**
+     * Callback function from the metadata snapshot request for a particular SM token
+     */
+    void smTokenMetadataSnapshotCb(const Error& error,
+                                   SmIoSnapshotObjectDB* snapRequest,
+                                   leveldb::ReadOptions& options,
+                                   leveldb::DB *db);
+
+    /**
+     * Stops migration and sends ack with error to OM
+     */
+    void abortMigration(const Error& error);
+
+    /// state of migration manager
+    std::atomic<MigrationState> migrState;
+
+    /// SM token token that is currently in progress of migrating
+    /// TODO(Anna) make it more general if we want to migrate several
+    /// tokens at a time
+    fds_token_id smTokenInProgress;
+
+    /**
+     * pointer to SmIoReqHandler so we can queue work to QoS queues
+     * passed in constructor, does not own
+     */
+    SmIoReqHandler *smReqHandler;
+
+    /**
+     * Qos request to snapshot index db
+     */
+    SmIoSnapshotObjectDB snapshotRequest;
+
+    /// SM token id -> [ source SM -> MigrationExecutor ]
+    MigrExecutorMap migrExecutors;
+    /// so far we don't need a lock for the above map, becuase the actions
+    /// to update this map are serialized, and protected by mirgState
 };
 
 }  // namespace fds

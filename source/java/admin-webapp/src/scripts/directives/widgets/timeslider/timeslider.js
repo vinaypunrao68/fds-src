@@ -30,7 +30,7 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
             var endRange;
             
             var getWidth = function(){
-                // the 2 is for the border
+                
                 return $element.width() - endRangeWidth;
             };
             
@@ -83,12 +83,6 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
                     label.position = pos;
                     label.width = textWidth;
                     label.show = true;
-                    label.right = 0;
-                    
-                    if ( label.position + 2 > $element.width() && label.position < 10000){
-                        label.position = $element.width() - 2;
-                        label.right = label.width - 2;
-                    }
                     
                     for ( var j = 0; j < i; j++ ){
                         var otherLabel = $scope.domainLabels[j];
@@ -143,8 +137,8 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
                 min = min / divisor;
                 
                 // special allowence if the max is encompassed in a range with a width - could do the same for the min but won't right now.
-                if ( angular.isDefined( maxRange ) && angular.isDefined( maxRange.width ) && (maxRange.max  - maxRange.min) > 0 ){
-                    endRangeWidth = getWidth() * (maxRange.width / 100.0);
+                if ( angular.isDefined( maxRange ) && angular.isDefined( maxRange.pwidth ) && (maxRange.max  - maxRange.min) > 0 ){
+                    endRangeWidth = $element.width() * (maxRange.pwidth / 100.0);
                     endRange = maxRange;
                 }
                 
@@ -180,7 +174,7 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
             
             $scope.placeMe = function(){
                 var displayWidth = $($element.find( '.edit-box' )).width();
-                
+
                 if ( displayWidth + $scope.sliderPosition > getWidth() + endRangeWidth ){
                     return ($scope.sliderPosition - ((displayWidth + $scope.sliderPosition) - (getWidth() + endRangeWidth)) + 3*halfHandleWidth) + 'px';
                 }
@@ -270,7 +264,6 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
             };
             
             var init = function(){
-//                calculateScale();
                 calculateInitializationSettings();
                 placeDomainLabels();
             };
@@ -300,6 +293,8 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
                 $scope.sliderPosition = details.position;
                 $scope.selectedValue = details.value;
             });
+            
+            $scope.$watch( 'domainLabels', init );
             
             init();
             

@@ -52,3 +52,11 @@ params = {
 
 NUMBER_USERS = 30
 SAMPLE_FILE = "test.txt"
+ROOT = "/root/"
+ANSIBLE_ROOT = "../../../ansible/"
+EC2_TEMPLATE = "../templates/ec2"
+BAREMETAL_TEMPLATE = "./templates/baremetal"
+VAULT_PASS = ".vault_pass.txt"
+DESTROY_EC2 = "scripts/teardown_ec2_cluster.sh %s"
+START_EC2 = "scripts/deploy_fds_ec2.sh %s %s %s"
+START_BAREMETAL = "scripts/deploy_fds.sh %s %s"

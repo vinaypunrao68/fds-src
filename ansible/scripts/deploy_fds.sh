@@ -84,7 +84,7 @@ check_inventory() {
 
 check_auth() {
     # Test auth to target hosts
-    ansible-playbook ${ansible_args} --tags check_sudo > /dev/null 2>&1
+    cd ${ansible_base_dir} && ansible-playbook ${ansible_args} --tags check_sudo > /dev/null 2>&1
 
     if [ $? -eq 3 ]; then
         W "Problem connecting with inventory-defined credentials. Please provide credentials I can use to get your nodes deployment-ready:"
@@ -104,7 +104,7 @@ check_auth() {
 
 check_sudo() {
     # Check if user has passwordless sudo privileges
-    ansible-playbook ${ansible_args} --tags check_sudo > /dev/null 2>&1
+    cd ${ansible_base_dir} && ansible-playbook ${ansible_args} --tags check_sudo > /dev/null 2>&1
 
     if [ $? -eq 2 ]; then
         echo
@@ -123,11 +123,7 @@ check_sudo() {
 }
 
 run_deploy_playbook() {
-    for hostname in $(ansible all --list-hosts -i inventory/bld-nightly-nodes) ; 
-        do ssh-keygen -R ${hostname}
-    done
-
-    ansible-playbook ${ansible_args} -e "deploy_artifact=${deploy_source}" --skip-tags check_sudo
+    cd ${ansible_base_dir} && ansible-playbook ${ansible_args} -e "deploy_artifact=${deploy_source}" --skip-tags check_sudo --vault-password-file ~/.vault_pass.txt
 }
 
 check_environment

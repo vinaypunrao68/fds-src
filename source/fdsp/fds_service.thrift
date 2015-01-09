@@ -89,6 +89,8 @@ enum  FDSPMsgTypeId {
 	CtrlQueryScrubberStatusRespTypeId  = 2051,
 	CtrlSetScrubberStatusTypeId		   = 2052,
 	CtrlSetScrubberStatusRespTypeId	   = 2053,
+	CtrlNotifyMigrationFinishedTypeId  = 2054,
+	CtrlNotifyMigrationStatusTypeId	   = 2055,
 
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
@@ -473,6 +475,11 @@ struct CtrlStartMigration {
      1: FDSP.FDSP_DLT_Data_Type   dlt_data;
 }
 
+/* ----------------------  CtrlNotifyMigrationStatusTypeId  --------------------------- */
+struct CtrlNotifyMigrationStatus {
+     1: FDSP.FDSP_MigrationStatusType   status;
+}
+
 /* ---------------------  CtrlNotifyScavengerTypeId  --------------------------- */
 struct CtrlNotifyScavenger {
      1: FDSP.FDSP_ScavengerType   scavenger;
@@ -565,6 +572,7 @@ struct SMTokenMigrationGroup {
 
 struct CtrlNotifySMStartMigration {
      1: list<SMTokenMigrationGroup> migrations;
+	 2: i64							DLT_version;
 }
 
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
@@ -982,25 +990,17 @@ struct CtrlObjectMetaDataSync
  */
 struct CtrlObjectRebalanceInitialSet
 {
-    /* Token to be rebalance */
-    1: FDSP.FDSP_Token                    objectToken
+    /* DLT token to be rebalance */
+    1: FDSP.FDSP_Token              tokenId
     
     /* Set of objects to be sync'ed */
     2: list<CtrlObjectMetaDataSync> objectsToSync
-}
 
-/* Response from the source SM to destination SM.  
- * Notify the destination SM of the status and number objects to be sync'ed
- * This is an ack from source SM to destination SM after a set of delta set
- * of objects are computed (i.e. after source SM snapshot and filter).
- */
-struct CtrlObjectRebalanceInitialSetResp
-{
-    /* Response status */
-    1: i64      objRebalanceStatus
+    /* sequence number */
+    3: i64 seqNum
 
-    /* Number of objects to be sent from source SM to destination SM */
-    2: i64      objNum
+    /* true if this is the last message */
+    4: bool last
 }
 
 /* Object + Data + MetaData to be propogated to the destination SM from source SM*/
@@ -1037,16 +1037,21 @@ struct CtrlObjectMetaDataPropagate
 
 struct CtrlObjectRebalanceDeltaSet
 {
-    1: list<CtrlObjectMetaDataPropagate> objectToPropogate
-}
+    /* sequence number of the delta set.  It's not important to handle
+     * delta set sent from the source SM to the destination SM, but it's
+     * important 
+     */
+    1: i64      seqNum
 
-struct CtrlObjectRebalanceDeltaSetResp
-{
-    /* Response status */
-    1: i64      objRebalanceDeltaStatus
+    /* boolean state to indicate that the whether this set is the last one
+     * or noe.
+     */
+    2: bool     lastSet
 
-    /* Number of object synced from source SM to destination SM */
-    2: i64      objNumSynced
+    /* set of objects, which consists of data + metadata, to be applied 
+     * at the destination SM.
+     */
+    3: list<CtrlObjectMetaDataPropagate> objectToPropogate
 }
 
 #endif
