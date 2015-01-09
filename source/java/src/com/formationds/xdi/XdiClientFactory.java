@@ -11,10 +11,12 @@ import com.formationds.am.Main;
 import com.formationds.apis.AmService;
 import com.formationds.apis.AmService.AsyncIface;
 import com.formationds.apis.AsyncAmServiceRequest;
+import com.formationds.apis.AsyncAmServiceRequest.Client;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.apis.RequestId;
 import com.formationds.util.async.AsyncResourcePool;
+import com.formationds.util.thrift.AmServiceClientFactory;
 import com.formationds.util.thrift.ConfigServiceClientFactory;
 import com.formationds.util.thrift.ConnectionSpecification;
 import com.formationds.util.thrift.ThriftAsyncResourceImpl;
@@ -48,15 +50,10 @@ public class XdiClientFactory {
     public XdiClientFactory(int amResponsePort) {
         this.amResponsePort = amResponsePort;
 
-        configService = new ConfigServiceClientFactory(1000, 0, 30000);
-        amService = new ThriftClientFactory<AmService.Iface>(1000, 0, 30000) {
-            @Override
-            protected GenericKeyedObjectPool<ConnectionSpecification, ThriftClientConnection<AmService.Iface>> createClientPool() {
-                ThriftClientConnectionFactory<AmService.Iface> amFactory =
-                    new ThriftClientConnectionFactory<>(proto -> new AmService.Client(proto));
-                return new GenericKeyedObjectPool<>(amFactory, getConfig());
-            }
-        };
+        configService = ConfigServiceClientFactory.newConfigService();
+        legacyConfigService = ConfigServiceClientFactory.newLegacyConfigService();
+
+        amService = AmServiceClientFactory.newAmService();
 
         ThriftClientConnectionFactory<AsyncAmServiceRequest.Iface> onewayAmFactory =
             new ThriftClientConnectionFactory<>(proto -> {
@@ -70,33 +67,7 @@ public class XdiClientFactory {
                 return client;
             });
 
-        onewayAmService = new ThriftClientFactory<AsyncAmServiceRequest.Iface>(1000, 0, 30000) {
-            @Override
-            protected GenericKeyedObjectPool<ConnectionSpecification, ThriftClientConnection<AsyncAmServiceRequest.Iface>> createClientPool() {
-                ThriftClientConnectionFactory<AsyncAmServiceRequest.Iface> amFactory =
-                    new ThriftClientConnectionFactory<>(proto -> new AsyncAmServiceRequest.Client(proto));
-                return new GenericKeyedObjectPool<>(amFactory, getConfig());
-            }
-        };
-
-        legacyConfigService = new ThriftClientFactory<FDSP_ConfigPathReq.Iface>(1000, 0, 30000) {
-            @Override
-            protected GenericKeyedObjectPool<ConnectionSpecification, ThriftClientConnection<FDSP_ConfigPathReq.Iface>> createClientPool() {
-                ThriftClientConnectionFactory<FDSP_ConfigPathReq.Iface> legacyConfigFactory =
-                    new ThriftClientConnectionFactory<>(proto -> {
-                        FDSP_Service.Client client = new FDSP_Service.Client(proto);
-                        FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
-                        try {
-                            FDSP_SessionReqResp response = client.EstablishSession(msg);
-                        } catch (TException e) {
-                            LOG.error("Error establishing legacy FDSP_ConfigPathReq handshake", e);
-                            throw new RuntimeException();
-                        }
-                        return new FDSP_ConfigPathReq.Client(proto);
-                    });
-                return new GenericKeyedObjectPool<>(legacyConfigFactory, getConfig());
-            }
-        };
+        onewayAmService = AmServiceClientFactory.newOneWayAsyncAmService();
     }
 
     public ConfigurationService.Iface remoteOmService(String host, int port) {

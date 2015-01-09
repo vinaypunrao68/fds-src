@@ -7,10 +7,11 @@ import com.formationds.apis.User;
 import com.formationds.commons.model.type.Feature;
 import com.formationds.commons.model.type.IdentityType;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authenticator;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -23,12 +24,14 @@ import java.util.List;
 import java.util.Map;
 
 public class GrantToken implements RequestHandler {
-    private Xdi xdi;
-    private SecretKey key;
+    private Authenticator authenticator;
+    private ConfigurationApi config;
+    private SecretKey        key;
 
-    public GrantToken(Xdi xdi, SecretKey key) {
-        this.xdi = xdi;
+    public GrantToken(ConfigurationApi config, Authenticator auth, SecretKey key) {
+        this.config = config;
         this.key = key;
+        this.authenticator = auth;
     }
 
     @Override
@@ -37,18 +40,17 @@ public class GrantToken implements RequestHandler {
         String password = requiredString(request, "password");
 
         final List<String> features = new ArrayList<>();
-        for( final Feature feature : Feature.byRole( IdentityType.USER ) ) {
-          features.add( feature.name() );
+        for (final Feature feature : Feature.byRole(IdentityType.USER)) {
+            features.add(feature.name());
         }
 
         try {
-            AuthenticationToken token = xdi.getAuthenticator()
-                                           .authenticate(login, password);
-            final User user = xdi.getAuthorizer().userFor( token );
+            AuthenticationToken token = authenticator.authenticate(login, password);
+            final User user = config.userFor(token);
             if (user.isIsFdsAdmin()) {
-              features.clear();
-              for( final Feature feature : Feature.byRole( IdentityType.ADMIN ) ) {
-                features.add( feature.name() );
+                features.clear();
+                for (final Feature feature : Feature.byRole(IdentityType.ADMIN)) {
+                    features.add( feature.name() );
               }
             }
 

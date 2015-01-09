@@ -2,7 +2,6 @@ package com.formationds.security;
 
 import com.formationds.apis.User;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.xdi.CachedConfiguration;
 import com.google.common.collect.Lists;
 import org.junit.Before;
 import org.junit.Test;

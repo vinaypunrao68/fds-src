@@ -10,7 +10,7 @@ import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_VolumeDescType;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.om.helper.SingletonXdi;
+import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.JsonResource;
@@ -67,11 +67,9 @@ public class SetVolumeQosParams implements RequestHandler {
         JSONObject o =
             ListVolumes.toJsonObject(descriptor,
                                      volInfo,
-                             // TODO figure out how to get the current usages!
-                                     SingletonXdi.instance().api().statVolume( token,
-//                                     configService.statVolume(
-                                         "",
-                                         volumeName) );
+                                     // TODO figure out how to get the current usages!
+                                     SingletonAmAPI.instance().api().volumeStatus("",
+                                                                                  volumeName) );
         return new JsonResource(o);
     }
 

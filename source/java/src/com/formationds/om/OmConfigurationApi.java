@@ -11,6 +11,7 @@ import com.formationds.om.events.EventManager;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.streaming.StreamingRegistrationMsg;
 import com.formationds.util.thrift.ConfigServiceClientFactory;
+import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
@@ -127,10 +128,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         }
     }
 
-    private final ConfigServiceClientFactory  configClientFactory;
+    private final ThriftClientFactory<ConfigurationService.Iface>  configClientFactory;
     private final ConcurrentHashMap<Long, ConfigurationCache> map;
 
-    public OmConfigurationApi(ConfigServiceClientFactory configClientFactory) throws Exception {
+    public OmConfigurationApi(ThriftClientFactory<Iface> configClientFactory) throws Exception {
         this.configClientFactory = configClientFactory;
 
         map = new ConcurrentHashMap<>();

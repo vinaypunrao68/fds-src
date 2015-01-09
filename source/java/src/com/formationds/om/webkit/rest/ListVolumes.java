@@ -14,12 +14,13 @@ import com.formationds.apis.VolumeStatus;
 import com.formationds.apis.VolumeType;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authorizer;
 import com.formationds.util.JsonArrayCollector;
 import com.formationds.util.Size;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.Xdi;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
@@ -33,24 +34,28 @@ import java.util.Optional;
 public class ListVolumes implements RequestHandler {
     private static final Logger LOG = Logger.getLogger(ListVolumes.class);
 
-    private Xdi xdi;
     private AmService.Iface amApi;
+    private ConfigurationApi config;
     private FDSP_ConfigPathReq.Iface legacyConfig;
     private AuthenticationToken token;
+    private Authorizer authorizer;
 
     private static DecimalFormat df = new DecimalFormat("#.00");
 
-    public ListVolumes( Xdi xdi, AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
-        this.xdi = xdi;
+    public ListVolumes( Authorizer authorizer, ConfigurationApi config,  AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token ) {
+        this.config = config;
         this.amApi = amApi;
         this.legacyConfig = legacyConfig;
         this.token = token;
+        this.authorizer = authorizer;
     }
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        JSONArray jsonArray = xdi.listVolumes(token, "")
+        String domain = ""; // not yet supported
+        JSONArray jsonArray = config.listVolumes(domain)
                 .stream()
+                .filter(v -> authorizer.hasAccess(token, v.getName()))
                 .map(v -> {
                     try {
                         return toJsonObject(v);
