@@ -19,6 +19,38 @@ fds: {
 
     disable_qos = false
 
+    /* Feature toggles, use "common:" for features that propogate across components */
+    feature_toggle: {
+        common: {
+            enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
+
+            java_is_fussy_evidentally_an_entry_must_exist_here = true
+        }
+        plat: {
+            use_disk_hints = {{ ft_platform_use_disk_hints }}
+            force_simulation_mode = {{ ft_platform_force_simulation_mode }}
+
+            java_is_fussy_evidentally_an_entry_must_exist_here = true
+        }
+        dm: {
+            java_is_fussy_evidentally_an_entry_must_exist_here = true
+        }
+        sm: {
+            java_is_fussy_evidentally_an_entry_must_exist_here = true
+        }
+        am: {
+            java_is_fussy_evidentally_an_entry_must_exist_here = true
+        }
+        om: {
+            java_is_fussy_evidentally_an_entry_must_exist_here = true
+        }
+    }
+
+    /* Use this section for settings that are shared (or needed) by most or all processes */
+    common: {
+        om_ip_list = "{{ om_ip_1 }}:{{ om_ip_2 }}:{{ om_ip_3 }}:{{ om_ip_4 }}"
+    }
+
     plat: {
         /* process id */
         id = "auto"
@@ -193,7 +225,7 @@ fds: {
 
             /* enable simulated latency with its timueout value */
             enable_mocking = false
-            mocktimeout = 500   
+            mocktimeout = 500
             /* enable if testing SM standalone, no dependency on platform and OM */
             standalone = false
 
@@ -299,7 +331,7 @@ fds: {
             toggleStandAlone = false
 
             /* Toggle to disable stats collection for metadata streaming */
-            toggleDisableStreamingStats = {{ am_testing_toggleDisableStreamingStats }} 
+            toggleDisableStreamingStats = {{ am_testing_toggleDisableStreamingStats }}
 
             /* NBD module driver */
             nbd_vol_module = "sm"
@@ -309,7 +341,7 @@ fds: {
             /* Forces all AM dispatcher APIs to immediately return success */
             uturn_dispatcher_all = false
             /* dipatchers timeout in us */
-            uturn_dispatcher_timeout = 200 
+            uturn_dispatcher_timeout = 200
             /* Test mode to bypass local catalog cache */
             disable_vcc = true
             /* Forces all AM service APIs to immediately return success */
@@ -370,6 +402,11 @@ fds: {
             min_thread  = 8
             max_thread  = 10
         }
+
+        snmp: {
+            targetip = "127.0.0.1"
+            community = "public"
+        }
     }
     checker: {
         id = "checker"
@@ -396,7 +433,7 @@ fds: {
             max_thread  = 8
         }
     }
-    
+
     xdi: {
 	am_host = "{{ am_host }}"
     }

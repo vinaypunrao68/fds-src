@@ -51,8 +51,9 @@ class ConfigData:
     '''
     def __init__(self,data):
         self.__data = data
+        self.checkDefaults()
 
-    def init(self):
+    def checkDefaults(self):
         defaults = {
             KEY_ACCESSLEVEL: AccessLevel.USER,
             KEY_HOST : '127.0.0.1',
@@ -66,6 +67,8 @@ class ConfigData:
             if None == self.getSystem(key):
                 self.setSystem(key, defaults[key])
 
+    def init(self):
+        self.checkDefaults()
         self.rest = restendpoint.RestEndpoint(self.getHost(), 7443, user=self.getUser(), password=self.getPass(), auth=False)
         token = self.rest.login(self.getUser(), self.getPass())
         if not token:

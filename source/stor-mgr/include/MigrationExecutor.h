@@ -7,68 +7,58 @@
 
 #include <memory>
 #include <mutex>
-#include <condition_variable>
+#include <set>
 
 #include <fds_types.h>
-
-#include <persistent-layer/dm_io.h>
-
-#include <ObjMeta.h>
 #include <SmIo.h>
 
 namespace fds {
 
 class MigrationExecutor {
   public:
-    explicit MigrationExecutor(SmIoReqHandler *_dataStore,
-                               uint64_t _sourceNodeID,
-                               fds_token_id _smTokenId);
+    MigrationExecutor(SmIoReqHandler *_dataStore,
+                      fds_uint32_t bitsPerToken,
+                      const NodeUuid& srcSmId,
+                      fds_token_id smTokId);
     ~MigrationExecutor();
 
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;
 
     /**
+     * Adds DLT token to the list of DLT tokens for which this
+     * MigrationExecutor is responsible for
+     */
+    void addDltToken(fds_token_id dltTok);
+
+    /**
      * Start the object rebalance.  The rebalance inintiated by the
      * destination SM.
      */
-    Error startObjectRebalance();
+    Error startObjectRebalance(leveldb::ReadOptions& options,
+                               leveldb::DB *db);
 
   private:
-    /**
-     * Callback function from the metadata snapshot request.  After
-     * the snapshot, generate the set of objects to rebalanc/sync.
-     */
-    void getObjectRebalanceSet(const Error& error,
-                               SmIoSnapshotObjectDB* snapRequest,
-                               leveldb::ReadOptions& options,
-                               leveldb::DB *db);
     /**
      * Object data store handler.  Set during the initialization.
      */
     SmIoReqHandler *dataStore;
 
     /**
-     * Request to snapshot metadata DB for the assigned token.
-     */
-    SmIoSnapshotObjectDB snapshotRequest;
-
-    /**
      * Source SM id
      */
-    NodeUuid sourceSMNodeID;
+    NodeUuid sourceSmUuid;
 
     /**
-     * Token to migration from the source SM node.
+     * SM Token to migration from the source SM node.
      */
-    fds_token_id tokenID;
+    fds_token_id smTokenId;
 
     /**
-     * metadata snapshot is done by another thread's context, so requires
-     * a set of synchronization to wait until the snapshot is complete.
+     * Set of DLT tokens that needs to be migrated from source SM
+     * SM token contains one or more DLT tokens
      */
-    std::mutex metadataSnapshotMutex;
-    std::condition_variable metadataSnapshotCondVar;
-    bool metadataSnapshotCompleted;
+    std::set<fds_token_id> dltTokens;
+    fds_uint32_t bitsPerDltToken;
 };
 
 }  // namespace fds

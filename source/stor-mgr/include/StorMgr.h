@@ -47,6 +47,7 @@
 #include "fdsp/SMSvc.h"
 
 #include <object-store/ObjectStore.h>
+#include <TokenMigrationMgr.h>
 
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
@@ -98,6 +99,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      /// Manager of persistent object storage
      ObjectStore::unique_ptr objectStore;
+     /// Manager of token migration
+     SmTokenMigrationMgr::unique_ptr migrationMgr;
 
      /*
       * FDSP RPC members
