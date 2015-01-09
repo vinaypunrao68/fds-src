@@ -123,7 +123,7 @@ public class Xdi {
 
     public String getSystemVolumeName(AuthenticationToken token) throws SecurityException {
         long tenantId = authorizer.tenantId(token);
-        return ConfigurationApi.systemFolderName(tenantId);
+        return XdiConfigurationApi.systemFolderName(tenantId);
     }
 
     public void setMetadata(AuthenticationToken token, String domain, String volume, String blob, HashMap<String, String> metadataMap) throws TException {

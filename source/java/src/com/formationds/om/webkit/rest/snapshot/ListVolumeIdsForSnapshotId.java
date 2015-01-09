@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
 
@@ -21,26 +20,26 @@ public class ListVolumeIdsForSnapshotId
   implements RequestHandler {
 
   private static final String REQ_PARAM_POLICY_ID = "policyId";
-  private ConfigurationApi config;
+  private com.formationds.util.thrift.ConfigurationApi config;
 
-  public ListVolumeIdsForSnapshotId( final ConfigurationApi config ) {
+  public ListVolumeIdsForSnapshotId(final com.formationds.util.thrift.ConfigurationApi config) {
     this.config = config;
   }
 
   @Override
-  public Resource handle( final Request request,
-                          final Map<String, String> routeParameters )
-    throws Exception {
+  public Resource handle(final Request request,
+                         final Map<String, String> routeParameters)
+      throws Exception {
     final ObjectMapper mapper = new ObjectMapper();
     final List<Long> volumeIds = new ArrayList<>();
-    final long policyId = requiredLong( routeParameters,
-                                        REQ_PARAM_POLICY_ID );
+    final long policyId = requiredLong(routeParameters,
+                                       REQ_PARAM_POLICY_ID);
 
-    volumeIds.addAll( config.listVolumesForSnapshotPolicy( policyId ) );
-    if( volumeIds.isEmpty() ) {
-      return new JsonResource( new JSONArray( volumeIds ) );
+    volumeIds.addAll(config.listVolumesForSnapshotPolicy(policyId));
+    if (volumeIds.isEmpty()) {
+      return new JsonResource(new JSONArray(volumeIds));
     }
 
-    return new JsonResource( new JSONArray( mapper.writeValueAsString( volumeIds ) ) );
+    return new JsonResource(new JSONArray(mapper.writeValueAsString(volumeIds) ) );
   }
 }

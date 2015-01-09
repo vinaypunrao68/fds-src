@@ -8,7 +8,6 @@ package com.formationds.om.webkit.rest.snapshot;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -17,20 +16,20 @@ import java.util.Map;
 public class RestoreSnapshot implements RequestHandler {
     private static final String REQ_PARAM_VOLUME_ID = "volumeId";
     private static final String REQ_PARAM_POLICY_ID = "policyId";
-    private ConfigurationApi config;
+    private com.formationds.util.thrift.ConfigurationApi config;
 
-    public RestoreSnapshot(final ConfigurationApi config) {
+    public RestoreSnapshot(final com.formationds.util.thrift.ConfigurationApi config) {
         this.config = config;
     }
 
     @Override
     public Resource handle(final Request request,
                            final Map<String, String> routeParameters)
-            throws Exception {
+        throws Exception {
 
         config.restoreClone(
-                requiredLong(routeParameters, REQ_PARAM_VOLUME_ID),
-                requiredLong(routeParameters, REQ_PARAM_POLICY_ID));
+                               requiredLong(routeParameters, REQ_PARAM_VOLUME_ID),
+                               requiredLong(routeParameters, REQ_PARAM_POLICY_ID));
 
         return new JsonResource(new JSONObject().put("status", "OK"));
     }

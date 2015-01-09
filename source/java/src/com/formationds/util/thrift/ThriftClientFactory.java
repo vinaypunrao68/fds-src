@@ -22,6 +22,13 @@ abstract public class ThriftClientFactory<IF> {
     protected static final Logger LOG = Logger.getLogger(ThriftClientFactory.class);
 
     /**
+     * Build a remote proxy for invoking a thrift service Api.  Calls to the remote proxy
+     * service interface will borrow a connection from the underlying pool, execute the
+     * requested service method, and the connection will immediately return back to the pool.
+     * <p/>
+     * The pool is created with client connection factory that ensures new connections are
+     * created and added to the pool as needed.
+     *
      * @param klass
      * @param pool
      * @param host
@@ -58,16 +65,16 @@ abstract public class ThriftClientFactory<IF> {
         return result;
     }
 
-    /**
-     * @return the thrift service interface class.
-     */
-    private Class<IF> getThriftServiceIFaceClass() {
-        return (Class<IF>) ((ParameterizedType)getClass().getGenericSuperclass())
-                                          .getActualTypeArguments()[0];
-    }
-
     private final GenericKeyedObjectPoolConfig config = new GenericKeyedObjectPoolConfig();
     private final GenericKeyedObjectPool<ConnectionSpecification, ThriftClientConnection<IF>> clientPool;
+
+    public static final int DEFAULT_MAX_POOL_SIZEe = 1000;
+    public static final int DEFAULT_MIN_IDLE = 0;
+    public static final long DEFAULT_MIN_EVICTION_IDLE_TIME_MS = 30000;
+
+    protected ThriftClientFactory() {
+        this(DEFAULT_MAX_POOL_SIZEe, DEFAULT_MIN_IDLE, DEFAULT_MIN_EVICTION_IDLE_TIME_MS);
+    }
 
     /**
      * @param maxPoolSize
@@ -112,13 +119,21 @@ abstract public class ThriftClientFactory<IF> {
     }
 
     /**
-     * Make a connection to the specified host and port and return the thrift service interface
+     * Make a connection to the specified host and port and returns the thrift service interface
      * @param host
      * @param port
      *
      * @return a proxy to the thrift service.
      */
-    public IF connect(String host, int port) {
+    public IF getClient(String host, int port) {
         return buildRemoteProxy(host, port);
+    }
+
+    /**
+     * @return the thrift service interface class.
+     */
+    private Class<IF> getThriftServiceIFaceClass() {
+        return (Class<IF>) ((ParameterizedType)getClass().getGenericSuperclass())
+                               .getActualTypeArguments()[0];
     }
 }

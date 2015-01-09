@@ -85,7 +85,7 @@ public class Main {
         AmService.Iface am = useFakeAm ? new FakeAmService() :
                 clientFactory.remoteAmService(amHost, 9988 + amInstanceId);
 
-        ConfigurationApi configCache = new ConfigurationApi(clientFactory.remoteOmService(omHost, omConfigPort));
+        XdiConfigurationApi configCache = new XdiConfigurationApi(clientFactory.remoteOmService(omHost, omConfigPort));
         boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
         Authenticator authenticator = enforceAuth ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
         Authorizer authorizer = enforceAuth ? new FdsAuthorizer(configCache) : new DumbAuthorizer();

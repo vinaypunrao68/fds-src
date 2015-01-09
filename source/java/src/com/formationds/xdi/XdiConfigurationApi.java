@@ -7,7 +7,9 @@ package com.formationds.xdi;
 import com.formationds.apis.*;
 import com.formationds.commons.events.*;
 import com.formationds.om.events.EventManager;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.streaming.StreamingRegistrationMsg;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
@@ -15,18 +17,20 @@ import org.apache.thrift.TException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 // TODO: authorize here
-public class ConfigurationApi implements ConfigurationService.Iface, Supplier<CachedConfiguration> {
-    private static final Logger LOG = Logger.getLogger(ConfigurationApi.class);
-    private static final long KEY = 0;
-    private final ConfigurationService.Iface config;
+public class XdiConfigurationApi implements ConfigurationApi, ConfigurationService.Iface, Supplier<CachedConfiguration> {
+    private static final Logger LOG = Logger.getLogger(XdiConfigurationApi.class);
+    private static final long   KEY = 0;
+    private final ConfigurationService.Iface                   config;
     private final ConcurrentHashMap<Long, CachedConfiguration> map;
 
-    public ConfigurationApi(ConfigurationService.Iface config) throws Exception {
+    public XdiConfigurationApi(ConfigurationService.Iface config) throws Exception {
         this.config = config;
         map = new ConcurrentHashMap<>();
         map.compute(KEY, (k, v) -> {
@@ -44,11 +48,10 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
         return "SYSTEM_VOLUME_" + tenantId;
     }
 
-
     enum ConfigEvent implements EventDescriptor {
 
-      CREATE_TENANT(EventCategory.VOLUMES, "Created tenant {0}", "identifier"),
-      CREATE_USER(EventCategory.SYSTEM, "Created user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
+        CREATE_TENANT(EventCategory.VOLUMES, "Created tenant {0}", "identifier"),
+        CREATE_USER(EventCategory.SYSTEM, "Created user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
       UPDATE_USER(EventCategory.SYSTEM, "Updated user {0} - admin={1}; id={2}", "identifier", "isFdsAdmin", "userId"),
       ASSIGN_USER_TENANT(EventCategory.SYSTEM, "Assigned user {0} to tenant {1}", "userId", "tenantId"),
       REVOKE_USER_TENANT(EventCategory.SYSTEM, "Revoked user {0} from tenant {1}", "userId", "tenantId"),
@@ -106,6 +109,41 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
         apisPolicy.setTimelineTime(timelineTime);
 
         return createSnapshotPolicy(apisPolicy);
+    }
+
+    @Override
+    public Collection<User> listUsers() {
+        return null;
+    }
+
+    @Override
+    public Optional<Tenant> tenantFor(long userId) {
+        return null;
+    }
+
+    @Override
+    public Long tenantId(long userId) throws SecurityException {
+        return null;
+    }
+
+    @Override
+    public boolean hasAccess(long userId, String volumeName) {
+        return false;
+    }
+
+    @Override
+    public User userFor(AuthenticationToken token) throws SecurityException {
+        return null;
+    }
+
+    @Override
+    public User getUser(long userId) {
+        return null;
+    }
+
+    @Override
+    public User getUser(String login) {
+        return null;
     }
 
     @Override

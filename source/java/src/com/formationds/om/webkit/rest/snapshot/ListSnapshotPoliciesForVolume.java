@@ -11,7 +11,6 @@ import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.xdi.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
 import org.slf4j.Logger;
@@ -28,35 +27,35 @@ public class ListSnapshotPoliciesForVolume
         LoggerFactory.getLogger( ListSnapshotPoliciesForVolume.class );
 
     private static final String REQ_PARAM_VOLUME_ID = "volumeId";
-    private ConfigurationApi config;
+    private com.formationds.util.thrift.ConfigurationApi config;
 
-    public ListSnapshotPoliciesForVolume( final ConfigurationApi config ) {
+    public ListSnapshotPoliciesForVolume(final com.formationds.util.thrift.ConfigurationApi config) {
         this.config = config;
     }
 
     @Override
     public Resource handle(final Request request, final Map<String, String> routeParameters)
-            throws Exception {
-        final long volumeId = requiredLong( routeParameters,
-                                            REQ_PARAM_VOLUME_ID );
+        throws Exception {
+        final long volumeId = requiredLong(routeParameters,
+                                           REQ_PARAM_VOLUME_ID);
 
         final List<com.formationds.apis.SnapshotPolicy> _policies =
-          config.listSnapshotPoliciesForVolume(volumeId);
-        if( _policies == null || _policies.isEmpty() ) {
-          return new JsonResource( new JSONArray( new ArrayList<>() ) );
+            config.listSnapshotPoliciesForVolume(volumeId);
+        if (_policies == null || _policies.isEmpty()) {
+            return new JsonResource(new JSONArray(new ArrayList<>()));
         }
 
-      final List<SnapshotPolicy> policies = new ArrayList<>();
+        final List<SnapshotPolicy> policies = new ArrayList<>();
     /*
      * process each thrift snapshot policy, and map it to the object model
      * version
      */
-      _policies.stream()
-               .forEach( ( p ) -> {
-                 final SnapshotPolicy modelPolicy = new SnapshotPolicy();
+        _policies.stream()
+                 .forEach((p) -> {
+                     final SnapshotPolicy modelPolicy = new SnapshotPolicy();
 
-                 modelPolicy.setId( p.getId() );
-                 modelPolicy.setName( p.getPolicyName() );
+                     modelPolicy.setId(p.getId());
+                     modelPolicy.setName(p.getPolicyName() );
                    try {
                        modelPolicy.setRecurrenceRule( p.getRecurrenceRule() );
                    } catch( ParseException e ) {

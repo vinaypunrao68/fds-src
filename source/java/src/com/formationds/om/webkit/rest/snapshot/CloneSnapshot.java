@@ -11,7 +11,6 @@ import com.formationds.om.webkit.rest.SetVolumeQosParams;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.ConfigurationApi;
 import com.google.gson.GsonBuilder;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -29,38 +28,37 @@ public class CloneSnapshot
 
   private static final String REQ_PARAM_SNAPSHOT_ID = "snapshotId";
   private static final String REQ_PARAM_CLONE_VOLUME_NAME = "cloneVolumeName";
-  private ConfigurationApi config;
-  private FDSP_ConfigPathReq.Iface legacyConfigPath;
+  private com.formationds.util.thrift.ConfigurationApi config;
+  private FDSP_ConfigPathReq.Iface                     legacyConfigPath;
 
-  public CloneSnapshot( final ConfigurationApi config,
-                        final FDSP_ConfigPathReq.Iface legacyConfigPath ) {
-    this.config = config;
-    this.legacyConfigPath = legacyConfigPath;
+    public CloneSnapshot(final com.formationds.util.thrift.ConfigurationApi config,
+                         final FDSP_ConfigPathReq.Iface legacyConfigPath) {
+        this.config = config;
+        this.legacyConfigPath = legacyConfigPath;
+    }
 
-  }
+    @Override
+    public Resource handle(final Request request,
+                           final Map<String, String> routeParameters)
+        throws Exception {
 
-  @Override
-  public Resource handle( final Request request,
-                          final Map<String, String> routeParameters )
-    throws Exception {
+        long clonedSnapshotId;
+        try (final Reader reader =
+                 new InputStreamReader(request.getInputStream(), "UTF-8")) {
 
-    long clonedSnapshotId;
-    try( final Reader reader =
-           new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
+            final Volume volume = new GsonBuilder().create()
+                                                   .fromJson(reader,
+                                                             Volume.class);
+            logger.trace("CLONE SNAPSHOT:VOLUME: {}", volume);
 
-      final Volume volume = new GsonBuilder().create()
-                                             .fromJson( reader,
-                                                        Volume.class );
-      logger.trace( "CLONE SNAPSHOT:VOLUME: {}", volume );
+            final String name = requiredString(routeParameters,
+                                               REQ_PARAM_CLONE_VOLUME_NAME);
+            final long snapshotId = requiredLong(routeParameters,
+                                                 REQ_PARAM_SNAPSHOT_ID);
+            logger.trace("CLONE SNAPSHOT:NAME {} ID {}", name, snapshotId);
 
-      final String name = requiredString( routeParameters,
-                                          REQ_PARAM_CLONE_VOLUME_NAME );
-      final long snapshotId = requiredLong( routeParameters,
-                                            REQ_PARAM_SNAPSHOT_ID );
-      logger.trace( "CLONE SNAPSHOT:NAME {} ID {}", name, snapshotId );
-
-      clonedSnapshotId = config.cloneVolume(
-        snapshotId,
+            clonedSnapshotId = config.cloneVolume(
+                                                     snapshotId,
         0L,       // optional parameter so setting it to zero!
         name, 0L);
 

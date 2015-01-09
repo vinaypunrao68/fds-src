@@ -10,7 +10,6 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.ConfigurationApi;
 import com.google.gson.reflect.TypeToken;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -31,22 +30,22 @@ public class IngestVolumeStats
     new TypeToken<List<VolumeDatapoint>>() {
     }.getType();
 
-  private final ConfigurationApi config;
+  private final com.formationds.util.thrift.ConfigurationApi config;
 
-  public IngestVolumeStats( final ConfigurationApi config ) {
+  public IngestVolumeStats(final com.formationds.util.thrift.ConfigurationApi config) {
     this.config = config;
   }
 
   @Override
-  public Resource handle( Request request, Map<String, String> routeParameters )
-    throws Exception {
-    try( final Reader reader =
-           new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
+  public Resource handle(Request request, Map<String, String> routeParameters)
+      throws Exception {
+    try (final Reader reader =
+             new InputStreamReader(request.getInputStream(), "UTF-8")) {
 
-      final List<VolumeDatapoint> volumeDatapoints = ObjectModelHelper.toObject( reader, TYPE );
+      final List<VolumeDatapoint> volumeDatapoints = ObjectModelHelper.toObject(reader, TYPE);
       SingletonRepositoryManager.instance().getMetricsRepository().save(volumeDatapoints);
     }
 
-    return new JsonResource( new JSONObject().put( "status", "OK" ) );
+    return new JsonResource(new JSONObject().put("status", "OK"));
   }
 }

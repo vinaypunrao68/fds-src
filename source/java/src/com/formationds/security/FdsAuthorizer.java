@@ -4,15 +4,16 @@ package com.formationds.security;
  */
 
 import com.formationds.apis.User;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.CachedConfiguration;
 
 import java.util.function.Supplier;
 
 public class FdsAuthorizer implements Authorizer {
-    private Supplier<CachedConfiguration> configSupplier;
+    private ConfigurationApi config;
 
-    public FdsAuthorizer(Supplier<CachedConfiguration> configSupplier) {
-        this.configSupplier = configSupplier;
+    public FdsAuthorizer(ConfigurationApi config) {
+        this.config = config;
     }
 
     @Override
@@ -21,7 +22,7 @@ public class FdsAuthorizer implements Authorizer {
         if (user.isIsFdsAdmin()) {
             return 0;
         }
-        return configSupplier.get().tenantId(user.getId());
+        return config.tenantId(user.getId());
     }
 
     @Override
@@ -30,15 +31,11 @@ public class FdsAuthorizer implements Authorizer {
         if (user.isIsFdsAdmin()) {
             return true;
         }
-        return configSupplier.get().hasAccess(user.getId(), volume);
+        return config.hasAccess(user.getId(), volume);
     }
 
     @Override
     public User userFor(AuthenticationToken token) throws SecurityException {
-        return configSupplier.get().users().stream()
-                .filter(u -> u.getId() == token.getUserId())
-                .filter(u -> u.getSecret().equals(token.getSecret()))
-                .findFirst()
-                .orElseThrow(SecurityException::new);
+        return config.userFor(token);
     }
 }

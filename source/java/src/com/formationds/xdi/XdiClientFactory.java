@@ -34,9 +34,9 @@ import java.util.UUID;
 public class XdiClientFactory {
     protected static final Logger LOG = Logger.getLogger(XdiClientFactory.class);
 
-    private final ThriftClientFactory<Iface>                       configService;
     private final ThriftClientFactory<AmService.Iface>             amService;
     private final ThriftClientFactory<AsyncAmServiceRequest.Iface> onewayAmService;
+    private final ThriftClientFactory<Iface>                       configService;
     private final ThriftClientFactory<FDSP_ConfigPathReq.Iface>    legacyConfigService;
 
     private int amResponsePort;
@@ -100,19 +100,19 @@ public class XdiClientFactory {
     }
 
     public ConfigurationService.Iface remoteOmService(String host, int port) {
-        return configService.connect(host, port);
+        return configService.getClient(host, port);
     }
 
     public AmService.Iface remoteAmService(String host, int port) {
-        return amService.connect(host, port);
+        return amService.getClient(host, port);
     }
 
     public AsyncAmServiceRequest.Iface remoteOnewayAm(String host, int port) {
-        return onewayAmService.connect(host, port);
+        return onewayAmService.getClient(host, port);
     }
 
     public FDSP_ConfigPathReq.Iface legacyConfig(String host, int port) {
-        return legacyConfigService.connect(host, port);
+        return legacyConfigService.getClient(host, port);
     }
 
     public AsyncResourcePool<ThriftClientConnection<AmService.AsyncIface>> makeAmAsyncPool(String host, int port) throws

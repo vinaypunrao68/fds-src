@@ -7,7 +7,6 @@ import com.formationds.security.HashedPassword;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -16,10 +15,10 @@ import java.util.Map;
 import java.util.UUID;
 
 public class CreateUser implements RequestHandler {
-    private ConfigurationApi configCache;
-    private SecretKey secretKey;
+    private com.formationds.util.thrift.ConfigurationApi configCache;
+    private SecretKey                                    secretKey;
 
-    public CreateUser(ConfigurationApi configCache, SecretKey secretKey) {
+    public CreateUser(com.formationds.util.thrift.ConfigurationApi configCache, SecretKey secretKey) {
         this.configCache = configCache;
         this.secretKey = secretKey;
     }

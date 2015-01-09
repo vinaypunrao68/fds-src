@@ -10,7 +10,6 @@ import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.ConfigurationApi;
 import com.google.gson.GsonBuilder;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -26,34 +25,34 @@ public class CloneVolume
   private static final String REQ_PARAM_CLONE_VOLUME_NAME = "cloneVolumeName";
   private static final String REQ_PARAM_CLONE_VOLUME_TIMELINE_TIME = "timelineTime";
 
-  private ConfigurationApi config;
-  private FDSP_ConfigPathReq.Iface legacyConfigPath;
+  private com.formationds.util.thrift.ConfigurationApi config;
+  private FDSP_ConfigPathReq.Iface                     legacyConfigPath;
 
-  public CloneVolume( final ConfigurationApi config,
-                      FDSP_ConfigPathReq.Iface legacyConfigPath ) {
-    this.config = config;
-    this.legacyConfigPath = legacyConfigPath;
-  }
+    public CloneVolume(final com.formationds.util.thrift.ConfigurationApi config,
+                       FDSP_ConfigPathReq.Iface legacyConfigPath) {
+        this.config = config;
+        this.legacyConfigPath = legacyConfigPath;
+    }
 
-  @Override
-  public Resource handle( final Request request,
-                          final Map<String, String> routeParameters )
-    throws Exception {
-    long clonedVolumeId;
-    try( final Reader reader =
-           new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
+    @Override
+    public Resource handle(final Request request,
+                           final Map<String, String> routeParameters)
+        throws Exception {
+        long clonedVolumeId;
+        try (final Reader reader =
+                 new InputStreamReader(request.getInputStream(), "UTF-8")) {
 
-      final Volume volume = new GsonBuilder().create()
-                                             .fromJson( reader,
-                                                        Volume.class );
-      final String name = requiredString( routeParameters,
-                                          REQ_PARAM_CLONE_VOLUME_NAME );
-      
-      final String timelineTime = requiredString( routeParameters,
-    		  							REQ_PARAM_CLONE_VOLUME_TIMELINE_TIME );
-      
-      clonedVolumeId = config.cloneVolume(
-        requiredLong( routeParameters, REQ_PARAM_VOLUME_ID ),
+            final Volume volume = new GsonBuilder().create()
+                                                   .fromJson(reader,
+                                                             Volume.class);
+            final String name = requiredString(routeParameters,
+                                               REQ_PARAM_CLONE_VOLUME_NAME);
+
+            final String timelineTime = requiredString(routeParameters,
+                                                       REQ_PARAM_CLONE_VOLUME_TIMELINE_TIME);
+
+            clonedVolumeId = config.cloneVolume(
+                                                   requiredLong(routeParameters, REQ_PARAM_VOLUME_ID ),
         0L,                 // optional parameter so setting it to zero!
         name, Long.parseLong( timelineTime ));
 

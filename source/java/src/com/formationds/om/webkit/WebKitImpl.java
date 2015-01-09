@@ -36,7 +36,6 @@ import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
-import com.formationds.xdi.ConfigurationApi;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -156,7 +155,7 @@ public class WebKitImpl {
                                                 SingletonLegacyConfig.instance()
                                                                      .api() ) );
         authenticate( HttpMethod.DELETE, "/api/config/volumes/:name",
-                      ( t ) -> new DeleteVolume( SingletonXdi.instance()
+                      ( t ) -> new DeleteVolume( authorizer, SingletonConfigAPI.instance()
                                                              .api(),
                                                  t ) );
         authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid",
@@ -269,7 +268,7 @@ public class WebKitImpl {
                           SingletonConfigAPI.instance().api() ) );
     }
 
-    private void snapshot( final ConfigurationApi config,
+    private void snapshot( final com.formationds.util.thrift.ConfigurationApi config,
                            final FDSP_ConfigPathReq.Iface legacyConfigPath,
                            Authorizer authorizer ) {
         if( !FdsFeatureToggles.SNAPSHOT_ENDPOINT.isActive() ) {
@@ -291,7 +290,7 @@ public class WebKitImpl {
         logger.trace( "registered snapshot endpoints" );
     }
 
-    private void snapshotPosts( final ConfigurationApi config,
+    private void snapshotPosts( final com.formationds.util.thrift.ConfigurationApi config,
                                 final FDSP_ConfigPathReq.Iface legacyConfigPath,
                                 final Authorizer authorizer ) {
         // POST methods
@@ -307,7 +306,7 @@ public class WebKitImpl {
                       ( t ) -> new CloneSnapshot( config, legacyConfigPath ) );
     }
 
-    private void snapshotPuts( final ConfigurationApi config,
+    private void snapshotPuts( final com.formationds.util.thrift.ConfigurationApi config,
                                final Authorizer authorizer ) {
         //PUT methods
         authenticate( HttpMethod.PUT,
@@ -320,7 +319,7 @@ public class WebKitImpl {
                       ( t ) -> new EditSnapshotPolicy( config ) );
     }
 
-    private void snapshotGets(final ConfigurationApi config,
+    private void snapshotGets(final com.formationds.util.thrift.ConfigurationApi config,
                               final Authorizer authorizer) {
         // GET methods
         authenticate( HttpMethod.GET, "/api/config/snapshot/policies",
@@ -336,7 +335,7 @@ public class WebKitImpl {
                       ( t ) -> new ListSnapshotsByVolumeId( config ) );
     }
 
-    private void snapshotDeletes( final ConfigurationApi config,
+    private void snapshotDeletes( final com.formationds.util.thrift.ConfigurationApi config,
                                   final Authorizer authorizer ) {
         // DELETE methods
         authenticate( HttpMethod.DELETE, "/api/config/snapshot/policies/:policyId",

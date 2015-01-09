@@ -22,7 +22,7 @@ import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricsRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.util.Configuration;
-import com.formationds.xdi.ConfigurationApi;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.google.gson.reflect.TypeToken;
 
 import org.apache.thrift.TException;
@@ -48,8 +48,9 @@ public class EventManagerTest {
 
     static final Configuration mockedConfiguration = mock(Configuration.class);
     static final ConfigurationApi mockedConfig = mock(ConfigurationApi.class);
-    static final AmService.Iface mockedAMService = mock(AmService.Iface.class);
-    static final MetricsRepository metricsRepoMock = mock( MetricsRepository.class );
+    static final AmService.Iface  mockedAMService = mock(AmService.Iface.class);
+    static final MetricsRepository
+        metricsRepoMock = mock(MetricsRepository.class);
 
     @BeforeClass
     static public void setUpClass() throws Exception {
@@ -59,13 +60,13 @@ public class EventManagerTest {
         when(mockedConfiguration.getFdsRoot()).thenReturn(fdsRoot.toString());
 
         SingletonConfiguration.instance().setConfig(mockedConfiguration);
-        System.setProperty("fds-root", SingletonConfiguration.instance().getConfig().getFdsRoot() );
+        System.setProperty("fds-root", SingletonConfiguration.instance().getConfig().getFdsRoot());
 
         SingletonConfigAPI.instance().api(mockedConfig);
         SingletonAmAPI.instance().api(mockedAMService);
         VolumeStatus vstat = new VolumeStatus();
         vstat.setCurrentUsageInBytes(1024);
-        Optional<VolumeStatus> opStats = Optional.of( vstat );
+        Optional<VolumeStatus> opStats = Optional.of(vstat);
         when(metricsRepoMock.getLatestVolumeStatus("")).thenReturn(opStats);
         when(metricsRepoMock.getLatestVolumeStatus("volume1")).thenReturn(opStats);
         when(metricsRepoMock.getLatestVolumeStatus("volume2")).thenReturn(opStats);
@@ -77,8 +78,10 @@ public class EventManagerTest {
         when(metricsRepoMock.getLatestVolumeStatus("u2-ov1")).thenReturn(opStats);
         when(metricsRepoMock.getLatestVolumeStatus("u2.bv1")).thenReturn(opStats);
 
-        Files.deleteIfExists(Paths.get(SingletonConfiguration.instance().getConfig().getFdsRoot(), "var", "db", "events.odb"));
-        Files.deleteIfExists(Paths.get(SingletonConfiguration.instance().getConfig().getFdsRoot(), "var", "db", "events.odb$"));
+        Files.deleteIfExists(Paths.get(SingletonConfiguration.instance().getConfig().getFdsRoot(), "var", "db",
+                                       "events.odb"));
+        Files.deleteIfExists(Paths.get(SingletonConfiguration.instance().getConfig().getFdsRoot(), "var", "db",
+                                       "events.odb$"));
 
         // initialize the event manager notification handler to store in both the event repository and an in-memory map
         EventManager.instance().initEventNotifier(key, (e) -> {

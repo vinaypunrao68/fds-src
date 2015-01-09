@@ -25,9 +25,10 @@ import com.formationds.security.NullAuthenticator;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.Assignment;
 import com.formationds.util.libconfig.ParsedConfig;
-import com.formationds.xdi.ConfigurationApi;
-import com.formationds.xdi.Xdi;
-import com.formationds.xdi.XdiClientFactory;
+//import com.formationds.xdi.ConfigurationApi;
+//import com.formationds.xdi.Xdi;
+//import com.formationds.xdi.XdiClientFactory;
+import com.formationds.util.thrift.ConfigServiceClientFactory;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,8 +107,8 @@ public class Main {
                 return ( SingletonRepositoryManager.instance()
                                                    .getEventRepository()
                                                    .save( e ) != null );
-            } );
-
+            }
+        );
 
         if(FdsFeatureToggles.FIREBREAK_EVENT.isActive()) {
 
@@ -121,25 +122,24 @@ public class Main {
 
         }
 
-        XdiClientFactory clientFactory = new XdiClientFactory();
-        final ConfigurationApi configCache = new ConfigurationApi(
-            clientFactory.remoteOmService( "localhost", 9090 ) );
+        ConfigServiceClientFactory configApiFactory = new ConfigServiceClientFactory("localhost", 9090);
+        final OmConfigurationApi configCache = new OmConfigurationApi(configApiFactory);
         SingletonConfigAPI.instance().api( configCache );
 
         EnsureAdminUser.bootstrapAdminUser( configCache );
 
-        AmService.Iface amService =
-            clientFactory.remoteAmService( "localhost", 9988 );
-        SingletonAmAPI.instance().api( amService );
+// Until we move OM C++ thrift control path stuff to java, I don't think we need access to the AM
+// this was previously necessary for initializing the XDI
+//        AmService.Iface amService = clientFactory.remoteAmService( "localhost", 9988 );
+//        SingletonAmAPI.instance().api( amService );
 
         String omHost = "localhost";
         int omPort = platformConfig.defaultInt( "fds.om.config_port", 8903 );
-        String webDir =
-            platformConfig.defaultString( "fds.om.web_dir",
+        String webDir = platformConfig.defaultString( "fds.om.web_dir",
                                           "../lib/admin-webapp" );
 
-        FDSP_ConfigPathReq.Iface legacyConfigClient =
-            clientFactory.legacyConfig( omHost, omPort );
+        FDSP_ConfigPathReq.Iface legacyConfigClient = configApiFactory.getLegacyConfigService().getClient(omHost,
+                                                                                                          omPort);
         SingletonLegacyConfig.instance()
                              .api( legacyConfigClient );
 
@@ -148,8 +148,7 @@ public class Main {
                                                        .toCharArray() );
         SecretKey secretKey = new SecretKeySpec( keyBytes, "AES" );
 
-        final boolean enforceAuthentication =
-            platformConfig.defaultBoolean( "fds.authentication", true );
+        final boolean enforceAuthentication = platformConfig.defaultBoolean( "fds.authentication", true );
         Authenticator authenticator =
             enforceAuthentication ? new FdsAuthenticator( configCache,
                                                           secretKey )
@@ -159,13 +158,6 @@ public class Main {
             ? new FdsAuthorizer( configCache )
             : new DumbAuthorizer();
 
-        final Xdi xdi = new Xdi( amService,
-                                 configCache,
-                                 authenticator,
-                                 authorizer,
-                                 legacyConfigClient );
-        SingletonXdi.instance()
-                    .api( xdi );
         int httpPort = platformConfig.defaultInt( "fds.om.http_port", 7777 );
         int httpsPort = platformConfig.defaultInt( "fds.om.https_port", 7443 );
 

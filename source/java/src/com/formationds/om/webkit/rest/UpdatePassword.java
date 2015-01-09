@@ -10,7 +10,6 @@ import com.formationds.security.HashedPassword;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.ConfigurationApi;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -22,11 +21,12 @@ import java.util.Optional;
 
 public class UpdatePassword implements RequestHandler {
     private AuthenticationToken token;
-    private ConfigurationApi configCache;
-    private SecretKey secretKey;
-    private Authorizer authorizer;
+    private com.formationds.util.thrift.ConfigurationApi configCache;
+    private SecretKey                                    secretKey;
+    private Authorizer                                   authorizer;
 
-    public UpdatePassword(AuthenticationToken token, ConfigurationApi configCache, SecretKey secretKey, Authorizer authorizer) {
+    public UpdatePassword(AuthenticationToken token, com.formationds.util.thrift.ConfigurationApi configCache,
+                          SecretKey secretKey, Authorizer authorizer) {
         this.token = token;
         this.configCache = configCache;
         this.secretKey = secretKey;
