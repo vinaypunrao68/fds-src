@@ -57,8 +57,19 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         
         switch( $scope.sortPredicate ){
             case 'size':
-                var num = parseInt( volume.current_usage.size );
-                var unit = volume.current_usage.unit;
+                var num = 0;
+                unit = 'B';
+                
+                if ( angular.isDefined( volume.current_usage ) ){
+                    
+                    if ( angular.isDefined( volume.current_usage.size ) ){
+                        num = parseInt( volume.current_usage.size );
+                    }
+                    
+                    if ( angular.isDefined( volume.current_usage.unit ) ){
+                        unit = volume.current_usage.unit;
+                    }
+                }
                 
                 if ( unit === 'KB' ){
                     num *= 1024;
