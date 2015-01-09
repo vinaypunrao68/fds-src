@@ -537,10 +537,9 @@ public class QueryHelper {
     	});
     	
     	Double secondsToFull = systemCapacity / linearRegression.getSlope();
-    	long days = TimeUnit.SECONDS.toDays( secondsToFull.longValue() );
     	
         final CapacityToFull to = new CapacityToFull();
-        to.setToFull( days );
+        to.setToFull( secondsToFull.longValue() );
         return to;
     }
 
