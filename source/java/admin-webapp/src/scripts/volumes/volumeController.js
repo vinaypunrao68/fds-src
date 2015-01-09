@@ -109,7 +109,7 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
                 return '#68C000';
             }
             else {
-                return 'white';
+                return 'rgba( 255, 255, 255, 0.0)';
             }
         };
         
