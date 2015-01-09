@@ -13,6 +13,7 @@ namespace fds {
 
 typedef std::function<void (const Error &err)> ArchivePutCb;
 typedef std::function<void (const Error &err)> ArchiveGetCb;
+struct DataMgrIf;
 
 /**
 * @brief Get request message
@@ -55,7 +56,7 @@ typedef boost::shared_ptr<ArchiveClGetReq> ArchiveClGetReqPtr;
 */
 struct ArchiveClient : FdsRequestQueueActor
 {
-    ArchiveClient(const std::string &snapDirBase,
+    ArchiveClient(DataMgrIf* dataMgrIf,
                   fds_threadpoolPtr threadpool);
     void connect(const std::string &host,
                  const std::string &accessKey,
@@ -77,11 +78,14 @@ struct ArchiveClient : FdsRequestQueueActor
     void handlePutSnap_(ArchiveClPutReqPtr &putPayload);
     void handleGetSnap_(ArchiveClGetReqPtr &getPayload);
 
+#if 0
     std::string getSysVolumeName_(const fds_volid_t &volId);
     std::string getSnapDirName_(const fds_volid_t &volId, const int64_t snapId);
+#endif
 
     std::unique_ptr<S3Client> s3client_;
     std::string snapDirBase_;
+    DataMgrIf *dataMgrIf_;
 };
 typedef boost::shared_ptr<ArchiveClient> ArchiveClientPtr;
 

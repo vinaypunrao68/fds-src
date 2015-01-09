@@ -5,15 +5,19 @@
 #include <sstream>
 #include <cstdlib>
 #include <boost/shared_ptr.hpp>
+#include <fds_types.h>
+#include <fds_volume.h>
+#include <DataMgrIf.h>
 #include <archive/ArchiveClient.h>
 
 namespace fds {
 
-ArchiveClient::ArchiveClient(const std::string &snapDirBase,
+ArchiveClient::ArchiveClient(DataMgrIf* dataMgrIf,
                              fds_threadpoolPtr threadpool)
 : FdsRequestQueueActor("ArchiveClient", nullptr, threadpool)
 {
-    snapDirBase_ = snapDirBase;
+    dataMgrIf_ = dataMgrIf;
+    snapDirBase_ = dataMgrIf_->getSnapDirBase();
 }
 
 void ArchiveClient::connect(const std::string &host,
@@ -101,7 +105,7 @@ void ArchiveClient::handlePutSnap_(ArchiveClPutReqPtr &putPayload)
     // 1. Clean up the tar file and snap after upload is done
 
     /* tar+zip the snapshot */
-    std::string snapDirName = getSnapDirName_(putPayload->volId, putPayload->snapId);
+    std::string snapDirName = dataMgrIf_->getSnapDirName(putPayload->volId, putPayload->snapId);
     std::string snapDirPath = snapDirBase_ + "/" + snapDirName;
     std::string snapName = snapDirName + ".tgz";
     std::string snapPath = snapDirBase_ + "/" + snapName;
@@ -115,17 +119,17 @@ void ArchiveClient::handlePutSnap_(ArchiveClPutReqPtr &putPayload)
         putPayload->cb(ERR_ARCHIVE_SNAP_TAR_FAILED);
         return;
     }
-    GLOGDEBUG << "Tarring commpleted";
+    GLOGDEBUG << "Tarring commpleted.  snapName: " << snapName;
 
     /* Upload to s3 */
-    std::string sysVolName = getSysVolumeName_(putPayload->volId);
+    std::string sysVolName = dataMgrIf_->getSysVolumeName(putPayload->volId);
     auto uploadStatus = s3client_->putFile(sysVolName, snapName, snapPath);
     if (uploadStatus != S3StatusOK) {
         GLOGERROR << "Failed to upload snap.  volid: " << putPayload->volId << " snapid: "
             << putPayload->snapId;
         putPayload->cb(ERR_ARCHIVE_SNAP_PUT_FAILED);
     } else {
-        GLOGDEBUG << "upload commpleted";
+        GLOGDEBUG << "upload commpleted.  snapName: " << snapName;
         putPayload->cb(ERR_OK);
     }
 }
@@ -133,7 +137,7 @@ void ArchiveClient::handlePutSnap_(ArchiveClPutReqPtr &putPayload)
 void ArchiveClient::handleGetSnap_(ArchiveClGetReqPtr &getPayload)
 {
     std::stringstream ss;
-    std::string snapDirName = getSnapDirName_(getPayload->volId, getPayload->snapId);
+    std::string snapDirName = dataMgrIf_->getSnapDirName(getPayload->volId, getPayload->snapId);
     std::string snapDirPath = snapDirBase_ + "/" + snapDirName;
     std::string snapName = snapDirName + ".tgz";
     std::string snapPath = snapDirBase_ + "/" + snapName;
@@ -143,7 +147,7 @@ void ArchiveClient::handleGetSnap_(ArchiveClGetReqPtr &getPayload)
     // 2. Make sure the snapshot doesn't exist as a dir or as a tar
 
     /* Download from s3 */
-    std::string sysVolName = getSysVolumeName_(getPayload->volId);
+    std::string sysVolName = dataMgrIf_->getSysVolumeName(getPayload->volId);
     auto downloadStatus = s3client_->getFile(sysVolName, snapName, snapPath);
     if (downloadStatus != S3StatusOK) {
         GLOGERROR << "Failed to upload snap.  volid: " << getPayload->volId << " snapid: "
@@ -151,7 +155,7 @@ void ArchiveClient::handleGetSnap_(ArchiveClGetReqPtr &getPayload)
         getPayload->cb(ERR_ARCHIVE_SNAP_GET_FAILED);
         return;
     }
-    GLOGDEBUG << "download commpleted";
+    GLOGDEBUG << "download commpleted. snapName: " << snapName;
 
     /* untar snap */
     ss << "cd " << snapDirBase_ << "; " << "tar xzf " << snapName;
@@ -161,22 +165,9 @@ void ArchiveClient::handleGetSnap_(ArchiveClGetReqPtr &getPayload)
             << getPayload->snapId;
         getPayload->cb(ERR_ARCHIVE_SNAP_TAR_FAILED);
     } else {
-        GLOGDEBUG << "untarring commpleted";
+        GLOGDEBUG << "untarring commpleted. snapName: " << snapName;
         getPayload->cb(ERR_OK);
     }
-}
-
-std::string ArchiveClient::getSysVolumeName_(const fds_volid_t &volId)
-{
-    /* TODO(Rao): Return the correct name */
-    return "fds_volume";
-}
-
-std::string ArchiveClient::getSnapDirName_(const fds_volid_t &volId,
-                                           const int64_t snapId)
-{
-    /* TODO(Rao): Return the correct path */
-    return "snap1";
 }
 }  // namespace fds
 

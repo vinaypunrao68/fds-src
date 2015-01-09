@@ -247,6 +247,27 @@ DataMgr::deleteSnapshot(const fds_uint64_t snapshotId) {
     return ERR_OK;
 }
 
+std::string DataMgr::getSnapDirBase() const
+{
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    return root->dir_user_repo_dm();
+}
+
+std::string DataMgr::getSysVolumeName(const fds_volid_t &volId) const
+{
+    std::stringstream stream;
+    stream << "SYSTEM_VOLUME_" << getVolumeDesc(volId)->tennantId;
+    return stream.str();
+}
+
+std::string DataMgr::getSnapDirName(const fds_volid_t &volId,
+                                    const int64_t snapId) const
+{
+    std::stringstream stream;
+    stream << getSnapDirBase() << "/" << volId << "/" << snapId;
+    return stream.str();
+}
+
 //
 // handle finish forward for volume 'volid'
 //

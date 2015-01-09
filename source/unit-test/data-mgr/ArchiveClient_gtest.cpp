@@ -3,15 +3,21 @@
  */
 #define GTEST_USE_OWN_TR1_TUPLE 0
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string>
 #include <list>
+#include <fstream>
 #include <iostream>
 #include <boost/make_shared.hpp>
+#include <boost/filesystem.hpp>
 #include <testlib/TestFixtures.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <fds_volume.h>
+#include <DataMgrIf.h>
 #include <archive/ArchiveClient.h>
 
 using ::testing::AtLeast;
@@ -19,15 +25,50 @@ using ::testing::Return;
 using namespace fds;  // NOLINT
 
 
-struct ArchiveClientTest : public ::testing::Test
+struct ArchiveClientTest : public ::testing::Test, DataMgrIf
 {
-    ArchiveClientTest() {
+    ArchiveClientTest()
+        : volDesc_("dummy", 0)
+    {
+        volDesc_.tennantId = 1;
     }
-    void prepareSnap(const fds_volid_t &volId,
+    bool prepareSnap(const fds_volid_t &volId,
                      const int64_t &snapId) {
-        // TODO(Rao): Implement this
+        /* Get home dir */
+        std::string homeDir(getenv("HOME"));
+        if (homeDir.empty()) {
+            std::cerr << "Please set HOME env. variable";
+            return false;
+        }
+        /* Set snapshot base directory */
+        snapDirBase_ = homeDir + "/snapdir";
+        /* Prepare a snapshot under snap base directory */
+        boost::filesystem::path snapdir(getSnapDirName(volId, snapId));
+        if (!boost::filesystem::create_directories(snapdir)) {
+            std::cerr << "Failed to create snapdir at: " << snapdir;
+            return false;
+        }
+        /* Create files under snap directory */
+        boost::filesystem::path file1(snapdir / "file1");
+        std::ofstream out(file1.string());
+        out << "hello";
+        out.close();
+        return true;
+    }
+    virtual std::string getSysVolumeName(const fds_volid_t &volId) const override
+    {
+        return "sysvol1";
+    }
+    virtual std::string getSnapDirName(const fds_volid_t &volId,
+                                       const int64_t snapId) const override
+    {
+        std::stringstream stream;
+        stream << snapDirBase_ << "/" << volId << "/" << snapId;
+        return stream.str();
     }
  protected:
+    VolumeDesc volDesc_;
+    std::string snapDirBase_;
 };
 
 
@@ -39,12 +80,12 @@ TEST_F(ArchiveClientTest, put_get)
 {
     fds_volid_t volId = 1;
     int64_t snapId = 1;
-    prepareSnap(volId, snapId);
+
+    ASSERT_TRUE(prepareSnap(volId, snapId));
 
     /* Create archive client */
     fds_threadpoolPtr threadpool = boost::make_shared<fds_threadpool>();
-    ArchiveClientPtr archiveCl = boost::make_shared<ArchiveClient>(
-        "/home/nbayyana/tmp/snaps", threadpool);
+    ArchiveClientPtr archiveCl = boost::make_shared<ArchiveClient>(this, threadpool);
     archiveCl->connect("localhost:8000", "admin", "secret-key");
 
     /* put the file */
