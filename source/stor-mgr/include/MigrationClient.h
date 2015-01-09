@@ -21,17 +21,15 @@ namespace fds {
 class MigrationClient {
   public:
     explicit MigrationClient(SmIoReqHandler *_dataStore,
-                             NodeUuid& _destinationSMNodeID,
-                             fds_token_id _sm_tokenID);
+                             NodeUuid& _destinationSMNodeID);
     ~MigrationClient();
 
-    typdef std::unique_ptr<MigrationClient> unique_ptr;
+    typedef std::unique_ptr<MigrationClient> unique_ptr;
 
     /**
      * A simple routine to snapshot metadata associated with the token.
      */
-    Error snapshotObjects();
-
+    Error migClientSnapshotMetaData();
 
     /**
      * Callback from leveldb snapshot.
@@ -47,14 +45,52 @@ class MigrationClient {
                              leveldb::ReadOptions& options,
                              leveldb::DB *db);
 
+    /**
+     * Add set of dlt tokens to the client.
+     */
+    void migClientAddDltTokens(fds_token_id dltToken);
+
+    /**
+     * Add set of Object IDs and refcnt to the client map;
+     */
+    void migClientAddDestSet(fpi::CtrlObjectRebalanceInitialSetPtr &initialSet);
+
+    /**
+     * Set sequence number
+     */
+    void migClientSetSeqNum(uint64_t seqNum);
 
   private:
     /**
      * SM token to filter and send back
-     *
-     * TODO(Sean): Does this have to be DLT or SM token?
      */
     fds_token_id SMTokenID;
+
+    /**
+     * Set of dlt tokens to filter against the the snapshot.
+     */
+    std::unordered_set<fds_token_id> dltTokenIDs;
+
+    /**
+     * The list of the objects from the destination SM.  This list is filtered
+     * against the source SM to determine which objects in the token file should
+     * be migrated from the source SM to destination SM.
+     *
+     * TODO(Sean):  This is just a place holder to know that we need to keep
+     *              a list (or set) of object to filter against the source SM's
+     *              token snapshot.
+     */
+    std::map filterObjectsList;
+
+    /**
+     * Current sequence number.  The number is increased sequently to determine
+     * that all incremental messages are received by the migration client from
+     * the migration executor.
+     *
+     * TODO(Sean):  This should be a utility class that maintains the sequernce
+     *              number.
+     */
+     uint64_t seqNum;
 
     /**
      * destination SM node ID.  This is the SM Node ID that's requesting the
@@ -73,24 +109,13 @@ class MigrationClient {
     SmIoSnapshotObjectDB snapshotRequest;
 
     /**
-     * The list of the objects from the destination SM.  This list is filtered
-     * against the source SM to determine which objects in the token file should
-     * be migrated from the source SM to destination SM.
-     *
-     * TODO(Sean):  This is just a place holder to know that we need to keep
-     *              a list (or set) of object to filter against the source SM's
-     *              token snapshot.
-     */
-    std::list filterObjectsList;
-
-    /**
      * Pointer to the snapshot.  This is set in the snapshot callback.
      */
     leveldb::DB *snapshotLevelDB;
 
     /**
      * Pointer to the snapshot iterator.  We need to save the iterator,
-     * since we need to keep the
+     * since we need to keep the pointer to the current iteration.
      */
     leveldb::Iterator *iteratorLevelDB;
 };  // class MigrationClient

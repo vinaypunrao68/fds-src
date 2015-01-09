@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # coding: utf8
+'''
 import boto
 from boto.s3.key import Key
 import boto.s3.connection
@@ -17,3 +18,16 @@ conn = boto.s3.connect_to_region('us-east-1',
 for i in xrange(1, 31):
     name = "hello_" + str(i)
     conn.delete_bucket(name)
+'''
+import argparse
+
+def main(args):
+    print args
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Command line argument for'
+                                                 ' the integration framework')
+    parser.add_argument('-u', '--inventory', help='add an inventory')
+    parser.add_argument('-t', '--type', default='baremetal', help='aws or baremetal')
+    args = parser.parse_args()
+    main(args)
