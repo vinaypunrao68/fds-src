@@ -25,6 +25,9 @@
                         <th ng-class="{ 'selected' : sortPredicate.indexOf( 'application' ) !== -1 }">
                             <sort-helper ng-model="sortPredicate" value="application">{{ 'common.th_application' | translate }}</sort-helper>
                         </th>
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'tenant_name' ) !== -1 }">
+                            <sort-helper ng-model="sortPredicate" value="tenant_name">{{ 'common.th_tenant' | translate }}</sort-helper>                                                                             
+                        </th>
                         <th ng-class="{ 'selected' : sortPredicate.indexOf( 'data_connector.type' ) !== -1 }">
                             <sort-helper ng-model="sortPredicate" value="data_connector.type">{{ 'common.th_data_type' | translate }}</sort-helper>
                         </th>
@@ -57,6 +60,10 @@
                             </td>
                             
                             <td class="application"></td>
+                            
+                            <td class="tenant">
+                                {{ volume.tenant_name }}
+                            </td>
                             
                             <td>
                                 {{volume.data_connector.type}}

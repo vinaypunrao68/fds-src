@@ -86,7 +86,7 @@ public class SetVolumeQosParams implements RequestHandler {
     	// converting the com.formationds.api.MediaPolicy to the FDSP version
     	FDSP_MediaPolicy fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_HDD;
     	
-    	if ( mediaPolicy.equals( MediaPolicy.SSD_ONLY ) ){
+    	if ( mediaPolicy != null && mediaPolicy.equals( MediaPolicy.SSD_ONLY ) ){
     		fdspMediaPolicy = FDSP_MediaPolicy.FDSP_MEDIA_POLICY_SSD;
     	}
     	
