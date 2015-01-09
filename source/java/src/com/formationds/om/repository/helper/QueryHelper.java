@@ -168,9 +168,11 @@ public class QueryHelper {
 		            		.filter( ( s ) -> { 
 		            			return s.getType().equals( Metrics.SSD_GETS.name() );
 		            		})
-			            	.findFirst().get();
+			            	.findFirst().orElse( null );
 		            	
-		                calculatedList.add( toFull( physicalBytes, systemCapacity ) );
+		            	if ( physicalBytes != null ){
+		            		calculatedList.add( toFull( physicalBytes, systemCapacity ) );
+		            	}
 	                }
 	
 	            } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
