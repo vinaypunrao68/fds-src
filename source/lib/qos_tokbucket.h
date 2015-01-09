@@ -13,7 +13,10 @@
 #define SOURCE_LIB_QOS_TOKBUCKET_H_
 
 #include <algorithm>
+#include <limits>
+#include <typeinfo>
 
+#include "fds_assert.h"
 #include "fds_types.h"
 #include "util/timeutils.h"
 
@@ -31,22 +34,40 @@ namespace fds {
 class TokenBucket {
 public:
     ///
+    /// Maximum token accumulation rate, set to allow 100 years of accumulation before overflow.
+    /// This still allows 5,861,588,978 tokens per second.
+    ///
+    static fds_uint64_t const MAX_RATE =
+            std::numeric_limits<fds_uint64_t>::max() / (  // Distribute max holdable tokens over
+                (100ull         // years
+                * 365ull        // to days
+                + 24ull)        // and leap days in 100 years
+                * 24ull         // to hours
+                * 60ull         // to minutes
+                * 60ull);       // to seconds
+
+    ///
     /// Constructor.
     ///
-    /// @param  rate          The number of tokens accumulated per second.
+    /// @param  rate          The number of tokens accumulated per second. Must not be greater than
+    ///                         ::MAX_RATE.
     /// @param  burst         The maximum number of tokens that can accumulate at one time.
     /// @param  max_burst_us  @p burst will be clamped to the number of tokens that accumulate in
     ///                         this many microseconds.
     ///
     TokenBucket(fds_uint64_t rate, fds_uint64_t burst, fds_uint64_t max_burst_us = 0)
             : rate(rate), burst(burst) {
+        if (rate > MAX_RATE) {
+            fds_panic("Rate %llu cannot be greater than MAX_RATE %llu.", rate, MAX_RATE);
+        }
+
         if (max_burst_us > 0) {
             TokenBucket::burst = std::min(
                     // TODO(DAC): Is truncation the desired behavior?
-                    (fds_uint64_t)((double)max_burst_us / 1000000.0 * (double)rate), burst);
+                    max_burst_us * rate / 1000000, burst);
         }
         t_last_update = util::getTimeStampMicros();  // current time in microseconds
-        token_count = 0.0;
+        token_count = 0;
     }
 
     ///
@@ -71,7 +92,7 @@ public:
     /// @return  Whether there are @p num_tokens currently in the bucket.
     ///
     inline fds_bool_t hasTokens(fds_uint32_t num_tokens) const {
-        return ((double) num_tokens <= token_count);
+        return num_tokens <= token_count;
     }
 
     ///
@@ -86,7 +107,7 @@ public:
     ///
     inline void modifyParams(fds_uint64_t rate, fds_uint64_t burst, fds_uint64_t nowMicrosec = 0) {
         if (nowMicrosec == 0) {
-            fds_uint64_t nowMicrosec = util::getTimeStampMicros();
+            nowMicrosec = util::getTimeStampMicros();
         }
         // FIXME(DAC): Tokens are accumulated with the old rate, but will be clamped with the new
         //             burst. This could be problematic when, for example, lowering the rate and
@@ -109,7 +130,7 @@ public:
     ///                     microseconds.
     ///
     inline void modifyRate(fds_uint64_t rate, fds_uint64_t burst_us) {
-        modifyParams(rate, (fds_uint64_t) ((double) burst_us / 1000000.0 * (double) rate));
+        modifyParams(rate, burst_us * rate / 1000000);
     }
 
     ///
@@ -141,8 +162,8 @@ public:
     /// @return  Whether the requested number of tokens were consumed.
     ///
     inline fds_bool_t tryToConsumeTokens(fds_uint32_t num_tokens) {
-        if ((double)num_tokens <= token_count) {
-            token_count -= (double)num_tokens;
+        if (num_tokens <= token_count) {
+            token_count -= num_tokens;
             return true;
         }
         return false;
@@ -160,10 +181,10 @@ public:
     /// @return  The number of microseconds before @p num_tokens are available.
     ///
     inline fds_uint64_t getDelayMicrosec(fds_uint32_t num_tokens) {
-        if (token_count < (double) num_tokens) {
-            double delay_microsec = (((double) num_tokens - token_count)
-                    / (double) rate) * 1000000.0;
-            return (fds_uint64_t) delay_microsec;
+        if (token_count < num_tokens) {
+            fds_uint64_t needed_tokens = num_tokens - token_count;
+            fds_uint64_t delay_microsec = needed_tokens * 1000000 / rate;
+            return delay_microsec;
         }
         return 0; /* otherwise enough tokens */
     }
@@ -188,11 +209,32 @@ protected:
     /// @param  nowMicrosec  The current number of microseconds since epoch.
     ///
     inline void updateTokensOnly(fds_uint64_t nowMicrosec) {
+        // Going back in time is not supported. Add it if you need it, but the code hasn't been
+        // designed with that in mind.
+        fds_verify(nowMicrosec >= t_last_update);
+
         // FIXME(DAC): Should we freak out if we go back in time?
         fds_uint64_t elapsed_microsec = nowMicrosec - t_last_update;
+        // FIXME(DAC): Should we only do this if we're actually getting more tokens?
         if (elapsed_microsec > 0) {
-            token_count += ((double) elapsed_microsec / 1000000.0) * (double) rate;
-            t_last_update = nowMicrosec;
+
+            // Crash on overflow. We don't do >= rate / 1000000 because the intermediate result is
+            // where we can get overflow.
+            fds_verify(std::numeric_limits<fds_uint64_t>::max() / elapsed_microsec >= rate);
+            fds_uint64_t new_tokens = elapsed_microsec * rate / 1000000;
+
+            // Very low likelihood of an overflow here, but if a misconfiguration or other special
+            // circumstances lead to > 100 years passing (see MAX_RATE), at least the error won't
+            // cause something hard to debug.
+            fds_verify(std::numeric_limits<fds_uint64_t>::max() - token_count >= new_tokens);
+            token_count += new_tokens;
+
+            // token_microsec will be strictly less than or equal to elapsed_microsec, which can't
+            // possibly cause overflow since it's calculated as the difference between two unsigned
+            // fds_uint64_t. The new_tokens multiplication can't itself overflow due to the check
+            // on MAX_RATE.
+            auto token_microsec = new_tokens * 1000000 / rate;
+            t_last_update += token_microsec;
         }
     }
 
@@ -204,18 +246,16 @@ protected:
     inline fds_uint64_t expireTokens() {
         fds_uint64_t expired_tokens = 0;
 
-        if ((fds_uint64_t)token_count > burst) {
-            expired_tokens = (fds_uint64_t)token_count - burst;
-            // As expired_tokens truncates, it is important to subtract the truncated number instead
-            // of assigning token_count = burst--fractional tokens cannot be used, but will
-            // accumulate until a whole token is present.
-            token_count -= (double)expired_tokens;
+        if (token_count > burst) {
+            expired_tokens = token_count - burst;
+            token_count -= expired_tokens;
         }
 
         return expired_tokens;
     }
 
 protected:
+public:
     /// @defgroup  Config  Configurable parameters.
     ///@{
     fds_uint64_t rate;   ///< Number of tokens accumulated per second.
@@ -226,7 +266,7 @@ protected:
     ///@{
     fds_uint64_t t_last_update;  ///< Microseconds since epoch on which this bucket last accumulated
                                  ///< tokens.
-    double token_count;          ///< Number of tokens currently in the bucket.
+    fds_uint64_t token_count;    ///< Number of tokens currently in the bucket.
     ///@}
 };
 
@@ -258,7 +298,7 @@ public:
     /// @param  add_tokens  The number of tokens to add.
     ///
     inline void addTokens(fds_uint64_t add_tokens) {
-        token_count += (double)add_tokens;
+        token_count += add_tokens;
         (void)expireTokens();
     }
 };
