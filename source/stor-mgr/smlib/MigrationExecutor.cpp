@@ -48,7 +48,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
      */
     leveldb::Iterator* it = db->NewIterator(options);
     std::map<fds_token_id, fpi::CtrlObjectRebalanceInitialSetPtr> perTokenMsgs;
-    fds_int64_t seqId = 0;
+    fds_uint64_t seqId = 0;
     for (auto tok : dltTokens) {
         // for now packing all objects per one DLT token into one message
         fpi::CtrlObjectRebalanceInitialSetPtr msg(new fpi::CtrlObjectRebalanceInitialSet());
