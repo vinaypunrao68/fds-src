@@ -22,7 +22,7 @@ fds: {
     /* Feature toggles, use "common:" for features that propogate across components */
     feature_toggle: {
         common: {
-            enable_multi_om_support:  {{ ft_common_enable_multi_om_support }}
+            enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
         }
         plat: {
             use_disk_hints = {{ ft_platform_use_disk_hints }}
