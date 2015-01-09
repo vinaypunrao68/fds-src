@@ -115,7 +115,8 @@
     hosts: all
     gather_facts: yes
     sudo: yes
+    vars_files:
+    -   ../vars_files/credentials/ssl_certs.yml
 
     tasks:
-
     -   include: ../tasks/deploy_fds/deploy_fds.yml
