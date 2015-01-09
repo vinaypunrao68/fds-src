@@ -4,6 +4,8 @@
 
 #include <map>
 
+#include <fds_process.h>
+#include <SMSvcHandler.h>
 #include <ObjMeta.h>
 #include <dlt.h>
 #include <MigrationExecutor.h>
