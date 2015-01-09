@@ -1,3 +1,7 @@
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
+
 #ifndef __FDSP_H__
 #define __FDSP_H__
 
