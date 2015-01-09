@@ -56,18 +56,18 @@ public:
     ///                         this many microseconds.
     ///
     TokenBucket(fds_uint64_t rate, fds_uint64_t burst, fds_uint64_t max_burst_us = 0)
-            : rate(rate), burst(burst) {
+            : rate_(rate), burst_(burst) {
         if (rate > MAX_RATE) {
             fds_panic("Rate %llu cannot be greater than MAX_RATE %llu.", rate, MAX_RATE);
         }
 
         if (max_burst_us > 0) {
-            TokenBucket::burst = std::min(
+            TokenBucket::burst_ = std::min(
                     // TODO(DAC): Is truncation the desired behavior?
                     max_burst_us * rate / 1000000, burst);
         }
-        t_last_update = util::getTimeStampMicros();  // current time in microseconds
-        token_count = 0;
+        t_last_update_ = util::getTimeStampMicros();  // current time in microseconds
+        token_count_ = 0;
     }
 
     ///
@@ -81,7 +81,7 @@ public:
     /// @return  The current property value..
     ///
     inline fds_uint64_t getRate() const {
-        return rate;
+        return rate_;
     }
 
     ///
@@ -92,7 +92,7 @@ public:
     /// @return  Whether there are @p num_tokens currently in the bucket.
     ///
     inline fds_bool_t hasTokens(fds_uint32_t num_tokens) const {
-        return num_tokens <= token_count;
+        return num_tokens <= token_count_;
     }
 
     ///
@@ -115,8 +115,8 @@ public:
         //             present in the bucket.
         updateTokensOnly(nowMicrosec);
 
-        TokenBucket::rate = rate;
-        TokenBucket::burst = burst;
+        TokenBucket::rate_ = rate;
+        TokenBucket::burst_ = burst;
     }
 
     ///
@@ -142,7 +142,7 @@ public:
     /// @param  rate  The new number of tokens to be accumulated per second.
     ///
     inline void modifyRate(fds_uint64_t rate) {
-        modifyParams(rate, burst);
+        modifyParams(rate, burst_);
     }
 
     /* If token bucket has 'num_tokens', consume them and return true
@@ -162,8 +162,8 @@ public:
     /// @return  Whether the requested number of tokens were consumed.
     ///
     inline fds_bool_t tryToConsumeTokens(fds_uint32_t num_tokens) {
-        if (num_tokens <= token_count) {
-            token_count -= num_tokens;
+        if (num_tokens <= token_count_) {
+            token_count_ -= num_tokens;
             return true;
         }
         return false;
@@ -181,9 +181,9 @@ public:
     /// @return  The number of microseconds before @p num_tokens are available.
     ///
     inline fds_uint64_t getDelayMicrosec(fds_uint32_t num_tokens) {
-        if (token_count < num_tokens) {
-            fds_uint64_t needed_tokens = num_tokens - token_count;
-            fds_uint64_t delay_microsec = needed_tokens * 1000000 / rate;
+        if (token_count_ < num_tokens) {
+            fds_uint64_t needed_tokens = num_tokens - token_count_;
+            fds_uint64_t delay_microsec = needed_tokens * 1000000 / rate_;
             return delay_microsec;
         }
         return 0; /* otherwise enough tokens */
@@ -211,30 +211,30 @@ protected:
     inline void updateTokensOnly(fds_uint64_t nowMicrosec) {
         // Going back in time is not supported. Add it if you need it, but the code hasn't been
         // designed with that in mind.
-        fds_verify(nowMicrosec >= t_last_update);
+        fds_verify(nowMicrosec >= t_last_update_);
 
         // FIXME(DAC): Should we freak out if we go back in time?
-        fds_uint64_t elapsed_microsec = nowMicrosec - t_last_update;
+        fds_uint64_t elapsed_microsec = nowMicrosec - t_last_update_;
         // FIXME(DAC): Should we only do this if we're actually getting more tokens?
         if (elapsed_microsec > 0) {
 
             // Crash on overflow. We don't do >= rate / 1000000 because the intermediate result is
             // where we can get overflow.
-            fds_verify(std::numeric_limits<fds_uint64_t>::max() / elapsed_microsec >= rate);
-            fds_uint64_t new_tokens = elapsed_microsec * rate / 1000000;
+            fds_verify(std::numeric_limits<fds_uint64_t>::max() / elapsed_microsec >= rate_);
+            fds_uint64_t new_tokens = elapsed_microsec * rate_ / 1000000;
 
             // Very low likelihood of an overflow here, but if a misconfiguration or other special
             // circumstances lead to > 100 years passing (see MAX_RATE), at least the error won't
             // cause something hard to debug.
-            fds_verify(std::numeric_limits<fds_uint64_t>::max() - token_count >= new_tokens);
-            token_count += new_tokens;
+            fds_verify(std::numeric_limits<fds_uint64_t>::max() - token_count_ >= new_tokens);
+            token_count_ += new_tokens;
 
             // token_microsec will be strictly less than or equal to elapsed_microsec, which can't
             // possibly cause overflow since it's calculated as the difference between two unsigned
             // fds_uint64_t. The new_tokens multiplication can't itself overflow due to the check
             // on MAX_RATE.
-            auto token_microsec = new_tokens * 1000000 / rate;
-            t_last_update += token_microsec;
+            auto token_microsec = new_tokens * 1000000 / rate_;
+            t_last_update_ += token_microsec;
         }
     }
 
@@ -246,9 +246,9 @@ protected:
     inline fds_uint64_t expireTokens() {
         fds_uint64_t expired_tokens = 0;
 
-        if (token_count > burst) {
-            expired_tokens = token_count - burst;
-            token_count -= expired_tokens;
+        if (token_count_ > burst_) {
+            expired_tokens = token_count_ - burst_;
+            token_count_ -= expired_tokens;
         }
 
         return expired_tokens;
@@ -258,15 +258,15 @@ protected:
 public:
     /// @defgroup  Config  Configurable parameters.
     ///@{
-    fds_uint64_t rate;   ///< Number of tokens accumulated per second.
-    fds_uint64_t burst;  ///< Maximum number of whole tokens that this bucket can accumulate.
+    fds_uint64_t rate_;   ///< Number of tokens accumulated per second.
+    fds_uint64_t burst_;  ///< Maximum number of whole tokens that this bucket can accumulate.
     ///@}
 
     /// @defgroup  State  Dynamic state.
     ///@{
-    fds_uint64_t t_last_update;  ///< Microseconds since epoch on which this bucket last accumulated
+    fds_uint64_t t_last_update_;  ///< Microseconds since epoch on which this bucket last accumulated
                                  ///< tokens.
-    fds_uint64_t token_count;    ///< Number of tokens currently in the bucket.
+    fds_uint64_t token_count_;    ///< Number of tokens currently in the bucket.
     ///@}
 };
 
@@ -298,7 +298,7 @@ public:
     /// @param  add_tokens  The number of tokens to add.
     ///
     inline void addTokens(fds_uint64_t add_tokens) {
-        token_count += add_tokens;
+        token_count_ += add_tokens;
         (void)expireTokens();
     }
 };
