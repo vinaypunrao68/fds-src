@@ -89,6 +89,8 @@ enum  FDSPMsgTypeId {
 	CtrlQueryScrubberStatusRespTypeId  = 2051,
 	CtrlSetScrubberStatusTypeId		   = 2052,
 	CtrlSetScrubberStatusRespTypeId	   = 2053,
+	CtrlNotifyMigrationFinishedTypeId  = 2054,
+	CtrlNotifyMigrationStatusTypeId	   = 2055,
 
 
     CtrlNotifyDLTUpdateTypeId          = 2060,
@@ -473,6 +475,11 @@ struct CtrlStartMigration {
      1: FDSP.FDSP_DLT_Data_Type   dlt_data;
 }
 
+/* ----------------------  CtrlNotifyMigrationStatusTypeId  --------------------------- */
+struct CtrlNotifyMigrationStatus {
+     1: FDSP.FDSP_MigrationStatusType   status;
+}
+
 /* ---------------------  CtrlNotifyScavengerTypeId  --------------------------- */
 struct CtrlNotifyScavenger {
      1: FDSP.FDSP_ScavengerType   scavenger;
@@ -565,6 +572,7 @@ struct SMTokenMigrationGroup {
 
 struct CtrlNotifySMStartMigration {
      1: list<SMTokenMigrationGroup> migrations;
+	 2: i64							DLT_version;
 }
 
 /* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
@@ -982,11 +990,17 @@ struct CtrlObjectMetaDataSync
  */
 struct CtrlObjectRebalanceInitialSet
 {
-    /* Token to be rebalance */
-    1: FDSP.FDSP_Token                    objectToken
+    /* DLT token to be rebalance */
+    1: FDSP.FDSP_Token              tokenId
     
     /* Set of objects to be sync'ed */
     2: list<CtrlObjectMetaDataSync> objectsToSync
+
+    /* sequence number */
+    3: i64 seqNum
+
+    /* true if this is the last message */
+    4: bool last
 }
 
 /* Response from the source SM to destination SM.  

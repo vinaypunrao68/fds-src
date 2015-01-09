@@ -1,0 +1,15 @@
+[sean-nodes]
+10.1.10.81 fds_node=node01
+10.1.10.114 fds_node=node02
+10.1.10.186 fds_node=node03
+
+[sean-nodes:vars]
+deploy_artifact=local
+fds_default_nic=eth0
+fds_om_host=10.1.10.81
+fds_metrics_enables=false
+fds_metricsdb_ip=127.0.0.1
+fds_ssh_user=root
+fds_ssh_password=passwd
+clean_fds=yes
+force=yes

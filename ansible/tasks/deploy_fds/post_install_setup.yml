@@ -21,7 +21,7 @@
 
 -   name: render formation.conf
     template:
-        src=../templates/formation.conf.j2
+        src=../../source/test/formation.conf.j2
         dest=/fds/sbin/deploy_formation.conf
         owner=root
         group=root
