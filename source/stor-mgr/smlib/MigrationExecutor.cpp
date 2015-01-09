@@ -57,7 +57,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         // for now packing all objects per one DLT token into one message
         fpi::CtrlObjectRebalanceInitialSetPtr msg(new fpi::CtrlObjectRebalanceInitialSet());
         msg->tokenId = tok;
-        msg->seqNum = ++seqId;
+        msg->seqNum = seqId++;
         msg->last = (seqId < dltTokens.size()) ? false : true;
         LOGNORMAL << "Initial Set Msg: token " << tok << ", seqNum "
                   << msg->seqNum << ", last " << msg->last;
