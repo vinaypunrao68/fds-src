@@ -139,9 +139,9 @@ SmTokenMigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
  * Handle start object rebalance from destination SM
  */
 Error
-SmTokenMigrationMgr::startObjectRebalance(
-                               fds_token_id tokenId,
-                               std::vector<fpi::CtrlObjectMetaDataSync>& objToSync) {
+SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceInitialSetPtr& rebalSetMsg,
+                                          const fpi::SvcUuid &executorSmUuid,
+                                          fds_uint32_t bitsPerDltToken) {
     Error err(ERR_OK);
     LOGDEBUG << "";
     return err;

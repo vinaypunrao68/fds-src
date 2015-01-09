@@ -2,6 +2,8 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
+#include <map>
+
 #include <ObjMeta.h>
 #include <dlt.h>
 #include <MigrationExecutor.h>
@@ -45,7 +47,19 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
      * Iterate through the level db and add to set of objects to rebalance.
      */
     leveldb::Iterator* it = db->NewIterator(options);
-    fpi::CtrlObjectRebalanceInitialSetPtr msg(new fpi::CtrlObjectRebalanceInitialSet());
+    std::map<fds_token_id, fpi::CtrlObjectRebalanceInitialSetPtr> perTokenMsgs;
+    fds_int64_t seqId = 0;
+    for (auto tok : dltTokens) {
+        // for now packing all objects per one DLT token into one message
+        fpi::CtrlObjectRebalanceInitialSetPtr msg(new fpi::CtrlObjectRebalanceInitialSet());
+        msg->tokenId = tok;
+        msg->seqNum = ++seqId;
+        msg->last = (seqId < dltTokens.size()) ? false : true;
+        LOGNORMAL << "Initial Set Msg: token " << tok << ", seqNum "
+                  << msg->seqNum << ", last " << msg->last;
+        perTokenMsgs[tok] = msg;
+    }
+
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         ObjectID id(it->key().ToString());
         // send objects that belong to DLT tokens that need to be migrated from src SM
@@ -63,7 +77,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         LOGDEBUG << "Will add object " << id << ", dltToken " << dltTokId
                  << " refcnt " << omdSync.objRefCnt << " to thrift msg to source SM "
                  << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
-        msg->objectsToSync.push_back(omdSync);
+        perTokenMsgs[dltTokId]->objectsToSync.push_back(omdSync);
     }
     delete it;
 
