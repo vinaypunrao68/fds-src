@@ -26,11 +26,11 @@ using fds::util::getTimeStampMicros;
 
 class TestingTokenBucket : public fds::TokenBucket {
     public:
-        using fds::TokenBucket::rate;
-        using fds::TokenBucket::burst;
+        using fds::TokenBucket::rate_;
+        using fds::TokenBucket::burst_;
 
-        using fds::TokenBucket::t_last_update;
-        using fds::TokenBucket::token_count;
+        using fds::TokenBucket::t_last_update_;
+        using fds::TokenBucket::token_count_;
 
         using fds::TokenBucket::updateTokensOnly;
         using fds::TokenBucket::expireTokens;
@@ -44,11 +44,11 @@ TEST(TokenBucket, initInternalInvariantsRateBurst) {
     fds_uint64_t const testBurst = 2;
 
     TestingTokenBucket testObject(testRate, testBurst);
-    EXPECT_EQ(testRate, testObject.rate) << "rate was not initialized properly.";
-    EXPECT_EQ(testBurst, testObject.burst) << "burst was not initialized properly.";
-    EXPECT_EQ(0, testObject.token_count) << "token_count was not initialized properly.";
-    EXPECT_LT(0, testObject.t_last_update) << "t_last_update was not initialized properly.";
-    EXPECT_GE(getTimeStampMicros(), testObject.t_last_update)
+    EXPECT_EQ(testRate, testObject.rate_) << "rate was not initialized properly.";
+    EXPECT_EQ(testBurst, testObject.burst_) << "burst was not initialized properly.";
+    EXPECT_EQ(0, testObject.token_count_) << "token_count was not initialized properly.";
+    EXPECT_LT(0, testObject.t_last_update_) << "t_last_update was not initialized properly.";
+    EXPECT_GE(getTimeStampMicros(), testObject.t_last_update_)
         << "t_last_update was not initialized properly.";
 }
 
@@ -63,24 +63,24 @@ TEST(TokenBucket, initInternalInvariantsMaxBurst) {
 
     {
         TestingTokenBucket testObject(testRate, testBurst, testMaxBurstUsExact1Sec);
-        EXPECT_EQ(testRate, testObject.burst) << "burst was not initialized properly to 1 second.";
+        EXPECT_EQ(testRate, testObject.burst_) << "burst was not initialized properly to 1 second.";
     }
     {
         TestingTokenBucket testObject(testRate, testBurst, testMaxBurstUsTrunc1Sec);
-        EXPECT_EQ(testRate, testObject.burst) << "burst was not initialized properly to 1 second.";
+        EXPECT_EQ(testRate, testObject.burst_) << "burst was not initialized properly to 1 second.";
     }
     {
         TestingTokenBucket testObject(testRate, testBurst, testMaxBurstUsTrunc2Sec);
-        EXPECT_EQ(testRate, testObject.burst) << "burst was not initialized properly to 1 second.";
+        EXPECT_EQ(testRate, testObject.burst_) << "burst was not initialized properly to 1 second.";
     }
     {
         TestingTokenBucket testObject(testRate, testBurst, testMaxBurstUsExact2Sec);
-        EXPECT_EQ(testRate * 2, testObject.burst)
+        EXPECT_EQ(testRate * 2, testObject.burst_)
             << "burst was not initialized properly to 2 seconds.";
     }
     {
         TestingTokenBucket testObject(testRate, testBurst, testMaxBurstUsExact3Sec);
-        EXPECT_EQ(testBurst, testObject.burst)
+        EXPECT_EQ(testBurst, testObject.burst_)
             << "burst was not initialized properly to burst parameter.";
     }
 }
@@ -92,7 +92,7 @@ TEST(TokenBucket, initPreconditions) {
 
     {
         TestingTokenBucket testObject(testRateMax, testBurst);
-        EXPECT_EQ(testRateMax, testObject.rate) << "rate was not initialized properly.";
+        EXPECT_EQ(testRateMax, testObject.rate_) << "rate was not initialized properly.";
     }
     {
         EXPECT_DEATH(TestingTokenBucket testObject(testRateOverMax, testBurst), "");
@@ -108,15 +108,15 @@ TEST(TokenBucket, modifyParams) {
 
     TestingTokenBucket testObject(initialRate, initialBurst);
 
-    testObject.t_last_update = 0;
+    testObject.t_last_update_ = 0;
     testObject.modifyParams(updatedRate, updatedBurst, secondsToSimulate * 1000000);
 
     fds_uint64_t expectedTokens = initialRate * secondsToSimulate;
-    EXPECT_EQ(expectedTokens, testObject.token_count)
+    EXPECT_EQ(expectedTokens, testObject.token_count_)
         << "tokens not correctly accumulated prior to update.";
 
-    EXPECT_EQ(updatedRate, testObject.rate) << "rate was not updated properly.";
-    EXPECT_EQ(updatedBurst, testObject.burst) << "burst was not updated properly.";
+    EXPECT_EQ(updatedRate, testObject.rate_) << "rate was not updated properly.";
+    EXPECT_EQ(updatedBurst, testObject.burst_) << "burst was not updated properly.";
 }
 
 TEST(TokenBucket, modifyRateWithBurstInMicroseconds) {
@@ -130,8 +130,8 @@ TEST(TokenBucket, modifyRateWithBurstInMicroseconds) {
 
     testObject.modifyRate(updatedRate, updatedBurstDuration);
 
-    EXPECT_EQ(updatedRate, testObject.rate) << "rate was not updated properly.";
-    EXPECT_EQ(updatedBurst, testObject.burst) << "burst was not updated properly.";
+    EXPECT_EQ(updatedRate, testObject.rate_) << "rate was not updated properly.";
+    EXPECT_EQ(updatedBurst, testObject.burst_) << "burst was not updated properly.";
 }
 
 TEST(TokenBucket, modifyRate) {
@@ -143,8 +143,8 @@ TEST(TokenBucket, modifyRate) {
 
     testObject.modifyRate(updatedRate);
 
-    EXPECT_EQ(updatedRate, testObject.rate) << "rate was not updated properly.";
-    EXPECT_EQ(burst, testObject.burst) << "burst was modified inappropriately.";
+    EXPECT_EQ(updatedRate, testObject.rate_) << "rate was not updated properly.";
+    EXPECT_EQ(burst, testObject.burst_) << "burst was modified inappropriately.";
 }
 
 TEST(TokenBucket, expireTokens) {
@@ -154,11 +154,11 @@ TEST(TokenBucket, expireTokens) {
     fds_uint64_t const expectedExpiredTokens = initialTokens - burst;
 
     TestingTokenBucket testObject(1, burst);
-    testObject.token_count = initialTokens;
+    testObject.token_count_ = initialTokens;
 
     auto expiredTokens = testObject.expireTokens();
 
-    EXPECT_EQ(testObject.burst, testObject.token_count) << "token_count was not updated properly.";
+    EXPECT_EQ(testObject.burst_, testObject.token_count) << "token_count was not updated properly.";
     EXPECT_EQ(expectedExpiredTokens, expiredTokens) << "incorrect number of tokens expired.";
 }
 
@@ -241,13 +241,13 @@ TEST_P(TokenBucketConsume, tryToConsumeTokens) {
     auto param = GetParam();
 
     TestingTokenBucket testObject(param.oldState.rate, param.oldState.burst);
-    testObject.token_count = param.oldState.token_count;
+    testObject.token_count_ = param.oldState.token_count;
 
     if (param.expectSuccess) {
         EXPECT_TRUE(testObject.tryToConsumeTokens(param.consume))
                 << "Unable to consume " << pluralize(param.consume, "token", "tokens")
                 << " from " << testObject.token_count;
-        EXPECT_EQ(param.newState.token_count, testObject.token_count)
+        EXPECT_EQ(param.newState.token_count, testObject.token_count_)
                 << "Incorrect number of tokens remaining after "
                 << pluralize(param.consume, "token", "tokens") << " was removed from "
                 << param.oldState.token_count << ".";
@@ -255,7 +255,7 @@ TEST_P(TokenBucketConsume, tryToConsumeTokens) {
         EXPECT_FALSE(testObject.tryToConsumeTokens(param.consume))
                 << pluralize(param.consume, "token", "tokens") << " was allowed to be consumed "
                 << "from " << param.oldState.token_count;
-        EXPECT_EQ(param.oldState.token_count, testObject.token_count)
+        EXPECT_EQ(param.oldState.token_count, testObject.token_count_)
                 << "Token count should not be modified when the full count cannot be consumed.";
     }
 }
@@ -279,8 +279,8 @@ TEST_P(TokenBucketUpdate, updateTokensOnly) {
     auto param = GetParam();
 
     TestingTokenBucket testObject(param.oldState.rate, param.oldState.burst);
-    testObject.token_count = param.oldState.token_count;
-    testObject.t_last_update = param.oldState.t_last_update;
+    testObject.token_count_ = param.oldState.token_count;
+    testObject.t_last_update_ = param.oldState.t_last_update;
 
     if (param.expectCrash) {
         EXPECT_DEATH(testObject.updateTokensOnly(param.nowMicrosec), "");
@@ -289,9 +289,9 @@ TEST_P(TokenBucketUpdate, updateTokensOnly) {
     {
         testObject.updateTokensOnly(param.nowMicrosec);
 
-        EXPECT_EQ(param.newState.token_count, testObject.token_count)
+        EXPECT_EQ(param.newState.token_count, testObject.token_count_)
                 << "token_count was not updated properly.";
-        EXPECT_EQ(param.newState.t_last_update, testObject.t_last_update)
+        EXPECT_EQ(param.newState.t_last_update, testObject.t_last_update_)
                 << "t_last_update was not updated properly.";
     }
 }

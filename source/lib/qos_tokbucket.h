@@ -28,8 +28,8 @@ namespace fds {
 /// For use by dispatchers that will drive the token bucket state, or as a building block for more
 /// complex token buckets.
 ///
-/// Tokens are accumulated at a rate of ::rate tokens per second. The maximum number of tokens that
-/// may accumulate at one time is specified by ::burst.
+/// Tokens are accumulated at a rate of ::rate_ tokens per second. The maximum number of tokens that
+/// may accumulate at one time is specified by ::burst_.
 ///
 class TokenBucket {
 public:
@@ -78,7 +78,7 @@ public:
     ///
     /// Get the number of tokens that are accumulated per second.
     ///
-    /// @return  The current property value..
+    /// @return  The current property value.
     ///
     inline fds_uint64_t getRate() const {
         return rate_;
@@ -96,10 +96,10 @@ public:
     }
 
     ///
-    /// Change the ::rate and ::burst parameters at the same time.
+    /// Change the ::rate_ and ::burst_ parameters at the same time.
     ///
     /// Tokens since the last update will be accumulated at the old rate, but will not be clamped to
-    /// either the new or old ::burst.
+    /// either the new or old ::burst_.
     ///
     /// @param  rate         The new number of tokens to be accumulated per second.
     /// @param  burst        The new maximum number of tokens that may be accumulated.
@@ -120,24 +120,24 @@ public:
     }
 
     ///
-    /// Change the ::rate and ::burst parameters at the same time.
+    /// Change the ::rate_ and ::burst_ parameters at the same time.
     ///
     /// Tokens since the last update will be accumulated at the new rate, but will not be clamped to
-    /// either the new or old ::burst.
+    /// either the new or old ::burst_.
     ///
     /// @param  rate      The new number of tokens to be accumulated per second.
-    /// @param  burst_us  ::burst will be set so that, at @p rate, this bucket will fill in burst_us
-    ///                     microseconds.
+    /// @param  burst_us  ::burst_ will be set so that, at @p rate, this bucket will fill in
+    ///                     @p burst_us microseconds.
     ///
     inline void modifyRate(fds_uint64_t rate, fds_uint64_t burst_us) {
         modifyParams(rate, burst_us * rate / 1000000);
     }
 
     ///
-    /// Change the ::rate parameter.
+    /// Change the ::rate_ parameter.
     ///
     /// Tokens since the last update will be accumulated at the new rate, but will not be clamped to
-    /// ::burst.
+    /// ::_burst.
     ///
     /// @param  rate  The new number of tokens to be accumulated per second.
     ///
@@ -145,9 +145,6 @@ public:
         modifyParams(rate, burst_);
     }
 
-    /* If token bucket has 'num_tokens', consume them and return true
-     * otherwise return false. Assumes that token bucket state is current --
-     * !! Must call updateTBState() first to update the state. */
     ///
     /// Attempt to consume a specified number of tokens.
     ///
@@ -194,7 +191,7 @@ public:
     ///
     /// @param  nowMicrosec  The current number of microseconds since epoch.
     ///
-    /// @return  The number of tokens that spilled over ::burst.
+    /// @return  The number of tokens that spilled over ::burst_.
     ///
     inline fds_uint64_t updateTBState(fds_uint64_t nowMicrosec) {
         updateTokensOnly(nowMicrosec);
@@ -204,7 +201,7 @@ public:
 
 protected:
     ///
-    /// Accumulate tokens without clamping to ::burst.
+    /// Accumulate tokens without clamping to ::burst_.
     ///
     /// @param  nowMicrosec  The current number of microseconds since epoch.
     ///
@@ -239,7 +236,7 @@ protected:
     }
 
     ///
-    /// Clamp the number of whole tokens in this bucket to ::burst.
+    /// Clamp the number of tokens in this bucket to ::burst_.
     ///
     /// @return  The number of tokens that were expired.
     ///
@@ -259,13 +256,13 @@ public:
     /// @defgroup  Config  Configurable parameters.
     ///@{
     fds_uint64_t rate_;   ///< Number of tokens accumulated per second.
-    fds_uint64_t burst_;  ///< Maximum number of whole tokens that this bucket can accumulate.
+    fds_uint64_t burst_;  ///< Maximum number of tokens that this bucket can accumulate.
     ///@}
 
     /// @defgroup  State  Dynamic state.
     ///@{
-    fds_uint64_t t_last_update_;  ///< Microseconds since epoch on which this bucket last accumulated
-                                 ///< tokens.
+    fds_uint64_t t_last_update_;  ///< Microseconds since epoch on which this bucket last
+                                  ///< accumulated tokens.
     fds_uint64_t token_count_;    ///< Number of tokens currently in the bucket.
     ///@}
 };
@@ -293,7 +290,7 @@ public:
     ///
     /// Add tokens to this bucket.
     ///
-    /// After adding, tokens above ::burst will be expired.
+    /// After adding, tokens above ::burst_ will be expired.
     ///
     /// @param  add_tokens  The number of tokens to add.
     ///
