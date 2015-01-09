@@ -123,10 +123,6 @@ check_sudo() {
 }
 
 run_deploy_playbook() {
-    for hostname in $(ansible all --list-hosts -i inventory/bld-nightly-nodes) ; 
-        do ssh-keygen -R ${hostname}
-    done
-
     cd ${ansible_base_dir} && ansible-playbook ${ansible_args} -e "deploy_artifact=${deploy_source}" --skip-tags check_sudo --vault-password-file ~/.vault_pass.txt
 }
 
