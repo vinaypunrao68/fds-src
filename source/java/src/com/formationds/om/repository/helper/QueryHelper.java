@@ -161,17 +161,20 @@ public class QueryHelper {
 		                // TODO finish implementing -- once the platform has total system capacity
 		                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
 		                                                  .doubleValue();
-		                calculatedList.add( percentageFull( consumed, systemCapacity ) );
+//		                calculatedList.add( percentageFull( consumed, systemCapacity ) );
 		                
 		                // TODO finish implementing  -- once Nate provides a library
 		            	Series physicalBytes = series.stream()
 		            		.filter( ( s ) -> { 
-		            			return s.getType().equals( Metrics.SSD_GETS.name() );
+		            			return s.getType().equals( Metrics.PBYTES.name() );
 		            		})
 			            	.findFirst().orElse( null );
 		            	
 		            	if ( physicalBytes != null ){
 		            		calculatedList.add( toFull( physicalBytes, systemCapacity ) );
+		            	}
+		            	else {
+		            		logger.info( "There were no physical bytes reported for the system.  Cannot calculate time to full.");
 		            	}
 	                }
 	
