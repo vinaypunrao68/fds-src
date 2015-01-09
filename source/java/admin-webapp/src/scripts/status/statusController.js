@@ -56,13 +56,13 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $scope.capacityStats = data;
         
         var calculatedValues = data.calculated;
-        var secondsToFull, totalCapacity, capacityUsed, percentUsed, dedupRatio;
+        var daysToFull, totalCapacity, capacityUsed, percentUsed, dedupRatio;
         
         for ( var i = 0; i < calculatedValues.length; i++ ){
             var values = calculatedValues[i];
             
             if ( angular.isDefined( values['toFull'] ) ){
-                secondsToFull = values['toFull'];
+                daysToFull = values['toFull'];
             }
             else if ( angular.isDefined( values['ratio'] ) ){
                 dedupRatio = values['ratio'];
@@ -84,9 +84,9 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $scope.capacityItems = [{number: dedupRatio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
             {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
         
-        if ( angular.isDefined( secondsToFull ) ){
+        if ( angular.isDefined( daysToFull ) ){
             
-            var convertedStr = $time_converter.convertToTime( secondsToFull*1000 );
+            var convertedStr = $time_converter.convertToTime( daysToFull*24*60*60*1000 );
             var parts = convertedStr.split( ' ' );
             $scope.capacityItems.push( {number: parseFloat( parts[0] ), description: $filter( 'translate' )( 'status.desc_time_to_full' ), suffix: parts[1].toLowerCase() } );
             $scope.capacityLimit = totalCapacity;

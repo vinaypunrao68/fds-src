@@ -86,11 +86,11 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     });
                 });
                 
-                if ( angular.isDefined( $scope.limit ) ){
-                    if ( $scope.limit > $max ){
-                        $max = $scope.limit;
-                    }
-                }
+//                if ( angular.isDefined( $scope.limit ) ){
+//                    if ( $scope.limit > $max ){
+//                        $max = $scope.limit;
+//                    }
+//                }
                 
                 $max = 1.05*$max;
             };
@@ -309,14 +309,14 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .attr( 'stroke', $scope.axisColor );
                 
                 // limit line
-                if ( angular.isDefined( $scope.limit ) ){
+                if ( angular.isDefined( $scope.limit ) && $scope.limit < $max ){
                     $svg.append( 'line' )
                         .attr( 'class', 'limit-line' )
                         .attr( 'x1', $xScale( $xMin ) )
                         .attr( 'x2', $xScale( $xMax ) )
                         .attr( 'y1', $yScale( $scope.limit ) )
                         .attr( 'y2', $yScale( $scope.limit ) )
-                        .attr( 'fill', function( d ){
+                        .attr( 'stroke', function( d ){
                             
                             if ( angular.isDefined( $scope.limitColor ) ){
                                 return $scope.limitColor;
