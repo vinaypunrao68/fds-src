@@ -20,6 +20,7 @@ import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
 import com.formationds.commons.model.calculated.capacity.CapacityDeDupRatio;
 import com.formationds.commons.model.calculated.capacity.CapacityFull;
 import com.formationds.commons.model.calculated.capacity.CapacityToFull;
+import com.formationds.commons.model.calculated.capacity.TotalCapacity;
 import com.formationds.commons.model.calculated.firebreak.FirebreaksLast24Hours;
 import com.formationds.commons.model.calculated.performance.IOPsConsumed;
 import com.formationds.commons.model.entity.VolumeDatapoint;
@@ -158,10 +159,15 @@ public class QueryHelper {
 	                calculatedList.add( consumed );
 	
 	                if ( authorizer.userFor( token ).isFdsAdmin ){
+	                	
 		                // TODO finish implementing -- once the platform has total system capacity
 		                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
 		                                                  .doubleValue();
 //		                calculatedList.add( percentageFull( consumed, systemCapacity ) );
+		                
+		                TotalCapacity totalCap = new TotalCapacity();
+		                totalCap.setTotalCapacity( systemCapacity );
+		                calculatedList.add( totalCap );
 		                
 		                // TODO finish implementing  -- once Nate provides a library
 		            	Series physicalBytes = series.stream()

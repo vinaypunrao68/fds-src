@@ -298,15 +298,15 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .attr( 'x1', $xScale( $xMin ) )
                     .attr( 'x2', function( d ){
                     
-                        if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints )){
-                            return $xScale( $scope.data.series[0].datapoints.length-1 );
-                        }
+//                        if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints )){
+//                            return $xScale( $scope.data.series[0].datapoints.length-1 );
+//                        }
                     
-                        return $xScale( $xMin );
+                        return $xScale( $xMax );
                     })
                     .attr( 'y1', $yScale( 0 ) )
                     .attr( 'y2', $yScale( 0 ) )
-                    .attr( 'stroke', 'black' );
+                    .attr( 'stroke', $scope.axisColor );
                 
                 // limit line
                 if ( angular.isDefined( $scope.limit ) ){

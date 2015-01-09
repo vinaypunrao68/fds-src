@@ -57,6 +57,9 @@ var en_US = {
         l_hours: 'Hours',
         l_weeks: 'Weeks',
         l_years: 'Years',
+        l_minutes: 'Minutes',
+        l_seconds: 'Seconds',
+        l_millis: 'Milliseconds',
         l_months_by_days: 'Months by days',
         l_forever: 'Forever',
         
@@ -64,6 +67,9 @@ var en_US = {
         l_day: 'Day',
         l_week: 'Week',
         l_year: 'Year',
+        l_second: 'Second',
+        l_minute: 'Minute',
+        l_milli: 'Millisecond',
         
         bytes: 'bytes',
         kb: 'KB',
@@ -103,7 +109,8 @@ var en_US = {
         desc_capacity_used: 'Total capacity used',
         desc_dedup_ratio: 'Deduplication ratio',
         desc_dedup_capacity: 'Deduplicated storage capacity used.',
-        desc_pre_dedup_capacity: 'Logical storage capacity consumed before deduplication.'
+        desc_pre_dedup_capacity: 'Logical storage capacity consumed before deduplication.',
+        desc_time_to_full: 'until capacity is full'
     },
     inbox: {
         messages: 'Messages',
