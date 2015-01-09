@@ -158,6 +158,8 @@ public class QueryHelper {
 	                final CapacityConsumed consumed = bytesConsumed();
 	                calculatedList.add( consumed );
 	
+	                // only the FDS admin is allowed to get data about the capacity limit
+	                // of the system
 	                if ( authorizer.userFor( token ).isFdsAdmin ){
 	                	
 		                // TODO finish implementing -- once the platform has total system capacity

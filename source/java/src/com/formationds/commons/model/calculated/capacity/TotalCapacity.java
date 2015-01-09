@@ -5,7 +5,7 @@ import com.google.gson.annotations.SerializedName;
 
 public class TotalCapacity
 extends Calculated {
-	private static final long serialVersionUID = 4144617532432238800L;
+	private static final long serialVersionUID = 4144617532432278800L;
 
 	@SerializedName( "total_capacity" )
 	private Double totalCapacity;
@@ -20,7 +20,7 @@ extends Calculated {
 	 * @return Returns the {@link java.lang.Integer} representing the duration
 	 * until capacity is 100% (full)
 	 */
-	public Double totalCapacity() {
+	public Double getTotalCapacity() {
 		return totalCapacity;
 	}
 
