@@ -36,5 +36,21 @@
 {% set am_host = am_host if am_host is defined else 'localhost' %}
 {% set snmp_targetip = fds_snmp_targetip if fds_snmp_targetip is defined else 'localhost' %}
 {% set snmp_community = fds_snmp_community if fds_snmp_community is defined else 'public' %}
+{#
+   These settings configure feature toggles (for c++ code)
+
+   They all start fds_ft_
+#}
+{% set ft_common_enable_multi_om_support    = fds_ft_common_enable_multi_om_support    if fds_ft_common_enable_multi_om_support    is defined else 'false' %}
+{% set ft_platform_use_disk_hints           = fds_ft_platform_use_disk_hints           if fds_ft_platform_use_disk_hints           is defined else 'false' %}
+{% set ft_platform_force_simulation_mode    = fds_ft_platform_force_simulation_mode    if fds_ft__platform_force_simulation_mode   is defined else 'false' %}
+
+{#
+   Multi OM support variables
+#}
+{% set om_ip_1    = fds_om_ip_1    if fds_om_ip_1    is defined else 'must_configure_via_an_inventory_file' %}
+{% set om_ip_2    = fds_om_ip_2    if fds_om_ip_2    is defined else 'must_configure_via_an_inventory_file' %}
+{% set om_ip_3    = fds_om_ip_3    if fds_om_ip_3    is defined else 'must_configure_via_an_inventory_file' %}
+{% set om_ip_4    = fds_om_ip_4    if fds_om_ip_4    is defined else 'must_configure_via_an_inventory_file' %}
 {% block content %}{% endblock %}
 
