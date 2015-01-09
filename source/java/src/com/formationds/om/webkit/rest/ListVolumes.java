@@ -197,12 +197,18 @@ struct VolumeDescriptor {
 				o.put( "mediaPolicy", v.getPolicy().getMediaPolicy().name() );
 			}
 			
+			JSONObject fbObject = new JSONObject();
+			fbObject.put( FirebreakType.CAPACITY.name().toLowerCase(),  0.0D );
+			fbObject.put( FirebreakType.PERFORMANCE.name().toLowerCase(),  0.0D );
+			
 			if ( fbResults != null ){
 				// put each firebreak event in the JSON object if it exists
 				fbResults.forEach( (type, pair) -> {
-					o.put( type.name(), pair.getDatapoint().getY() );
+					fbObject.put( type.name(), pair.getDatapoint().getY() );
 				});
 			}
+			
+			o.put( "firebreak", fbObject );
 		}
 
 		if( status != null ) {

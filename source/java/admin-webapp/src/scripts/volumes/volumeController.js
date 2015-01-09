@@ -89,6 +89,43 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         return rtnValue;
     };
     
+    $scope.getFirebreakColor = function( volume ){
+        
+        var getColor = function( num ){
+            
+            if ( num <= 3600 ){
+                return '#FF5D00';
+            }
+            else if ( num <= 3600*3 ){
+                return '#FD8D00';
+            }
+            else if ( num <= 3600*6 ){
+                return '#FCE300';
+            }
+            else if ( num <= 3600*12 ){
+                return '#C0DF00';
+            }
+            else if ( num <= 3600*24 ){
+                return '#68C000';
+            }
+            else {
+                return 'white';
+            }
+        };
+        
+        var now = new Date();
+        var capacityFirebreak = now.getTime() - volume.firebreak.capacity;
+        var performanceFirebreak = now.getTime() - volume.firebreak.performance;
+        
+        if ( capacityFirebreak < performanceFirebreak ){
+            return getColor( capacityFirebreak );
+        }
+        else {
+            return getColor( performanceFirebreak );
+        }
+        
+    };
+    
     $scope.$on( 'fds::authentication_logout', function(){
         $scope.volumes = [];
     });
