@@ -238,7 +238,13 @@ class FdsLocalEnv(FdsEnv):
         p = subprocess.Popen(call_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         if cmd_input is not None:
-            stdout, stderr = p.communicate(self.env_sudo_password + "\n" + cmd_input + "\n")
+            # Watch for a sudo password of "dummy". In that case we'll assume that the environment
+            # will not request a password for sudo and so execute the command without providing it
+            # as input.
+            if self.env_sudo_password == "dummy":
+                stdout, stderr = p.communicate(cmd_input + "\n")
+            else:
+                stdout, stderr = p.communicate(self.env_sudo_password + "\n" + cmd_input + "\n")
         else:
             stdout, stderr = p.communicate(self.env_sudo_password + "\n")
 

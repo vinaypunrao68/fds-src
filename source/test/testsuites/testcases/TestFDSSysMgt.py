@@ -388,10 +388,10 @@ class TestTransientAddNodeDMTMigration(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_Transient2NodeDMTMigration():
+            if not self.test_TransientAddNodeDMTMigration():
                 test_passed = False
         except Exception as inst:
-            self.log.error("Transient 2-node DMT migration caused exception:")
+            self.log.error("Transient add node DMT migration caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -405,7 +405,7 @@ class TestTransientAddNodeDMTMigration(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_Transient2NodeDMTMigration(self):
+    def test_TransientAddNodeDMTMigration(self):
         """
         Test Case:
         Attempt locate in OM's log logged statements indicating
@@ -450,10 +450,10 @@ class TestTransientRemoveNodeDMTMigration(TestCase.FDSTestCase):
             self.log.info("Running Case %s." % self.__class__.__name__)
 
         try:
-            if not self.test_Transient1NodeDMTMigration():
+            if not self.test_TransientRemoveNodeDMTMigration():
                 test_passed = False
         except Exception as inst:
-            self.log.error("Transient 1-node DMT migration caused exception:")
+            self.log.error("Transient remove node DMT migration caused exception:")
             self.log.error(traceback.format_exc())
             test_passed = False
 
@@ -467,7 +467,7 @@ class TestTransientRemoveNodeDMTMigration(TestCase.FDSTestCase):
             return test_passed
 
 
-    def test_Transient1NodeDMTMigration(self):
+    def test_TransientRemoveNodeDMTMigration(self):
         """
         Test Case:
         Attempt locate in OM's log logged statements indicating
