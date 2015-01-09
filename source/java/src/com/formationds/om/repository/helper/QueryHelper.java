@@ -38,6 +38,7 @@ import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
 import com.formationds.xdi.ConfigurationApi;
 
+import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +49,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
@@ -155,13 +157,21 @@ public class QueryHelper {
 	                final CapacityConsumed consumed = bytesConsumed();
 	                calculatedList.add( consumed );
 	
-	                // TODO finish implementing -- once the platform has total system capacity
-	                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
-	                                                  .doubleValue();
-	                calculatedList.add( percentageFull( consumed, systemCapacity ) );
-	
-	                // TODO finish implementing  -- once Nate provides a library
-	                calculatedList.add( toFull() );
+	                if ( authorizer.userFor( token ).isFdsAdmin ){
+		                // TODO finish implementing -- once the platform has total system capacity
+		                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
+		                                                  .doubleValue();
+		                calculatedList.add( percentageFull( consumed, systemCapacity ) );
+		                
+		                // TODO finish implementing  -- once Nate provides a library
+		            	Series physicalBytes = series.stream()
+		            		.filter( ( s ) -> { 
+		            			return s.getType().equals( Metrics.SSD_GETS.name() );
+		            		})
+			            	.findFirst().get();
+		            	
+		                calculatedList.add( toFull( physicalBytes, systemCapacity ) );
+	                }
 	
 	            } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
 	            	
@@ -501,14 +511,23 @@ public class QueryHelper {
     /**
      * @return Returns {@link CapacityFull}
      */
-    protected CapacityToFull toFull() {
+    protected CapacityToFull toFull( final Series pSeries,  final Double systemCapacity ) {
         /*
          * TODO finish implementation
-         *
-         * need support from Nate, our local math gure.
+         * Add a non-linear regression for potentially better matching
+         * 
          */
+    	final SimpleRegression linearRegression = new SimpleRegression();
+    	
+    	pSeries.getDatapoints().stream().forEach( ( point ) -> {
+    		linearRegression.addData( point.getX(), point.getY() );
+    	});
+    	
+    	Double secondsToFull = linearRegression.predict( systemCapacity );
+    	long days = TimeUnit.SECONDS.toDays( secondsToFull.longValue() );
+    	
         final CapacityToFull to = new CapacityToFull();
-        to.setToFull( 24 );
+        to.setToFull( days );
         return to;
     }
 

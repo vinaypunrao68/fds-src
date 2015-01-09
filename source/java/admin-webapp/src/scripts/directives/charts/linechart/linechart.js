@@ -6,7 +6,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
         transclude: false,
         templateUrl: 'scripts/directives/charts/linechart/linechart.html',
         scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@', yAxisLabelFunction: '=?', axisColor: '@', 
-            tooltip: '=?', lineColors: '=?', lineStipples: '=?', backgroundColor: '@', domainLabels: '=?' },
+            tooltip: '=?', lineColors: '=?', lineStipples: '=?', backgroundColor: '@', domainLabels: '=?', limit: '=?', limitColor: '@' },
         controller: function( $scope, $element, $resize_service ){
             
             $scope.hoverEvent = false;
@@ -86,6 +86,12 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     });
                 });
                 
+                if ( angular.isDefined( $scope.limit ) ){
+                    if ( $scope.limit > $max ){
+                        $max = $scope.limit;
+                    }
+                }
+                
                 $max = 1.05*$max;
             };
             
@@ -124,6 +130,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             var removeGuides = function(){
                 
                 $svg.selectAll( '.guide-lines' ).remove();
+                $svg.selectAll( '.limit-line' ).remove();
             };
             
             var removeLabels = function(){
@@ -300,6 +307,24 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .attr( 'y1', $yScale( 0 ) )
                     .attr( 'y2', $yScale( 0 ) )
                     .attr( 'stroke', 'black' );
+                
+                // limit line
+                if ( angular.isDefined( $scope.limit ) ){
+                    $svg.append( 'line' )
+                        .attr( 'class', 'limit-line' )
+                        .attr( 'x1', $xScale( $xMin ) )
+                        .attr( 'x2', $xScale( $xMax ) )
+                        .attr( 'y1', $yScale( $scope.limit ) )
+                        .attr( 'y2', $yScale( $scope.limit ) )
+                        .attr( 'fill', function( d ){
+                            
+                            if ( angular.isDefined( $scope.limitColor ) ){
+                                return $scope.limitColor;
+                            }
+                        
+                            return 'black';
+                        });
+                }
                     
             };
             
