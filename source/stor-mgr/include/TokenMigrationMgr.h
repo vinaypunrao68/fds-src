@@ -66,9 +66,9 @@ class SmTokenMigrationMgr {
     /**
      * Handle start object rebalance from destination SM
      */
-    Error startObjectRebalance(fds_token_id tokenId,
-                               std::vector<fpi::CtrlObjectMetaDataSync>& objToSync);
-
+    Error startObjectRebalance(fpi::CtrlObjectRebalanceInitialSetPtr& rebalSetMsg,
+                               const fpi::SvcUuid &executorSmUuid,
+                               fds_uint32_t bitsPerDltToken);
 
     /**
      * Ack from source SM when it receives the whole initial set of
