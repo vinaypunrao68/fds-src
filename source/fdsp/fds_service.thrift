@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+
 include "FDSP.thrift"
 include "snapshot.thrift"
 
@@ -1058,4 +1059,3 @@ struct CtrlObjectRebalanceDeltaSetResp
 }
 
 #endif
-
