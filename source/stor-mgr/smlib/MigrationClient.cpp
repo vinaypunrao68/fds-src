@@ -28,7 +28,7 @@ MigrationClient::~MigrationClient()
 
 
 Error
-MigrationClient::snapshotObjects()
+MigrationClient::migClientSnapshotMetaData()
 {
     Error err(ERR_OK);
 
@@ -51,10 +51,10 @@ MigrationClient::snapshotObjects()
 }
 
 void
-MigrationClient::migrationClientSnapshotCB(const Error& error,
-                                           SmIoSnapshotObjectDB* snapRequest,
-                                           leveldb::ReadOptions& options,
-                                           leveldb::DB *db)
+MigrationClient::migClientSnapshotCB(const Error& error,
+                                     SmIoSnapshotObjectDB* snapRequest,
+                                     leveldb::ReadOptions& options,
+                                     leveldb::DB *db)
 {
     /**
      * Save off the levelDB information.
@@ -70,5 +70,22 @@ MigrationClient::migrationClientSnapshotCB(const Error& error,
      * Intentionally not releasing snapshot, since there is more work to do.
      */
 }
+
+void
+MigrationClient::migClientAddDltTokens(fds_token_id dltToken)
+{
+}
+
+void
+MigrationClient::migClientAddDestSet(fpi::CtrlObjectRebalanceInitialSetPtr &initialSet)
+{
+}
+
+void
+MigrationClient::migClientSetSeqNum(uint64_t seqNum)
+{
+}
+
+
 
 }  // namespace fds
