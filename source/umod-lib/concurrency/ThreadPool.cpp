@@ -178,7 +178,6 @@ thpool_worker::wk_loop(void)
     if (wk_owner->thp_spawning > 0) {
         wk_owner->thp_spawning--;
         wk_owner->thp_act_threads++;
-        std::cout << "Spawning thr " << wk_pool_idx << "\n";
     }
     wk_owner->thp_mutex.unlock();
 
@@ -205,7 +204,6 @@ thpool_worker::wk_loop(void)
                     /* Timeout, exit the idle thread */
                     run = false;
                     dlist_rm_init(&wk_link);
-                    std::cout << "Thr " << wk_pool_idx << " idle, exit...\n";
                     break;
                 }
             } else {
