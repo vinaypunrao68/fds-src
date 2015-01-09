@@ -1,7 +1,7 @@
 angular.module( 'user-management' ).factory( '$authentication', ['$http', '$document', '$rootScope', '$authorization', function( $http, $document, $rootScope, $authorization ){
 
     var service = {};
-    service.isAuthenticated = ($document[0].cookie !== '');
+    service.isAuthenticated = ($document[0].cookie.indexOf( 'token=' ) !== -1 && $document[0].cookie.indexOf( 'user=' ) !== -1 );
     service.error = undefined;
 
     var clearCookie = function() {
