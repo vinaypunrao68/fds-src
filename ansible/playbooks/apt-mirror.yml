@@ -1,0 +1,57 @@
+---
+-   name: install and configure apt-mirror
+    hosts: apt-mirror-hosts
+    gather_facts: false
+    sudo: true
+    remote_user: deploy
+
+    tasks:
+
+    -   name: install apt-mirror
+        apt: name=apt-mirror force=yes
+
+    -   name: touch empty base config
+        file: dest=/etc/apt/mirror.list
+            owner=root
+            group=root
+            mode=0644
+            state=touch
+
+    -   name: add base configs
+        lineinfile: dest=/etc/apt/mirror.list
+            line="{{item}}"
+          state=present
+        with_items:
+            - "set base_path /apt-mirror/"
+            - "set nthreads 20"
+            - "set _tilde 0"
+            - "set limit_rate 450k"
+
+    -   name: add main ubuntu repos if specified in inventory
+        lineinfile: dest=/etc/apt/mirror.list
+            line="{{item}}"
+          state=present
+        with_items:
+            - "deb http://archive.ubuntu.com/ubuntu trusty main restricted universe multiverse"
+            - "deb http://archive.ubuntu.com/ubuntu trusty-security main restricted universe multiverse"
+            - "deb http://archive.ubuntu.com/ubuntu trusty-updates main restricted universe multiverse"
+        when: apt_mirror_public_ubuntu is defined and apt_mirror_public_ubuntu == "true"
+
+    -   name: add main ubuntu repos if specified in inventory
+        lineinfile: dest=/etc/apt/mirror.list
+            line="{{item}}"
+          state=present
+        with_items:
+        - "deb-amd64 http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
+        - "deb-i386 http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly"
+        - "deb-amd64 http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main"
+        - "deb-i386 http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main"
+        - "clean http://artifacts.artifactoryonline.com/"
+        - "skip-clean http://artifacts.artifactoryonline.com/artifacts/formation-apt/dists/"
+        - "skip-clean http://artifacts.artifactoryonline.com/artifacts/third-party-deps/dists/"
+        when: apt_mirror_private_artifactory is defined and apt_mirror_private_artifactory == "true"
+
+    -   name: add cron job to update apt-mirror nightly
+        cron: name="apt-mirror update" minute=43 hour=12
+            user="root" job="/usr/bin/apt-mirror > /var/spool/apt-mirror/var/cron.log"
+            cron_file=ansible_apt_mirror
