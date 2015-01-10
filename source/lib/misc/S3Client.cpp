@@ -45,7 +45,7 @@ Error S3Client::putFile(const std::string &bucketName,
     FILE * hd_src;
     struct stat file_info;
     Error ret = ERR_OK;
-    uint32_t httpCode = 0;
+    int64_t httpCode = 200;
 
     std::string url;
 
@@ -74,7 +74,7 @@ Error S3Client::putFile(const std::string &bucketName,
                          (curl_off_t)file_info.st_size);
 
         res = curl_easy_perform(curl);
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+        // curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
         /* Check for errors */
         if (res != CURLE_OK || httpCode != 200) {
             GLOGWARN<< "curl_easy_perform() failed.  Res: " << res
@@ -99,7 +99,7 @@ Error S3Client::getFile(const std::string &bucketName,
     std::string url;
     Error ret = ERR_OK;
     std::stringstream ss;
-    uint32_t httpCode = 0;
+    int64_t httpCode = 200;
 
     ss << host_ << "/" << bucketName << "/" << objName;
     url = ss.str();
