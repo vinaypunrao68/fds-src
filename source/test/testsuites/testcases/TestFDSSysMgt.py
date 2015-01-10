@@ -366,6 +366,7 @@ class TestInitial1NodeDMTMigration(TestCase.FDSTestCase):
                 fileSearch(log_file, "OM deployed DMT with 1 DMs", 1):
             return True
         else:
+            self.log.error("OM log entries confirming DMT migration for initial 1-node cluster not found.")
             return False
 
 
@@ -428,6 +429,7 @@ class TestTransientAddNodeDMTMigration(TestCase.FDSTestCase):
                 fileSearch(log_file, "OM deployed DMT with 2 DMs", 1):
             return True
         else:
+            self.log.error("OM log entries confirming DMT migration for adding a second node to an initial 1-node cluster not found.")
             return False
 
 
@@ -489,6 +491,7 @@ class TestTransientRemoveNodeDMTMigration(TestCase.FDSTestCase):
                 fileSearch(log_file, "OM deployed DMT with 1 DMs", 2):
             return True
         else:
+            self.log.error("OM log entries confirming DMT migration for removing a node from a 2-node cluster not found.")
             return False
 
 
