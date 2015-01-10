@@ -17,9 +17,9 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      fds_uint32_t bitsPerToken,
                                      const NodeUuid& srcSmId,
                                      fds_token_id smTokId,
-                                     fds_uint64_t id,
+                                     fds_uint64_t executorID,
                                      MigrationExecutorDoneHandler doneHandler)
-        : executorId(id),
+        : executorId(executorID),
           migrDoneHandler(doneHandler),
           dataStore(_dataStore),
           bitsPerDltToken(bitsPerToken),
@@ -68,16 +68,16 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     leveldb::Iterator* it = db->NewIterator(options);
     std::map<fds_token_id, fpi::CtrlObjectRebalanceFilterSetPtr> perTokenMsgs;
     uint64_t seqId = 0;
-    for (auto tok : dltTokens) {
+    for (auto dltTok : dltTokens) {
         // for now packing all objects per one DLT token into one message
         fpi::CtrlObjectRebalanceFilterSetPtr msg(new fpi::CtrlObjectRebalanceFilterSet());
-        msg->tokenId = tok;
+        msg->tokenId = dltTok;
         msg->executorID = executorId;
         msg->seqNum = seqId++;
         msg->lastFilterSet = (seqId < dltTokens.size()) ? false : true;
-        LOGNORMAL << "Initial Set Msg: token " << tok << ", seqNum "
+        LOGNORMAL << "Initial Set Msg: token " << dltTok << ", seqNum "
                   << msg->seqNum << ", last " << msg->lastFilterSet;
-        perTokenMsgs[tok] = msg;
+        perTokenMsgs[dltTok] = msg;
     }
 
     /**
@@ -94,13 +94,21 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
 
         // add object id to the thrift paired set of object ids and ref count
         omd.deserializeFrom(it->value());
-        fpi::CtrlObjectMetaDataSync omdSync;
-        omdSync.objectID.digest = it->key().ToString();
-        omdSync.objRefCnt = omd.getRefCnt();
-        LOGNORMAL << "Will add object " << id << ", dltToken " << dltTokId
-                 << " refcnt " << omdSync.objRefCnt << " to thrift msg to source SM "
-                 << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
-        perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdSync);
+
+
+        fpi::CtrlObjectMetaDataSync omdFilter;
+        omdFilter.objectID.digest = it->key().ToString();
+        omdFilter.objRefCnt = omd.getRefCnt();
+
+        /* TODO(Sean):  We should add to filter object set if the ref cnt is positive (???)
+         *              Are there other checks before adding to the filter set?
+         */
+        if (omdFilter.objRefCnt > 0) {
+            LOGNORMAL << "Will add object " << id << ", dltToken " << dltTokId
+                      << " refcnt " << omdFilter.objRefCnt << " to thrift msg to source SM "
+                      << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdFilter);
+        }
     }
     delete it;
 
@@ -130,7 +138,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     /**
      * TODO(Sean):  To support active IO on both the source and destination SMs,
      *              we need to keep this snapshot until initial set of objects
-     *              are relanced.  After that, we need to take another snapshot
+     *              are propagated.  After that, we need to take another snapshot
      *              to determine if active IOs have changed the state of the existing
      *              objects (i.e. ref cnt) or additional object are written.
      */
@@ -140,7 +148,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
 Error
 MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet) {
     Error err(ERR_OK);
-    LOGDEBUG << "Sync Object Set " << deltaSet->objectToPropogate.size()
+    LOGDEBUG << "Sync Object Set " << deltaSet->objectToPropagate.size()
              << " objects, executor ID " << deltaSet->executorID
              << " seqNum " << deltaSet->seqNum
              << " lastSet " << deltaSet->lastDeltaSet;
@@ -151,21 +159,21 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
     // if the obj data+meta list is empty, and lastDeltaSet == true,
     // the source SM does not have any data for this SM token, finish
     // migration
-    if ((deltaSet->objectToPropogate.size() == 0) &&
+    if ((deltaSet->objectToPropagate.size() == 0) &&
         (deltaSet->lastDeltaSet)) {
         handleMigrationDone(ERR_OK);
         return ERR_OK;
     }
     // otherwise, we should have non-empty obj set
-    fds_verify(deltaSet->objectToPropogate.size() > 0);
+    fds_verify(deltaSet->objectToPropagate.size() > 0);
 
     // if objectToPropagate set is large, break down into smaller QoS work items
     fds_uint32_t maxSize = 10;   // TODO(Anna) make configurable?, dynamic?, etc
-    fds_uint32_t totalCnt = deltaSet->objectToPropogate.size() / maxSize + 1;
+    fds_uint32_t totalCnt = deltaSet->objectToPropagate.size() / maxSize + 1;
     fds_uint32_t qosSeqNum = 0;
 
     std::vector<fpi::CtrlObjectMetaDataPropagate>::iterator itFirst, itLast;
-    itFirst = deltaSet->objectToPropogate.begin();
+    itFirst = deltaSet->objectToPropagate.begin();
     for (fds_uint32_t i = 0; i < totalCnt; ++i) {
         SmIoApplyObjRebalDeltaSet* applyReq =
                 new(std::nothrow) SmIoApplyObjRebalDeltaSet(executorId,
@@ -179,7 +187,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
         if (i < (totalCnt - 1)) {
             itLast = itFirst + maxSize;
         } else {
-            itLast = deltaSet->objectToPropogate.end();
+            itLast = deltaSet->objectToPropagate.end();
         }
         applyReq->deltaSet.assign(itFirst, itLast);
         applyReq->smioObjdeltaRespCb = std::bind(

@@ -83,7 +83,7 @@ class MigrationExecutor {
     void handleMigrationDone(const Error& error);
 
     /// Id of this executor, used for communicating with source SM
-    uint64_t executorId;
+    fds_uint64_t executorId;
 
     /// state of this migration executor
     std::atomic<MigrationExecutorState> state;
