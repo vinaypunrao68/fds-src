@@ -81,6 +81,7 @@
         - google-perftools
         - libgoogle-perftools-dev
         - libconfig++-dev
+        - libcurl4-openssl-dev
         - oracle-java8-installer
         - npm
         - nodejs-legacy

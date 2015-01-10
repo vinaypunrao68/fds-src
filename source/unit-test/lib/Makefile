@@ -74,12 +74,9 @@ user_bin_exe      := \
     object_logger_test \
     Tracebuffer_ut \
     HashedLocks_ut \
-	histogram_gtest \
-<<<<<<< HEAD
-    s3utils_gtest
-=======
-	qos_tokbucket_gtest
->>>>>>> master
+    histogram_gtest \
+    s3utils_gtest \
+    qos_tokbucket_gtest
 
 catalog_test                   := catalog_unit_test.cpp
 perfstat_unit_test             := perfstat_unit_test.cpp
@@ -96,12 +93,8 @@ kvcache_unit_test              := kvcache_unit_test.cpp
 object_logger_test             := object_logger_test.cpp
 Tracebuffer_ut		           := Tracebuffer_ut.cpp
 HashedLocks_ut		           := HashedLocks_ut.cpp
-<<<<<<< HEAD
-histogram_gtest 			   := histogram_gtest.cpp 
 s3utils_gtest			:= s3utils_gtest.cpp
-=======
 histogram_gtest 			   := histogram_gtest.cpp
 qos_tokbucket_gtest            := qos_tokbucket_gtest.cpp
->>>>>>> master
 
 include $(topdir)/Makefile.incl
