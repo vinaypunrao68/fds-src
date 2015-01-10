@@ -6,14 +6,11 @@
 namespace fds {
 
 MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
-                                 NodeUuid _destinationSMNodeID,
-                                 fds_token_id _sm_tokenID)
+                                 NodeUuid& _destSMNodeID)
     : dataStore(_dataStore),
-      destinatiomSMNodeID(_destinationSMNodeID),
-      SMTokenID(_sm_tokenID)
+      destSMNodeID(_destSMNodeID)
 {
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
-    snapshotRequest.token_id = tokenID;
     snapshotRequest.smio_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotCB,
                                                   this,
                                                   std::placeholders::_1,
@@ -31,11 +28,6 @@ Error
 MigrationClient::migClientSnapshotMetaData()
 {
     Error err(ERR_OK);
-
-    LOGDEBUG << "Request to snapshot token "
-             << tokenID
-             << " from "
-             << sourceSMNodeID;
 
     err = dataStore->enqueueMsg(FdsSysTaskQueueId, &snapshotRequest);
     if (!err.ok()) {
