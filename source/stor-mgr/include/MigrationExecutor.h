@@ -59,6 +59,9 @@ class MigrationExecutor {
      */
     std::set<fds_token_id> dltTokens;
     fds_uint32_t bitsPerDltToken;
+
+    /// true if standalone (no rpc sent)
+    fds_bool_t testMode;
 };
 
 }  // namespace fds

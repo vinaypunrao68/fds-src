@@ -4,6 +4,8 @@
 
 #include <map>
 
+#include <fds_process.h>
+#include <SMSvcHandler.h>
 #include <ObjMeta.h>
 #include <dlt.h>
 #include <MigrationExecutor.h>
@@ -19,6 +21,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
       smTokenId(smTokId),
       sourceSmUuid(srcSmId)
 {
+    testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
 }
 
 MigrationExecutor::~MigrationExecutor()
@@ -43,9 +46,10 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
               << sourceSmUuid.uuid_get_val() << std::dec << " for SM token "
               << smTokenId << " (appropriate set of DLT tokens)";
 
-    /**
-     * Iterate through the level db and add to set of objects to rebalance.
-     */
+    // we are going to send rebalance initial set msg(s) per DLT token
+    // even if there are no objects in level DB, we are sending one msg per
+    // DLT token so that the source knows there are no objects for a given
+    // DLT token
     leveldb::Iterator* it = db->NewIterator(options);
     std::map<fds_token_id, fpi::CtrlObjectRebalanceInitialSetPtr> perTokenMsgs;
     fds_uint64_t seqId = 0;
@@ -53,13 +57,16 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         // for now packing all objects per one DLT token into one message
         fpi::CtrlObjectRebalanceInitialSetPtr msg(new fpi::CtrlObjectRebalanceInitialSet());
         msg->tokenId = tok;
-        msg->seqNum = ++seqId;
+        msg->seqNum = seqId++;
         msg->last = (seqId < dltTokens.size()) ? false : true;
         LOGNORMAL << "Initial Set Msg: token " << tok << ", seqNum "
                   << msg->seqNum << ", last " << msg->last;
         perTokenMsgs[tok] = msg;
     }
 
+    /**
+     * Iterate through the level db and add to set of objects to rebalance.
+     */
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         ObjectID id(it->key().ToString());
         // send objects that belong to DLT tokens that need to be migrated from src SM
@@ -74,12 +81,28 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         fpi::CtrlObjectMetaDataSync omdSync;
         omdSync.objectID.digest = it->key().ToString();
         omdSync.objRefCnt = omd.getRefCnt();
-        LOGDEBUG << "Will add object " << id << ", dltToken " << dltTokId
+        LOGNORMAL << "Will add object " << id << ", dltToken " << dltTokId
                  << " refcnt " << omdSync.objRefCnt << " to thrift msg to source SM "
                  << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
         perTokenMsgs[dltTokId]->objectsToSync.push_back(omdSync);
     }
     delete it;
+
+    // send rebalance set of objects to source SM
+    for (auto tok : dltTokens) {
+        LOGNORMAL << "Sending rebalance initial set for DLT token "
+                  << tok << " set size " << perTokenMsgs[tok]->objectsToSync.size()
+                  << " to source SM "
+                  << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+        if (!testMode) {
+            auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+            asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceInitialSet),
+                                       perTokenMsgs[tok]);
+            asyncRebalSetReq->setTimeoutMs(5000);
+            // we are not waiting for response, so not setting a callback
+            asyncRebalSetReq->invoke();
+        }
+    }
 
     /**
      * TODO(Sean):  To support active IO on both the source and destination SMs,
@@ -88,12 +111,6 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
      *              to determine if active IOs have changed the state of the existing
      *              objects (i.e. ref cnt) or additional object are written.
      */
-
-    /**
-     * TODO(Sean): Send the set to the source SM.
-     */
-
-    LOGDEBUG << "Generated destination SM rebalance set of objects.";
     return err;
 }
 
