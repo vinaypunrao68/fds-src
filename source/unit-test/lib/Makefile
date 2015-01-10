@@ -14,8 +14,7 @@ user_non_fds_libs := \
     gmock \
     curl \
     pthread \
-    jansson \
-    s3
+    jansson
 
 user_incl_dir     := \
     $(topdir)        \

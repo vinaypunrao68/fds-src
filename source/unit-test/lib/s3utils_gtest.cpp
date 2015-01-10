@@ -118,6 +118,7 @@ std::string getFormationS3Key(const std::string &endpoint)
 
 }  // namespace fds
 
+#if 0
 S3Status responsePropertiesCallback(
                 const S3ResponseProperties *properties,
                 void *callbackData);
@@ -224,6 +225,7 @@ TEST(s3, putTest)
                   NULL, NULL, &putObjectHandler, &data);
     S3_deinitialize();
 }
+#endif
 
 TEST(s3, getFormationS3Key) {
     // std::string key = fds::getFormationS3Key("https://localhost:7443");

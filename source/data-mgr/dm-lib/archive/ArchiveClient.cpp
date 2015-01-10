@@ -148,7 +148,7 @@ void ArchiveClient::handlePutSnap_(ArchiveClPutReqPtr &putPayload)
     /* Upload to s3 */
     std::string sysVolName = dataMgrIf_->getSysVolumeName(putPayload->volId);
     auto uploadStatus = s3client_->putFile(sysVolName, snapName, snapPath);
-    if (uploadStatus != S3StatusOK) {
+    if (uploadStatus != ERR_OK) {
         GLOGERROR << "Failed to upload snap.  volid: " << putPayload->volId << " snapid: "
             << putPayload->snapId;
         putPayload->cb(ERR_ARCHIVE_SNAP_PUT_FAILED);
@@ -174,7 +174,7 @@ void ArchiveClient::handleGetSnap_(ArchiveClGetReqPtr &getPayload)
     /* Download from s3 */
     std::string sysVolName = dataMgrIf_->getSysVolumeName(getPayload->volId);
     auto downloadStatus = s3client_->getFile(sysVolName, snapName, snapPath);
-    if (downloadStatus != S3StatusOK) {
+    if (downloadStatus != ERR_OK) {
         GLOGERROR << "Failed to upload snap.  volid: " << getPayload->volId << " snapid: "
             << getPayload->snapId;
         getPayload->cb(ERR_ARCHIVE_SNAP_GET_FAILED);

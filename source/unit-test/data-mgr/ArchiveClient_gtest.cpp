@@ -13,6 +13,7 @@
 #include <boost/make_shared.hpp>
 #include <boost/filesystem.hpp>
 #include <testlib/TestFixtures.h>
+#include <testlib/DataGen.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -54,7 +55,10 @@ struct ArchiveClientTest : public ::testing::Test, DataMgrIf
         /* Create files under snap directory */
         boost::filesystem::path file1(snapdir / "file1");
         std::ofstream out(file1.string());
-        out << "hello";
+        RandDataGenerator<> gen(-1, 1024, 1024);
+        for (int i = 0; i < 1; i++) {
+            out << *(gen.nextItem());
+        }
         out.close();
         return true;
     }

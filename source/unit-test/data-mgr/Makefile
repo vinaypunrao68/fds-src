@@ -7,8 +7,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  := fds-qos-lib
 user_non_fds_libs := pcrecpp sqlite3  \
     curl \
-    jansson \
-    s3
+    jansson
 user_cpp_flags    :=
 user_cpp          :=  $(wildcard *.cpp)
 
