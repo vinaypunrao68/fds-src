@@ -121,10 +121,14 @@ class OM_NodeAgent : public NodeAgent
             boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dmt(const DMTPtr& curDmt);
-    virtual Error om_send_dmt_x(const DMTPtr& curDmt);
-    void om_send_dmt_x_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* req,
+    void    om_send_dmt_resp(fpi::CtrlNotifyDMTUpdatePtr msg, EPSvcRequest* rpcReq,
                                const Error& error,
                                boost::shared_ptr<std::string> payload);
+
+    void om_send_dmt_close_resp(fpi::CtrlNotifyDMTClosePtr msg,
+            EPSvcRequest* req,
+            const Error& error,
+            boost::shared_ptr<std::string> payload);
 
     virtual Error om_send_dmt_close(fds_uint64_t dmt_version);
     virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
@@ -745,7 +749,7 @@ class OM_NodeDomainMod : public Module
  */
 class OM_ControlRespHandler : public fpi::FDSP_ControlPathRespIf {
   public:
-    explicit OM_ControlRespHandler();
+    OM_ControlRespHandler();
 
     void NotifyAddVolResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

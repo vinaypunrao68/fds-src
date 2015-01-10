@@ -3,6 +3,8 @@
 
 [localhost:vars]
 fds_default_nic=lo
+fds_om_ip_1=127.0.0.1
+fds_ft_common_enable_multi_om_support=true
 
 [fremont_node_cluster]
 node[0:2].formationds.com

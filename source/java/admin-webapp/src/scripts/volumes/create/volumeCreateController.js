@@ -70,6 +70,14 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     };
     
     var createVolume = function( volume ){
+        
+        /**
+        *  TODO:  Put real value here
+        *  Because the tiering option is not present yet, we will set it to the default here
+        *
+        **/
+        volume.mediaPolicy = 'HDD_ONLY';
+        
         /**
         * Because this is a shim the API does not yet have business
         * logic to combine the attachments so we need to do this in many calls
@@ -84,14 +92,18 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     };
     
     var cloneVolume = function( volume ){
-        volume.id = $scope.volumeVars.clone.id;
+        volume.id = $scope.volumeVars.cloneFromVolume.id;
         
-        if ( angular.isDefined( $scope.volumeVars.clone.cloneType ) ){
-            $volume_api.cloneSnapshot( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
+        if ( angular.isDate( volume.timelineTime )){
+            volume.timelineTime = volume.timelineTime.getTime();
         }
-        else {
+        
+//        if ( angular.isDefined( $scope.volumeVars.clone.cloneType ) ){
+//            $volume_api.cloneSnapshot( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
+//        }
+//        else {
             $volume_api.clone( volume, function( newVolume ){ creationCallback( volume, newVolume ); } );
-        }
+//        }
     };
     
     $scope.deleteVolume = function(){
@@ -145,6 +157,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         }
         
         if ( $scope.volumeVars.toClone === 'clone' ){
+            volume.timelineTime = $scope.volumeVars.cloneFromVolume.timelineTime;
             cloneVolume( volume );
         }
         else{
@@ -158,6 +171,43 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         $scope.volumeVars.toClone = false;
         $scope.volumeVars.back();
     };
+    
+    var syncWithClone = function( volume ){
+        
+        $scope.qos = {
+            capacity: volume.sla,
+            limit: volume.limit,
+            priority: volume.priority
+        };
+        
+        $scope.data_connector = volume.data_connector;
+    };
+    
+    $scope.$watch( 'volumeVars.cloneFromVolume', function( newVal, oldVal ){
+        
+        if ( $scope.volumeVars.toClone === 'new' ){
+            return;
+        }
+        
+        if ( !angular.isDefined( newVal ) ){
+            return;
+        }
+        
+        syncWithClone( newVal );
+    });
+    
+    $scope.$watch( 'volumeVars.toClone', function( newVal ){
+        
+        if ( newVal === 'new' ){
+            return;
+        }
+        
+        if ( !angular.isDefined( $scope.volumeVars.cloneFromVolume ) ){
+            return;
+        }
+        
+        syncWithClone( $scope.volumeVars.cloneFromVolume );
+    });
 
     $scope.$watch( 'volumeVars.creating', function( newVal ){
         if ( newVal === true ){

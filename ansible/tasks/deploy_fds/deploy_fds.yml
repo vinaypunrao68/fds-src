@@ -1,0 +1,22 @@
+---
+- include: config_sanity_check.yml
+
+- include: stop_fds.yml
+
+- include: clean_fds.yml
+  when: clean_fds is defined and clean_fds == "yes"
+
+- include: install_deps.yml
+
+- include: uninstall_fds.yml
+
+- include: install_fds.yml
+
+- include: set_node_num.yml
+
+- include: post_install_setup.yml
+
+- include: start_fds.yml
+
+- include: ../nginx/nginx_ssl_proxy.yml
+  when: ssl_enabled is defined and ssl_enabled == "yes"

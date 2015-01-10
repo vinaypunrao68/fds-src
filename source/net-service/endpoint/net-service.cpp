@@ -164,6 +164,8 @@ NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
                 &NetMgr::ep_register_thr, this, ep, update_domain)));
     } else {
         /* This is the logical service, record it in svc map. */
+        LOGDEBUG << "Record logical service in svc map. uuid "
+                << std::hex << ep->ep_my_uuid();
         ep_mtx.lock();
         ep_svc_map[ep->ep_my_uuid()] = ep;
         ep_mtx.unlock();
@@ -442,10 +444,14 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid,
 
     if (idx < 0) {
         // Don't have it in the cache, lookup in shared memory.
+        LOGDEBUG << "UUID " << std::hex << uuid.svc_uuid
+            << " not in cache. Look up in shared memory.";
         idx = ep_shm->ep_lookup_rec(uuid.svc_uuid, maj, min, &map);
         if (idx == -1) {
             idx = ep_shm->node_info_lookup(uuid.svc_uuid, &map);
             if (idx == -1) {
+                LOGDEBUG << "UUID " << std::hex << uuid.svc_uuid
+                    << " not in shared memory.";
                 ip->clear();
                 return -1;
             }
@@ -484,9 +490,14 @@ NetMgr::ep_register_binding(const ep_map_rec_t *rec, int idx)
 
     port = EpAttr::netaddr_get_port(&rec->rmp_addr);
     if ((rec->rmp_uuid == 0) || (port == 0)) {
-        // TODO(Vy): log the error.
+        LOGERROR << "EP binding registration failed. UUID " << std::hex << rec->rmp_uuid
+            << ", port" << port << ".";
         return;
     }
+
+    LOGDEBUG << "EP binding for UUID " << std::hex << rec->rmp_uuid
+        << ", port" << std::dec << port << " at index " << idx << ".";
+
     ep_mtx.lock();
     ep_uuid_map[key] = idx;
     ep_mtx.unlock();

@@ -11,10 +11,11 @@ import testcases.TestFDSEnvMgt
 import testcases.TestFDSModMgt
 import testcases.TestFDSSysMgt
 import testcases.TestFDSSysLoad
+import ClusterBootSuite
 import NodeWaitSuite
 import BotoBLOBSuite
 import NodeResilienceSuite
-
+import BlockBlobSuite
 
 def suiteConstruction():
     """
@@ -23,23 +24,10 @@ def suiteConstruction():
     """
     suite = unittest.TestSuite()
 
-    # Build the necessary FDS infrastructure.
-    suite.addTest(testcases.TestFDSEnvMgt.TestFDSCreateInstDir())
-    suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
-
-    # Start the node(s) according to configuration supplied with the -q cli option.
-    suite.addTest(testcases.TestFDSModMgt.TestPMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestPMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestOMBringUp())
-    suite.addTest(testcases.TestFDSModMgt.TestOMWait())
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeActivate())
-
-    # Check that all nodes are up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction()
-    suite.addTest(nodeUpSuite)
-
-    # Given the nodes some time to initialize.
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeWait())
+    # Build the necessary FDS infrastructure and boot the cluster
+    # according to configuration.
+    clusterBootSuite = ClusterBootSuite.suiteConstruction()
+    suite.addTest(clusterBootSuite)
 
     # Load test.
     suite.addTest(testcases.TestFDSSysLoad.TestSmokeLoad())
@@ -47,6 +35,17 @@ def suiteConstruction():
     # Small/Large BLOB test using Boto.
     blobSuite = BotoBLOBSuite.suiteConstruction()
     suite.addTest(blobSuite)
+
+    # Everyone should still be up.
+    nodeUpSuite = NodeWaitSuite.suiteConstruction()
+    suite.addTest(nodeUpSuite)
+
+    # Block Blob test.
+    blockSuite = BlockBlobSuite.suiteConstruction()
+    suite.addTest(blockSuite)
+
+    # Everyone should still be up.
+    suite.addTest(nodeUpSuite)
 
     # Node Resiliency suite.
     nodeResilienceSuite = NodeResilienceSuite.suiteConstruction()
@@ -62,7 +61,6 @@ def suiteConstruction():
 if __name__ == '__main__':
 	
     # Handle FDS specific commandline arguments.
-    print sys.argv
     log_dir, failfast = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
 
     # If a test log directory was not supplied on the command line (with option "-l"),
@@ -80,6 +78,5 @@ if __name__ == '__main__':
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
     test_suite = suiteConstruction()
-    print test_suite
     runner.run(test_suite)
 

@@ -1,0 +1,31 @@
+<div class="time-slider" ng-dragstart="$event.preventDefault()">
+    <div style="height: 68px;"></div>
+    <div class="slider-parent">
+        <div class="bar" ng-click="sliderMoved( $event )"></div>
+        <div class="select-range" ng-repeat="range in validRanges" ng-style="{ width: range.width, left: range.startPosition }"></div>
+        <div class="value-container" ng-style="{ left: placeMe(), top: (editing === true)? '-158px' : '-68px' }">
+
+            <div class="value-display edit-box">
+                <div>
+                    <div>{{ label }}</div>
+<!--                    <span class="form-control" >{{filteredValue}}</span>-->
+                    <date-time-typer ng-model="selectedValue" mode="12"></date-time-typer>
+<!--                    <time-spinner ng-model="selectedValue" show-date="true"></time-spinner>-->
+                </div>
+            </div>
+        </div>
+        <div class="arrow-parent" ng-style="{ left: (sliderPosition + 2) + 'px' }">
+            <svg width="7" height="7">
+                <polygon class="arrow" points="0,0 7,0 4,7"></polygon>
+                <polygon class="arrow" points="0,0 7,0 4,7" style="stroke-width: 0px"></polygon>
+            </svg>
+        </div>
+        <div class="handle" ng-dragstart="$event.preventDefault()" ng-style="{ left: sliderPosition + 'px' }" ng-mousedown="handleClicked()" ng-class="{ 'grabbed' : grabbedSlider === true }"></div>
+    </div>
+    <div class="domain-labels" ng-show="domainLabels && domainLabels.length > 0">
+        <div class="label-parent" ng-repeat="label in domainLabels" ng-show="label.show === true" ng-style="{ left: label.position }">
+            <div class="tick"></div>
+            <div class="text" ng-style="{'right': label.right + 'px'}">{{label.text}}</div>
+        </div>
+    </div>
+</div>

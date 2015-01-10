@@ -16,6 +16,7 @@
 #include <MockSMCallbacks.h>
 #include <net/MockSvcHandler.h>
 #include <fds_timestamp.h>
+#include <OMgrClient.h>
 
 namespace fds {
 
@@ -52,23 +53,91 @@ SMSvcHandler::SMSvcHandler()
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTClose, NotifyDLTClose);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlStartMigration, StartMigration);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::ShutdownSMMsg, shutdownSM);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateObjectSync);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
+
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
 }
 
-void SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg) {
+void
+SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlNotifySMStartMigration>& migrationMsg)
+{
     LOGDEBUG << "Received new migration init message";
+
+    fpi::CtrlNotifyMigrationStatusPtr msg(new fpi::CtrlNotifyMigrationStatus());
+    msg->status.DLT_version = migrationMsg->DLT_version;
+    msg->status.context = 0;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyMigrationStatus), *msg);
+
+    // TODO(xxx): We need to be sure to unpack the source -> token list
+    // pairs correctly.
+    // Source will be an i64, and tokenids within each list will be i32s
+    // because Thrift has no notion of unsigned ints. These will need to
+    // be cast back to the unsigned equivalents
+}
+
+/**
+ * This is the message from destination SM (SM that asks this SM to migrate objects)
+ * with an filter set of object metadata
+ */
+void
+SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlObjectRebalanceFilterSet>& filterObjSet)
+{
+    Error err(ERR_OK);
+    LOGDEBUG << "Initiate Object Sync";
+    const DLT* dlt = objStorMgr->omClient->getDltManager()->getDLT();
+    fds_verify(dlt != NULL);
+    err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
+                                                         asyncHdr->msg_src_uuid,
+                                                         dlt->getNumBitsForToken());
+
+    // TODO(Anna) if we get an error, we should respond with error
+    // on a non-error case, we are not going to send responses
+    // beta 2: any migration error --> log, stop migration, and respond to OM
+    // with error
+    // TODO(Anna) respond with error in the next check in, for now asserting
+    fds_verify(err.ok());
+}
+
+void
+SMSvcHandler::syncObjectSet(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                boost::shared_ptr<fpi::CtrlObjectRebalanceDeltaSet>& deltaObjSet)
+{
+    LOGDEBUG << "Sync Object Set";
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::ShutdownSMMsg>& shutdownMsg) {
     LOGDEBUG << "Received shutdown message... shuttting down...";
     objStorMgr->~ObjectStorMgr();
+}
+
+void SMSvcHandler::StartMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+        boost::shared_ptr<fpi::CtrlStartMigration>& startMigration) {
+    LOGDEBUG << "Start migration handler called";
+    objStorMgr->tok_migrated_for_dlt_ = false;
+    LOGNORMAL << "Token copy complete";
+
+    // TODO(brian): Do we need a write lock here?
+    DLTManagerPtr dlt_mgr = objStorMgr->omClient->getDltManager();
+    dlt_mgr->addSerializedDLT(startMigration->dlt_data.dlt_data,
+            startMigration->dlt_data.dlt_type);
+
+    LOGDEBUG << "Added serialized dlt to dlt mgr; sending async response";
+    fpi::CtrlNotifyMigrationStatusPtr msg(new fpi::CtrlNotifyMigrationStatus());
+    msg->status.DLT_version = objStorMgr->omClient->getDltVersion();
+    msg->status.context = 0;
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyMigrationStatus), *msg);
+    LOGDEBUG << "Async response sent";
 }
 
 void SMSvcHandler::queryScrubberStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
@@ -328,6 +397,13 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::DeleteObjectMsg>& expObjMsg)
 {
+    if (objStorMgr->testUturnAll == true) {
+        LOGDEBUG << "Uturn testing delete object "
+                 << fds::logString(*asyncHdr) << fds::logString(*expObjMsg);
+        deleteObjectCb(asyncHdr, ERR_OK, NULL);
+        return;
+    }
+
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*expObjMsg));
     Error err(ERR_OK);
 
@@ -373,17 +449,21 @@ void SMSvcHandler::deleteObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(GLOGDEBUG << fds::logString(*asyncHdr));
 
     // E2E latency end
-    PerfTracer::tracePointEnd(del_req->opReqLatencyCtx);
-    if (!err.ok()) {
-        PerfTracer::incr(del_req->opReqFailedPerfEventType,
-                         del_req->getVolId(), del_req->perfNameStr);
+    if (del_req) {
+        PerfTracer::tracePointEnd(del_req->opReqLatencyCtx);
+        if (!err.ok()) {
+            PerfTracer::incr(del_req->opReqFailedPerfEventType,
+                             del_req->getVolId(), del_req->perfNameStr);
+        }
     }
 
     auto resp = boost::make_shared<fpi::DeleteObjectRspMsg>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::DeleteObjectRspMsg), *resp);
 
-    delete del_req;
+    if (del_req) {
+        delete del_req;
+    }
 }
 // NotifySvcChange
 // ---------------
@@ -648,6 +728,23 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
         objStorMgr->tok_migrated_for_dlt_ = false;
     }
+    // sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+}
+
+// NotifyDMTUpdate
+// Necessary for streaming stats
+// ----------------
+//
+void
+SMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+        boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> &dmt)
+{
+    Error err(ERR_OK);
+    LOGNOTIFY << "OMClient received new DMT commit version  "
+                << dmt->dmt_data.dmt_type;
+    err = objStorMgr->omClient->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data);
+    hdr->msg_code = err.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *dmt);
 }
 
 }  // namespace fds

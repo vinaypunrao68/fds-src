@@ -1,0 +1,23 @@
+.date-time-typer {
+    
+    background-color: white;
+    border-radius: 5px;
+    border: 1px solid $text_very_light_color;
+    padding: 2px;
+//    display: inline-block;
+    @include display-flex();
+    
+    &.editing {
+        border-color: $button_primary;
+    }
+    
+    input {
+        border-width: 0px;
+        outline: none;
+    }
+    
+    .icon {
+        margin-top: 4px;
+        color: $button_primary;
+    }
+}

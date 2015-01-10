@@ -12,6 +12,7 @@
 {% set authentication = fds_authentication if fds_authentication is defined else 'true' %}
 {% set om_host = fds_om_host if fds_om_host is defined else '127.0.0.1' %}
 {% set om_ip = hostvars[fds_om_host]['ansible_'+fds_default_nic]['ipv4']['address'] if fds_om_host is defined and fds_default_nic is defined else '127.0.0.1' %}
+{% set perf_tracing = fds_perf_tracing if fds_perf_tracing is defined else 'true' %}
 {% set metrics_enabled = fds_metrics_enabled if fds_metrics_enabled is defined else 'false' %}
 {% set metricsdb_ip = fds_metricsdb_ip if fds_metricsdb_ip is defined else '127.0.0.1' %}
 {% set ssh_user = fds_ssh_user if fds_ssh_user is defined else 'root' %}
@@ -33,5 +34,14 @@
 {% set am_testing_toggleDisableStreamingStats = fds_am_testing_toggleDisableStreamingStats if fds_am_testing_toggleDisableStreamingStats is defined else 'false' %}
 {% set svc_plat_lftp_enable = fds_svc_plat_lftp_enable if fds_svc_plat_lftp_enable is defined else 'false' %}
 {% set am_host = am_host if am_host is defined else 'localhost' %}
-{% block content %}{% endblock %}
+{% set snmp_targetip = fds_snmp_targetip if fds_snmp_targetip is defined else 'localhost' %}
+{% set snmp_community = fds_snmp_community if fds_snmp_community is defined else 'public' %}
+{#
+   These settings configure feature toggles (for c++ code)
 
+   In the inventory files they all begin fds_ft_ for fds_feature_toggle_.  Internally, we strip off the fds_.
+#}
+{% set ft_common_enable_multi_om_support    = fds_ft_common_enable_multi_om_support    if fds_ft_common_enable_multi_om_support    is defined else 'false' %}
+{% set ft_platform_use_disk_hints           = fds_ft_platform_use_disk_hints           if fds_ft_platform_use_disk_hints           is defined else 'false' %}
+{% set ft_platform_force_simulation_mode    = fds_ft_platform_force_simulation_mode    if fds_ft__platform_force_simulation_mode   is defined else 'false' %}
+{% block content %}{% endblock %}

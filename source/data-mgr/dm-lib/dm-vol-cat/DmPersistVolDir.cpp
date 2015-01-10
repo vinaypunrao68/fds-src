@@ -32,9 +32,19 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
     }
 
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    std::string snapDir = root->dir_user_repo_snap() +
-            std::to_string(dmUuid.uuid_get_val()) + std::string("/");
-    FdsRootDir::fds_mkdir(snapDir.c_str());
+    std::string snapDir = root->dir_user_repo_snap()
+            + std::to_string(dmUuid.uuid_get_val()) + std::string("-tmpXXXXXX");
+    // FdsRootDir::fds_mkdir(snapDir.c_str());
+
+    char* tempdir = mkdtemp(const_cast<char*>(snapDir.c_str()));
+
+    if (!tempdir) {
+        LOGERROR << "unable to create a temp dir";
+        return ERR_NOT_FOUND;
+    }
+
+    snapDir = tempdir;
+    snapDir += "/";
     snapDir += getVolIdStr() + "_vcat.ldb";
 
     NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(dmUuid);
@@ -57,6 +67,10 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
     // rsync
     LOGTRACE << "rsync command: " << rsyncCmd;
     ret = std::system(rsyncCmd.c_str());
+
+    // remove the temp dir
+    std::system(rmCmd.c_str());
+
     if (ret) {
         LOGERROR << "rsync command failed '" << rsyncCmd << "', code: '" << ret << "'";
         return ERR_DM_RSYNC_FAILED;

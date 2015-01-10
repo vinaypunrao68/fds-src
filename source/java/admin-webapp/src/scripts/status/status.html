@@ -34,15 +34,15 @@
             <div class="tile-parent">
 <!--                <div class="capacity-tile tile"></div>-->
                 <status-tile tile-title="{{ 'status.l_capacity' | translate }}" calculated-data="capacityItems">
-                    <line-chart data="capacityStats" colors="fakeCapColors" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText" domain-labels="capacityLabels" background-color="#f7f7f7"></line-chart>
+                    <line-chart data="capacityStats" colors="fakeCapColors" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText" domain-labels="capacityLabels" background-color="#f7f7f7" limit="capacityLimit"></line-chart>
                 </status-tile>
             </div>
         </div>
         <div class="tile-pair">
             <div class="tile-parent">
 <!--                <div class="performance-tile tile"></div>-->
-                <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="performanceItems">
-                    <line-chart data="performanceStats" colors="performanceColors" line-colors="performanceLine" suffix="IOPs" axis-color="#A0A0A0" domain-labels="performanceLabels" background-color="#f7f7f7"></line-chart>
+                <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="performanceBreakdownItems">
+                    <stacked-line-chart data="performanceBreakdownStats" colors="performanceColors" line-colors="performanceLine" suffix="IOPs" axis-color="#A0A0A0" domain-labels="performanceLabels" background-color="#f7f7f7" tooltip="setPerformanceTooltip"></stacked-line-chart>
                 </status-tile>
             </div>
             <div class="tile-parent">
@@ -59,7 +59,7 @@
     <div class="page-vertical-spacer"></div>
 
     <div class="header top-label">
-        <span class="header" style="margin-bottom: 12px;" translate>status.activity</span>
+        <span class="sub-header" style="margin-bottom: 12px;" translate>status.activity</span>
 
         <table class="default">
             <tbody>

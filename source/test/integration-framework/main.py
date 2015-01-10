@@ -2,8 +2,8 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 # Written by Philippe Ribeiro
 # philippe@formationds.com
-import ast
 import argparse
+import concurrent.futures as concurrent
 import ConfigParser
 import json
 import logging
@@ -16,9 +16,9 @@ import xmlrunner
 # Import the configuration file helper
 import config
 import fds
+import multinode
 import testsets.test_set as test_set
 import s3
-import testsets.testcases.fdslib.BringUpCfg as bringup
 
 
 class Operation(object):
@@ -38,12 +38,13 @@ class Operation(object):
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    def __init__(self, test_sets_list):
+    def __init__(self, test_sets_list, args):
         self.test_sets = []
-        self.fds_cluster = fds.FDS()
+        self.multicluster = None
+        self.args = args
         self.current_dir = os.path.dirname(os.path.realpath(__file__))
         self.log_dir = os.path.join(self.current_dir, config.log_dir)
-        self.logger.info("Checking if the log directory")
+        self.logger.info("Checking if the log directory exists...")
         if not os.path.exists(self.log_dir):
             self.logger.info("Creating %s" % self.log_dir)
             os.makedirs(self.log_dir)
@@ -64,7 +65,7 @@ class Operation(object):
                 self.logger.info("%s already exists. Skipping." % testset_path)
                 
             self.test_sets.append(current_ts)
-        
+
     def __load_params(self):
         params = {}
         parser = ConfigParser.ConfigParser()
@@ -80,30 +81,79 @@ class Operation(object):
                 except:
                     self.logger.info("Exception on %s!" % option)
                     params[option] = None
-        #params['fdscfg'] = bringup.FdsConfigRun(None, None, None)
-        #params['s3'] = s3.S3(None)
         return params
-        
+    
+    def do_work(self, max_workers=5):
+        '''
+        Execute the test cases for this test set in a multithreaded fashion.
+        User can specify the number of threads in max_workers, however the
+        default is set to 5.
+    
+        Attributes:
+        -----------
+        max_workers : int
+            specify the number of threads this program can run. The number of
+            threads has to be between 1 and 20.
+    
+        Returns:
+        -------
+        None
+        '''
+        for ts in self.test_sets:
+                    self.logger.info("Executing Test Set: %s" % ts.name)
+                    self.runner.run(ts.suite)
+        assert max_workers >= 1 and max_workers <= 20
+        with concurrent.ThreadPoolExecutor(max_workers) as executor:
+            ts_tests = {executor.submit(self.runner.run(ts.suite)):
+                        ts for ts in self.test_sets}
+            for ts in concurrent.as_completed(ts_tests):
+                result = ts_tests[ts]
+                try:
+                    data = True
+                except Exception as exc:
+                    self.logger.exception('An error occurrent for %s' % ts)
+                else:
+                    self.logger.info('Test %s completed successfully' % ts)
+                
     def do_run(self):
-        # check if the fds processes are running for a single cluster.
-        # if they are not, then start them.
-        if not self.fds_cluster.check_status():
-            self.fds_cluster.start_single_node()
-            
+        '''
+        Run all the test suits presented in this framework, but first check if
+        all the fds processes are running.
+        '''
+        if self.args.test == 'single':
+            self.fds_node = fds.FDS()
+            if not self.fds_node.check_status():
+                self.fds_node.start_single_node()
+        elif self.args.test == 'multi':
+            if self.args.type == "aws":
+                if self.args.name == None:
+                    raise ValueError, "A name tag must be given to the AWS" \
+                                      "cluster"
+                self.multicluster = multinode.Multinode(name=self.args.name, 
+                                              instance_count=self.args.count,
+                                              type=self.args.type)
+            else:
+                # make the baremetal version the default one.
+                self.multicluster = multinode.Multinode(type=self.args.type,
+                                              inventory=self.args.inventory)
         for ts in self.test_sets:
             self.logger.info("Executing Test Set: %s" % ts.name)
             self.runner.run(ts.suite)
+        
+        # After completion, assert the FDS-related processes are stopped.
+        self.do_stop()
 
-    def do_work(self, target, args):
+    def do_stop(self):
         '''
-        The method do_work is used to execute test cases in parallel, in order
-        to make them run faster.
-
-        Arguments:
-        ----------
+        Stop the cluster provision, whether it is a multinode AWS cluster,
+        or a single cluster instance.
         '''
-        pass
-    
+        if self.args.test == 'single' or self.args.test is None:
+            self.fds_node.stop_single_node()
+        elif self.args.test == 'multi':
+            if self.multicluster is not None:
+                self.multicluster.destroy_cluster()
+        
     def test_progress(self):
         pass
         # @TODO: Philippe
@@ -131,8 +181,7 @@ def main(args):
         raise ValueError("test_sets are required in the %s file" %
                          config.test_list)
         sys.exit(2)
-    print args
-    operation = Operation(data['test_sets'])
+    operation = Operation(data['test_sets'], args)
     operation.do_run()
 
 if __name__ == '__main__':
@@ -156,5 +205,28 @@ if __name__ == '__main__':
                          default=False,
                          help='Specify if a fresh install must be' \
                          ' performed')
+    parser.add_argument('-b', '--build', action='store_true',
+                        default='nightly',
+                        help='Specify if the build is local or nightly')
+    parser.add_argument('-c', '--count',
+                        default=1,
+                        help='Specify how many nodes will go to a multi node' \
+                        ' cluster.')
+    parser.add_argument('-t', '--type',
+                        default='baremetal',
+                        help='Specify if the cluster will be created using' \
+                        ' AWS or baremetal instances.')
+    parser.add_argument('-u', '--inventory',
+                        default=None,
+                        help='Define if user wants to use a different' \
+                        ' inventory than default.')
+    parser.add_argument('-x', '--test',
+                        default='single',
+                        help='Define if framework should run for single' \
+                        ' or multi node cluster')
+    parser.add_argument('-n', '--name',
+                        default=None,
+                        help='Specify a name of the cluster, if AWS a tag ' \
+                        'name must be given.')
     args = parser.parse_args()
     main(args)

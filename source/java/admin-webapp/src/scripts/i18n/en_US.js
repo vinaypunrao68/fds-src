@@ -26,11 +26,14 @@ var en_US = {
         l_ok: 'OK',
         l_required: 'Required',
         l_save: 'Save',
+        l_search: 'Search',
         l_warning: 'Warning',
         l_yes: 'Yes',
         th_date: 'Date',
         th_data_type: 'Data Type',
         th_name: 'Name',
+        th_application: 'Application',
+        th_tenant: 'Tenant',
         
         //time labels
         l_30_days: '30 Days',
@@ -55,6 +58,9 @@ var en_US = {
         l_hours: 'Hours',
         l_weeks: 'Weeks',
         l_years: 'Years',
+        l_minutes: 'Minutes',
+        l_seconds: 'Seconds',
+        l_millis: 'Milliseconds',
         l_months_by_days: 'Months by days',
         l_forever: 'Forever',
         
@@ -62,6 +68,9 @@ var en_US = {
         l_day: 'Day',
         l_week: 'Week',
         l_year: 'Year',
+        l_second: 'Second',
+        l_minute: 'Minute',
+        l_milli: 'Millisecond',
         
         bytes: 'bytes',
         kb: 'KB',
@@ -85,6 +94,10 @@ var en_US = {
         l_performance: 'Performance',
         l_health: 'System Health',
         
+        l_gets: 'GET requests',
+        l_ssd_gets: 'GET request from SSD',
+        l_puts: 'PUT requests',
+        
         th_type: 'Type',
         th_message: 'Message',
         th_received: 'Received',
@@ -97,7 +110,8 @@ var en_US = {
         desc_capacity_used: 'Total capacity used',
         desc_dedup_ratio: 'Deduplication ratio',
         desc_dedup_capacity: 'Deduplicated storage capacity used.',
-        desc_pre_dedup_capacity: 'Logical storage capacity consumed before deduplication.'
+        desc_pre_dedup_capacity: 'Logical storage capacity consumed before deduplication.',
+        desc_time_to_full: 'until capacity is full'
     },
     inbox: {
         messages: 'Messages',
@@ -124,6 +138,7 @@ var en_US = {
         desc_confirm_snapshot: 'Are you sure you would like to create a snapshot for this volume?',
         desc_volume_deleted: 'Volume deleted successfully.',
         l_clone_existing: 'Clone from an existing volume',
+        l_volume_to_clone_from: 'Volume to Clone from:',
         l_continuous: 'Continuous',
         l_create_volume: 'Create Volume',
         l_create_blank_volume: 'Create a blank volume',
@@ -142,6 +157,7 @@ var en_US = {
         l_max_iops: 'Max number of IOPs',
         l_number_of_iops: 'Number of IOPs',
         l_priority: 'Priority',
+        l_point_timeline: 'Point from timeline:',
         l_qos: 'Performance',
         l_select_to_clone: 'Select a Volume to Clone',
         l_settings: 'Settings',
@@ -259,7 +275,7 @@ var en_US = {
         th_node_name: 'Node Name',
         th_om: 'OM',
         th_site: 'Site',
-        th_SM: 'SM'
+        th_sm: 'SM'
     },
     tenants: {
         title: 'Tenants',

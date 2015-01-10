@@ -6,12 +6,17 @@
 #include <utility>
 #include <vector>
 #include <string>
-
+#include <net/net-service-tmpl.hpp>
+#include <fiu-control.h>
+#include <util/fiu_util.h>
 #include <NetSession.h>
 #include <orch-mgr/om-service.h>
 #include <fds_process.h>
 #include <OmDataPlacement.h>
 #include <net/net-service.h>
+#include <fdsp/fds_service_types.h>
+#include <net/SvcRequestPool.h>
+#include <set>
 
 namespace fds {
 
@@ -123,15 +128,24 @@ DataPlacement::computeDlt() {
 Error
 DataPlacement::beginRebalance() {
     Error err(ERR_OK);
+    fpi::CtrlNotifySMStartMigrationPtr msg(new fpi::CtrlNotifySMStartMigration());
 
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
-            new FDS_ProtocolInterface::FDSP_MsgHdrType());
-    FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
-            new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
+    // FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
+    //        new FDS_ProtocolInterface::FDSP_MsgHdrType());
+    // FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr dltMsg(
+    //        new FDS_ProtocolInterface::FDSP_DLT_Data_Type());
 
     placementMutex->lock();
     // find all nodes which need to do migration (=have new tokens)
     rebalanceNodes.clear();
+
+    if (!commitedDlt) {
+        LOGNOTIFY << "Not going to rebalance data, because this is "
+                  << " the first DLT we computed";
+        placementMutex->unlock();
+        return err;
+    }
+
     for (ClusterMap::const_sm_iterator cit = curClusterMap->cbegin_sm();
          cit != curClusterMap->cend_sm();
          ++cit) {
@@ -159,9 +173,6 @@ DataPlacement::beginRebalance() {
         }
     }
 
-    // pupulate dlt message -- same for all the nodes that need to migrate toks
-    dltMsg->dlt_type= true;
-    err = newDlt->getSerialized(dltMsg->dlt_data);
     if (!err.ok()) {
         LOGERROR << "Failed to fill in dlt_data, not sending migration msgs";
         placementMutex->unlock();
@@ -173,29 +184,101 @@ DataPlacement::beginRebalance() {
          nit != rebalanceNodes.cend();
          ++nit) {
         NodeUuid  uuid = *nit;
-        OM_SmAgent::pointer na = OM_NodeDomainMod::om_local_domain()->om_sm_agent(uuid);
-        NodeAgentCpReqClientPtr naClient = na->getCpClient();
-        na->set_node_state(FDS_ProtocolInterface::FDS_Start_Migration);
-        na->init_msg_hdr(msgHdr);
-        msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_NOTIFY_MIGRATION;
+
+        std::map<SvcUuid, std::vector<fds_int32_t>> newTokenMap;
+        std::set<fds_uint32_t> diff = newDlt->token_diff(uuid, newDlt, commitedDlt);
+
+        // Build the newTokenMap
+        for (auto token : diff) {
+            // Determine an appropriate SM to use as a source
+            // This should not be ourselves and should be in the
+            // intersection of old/new DLTs
+            DltTokenGroupPtr sources = newDlt->getNodes(token);
+            std::set<NodeUuid> sourcesSet;
+            for (fds_uint32_t i = 0; i < sources->getLength(); ++i) {
+                sourcesSet.insert(sources->get(i));
+            }
+            // Reuse sources for commitedDLt
+            if (commitedDlt) {
+                sources.reset();
+                sources = commitedDlt->getNodes(token);
+                for (fds_uint32_t i = 0; i < sources->getLength(); ++i) {
+                    sourcesSet.insert(sources->get(i));
+                }
+            }
+            // Remove ourselves from the list
+            sourcesSet.erase(uuid);
+            // Now push to newTokenMap
+            if (sourcesSet.size() == 0) { continue; }
+            NodeUuid sourceId = *sourcesSet.begin();  // Take the first source
+            // If we have that source in the list already, append
+            auto got = newTokenMap.find(sourceId.toSvcUuid());
+            if (got != newTokenMap.end()) {
+                newTokenMap[sourceId.toSvcUuid()].push_back(token);
+            } else {
+                // Otherwise create a new vector and append
+                newTokenMap[sourceId.toSvcUuid()] = std::vector<fds_int32_t>();
+                newTokenMap[sourceId.toSvcUuid()].push_back(token);
+            }
+        }
+        // At this point we should have a complete map
+        for (auto entry : newTokenMap) {
+            fpi::SMTokenMigrationGroup grp;
+            grp.source = entry.first;
+            grp.tokens = entry.second;
+            msg->migrations.push_back(grp);
+        }
+
+        auto svc_uuid = uuid.toSvcUuid();
+        auto om_req =  gSvcRequestPool->newEPSvcRequest(uuid.toSvcUuid());
+
+        msg->DLT_version = newDlt->getVersion();
+
+        om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifySMStartMigration), msg);
+        om_req->onResponseCb(std::bind(&DataPlacement::startMigrationResp, this, uuid,
+                std::placeholders::_1, std::placeholders::_2,
+                std::placeholders::_3));
+        om_req->invoke();
+
 
         FDS_PLOG_SEV(g_fdslog, fds_log::notification)
                 << "Sending the DLT migration request to node 0x"
                 << std::hex << uuid.uuid_get_val() << std::dec;
-
-        // invoke the RPC
-        if (naClient == NULL) {
-            EpSvcHandle::pointer eph;
-            naClient = na->node_ctrl_rpc(&eph);
-        }
-        naClient->NotifyStartMigration(msgHdr, dltMsg);
     }
     placementMutex->unlock();
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "Sent DLT migration event to " << rebalanceNodes.size() << " nodes";
+    LOGNOTIFY << "Sent DLT migration event to " << rebalanceNodes.size() << " nodes";
     newDlt->dump();
     return err;
+}
+
+/**
+* Response handler for startMigration message.
+*/
+void DataPlacement::startMigrationResp(NodeUuid uuid,
+        EPSvcRequest* svcReq,
+        const Error& error,
+        boost::shared_ptr<std::string> payload) {
+    LOGDEBUG << "Received cb response for startMigration";
+    try {
+        LOGNOTIFY << "Received migration done notification from node "
+                    << std::hex << uuid << std::dec;
+
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        LOGDEBUG << "Domain set";
+
+        fpi::CtrlNotifyMigrationStatusPtr status =
+                net::ep_deserialize<fpi::CtrlNotifyMigrationStatus>(
+                const_cast<Error&>(error), payload);
+        LOGDEBUG << "Deserialize complete";
+        Error err = domain->om_recv_migration_done(uuid, status->status.DLT_version);
+    }
+    catch(...) {
+        LOGERROR << "Orch Mgr encountered exception while "
+                    << "processing migration done request";
+    }
+
+    LOGDEBUG << "Sent om_recv_migration_done msg";
 }
 
 /**
@@ -440,5 +523,4 @@ Error DataPlacement::checkDltValid(const DLT* dlt,
 
     return err;
 }
-
 }  // namespace fds

@@ -25,6 +25,8 @@ for record in content_json['children']:
         if re.compile(".*" + deb_name + ".*").match(record['uri']):
             deb_dict[deb_name].append(record['uri'])
 
+        deb_dict[deb_name].sort(key=lambda deb: int(deb.split('-')[2].split('.')[0]))
+
 for deb_name in deb_dict.keys():
     if len(deb_dict[deb_name]) > artifacts_to_keep:
         for artifact in deb_dict[deb_name][:-artifacts_to_keep]:

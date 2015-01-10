@@ -105,8 +105,8 @@ public class VolumeDatapointEntityPersistListener implements JDORepository.Entit
 
                     Datapoint dp = volDp.getDatapoint();
                     FirebreakEvent fbe = new FirebreakEvent(v, fbtype,
-                                                            Instant.ofEpochSecond(dp.getY()).toEpochMilli(),
-                                                            dp.getX(),
+                                                            Instant.ofEpochSecond(dp.getY().longValue()).toEpochMilli(),
+                                                            dp.getX().longValue(),
                                                             (volDp.getShortTermSigma().getValue() != 0.0D ?
                                                              volDp.getShortTermSigma().getValue() :
                                                              volDp.getLongTermSigma().getValue()));

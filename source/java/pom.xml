@@ -19,6 +19,7 @@
         <javax-jdo.version>2.2</javax-jdo.version>
         <javax-persistence.version>1.0.2</javax-persistence.version>
         <jedis.version>2.6.0</jedis.version>
+        <snmp4j.version>2.3.3</snmp4j.version>
     </properties>
 
     <repositories>
@@ -26,6 +27,11 @@
             <id>objectdb</id>
             <name>ObjectDB Repository</name>
             <url>http://m2.objectdb.com</url>
+        </repository>
+        <repository>
+            <id>SNMP4j</id>
+            <name>SNMP4j Repository</name>
+            <url>https://oosnmp.net/dist/release</url>
         </repository>
     </repositories>
     <dependencies>
@@ -39,6 +45,11 @@
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
             <version>2.6.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.snmp4j</groupId>
+            <artifactId>snmp4j</artifactId>
+            <version>${snmp4j.version}</version>
         </dependency>
         <dependency>
             <groupId>fds</groupId>
@@ -289,6 +300,11 @@
                 </exclusion>
             </exclusions>
         </dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-math3</artifactId>
+			<version>3.4</version>
+		</dependency>
 
 
         <!-- Togglz Dependencies -->

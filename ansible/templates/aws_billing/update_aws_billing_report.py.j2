@@ -1,0 +1,139 @@
+#!/usr/bin/python
+
+##############################################################################################################
+# Author: Cody Boggs                                                                                         #
+# Purpose: Pull down the latest AWS billing reports (monthly cost allocation and detailed billing line items #
+#  with tags and resources) from S3 and index them to Elasticsearch for analysis and monitoring via Kibana.  #
+# Version: 0.1                                                                                               #
+# Dependencies: boto
+############################################################################################################## 
+
+import boto
+import boto.s3.connection
+import datetime
+import json
+import os
+import os.path
+import re
+import requests
+import shutil
+import subprocess
+import zipfile
+
+access_key = '{{ AWS_ACCESS_KEY }}'
+secret_key = '{{ AWS_SECRET_KEY }}'
+now = datetime.datetime.now()
+current_year = now.year
+current_month = '{:02d}'.format(now.month)
+
+current_month_pattern = re.compile("\d+-aws-(billing-detailed-line-items-with-resources-and-tags|cost-allocation)-{0}-{1}.csv(.zip)?".format(current_year, current_month))
+generic_report_pattern = re.compile("\d+-aws-(billing-detailed-line-items-with-resources-and-tags|cost-allocation)-\d{4}-\d{2}.csv(.zip)?")
+bucket_name = 'fds-aws-billing-reports'
+billing_report_keys = []
+billing_dir = "{{ aws_billing_dir }}"
+archive_dir = os.path.join(billing_dir, "archive")
+sincedb_files = ["/var/lib/logstash/sincedb_hourly_billing", "/var/lib/logstash/sincedb_monthly_billing"]
+
+
+def prepForDownload():
+    print "Cleaning up and prepping for download from S3..."
+
+    # Need to clean up Logstash's sincedb files, but first we have to be sure they exist where we think they do.
+    # Failure to do so may end up in corrupt or duplicate data.
+    # For first-time run of this script, should probably just create them manually.
+    for sincedb in sincedb_files:
+        if not os.path.exists(sincedb):
+            print "ERR :: Couldn't find sincedb file '{0}'. Not safe to continue. If this is the first run of the script, you might need to manually touch these files to get rolling.".format(sincedb)
+            exit(1)
+
+    if not os.path.exists(archive_dir):
+        try:
+            os.makedirs(archive_dir)
+        except:
+            print "Failed to create archive dir '{0}', exiting.".format(archive_dir)
+            exit(1)
+    
+
+    # Need to get rid of the existing current billing reports and archive old ones before we whack the
+    #  sincedb files, else we'll just end up duplicating the data
+
+    for filename in os.listdir(billing_dir):
+        file_full_path = os.path.join(billing_dir,filename)
+        if current_month_pattern.match(filename):
+            try:
+                os.remove(file_full_path)
+            except:
+                print "ERR :: Failed to remove report '{0}', exiting.".format(file_full_path)
+                exit(1)
+        elif generic_report_pattern.match(filename):
+            try:
+                shutil.move(file_full_path, os.path.join(archive_dir, filename))
+            except:
+                print "ERR :: Failed to archive report '{0}', exiting.".format(file_full_path)
+                exit(1)
+
+    # sincedb files exist, need to delete them.
+    for sincedb in sincedb_files:
+        try:
+            os.remove(sincedb)
+        except:
+            print "ERR :: Failed to remove sincedb '{0}', exiting.".format(sincedb)
+            exit(1)
+
+    subprocess.call(['service', 'logstash', 'restart'], shell=False)
+
+def cleanElasticSearch():
+    # Ignoring errors here, as the index may not exist (on the first of each month). Could be robustified if needed.
+    r = requests.delete('http://{{ elasticsearch_host }}/aws-billing-{0}.{1}'.format(current_year, current_month))
+    print "ElasticSearch DELETE status:   " + str(r.status_code)
+    print "ElasticSearch DELETE response: " + json.dumps(r.json())
+
+def getFilesFromS3():
+    conn = boto.connect_s3(
+        aws_access_key_id = access_key,
+        aws_secret_access_key = secret_key,
+        host = 's3-us-west-2.amazonaws.com',
+        calling_format = boto.s3.connection.OrdinaryCallingFormat(),
+        )
+
+    try:
+        bucket = conn.get_bucket(bucket_name)
+        print "Billing bucket '%s' found, continuing..." % bucket_name
+    except:
+        print "Billing bucket '%s' not found or access denied." % bucket_name
+        exit(1)
+
+    try:
+        for key in bucket.list():
+            if current_month_pattern.match(key.name):
+                billing_report_keys.append(key)
+    except:
+        print "Could not list items in bucket {0}. Please check bucket contents manually.".format(bucket_name)
+        exit(1)
+
+    if len(billing_report_keys) == 2:
+        print "Found reports, continuing..."
+    else:
+        print "One or more billing reports not found. Please investigate and try again."
+        exit(1)
+
+    for key in billing_report_keys:
+        try:
+            key.get_contents_to_filename('{{ aws_billing_dir }}/{0}'.format(key.name))
+            if key.name.endswith(".zip"):
+                try:
+                    zfile = zipfile.ZipFile("{{ aws_billing_dir }}/{0}".format(key.name))
+                    filename = zfile.namelist()[0]
+                    print "Extracting {0} from zipfile...".format(filename)
+                    zfile.extract(filename, "{{ aws_billing_dir }}/")
+                    os.remove(os.path.join(billing_dir, key.name))
+                except:
+                    print "Failed to extract file: {{ aws_billing_dir }}/{0}".format(key.name)
+                    exit(1)
+
+        except:
+           print "Could not get item: {0}. Try again or manually download.".format(key.name)
+
+prepForDownload()
+cleanElasticSearch()
+getFilesFromS3()

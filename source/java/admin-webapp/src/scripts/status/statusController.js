@@ -6,6 +6,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     var performanceInterval = -1;
     var capacityInterval = -1;
     var activityInterval = -1;
+    var perfBreakdownInterval = -1;
     
     
     $scope.activities = [];
@@ -14,14 +15,16 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.firebreakStats = { series: [[]], summaryData: { hoursSinceLastEvent: 0 }};
     $scope.firebreakItems = [];
     $scope.performanceStats = { series: [[]] };
+    $scope.performanceBreakdownStats = { series: [[]] };
     $scope.performanceItems = [];
     $scope.capacityStats = { series: [[]] };
+    $scope.capacityLimit = 100000;
     
     $scope.firebreakDomain = [ 'max', 3600*12, 3600*6, 3600*3, 3600, 0 ];
     $scope.firebreakRange = ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'];
     
-    $scope.performanceColors = [ '#A4D966' ];
-    $scope.performanceLine = ['#66B22E'];
+    $scope.performanceColors = [ '#8784DE', '#606ED7', '#489AE1' ];
+    $scope.performanceLine = ['#8784DE', 'white', 'white'];
     $scope.fakeCapColors = [ '#ABD3F5', '#72AEEB' ];
     
     $scope.capacityLineStipples = [ '2,2', 'none' ];
@@ -44,16 +47,50 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $scope.performanceItems = [{number: data.calculated[0].dailyAverage, description: $filter( 'translate' )( 'status.desc_performance' )}];
     };
     
+    $scope.perfBreakdownReturned = function( data ){
+        $scope.performanceBreakdownStats = data;
+        $scope.performanceBreakdownItems = [{number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )}];
+    };
+    
     $scope.capacityReturned = function( data ){
         $scope.capacityStats = data;
+        
+        var calculatedValues = data.calculated;
+        var secondsToFull, totalCapacity, capacityUsed, percentUsed, dedupRatio;
+        
+        for ( var i = 0; i < calculatedValues.length; i++ ){
+            var values = calculatedValues[i];
+            
+            if ( angular.isDefined( values['toFull'] ) ){
+                secondsToFull = values['toFull'];
+            }
+            else if ( angular.isDefined( values['ratio'] ) ){
+                dedupRatio = values['ratio'];
+            }
+            else if ( angular.isDefined( values['total'] )){
+                capacityUsed = values['total'];
+            }
+            else if ( angular.isDefined( values['totalCapacity'] )){
+                totalCapacity = values['totalCapacity'];
+            }
+        }
         
 //        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
         var parts = $byte_converter.convertBytesToString( data.series[1].datapoints[ data.series[1].datapoints.length - 1 ].y );
         parts = parts.split( ' ' );
         
         var num = parseFloat( parts[0] );
-        $scope.capacityItems = [{number: data.calculated[0].ratio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
+        
+        $scope.capacityItems = [{number: dedupRatio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
             {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
+        
+        if ( angular.isDefined( secondsToFull ) ){
+            
+            var convertedStr = $time_converter.convertToTime( secondsToFull*1000 );
+            var parts = convertedStr.split( ' ' );
+            $scope.capacityItems.push( {number: parseFloat( parts[0] ), description: $filter( 'translate' )( 'status.desc_time_to_full' ), suffix: parts[1].toLowerCase() } );
+            $scope.capacityLimit = totalCapacity;
+        }
     };
     
     // this callback creates the tooltip element
@@ -99,6 +136,25 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         }
         
         return '';
+    };
+    
+    $scope.setPerformanceTooltip = function( series ){
+        
+        var text ='';
+        
+        switch ( series.type ){
+            case 'GETS':
+                text = $filter( 'translate' )( 'status.l_gets' );
+                break;
+            case 'SSD_GETS':
+                text = $filter( 'translate' )( 'status.l_ssd_gets' );
+                break;
+            case 'PUTS':
+                text = $filter( 'translate' )( 'status.l_puts' );
+                break;
+        }
+        
+        return text;
     };
     
     $scope.setCapacityTooltipText = function( data, i, j ){
@@ -166,6 +222,15 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         return filter;
     };
     
+    var buildPerformanceBreakdownFilter = function(){
+        var filter = StatQueryFilter.create( [],
+            [ StatQueryFilter.PUTS, StatQueryFilter.GETS, StatQueryFilter.SSD_GETS ],
+            Math.round( ((new Date()).getTime() - (1000*60*60*1))/1000 ),
+            Math.round( (new Date()).getTime() / 1000 ) );
+        
+        return filter;
+    };
+    
     var buildCapacityFilter = function(){
         var filter = StatQueryFilter.create( [],
             [ StatQueryFilter.PHYSICAL_CAPACITY, StatQueryFilter.LOGICAL_CAPACITY ],
@@ -178,7 +243,8 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     // cleanup the pollers
     $scope.$on( '$destroy', function(){
         $interval.cancel( firebreakInterval );
-        $interval.cancel( performanceInterval );
+//        $interval.cancel( performanceInterval );
+        $interval.cancel( perfBreakdownInterval );
         $interval.cancel( capacityInterval );
         $interval.cancel( activityInterval );
     });
@@ -190,13 +256,15 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         }
         
         firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
-        performanceInterval = $interval( function(){ $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );}, 60000 );
+//        performanceInterval = $interval( function(){ $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );}, 60000 );
         capacityInterval = $interval( function(){ $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );}, 60000 );
         activityInterval = $interval( function(){ $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );}, 60000 );
+        perfBreakdownInterval = $interval( function(){ $stats_service.getPerformanceBreakdownSummary( buildPerformanceBreakdownFilter(), $scope.perfBreakdownReturned );}, 60000 );
 
         
         $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
-        $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );
+//        $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );
+        $stats_service.getPerformanceBreakdownSummary( buildPerformanceBreakdownFilter(), $scope.perfBreakdownReturned );
         $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );
         $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );
     };

@@ -47,6 +47,7 @@
 #include "fdsp/SMSvc.h"
 
 #include <object-store/ObjectStore.h>
+#include <TokenMigrationMgr.h>
 
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
@@ -98,6 +99,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      /// Manager of persistent object storage
      ObjectStore::unique_ptr objectStore;
+     /// Manager of token migration
+     SmTokenMigrationMgr::unique_ptr migrationMgr;
 
      /*
       * FDSP RPC members
@@ -174,7 +177,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
              FDS_QoSControl(_max_thrds, algo, log, "SM") {
                  parentSm = _parent;
                  LOGNOTIFY << "Qos totalRate " << parentSm->totalRate
-                     << ", num outstanding io " << parentSm->qosOutNum;
+                           << ", num outstanding io " << parentSm->qosOutNum
+                           << ", qos threads " << _max_thrds;
 
                  // dispatcher = new QoSMinPrioDispatcher(this, log, 3000);
                  dispatcher = new QoSWFQDispatcher(this,

@@ -134,20 +134,19 @@ public class CriteriaQueryBuilder<T> {
     @SuppressWarnings( "unchecked" )
     public <CQ extends CriteriaQueryBuilder> CQ searchFor(final QueryCriteria searchCriteria ) {
 
-        if ( searchCriteria.getRange() != null )
+        if ( searchCriteria.getRange() != null ) {
             this.withDateRange( searchCriteria.getRange() );
-
-        if( searchCriteria.getContexts() != null &&
-                    !searchCriteria.getContexts()
-                                   .isEmpty() ) {
-            this.withContexts( searchCriteria.getContexts() );
         }
 
-        if ( searchCriteria.getFirstPoint() != null )
-            this.firstResult( searchCriteria.getFirstPoint().intValue() );
+        this.withContexts( searchCriteria.getContexts() );
 
-        if ( searchCriteria.getPoints() != null )
+        if ( searchCriteria.getFirstPoint() != null ) {
+            this.firstResult( searchCriteria.getFirstPoint().intValue() );
+        }
+
+        if ( searchCriteria.getPoints() != null ) {
             this.maxResults( searchCriteria.getPoints() );
+        }
 
         return (CQ)this;
     }
@@ -159,10 +158,14 @@ public class CriteriaQueryBuilder<T> {
      */
     @SuppressWarnings( "unchecked" )
     public <CQ extends CriteriaQueryBuilder> CQ withContexts( final List<Context> contexts ) {
-        if( contexts != null ) {
+
+        if( contexts != null && !contexts.isEmpty() ) {
+
             final List<String> in = new ArrayList<>();
             for( final Context c : contexts ) {
+
                 in.add( c.getContext() );
+
             }
 
             final Expression<String> expression = from.get( getContextName() );
@@ -225,6 +228,7 @@ public class CriteriaQueryBuilder<T> {
      * @return Returns the {@link TypedQuery} representing the query for the entity
      */
     public TypedQuery<T> build() {
+        logger.trace( "AND::{} OR::{}", andPredicates, orPredicates );
         if( !andPredicates.isEmpty() && !orPredicates.isEmpty() ) {
             return em.createQuery(
                                  cq.select( from )

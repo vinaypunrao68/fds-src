@@ -12,6 +12,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <sm_ut_utils.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -32,6 +33,18 @@ static const fds_uint32_t qosThreads = 10;
 static const fds_uint16_t activeFileId = 2;
 static const fds_uint16_t shadowFileId = 0xfff2;
 
+class SmTokenCompactorUtProc : public FdsProcess {
+  public:
+    SmTokenCompactorUtProc(int argc, char * argv[], const std::string & config,
+                           const std::string & basePath, Module * vec[]) {
+        init(argc, argv, config, basePath, logname, vec);
+    }
+
+    virtual int run() override {
+        return 0;
+    }
+};
+
 // Test implementation of SmIoReqHandler
 class TestReqHandler: public SmIoReqHandler {
   public:
@@ -47,35 +60,11 @@ class TestReqHandler: public SmIoReqHandler {
     }
 
     void createObjectDB() {
-        // lets create in some temp dir
-        std::string odbDir = "/tmpdir";
+        const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+        const std::string odbDir = dir->dir_fds_var_tests();
         std::string filename = odbDir + "/TestObjectIndex";
-        boost::filesystem::path odbPath(odbDir.c_str());
-        if (boost::filesystem::exists(odbPath)) {
-            // remove everything in this dir
-            GLOGNOTIFY << "Directory " << odbDir << " exists, cleaning up";
-            for (boost::filesystem::directory_iterator itEndDir, it(odbPath);
-                 it != itEndDir;
-                 ++it) {
-                boost::filesystem::remove_all(it->path());
-            }
-        } else {
-            GLOGNOTIFY << "Creating " << odbDir << " directory";
-            boost::filesystem::create_directory(odbPath);
-        }
-
-        try
-        {
-            odb = new osm::ObjectDB(filename, true);
-        }
-        catch(const osm::OsmException& e)
-        {
-            LOGERROR << "Failed to create ObjectDB " << filename;
-            LOGERROR << e.what();
-            odb = NULL;
-        }
+        odb = SmUtUtils::createObjectDB(odbDir, filename);
         EXPECT_TRUE(odb != NULL);
-        GLOGNOTIFY << "Opened ObjectDB " << filename;
     }
 
     void removeObjectDB() {
@@ -378,7 +367,8 @@ TEST_F(SmTokenCompactorTest, second_start) {
 }  // namespace fds
 
 int main(int argc, char * argv[]) {
-    fds::init_process_globals(fds::logname);
+    fds::SmTokenCompactorUtProc scavProc(argc, argv, "platform.conf",
+                                         "fds.sm.", NULL);
     ::testing::InitGoogleMock(&argc, argv);
     return RUN_ALL_TESTS();
 }

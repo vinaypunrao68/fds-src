@@ -34,7 +34,7 @@ class ConsoleExit(Exception):
 
 class FDSConsole(cmd.Cmd):
 
-    def __init__(self,*args):
+    def __init__(self,fInit, *args):
         cmd.Cmd.__init__(self, *args)
         setupHistoryFile()
         datafile = os.path.join(os.path.expanduser("~"), ".fdsconsole_data")
@@ -50,9 +50,10 @@ class FDSConsole(cmd.Cmd):
         self.setprompt('fds')
         self.context = None
         self.previouscontext = None
-        self.config.init()
-        ServiceMap.serviceMap = self.config.platform.svcMap
-        self.set_root_context(context.RootContext(self.config))
+        if fInit:
+            self.config.init()
+            ServiceMap.serviceMap = self.config.platform.svcMap
+            self.set_root_context(context.RootContext(self.config))
 
     def get_access_level(self):
         return self.config.getSystem(KEY_ACCESSLEVEL)
@@ -504,8 +505,11 @@ class FDSConsole(cmd.Cmd):
         self.data.close()
 
 if __name__ == '__main__':
-    fdsconsole = FDSConsole()
-    fdsconsole.init()
-    fdsconsole.run(sys.argv[1:])
+    args=sys.argv[1:]
+    fInit = not (len(args) > 0 and args[0] == 'set')
+    fdsconsole = FDSConsole(fInit)
+    if fInit:
+        fdsconsole.init()
+    fdsconsole.run(args)
     
     

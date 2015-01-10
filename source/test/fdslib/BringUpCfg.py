@@ -54,6 +54,17 @@ class FdsNodeConfig(FdsConfig):
             else:
                 self.nd_local = False
 
+        # Is the node transient? (I.e. Will it come and go according to test
+        # design as opposed to being booted by default and treated in unison
+        # with all other non-transient nodes.)
+        if 'transient' in self.nd_conf_dict:
+            if (self.nd_conf_dict['transient'] == 'true'):
+                self.nd_transient = True
+            else:
+                self.nd_transient = False
+        else:
+            self.nd_transient = False
+
     ###
     # Establish ssh connection with the remote node.  After this call, the obj
     # can use nd_agent to send ssh commands to the remote node.
@@ -188,6 +199,8 @@ class FdsNodeConfig(FdsConfig):
         if 'fds_port' in self.nd_conf_dict:
             port = self.nd_conf_dict['fds_port']
             port_arg = port_arg + (' --fds.plat.platform_port=%s' % port)
+        else:
+            port = 7000  # PM default.
 
         if om_ip is not None:
             port_arg = port_arg + (' --fds.plat.om_ip=%s' % om_ip)
@@ -211,8 +224,9 @@ class FdsNodeConfig(FdsConfig):
         if test_harness:
             cur_dir = os.getcwd()
             os.chdir(bin_dir)
-            status = self.nd_agent.exec_wait('bash -c \"(nohup ./platformd --fds-root=%s > %s/pm.out 2>&1 &) \"' %
-                                                 (fds_dir, log_dir if self.nd_agent.env_install else "."))
+            status = self.nd_agent.exec_wait('bash -c \"(nohup ./platformd --fds-root=%s > %s/pm.%s.out 2>&1 &) \"' %
+                                            (fds_dir, log_dir if self.nd_agent.env_install else ".",
+                                             port))
             os.chdir(cur_dir)
         else:
             status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg +
@@ -644,7 +658,12 @@ class FdsConfigFile(object):
             if re.match('user', section) != None:
                 self.cfg_user.append(FdsUserConfig('user', items, verbose))
 
-            elif re.match('node', section) != None:
+            # OM uses "Node-#" for auto-generated names which we might like
+            # to use as node names in the config file. A difficulty may arise
+            # if several PMs log into OM to be registered and they are registered
+            # out of the order expected by the names given them in the config file.
+            # One might fix this by putting a sleep in between starting PMs.
+            elif (re.match('node', section) != None) or (re.match('Node-', section) != None):
                 # Why are we doing the same thing either way? Is this
                 # because an OM doesn't have an enabled = true?
                 items_d = dict(items)

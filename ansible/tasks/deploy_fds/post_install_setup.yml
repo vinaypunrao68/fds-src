@@ -15,13 +15,13 @@
 
 -   name: run fdsinstall step 3 - setup storage
     shell: ./fdsinstall.py -o 5 -o 3  chdir=/root
-    when: fdsinstall_pkg.changed or (force_install is defined and force_install == "yes")
+    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes")
     tags:
         - post-install
 
 -   name: render formation.conf
     template:
-        src=../templates/formation.conf.j2
+        src=../../source/test/formation.conf.j2
         dest=/fds/sbin/deploy_formation.conf
         owner=root
         group=root

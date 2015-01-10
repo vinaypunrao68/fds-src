@@ -1,6 +1,6 @@
 ---
 -   name: deploy rendered FDS config files without code
-    hosts: "{{ target_hosts }}"
+    hosts: all
     sudo: yes
 
     tasks:

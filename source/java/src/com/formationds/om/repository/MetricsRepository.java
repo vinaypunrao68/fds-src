@@ -4,6 +4,7 @@
 
 package com.formationds.om.repository;
 
+import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.crud.JDORepository;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
@@ -12,7 +13,6 @@ import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.om.repository.result.VolumeDatapointList;
-import com.formationds.xdi.ConfigurationApi;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +25,7 @@ import javax.persistence.criteria.Root;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * @author ptinius
@@ -41,7 +42,9 @@ public class MetricsRepository
    * saving it.  When processing multiple datapoints, also aligns the timestamp to the first datapoint.
    */
   private static class MetricsEntityPersistListener implements EntityPersistListener<VolumeDatapoint> {
-      private static final Logger logger = LoggerFactory.getLogger(MetricsRepository.class);
+      private static final Logger logger =
+          LoggerFactory.getLogger( MetricsEntityPersistListener.class );
+
       public void prePersist(VolumeDatapoint dp) {
           try {
               long volid = SingletonConfigAPI.instance().api().getVolumeId(dp.getVolumeName());
@@ -52,7 +55,7 @@ public class MetricsRepository
       }
 
       public void prePersist(List<VolumeDatapoint> dps) {
-          ConfigurationApi config = SingletonConfigAPI.instance().api();
+          com.formationds.util.thrift.ConfigurationApi config = SingletonConfigAPI.instance().api();
           long timestamp = 0L;
           try {
               if (dps.isEmpty())
@@ -136,13 +139,15 @@ public class MetricsRepository
   public VolumeDatapointList query( final QueryCriteria criteria ) {
       EntityManager em = newEntityManager();
       try {
-          final List<VolumeDatapoint> results = new MetricCriteriaQueryBuilder(em).searchFor(criteria)
-                                                                                  .build()
-                                                                                  .getResultList();
+          final List<VolumeDatapoint> results =
+              new MetricCriteriaQueryBuilder(em).searchFor(criteria)
+                                                .build()
+                                                .getResultList();
 
           final VolumeDatapointList list = new VolumeDatapointList();
           results.stream().forEach(list::add);
           return list;
+
       } finally {
           em.close();
       }
@@ -152,6 +157,7 @@ public class MetricsRepository
      * @return Returns the {@link Double} representing the calculated sum of logical bytes
      */
     public Double sumLogicalBytes() {
+
         EntityManager em = newEntityManager();
         try {
             final CriteriaBuilder cb = em.getCriteriaBuilder();
@@ -172,6 +178,7 @@ public class MetricsRepository
                              .mapToDouble( VolumeDatapoint::getValue )
                              .summaryStatistics()
                              .getSum();
+
         } finally {
             em.close();
         }
@@ -292,7 +299,7 @@ public class MetricsRepository
      * @param volumeId the {@link Long} representing the volume id
      * @param metric the {@link Metrics}
      *
-     * @return Returns the {@link VolumeDatapoint} representing the most recent
+     * @return Returns the {@link VolumeDatapoint} representing the least recent
      */
     public VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp(
         final Long volumeId,
@@ -333,7 +340,7 @@ public class MetricsRepository
      * @param volumeName  the {@link String} representing the volume name
      * @param metric the {@link Metrics}
      *
-     * @return Returns the {@link VolumeDatapoint} representing the most recent
+     * @return Returns the {@link VolumeDatapoint} representing the least recent
      */
     public VolumeDatapoint leastRecentOccurrenceBasedOnTimestamp(
         final String volumeName,
@@ -367,5 +374,50 @@ public class MetricsRepository
         } finally {
             em.close();
         }
+    }
+
+    public Optional<VolumeStatus> getLatestVolumeStatus(
+        final Long volumeId ) {
+
+        final VolumeDatapoint blobs =
+            mostRecentOccurrenceBasedOnTimestamp( volumeId, Metrics.BLOBS );
+        final VolumeDatapoint usage =
+            mostRecentOccurrenceBasedOnTimestamp( volumeId, Metrics.PBYTES );
+
+        return volumeStatus( blobs, usage );
+    }
+
+    public Optional<VolumeStatus> getLatestVolumeStatus(
+        final String volumeName ) {
+
+        final VolumeDatapoint blobs =
+            mostRecentOccurrenceBasedOnTimestamp( volumeName, Metrics.BLOBS );
+        final VolumeDatapoint usage =
+            mostRecentOccurrenceBasedOnTimestamp( volumeName, Metrics.PBYTES );
+
+        return volumeStatus( blobs, usage );
+
+    }
+
+    protected Optional<VolumeStatus> volumeStatus(
+        final VolumeDatapoint blobs,
+        final VolumeDatapoint usage ) {
+        if( ( blobs != null ) && ( usage != null ) ) {
+
+            return Optional.of( new VolumeStatus( blobs.getValue().longValue(),
+                                                  usage.getValue().longValue() ) );
+
+        } else if( ( blobs == null ) && ( usage != null ) ) {
+
+            return Optional.of( new VolumeStatus( 0L,
+                                                  usage.getValue().longValue() ) );
+
+        } else if( blobs != null ) {
+
+            return Optional.of( new VolumeStatus( blobs.getValue().longValue(),
+                                                  0L ) );
+        }
+
+        return Optional.empty();
     }
 }

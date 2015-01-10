@@ -3,6 +3,10 @@
     connection: local
     hosts: localhost
     gather_facts: False
+    vars_files:
+    -   ../vars_files/multi_om_setup.yml
+    -   ../vars_files/credentials/aws_fds_testing.yml
+    -   ../vars_files/credentials/fds-deploy_rsa.yml
 
     tasks:
 
@@ -14,8 +18,13 @@
         fail: msg="You must supply a value for instance_count"
         when: instance_count is not defined
 
+    -   name: copy FDS deploy key locally
+        include: ../tasks/deploy_fds/copy_fds_deploy_key.yml
+
     -   name: spin up a node in the private subnet with an auto-assigned IP
         ec2:
+            aws_access_key: "{{ aws_access_key }}"
+            aws_secret_key: "{{ aws_secret_key }}"
             instance_tags:
                 Name: "{{ instance_name_tag }}"
                 fds_purpose: testing
@@ -59,7 +68,7 @@
 ################################################################################
 
 
--   name: DESTRUCTIVE Deployment of FDS
+-   name: Deploy FDS
     hosts: ec2hosts
     remote_user: deploy
     gather_facts: true
@@ -74,18 +83,4 @@
 
     tasks:
 
-    -   include: ../tasks/deploy_fds/pre_deploy_setup.yml
-
-    -   include: ../tasks/deploy_fds/stop_and_clean_fds.yml
-
-    -   include: ../tasks/deploy_fds/install_deps.yml
-
-    -   include: ../tasks/deploy_fds/uninstall_fds.yml
-
-    -   include: ../tasks/deploy_fds/install_fds.yml
-
-    -   include: ../tasks/deploy_fds/set_node_num.yml
-
-    -   include: ../tasks/deploy_fds/post_install_setup.yml
-
-    -   include: ../tasks/deploy_fds/start_fds.yml
+    -   include: ../tasks/deploy_fds/deploy_fds.yml

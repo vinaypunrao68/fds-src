@@ -16,12 +16,14 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.capacityLineStipples = [ '2,2', 'none' ];
     $scope.capacityLineColors = [ '#78B5FA', '#2486F8' ];
     $scope.capacityColors = [ '#ABD3F5', '#72AEEB' ];
-    $scope.performanceColors = [ '#A4D966' ];
-    $scope.performanceLine = ['#66B22E'];   
+    $scope.performanceColors = [ '#8784DE', '#606ED7', '#489AE1' ];
+    $scope.performanceLine = ['#8784DE', 'white', 'white']; 
     
     $scope.dedupLabel = '';
     $scope.physicalLabel = '';
-    $scope.iopLabel = '';
+    $scope.getLabel = '';
+    $scope.ssdGetLabel = '';
+    $scope.putLabel = '';
     
     $scope.qos = {};
     $scope.dataConnector = {};
@@ -51,6 +53,25 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         }
     };
     
+    $scope.setPerformanceTooltip = function( series ){
+        
+        var text ='';
+        
+        switch ( series.type ){
+            case 'GETS':
+                text = $filter( 'translate' )( 'status.l_gets' );
+                break;
+            case 'SSD_GETS':
+                text = $filter( 'translate' )( 'status.l_ssd_gets' );
+                break;
+            case 'PUTS':
+                text = $filter( 'translate' )( 'status.l_puts' );
+                break;
+        }
+        
+        return text;
+    };    
+    
     $scope.capacityLabelFx = function( data ){
         return $byte_converter.convertBytesToString( data, 1 );
     };
@@ -75,7 +96,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         var datapoints =  series.datapoints;
         
-        return datapoints[ datapoints.length-1 ].y + ' ' +
+        return datapoints[ datapoints.length-1 ].y.toFixed( 2 ) + ' ' +
             $filter( 'translate' )( key );
     };
     
@@ -126,8 +147,10 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.performanceReturned = function( data ){
         $scope.performanceStats = data;
-        $scope.performanceItems = [{number: data.calculated[0].dailyAverage, description: $filter( 'translate' )( 'status.desc_performance' )}];
-        $scope.iopLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.desc_iops_capacity' );
+        $scope.performanceItems = [{number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )}];
+        $scope.putLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.desc_iops_capacity' );
+        $scope.getLabel = getPerformanceLegendText( $scope.performanceStats.series[1], 'volumes.view.desc_iops_capacity' );
+        $scope.ssdGetLabel = getPerformanceLegendText( $scope.performanceStats.series[2], 'volumes.view.desc_iops_capacity' );
     };
     
     var buildQueries = function(){
@@ -140,7 +163,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             Math.round( now.getTime() / 1000 ) );
         
         performanceQuery = StatQueryFilter.create( [$scope.volume],
-            [StatQueryFilter.SHORT_TERM_PERFORMANCE],
+            [StatQueryFilter.PUTS, StatQueryFilter.GETS, StatQueryFilter.SSD_GETS],
             Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
             Math.round( now.getTime() / 1000 ) );
     };
@@ -275,8 +298,15 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.$on( 'fds::media_policy_changed', function(){
         
-//        $scope.thisVolume.mediaPolicy = $scope.mediaPolicy;
-//        $volume_api.save( $scope.thisVolume );
+        $scope.thisVolume.mediaPolicy = $scope.mediaPolicy.value;
+        
+        var temp = $scope.thisVolume;
+        
+        if( !angular.isDefined( $scope.thisVolume.id ) ){
+            return;
+        }
+        
+        $volume_api.save( $scope.thisVolume );
     });
     
     $scope.$on( 'fds::timeline_policy_changed', function( newVal, oldVal ){

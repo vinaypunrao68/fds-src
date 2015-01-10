@@ -1,70 +1,43 @@
 angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$volume_api', '$filter', function( $scope, $volume_api, $filter ){
     
-    var init = function(){
-        $scope.volumeVars.toClone = 'new';
-        
-        if ( !angular.isDefined( $scope.selectedItem ) || !angular.isDefined( $scope.selectedItem.name ) ){
-            $scope.selectedItem = {name: 'None'};
-        }
-        
-        $scope.choosing = false;
-    };
-    
-    init();
-    
+    $scope.volumeVars.cloneFromVolume = undefined;
+    $scope.volumes = $volume_api.volumes;
+    $scope.ranges = [];
     $scope.cloneOptions = [];
-    var currentStateLabel = $filter( 'translate' )( 'volumes.l_current_state' );
+    $scope.now = (new Date()).getTime();
     
-    $scope.cloneColumns = [
-        { title: 'Volumes', property: 'name', width: 200 },
-        { title: 'Snapshots', property: 'name', width: 300 },
-        { title: 'Details', property: 'details', width: 180 }
-    ];
+    $scope.domainLabels = [];
     
-    $scope.getSelectedName = function(){
+    $scope.dateLabelFunction = function( value ){
+        var date = new Date( value );
+        return date.toLocaleDateString() + ' ' + date.getHours() + ':' + date.getMinutes();
+//        return value;
+    };
+    
+    var snapshotsReturned = function( snapshots ){
         
-        if ( $scope.selectedItem.name === currentStateLabel ){
-            return $scope.selectedItem.parent.name;
+        $scope.ranges = [];
+        
+        for ( var i = 0; i < snapshots.length; i++ ){
+            
+            var range = {
+                min: new Date( snapshots[i].creation )
+            };
+            
+            $scope.ranges.push( range );
         }
         
-        return $scope.selectedItem.name;
+        // create teh continuous range
+        $scope.now = (new Date()).getTime();
+        $scope.ranges.push( { min: ($scope.now - $scope.volumeVars.cloneFromVolume.commit_log_retention*1000), max: $scope.now, pwidth: 15 } );
+        $scope.volumeVars.cloneFromVolume.timelineTime = $scope.now;
     };
     
-    $scope.getSnapshots = function( volume, callback ){
-        $volume_api.getSnapshots( volume.id, function( results ){
-            var current = { data_connector: volume.data_connector, 
-                sla: volume.sla, limit: volume.limit, priority: volume.priority, 
-                id: volume.id, name: currentStateLabel };
-            
-            results.splice( 0, 0, current );
-            
-            callback( results );
-        });
-    };
-    
-    $scope.cancel = function(){
+    var init = function(){
+        
+        $scope.volumeVars.toClone = 'new';        
         $scope.choosing = false;
     };
-    
-    $scope.choose = function(){
-        $scope.choosing = false;
-//        $scope.volumeVars.clone = $scope.selectedItem;
-        
-        // if it's a snapshot we need to fill in the parent volumes
-        // settings
-        if ( angular.isDefined( $scope.selectedItem.parent ) ){
-            $scope.volumeVars.clone = $scope.selectedItem.parent;
-            $scope.volumeVars.clone.id = $scope.selectedItem.id;
-            $scope.volumeVars.clone.name = $scope.selectedItem.name;
-            $scope.volumeVars.clone.cloneType = 'snapshot';
-        }
-        else{
-            $scope.volumeVars.clone = $scope.selectedItem;
-        }
-    };
-    
-    $scope.$watch( 'selectedItem', function( newVal ){
-    });
     
     var refresh = function( newValue ){
         
@@ -78,7 +51,50 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
         init();
     };
     
+    // combo changed - need to refresh the timeline
+    $scope.$watch( 'volumeVars.cloneFromVolume', function( newVal ){
+        
+        if ( !angular.isDefined( newVal ) || !angular.isDefined( newVal.id ) ){
+            return;
+        }
+        
+        $volume_api.getSnapshots( newVal.id, snapshotsReturned );
+    });
+    
+    $scope.$watch( 'volumeVars.toClone', function( newVal ){
+        
+        $scope.volumes = $volume_api.volumes;
+        
+//        if ( !angular.isDefined( $scope.volumeVars.cloneFromVolume )) {
+            $scope.volumeVars.cloneFromVolume = $scope.volumes[0];
+//        }
+        
+        if ( newVal === 'clone' ){
+            $scope.now = (new Date()).getTime();
+            
+            $scope.domainLabels = [
+                { text: $filter( 'translate' )( 'common.l_now' ), value: $scope.now },
+                { text: $filter( 'translate' )( 'common.l_1_day' ), value: $scope.now - (24*1000*60*60) },
+                { text: $filter( 'translate' )( 'common.l_30_days' ), value: $scope.now - (24*1000*60*60*30)},
+                { text: $filter( 'translate' )( 'common.l_1_week' ), value: $scope.now - (24*1000*60*60*7) },
+                { text: '1 ' + $filter( 'translate' )( 'common.l_year' ), value: $scope.now - (24*1000*60*60*366) },
+                { text: '5 ' + $filter( 'translate' )( 'common.l_year' ), value: $scope.now - (24*1000*60*60*366*5) },
+                { text: '10 ' + $filter( 'translate' )( 'common.l_year' ), value: $scope.now - (24*1000*60*60*366*10) }
+            ];
+            
+            $scope.volumeVars.cloneFromVolume.timelineTime = $scope.now;
+        }
+    });
+    
+    $scope.$watch( function(){ return $volume_api.volumes; }, function(){
+
+        if ( !$scope.volumeVars.toClone !== 'clone' ) {
+            $scope.volumes = $volume_api.volumes;
+        }
+    });
+    
     $scope.$watch( 'volumeVars.creating', refresh );
-    $scope.$watch( 'volumeVars.editing', refresh );
+    
+    init();
     
 }]);

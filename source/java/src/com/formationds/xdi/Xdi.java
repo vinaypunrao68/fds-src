@@ -5,9 +5,8 @@
 package com.formationds.xdi;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.ResourceState;
 import com.formationds.apis.*;
-import com.formationds.om.rest.SetVolumeQosParams;
+import com.formationds.om.webkit.rest.SetVolumeQosParams;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
@@ -49,7 +48,7 @@ public class Xdi {
         config.createVolume(domainName, volumeName, volumePolicy, authorizer.tenantId(token));
         
         // the default log retention time is 24 hours
-        SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0, volumePolicy.getContCommitlogRetention() );
+        SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0, volumePolicy.getContCommitlogRetention(), MediaPolicy.HDD_ONLY );
         /**
          * allows the UI to assign a snapshot policy to a volume without having to make an
          * extra call.
@@ -124,7 +123,7 @@ public class Xdi {
 
     public String getSystemVolumeName(AuthenticationToken token) throws SecurityException {
         long tenantId = authorizer.tenantId(token);
-        return ConfigurationApi.systemFolderName(tenantId);
+        return XdiConfigurationApi.systemFolderName(tenantId);
     }
 
     public void setMetadata(AuthenticationToken token, String domain, String volume, String blob, HashMap<String, String> metadataMap) throws TException {

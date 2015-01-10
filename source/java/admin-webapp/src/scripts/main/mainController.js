@@ -1,5 +1,5 @@
 angular.module( 'main' ).controller( 'mainController', ['$scope', '$authentication', '$authorization', '$state', '$domain_service', '$filter', function( $scope, $authentication, $authorization, $state, $domain_service, $filter ){
-
+    
     $scope.priority = 10;
     $scope.menuWidth = 38;
     $scope.rememberChecked = false;
@@ -15,12 +15,12 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
             text: $filter( 'translate' )('status.title' ), 
             iconClass: 'icon-system', 
             selected: false },
-        { 
-            id: 'inbox', 
-            link: 'homepage.inbox', 
-            text: $filter( 'translate' )('inbox.title' ), 
-            iconClass: 'icon-inbox', 
-            selected: false },
+//        { 
+//            id: 'inbox', 
+//            link: 'homepage.inbox', 
+//            text: $filter( 'translate' )('inbox.title' ), 
+//            iconClass: 'icon-inbox', 
+//            selected: false },
         { 
             id: 'activity', 
             link: 'homepage.activity', 
