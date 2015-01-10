@@ -59,7 +59,7 @@ def suiteConstruction():
     nodeUpSuite = NodeWaitSuite.suiteConstruction()
     suite.addTest(nodeUpSuite)
 
-    # Given the nodes some time to initialize.
+    # Give the nodes some time to initialize.
     suite.addTest(testcases.TestFDSSysMgt.TestWait())
 
     return suite
