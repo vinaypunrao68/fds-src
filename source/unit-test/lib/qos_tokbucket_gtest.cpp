@@ -158,7 +158,7 @@ TEST(TokenBucket, expireTokens) {
 
     auto expiredTokens = testObject.expireTokens();
 
-    EXPECT_EQ(testObject.burst_, testObject.token_count) << "token_count was not updated properly.";
+    EXPECT_EQ(testObject.burst_, testObject.token_count_) << "token_count was not updated properly.";
     EXPECT_EQ(expectedExpiredTokens, expiredTokens) << "incorrect number of tokens expired.";
 }
 
@@ -246,7 +246,7 @@ TEST_P(TokenBucketConsume, tryToConsumeTokens) {
     if (param.expectSuccess) {
         EXPECT_TRUE(testObject.tryToConsumeTokens(param.consume))
                 << "Unable to consume " << pluralize(param.consume, "token", "tokens")
-                << " from " << testObject.token_count;
+                << " from " << testObject.token_count_;
         EXPECT_EQ(param.newState.token_count, testObject.token_count_)
                 << "Incorrect number of tokens remaining after "
                 << pluralize(param.consume, "token", "tokens") << " was removed from "
