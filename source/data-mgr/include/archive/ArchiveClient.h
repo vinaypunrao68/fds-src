@@ -59,8 +59,9 @@ struct ArchiveClient : FdsRequestQueueActor
     ArchiveClient(DataMgrIf* dataMgrIf,
                   fds_threadpoolPtr threadpool);
     void connect(const std::string &host,
-                 const std::string &accessKey,
-                 const std::string &secretKey);
+                 const std::string &authEp,
+                 const std::string &admin,
+                 const std::string &passwd);
     void putSnap(const fds_volid_t &volId,
                  const int64_t &snapId,
                  ArchivePutCb cb);

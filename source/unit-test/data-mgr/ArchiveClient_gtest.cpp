@@ -97,7 +97,7 @@ TEST_F(ArchiveClientTest, put_get)
     /* Create archive client */
     fds_threadpoolPtr threadpool = boost::make_shared<fds_threadpool>();
     ArchiveClientPtr archiveCl = boost::make_shared<ArchiveClient>(this, threadpool);
-    archiveCl->connect("localhost:8000", "admin", "secret-key");
+    archiveCl->connect("http://localhost:8000", "","admin", "passwd");
 
     /* put the file */
     EXPECT_EQ(archiveCl->putSnapSync(volId, snapId), ERR_OK);

@@ -21,10 +21,11 @@ ArchiveClient::ArchiveClient(DataMgrIf* dataMgrIf,
 }
 
 void ArchiveClient::connect(const std::string &host,
-                            const std::string &accessKey,
-                            const std::string &secretKey)
+                            const std::string &authEp,
+                            const std::string &admin,
+                            const std::string &passwd)
 {
-    s3client_.reset(new S3Client(host, accessKey, secretKey));
+    s3client_.reset(new S3Client(host, authEp, admin, passwd));
 }
 
 void ArchiveClient::putSnap(const fds_volid_t &volId,

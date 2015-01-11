@@ -231,7 +231,7 @@ TEST(s3, getFormationS3Key) {
     // std::string key = fds::getFormationS3Key("https://localhost:7443");
     std::string key = "my-accesss-key";
     std::cout << "key is : " << key << std::endl;
-    fds::S3Client cl("localhost:8000", "admin", key);
+    fds::S3Client cl("localhost:8000", "", "admin", "passwd");
     auto status = cl.createBucket("sample_bucket");
     ASSERT_TRUE(status == 0 || status == 52);
     status = cl.putFile("sample_bucket", "f1",
