@@ -54,6 +54,17 @@ class FdsNodeConfig(FdsConfig):
             else:
                 self.nd_local = False
 
+        # Is the node transient? (I.e. Will it come and go according to test
+        # design as opposed to being booted by default and treated in unison
+        # with all other non-transient nodes.)
+        if 'transient' in self.nd_conf_dict:
+            if (self.nd_conf_dict['transient'] == 'true'):
+                self.nd_transient = True
+            else:
+                self.nd_transient = False
+        else:
+            self.nd_transient = False
+
     ###
     # Establish ssh connection with the remote node.  After this call, the obj
     # can use nd_agent to send ssh commands to the remote node.
@@ -647,7 +658,12 @@ class FdsConfigFile(object):
             if re.match('user', section) != None:
                 self.cfg_user.append(FdsUserConfig('user', items, verbose))
 
-            elif re.match('node', section) != None:
+            # OM uses "Node-#" for auto-generated names which we might like
+            # to use as node names in the config file. A difficulty may arise
+            # if several PMs log into OM to be registered and they are registered
+            # out of the order expected by the names given them in the config file.
+            # One might fix this by putting a sleep in between starting PMs.
+            elif (re.match('node', section) != None) or (re.match('Node-', section) != None):
                 # Why are we doing the same thing either way? Is this
                 # because an OM doesn't have an enabled = true?
                 items_d = dict(items)
