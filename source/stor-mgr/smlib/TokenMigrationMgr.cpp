@@ -160,8 +160,9 @@ SmTokenMigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceInitialSetPtr&
         fds_mutex::scoped_lock l(clientLock);
         if (migrClients.count(executorId) == 0) {
             // first time we see a message for this executor ID
+            NodeUuid executorNodeUuid(executorSmUuid);
             migrClient = MigrationClient::shared_ptr(new MigrationClient(smReqHandler,
-                                                                         executorSmUuid));
+                                                                         executorNodeUuid));
             migrClients[executorId] = migrClient;
         } else {
             migrClient = migrClients[executorId];
