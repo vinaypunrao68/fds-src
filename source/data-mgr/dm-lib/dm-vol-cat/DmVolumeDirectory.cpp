@@ -2,6 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+#include <algorithm>
 #include <string>
 #include <set>
 #include <vector>
@@ -456,7 +457,7 @@ Error DmVolumeDirectory::putBlob(fds_volid_t volId, const std::string& blobName,
         BlobObjList::iterator oldIter = oldBlobObjList.find(cit->first);
         if (oldBlobObjList.end() == oldIter) {
             // new offset, update blob size
-            newBlobSize = cit->first + cit->second.size;
+            newBlobSize = std::max(newBlobSize, cit->first + cit->second.size);
 
             FDSGUARD(lockVolSummaryMap_);
             DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
