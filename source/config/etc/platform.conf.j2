@@ -2,7 +2,6 @@
 {% block content %}
 fds: {
     /* Network interface that all fds nodes should have */
-
     nic_if="{{ default_nic }}"
 
     /* Use genkey to generate a new one */
@@ -24,31 +23,53 @@ fds: {
         common: {
             enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
 
-            java_is_fussy_evidentally_an_entry_must_exist_here = true
+            java_is_fussy_an_entry_must_exist_here = true
         }
         plat: {
             use_disk_hints = {{ ft_platform_use_disk_hints }}
             force_simulation_mode = {{ ft_platform_force_simulation_mode }}
 
-            java_is_fussy_evidentally_an_entry_must_exist_here = true
+            java_is_fussy_an_entry_must_exist_here = true
         }
         dm: {
-            java_is_fussy_evidentally_an_entry_must_exist_here = true
+            java_is_fussy_an_entry_must_exist_here = true
         }
         sm: {
-            java_is_fussy_evidentally_an_entry_must_exist_here = true
+            java_is_fussy_an_entry_must_exist_here = true
         }
         am: {
-            java_is_fussy_evidentally_an_entry_must_exist_here = true
+            java_is_fussy_an_entry_must_exist_here = true
         }
         om: {
-            java_is_fussy_evidentally_an_entry_must_exist_here = true
+            java_is_fussy_an_entry_must_exist_here = true
         }
     }
 
     /* Use this section for settings that are shared (or needed) by most or all processes */
     common: {
-        om_ip_list = "{{ om_ip_1 }}:{{ om_ip_2 }}:{{ om_ip_3 }}:{{ om_ip_4 }}"
+{#  This sets the om_ip_list based on the populated om_ip's #}
+{#  During generation of these files with ansible, only 1, 3, or 5 Hosts are permitted in the om_ip_list #}
+{%  if ft_common_enable_multi_om_support == 'true' %}
+{%      if om_ip_5 != unset_host_ip %}
+{#          Using this error = {{ some undefined variable }} is clucky, but it works. #}
+{%          if om_ip_1 == unset_host_ip %} error = {{ om_ip_1_is_not_defined }} {% endif %}
+{%          if om_ip_2 == unset_host_ip %} error = {{ om_ip_2_is_not_defined }} {% endif %}
+{%          if om_ip_3 == unset_host_ip %} error = {{ om_ip_3_is_not_defined }} {% endif %}
+{%          if om_ip_4 == unset_host_ip %} error = {{ om_ip_4_is_not_defined }} {% endif %}
+        om_ip_list = "{{ om_ip_1 }}:{{ om_ip_2 }}:{{ om_ip_3 }}:{{ om_ip_4 }}:{{ om_ip_5 }}"
+{%      elif om_ip_3 != unset_host_ip %}
+{%          if om_ip_1 == unset_host_ip %} error = {{ om_ip_1_is_not_defined }} {% endif %}
+{%          if om_ip_2 == unset_host_ip %} error = {{ om_ip_2_is_not_defined }} {% endif %}
+        om_ip_list = "{{ om_ip_1 }}:{{ om_ip_2 }}:{{ om_ip_3 }}"
+{%      elif om_ip_1 != unset_host_ip %}
+        om_ip_list = "{{ om_ip_1 }}"
+{%      else %}
+{#i         This creates an error, causing Ansible to fail #}
+            om_ip_list = {{ undefined_om_ip_1_variable_in_inventory_file }}
+{%      endif %}
+{%  endif %}
+
+        java_is_fussy_an_entry_must_exist_here = true
     }
 
     plat: {
@@ -105,6 +126,7 @@ fds: {
 	    }
 	}
     }
+
     dm: {
         perf: { enable = {{ perf_tracing }} }
 
@@ -180,6 +202,7 @@ fds: {
             long_slots = 6
         }
     }
+
     sm: {
         perf: { enable = {{ perf_tracing }} }
 
@@ -284,6 +307,7 @@ fds: {
             period = 5
         }
     }
+
     am: {
         perf: { enable = {{ perf_tracing }} }
 
@@ -374,6 +398,7 @@ fds: {
             print_qos_stats = false
         }
     }
+
     om:
     {
         id="om"
@@ -408,6 +433,7 @@ fds: {
             community = "{{ snmp_community }}"
         }
     }
+
     checker: {
         id = "checker"
         path = "/home/bao_pham/temp/skinet2"
