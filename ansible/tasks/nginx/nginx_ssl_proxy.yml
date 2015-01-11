@@ -1,0 +1,75 @@
+---
+
+- apt: name=nginx
+    update_cache=yes
+    state=present
+  tags:
+    - nginx
+  when: fds_om_host is defined and fds_om_host == inventory_hostname
+
+# Remove old nginx configs
+- file:
+    path=/etc/nginx/conf.d/{{ item }}.conf
+    state=absent
+  tags:
+    - nginx
+  with_items:
+    - api
+    - web
+
+- template:
+    src=../templates/nginx/fds_nginx.conf.j2
+    dest=/etc/nginx/conf.d/fds.conf
+    owner=root
+    group=root
+    mode=0644
+  tags:
+    - nginx
+  when: fds_om_host is defined and fds_om_host == inventory_hostname
+
+- file:
+    state=directory
+    path=/etc/nginx/ssl
+    owner=root
+    group=root
+    mode=0700
+  tags:
+    - nginx
+  when: fds_om_host is defined and fds_om_host == inventory_hostname
+
+- template:
+    src=../templates/nginx/ssl_pem.j2
+    dest=/etc/nginx/ssl/wildcard.formationds.com.pem
+    owner=root
+    group=root
+    mode=0600
+  tags:
+    - nginx
+  when: fds_om_host is defined and fds_om_host == inventory_hostname
+
+- template:
+    src=../templates/nginx/ssl_key.j2
+    dest=/etc/nginx/ssl/wildcard.formationds.com.key
+    owner=root
+    group=root
+    mode=0600
+  tags:
+    - nginx
+  when: fds_om_host is defined and fds_om_host == inventory_hostname
+
+- name: check_nginx_config
+  shell: nginx -t
+  tags:
+    - nginx
+  when: fds_om_host is defined and fds_om_host == inventory_hostname
+  register: nginx_configtest
+
+- service:
+    name=nginx
+    enabled=yes
+    state=restarted
+  tags:
+    - nginx
+  when: nginx_configtest|success and (fds_om_host is defined and fds_om_host == inventory_hostname)
+
+
