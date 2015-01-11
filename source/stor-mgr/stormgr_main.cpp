@@ -31,10 +31,39 @@ class SMMain : public PlatformProcess
         /* Init platform process */
         init(argc, argv, "fds.sm.", "sm.log", &gl_SmPlatform, smVec);
 
+        /* setup signal handler */
+        setupSigHandler();
+
         /* Daemonize */
         fds_bool_t noDaemon = get_fds_config()->get<bool>("fds.sm.testing.test_mode", false);
         if (noDaemon == false) {
             daemonize();
+        }
+    }
+
+    static void SIGSEGVHandler(int sigNum, siginfo_t *sigInfo, void *context) {
+        GLOGCRITICAL << "SIGSEGV at address: " << std::hex << sigInfo->si_addr
+                     << " with code " << std::dec << sigInfo->si_code;
+
+        /* Since the signal handler was originally set with SA_RESETHAND,
+         * the default signal handler is restored.  After the signal handler
+         * completes, the thread resumes from the the faulting address that will result in
+         * another SIGSEGV (most likely), and it will invoke the default SIGSEGV signal handler,
+         * which is to core dump.
+         */
+    }
+
+    void setupSigHandler() {
+        /* setup a process wide signal handler for SIGSEGV.
+         * For synchronous signals, handle it on the faulting thread's context.
+         * For asynchrnous signals, it's preferred to handle it by a dedicated thread.
+         */
+        struct sigaction sigAct;
+        sigAct.sa_flags = (SA_SIGINFO | SA_RESETHAND);
+        sigemptyset(&sigAct.sa_mask);
+        sigAct.sa_sigaction = SMMain::SIGSEGVHandler;
+        if (sigaction(SIGSEGV, &sigAct, NULL) == -1) {
+            LOGWARN << "SIGSEGV signal handler is not set";
         }
     }
 

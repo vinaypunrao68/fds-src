@@ -4,9 +4,10 @@ package com.formationds.xdi;
  */
 
 import com.formationds.apis.AmService;
-import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.util.thrift.OMConfigServiceClient;
 import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
@@ -14,22 +15,22 @@ import java.util.Iterator;
 
 public class FdsObjectIterator {
     private AmService.Iface am;
-    private ConfigurationService.Iface config;
+    private OMConfigServiceClient config;
 
-    public FdsObjectIterator(AmService.Iface am, ConfigurationService.Iface config) {
+    public FdsObjectIterator(AmService.Iface am, OMConfigServiceClient config) {
         this.am = am;
         this.config = config;
     }
 
-    public Iterator<byte[]> read(String domainName, String volumeName, String blobName) throws Exception {
-        VolumeDescriptor volumeDescriptor = config.statVolume(domainName, volumeName);
+    public Iterator<byte[]> read(AuthenticationToken token, String domainName, String volumeName, String blobName) throws Exception {
+        VolumeDescriptor volumeDescriptor = config.statVolume(token, domainName, volumeName);
         int fdsObjectSize = volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
         long byteCount = am.statBlob(domainName, volumeName, blobName).getByteCount();
         return read(domainName, volumeName, blobName, 0, byteCount, fdsObjectSize);
     }
 
-    public Iterator<byte[]> read(String domainName, String volumeName, String blobName, long startOffset, long length) throws Exception {
-        VolumeDescriptor volumeDescriptor = config.statVolume(domainName, volumeName);
+    public Iterator<byte[]> read(AuthenticationToken token, String domainName, String volumeName, String blobName, long startOffset, long length) throws Exception {
+        VolumeDescriptor volumeDescriptor = config.statVolume(token, domainName, volumeName);
         int fdsObjectSize = volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
         return read(domainName, volumeName, blobName, startOffset, length, fdsObjectSize);
     }
