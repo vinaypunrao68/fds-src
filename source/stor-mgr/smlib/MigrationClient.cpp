@@ -3,8 +3,11 @@
  */
 #include <fds_assert.h>
 
+#include <SMSvcHandler.h>
+#include <ObjMeta.h>
+#include <dlt.h>
+
 #include <MigrationClient.h>
-#include <MigrationExecutor.h>
 
 #include <object-store/SmDiskMap.h>
 
@@ -12,9 +15,12 @@ namespace fds {
 
 
 MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
-                                 NodeUuid& _destSMNodeID)
+                                 NodeUuid& _destSMNodeID,
+                                 fds_uint32_t bitsPerToken)
     : dataStore(_dataStore),
-      destSMNodeID(_destSMNodeID)
+      destSMNodeID(_destSMNodeID),
+      bitsPerDltToken(bitsPerToken),
+      maxDeltaSetSize(128)
 {
     snapshotRequest.io_type = FDS_SM_SNAPSHOT_TOKEN;
     snapshotRequest.smio_snap_resp_cb = std::bind(&MigrationClient::migClientSnapshotCB,
@@ -60,7 +66,12 @@ MigrationClient::migClientSnapshotCB(const Error& error,
                                      leveldb::ReadOptions& options,
                                      leveldb::DB *db)
 {
-    /* Save off the levelDB information.
+    ObjMetaData objMetaData;
+    uint64_t msgSeqNum = 0;
+
+    /* TODO(Sean): Save off the levelDB information.  Not sure if we need to do this, but depends on the
+     *             threading model. if we want to re-queue on QoS, then we need to save the state.  However,
+     *             if we continue with the same thread, there is no need to save state.
      */
     snapDB = db;
     iterDB = db->NewIterator(options);
@@ -68,18 +79,58 @@ MigrationClient::migClientSnapshotCB(const Error& error,
     /* Iterate through level db and filter against the objectFilterSet.
      */
     for (iterDB->SeekToFirst(); iterDB->Valid(); iterDB->Next()) {
+
         ObjectID objId(iterDB->key().ToString());
 
         /* two level filter for now:
          * 1) filter against dltTokenIDs.
          * 2) filter against objectSet.
          */
+        fds_token_id dltTokenId = DLT::getToken(objId, bitsPerDltToken);
+
+        /* If the object is not in the DLT token set, then it's safe
+         * to skip it.
+         */
+        auto dltTokenFiltered = dltTokenIDs.find(dltTokenId);
+        /* Didn't fint it in the dlt token set.  So we can skip this
+         * object and not send it back.
+         */
+        if (dltTokenFiltered == dltTokenIDs.end()) {
+            continue;
+        }
+
+        /* Now look for object in the filtered set.
+         */
+        auto objectIdFiltered = filterObjectSet.find(objId);
+        /* 1) Didn't find the object in the filtered set.  or
+         * 2) Found it, and ref cnt is > 0,
+         * Add to the list of object to send back to the destionation SM.
+         *
+         */
+        if (objectIdFiltered == filterObjectSet.end()) {
+
+            /* Get metadata associated with the object. */
+            objMetaData.deserializeFrom(iterDB->value());
+
+        } else {
+            /* Found the object.  Let's look at the refcnt to see if we need
+             * to add to the delta set.
+             */
+            fds_verify(objectIdFiltered->first == objId);
+            /* Get metadata associated with the object. */
+            objMetaData.deserializeFrom(iterDB->value());
+
+            if (objMetaData.getRefCnt() > 0) {
+
+            }
+        }
     }
 }
 
+
 bool
 MigrationClient::migClientVerifyDestination(fds_token_id dltToken,
-                                           uint64_t executorId)
+                                           fds_uint64_t executorId)
 {
     /* Need to copy the set of objects to the
      */
@@ -125,7 +176,7 @@ MigrationClient::migClientAddObjectSet(fpi::CtrlObjectRebalanceFilterSetPtr &fil
      */
     uint64_t curSeqNum = filterSet->seqNum;
     fds_token_id dltToken = filterSet->tokenId;
-    uint64_t executorId = filterSet->executorID;
+    fds_uint64_t executorId = filterSet->executorID;
     bool completeSet = false;
     Error err(ERR_OK);
 
@@ -151,7 +202,8 @@ MigrationClient::migClientAddObjectSet(fpi::CtrlObjectRebalanceFilterSetPtr &fil
      */
     completeSet = seqNumFilterSet.setSeqNum(filterSet->seqNum, filterSet->lastFilterSet);
     if (true == completeSet) {
-        /* All messages from destination SM is received.  filter object set is complete.
+        /* All filter objects sets from the destination SM is received.
+         * Safe to snapshot.
          */
         err = migClientSnapshotMetaData();
         if (!err.ok()) {

@@ -513,7 +513,7 @@ public class QueryHelper {
      *
      * @return Returns {@link CapacityFull}
      */
-    protected CapacityFull percentageFull( final CapacityConsumed consumed,
+    public CapacityFull percentageFull( final CapacityConsumed consumed,
                                            final Double systemCapacity ) {
         final CapacityFull full = new CapacityFull();
         full.setPercentage( ( int ) Calculation.percentage( consumed.getTotal(),
@@ -524,7 +524,7 @@ public class QueryHelper {
     /**
      * @return Returns {@link CapacityFull}
      */
-    protected CapacityToFull toFull( final Series pSeries,  final Double systemCapacity ) {
+    public CapacityToFull toFull( final Series pSeries,  final Double systemCapacity ) {
         /*
          * TODO finish implementation
          * Add a non-linear regression for potentially better matching

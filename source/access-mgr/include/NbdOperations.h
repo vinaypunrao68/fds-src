@@ -8,15 +8,17 @@
 #include <string>
 #include <map>
 #include <utility>
+#include <unordered_map>
 
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 
-#include <fds_types.h>
-#include <apis/apis_types.h>
-#include <concurrency/Mutex.h>
-#include <AmAsyncResponseApi.h>
-#include <AmAsyncDataApi.h>
+#include "fds_types.h"
+#include "concurrency/RwLock.h"
+#include "apis/apis_types.h"
+#include "concurrency/Mutex.h"
+#include "AmAsyncResponseApi.h"
+#include "AmAsyncDataApi.h"
 
 namespace fds {
 
@@ -96,12 +98,11 @@ class NbdResponseVector {
         WRITE = 1
     };
 
-    explicit NbdResponseVector(fds_int64_t hdl, NbdOperation op,
-                               fds_uint64_t off, fds_uint32_t len, fds_uint32_t maxOSize,
-                               fds_uint32_t objCnt)
-      : handle(hdl), operation(op), offset(off), length(len),
+    explicit NbdResponseVector(int64_t hdl, NbdOperation op,
+                               uint64_t off, uint32_t len, uint32_t maxOSize,
+                               uint32_t objCnt)
+      : handle(hdl), operation(op), doneCount(), offset(off), length(len),
         maxObjectSizeInBytes(maxOSize), objCount(objCnt), opError(ERR_OK) {
-        doneCount = ATOMIC_VAR_INIT(0);
         if (op == READ) {
             bufVec.resize(objCnt, NULL);
         } else {
@@ -112,7 +113,7 @@ class NbdResponseVector {
     typedef boost::shared_ptr<NbdResponseVector> shared_ptr;
 
     fds_bool_t isReady() const {
-        fds_uint32_t doneCnt = atomic_load(&doneCount);
+        fds_uint32_t doneCnt = doneCount.load();
         return (doneCnt == objCount);
     }
     fds_bool_t isRead() const { return (operation == READ); }
@@ -169,7 +170,7 @@ class NbdResponseVector {
             opError = err;
             return true;
         }
-        fds_uint32_t doneCnt = atomic_fetch_add(&doneCount, (fds_uint32_t)1);
+        uint32_t doneCnt = doneCount.fetch_add(1);
         return ((doneCnt + 1) == objCount);
     }
 
@@ -188,7 +189,7 @@ class NbdResponseVector {
 
   private:
     NbdOperation operation;
-    std::atomic<fds_uint32_t> doneCount;
+    std::atomic_uint doneCount;
     fds_uint32_t objCount;
 
     // error of the operation
@@ -214,77 +215,47 @@ class NbdOperationsResponseIface {
 };
 
 struct HandleSeqPair {
-    fds_int64_t handle;
-    fds_int32_t seq;
+    int64_t handle;
+    uint32_t seq;
 };
 
 class NbdOperations
     :   public boost::enable_shared_from_this<NbdOperations>,
-        public AmAsyncResponseApi
+        public AmAsyncResponseApi<HandleSeqPair>
 {
-    typedef boost::shared_ptr<apis::RequestId> handle_type;
-    typedef SectorLockMap<HandleSeqPair, 1024> sector_type;
+    using req_api_type = AmAsyncDataApi<HandleSeqPair>;
+    using resp_api_type = AmAsyncResponseApi<HandleSeqPair>;
+
+    typedef resp_api_type::handle_type handle_type;
+    typedef SectorLockMap<handle_type, 1024> sector_type;
+    typedef std::unordered_map<fds_int64_t, NbdResponseVector*> response_map_type;
   public:
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
     ~NbdOperations();
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
-    void init(boost::shared_ptr<std::string> vol_name, fds_uint32_t _maxObjectSizeInBytes);
+    void init(req_api_type::shared_string_type vol_name, uint32_t _maxObjectSizeInBytes);
 
-    void read(fds_uint32_t length,
-              fds_uint64_t offset,
-              fds_int64_t handle);
+    void read(fds_uint32_t length, fds_uint64_t offset, fds_int64_t handle);
 
-    void write(boost::shared_ptr<std::string>& bytes,
-               fds_uint32_t length,
-               fds_uint64_t offset,
-               fds_int64_t handle);
+    void write(req_api_type::shared_buffer_type& bytes, fds_uint32_t length, fds_uint64_t offset, fds_int64_t handle);
 
-    // AmAsyncResponseApi implementation
-    void attachVolumeResp(const Error &error, handle_type& requestId) {}
-
-    void startBlobTxResp(const Error &error,
-                         handle_type& requestId,
-                         boost::shared_ptr<apis::TxDescriptor>& txDesc) {}
-    void abortBlobTxResp(const Error &error, handle_type& requestId) {}
-    void commitBlobTxResp(const Error &error, handle_type& requestId) {}
-
-    void updateBlobResp(const Error &error, handle_type& requestId);
-    void updateBlobOnceResp(const Error &error, handle_type& requestId) {}
-    void updateMetadataResp(const Error &error, handle_type& requestId) {}
-    void deleteBlobResp(const Error &error, handle_type& requestId) {}
-
-    void statBlobResp(const Error &error,
-                      handle_type& requestId,
-                      boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {}
-    void volumeStatusResp(const Error &error,
-                          handle_type& requestId,
-                          boost::shared_ptr<apis::VolumeStatus>& volumeStatus) {}
-    void volumeContentsResp(const Error &error,
-                            handle_type& requestId,
-                            boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents) {}
-
-    void getBlobResp(const Error &error,
+    // The two response types we do support
+    void getBlobResp(const resp_api_type::error_type &error,
                      handle_type& requestId,
-                     boost::shared_ptr<std::string> buf,
-                     fds_uint32_t& length);
-    void getBlobWithMetaResp(const Error &error,
-                             handle_type& requestId,
-                             boost::shared_ptr<std::string> buf,
-                             fds_uint32_t& length,
-                             boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {}
+                     resp_api_type::shared_buffer_type buf,
+                     resp_api_type::size_type& length);
+
+    void updateBlobResp(const resp_api_type::error_type &error, handle_type& requestId);
 
     void shutdown()
     { amAsyncDataApi.reset(); }
 
   private:
-    void parseRequestId(handle_type& requestId,
-                        fds_int64_t* handle,
-                        fds_int32_t* seqId);
     fds_uint32_t getObjectCount(fds_uint32_t length,
                                 fds_uint64_t offset);
 
     // api we've built
-    std::unique_ptr<AmAsyncDataApi> amAsyncDataApi;
+    std::unique_ptr<AmAsyncDataApi<handle_type>> amAsyncDataApi;
     boost::shared_ptr<std::string> volumeName;
     fds_uint32_t maxObjectSizeInBytes;
 
@@ -299,10 +270,23 @@ class NbdOperations
 
     // for now we are supporting <=4K requests
     // so keep current handles for which we are waiting responses
-    std::map<fds_int64_t, NbdResponseVector*> responses;
+    response_map_type responses;
     fds_mutex respLock;
 
     sector_type sector_map;
+
+    // AmAsyncResponseApi un-implemented responses
+    void abortBlobTxResp       (const resp_api_type::error_type &, handle_type&) {}
+    void attachVolumeResp      (const resp_api_type::error_type &, handle_type&) {}
+    void commitBlobTxResp      (const resp_api_type::error_type &, handle_type&) {}
+    void deleteBlobResp        (const resp_api_type::error_type &, handle_type&) {}
+    void getBlobWithMetaResp   (const resp_api_type::error_type &, handle_type&, resp_api_type::shared_buffer_type, resp_api_type::size_type&, resp_api_type::shared_descriptor_type&) {}  // NOLINT
+    void startBlobTxResp       (const resp_api_type::error_type &, handle_type&, resp_api_type::shared_tx_ctx_type&) {}  // NOLINT
+    void statBlobResp          (const resp_api_type::error_type &, handle_type&, shared_descriptor_type&) {}  // NOLINT
+    void updateBlobOnceResp    (const resp_api_type::error_type &, handle_type&) {}
+    void updateMetadataResp    (const resp_api_type::error_type &, handle_type&) {}
+    void volumeContentsResp    (const resp_api_type::error_type &, handle_type&, shared_descriptor_vec_type&) {}  // NOLINT
+    void volumeStatusResp      (const resp_api_type::error_type &, handle_type&, shared_status_type&) {}  // NOLINT
 };
 
 }  // namespace fds

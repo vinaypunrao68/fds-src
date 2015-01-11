@@ -185,7 +185,7 @@ DataPlacement::beginRebalance() {
          ++nit) {
         NodeUuid  uuid = *nit;
 
-        std::map<SvcUuid, std::vector<fds_int32_t>> newTokenMap;
+        std::map<NodeUuid, std::vector<fds_int32_t>> newTokenMap;
         std::set<fds_uint32_t> diff = newDlt->token_diff(uuid, newDlt, commitedDlt);
 
         // Build the newTokenMap
@@ -212,24 +212,23 @@ DataPlacement::beginRebalance() {
             if (sourcesSet.size() == 0) { continue; }
             NodeUuid sourceId = *sourcesSet.begin();  // Take the first source
             // If we have that source in the list already, append
-            auto got = newTokenMap.find(sourceId.toSvcUuid());
+            auto got = newTokenMap.find(sourceId);
             if (got != newTokenMap.end()) {
-                newTokenMap[sourceId.toSvcUuid()].push_back(token);
+                newTokenMap[sourceId].push_back(token);
             } else {
                 // Otherwise create a new vector and append
-                newTokenMap[sourceId.toSvcUuid()] = std::vector<fds_int32_t>();
-                newTokenMap[sourceId.toSvcUuid()].push_back(token);
+                newTokenMap[sourceId] = std::vector<fds_int32_t>();
+                newTokenMap[sourceId].push_back(token);
             }
         }
         // At this point we should have a complete map
         for (auto entry : newTokenMap) {
             fpi::SMTokenMigrationGroup grp;
-            grp.source = entry.first;
+            grp.source = entry.first.toSvcUuid();
             grp.tokens = entry.second;
             msg->migrations.push_back(grp);
         }
 
-        auto svc_uuid = uuid.toSvcUuid();
         auto om_req =  gSvcRequestPool->newEPSvcRequest(uuid.toSvcUuid());
 
         msg->DLT_version = newDlt->getVersion();
