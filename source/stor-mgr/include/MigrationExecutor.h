@@ -19,10 +19,15 @@ class MigrationExecutor {
     MigrationExecutor(SmIoReqHandler *_dataStore,
                       fds_uint32_t bitsPerToken,
                       const NodeUuid& srcSmId,
-                      fds_token_id smTokId);
+                      fds_token_id smTokId,
+                      fds_uint64_t id);
     ~MigrationExecutor();
 
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;
+
+    inline fds_uint64_t getId() const {
+        return executorId;
+    }
 
     /**
      * Adds DLT token to the list of DLT tokens for which this
@@ -38,6 +43,9 @@ class MigrationExecutor {
                                leveldb::DB *db);
 
   private:
+    /// Id of this executor, used for communicating with source SM
+    fds_uint64_t executorId;
+
     /**
      * Object data store handler.  Set during the initialization.
      */
