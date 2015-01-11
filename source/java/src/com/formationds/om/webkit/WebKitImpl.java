@@ -75,7 +75,7 @@ public class WebKitImpl {
 
     }
 
-    public void start( String[] args ) {
+    public void start( ) {
 
         webApp = new WebApp( webDir );
 
@@ -112,11 +112,16 @@ public class WebKitImpl {
 
         // TODO: security model for statistics streams
         authenticate( HttpMethod.POST, "/api/config/streams",
-                      ( t ) -> new RegisterStream( SingletonConfigAPI.instance().api() ) );
+                      ( t ) -> new RegisterStream(
+                          SingletonConfigAPI.instance()
+                                            .api() ) );
         authenticate( HttpMethod.GET, "/api/config/streams",
-                      ( t ) -> new ListStreams( SingletonConfigAPI.instance().api() ) );
+                      ( t ) -> new ListStreams( SingletonConfigAPI.instance()
+                                                                  .api() ) );
         authenticate( HttpMethod.PUT, "/api/config/streams",
-                      ( t ) -> new DeregisterStream( SingletonConfigAPI.instance().api() ) );
+                      ( t ) -> new DeregisterStream(
+                          SingletonConfigAPI.instance()
+                                            .api() ) );
 
         /*
          * provides snapshot RESTful API endpoints
@@ -124,8 +129,7 @@ public class WebKitImpl {
         snapshot( SingletonConfigAPI.instance()
                                     .api(),
                   SingletonLegacyConfig.instance()
-                                       .api(),
-                  authorizer );
+                                       .api() );
 
         /*
          * provides metrics RESTful API endpoints
@@ -149,10 +153,13 @@ public class WebKitImpl {
                       ( t ) -> new CreateVolume( authorizer,
                                                  SingletonLegacyConfig.instance()
                                                                       .api(),
-                                                 SingletonConfigAPI.instance().api(), t ) );
+                                                 SingletonConfigAPI.instance()
+                                                                   .api(),
+                                                 t ) );
         authenticate( HttpMethod.POST,
                       "/api/config/volumes/clone/:volumeId/:cloneVolumeName/:timelineTime",
-                      ( t ) -> new CloneVolume( SingletonConfigAPI.instance().api(),
+                      ( t ) -> new CloneVolume( SingletonConfigAPI.instance()
+                                                                  .api(),
                                                 SingletonLegacyConfig.instance()
                                                                      .api() ) );
         authenticate( HttpMethod.DELETE, "/api/config/volumes/:name",
@@ -160,27 +167,39 @@ public class WebKitImpl {
                                                              .api(),
                                                  t ) );
         authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid",
-                      ( t ) -> new SetVolumeQosParams( SingletonLegacyConfig.instance()
-                                                                            .api(),
-                                                       SingletonConfigAPI.instance()
-                                                                         .api(),
-                                                       authorizer,
-                                                       t ) );
+                      ( t ) -> new SetVolumeQosParams(
+                          SingletonLegacyConfig.instance()
+                                               .api(),
+                          SingletonConfigAPI.instance()
+                                            .api(),
+                          authorizer,
+                          t ) );
 
         fdsAdminOnly( HttpMethod.GET, "/api/system/token/:userid",
-                      ( t ) -> new ShowToken( SingletonConfigAPI.instance().api(), secretKey ),
+                      ( t ) -> new ShowToken( SingletonConfigAPI.instance()
+                                                                .api(),
+                                              secretKey ),
                       authorizer );
         fdsAdminOnly( HttpMethod.POST, "/api/system/token/:userid",
-                      ( t ) -> new ReissueToken( SingletonConfigAPI.instance().api(), secretKey ),
+                      ( t ) -> new ReissueToken( SingletonConfigAPI.instance()
+                                                                   .api(),
+                                                 secretKey ),
                       authorizer );
         fdsAdminOnly( HttpMethod.POST, "/api/system/users/:login/:password",
-                      ( t ) -> new CreateUser( SingletonConfigAPI.instance().api(), secretKey ),
+                      ( t ) -> new CreateUser( SingletonConfigAPI.instance()
+                                                                 .api(),
+                                               secretKey ),
                       authorizer );
         authenticate( HttpMethod.PUT, "/api/system/users/:userid/:password",
-                      ( t ) -> new UpdatePassword( t, SingletonConfigAPI.instance().api(), secretKey,
+                      ( t ) -> new UpdatePassword( t,
+                                                   SingletonConfigAPI.instance()
+                                                                     .api(),
+                                                   secretKey,
                                                    authorizer ) );
         fdsAdminOnly( HttpMethod.GET, "/api/system/users",
-                      ( t ) -> new ListUsers( SingletonConfigAPI.instance().api(), secretKey ),
+                      ( t ) -> new ListUsers( SingletonConfigAPI.instance()
+                                                                .api(),
+                                              secretKey ),
                       authorizer );
 
         /*
@@ -213,7 +232,9 @@ public class WebKitImpl {
                                           HttpServletResponse.SC_UNAUTHORIZED );
                 }
             } catch( SecurityException e ) {
-                logger.error( "Error authorizing request, userId = " + t.getUserId(), e );
+                logger.error(
+                    "Error authorizing request, userId = " + t.getUserId(),
+                    e );
                 return ( r, p ) ->
                     new JsonResource( new JSONObject().put( "message",
                                                             "Invalid permissions" ),
@@ -235,7 +256,7 @@ public class WebKitImpl {
         webApp.route( method, route, ( ) -> eh );
     }
 
-    private void metrics() {
+    private void metrics( ) {
         if( !FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
             return;
         }
@@ -246,7 +267,7 @@ public class WebKitImpl {
         logger.trace( "registered metrics endpoints" );
     }
 
-    private void metricsGets() {
+    private void metricsGets( ) {
         authenticate( HttpMethod.PUT, "/api/stats/volumes",
                       ( t ) -> new QueryMetrics( authorizer, t ) );
     }
@@ -254,24 +275,34 @@ public class WebKitImpl {
     private void tenants( SecretKey secretKey, Authorizer authorizer ) {
         //TODO: Add feature toggle
 
-        fdsAdminOnly( HttpMethod.POST, "/api/system/tenants/:tenant", (t) -> new CreateTenant(
-            SingletonConfigAPI.instance().api(), secretKey), authorizer);
-        fdsAdminOnly( HttpMethod.GET, "/api/system/tenants", (t) -> new ListTenants(
-            SingletonConfigAPI.instance().api(), secretKey), authorizer);
-        fdsAdminOnly( HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid", (t) -> new AssignUserToTenant(
-            SingletonConfigAPI.instance().api(), secretKey), authorizer);
-        fdsAdminOnly( HttpMethod.DELETE, "/api/system/tenants/:tenantid/:userid", (t) -> new RevokeUserFromTenant( SingletonConfigAPI.instance().api(), secretKey ), authorizer );
+        fdsAdminOnly( HttpMethod.POST, "/api/system/tenants/:tenant",
+                      ( t ) -> new CreateTenant(
+                          SingletonConfigAPI.instance()
+                                            .api(), secretKey ), authorizer );
+        fdsAdminOnly( HttpMethod.GET, "/api/system/tenants",
+                      ( t ) -> new ListTenants(
+                          SingletonConfigAPI.instance()
+                                            .api(), secretKey ), authorizer );
+        fdsAdminOnly( HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid",
+                      ( t ) -> new AssignUserToTenant(
+                          SingletonConfigAPI.instance()
+                                            .api(), secretKey ), authorizer );
+        fdsAdminOnly( HttpMethod.DELETE,
+                      "/api/system/tenants/:tenantid/:userid",
+                      ( t ) -> new RevokeUserFromTenant(
+                          SingletonConfigAPI.instance()
+                                            .api(), secretKey ), authorizer );
     }
 
-    private void metricsPost() {
+    private void metricsPost( ) {
         webApp.route( HttpMethod.POST, "/api/stats",
                       ( ) -> new IngestVolumeStats(
-                          SingletonConfigAPI.instance().api() ) );
+                          SingletonConfigAPI.instance()
+                                            .api() ) );
     }
 
     private void snapshot( final ConfigurationApi config,
-                           final FDSP_ConfigPathReq.Iface legacyConfigPath,
-                           Authorizer authorizer ) {
+                           final FDSP_ConfigPathReq.Iface legacyConfigPath ) {
         if( !FdsFeatureToggles.SNAPSHOT_ENDPOINT.isActive() ) {
             return;
         }
@@ -284,20 +315,20 @@ public class WebKitImpl {
          * but make it easy to follow and maintain.
          */
         logger.trace( "registering snapshot endpoints" );
-        snapshotGets( config, authorizer );
-        snapshotDeletes( config, authorizer );
-        snapshotPosts( config, legacyConfigPath, authorizer );
-        snapshotPuts( config, authorizer );
+        snapshotGets( config );
+        snapshotDeletes( config );
+        snapshotPosts( config, legacyConfigPath );
+        snapshotPuts( config );
         logger.trace( "registered snapshot endpoints" );
     }
 
     private void snapshotPosts( final ConfigurationApi config,
-                                final FDSP_ConfigPathReq.Iface legacyConfigPath,
-                                final Authorizer authorizer ) {
+                                final FDSP_ConfigPathReq.Iface legacyConfigPath ) {
         // POST methods
         authenticate( HttpMethod.POST, "/api/config/snapshot/policies",
                       ( t ) -> new CreateSnapshotPolicy( config ) );
-        authenticate( HttpMethod.POST, "/api/config/volumes/:volumeId/snapshot",
+        authenticate( HttpMethod.POST,
+                      "/api/config/volumes/:volumeId/snapshot",
                       ( t ) -> new CreateSnapshot( config ) );
         authenticate( HttpMethod.POST,
                       "/api/config/snapshot/restore/:snapshotId/:volumeId",
@@ -307,21 +338,21 @@ public class WebKitImpl {
                       ( t ) -> new CloneSnapshot( config, legacyConfigPath ) );
     }
 
-    private void snapshotPuts( final ConfigurationApi config,
-                               final Authorizer authorizer ) {
+    private void snapshotPuts( final ConfigurationApi config ) {
         //PUT methods
         authenticate( HttpMethod.PUT,
                       "/api/config/snapshot/policies/:policyId/attach/:volumeId",
-                      ( t ) -> new AttachSnapshotPolicyIdToVolumeId( config ) );
+                      ( t ) -> new AttachSnapshotPolicyIdToVolumeId(
+                          config ) );
         authenticate( HttpMethod.PUT,
                       "/api/config/snapshot/policies/:policyId/detach/:volumeId",
-                      ( t ) -> new DetachSnapshotPolicyIdToVolumeId( config ) );
+                      ( t ) -> new DetachSnapshotPolicyIdToVolumeId(
+                          config ) );
         authenticate( HttpMethod.PUT, "/api/config/snapshot/policies",
                       ( t ) -> new EditSnapshotPolicy( config ) );
     }
 
-    private void snapshotGets(final ConfigurationApi config,
-                              final Authorizer authorizer) {
+    private void snapshotGets( final ConfigurationApi config ) {
         // GET methods
         authenticate( HttpMethod.GET, "/api/config/snapshot/policies",
                       ( t ) -> new ListSnapshotPolicies( config ) );
@@ -336,15 +367,15 @@ public class WebKitImpl {
                       ( t ) -> new ListSnapshotsByVolumeId( config ) );
     }
 
-    private void snapshotDeletes( final ConfigurationApi config,
-                                  final Authorizer authorizer ) {
+    private void snapshotDeletes( final ConfigurationApi config ) {
         // DELETE methods
-        authenticate( HttpMethod.DELETE, "/api/config/snapshot/policies/:policyId",
+        authenticate( HttpMethod.DELETE,
+                      "/api/config/snapshot/policies/:policyId",
                       ( t ) -> new DeleteSnapshotPolicy( config ) );
 
     }
 
-    private void events() {
+    private void events( ) {
 
         if( !FdsFeatureToggles.ACTIVITIES_ENDPOINT.isActive() ) {
             return;
@@ -352,11 +383,12 @@ public class WebKitImpl {
 
         logger.trace( "registering activities endpoints" );
 
-        // TODO: only the AM should be sending this event to us.  How can we validate that?
+        // TODO: only the AM should be sending this event to us. How can we validate that?
         webApp.route( HttpMethod.PUT, "/api/events/log/:event",
                       ( ) -> new IngestEvents() );
 
-        authenticate( HttpMethod.PUT, "/api/config/events", (t) -> new QueryEvents());
+        authenticate( HttpMethod.PUT, "/api/config/events",
+                      ( t ) -> new QueryEvents() );
 
         logger.trace( "registered activities endpoints" );
     }
