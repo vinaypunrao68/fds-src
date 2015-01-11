@@ -138,6 +138,49 @@ TEST(MigrationSeqNumReceiver, Sequence8)
     EXPECT_TRUE(completed);
 }
 
+void
+randomSequenceTest()
+{
+    MigrationSeqNumReceiver seqTest;
+    bool completed = false;
+    const int maxSeq = 100;
+    std::array<int, maxSeq + 1> seqArr;
+    for (int i = 0; i <= maxSeq; ++i) {
+        seqArr[i] = i;
+    }
+
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+
+    shuffle(seqArr.begin(), seqArr.end(), std::default_random_engine(seed));
+
+    std::cout << "Sequence: ";
+    for (int& x : seqArr) {
+        std::cout << ' ' << x;
+    }
+    std::cout << '\n';
+
+    bool trueSet = false;
+    for (int& x : seqArr) {
+        if (x == maxSeq) {
+            completed = seqTest.setSeqNum(x, true);
+            trueSet = true;
+        } else {
+            completed = seqTest.setSeqNum(x, false);
+            if (!trueSet) {
+                EXPECT_FALSE(completed);
+            }
+        }
+    }
+    EXPECT_TRUE(completed);
+}
+
+TEST(MigrationSeqNumReceiver, RandomSequence9)
+{
+    for (int testIter = 0; testIter < 9999; testIter++) {
+        randomSequenceTest();
+    }
+}
+
 
 }  // namespace fds
 
