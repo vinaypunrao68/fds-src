@@ -29,6 +29,7 @@ class MigrationClient {
     ~MigrationClient();
 
     typedef std::unique_ptr<MigrationClient> unique_ptr;
+    typedef std::shared_ptr<MigrationClient> shared_ptr;
 
     /**
      * A simple routine to snapshot metadata associated with the token.

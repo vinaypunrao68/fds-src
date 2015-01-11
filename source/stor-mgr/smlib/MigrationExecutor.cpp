@@ -15,11 +15,13 @@ namespace fds {
 MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      fds_uint32_t bitsPerToken,
                                      const NodeUuid& srcSmId,
-                                     fds_token_id smTokId)
-    : dataStore(_dataStore),
-      bitsPerDltToken(bitsPerToken),
-      smTokenId(smTokId),
-      sourceSmUuid(srcSmId)
+                                     fds_token_id smTokId,
+                                     fds_uint64_t id)
+        : executorId(id),
+          dataStore(_dataStore),
+          bitsPerDltToken(bitsPerToken),
+          smTokenId(smTokId),
+          sourceSmUuid(srcSmId)
 {
     testMode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
 }
@@ -57,6 +59,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         // for now packing all objects per one DLT token into one message
         fpi::CtrlObjectRebalanceInitialSetPtr msg(new fpi::CtrlObjectRebalanceInitialSet());
         msg->tokenId = tok;
+        msg->executorID = executorId;
         msg->seqNum = seqId++;
         msg->last = (seqId < dltTokens.size()) ? false : true;
         LOGNORMAL << "Initial Set Msg: token " << tok << ", seqNum "
