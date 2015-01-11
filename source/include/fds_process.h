@@ -32,7 +32,7 @@ extern boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
 extern fds_log* GetLog();
 
 /* Helper functions to init process globals. Only invoke these if you
- * aren't deriving from fds_process 
+ * aren't deriving from fds_process
  */
 void init_process_globals(const std::string &log_name);
 void init_process_globals(fds_log *log);
@@ -99,7 +99,7 @@ class FdsProcess : public boost::noncopyable,
 
     /**
      * Override this method to provide your setup.
-     * By default module vector based startup sequence is performed here.  
+     * By default module vector based startup sequence is performed here.
      * When you override make sure to invoke base class setup to ensure
      * module vector is executed.
      */
@@ -160,7 +160,7 @@ class FdsProcess : public boost::noncopyable,
     /**
     * @brief Returns process wide timer
     *
-    * @return 
+    * @return
     */
     virtual FdsTimerPtr getTimer() const override;
 
@@ -187,6 +187,7 @@ class FdsProcess : public boost::noncopyable,
  protected:
     // static members/methods
     static void* sig_handler(void* param);
+    static void atExitHandler();
 
  protected:
     virtual void setup_config(int argc, char *argv[],
@@ -197,6 +198,7 @@ class FdsProcess : public boost::noncopyable,
     virtual void setup_cntrs_mgr(const std::string &mgr_id);
     virtual void setup_timer_service();
     virtual void setup_graphite();
+    virtual void setupAtExitHandler();
 
     /* Signal handler thread */
     pthread_t sig_tid_;
@@ -228,6 +230,9 @@ class FdsProcess : public boost::noncopyable,
 
     /* Process wide thread pool. */
     fds_threadpool *proc_thrp;
+
+    /* Name of proc */
+    std::string proc_id;
 };
 
 }  // namespace fds

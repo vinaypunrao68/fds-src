@@ -13,6 +13,8 @@
 #include <net/net_utils.h>
 
 #include <unistd.h>
+#include <syslog.h>
+#include <execinfo.h>
 
 namespace fds {
 
@@ -97,11 +99,15 @@ void FdsProcess::init(int argc, char *argv[],
     /* Set up the signal handler.  We should do this before creating any threads */
     setup_sig_handler();
 
+    /* setup atexit handler */
+    setupAtExitHandler();
+
     /* Setup module vectors and config */
     mod_vectors_ = new ModuleVector(argc, argv, mod_vec);
     fdsroot      = mod_vectors_->get_sys_params()->fds_root;
     proc_root    = new FdsRootDir(fdsroot);
     proc_thrp    = NULL;
+    proc_id = argv[0];
 
     if (def_cfg_file != "") {
         cfgfile = proc_root->dir_fds_etc() + def_cfg_file;
@@ -119,7 +125,6 @@ void FdsProcess::init(int argc, char *argv[],
                                    proc_root->dir_fds_logs());
         }
         /* Process wide counters setup */
-        std::string proc_id = argv[0];
         if (conf_helper_.exists("id")) {
             proc_id = conf_helper_.get<std::string>("id");
         }
@@ -318,6 +323,30 @@ void FdsProcess::setup_sig_handler()
     // Joinable thread
     rc = pthread_create(&sig_tid_, 0, FdsProcess::sig_handler, 0);
     fds_assert(rc == 0);
+}
+
+void
+FdsProcess::atExitHandler()
+{
+#define maxStackSize 128
+    void *stackBuffer[maxStackSize];
+    char **symStrings;
+
+    size_t symSize = backtrace(stackBuffer, maxStackSize);
+    symStrings = backtrace_symbols(stackBuffer, symSize);
+
+    std::string symbolString;
+    for (size_t i = 0; i < symSize; ++i) {
+        symbolString += symStrings[i];
+    }
+
+    syslog(LOG_NOTICE, "Exiting...%s", symbolString.c_str());
+}
+
+void
+FdsProcess::setupAtExitHandler()
+{
+    atexit(FdsProcess::atExitHandler);
 }
 
 void FdsProcess::setup_cntrs_mgr(const std::string &mgr_id)
