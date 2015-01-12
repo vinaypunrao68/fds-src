@@ -260,7 +260,9 @@ class VolumePerfHistory {
   private:  /* methods */
     fds_uint32_t useSlotLockHeld(fds_uint64_t rel_seconds);
     inline fds_uint64_t tsToRelativeSec(fds_uint64_t tsnano) const {
-        fds_verify(tsnano >= start_nano_);
+        if (tsnano < start_nano_) {
+            return 0;
+        }
         return (tsnano - start_nano_) / 1000000000;
     }
     inline fds_uint64_t timestamp(fds_uint64_t start_nano,
