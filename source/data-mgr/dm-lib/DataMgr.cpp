@@ -366,7 +366,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         fPrimary = amIPrimary(vdesc->volUUID);
     }
 
-    if (vdesc->isSnapshot() && fPrimary) {
+    if (vdesc->isSnapshot() && !fPrimary) {
         LOGWARN << "not primary - nothing to do for snapshot "
                 << "for vol:" << vdesc->srcVolumeId;
         return err;
