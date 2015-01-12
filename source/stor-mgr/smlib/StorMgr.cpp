@@ -270,7 +270,7 @@ void ObjectStorMgr::mod_startup()
         qosOutNum = minOutstanding;
     }
     // we should also have enough QoS threads to serve outstanding IO
-    if (qosThrds < qosOutNum) {
+    if (qosThrds <= qosOutNum) {
         qosThrds = qosOutNum + 1;   // one is used for dispatcher
     }
 
