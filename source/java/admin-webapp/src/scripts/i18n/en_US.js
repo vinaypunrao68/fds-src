@@ -203,6 +203,13 @@ var en_US = {
 
         th_used_limit: 'Used/Limit',
         
+        tt_volume_name: 'Volume name',
+        tt_tenant_name: 'Tenant name',
+        tt_data_connector: 'Volume data type',
+        tt_size: 'The capacity consumed for the volume',
+        tt_firebreak: 'Firebreak status over the past 24 hours',
+        tt_priority: 'Volume priority',
+        
         view : {
             desc_dedup_suffix: 'Deduplicated',
             desc_logical_suffix: 'Logical',
