@@ -177,7 +177,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
              FDS_QoSControl(_max_thrds, algo, log, "SM") {
                  parentSm = _parent;
                  LOGNOTIFY << "Qos totalRate " << parentSm->totalRate
-                     << ", num outstanding io " << parentSm->qosOutNum;
+                           << ", num outstanding io " << parentSm->qosOutNum
+                           << ", qos threads " << _max_thrds;
 
                  // dispatcher = new QoSMinPrioDispatcher(this, log, 3000);
                  dispatcher = new QoSWFQDispatcher(this,
