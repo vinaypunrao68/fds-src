@@ -128,7 +128,6 @@ DataPlacement::computeDlt() {
 Error
 DataPlacement::beginRebalance() {
     Error err(ERR_OK);
-
     fpi::CtrlNotifySMStartMigrationPtr msg(new fpi::CtrlNotifySMStartMigration());
 
     // FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(
@@ -139,6 +138,14 @@ DataPlacement::beginRebalance() {
     placementMutex->lock();
     // find all nodes which need to do migration (=have new tokens)
     rebalanceNodes.clear();
+
+    if (!commitedDlt) {
+        LOGNOTIFY << "Not going to rebalance data, because this is "
+                  << " the first DLT we computed";
+        placementMutex->unlock();
+        return err;
+    }
+
     for (ClusterMap::const_sm_iterator cit = curClusterMap->cbegin_sm();
          cit != curClusterMap->cend_sm();
          ++cit) {
@@ -240,8 +247,7 @@ DataPlacement::beginRebalance() {
     }
     placementMutex->unlock();
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "Sent DLT migration event to " << rebalanceNodes.size() << " nodes";
+    LOGNOTIFY << "Sent DLT migration event to " << rebalanceNodes.size() << " nodes";
     newDlt->dump();
     return err;
 }
