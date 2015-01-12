@@ -102,7 +102,7 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
 // a shared pointer to ourselves (and NbdConnection already started one).
 void
 NbdOperations::init(boost::shared_ptr<std::string> vol_name, fds_uint32_t _maxObjectSizeInBytes) {
-    amAsyncDataApi.reset(new AmAsyncDataApi(shared_from_this()));
+    amAsyncDataApi.reset(new AmAsyncDataApi<request_id_type>(shared_from_this()));
     volumeName = vol_name;
     maxObjectSizeInBytes = _maxObjectSizeInBytes;
 }
@@ -178,15 +178,12 @@ NbdOperations::read(fds_uint32_t length,
         // we encode handle and sequence ID into request ID; handle is needed
         // to reply back to NBD connector and sequence ID is needed to assemble
         // all object we read back into read request from NBD connector
-        boost::shared_ptr<apis::RequestId> reqId(
-            boost::make_shared<apis::RequestId>());
-        // request id is 64 bit of handle + 32 bit of sequence Id
-        reqId->id = std::to_string(handle) + ":" + std::to_string(seqId);
+        auto reqId = boost::make_shared<request_id_type>(handle, seqId);
 
         // blob name for block?
         LOGDEBUG << "getBlob length " << iLength << " offset " << curOffset
                  << " object offset " << objectOff
-                 << " volume " << volumeName << " reqId " << reqId->id;
+                 << " volume " << volumeName << " reqId " << reqId->first << ":" << reqId->second;
         amAsyncDataApi->getBlob(reqId,
                                 domainName,
                                 volumeName,
@@ -249,8 +246,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
         off->value = objectOff;
 
         // request id is 64 bit of handle + 32 bit of sequence Id
-        boost::shared_ptr<apis::RequestId> reqId(boost::make_shared<apis::RequestId>());
-        reqId->id = std::to_string(handle) + ":" + std::to_string(seqId);
+        auto reqId = boost::make_shared<request_id_type>(handle, seqId);
 
         // if the first object is not aligned or not max object size
         // and if the last object is not max object size, we read the whole
@@ -271,7 +267,8 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
             // if we are here, we don't need to read this object first; will do write
             LOGDEBUG << "putBlob length " << maxObjectSizeInBytes << " offset " << curOffset
                      << " object offset " << objectOff
-                     << " volume " << volumeName << " reqId " << reqId->id;
+                     << " volume " << volumeName
+                     << " reqId " << reqId->first << ":" << reqId->second;
             amAsyncDataApi->updateBlobOnce(reqId,
                                            domainName,
                                            volumeName,
@@ -289,19 +286,17 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
 
 void
 NbdOperations::getBlobResp(const Error &error,
-                           boost::shared_ptr<apis::RequestId>& requestId,
+                           boost::shared_ptr<request_id_type>& requestId,
                            boost::shared_ptr<std::string> buf,
                            fds_uint32_t& length) {
     NbdResponseVector* resp = NULL;
-    fds_int64_t handle = 0;
-    fds_int32_t seqId = 0;
+    fds_int64_t handle = requestId->first;
+    fds_int32_t seqId = requestId->second;
     fds_bool_t done = false;
-    parseRequestId(requestId, &handle, &seqId);
 
     LOGDEBUG << "Reponse for getBlob, " << length << " bytes "
              << error << ", handle " << handle
-             << " seqId " << seqId << " ( "
-             << requestId->id << " )";
+             << " seqId " << seqId;
 
     {
         fds_mutex::scoped_lock l(respLock);
@@ -362,16 +357,14 @@ NbdOperations::getBlobResp(const Error &error,
 
 void
 NbdOperations::updateBlobResp(const Error &error,
-                              boost::shared_ptr<apis::RequestId>& requestId) {
+                              boost::shared_ptr<request_id_type>& requestId) {
     NbdResponseVector* resp = NULL;
-    fds_int64_t handle = 0;
-    fds_int32_t seqId = 0;
-    parseRequestId(requestId, &handle, &seqId);
+    fds_int64_t handle = requestId->first;
+    fds_int32_t seqId = requestId->second;
 
     LOGDEBUG << "Reponse for updateBlobOnce, "
              << error << ", handle " << handle
-             << " seqId " << seqId << " ( "
-             << requestId->id << " )";
+             << " seqId " << seqId;
 
     {
         fds_mutex::scoped_lock l(respLock);
@@ -418,23 +411,6 @@ NbdOperations::getObjectCount(fds_uint32_t length,
         ++objCount;
     }
     return objCount;
-}
-
-void
-NbdOperations::parseRequestId(boost::shared_ptr<apis::RequestId>& requestId,
-                              fds_int64_t* handle,
-                              fds_int32_t* seqId) {
-    std::string delim(":");
-    size_t start = 0;
-    size_t end = (requestId->id).find(delim, start);
-    fds_verify(end != std::string::npos);
-    std::string handleStr = (requestId->id).substr(start,
-                                                   end - start);
-    std::string seqIdStr = (requestId->id).substr(end + delim.size());
-
-    // return
-    *handle = std::stoll(handleStr);
-    *seqId = std::stol(seqIdStr);
 }
 
 }  // namespace fds

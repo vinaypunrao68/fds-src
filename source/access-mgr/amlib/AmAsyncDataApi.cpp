@@ -4,6 +4,7 @@
 
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "fds_process.h"
@@ -17,7 +18,22 @@
 
 namespace fds {
 
-AmAsyncDataApi::AmAsyncDataApi(AmAsyncResponseApi::shared_ptr response_api)
+boost::shared_ptr<apis::BlobDescriptor>
+transform_descriptor(boost::shared_ptr<BlobDescriptor> descriptor) {
+    auto retBlobDesc = boost::make_shared<apis::BlobDescriptor>();
+    retBlobDesc->name = descriptor->getBlobName();
+    retBlobDesc->byteCount = descriptor->getBlobSize();
+
+    for (const_kv_iterator it = descriptor->kvMetaBegin();
+         it != descriptor->kvMetaEnd();
+         ++it) {
+        retBlobDesc->metadata[it->first] = it->second;
+    }
+    return retBlobDesc;
+}
+
+template<typename H>
+AmAsyncDataApi<H>::AmAsyncDataApi(response_ptr response_api)
     : responseApi(response_api)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
@@ -27,77 +43,56 @@ AmAsyncDataApi::AmAsyncDataApi(AmAsyncResponseApi::shared_ptr response_api)
     }
 }
 
-AmAsyncDataApi::AmAsyncDataApi(AmAsyncResponseApi* response_api)
-    : AmAsyncDataApi(AmAsyncResponseApi::shared_ptr(response_api))
+template<typename H>
+AmAsyncDataApi<H>::AmAsyncDataApi(response_api_type* response_api)
+    : AmAsyncDataApi(response_ptr(response_api))
 { }
 
-AmAsyncDataApi::~AmAsyncDataApi() {
-}
-
-void
-AmAsyncDataApi::handshakeStart(const apis::RequestId& requestId,
-                               const int32_t port) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::handshakeStart(boost::shared_ptr<apis::RequestId>& requestId,
-                               boost::shared_ptr<int32_t>& port) {
-    auto api = boost::dynamic_pointer_cast<AmAsyncXdiResponse>(responseApi);
-    if (api)
-        api->handshakeComplete(requestId, port);
-}
-
-void
-AmAsyncDataApi::attachVolume(const apis::RequestId& requestId,
-                             const std::string& domainName,
-                             const std::string& volumeName) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::attachVolume(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::attachVolume(boost::shared_ptr<H>& requestId,
                              boost::shared_ptr<std::string>& domainName,
                              boost::shared_ptr<std::string>& volumeName) {
-    auto callback = boost::make_shared<AttachHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<AttachCallback>>(
+        [this, requestId](AttachCallback* cb, Error const& e) mutable -> void {
+            responseApi->attachVolumeResp(e, requestId);
+        });
     storHvisor->enqueueAttachReq(*volumeName,
                                  SHARED_DYN_CAST(Callback, callback));
 }
 
-void
-AmAsyncDataApi::volumeStatus(const apis::RequestId& requestId,
-                             const std::string& domainName,
-                             const std::string& volumeName) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::volumeStatus(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::volumeStatus(boost::shared_ptr<H>& requestId,
                              boost::shared_ptr<std::string>& domainName,
                              boost::shared_ptr<std::string>& volumeName) {
-    auto callback = boost::make_shared<VolumeStatusHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<GetVolumeMetaDataCallback>>(
+        [this, requestId](GetVolumeMetaDataCallback* cb, Error const& e) mutable -> void {
+            boost::shared_ptr<apis::VolumeStatus> volume_status;
+            if (e.ok()) {
+                volume_status = boost::make_shared<apis::VolumeStatus>();
+                volume_status->blobCount = cb->volumeMetaData.blobCount;
+                volume_status->currentUsageInBytes = cb->volumeMetaData.size;
+            }
+            responseApi->volumeStatusResp(e, requestId, volume_status);
+        });
     AmRequest *blobReq = new GetVolumeMetaDataReq(invalid_vol_id,
                                                    *volumeName,
                                                    SHARED_DYN_CAST(Callback, callback));
     storHvisor->enqueueBlobReq(blobReq);
 }
 
-void
-AmAsyncDataApi::volumeContents(const apis::RequestId& requestId,
-                               const std::string& domainName,
-                               const std::string& volumeName,
-                               const int32_t count,
-                               const int64_t offset) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::volumeContents(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::volumeContents(boost::shared_ptr<H>& requestId,
                                boost::shared_ptr<std::string>& domainName,
                                boost::shared_ptr<std::string>& volumeName,
                                boost::shared_ptr<int32_t>& count,
                                boost::shared_ptr<int64_t>& offset) {
-    auto callback = boost::make_shared<VolumeContentsHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<GetBucketCallback>>(
+        [this, requestId](GetBucketCallback* cb, Error const& e) mutable -> void {
+            responseApi->volumeContentsResp(e, requestId, cb->vecBlobs);
+        });
     AmRequest *blobReq = new VolumeContentsReq(invalid_vol_id,
                                                *volumeName,
                                                *count,
@@ -105,20 +100,21 @@ AmAsyncDataApi::volumeContents(boost::shared_ptr<apis::RequestId>& requestId,
     storHvisor->enqueueBlobReq(blobReq);
 }
 
-void
-AmAsyncDataApi::statBlob(const apis::RequestId& requestId,
-                         const std::string& domainName,
-                         const std::string& volumeName,
-                         const std::string& blobName) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::statBlob(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::statBlob(boost::shared_ptr<H>& requestId,
                          boost::shared_ptr<std::string>& domainName,
                          boost::shared_ptr<std::string>& volumeName,
                          boost::shared_ptr<std::string>& blobName) {
-    auto callback = boost::make_shared<StatBlobHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<StatBlobCallback>>(
+            [this, requestId](StatBlobCallback* cb, Error const& e) mutable -> void {
+            // TODO(bszmyd): Tue 16 Dec 2014 08:06:47 PM MST
+            // Unfortunately we have to transform meta-data received
+            // from the DataManager. We should fix that.
+            boost::shared_ptr<apis::BlobDescriptor> retBlobDesc = e.ok() ?
+                transform_descriptor(cb->blobDesc) : nullptr;
+            responseApi->statBlobResp(e, requestId, retBlobDesc);
+        });
     AmRequest *blobReq = new StatBlobReq(invalid_vol_id,
                                          *volumeName,
                                          *blobName,
@@ -126,22 +122,19 @@ AmAsyncDataApi::statBlob(boost::shared_ptr<apis::RequestId>& requestId,
     storHvisor->enqueueBlobReq(blobReq);
 }
 
-void
-AmAsyncDataApi::startBlobTx(const apis::RequestId& requestId,
-                            const std::string& domainName,
-                            const std::string& volumeName,
-                            const std::string& blobName,
-                            const fds_int32_t blobMode) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::startBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::startBlobTx(boost::shared_ptr<H>& requestId,
                             boost::shared_ptr<std::string>& domainName,
                             boost::shared_ptr<std::string>& volumeName,
                             boost::shared_ptr<std::string>& blobName,
                             boost::shared_ptr<fds_int32_t>& blobMode) {
-    auto callback = boost::make_shared<StartBlobTxHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<StartBlobTxCallback>>(
+        [this, requestId](StartBlobTxCallback* cb, Error const& e) mutable -> void {
+            auto txDesc = boost::make_shared<apis::TxDescriptor>();
+            txDesc->txId = cb->blobTxId.getValue();
+            responseApi->startBlobTxResp(e, requestId, txDesc);
+        });
     AmRequest *blobReq = new StartBlobTxReq(invalid_vol_id,
                                              *volumeName,
                                              *blobName,
@@ -150,17 +143,8 @@ AmAsyncDataApi::startBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
     storHvisor->enqueueBlobReq(blobReq);
 }
 
-void
-AmAsyncDataApi::commitBlobTx(const apis::RequestId& requestId,
-                             const std::string& domainName,
-                             const std::string& volumeName,
-                             const std::string& blobName,
-                             const apis::TxDescriptor& txDesc) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::commitBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::commitBlobTx(boost::shared_ptr<H>& requestId,
                              boost::shared_ptr<std::string>& domainName,
                              boost::shared_ptr<std::string>& volumeName,
                              boost::shared_ptr<std::string>& blobName,
@@ -169,7 +153,11 @@ AmAsyncDataApi::commitBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
     BlobTxId::ptr blobTxDesc(new BlobTxId(
         txDesc->txId));
 
-    auto callback = boost::make_shared<CommitBlobTxHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<CommitBlobTxCallback>>(
+        [this, requestId](CommitBlobTxCallback* cb, Error const& e) mutable -> void {
+            responseApi->commitBlobTxResp(e, requestId);
+        });
     AmRequest *blobReq = new CommitBlobTxReq(invalid_vol_id,
                                               *volumeName,
                                               *blobName,
@@ -178,17 +166,8 @@ AmAsyncDataApi::commitBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
     storHvisor->enqueueBlobReq(blobReq);
 }
 
-void
-AmAsyncDataApi::abortBlobTx(const apis::RequestId& requestId,
-                            const std::string& domainName,
-                            const std::string& volumeName,
-                            const std::string& blobName,
-                            const apis::TxDescriptor& txDesc) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::abortBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::abortBlobTx(boost::shared_ptr<H>& requestId,
                             boost::shared_ptr<std::string>& domainName,
                             boost::shared_ptr<std::string>& volumeName,
                             boost::shared_ptr<std::string>& blobName,
@@ -197,7 +176,11 @@ AmAsyncDataApi::abortBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
     BlobTxId::ptr blobTxDesc(new BlobTxId(
         txDesc->txId));
 
-    auto callback = boost::make_shared<AbortBlobTxHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<AbortBlobTxCallback>>(
+        [this, requestId](AbortBlobTxCallback* cb, Error const& e) mutable -> void {
+            responseApi->abortBlobTxResp(e, requestId);
+        });
     AmRequest *blobReq = new AbortBlobTxReq(invalid_vol_id,
                                              *volumeName,
                                              *blobName,
@@ -206,18 +189,8 @@ AmAsyncDataApi::abortBlobTx(boost::shared_ptr<apis::RequestId>& requestId,
     storHvisor->enqueueBlobReq(blobReq);
 }
 
-void
-AmAsyncDataApi::getBlob(const apis::RequestId& requestId,
-                        const std::string& domainName,
-                        const std::string& volumeName,
-                        const std::string& blobName,
-                        const int32_t length,
-                        const apis::ObjectOffset& offset) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::getBlob(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::getBlob(boost::shared_ptr<H>& requestId,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<std::string>& blobName,
@@ -226,7 +199,11 @@ AmAsyncDataApi::getBlob(boost::shared_ptr<apis::RequestId>& requestId,
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
 
-    auto callback = boost::make_shared<GetBlobHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<GetObjectCallback>>(
+        [this, requestId](GetObjectCallback* cb, Error const& e) mutable -> void {
+            responseApi->getBlobResp(e, requestId, cb->returnBuffer, cb->returnSize);
+        });
     AmRequest *blobReq= new GetBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
@@ -236,18 +213,8 @@ AmAsyncDataApi::getBlob(boost::shared_ptr<apis::RequestId>& requestId,
     storHvisor->enqueueBlobReq(blobReq);
 }
 
-void
-AmAsyncDataApi::getBlobWithMeta(const apis::RequestId& requestId,
-                                const std::string& domainName,
-                                const std::string& volumeName,
-                                const std::string& blobName,
-                                const int32_t length,
-                                const apis::ObjectOffset& offset) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::getBlobWithMeta(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::getBlobWithMeta(boost::shared_ptr<H>& requestId,
                                 boost::shared_ptr<std::string>& domainName,
                                 boost::shared_ptr<std::string>& volumeName,
                                 boost::shared_ptr<std::string>& blobName,
@@ -256,7 +223,17 @@ AmAsyncDataApi::getBlobWithMeta(boost::shared_ptr<apis::RequestId>& requestId,
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
 
-    auto callback = boost::make_shared<GetBlobWithMetadataHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<GetObjectWithMetadataCallback>>(
+        [this, requestId](GetObjectWithMetadataCallback* cb, Error const& e) mutable -> void {
+            boost::shared_ptr<apis::BlobDescriptor> retBlobDesc = e.ok() ?
+                transform_descriptor(cb->blobDesc) : nullptr;
+            responseApi->getBlobWithMetaResp(e,
+                                             requestId,
+                                             cb->returnBuffer,
+                                             cb->returnSize,
+                                             retBlobDesc);
+        });
     GetBlobReq *blobReq= new GetBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
@@ -267,24 +244,18 @@ AmAsyncDataApi::getBlobWithMeta(boost::shared_ptr<apis::RequestId>& requestId,
     storHvisor->enqueueBlobReq(blobReq);
 }
 
-void
-AmAsyncDataApi::updateMetadata(const apis::RequestId& requestId,
-                               const std::string& domainName,
-                               const std::string& volumeName,
-                               const std::string& blobName,
-                               const apis::TxDescriptor& txDesc,
-                               const std::map<std::string, std::string> & metadata) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::updateMetadata(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::updateMetadata(boost::shared_ptr<H>& requestId,
                                boost::shared_ptr<std::string>& domainName,
                                boost::shared_ptr<std::string>& volumeName,
                                boost::shared_ptr<std::string>& blobName,
                                boost::shared_ptr<apis::TxDescriptor>& txDesc,
                                boost::shared_ptr< std::map<std::string, std::string> >& metadata) {
-    auto callback = boost::make_shared<UpdateMetadataHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<UpdateMetadataCallback>>(
+        [this, requestId](UpdateMetadataCallback* cb, Error const& e) mutable -> void {
+            responseApi->updateMetadataResp(e, requestId);
+        });
     boost::shared_ptr<fpi::FDSP_MetaDataList> metaDataList(new fpi::FDSP_MetaDataList());
     LOGDEBUG << "received updateMetadata cmd";
     fpi::FDSP_MetaDataPair metaPair;
@@ -307,21 +278,8 @@ AmAsyncDataApi::updateMetadata(boost::shared_ptr<apis::RequestId>& requestId,
     storHvisor->enqueueBlobReq(blobReq);
 }
 
-void
-AmAsyncDataApi::updateBlobOnce(const apis::RequestId& requestId,
-                               const std::string& domainName,
-                               const std::string& volumeName,
-                               const std::string& blobName,
-                               const fds_int32_t blobMode,
-                               const std::string& bytes,
-                               const int32_t length,
-                               const apis::ObjectOffset& objectOffset,
-                               const std::map<std::string, std::string>& metadata) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::updateBlobOnce(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::updateBlobOnce(boost::shared_ptr<H>& requestId,
                                boost::shared_ptr<std::string>& domainName,
                                boost::shared_ptr<std::string>& volumeName,
                                boost::shared_ptr<std::string>& blobName,
@@ -333,7 +291,11 @@ AmAsyncDataApi::updateBlobOnce(boost::shared_ptr<apis::RequestId>& requestId,
     fds_verify(*length >= 0);
     fds_verify(objectOffset->value >= 0);
 
-    auto callback = boost::make_shared<UpdateBlobHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<UpdateBlobCallback>>(
+        [this, requestId](UpdateBlobCallback* cb, Error const& e) mutable -> void {
+            responseApi->updateBlobResp(e, requestId);
+        });
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
@@ -346,21 +308,8 @@ AmAsyncDataApi::updateBlobOnce(boost::shared_ptr<apis::RequestId>& requestId,
     storHvisor->enqueueBlobReq(blobReq);
 }
 
-void
-AmAsyncDataApi::updateBlob(const apis::RequestId& requestId,
-                           const std::string& domainName,
-                           const std::string& volumeName,
-                           const std::string& blobName,
-                           const apis::TxDescriptor& txDesc,
-                           const std::string& bytes,
-                           const int32_t length,
-                           const apis::ObjectOffset& objectOffset,
-                           const bool isLast) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::updateBlob(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::updateBlob(boost::shared_ptr<H>& requestId,
                            boost::shared_ptr<std::string>& domainName,
                            boost::shared_ptr<std::string>& volumeName,
                            boost::shared_ptr<std::string>& blobName,
@@ -378,7 +327,11 @@ AmAsyncDataApi::updateBlob(boost::shared_ptr<apis::RequestId>& requestId,
     BlobTxId::ptr blobTxDesc(new BlobTxId(
         txDesc->txId));
 
-    auto callback = boost::make_shared<UpdateBlobHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<UpdateBlobCallback>>(
+        [this, requestId](UpdateBlobCallback* cb, Error const& e) mutable -> void {
+            responseApi->updateBlobResp(e, requestId);
+        });
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
@@ -394,24 +347,19 @@ AmAsyncDataApi::updateBlob(boost::shared_ptr<apis::RequestId>& requestId,
     storHvisor->enqueueBlobReq(blobReq);
 }
 
-void
-AmAsyncDataApi::deleteBlob(const apis::RequestId& requestId,
-                           const std::string& domainName,
-                           const std::string& volumeName,
-                           const std::string& blobName,
-                           const apis::TxDescriptor& txDesc) {
-    fds_panic("You shouldn't be here.");
-}
-
-void
-AmAsyncDataApi::deleteBlob(boost::shared_ptr<apis::RequestId>& requestId,
+template<typename H>
+void AmAsyncDataApi<H>::deleteBlob(boost::shared_ptr<H>& requestId,
                            boost::shared_ptr<std::string>& domainName,
                            boost::shared_ptr<std::string>& volumeName,
                            boost::shared_ptr<std::string>& blobName,
                            boost::shared_ptr<apis::TxDescriptor>& txDesc) {
     BlobTxId::ptr blobTxId(new BlobTxId(txDesc->txId));
 
-    auto callback = boost::make_shared<DeleteBlobHandler>(responseApi, requestId);
+    // Closure for response call
+    auto callback = boost::make_shared<AsyncResponseHandler<DeleteBlobCallback>>(
+        [this, requestId](DeleteBlobCallback* cb, Error const& e) mutable -> void {
+            responseApi->deleteBlobResp(e, requestId);
+        });
     AmRequest *blobReq = new DeleteBlobReq(invalid_vol_id,
                                            *blobName,
                                            *volumeName,
@@ -419,4 +367,8 @@ AmAsyncDataApi::deleteBlob(boost::shared_ptr<apis::RequestId>& requestId,
                                            SHARED_DYN_CAST(Callback, callback));
     storHvisor->enqueueBlobReq(blobReq);
 }
+
+// Explicit Instantiation of Templates
+template class AmAsyncDataApi<apis::RequestId>;
+template class AmAsyncDataApi<std::pair<fds_int64_t, fds_int32_t>>;
 }  // namespace fds

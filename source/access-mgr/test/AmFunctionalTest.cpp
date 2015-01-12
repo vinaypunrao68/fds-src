@@ -14,6 +14,7 @@
 #include <AccessMgr.h>
 
 #include "boost/program_options.hpp"
+#include <boost/enable_shared_from_this.hpp>
 #include <google/profiler.h>
 #include <gtest/gtest.h>
 #include <testlib/DataGen.hpp>
@@ -51,8 +52,10 @@ struct null_deleter
     }
 };
 
-class AmLoadProc : public AmAsyncResponseApi,
-                   public apis::AsyncAmServiceResponseIf {
+class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
+                   public AmAsyncResponseApi<apis::RequestId>,
+                   public apis::AsyncAmServiceResponseIf
+{
   public:
     AmLoadProc(int argc, char **argv)
             : domainName(new std::string("Test Domain")),
@@ -106,7 +109,7 @@ class AmLoadProc : public AmAsyncResponseApi,
     }
     virtual ~AmLoadProc() {
     }
-    typedef std::unique_ptr<AmLoadProc> unique_ptr;
+    typedef std::shared_ptr<AmLoadProc> shared_ptr;
 
     void init() {
         responseApi.reset(this, null_deleter());
@@ -139,7 +142,7 @@ class AmLoadProc : public AmAsyncResponseApi,
             asyncDataApi = boost::dynamic_pointer_cast<apis::AsyncAmServiceRequestIf>(
                 asyncThriftClient);
         } else {
-            asyncDataApi = boost::make_shared<AmAsyncDataApi>(responseApi);
+            asyncDataApi = boost::make_shared<AmAsyncDataApi<apis::RequestId>>(shared_from_this());
         }
     }
 
@@ -660,7 +663,7 @@ class AmLoadProc : public AmAsyncResponseApi,
 }  // namespace fds
 
 using fds::AmLoadProc;
-AmLoadProc::unique_ptr amLoad;
+AmLoadProc::shared_ptr amLoad;
 
 TEST(AccessMgr, updateBlobOnce) {
     GLOGDEBUG << "Testing updateBlobOnce";
@@ -722,7 +725,7 @@ main(int argc, char **argv) {
     fds::AmProcessWrapper apw(argc, argv, "platform.conf", "fds.am.", amVec);
     apw.main();
 
-    amLoad = AmLoadProc::unique_ptr(new AmLoadProc(argc, argv));
+    amLoad = AmLoadProc::shared_ptr(new AmLoadProc(argc, argv));
     amLoad->init();
 
     return RUN_ALL_TESTS();

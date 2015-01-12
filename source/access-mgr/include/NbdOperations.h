@@ -136,8 +136,10 @@ class NbdOperationsResponseIface {
 
 class NbdOperations
     :   public boost::enable_shared_from_this<NbdOperations>,
-        public AmAsyncResponseApi
+        public AmAsyncResponseApi<std::pair<fds_int64_t, fds_int32_t>>
 {
+    typedef std::pair<fds_int64_t, fds_int32_t> request_id_type;
+
   public:
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
     ~NbdOperations();
@@ -155,42 +157,42 @@ class NbdOperations
 
     // AmAsyncResponseApi implementation
     void attachVolumeResp(const Error &error,
-                          boost::shared_ptr<apis::RequestId>& requestId) {}
+                          boost::shared_ptr<request_id_type>& requestId) {}
 
     void startBlobTxResp(const Error &error,
-                         boost::shared_ptr<apis::RequestId>& requestId,
+                         boost::shared_ptr<request_id_type>& requestId,
                          boost::shared_ptr<apis::TxDescriptor>& txDesc) {}
     void abortBlobTxResp(const Error &error,
-                         boost::shared_ptr<apis::RequestId>& requestId) {}
+                         boost::shared_ptr<request_id_type>& requestId) {}
     void commitBlobTxResp(const Error &error,
-                          boost::shared_ptr<apis::RequestId>& requestId) {}
+                          boost::shared_ptr<request_id_type>& requestId) {}
 
     void updateBlobResp(const Error &error,
-                        boost::shared_ptr<apis::RequestId>& requestId);
+                        boost::shared_ptr<request_id_type>& requestId);
     void updateBlobOnceResp(const Error &error,
-                            boost::shared_ptr<apis::RequestId>& requestId) {}
+                            boost::shared_ptr<request_id_type>& requestId) {}
     void updateMetadataResp(const Error &error,
-                            boost::shared_ptr<apis::RequestId>& requestId) {}
+                            boost::shared_ptr<request_id_type>& requestId) {}
     void deleteBlobResp(const Error &error,
-                        boost::shared_ptr<apis::RequestId>& requestId) {}
+                        boost::shared_ptr<request_id_type>& requestId) {}
 
     void statBlobResp(const Error &error,
-                      boost::shared_ptr<apis::RequestId>& requestId,
+                      boost::shared_ptr<request_id_type>& requestId,
                       boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {}
     void volumeStatusResp(const Error &error,
-                          boost::shared_ptr<apis::RequestId>& requestId,
+                          boost::shared_ptr<request_id_type>& requestId,
                           boost::shared_ptr<apis::VolumeStatus>& volumeStatus) {}
     void volumeContentsResp(
         const Error &error,
-        boost::shared_ptr<apis::RequestId>& requestId,
+        boost::shared_ptr<request_id_type>& requestId,
         boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents) {}
 
     void getBlobResp(const Error &error,
-                     boost::shared_ptr<apis::RequestId>& requestId,
+                     boost::shared_ptr<request_id_type>& requestId,
                      boost::shared_ptr<std::string> buf,
                      fds_uint32_t& length);
     void getBlobWithMetaResp(const Error &error,
-                             boost::shared_ptr<apis::RequestId>& requestId,
+                             boost::shared_ptr<request_id_type>& requestId,
                              boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length,
                              boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {}
@@ -199,14 +201,11 @@ class NbdOperations
     { amAsyncDataApi.reset(); }
 
   private:
-    void parseRequestId(boost::shared_ptr<apis::RequestId>& requestId,
-                        fds_int64_t* handle,
-                        fds_int32_t* seqId);
     fds_uint32_t getObjectCount(fds_uint32_t length,
                                 fds_uint64_t offset);
 
     // api we've built
-    std::unique_ptr<AmAsyncDataApi> amAsyncDataApi;
+    std::unique_ptr<AmAsyncDataApi<request_id_type>> amAsyncDataApi;
     boost::shared_ptr<std::string> volumeName;
     fds_uint32_t maxObjectSizeInBytes;
 
