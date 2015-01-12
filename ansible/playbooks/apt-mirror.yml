@@ -4,6 +4,8 @@
     gather_facts: false
     sudo: true
     remote_user: deploy
+    vars:
+        - ansible_ssh_key: ~/.ssh/fds-deploy_rsa
 
     tasks:
 
