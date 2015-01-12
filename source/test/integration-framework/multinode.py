@@ -19,7 +19,7 @@ class Multinode(object):
     to be given to the cluster. 
     An existing cluster can be used, and its inventory file has to be provided. 
     Otherwise, the default 4 node cluster from the framework will be used 
-    (see 'baremetal' inventory in templates).
+    (see 'integration-framework-cluster' inventory in templates).
     
     Attributes:
     -----------
@@ -37,7 +37,7 @@ class Multinode(object):
     '''
     instance_types = ('aws', 'baremetal')
     build_types = ("nightly", "local")
-    baremetal_inventory = "baremetal"
+    baremetal_inventory = "integration-framework-cluster"
     logging.basicConfig(level=logging.INFO)
     log = logging.getLogger(__name__)
     

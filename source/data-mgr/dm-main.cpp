@@ -33,6 +33,12 @@ class DMMain : public PlatformProcess
             NULL
         };
 
+        /* Before calling init, close all file descriptors.  Later, we may daemonize the
+         * process, in which case we may be closing all existing file descriptors while
+         * threads may access the file descriptor.
+         */
+        closeAllFDs();
+
         /* Init platform process */
         init(argc, argv, "fds.dm.", "dm.log", &gl_DmPlatform, dmVec);
 

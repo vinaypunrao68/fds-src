@@ -68,12 +68,17 @@ Error DmPersistVolDir::syncCatalog(const NodeUuid & dmUuid) {
     LOGTRACE << "rsync command: " << rsyncCmd;
     ret = std::system(rsyncCmd.c_str());
 
-    // remove the temp dir
-    std::system(rmCmd.c_str());
-
     if (ret) {
         LOGERROR << "rsync command failed '" << rsyncCmd << "', code: '" << ret << "'";
         return ERR_DM_RSYNC_FAILED;
+    }
+
+
+    // remove the temp dir
+    ret = std::system(rmCmd.c_str());
+
+    if (ret) {
+        LOGWARN << "rm command failed '" << rmCmd << "', code: '" << ret << "'";
     }
 
     return rc;

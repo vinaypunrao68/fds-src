@@ -9,9 +9,9 @@ import os
 import unittest
 
 import config
+import graph
 import testcase
 import testcases
-from symbol import parameters
 
 
 class TestSet(object):
@@ -32,20 +32,42 @@ class TestSet(object):
 
     def __init__(self, name, test_cases=[]):
         self.name = name
+        self.graph = {}
+        self.lookup_table = {}
+        self.execution_order = []
         self._tests = []
         self.suite = unittest.TestSuite()
         # create all the test cases that belong to this test set.
         for tc in test_cases:
-            # here it will actually be the actual test case, replaced by their
-            # name, instead of the generic TestCase
-            fmodule = self.__process_module(test_cases[tc])
-            module = importlib.import_module("testsets.testcases.%s" % fmodule)
-            my_class = getattr(module, tc)
-            instance = my_class(parameters=None)
-            self.log.info("Adding test case: %s" % tc)
-            self.log.info("Adding file name: %s" % test_cases[tc])
-            self.suite.addTest(instance)
+            name = tc['name']
+            if tc['depends'] == []:
+                self.execution_order.append(name)
+                self.__instantiate_module(tc)
+            else:
+                self.lookup_table[name] = tc
+            self.graph[name] = tc['depends']
+            
+        for k, v in self.graph.iteritems():
+            # if the test 
+            if k not in self.execution_order and v != []:
+                resolved = []
+                graph.dependency_resolve(self.graph, k, resolved, [])
+                for node in resolved:
+                    if node not in self.execution_order:
+                        current_tc = self.lookup_table[node]
+                        self.execution_order.append(node)
+                        self.__instantiate_module(current_tc)
 
+    def __instantiate_module(self, test_cases):
+        fmodule = self.__process_module(test_cases['file'])
+        module = importlib.import_module("testsets.testcases.%s" % fmodule)
+        my_class = getattr(module, test_cases['name'])
+        instance = my_class(parameters=test_cases['parameters'], 
+                            config_file=test_cases['config'])
+        self.log.info("Adding test case: %s" % test_cases['name'])
+        self.log.info("Adding file name: %s" % test_cases['file'])
+        self.suite.addTest(instance)
+            
     def __process_module(self, module=""):
         '''
         This method checks if a file ends with .py extension (for now, but it

@@ -1,4 +1,4 @@
-#! /bin/bash 
+#! /bin/bash
 usage() {
 cat << EOF
 Usage:
@@ -11,7 +11,7 @@ ${0##/*} ../foo/bar/inventories/cody-local-nodes local
 EOF
 }
 
-if [ $# -lt 2 ]; then 
+if [ $# -lt 2 ]; then
     usage
     exit 1
 fi
@@ -42,7 +42,7 @@ E() {
 }
 
 inventory="${1}"
-deploy_source="$2"
+deploy_source="${2}"
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 ansible_base_dir="$( cd "${script_dir}/.." && pwd -P)"
 playbooks="${ansible_base_dir}/playbooks"
@@ -70,7 +70,7 @@ check_inventory() {
 
     if [[ ! ${inventory} =~ / ]]; then
         inventory=${ansible_base_dir}/inventory/${inventory}
-    fi    
+    fi
 
     [ -f ${inventory} ] || inventory_is_missing=1
 
@@ -78,8 +78,8 @@ check_inventory() {
         E "Inventory file ${inventory} does not exist."
     fi
 
-    D "Inventory File ${inventory} exists, continuing" 
-    ansible_args="${ansible_args} -i $inventory"
+    D "Inventory File ${inventory} exists, continuing"
+    ansible_args="${ansible_args} -i ${inventory}"
 }
 
 check_auth() {
