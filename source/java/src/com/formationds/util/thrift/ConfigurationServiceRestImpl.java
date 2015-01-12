@@ -2,7 +2,7 @@
  * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.commons.thrift.configurationservice.iface.impl;
+package com.formationds.util.thrift;
 
 
 import com.formationds.apis.ConfigurationService;
@@ -46,11 +46,11 @@ import java.util.Optional;
 /**
  * @author ptinius
  */
-public class ConfigurationServiceApi
-    implements ConfigurationService.Iface {
+public class ConfigurationServiceRestImpl
+        implements ConfigurationService.Iface {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( ConfigurationServiceApi.class );
+        LoggerFactory.getLogger( ConfigurationServiceRestImpl.class );
 
     private static final String DEF_PROTOCOL = "http";
     private static final String DEF_API_PATH = "/api";
@@ -67,14 +67,14 @@ public class ConfigurationServiceApi
     private static final String FDS_AUTH_HEADER = "FDS-Auth";
     private String token = null;
 
-    public ConfigurationServiceApi( final String host ) {
+    public ConfigurationServiceRestImpl( final String host ) {
 
         this( DEF_PROTOCOL, HostAndPort.fromParts( host, DEF_OM_PORT ) );
 
     }
 
-    public ConfigurationServiceApi( final String protocol,
-                                    final HostAndPort host ) {
+    public ConfigurationServiceRestImpl( final String protocol,
+                                         final HostAndPort host ) {
         super();
 
         this.host = host;
@@ -188,8 +188,8 @@ public class ConfigurationServiceApi
     public static void main( String[] args )
         throws TException {
 
-        final ConfigurationServiceApi impl =
-            new ConfigurationServiceApi( "10.211.55.9" );
+        final ConfigurationServiceRestImpl impl =
+            new ConfigurationServiceRestImpl( "10.211.55.9" );
 
         final String domainName = "";
         final String objectVolumeName = "TestVolume_object";
