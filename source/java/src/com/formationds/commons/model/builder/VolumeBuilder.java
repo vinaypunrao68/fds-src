@@ -13,8 +13,10 @@ import com.formationds.commons.model.Volume;
  */
 public class VolumeBuilder {
   private String name;
+  private Long tenantId;
   private Long limit;                    // maximum IOPS
   private Long sla;                      // minimum IOPS
+  private Long commitLogRetentnion;
   private String id;                     // volume id
   private Integer priority;
   private Connector data_connector;
@@ -96,26 +98,43 @@ public class VolumeBuilder {
     return this;
   }
 
+  public VolumeBuilder withTenantId( long tenantId ) {
+    this.tenantId = tenantId;
+    return this;
+  }
+
+  public VolumeBuilder withCommitLogRetention( long retention ) {
+    this.commitLogRetentnion = retention;
+    return this;
+  }
+
   /**
    * @return Returns {@link com.formationds.commons.model.Volume}
    */
   public Volume build() {
     Volume volume = new Volume();
 
-    volume.setName( name );
     if( limit != null ) {
       volume.setLimit( limit );
     }
+
     if( sla != null ) {
       volume.setSla( sla );
     }
-    volume.setId( id );
 
     if( priority != null ) {
       volume.setPriority( priority );
     }
+
+    if( tenantId != null ) {
+      volume.setTenantId( tenantId );
+    }
+
+    volume.setName( name );
+    volume.setId( id );
     volume.setData_connector( data_connector );
     volume.setCurrent_usage( current_usage );
+    volume.setCommit_log_retention( commitLogRetentnion );
     return volume;
   }
 }

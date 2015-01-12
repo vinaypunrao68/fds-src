@@ -20,6 +20,7 @@ import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
 import com.formationds.commons.model.calculated.capacity.CapacityDeDupRatio;
 import com.formationds.commons.model.calculated.capacity.CapacityFull;
 import com.formationds.commons.model.calculated.capacity.CapacityToFull;
+import com.formationds.commons.model.calculated.capacity.TotalCapacity;
 import com.formationds.commons.model.calculated.firebreak.FirebreaksLast24Hours;
 import com.formationds.commons.model.calculated.performance.IOPsConsumed;
 import com.formationds.commons.model.entity.VolumeDatapoint;
@@ -37,6 +38,7 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
 
+import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +49,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
@@ -154,13 +157,33 @@ public class QueryHelper {
 	                final CapacityConsumed consumed = bytesConsumed();
 	                calculatedList.add( consumed );
 	
-	                // TODO finish implementing -- once the platform has total system capacity
-	                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
-	                                                  .doubleValue();
-	                calculatedList.add( percentageFull( consumed, systemCapacity ) );
-	
-	                // TODO finish implementing  -- once Nate provides a library
-	                calculatedList.add( toFull() );
+	                // only the FDS admin is allowed to get data about the capacity limit
+	                // of the system
+	                if ( authorizer.userFor( token ).isFdsAdmin ){
+	                	
+		                // TODO finish implementing -- once the platform has total system capacity
+		                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
+		                                                  .doubleValue();
+//		                calculatedList.add( percentageFull( consumed, systemCapacity ) );
+		                
+		                TotalCapacity totalCap = new TotalCapacity();
+		                totalCap.setTotalCapacity( systemCapacity );
+		                calculatedList.add( totalCap );
+		                
+		                // TODO finish implementing  -- once Nate provides a library
+		            	Series physicalBytes = series.stream()
+		            		.filter( ( s ) -> { 
+		            			return s.getType().equals( Metrics.PBYTES.name() );
+		            		})
+			            	.findFirst().orElse( null );
+		            	
+		            	if ( physicalBytes != null ){
+		            		calculatedList.add( toFull( physicalBytes, systemCapacity ) );
+		            	}
+		            	else {
+		            		logger.info( "There were no physical bytes reported for the system.  Cannot calculate time to full.");
+		            	}
+	                }
 	
 	            } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
 	            	
@@ -501,14 +524,22 @@ public class QueryHelper {
     /**
      * @return Returns {@link CapacityFull}
      */
-    protected CapacityToFull toFull() {
+    protected CapacityToFull toFull( final Series pSeries,  final Double systemCapacity ) {
         /*
          * TODO finish implementation
-         *
-         * need support from Nate, our local math gure.
+         * Add a non-linear regression for potentially better matching
+         * 
          */
+    	final SimpleRegression linearRegression = new SimpleRegression();
+    	
+    	pSeries.getDatapoints().stream().forEach( ( point ) -> {
+    		linearRegression.addData( point.getX(), point.getY() );
+    	});
+    	
+    	Double secondsToFull = systemCapacity / linearRegression.getSlope();
+    	
         final CapacityToFull to = new CapacityToFull();
-        to.setToFull( 24 );
+        to.setToFull( secondsToFull.longValue() );
         return to;
     }
 

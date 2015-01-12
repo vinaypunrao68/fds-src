@@ -168,7 +168,7 @@ public class Main {
                             webDir,
                             httpPort,
                             httpsPort,
-                            secretKey ).start(args);
+                            secretKey ).start( );
 
         } else {
 

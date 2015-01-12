@@ -8,6 +8,7 @@
 #include <vector>
 #include <SmIo.h>
 #include <MigrationExecutor.h>
+#include <MigrationClient.h>
 
 namespace fds {
 
@@ -45,6 +46,8 @@ class SmTokenMigrationMgr {
     typedef std::unordered_map<NodeUuid, MigrationExecutor::unique_ptr, UuidHash> SrcSmExecutorMap;
     /// SM token id -> [ source SM -> MigrationExecutor ]
     typedef std::unordered_map<fds_token_id, SrcSmExecutorMap> MigrExecutorMap;
+    /// executorId -> migrationClient
+    typedef std::unordered_map<fds_uint64_t, MigrationClient::shared_ptr> MigrClientMap;
 
     /**
      * Matches OM state, just for sanity checks that we are getting
@@ -110,6 +113,8 @@ class SmTokenMigrationMgr {
 
     /// state of migration manager
     std::atomic<MigrationState> migrState;
+    /// next ID to assign to a migration executor
+    std::atomic<fds_uint64_t> nextExecutorId;
 
     /// SM token token that is currently in progress of migrating
     /// TODO(Anna) make it more general if we want to migrate several
@@ -129,8 +134,12 @@ class SmTokenMigrationMgr {
 
     /// SM token id -> [ source SM -> MigrationExecutor ]
     MigrExecutorMap migrExecutors;
-    /// so far we don't need a lock for the above map, becuase the actions
+    /// so far we don't need a lock for the above map, because the actions
     /// to update this map are serialized, and protected by mirgState
+
+    /// executorId -> MigrationClient
+    MigrClientMap migrClients;
+    fds_mutex clientLock;
 };
 
 }  // namespace fds

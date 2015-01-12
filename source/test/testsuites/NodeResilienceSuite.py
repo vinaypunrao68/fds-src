@@ -74,7 +74,7 @@ def suiteConstruction():
     suite.addTest(nodeUpSuite)
 
     # Given the node some time to initialize.
-    suite.addTest(testcases.TestFDSSysMgt.TestNodeWait())
+    suite.addTest(testcases.TestFDSSysMgt.TestWait())
 
     # Now verify we still have our data.
     suite.addTest(testcases.TestS3IntFace.TestS3VerifyMBLOB())

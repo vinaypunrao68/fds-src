@@ -42,13 +42,10 @@ class TestCreateMultipleBuckets(testcase.FDSTestCase):
         '''
         test_passed = False
         try:
-            self.test_create_multiple_buckets()     
-            self.log.info(self.table)           
+            self.test_create_multiple_buckets()          
             for k, v in self.table.iteritems():
-                if k:
-                    # test also if the file is there in the bucket.
-                    if k.name != v.identifier[:7]:
-                        raise
+                if not k:
+                    raise
             test_passed = True
         except:
             test_passed = False
@@ -62,8 +59,6 @@ class TestCreateMultipleBuckets(testcase.FDSTestCase):
             if bucket:
                 for key in bucket.list():
                     bucket.delete_key(key)
-
-                self.log.info("----- Name: %s --------" % bucket.name)
                 self.conn.delete_bucket(bucket.name)
         self.table = {}
         
@@ -77,9 +72,7 @@ class TestCreateMultipleBuckets(testcase.FDSTestCase):
         for user in self.my_users:
             # the bucket name is a 7 char key.
             name = "hello_" + str(user.id)
-            self.log.info("----- Name: %s --------" % name)
             try:
-                self.log.info("Creating bucket: %s" % name)
                 bucket = self.conn.create_bucket(name)
                 if bucket == None:
                     raise Exception("Invalid bucket.")

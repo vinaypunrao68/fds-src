@@ -6,7 +6,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
         transclude: false,
         templateUrl: 'scripts/directives/charts/linechart/linechart.html',
         scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@', yAxisLabelFunction: '=?', axisColor: '@', 
-            tooltip: '=?', lineColors: '=?', lineStipples: '=?', backgroundColor: '@', domainLabels: '=?' },
+            tooltip: '=?', lineColors: '=?', lineStipples: '=?', backgroundColor: '@', domainLabels: '=?', limit: '=?', limitColor: '@' },
         controller: function( $scope, $element, $resize_service ){
             
             $scope.hoverEvent = false;
@@ -86,6 +86,17 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     });
                 });
                 
+                // this is commented out because when we think about the limit while determining the max
+                // we easily end up with a chart that looks completely empty when y values are low.
+                // For now I'd rather see an expansive chart than an empty on with a limit line but
+                // that may not be how it shakes out - so I didn't want to re-think this if it
+                // needs to be added back
+//                if ( angular.isDefined( $scope.limit ) ){
+//                    if ( $scope.limit > $max ){
+//                        $max = $scope.limit;
+//                    }
+//                }
+                
                 $max = 1.05*$max;
             };
             
@@ -124,6 +135,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             var removeGuides = function(){
                 
                 $svg.selectAll( '.guide-lines' ).remove();
+                $svg.selectAll( '.limit-line' ).remove();
             };
             
             var removeLabels = function(){
@@ -291,15 +303,29 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .attr( 'x1', $xScale( $xMin ) )
                     .attr( 'x2', function( d ){
                     
-                        if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints )){
-                            return $xScale( $scope.data.series[0].datapoints.length-1 );
-                        }
-                    
-                        return $xScale( $xMin );
+                        return $xScale( $xMax );
                     })
                     .attr( 'y1', $yScale( 0 ) )
                     .attr( 'y2', $yScale( 0 ) )
-                    .attr( 'stroke', 'black' );
+                    .attr( 'stroke', $scope.axisColor );
+                
+                // limit line
+                if ( angular.isDefined( $scope.limit ) && $scope.limit < $max ){
+                    $svg.append( 'line' )
+                        .attr( 'class', 'limit-line' )
+                        .attr( 'x1', $xScale( $xMin ) )
+                        .attr( 'x2', $xScale( $xMax ) )
+                        .attr( 'y1', $yScale( $scope.limit ) )
+                        .attr( 'y2', $yScale( $scope.limit ) )
+                        .attr( 'stroke', function( d ){
+                            
+                            if ( angular.isDefined( $scope.limitColor ) ){
+                                return $scope.limitColor;
+                            }
+                        
+                            return 'black';
+                        });
+                }
                     
             };
             
@@ -429,17 +455,6 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
 
                     return 0;
                 };
-                
-                //sort
-//                for ( var i = 0; angular.isDefined( newVal.series ) && i < newVal.series.length; i++ ){
-//                    var dataset = newVal.series[i].datapoints;
-//                    
-//                    if ( !angular.isDefined( dataset ) ){
-//                        continue;
-//                    }
-//                    
-//                    dataset.sort( sorter );
-//                }
                 
                 if ( newVal.series.length === oldVal.series.length &&
                    $svg.selectAll( '.series-group' )[0].length !== 0 ){
