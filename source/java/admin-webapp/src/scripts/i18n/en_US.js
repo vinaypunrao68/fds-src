@@ -33,6 +33,7 @@ var en_US = {
         th_data_type: 'Data Type',
         th_name: 'Name',
         th_application: 'Application',
+        th_tenant: 'Tenant',
         
         //time labels
         l_30_days: '30 Days',
