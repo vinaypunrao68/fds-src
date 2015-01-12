@@ -34,7 +34,7 @@
             <div class="tile-parent">
 <!--                <div class="capacity-tile tile"></div>-->
                 <status-tile tile-title="{{ 'status.l_capacity' | translate }}" calculated-data="capacityItems">
-                    <line-chart data="capacityStats" colors="fakeCapColors" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText" domain-labels="capacityLabels" background-color="#f7f7f7"></line-chart>
+                    <line-chart data="capacityStats" colors="fakeCapColors" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText" domain-labels="capacityLabels" background-color="#f7f7f7" limit="capacityLimit"></line-chart>
                 </status-tile>
             </div>
         </div>

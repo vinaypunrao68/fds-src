@@ -112,10 +112,10 @@ public class CreateVolume
                                              SizeUnit.valueOf(
                                                  attrs.getUnit()
                                                       .name() )
-                                                     .totalBytes(
-                                                         attrs.getSize() ), 
+                                                     .totalBytes( attrs.getSize() ), 
                                              0,
                                              volume.getMediaPolicy());
+
               break;
           case OBJECT:
               settings = new VolumeSettings( DEF_OBJECT_SIZE,
@@ -130,11 +130,17 @@ public class CreateVolume
 
       // add the commit log retention value
       settings.setContCommitlogRetention( volume.getCommit_log_retention() );
-      
-      configApi.createVolume( domainName,
-                              volume.getName(),
-                              settings,
-                              authorizer.tenantId( token ) );
+
+      try {
+          configApi.createVolume( domainName,
+                                  volume.getName(),
+                                  settings,
+                                  authorizer.tenantId( token ) );
+      } catch( TException | SecurityException e ) {
+
+        logger.error( "CREATE::FAILED::" + e.getMessage(), e );
+      }
+
       volumeId = configApi.getVolumeId( volume.getName() );
       if( volumeId > 0 ) {
           volume.setId( String.valueOf( volumeId ) );

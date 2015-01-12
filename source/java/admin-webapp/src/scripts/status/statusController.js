@@ -18,6 +18,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.performanceBreakdownStats = { series: [[]] };
     $scope.performanceItems = [];
     $scope.capacityStats = { series: [[]] };
+    $scope.capacityLimit = 100000;
     
     $scope.firebreakDomain = [ 'max', 3600*12, 3600*6, 3600*3, 3600, 0 ];
     $scope.firebreakRange = ['#389604', '#68C000', '#C0DF00', '#FCE300', '#FD8D00', '#FF5D00'];
@@ -54,13 +55,42 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     $scope.capacityReturned = function( data ){
         $scope.capacityStats = data;
         
+        var calculatedValues = data.calculated;
+        var secondsToFull, totalCapacity, capacityUsed, percentUsed, dedupRatio;
+        
+        for ( var i = 0; i < calculatedValues.length; i++ ){
+            var values = calculatedValues[i];
+            
+            if ( angular.isDefined( values['toFull'] ) ){
+                secondsToFull = values['toFull'];
+            }
+            else if ( angular.isDefined( values['ratio'] ) ){
+                dedupRatio = values['ratio'];
+            }
+            else if ( angular.isDefined( values['total'] )){
+                capacityUsed = values['total'];
+            }
+            else if ( angular.isDefined( values['totalCapacity'] )){
+                totalCapacity = values['totalCapacity'];
+            }
+        }
+        
 //        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
         var parts = $byte_converter.convertBytesToString( data.series[1].datapoints[ data.series[1].datapoints.length - 1 ].y );
         parts = parts.split( ' ' );
         
         var num = parseFloat( parts[0] );
-        $scope.capacityItems = [{number: data.calculated[0].ratio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
+        
+        $scope.capacityItems = [{number: dedupRatio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
             {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
+        
+        if ( angular.isDefined( secondsToFull ) ){
+            
+            var convertedStr = $time_converter.convertToTime( secondsToFull*1000 );
+            var parts = convertedStr.split( ' ' );
+            $scope.capacityItems.push( {number: parseFloat( parts[0] ), description: $filter( 'translate' )( 'status.desc_time_to_full' ), suffix: parts[1].toLowerCase() } );
+            $scope.capacityLimit = totalCapacity;
+        }
     };
     
     // this callback creates the tooltip element
