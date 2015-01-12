@@ -50,10 +50,10 @@ fds: {
 {% if om_ip_count != empty_om_list %}
 {% set hosts = groups[group_names[0]] %}
 {% for i in range(om_ip_count|int) %}
-{% if loop.first %}        {% endif %}{{ hosts[i] }}{% if not loop.last %}:{% endif %}
-{% endfor %}
+{% if loop.first %}       om_ip_list = "{% endif %}{{ hosts[i] }}{% if not loop.last %}:{% endif %}
+{% endfor %}"
 {% else %}
-        {{ empty_om_list }}
+        om_ip_list = "{{ empty_om_list }}"
 {% endif %}
 
         java_is_fussy_an_entry_must_exist_here = true
