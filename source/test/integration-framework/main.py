@@ -20,7 +20,6 @@ import fds
 import multinode
 import testsets.test_set as test_set
 import s3
-import testsets.testcases.fdslib.BringUpCfg as bringup
 
 
 class Operation(object):
@@ -43,7 +42,6 @@ class Operation(object):
     def __init__(self, test_sets_list, args):
         self.test_sets = []
         self.args = args
-        self.fds_node = fds.FDS()
         self.current_dir = os.path.dirname(os.path.realpath(__file__))
         self.log_dir = os.path.join(self.current_dir, config.log_dir)
         self.logger.info("Checking if the log directory exists...")
@@ -67,7 +65,7 @@ class Operation(object):
                 self.logger.info("%s already exists. Skipping." % testset_path)
                 
             self.test_sets.append(current_ts)
-    
+
     def __load_params(self):
         params = {}
         parser = ConfigParser.ConfigParser()
@@ -123,6 +121,7 @@ class Operation(object):
         all the fds processes are running.
         '''
         if self.args.test == 'single':
+            self.fds_node = fds.FDS()
             if not self.fds_node.check_status():
                 self.fds_node.start_single_node()
         elif self.args.test == 'multi':
@@ -133,7 +132,8 @@ class Operation(object):
                 cluster = multinode.Multinode(name=self.args.name, 
                                               instance_count=self.args.count,
                                               type=self.args.type)
-            elif self.args.type == "baremetal":
+            else:
+                # make the baremetal version the default one.
                 cluster = multinode.Multinode(type=self.args.type,
                                               inventory=self.args.inventory)
         for ts in self.test_sets:
