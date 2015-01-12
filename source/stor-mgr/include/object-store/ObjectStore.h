@@ -119,6 +119,13 @@ class ObjectStore : public Module, public boost::noncopyable {
                            fds_bool_t relocateFlag);
 
     /**
+     * @brief Updates the object location from flash to disk
+     * NOTE: This implementation is valid for beta-2 time.  As tiering evolves this code
+     * needs to be re-visited.
+     */
+    Error updateLocationFromFlashToDisk(const ObjectID& objId,
+                                        ObjMetaData::const_ptr objMeta);
+    /**
      * Copies associated volumes from source to destination volume
      */
     Error copyAssociation(fds_volid_t srcVolId,

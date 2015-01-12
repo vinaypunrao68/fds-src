@@ -110,6 +110,7 @@ class ObjMetaData : public serialize::Serializable {
     fds_uint32_t   getObjSize() const;
     const obj_phy_loc_t* getObjPhyLoc(diskio::DataTier tier) const;
     meta_obj_map_t*   getObjMap();
+    fds_uint64_t getCreationTime() const;
 
     void setRefCnt(fds_uint16_t refcnt);
 

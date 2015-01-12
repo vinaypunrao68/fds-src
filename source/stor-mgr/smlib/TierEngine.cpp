@@ -11,6 +11,113 @@
 
 namespace fds {
 
+// TODO(Rao): Move this code to separate file
+HybridTierPolicy::HybridTierPolicy()
+{
+    snapRequest_.io_type = FDS_SM_SNAPSHOT_TOKEN;
+    snapRequest_.smio_snap_resp_cb = std::bind(&HybridTierPolicy::snapTokenCb,
+                                              this,
+                                              std::placeholders::_1,
+                                              std::placeholders::_2,
+                                              std::placeholders::_3,
+                                              std::placeholders::_4);
+
+    moveTierRequest_.oidList.reserve(HYBRID_POLICY_MIGRATION_BATCH_SZ);
+    moveTierRequest_.fromTier = diskio::DataTier::flashTier;
+    moveTierRequest_.toTier = diskio::DataTier::diskTier;
+    moveTierRequest_.relocate = true;
+    moveTierRequest_.moveObjsRespCb = std::bind(&HybridTierPolicy::moveObjsToTierCb,
+                                                this,
+                                                std::placeholders::_1,
+                                                std::placeholders::_2);
+}
+
+void HybridTierPolicy::run()
+{
+    if (curTokenIdx_ == -1) {
+        /* No previous state. Start from the first token */
+        curTokenIdx_ = 0;
+    }
+    fds_verify(tokenList_.size() > 0);
+    snapToken_();
+}
+
+HybridTierPolicy::snapToken_()
+{
+    snapRequest_.token_id = tokenList_[curTokenIdx_];
+    // TODO(Rao): Enque request
+}
+
+HybridTierPolicy::snapTokenCb(const Error& err,
+                                SmIoSnapshotObjectDB* snapReq,
+                                leveldb::ReadOptions& options,
+                                leveldb::DB* db)
+{
+    GLOGDEBUG << "Snapshot complete for token: " << tokenList_[curTokenIdx_];
+
+    /* Initialize the tokenItr */
+    tokenItr_.reset(new SMTokenItr());
+    tokenItr_->itr = db->NewIterator(options);
+    tokenItr_->itr->SeekToFirst();
+    tokenItr_->db = db;
+    tokenItr_->options = options;
+
+    constructTierMigrationList_();
+}
+
+HybridTierPolicy::constructTierMigrationList_()
+{
+    // TODO(Rao): Assert pre conditions
+    fds_assert(moveTierRequest_.oidList.empty() == true);
+
+    ObjMetaData omd;
+
+    /* Construct object list to update tier location from flash to disk */
+    auto &itr = tokenItr_->itr;
+    for (; itr->Valid() && tierMigrationList_.size() < HYBRID_POLICY_MIGRATION_BATCH_SZ;
+         itr->Next()) {
+        omd.deserializeFrom(itr->Value());
+        if (omd.onFlashTier() && omd.getCreationTime() < hybridMoveTs_) {
+            moveTierRequest_.oidList.push_back(ObjectID(itr->Key()));
+        }
+    }
+
+    // TODO(Rao): Enqueue request
+}
+
+void HybridTierPolicy::moveObjsToTierCb(const Error& e,
+                                        SmIoMoveObjsToTier *req)
+{
+    if (e != ERR_OK) {
+        LOGWARN << "Failed to move some objects to disk from flash for token: "
+            << tokenList_[curTokenIdx_];
+    }
+
+    if (tokenItr_->itr->Valid()) {
+        moveTierRequest_.oidList.clear();
+        constructTierMigrationList_();
+        return;
+    }
+    
+    LOGDEBUG << "Moved objects for token: " << tokenList_[curTokenIdx_];
+
+    /* Release snapshot */
+    tokenItr_->itr = nullptr;
+    tokenItr_->db->ReleaseSnapshot(tokenItr_->options.snapshot);
+    tokenItr_->db = nullptr;
+    tokenItr_->done = true;
+
+    curTokenIdx_++;
+
+    if (curTokenIdx_ < tokenList_.size()) {
+        /* Start moving objects for the next token */
+        snapToken_();
+    } else {
+        /* Completed moving objects.  Schedule the next relocation task */
+        // TODO(Rao):
+    }
+}
+
 TierEngine::TierEngine(const std::string &modName,
         rankPolicyType _rank_type,
         StorMgrVolumeTable* _sm_volTbl,

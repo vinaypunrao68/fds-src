@@ -384,6 +384,13 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
         return err;
     }
 
+    if (relocateFlag &&
+        fromTier == diskio::DataTier::flashTier &&
+        toTier == diskio::DataTier::diskTier &&
+        ) {
+        return updateLocationFromFlashToDisk(objId, objMeta);
+    }
+
     // make sure the object is not on destination tier already
     if (objMeta->onTier(toTier)) {
         LOGERROR << "Object " << objId << " is already on tier " << toTier;
@@ -417,6 +424,29 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
     }
 
     // write metadata to metadata store
+    err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
+    if (!err.ok()) {
+        LOGERROR << "Failed to update metadata for obj " << objId;
+    }
+    return err;
+}
+
+Error ObjectStore::updateLocationFromFlashToDisk(const ObjectID& objId,
+                                                 ObjMetaData::const_ptr objMeta)
+{
+    Error err;
+
+    if (!objMeta->onTier(diskio::DataTier::diskTier)) {
+        LOGNOTIFY << "Object " << objId << " hasn't made it to disk yet.  Ignoring move";
+        return ERR_OK;
+    }
+
+    /* Remove flash as the phsycal location */
+    ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+    updatedMeta->removePhyLocation(fdiskio::DataTier::flashTier);
+    fds_assert(updatedMeta->onTier(diskio::DataTier::diskTier) == true);
+
+    /* write metadata to metadata store */
     err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
     if (!err.ok()) {
         LOGERROR << "Failed to update metadata for obj " << objId;

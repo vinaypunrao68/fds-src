@@ -18,6 +18,21 @@ class RankEngine;
 
 const fds_uint32_t max_migration_threads = 30;
 
+// TODO(Rao): Move this code to separate file
+class HybridTierPolicy {
+    HybridTierPolicy();
+    void run();
+ protected:
+    static uint32_t HYBRID_POLICY_MIGRATION_BATCH_SZ;
+
+    SmIoSnapshotObjectDB snapRequest_;
+    std::vector<fds_token_id> tokenList_;
+    int curTokenIdx_;
+    std::unique_ptr<SMTokenItr> tokenItr_;
+    SmIoMoveObjsToTier moveTierRequest_;
+    uint64_t hybridMoveTs_;
+};
+
 /*
  * Defines the main class that determines tier
  * placement for objects.

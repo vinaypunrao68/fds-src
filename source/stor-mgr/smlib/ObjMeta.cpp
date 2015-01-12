@@ -281,6 +281,16 @@ ObjMetaData::getObjPhyLoc(diskio::DataTier tier) const {
 }
 
 /**
+ * @brief 
+ *
+ * @return 
+ */
+fds_uint64_t ObjMetaData::getCreationTime() const
+{
+    return obj_map.obj_create_time;
+}
+
+/**
  *
  * @return
  */
