@@ -29,8 +29,7 @@ public class S3Authenticator {
 
         String candidateHeader = request.getHeader("Authorization");
         AuthenticationComponents authenticationComponents = resolveFdsCredentials(candidateHeader);
-        AWSCredentials basicAWSCredentials = new BasicAWSCredentials(authenticationComponents.principalName,
-                                                                     authenticationComponents.fdsToken.signature(secretKey));
+        AWSCredentials basicAWSCredentials = new BasicAWSCredentials(authenticationComponents.principalName, authenticationComponents.fdsToken.signature(secretKey));
 
         String requestHash = S3SignatureGenerator.hash(request, basicAWSCredentials);
 
