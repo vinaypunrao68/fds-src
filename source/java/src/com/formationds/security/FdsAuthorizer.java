@@ -3,11 +3,14 @@
  */
 package com.formationds.security;
 
+import com.formationds.apis.Tenant;
 import com.formationds.apis.User;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.commons.model.Volume;
 import com.formationds.util.thrift.ConfigurationApi;
 import org.apache.thrift.TException;
+
+import java.util.Optional;
 
 public class FdsAuthorizer implements Authorizer {
     private ConfigurationApi config;
@@ -38,9 +41,10 @@ public class FdsAuthorizer implements Authorizer {
                 return true;
             }
 
-            long tenantId = v.getTenantId();
+            long volTenantId = v.getTenantId();
+            long userTenantId = tenantId(token);
 
-            return config.tenantId(user.getId()) == tenantId;
+            return userTenantId == volTenantId;
 
         } catch (TException e) {
             throw new IllegalStateException("Failed to access server.", e);

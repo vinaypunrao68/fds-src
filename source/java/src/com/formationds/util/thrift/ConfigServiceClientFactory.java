@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
 package com.formationds.util.thrift;
@@ -24,7 +24,7 @@ public class ConfigServiceClientFactory {
     /**
      * Create with default settings.  Must use #getClient(host, port) to access the client
      *
-     * @return
+     * @see #newLegacyConfigService(String, Integer, int, int, int)
      */
     public static ThriftClientFactory<FDSP_ConfigPathReq.Iface> newLegacyConfigService() {
         return newLegacyConfigService(null, null,
@@ -34,10 +34,7 @@ public class ConfigServiceClientFactory {
     }
 
     /**
-     *
-     * @param host
-     * @param port
-     * @return
+     * @see #newLegacyConfigService(String, Integer, int, int, int)
      */
     public static ThriftClientFactory<FDSP_ConfigPathReq.Iface> newLegacyConfigService(String host, Integer port) {
         return newLegacyConfigService(host, port,
@@ -48,18 +45,24 @@ public class ConfigServiceClientFactory {
 
     /**
      *
-     * @param host
-     * @param port
+     * Create a new FDSP_ConfigPathReq.Iface client factory.  The host and port are optional and if provided the
+     * ThriftClientFactory#getClient() api will return a connection to that default client host and port.
+     * <p/>
+     * Otherwise, clients must specify a host and port using ThriftClientFactory#getClient(host, port).
+     *
+     * @param host the optional default thrift server host.
+     * @param port the optional default thrift server port.  If a host is specified, then the port is required.
      * @param maxPoolSize
      * @param minIdle
      * @param softMinEvictionIdleTimeMillis
-     * @return
+     *
+     * @return a ThriftClientFactory for the FDSP_ConfigPathReq.Iface with the specified default host and port.
      */
     public static ThriftClientFactory<FDSP_ConfigPathReq.Iface> newLegacyConfigService(String host, Integer port,
                                                                                         int maxPoolSize,
                                                                                         int minIdle,
                                                                                         int softMinEvictionIdleTimeMillis) {
-        return new ThriftClientFactory.Builder<FDSP_ConfigPathReq.Iface>()
+        return new ThriftClientFactory.Builder<>(FDSP_ConfigPathReq.Iface.class)
                    .withHostPort(host, port)
                    .withPoolConfig(maxPoolSize, minIdle, softMinEvictionIdleTimeMillis)
                    .withClientFactory(proto -> {
@@ -79,7 +82,7 @@ public class ConfigServiceClientFactory {
     /**
      * Create with default settings.  Must use #getClient(host, port) to access the client
      *
-     * @return
+     * @see #newConfigService(String, Integer, int, int, int)
      */
     public static ThriftClientFactory<ConfigurationService.Iface> newConfigService() {
         return newConfigService(null, null,
@@ -89,9 +92,7 @@ public class ConfigServiceClientFactory {
     }
 
     /**
-     * @param host
-     * @param port
-     * @return
+     * @see #newConfigService(String, Integer, int, int, int)
      */
     public static ThriftClientFactory<ConfigurationService.Iface> newConfigService(String host, Integer port) {
         return newConfigService(host, port,
@@ -101,19 +102,24 @@ public class ConfigServiceClientFactory {
     }
 
     /**
+     * Create a new ConfigurationService.Iface client factory.  The host and port are optional and if provided the
+     * ThriftClientFactory#getClient() api will return a connection to that default client host and port.
+     * <p/>
+     * Otherwise, clients must specify a host and port using ThriftClientFactory#getClient(host, port).
      *
-     * @param host
-     * @param port
+     * @param host the optional default thrift server host.
+     * @param port the optional default thrift server port.  If a host is specified, then the port is required.
      * @param maxPoolSize
      * @param minIdle
      * @param softMinEvictionIdleTimeMillis
-     * @return
+     *
+     * @return a ThriftClientFactory for the ConfigurationService.Iface with the specified default host and port.
      */
     public static ThriftClientFactory<ConfigurationService.Iface> newConfigService(String host, Integer port,
                                                                                     int maxPoolSize,
                                                                                     int minIdle,
                                                                                     int softMinEvictionIdleTimeMillis) {
-        return new ThriftClientFactory.Builder<ConfigurationService.Iface>()
+        return new ThriftClientFactory.Builder<>(ConfigurationService.Iface.class)
                    .withHostPort(host, port)
                    .withPoolConfig(maxPoolSize, minIdle, softMinEvictionIdleTimeMillis)
                    .withClientFactory(ConfigurationService.Client::new)

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
 package com.formationds.util.thrift;
@@ -12,7 +12,6 @@ import org.apache.thrift.protocol.TProtocolException;
 import org.apache.thrift.transport.TTransportException;
 
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Proxy;
 import java.util.function.Function;
 
@@ -35,6 +34,12 @@ public class ThriftClientFactory<IF> {
         int minIdle = DEFAULT_MIN_IDLE;
         long softMinEvictionIdleTimeMillis = DEFAULT_MIN_EVICTION_IDLE_TIME_MS;
         Function<TBinaryProtocol, IF> clientFactory;
+
+        final Class<IF> ifaceClass;
+
+        public Builder(Class<IF> ifaceClass) {
+            this.ifaceClass = ifaceClass;
+        }
 
         public Builder<IF> withHostPort(String host, Integer port) {
             defaultHost = host;
@@ -75,7 +80,8 @@ public class ThriftClientFactory<IF> {
             config.setMinIdlePerKey(minIdle);
             config.setSoftMinEvictableIdleTimeMillis(softMinEvictionIdleTimeMillis);
 
-            return new ThriftClientFactory<IF>(defaultHost,
+            return new ThriftClientFactory<IF>(ifaceClass,
+                                               defaultHost,
                                                defaultPort,
                                                config,
                                                clientFactory);
@@ -132,6 +138,8 @@ public class ThriftClientFactory<IF> {
     private String  defaultHost = null;
     private Integer defaultPort = null;
 
+    private final Class<IF> ifaceClass;
+
     /**
      *
      * @param defaultHost
@@ -139,7 +147,8 @@ public class ThriftClientFactory<IF> {
      * @param config
      * @param clientFactory
      */
-    protected ThriftClientFactory(String defaultHost,
+    private ThriftClientFactory(Class<IF> ifaceClass,
+                                  String defaultHost,
                                   Integer defaultPort,
                                   GenericKeyedObjectPoolConfig config,
                                   Function<TBinaryProtocol, IF> clientFactory) {
@@ -150,6 +159,7 @@ public class ThriftClientFactory<IF> {
         ThriftClientConnectionFactory<IF> csFactory = new ThriftClientConnectionFactory<>(clientFactory);
         clientPool = new GenericKeyedObjectPool<>(csFactory, config);
 
+        this.ifaceClass = ifaceClass;
     }
 
     /**
@@ -210,7 +220,6 @@ public class ThriftClientFactory<IF> {
      * @return the thrift service interface class.
      */
     private Class<IF> getThriftServiceIFaceClass() {
-        return (Class<IF>) ((ParameterizedType) getClass().getGenericSuperclass())
-                               .getActualTypeArguments()[0];
+        return ifaceClass;
     }
 }
