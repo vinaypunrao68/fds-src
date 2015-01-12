@@ -71,6 +71,7 @@ Error DmPersistVolDB::activate() {
 
     try
     {
+        if (catalog_) delete catalog_;
         catalog_ = new Catalog(catName, writeBufferSize, cacheSize, logDirName,
                     logFilePrefix, maxLogFiles, &cmp_);
     }

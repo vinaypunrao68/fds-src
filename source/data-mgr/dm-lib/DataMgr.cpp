@@ -477,8 +477,8 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         for (uint i = 1; i < nodes->getLength(); i++) {
             LOGDEBUG << "rsyncing vol:" << vdesc->volUUID
                      << "to node:" << nodes->get(i);
-            auto volDir = timeVolCat_->queryIface()->getVolume(vdesc->volUUID);
-            err = volDir->syncCatalog(nodes->get(i));
+            auto volDir = timeVolCat_->queryIface();
+            err = volDir->syncCatalog(vdesc->volUUID, nodes->get(i));
             if (!err.ok()) {
                 LOGWARN << "catalog sync failed on clone, vol:" << vdesc->volUUID;
             } else {
