@@ -14,20 +14,18 @@ import testcases.TestFDSSysMgt
 def suiteConstruction():
     """
     Construct the ordered set of test cases that comprise the
-    test cases necessary to check whether a node is started.
+    test cases necessary to check whether a transient node is started.
 
     Note that this does not check non-transient nodes. For those, use
-    suite TransientNodeWaitSuite.
+    suite NodeWaitSuite.
     """
     suite = unittest.TestSuite()
 
     # Check the node(s) according to configuration supplied with the -q cli option.
-    suite.addTest(testcases.TestFDSModMgt.TestPMForOMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestOMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestPMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestDMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestSMWait())
-    suite.addTest(testcases.TestFDSModMgt.TestAMWait())
+    suite.addTest(testcases.TestFDSModMgt.TestPMForTransientWait())
+    suite.addTest(testcases.TestFDSModMgt.TestDMForTransientWait())
+    suite.addTest(testcases.TestFDSModMgt.TestSMForTransientWait())
+    suite.addTest(testcases.TestFDSModMgt.TestAMForTransientWait())
 
     return suite
 
