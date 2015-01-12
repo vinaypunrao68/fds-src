@@ -289,6 +289,15 @@ fds: {
             /* Number of threads for doing migration work */
             thread_cnt=5
         }
+	tiering: {
+	    hybrid: {
+	        enable 		= false
+		/* Number of objects to move at a time */
+		batchSz 	= 1024
+		/* In seconds to make testing easier (default 172800s = 2days) */
+		frequency 	= 172800
+	    }
+	}
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
         graphite: {

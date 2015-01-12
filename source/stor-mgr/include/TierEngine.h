@@ -11,27 +11,13 @@
 #include <ObjRank.h>
 #include <TierMigration.h>
 #include <persistent-layer/dm_io.h>
+#include <object-store/SmDiskMap.h>
 
 namespace fds {
 
 class RankEngine;
 
 const fds_uint32_t max_migration_threads = 30;
-
-// TODO(Rao): Move this code to separate file
-class HybridTierPolicy {
-    HybridTierPolicy();
-    void run();
- protected:
-    static uint32_t HYBRID_POLICY_MIGRATION_BATCH_SZ;
-
-    SmIoSnapshotObjectDB snapRequest_;
-    std::vector<fds_token_id> tokenList_;
-    int curTokenIdx_;
-    std::unique_ptr<SMTokenItr> tokenItr_;
-    SmIoMoveObjsToTier moveTierRequest_;
-    uint64_t hybridMoveTs_;
-};
 
 /*
  * Defines the main class that determines tier
@@ -53,6 +39,7 @@ class TierEngine : public Module {
     TierEngine(const std::string &modName,
             rankPolicyType _rank_type,
             StorMgrVolumeTable* _sm_volTbl,
+            const SmDiskMap::ptr& diskMap,
             SmIoReqHandler* storMgr);
     ~TierEngine();
 
@@ -108,6 +95,9 @@ class TierEngine : public Module {
 
     StorMgrVolumeTable* sm_volTbl;
     SmTierMigration* migrator;
+
+    SmDiskMap::ptr diskMap;
+    HybridTierCtrlr hybridTierCtrlr;
 };
 
 }  // namespace fds

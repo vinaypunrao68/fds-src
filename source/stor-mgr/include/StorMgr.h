@@ -48,6 +48,7 @@
 
 #include <object-store/ObjectStore.h>
 #include <TokenMigrationMgr.h>
+#include <HybridTierPolicy.h>
 
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
