@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.om.webkit.rest;
@@ -7,6 +7,7 @@ package com.formationds.om.webkit.rest;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -25,10 +26,10 @@ public class CloneVolume
   private static final String REQ_PARAM_CLONE_VOLUME_NAME = "cloneVolumeName";
   private static final String REQ_PARAM_CLONE_VOLUME_TIMELINE_TIME = "timelineTime";
 
-  private com.formationds.util.thrift.ConfigurationApi config;
+  private ConfigurationApi config;
   private FDSP_ConfigPathReq.Iface                     legacyConfigPath;
 
-    public CloneVolume(final com.formationds.util.thrift.ConfigurationApi config,
+    public CloneVolume(final ConfigurationApi config,
                        FDSP_ConfigPathReq.Iface legacyConfigPath) {
         this.config = config;
         this.legacyConfigPath = legacyConfigPath;

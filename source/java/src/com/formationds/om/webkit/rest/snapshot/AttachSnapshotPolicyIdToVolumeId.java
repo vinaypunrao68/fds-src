@@ -1,11 +1,12 @@
 
 /**
- * Copyright (c) 2014 Formation Data Systems.
+ * Copyright (c) 2015 Formation Data Systems.
  * All rights reserved.
  */
 
 package com.formationds.om.webkit.rest.snapshot;
 
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -21,9 +22,9 @@ public class AttachSnapshotPolicyIdToVolumeId implements RequestHandler {
 
     private static final String REQ_PARAM_VOLUME_ID = "volumeId";
     private static final String REQ_PARAM_POLICY_ID = "policyId";
-    private com.formationds.util.thrift.ConfigurationApi config;
+    private ConfigurationApi config;
 
-    public AttachSnapshotPolicyIdToVolumeId(final com.formationds.util.thrift.ConfigurationApi config) {
+    public AttachSnapshotPolicyIdToVolumeId(final ConfigurationApi config) {
         this.config = config;
     }
 

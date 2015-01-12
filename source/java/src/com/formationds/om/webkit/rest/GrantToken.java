@@ -1,13 +1,14 @@
-package com.formationds.om.webkit.rest;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
+package com.formationds.om.webkit.rest;
 
 import com.formationds.apis.User;
 import com.formationds.commons.model.type.Feature;
 import com.formationds.commons.model.type.IdentityType;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
+import com.formationds.security.Authorizer;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
@@ -24,13 +25,15 @@ import java.util.List;
 import java.util.Map;
 
 public class GrantToken implements RequestHandler {
+    private Authorizer authorizer;
     private Authenticator authenticator;
     private ConfigurationApi config;
     private SecretKey        key;
 
-    public GrantToken(ConfigurationApi config, Authenticator auth, SecretKey key) {
+    public GrantToken(ConfigurationApi config, Authenticator auth, Authorizer authz, SecretKey key) {
         this.config = config;
         this.key = key;
+        this.authorizer = authz;
         this.authenticator = auth;
     }
 
@@ -46,7 +49,7 @@ public class GrantToken implements RequestHandler {
 
         try {
             AuthenticationToken token = authenticator.authenticate(login, password);
-            final User user = config.userFor(token);
+            final User user = authorizer.userFor(token);
             if (user.isIsFdsAdmin()) {
                 features.clear();
                 for (final Feature feature : Feature.byRole(IdentityType.ADMIN)) {

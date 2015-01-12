@@ -5,6 +5,7 @@
 package com.formationds.util.thrift;
 
 import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.SnapshotPolicy;
 import com.formationds.apis.Tenant;
 import com.formationds.apis.User;
 import com.formationds.security.AuthenticationToken;
@@ -14,25 +15,53 @@ import java.util.Collection;
 import java.util.Optional;
 
 /**
- * additional configuration read operatins.
+ * additional possibly-cached configuration read operations.
  */
 // TODO: may want to move this out of thrift utils and abstract from the thrift ConfigurationService
 public interface ConfigurationApi extends ConfigurationService.Iface {
 
+    /**
+     * Create a snapshot policy.
+     * <p/>
+     * This is a factory method that creates the SnapshotPolicy object then calls
+     * {@link #createSnapshotPolicy(SnapshotPolicy)}
+     *
+     * @param name
+     * @param recurrence
+     * @param retention
+     * @param timelineTime
+     *
+     * @return
+     *
+     * @throws TException
+     */
+    // TODO: not clear what the return value represents.  See createSnapshotPolicy(SnapshotPolicy)
     long createSnapshotPolicy(String name,
                               String recurrence,
                               long retention,
                               long timelineTime) throws TException;
 
+    /**
+     *
+     * @return a list of all users
+     */
     Collection<User> listUsers();
 
+    /**
+     *
+     * @param userId
+     * @return the tenant that the specified user belongs to
+     */
     Optional<Tenant> tenantFor(long userId);
 
+    /**
+     *
+     * @param userId
+     * @return the tenant id that the user belongs to.
+     *
+     * @throws SecurityException
+     */
     Long tenantId(long userId) throws SecurityException;
-
-    boolean hasAccess(long userId, String volumeName);
-
-    User userFor(AuthenticationToken token) throws SecurityException;
 
     User getUser(long userId);
 

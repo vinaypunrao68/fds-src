@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2014 Formation Data Systems.
- * All rights reserved.
+ * Copyright (c) 2015 Formation Data Systems. All rights reserved.
  */
 
 package com.formationds.om.webkit.rest.snapshot;
 
 import com.formationds.commons.model.SnapshotPolicy;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -27,9 +27,9 @@ public class ListSnapshotPoliciesForVolume
         LoggerFactory.getLogger( ListSnapshotPoliciesForVolume.class );
 
     private static final String REQ_PARAM_VOLUME_ID = "volumeId";
-    private com.formationds.util.thrift.ConfigurationApi config;
+    private ConfigurationApi config;
 
-    public ListSnapshotPoliciesForVolume(final com.formationds.util.thrift.ConfigurationApi config) {
+    public ListSnapshotPoliciesForVolume(final ConfigurationApi config) {
         this.config = config;
     }
 

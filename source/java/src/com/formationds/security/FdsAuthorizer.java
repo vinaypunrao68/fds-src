@@ -1,10 +1,13 @@
-package com.formationds.security;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
+package com.formationds.security;
 
 import com.formationds.apis.User;
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.commons.model.Volume;
 import com.formationds.util.thrift.ConfigurationApi;
+import org.apache.thrift.TException;
 
 public class FdsAuthorizer implements Authorizer {
     private ConfigurationApi config;
@@ -24,15 +27,32 @@ public class FdsAuthorizer implements Authorizer {
 
     @Override
     public boolean hasAccess(AuthenticationToken token, String volume) throws SecurityException {
-        User user = userFor(token);
-        if (user.isIsFdsAdmin()) {
-            return true;
+        try {
+            VolumeDescriptor v = config.statVolume("", volume);
+            if (v == null) {
+                return false;
+            }
+
+            User user = userFor(token);
+            if (user.isIsFdsAdmin()) {
+                return true;
+            }
+
+            long tenantId = v.getTenantId();
+
+            return config.tenantId(user.getId()) == tenantId;
+
+        } catch (TException e) {
+            throw new IllegalStateException("Failed to access server.", e);
         }
-        return config.hasAccess(user.getId(), volume);
     }
 
     @Override
     public User userFor(AuthenticationToken token) throws SecurityException {
-        return config.userFor(token);
+        User user = config.getUser(token.getUserId());
+        if (user == null || !user.getSecret().equals(token.getSecret())) {
+            throw new SecurityException();
+        }
+        return user;
     }
 }

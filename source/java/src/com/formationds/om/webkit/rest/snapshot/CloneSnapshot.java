@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.om.webkit.rest.snapshot;
@@ -8,6 +8,7 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.om.webkit.rest.SetVolumeQosParams;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -28,10 +29,10 @@ public class CloneSnapshot
 
   private static final String REQ_PARAM_SNAPSHOT_ID = "snapshotId";
   private static final String REQ_PARAM_CLONE_VOLUME_NAME = "cloneVolumeName";
-  private com.formationds.util.thrift.ConfigurationApi config;
+  private ConfigurationApi config;
   private FDSP_ConfigPathReq.Iface                     legacyConfigPath;
 
-    public CloneSnapshot(final com.formationds.util.thrift.ConfigurationApi config,
+    public CloneSnapshot(final ConfigurationApi config,
                          final FDSP_ConfigPathReq.Iface legacyConfigPath) {
         this.config = config;
         this.legacyConfigPath = legacyConfigPath;

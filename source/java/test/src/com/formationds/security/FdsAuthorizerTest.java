@@ -1,13 +1,16 @@
 package com.formationds.security;
 
 import com.formationds.apis.User;
+import com.formationds.apis.VolumeDescriptor;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.google.common.collect.Lists;
+import org.apache.thrift.TException;
 import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -25,9 +28,10 @@ public class FdsAuthorizerTest {
     @Before
     public void setUp() throws Exception {
         cachedConfig = mock(ConfigurationApi.class);
+        when(cachedConfig.listUsers()).thenReturn(Lists.newArrayList(USER));
+        when(cachedConfig.getUser(eq(USER_ID))).thenReturn(USER);
         when(cachedConfig.allUsers(0)).thenReturn(Lists.newArrayList(USER));
         when(cachedConfig.tenantId(eq(USER_ID))).thenReturn(tenantId);
-        when(cachedConfig.hasAccess(eq(USER_ID), eq(VOLUME_NAME))).thenReturn(false);
         authorizer = new FdsAuthorizer(cachedConfig);
     }
 
@@ -62,18 +66,22 @@ public class FdsAuthorizerTest {
 
     @Test(expected = SecurityException.class)
     public void testHasAccessWithSecretMismatch() {
+        try {
+            when(cachedConfig.statVolume("", "foo")).thenReturn(new VolumeDescriptor());
+        } catch (TException e) {
+            fail("unexpected exception." + e);
+        }
+
         authorizer.hasAccess(new AuthenticationToken(USER_ID, "badSecret"), "foo");
     }
 
     @Test
     public void testHasAccessFails() {
         assertFalse(authorizer.hasAccess(new AuthenticationToken(USER_ID, SECRET), VOLUME_NAME));
-        verify(cachedConfig, times(1)).hasAccess(eq(USER_ID), eq(VOLUME_NAME));
     }
 
     @Test
     public void testHasAccessSucceeds() {
         assertFalse(authorizer.hasAccess(new AuthenticationToken(USER_ID, SECRET), "foo"));
-        verify(cachedConfig, times(1)).hasAccess(eq(USER_ID), eq(VOLUME_NAME));
     }
 }

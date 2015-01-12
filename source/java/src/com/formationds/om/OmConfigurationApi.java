@@ -312,32 +312,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     /**
      *
      * @param userId
-     * @param volumeName
-     * @return true if the user has access to the volume
-     */
-    @Override
-    public boolean hasAccess(long userId, String volumeName) {
-        return map.get(KEY).hasAccess(userId, volumeName);
-    }
-
-    /**
-     *
-     * @param token
-     * @return the user associated with the specified authentication token
-     * @throws SecurityException if no user found
-     */
-    @Override
-    public User userFor(AuthenticationToken token) throws SecurityException {
-        return get().users().stream()
-                    .filter(u -> u.getId() == token.getUserId())
-                    .filter(u -> u.getSecret().equals(token.getSecret()))
-                    .findFirst()
-                    .orElseThrow(SecurityException::new);
-    }
-
-    /**
-     *
-     * @param userId
      * @return
      */
     @Override

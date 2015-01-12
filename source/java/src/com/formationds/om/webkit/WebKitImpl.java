@@ -30,6 +30,7 @@ import com.formationds.om.webkit.rest.snapshot.RestoreSnapshot;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.HttpsConfiguration;
@@ -88,15 +89,16 @@ public class WebKitImpl {
                       ( ) -> new GrantToken( SingletonConfigAPI.instance()
                                                          .api(),
                                              authenticator,
+                                             authorizer,
                                              secretKey ) );
         webApp.route( HttpMethod.GET, "/api/auth/token",
                       ( ) -> new GrantToken( SingletonConfigAPI.instance()
                                                          .api(),
                                              authenticator,
+                                             authorizer,
                                              secretKey ) );
         authenticate( HttpMethod.GET, "/api/auth/currentUser",
-                      ( t ) -> new CurrentUser( SingletonConfigAPI.instance()
-                                                            .api(),
+                      ( t ) -> new CurrentUser( authorizer,
                                                 t ) );
 
         fdsAdminOnly( HttpMethod.GET, "/api/config/services",
@@ -272,7 +274,7 @@ public class WebKitImpl {
                           SingletonConfigAPI.instance().api() ) );
     }
 
-    private void snapshot( final com.formationds.util.thrift.ConfigurationApi config,
+    private void snapshot( final ConfigurationApi config,
                            final FDSP_ConfigPathReq.Iface legacyConfigPath,
                            Authorizer authorizer ) {
         if( !FdsFeatureToggles.SNAPSHOT_ENDPOINT.isActive() ) {
@@ -294,7 +296,7 @@ public class WebKitImpl {
         logger.trace( "registered snapshot endpoints" );
     }
 
-    private void snapshotPosts( final com.formationds.util.thrift.ConfigurationApi config,
+    private void snapshotPosts( final ConfigurationApi config,
                                 final FDSP_ConfigPathReq.Iface legacyConfigPath,
                                 final Authorizer authorizer ) {
         // POST methods
@@ -310,7 +312,7 @@ public class WebKitImpl {
                       ( t ) -> new CloneSnapshot( config, legacyConfigPath ) );
     }
 
-    private void snapshotPuts( final com.formationds.util.thrift.ConfigurationApi config,
+    private void snapshotPuts( final ConfigurationApi config,
                                final Authorizer authorizer ) {
         //PUT methods
         authenticate( HttpMethod.PUT,
@@ -323,7 +325,7 @@ public class WebKitImpl {
                       ( t ) -> new EditSnapshotPolicy( config ) );
     }
 
-    private void snapshotGets(final com.formationds.util.thrift.ConfigurationApi config,
+    private void snapshotGets(final ConfigurationApi config,
                               final Authorizer authorizer) {
         // GET methods
         authenticate( HttpMethod.GET, "/api/config/snapshot/policies",
@@ -339,7 +341,7 @@ public class WebKitImpl {
                       ( t ) -> new ListSnapshotsByVolumeId( config ) );
     }
 
-    private void snapshotDeletes( final com.formationds.util.thrift.ConfigurationApi config,
+    private void snapshotDeletes( final ConfigurationApi config,
                                   final Authorizer authorizer ) {
         // DELETE methods
         authenticate( HttpMethod.DELETE, "/api/config/snapshot/policies/:policyId",

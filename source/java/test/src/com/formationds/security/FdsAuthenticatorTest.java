@@ -1,6 +1,5 @@
 package com.formationds.security;
 
-import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.User;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.google.common.collect.Lists;
@@ -8,6 +7,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import javax.security.auth.login.LoginException;
+
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.AdditionalMatchers.not;
@@ -39,9 +40,13 @@ public class FdsAuthenticatorTest {
     @Test
     public void testAuthenticateSuccess() throws Exception {
         HashedPassword hasher = new HashedPassword();
-        when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList(
-                new User(USER_ID, "james", hasher.hash("james"), "foo", false),
-                new User(43, "fab", hasher.hash("fab"), "bar", false)));
+        List<User> users = Lists.newArrayList(new User(USER_ID, "james", hasher.hash("james"), "foo", false),
+                                              new User(43, "fab", hasher.hash("fab"), "bar", false));
+        when(config.allUsers(anyLong())).thenReturn(users);
+        when(config.getUser("james")).thenReturn(users.get(0));
+        when(config.getUser("fab")).thenReturn(users.get(1));
+
+        List<User> crap = config.allUsers(1);
 
         AuthenticationToken token = authenticator.authenticate("james", "james");
         assertEquals(42, token.getUserId());

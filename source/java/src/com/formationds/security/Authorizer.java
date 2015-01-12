@@ -1,13 +1,37 @@
-package com.formationds.security;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
+package com.formationds.security;
 
 import com.formationds.apis.User;
 
 public interface Authorizer {
+
+    /**
+     * This API is two-part.  First, it determines that the user authentication token
+     * is valid via #userFor(AuthenticationToken).  Then it returns the tenant id
+     * the user is associated with.
+     *
+     * @param token
+     * @return the tenant id
+     * @throws SecurityException if the token is not valid.
+     */
     long tenantId(AuthenticationToken token) throws SecurityException;
+
+    /**
+     *
+     * @param token
+     * @param volume
+     * @return
+     */
     boolean hasAccess(AuthenticationToken token, String volume);
+
+    /**
+     *
+     * @param token
+     * @return
+     * @throws SecurityException
+     */
     User userFor(AuthenticationToken token) throws SecurityException;
 
     /**

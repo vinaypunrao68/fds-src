@@ -1,5 +1,5 @@
-/*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+/**
+ * Copyright (c) 2015 Formation Data Systems. All rights reserved.
  */
 
 package com.formationds.xdi;
@@ -113,32 +113,23 @@ public class XdiConfigurationApi implements ConfigurationApi, ConfigurationServi
 
     @Override
     public Collection<User> listUsers() {
-        return null;
+        return fillCacheMaybe().users();
     }
 
     @Override
     public Optional<Tenant> tenantFor(long userId) {
-        return null;
+        return fillCacheMaybe().tenantFor(userId);
     }
 
     @Override
     public Long tenantId(long userId) throws SecurityException {
-        return null;
-    }
-
-    @Override
-    public boolean hasAccess(long userId, String volumeName) {
-        return false;
-    }
-
-    @Override
-    public User userFor(AuthenticationToken token) throws SecurityException {
-        return null;
+        return fillCacheMaybe().tenantId(userId);
     }
 
     @Override
     public User getUser(long userId) {
-        return null;
+        return fillCacheMaybe().usersById()
+                               .get(userId);
     }
 
     @Override

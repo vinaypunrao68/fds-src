@@ -1,9 +1,13 @@
+/**
+ * Copyright (c) 2015 Formation Data Systems. All rights reserved.
+ */
 package com.formationds.om.webkit.rest;
 
 import java.util.Map;
 
 import javax.crypto.SecretKey;
 
+import com.formationds.util.thrift.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -13,10 +17,10 @@ import com.formationds.web.toolkit.Resource;
 
 public class RevokeUserFromTenant implements RequestHandler{
 
-	    private com.formationds.util.thrift.ConfigurationApi configCache;
+	    private ConfigurationApi configCache;
 		private SecretKey                                    secretKey;
 
-	public RevokeUserFromTenant(com.formationds.util.thrift.ConfigurationApi configCache, SecretKey secretKey) {
+	public RevokeUserFromTenant(ConfigurationApi configCache, SecretKey secretKey) {
 		this.configCache = configCache;
 		this.secretKey = secretKey;
 	}

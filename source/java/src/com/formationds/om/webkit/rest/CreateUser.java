@@ -1,9 +1,10 @@
-package com.formationds.om.webkit.rest;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
+package com.formationds.om.webkit.rest;
 
 import com.formationds.security.HashedPassword;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -15,10 +16,10 @@ import java.util.Map;
 import java.util.UUID;
 
 public class CreateUser implements RequestHandler {
-    private com.formationds.util.thrift.ConfigurationApi configCache;
+    private ConfigurationApi configCache;
     private SecretKey                                    secretKey;
 
-    public CreateUser(com.formationds.util.thrift.ConfigurationApi configCache, SecretKey secretKey) {
+    public CreateUser(ConfigurationApi configCache, SecretKey secretKey) {
         this.configCache = configCache;
         this.secretKey = secretKey;
     }

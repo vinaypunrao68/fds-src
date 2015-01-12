@@ -1,12 +1,13 @@
-package com.formationds.om.webkit.rest;
-/*
- * Copyright 2014 Formation Data Systems, Inc.
+/**
+ * Copyright (c) 2015 Formation Data Systems. All rights reserved.
  */
+package com.formationds.om.webkit.rest;
 
 import com.formationds.apis.User;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.security.HashedPassword;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -21,11 +22,11 @@ import java.util.Optional;
 
 public class UpdatePassword implements RequestHandler {
     private AuthenticationToken token;
-    private com.formationds.util.thrift.ConfigurationApi configCache;
+    private ConfigurationApi configCache;
     private SecretKey                                    secretKey;
     private Authorizer                                   authorizer;
 
-    public UpdatePassword(AuthenticationToken token, com.formationds.util.thrift.ConfigurationApi configCache,
+    public UpdatePassword(AuthenticationToken token, ConfigurationApi configCache,
                           SecretKey secretKey, Authorizer authorizer) {
         this.token = token;
         this.configCache = configCache;
