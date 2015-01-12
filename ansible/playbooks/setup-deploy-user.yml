@@ -1,0 +1,27 @@
+---
+-   name: setup standard deployment user account
+    hosts: all
+    gather_facts: false
+    sudo: true
+
+    tasks:
+        -   name: create 'deploy' group
+            group:
+                name=deploy
+                state=present
+                system=yes
+
+        -   name: create 'deploy' user
+            user:
+                name=deploy
+                group=deploy
+                home=/home/deploy
+                createhome=yes
+                system=yes
+                shell=/bin/bash
+                groups=sudo
+
+        -   name: add pub key
+            authorized_key:
+                user=deploy
+                key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCsW+8SXG1+d0vAJjNWmZj2tahso3u4c0mRFsCg5sjRak/47Rsp5ZbzKp4fK/vs5Zjmmm9W1KZ4S4OlMcwPJBFYt6anv4q1xuiX6gKNBNC9D98qU449/wulCiLPokvgOMWg8+JMq+KqEclsiVotGNyi44lkgeQwrs4V02D1ht8DEp/7uiDZzM+RgB9ZcU/PRZatn9KwSt2dUXEmu9+oeNDPXnfEX0cymn54HiV17+SlPE2bKi27dtzs2X5l8r2yC6hoNf4lOytoeEtpoAFhhLfJge0vi/l2qyr4pXuhSrb9sKHTx8Qx05OFyvXmN76LEDMQNcbWvIolWJypuvbsTnFx"
