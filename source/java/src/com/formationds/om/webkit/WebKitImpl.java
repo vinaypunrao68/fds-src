@@ -77,8 +77,11 @@ public class WebKitImpl {
 
     public void start( ) {
 
-        webApp = new WebApp( webDir );
+        final FDSP_ConfigPathReq.Iface legacyConfig =
+            SingletonLegacyConfig.instance().api();
+        final ConfigurationApi configAPI = SingletonConfigAPI.instance().api();
 
+        webApp = new WebApp( webDir );
         webApp.route( HttpMethod.GET, "", ( ) -> new LandingPage( webDir ) );
 
         webApp.route( HttpMethod.POST, "/api/auth/token",
@@ -95,14 +98,10 @@ public class WebKitImpl {
                                                 t ) );
 
         fdsAdminOnly( HttpMethod.GET, "/api/config/services",
-                      ( t ) -> new ListServices(
-                          SingletonLegacyConfig.instance()
-                                               .api() ),
+                      ( t ) -> new ListServices( legacyConfig ),
                       authorizer );
         fdsAdminOnly( HttpMethod.POST, "/api/config/services/:node_uuid",
-                      ( t ) -> new ActivatePlatform(
-                          SingletonLegacyConfig.instance()
-                                               .api() ),
+                      ( t ) -> new ActivatePlatform( legacyConfig ),
                       authorizer );
 
         fdsAdminOnly( HttpMethod.GET, "/api/config/globaldomain",
@@ -112,24 +111,16 @@ public class WebKitImpl {
 
         // TODO: security model for statistics streams
         authenticate( HttpMethod.POST, "/api/config/streams",
-                      ( t ) -> new RegisterStream(
-                          SingletonConfigAPI.instance()
-                                            .api() ) );
+                      ( t ) -> new RegisterStream( configAPI ) );
         authenticate( HttpMethod.GET, "/api/config/streams",
-                      ( t ) -> new ListStreams( SingletonConfigAPI.instance()
-                                                                  .api() ) );
+                      ( t ) -> new ListStreams( configAPI ) );
         authenticate( HttpMethod.PUT, "/api/config/streams",
-                      ( t ) -> new DeregisterStream(
-                          SingletonConfigAPI.instance()
-                                            .api() ) );
+                      ( t ) -> new DeregisterStream( configAPI ) );
 
         /*
          * provides snapshot RESTful API endpoints
          */
-        snapshot( SingletonConfigAPI.instance()
-                                    .api(),
-                  SingletonLegacyConfig.instance()
-                                       .api() );
+        snapshot( configAPI, legacyConfig );
 
         /*
          * provides metrics RESTful API endpoints
@@ -146,59 +137,48 @@ public class WebKitImpl {
                                                             .api(),
                                                 SingletonAmAPI.instance()
                                                               .api(),
-                                                SingletonLegacyConfig.instance()
-                                                                     .api(),
+                                                legacyConfig,
                                                 t ) );
         authenticate( HttpMethod.POST, "/api/config/volumes",
                       ( t ) -> new CreateVolume( authorizer,
-                                                 SingletonLegacyConfig.instance()
-                                                                      .api(),
-                                                 SingletonConfigAPI.instance()
-                                                                   .api(),
+                                                 legacyConfig,
+                                                 configAPI,
                                                  t ) );
         authenticate( HttpMethod.POST,
                       "/api/config/volumes/clone/:volumeId/:cloneVolumeName/:timelineTime",
-                      ( t ) -> new CloneVolume( SingletonConfigAPI.instance()
-                                                                  .api(),
-                                                SingletonLegacyConfig.instance()
-                                                                     .api() ) );
+                      ( t ) -> new CloneVolume( configAPI,
+                                                legacyConfig ) );
         authenticate( HttpMethod.DELETE, "/api/config/volumes/:name",
                       ( t ) -> new DeleteVolume( SingletonXdi.instance()
                                                              .api(),
                                                  t ) );
         authenticate( HttpMethod.PUT, "/api/config/volumes/:uuid",
                       ( t ) -> new SetVolumeQosParams(
-                          SingletonLegacyConfig.instance()
-                                               .api(),
+                          legacyConfig,
                           SingletonConfigAPI.instance()
                                             .api(),
                           authorizer,
                           t ) );
 
         fdsAdminOnly( HttpMethod.GET, "/api/system/token/:userid",
-                      ( t ) -> new ShowToken( SingletonConfigAPI.instance()
-                                                                .api(),
+                      ( t ) -> new ShowToken( configAPI,
                                               secretKey ),
                       authorizer );
         fdsAdminOnly( HttpMethod.POST, "/api/system/token/:userid",
-                      ( t ) -> new ReissueToken( SingletonConfigAPI.instance()
-                                                                   .api(),
+                      ( t ) -> new ReissueToken( configAPI,
                                                  secretKey ),
                       authorizer );
         fdsAdminOnly( HttpMethod.POST, "/api/system/users/:login/:password",
-                      ( t ) -> new CreateUser( SingletonConfigAPI.instance()
-                                                                 .api(),
+                      ( t ) -> new CreateUser( configAPI,
                                                secretKey ),
                       authorizer );
         authenticate( HttpMethod.PUT, "/api/system/users/:userid/:password",
                       ( t ) -> new UpdatePassword( t,
-                                                   SingletonConfigAPI.instance()
-                                                                     .api(),
+                                                   configAPI,
                                                    secretKey,
                                                    authorizer ) );
         fdsAdminOnly( HttpMethod.GET, "/api/system/users",
-                      ( t ) -> new ListUsers( SingletonConfigAPI.instance()
-                                                                .api(),
+                      ( t ) -> new ListUsers( configAPI,
                                               secretKey ),
                       authorizer );
 
@@ -385,7 +365,7 @@ public class WebKitImpl {
 
         // TODO: only the AM should be sending this event to us. How can we validate that?
         webApp.route( HttpMethod.PUT, "/api/events/log/:event",
-                      ( ) -> new IngestEvents() );
+                      IngestEvents::new );
 
         authenticate( HttpMethod.PUT, "/api/config/events",
                       ( t ) -> new QueryEvents() );
