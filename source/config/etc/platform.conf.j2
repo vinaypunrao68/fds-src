@@ -47,27 +47,14 @@ fds: {
 
     /* Use this section for settings that are shared (or needed) by most or all processes */
     common: {
-{#  This sets the om_ip_list based on the populated om_ip's #}
-{#  During generation of these files with ansible, only 1, 3, or 5 Hosts are permitted in the om_ip_list #}
-{%  if ft_common_enable_multi_om_support == 'true' %}
-{%      if om_ip_5 != unset_host_ip %}
-{#          Using this error = {{ some undefined variable }} is clucky, but it works. #}
-{%          if om_ip_1 == unset_host_ip %} error = {{ om_ip_1_is_not_defined }} {% endif %}
-{%          if om_ip_2 == unset_host_ip %} error = {{ om_ip_2_is_not_defined }} {% endif %}
-{%          if om_ip_3 == unset_host_ip %} error = {{ om_ip_3_is_not_defined }} {% endif %}
-{%          if om_ip_4 == unset_host_ip %} error = {{ om_ip_4_is_not_defined }} {% endif %}
-        om_ip_list = "{{ om_ip_1 }}:{{ om_ip_2 }}:{{ om_ip_3 }}:{{ om_ip_4 }}:{{ om_ip_5 }}"
-{%      elif om_ip_3 != unset_host_ip %}
-{%          if om_ip_1 == unset_host_ip %} error = {{ om_ip_1_is_not_defined }} {% endif %}
-{%          if om_ip_2 == unset_host_ip %} error = {{ om_ip_2_is_not_defined }} {% endif %}
-        om_ip_list = "{{ om_ip_1 }}:{{ om_ip_2 }}:{{ om_ip_3 }}"
-{%      elif om_ip_1 != unset_host_ip %}
-        om_ip_list = "{{ om_ip_1 }}"
-{%      else %}
-{#i         This creates an error, causing Ansible to fail #}
-            om_ip_list = {{ undefined_om_ip_1_variable_in_inventory_file }}
-{%      endif %}
-{%  endif %}
+{% if om_ip_count != empty_om_list %}
+{% set hosts = groups[group_names[0]] %}
+{% for i in range(om_ip_count|int) %}
+{% if loop.first %}        om_ip_list = "{% endif %}{{ hosts[i] }}{% if not loop.last %}:{% endif %}
+{% endfor %}"
+{% else %}
+         om_ip_list = "{{ empty_om_list }}"
+{% endif %}
 
         java_is_fussy_an_entry_must_exist_here = true
     }

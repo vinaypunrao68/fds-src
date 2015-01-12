@@ -1,0 +1,4 @@
+---
+empty_om_list: "configure_via_the_inventory_file"
+hosts_in_group: "{{ groups[group_names[0]] | length }}"
+om_ip_count: "{{ fds_om_host_count if fds_om_host_count is defined and fds_ft_common_enable_multi_om_support is defined and fds_ft_common_enable_multi_om_support == 'true' else empty_om_list }}"
