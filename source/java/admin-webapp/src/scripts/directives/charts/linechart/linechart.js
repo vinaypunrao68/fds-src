@@ -86,6 +86,11 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     });
                 });
                 
+                // this is commented out because when we think about the limit while determining the max
+                // we easily end up with a chart that looks completely empty when y values are low.
+                // For now I'd rather see an expansive chart than an empty on with a limit line but
+                // that may not be how it shakes out - so I didn't want to re-think this if it
+                // needs to be added back
 //                if ( angular.isDefined( $scope.limit ) ){
 //                    if ( $scope.limit > $max ){
 //                        $max = $scope.limit;
@@ -298,10 +303,6 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .attr( 'x1', $xScale( $xMin ) )
                     .attr( 'x2', function( d ){
                     
-//                        if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints )){
-//                            return $xScale( $scope.data.series[0].datapoints.length-1 );
-//                        }
-                    
                         return $xScale( $xMax );
                     })
                     .attr( 'y1', $yScale( 0 ) )
@@ -454,17 +455,6 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
 
                     return 0;
                 };
-                
-                //sort
-//                for ( var i = 0; angular.isDefined( newVal.series ) && i < newVal.series.length; i++ ){
-//                    var dataset = newVal.series[i].datapoints;
-//                    
-//                    if ( !angular.isDefined( dataset ) ){
-//                        continue;
-//                    }
-//                    
-//                    dataset.sort( sorter );
-//                }
                 
                 if ( newVal.series.length === oldVal.series.length &&
                    $svg.selectAll( '.series-group' )[0].length !== 0 ){
