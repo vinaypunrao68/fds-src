@@ -256,4 +256,9 @@ SmDiskMap::getDiskIds(diskio::DataTier tier) const {
     return diskIds;
 }
 
+fds_uint32_t
+SmDiskMap::getTotalDisks() const {
+    return (hdd_ids.size() + ssd_ids.size());
+}
+
 }  // namespace fds
