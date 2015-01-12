@@ -452,9 +452,9 @@ void FdsProcess::daemonize() {
             }
         } else {
             ret = close(i);
-            if (-1 == ret) {
-                LOGERROR << "Error on closing old open file descriptors: errno " << errno;
-            }
+            /* intentionally ignoring return value. some file descriptor may not be
+             * open for closing.  not all entries in the dtable is populated.
+             */
         }
     }
 
