@@ -155,6 +155,10 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     // but disk and ssd capacity is in GB
     double vol_capacity_GB = pVolDesc->capacity / 1024;
     fds_uint32_t replication_factor = REPLICATION_FACTOR;
+    
+    LOGNORMAL << "new data "
+              << "[min.iops:" << pVolDesc->iops_min << "] "
+              << "[max.iops:" << pVolDesc->iops_max << "] ";
 
     // Check max object size
     if ((pVolDesc->maxObjSizeInBytes < minVolObjSize) ||
@@ -178,7 +182,7 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
 
-    if (pVolDesc->iops_min > pVolDesc->iops_max) {
+    if ((pVolDesc->iops_max > 0) && (pVolDesc->iops_min > pVolDesc->iops_max)) {
         LOGERROR << " Cannot admit volume " << pVolDesc->name
                  << " -- iops_min must be below iops_max";
         return Error(ERR_VOL_ADMISSION_FAILED);
