@@ -90,7 +90,7 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
  */
 void
 SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                boost::shared_ptr<fpi::CtrlObjectRebalanceInitialSet>& initialObjSet)
+                                 fpi::CtrlObjectRebalanceInitialSetPtr& initialObjSet)
 {
     Error err(ERR_OK);
     LOGDEBUG << "Initiate Object Sync";
@@ -110,9 +110,15 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
 void
 SMSvcHandler::syncObjectSet(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                boost::shared_ptr<fpi::CtrlObjectRebalanceDeltaSet>& deltaObjSet)
+                            fpi::CtrlObjectRebalanceDeltaSetPtr& deltaObjSet)
 {
-    LOGDEBUG << "Sync Object Set";
+    Error err(ERR_OK);
+    LOGDEBUG << "Received Sync Object Set from SM " << std::hex
+             << asyncHdr->msg_src_uuid.svc_uuid << std::dec;
+    err = objStorMgr->migrationMgr->recvRebalanceDeltaSet(deltaObjSet);
+
+    // TODO(Anna) respond with error, are we responding on success?
+    fds_verify(err.ok());
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

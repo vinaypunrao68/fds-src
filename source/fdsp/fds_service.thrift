@@ -1057,7 +1057,7 @@ struct CtrlObjectRebalanceDeltaSet
 {
     /*
      * unique id of executor on the destination SM
-     /
+     */
     1: i64 executorID
 
     /* sequence number of the delta set.  It's not important to handle
