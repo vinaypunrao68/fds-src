@@ -5,11 +5,10 @@ package com.formationds.om.webkit.rest;
 
 import com.formationds.apis.User;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.CachedConfiguration;
-import com.formationds.xdi.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -19,7 +18,7 @@ import java.util.UUID;
 
 public class ReissueToken implements RequestHandler {
     private ConfigurationApi configCache;
-    private SecretKey secretKey;
+    private SecretKey        secretKey;
 
     public ReissueToken(ConfigurationApi configCache, SecretKey secretKey) {
         this.configCache = configCache;
@@ -29,13 +28,11 @@ public class ReissueToken implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         long userId = requiredLong(routeParameters, "userid");
-        CachedConfiguration cachedConfiguration = configCache.get();
-        Map<Long, User> users = cachedConfiguration.usersById();
-        if (!users.containsKey(userId)) {
+        User user = configCache.getUser(userId);
+        if (user == null) {
             return new JsonResource(new JSONObject().put("status", "not found"), 404);
         }
 
-        User user = users.get(userId);
         String secret = UUID.randomUUID().toString();
         configCache.updateUser(user.getId(), user.getIdentifier(), user.getPasswordHash(), secret, user.isIsFdsAdmin());
         String token = new AuthenticationToken(user.getId(), secret).signature(secretKey);

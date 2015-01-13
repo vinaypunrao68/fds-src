@@ -54,9 +54,12 @@ NUMBER_USERS = 30
 SAMPLE_FILE = "test.txt"
 ROOT = "/root/"
 ANSIBLE_ROOT = "../../../ansible/"
-EC2_TEMPLATE = "../templates/ec2"
+EC2_TEMPLATE = "./templates/ec2"
 BAREMETAL_TEMPLATE = "./templates/baremetal"
 VAULT_PASS = ".vault_pass.txt"
 DESTROY_EC2 = "scripts/teardown_ec2_cluster.sh %s"
 START_EC2 = "scripts/deploy_fds_ec2.sh %s %s %s"
 START_BAREMETAL = "scripts/deploy_fds.sh %s %s"
+
+LOCAL_CLUSTER_IP_TABLE = ("10.2.10.200", "10.2.10.201", "10.2.10.202", 
+                          "10.2.10.203")

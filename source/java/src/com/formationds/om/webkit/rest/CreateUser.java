@@ -1,13 +1,13 @@
-package com.formationds.om.webkit.rest;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
+package com.formationds.om.webkit.rest;
 
 import com.formationds.security.HashedPassword;
+import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.ConfigurationApi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -17,7 +17,7 @@ import java.util.UUID;
 
 public class CreateUser implements RequestHandler {
     private ConfigurationApi configCache;
-    private SecretKey secretKey;
+    private SecretKey                                    secretKey;
 
     public CreateUser(ConfigurationApi configCache, SecretKey secretKey) {
         this.configCache = configCache;

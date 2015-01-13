@@ -13,7 +13,6 @@ import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.builder.MetricCriteriaQueryBuilder;
 import com.formationds.om.repository.result.VolumeDatapointList;
-import com.formationds.xdi.ConfigurationApi;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +55,7 @@ public class MetricsRepository
       }
 
       public void prePersist(List<VolumeDatapoint> dps) {
-          ConfigurationApi config = SingletonConfigAPI.instance().api();
+          com.formationds.util.thrift.ConfigurationApi config = SingletonConfigAPI.instance().api();
           long timestamp = 0L;
           try {
               if (dps.isEmpty())

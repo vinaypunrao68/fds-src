@@ -35,14 +35,14 @@ public class XdiAsync {
     private AsyncAm asyncAm;
     private ByteBufferPool bufferPool;
     private Authorizer authorizer;
-    private ConfigurationApi configurationApi;
+    private XdiConfigurationApi    configurationApi;
     private AsyncRequestStatistics statistics;
 
     public XdiAsync(AsyncAm asyncAm,
                     ByteBufferPool bufferPool,
                     AuthenticationToken token,
                     Authorizer authorizer,
-                    ConfigurationApi configurationApi) {
+                    XdiConfigurationApi configurationApi) {
         this.asyncAm = new AuthorizedAsyncAm(token, authorizer, asyncAm);
         this.bufferPool = bufferPool;
         this.token = token;
@@ -59,9 +59,16 @@ public class XdiAsync {
     public CompletableFuture<BlobInfo> getBlobInfo(String domain, String volume, String blob) {
 
         CompletableFuture<VolumeDescriptor> volumeDescriptorFuture = statVolume(domain, volume);
-        CompletableFuture<BlobWithMetadata> getObject0Future = volumeDescriptorFuture.thenCompose(vd -> getBlobWithMetadata(domain, volume, blob, 0, vd.getPolicy().maxObjectSizeInBytes));
+        CompletableFuture<BlobWithMetadata> getObject0Future = volumeDescriptorFuture
+                                                                   .thenCompose(vd -> getBlobWithMetadata(domain,
+                                                                                                          volume, blob,
+                                                                                                          0,
+                                                                                                          vd.getPolicy().maxObjectSizeInBytes));
         return getObject0Future.thenCompose(bwm ->
-                volumeDescriptorFuture.thenApply(vd -> new BlobInfo(domain, volume, blob, bwm.getBlobDescriptor(), vd, bwm.getBytes())));
+                                                volumeDescriptorFuture
+                                                    .thenApply(vd -> new BlobInfo(domain, volume, blob,
+                                                                                  bwm.getBlobDescriptor(), vd,
+                                                                                  bwm.getBytes())));
     }
 
     public CompletableFuture<PutResult> putBlobFromStream(String domain, String volume, String blob, Map<String, String> metadata, InputStream stream) {

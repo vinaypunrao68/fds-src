@@ -1,18 +1,22 @@
-package com.formationds.security;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
+package com.formationds.security;
 
+import com.formationds.apis.Tenant;
 import com.formationds.apis.User;
-import com.formationds.xdi.CachedConfiguration;
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.commons.model.Volume;
+import com.formationds.util.thrift.ConfigurationApi;
+import org.apache.thrift.TException;
 
-import java.util.function.Supplier;
+import java.util.Optional;
 
 public class FdsAuthorizer implements Authorizer {
-    private Supplier<CachedConfiguration> configSupplier;
+    private ConfigurationApi config;
 
-    public FdsAuthorizer(Supplier<CachedConfiguration> configSupplier) {
-        this.configSupplier = configSupplier;
+    public FdsAuthorizer(ConfigurationApi config) {
+        this.config = config;
     }
 
     @Override
@@ -21,24 +25,38 @@ public class FdsAuthorizer implements Authorizer {
         if (user.isIsFdsAdmin()) {
             return 0;
         }
-        return configSupplier.get().tenantId(user.getId());
+        return config.tenantId(user.getId());
     }
 
     @Override
     public boolean hasAccess(AuthenticationToken token, String volume) throws SecurityException {
-        User user = userFor(token);
-        if (user.isIsFdsAdmin()) {
-            return true;
+        try {
+            VolumeDescriptor v = config.statVolume("", volume);
+            if (v == null) {
+                return false;
+            }
+
+            User user = userFor(token);
+            if (user.isIsFdsAdmin()) {
+                return true;
+            }
+
+            long volTenantId = v.getTenantId();
+            long userTenantId = tenantId(token);
+
+            return userTenantId == volTenantId;
+
+        } catch (TException e) {
+            throw new IllegalStateException("Failed to access server.", e);
         }
-        return configSupplier.get().hasAccess(user.getId(), volume);
     }
 
     @Override
     public User userFor(AuthenticationToken token) throws SecurityException {
-        return configSupplier.get().users().stream()
-                .filter(u -> u.getId() == token.getUserId())
-                .filter(u -> u.getSecret().equals(token.getSecret()))
-                .findFirst()
-                .orElseThrow(SecurityException::new);
+        User user = config.getUser(token.getUserId());
+        if (user == null || !user.getSecret().equals(token.getSecret())) {
+            throw new SecurityException();
+        }
+        return user;
     }
 }

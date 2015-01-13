@@ -6,12 +6,12 @@ package com.formationds.om;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
+import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.helper.SingletonLegacyConfig;
-import com.formationds.om.helper.SingletonXdi;
 import com.formationds.om.snmp.SnmpManager;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.snmp.TrapSend;
@@ -25,9 +25,9 @@ import com.formationds.security.NullAuthenticator;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.Assignment;
 import com.formationds.util.libconfig.ParsedConfig;
-import com.formationds.xdi.ConfigurationApi;
-import com.formationds.xdi.Xdi;
-import com.formationds.xdi.XdiClientFactory;
+import com.formationds.util.thrift.AmServiceClientFactory;
+import com.formationds.util.thrift.ConfigServiceClientFactory;
+import com.formationds.util.thrift.ThriftClientFactory;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,8 +106,8 @@ public class Main {
                 return ( SingletonRepositoryManager.instance()
                                                    .getEventRepository()
                                                    .save( e ) != null );
-            } );
-
+            }
+        );
 
         if(FdsFeatureToggles.FIREBREAK_EVENT.isActive()) {
 
@@ -121,25 +121,24 @@ public class Main {
 
         }
 
-        XdiClientFactory clientFactory = new XdiClientFactory();
-        final ConfigurationApi configCache = new ConfigurationApi(
-            clientFactory.remoteOmService( "localhost", 9090 ) );
+        ThriftClientFactory<ConfigurationService.Iface> configApiFactory =
+            ConfigServiceClientFactory.newConfigService("localhost", 9090);
+
+        final OmConfigurationApi configCache = new OmConfigurationApi(configApiFactory);
         SingletonConfigAPI.instance().api( configCache );
 
         EnsureAdminUser.bootstrapAdminUser( configCache );
 
-        AmService.Iface amService =
-            clientFactory.remoteAmService( "localhost", 9988 );
+        AmService.Iface amService = AmServiceClientFactory.newAmService("localhost", 9988).getClient();
         SingletonAmAPI.instance().api( amService );
 
         String omHost = "localhost";
         int omPort = platformConfig.defaultInt( "fds.om.config_port", 8903 );
-        String webDir =
-            platformConfig.defaultString( "fds.om.web_dir",
+        String webDir = platformConfig.defaultString( "fds.om.web_dir",
                                           "../lib/admin-webapp" );
 
-        FDSP_ConfigPathReq.Iface legacyConfigClient =
-            clientFactory.legacyConfig( omHost, omPort );
+        FDSP_ConfigPathReq.Iface legacyConfigClient = ConfigServiceClientFactory.newLegacyConfigService(omHost, omPort)
+                                                                                .getClient();
         SingletonLegacyConfig.instance()
                              .api( legacyConfigClient );
 
@@ -148,8 +147,7 @@ public class Main {
                                                        .toCharArray() );
         SecretKey secretKey = new SecretKeySpec( keyBytes, "AES" );
 
-        final boolean enforceAuthentication =
-            platformConfig.defaultBoolean( "fds.authentication", true );
+        final boolean enforceAuthentication = platformConfig.defaultBoolean( "fds.authentication", true );
         Authenticator authenticator =
             enforceAuthentication ? new FdsAuthenticator( configCache,
                                                           secretKey )
@@ -159,20 +157,14 @@ public class Main {
             ? new FdsAuthorizer( configCache )
             : new DumbAuthorizer();
 
-        final Xdi xdi = new Xdi( amService,
-                                 configCache,
-                                 authenticator,
-                                 authorizer,
-                                 legacyConfigClient );
-        SingletonXdi.instance()
-                    .api( xdi );
         int httpPort = platformConfig.defaultInt( "fds.om.http_port", 7777 );
         int httpsPort = platformConfig.defaultInt( "fds.om.https_port", 7443 );
 
         if( FdsFeatureToggles.WEB_KIT.isActive() ) {
 
             logger.info( "Web toolkit enabled" );
-            new WebKitImpl( authorizer,
+            new WebKitImpl( authenticator,
+                            authorizer,
                             webDir,
                             httpPort,
                             httpsPort,
