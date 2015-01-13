@@ -26,7 +26,7 @@ namespace fds {
  */
 class ObjectMetadataDb {
   public:
-    explicit ObjectMetadataDb();
+    ObjectMetadataDb();
     ~ObjectMetadataDb();
 
     typedef std::unique_ptr<ObjectMetadataDb> unique_ptr;

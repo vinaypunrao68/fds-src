@@ -1,5 +1,10 @@
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
+
 #ifndef __FDSCOMMON_H__
 #define __FDSCOMMON_H__
+
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
 namespace java FDS_ProtocolInterface

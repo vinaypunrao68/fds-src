@@ -260,8 +260,19 @@ void ObjectStorMgr::mod_startup()
     // qos defaults
     qosThrds = modProvider_->get_fds_config()->get<int>(
         "fds.sm.qos.default_qos_threads");
+
+    // the default value is for minimum number; if we have more disks
+    // then number of outstanding should be greater than number of disks
     qosOutNum = modProvider_->get_fds_config()->get<int>(
         "fds.sm.qos.default_outstanding_io");
+    fds_uint32_t minOutstanding = objectStore->getDiskCount() + 2;
+    if (minOutstanding > qosOutNum) {
+        qosOutNum = minOutstanding;
+    }
+    // we should also have enough QoS threads to serve outstanding IO
+    if (qosThrds <= qosOutNum) {
+        qosThrds = qosOutNum + 1;   // one is used for dispatcher
+    }
 
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
         /*

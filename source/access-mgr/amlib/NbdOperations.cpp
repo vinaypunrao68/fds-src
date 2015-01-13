@@ -50,18 +50,18 @@ NbdResponseVector::handleReadResponse(boost::shared_ptr<std::string> retBuf,
     return ((doneCnt + 1) == objCount);
 }
 
-std::pair<fds_uint32_t, boost::shared_ptr<std::string>>
+std::pair<fds_uint64_t, boost::shared_ptr<std::string>>
 NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> retBuf,
                                  fds_uint32_t len,
                                  fds_uint32_t seqId,
                                  const Error& err) {
     fds_verify(operation == WRITE);
+    fds_uint32_t index = (seqId == 0) ? 0 : 1;
     if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
                      (err != ERR_BLOB_NOT_FOUND)) {
         opError = err;
     } else {
         fds_uint32_t iOff = (seqId == 0) ? offset % maxObjectSizeInBytes : 0;
-        fds_uint32_t index = (seqId == 0) ? 0 : 1;
         boost::shared_ptr<std::string> writeBytes = bufVec[index];
 
         boost::shared_ptr<std::string> fauxBytes;
@@ -85,7 +85,7 @@ NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> retBuf,
         }
         return std::make_pair(offVec[index], fauxBytes);
     }
-    return std::make_pair(0, boost::shared_ptr<std::string>());
+    return std::make_pair(offVec[index], boost::shared_ptr<std::string>());
 }
 
 NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
@@ -95,7 +95,9 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
           domainName(new std::string("TestDomain")),
           blobName(new std::string("BlockBlob")),
           emptyMeta(new std::map<std::string, std::string>()),
-          blobMode(new fds_int32_t(0)) {
+          blobMode(new fds_int32_t(0)),
+          sector_map()
+{
 }
 
 // We can't initialize this in the constructor since we want to pass
@@ -178,7 +180,7 @@ NbdOperations::read(fds_uint32_t length,
         // we encode handle and sequence ID into request ID; handle is needed
         // to reply back to NBD connector and sequence ID is needed to assemble
         // all object we read back into read request from NBD connector
-        auto reqId = boost::make_shared<request_id_type>(handle, seqId);
+        auto reqId = boost::make_shared<HandleSeqPair>(handle, seqId);
 
         // blob name for block?
         LOGDEBUG << "getBlob length " << iLength << " offset " << curOffset
@@ -246,23 +248,30 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
         off->value = objectOff;
 
         // request id is 64 bit of handle + 32 bit of sequence Id
-        auto reqId = boost::make_shared<request_id_type>(handle, seqId);
+        auto reqId = boost::make_shared<HandleSeqPair>(handle, seqId);
 
-        // if the first object is not aligned or not max object size
-        // and if the last object is not max object size, we read the whole
-        // object from FDS first and will apply the update to that object
-        // and then write the whole updated object back to FDS
+        // For objects that we are only updating a part of, we need to perform
+        // a Read-Modify-Write operation. To prevent a race condition we lock
+        // that sector (4k object) for the duration of the operation and queue
+        // other requests to that offset behind it. When the operation finishes
+        // it pull the next op off the queue and enqueue it to QoS
         if (iLength != maxObjectSizeInBytes) {
             LOGNORMAL << "Will do read-modify-write for object size " << maxObjectSizeInBytes;
             // keep the data for the update to the first and last object in the response
             // so that we can apply the update to the object on read response
             resp->keepBufferForWrite(seqId, objectOff, objBuf);
-            amAsyncDataApi->getBlob(reqId,
-                                    domainName,
-                                    volumeName,
-                                    blobName,
-                                    objLength,
-                                    off);
+
+            if (sector_type::QueueResult::FirstEntry ==
+                    sector_map.queue_rmw(objectOff, {handle, seqId})) {
+                amAsyncDataApi->getBlob(reqId,
+                                        domainName,
+                                        volumeName,
+                                        blobName,
+                                        objLength,
+                                        off);
+            } else {
+                LOGDEBUG << "RMW queued: " << handle << ":" << seqId;
+            }
         } else {
             // if we are here, we don't need to read this object first; will do write
             LOGDEBUG << "putBlob length " << maxObjectSizeInBytes << " offset " << curOffset
@@ -286,7 +295,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
 
 void
 NbdOperations::getBlobResp(const Error &error,
-                           boost::shared_ptr<request_id_type>& requestId,
+                           handle_type& requestId,
                            boost::shared_ptr<std::string> buf,
                            fds_uint32_t& length) {
     NbdResponseVector* resp = NULL;
@@ -357,7 +366,7 @@ NbdOperations::getBlobResp(const Error &error,
 
 void
 NbdOperations::updateBlobResp(const Error &error,
-                              boost::shared_ptr<request_id_type>& requestId) {
+                              handle_type& requestId) {
     NbdResponseVector* resp = NULL;
     fds_int64_t handle = requestId->first;
     fds_int32_t seqId = requestId->second;
@@ -377,6 +386,27 @@ NbdOperations::updateBlobResp(const Error &error,
         }
         // get response
         resp = responses[handle];
+    }
+
+    // Unblock other RMW on the same offset if they exist
+    auto rmw = resp->wasRMW(seqId);
+    if (rmw.first) {
+        LOGDEBUG << "RMW finished offset: " << rmw.second;
+        auto e = sector_map.pop_and_delete(rmw.second);
+        if (e.first) {
+            LOGDEBUG << "RMW queuing: " << e.second.handle << ":" << e.second.seq;
+            handle_type reqId(boost::make_shared<HandleSeqPair>(e.second));
+            boost::shared_ptr<int32_t> objLength =
+                boost::make_shared<int32_t>(maxObjectSizeInBytes);
+            boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
+            off->value = rmw.second;
+            amAsyncDataApi->getBlob(reqId,
+                                    domainName,
+                                    volumeName,
+                                    blobName,
+                                    objLength,
+                                    off);
+        }
     }
 
     // update response vector
