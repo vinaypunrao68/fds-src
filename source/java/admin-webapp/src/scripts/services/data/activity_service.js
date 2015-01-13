@@ -43,13 +43,34 @@ angular.module( 'activity-management' ).factory( '$activity_service', [ '$http_f
     };
     
     service.getActivities = function( filter, callback ){
-
-//        return $http_fds.get( '/scripts/services/data/fakelogs.js',
-//            function( response ){
-//                callback( eval( response )[0] );
-//            });
         
         return $http_fds.put( '/api/config/events', filter, callback );
+    };
+    
+    service.getSystemHealth = function( callback ){
+        
+        var health = {
+            status: [
+                { 
+                    type: 'SERVICE_HEALTH',
+                    state: 'GOOD',
+                    message: 'l_services_good'
+                },
+                {
+                    type: 'CAPACITY',
+                    state: 'OKAY',
+                    message: 'l_capacity_good'
+                },
+                {
+                    type: 'FIREBREAK',
+                    state: 'BAD',
+                    message: 'l_firebreak_good'
+                }
+            ],
+            overall: 'EXCELLENT'
+        };
+        
+        callback( health );
     };
 
     return service;

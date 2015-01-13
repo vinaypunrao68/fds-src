@@ -7,8 +7,9 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     var capacityInterval = -1;
     var activityInterval = -1;
     var perfBreakdownInterval = -1;
+    var healthInterval = -1;
     
-    
+    $scope.health = {};
     $scope.activities = [];
     $scope.firebreakMax = 1440;
     $scope.minArea = 1000;
@@ -32,6 +33,10 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $scope.capacityLabels = [ $filter( 'translate' )( 'common.l_yesterday' ), $filter( 'translate' )( 'common.l_today' )];
     $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
+    
+    $scope.healthReturned = function( data ){
+        $scope.health = data;
+    };
     
     $scope.activitiesReturned = function( list ){
         $scope.activities = list.events;
@@ -247,6 +252,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $interval.cancel( perfBreakdownInterval );
         $interval.cancel( capacityInterval );
         $interval.cancel( activityInterval );
+        $interval.cancel( healthInterval );
     });
     
     var init = function(){
@@ -260,6 +266,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         capacityInterval = $interval( function(){ $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );}, 60000 );
         activityInterval = $interval( function(){ $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );}, 60000 );
         perfBreakdownInterval = $interval( function(){ $stats_service.getPerformanceBreakdownSummary( buildPerformanceBreakdownFilter(), $scope.perfBreakdownReturned );}, 60000 );
+        healthInterval = $interval( function(){ $activity_service.getSystemHealth( $scope.healthReturned ); }, 60000 );
 
         
         $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
@@ -267,6 +274,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $stats_service.getPerformanceBreakdownSummary( buildPerformanceBreakdownFilter(), $scope.perfBreakdownReturned );
         $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );
         $activity_service.getActivities( {points: 15}, $scope.activitiesReturned );
+        $activity_service.getSystemHealth( $scope.healthReturned );
     };
     
     $rootScope.$on( 'fds::authentication_success', function(){
