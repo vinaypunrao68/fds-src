@@ -200,29 +200,35 @@ class VolumeContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    def bulkget(self, vol_name, cnt=100):
+    @arg('cnt', help= "count of objs to get", type=long, default=100)
+    def bulkget(self, vol_name, cnt):
         '''
         Does bulk gets.
         TODO: Make it do random gets as well
         '''
         b = self.s3api.get_bucket(vol_name)
-        for key in b.list():
-            print self.get(vol_name, key.name.encode('ascii','ignore'))
+        i = 0
+        while True:
+            for key in b.list():
+                print self.get(vol_name, key.name.encode('ascii','ignore'))
+                i = i + 1
+                if i >= cnt:
+                    break
         return 'Done!'
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    def bulkput(self, vol_name, cnt=100):
+    @arg('cnt', help= "count of objs to put", type=long, default=100)
+    def bulkput(self, vol_name, cnt):
         '''
         Does bulk put
         TODO: Make it do random put as well
         '''
-        for i in xrange(1, cnt):
+        for i in xrange(0, cnt):
             k = "key{}".format(i)
             v = "value{}".format(i)
             print self.put(vol_name, k, v)
-        return 'Done!'
-
+            return 'Done!'
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     def get(self, vol_name, key):
