@@ -10,10 +10,25 @@ angular.module( 'display-widgets' ).directive( 'slideWindowStack', function(){
             
             $scope.slides = [];
             $scope.currentStack = [];
+            $scope.totalHeight = 40;
+            
+            var setTotalHeight = function(){
+                var slide = $scope.currentStack[ $scope.globalVars.index ];
+                $scope.totalHeight = slide.$element.find( '.ng-scope' ).height();
+                
+                if ( !angular.isDefined( $scope.totalHeight ) || $scope.totalHeight === null || $scope.totalHeight === 0 ){
+                    $timeout( setTotalHeight, 100 );
+                }
+                else {
+                    $timeout( setTotalHeight, 500 );
+                }
+            };
             
             var setIndex = function(){
                 if ( angular.isDefined( $scope.globalVars ) ){
                     $scope.globalVars.index = $scope.currentStack.length - 1;
+                    
+                    setTotalHeight();
                 }
             };
             

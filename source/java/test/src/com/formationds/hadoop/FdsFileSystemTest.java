@@ -2,10 +2,12 @@ package com.formationds.hadoop;
 
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
 import com.formationds.xdi.MemoryAmService;
 import com.formationds.xdi.XdiClientFactory;
+
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.FileSystem;
 import org.junit.After;
@@ -163,7 +165,7 @@ public class FdsFileSystemTest {
     public void testBlockSpanIo() throws Exception {
         int objectSize = 4;
         MemoryAmService mas = new MemoryAmService();
-        mas.createVolume("volume", new VolumeSettings(objectSize, VolumeType.OBJECT, 4, 0));
+        mas.createVolume("volume", new VolumeSettings(objectSize, VolumeType.OBJECT, 4, 0, MediaPolicy.HDD_ONLY));
         FileSystem fs = new FdsFileSystem(mas, "fds://volume/", objectSize);
 
         Path f = new Path("/mr.meatloaf");
@@ -233,7 +235,7 @@ public class FdsFileSystemTest {
     public void setUpUnit() throws Exception {
         String volumeName = "volume";
         MemoryAmService am = new MemoryAmService();
-        am.createVolume(volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0));
+        am.createVolume(volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY));
         fileSystem = new FdsFileSystem(am, "fds://" + volumeName + "/", OBJECT_SIZE);
     }
 
@@ -280,7 +282,7 @@ public class FdsFileSystemTest {
         long userId = cs.createUser(userName, "x", "x", false);
         cs.assignUserToTenant(userId, tenantId);
 
-        cs.createVolume(FdsFileSystem.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0), userId);
+        cs.createVolume(FdsFileSystem.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), userId);
         fileSystem = new FdsFileSystem(am, "fds://" + volumeName + "/", OBJECT_SIZE);
     }
 

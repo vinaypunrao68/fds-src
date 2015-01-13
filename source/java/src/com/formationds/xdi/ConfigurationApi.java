@@ -112,7 +112,7 @@ public class ConfigurationApi implements ConfigurationService.Iface, Supplier<Ca
     public long createTenant(String identifier)
             throws ApiException, TException {
         long tenantId = config.createTenant(identifier);
-        VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0, 0);
+        VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY);
         config.createVolume(S3Endpoint.FDS_S3, systemFolderName(tenantId), volumeSettings, tenantId);
         dropCache();
         EventManager.notifyEvent(ConfigEvent.CREATE_TENANT, identifier);
