@@ -2,7 +2,6 @@
 {% block content %}
 fds: {
     /* Network interface that all fds nodes should have */
-
     nic_if="{{ default_nic }}"
 
     /* Use genkey to generate a new one */
@@ -24,31 +23,40 @@ fds: {
         common: {
             enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
 
-            java_is_fussy_evidentally_an_entry_must_exist_here = true
+            java_is_fussy_an_entry_must_exist_here = true
         }
         plat: {
             use_disk_hints = {{ ft_platform_use_disk_hints }}
             force_simulation_mode = {{ ft_platform_force_simulation_mode }}
 
-            java_is_fussy_evidentally_an_entry_must_exist_here = true
+            java_is_fussy_an_entry_must_exist_here = true
         }
         dm: {
-            java_is_fussy_evidentally_an_entry_must_exist_here = true
+            java_is_fussy_an_entry_must_exist_here = true
         }
         sm: {
-            java_is_fussy_evidentally_an_entry_must_exist_here = true
+            java_is_fussy_an_entry_must_exist_here = true
         }
         am: {
-            java_is_fussy_evidentally_an_entry_must_exist_here = true
+            java_is_fussy_an_entry_must_exist_here = true
         }
         om: {
-            java_is_fussy_evidentally_an_entry_must_exist_here = true
+            java_is_fussy_an_entry_must_exist_here = true
         }
     }
 
     /* Use this section for settings that are shared (or needed) by most or all processes */
     common: {
-        om_ip_list = "{{ om_ip_1 }}:{{ om_ip_2 }}:{{ om_ip_3 }}:{{ om_ip_4 }}"
+{% if om_ip_count != empty_om_list %}
+{% set hosts = groups[group_names[0]] %}
+{% for i in range(om_ip_count|int) %}
+{% if loop.first %}        om_ip_list = "{% endif %}{{ hosts[i] }}{% if not loop.last %}:{% endif %}
+{% endfor %}"
+{% else %}
+         om_ip_list = "{{ empty_om_list }}"
+{% endif %}
+
+        java_is_fussy_an_entry_must_exist_here = true
     }
 
     plat: {
@@ -105,6 +113,7 @@ fds: {
 	    }
 	}
     }
+
     dm: {
         perf: { enable = {{ perf_tracing }} }
 
@@ -180,6 +189,7 @@ fds: {
             long_slots = 6
         }
     }
+
     sm: {
         perf: { enable = {{ perf_tracing }} }
 
@@ -284,6 +294,7 @@ fds: {
             period = 5
         }
     }
+
     am: {
         perf: { enable = {{ perf_tracing }} }
 
@@ -374,6 +385,7 @@ fds: {
             print_qos_stats = false
         }
     }
+
     om:
     {
         id="om"
@@ -408,6 +420,7 @@ fds: {
             community = "{{ snmp_community }}"
         }
     }
+
     checker: {
         id = "checker"
         path = "/home/bao_pham/temp/skinet2"

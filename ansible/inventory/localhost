@@ -1,1 +1,7 @@
-localhost
+[localhost]
+127.0.0.1
+
+[localhost:vars]
+fds_default_nic=lo
+fds_ft_common_enable_multi_om_support=true
+fds_om_host_count=1

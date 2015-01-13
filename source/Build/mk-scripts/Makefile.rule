@@ -382,7 +382,7 @@ fdsrepo :  $(fdsrepofile)
 # Keep track of where all relevant ansible files live
 # -----------------------------------------------------------------------------
 ansible_dir := $(incl_scripts)/../../../ansible
-run_ansible_playbook_local := ansible-playbook -i $(ansible_dir)/ansible_hosts -c local $(ansible_dir)/playbooks
+run_ansible_playbook_local := ansible-playbook -i $(ansible_dir)/inventory/localhost -c local $(ansible_dir)/playbooks
 
 # -----------------------------------------------------------------------------
 # Setup and run ansible for devsetup dependency install / config
@@ -404,7 +404,11 @@ devsetup: $(devsetup_is_up_to_date)
 # -----------------------------------------------------------------------------
 generate-config-files: $(devsetup_is_up_to_date)
 	@rm -f $(ansible_dir)/../source/config/etc/*.conf $(ansible_dir)/../source/test/formation.conf
+ifdef VERBOSE
+	$(run_ansible_playbook_local)/generate_config_files.yml
+else
 	@$(run_ansible_playbook_local)/generate_config_files.yml
+endif
 
 # -----------------------------------------------------------------------------
 # List Targets

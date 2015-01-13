@@ -5,6 +5,7 @@ package com.formationds.xdi.s3;
 
 import com.formationds.apis.ApiException;
 import com.formationds.apis.ErrorCode;
+import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
 import com.formationds.security.AuthenticationToken;
@@ -13,6 +14,7 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
+
 import org.eclipse.jetty.server.Request;
 
 import java.util.Map;
@@ -34,7 +36,7 @@ public class MultiPartUploadInitiate implements RequestHandler {
 
         if (!exists) {
             try {
-                xdi.createVolume(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0, 0));
+                xdi.createVolume(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY));
             } catch (ApiException ex) {
                 if (ex.getErrorCode() != ErrorCode.RESOURCE_ALREADY_EXISTS)
                     throw ex;

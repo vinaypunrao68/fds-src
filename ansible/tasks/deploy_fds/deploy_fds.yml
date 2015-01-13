@@ -1,4 +1,6 @@
 ---
+- include: config_sanity_check.yml
+
 - include: stop_fds.yml
 
 - include: clean_fds.yml
