@@ -1,4 +1,0 @@
-{% set hosts = groups[group_names[0]] %}
-{% for i in range(om_ip_count|int) %}
-{{ hosts[i] }}{% if not loop.last %}:{% endif %}
-{% endfor %}
