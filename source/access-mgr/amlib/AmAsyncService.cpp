@@ -11,16 +11,18 @@
 #include <fds_uuid.h>
 #include <concurrency/Mutex.h>
 #include <fds_process.h>
+
 #include <AmAsyncService.h>
+#include "AmAsyncDataApi.cxx"
 #include <responsehandler.h>
 
 namespace fds {
 
 struct RequestApi
     : public fds::apis::AsyncAmServiceRequestIf,
-      public AmAsyncDataApi<apis::RequestId>  {
-    typedef AmAsyncDataApi<apis::RequestId> fds_api_type;
-    explicit RequestApi(AmAsyncResponseApi<apis::RequestId>::shared_ptr response_api):
+      public AmAsyncDataApi<boost::shared_ptr<apis::RequestId>>  {
+    typedef AmAsyncDataApi<boost::shared_ptr<apis::RequestId>> fds_api_type;
+    explicit RequestApi(boost::shared_ptr<AmAsyncResponseApi<boost::shared_ptr<apis::RequestId>>> response_api):
         fds_api_type(response_api)
     {}
 

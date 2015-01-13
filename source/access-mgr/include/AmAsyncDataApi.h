@@ -21,7 +21,7 @@ template<typename H>
 class AmAsyncDataApi {
     typedef H handle_type;
     typedef AmAsyncResponseApi<handle_type> response_api_type;
-    typedef typename response_api_type::shared_ptr response_ptr;
+    typedef typename boost::shared_ptr<response_api_type> response_ptr;
 
   protected:
     /// Response client to use in response handler
@@ -32,67 +32,66 @@ class AmAsyncDataApi {
     explicit AmAsyncDataApi(response_api_type* response_api);
 
     ~AmAsyncDataApi() {}
-    typedef std::shared_ptr<AmAsyncDataApi> shared_ptr;
 
-    void attachVolume(boost::shared_ptr<handle_type>& requestId,
+    void attachVolume(handle_type& requestId,
                       boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName);
 
-    void volumeStatus(boost::shared_ptr<handle_type>& requestId,
+    void volumeStatus(handle_type& requestId,
                       boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName);
 
-    void volumeContents(boost::shared_ptr<handle_type>& requestId,
+    void volumeContents(handle_type& requestId,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<int32_t>& count,
                         boost::shared_ptr<int64_t>& offset);
 
-    void statBlob(boost::shared_ptr<handle_type>& requestId,
+    void statBlob(handle_type& requestId,
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName);
 
-    void startBlobTx(boost::shared_ptr<handle_type>& requestId,
+    void startBlobTx(handle_type& requestId,
                      boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
                      boost::shared_ptr<std::string>& blobName,
                      boost::shared_ptr<fds_int32_t>& blobMode);
 
-    void commitBlobTx(boost::shared_ptr<handle_type>& requestId,
+    void commitBlobTx(handle_type& requestId,
                       boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName,
                       boost::shared_ptr<std::string>& blobName,
                       boost::shared_ptr<apis::TxDescriptor>& txDesc);
 
-    void abortBlobTx(boost::shared_ptr<handle_type>& requestId,
+    void abortBlobTx(handle_type& requestId,
                      boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
                      boost::shared_ptr<std::string>& blobName,
                      boost::shared_ptr<apis::TxDescriptor>& txDesc);
 
-    void getBlob(boost::shared_ptr<handle_type>& requestId,
+    void getBlob(handle_type& requestId,
                  boost::shared_ptr<std::string>& domainName,
                  boost::shared_ptr<std::string>& volumeName,
                  boost::shared_ptr<std::string>& blobName,
                  boost::shared_ptr<int32_t>& length,
                  boost::shared_ptr<apis::ObjectOffset>& objectOffset);
 
-    void getBlobWithMeta(boost::shared_ptr<handle_type>& requestId,
+    void getBlobWithMeta(handle_type& requestId,
                          boost::shared_ptr<std::string>& domainName,
                          boost::shared_ptr<std::string>& volumeName,
                          boost::shared_ptr<std::string>& blobName,
                          boost::shared_ptr<int32_t>& length,
                          boost::shared_ptr<apis::ObjectOffset>& objectOffset);
 
-    void updateMetadata(boost::shared_ptr<handle_type>& requestId,
+    void updateMetadata(handle_type& requestId,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<std::string>& blobName,
                         boost::shared_ptr<apis::TxDescriptor>& txDesc,
                         boost::shared_ptr< std::map<std::string, std::string> >& metadata);
 
-    void updateBlobOnce(boost::shared_ptr<handle_type>& requestId,
+    void updateBlobOnce(handle_type& requestId,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<std::string>& blobName,
@@ -102,7 +101,7 @@ class AmAsyncDataApi {
                         boost::shared_ptr<apis::ObjectOffset>& objectOffset,
                         boost::shared_ptr< std::map<std::string, std::string> >& metadata);
 
-    void updateBlob(boost::shared_ptr<handle_type>& requestId,
+    void updateBlob(handle_type& requestId,
                     boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName,
@@ -112,7 +111,7 @@ class AmAsyncDataApi {
                     boost::shared_ptr<apis::ObjectOffset>& objectOffset,
                     boost::shared_ptr<bool>& isLast);
 
-    void deleteBlob(boost::shared_ptr<handle_type>& requestId,
+    void deleteBlob(handle_type& requestId,
                     boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName,

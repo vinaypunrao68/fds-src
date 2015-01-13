@@ -25,51 +25,50 @@ template<typename H>
 class AmAsyncResponseApi {
   public:
     typedef H handle_type;
-    typedef boost::shared_ptr<AmAsyncResponseApi> shared_ptr;
 
     virtual void attachVolumeResp(const Error &error,
-                                  boost::shared_ptr<handle_type>& requestId) = 0;
+                                  handle_type& requestId) = 0;
 
     virtual void startBlobTxResp(const Error &error,
-                                 boost::shared_ptr<handle_type>& requestId,
+                                 handle_type& requestId,
                                  boost::shared_ptr<apis::TxDescriptor>& txDesc) = 0;
     virtual void abortBlobTxResp(const Error &error,
-                                 boost::shared_ptr<handle_type>& requestId) = 0;
+                                 handle_type& requestId) = 0;
     virtual void commitBlobTxResp(const Error &error,
-                                  boost::shared_ptr<handle_type>& requestId) = 0;
+                                  handle_type& requestId) = 0;
 
     virtual void updateBlobResp(const Error &error,
-                                boost::shared_ptr<handle_type>& requestId) = 0;
+                                handle_type& requestId) = 0;
     virtual void updateBlobOnceResp(const Error &error,
-                                    boost::shared_ptr<handle_type>& requestId) = 0;
+                                    handle_type& requestId) = 0;
     virtual void updateMetadataResp(const Error &error,
-                                    boost::shared_ptr<handle_type>& requestId) = 0;
+                                    handle_type& requestId) = 0;
     virtual void deleteBlobResp(const Error &error,
-                                boost::shared_ptr<handle_type>& requestId) = 0;
+                                handle_type& requestId) = 0;
 
     virtual void statBlobResp(const Error &error,
-                              boost::shared_ptr<handle_type>& requestId,
+                              handle_type& requestId,
                               boost::shared_ptr<apis::BlobDescriptor>& blobDesc) = 0;
     virtual void volumeStatusResp(const Error &error,
-                                  boost::shared_ptr<handle_type>& requestId,
+                                  handle_type& requestId,
                                   boost::shared_ptr<apis::VolumeStatus>& volumeStatus) = 0;
     virtual void volumeContentsResp(
         const Error &error,
-        boost::shared_ptr<handle_type>& requestId,
+        handle_type& requestId,
         boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents) = 0;
 
     virtual void getBlobResp(const Error &error,
-                             boost::shared_ptr<handle_type>& requestId,
+                             handle_type& requestId,
                              boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length) = 0;
     virtual void getBlobWithMetaResp(const Error &error,
-                                     boost::shared_ptr<handle_type>& requestId,
+                                     handle_type& requestId,
                                      boost::shared_ptr<std::string> buf,
                                      fds_uint32_t& length,
                                      boost::shared_ptr<apis::BlobDescriptor>& blobDesc) = 0;
 };
 
-class AmAsyncXdiResponse : public AmAsyncResponseApi<apis::RequestId> {
+class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::RequestId>> {
  public:
     using client_ptr = std::shared_ptr<apis::AsyncAmServiceResponseClient>;
     using client_map = std::unordered_map<std::string, client_ptr>;
@@ -98,46 +97,46 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<apis::RequestId> {
     ~AmAsyncXdiResponse();
     typedef boost::shared_ptr<AmAsyncXdiResponse> shared_ptr;
 
-    void handshakeComplete(boost::shared_ptr<handle_type>& requestId,
+    void handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId,
                            boost::shared_ptr<int32_t>& port);
 
     void attachVolumeResp(const Error &error,
-                          boost::shared_ptr<handle_type>& requestId);
+                          boost::shared_ptr<apis::RequestId>& requestId);
 
     void startBlobTxResp(const Error &error,
-                         boost::shared_ptr<handle_type>& requestId,
+                         boost::shared_ptr<apis::RequestId>& requestId,
                          boost::shared_ptr<apis::TxDescriptor>& txDesc);
     void abortBlobTxResp(const Error &error,
-                         boost::shared_ptr<handle_type>& requestId);
+                         boost::shared_ptr<apis::RequestId>& requestId);
     void commitBlobTxResp(const Error &error,
-                          boost::shared_ptr<handle_type>& requestId);
+                          boost::shared_ptr<apis::RequestId>& requestId);
 
     void updateBlobResp(const Error &error,
-                        boost::shared_ptr<handle_type>& requestId);
+                        boost::shared_ptr<apis::RequestId>& requestId);
     void updateBlobOnceResp(const Error &error,
-                            boost::shared_ptr<handle_type>& requestId);
+                            boost::shared_ptr<apis::RequestId>& requestId);
     void updateMetadataResp(const Error &error,
-                            boost::shared_ptr<handle_type>& requestId);
+                            boost::shared_ptr<apis::RequestId>& requestId);
     void deleteBlobResp(const Error &error,
-                        boost::shared_ptr<handle_type>& requestId);
+                        boost::shared_ptr<apis::RequestId>& requestId);
 
     void statBlobResp(const Error &error,
-                      boost::shared_ptr<handle_type>& requestId,
+                      boost::shared_ptr<apis::RequestId>& requestId,
                       boost::shared_ptr<apis::BlobDescriptor>& blobDesc);
     void volumeStatusResp(const Error &error,
-                          boost::shared_ptr<handle_type>& requestId,
+                          boost::shared_ptr<apis::RequestId>& requestId,
                           boost::shared_ptr<apis::VolumeStatus>& volumeStatus);
     void volumeContentsResp(
         const Error &error,
-        boost::shared_ptr<handle_type>& requestId,
+        boost::shared_ptr<apis::RequestId>& requestId,
         boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents);
 
     void getBlobResp(const Error &error,
-                     boost::shared_ptr<handle_type>& requestId,
+                     boost::shared_ptr<apis::RequestId>& requestId,
                      boost::shared_ptr<std::string> buf,
                      fds_uint32_t& length);
     void getBlobWithMetaResp(const Error &error,
-                             boost::shared_ptr<handle_type>& requestId,
+                             boost::shared_ptr<apis::RequestId>& requestId,
                              boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length,
                              boost::shared_ptr<apis::BlobDescriptor>& blobDesc);

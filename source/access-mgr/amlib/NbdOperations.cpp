@@ -8,6 +8,8 @@
 #include <string>
 #include <utility>
 
+#include "AmAsyncDataApi.cxx"
+
 namespace fds {
 
 fds_bool_t
@@ -104,7 +106,7 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
 // a shared pointer to ourselves (and NbdConnection already started one).
 void
 NbdOperations::init(boost::shared_ptr<std::string> vol_name, fds_uint32_t _maxObjectSizeInBytes) {
-    amAsyncDataApi.reset(new AmAsyncDataApi<request_id_type>(shared_from_this()));
+    amAsyncDataApi.reset(new AmAsyncDataApi<handle_type>(shared_from_this()));
     volumeName = vol_name;
     maxObjectSizeInBytes = _maxObjectSizeInBytes;
 }
@@ -177,15 +179,11 @@ NbdOperations::read(fds_uint32_t length,
         boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
         off->value = objectOff;
 
-        // we encode handle and sequence ID into request ID; handle is needed
-        // to reply back to NBD connector and sequence ID is needed to assemble
-        // all object we read back into read request from NBD connector
-        auto reqId = boost::make_shared<HandleSeqPair>(handle, seqId);
-
         // blob name for block?
         LOGDEBUG << "getBlob length " << iLength << " offset " << curOffset
                  << " object offset " << objectOff
-                 << " volume " << volumeName << " reqId " << reqId->first << ":" << reqId->second;
+                 << " volume " << volumeName << " reqId " << handle << ":" << seqId;
+        handle_type reqId{handle, seqId};
         amAsyncDataApi->getBlob(reqId,
                                 domainName,
                                 volumeName,
@@ -248,7 +246,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
         off->value = objectOff;
 
         // request id is 64 bit of handle + 32 bit of sequence Id
-        auto reqId = boost::make_shared<HandleSeqPair>(handle, seqId);
+        handle_type reqId{handle, seqId};
 
         // For objects that we are only updating a part of, we need to perform
         // a Read-Modify-Write operation. To prevent a race condition we lock
@@ -262,7 +260,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
             resp->keepBufferForWrite(seqId, objectOff, objBuf);
 
             if (sector_type::QueueResult::FirstEntry ==
-                    sector_map.queue_rmw(objectOff, {handle, seqId})) {
+                    sector_map.queue_rmw(objectOff, reqId)) {
                 amAsyncDataApi->getBlob(reqId,
                                         domainName,
                                         volumeName,
@@ -277,7 +275,7 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
             LOGDEBUG << "putBlob length " << maxObjectSizeInBytes << " offset " << curOffset
                      << " object offset " << objectOff
                      << " volume " << volumeName
-                     << " reqId " << reqId->first << ":" << reqId->second;
+                     << " reqId " << reqId.handle << ":" << reqId.seq;
             amAsyncDataApi->updateBlobOnce(reqId,
                                            domainName,
                                            volumeName,
@@ -299,8 +297,8 @@ NbdOperations::getBlobResp(const Error &error,
                            boost::shared_ptr<std::string> buf,
                            fds_uint32_t& length) {
     NbdResponseVector* resp = NULL;
-    fds_int64_t handle = requestId->first;
-    fds_int32_t seqId = requestId->second;
+    fds_int64_t handle = requestId.handle;
+    fds_int32_t seqId = requestId.seq;
     fds_bool_t done = false;
 
     LOGDEBUG << "Reponse for getBlob, " << length << " bytes "
@@ -368,8 +366,8 @@ void
 NbdOperations::updateBlobResp(const Error &error,
                               handle_type& requestId) {
     NbdResponseVector* resp = NULL;
-    fds_int64_t handle = requestId->first;
-    fds_int32_t seqId = requestId->second;
+    fds_int64_t handle = requestId.handle;
+    fds_int32_t seqId = requestId.seq;
 
     LOGDEBUG << "Reponse for updateBlobOnce, "
              << error << ", handle " << handle
@@ -395,12 +393,11 @@ NbdOperations::updateBlobResp(const Error &error,
         auto e = sector_map.pop_and_delete(rmw.second);
         if (e.first) {
             LOGDEBUG << "RMW queuing: " << e.second.handle << ":" << e.second.seq;
-            handle_type reqId(boost::make_shared<HandleSeqPair>(e.second));
             boost::shared_ptr<int32_t> objLength =
                 boost::make_shared<int32_t>(maxObjectSizeInBytes);
             boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
             off->value = rmw.second;
-            amAsyncDataApi->getBlob(reqId,
+            amAsyncDataApi->getBlob(e.second,
                                     domainName,
                                     volumeName,
                                     blobName,
