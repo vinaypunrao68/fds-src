@@ -7,6 +7,8 @@
 #include "platform/node_stor_cap.h"
 
 #define REPLICATION_FACTOR     (4)
+
+// TRUST Anna & Vinay on these values :)
 #define LOAD_FACTOR            (0.9)
 #define BURST_FACTOR           (0.3)
 
@@ -155,20 +157,6 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     // but disk and ssd capacity is in GB
     double vol_capacity_GB = pVolDesc->capacity / 1024;
     fds_uint32_t replication_factor = REPLICATION_FACTOR;
-    
-    LOGNORMAL << "new data "
-              << "[min.iops:" << pVolDesc->iops_min << "] "
-              << "[max.iops:" << pVolDesc->iops_max << "] ";
-
-    // Check max object size
-    if ((pVolDesc->maxObjSizeInBytes < minVolObjSize) ||
-        ((pVolDesc->maxObjSizeInBytes % minVolObjSize) != 0)) {
-        // We expect the max object size to be at least some min size
-        // and a multiple of that size
-        LOGERROR << "Invalid maximum object size of " << pVolDesc->maxObjSizeInBytes
-                 << ", the minimum size is " << minVolObjSize;
-        return Error(ERR_VOL_ADMISSION_FAILED);
-    }
 
     fds_verify(replication_factor != 0);  // make sure REPLICATION_FACTOR > 0
     if (replication_factor > num_nodes) {
@@ -182,11 +170,6 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
 
-    if ((pVolDesc->iops_max > 0) && (pVolDesc->iops_min > pVolDesc->iops_max)) {
-        LOGERROR << " Cannot admit volume " << pVolDesc->name
-                 << " -- iops_min must be below iops_max";
-        return Error(ERR_VOL_ADMISSION_FAILED);
-    }
     // using iops min for iopc of subcluster, which we will use
     // for min_iops admission; max iops is what AM will allow to SMs
     // for better utilization of system perf capacity. We are starting
@@ -197,6 +180,36 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     // TODO(Anna) I think max_iopc_subcluster should be calculated as
     // num_nodes * min(disk_iops_min from all nodes) / replication_factor
     max_iopc_subcluster = (avail_disk_iops_max/replication_factor);
+
+    if (pVolDesc->iops_guarantee <= 0) {
+        LOGWARN << "iops gurantee is zero";
+        pVolDesc->iops_guarantee = 0;
+    }
+
+    // https://formationds.atlassian.net/browse/FS-597
+    pVolDesc->iops_min = int(pVolDesc->iops_guarantee * 0.01 *
+            ((pVolDesc->iops_max == 0)?iopc_subcluster*LOAD_FACTOR:pVolDesc->iops_max));
+    
+    LOGNORMAL << "new data "
+              << "[iops.min:" << pVolDesc->iops_min << "] "
+              << "[iops.max:" << pVolDesc->iops_max << "] "
+              << "[iops.guarantee:" << pVolDesc->iops_guarantee << "] ";
+
+    // Check max object size
+    if ((pVolDesc->maxObjSizeInBytes < minVolObjSize) ||
+        ((pVolDesc->maxObjSizeInBytes % minVolObjSize) != 0)) {
+        // We expect the max object size to be at least some min size
+        // and a multiple of that size
+        LOGERROR << "Invalid maximum object size of " << pVolDesc->maxObjSizeInBytes
+                 << ", the minimum size is " << minVolObjSize;
+        return Error(ERR_VOL_ADMISSION_FAILED);
+    }
+
+    if ((pVolDesc->iops_max > 0) && (pVolDesc->iops_min > pVolDesc->iops_max)) {
+        LOGERROR << " Cannot admit volume " << pVolDesc->name
+                 << " -- iops_min must be below iops_max";
+        return Error(ERR_VOL_ADMISSION_FAILED);
+    }
 
     if ((total_vol_disk_cap_GB + vol_capacity_GB) > avail_disk_capacity) {
         LOGERROR << " Cluster is running out of disk capacity \n"

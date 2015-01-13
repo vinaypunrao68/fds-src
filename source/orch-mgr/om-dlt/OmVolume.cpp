@@ -827,6 +827,7 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->volPolicyId   = pVol->volPolicyId;
     pkt->iops_max      = pVol->iops_max;
     pkt->iops_min      = pVol->iops_min;
+    pkt->iops_guarantee      = pVol->iops_guarantee;
     pkt->rel_prio      = pVol->relativePrio;
 
     pkt->defConsisProtocol = fpi::FDSP_ConsisProtoType(pVol->consisProtocol);
@@ -1328,6 +1329,7 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
         // Change policy id and its description from the catalog.
         //
         new_desc->volPolicyId = mod_msg->vol_desc.volPolicyId;
+        new_desc->iops_guarantee = mod_msg->vol_desc.iops_guarantee;
         err = v_pol->fillVolumeDescPolicy(new_desc.get());
         if (!err.ok()) {
             const char *msg = (err == ERR_CAT_ENTRY_NOT_FOUND) ?
@@ -1349,6 +1351,7 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
         //
         new_desc->iops_min     = mod_msg->vol_desc.iops_min;
         new_desc->iops_max     = mod_msg->vol_desc.iops_max;
+        new_desc->iops_guarantee     = mod_msg->vol_desc.iops_guarantee;
         new_desc->relativePrio = mod_msg->vol_desc.rel_prio;
         LOGNOTIFY << "Modify volume " << vname
                   << " - keeps policy id " << vol->vol_get_properties()->volPolicyId
