@@ -98,7 +98,7 @@ void BaseChecker::compare_against(FDSP_MigrateObjectMetadata& golden,  // NOLINT
 
 class DatapathRespImpl : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
  public:
-    explicit DatapathRespImpl() {
+    DatapathRespImpl() {
         get_obj_buf_ = nullptr;
         get_resp_monitor_ = nullptr;
     }
@@ -173,7 +173,7 @@ class DatapathRespImpl : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
 
 class MetaDatapathRespImpl : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf {
  public:
-    explicit MetaDatapathRespImpl() {
+    MetaDatapathRespImpl() {
         // XXX: initialize blob list
         resp_vector = nullptr;
         resp_digest = nullptr;

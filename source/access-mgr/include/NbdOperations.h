@@ -10,6 +10,7 @@
 #include <utility>
 
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/lockfree/queue.hpp>
 
 #include <fds_types.h>
 #include <apis/apis_types.h>
@@ -18,6 +19,75 @@
 #include <AmAsyncDataApi.h>
 
 namespace fds {
+
+// This class offers a way to "lock" a sector of the blob
+// and queue operations modifying the same offset to maintain
+// consistency for < maxObjectSize writes.
+template <typename E, size_t N>
+struct SectorLockMap {
+    typedef E entry_type;
+    static constexpr size_t size = N;
+    typedef fds::fds_rwlock lock_type;
+    typedef int64_t key_type;
+    typedef boost::lockfree::queue<entry_type, boost::lockfree::capacity<size>> queue_type;  // NOLINT
+    typedef std::unordered_map<key_type, std::unique_ptr<queue_type>> map_type;
+    typedef typename map_type::iterator map_it;
+
+    enum class QueueResult { FirstEntry, AddedEntry, Failure };
+
+    SectorLockMap() :
+        map_lock(), sector_map()
+    {}
+    ~SectorLockMap() {}
+
+    QueueResult queue_rmw(key_type const& k, entry_type e) {
+        QueueResult result = QueueResult::Failure;
+        map_lock.cond_write_lock();
+        map_it it = sector_map.find(k);
+        if (sector_map.end() != it) {
+            if ((*it).second->push(e)) result = QueueResult::AddedEntry;
+            map_lock.cond_write_unlock();
+        } else {
+            map_lock.upgrade();
+            auto r = sector_map.insert(
+                std::make_pair(k, std::move(std::unique_ptr<queue_type>(new queue_type()))));
+            fds_assert(r.second);
+            result = QueueResult::FirstEntry;
+            map_lock.write_unlock();
+        }
+        return result;
+    }
+
+    std::pair<bool, entry_type> pop_and_delete(key_type const& k)
+    {
+        static std::pair<bool, entry_type> const no = {false, entry_type()};
+        map_lock.cond_write_lock();
+        map_it it = sector_map.find(k);
+        if (sector_map.end() != it) {
+            entry_type entry;
+            if ((*it).second->pop(entry)) {
+                map_lock.cond_write_unlock();
+                return std::make_pair(true, entry);
+            } else {
+                map_lock.upgrade();
+                // No more queued requests, return nullptr
+                sector_map.erase(it);
+                map_lock.write_unlock();
+            }
+        } else {
+            fds_assert(false);  // This shouldn't happen, let's know in debug
+            map_lock.cond_write_unlock();
+        }
+        return no;
+    }
+
+ private:
+    explicit SectorLockMap(SectorLockMap const& rhs) = delete;  // Non-copyable
+    SectorLockMap& operator=(SectorLockMap const& rhs) = delete;  // Non-assignable
+
+    lock_type map_lock;
+    map_type sector_map;
+};
 
 class NbdResponseVector {
   public:
@@ -59,7 +129,7 @@ class NbdResponseVector {
     }
 
     void keepBufferForWrite(fds_uint32_t seqId,
-                            fds_uint32_t objectOff,
+                            fds_uint64_t objectOff,
                             boost::shared_ptr<std::string> buf) {
         fds_verify(operation == WRITE);
         fds_verify((seqId == 0) || (seqId == (objCount - 1)));
@@ -72,6 +142,15 @@ class NbdResponseVector {
         }
     }
 
+    std::pair<bool, fds_uint64_t> wasRMW(fds_uint32_t seqId) {
+        static std::pair<bool, fds_uint64_t> const no = {false, 0};
+        if (seqId == 0 && bufVec[0]) {
+            return std::make_pair(true, offVec[0]);
+        } else if (seqId == (objCount - 1) && bufVec[1]) {
+            return std::make_pair(true, offVec[1]);
+        }
+        return no;
+    }
 
     /**
      * \return true if all responses were received or operation error
@@ -98,7 +177,7 @@ class NbdResponseVector {
      * Handle read response for read-modify-write
      * \return true if all responses were received or operation error
      */
-    std::pair<fds_uint32_t, boost::shared_ptr<std::string>>
+    std::pair<fds_uint64_t, boost::shared_ptr<std::string>>
         handleRMWResponse(boost::shared_ptr<std::string> retBuf,
                           fds_uint32_t len,
                           fds_uint32_t seqId,
@@ -118,7 +197,7 @@ class NbdResponseVector {
     // to collect read responses or first and last buffer for write op
     std::vector<boost::shared_ptr<std::string>> bufVec;
     // when writing, we need to remember the object offsets for rwm buffers
-    std::array<fds_uint32_t, 2> offVec;
+    std::array<fds_uint64_t, 2> offVec;
 
     // offset
     fds_uint64_t offset;
@@ -134,10 +213,17 @@ class NbdOperationsResponseIface {
     virtual void readWriteResp(NbdResponseVector* response) = 0;
 };
 
+struct HandleSeqPair {
+    fds_int64_t handle;
+    fds_int32_t seq;
+};
+
 class NbdOperations
     :   public boost::enable_shared_from_this<NbdOperations>,
         public AmAsyncResponseApi
 {
+    typedef boost::shared_ptr<apis::RequestId> handle_type;
+    typedef SectorLockMap<HandleSeqPair, 1024> sector_type;
   public:
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
     ~NbdOperations();
@@ -154,43 +240,35 @@ class NbdOperations
                fds_int64_t handle);
 
     // AmAsyncResponseApi implementation
-    void attachVolumeResp(const Error &error,
-                          boost::shared_ptr<apis::RequestId>& requestId) {}
+    void attachVolumeResp(const Error &error, handle_type& requestId) {}
 
     void startBlobTxResp(const Error &error,
-                         boost::shared_ptr<apis::RequestId>& requestId,
+                         handle_type& requestId,
                          boost::shared_ptr<apis::TxDescriptor>& txDesc) {}
-    void abortBlobTxResp(const Error &error,
-                         boost::shared_ptr<apis::RequestId>& requestId) {}
-    void commitBlobTxResp(const Error &error,
-                          boost::shared_ptr<apis::RequestId>& requestId) {}
+    void abortBlobTxResp(const Error &error, handle_type& requestId) {}
+    void commitBlobTxResp(const Error &error, handle_type& requestId) {}
 
-    void updateBlobResp(const Error &error,
-                        boost::shared_ptr<apis::RequestId>& requestId);
-    void updateBlobOnceResp(const Error &error,
-                            boost::shared_ptr<apis::RequestId>& requestId) {}
-    void updateMetadataResp(const Error &error,
-                            boost::shared_ptr<apis::RequestId>& requestId) {}
-    void deleteBlobResp(const Error &error,
-                        boost::shared_ptr<apis::RequestId>& requestId) {}
+    void updateBlobResp(const Error &error, handle_type& requestId);
+    void updateBlobOnceResp(const Error &error, handle_type& requestId) {}
+    void updateMetadataResp(const Error &error, handle_type& requestId) {}
+    void deleteBlobResp(const Error &error, handle_type& requestId) {}
 
     void statBlobResp(const Error &error,
-                      boost::shared_ptr<apis::RequestId>& requestId,
+                      handle_type& requestId,
                       boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {}
     void volumeStatusResp(const Error &error,
-                          boost::shared_ptr<apis::RequestId>& requestId,
+                          handle_type& requestId,
                           boost::shared_ptr<apis::VolumeStatus>& volumeStatus) {}
-    void volumeContentsResp(
-        const Error &error,
-        boost::shared_ptr<apis::RequestId>& requestId,
-        boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents) {}
+    void volumeContentsResp(const Error &error,
+                            handle_type& requestId,
+                            boost::shared_ptr<std::vector<apis::BlobDescriptor>>& volContents) {}
 
     void getBlobResp(const Error &error,
-                     boost::shared_ptr<apis::RequestId>& requestId,
+                     handle_type& requestId,
                      boost::shared_ptr<std::string> buf,
                      fds_uint32_t& length);
     void getBlobWithMetaResp(const Error &error,
-                             boost::shared_ptr<apis::RequestId>& requestId,
+                             handle_type& requestId,
                              boost::shared_ptr<std::string> buf,
                              fds_uint32_t& length,
                              boost::shared_ptr<apis::BlobDescriptor>& blobDesc) {}
@@ -199,7 +277,7 @@ class NbdOperations
     { amAsyncDataApi.reset(); }
 
   private:
-    void parseRequestId(boost::shared_ptr<apis::RequestId>& requestId,
+    void parseRequestId(handle_type& requestId,
                         fds_int64_t* handle,
                         fds_int32_t* seqId);
     fds_uint32_t getObjectCount(fds_uint32_t length,
@@ -223,6 +301,8 @@ class NbdOperations
     // so keep current handles for which we are waiting responses
     std::map<fds_int64_t, NbdResponseVector*> responses;
     fds_mutex respLock;
+
+    sector_type sector_map;
 };
 
 }  // namespace fds
