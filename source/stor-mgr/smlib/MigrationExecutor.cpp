@@ -143,16 +143,16 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
     LOGDEBUG << "Sync Object Set " << deltaSet->objectToPropogate.size()
              << " objects, executor ID " << deltaSet->executorID
              << " seqNum " << deltaSet->seqNum
-             << " lastSet " << deltaSet->lastSet;
+             << " lastSet " << deltaSet->lastDeltaSet;
     fds_verify((fds_uint64_t)deltaSet->executorID == executorId);
     MigrationExecutorState curState = atomic_load(&state);
     fds_verify(curState == ME_APPLYING_DELTA);
 
-    // if the obj data+meta list is empty, and lastSet == true,
+    // if the obj data+meta list is empty, and lastDeltaSet == true,
     // the source SM does not have any data for this SM token, finish
     // migration
     if ((deltaSet->objectToPropogate.size() == 0) &&
-        (deltaSet->lastSet)) {
+        (deltaSet->lastDeltaSet)) {
         handleMigrationDone(ERR_OK);
         return ERR_OK;
     }
@@ -170,7 +170,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
         SmIoApplyObjRebalDeltaSet* applyReq =
                 new(std::nothrow) SmIoApplyObjRebalDeltaSet(executorId,
                                                             deltaSet->seqNum,
-                                                            deltaSet->lastSet,
+                                                            deltaSet->lastDeltaSet,
                                                             qosSeqNum,
                                                             totalCnt);
         fds_verify(applyReq != NULL);

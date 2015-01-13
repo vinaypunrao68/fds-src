@@ -90,7 +90,7 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
  */
 void
 SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                 fpi::CtrlObjectRebalanceInitialSetPtr& filterObjSet)
+                                 fpi::CtrlObjectRebalanceFilterSetPtr& filterObjSet)
 {
     Error err(ERR_OK);
     LOGDEBUG << "Initiate Object Sync";
