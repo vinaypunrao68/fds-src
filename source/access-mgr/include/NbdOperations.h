@@ -23,12 +23,13 @@ namespace fds {
 // This class offers a way to "lock" a sector of the blob
 // and queue operations modifying the same offset to maintain
 // consistency for < maxObjectSize writes.
-template <typename E>
+template <typename E, size_t N>
 struct SectorLockMap {
     typedef E entry_type;
+    static constexpr size_t size = N;
     typedef fds::fds_rwlock lock_type;
     typedef int64_t key_type;
-    typedef boost::lockfree::queue<entry_type> queue_type;  // NOLINT
+    typedef boost::lockfree::queue<entry_type, boost::lockfree::capacity<size>> queue_type;  // NOLINT
     typedef std::unordered_map<key_type, std::unique_ptr<queue_type>> map_type;
     typedef typename map_type::iterator map_it;
 
@@ -49,7 +50,7 @@ struct SectorLockMap {
         } else {
             map_lock.upgrade();
             auto r = sector_map.insert(
-                std::make_pair(k, std::move(std::unique_ptr<queue_type>(new queue_type(16)))));
+                std::make_pair(k, std::move(std::unique_ptr<queue_type>(new queue_type()))));
             fds_assert(r.second);
             result = QueueResult::FirstEntry;
             map_lock.write_unlock();
@@ -221,7 +222,7 @@ class NbdOperations
         public AmAsyncResponseApi
 {
     typedef boost::shared_ptr<apis::RequestId> handle_type;
-    typedef SectorLockMap<HandleSeqPair> sector_type;
+    typedef SectorLockMap<HandleSeqPair, 1024> sector_type;
   public:
     explicit NbdOperations(NbdOperationsResponseIface* respIface);
     ~NbdOperations();
