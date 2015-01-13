@@ -298,8 +298,15 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.$on( 'fds::media_policy_changed', function(){
         
-//        $scope.thisVolume.mediaPolicy = $scope.mediaPolicy;
-//        $volume_api.save( $scope.thisVolume );
+        $scope.thisVolume.mediaPolicy = $scope.mediaPolicy.value;
+        
+        var temp = $scope.thisVolume;
+        
+        if( !angular.isDefined( $scope.thisVolume.id ) ){
+            return;
+        }
+        
+        $volume_api.save( $scope.thisVolume );
     });
     
     $scope.$on( 'fds::timeline_policy_changed', function( newVal, oldVal ){

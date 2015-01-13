@@ -4,6 +4,7 @@
 
 package com.formationds.commons.model;
 
+import com.formationds.apis.MediaPolicy;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.util.ModelFieldValidator;
 
@@ -30,6 +31,7 @@ public class Volume
   private Integer priority;
   private Connector data_connector;
   private Usage current_usage;
+  private MediaPolicy mediaPolicy;
   private Long commit_log_retention;
 
   private static final Map<String, ModelFieldValidator> VALIDATORS =
@@ -187,6 +189,18 @@ public class Volume
   }
   
   /**
+   * 
+   * @return return a {@link MediaPolicy} that dictates where/how data should be stored
+   */
+  public MediaPolicy getMediaPolicy(){
+	  return mediaPolicy;
+  }
+  
+  public void setMediaPolicy( MediaPolicy aPolicy ){
+	  mediaPolicy = aPolicy;
+  }
+
+   /**	  
    * Get the number of ? that the volume journal will be retained.
    */
   public long getCommit_log_retention(){

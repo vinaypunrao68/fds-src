@@ -70,6 +70,14 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     };
     
     var createVolume = function( volume ){
+        
+        /**
+        *  TODO:  Put real value here
+        *  Because the tiering option is not present yet, we will set it to the default here
+        *
+        **/
+        volume.mediaPolicy = 'HDD_ONLY';
+        
         /**
         * Because this is a shim the API does not yet have business
         * logic to combine the attachments so we need to do this in many calls

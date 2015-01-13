@@ -112,15 +112,15 @@ public class CreateVolume
                                              SizeUnit.valueOf(
                                                  attrs.getUnit()
                                                       .name() )
-                                                     .totalBytes(
-                                                         attrs.getSize() ),
-                                             0 );
+                                                     .totalBytes( attrs.getSize() ), 
+                                             0,
+                                             volume.getMediaPolicy());
+
               break;
           case OBJECT:
               settings = new VolumeSettings( DEF_OBJECT_SIZE,
                                              VolumeType.OBJECT,
-                                             0,
-                                             0);
+                                             0 , 0, volume.getMediaPolicy() );
               break;
           default:
               throw new IllegalArgumentException(
@@ -151,7 +151,8 @@ public class CreateVolume
                                            ( int ) volume.getSla(),
                                            volume.getPriority(),
                                            ( int ) volume.getLimit(),
-                                           volume.getCommit_log_retention() );
+                                           volume.getCommit_log_retention(),
+                                           volume.getMediaPolicy() );
 
           if( FdsFeatureToggles.STATISTICS_ENDPOINT.isActive() ) {
               /**
