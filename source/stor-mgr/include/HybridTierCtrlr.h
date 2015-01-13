@@ -7,6 +7,7 @@
 
 #include <set>
 #include <fds_types.h>
+#include <fds_counters.h>
 #include <SmIo.h>
 #include <object-store/SmDiskMap.h>
 
@@ -18,6 +19,12 @@ class fds_threadpool;
 class SmIoReqHandler;
 class FdsTimerTask;
 typedef boost::shared_ptr<FdsTimerTask> FdsTimerTaskPtr;
+
+struct HTCCounters : FdsCounters {
+    HTCCounters(const std::string &id, FdsCountersMgr *mgr);
+
+    NumericCounter movedCnt;
+};
 
 /**
 * @brief Class responsible for enforching hybrid tiering policy
@@ -58,7 +65,7 @@ struct HybridTierCtrlr {
     uint64_t hybridMoveTs_;
 
     /* Counters */
-    uint32_t movedCnt_;
+    HTCCounters htcCntrs_;
 };
 } // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_HYBRIDTIERCTRLR_H_

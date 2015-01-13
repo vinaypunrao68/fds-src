@@ -13,6 +13,12 @@ namespace fds {
 uint32_t HybridTierCtrlr::BATCH_SZ = 1024;
 uint32_t HybridTierCtrlr::FREQUENCY = 10;
 
+HTCCounters::HTCCounters(const std::string &id)
+    : FdsCounters(id, gModuleProvider ? (gModuleProvider->get_cntrs_mgr().get() : nullptr)),
+    movedCnt("movedCnt", this)
+{
+}
+
 // TODO(Rao):
 // -Handle unowned token case.
 // -Move runTask into ObjectStore
@@ -20,6 +26,7 @@ uint32_t HybridTierCtrlr::FREQUENCY = 10;
 // -Expose stats for testing
 HybridTierCtrlr::HybridTierCtrlr(SmIoReqHandler* storMgr,
                                  SmDiskMap::ptr diskMap)
+    : htcCntrs_("sm.htc.")
 {
     threadpool_ = gModuleProvider->proc_thrpool();
     storMgr_ = storMgr;
@@ -38,7 +45,6 @@ HybridTierCtrlr::HybridTierCtrlr(SmIoReqHandler* storMgr,
                                               std::placeholders::_2,
                                               std::placeholders::_3,
                                               std::placeholders::_4);
-    movedCnt_ = 0;
 }
 
 void HybridTierCtrlr::start()
@@ -59,8 +65,7 @@ void HybridTierCtrlr::run()
 {
     fds_assert(tokenSet_.empty() &&
                tokenItr_.get() == nullptr &&
-               inProgress_ == false &&
-               movedCnt_ == 0);
+               inProgress_ == false);
 
     hybridMoveTs_ = util::getTimeStampSeconds() - FREQUENCY;
     tokenSet_ = diskMap_->getSmTokens();
@@ -98,11 +103,10 @@ void HybridTierCtrlr::moveToNextToken()
         /* Start moving objects for the next token.  First we take a snap */
         snapToken();
     } else {
-        GLOGNOTIFY << "Completed processing all tokens.  Moved cnt: " << movedCnt_
-            << ".  Scheduling hybrid tier work again";
+        GLOGNOTIFY << "Completed processing all tokens.  Moved cnt: "
+            << htcCntrs_.movedCnt.value() << ".  Scheduling hybrid tier work again";
         /* Completed moving objects.  Schedule the next relocation task */
         inProgress_ = false;
-        movedCnt_ = 0;
         tokenSet_.clear();
         gModuleProvider->getTimer()->schedule(runTask_, std::chrono::seconds(FREQUENCY));
     }
@@ -185,7 +189,7 @@ void HybridTierCtrlr::moveObjsToTierCb(const Error& e,
         /* On error we still continue processing */
     } else {
         LOGDEBUG << "Moved " << req->movedCnt << " objects for token: " << *nextToken_;
-        movedCnt_ += req->movedCnt;
+        htcCntrs_.movedCnt.incr(req->movedCnt);
     }
 
     if (tokenItr_->itr->Valid()) {
