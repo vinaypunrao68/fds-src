@@ -142,7 +142,7 @@ class ServiceContext(Context):
     #--------------------------------------------------------------------------------------
     @clicmd
     @arg('nodeid', help= "node id",  type=long)
-    def listtierstats(self, nodeid, svcname):
+    def listtierstats(self, nodeid):
         try:
             cntrs = ServiceMap.client(nodeid, 'sm').getCounters('*')
             data = {}
