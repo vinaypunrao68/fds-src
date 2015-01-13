@@ -157,6 +157,9 @@ class SmTokenMigrationMgr {
     /// executorId -> MigrationClient
     MigrClientMap migrClients;
     fds_mutex clientLock;
+
+    /// maximum number of items in the delta set.
+    fds_uint32_t maxDeltaSetSize;
 };
 
 }  // namespace fds
