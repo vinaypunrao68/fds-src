@@ -10,7 +10,7 @@
 #include <utility>
 
 #include <boost/enable_shared_from_this.hpp>
-#include <boost/lockfree/queue.hpp>
+#include <boost/lockfree/spsc_queue.hpp>
 
 #include <fds_types.h>
 #include <apis/apis_types.h>
@@ -29,7 +29,7 @@ struct SectorLockMap {
     static constexpr size_t size = N;
     typedef fds::fds_rwlock lock_type;
     typedef int64_t key_type;
-    typedef boost::lockfree::queue<entry_type, boost::lockfree::capacity<size>> queue_type;  // NOLINT
+    typedef boost::lockfree::spsc_queue<entry_type, boost::lockfree::capacity<size>> queue_type;  // NOLINT
     typedef std::unordered_map<key_type, std::unique_ptr<queue_type>> map_type;
     typedef typename map_type::iterator map_it;
 
