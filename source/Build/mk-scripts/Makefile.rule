@@ -404,7 +404,11 @@ devsetup: $(devsetup_is_up_to_date)
 # -----------------------------------------------------------------------------
 generate-config-files: $(devsetup_is_up_to_date)
 	@rm -f $(ansible_dir)/../source/config/etc/*.conf $(ansible_dir)/../source/test/formation.conf
+ifdef VERBOSE
+	$(run_ansible_playbook_local)/generate_config_files.yml
+else
 	@$(run_ansible_playbook_local)/generate_config_files.yml
+endif
 
 # -----------------------------------------------------------------------------
 # List Targets
