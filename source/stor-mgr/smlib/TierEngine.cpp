@@ -133,7 +133,8 @@ TierEngine::notifyIO(const ObjectID& objId, fds_io_op_t opType,
             volDesc.mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
         rankEngine->notifyDataPath(opType, objId, tier);
     }
-    if ((opType == FDS_SM_PUT_OBJECT) && (tier == diskio::flashTier)) {
+    if ((opType == FDS_SM_PUT_OBJECT) && (tier == diskio::flashTier) &&
+        volDesc.mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID) {
         migrator->notifyHybridVolFlashPut(objId);
     }
 }
