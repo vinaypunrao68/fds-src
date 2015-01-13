@@ -1,12 +1,18 @@
 ---
 -   name: "sanity check -> fds_om_host_count is defined when fds_ft_common_enable_multi_om_support==true"
-    fail: msg="You must specify a value for fds_om_host_count (odd integer >= 3) when fds_ft_common_enable_multi_om_support == true"
+    fail: 
+        msg: "You must specify a value for fds_om_host_count (odd integer >= 1) when fds_ft_common_enable_multi_om_support == true"
     when: om_ip_count == empty_om_list and fds_ft_common_enable_multi_om_support is defined and fds_ft_common_enable_multi_om_support == 'true'
+    tags: fdsconfig
 
 -   name: sanity check -> fds_om_host_count <= hosts count
-    fail: msg="You've specified more OM hosts than there are hosts in the group. Exiting."
+    fail: 
+        msg: "You've specified more OM hosts than there are hosts in the group. Exiting."
     when: om_ip_count != empty_om_list and om_ip_count|int > hosts_in_group|int
+    tags: fdsconfig
 
--   name: sanity check -> fds_om_host_count is >= 3
-    fail: msg="You've specified an invalid fds_om_host_count value for use with fds_ft_common_enable_multi_om_support=true. Value must be an odd integer >= 3"
-    when: om_ip_count != empty_om_list and (om_ip_count|int < 3 or om_ip_count|int is divisibleby 2)
+-   name: sanity check -> fds_om_host_count is >= 1
+    fail: 
+        msg: "You've specified an invalid fds_om_host_count value for use with fds_ft_common_enable_multi_om_support=true. Value must be an odd integer >= 1"
+    when: om_ip_count != empty_om_list and (om_ip_count|int < 1 or om_ip_count|int is divisibleby 2)
+    tags: fdsconfig

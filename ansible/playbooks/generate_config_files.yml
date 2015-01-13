@@ -3,8 +3,11 @@
     hosts: localhost
     vars_files:
         - ../vars_files/config_files_dev.yml
+        - ../vars_files/multi_om_setup.yml
 
     tasks:
+    -   include: ../tasks/deploy_fds/config_sanity_check.yml
+
     -   name: render fds-src/source/config/etc config files
         template:
             src: ../../source/config/etc/{{item}}.conf.j2
