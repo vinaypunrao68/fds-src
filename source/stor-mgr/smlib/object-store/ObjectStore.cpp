@@ -408,6 +408,8 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
         if (!(volumeTbl->hasFlashOnlyVolumes(vols))) {
             /* NOTE: Phyically moving the object should be taken care by GC */
             return updateLocationFromFlashToDisk(objId, objMeta);
+        } else {
+            return ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME;
         }
     }
 
@@ -433,9 +435,7 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
         LOGERROR << "Failed to write " << objId << " to obj data store "
                  << ", tier " << toTier << " " << err;
         return err;
-    }
-
-    // update physical location that we got from data store
+    } // update physical location that we got from data store
     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
     updatedMeta->updatePhysLocation(&objPhyLoc);
     if (relocateFlag) {
